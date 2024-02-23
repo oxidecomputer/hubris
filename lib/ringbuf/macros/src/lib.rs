@@ -6,8 +6,11 @@ extern crate proc_macro;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
-use syn::{parse_macro_input, DeriveInput, parse::{Parse, ParseStream}};
- 
+use syn::{
+    parse::{Parse, ParseStream},
+    parse_macro_input, DeriveInput,
+};
+
 /// Derives an implementation of the `ringbuf::Count` trait for the annotated
 /// `enum` type.
 ///
@@ -69,10 +72,10 @@ fn gen_count_impl(input: DeriveInput) -> Result<impl ToTokens, syn::Error> {
                 VariantAttr::Skip => {
                     any_skipped = true;
                     continue 'variants;
-                },
+                }
                 VariantAttr::Children => {
                     count_children = Some(attr);
-                },
+                }
             }
         }
 
@@ -131,7 +134,8 @@ fn gen_count_impl(input: DeriveInput) -> Result<impl ToTokens, syn::Error> {
                 #[doc = " has been recorded by this ringbuf."]
                 pub #ident: core::sync::atomic::AtomicU32
             });
-            field_inits.push(quote! { #ident: core::sync::atomic::AtomicU32::new(0) });
+            field_inits
+                .push(quote! { #ident: core::sync::atomic::AtomicU32::new(0) });
         }
     }
 
@@ -200,7 +204,6 @@ impl Parse for VariantAttr {
         }
     }
 }
-
 
 fn counts_ty(ident: &Ident) -> Ident {
     Ident::new(&format!("{ident}Counts"), Span::call_site())
