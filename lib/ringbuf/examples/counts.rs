@@ -10,10 +10,13 @@ use ringbuf::*;
 
 #[derive(ringbuf::Count, Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Event {
+    #[count(skip)]
     NothingHappened,
     SomethingHappened,
     SomethingElse(u32),
-    SecretThirdThing { secret: () },
+    SecretThirdThing {
+        secret: (),
+    },
 }
 
 counted_ringbuf!(Event, 16, Event::NothingHappened);
