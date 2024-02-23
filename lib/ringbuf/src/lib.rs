@@ -477,7 +477,7 @@ impl<T: Copy + PartialEq, const N: usize> RecordEntry<T>
             // This is because none of our target platforms currently have
             // hardware modulus, and many of them don't even have hardware
             // divide, making remainder quite expensive.
-            if last_plus_1 >= self.buffer.len() {
+            if last_plus_1 >= ring.buffer.len() {
                 0
             } else {
                 last_plus_1
