@@ -46,7 +46,7 @@ task_slot!(NET, net);
 task_slot!(SYS, sys);
 
 #[allow(dead_code)] // Not all cases are used by all variants
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, ringbuf::Count)]
 enum Log {
     Empty,
     BarcodeParseError(BarcodeParseError),
@@ -153,9 +153,9 @@ enum MgsMessage {
     ReadRotPage,
 }
 
-ringbuf!(Log, 16, Log::Empty);
+counted_ringbuf!(Log, 16, Log::Empty);
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, ringbuf::Count)]
 enum CriticalEvent {
     Empty,
     /// We have received a network request to change power states. This record
@@ -171,7 +171,7 @@ enum CriticalEvent {
 
 // This ringbuf exists to record critical events _only_ and thus not get
 // overwritten by chatter in the debug/trace-style messages.
-ringbuf!(CRITICAL, CriticalEvent, 16, CriticalEvent::Empty);
+counted_ringbuf!(CRITICAL, CriticalEvent, 16, CriticalEvent::Empty);
 
 const SOCKET: SocketName = SocketName::control_plane_agent;
 
