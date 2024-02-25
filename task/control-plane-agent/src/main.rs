@@ -53,8 +53,7 @@ enum Log {
     BarcodeParseError(BarcodeParseError),
     Rx(UdpMetadata),
     SendError(SendError),
-    #[count(children)]
-    MgsMessage(MgsMessage),
+    MgsMessage(#[count(children)] MgsMessage),
     UsartTxFull {
         remaining: usize,
     },

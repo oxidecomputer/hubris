@@ -8,12 +8,16 @@ pub enum MainEvent {
     None,
 
     /// This generates a counter for each variant of `Person`.
-    #[count(children)]
-    Person(Person),
+    Person(#[count(children)] Person),
+
+    /// This generates a counter for each variant of `Person`.
+    PersonInPlace(bool, #[count(children)] Person, Place),
 
     /// This generates a counter for each variant of `Place`.
-    #[count(children)]
-    Place(Place),
+    Place {
+        #[count(children)]
+        place: Place,
+    },
 
     /// This generates a single counter for `Number`.
     Number(u32),
