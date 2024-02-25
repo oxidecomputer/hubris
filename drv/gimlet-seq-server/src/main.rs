@@ -60,7 +60,7 @@ enum Trace {
     A2Status(u8),
     A2,
     A0FailureDetails(Addr, u8),
-    A0Failed(SeqError),
+    A0Failed(#[count(children)] SeqError),
     A1Status(u8),
     CPUPresent(bool),
     Coretype {
@@ -75,7 +75,7 @@ enum Trace {
     UartEnabled,
     A0(u16),
     SetState(PowerState, PowerState, u64),
-    UpdateState(PowerState),
+    UpdateState(#[count(children)] PowerState),
     ClockConfigWrite,
     ClockConfigSuccess,
     Status {
@@ -108,7 +108,8 @@ enum Trace {
         retries_remaining: u8,
         code: i2c::ResponseCode,
     },
-    StartFailed(SeqError),
+    StartFailed(#[count(children)] SeqError),
+    #[count(skip)]
     None,
 }
 

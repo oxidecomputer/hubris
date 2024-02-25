@@ -11,6 +11,7 @@ zerocopy.workspace = true
 derive-idol-err = { path = "../../lib/derive-idol-err"  }
 drv-gimlet-state = { path = "../gimlet-state" }
 userlib = { path = "../../sys/userlib" }
+ringbuf = { path = "../../lib/ringbuf" }
 
 [build-dependencies]
 idol.workspace = true
