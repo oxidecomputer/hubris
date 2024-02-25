@@ -12,7 +12,9 @@ use userlib::*;
 // Re-export PowerState for client convenience.
 pub use drv_gimlet_state::PowerState;
 
-#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
+#[derive(
+    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, ringbuf::Count,
+)]
 pub enum SeqError {
     IllegalTransition = 1,
     MuxToHostCPUFailed,

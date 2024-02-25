@@ -900,6 +900,7 @@ dependencies = [
  "idol",
  "idol-runtime",
  "num-traits",
+ "ringbuf",
  "userlib",
  "zerocopy 0.6.4",
 ]
@@ -945,6 +946,7 @@ name = "drv-gimlet-state"
 version = "0.1.0"
 dependencies = [
  "num-traits",
+ "ringbuf",
  "userlib",
  "zerocopy 0.6.4",
 ]

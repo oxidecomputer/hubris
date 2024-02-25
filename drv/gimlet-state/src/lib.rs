@@ -10,7 +10,9 @@
 use userlib::FromPrimitive;
 use zerocopy::AsBytes;
 
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, Eq, AsBytes)]
+#[derive(
+    Copy, Clone, Debug, FromPrimitive, PartialEq, Eq, AsBytes, ringbuf::Count,
+)]
 #[repr(u8)]
 pub enum PowerState {
     /// Initial A2 state where the SP and most associated circuitry is powered.

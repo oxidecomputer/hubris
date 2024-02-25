@@ -14,14 +14,7 @@ use userlib::{units::Celsius, *};
 use zerocopy::{AsBytes, FromBytes};
 
 #[derive(
-    Copy,
-    Clone,
-    Debug,
-    FromPrimitive,
-    Eq,
-    PartialEq,
-    IdolError,
-    ringbuf::Count,
+    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, ringbuf::Count,
 )]
 pub enum ThermalError {
     InvalidFan = 1,
