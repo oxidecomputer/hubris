@@ -13,7 +13,16 @@ use serde::{Deserialize, Serialize};
 use userlib::{units::Celsius, *};
 use zerocopy::{AsBytes, FromBytes};
 
-#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    FromPrimitive,
+    Eq,
+    PartialEq,
+    IdolError,
+    ringbuf::Count,
+)]
 pub enum ThermalError {
     InvalidFan = 1,
     InvalidPWM = 2,
@@ -39,6 +48,7 @@ pub enum ThermalError {
     Serialize,
     Deserialize,
     SerializedSize,
+    ringbuf::Count,
 )]
 pub enum ThermalMode {
     /// The thermal loop has not started.  This is the initial state, but
@@ -66,6 +76,7 @@ pub enum ThermalMode {
     Serialize,
     Deserialize,
     SerializedSize,
+    ringbuf::Count,
 )]
 pub enum ThermalAutoState {
     Boot,

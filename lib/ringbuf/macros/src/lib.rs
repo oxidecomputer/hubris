@@ -61,70 +61,13 @@ fn gen_count_impl(input: DeriveInput) -> Result<impl ToTokens, syn::Error> {
     let mut field_inits = Vec::with_capacity(len);
     let mut variant_patterns = Vec::with_capacity(len);
     let mut any_skipped = false;
-    'variants: for variant in variants {
-        let ident = &variant.ident;
-        let mut count_children = None;
-        for attr in &variant.attrs {
-            if !attr.path().is_ident("count") {
-                continue;
-            }
-            match attr.parse_args_with(VariantAttr::parse)? {
-                VariantAttr::Skip => {
-                    any_skipped = true;
-                    continue 'variants;
-                }
-                VariantAttr::Children => {
-                    count_children = Some(attr);
-                }
-            }
-        }
 
-        if let Some(count_children) = count_children {
-            match variant.fields {
-                syn::Fields::Unit => return Err(syn::Error::new_spanned(
-                    count_children,
-                    "the `count_children` attribute may not be used on unit variants",
-                )),
-                syn::Fields::Named(_) => return Err(syn::Error::new_spanned(
-                    count_children,
-                    "the `count_children` attribute does not currently support variants with named fields",
-                )),
-
-                syn::Fields::Unnamed(_) if variant.fields.len() > 1 => return Err(syn::Error::new_spanned(
-                    count_children,
-                    "the `count_children` attribute does not currently support variants with multiple fields",
-                )),
-                syn::Fields::Unnamed(ref u) => {
-                    let field = u.unnamed.first().unwrap();
-                    let ty = &field.ty;
-                    variant_patterns.push(quote! { #name::#ident(c) => c.count(&counters.#ident) });
-                    field_defs.push(quote! {
-                        #[doc = concat!(
-                            " The total number of times a [`",
-                            stringify!(#name), "::", stringify!(#ident),
-                            "`] entry"
-                        )]
-                        #[doc = " has been recorded by this ringbuf."]
-                        pub #ident: <#ty as ringbuf::Count>::Counters
-                    });
-                    field_inits.push(quote! {
-                        #ident: <#ty as ringbuf::Count>::NEW_COUNTERS
-                    });
-                }
-            }
-        } else {
-            let incr = quote! {
-                counters.#ident.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
-            };
-            variant_patterns.push(match variant.fields {
-                syn::Fields::Unit => quote! { #name::#ident => { #incr } },
-                syn::Fields::Named(_) => {
-                    quote! { #name::#ident { .. } => { #incr } }
-                }
-                syn::Fields::Unnamed(_) => {
-                    quote! { #name::#ident(..) => { #incr } }
-                }
-            });
+    // generate a field def and field initializer for a variant *without*
+    // `count(children)`.
+    let gen_normal_def_init =
+        |field_defs: &mut Vec<proc_macro2::TokenStream>,
+         field_inits: &mut Vec<proc_macro2::TokenStream>,
+         ident: &syn::Ident| {
             field_defs.push(quote! {
                 #[doc = concat!(
                     " The total number of times a [`",
@@ -136,6 +79,99 @@ fn gen_count_impl(input: DeriveInput) -> Result<impl ToTokens, syn::Error> {
             });
             field_inits
                 .push(quote! { #ident: core::sync::atomic::AtomicU32::new(0) });
+        };
+
+    // generate a field def and field initializer for a variant *with*
+    // `count(children)`.
+    let gen_count_child_def_init =
+        |field_defs: &mut Vec<proc_macro2::TokenStream>,
+         field_inits: &mut Vec<proc_macro2::TokenStream>,
+         ident: &syn::Ident,
+         ty: &syn::Type| {
+            field_defs.push(quote! {
+                #[doc = concat!(
+                    " The total number of times a [`",
+                    stringify!(#name), "::", stringify!(#ident),
+                    "`] entry"
+                )]
+                #[doc = " has been recorded by this ringbuf."]
+                pub #ident: <#ty as ringbuf::Count>::Counters
+            });
+            field_inits.push(quote! {
+                #ident: <#ty as ringbuf::Count>::NEW_COUNTERS
+            });
+        };
+
+    'variants: for variant in variants {
+        let ident = &variant.ident;
+        for attr in &variant.attrs {
+            if !attr.path().is_ident("count") {
+                continue;
+            }
+            attr.parse_args_with(SkipAttr::parse)?;
+            any_skipped = true;
+            continue 'variants;
+        }
+
+        match &variant.fields {
+            syn::Fields::Unit => {
+                variant_patterns.push(quote! { #name::#ident => {
+                    counters.#ident.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
+                } });
+                gen_normal_def_init(&mut field_defs, &mut field_inits, ident);
+            }
+            ref fields => {
+                if let Some((i, counted_field)) = find_counted_field(fields)? {
+                    gen_count_child_def_init(
+                        &mut field_defs,
+                        &mut field_inits,
+                        ident,
+                        &counted_field.ty,
+                    );
+                    if let syn::Fields::Named(_) = fields {
+                        let field_name = counted_field.ident.as_ref().unwrap();
+                        variant_patterns.push(
+                            quote! { #name::#ident { ref #field_name, .. } => {
+                                #field_name.count(&counters.#ident);
+                            } },
+                        );
+                    } else {
+                        let mut pattern = Vec::new();
+                        for _ in 0..i {
+                            pattern.push(quote! { _, });
+                        }
+                        pattern.push(quote! { ref f, });
+                        // is the counted field the last one? if not, add a `..`.
+                        if fields.len() > i + 1 {
+                            pattern.push(quote! { .. });
+                        }
+                        variant_patterns.push(
+                            quote! { #name::#ident(#(#pattern)*) => {
+                                f.count(&counters.#ident);
+                            } },
+                        );
+                    }
+                } else {
+                    gen_normal_def_init(
+                        &mut field_defs,
+                        &mut field_inits,
+                        ident,
+                    );
+                    if let syn::Fields::Named(_) = fields {
+                        variant_patterns.push(quote! {
+                            #name::#ident { .. } => {
+                                counters.#ident.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
+                            }
+                        });
+                    } else {
+                        variant_patterns.push(quote! {
+                            #name::#ident(..) => {
+                                counters.#ident.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
+                            }
+                        });
+                    }
+                }
+            }
         }
     }
 
@@ -180,26 +216,66 @@ fn gen_count_impl(input: DeriveInput) -> Result<impl ToTokens, syn::Error> {
     Ok(code)
 }
 
-#[derive(Copy, Clone, PartialEq, Eq)]
-enum VariantAttr {
-    Skip,
-    Children,
+fn find_counted_field(
+    fields: &syn::Fields,
+) -> syn::Result<Option<(usize, &syn::Field)>> {
+    let mut counted_field = None;
+    for (i, field) in fields.iter().enumerate() {
+        for attr in &field.attrs {
+            if !attr.path().is_ident("count") {
+                continue;
+            }
+            attr.parse_args_with(ChildrenAttr::parse)?;
+
+            // TODO(eliza): relax this restriction eventually?
+            if counted_field.is_some() {
+                return Err(syn::Error::new_spanned(
+                    field,
+                    "a variant may only have one field annotated \
+                    with `#[count(children)]`",
+                ));
+            } else {
+                counted_field = Some((i, field));
+            }
+        }
+    }
+
+    Ok(counted_field)
 }
 
-impl Parse for VariantAttr {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
+#[derive(Copy, Clone, PartialEq, Eq)]
+struct SkipAttr;
+
+#[derive(Copy, Clone, PartialEq, Eq)]
+struct ChildrenAttr;
+
+impl Parse for SkipAttr {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
         let ident = input.fork().parse::<syn::Ident>()?;
         if ident == "skip" {
             // consume the token
             let _: syn::Ident = input.parse()?;
-            Ok(VariantAttr::Skip)
-        } else if ident == "children" {
-            let _: syn::Ident = input.parse()?;
-            Ok(VariantAttr::Children)
+            Ok(Self)
         } else {
             Err(syn::Error::new(
                 ident.span(),
-                "unrecognized count option, expected `skip` or `children`",
+                "unrecognized `#[count]` attribute, expected `#[count(skip)]`",
+            ))
+        }
+    }
+}
+
+impl Parse for ChildrenAttr {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
+        let ident = input.fork().parse::<syn::Ident>()?;
+        if ident == "children" {
+            // consume the token
+            let _: syn::Ident = input.parse()?;
+            Ok(Self)
+        } else {
+            Err(syn::Error::new(
+                ident.span(),
+                "unrecognized `#[count]` attribute, expected `#[count(children)]`",
             ))
         }
     }
