@@ -45,7 +45,7 @@ include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 )]
 mod payload;
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, ringbuf::Count)]
 enum Trace {
     Ice40Rails(bool, bool),
     IdentValid(bool),
@@ -112,7 +112,7 @@ enum Trace {
     None,
 }
 
-ringbuf!(Trace, 128, Trace::None);
+counted_ringbuf!(Trace, 128, Trace::None);
 
 #[export_name = "main"]
 fn main() -> ! {

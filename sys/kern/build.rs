@@ -15,7 +15,7 @@ use indexmap::IndexMap;
 use proc_macro2::TokenStream;
 
 fn main() -> Result<()> {
-    build_util::expose_m_profile();
+    build_util::expose_m_profile()?;
 
     let g = process_config()?;
     generate_statics(&g)?;
