@@ -4114,6 +4114,7 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "oxide-barcode",
+ "ringbuf",
  "serde",
  "ssmarshal",
  "userlib",

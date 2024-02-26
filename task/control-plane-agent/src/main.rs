@@ -77,6 +77,7 @@ enum Log {
     ReadCaboose(u32, usize),
     GotCabooseChunk([u8; 4]),
     ReadRotPage,
+    IpcRequest(#[count(children)] IpcRequest),
 }
 
 // This enum does not define the actual MGS protocol - it is only used in the
@@ -162,6 +163,27 @@ enum MgsMessage {
         value_len: usize,
     },
     ReadRotPage,
+}
+
+// This enum does not define the actual IPC protocol - it is only used in the
+// `Log` enum above (which itself is only used by our ringbuf logs).
+#[derive(Debug, Clone, Copy, PartialEq, ringbuf::Count)]
+enum IpcRequest {
+    FetchHostPhase2Data,
+    GetHostPhase2Data,
+    GetStartupOptions,
+    SetStartupOptions(HostStartupOptions),
+    Identity,
+    #[cfg(feature = "gimlet")]
+    GetInstallinatorImageId,
+    #[cfg(feature = "gimlet")]
+    GetUartClient,
+    #[cfg(feature = "gimlet")]
+    SetHumilityUartClient(#[count(children)] UartClient),
+    #[cfg(feature = "gimlet")]
+    UartRead(usize),
+    #[cfg(feature = "gimlet")]
+    UartWrite(usize),
 }
 
 counted_ringbuf!(Log, 16, Log::Empty);
@@ -250,6 +272,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         offset: u64,
         notification_bit: u8,
     ) -> Result<(), RequestError<ControlPlaneAgentError>> {
+        ringbuf_entry!(Log::IpcRequest(IpcRequest::FetchHostPhase2Data));
         self.mgs_handler.fetch_host_phase2_data(
             msg,
             image_hash,
@@ -265,6 +288,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         offset: u64,
         data: Leased<idol_runtime::W, [u8]>,
     ) -> Result<usize, RequestError<ControlPlaneAgentError>> {
+        ringbuf_entry!(Log::IpcRequest(IpcRequest::GetHostPhase2Data));
         self.mgs_handler
             .get_host_phase2_data(image_hash, offset, data)
     }
@@ -273,6 +297,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         &mut self,
         _msg: &userlib::RecvMessage,
     ) -> Result<HostStartupOptions, RequestError<ControlPlaneAgentError>> {
+        ringbuf_entry!(Log::IpcRequest(IpcRequest::GetStartupOptions));
         self.mgs_handler.startup_options_impl()
     }
 
@@ -283,7 +308,9 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
     ) -> Result<(), RequestError<ControlPlaneAgentError>> {
         let startup_options = HostStartupOptions::from_bits(startup_options)
             .ok_or(ControlPlaneAgentError::InvalidStartupOptions)?;
-
+        ringbuf_entry!(Log::IpcRequest(IpcRequest::SetStartupOptions(
+            startup_options
+        )));
         self.mgs_handler.set_startup_options_impl(startup_options)
     }
 
@@ -291,6 +318,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         &mut self,
         _msg: &userlib::RecvMessage,
     ) -> Result<VpdIdentity, RequestError<core::convert::Infallible>> {
+        ringbuf_entry!(Log::IpcRequest(IpcRequest::Identity));
         Ok(self.mgs_handler.identity())
     }
 
@@ -303,6 +331,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
             MAX_INSTALLINATOR_IMAGE_ID_LEN,
         >,
     ) -> Result<usize, RequestError<core::convert::Infallible>> {
+        ringbuf_entry!(Log::IpcRequest(IpcRequest::GetInstallinatorImageId));
         let image_id = self.mgs_handler.installinator_image_id();
         if image_id.len() > data.len() {
             // `image_id` is at most `MAX_INSTALLINATOR_IMAGE_ID_LEN`; if our
@@ -336,6 +365,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         &mut self,
         _msg: &userlib::RecvMessage,
     ) -> Result<UartClient, RequestError<core::convert::Infallible>> {
+        ringbuf_entry!(Log::IpcRequest(IpcRequest::GetUartClient));
         Ok(self.mgs_handler.uart_client())
     }
 
@@ -350,6 +380,9 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         } else {
             UartClient::Mgs
         };
+        ringbuf_entry!(Log::IpcRequest(IpcRequest::SetHumilityUartClient(
+            client
+        )));
         Ok(self.mgs_handler.set_uart_client(client)?)
     }
 
@@ -359,6 +392,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         data: Leased<idol_runtime::W, [u8]>,
     ) -> Result<usize, RequestError<ControlPlaneAgentError>> {
+        ringbuf_entry!(Log::IpcRequest(IpcRequest::UartRead(data.len())));
         self.mgs_handler.uart_read(data)
     }
 
@@ -368,6 +402,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         data: Leased<idol_runtime::R, [u8]>,
     ) -> Result<usize, RequestError<ControlPlaneAgentError>> {
+        ringbuf_entry!(Log::IpcRequest(IpcRequest::UartWrite(data.len())));
         self.mgs_handler.uart_write(data)
     }
 
