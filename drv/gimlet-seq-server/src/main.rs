@@ -109,7 +109,6 @@ enum Trace {
         code: i2c::ResponseCode,
     },
     StartFailed(#[count(children)] SeqError),
-    IpcRequest(#[count(children)] IpcRequest),
     #[count(skip)]
     None,
 }
@@ -122,9 +121,13 @@ enum IpcRequest {
     FansOff,
     SendHardwareNmi,
     ReadFpgaRegs,
+    #[count(skip)]
+    None,
 }
 
 counted_ringbuf!(Trace, 128, Trace::None);
+
+counted_ringbuf!(IPC_REQUESTS, IpcRequest, 8, IpcRequest::None);
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -953,7 +956,7 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
         &mut self,
         _: &RecvMessage,
     ) -> Result<PowerState, RequestError<SeqError>> {
-        ringbuf_entry!(Trace::IpcRequest(IpcRequest::GetState));
+        ringbuf_entry!(IPC_REQUESTS, IpcRequest::GetState);
         Ok(self.state)
     }
 
@@ -962,7 +965,7 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
         _: &RecvMessage,
         state: PowerState,
     ) -> Result<(), RequestError<SeqError>> {
-        ringbuf_entry!(Trace::IpcRequest(IpcRequest::SetState(state)));
+        ringbuf_entry!(IPC_REQUESTS, IpcRequest::SetState(state));
         self.set_state_internal(state).map_err(RequestError::from)
     }
 
@@ -970,7 +973,7 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
         &mut self,
         _: &RecvMessage,
     ) -> Result<(), RequestError<SeqError>> {
-        ringbuf_entry!(Trace::IpcRequest(IpcRequest::FansOn));
+        ringbuf_entry!(IPC_REQUESTS, IpcRequest::FansOn);
         let on = Reg::EARLY_POWER_CTRL::FANPWREN;
         self.seq
             .set_bytes(Addr::EARLY_POWER_CTRL, &[on])
@@ -982,7 +985,7 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
         &mut self,
         _: &RecvMessage,
     ) -> Result<(), RequestError<SeqError>> {
-        ringbuf_entry!(Trace::IpcRequest(IpcRequest::FansOff));
+        ringbuf_entry!(IPC_REQUESTS, IpcRequest::FansOff);
         let off = Reg::EARLY_POWER_CTRL::FANPWREN;
         self.seq
             .clear_bytes(Addr::EARLY_POWER_CTRL, &[off])
@@ -994,7 +997,7 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
         &mut self,
         _: &RecvMessage,
     ) -> Result<(), RequestError<core::convert::Infallible>> {
-        ringbuf_entry!(Trace::IpcRequest(IpcRequest::SendHardwareNmi));
+        ringbuf_entry!(IPC_REQUESTS, IpcRequest::SendHardwareNmi);
         // The required length for an NMI pulse is apparently not documented.
         //
         // Let's try 25 ms!
@@ -1008,7 +1011,7 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
         &mut self,
         _: &RecvMessage,
     ) -> Result<[u8; 64], RequestError<SeqError>> {
-        ringbuf_entry!(Trace::IpcRequest(IpcRequest::ReadFpgaRegs));
+        ringbuf_entry!(IPC_REQUESTS, IpcRequest::ReadFpgaRegs);
         let mut buf = [0; 64];
         let size = 8;
 
