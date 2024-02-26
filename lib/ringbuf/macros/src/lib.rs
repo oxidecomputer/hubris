@@ -44,8 +44,6 @@ pub fn derive_count(input: TokenStream) -> TokenStream {
 }
 
 fn gen_count_impl(input: DeriveInput) -> Result<impl ToTokens, syn::Error> {
-    let name = &input.ident;
-    let vis = &input.vis;
     let data_enum = match input.data {
         syn::Data::Enum(ref data_enum) => data_enum,
         _ => {
@@ -56,83 +54,116 @@ fn gen_count_impl(input: DeriveInput) -> Result<impl ToTokens, syn::Error> {
         }
     };
     let variants = &data_enum.variants;
-    let len = variants.len();
-    let mut field_defs = Vec::with_capacity(len);
-    let mut field_inits = Vec::with_capacity(len);
-    let mut variant_patterns = Vec::with_capacity(len);
-    let mut any_skipped = false;
+    let mut state = CountGenerator::new(&input.ident, variants.len());
 
-    // generate a field def and field initializer for a variant *without*
-    // `count(children)`.
-    let gen_normal_def_init =
-        |field_defs: &mut Vec<proc_macro2::TokenStream>,
-         field_inits: &mut Vec<proc_macro2::TokenStream>,
-         ident: &syn::Ident| {
-            field_defs.push(quote! {
-                #[doc = concat!(
-                    " The total number of times a [`",
-                    stringify!(#name), "::", stringify!(#ident),
-                    "`] entry"
-                )]
-                #[doc = " has been recorded by this ringbuf."]
-                pub #ident: core::sync::atomic::AtomicU32
-            });
-            field_inits
-                .push(quote! { #ident: core::sync::atomic::AtomicU32::new(0) });
-        };
+    for variant in variants {
+        state.add_variant(variant)?;
+    }
 
-    // generate a field def and field initializer for a variant *with*
-    // `count(children)`.
-    let gen_count_child_def_init =
-        |field_defs: &mut Vec<proc_macro2::TokenStream>,
-         field_inits: &mut Vec<proc_macro2::TokenStream>,
-         ident: &syn::Ident,
-         ty: &syn::Type| {
-            field_defs.push(quote! {
-                #[doc = concat!(
-                    " The total number of times a [`",
-                    stringify!(#name), "::", stringify!(#ident),
-                    "`] entry"
-                )]
-                #[doc = " has been recorded by this ringbuf."]
-                pub #ident: <#ty as ringbuf::Count>::Counters
-            });
-            field_inits.push(quote! {
-                #ident: <#ty as ringbuf::Count>::NEW_COUNTERS
-            });
-        };
+    Ok(state.generate(&input))
+}
 
-    'variants: for variant in variants {
-        let ident = &variant.ident;
+struct CountGenerator<'input> {
+    enum_name: &'input syn::Ident,
+    field_defs: Vec<proc_macro2::TokenStream>,
+    field_inits: Vec<proc_macro2::TokenStream>,
+    variant_patterns: Vec<proc_macro2::TokenStream>,
+    any_skipped: bool,
+}
+
+impl<'input> CountGenerator<'input> {
+    fn new(enum_name: &'input syn::Ident, variants: usize) -> Self {
+        Self {
+            enum_name,
+            field_defs: Vec::with_capacity(variants),
+            field_inits: Vec::with_capacity(variants),
+            variant_patterns: Vec::with_capacity(variants),
+            any_skipped: false,
+        }
+    }
+
+    fn generate(self, input: &DeriveInput) -> impl ToTokens {
+        let Self {
+            enum_name,
+            field_defs,
+            field_inits,
+            mut variant_patterns,
+            any_skipped,
+        } = self;
+
+        // If we skipped any variants, generate a catchall case.
+        if any_skipped {
+            variant_patterns.push(quote! { _ => {} });
+        }
+        let vis = &input.vis;
+
+        let counts_ty = counts_ty(enum_name);
+        quote! {
+            #[doc = concat!(" Ringbuf entry total counts for [`", stringify!(#enum_name), "`].")]
+            #[allow(nonstandard_style)]
+            #vis struct #counts_ty {
+                #(#field_defs),*
+            }
+
+            #[automatically_derived]
+            impl ringbuf::Count for #enum_name {
+                type Counters = #counts_ty;
+
+                // This is intended for use in a static initializer, so the fact that every
+                // time the constant is used it will be a different instance is not a
+                // problem --- in fact, it's the desired behavior.
+                //
+                // `declare_interior_mutable_const` is really Not My Favorite Clippy
+                // Lint...
+                #[allow(clippy::declare_interior_mutable_const)]
+                const NEW_COUNTERS: #counts_ty = #counts_ty {
+                    #(#field_inits),*
+                };
+
+                fn count(&self, counters: &Self::Counters) {
+                    #[cfg(all(target_arch = "arm", armv6m))]
+                    use ringbuf::rmv6m_atomic_hack::AtomicU32Ext;
+
+                    match self {
+                        #(#variant_patterns),*
+                    };
+                }
+            }
+        }
+    }
+
+    fn add_variant(
+        &mut self,
+        variant: &syn::Variant,
+    ) -> Result<(), syn::Error> {
         for attr in &variant.attrs {
             if !attr.path().is_ident("count") {
                 continue;
             }
             attr.parse_args_with(SkipAttr::parse)?;
-            any_skipped = true;
-            continue 'variants;
+            self.any_skipped = true;
+            return Ok(());
         }
-
+        let enum_name = self.enum_name;
+        let variant_name = &variant.ident;
         match &variant.fields {
             syn::Fields::Unit => {
-                variant_patterns.push(quote! { #name::#ident => {
-                    counters.#ident.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
+                self.variant_patterns.push(quote! { #enum_name::#variant_name => {
+                    counters.#variant_name.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
                 } });
-                gen_normal_def_init(&mut field_defs, &mut field_inits, ident);
+                self.add_def_init(variant_name);
             }
             ref fields => {
                 if let Some((i, counted_field)) = find_counted_field(fields)? {
-                    gen_count_child_def_init(
-                        &mut field_defs,
-                        &mut field_inits,
-                        ident,
+                    self.add_count_children_def_init(
+                        variant_name,
                         &counted_field.ty,
                     );
                     if let syn::Fields::Named(_) = fields {
                         let field_name = counted_field.ident.as_ref().unwrap();
-                        variant_patterns.push(
-                            quote! { #name::#ident { ref #field_name, .. } => {
-                                #field_name.count(&counters.#ident);
+                        self.variant_patterns.push(
+                            quote! { #enum_name::#variant_name { ref #field_name, .. } => {
+                                #field_name.count(&counters.#variant_name);
                             } },
                         );
                     } else {
@@ -145,75 +176,83 @@ fn gen_count_impl(input: DeriveInput) -> Result<impl ToTokens, syn::Error> {
                         if fields.len() > i + 1 {
                             pattern.push(quote! { .. });
                         }
-                        variant_patterns.push(
-                            quote! { #name::#ident(#(#pattern)*) => {
-                                f.count(&counters.#ident);
+                        self.variant_patterns.push(
+                            quote! { #enum_name::#variant_name(#(#pattern)*) => {
+                                f.count(&counters.#variant_name);
                             } },
                         );
                     }
                 } else {
-                    gen_normal_def_init(
-                        &mut field_defs,
-                        &mut field_inits,
-                        ident,
-                    );
+                    self.add_def_init(variant_name);
                     if let syn::Fields::Named(_) = fields {
-                        variant_patterns.push(quote! {
-                            #name::#ident { .. } => {
-                                counters.#ident.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
+                        self.variant_patterns.push(quote! {
+                            #enum_name::#variant_name { .. } => {
+                                counters.#variant_name.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
                             }
                         });
                     } else {
-                        variant_patterns.push(quote! {
-                            #name::#ident(..) => {
-                                counters.#ident.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
+                        self.variant_patterns.push(quote! {
+                            #enum_name::#variant_name(..) => {
+                                counters.#variant_name.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
                             }
                         });
                     }
                 }
             }
         }
+
+        Ok(())
     }
 
-    // If we skipped any variants, generate a catchall case.
-    if any_skipped {
-        variant_patterns.push(quote! { _ => {} });
+    /// Generate a field definition and field initializer for a variant
+    /// *without* the `#{count(children)]` annotation.
+    fn add_def_init(&mut self, variant_name: &syn::Ident) {
+        let Self {
+            field_defs,
+            field_inits,
+            enum_name,
+            ..
+        } = self;
+        field_defs.push(quote! {
+            #[doc = concat!(
+                " The total number of times a [`",
+                stringify!(#enum_name), "::", stringify!(#variant_name),
+                "`] entry"
+            )]
+            #[doc = " has been recorded by this ringbuf."]
+            pub #variant_name: core::sync::atomic::AtomicU32
+        });
+        field_inits.push(
+            quote! { #variant_name: core::sync::atomic::AtomicU32::new(0) },
+        );
     }
 
-    let counts_ty = counts_ty(name);
-    let code = quote! {
-        #[doc = concat!(" Ringbuf entry total counts for [`", stringify!(#name), "`].")]
-        #[allow(nonstandard_style)]
-        #vis struct #counts_ty {
-            #(#field_defs),*
-        }
-
-        #[automatically_derived]
-        impl ringbuf::Count for #name {
-            type Counters = #counts_ty;
-
-            // This is intended for use in a static initializer, so the fact that every
-            // time the constant is used it will be a different instance is not a
-            // problem --- in fact, it's the desired behavior.
-            //
-            // `declare_interior_mutable_const` is really Not My Favorite Clippy
-            // Lint...
-            #[allow(clippy::declare_interior_mutable_const)]
-            const NEW_COUNTERS: #counts_ty = #counts_ty {
-                #(#field_inits),*
-            };
-
-            fn count(&self, counters: &Self::Counters) {
-                #[cfg(all(target_arch = "arm", armv6m))]
-                use ringbuf::rmv6m_atomic_hack::AtomicU32Ext;
-
-                match self {
-                    #(#variant_patterns),*
-                };
-            }
-        }
-    };
-    Ok(code)
+    /// Generate a field def and field initializer for a variant *with*
+    /// the `#{count(children)]` annotation.
+    fn add_count_children_def_init(
+        &mut self,
+        variant_name: &syn::Ident,
+        variant_type: &syn::Type,
+    ) {
+        let Self {
+            field_defs,
+            field_inits,
+            enum_name,
+            ..
+        } = self;
+        field_defs.push(quote! {
+            #[doc = concat!(
+                " The total number of times a [`",
+                stringify!(#enum_name), "::", stringify!(#variant_name),
+                "`] entry"
+            )]
+            #[doc = " has been recorded by this ringbuf."]
+            pub #variant_name: <#variant_type as ringbuf::Count>::Counters
+        });
+        field_inits.push(quote! {
+            #variant_name: <#variant_type as ringbuf::Count>::NEW_COUNTERS
+        });
+    }
 }
 
 fn find_counted_field(
