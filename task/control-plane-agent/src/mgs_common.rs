@@ -13,6 +13,7 @@ use gateway_messages::{
     CfpaPage, DiscoverResponse, PowerState, RotError, RotRequest, RotResponse,
     RotSlotId, RotStateV2, SensorReading, SensorRequest, SensorRequestKind,
     SensorResponse, SpComponent, SpError, SpPort, SpStateV2,
+    VpdError as GatewayVpdError,
 };
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use static_assertions::const_assert;
@@ -404,6 +405,77 @@ impl MgsCommon {
             Ok(_) => Ok(RotResponse::Ok),
             Err(e) => Err(e.into()),
         }
+    }
+
+    #[cfg(not(feature = "vpd"))]
+    pub(crate) fn vpd_lock_status_all(
+        &self,
+        _buf: &mut [u8],
+    ) -> Result<usize, SpError> {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::VpdLockStatus));
+        Err(SpError::Vpd(GatewayVpdError::NotImplemented))
+    }
+
+    #[cfg(feature = "vpd")]
+    pub(crate) fn vpd_lock_status_all(
+        &self,
+        buf: &mut [u8],
+    ) -> Result<usize, SpError> {
+        use task_vpd_api::{Vpd, VpdError};
+        task_slot!(VPD, vpd);
+
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::VpdLockStatus));
+        let vpd = Vpd::from(VPD.get_task_id());
+        let cnt = vpd.num_vpd_devices();
+
+        for (i, entry) in buf.iter_mut().enumerate().take(cnt) {
+            // `cnt` is based on the static size of the number of VPD devices.
+            // All the VPD APIs work off of a `u8` so if the number of VPD
+            // devices is returned as being greater than a `u8` we wouldn't
+            // actually be able to access them. We could probably remove this
+            // panic...
+            let idx = match u8::try_from(i) {
+                Ok(v) => v,
+                Err(_) => panic!(),
+            };
+            *entry = match vpd.is_locked(idx) {
+                Ok(v) => v.into(),
+                Err(e) => {
+                    return Err(SpError::Vpd(match e {
+                        VpdError::InvalidDevice => {
+                            GatewayVpdError::InvalidDevice
+                        }
+                        VpdError::NotPresent => GatewayVpdError::NotPresent,
+                        VpdError::DeviceError => GatewayVpdError::DeviceError,
+                        VpdError::Unavailable => GatewayVpdError::Unavailable,
+                        VpdError::DeviceTimeout => {
+                            GatewayVpdError::DeviceTimeout
+                        }
+                        VpdError::DeviceOff => GatewayVpdError::DeviceOff,
+                        VpdError::BadAddress => GatewayVpdError::BadAddress,
+                        VpdError::BadBuffer => GatewayVpdError::BadBuffer,
+                        VpdError::BadRead => GatewayVpdError::BadRead,
+                        VpdError::BadWrite => GatewayVpdError::BadWrite,
+                        VpdError::BadLock => GatewayVpdError::BadLock,
+                        VpdError::NotImplemented => {
+                            GatewayVpdError::NotImplemented
+                        }
+                        VpdError::IsLocked => GatewayVpdError::IsLocked,
+                        VpdError::PartiallyLocked => {
+                            GatewayVpdError::PartiallyLocked
+                        }
+                        VpdError::AlreadyLocked => {
+                            GatewayVpdError::AlreadyLocked
+                        }
+                        VpdError::ServerRestarted => {
+                            GatewayVpdError::TaskRestarted
+                        }
+                    }))
+                }
+            }
+        }
+
+        Ok(cnt)
     }
 }
 
