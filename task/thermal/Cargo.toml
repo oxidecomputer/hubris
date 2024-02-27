@@ -23,6 +23,7 @@ drv-onewire-devices.path = "../../drv/onewire-devices"
 drv-onewire.path = "../../drv/onewire"
 mutable-statics.path = "../../lib/mutable-statics"
 ringbuf.path = "../../lib/ringbuf"
+counters.path = "../../lib/counters"
 task-sensor-api.path = "../sensor-api"
 task-thermal-api.path = "../thermal-api"
 

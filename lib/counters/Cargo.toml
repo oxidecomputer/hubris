@@ -1,0 +1,19 @@
+[package]
+name = "counters"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+derive = ["dep:counters-derive"]
+default = ["derive"]
+
+[dependencies]
+counters-derive = { path = "derive", optional = true }
+
+[target.'cfg(target_arch = "arm")'.dependencies]
+armv6m-atomic-hack = { path = "../armv6m-atomic-hack" }
+
+[lib]
+test = false
+doctest = false
+bench = false

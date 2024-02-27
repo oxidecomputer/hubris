@@ -29,7 +29,7 @@ pub enum ControlPlaneAgentError {
 }
 
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ringbuf::Count,
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, counters::Count,
 )]
 pub enum UartClient {
     Mgs,

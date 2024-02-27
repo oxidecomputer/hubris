@@ -7,7 +7,7 @@ edition = "2021"
 userlib = { path = "../../sys/userlib" }
 zerocopy = { workspace = true }
 num-traits = { workspace = true }
-ringbuf = { path = "../../lib/ringbuf" }
+counters = { path = "../../lib/counters", features = ["derive"] }
 
 [lib]
 test = false

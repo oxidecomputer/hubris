@@ -11,7 +11,7 @@ use syn::{
     parse_macro_input, DeriveInput,
 };
 
-/// Derives an implementation of the `ringbuf::Count` trait for the annotated
+/// Derives an implementation of the `Count` trait for the annotated
 /// `enum` type.
 ///
 /// Note that this macro can currently only be used on `enum` types.
@@ -49,7 +49,7 @@ fn gen_count_impl(input: DeriveInput) -> Result<impl ToTokens, syn::Error> {
         _ => {
             return Err(syn::Error::new_spanned(
                 input,
-                "`ringbuf::Count` can only be derived for enums",
+                "`Count` can only be derived for enums",
             ));
         }
     };
@@ -99,14 +99,14 @@ impl<'input> CountGenerator<'input> {
 
         let counts_ty = counts_ty(enum_name);
         quote! {
-            #[doc = concat!(" Ringbuf entry total counts for [`", stringify!(#enum_name), "`].")]
+            #[doc = concat!("Total counts for [`", stringify!(#enum_name), "`].")]
             #[allow(nonstandard_style)]
             #vis struct #counts_ty {
                 #(#field_defs),*
             }
 
             #[automatically_derived]
-            impl ringbuf::Count for #enum_name {
+            impl counters::Count for #enum_name {
                 type Counters = #counts_ty;
 
                 // This is intended for use in a static initializer, so the fact that every
@@ -122,7 +122,7 @@ impl<'input> CountGenerator<'input> {
 
                 fn count(&self, counters: &Self::Counters) {
                     #[cfg(all(target_arch = "arm", armv6m))]
-                    use ringbuf::rmv6m_atomic_hack::AtomicU32Ext;
+                    use counters::rmv6m_atomic_hack::AtomicU32Ext;
 
                     match self {
                         #(#variant_patterns),*
@@ -217,9 +217,9 @@ impl<'input> CountGenerator<'input> {
             #[doc = concat!(
                 " The total number of times a [`",
                 stringify!(#enum_name), "::", stringify!(#variant_name),
-                "`] entry"
+                "`]"
             )]
-            #[doc = " has been recorded by this ringbuf."]
+            #[doc = " has been recorded by this set of counters."]
             pub #variant_name: core::sync::atomic::AtomicU32
         });
         field_inits.push(
@@ -244,13 +244,13 @@ impl<'input> CountGenerator<'input> {
             #[doc = concat!(
                 " The total number of times a [`",
                 stringify!(#enum_name), "::", stringify!(#variant_name),
-                "`] entry"
+                "`]"
             )]
-            #[doc = " has been recorded by this ringbuf."]
-            pub #variant_name: <#variant_type as ringbuf::Count>::Counters
+            #[doc = " has been recorded by this set of counters."]
+            pub #variant_name: <#variant_type as counters::Count>::Counters
         });
         field_inits.push(quote! {
-            #variant_name: <#variant_type as ringbuf::Count>::NEW_COUNTERS
+            #variant_name: <#variant_type as counters::Count>::NEW_COUNTERS
         });
     }
 }

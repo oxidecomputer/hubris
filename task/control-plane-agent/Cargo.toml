@@ -33,6 +33,7 @@ host-sp-messages = { path = "../../lib/host-sp-messages" }
 lpc55-rom-data = { path = "../../lib/lpc55-rom-data" }
 mutable-statics = { path = "../../lib/mutable-statics" }
 ringbuf = { path = "../../lib/ringbuf" }
+counters = { path = "../../lib/counters" }
 task-control-plane-agent-api = { path = "../control-plane-agent-api" }
 task-jefe-api = { path = "../jefe-api" }
 task-net-api = { path = "../net-api", features = ["use-smoltcp"] }

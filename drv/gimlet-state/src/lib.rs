@@ -11,7 +11,7 @@ use userlib::FromPrimitive;
 use zerocopy::AsBytes;
 
 #[derive(
-    Copy, Clone, Debug, FromPrimitive, PartialEq, Eq, AsBytes, ringbuf::Count,
+    Copy, Clone, Debug, FromPrimitive, PartialEq, Eq, AsBytes, counters::Count,
 )]
 #[repr(u8)]
 pub enum PowerState {
