@@ -1012,6 +1012,9 @@ dependencies = [
 name = "drv-i2c-types"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "build-util",
+ "counters",
  "derive-idol-err",
  "enum-kinds",
  "hubpack",
@@ -4180,6 +4183,7 @@ name = "task-gimlet-inspector"
 version = "0.1.0"
 dependencies = [
  "build-util",
+ "counters",
  "drv-gimlet-seq-api",
  "gimlet-inspector-protocol",
  "hubpack",

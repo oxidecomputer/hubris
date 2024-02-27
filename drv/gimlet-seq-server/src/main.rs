@@ -107,6 +107,7 @@ enum Trace {
     SpdDimmsFound(usize),
     I2cFault {
         retries_remaining: u8,
+        #[count(children)]
         code: i2c::ResponseCode,
     },
     StartFailed(#[count(children)] SeqError),

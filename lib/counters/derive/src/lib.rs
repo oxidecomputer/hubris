@@ -118,7 +118,7 @@ impl<'input> CountGenerator<'input> {
                 };
 
                 fn count(&self, counters: &Self::Counters) {
-                    #[cfg(armv6m)]
+                    #[cfg(all(target_arch = "arm", armv6m))]
                     use counters::armv6m_atomic_hack::AtomicU32Ext;
 
                     match self {
