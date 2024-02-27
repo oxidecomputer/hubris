@@ -44,14 +44,11 @@ pub fn derive_count(input: TokenStream) -> TokenStream {
 }
 
 fn gen_count_impl(input: DeriveInput) -> Result<impl ToTokens, syn::Error> {
-    let data_enum = match input.data {
-        syn::Data::Enum(ref data_enum) => data_enum,
-        _ => {
-            return Err(syn::Error::new_spanned(
-                input,
-                "`Count` can only be derived for enums",
-            ));
-        }
+    let syn::Data::Enum(ref data_enum) = input.data else {
+        return Err(syn::Error::new_spanned(
+            input,
+            "`Count` can only be derived for enums",
+        ));
     };
     let variants = &data_enum.variants;
     let mut state = CountGenerator::new(&input.ident, variants.len());
@@ -121,8 +118,8 @@ impl<'input> CountGenerator<'input> {
                 };
 
                 fn count(&self, counters: &Self::Counters) {
-                    #[cfg(all(target_arch = "arm", armv6m))]
-                    use counters::rmv6m_atomic_hack::AtomicU32Ext;
+                    #[cfg(armv6m)]
+                    use counters::armv6m_atomic_hack::AtomicU32Ext;
 
                     match self {
                         #(#variant_patterns),*
