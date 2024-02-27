@@ -54,8 +54,9 @@ pub enum Op {
     Serialize,
     Deserialize,
     SerializedSize,
+    counters::Count,
 )]
-#[enum_kind(ResponseCodeU8)]
+#[enum_kind(ResponseCodeU8, derive(counters::Count))]
 #[repr(u32)]
 pub enum ResponseCode {
     /// Bad response from server
