@@ -73,6 +73,35 @@ fn main() -> ! {
             bsp
         }
         Err(e) => {
+            // BSP initialization has failed. We intend to retry it. Restarting
+            // the server is a convenient way of doing this.
+            //
+            // The first thing the BSP does when initialized is to assert the
+            // reset line on the VSC7448, which will put it into a known state
+            // for us to attempt initialization again. This _appears_ to reset
+            // all state that could potentially have caused a panic within the
+            // BSP, and in practice this panic occurs rarely and at most once.
+            //
+            // Writing the error into the ringbuf before panicking ensures that
+            // it's available in the dump for inspection, in case we're curious.
+            //
+            // It's tempting to reach for the non-dumping task restart operation
+            // (`Jefe::restart_me`) here, but it's probably not worth it for the
+            // following reasons:
+            //
+            // 1. This happens infrequently -- it's not like we crash on every
+            //    startup. We've seen this single-digit times so far.
+            //
+            // 2. Recording the dump in that infrequent case is actually useful,
+            //    since it gets us the error that caused the panic. (Dumping the
+            //    entire task burns 8 kiB to record a couple of bytes of error,
+            //    but, only when the problem happens.)
+            //
+            // Should someone in the future want to remove this panic for
+            // whatever reason, the _correct_ path is likely to retain the
+            // ringbuf entry, and then wrap this code with a retry loop. This
+            // will ensure that any errors are available for inspection (which
+            // `Jefe::restart_me` would not) while making the restart cheaper.
             ringbuf_entry!(Trace::BspInitFailed(e));
             panic!("Could not initialize BSP: {:?}", e);
         }
