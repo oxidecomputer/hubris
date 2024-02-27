@@ -6,6 +6,7 @@
 
 #![no_std]
 
+use counters::Count;
 use derive_idol_err::IdolError;
 use userlib::*;
 
@@ -13,7 +14,7 @@ use userlib::*;
 pub use drv_gimlet_state::PowerState;
 
 #[derive(
-    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, ringbuf::Count,
+    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, Count,
 )]
 pub enum SeqError {
     IllegalTransition = 1,

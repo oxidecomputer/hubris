@@ -464,6 +464,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "counters"
+version = "0.1.0"
+dependencies = [
+ "armv6m-atomic-hack",
+ "counters-derive",
+]
+
+[[package]]
+name = "counters-derive"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.48",
+]
+
+[[package]]
 name = "cpufeatures"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -895,12 +912,12 @@ dependencies = [
 name = "drv-gimlet-seq-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "drv-gimlet-state",
  "idol",
  "idol-runtime",
  "num-traits",
- "ringbuf",
  "userlib",
  "zerocopy 0.6.4",
 ]
@@ -915,6 +932,7 @@ dependencies = [
  "byteorder",
  "cfg-if",
  "cortex-m",
+ "counters",
  "drv-gimlet-hf-api",
  "drv-gimlet-seq-api",
  "drv-gimlet-state",
@@ -945,8 +963,8 @@ dependencies = [
 name = "drv-gimlet-state"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "num-traits",
- "ringbuf",
  "userlib",
  "zerocopy 0.6.4",
 ]
@@ -3378,18 +3396,8 @@ checksum = "49b3de9ec5dc0a3417da371aab17d729997c15010e7fd24ff707773a33bddb64"
 name = "ringbuf"
 version = "0.2.0"
 dependencies = [
- "armv6m-atomic-hack",
- "ringbuf-macros",
+ "counters",
  "static-cell",
-]
-
-[[package]]
-name = "ringbuf-macros"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.48",
 ]
 
 [[package]]
@@ -4066,6 +4074,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if",
+ "counters",
  "drv-auxflash-api",
  "drv-caboose",
  "drv-caboose-pos",
@@ -4108,13 +4117,13 @@ dependencies = [
 name = "task-control-plane-agent-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "host-sp-messages",
  "idol",
  "idol-runtime",
  "num-traits",
  "oxide-barcode",
- "ringbuf",
  "serde",
  "ssmarshal",
  "userlib",
@@ -4635,6 +4644,7 @@ dependencies = [
  "build-i2c",
  "build-util",
  "cortex-m",
+ "counters",
  "drv-gimlet-seq-api",
  "drv-i2c-api",
  "drv-i2c-devices",
@@ -4659,6 +4669,7 @@ dependencies = [
 name = "task-thermal-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "drv-i2c-api",
  "drv-i2c-devices",
@@ -4666,7 +4677,6 @@ dependencies = [
  "idol",
  "idol-runtime",
  "num-traits",
- "ringbuf",
  "serde",
  "task-sensor-api",
  "userlib",
