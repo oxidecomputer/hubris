@@ -60,3 +60,22 @@ macro_rules! counters {
         $crate::counters!(__COUNTERS, $Type);
     };
 }
+
+/// Count an event.
+///
+/// This is a very small wrapper around the [`Count::count`] method.
+#[macro_export]
+macro_rules! count {
+    ($counters:expr, $event:expr) => {
+        // Evaluate both counters and event, without letting them access each
+        // other, by evaluating them in a tuple where each cannot
+        // accidentally use the other's binding.
+        let (e, ctrs) = ($event, &$counters);
+        // Invoke these functions using slightly weird syntax to avoid
+        // accidentally calling a _different_ routine called count.
+        $crate::Count::count(&e, ctrs);
+    };
+    ($event:expr) => {
+        $crate::count!(__COUNTERS, $event);
+    };
+}
