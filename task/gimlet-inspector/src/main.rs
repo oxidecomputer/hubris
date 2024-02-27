@@ -9,7 +9,7 @@
 #![no_std]
 #![no_main]
 
-use core::sync::atomic::{AtomicUsize, Ordering};
+use counters::*;
 use drv_gimlet_seq_api::{SeqError, Sequencer};
 use gimlet_inspector_protocol::{
     QueryV0, Request, SequencerRegistersResponseV0, ANY_RESPONSE_V0_MAX_SIZE,
@@ -22,12 +22,14 @@ use userlib::*;
 task_slot!(NET, net);
 task_slot!(SEQ, seq);
 
-#[no_mangle]
-static CTR_RECVD: AtomicUsize = AtomicUsize::new(0);
-#[no_mangle]
-static CTR_REJECTED: AtomicUsize = AtomicUsize::new(0);
-#[no_mangle]
-static CTR_RESPONSES: AtomicUsize = AtomicUsize::new(0);
+#[derive(Count, Copy, Clone)]
+enum Event {
+    RecvPacket,
+    RequestRejected,
+    Respond,
+}
+
+counters!(Event);
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -49,11 +51,11 @@ fn main() -> ! {
             &mut rx_data_buf,
         ) {
             Ok(mut meta) => {
-                CTR_RECVD.fetch_add(1, Ordering::Relaxed);
+                count!(Event::RecvPacket);
 
                 let Ok((request, _trailer)) = hubpack::deserialize::<Request>(&rx_data_buf) else {
                     // We ignore malformatted, truncated, etc. packets.
-                    CTR_REJECTED.fetch_add(1, Ordering::Relaxed);
+                    count!(Event::RequestRejected);
                     continue;
                 };
 
@@ -97,7 +99,7 @@ fn main() -> ! {
                         &tx_data_buf[0..(meta.size as usize)],
                     ) {
                         Ok(()) => {
-                            CTR_RESPONSES.fetch_add(1, Ordering::Relaxed);
+                            count!(Event::Respond);
                             break;
                         }
                         // If `net` just restarted, immediately retry our send.
