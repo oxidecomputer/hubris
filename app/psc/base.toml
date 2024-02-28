@@ -140,8 +140,9 @@ task-slots = [
     "sprot",
     "packrat",
     "user_leds",
+    "vpd",
 ]
-features = ["psc", "vlan"]
+features = ["psc", "vlan", "vpd"]
 notifications = ["usart-irq", "socket", "timer"]
 # usart-irq is unused but present in the code
 
