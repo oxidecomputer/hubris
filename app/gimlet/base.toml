@@ -260,12 +260,14 @@ task-slots = [
     "i2c_driver",
     "packrat",
     "user_leds",
+    "vpd",
 ]
 features = [
     "gimlet",
     "usart1",
     "vlan",
     "baud_rate_3M",
+    "vpd",
 ]
 notifications = ["usart-irq", "socket", "timer"]
 interrupts = {"usart1.irq" = "usart-irq"}

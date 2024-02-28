@@ -193,6 +193,13 @@ impl idl::InOrderVpdImpl for ServerImpl {
             Ok(()) => Ok(()),
         }
     }
+
+    fn num_vpd_devices(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<usize, RequestError<core::convert::Infallible>> {
+        Ok(i2c_config::devices::at24csw080(I2C.get_task_id()).len())
+    }
 }
 
 impl NotificationHandler for ServerImpl {
