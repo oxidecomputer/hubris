@@ -23,8 +23,9 @@ compile_error!(
      except on specially designated boards"
 );
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, counters::Count)]
 enum Trace {
+    #[count(skip)]
     None,
     Initialized,
     GetDumpArea(u8),
@@ -57,7 +58,7 @@ enum Trace {
     DumpDone(Result<(), humpty::DumpError<()>>),
 }
 
-ringbuf!(Trace, 8, Trace::None);
+counted_ringbuf!(Trace, 8, Trace::None);
 
 pub fn initialize_dump_areas() -> u32 {
     let areas = humpty::initialize_dump_areas(
