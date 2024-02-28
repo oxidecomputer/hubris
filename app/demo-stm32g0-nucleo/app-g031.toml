@@ -6,14 +6,14 @@ board = "stm32g031-nucleo"
 
 [kernel]
 name = "demo-stm32g0-nucleo"
-requires = {flash = 10752, ram = 1296}
+requires = {flash = 10852, ram = 1296}
 features = ["g031"]
 stacksize = 640
 
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
-max-sizes = {flash = 4096, ram = 512}
+max-sizes = {flash = 4128, ram = 512}
 start = true
 stacksize = 368
 notifications = ["fault", "timer"]
