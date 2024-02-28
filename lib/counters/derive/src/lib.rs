@@ -118,7 +118,8 @@ impl<'input> CountGenerator<'input> {
                 };
 
                 fn count(&self, counters: &Self::Counters) {
-                    #[cfg(all(target_arch = "arm", armv6m))]
+                    // This extension trait may not be used on non-v6m targets.
+                    #[allow(unused_imports)]
                     use counters::armv6m_atomic_hack::AtomicU32Ext;
 
                     match self {
