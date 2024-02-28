@@ -28,12 +28,14 @@ use vsc85xx::VscError;
 
 task_slot!(USER_LEDS, user_leds);
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, counters::Count)]
 enum Trace {
+    #[count(skip)]
     None,
     BspConfigured,
 
     KszErr {
+        #[count(children)]
         err: KszError,
     },
     Ksz8463Status {
@@ -85,7 +87,7 @@ enum Trace {
         counter: phy::extended_3::MEDIA_MAC_SERDES_RX_GOOD_COUNTER,
     },
 }
-ringbuf!(Trace, 32, Trace::None);
+counted_ringbuf!(Trace, 32, Trace::None);
 
 ////////////////////////////////////////////////////////////////////////////////
 

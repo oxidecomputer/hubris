@@ -19,6 +19,7 @@ stm32h7 = { workspace = true }
 vsc7448-pac = { workspace = true }
 zerocopy = { workspace = true }
 
+counters = { path = "../../lib/counters" }
 drv-gimlet-seq-api = { path = "../../drv/gimlet-seq-api", optional = true }
 drv-psc-seq-api = { path = "../../drv/psc-seq-api", optional = true }
 drv-sidecar-seq-api = { path = "../../drv/sidecar-seq-api", optional = true }

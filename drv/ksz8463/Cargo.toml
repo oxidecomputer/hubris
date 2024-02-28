@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 num-traits = { workspace = true }
 
+counters = {path = "../../lib/counters"}
 drv-spi-api = {path = "../../drv/spi-api"}
 ringbuf = {path = "../../lib/ringbuf" }
 userlib = {path = "../../sys/userlib" }

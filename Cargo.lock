@@ -1012,7 +1012,6 @@ dependencies = [
 name = "drv-i2c-types"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "build-util",
  "counters",
  "derive-idol-err",
@@ -1602,6 +1601,7 @@ dependencies = [
  "anyhow",
  "build-spi",
  "build-util",
+ "counters",
  "derive-idol-err",
  "gateway-messages",
  "hubpack",
@@ -2620,6 +2620,7 @@ dependencies = [
 name = "ksz8463"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "drv-spi-api",
  "num-traits",
  "ringbuf",
@@ -4367,6 +4368,7 @@ dependencies = [
  "build-util",
  "cfg-if",
  "cortex-m",
+ "counters",
  "drv-gimlet-seq-api",
  "drv-psc-seq-api",
  "drv-sidecar-seq-api",
@@ -5203,6 +5205,7 @@ dependencies = [
 name = "vsc-err"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "drv-spi-api",
  "idol-runtime",
 ]
