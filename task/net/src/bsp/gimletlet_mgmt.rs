@@ -28,7 +28,7 @@ use vsc85xx::VscError;
 
 task_slot!(USER_LEDS, user_leds);
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, counters::Count)]
+#[derive(Copy, Clone, Eq, PartialEq, counters::Count)]
 enum Trace {
     #[count(skip)]
     None,
