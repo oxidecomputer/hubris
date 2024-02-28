@@ -19,6 +19,8 @@ zerocopy.workspace = true
 tlvc = { workspace = true, optional = true }
 pmbus = { workspace = true, optional = true }
 
+counters.path = "../../lib/counters"
+
 drv-gimlet-hf-api.path= "../../drv/gimlet-hf-api"
 drv-gimlet-seq-api.path= "../../drv/gimlet-seq-api"
 drv-oxide-vpd.path= "../../drv/oxide-vpd"
