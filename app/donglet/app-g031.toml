@@ -13,7 +13,7 @@ stacksize = 936
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
-max-sizes = {flash = 4096, ram = 512}
+max-sizes = {flash = 4128, ram = 512}
 start = true
 stacksize = 368
 notifications = ["fault", "timer"]
@@ -129,4 +129,3 @@ device = "tmp117"
 description = "TempSense"
 sensors = { temperature = 1 }
 removable = true
-
