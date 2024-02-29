@@ -93,11 +93,15 @@ enum Trace {
         max_iout: f32,
         min_vout: f32,
         max_vout: f32,
+        crossbounce_min_iout: f32,
+        crossbounce_max_iout: f32,
+        crossbounce_min_vout: f32,
+        crossbounce_max_vout: f32,
     },
     None,
 }
 
-ringbuf!(Trace, 64, Trace::None);
+ringbuf!(Trace, 52, Trace::None);
 
 fn trace_max5970(
     dev: &Max5970,
@@ -162,6 +166,10 @@ fn trace_max5970(
         max_iout,
         min_vout,
         max_vout,
+        crossbounce_min_iout: peaks.iout.crossbounce_min,
+        crossbounce_max_iout: peaks.iout.crossbounce_max,
+        crossbounce_min_vout: peaks.vout.crossbounce_min,
+        crossbounce_max_vout: peaks.vout.crossbounce_max,
     });
 }
 
@@ -169,6 +177,8 @@ fn trace_max5970(
 struct Max5970Peak {
     min: f32,
     max: f32,
+    crossbounce_min: f32,
+    crossbounce_max: f32,
 }
 
 impl Default for Max5970Peak {
@@ -176,6 +186,8 @@ impl Default for Max5970Peak {
         Self {
             min: f32::MAX,
             max: f32::MIN,
+            crossbounce_min: f32::MAX,
+            crossbounce_max: f32::MIN,
         }
     }
 }
@@ -190,12 +202,23 @@ impl Max5970Peak {
     /// or a minimum that is greater than our previous minimum) then there must
     /// have been a power cycle.  This can clearly yield false negatives, but
     /// it will not yield false positives:  if [`bounced`] returns true, one can
-    /// know with confidence that the power has been cycled.
+    /// know with confidence that the power has been cycled.  Note that we also
+    /// use this opportunity to retain the peaks across a bounce, which would
+    /// would otherwise be lost.
     ///
     fn bounced(&mut self, min: f32, max: f32) -> bool {
         let bounced = min > self.min || max < self.max;
         self.min = min;
         self.max = max;
+
+        if min < self.crossbounce_min {
+            self.crossbounce_min = min;
+        }
+
+        if max > self.crossbounce_max {
+            self.crossbounce_max = max;
+        }
+
         bounced
     }
 }
