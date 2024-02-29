@@ -46,7 +46,8 @@
 use crate::{Disposition, TaskStatus};
 use core::sync::atomic::{AtomicU32, Ordering};
 
-#[cfg(armv6m)]
+// This trait may not be needed, if compiling for a non-armv6m target.
+#[allow(unused_imports)]
 use armv6m_atomic_hack::AtomicU32Ext;
 
 use ringbuf::*;
