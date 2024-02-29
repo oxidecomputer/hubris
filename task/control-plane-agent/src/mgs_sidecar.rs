@@ -751,6 +751,13 @@ impl SpHandler for MgsHandler {
     ) -> Result<RotResponse, SpError> {
         self.common.read_rot_page(req, buf)
     }
+
+    fn vpd_lock_status_all(
+        &mut self,
+        buf: &mut [u8],
+    ) -> Result<usize, SpError> {
+        self.common.vpd_lock_status_all(buf)
+    }
 }
 
 // Helper function for `.map_err()`; we can't use `?` because we can't implement

@@ -78,6 +78,7 @@ enum Log {
     GotCabooseChunk([u8; 4]),
     ReadRotPage,
     IpcRequest(#[count(children)] IpcRequest),
+    VpdLockStatus,
 }
 
 // This enum does not define the actual MGS protocol - it is only used in the
@@ -163,6 +164,7 @@ enum MgsMessage {
         value_len: usize,
     },
     ReadRotPage,
+    VpdLockStatus,
 }
 
 // This enum does not define the actual IPC protocol - it is only used in the

@@ -54,5 +54,11 @@ Interface(
                 err: CLike("VpdError"),
             ),
         ),
+         "num_vpd_devices": (
+            doc: "Returns the total number of VPD devices in the system",
+            args: {},
+            reply: Simple("usize"),
+            idempotent: true,
+        ),
     },
 )
