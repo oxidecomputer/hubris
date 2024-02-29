@@ -13,7 +13,6 @@ drv-gimlet-seq-api = { path = "../../drv/gimlet-seq-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 counters = { path = "../../lib/counters" }
 
-
 [build-dependencies]
 build-util = { path = "../../build/util" }
 

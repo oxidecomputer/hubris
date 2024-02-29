@@ -29,10 +29,8 @@
 
 #![no_std]
 
-#[cfg(armv6m)]
 use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
-#[cfg(armv6m)]
 pub trait AtomicU32Ext {
     fn swap(&self, val: u32, order: Ordering) -> u32;
     fn fetch_add(&self, val: u32, order: Ordering) -> u32;
@@ -66,7 +64,24 @@ impl AtomicU32Ext for AtomicU32 {
     }
 }
 
-#[cfg(armv6m)]
+#[cfg(not(armv6m))]
+impl AtomicU32Ext for AtomicU32 {
+    #[inline]
+    fn swap(&self, val: u32, order: Ordering) -> u32 {
+        core::sync::atomic::AtomicU32::swap(self, val, order)
+    }
+
+    #[inline]
+    fn fetch_add(&self, val: u32, order: Ordering) -> u32 {
+        core::sync::atomic::AtomicU32::fetch_add(self, val, order)
+    }
+
+    #[inline]
+    fn fetch_sub(&self, val: u32, order: Ordering) -> u32 {
+        core::sync::atomic::AtomicU32::fetch_sub(self, val, order)
+    }
+}
+
 pub trait AtomicBoolExt {
     fn swap(&self, val: bool, order: Ordering) -> bool;
 }
@@ -79,6 +94,14 @@ impl AtomicBoolExt for AtomicBool {
         let orig = self.load(lo);
         self.store(new, so);
         orig
+    }
+}
+
+#[cfg(not(armv6m))]
+impl AtomicBoolExt for AtomicBool {
+    #[inline]
+    fn swap(&self, new: bool, order: Ordering) -> bool {
+        core::sync::atomic::AtomicBool::swap(self, new, order)
     }
 }
 

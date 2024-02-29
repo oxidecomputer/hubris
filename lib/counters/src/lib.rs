@@ -11,11 +11,9 @@
 //! and the [`counters!`] macro, which declares a set of static counters
 
 #![no_std]
+pub use armv6m_atomic_hack;
 #[cfg(feature = "derive")]
 pub use counters_derive::Count;
-
-#[cfg(target_arch = "arm")]
-pub use armv6m_atomic_hack;
 
 ///
 /// A countable event.

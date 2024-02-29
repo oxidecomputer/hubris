@@ -1012,7 +1012,6 @@ dependencies = [
 name = "drv-i2c-types"
 version = "0.1.0"
 dependencies = [
- "build-util",
  "counters",
  "derive-idol-err",
  "enum-kinds",

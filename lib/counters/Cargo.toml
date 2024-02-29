@@ -9,8 +9,6 @@ default = ["derive"]
 
 [dependencies]
 counters-derive = { path = "derive", optional = true }
-
-[target.'cfg(target_arch = "arm")'.dependencies]
 armv6m-atomic-hack = { path = "../armv6m-atomic-hack" }
 
 [lib]
