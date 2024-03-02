@@ -80,6 +80,7 @@ impl<'input> CountGenerator<'input> {
     }
 
     fn generate(self, input: &DeriveInput) -> impl ToTokens {
+        let generics = &input.generics;
         let Self {
             enum_name,
             field_defs,
@@ -95,16 +96,27 @@ impl<'input> CountGenerator<'input> {
         let vis = &input.vis;
 
         let counts_ty = counts_ty(enum_name);
+        let where_clauses = generics
+            .type_params()
+            .map(|p| {
+                quote! {
+                    #p: counters::Count
+                }
+            })
+            .collect::<Vec<_>>();
         quote! {
             #[doc = concat!("Total counts for [`", stringify!(#enum_name), "`].")]
             #[allow(nonstandard_style)]
-            #vis struct #counts_ty {
+            #vis struct #counts_ty #generics
+            where #(#where_clauses),*
+            {
                 #(#field_defs),*
             }
 
             #[automatically_derived]
-            impl counters::Count for #enum_name {
-                type Counters = #counts_ty;
+            impl #generics counters::Count for #enum_name #generics
+            where #(#where_clauses),* {
+                type Counters = #counts_ty #generics;
 
                 // This is intended for use in a static initializer, so the fact that every
                 // time the constant is used it will be a different instance is not a
@@ -113,7 +125,7 @@ impl<'input> CountGenerator<'input> {
                 // `declare_interior_mutable_const` is really Not My Favorite Clippy
                 // Lint...
                 #[allow(clippy::declare_interior_mutable_const)]
-                const NEW_COUNTERS: #counts_ty = #counts_ty {
+                const NEW_COUNTERS: #counts_ty #generics = #counts_ty {
                     #(#field_inits),*
                 };
 

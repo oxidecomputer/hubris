@@ -18,6 +18,7 @@ fn main() -> Result<()> {
         "server_stub.rs",
         idol::server::ServerStyle::InOrder,
         &allowed_callers,
+        &Default::default(),
     )
     .unwrap();
 
