@@ -12,7 +12,9 @@ use userlib::*;
 
 pub use humpty::*;
 
-#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
+#[derive(
+    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, counters::Count,
+)]
 pub enum DumpAgentError {
     DumpAgentUnsupported = 1,
     InvalidArea,

@@ -23,7 +23,7 @@ userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 byteorder = { workspace = true }
 cfg-if = { workspace = true }
 cortex-m = { workspace = true }
-idol-runtime = { workspace = true }
+idol-runtime = { workspace = true, features = ["counters"] }
 num-traits = { workspace = true }
 zerocopy = { workspace = true }
 num-derive = { workspace = true }
