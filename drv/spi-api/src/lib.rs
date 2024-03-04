@@ -24,6 +24,7 @@ use userlib::*;
     Serialize,
     Deserialize,
 )]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 #[repr(u32)]
 pub enum SpiError {
     /// Transfer size is 0 or exceeds maximum

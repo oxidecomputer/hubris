@@ -18,6 +18,7 @@ pub use oxide_barcode::VpdIdentity;
 pub const MAX_INSTALLINATOR_IMAGE_ID_LEN: usize = 512;
 
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 pub enum ControlPlaneAgentError {
     DataUnavailable = 1,
     InvalidStartupOptions,
@@ -28,9 +29,8 @@ pub enum ControlPlaneAgentError {
     ServerRestarted,
 }
 
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, counters::Count,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 pub enum UartClient {
     Mgs,
     Humility,

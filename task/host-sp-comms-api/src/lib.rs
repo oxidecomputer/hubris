@@ -12,6 +12,7 @@ use userlib::*;
 pub use host_sp_messages::{HostStartupOptions, Status};
 
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 pub enum HostSpCommsError {
     InvalidStatus = 1,
     InvalidStartupOptions,

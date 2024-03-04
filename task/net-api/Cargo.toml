@@ -4,10 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
+counters = ["dep:counters", "idol-runtime/counters"]
 use-smoltcp = ["smoltcp"]
 vlan = ["build-net/vlan"]
 mgmt = ["ksz8463"]
 ksz8463 = ["drv-spi-api", "dep:ksz8463"]
+
+default = ["counters"]
 
 [dependencies]
 hubpack = { workspace = true }
@@ -17,6 +20,7 @@ serde = { workspace = true }
 smoltcp = { workspace = true, optional = true }
 zerocopy = { workspace = true }
 
+counters = { path = "../../lib/counters", optional = true}
 derive-idol-err = { path = "../../lib/derive-idol-err"  }
 drv-spi-api = { path = "../../drv/spi-api", optional = true }
 ksz8463 = { path = "../../drv/ksz8463", optional = true }

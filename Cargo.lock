@@ -857,6 +857,7 @@ dependencies = [
 name = "drv-fpga-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "drv-auxflash-api",
  "drv-spi-api",
  "idol",
@@ -1031,6 +1032,7 @@ dependencies = [
 name = "drv-i2c-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "drv-i2c-types",
  "userlib",
  "zerocopy 0.6.6",
@@ -1084,6 +1086,7 @@ dependencies = [
  "build-fpga-regmap",
  "build-util",
  "cfg-if",
+ "counters",
  "derive-idol-err",
  "derive_more",
  "drv-fpga-api",
@@ -1486,6 +1489,7 @@ name = "drv-rng-api"
 version = "0.1.0"
 dependencies = [
  "abi",
+ "counters",
  "derive-idol-err",
  "getrandom",
  "idol",
@@ -1646,6 +1650,7 @@ dependencies = [
  "anyhow",
  "build-spi",
  "build-util",
+ "counters",
  "derive-idol-err",
  "gateway-messages",
  "hubpack",
@@ -4415,6 +4420,7 @@ dependencies = [
 name = "task-host-sp-comms-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "host-sp-messages",
  "idol",
@@ -4553,6 +4559,7 @@ version = "0.1.0"
 dependencies = [
  "build-net",
  "build-util",
+ "counters",
  "derive-idol-err",
  "drv-spi-api",
  "hubpack",
@@ -4591,6 +4598,7 @@ dependencies = [
 name = "task-packrat-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "host-sp-messages",
  "idol",
@@ -4655,6 +4663,7 @@ dependencies = [
 name = "task-power-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "drv-i2c-api",
  "hubpack",
  "idol",
@@ -4698,6 +4707,7 @@ dependencies = [
  "anyhow",
  "build-i2c",
  "build-util",
+ "counters",
  "drv-i2c-api",
  "hubpack",
  "idol",
@@ -4729,6 +4739,7 @@ dependencies = [
 name = "task-sensor-types"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "drv-i2c-types",
  "hubpack",
@@ -4908,6 +4919,7 @@ name = "task-validate-api"
 version = "0.1.0"
 dependencies = [
  "build-i2c",
+ "counters",
  "derive-idol-err",
  "drv-i2c-api",
  "hubpack",
@@ -4944,6 +4956,7 @@ dependencies = [
 name = "task-vpd-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "drv-i2c-api",
  "idol",

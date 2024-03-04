@@ -15,6 +15,7 @@ use zerocopy::{AsBytes, FromBytes};
 pub use task_packrat_api::MacAddressBlock;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError)]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 #[repr(u32)]
 pub enum SendError {
     /// The selected socket is not owned by this task
@@ -33,6 +34,7 @@ pub enum SendError {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError)]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 #[repr(u32)]
 pub enum RecvError {
     /// The selected socket is not owned by this task
@@ -48,6 +50,7 @@ pub enum RecvError {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError)]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 #[repr(u32)]
 pub enum PhyError {
     /// The selected port is not valid
@@ -63,6 +66,7 @@ pub enum PhyError {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError)]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 #[repr(u32)]
 pub enum KszError {
     /// This functionality is not available on the given board
@@ -150,6 +154,7 @@ pub struct ManagementCounters {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError)]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 #[repr(u32)]
 pub enum MgmtError {
     NotAvailable = 1,

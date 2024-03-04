@@ -3,6 +3,9 @@ name = "task-power-api"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["counters"]
+
 [dependencies]
 hubpack.workspace = true
 num-traits.workspace = true
@@ -12,6 +15,7 @@ serde-big-array.workspace = true
 static_assertions.workspace = true
 zerocopy.workspace = true
 
+counters = { path = "../../lib/counters", optional = true }
 drv-i2c-api.path = "../../drv/i2c-api"
 task-sensor-api.path = "../sensor-api"
 userlib.path = "../../sys/userlib"

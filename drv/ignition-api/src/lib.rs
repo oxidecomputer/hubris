@@ -35,6 +35,7 @@ pub const PORT_MAX: u8 = 40;
     ToPrimitive,
     IdolError,
 )]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 pub enum IgnitionError {
     /// Indicates an error communicating with the FPGA implementing the
     /// Controller.

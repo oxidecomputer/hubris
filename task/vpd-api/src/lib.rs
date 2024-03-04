@@ -11,6 +11,7 @@ use drv_i2c_api::ResponseCode;
 use userlib::*;
 
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 pub enum VpdError {
     InvalidDevice = 1,
     NotPresent,

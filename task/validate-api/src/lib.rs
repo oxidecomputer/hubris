@@ -14,6 +14,7 @@ use zerocopy::AsBytes;
 pub use task_sensor_api::SensorId;
 
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 pub enum ValidateError {
     InvalidDevice = 1,
     BadValidation,

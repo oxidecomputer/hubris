@@ -158,7 +158,7 @@ register_defs = "gimlet-regs-b.json"
 name = "task-gimlet-inspector"
 priority = 6
 features = ["vlan"]
-max-sizes = {flash = 16384, ram = 2048 }
+max-sizes = {flash = 16384, ram = 4096 }
 stacksize = 1600
 start = true
 task-slots = ["net", {seq = "gimlet_seq"}]
@@ -214,7 +214,7 @@ features = ["stm32h753", "uart7", "baud_rate_3M", "hardware_flow_control", "vlan
 uses = ["uart7", "dbgmcu"]
 interrupts = {"uart7.irq" = "usart-irq"}
 priority = 7
-max-sizes = {flash = 65536, ram = 32768}
+max-sizes = {flash = 65536, ram = 65536}
 stacksize = 4096
 start = true
 task-slots = ["sys", "gimlet_seq", "hf", "control_plane_agent", "net", "packrat", "i2c_driver", { spi_driver = "spi2_driver" }]

@@ -3,6 +3,9 @@ name = "drv-ignition-api"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["counters"]
+
 [dependencies]
 bitfield = { workspace = true }
 cfg-if = { workspace = true }
@@ -14,6 +17,7 @@ serde = { workspace = true }
 static_assertions = { workspace = true }
 zerocopy = { workspace = true }
 
+counters = { path = "../../lib/counters", optional = true }
 derive-idol-err = { path = "../../lib/derive-idol-err" }
 drv-fpga-api = { path = "../fpga-api" }
 userlib = { path = "../../sys/userlib" }

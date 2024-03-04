@@ -31,7 +31,11 @@ struct Sensor {
 }
 
 fn main() -> Result<()> {
-    idol::client::build_client_stub("../../idl/sensor.idol", "client_stub.rs")
+    idol::Generator::new()
+        .with_counters(
+            cfg!(feature = "counters").then(idol::CounterSettings::default),
+        )
+        .build_client_stub("../../idl/sensor.idol", "client_stub.rs")
         .map_err(|e| anyhow!("idol error: {e}"))?;
 
     build_i2c::codegen(build_i2c::Disposition::Sensors)?;

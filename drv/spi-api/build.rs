@@ -8,7 +8,11 @@ use std::fs::File;
 use std::io::Write;
 
 fn main() -> Result<()> {
-    idol::client::build_client_stub("../../idl/spi.idol", "client_stub.rs")
+    idol::Generator::new()
+        .with_counters(
+            cfg!(feature = "counters").then(idol::CounterSettings::default),
+        )
+        .build_client_stub("../../idl/spi.idol", "client_stub.rs")
         .map_err(|e| anyhow!(e))?;
 
     let out_dir = build_util::out_dir();

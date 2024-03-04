@@ -6,7 +6,6 @@
 
 #![no_std]
 
-use counters::Count;
 use derive_idol_err::IdolError;
 use drv_i2c_api::ResponseCode;
 use hubpack::SerializedSize;
@@ -14,9 +13,8 @@ use serde::{Deserialize, Serialize};
 use userlib::{units::Celsius, *};
 use zerocopy::{AsBytes, FromBytes};
 
-#[derive(
-    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, Count,
-)]
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 pub enum ThermalError {
     InvalidFan = 1,
     InvalidPWM = 2,
@@ -42,8 +40,8 @@ pub enum ThermalError {
     Serialize,
     Deserialize,
     SerializedSize,
-    Count,
 )]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 pub enum ThermalMode {
     /// The thermal loop has not started.  This is the initial state, but
     /// should be transient, as the thermal task turns on.
@@ -70,8 +68,8 @@ pub enum ThermalMode {
     Serialize,
     Deserialize,
     SerializedSize,
-    Count,
 )]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 pub enum ThermalAutoState {
     Boot,
     Running,
@@ -137,8 +135,9 @@ impl ThermalProperties {
 #[derive(
     Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize, SerializedSize,
 )]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 pub enum SensorReadError {
-    I2cError(ResponseCode),
+    I2cError(#[cfg_attr(feature = "counters", count(children))] ResponseCode),
 
     /// The sensor reported that data is either not present or too old
     NoData,
