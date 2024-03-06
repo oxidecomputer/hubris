@@ -178,19 +178,10 @@ impl Count for core::convert::Infallible {
     #[allow(clippy::declare_interior_mutable_const)]
     const NEW_COUNTERS: Self::Counters = AtomicU32::new(0);
 
-    fn count(&self, _counters: &Self::Counters) {
+    fn count(&self, _: &Self::Counters) {
         // `Infallible`s are not made. They should NEVER be made. We
         // will not count them. We will not help count them.
-        #[cfg(debug_assertions)]
-        unreachable!();
-
-        // but just in case...
-        #[cfg(not(debug_assertions))]
-        armv6m_atomic_hack::AtomicU32Ext::fetch_add(
-            _counters,
-            1,
-            Ordering::Relaxed,
-        );
+        match *self {}
     }
 }
 
