@@ -64,7 +64,7 @@ fletcher = { version = "0.3", default-features = false }
 fnv = { version = "1.0.7", default-features = false }
 getrandom = { version = "0.2", default-features = false }
 goblin = { version = "0.4.3", default-features = true } # goblin::Object doesn't work without everything enabled
-heapless = { version = "0.7.16", default-features = false }
+heapless = { version = "0.7.17", default-features = false }
 hkdf = { version = "0.12", default-features = false }
 hmac = { version = "0.12.1", default-features = false }
 hubpack = { version = "0.1.2", default-features = false }
