@@ -50,12 +50,12 @@ pub trait Count {
 /// static.
 #[macro_export]
 macro_rules! counters {
-    ($name:ident, $Type:ident) => {
+    ($name:ident, $Type:ty) => {
         #[used]
         static $name: <$Type as $crate::Count>::Counters =
             <$Type as $crate::Count>::NEW_COUNTERS;
     };
-    ($Type:ident) => {
+    ($Type:ty) => {
         $crate::counters!(__COUNTERS, $Type);
     };
 }
@@ -132,6 +132,65 @@ impl<T: Count> Count for Option<T> {
                 );
             }
         }
+    }
+}
+
+impl<T: Count, E: Count> Count for &'_ Result<T, E> {
+    type Counters = ResultCounters<T, E>;
+    const NEW_COUNTERS: Self::Counters = ResultCounters {
+        Ok: T::NEW_COUNTERS,
+        Err: E::NEW_COUNTERS,
+    };
+
+    fn count(&self, counters: &Self::Counters) {
+        match self {
+            Ok(t) => t.count(&counters.Ok),
+            Err(e) => e.count(&counters.Err),
+        }
+    }
+}
+
+impl<T: Count> Count for &'_ Option<T> {
+    type Counters = OptionCounters<T>;
+
+    #[allow(clippy::declare_interior_mutable_const)]
+    const NEW_COUNTERS: Self::Counters = OptionCounters {
+        Some: T::NEW_COUNTERS,
+        None: AtomicU32::new(0),
+    };
+
+    fn count(&self, counters: &Self::Counters) {
+        match self {
+            Some(t) => t.count(&counters.Some),
+            None => {
+                armv6m_atomic_hack::AtomicU32Ext::fetch_add(
+                    &counters.None,
+                    1,
+                    Ordering::Relaxed,
+                );
+            }
+        }
+    }
+}
+
+impl Count for core::convert::Infallible {
+    type Counters = AtomicU32;
+    #[allow(clippy::declare_interior_mutable_const)]
+    const NEW_COUNTERS: Self::Counters = AtomicU32::new(0);
+
+    fn count(&self, _counters: &Self::Counters) {
+        // `Infallible`s are not made. They should NEVER be made. We
+        // will not count them. We will not help count them.
+        #[cfg(debug_assertions)]
+        unreachable!();
+
+        // but just in case...
+        #[cfg(not(debug_assertions))]
+        armv6m_atomic_hack::AtomicU32Ext::fetch_add(
+            _counters,
+            1,
+            Ordering::Relaxed,
+        );
     }
 }
 
