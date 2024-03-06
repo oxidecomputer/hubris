@@ -4,11 +4,14 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
+default = ["critical-section"]
 panic-messages = []
+critical-section = ["dep:critical-section"]
 
 [dependencies]
 bstringify = { workspace = true }
 cfg-if = { workspace = true }
+critical-section = {workspace = true, optional = true, features = ["restore-state-none"]}
 num-derive = { workspace = true }
 num-traits = { workspace = true }
 paste = { workspace = true }

@@ -44,6 +44,9 @@ pub mod kipc;
 pub mod task_slot;
 pub mod units;
 
+#[cfg(feature = "critical-section")]
+pub mod critical_section;
+
 #[derive(Debug)]
 #[repr(transparent)]
 pub struct Lease<'a> {

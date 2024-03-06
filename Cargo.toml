@@ -50,6 +50,7 @@ cortex-m = { version = "0.7", default-features = false, features = ["inline-asm"
 cortex-m-rt = { version = "0.6.12", default-features = false }
 cortex-m-semihosting = { version = "0.5.0", default-features = false }
 crc = { version = "3.0.0", default-features = false }
+critical-section = { version = "1.1.2" }
 crypto-common = { version = "0.1.6", default-features = false }
 ctrlc = { version = "3.1.5", default-features = false }
 derive_more = { version = "0.99", default-features = false, features = ["from", "into"] }
