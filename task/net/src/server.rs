@@ -517,7 +517,7 @@ where
         if generated::SOCKET_OWNERS[socket_index].0.index()
             != msg.sender.index()
         {
-            return Err(RecvError::NotYours.into());
+            return Err(ClientError::AccessViolation.fail());
         }
 
         // Iterate over all of the per-VLAN sockets, returning the first

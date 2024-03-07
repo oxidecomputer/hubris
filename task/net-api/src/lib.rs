@@ -36,16 +36,16 @@ pub enum SendError {
 )]
 #[repr(u32)]
 pub enum RecvError {
-    /// The selected socket is not owned by this task
-    NotYours = 1,
+    /// The incoming RX queue is empty; there are no packets able to be received
+    /// from this socket. You can wait on the notification and try again if you
+    /// like.
+    QueueEmpty = 1,
 
-    /// The incoming rx queue is empty
-    QueueEmpty = 2,
-
-    Other = 3,
-
+    /// The server has restarted. Clients may or may not actually care about
+    /// this; often you'll just want to retry, but because a netstack restart
+    /// may imply one or more lost packets, we don't want to assume that.
     #[idol(server_death)]
-    ServerRestarted = 4,
+    ServerRestarted = 2,
 }
 
 #[derive(

@@ -543,7 +543,6 @@ impl NetHandler {
                 Err(RecvError::QueueEmpty | RecvError::ServerRestarted) => {
                     return;
                 }
-                Err(RecvError::NotYours | RecvError::Other) => panic!(),
             }
         }
     }
