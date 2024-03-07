@@ -45,12 +45,9 @@ fn main() -> ! {
                             )
                             .unwrap();
                         }
-                        Err(
-                            SendError::ServerRestarted
-                            | SendError::NotYours
-                            | SendError::InvalidVLan
-                            | SendError::Other,
-                        ) => panic!(),
+                        Err(SendError::ServerRestarted) => {
+                            // Welp, lost an echo, we'll just soldier on.
+                        }
                     }
                 }
             }

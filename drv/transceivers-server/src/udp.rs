@@ -144,10 +144,7 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::SendError(e));
                 match e {
                     SendError::QueueFull => (),
-                    SendError::Other
-                    | SendError::ServerRestarted
-                    | SendError::NotYours
-                    | SendError::InvalidVLan => panic!(),
+                    SendError::ServerRestarted => panic!(),
                 }
             }
         }
