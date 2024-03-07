@@ -20,6 +20,7 @@ pub use drv_qspi_api::{PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES};
 /// This enumeration doesn't include errors that result from configuration
 /// issues, like sending host flash messages to some other task.
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 pub enum HfError {
     WriteEnableFailed = 1,
     HashBadRange,

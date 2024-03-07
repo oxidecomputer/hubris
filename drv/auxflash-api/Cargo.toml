@@ -10,6 +10,7 @@ sha3.workspace = true
 tlvc.workspace = true
 zerocopy.workspace = true
 
+counters = { path = "../../lib/counters", optional = true}
 derive-idol-err = { path = "../../lib/derive-idol-err" }
 drv-qspi-api = { path = "../qspi-api" }
 userlib = { path = "../../sys/userlib" }

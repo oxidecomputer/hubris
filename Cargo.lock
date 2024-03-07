@@ -789,6 +789,7 @@ name = "drv-auxflash-api"
 version = "0.1.0"
 dependencies = [
  "build-util",
+ "counters",
  "derive-idol-err",
  "drv-qspi-api",
  "idol",
@@ -923,6 +924,7 @@ dependencies = [
 name = "drv-gimlet-hf-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "drv-hash-api",
  "drv-qspi-api",
@@ -2008,6 +2010,7 @@ name = "drv-transceivers-api"
 version = "0.1.0"
 dependencies = [
  "build-i2c",
+ "counters",
  "derive-idol-err",
  "drv-fpga-api",
  "idol",

@@ -9,10 +9,11 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let global_config = build_util::config::<GlobalConfig>()?;
     generate_auxflash_config(&global_config.auxflash)?;
 
-    idol::client::build_client_stub(
-        "../../idl/auxflash.idol",
-        "client_stub.rs",
-    )?;
+    idol::Generator::new()
+        .with_counters(
+            cfg!(feature = "counters").then(idol::CounterSettings::default),
+        )
+        .build_client_stub("../../idl/auxflash.idol", "client_stub.rs")?;
     Ok(())
 }
 

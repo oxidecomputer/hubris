@@ -15,6 +15,7 @@ use zerocopy::{AsBytes, FromBytes};
 pub use drv_qspi_api::{PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES};
 
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 pub enum AuxFlashError {
     WriteEnableFailed = 1,
     TlvcReaderBeginFailed,
