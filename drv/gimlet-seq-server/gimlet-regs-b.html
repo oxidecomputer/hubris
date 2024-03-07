@@ -2050,7 +2050,8 @@ SP3_VDDCR_SOC_A0 (PWR_CONT2_SP3_PG0 net)
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="10*">RSVD</td>
+                <td class="rsvdspandef" colspan="8*">RSVD</td>
+                <td class="validspandef" colspan="2*">NIC_PWREN</td>
                 <td class="validspandef" colspan="2*">PWRGD_OUT</td>
                 <td class="validspandef" colspan="2*">FSR_REQ</td>
                 <td class="validspandef" colspan="2*">THERMTRIP</td>
@@ -2062,6 +2063,20 @@ SP3_VDDCR_SOC_A0 (PWR_CONT2_SP3_PG0 net)
         <td class="FieldHeader" colspan="2*">Access</td>
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat34" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">NIC_PWREN</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">NIC_PWREN (inversion of net SP3_TO_SP_NIC_PWREN_L), available on C and newer Gimlets.
+When Asserted high in this register, the net is active low, and NIC power is expected to
+be commanded on by Hubris (see NIC_CTRL register).  This is a readback-only view, no 
+autonomous FPGA action occurs on the status of this pin, Hubris also monitors and takes
+action.  Only valid in A0 and higher power states but is a simple pass-through in the
+FPGA, no gating logic
+        </td>
     </tr>
     <tr class="cat34" style="display: none">
         <td class="Blank" colspan="3*"></td>
