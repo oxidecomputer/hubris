@@ -5,7 +5,7 @@
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     idol::Generator::new()
         .with_counters(
-            cfg(feature = "counters").then(idol::CounterSettings::default()),
+            cfg!(feature = "counters").then(idol::CounterSettings::default),
         )
         .build_client_stub("../../idl/rng.idol", "client_stub.rs")?;
     Ok(())
