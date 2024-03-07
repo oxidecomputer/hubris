@@ -16,6 +16,7 @@ pub const SHA256_SZ: usize = 32;
 /// This enumeration doesn't include errors that result from configuration
 /// issues, like sending host flash messages to some other task.
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 pub enum HashError {
     NotInitialized = 1,
     InvalidState,

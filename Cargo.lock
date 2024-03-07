@@ -99,6 +99,7 @@ dependencies = [
 name = "attest-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "gateway-messages",
  "hubpack",
@@ -824,6 +825,7 @@ dependencies = [
 name = "drv-caboose"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "hubpack",
  "num-traits",
@@ -1022,6 +1024,7 @@ dependencies = [
 name = "drv-hash-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "idol",
  "idol-runtime",
@@ -1159,6 +1162,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if",
+ "counters",
  "derive-idol-err",
  "idol",
  "idol-runtime",
@@ -1310,6 +1314,7 @@ name = "drv-lpc55-syscon-api"
 version = "0.1.0"
 dependencies = [
  "build-util",
+ "counters",
  "idol",
  "num-traits",
  "userlib",
@@ -1320,6 +1325,7 @@ dependencies = [
 name = "drv-lpc55-update-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "drv-caboose",
  "drv-update-api",
@@ -1371,6 +1377,7 @@ dependencies = [
 name = "drv-meanwell-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "idol",
  "num-traits",
@@ -1410,6 +1417,7 @@ dependencies = [
 name = "drv-monorail-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "hubpack",
  "idol",
@@ -1526,6 +1534,7 @@ dependencies = [
 name = "drv-sbrmi-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "drv-i2c-api",
  "drv-i2c-devices",
@@ -1593,6 +1602,7 @@ dependencies = [
 name = "drv-sidecar-seq-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "drv-fpga-api",
  "drv-fpga-user-api",
@@ -1637,6 +1647,7 @@ dependencies = [
 name = "drv-sp-ctrl-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "idol",
  "idol-runtime",
@@ -1669,6 +1680,7 @@ name = "drv-sprot-api"
 version = "0.1.0"
 dependencies = [
  "attest-api",
+ "counters",
  "crc",
  "derive-idol-err",
  "derive_more",
@@ -1894,6 +1906,7 @@ dependencies = [
 name = "drv-stm32h7-update-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "drv-caboose",
  "drv-update-api",
  "hubpack",
@@ -1989,6 +2002,7 @@ version = "0.1.0"
 dependencies = [
  "byteorder",
  "cfg-if",
+ "counters",
  "derive-idol-err",
  "drv-stm32xx-gpio-common",
  "idol",
@@ -2058,6 +2072,7 @@ dependencies = [
 name = "drv-update-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "derive_more",
  "gateway-messages",
@@ -2095,6 +2110,7 @@ dependencies = [
 name = "drv-user-leds-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "idol",
  "num-traits",
@@ -2123,6 +2139,7 @@ dependencies = [
 name = "dumper-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "hubpack",
  "humpty",
@@ -4017,6 +4034,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 name = "stage0-handoff"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "hubpack",
  "serde",
  "static_assertions",
@@ -5005,6 +5023,7 @@ dependencies = [
 name = "test-idol-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "idol",
  "idol-runtime",

@@ -11,6 +11,7 @@ use userlib::*;
 
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 #[repr(u32)]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 pub enum SpCtrlError {
     BadLen = 1,
     NeedInit,

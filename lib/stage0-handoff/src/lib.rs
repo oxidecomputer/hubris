@@ -32,6 +32,7 @@ const_assert!(UPDATE_RANGE.end <= MEM_RANGE.end);
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
 )]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 pub enum HandoffDataLoadError {
     Deserialize,
     BadMagic,

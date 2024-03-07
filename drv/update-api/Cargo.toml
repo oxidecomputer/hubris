@@ -12,6 +12,7 @@ serde.workspace = true
 zerocopy.workspace = true
 gateway-messages.workspace = true
 
+counters = { path = "../../lib/counters", optional = true }
 derive-idol-err.path = "../../lib/derive-idol-err"
 ringbuf.path = "../../lib/ringbuf"
 userlib.path = "../../sys/userlib"

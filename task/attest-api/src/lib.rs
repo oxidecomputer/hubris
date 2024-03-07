@@ -13,6 +13,7 @@ use userlib::sys_send;
 #[derive(
     Copy, Clone, Debug, Deserialize, Eq, PartialEq, Serialize, SerializedSize,
 )]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 pub enum AttestError {
     CertTooBig,
     InvalidCertIndex,

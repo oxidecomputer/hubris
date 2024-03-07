@@ -24,11 +24,16 @@ use idol_runtime::RequestError;
 #[derive(
     Debug, Copy, Clone, Serialize, Deserialize, SerializedSize, From, PartialEq,
 )]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 pub enum SprotError {
-    Protocol(SprotProtocolError),
-    Spi(SpiError),
-    Update(UpdateError),
-    Sprockets(SprocketsError),
+    Protocol(
+        #[cfg_attr(feature = "counters", count(children))] SprotProtocolError,
+    ),
+    Spi(#[cfg_attr(feature = "counters", count(children))] SpiError),
+    Update(#[cfg_attr(feature = "counters", count(children))] UpdateError),
+    Sprockets(
+        #[cfg_attr(feature = "counters", count(children))] SprocketsError,
+    ),
 }
 
 impl From<SprotError> for SpError {
@@ -63,6 +68,7 @@ impl From<idol_runtime::ServerDeath> for SprotError {
 #[derive(
     Copy, Clone, Debug, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
 )]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 pub enum SprotProtocolError {
     /// CRC check failed.
     InvalidCrc,
@@ -162,6 +168,7 @@ impl SprotError {
 #[derive(
     Copy, Clone, Debug, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
 )]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 pub enum SprocketsError {
     BadEncoding,
     UnsupportedVersion,
@@ -177,8 +184,9 @@ impl From<SprocketsError> for GwSprocketsErr {
 }
 
 #[derive(Copy, Clone, Debug, From, Deserialize, Serialize, SerializedSize)]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 pub enum DumpOrSprotError {
-    Sprot(SprotError),
+    Sprot(#[cfg_attr(feature = "counters", count(children))] SprotError),
     Dump(DumperError),
 }
 
@@ -195,15 +203,17 @@ impl<V> From<DumpOrSprotError> for Result<V, RequestError<DumpOrSprotError>> {
 }
 
 #[derive(Copy, Clone, Debug, From, Deserialize, Serialize, SerializedSize)]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 pub enum RawCabooseOrSprotError {
-    Sprot(SprotError),
-    Caboose(RawCabooseError),
+    Sprot(#[cfg_attr(feature = "counters", count(children))] SprotError),
+    Caboose(#[cfg_attr(feature = "counters", count(children))] RawCabooseError),
 }
 
 #[derive(Copy, Clone, Debug)]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 pub enum CabooseOrSprotError {
-    Sprot(SprotError),
-    Caboose(CabooseError),
+    Sprot(#[cfg_attr(feature = "counters", count(children))] SprotError),
+    Caboose(#[cfg_attr(feature = "counters", count(children))] CabooseError),
 }
 
 impl From<RawCabooseOrSprotError> for CabooseOrSprotError {
@@ -218,9 +228,10 @@ impl From<RawCabooseOrSprotError> for CabooseOrSprotError {
 }
 
 #[derive(Copy, Clone, Debug, From, Deserialize, Serialize, SerializedSize)]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 pub enum AttestOrSprotError {
-    Sprot(SprotError),
-    Attest(AttestError),
+    Sprot(#[cfg_attr(feature = "counters", count(children))] SprotError),
+    Attest(#[cfg_attr(feature = "counters", count(children))] AttestError),
 }
 
 impl From<SprotError> for RequestError<AttestOrSprotError> {

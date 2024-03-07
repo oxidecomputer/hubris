@@ -5,6 +5,10 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = ["counters"]
+counters = ["dep:counters", "stage0-handoff/counters", "drv-update-api/counters"]
+
 [dependencies]
 gateway-messages.workspace = true
 hubpack.workspace = true
@@ -13,6 +17,7 @@ num-traits.workspace = true
 serde.workspace = true
 zerocopy.workspace = true
 
+counters = { path = "../../lib/counters", optional = true }
 derive-idol-err.path = "../../lib/derive-idol-err"
 drv-caboose.path = "../../drv/caboose"
 drv-update-api.path = "../update-api"

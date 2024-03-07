@@ -4,6 +4,10 @@
 
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     build_util::expose_target_board();
-    idol::client::build_client_stub("../../idl/syscon.idol", "client_stub.rs")?;
+    idol::Generator::new()
+        .with_counters(
+            cfg!(feature = "counters").then(idol::CounterSettings::default),
+        )
+        .build_client_stub("../../idl/syscon.idol", "client_stub.rs")?;
     Ok(())
 }

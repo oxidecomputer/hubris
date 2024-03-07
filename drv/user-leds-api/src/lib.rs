@@ -10,6 +10,7 @@ use derive_idol_err::IdolError;
 use userlib::*;
 
 #[derive(Copy, Clone, Debug, FromPrimitive, IdolError)]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 pub enum LedError {
     NotPresent = 1,
 }

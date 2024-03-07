@@ -65,6 +65,7 @@ pub struct PortCounters {
 #[derive(
     Copy, Clone, Debug, Eq, PartialEq, FromPrimitive, ToPrimitive, IdolError,
 )]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 #[repr(C)]
 pub enum MonorailError {
     SpiError = 1,

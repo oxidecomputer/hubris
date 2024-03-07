@@ -3,7 +3,11 @@ name = "drv-lpc55-syscon-api"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["counters"]
+
 [dependencies]
+counters = { path = "../../lib/counters", optional = true }
 userlib = { path = "../../sys/userlib" }
 
 num-traits = { workspace = true }

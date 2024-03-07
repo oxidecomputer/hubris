@@ -31,6 +31,7 @@ use userlib::*;
     Deserialize,
     SerializedSize,
 )]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 pub enum DumperError {
     SetupFailed = 1,
     UnalignedAddress = 2,

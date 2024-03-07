@@ -29,6 +29,7 @@ use userlib::{sys_send, FromPrimitive};
     Serialize,
     Deserialize,
 )]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 pub enum RawCabooseError {
     InvalidRead = 1,
     ReadFailed,

@@ -11,6 +11,7 @@ use tlvc::{TlvcRead, TlvcReadError, TlvcReader};
 use userlib::FromPrimitive;
 
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 pub enum CabooseError {
     MissingCaboose = 1,
     TlvcReaderBeginFailed,

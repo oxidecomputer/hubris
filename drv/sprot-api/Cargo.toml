@@ -18,6 +18,7 @@ tlvc.workspace = true
 zerocopy.workspace = true
 
 attest-api = { path = "../../task/attest-api" }
+counters = { path = "../../lib/counters", optional = true }
 derive-idol-err = { path = "../../lib/derive-idol-err" }
 drv-caboose = { path = "../../drv/caboose" }
 drv-lpc55-update-api = { path = "../../drv/lpc55-update-api" }
@@ -33,6 +34,16 @@ idol = { workspace = true }
 
 [features]
 sink_test = []
+counters = [
+    "dep:counters",
+    "attest-api/counters",
+    "drv-spi-api/counters",
+    "dumper-api/counters",
+    "drv-caboose/counters",
+    "drv-lpc55-update-api/counters",
+    "drv-update-api/counters",
+]
+default = ["counters"]
 
 [lib]
 test = false
