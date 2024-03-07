@@ -198,3 +198,34 @@ impl Count for () {
         );
     }
 }
+
+/// Counters for [`bool`]s.
+///
+/// This allows placing the `#[count(children)]`
+/// attribute on `bool` fields in `enum` variants.
+pub struct BoolCounts {
+    /// The total number of times these counters have recorded a `true` value.
+    pub r#true: AtomicU32,
+    /// The total number of times these counters have recorded a `false`
+    /// value.
+    pub r#false: AtomicU32,
+}
+
+impl Count for bool {
+    type Counters = BoolCounts;
+
+    #[allow(clippy::declare_interior_mutable_const)]
+    const NEW_COUNTERS: Self::Counters = BoolCounts {
+        r#true: AtomicU32::new(0),
+        r#false: AtomicU32::new(0),
+    };
+
+    fn count(&self, counters: &Self::Counters) {
+        let ctr = match self {
+            true => &counters.r#true,
+            false => &counters.r#false,
+        };
+
+        armv6m_atomic_hack::AtomicU32Ext::fetch_add(ctr, 1, Ordering::Relaxed);
+    }
+}

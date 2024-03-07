@@ -13,6 +13,7 @@ pub enum Event {
     SomethingHappened,
     SayHello(#[count(children)] people::Person),
     SomeNumber(u32),
+    ToBeOrNotToBe(#[count(children)] bool),
 }
 
 counters!(Event);
