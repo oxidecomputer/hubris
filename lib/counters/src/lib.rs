@@ -50,12 +50,12 @@ pub trait Count {
 /// static.
 #[macro_export]
 macro_rules! counters {
-    ($name:ident, $Type:ident) => {
+    ($name:ident, $Type:ty) => {
         #[used]
         static $name: <$Type as $crate::Count>::Counters =
             <$Type as $crate::Count>::NEW_COUNTERS;
     };
-    ($Type:ident) => {
+    ($Type:ty) => {
         $crate::counters!(__COUNTERS, $Type);
     };
 }
