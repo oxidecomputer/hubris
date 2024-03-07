@@ -78,6 +78,127 @@ macro_rules! count {
         $crate::count!(__COUNTERS, $event);
     };
 }
+
+/// Counters for [`Result`]`<T, E>`s where `T` and `E` implement [`Count`].
+#[allow(nonstandard_style)]
+pub struct ResultCounters<T: Count, E: Count> {
+    /// Counters for this [`Result`]'s [`Ok`] variant.
+    pub Ok: T::Counters,
+    /// Counters for this [`Result`]'s [`Err`] variant.
+    pub Err: E::Counters,
+}
+
+/// Counters for [`Option`]`<T>`s where `T` implements [`Count`].
+#[allow(nonstandard_style)]
+pub struct OptionCounters<T: Count> {
+    /// Counters for this [`Option`]'s [`Some`] variant.
+    pub Some: T::Counters,
+    /// The total number of [`None`]s recorded by this counter.
+    pub None: AtomicU32,
+}
+
+impl<T: Count, E: Count> Count for Result<T, E> {
+    type Counters = ResultCounters<T, E>;
+    const NEW_COUNTERS: Self::Counters = ResultCounters {
+        Ok: T::NEW_COUNTERS,
+        Err: E::NEW_COUNTERS,
+    };
+
+    fn count(&self, counters: &Self::Counters) {
+        match self {
+            Ok(t) => t.count(&counters.Ok),
+            Err(e) => e.count(&counters.Err),
+        }
+    }
+}
+
+impl<T: Count> Count for Option<T> {
+    type Counters = OptionCounters<T>;
+
+    #[allow(clippy::declare_interior_mutable_const)]
+    const NEW_COUNTERS: Self::Counters = OptionCounters {
+        Some: T::NEW_COUNTERS,
+        None: AtomicU32::new(0),
+    };
+
+    fn count(&self, counters: &Self::Counters) {
+        match self {
+            Some(t) => t.count(&counters.Some),
+            None => {
+                armv6m_atomic_hack::AtomicU32Ext::fetch_add(
+                    &counters.None,
+                    1,
+                    Ordering::Relaxed,
+                );
+            }
+        }
+    }
+}
+
+impl<T: Count, E: Count> Count for &'_ Result<T, E> {
+    type Counters = ResultCounters<T, E>;
+    const NEW_COUNTERS: Self::Counters = ResultCounters {
+        Ok: T::NEW_COUNTERS,
+        Err: E::NEW_COUNTERS,
+    };
+
+    fn count(&self, counters: &Self::Counters) {
+        match self {
+            Ok(t) => t.count(&counters.Ok),
+            Err(e) => e.count(&counters.Err),
+        }
+    }
+}
+
+impl<T: Count> Count for &'_ Option<T> {
+    type Counters = OptionCounters<T>;
+
+    #[allow(clippy::declare_interior_mutable_const)]
+    const NEW_COUNTERS: Self::Counters = OptionCounters {
+        Some: T::NEW_COUNTERS,
+        None: AtomicU32::new(0),
+    };
+
+    fn count(&self, counters: &Self::Counters) {
+        match self {
+            Some(t) => t.count(&counters.Some),
+            None => {
+                armv6m_atomic_hack::AtomicU32Ext::fetch_add(
+                    &counters.None,
+                    1,
+                    Ordering::Relaxed,
+                );
+            }
+        }
+    }
+}
+
+impl Count for core::convert::Infallible {
+    type Counters = AtomicU32;
+    #[allow(clippy::declare_interior_mutable_const)]
+    const NEW_COUNTERS: Self::Counters = AtomicU32::new(0);
+
+    fn count(&self, _: &Self::Counters) {
+        // `Infallible`s are not made. They should NEVER be made. We
+        // will not count them. We will not help count them.
+        match *self {}
+    }
+}
+
+impl Count for () {
+    type Counters = AtomicU32;
+    #[allow(clippy::declare_interior_mutable_const)]
+    const NEW_COUNTERS: Self::Counters = AtomicU32::new(0);
+
+    fn count(&self, counters: &Self::Counters) {
+        armv6m_atomic_hack::AtomicU32Ext::fetch_add(
+            counters,
+            1,
+            Ordering::Relaxed,
+        );
+    }
+}
+
 /// Counters for [`bool`]s.
 ///
 /// This allows placing the `#[count(children)]`
