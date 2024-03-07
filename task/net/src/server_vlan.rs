@@ -9,7 +9,6 @@
 
 use drv_stm32h7_eth as eth;
 
-use core::cell::Cell;
 use mutable_statics::mutable_statics;
 use task_net_api::UdpMetadata;
 
@@ -32,7 +31,6 @@ fn claim_server_storage_statics() -> &'static mut [Storage; VLAN_COUNT] {
 pub struct VLanEthernet<'a> {
     pub eth: &'a eth::Ethernet,
     pub vid: u16,
-    mac_rx: Cell<bool>,
 }
 
 impl<'a> smoltcp::phy::Device for VLanEthernet<'a> {
@@ -44,7 +42,6 @@ impl<'a> smoltcp::phy::Device for VLanEthernet<'a> {
         _timestamp: smoltcp::time::Instant,
     ) -> Option<(Self::RxToken<'a>, Self::TxToken<'a>)> {
         if self.eth.vlan_can_recv(self.vid, VLAN_RANGE) && self.eth.can_send() {
-            self.mac_rx.set(true);
             Some((
                 VLanRxToken(self.eth, self.vid),
                 VLanTxToken(self.eth, self.vid),
@@ -69,10 +66,6 @@ impl<'a> smoltcp::phy::Device for VLanEthernet<'a> {
 }
 
 impl DeviceExt for VLanEthernet<'_> {
-    fn read_and_clear_activity_flag(&self) -> bool {
-        self.mac_rx.take()
-    }
-
     fn make_meta(
         &self,
         port: u16,
@@ -133,7 +126,6 @@ where
         |i| VLanEthernet {
             eth,
             vid: generated::VLAN_RANGE.start + i as u16,
-            mac_rx: Cell::new(false),
         },
     )
 }

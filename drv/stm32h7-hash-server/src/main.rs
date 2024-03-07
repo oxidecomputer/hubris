@@ -15,7 +15,9 @@ use userlib::*;
 
 use drv_stm32h7_hash::Hash;
 use drv_stm32xx_sys_api as sys_api;
-use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R};
+use idol_runtime::{
+    ClientError, Leased, LenLimit, NotificationHandler, RequestError, R,
+};
 
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
@@ -108,6 +110,17 @@ impl idl::InOrderHashImpl for ServerImpl {
         self.hash
             .digest_sha256(&self.block[..len as usize], &mut sha256_sum)?;
         Ok(sha256_sum)
+    }
+}
+
+impl NotificationHandler for ServerImpl {
+    fn current_notification_mask(&self) -> u32 {
+        // We don't use notifications, don't listen for any.
+        0
+    }
+
+    fn handle_notification(&mut self, _bits: u32) {
+        unreachable!()
     }
 }
 

@@ -20,7 +20,7 @@ use task_net_api::PhyError;
 use userlib::hl::sleep_for;
 use vsc7448_pac::types::PhyRegisterAddress;
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 enum Trace {
     None,
     BspConfigured,

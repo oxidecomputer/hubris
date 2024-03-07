@@ -6,13 +6,16 @@
 
 #![no_std]
 
+use counters::Count;
 use derive_idol_err::IdolError;
 use userlib::*;
 
 // Re-export PowerState for client convenience.
 pub use drv_gimlet_state::PowerState;
 
-#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
+#[derive(
+    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, Count,
+)]
 pub enum SeqError {
     IllegalTransition = 1,
     MuxToHostCPUFailed,
@@ -22,6 +25,7 @@ pub enum SeqError {
     A1Timeout,
     A0TimeoutGroupC,
     A0Timeout,
+    I2cFault,
 
     #[idol(server_death)]
     ServerRestarted,

@@ -6,6 +6,7 @@
 
 #![no_std]
 
+use counters::Count;
 use derive_idol_err::IdolError;
 use drv_i2c_api::ResponseCode;
 use hubpack::SerializedSize;
@@ -13,7 +14,9 @@ use serde::{Deserialize, Serialize};
 use userlib::{units::Celsius, *};
 use zerocopy::{AsBytes, FromBytes};
 
-#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
+#[derive(
+    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, Count,
+)]
 pub enum ThermalError {
     InvalidFan = 1,
     InvalidPWM = 2,
@@ -39,6 +42,7 @@ pub enum ThermalError {
     Serialize,
     Deserialize,
     SerializedSize,
+    Count,
 )]
 pub enum ThermalMode {
     /// The thermal loop has not started.  This is the initial state, but
@@ -66,6 +70,7 @@ pub enum ThermalMode {
     Serialize,
     Deserialize,
     SerializedSize,
+    Count,
 )]
 pub enum ThermalAutoState {
     Boot,

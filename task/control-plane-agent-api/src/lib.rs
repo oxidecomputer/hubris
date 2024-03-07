@@ -28,7 +28,9 @@ pub enum ControlPlaneAgentError {
     ServerRestarted,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, counters::Count,
+)]
 pub enum UartClient {
     Mgs,
     Humility,

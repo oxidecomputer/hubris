@@ -9,7 +9,7 @@
 
 use drv_sp_ctrl_api::{SpCtrl, SpCtrlError};
 use dumper_api::*;
-use idol_runtime::RequestError;
+use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::*;
 use userlib::*;
 use zerocopy::FromBytes;
@@ -174,6 +174,17 @@ impl idl::InOrderDumperImpl for ServerImpl {
         r.map_err(|_| DumperError::DumpFailed)?;
 
         Ok(())
+    }
+}
+
+impl NotificationHandler for ServerImpl {
+    fn current_notification_mask(&self) -> u32 {
+        // We don't use notifications, don't listen for any.
+        0
+    }
+
+    fn handle_notification(&mut self, _bits: u32) {
+        unreachable!()
     }
 }
 

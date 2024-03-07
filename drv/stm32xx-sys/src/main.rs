@@ -37,7 +37,7 @@ cfg_if::cfg_if! {
 
 use drv_stm32xx_gpio_common::{server::get_gpio_regs, Port};
 use drv_stm32xx_sys_api::{Group, RccError};
-use idol_runtime::RequestError;
+use idol_runtime::{NotificationHandler, RequestError};
 use task_jefe_api::{Jefe, ResetReason};
 use userlib::*;
 
@@ -250,6 +250,17 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
     }
 }
 
+impl NotificationHandler for ServerImpl<'_> {
+    fn current_notification_mask(&self) -> u32 {
+        // We don't use notifications, don't listen for any.
+        0
+    }
+
+    fn handle_notification(&mut self, _bits: u32) {
+        unreachable!()
+    }
+}
+
 cfg_if::cfg_if! {
     if #[cfg(feature = "family-stm32g0")] {
         fn enable_clock(
@@ -389,6 +400,7 @@ cfg_if::cfg_if! {
         ) -> Option<ResetReason> {
             bitflags::bitflags! {
                 // See RM0433 section 8.7.39 (RCC_RSR).
+                #[derive(Copy, Clone, Debug, Eq, PartialEq)]
                 #[repr(transparent)]
                 pub struct ResetFlags: u32 {
                     const LPWR = 1 << 30;

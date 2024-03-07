@@ -30,7 +30,7 @@
 #![no_main]
 
 use core::convert::Infallible;
-use idol_runtime::{Leased, LenLimit, RequestError};
+use idol_runtime::{Leased, LenLimit, NotificationHandler, RequestError};
 use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
 use task_packrat_api::{
@@ -309,6 +309,17 @@ impl idl::InOrderPackratImpl for ServerImpl {
         Err(RequestError::Fail(
             idol_runtime::ClientError::BadMessageContents,
         ))
+    }
+}
+
+impl NotificationHandler for ServerImpl {
+    fn current_notification_mask(&self) -> u32 {
+        // We don't use notifications, don't listen for any.
+        0
+    }
+
+    fn handle_notification(&mut self, _bits: u32) {
+        unreachable!()
     }
 }
 

@@ -23,8 +23,12 @@
     path = "bsp/gimlet_bcdef.rs"
 )]
 #[cfg_attr(
-    any(target_board = "sidecar-b", target_board = "sidecar-c"),
-    path = "bsp/sidecar_bc.rs"
+    any(
+        target_board = "sidecar-b",
+        target_board = "sidecar-c",
+        target_board = "sidecar-d"
+    ),
+    path = "bsp/sidecar_bcd.rs"
 )]
 mod bsp;
 mod control;
@@ -60,12 +64,13 @@ impl From<usize> for Fan {
 task_slot!(I2C, i2c_driver);
 task_slot!(SENSOR, sensor);
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, ringbuf::Count)]
 enum Trace {
+    #[count(skip)]
     None,
     Start,
-    ThermalMode(ThermalMode),
-    AutoState(ThermalAutoState),
+    ThermalMode(#[count(children)] ThermalMode),
+    AutoState(#[count(children)] ThermalAutoState),
     FanReadFailed(SensorId, ResponseCode),
     MiscReadFailed(SensorId, SensorReadError),
     SensorReadFailed(SensorId, SensorReadError),
@@ -73,7 +78,7 @@ enum Trace {
     ControlPwm(u8),
     PowerModeChanged(PowerBitmask),
     PowerDownFailed(SeqError),
-    ControlError(ThermalError),
+    ControlError(#[count(children)] ThermalError),
     FanPresenceUpdateFailed(SeqError),
     FanAdded(Fan),
     FanRemoved(Fan),
@@ -81,7 +86,7 @@ enum Trace {
     AddedDynamicInput(usize),
     RemovedDynamicInput(usize),
 }
-ringbuf!(Trace, 32, Trace::None);
+counted_ringbuf!(Trace, 32, Trace::None);
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -371,7 +376,7 @@ fn main() -> ! {
 
     let mut buffer = [0; idl::INCOMING_SIZE];
     loop {
-        idol_runtime::dispatch_n(&mut buffer, &mut server);
+        idol_runtime::dispatch(&mut buffer, &mut server);
     }
 }
 

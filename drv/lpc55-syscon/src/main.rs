@@ -111,7 +111,7 @@
 #![no_main]
 
 use drv_lpc55_syscon_api::*;
-use idol_runtime::RequestError;
+use idol_runtime::{NotificationHandler, RequestError};
 use lpc55_pac as device;
 use task_jefe_api::{Jefe, ResetReason};
 use userlib::*;
@@ -205,6 +205,17 @@ impl idl::InOrderSysconImpl for ServerImpl<'_> {
             .swr_reset
             .write(|w| unsafe { w.swr_reset().bits(0x5a00_0001) });
         panic!();
+    }
+}
+
+impl NotificationHandler for ServerImpl<'_> {
+    fn current_notification_mask(&self) -> u32 {
+        // We don't use notifications, don't listen for any.
+        0
+    }
+
+    fn handle_notification(&mut self, _bits: u32) {
+        unreachable!()
     }
 }
 

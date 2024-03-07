@@ -738,7 +738,7 @@ fn configure_muxes(
                     //
                     // In terms of why we might see a resolvable reset: we
                     // have noticed an issue whereby the first I2C transaction
-                    // on some busses (notably, those that share controllers
+                    // on some buses (notably, those that share controllers
                     // via pin muxing) will result in SCL being spuriously
                     // held down (see #1034 for details).  Resets of the I2C
                     // controller seem to always resolve the issue, so we want

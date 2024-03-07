@@ -15,7 +15,7 @@ use idol_runtime::{
     ClientError, Leased, LenLimit, NotificationHandler, RequestError,
 };
 use mutable_statics::mutable_statics;
-use ringbuf::{ringbuf, ringbuf_entry};
+use ringbuf::{counted_ringbuf, ringbuf_entry};
 use task_control_plane_agent_api::MAX_INSTALLINATOR_IMAGE_ID_LEN;
 use task_control_plane_agent_api::{
     BarcodeParseError, ControlPlaneAgentError, UartClient, VpdIdentity,
@@ -46,33 +46,46 @@ task_slot!(NET, net);
 task_slot!(SYS, sys);
 
 #[allow(dead_code)] // Not all cases are used by all variants
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, ringbuf::Count)]
 enum Log {
+    #[count(skip)]
     Empty,
     BarcodeParseError(BarcodeParseError),
     Rx(UdpMetadata),
     SendError(SendError),
-    MgsMessage(MgsMessage),
-    UsartTxFull { remaining: usize },
+    MgsMessage(#[count(children)] MgsMessage),
+    UsartTxFull {
+        remaining: usize,
+    },
     UsartRxOverrun,
-    UsartRxBufferDataDropped { num_bytes: u64 },
-    SerialConsoleSend { buffered: usize },
-    UpdatePartial { bytes_written: u32 },
+    UsartRxBufferDataDropped {
+        num_bytes: u64,
+    },
+    SerialConsoleSend {
+        buffered: usize,
+    },
+    UpdatePartial {
+        bytes_written: u32,
+    },
     UpdateComplete,
-    HostFlashSectorsErased { num_sectors: usize },
+    HostFlashSectorsErased {
+        num_sectors: usize,
+    },
     ExpectedRspTimeout,
     RotReset(SprotError),
     SprotCabooseSize(u32),
     ReadCaboose(u32, usize),
     GotCabooseChunk([u8; 4]),
     ReadRotPage,
+    IpcRequest(#[count(children)] IpcRequest),
+    VpdLockStatus,
 }
 
 // This enum does not define the actual MGS protocol - it is only used in the
 // `Log` enum above (which itself is only used by our ringbuf logs). The MGS
 // protocol is defined in the `gateway-messages` crate (which is shared with
 // MGS proper and other tools like `sp-sim` in the omicron repository).
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, ringbuf::Count)]
 enum MgsMessage {
     Discovery,
     IgnitionState {
@@ -151,9 +164,49 @@ enum MgsMessage {
         value_len: usize,
     },
     ReadRotPage,
+    VpdLockStatus,
 }
 
-ringbuf!(Log, 16, Log::Empty);
+// This enum does not define the actual IPC protocol - it is only used in the
+// `Log` enum above (which itself is only used by our ringbuf logs).
+#[derive(Debug, Clone, Copy, PartialEq, ringbuf::Count)]
+enum IpcRequest {
+    FetchHostPhase2Data,
+    GetHostPhase2Data,
+    GetStartupOptions,
+    SetStartupOptions(HostStartupOptions),
+    Identity,
+    #[cfg(feature = "gimlet")]
+    GetInstallinatorImageId,
+    #[cfg(feature = "gimlet")]
+    GetUartClient,
+    #[cfg(feature = "gimlet")]
+    SetHumilityUartClient(#[count(children)] UartClient),
+    #[cfg(feature = "gimlet")]
+    UartRead(usize),
+    #[cfg(feature = "gimlet")]
+    UartWrite(usize),
+}
+
+counted_ringbuf!(Log, 16, Log::Empty);
+
+#[derive(Copy, Clone, Debug, PartialEq, ringbuf::Count)]
+enum CriticalEvent {
+    Empty,
+    /// We have received a network request to change power states. This record
+    /// logs the sender, in case the request was unexpected, and the target
+    /// state.
+    SetPowerState {
+        sender: sp_impl::SocketAddrV6,
+        port: SpPort,
+        power_state: PowerState,
+        ticks_since_boot: u64,
+    },
+}
+
+// This ringbuf exists to record critical events _only_ and thus not get
+// overwritten by chatter in the debug/trace-style messages.
+counted_ringbuf!(CRITICAL, CriticalEvent, 16, CriticalEvent::Empty);
 
 const SOCKET: SocketName = SocketName::control_plane_agent;
 
@@ -164,7 +217,7 @@ fn main() {
     let mut buffer = [0; idl::INCOMING_SIZE];
     loop {
         sys_set_timer(server.timer_deadline(), notifications::TIMER_MASK);
-        idol_runtime::dispatch_n(&mut buffer, &mut server);
+        idol_runtime::dispatch(&mut buffer, &mut server);
     }
 }
 
@@ -221,6 +274,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         offset: u64,
         notification_bit: u8,
     ) -> Result<(), RequestError<ControlPlaneAgentError>> {
+        ringbuf_entry!(Log::IpcRequest(IpcRequest::FetchHostPhase2Data));
         self.mgs_handler.fetch_host_phase2_data(
             msg,
             image_hash,
@@ -236,6 +290,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         offset: u64,
         data: Leased<idol_runtime::W, [u8]>,
     ) -> Result<usize, RequestError<ControlPlaneAgentError>> {
+        ringbuf_entry!(Log::IpcRequest(IpcRequest::GetHostPhase2Data));
         self.mgs_handler
             .get_host_phase2_data(image_hash, offset, data)
     }
@@ -244,6 +299,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         &mut self,
         _msg: &userlib::RecvMessage,
     ) -> Result<HostStartupOptions, RequestError<ControlPlaneAgentError>> {
+        ringbuf_entry!(Log::IpcRequest(IpcRequest::GetStartupOptions));
         self.mgs_handler.startup_options_impl()
     }
 
@@ -254,7 +310,9 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
     ) -> Result<(), RequestError<ControlPlaneAgentError>> {
         let startup_options = HostStartupOptions::from_bits(startup_options)
             .ok_or(ControlPlaneAgentError::InvalidStartupOptions)?;
-
+        ringbuf_entry!(Log::IpcRequest(IpcRequest::SetStartupOptions(
+            startup_options
+        )));
         self.mgs_handler.set_startup_options_impl(startup_options)
     }
 
@@ -262,6 +320,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         &mut self,
         _msg: &userlib::RecvMessage,
     ) -> Result<VpdIdentity, RequestError<core::convert::Infallible>> {
+        ringbuf_entry!(Log::IpcRequest(IpcRequest::Identity));
         Ok(self.mgs_handler.identity())
     }
 
@@ -274,6 +333,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
             MAX_INSTALLINATOR_IMAGE_ID_LEN,
         >,
     ) -> Result<usize, RequestError<core::convert::Infallible>> {
+        ringbuf_entry!(Log::IpcRequest(IpcRequest::GetInstallinatorImageId));
         let image_id = self.mgs_handler.installinator_image_id();
         if image_id.len() > data.len() {
             // `image_id` is at most `MAX_INSTALLINATOR_IMAGE_ID_LEN`; if our
@@ -307,6 +367,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         &mut self,
         _msg: &userlib::RecvMessage,
     ) -> Result<UartClient, RequestError<core::convert::Infallible>> {
+        ringbuf_entry!(Log::IpcRequest(IpcRequest::GetUartClient));
         Ok(self.mgs_handler.uart_client())
     }
 
@@ -321,6 +382,9 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         } else {
             UartClient::Mgs
         };
+        ringbuf_entry!(Log::IpcRequest(IpcRequest::SetHumilityUartClient(
+            client
+        )));
         Ok(self.mgs_handler.set_uart_client(client)?)
     }
 
@@ -330,6 +394,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         data: Leased<idol_runtime::W, [u8]>,
     ) -> Result<usize, RequestError<ControlPlaneAgentError>> {
+        ringbuf_entry!(Log::IpcRequest(IpcRequest::UartRead(data.len())));
         self.mgs_handler.uart_read(data)
     }
 
@@ -339,6 +404,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         data: Leased<idol_runtime::R, [u8]>,
     ) -> Result<usize, RequestError<ControlPlaneAgentError>> {
+        ringbuf_entry!(Log::IpcRequest(IpcRequest::UartWrite(data.len())));
         self.mgs_handler.uart_write(data)
     }
 

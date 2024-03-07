@@ -8,7 +8,7 @@
 #![no_main]
 
 use drv_i2c_devices::at24csw080::{At24Csw080, EEPROM_SIZE};
-use idol_runtime::RequestError;
+use idol_runtime::{NotificationHandler, RequestError};
 use task_vpd_api::VpdError;
 use userlib::*;
 
@@ -192,6 +192,24 @@ impl idl::InOrderVpdImpl for ServerImpl {
             Err(_) => Err(VpdError::BadLock.into()),
             Ok(()) => Ok(()),
         }
+    }
+
+    fn num_vpd_devices(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<usize, RequestError<core::convert::Infallible>> {
+        Ok(i2c_config::devices::at24csw080(I2C.get_task_id()).len())
+    }
+}
+
+impl NotificationHandler for ServerImpl {
+    fn current_notification_mask(&self) -> u32 {
+        // We don't use notifications, don't listen for any.
+        0
+    }
+
+    fn handle_notification(&mut self, _bits: u32) {
+        unreachable!()
     }
 }
 

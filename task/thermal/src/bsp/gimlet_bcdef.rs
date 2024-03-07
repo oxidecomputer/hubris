@@ -76,12 +76,13 @@ pub(crate) struct Bsp {
 }
 
 bitflags::bitflags! {
+    #[derive(Copy, Clone, Debug, Eq, PartialEq)]
     pub struct PowerBitmask: u32 {
         // As far as I know, we don't have any devices which are active only
         // in A2; you probably want to use `A0_OR_A2` instead.
         const A2 = 0b00000001;
         const A0 = 0b00000010;
-        const A0_OR_A2 = Self::A0.bits | Self::A2.bits;
+        const A0_OR_A2 = Self::A0.bits() | Self::A2.bits();
 
         // Bonus bits for M.2 power, which is switched separately.  We *cannot*
         // read the M.2 drives when they are unpowered; otherwise, we risk

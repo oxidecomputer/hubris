@@ -242,8 +242,6 @@ where
 }
 
 pub trait DeviceExt: smoltcp::phy::Device {
-    fn read_and_clear_activity_flag(&self) -> bool;
-
     fn make_meta(
         &self,
         port: u16,
@@ -444,7 +442,6 @@ where
         // Do not be tempted to use `Iterator::any` here, it short circuits and
         // we really do want to poll all of them.
         let mut ip = false;
-        let mut mac_rx = false;
         for vlan in &mut self.vlan_state {
             ip |= vlan.iface.poll(
                 instant,
@@ -452,11 +449,10 @@ where
                 &mut vlan.socket_set,
             );
             // Test and clear our receive activity flag.
-            mac_rx |= vlan.device.read_and_clear_activity_flag();
             ip |= vlan.check_socket_watchdog();
         }
 
-        crate::Activity { ip, mac_rx }
+        crate::Activity { ip }
     }
 
     /// Iterate over sockets, waking any that can do work.

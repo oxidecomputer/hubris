@@ -29,10 +29,12 @@ drv-stm32h7-usart = { path = "../../drv/stm32h7-usart", features = ["h753"], opt
 drv-transceivers-api = { path = "../../drv/transceivers-api", optional = true }
 drv-update-api = { path = "../../drv/update-api" }
 drv-user-leds-api = { path = "../../drv/user-leds-api", optional = true }
+task-vpd-api = { path = "../../task/vpd-api", optional = true }
 host-sp-messages = { path = "../../lib/host-sp-messages" }
 lpc55-rom-data = { path = "../../lib/lpc55-rom-data" }
 mutable-statics = { path = "../../lib/mutable-statics" }
 ringbuf = { path = "../../lib/ringbuf" }
+counters = { path = "../../lib/counters" }
 task-control-plane-agent-api = { path = "../control-plane-agent-api" }
 task-jefe-api = { path = "../jefe-api" }
 task-net-api = { path = "../net-api", features = ["use-smoltcp"] }
@@ -50,7 +52,7 @@ idol = { workspace = true }
 gimlet = ["drv-gimlet-hf-api", "drv-gimlet-seq-api", "drv-stm32h7-usart", "drv-user-leds-api"]
 sidecar = ["drv-sidecar-seq-api", "drv-monorail-api", "drv-ignition-api", "drv-transceivers-api"]
 psc = ["drv-user-leds-api"]
-
+vpd = ["task-vpd-api"]
 vlan = ["task-net-api/vlan"]
 
 usart1 = []

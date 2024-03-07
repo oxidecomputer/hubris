@@ -5,7 +5,7 @@
 #![no_std]
 #![no_main]
 
-use idol_runtime::RequestError;
+use idol_runtime::{NotificationHandler, RequestError};
 use test_idol_api::{FancyTestType, IdolTestError, SocketName, UdpMetadata};
 use userlib::*;
 
@@ -78,6 +78,17 @@ impl idl::InOrderIdolTestImpl for ServerImpl {
         b: UdpMetadata,
     ) -> Result<u16, RequestError<IdolTestError>> {
         Ok(b.vid)
+    }
+}
+
+impl NotificationHandler for ServerImpl {
+    fn current_notification_mask(&self) -> u32 {
+        // We don't use notifications, don't listen for any.
+        0
+    }
+
+    fn handle_notification(&mut self, _bits: u32) {
+        unreachable!()
     }
 }
 

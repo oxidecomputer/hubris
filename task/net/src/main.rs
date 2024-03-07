@@ -17,8 +17,14 @@ mod server;
     any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi"),
     path = "bsp/nucleo_h7.rs"
 )]
-#[cfg_attr(target_board = "sidecar-b", path = "bsp/sidecar_bc.rs")]
-#[cfg_attr(target_board = "sidecar-c", path = "bsp/sidecar_bc.rs")]
+#[cfg_attr(
+    any(
+        target_board = "sidecar-b",
+        target_board = "sidecar-c",
+        target_board = "sidecar-d",
+    ),
+    path = "bsp/sidecar_bcd.rs"
+)]
 #[cfg_attr(
     any(
         target_board = "gimlet-b",
@@ -60,7 +66,6 @@ mod idl {
 use core::sync::atomic::{AtomicU32, Ordering};
 use enum_map::Enum;
 use multitimer::{Multitimer, Repeat};
-use task_jefe_api::Jefe;
 use task_net_api::MacAddressBlock;
 use zerocopy::{AsBytes, U16};
 
@@ -142,10 +147,6 @@ const TX_RING_SZ: usize = 4;
 
 const RX_RING_SZ: usize = 4;
 
-/// How long to wait with no received packets before we decide the driver is
-/// b0rked and restart it.
-const RX_WATCHDOG_INTERVAL: u64 = 60_000;
-
 /////////////////////////////////////////////////////////////////////////////
 // Main driver loop.
 
@@ -157,7 +158,6 @@ static ITER_COUNT: AtomicU32 = AtomicU32::new(0);
 fn main() -> ! {
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
-    let jefe = Jefe::from(JEFE.get_task_id());
 
     // Do any preinit tasks specific to this board.  For hardware which requires
     // explicit clock configuration, this is where the `net` tasks waits for
@@ -215,11 +215,11 @@ fn main() -> ! {
     // Turn on our IRQ.
     userlib::sys_irq_control(notifications::ETH_IRQ_MASK, true);
 
-    // We use two timers:
+    // We use only one timer, but we're using a multitimer in case we need to
+    // add a second one again (we previously had a second one for the watchdog):
     #[derive(Copy, Clone, Enum)]
     enum Timers {
         Wake,
-        Watchdog,
     }
     let mut multitimer =
         Multitimer::<Timers>::new(notifications::WAKE_TIMER_BIT);
@@ -236,9 +236,6 @@ fn main() -> ! {
         );
     }
 
-    // Start the watchdog timer running.
-    multitimer.set_timer(Timers::Watchdog, now + RX_WATCHDOG_INTERVAL, None);
-
     // Go!
     loop {
         ITER_COUNT.fetch_add(1, Ordering::Relaxed);
@@ -246,18 +243,6 @@ fn main() -> ! {
         // Call into smoltcp.
         let now = sys_get_timer().now;
         let activity = server.poll(now);
-
-        if activity.mac_rx {
-            // Whenever we observe activity we bump the timer forward. Because
-            // we're going to poll the timer below (after doing this) and we
-            // always poll and immediately consume iter_fired, this will prevent
-            // the timer from firing this iteration.
-            multitimer.set_timer(
-                Timers::Watchdog,
-                now + RX_WATCHDOG_INTERVAL,
-                None,
-            );
-        }
 
         if activity.ip {
             // Ask the server to iterate over sockets looking for work
@@ -270,13 +255,10 @@ fn main() -> ! {
                         server.wake();
                         // timer is set to auto-repeat
                     }
-                    Timers::Watchdog => {
-                        jefe.restart_me();
-                    }
                 }
             }
             let mut msgbuf = [0u8; idl::INCOMING_SIZE];
-            idol_runtime::dispatch_n(&mut msgbuf, &mut server);
+            idol_runtime::dispatch(&mut msgbuf, &mut server);
         }
     }
 }
@@ -285,9 +267,6 @@ fn main() -> ! {
 pub(crate) struct Activity {
     /// Did the IP stack do anything? (i.e. do we need to process socket events)
     ip: bool,
-    /// Did the MAC have anything available to receive? (i.e. is it still
-    /// working)
-    mac_rx: bool,
 }
 
 /// We can map an Ethernet MAC address into the IPv6 space as follows.

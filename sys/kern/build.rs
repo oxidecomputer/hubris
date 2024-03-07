@@ -15,7 +15,7 @@ use indexmap::IndexMap;
 use proc_macro2::TokenStream;
 
 fn main() -> Result<()> {
-    build_util::expose_m_profile();
+    build_util::expose_m_profile()?;
 
     let g = process_config()?;
     generate_statics(&g)?;
@@ -33,7 +33,20 @@ struct Generated {
 enum RegionKey {
     Null,
     Shared(String),
-    Owned(usize, String),
+    Owned {
+        /// Index of the task, based on ordering in the kconfig
+        task_index: usize,
+
+        /// Index of this particular region within the task
+        ///
+        /// Each task's memory span can be built from multiple contiguous MPU
+        /// regions; if that's the case, then `chunk_index` varies.  The region
+        /// with `chunk_index == 0` is at the base address.
+        chunk_index: usize,
+
+        /// Name of memory which we're using for this region
+        memory_name: String,
+    },
 }
 
 fn process_config() -> Result<Generated> {
@@ -77,7 +90,23 @@ fn process_config() -> Result<Generated> {
     // Finally, the task-specific regions.
     for (i, task) in kconfig.tasks.iter().enumerate() {
         for (name, region) in &task.owned_regions {
-            region_table.insert(RegionKey::Owned(i, name.clone()), *region);
+            let mut base = region.base;
+            for (j, &size) in region.sizes.iter().enumerate() {
+                let r = RegionConfig {
+                    base,
+                    size,
+                    attributes: region.attributes,
+                };
+                base += size;
+                region_table.insert(
+                    RegionKey::Owned {
+                        task_index: i,
+                        chunk_index: j,
+                        memory_name: name.clone(),
+                    },
+                    r,
+                );
+            }
         }
     }
 
@@ -95,12 +124,18 @@ fn process_config() -> Result<Generated> {
             region_table.get_index_of(&RegionKey::Null).unwrap(),
         ];
 
-        for name in task.owned_regions.keys() {
-            regions.push(
-                region_table
-                    .get_index_of(&RegionKey::Owned(i, name.clone()))
-                    .unwrap(),
-            );
+        for (name, region) in &task.owned_regions {
+            for j in 0..region.sizes.len() {
+                regions.push(
+                    region_table
+                        .get_index_of(&RegionKey::Owned {
+                            task_index: i,
+                            chunk_index: j,
+                            memory_name: name.clone(),
+                        })
+                        .unwrap(),
+                );
+            }
         }
 
         for name in &task.shared_regions {
@@ -292,7 +327,14 @@ fn translate_address(
     task_index: usize,
     address: OwnedAddress,
 ) -> u32 {
-    let key = RegionKey::Owned(task_index, address.region_name);
+    // Addresses within a particular task's memory span can be calculated from
+    // the base address of the task's first memory region, which has a
+    // chunk_index of 0 (since all chunks within the span are contiguous).
+    let key = RegionKey::Owned {
+        task_index,
+        chunk_index: 0,
+        memory_name: address.region_name,
+    };
     region_table[&key].base + address.offset
 }
 

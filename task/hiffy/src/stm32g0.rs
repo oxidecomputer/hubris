@@ -219,7 +219,7 @@ fn i2c_bulk_write(
     _rval: &mut [u8],
 ) -> Result<usize, Failure> {
     //
-    // We need exactly 8 parameters: the normal i2c paramaters (controller,
+    // We need exactly 8 parameters: the normal i2c parameters (controller,
     // port, mux, segment, address, register) plus the offset and length.
     // Note that the register must be None.
     //

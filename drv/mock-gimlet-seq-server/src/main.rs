@@ -8,7 +8,7 @@
 #![no_main]
 
 use drv_gimlet_seq_api::{PowerState, ReadFpgaRegsError, SeqError};
-use idol_runtime::RequestError;
+use idol_runtime::{NotificationHandler, RequestError};
 use task_jefe_api::Jefe;
 use userlib::{FromPrimitive, RecvMessage, UnwrapLite};
 
@@ -98,6 +98,17 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         _: &RecvMessage,
     ) -> Result<[u8; 64], RequestError<ReadFpgaRegsError>> {
         Ok([0; 64])
+    }
+}
+
+impl NotificationHandler for ServerImpl {
+    fn current_notification_mask(&self) -> u32 {
+        // We don't use notifications, don't listen for any.
+        0
+    }
+
+    fn handle_notification(&mut self, _bits: u32) {
+        unreachable!()
     }
 }
 
