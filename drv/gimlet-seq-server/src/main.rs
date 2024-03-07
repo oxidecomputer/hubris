@@ -49,13 +49,13 @@ mod payload;
 #[derive(Copy, Clone, PartialEq, Count)]
 enum Trace {
     Ice40Rails(bool, bool),
-    IdentValid(bool),
-    ChecksumValid(bool),
-    Reprogram(bool),
+    IdentValid(#[count(children)] bool),
+    ChecksumValid(#[count(children)] bool),
+    Reprogram(#[count(children)] bool),
     Programmed,
     Programming,
-    Ice40PowerGoodV1P2(bool),
-    Ice40PowerGoodV3P3(bool),
+    Ice40PowerGoodV1P2(#[count(children)] bool),
+    Ice40PowerGoodV3P3(#[count(children)] bool),
     RailsOff,
     Ident(u16),
     A2Status(u8),
@@ -63,7 +63,7 @@ enum Trace {
     A0FailureDetails(Addr, u8),
     A0Failed(#[count(children)] SeqError),
     A1Status(u8),
-    CPUPresent(bool),
+    CPUPresent(#[count(children)] bool),
     Coretype {
         coretype: bool,
         sp3r1: bool,
