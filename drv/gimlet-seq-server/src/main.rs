@@ -72,7 +72,6 @@ enum Trace {
     A0Status(u8),
     A0Power(u8),
     NICPowerEnableLow(bool),
-    NICDetails(Addr, u8),
     RailsOn,
     UartEnabled,
     A0(u16),
@@ -94,6 +93,12 @@ enum Trace {
     SMStatus {
         a1: u8,
         a0: u8,
+    },
+    NICStatus {
+        nic_ctrl: u8,
+        nic_status: u8,
+        out_status_nic1: u8,
+        out_status_nic2: u8,
     },
     ResetCounts {
         rstn: u8,
@@ -527,13 +532,6 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
 
             let cld_rst = Reg::NIC_CTRL::CLD_RST;
 
-            let record_nic_reg = |addr| {
-                ringbuf_entry!(Trace::NICDetails(
-                    addr,
-                    self.seq.read_byte(addr).unwrap_lite(),
-                ));
-            };
-
             match (self.state, pwren_l) {
                 (PowerState::A0, false) => {
                     ringbuf_entry!(Trace::NICPowerEnableLow(pwren_l));
@@ -550,10 +548,24 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
                     // Something might be wrong, so record the sequencer's NIC
                     // registers.
                     //
-                    record_nic_reg(Addr::NIC_CTRL);
-                    record_nic_reg(Addr::NIC_STATUS);
-                    record_nic_reg(Addr::OUT_STATUS_NIC1);
-                    record_nic_reg(Addr::OUT_STATUS_NIC2);
+                    ringbuf_entry!(Trace::NICStatus {
+                        nic_ctrl: self
+                            .seq
+                            .read_byte(Addr::NIC_CTRL)
+                            .unwrap_lite(),
+                        nic_status: self
+                            .seq
+                            .read_byte(Addr::NIC_STATUS)
+                            .unwrap_lite(),
+                        out_status_nic1: self
+                            .seq
+                            .read_byte(Addr::OUT_STATUS_NIC1)
+                            .unwrap_lite(),
+                        out_status_nic2: self
+                            .seq
+                            .read_byte(Addr::OUT_STATUS_NIC2)
+                            .unwrap_lite(),
+                    });
 
                     self.seq
                         .set_bytes(Addr::NIC_CTRL, &[cld_rst])
