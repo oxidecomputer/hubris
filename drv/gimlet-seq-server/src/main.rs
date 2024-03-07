@@ -72,6 +72,7 @@ enum Trace {
     A0Status(u8),
     A0Power(u8),
     NICPowerEnableLow(bool),
+    NICDetails(Addr, u8),
     RailsOn,
     UartEnabled,
     A0(u16),
@@ -497,9 +498,10 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
     }
 
     fn handle_notification(&mut self, _bits: u32) {
+        let ifr = self.seq.read_byte(Addr::IFR).unwrap_lite();
         ringbuf_entry!(Trace::Status {
             ier: self.seq.read_byte(Addr::IER).unwrap_lite(),
-            ifr: self.seq.read_byte(Addr::IFR).unwrap_lite(),
+            ifr,
             amd_status: self.seq.read_byte(Addr::AMD_STATUS).unwrap_lite(),
             amd_a0: self.seq.read_byte(Addr::AMD_A0).unwrap_lite(),
         });
@@ -512,7 +514,6 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
             // if both are indicated, we will clear both conditions -- but
             // land in A0Thermtrip).
             //
-            let ifr = self.seq.read_byte(Addr::IFR).unwrap_lite();
             self.check_reset(ifr);
             self.check_thermtrip(ifr);
 
@@ -526,6 +527,13 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
 
             let cld_rst = Reg::NIC_CTRL::CLD_RST;
 
+            let record_nic_reg = |addr| {
+                ringbuf_entry!(Trace::NICDetails(
+                    addr,
+                    self.seq.read_byte(addr).unwrap_lite(),
+                ));
+            };
+
             match (self.state, pwren_l) {
                 (PowerState::A0, false) => {
                     ringbuf_entry!(Trace::NICPowerEnableLow(pwren_l));
@@ -537,6 +545,16 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
 
                 (PowerState::A0PlusHP, true) => {
                     ringbuf_entry!(Trace::NICPowerEnableLow(pwren_l));
+                    //
+                    // The NIC was powered on, but is now being powered off.
+                    // Something might be wrong, so record the sequencer's NIC
+                    // registers.
+                    //
+                    record_nic_reg(Addr::NIC_CTRL);
+                    record_nic_reg(Addr::NIC_STATUS);
+                    record_nic_reg(Addr::OUT_STATUS_NIC1);
+                    record_nic_reg(Addr::OUT_STATUS_NIC2);
+
                     self.seq
                         .set_bytes(Addr::NIC_CTRL, &[cld_rst])
                         .unwrap_lite();
