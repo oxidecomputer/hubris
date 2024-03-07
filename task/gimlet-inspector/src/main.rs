@@ -135,7 +135,6 @@ fn main() -> ! {
             Err(RecvError::ServerRestarted) => {
                 // `net` restarted (probably due to the watchdog); just retry.
             }
-            Err(RecvError::NotYours | RecvError::Other) => panic!(),
         }
     }
 }

@@ -88,7 +88,6 @@ impl ServerImpl {
                 // Our incoming queue is empty or `net` restarted. Wait for more
                 // packets in dispatch, back in the main loop.
             }
-            Err(RecvError::NotYours | RecvError::Other) => panic!(),
         }
     }
 
