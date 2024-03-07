@@ -520,15 +520,6 @@ impl NetHandler {
                         self.packet_to_send = Some(meta);
                         return;
                     }
-                    Err(
-                        err @ (SendError::InvalidVLan
-                        | SendError::Other
-                        | SendError::NotYours),
-                    ) => {
-                        // Some other (fatal?) error occurred; should we panic?
-                        // For now, just discard the packet we wanted to send.
-                        ringbuf_entry!(Log::SendError(err));
-                    }
                 }
             }
 
