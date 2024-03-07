@@ -129,4 +129,3 @@ device = "tmp117"
 description = "TempSense"
 sensors = { temperature = 1 }
 removable = true
-

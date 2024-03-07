@@ -81,7 +81,7 @@ task-slots = ["sys", "packrat", { seq = "sequencer" }, "jefe"]
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
 priority = 7
-max-sizes = {flash = 131072, ram = 16384}
+max-sizes = {flash = 131072, ram = 32768 }
 stacksize = 6144
 start = true
 uses = []
@@ -139,7 +139,7 @@ notifications = ["socket"]
 [tasks.monorail]
 name = "task-monorail-server"
 priority = 6
-max-sizes = {flash = 262144, ram = 8192}
+max-sizes = {flash = 262144, ram = 16384}
 features = ["mgmt", "sidecar", "vlan", "use-spi-core", "h753", "spi2"]
 stacksize = 4096
 start = true
@@ -281,7 +281,7 @@ task-slots = ["i2c_driver"]
 name = "drv-ignition-server"
 features = ["sequencer"]
 priority = 5
-max-sizes = {flash = 16384, ram = 4096}
+max-sizes = {flash = 16384, ram = 8192}
 stacksize = 2048
 start = true
 task-slots = [{fpga = "ecp5_mainboard"}, "sequencer"]
@@ -298,7 +298,7 @@ stacksize = 800
 [tasks.dump_agent]
 name = "task-dump-agent"
 priority = 6
-max-sizes = {flash = 32768, ram = 8192 }
+max-sizes = {flash = 32768, ram = 16384 }
 start = true
 task-slots = ["sprot", "jefe", "net"]
 stacksize = 2400

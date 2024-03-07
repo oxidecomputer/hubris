@@ -75,7 +75,7 @@ task-slots = ["syscon_driver"]
 name = "drv-user-leds"
 features = ["lpc55"]
 priority = 6
-max-sizes = {flash = 8192, ram = 1024}
+max-sizes = {flash = 8192, ram = 1056}
 start = true
 task-slots = ["gpio_driver"]
 notifications = ["timer"]
@@ -108,7 +108,7 @@ task-slots = ["syscon_driver"]
 [tasks.sprot]
 name = "drv-lpc55-sprot-server"
 priority = 6
-max-sizes = {flash = 47360, ram = 32768}
+max-sizes = {flash = 48512, ram = 32768}
 uses = ["flexcomm8", "bootrom"]
 features = ["spi0"]
 start = true

@@ -66,7 +66,7 @@ notifications = ["timer"]
 [tasks.dump_agent]
 name = "task-dump-agent"
 priority = 6
-max-sizes = {flash = 32768, ram = 8192 }
+max-sizes = {flash = 32768, ram = 16384 }
 start = true
 task-slots = ["sprot", "jefe", "net"]
 stacksize = 2400
