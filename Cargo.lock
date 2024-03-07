@@ -2596,7 +2596,7 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 [[package]]
 name = "idol"
 version = "0.4.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git?branch=eliza/gen-counters2#16e49d2ed6ccb8b0c9a97abad241ad0d2dc6d165"
+source = "git+https://github.com/oxidecomputer/idolatry.git?branch=eliza/gen-counters2#61e2956256b99b0d473667b2dd11ecfd04e103e3"
 dependencies = [
  "indexmap 1.9.1",
  "once_cell",
@@ -2613,7 +2613,7 @@ dependencies = [
 [[package]]
 name = "idol-runtime"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git?branch=eliza/gen-counters2#16e49d2ed6ccb8b0c9a97abad241ad0d2dc6d165"
+source = "git+https://github.com/oxidecomputer/idolatry.git?branch=eliza/gen-counters2#61e2956256b99b0d473667b2dd11ecfd04e103e3"
 dependencies = [
  "counters",
  "userlib",
