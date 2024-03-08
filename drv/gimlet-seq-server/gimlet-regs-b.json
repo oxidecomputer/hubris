@@ -1429,6 +1429,17 @@
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "Output from the AMD processor that it has effectively acknowledged that power is itself\ngood.  This  is  connected  from  the  BSP  to  the  AP's  PWR_GOOD  input  in  a  two  socket\nsystem.  The  FCH  may  actually  control  this  being  generated  via  the\nFCH::PM::RESETCONTROL2 register."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NIC_PWREN",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "NIC_PWREN (inversion of net SP3_TO_SP_NIC_PWREN_L), available on C and newer Gimlets.\nWhen Asserted high in this register, the net is active low, and NIC power is expected to\nbe commanded on by Hubris (see NIC_CTRL register).  This is a readback-only view, no \nautonomous FPGA action occurs on the status of this pin, Hubris also monitors and takes\naction.  Only valid in A0 and higher power states but is a simple pass-through in the\nFPGA, no gating logic"
                 }
             ]
         },
