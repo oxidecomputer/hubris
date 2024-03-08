@@ -55,7 +55,7 @@ Interface(
             },
             reply: Result(
                 ok: "()",
-                err: CLike("SpiError"),
+                err: ServerDeath,
             ),
         ),
         "release": (
@@ -63,7 +63,7 @@ Interface(
             args: {},
             reply: Result(
                 ok: "()",
-                err: CLike("SpiError"),
+                err: ServerDeath,
             ),
         ),
     },
