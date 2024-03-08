@@ -7,7 +7,9 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     build_util::build_notifications()?;
 
     idol::Generator::new()
-        .with_counters(idol::CounterSettings::new().with_server_counters(false))
+        .with_counters(
+            idol::CounterSettings::default().with_server_counters(false),
+        )
         .build_server_support(
             "../../idl/monorail.idol",
             "server_stub.rs",

@@ -7,7 +7,9 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     build_i2c::codegen(build_i2c::Disposition::Devices)?;
 
     idol::Generator::new()
-        .with_counters(idol::CounterSettings::new().with_server_counters(false))
+        .with_counters(
+            idol::CounterSettings::default().with_server_counters(false),
+        )
         .build_server_support(
             "../../idl/sbrmi.idol",
             "server_stub.rs",

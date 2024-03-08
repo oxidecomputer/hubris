@@ -9,7 +9,9 @@ use std::io::Write;
 
 fn main() -> Result<()> {
     idol::Generator::new()
-        .with_counters(idol::CounterSettings::new().with_server_counters(false))
+        .with_counters(
+            idol::CounterSettings::default().with_server_counters(false),
+        )
         .build_server_support(
             "../../idl/net.idol",
             "server_stub.rs",
