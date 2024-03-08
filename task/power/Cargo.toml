@@ -42,7 +42,7 @@ dc2024 = ["drv-stm32xx-sys-api", "h753"]
 h743 = ["build-i2c/h743"]
 h753 = ["build-i2c/h753"]
 h7b3 = ["build-i2c/h7b3"]
-client-counters = ["idol/client-counters"]
+no-ipc-counters = ["idol/no-counters"]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

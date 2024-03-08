@@ -5,7 +5,7 @@ edition = "2021"
 
 [features]
 vlan = ["task-net-api/vlan"]
-client-counters = ["idol/client-counters"]
+no-ipc-counters = ["idol/no-counters"]
 
 [dependencies]
 hubpack = { workspace = true }

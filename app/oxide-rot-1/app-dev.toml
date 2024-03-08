@@ -33,7 +33,7 @@ request_reset = ["update_server"]
 [tasks.hiffy]
 name = "task-hiffy"
 priority = 6
-features = ["lpc55", "gpio", "spctrl", "client-counters"]
+features = ["lpc55", "gpio", "spctrl"]
 max-sizes = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true
@@ -48,7 +48,6 @@ start = true
 
 [tasks.update_server]
 name = "lpc55-update-server"
-features = ["client-counters"]
 priority = 3
 max-sizes = {flash = 16384, ram = 4096, usbsram = 4096}
 stacksize = 2560
@@ -61,7 +60,6 @@ task-slots = [{"syscon" = "syscon_driver"}, "jefe"]
 
 [tasks.syscon_driver]
 name = "drv-lpc55-syscon"
-features = ["client-counters"]
 priority = 2
 max-sizes = {flash = 8192, ram = 2048}
 uses = ["syscon", "anactrl", "pmc"]
@@ -81,7 +79,7 @@ name = "drv-lpc55-sprot-server"
 priority = 6
 max-sizes = {flash = 48608, ram = 32768}
 uses = ["flexcomm8", "bootrom"]
-features = ["spi0", "client-counters"]
+features = ["spi0"]
 start = true
 notifications = ["spi-irq"]
 interrupts = {"flexcomm8.hs_spi" = "spi-irq"}
@@ -106,7 +104,6 @@ pins = [
 
 [tasks.swd]
 name = "drv-lpc55-swd"
-features = ["client-counters"]
 priority = 4
 max-sizes = {flash = 16384, ram = 4096}
 uses = ["flexcomm5", "iocon"]
@@ -140,7 +137,6 @@ spi_num = 5
 
 [tasks.dumper]
 name = "task-dumper"
-features = ["client-counters"]
 priority = 5
 max-sizes = {flash = 16384, ram = 4096}
 start = true
@@ -151,7 +147,6 @@ task-slots = ["swd"]
 # debug connection.
 [tasks.sp_measure]
 name = "task-sp-measure"
-features = ["client-counters"]
 priority = 6
 max-sizes = {flash = 131072, ram = 8192}
 task-slots = ["swd"]
@@ -162,7 +157,6 @@ binary_path = "../../target/gimlet-c/dist/default/final.bin"
 
 [tasks.attest]
 name = "task-attest"
-features = ["client-counters"]
 priority = 5
 max-sizes = {flash = 33904, ram = 16384}
 stacksize = 12304

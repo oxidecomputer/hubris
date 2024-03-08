@@ -5,7 +5,7 @@ edition = "2021"
 
 [features]
 panic-messages = ["userlib/panic-messages"]
-client-counters = ["idol/client-counters"]
+no-ipc-counters = ["idol/no-counters"]
 
 [dependencies]
 cortex-m = { workspace = true }

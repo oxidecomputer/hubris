@@ -34,7 +34,7 @@ build-util = { path = "../../build/util" }
 h743 = ["task-sensor-api/h743"]
 h753 = ["task-sensor-api/h753"]
 h7b3 = ["task-sensor-api/h7b3"]
-client-counters = ["idol/client-counters"]
+no-ipc-counters = ["idol/no-counters"]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

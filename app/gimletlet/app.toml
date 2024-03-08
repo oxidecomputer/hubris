@@ -21,7 +21,6 @@ host_sp_comms = "jefe-state-change"
 
 [tasks.packrat]
 name = "task-packrat"
-features = ["client-counters"]
 priority = 3
 max-sizes = {flash = 8192, ram = 2048}
 start = true
@@ -51,13 +50,12 @@ task-slots = [
     "packrat",
     "user_leds",
 ]
-features = ["gimlet", "usart1-gimletlet", "vlan", "baud_rate_3M", "client-counters"]
+features = ["gimlet", "usart1-gimletlet", "vlan", "baud_rate_3M"]
 notifications = ["usart-irq", "socket", "timer"]
 interrupts = {"usart1.irq" = "usart-irq"}
 
 [tasks.sensor]
 name = "task-sensor"
-features = ["client-counters"]
 priority = 5
 max-sizes = {flash = 8192, ram = 2048 }
 stacksize = 1024
@@ -73,7 +71,7 @@ task-slots = ["sprot", "jefe", "net"]
 stacksize = 2400
 extern-regions = ["sram2", "sram3", "sram4"]
 notifications = ["socket"]
-features = ["net", "vlan", "client-counters"]
+features = ["net", "vlan"]
 
 [tasks.gimlet_seq]
 name = "drv-mock-gimlet-seq-server"
@@ -84,7 +82,7 @@ task-slots = ["jefe"]
 
 [tasks.host_sp_comms]
 name = "task-host-sp-comms"
-features = ["stm32h753", "uart7", "baud_rate_3M", "hardware_flow_control", "vlan", "client-counters"]
+features = ["stm32h753", "uart7", "baud_rate_3M", "hardware_flow_control", "vlan"]
 uses = ["uart7", "dbgmcu"]
 interrupts = {"uart7.irq" = "usart-irq"}
 priority = 8
@@ -115,7 +113,7 @@ notifications = ["qspi-irq"]
 
 [tasks.hash_driver]
 name = "drv-stm32h7-hash-server"
-features = ["h753", "client-counters"]
+features = ["h753"]
 priority = 2
 max-sizes = {flash = 16384, ram=4096 }
 stacksize = 2048
@@ -129,7 +127,7 @@ notifications = ["hash-irq"]
 name = "task-net"
 stacksize = 6040
 priority = 3
-features = ["h753", "vlan", "gimletlet-nic", "use-spi-core", "spi4", "client-counters"]
+features = ["h753", "vlan", "gimletlet-nic", "use-spi-core", "spi4"]
 max-sizes = {flash = 131072, ram = 65536, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "tim16", "spi4"]
@@ -149,7 +147,7 @@ max-sizes = {flash = 32768, ram = 8192}
 stacksize = 4096
 start = true
 task-slots = ["net"]
-features = ["vlan", "client-counters"]
+features = ["vlan"]
 notifications = ["socket"]
 
 [tasks.udpecho]
@@ -159,7 +157,7 @@ max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
 task-slots = ["net"]
-features = ["vlan", "client-counters"]
+features = ["vlan"]
 notifications = ["socket"]
 
 [tasks.udpbroadcast]
@@ -169,7 +167,7 @@ max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
 task-slots = ["net", "packrat"]
-features = ["vlan", "client-counters"]
+features = ["vlan"]
 notifications = ["socket"]
 
 [config.net]
@@ -218,7 +216,7 @@ max-sizes = {flash = 65536, ram = 32768}
 stacksize = 16384
 start = true
 task-slots = ["sys"]
-features = ["sink_test", "use-spi-core", "h753", "spi3", "client-counters"]
+features = ["sink_test", "use-spi-core", "h753", "spi3"]
 uses = ["spi3"]
 notifications = ["spi-irq"]
 interrupts = {"spi3.irq" = "spi-irq"}

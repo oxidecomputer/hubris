@@ -30,7 +30,7 @@ serde.workspace = true
 build-util = { path = "../../build/util" }
 
 [features]
-client-counters = ["idol/client-counters"]
+no-ipc-counters = ["idol/no-counters"]
 
 [[bin]]
 name = "task-attest"

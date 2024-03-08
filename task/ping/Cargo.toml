@@ -14,7 +14,7 @@ idol.workspace = true
 
 [features]
 uart = []
-client-counters = ["idol/client-counters"]
+no-ipc-counters = ["idol/no-counters"]
 
 [[bin]]
 name = "task-ping"

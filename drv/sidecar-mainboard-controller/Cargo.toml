@@ -19,7 +19,7 @@ userlib = { path = "../../sys/userlib" }
 
 [features]
 bitstream = ["dep:drv-auxflash-api", "drv-fpga-api/auxflash"]
-client-counters = ["idol/client-counters"]
+no-ipc-counters = ["idol/no-counters"]
 
 [build-dependencies]
 build-fpga-regmap = { path = "../../build/fpga-regmap" }

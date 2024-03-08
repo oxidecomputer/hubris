@@ -28,7 +28,7 @@ hardware_flow_control = []
 # we could expand this if needed; exactly one of these must be specified
 baud_rate_115_200 = []
 baud_rate_3M = []
-client-counters = ["idol/client-counters"]
+no-ipc-counters = ["idol/no-counters"]
 
 [[bin]]
 name = "task-uartecho"

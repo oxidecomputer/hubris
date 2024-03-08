@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-client-counters = ["idol/client-counters"]
+no-ipc-counters = ["idol/no-counters"]
 
 [dependencies]
 drv-sp-ctrl-api = { path = "../../drv/sp-ctrl-api" }

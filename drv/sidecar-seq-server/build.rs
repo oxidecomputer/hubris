@@ -13,11 +13,13 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         std::process::exit(1);
     }
 
-    idol::server::build_server_support(
-        "../../idl/sidecar-seq.idol",
-        "server_stub.rs",
-        idol::server::ServerStyle::InOrder,
-    )?;
+    idol::Generator::new()
+        .with_counters(idol::CounterSettings::new().with_server_counters(false))
+        .build_server_support(
+            "../../idl/sidecar-seq.idol",
+            "server_stub.rs",
+            idol::server::ServerStyle::InOrder,
+        )?;
 
     Ok(())
 }

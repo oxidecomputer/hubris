@@ -18,7 +18,7 @@ build-i2c = {path = "../../build/i2c"}
 idol = { workspace = true }
 
 [features]
-client-counters = ["idol/client-counters"]
+no-ipc-counters = ["idol/no-counters"]
 
 [[bin]]
 name = "drv-eeprom"

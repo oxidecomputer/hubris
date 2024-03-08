@@ -27,7 +27,7 @@ quote = { workspace = true }
 serde = { workspace = true }
 
 [features]
-client-counters = ["idol/client-counters"]
+no-ipc-counters = ["idol/no-counters"]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

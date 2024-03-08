@@ -48,7 +48,7 @@ build-i2c = { path = "../../build/i2c", optional = true }
 idol.workspace = true
 
 [features]
-client-counters = ["idol/client-counters"]
+no-ipc-counters = ["idol/no-counters"]
 stm32h743 = ["drv-stm32h7-usart/h743", "drv-stm32xx-sys-api/h743", "drv-stm32h7-dbgmcu/h743"]
 stm32h753 = ["drv-stm32h7-usart/h753", "drv-stm32xx-sys-api/h753", "drv-stm32h7-dbgmcu/h753"]
 uart7 = []

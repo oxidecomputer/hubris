@@ -15,7 +15,7 @@ max-sizes = {flash = 32768, ram = 8192}
 stacksize = 2048
 start = true
 #features = ["leds"]
-features = ["h753", "use-spi-core", "spi6", "client-counters"]
+features = ["h753", "use-spi-core", "spi6"]
 uses = ["spi6"]
 task-slots = ["sys"]
 interrupts = {"spi6.irq" = "spi-irq"}
@@ -44,7 +44,7 @@ stacksize = 2048
 start = true
 task-slots = ["fpga"]
 notifications = ["timer"]
-features = ["always-transmit", "client-counters"]
+features = ["always-transmit"]
 
 [caboose]
 tasks = ["caboose_reader"]

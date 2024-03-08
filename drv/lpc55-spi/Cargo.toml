@@ -15,7 +15,7 @@ userlib = { path = "../../sys/userlib" }
 idol = { workspace = true }
 
 [features]
-client-counters = ["idol/client-counters"]
+no-ipc-counters = ["idol/no-counters"]
 
 [lib]
 test = false

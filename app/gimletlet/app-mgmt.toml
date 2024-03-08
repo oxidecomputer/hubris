@@ -15,7 +15,7 @@ priority = 0
 max-sizes = {flash = 8192, ram = 2048}
 start = true
 stacksize = 1536
-notifications = ["fault", "timer", "client-counters"]
+notifications = ["fault", "timer"]
 
 [tasks.jefe.config.allowed-callers]
 set_reset_reason = ["sys"]
@@ -23,7 +23,7 @@ request_reset = ["hiffy"]
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
-features = ["h753", "client-counters"]
+features = ["h753"]
 priority = 1
 max-sizes = {flash = 2048, ram = 1024}
 uses = ["rcc", "gpios", "system_flash"]
@@ -32,7 +32,7 @@ task-slots = ["jefe"]
 
 [tasks.user_leds]
 name = "drv-user-leds"
-features = ["stm32h7", "client-counters"]
+features = ["stm32h7"]
 priority = 2
 max-sizes = {flash = 2048, ram = 1024}
 start = true
@@ -41,7 +41,7 @@ notifications = ["timer"]
 
 [tasks.hiffy]
 name = "task-hiffy"
-features = ["h753", "stm32h7", "gpio", "spi", "client-counters"]
+features = ["h753", "stm32h7", "gpio", "spi"]
 priority = 3
 max-sizes = {flash = 32768, ram = 16384 }
 stacksize = 2048
@@ -52,7 +52,7 @@ task-slots = ["sys", "user_leds"]
 name = "task-net"
 stacksize = 3000
 priority = 3
-features = ["mgmt", "h753", "use-spi-core", "spi2", "client-counters"]
+features = ["mgmt", "h753", "use-spi-core", "spi2"]
 max-sizes = {flash = 131072, ram = 16384, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "tim16", "spi2"]
@@ -67,7 +67,6 @@ task-slots = ["sys", "user_leds", "jefe"]
 
 [tasks.udpecho]
 name = "task-udpecho"
-features = ["client-counters"]
 priority = 4
 max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096

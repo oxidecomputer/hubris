@@ -12,7 +12,7 @@ drv-i2c-devices = { path = "../../drv/i2c-devices" }
 ringbuf = { path = "../../lib/ringbuf" }
 
 [build-dependencies]
-idol = { workspace = true, features = ["client-counters"] }
+idol.workspace = true
 
 [lib]
 test = false

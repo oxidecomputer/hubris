@@ -35,7 +35,7 @@ net = ["task-net-api"]
 
 # Configures the net task with VLANs enabled
 vlan = ["task-net-api?/vlan"]
-client-counters = ["idol/client-counters"]
+no-ipc-counters = ["idol/no-counters"]
 
 [build-dependencies]
 anyhow.workspace = true

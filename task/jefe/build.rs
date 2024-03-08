@@ -14,6 +14,7 @@ fn main() -> Result<()> {
         .remap_allowed_caller_names_to_ids(&cfg.allowed_callers)?;
 
     idol::Generator::new()
+        .with_counters(idol::CounterSettings::new().with_server_counters(false))
         .build_restricted_server_support(
             "../../idl/jefe.idol",
             "server_stub.rs",
