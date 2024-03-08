@@ -53,7 +53,7 @@ Interface(
             args: {},
             reply: Result(
                 ok: "[u8; 64]",
-                err: CLike("SeqError"),
+                err: CLike("ReadFpgaRegsError"),
             ),
         ),
     },

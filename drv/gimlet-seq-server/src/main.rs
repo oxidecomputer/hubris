@@ -14,7 +14,7 @@ use ringbuf::*;
 use userlib::*;
 
 use drv_gimlet_hf_api as hf_api;
-use drv_gimlet_seq_api::{PowerState, SeqError};
+use drv_gimlet_seq_api::{PowerState, ReadFpgaRegsError, SeqError};
 use drv_i2c_api as i2c;
 use drv_ice40_spi_program as ice40;
 use drv_packrat_vpd_loader::{read_vpd_and_load_packrat, Packrat};
@@ -1040,15 +1040,14 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
     fn read_fpga_regs(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<[u8; 64], RequestError<SeqError>> {
-        IpcRequest::ReadFpgaRegs.count(&IPC_REQUESTS);
+    ) -> Result<[u8; 64], RequestError<ReadFpgaRegsError>> {
         let mut buf = [0; 64];
         let size = 8;
 
         for i in (0..buf.len()).step_by(size) {
             self.seq
                 .read_bytes(i as u16, &mut buf[i..i + size])
-                .map_err(|_| SeqError::ReadRegsFailed)?;
+                .map_err(|_| ReadFpgaRegsError::Failed)?;
         }
 
         Ok(buf)
@@ -1366,7 +1365,7 @@ cfg_if::cfg_if! {
 }
 
 mod idl {
-    use super::SeqError;
+    use super::{ReadFpgaRegsError, SeqError};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
