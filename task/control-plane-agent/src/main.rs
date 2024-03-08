@@ -541,6 +541,9 @@ impl NetHandler {
                     self.handle_received_packet(meta, mgs_handler);
                 }
                 Err(RecvError::QueueEmpty | RecvError::ServerRestarted) => {
+                    // In the restart case, there may in fact be packets waiting
+                    // for us in the net stack. We'll handle them next time
+                    // through the loop when we get to recv_packet.
                     return;
                 }
             }

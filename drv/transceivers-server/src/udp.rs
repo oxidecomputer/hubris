@@ -131,19 +131,22 @@ impl ServerImpl {
                 meta,
                 &tx_data_buf[..meta.size as usize],
             ) {
-                // We'll drop packets if the outgoing queue is full;
-                // the host is responsible for retrying.
-                //
-                // Other errors are unexpected and panic.
-                //
-                // This includes ServerRestarted, because the server should only
-                // restart if the watchdog times out, and the watchdog should
-                // not be timing out, because we're literally replying to a
-                // packet here.
                 ringbuf_entry!(Trace::SendError(e));
+                // Yeah this match looks useless, but (1) it guards against new
+                // variants being added to the SendError type, and (2) it
+                // provides a convenient place to hang comments.
                 match e {
+                    // We'll drop packets if the outgoing queue is full;
+                    // the host is responsible for retrying.
                     SendError::QueueFull => (),
-                    SendError::ServerRestarted => panic!(),
+                    // For lack of a better idea, we will also drop packets if
+                    // the netstack restarts -- since the host has to have the
+                    // capacity to retry anyway. The main alternative is to
+                    // retry, but on discussion we felt it wasn't worth it --
+                    // and besides, it creates a potential for a CPU-burning
+                    // retry loop if the netstack were to crashloop, Jefe
+                    // forbid.
+                    SendError::ServerRestarted => (),
                 }
             }
         }

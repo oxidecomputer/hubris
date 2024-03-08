@@ -61,7 +61,7 @@ fn main() -> ! {
                 .unwrap();
             }
             Err(RecvError::ServerRestarted) => {
-                // `net` restarted (probably due to the watchdog); just retry.
+                // `net` restarted, the poor thing; just retry.
             }
         }
 
