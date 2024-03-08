@@ -14,6 +14,7 @@ userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 [build-dependencies]
 build-util = { path = "../../build/util" }
+idol.workspace = true
 
 [features]
 stm32h743 = ["drv-stm32h7-usart/h743"]
@@ -27,6 +28,7 @@ hardware_flow_control = []
 # we could expand this if needed; exactly one of these must be specified
 baud_rate_115_200 = []
 baud_rate_3M = []
+client-counters = ["idol/client-counters"]
 
 [[bin]]
 name = "task-uartecho"

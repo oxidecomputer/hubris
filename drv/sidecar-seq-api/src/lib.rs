@@ -22,8 +22,9 @@ use serde::{Deserialize, Serialize};
 use userlib::*;
 use zerocopy::AsBytes;
 
-#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
-#[cfg_attr(feature = "counters", derive(counters::Count))]
+#[derive(
+    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, counters::Count,
+)]
 pub enum SeqError {
     FpgaError = 1,
     IllegalTransition,

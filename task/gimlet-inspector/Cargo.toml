@@ -15,8 +15,10 @@ counters = { path = "../../lib/counters" }
 
 [build-dependencies]
 build-util = { path = "../../build/util" }
+idol = { workspace = true }
 
 [features]
+client-counters = ["idol/client-counters"]
 vlan = ["task-net-api/vlan"]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,

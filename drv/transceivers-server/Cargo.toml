@@ -32,6 +32,7 @@ zerocopy = { workspace = true }
 
 [features]
 vlan = ["task-net-api/vlan"]
+client-counters = ["idol/client-counters"]
 
 [build-dependencies]
 build-util = { path = "../../build/util" }

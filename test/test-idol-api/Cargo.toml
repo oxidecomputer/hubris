@@ -9,7 +9,6 @@ num-traits = { workspace = true }
 serde = { workspace = true }
 ssmarshal = { workspace = true }
 zerocopy = { workspace = true }
-
 counters = { path = "../../lib/counters" }
 derive-idol-err = { path = "../../lib/derive-idol-err"  }
 userlib = { path = "../../sys/userlib" }

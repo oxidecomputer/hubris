@@ -10,7 +10,7 @@ request_reset = ["hiffy"]
 
 [tasks.meanwell]
 name = "drv-meanwell"
-features = ["stm32h7"]
+features = ["stm32h7", "client-counters"]
 priority = 6
 max-sizes = {flash = 2048, ram = 1024}
 start = true

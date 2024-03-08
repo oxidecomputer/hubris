@@ -26,7 +26,7 @@ use userlib::FromPrimitive;
     SerializedSize,
 )]
 #[repr(u32)]
-#[cfg_attr(feature = "counters", derive(counters::Count))]
+#[derive(counters::Count)]
 pub enum UpdateError {
     BadLength = 1,
     UpdateInProgress,

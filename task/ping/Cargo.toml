@@ -10,9 +10,11 @@ drv-user-leds-api = { path = "../../drv/user-leds-api" }
 
 [build-dependencies]
 build-util = { path = "../../build/util" }
+idol.workspace = true
 
 [features]
 uart = []
+client-counters = ["idol/client-counters"]
 
 [[bin]]
 name = "task-ping"

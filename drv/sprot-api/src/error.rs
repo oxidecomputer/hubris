@@ -22,18 +22,21 @@ use idol_runtime::RequestError;
 
 /// An error returned from a sprot request
 #[derive(
-    Debug, Copy, Clone, Serialize, Deserialize, SerializedSize, From, PartialEq,
+    Debug,
+    Copy,
+    Clone,
+    Serialize,
+    Deserialize,
+    SerializedSize,
+    From,
+    PartialEq,
+    counters::Count,
 )]
-#[cfg_attr(feature = "counters", derive(counters::Count))]
 pub enum SprotError {
-    Protocol(
-        #[cfg_attr(feature = "counters", count(children))] SprotProtocolError,
-    ),
-    Spi(#[cfg_attr(feature = "counters", count(children))] SpiError),
-    Update(#[cfg_attr(feature = "counters", count(children))] UpdateError),
-    Sprockets(
-        #[cfg_attr(feature = "counters", count(children))] SprocketsError,
-    ),
+    Protocol(#[count(children)] SprotProtocolError),
+    Spi(#[count(children)] SpiError),
+    Update(#[count(children)] UpdateError),
+    Sprockets(#[count(children)] SprocketsError),
 }
 
 impl From<SprotError> for SpError {
@@ -66,9 +69,16 @@ impl From<idol_runtime::ServerDeath> for SprotError {
 
 /// Sprot protocol specific errors
 #[derive(
-    Copy, Clone, Debug, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+    Copy,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    counters::Count,
 )]
-#[cfg_attr(feature = "counters", derive(counters::Count))]
 pub enum SprotProtocolError {
     /// CRC check failed.
     InvalidCrc,
@@ -166,9 +176,16 @@ impl SprotError {
 // There are currently no other exposed sprockets errors,
 // and sprockets isn't in use yet. This is just a place holder.
 #[derive(
-    Copy, Clone, Debug, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+    Copy,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    counters::Count,
 )]
-#[cfg_attr(feature = "counters", derive(counters::Count))]
 pub enum SprocketsError {
     BadEncoding,
     UnsupportedVersion,
@@ -183,10 +200,18 @@ impl From<SprocketsError> for GwSprocketsErr {
     }
 }
 
-#[derive(Copy, Clone, Debug, From, Deserialize, Serialize, SerializedSize)]
-#[cfg_attr(feature = "counters", derive(counters::Count))]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    From,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    counters::Count,
+)]
 pub enum DumpOrSprotError {
-    Sprot(#[cfg_attr(feature = "counters", count(children))] SprotError),
+    Sprot(#[count(children)] SprotError),
     Dump(DumperError),
 }
 
@@ -202,18 +227,25 @@ impl<V> From<DumpOrSprotError> for Result<V, RequestError<DumpOrSprotError>> {
     }
 }
 
-#[derive(Copy, Clone, Debug, From, Deserialize, Serialize, SerializedSize)]
-#[cfg_attr(feature = "counters", derive(counters::Count))]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    From,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    counters::Count,
+)]
 pub enum RawCabooseOrSprotError {
-    Sprot(#[cfg_attr(feature = "counters", count(children))] SprotError),
-    Caboose(#[cfg_attr(feature = "counters", count(children))] RawCabooseError),
+    Sprot(#[count(children)] SprotError),
+    Caboose(#[count(children)] RawCabooseError),
 }
 
-#[derive(Copy, Clone, Debug)]
-#[cfg_attr(feature = "counters", derive(counters::Count))]
+#[derive(Copy, Clone, Debug, counters::Count)]
 pub enum CabooseOrSprotError {
-    Sprot(#[cfg_attr(feature = "counters", count(children))] SprotError),
-    Caboose(#[cfg_attr(feature = "counters", count(children))] CabooseError),
+    Sprot(#[count(children)] SprotError),
+    Caboose(#[count(children)] CabooseError),
 }
 
 impl From<RawCabooseOrSprotError> for CabooseOrSprotError {
@@ -227,11 +259,19 @@ impl From<RawCabooseOrSprotError> for CabooseOrSprotError {
     }
 }
 
-#[derive(Copy, Clone, Debug, From, Deserialize, Serialize, SerializedSize)]
-#[cfg_attr(feature = "counters", derive(counters::Count))]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    From,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    counters::Count,
+)]
 pub enum AttestOrSprotError {
-    Sprot(#[cfg_attr(feature = "counters", count(children))] SprotError),
-    Attest(#[cfg_attr(feature = "counters", count(children))] AttestError),
+    Sprot(#[count(children)] SprotError),
+    Attest(#[count(children)] AttestError),
 }
 
 impl From<SprotError> for RequestError<AttestOrSprotError> {

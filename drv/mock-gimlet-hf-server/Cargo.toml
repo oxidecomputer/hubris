@@ -14,7 +14,7 @@ userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 [build-dependencies]
 build-util = {path = "../../build/util"}
-idol = { workspace = true }
+idol = { workspace = true, features = ["client-counters"] }
 
 # None of these features do anything in the mock server; they exist only to
 # match the feature list in the real hf server (allowing a quick substitution

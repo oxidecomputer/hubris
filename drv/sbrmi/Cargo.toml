@@ -25,6 +25,8 @@ idol = { workspace = true }
 stm32h7 = ["drv-stm32xx-sys-api/family-stm32h7"]
 panic-messages = ["userlib/panic-messages"]
 
+client-counters = ["idol/client-counters"]
+
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
 [[bin]]

@@ -13,8 +13,9 @@ pub use rand_core::{Error, RngCore};
 use userlib::{sys_send, FromPrimitive};
 
 #[repr(u32)]
-#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
-#[cfg_attr(feature = "counters", derive(counters::Count))]
+#[derive(
+    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, counters::Count,
+)]
 pub enum RngError {
     PoweredOff = 1,
     NoData,

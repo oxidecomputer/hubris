@@ -10,7 +10,7 @@ num-traits.workspace = true
 serde.workspace = true
 zerocopy.workspace = true
 
-counters = { path = "../../lib/counters", optional = true }
+counters = { path = "../../lib/counters" }
 drv-i2c-api.path = "../../drv/i2c-api"
 userlib.path = "../../sys/userlib"
 task-sensor-types.path = "../sensor-types"
@@ -34,5 +34,3 @@ build-util = { path = "../../build/util" }
 h743 = ["build-i2c/h743"]
 h753 = ["build-i2c/h753"]
 h7b3 = ["build-i2c/h7b3"]
-counters = ["dep:counters", "task-sensor-types/counters"]
-default = ["counters"]

@@ -4,10 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default = ["counters"]
+
 
 [dependencies]
-counters = { path = "../../lib/counters", optional = true }
+counters = { path = "../../lib/counters" }
 derive-idol-err = { path = "../../lib/derive-idol-err"  }
 userlib = { path = "../../sys/userlib" }
 

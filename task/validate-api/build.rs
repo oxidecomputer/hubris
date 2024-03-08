@@ -7,11 +7,10 @@ use std::io::Write;
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     write_pub_device_descriptions()?;
 
-    idol::Generator::new()
-        .with_counters(
-            cfg!(feature = "counters").then(idol::CounterSettings::default),
-        )
-        .build_client_stub("../../idl/validate.idol", "client_stub.rs")?;
+    idol::client::build_client_stub(
+        "../../idl/validate.idol",
+        "client_stub.rs",
+    )?;
     Ok(())
 }
 

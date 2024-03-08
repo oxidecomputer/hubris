@@ -24,16 +24,16 @@ set_reset_reason = ["sys"]
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
-features = ["h753"]
+features = ["h753", "client-counters"]
 priority = 1
-max-sizes = {flash = 2048, ram = 1024}
+max-sizes = {flash = 2048, ram = 2048}
 uses = ["rcc", "gpios", "system_flash"]
 start = true
 task-slots = ["jefe"]
 
 [tasks.i2c_driver]
 name = "drv-stm32xx-i2c-server"
-features = ["h753"]
+features = ["h753", "client-counters"]
 priority = 2
 max-sizes = {flash = 16384, ram = 4096}
 uses = ["i2c2", "i2c3", "i2c4"]
@@ -51,7 +51,7 @@ notifications = ["i2c2-irq", "i2c3-irq", "i2c4-irq"]
 
 [tasks.user_leds]
 name = "drv-user-leds"
-features = ["stm32h7"]
+features = ["stm32h7", "client-counters"]
 priority = 5
 max-sizes = {flash = 2048, ram = 1024}
 start = true
@@ -60,6 +60,7 @@ notifications = ["timer"]
 
 [tasks.pong]
 name = "task-pong"
+features = ["client-counters"]
 priority = 8
 max-sizes = {flash = 1024, ram = 1024}
 start = true
@@ -68,7 +69,7 @@ notifications = ["timer"]
 
 [tasks.uartecho]
 name = "task-uartecho"
-features = ["stm32h753", "usart2", "baud_rate_3M", "hardware_flow_control"]
+features = ["stm32h753", "usart2", "baud_rate_3M", "hardware_flow_control", "client-counters"]
 uses = ["usart2"]
 notifications = ["usart-irq"]
 interrupts = {"usart2.irq" = "usart-irq"}
@@ -80,6 +81,7 @@ task-slots = ["sys"]
 
 [tasks.hiffy]
 name = "task-hiffy"
+features = ["client-counters"]
 priority = 7
 max-sizes = {flash = 32768, ram = 32768}
 stacksize = 2048
@@ -87,6 +89,7 @@ start = true
 
 [tasks.validate]
 name = "task-validate"
+features = ["client-counters"]
 priority = 3
 max-sizes = {flash = 32768, ram = 4096}
 stacksize = 1024
@@ -101,7 +104,7 @@ stacksize = 256
 start = true
 
 [tasks.rng_driver]
-features = ["h753"]
+features = ["h753", "client-counters"]
 name = "drv-stm32h7-rng"
 priority = 6
 max-sizes = {flash = 8192, ram = 512}
@@ -112,6 +115,7 @@ task-slots = ["sys", "user_leds"]
 
 [tasks.update_server]
 name = "stm32h7-update-server"
+features = ["client-counters"]
 priority = 3
 max-sizes = {flash = 16384, ram = 4096}
 stacksize = 2048

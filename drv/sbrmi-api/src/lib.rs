@@ -10,8 +10,7 @@ use derive_idol_err::IdolError;
 use drv_i2c_devices::sbrmi;
 use userlib::*;
 
-#[derive(Copy, Clone, Debug, FromPrimitive, IdolError)]
-#[cfg_attr(feature = "counters", derive(counters::Count))]
+#[derive(Copy, Clone, Debug, FromPrimitive, IdolError, counters::Count)]
 pub enum SbrmiError {
     Unavailable = 1,
     Unsupported,

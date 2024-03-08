@@ -19,6 +19,7 @@ userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 [features]
 sequencer = ["dep:drv-sidecar-seq-api"]
 always-transmit = []
+client-counters = ["idol/client-counters"]
 
 [build-dependencies]
 build-util = {path = "../../build/util"}

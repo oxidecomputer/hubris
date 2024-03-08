@@ -5,10 +5,6 @@
 use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
-    idol::Generator::new()
-        .with_counters(
-            cfg!(feature = "counters").then(idol::CounterSettings::default),
-        )
-        .build_client_stub("../../idl/attest.idol", "client_stub.rs")?;
+    idol::client::build_client_stub("../../idl/attest.idol", "client_stub.rs")?;
     Ok(())
 }

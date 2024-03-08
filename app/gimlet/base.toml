@@ -39,7 +39,7 @@ request_reset = ["hiffy", "control_plane_agent"]
 name = "task-net"
 stacksize = 6040
 priority = 5
-features = ["mgmt", "h753", "gimlet", "vlan", "vpd-mac"]
+features = ["mgmt", "h753", "gimlet", "vlan", "vpd-mac", "client-counters"]
 max-sizes = {flash = 131072, ram = 65536, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "tim16"]
@@ -50,9 +50,9 @@ notifications = ["eth-irq", "mdio-timer-irq", "wake-timer", "jefe-state-change"]
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
-features = ["h753"]
+features = ["h753", "client-counters"]
 priority = 1
-max-sizes = {flash = 2048, ram = 1024}
+max-sizes = {flash = 2048, ram = 2048}
 uses = ["rcc", "gpios", "system_flash"]
 start = true
 task-slots = ["jefe"]
@@ -61,7 +61,7 @@ task-slots = ["jefe"]
 name = "drv-stm32h7-spi-server"
 priority = 3
 max-sizes = {flash = 16384, ram = 4096}
-features = ["spi2", "h753"]
+features = ["spi2", "h753", "client-counters"]
 uses = ["spi2"]
 start = true
 interrupts = {"spi2.irq" = "spi-irq"}
@@ -71,7 +71,7 @@ notifications = ["spi-irq"]
 
 [tasks.i2c_driver]
 name = "drv-stm32xx-i2c-server"
-features = ["h753"]
+features = ["h753", "client-counters"]
 priority = 3
 max-sizes = {flash = 16384, ram = 4096}
 uses = ["i2c2", "i2c3", "i2c4"]
@@ -89,7 +89,7 @@ notifications = ["i2c2-irq", "i2c3-irq", "i2c4-irq"]
 
 [tasks.spd]
 name = "task-spd"
-features = ["h753"]
+features = ["h753", "client-counters"]
 priority = 2
 max-sizes = {flash = 16384, ram = 16384}
 uses = ["i2c1"]
@@ -112,7 +112,7 @@ features = ["gimlet"]
 
 [tasks.thermal]
 name = "task-thermal"
-features = ["gimlet"]
+features = ["gimlet", "client-counters"]
 priority = 5
 max-sizes = {flash = 32768, ram = 8192 }
 stacksize = 6000
@@ -122,7 +122,7 @@ notifications = ["timer"]
 
 [tasks.power]
 name = "task-power"
-features = ["gimlet"]
+features = ["gimlet", "client-counters"]
 priority = 6
 max-sizes = {flash = 65536, ram = 16384 }
 stacksize = 2504
@@ -132,7 +132,7 @@ notifications = ["timer"]
 
 [tasks.hiffy]
 name = "task-hiffy"
-features = ["h753", "stm32h7", "i2c", "gpio", "spi", "qspi", "hash", "sprot"]
+features = ["h753", "stm32h7", "i2c", "gpio", "spi", "qspi", "hash", "sprot", "client-counters"]
 priority = 5
 max-sizes = {flash = 32768, ram = 32768 }
 stacksize = 1024
@@ -141,7 +141,7 @@ task-slots = ["sys", "hf", "i2c_driver", "hash_driver", "update_server", "sprot"
 
 [tasks.gimlet_seq]
 name = "drv-gimlet-seq-server"
-features = ["h753"]
+features = ["h753", "client-counters"]
 priority = 4
 max-sizes = {flash = 131072, ram = 8192 }
 stacksize = 1600
@@ -157,7 +157,7 @@ register_defs = "gimlet-regs-b.json"
 [tasks.gimlet_inspector]
 name = "task-gimlet-inspector"
 priority = 6
-features = ["vlan"]
+features = ["vlan", "client-counters"]
 max-sizes = {flash = 16384, ram = 4096 }
 stacksize = 1600
 start = true
@@ -166,7 +166,7 @@ notifications = ["socket"]
 
 [tasks.hash_driver]
 name = "drv-stm32h7-hash-server"
-features = ["h753"]
+features = ["h753", "client-counters"]
 priority = 2
 max-sizes = {flash = 16384, ram=4096 }
 stacksize = 2048
@@ -178,7 +178,7 @@ notifications = ["hash-irq"]
 
 [tasks.hf]
 name = "drv-gimlet-hf-server"
-features = ["h753", "hash"]
+features = ["h753", "hash", "client-counters"]
 priority = 3
 max-sizes = {flash = 16384, ram = 4096 }
 stacksize = 3000
@@ -190,6 +190,7 @@ notifications = ["qspi-irq"]
 
 [tasks.update_server]
 name = "stm32h7-update-server"
+features = ["client-counters"]
 priority = 3
 max-sizes = {flash = 16384, ram = 4096}
 stacksize = 2048
@@ -201,7 +202,7 @@ notifications = ["flash-irq"]
 
 [tasks.sensor]
 name = "task-sensor"
-features = []
+features = ["client-counters"]
 priority = 4
 max-sizes = {flash = 8192, ram = 8192 }
 stacksize = 1024
@@ -210,7 +211,7 @@ notifications = ["timer"]
 
 [tasks.host_sp_comms]
 name = "task-host-sp-comms"
-features = ["stm32h753", "uart7", "baud_rate_3M", "hardware_flow_control", "vlan", "gimlet"]
+features = ["stm32h753", "uart7", "baud_rate_3M", "hardware_flow_control", "vlan", "gimlet", "client-counters"]
 uses = ["uart7", "dbgmcu"]
 interrupts = {"uart7.irq" = "usart-irq"}
 priority = 7
@@ -227,7 +228,7 @@ max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
 task-slots = ["net"]
-features = ["vlan"]
+features = ["vlan", "client-counters"]
 notifications = ["socket"]
 
 [tasks.udpbroadcast]
@@ -237,7 +238,7 @@ max-sizes = {flash = 16384, ram = 8192}
 stacksize = 2048
 start = true
 task-slots = ["net", "packrat"]
-features = ["vlan"]
+features = ["vlan", "client-counters"]
 notifications = ["socket"]
 
 [tasks.control_plane_agent]
@@ -268,6 +269,7 @@ features = [
     "vlan",
     "baud_rate_3M",
     "vpd",
+    "client-counters",
 ]
 notifications = ["usart-irq", "socket", "timer"]
 interrupts = {"usart1.irq" = "usart-irq"}
@@ -279,13 +281,14 @@ max-sizes = {flash = 65536, ram = 32768}
 stacksize = 16384
 start = true
 task-slots = ["sys"]
-features = ["sink_test", "use-spi-core", "h753", "spi4"]
+features = ["sink_test", "use-spi-core", "h753", "spi4", "client-counters"]
 uses = ["spi4"]
 notifications = ["spi-irq"]
 interrupts = {"spi4.irq" = "spi-irq"}
 
 [tasks.validate]
 name = "task-validate"
+features = ["client-counters"]
 priority = 5
 max-sizes = {flash = 16384, ram = 4096 }
 stacksize = 1000
@@ -294,6 +297,7 @@ task-slots = ["i2c_driver"]
 
 [tasks.vpd]
 name = "task-vpd"
+features = ["client-counters"]
 priority = 4
 max-sizes = {flash = 8192, ram = 1024}
 start = true
@@ -302,7 +306,7 @@ stacksize = 800
 
 [tasks.user_leds]
 name = "drv-user-leds"
-features = ["stm32h7"]
+features = ["stm32h7", "client-counters"]
 priority = 2
 max-sizes = {flash = 2048, ram = 1024}
 start = true
@@ -318,10 +322,11 @@ task-slots = ["sprot", "jefe", "net"]
 stacksize = 2400
 extern-regions = ["sram2", "sram3", "sram4"]
 notifications = ["socket"]
-features = ["net", "vlan"]
+features = ["net", "vlan", "client-counters"]
 
 [tasks.sbrmi]
 name = "drv-sbrmi"
+features = ["client-counters"]
 priority = 4
 max-sizes = {flash = 8192, ram = 2048 }
 start = true

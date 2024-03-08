@@ -3,17 +3,14 @@ name = "drv-lpc55-gpio-api"
 version = "0.1.0"
 edition = "2021"
 
-[features]
-default = ["counters"]
-counters = ["dep:counters", "idol-runtime/counters"]
 
 [dependencies]
 cfg-if.workspace = true
-idol-runtime.workspace = true
+idol-runtime = { workspace = true, features = ["counters"] }
 num-traits.workspace = true
 zerocopy.workspace = true
 
-counters = { path = "../../lib/counters", optional = true }
+counters = { path = "../../lib/counters" }
 derive-idol-err = { path = "../../lib/derive-idol-err" }
 userlib = { path = "../../sys/userlib" }
 

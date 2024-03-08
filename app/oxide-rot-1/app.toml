@@ -39,6 +39,7 @@ start = true
 
 [tasks.update_server]
 name = "lpc55-update-server"
+features = ["client-counters"]
 priority = 3
 max-sizes = {flash = 16384, ram = 4096, usbsram = 4096}
 stacksize = 2560
@@ -51,6 +52,7 @@ task-slots = [{"syscon" = "syscon_driver"}, "jefe"]
 
 [tasks.syscon_driver]
 name = "drv-lpc55-syscon"
+features = ["client-counters"]
 priority = 2
 max-sizes = {flash = 8192, ram = 2048}
 uses = ["syscon", "anactrl", "pmc"]
@@ -59,6 +61,7 @@ task-slots = ["jefe"]
 
 [tasks.gpio_driver]
 name = "drv-lpc55-gpio"
+features = ["client-counters"]
 priority = 3
 max-sizes = {flash = 8192, ram = 2048}
 uses = ["gpio", "iocon"]
@@ -70,7 +73,7 @@ name = "drv-lpc55-sprot-server"
 priority = 6
 max-sizes = {flash = 48512, ram = 32768}
 uses = ["flexcomm8", "bootrom"]
-features = ["spi0"]
+features = ["spi0", "client-counters"]
 start = true
 notifications = ["spi-irq"]
 interrupts = {"flexcomm8.hs_spi" = "spi-irq"}
@@ -95,6 +98,7 @@ pins = [
 
 [tasks.swd]
 name = "drv-lpc55-swd"
+features = ["client-counters"]
 priority = 4
 max-sizes = {flash = 16384, ram = 4096}
 uses = ["flexcomm5", "iocon"]
@@ -128,6 +132,7 @@ spi_num = 5
 
 [tasks.dumper]
 name = "task-dumper"
+features = ["client-counters"]
 priority = 5
 max-sizes = {flash = 16384, ram = 4096}
 start = true
@@ -136,6 +141,7 @@ task-slots = ["swd"]
 
 [tasks.attest]
 name = "task-attest"
+features = ["client-counters"]
 priority = 5
 max-sizes = {flash = 33904, ram = 16384}
 stacksize = 12304

@@ -6,11 +6,11 @@ edition = "2021"
 [dependencies]
 byteorder.workspace = true
 cfg-if.workspace = true
-idol-runtime.workspace = true
+idol-runtime = { workspace = true, features = ["counters"] }
 num-traits.workspace = true
 zerocopy.workspace = true
 
-counters = { path = "../../lib/counters", optional = true  }
+counters = { path = "../../lib/counters" }
 derive-idol-err = { path = "../../lib/derive-idol-err"  }
 drv-stm32xx-gpio-common = { path = "../stm32xx-gpio-common" }
 userlib = { path = "../../sys/userlib" }
@@ -19,8 +19,6 @@ userlib = { path = "../../sys/userlib" }
 idol.workspace = true
 
 [features]
-default = ["counters"]
-counters = ["dep:counters", "idol-runtime/counters"]
 
 family-stm32h7 = ["drv-stm32xx-gpio-common/family-stm32h7"]
 h743 = ["family-stm32h7", "drv-stm32xx-gpio-common/model-stm32h743"]

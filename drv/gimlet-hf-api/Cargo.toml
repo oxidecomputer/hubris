@@ -10,7 +10,7 @@ num-traits.workspace = true
 serde.workspace = true
 zerocopy.workspace = true
 
-counters = { path = "../../lib/counters", optional = true }
+counters = { path = "../../lib/counters" }
 derive-idol-err = { path = "../../lib/derive-idol-err"  }
 drv-hash-api = { path = "../hash-api" }
 drv-qspi-api = { path = "../qspi-api" }

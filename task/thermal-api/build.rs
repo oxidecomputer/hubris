@@ -3,10 +3,9 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    idol::Generator::new()
-        .with_counters(
-            cfg!(feature = "counters").then(idol::CounterSettings::default),
-        )
-        .build_client_stub("../../idl/thermal.idol", "client_stub.rs")?;
+    idol::client::build_client_stub(
+        "../../idl/thermal.idol",
+        "client_stub.rs",
+    )?;
     Ok(())
 }

@@ -11,6 +11,12 @@ zerocopy = { workspace = true }
 drv-lpc55-syscon-api = { path = "../lpc55-syscon-api" }
 userlib = { path = "../../sys/userlib" }
 
+[build-dependencies]
+idol = { workspace = true }
+
+[features]
+client-counters = ["idol/client-counters"]
+
 [lib]
 test = false
 doctest = false

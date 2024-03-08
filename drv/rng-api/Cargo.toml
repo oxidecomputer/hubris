@@ -12,12 +12,12 @@ rand_core.workspace = true
 zerocopy.workspace = true
 
 abi = {  path = "../../sys/abi"  }
-counters = { path = "../../lib/counters", optional = true }
+counters = { path = "../../lib/counters" }
 userlib = {  path = "../../sys/userlib", features = ["panic-messages"]  }
 derive-idol-err = { path = "../../lib/derive-idol-err" }
 
 [features]
-default = ["counters"]
+
 custom-getrandom = ["getrandom/custom"]
 
 [build-dependencies]

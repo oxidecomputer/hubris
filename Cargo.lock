@@ -1131,6 +1131,7 @@ dependencies = [
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-oxide-vpd",
+ "idol",
  "userlib",
  "zerocopy 0.6.6",
 ]
@@ -1177,6 +1178,7 @@ version = "0.1.0"
 dependencies = [
  "drv-lpc55-gpio-api",
  "drv-lpc55-syscon-api",
+ "idol",
  "lpc55-pac",
  "num-traits",
  "userlib",
@@ -1213,6 +1215,7 @@ name = "drv-lpc55-spi"
 version = "0.1.0"
 dependencies = [
  "drv-lpc55-syscon-api",
+ "idol",
  "lpc55-pac",
  "num-traits",
  "userlib",
@@ -1228,6 +1231,7 @@ dependencies = [
  "drv-lpc55-gpio-api",
  "drv-lpc55-spi",
  "drv-lpc55-syscon-api",
+ "idol",
  "lpc55-pac",
  "num-traits",
  "ringbuf",
@@ -1252,6 +1256,7 @@ dependencies = [
  "drv-update-api",
  "dumper-api",
  "hubpack",
+ "idol",
  "idol-runtime",
  "lpc55-pac",
  "lpc55-rom-data",
@@ -1349,6 +1354,7 @@ dependencies = [
  "build-util",
  "drv-lpc55-gpio-api",
  "drv-lpc55-syscon-api",
+ "idol",
  "lib-lpc55-usart",
  "lpc55-pac",
  "nb 1.0.0",
@@ -1455,6 +1461,7 @@ version = "0.1.0"
 dependencies = [
  "drv-i2c-api",
  "drv-i2c-devices",
+ "idol",
  "ringbuf",
  "tlvc",
  "zerocopy 0.6.6",
@@ -1486,6 +1493,7 @@ dependencies = [
  "drv-packrat-vpd-loader",
  "drv-psc-seq-api",
  "drv-stm32xx-sys-api",
+ "idol",
  "task-jefe-api",
  "userlib",
 ]
@@ -1557,6 +1565,7 @@ dependencies = [
  "drv-i2c-devices",
  "drv-transceivers-api",
  "gnarle",
+ "idol",
  "num-derive",
  "num-traits",
  "ringbuf",
@@ -1581,6 +1590,7 @@ dependencies = [
  "drv-fpga-user-api",
  "drv-ignition-api",
  "gnarle",
+ "idol",
  "num-derive",
  "num-traits",
  "serde",
@@ -1735,6 +1745,7 @@ dependencies = [
  "build-util",
  "cortex-m",
  "drv-stm32xx-sys-api",
+ "idol",
  "num-traits",
  "stm32g0",
  "userlib",
@@ -1970,6 +1981,7 @@ dependencies = [
  "drv-stm32xx-i2c",
  "drv-stm32xx-sys-api",
  "fixedmap",
+ "idol",
  "num-traits",
  "ringbuf",
  "stm32g0",
@@ -2616,7 +2628,7 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 [[package]]
 name = "idol"
 version = "0.4.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#af597706a6507672b6b14cf12af09ee3247e2753"
+source = "git+https://github.com/oxidecomputer/idolatry.git?branch=eliza/fix-counters#dee8a5f9a85ef51058e57d9518dccf279723ca2e"
 dependencies = [
  "indexmap 1.9.1",
  "once_cell",
@@ -2633,7 +2645,7 @@ dependencies = [
 [[package]]
 name = "idol-runtime"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#af597706a6507672b6b14cf12af09ee3247e2753"
+source = "git+https://github.com/oxidecomputer/idolatry.git?branch=eliza/fix-counters#dee8a5f9a85ef51058e57d9518dccf279723ca2e"
 dependencies = [
  "counters",
  "userlib",
@@ -4356,6 +4368,7 @@ dependencies = [
  "drv-gimlet-seq-api",
  "gimlet-inspector-protocol",
  "hubpack",
+ "idol",
  "serde",
  "task-net-api",
  "userlib",
@@ -4384,6 +4397,7 @@ dependencies = [
  "drv-stm32xx-sys-api",
  "hif",
  "hubris-num-tasks",
+ "idol",
  "idol-runtime",
  "num-traits",
  "ringbuf",
@@ -4637,6 +4651,7 @@ dependencies = [
  "build-util",
  "cortex-m",
  "drv-user-leds-api",
+ "idol",
  "userlib",
 ]
 
@@ -4647,6 +4662,7 @@ dependencies = [
  "build-util",
  "cortex-m",
  "drv-user-leds-api",
+ "idol",
  "userlib",
 ]
 
@@ -4750,6 +4766,7 @@ dependencies = [
  "cortex-m",
  "drv-i2c-api",
  "drv-i2c-devices",
+ "idol",
  "ringbuf",
  "task-sensor-api",
  "userlib",
@@ -4799,6 +4816,7 @@ dependencies = [
  "drv-i2c-api",
  "drv-stm32xx-i2c",
  "drv-stm32xx-sys-api",
+ "idol",
  "num-traits",
  "ringbuf",
  "spd",
@@ -4872,6 +4890,7 @@ dependencies = [
  "cortex-m",
  "drv-stm32h7-usart",
  "heapless",
+ "idol",
  "ringbuf",
  "userlib",
 ]
@@ -4881,6 +4900,7 @@ name = "task-udpbroadcast"
 version = "0.1.0"
 dependencies = [
  "hubpack",
+ "idol",
  "num-traits",
  "serde",
  "ssmarshal",
@@ -4896,6 +4916,7 @@ name = "task-udpecho"
 version = "0.1.0"
 dependencies = [
  "build-util",
+ "idol",
  "num-traits",
  "serde",
  "ssmarshal",
@@ -4908,6 +4929,7 @@ name = "task-udprpc"
 version = "0.1.0"
 dependencies = [
  "build-util",
+ "idol",
  "task-net-api",
  "userlib",
  "zerocopy 0.6.6",
@@ -5425,6 +5447,7 @@ dependencies = [
  "cfg-if",
  "drv-spi-api",
  "hubpack",
+ "idol",
  "ringbuf",
  "serde",
  "userlib",

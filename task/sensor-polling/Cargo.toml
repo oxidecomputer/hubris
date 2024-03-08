@@ -19,6 +19,10 @@ anyhow = { workspace = true }
 
 build-util = { path = "../../build/util" }
 build-i2c = { path = "../../build/i2c" }
+idol.workspace = true
+
+[features]
+client-counters = ["idol/client-counters"]
 
 [[bin]]
 name = "task-sensor-polling"

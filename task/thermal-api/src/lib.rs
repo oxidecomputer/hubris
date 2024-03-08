@@ -13,8 +13,9 @@ use serde::{Deserialize, Serialize};
 use userlib::{units::Celsius, *};
 use zerocopy::{AsBytes, FromBytes};
 
-#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
-#[cfg_attr(feature = "counters", derive(counters::Count))]
+#[derive(
+    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, counters::Count,
+)]
 pub enum ThermalError {
     InvalidFan = 1,
     InvalidPWM = 2,
@@ -40,8 +41,8 @@ pub enum ThermalError {
     Serialize,
     Deserialize,
     SerializedSize,
+    counters::Count,
 )]
-#[cfg_attr(feature = "counters", derive(counters::Count))]
 pub enum ThermalMode {
     /// The thermal loop has not started.  This is the initial state, but
     /// should be transient, as the thermal task turns on.
@@ -68,8 +69,8 @@ pub enum ThermalMode {
     Serialize,
     Deserialize,
     SerializedSize,
+    counters::Count,
 )]
-#[cfg_attr(feature = "counters", derive(counters::Count))]
 pub enum ThermalAutoState {
     Boot,
     Running,
@@ -133,11 +134,18 @@ impl ThermalProperties {
 /// Most of them will only return an I2C `ResponseCode`, but in some cases,
 /// they can report an error through in-band signalling (looking at you, NVMe)
 #[derive(
-    Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize, SerializedSize,
+    Copy,
+    Clone,
+    Debug,
+    Eq,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    SerializedSize,
+    counters::Count,
 )]
-#[cfg_attr(feature = "counters", derive(counters::Count))]
 pub enum SensorReadError {
-    I2cError(#[cfg_attr(feature = "counters", count(children))] ResponseCode),
+    I2cError(#[count(children)] ResponseCode),
 
     /// The sensor reported that data is either not present or too old
     NoData,

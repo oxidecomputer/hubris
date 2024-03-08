@@ -54,8 +54,8 @@ pub enum Op {
     Serialize,
     Deserialize,
     SerializedSize,
+    counters::Count,
 )]
-#[cfg_attr(feature = "counters", derive(counters::Count))]
 #[cfg_attr(
     feature = "counters",
     enum_kind(ResponseCodeU8, derive(counters::Count))
