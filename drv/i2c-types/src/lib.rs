@@ -56,11 +56,7 @@ pub enum Op {
     SerializedSize,
     counters::Count,
 )]
-#[cfg_attr(
-    feature = "counters",
-    enum_kind(ResponseCodeU8, derive(counters::Count))
-)]
-#[cfg_attr(not(feature = "counters"), enum_kind(ResponseCodeU8))]
+#[enum_kind(ResponseCodeU8, derive(counters::Count))]
 #[repr(u32)]
 pub enum ResponseCode {
     /// Bad response from server
