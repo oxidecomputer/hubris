@@ -267,7 +267,6 @@ features = [
     "vlan",
     "baud_rate_3M",
     "vpd",
-    "client-counters",
 ]
 notifications = ["usart-irq", "socket", "timer"]
 interrupts = {"usart1.irq" = "usart-irq"}
