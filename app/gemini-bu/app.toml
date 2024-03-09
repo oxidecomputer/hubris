@@ -64,7 +64,7 @@ task-slots = ["sys"]
 name = "drv-user-leds"
 features = ["stm32h7"]
 priority = 5
-max-sizes = {flash = 2048, ram = 1024}
+max-sizes = {flash = 2048, ram = 2048}
 start = true
 task-slots = ["sys"]
 notifications = ["timer"]
