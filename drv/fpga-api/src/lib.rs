@@ -15,7 +15,7 @@ use zerocopy::{AsBytes, BigEndian, FromBytes, U32};
 #[cfg(feature = "auxflash")]
 use drv_auxflash_api::{AuxFlash, AuxFlashBlob};
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, counters::Count)]
 pub enum FpgaError {
     ImplError(u8),
     BitstreamError(u8),

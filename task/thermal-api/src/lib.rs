@@ -6,7 +6,6 @@
 
 #![no_std]
 
-use counters::Count;
 use derive_idol_err::IdolError;
 use drv_i2c_api::ResponseCode;
 use hubpack::SerializedSize;
@@ -15,7 +14,7 @@ use userlib::{units::Celsius, *};
 use zerocopy::{AsBytes, FromBytes};
 
 #[derive(
-    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, Count,
+    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, counters::Count,
 )]
 pub enum ThermalError {
     InvalidFan = 1,
@@ -42,7 +41,7 @@ pub enum ThermalError {
     Serialize,
     Deserialize,
     SerializedSize,
-    Count,
+    counters::Count,
 )]
 pub enum ThermalMode {
     /// The thermal loop has not started.  This is the initial state, but
@@ -70,7 +69,7 @@ pub enum ThermalMode {
     Serialize,
     Deserialize,
     SerializedSize,
-    Count,
+    counters::Count,
 )]
 pub enum ThermalAutoState {
     Boot,
@@ -135,10 +134,18 @@ impl ThermalProperties {
 /// Most of them will only return an I2C `ResponseCode`, but in some cases,
 /// they can report an error through in-band signalling (looking at you, NVMe)
 #[derive(
-    Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize, SerializedSize,
+    Copy,
+    Clone,
+    Debug,
+    Eq,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    SerializedSize,
+    counters::Count,
 )]
 pub enum SensorReadError {
-    I2cError(ResponseCode),
+    I2cError(#[count(children)] ResponseCode),
 
     /// The sensor reported that data is either not present or too old
     NoData,

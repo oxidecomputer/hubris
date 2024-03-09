@@ -3,6 +3,9 @@ name = "task-control-plane-agent-api"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+
+
 [dependencies]
 idol-runtime.workspace = true
 num-traits.workspace = true
@@ -14,7 +17,7 @@ derive-idol-err.path = "../../lib/derive-idol-err"
 host-sp-messages.path = "../../lib/host-sp-messages"
 oxide-barcode.path = "../../lib/oxide-barcode"
 userlib.path = "../../sys/userlib"
-counters.path = "../../lib/counters"
+counters = { path = "../../lib/counters" }
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

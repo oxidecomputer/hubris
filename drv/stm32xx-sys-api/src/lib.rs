@@ -27,6 +27,7 @@ pub use drv_stm32xx_gpio_common::{
 
 #[derive(Copy, Clone, Debug, FromPrimitive, IdolError)]
 #[repr(u32)]
+#[derive(counters::Count)]
 pub enum RccError {
     NoSuchPeripheral = 1,
 }

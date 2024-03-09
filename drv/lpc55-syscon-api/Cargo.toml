@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+counters = { path = "../../lib/counters" }
 userlib = { path = "../../sys/userlib" }
 
 num-traits = { workspace = true }

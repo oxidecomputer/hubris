@@ -19,12 +19,13 @@ userlib = { path = "../../sys/userlib" }
 
 [features]
 bitstream = ["dep:drv-auxflash-api", "drv-fpga-api/auxflash"]
+no-ipc-counters = ["idol/no-counters"]
 
 [build-dependencies]
 build-fpga-regmap = { path = "../../build/fpga-regmap" }
 build-util = { path = "../../build/util" }
 gnarle = { path = "../../lib/gnarle", features=["std"] }
-
+idol = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 

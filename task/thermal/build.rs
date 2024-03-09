@@ -7,11 +7,15 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     build_util::build_notifications()?;
     build_i2c::codegen(build_i2c::Disposition::Sensors)?;
 
-    idol::server::build_server_support(
-        "../../idl/thermal.idol",
-        "server_stub.rs",
-        idol::server::ServerStyle::InOrder,
-    )?;
+    idol::Generator::new()
+        .with_counters(
+            idol::CounterSettings::default().with_server_counters(false),
+        )
+        .build_server_support(
+            "../../idl/thermal.idol",
+            "server_stub.rs",
+            idol::server::ServerStyle::InOrder,
+        )?;
 
     Ok(())
 }

@@ -23,6 +23,7 @@ use userlib::*;
     SerializedSize,
     Serialize,
     Deserialize,
+    counters::Count,
 )]
 #[repr(u32)]
 pub enum SpiError {

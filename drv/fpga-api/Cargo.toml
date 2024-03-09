@@ -7,6 +7,7 @@ edition = "2021"
 hiffy = []
 auxflash = ["drv-auxflash-api", "tlvc", "sha3"]
 
+
 [dependencies]
 idol-runtime = { workspace = true }
 num-traits = { workspace = true }
@@ -14,6 +15,7 @@ sha3 = { workspace = true, optional = true }
 tlvc = { workspace = true, optional = true}
 zerocopy = { workspace = true }
 
+counters = { path = "../../lib/counters" }
 drv-auxflash-api = { path = "../../drv/auxflash-api", optional = true }
 drv-spi-api = { path = "../../drv/spi-api" }
 userlib = { path = "../../sys/userlib" }

@@ -17,7 +17,9 @@ pub use oxide_barcode::VpdIdentity;
 /// Maximum length (in bytes) allowed for installinator image ID blobs.
 pub const MAX_INSTALLINATOR_IMAGE_ID_LEN: usize = 512;
 
-#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
+#[derive(
+    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, counters::Count,
+)]
 pub enum ControlPlaneAgentError {
     DataUnavailable = 1,
     InvalidStartupOptions,

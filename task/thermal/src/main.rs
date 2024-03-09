@@ -64,7 +64,7 @@ impl From<usize> for Fan {
 task_slot!(I2C, i2c_driver);
 task_slot!(SENSOR, sensor);
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, ringbuf::Count)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, counters::Count)]
 enum Trace {
     #[count(skip)]
     None,

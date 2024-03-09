@@ -174,9 +174,8 @@ impl<T: Count> Count for &'_ Option<T> {
 }
 
 impl Count for core::convert::Infallible {
-    type Counters = AtomicU32;
-    #[allow(clippy::declare_interior_mutable_const)]
-    const NEW_COUNTERS: Self::Counters = AtomicU32::new(0);
+    type Counters = ();
+    const NEW_COUNTERS: Self::Counters = ();
 
     fn count(&self, _: &Self::Counters) {
         // `Infallible`s are not made. They should NEVER be made. We

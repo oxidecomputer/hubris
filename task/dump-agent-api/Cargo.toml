@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+counters = { path = "../../lib/counters" }
 derive-idol-err = { path = "../../lib/derive-idol-err"  }
 userlib = { path = "../../sys/userlib" }
 dumper-api = { path = "../dumper-api" }

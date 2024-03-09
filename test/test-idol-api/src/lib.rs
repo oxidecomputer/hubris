@@ -10,7 +10,9 @@ use derive_idol_err::IdolError;
 use serde::{Deserialize, Serialize};
 use userlib::*;
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, FromPrimitive, IdolError)]
+#[derive(
+    Copy, Clone, Debug, Eq, PartialEq, FromPrimitive, IdolError, counters::Count,
+)]
 pub enum IdolTestError {
     UhOh = 1,
     YouAskedForThis = 2,

@@ -3,6 +3,9 @@ name = "drv-spi-api"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+
+
 [dependencies]
 gateway-messages.workspace = true
 hubpack.workspace = true
@@ -11,6 +14,7 @@ num-traits.workspace = true
 serde.workspace = true
 zerocopy.workspace = true
 
+counters = { path = "../../lib/counters" }
 derive-idol-err.path = "../../lib/derive-idol-err"
 userlib.path = "../../sys/userlib"
 

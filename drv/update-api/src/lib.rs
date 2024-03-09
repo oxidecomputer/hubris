@@ -26,6 +26,7 @@ use userlib::FromPrimitive;
     SerializedSize,
 )]
 #[repr(u32)]
+#[derive(counters::Count)]
 pub enum UpdateError {
     BadLength = 1,
     UpdateInProgress,
