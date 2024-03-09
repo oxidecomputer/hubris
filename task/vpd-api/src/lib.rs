@@ -10,7 +10,9 @@ use derive_idol_err::IdolError;
 use drv_i2c_api::ResponseCode;
 use userlib::*;
 
-#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
+#[derive(
+    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, counters::Count,
+)]
 pub enum VpdError {
     InvalidDevice = 1,
     NotPresent,

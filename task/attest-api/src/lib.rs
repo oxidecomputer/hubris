@@ -11,7 +11,15 @@ use serde::{Deserialize, Serialize};
 use userlib::sys_send;
 
 #[derive(
-    Copy, Clone, Debug, Deserialize, Eq, PartialEq, Serialize, SerializedSize,
+    Copy,
+    Clone,
+    Debug,
+    Deserialize,
+    Eq,
+    PartialEq,
+    Serialize,
+    SerializedSize,
+    counters::Count,
 )]
 pub enum AttestError {
     CertTooBig,

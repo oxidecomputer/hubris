@@ -52,7 +52,7 @@ notifications = ["eth-irq", "mdio-timer-irq", "wake-timer", "jefe-state-change"]
 name = "drv-stm32xx-sys"
 features = ["h753"]
 priority = 1
-max-sizes = {flash = 2048, ram = 1024}
+max-sizes = {flash = 2048, ram = 2048}
 uses = ["rcc", "gpios", "system_flash"]
 start = true
 task-slots = ["jefe"]
@@ -124,7 +124,7 @@ notifications = ["timer"]
 name = "task-power"
 features = ["gimlet"]
 priority = 6
-max-sizes = {flash = 65536, ram = 8192 }
+max-sizes = {flash = 65536, ram = 16384 }
 stacksize = 2504
 start = true
 task-slots = ["i2c_driver", "sensor", "gimlet_seq"]
@@ -158,7 +158,7 @@ register_defs = "gimlet-regs-b.json"
 name = "task-gimlet-inspector"
 priority = 6
 features = ["vlan"]
-max-sizes = {flash = 16384, ram = 2048 }
+max-sizes = {flash = 16384, ram = 4096 }
 stacksize = 1600
 start = true
 task-slots = ["net", {seq = "gimlet_seq"}]
@@ -201,7 +201,6 @@ notifications = ["flash-irq"]
 
 [tasks.sensor]
 name = "task-sensor"
-features = []
 priority = 4
 max-sizes = {flash = 8192, ram = 8192 }
 stacksize = 1024
@@ -214,7 +213,7 @@ features = ["stm32h753", "uart7", "baud_rate_3M", "hardware_flow_control", "vlan
 uses = ["uart7", "dbgmcu"]
 interrupts = {"uart7.irq" = "usart-irq"}
 priority = 7
-max-sizes = {flash = 65536, ram = 32768}
+max-sizes = {flash = 65536, ram = 65536}
 stacksize = 4096
 start = true
 task-slots = ["sys", "gimlet_seq", "hf", "control_plane_agent", "net", "packrat", "i2c_driver", { spi_driver = "spi2_driver" }]
@@ -312,7 +311,7 @@ notifications = ["timer"]
 [tasks.dump_agent]
 name = "task-dump-agent"
 priority = 6
-max-sizes = {flash = 32768, ram = 8192 }
+max-sizes = {flash = 32768, ram = 16384 }
 start = true
 task-slots = ["sprot", "jefe", "net"]
 stacksize = 2400

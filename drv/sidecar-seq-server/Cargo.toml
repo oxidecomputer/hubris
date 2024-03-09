@@ -27,6 +27,7 @@ userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 [features]
 h753 = ["build-i2c/h753"]
 stay-in-a2 = []
+no-ipc-counters = ["idol/no-counters"]
 
 [build-dependencies]
 build-util = { path = "../../build/util" }

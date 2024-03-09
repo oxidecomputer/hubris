@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use anyhow::{Context, Result};
-use idol::server::{self, ServerStyle};
+use idol::{server::ServerStyle, CounterSettings};
 use std::{fs::File, io::Write};
 
 mod config {
@@ -15,12 +15,14 @@ use config::DataRegion;
 const CFG_SRC: &str = "attest-config.rs";
 
 fn main() -> Result<()> {
-    server::build_server_support(
-        "../../idl/attest.idol",
-        "server_stub.rs",
-        ServerStyle::InOrder,
-    )
-    .unwrap();
+    idol::Generator::new()
+        .with_counters(CounterSettings::default().with_server_counters(false))
+        .build_server_support(
+            "../../idl/attest.idol",
+            "server_stub.rs",
+            ServerStyle::InOrder,
+        )
+        .unwrap();
 
     let out_dir = build_util::out_dir();
     let dest_path = out_dir.join(CFG_SRC);

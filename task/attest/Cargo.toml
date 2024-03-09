@@ -29,6 +29,9 @@ serde.workspace = true
 
 build-util = { path = "../../build/util" }
 
+[features]
+no-ipc-counters = ["idol/no-counters"]
+
 [[bin]]
 name = "task-attest"
 test = false

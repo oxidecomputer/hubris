@@ -99,6 +99,7 @@ dependencies = [
 name = "attest-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "gateway-messages",
  "hubpack",
@@ -372,9 +373,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.0.71"
+version = "1.0.88"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "79c2681d6594606957bbb8631c4b90a7fcaaa72cdb714743a437b156d6a7eedd"
+checksum = "02f341c093d19155a6e41631ce5971aac4e9a868262212153124c15fa22d1cdc"
 
 [[package]]
 name = "cfg-if"
@@ -429,16 +430,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2850f2f5a82cbf437dd5af4d49848fbdfc27c157c3d010345776f952765261c5"
 dependencies = [
  "os_str_bytes",
-]
-
-[[package]]
-name = "codespan-reporting"
-version = "0.11.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3538270d33cc669650c4b093848450d380def10c331d38c768e34cac80576e6e"
-dependencies = [
- "termcolor",
- "unicode-width",
 ]
 
 [[package]]
@@ -604,50 +595,6 @@ checksum = "a19c6cedffdc8c03a3346d723eb20bd85a13362bb96dc2ac000842c6381ec7bf"
 dependencies = [
  "nix",
  "winapi",
-]
-
-[[package]]
-name = "cxx"
-version = "1.0.97"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e88abab2f5abbe4c56e8f1fb431b784d710b709888f35755a160e62e33fe38e8"
-dependencies = [
- "cc",
- "cxxbridge-flags",
- "cxxbridge-macro",
- "link-cplusplus",
-]
-
-[[package]]
-name = "cxx-build"
-version = "1.0.97"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c0c11acd0e63bae27dcd2afced407063312771212b7a823b4fd72d633be30fb"
-dependencies = [
- "cc",
- "codespan-reporting",
- "once_cell",
- "proc-macro2",
- "quote",
- "scratch",
- "syn 2.0.52",
-]
-
-[[package]]
-name = "cxxbridge-flags"
-version = "1.0.97"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d3816ed957c008ccd4728485511e3d9aaf7db419aa321e3d2c5a2f3411e36c8"
-
-[[package]]
-name = "cxxbridge-macro"
-version = "1.0.97"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a26acccf6f445af85ea056362561a24ef56cdc15fcc685f03aec50b9c702cb6d"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.52",
 ]
 
 [[package]]
@@ -843,6 +790,7 @@ name = "drv-auxflash-api"
 version = "0.1.0"
 dependencies = [
  "build-util",
+ "counters",
  "derive-idol-err",
  "drv-qspi-api",
  "idol",
@@ -877,6 +825,7 @@ dependencies = [
 name = "drv-caboose"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "hubpack",
  "num-traits",
@@ -911,6 +860,7 @@ dependencies = [
 name = "drv-fpga-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "drv-auxflash-api",
  "drv-spi-api",
  "idol",
@@ -976,6 +926,7 @@ dependencies = [
 name = "drv-gimlet-hf-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "drv-hash-api",
  "drv-qspi-api",
@@ -1073,6 +1024,7 @@ dependencies = [
 name = "drv-hash-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "idol",
  "idol-runtime",
@@ -1085,6 +1037,7 @@ dependencies = [
 name = "drv-i2c-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "drv-i2c-types",
  "userlib",
  "zerocopy 0.6.6",
@@ -1138,6 +1091,7 @@ dependencies = [
  "build-fpga-regmap",
  "build-util",
  "cfg-if",
+ "counters",
  "derive-idol-err",
  "derive_more",
  "drv-fpga-api",
@@ -1177,6 +1131,7 @@ dependencies = [
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-oxide-vpd",
+ "idol",
  "userlib",
  "zerocopy 0.6.6",
 ]
@@ -1208,6 +1163,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if",
+ "counters",
  "derive-idol-err",
  "idol",
  "idol-runtime",
@@ -1222,6 +1178,7 @@ version = "0.1.0"
 dependencies = [
  "drv-lpc55-gpio-api",
  "drv-lpc55-syscon-api",
+ "idol",
  "lpc55-pac",
  "num-traits",
  "userlib",
@@ -1258,6 +1215,7 @@ name = "drv-lpc55-spi"
 version = "0.1.0"
 dependencies = [
  "drv-lpc55-syscon-api",
+ "idol",
  "lpc55-pac",
  "num-traits",
  "userlib",
@@ -1273,6 +1231,7 @@ dependencies = [
  "drv-lpc55-gpio-api",
  "drv-lpc55-spi",
  "drv-lpc55-syscon-api",
+ "idol",
  "lpc55-pac",
  "num-traits",
  "ringbuf",
@@ -1297,6 +1256,7 @@ dependencies = [
  "drv-update-api",
  "dumper-api",
  "hubpack",
+ "idol",
  "idol-runtime",
  "lpc55-pac",
  "lpc55-rom-data",
@@ -1359,6 +1319,7 @@ name = "drv-lpc55-syscon-api"
 version = "0.1.0"
 dependencies = [
  "build-util",
+ "counters",
  "idol",
  "num-traits",
  "userlib",
@@ -1369,6 +1330,7 @@ dependencies = [
 name = "drv-lpc55-update-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "drv-caboose",
  "drv-update-api",
@@ -1392,6 +1354,7 @@ dependencies = [
  "build-util",
  "drv-lpc55-gpio-api",
  "drv-lpc55-syscon-api",
+ "idol",
  "lib-lpc55-usart",
  "lpc55-pac",
  "nb 1.0.0",
@@ -1420,6 +1383,7 @@ dependencies = [
 name = "drv-meanwell-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "idol",
  "num-traits",
@@ -1459,6 +1423,7 @@ dependencies = [
 name = "drv-monorail-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "hubpack",
  "idol",
@@ -1496,6 +1461,7 @@ version = "0.1.0"
 dependencies = [
  "drv-i2c-api",
  "drv-i2c-devices",
+ "idol",
  "ringbuf",
  "tlvc",
  "zerocopy 0.6.6",
@@ -1527,6 +1493,7 @@ dependencies = [
  "drv-packrat-vpd-loader",
  "drv-psc-seq-api",
  "drv-stm32xx-sys-api",
+ "idol",
  "task-jefe-api",
  "userlib",
 ]
@@ -1540,6 +1507,7 @@ name = "drv-rng-api"
 version = "0.1.0"
 dependencies = [
  "abi",
+ "counters",
  "derive-idol-err",
  "getrandom",
  "idol",
@@ -1574,6 +1542,7 @@ dependencies = [
 name = "drv-sbrmi-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "drv-i2c-api",
  "drv-i2c-devices",
@@ -1596,6 +1565,7 @@ dependencies = [
  "drv-i2c-devices",
  "drv-transceivers-api",
  "gnarle",
+ "idol",
  "num-derive",
  "num-traits",
  "ringbuf",
@@ -1620,6 +1590,7 @@ dependencies = [
  "drv-fpga-user-api",
  "drv-ignition-api",
  "gnarle",
+ "idol",
  "num-derive",
  "num-traits",
  "serde",
@@ -1641,6 +1612,7 @@ dependencies = [
 name = "drv-sidecar-seq-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "drv-fpga-api",
  "drv-fpga-user-api",
@@ -1685,6 +1657,7 @@ dependencies = [
 name = "drv-sp-ctrl-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "idol",
  "idol-runtime",
@@ -1700,6 +1673,7 @@ dependencies = [
  "anyhow",
  "build-spi",
  "build-util",
+ "counters",
  "derive-idol-err",
  "gateway-messages",
  "hubpack",
@@ -1716,6 +1690,7 @@ name = "drv-sprot-api"
 version = "0.1.0"
 dependencies = [
  "attest-api",
+ "counters",
  "crc",
  "derive-idol-err",
  "derive_more",
@@ -1770,6 +1745,7 @@ dependencies = [
  "build-util",
  "cortex-m",
  "drv-stm32xx-sys-api",
+ "idol",
  "num-traits",
  "stm32g0",
  "userlib",
@@ -1941,6 +1917,7 @@ dependencies = [
 name = "drv-stm32h7-update-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "drv-caboose",
  "drv-update-api",
  "hubpack",
@@ -2004,6 +1981,7 @@ dependencies = [
  "drv-stm32xx-i2c",
  "drv-stm32xx-sys-api",
  "fixedmap",
+ "idol",
  "num-traits",
  "ringbuf",
  "stm32g0",
@@ -2036,6 +2014,7 @@ version = "0.1.0"
 dependencies = [
  "byteorder",
  "cfg-if",
+ "counters",
  "derive-idol-err",
  "drv-stm32xx-gpio-common",
  "idol",
@@ -2057,6 +2036,7 @@ name = "drv-transceivers-api"
 version = "0.1.0"
 dependencies = [
  "build-i2c",
+ "counters",
  "derive-idol-err",
  "drv-fpga-api",
  "idol",
@@ -2104,6 +2084,7 @@ dependencies = [
 name = "drv-update-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "derive_more",
  "gateway-messages",
@@ -2141,6 +2122,7 @@ dependencies = [
 name = "drv-user-leds-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "idol",
  "num-traits",
@@ -2152,6 +2134,7 @@ dependencies = [
 name = "dump-agent-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "dumper-api",
  "hubpack",
@@ -2168,6 +2151,7 @@ dependencies = [
 name = "dumper-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "hubpack",
  "humpty",
@@ -2628,12 +2612,11 @@ dependencies = [
 
 [[package]]
 name = "iana-time-zone-haiku"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0703ae284fc167426161c2e3f1da3ea71d94b21bedbcc9494e92b28e334e3dca"
+checksum = "f31827a206f56af32e590ba56d5d2d085f558508192593743f16b2306495269f"
 dependencies = [
- "cxx",
- "cxx-build",
+ "cc",
 ]
 
 [[package]]
@@ -2645,7 +2628,7 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 [[package]]
 name = "idol"
 version = "0.4.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#c5222fe79b55e007db06bfdab0ea7e2b1db28629"
+source = "git+https://github.com/oxidecomputer/idolatry.git#f86afe0a3f81ec90292c700bf44ee9fd40d7977f"
 dependencies = [
  "indexmap 1.9.1",
  "once_cell",
@@ -2662,8 +2645,9 @@ dependencies = [
 [[package]]
 name = "idol-runtime"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#c5222fe79b55e007db06bfdab0ea7e2b1db28629"
+source = "git+https://github.com/oxidecomputer/idolatry.git#f86afe0a3f81ec90292c700bf44ee9fd40d7977f"
 dependencies = [
+ "counters",
  "userlib",
  "zerocopy 0.6.6",
 ]
@@ -2741,9 +2725,9 @@ checksum = "b1a46d1a171d865aa5f83f92695765caa047a9b4cbae2cbf37dbd613a793fd4c"
 
 [[package]]
 name = "js-sys"
-version = "0.3.69"
+version = "0.3.68"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "29c15563dc2726973df627357ce0c9ddddbea194836909d655df6a75d2cf296d"
+checksum = "406cda4b368d531c842222cf9d2600a9a4acce8d29423695379c6868a143a9ee"
 dependencies = [
  "wasm-bindgen",
 ]
@@ -2845,15 +2829,6 @@ name = "libm"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c7d73b3f436185384286bd8098d17ec07c9a7d2388a6599f824d8502b529702a"
-
-[[package]]
-name = "link-cplusplus"
-version = "1.0.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9d240c6f7e1ba3a28b0249f774e6a9dd0175054b52dfbb61b16eb8505c3785c9"
-dependencies = [
- "cc",
-]
 
 [[package]]
 name = "linux-raw-sys"
@@ -3738,12 +3713,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 
 [[package]]
-name = "scratch"
-version = "1.0.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3cf7c11c38cb994f3d40e8a8cde3bbd1f72a435e4c49e85d6553d8312306152"
-
-[[package]]
 name = "scroll"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4077,6 +4046,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 name = "stage0-handoff"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "hubpack",
  "serde",
  "static_assertions",
@@ -4398,6 +4368,7 @@ dependencies = [
  "drv-gimlet-seq-api",
  "gimlet-inspector-protocol",
  "hubpack",
+ "idol",
  "serde",
  "task-net-api",
  "userlib",
@@ -4426,6 +4397,7 @@ dependencies = [
  "drv-stm32xx-sys-api",
  "hif",
  "hubris-num-tasks",
+ "idol",
  "idol-runtime",
  "num-traits",
  "ringbuf",
@@ -4483,6 +4455,7 @@ dependencies = [
 name = "task-host-sp-comms-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "host-sp-messages",
  "idol",
@@ -4529,6 +4502,7 @@ dependencies = [
 name = "task-jefe-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "dump-agent-api",
  "hubpack",
@@ -4620,6 +4594,7 @@ version = "0.1.0"
 dependencies = [
  "build-net",
  "build-util",
+ "counters",
  "derive-idol-err",
  "drv-spi-api",
  "hubpack",
@@ -4658,6 +4633,7 @@ dependencies = [
 name = "task-packrat-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "host-sp-messages",
  "idol",
@@ -4675,6 +4651,7 @@ dependencies = [
  "build-util",
  "cortex-m",
  "drv-user-leds-api",
+ "idol",
  "userlib",
 ]
 
@@ -4685,6 +4662,7 @@ dependencies = [
  "build-util",
  "cortex-m",
  "drv-user-leds-api",
+ "idol",
  "userlib",
 ]
 
@@ -4722,6 +4700,7 @@ dependencies = [
 name = "task-power-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "drv-i2c-api",
  "hubpack",
  "idol",
@@ -4765,6 +4744,7 @@ dependencies = [
  "anyhow",
  "build-i2c",
  "build-util",
+ "counters",
  "drv-i2c-api",
  "hubpack",
  "idol",
@@ -4786,6 +4766,7 @@ dependencies = [
  "cortex-m",
  "drv-i2c-api",
  "drv-i2c-devices",
+ "idol",
  "ringbuf",
  "task-sensor-api",
  "userlib",
@@ -4796,6 +4777,7 @@ dependencies = [
 name = "task-sensor-types"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "drv-i2c-types",
  "hubpack",
@@ -4834,6 +4816,7 @@ dependencies = [
  "drv-i2c-api",
  "drv-stm32xx-i2c",
  "drv-stm32xx-sys-api",
+ "idol",
  "num-traits",
  "ringbuf",
  "spd",
@@ -4907,6 +4890,7 @@ dependencies = [
  "cortex-m",
  "drv-stm32h7-usart",
  "heapless",
+ "idol",
  "ringbuf",
  "userlib",
 ]
@@ -4916,6 +4900,7 @@ name = "task-udpbroadcast"
 version = "0.1.0"
 dependencies = [
  "hubpack",
+ "idol",
  "num-traits",
  "serde",
  "ssmarshal",
@@ -4931,6 +4916,7 @@ name = "task-udpecho"
 version = "0.1.0"
 dependencies = [
  "build-util",
+ "idol",
  "num-traits",
  "serde",
  "ssmarshal",
@@ -4943,6 +4929,7 @@ name = "task-udprpc"
 version = "0.1.0"
 dependencies = [
  "build-util",
+ "idol",
  "task-net-api",
  "userlib",
  "zerocopy 0.6.6",
@@ -4975,6 +4962,7 @@ name = "task-validate-api"
 version = "0.1.0"
 dependencies = [
  "build-i2c",
+ "counters",
  "derive-idol-err",
  "drv-i2c-api",
  "hubpack",
@@ -5011,6 +4999,7 @@ dependencies = [
 name = "task-vpd-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "drv-i2c-api",
  "idol",
@@ -5056,6 +5045,7 @@ dependencies = [
 name = "test-idol-api"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "derive-idol-err",
  "idol",
  "idol-runtime",
@@ -5368,12 +5358,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e5464a87b239f13a63a501f2701565754bae92d243d4bb7eb12f6d57d2269bf4"
 
 [[package]]
-name = "unicode-width"
-version = "0.1.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e51733f11c9c4f72aa0c160008246859e340b00807569a0da0e7a1079b27ba85"
-
-[[package]]
 name = "unicode-xid"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5463,6 +5447,7 @@ dependencies = [
  "cfg-if",
  "drv-spi-api",
  "hubpack",
+ "idol",
  "ringbuf",
  "serde",
  "userlib",

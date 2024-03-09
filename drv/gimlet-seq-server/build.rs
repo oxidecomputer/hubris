@@ -67,7 +67,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         u32::from_le_bytes(result[..4].try_into().unwrap())
     )?;
 
-    idol::server::build_server_support(
+    idol::Generator::new().build_server_support(
         "../../idl/gimlet-seq.idol",
         "server_stub.rs",
         idol::server::ServerStyle::InOrder,

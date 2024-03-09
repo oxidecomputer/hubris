@@ -49,6 +49,7 @@ build-util = { path = "../../build/util" }
 idol = { workspace = true }
 
 [features]
+no-ipc-counters = ["idol/no-counters"]
 gimlet = ["drv-gimlet-hf-api", "drv-gimlet-seq-api", "drv-stm32h7-usart", "drv-user-leds-api"]
 sidecar = ["drv-sidecar-seq-api", "drv-monorail-api", "drv-ignition-api", "drv-transceivers-api"]
 psc = ["drv-user-leds-api"]
