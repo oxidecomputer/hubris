@@ -229,7 +229,6 @@ notifications = ["socket", "timer"]
 
 [tasks.packrat]
 name = "task-packrat"
-features =["client-counters"]
 priority = 3
 max-sizes = {flash = 8192, ram = 2048}
 start = true
@@ -238,7 +237,6 @@ task-slots = []
 
 [tasks.sequencer]
 name = "drv-sidecar-seq-server"
-features =["client-counters"]
 priority = 4
 stacksize = 4096
 start = true
@@ -273,7 +271,6 @@ notifications = ["timer"]
 
 [tasks.validate]
 name = "task-validate"
-features =["client-counters"]
 priority = 5
 max-sizes = {flash = 16384, ram = 4096 }
 stacksize = 1000
@@ -292,7 +289,6 @@ notifications = ["timer"]
 
 [tasks.vpd]
 name = "task-vpd"
-features =["client-counters"]
 priority = 3
 max-sizes = {flash = 8192, ram = 1024}
 start = true
