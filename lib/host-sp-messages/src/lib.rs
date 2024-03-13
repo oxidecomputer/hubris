@@ -68,11 +68,20 @@ pub struct Header {
 /// expect. When updating this enum, make sure to update that test and check
 /// that it contains the expected values.
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    counters::Count,
 )]
 pub enum HostToSp {
     // Microoptimization: insert a dummy variant first, so we never serialize a
     // command value of `0` to make COBS's life slightly easier.
+    #[count(skip)]
     _Unused,
     RequestReboot,
     RequestPowerOff,
@@ -128,11 +137,20 @@ pub enum HostToSp {
 /// expect. When updating this enum, make sure to update that test and check
 /// that it contains the expected values.
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    counters::Count,
 )]
 pub enum SpToHost {
     // Microoptimization: insert a dummy variant first, so we never serialize a
     // command value of `0` to make COBS's life slightly easier.
+    #[count(skip)]
     _Unused,
     Ack,
     DecodeFailure(DecodeFailureReason),
@@ -160,14 +178,15 @@ pub enum SpToHost {
     // If `result` is `KeyLookupResult::Ok`, this will be followed by a binary
     // blob of length at most `max_response_len` from the corresponding request.
     // For any other result, there is no subsequent binary blob.
-    KeyLookupResult(KeyLookupResult),
+    KeyLookupResult(#[count(children)] KeyLookupResult),
     // If `result` is `InventoryDataResult::Ok`, this will be followed by a
     // binary blob of a hubpack-serialized `InventoryData` value.
     InventoryData {
+        #[count(children)]
         result: InventoryDataResult,
         name: [u8; 32],
     },
-    KeySetResult(KeySetResult),
+    KeySetResult(#[count(children)] KeySetResult),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, num_derive::FromPrimitive)]
@@ -184,7 +203,15 @@ pub enum Key {
 }
 
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    counters::Count,
 )]
 pub enum KeyLookupResult {
     Ok,
@@ -198,7 +225,15 @@ pub enum KeyLookupResult {
 }
 
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    counters::Count,
 )]
 pub enum KeySetResult {
     Ok,
@@ -215,7 +250,15 @@ pub enum KeySetResult {
 ///
 /// These **cannot be reordered**; the host and SP must agree on them.
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    counters::Count,
 )]
 pub enum InventoryDataResult {
     Ok,
@@ -481,7 +524,14 @@ impl hubpack::SerializedSize for Bsu {
 
 // See RFD 316 for values.
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Deserialize_repr, Serialize_repr,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Deserialize_repr,
+    Serialize_repr,
+    counters::Count,
 )]
 #[repr(u8)]
 pub enum DecodeFailureReason {
