@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+counters = { path = "../../lib/counters" }
 derive-idol-err.path = "../../lib/derive-idol-err"
 host-sp-messages.path = "../../lib/host-sp-messages"
 oxide-barcode.path = "../../lib/oxide-barcode"

@@ -12,7 +12,9 @@ use serde::{Deserialize, Serialize};
 use userlib::*;
 
 /// Platform-agnostic (but heavily influenced) reset status bits.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, counters::Count,
+)]
 #[repr(C)]
 pub enum ResetReason {
     PowerOn,
@@ -27,7 +29,9 @@ pub enum ResetReason {
     Unknown, // TODO remove and use `Option<ResetReason>` once we switch to hubpack
 }
 
-#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
+#[derive(
+    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, counters::Count,
+)]
 #[repr(C)]
 pub enum DumpAreaError {
     InvalidIndex = 1,

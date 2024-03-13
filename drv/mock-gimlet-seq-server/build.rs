@@ -3,11 +3,15 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    idol::server::build_server_support(
-        "../../idl/gimlet-seq.idol",
-        "server_stub.rs",
-        idol::server::ServerStyle::InOrder,
-    )?;
+    idol::Generator::new()
+        .with_counters(
+            idol::CounterSettings::default().with_server_counters(false),
+        )
+        .build_server_support(
+            "../../idl/gimlet-seq.idol",
+            "server_stub.rs",
+            idol::server::ServerStyle::InOrder,
+        )?;
 
     Ok(())
 }

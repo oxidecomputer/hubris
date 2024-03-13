@@ -28,6 +28,9 @@ path = "sys/userlib"
 [patch."https://github.com/oxidecomputer/hubris".abi]
 path = "sys/abi"
 
+[patch."https://github.com/oxidecomputer/hubris".counters]
+path = "lib/counters"
+
 [workspace.dependencies]
 anyhow = { version = "1.0.31", default-features = false, features = ["std"] }
 arrayvec = { version = "0.7.4", default-features = false }

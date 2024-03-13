@@ -34,6 +34,7 @@ pub const PORT_MAX: u8 = 40;
     FromPrimitive,
     ToPrimitive,
     IdolError,
+    counters::Count,
 )]
 pub enum IgnitionError {
     /// Indicates an error communicating with the FPGA implementing the

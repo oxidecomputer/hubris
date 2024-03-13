@@ -14,7 +14,9 @@ use zerocopy::{AsBytes, FromBytes};
 
 pub use task_packrat_api::MacAddressBlock;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError)]
+#[derive(
+    Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError, counters::Count,
+)]
 #[repr(u32)]
 pub enum SendError {
     /// The selected socket is not owned by this task
@@ -32,7 +34,9 @@ pub enum SendError {
     ServerRestarted = 5,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError)]
+#[derive(
+    Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError, counters::Count,
+)]
 #[repr(u32)]
 pub enum RecvError {
     /// The selected socket is not owned by this task
@@ -47,7 +51,9 @@ pub enum RecvError {
     ServerRestarted = 4,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError)]
+#[derive(
+    Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError, counters::Count,
+)]
 #[repr(u32)]
 pub enum PhyError {
     /// The selected port is not valid
@@ -62,7 +68,9 @@ pub enum PhyError {
     ServerRestarted = 4,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError)]
+#[derive(
+    Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError, counters::Count,
+)]
 #[repr(u32)]
 pub enum KszError {
     /// This functionality is not available on the given board
@@ -149,7 +157,9 @@ pub struct ManagementCounters {
     pub vsc85x2_mac_valid: bool,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError)]
+#[derive(
+    Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError, counters::Count,
+)]
 #[repr(u32)]
 pub enum MgmtError {
     NotAvailable = 1,

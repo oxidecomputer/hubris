@@ -35,9 +35,11 @@ build-lpc55pins = { path = "../../build/lpc55pins" }
 build-util = { path = "../../build/util" }
 serde = { workspace = true }
 quote = { workspace = true }
+idol = { workspace = true }
 
 [features]
 spi0 = []
+no-ipc-counters = ["idol/no-counters"]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

@@ -14,7 +14,7 @@ task-jefe-api = { path = "../../task/jefe-api" }
 userlib = { path = "../../sys/userlib" }
 
 [build-dependencies]
-idol = { workspace = true }
+idol.workspace = true
 
 [[bin]]
 name = "drv-mock-gimlet-seq-server"

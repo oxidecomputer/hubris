@@ -49,13 +49,13 @@ mod payload;
 #[derive(Copy, Clone, PartialEq, Count)]
 enum Trace {
     Ice40Rails(bool, bool),
-    IdentValid(bool),
-    ChecksumValid(bool),
-    Reprogram(bool),
+    IdentValid(#[count(children)] bool),
+    ChecksumValid(#[count(children)] bool),
+    Reprogram(#[count(children)] bool),
     Programmed,
     Programming,
-    Ice40PowerGoodV1P2(bool),
-    Ice40PowerGoodV3P3(bool),
+    Ice40PowerGoodV1P2(#[count(children)] bool),
+    Ice40PowerGoodV3P3(#[count(children)] bool),
     RailsOff,
     Ident(u16),
     A2Status(u8),
@@ -63,7 +63,7 @@ enum Trace {
     A0FailureDetails(Addr, u8),
     A0Failed(#[count(children)] SeqError),
     A1Status(u8),
-    CPUPresent(bool),
+    CPUPresent(#[count(children)] bool),
     Coretype {
         coretype: bool,
         sp3r1: bool,
@@ -94,6 +94,12 @@ enum Trace {
         a1: u8,
         a0: u8,
     },
+    NICStatus {
+        nic_ctrl: u8,
+        nic_status: u8,
+        out_status_nic1: u8,
+        out_status_nic2: u8,
+    },
     ResetCounts {
         rstn: u8,
         pwrokn: u8,
@@ -115,19 +121,7 @@ enum Trace {
     None,
 }
 
-#[derive(Copy, Clone, PartialEq, counters::Count)]
-enum IpcRequest {
-    GetState,
-    SetState(#[count(children)] PowerState),
-    FansOn,
-    FansOff,
-    SendHardwareNmi,
-    ReadFpgaRegs,
-}
-
 counted_ringbuf!(Trace, 128, Trace::None);
-
-counters!(IPC_REQUESTS, IpcRequest);
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -497,9 +491,10 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
     }
 
     fn handle_notification(&mut self, _bits: u32) {
+        let ifr = self.seq.read_byte(Addr::IFR).unwrap_lite();
         ringbuf_entry!(Trace::Status {
             ier: self.seq.read_byte(Addr::IER).unwrap_lite(),
-            ifr: self.seq.read_byte(Addr::IFR).unwrap_lite(),
+            ifr,
             amd_status: self.seq.read_byte(Addr::AMD_STATUS).unwrap_lite(),
             amd_a0: self.seq.read_byte(Addr::AMD_A0).unwrap_lite(),
         });
@@ -512,7 +507,6 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
             // if both are indicated, we will clear both conditions -- but
             // land in A0Thermtrip).
             //
-            let ifr = self.seq.read_byte(Addr::IFR).unwrap_lite();
             self.check_reset(ifr);
             self.check_thermtrip(ifr);
 
@@ -537,6 +531,30 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
 
                 (PowerState::A0PlusHP, true) => {
                     ringbuf_entry!(Trace::NICPowerEnableLow(pwren_l));
+                    //
+                    // The NIC was powered on, but is now being powered off.
+                    // Something might be wrong, so record the sequencer's NIC
+                    // registers.
+                    //
+                    ringbuf_entry!(Trace::NICStatus {
+                        nic_ctrl: self
+                            .seq
+                            .read_byte(Addr::NIC_CTRL)
+                            .unwrap_lite(),
+                        nic_status: self
+                            .seq
+                            .read_byte(Addr::NIC_STATUS)
+                            .unwrap_lite(),
+                        out_status_nic1: self
+                            .seq
+                            .read_byte(Addr::OUT_STATUS_NIC1)
+                            .unwrap_lite(),
+                        out_status_nic2: self
+                            .seq
+                            .read_byte(Addr::OUT_STATUS_NIC2)
+                            .unwrap_lite(),
+                    });
+
                     self.seq
                         .set_bytes(Addr::NIC_CTRL, &[cld_rst])
                         .unwrap_lite();
@@ -956,7 +974,6 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
         &mut self,
         _: &RecvMessage,
     ) -> Result<PowerState, RequestError<SeqError>> {
-        IpcRequest::GetState.count(&IPC_REQUESTS);
         Ok(self.state)
     }
 
@@ -965,7 +982,6 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
         _: &RecvMessage,
         state: PowerState,
     ) -> Result<(), RequestError<SeqError>> {
-        IpcRequest::SetState(state).count(&IPC_REQUESTS);
         self.set_state_internal(state).map_err(RequestError::from)
     }
 
@@ -973,7 +989,6 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
         &mut self,
         _: &RecvMessage,
     ) -> Result<(), RequestError<SeqError>> {
-        IpcRequest::FansOn.count(&IPC_REQUESTS);
         let on = Reg::EARLY_POWER_CTRL::FANPWREN;
         self.seq
             .set_bytes(Addr::EARLY_POWER_CTRL, &[on])
@@ -985,7 +1000,6 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
         &mut self,
         _: &RecvMessage,
     ) -> Result<(), RequestError<SeqError>> {
-        IpcRequest::FansOff.count(&IPC_REQUESTS);
         let off = Reg::EARLY_POWER_CTRL::FANPWREN;
         self.seq
             .clear_bytes(Addr::EARLY_POWER_CTRL, &[off])
@@ -997,7 +1011,6 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
         &mut self,
         _: &RecvMessage,
     ) -> Result<(), RequestError<core::convert::Infallible>> {
-        IpcRequest::SendHardwareNmi.count(&IPC_REQUESTS);
         // The required length for an NMI pulse is apparently not documented.
         //
         // Let's try 25 ms!
@@ -1011,7 +1024,6 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
         &mut self,
         _: &RecvMessage,
     ) -> Result<[u8; 64], RequestError<SeqError>> {
-        IpcRequest::ReadFpgaRegs.count(&IPC_REQUESTS);
         let mut buf = [0; 64];
         let size = 8;
 
