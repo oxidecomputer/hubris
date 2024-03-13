@@ -17,7 +17,7 @@
 #![no_main]
 
 use drv_spi_api::*;
-use idol_runtime::{BufReader, BufWriter};
+use idol_runtime::{BufReader, BufWriter, ClientError, RequestError};
 use ringbuf::*;
 
 #[cfg(feature = "h743")]
@@ -32,7 +32,7 @@ use drv_stm32h7_spi as spi_core;
 use drv_stm32xx_sys_api as sys_api;
 use sys_api::PinSet;
 
-use core::cell::Cell;
+use core::{cell::Cell, convert::Infallible};
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -77,6 +77,42 @@ ringbuf!(Trace, 64, Trace::None);
 pub struct LockState {
     task: TaskId,
     device_index: usize,
+}
+
+/// Errors returned by [`SpiServerCore::read`], [`SpiServerCore::write`], and
+/// [`SpiServerCore::exchange`].
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum TransferError {
+    /// Transfer size is 0 or exceeds maximum
+    BadTransferSize = 1,
+
+    /// Attempt to operate device N when there is no device N, or an attempt to
+    /// operate on _any other_ device when you've locked the controller to one.
+    ///
+    /// This is almost certainly a programming error on the client side.
+    BadDevice = 2,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub struct LockError(());
+
+impl From<TransferError> for RequestError<SpiError> {
+    fn from(value: TransferError) -> Self {
+        match value {
+            TransferError::BadTransferSize => {
+                RequestError::Runtime(SpiError::BadTransferSize)
+            }
+            TransferError::BadDevice => {
+                RequestError::Fail(ClientError::BadMessageContents)
+            }
+        }
+    }
+}
+
+impl From<LockError> for RequestError<Infallible> {
+    fn from(_: LockError) -> RequestError<Infallible> {
+        RequestError::Fail(ClientError::BadMessageContents)
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -162,7 +198,7 @@ impl SpiServerCore {
         &self,
         device_index: u8,
         dest: BufWrite,
-    ) -> Result<(), SpiServerError> {
+    ) -> Result<(), TransferError> {
         self.ready_writey::<&[u8], _>(
             SpiOperation::read,
             device_index,
@@ -175,7 +211,7 @@ impl SpiServerCore {
         &self,
         device_index: u8,
         src: BufRead,
-    ) -> Result<(), SpiServerError> {
+    ) -> Result<(), TransferError> {
         self.ready_writey::<_, &mut [u8]>(
             SpiOperation::write,
             device_index,
@@ -189,7 +225,7 @@ impl SpiServerCore {
         device_index: u8,
         src: BufRead,
         dest: BufWrite,
-    ) -> Result<(), SpiServerError> {
+    ) -> Result<(), TransferError> {
         self.ready_writey(
             SpiOperation::exchange,
             device_index,
@@ -203,7 +239,7 @@ impl SpiServerCore {
         sender: TaskId,
         devidx: u8,
         cs_state: CsState,
-    ) -> Result<(), ()> {
+    ) -> Result<(), LockError> {
         let cs_asserted = cs_state == CsState::Asserted;
         let devidx = usize::from(devidx);
 
@@ -216,7 +252,7 @@ impl SpiServerCore {
             // The caller is not allowed to change the device index
             // once locked.
             if lockstate.device_index != devidx {
-                return Err(());
+                return Err(LockError(()));
             }
         }
 
@@ -224,7 +260,7 @@ impl SpiServerCore {
         // a legal state change from the same sender.
 
         // Reject out-of-range devices.
-        let device = CONFIG.devices.get(devidx).ok_or(())?;
+        let device = CONFIG.devices.get(devidx).ok_or(LockError(()))?;
 
         for pin in device.cs {
             // If we're asserting CS, we want to *reset* the pin. If
@@ -243,7 +279,7 @@ impl SpiServerCore {
         Ok(())
     }
 
-    pub fn release(&self, sender: TaskId) -> Result<(), ()> {
+    pub fn release(&self, sender: TaskId) -> Result<(), LockError> {
         if let Some(lockstate) = &self.lock_holder.get() {
             // The fact that we were able to receive this means we
             // should be locked by the sender...but double check.
@@ -260,7 +296,7 @@ impl SpiServerCore {
             self.lock_holder.set(None);
             Ok(())
         } else {
-            Err(())
+            Err(LockError(()))
         }
     }
 
@@ -270,14 +306,14 @@ impl SpiServerCore {
         device_index: u8,
         mut tx: Option<BufRead>,
         mut rx: Option<BufWrite>,
-    ) -> Result<(), SpiServerError> {
+    ) -> Result<(), TransferError> {
         let device_index = usize::from(device_index);
 
         // If we are locked, check that the caller isn't mistakenly
         // addressing the wrong device.
         if let Some(lockstate) = &self.lock_holder.get() {
             if lockstate.device_index != device_index {
-                return Err(SpiServerError::BadDevice);
+                return Err(TransferError::BadDevice);
             }
         }
 
@@ -285,7 +321,7 @@ impl SpiServerCore {
         let device = CONFIG
             .devices
             .get(device_index)
-            .ok_or(SpiServerError::BadDevice)?;
+            .ok_or(TransferError::BadDevice)?;
 
         // At least one lease must be provided. A failure here indicates that
         // the server stub calling this common routine is broken, not a client
@@ -302,19 +338,19 @@ impl SpiServerCore {
             .map(|tx| tx.remaining_size())
             .unwrap_or(0)
             .try_into()
-            .map_err(|_| SpiServerError::BadTransferSize)?;
+            .map_err(|_| TransferError::BadTransferSize)?;
         let dest_len: u16 = rx
             .as_ref()
             .map(|rx| rx.remaining_size())
             .unwrap_or(0)
             .try_into()
-            .map_err(|_| SpiServerError::BadTransferSize)?;
+            .map_err(|_| TransferError::BadTransferSize)?;
         let overall_len = src_len.max(dest_len);
 
         // Zero-byte SPI transactions don't make sense and we'll
         // decline them.
         if overall_len == 0 {
-            return Err(SpiServerError::BadTransferSize);
+            return Err(TransferError::BadTransferSize);
         }
 
         // We have a reasonable-looking request containing reasonable-looking
@@ -697,42 +733,32 @@ impl SpiServer for SpiServerCore {
     ) -> Result<(), SpiError> {
         SpiServerCore::exchange(self, device_index, src, dest).map_err(|e| {
             match e {
-                SpiServerError::BadDevice => panic!(),
-                SpiServerError::BadTransferSize => SpiError::BadTransferSize,
-                _ => {
-                    // `SpiServerError::TaskRestarted` will never be returned as we
-                    // are not talking to a driver task.
-                    unreachable!()
-                }
+                // If the SPI server was in a remote task, this case would
+                // return a reply-fault; therefore, panicking the task when the
+                // SPI driver is local to that task is appropriate.
+                TransferError::BadDevice => panic!(),
+                TransferError::BadTransferSize => SpiError::BadTransferSize,
             }
         })
     }
 
     fn write(&self, device_index: u8, src: &[u8]) -> Result<(), SpiError> {
-        SpiServerCore::write(self, device_index, src).map_err(|e| {
-            match e {
-                SpiServerError::BadDevice => panic!(),
-                SpiServerError::BadTransferSize => SpiError::BadTransferSize,
-                _ => {
-                    // `SpiServerError::TaskRestarted` will never be returned as we
-                    // are not talking to a driver task.
-                    unreachable!()
-                }
-            }
+        SpiServerCore::write(self, device_index, src).map_err(|e| match e {
+            // If the SPI server was in a remote task, this case would
+            // return a reply-fault; therefore, panicking the task when the
+            // SPI driver is local to that task is appropriate.
+            TransferError::BadDevice => panic!(),
+            TransferError::BadTransferSize => SpiError::BadTransferSize,
         })
     }
 
     fn read(&self, device_index: u8, dest: &mut [u8]) -> Result<(), SpiError> {
-        SpiServerCore::read(self, device_index, dest).map_err(|e| {
-            match e {
-                SpiServerError::BadDevice => panic!(),
-                SpiServerError::BadTransferSize => SpiError::BadTransferSize,
-                _ => {
-                    // `SpiServerError::TaskRestarted` will never be returned as we
-                    // are not talking to a driver task.
-                    unreachable!()
-                }
-            }
+        SpiServerCore::read(self, device_index, dest).map_err(|e| match e {
+            // If the SPI server was in a remote task, this case would
+            // return a reply-fault; therefore, panicking the task when the
+            // SPI driver is local to that task is appropriate.
+            TransferError::BadDevice => panic!(),
+            TransferError::BadTransferSize => SpiError::BadTransferSize,
         })
     }
 

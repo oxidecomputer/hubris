@@ -9,23 +9,8 @@
 use derive_idol_err::IdolError;
 use gateway_messages::SpiError as GwSpiError;
 use hubpack::SerializedSize;
-use idol_runtime::RequestError;
 use serde::{Deserialize, Serialize};
 use userlib::*;
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum SpiServerError {
-    /// Transfer size is 0 or exceeds maximum
-    BadTransferSize = 1,
-
-    /// Attempt to operate device N when there is no device N, or an attempt to
-    /// operate on _any other_ device when you've locked the controller to one.
-    ///
-    /// This is almost certainly a programming error on the client side.
-    BadDevice = 2,
-
-    TaskRestarted = 4,
-}
 
 #[derive(
     Copy,
@@ -55,22 +40,6 @@ impl From<SpiError> for GwSpiError {
         match value {
             SpiError::BadTransferSize => Self::BadTransferSize,
             SpiError::TaskRestarted => Self::TaskRestarted,
-        }
-    }
-}
-
-impl From<SpiServerError> for RequestError<SpiError> {
-    fn from(value: SpiServerError) -> Self {
-        match value {
-            SpiServerError::BadTransferSize => {
-                RequestError::Runtime(SpiError::BadTransferSize)
-            }
-            SpiServerError::BadDevice => {
-                idol_runtime::ClientError::BadMessageContents.fail()
-            }
-            SpiServerError::TaskRestarted => {
-                RequestError::Runtime(SpiError::TaskRestarted)
-            }
         }
     }
 }
