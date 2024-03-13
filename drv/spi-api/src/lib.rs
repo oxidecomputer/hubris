@@ -35,6 +35,12 @@ pub enum SpiError {
     TaskRestarted = 4,
 }
 
+impl From<idol_runtime::ServerDeath> for SpiError {
+    fn from(_: idol_runtime::ServerDeath) -> Self {
+        SpiError::TaskRestarted
+    }
+}
+
 impl From<SpiError> for GwSpiError {
     fn from(value: SpiError) -> Self {
         match value {

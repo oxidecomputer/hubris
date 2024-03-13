@@ -120,14 +120,12 @@ impl<S: SpiServer> Ecp5Driver for Ecp5UsingSpi<S> {
     fn configuration_lock(&self) -> Result<(), Self::Error> {
         self.configuration_port
             .lock(spi_api::CsState::Asserted)
-            .map_err(|_| SpiError::TaskRestarted)?;
+            .map_err(SpiError::from)?;
         Ok(())
     }
 
     fn configuration_release(&self) -> Result<(), Self::Error> {
-        self.configuration_port
-            .release()
-            .map_err(|_| SpiError::TaskRestarted)?;
+        self.configuration_port.release().map_err(SpiError::from)?;
         Ok(())
     }
 }
@@ -170,14 +168,11 @@ impl<S: SpiServer> FpgaUserDesign for Ecp5UsingSpi<S> {
         Ok(self
             .user_design
             .lock(spi_api::CsState::Asserted)
-            .map_err(|_| SpiError::TaskRestarted)?)
+            .map_err(SpiError::from)?)
     }
 
     fn user_design_release(&self) -> Result<(), FpgaError> {
-        Ok(self
-            .user_design
-            .release()
-            .map_err(|_| SpiError::TaskRestarted)?)
+        Ok(self.user_design.release().map_err(SpiError::from)?)
     }
 }
 
