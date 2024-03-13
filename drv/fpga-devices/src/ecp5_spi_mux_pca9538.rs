@@ -39,8 +39,6 @@ impl From<Error> for u8 {
             Error::SpiError(e) => match e {
                 SpiError::BadTransferSize => 3,
                 SpiError::TaskRestarted => 4,
-                SpiError::NothingToRelease => 5,
-                SpiError::BadDevice => 6,
             },
             Error::I2cError(e) => 8 + (e as u8),
         }
@@ -254,7 +252,7 @@ impl<'a, S: SpiServer> Ecp5Driver for DeviceInstance<'a, S> {
             .config
             .configuration_port
             .lock(spi_api::CsState::Asserted)
-            .map_err(Self::Error::from)
+            .map_err(|_| Self::Error::from(SpiError::TaskRestarted))
     }
 
     fn configuration_release(&self) -> Result<(), Self::Error> {
@@ -262,7 +260,7 @@ impl<'a, S: SpiServer> Ecp5Driver for DeviceInstance<'a, S> {
             .config
             .configuration_port
             .release()
-            .map_err(Self::Error::from)
+            .map_err(|_| Self::Error::from(SpiError::TaskRestarted))
     }
 }
 
@@ -316,10 +314,14 @@ impl<'a, S: SpiServer> FpgaUserDesign for DeviceInstance<'a, S> {
             .config
             .user_design
             .lock(spi_api::CsState::Asserted)
-            .map_err(Into::into)
+            .map_err(|_| SpiError::TaskRestarted.into())
     }
 
     fn user_design_release(&self) -> Result<(), FpgaError> {
-        self.driver.config.user_design.release().map_err(Into::into)
+        self.driver
+            .config
+            .user_design
+            .release()
+            .map_err(|_| SpiError::TaskRestarted.into())
     }
 }

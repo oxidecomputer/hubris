@@ -32,16 +32,13 @@ pub enum SpiError {
 
     /// Server restarted
     #[idol(server_death)]
-    TaskRestarted = 2,
+    TaskRestarted = 4,
+}
 
-    /// Release without successful Lock
-    NothingToRelease = 3,
-
-    /// Attempt to operate device N when there is no device N, or an attempt to
-    /// operate on _any other_ device when you've locked the controller to one.
-    ///
-    /// This is almost certainly a programming error on the client side.
-    BadDevice = 4,
+impl From<idol_runtime::ServerDeath> for SpiError {
+    fn from(_: idol_runtime::ServerDeath) -> Self {
+        SpiError::TaskRestarted
+    }
 }
 
 impl From<SpiError> for GwSpiError {
@@ -49,8 +46,6 @@ impl From<SpiError> for GwSpiError {
         match value {
             SpiError::BadTransferSize => Self::BadTransferSize,
             SpiError::TaskRestarted => Self::TaskRestarted,
-            SpiError::NothingToRelease => Self::NothingToRelease,
-            SpiError::BadDevice => Self::BadDevice,
         }
     }
 }
@@ -72,7 +67,7 @@ impl<S: SpiServer> Drop for ControllerLock<'_, S> {
     fn drop(&mut self) {
         // We ignore the result of release because, if the server has restarted,
         // we don't need to do anything.
-        self.0.release().ok();
+        let _ = self.0.release();
     }
 }
 
@@ -99,7 +94,7 @@ pub trait SpiServer {
         &self,
         device_index: u8,
         assert_cs: CsState,
-    ) -> Result<ControllerLock<'_, Self>, SpiError>
+    ) -> Result<ControllerLock<'_, Self>, idol_runtime::ServerDeath>
     where
         Self: Sized,
     {
@@ -118,10 +113,13 @@ pub trait SpiServer {
         SpiDevice::new(self.clone(), device_index)
     }
 
-    fn lock(&self, device_index: u8, cs_state: CsState)
-        -> Result<(), SpiError>;
+    fn lock(
+        &self,
+        device_index: u8,
+        cs_state: CsState,
+    ) -> Result<(), idol_runtime::ServerDeath>;
 
-    fn release(&self) -> Result<(), SpiError>;
+    fn release(&self) -> Result<(), idol_runtime::ServerDeath>;
 }
 
 impl SpiServer for Spi {
@@ -145,11 +143,11 @@ impl SpiServer for Spi {
         &self,
         device_index: u8,
         cs_state: CsState,
-    ) -> Result<(), SpiError> {
+    ) -> Result<(), idol_runtime::ServerDeath> {
         Spi::lock(self, device_index, cs_state)
     }
 
-    fn release(&self) -> Result<(), SpiError> {
+    fn release(&self) -> Result<(), idol_runtime::ServerDeath> {
         Spi::release(self)
     }
 }
@@ -223,17 +221,17 @@ impl<S: SpiServer> SpiDevice<S> {
     ///
     /// If your task tries to lock two different `SpiDevice`s at once, the
     /// second one to attempt will get `BadDevice`.
-    pub fn lock(&self, assert_cs: CsState) -> Result<(), SpiError> {
+    pub fn lock(
+        &self,
+        assert_cs: CsState,
+    ) -> Result<(), idol_runtime::ServerDeath> {
         self.server.lock(self.device_index, assert_cs)
     }
 
     /// Releases a previous lock on the SPI controller (by your task).
     ///
     /// This will also deassert CS, if you had overridden it.
-    ///
-    /// If you call this without `lock` having succeeded, you will get
-    /// `SpiError::NothingToRelease`.
-    pub fn release(&self) -> Result<(), SpiError> {
+    pub fn release(&self) -> Result<(), idol_runtime::ServerDeath> {
         self.server.release()
     }
 
@@ -245,7 +243,7 @@ impl<S: SpiServer> SpiDevice<S> {
     pub fn lock_auto(
         &self,
         assert_cs: CsState,
-    ) -> Result<ControllerLock<'_, S>, SpiError> {
+    ) -> Result<ControllerLock<'_, S>, idol_runtime::ServerDeath> {
         self.server.lock_auto(self.device_index, assert_cs)
     }
 }

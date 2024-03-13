@@ -10,6 +10,8 @@
 #![no_std]
 #![no_main]
 
+use core::convert::Infallible;
+
 use drv_spi_api::*;
 use idol_runtime::{
     LeaseBufReader, LeaseBufWriter, Leased, LenLimit, NotificationHandler,
@@ -103,17 +105,19 @@ impl InOrderSpiImpl for ServerImpl {
         rm: &RecvMessage,
         devidx: u8,
         cs_state: CsState,
-    ) -> Result<(), RequestError<SpiError>> {
+    ) -> Result<(), RequestError<Infallible>> {
         self.core
             .lock(rm.sender, devidx, cs_state)
-            .map_err(RequestError::from)
+            .map_err(|_| idol_runtime::ClientError::BadMessageContents.fail())
     }
 
     fn release(
         &mut self,
         rm: &RecvMessage,
-    ) -> Result<(), RequestError<SpiError>> {
-        self.core.release(rm.sender).map_err(RequestError::from)
+    ) -> Result<(), RequestError<Infallible>> {
+        self.core
+            .release(rm.sender)
+            .map_err(|_| idol_runtime::ClientError::BadMessageContents.fail())
     }
 }
 

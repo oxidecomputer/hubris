@@ -9,6 +9,7 @@ num-traits = { workspace = true }
 drv-spi-api = {path = "../../drv/spi-api"}
 ringbuf = {path = "../../lib/ringbuf" }
 userlib = {path = "../../sys/userlib" }
+idol-runtime = { workspace = true }
 
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,

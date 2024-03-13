@@ -2771,6 +2771,7 @@ name = "ksz8463"
 version = "0.1.0"
 dependencies = [
  "drv-spi-api",
+ "idol-runtime",
  "num-traits",
  "ringbuf",
  "userlib",
