@@ -41,8 +41,6 @@ impl From<Ecp5UsingSpiError> for u8 {
             Ecp5UsingSpiError::SpiError(e) => match e {
                 SpiError::BadTransferSize => 3,
                 SpiError::TaskRestarted => 4,
-                SpiError::NothingToRelease => 5,
-                SpiError::BadDevice => 6,
             },
         }
     }
@@ -120,12 +118,16 @@ impl<S: SpiServer> Ecp5Driver for Ecp5UsingSpi<S> {
     }
 
     fn configuration_lock(&self) -> Result<(), Self::Error> {
-        self.configuration_port.lock(spi_api::CsState::Asserted)?;
+        self.configuration_port
+            .lock(spi_api::CsState::Asserted)
+            .map_err(|_| SpiError::TaskRestarted)?;
         Ok(())
     }
 
     fn configuration_release(&self) -> Result<(), Self::Error> {
-        self.configuration_port.release()?;
+        self.configuration_port
+            .release()
+            .map_err(|_| SpiError::TaskRestarted)?;
         Ok(())
     }
 }
@@ -165,11 +167,17 @@ impl<S: SpiServer> FpgaUserDesign for Ecp5UsingSpi<S> {
     }
 
     fn user_design_lock(&self) -> Result<(), FpgaError> {
-        Ok(self.user_design.lock(spi_api::CsState::Asserted)?)
+        Ok(self
+            .user_design
+            .lock(spi_api::CsState::Asserted)
+            .map_err(|_| SpiError::TaskRestarted)?)
     }
 
     fn user_design_release(&self) -> Result<(), FpgaError> {
-        Ok(self.user_design.release()?)
+        Ok(self
+            .user_design
+            .release()
+            .map_err(|_| SpiError::TaskRestarted)?)
     }
 }
 
