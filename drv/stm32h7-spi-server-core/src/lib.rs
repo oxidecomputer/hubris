@@ -769,14 +769,14 @@ impl SpiServer for SpiServerCore {
     ) -> Result<(), idol_runtime::ServerDeath> {
         // When someone is using the SpiServerCore directly (rather than through
         // RPC), we use TaskId::UNBOUND as the locking task.
-        Ok(
-            SpiServerCore::lock(self, TaskId::UNBOUND, device_index, cs_state)
-                .unwrap_lite(),
-        )
+        SpiServerCore::lock(self, TaskId::UNBOUND, device_index, cs_state)
+            .unwrap_lite();
+        Ok(())
     }
 
     fn release(&self) -> Result<(), idol_runtime::ServerDeath> {
-        Ok(SpiServerCore::release(self, TaskId::UNBOUND).unwrap_lite())
+        SpiServerCore::release(self, TaskId::UNBOUND).unwrap_lite();
+        Ok(())
     }
 }
 
