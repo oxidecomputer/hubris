@@ -28,7 +28,7 @@
 
 use drv_spi_api::{self as spi_api, SpiDevice, SpiServer};
 use drv_stm32xx_sys_api::{self as sys_api, Sys};
-use userlib::hl;
+use userlib::{hl, UnwrapLite};
 
 /// Wiring configuration for the iCE40 FPGA.
 pub struct Config {
@@ -105,7 +105,8 @@ pub fn begin_bitstream_load<S: SpiServer>(
     sys.gpio_reset(config.creset);
 
     // Lock SPI controller and assert CS.
-    spi.lock(spi_api::CsState::Asserted)?;
+    spi.lock(spi_api::CsState::Asserted)
+        .map_err(|_| spi_api::SpiError::TaskRestarted)?;
 
     // Minimum duration of reset pulse is 200ns. One of our 1ms ticks will be
     // fine.
@@ -128,9 +129,11 @@ pub fn begin_bitstream_load<S: SpiServer>(
 
     // Clock out some dummy cycles with CS not asserted, because the most recent
     // Lattice docs suggest this.
-    spi.lock(spi_api::CsState::NotAsserted)?;
+    spi.lock(spi_api::CsState::NotAsserted)
+        .map_err(|_| spi_api::SpiError::TaskRestarted)?;
     spi.write(&[0xFF])?;
-    spi.lock(spi_api::CsState::Asserted)?;
+    spi.lock(spi_api::CsState::Asserted)
+        .map_err(|_| spi_api::SpiError::TaskRestarted)?;
     Ok(())
 }
 
@@ -170,14 +173,15 @@ pub fn finish_bitstream_load<S: SpiServer>(
     }
 
     // Release CS so the design doesn't start thinking we're talking to it.
-    spi.lock(spi_api::CsState::NotAsserted)?;
+    spi.lock(spi_api::CsState::NotAsserted)
+        .map_err(|_| spi_api::SpiError::TaskRestarted)?;
 
     // After receiving the bitstream, the iCE40 wants 49 or more clock edges.
     // Because 48 would be too easy. So, we'll send 56.
     spi.write(&[0xFF; 56 / 8])?;
 
     // And, at this point, we can release SPI.
-    spi.release().unwrap();
+    spi.release().unwrap_lite();
 
     Ok(())
 }
