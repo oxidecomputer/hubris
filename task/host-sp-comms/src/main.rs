@@ -23,7 +23,7 @@ use hubpack::SerializedSize;
 use idol_runtime::{NotificationHandler, RequestError};
 use multitimer::{Multitimer, Repeat};
 use mutable_statics::mutable_statics;
-use ringbuf::{ringbuf, ringbuf_entry};
+use ringbuf::{counted_ringbuf, ringbuf_entry};
 use static_assertions::const_assert;
 use task_control_plane_agent_api::{
     ControlPlaneAgent, MAX_INSTALLINATOR_IMAGE_ID_LEN,
@@ -89,13 +89,15 @@ const MAX_HOST_FAIL_MESSAGE_LEN: usize = 4096;
 // of that for us.
 const NUM_HOST_MAC_ADDRESSES: u16 = 3;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, counters::Count)]
 enum Trace {
+    #[count(skip)]
     None,
     UartRxOverrun,
-    ParseError(DecodeFailureReason),
+    ParseError(#[count(children)] DecodeFailureReason),
     SetState {
         now: u64,
+        #[count(children)]
         state: PowerState,
     },
     HfMux {
@@ -104,6 +106,7 @@ enum Trace {
     },
     JefeNotification {
         now: u64,
+        #[count(children)]
         state: PowerState,
     },
     OutOfSyncRequest,
@@ -111,6 +114,7 @@ enum Trace {
     Request {
         now: u64,
         sequence: u64,
+        #[count(children)]
         message: HostToSp,
     },
     ResponseBufferReset {
@@ -119,11 +123,12 @@ enum Trace {
     Response {
         now: u64,
         sequence: u64,
+        #[count(children)]
         message: SpToHost,
     },
 }
 
-ringbuf!(Trace, 20, Trace::None);
+counted_ringbuf!(Trace, 20, Trace::None);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum TimerDisposition {

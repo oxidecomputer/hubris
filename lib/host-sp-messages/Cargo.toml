@@ -20,3 +20,4 @@ oxide-barcode.path = "../oxide-barcode"
 unwrap-lite.path = "../unwrap-lite"
 drv-i2c-types.path = "../../drv/i2c-types" # to implement From<ResponseCode>
 task-sensor-types.path = "../../task/sensor-types"
+counters.path = "../../lib/counters"
