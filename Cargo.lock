@@ -1770,6 +1770,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-stm32h7-fmc-demo-server"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cortex-m",
+ "counters",
+ "drv-stm32xx-sys-api",
+ "hubpack",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "serde",
+ "stm32h7",
+ "userlib",
+]
+
+[[package]]
 name = "drv-stm32h7-hash"
 version = "0.1.0"
 dependencies = [
