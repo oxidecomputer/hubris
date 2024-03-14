@@ -340,10 +340,7 @@ fn main() -> ! {
         enable: |notification| {
             sys_irq_control(notification, true);
         },
-        wfi: |notification| {
-            _ = sys_recv_closed(&mut [], notification, TaskId::KERNEL);
-        },
-        wfi_or_timeout: |notification, timeout| {
+        wfi: |notification, timeout| {
             const TIMER_NOTIFICATION: u32 = 1 << 31;
 
             let dead = sys_get_timer().now.checked_add(timeout.0).unwrap_lite();

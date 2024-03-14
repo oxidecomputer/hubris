@@ -91,8 +91,12 @@ pub enum I2cControlResult {
 ///
 pub struct I2cControl {
     pub enable: fn(u32),
+    pub wfi: fn(u32, I2cTimeout) -> I2cControlResult,
+}
+
+pub struct I2cTargetControl {
+    pub enable: fn(u32),
     pub wfi: fn(u32),
-    pub wfi_or_timeout: fn(u32, I2cTimeout) -> I2cControlResult,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -524,7 +528,7 @@ impl I2cController<'_> {
         //
         const TIMEOUT: I2cTimeout = I2cTimeout(100);
 
-        match (ctrl.wfi_or_timeout)(self.notification, TIMEOUT) {
+        match (ctrl.wfi)(self.notification, TIMEOUT) {
             I2cControlResult::TimedOut => {
                 //
                 // This really shouldn't happen:  it means that not only did
@@ -877,7 +881,7 @@ impl I2cController<'_> {
                     break;
                 }
 
-                (ctrl.wfi)(notification);
+                self.wfi(ctrl)?;
                 (ctrl.enable)(notification);
             }
         }
@@ -928,7 +932,7 @@ impl I2cController<'_> {
 
     pub fn operate_as_target(
         &self,
-        ctrl: &I2cControl,
+        ctrl: &I2cTargetControl,
         mut initiate: impl FnMut(u8) -> bool,
         mut rxbyte: impl FnMut(u8, u8),
         mut txbyte: impl FnMut(u8) -> Option<u8>,
