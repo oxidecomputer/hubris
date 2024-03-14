@@ -1958,6 +1958,7 @@ dependencies = [
  "bitfield 0.13.2",
  "build-util",
  "cfg-if",
+ "counters",
  "drv-i2c-api",
  "drv-stm32xx-sys-api",
  "num-traits",

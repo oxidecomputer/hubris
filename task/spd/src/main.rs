@@ -256,6 +256,9 @@ fn main() -> ! {
         wfi: |notification| {
             let _ = sys_recv_closed(&mut [], notification, TaskId::KERNEL);
         },
+        wfi_or_timeout: |_notification, _timeout| {
+            panic!();
+        }
     };
 
     controller.operate_as_target(&ctrl, &mut initiate, &mut rx, &mut tx);

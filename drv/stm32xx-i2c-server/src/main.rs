@@ -341,7 +341,25 @@ fn main() -> ! {
             sys_irq_control(notification, true);
         },
         wfi: |notification| {
-            let _ = sys_recv_closed(&mut [], notification, TaskId::KERNEL);
+            _ = sys_recv_closed(&mut [], notification, TaskId::KERNEL);
+        },
+        wfi_or_timeout: |notification, timeout| {
+            const TIMER_NOTIFICATION: u32 = 1 << 31;
+
+            let dead = sys_get_timer().now.checked_add(timeout.0).unwrap_lite();
+            sys_set_timer(Some(dead), TIMER_NOTIFICATION);
+
+            let m = sys_recv_closed(&mut [],
+                notification | TIMER_NOTIFICATION,
+                TaskId::KERNEL
+            ).unwrap_lite();
+
+            if m.operation == TIMER_NOTIFICATION {
+                I2cControlResult::TimedOut
+            } else {
+                sys_set_timer(None, TIMER_NOTIFICATION);
+                I2cControlResult::Interrupted
+            }
         },
     };
 
