@@ -258,7 +258,7 @@ fn main() -> ! {
         },
         wfi_or_timeout: |_notification, _timeout| {
             panic!();
-        }
+        },
     };
 
     controller.operate_as_target(&ctrl, &mut initiate, &mut rx, &mut tx);

@@ -349,10 +349,12 @@ fn main() -> ! {
             let dead = sys_get_timer().now.checked_add(timeout.0).unwrap_lite();
             sys_set_timer(Some(dead), TIMER_NOTIFICATION);
 
-            let m = sys_recv_closed(&mut [],
+            let m = sys_recv_closed(
+                &mut [],
                 notification | TIMER_NOTIFICATION,
-                TaskId::KERNEL
-            ).unwrap_lite();
+                TaskId::KERNEL,
+            )
+            .unwrap_lite();
 
             if m.operation == TIMER_NOTIFICATION {
                 I2cControlResult::TimedOut

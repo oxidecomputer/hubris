@@ -80,7 +80,7 @@ pub struct I2cTimeout(pub u64);
 
 pub enum I2cControlResult {
     Interrupted,
-    TimedOut
+    TimedOut,
 }
 
 ///
@@ -159,6 +159,7 @@ pub enum ReadLength {
     Variable,
 }
 
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Copy, Clone, Eq, PartialEq)]
 enum Register {
     CR1,
@@ -203,7 +204,7 @@ enum Trace {
     None,
 }
 
-counted_ringbuf!(Trace, 48, Trace::None);
+ringbuf!(Trace, 48, Trace::None);
 
 impl I2cMux<'_> {
     /// A convenience routine to translate an error induced by in-band
@@ -496,7 +497,7 @@ impl I2cController<'_> {
     /// has gone wrong with a device (which should rather be indicated by
     /// returning an error and resetting the controller if/as needed), but with
     /// the controller itself.
-    /// 
+    ///
     fn panic(&self) -> ! {
         let i2c = self.registers;
         let tgr = &i2c.timingr;
@@ -542,7 +543,7 @@ impl I2cController<'_> {
                 ringbuf_entry!(Trace::LostInterrupt);
                 self.panic();
             }
-            I2cControlResult::Interrupted => Ok(())
+            I2cControlResult::Interrupted => Ok(()),
         }
     }
 
