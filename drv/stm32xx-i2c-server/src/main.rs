@@ -240,7 +240,7 @@ enum Trace {
     None,
 }
 
-ringbuf!(Trace, 174, Trace::None);
+ringbuf!(Trace, 160, Trace::None);
 
 fn reset(
     controller: &I2cController<'_>,

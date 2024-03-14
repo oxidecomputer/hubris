@@ -527,18 +527,19 @@ impl I2cController<'_> {
         match (ctrl.wfi_or_timeout)(self.notification, TIMEOUT) {
             I2cControlResult::TimedOut => {
                 //
-                // This really shouldn't happen:  it means that not only did we
-                // not get our expected interrupt, but that the configured
-                // timeout in the I2C block also didn't fire an interrupt as
-                // expected.  That said, we got our OS timer interrupt (or we
-                // wouldn't be here at all), which gives us at least control.
-                // While we could conceivably return an error code in this
-                // condition, this condition is so unexpected that we want to
-                // instead make sure we can debug it: we are going to record
-                // some additional data from the I2C controller into our ring
-                // buffer and panic.  This will result in a dump that will
-                // effectively preserve this state, and will (hopefuflly) allow
-                // it to be debugged long after it happens.
+                // This really shouldn't happen:  it means that not only did
+                // we not get our expected interrupt, but that the configured
+                // timeout in the I2C block also didn't function as expected.
+                // That said, we got our OS timer interrupt (or we wouldn't be
+                // here at all), which gives us at least control.  While we
+                // could conceivably return an error code in this condition,
+                // this condition is so unexpected that we want to instead
+                // make sure we can debug it:  we are going to instead call
+                // our panic routine, which will record some additional data
+                // from the I2C controller and explicitly panic.  This will
+                // result in a dump that will effectively preserve this state,
+                // and will (hopefuflly) allow it to be debugged long after it
+                // happens.
                 //
                 ringbuf_entry!(Trace::LostInterrupt);
                 self.panic();
