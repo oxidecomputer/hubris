@@ -2521,6 +2521,7 @@ name = "host-sp-messages"
 version = "0.1.0"
 dependencies = [
  "bitflags 2.4.2",
+ "counters",
  "drv-i2c-types",
  "fletcher",
  "gateway-messages",
@@ -2771,6 +2772,7 @@ name = "ksz8463"
 version = "0.1.0"
 dependencies = [
  "drv-spi-api",
+ "idol-runtime",
  "num-traits",
  "ringbuf",
  "userlib",
@@ -4418,6 +4420,7 @@ dependencies = [
  "cfg-if",
  "corncobs",
  "cortex-m",
+ "counters",
  "drv-gimlet-hf-api",
  "drv-gimlet-seq-api",
  "drv-i2c-api",
