@@ -1,0 +1,90 @@
+// FMC (STM32H7 memory controller) Demo Fixture
+
+Interface(
+    name: "FmcDemo",
+    ops: {
+        "peek16": (
+            encoding: Hubpack,
+            args: {
+                "addr": (
+                    type: "u32",
+                ),
+            },
+            reply: Simple("u16"),
+        ),
+        "peek32": (
+            encoding: Hubpack,
+            args: {
+                "addr": (
+                    type: "u32",
+                ),
+            },
+            reply: Simple("u32"),
+        ),
+        "poke16": (
+            encoding: Hubpack,
+            args: {
+                "addr": (type: "u32"),
+                "value": (type: "u16"),
+            },
+            reply: Simple("()"),
+        ),
+        "poke32": (
+            encoding: Hubpack,
+            args: {
+                "addr": (type: "u32"),
+                "value": (type: "u32"),
+            },
+            reply: Simple("()"),
+        ),
+        "set_burst_enable": (
+            encoding: Hubpack,
+            args: {
+                "flag": (type: "bool"),
+            },
+            reply: Simple("()"),
+        ),
+        "set_write_enable": (
+            encoding: Hubpack,
+            args: {
+                "flag": (type: "bool"),
+            },
+            reply: Simple("()"),
+        ),
+        "set_write_fifo": (
+            encoding: Hubpack,
+            args: {
+                "flag": (type: "bool"),
+            },
+            reply: Simple("()"),
+        ),
+        "set_wait": (
+            encoding: Hubpack,
+            args: {
+                "flag": (type: "bool"),
+            },
+            reply: Simple("()"),
+        ),
+        "set_data_latency_cycles": (
+            encoding: Hubpack,
+            args: {
+                "n": (type: "u8"),
+            },
+            reply: Simple("()"),
+        ),
+        "set_clock_divider": (
+            encoding: Hubpack,
+            args: {
+                "n": (type: "u8"),
+            },
+            reply: Simple("()"),
+        ),
+        "set_bus_turnaround_cycles": (
+            encoding: Hubpack,
+            args: {
+                "n": (type: "u8"),
+            },
+            reply: Simple("()"),
+        ),
+    },
+)

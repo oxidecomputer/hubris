@@ -140,3 +140,22 @@ size = 128 # 96 bytes of actual data, rounding up to a power of two
 #[cryp]
 #address = 0x48021000
 #size = 4096
+
+# Control registers for the memory controller, _not_ the memory itself.
+[fmc]
+address = 0x52004000
+size = 0x1000
+
+# NOTE: this is the correct thing to depend on if you want to use the PSRAM
+# interface as a memory mapped peripheral, like we do with certain FPGAs. This
+# is NOT the right way to use it as RAM! For that you probably want an
+# extern-region instead.
+#
+# Why, you ask? Because this is a peripheral mapping, and will set up this
+# section of the address space as bypassing the cache, not coalescing stores,
+# and so forth. This is what you want for memory mapped registers; it is _not_
+# what you want for RAM, at least if you want performance to be halfway
+# reasonable.
+[fmc_nor_psram_bank_1]
+address = 0x60000000
+size = 0x10000000
