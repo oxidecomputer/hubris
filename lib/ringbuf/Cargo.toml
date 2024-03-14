@@ -7,6 +7,9 @@ edition = "2021"
 # To disable a ring buffer (but leave it otherwise present), enable the
 # "disabled" feature
 disabled = []
+# To disable counters as well as ring buffers, enable the "counters-disabled"
+# feature.
+counters-disabled = []
 default = ["counters"]
 
 [dependencies]
