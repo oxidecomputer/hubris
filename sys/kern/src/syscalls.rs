@@ -30,8 +30,8 @@
 use core::convert::TryFrom;
 
 use abi::{
-    FaultInfo, LeaseAttributes, SchedState, Sysnum, TaskId, TaskState, ULease,
-    UsageError,
+    FaultInfo, IrqStatus, LeaseAttributes, SchedState, Sysnum, TaskId,
+    TaskState, ULease, UsageError,
 };
 use unwrap_lite::UnwrapLite;
 
@@ -827,12 +827,16 @@ fn reply_fault(
 ///
 /// # Syscall arguments
 ///
-/// - a notification mask
+/// 0. a notification mask
 ///
 /// # Syscall returns
 ///
-/// - an [`IrqStatus`] structure representing the current state of the interrupts
-///   mapped to the provided notification mask.
+/// 0. An [`IrqStatus`] structure representing the current state of the
+///    interrupts mapped to the provided notification mask. If the notification
+///    mask contains multiple IRQs, the returned status will be the boolean OR
+///    of all the IRQs in the notification mask (e.g.., if *any* of the IRQs in
+///    the notification mask is pending, the [`IrqStatus::PENDING`] bit will be
+///    set, and so on).
 fn irq_status(
     tasks: &mut [Task],
     caller: usize,
@@ -841,6 +845,7 @@ fn irq_status(
 
     let caller = caller as u32;
 
+    // Look up which IRQs are mapped to the calling task.
     let irqs = crate::startup::HUBRIS_TASK_IRQ_LOOKUP
         .get(abi::InterruptOwner {
             task: caller,
@@ -850,5 +855,14 @@ fn irq_status(
             UsageError::NoIrq,
         )))?;
 
+    // Combine the status of all the IRQs in the notification set and return
+    // them to the caller.
+    let status = irqs.fold(IrqStatus::empty(), |status, irq| {
+        status | crate::arch::irq_status(irq.0)
+    });
+
+    tasks[caller].save_mut().set_irq_status_result(status);
+
+    // Continue running the same task.
     Ok(NextTask::Same)
 }

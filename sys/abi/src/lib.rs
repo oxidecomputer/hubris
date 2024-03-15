@@ -537,7 +537,7 @@ pub struct ImageVectors {
 
 #[derive(Copy, Clone, Debug, FromBytes)]
 #[repr(transparent)]
-pub struct IrqStatus(u32);
+pub struct IrqStatus(pub u32);
 
 bitflags::bitflags! {
     impl IrqStatus: u32 {
@@ -545,7 +545,7 @@ bitflags::bitflags! {
         const ENABLED = 1 << 0;
         /// If 1, an IRQ is currently pending for this interrupt.
         const PENDING = 1 << 1;
-
+        ///If 1, a notification has been posted for this interrupt.
         const POSTED = 1 << 2;
     }
 }

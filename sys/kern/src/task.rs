@@ -632,6 +632,14 @@ pub trait ArchState: Default {
     fn set_refresh_task_id_result(&mut self, id: TaskId) {
         self.ret0(id.0 as u32);
     }
+
+    /// Sets the results of IRQ_STATUS.
+    fn set_irq_status_result(
+        &mut self,
+        abi::IrqStatus(status): abi::IrqStatus,
+    ) {
+        self.ret0(status);
+    }
 }
 
 /// Decoded arguments for the `SEND` syscall.

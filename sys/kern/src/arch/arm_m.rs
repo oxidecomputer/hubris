@@ -1159,6 +1159,12 @@ pub fn enable_irq(n: u32) {
     }
 }
 
+/// Looks up an interrupt in the NVIC and returns a cross-platform
+/// representation of that interrupt's status.
+pub fn irq_status(n: u32) -> abi::IrqStatus {
+    todo!("eliza")
+}
+
 #[repr(u8)]
 #[allow(dead_code)]
 #[cfg(any(armv7m, armv8m))]
