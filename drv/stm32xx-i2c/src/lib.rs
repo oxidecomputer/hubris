@@ -208,7 +208,7 @@ enum Trace {
     None,
 }
 
-ringbuf!(Trace, 48, Trace::None);
+counted_ringbuf!(Trace, 48, Trace::None);
 
 impl I2cMux<'_> {
     /// A convenience routine to translate an error induced by in-band
