@@ -201,7 +201,7 @@ enum Trace {
     WaitTx,
     BusySleep,
     Stop,
-    RepeatedStart(bool),
+    RepeatedStart(#[count(children)] bool),
     LostInterrupt,
     Panic(Register, u32),
     #[count(skip)]
