@@ -446,6 +446,7 @@ pub enum Sysnum {
     RefreshTaskId = 10,
     Post = 11,
     ReplyFault = 12,
+    IrqStatus = 13,
 }
 
 /// We're using an explicit `TryFrom` impl for `Sysnum` instead of
@@ -469,6 +470,7 @@ impl core::convert::TryFrom<u32> for Sysnum {
             10 => Ok(Self::RefreshTaskId),
             11 => Ok(Self::Post),
             12 => Ok(Self::ReplyFault),
+            13 => Ok(Self::IrqStatus),
             _ => Err(()),
         }
     }
@@ -531,4 +533,19 @@ pub struct ImageHeader {
 pub struct ImageVectors {
     pub sp: u32,
     pub entry: u32,
+}
+
+#[derive(Copy, Clone, Debug, FromBytes)]
+#[repr(transparent)]
+pub struct IrqStatus(u32);
+
+bitflags::bitflags! {
+    impl IrqStatus: u32 {
+        /// If 1, this interrupt is enabled.
+        const ENABLED = 1 << 0;
+        /// If 1, an IRQ is currently pending for this interrupt.
+        const PENDING = 1 << 1;
+
+        const POSTED = 1 << 2;
+    }
 }

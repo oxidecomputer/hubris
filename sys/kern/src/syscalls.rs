@@ -112,6 +112,7 @@ fn safe_syscall_entry(nr: u32, current: usize, tasks: &mut [Task]) -> NextTask {
         Ok(Sysnum::ReplyFault) => {
             reply_fault(tasks, current).map_err(UserError::from)
         }
+        Ok(Sysnum::IrqStatus) => irq_status(tasks, current),
         Err(_) => {
             // Bogus syscall number! That's a fault.
             Err(FaultInfo::SyscallUsage(UsageError::BadSyscallNumber).into())
@@ -817,5 +818,24 @@ fn reply_fault(
     // KEY ASSUMPTION: sends go from less important tasks to more important
     // tasks. As a result, Reply doesn't have scheduling implications unless
     // the task using it faults.
+    Ok(NextTask::Same)
+}
+
+/// Implementation of the `IRQ_STATUS` syscall.
+///
+/// `caller` is a valid task index (i.e. not directly from user code).
+///
+/// # Syscall arguments
+///
+/// - a notification mask
+///
+/// # Syscall returns
+///
+/// - an [`IrqStatus`] structure representing the current state of the interrupts
+///   mapped to the provided notification mask.
+fn irq_status(
+    tasks: &mut [Task],
+    caller: usize,
+) -> Result<NextTask, UserError> {
     Ok(NextTask::Same)
 }
