@@ -81,9 +81,9 @@ use crate::startup::with_task_table;
 use crate::task;
 use crate::time::Timestamp;
 use crate::umem::USlice;
-use abi::FaultInfo;
 #[cfg(any(armv7m, armv8m))]
 use abi::FaultSource;
+use abi::{FaultInfo, InterruptNum};
 #[cfg(armv8m)]
 use armv8_m_mpu::{disable_mpu, enable_mpu};
 use unwrap_lite::UnwrapLite;
@@ -1179,6 +1179,16 @@ pub fn irq_status(n: u32) -> abi::IrqStatus {
     status.set(abi::IrqStatus::ENABLED, pending);
 
     status
+}
+
+pub fn pend_software_irq(InterruptNum(n): InterruptNum) {
+    let nvic = unsafe { &*cortex_m::peripheral::NVIC::PTR };
+    let reg_num = (n / 32) as usize;
+    let bit_mask = 1 << (n % 32);
+
+    // Pend the IRQ by poking the corresponding bit in the Interrupt Set Pending
+    // Register (ISPR).
+    unsafe { nvic.ispr[reg_num].write(bit_mask) };
 }
 
 #[repr(u8)]

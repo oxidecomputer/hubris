@@ -110,3 +110,20 @@ pub fn read_image_id() -> u64 {
     assert_eq!(len, 8); // we *really* expect this to be a u64
     ssmarshal::deserialize(&response[..len]).unwrap_lite().0
 }
+
+/// Trigger the interrupt(s) mapped to the given task's notification mask.
+pub fn software_irq(task: usize, mask: u32) {
+    // Coerce `task` to a known size (Rust doesn't assume that usize == u32)
+    let msg = (task as u32, mask);
+    let mut buf = [0; core::mem::size_of::<(u32, u32)>()];
+    ssmarshal::serialize(&mut buf, &msg).unwrap_lite();
+
+    let (rc, _len) = sys_send(
+        TaskId::KERNEL,
+        Kipcnum::SoftwareIrq as u16,
+        &buf,
+        &mut [],
+        &[],
+    );
+    assert_eq!(rc, 0);
+}

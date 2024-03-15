@@ -492,6 +492,7 @@ pub enum Kipcnum {
     Reset = 5,
     GetTaskDumpRegion = 6,
     ReadTaskDumpRegion = 7,
+    SoftwareIrq = 8,
 }
 
 impl core::convert::TryFrom<u16> for Kipcnum {
@@ -506,6 +507,7 @@ impl core::convert::TryFrom<u16> for Kipcnum {
             5 => Ok(Self::Reset),
             6 => Ok(Self::GetTaskDumpRegion),
             7 => Ok(Self::ReadTaskDumpRegion),
+            8 => Ok(Self::SoftwareIrq),
             _ => Err(()),
         }
     }
