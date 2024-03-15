@@ -843,12 +843,10 @@ fn irq_status(
 ) -> Result<NextTask, UserError> {
     let args = tasks[caller].save().as_irq_status_args();
 
-    let caller = caller as u32;
-
     // Look up which IRQs are mapped to the calling task.
     let irqs = crate::startup::HUBRIS_TASK_IRQ_LOOKUP
         .get(abi::InterruptOwner {
-            task: caller,
+            task: caller as u32,
             notification: args.notification_bitmask,
         })
         .ok_or(UserError::Unrecoverable(FaultInfo::SyscallUsage(
@@ -856,13 +854,13 @@ fn irq_status(
         )))?;
 
     // Combine the platform-level status of all the IRQs in the notification set.
-    let mut status = irqs.fold(IrqStatus::empty(), |status, irq| {
+    let mut status = irqs.iter().fold(IrqStatus::empty(), |status, irq| {
         status | crate::arch::irq_status(irq.0)
     });
 
     // If any bits in the notification mask are set in the caller's notification
     // set, then a notification has been posted to the task and not yet consumed.
-    let posted = tasks[caller].notifications & args.notification_bitmask != 0;
+    let posted = tasks[caller].has_notifications(args.notification_bitmask);
     status.set(IrqStatus::POSTED, posted);
 
     tasks[caller].save_mut().set_irq_status_result(status);

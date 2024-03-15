@@ -535,6 +535,8 @@ pub struct ImageVectors {
     pub entry: u32,
 }
 
+/// A set of bitflags representing the status of the interrupts mapped to a
+/// notification mask.
 #[derive(Copy, Clone, Debug, FromBytes)]
 #[repr(transparent)]
 pub struct IrqStatus(pub u32);

@@ -281,6 +281,14 @@ impl Task {
         None
     }
 
+    /// Returns `true` if any of the notification bits in `mask` are set in this
+    /// task's notification set.
+    ///
+    /// This does *not* clear any bits in the task's notification set.
+    pub fn has_notifications(&self, mask: u32) -> bool {
+        self.notifications & mask != 0
+    }
+
     /// Checks if this task is in a potentially schedulable state.
     pub fn is_runnable(&self) -> bool {
         self.state == TaskState::Healthy(SchedState::Runnable)
