@@ -71,6 +71,7 @@ notifications = ["spi-irq"]
 
 [tasks.i2c_driver]
 name = "drv-stm32xx-i2c-server"
+stacksize = 1048
 features = ["h753"]
 priority = 3
 max-sizes = {flash = 16384, ram = 4096}
@@ -125,7 +126,7 @@ name = "task-power"
 features = ["gimlet"]
 priority = 6
 max-sizes = {flash = 65536, ram = 16384 }
-stacksize = 2504
+stacksize = 2800
 start = true
 task-slots = ["i2c_driver", "sensor", "gimlet_seq"]
 notifications = ["timer"]
@@ -135,7 +136,7 @@ name = "task-hiffy"
 features = ["h753", "stm32h7", "i2c", "gpio", "spi", "qspi", "hash", "sprot"]
 priority = 5
 max-sizes = {flash = 32768, ram = 32768 }
-stacksize = 1024
+stacksize = 1200
 start = true
 task-slots = ["sys", "hf", "i2c_driver", "hash_driver", "update_server", "sprot"]
 
