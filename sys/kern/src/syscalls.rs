@@ -855,11 +855,15 @@ fn irq_status(
             UsageError::NoIrq,
         )))?;
 
-    // Combine the status of all the IRQs in the notification set and return
-    // them to the caller.
-    let status = irqs.fold(IrqStatus::empty(), |status, irq| {
+    // Combine the platform-level status of all the IRQs in the notification set.
+    let mut status = irqs.fold(IrqStatus::empty(), |status, irq| {
         status | crate::arch::irq_status(irq.0)
     });
+
+    // If any bits in the notification mask are set in the caller's notification
+    // set, then a notification has been posted to the task and not yet consumed.
+    let posted = tasks[caller].notifications & args.notification_bitmask != 0;
+    status.set(IrqStatus::POSTED, posted);
 
     tasks[caller].save_mut().set_irq_status_result(status);
 
