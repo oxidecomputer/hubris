@@ -26,10 +26,37 @@ build-util = { path = "../../build/util" }
 build-i2c = { path = "../../build/i2c" }
 
 [features]
-h743 = ["stm32h7/stm32h743", "drv-stm32xx-i2c/h743", "drv-stm32xx-sys-api/h743", "build-i2c/h743", "panic-messages"]
-h753 = ["stm32h7/stm32h753", "drv-stm32xx-i2c/h753", "drv-stm32xx-sys-api/h753", "build-i2c/h753", "panic-messages"]
-g031 = ["stm32g0/stm32g031", "drv-stm32xx-i2c/g031", "drv-stm32xx-sys-api/g031", "build-i2c/g031", "ringbuf/disabled", "panic-messages"]
-g030 = ["stm32g0/stm32g030", "drv-stm32xx-i2c/g030", "drv-stm32xx-sys-api/g030", "build-i2c/g030", "ringbuf/disabled"]
+h743 = [
+    "stm32h7/stm32h743",
+    "drv-stm32xx-i2c/h743",
+    "drv-stm32xx-sys-api/h743",
+    "build-i2c/h743",
+    "panic-messages",
+]
+h753 = [
+    "stm32h7/stm32h753",
+    "drv-stm32xx-i2c/h753",
+    "drv-stm32xx-sys-api/h753",
+    "build-i2c/h753",
+    "panic-messages",
+]
+g031 = [
+    "stm32g0/stm32g031",
+    "drv-stm32xx-i2c/g031",
+    "drv-stm32xx-sys-api/g031",
+    "build-i2c/g031",
+    "ringbuf-disabled",
+    "panic-messages",
+]
+g030 = [
+    "stm32g0/stm32g030",
+    "drv-stm32xx-i2c/g030",
+    "drv-stm32xx-sys-api/g030",
+    "build-i2c/g030",
+    "ringbuf-disabled",
+]
+
+ringbuf-disabled = ["ringbuf/disabled", "ringbuf/counters-disabled"]
 panic-messages = ["userlib/panic-messages"]
 no-ipc-counters = ["idol/no-counters"]
 
