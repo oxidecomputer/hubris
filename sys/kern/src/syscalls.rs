@@ -837,5 +837,18 @@ fn irq_status(
     tasks: &mut [Task],
     caller: usize,
 ) -> Result<NextTask, UserError> {
+    let args = tasks[caller].save().as_irq_status_args();
+
+    let caller = caller as u32;
+
+    let irqs = crate::startup::HUBRIS_TASK_IRQ_LOOKUP
+        .get(abi::InterruptOwner {
+            task: caller,
+            notification: args.notification_bitmask,
+        })
+        .ok_or(UserError::Unrecoverable(FaultInfo::SyscallUsage(
+            UsageError::NoIrq,
+        )))?;
+
     Ok(NextTask::Same)
 }

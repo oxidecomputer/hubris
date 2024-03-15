@@ -561,6 +561,13 @@ pub trait ArchState: Default {
         }
     }
 
+    /// Interprets arguments as for the `IRQ_STATUS` syscall and returns the results.
+    fn as_irq_status_args(&self) -> IrqStatusArgs {
+        IrqStatusArgs {
+            notification_bitmask: self.arg0(),
+        }
+    }
+
     /// Sets a recoverable error code using the generic ABI.
     fn set_error_response(&mut self, resp: u32) {
         self.ret0(resp);
@@ -700,6 +707,12 @@ pub struct RefreshTaskIdArgs {
 pub struct PostArgs {
     pub task_id: TaskId,
     pub notification_bits: NotificationSet,
+}
+
+/// Decoded arguments for the `IRQ_STATUS` syscall.
+#[derive(Clone, Debug)]
+pub struct IrqStatusArgs {
+    pub notification_bitmask: u32,
 }
 
 /// State for a task timer.
