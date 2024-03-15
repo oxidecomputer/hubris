@@ -39,9 +39,7 @@ pub fn handle_kernel_message(
         Ok(Kipcnum::ReadTaskDumpRegion) => {
             read_task_dump_region(tasks, caller, args.message?, args.response?)
         }
-        Ok(Kipcnum::SoftwareIrq) => {
-            software_irq(tasks, caller, args.message?, args.response?)
-        }
+        Ok(Kipcnum::SoftwareIrq) => software_irq(tasks, caller, args.message?),
 
         _ => {
             // Task has sent an unknown message to the kernel. That's bad.
@@ -435,7 +433,6 @@ fn software_irq(
     tasks: &mut [Task],
     caller: usize,
     message: USlice<u8>,
-    response: USlice<u8>,
 ) -> Result<NextTask, UserError> {
     if caller != 0 {
         return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
