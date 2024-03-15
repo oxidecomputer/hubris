@@ -437,8 +437,15 @@ fn software_irq(
     message: USlice<u8>,
     response: USlice<u8>,
 ) -> Result<NextTask, UserError> {
+    if caller != 0 {
+        return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
+            UsageError::NotSupervisor,
+        )));
+    }
+
     let (index, notification): (u32, u32) =
         deserialize_message(&tasks[caller], message)?;
+
     if index as usize >= tasks.len() {
         return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
             UsageError::TaskOutOfRange,
