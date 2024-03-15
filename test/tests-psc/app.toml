@@ -22,6 +22,11 @@ start = true
 stacksize = 2048
 features = ["fru-id-eeprom"]
 task-slots = ["assist", "idol", "suite", "runner", "i2c_driver"]
+# this doesn't actually use SPI; we're just mapping that interrupt to test
+# interrupt handling. chosen completely arbitrarily.
+uses = ["spi1"]
+notifications = ["test-irq"]
+interrupts = {"spi1.irq" = "test-irq"}
 
 # This block is used to test the task_config macro
 [tasks.suite.config]

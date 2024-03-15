@@ -67,6 +67,7 @@ enum Trace {
     Notification,
     TestComplete(TaskId),
     TestResult(TaskId),
+    SoftIrq(TaskId, u32),
     None,
 }
 
@@ -109,6 +110,14 @@ fn main() -> ! {
                         let (_, caller) = msg.fixed::<(), u32>().ok_or(2u32)?;
                         caller.reply(state.received_notes);
                         state.received_notes = 0;
+                    }
+                    RunnerOp::SoftIrq => {
+                        // The test is asking us to trigger an IRQ.
+                        let (&mask, caller) =
+                            msg.fixed::<u32, ()>().ok_or(2u32)?;
+                        ringbuf_entry!(Trace::SoftIrq(caller.task_id(), mask));
+                        kipc::software_irq(caller.task_id().index(), mask);
+                        caller.reply(())
                     }
                     RunnerOp::TestComplete => {
                         let (_, caller) = msg.fixed::<(), ()>().ok_or(2u32)?;
