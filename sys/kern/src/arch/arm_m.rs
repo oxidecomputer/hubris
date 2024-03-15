@@ -1162,7 +1162,23 @@ pub fn enable_irq(n: u32) {
 /// Looks up an interrupt in the NVIC and returns a cross-platform
 /// representation of that interrupt's status.
 pub fn irq_status(n: u32) -> abi::IrqStatus {
-    todo!("eliza")
+    let mut status = abi::IrqStatus::empty();
+
+    let nvic = unsafe { &*cortex_m::peripheral::NVIC::PTR };
+    let reg_num = (n / 32) as usize;
+    let bit_mask = 1 << (n % 32);
+
+    // See if the interrupt is enabled by checking the bit in the Interrupt Set
+    // Enable Register.
+    let enabled = unsafe { nvic.iser[reg_num].read() & bit_mask == bit_mask };
+    status.set(abi::IrqStatus::ENABLED, enabled);
+
+    // See if the interrupt is pending by checking the bit in the Interrupt
+    // Set Pending Register (ISPR).
+    let pending = unsafe { nvic.ispr[reg_num].read() & bit_mask != bit_mask };
+    status.set(abi::IrqStatus::ENABLED, pending);
+
+    status
 }
 
 #[repr(u8)]
