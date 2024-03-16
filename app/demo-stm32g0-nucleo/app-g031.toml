@@ -6,7 +6,7 @@ board = "stm32g031-nucleo"
 
 [kernel]
 name = "demo-stm32g0-nucleo"
-requires = {flash = 10752, ram = 1296}
+requires = {flash = 11104, ram = 1296}
 features = ["g031"]
 stacksize = 640
 
