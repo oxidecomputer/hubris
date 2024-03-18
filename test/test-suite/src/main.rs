@@ -1434,9 +1434,7 @@ fn test_irq_status() {
 
     // the interrupt should not be pending
     let status = sys_irq_status(notifications::TEST_IRQ_MASK);
-    assert_eq!(status.contains(IrqStatus::ENABLED), false);
-    assert_eq!(status.contains(IrqStatus::PENDING), false);
-    assert_eq!(status.contains(IrqStatus::POSTED), false);
+    assert_eq!(status, IrqStatus::empty());
 
     // enable the interrupt
     sys_irq_control(notifications::TEST_IRQ_MASK, true);
@@ -1446,13 +1444,14 @@ fn test_irq_status() {
 
     // now, there should be an IRQ pending, and a notification waiting for us
     let status = sys_irq_status(notifications::TEST_IRQ_MASK);
-    assert_eq!(status.contains(IrqStatus::ENABLED), true);
-    assert_eq!(status.contains(IrqStatus::PENDING), true);
-    assert_eq!(status.contains(IrqStatus::POSTED), true);
+    let expected_status =
+        IrqStatus::ENABLED | IrqStatus::PENDING | IrqStatus::POSTED;
+    assert_eq!(status, expected_status);
 }
 
 /// Asks the test runner (running as supervisor) to please trigger a software
 /// interrupt for `notifications::TEST_IRQ`, thank you.
+#[track_caller]
 fn trigger_test_irq() {
     let runner = RUNNER.get_task_id();
     let mut response = 0u32;
@@ -1461,7 +1460,7 @@ fn trigger_test_irq() {
     let (rc, len) =
         sys_send(runner, op, arg.as_bytes(), response.as_bytes_mut(), &[]);
     assert_eq!(rc, 0);
-    assert_eq!(len, 4);
+    assert_eq!(len, 0);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
