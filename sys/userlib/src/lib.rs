@@ -1704,7 +1704,7 @@ unsafe extern "C" fn sys_irq_status_stub(_mask: u32) -> u32 {
                 @ Restore the registers we used and return.
                 pop {{r4}}
                 mov r11, r4
-                pop {{r4, r5, pc}}
+                pop {{r4, pc}}
                 ",
                 sysnum = const Sysnum::IrqStatus as u32,
                 options(noreturn),
