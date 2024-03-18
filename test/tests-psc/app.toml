@@ -66,12 +66,12 @@ start = true
 task-slots = ["sys"]
 
 [tasks.i2c_driver.interrupts]
-"i2c2.event" = "0b0000_0010"
-"i2c2.error" = "0b0000_0010"
-"i2c3.event" = "0b0000_0100"
-"i2c3.error" = "0b0000_0100"
-"i2c4.event" = "0b0000_1000"
-"i2c4.error" = "0b0000_1000"
+"i2c2.event" = 0b0000_0010
+"i2c2.error" = 0b0000_0010
+"i2c3.event" = 0b0000_0100
+"i2c3.error" = 0b0000_0100
+"i2c4.event" = 0b0000_1000
+"i2c4.error" = 0b0000_1000
 
 [tasks.hiffy]
 name = "task-hiffy"
