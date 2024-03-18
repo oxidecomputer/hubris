@@ -1175,8 +1175,8 @@ pub fn irq_status(n: u32) -> abi::IrqStatus {
 
     // See if the interrupt is pending by checking the bit in the Interrupt
     // Set Pending Register (ISPR).
-    let pending = nvic.ispr[reg_num].read() & bit_mask != bit_mask;
-    status.set(abi::IrqStatus::ENABLED, pending);
+    let pending = nvic.ispr[reg_num].read() & bit_mask == bit_mask;
+    status.set(abi::IrqStatus::PENDING, pending);
 
     status
 }
