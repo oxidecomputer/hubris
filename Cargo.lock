@@ -4505,6 +4505,7 @@ dependencies = [
  "build-util",
  "cfg-if",
  "cortex-m",
+ "counters",
  "hubpack",
  "hubris-num-tasks",
  "humpty",

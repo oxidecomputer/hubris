@@ -39,7 +39,7 @@ use idol_runtime::RequestError;
 use task_jefe_api::{DumpAgentError, ResetReason};
 use userlib::*;
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default, counters::Count)]
 pub enum Disposition {
     #[default]
     Restart,

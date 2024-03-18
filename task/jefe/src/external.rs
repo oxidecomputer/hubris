@@ -54,7 +54,7 @@ use ringbuf::*;
 use userlib::*;
 
 /// The actual requests that we honor from an external source entity
-#[derive(FromPrimitive, Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(FromPrimitive, Copy, Clone, Debug, Eq, PartialEq, counters::Count)]
 enum Request {
     None = 0,
     Start = 1,
@@ -63,7 +63,7 @@ enum Request {
     Fault = 4,
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, counters::Count)]
 enum Error {
     IllegalTask,
     BadTask,
@@ -73,15 +73,16 @@ enum Error {
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 struct TaskIndex(u16);
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, counters::Count)]
 enum Trace {
+    #[count(skip)]
     None,
-    Request(Request, TaskIndex),
-    Disposition(TaskIndex, Disposition),
-    Error(Error),
+    Request(#[count(children)] Request, TaskIndex),
+    Disposition(TaskIndex, #[count(children)] Disposition),
+    Error(#[count(children)] Error),
 }
 
-ringbuf!(Trace, 4, Trace::None);
+counted_ringbuf!(Trace, 4, Trace::None);
 
 #[no_mangle]
 static JEFE_EXTERNAL_READY: AtomicU32 = AtomicU32::new(0);
