@@ -1436,16 +1436,40 @@ fn test_irq_status() {
     let status = sys_irq_status(notifications::TEST_IRQ_MASK);
     assert_eq!(status, IrqStatus::empty());
 
+    // trigger an interrupt *without* setting the enabled flag. now, the
+    // interrupt should be pending but not posted.
+    trigger_test_irq();
+
+    let status = sys_irq_status(notifications::TEST_IRQ_MASK);
+    let expected_status = IrqStatus::PENDING;
+    assert_eq!(status, expected_status);
+
     // enable the interrupt
     sys_irq_control(notifications::TEST_IRQ_MASK, true);
 
-    // okay, let's get interrupted!
-    trigger_test_irq();
-
-    // now, there should be an IRQ pending, and a notification waiting for us
+    // now, the pending IRQ should be posted to this task.
     let status = sys_irq_status(notifications::TEST_IRQ_MASK);
-    let expected_status =
-        IrqStatus::ENABLED | IrqStatus::PENDING | IrqStatus::POSTED;
+    let expected_status = IrqStatus::POSTED;
+    assert_eq!(status, expected_status);
+
+    // if we trigger the same IRQ again, we should observe both the `PENDING`
+    // and `POSTED` bits, as one interrupt has been posted to our notification
+    // set, and the subsequent interrupt will be pending as we have not yet
+    // unmasked the IRQ. N.B. that because the `RECV` call in `trigger_test_irq`
+    // does *not* include the notification mask, we will not consume the posted
+    // notification.
+    trigger_test_irq();
+    let status = sys_irq_status(notifications::TEST_IRQ_MASK);
+    let expected_status = IrqStatus::POSTED | IrqStatus::PENDING;
+    assert_eq!(status, expected_status);
+
+    // do a `RECV` call to consume the posted notification. Now, we have the
+    // second IRQ pending, and no notification posted.
+    sys_recv_closed(&mut [], notifications::TEST_IRQ_MASK, TaskId::KERNEL)
+        .unwrap();
+
+    let status = sys_irq_status(notifications::TEST_IRQ_MASK);
+    let expected_status = IrqStatus::PENDING;
     assert_eq!(status, expected_status);
 }
 
