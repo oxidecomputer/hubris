@@ -1,0 +1,31 @@
+[package]
+name = "drv-stm32h7-fmc-demo-server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+counters = { path = "../../lib/counters" }
+
+cortex-m = { workspace = true }
+idol-runtime = { workspace = true }
+num-traits = { workspace = true }
+stm32h7 = { workspace = true }
+serde = { workspace = true }
+hubpack = { workspace = true }
+
+[build-dependencies]
+build-util = { path = "../../build/util" }
+idol = { workspace = true }
+
+[features]
+default = ["h743"]
+h743 = ["stm32h7/stm32h743", "drv-stm32xx-sys-api/h743"]
+h753 = ["stm32h7/stm32h753", "drv-stm32xx-sys-api/h753"]
+
+[[bin]]
+name = "drv-stm32h7-fmc-demo-server"
+test = false
+doctest = false
+bench = false

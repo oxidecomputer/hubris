@@ -201,14 +201,14 @@ enum Trace {
     WaitTx,
     BusySleep,
     Stop,
-    RepeatedStart(bool),
+    RepeatedStart(#[count(children)] bool),
     LostInterrupt,
     Panic(Register, u32),
     #[count(skip)]
     None,
 }
 
-ringbuf!(Trace, 48, Trace::None);
+counted_ringbuf!(Trace, 48, Trace::None);
 
 impl I2cMux<'_> {
     /// A convenience routine to translate an error induced by in-band

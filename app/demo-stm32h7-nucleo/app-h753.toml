@@ -198,6 +198,14 @@ task-slots = ["jefe"]
 stacksize = 1200
 extern-regions = [ "sram2", "sram3", "sram4" ]
 
+[tasks.fmc_demo]
+name = "drv-stm32h7-fmc-demo-server"
+features = ["h753"]
+priority = 4
+start = true
+task-slots = ["sys"]
+uses = ["fmc", "fmc_nor_psram_bank_1"]
+
 [config]
 [[config.i2c.controllers]]
 controller = 2

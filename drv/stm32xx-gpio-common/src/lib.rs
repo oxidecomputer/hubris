@@ -47,6 +47,23 @@ impl Port {
             pin_mask: 1 << index,
         }
     }
+
+    /// Convenience operation for creating a `PinSet` from a `Port` with _many_
+    /// pins included.
+    #[inline(always)]
+    pub const fn pins<const N: usize>(self, indexes: [usize; N]) -> PinSet {
+        let mut pin_mask = 0;
+        // Using a manual for loop because const fn limitations
+        let mut i = 0;
+        while i < N {
+            pin_mask |= 1 << indexes[i];
+            i += 1;
+        }
+        PinSet {
+            port: self,
+            pin_mask,
+        }
+    }
 }
 
 /// The STM32xx GPIO hardware lets us configure up to 16 pins on the same port
