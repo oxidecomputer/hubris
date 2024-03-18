@@ -182,7 +182,7 @@ pub struct ULease {
     pub length: u32,
 }
 
-#[derive(Copy, Clone, Debug, FromBytes)]
+#[derive(Copy, Clone, Debug, FromBytes, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct LeaseAttributes(u32);
 

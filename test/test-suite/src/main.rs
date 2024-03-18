@@ -991,15 +991,15 @@ fn test_borrow_info() {
 
             // Borrow 0 is expected to be 16 bytes long and R/W.
             let info0 = caller.borrow(0).info().unwrap();
-            // assert_eq!(
-            //     info0.attributes,
-            //     LeaseAttributes::READ | LeaseAttributes::WRITE
-            // );
+            assert_eq!(
+                info0.attributes,
+                LeaseAttributes::READ | LeaseAttributes::WRITE
+            );
             assert_eq!(info0.len, 16);
 
             // Borrow 1 is expected to be 5 bytes long and R/O.
             let info1 = caller.borrow(1).info().unwrap();
-            // assert_eq!(info1.attributes, LeaseAttributes::READ);
+            assert_eq!(info1.attributes, LeaseAttributes::READ);
             assert_eq!(info1.len, 5);
 
             caller.reply(0);
