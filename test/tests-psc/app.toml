@@ -16,12 +16,17 @@ start = true
 
 [tasks.suite]
 name = "test-suite"
-priority = 2
+priority = 3
 max-sizes = {flash = 65536, ram = 4096}
 start = true
 stacksize = 2048
 features = ["fru-id-eeprom"]
 task-slots = ["assist", "idol", "suite", "runner", "i2c_driver"]
+# this doesn't actually use SPI; we're just mapping that interrupt to test
+# interrupt handling. chosen completely arbitrarily.
+uses = ["spi1"]
+notifications = ["test-irq"]
+interrupts = {"spi1.irq" = "test-irq"}
 
 # This block is used to test the task_config macro
 [tasks.suite.config]
@@ -70,7 +75,7 @@ task-slots = ["sys"]
 
 [tasks.hiffy]
 name = "task-hiffy"
-priority = 3
+priority = 4
 features = ["testsuite"]
 max-sizes = {flash = 32768, ram = 32768 }
 stacksize = 2048
@@ -79,7 +84,7 @@ task-slots = ["suite", "runner"]
 
 [tasks.idle]
 name = "task-idle"
-priority = 4
+priority = 5
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true

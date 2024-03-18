@@ -22,6 +22,11 @@ max-sizes = {flash = 65536, ram = 4096}
 start = true
 stacksize = 2048
 task-slots = ["assist", "idol", "suite", "runner"]
+# this doesn't actually use hashcrypt; we're just mapping that interrupt to test
+# interrupt handling. chosen completely arbitrarily.
+uses = ["hash_crypt"]
+notifications = ["test-irq"]
+interrupts = {"hash_crypt.irq" = "test-irq"}
 
 # This block is used to test the task_config macro
 [tasks.suite.config]

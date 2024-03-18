@@ -659,3 +659,43 @@ return registers 0 and 1 for future compatibility.
 Like `REPLY`, this syscall just silently ignores replies to the wrong
 generation, under the assumption that the task got restarted for some reason
 while we were processing its request. (It can happen.)
+
+[#sys_irq_status]
+=== `IRQ_STATUS` (13)
+
+Returns the current status of interrupts mapped to the calling task.
+
+==== Arguments
+
+- 0: notification bitmask corresponding to the interrupt(s) to query
+
+==== Return values
+
+- 0: an `IrqStatus` (see the `abi` crate) describing the status of the
+  interrupts in the notification mask. Currently, the following bits in
+  `IrqStatus` are significant:
+  ** `0b0001`: set if any interrupt in the mask is enabled
+  ** `0b0010`: set if an IRQ is pending for any interrupt in the mask
+  ** `0b0100`: set if a notification has been posted to the caller but
+     not yet consumed
+
+==== Faults
+
+|===
+| Condition | Fault taken
+
+| The given notification bitmask is not mapped to an interrupt in this task.
+| `NoIrq`
+
+|===
+
+==== Notes
+
+As discussed in the notes for the <<sys_irq_control, IRQ_CONTROL>> syscall,
+tasks refer to interrupts using their notification bits.
+
+If the provided notification mask is zero, the syscall will return a `NoIrq`
+fault. If the provided notification mask has multiple bits set, the returned
+`IrqStatus` value will be the boolean OR of the status of all interrupts in the
+map (e.g. if any interrupt in the mask is pending, the `PENDING` bit will be
+set, and so on).

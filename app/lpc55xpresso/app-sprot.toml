@@ -17,7 +17,7 @@ fwid = true
 [kernel]
 name = "lpc55xpresso"
 features = ["dice-self"]
-requires = {flash = 53248, ram = 4096}
+requires = {flash = 53312, ram = 4096}
 
 [caboose]
 region = "flash"
@@ -183,7 +183,7 @@ task-slots = ["swd"]
 [tasks.sprot]
 name = "drv-lpc55-sprot-server"
 priority = 6
-max-sizes = {flash = 47360, ram = 32768}
+max-sizes = {flash = 48512, ram = 32768}
 uses = ["flexcomm8", "bootrom"]
 features = ["spi0"]
 start = true

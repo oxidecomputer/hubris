@@ -1655,3 +1655,87 @@ unsafe extern "C" fn sys_reply_fault_stub(_tid: u32, _reason: u32) {
         }
     }
 }
+
+/// Returns the current status of any interrupts mapped to the provided
+/// notification mask.
+///
+/// # Arguments
+///
+/// - `mask`: a notification mask for interrupts mapped to the current task.
+///
+/// # Returns
+///
+/// An [`IrqStatus`] (see the `abi` crate) describing the status of the
+/// interrupts in the notification mask.
+///
+/// # Faults
+///
+/// This syscall faults the caller if the given notification bitmask is not
+/// mapped to an interrupt in this task.
+#[inline(always)]
+pub fn sys_irq_status(mask: u32) -> abi::IrqStatus {
+    let status = unsafe { sys_irq_status_stub(mask) };
+    abi::IrqStatus::from_bits_truncate(status)
+}
+
+/// Core implementation of the IRQ_STATUS syscall.
+///
+/// See the note on syscall stubs at the top of this module for rationale.
+#[naked]
+unsafe extern "C" fn sys_irq_status_stub(_mask: u32) -> u32 {
+    cfg_if::cfg_if! {
+        if #[cfg(armv6m)] {
+            arch::asm!("
+                @ Spill the registers we're about to use to pass stuff.
+                push {{r4, lr}}
+                mov r4, r11
+                push {{r4}}
+
+                @ Load the constant syscall number.
+                eors r4, r4
+                adds r4, #{sysnum}
+                mov r11, r4
+                @ Move register arguments into place.
+                mov r4, r0
+
+                @ To the kernel!
+                svc #0
+
+                @ Move result into place.
+                mov r0, r4
+
+                @ Restore the registers we used and return.
+                pop {{r4}}
+                mov r11, r4
+                pop {{r4, pc}}
+                ",
+                sysnum = const Sysnum::IrqStatus as u32,
+                options(noreturn),
+            )
+        } else if #[cfg(any(armv7m, armv8m))] {
+            arch::asm!("
+                @ Spill the registers we're about to use to pass stuff.
+                push {{r4, r11, lr}}
+
+                @ Move register arguments into place.
+                mov r4, r0
+                @ Load the constant syscall number.
+                mov r11, {sysnum}
+
+                @ To the kernel!
+                svc #0
+
+                @ Move result into place.
+                mov r0, r4
+
+                @ Restore the registers we used and return.
+                pop {{r4, r11, pc}}
+                ",
+                sysnum = const Sysnum::IrqStatus as u32,
+                options(noreturn),
+            )
+        } else {
+            compile_error!("missing sys_irq_status stub for ARM profile")
+        }
+    }
+}

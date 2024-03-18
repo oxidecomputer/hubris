@@ -81,9 +81,9 @@ use crate::startup::with_task_table;
 use crate::task;
 use crate::time::Timestamp;
 use crate::umem::USlice;
-use abi::FaultInfo;
 #[cfg(any(armv7m, armv8m))]
 use abi::FaultSource;
+use abi::{FaultInfo, InterruptNum};
 #[cfg(armv8m)]
 use armv8_m_mpu::{disable_mpu, enable_mpu};
 use unwrap_lite::UnwrapLite;
@@ -1157,6 +1157,38 @@ pub fn enable_irq(n: u32) {
     unsafe {
         nvic.iser[reg_num].write(bit_mask);
     }
+}
+
+/// Looks up an interrupt in the NVIC and returns a cross-platform
+/// representation of that interrupt's status.
+pub fn irq_status(n: u32) -> abi::IrqStatus {
+    let mut status = abi::IrqStatus::empty();
+
+    let nvic = unsafe { &*cortex_m::peripheral::NVIC::PTR };
+    let reg_num = (n / 32) as usize;
+    let bit_mask = 1 << (n % 32);
+
+    // See if the interrupt is enabled by checking the bit in the Interrupt Set
+    // Enable Register.
+    let enabled = nvic.iser[reg_num].read() & bit_mask == bit_mask;
+    status.set(abi::IrqStatus::ENABLED, enabled);
+
+    // See if the interrupt is pending by checking the bit in the Interrupt
+    // Set Pending Register (ISPR).
+    let pending = nvic.ispr[reg_num].read() & bit_mask == bit_mask;
+    status.set(abi::IrqStatus::PENDING, pending);
+
+    status
+}
+
+pub fn pend_software_irq(InterruptNum(n): InterruptNum) {
+    let nvic = unsafe { &*cortex_m::peripheral::NVIC::PTR };
+    let reg_num = (n / 32) as usize;
+    let bit_mask = 1 << (n % 32);
+
+    // Pend the IRQ by poking the corresponding bit in the Interrupt Set Pending
+    // Register (ISPR).
+    unsafe { nvic.ispr[reg_num].write(bit_mask) };
 }
 
 #[repr(u8)]

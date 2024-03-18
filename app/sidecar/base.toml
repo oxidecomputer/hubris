@@ -6,7 +6,7 @@ fwid = true
 
 [kernel]
 name = "sidecar"
-requires = {flash = 25384, ram = 6256}
+requires = {flash = 25792, ram = 6256}
 features = ["dump"]
 
 [caboose]

@@ -51,6 +51,9 @@ pub enum RunnerOp {
     /// Reads out, and clears, the accumulated set of notifications we've
     /// received (`() -> u32`).
     ReadAndClearNotes = 0,
+    /// Indicates that the test suite would like the test runner to trigger an
+    /// IRQ.
+    SoftIrq = 1,
     /// Signals that a test is complete, and that the runner is switching back
     /// to passive mode (`() -> ()`).
     TestComplete = 0xfffe,
