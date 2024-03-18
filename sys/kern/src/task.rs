@@ -642,10 +642,7 @@ pub trait ArchState: Default {
     }
 
     /// Sets the results of IRQ_STATUS.
-    fn set_irq_status_result(
-        &mut self,
-        abi::IrqStatus(status): abi::IrqStatus,
-    ) {
+    fn set_irq_status_result(&mut self, status: abi::IrqStatus) {
         self.ret0(status.bits());
     }
 }
