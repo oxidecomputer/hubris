@@ -646,7 +646,7 @@ pub trait ArchState: Default {
         &mut self,
         abi::IrqStatus(status): abi::IrqStatus,
     ) {
-        self.ret0(status);
+        self.ret0(status.bits());
     }
 }
 

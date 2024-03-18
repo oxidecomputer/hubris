@@ -537,14 +537,11 @@ pub struct ImageVectors {
     pub entry: u32,
 }
 
-/// A set of bitflags representing the status of the interrupts mapped to a
-/// notification mask.
-#[derive(Copy, Clone, Debug, FromBytes, PartialEq, Eq)]
-#[repr(transparent)]
-pub struct IrqStatus(pub u32);
-
 bitflags::bitflags! {
-    impl IrqStatus: u32 {
+    /// A set of bitflags representing the status of the interrupts mapped to a
+    /// notification mask.
+    #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+    pub struct IrqStatus: u32 {
         /// If 1, this interrupt is enabled.
         const ENABLED = 1 << 0;
         /// If 1, an IRQ is currently pending for this interrupt.
