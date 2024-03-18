@@ -657,6 +657,7 @@ pre.rouge .gs {
 <li><a href="#_refresh_task_id_10">7.2.11. <code>REFRESH_TASK_ID</code> (10)</a></li>
 <li><a href="#_post_11">7.2.12. <code>POST</code> (11)</a></li>
 <li><a href="#_reply_fault_12">7.2.13. <code>REPLY_FAULT</code> (12)</a></li>
+<li><a href="#sys_irq_status">7.2.14. <code>IRQ_STATUS</code> (13)</a></li>
 </ul>
 </li>
 </ul>
@@ -3833,6 +3834,83 @@ while we were processing its request. (It can happen.)</p>
 </div>
 </div>
 </div>
+<div class="sect3">
+<h4 id="sys_irq_status">7.2.14. <code>IRQ_STATUS</code> (13)</h4>
+<div class="paragraph">
+<p>Returns the current status of interrupts mapped to the calling task.</p>
+</div>
+<div class="sect4">
+<h5 id="_arguments_14">Arguments</h5>
+<div class="ulist">
+<ul>
+<li>
+<p>0: notification bitmask corresponding to the interrupt(s) to query</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect4">
+<h5 id="_return_values_14">Return values</h5>
+<div class="ulist">
+<ul>
+<li>
+<p>0: an <code>IrqStatus</code> (see the <code>abi</code> crate) describing the status of the
+interrupts in the notification mask. Currently, the following bits in
+<code>IrqStatus</code> are significant:</p>
+<div class="ulist">
+<ul>
+<li>
+<p><code>0b0001</code>: set if any interrupt in the mask is enabled</p>
+</li>
+<li>
+<p><code>0b0010</code>: set if an IRQ is pending for any interrupt in the mask</p>
+</li>
+<li>
+<p><code>0b0100</code>: set if a notification has been posted to the caller but
+not yet consumed</p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect4">
+<h5 id="_faults_13">Faults</h5>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50%;">
+<col style="width: 50%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Condition</th>
+<th class="tableblock halign-left valign-top">Fault taken</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The given notification bitmask is not mapped to an interrupt in this task.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>NoIrq</code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect4">
+<h5 id="_notes_12">Notes</h5>
+<div class="paragraph">
+<p>As discussed in the notes for the <a href="#sys_irq_control">IRQ_CONTROL</a> syscall,
+tasks refer to interrupts using their notification bits.</p>
+</div>
+<div class="paragraph">
+<p>If the provided notification mask is zero, the syscall will return a <code>NoIrq</code>
+fault. If the provided notification mask has multiple bits set, the returned
+<code>IrqStatus</code> value will be the boolean OR of the status of all interrupts in the
+map (e.g. if any interrupt in the mask is pending, the <code>PENDING</code> bit will be
+set, and so on).</p>
+</div>
+</div>
+</div>
 </div>
 </div>
 </div>
@@ -3939,7 +4017,7 @@ generation numbers right.</p>
 </div>
 </div>
 <div class="sect4">
-<h5 id="_notes_12">Notes</h5>
+<h5 id="_notes_13">Notes</h5>
 <div class="paragraph">
 <p>See the <code>abi</code> crate for the definition of <code>TaskState</code> that matches your kernel.
 Here is a representative example at the time of this writing:</p>
@@ -4046,7 +4124,7 @@ that the IPC will never complete.</p>
 </div>
 </div>
 <div class="sect4">
-<h5 id="_notes_13">Notes</h5>
+<h5 id="_notes_14">Notes</h5>
 <div class="paragraph">
 <p>If a task asks to reinit <em>itself,</em> the kernel mumbles &#8220;alright, your funeral&#8221;
 and reinits the caller. Given that <code>reinit_task</code> is intended to be restricted to
@@ -4099,7 +4177,7 @@ and given a <a href="#death">dead code</a> to indicate that the IPC will never c
 </div>
 </div>
 <div class="sect4">
-<h5 id="_notes_14">Notes</h5>
+<h5 id="_notes_15">Notes</h5>
 <div class="paragraph">
 <p>As with <code>reinit_task</code>, it is possible for a task to use <code>fault_task</code> to fault
 <em>itself.</em> This is an odd thing to do.</p>
@@ -4159,7 +4237,7 @@ interest.</p>
 </div>
 </div>
 <div class="sect4">
-<h5 id="_notes_15">Notes</h5>
+<h5 id="_notes_16">Notes</h5>
 <div class="paragraph">
 <p>For the specified task index, this will return the dump region specified by
 the dump region index.  If the dump region index is equal to or greater
@@ -5548,7 +5626,7 @@ tool to a high-reliability research platform.</em></p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2024-03-18 23:27:14 UTC
+Last updated 2024-03-18 23:38:52 UTC
 </div>
 </div>
 </body>
