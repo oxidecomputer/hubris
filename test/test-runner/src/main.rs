@@ -85,9 +85,12 @@ fn main() -> ! {
         test_status: None,
     };
 
+    // N.B. that this must be at least four bytes to recv a u32 notification
+    // mask in the `SoftIrq` IPC op.
+    let mut buf = [0u8; 4];
     loop {
         hl::recv(
-            &mut [],
+            &mut buf,
             ALL_NOTIFICATIONS,
             &mut state,
             |state, bits| {
