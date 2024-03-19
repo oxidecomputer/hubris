@@ -120,17 +120,6 @@ fn main() -> ! {
                             )
                             .unwrap_lite();
                         }
-                        // These errors should be impossible if we're configured
-                        // correctly.
-                        Err(SendError::NotYours | SendError::InvalidVLan) => {
-                            unreachable!()
-                        }
-                        // Unclear under what conditions we could sse `Other` -
-                        // just panic for now? At the time of this writing
-                        // `Other` should only come back if the destination
-                        // address in `meta` is bogus or our socket is closed,
-                        // neither of which should be possible here.
-                        Err(SendError::Other) => panic!(),
                     }
                 }
             }
@@ -144,9 +133,8 @@ fn main() -> ! {
                 .unwrap_lite();
             }
             Err(RecvError::ServerRestarted) => {
-                // `net` restarted (probably due to the watchdog); just retry.
+                // `net` restarted; just retry.
             }
-            Err(RecvError::NotYours | RecvError::Other) => panic!(),
         }
     }
 }
