@@ -246,3 +246,58 @@ jobs:
       app_toml: ${{ matrix.app_toml }}
       image: ${{ matrix.image }}
       os: ${{ inputs.os }}
+
+  build-tests:
+    if: ${{ inputs.board-set == 'tests' || inputs.board-set == 'all' }}
+    name: build-tests
+    strategy:
+      matrix:
+        build: [stm32f3, stm32f4, lpc55, stm32h743, stm32h753, gemini, rot-carrier, gimletlet]
+        include:
+          - build: stm32g0
+            app_name: tests-stm32g070
+            app_toml: test/tests-stm32g0/app-g070.toml
+            image: default
+          - build: stm32f3
+            app_name: tests-stm32fx
+            app_toml: test/tests-stm32fx/app-f3.toml
+            image: default
+          - build: stm32f4
+            app_name: tests-stm32fx
+            app_toml: test/tests-stm32fx/app.toml
+            image: default
+          - build: lpc55
+            app_name: tests-lpc55xpresso
+            app_toml: test/tests-lpc55xpresso/app.toml
+            image: default
+          - build: stm32h743
+            app_name: tests-stm32h743
+            app_toml: test/tests-stm32h7/app-h743.toml
+            image: default
+          - build: stm32h753
+            app_name: tests-stm32h753
+            app_toml: test/tests-stm32h7/app-h753.toml
+            image: default
+          - build: gemini
+            app_name: tests-gemini-bu
+            app_toml: test/tests-gemini-bu/app.toml
+            image: default
+          - build: rot-carrier
+            app_name: tests-rot-carrier
+            app_toml: test/tests-rot-carrier/app.toml
+            image: default
+          - build: gimletlet
+            app_name: tests-gimletlet
+            app_toml: test/tests-gimletlet/app.toml
+            image: default
+          - build: psc
+            app_name: tests-psc
+            app_toml: test/tests-psc/app.toml
+            image: default
+    uses: ./.github/workflows/build-one.yml
+    with:
+      build: ${{ matrix.build }}
+      app_name: ${{ matrix.app_name }}
+      app_toml: ${{ matrix.app_toml }}
+      image: ${{ matrix.image }}
+      os: ${{ inputs.os }}
