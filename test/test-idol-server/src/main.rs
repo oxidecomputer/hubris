@@ -59,7 +59,7 @@ impl idl::InOrderIdolTestImpl for ServerImpl {
         a: FancyTestType,
     ) -> Result<FancyTestType, RequestError<IdolTestError>> {
         Ok(FancyTestType {
-            u: a.u + if a.b { 1 } else { 0 },
+            u: a.u + a.b as u32,
             ..a
         })
     }
