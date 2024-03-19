@@ -52,7 +52,6 @@ features = ["stm32g0", "gpio", "i2c", "g030"]
 name = "drv-stm32xx-i2c-server"
 features = ["g030"]
 priority = 2
-max-sizes = {flash = 4096, ram = 1024}
 uses = ["i2c1"]
 start = true
 task-slots = ["sys"]

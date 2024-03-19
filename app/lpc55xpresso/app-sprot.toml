@@ -112,7 +112,6 @@ pins = [
 [tasks.i2c_driver]
 name = "drv-lpc55-i2c"
 priority = 4
-max-sizes = {flash = 8192, ram = 2048}
 uses = ["flexcomm4"]
 start = true
 stacksize = 1000
