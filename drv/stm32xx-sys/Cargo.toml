@@ -33,6 +33,14 @@ g070 = ["family-stm32g0", "stm32g0/stm32g070", "drv-stm32xx-sys-api/g070", "drv-
 g0b1 = ["family-stm32g0", "stm32g0/stm32g0b1", "drv-stm32xx-sys-api/g0b1", "drv-stm32xx-gpio-common/model-stm32g0b1"]
 no-ipc-counters = ["idol/no-counters"]
 
+# Disables the Jefe dependency, for use in tests where the test-runner task is
+# used as supervisor, rather than Jefe.
+# 
+# TODO(eliza): eventually, it would be much better if tasks that depend on the
+# sys driver could run separately from the kernel tests, and use a real Jefe
+# rather than the test supervisor. But, for now, this makes it build.
+test = []
+
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
 [[bin]]
