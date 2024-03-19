@@ -19,7 +19,7 @@ pub(crate) fn run_a_test(
     _data: &[u8],
     rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    if stack.len() < 1 {
+    if stack.is_empty() {
         return Err(Failure::Fault(Fault::MissingParameters));
     }
 
@@ -38,7 +38,7 @@ pub(crate) fn run_a_test(
     let (rc, _len) = sys_send(
         TEST_TASK.get_task_id(),
         SuiteOp::RunCase as u16,
-        &id.as_bytes(),
+        id.as_bytes(),
         &mut [],
         &[],
     );
@@ -54,7 +54,7 @@ pub(crate) fn run_a_test(
             RUNNER.get_task_id(),
             RunnerOp::TestResult as u16,
             &[],
-            &mut result.as_bytes_mut(),
+            result.as_bytes_mut(),
             &[],
         );
 
