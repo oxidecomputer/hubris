@@ -538,7 +538,7 @@ fn test_idol_ssmarshal() {
     // it brings in 14K of float formatting code and overflows our smaller
     // targets.
     assert_eq!(r.u, 134);
-    assert_eq!(r.b, true);
+    assert!(r.b);
     assert!(r.f == 1.0);
 
     let r = idol
@@ -549,7 +549,7 @@ fn test_idol_ssmarshal() {
         })
         .unwrap();
     assert_eq!(r.u, 101);
-    assert_eq!(r.b, false);
+    assert!(!r.b);
     assert!(r.f == 1.0);
 }
 
@@ -1112,7 +1112,7 @@ fn test_borrow_without_peer_waiting() {
     assert_eq!(initial_id, new_id, "id should not change");
 
     // Finally, attempt to do a non-existent borrow read
-    let (rc, _n) = sys_borrow_write(initial_id, 0, 0, &mut buf);
+    let (rc, _n) = sys_borrow_write(initial_id, 0, 0, &buf);
     assert_eq!(rc, DEFECT, "expected to fail sys_borrow_write");
     let new_id = sys_refresh_task_id(initial_id);
     assert_eq!(initial_id, new_id, "id should not change");
@@ -1226,15 +1226,15 @@ fn test_floating_point(highregs: bool) {
     // registers are not being saved and restored properly, it is conceivable
     // that this test will fail on this assert on runs that aren't the first
     // run after reset.
-    for i in 0..16 {
-        assert_eq!(before[i], 0);
+    for i in before {
+        assert_eq!(i, 0);
     }
 
     // Now let's make a call to our assistant to splat its floating point regs
     let assist = assist_task_id();
 
     let mut response = 0_u32;
-    let which: u32 = if highregs { 1 } else { 0 };
+    let which = highregs as u32;
 
     let (rc, len) = sys_send(
         assist,
@@ -1251,8 +1251,8 @@ fn test_floating_point(highregs: bool) {
     }
 
     // And verify that our registers are what we think that they should be
-    for i in 0..16 {
-        assert_eq!(before[i], after[i]);
+    for (before, after) in before.iter().zip(after.iter()) {
+        assert_eq!(before, after);
     }
 }
 
