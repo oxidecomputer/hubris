@@ -203,7 +203,15 @@ enum Trace {
     Stop,
     RepeatedStart(#[count(children)] bool),
     LostInterrupt,
+    #[count(skip)]
     Panic(Register, u32),
+    #[count(skip)]
+    IrqStatus {
+        notification: u32,
+        pending: bool,
+        enabled: bool,
+        posted: bool,
+    },
     #[count(skip)]
     None,
 }
@@ -515,6 +523,18 @@ impl I2cController<'_> {
         ringbuf_entry!(Trace::Panic(Register::TIMEOUTR, tor.read().bits()));
         ringbuf_entry!(Trace::Panic(Register::ISR, i2c.isr.read().bits()));
         ringbuf_entry!(Trace::Panic(Register::PECR, i2c.pecr.read().bits()));
+        for i in 0..32 {
+            let bit = 1 << i;
+            if self.notification & bit == bit {
+                let status = sys_irq_status(bit);
+                ringbuf_entry!(Trace::IrqStatus {
+                    notification: bit,
+                    enabled: status.contains(IrqStatus::ENABLED),
+                    pending: status.contains(IrqStatus::PENDING),
+                    posted: status.contains(IrqStatus::POSTED),
+                });
+            }
+        }
 
         panic!();
     }
