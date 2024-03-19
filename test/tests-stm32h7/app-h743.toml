@@ -21,6 +21,11 @@ priority = 2
 max-sizes = {flash = 65536, ram = 4096}
 start = true
 task-slots = ["assist", "idol", "suite", "runner"]
+# this doesn't actually use SPI; we're just mapping that interrupt to test
+# interrupt handling. chosen completely arbitrarily.
+uses = ["spi1"]
+notifications = ["test-irq"]
+interrupts = {"spi1.irq" = "test-irq"}
 
 # This block is used to test the task_config macro
 [tasks.suite.config]

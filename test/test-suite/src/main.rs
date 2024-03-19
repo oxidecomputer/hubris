@@ -124,6 +124,8 @@ test_cases! {
     test_idol_ssmarshal,
     test_idol_ssmarshal_multiarg,
     test_idol_ssmarshal_multiarg_enum,
+    test_irq_notif,
+    test_irq_status,
     #[cfg(feature = "fru-id-eeprom")]
     at24csw080::test_at24csw080,
 }
@@ -1409,6 +1411,82 @@ fn test_post() {
     assert_eq!(response, ARBITRARY_MASK);
 }
 
+/// Tests that a task is notified on receipt of a hardware interrupt.
+fn test_irq_notif() {
+    sys_irq_control(notifications::TEST_IRQ_MASK, true);
+
+    trigger_test_irq();
+
+    let rm =
+        sys_recv_closed(&mut [], notifications::TEST_IRQ_MASK, TaskId::KERNEL)
+            .unwrap();
+
+    assert_eq!(rm.sender, TaskId::KERNEL);
+    assert_eq!(rm.operation, notifications::TEST_IRQ_MASK);
+    assert_eq!(rm.message_len, 0);
+    assert_eq!(rm.response_capacity, 0);
+    assert_eq!(rm.lease_count, 0);
+}
+
+/// Tests the IRQ_STATUS syscall.
+fn test_irq_status() {
+    sys_irq_control(notifications::TEST_IRQ_MASK, false);
+
+    // the interrupt should not be pending
+    let status = sys_irq_status(notifications::TEST_IRQ_MASK);
+    assert_eq!(status, IrqStatus::empty());
+
+    // trigger an interrupt *without* setting the enabled flag. now, the
+    // interrupt should be pending but not posted.
+    trigger_test_irq();
+
+    let status = sys_irq_status(notifications::TEST_IRQ_MASK);
+    let expected_status = IrqStatus::PENDING;
+    assert_eq!(status, expected_status);
+
+    // enable the interrupt
+    sys_irq_control(notifications::TEST_IRQ_MASK, true);
+
+    // now, the pending IRQ should be posted to this task.
+    let status = sys_irq_status(notifications::TEST_IRQ_MASK);
+    let expected_status = IrqStatus::POSTED;
+    assert_eq!(status, expected_status);
+
+    // if we trigger the same IRQ again, we should observe both the `PENDING`
+    // and `POSTED` bits, as one interrupt has been posted to our notification
+    // set, and the subsequent interrupt will be pending as we have not yet
+    // unmasked the IRQ. N.B. that because the `RECV` call in `trigger_test_irq`
+    // does *not* include the notification mask, we will not consume the posted
+    // notification.
+    trigger_test_irq();
+    let status = sys_irq_status(notifications::TEST_IRQ_MASK);
+    let expected_status = IrqStatus::POSTED | IrqStatus::PENDING;
+    assert_eq!(status, expected_status);
+
+    // do a `RECV` call to consume the posted notification. Now, we have the
+    // second IRQ pending, and no notification posted.
+    sys_recv_closed(&mut [], notifications::TEST_IRQ_MASK, TaskId::KERNEL)
+        .unwrap();
+
+    let status = sys_irq_status(notifications::TEST_IRQ_MASK);
+    let expected_status = IrqStatus::PENDING;
+    assert_eq!(status, expected_status);
+}
+
+/// Asks the test runner (running as supervisor) to please trigger a software
+/// interrupt for `notifications::TEST_IRQ`, thank you.
+#[track_caller]
+fn trigger_test_irq() {
+    let runner = RUNNER.get_task_id();
+    let mut response = 0u32;
+    let op = RunnerOp::SoftIrq as u16;
+    let arg = notifications::TEST_IRQ_MASK;
+    let (rc, len) =
+        sys_send(runner, op, arg.as_bytes(), response.as_bytes_mut(), &[]);
+    assert_eq!(rc, 0);
+    assert_eq!(len, 0);
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // Frameworky bits follow
 
@@ -1504,3 +1582,5 @@ fn main() -> ! {
         )
     }
 }
+
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

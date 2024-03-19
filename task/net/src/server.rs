@@ -517,7 +517,7 @@ where
         if generated::SOCKET_OWNERS[socket_index].0.index()
             != msg.sender.index()
         {
-            return Err(RecvError::NotYours.into());
+            return Err(ClientError::AccessViolation.fail());
         }
 
         // Iterate over all of the per-VLAN sockets, returning the first
@@ -574,14 +574,14 @@ where
         if generated::SOCKET_OWNERS[socket_index].0.index()
             != msg.sender.index()
         {
-            return Err(SendError::NotYours.into());
+            return Err(ClientError::AccessViolation.fail());
         }
 
         #[cfg(feature = "vlan")]
         let vlan_index = {
             // Convert from absolute VID to an index in our VLAN array
             if !VLAN_RANGE.contains(&metadata.vid) {
-                return Err(SendError::InvalidVLan.into());
+                return Err(ClientError::BadMessageContents.fail());
             }
             usize::from(metadata.vid - VLAN_RANGE.start)
         };
@@ -624,9 +624,15 @@ where
                 self.client_waiting_to_send[socket_index] = true;
                 Err(SendError::QueueFull.into())
             }
-            Err(_e) => {
-                // uhhhh TODO
-                Err(SendError::Other.into())
+            Err(udp::SendError::Unaddressable) => {
+                // smoltcp's "Unaddressable" case may not be what you'd expect
+                // from the name. It indicates that the address and/or port
+                // provided by the caller are _statically invalid,_ such as port
+                // 0 or address `[::]`. It does _not_ mean unreachable.
+                //
+                // This means that this error indicates a precondition violation
+                // by the client, which in turn means: kill kill kill
+                Err(ClientError::BadMessageContents.fail())
             }
         }
     }

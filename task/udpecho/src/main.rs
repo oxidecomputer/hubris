@@ -45,12 +45,9 @@ fn main() -> ! {
                             )
                             .unwrap();
                         }
-                        Err(
-                            SendError::ServerRestarted
-                            | SendError::NotYours
-                            | SendError::InvalidVLan
-                            | SendError::Other,
-                        ) => panic!(),
+                        Err(SendError::ServerRestarted) => {
+                            // Welp, lost an echo, we'll just soldier on.
+                        }
                     }
                 }
             }
@@ -64,10 +61,8 @@ fn main() -> ! {
                 .unwrap();
             }
             Err(RecvError::ServerRestarted) => {
-                // `net` restarted (probably due to the watchdog); just retry.
+                // `net` restarted, the poor thing; just retry.
             }
-            Err(RecvError::NotYours) => panic!(),
-            Err(RecvError::Other) => panic!(),
         }
 
         // Try again.

@@ -39,6 +39,7 @@ pub fn handle_kernel_message(
         Ok(Kipcnum::ReadTaskDumpRegion) => {
             read_task_dump_region(tasks, caller, args.message?, args.response?)
         }
+        Ok(Kipcnum::SoftwareIrq) => software_irq(tasks, caller, args.message?),
 
         _ => {
             // Task has sent an unknown message to the kernel. That's bad.
@@ -425,5 +426,43 @@ fn read_task_dump_region(
     tasks[caller]
         .save_mut()
         .set_send_response_and_length(0, response_len);
+    Ok(NextTask::Same)
+}
+
+fn software_irq(
+    tasks: &mut [Task],
+    caller: usize,
+    message: USlice<u8>,
+) -> Result<NextTask, UserError> {
+    if caller != 0 {
+        return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
+            UsageError::NotSupervisor,
+        )));
+    }
+
+    let (index, notification): (u32, u32) =
+        deserialize_message(&tasks[caller], message)?;
+
+    if index as usize >= tasks.len() {
+        return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
+            UsageError::TaskOutOfRange,
+        )));
+    }
+
+    // Look up which IRQs are mapped to the target task.
+    let irqs = crate::startup::HUBRIS_TASK_IRQ_LOOKUP
+        .get(abi::InterruptOwner {
+            task: index,
+            notification,
+        })
+        .ok_or(UserError::Unrecoverable(FaultInfo::SyscallUsage(
+            UsageError::NoIrq,
+        )))?;
+
+    for &irq in irqs.iter() {
+        crate::arch::pend_software_irq(irq);
+    }
+
+    tasks[caller].save_mut().set_send_response_and_length(0, 0);
     Ok(NextTask::Same)
 }

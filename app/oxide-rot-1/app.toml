@@ -10,7 +10,7 @@ fwid = true
 
 [kernel]
 name = "oxide-rot-1"
-requires = {flash = 60644, ram = 2696}
+requires = {flash = 61124, ram = 2696}
 features = ["dice-mfg"]
 
 [caboose]
