@@ -46,7 +46,6 @@ name = "drv-stm32xx-i2c-server"
 stacksize = 1048
 features = ["h753"]
 priority = 2
-max-sizes = {flash = 16384, ram = 4096}
 uses = ["i2c2", "i2c3"]
 start = true
 task-slots = ["sys"]

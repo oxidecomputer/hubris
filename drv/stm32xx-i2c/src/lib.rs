@@ -203,7 +203,15 @@ enum Trace {
     Stop,
     RepeatedStart(#[count(children)] bool),
     LostInterrupt,
+    #[count(skip)]
     Panic(Register, u32),
+    #[count(skip)]
+    IrqStatus {
+        notification: u32,
+        pending: bool,
+        enabled: bool,
+        posted: bool,
+    },
     #[count(skip)]
     None,
 }
@@ -515,6 +523,17 @@ impl I2cController<'_> {
         ringbuf_entry!(Trace::Panic(Register::TIMEOUTR, tor.read().bits()));
         ringbuf_entry!(Trace::Panic(Register::ISR, i2c.isr.read().bits()));
         ringbuf_entry!(Trace::Panic(Register::PECR, i2c.pecr.read().bits()));
+
+        let irq_status = sys_irq_status(self.notification);
+        ringbuf_entry!(Trace::IrqStatus {
+            notification: self.notification,
+            // Yes, we *could* just record the `IrqStatus` value here, but
+            // Humility will format it as a hex value rather than knowing about
+            // the bitflags, which is a bit sad...
+            enabled: irq_status.contains(IrqStatus::ENABLED),
+            pending: irq_status.contains(IrqStatus::PENDING),
+            posted: irq_status.contains(IrqStatus::POSTED),
+        });
 
         panic!();
     }
