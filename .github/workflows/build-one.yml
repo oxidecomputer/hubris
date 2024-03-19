@@ -25,7 +25,7 @@ on:
 
 jobs:
   build-one:
-     name: dist-single
+     name: "${{ inputs.app_name }}/${{ inputs.app_toml}}"
      runs-on: ${{ inputs.os }}
      env:
        VCPKGRS_DYNAMIC: 1
@@ -91,4 +91,3 @@ jobs:
         with:
           name: dist-${{ inputs.os }}-${{ inputs.build }}
           path: target/${{ inputs.app_name }}/dist/build-${{ inputs.app_name }}-image-*.zip
-
