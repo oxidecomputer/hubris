@@ -14,6 +14,7 @@ zerocopy = { workspace = true }
 drv-spi-api = { path = "../spi-api" }
 drv-stm32h7-spi = { path = "../stm32h7-spi" }
 drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
+counters = { path = "../../lib/counters" }
 mutable-statics = { path = "../../lib/mutable-statics" }
 ringbuf = { path = "../../lib/ringbuf" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
