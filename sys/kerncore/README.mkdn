@@ -1,0 +1,11 @@
+# `kerncore`: kernel core algorithms
+
+This crate contains bits of the Hubris kernel, factored out to make them more
+easily tested on other operating systems.
+
+It is left as an exercise for the reader whether `kerncore` is also
+
+- A musical genre
+- A fashion aesthetic
+- A form of crash dump
+- The middle part of an apple (lowercase)

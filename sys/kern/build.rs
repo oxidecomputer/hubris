@@ -153,6 +153,12 @@ fn process_config() -> Result<Generated> {
         }
         regions.resize(8, 0usize);
 
+        // Order the task's regions in ascending address order.
+        //
+        // THIS IS IMPORTANT. The kernel exploits this property to do cheaper
+        // access tests.
+        regions.sort_by_key(|i| region_table.get_index(*i).unwrap().1.base);
+
         // Translate abstract addresses in the task description into concrete
         // addresses.
         let entry_point =
