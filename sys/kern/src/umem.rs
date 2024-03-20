@@ -291,6 +291,21 @@ impl<'a> From<&'a abi::ULease> for USlice<u8> {
     }
 }
 
+/// Compatibility with the generic portable algorithms in `kerncore`.
+impl<T> kerncore::UserSlice for USlice<T> {
+    fn is_empty(&self) -> bool {
+        self.is_empty()
+    }
+
+    fn base_addr(&self) -> usize {
+        self.base_addr()
+    }
+
+    fn end_addr(&self) -> usize {
+        self.end_addr()
+    }
+}
+
 /// Copies bytes from `tasks[from_index]` in region `from_slice` into
 /// `tasks[to_index]` at region `to_slice`, checking memory access before doing
 /// so.

@@ -213,18 +213,14 @@ impl Task {
         desired: RegionAttributes,
         forbidden: RegionAttributes,
     ) -> bool {
-        if slice.is_empty() {
-            // We deliberately omit tests for empty slices, as they confer no
-            // authority as far as the kernel is concerned. This is pretty
-            // important because a literal like `&[]` tends to produce a base
-            // address of `0 + sizeof::<T>()`, which is almost certainly invalid
-            // according to the task's region map... but fine with us.
-            return true;
-        }
+        // Forceably include DEVICE in the forbidden set, whether or not the
+        // caller thought about it.
         let forbidden = forbidden | RegionAttributes::DEVICE;
-        self.region_table().iter().any(|region| {
-            region.covers(slice)
-                && region.attributes.contains(desired)
+
+        // Delegate the actual tests to the kerncore crate, but with our
+        // attribute-sensing customization:
+        kerncore::can_access(slice, self.region_table(), |region| {
+            region.attributes.contains(desired)
                 && !region.attributes.intersects(forbidden)
         })
     }

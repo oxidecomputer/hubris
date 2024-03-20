@@ -2761,6 +2761,7 @@ dependencies = [
  "cfg-if",
  "cortex-m",
  "indexmap 1.9.1",
+ "kerncore",
  "phash",
  "phash-gen",
  "proc-macro2",
@@ -2772,6 +2773,10 @@ dependencies = [
  "unwrap-lite",
  "zerocopy 0.6.6",
 ]
+
+[[package]]
+name = "kerncore"
+version = "0.1.0"
 
 [[package]]
 name = "ksz8463"

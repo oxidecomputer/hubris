@@ -4,7 +4,6 @@
 
 //! Descriptor types, used to statically define application resources.
 
-use crate::umem::USlice;
 use serde::{Deserialize, Serialize};
 
 pub(crate) const REGIONS_PER_TASK: usize = 8;
@@ -108,20 +107,18 @@ impl RegionDesc {
         if next_addr < addr {
             return false;
         };
-        // We don't allow regions to butt up against the end of the address
-        // space, so we can compute our off-by-one end address as follows:
-        let end = self.base.wrapping_add(self.size) as usize;
+        let end = self.end_addr() as usize;
 
         (self.base as usize) <= addr && next_addr <= end
     }
 
-    /// Tests whether `slice` is fully enclosed by `self`.
-    pub fn covers<T>(&self, slice: &USlice<T>) -> bool {
-        // We don't allow regions to butt up against the end of the address
-        // space, so we can compute our off-by-one end address as follows:
-        let end = self.base.wrapping_add(self.size) as usize;
-
-        (self.base as usize) <= slice.base_addr() && slice.end_addr() <= end
+    /// Compute the address one past the end of this region. Since we don't
+    /// allow regions to butt up against the end of the address space, we can do
+    /// that.
+    pub fn end_addr(&self) -> u32 {
+        // Wrapping add here avoids the overflow check, which is avoided by our
+        // invariant that this not bump the end of the address space.
+        self.base.wrapping_add(self.size)
     }
 
     pub fn dumpable(&self) -> bool {
@@ -129,6 +126,24 @@ impl RegionDesc {
 
         ratts.contains(RegionAttributes::WRITE)
             && !ratts.contains(RegionAttributes::DEVICE)
+    }
+}
+
+/// Compatibility with generic kernel algorithms defined in kerncore
+impl kerncore::MemoryRegion for RegionDesc {
+    #[inline(always)]
+    fn contains(&self, addr: usize) -> bool {
+        self.contains(addr)
+    }
+
+    #[inline(always)]
+    fn base_addr(&self) -> usize {
+        self.base as usize
+    }
+
+    #[inline(always)]
+    fn end_addr(&self) -> usize {
+        self.end_addr() as usize
     }
 }
 
