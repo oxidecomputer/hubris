@@ -55,7 +55,7 @@ priority = 3
 features = ["mgmt", "h753", "use-spi-core", "spi2"]
 max-sizes = {flash = 131072, ram = 16384, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
-uses = ["eth", "eth_dma", "tim16", "spi2"]
+uses = ["eth", "tim16", "spi2"]
 start = true
 notifications = ["eth-irq", "mdio-timer-irq", "spi-irq", "wake-timer"]
 task-slots = ["sys", "user_leds", "jefe"]

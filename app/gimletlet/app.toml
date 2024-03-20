@@ -130,7 +130,7 @@ priority = 3
 features = ["h753", "vlan", "gimletlet-nic", "use-spi-core", "spi4"]
 max-sizes = {flash = 131072, ram = 65536, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
-uses = ["eth", "eth_dma", "tim16", "spi4"]
+uses = ["eth", "tim16", "spi4"]
 start = true
 task-slots = ["sys", "jefe"]
 notifications = ["eth-irq", "mdio-timer-irq", "spi-irq", "wake-timer"]
