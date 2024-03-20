@@ -48,7 +48,7 @@ macro_rules! by_refdes {
 
 impl ServerImpl {
     /// Number of devices in our inventory
-    pub(crate) const INVENTORY_COUNT: u32 = 71;
+    pub(crate) const INVENTORY_COUNT: u32 = 72;
 
     /// Look up a device in our inventory, by index
     ///
@@ -536,6 +536,14 @@ impl ServerImpl {
                 let data = InventoryData::Max5970 {
                     voltage_sensors: sensors.voltage,
                     current_sensors: sensors.current,
+                };
+                self.tx_buf
+                    .try_encode_inventory(sequence, &name, || Ok(&data));
+            }
+            71 => {
+                let (name, _f, sensors) = by_refdes!(U321, max31790);
+                let data = InventoryData::Max31790 {
+                    speed_sensors: sensors.speed,
                 };
                 self.tx_buf
                     .try_encode_inventory(sequence, &name, || Ok(&data));
