@@ -107,7 +107,7 @@ priority = 4
 features = ["mgmt", "h753", "psc", "vlan", "vpd-mac", "use-spi-core", "spi2"]
 max-sizes = {flash = 131072, ram = 65536, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
-uses = ["eth", "eth_dma", "tim16", "spi2"]
+uses = ["eth", "tim16", "spi2"]
 start = true
 notifications = [
     "eth-irq",

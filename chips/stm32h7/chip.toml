@@ -103,12 +103,8 @@ interrupts = { irq = 92 }
 
 [eth]
 address = 0x40028000
-size = 0x1000
+size = 0x2000
 interrupts = { irq = 61 }
-
-[eth_dma]
-address = 0x40029000
-size = 0x400
 
 [hash]
 address = 0x48021400
