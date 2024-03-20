@@ -307,7 +307,7 @@ impl ServerImpl {
                 let mask = LogicalPortMask::from(modules);
                 let (data_len, result) = if self
                     .front_io_board_present
-                    .unwrap_or_default()
+                    .unwrap_or(false)
                 {
                     self.get_status(mask, out)
                 } else {
@@ -337,7 +337,7 @@ impl ServerImpl {
                 let mask = LogicalPortMask::from(modules);
                 let (data_len, result) = if self
                     .front_io_board_present
-                    .unwrap_or_default()
+                    .unwrap_or(false)
                 {
                     self.get_extended_status(mask, out)
                 } else {
@@ -387,7 +387,7 @@ impl ServerImpl {
                 }
 
                 let (data_len, result) =
-                    if self.front_io_board_present.unwrap_or_default() {
+                    if self.front_io_board_present.unwrap_or(false) {
                         let r = self.read(read, mask & !self.disabled, out);
                         let len = r.success().count() * read.len() as usize;
                         (len, r)
@@ -436,8 +436,7 @@ impl ServerImpl {
                 }
 
                 let mask = LogicalPortMask::from(modules);
-                let result = if self.front_io_board_present.unwrap_or_default()
-                {
+                let result = if self.front_io_board_present.unwrap_or(false) {
                     self.write(write, mask & !self.disabled, data)
                 } else {
                     ModuleResult::new(
@@ -469,8 +468,7 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::AssertReset(modules));
                 let mask = LogicalPortMask::from(modules) & !self.disabled;
 
-                let result = if self.front_io_board_present.unwrap_or_default()
-                {
+                let result = if self.front_io_board_present.unwrap_or(false) {
                     self.transceivers.assert_reset(mask)
                 } else {
                     ModuleResultNoFailure::new(LogicalPortMask(0), mask)
@@ -494,8 +492,7 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::DeassertReset(modules));
                 let mask = LogicalPortMask::from(modules) & !self.disabled;
 
-                let result = if self.front_io_board_present.unwrap_or_default()
-                {
+                let result = if self.front_io_board_present.unwrap_or(false) {
                     self.transceivers.deassert_reset(mask)
                 } else {
                     ModuleResultNoFailure::new(LogicalPortMask(0), mask)
@@ -519,8 +516,7 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::AssertLpMode(modules));
                 let mask = LogicalPortMask::from(modules) & !self.disabled;
 
-                let result = if self.front_io_board_present.unwrap_or_default()
-                {
+                let result = if self.front_io_board_present.unwrap_or(false) {
                     self.transceivers.assert_lpmode(mask)
                 } else {
                     ModuleResultNoFailure::new(LogicalPortMask(0), mask)
@@ -544,8 +540,7 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::DeassertLpMode(modules));
                 let mask = LogicalPortMask::from(modules) & !self.disabled;
 
-                let result = if self.front_io_board_present.unwrap_or_default()
-                {
+                let result = if self.front_io_board_present.unwrap_or(false) {
                     self.transceivers.deassert_lpmode(mask)
                 } else {
                     ModuleResultNoFailure::new(LogicalPortMask(0), mask)
@@ -569,8 +564,7 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::EnablePower(modules));
                 let mask = LogicalPortMask::from(modules) & !self.disabled;
 
-                let result = if self.front_io_board_present.unwrap_or_default()
-                {
+                let result = if self.front_io_board_present.unwrap_or(false) {
                     self.transceivers.enable_power(mask)
                 } else {
                     ModuleResultNoFailure::new(LogicalPortMask(0), mask)
@@ -594,8 +588,7 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::DisablePower(modules));
                 let mask = LogicalPortMask::from(modules) & !self.disabled;
 
-                let result = if self.front_io_board_present.unwrap_or_default()
-                {
+                let result = if self.front_io_board_present.unwrap_or(false) {
                     self.transceivers.disable_power(mask)
                 } else {
                     ModuleResultNoFailure::new(LogicalPortMask(0), mask)
@@ -645,8 +638,7 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::ClearPowerFault(modules));
                 let mask = LogicalPortMask::from(modules) & !self.disabled;
 
-                let result = if self.front_io_board_present.unwrap_or_default()
-                {
+                let result = if self.front_io_board_present.unwrap_or(false) {
                     self.transceivers.clear_power_fault(mask)
                 } else {
                     ModuleResultNoFailure::new(LogicalPortMask(0), mask)
@@ -671,7 +663,7 @@ impl ServerImpl {
                 let mask = LogicalPortMask::from(modules);
                 let (data_len, result) = if self
                     .front_io_board_present
-                    .unwrap_or_default()
+                    .unwrap_or(false)
                 {
                     self.get_led_state_response(mask, out)
                 } else {
@@ -700,8 +692,7 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::SetLedState(modules, state));
                 let mask = LogicalPortMask::from(modules);
 
-                let result = if self.front_io_board_present.unwrap_or_default()
-                {
+                let result = if self.front_io_board_present.unwrap_or(false) {
                     self.set_led_state(mask, state);
                     ModuleResultNoFailure::new(mask, LogicalPortMask(0))
                         .unwrap()

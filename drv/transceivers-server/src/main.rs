@@ -665,6 +665,38 @@ fn main() -> ! {
 
         let mut buffer = [0; idl::INCOMING_SIZE];
         loop {
+            if server.front_io_board_present.is_none() {
+                server.front_io_board_present = match seq.front_io_board_ready()
+                {
+                    Ok(true) => {
+                        ringbuf_entry!(Trace::FrontIOBoardReady(true));
+                        Some(true)
+                    }
+                    Err(SeqError::NoFrontIOBoard) => {
+                        ringbuf_entry!(Trace::FrontIOSeqErr(
+                            SeqError::NoFrontIOBoard
+                        ));
+                        Some(false)
+                    }
+                    _ => {
+                        ringbuf_entry!(Trace::FrontIOBoardReady(false));
+                        None
+                    }
+                };
+
+                // If a board is present, attempt to initialize its
+                // LED drivers
+                if server.front_io_board_present.unwrap_or(false) {
+                    ringbuf_entry!(Trace::LEDInit);
+                    match server.transceivers.enable_led_controllers() {
+                        Ok(_) => server.led_init(),
+                        Err(e) => {
+                            ringbuf_entry!(Trace::LEDEnableError(e))
+                        }
+                    };
+                }
+            }
+
             multitimer.poll_now();
             for t in multitimer.iter_fired() {
                 match t {
@@ -672,56 +704,19 @@ fn main() -> ! {
                         // Handle the Front IO status checking as part of this
                         // loop because the frequency is what we had before and
                         // the server itself has no knowledge of the sequencer.
-                        if server.front_io_board_present.is_none() {
-                            server.front_io_board_present =
-                                match seq.front_io_board_ready() {
-                                    Ok(true) => {
-                                        ringbuf_entry!(
-                                            Trace::FrontIOBoardReady(true)
-                                        );
-                                        Some(true)
-                                    }
-                                    Err(SeqError::NoFrontIOBoard) => {
-                                        ringbuf_entry!(Trace::FrontIOSeqErr(
-                                            SeqError::NoFrontIOBoard
-                                        ));
-                                        Some(false)
-                                    }
-                                    _ => {
-                                        ringbuf_entry!(
-                                            Trace::FrontIOBoardReady(false)
-                                        );
-                                        None
-                                    }
-                                };
-
-                            // If a board is present, attempt to initialize its
-                            // LED drivers
-                            if server.front_io_board_present.unwrap_or_default()
-                            {
-                                ringbuf_entry!(Trace::LEDInit);
-                                match server
-                                    .transceivers
-                                    .enable_led_controllers()
-                                {
-                                    Ok(_) => server.led_init(),
-                                    Err(e) => {
-                                        ringbuf_entry!(Trace::LEDEnableError(e))
-                                    }
-                                };
-                            }
-                        }
-
                         server.handle_i2c_loop();
                     }
                     Timers::SPI => {
-                        server.handle_spi_loop();
+                        if server.front_io_board_present.unwrap_or(false) {
+                            server.handle_spi_loop();
+                        }
                     }
                     Timers::Blink => {
                         server.blink_on = !server.blink_on;
                     }
                 }
             }
+
             server.check_net(
                 tx_data_buf.as_mut_slice(),
                 rx_data_buf.as_mut_slice(),
