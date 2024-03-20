@@ -40,7 +40,6 @@ start = true
 [tasks.update_server]
 name = "lpc55-update-server"
 priority = 3
-max-sizes = {flash = 26000, ram = 17000, usbsram = 4096}
 stacksize = 8192
 start = true
 sections = {bootstate = "usbsram"}

@@ -2878,7 +2878,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.94",
- "zerocopy",
+ "zerocopy 0.6.6",
 ]
 
 [[package]]
@@ -2930,6 +2930,7 @@ dependencies = [
  "digest",
  "drv-lpc55-flash",
  "hubpack",
+ "kern",
  "lib-dice",
  "lib-lpc55-usart",
  "lpc55-hashcrypt",
@@ -3034,6 +3035,7 @@ dependencies = [
  "lpc55-hashcrypt",
  "lpc55-pac",
  "lpc55-rot-startup",
+ "lpc55_romapi",
  "unwrap-lite",
 ]
 

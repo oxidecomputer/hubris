@@ -18,7 +18,7 @@ use handoff::Handoff;
 
 use armv8_m_mpu::{disable_mpu, enable_mpu};
 use cortex_m::peripheral::MPU;
-use stage0_handoff::{RotBootState, RotSlot};
+use stage0_handoff::{RotBootStateV2, RotImageDetailsV2, RotSlot};
 
 const ROM_VER: u32 = 1;
 
@@ -171,22 +171,67 @@ pub fn startup(
     #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
     puf_check(&peripherals.PUF);
 
-    // Write the image details to handoff RAM. Use the address of the current
-    // function to determine which image is running.
-    let img_a = images::get_image_a(&mut flash);
-    let img_b = images::get_image_b(&mut flash);
-    let here = startup as *const u8;
-    let active = if img_a.as_ref().map(|i| i.contains(here)).unwrap_or(false) {
+    // Write the image details to handoff RAM.
+
+    // Pre-main code makes calls to the ROM-based signature
+    // verification routines and requires its own HASHCRYPT IRQ handler.
+    set_hashcrypt_rom();
+
+    let (slot_a, img_a) =
+        images::Image::get_image_a(&mut flash, &peripherals.SYSCON);
+    let (slot_b, img_b) =
+        images::Image::get_image_b(&mut flash, &peripherals.SYSCON);
+    let (slot_stage0, img_stage0) =
+        images::Image::get_image_stage0(&mut flash, &peripherals.SYSCON);
+    let (slot_stage0next, img_stage0next) =
+        images::Image::get_image_stage0next(&mut flash, &peripherals.SYSCON);
+
+    // Once the kernel is started, the normal HASHCRYPT IRQ handler needs to
+    // be active.
+    set_hashcrypt_default();
+
+    // Use the address of the current function to determine which image
+    // is running.
+    let here = startup as *const u8 as u32;
+    let active = if slot_a.contains(&here) {
         RotSlot::A
-    } else if img_b.as_ref().map(|i| i.contains(here)).unwrap_or(false) {
+    } else if slot_b.contains(&here) {
         RotSlot::B
     } else {
         panic!();
     };
-    let a = img_a.map(|i| images::image_details(i, &mut flash));
-    let b = img_b.map(|i| images::image_details(i, &mut flash));
 
-    let details = RotBootState { active, a, b };
+    let details = RotBootStateV2 {
+        active,
+        a: RotImageDetailsV2 {
+            digest: slot_a.fwid(),
+            status: match img_a {
+                Ok(_) => Ok(()),
+                Err(e) => Err(e),
+            },
+        },
+        b: RotImageDetailsV2 {
+            digest: slot_b.fwid(),
+            status: match img_b {
+                Ok(_) => Ok(()),
+                Err(e) => Err(e),
+            },
+        },
+        stage0: RotImageDetailsV2 {
+            digest: slot_stage0.fwid(),
+            status: match img_stage0 {
+                Ok(_) => Ok(()),
+                Err(e) => Err(e),
+            },
+        },
+        stage0next: RotImageDetailsV2 {
+            digest: slot_stage0next.fwid(),
+            status: match img_stage0next {
+                Ok(_) => Ok(()),
+                Err(e) => Err(e),
+            },
+        },
+    };
 
     handoff.store(&details);
 
@@ -290,3 +335,5 @@ extern "C" fn nuke_stack() {
         )
     }
 }
+
+lpc55_hashcrypt::dynamic_hashcrypt!();

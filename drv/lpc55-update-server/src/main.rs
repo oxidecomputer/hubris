@@ -21,6 +21,7 @@ use idol_runtime::{
 };
 use stage0_handoff::{
     HandoffData, HandoffDataLoadError, ImageVersion, RotBootState,
+    RotBootStateV2,
 };
 use userlib::*;
 use zerocopy::{AsBytes, FromBytes};
@@ -237,19 +238,15 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         &mut self,
         _: &RecvMessage,
     ) -> Result<RotBootState, RequestError<HandoffDataLoadError>> {
-        // Safety: Data is published by stage0
-        let addr = unsafe { BOOTSTATE.assume_init_ref() };
-        RotBootState::load_from_addr(addr).map_err(|e| e.into())
+        bootstate().map(RotBootState::from).map_err(|e| e.into())
     }
 
     fn rot_boot_info(
         &mut self,
         _: &RecvMessage,
     ) -> Result<RotBootInfo, RequestError<UpdateError>> {
-        // Safety: Data is published by pre-kernel main
-        let addr = unsafe { BOOTSTATE.assume_init_ref() };
-        let boot_state = RotBootState::load_from_addr(addr)
-            .map_err(|_| UpdateError::MissingHandoffData)?;
+        let boot_state =
+            bootstate().map_err(|_| UpdateError::MissingHandoffData)?;
         let (
             persistent_boot_preference,
             pending_persistent_boot_preference,
@@ -261,8 +258,17 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
             persistent_boot_preference,
             pending_persistent_boot_preference,
             transient_boot_preference,
-            slot_a_sha3_256_digest: boot_state.a.map(|details| details.digest),
-            slot_b_sha3_256_digest: boot_state.b.map(|details| details.digest),
+            // There is a change in meaning from the original
+            // RotBootInfo:
+            // Previously, None meant that the image did not
+            // validate, but there was no inidication of the
+            // contents of the flash slot. Now, the FWID (hash
+            // of all programmed pages in the slot) is always
+            // available. The "valid image in the slot" semantic
+            // was not being used and is no longer available in
+            // this version of RotBootInfo.
+            slot_a_sha3_256_digest: Some(boot_state.a.digest),
+            slot_b_sha3_256_digest: Some(boot_state.b.digest),
         };
         Ok(info)
     }
@@ -961,6 +967,12 @@ fn copy_from_flash_range(
         remaining -= count;
     }
     Ok(())
+}
+
+fn bootstate() -> Result<RotBootStateV2, HandoffDataLoadError> {
+    // Safety: Data is published by stage0
+    let addr = unsafe { BOOTSTATE.assume_init_ref() };
+    RotBootStateV2::load_from_addr(addr)
 }
 
 task_slot!(SYSCON, syscon);
