@@ -269,7 +269,7 @@ jobs:
           - build: lpc55
             app_name: tests-lpc55xpresso
             app_toml: test/tests-lpc55xpresso/app.toml
-            image: default
+            image: "a, b"
           - build: stm32h743
             app_name: tests-stm32h743
             app_toml: test/tests-stm32h7/app-h743.toml
@@ -285,7 +285,7 @@ jobs:
           - build: rot-carrier
             app_name: tests-rot-carrier
             app_toml: test/tests-rot-carrier/app.toml
-            image: default
+            image: "a, b"
           - build: gimletlet
             app_name: tests-gimletlet
             app_toml: test/tests-gimletlet/app.toml
