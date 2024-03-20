@@ -52,9 +52,6 @@ use ringbuf::*;
 use test_api::*;
 use userlib::*;
 
-#[cfg(armv6m)]
-use armv6m_atomic_hack::*;
-
 /// We are sensitive to all notifications, to catch unexpected ones in test.
 const ALL_NOTIFICATIONS: u32 = !0;
 
