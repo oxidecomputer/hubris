@@ -1864,6 +1864,7 @@ dependencies = [
  "call_rustfmt",
  "cfg-if",
  "cortex-m",
+ "counters",
  "drv-spi-api",
  "drv-stm32h7-spi",
  "drv-stm32xx-sys-api",
@@ -2635,7 +2636,7 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 [[package]]
 name = "idol"
 version = "0.4.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#f86afe0a3f81ec90292c700bf44ee9fd40d7977f"
+source = "git+https://github.com/oxidecomputer/idolatry.git#070c4dc890f8c3dc26fcadd227316ee2b771e138"
 dependencies = [
  "indexmap 1.9.1",
  "once_cell",
@@ -2652,7 +2653,7 @@ dependencies = [
 [[package]]
 name = "idol-runtime"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#f86afe0a3f81ec90292c700bf44ee9fd40d7977f"
+source = "git+https://github.com/oxidecomputer/idolatry.git#070c4dc890f8c3dc26fcadd227316ee2b771e138"
 dependencies = [
  "counters",
  "userlib",
