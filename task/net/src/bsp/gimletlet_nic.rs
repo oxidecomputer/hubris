@@ -20,17 +20,38 @@ use task_net_api::PhyError;
 use userlib::hl::sleep_for;
 use vsc7448_pac::types::PhyRegisterAddress;
 
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, counters::Count)]
 enum Trace {
+    #[count(skip)]
     None,
     BspConfigured,
 
-    KszErr { err: RawKszError },
-    Ksz8463Status { port: u8, status: u16 },
-    Ksz8463Control { port: u8, control: u16 },
-    Ksz8463Counter { port: u8, counter: MIBCounterValue },
+    KszErr {
+        #[count(children)]
+        err: RawKszError,
+    },
+
+    // We skip counting the various status and control register ringbuf entries
+    // because they don't really seem to represent a countable event, just the
+    // state of a register, and skipping all of them lets us avoid several words
+    // of counters. Instead, we just count the number of error event variants.
+    #[count(skip)]
+    Ksz8463Status {
+        port: u8,
+        status: u16,
+    },
+    #[count(skip)]
+    Ksz8463Control {
+        port: u8,
+        control: u16,
+    },
+    #[count(skip)]
+    Ksz8463Counter {
+        port: u8,
+        counter: MIBCounterValue,
+    },
 }
-ringbuf!(Trace, 32, Trace::None);
+counted_ringbuf!(Trace, 32, Trace::None);
 
 ////////////////////////////////////////////////////////////////////////////////
 

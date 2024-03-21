@@ -26,14 +26,23 @@ pub enum Ksz8463ResetSpeed {
     Normal,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, counters::Count)]
 enum Trace {
+    #[count(skip)]
     None,
-    Ksz8463Err { port: u8, err: KszError },
-    Vsc85x2Err { port: u8, err: VscError },
+    Ksz8463Err {
+        port: u8,
+        #[count(children)]
+        err: KszError,
+    },
+    Vsc85x2Err {
+        port: u8,
+        #[count(children)]
+        err: VscError,
+    },
 }
 
-ringbuf!(Trace, 16, Trace::None);
+counted_ringbuf!(Trace, 16, Trace::None);
 
 /// Configuration struct for the rest of the management network hardware,
 /// which is a KSZ8463 switch attached to a VSC8552 or VSC8562 PHY.

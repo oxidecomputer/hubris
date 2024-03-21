@@ -2777,6 +2777,7 @@ dependencies = [
 name = "ksz8463"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "drv-spi-api",
  "idol-runtime",
  "num-traits",
@@ -4541,6 +4542,7 @@ dependencies = [
  "build-util",
  "cfg-if",
  "cortex-m",
+ "counters",
  "drv-gimlet-seq-api",
  "drv-psc-seq-api",
  "drv-sidecar-seq-api",
@@ -5425,6 +5427,7 @@ dependencies = [
 name = "vsc-err"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "drv-spi-api",
  "idol-runtime",
 ]
