@@ -124,6 +124,12 @@ impl Config {
             bail!("'kernel' is reserved and cannot be used as a task name");
         }
 
+        for (name, size) in &toml.kernel.requires {
+            if (size % 4) != 0 {
+                bail!("kernel region '{name}' not a multiple of 4: {size}");
+            }
+        }
+
         // The app.toml must include a `chip` key, which defines the peripheral
         // register map in a separate file.  We load it then accumulate that
         // file in the buildhash.
