@@ -28,7 +28,6 @@ pub const HEADER_BLOCK: usize = 0;
 
 // NXP LPC55's mixed header/vector table offsets
 const RESET_VECTOR_OFFSET: usize = 0x04;
-pub const LENGTH_OFFSET: usize = 0x20;
 pub const HEADER_OFFSET: u32 = 0x130;
 const MAGIC_OFFSET: usize = HEADER_OFFSET as usize;
 

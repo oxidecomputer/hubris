@@ -16,9 +16,9 @@ use gateway_messages::sp_impl::{
 use gateway_messages::{
     ignition, ComponentAction, ComponentDetails, ComponentUpdatePrepare,
     DiscoverResponse, IgnitionCommand, IgnitionState, MgsError, PowerState,
-    RotRequest, RotResponse, SensorRequest, SensorResponse, SpComponent,
-    SpError, SpPort, SpStateV2, SpUpdatePrepare, UpdateChunk, UpdateId,
-    UpdateStatus,
+    RotBootInfo, RotRequest, RotResponse, SensorRequest, SensorResponse,
+    SpComponent, SpError, SpPort, SpStateV2, SpUpdatePrepare, UpdateChunk,
+    UpdateId, UpdateStatus,
 };
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
@@ -757,6 +757,15 @@ impl SpHandler for MgsHandler {
         buf: &mut [u8],
     ) -> Result<usize, SpError> {
         self.common.vpd_lock_status_all(buf)
+    }
+
+    fn versioned_rot_boot_info(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        version: u8,
+    ) -> Result<RotBootInfo, SpError> {
+        self.common.versioned_rot_boot_info(version)
     }
 }
 

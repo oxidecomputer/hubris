@@ -79,6 +79,7 @@ enum Log {
     ReadRotPage,
     IpcRequest(#[count(children)] IpcRequest),
     VpdLockStatus,
+    N(u8),
 }
 
 // This enum does not define the actual MGS protocol - it is only used in the
@@ -165,6 +166,9 @@ enum MgsMessage {
     },
     ReadRotPage,
     VpdLockStatus,
+    VersionedRotBootInfo {
+        version: u8,
+    },
 }
 
 // This enum does not define the actual IPC protocol - it is only used in the

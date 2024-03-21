@@ -20,8 +20,10 @@ pub use error::{
 use crc::{Crc, CRC_16_XMODEM};
 use derive_more::From;
 pub use drv_lpc55_update_api::{
-    HandoffDataLoadError, RawCabooseError, RotBootInfo, RotBootState, RotPage,
-    RotSlot, SlotId, SwitchDuration, UpdateTarget,
+    Fwid, HandoffDataLoadError, ImageError, ImageVersion, RawCabooseError,
+    RotBootInfo, RotBootInfoV2, RotBootState, RotBootStateV2, RotComponent,
+    RotImageDetails, RotPage, RotSlot, SlotId, SwitchDuration, UpdateTarget,
+    VersionedRotBootInfo,
 };
 pub use drv_update_api::UpdateError;
 use hubpack::SerializedSize;
@@ -371,12 +373,38 @@ pub enum UpdateReq {
     Reset,
     // Added in sprot protocol version 3
     BootInfo,
+    VersionedBootInfo {
+        version: u8,
+    },
+    ComponentPrep {
+        component: RotComponent,
+        slot: SlotId,
+    },
+    ComponentSwitchDefaultImage {
+        component: RotComponent,
+        slot: SlotId,
+        duration: SwitchDuration,
+    },
 }
 
 #[derive(Clone, Serialize, Deserialize, SerializedSize)]
 pub enum CabooseReq {
+    /// Size of the caboose for Hubris slot A or B
     Size { slot: SlotId },
+    /// Read caboose of Hubris slot A or B
     Read { slot: SlotId, start: u32, size: u32 },
+    /// Size of the caboose of a component's slot A or B
+    ComponentSize {
+        component: RotComponent,
+        slot: SlotId,
+    },
+    /// Read caboose of component's slot A or B
+    ComponentRead {
+        component: RotComponent,
+        slot: SlotId,
+        start: u32,
+        size: u32,
+    },
 }
 
 #[derive(Clone, Serialize, Deserialize, SerializedSize)]
@@ -397,6 +425,7 @@ pub enum UpdateRsp {
     BlockSize(u32),
     // Added in sprot protocol version 3
     BootInfo(RotBootInfo),
+    VersionedBootInfo(VersionedRotBootInfo),
 }
 
 /// A response used for caboose requests
@@ -406,6 +435,8 @@ pub enum UpdateRsp {
 pub enum CabooseRsp {
     Size(u32),
     Read,
+    ComponentSize(u32),
+    ComponentRead,
 }
 
 #[derive(Clone, Serialize, Deserialize, SerializedSize)]
@@ -516,6 +547,9 @@ pub enum RotState {
         /// ROMs.
         bootrom_crc32: u32,
     },
+    V2 {
+        state: RotBootStateV2,
+    },
 }
 
 /// Stats from the RoT side of sprot
@@ -597,11 +631,12 @@ pub struct SprotIoStats {
 impl SpRot {
     pub fn read_caboose_value(
         &self,
+        component: RotComponent,
         slot_id: SlotId,
         key: [u8; 4],
         buf: &mut [u8],
     ) -> Result<u32, CabooseOrSprotError> {
-        let reader = RotCabooseReader::new(slot_id, self)?;
+        let reader = RotCabooseReader::new(component, slot_id, self)?;
         let len = reader.get(key, buf)?;
         Ok(len)
     }
@@ -611,16 +646,27 @@ impl SpRot {
 struct RotCabooseReader<'a> {
     sprot: &'a SpRot,
     size: u32,
+    component: RotComponent,
     slot: SlotId,
 }
 
 impl<'a> RotCabooseReader<'a> {
     fn new(
+        component: RotComponent,
         slot: SlotId,
         sprot: &'a SpRot,
     ) -> Result<Self, CabooseOrSprotError> {
-        let size = sprot.caboose_size(slot)?;
-        Ok(Self { size, slot, sprot })
+        let size = match component {
+            // Use old API for backward compatibility
+            RotComponent::Hubris => sprot.caboose_size(slot)?,
+            _ => sprot.component_caboose_size(component, slot)?,
+        };
+        Ok(Self {
+            size,
+            component,
+            slot,
+            sprot,
+        })
     }
 
     pub fn get(
@@ -704,9 +750,21 @@ impl tlvc::TlvcRead for &RotCabooseReader<'_> {
         let offset = offset
             .try_into()
             .map_err(|_| tlvc::TlvcReadError::Truncated)?;
-        self.sprot
-            .read_caboose_region(offset, self.slot, dest)
-            .map_err(tlvc::TlvcReadError::User)
+        match self.component {
+            RotComponent::Hubris => self
+                .sprot
+                .read_caboose_region(offset, self.slot, dest)
+                .map_err(tlvc::TlvcReadError::User),
+            _ => self
+                .sprot
+                .component_read_caboose_region(
+                    offset,
+                    self.component,
+                    self.slot,
+                    dest,
+                )
+                .map_err(tlvc::TlvcReadError::User),
+        }
     }
 }
 

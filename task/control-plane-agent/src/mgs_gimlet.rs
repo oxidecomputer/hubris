@@ -18,9 +18,9 @@ use gateway_messages::sp_impl::{
 use gateway_messages::{
     ignition, ComponentAction, ComponentDetails, ComponentUpdatePrepare,
     DiscoverResponse, Header, IgnitionCommand, IgnitionState, Message,
-    MessageKind, MgsError, PowerState, RotRequest, RotResponse, SensorRequest,
-    SensorResponse, SpComponent, SpError, SpPort, SpRequest, SpStateV2,
-    SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
+    MessageKind, MgsError, PowerState, RotBootInfo, RotRequest, RotResponse,
+    SensorRequest, SensorResponse, SpComponent, SpError, SpPort, SpRequest,
+    SpStateV2, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
     SERIAL_CONSOLE_IDLE_TIMEOUT,
 };
 use heapless::{Deque, Vec};
@@ -1115,6 +1115,15 @@ impl SpHandler for MgsHandler {
     ) -> Result<usize, SpError> {
         self.common.vpd_lock_status_all(buf)
     }
+
+    fn versioned_rot_boot_info(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        version: u8,
+    ) -> Result<RotBootInfo, SpError> {
+        self.common.versioned_rot_boot_info(version)
+    }
 }
 
 struct UsartHandler {
@@ -1281,8 +1290,8 @@ impl UsartHandler {
             UartClient::Humility => {
                 while !self.from_rx.is_full() {
                     let Some(b) = self.usart.try_rx_pop() else {
-                    break;
-                };
+                        break;
+                    };
                     self.from_rx.push_back(b).unwrap_lite();
                     n_received += 1;
                 }

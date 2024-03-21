@@ -48,6 +48,47 @@ impl From<RawCabooseError> for drv_caboose::CabooseError {
     }
 }
 
+/// Firmware ID - A measurement of all programmed pages in the flash slot.
+///
+/// The digest is over the image bytes including the last partial flash
+/// page which is padded with 0xff bytes when writing. All other flash
+/// pages are expected to be erased (not readable on the LPC55).
+/// However, any additional programmed pages found in the flash slot
+/// are also included in the FWID.
+/// The intent of including the additional pages is to detect incomplete
+/// update operations where unused pages are not erased. The possible
+/// attempted exfiltration of date in the unused pages can also be detected
+/// in this way.
+///
+/// If no valid image is detected, then the digest is over all the
+/// programmed pages.
+///
+/// Any completly erased flash slot will return an FWID equal to
+/// `const _FWID_ERASED_SLOT` defined below as:
+///
+///     e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+///
+/// Note that no page is supposed to be partially programmed/partially erased.
+/// The LPC55 might reasonably report any page that does not have the final
+/// internal ECC syndrome written as being erased. If that is the case, then
+/// one would not expect to.
+///
+/// TODO: Test: Try to create a partially programmed page and understand the
+/// code behavior in that case.
+///
+#[derive(
+    Debug, Copy, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+)]
+pub enum Fwid {
+    Sha3_256([u8; 32]),
+}
+
+const _FWID_ERASED_SLOT: Fwid = Fwid::Sha3_256([
+    0xe3, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14, 0x9a, 0xfb, 0xf4, 0xc8,
+    0x99, 0x6f, 0xb9, 0x24, 0x27, 0xae, 0x41, 0xe4, 0x64, 0x9b, 0x93, 0x4c,
+    0xa4, 0x95, 0x99, 0x1b, 0x78, 0x52, 0xb8, 0x55,
+]);
+
 /// ROT boot state and preferences retrieved from the lpc55-update-server
 ///
 /// SW version information is in the caboose and is read from a different
@@ -68,10 +109,51 @@ pub struct RotBootInfo {
     ///
     /// This is a magic ram value that is cleared by bootleby
     pub transient_boot_preference: Option<SlotId>,
-    /// Sha3-256 Digest of Slot A in Flash      
+    /// Sha3-256 Digest of Slot A in Flash
     pub slot_a_sha3_256_digest: Option<[u8; 32]>,
-    /// Sha3-256 Digest of Slot B in Flash      
+    /// Sha3-256 Digest of Slot B in Flash
     pub slot_b_sha3_256_digest: Option<[u8; 32]>,
+}
+
+/// ROT boot state and preferences retrieved from the lpc55-update-server
+///
+/// SW version information is in the caboose and is read from a different
+/// API
+#[derive(Debug, Clone, Serialize, Deserialize, SerializedSize)]
+pub struct RotBootInfoV2 {
+    /// Ths slot of the currently running image
+    pub active: SlotId,
+    /// The persistent boot preference written into the current authoritative
+    /// CFPA page (ping or pong).
+    pub persistent_boot_preference: SlotId,
+    /// The persistent boot preference written into the CFPA scratch page that
+    /// will become the persistent boot preference in the authoritative CFPA
+    /// page upon reboot, unless CFPA update of the authoritative page fails
+    /// for some reason.
+    pub pending_persistent_boot_preference: Option<SlotId>,
+    /// Override persistent preference selection for a single boot
+    ///
+    /// This is a magic ram value that is cleared by bootleby
+    pub transient_boot_preference: Option<SlotId>,
+    /// Digest of Slot A in Flash
+    pub slot_a_fwid: Fwid,
+    /// Digest of Slot B in Flash
+    pub slot_b_fwid: Fwid,
+    /// Digest of Stage0 in Flash
+    pub stage0_fwid: Fwid,
+    /// Digest of Stage0Next in Flash
+    pub stage0next_fwid: Fwid,
+    /// If readable, the result of checking an image using the ROM code.
+    pub slot_a_status: Result<(), ImageError>,
+    pub slot_b_status: Result<(), ImageError>,
+    pub stage0_status: Result<(), ImageError>,
+    pub stage0next_status: Result<(), ImageError>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, SerializedSize)]
+pub enum VersionedRotBootInfo {
+    V1(RotBootInfo),
+    V2(RotBootInfoV2),
 }
 
 #[derive(Clone, Copy, Serialize, Deserialize, SerializedSize)]
@@ -94,7 +176,7 @@ pub enum RotPage {
 ///
 /// In particular, the order of variants cannot change!
 #[derive(
-    Eq, PartialEq, Clone, Copy, Serialize, Deserialize, SerializedSize,
+    Debug, Eq, PartialEq, Clone, Copy, Serialize, Deserialize, SerializedSize,
 )]
 pub enum UpdateTarget {
     // This variant was previously used for Alternate, when this enum was shared
@@ -107,6 +189,24 @@ pub enum UpdateTarget {
     ImageA,
     ImageB,
     Bootloader,
+}
+
+/// Designate a logical sub-component of the RoT
+///
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    PartialEq,
+    FromPrimitive,
+    Serialize,
+    Deserialize,
+    SerializedSize,
+)]
+pub enum RotComponent {
+    Hubris,
+    Stage0,
 }
 
 /// Designates a firmware image slot in parts that have fixed slots (rather than
@@ -174,7 +274,8 @@ pub enum SwitchDuration {
 
 // Re-export
 pub use stage0_handoff::{
-    HandoffDataLoadError, ImageVersion, RotBootState, RotImageDetails, RotSlot,
+    HandoffDataLoadError, ImageError, ImageVersion, RotBootState,
+    RotBootStateV2, RotImageDetails, RotSlot,
 };
 
 // This value is currently set to `lpc55_romapi::FLASH_PAGE_SIZE`
