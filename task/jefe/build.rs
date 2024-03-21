@@ -13,15 +13,18 @@ fn main() -> Result<()> {
     let allowed_callers = build_util::task_ids()
         .remap_allowed_caller_names_to_ids(&cfg.allowed_callers)?;
 
-    idol::server::build_restricted_server_support(
-        "../../idl/jefe.idol",
-        "server_stub.rs",
-        idol::server::ServerStyle::InOrder,
-        &allowed_callers,
-    )
-    .unwrap();
+    idol::Generator::new()
+        .with_counters(
+            idol::CounterSettings::default().with_server_counters(false),
+        )
+        .build_restricted_server_support(
+            "../../idl/jefe.idol",
+            "server_stub.rs",
+            idol::server::ServerStyle::InOrder,
+            &allowed_callers,
+        )
+        .unwrap();
 
-    build_util::expose_m_profile().unwrap();
     build_util::expose_target_board();
     build_util::build_notifications()?;
 

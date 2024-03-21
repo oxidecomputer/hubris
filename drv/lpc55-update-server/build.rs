@@ -9,11 +9,15 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     build_util::expose_target_board();
     build_util::build_notifications()?;
 
-    idol::server::build_server_support(
-        "../../idl/lpc55-update.idol",
-        "server_stub.rs",
-        idol::server::ServerStyle::InOrder,
-    )?;
+    idol::Generator::new()
+        .with_counters(
+            idol::CounterSettings::default().with_server_counters(false),
+        )
+        .build_server_support(
+            "../../idl/lpc55-update.idol",
+            "server_stub.rs",
+            idol::server::ServerStyle::InOrder,
+        )?;
 
     let out = build_util::out_dir();
     let mut ver_file = File::create(out.join("consts.rs")).unwrap();

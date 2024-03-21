@@ -25,7 +25,7 @@ use core::cell::Cell;
 use core::cell::RefCell;
 use drv_gimlet_seq_api::NUM_SPD_BANKS;
 use drv_gimlet_state::PowerState;
-use drv_stm32xx_i2c::{I2cControl, I2cPins};
+use drv_stm32xx_i2c::{I2cPins, I2cTargetControl};
 use drv_stm32xx_sys_api::{OutputType, Pull, Speed, Sys};
 use ringbuf::{ringbuf, ringbuf_entry};
 use task_jefe_api::Jefe;
@@ -249,7 +249,7 @@ fn main() -> ! {
         rval
     };
 
-    let ctrl = I2cControl {
+    let ctrl = I2cTargetControl {
         enable: |notification| {
             sys_irq_control(notification, true);
         },

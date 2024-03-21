@@ -520,15 +520,6 @@ impl NetHandler {
                         self.packet_to_send = Some(meta);
                         return;
                     }
-                    Err(
-                        err @ (SendError::InvalidVLan
-                        | SendError::Other
-                        | SendError::NotYours),
-                    ) => {
-                        // Some other (fatal?) error occurred; should we panic?
-                        // For now, just discard the packet we wanted to send.
-                        ringbuf_entry!(Log::SendError(err));
-                    }
                 }
             }
 
@@ -550,9 +541,11 @@ impl NetHandler {
                     self.handle_received_packet(meta, mgs_handler);
                 }
                 Err(RecvError::QueueEmpty | RecvError::ServerRestarted) => {
+                    // In the restart case, there may in fact be packets waiting
+                    // for us in the net stack. We'll handle them next time
+                    // through the loop when we get to recv_packet.
                     return;
                 }
-                Err(RecvError::NotYours | RecvError::Other) => panic!(),
             }
         }
     }

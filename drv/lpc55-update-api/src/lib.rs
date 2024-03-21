@@ -28,6 +28,7 @@ use userlib::{sys_send, FromPrimitive};
     SerializedSize,
     Serialize,
     Deserialize,
+    counters::Count,
 )]
 pub enum RawCabooseError {
     InvalidRead = 1,

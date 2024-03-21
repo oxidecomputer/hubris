@@ -8,5 +8,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(feature = "i2c-devices")]
     build_i2c::codegen(build_i2c::Disposition::Devices)?;
 
+    build_util::build_notifications()?;
+
     Ok(())
 }

@@ -118,7 +118,9 @@ impl From<ResponseCode> for NoData {
 /// Flexible sensor error type, indicating either a caller or sensor error
 ///
 /// This is effectively a union of [`SensorApiError`] and [`NoData`]
-#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
+#[derive(
+    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, counters::Count,
+)]
 pub enum SensorError {
     InvalidSensor = 1,
     NoReading = 2,
@@ -130,7 +132,9 @@ pub enum SensorError {
 }
 
 /// A non-device sensor error
-#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
+#[derive(
+    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, counters::Count,
+)]
 pub enum SensorApiError {
     InvalidSensor = 1,
     NoReading = 2,

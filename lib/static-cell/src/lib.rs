@@ -3,12 +3,9 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #![no_std]
-
+use armv6m_atomic_hack::AtomicBoolExt;
 use core::cell::UnsafeCell;
 use core::sync::atomic::{AtomicBool, Ordering};
-
-#[cfg(armv6m)]
-use armv6m_atomic_hack::AtomicBoolExt;
 
 /// A RefCell-style container that can be used in a static for cases where only
 /// a single borrow needs to happen at any given time.
@@ -36,7 +33,8 @@ impl<T> StaticCell<T> {
     /// If a `StaticRef` for `self` still exists anywhere in the program, this
     /// will panic.
     pub fn borrow_mut(&self) -> StaticRef<'_, T> {
-        let already_borrowed = self.borrowed.swap(true, Ordering::Acquire);
+        let already_borrowed =
+            AtomicBoolExt::swap(&self.borrowed, true, Ordering::Acquire);
         if already_borrowed {
             panic!();
         }

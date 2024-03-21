@@ -281,6 +281,14 @@ impl Task {
         None
     }
 
+    /// Returns `true` if any of the notification bits in `mask` are set in this
+    /// task's notification set.
+    ///
+    /// This does *not* clear any bits in the task's notification set.
+    pub fn has_notifications(&self, mask: u32) -> bool {
+        self.notifications & mask != 0
+    }
+
     /// Checks if this task is in a potentially schedulable state.
     pub fn is_runnable(&self) -> bool {
         self.state == TaskState::Healthy(SchedState::Runnable)
@@ -561,6 +569,13 @@ pub trait ArchState: Default {
         }
     }
 
+    /// Interprets arguments as for the `IRQ_STATUS` syscall and returns the results.
+    fn as_irq_status_args(&self) -> IrqStatusArgs {
+        IrqStatusArgs {
+            notification_bitmask: self.arg0(),
+        }
+    }
+
     /// Sets a recoverable error code using the generic ABI.
     fn set_error_response(&mut self, resp: u32) {
         self.ret0(resp);
@@ -624,6 +639,11 @@ pub trait ArchState: Default {
     /// Sets the results of REFRESH_TASK_ID
     fn set_refresh_task_id_result(&mut self, id: TaskId) {
         self.ret0(id.0 as u32);
+    }
+
+    /// Sets the results of IRQ_STATUS.
+    fn set_irq_status_result(&mut self, status: abi::IrqStatus) {
+        self.ret0(status.bits());
     }
 }
 
@@ -700,6 +720,12 @@ pub struct RefreshTaskIdArgs {
 pub struct PostArgs {
     pub task_id: TaskId,
     pub notification_bits: NotificationSet,
+}
+
+/// Decoded arguments for the `IRQ_STATUS` syscall.
+#[derive(Clone, Debug)]
+pub struct IrqStatusArgs {
+    pub notification_bitmask: u32,
 }
 
 /// State for a task timer.

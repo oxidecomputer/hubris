@@ -24,6 +24,12 @@ impl From<SpiError> for Error {
     }
 }
 
+impl From<idol_runtime::ServerDeath> for Error {
+    fn from(_: idol_runtime::ServerDeath) -> Self {
+        Self::SpiError(SpiError::TaskRestarted)
+    }
+}
+
 pub enum VLanMode {
     /// Configure VLAN tags 0x301 and 0x302 for (upstream) ports 1 and 2
     /// respectively.  Allow untagged frames on any port, but drop tagged

@@ -22,13 +22,21 @@ use idol_runtime::RequestError;
 
 /// An error returned from a sprot request
 #[derive(
-    Debug, Copy, Clone, Serialize, Deserialize, SerializedSize, From, PartialEq,
+    Debug,
+    Copy,
+    Clone,
+    Serialize,
+    Deserialize,
+    SerializedSize,
+    From,
+    PartialEq,
+    counters::Count,
 )]
 pub enum SprotError {
-    Protocol(SprotProtocolError),
-    Spi(SpiError),
-    Update(UpdateError),
-    Sprockets(SprocketsError),
+    Protocol(#[count(children)] SprotProtocolError),
+    Spi(#[count(children)] SpiError),
+    Update(#[count(children)] UpdateError),
+    Sprockets(#[count(children)] SprocketsError),
 }
 
 impl From<SprotError> for SpError {
@@ -61,7 +69,15 @@ impl From<idol_runtime::ServerDeath> for SprotError {
 
 /// Sprot protocol specific errors
 #[derive(
-    Copy, Clone, Debug, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+    Copy,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    counters::Count,
 )]
 pub enum SprotProtocolError {
     /// CRC check failed.
@@ -160,7 +176,15 @@ impl SprotError {
 // There are currently no other exposed sprockets errors,
 // and sprockets isn't in use yet. This is just a place holder.
 #[derive(
-    Copy, Clone, Debug, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+    Copy,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    counters::Count,
 )]
 pub enum SprocketsError {
     BadEncoding,
@@ -176,9 +200,18 @@ impl From<SprocketsError> for GwSprocketsErr {
     }
 }
 
-#[derive(Copy, Clone, Debug, From, Deserialize, Serialize, SerializedSize)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    From,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    counters::Count,
+)]
 pub enum DumpOrSprotError {
-    Sprot(SprotError),
+    Sprot(#[count(children)] SprotError),
     Dump(DumperError),
 }
 
@@ -194,16 +227,25 @@ impl<V> From<DumpOrSprotError> for Result<V, RequestError<DumpOrSprotError>> {
     }
 }
 
-#[derive(Copy, Clone, Debug, From, Deserialize, Serialize, SerializedSize)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    From,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    counters::Count,
+)]
 pub enum RawCabooseOrSprotError {
-    Sprot(SprotError),
-    Caboose(RawCabooseError),
+    Sprot(#[count(children)] SprotError),
+    Caboose(#[count(children)] RawCabooseError),
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, counters::Count)]
 pub enum CabooseOrSprotError {
-    Sprot(SprotError),
-    Caboose(CabooseError),
+    Sprot(#[count(children)] SprotError),
+    Caboose(#[count(children)] CabooseError),
 }
 
 impl From<RawCabooseOrSprotError> for CabooseOrSprotError {
@@ -217,10 +259,19 @@ impl From<RawCabooseOrSprotError> for CabooseOrSprotError {
     }
 }
 
-#[derive(Copy, Clone, Debug, From, Deserialize, Serialize, SerializedSize)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    From,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    counters::Count,
+)]
 pub enum AttestOrSprotError {
-    Sprot(SprotError),
-    Attest(AttestError),
+    Sprot(#[count(children)] SprotError),
+    Attest(#[count(children)] AttestError),
 }
 
 impl From<SprotError> for RequestError<AttestOrSprotError> {

@@ -3,6 +3,9 @@ name = "task-dumper"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+no-ipc-counters = ["idol/no-counters"]
+
 [dependencies]
 drv-sp-ctrl-api = { path = "../../drv/sp-ctrl-api" }
 dumper-api = { path = "../dumper-api" }

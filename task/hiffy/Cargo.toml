@@ -35,8 +35,10 @@ build-util = { path = "../../build/util" }
 build-i2c = { path = "../../build/i2c" }
 anyhow.workspace = true
 cfg-if.workspace = true
+idol.workspace = true
 
 [features]
+no-ipc-counters = ["idol/no-counters"]
 testsuite = [ "test-api" ]
 i2c = []
 gpio = []
@@ -53,7 +55,7 @@ h743 = ["stm32h7", "drv-stm32xx-i2c/h743", "build-i2c/h743"]
 h753 = ["stm32h7", "drv-stm32xx-i2c/h753", "build-i2c/h753"]
 g031 = ["stm32g0", "drv-stm32xx-i2c/g031", "build-i2c/g031"]
 g030 = ["stm32g0", "drv-stm32xx-i2c/g030", "build-i2c/g030"]
-micro = []
+micro = ["no-ipc-counters"]
 panic-messages = ["userlib/panic-messages"]
 rng = ["drv-rng-api"]
 spctrl = ["drv-sp-ctrl-api"]

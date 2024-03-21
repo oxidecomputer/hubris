@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+counters = { path = "../counters" }
 hubpack = { workspace = true }
 serde = { workspace = true }
 static_assertions = { workspace = true }

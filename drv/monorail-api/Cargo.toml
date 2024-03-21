@@ -3,7 +3,11 @@ name = "drv-monorail-api"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+
+
 [dependencies]
+counters = { path = "../../lib/counters" }
 derive-idol-err = { path = "../../lib/derive-idol-err" }
 userlib = { path = "../../sys/userlib" }
 vsc7448 = { path = "../vsc7448" }

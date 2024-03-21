@@ -30,6 +30,7 @@ use userlib::*;
     Serialize,
     Deserialize,
     SerializedSize,
+    counters::Count,
 )]
 pub enum DumperError {
     SetupFailed = 1,

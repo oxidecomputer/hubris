@@ -240,7 +240,7 @@ enum Trace {
     None,
 }
 
-ringbuf!(Trace, 174, Trace::None);
+ringbuf!(Trace, 160, Trace::None);
 
 fn reset(
     controller: &I2cController<'_>,
@@ -340,8 +340,25 @@ fn main() -> ! {
         enable: |notification| {
             sys_irq_control(notification, true);
         },
-        wfi: |notification| {
-            let _ = sys_recv_closed(&mut [], notification, TaskId::KERNEL);
+        wfi: |notification, timeout| {
+            const TIMER_NOTIFICATION: u32 = 1 << 31;
+
+            let dead = sys_get_timer().now.checked_add(timeout.0).unwrap_lite();
+            sys_set_timer(Some(dead), TIMER_NOTIFICATION);
+
+            let m = sys_recv_closed(
+                &mut [],
+                notification | TIMER_NOTIFICATION,
+                TaskId::KERNEL,
+            )
+            .unwrap_lite();
+
+            if m.operation == TIMER_NOTIFICATION {
+                I2cControlResult::TimedOut
+            } else {
+                sys_set_timer(None, TIMER_NOTIFICATION);
+                I2cControlResult::Interrupted
+            }
         },
     };
 

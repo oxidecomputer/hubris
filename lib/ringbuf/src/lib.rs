@@ -83,7 +83,13 @@
 //!
 //! Entry variant counts are recorded even when this crate is compiled with the
 //! "disabled" feature flag set. This allows targets which lack the memory for
-//! an entire ring buffer to still record event counts.
+//! an entire ring buffer to still record event counts. To disable counting ring
+//! buffer entries, set the "counters-disabled" feature flag. This feature may
+//! be set independently of the "disabled" feature: if both are set, neither
+//! ring buffer entries nor counters will be recorded; if *only*
+//! "counters-disabled" is set, the [`counted_ringbuf!`] macro will behave
+//! identically to the [`ringbuf!`] macro, recording ringbuf entries but not
+//! counters.
 //!
 //! To use the [`counted_ringbuf!`] macro, the entry type must be
 //! an `enum`, and it must implement the [`counters::Count`] trait, which
@@ -264,7 +270,11 @@ macro_rules! ringbuf {
 /// To support the common case of having one quickly-installed ringbuffer per
 /// module, if you omit the name, it will default to `__RINGBUF`.
 ///
-#[cfg(all(not(feature = "disabled"), feature = "counters"))]
+#[cfg(all(
+    not(feature = "disabled"),
+    not(feature = "counters-disabled"),
+    feature = "counters"
+))]
 #[macro_export]
 macro_rules! counted_ringbuf {
     ($name:ident, $t:ident, $n:expr, $init:expr) => {
@@ -287,7 +297,11 @@ macro_rules! counted_ringbuf {
     };
 }
 
-#[cfg(all(feature = "counters", feature = "disabled"))]
+#[cfg(all(
+    feature = "counters",
+    not(feature = "counters-disabled"),
+    feature = "disabled"
+))]
 #[macro_export]
 macro_rules! counted_ringbuf {
     ($name:ident, $t:ident, $n:expr, $init:expr) => {
@@ -295,6 +309,40 @@ macro_rules! counted_ringbuf {
         static $name: $crate::CountedRingbuf<$t, $n> = $crate::CountedRingbuf {
             counters: <$t as $crate::Count>::NEW_COUNTERS,
         };
+    };
+    ($t:ident, $n:expr, $init:expr) => {
+        $crate::counted_ringbuf!(__RINGBUF, $t, $n, $init);
+    };
+}
+
+#[cfg(all(
+    feature = "counters",
+    feature = "counters-disabled",
+    not(feature = "disabled")
+))]
+#[macro_export]
+macro_rules! counted_ringbuf {
+    ($name:ident, $t:ident, $n:expr, $init:expr) => {
+        #[allow(dead_code)]
+        const _: $t = $init;
+        static $name: () = ();
+    };
+    ($t:ident, $n:expr, $init:expr) => {
+        $crate::ringbuf!(__RINGBUF, $t, $n, $init);
+    };
+}
+
+#[cfg(all(
+    feature = "counters",
+    feature = "counters-disabled",
+    feature = "disabled"
+))]
+#[macro_export]
+macro_rules! counted_ringbuf {
+    ($name:ident, $t:ident, $n:expr, $init:expr) => {
+        #[allow(dead_code)]
+        const _: $t = $init;
+        static $name: () = ();
     };
     ($t:ident, $n:expr, $init:expr) => {
         $crate::counted_ringbuf!(__RINGBUF, $t, $n, $init);

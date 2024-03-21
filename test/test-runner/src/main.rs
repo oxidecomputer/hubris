@@ -52,9 +52,6 @@ use ringbuf::*;
 use test_api::*;
 use userlib::*;
 
-#[cfg(armv6m)]
-use armv6m_atomic_hack::*;
-
 /// We are sensitive to all notifications, to catch unexpected ones in test.
 const ALL_NOTIFICATIONS: u32 = !0;
 
@@ -67,6 +64,7 @@ enum Trace {
     Notification,
     TestComplete(TaskId),
     TestResult(TaskId),
+    SoftIrq(TaskId, u32),
     None,
 }
 
@@ -84,9 +82,12 @@ fn main() -> ! {
         test_status: None,
     };
 
+    // N.B. that this must be at least four bytes to recv a u32 notification
+    // mask in the `SoftIrq` IPC op.
+    let mut buf = [0u8; 4];
     loop {
         hl::recv(
-            &mut [],
+            &mut buf,
             ALL_NOTIFICATIONS,
             &mut state,
             |state, bits| {
@@ -109,6 +110,14 @@ fn main() -> ! {
                         let (_, caller) = msg.fixed::<(), u32>().ok_or(2u32)?;
                         caller.reply(state.received_notes);
                         state.received_notes = 0;
+                    }
+                    RunnerOp::SoftIrq => {
+                        // The test is asking us to trigger an IRQ.
+                        let (&mask, caller) =
+                            msg.fixed::<u32, ()>().ok_or(2u32)?;
+                        ringbuf_entry!(Trace::SoftIrq(caller.task_id(), mask));
+                        kipc::software_irq(caller.task_id().index(), mask);
+                        caller.reply(())
                     }
                     RunnerOp::TestComplete => {
                         let (_, caller) = msg.fixed::<(), ()>().ok_or(2u32)?;

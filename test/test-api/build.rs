@@ -3,6 +3,6 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    build_util::expose_m_profile();
+    build_util::expose_m_profile()?;
     Ok(())
 }

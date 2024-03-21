@@ -11,17 +11,22 @@ requires = {flash = 32768, ram = 4096}
 [tasks.runner]
 name = "test-runner"
 priority = 0
-max-sizes = {flash = 16384, ram = 2048}
+max-sizes = {flash = 16384, ram = 4096}
 start = true
 
 [tasks.suite]
 name = "test-suite"
-priority = 2
+priority = 3
 max-sizes = {flash = 65536, ram = 4096}
 start = true
 stacksize = 2048
 features = ["fru-id-eeprom"]
 task-slots = ["assist", "idol", "suite", "runner", "i2c_driver"]
+# this doesn't actually use SPI; we're just mapping that interrupt to test
+# interrupt handling. chosen completely arbitrarily.
+uses = ["spi1"]
+notifications = ["test-irq"]
+interrupts = {"spi1.irq" = "test-irq"}
 
 # This block is used to test the task_config macro
 [tasks.suite.config]
@@ -33,21 +38,19 @@ tup = [[1, true], [2, true], [3, false]]
 [tasks.assist]
 name = "test-assist"
 priority = 1
-max-sizes = {flash = 16384, ram = 1024}
 start = true
 
 [tasks.idol]
 name = "test-idol-server"
 priority = 1
-max-sizes = {flash = 4096, ram = 1024}
 stacksize = 1024
 start = true
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
-features = ["h753"]
+features = ["h753", "test"]
 priority = 1
-max-sizes = {flash = 2048, ram = 1024}
+max-sizes = {flash = 2048, ram = 2048}
 uses = ["rcc", "gpios", "system_flash"]
 start = true
 
@@ -55,31 +58,26 @@ start = true
 name = "drv-stm32xx-i2c-server"
 features = ["h753"]
 priority = 2
-max-sizes = {flash = 16384, ram = 2048}
-uses = ["i2c2", "i2c3", "i2c4"]
+uses = ["i2c2"]
+notifications = ["i2c2-irq"]
 start = true
 task-slots = ["sys"]
 
 [tasks.i2c_driver.interrupts]
-"i2c2.event" = 0b0000_0010
-"i2c2.error" = 0b0000_0010
-"i2c3.event" = 0b0000_0100
-"i2c3.error" = 0b0000_0100
-"i2c4.event" = 0b0000_1000
-"i2c4.error" = 0b0000_1000
+"i2c2.event" = "i2c2-irq"
+"i2c2.error" = "i2c2-irq"
 
 [tasks.hiffy]
 name = "task-hiffy"
-priority = 3
+priority = 4
 features = ["testsuite"]
-max-sizes = {flash = 32768, ram = 32768 }
 stacksize = 2048
 start = true
 task-slots = ["suite", "runner"]
 
 [tasks.idle]
 name = "task-idle"
-priority = 4
+priority = 5
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true
@@ -92,15 +90,21 @@ start = true
 [[config.i2c.controllers]]
 controller = 2
 
-# SP_I2C_LOCAL_SDA
-# SP_I2C_LOCAL_SCL
+#
+# I2C_SP_TO_LOCAL_SDA
+# I2C_SP_TO_LOCAL_SCL
+#
 [config.i2c.controllers.ports.F]
 name = "local"
 description = "Local bus"
-pins = [ { pins = [ 0, 1 ], af = 4 } ]
+scl.pin = 1
+sda.pin = 0
+af = 4
 
 [[config.i2c.devices]]
 bus = "local"
 address = 0b1010_000
 device = "at24csw080"
+name = "local_vpd"
 description = "FRU ID EEPROM"
+refdes = "U32"

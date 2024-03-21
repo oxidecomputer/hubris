@@ -14,6 +14,7 @@ zerocopy = { workspace = true }
 drv-i2c-api = { path = "../i2c-api" }
 drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
 ringbuf = { path = "../../lib/ringbuf" }
+counters = { path = "../../lib/counters" }
 userlib = { path = "../../sys/userlib" }
 
 [features]

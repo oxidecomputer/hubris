@@ -6,7 +6,7 @@ memory = "memory-g070.toml"
 
 [kernel]
 name = "demo-stm32g0-nucleo"
-requires = {flash = 17544, ram = 2828}
+requires = {flash = 19040, ram = 2828}
 features = ["g070"]
 stacksize = 2048
 
@@ -24,6 +24,11 @@ max-sizes = {flash = 65536, ram = 4096}
 start = true
 task-slots = ["assist", "idol", "suite", "runner"]
 stacksize = 1504
+# this doesn't actually use SPI; we're just mapping that interrupt to test
+# interrupt handling. chosen completely arbitrarily.
+uses = ["spi1"]
+notifications = ["test-irq"]
+interrupts = {"spi1.irq" = "test-irq"}
 
 # This block is used to test the task_config macro
 [tasks.suite.config]

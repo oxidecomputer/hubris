@@ -6,7 +6,7 @@ stacksize = 896
 
 [kernel]
 name = "demo-stm32h7-nucleo"
-requires = {flash = 24000, ram = 5120}
+requires = {flash = 24320, ram = 5120}
 features = ["h753", "dump"]
 
 [tasks.jefe]
@@ -27,13 +27,14 @@ request_reset = ["hiffy"]
 name = "drv-stm32xx-sys"
 features = ["h753"]
 priority = 1
-max-sizes = {flash = 2048, ram = 1024}
+max-sizes = {flash = 2048, ram = 2048}
 uses = ["rcc", "gpios", "system_flash"]
 start = true
 task-slots = ["jefe"]
 
 [tasks.i2c_driver]
 name = "drv-stm32xx-i2c-server"
+stacksize = 1048
 features = ["h753"]
 priority = 2
 max-sizes = {flash = 16384, ram = 4096}
@@ -79,7 +80,7 @@ priority = 2
 max-sizes = {flash = 131072, ram = 16384, sram1 = 32768}
 features = ["h753"]
 sections = {eth_bulk = "sram1"}
-uses = ["eth", "eth_dma", "tim16"]
+uses = ["eth", "tim16"]
 start = true
 notifications = ["eth-irq", "mdio-timer-irq", "wake-timer"]
 interrupts = {"eth.irq" = "eth-irq", "tim16.irq" = "mdio-timer-irq"}
@@ -196,6 +197,14 @@ start = true
 task-slots = ["jefe"]
 stacksize = 1200
 extern-regions = [ "sram2", "sram3", "sram4" ]
+
+[tasks.fmc_demo]
+name = "drv-stm32h7-fmc-demo-server"
+features = ["h753"]
+priority = 4
+start = true
+task-slots = ["sys"]
+uses = ["fmc", "fmc_nor_psram_bank_1"]
 
 [config]
 [[config.i2c.controllers]]

@@ -90,7 +90,6 @@ impl ServerImpl {
                 // Our incoming queue is empty or `net` restarted. Wait for more
                 // packets in dispatch, back in the main loop.
             }
-            Err(RecvError::NotYours | RecvError::Other) => panic!(),
         }
     }
 
@@ -124,16 +123,11 @@ impl ServerImpl {
                 meta,
                 &tx_data_buf[..meta.size as usize],
             ) {
-                // We'll drop packets if the outgoing queue is full or the
-                // server has died; the host is responsible for retrying.
-                //
-                // Other errors are unexpected and panic.
                 ringbuf_entry!(Trace::SendError(e));
                 match e {
+                    // We'll drop packets if the outgoing queue is full or the
+                    // server has died; the host is responsible for retrying.
                     SendError::QueueFull | SendError::ServerRestarted => (),
-                    SendError::Other
-                    | SendError::NotYours
-                    | SendError::InvalidVLan => panic!(),
                 }
             }
         }

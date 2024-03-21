@@ -36,16 +36,16 @@ request_reset = ["hiffy", "control_plane_agent"]
 name = "drv-stm32xx-sys"
 features = ["h753"]
 priority = 1
-max-sizes = {flash = 2048, ram = 1024}
+max-sizes = {flash = 2048, ram = 2048}
 uses = ["rcc", "gpios", "system_flash"]
 start = true
 task-slots = ["jefe"]
 
 [tasks.i2c_driver]
 name = "drv-stm32xx-i2c-server"
+stacksize = 1048
 features = ["h753"]
 priority = 2
-max-sizes = {flash = 16384, ram = 4096}
 uses = ["i2c2", "i2c3"]
 start = true
 task-slots = ["sys"]
@@ -88,7 +88,7 @@ name = "task-hiffy"
 features = ["h753", "stm32h7", "i2c", "gpio", "sprot"]
 priority = 5
 max-sizes = {flash = 32768, ram = 16384 }
-stacksize = 1024
+stacksize = 1200
 start = true
 task-slots = ["sys", "i2c_driver", "sprot"]
 
@@ -107,7 +107,7 @@ priority = 4
 features = ["mgmt", "h753", "psc", "vlan", "vpd-mac", "use-spi-core", "spi2"]
 max-sizes = {flash = 131072, ram = 65536, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
-uses = ["eth", "eth_dma", "tim16", "spi2"]
+uses = ["eth", "tim16", "spi2"]
 start = true
 notifications = [
     "eth-irq",
@@ -126,7 +126,7 @@ task-slots = ["sys", "packrat", "jefe"]
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
 priority = 5
-max-sizes = {flash = 131072, ram = 16384}
+max-sizes = {flash = 131072, ram = 32768}
 stacksize = 4096
 start = true
 uses = []
@@ -207,7 +207,7 @@ notifications = ["timer"]
 name = "task-power"
 priority = 4
 max-sizes = {flash = 32768, ram = 4096}
-stacksize = 1504
+stacksize = 2504
 start = true
 task-slots = ["i2c_driver", "sensor", "sys"]
 features = ["psc"]
@@ -231,7 +231,7 @@ task-slots = ["i2c_driver", "sensor"]
 [tasks.dump_agent]
 name = "task-dump-agent"
 priority = 5
-max-sizes = {flash = 32768, ram = 8192 }
+max-sizes = {flash = 32768, ram = 16384 }
 start = true
 task-slots = ["sprot", "jefe", "net"]
 stacksize = 2400

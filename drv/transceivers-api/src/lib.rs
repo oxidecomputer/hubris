@@ -12,7 +12,9 @@ use task_sensor_api::{config::other_sensors, SensorId};
 use userlib::{sys_send, FromPrimitive};
 use zerocopy::{AsBytes, FromBytes};
 
-#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
+#[derive(
+    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, counters::Count,
+)]
 pub enum TransceiversError {
     FpgaError = 1,
     InvalidPortNumber,

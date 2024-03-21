@@ -38,9 +38,12 @@ cfg_if::cfg_if! {
 use drv_stm32xx_gpio_common::{server::get_gpio_regs, Port};
 use drv_stm32xx_sys_api::{Group, RccError};
 use idol_runtime::{NotificationHandler, RequestError};
+#[cfg(not(feature = "test"))]
 use task_jefe_api::{Jefe, ResetReason};
+
 use userlib::*;
 
+#[cfg(not(feature = "test"))]
 task_slot!(JEFE, jefe);
 
 trait FlagsRegister {
@@ -132,6 +135,10 @@ fn main() -> ! {
     }
 
     // Read RCC_RSR and inform Jefe why we reset.
+    //
+    // If the test feature is set, don't try to talk to Jefe, as the test runner
+    // runs as the supervisor, and, therefore, there is no Jefe to talk to.
+    #[cfg(not(feature = "test"))]
     if let Some(reason) = try_read_reset_reason(rcc) {
         Jefe::from(JEFE.get_task_id()).set_reset_reason(reason);
     }
@@ -315,6 +322,7 @@ cfg_if::cfg_if! {
             }
         }
 
+        #[cfg(not(feature = "test"))]
         fn try_read_reset_reason(
             rcc: &device::rcc::RegisterBlock,
         ) -> Option<ResetReason> {
@@ -395,6 +403,7 @@ cfg_if::cfg_if! {
             }
         }
 
+        #[cfg(not(feature = "test"))]
         fn try_read_reset_reason(
             rcc: &device::rcc::RegisterBlock,
         ) -> Option<ResetReason> {

@@ -40,6 +40,7 @@ userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 vsc85xx = { path = "../../drv/vsc85xx"}
 
 [features]
+no-ipc-counters = ["idol/no-counters"]
 use-spi-core = ["drv-stm32h7-spi-server-core"]
 mgmt = ["drv-spi-api", "ksz8463", "drv-user-leds-api", "task-net-api/mgmt"]
 vpd-mac = ["task-packrat-api"]

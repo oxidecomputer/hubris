@@ -56,7 +56,6 @@ interrupts = {"usart1.irq" = "usart-irq"}
 
 [tasks.sensor]
 name = "task-sensor"
-features = []
 priority = 5
 max-sizes = {flash = 8192, ram = 2048 }
 stacksize = 1024
@@ -66,7 +65,7 @@ notifications = ["timer"]
 [tasks.dump_agent]
 name = "task-dump-agent"
 priority = 6
-max-sizes = {flash = 32768, ram = 8192 }
+max-sizes = {flash = 32768, ram = 16384 }
 start = true
 task-slots = ["sprot", "jefe", "net"]
 stacksize = 2400
@@ -77,7 +76,7 @@ features = ["net", "vlan"]
 [tasks.gimlet_seq]
 name = "drv-mock-gimlet-seq-server"
 priority = 2
-max-sizes = {flash = 2048, ram = 1024 }
+max-sizes = {flash = 2048, ram = 2048 }
 start = true
 task-slots = ["jefe"]
 
@@ -87,7 +86,7 @@ features = ["stm32h753", "uart7", "baud_rate_3M", "hardware_flow_control", "vlan
 uses = ["uart7", "dbgmcu"]
 interrupts = {"uart7.irq" = "usart-irq"}
 priority = 8
-max-sizes = {flash = 65536, ram = 32768}
+max-sizes = {flash = 65536, ram = 65536}
 stacksize = 4096
 start = true
 task-slots = ["sys", "gimlet_seq", "hf", "control_plane_agent", "net", "packrat"]
@@ -131,7 +130,7 @@ priority = 3
 features = ["h753", "vlan", "gimletlet-nic", "use-spi-core", "spi4"]
 max-sizes = {flash = 131072, ram = 65536, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
-uses = ["eth", "eth_dma", "tim16", "spi4"]
+uses = ["eth", "tim16", "spi4"]
 start = true
 task-slots = ["sys", "jefe"]
 notifications = ["eth-irq", "mdio-timer-irq", "spi-irq", "wake-timer"]

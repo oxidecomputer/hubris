@@ -14,40 +14,43 @@ use zerocopy::{AsBytes, FromBytes};
 
 pub use task_packrat_api::MacAddressBlock;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError)]
+/// Errors that can occur when trying to send a packet.
+#[derive(
+    Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError, counters::Count,
+)]
 #[repr(u32)]
 pub enum SendError {
-    /// The selected socket is not owned by this task
-    NotYours = 1,
+    /// The outgoing tx queue is full. Wait until you get a notification that
+    /// there is queue space and try again.
+    QueueFull = 1,
 
-    /// The specified VID is not in the configured range
-    InvalidVLan = 2,
-
-    /// The outgoing tx queue is full
-    QueueFull = 3,
-
-    Other = 4,
-
+    /// The server has restarted. Clients may or may not actually care about
+    /// this; often you'll just want to retry, but because a netstack restart
+    /// may imply one or more lost packets, we don't want to assume that.
     #[idol(server_death)]
-    ServerRestarted = 5,
+    ServerRestarted = 2,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError)]
+#[derive(
+    Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError, counters::Count,
+)]
 #[repr(u32)]
 pub enum RecvError {
-    /// The selected socket is not owned by this task
-    NotYours = 1,
+    /// The incoming RX queue is empty; there are no packets able to be received
+    /// from this socket. You can wait on the notification and try again if you
+    /// like.
+    QueueEmpty = 1,
 
-    /// The incoming rx queue is empty
-    QueueEmpty = 2,
-
-    Other = 3,
-
+    /// The server has restarted. Clients may or may not actually care about
+    /// this; often you'll just want to retry, but because a netstack restart
+    /// may imply one or more lost packets, we don't want to assume that.
     #[idol(server_death)]
-    ServerRestarted = 4,
+    ServerRestarted = 2,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError)]
+#[derive(
+    Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError, counters::Count,
+)]
 #[repr(u32)]
 pub enum PhyError {
     /// The selected port is not valid
@@ -62,7 +65,9 @@ pub enum PhyError {
     ServerRestarted = 4,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError)]
+#[derive(
+    Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError, counters::Count,
+)]
 #[repr(u32)]
 pub enum KszError {
     /// This functionality is not available on the given board
@@ -149,7 +154,9 @@ pub struct ManagementCounters {
     pub vsc85x2_mac_valid: bool,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError)]
+#[derive(
+    Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError, counters::Count,
+)]
 #[repr(u32)]
 pub enum MgmtError {
     NotAvailable = 1,

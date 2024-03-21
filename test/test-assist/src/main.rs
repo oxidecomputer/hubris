@@ -72,7 +72,7 @@ fn textoob(_arg: u32) {
         // fly off the end of our text -- which will either induce
         // a memory fault (end of MPU-provided region) or a bus error
         // (reading never-written flash on some MCUs/boards, e.g. LPC55)
-        let mut val: u32 = core::mem::transmute(main as fn() -> _);
+        let mut val: u32 = main as fn() -> _ as usize as u32;
 
         loop {
             (val as *const u8).read_volatile();
@@ -129,8 +129,8 @@ fn divzero(_arg: u32) {
 fn eat_some_pi(highregs: bool) {
     let mut pi = [0x40490fdb; 16];
 
-    for i in 1..16 {
-        pi[i] += i << 23;
+    for (i, val) in pi.iter_mut().enumerate() {
+        *val += i << 23;
     }
 
     unsafe {
@@ -249,12 +249,12 @@ fn main() -> ! {
 
                     AssistOp::FaultTask => {
                         caller.reply(0);
-                        let _ = kipc::fault_task(*msg as usize);
+                        kipc::fault_task(*msg as usize);
                     }
 
                     AssistOp::RestartTask => {
                         caller.reply(0);
-                        let _ = kipc::restart_task(*msg as usize, true);
+                        kipc::restart_task(*msg as usize, true);
                     }
 
                     AssistOp::RefreshTaskIdOffByOne => {

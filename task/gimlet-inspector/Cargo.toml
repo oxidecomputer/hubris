@@ -13,11 +13,12 @@ drv-gimlet-seq-api = { path = "../../drv/gimlet-seq-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 counters = { path = "../../lib/counters" }
 
-
 [build-dependencies]
 build-util = { path = "../../build/util" }
+idol = { workspace = true }
 
 [features]
+no-ipc-counters = ["idol/no-counters"]
 vlan = ["task-net-api/vlan"]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,

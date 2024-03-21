@@ -5,6 +5,7 @@ edition = "2021"
 
 [features]
 panic-messages = ["userlib/panic-messages"]
+no-ipc-counters = ["idol/no-counters"]
 
 [dependencies]
 cortex-m = { workspace = true }
@@ -14,6 +15,7 @@ userlib = { path = "../../sys/userlib" }
 
 [build-dependencies]
 build-util = { path = "../../build/util" }
+idol.workspace = true
 
 [[bin]]
 name = "task-pong"

@@ -6,6 +6,7 @@ extern crate proc_macro;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
+use std::collections::HashSet;
 use syn::{
     parse::{Parse, ParseStream},
     parse_macro_input, DeriveInput,
@@ -51,60 +52,89 @@ fn gen_count_impl(input: DeriveInput) -> Result<impl ToTokens, syn::Error> {
         ));
     };
     let variants = &data_enum.variants;
-    let mut state = CountGenerator::new(&input.ident, variants.len());
+    let mut state = CountGenerator::new(&input, variants.len());
 
     for variant in variants {
         state.add_variant(variant)?;
     }
 
-    Ok(state.generate(&input))
+    Ok(state.generate())
 }
 
 struct CountGenerator<'input> {
+    input: &'input DeriveInput,
     enum_name: &'input syn::Ident,
     field_defs: Vec<proc_macro2::TokenStream>,
     field_inits: Vec<proc_macro2::TokenStream>,
     variant_patterns: Vec<proc_macro2::TokenStream>,
+    needed_generics: HashSet<syn::Ident>,
+    all_generics: HashSet<syn::Ident>,
+    where_clause_types: HashSet<syn::Type>,
     any_skipped: bool,
 }
 
 impl<'input> CountGenerator<'input> {
-    fn new(enum_name: &'input syn::Ident, variants: usize) -> Self {
+    fn new(input: &'input DeriveInput, variants: usize) -> Self {
         Self {
-            enum_name,
+            enum_name: &input.ident,
+            input,
             field_defs: Vec::with_capacity(variants),
             field_inits: Vec::with_capacity(variants),
             variant_patterns: Vec::with_capacity(variants),
+            all_generics: input
+                .generics
+                .type_params()
+                .map(|p| p.ident.clone())
+                .collect(),
+            needed_generics: HashSet::new(),
+            where_clause_types: HashSet::new(),
             any_skipped: false,
         }
     }
 
-    fn generate(self, input: &DeriveInput) -> impl ToTokens {
+    fn generate(self) -> impl ToTokens {
         let Self {
+            input,
             enum_name,
             field_defs,
             field_inits,
             mut variant_patterns,
             any_skipped,
+            needed_generics,
+            where_clause_types,
+            ..
         } = self;
+
+        let generics = &input.generics;
 
         // If we skipped any variants, generate a catchall case.
         if any_skipped {
             variant_patterns.push(quote! { _ => {} });
         }
         let vis = &input.vis;
-
         let counts_ty = counts_ty(enum_name);
+        let where_clauses = where_clause_types
+            .iter()
+            .map(|ty| {
+                quote! { #ty: counters::Count }
+            })
+            .collect::<Vec<_>>();
+        // I'm not sure why we have to do this, but quote gets mad if it's not a vec...
+        let needed_generics = needed_generics.iter().collect::<Vec<_>>();
         quote! {
             #[doc = concat!("Total counts for [`", stringify!(#enum_name), "`].")]
             #[allow(nonstandard_style)]
-            #vis struct #counts_ty {
-                #(#field_defs),*
+            #vis struct #counts_ty<#( #needed_generics, )*>
+            where
+                #(#where_clauses, )*
+            {
+                #(#field_defs, )*
             }
 
             #[automatically_derived]
-            impl counters::Count for #enum_name {
-                type Counters = #counts_ty;
+            impl #generics counters::Count for #enum_name #generics
+            where #(#where_clauses, )* {
+                type Counters = #counts_ty<#( #needed_generics, )*>;
 
                 // This is intended for use in a static initializer, so the fact that every
                 // time the constant is used it will be a different instance is not a
@@ -113,12 +143,13 @@ impl<'input> CountGenerator<'input> {
                 // `declare_interior_mutable_const` is really Not My Favorite Clippy
                 // Lint...
                 #[allow(clippy::declare_interior_mutable_const)]
-                const NEW_COUNTERS: #counts_ty = #counts_ty {
+                const NEW_COUNTERS: #counts_ty<#( #needed_generics, )*> = #counts_ty {
                     #(#field_inits),*
                 };
 
                 fn count(&self, counters: &Self::Counters) {
-                    #[cfg(all(target_arch = "arm", armv6m))]
+                    // This extension trait may not be used on non-v6m targets.
+                    #[allow(unused_imports)]
                     use counters::armv6m_atomic_hack::AtomicU32Ext;
 
                     match self {
@@ -235,6 +266,9 @@ impl<'input> CountGenerator<'input> {
             field_defs,
             field_inits,
             enum_name,
+            needed_generics,
+            all_generics,
+            where_clause_types,
             ..
         } = self;
         field_defs.push(quote! {
@@ -249,6 +283,14 @@ impl<'input> CountGenerator<'input> {
         field_inits.push(quote! {
             #variant_name: <#variant_type as counters::Count>::NEW_COUNTERS
         });
+        where_clause_types.insert(variant_type.clone());
+        if let syn::Type::Path(ty_path) = variant_type {
+            if let Some(ident) = ty_path.path.get_ident() {
+                if all_generics.contains(ident) {
+                    needed_generics.insert(ident.clone());
+                }
+            }
+        }
     }
 }
 

@@ -3,6 +3,5 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 fn main() {
-    build_util::expose_m_profile().unwrap();
     build_util::expose_target_board();
 }

@@ -12,7 +12,4 @@ serde.workspace = true
 enum-kinds.workspace = true
 
 derive-idol-err.path = "../../lib/derive-idol-err"
-counters.path = "../../lib/counters"
-
-[build-dependencies]
-build-util.path = "../../build/util"
+counters = { path = "../../lib/counters" }

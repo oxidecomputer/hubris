@@ -3,7 +3,11 @@ name = "attest-api"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+
+
 [dependencies]
+counters = { path = "../../lib/counters" }
 derive-idol-err = { path = "../../lib/derive-idol-err" }
 gateway-messages = { workspace = true }
 hubpack = { workspace = true }

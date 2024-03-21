@@ -9,7 +9,7 @@
 use derive_idol_err::IdolError;
 use userlib::*;
 
-#[derive(Copy, Clone, Debug, FromPrimitive, IdolError)]
+#[derive(Copy, Clone, Debug, FromPrimitive, IdolError, counters::Count)]
 pub enum LedError {
     NotPresent = 1,
 }

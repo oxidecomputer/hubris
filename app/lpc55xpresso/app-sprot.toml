@@ -17,7 +17,7 @@ fwid = true
 [kernel]
 name = "lpc55xpresso"
 features = ["dice-self"]
-requires = {flash = 53248, ram = 4096}
+requires = {flash = 53312, ram = 4096}
 
 [caboose]
 region = "flash"
@@ -112,7 +112,6 @@ pins = [
 [tasks.i2c_driver]
 name = "drv-lpc55-i2c"
 priority = 4
-max-sizes = {flash = 8192, ram = 2048}
 uses = ["flexcomm4"]
 start = true
 stacksize = 1000
@@ -183,7 +182,7 @@ task-slots = ["swd"]
 [tasks.sprot]
 name = "drv-lpc55-sprot-server"
 priority = 6
-max-sizes = {flash = 47360, ram = 32768}
+max-sizes = {flash = 48512, ram = 32768}
 uses = ["flexcomm8", "bootrom"]
 features = ["spi0"]
 start = true

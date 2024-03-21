@@ -6,7 +6,7 @@ board = "donglet-g031"
 
 [kernel]
 name = "app-donglet"
-requires = {flash = 18144, ram = 1616}
+requires = {flash = 18720, ram = 1616}
 features = ["g031"]
 stacksize = 936
 
@@ -24,15 +24,14 @@ priority = 1
 max-sizes = {flash = 2048, ram = 256}
 uses = ["rcc", "gpio", "system_flash"]
 start = true
-features = ["g031"]
+features = ["g031", "no-ipc-counters"]
 stacksize = 256
 task-slots = ["jefe"]
 
 [tasks.i2c_driver]
 name = "drv-stm32xx-i2c-server"
-features = ["g031"]
+features = ["g031", "no-ipc-counters"]
 priority = 2
-max-sizes = {flash = 16384, ram = 1024}
 uses = ["i2c1"]
 start = true
 task-slots = ["sys"]
@@ -49,7 +48,7 @@ max-sizes = {flash = 16384, ram = 4096}
 start = true
 task-slots = ["sys", "i2c_driver"]
 stacksize = 912
-features = ["stm32g0", "g031", "i2c", "gpio", "send"]
+features = ["stm32g0", "g031", "i2c", "gpio", "send", "no-ipc-counters"]
 
 [tasks.idle]
 name = "task-idle"
@@ -111,4 +110,3 @@ device = "tmp117"
 description = "TempSense"
 sensors = { temperature = 1 }
 removable = true
-

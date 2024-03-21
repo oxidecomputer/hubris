@@ -30,8 +30,8 @@
 use core::convert::TryFrom;
 
 use abi::{
-    FaultInfo, LeaseAttributes, SchedState, Sysnum, TaskId, TaskState, ULease,
-    UsageError,
+    FaultInfo, IrqStatus, LeaseAttributes, SchedState, Sysnum, TaskId,
+    TaskState, ULease, UsageError,
 };
 use unwrap_lite::UnwrapLite;
 
@@ -112,6 +112,7 @@ fn safe_syscall_entry(nr: u32, current: usize, tasks: &mut [Task]) -> NextTask {
         Ok(Sysnum::ReplyFault) => {
             reply_fault(tasks, current).map_err(UserError::from)
         }
+        Ok(Sysnum::IrqStatus) => irq_status(tasks, current),
         Err(_) => {
             // Bogus syscall number! That's a fault.
             Err(FaultInfo::SyscallUsage(UsageError::BadSyscallNumber).into())
@@ -817,5 +818,53 @@ fn reply_fault(
     // KEY ASSUMPTION: sends go from less important tasks to more important
     // tasks. As a result, Reply doesn't have scheduling implications unless
     // the task using it faults.
+    Ok(NextTask::Same)
+}
+
+/// Implementation of the `IRQ_STATUS` syscall.
+///
+/// `caller` is a valid task index (i.e. not directly from user code).
+///
+/// # Syscall arguments
+///
+/// 0. a notification mask
+///
+/// # Syscall returns
+///
+/// 0. An [`IrqStatus`] structure representing the current state of the
+///    interrupts mapped to the provided notification mask. If the notification
+///    mask contains multiple IRQs, the returned status will be the boolean OR
+///    of all the IRQs in the notification mask (e.g.., if *any* of the IRQs in
+///    the notification mask is pending, the [`IrqStatus::PENDING`] bit will be
+///    set, and so on).
+fn irq_status(
+    tasks: &mut [Task],
+    caller: usize,
+) -> Result<NextTask, UserError> {
+    let args = tasks[caller].save().as_irq_status_args();
+
+    // Look up which IRQs are mapped to the calling task.
+    let irqs = crate::startup::HUBRIS_TASK_IRQ_LOOKUP
+        .get(abi::InterruptOwner {
+            task: caller as u32,
+            notification: args.notification_bitmask,
+        })
+        .ok_or(UserError::Unrecoverable(FaultInfo::SyscallUsage(
+            UsageError::NoIrq,
+        )))?;
+
+    // Combine the platform-level status of all the IRQs in the notification set.
+    let mut status = irqs.iter().fold(IrqStatus::empty(), |status, irq| {
+        status | crate::arch::irq_status(irq.0)
+    });
+
+    // If any bits in the notification mask are set in the caller's notification
+    // set, then a notification has been posted to the task and not yet consumed.
+    let posted = tasks[caller].has_notifications(args.notification_bitmask);
+    status.set(IrqStatus::POSTED, posted);
+
+    tasks[caller].save_mut().set_irq_status_result(status);
+
+    // Continue running the same task.
     Ok(NextTask::Same)
 }

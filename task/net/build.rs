@@ -8,12 +8,16 @@ use proc_macro2::TokenStream;
 use std::io::Write;
 
 fn main() -> Result<()> {
-    idol::server::build_server_support(
-        "../../idl/net.idol",
-        "server_stub.rs",
-        idol::server::ServerStyle::InOrder,
-    )
-    .map_err(|e| anyhow!(e))?;
+    idol::Generator::new()
+        .with_counters(
+            idol::CounterSettings::default().with_server_counters(false),
+        )
+        .build_server_support(
+            "../../idl/net.idol",
+            "server_stub.rs",
+            idol::server::ServerStyle::InOrder,
+        )
+        .map_err(|e| anyhow!(e))?;
 
     let net_config = build_net::load_net_config()?;
 

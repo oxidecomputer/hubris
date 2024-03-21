@@ -9,7 +9,7 @@ fwid = true
 [kernel]
 name = "lpc55xpresso"
 features = ["dump", "dice-self"]
-requires = {flash = 54116, ram = 4096}
+requires = {flash = 54336, ram = 4096}
 
 [caboose]
 region = "flash"
@@ -105,7 +105,6 @@ pins = [
 [tasks.i2c_driver]
 name = "drv-lpc55-i2c"
 priority = 4
-max-sizes = {flash = 8192, ram = 2048}
 uses = ["flexcomm4"]
 start = true
 stacksize = 1000
