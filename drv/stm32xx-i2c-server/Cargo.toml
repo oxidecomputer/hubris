@@ -46,7 +46,6 @@ g031 = [
     "drv-stm32xx-sys-api/g031",
     "build-i2c/g031",
     "ringbuf-disabled",
-    "panic-messages",
 ]
 g030 = [
     "stm32g0/stm32g030",
