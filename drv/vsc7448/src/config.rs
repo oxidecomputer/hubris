@@ -9,7 +9,15 @@ use serde::{Deserialize, Serialize};
 
 /// Port speed
 #[derive(
-    Copy, Clone, Debug, PartialEq, Eq, Serialize, SerializedSize, Deserialize,
+    Copy,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    Serialize,
+    SerializedSize,
+    Deserialize,
+    counters::Count,
 )]
 pub enum Speed {
     Speed100M,
