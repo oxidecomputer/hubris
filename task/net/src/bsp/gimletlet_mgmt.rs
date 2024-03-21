@@ -38,31 +38,38 @@ enum Trace {
         #[count(children)]
         err: KszError,
     },
+    #[count(skip)]
     Ksz8463Status {
         port: u8,
         status: u16,
     },
+    #[count(skip)]
     Ksz8463Control {
         port: u8,
         control: u16,
     },
+    #[count(skip)]
     Ksz8463Counter {
         port: u8,
         counter: MIBCounterValue,
     },
 
+    #[count(skip)]
     Vsc8552Status {
         port: u8,
         status: phy::standard::MODE_STATUS,
     },
+    #[count(skip)]
     Vsc8552MacPcsStatus {
         port: u8,
         status: phy::extended_3::MAC_SERDES_PCS_STATUS,
     },
+    #[count(skip)]
     Vsc8552MacPcsControl {
         port: u8,
         control: phy::extended_3::MAC_SERDES_PCS_CONTROL,
     },
+    #[count(skip)]
     Vsc8552MediaSerdesStatus {
         port: u8,
         status: phy::extended_3::MEDIA_SERDES_STATUS,
@@ -74,14 +81,17 @@ enum Trace {
         port: u8,
         control: phy::standard::BYPASS_CONTROL,
     },
+    #[count(skip)]
     Vsc8552Status100 {
         port: u8,
         status: u16,
     },
+    #[count(skip)]
     Vsc8552TxGoodCounter {
         port: u8,
         counter: phy::extended_3::MEDIA_SERDES_TX_GOOD_PACKET_COUNTER,
     },
+    #[count(skip)]
     Vsc8552RxCRCGoodCounter {
         port: u8,
         counter: phy::extended_3::MEDIA_MAC_SERDES_RX_GOOD_COUNTER,

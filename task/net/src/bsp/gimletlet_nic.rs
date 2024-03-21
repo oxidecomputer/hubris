@@ -30,14 +30,17 @@ enum Trace {
         #[count(children)]
         err: RawKszError,
     },
+    #[count(skip)]
     Ksz8463Status {
         port: u8,
         status: u16,
     },
+    #[count(skip)]
     Ksz8463Control {
         port: u8,
         control: u16,
     },
+    #[count(skip)]
     Ksz8463Counter {
         port: u8,
         counter: MIBCounterValue,
