@@ -38,6 +38,11 @@ enum Trace {
         #[count(children)]
         err: KszError,
     },
+
+    // We skip counting the various status and control register ringbuf entries
+    // because they don't really seem to represent a countable event, just the
+    // state of a register, and skipping all of them lets us avoid several words
+    // of counters. Instead, we just count the number of error event variants.
     #[count(skip)]
     Ksz8463Status {
         port: u8,
@@ -78,6 +83,7 @@ enum Trace {
         #[count(children)]
         err: VscError,
     },
+    #[count(skip)]
     Vsc8552BypassControl {
         port: u8,
         control: phy::standard::BYPASS_CONTROL,
