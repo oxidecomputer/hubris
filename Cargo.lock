@@ -5329,7 +5329,7 @@ dependencies = [
 [[package]]
 name = "transceiver-messages"
 version = "0.1.1"
-source = "git+https://github.com/oxidecomputer/transceiver-control/?branch=moar-errors#b599eaa38fe0822953520609baa8e46bd001398e"
+source = "git+https://github.com/oxidecomputer/transceiver-control/?branch=moar-errors#3529308c020f2f04c19b2ba13f8dcc79a18fde9d"
 dependencies = [
  "bitflags 2.4.2",
  "hubpack",
