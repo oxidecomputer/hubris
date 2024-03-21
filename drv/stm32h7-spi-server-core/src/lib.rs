@@ -62,16 +62,17 @@ pub struct SpiServerCore {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, counters::Count)]
 enum Trace {
-    Start(SpiOperation, (u16, u16)),
+    Start(#[count(children)] SpiOperation, (u16, u16)),
     Tx(u8),
     Rx(u8),
     WaitISR(u32),
+    #[count(skip)]
     None,
 }
 
-ringbuf!(Trace, 64, Trace::None);
+counted_ringbuf!(Trace, 64, Trace::None);
 
 #[derive(Copy, Clone, Debug)]
 pub struct LockState {
