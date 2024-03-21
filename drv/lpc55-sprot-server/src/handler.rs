@@ -346,13 +346,10 @@ impl<'a> Handler {
                     ))
                 }
                 CabooseReq::ComponentSize { component, slot } => {
-                    let rsp = match self
+                    let rsp = self
                         .update
                         .component_caboose_size(component, slot)
-                    {
-                        Ok(v) => Ok(CabooseRsp::ComponentSize(v)),
-                        Err(e) => Err(e),
-                    };
+                        .map(CabooseRsp::ComponentSize);
                     Ok((RspBody::Caboose(rsp), None))
                 }
                 CabooseReq::ComponentRead {

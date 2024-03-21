@@ -93,7 +93,7 @@ fn enable_debug(peripherals: &lpc55_pac::Peripherals) {
         // This information comes from Section 4.5.83 of UM11126
         const SYSCON_SWDCPU0: u32 = 0x4000_0FB4;
         // Enable SWD port access for CPU0
-        // SAFETY: writing anything other than the defined magic will lock
+        // Safety: writing anything other than the defined magic will lock
         // out debug access which is the behavior we want here!
         unsafe {
             core::ptr::write_volatile(SYSCON_SWDCPU0 as *mut u32, SWD_MAGIC);
@@ -205,31 +205,19 @@ pub fn startup(
         active,
         a: RotImageDetailsV2 {
             digest: slot_a.fwid(),
-            status: match img_a {
-                Ok(_) => Ok(()),
-                Err(e) => Err(e),
-            },
+            status: img_a.map(|_| ()),
         },
         b: RotImageDetailsV2 {
             digest: slot_b.fwid(),
-            status: match img_b {
-                Ok(_) => Ok(()),
-                Err(e) => Err(e),
-            },
+            status: img_b.map(|_| ()),
         },
         stage0: RotImageDetailsV2 {
             digest: slot_stage0.fwid(),
-            status: match img_stage0 {
-                Ok(_) => Ok(()),
-                Err(e) => Err(e),
-            },
+            status: img_stage0.map(|_| ()),
         },
         stage0next: RotImageDetailsV2 {
             digest: slot_stage0next.fwid(),
-            status: match img_stage0next {
-                Ok(_) => Ok(()),
-                Err(e) => Err(e),
-            },
+            status: img_stage0next.map(|_| ()),
         },
     };
 

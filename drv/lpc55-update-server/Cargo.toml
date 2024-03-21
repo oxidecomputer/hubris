@@ -10,7 +10,7 @@ drv-update-api.path = "../update-api/"
 drv-lpc55-update-api.path = "../lpc55-update-api/"
 ringbuf.path = "../../lib/ringbuf"
 stage0-handoff.path = "../../lib/stage0-handoff"
-userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
+userlib = {path = "../../sys/userlib" }
 drv-lpc55-flash.path = "../lpc55-flash"
 drv-lpc55-sha256.path = "../lpc55-sha256"
 drv-lpc55-syscon-api.path = "../lpc55-syscon-api"

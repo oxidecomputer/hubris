@@ -169,7 +169,6 @@ pub enum Fwid {
     Debug, Copy, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
 )]
 pub struct RotImageDetailsV2 {
-    /// The SHA3-256 measurement of all programmed pages in the flash slot.
     pub digest: [u8; 32],
     // Image is valid and properly signed or has a specific ImageError to help find the problem.
     pub status: Result<(), ImageError>,

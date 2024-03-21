@@ -21,6 +21,7 @@ use drv_update_api::UpdateError;
 use idol_runtime::{
     ClientError, Leased, LenLimit, NotificationHandler, RequestError, R, W,
 };
+use sha3::{Digest, Sha3_256};
 use stage0_handoff::{
     HandoffData, HandoffDataLoadError, ImageVersion, RotBootState,
     RotBootStateV2,
@@ -45,6 +46,17 @@ enum UpdateState {
     Finished,
 }
 
+// The erase/flash of stage0 could be interrupted by a power failure or
+// reset rendering the RoT inoperable.
+// The full stage0 image is cached before flashing to reduce that window
+// of vulnerability.
+//
+// Doing a round-trip to the control plane for each chunk for each block write
+// effectively makes that window infinite since the upper layers are allowed to
+// wait forever or quit mid-update.
+// TODO: Minimize FW_CACHE_MAX while accommodating the largest production
+// bootloader image and allowing some room for growth.
+const FW_CACHE_MAX: usize = 8192_usize;
 struct ServerImpl<'a> {
     header_block: Option<[u8; BLOCK_SIZE_BYTES]>,
     state: UpdateState,
@@ -56,6 +68,8 @@ struct ServerImpl<'a> {
 
     // Used to enforce sequential writes from the control plane.
     next_block: Option<usize>,
+    // Keep the fw cache 32-bit aligned to make NXP header access easier.
+    fw_cache: &'a mut [u32; FW_CACHE_MAX / core::mem::size_of::<u32>()],
 }
 
 const BLOCK_SIZE_BYTES: usize = BYTES_PER_FLASH_PAGE;
@@ -96,10 +110,12 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         self.image = match image_type {
             UpdateTarget::ImageA => Some((RotComponent::Hubris, SlotId::A)),
             UpdateTarget::ImageB => Some((RotComponent::Hubris, SlotId::B)),
+            UpdateTarget::Bootloader => Some((RotComponent::Stage0, SlotId::B)),
             _ => return Err(UpdateError::InvalidSlotIdForOperation.into()),
         };
         self.state = UpdateState::InProgress;
         self.next_block = None;
+        self.fw_cache.fill(0);
         Ok(())
     }
 
@@ -116,6 +132,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
 
         self.state = UpdateState::NoUpdate;
         self.next_block = None;
+        self.fw_cache.fill(0);
         Ok(())
     }
 
@@ -318,6 +335,11 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
                 slot_a_sha3_256_digest: Some(boot_state.a.digest),
                 slot_b_sha3_256_digest: Some(boot_state.b.digest),
             })),
+            // Forward compatibility: If our caller wants a higher
+            // version than we know about, return the highest that we
+            // do know about.
+            // Rollback protection and deprecation of older versions
+            // will allow us to eventually remove old implementations.
             _ => Ok(VersionedRotBootInfo::V2(RotBootInfoV2 {
                 active: boot_state.active.into(),
                 persistent_boot_preference,
@@ -381,7 +403,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
             return Err(UpdateError::UpdateInProgress.into());
         }
         self.syscon.chip_reset();
-        panic!()
+        unreachable!();
     }
 
     fn read_rot_page(
@@ -466,11 +488,13 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
 
         self.image = match (component, slot) {
             (RotComponent::Hubris, SlotId::A)
-            | (RotComponent::Hubris, SlotId::B) => Some((component, slot)),
+            | (RotComponent::Hubris, SlotId::B)
+            | (RotComponent::Stage0, SlotId::B) => Some((component, slot)),
             _ => return Err(UpdateError::InvalidSlotIdForOperation.into()),
         };
         self.state = UpdateState::InProgress;
         self.next_block = None;
+        self.fw_cache.fill(0);
         Ok(())
     }
 
@@ -485,7 +509,16 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
             RotComponent::Hubris => {
                 self.switch_default_hubris_image(slot, duration)
             }
-            _ => return Err(UpdateError::InvalidSlotIdForOperation.into()),
+            RotComponent::Stage0 => {
+                match slot {
+                    // Stage0
+                    SlotId::A => {
+                        Err(UpdateError::InvalidSlotIdForOperation.into())
+                    }
+                    // Stage0Next
+                    SlotId::B => self.switch_default_boot_image(duration),
+                }
+            }
         }
     }
 }
@@ -596,6 +629,130 @@ impl ServerImpl<'_> {
         ))
     }
 
+    fn switch_default_boot_image(
+        &mut self,
+        duration: SwitchDuration,
+    ) -> Result<(), RequestError<UpdateError>> {
+        if duration != SwitchDuration::Forever {
+            return Err(UpdateError::NotImplemented.into());
+        }
+
+        // Any image that passes the NXP image checks can be written to
+        // stage0next flash slot.
+        // The image checks ensure that the boot ROM will be able
+        // to check the image signature without crashing.
+        //
+        // Only an image that has a valid signature seen at rot-startup
+        // time will be copied by update-server to the stage0 partition.
+        //
+        // Note that both stage0 and stage0next images can be
+        // modified multiple times between resets.
+        // So, although we trust the bootstate(), we do not implicitly trust
+        // the current contents of stage0 or stage0next unless the image
+        // hash matches an image seen at rot-startup.
+        //
+        // The typical flow is that:
+        //   1. A new bootloader image is staged by update-server.
+        //   2. The RoT is reset.
+        //   3. Signatures are evaluated in rot-startup.
+        //   4. The validated staged image is copied by update-server
+        //      to the bootloader slot.
+        //   5. The RoT is rebooted into the new stage0 image.
+        //
+        // During step 4, there is a time where the RoT is not bootable.
+        // Failures during step 4 may require a service call or RMA to fix
+        // the system.
+        //
+        // Only one Gimlet, PSC, or SideCar in a rack should have their RoT
+        // bootloader updated at a time to minimize the blast-radius of
+        // failures such as a rack wide power issue.
+        //
+        // All of the stage0next slots in the rack can be updated (steps 1
+        // through 3) to ensure that RoT image signatures are valid before any
+        // system continues to step 4.
+        //
+        // TBD: While Failures up to step 3 do not adversly affect the RoT,
+        // resetting the RoT to evaluate signatures may be service affecting
+        // to the system depending on how the RoT and SP interact with respect
+        // to their reset handling and the RoT measurement of the SP.
+        // Appropriate measures should be taken to minimize customer impact.
+        //
+        // Note that after copying stage0next to stage0, but before step 5
+        // (reset), it is still possible to revert to the old stage0 by
+        // updating stage0next to the original stage0 contents that were
+        // validated reset and then copying those to stage0.
+        //
+        // It is assumed that a hash collision is not computaionally feasible
+        // for either the image hash done by rot-startup or used by the ROM
+        // signature routine.
+
+        // Read stage0next contents into RAM.
+        let staged = image_range(RotComponent::Stage0, SlotId::B);
+        let len = self.read_flash_image_to_cache(staged.0)?;
+        let bootloader = &self.fw_cache[..len / core::mem::size_of::<u32>()];
+
+        let mut hash = Sha3_256::new();
+        for page in bootloader.as_bytes().chunks(512) {
+            hash.update(page);
+        }
+        let cache_hash: [u8; 32] = hash.finalize().try_into().unwrap_lite();
+        let boot_state =
+            bootstate().map_err(|_| UpdateError::MissingHandoffData)?;
+
+        // The cached image needs to match a properly signed image seen at
+        // boot time.
+        // Since stage0 and stage0next can be mutated after boot, we don't
+        // compare to their current contents.
+        // We are trusting that the recorded hash and signature status have
+        // not been altered since boot and that hash collisions are not an issue.
+        if !(boot_state.stage0next.status.is_ok()
+            && cache_hash.as_bytes() == boot_state.stage0next.digest
+            || boot_state.stage0.status.is_ok()
+                && cache_hash.as_bytes() == boot_state.stage0.digest)
+        {
+            return Err(UpdateError::SignatureNotValidated.into());
+        };
+
+        // Don't risk an update if the cache already matches the bootloader.
+        let stage0 = image_range(RotComponent::Stage0, SlotId::A);
+        match self.compare_cache_to_flash(&stage0.0) {
+            Err(UpdateError::ImageMismatch) => {
+                if let Err(e) =
+                    self.write_cache_to_flash(RotComponent::Stage0, SlotId::A)
+                {
+                    // N.B. An error here is bad since it means we've likely
+                    // bricked the machine if we reset now.
+                    // We do not want the RoT reset.
+                    // Upper layers should try to write the image again.
+                    // We don't have a valid copy of the code.
+                    // TODO: Think about possible recovery if stage0
+                    // has been corrupted.
+
+                    // Restart update_server
+                    return Err(e.into());
+                }
+            }
+            Ok(()) => {
+                // Programmed pages after an image will contribute to the
+                // flash slot digest which can cause an image to mismatch with
+                // a flash slot digest even though the contained image is
+                // the same.
+            }
+            Err(e) => {
+                return Err(e.into()); // Non-fatal error. We did not alter stage0.
+            }
+        }
+
+        // Finish by erasing the unused portion of flash bank.
+        // An error here means that the stage0 slot may not be clean but at least
+        // it has the intended bootloader written.
+        // TODO: There should be a unique error here as well as anywhere else
+        // in the bootloader update flow.
+        let erase_start = stage0.0.start.checked_add(len as u32).unwrap_lite();
+        self.flash_erase_range(erase_start..stage0.0.end)?;
+        Ok(())
+    }
+
     fn flash_erase_range(
         &mut self,
         span: Range<u32>,
@@ -613,6 +770,137 @@ impl ServerImpl<'_> {
                 Some(Err(_)) => return Err(UpdateError::FlashError),
             }
         }
+    }
+
+    fn compare_cache_to_flash(
+        &self,
+        span: &Range<u32>,
+    ) -> Result<(), UpdateError> {
+        // Is there a cached image?
+        // no, return error
+
+        // Lengths are rounded up to a flash page boundary.
+        let clen = self.valid_cache_image_present()?;
+        let flen = self.valid_flash_image_present(span)?;
+        if clen != flen {
+            return Err(UpdateError::ImageMismatch);
+        }
+        // compare flash page to cache
+        let cached =
+            self.fw_cache[0..flen / core::mem::size_of::<u32>()].as_bytes();
+        let mut flash_page = [0u8; BYTES_PER_FLASH_PAGE];
+        for addr in (0..flen).step_by(BYTES_PER_FLASH_PAGE) {
+            let size = if addr + BYTES_PER_FLASH_PAGE > flen {
+                flen - addr
+            } else {
+                BYTES_PER_FLASH_PAGE
+            };
+
+            indirect_flash_read(
+                &self.flash,
+                addr as u32,
+                &mut flash_page[..size],
+            )?;
+            // XXX fw_cache is [u32; FW_CACHE_MAX]
+            if flash_page[0..size] != cached[addr..addr + size] {
+                return Err(UpdateError::ImageMismatch);
+            }
+        }
+        Ok(())
+    }
+
+    // Looking at a region of flash, determine if there is a possible NXP
+    // image programmed. Return the length in bytes of the flash pages
+    // comprising the image including padding to fill to a page boundary.
+    fn valid_flash_image_present(
+        &self,
+        span: &Range<u32>,
+    ) -> Result<usize, UpdateError> {
+        let buf = &mut [0u32; 1];
+        match indirect_flash_read(
+            &self.flash,
+            span.start + LENGTH_OFFSET as u32,
+            buf[..].as_bytes_mut(),
+        ) {
+            Ok(()) => {
+                if let Some(len) = round_up_to_flash_page(buf[0]) {
+                    // The minimum image size should be further constrained
+                    // but this is enough bytes for an NXP header and not
+                    // bigger than the flash slot.
+                    if len as usize <= span.len() && len >= HEADER_OFFSET {
+                        return Ok(len as usize);
+                    }
+                }
+                Err(UpdateError::BadLength)
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    fn valid_cache_image_present(&self) -> Result<usize, UpdateError> {
+        let len = if let Some(len) = round_up_to_flash_page(
+            self.fw_cache[LENGTH_OFFSET / core::mem::size_of::<u32>()],
+        ) {
+            len
+        } else {
+            return Err(UpdateError::BadLength);
+        };
+        if len as usize > self.fw_cache.as_bytes().len() || len < HEADER_OFFSET
+        {
+            return Err(UpdateError::BadLength);
+        }
+        Ok(len as usize)
+    }
+
+    fn read_flash_image_to_cache(
+        &mut self,
+        span: Range<u32>,
+    ) -> Result<usize, UpdateError> {
+        // Returns error if flash page is erased.
+        let staged = image_range(RotComponent::Stage0, SlotId::B);
+        let len = self.valid_flash_image_present(&staged.0)?;
+        if len as u32 > span.end || len > self.fw_cache.as_bytes().len() {
+            return Err(UpdateError::BadLength); // XXX unique error
+        }
+        indirect_flash_read(
+            &self.flash,
+            span.start,
+            self.fw_cache[0..len / core::mem::size_of::<u32>()].as_bytes_mut(),
+        )?;
+        Ok(len)
+    }
+
+    // XXX This API needs to be sorted out.
+    // The lower level routines are being replaced in PR 1500
+    fn write_cache_to_flash(
+        &mut self,
+        component: RotComponent,
+        slot: SlotId,
+    ) -> Result<(), UpdateError> {
+        let clen = self.valid_cache_image_present()?;
+        if clen % BYTES_PER_FLASH_PAGE != 0 {
+            return Err(UpdateError::BadLength); // XXX need unique error
+        }
+        let span = image_range(component, slot).0;
+        if span.end < span.start + clen as u32 {
+            return Err(UpdateError::BadLength); // XXX need unique error
+        }
+        // Sanity check could be repeated here.
+        // erase/write each flash page.
+        let chunks = self.fw_cache[..]
+            .as_bytes()
+            .chunks_exact(BYTES_PER_FLASH_PAGE);
+        for (block_num, block) in chunks.enumerate() {
+            let flash_page = block.try_into().unwrap_lite();
+            do_block_write(
+                &mut self.flash,
+                component,
+                slot,
+                block_num,
+                flash_page,
+            )?;
+        }
+        Ok(())
     }
 
     fn switch_default_hubris_image(
@@ -918,8 +1206,8 @@ fn target_addr(
 
     // This is safely calculating addr = base + page_num * PAGE_SIZE
     let addr = page_num
-        .checked_mul(BLOCK_SIZE_BYTES as u32)?
-        .checked_add(range.start)?;
+        .checked_mul(BLOCK_SIZE_BYTES as u32)
+        .and_then(|n| n.checked_add(range.start))?;
 
     // check addr + PAGE_SIZE <= end
     if addr.checked_add(BLOCK_SIZE_BYTES as u32)? > range.end {
@@ -967,7 +1255,7 @@ fn caboose_slice(
 
     // Then, check that value against the BANK2 bounds.
     //
-    // SAFETY: populated by the linker, so this should be valid
+    // Safety: populated by the linker, so this should be valid
     if image_end > flash_range.end {
         return Err(RawCabooseError::MissingCaboose);
     }
@@ -988,7 +1276,7 @@ fn caboose_slice(
         // us out of the bank2 region.
         return Err(RawCabooseError::MissingCaboose);
     } else {
-        // SAFETY: we know this pointer is within the programmed flash region,
+        // Safety: we know this pointer is within the programmed flash region,
         // since it's checked above.
         let mut v = 0u32;
         indirect_flash_read(flash, caboose_start, v.as_bytes_mut())
@@ -1063,6 +1351,12 @@ fn bootstate() -> Result<RotBootStateV2, HandoffDataLoadError> {
     RotBootStateV2::load_from_addr(addr)
 }
 
+fn round_up_to_flash_page(offset: u32) -> Option<u32> {
+    offset
+        .checked_add(BYTES_PER_FLASH_PAGE as u32 - 1)
+        .map(|sum| sum & !(BYTES_PER_FLASH_PAGE as u32 - 1))
+}
+
 task_slot!(SYSCON, syscon);
 task_slot!(JEFE, jefe);
 
@@ -1072,6 +1366,9 @@ fn main() -> ! {
 
     // Go ahead and put the HASHCRYPT unit into reset.
     syscon.enter_reset(drv_lpc55_syscon_api::Peripheral::HashAes);
+    let fw_cache = mutable_statics::mutable_statics! {
+        static mut FW_CACHE: [u32; FW_CACHE_MAX / core::mem::size_of::<u32>()] = [|| 0; _];
+    };
     let mut server = ServerImpl {
         header_block: None,
         state: UpdateState::NoUpdate,
@@ -1082,6 +1379,7 @@ fn main() -> ! {
         }),
         hashcrypt: unsafe { &*lpc55_pac::HASHCRYPT::ptr() },
         syscon,
+        fw_cache,
         next_block: None,
     };
     let mut incoming = [0u8; idl::INCOMING_SIZE];
