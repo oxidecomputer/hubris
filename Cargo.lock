@@ -4511,6 +4511,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if",
+ "counters",
  "drv-monorail-api",
  "drv-sidecar-front-io",
  "drv-sidecar-mainboard-controller",
@@ -5438,6 +5439,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if",
+ "counters",
  "drv-spi-api",
  "hubpack",
  "idol",

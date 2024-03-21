@@ -19,16 +19,18 @@ task_slot!(FRONT_IO, ecp5_front_io);
 const WAKE_INTERVAL_MS: u64 = 500;
 pub const WAKE_INTERVAL: Option<u64> = Some(WAKE_INTERVAL_MS);
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, counters::Count)]
 enum Trace {
+    #[count(skip)]
     None,
     FrontIoSpeedChange {
         port: u8,
         before: Speed,
+        #[count(children)]
         after: Speed,
     },
     FrontIoPhyOscillatorBad,
-    AnegCheckFailed(VscError),
+    AnegCheckFailed(#[count(children)] VscError),
     Restarted10GAneg,
     Reinit,
 }
