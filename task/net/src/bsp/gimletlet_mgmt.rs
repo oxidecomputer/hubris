@@ -75,6 +75,7 @@ enum Trace {
         status: phy::extended_3::MEDIA_SERDES_STATUS,
     },
     Vsc8552Err {
+        #[count(children)]
         err: VscError,
     },
     Vsc8552BypassControl {
