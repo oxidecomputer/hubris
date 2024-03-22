@@ -144,5 +144,73 @@ Interface(
             encoding: Hubpack,
             idempotent: true,
         ),
+        "component_caboose_size": (
+            doc: "Returns the size of the caboose",
+            args: {
+                "component": "RotComponent",
+                "slot": "SlotId",
+            },
+            reply: Result(
+                ok: "u32",
+                err: CLike("RawCabooseError"),
+            ),
+            idempotent: true,
+            encoding: Hubpack,
+        ),
+        "component_read_raw_caboose": (
+            doc: "Reads a raw portion of the caboose",
+            args: {
+                "component": "RotComponent",
+                "slot": "SlotId",
+                "offset": "u32",
+            },
+            leases: {
+                "data": (type: "[u8]", write: true),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("RawCabooseError"),
+            ),
+            idempotent: true,
+            encoding: Hubpack,
+        ),
+        "component_prep_image_update": (
+            doc: "Do any necessary preparation for writing the image. This may include erasing flash and unlocking registers",
+            args: {
+                "component": "RotComponent",
+                "slot": "SlotId",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("drv_update_api::UpdateError"),
+            ),
+            encoding: Hubpack,
+        ),
+        "component_switch_default_image": (
+            doc: "Prefer a specific image slot for one or many boots",
+            args: {
+                "component": "RotComponent",
+                "slot": "SlotId",
+                "duration": "SwitchDuration",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("drv_update_api::UpdateError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "versioned_rot_boot_info": (
+            doc: "RoT Boot selection and preference info",
+            args: {
+              "version": "u8",
+            },
+            reply: Result(
+                ok: "VersionedRotBootInfo",
+                err: CLike("drv_update_api::UpdateError")
+            ),
+            idempotent: true,
+            encoding: Hubpack
+        ),
     },
 )

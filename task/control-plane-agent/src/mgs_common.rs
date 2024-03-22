@@ -9,15 +9,33 @@ use crate::{
 };
 use drv_caboose::{CabooseError, CabooseReader};
 use drv_sprot_api::{
-    CabooseOrSprotError, RotState as SprotRotState, SpRot, SprotError,
-    SprotProtocolError, SwitchDuration,
+    CabooseOrSprotError,
+    Fwid as SpFwid,
+    ImageError as SpImageError,
+    ImageVersion as SpImageVersion,
+    RotBootInfo as SpRotBootInfo,
+    RotBootInfoV2 as SpRotBootInfoV2,
+    RotComponent as SpRotComponent,
+    // RotImageDetails as SpRotImageDetails,
+    SlotId as SpSlotId,
+    SpRot,
+    SprotError,
+    SprotProtocolError,
+    SwitchDuration,
+    VersionedRotBootInfo as SpVersionedRotBootInfo,
 };
 use drv_stm32h7_update_api::Update;
 use gateway_messages::{
-    CfpaPage, DiscoverResponse, PowerState, RotError, RotRequest, RotResponse,
-    RotSlotId, RotStateV2, SensorReading, SensorRequest, SensorRequestKind,
-    SensorResponse, SpComponent, SpError, SpPort, SpStateV2, UpdateStatus,
-    VpdError as GatewayVpdError, WatchdogError,
+    CfpaPage, DiscoverResponse, Fwid as GwFwid, ImageError as GwImageError,
+    ImageVersion as GwImageVersion, PowerState, RotBootInfo as GwRotBootInfo,
+    RotBootState as GwRotBootState, RotError,
+    RotImageDetails as GwRotImageDetails, RotRequest, RotResponse,
+    RotSlotId as GwRotSlotId, RotState as GwRotState,
+    RotStateV2 as GwRotStateV2, RotStateV3 as GwRotStateV3,
+    RotUpdateDetails as GwRotUpdateDetails, SensorReading, SensorRequest,
+    SensorRequestKind, SensorResponse, SpComponent, SpError as GwSpError,
+    SpPort as GwSpPort, SpStateV2 as GwSpStateV2, UpdateStatus,
+    VpdError as GwVpdError, WatchdogError,
 };
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use static_assertions::const_assert;
@@ -69,8 +87,8 @@ impl MgsCommon {
 
     pub(crate) fn discover(
         &mut self,
-        port: SpPort,
-    ) -> Result<DiscoverResponse, SpError> {
+        port: GwSpPort,
+    ) -> Result<DiscoverResponse, GwSpError> {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::Discovery));
         Ok(DiscoverResponse { sp_port: port })
     }
@@ -87,7 +105,7 @@ impl MgsCommon {
     pub(crate) fn sp_state(
         &mut self,
         power_state: PowerState,
-    ) -> Result<SpStateV2, SpError> {
+    ) -> Result<GwSpStateV2, GwSpError> {
         // SpState has extra-wide fields for the serial and model number. Below
         // when we fill them in we use `usize::min` to pick the right length
         // regardless of which is longer, but really we want to know we aren't
@@ -101,14 +119,18 @@ impl MgsCommon {
 
         let id = self.identity();
 
-        let mut state = SpStateV2 {
+        let mut state = GwSpStateV2 {
             serial_number: [0; SP_STATE_FIELD_WIDTH],
             model: [0; SP_STATE_FIELD_WIDTH],
             revision: id.revision,
             hubris_archive_id: kipc::read_image_id().to_le_bytes(),
             base_mac_address: self.base_mac_address.0,
             power_state,
-            rot: rot_state(&self.sprot),
+            rot: self
+                .sprot
+                .rot_boot_info()
+                .map(|s| MgsRotStateV2::from(s).0)
+                .map_err(RotError::from),
         };
 
         let n = usize::min(state.serial_number.len(), id.serial.len());
@@ -131,22 +153,22 @@ impl MgsCommon {
         slot: u16,
         key: [u8; 4],
         buf: &mut [u8],
-    ) -> Result<usize, SpError> {
+    ) -> Result<usize, GwSpError> {
         let caboose_to_sp_error = |e| {
             match e {
-                CabooseError::NoSuchTag => SpError::NoSuchCabooseKey(key),
-                CabooseError::MissingCaboose => SpError::NoCaboose,
-                CabooseError::BadChecksum => SpError::BadCabooseChecksum,
+                CabooseError::NoSuchTag => GwSpError::NoSuchCabooseKey(key),
+                CabooseError::MissingCaboose => GwSpError::NoCaboose,
+                CabooseError::BadChecksum => GwSpError::BadCabooseChecksum,
                 CabooseError::TlvcReaderBeginFailed
                 | CabooseError::RawReadFailed
                 | CabooseError::InvalidRead
                 | CabooseError::TlvcReadExactFailed => {
-                    SpError::CabooseReadError
+                    GwSpError::CabooseReadError
                 }
 
                 // NoImageHeader is only returned when reading the caboose of the
                 // bank2 slot; it shouldn't ever be returned by the local reader.
-                CabooseError::NoImageHeader => SpError::NoCaboose,
+                CabooseError::NoImageHeader => GwSpError::NoCaboose,
             }
         };
         let caboose_or_sprot_to_sp_error = |e| match e {
@@ -160,11 +182,11 @@ impl MgsCommon {
                     let reader = drv_caboose_pos::CABOOSE_POS
                         .as_slice()
                         .map(CabooseReader::new)
-                        .ok_or(SpError::NoCaboose)?;
+                        .ok_or(GwSpError::NoCaboose)?;
                     let v = reader.get(key).map_err(caboose_to_sp_error)?;
                     let len = v.len();
                     if len > buf.len() {
-                        Err(SpError::CabooseValueOverflow(len as u32))
+                        Err(GwSpError::CabooseValueOverflow(len as u32))
                     } else {
                         buf[..len].copy_from_slice(v);
                         Ok(len)
@@ -177,19 +199,39 @@ impl MgsCommon {
                         .map_err(caboose_to_sp_error)?;
                     Ok(len as usize)
                 }
-                _ => Err(SpError::InvalidSlotForComponent),
+                _ => Err(GwSpError::InvalidSlotForComponent),
             },
             SpComponent::ROT => {
                 let slot_id = slot
                     .try_into()
-                    .map_err(|()| SpError::InvalidSlotForComponent)?;
+                    .map_err(|()| GwSpError::InvalidSlotForComponent)?;
                 let len = self
                     .sprot
-                    .read_caboose_value(slot_id, key, buf)
+                    .read_caboose_value(
+                        SpRotComponent::Hubris,
+                        slot_id,
+                        key,
+                        buf,
+                    )
                     .map_err(caboose_or_sprot_to_sp_error)?;
                 Ok(len as usize)
             }
-            _ => Err(SpError::RequestUnsupportedForComponent),
+            SpComponent::STAGE0 => {
+                let slot_id = slot
+                    .try_into()
+                    .map_err(|()| GwSpError::InvalidSlotForComponent)?;
+                let len = self
+                    .sprot
+                    .read_caboose_value(
+                        SpRotComponent::Stage0,
+                        slot_id,
+                        key,
+                        buf,
+                    )
+                    .map_err(caboose_or_sprot_to_sp_error)?;
+                Ok(len as usize)
+            }
+            _ => Err(GwSpError::RequestUnsupportedForComponent),
         }
     }
 
@@ -208,7 +250,7 @@ impl MgsCommon {
     pub(crate) fn reset_component_prepare(
         &mut self,
         component: SpComponent,
-    ) -> Result<(), SpError> {
+    ) -> Result<(), GwSpError> {
         self.reset_component_requested = Some(component);
         Ok(())
     }
@@ -227,9 +269,9 @@ impl MgsCommon {
     pub(crate) fn reset_component_trigger(
         &mut self,
         component: SpComponent,
-    ) -> Result<(), SpError> {
+    ) -> Result<(), GwSpError> {
         if self.reset_component_requested != Some(component) {
-            return Err(SpError::ResetComponentTriggerWithoutPrepare);
+            return Err(GwSpError::ResetComponentTriggerWithoutPrepare);
         }
         // If we are not resetting the SP_ITSELF, then we may come back here
         // to reset something else or to run another prepare/trigger on
@@ -285,24 +327,25 @@ impl MgsCommon {
             }
             // mgs_{gimlet,psc,sidecar}.rs deal with any board specific
             // reset strategy. Here we take care of common SP and RoT cases.
-            _ => Err(SpError::RequestUnsupportedForComponent),
+            _ => Err(GwSpError::RequestUnsupportedForComponent),
         }
     }
 
     pub(crate) fn component_get_active_slot(
         &mut self,
         component: SpComponent,
-    ) -> Result<u16, SpError> {
+    ) -> Result<u16, GwSpError> {
         match component {
             SpComponent::ROT => {
-                let SprotRotState::V1 { state, .. } = self.sprot.rot_state()?;
-                let slot = match state.active {
-                    drv_sprot_api::RotSlot::A => 0,
-                    drv_sprot_api::RotSlot::B => 1,
+                let slot = match self.sprot.rot_boot_info()?.active {
+                    SpSlotId::A => 0,
+                    SpSlotId::B => 1,
                 };
                 Ok(slot)
             }
-            _ => Err(SpError::RequestUnsupportedForComponent),
+            // We know that the LPC55S69 RoT bootloader does not have switchable banks.
+            SpComponent::STAGE0 => Ok(0),
+            _ => Err(GwSpError::RequestUnsupportedForComponent),
         }
     }
 
@@ -311,18 +354,35 @@ impl MgsCommon {
         component: SpComponent,
         slot: u16,
         persist: bool,
-    ) -> Result<(), SpError> {
+    ) -> Result<(), GwSpError> {
         match component {
             SpComponent::ROT => {
                 let slot = slot
                     .try_into()
-                    .map_err(|()| SpError::RequestUnsupportedForComponent)?;
+                    .map_err(|()| GwSpError::RequestUnsupportedForComponent)?;
                 let duration = if persist {
                     SwitchDuration::Forever
                 } else {
                     SwitchDuration::Once
                 };
                 self.sprot.switch_default_image(slot, duration)?;
+                Ok(())
+            }
+
+            SpComponent::STAGE0 => {
+                let slot = slot
+                    .try_into()
+                    .map_err(|()| GwSpError::RequestUnsupportedForComponent)?;
+                let duration = if persist {
+                    SwitchDuration::Forever
+                } else {
+                    SwitchDuration::Once
+                };
+                self.sprot.component_switch_default_image(
+                    SpRotComponent::Stage0,
+                    slot,
+                    duration,
+                )?;
                 Ok(())
             }
 
@@ -333,17 +393,17 @@ impl MgsCommon {
             // enables SwitchDuration::Once.
             //
             // Other components might also be served someday.
-            _ => Err(SpError::RequestUnsupportedForComponent),
+            _ => Err(GwSpError::RequestUnsupportedForComponent),
         }
     }
 
     pub(crate) fn read_sensor(
         &mut self,
         req: SensorRequest,
-    ) -> Result<SensorResponse, SpError> {
+    ) -> Result<SensorResponse, GwSpError> {
         use gateway_messages::SensorError;
         let id = SensorId::try_from(req.id)
-            .map_err(|_| SpError::Sensor(SensorError::InvalidSensor))?;
+            .map_err(|_| GwSpError::Sensor(SensorError::InvalidSensor))?;
 
         match req.kind {
             SensorRequestKind::ErrorCount => {
@@ -354,7 +414,7 @@ impl MgsCommon {
                 let (value, timestamp) = self
                     .sensor
                     .get_raw_reading(id)
-                    .ok_or(SpError::Sensor(SensorError::NoReading))?;
+                    .ok_or(GwSpError::Sensor(SensorError::NoReading))?;
                 Ok(SensorResponse::LastReading(SensorReading {
                     value: value.map_err(translate_sensor_nodata),
                     timestamp,
@@ -364,14 +424,14 @@ impl MgsCommon {
                 let (value, timestamp) = self
                     .sensor
                     .get_last_data(id)
-                    .ok_or(SpError::Sensor(SensorError::NoReading))?;
+                    .ok_or(GwSpError::Sensor(SensorError::NoReading))?;
                 Ok(SensorResponse::LastData { value, timestamp })
             }
             SensorRequestKind::LastError => {
                 let (nodata, timestamp) = self
                     .sensor
                     .get_last_nodata(id)
-                    .ok_or(SpError::Sensor(SensorError::NoReading))?;
+                    .ok_or(GwSpError::Sensor(SensorError::NoReading))?;
                 Ok(SensorResponse::LastError {
                     value: translate_sensor_nodata(nodata),
                     timestamp,
@@ -380,7 +440,7 @@ impl MgsCommon {
         }
     }
 
-    pub(crate) fn current_time(&mut self) -> Result<u64, SpError> {
+    pub(crate) fn current_time(&mut self) -> Result<u64, GwSpError> {
         Ok(sys_get_timer().now)
     }
 
@@ -388,7 +448,7 @@ impl MgsCommon {
         &mut self,
         req: RotRequest,
         buf: &mut [u8],
-    ) -> Result<RotResponse, SpError> {
+    ) -> Result<RotResponse, GwSpError> {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::ReadRotPage));
         let page = match req {
             RotRequest::ReadCmpa => drv_sprot_api::RotPage::Cmpa,
@@ -416,16 +476,16 @@ impl MgsCommon {
     pub(crate) fn vpd_lock_status_all(
         &self,
         _buf: &mut [u8],
-    ) -> Result<usize, SpError> {
+    ) -> Result<usize, GwSpError> {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::VpdLockStatus));
-        Err(SpError::Vpd(GatewayVpdError::NotImplemented))
+        Err(GwSpError::Vpd(GwVpdError::NotImplemented))
     }
 
     #[cfg(feature = "vpd")]
     pub(crate) fn vpd_lock_status_all(
         &self,
         buf: &mut [u8],
-    ) -> Result<usize, SpError> {
+    ) -> Result<usize, GwSpError> {
         use task_vpd_api::{Vpd, VpdError};
         task_slot!(VPD, vpd);
 
@@ -446,35 +506,25 @@ impl MgsCommon {
             *entry = match vpd.is_locked(idx) {
                 Ok(v) => v.into(),
                 Err(e) => {
-                    return Err(SpError::Vpd(match e {
-                        VpdError::InvalidDevice => {
-                            GatewayVpdError::InvalidDevice
-                        }
-                        VpdError::NotPresent => GatewayVpdError::NotPresent,
-                        VpdError::DeviceError => GatewayVpdError::DeviceError,
-                        VpdError::Unavailable => GatewayVpdError::Unavailable,
-                        VpdError::DeviceTimeout => {
-                            GatewayVpdError::DeviceTimeout
-                        }
-                        VpdError::DeviceOff => GatewayVpdError::DeviceOff,
-                        VpdError::BadAddress => GatewayVpdError::BadAddress,
-                        VpdError::BadBuffer => GatewayVpdError::BadBuffer,
-                        VpdError::BadRead => GatewayVpdError::BadRead,
-                        VpdError::BadWrite => GatewayVpdError::BadWrite,
-                        VpdError::BadLock => GatewayVpdError::BadLock,
-                        VpdError::NotImplemented => {
-                            GatewayVpdError::NotImplemented
-                        }
-                        VpdError::IsLocked => GatewayVpdError::IsLocked,
+                    return Err(GwSpError::Vpd(match e {
+                        VpdError::InvalidDevice => GwVpdError::InvalidDevice,
+                        VpdError::NotPresent => GwVpdError::NotPresent,
+                        VpdError::DeviceError => GwVpdError::DeviceError,
+                        VpdError::Unavailable => GwVpdError::Unavailable,
+                        VpdError::DeviceTimeout => GwVpdError::DeviceTimeout,
+                        VpdError::DeviceOff => GwVpdError::DeviceOff,
+                        VpdError::BadAddress => GwVpdError::BadAddress,
+                        VpdError::BadBuffer => GwVpdError::BadBuffer,
+                        VpdError::BadRead => GwVpdError::BadRead,
+                        VpdError::BadWrite => GwVpdError::BadWrite,
+                        VpdError::BadLock => GwVpdError::BadLock,
+                        VpdError::NotImplemented => GwVpdError::NotImplemented,
+                        VpdError::IsLocked => GwVpdError::IsLocked,
                         VpdError::PartiallyLocked => {
-                            GatewayVpdError::PartiallyLocked
+                            GwVpdError::PartiallyLocked
                         }
-                        VpdError::AlreadyLocked => {
-                            GatewayVpdError::AlreadyLocked
-                        }
-                        VpdError::ServerRestarted => {
-                            GatewayVpdError::TaskRestarted
-                        }
+                        VpdError::AlreadyLocked => GwVpdError::AlreadyLocked,
+                        VpdError::ServerRestarted => GwVpdError::TaskRestarted,
                     }))
                 }
             }
@@ -487,12 +537,12 @@ impl MgsCommon {
         &mut self,
         component: SpComponent,
         time_ms: u32,
-    ) -> Result<(), SpError> {
+    ) -> Result<(), GwSpError> {
         if self.reset_component_requested != Some(component) {
-            return Err(SpError::ResetComponentTriggerWithoutPrepare);
+            return Err(GwSpError::ResetComponentTriggerWithoutPrepare);
         }
         if !matches!(self.sp_update.status(), UpdateStatus::Complete(..)) {
-            return Err(SpError::Watchdog(WatchdogError::NoCompletedUpdate));
+            return Err(GwSpError::Watchdog(WatchdogError::NoCompletedUpdate));
         }
 
         if component == SpComponent::SP_ITSELF {
@@ -501,18 +551,18 @@ impl MgsCommon {
                 .request_reset();
             panic!(); // we really really shouldn't get here
         } else {
-            Err(SpError::RequestUnsupportedForComponent)
+            Err(GwSpError::RequestUnsupportedForComponent)
         }
     }
 
     pub(crate) fn disable_component_watchdog(
         &mut self,
         component: SpComponent,
-    ) -> Result<(), SpError> {
+    ) -> Result<(), GwSpError> {
         if component == SpComponent::SP_ITSELF {
             self.sprot.disable_sp_slot_watchdog()?;
         } else {
-            return Err(SpError::RequestUnsupportedForComponent);
+            return Err(GwSpError::RequestUnsupportedForComponent);
         }
         Ok(())
     }
@@ -520,13 +570,35 @@ impl MgsCommon {
     pub(crate) fn component_watchdog_supported(
         &mut self,
         component: SpComponent,
-    ) -> Result<(), SpError> {
+    ) -> Result<(), GwSpError> {
         if component == SpComponent::SP_ITSELF {
             self.sprot.sp_slot_watchdog_supported()?;
         } else {
-            return Err(SpError::RequestUnsupportedForComponent);
+            return Err(GwSpError::RequestUnsupportedForComponent);
         }
         Ok(())
+    }
+
+    pub(crate) fn versioned_rot_boot_info(
+        &mut self,
+        version: u8,
+    ) -> Result<GwRotBootInfo, GwSpError> {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::VersionedRotBootInfo {
+            version
+        }));
+
+        match self.sprot.versioned_rot_boot_info(version)? {
+            SpVersionedRotBootInfo::V1(v1) => {
+                Ok(GwRotBootInfo::V1(MgsRotState::from(v1).0))
+            }
+            SpVersionedRotBootInfo::V2(v2) => match version {
+                2 => Ok(GwRotBootInfo::V2(MgsRotStateV2::from(v2).0)),
+                // RoT's V2 is MGS V3 and the highest version that we can offer today.
+                _ => Ok(GwRotBootInfo::V3(MgsRotStateV3::from(v2).0)),
+            },
+            // New variants that this code doesn't know about yet will
+            // result in a deserialization error.
+        }
     }
 }
 
@@ -545,29 +617,188 @@ fn translate_sensor_nodata(
 }
 
 // conversion between gateway_messages types and hubris types is quite tedious.
-fn rot_state(sprot: &SpRot) -> Result<RotStateV2, RotError> {
-    let boot_info = sprot.rot_boot_info()?;
+struct MgsFwid(GwFwid);
+impl From<SpFwid> for MgsFwid {
+    fn from(fwid: SpFwid) -> MgsFwid {
+        MgsFwid(match fwid {
+            SpFwid::Sha3_256(digest) => GwFwid::Sha3_256(digest),
+        })
+    }
+}
 
-    let convert_slot_id = |s| match s {
-        drv_lpc55_update_api::SlotId::A => RotSlotId::A,
-        drv_lpc55_update_api::SlotId::B => RotSlotId::B,
-    };
+struct MgsRotSlotId(GwRotSlotId);
+impl From<SpSlotId> for MgsRotSlotId {
+    // This is use to convert an external input from the
+    // SpRot connection. What happens if a newer RoT image gives us
+    // something we don't yet know about?
+    fn from(id: SpSlotId) -> MgsRotSlotId {
+        MgsRotSlotId(match id {
+            SpSlotId::A => GwRotSlotId::A,
+            SpSlotId::B => GwRotSlotId::B,
+        })
+    }
+}
 
-    let active = convert_slot_id(boot_info.active);
-    let persistent_boot_preference =
-        convert_slot_id(boot_info.persistent_boot_preference);
-    let pending_persistent_boot_preference = boot_info
-        .pending_persistent_boot_preference
-        .map(convert_slot_id);
-    let transient_boot_preference =
-        boot_info.transient_boot_preference.map(convert_slot_id);
+struct MgsRotState(GwRotState);
 
-    Ok(RotStateV2 {
-        active,
-        persistent_boot_preference,
-        pending_persistent_boot_preference,
-        transient_boot_preference,
-        slot_a_sha3_256_digest: boot_info.slot_a_sha3_256_digest,
-        slot_b_sha3_256_digest: boot_info.slot_b_sha3_256_digest,
-    })
+impl From<SpRotBootInfo> for MgsRotState {
+    fn from(v1: SpRotBootInfo) -> MgsRotState {
+        MgsRotState(GwRotState {
+            rot_updates: GwRotUpdateDetails {
+                boot_state: GwRotBootState {
+                    active: MgsRotSlotId::from(v1.active).0,
+                    slot_a: v1.slot_a_sha3_256_digest.map(|digest| {
+                        GwRotImageDetails {
+                            version: MgsImageVersion::from(SpImageVersion {
+                                version: 0,
+                                epoch: 0,
+                            })
+                            .0,
+                            digest,
+                        }
+                    }),
+                    slot_b: v1.slot_b_sha3_256_digest.map(|digest| {
+                        GwRotImageDetails {
+                            version: MgsImageVersion::from(SpImageVersion {
+                                version: 0,
+                                epoch: 0,
+                            })
+                            .0,
+                            digest,
+                        }
+                    }),
+                },
+            },
+        })
+    }
+}
+
+impl From<SpRotBootInfo> for MgsRotStateV2 {
+    fn from(boot_info: SpRotBootInfo) -> MgsRotStateV2 {
+        MgsRotStateV2(GwRotStateV2 {
+            active: MgsRotSlotId::from(boot_info.active).0,
+            persistent_boot_preference: MgsRotSlotId::from(
+                boot_info.persistent_boot_preference,
+            )
+            .0,
+            pending_persistent_boot_preference: boot_info
+                .pending_persistent_boot_preference
+                .map(|id| MgsRotSlotId::from(id).0),
+            transient_boot_preference: boot_info
+                .transient_boot_preference
+                .map(|id| MgsRotSlotId::from(id).0),
+            slot_a_sha3_256_digest: boot_info.slot_a_sha3_256_digest,
+            slot_b_sha3_256_digest: boot_info.slot_b_sha3_256_digest,
+        })
+    }
+}
+
+struct MgsRotStateV2(GwRotStateV2);
+
+impl From<SpRotBootInfoV2> for MgsRotStateV2 {
+    fn from(boot_info: SpRotBootInfoV2) -> MgsRotStateV2 {
+        MgsRotStateV2(GwRotStateV2 {
+            active: MgsRotSlotId::from(boot_info.active).0,
+            persistent_boot_preference: MgsRotSlotId::from(
+                boot_info.persistent_boot_preference,
+            )
+            .0,
+            pending_persistent_boot_preference: boot_info
+                .pending_persistent_boot_preference
+                .map(|id| MgsRotSlotId::from(id).0),
+            transient_boot_preference: boot_info
+                .transient_boot_preference
+                .map(|id| MgsRotSlotId::from(id).0),
+            slot_a_sha3_256_digest: match boot_info.slot_a_status {
+                Ok(_) => {
+                    let SpFwid::Sha3_256(digest) = boot_info.slot_a_fwid;
+                    Some(digest)
+                }
+                Err(_) => None,
+            },
+            slot_b_sha3_256_digest: match boot_info.slot_b_status {
+                Ok(_) => {
+                    let SpFwid::Sha3_256(digest) = boot_info.slot_b_fwid;
+                    Some(digest)
+                }
+                Err(_) => None,
+            },
+        })
+    }
+}
+
+struct MgsImageVersion(GwImageVersion);
+
+impl From<SpImageVersion> for MgsImageVersion {
+    fn from(iv: SpImageVersion) -> Self {
+        MgsImageVersion(GwImageVersion {
+            version: iv.version,
+            epoch: iv.epoch,
+        })
+    }
+}
+
+struct MgsRotStateV3(GwRotStateV3);
+
+impl From<SpRotBootInfoV2> for MgsRotStateV3 {
+    fn from(boot_info: SpRotBootInfoV2) -> MgsRotStateV3 {
+        MgsRotStateV3(GwRotStateV3 {
+            active: MgsRotSlotId::from(boot_info.active).0,
+            persistent_boot_preference: MgsRotSlotId::from(
+                boot_info.persistent_boot_preference,
+            )
+            .0,
+            pending_persistent_boot_preference: boot_info
+                .pending_persistent_boot_preference
+                .map(|s| MgsRotSlotId::from(s).0),
+            transient_boot_preference: boot_info
+                .transient_boot_preference
+                .map(|s| MgsRotSlotId::from(s).0),
+            slot_a_fwid: MgsFwid::from(boot_info.slot_a_fwid).0,
+            slot_b_fwid: MgsFwid::from(boot_info.slot_b_fwid).0,
+            stage0_fwid: MgsFwid::from(boot_info.stage0_fwid).0,
+            stage0next_fwid: MgsFwid::from(boot_info.stage0next_fwid).0,
+            slot_a_status: boot_info
+                .slot_a_status
+                .map_err(|e| MgsImageError::from(e).0),
+            slot_b_status: boot_info
+                .slot_b_status
+                .map_err(|e| MgsImageError::from(e).0),
+            stage0_status: boot_info
+                .stage0_status
+                .map_err(|e| MgsImageError::from(e).0),
+            stage0next_status: boot_info
+                .stage0next_status
+                .map_err(|e| MgsImageError::from(e).0),
+        })
+    }
+}
+
+struct MgsImageError(GwImageError);
+impl From<SpImageError> for MgsImageError {
+    fn from(ie: SpImageError) -> MgsImageError {
+        MgsImageError(match ie {
+            SpImageError::Unchecked => GwImageError::Unchecked,
+            SpImageError::FirstPageErased => GwImageError::FirstPageErased,
+            SpImageError::PartiallyProgrammed => {
+                GwImageError::PartiallyProgrammed
+            }
+            SpImageError::InvalidLength => GwImageError::InvalidLength,
+            SpImageError::HeaderNotProgrammed => {
+                GwImageError::HeaderNotProgrammed
+            }
+            SpImageError::BootloaderTooSmall => {
+                GwImageError::BootloaderTooSmall
+            }
+            SpImageError::BadMagic => GwImageError::BadMagic,
+            SpImageError::HeaderImageSize => GwImageError::HeaderImageSize,
+            SpImageError::UnalignedLength => GwImageError::UnalignedLength,
+            SpImageError::UnsupportedType => GwImageError::UnsupportedType,
+            SpImageError::ResetVectorNotThumb2 => {
+                GwImageError::ResetVectorNotThumb2
+            }
+            SpImageError::ResetVector => GwImageError::ResetVector,
+            SpImageError::Signature => GwImageError::Signature,
+        })
+    }
 }

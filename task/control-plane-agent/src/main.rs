@@ -46,7 +46,7 @@ task_slot!(NET, net);
 task_slot!(SYS, sys);
 
 #[allow(dead_code)] // Not all cases are used by all variants
-#[derive(Debug, Clone, Copy, PartialEq, ringbuf::Count)]
+#[derive(Clone, Copy, PartialEq, ringbuf::Count)]
 enum Log {
     #[count(skip)]
     Empty,
@@ -85,7 +85,7 @@ enum Log {
 // `Log` enum above (which itself is only used by our ringbuf logs). The MGS
 // protocol is defined in the `gateway-messages` crate (which is shared with
 // MGS proper and other tools like `sp-sim` in the omicron repository).
-#[derive(Debug, Clone, Copy, PartialEq, ringbuf::Count)]
+#[derive(Clone, Copy, PartialEq, ringbuf::Count)]
 enum MgsMessage {
     Discovery,
     IgnitionState {
@@ -165,11 +165,14 @@ enum MgsMessage {
     },
     ReadRotPage,
     VpdLockStatus,
+    VersionedRotBootInfo {
+        version: u8,
+    },
 }
 
 // This enum does not define the actual IPC protocol - it is only used in the
 // `Log` enum above (which itself is only used by our ringbuf logs).
-#[derive(Debug, Clone, Copy, PartialEq, ringbuf::Count)]
+#[derive(Clone, Copy, PartialEq, ringbuf::Count)]
 enum IpcRequest {
     FetchHostPhase2Data,
     GetHostPhase2Data,
@@ -190,7 +193,7 @@ enum IpcRequest {
 
 counted_ringbuf!(Log, 16, Log::Empty);
 
-#[derive(Copy, Clone, Debug, PartialEq, ringbuf::Count)]
+#[derive(Copy, Clone, PartialEq, ringbuf::Count)]
 enum CriticalEvent {
     Empty,
     /// We have received a network request to change power states. This record

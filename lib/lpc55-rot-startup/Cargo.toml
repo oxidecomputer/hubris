@@ -24,6 +24,7 @@ zerocopy = { workspace = true }
 zeroize = { workspace = true }
 
 abi = { path = "../../sys/abi" }
+kern = { path = "../../sys/kern" }
 armv8-m-mpu = { path = "../armv8-m-mpu" }
 lpc55-puf = { path = "../lpc55-puf", optional = true }
 lib-dice = { path = "../dice", optional = true }
