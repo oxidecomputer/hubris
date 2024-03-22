@@ -25,7 +25,7 @@ use task_thermal_api::{Thermal, ThermalError, ThermalProperties};
 use transceiver_messages::{
     message::LedState, mgmt::ManagementInterface, MAX_PACKET_SIZE,
 };
-use userlib::{FromPrimitive, sys_get_timer, task_slot, units::Celsius};
+use userlib::{sys_get_timer, task_slot, units::Celsius, FromPrimitive};
 use zerocopy::{AsBytes, FromBytes};
 
 mod udp; // UDP API is implemented in a separate file
