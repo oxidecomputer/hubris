@@ -6,7 +6,7 @@ use crate::{Addr, Reg};
 use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
 use drv_transceivers_api::{ModuleStatus, TransceiversError, NUM_PORTS};
 use transceiver_messages::ModuleId;
-use userlib::FromPrimitive;
+use userlib::{FromPrimitive, UnwrapLite};
 use zerocopy::{byteorder, AsBytes, FromBytes, Unaligned, U16};
 
 // The transceiver modules are split across two FPGAs on the QSFP Front IO
@@ -513,7 +513,7 @@ impl From<ModuleResultNoFailure> for ModuleResult {
             r.error(),
             LogicalPortFailureTypes::default(),
         )
-        .unwrap()
+        .unwrap_lite()
     }
 }
 
@@ -604,7 +604,7 @@ impl ModuleResult {
             }
         }
 
-        Self::new(success, failure, error, combined_failures).unwrap()
+        Self::new(success, failure, error, combined_failures).unwrap_lite()
     }
 
     /// Helper to provide a nice way to get a ModuleResultSlim from this result
@@ -688,7 +688,7 @@ impl PortI2CStatus {
             error: FpgaI2CFailure::from_u8(
                 status & Reg::QSFP::PORT0_STATUS::ERROR,
             )
-            .unwrap(),
+            .unwrap_lite(),
         }
     }
 }
@@ -742,7 +742,7 @@ impl Transceivers {
         // only have an error where there was a requested module in mask
         error &= mask;
 
-        ModuleResultNoFailure::new(success, error).unwrap()
+        ModuleResultNoFailure::new(success, error).unwrap_lite()
     }
 
     /// Set power enable bits per the specified `mask`.
@@ -870,8 +870,8 @@ impl Transceivers {
         let error = !success;
 
         (
-            ModuleStatus::read_from(status_masks.as_bytes()).unwrap(),
-            ModuleResultNoFailure::new(success, error).unwrap(),
+            ModuleStatus::read_from(status_masks.as_bytes()).unwrap_lite(),
+            ModuleResultNoFailure::new(success, error).unwrap_lite(),
         )
     }
 
@@ -917,7 +917,7 @@ impl Transceivers {
         // only have an error where there was a requested module in mask
         error &= mask;
 
-        ModuleResultNoFailure::new(success, error).unwrap()
+        ModuleResultNoFailure::new(success, error).unwrap_lite()
     }
 
     /// Initiate an I2C random read on all ports per the specified `mask`.
@@ -1013,7 +1013,7 @@ impl Transceivers {
         success &= mask;
         let error = mask & !success;
 
-        ModuleResultNoFailure::new(success, error).unwrap()
+        ModuleResultNoFailure::new(success, error).unwrap_lite()
     }
 
     /// Read the value of the QSFP_PORTx_STATUS
@@ -1088,7 +1088,7 @@ impl Transceivers {
         }
         let error = !success;
 
-        ModuleResultNoFailure::new(success, error).unwrap()
+        ModuleResultNoFailure::new(success, error).unwrap_lite()
     }
 
     /// For a given `local_port`, return the Addr where its read buffer begins
@@ -1235,12 +1235,12 @@ impl Transceivers {
                     status_all.status[port.0 as usize]
                         & Reg::QSFP::PORT0_STATUS::ERROR,
                 )
-                .unwrap();
+                .unwrap_lite();
                 // if a failure occurred, mark it and record the failure type
                 if failure != FpgaI2CFailure::NoError {
                     physical_failure.get_mut(fpga_index).set(port);
                     let logical_port =
-                        port.to_logical_port(fpga_index).unwrap();
+                        port.to_logical_port(fpga_index).unwrap_lite();
                     failure_types.0[logical_port.0 as usize] = failure;
                 }
             }
@@ -1248,7 +1248,7 @@ impl Transceivers {
         let error = mask & LogicalPortMask::from(physical_error);
         let failure = mask & LogicalPortMask::from(physical_failure);
         let success = mask & !(error | failure);
-        ModuleResult::new(success, failure, error, failure_types).unwrap()
+        ModuleResult::new(success, failure, error, failure_types).unwrap_lite()
     }
 }
 

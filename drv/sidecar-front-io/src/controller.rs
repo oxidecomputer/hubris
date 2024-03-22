@@ -4,6 +4,7 @@
 
 use crate::{Addr, SIDECAR_IO_BITSTREAM_CHECKSUM};
 use drv_fpga_api::*;
+use userlib::UnwrapLite;
 
 pub struct FrontIOController {
     fpga: Fpga,
@@ -90,6 +91,6 @@ impl FrontIOController {
     /// Returns the expected (short) checksum, which simply a prefix of the full
     /// SHA3-256 hash of the bitstream.
     pub fn short_checksum() -> [u8; 4] {
-        SIDECAR_IO_BITSTREAM_CHECKSUM[..4].try_into().unwrap()
+        SIDECAR_IO_BITSTREAM_CHECKSUM[..4].try_into().unwrap_lite()
     }
 }
