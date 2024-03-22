@@ -8,8 +8,7 @@
 use drv_fpga_api::FpgaError;
 use drv_i2c_devices::pca9956b::Error;
 use drv_sidecar_front_io::{
-    leds::FullErrorSummary,
-    leds::Leds,
+    leds::{FullErrorSummary, Leds},
     transceivers::{LogicalPort, LogicalPortMask, Transceivers},
     Reg,
 };
@@ -91,6 +90,13 @@ const MAX_CONSECUTIVE_NACKS: u8 = 3;
 #[derive(Copy, Clone)]
 struct LedStates([LedState; NUM_PORTS as usize]);
 
+#[derive(Copy, Clone, PartialEq)]
+enum FrontIOStatus {
+    NotReady,
+    NotPresent,
+    Ready,
+}
+
 struct ServerImpl {
     transceivers: Transceivers,
     leds: Leds,
@@ -98,11 +104,7 @@ struct ServerImpl {
     modules_present: LogicalPortMask,
 
     /// The Front IO board is not guaranteed to be present and ready
-    ///
-    /// None = Front IO is not yet ready
-    /// Some(false) = Front IO is not present
-    /// Some(true) = Front IO is present and ready.
-    front_io_board_present: Option<bool>,
+    front_io_board_present: FrontIOStatus,
 
     /// State around LED management
     led_error: FullErrorSummary,
@@ -622,7 +624,7 @@ fn main() -> ! {
             leds,
             net,
             modules_present: LogicalPortMask(0),
-            front_io_board_present: None,
+            front_io_board_present: FrontIOStatus::NotReady,
             led_error: Default::default(),
             leds_initialized: false,
             led_states: LedStates([LedState::Off; NUM_PORTS as usize]),
@@ -665,28 +667,28 @@ fn main() -> ! {
 
         let mut buffer = [0; idl::INCOMING_SIZE];
         loop {
-            if server.front_io_board_present.is_none() {
+            if server.front_io_board_present == FrontIOStatus::NotReady {
                 server.front_io_board_present = match seq.front_io_board_ready()
                 {
                     Ok(true) => {
                         ringbuf_entry!(Trace::FrontIOBoardReady(true));
-                        Some(true)
+                        FrontIOStatus::Ready
                     }
                     Err(SeqError::NoFrontIOBoard) => {
                         ringbuf_entry!(Trace::FrontIOSeqErr(
                             SeqError::NoFrontIOBoard
                         ));
-                        Some(false)
+                        FrontIOStatus::NotPresent
                     }
                     _ => {
                         ringbuf_entry!(Trace::FrontIOBoardReady(false));
-                        None
+                        FrontIOStatus::NotReady
                     }
                 };
 
                 // If a board is present, attempt to initialize its
                 // LED drivers
-                if server.front_io_board_present.unwrap_or(false) {
+                if server.front_io_board_present == FrontIOStatus::Ready {
                     ringbuf_entry!(Trace::LEDInit);
                     match server.transceivers.enable_led_controllers() {
                         Ok(_) => server.led_init(),
@@ -707,7 +709,8 @@ fn main() -> ! {
                         server.handle_i2c_loop();
                     }
                     Timers::SPI => {
-                        if server.front_io_board_present.unwrap_or(false) {
+                        if server.front_io_board_present == FrontIOStatus::Ready
+                        {
                             server.handle_spi_loop();
                         }
                     }
