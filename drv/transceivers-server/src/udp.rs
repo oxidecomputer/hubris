@@ -10,12 +10,10 @@
 //!
 //! All of the API types in `transceiver_messages` operate on **physical**
 //! ports, i.e. an FPGA paired by a physical port index (or mask).
-use crate::ServerImpl;
-use drv_sidecar_front_io::{
-    transceivers::{
-        LogicalPort, LogicalPortMask, ModuleResult, ModuleResultNoFailure,
-    },
-    Reg,
+use crate::{FrontIOStatus, ServerImpl};
+use drv_sidecar_front_io::transceivers::{
+    FpgaI2CFailure, LogicalPort, LogicalPortFailureTypes, LogicalPortMask,
+    ModuleResult, ModuleResultNoFailure, ModuleResultSlim, PortI2CStatus,
 };
 use hubpack::SerializedSize;
 use ringbuf::*;
@@ -26,6 +24,7 @@ use transceiver_messages::{
     mgmt::{ManagementInterface, MemoryRead, MemoryWrite, Page},
     ModuleId,
 };
+use userlib::UnwrapLite;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -53,12 +52,15 @@ enum Trace {
     MacAddrs,
     GotError(ProtocolError),
     ResponseSize(ResponseSize),
-    OperationResult(ModuleResult),
+    OperationResult(ModuleResultSlim),
     OperationNoFailResult(ModuleResultNoFailure),
     ClearPowerFault(ModuleId),
     LedState(ModuleId),
     SetLedState(ModuleId, LedState),
     ClearDisableLatch(ModuleId),
+    PageSelectI2CFailures(LogicalPort, FpgaI2CFailure),
+    ReadI2CFailures(LogicalPort, FpgaI2CFailure),
+    WriteI2CFailures(LogicalPort, FpgaI2CFailure),
 }
 
 ringbuf!(Trace, 16, Trace::None);
@@ -304,15 +306,23 @@ impl ServerImpl {
             HostRequest::Status(modules) => {
                 ringbuf_entry!(Trace::Status(modules));
                 let mask = LogicalPortMask::from(modules);
-                let (num_status_bytes, result) = self.get_status(mask, out);
+                let (data_len, result) = if self.front_io_board_present
+                    == FrontIOStatus::Ready
+                {
+                    self.get_status(mask, out)
+                } else {
+                    (
+                        0,
+                        ModuleResultNoFailure::new(LogicalPortMask(0), mask)
+                            .unwrap_lite(),
+                    )
+                };
+
                 ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
-                let (err_len, errored_modules) = self.handle_errors(
-                    modules,
-                    result,
-                    &mut out[num_status_bytes..],
-                );
-                let final_payload_len = num_status_bytes + err_len;
+                let (err_len, errored_modules) =
+                    self.handle_errors(modules, result, &mut out[data_len..]);
+                let final_payload_len = data_len + err_len;
 
                 (
                     MessageBody::SpResponse(SpResponse::Status {
@@ -325,16 +335,23 @@ impl ServerImpl {
             HostRequest::ExtendedStatus(modules) => {
                 ringbuf_entry!(Trace::ExtendedStatus(modules));
                 let mask = LogicalPortMask::from(modules);
-                let (num_status_bytes, result) =
-                    self.get_extended_status(mask, out);
+                let (data_len, result) = if self.front_io_board_present
+                    == FrontIOStatus::Ready
+                {
+                    self.get_extended_status(mask, out)
+                } else {
+                    (
+                        0,
+                        ModuleResultNoFailure::new(LogicalPortMask(0), mask)
+                            .unwrap_lite(),
+                    )
+                };
+
                 ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
-                let (err_len, errored_modules) = self.handle_errors(
-                    modules,
-                    result,
-                    &mut out[num_status_bytes..],
-                );
-                let final_payload_len = num_status_bytes + err_len;
+                let (err_len, errored_modules) =
+                    self.handle_errors(modules, result, &mut out[data_len..]);
+                let final_payload_len = data_len + err_len;
 
                 (
                     MessageBody::SpResponse(SpResponse::ExtendedStatus {
@@ -348,7 +365,10 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::Read(modules, read));
                 // The host is not setting the the upper 32 bits at this time,
                 // but should that happen we need to know how many HwErrors we
-                // will serialize due to invalid modules being specified.
+                // will serialize due to invalid modules being specified. We
+                // only precalculate error length requirements in Read as that
+                // is the only message whose response can approach
+                // MAX_PAYLOAD_SIZE.
                 let num_invalid = ModuleId(modules.0 & 0xffffffff00000000)
                     .selected_transceiver_count();
                 let mask = LogicalPortMask::from(modules);
@@ -365,18 +385,33 @@ impl ServerImpl {
                     );
                 }
 
-                let result = self.read(read, mask & !self.disabled, out);
-                ringbuf_entry!(Trace::OperationResult(result));
+                let (data_len, result) =
+                    if self.front_io_board_present == FrontIOStatus::Ready {
+                        let r = self.read(read, mask & !self.disabled, out);
+                        let len = r.success().count() * read.len() as usize;
+                        (len, r)
+                    } else {
+                        (
+                            0,
+                            ModuleResult::new(
+                                LogicalPortMask(0),
+                                LogicalPortMask(0),
+                                mask,
+                                LogicalPortFailureTypes::default(),
+                            )
+                            .unwrap_lite(),
+                        )
+                    };
+
+                ringbuf_entry!(Trace::OperationResult(result.to_slim()));
                 let success = ModuleId::from(result.success());
-                let read_bytes = result.success().count() * read.len() as usize;
                 let (err_len, failed_modules) = self
                     .handle_errors_and_failures_and_disabled(
                         modules,
                         result,
-                        HwError::I2cError,
-                        &mut out[read_bytes..],
+                        &mut out[data_len..],
                     );
-                let final_payload_len = read_bytes + err_len;
+                let final_payload_len = data_len + err_len;
 
                 (
                     MessageBody::SpResponse(SpResponse::Read {
@@ -398,16 +433,26 @@ impl ServerImpl {
                         0,
                     );
                 }
+
                 let mask = LogicalPortMask::from(modules);
-                let result = self.write(write, mask & !self.disabled, data);
-                ringbuf_entry!(Trace::OperationResult(result));
+                let result =
+                    if self.front_io_board_present == FrontIOStatus::Ready {
+                        self.write(write, mask & !self.disabled, data)
+                    } else {
+                        ModuleResult::new(
+                            LogicalPortMask(0),
+                            LogicalPortMask(0),
+                            mask,
+                            LogicalPortFailureTypes::default(),
+                        )
+                        .unwrap_lite()
+                    };
+
+                ringbuf_entry!(Trace::OperationResult(result.to_slim()));
                 let success = ModuleId::from(result.success());
                 let (num_err_bytes, failed_modules) = self
                     .handle_errors_and_failures_and_disabled(
-                        modules,
-                        result,
-                        HwError::I2cError,
-                        out,
+                        modules, result, out,
                     );
 
                 (
@@ -422,7 +467,15 @@ impl ServerImpl {
             HostRequest::AssertReset(modules) => {
                 ringbuf_entry!(Trace::AssertReset(modules));
                 let mask = LogicalPortMask::from(modules) & !self.disabled;
-                let result = self.transceivers.assert_reset(mask);
+
+                let result =
+                    if self.front_io_board_present == FrontIOStatus::Ready {
+                        self.transceivers.assert_reset(mask)
+                    } else {
+                        ModuleResultNoFailure::new(LogicalPortMask(0), mask)
+                            .unwrap_lite()
+                    };
+
                 ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
                 let (num_err_bytes, failed_modules) =
@@ -439,7 +492,15 @@ impl ServerImpl {
             HostRequest::DeassertReset(modules) => {
                 ringbuf_entry!(Trace::DeassertReset(modules));
                 let mask = LogicalPortMask::from(modules) & !self.disabled;
-                let result = self.transceivers.deassert_reset(mask);
+
+                let result =
+                    if self.front_io_board_present == FrontIOStatus::Ready {
+                        self.transceivers.deassert_reset(mask)
+                    } else {
+                        ModuleResultNoFailure::new(LogicalPortMask(0), mask)
+                            .unwrap_lite()
+                    };
+
                 ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
                 let (num_err_bytes, failed_modules) =
@@ -456,7 +517,15 @@ impl ServerImpl {
             HostRequest::AssertLpMode(modules) => {
                 ringbuf_entry!(Trace::AssertLpMode(modules));
                 let mask = LogicalPortMask::from(modules) & !self.disabled;
-                let result = self.transceivers.assert_lpmode(mask);
+
+                let result =
+                    if self.front_io_board_present == FrontIOStatus::Ready {
+                        self.transceivers.assert_lpmode(mask)
+                    } else {
+                        ModuleResultNoFailure::new(LogicalPortMask(0), mask)
+                            .unwrap_lite()
+                    };
+
                 ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
                 let (num_err_bytes, failed_modules) =
@@ -473,7 +542,15 @@ impl ServerImpl {
             HostRequest::DeassertLpMode(modules) => {
                 ringbuf_entry!(Trace::DeassertLpMode(modules));
                 let mask = LogicalPortMask::from(modules) & !self.disabled;
-                let result = self.transceivers.deassert_lpmode(mask);
+
+                let result =
+                    if self.front_io_board_present == FrontIOStatus::Ready {
+                        self.transceivers.deassert_lpmode(mask)
+                    } else {
+                        ModuleResultNoFailure::new(LogicalPortMask(0), mask)
+                            .unwrap_lite()
+                    };
+
                 ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
                 let (num_err_bytes, failed_modules) =
@@ -490,7 +567,15 @@ impl ServerImpl {
             HostRequest::EnablePower(modules) => {
                 ringbuf_entry!(Trace::EnablePower(modules));
                 let mask = LogicalPortMask::from(modules) & !self.disabled;
-                let result = self.transceivers.enable_power(mask);
+
+                let result =
+                    if self.front_io_board_present == FrontIOStatus::Ready {
+                        self.transceivers.enable_power(mask)
+                    } else {
+                        ModuleResultNoFailure::new(LogicalPortMask(0), mask)
+                            .unwrap_lite()
+                    };
+
                 ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
                 let (num_err_bytes, failed_modules) =
@@ -507,7 +592,15 @@ impl ServerImpl {
             HostRequest::DisablePower(modules) => {
                 ringbuf_entry!(Trace::DisablePower(modules));
                 let mask = LogicalPortMask::from(modules) & !self.disabled;
-                let result = self.transceivers.disable_power(mask);
+
+                let result =
+                    if self.front_io_board_present == FrontIOStatus::Ready {
+                        self.transceivers.disable_power(mask)
+                    } else {
+                        ModuleResultNoFailure::new(LogicalPortMask(0), mask)
+                            .unwrap_lite()
+                    };
+
                 ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
                 let (num_err_bytes, failed_modules) =
@@ -550,7 +643,15 @@ impl ServerImpl {
             HostRequest::ClearPowerFault(modules) => {
                 ringbuf_entry!(Trace::ClearPowerFault(modules));
                 let mask = LogicalPortMask::from(modules) & !self.disabled;
-                let result = self.transceivers.clear_power_fault(mask);
+
+                let result =
+                    if self.front_io_board_present == FrontIOStatus::Ready {
+                        self.transceivers.clear_power_fault(mask)
+                    } else {
+                        ModuleResultNoFailure::new(LogicalPortMask(0), mask)
+                            .unwrap_lite()
+                    };
+
                 ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
                 let (num_err_bytes, failed_modules) =
@@ -567,32 +668,46 @@ impl ServerImpl {
             HostRequest::LedState(modules) => {
                 ringbuf_entry!(Trace::LedState(modules));
                 let mask = LogicalPortMask::from(modules);
-                let (num_led_bytes, result) =
-                    self.get_led_state_response(mask, out);
+                let (data_len, result) = if self.front_io_board_present
+                    == FrontIOStatus::Ready
+                {
+                    self.get_led_state_response(mask, out)
+                } else {
+                    (
+                        0,
+                        ModuleResultNoFailure::new(LogicalPortMask(0), mask)
+                            .unwrap_lite(),
+                    )
+                };
+
                 // This operation just queries internal SP state, so it is
                 // always successful. However, invalid modules may been
                 // specified by the host so we need to check that anyway.
                 let success = ModuleId::from(result.success());
-                let (num_err_bytes, failed_modules) = self.handle_errors(
-                    modules,
-                    result,
-                    &mut out[num_led_bytes..],
-                );
+                let (num_err_bytes, failed_modules) =
+                    self.handle_errors(modules, result, &mut out[data_len..]);
                 (
                     MessageBody::SpResponse(SpResponse::LedState {
                         modules: success,
                         failed_modules,
                     }),
-                    num_led_bytes + num_err_bytes,
+                    data_len + num_err_bytes,
                 )
             }
             HostRequest::SetLedState { modules, state } => {
                 ringbuf_entry!(Trace::SetLedState(modules, state));
                 let mask = LogicalPortMask::from(modules);
-                self.set_led_state(mask, state);
+
                 let result =
-                    ModuleResultNoFailure::new(mask, LogicalPortMask(0))
-                        .unwrap();
+                    if self.front_io_board_present == FrontIOStatus::Ready {
+                        self.set_led_state(mask, state);
+                        ModuleResultNoFailure::new(mask, LogicalPortMask(0))
+                            .unwrap_lite()
+                    } else {
+                        ModuleResultNoFailure::new(LogicalPortMask(0), mask)
+                            .unwrap_lite()
+                    };
+
                 // This operation just sets internal SP state, so it is always
                 // successful. However, invalid modules may been specified by
                 // the host so we need to check that anyway.
@@ -637,11 +752,14 @@ impl ServerImpl {
     /// operation before sending the response. For results where a
     /// `ModuleResultNoFailure` is returned, use `handle_errors` or
     /// `handle_errors_and_disabled` instead.
+    ///
+    /// Panics: This function can panic if a module has been marked to have had
+    /// a failure but the failure type enum is NoError. In practice this should
+    /// not happen.
     fn handle_errors_and_failures_and_disabled(
         &mut self,
         modules: ModuleId,
         result: ModuleResult,
-        failure_type: HwError,
         out: &mut [u8],
     ) -> (usize, ModuleId) {
         let mut error_idx: usize = 0;
@@ -663,6 +781,21 @@ impl ServerImpl {
                     .unwrap();
                     error_idx += err_size;
                 } else if result.failure().is_set(module) {
+                    let failure_type = match result.failure_types()[module] {
+                        FpgaI2CFailure::NoModule => HwError::NotPresent,
+                        FpgaI2CFailure::NoPower => HwError::NotPowered,
+                        FpgaI2CFailure::PowerFault => HwError::PowerFault,
+                        FpgaI2CFailure::NotInitialized => {
+                            HwError::NotInitialized
+                        }
+                        FpgaI2CFailure::I2cAddressNack => {
+                            HwError::I2cAddressNack
+                        }
+                        FpgaI2CFailure::I2cByteNack => HwError::I2cByteNack,
+                        // We only mark failures when an error is set, so this
+                        // branch should never match.
+                        FpgaI2CFailure::NoError => unreachable!(),
+                    };
                     // failure: whatever `HwError` specified by `failure_type`
                     let err_size = hubpack::serialize(
                         &mut out[error_idx..],
@@ -671,12 +804,10 @@ impl ServerImpl {
                     .unwrap();
                     error_idx += err_size;
                 } else if result.error().is_set(module) {
-                    // error: fpga communication issue
-                    let err_size = hubpack::serialize(
-                        &mut out[error_idx..],
-                        &HwError::FpgaError,
-                    )
-                    .unwrap();
+                    let err_type = self.resolve_error_type();
+                    let err_size =
+                        hubpack::serialize(&mut out[error_idx..], &err_type)
+                            .unwrap();
                     error_idx += err_size;
                 }
             } else if requested_invalid_modules.is_set(module.0).unwrap() {
@@ -722,12 +853,10 @@ impl ServerImpl {
             if module <= LogicalPortMask::MAX_PORT_INDEX
                 && result.error().is_set(module)
             {
-                // error: fpga communication issue
-                let err_size = hubpack::serialize(
-                    &mut out[error_idx..],
-                    &HwError::FpgaError,
-                )
-                .unwrap();
+                let err_type = self.resolve_error_type();
+                let err_size =
+                    hubpack::serialize(&mut out[error_idx..], &err_type)
+                        .unwrap();
                 error_idx += err_size;
             } else if requested_invalid_modules.is_set(module.0).unwrap() {
                 // let the host know it requested unsupported modules
@@ -746,6 +875,17 @@ impl ServerImpl {
             error_idx,
             ModuleId(requested_invalid_modules.0 | result.error().0 as u64),
         )
+    }
+
+    // shared logic between the various functions which handle errors
+    fn resolve_error_type(&self) -> HwError {
+        match self.front_io_board_present {
+            // Front IO is present and ready, so the only other error
+            // path currently is if we handle an FpgaError.
+            FrontIOStatus::Ready => HwError::FpgaError,
+            FrontIOStatus::NotPresent => HwError::NoFrontIo,
+            FrontIOStatus::NotReady => HwError::FrontIoNotReady,
+        }
     }
 
     /// This function reads a `ModuleResultNoFailure` and populates error
@@ -931,9 +1071,13 @@ impl ServerImpl {
         const BANK_SELECT: u8 = 0x7E;
         const PAGE_SELECT: u8 = 0x7F;
 
-        let mut result =
-            ModuleResult::new(mask, LogicalPortMask(0), LogicalPortMask(0))
-                .unwrap();
+        let mut result = ModuleResult::new(
+            mask,
+            LogicalPortMask(0),
+            LogicalPortMask(0),
+            LogicalPortFailureTypes::default(),
+        )
+        .unwrap_lite();
 
         // We can always write the lower page; upper pages require modifying
         // registers in the transceiver to select it.
@@ -947,9 +1091,13 @@ impl ServerImpl {
             result = result.chain(self.wait_and_check_i2c(result.success()));
         } else {
             // If the request is to the lower page it is always successful
-            result =
-                ModuleResult::new(mask, LogicalPortMask(0), LogicalPortMask(0))
-                    .unwrap();
+            result = ModuleResult::new(
+                mask,
+                LogicalPortMask(0),
+                LogicalPortMask(0),
+                LogicalPortFailureTypes::default(),
+            )
+            .unwrap_lite();
         }
 
         if let Some(bank) = page.bank() {
@@ -960,6 +1108,13 @@ impl ServerImpl {
                 result.success(),
             ));
             result = result.chain(self.wait_and_check_i2c(result.success()));
+        }
+
+        for port in result.failure().to_indices() {
+            ringbuf_entry!(Trace::PageSelectI2CFailures(
+                port,
+                result.failure_types()[port]
+            ))
         }
         result
     }
@@ -994,6 +1149,7 @@ impl ServerImpl {
         let mut error = LogicalPortMask(0);
         let mut idx = 0;
         let buf_len = mem.len() as usize;
+        let mut failure_types = LogicalPortFailureTypes::default();
 
         for port in result.success().to_indices() {
             // The status register is contiguous with the output buffer, so
@@ -1017,15 +1173,16 @@ impl ServerImpl {
                     break;
                 };
 
-                let status = buf[0];
+                let status = PortI2CStatus::new(buf[0]);
 
                 // Use QSFP::PORT0 for constants, since they're all identical
-                if status & Reg::QSFP::PORT0_STATUS::BUSY == 0 {
+                if status.done {
                     // Check error mask
-                    if status & Reg::QSFP::PORT0_STATUS::ERROR != 0 {
+                    if status.error != FpgaI2CFailure::NoError {
                         // Record which port the error ocurred at so we can
                         // give the host a more meaningful error.
                         failure.set(port);
+                        failure_types.0[port.0 as usize] = status.error
                     } else {
                         // Add data to payload
                         success.set(port);
@@ -1039,8 +1196,18 @@ impl ServerImpl {
                 userlib::hl::sleep_for(1);
             }
         }
-        let final_result = ModuleResult::new(success, failure, error).unwrap();
-        result.chain(final_result)
+        let mut final_result =
+            ModuleResult::new(success, failure, error, failure_types)
+                .unwrap_lite();
+        final_result = result.chain(final_result);
+
+        for port in final_result.failure().to_indices() {
+            ringbuf_entry!(Trace::ReadI2CFailures(
+                port,
+                final_result.failure_types()[port]
+            ))
+        }
+        final_result
     }
 
     // The `LogicalPortMask` indicates which of the requested ports the
@@ -1063,7 +1230,15 @@ impl ServerImpl {
             mem.len(),
             result.success(),
         ));
-        result.chain(self.wait_and_check_i2c(result.success()))
+        result = result.chain(self.wait_and_check_i2c(result.success()));
+
+        for port in result.failure().to_indices() {
+            ringbuf_entry!(Trace::WriteI2CFailures(
+                port,
+                result.failure_types()[port]
+            ))
+        }
+        result
     }
 
     fn get_led_state_response(
