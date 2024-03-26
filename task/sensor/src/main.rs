@@ -8,7 +8,7 @@
 #![no_main]
 
 use core::convert::Infallible;
-use idol_runtime::{NotificationHandler, RequestError};
+use idol_runtime::{ClientError, NotificationHandler, RequestError};
 use task_sensor_api::{NoData, Reading, SensorError, SensorId};
 use userlib::*;
 
@@ -28,23 +28,25 @@ enum LastReading {
 
 /// Zero-cost array wrapper that can be indexed with a `SensorId`
 struct SensorArray<T: 'static>(&'static mut [T; NUM_SENSORS]);
-impl<T: 'static> core::ops::Index<SensorId> for SensorArray<T> {
-    type Output = T;
-    #[inline(always)]
-    fn index(&self, idx: SensorId) -> &Self::Output {
-        &self.0[usize::from(idx)]
-    }
-}
-impl<T: 'static> core::ops::IndexMut<SensorId> for SensorArray<T> {
-    #[inline(always)]
-    fn index_mut(&mut self, idx: SensorId) -> &mut Self::Output {
-        &mut self.0[usize::from(idx)]
-    }
-}
+
 impl<T: 'static> SensorArray<T> {
     #[inline(always)]
-    fn get(&self, idx: SensorId) -> Option<&T> {
-        self.0.get(usize::from(idx))
+    fn get(&self, idx: SensorId) -> Result<&T, RequestError<Infallible>> {
+        // Return `BadMessageContents` if the sensor ID is out of range.
+        self.0
+            .get(usize::from(idx))
+            .ok_or(RequestError::Fail(ClientError::BadMessageContents))
+    }
+
+    #[inline(always)]
+    fn get_mut(
+        &mut self,
+        idx: SensorId,
+    ) -> Result<&mut T, RequestError<Infallible>> {
+        // Return `BadMessageContents` if the sensor ID is out of range.
+        self.0
+            .get_mut(usize::from(idx))
+            .ok_or(RequestError::Fail(ClientError::BadMessageContents))
     }
 }
 
@@ -91,6 +93,10 @@ impl idl::InOrderSensorImpl for ServerImpl {
     ) -> Result<Reading, RequestError<SensorError>> {
         let (reading, timestamp) = self
             .raw_reading(id)
+            .map_err(|e| match e {
+                RequestError::Fail(e) => RequestError::Fail(e),
+                RequestError::Runtime(e) => match e {},
+            })?
             .ok_or(RequestError::Runtime(SensorError::NoReading))?;
         let value = reading.map_err(SensorError::from)?;
         Ok(Reading { value, timestamp })
@@ -102,7 +108,7 @@ impl idl::InOrderSensorImpl for ServerImpl {
         id: SensorId,
     ) -> Result<Option<(Result<f32, NoData>, u64)>, RequestError<Infallible>>
     {
-        Ok(self.raw_reading(id))
+        Ok(self.raw_reading(id)?)
     }
 
     fn get_last_data(
@@ -110,12 +116,12 @@ impl idl::InOrderSensorImpl for ServerImpl {
         _: &RecvMessage,
         id: SensorId,
     ) -> Result<Option<(f32, u64)>, RequestError<Infallible>> {
-        Ok(self.last_reading(id).and_then(|reading| match reading {
-            LastReading::ErrorOnly => None,
-            LastReading::Data | LastReading::DataOnly | LastReading::Error => {
-                Some((self.data_value[id], self.data_time[id]))
-            }
-        }))
+        Ok(match self.last_reading(id)? {
+            None | Some(LastReading::ErrorOnly) => None,
+            Some(
+                LastReading::Data | LastReading::DataOnly | LastReading::Error,
+            ) => Some((*self.data_value.get(id)?, *self.data_time.get(id)?)),
+        })
     }
 
     fn get_last_nodata(
@@ -123,12 +129,12 @@ impl idl::InOrderSensorImpl for ServerImpl {
         _: &RecvMessage,
         id: SensorId,
     ) -> Result<Option<(NoData, u64)>, RequestError<Infallible>> {
-        Ok(self.last_reading(id).and_then(|reading| match reading {
-            LastReading::DataOnly => None,
-            LastReading::Data | LastReading::Error | LastReading::ErrorOnly => {
-                Some((self.err_value[id], self.err_time[id]))
-            }
-        }))
+        Ok(match self.last_reading(id)? {
+            Some(LastReading::DataOnly) | None => None,
+            Some(
+                LastReading::Data | LastReading::Error | LastReading::ErrorOnly,
+            ) => Some((*self.err_value.get(id)?, *self.err_time.get(id)?)),
+        })
     }
 
     fn get_min(
@@ -136,7 +142,7 @@ impl idl::InOrderSensorImpl for ServerImpl {
         _: &RecvMessage,
         id: SensorId,
     ) -> Result<(f32, u64), RequestError<Infallible>> {
-        Ok((self.min_value[id], self.min_time[id]))
+        Ok((*self.min_value.get(id)?, *self.min_time.get(id)?))
     }
 
     fn get_max(
@@ -144,7 +150,7 @@ impl idl::InOrderSensorImpl for ServerImpl {
         _: &RecvMessage,
         id: SensorId,
     ) -> Result<(f32, u64), RequestError<Infallible>> {
-        Ok((self.max_value[id], self.max_time[id]))
+        Ok((*self.max_value.get(id)?, *self.max_time.get(id)?))
     }
 
     fn post(
@@ -154,25 +160,27 @@ impl idl::InOrderSensorImpl for ServerImpl {
         value: f32,
         timestamp: u64,
     ) -> Result<(), RequestError<Infallible>> {
-        let r = match self.last_reading(id) {
+        let r = match self.last_reading(id)? {
             None | Some(LastReading::DataOnly) => LastReading::DataOnly,
             Some(
                 LastReading::Data | LastReading::Error | LastReading::ErrorOnly,
             ) => LastReading::Data,
         };
 
-        self.last_reading[id] = Some(r);
-        self.data_value[id] = value;
-        self.data_time[id] = timestamp;
+        *self.last_reading.get_mut(id)? = Some(r);
+        *self.data_value.get_mut(id)? = value;
+        *self.data_time.get_mut(id)? = timestamp;
 
-        if value < self.min_value[id] {
-            self.min_value[id] = value;
-            self.min_time[id] = timestamp;
+        let min_value = self.min_value.get_mut(id)?;
+        if value < *min_value {
+            *min_value = value;
+            *self.min_time.get_mut(id)? = timestamp;
         }
 
-        if value > self.max_value[id] {
-            self.max_value[id] = value;
-            self.max_time[id] = timestamp;
+        let max_value = self.max_value.get_mut(id)?;
+        if value > *max_value {
+            *max_value = value;
+            *self.max_time.get_mut(id)? = timestamp;
         }
 
         Ok(())
@@ -185,16 +193,16 @@ impl idl::InOrderSensorImpl for ServerImpl {
         nodata: NoData,
         timestamp: u64,
     ) -> Result<(), RequestError<Infallible>> {
-        let r = match self.last_reading(id) {
+        let r = match self.last_reading(id)? {
             None | Some(LastReading::ErrorOnly) => LastReading::ErrorOnly,
             Some(
                 LastReading::Data | LastReading::DataOnly | LastReading::Error,
             ) => LastReading::Error,
         };
 
-        self.last_reading[id] = Some(r);
-        self.err_value[id] = nodata;
-        self.err_time[id] = timestamp;
+        *self.last_reading.get_mut(id)? = Some(r);
+        *self.err_value.get_mut(id)? = nodata;
+        *self.err_time.get_mut(id)? = timestamp;
 
         //
         // We pack per-`NoData` counters into a u32.
@@ -208,8 +216,9 @@ impl idl::InOrderSensorImpl for ServerImpl {
         // Perform a saturating increment by checking our current value
         // against our bitmask: if we have unset bits, we can safely add.
         //
-        if self.nerrors[id] & bitmask != bitmask {
-            self.nerrors[id] += incr;
+        let nerrors = self.nerrors.get_mut(id)?;
+        if *nerrors & bitmask != bitmask {
+            *nerrors += incr;
         }
 
         Ok(())
@@ -220,33 +229,33 @@ impl idl::InOrderSensorImpl for ServerImpl {
         _: &RecvMessage,
         id: SensorId,
     ) -> Result<u32, RequestError<Infallible>> {
-        Ok(self.nerrors[id])
+        Ok(*self.nerrors.get_mut(id)?)
     }
 }
 
 impl ServerImpl {
-    fn raw_reading(&self, id: SensorId) -> Option<(Result<f32, NoData>, u64)> {
-        // Indexing with `[id]` rather than `get` would be okay here, since the
-        // `SensorId`type validates that the index is always in bounds.
-        // However, using `get(id)?` lets us avoid generating panicking code,
-        // which is nice.
-        Some(match self.last_reading(id)? {
-            LastReading::Data | LastReading::DataOnly => {
-                (Ok(*self.data_value.get(id)?), *self.data_time.get(id)?)
+    fn raw_reading(
+        &self,
+        id: SensorId,
+    ) -> Result<Option<(Result<f32, NoData>, u64)>, RequestError<Infallible>>
+    {
+        Ok(match self.last_reading(id)? {
+            None => None,
+            Some(LastReading::Data | LastReading::DataOnly) => {
+                Some((Ok(*self.data_value.get(id)?), *self.data_time.get(id)?))
             }
-            LastReading::Error | LastReading::ErrorOnly => {
-                (Err(*self.err_value.get(id)?), *self.err_time.get(id)?)
+            Some(LastReading::Error | LastReading::ErrorOnly) => {
+                Some((Err(*self.err_value.get(id)?), *self.err_time.get(id)?))
             }
         })
     }
 
     #[inline(always)]
-    fn last_reading(&self, id: SensorId) -> Option<LastReading> {
-        // Indexing with `[id]` rather than `get` would be okay here, since the
-        // `SensorId`type validates that the index is always in bounds.
-        // However, using `get(id)?` lets us avoid generating panicking code,
-        // which is nice.
-        self.last_reading.get(id)?.clone()
+    fn last_reading(
+        &self,
+        id: SensorId,
+    ) -> Result<Option<LastReading>, RequestError<Infallible>> {
+        Ok(self.last_reading.get(id)?.clone())
     }
 }
 
