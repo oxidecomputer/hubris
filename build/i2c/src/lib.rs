@@ -1421,7 +1421,7 @@ impl ConfigGenerator {
                 &mut self.output,
                 r##"
         #[allow(dead_code)]
-        pub const {}_{}_SENSOR: SensorId = SensorId({});"##,
+        pub const {}_{}_SENSOR: SensorId = SensorId::new({});"##,
                 device.to_uppercase(),
                 label,
                 ids[0]
@@ -1438,7 +1438,11 @@ impl ConfigGenerator {
             )?;
 
             for id in ids {
-                writeln!(&mut self.output, "            SensorId({}),", id)?;
+                writeln!(
+                    &mut self.output,
+                    "            SensorId::new({}),",
+                    id
+                )?;
             }
 
             writeln!(&mut self.output, "        ];")?;
@@ -1537,7 +1541,7 @@ impl ConfigGenerator {
             if values.len() == 1 {
                 writeln!(
                     &mut self.output,
-                    "            {field}: SensorId({}),",
+                    "            {field}: SensorId::new({}),",
                     values[0]
                 )?;
             } else {
@@ -1546,7 +1550,7 @@ impl ConfigGenerator {
                     if i > 0 {
                         write!(&mut self.output, ", ")?;
                     }
-                    write!(&mut self.output, "SensorId({v})")?;
+                    write!(&mut self.output, "SensorId::new({v})")?;
                 }
                 writeln!(&mut self.output, "],")?;
             }

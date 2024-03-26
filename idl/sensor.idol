@@ -7,13 +7,13 @@ Interface(
             args: {
                 "id": (
                     type: "SensorId",
-                    recv: From("u32", None),
-                )
+                ),
             },
             reply: Result(
                 ok: "f32",
                 err: CLike("SensorError"),
             ),
+            encoding: Hubpack,
             idempotent: true,
         ),
         "get_reading": (
@@ -103,7 +103,6 @@ Interface(
             args: {
                 "id": (
                     type: "SensorId",
-                    recv: From("u32", None),
                 ),
                 "value": "f32",
                 "timestamp": "u64",
@@ -112,17 +111,16 @@ Interface(
                 ok: "()",
                 err: CLike("SensorApiError"),
             ),
+            encoding: Hubpack,
             idempotent: true,
         ),
         "nodata": (
             args: {
                 "id": (
                     type: "SensorId",
-                    recv: From("u32", None),
                 ),
                 "nodata": (
                     type: "NoData",
-                    recv: FromPrimitive("u8"),
                 ),
                 "timestamp": "u64",
             },
@@ -131,12 +129,12 @@ Interface(
                 err: CLike("SensorApiError"),
             ),
             idempotent: true,
+            encoding: Hubpack,
         ),
         "get_nerrors": (
             args: {
                 "id": (
                     type: "SensorId",
-                    recv: From("u32", None),
                 )
             },
             reply: Result(
@@ -144,6 +142,7 @@ Interface(
                 err: CLike("SensorApiError"),
             ),
             idempotent: true,
+            encoding: Hubpack,
         ),
     },
 )

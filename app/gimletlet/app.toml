@@ -57,7 +57,7 @@ interrupts = {"usart1.irq" = "usart-irq"}
 [tasks.sensor]
 name = "task-sensor"
 priority = 5
-max-sizes = {flash = 8192, ram = 2048 }
+max-sizes = {flash = 16384, ram = 2048 }
 stacksize = 1024
 start = true
 notifications = ["timer"]

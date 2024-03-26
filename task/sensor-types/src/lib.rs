@@ -12,32 +12,6 @@ use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 
-#[derive(
-    zerocopy::AsBytes,
-    Copy,
-    Clone,
-    Debug,
-    Eq,
-    PartialEq,
-    Serialize,
-    Deserialize,
-    SerializedSize,
-)]
-#[repr(C)]
-pub struct SensorId(pub u32);
-
-impl From<u32> for SensorId {
-    fn from(id: u32) -> Self {
-        SensorId(id)
-    }
-}
-
-impl From<SensorId> for u32 {
-    fn from(id: SensorId) -> Self {
-        id.0
-    }
-}
-
 #[derive(Copy, Clone, Debug, SerializedSize, Serialize, Deserialize)]
 pub struct Reading {
     pub timestamp: u64,

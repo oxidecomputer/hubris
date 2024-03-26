@@ -331,7 +331,10 @@ impl MgsCommon {
         &mut self,
         req: SensorRequest,
     ) -> Result<SensorResponse, SpError> {
-        let id = SensorId(req.id);
+        use gateway_messages::SensorError;
+        let id = SensorId::try_from(req.id)
+            .map_err(|_| SpError::Sensor(SensorError::InvalidSensor))?;
+
         match req.kind {
             SensorRequestKind::ErrorCount => {
                 self.sensor.get_nerrors(id).map(SensorResponse::ErrorCount)
@@ -366,7 +369,6 @@ impl MgsCommon {
                 }),
         }
         .map_err(|e| {
-            use gateway_messages::SensorError;
             use task_sensor_api::SensorApiError;
             SpError::Sensor(match e {
                 SensorApiError::InvalidSensor => SensorError::InvalidSensor,
