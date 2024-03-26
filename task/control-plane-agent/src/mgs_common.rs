@@ -337,44 +337,37 @@ impl MgsCommon {
 
         match req.kind {
             SensorRequestKind::ErrorCount => {
-                self.sensor.get_nerrors(id).map(SensorResponse::ErrorCount)
+                let nerrors = self.sensor.get_nerrors(id);
+                Ok(SensorResponse::ErrorCount(nerrors))
             }
             SensorRequestKind::LastReading => {
-                self.sensor.get_raw_reading(id).map(|r| match r {
-                    (Ok(value), timestamp) => {
-                        SensorResponse::LastReading(SensorReading {
-                            value: Ok(value),
-                            timestamp,
-                        })
-                    }
-                    (Err(nodata), timestamp) => {
-                        SensorResponse::LastReading(SensorReading {
-                            value: Err(translate_sensor_nodata(nodata)),
-                            timestamp,
-                        })
-                    }
-                })
+                let (value, timestamp) = self
+                    .sensor
+                    .get_raw_reading(id)
+                    .ok_or(SpError::Sensor(SensorError::NoReading))?;
+                Ok(SensorResponse::LastReading(SensorReading {
+                    value: value.map_err(translate_sensor_nodata),
+                    timestamp,
+                }))
             }
             SensorRequestKind::LastData => {
-                self.sensor.get_last_data(id).map(|(value, timestamp)| {
-                    SensorResponse::LastData { value, timestamp }
-                })
+                let (value, timestamp) = self
+                    .sensor
+                    .get_last_data(id)
+                    .ok_or(SpError::Sensor(SensorError::NoReading))?;
+                Ok(SensorResponse::LastData { value, timestamp })
             }
-            SensorRequestKind::LastError => self
-                .sensor
-                .get_last_nodata(id)
-                .map(|(nodata, timestamp)| SensorResponse::LastError {
+            SensorRequestKind::LastError => {
+                let (nodata, timestamp) = self
+                    .sensor
+                    .get_last_nodata(id)
+                    .ok_or(SpError::Sensor(SensorError::NoReading))?;
+                Ok(SensorResponse::LastError {
                     value: translate_sensor_nodata(nodata),
                     timestamp,
-                }),
+                })
+            }
         }
-        .map_err(|e| {
-            use task_sensor_api::SensorApiError;
-            SpError::Sensor(match e {
-                SensorApiError::InvalidSensor => SensorError::InvalidSensor,
-                SensorApiError::NoReading => SensorError::NoReading,
-            })
-        })
     }
 
     pub(crate) fn current_time(&mut self) -> Result<u64, SpError> {

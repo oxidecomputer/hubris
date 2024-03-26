@@ -96,22 +96,12 @@ impl From<ResponseCode> for NoData {
     Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, counters::Count,
 )]
 pub enum SensorError {
-    InvalidSensor = 1,
     NoReading = 2,
     NotPresent = 3,
     DeviceError = 4,
     DeviceUnavailable = 5,
     DeviceTimeout = 6,
     DeviceOff = 7,
-}
-
-/// A non-device sensor error
-#[derive(
-    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, counters::Count,
-)]
-pub enum SensorApiError {
-    InvalidSensor = 1,
-    NoReading = 2,
 }
 
 impl From<NoData> for SensorError {
@@ -122,15 +112,6 @@ impl From<NoData> for SensorError {
             NoData::DeviceError => SensorError::DeviceError,
             NoData::DeviceUnavailable => SensorError::DeviceUnavailable,
             NoData::DeviceTimeout => SensorError::DeviceTimeout,
-        }
-    }
-}
-
-impl From<SensorApiError> for SensorError {
-    fn from(e: SensorApiError) -> SensorError {
-        match e {
-            SensorApiError::InvalidSensor => SensorError::InvalidSensor,
-            SensorApiError::NoReading => SensorError::NoReading,
         }
     }
 }

@@ -430,7 +430,6 @@ struct SensorErrorConvert(SensorError);
 impl From<SensorErrorConvert> for MeasurementError {
     fn from(value: SensorErrorConvert) -> Self {
         match value.0 {
-            SensorError::InvalidSensor => Self::InvalidSensor,
             SensorError::NoReading => Self::NoReading,
             SensorError::NotPresent => Self::NotPresent,
             SensorError::DeviceError => Self::DeviceError,

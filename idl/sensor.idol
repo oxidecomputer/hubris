@@ -36,10 +36,7 @@ Interface(
                     type: "SensorId",
                 )
             },
-            reply: Result(
-                ok: "(Result<f32, NoData>, u64)",
-                err: CLike("SensorApiError"),
-            ),
+            reply: Simple("Option<(Result<f32, NoData>, u64)>"),
             encoding: Hubpack,
             idempotent: true,
         ),
@@ -50,10 +47,7 @@ Interface(
                     type: "SensorId",
                 )
             },
-            reply: Result(
-                ok: "(f32, u64)",
-                err: CLike("SensorApiError"),
-            ),
+            reply: Simple("Option<(f32, u64)>"),
             encoding: Hubpack,
             idempotent: true,
         ),
@@ -64,10 +58,7 @@ Interface(
                     type: "SensorId",
                 )
             },
-            reply: Result(
-                ok: "(NoData, u64)",
-                err: CLike("SensorApiError"),
-            ),
+            reply: Simple("Option<(NoData, u64)>"),
             encoding: Hubpack,
             idempotent: true,
         ),
@@ -78,10 +69,7 @@ Interface(
                     type: "SensorId",
                 )
             },
-            reply: Result(
-                ok: "(f32, u64)",
-                err: CLike("SensorApiError"),
-            ),
+            reply: Simple("(f32, u64)"),
             encoding: Hubpack,
             idempotent: true,
         ),
@@ -92,10 +80,7 @@ Interface(
                     type: "SensorId",
                 )
             },
-            reply: Result(
-                ok: "(f32, u64)",
-                err: CLike("SensorApiError"),
-            ),
+            reply: Simple("(f32, u64)"),
             encoding: Hubpack,
             idempotent: true,
         ),
@@ -107,10 +92,7 @@ Interface(
                 "value": "f32",
                 "timestamp": "u64",
             },
-            reply: Result(
-                ok: "()",
-                err: CLike("SensorApiError"),
-            ),
+            reply: Simple("()"),
             encoding: Hubpack,
             idempotent: true,
         ),
@@ -124,10 +106,7 @@ Interface(
                 ),
                 "timestamp": "u64",
             },
-            reply: Result(
-                ok: "()",
-                err: CLike("SensorApiError"),
-            ),
+            reply: Simple("()"),
             idempotent: true,
             encoding: Hubpack,
         ),
@@ -137,10 +116,7 @@ Interface(
                     type: "SensorId",
                 )
             },
-            reply: Result(
-                ok: "u32",
-                err: CLike("SensorApiError"),
-            ),
+            reply: Simple("u32"),
             idempotent: true,
             encoding: Hubpack,
         ),
