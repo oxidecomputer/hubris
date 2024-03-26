@@ -117,21 +117,13 @@ impl<'de> Deserialize<'de> for SensorId {
 impl Sensor {
     /// Post the given data with a timestamp of now
     #[inline]
-    pub fn post_now(
-        &self,
-        id: SensorId,
-        value: f32,
-    ) -> Result<(), SensorApiError> {
+    pub fn post_now(&self, id: SensorId, value: f32) {
         self.post(id, value, sys_get_timer().now)
     }
 
     /// Post the given `NoData` error with a timestamp of now
     #[inline]
-    pub fn nodata_now(
-        &self,
-        id: SensorId,
-        nodata: NoData,
-    ) -> Result<(), SensorApiError> {
+    pub fn nodata_now(&self, id: SensorId, nodata: NoData) {
         self.nodata(id, nodata, sys_get_timer().now)
     }
 }

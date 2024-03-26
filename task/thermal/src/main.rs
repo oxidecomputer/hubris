@@ -42,7 +42,7 @@ use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::max31790::I2cWatchdog;
 use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::*;
-use task_sensor_api::{Sensor as SensorApi, SensorApiError, SensorId};
+use task_sensor_api::{Sensor as SensorApi, SensorId};
 use task_thermal_api::{
     SensorReadError, ThermalAutoState, ThermalError, ThermalMode,
     ThermalProperties,
@@ -74,7 +74,6 @@ enum Trace {
     FanReadFailed(SensorId, ResponseCode),
     MiscReadFailed(SensorId, SensorReadError),
     SensorReadFailed(SensorId, SensorReadError),
-    PostFailed(SensorId, SensorApiError),
     ControlPwm(u8),
     PowerModeChanged(PowerBitmask),
     PowerDownFailed(SeqError),

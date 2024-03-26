@@ -9,7 +9,7 @@
 
 use drv_i2c_devices::mwocp68::{Error as Mwocp68Error, Mwocp68};
 use ringbuf::*;
-use task_sensor_api::{Sensor, SensorApiError, SensorId};
+use task_sensor_api::{Sensor, SensorId};
 use userlib::*;
 
 task_slot!(I2C, i2c_driver);
@@ -74,30 +74,24 @@ impl TemperatureSensor {
             Device::Mwocp68 => {
                 for (i, &s) in self.temperature_sensors.iter().enumerate() {
                     let m = Mwocp68::new(&dev, i.try_into().unwrap());
-                    let post_result = match m.read_temperature() {
+                    match m.read_temperature() {
                         Ok(v) => sensor_api.post_now(s, v.0),
                         Err(e) => {
                             let e = Error::Mwocp68Error(e);
                             ringbuf_entry!(Trace::TemperatureReadFailed(s, e));
                             sensor_api.nodata_now(s, e.into())
                         }
-                    };
-                    if let Err(e) = post_result {
-                        ringbuf_entry!(Trace::TemperaturePostFailed(s, e));
                     }
                 }
                 for (i, &s) in self.speed_sensors.iter().enumerate() {
                     let m = Mwocp68::new(&dev, i.try_into().unwrap());
-                    let post_result = match m.read_speed() {
+                    match m.read_speed() {
                         Ok(v) => sensor_api.post_now(s, v.0),
                         Err(e) => {
                             let e = Error::Mwocp68Error(e);
                             ringbuf_entry!(Trace::SpeedReadFailed(s, e));
                             sensor_api.nodata_now(s, e.into())
                         }
-                    };
-                    if let Err(e) = post_result {
-                        ringbuf_entry!(Trace::SpeedPostFailed(s, e));
                     }
                 }
             }
@@ -113,8 +107,6 @@ enum Trace {
     Start,
     SpeedReadFailed(SensorId, Error),
     TemperatureReadFailed(SensorId, Error),
-    SpeedPostFailed(SensorId, SensorApiError),
-    TemperaturePostFailed(SensorId, SensorApiError),
 }
 ringbuf!(Trace, 32, Trace::None);
 

@@ -20,7 +20,7 @@ use enum_map::Enum;
 use idol_runtime::{NotificationHandler, RequestError};
 use multitimer::{Multitimer, Repeat};
 use ringbuf::*;
-use task_sensor_api::{NoData, Sensor, SensorApiError};
+use task_sensor_api::{NoData, Sensor};
 use task_thermal_api::{Thermal, ThermalError, ThermalProperties};
 use transceiver_messages::{
     message::LedState, mgmt::ManagementInterface, MAX_PACKET_SIZE,
@@ -61,7 +61,6 @@ enum Trace {
     RemovedDisabledModuleThermalModel(usize),
     TemperatureReadError(usize, Reg::QSFP::PORT0_STATUS::Encoded),
     TemperatureReadUnexpectedError(usize, FpgaError),
-    SensorError(usize, SensorApiError),
     ThermalError(usize, ThermalError),
     GetInterfaceError(usize, Reg::QSFP::PORT0_STATUS::Encoded),
     GetInterfaceUnexpectedError(usize, FpgaError),
@@ -385,12 +384,10 @@ impl ServerImpl {
                 }
 
                 // Tell the `sensor` task that this device is no longer present
-                if let Err(e) = self.sensor_api.nodata_now(
+                self.sensor_api.nodata_now(
                     TRANSCEIVER_TEMPERATURE_SENSORS[i],
                     NoData::DeviceNotPresent,
-                ) {
-                    ringbuf_entry!(Trace::SensorError(i, e));
-                }
+                );
 
                 if (self.disabled & port).is_empty() {
                     ringbuf_entry!(Trace::UnpluggedModule(i));
@@ -437,12 +434,8 @@ impl ServerImpl {
             match temperature {
                 Ok(t) => {
                     // We got a temperature! Send it over to the thermal task
-                    if let Err(e) = self
-                        .sensor_api
-                        .post_now(TRANSCEIVER_TEMPERATURE_SENSORS[i], t.0)
-                    {
-                        ringbuf_entry!(Trace::SensorError(i, e));
-                    }
+                    self.sensor_api
+                        .post_now(TRANSCEIVER_TEMPERATURE_SENSORS[i], t.0);
                 }
                 // We failed to read a temperature :(
                 //

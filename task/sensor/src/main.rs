@@ -7,8 +7,9 @@
 #![no_std]
 #![no_main]
 
+use core::convert::Infallible;
 use idol_runtime::{NotificationHandler, RequestError};
-use task_sensor_api::{NoData, Reading, SensorApiError, SensorError, SensorId};
+use task_sensor_api::{NoData, Reading, SensorError, SensorId};
 use userlib::*;
 
 use task_sensor_api::config::NUM_SENSORS;
@@ -85,95 +86,65 @@ impl idl::InOrderSensorImpl for ServerImpl {
 
     fn get_reading(
         &mut self,
-        msg: &RecvMessage,
+        _: &RecvMessage,
         id: SensorId,
     ) -> Result<Reading, RequestError<SensorError>> {
-        self.get_raw_reading(msg, id)
-            .map_err(|e| e.map_runtime(SensorError::from))
-            .and_then(|(value, timestamp)| match value {
-                Ok(value) => Ok(Reading { value, timestamp }),
-                Err(e) => Err(SensorError::from(e).into()),
-            })
+        let (reading, timestamp) = self
+            .raw_reading(id)
+            .ok_or(RequestError::Runtime(SensorError::NoReading))?;
+        let value = reading.map_err(SensorError::from)?;
+        Ok(Reading { value, timestamp })
     }
 
     fn get_raw_reading(
         &mut self,
         _: &RecvMessage,
         id: SensorId,
-    ) -> Result<(Result<f32, NoData>, u64), RequestError<SensorApiError>> {
-        match self.last_reading(id)? {
-            Some(LastReading::Data | LastReading::DataOnly) => {
-                Ok((Ok(self.data_value[id]), self.data_time[id]))
-            }
-            Some(LastReading::Error | LastReading::ErrorOnly) => {
-                Ok((Err(self.err_value[id]), self.err_time[id]))
-            }
-            None => Err(SensorApiError::NoReading.into()),
-        }
+    ) -> Result<Option<(Result<f32, NoData>, u64)>, RequestError<Infallible>>
+    {
+        Ok(self.raw_reading(id))
     }
 
     fn get_last_data(
         &mut self,
         _: &RecvMessage,
         id: SensorId,
-    ) -> Result<(f32, u64), RequestError<SensorApiError>> {
-        match self.last_reading(id)? {
-            None | Some(LastReading::ErrorOnly) => {
-                Err(SensorApiError::NoReading.into())
+    ) -> Result<Option<(f32, u64)>, RequestError<Infallible>> {
+        Ok(self.last_reading(id).and_then(|reading| match reading {
+            LastReading::ErrorOnly => None,
+            LastReading::Data | LastReading::DataOnly | LastReading::Error => {
+                Some((self.data_value[id], self.data_time[id]))
             }
-            Some(
-                LastReading::Data | LastReading::DataOnly | LastReading::Error,
-            ) => Ok((self.data_value[id], self.data_time[id])),
-        }
+        }))
     }
 
     fn get_last_nodata(
         &mut self,
         _: &RecvMessage,
         id: SensorId,
-    ) -> Result<(NoData, u64), RequestError<SensorApiError>> {
-        match self.last_reading(id)? {
-            None | Some(LastReading::DataOnly) => {
-                Err(SensorApiError::NoReading.into())
+    ) -> Result<Option<(NoData, u64)>, RequestError<Infallible>> {
+        Ok(self.last_reading(id).and_then(|reading| match reading {
+            LastReading::DataOnly => None,
+            LastReading::Data | LastReading::Error | LastReading::ErrorOnly => {
+                Some((self.err_value[id], self.err_time[id]))
             }
-            Some(
-                LastReading::Data | LastReading::Error | LastReading::ErrorOnly,
-            ) => Ok((self.err_value[id], self.err_time[id])),
-        }
+        }))
     }
 
     fn get_min(
         &mut self,
         _: &RecvMessage,
         id: SensorId,
-    ) -> Result<(f32, u64), RequestError<SensorApiError>> {
-        Ok((
-            self.min_value
-                .get(id)
-                .cloned()
-                .ok_or(SensorApiError::InvalidSensor)?,
-            self.min_time
-                .get(id)
-                .cloned()
-                .ok_or(SensorApiError::InvalidSensor)?,
-        ))
+    ) -> Result<(f32, u64), RequestError<Infallible>> {
+        Ok((self.min_value[id], self.min_time[id]))
     }
 
     fn get_max(
         &mut self,
         _: &RecvMessage,
         id: SensorId,
-    ) -> Result<(f32, u64), RequestError<SensorApiError>> {
-        Ok((
-            self.max_value
-                .get(id)
-                .cloned()
-                .ok_or(SensorApiError::InvalidSensor)?,
-            self.max_time
-                .get(id)
-                .cloned()
-                .ok_or(SensorApiError::InvalidSensor)?,
-        ))
+    ) -> Result<(f32, u64), RequestError<Infallible>> {
+        Ok((self.max_value[id], self.max_time[id]))
     }
 
     fn post(
@@ -182,8 +153,8 @@ impl idl::InOrderSensorImpl for ServerImpl {
         id: SensorId,
         value: f32,
         timestamp: u64,
-    ) -> Result<(), RequestError<SensorApiError>> {
-        let r = match self.last_reading(id)? {
+    ) -> Result<(), RequestError<Infallible>> {
+        let r = match self.last_reading(id) {
             None | Some(LastReading::DataOnly) => LastReading::DataOnly,
             Some(
                 LastReading::Data | LastReading::Error | LastReading::ErrorOnly,
@@ -213,8 +184,8 @@ impl idl::InOrderSensorImpl for ServerImpl {
         id: SensorId,
         nodata: NoData,
         timestamp: u64,
-    ) -> Result<(), RequestError<SensorApiError>> {
-        let r = match self.last_reading(id)? {
+    ) -> Result<(), RequestError<Infallible>> {
+        let r = match self.last_reading(id) {
             None | Some(LastReading::ErrorOnly) => LastReading::ErrorOnly,
             Some(
                 LastReading::Data | LastReading::DataOnly | LastReading::Error,
@@ -248,24 +219,34 @@ impl idl::InOrderSensorImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
         id: SensorId,
-    ) -> Result<u32, RequestError<SensorApiError>> {
-        self.nerrors
-            .get(id)
-            .cloned()
-            .ok_or_else(|| SensorApiError::InvalidSensor.into())
+    ) -> Result<u32, RequestError<Infallible>> {
+        Ok(self.nerrors[id])
     }
 }
 
 impl ServerImpl {
+    fn raw_reading(&self, id: SensorId) -> Option<(Result<f32, NoData>, u64)> {
+        // Indexing with `[id]` rather than `get` would be okay here, since the
+        // `SensorId`type validates that the index is always in bounds.
+        // However, using `get(id)?` lets us avoid generating panicking code,
+        // which is nice.
+        Some(match self.last_reading(id)? {
+            LastReading::Data | LastReading::DataOnly => {
+                (Ok(*self.data_value.get(id)?), *self.data_time.get(id)?)
+            }
+            LastReading::Error | LastReading::ErrorOnly => {
+                (Err(*self.err_value.get(id)?), *self.err_time.get(id)?)
+            }
+        })
+    }
+
     #[inline(always)]
-    fn last_reading(
-        &self,
-        id: SensorId,
-    ) -> Result<Option<LastReading>, SensorApiError> {
-        self.last_reading
-            .get(id)
-            .cloned()
-            .ok_or(SensorApiError::InvalidSensor)
+    fn last_reading(&self, id: SensorId) -> Option<LastReading> {
+        // Indexing with `[id]` rather than `get` would be okay here, since the
+        // `SensorId`type validates that the index is always in bounds.
+        // However, using `get(id)?` lets us avoid generating panicking code,
+        // which is nice.
+        self.last_reading.get(id)?.clone()
     }
 }
 
@@ -327,7 +308,7 @@ fn main() -> ! {
 }
 
 mod idl {
-    use super::{NoData, Reading, SensorApiError, SensorError, SensorId};
+    use super::{NoData, Reading, SensorError, SensorId};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
