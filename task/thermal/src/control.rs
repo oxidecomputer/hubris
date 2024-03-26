@@ -248,19 +248,9 @@ pub struct TimestampedSensorError {
     pub err: SensorReadError,
 }
 
-impl Default for TimestampedSensorError {
-    fn default() -> Self {
-        TimestampedSensorError {
-            timestamp: 0,
-            id: SensorId(u32::MAX),
-            err: SensorReadError::NoData,
-        }
-    }
-}
-
 #[derive(Copy, Clone, Default)]
 pub struct ThermalSensorErrors {
-    pub values: [TimestampedSensorError; 16],
+    pub values: [Option<TimestampedSensorError>; 16],
     pub next: u32,
 }
 
@@ -273,7 +263,7 @@ impl ThermalSensorErrors {
     pub fn push(&mut self, id: SensorId, err: SensorReadError) {
         if let Some(v) = self.values.get_mut(self.next as usize) {
             let timestamp = userlib::sys_get_timer().now;
-            *v = TimestampedSensorError { id, err, timestamp };
+            *v = Some(TimestampedSensorError { id, err, timestamp });
             self.next += 1;
         }
     }

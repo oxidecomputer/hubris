@@ -176,10 +176,10 @@ impl ServerImpl {
                     mfr_date: [0u8; 12],
                     mfr_serial: [0u8; 20],
                     mfr_firmware_data: [0u8; 20],
-                    temp_sensor: sensors.temperature,
-                    voltage_sensor: sensors.voltage,
-                    current_sensor: sensors.current,
-                    power_sensor: sensors.power,
+                    temp_sensor: sensors.temperature.into(),
+                    voltage_sensor: sensors.voltage.into(),
+                    current_sensor: sensors.current.into(),
+                    power_sensor: sensors.power.into(),
                 };
                 self.tx_buf.try_encode_inventory(sequence, &name, || {
                     use pmbus::commands::bmr491::CommandCode;
@@ -228,8 +228,8 @@ impl ServerImpl {
                     mfr_date: [0u8; 4],
                     ic_device_id: [0u8; 4],
                     ic_device_rev: [0u8; 4],
-                    voltage_sensors: sensors.voltage,
-                    current_sensors: sensors.current,
+                    voltage_sensors: SensorId::into_u32_array(sensors.voltage),
+                    current_sensors: SensorId::into_u32_array(sensors.current),
                 };
                 self.tx_buf.try_encode_inventory(sequence, &name, || {
                     use pmbus::commands::isl68224::CommandCode;
@@ -278,10 +278,10 @@ impl ServerImpl {
                     mfr_date: [0u8; 4],
                     ic_device_id: [0u8; 4],
                     ic_device_rev: [0u8; 4],
-                    temp_sensors: sensors.temperature,
-                    power_sensors: sensors.power,
-                    voltage_sensors: sensors.voltage,
-                    current_sensors: sensors.current,
+                    temp_sensors: SensorId::into_u32_array(sensors.temperature),
+                    power_sensors: SensorId::into_u32_array(sensors.power),
+                    voltage_sensors: SensorId::into_u32_array(sensors.voltage),
+                    current_sensors: SensorId::into_u32_array(sensors.current),
                 };
                 self.tx_buf.try_encode_inventory(sequence, &name, || {
                     use pmbus::commands::raa229618::CommandCode;
@@ -334,9 +334,9 @@ impl ServerImpl {
                     ic_device_id: [0u8; 6],
                     ic_device_rev: [0u8; 2],
                     nvm_checksum: 0u16,
-                    temp_sensor: sensors.temperature,
-                    voltage_sensor: sensors.voltage,
-                    current_sensor: sensors.current,
+                    temp_sensor: sensors.temperature.into(),
+                    voltage_sensor: sensors.voltage.into(),
+                    current_sensor: sensors.current.into(),
                 };
                 self.tx_buf.try_encode_inventory(sequence, &name, || {
                     use pmbus::commands::tps546b24a::CommandCode;
@@ -389,9 +389,9 @@ impl ServerImpl {
                     mfr_revision: [0u8; 2],
                     mfr_date: [0u8; 6],
 
-                    temp_sensor: sensors.temperature,
-                    voltage_sensor: sensors.voltage,
-                    current_sensor: sensors.current,
+                    temp_sensor: sensors.temperature.into(),
+                    voltage_sensor: sensors.voltage.into(),
+                    current_sensor: sensors.current.into(),
                 };
                 self.tx_buf.try_encode_inventory(sequence, &name, || {
                     use pmbus::commands::tps546b24a::CommandCode;
@@ -439,7 +439,7 @@ impl ServerImpl {
                     eeprom1: 0,
                     eeprom2: 0,
                     eeprom3: 0,
-                    temp_sensor: sensors.temperature,
+                    temp_sensor: sensors.temperature.into(),
                 };
                 self.tx_buf.try_encode_inventory(sequence, &name, || {
                     let InventoryData::Tmp117 {
@@ -534,8 +534,8 @@ impl ServerImpl {
                     _ => panic!(),
                 };
                 let data = InventoryData::Max5970 {
-                    voltage_sensors: sensors.voltage,
-                    current_sensors: sensors.current,
+                    voltage_sensors: SensorId::into_u32_array(sensors.voltage),
+                    current_sensors: SensorId::into_u32_array(sensors.current),
                 };
                 self.tx_buf
                     .try_encode_inventory(sequence, &name, || Ok(&data));
@@ -543,7 +543,7 @@ impl ServerImpl {
             71 => {
                 let (name, _f, sensors) = by_refdes!(U321, max31790);
                 let data = InventoryData::Max31790 {
-                    speed_sensors: sensors.speed,
+                    speed_sensors: SensorId::into_u32_array(sensors.speed),
                 };
                 self.tx_buf
                     .try_encode_inventory(sequence, &name, || Ok(&data));
@@ -593,17 +593,16 @@ impl ServerImpl {
         let packrat = &self.packrat; // partial borrow
         let mut data = InventoryData::DimmSpd {
             id: [0u8; 512],
-            temp_sensor: SensorId(u32::MAX),
+            temp_sensor: i2c_config::sensors::TSE2004AV_TEMPERATURE_SENSORS
+                [index as usize]
+                .into(),
         };
         self.tx_buf.try_encode_inventory(sequence, &name, || {
             // TODO: does packrat index match PCA designator?
             if packrat.get_spd_present(index as usize) {
-                let InventoryData::DimmSpd { id, temp_sensor } = &mut data
+                let InventoryData::DimmSpd { id, .. } = &mut data
                     else { unreachable!(); };
                 packrat.get_full_spd_data(index as usize, id);
-                *temp_sensor =
-                    i2c_config::sensors::TSE2004AV_TEMPERATURE_SENSORS
-                        [index as usize];
                 Ok(&data)
             } else {
                 Err(InventoryDataResult::DeviceAbsent)

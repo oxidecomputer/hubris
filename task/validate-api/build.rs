@@ -39,7 +39,7 @@ fn write_pub_device_descriptions(
             writeln!(file, "            SensorDescription {{")?;
             writeln!(file, "                name: {:?},", s.name)?;
             writeln!(file, "                kind: Sensor::{:?},", s.kind)?;
-            writeln!(file, "                id: SensorId({}),", s.id)?;
+            writeln!(file, "                id: SensorId::new({}),", s.id)?;
             writeln!(file, "            }},")?;
         }
         writeln!(file, "        ],")?;

@@ -31,19 +31,19 @@ impl<T: 'static> core::ops::Index<SensorId> for SensorArray<T> {
     type Output = T;
     #[inline(always)]
     fn index(&self, idx: SensorId) -> &Self::Output {
-        &self.0[idx.0 as usize]
+        &self.0[usize::from(idx)]
     }
 }
 impl<T: 'static> core::ops::IndexMut<SensorId> for SensorArray<T> {
     #[inline(always)]
     fn index_mut(&mut self, idx: SensorId) -> &mut Self::Output {
-        &mut self.0[idx.0 as usize]
+        &mut self.0[usize::from(idx)]
     }
 }
 impl<T: 'static> SensorArray<T> {
     #[inline(always)]
     fn get(&self, idx: SensorId) -> Option<&T> {
-        self.0.get(idx.0 as usize)
+        self.0.get(usize::from(idx))
     }
 }
 
