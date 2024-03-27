@@ -22,7 +22,7 @@ use drv_stm32xx_sys_api::{Alternate, Port, Sys};
 use task_net_api::{
     ManagementCounters, ManagementLinkStatus, MgmtError, PhyError,
 };
-use userlib::{hl::sleep_for, task_slot};
+use userlib::UnwrapLite;
 use vsc7448_pac::types::PhyRegisterAddress;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -91,7 +91,7 @@ impl bsp_support::Bsp for BspImpl {
         // The VSC8552 on the sidecar has its SIGDET GPIOs pulled down,
         // for some reason.
         let rw = &mut MiimBridge::new(eth);
-        bsp.vsc85x2.set_sigdet_polarity(rw, true).unwrap();
+        bsp.vsc85x2.set_sigdet_polarity(rw, true).unwrap_lite();
 
         Self(bsp)
     }
