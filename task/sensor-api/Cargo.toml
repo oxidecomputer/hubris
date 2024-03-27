@@ -6,14 +6,15 @@ edition = "2021"
 [dependencies]
 hubpack.workspace = true
 idol-runtime.workspace = true
+num-derive.workspace = true
 num-traits.workspace = true
 serde.workspace = true
 zerocopy.workspace = true
 
 counters = { path = "../../lib/counters" }
 drv-i2c-api.path = "../../drv/i2c-api"
+derive-idol-err.path = "../../lib/derive-idol-err"
 userlib.path = "../../sys/userlib"
-task-sensor-types.path = "../sensor-types"
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
