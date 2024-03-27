@@ -2325,7 +2325,7 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#e727e960d31f62afe6077fdfc405e0ac2379f6b2"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=update-stage0#592e5508c478423add3aa5223362b3d85a3ffdb7"
 dependencies = [
  "bitflags 2.4.2",
  "hubpack",
@@ -2870,6 +2870,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "lpc55-hashcrypt"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.94",
+ "zerocopy 0.6.6",
+]
+
+[[package]]
 name = "lpc55-iocon-gen"
 version = "0.1.0"
 dependencies = [
@@ -2918,12 +2930,15 @@ dependencies = [
  "digest",
  "drv-lpc55-flash",
  "hubpack",
+ "kern",
  "lib-dice",
  "lib-lpc55-usart",
+ "lpc55-hashcrypt",
  "lpc55-pac",
  "lpc55-puf",
  "lpc55_romapi",
  "nb 1.0.0",
+ "ringbuf",
  "ron",
  "salty",
  "serde",
@@ -2953,9 +2968,11 @@ dependencies = [
  "idol",
  "idol-runtime",
  "lpc55-pac",
+ "mutable-statics",
  "num-traits",
  "ringbuf",
  "serde",
+ "sha3",
  "stage0-handoff",
  "static_assertions",
  "task-jefe-api",

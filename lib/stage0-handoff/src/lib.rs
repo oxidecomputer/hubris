@@ -14,7 +14,8 @@ use static_assertions::const_assert;
 mod rot_update_details;
 
 pub use rot_update_details::{
-    ImageVersion, RotBootState, RotImageDetails, RotSlot,
+    ImageError, ImageVersion, RotBootState, RotBootStateV2, RotImageDetails,
+    RotImageDetailsV2, RotSlot,
 };
 
 // This memory is the USB peripheral SRAM that's 0x4000 bytes long. Changes
@@ -98,7 +99,7 @@ pub unsafe trait HandoffData {
     {
         // Cast the MEM_START address to a slice of bytes of MAX_SIZE length.
         //
-        // SAFETY: This unsafe block relies on implementers of the trait to
+        // Safety: This unsafe block relies on implementers of the trait to
         // validate the memory range denoted by Self::MEM_RANGE. Each
         // implementation in this module is checked by static assertion.
         let src = unsafe {
