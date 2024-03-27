@@ -14,6 +14,7 @@ usage() {
     [[ -n "$msg" ]] && echo "$msg"
     echo "Usage: $PROG [options] [args]"
     echo '  -c # Continue to next app.toml on build errors'
+    echo '  -e # Just build the app.toml files that are essential for testing'
     echo '  -h # Help (this message)'
     echo '  -n # No action, just list app.toml files to process.'
     echo '  -r # Remove previous log files (rebuild everything)'
@@ -35,10 +36,12 @@ STOP_ON_ERROR=true
 NOOP=false
 REMOVE_PREV_LOG=false
 SKIP_UNSUPPORTED=true
+ESSENTIAL=false
 
-while getopts "chnru" opt; do
+while getopts "chenru" opt; do
     case $opt in
         c) STOP_ON_ERROR=false;;
+	e) ESSENTIAL=true;;
         h) usage 0;;
         n) NOOP=true;;
         r) REMOVE_PREV_LOG=true;;
@@ -84,7 +87,10 @@ echo app/gimlet/rev-c-lab.toml
 echo app/sidecar/rev-b-lab.toml
 echo app/psc/rev-b-dev.toml
 # Everything except 'Cargo.toml'.
-find "app" -name '*.toml' ! -name Cargo.toml | sort
+if ! $ESSENTIAL
+then
+  find "app" -name '*.toml' ! -name Cargo.toml | sort
+fi
 )
 
 declare -A -g SEEN
