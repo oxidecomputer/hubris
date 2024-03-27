@@ -1422,7 +1422,7 @@ dependencies = [
  "ringbuf",
  "serde",
  "userlib",
- "zerocopy 0.6.4",
+ "zerocopy 0.6.6",
 ]
 
 [[package]]
