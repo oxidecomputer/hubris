@@ -1036,6 +1036,7 @@ name = "drv-i2c-devices"
 version = "0.1.0"
 dependencies = [
  "bitfield 0.13.2",
+ "counters",
  "derive-idol-err",
  "drv-i2c-api",
  "drv-onewire",
@@ -4761,6 +4762,7 @@ dependencies = [
  "build-i2c",
  "build-util",
  "cortex-m",
+ "counters",
  "drv-i2c-api",
  "drv-i2c-devices",
  "idol",
