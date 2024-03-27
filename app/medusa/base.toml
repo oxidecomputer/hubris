@@ -25,8 +25,7 @@ request_reset = ["hiffy"]
 name = "drv-stm32xx-sys"
 features = ["h753"]
 priority = 1
-max-sizes = {flash = 2048, ram = 1024}
-uses = ["rcc", "gpios1", "gpios2", "gpios3", "system_flash"]
+uses = ["rcc", "gpios", "system_flash"]
 start = true
 task-slots = ["jefe"]
 
@@ -113,7 +112,7 @@ priority = 5
 features = ["mgmt", "h753", "vlan", "vpd-mac", "use-spi-core", "spi3"]
 max-sizes = {flash = 131072, ram = 65536, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
-uses = ["eth", "eth_dma", "tim16", "spi3"]
+uses = ["eth", "tim16", "spi3"]
 start = true
 notifications = ["eth-irq", "mdio-timer-irq", "spi-irq", "wake-timer"]
 task-slots = ["sys", "packrat", { seq = "sequencer" }, "jefe"]
@@ -183,7 +182,6 @@ task-slots = ["i2c_driver"]
 name = "task-sensor"
 features = []
 priority = 4
-max-sizes = {flash = 8192, ram = 4096 }
 stacksize = 1024
 start = true
 notifications = ["timer"]
