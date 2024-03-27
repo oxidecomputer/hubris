@@ -40,8 +40,10 @@ task_slot!(I2C, i2c_driver);
 task_slot!(FRONT_IO, front_io);
 task_slot!(SEQ, seq);
 task_slot!(NET, net);
-task_slot!(THERMAL, thermal);
 task_slot!(SENSOR, sensor);
+
+#[cfg(feature = "thermal-control")]
+task_slot!(THERMAL, thermal);
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
@@ -127,7 +129,7 @@ struct ServerImpl {
     consecutive_nacks: [u8; NUM_PORTS as usize],
 
     /// Handle to write thermal models and presence to the `thermal` task
-    thermal_api: Thermal,
+    thermal_api: Option<Thermal>,
 
     /// Handle to write temperatures to the `sensors` task
     sensor_api: Sensor,
@@ -378,9 +380,11 @@ impl ServerImpl {
                     }
                 }
             } else if !operational && self.thermal_models[i].is_some() {
-                // This transceiver went away; remove it from the thermal loop
-                if let Err(e) = self.thermal_api.remove_dynamic_input(i) {
-                    ringbuf_entry!(Trace::ThermalError(i, e));
+                if let Some(thermal_api) = &self.thermal_api {
+                    // This transceiver went away; remove it from the thermal loop
+                    if let Err(e) = thermal_api.remove_dynamic_input(i) {
+                        ringbuf_entry!(Trace::ThermalError(i, e));
+                    }
                 }
 
                 // Tell the `sensor` task that this device is no longer present
@@ -408,14 +412,16 @@ impl ServerImpl {
                 None => continue,
             };
 
-            // *Always* post the thermal model over to the thermal task, so that
-            // the thermal task still has it in case of restart.  This will
-            // return a `NotInAutoMode` error if the thermal loop is in manual
-            // mode; this is harmless and will be ignored (instead of cluttering
-            // up the logs).
-            match self.thermal_api.update_dynamic_input(i, m.model) {
-                Ok(()) | Err(ThermalError::NotInAutoMode) => (),
-                Err(e) => ringbuf_entry!(Trace::ThermalError(i, e)),
+            if let Some(thermal_api) = &self.thermal_api {
+                // *Always* post the thermal model over to the thermal task, so
+                // that the thermal task still has it in case of restart.  This
+                // will return a `NotInAutoMode` error if the thermal loop is in
+                // manual mode; this is harmless and will be ignored (instead of
+                // cluttering up the logs).
+                match thermal_api.update_dynamic_input(i, m.model) {
+                    Ok(()) | Err(ThermalError::NotInAutoMode) => (),
+                    Err(e) => ringbuf_entry!(Trace::ThermalError(i, e)),
+                }
             }
 
             let temperature = match m.interface {
@@ -609,7 +615,6 @@ fn main() -> ! {
     );
 
     let net = task_net_api::Net::from(NET.get_task_id());
-    let thermal_api = Thermal::from(THERMAL.get_task_id());
     let sensor_api = Sensor::from(SENSOR.get_task_id());
 
     let (tx_data_buf, rx_data_buf) = {
@@ -619,6 +624,11 @@ fn main() -> ! {
         )> = ClaimOnceCell::new(([0; MAX_PACKET_SIZE], [0; MAX_PACKET_SIZE]));
         BUFS.claim()
     };
+
+    #[cfg(feature = "thermal-control")]
+    let thermal_api = Some(Thermal::from(THERMAL.get_task_id()));
+    #[cfg(not(feature = "thermal-control"))]
+    let thermal_api = None;
 
     let mut server = ServerImpl {
         transceivers,

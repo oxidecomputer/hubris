@@ -226,7 +226,7 @@ interrupts = {"spi1.irq" = "spi-irq"}
 
 [tasks.transceivers]
 name = "drv-transceivers-server"
-features = ["vlan"]
+features = ["vlan", "thermal-control"]
 priority = 6
 max-sizes = {flash = 65536, ram = 16384}
 stacksize = 4096

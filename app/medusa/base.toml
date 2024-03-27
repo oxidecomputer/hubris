@@ -135,16 +135,6 @@ task-slots = [
     {front_io = "ecp5_front_io"}]
 notifications = ["timer"]
 
-[tasks.thermal]
-name = "task-thermal"
-features = ["medusa"]
-priority = 5
-max-sizes = {flash = 32768, ram = 16384 }
-stacksize = 8096
-start = true
-task-slots = ["i2c_driver", "sensor", "sequencer"]
-notifications = ["timer"]
-
 [tasks.transceivers]
 name = "drv-transceivers-server"
 features = ["vlan"]
@@ -157,7 +147,6 @@ task-slots = [
     "net",
     "sensor",
     "sys",
-    "thermal",
     {front_io = "ecp5_front_io"},
     {seq = "sequencer"}]
 notifications = ["socket", "timer"]
