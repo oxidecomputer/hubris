@@ -22,6 +22,7 @@ pub enum TransceiversError {
     InvalidPowerState,
     InvalidModuleResult,
     LedI2cError,
+    InvalidPhysicalToLogicalMap,
 
     #[idol(server_death)]
     ServerRestarted,

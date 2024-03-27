@@ -458,6 +458,9 @@ pub enum InventoryData {
         voltage_sensors: [SensorId; 2],
         current_sensors: [SensorId; 2],
     },
+
+    /// MAX31790 fan controller
+    Max31790 { speed_sensors: [SensorId; 6] },
 }
 
 #[derive(

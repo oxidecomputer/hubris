@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+counters = { path = "../../lib/counters" }
 drv-spi-api = { path = "../spi-api" }
 idol-runtime = { workspace = true }
 

@@ -6,6 +6,7 @@ use crate::{Addr, Reg};
 use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
 use drv_transceivers_api::{ModuleStatus, TransceiversError, NUM_PORTS};
 use transceiver_messages::ModuleId;
+use userlib::{FromPrimitive, UnwrapLite};
 use zerocopy::{byteorder, AsBytes, FromBytes, Unaligned, U16};
 
 // The transceiver modules are split across two FPGAs on the QSFP Front IO
@@ -24,7 +25,7 @@ pub enum FpgaController {
 }
 
 /// Physical port location
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub struct PortLocation {
     pub controller: FpgaController,
     pub port: PhysicalPort,
@@ -37,7 +38,7 @@ impl From<LogicalPort> for PortLocation {
 }
 
 /// Physical port location within a particular FPGA, as a 0-15 index
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub struct PhysicalPort(pub u8);
 impl PhysicalPort {
     pub fn as_mask(&self) -> PhysicalPortMask {
@@ -46,6 +47,20 @@ impl PhysicalPort {
 
     pub fn get(&self) -> u8 {
         self.0
+    }
+
+    pub fn to_logical_port(
+        &self,
+        fpga: FpgaController,
+    ) -> Result<LogicalPort, TransceiversError> {
+        let loc = PortLocation {
+            controller: fpga,
+            port: *self,
+        };
+        match PORT_MAP.into_iter().position(|&l| l == loc) {
+            Some(p) => Ok(LogicalPort(p as u8)),
+            None => Err(TransceiversError::InvalidPhysicalToLogicalMap),
+        }
     }
 }
 
@@ -479,11 +494,26 @@ pub struct ModuleResult {
     success: LogicalPortMask,
     failure: LogicalPortMask,
     error: LogicalPortMask,
+    failure_types: LogicalPortFailureTypes,
+}
+
+/// This is a slimmed down version of ModuleResult for use in the ringbuf
+#[derive(Copy, Clone, PartialEq)]
+pub struct ModuleResultSlim {
+    success: LogicalPortMask,
+    failure: LogicalPortMask,
+    error: LogicalPortMask,
 }
 
 impl From<ModuleResultNoFailure> for ModuleResult {
     fn from(r: ModuleResultNoFailure) -> Self {
-        ModuleResult::new(r.success(), LogicalPortMask(0), r.error()).unwrap()
+        ModuleResult::new(
+            r.success(),
+            LogicalPortMask(0),
+            r.error(),
+            LogicalPortFailureTypes::default(),
+        )
+        .unwrap_lite()
     }
 }
 
@@ -493,6 +523,7 @@ impl ModuleResult {
         success: LogicalPortMask,
         failure: LogicalPortMask,
         error: LogicalPortMask,
+        failure_types: LogicalPortFailureTypes,
     ) -> Result<Self, TransceiversError> {
         if !(success & failure).is_empty()
             || !(success & error).is_empty()
@@ -504,6 +535,7 @@ impl ModuleResult {
             success,
             failure,
             error,
+            failure_types,
         })
     }
 
@@ -517,6 +549,10 @@ impl ModuleResult {
 
     pub fn error(&self) -> LogicalPortMask {
         self.error
+    }
+
+    pub fn failure_types(&self) -> LogicalPortFailureTypes {
+        self.failure_types
     }
 
     /// Combines two `ModuleResults`
@@ -555,7 +591,29 @@ impl ModuleResult {
         // has subsequently occurred.
         let failure = (self.failure() | next.failure()) & !self.error();
 
-        Self::new(success, failure, error).unwrap()
+        // merge the failure types observed, prefering newer failure types
+        // should both results have a failure at the same port.
+        let mut combined_failures = LogicalPortFailureTypes::default();
+        for p in failure.to_indices() {
+            if next.failure().is_set(p) {
+                combined_failures.0[p.0 as usize] =
+                    next.failure_types().0[p.0 as usize];
+            } else if self.failure().is_set(p) {
+                combined_failures.0[p.0 as usize] =
+                    self.failure_types().0[p.0 as usize];
+            }
+        }
+
+        Self::new(success, failure, error, combined_failures).unwrap_lite()
+    }
+
+    /// Helper to provide a nice way to get a ModuleResultSlim from this result
+    pub fn to_slim(&self) -> ModuleResultSlim {
+        ModuleResultSlim {
+            success: self.success(),
+            failure: self.failure(),
+            error: self.error(),
+        }
     }
 }
 
@@ -589,6 +647,49 @@ impl ModuleResultNoFailure {
 
     pub fn error(&self) -> LogicalPortMask {
         self.error
+    }
+}
+
+/// A type to provide more ergonomic access to the FPGA generated type
+pub type FpgaI2CFailure = Reg::QSFP::PORT0_STATUS::Encoded;
+
+/// A type to consolidate per-module failure types.
+///
+/// Currently the only types of operations that can be considered failures are
+/// those that involve the FPGA doing I2C. Thus, that is the only supported type
+/// right now.
+#[derive(Copy, Clone, PartialEq)]
+pub struct LogicalPortFailureTypes(pub [FpgaI2CFailure; NUM_PORTS as usize]);
+
+impl Default for LogicalPortFailureTypes {
+    fn default() -> Self {
+        Self([FpgaI2CFailure::NoError; NUM_PORTS as usize])
+    }
+}
+
+impl core::ops::Index<LogicalPort> for LogicalPortFailureTypes {
+    type Output = FpgaI2CFailure;
+
+    fn index(&self, i: LogicalPort) -> &Self::Output {
+        &self.0[i.0 as usize]
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct PortI2CStatus {
+    pub done: bool,
+    pub error: FpgaI2CFailure,
+}
+
+impl PortI2CStatus {
+    pub fn new(status: u8) -> Self {
+        Self {
+            done: (status & Reg::QSFP::PORT0_STATUS::BUSY) == 0,
+            error: FpgaI2CFailure::from_u8(
+                status & Reg::QSFP::PORT0_STATUS::ERROR,
+            )
+            .unwrap_lite(),
+        }
     }
 }
 
@@ -641,7 +742,7 @@ impl Transceivers {
         // only have an error where there was a requested module in mask
         error &= mask;
 
-        ModuleResultNoFailure::new(success, error).unwrap()
+        ModuleResultNoFailure::new(success, error).unwrap_lite()
     }
 
     /// Set power enable bits per the specified `mask`.
@@ -769,8 +870,8 @@ impl Transceivers {
         let error = !success;
 
         (
-            ModuleStatus::read_from(status_masks.as_bytes()).unwrap(),
-            ModuleResultNoFailure::new(success, error).unwrap(),
+            ModuleStatus::read_from(status_masks.as_bytes()).unwrap_lite(),
+            ModuleResultNoFailure::new(success, error).unwrap_lite(),
         )
     }
 
@@ -816,7 +917,7 @@ impl Transceivers {
         // only have an error where there was a requested module in mask
         error &= mask;
 
-        ModuleResultNoFailure::new(success, error).unwrap()
+        ModuleResultNoFailure::new(success, error).unwrap_lite()
     }
 
     /// Initiate an I2C random read on all ports per the specified `mask`.
@@ -912,7 +1013,7 @@ impl Transceivers {
         success &= mask;
         let error = mask & !success;
 
-        ModuleResultNoFailure::new(success, error).unwrap()
+        ModuleResultNoFailure::new(success, error).unwrap_lite()
     }
 
     /// Read the value of the QSFP_PORTx_STATUS
@@ -987,7 +1088,7 @@ impl Transceivers {
         }
         let error = !success;
 
-        ModuleResultNoFailure::new(success, error).unwrap()
+        ModuleResultNoFailure::new(success, error).unwrap_lite()
     }
 
     /// For a given `local_port`, return the Addr where its read buffer begins
@@ -1089,30 +1190,31 @@ impl Transceivers {
         let mut physical_failure = FpgaPortMasks::default();
         let mut physical_error = FpgaPortMasks::default();
         let phys_mask: FpgaPortMasks = mask.into();
+        let mut failure_types = LogicalPortFailureTypes::default();
 
         #[derive(AsBytes, Default, FromBytes)]
         #[repr(C)]
-        struct StatusAndErr {
+        struct BusyAndPortStatus {
             busy: u16,
-            err: [u8; 8],
+            status: [u8; 8],
         }
         for fpga_index in phys_mask.iter_fpgas() {
             let fpga = self.fpga(fpga_index);
             // This loop should break immediately, because I2C is fast
-            let status = loop {
-                // Two bytes of BUSY, followed by 8 bytes of error status
-                let status = match fpga.read(Addr::QSFP_I2C_BUSY0) {
+            let status_all = loop {
+                // Two bytes of BUSY, followed by 816bytes of port status
+                let status_all = match fpga.read(Addr::QSFP_I2C_BUSY0) {
                     Ok(data) => data,
                     // If there is an FPGA communication error, mark that as an
                     // error on all of that FPGA's ports
                     Err(_) => {
                         *physical_error.get_mut(fpga_index) =
                             PhysicalPortMask(0xffff);
-                        StatusAndErr::default()
+                        BusyAndPortStatus::default()
                     }
                 };
-                if status.busy == 0 {
-                    break status;
+                if status_all.busy == 0 {
+                    break status_all;
                 }
                 userlib::hl::sleep_for(1);
             };
@@ -1123,25 +1225,30 @@ impl Transceivers {
                 FpgaController::Right => phys_mask.right,
             };
             for port in (0..16).map(PhysicalPort) {
+                // skip ports we didn't interact with
                 if !phys_mask.is_set(port) {
                     continue;
                 }
-                // Each error byte packs together two ports
-                let err = status.err[port.0 as usize / 2]
-                    >> ((port.0 as usize % 2) * 4);
 
-                // For now, check for the presence of an error, but don't bother
-                // reporting the details.
-                let has_err = (err & 0b1000) != 0;
-                if has_err {
+                // cast status byte into a type
+                let failure = FpgaI2CFailure::from_u8(
+                    status_all.status[port.0 as usize]
+                        & Reg::QSFP::PORT0_STATUS::ERROR,
+                )
+                .unwrap_lite();
+                // if a failure occurred, mark it and record the failure type
+                if failure != FpgaI2CFailure::NoError {
                     physical_failure.get_mut(fpga_index).set(port);
+                    let logical_port =
+                        port.to_logical_port(fpga_index).unwrap_lite();
+                    failure_types.0[logical_port.0 as usize] = failure;
                 }
             }
         }
         let error = mask & LogicalPortMask::from(physical_error);
         let failure = mask & LogicalPortMask::from(physical_failure);
         let success = mask & !(error | failure);
-        ModuleResult::new(success, failure, error).unwrap()
+        ModuleResult::new(success, failure, error, failure_types).unwrap_lite()
     }
 }
 

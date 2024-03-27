@@ -28,64 +28,83 @@ use vsc85xx::VscError;
 
 task_slot!(USER_LEDS, user_leds);
 
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, counters::Count)]
 enum Trace {
+    #[count(skip)]
     None,
     BspConfigured,
 
     KszErr {
+        #[count(children)]
         err: KszError,
     },
+
+    // We skip counting the various status and control register ringbuf entries
+    // because they don't really seem to represent a countable event, just the
+    // state of a register, and skipping all of them lets us avoid several words
+    // of counters. Instead, we just count the number of error event variants.
+    #[count(skip)]
     Ksz8463Status {
         port: u8,
         status: u16,
     },
+    #[count(skip)]
     Ksz8463Control {
         port: u8,
         control: u16,
     },
+    #[count(skip)]
     Ksz8463Counter {
         port: u8,
         counter: MIBCounterValue,
     },
 
+    #[count(skip)]
     Vsc8552Status {
         port: u8,
         status: phy::standard::MODE_STATUS,
     },
+    #[count(skip)]
     Vsc8552MacPcsStatus {
         port: u8,
         status: phy::extended_3::MAC_SERDES_PCS_STATUS,
     },
+    #[count(skip)]
     Vsc8552MacPcsControl {
         port: u8,
         control: phy::extended_3::MAC_SERDES_PCS_CONTROL,
     },
+    #[count(skip)]
     Vsc8552MediaSerdesStatus {
         port: u8,
         status: phy::extended_3::MEDIA_SERDES_STATUS,
     },
     Vsc8552Err {
+        #[count(children)]
         err: VscError,
     },
+    #[count(skip)]
     Vsc8552BypassControl {
         port: u8,
         control: phy::standard::BYPASS_CONTROL,
     },
+    #[count(skip)]
     Vsc8552Status100 {
         port: u8,
         status: u16,
     },
+    #[count(skip)]
     Vsc8552TxGoodCounter {
         port: u8,
         counter: phy::extended_3::MEDIA_SERDES_TX_GOOD_PACKET_COUNTER,
     },
+    #[count(skip)]
     Vsc8552RxCRCGoodCounter {
         port: u8,
         counter: phy::extended_3::MEDIA_MAC_SERDES_RX_GOOD_COUNTER,
     },
 }
-ringbuf!(Trace, 32, Trace::None);
+counted_ringbuf!(Trace, 32, Trace::None);
 
 ////////////////////////////////////////////////////////////////////////////////
 

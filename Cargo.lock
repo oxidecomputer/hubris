@@ -1864,6 +1864,7 @@ dependencies = [
  "call_rustfmt",
  "cfg-if",
  "cortex-m",
+ "counters",
  "drv-spi-api",
  "drv-stm32h7-spi",
  "drv-stm32xx-sys-api",
@@ -2635,7 +2636,7 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 [[package]]
 name = "idol"
 version = "0.4.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#f86afe0a3f81ec90292c700bf44ee9fd40d7977f"
+source = "git+https://github.com/oxidecomputer/idolatry.git#070c4dc890f8c3dc26fcadd227316ee2b771e138"
 dependencies = [
  "indexmap 1.9.1",
  "once_cell",
@@ -2652,7 +2653,7 @@ dependencies = [
 [[package]]
 name = "idol-runtime"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#f86afe0a3f81ec90292c700bf44ee9fd40d7977f"
+source = "git+https://github.com/oxidecomputer/idolatry.git#070c4dc890f8c3dc26fcadd227316ee2b771e138"
 dependencies = [
  "counters",
  "userlib",
@@ -2760,6 +2761,7 @@ dependencies = [
  "cfg-if",
  "cortex-m",
  "indexmap 1.9.1",
+ "kerncore",
  "phash",
  "phash-gen",
  "proc-macro2",
@@ -2773,9 +2775,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "kerncore"
+version = "0.1.0"
+
+[[package]]
 name = "ksz8463"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "drv-spi-api",
  "idol-runtime",
  "num-traits",
@@ -4509,6 +4516,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if",
+ "counters",
  "drv-monorail-api",
  "drv-sidecar-front-io",
  "drv-sidecar-mainboard-controller",
@@ -4540,6 +4548,7 @@ dependencies = [
  "build-util",
  "cfg-if",
  "cortex-m",
+ "counters",
  "drv-gimlet-seq-api",
  "drv-psc-seq-api",
  "drv-sidecar-seq-api",
@@ -5320,7 +5329,7 @@ dependencies = [
 [[package]]
 name = "transceiver-messages"
 version = "0.1.1"
-source = "git+https://github.com/oxidecomputer/transceiver-control/#84e28d1263d9d07c5410fb0644469c8eb7b5fb5f"
+source = "git+https://github.com/oxidecomputer/transceiver-control/#0a18f231372069b74b72f1756e2337186e888dc0"
 dependencies = [
  "bitflags 2.4.2",
  "hubpack",
@@ -5424,6 +5433,7 @@ dependencies = [
 name = "vsc-err"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "drv-spi-api",
  "idol-runtime",
 ]
@@ -5434,6 +5444,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if",
+ "counters",
  "drv-spi-api",
  "hubpack",
  "idol",

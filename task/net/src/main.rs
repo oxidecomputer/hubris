@@ -63,7 +63,6 @@ mod idl {
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
 
-use core::sync::atomic::{AtomicU32, Ordering};
 use enum_map::Enum;
 use multitimer::{Multitimer, Repeat};
 use task_net_api::MacAddressBlock;
@@ -74,6 +73,7 @@ use stm32h7::stm32h743 as device;
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
 
+use counters::*;
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::Sys;
 use userlib::*;
@@ -150,9 +150,17 @@ const RX_RING_SZ: usize = 4;
 /////////////////////////////////////////////////////////////////////////////
 // Main driver loop.
 
-/// Global count of passes through the driver loop, for inspection through a
-/// debugger.
-static ITER_COUNT: AtomicU32 = AtomicU32::new(0);
+#[derive(Count)]
+enum Event {
+    /// Global count of passes through the driver loop, for inspection through a
+    /// debugger.
+    Iter,
+    /// IP activity occurred on an iteration.
+    IpActivity,
+    /// Timer wakeups
+    TimerWake,
+}
+counters!(Event);
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -238,18 +246,20 @@ fn main() -> ! {
 
     // Go!
     loop {
-        ITER_COUNT.fetch_add(1, Ordering::Relaxed);
+        count!(Event::Iter);
 
         // Call into smoltcp.
         let now = sys_get_timer().now;
         let activity = server.poll(now);
 
         if activity.ip {
+            count!(Event::IpActivity);
             // Ask the server to iterate over sockets looking for work
             server.wake_sockets();
         } else {
             multitimer.poll_now();
             for t in multitimer.iter_fired() {
+                count!(Event::TimerWake);
                 match t {
                     Timers::Wake => {
                         server.wake();

@@ -45,14 +45,15 @@ cfg_if::cfg_if! {
 
 task_slot!(SYS, sys);
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, counters::Count)]
 enum Trace {
+    #[count(skip)]
     None,
     BspInit(u64),
-    BspInitFailed(VscError),
-    WakeErr(VscError),
+    BspInitFailed(#[count(children)] VscError),
+    WakeErr(#[count(children)] VscError),
 }
-ringbuf!(Trace, 2, Trace::None);
+counted_ringbuf!(Trace, 2, Trace::None);
 
 #[export_name = "main"]
 fn main() -> ! {

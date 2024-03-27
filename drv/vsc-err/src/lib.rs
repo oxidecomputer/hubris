@@ -12,9 +12,9 @@
 use drv_spi_api::SpiError;
 use idol_runtime::ServerDeath;
 
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, counters::Count)]
 pub enum VscError {
-    SpiError(SpiError),
+    SpiError(#[count(children)] SpiError),
     ServerDied,
     /// Error code produced by a proxy device handling PHY register
     /// reads/writes.

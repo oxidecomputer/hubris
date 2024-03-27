@@ -16,6 +16,7 @@ abi = { path = "../abi" }
 armv8-m-mpu = { path = "../../lib/armv8-m-mpu" }
 phash = { path = "../../lib/phash" }
 unwrap-lite = { path = "../../lib/unwrap-lite" }
+kerncore.path = "../kerncore"
 
 [build-dependencies]
 anyhow = { workspace = true }
