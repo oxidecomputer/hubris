@@ -7,6 +7,7 @@ edition = "2021"
 drv-stm32xx-gpio-common = { path = "../stm32xx-gpio-common", features = ["server-support"] }
 drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
 drv-stm32xx-uid = { path = "../../drv/stm32xx-uid" }
+hubris-num-tasks = { path = "../../sys/num-tasks", features = ["task-enum"], optional = true }
 task-jefe-api = { path="../../task/jefe-api" }
 userlib = { path = "../../sys/userlib" }
 
@@ -20,6 +21,7 @@ zerocopy = { workspace = true }
 
 [build-dependencies]
 idol = { workspace = true }
+build-util = { path = "../../build/util" }
 
 [features]
 family-stm32h7 = ["stm32h7", "drv-stm32xx-uid/family-stm32h7"]
@@ -32,6 +34,9 @@ g031 = ["family-stm32g0", "stm32g0/stm32g031", "drv-stm32xx-sys-api/g031", "drv-
 g070 = ["family-stm32g0", "stm32g0/stm32g070", "drv-stm32xx-sys-api/g070", "drv-stm32xx-gpio-common/model-stm32g070"]
 g0b1 = ["family-stm32g0", "stm32g0/stm32g0b1", "drv-stm32xx-sys-api/g0b1", "drv-stm32xx-gpio-common/model-stm32g0b1"]
 no-ipc-counters = ["idol/no-counters"]
+
+# Enable external interrupt controller support.
+exti = ["dep:hubris-num-tasks"]
 
 # Disables the Jefe dependency, for use in tests where the test-runner task is
 # used as supervisor, rather than Jefe.

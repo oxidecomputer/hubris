@@ -2001,10 +2001,12 @@ name = "drv-stm32xx-sys"
 version = "0.1.0"
 dependencies = [
  "bitflags 2.4.2",
+ "build-util",
  "cfg-if",
  "drv-stm32xx-gpio-common",
  "drv-stm32xx-sys-api",
  "drv-stm32xx-uid",
+ "hubris-num-tasks",
  "idol",
  "idol-runtime",
  "num-traits",

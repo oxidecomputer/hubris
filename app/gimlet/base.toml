@@ -50,12 +50,21 @@ notifications = ["eth-irq", "mdio-timer-irq", "wake-timer", "jefe-state-change"]
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
-features = ["h753"]
+features = ["h753", "exti"]
 priority = 1
-max-sizes = {flash = 2048, ram = 2048}
-uses = ["rcc", "gpios", "system_flash"]
+uses = ["rcc", "gpios", "system_flash", "syscfg", "exti"]
 start = true
 task-slots = ["jefe"]
+notifications = ["exti-wildcard-irq"]
+
+[tasks.sys.interrupts]
+"exti.exti0" = "exti-wildcard-irq"
+"exti.exti1" = "exti-wildcard-irq"
+"exti.exti2" = "exti-wildcard-irq"
+"exti.exti3" = "exti-wildcard-irq"
+"exti.exti4" = "exti-wildcard-irq"
+"exti.exti9_5" = "exti-wildcard-irq"
+"exti.exti15_10" = "exti-wildcard-irq"
 
 [tasks.spi2_driver]
 name = "drv-stm32h7-spi-server"
@@ -128,7 +137,7 @@ max-sizes = {flash = 65536, ram = 16384 }
 stacksize = 2800
 start = true
 task-slots = ["i2c_driver", "sensor", "gimlet_seq"]
-notifications = ["timer"]
+notifications = ["timer", "external_badness"]
 
 [tasks.hiffy]
 name = "task-hiffy"

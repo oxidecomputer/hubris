@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    build_util::build_notifications()?;
+
     idol::Generator::new()
         .with_counters(
             idol::CounterSettings::default().with_server_counters(false),
