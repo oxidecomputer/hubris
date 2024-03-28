@@ -42,6 +42,11 @@ notifications = ["exti-wildcard-irq"]
 "exti.exti9_5" = "exti-wildcard-irq"
 "exti.exti15_10" = "exti-wildcard-irq"
 
+[tasks.sys.config.gpio-irqs.button]
+port = "C"
+pin = 13
+owner = {name = "hiffy", notification = "button"}
+
 [tasks.i2c_driver]
 name = "drv-stm32xx-i2c-server"
 stacksize = 1048
@@ -271,8 +276,3 @@ owner = {name = "udprpc", notification = "socket"}
 port = 998
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
-
-[config.sys.gpio-irqs.button]
-port = "C"
-pin = 13
-owner = {name = "hiffy", notification = "button"}
