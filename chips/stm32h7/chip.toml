@@ -36,6 +36,15 @@ address = 0x58001400
 size = 1024
 interrupts = { irq = 86 }
 
+[syscfg]
+address = 0x58000400
+size = 1024
+
+[exti]
+address = 0x58000000
+size = 1024
+interrupts = { exti0 = 6, exti1 = 7, exti2 = 8, exti3 = 9, exti4 = 10, exti9_5 = 23, exti15_10 = 40 }
+
 [usart1]
 address = 0x40011000
 size = 1024
