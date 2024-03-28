@@ -17,7 +17,7 @@ fwid = true
 [kernel]
 name = "lpc55xpresso"
 features = ["dice-self"]
-requires = {flash = 53312, ram = 4096}
+requires = {flash = 53504, ram = 4096}
 
 [caboose]
 region = "flash"
