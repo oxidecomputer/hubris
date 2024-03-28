@@ -77,9 +77,45 @@ pub(crate) fn get_state() -> PowerState {
     }
 }
 
+/// Number of seconds (really, timer firings) between writes to the trace
+/// buffer.
+const TRACE_SECONDS: u32 = 10;
+
+/// Number of trace records to store.
+///
+/// TODO: explain rationale for this value.
+const TRACE_DEPTH: usize = 52;
+
+/// This enum and its corresponding ringbuf are being used to attempt to isolate
+/// cases of this bug:
+///
+///     https://github.com/oxidecomputer/mfg-quality/issues/140
+///
+/// Unless that bug report is closed or says otherwise, be careful modifying
+/// this type, as you may break data collection.
+///
+/// The basic theory here is:
+///
+/// - Every `TRACE_SECONDS` seconds, the task wakes up and writes one `Now`
+///   entry.
+///
+/// - We then record one `Max5970` trace entry per MAX5970 being monitored.
+///
+/// Tooling can then collect this ringbuf periodically and get recent events.
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    /// Written before trace records; the `u32` is the number of times the task
+    /// has woken up to process its timer. This is not exactly equivalent to
+    /// seconds because of the way the timer is maintained, but is approximately
+    /// seconds.
     Now(u32),
+
+    /// Trace record written for each MAX5970.
+    ///
+    /// The `last_bounce_detected` field and those starting with `crossbounce_`
+    /// are copied from running state and may not be updated on every trace
+    /// event. The other fields are read while emitting the trace record and
+    /// should be current.
     Max5970 {
         sensor: SensorId,
         last_bounce_detected: Option<u32>,
@@ -101,8 +137,12 @@ enum Trace {
     None,
 }
 
-ringbuf!(Trace, 52, Trace::None);
+ringbuf!(Trace, TRACE_DEPTH, Trace::None);
 
+/// Records fields from `dev` and merges them with previous state from `peaks`,
+/// updating `peaks` in the process.
+///
+/// If any I2C operation fails, this will abort its work and return.
 fn trace_max5970(
     dev: &Max5970,
     sensor: SensorId,
@@ -129,6 +169,7 @@ fn trace_max5970(
         _ => return,
     };
 
+    // TODO: this update should probably happen after all I/O is done.
     if peaks.iout.bounced(min_iout, max_iout)
         || peaks.vout.bounced(min_vout, max_vout)
     {
@@ -251,7 +292,7 @@ impl State {
         //
         // Trace the detailed state every ten seconds, provided that we are in A0.
         //
-        if state == PowerState::A0 && self.fired % 10 == 0 {
+        if state == PowerState::A0 && self.fired % TRACE_SECONDS == 0 {
             ringbuf_entry!(Trace::Now(self.fired));
 
             for ((dev, sensor), peak) in CONTROLLER_CONFIG
