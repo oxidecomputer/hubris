@@ -15,7 +15,7 @@ Interface(
             },
             reply: Result(
                 ok: "UdpMetadata",
-                err: CLike("RecvError"),
+                err: CLike("task_net_api::RecvError"),
             ),
         ),
         "send_packet": (
@@ -30,7 +30,7 @@ Interface(
             },
             reply: Result(
                 ok: "()",
-                err: CLike("SendError"),
+                err: CLike("task_net_api::SendError"),
             ),
         ),
         "smi_read": (

@@ -6,6 +6,8 @@
 
 #![no_std]
 
+// For Idol-generated code that fully qualifies error type names.
+use crate as drv_spi_api;
 use derive_idol_err::IdolError;
 use gateway_messages::SpiError as GwSpiError;
 use hubpack::SerializedSize;
