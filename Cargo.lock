@@ -291,6 +291,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "build-stm32xx-sys"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "build-util",
+ "cfg-if",
+ "convert_case",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "syn 1.0.94",
+]
+
+[[package]]
 name = "build-util"
 version = "0.1.0"
 dependencies = [
@@ -2001,6 +2015,7 @@ name = "drv-stm32xx-sys"
 version = "0.1.0"
 dependencies = [
  "bitflags 2.4.2",
+ "build-stm32xx-sys",
  "build-util",
  "cfg-if",
  "drv-stm32xx-gpio-common",

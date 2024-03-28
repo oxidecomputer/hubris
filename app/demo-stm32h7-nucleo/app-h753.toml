@@ -25,11 +25,22 @@ request_reset = ["hiffy"]
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
-features = ["h753"]
+features = ["h753", "exti"]
 priority = 1
-uses = ["rcc", "gpios", "system_flash"]
+max-sizes = {flash = 4096, ram = 2048}
+uses = ["rcc", "gpios", "system_flash", "syscfg", "exti"]
 start = true
 task-slots = ["jefe"]
+notifications = ["exti-wildcard-irq"]
+
+[tasks.sys.interrupts]
+"exti.exti0" = "exti-wildcard-irq"
+"exti.exti1" = "exti-wildcard-irq"
+"exti.exti2" = "exti-wildcard-irq"
+"exti.exti3" = "exti-wildcard-irq"
+"exti.exti4" = "exti-wildcard-irq"
+"exti.exti9_5" = "exti-wildcard-irq"
+"exti.exti15_10" = "exti-wildcard-irq"
 
 [tasks.i2c_driver]
 name = "drv-stm32xx-i2c-server"
@@ -145,6 +156,7 @@ max-sizes = {flash = 32768, ram = 32768 }
 stacksize = 2048
 start = true
 task-slots = ["sys", "i2c_driver", "hf", "hash_driver"]
+notifications = ["button"]
 
 [tasks.hf]
 name = "drv-gimlet-hf-server"
@@ -259,3 +271,8 @@ owner = {name = "udprpc", notification = "socket"}
 port = 998
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
+
+[config.sys.gpio-irqs.button]
+port = "C"
+pin = 13
+owner = {name = "hiffy", notification = "button"}
