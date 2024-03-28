@@ -6,6 +6,8 @@
 
 #![no_std]
 
+// For Idol-generated code that fully qualifies error type names.
+use crate as task_net_api;
 use derive_idol_err::IdolError;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
