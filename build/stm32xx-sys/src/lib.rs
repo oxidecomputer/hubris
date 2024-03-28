@@ -6,15 +6,7 @@ use quote::{quote, TokenStreamExt};
 use serde::Deserialize;
 use std::collections::BTreeMap;
 
-/// This represents our _subset_ of global config and _must not_ be marked with
-/// `deny_unknown_fields`!
-#[derive(Deserialize)]
-#[serde(rename_all = "kebab-case")]
-struct GlobalConfig {
-    sys: SysConfig,
-}
-
-#[derive(Deserialize)]
+#[derive(Deserialize, Default)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct SysConfig {
     /// EXTI interrupts
@@ -78,7 +70,7 @@ to_tokens_enum! {
 
 impl SysConfig {
     pub fn load() -> anyhow::Result<Self> {
-        Ok(build_util::config::<GlobalConfig>()?.sys)
+        Ok(build_util::task_maybe_config::<Self>()?.unwrap_or_default())
     }
 
     pub fn needs_exti(&self) -> bool {
