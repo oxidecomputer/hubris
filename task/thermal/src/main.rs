@@ -68,10 +68,11 @@ task_slot!(SENSOR, sensor);
 enum Trace {
     #[count(skip)]
     None,
+    #[count(skip)]
     Start,
     ThermalMode(#[count(children)] ThermalMode),
     AutoState(#[count(children)] ThermalAutoState),
-    FanReadFailed(SensorId, #[count(children)] ResponseCode),
+    FanReadFailed(SensorId, ResponseCode),
     MiscReadFailed(SensorId, #[count(children)] SensorReadError),
     SensorReadFailed(SensorId, #[count(children)] SensorReadError),
     ControlPwm(u8),
