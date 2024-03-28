@@ -248,19 +248,9 @@ pub struct TimestampedSensorError {
     pub err: SensorReadError,
 }
 
-impl Default for TimestampedSensorError {
-    fn default() -> Self {
-        TimestampedSensorError {
-            timestamp: 0,
-            id: SensorId(u32::MAX),
-            err: SensorReadError::NoData,
-        }
-    }
-}
-
 #[derive(Copy, Clone, Default)]
 pub struct ThermalSensorErrors {
-    pub values: [TimestampedSensorError; 16],
+    pub values: [Option<TimestampedSensorError>; 16],
     pub next: u32,
 }
 
@@ -273,7 +263,7 @@ impl ThermalSensorErrors {
     pub fn push(&mut self, id: SensorId, err: SensorReadError) {
         if let Some(v) = self.values.get_mut(self.next as usize) {
             let timestamp = userlib::sys_get_timer().now;
-            *v = TimestampedSensorError { id, err, timestamp };
+            *v = Some(TimestampedSensorError { id, err, timestamp });
             self.next += 1;
         }
     }
@@ -653,37 +643,29 @@ impl<'a> ThermalControl<'a> {
         // Read fan data and log it to the sensors task
         for (index, sensor_id) in self.fans.enumerate() {
             if let Some(sensor_id) = sensor_id {
-                let post_result =
-                    match self.bsp.fan_control(Fan::from(index)).fan_rpm() {
-                        Ok(reading) => self
-                            .sensor_api
-                            .post_now(*sensor_id, reading.0.into()),
-                        Err(e) => {
-                            ringbuf_entry!(Trace::FanReadFailed(*sensor_id, e));
-                            self.err_blackbox
-                                .push(*sensor_id, SensorReadError::I2cError(e));
-                            self.sensor_api.nodata_now(*sensor_id, e.into())
-                        }
-                    };
-
-                if let Err(e) = post_result {
-                    ringbuf_entry!(Trace::PostFailed(*sensor_id, e));
+                match self.bsp.fan_control(Fan::from(index)).fan_rpm() {
+                    Ok(reading) => {
+                        self.sensor_api.post_now(*sensor_id, reading.0.into())
+                    }
+                    Err(e) => {
+                        ringbuf_entry!(Trace::FanReadFailed(*sensor_id, e));
+                        self.err_blackbox
+                            .push(*sensor_id, SensorReadError::I2cError(e));
+                        self.sensor_api.nodata_now(*sensor_id, e.into())
+                    }
                 }
             }
         }
 
         // Read miscellaneous temperature data and log it to the sensors task
         for s in self.bsp.misc_sensors.iter() {
-            let post_result = match s.read_temp(self.i2c_task) {
+            match s.read_temp(self.i2c_task) {
                 Ok(v) => self.sensor_api.post_now(s.sensor_id, v.0),
                 Err(e) => {
                     ringbuf_entry!(Trace::MiscReadFailed(s.sensor_id, e));
                     self.err_blackbox.push(s.sensor_id, e);
                     self.sensor_api.nodata_now(s.sensor_id, e.into())
                 }
-            };
-            if let Err(e) = post_result {
-                ringbuf_entry!(Trace::PostFailed(s.sensor_id, e));
             }
         }
 
@@ -692,7 +674,7 @@ impl<'a> ThermalControl<'a> {
         // powered.
         let power_mode = self.bsp.power_mode();
         for s in self.bsp.inputs.iter() {
-            let post_result = if power_mode.intersects(s.power_mode_mask) {
+            if power_mode.intersects(s.power_mode_mask) {
                 match s.sensor.read_temp(self.i2c_task) {
                     Ok(v) => self.sensor_api.post_now(s.sensor.sensor_id, v.0),
                     Err(e) => {
@@ -723,9 +705,6 @@ impl<'a> ThermalControl<'a> {
                     s.sensor.sensor_id,
                     task_sensor_api::NoData::DeviceOff,
                 )
-            };
-            if let Err(e) = post_result {
-                ringbuf_entry!(Trace::PostFailed(s.sensor.sensor_id, e));
             }
         }
 
@@ -1121,12 +1100,10 @@ impl<'a> ThermalControl<'a> {
 
             // Post this reading to the sensors task as well
             let sensor_id = self.bsp.dynamic_inputs[index];
-            if let Err(e) = self.sensor_api.nodata_now(
+            self.sensor_api.nodata_now(
                 sensor_id,
                 task_sensor_api::NoData::DeviceNotPresent,
-            ) {
-                ringbuf_entry!(Trace::PostFailed(sensor_id, e));
-            }
+            );
             Ok(())
         }
     }

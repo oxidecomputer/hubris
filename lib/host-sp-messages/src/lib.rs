@@ -12,7 +12,6 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_big_array::BigArray;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use static_assertions::{const_assert, const_assert_eq};
-use task_sensor_types::SensorId;
 use unwrap_lite::UnwrapLite;
 use zerocopy::{AsBytes, FromBytes};
 
@@ -42,6 +41,8 @@ pub const MIN_SP_TO_HOST_FILL_DATA_LEN: usize =
     MAX_MESSAGE_SIZE - Header::MAX_SIZE - CHECKSUM_SIZE - SpToHost::MAX_SIZE;
 
 const CHECKSUM_SIZE: usize = core::mem::size_of::<u16>();
+
+pub type SensorIndex = u32;
 
 pub mod version {
     pub const V1: u32 = 1;
@@ -302,7 +303,7 @@ pub enum InventoryData {
     DimmSpd {
         #[serde(with = "BigArray")]
         id: [u8; 512],
-        temp_sensor: SensorId,
+        temp_sensor: SensorIndex,
     },
 
     /// Device or board identity, typically stored in a VPD EEPROM
@@ -338,10 +339,10 @@ pub enum InventoryData {
         /// MFR_FIRMWARE_DATA, PMBus operation 0xFD
         mfr_firmware_data: [u8; 20],
 
-        temp_sensor: SensorId,
-        power_sensor: SensorId,
-        voltage_sensor: SensorId,
-        current_sensor: SensorId,
+        temp_sensor: SensorIndex,
+        power_sensor: SensorIndex,
+        voltage_sensor: SensorIndex,
+        current_sensor: SensorIndex,
     },
 
     /// ISL68224 power converters
@@ -359,8 +360,8 @@ pub enum InventoryData {
         /// IC_DEVICE_REV, PMBus operation 0xAE
         ic_device_rev: [u8; 4],
 
-        voltage_sensors: [SensorId; 3],
-        current_sensors: [SensorId; 3],
+        voltage_sensors: [SensorIndex; 3],
+        current_sensors: [SensorIndex; 3],
     },
 
     /// RAA229618 power converter
@@ -378,10 +379,10 @@ pub enum InventoryData {
         /// IC_DEVICE_REV, PMBus operation 0xAE
         ic_device_rev: [u8; 4],
 
-        temp_sensors: [SensorId; 2],
-        power_sensors: [SensorId; 2],
-        voltage_sensors: [SensorId; 2],
-        current_sensors: [SensorId; 2],
+        temp_sensors: [SensorIndex; 2],
+        power_sensors: [SensorIndex; 2],
+        voltage_sensors: [SensorIndex; 2],
+        current_sensors: [SensorIndex; 2],
     },
 
     Tps546b24a {
@@ -400,9 +401,9 @@ pub enum InventoryData {
         /// NVM_CHECKSUM, PMBus operation 0xF0
         nvm_checksum: u16,
 
-        temp_sensor: SensorId,
-        voltage_sensor: SensorId,
-        current_sensor: SensorId,
+        temp_sensor: SensorIndex,
+        voltage_sensor: SensorIndex,
+        current_sensor: SensorIndex,
     },
 
     /// Fan subassembly identity
@@ -425,9 +426,9 @@ pub enum InventoryData {
         /// MFR_DATE, PMBus operation 0x9D
         mfr_date: [u8; 6],
 
-        temp_sensor: SensorId,
-        voltage_sensor: SensorId,
-        current_sensor: SensorId,
+        temp_sensor: SensorIndex,
+        voltage_sensor: SensorIndex,
+        current_sensor: SensorIndex,
     },
 
     Tmp117 {
@@ -438,7 +439,7 @@ pub enum InventoryData {
         eeprom2: u16,
         eeprom3: u16,
 
-        temp_sensor: SensorId,
+        temp_sensor: SensorIndex,
     },
 
     Idt8a34003 {
@@ -455,12 +456,12 @@ pub enum InventoryData {
     },
 
     Max5970 {
-        voltage_sensors: [SensorId; 2],
-        current_sensors: [SensorId; 2],
+        voltage_sensors: [SensorIndex; 2],
+        current_sensors: [SensorIndex; 2],
     },
 
     /// MAX31790 fan controller
-    Max31790 { speed_sensors: [SensorId; 6] },
+    Max31790 { speed_sensors: [SensorIndex; 6] },
 }
 
 #[derive(
@@ -939,7 +940,7 @@ mod tests {
         v[0..5].copy_from_slice(&[1, 2, 3, 4, 123]);
         let d = InventoryData::DimmSpd {
             id: v,
-            temp_sensor: SensorId(0x1234),
+            temp_sensor: 0x1234,
         };
 
         let mut buf = [0; InventoryData::MAX_SIZE];
@@ -1004,10 +1005,10 @@ mod tests {
             mfr_serial: *b"there are sooo many ",
             mfr_firmware_data: *b"fields in this thing",
 
-            temp_sensor: SensorId(0x1234),
-            power_sensor: SensorId(0x5678),
-            voltage_sensor: SensorId(0x9abc),
-            current_sensor: SensorId(0xdef0),
+            temp_sensor: 0x1234,
+            power_sensor: 0x5678,
+            voltage_sensor: 0x9abc,
+            current_sensor: 0xdef0,
         };
         let n = hubpack::serialize(&mut buf, &d).unwrap();
         assert_eq!(n, 125);
@@ -1034,16 +1035,8 @@ mod tests {
             ic_device_id: [50, 51, 52, 53],
             ic_device_rev: [60, 61, 62, 63],
 
-            voltage_sensors: [
-                SensorId(0x1234),
-                SensorId(0x5678),
-                SensorId(0x9abc),
-            ],
-            current_sensors: [
-                SensorId(0x1122),
-                SensorId(0x3344),
-                SensorId(0x5566),
-            ],
+            voltage_sensors: [0x1234, 0x5678, 0x9abc],
+            current_sensors: [0x1122, 0x3344, 0x5566],
         };
         let n = hubpack::serialize(&mut buf, &d).unwrap();
         assert_eq!(n, 49);
@@ -1065,10 +1058,10 @@ mod tests {
             ic_device_id: [50, 51, 52, 53],
             ic_device_rev: [60, 61, 62, 63],
 
-            temp_sensors: [SensorId(0x1234), SensorId(0x5678)],
-            power_sensors: [SensorId(0x9abc), SensorId(0xdef0)],
-            voltage_sensors: [SensorId(0x1122), SensorId(0x3344)],
-            current_sensors: [SensorId(0x5566), SensorId(0x6677)],
+            temp_sensors: [0x1234, 0x5678],
+            power_sensors: [0x9abc, 0xdef0],
+            voltage_sensors: [0x1122, 0x3344],
+            current_sensors: [0x5566, 0x6677],
         };
         let n = hubpack::serialize(&mut buf, &d).unwrap();
         assert_eq!(n, 57);
@@ -1090,9 +1083,9 @@ mod tests {
             ic_device_id: [50, 51, 52, 53, 54, 55],
             ic_device_rev: [60, 61],
             nvm_checksum: 0xaabb,
-            temp_sensor: SensorId(0x1234),
-            voltage_sensor: SensorId(0x5678),
-            current_sensor: SensorId(0x9abc),
+            temp_sensor: 0x1234,
+            voltage_sensor: 0x5678,
+            current_sensor: 0x9abc,
         };
         let n = hubpack::serialize(&mut buf, &d).unwrap();
         assert_eq!(n, 35);
@@ -1139,9 +1132,9 @@ mod tests {
             mfr_model: [9, 8, 7, 6, 5, 4, 3, 2, 1, 0],
             mfr_revision: [0, 10],
             mfr_date: [10, 20, 30, 40, 50, 60],
-            temp_sensor: SensorId(0x1234),
-            voltage_sensor: SensorId(0x5678),
-            current_sensor: SensorId(0x9abc),
+            temp_sensor: 0x1234,
+            voltage_sensor: 0x5678,
+            current_sensor: 0x9abc,
         };
         let n = hubpack::serialize(&mut buf, &d).unwrap();
         assert_eq!(n, 34);
@@ -1159,7 +1152,7 @@ mod tests {
             eeprom1: 0x1234,
             eeprom2: 0x5678,
             eeprom3: 0xabcd,
-            temp_sensor: SensorId(0x5599),
+            temp_sensor: 0x5599,
         };
         let n = hubpack::serialize(&mut buf, &d).unwrap();
         assert_eq!(n, 13);
@@ -1188,8 +1181,8 @@ mod tests {
         assert_eq!(&buf[..n], [12, 0x34, 0x12]);
 
         let d = InventoryData::Max5970 {
-            voltage_sensors: [SensorId(1), SensorId(2)],
-            current_sensors: [SensorId(3), SensorId(4)],
+            voltage_sensors: [1, 2],
+            current_sensors: [3, 4],
         };
         let n = hubpack::serialize(&mut buf, &d).unwrap();
         assert_eq!(n, 17);

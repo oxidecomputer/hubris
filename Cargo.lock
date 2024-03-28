@@ -2539,7 +2539,6 @@ dependencies = [
  "serde-big-array 0.4.1",
  "serde_repr",
  "static_assertions",
- "task-sensor-types",
  "unwrap-lite",
  "zerocopy 0.6.6",
 ]
@@ -4742,13 +4741,14 @@ dependencies = [
  "build-i2c",
  "build-util",
  "counters",
+ "derive-idol-err",
  "drv-i2c-api",
  "hubpack",
  "idol",
  "idol-runtime",
+ "num-derive",
  "num-traits",
  "serde",
- "task-sensor-types",
  "userlib",
  "zerocopy 0.6.6",
 ]
@@ -4767,20 +4767,6 @@ dependencies = [
  "ringbuf",
  "task-sensor-api",
  "userlib",
- "zerocopy 0.6.6",
-]
-
-[[package]]
-name = "task-sensor-types"
-version = "0.1.0"
-dependencies = [
- "counters",
- "derive-idol-err",
- "drv-i2c-types",
- "hubpack",
- "num-derive",
- "num-traits",
- "serde",
  "zerocopy 0.6.6",
 ]
 

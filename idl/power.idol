@@ -34,11 +34,9 @@ Interface(
         ),
         "phase_current": (
             doc: "reads phase current for the rail denoted by the specified voltage sensor",
+            encoding: Hubpack,
             args: {
-                "rail": (
-                    type: "SensorId",
-                    recv: From("u32", None),
-                ),
+                "rail": "SensorId",
                 "phase": "u8",
             },
             reply: Result(
