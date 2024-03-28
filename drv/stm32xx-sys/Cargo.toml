@@ -22,6 +22,7 @@ zerocopy = { workspace = true }
 [build-dependencies]
 idol = { workspace = true }
 build-util = { path = "../../build/util" }
+build-stm32xx-sys = { path = "../../build/stm32xx-sys" }
 
 [features]
 family-stm32h7 = ["stm32h7", "drv-stm32xx-uid/family-stm32h7"]

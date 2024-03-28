@@ -986,31 +986,5 @@ mod idl {
 mod generated {
     use super::*;
 
-    // TODO: lol jk not really generated, written by hand
-    pub(super) static EXTI_DISPATCH_TABLE: [Option<(Port, TaskId, u32)>; 16] = [
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        // 14 - HACK HACK! This is PI14 on Gimlet for power system debugging
-        Some((
-            Port::I,
-            TaskId::for_index_and_gen(
-                hubris_num_tasks::Task::power as usize,
-                userlib::Generation::ZERO,
-            ),
-            1 << 1,
-        )),
-        None,
-    ];
+    include!(concat!(env!("OUT_DIR"), "/exti_config.rs"));
 }

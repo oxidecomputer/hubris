@@ -1,0 +1,17 @@
+[package]
+name = "build-stm32xx-sys"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = { workspace = true }
+cfg-if = { workspace = true }
+convert_case = { workspace = true }
+proc-macro2 = { workspace = true }
+quote = { workspace = true }
+serde = { workspace = true }
+syn = { workspace = true }
+
+build-util = { path = "../util" }
