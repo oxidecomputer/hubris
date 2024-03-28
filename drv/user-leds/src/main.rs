@@ -52,7 +52,8 @@ cfg_if::cfg_if! {
     if #[cfg(any(
             target_board = "gemini-bu-1",
             target_board = "gimletlet-1",
-            target_board = "gimletlet-2"
+            target_board = "gimletlet-2",
+            target_board = "gimletlet-front-io",
         ))] {
         #[derive(enum_map::Enum, Copy, Clone, FromPrimitive)]
         enum Led {
@@ -475,7 +476,7 @@ cfg_if::cfg_if! {
                     (drv_stm32xx_sys_api::Port::I.pin(10), false),
                     (drv_stm32xx_sys_api::Port::I.pin(11), false),
                 ];
-            } else if #[cfg(target_board = "gimletlet-2")] {
+            } else if #[cfg(any(target_board = "gimletlet-2", target_board = "gimletlet-front-io"))] {
                 // Glorified gimletlet SP: LEDs are on PG2-5
                 const LEDS: &[(drv_stm32xx_sys_api::PinSet, bool)] = &[
                     (drv_stm32xx_sys_api::Port::G.pin(2), false),
@@ -530,25 +531,25 @@ fn led_info(led: Led) -> (drv_stm32xx_sys_api::PinSet, bool) {
             target_board = "gemini-bu-1",
             target_board = "gimletlet-1",
             target_board = "gimletlet-2",
+            target_board = "gimletlet-front-io",
             target_board = "nucleo-h753zi",
             target_board = "nucleo-h743zi2",
-            target_board = "gemini-bu-1",
-            target_board = "gimletlet-1",
-            target_board = "gimletlet-2",
         ))]
         Led::One => LEDS[1],
         #[cfg(any(
             target_board = "gemini-bu-1",
             target_board = "gimletlet-1",
             target_board = "gimletlet-2",
+            target_board = "gimletlet-front-io",
             target_board = "nucleo-h753zi",
-            target_board = "nucleo-h743zi2"
+            target_board = "nucleo-h743zi2",
         ))]
         Led::Two => LEDS[2],
         #[cfg(any(
             target_board = "gemini-bu-1",
             target_board = "gimletlet-1",
-            target_board = "gimletlet-2"
+            target_board = "gimletlet-2",
+            target_board = "gimletlet-front-io",
         ))]
         Led::Three => LEDS[3],
     }

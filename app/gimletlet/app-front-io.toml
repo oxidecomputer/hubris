@@ -33,6 +33,12 @@ cs = [{port = "G", pin = 10}] # FRONT_IO_CS_CONFIG_L
 mux = "port_g"
 cs = [{port = "A", pin = 15}] # FRONT_IO_CS_USER_L
 
+# The Front I/O board has a mux to select which FPGA the SPI bus will go to.
+# The FPGA select pin is not exposed via TOML but is instead hardcoded as part
+# of the fpga-server's main.rs. See the spi_mux_select parameter of the Driver
+# instantiation.
+# spi_mux_select = port B, pin 14 (wired out on J16)
+
 # I2C
 # Map "front_io0" to "i2c3"
 # "front_io1" is not utilized currently so we ignore it for now

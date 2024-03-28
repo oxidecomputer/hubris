@@ -150,6 +150,48 @@ fn main() -> ! {
             driver.configure_gpio();
 
             let devices = [ecp5::Ecp5::new(driver)];
+        }  else if #[cfg(target_board = "gimletlet-front-io")] {
+            let configuration_port =
+                spi.device(drv_spi_api::devices::ECP5_FRONT_IO_FPGA);
+            let user_design =
+                spi.device(drv_spi_api::devices::ECP5_FRONT_IO_USER_DESIGN);
+
+            use drv_i2c_devices::pca9538::*;
+            use drv_fpga_devices::ecp5_spi_mux_pca9538::*;
+
+            let gpio = Pca9538::new(
+                i2c_config::devices::pca9538(I2C.get_task_id())[0],
+            );
+            let driver = Driver::new(DriverConfig {
+                sys,
+                gpio,
+                spi_mux_select: sys_api::Port::B.pin(14),
+                configuration_port,
+                user_design,
+                user_design_reset_duration: ecp5::USER_DESIGN_RESET_DURATION,
+            });
+
+            driver.init().unwrap();
+
+            // Loop forever until devices come up
+            let devices = loop {
+                let device0_pins = DevicePins{
+                    done: PinSet::pin(3),
+                    init_n: PinSet::pin(0),
+                    program_n: PinSet::pin(1),
+                    user_design_reset_n: PinSet::pin(2),
+                };
+                let device1_pins = DevicePins {
+                    done: PinSet::pin(7),
+                    init_n: PinSet::pin(4),
+                    program_n: PinSet::pin(5),
+                    user_design_reset_n: PinSet::pin(6),
+                };
+                match driver.init_devices(device0_pins, device1_pins) {
+                    Ok(devices) => break devices,
+                    Err(_) => userlib::hl::sleep_for(10),
+                }
+            };
         } else {
             compile_error!("Board is not supported by drv/fpga-server");
         }
