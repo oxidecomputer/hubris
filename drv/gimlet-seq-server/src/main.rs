@@ -1032,7 +1032,7 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
 
         for i in (0..buf.len()).step_by(CHUNK_SIZE) {
             self.seq
-                .read_bytes(i as u16, &mut buf[i..i + size])
+                .read_bytes(i as u16, &mut buf[i..i + CHUNK_SIZE])
                 // We asserted at compile time that the chunk size does not
                 // exceed the maximum SPI chunk size, so this shouldn't ever
                 // panic.
