@@ -22,9 +22,9 @@ pub enum Device {
     Mwocp68,
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, counters::Count)]
 pub enum Error {
-    Mwocp68Error(Mwocp68Error),
+    Mwocp68Error(#[count(children)] Mwocp68Error),
 }
 
 impl From<Error> for task_sensor_api::NoData {
@@ -101,14 +101,16 @@ impl TemperatureSensor {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, counters::Count)]
 enum Trace {
+    #[count(skip)]
     None,
+    #[count(skip)]
     Start,
-    SpeedReadFailed(SensorId, Error),
-    TemperatureReadFailed(SensorId, Error),
+    SpeedReadFailed(SensorId, #[count(children)] Error),
+    TemperatureReadFailed(SensorId, #[count(children)] Error),
 }
-ringbuf!(Trace, 32, Trace::None);
+counted_ringbuf!(Trace, 32, Trace::None);
 
 ////////////////////////////////////////////////////////////////////////////////
 

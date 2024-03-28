@@ -145,7 +145,7 @@ impl ThermalProperties {
     counters::Count,
 )]
 pub enum SensorReadError {
-    I2cError(#[count(children)] ResponseCode),
+    I2cError(ResponseCode),
 
     /// The sensor reported that data is either not present or too old
     NoData,

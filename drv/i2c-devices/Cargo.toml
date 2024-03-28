@@ -14,6 +14,7 @@ zerocopy = { workspace = true }
 derive-idol-err = { path = "../../lib/derive-idol-err" }
 drv-i2c-api = { path = "../i2c-api" }
 drv-onewire = { path = "../onewire" }
+counters = { path = "../../lib/counters" }
 ringbuf = { path = "../../lib/ringbuf" }
 task-power-api = { path = "../../task/power-api" }
 userlib = { path = "../../sys/userlib" }

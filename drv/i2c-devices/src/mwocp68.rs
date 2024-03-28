@@ -27,7 +27,7 @@ pub struct Mwocp68 {
     mode: Cell<Option<pmbus::VOutModeCommandData>>,
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, counters::Count)]
 pub enum Error {
     BadRead { cmd: u8, code: ResponseCode },
     BadWrite { cmd: u8, code: ResponseCode },
