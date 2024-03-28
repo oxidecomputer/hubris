@@ -1027,7 +1027,7 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
         let mut buf = [0; 64];
         const CHUNK_SIZE: usize = 8;
         static_assertions::const_assert!(
-            CHUNK_SIZE <= seq_spi::MAX_SPI_CHUNK_SIZE
+            CHUNK_SIZE <= seq_spi::SequencerFpga::MAX_SPI_CHUNK_SIZE
         );
 
         for i in (0..buf.len()).step_by(CHUNK_SIZE) {

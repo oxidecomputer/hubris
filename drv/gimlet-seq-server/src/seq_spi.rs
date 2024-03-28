@@ -22,13 +22,13 @@ pub enum Cmd {
 
 include!(env!("GIMLET_FPGA_REGS"));
 
+pub const EXPECTED_IDENT: u16 = 0x1DE;
+
 pub struct SequencerFpga<S: SpiServer> {
     spi: SpiDevice<S>,
 }
 
 impl<S: SpiServer> SequencerFpga<S> {
-    pub const EXPECTED_IDENT: u16 = 0x1DE;
-
     /// Local buffer size for chunked reads and writes
     const RAW_SPI_BUFFER_SIZE: usize = 16;
 
