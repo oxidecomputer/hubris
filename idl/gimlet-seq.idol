@@ -5,13 +5,11 @@ Interface(
     ops: {
         "get_state": (
             doc: "Return the power state",
-            reply: Result(
-                ok: (
-                    type: "drv_gimlet_state::PowerState",
-                    recv: FromPrimitive("u8"),
-                ),
-                err: CLike("SeqError"),
-            ),
+            reply: Simple((
+                type: "drv_gimlet_state::PowerState",
+                recv: FromPrimitive("u8"),
+            )),
+            idempotent: true,
         ),
         "set_state": (
             doc: "Set the power state",
@@ -30,14 +28,14 @@ Interface(
             args: {},
             reply: Result(
                 ok: "()",
-                err: CLike("SeqError"),
+                err: ServerDeath,
             ),
         ),
         "fans_off": (
             args: {},
             reply: Result(
                 ok: "()",
-                err: CLike("SeqError"),
+                err: ServerDeath,
             ),
         ),
         "send_hardware_nmi": (
@@ -51,10 +49,8 @@ Interface(
         "read_fpga_regs": (
             doc: "Raw read of the FPGA registers",
             args: {},
-            reply: Result(
-                ok: "[u8; 64]",
-                err: CLike("SeqError"),
-            ),
+            reply: Simple("[u8; 64]"),
+            idempotent: true,
         ),
     },
 )

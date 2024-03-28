@@ -377,7 +377,7 @@ impl ServerImpl {
             // If we can't go to A2, what state are we in, keeping in mind that
             // we have a bit of TOCTOU here in that the state might've changed
             // since we tried to `set_state()` above?
-            match self.sequencer.get_state().unwrap_lite() {
+            match self.sequencer.get_state() {
                 // If we're in A0, we should've been able to transition to A2;
                 // just repeat our loop and try again.
                 PowerState::A0
@@ -1087,9 +1087,7 @@ impl NotificationHandler for ServerImpl {
         }
 
         if bits & notifications::JEFE_STATE_CHANGE_MASK != 0 {
-            self.handle_jefe_notification(
-                self.sequencer.get_state().unwrap_lite(),
-            );
+            self.handle_jefe_notification(self.sequencer.get_state());
         }
 
         if bits & notifications::CONTROL_PLANE_AGENT_MASK != 0 {

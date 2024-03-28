@@ -973,7 +973,7 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
     fn get_state(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<PowerState, RequestError<SeqError>> {
+    ) -> Result<PowerState, RequestError<core::convert::Infallible>> {
         Ok(self.state)
     }
 
@@ -988,7 +988,7 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
     fn fans_on(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<(), RequestError<SeqError>> {
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
         let on = Reg::EARLY_POWER_CTRL::FANPWREN;
         self.seq
             .set_bytes(Addr::EARLY_POWER_CTRL, &[on])
@@ -999,7 +999,7 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
     fn fans_off(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<(), RequestError<SeqError>> {
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
         let off = Reg::EARLY_POWER_CTRL::FANPWREN;
         self.seq
             .clear_bytes(Addr::EARLY_POWER_CTRL, &[off])
@@ -1023,14 +1023,20 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
     fn read_fpga_regs(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<[u8; 64], RequestError<SeqError>> {
+    ) -> Result<[u8; 64], RequestError<core::convert::Infallible>> {
         let mut buf = [0; 64];
-        let size = 8;
+        const CHUNK_SIZE: usize = 8;
+        static_assertions::const_assert!(
+            CHUNK_SIZE <= seq_spi::MAX_SPI_CHUNK_SIZE
+        );
 
-        for i in (0..buf.len()).step_by(size) {
+        for i in (0..buf.len()).step_by(CHUNK_SIZE) {
             self.seq
-                .read_bytes(i as u16, &mut buf[i..i + size])
-                .map_err(|_| SeqError::ReadRegsFailed)?;
+                .read_bytes(i as u16, &mut buf[i..i + CHUNK_SIZE])
+                // We asserted at compile time that the chunk size does not
+                // exceed the maximum SPI chunk size, so this shouldn't ever
+                // panic.
+                .unwrap_lite();
         }
 
         Ok(buf)

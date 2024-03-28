@@ -10,7 +10,7 @@
 #![no_main]
 
 use counters::*;
-use drv_gimlet_seq_api::{SeqError, Sequencer};
+use drv_gimlet_seq_api::Sequencer;
 use gimlet_inspector_protocol::{
     QueryV0, Request, SequencerRegistersResponseV0, ANY_RESPONSE_V0_MAX_SIZE,
     REQUEST_TRAILER,
@@ -53,7 +53,9 @@ fn main() -> ! {
             Ok(mut meta) => {
                 count!(Event::RecvPacket);
 
-                let Ok((request, _trailer)) = hubpack::deserialize::<Request>(&rx_data_buf) else {
+                let Ok((request, _trailer)) =
+                    hubpack::deserialize::<Request>(&rx_data_buf)
+                else {
                     // We ignore malformatted, truncated, etc. packets.
                     count!(Event::RequestRejected);
                     continue;
@@ -61,31 +63,15 @@ fn main() -> ! {
 
                 match request {
                     Request::V0(QueryV0::SequencerRegisters) => {
-                        let result = seq.read_fpga_regs();
-                        let (resp, trailer) = match result {
-                            Ok(regs) => (
-                                SequencerRegistersResponseV0::Success,
-                                Some(regs),
-                            ),
-                            Err(SeqError::ServerRestarted) => (
-                                SequencerRegistersResponseV0::SequencerTaskDead,
-                                None,
-                            ),
-                            Err(_) => {
-                                // The SeqError type represents a mashing
-                                // together of all possible errors for all
-                                // possible sequencer IPC operations. The only
-                                // one we _expect_ here is ReadRegsFailed.
-                                (SequencerRegistersResponseV0::SequencerReadRegsFailed, None)
-                            }
-                        };
-                        let mut len =
-                            hubpack::serialize(&mut tx_data_buf, &resp)
-                                .unwrap_lite();
-                        if let Some(t) = trailer {
-                            tx_data_buf[len..len + t.len()].copy_from_slice(&t);
-                            len += t.len();
-                        }
+                        let regs = seq.read_fpga_regs();
+                        let mut len = hubpack::serialize(
+                            &mut tx_data_buf,
+                            &SequencerRegistersResponseV0::Success,
+                        )
+                        .unwrap_lite();
+                        tx_data_buf[len..len + regs.len()]
+                            .copy_from_slice(&regs);
+                        len += regs.len();
                         meta.size = len as u32;
                     }
                 }

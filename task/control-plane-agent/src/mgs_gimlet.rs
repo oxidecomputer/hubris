@@ -429,11 +429,7 @@ impl MgsHandler {
         //
         // TODO Do we want to expose A1 to the control plane at all? If not,
         // what would we map it to? Maybe easier to leave it exposed.
-        let state = match self
-            .sequencer
-            .get_state()
-            .map_err(|e| SpError::PowerStateError(e as u32))?
-        {
+        let state = match self.sequencer.get_state() {
             DrvPowerState::A2 | DrvPowerState::A2PlusFans => PowerState::A2,
             DrvPowerState::A1 => PowerState::A1,
             DrvPowerState::A0
@@ -1281,8 +1277,8 @@ impl UsartHandler {
             UartClient::Humility => {
                 while !self.from_rx.is_full() {
                     let Some(b) = self.usart.try_rx_pop() else {
-                    break;
-                };
+                        break;
+                    };
                     self.from_rx.push_back(b).unwrap_lite();
                     n_received += 1;
                 }
