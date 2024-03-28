@@ -24,19 +24,19 @@ include!(env!("GIMLET_FPGA_REGS"));
 
 pub const EXPECTED_IDENT: u16 = 0x1DE;
 
+/// Local buffer size for chunked reads and writes
+const RAW_SPI_BUFFER_SIZE: usize = 16;
+
+/// Available space in the chunked read/write buffer for user data
+#[allow(unused)] // only used in static assertions, which are compiled out
+pub const MAX_SPI_CHUNK_SIZE: usize =
+    RAW_SPI_BUFFER_SIZE - core::mem::size_of::<CmdHeader>();
+
 pub struct SequencerFpga<S: SpiServer> {
     spi: SpiDevice<S>,
 }
 
 impl<S: SpiServer> SequencerFpga<S> {
-    /// Local buffer size for chunked reads and writes
-    const RAW_SPI_BUFFER_SIZE: usize = 16;
-
-    /// Available space in the chunked read/write buffer for user data
-    #[allow(unused)] // only used in static assertions, which are compiled out
-    pub const MAX_SPI_CHUNK_SIZE: usize =
-        RAW_SPI_BUFFER_SIZE - core::mem::size_of::<CmdHeader>();
-
     pub fn new(spi: SpiDevice<S>) -> Self {
         Self { spi }
     }
@@ -143,14 +143,14 @@ impl<S: SpiServer> SequencerFpga<S> {
         addr: u16,
         data_out: &mut [u8],
     ) -> Result<(), spi_api::SpiError> {
-        let mut data = [0u8; Self::RAW_SPI_BUFFER_SIZE];
-        let mut rval = [0u8; Self::RAW_SPI_BUFFER_SIZE];
+        let mut data = [0u8; RAW_SPI_BUFFER_SIZE];
+        let mut rval = [0u8; RAW_SPI_BUFFER_SIZE];
 
         let addr = U16::new(addr);
         let header = CmdHeader { cmd, addr };
         let header = header.as_bytes();
 
-        if data_out.len() > Self::MAX_SPI_CHUNK_SIZE {
+        if data_out.len() > MAX_SPI_CHUNK_SIZE {
             return Err(spi_api::SpiError::BadTransferSize);
         }
 
@@ -173,8 +173,8 @@ impl<S: SpiServer> SequencerFpga<S> {
         addr: u16,
         data_in: &[u8],
     ) -> Result<(), spi_api::SpiError> {
-        let mut data = [0u8; Self::RAW_SPI_BUFFER_SIZE];
-        let mut rval = [0u8; Self::RAW_SPI_BUFFER_SIZE];
+        let mut data = [0u8; RAW_SPI_BUFFER_SIZE];
+        let mut rval = [0u8; RAW_SPI_BUFFER_SIZE];
 
         let addr = U16::new(addr);
         let header = CmdHeader { cmd, addr };
