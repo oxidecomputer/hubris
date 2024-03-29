@@ -4623,6 +4623,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-nucleo-user-button"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "counters",
+ "drv-stm32xx-sys-api",
+ "drv-user-leds-api",
+ "ringbuf",
+ "task-config",
+ "userlib",
+]
+
+[[package]]
 name = "task-packrat"
 version = "0.1.0"
 dependencies = [
