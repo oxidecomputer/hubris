@@ -396,16 +396,16 @@ impl<S: SpiServer> Io<S> {
                 // recv from the kernel should never fail.
                 .unwrap_lite();
 
-            // Did we receive the EXTI interrupt for ROT_IRQ?
+            // Check whether the pin's state has changed. We do this by actually
+            // the GPIO pin's state rather than based on the presence of the IRQ
+            // notification bit, because any task could have `sys_post`ed us
+            // that bit, either by mistake or out of malice.
             //
             // N.B. that we check this *before* checking for the timer
             // notification bit, because it's possible *both* notifications were
             // posted before we were scheduled again, and if the IRQ did fire,
             // we'd prefer to honor that.
-            if recv.operation & notifications::ROT_IRQ_MASK != 0 {
-                // N.B. that we *don't* check the current state of the GPIO pin
-                // again, as it's possible it changed back between when the
-                // IRQ fired and when this task was actually scheduled.
+            if self.is_rot_irq_asserted() == desired {
                 break;
             }
 
