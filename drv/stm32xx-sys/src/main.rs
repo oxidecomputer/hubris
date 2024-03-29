@@ -72,6 +72,86 @@
 //!    EXTI, and *re-enable* the shared IRQ in the kernel.
 //!
 //! 4. Repeat.
+//!
+//! ## Configuring EXTI GPIO notifications
+//!
+//! In order for a task to receive notifications about GPIO pin interrupts from
+//! `sys`, we must first add the following to the task's config section in
+//! `app.toml`:
+//!
+//! * Declare the named notification that we wish to receive (here,
+//!   `"my-gpio-notification"`) in `task.<taskname>.notifications`
+//! * Add a task slot for `sys` in `task.<taskname>.slots`, to allow the
+//!   `sys.gpio_irq_configure` and `sys.gpio_irq_control` IPCs (if the task
+//!   does not already depend on `sys`)
+//!
+//! For example:
+//!
+//! ```toml
+//! [tasks.my-great-task]
+//! # ...
+//!
+//! # Declare the notification this task will receive from sys
+//! notifications = ["my-gpio-notification"]
+//!
+//! # Add a slot for sys
+//! slots = ["sys"]
+//! ```
+//!
+//! Next, we must add the following configurations to the `sys` task's
+//! config section in `app.toml`:
+//!
+//! * Enable the `"exti"` feature flag in `task.sys.features`
+//! * Add the `"syscfg"` and `"exti"` MMIO blocks to `tasks.sys.uses`
+//! * Add interrupt configurations for all EXTI notifications provided by the
+//!   target chip to `task.sys.interrupts`, mapping them all to a single
+//!   notification bit in `task.sys.notifications`
+//! * Add a `tasks.sys.config.gpio-irqs.<name>` section with the desired GPIO
+//!   pin and port, and the name of the task and notification to which the pin's
+//!   interrupt will be mapped.
+//!
+//! For example, on the STM32H753, we would add the following configuration to
+//! post the notification named `"my-gpio-notification"` to the task
+//! `my-great-task` for Pin PC13:
+//!
+//! ```toml
+//! [tasks.sys]
+//! name = "drv-stm32xx-sys"
+//! priority = 1
+//! start = true
+//! task-slots = ["jefe"]
+//!
+//! # Add the "exti" feature flag here
+//! features = ["h753", "exti"]
+//! # Add "syscfg" and "exti" here
+//! uses = ["rcc", "gpios", "system_flash", "syscfg", "exti"]
+//! # The notification sent by the kernel on EXTI interrupts
+//! # (you can name this whatever you want as long as it's the same name
+//! # used in `tasks.sys.interrupts` below)
+//! notifications = ["exti-wildcard-irq"]
+//!
+//! # Map all EXTI interrupts to the wildcard IRQ
+//! [tasks.sys.interrupts]
+//! "exti.exti0" = "exti-wildcard-irq"
+//! "exti.exti1" = "exti-wildcard-irq"
+//! "exti.exti2" = "exti-wildcard-irq"
+//! "exti.exti3" = "exti-wildcard-irq"
+//! "exti.exti4" = "exti-wildcard-irq"
+//! "exti.exti9_5" = "exti-wildcard-irq"
+//! "exti.exti15_10" = "exti-wildcard-irq"
+//!
+//! # Map the GPIO pin to the notification
+//! #
+//! # Up to 16 such blocks can be added, to map up to 16 GPIO pins to client
+//! # task notifications.
+//! [tasks.sys.config.gpio-irqs.my-gpio-notification]
+//! # Declare which GPIO port and pin to receive interrupts from. Here, we
+//! # want to receive interrupts from pin PC13.
+//! port = "C"
+//! pin = 13
+//! # The name of the client task and the notification to post to it.
+//! owner = { name = "my-great-task", notification = "my-gpio-notification" }
+//! ```
 
 #![no_std]
 #![no_main]
