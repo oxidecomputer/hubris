@@ -58,7 +58,7 @@ mod idl {
     use task_net_api::{
         KszError, KszMacTableEntry, LargePayloadBehavior, MacAddress,
         MacAddressBlock, ManagementCounters, ManagementLinkStatus, MgmtError,
-        PhyError, RecvError, SendError, SocketName, UdpMetadata,
+        PhyError, SocketName, UdpMetadata,
     };
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
