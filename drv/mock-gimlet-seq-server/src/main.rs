@@ -50,7 +50,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
     fn get_state(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<PowerState, RequestError<SeqError>> {
+    ) -> Result<PowerState, RequestError<core::convert::Infallible>> {
         Ok(self.get_state_impl())
     }
 
@@ -75,14 +75,14 @@ impl idl::InOrderSequencerImpl for ServerImpl {
     fn fans_on(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<(), RequestError<SeqError>> {
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
         Ok(())
     }
 
     fn fans_off(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<(), RequestError<SeqError>> {
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
         Ok(())
     }
 
@@ -96,7 +96,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
     fn read_fpga_regs(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<[u8; 64], RequestError<SeqError>> {
+    ) -> Result<[u8; 64], RequestError<core::convert::Infallible>> {
         Ok([0; 64])
     }
 }
