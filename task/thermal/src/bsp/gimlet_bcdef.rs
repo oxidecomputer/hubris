@@ -107,17 +107,7 @@ impl Bsp {
     }
 
     pub fn power_mode(&self) -> PowerBitmask {
-        let state = match self.seq.get_state() {
-            Ok(p) => p,
-            // If `get_state` failed, then enable all sensors except the M.2s
-            // (which can permanently lock up the system if they're read while
-            // unpowered). One of the sensors in the A0 / A2 domains will
-            // presumably fail and will drop us into failsafe eventually.
-            Err(_) => {
-                return PowerBitmask::A0_OR_A2;
-            }
-        };
-        match state {
+        match self.seq.get_state() {
             PowerState::A0PlusHP
             | PowerState::A0
             | PowerState::A1

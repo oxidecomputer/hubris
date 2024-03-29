@@ -66,7 +66,7 @@ pub(crate) fn get_state() -> PowerState {
     // We deliberately enumerate all power states to force the addition of
     // new ones to update this code.
     //
-    match sequencer.get_state().unwrap() {
+    match sequencer.get_state() {
         seq_api::PowerState::A0
         | seq_api::PowerState::A0PlusHP
         | seq_api::PowerState::A0Thermtrip
