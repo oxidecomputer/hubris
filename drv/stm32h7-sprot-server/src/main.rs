@@ -364,31 +364,71 @@ impl<S: SpiServer> Io<S> {
 
     // Poll ROT_IRQ until asserted (true) or deasserted (false).
     //
-    // We sleep and poll for what should be long enough for the RoT to queue
-    // a response.
-    //
-    // TODO: Use STM32 EXTI as  an interrupt allows for better performance and
-    // power efficiency.
-    //
-    // STM32 EXTI allows for 16 interrupts for GPIOs.
-    // Each of those can represent Pin X from a GPIO bank (A through K)
-    // So, only one bank's Pin 3, for example, can have the #3 interrupt.
-    // For ROT_IRQ, we would configure for the falling edge to trigger
-    // the interrupt. That configuration should be specified in the app.toml
-    // for the board. Work needs to be done to generalize the EXTI facility.
-    // But, hacking in one interrupt as an example should be ok to start things
-    // off.
+    // We do this by asking the `sys` task to notify us when the GPIO pin's
+    // state changes (using EXTI), and waiting for either that or timeout
+    // determined based on `max_sleep`.
     fn wait_rot_irq(&mut self, desired: bool, max_sleep: u32) -> bool {
-        let mut slept = 0;
+        // Determine our edge sensitivity for the interrupt. If we want to wait
+        // for the line to be asserted, we want to wait for a rising edge. If
+        // the line is currently asserted, and we're waiting for it to be
+        // *deasserted*, we want to wait for a falling edge.
+        let rising = desired;
+        let falling = !desired;
+        self.sys.gpio_irq_configure(
+            notifications::ROT_IRQ_MASK,
+            rising,
+            falling,
+        );
+
+        // Determine the deadline after which we'll give up, and start the clock.
+        let deadline = sys_get_timer().now.checked_add(max_sleep).unwrap_lite();
+        sys_set_timer(Some(deadline), notifications::TIMER_MASK);
+
         while self.is_rot_irq_asserted() != desired {
-            if slept == max_sleep {
+            // Enable the GPIO pin's interrupt.
+            self.sys.gpio_irq_control(0, notifications::ROT_IRQ_MASK);
+
+            // Wait to be notified either by the timeout or by the ROT_IRQ pin
+            // changing state.
+            const MASK: u32 =
+                notifications::TIMER_MASK | notifications::ROT_IRQ_MASK;
+            let recv = sys_recv_closed(&mut [], MASK, TaskId::KERNEL)
+                // recv from the kernel should never fail.
+                .unwrap_lite();
+
+            // Did we receive the EXTI interrupt for ROT_IRQ?
+            //
+            // N.B. that we check this *before* checking for the timer
+            // notification bit, because it's possible *both* notifications were
+            // posted before we were scheduled again, and if the IRQ did fire,
+            // we'd prefer to honor that.
+            if recv.operation & notifications::ROT_IRQ_MASK != 0 {
+                // N.B. that we *don't* check the current state of the GPIO pin
+                // again, as it's possible it changed back between when the
+                // IRQ fired and when this task was actually scheduled.
+                break;
+            }
+
+            // If the timer notification was posted, and the GPIO IRQ
+            // notification wasn't, we've waited for the timeout. Too bad!
+            if recv.operation & notifications::TIMER_MASK != 0 {
                 self.stats.timeouts = self.stats.timeouts.wrapping_add(1);
                 ringbuf_entry!(Trace::RotReadyTimeout);
+                // Disable the GPIO IRQ notification, so that it doesn't go off
+                // later when we don't expect it.
+                self.sys.gpio_irq_control(notifications::ROT_IRQ_MASK, 0);
                 return false;
             }
-            hl::sleep_for(1);
-            slept += 1;
+
+            // Otherwise, we must've gotten some kinda spurious notification.
+            // This probably shouldn't have happened, but let's keep waiting.
         }
+
+        // Ensure the timer gets unset before returning, to avoid frightening
+        // our IPC server when it's waiting in recv without expecting a timer to
+        // go off.
+        sys_set_timer(None, notifications::TIMER_MASK);
+
         true
     }
 }
@@ -1098,7 +1138,8 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
 
 impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
     fn current_notification_mask(&self) -> u32 {
-        // We don't use notifications, don't listen for any.
+        // Neither our timer nor our GPIO IRQ notifications are needed while the
+        // server is in recv.
         0
     }
 
