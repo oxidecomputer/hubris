@@ -81,7 +81,7 @@
 //!
 //! * Declare the named notification that we wish to receive (here,
 //!   `"my-gpio-notification"`) in `task.<taskname>.notifications`
-//! * Add a task slot for `sys` in `task.<taskname>.slots`, to allow the
+//! * Add a task slot for `sys` in `task.<taskname>.task-slots`, to allow the
 //!   `sys.gpio_irq_configure` and `sys.gpio_irq_control` IPCs (if the task
 //!   does not already depend on `sys`)
 //!
@@ -95,7 +95,7 @@
 //! notifications = ["my-gpio-notification"]
 //!
 //! # Add a slot for sys
-//! slots = ["sys"]
+//! task-slots = ["sys"]
 //! ```
 //!
 //! Next, we must add the following configurations to the `sys` task's

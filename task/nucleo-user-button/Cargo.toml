@@ -1,0 +1,24 @@
+[package]
+name = "task-nucleo-user-button"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+drv-user-leds-api = { path = "../../drv/user-leds-api" }
+drv-stm32xx-sys-api = { path = "../../drv/stm32xx-sys-api", features = ["family-stm32h7"] }
+
+counters = { path = "../../lib/counters" }
+ringbuf = { path = "../../lib/ringbuf" }
+userlib = { path = "../../sys/userlib" }
+task-config = { path = "../../lib/task-config" }
+
+[build-dependencies]
+build-util = { path = "../../build/util" }
+
+[[bin]]
+name = "task-nucleo-user-button"
+test = false
+doctest = false
+bench = false
