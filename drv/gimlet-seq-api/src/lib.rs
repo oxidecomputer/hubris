@@ -20,7 +20,6 @@ pub enum SeqError {
     IllegalTransition = 1,
     MuxToHostCPUFailed,
     MuxToSPFailed,
-    ReadRegsFailed,
     CPUNotPresent,
     UnrecognizedCPU,
     A1Timeout,
