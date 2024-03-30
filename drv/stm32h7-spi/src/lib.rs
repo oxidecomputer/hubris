@@ -117,6 +117,23 @@ impl Spi {
         self.reg.cr1.modify(|_, w| w.spe().set_bit());
     }
 
+    /// Set an additional 16-bit number of bytes to transfer when the current
+    /// value in `TSIZE` has been transferred.
+    ///
+    /// Per the manual:
+    /// > When the number of data programmed into `TSIZE`` is transacted and if
+    /// > `TSER`` contains a non-zero value, the content of `TSER`` is copied
+    /// > into `TSIZE`, and `TSER` value is cleared automatically.
+    /// > The transaction is then extended by a number of data corresponding to
+    /// > the value reloaded into `TSIZE``. The `EOT` event is not raised in
+    /// > this case as the transaction continues.
+    /// > --- RM0433 Rev 8, p. 2177
+    pub fn enable_reload(&self, tser: u16) {
+        self.reg.cr2.modify(|_, w| w.tser().bits(tser));
+        // Let's receive an interrupt when the reloaded transfer begins.
+        self.reg.ier.modify(|_, w| w.tserfie().set_bit())
+    }
+
     pub fn start(&self) {
         self.reg.cr1.modify(|_, w| w.cstart().set_bit());
         // Clear EOT flag

@@ -61,7 +61,7 @@ impl InOrderSpiImpl for ServerImpl {
         _: &RecvMessage,
         device_index: u8,
         dest: LenLimit<Leased<W, [u8]>, 65535>,
-    ) -> Result<(), RequestError<SpiError>> {
+    ) -> Result<(), RequestError<Infallible>> {
         self.core
             .read::<LeaseBufWriter<_, BUFSIZ>>(
                 device_index,
@@ -75,13 +75,13 @@ impl InOrderSpiImpl for ServerImpl {
         _: &RecvMessage,
         device_index: u8,
         src: LenLimit<Leased<R, [u8]>, 65535>,
-    ) -> Result<(), RequestError<SpiError>> {
+    ) -> Result<(), RequestError<Infallible>> {
         self.core
             .write::<LeaseBufReader<_, BUFSIZ>>(
                 device_index,
                 src.into_inner().into(),
             )
-            .map_err(RequestError::from)
+            .map_err(|_| idol_runtime::ClientError::BadMessageContents.fail())
     }
 
     fn exchange(
@@ -90,14 +90,14 @@ impl InOrderSpiImpl for ServerImpl {
         device_index: u8,
         src: LenLimit<Leased<R, [u8]>, 65535>,
         dest: LenLimit<Leased<W, [u8]>, 65535>,
-    ) -> Result<(), RequestError<SpiError>> {
+    ) -> Result<(), RequestError<Infallible>> {
         self.core
             .exchange::<LeaseBufReader<_, BUFSIZ>, LeaseBufWriter<_, BUFSIZ>>(
                 device_index,
                 src.into_inner().into(),
                 dest.into_inner().into(),
             )
-            .map_err(RequestError::from)
+            .map_err(|_| idol_runtime::ClientError::BadMessageContents.fail())
     }
 
     fn lock(

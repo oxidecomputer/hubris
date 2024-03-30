@@ -1676,8 +1676,6 @@ dependencies = [
  "build-spi",
  "build-util",
  "counters",
- "derive-idol-err",
- "gateway-messages",
  "hubpack",
  "idol",
  "idol-runtime",
@@ -5450,7 +5448,6 @@ name = "vsc-err"
 version = "0.1.0"
 dependencies = [
  "counters",
- "drv-spi-api",
  "idol-runtime",
 ]
 

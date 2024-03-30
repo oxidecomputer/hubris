@@ -6,51 +6,8 @@
 
 #![no_std]
 
-// For Idol-generated code that fully qualifies error type names.
-use crate as drv_spi_api;
-use derive_idol_err::IdolError;
-use gateway_messages::SpiError as GwSpiError;
-use hubpack::SerializedSize;
-use serde::{Deserialize, Serialize};
+use idol_runtime::ServerDeath;
 use userlib::*;
-
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    FromPrimitive,
-    Eq,
-    PartialEq,
-    IdolError,
-    SerializedSize,
-    Serialize,
-    Deserialize,
-    counters::Count,
-)]
-#[repr(u32)]
-pub enum SpiError {
-    /// Transfer size is 0 or exceeds maximum
-    BadTransferSize = 1,
-
-    /// Server restarted
-    #[idol(server_death)]
-    TaskRestarted = 4,
-}
-
-impl From<idol_runtime::ServerDeath> for SpiError {
-    fn from(_: idol_runtime::ServerDeath) -> Self {
-        SpiError::TaskRestarted
-    }
-}
-
-impl From<SpiError> for GwSpiError {
-    fn from(value: SpiError) -> Self {
-        match value {
-            SpiError::BadTransferSize => Self::BadTransferSize,
-            SpiError::TaskRestarted => Self::TaskRestarted,
-        }
-    }
-}
 
 #[derive(
     Copy, Clone, Debug, Eq, PartialEq, zerocopy::AsBytes, FromPrimitive,
@@ -81,11 +38,15 @@ pub trait SpiServer {
         device_index: u8,
         src: &[u8],
         dest: &mut [u8],
-    ) -> Result<(), SpiError>;
+    ) -> Result<(), ServerDeath>;
 
-    fn write(&self, device_index: u8, src: &[u8]) -> Result<(), SpiError>;
+    fn write(&self, device_index: u8, src: &[u8]) -> Result<(), ServerDeath>;
 
-    fn read(&self, device_index: u8, dest: &mut [u8]) -> Result<(), SpiError>;
+    fn read(
+        &self,
+        device_index: u8,
+        dest: &mut [u8],
+    ) -> Result<(), ServerDeath>;
 
     /// Variant of `lock` that returns a resource management object that, when
     /// dropped, will issue `release`. This makes it much easier to do fallible
@@ -96,7 +57,7 @@ pub trait SpiServer {
         &self,
         device_index: u8,
         assert_cs: CsState,
-    ) -> Result<ControllerLock<'_, Self>, idol_runtime::ServerDeath>
+    ) -> Result<ControllerLock<'_, Self>, ServerDeath>
     where
         Self: Sized,
     {
@@ -119,9 +80,9 @@ pub trait SpiServer {
         &self,
         device_index: u8,
         cs_state: CsState,
-    ) -> Result<(), idol_runtime::ServerDeath>;
+    ) -> Result<(), ServerDeath>;
 
-    fn release(&self) -> Result<(), idol_runtime::ServerDeath>;
+    fn release(&self) -> Result<(), ServerDeath>;
 }
 
 impl SpiServer for Spi {
@@ -130,14 +91,18 @@ impl SpiServer for Spi {
         device_index: u8,
         src: &[u8],
         dest: &mut [u8],
-    ) -> Result<(), SpiError> {
+    ) -> Result<(), ServerDeath> {
         Spi::exchange(self, device_index, src, dest)
     }
-    fn write(&self, device_index: u8, src: &[u8]) -> Result<(), SpiError> {
+    fn write(&self, device_index: u8, src: &[u8]) -> Result<(), ServerDeath> {
         Spi::write(self, device_index, src)
     }
 
-    fn read(&self, device_index: u8, dest: &mut [u8]) -> Result<(), SpiError> {
+    fn read(
+        &self,
+        device_index: u8,
+        dest: &mut [u8],
+    ) -> Result<(), ServerDeath> {
         Spi::read(self, device_index, dest)
     }
 
@@ -145,11 +110,11 @@ impl SpiServer for Spi {
         &self,
         device_index: u8,
         cs_state: CsState,
-    ) -> Result<(), idol_runtime::ServerDeath> {
+    ) -> Result<(), ServerDeath> {
         Spi::lock(self, device_index, cs_state)
     }
 
-    fn release(&self) -> Result<(), idol_runtime::ServerDeath> {
+    fn release(&self) -> Result<(), ServerDeath> {
         Spi::release(self)
     }
 }
@@ -184,7 +149,7 @@ impl<S: SpiServer> SpiDevice<S> {
         &self,
         source: &[u8],
         sink: &mut [u8],
-    ) -> Result<(), SpiError> {
+    ) -> Result<(), ServerDeath> {
         self.server.exchange(self.device_index, source, sink)
     }
 
@@ -192,7 +157,7 @@ impl<S: SpiServer> SpiDevice<S> {
     ///
     /// If the controller is not locked, this will assert CS before driving the
     /// clock and release it after.
-    pub fn write(&self, source: &[u8]) -> Result<(), SpiError> {
+    pub fn write(&self, source: &[u8]) -> Result<(), ServerDeath> {
         self.server.write(self.device_index, source)
     }
 
@@ -200,7 +165,7 @@ impl<S: SpiServer> SpiDevice<S> {
     ///
     /// If the controller is not locked, this will assert CS before driving the
     /// clock and release it after.
-    pub fn read(&self, dest: &mut [u8]) -> Result<(), SpiError> {
+    pub fn read(&self, dest: &mut [u8]) -> Result<(), ServerDeath> {
         self.server.read(self.device_index, dest)
     }
 
@@ -223,17 +188,14 @@ impl<S: SpiServer> SpiDevice<S> {
     ///
     /// If your task tries to lock two different `SpiDevice`s at once, the
     /// second one to attempt will get `BadDevice`.
-    pub fn lock(
-        &self,
-        assert_cs: CsState,
-    ) -> Result<(), idol_runtime::ServerDeath> {
+    pub fn lock(&self, assert_cs: CsState) -> Result<(), ServerDeath> {
         self.server.lock(self.device_index, assert_cs)
     }
 
     /// Releases a previous lock on the SPI controller (by your task).
     ///
     /// This will also deassert CS, if you had overridden it.
-    pub fn release(&self) -> Result<(), idol_runtime::ServerDeath> {
+    pub fn release(&self) -> Result<(), ServerDeath> {
         self.server.release()
     }
 
@@ -245,7 +207,7 @@ impl<S: SpiServer> SpiDevice<S> {
     pub fn lock_auto(
         &self,
         assert_cs: CsState,
-    ) -> Result<ControllerLock<'_, S>, idol_runtime::ServerDeath> {
+    ) -> Result<ControllerLock<'_, S>, ServerDeath> {
         self.server.lock_auto(self.device_index, assert_cs)
     }
 }
