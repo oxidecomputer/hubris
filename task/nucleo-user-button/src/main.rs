@@ -17,7 +17,7 @@ use userlib::*;
 
 #[cfg(not(any(
     target_board = "nucleo-h753zi",
-    target_board = "nucleo-h743zi2"
+    target_board = "nucleo-h743zi2",
 )))]
 compile_error!(
     "the `nucleo-user-button` task is only supported on the Nucleo H753ZI and H743ZI2 boards"
@@ -90,7 +90,7 @@ pub fn main() -> ! {
 
     loop {
         // The first argument to `gpio_irq_control` is the mask of interrupts to
-        // enable, while the second is the mask to disable. So, enable the
+        // disable, while the second is the mask to enable. So, enable the
         // button notification.
         let disable_mask = 0;
         ringbuf_entry!(Trace::GpioIrqControl {
@@ -110,6 +110,7 @@ pub fn main() -> ! {
         )
         // Recv from the kernel never returns an error.
         .unwrap_lite();
+
         let notif = recvmsg.operation;
         ringbuf_entry!(Trace::Notification(notif));
 
