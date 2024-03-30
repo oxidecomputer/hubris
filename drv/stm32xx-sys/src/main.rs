@@ -192,6 +192,7 @@ use idol_runtime::{ClientError, NotificationHandler, RequestError};
 #[cfg(not(feature = "test"))]
 use task_jefe_api::{Jefe, ResetReason};
 
+use ringbuf::*;
 use userlib::*;
 
 #[cfg(not(feature = "test"))]
@@ -239,6 +240,33 @@ where
     }
 }
 
+#[derive(Copy, Clone, Eq, PartialEq, counters::Count)]
+enum Trace {
+    #[count(skip)]
+    None,
+
+    // If the ringbuf is disabled, skip generating counters for the
+    // `GpioIrqConfigure` and `GpioIrqDisable` entries, as well -- this way, we
+    // just generate a counter for the number of EXTI IRQs we've dispatched.
+    #[cfg(all(feature = "exti", not(feature = "no-ringbuf")))]
+    GpioIrqConfigure {
+        irq: generated::ExtiIrq,
+        rising: bool,
+        falling: bool,
+    },
+
+    #[cfg(all(feature = "exti", not(feature = "no-ringbuf")))]
+    GpioIrqEnable(#[count(children)] generated::ExtiIrq),
+
+    #[cfg(all(feature = "exti", not(feature = "no-ringbuf")))]
+    GpioIrqDisable(#[count(children)] generated::ExtiIrq),
+
+    #[cfg(feature = "exti")]
+    GpioIrq(#[count(children)] generated::ExtiIrq),
+}
+
+counted_ringbuf!(Trace, 8, Trace::None);
+
 #[export_name = "main"]
 fn main() -> ! {
     // From thin air, pluck a pointer to the RCC register block.
@@ -265,7 +293,7 @@ fn main() -> ! {
 
             for (i, entry) in generated::EXTI_DISPATCH_TABLE.iter().enumerate() {
                 // Process entries that are filled in...
-                if let &Some((port, _, _)) = entry {
+                if let &Some(ExtiDispatch { port, .. }) = entry {
                     let register = i >> 2;
                     let slot = i % 2;
 
@@ -532,15 +560,18 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
                     generated::EXTI_DISPATCH_TABLE.iter().enumerate()
                 {
                     // Only use populated rows in the table
-                    if let Some((_, tid, mask)) = entry {
+                    if let &Some(ExtiDispatch { mask, task, name, .. }) = entry {
                         // Ignore anything assigned to another task
-                        if tid.index() == rm.sender.index() {
+                        if task.index() == rm.sender.index() {
 
                             // Apply disable first so that including the same
                             // thing in both masks is a no-op.
                             if mask & disable_mask != 0 {
                                 // Record that these bits meant something.
                                 used_bits |= mask;
+
+                                #[cfg(not(feature = "no-ringbuf"))]
+                                ringbuf_entry!(Trace::GpioIrqDisable(name));
 
                                 // Disable this source by _clearing_ the
                                 // corresponding mask bit.
@@ -557,6 +588,9 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
                             if mask & enable_mask != 0 {
                                 // Record that these bits meant something.
                                 used_bits |= mask;
+
+                                #[cfg(not(feature = "no-ringbuf"))]
+                                ringbuf_entry!(Trace::GpioIrqEnable(name));
 
                                 // Enable this source by _setting_ the
                                 // corresponding mask bit.
@@ -641,12 +675,15 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
                     generated::EXTI_DISPATCH_TABLE.iter().enumerate()
                 {
                     // Only use populated rows in the table
-                    if let Some((_, tid, entry_mask)) = entry {
+                    if let Some(ExtiDispatch { task, mask: entry_mask, name, .. }) = entry {
                         // Operate only on rows assigned to the sending task
                         // _and_ that are relevant based on the arguments.
-                        if tid.index() == rm.sender.index()
+                        if task.index() == rm.sender.index()
                             && mask & entry_mask != 0
                         {
+                            #[cfg(not(feature = "no-ringbuf"))]
+                            ringbuf_entry!(Trace::GpioIrqConfigure { irq: *name, rising, falling });
+
                             used_bits |= mask;
 
                             // Set or clear Rising Trigger Selection
@@ -709,6 +746,14 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
     }
 }
 
+#[cfg(feature = "exti")]
+struct ExtiDispatch {
+    port: Port,
+    task: TaskId,
+    mask: u32,
+    name: generated::ExtiIrq,
+}
+
 impl NotificationHandler for ServerImpl<'_> {
     fn current_notification_mask(&self) -> u32 {
         cfg_if! {
@@ -757,9 +802,10 @@ impl NotificationHandler for ServerImpl<'_> {
                             // - Clear the pending bit (we have to do this
                             //   manually unlike native interrupts).
 
-                            if let &Some((_, taskid, mask)) = entry {
-                                let taskid = sys_refresh_task_id(taskid);
-                                sys_post(taskid, mask);
+                            if let &Some(ExtiDispatch { task, mask, name, .. }) = entry {
+                                ringbuf_entry!(Trace::GpioIrq(name));
+                                let task = sys_refresh_task_id(task);
+                                sys_post(task, mask);
                             } else {
                                 // spurious interrupt.
                                 // TODO: probably add this to a counter; it's
