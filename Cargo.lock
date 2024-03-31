@@ -2026,7 +2026,6 @@ dependencies = [
  "idol",
  "idol-runtime",
  "num-traits",
- "ringbuf",
  "stm32g0",
  "stm32h7",
  "task-jefe-api",
