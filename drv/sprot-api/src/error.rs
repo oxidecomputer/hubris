@@ -17,6 +17,7 @@ use serde::{Deserialize, Serialize};
 use gateway_messages::{
     RotError, SpError, SprocketsError as GwSprocketsErr,
     SprotProtocolError as GwSprotProtocolError,
+    WatchdogError as GwWatchdogError,
 };
 use idol_runtime::RequestError;
 
@@ -37,6 +38,7 @@ pub enum SprotError {
     Spi(#[count(children)] SpiError),
     Update(#[count(children)] UpdateError),
     Sprockets(#[count(children)] SprocketsError),
+    Watchdog(#[count(children)] WatchdogError),
 }
 
 impl From<SprotError> for SpError {
@@ -46,6 +48,7 @@ impl From<SprotError> for SpError {
             SprotError::Spi(e) => Self::Spi(e.into()),
             SprotError::Update(e) => Self::Update(e.into()),
             SprotError::Sprockets(e) => Self::Sprockets(e.into()),
+            SprotError::Watchdog(e) => Self::Watchdog(e.into()),
         }
     }
 }
@@ -57,6 +60,7 @@ impl From<SprotError> for RotError {
             SprotError::Spi(e) => Self::Spi(e.into()),
             SprotError::Update(e) => Self::Update(e.into()),
             SprotError::Sprockets(e) => Self::Sprockets(e.into()),
+            SprotError::Watchdog(e) => Self::Watchdog(e.into()),
         }
     }
 }
@@ -297,5 +301,30 @@ impl<V> From<AttestOrSprotError>
 impl From<idol_runtime::ServerDeath> for AttestOrSprotError {
     fn from(_: idol_runtime::ServerDeath) -> Self {
         AttestOrSprotError::Attest(AttestError::TaskRestarted)
+    }
+}
+
+// Added in sprot protocol version 5
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Eq,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    SerializedSize,
+    counters::Count,
+)]
+pub enum WatchdogError {
+    /// Could not control the SP over SWD
+    SpCtrl,
+}
+
+impl From<WatchdogError> for GwWatchdogError {
+    fn from(s: WatchdogError) -> Self {
+        match s {
+            WatchdogError::SpCtrl => Self::SpCtrl,
+        }
     }
 }

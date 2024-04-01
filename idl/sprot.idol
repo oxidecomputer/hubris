@@ -278,5 +278,24 @@ Interface(
             encoding: Hubpack,
             idempotent: true,
         ),
+        "enable_sp_slot_watchdog": (
+            doc: "Enable a watchdog that will reset the SP into the alternate slot",
+            args: {
+                "time_ms" : "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: Complex("SprotError"),
+            ),
+            encoding: Hubpack,
+        ),
+        "disable_sp_slot_watchdog": (
+            doc: "Disable the SP slot watchdog",
+            reply: Result(
+                ok: "()",
+                err: Complex("SprotError"),
+            ),
+            encoding: Hubpack,
+        ),
     }
 )

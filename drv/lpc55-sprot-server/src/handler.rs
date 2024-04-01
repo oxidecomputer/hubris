@@ -6,11 +6,13 @@ use crate::Trace;
 use attest_api::Attest;
 use crc::{Crc, CRC_32_CKSUM};
 use drv_lpc55_update_api::{RotPage, SlotId, Update};
+use drv_sp_ctrl_api::SpCtrl;
 use drv_sprot_api::{
     AttestReq, AttestRsp, CabooseReq, CabooseRsp, DumpReq, DumpRsp, ReqBody,
     Request, Response, RotIoStats, RotPageRsp, RotState, RotStatus, RspBody,
     SprocketsError, SprotError, SprotProtocolError, UpdateReq, UpdateRsp,
-    CURRENT_VERSION, MIN_VERSION, REQUEST_BUF_SIZE, RESPONSE_BUF_SIZE,
+    WatchdogError, CURRENT_VERSION, MIN_VERSION, REQUEST_BUF_SIZE,
+    RESPONSE_BUF_SIZE,
 };
 use dumper_api::Dumper;
 use lpc55_romapi::bootrom;
@@ -25,6 +27,8 @@ task_slot!(UPDATE_SERVER, update_server);
 task_slot!(DUMPER, dumper);
 
 task_slot!(ATTEST, attest);
+
+task_slot!(SP_CTRL, swd);
 
 pub const CRC32: Crc<u32> = Crc::<u32>::new(&CRC_32_CKSUM);
 
@@ -56,6 +60,7 @@ pub struct Handler {
     update: Update,
     startup_state: StartupState,
     attest: Attest,
+    sp_ctrl: SpCtrl,
 }
 
 impl<'a> Handler {
@@ -69,6 +74,7 @@ impl<'a> Handler {
                 max_response_size: RESPONSE_BUF_SIZE.try_into().unwrap_lite(),
             },
             attest: Attest::from(ATTEST.get_task_id()),
+            sp_ctrl: SpCtrl::from(SP_CTRL.get_task_id()),
         }
     }
 
@@ -414,6 +420,21 @@ impl<'a> Handler {
                     Err(e) => Err(e),
                 };
                 Ok((RspBody::Attest(rsp), None))
+            }
+            ReqBody::EnableSpSlotWatchdog { time_ms } => {
+                // Enabling the watchdog doesn't actually do any SWD work, but
+                // we'll call `setup()` now to make sure that the SWD system is
+                // working.
+                match self.sp_ctrl.setup().and_then(|()| {
+                    self.sp_ctrl.enable_sp_slot_watchdog(time_ms)
+                }) {
+                    Ok(()) => Ok((RspBody::Ok, None)),
+                    Err(_e) => Err(SprotError::Watchdog(WatchdogError::SpCtrl)),
+                }
+            }
+            ReqBody::DisableSpSlotWatchdog => {
+                self.sp_ctrl.disable_sp_slot_watchdog();
+                Ok((RspBody::Ok, None))
             }
         }
     }

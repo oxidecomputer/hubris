@@ -6,7 +6,7 @@ version = 3
 name = "abi"
 version = "0.1.0"
 dependencies = [
- "bitflags 2.4.2",
+ "bitflags 2.5.0",
  "byteorder",
  "phash",
  "serde",
@@ -193,9 +193,9 @@ checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
 name = "bitflags"
-version = "2.4.2"
+version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed570934406eb16438a4e976b1b4500774099c13b8cb96eec99f620f05090ddf"
+checksum = "cf4b9d6a944f767f8e5e0db018570623c85f3d925ac718db4e06d0187adb21c1"
 
 [[package]]
 name = "bitvec"
@@ -251,7 +251,7 @@ dependencies = [
 name = "build-kconfig"
 version = "0.1.0"
 dependencies = [
- "bitflags 2.4.2",
+ "bitflags 2.5.0",
  "serde",
 ]
 
@@ -1255,6 +1255,7 @@ dependencies = [
  "drv-lpc55-spi",
  "drv-lpc55-syscon-api",
  "drv-lpc55-update-api",
+ "drv-sp-ctrl-api",
  "drv-sprot-api",
  "drv-update-api",
  "dumper-api",
@@ -2015,7 +2016,7 @@ dependencies = [
 name = "drv-stm32xx-sys"
 version = "0.1.0"
 dependencies = [
- "bitflags 2.4.2",
+ "bitflags 2.5.0",
  "build-stm32xx-sys",
  "build-util",
  "cfg-if",
@@ -2346,9 +2347,9 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#e727e960d31f62afe6077fdfc405e0ac2379f6b2"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=sp-slot-watchdog#1ed45fb9ec14044aa5da136fa65ddf832079fad9"
 dependencies = [
- "bitflags 2.4.2",
+ "bitflags 2.5.0",
  "hubpack",
  "serde",
  "serde_repr",
@@ -2547,7 +2548,7 @@ dependencies = [
 name = "host-sp-messages"
 version = "0.1.0"
 dependencies = [
- "bitflags 2.4.2",
+ "bitflags 2.5.0",
  "counters",
  "drv-i2c-types",
  "fletcher",
@@ -2773,7 +2774,7 @@ dependencies = [
  "abi",
  "anyhow",
  "armv8-m-mpu",
- "bitflags 2.4.2",
+ "bitflags 2.5.0",
  "build-kconfig",
  "build-util",
  "byteorder",
@@ -4856,7 +4857,7 @@ name = "task-thermal"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bitflags 2.4.2",
+ "bitflags 2.5.0",
  "build-i2c",
  "build-util",
  "cortex-m",
@@ -5352,7 +5353,7 @@ name = "transceiver-messages"
 version = "0.1.1"
 source = "git+https://github.com/oxidecomputer/transceiver-control/#0a18f231372069b74b72f1756e2337186e888dc0"
 dependencies = [
- "bitflags 2.4.2",
+ "bitflags 2.5.0",
  "hubpack",
  "serde",
 ]
@@ -5415,9 +5416,9 @@ dependencies = [
 
 [[package]]
 name = "uuid"
-version = "1.7.0"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f00cc9702ca12d3c81455259621e676d0f7251cec66a21e98fe2e9a37db93b2a"
+checksum = "a183cf7feeba97b4dd1c0d46788634f6221d87fa961b305bed08c851829efcc0"
 
 [[package]]
 name = "vcell"

@@ -481,6 +481,19 @@ impl MgsCommon {
 
         Ok(cnt)
     }
+
+    pub(crate) fn enable_sp_slot_watchdog(
+        &mut self,
+        time_ms: u32,
+    ) -> Result<(), SpError> {
+        self.sprot.enable_sp_slot_watchdog(time_ms)?;
+        Ok(())
+    }
+
+    pub(crate) fn disable_sp_slot_watchdog(&mut self) -> Result<(), SpError> {
+        self.sprot.disable_sp_slot_watchdog()?;
+        Ok(())
+    }
 }
 
 fn translate_sensor_nodata(

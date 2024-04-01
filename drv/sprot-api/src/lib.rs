@@ -15,6 +15,7 @@ use dumper_api::DumperError;
 pub use error::{
     AttestOrSprotError, CabooseOrSprotError, DumpOrSprotError,
     RawCabooseOrSprotError, SprocketsError, SprotError, SprotProtocolError,
+    WatchdogError,
 };
 
 use crc::{Crc, CRC_16_XMODEM};
@@ -47,7 +48,7 @@ pub const MIN_VERSION: Version = Version(2);
 /// Code between the `CURRENT_VERSION` and `MIN_VERSION` must remain
 /// compatible. Use the rules described in the comments for [`Msg`] to evolve
 /// the protocol such that this remains true.
-pub const CURRENT_VERSION: Version = Version(4);
+pub const CURRENT_VERSION: Version = Version(5);
 
 /// We allow room in the buffer for message evolution
 pub const REQUEST_BUF_SIZE: usize = 1024;
@@ -344,6 +345,10 @@ pub enum ReqBody {
     Attest(AttestReq),
     // Added in sprot protocol version 4
     RotPage { page: RotPage },
+    // Added in sprot protocol version 5
+    EnableSpSlotWatchdog { time_ms: u32 },
+    // Added in sprot protocol version 5
+    DisableSpSlotWatchdog,
 }
 
 /// Instruct the RoT to take a dump of the SP via SWD

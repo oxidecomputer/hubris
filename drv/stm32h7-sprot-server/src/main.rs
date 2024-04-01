@@ -1162,6 +1162,29 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
             Err(e) => Err(AttestOrSprotError::Sprot(e).into()),
         }
     }
+
+    fn enable_sp_slot_watchdog(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        time_ms: u32,
+    ) -> Result<(), idol_runtime::RequestError<SprotError>> {
+        let body = ReqBody::EnableSpSlotWatchdog { time_ms };
+        let tx_size = Request::pack(&body, self.tx_buf);
+        let rsp = self.do_send_recv_retries(tx_size, TIMEOUT_QUICK, 1)?;
+        rsp.body?;
+        Ok(())
+    }
+
+    fn disable_sp_slot_watchdog(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<(), idol_runtime::RequestError<SprotError>> {
+        let body = ReqBody::DisableSpSlotWatchdog;
+        let tx_size = Request::pack(&body, self.tx_buf);
+        let rsp = self.do_send_recv_retries(tx_size, TIMEOUT_QUICK, 1)?;
+        rsp.body?;
+        Ok(())
+    }
 }
 
 impl<S: SpiServer> NotificationHandler for ServerImpl<S> {

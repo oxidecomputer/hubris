@@ -86,6 +86,11 @@ enum Trace {
     DongleDetected,
     Dhcsr(u32),
     ParityFail { data: u32, received_parity: u16 },
+    EnabledWatchdog,
+    DisabledWatchdog,
+    WatchdogFired,
+    WatchdogSwapOk,
+    WatchdogSwapErr(Ack),
 }
 
 ringbuf!(Trace, 128, Trace::None);
@@ -484,16 +489,50 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
             Err(_) => Err(SpCtrlError::Fault.into()),
         }
     }
+
+    fn enable_sp_slot_watchdog(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        time_ms: u32,
+    ) -> Result<(), RequestError<SpCtrlError>> {
+        ringbuf_entry!(Trace::EnabledWatchdog);
+        if !self.init {
+            return Err(SpCtrlError::NeedInit.into());
+        }
+        let deadline = sys_get_timer().now + time_ms as u64;
+        sys_set_timer(Some(deadline), notifications::TIMER_MASK);
+        Ok(())
+    }
+
+    fn disable_sp_slot_watchdog(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
+        ringbuf_entry!(Trace::DisabledWatchdog);
+        sys_set_timer(None, notifications::TIMER_MASK);
+        Ok(())
+    }
 }
 
 impl NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
-        // We don't use notifications, don't listen for any.
-        0
+        notifications::TIMER_MASK
     }
 
     fn handle_notification(&mut self, _bits: u32) {
-        unreachable!()
+        ringbuf_entry!(Trace::WatchdogFired);
+
+        // Disable the watchdog timer
+        sys_set_timer(None, notifications::TIMER_MASK);
+
+        // Attempt to do the swap
+        match self.swap_sp_slot() {
+            Ok(()) => ringbuf_entry!(Trace::WatchdogSwapOk),
+            Err(e) => ringbuf_entry!(Trace::WatchdogSwapErr(e)),
+        }
+
+        // Force reinitialization
+        self.init = false;
     }
 }
 
@@ -972,6 +1011,73 @@ impl ServerImpl {
     fn pin_setup(&mut self) {
         setup_pins(self.gpio).unwrap_lite();
     }
+
+    /// Swaps the currently-active SP slot
+    fn swap_sp_slot(&mut self) -> Result<(), Ack> {
+        // All registers and constants are within the FLASH peripheral block, so
+        // I'm going to skip prefixing everything with `FLASH_`.
+
+        // RM0433 Table 8
+        const BASE: u32 = 0x52002000;
+
+        // RM0433 Section 4
+        const OPTCR: u32 = BASE + 0x018;
+        const OPTCR_OPTLOCK_BIT: u32 = 1 << 0;
+        const OPTCR_OPTSTART_BIT: u32 = 1 << 1;
+
+        // Check whether we have to unlock the flash control register
+        let optcr = self.read_single_target_addr(OPTCR)?;
+        if optcr & OPTCR_OPTLOCK_BIT != 0 {
+            // Keys constants are defined in RM0433 Rev 7
+            // Section 4.9.3
+            const OPT_KEY1: u32 = 0x0819_2A3B;
+            const OPT_KEY2: u32 = 0x4C5D_6E7F;
+            const OPTKEYR: u32 = BASE + 0x008;
+            self.write_single_target_addr(OPTKEYR, OPT_KEY1)?;
+            self.write_single_target_addr(OPTKEYR, OPT_KEY2)?;
+        }
+
+        // Read the current bank swap bit
+        const OPTSR_CUR: u32 = BASE + 0x01C;
+        const OPTSR_SWAP_BANK_OPT_BIT: u32 = 1 << 31;
+        const OPTSR_OPT_BUSY_BIT: u32 = 1 << 0;
+        let optsr_cur = self.read_single_target_addr(OPTSR_CUR)?;
+
+        // Mask and toggle the bank swap bit
+        let new_swap =
+            (optsr_cur & OPTSR_SWAP_BANK_OPT_BIT) ^ OPTSR_SWAP_BANK_OPT_BIT;
+
+        // Modify the bank swap bit in OPTSR_PRG
+        const OPTSR_PRG: u32 = BASE + 0x020;
+        let mut optsr_prg = self.read_single_target_addr(OPTSR_PRG)?;
+        optsr_prg = (optsr_prg & !OPTSR_SWAP_BANK_OPT_BIT) | new_swap;
+        self.write_single_target_addr(OPTSR_PRG, optsr_prg)?;
+
+        // Start programming option bits
+        let mut optcr = self.read_single_target_addr(OPTCR)?;
+        optcr |= OPTCR_OPTSTART_BIT;
+        self.write_single_target_addr(OPTCR, optcr)?;
+
+        // Wait for option bit programming to finish
+        loop {
+            let optsr_cur = self.read_single_target_addr(OPTSR_CUR)?;
+            if optsr_cur & OPTSR_OPT_BUSY_BIT == 0 {
+                break;
+            }
+        }
+
+        // Reset the STM32, causing it to reboot into the newly-set slot
+        // Details from PM0253, Section 4.3.5
+        const AIRCR: u32 = 0xE000ED0C;
+        const AIRCR_VECTKEY: u32 = 0x5FA << 16;
+        const AIRCR_SYSRESETREQ: u32 = 1 << 2;
+        self.write_single_target_addr(
+            AIRCR,
+            AIRCR_VECTKEY | AIRCR_SYSRESETREQ,
+        )?;
+
+        Ok(())
+    }
 }
 
 #[export_name = "main"]
@@ -1015,3 +1121,4 @@ mod idl {
 
 include!(concat!(env!("OUT_DIR"), "/pin_config.rs"));
 include!(concat!(env!("OUT_DIR"), "/swd.rs"));
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
