@@ -47,7 +47,9 @@ enum Trace {
 
 ringbuf!(Trace, 64, Trace::None);
 
-pub struct Buffer(u8);
+// Field is only used in the debugger, appears dead to the compiler.
+pub struct Buffer(#[allow(dead_code)] u8);
+
 //
 // The order in this enum must match the order in the functions array that
 // is passed to execute.

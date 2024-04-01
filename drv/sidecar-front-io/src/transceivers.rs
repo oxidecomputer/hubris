@@ -848,7 +848,9 @@ impl Transceivers {
                 FpgaController::Left => ldata,
                 FpgaController::Right => rdata,
             };
-            let Some(local_data) = local_data else { continue };
+            let Some(local_data) = local_data else {
+                continue;
+            };
 
             // loop through the 8 different fields we need to map
             for (word, out) in local_data.iter().zip(status_masks.iter_mut()) {

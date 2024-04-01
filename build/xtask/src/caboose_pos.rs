@@ -52,9 +52,9 @@ pub fn get_caboose_pos_table_entry(
 ) -> Result<Option<CaboosePosTableEntry>> {
     // If the section isn't present, then we're not reading the caboose position
     // from this task.
-    let Some(caboose_pos_table_section) = elf::get_section_by_name(
-        elf, CABOOSE_POS_TABLE_SECTION
-    ) else {
+    let Some(caboose_pos_table_section) =
+        elf::get_section_by_name(elf, CABOOSE_POS_TABLE_SECTION)
+    else {
         return Ok(None);
     };
 

@@ -118,7 +118,7 @@ pub fn run(
 
 #[derive(Copy, Clone, Debug)]
 enum Recommended {
-    FixedSize(u32),
+    FixedSize,
     MaxSize(u32),
 }
 #[derive(Clone, Debug)]
@@ -183,7 +183,7 @@ fn build_memory_map<'a>(
                         .get(mem_name.to_owned())
                         .cloned()
                         .map(match name {
-                            "kernel" => Recommended::FixedSize,
+                            "kernel" => |_| Recommended::FixedSize,
                             _ => Recommended::MaxSize,
                         }),
                 },
@@ -265,7 +265,7 @@ fn print_task_table(
                 match chunk.recommended {
                     None => print!("(auto)"),
                     Some(Recommended::MaxSize(m)) => print!("{}", m),
-                    Some(Recommended::FixedSize(_)) => print!("(fixed)"),
+                    Some(Recommended::FixedSize) => print!("(fixed)"),
                 }
                 println!();
             }
@@ -359,7 +359,7 @@ fn print_memory_map(
                     match chunk.recommended {
                         None => print!("(auto)"),
                         Some(Recommended::MaxSize(m)) => print!("{}", m),
-                        Some(Recommended::FixedSize(_)) => print!("(fixed)"),
+                        Some(Recommended::FixedSize) => print!("(fixed)"),
                     }
                 }
                 println!();

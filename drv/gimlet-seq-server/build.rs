@@ -5,7 +5,7 @@
 use build_fpga_regmap::fpga_regs;
 use serde::Deserialize;
 use sha2::Digest;
-use std::{convert::TryInto, fs, io::Write, path::PathBuf};
+use std::{fs, io::Write, path::PathBuf};
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]

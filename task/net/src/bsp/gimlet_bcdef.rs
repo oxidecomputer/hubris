@@ -90,7 +90,6 @@ impl crate::bsp_support::Bsp for BspImpl {
                 power_en: Some(Port::I.pin(10).and_pin(12)),
                 slow_power_en: false,
                 power_good: &[], // TODO
-                pll_lock: None,  // TODO?
 
                 ksz8463: Ksz8463::new(ksz8463_dev),
 

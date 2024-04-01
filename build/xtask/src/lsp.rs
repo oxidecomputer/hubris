@@ -114,7 +114,9 @@ impl PackageGraph {
             while let Some((pkg_name, feat)) = todo.pop() {
                 // Anything not in `packages` is something from outside the
                 // workspace, so we don't care about it.
-                let Some(pkg) = self.0.get(&pkg_name) else { continue };
+                let Some(pkg) = self.0.get(&pkg_name) else {
+                    continue;
+                };
 
                 // If we've never seen this package before, then insert all of
                 // its non-optional dependencies with their features.
@@ -277,7 +279,7 @@ fn check_task(
             extra_env: build_cfg.env,
             hash: "".to_owned(),
             build_override_command,
-            app: app_name.clone().to_owned(),
+            app: app_name.to_owned(),
             task: task_name.to_owned(),
         };
 

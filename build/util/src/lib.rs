@@ -262,7 +262,7 @@ pub fn build_notifications() -> Result<()> {
         );
     }
     if full_task_config.name == "task-jefe"
-        && full_task_config.notifications.get(0).cloned()
+        && full_task_config.notifications.first().cloned()
             != Some("fault".to_string())
     {
         bail!("`jefe` must have \"fault\" as its first notification");

@@ -4,10 +4,10 @@
 
 //! Operations implemented by IPC with the kernel task.
 
-use crate::UnwrapLite;
+use abi::{Kipcnum, TaskId};
 use zerocopy::AsBytes;
 
-use crate::*;
+use crate::{sys_send, UnwrapLite};
 
 pub fn read_task_status(task: usize) -> abi::TaskState {
     // Coerce `task` to a known size (Rust doesn't assume that usize == u32)

@@ -201,6 +201,8 @@ impl Ds2482 {
     pub fn search(&mut self) -> Result<Option<Identifier>, Error> {
         let device = &self.device;
 
+        // TODO: lint is buggy in 2024-04-04 toolchain, retest later.
+        #[allow(clippy::manual_unwrap_or_default)]
         let branches = match self.branches {
             Some(branches) => {
                 if branches.0 == 0 {

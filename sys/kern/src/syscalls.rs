@@ -27,8 +27,6 @@
 //! struct* type to make this easy and safe, e.g. `task.save().as_send_args()`.
 //! See the `task::ArchState` trait for details.
 
-use core::convert::TryFrom;
-
 use abi::{
     FaultInfo, IrqStatus, LeaseAttributes, SchedState, Sysnum, TaskId,
     TaskState, ULease, UsageError,

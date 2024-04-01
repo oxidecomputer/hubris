@@ -465,6 +465,8 @@ impl SpiServerCore {
                     // run off the end of their lease, or the fixed padding byte if
                     // we have.
                     let byte = if let Some(txbuf) = &mut tx {
+                        // TODO: lint is buggy in 2024-04-04 toolchain, retest later
+                        #[allow(clippy::manual_unwrap_or_default)]
                         if let Some(b) = txbuf.read() {
                             b
                         } else {

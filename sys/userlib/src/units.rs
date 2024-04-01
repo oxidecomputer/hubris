@@ -6,7 +6,6 @@
 //! Tuple structs for units that are useful in the real world
 //!
 
-use core::convert::TryFrom;
 use zerocopy::{AsBytes, FromBytes};
 
 /// Degrees Celsius

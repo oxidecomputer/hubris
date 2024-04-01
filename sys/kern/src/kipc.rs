@@ -10,7 +10,6 @@ use crate::arch;
 use crate::err::UserError;
 use crate::task::{current_id, ArchState, NextTask, Task};
 use crate::umem::USlice;
-use core::convert::TryFrom;
 use core::mem::size_of;
 
 /// Message dispatcher.
