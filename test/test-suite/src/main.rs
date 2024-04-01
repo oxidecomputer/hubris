@@ -1171,6 +1171,8 @@ fn test_timer_notify() {
     let deadline = start_time + 2;
     sys_set_timer(Some(deadline), ARBITRARY_NOTIFICATION);
 
+    // Deliberately not using the sys_recv_notification convenience operation so
+    // that we can examine more of the results.
     let rm = sys_recv_closed(&mut [], ARBITRARY_NOTIFICATION, TaskId::KERNEL)
         .unwrap();
 
@@ -1193,6 +1195,8 @@ fn test_timer_notify_past() {
     let deadline = start_time;
     sys_set_timer(Some(deadline), ARBITRARY_NOTIFICATION);
 
+    // Deliberately not using the sys_recv_notification convenience operation so
+    // that we can examine more of the results.
     let rm = sys_recv_closed(&mut [], ARBITRARY_NOTIFICATION, TaskId::KERNEL)
         .unwrap();
 
@@ -1417,6 +1421,8 @@ fn test_irq_notif() {
 
     trigger_test_irq();
 
+    // Deliberately not using the sys_recv_notification convenience operation so
+    // that we can examine more of the results.
     let rm =
         sys_recv_closed(&mut [], notifications::TEST_IRQ_MASK, TaskId::KERNEL)
             .unwrap();
@@ -1465,6 +1471,9 @@ fn test_irq_status() {
 
     // do a `RECV` call to consume the posted notification. Now, we have the
     // second IRQ pending, and no notification posted.
+    //
+    // Deliberately not using the sys_recv_notification convenience operation so
+    // that we can examine more of the results.
     sys_recv_closed(&mut [], notifications::TEST_IRQ_MASK, TaskId::KERNEL)
         .unwrap();
 

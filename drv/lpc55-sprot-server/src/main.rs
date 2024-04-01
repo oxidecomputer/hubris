@@ -57,7 +57,7 @@ use drv_sprot_api::{
 use lpc55_pac as device;
 use ringbuf::{ringbuf, ringbuf_entry};
 use userlib::{
-    sys_irq_control, sys_recv_closed, task_slot, TaskId, UnwrapLite,
+    sys_irq_control, sys_recv_notification, task_slot, TaskId, UnwrapLite,
 };
 
 mod handler;
@@ -216,12 +216,7 @@ impl Io {
         loop {
             sys_irq_control(notifications::SPI_IRQ_MASK, true);
 
-            sys_recv_closed(
-                &mut [],
-                notifications::SPI_IRQ_MASK,
-                TaskId::KERNEL,
-            )
-            .unwrap_lite();
+            sys_recv_notification(notifications::SPI_IRQ_MASK);
 
             // Is CSn asserted by the SP?
             let intstat = self.spi.intstat();

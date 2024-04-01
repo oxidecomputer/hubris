@@ -7,7 +7,7 @@
 //! This is intended to provide a more ergonomic interface than the raw
 //! syscalls.
 
-use abi::TaskId;
+use abi::{Generation, TaskId};
 use core::marker::PhantomData;
 use unwrap_lite::UnwrapLite;
 use zerocopy::{AsBytes, FromBytes, LayoutVerified};
@@ -147,8 +147,8 @@ where
     O: FromPrimitive,
     E: Into<u32>,
 {
-    let rm =
-        sys_recv(buffer, mask, source).map_err(|_| ClosedRecvError::Dead)?;
+    let rm = sys_recv(buffer, mask, source)
+        .map_err(|code| ClosedRecvError::Dead(Generation::from(code as u8)))?;
     let sender = rm.sender;
     if rm.sender == TaskId::KERNEL {
         notify(state, rm.operation);

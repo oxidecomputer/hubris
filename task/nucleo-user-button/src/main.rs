@@ -91,18 +91,7 @@ pub fn main() -> ! {
         sys.gpio_irq_control(disable_mask, notifications::BUTTON_MASK);
 
         // Wait for the user button to be pressed.
-        //
-        // We only care about notifications, so we can pass a zero-sized recv
-        // buffer, and the kernel's task ID.
-        let recvmsg = sys_recv_closed(
-            &mut [],
-            notifications::BUTTON_MASK,
-            TaskId::KERNEL,
-        )
-        // Recv from the kernel never returns an error.
-        .unwrap_lite();
-
-        let notif = recvmsg.operation;
+        let notif = sys_recv_notification(notifications::BUTTON_MASK);
         ringbuf_entry!(Trace::Notification(notif));
 
         // If the notification is for the button, toggle the LED.

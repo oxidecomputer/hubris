@@ -159,24 +159,14 @@ fn main() -> ! {
                         // packets off our recv queue at the top of our main
                         // loop.
                         Err(SendError::QueueFull) => {
-                            sys_recv_closed(
-                                &mut [],
-                                notifications::SOCKET_MASK,
-                                TaskId::KERNEL,
-                            )
-                            .unwrap_lite();
+                            sys_recv_notification(notifications::SOCKET_MASK);
                         }
                     }
                 }
             }
             Err(RecvError::QueueEmpty) => {
                 // Our incoming queue is empty. Wait for more packets.
-                sys_recv_closed(
-                    &mut [],
-                    notifications::SOCKET_MASK,
-                    TaskId::KERNEL,
-                )
-                .unwrap_lite();
+                sys_recv_notification(notifications::SOCKET_MASK);
             }
             Err(RecvError::ServerRestarted) => {
                 // `net` restarted (probably due to the watchdog); just retry.

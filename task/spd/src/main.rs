@@ -31,7 +31,7 @@ use ringbuf::{ringbuf, ringbuf_entry};
 use task_jefe_api::Jefe;
 use task_packrat_api::Packrat;
 use userlib::{
-    sys_irq_control, sys_recv_closed, task_slot, FromPrimitive, TaskId,
+    sys_irq_control, sys_recv_notification, task_slot, FromPrimitive,
 };
 
 task_slot!(SYS, sys);
@@ -104,13 +104,8 @@ fn main() -> ! {
             None => {
                 // This happens before we're in a valid power state.
                 //
-                // Only listen to our Jefe notification. Discard any error
-                // since this can't fail but the compiler doesn't know that.
-                let _ = sys_recv_closed(
-                    &mut [],
-                    notifications::JEFE_STATE_CHANGE_MASK,
-                    TaskId::KERNEL,
-                );
+                // Only listen to our Jefe notification.
+                sys_recv_notification(notifications::JEFE_STATE_CHANGE_MASK);
             }
         }
     }
@@ -254,7 +249,7 @@ fn main() -> ! {
             sys_irq_control(notification, true);
         },
         wfi: |notification| {
-            let _ = sys_recv_closed(&mut [], notification, TaskId::KERNEL);
+            sys_recv_notification(notification);
         },
     };
 
