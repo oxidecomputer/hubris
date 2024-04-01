@@ -11,8 +11,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use core::convert::TryFrom;
-
 /// Internal definition of how long the run count is. Tuning this might improve
 /// performance, though its current value seems optimal in practice.
 type RunType = u8;

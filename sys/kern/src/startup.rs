@@ -5,7 +5,7 @@
 //! Kernel startup.
 
 use crate::atomic::AtomicExt;
-use crate::descs::RegionDesc;
+use crate::descs::*;
 use crate::task::Task;
 use core::mem::MaybeUninit;
 use core::sync::atomic::{AtomicBool, Ordering};
@@ -51,7 +51,8 @@ pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
     let task_descs = &HUBRIS_TASK_DESCS;
     // Safety: this reference will remain unique so long as the "only called
     // once per boot" contract on this function is upheld.
-    let task_table = unsafe { &mut HUBRIS_TASK_TABLE_SPACE };
+    let task_table =
+        unsafe { &mut *core::ptr::addr_of_mut!(HUBRIS_TASK_TABLE_SPACE) };
 
     // Initialize our RAM data structures.
 
@@ -100,18 +101,27 @@ pub(crate) fn with_task_table<R>(body: impl FnOnce(&mut [Task]) -> R) -> R {
     if TASK_TABLE_IN_USE.swap_polyfill(true, Ordering::Acquire) {
         panic!(); // recursive use of with_task_table
     }
+    // Safety: tbh it's never been clear to me why addr_of_mut is unsafe when it
+    // produces a raw pointer, but, see the Safety justification on the
+    // derefrence below for the full argument on why we can do this.
+    let task_table: *mut MaybeUninit<[Task; HUBRIS_TASK_COUNT]> =
+        unsafe { core::ptr::addr_of_mut!(HUBRIS_TASK_TABLE_SPACE) };
+    // Pointer cast valid as MaybeUninit<[T; N]> and [MaybeUninit<T>; N] have
+    // same in-memory representation. At the time of this writing
+    // MaybeUninit::transpose is not yet stable.
+    let task_table: *mut [MaybeUninit<Task>; HUBRIS_TASK_COUNT] =
+        task_table as _;
+    // This pointer cast is doing the equivalent of
+    // MaybeUninit::array_assume_init, which at the time of this writing is not
+    // stable.
+    let task_table: *mut [Task; HUBRIS_TASK_COUNT] = task_table as _;
     // Safety: we have observed `TASK_TABLE_IN_USE` being false, which means the
     // task table is initialized (note that at reset it starts out true) and
     // that we're not already within a call to with_task_table. Thus, we can
     // produce a reference to the task table without aliasing, and we can be
     // confident that the memory it's pointing to is initialized and shed the
     // MaybeUninit.
-    let task_table = unsafe {
-        &mut *(&mut HUBRIS_TASK_TABLE_SPACE
-            as *mut MaybeUninit<[Task; HUBRIS_TASK_COUNT]>
-            as *mut [MaybeUninit<Task>; HUBRIS_TASK_COUNT]
-            as *mut [Task; HUBRIS_TASK_COUNT])
-    };
+    let task_table = unsafe { &mut *task_table };
 
     let r = body(task_table);
 
@@ -120,5 +130,4 @@ pub(crate) fn with_task_table<R>(body: impl FnOnce(&mut [Task]) -> R) -> R {
     r
 }
 
-use crate::descs::*;
 include!(concat!(env!("OUT_DIR"), "/kconfig.rs"));

@@ -4,7 +4,6 @@
 
 use crate::*;
 use drv_i2c_devices::raa229618::Raa229618;
-use drv_sidecar_mainboard_controller::tofino2::{DebugPort, Sequencer};
 
 pub(crate) struct Tofino {
     pub policy: TofinoSequencerPolicy,

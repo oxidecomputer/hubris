@@ -6,7 +6,6 @@
 
 use crate::Validate;
 use bitfield::bitfield;
-use core::convert::TryFrom;
 use drv_i2c_api::*;
 use ringbuf::*;
 use userlib::units::*;

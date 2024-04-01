@@ -76,7 +76,7 @@ fn read_regs(
     rbuf: &mut [u8],
     ctrl: &I2cControl,
 ) -> Result<(), ResponseCode> {
-    match controller.write_read(
+    let controller_result = controller.write_read(
         mux.address,
         0,
         |_| Some(0),
@@ -86,7 +86,8 @@ fn read_regs(
             Some(())
         },
         ctrl,
-    ) {
+    );
+    match controller_result {
         Err(code) => Err(mux.error_code(code)),
         _ => {
             for (i, &byte) in rbuf.iter().enumerate() {

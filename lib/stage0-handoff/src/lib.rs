@@ -4,8 +4,6 @@
 
 #![cfg_attr(not(test), no_std)]
 
-use core::convert::From;
-use core::marker::Sized;
 use core::ops::Range;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};

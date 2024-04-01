@@ -37,7 +37,6 @@ use crate::{
     bsp::{Bsp, PowerBitmask, SeqError},
     control::ThermalControl,
 };
-use core::convert::TryFrom;
 use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::max31790::I2cWatchdog;
 use idol_runtime::{NotificationHandler, RequestError};
