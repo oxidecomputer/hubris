@@ -214,7 +214,6 @@ priority = 4
 max-sizes = {flash = 16384, ram = 8192 }
 stacksize = 1024
 start = true
-notifications = ["timer"]
 
 [tasks.host_sp_comms]
 name = "task-host-sp-comms"
