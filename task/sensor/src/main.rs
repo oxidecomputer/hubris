@@ -71,10 +71,7 @@ struct ServerImpl {
     err_time: SensorArray<u64>,
 
     nerrors: SensorArray<u32>,
-    deadline: u64,
 }
-
-const TIMER_INTERVAL: u64 = 1000;
 
 impl idl::InOrderSensorImpl for ServerImpl {
     fn get(
@@ -243,24 +240,20 @@ impl ServerImpl {
 
 impl NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
-        notifications::TIMER_MASK
+        // We don't use notifications, don't listen for any.
+        0
     }
 
     fn handle_notification(&mut self, _bits: u32) {
-        self.deadline = self.deadline.wrapping_add(TIMER_INTERVAL);
-        sys_set_timer(Some(self.deadline), notifications::TIMER_MASK);
+        unreachable!()
     }
 }
 
 #[export_name = "main"]
 fn main() -> ! {
-    let deadline = sys_get_timer().now;
-
-    //
-    // This will put our timer in the past, and should immediately kick us.
-    //
-    sys_set_timer(Some(deadline), notifications::TIMER_MASK);
-
+    // N.B. if you are staring at this macro thinking that it looks like it
+    // doesn't do anything and might be obsolescent, the key is the :upper. This
+    // macro exists exclusively to uppercase the field names below.
     macro_rules! declare_server {
         ($($name:ident: $t:ty = $n:expr;)*) => {{
             paste::paste! {
@@ -271,7 +264,6 @@ fn main() -> ! {
                 };
                 let ($($name),*) = ($(SensorArray($name)),*);
                 ServerImpl {
-                    deadline,
                     $($name),*
                 }
             }}
@@ -308,5 +300,3 @@ mod idl {
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
-
-include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

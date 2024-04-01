@@ -4,7 +4,6 @@
 
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     build_util::expose_target_board();
-    build_util::build_notifications()?;
     idol::Generator::new()
         .with_counters(
             idol::CounterSettings::default().with_server_counters(false),

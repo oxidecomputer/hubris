@@ -60,7 +60,6 @@ priority = 5
 max-sizes = {flash = 16384, ram = 2048 }
 stacksize = 1024
 start = true
-notifications = ["timer"]
 
 [tasks.dump_agent]
 name = "task-dump-agent"
