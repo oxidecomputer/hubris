@@ -9,7 +9,6 @@
 
 use abi::{Generation, TaskId};
 use core::marker::PhantomData;
-use unwrap_lite::UnwrapLite;
 use zerocopy::{AsBytes, FromBytes, LayoutVerified};
 
 use crate::{
@@ -451,6 +450,10 @@ pub fn sleep_until(time: u64) {
 
 /// Suspends the calling task until the kernel time has increased by `ticks`.
 ///
+/// If `ticks` is very large, it may be rounded down to "the end of time" when
+/// the u64 kernel timer overflows. You won't notice this in practice because
+/// it's a very, very long time from now.
+///
 /// TODO: once we figure out how to convert between ticks and seconds here, this
 /// needs to take `Duration`.
 pub fn sleep_for(ticks: u64) {
@@ -465,10 +468,6 @@ pub fn sleep_for(ticks: u64) {
     // `sleep_for(x)` will sleep for at least `x` full ticks. Note that the task
     // calling `sleep_for` may get woken arbitrarily later if preempted by
     // higher priority tasks, so at-least is generally the best we can do.
-    let deadline = sys_get_timer()
-        .now
-        .checked_add(ticks)
-        .and_then(|t| t.checked_add(1))
-        .unwrap_lite();
+    let deadline = sys_get_timer().now.saturating_add(ticks).saturating_add(1);
     sleep_until(deadline)
 }
