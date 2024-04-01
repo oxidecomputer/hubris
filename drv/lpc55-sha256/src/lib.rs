@@ -55,7 +55,7 @@
 //!   (This restriction would be straightforward to lift if required.)
 
 use core::num::Wrapping;
-use userlib::{sys_irq_control, sys_recv_closed, TaskId};
+use userlib::{sys_irq_control, sys_recv_notification};
 
 // These constants describe intrinsic properties of the SHA256 algorithm and
 // should not be changed.
@@ -201,11 +201,7 @@ impl<'a> Hasher<'a> {
 
                 // Wait for it!
                 sys_irq_control(self.notification_mask, true);
-                let _ = sys_recv_closed(
-                    &mut [],
-                    self.notification_mask,
-                    TaskId::KERNEL,
-                );
+                sys_recv_notification(self.notification_mask);
 
                 // Turn it back off lest it spam us in the future.
                 self.engine.intenclr.write(|w| w.digest().set_bit());
@@ -235,11 +231,7 @@ impl<'a> Hasher<'a> {
 
                     // Wait for it!
                     sys_irq_control(self.notification_mask, true);
-                    let _ = sys_recv_closed(
-                        &mut [],
-                        self.notification_mask,
-                        TaskId::KERNEL,
-                    );
+                    sys_recv_notification(self.notification_mask);
 
                     // Turn it back off lest it spam us in the future.
                     self.engine.intenclr.write(|w| w.waiting().set_bit());

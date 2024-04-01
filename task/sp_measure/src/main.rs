@@ -70,9 +70,7 @@ fn main() -> ! {
 
         // Wait for a notification that will never come, politer than
         // busy looping forever
-        if sys_recv_closed(&mut [], 1, TaskId::KERNEL).is_err() {
-            panic!();
-        }
+        sys_recv_notification(1);
     }
 }
 

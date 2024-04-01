@@ -549,11 +549,8 @@ impl SpiServerCore {
                     // Allow the controller interrupt to post to our
                     // notification set.
                     sys_irq_control(self.irq_mask, true);
-                    // Wait for our notification set to get, well, set. We ignore
-                    // the result of this because an error would mean the kernel
-                    // violated the ABI, which we can't usefully respond to.
-                    let _ =
-                        sys_recv_closed(&mut [], self.irq_mask, TaskId::KERNEL);
+                    // Wait for our notification set to get, well, set.
+                    sys_recv_notification(self.irq_mask);
                 }
             }
 

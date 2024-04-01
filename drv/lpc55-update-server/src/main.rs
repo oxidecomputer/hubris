@@ -639,12 +639,7 @@ fn indirect_flash_read_words(
 
             flash.enable_interrupt_sources();
             sys_irq_control(notifications::FLASH_IRQ_MASK, true);
-            // RECV from the kernel cannot produce an error, so ignore it.
-            let _ = sys_recv_closed(
-                &mut [],
-                notifications::FLASH_IRQ_MASK,
-                TaskId::KERNEL,
-            );
+            sys_recv_notification(notifications::FLASH_IRQ_MASK);
             flash.disable_interrupt_sources();
         }
     }
@@ -773,9 +768,7 @@ fn do_block_write(
 
 fn wait_for_flash_interrupt() {
     sys_irq_control(notifications::FLASH_IRQ_MASK, true);
-    // RECV from the kernel cannot produce an error, so ignore it.
-    let _ =
-        sys_recv_closed(&mut [], notifications::FLASH_IRQ_MASK, TaskId::KERNEL);
+    sys_recv_notification(notifications::FLASH_IRQ_MASK);
 }
 
 fn same_image(which: UpdateTarget) -> bool {
