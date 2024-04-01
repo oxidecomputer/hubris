@@ -118,9 +118,12 @@ impl HostPhase2Requester {
         // in our outgoing net task queue).
         let port = match current.state {
             State::NeedToSendFirstMgs(port) => {
+                // Using saturating_add here because it's cheaper than
+                // panicking, and timestamps won't saturate for 584 million
+                // years.
                 current.state = State::WaitingForFirstMgs {
                     port,
-                    deadline: now + DELAY_TRY_OTHER_MGS,
+                    deadline: now.saturating_add(DELAY_TRY_OTHER_MGS),
                 };
                 port
             }
@@ -136,7 +139,7 @@ impl HostPhase2Requester {
                 };
                 current.state = State::WaitingForSecondMgs {
                     port,
-                    deadline: now + DELAY_RETRY,
+                    deadline: now.saturating_add(DELAY_RETRY),
                 };
                 port
             }
@@ -158,7 +161,7 @@ impl HostPhase2Requester {
                 };
                 current.state = State::WaitingForFirstMgs {
                     port,
-                    deadline: now + DELAY_TRY_OTHER_MGS,
+                    deadline: now.saturating_add(DELAY_TRY_OTHER_MGS),
                 };
                 port
             }

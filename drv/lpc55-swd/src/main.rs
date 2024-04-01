@@ -500,8 +500,7 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
         }
         // This function is idempotent(ish), so we don't care if the timer was
         // already running; set the new deadline based on current time.
-        let deadline = sys_get_timer().now + time_ms as u64;
-        sys_set_timer(Some(deadline), notifications::TIMER_MASK);
+        set_timer_relative(time_ms, notifications::TIMER_MASK);
         Ok(())
     }
 

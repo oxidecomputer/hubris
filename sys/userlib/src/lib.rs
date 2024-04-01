@@ -577,6 +577,23 @@ pub fn sys_set_timer(deadline: Option<u64>, notifications: u32) {
     }
 }
 
+/// Convenience wrapper for `sys_set_timer` that sets a point in time relative
+/// to whatever the current kernel timestamp happens to be.
+///
+/// This is only useful for setting intervals up to 49.7 days. In practice
+/// our intervals tend to be much shorter than this. This restriction exists to
+/// avoid the possibility of overflow: overflow will start happening only within
+/// 49.7 days of the "end of time" in 584 million years.
+///
+/// Returns the actual computed wake time for your reference.
+pub fn set_timer_relative(interval: u32, notifications: u32) -> u64 {
+    // wrapping add because the uptime is likely to be less than 584 million
+    // years.
+    let wake = sys_get_timer().now.wrapping_add(u64::from(interval));
+    sys_set_timer(Some(wake), notifications);
+    wake
+}
+
 /// Core implementation of the SET_TIMER syscall.
 ///
 /// See the note on syscall stubs at the top of this module for rationale.

@@ -401,9 +401,13 @@ impl ServerImpl {
                     if reboot {
                         // Somehow we're already in A2 when the host wanted to
                         // reboot; set our reboot timer.
+                        //
+                        // Using saturating add here because it's cheaper than
+                        // potentially panicking, and timestamps won't saturate
+                        // for 584 million years.
                         self.timers.set_timer(
                             Timers::WaitingInA2ToReboot,
-                            sys_get_timer().now + A2_REBOOT_DELAY,
+                            sys_get_timer().now.saturating_add(A2_REBOOT_DELAY),
                             None,
                         );
                         self.reboot_state =
