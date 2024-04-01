@@ -58,9 +58,6 @@ pub struct Config {
     /// Goes high once power is good
     pub power_good: &'static [sys_api::PinSet],
 
-    /// Goes high once the PLLs are locked
-    pub pll_lock: Option<sys_api::PinSet>,
-
     pub ksz8463: Ksz8463,
     pub ksz8463_nrst: sys_api::PinSet,
     pub ksz8463_rst_type: Ksz8463ResetSpeed,

@@ -242,6 +242,7 @@ pub(crate) struct DynamicInputChannel {
 ////////////////////////////////////////////////////////////////////////////////
 
 #[derive(Copy, Clone)]
+#[allow(dead_code)] // used only by the debugger
 pub struct TimestampedSensorError {
     pub timestamp: u64,
     pub id: SensorId,
