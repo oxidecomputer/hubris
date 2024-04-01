@@ -381,8 +381,11 @@ impl<S: SpiServer> Io<S> {
         );
 
         // Determine the deadline after which we'll give up, and start the clock.
-        let deadline = sys_get_timer().now.checked_add(max_sleep).unwrap_lite();
-        sys_set_timer(Some(deadline), notifications::TIMER_MASK);
+        let deadline = sys_get_timer()
+            .now
+            .checked_add(max_sleep as u64)
+            .unwrap_lite();
+        sys_set_timer(Some(deadline), notifications::sprot::TIMER_MASK);
 
         while self.is_rot_irq_asserted() != desired {
             // Enable the GPIO pin's interrupt.
@@ -391,7 +394,7 @@ impl<S: SpiServer> Io<S> {
             // Wait to be notified either by the timeout or by the ROT_IRQ pin
             // changing state.
             const MASK: u32 =
-                notifications::TIMER_MASK | notifications::ROT_IRQ_MASK;
+                notifications::sprot::TIMER_MASK | notifications::ROT_IRQ_MASK;
             let recv = sys_recv_closed(&mut [], MASK, TaskId::KERNEL)
                 // recv from the kernel should never fail.
                 .unwrap_lite();
@@ -427,7 +430,7 @@ impl<S: SpiServer> Io<S> {
         // Ensure the timer gets unset before returning, to avoid frightening
         // our IPC server when it's waiting in recv without expecting a timer to
         // go off.
-        sys_set_timer(None, notifications::TIMER_MASK);
+        sys_set_timer(None, notifications::sprot::TIMER_MASK);
 
         true
     }
