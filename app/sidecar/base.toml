@@ -128,7 +128,7 @@ start = true
 task-slots = ["sys"]
 features = ["sink_test", "use-spi-core", "h753", "spi4"]
 uses = ["spi4"]
-notifications = ["spi-irq", "rot-irq"]
+notifications = ["spi-irq", "rot-irq", "timer"]
 interrupts = {"spi4.irq" = "spi-irq"}
 
 [tasks.udpecho]
