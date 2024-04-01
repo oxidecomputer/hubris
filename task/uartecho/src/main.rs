@@ -47,11 +47,7 @@ fn main() -> ! {
     loop {
         // Wait for uart interrupt; if we haven't enabled tx interrupts, this
         // blocks until there's data to receive.
-        let _ = sys_recv_closed(
-            &mut [],
-            notifications::USART_IRQ_MASK,
-            TaskId::KERNEL,
-        );
+        sys_recv_notification(notifications::USART_IRQ_MASK);
 
         // Walk through our tx state machine to handle echoing lines back; note
         // that many of these cases intentionally break after refilling

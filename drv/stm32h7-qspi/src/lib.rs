@@ -15,7 +15,7 @@ use stm32h7::stm32h743 as device;
 use stm32h7::stm32h753 as device;
 
 use drv_qspi_api::Command;
-use userlib::{sys_irq_control, sys_recv_closed, TaskId};
+use userlib::{sys_irq_control, sys_recv_notification};
 use zerocopy::AsBytes;
 
 const FIFO_SIZE: usize = 32;
@@ -198,9 +198,7 @@ impl Qspi {
                 // Unmask our interrupt.
                 sys_irq_control(self.interrupt, true);
                 // And wait for it to arrive.
-                let _rm =
-                    sys_recv_closed(&mut [], self.interrupt, TaskId::KERNEL)
-                        .unwrap();
+                sys_recv_notification(self.interrupt);
                 if self.reg.sr.read().ftf().bit() {
                     break;
                 }
@@ -218,8 +216,7 @@ impl Qspi {
             // Unmask our interrupt.
             sys_irq_control(self.interrupt, true);
             // And wait for it to arrive.
-            let _rm = sys_recv_closed(&mut [], self.interrupt, TaskId::KERNEL)
-                .unwrap();
+            sys_recv_notification(self.interrupt);
         }
         self.reg.cr.modify(|_, w| w.tcie().clear_bit());
     }
@@ -284,9 +281,7 @@ impl Qspi {
                 // Unmask our interrupt.
                 sys_irq_control(self.interrupt, true);
                 // And wait for it to arrive.
-                let _rm =
-                    sys_recv_closed(&mut [], self.interrupt, TaskId::KERNEL)
-                        .unwrap();
+                sys_recv_notification(self.interrupt);
 
                 // Try the check again. We may retry the check on spurious
                 // wakeups, but, spurious wakeups are expected to be pretty
@@ -321,8 +316,7 @@ impl Qspi {
             // Unmask our interrupt.
             sys_irq_control(self.interrupt, true);
             // And wait for it to arrive.
-            let _rm = sys_recv_closed(&mut [], self.interrupt, TaskId::KERNEL)
-                .unwrap();
+            sys_recv_notification(self.interrupt);
         }
 
         // Clean up by disabling our interrupt sources.

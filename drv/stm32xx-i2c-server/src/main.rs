@@ -343,17 +343,17 @@ fn main() -> ! {
         wfi: |notification, timeout| {
             const TIMER_NOTIFICATION: u32 = 1 << 31;
 
-            let dead = sys_get_timer().now.checked_add(timeout.0).unwrap_lite();
+            // If the driver passes in a timeout that is large enough that it
+            // would overflow the kernel's 64-bit timestamp space... well, we'll
+            // do the best we can without compiling in an unlikely panic.
+            let dead = sys_get_timer().now.saturating_add(timeout.0);
+
             sys_set_timer(Some(dead), TIMER_NOTIFICATION);
 
-            let m = sys_recv_closed(
-                &mut [],
-                notification | TIMER_NOTIFICATION,
-                TaskId::KERNEL,
-            )
-            .unwrap_lite();
+            let notification =
+                sys_recv_notification(notification | TIMER_NOTIFICATION);
 
-            if m.operation == TIMER_NOTIFICATION {
+            if notification == TIMER_NOTIFICATION {
                 I2cControlResult::TimedOut
             } else {
                 sys_set_timer(None, TIMER_NOTIFICATION);
