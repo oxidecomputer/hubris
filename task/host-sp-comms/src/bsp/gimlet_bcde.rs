@@ -82,8 +82,9 @@ impl ServerImpl {
                 let packrat = &self.packrat;
                 let mut data = InventoryData::VpdIdentity(Default::default());
                 self.tx_buf.try_encode_inventory(sequence, b"U615/ID", || {
-                    let InventoryData::VpdIdentity(identity) = &mut data
-                        else { unreachable!(); };
+                    let InventoryData::VpdIdentity(identity) = &mut data else {
+                        unreachable!();
+                    };
                     *identity = packrat
                         .get_identity()
                         .map_err(|_| InventoryDataResult::DeviceAbsent)?
@@ -184,18 +185,21 @@ impl ServerImpl {
                 self.tx_buf.try_encode_inventory(sequence, &name, || {
                     use pmbus::commands::bmr491::CommandCode;
                     let InventoryData::Bmr491 {
-                            mfr_id,
-                            mfr_model,
-                            mfr_revision,
-                            mfr_location,
-                            mfr_date,
-                            mfr_serial,
-                            mfr_firmware_data,
-                            temp_sensor: _,
-                            voltage_sensor: _,
-                            current_sensor: _,
-                            power_sensor: _,
-                        } = &mut data else { unreachable!() };
+                        mfr_id,
+                        mfr_model,
+                        mfr_revision,
+                        mfr_location,
+                        mfr_date,
+                        mfr_serial,
+                        mfr_firmware_data,
+                        temp_sensor: _,
+                        voltage_sensor: _,
+                        current_sensor: _,
+                        power_sensor: _,
+                    } = &mut data
+                    else {
+                        unreachable!()
+                    };
                     dev.read_block(CommandCode::MFR_ID as u8, mfr_id)?;
                     dev.read_block(CommandCode::MFR_MODEL as u8, mfr_model)?;
                     dev.read_block(
@@ -234,15 +238,18 @@ impl ServerImpl {
                 self.tx_buf.try_encode_inventory(sequence, &name, || {
                     use pmbus::commands::isl68224::CommandCode;
                     let InventoryData::Isl68224 {
-                            mfr_id,
-                            mfr_model,
-                            mfr_revision,
-                            mfr_date,
-                            ic_device_id,
-                            ic_device_rev,
-                            voltage_sensors: _,
-                            current_sensors: _,
-                        } = &mut data else { unreachable!() };
+                        mfr_id,
+                        mfr_model,
+                        mfr_revision,
+                        mfr_date,
+                        ic_device_id,
+                        ic_device_rev,
+                        voltage_sensors: _,
+                        current_sensors: _,
+                    } = &mut data
+                    else {
+                        unreachable!()
+                    };
                     dev.read_block(CommandCode::MFR_ID as u8, mfr_id)?;
                     dev.read_block(CommandCode::MFR_MODEL as u8, mfr_model)?;
                     dev.read_block(
@@ -286,17 +293,20 @@ impl ServerImpl {
                 self.tx_buf.try_encode_inventory(sequence, &name, || {
                     use pmbus::commands::raa229618::CommandCode;
                     let InventoryData::Raa229618 {
-                            mfr_id,
-                            mfr_model,
-                            mfr_revision,
-                            mfr_date,
-                            ic_device_id,
-                            ic_device_rev,
-                            temp_sensors: _,
-                            power_sensors: _,
-                            voltage_sensors: _,
-                            current_sensors: _,
-                        } = &mut data else { unreachable!() };
+                        mfr_id,
+                        mfr_model,
+                        mfr_revision,
+                        mfr_date,
+                        ic_device_id,
+                        ic_device_rev,
+                        temp_sensors: _,
+                        power_sensors: _,
+                        voltage_sensors: _,
+                        current_sensors: _,
+                    } = &mut data
+                    else {
+                        unreachable!()
+                    };
                     dev.read_block(CommandCode::MFR_ID as u8, mfr_id)?;
                     dev.read_block(CommandCode::MFR_MODEL as u8, mfr_model)?;
                     dev.read_block(
@@ -351,7 +361,10 @@ impl ServerImpl {
                         temp_sensor: _,
                         voltage_sensor: _,
                         current_sensor: _,
-                    } = &mut data else { unreachable!() };
+                    } = &mut data
+                    else {
+                        unreachable!()
+                    };
                     dev.read_block(CommandCode::MFR_ID as u8, mfr_id)?;
                     dev.read_block(CommandCode::MFR_MODEL as u8, mfr_model)?;
                     dev.read_block(
@@ -403,7 +416,10 @@ impl ServerImpl {
                         temp_sensor: _,
                         voltage_sensor: _,
                         current_sensor: _,
-                    } = &mut data else { unreachable!() };
+                    } = &mut data
+                    else {
+                        unreachable!()
+                    };
                     dev.read_block(CommandCode::MFR_ID as u8, mfr_id)?;
                     dev.read_block(CommandCode::MFR_MODEL as u8, mfr_model)?;
                     dev.read_block(
@@ -447,8 +463,11 @@ impl ServerImpl {
                         eeprom1,
                         eeprom2,
                         eeprom3,
-                        temp_sensor: _
-                    } = &mut data else { unreachable!(); };
+                        temp_sensor: _,
+                    } = &mut data
+                    else {
+                        unreachable!();
+                    };
                     *id = dev.read_reg(0x0Fu8)?;
                     *eeprom1 = dev.read_reg(0x05u8)?;
                     *eeprom2 = dev.read_reg(0x06u8)?;
@@ -474,7 +493,10 @@ impl ServerImpl {
                         minor_rel,
                         hotfix_rel,
                         product_id,
-                    } = &mut data else { unreachable!(); };
+                    } = &mut data
+                    else {
+                        unreachable!();
+                    };
                     // This chip includes a separate register that controls the
                     // upper address byte, i.e. a paged memory implementation.
                     // We'll use `write_read_reg` to avoid the possibility of
@@ -509,8 +531,9 @@ impl ServerImpl {
                 let ksz8463 = ksz8463::Ksz8463::new(ksz8463_dev);
                 let mut data = InventoryData::Ksz8463 { cider: 0 };
                 self.tx_buf.try_encode_inventory(sequence, b"U401", || {
-                    let InventoryData::Ksz8463 { cider } = &mut data
-                            else { unreachable!(); };
+                    let InventoryData::Ksz8463 { cider } = &mut data else {
+                        unreachable!();
+                    };
                     *cider = ksz8463
                         .read(ksz8463::Register::CIDER)
                         .map_err(|_| InventoryDataResult::DeviceFailed)?;
@@ -600,8 +623,9 @@ impl ServerImpl {
         self.tx_buf.try_encode_inventory(sequence, &name, || {
             // TODO: does packrat index match PCA designator?
             if packrat.get_spd_present(index as usize) {
-                let InventoryData::DimmSpd { id, .. } = &mut data
-                    else { unreachable!(); };
+                let InventoryData::DimmSpd { id, .. } = &mut data else {
+                    unreachable!();
+                };
                 packrat.get_full_spd_data(index as usize, id);
                 Ok(&data)
             } else {
@@ -626,8 +650,9 @@ impl ServerImpl {
         *data = InventoryData::At24csw08xSerial([0u8; 16]);
         let dev = At24Csw080::new(f(I2C.get_task_id()));
         self.tx_buf.try_encode_inventory(sequence, name, || {
-            let InventoryData::At24csw08xSerial(id) = data
-                else { unreachable!(); };
+            let InventoryData::At24csw08xSerial(id) = data else {
+                unreachable!();
+            };
             for (i, b) in id.iter_mut().enumerate() {
                 *b = dev.read_security_register_byte(i as u8).map_err(|e| {
                     match e {
@@ -656,8 +681,9 @@ impl ServerImpl {
         let dev = f(I2C.get_task_id());
         let mut data = InventoryData::VpdIdentity(Default::default());
         self.tx_buf.try_encode_inventory(sequence, name, || {
-            let InventoryData::VpdIdentity(identity) = &mut data
-                else { unreachable!(); };
+            let InventoryData::VpdIdentity(identity) = &mut data else {
+                unreachable!();
+            };
             *identity = read_one_barcode(dev, &[(*b"BARC", 0)])?.into();
             Ok(&data)
         })
@@ -689,8 +715,11 @@ impl ServerImpl {
             let InventoryData::FanIdentity {
                 identity,
                 vpd_identity,
-                fans: [fan0, fan1, fan2]
-            } = &mut data else { unreachable!(); };
+                fans: [fan0, fan1, fan2],
+            } = &mut data
+            else {
+                unreachable!();
+            };
             *identity = read_one_barcode(dev, &[(*b"BARC", 0)])?.into();
             *vpd_identity =
                 read_one_barcode(dev, &[(*b"SASY", 0), (*b"BARC", 0)])?.into();
