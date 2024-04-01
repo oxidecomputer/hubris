@@ -219,7 +219,6 @@ priority = 3
 max-sizes = {flash = 16384, ram = 8192 }
 stacksize = 1024
 start = true
-notifications = ["timer"]
 
 [tasks.sensor_polling]
 name = "task-sensor-polling"
