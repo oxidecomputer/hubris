@@ -329,7 +329,8 @@ impl<'a> NotificationHandler for ServerImpl<'a> {
             }
             self.deadline = now + TIMER_INTERVAL;
         }
-        self.runtime = sys_get_timer().now - now;
+        // We can use wrapping arithmetic here because the timer is monotonic.
+        self.runtime = sys_get_timer().now.wrapping_sub(now);
         sys_set_timer(Some(self.deadline), notifications::TIMER_MASK);
     }
 }

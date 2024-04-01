@@ -187,7 +187,7 @@ struct ServerImpl<S: SpiServer> {
     deadline: u64,
 }
 
-const TIMER_INTERVAL: u64 = 10;
+const TIMER_INTERVAL: u32 = 10;
 
 impl<S: SpiServer + Clone> ServerImpl<S> {
     fn init(
@@ -832,15 +832,22 @@ impl<S: SpiServer> ServerImpl<S> {
                 //
                 // And establish our timer to check SP3_TO_SP_NIC_PWREN_L.
                 //
-                self.deadline = sys_get_timer().now + TIMER_INTERVAL;
-                sys_set_timer(Some(self.deadline), notifications::TIMER_MASK);
+                self.deadline = set_timer_relative(
+                    TIMER_INTERVAL,
+                    notifications::TIMER_MASK,
+                );
 
                 //
                 // Finally, enable transmission to the SP3's UART
                 //
                 uart_sp_to_sp3_enable();
                 ringbuf_entry!(Trace::UartEnabled);
-                ringbuf_entry!(Trace::A0((sys_get_timer().now - start) as u16));
+                // Using wrapping_sub here because the timer is monotonic, so
+                // we, the programmers, know that now > start. rustc, the
+                // compiler, is not aware of this.
+                ringbuf_entry!(Trace::A0(
+                    (sys_get_timer().now.wrapping_sub(start)) as u16
+                ));
 
                 self.update_state_internal(PowerState::A0);
                 Ok(())

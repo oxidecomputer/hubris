@@ -140,8 +140,12 @@ impl<E: EnumArray<Timer> + Copy> Multitimer<E> {
                     // Apply the repeat setting or disable the timer.
                     if let Some(kind) = r {
                         let next = match kind {
-                            Repeat::AfterWake(period) => t + period,
-                            Repeat::AfterDeadline(period) => d + period,
+                            Repeat::AfterWake(period) => {
+                                t.saturating_add(period)
+                            }
+                            Repeat::AfterDeadline(period) => {
+                                d.saturating_add(period)
+                            }
                         };
                         timer.deadline = Some((next, r));
                     } else {

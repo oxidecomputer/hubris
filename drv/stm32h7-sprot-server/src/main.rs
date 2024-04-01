@@ -383,15 +383,7 @@ impl<S: SpiServer> Io<S> {
             .unwrap_lite();
 
         // Determine the deadline after which we'll give up, and start the clock.
-        let deadline = sys_get_timer()
-            .now
-            // Values passed to `max_sleep` are all constants that are small
-            // enough that this will almost certainly not overflow unless the SP
-            // has been running without a reset for at least a couple million
-            // years. Using saturating arithmetic here lets us avoid a bounds
-            // check.
-            .saturating_add(max_sleep as u64);
-        sys_set_timer(Some(deadline), TIMER_MASK);
+        let expected_wake = set_timer_relative(max_sleep, TIMER_MASK);
 
         let mut irq_fired = false;
         while self.is_rot_irq_asserted() != desired {

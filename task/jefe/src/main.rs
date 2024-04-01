@@ -51,7 +51,7 @@ pub enum Disposition {
 // generally be fast for a human but slow for a computer; we pick a
 // value of ~100 ms.  Our timer mask can't conflict with our fault
 // notification, but can otherwise be arbitrary.
-const TIMER_INTERVAL: u64 = 100;
+const TIMER_INTERVAL: u32 = 100;
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -60,9 +60,8 @@ fn main() -> ! {
         task_states[held_task as usize].disposition = Disposition::Hold;
     }
 
-    let deadline = sys_get_timer().now + TIMER_INTERVAL;
-
-    sys_set_timer(Some(deadline), notifications::TIMER_MASK);
+    let deadline =
+        set_timer_relative(TIMER_INTERVAL, notifications::TIMER_MASK);
 
     external::set_ready();
 
@@ -295,8 +294,10 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
         if bits & notifications::TIMER_MASK != 0 {
             // If our timer went off, we need to reestablish it
             if sys_get_timer().now >= self.deadline {
-                self.deadline += TIMER_INTERVAL;
-                sys_set_timer(Some(self.deadline), notifications::TIMER_MASK);
+                self.deadline = set_timer_relative(
+                    TIMER_INTERVAL,
+                    notifications::TIMER_MASK,
+                );
             }
         }
 
