@@ -1296,7 +1296,7 @@ pub unsafe extern "C" fn _start() -> ! {
 /// task, to ensure that memory is available for the panic message, even if the
 /// resources have been trimmed aggressively using `xtask sizes` and `humility
 /// stackmargin`.
-#[cfg(feature = "panic-messages")]
+#[cfg(all(not(feature = "no-panic"), feature = "panic-messages"))]
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo<'_>) -> ! {
     // Implementation Note
@@ -1443,10 +1443,24 @@ fn panic(info: &core::panic::PanicInfo<'_>) -> ! {
 /// Panic handler for tasks without the `panic-messages` feature enabled. This
 /// kills the task with a fixed message, `"PANIC"`. While this is less helpful
 /// than a proper panic message, the stack trace can still be informative.
-#[cfg(not(feature = "panic-messages"))]
+#[cfg(all(not(feature = "no-panic"), not(feature = "panic-messages")))]
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo<'_>) -> ! {
     sys_panic(b"PANIC")
+}
+
+/// Panic handler for when panics are not permitted in a task. This is enabled
+/// by the `no-panic` feature and causes a link error if a panic is introduced.
+#[cfg(feature = "no-panic")]
+#[panic_handler]
+fn panic(_: &core::panic::PanicInfo<'_>) -> ! {
+    extern "C" {
+        fn you_have_introduced_a_panic_which_is_not_permitted() -> !;
+    }
+
+    // Safety: this function does not exist, this code will not pass the linker
+    // and is thus not reachable.
+    unsafe { you_have_introduced_a_panic_which_is_not_permitted() }
 }
 
 #[inline(always)]
