@@ -37,6 +37,7 @@ g070 = ["family-stm32g0", "stm32g0/stm32g070", "drv-stm32xx-sys-api/g070", "drv-
 g0b1 = ["family-stm32g0", "stm32g0/stm32g0b1", "drv-stm32xx-sys-api/g0b1", "drv-stm32xx-gpio-common/model-stm32g0b1"]
 
 no-ipc-counters = ["idol/no-counters"]
+no-panic = ["userlib/no-panic"]
 
 # Enable external interrupt controller support.
 exti = ["dep:hubris-num-tasks", "dep:counters"]
