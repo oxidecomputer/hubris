@@ -108,14 +108,14 @@ task-slots = ["syscon_driver"]
 [tasks.sprot]
 name = "drv-lpc55-sprot-server"
 priority = 6
-max-sizes = {flash = 48608, ram = 32768}
+max-sizes = {flash = 49728, ram = 32768}
 uses = ["flexcomm8", "bootrom"]
 features = ["spi0"]
 start = true
 notifications = ["spi-irq"]
 interrupts = {"flexcomm8.hs_spi" = "spi-irq"}
 stacksize = 16384
-task-slots = ["gpio_driver", "syscon_driver", "update_server", "dumper", "attest"]
+task-slots = ["gpio_driver", "syscon_driver", "update_server", "dumper", "attest", "swd"]
 
 [tasks.sprot.config]
 pins = [
@@ -140,7 +140,7 @@ max-sizes = {flash = 16384, ram = 4096}
 uses = ["flexcomm3", "iocon"]
 start = true
 stacksize = 1000
-notifications = ["spi-irq"]
+notifications = ["spi-irq", "timer"]
 task-slots = ["gpio_driver", "syscon_driver"]
 interrupts = {"flexcomm3.irq" = "spi-irq"}
 
