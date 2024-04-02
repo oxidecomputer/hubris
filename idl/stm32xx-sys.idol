@@ -91,6 +91,7 @@ Interface(
             ),
         ),
         "read_uid": (
+            args: {},
             reply: Simple("[u32; 3]"),
             idempotent: true,
         ),

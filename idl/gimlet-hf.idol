@@ -4,12 +4,14 @@ Interface(
     name: "HostFlash",
     ops: {
         "read_id": (
+            args: {},
             reply: Result(
                 ok: "[u8; 20]",
                 err: CLike("HfError"),
             ),
         ),
         "capacity": (
+            args: {},
             doc: "Return the flash capacity in bytes.",
             reply: Result(
                 ok: "usize",
@@ -17,6 +19,7 @@ Interface(
             ),
         ),
         "read_status": (
+            args: {},
             reply: Result(
                 ok: "u8",
                 err: CLike("HfError"),

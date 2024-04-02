@@ -5,6 +5,7 @@ Interface(
     ops: {
         "fill": (
             doc: "Fill buffer with entropy from platform RNG.",
+            args: {},
             leases: {
                 "source": (type: "[u8]", write: true),
             },

@@ -5,6 +5,7 @@ Interface(
     ops: {
         "block_size": (
             doc: "Get the block size for the update API. This is the length expected for the `write_one_block` call",
+            args: {},
             reply: Result(
                 ok: "usize",
                 err: CLike("drv_update_api::UpdateError"),
@@ -36,6 +37,7 @@ Interface(
         ),
         "abort_update": (
             doc: "Cancel the current update in progress. Must call prep_image_update again before restarting.",
+            args: {},
             reply: Result(
                 ok: "()",
                 err: CLike("drv_update_api::UpdateError"),
@@ -43,6 +45,7 @@ Interface(
         ),
         "finish_image_update": (
             doc: "Do any necessary work post image write",
+            args: {},
             reply: Result(
                 ok: "()",
                 err: CLike("drv_update_api::UpdateError"),
@@ -50,12 +53,14 @@ Interface(
         ),
         "current_version": (
             doc: "Get the current image version",
+            args: {},
             reply: Simple("ImageVersion"),
             idempotent: true,
             encoding: Hubpack
         ),
         "status": (
             doc: "Get info about installed images (deprecated - use rot_boot_info)",
+            args: {},
             reply: Result(
                 ok: "stage0_handoff::RotBootState",
                 err: Complex("HandoffDataLoadError"),
@@ -65,6 +70,7 @@ Interface(
         ),
         "rot_boot_info": (
             doc: "RoT Boot selection and preference info",
+            args: {},
             reply: Result(
                 ok: "RotBootInfo",
                 err: CLike("drv_update_api::UpdateError")
@@ -115,6 +121,7 @@ Interface(
         ),
         "reset": (
             doc: "Reset unless an update is in progress.",
+            args: {},
             reply: Result(
                 ok: "()",
                 err: CLike("drv_update_api::UpdateError"),

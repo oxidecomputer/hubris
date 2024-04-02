@@ -45,6 +45,7 @@ Interface(
         // The RoT update API is copy and pasted from idl/update.idol.
         "block_size": (
             doc: "Get the block size for the update API. This is the length expected for the `write_one_block` call",
+            args: {},
             reply: Result(
                 ok: "u32",
                 err: Complex("SprotError"),
