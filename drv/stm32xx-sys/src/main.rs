@@ -34,7 +34,8 @@
 //! EXTI unit. From a user perspective, this works as follows:
 //!
 //! 1. `sys` gets configured in the `app.toml` to route interrupts on a specific
-//!    pin to a specific task, using a specific notification.
+//!    pin to a specific task, using a specific notification. See [the section
+//!    on EXTI configuration](#configuring-exti-notification) for details.
 //! 2. That task configures the pin using `sys.gpio_configure` and friends
 //!    (probably as an input, possibly with a pull resistor).
 //! 3. That task _also_ configures the pin's edge sensitivity, using
@@ -73,7 +74,7 @@
 //!
 //! 4. Repeat.
 //!
-//! ## Configuring EXTI GPIO notifications
+//! ## Configuring EXTI notifications
 //!
 //! In order for a task to receive notifications about GPIO pin interrupts from
 //! `sys`, we must first add the following to the task's config section in
@@ -152,6 +153,136 @@
 //! # The name of the client task and the notification to post to it.
 //! owner = { name = "my-great-task", notification = "my-gpio-notification" }
 //! ```
+//!
+//! ## Using EXTI notifications
+//!
+//! Once a task has been configured to receive notifications from `sys` for EXTI
+//! GPIO interrupts, as discussed above, it can use the `sys` task's IPC
+//! interface to configure and control the EXTI interrupts.
+//!
+//! First, the task must ensure that it includes the generated constants for
+//! notifications. If the task does not already include this code, it must add a
+//! call to `build_util::build_notifications()` in its `build.rs`, and include
+//! the generated using:
+//!
+//! ```rust
+//! include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
+//! ```
+//!
+//! In order to receive notifications, the task must first configure the pin on
+//! which it wishes to receive interrupts in input mode, using the
+//! [`Sys::gpio_configure_input`] IPC interface. Optionally, if pull-up or
+//! pull-down resistors are required, they may be configured by this IPC as
+//! well. Then, the task must use the [`Sys::gpio_irq_configure`] IPC to
+//! configure the edge sensitivity for the GPIO interrupts mapped to a
+//! notification mask. Interrupts can trigger either on the rising edge, the
+//! falling edge, or both. These configurations only need to be performed once,
+//! unless the task wishes to change the pin's configuration at runtime.
+//!
+//! For example, if we wish to use the EXTI notification
+//! `"my-gpio-notification"` for pin PC13, as shown in the above section, we
+//! might add the following to our task's `main`:
+//!
+//! ```rust,no-run
+//! # mod notifications { pub const MY_GPIO_NOTIFICATION_MASK: u32 = 1 << 0; }
+//! use drv_stm32xx_sys_api::{PinSet, Port, Pull};
+//! use userlib::*;
+//!
+//! task_slot!(SYS, sys);
+//!
+//! #[export_name = "main"]
+//! pub fn main() -> ! {
+//!     let sys = drv_stm32xx_sys_api::Sys::from(SYS.get_task_id());
+//!
+//!     // Configure the pin as an input, without pull-up or pull-down
+//!     // resistors:
+//!     sys.gpio_configure_input(
+//!         PinSet {
+//!            port: Port::C,
+//!            pin_mask: (1 << 13),
+//!         },
+//!         Pull::None,
+//!     );
+//!
+//!     // Now, configure the pin to trigger interrupts on the rising edge:
+//!     sys.gpio_irq_configure(
+//!         notifications::MY_GPIO_NOTIFICATION_MASK,
+//!         Edge::Rising, // or `Edge::Falling`, `Edge::Both`
+//!     );
+//!
+//!     // Eventually we will do other things here
+//! }
+//!```
+//!
+//! Once this is done, the task can enable a GPIO interrupt by calling the
+//! [`Sys::gpio_irq_control`] IPC. This IPC takes two arguments: a mask of
+//! notification bits to disable, and a mask of notification bits to enable.
+//! Once the interrupt is enabled, the task will receive a notification when the
+//! GPIO pin's level changes, based on the edge sensitivity configured above.
+//! Once the interrupt has triggered a notification, it will be automatically
+//! disabled until the task calls `gpio_irq_control` again to re-enable it.
+//!
+//! Thus, continuing from the above example, to wait for GPIO notifications in a
+//! loop, we would write something like this:
+//!
+//! ```rust,no-run
+//! # fn handle_interrupt() {}
+//! # mod notifications { pub const MY_GPIO_NOTIFICATION_MASK: u32 = 1 << 0; }
+//! use drv_stm32xx_sys_api::{PinSet, Port, Pull, Edge};
+//! use userlib::*;
+//!
+//! task_slot!(SYS, sys);
+//!
+//! #[export_name = "main"]
+//! pub fn main() -> ! {
+//!     let sys = drv_stm32xx_sys_api::Sys::from(SYS.get_task_id());
+//!
+//!     sys.gpio_configure_input(
+//!         PinSet {
+//!            port: Port::C,
+//!            pin_mask: (1 << 13),
+//!         },
+//!         Pull::None,
+//!     );
+//!
+//!     sys.gpio_irq_configure(
+//!         notifications::MY_GPIO_NOTIFICATION_MASK,
+//!         Edge::Rising, // or `Edge::Falling`, `Edge::Both`
+//!     );
+//!
+//!     // Wait to recieve notifications for our GPIO interrupt in a loop:
+//!     loop {
+//!         // First, enable the interrupt, so that we can receive our
+//!         // notification:
+//!         sys.gpio_irq_control(0, notifications::MY_GPIO_NOTIFICATION_MASK);
+//!
+//!         // Wait for a notification:
+//!         //
+//!         // We only care about notifications, so we can pass a zero-sized
+//!         // recv buffer, and the kernel's task ID.
+//!         let recvmsg = sys_recv_closed(
+//!             &mut [],
+//!             notifications::BUTTON_MASK,
+//!             TaskId::KERNEL,
+//!         )
+//!         // Recv from the kernel never returns an error.
+//!         .unwrap_lite();
+//!
+//!         // Now, do ... whatever it is this task is supposed to do when
+//!         // the interrupt fires.
+//!         handle_interrupt();
+//!
+//!         // When the loop repeats, the call to `sys.gpio_irq_control()` will
+//!         // enable the interrupt again.
+//!     }
+//! }
+//!```
+//!
+//! For a more complete example of using GPIO interrupts, see the
+//! [`nucleo-user-button`] demo task, which toggles a user LED on an
+//! STM32H7-NUCLEO dev board when the user button is pressed.
+//!
+//! [`nucleo-user-button`]: https://github.com/oxidecomputer/hubris/tree/master/task/nucleo-user-button
 
 #![no_std]
 #![no_main]
@@ -187,7 +318,7 @@ cfg_if! {
 }
 
 use drv_stm32xx_gpio_common::{server::get_gpio_regs, Port};
-use drv_stm32xx_sys_api::{Group, RccError};
+use drv_stm32xx_sys_api::{Edge, Group, RccError};
 use idol_runtime::{ClientError, NotificationHandler, RequestError};
 #[cfg(not(feature = "test"))]
 use task_jefe_api::{Jefe, ResetReason};
@@ -612,29 +743,13 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
         &mut self,
         rm: &RecvMessage,
         mask: u32,
-        rising: bool,
-        falling: bool,
+        edge: Edge,
     ) -> Result<(), RequestError<core::convert::Infallible>> {
         // We want to only include code for this if exti is requested.
         // Unfortunately the _operation_ is available unconditionally, but we'll
         // fault any clients who call it if it's unsupported (below).
         cfg_if! {
             if #[cfg(feature = "exti")] {
-
-                // Guardrail: a call where both "rising" and "falling" are false
-                // will effectively disable the interrupt, in a _different_ way
-                // from gpio_irq_control. Currently we can't imagine a case
-                // where this is useful, but we _can_ imagine cases where
-                // tolerating it would hide bugs in code, and so we're making it
-                // an error.
-                //
-                // If you arrive here in the future wondering why this is being
-                // treated as an error, that's why. If you need this
-                // functionality, you can probably just remove this check and
-                // comment.
-                if !rising && !falling {
-                    return Err(ClientError::BadMessageContents.fail());
-                }
 
                 // Keep track of which bits in the caller-provided masks
                 // actually matched things.
@@ -655,7 +770,7 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
                             // Set or clear Rising Trigger Selection
                             // Register bit according to the rising flag
                             self.exti.rtsr1.modify(|r, w| {
-                                let new_value = if rising {
+                                let new_value = if edge.is_rising() {
                                     r.bits() | (1 << i)
                                 } else {
                                     r.bits() & !(1 << i)
@@ -668,7 +783,7 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
                             // Set or clear Falling Trigger Selection
                             // Register bit according to the rising flag
                             self.exti.ftsr1.modify(|r, w| {
-                                let new_value = if falling {
+                                let new_value = if edge.is_falling() {
                                     r.bits() | (1 << i)
                                 } else {
                                     r.bits() & !(1 << i)
@@ -702,7 +817,7 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
             } else {
                 // Suppress unused variable warnings (yay conditional
                 // compilation)
-                let _ = (rm, mask, rising, falling);
+                let _ = (rm, mask, edge);
 
                 // Fault any clients who try to use this in an image where it's
                 // not included.
@@ -1070,7 +1185,7 @@ cfg_if! {
 include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
 
 mod idl {
-    use super::{Port, RccError};
+    use super::{Edge, Port, RccError};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

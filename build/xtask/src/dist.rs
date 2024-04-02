@@ -375,8 +375,7 @@ pub fn package(
     // Build a set of requests for the memory allocator
     let mut task_reqs = HashMap::new();
     for (t, sz) in task_sizes {
-        // XXX disabled because leases can't span regions
-        let _n = sz.len()
+        let n = sz.len()
             + cfg
                 .toml
                 .extern_regions_for(t, &cfg.toml.image_names[0])
@@ -394,7 +393,7 @@ pub fn package(
             t,
             TaskRequest {
                 memory: sz,
-                spare_regions: 0,
+                spare_regions: 7 - n,
             },
         );
     }
