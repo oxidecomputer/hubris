@@ -757,6 +757,14 @@ impl SpHandler for MgsHandler {
     ) -> Result<usize, SpError> {
         self.common.vpd_lock_status_all(buf)
     }
+
+    fn enable_sp_slot_watchdog(&mut self, time_ms: u32) -> Result<(), SpError> {
+        self.common.enable_sp_slot_watchdog(time_ms)
+    }
+
+    fn disable_sp_slot_watchdog(&mut self) -> Result<(), SpError> {
+        self.common.disable_sp_slot_watchdog()
+    }
 }
 
 // Helper function for `.map_err()`; we can't use `?` because we can't implement
