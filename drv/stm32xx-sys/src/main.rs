@@ -396,7 +396,7 @@ fn main() -> ! {
 
             for (i, entry) in generated::EXTI_DISPATCH_TABLE.iter().enumerate() {
                 // Process entries that are filled in...
-                if let &Some((port, _, _)) = entry {
+                if let &Some(ExtiDispatch { port, .. }) = entry {
                     let register = i >> 2;
                     let slot = i % 2;
 
@@ -533,6 +533,9 @@ fn main() -> ! {
     }
 }
 
+#[cfg(feature = "exti")]
+counters::counters!(__EXTI_IRQ_COUNTERS, generated::ExtiIrq);
+
 struct ServerImpl<'a> {
     rcc: &'a device::rcc::RegisterBlock,
 
@@ -663,9 +666,9 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
                     generated::EXTI_DISPATCH_TABLE.iter().enumerate()
                 {
                     // Only use populated rows in the table
-                    if let Some((_, tid, mask)) = entry {
+                    if let &Some(ExtiDispatch { mask, task, .. }) = entry {
                         // Ignore anything assigned to another task
-                        if tid.index() == rm.sender.index() {
+                        if task.index() == rm.sender.index() {
 
                             // Apply disable first so that including the same
                             // thing in both masks is a no-op.
@@ -756,10 +759,10 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
                     generated::EXTI_DISPATCH_TABLE.iter().enumerate()
                 {
                     // Only use populated rows in the table
-                    if let Some((_, tid, entry_mask)) = entry {
+                    if let Some(ExtiDispatch { task, mask: entry_mask, .. }) = entry {
                         // Operate only on rows assigned to the sending task
                         // _and_ that are relevant based on the arguments.
-                        if tid.index() == rm.sender.index()
+                        if task.index() == rm.sender.index()
                             && mask & entry_mask != 0
                         {
                             used_bits |= mask;
@@ -824,6 +827,14 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
     }
 }
 
+#[cfg(feature = "exti")]
+struct ExtiDispatch {
+    port: Port,
+    task: TaskId,
+    mask: u32,
+    name: generated::ExtiIrq,
+}
+
 impl NotificationHandler for ServerImpl<'_> {
     fn current_notification_mask(&self) -> u32 {
         cfg_if! {
@@ -872,9 +883,11 @@ impl NotificationHandler for ServerImpl<'_> {
                             // - Clear the pending bit (we have to do this
                             //   manually unlike native interrupts).
 
-                            if let &Some((_, taskid, mask)) = entry {
-                                let taskid = sys_refresh_task_id(taskid);
-                                sys_post(taskid, mask);
+                            if let &Some(ExtiDispatch { task, mask, name, .. }) = entry {
+                                counters::count!(__EXTI_IRQ_COUNTERS, name);
+
+                                let task = sys_refresh_task_id(task);
+                                sys_post(task, mask);
                             } else {
                                 // spurious interrupt.
                                 // TODO: probably add this to a counter; it's
