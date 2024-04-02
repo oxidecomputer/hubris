@@ -5,7 +5,6 @@ Interface(
     ops: {
         "port_count": (
             doc: "Return the number of ports in the system",
-            args: {},
             reply: Result(
                 ok: "u8",
                 err: CLike("drv_ignition_api::IgnitionError"),
@@ -13,7 +12,6 @@ Interface(
         ),
         "presence_summary": (
             doc: "A bit vector indicating whether or not a Target is present on the given port",
-            args: {},
             reply: Result(
                 ok: "u64",
                 err: CLike("drv_ignition_api::IgnitionError"),
@@ -114,7 +112,6 @@ Interface(
         ),
         "all_port_state": (
             doc: "Return the state for the given controller ports as indicated by the ports bit vector",
-            args: {},
             reply: Result(
                 ok: "[drv_ignition_api::PortState; 40]",
                 err: CLike("drv_ignition_api::IgnitionError"),
@@ -122,7 +119,6 @@ Interface(
         ),
         "all_link_events": (
             doc: "Return the transceiver events for all ports",
-            args: {},
             reply: Result(
                 ok: "[[u8; 3]; 40]",
                 err: CLike("drv_ignition_api::IgnitionError"),

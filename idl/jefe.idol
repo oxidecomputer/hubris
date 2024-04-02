@@ -99,7 +99,6 @@ Interface(
         // crate.
         "restart_me_raw": (
             description: "restarts the caller without recording a fault",
-            args: {},
             // Note: this will not actually return, but Idol can't currently
             // describe a noreturn IPC, so, we have a placeholder:
             reply: Simple("()"),

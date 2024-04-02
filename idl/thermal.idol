@@ -43,7 +43,6 @@ Interface(
             ),
         ),
         "disable_watchdog": (
-            args: {},
             reply: Result(
                 ok: "()",
                 err: CLike("ThermalError"),

@@ -4,7 +4,6 @@ Interface(
     name: "Hash",
     ops: {
         "init_sha256": (
-            args: {},
             reply: Result(
                 ok: "()",
                 err: CLike("HashError"),
@@ -23,7 +22,6 @@ Interface(
             ),
         ),
         "finalize_sha256": (
-            args: {},
             reply: Result(
                 ok: "[u8; crate::SHA256_SZ]",
                 err: CLike("HashError"),

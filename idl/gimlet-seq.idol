@@ -25,14 +25,12 @@ Interface(
             ),
         ),
         "fans_on": (
-            args: {},
             reply: Result(
                 ok: "()",
                 err: ServerDeath,
             ),
         ),
         "fans_off": (
-            args: {},
             reply: Result(
                 ok: "()",
                 err: ServerDeath,
@@ -40,7 +38,6 @@ Interface(
         ),
         "send_hardware_nmi": (
             doc: "Triggers a hardware NMI by toggling LPC_SMI_L",
-            args: {},
             reply: Result(
                 ok: "()",
                 err: ServerDeath,
@@ -48,7 +45,6 @@ Interface(
         ),
         "read_fpga_regs": (
             doc: "Raw read of the FPGA registers",
-            args: {},
             reply: Simple("[u8; 64]"),
             idempotent: true,
         ),

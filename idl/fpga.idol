@@ -73,7 +73,6 @@ Interface(
         ),
         "continue_bitstream_load": (
             doc: "Load the next chunk of the bitstream",
-            args: {},
             leases: {
                 "data": (type: "[u8]", read: true, max_len: Some(128)),
             },
@@ -84,7 +83,6 @@ Interface(
         ),
         "finish_bitstream_load": (
             doc: "Finish loading a bitstream",
-            args: {},
             reply: Result(
                 ok: "()",
                 err: CLike("FpgaError"),
@@ -193,7 +191,6 @@ Interface(
         ),
         "release": (
             doc: "Release a previously acquired lock.",
-            args: {},
             reply: Result(
                 ok: "()",
                 err: CLike("FpgaError"),

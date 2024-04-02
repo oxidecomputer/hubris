@@ -5,7 +5,6 @@ Interface(
     ops: {
         "cert_chain_len": (
             doc: "Get the number of certs in the attestation cert chain",
-            args: {},
             reply: Result(
                 ok: "u32",
                 err: Complex("AttestError"),

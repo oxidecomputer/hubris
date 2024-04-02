@@ -5,7 +5,6 @@ Interface(
     ops: {
         "tofino_seq_policy": (
             doc: "Return the active sequencer policy for Tofino",
-            args: {},
             reply: Result(
                 ok: (
                     type: "TofinoSequencerPolicy",
@@ -59,7 +58,6 @@ Interface(
         ),
         "clear_tofino_seq_error": (
             doc: "Clear the Tofino sequencer error state",
-            args: {},
             reply: Result(
                 ok: "()",
                 err: CLike("SeqError"),
@@ -136,13 +134,11 @@ Interface(
         ),
 
         "is_clock_config_loaded": (
-            args: {},
             reply: Simple("bool"),
             idempotent: true,
         ),
 
         "load_clock_config": (
-            args: {},
             reply: Result(
                 ok: "()",
                 err: CLike("SeqError"),
@@ -150,19 +146,16 @@ Interface(
         ),
 
         "front_io_board_present": (
-            args: {},
             reply: Simple("bool"),
             idempotent: true,
         ),
         "front_io_board_ready": (
-            args: {},
             reply: Result(
                 ok: "bool",
                 err: CLike("SeqError"),
             ),
         ),
         "reset_front_io_phy": (
-            args: {},
             reply: Result(
                 ok: "()",
                 err: CLike("SeqError"),
@@ -180,7 +173,6 @@ Interface(
 
         "tofino_debug_port_state": (
             doc: "Return the state of the Tofino debug port",
-            args: {},
             reply: Result(
                 ok: (
                     type: "DebugPortState",
@@ -237,7 +229,6 @@ Interface(
 
         "spi_eeprom_idcode": (
             doc: "Read the latched IDCODE after Tofino has loaded the PCIe SerDes parameters from SPI EEPROM",
-            args: {},
             reply: Result(
                 ok: "u32",
                 err: CLike("SeqError"),
@@ -246,7 +237,6 @@ Interface(
 
         "spi_eeprom_status": (
             doc: "Read the Status register of the SPI EEPROM",
-            args: {},
             reply: Result(
                 ok: "u8",
                 err: CLike("SeqError"),
@@ -281,7 +271,6 @@ Interface(
         ),
 
         "mainboard_controller_ready": (
-            args: {},
             reply: Result(
                 ok: "bool",
                 err: CLike("SeqError"),
@@ -304,7 +293,6 @@ Interface(
 
         "fan_module_presence": (
             doc: "Return presence of each fan module",
-            args: {},
             reply: Result(
                 ok: "FanModulePresence",
                 err: CLike("SeqError"),
