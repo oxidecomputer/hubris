@@ -124,5 +124,24 @@ Interface(
             reply: Simple("()"),
             idempotent: true,
         ),
+
+        // Checks whether an EXTI interrupt is pending for a given notification
+        // mask, returning `true` if any interrupts are pending, and `false` if
+        // no interrupts are pending. Calling this method clears the pending bit
+        // for those interrupts.
+        //
+        // If the `enable` argument is `true`, any sources mapped to bits in the
+        // notification mask will be re-enabled, allowing their interrupt to
+        // trigger again.
+        "gpio_irq_check": (
+            args: {
+                "mask": u32,
+                "enable": bool,
+            },
+            reply: Result(
+                ok: "bool",
+                err: ServerDeath,
+            ),
+        )
     },
 )

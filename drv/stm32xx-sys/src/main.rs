@@ -825,6 +825,30 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
             }
         }
     }
+
+    fn gpio_irq_check(
+        &mut self,
+        rm: &RecvMessage,
+        mask: u32,
+        enable: bool,
+    ) -> Result<bool, RequestError<core::convert::Infallible>> {
+        // We want to only include code for this if exti is requested.
+        // Unfortunately the _operation_ is available unconditionally, but we'll
+        // fault any clients who call it if it's unsupported (below).
+        cfg_if! {
+            if #[cfg(feature = "exti")] {
+
+            } else {
+                // Suppress unused variable warnings (yay conditional
+                // compilation)
+                let _ = (rm, mask, enable);
+
+                // Fault any clients who try to use this in an image where it's
+                // not included.
+                Err(ClientError::UnknownOperation.fail())
+            }
+        }
+    }
 }
 
 #[cfg(feature = "exti")]
@@ -1191,7 +1215,7 @@ mod idl {
 }
 
 #[cfg(feature = "exti")]
-mod generated {
+mod exti {
     use super::*;
 
     include!(concat!(env!("OUT_DIR"), "/exti_config.rs"));
