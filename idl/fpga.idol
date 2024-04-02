@@ -193,6 +193,7 @@ Interface(
         ),
         "release": (
             doc: "Release a previously acquired lock.",
+            args: {},
             reply: Result(
                 ok: "()",
                 err: CLike("FpgaError"),

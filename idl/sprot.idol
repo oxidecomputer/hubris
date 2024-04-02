@@ -81,6 +81,7 @@ Interface(
         ),
         "abort_update": (
             doc: "Cancel the current update in progress. Must call prep_image_update again before restarting.",
+            args: {},
             reply: Result(
                 ok: "()",
                 err: Complex("SprotError"),
@@ -89,6 +90,7 @@ Interface(
         ),
         "finish_image_update": (
             doc: "Do any necessary work post image write",
+            args: {},
             reply: Result(
                 ok: "()",
                 err: Complex("SprotError"),

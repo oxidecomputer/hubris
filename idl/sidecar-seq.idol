@@ -62,6 +62,7 @@ Interface(
         ),
         "clear_tofino_seq_error": (
             doc: "Clear the Tofino sequencer error state",
+            args: {},
             reply: Result(
                 ok: "()",
                 err: CLike("SeqError"),
@@ -138,6 +139,7 @@ Interface(
         ),
 
         "is_clock_config_loaded": (
+            args: {},
             reply: Simple("bool"),
             idempotent: true,
         ),
