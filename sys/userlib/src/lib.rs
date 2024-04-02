@@ -1418,7 +1418,7 @@ fn panic(info: &core::panic::PanicInfo<'_>) -> ! {
     // However, it is possible to produce an alias if the panic handler is
     // called reentrantly. This can only happen if the code in the panic handler
     // itself panics, which is what we're working very hard to prevent here.
-    let panic_buffer = unsafe { &mut PANIC_BUFFER };
+    let panic_buffer = unsafe { &mut *core::ptr::addr_of_mut!(PANIC_BUFFER) };
 
     // Whew! Time to write the darn message.
     //

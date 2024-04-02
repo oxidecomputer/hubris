@@ -269,21 +269,6 @@ struct DeviceRefdesKey {
     kind: Sensor,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
-struct DeviceBusKey {
-    device: String,
-    bus: String,
-    kind: Sensor,
-}
-
-#[derive(Debug, PartialEq, Eq, Hash)]
-struct DeviceBusNameKey {
-    device: String,
-    bus: String,
-    name: String,
-    kind: Sensor,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DeviceSensor {
     pub name: Option<String>,
@@ -1471,7 +1456,7 @@ impl ConfigGenerator {
         {
             writeln!(
                 &mut self.output,
-                "\n        #[allow(non_camel_case_types)]
+                "\n        #[allow(non_camel_case_types, dead_code)]
         pub struct Sensors_{struct_name} {{",
             )?;
             let mut f = |name, count| match count {

@@ -12,7 +12,6 @@
 
 #![no_std]
 
-use core::convert::TryFrom;
 use core::sync::atomic::{self, Ordering};
 
 #[cfg(feature = "h743")]

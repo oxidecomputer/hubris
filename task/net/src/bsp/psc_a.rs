@@ -86,7 +86,6 @@ impl bsp_support::Bsp for BspImpl {
             power_en: Some(Port::I.pin(10).and_pin(12)),
             slow_power_en: true,
             power_good: &[], // TODO
-            pll_lock: None,
 
             ksz8463: Ksz8463::new(ksz8463_dev),
             ksz8463_nrst: Port::C.pin(2),

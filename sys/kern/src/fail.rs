@@ -42,8 +42,11 @@ static mut KERNEL_EPITAPH: [u8; EPITAPH_LEN] = [0; EPITAPH_LEN];
 #[cfg(not(feature = "nano"))]
 fn begin_epitaph() -> &'static mut [u8; EPITAPH_LEN] {
     // We'd love to use an AtomicBool here but we gotta support ARMv6M.
-    let previous_fail =
-        core::mem::replace(unsafe { &mut KERNEL_HAS_FAILED }, true);
+    // This could probably become SyncUnsafeCell in a future where it exists.
+    let previous_fail = core::mem::replace(
+        unsafe { &mut *core::ptr::addr_of_mut!(KERNEL_HAS_FAILED) },
+        true,
+    );
     if previous_fail {
         // Welp, you've called begin_epitaph twice, suggesting a recursive
         // panic. We can't very well panic in response to this since it'll just
@@ -56,7 +59,7 @@ fn begin_epitaph() -> &'static mut [u8; EPITAPH_LEN] {
 
     // Safety: we can get a mutable reference to the epitaph because only one
     // execution of this function will successfully set that flag.
-    unsafe { &mut KERNEL_EPITAPH }
+    unsafe { &mut *core::ptr::addr_of_mut!(KERNEL_EPITAPH) }
 }
 
 #[cfg(not(feature = "nano"))]

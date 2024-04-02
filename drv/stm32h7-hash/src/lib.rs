@@ -29,7 +29,6 @@ use drv_hash_api::HashError;
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
 
-use core::convert::TryInto;
 use core::mem::size_of;
 use userlib::*;
 use zerocopy::AsBytes;

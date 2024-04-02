@@ -90,7 +90,6 @@ impl bsp_support::Bsp for BspImpl {
             power_en: Some(Port::I.pin(10)),
             slow_power_en: false,
             power_good: &PG_PINS,
-            pll_lock: None,
 
             ksz8463: Ksz8463::new(ksz8463_dev),
             ksz8463_nrst: Port::C.pin(2), // SP_TO_MGMT_SW_RESET_L
