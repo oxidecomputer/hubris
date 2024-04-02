@@ -394,7 +394,13 @@ fn main() -> ! {
             // API the way we use peripherals.
             let syscfg = unsafe { &*device::SYSCFG::ptr() };
 
-            for (i, entry) in generated::EXTI_DISPATCH_TABLE.iter().enumerate() {
+            for i in 0..16 {
+                // TODO: this sure looks like it should be using
+                // iter.enumerate, doesn't it? Unfortunately that's not
+                // currently getting inlined by rustc, resulting in rather
+                // silly code containing panics. This is significantly
+                // smaller.
+                let entry = &generated::EXTI_DISPATCH_TABLE[i];
                 // Process entries that are filled in...
                 if let &Some(ExtiDispatch { port, .. }) = entry {
                     let register = i >> 2;
@@ -662,9 +668,14 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
                 // actually matched things.
                 let mut used_bits = 0u32;
 
-                for (i, entry) in
-                    generated::EXTI_DISPATCH_TABLE.iter().enumerate()
-                {
+                for i in 0..16 {
+                    // TODO: this sure looks like it should be using
+                    // iter.enumerate, doesn't it? Unfortunately that's not
+                    // currently getting inlined by rustc, resulting in rather
+                    // silly code containing panics. This is significantly
+                    // smaller.
+                    let entry = &generated::EXTI_DISPATCH_TABLE[i];
+
                     // Only use populated rows in the table
                     if let &Some(ExtiDispatch { mask, task, .. }) = entry {
                         // Ignore anything assigned to another task
@@ -755,9 +766,13 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
                 // actually matched things.
                 let mut used_bits = 0u32;
 
-                for (i, entry) in
-                    generated::EXTI_DISPATCH_TABLE.iter().enumerate()
-                {
+                for i in 0..16 {
+                    // TODO: this sure looks like it should be using
+                    // iter.enumerate, doesn't it? Unfortunately that's not
+                    // currently getting inlined by rustc, resulting in rather
+                    // silly code containing panics. This is significantly
+                    // smaller.
+                    let entry = &generated::EXTI_DISPATCH_TABLE[i];
                     // Only use populated rows in the table
                     if let Some(ExtiDispatch { task, mask: entry_mask, .. }) = entry {
                         // Operate only on rows assigned to the sending task
@@ -871,9 +886,13 @@ impl NotificationHandler for ServerImpl<'_> {
 
                     let mut bits_to_acknowledge = 0u16;
 
-                    for (pin_idx, entry) in
-                        generated::EXTI_DISPATCH_TABLE.iter().enumerate()
-                    {
+                    for pin_idx in 0..16 {
+                        // TODO: this sure looks like it should be using
+                        // iter.enumerate, doesn't it? Unfortunately that's not
+                        // currently getting inlined by rustc, resulting in rather
+                        // silly code containing panics. This is significantly
+                        // smaller.
+                        let entry = &generated::EXTI_DISPATCH_TABLE[pin_idx];
                         if pending_and_enabled & 1 << pin_idx != 0 {
                             // A channel is pending! We need to handle this
                             // basically like the kernel handles native hardware

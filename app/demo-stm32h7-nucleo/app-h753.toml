@@ -25,7 +25,7 @@ request_reset = ["hiffy"]
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
-features = ["h753", "exti"]
+features = ["h753", "exti", "no-panic"]
 priority = 1
 uses = ["rcc", "gpios", "system_flash", "syscfg", "exti"]
 start = true
