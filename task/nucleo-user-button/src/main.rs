@@ -43,11 +43,11 @@ enum Trace {
     /// We called the `Sys.gpio_irq_configure` IPC with these arguments.
     GpioIrqConfigure { mask: u32, edge: Edge },
 
-    /// We called the `Sys.gpio_irq_control` IPC with these arguments.
-    GpioIrqControl { enable_mask: u32, disable_mask: u32 },
-
-    /// We called the `Sys.gpio_irq_ack`, and it returned this value.
-    GpioIrqAck {
+    /// We called the `Sys.gpio_irq_control` IPC with these arguments, and it
+    /// returned whether the interrupt had fired or not.
+    GpioIrqControl {
+        enable_mask: u32,
+        disable_mask: u32,
         #[count(children)]
         fired: bool,
     },
@@ -85,34 +85,29 @@ pub fn main() -> ! {
     });
     sys.gpio_irq_configure(notifications::BUTTON_MASK, edge);
 
-    // Call `Sys.gpio_irq_ack` to enable our interrupt. The first time we call
-    // this, it will always return false, because the IRQ hasn't fired yet.
-    let fired = sys
-        .gpio_irq_ack(notifications::BUTTON_MASK, true)
-        .unwrap_lite();
-    ringbuf_entry!(Trace::GpioIrqAck { fired });
-
     loop {
-        // Wait for the user button to be pressed.
-        let notif = sys_recv_notification(notifications::BUTTON_MASK);
-        ringbuf_entry!(Trace::Notification(notif));
+        // Call `Sys.gpio_irq_control` to enable our interrupt, returning
+        // whether it has fired.
+        let enable_mask = notifications::BUTTON_MASK;
+        let disable_mask = 0;
+        let fired = sys
+            .gpio_irq_control(disable_mask, enable_mask)
+            .unwrap_lite();
+        ringbuf_entry!(Trace::GpioIrqControl {
+            enable_mask,
+            disable_mask,
+            fired
+        });
 
-        // If the notification is for the button, toggle the LED.
-        if notif == notifications::BUTTON_MASK {
-            // Ack the interrupt with the `sys` task to make sure our interrupt
-            // actually fired.
-            let fired = sys
-                .gpio_irq_ack(notifications::BUTTON_MASK, true)
-                .unwrap_lite();
-            ringbuf_entry!(Trace::GpioIrqAck { fired });
-
-            if !fired {
-                continue;
-            }
-
+        // If the button has changed state, toggle the LED.
+        if fired {
             ringbuf_entry!(Trace::LedToggle { led });
             user_leds.led_toggle(led).unwrap_lite();
         }
+
+        // Wait for the user button to be pressed.
+        let notif = sys_recv_notification(notifications::BUTTON_MASK);
+        ringbuf_entry!(Trace::Notification(notif));
     }
 }
 
