@@ -523,6 +523,9 @@ fn main() -> ! {
         // which is an operation that can't actually be used to violate Rust
         // safety.
         exti: unsafe { &*device::EXTI::ptr() },
+
+        #[cfg(feature = "exti")]
+        exti_cpupr_2: 0,
     };
 
     #[cfg(feature = "exti")]
@@ -543,6 +546,9 @@ struct ServerImpl<'a> {
     /// pin change interrupts.
     #[cfg(feature = "exti")]
     exti: &'a device::exti::RegisterBlock,
+
+    #[cfg(feature = "exti")]
+    exti_cpupr_2: u16,
 }
 
 impl ServerImpl<'_> {
@@ -556,6 +562,37 @@ impl ServerImpl<'_> {
         // code. We could do better.
         Ok((bus, bit))
     }
+
+    #[cfg(feature = "exti")]
+    fn enable_exti_source(&self, slot: usize) {
+        // Enable this source by _setting_ the
+        // corresponding mask bit.
+        self.exti.cpuimr1.modify(|r, w| {
+            let new_value = r.bits() | (1 << slot);
+            // Safety: not actually unsafe, PAC didn't
+            // model this field right
+            unsafe { w.bits(new_value) }
+        });
+    }
+}
+
+#[cfg(feature = "exti")]
+fn exti_dispatch_matching(
+    task: TaskId,
+    mask: u32,
+) -> impl Iterator<Item = (usize, &'static ExtiDispatch)> {
+    generated::EXTI_DISPATCH_TABLE
+        .iter()
+        .enumerate()
+        .filter_map(move |(i, row)| {
+            // Only use populated entries.
+            let row = row.as_ref()?;
+            if task.index() == row.task.index() && row.mask & mask != 0 {
+                Some((i, row))
+            } else {
+                None
+            }
+        })
 }
 
 impl idl::InOrderSysImpl for ServerImpl<'_> {
@@ -691,17 +728,7 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
                             if mask & enable_mask != 0 {
                                 // Record that these bits meant something.
                                 used_bits |= mask;
-
-                                // Enable this source by _setting_ the
-                                // corresponding mask bit.
-                                self.exti.cpuimr1.modify(|r, w| {
-                                    let new_value = r.bits() | (1 << i);
-                                    // Safety: not actually unsafe, PAC didn't
-                                    // model this field right
-                                    unsafe {
-                                        w.bits(new_value)
-                                    }
-                                });
+                                self.enable_exti_source(i);
                             }
                         }
                     }
@@ -755,45 +782,34 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
                 // actually matched things.
                 let mut used_bits = 0u32;
 
-                for (i, entry) in
-                    generated::EXTI_DISPATCH_TABLE.iter().enumerate()
-                {
-                    // Only use populated rows in the table
-                    if let Some(ExtiDispatch { task, mask: entry_mask, .. }) = entry {
-                        // Operate only on rows assigned to the sending task
-                        // _and_ that are relevant based on the arguments.
-                        if task.index() == rm.sender.index()
-                            && mask & entry_mask != 0
-                        {
-                            used_bits |= mask;
+                for (i, _) in exti_dispatch_matching(rm.sender, mask) {
+                    used_bits |= mask;
 
-                            // Set or clear Rising Trigger Selection
-                            // Register bit according to the rising flag
-                            self.exti.rtsr1.modify(|r, w| {
-                                let new_value = if edge.is_rising() {
-                                    r.bits() | (1 << i)
-                                } else {
-                                    r.bits() & !(1 << i)
-                                };
-                                unsafe {
-                                    w.bits(new_value)
-                                }
-                            });
-
-                            // Set or clear Falling Trigger Selection
-                            // Register bit according to the rising flag
-                            self.exti.ftsr1.modify(|r, w| {
-                                let new_value = if edge.is_falling() {
-                                    r.bits() | (1 << i)
-                                } else {
-                                    r.bits() & !(1 << i)
-                                };
-                                unsafe {
-                                    w.bits(new_value)
-                                }
-                            });
+                    // Set or clear Rising Trigger Selection
+                    // Register bit according to the rising flag
+                    self.exti.rtsr1.modify(|r, w| {
+                        let new_value = if edge.is_rising() {
+                            r.bits() | (1 << i)
+                        } else {
+                            r.bits() & !(1 << i)
+                        };
+                        unsafe {
+                            w.bits(new_value)
                         }
-                    }
+                    });
+
+                    // Set or clear Falling Trigger Selection
+                    // Register bit according to the rising flag
+                    self.exti.ftsr1.modify(|r, w| {
+                        let new_value = if edge.is_falling() {
+                            r.bits() | (1 << i)
+                        } else {
+                            r.bits() & !(1 << i)
+                        };
+                        unsafe {
+                            w.bits(new_value)
+                        }
+                    });
                 }
 
                 // Check that all the set bits in the caller's provided masks
@@ -826,7 +842,7 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
         }
     }
 
-    fn gpio_irq_check(
+    fn gpio_irq_ack(
         &mut self,
         rm: &RecvMessage,
         mask: u32,
@@ -837,7 +853,34 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
         // fault any clients who call it if it's unsupported (below).
         cfg_if! {
             if #[cfg(feature = "exti")] {
+                // Build a bitmask of all bits in the pending bitmap that that
+                // correspond to EXTI slots owned by the calling task and mapped
+                // to interrupts in its notification map.
+                let mut slot_mask = 0;
+                for (i, _) in exti_dispatch_matching(rm.sender, mask) {
+                    slot_mask |= 1 << i;
 
+                    // If the caller asked us to re-enable their IRQs, also do
+                    // that.
+                    if enable {
+                        self.enable_exti_source(i);
+                    }
+                }
+
+                // If the caller's mask didn't match any of our exti slots, the
+                // caller is probably buggy.
+                if slot_mask == 0 {
+                    return Err(ClientError::BadMessageContents.fail())
+                }
+
+                // If any bits in the mask were set, then an IRQ fired.
+                let fired = self.exti_cpupr_2 & slot_mask != 0;
+
+                // Clear the pending bits owned by this task and notification
+                // mask.
+                self.exti_cpupr_2 &= !slot_mask;
+
+                Ok(fired)
             } else {
                 // Suppress unused variable warnings (yay conditional
                 // compilation)
@@ -924,6 +967,11 @@ impl NotificationHandler for ServerImpl<'_> {
                     }
 
                     if bits_to_acknowledge != 0 {
+                        // Save pending bits so that when the tasks that own the
+                        // interrupt(s) that fired call `Sys.gpio_irq_ack` to
+                        // check if their IRQs fired, we'll be able to tell them.
+                        self.exti_cpupr_2 |= bits_to_acknowledge;
+
                         // Mask and unpend interrupts en masse to save like six
                         // cycles because we'll totally notice in practice
                         // </mild-sarcasm>
@@ -1215,7 +1263,7 @@ mod idl {
 }
 
 #[cfg(feature = "exti")]
-mod exti {
+mod generated {
     use super::*;
 
     include!(concat!(env!("OUT_DIR"), "/exti_config.rs"));

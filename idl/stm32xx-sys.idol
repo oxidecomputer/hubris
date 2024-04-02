@@ -133,15 +133,15 @@ Interface(
         // If the `enable` argument is `true`, any sources mapped to bits in the
         // notification mask will be re-enabled, allowing their interrupt to
         // trigger again.
-        "gpio_irq_check": (
+        "gpio_irq_ack": (
             args: {
-                "mask": u32,
-                "enable": bool,
+                "mask": "u32",
+                "enable": "bool",
             },
             reply: Result(
                 ok: "bool",
                 err: ServerDeath,
             ),
-        )
+        ),
     },
 )
