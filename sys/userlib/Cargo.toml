@@ -6,6 +6,7 @@ edition = "2021"
 [features]
 default = ["critical-section"]
 panic-messages = []
+no-panic = []
 critical-section = ["dep:critical-section"]
 
 [dependencies]
