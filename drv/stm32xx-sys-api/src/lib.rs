@@ -37,6 +37,11 @@ pub enum RccError {
 #[derive(
     Copy, Clone, FromPrimitive, PartialEq, Eq, AsBytes, serde::Deserialize,
 )]
+// NOTE: This `repr` attribute is *not* necessary for
+// serialization/deserialization, but it is used to allow casting to `u8` in the
+// `Edge::{is_rising, is_falling}` methods. The current implementation of those
+// methods with bit-and tests generates substantially fewer instructions than
+// using `matches!` (see: https://godbolt.org/z/j5fdPfz3c).
 #[repr(u8)]
 pub enum Edge {
     /// The interrupt will trigger on the rising edge only.
