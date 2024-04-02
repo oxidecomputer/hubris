@@ -5,7 +5,6 @@ Interface(
     ops: {
         "block_size": (
             doc: "Get the block size for the update API. This is the length expected for the `write_one_block` call",
-            args: { },
             reply: Result(
                 ok: "usize",
                 err: CLike("drv_update_api::UpdateError"),
@@ -13,7 +12,7 @@ Interface(
         ),
         "prep_image_update": (
             doc: "Do any necessary preparation for writing the image. This may include erasing flash and unlocking registers",
-            reply : Result(
+            reply: Result(
                 ok: "()",
                 err: CLike("drv_update_api::UpdateError"),
             ),
@@ -21,9 +20,9 @@ Interface(
         "write_one_block": (
             doc: "Write a single block of an update image to the designated location.",
             args: {
-                "block_num" : "usize",
+                "block_num": "usize",
             },
-            leases : {
+            leases: {
                 "block": (type: "[u8]", read: true, max_len: Some(1024)),
             },
             reply: Result (
@@ -33,24 +32,21 @@ Interface(
         ),
         "abort_update": (
             doc: "Cancel the current update in progress. Must call prep_image_update again before restarting.",
-            args : { },
-            reply : Result(
+            reply: Result(
                 ok: "()",
                 err: CLike("drv_update_api::UpdateError"),
             ),
         ),
         "finish_image_update": (
             doc: "Do any necessary work post image write",
-            args : { },
-            reply : Result(
+            reply: Result(
                 ok: "()",
                 err: CLike("drv_update_api::UpdateError"),
             ),
         ),
         "current_version": (
             doc: "Get the current image version",
-            args : { },
-            reply : Simple("ImageVersion"),
+            reply: Simple("ImageVersion"),
             idempotent: true,
             encoding: Hubpack
         ),

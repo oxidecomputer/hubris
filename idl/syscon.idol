@@ -1,38 +1,37 @@
 Interface(
     name: "Syscon",
     ops: {
-	"enable_clock": (
-		args : {
-			"peripheral": ( type : "Peripheral", recv: FromPrimitive("u32")),
-		},
-		reply: Simple("()"),
-		idempotent: true,
-	),
-	"disable_clock": (
-		args: {
-			"peripheral": ( type : "Peripheral", recv: FromPrimitive("u32")),
-		},
-		reply: Simple("()"),
-		idempotent: true,
-	),
-	"enter_reset": (
-		args: {
-			"peripheral": ( type : "Peripheral", recv: FromPrimitive("u32")),
-		},
-		reply: Simple("()"),
-		idempotent: true,
-	),
-	"leave_reset": (
-		args: {
-			"peripheral": ( type : "Peripheral", recv: FromPrimitive("u32")),
-		},
-		reply: Simple("()"),
-		idempotent: true,
-	),
-	"chip_reset": (
-		reply: Simple("()"),
-		idempotent: true,
-	),
-
-   }
+        "enable_clock": (
+            args: {
+                "peripheral": (type: "Peripheral", recv: FromPrimitive("u32")),
+            },
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+        "disable_clock": (
+            args: {
+                "peripheral": (type: "Peripheral", recv: FromPrimitive("u32")),
+            },
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+        "enter_reset": (
+            args: {
+                "peripheral": (type: "Peripheral", recv: FromPrimitive("u32")),
+            },
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+        "leave_reset": (
+            args: {
+                "peripheral": (type: "Peripheral", recv: FromPrimitive("u32")),
+            },
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+        "chip_reset": (
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+    }
 )

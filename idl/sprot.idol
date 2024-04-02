@@ -5,9 +5,9 @@ Interface(
     ops: {
         "status": (
             doc: "Return status about the sprot protocol",
-            reply : Result(
-              ok: "SprotStatus",
-              err: Complex("SprotError"),
+            reply: Result(
+                ok: "SprotStatus",
+                err: Complex("SprotError"),
             ),
             encoding: Hubpack,
             idempotent: true,
@@ -18,7 +18,7 @@ Interface(
                 ok: "SprotIoStats",
                 err: Complex("SprotError"),
             ),
-            encoding: Hubpack, 
+            encoding: Hubpack,
             idempotent: true,
         ),
         "rot_state": (
@@ -39,18 +39,17 @@ Interface(
                 ok: "PulseStatus",
                 err: Complex("SprotError"),
             ),
-            encoding: Hubpack, 
+            encoding: Hubpack,
         ),
 
         // The RoT update API is copy and pasted from idl/update.idol.
         "block_size": (
             doc: "Get the block size for the update API. This is the length expected for the `write_one_block` call",
-            args: { },
             reply: Result(
                 ok: "u32",
                 err: Complex("SprotError"),
             ),
-            encoding: Hubpack, 
+            encoding: Hubpack,
             idempotent: true,
         ),
         "prep_image_update": (
@@ -58,31 +57,30 @@ Interface(
             args: {
                 "target": "UpdateTarget",
             },
-            reply : Result(
+            reply: Result(
                 ok: "()",
                 err: Complex("SprotError"),
             ),
-            encoding: Hubpack, 
+            encoding: Hubpack,
             idempotent: true,
         ),
         "write_one_block": (
             doc: "Write a single block of an update image to the designated location.",
-            args: { 
-                "block_num" : "u32",
+            args: {
+                "block_num": "u32",
             },
-            leases : {
+            leases: {
                 "block": (type: "[u8]", read: true, max_len: Some(512)),
             },
             reply: Result (
                 ok: "()",
                 err: Complex("SprotError"),
             ),
-            encoding: Hubpack, 
+            encoding: Hubpack,
         ),
         "abort_update": (
             doc: "Cancel the current update in progress. Must call prep_image_update again before restarting.",
-            args : { },
-            reply : Result(
+            reply: Result(
                 ok: "()",
                 err: Complex("SprotError"),
             ),
@@ -90,8 +88,7 @@ Interface(
         ),
         "finish_image_update": (
             doc: "Do any necessary work post image write",
-            args : { },
-            reply : Result(
+            reply: Result(
                 ok: "()",
                 err: Complex("SprotError"),
             ),
@@ -103,7 +100,7 @@ Interface(
                 "slot": "SlotId",
                 "duration": "SwitchDuration",
             },
-            reply : Result(
+            reply: Result(
                 ok: "()",
                 err: Complex("SprotError"),
             ),
@@ -112,7 +109,7 @@ Interface(
         ),
         "reset": (
             doc: "Reset",
-            reply : Result(
+            reply: Result(
                 ok: "()",
                 err: Complex("SprotError"),
             ),
@@ -124,7 +121,7 @@ Interface(
             args: {
                 "address": "u32",
             },
-            reply : Result(
+            reply: Result(
                 ok: "()",
                 err: Complex("DumpOrSprotError"),
             ),
@@ -153,7 +150,7 @@ Interface(
                 ok: "()",
                 err: Complex("RawCabooseOrSprotError"),
             ),
-            leases : {
+            leases: {
                 "out": (type: "[u8]", write: true),
             },
             idempotent: true,
@@ -180,7 +177,7 @@ Interface(
         "cert_len": (
             doc: "Get length of a cert in the cert chain",
             args: {
-                "index" : "u32",
+                "index": "u32",
             },
             reply: Result(
                 ok: "u32",
@@ -192,8 +189,8 @@ Interface(
         "cert": (
             doc: "Get a cert from the alias cert chaing",
             args: {
-				"index" : "u32",
-                "offset" : "u32",
+                "index": "u32",
+                "offset": "u32",
             },
             leases: {
                 "dest": (type: "[u8]", write: true),
@@ -237,7 +234,7 @@ Interface(
         "log": (
             doc: "Get the measurement log",
             args: {
-                "offset" : "u32",
+                "offset": "u32",
             },
             leases: {
                 "dest": (type: "[u8]", write: true),
@@ -264,7 +261,7 @@ Interface(
                 "nonce": (type: "[u8]", read: true, max_len: Some(128)),
                 "dest": (type: "[u8]", write: true),
             },
-             reply: Result(
+            reply: Result(
                 ok: "()",
                 err: Complex("AttestOrSprotError"),
             ),

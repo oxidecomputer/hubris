@@ -8,7 +8,7 @@ Interface(
                 "index": "u32",
             },
             reply: Result(
-                ok: (type : "ValidateOk", recv: FromPrimitive("u8")),
+                ok: (type: "ValidateOk", recv: FromPrimitive("u8")),
                 err: CLike("ValidateError"),
             ),
             idempotent: true,
