@@ -123,7 +123,7 @@ features = ["gimlet"]
 name = "task-thermal"
 features = ["gimlet"]
 priority = 5
-max-sizes = {flash = 32768, ram = 8192 }
+max-sizes = {flash = 65536, ram = 8192 }
 stacksize = 6000
 start = true
 task-slots = ["i2c_driver", "sensor", "gimlet_seq", "jefe"]
