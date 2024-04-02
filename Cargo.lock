@@ -2016,6 +2016,7 @@ dependencies = [
  "build-stm32xx-sys",
  "build-util",
  "cfg-if",
+ "counters",
  "drv-stm32xx-gpio-common",
  "drv-stm32xx-sys-api",
  "drv-stm32xx-uid",

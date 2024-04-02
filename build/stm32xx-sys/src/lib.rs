@@ -81,19 +81,20 @@ impl SysConfig {
         &self,
     ) -> anyhow::Result<proc_macro2::TokenStream> {
         #[derive(Debug)]
-        struct DispatchEntry<'a> {
-            _name: &'a str,
+        struct DispatchEntry {
             port: Port,
             task: syn::Ident,
             note: syn::Ident,
+            name: syn::Ident,
         }
 
         const NUM_EXTI_IRQS: usize = 16;
-        let mut dispatch_table: [Option<DispatchEntry<'_>>; NUM_EXTI_IRQS] =
+        let mut dispatch_table: [Option<DispatchEntry>; NUM_EXTI_IRQS] =
             Default::default();
+        let mut has_any_notifications = false;
 
         for (
-            _name,
+            name,
             &GpioIrqConfig {
                 port,
                 pin,
@@ -106,13 +107,19 @@ impl SysConfig {
                     anyhow::bail!("pin {pin} is already mapped to IRQ {curr:?}")
                 }
                 Some(slot) => {
+                    has_any_notifications = true;
                     let task = syn::parse_str(&owner.name)?;
                     let note = quote::format_ident!(
                         "{}_MASK",
                         owner.notification.to_uppercase().replace('-', "_")
                     );
+
+                    let name = quote::format_ident!(
+                        "{}",
+                        name.replace('-', "_")
+                    );
                     *slot = Some(DispatchEntry {
-                        _name,
+                        name,
                         port,
                         task,
                         note,
@@ -126,22 +133,49 @@ impl SysConfig {
 
         let dispatches = dispatch_table.iter().map(|slot| match slot {
             Some(DispatchEntry {
-                port, task, note, ..
+                name,
+                port,
+                task,
+                note,
+                ..
             }) => quote! {
-                Some((
-                    #port,
-                    userlib::TaskId::for_index_and_gen(
+                Some(ExtiDispatch {
+                    port: #port,
+                    task: userlib::TaskId::for_index_and_gen(
                         hubris_num_tasks::Task::#task as usize,
                         userlib::Generation::ZERO,
                     ),
-                    crate::notifications::#task::#note,
-                ))
+                    mask: crate::notifications::#task::#note,
+                    name: ExtiIrq::#name,
+                })
             },
             None => quote! { None },
         });
 
+        let counter_type = if has_any_notifications {
+            let irq_names = dispatch_table
+                .iter()
+                .filter_map(|slot| Some(&slot.as_ref()?.name));
+            quote! {
+                #[derive(Copy, Clone, PartialEq, Eq, counters::Count)]
+                #[allow(nonstandard_style)]
+                pub(crate) enum ExtiIrq {
+                    #( #irq_names ),*
+                }
+            }
+        } else {
+            // If there are no EXTI notifications enabled, just use `()` as the counter
+            // type, as it does implement `counters::Count`, but has no values, so
+            // we don't get a "matching on an uninhabited type" error.
+            quote! {
+                pub(crate) type ExtiIrq = ();
+            }
+        };
+
         Ok(quote! {
-            pub(crate) const EXTI_DISPATCH_TABLE: [Option<(Port, TaskId, u32)>; #NUM_EXTI_IRQS] = [
+            #counter_type
+
+            pub(crate) const EXTI_DISPATCH_TABLE: [Option<ExtiDispatch>; #NUM_EXTI_IRQS] = [
                 #( #dispatches ),*
             ];
         })
