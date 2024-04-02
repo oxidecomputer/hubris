@@ -11,7 +11,7 @@
 #![no_std]
 #![no_main]
 
-use drv_stm32xx_sys_api::{PinSet, Port, Pull};
+use drv_stm32xx_sys_api::{Edge, PinSet, Port, Pull};
 use ringbuf::ringbuf_entry;
 use userlib::*;
 
@@ -29,10 +29,8 @@ task_slot!(SYS, sys);
 task_config::optional_task_config! {
     /// The index of the user LED to toggle
     led: usize,
-    /// Whether to enable rising-edge interrupts
-    rising: bool,
-    /// Whether to enable falling-edge interrupts
-    falling: bool,
+    /// Edge sensitivity for the button interrupt
+    edge: Edge,
 }
 
 // In real life, we might not actually want to trace all of these events, but
@@ -42,13 +40,8 @@ task_config::optional_task_config! {
 enum Trace {
     #[count(skip)]
     None,
-
     /// We called the `Sys.gpio_irq_configure` IPC with these arguments.
-    GpioIrqConfigure {
-        mask: u32,
-        rising: bool,
-        falling: bool,
-    },
+    GpioIrqConfigure { mask: u32, edge: Edge },
 
     /// We called the `Sys.gpio_irq_control` IPC with these arguments.
     GpioIrqControl { enable_mask: u32, disable_mask: u32 },
@@ -67,11 +60,10 @@ pub fn main() -> ! {
     let user_leds = drv_user_leds_api::UserLeds::from(USER_LEDS.get_task_id());
     let sys = drv_stm32xx_sys_api::Sys::from(SYS.get_task_id());
 
-    let (led, rising, falling) = if let Some(config) = TASK_CONFIG {
-        (config.led, config.rising, config.falling)
-    } else {
-        (0, false, true)
-    };
+    let Config { led, edge } = TASK_CONFIG.unwrap_or(Config {
+        led: 0,
+        edge: Edge::Rising,
+    });
 
     sys.gpio_configure_input(
         PinSet {
@@ -83,10 +75,9 @@ pub fn main() -> ! {
 
     ringbuf_entry!(Trace::GpioIrqConfigure {
         mask: notifications::BUTTON_MASK,
-        rising,
-        falling,
+        edge,
     });
-    sys.gpio_irq_configure(notifications::BUTTON_MASK, rising, falling);
+    sys.gpio_irq_configure(notifications::BUTTON_MASK, edge);
 
     loop {
         // The first argument to `gpio_irq_control` is the mask of interrupts to

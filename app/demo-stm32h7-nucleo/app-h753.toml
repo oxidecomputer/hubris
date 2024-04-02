@@ -116,7 +116,7 @@ priority = 3
 start = true
 task-slots = ["sys", "user_leds"]
 notifications = ["button"]
-config = { led = 1, rising = false, falling = true }
+config = { led = 1, edge = "Edge::Rising" }
 
 [tasks.udpecho]
 name = "task-udpecho"

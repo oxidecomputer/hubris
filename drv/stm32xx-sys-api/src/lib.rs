@@ -20,6 +20,7 @@ cfg_if::cfg_if! {
 
 use derive_idol_err::IdolError;
 use userlib::*;
+use zerocopy::AsBytes;
 
 pub use drv_stm32xx_gpio_common::{
     Alternate, Mode, OutputType, PinSet, Port, Pull, Speed,
@@ -30,6 +31,25 @@ pub use drv_stm32xx_gpio_common::{
 #[derive(counters::Count)]
 pub enum RccError {
     NoSuchPeripheral = 1,
+}
+
+/// Configures edge sensitivity for a GPIO interrupt
+#[derive(
+    Copy, Clone, FromPrimitive, PartialEq, Eq, AsBytes, serde::Deserialize,
+)]
+// NOTE: This `repr` attribute is *not* necessary for
+// serialization/deserialization, but it is used to allow casting to `u8` in the
+// `Edge::{is_rising, is_falling}` methods. The current implementation of those
+// methods with bit-and tests generates substantially fewer instructions than
+// using `matches!` (see: https://godbolt.org/z/j5fdPfz3c).
+#[repr(u8)]
+pub enum Edge {
+    /// The interrupt will trigger on the rising edge only.
+    Rising = 0b01,
+    /// The interrupt will trigger on the falling edge only.
+    Falling = 0b10,
+    /// The interrupt will trigger on both teh rising and falling edge.
+    Both = 0b11,
 }
 
 impl Sys {
@@ -282,6 +302,32 @@ impl Sys {
         userlib::hl::sleep_for(low_time_ms as u64);
         self.gpio_set(pinset);
         userlib::hl::sleep_for(wait_time_ms as u64);
+    }
+}
+
+impl Edge {
+    /// Returns `true` if this edge sensitivity should trigger on the rising
+    /// edge.
+    pub fn is_rising(&self) -> bool {
+        *self as u8 & Self::Rising as u8 != 0
+    }
+
+    /// Returns `true` if this edge sensitivity should trigger on the falling
+    /// edge.
+    pub fn is_falling(&self) -> bool {
+        *self as u8 & Self::Falling as u8 != 0
+    }
+}
+
+impl core::ops::BitOr for Edge {
+    type Output = Self;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (Edge::Rising, Edge::Rising) => Edge::Rising,
+            (Edge::Falling, Edge::Falling) => Edge::Falling,
+            _ => Edge::Both,
+        }
     }
 }
 
