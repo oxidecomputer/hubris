@@ -16,7 +16,6 @@ Interface(
         ),
         "set_tofino_seq_policy": (
             doc: "Set the power state",
-            args: {},
             args: {
                 "policy": (
                     type: "TofinoSequencerPolicy",

@@ -11,8 +11,8 @@ Interface(
             ),
         ),
         "capacity": (
-            args: {},
             doc: "Return the flash capacity in bytes.",
+            args: {},
             reply: Result(
                 ok: "usize",
                 err: CLike("HfError"),
