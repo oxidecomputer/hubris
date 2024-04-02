@@ -121,16 +121,29 @@ impl Spi {
     /// value in `TSIZE` has been transferred.
     ///
     /// Per the manual:
-    /// > When the number of data programmed into `TSIZE`` is transacted and if
-    /// > `TSER`` contains a non-zero value, the content of `TSER`` is copied
+    /// > When the number of data programmed into `TSIZE` is transacted and if
+    /// > `TSER` contains a non-zero value, the content of `TSER` is copied
     /// > into `TSIZE`, and `TSER` value is cleared automatically.
     /// > The transaction is then extended by a number of data corresponding to
     /// > the value reloaded into `TSIZE``. The `EOT` event is not raised in
     /// > this case as the transaction continues.
     /// > --- RM0433 Rev 8, p. 2177
     pub fn enable_reload(&self, tser: u16) {
-        self.reg.cr2.modify(|_, w| w.tser().bits(tser));
+        self.reg.cr2.modify(|r, w| {
+            // This is (probably) a PAC bug: the `stm32h7` PAC doesn't let us write
+            // to the TSER field in CR2, only read from it. But, the STM32 manual
+            // (RM0433) specifically describes writing to TSER in order to extend a
+            // transfer. So, let's do that...
+            //
+            // If the PAC exposed writing to TSER, this should just be
+            // self.reg.cr2.modify(|_, w| w.tser().bits(tser);
+            let bits = r.tsize().bits() as u32 | ((tser as u32) << 16);
+            unsafe { w.bits(bits) }
+        });
         // Let's receive an interrupt when the reloaded transfer begins.
+        // N.B. This is separate from `enable_transfer_interrupts` because we
+        // only care about receiving the TSERFIE interrupt when the TSER
+        // register is in use.
         self.reg.ier.modify(|_, w| w.tserfie().set_bit())
     }
 
@@ -284,6 +297,16 @@ impl Spi {
 
     pub fn clear_eot(&self) {
         self.reg.ifcr.write(|w| w.eotc().set_bit());
+    }
+
+    /// Returns `true` if the `TSER` register has reloaded the next transfer
+    /// chunk size.
+    pub fn check_tserf(&self) -> bool {
+        self.reg.sr.read().tserf().is_loaded()
+    }
+
+    pub fn clear_tserf(&self) {
+        self.reg.ifcr.write(|w| w.tserfc().set_bit());
     }
 
     pub fn read_status(&self) -> u32 {
