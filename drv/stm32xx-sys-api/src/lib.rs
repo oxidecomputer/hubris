@@ -34,7 +34,9 @@ pub enum RccError {
 }
 
 /// Configures edge sensitivity for a GPIO interrupt
-#[derive(Copy, Clone, FromPrimitive, PartialEq, Eq, AsBytes)]
+#[derive(
+    Copy, Clone, FromPrimitive, PartialEq, Eq, AsBytes, serde::Deserialize,
+)]
 #[repr(u8)]
 pub enum Edge {
     /// The interrupt will trigger on the rising edge only.
