@@ -451,7 +451,7 @@ fn main() -> ! {
 
                     let mut nread = 0;
 
-                    match controller.write_read(
+                    let controller_result = controller.write_read(
                         addr,
                         winfo.len,
                         |pos| wbuf.read_at(pos),
@@ -470,7 +470,8 @@ fn main() -> ! {
                             rbuf.write_at(pos, byte)
                         },
                         &ctrl,
-                    ) {
+                    );
+                    match controller_result {
                         Err(code) => {
                             //
                             // NoDevice errors aren't hugely interesting --

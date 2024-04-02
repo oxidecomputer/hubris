@@ -89,9 +89,9 @@ pub enum Peripheral {
 
     #[cfg(any(feature = "h753", feature = "h743"))]
     Rng = periph(Group::Ahb2, 6),
-    #[cfg(any(feature = "h753"))]
+    #[cfg(feature = "h753")]
     Hash = periph(Group::Ahb2, 5),
-    #[cfg(any(feature = "h753"))]
+    #[cfg(feature = "h753")]
     Crypt = periph(Group::Ahb2, 4),
 
     #[cfg(feature = "h7b3")]

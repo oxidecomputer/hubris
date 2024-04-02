@@ -93,7 +93,7 @@ fn read_reg_u8(
     let mut rval = 0u8;
     let wlen = 1;
 
-    match controller.write_read(
+    let controller_result = controller.write_read(
         mux.address,
         wlen,
         |_| Some(reg),
@@ -103,7 +103,8 @@ fn read_reg_u8(
             Some(())
         },
         ctrl,
-    ) {
+    );
+    match controller_result {
         Err(code) => Err(mux.error_code(code)),
         _ => Ok(rval),
     }

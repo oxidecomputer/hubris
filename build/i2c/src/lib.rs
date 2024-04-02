@@ -558,7 +558,7 @@ impl ConfigGenerator {
                             d.device, d.address
                         );
                     }
-                    (_, Some(bus)) if buses.get(bus).is_none() => {
+                    (_, Some(bus)) if !buses.contains_key(bus) => {
                         panic!(
                             "device {} at address {:#x} specifies \
                             unknown bus \"{}\"",
@@ -1239,7 +1239,7 @@ impl ConfigGenerator {
         // returned by `device_descriptions()` below: if we change the ordering
         // here, it must be updated there as well.
         for (index, device) in self.devices.iter().enumerate() {
-            if drivers.get(&device.device).is_some() {
+            if drivers.contains(&device.device) {
                 let driver = device.device.to_case(Case::UpperCamel);
                 let out = self.generate_device(device, 24);
 
