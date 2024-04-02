@@ -67,7 +67,7 @@ impl InOrderSpiImpl for ServerImpl {
                 device_index,
                 dest.into_inner().into(),
             )
-            .map_err(RequestError::from)
+            .map_err(|_| idol_runtime::ClientError::BadMessageContents.fail())
     }
 
     fn write(

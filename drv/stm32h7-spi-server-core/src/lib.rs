@@ -197,7 +197,7 @@ impl SpiServerCore {
         &self,
         device_index: u8,
         dest: BufWrite,
-    ) -> Result<(), TransferError> {
+    ) -> Result<(), Infallible> {
         self.ready_writey::<&[u8], _>(
             SpiOperation::read,
             device_index,
@@ -210,7 +210,7 @@ impl SpiServerCore {
         &self,
         device_index: u8,
         src: BufRead,
-    ) -> Result<(), TransferError> {
+    ) -> Result<(), Infallible> {
         self.ready_writey::<_, &mut [u8]>(
             SpiOperation::write,
             device_index,
@@ -224,7 +224,7 @@ impl SpiServerCore {
         device_index: u8,
         src: BufRead,
         dest: BufWrite,
-    ) -> Result<(), TransferError> {
+    ) -> Result<(), Infallible> {
         self.ready_writey(
             SpiOperation::exchange,
             device_index,
