@@ -99,14 +99,13 @@ Interface(
         // Configures some set of EXTI sources associated with the caller,
         // using the caller's notification bit space to name them. Any
         // sources included in the `mask` will be affected.
-        //
-        // If neither rising nor falling is true, the pin will not be
-        // capable of producing an interrupt, even if enabled.
         "gpio_irq_configure": (
             args: {
                 "mask": "u32",
-                "rising": "bool",
-                "falling": "bool",
+                "sensitivity": (
+                    type: "Edge",
+                    recv: FromPrimitive("u8"),
+                ),
             },
             reply: Simple("()"),
             idempotent: true,

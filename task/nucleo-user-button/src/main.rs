@@ -11,7 +11,7 @@
 #![no_std]
 #![no_main]
 
-use drv_stm32xx_sys_api::{PinSet, Port, Pull};
+use drv_stm32xx_sys_api::{Edge, PinSet, Port, Pull};
 use ringbuf::ringbuf_entry;
 use userlib::*;
 
@@ -43,12 +43,12 @@ enum Trace {
     #[count(skip)]
     None,
 
+    /// Config should enable either the rising or falling edge. We defaulted to
+    /// "rising" because you didn't enable either edge sensitivity.
+    ConfigDidntEnableAnyEdgeSensitivity,
+
     /// We called the `Sys.gpio_irq_configure` IPC with these arguments.
-    GpioIrqConfigure {
-        mask: u32,
-        rising: bool,
-        falling: bool,
-    },
+    GpioIrqConfigure { mask: u32, sensitivity: Edge },
 
     /// We called the `Sys.gpio_irq_control` IPC with these arguments.
     GpioIrqControl { enable_mask: u32, disable_mask: u32 },
@@ -67,10 +67,26 @@ pub fn main() -> ! {
     let user_leds = drv_user_leds_api::UserLeds::from(USER_LEDS.get_task_id());
     let sys = drv_stm32xx_sys_api::Sys::from(SYS.get_task_id());
 
-    let (led, rising, falling) = if let Some(config) = TASK_CONFIG {
-        (config.led, config.rising, config.falling)
+    let (led, sensitivity) = if let Some(Config {
+        rising,
+        falling,
+        led,
+    }) = TASK_CONFIG
+    {
+        let sensitivity = match (rising, falling) {
+            (true, true) => Edge::Both,
+            (false, true) => Edge::Rising,
+            (true, false) => Edge::Falling,
+            (false, false) => {
+                ringbuf_entry!(Trace::ConfigDidntEnableAnyEdgeSensitivity);
+                // Just picking something arbitrarily seems nicer than panicking
+                // endlessly in a loop...
+                Edge::Rising
+            }
+        };
+        (led, sensitivity)
     } else {
-        (0, false, true)
+        (0, Edge::Rising)
     };
 
     sys.gpio_configure_input(
@@ -83,10 +99,9 @@ pub fn main() -> ! {
 
     ringbuf_entry!(Trace::GpioIrqConfigure {
         mask: notifications::BUTTON_MASK,
-        rising,
-        falling,
+        sensitivity,
     });
-    sys.gpio_irq_configure(notifications::BUTTON_MASK, rising, falling);
+    sys.gpio_irq_configure(notifications::BUTTON_MASK, sensitivity);
 
     loop {
         // The first argument to `gpio_irq_control` is the mask of interrupts to

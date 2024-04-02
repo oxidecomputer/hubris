@@ -207,8 +207,7 @@
 //!     // Now, configure the pin to trigger interrupts on the rising edge:
 //!     sys.gpio_irq_configure(
 //!         notifications::MY_GPIO_NOTIFICATION_MASK,
-//!         true,   // whether to enable rising edge interrupts
-//!         false,  // whether to enable falling edge interrupts
+//!         Edge::Rising, // or `Edge::Falling`, `Edge::Both`
 //!     );
 //!
 //!     // Eventually we will do other things here
@@ -229,7 +228,7 @@
 //! ```rust,no-run
 //! # fn handle_interrupt() {}
 //! # mod notifications { pub const MY_GPIO_NOTIFICATION_MASK: u32 = 1 << 0; }
-//! use drv_stm32xx_sys_api::{PinSet, Port, Pull};
+//! use drv_stm32xx_sys_api::{PinSet, Port, Pull, Edge};
 //! use userlib::*;
 //!
 //! task_slot!(SYS, sys);
@@ -248,8 +247,7 @@
 //!
 //!     sys.gpio_irq_configure(
 //!         notifications::MY_GPIO_NOTIFICATION_MASK,
-//!         true,   // whether to enable rising edge interrupts
-//!         false,  // whether to enable falling edge interrupts
+//!         Edge::Rising, // or `Edge::Falling`, `Edge::Both`
 //!     );
 //!
 //!     // Wait to recieve notifications for our GPIO interrupt in a loop:
@@ -320,7 +318,7 @@ cfg_if! {
 }
 
 use drv_stm32xx_gpio_common::{server::get_gpio_regs, Port};
-use drv_stm32xx_sys_api::{Group, RccError};
+use drv_stm32xx_sys_api::{Edge, Group, RccError};
 use idol_runtime::{ClientError, NotificationHandler, RequestError};
 #[cfg(not(feature = "test"))]
 use task_jefe_api::{Jefe, ResetReason};
@@ -742,29 +740,13 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
         &mut self,
         rm: &RecvMessage,
         mask: u32,
-        rising: bool,
-        falling: bool,
+        edge: Edge,
     ) -> Result<(), RequestError<core::convert::Infallible>> {
         // We want to only include code for this if exti is requested.
         // Unfortunately the _operation_ is available unconditionally, but we'll
         // fault any clients who call it if it's unsupported (below).
         cfg_if! {
             if #[cfg(feature = "exti")] {
-
-                // Guardrail: a call where both "rising" and "falling" are false
-                // will effectively disable the interrupt, in a _different_ way
-                // from gpio_irq_control. Currently we can't imagine a case
-                // where this is useful, but we _can_ imagine cases where
-                // tolerating it would hide bugs in code, and so we're making it
-                // an error.
-                //
-                // If you arrive here in the future wondering why this is being
-                // treated as an error, that's why. If you need this
-                // functionality, you can probably just remove this check and
-                // comment.
-                if !rising && !falling {
-                    return Err(ClientError::BadMessageContents.fail());
-                }
 
                 // Keep track of which bits in the caller-provided masks
                 // actually matched things.
@@ -785,7 +767,7 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
                             // Set or clear Rising Trigger Selection
                             // Register bit according to the rising flag
                             self.exti.rtsr1.modify(|r, w| {
-                                let new_value = if rising {
+                                let new_value = if edge.is_rising() {
                                     r.bits() | (1 << i)
                                 } else {
                                     r.bits() & !(1 << i)
@@ -798,7 +780,7 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
                             // Set or clear Falling Trigger Selection
                             // Register bit according to the rising flag
                             self.exti.ftsr1.modify(|r, w| {
-                                let new_value = if falling {
+                                let new_value = if edge.is_falling() {
                                     r.bits() | (1 << i)
                                 } else {
                                     r.bits() & !(1 << i)
@@ -832,7 +814,7 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
             } else {
                 // Suppress unused variable warnings (yay conditional
                 // compilation)
-                let _ = (rm, mask, rising, falling);
+                let _ = (rm, mask, edge);
 
                 // Fault any clients who try to use this in an image where it's
                 // not included.
@@ -1190,7 +1172,7 @@ cfg_if! {
 include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
 
 mod idl {
-    use super::{Port, RccError};
+    use super::{Edge, Port, RccError};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
