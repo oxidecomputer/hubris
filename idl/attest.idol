@@ -16,7 +16,7 @@ Interface(
         "cert": (
             doc: "Get a cert from the RoT-R",
             args: {
-				"index" : "u32",
+                "index" : "u32",
                 "offset" : "u32",
             },
             leases: {
@@ -71,6 +71,7 @@ Interface(
         ),
         "log_len": (
             doc: "Get length of the serialized measurement log",
+            args: {},
             reply: Result(
                 ok: "u32",
                 err: Complex("AttestError"),
@@ -80,6 +81,7 @@ Interface(
         ),
         "attest": (
             doc: "Get an attestation",
+            args: {},
             leases: {
                 "nonce": (type: "[u8]", read: true, max_len: Some(128)),
                 "dest": (type: "[u8]", write: true),
@@ -92,6 +94,7 @@ Interface(
         ),
         "attest_len": (
             doc: "Get the length of an attestation",
+            args: {},
             reply: Result(
                 ok: "u32",
                 err: Complex("AttestError"),

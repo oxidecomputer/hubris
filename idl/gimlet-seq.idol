@@ -5,6 +5,7 @@ Interface(
     ops: {
         "get_state": (
             doc: "Return the power state",
+            args: {},
             reply: Simple((
                 type: "drv_gimlet_state::PowerState",
                 recv: FromPrimitive("u8"),
