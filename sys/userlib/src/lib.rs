@@ -1288,6 +1288,15 @@ pub unsafe extern "C" fn _start() -> ! {
     }
 }
 
+// Make the no-panic and panic-messages features mutually exclusive.
+#[cfg(all(feature = "no-panic", feature = "panic-messages"))]
+compile_error!(
+    "Both the userlib/panic-messages and userlib/no-panic feature flags \
+     are set! This doesn't make a lot of sense and is probably not what \
+     you wanted. (If you have a use case for this combination, update \
+     this check in userlib.)"
+);
+
 /// Panic handler for user tasks with the `panic-messages` feature enabled. This
 /// handler will try its best to generate a panic message, up to a maximum
 /// buffer size (configured below).
