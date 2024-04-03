@@ -809,7 +809,7 @@ impl<S: SpiServer> ServerImpl<S> {
                 );
                 sys.gpio_irq_configure(
                     notifications::VCORE_MASK,
-                    sys_api::Edge::Rising
+                    sys_api::Edge::Falling
                 );
                 sys.gpio_irq_control(0, notifications::VCORE_MASK);
 
