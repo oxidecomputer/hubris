@@ -10,8 +10,8 @@ use drv_sp_ctrl_api::SpCtrl;
 use drv_sprot_api::{
     AttestReq, AttestRsp, CabooseReq, CabooseRsp, DumpReq, DumpRsp, ReqBody,
     Request, Response, RotIoStats, RotPageRsp, RotState, RotStatus, RspBody,
-    SprocketsError, SprotError, SprotProtocolError, UpdateReq, UpdateRsp,
-    WatchdogError, CURRENT_VERSION, MIN_VERSION, REQUEST_BUF_SIZE,
+    SprocketsError, SprotError, SprotProtocolError, SwdReq, UpdateReq,
+    UpdateRsp, WatchdogError, CURRENT_VERSION, MIN_VERSION, REQUEST_BUF_SIZE,
     RESPONSE_BUF_SIZE,
 };
 use dumper_api::Dumper;
@@ -421,7 +421,7 @@ impl<'a> Handler {
                 };
                 Ok((RspBody::Attest(rsp), None))
             }
-            ReqBody::EnableSpSlotWatchdog { time_ms } => {
+            ReqBody::Swd(SwdReq::EnableSpSlotWatchdog { time_ms }) => {
                 // Enabling the watchdog doesn't actually do any SWD work, but
                 // we'll call `setup()` now to make sure that the SWD system is
                 // working.
@@ -432,7 +432,7 @@ impl<'a> Handler {
                     Err(_e) => Err(SprotError::Watchdog(WatchdogError::SpCtrl)),
                 }
             }
-            ReqBody::DisableSpSlotWatchdog => {
+            ReqBody::Swd(SwdReq::DisableSpSlotWatchdog) => {
                 self.sp_ctrl.disable_sp_slot_watchdog();
                 Ok((RspBody::Ok, None))
             }

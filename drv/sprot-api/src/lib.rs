@@ -346,8 +346,13 @@ pub enum ReqBody {
     // Added in sprot protocol version 4
     RotPage { page: RotPage },
     // Added in sprot protocol version 5
+    Swd(SwdReq),
+}
+
+// Added in sprot protocol version 5
+#[derive(Clone, Serialize, Deserialize, SerializedSize)]
+pub enum SwdReq {
     EnableSpSlotWatchdog { time_ms: u32 },
-    // Added in sprot protocol version 5
     DisableSpSlotWatchdog,
 }
 
