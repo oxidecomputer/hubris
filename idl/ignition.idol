@@ -88,7 +88,7 @@ Interface(
                 err: CLike("drv_ignition_api::IgnitionError"),
             ),
         ),
-         "link_events": (
+        "link_events": (
             doc: "Return all transceiver events for the given port",
             args: {
                 "port": "u8",

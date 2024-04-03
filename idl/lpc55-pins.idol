@@ -1,46 +1,45 @@
 Interface(
     name: "Pins",
     ops: {
-	"iocon_configure_raw": (
-		args : {
-			"pin": ( type : "Pin", recv: FromPrimitive("u32")),
-			"conf": "u32",
-		},
-		reply: Simple("()"),
-		idempotent: true,
-	),
-	"set_dir": (
-		args: {
-			"pin": ( type : "Pin", recv: FromPrimitive("u32")),
-			"dir": ( type: "Direction", recv: FromPrimitive("u32")),
-		},
-		reply: Simple("()"),
-		idempotent: true,
-	),
-	"set_val": (
-		args: {
-			"pin": ( type : "Pin", recv: FromPrimitive("u32")),
-			"val": ( type : "Value", recv: FromPrimitive("u8")),
-		},
-		reply: Simple("()"),
-		idempotent: true,
-	),
-	"read_val": (
-		args: {
-			"pin": ( type : "Pin", recv: FromPrimitive("u32")),
-		},
-		reply: Simple((type : "Value", recv: FromPrimitive("u8"))),
-		idempotent: true,
-	),
-	"toggle": (
-		args: {
-			"pin": ( type : "Pin", recv: FromPrimitive("u32")),
-		},
-		reply: Result(
-			ok: "()",
-			err: ServerDeath,
-		)
-	),
-
-   }
+        "iocon_configure_raw": (
+            args: {
+                "pin": (type: "Pin", recv: FromPrimitive("u32")),
+                "conf": "u32",
+            },
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+        "set_dir": (
+            args: {
+                "pin": (type: "Pin", recv: FromPrimitive("u32")),
+                "dir": (type: "Direction", recv: FromPrimitive("u32")),
+            },
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+        "set_val": (
+            args: {
+                "pin": (type: "Pin", recv: FromPrimitive("u32")),
+                "val": (type: "Value", recv: FromPrimitive("u8")),
+            },
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+        "read_val": (
+            args: {
+                "pin": (type: "Pin", recv: FromPrimitive("u32")),
+            },
+            reply: Simple((type: "Value", recv: FromPrimitive("u8"))),
+            idempotent: true,
+        ),
+        "toggle": (
+            args: {
+                "pin": (type: "Pin", recv: FromPrimitive("u32")),
+            },
+            reply: Result(
+                ok: "()",
+                err: ServerDeath,
+            )
+        ),
+    }
 )
