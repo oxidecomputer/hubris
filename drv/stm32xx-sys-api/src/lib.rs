@@ -68,7 +68,7 @@ pub enum IrqControl {
     ///
     /// If an interrupt is currently enabled, it will remain enabled, while if
     /// it is currently disabled, it will remain disabled.
-    Check = 0b11,
+    Check,
 }
 
 impl Sys {
