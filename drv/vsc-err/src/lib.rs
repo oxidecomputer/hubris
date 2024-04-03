@@ -9,12 +9,10 @@
 
 #![no_std]
 
-use drv_spi_api::SpiError;
 use idol_runtime::ServerDeath;
 
 #[derive(Copy, Clone, Eq, PartialEq, counters::Count)]
 pub enum VscError {
-    SpiError(#[count(children)] SpiError),
     ServerDied,
     /// Error code produced by a proxy device handling PHY register
     /// reads/writes.
@@ -98,12 +96,6 @@ pub enum VscError {
 
     /// Provided an invalid argument
     OutOfRange,
-}
-
-impl From<SpiError> for VscError {
-    fn from(s: SpiError) -> Self {
-        Self::SpiError(s)
-    }
 }
 
 impl From<ServerDeath> for VscError {

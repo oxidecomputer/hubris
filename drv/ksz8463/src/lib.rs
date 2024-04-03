@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 #![no_std]
 
-use drv_spi_api::{SpiDevice, SpiError, SpiServer};
+use drv_spi_api::{SpiDevice, SpiServer};
 use ringbuf::*;
 use userlib::hl::sleep_for;
 
@@ -14,19 +14,13 @@ pub use registers::{MIBCounter, Register};
 
 #[derive(Copy, Clone, Eq, PartialEq, counters::Count)]
 pub enum Error {
-    SpiError(#[count(children)] SpiError),
+    SpiServerDied,
     WrongChipId(u16),
-}
-
-impl From<SpiError> for Error {
-    fn from(s: SpiError) -> Self {
-        Self::SpiError(s)
-    }
 }
 
 impl From<idol_runtime::ServerDeath> for Error {
     fn from(_: idol_runtime::ServerDeath) -> Self {
-        Self::SpiError(SpiError::TaskRestarted)
+        Self::SpiServerDied
     }
 }
 

@@ -14,7 +14,7 @@ Interface(
             },
             reply: Result(
                 ok: "()",
-                err: CLike("drv_spi_api::SpiError"),
+                err: ServerDeath,
             ),
         ),
         "write": (
@@ -27,7 +27,7 @@ Interface(
             },
             reply: Result(
                 ok: "()",
-                err: CLike("drv_spi_api::SpiError"),
+                err: ServerDeath,
             ),
         ),
         "exchange": (
@@ -41,7 +41,7 @@ Interface(
             },
             reply: Result(
                 ok: "()",
-                err: CLike("drv_spi_api::SpiError"),
+                err: ServerDeath,
             ),
         ),
         "lock": (

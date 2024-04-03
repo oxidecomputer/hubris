@@ -5,7 +5,6 @@ edition = "2021"
 
 [dependencies]
 counters = { path = "../../lib/counters" }
-drv-spi-api = { path = "../spi-api" }
 idol-runtime = { workspace = true }
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
