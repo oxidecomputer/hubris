@@ -111,18 +111,34 @@ Interface(
             idempotent: true,
         ),
 
-        // Changes a subset of EXTI sources mapped to the calling
-        // task, using the caller's notification bit space to
-        // name them. Any sources mapped to bits in the disable
-        // mask will be disabled; any sources mapped to bits in
-        // the enabled mask will be enabled.
+        // Performs an operation on a subset of EXTI sources mapped to the
+        // calling task, using the caller's notification bit space to name
+        // them, and returns whether any interrupts mapped to the provided
+        // notification bits have been triggered.
+        //
+        // Depending on the value of the `op` argument, this operation can
+        // either enable the intterrupts mapped to the notification mask
+        // (if `op` is `IrqControl::Enable`), disable those interrupts (if
+        // `op` is `IrqControl::Disable`), or do neither (if `op` is
+        // `IrqControl::Check`). Regardless of which operation is performed,
+        // this IPC will always return `true` if any interrupt in the
+        // provided notification mask has been triggered since the last time
+        // this IPC was called, and resets this status for the next call to
+        // this IPC. If an interrupt was enabled when this IPC is called with
+        // `IrqControl::Check` as the `op`, that interrupt will remain
+        // enabled, and if an interrupt was disabled, it will remain disabled.
         "gpio_irq_control": (
             args: {
-                "disable_mask": "u32",
-                "enable_mask": "u32",
+                "mask": "u32",
+                "op": (
+                    type: "IrqControl",
+                    recv: FromPrimitive("u8"),
+                ),
             },
-            reply: Simple("()"),
-            idempotent: true,
+            reply: Result(
+                ok: "bool",
+                err: ServerDeath,
+            ),
         ),
     },
 )

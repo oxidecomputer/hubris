@@ -11,7 +11,7 @@
 #![no_std]
 #![no_main]
 
-use drv_stm32xx_sys_api::{Edge, PinSet, Port, Pull};
+use drv_stm32xx_sys_api::{Edge, IrqControl, PinSet, Port, Pull};
 use ringbuf::ringbuf_entry;
 use userlib::*;
 
@@ -43,8 +43,14 @@ enum Trace {
     /// We called the `Sys.gpio_irq_configure` IPC with these arguments.
     GpioIrqConfigure { mask: u32, edge: Edge },
 
-    /// We called the `Sys.gpio_irq_control` IPC with these arguments.
-    GpioIrqControl { enable_mask: u32, disable_mask: u32 },
+    /// We called the `Sys.gpio_irq_control` IPC with these arguments, and it
+    /// returned whether the interrupt had fired or not.
+    GpioIrqControl {
+        mask: u32,
+        op: IrqControl,
+        #[count(children)]
+        fired: bool,
+    },
 
     /// We received a notification with these bits set.
     Notification(u32),
@@ -80,25 +86,31 @@ pub fn main() -> ! {
     sys.gpio_irq_configure(notifications::BUTTON_MASK, edge);
 
     loop {
-        // The first argument to `gpio_irq_control` is the mask of interrupts to
-        // disable, while the second is the mask to enable. So, enable the
-        // button notification.
-        let disable_mask = 0;
+        // Call `Sys.gpio_irq_control` to enable our interrupt, returning
+        // whether it has fired.
+        let fired = match sys
+            .gpio_irq_control(notifications::BUTTON_MASK, IrqControl::Enable)
+        {
+            Ok(fired) => fired,
+            // If the sys task panicked, okay, let's just try to enable the IRQ
+            // again.
+            Err(_) => continue,
+        };
         ringbuf_entry!(Trace::GpioIrqControl {
-            enable_mask: notifications::BUTTON_MASK,
-            disable_mask,
+            mask: notifications::BUTTON_MASK,
+            op: IrqControl::Enable,
+            fired
         });
-        sys.gpio_irq_control(disable_mask, notifications::BUTTON_MASK);
+
+        // If the button has changed state, toggle the LED.
+        if fired {
+            ringbuf_entry!(Trace::LedToggle { led });
+            user_leds.led_toggle(led).unwrap_lite();
+        }
 
         // Wait for the user button to be pressed.
         let notif = sys_recv_notification(notifications::BUTTON_MASK);
         ringbuf_entry!(Trace::Notification(notif));
-
-        // If the notification is for the button, toggle the LED.
-        if notif == notifications::BUTTON_MASK {
-            ringbuf_entry!(Trace::LedToggle { led });
-            user_leds.led_toggle(led).unwrap_lite();
-        }
     }
 }
 
