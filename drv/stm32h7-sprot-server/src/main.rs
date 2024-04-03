@@ -362,6 +362,18 @@ impl<S: SpiServer> Io<S> {
         self.sys.gpio_read(ROT_IRQ) == 0
     }
 
+    fn enable_rot_irq(&self) -> bool {
+        self.sys
+            .gpio_irq_control(0, notifications::ROT_IRQ_MASK)
+            .unwrap_lite()
+    }
+
+    fn disable_rot_irq(&self) -> bool {
+        self.sys
+            .gpio_irq_control(notifications::ROT_IRQ_MASK, 0)
+            .unwrap_lite()
+    }
+
     // Poll ROT_IRQ until asserted (true) or deasserted (false).
     //
     // We do this by asking the `sys` task to notify us when the GPIO pin's
@@ -372,13 +384,15 @@ impl<S: SpiServer> Io<S> {
         // for the line to be asserted, we want to wait for a rising edge. If
         // the line is currently asserted, and we're waiting for it to be
         // *deasserted*, we want to wait for a falling edge.
-        let rising = desired;
-        let falling = !desired;
-        self.sys.gpio_irq_configure(
-            notifications::ROT_IRQ_MASK,
-            rising,
-            falling,
-        );
+        let sensitivity = match desired {
+            true => sys_api::Edge::Rising,
+            false => sys_api::Edge::Falling,
+        };
+        self.sys
+            .gpio_irq_configure(notifications::ROT_IRQ_MASK, sensitivity);
+
+        // Enable the GPIO pin's interrupt.
+        self.enable_rot_irq();
 
         // Determine the deadline after which we'll give up, and start the clock.
         let deadline = sys_get_timer()
@@ -388,9 +402,6 @@ impl<S: SpiServer> Io<S> {
         sys_set_timer(Some(deadline), notifications::sprot::TIMER_MASK);
 
         while self.is_rot_irq_asserted() != desired {
-            // Enable the GPIO pin's interrupt.
-            self.sys.gpio_irq_control(0, notifications::ROT_IRQ_MASK);
-
             // Wait to be notified either by the timeout or by the ROT_IRQ pin
             // changing state.
             const MASK: u32 =
@@ -399,32 +410,40 @@ impl<S: SpiServer> Io<S> {
                 // recv from the kernel should never fail.
                 .unwrap_lite();
 
-            // Check whether the pin's state has changed. We do this by actually
-            // the GPIO pin's state rather than based on the presence of the IRQ
-            // notification bit, because any task could have `sys_post`ed us
-            // that bit, either by mistake or out of malice.
+            // Was the notification bit mapped to `ROT_IRQ` posted?
             //
             // N.B. that we check this *before* checking for the timer
             // notification bit, because it's possible *both* notifications were
             // posted before we were scheduled again, and if the IRQ did fire,
             // we'd prefer to honor that.
-            if self.is_rot_irq_asserted() == desired {
-                break;
+            if recv.operation & notifications::ROT_IRQ_MASK {
+                // Okay, let's now check whether the notification was actually
+                // sent by the `sys` task in response to a real interrupt.
+                //
+                // Note that we pass `ROT_IRQ_MASK` to the *disable* argument to
+                // `sys.gpio_irq_control` here, as we do *not* want to receive
+                // another interrupt if the pin changes state while we're not
+                // waiting for it here.
+                if self.disable_rot_irq() {
+                    break;
+                }
             }
 
             // If the timer notification was posted, and the GPIO IRQ
             // notification wasn't, we've waited for the timeout. Too bad!
             if recv.operation & notifications::TIMER_MASK != 0 {
+                // Disable the IRQ so that its notification doesn't go off
+                // again when we're not expecting it.
+                self.disable_rot_irq();
+
+                // Record the timeout.
                 self.stats.timeouts = self.stats.timeouts.wrapping_add(1);
                 ringbuf_entry!(Trace::RotReadyTimeout);
-                // Disable the GPIO IRQ notification, so that it doesn't go off
-                // later when we don't expect it.
-                self.sys.gpio_irq_control(notifications::ROT_IRQ_MASK, 0);
                 return false;
             }
 
-            // Otherwise, we must've gotten some kinda spurious notification.
-            // This probably shouldn't have happened, but let's keep waiting.
+            // Re-enable the IRQ notification, as we are going to continue waiting.
+            self.enable_rot_irq();
         }
 
         // Ensure the timer gets unset before returning, to avoid frightening
