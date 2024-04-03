@@ -83,11 +83,7 @@ fn main() -> ! {
     let mut rx_done = false;
 
     loop {
-        if sys_recv_closed(&mut [], notifications::SPI_IRQ_MASK, TaskId::KERNEL)
-            .is_err()
-        {
-            panic!()
-        }
+        sys_recv_notification(notifications::SPI_IRQ_MASK);
 
         ringbuf_entry!(Trace::Irq);
 

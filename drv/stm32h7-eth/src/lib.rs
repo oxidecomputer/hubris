@@ -435,11 +435,7 @@ impl Ethernet {
         // has disabled itself before proceeding.
         loop {
             userlib::sys_irq_control(self.mdio_timer_irq_mask, true);
-            let _ = userlib::sys_recv_closed(
-                &mut [],
-                self.mdio_timer_irq_mask,
-                userlib::TaskId::KERNEL,
-            );
+            userlib::sys_recv_notification(self.mdio_timer_irq_mask);
             if !self.mdio_timer.cr1.read().cen().bit() {
                 break;
             }

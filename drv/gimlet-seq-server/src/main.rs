@@ -154,10 +154,7 @@ fn main() -> ! {
                 // irrelevant. But, `rustc` doesn't realize that this should
                 // never return, we'll stick it in a `loop` anyway so the main
                 // function can return `!`
-                //
-                // We don't care if this returns an error, because we're just
-                // doing it to die as politely as possible.
-                let _ = sys_recv_closed(&mut [], 0, TaskId::KERNEL);
+                sys_recv_notification(0);
             }
         }
     }

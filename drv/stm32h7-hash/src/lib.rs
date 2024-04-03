@@ -311,8 +311,7 @@ impl Hash {
                     hl::sleep_for(1);
                 }
             }
-            let _rm = sys_recv_closed(&mut [], self.interrupt, TaskId::KERNEL)
-                .unwrap();
+            sys_recv_notification(self.interrupt);
             if self.reg.sr.read().dcis().bit() {
                 break;
             }

@@ -237,12 +237,14 @@ unsafe extern "C" fn sys_send_stub(_args: &mut SendArgs<'_>) -> RcLen {
 /// let it, but it always receives _something_.
 #[inline(always)]
 pub fn sys_recv_open(buffer: &mut [u8], notification_mask: u32) -> RecvMessage {
-    // The open-receive version of the syscall is defined as being unable to
-    // fail, and so we should always get a success here. (This is not using
-    // `unwrap` because that generates handling code with formatting.)
     match sys_recv(buffer, notification_mask, None) {
         Ok(rm) => rm,
-        Err(_) => panic!(),
+        Err(_) => {
+            // Safety: the open-receive version of the syscall is defined as
+            // being unable to fail in the kernel ABI, so this path can't happen
+            // modulo a kernel bug.
+            unsafe { core::hint::unreachable_unchecked() }
+        }
     }
 }
 
@@ -259,20 +261,32 @@ pub fn sys_recv_open(buffer: &mut [u8], notification_mask: u32) -> RecvMessage {
 ///
 /// If `sender` is stale (i.e. refers to a deceased generation of the task) when
 /// you call this, or if `sender` is rebooted while you're blocked in this
-/// operation, this will fail with `ClosedRecvError::Dead`.
+/// operation, this will fail with `ClosedRecvError::Dead`, indicating the
+/// `sender`'s new generation (not that a server generally cares).
 #[inline(always)]
 pub fn sys_recv_closed(
     buffer: &mut [u8],
     notification_mask: u32,
     sender: TaskId,
 ) -> Result<RecvMessage, ClosedRecvError> {
-    sys_recv(buffer, notification_mask, Some(sender))
-        .map_err(|_| ClosedRecvError::Dead)
+    sys_recv(buffer, notification_mask, Some(sender)).map_err(|code| {
+        // We're not using the extract_new_generation function here because
+        // that has a failure code path for cases where the code is not a
+        // dead code. In this case, sys_recv is defined as being _only_
+        // capable of returning a dead code -- otherwise we have a serious
+        // kernel bug. So to avoid the introduction of a panic that can't
+        // trigger, we will do this manually:
+        ClosedRecvError::Dead(Generation::from(code as u8))
+    })
 }
 
+/// Things that can go wrong (without faulting) during a closed receive
+/// operation.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ClosedRecvError {
-    Dead,
+    /// The task you requested to receive from has restarted and the message may
+    /// never come.
+    Dead(Generation),
 }
 
 /// General version of RECV that lets you pick closed vs. open receive at
@@ -287,8 +301,9 @@ pub fn sys_recv(
 ) -> Result<RecvMessage, u32> {
     use core::mem::MaybeUninit;
 
-    // Flatten option into a packed u32.
-    let specific_sender = specific_sender
+    // Flatten option into a packed u32; in the C-compatible ABI we provide the
+    // task ID in the LSBs, and the "some" flag in the MSB.
+    let specific_sender_bits = specific_sender
         .map(|tid| (1u32 << 31) | u32::from(tid.0))
         .unwrap_or(0);
     let mut out = MaybeUninit::<RawRecvMessage>::uninit();
@@ -297,7 +312,7 @@ pub fn sys_recv(
             buffer.as_mut_ptr(),
             buffer.len(),
             notification_mask,
-            specific_sender,
+            specific_sender_bits,
             out.as_mut_ptr(),
         )
     };
@@ -316,6 +331,25 @@ pub fn sys_recv(
         })
     } else {
         Err(rc)
+    }
+}
+
+/// Convenience wrapper for `sys_recv` for the specific, but common, task of
+/// listening for notifications. In this specific use, it has the advantage of
+/// never panicking and not returning a `Result` that must be checked.
+#[inline(always)]
+pub fn sys_recv_notification(notification_mask: u32) -> u32 {
+    match sys_recv(&mut [], notification_mask, Some(TaskId::KERNEL)) {
+        Ok(rm) => {
+            // The notification bits come back from the kernel in the operation
+            // code field.
+            rm.operation
+        }
+        Err(_) => {
+            // Safety: Because we passed Some(TaskId::KERNEL), this is defined
+            // as not being able to happen.
+            unsafe { core::hint::unreachable_unchecked() }
+        }
     }
 }
 
@@ -1288,6 +1322,15 @@ pub unsafe extern "C" fn _start() -> ! {
     }
 }
 
+// Make the no-panic and panic-messages features mutually exclusive.
+#[cfg(all(feature = "no-panic", feature = "panic-messages"))]
+compile_error!(
+    "Both the userlib/panic-messages and userlib/no-panic feature flags \
+     are set! This doesn't make a lot of sense and is probably not what \
+     you wanted. (If you have a use case for this combination, update \
+     this check in userlib.)"
+);
+
 /// Panic handler for user tasks with the `panic-messages` feature enabled. This
 /// handler will try its best to generate a panic message, up to a maximum
 /// buffer size (configured below).
@@ -1296,7 +1339,7 @@ pub unsafe extern "C" fn _start() -> ! {
 /// task, to ensure that memory is available for the panic message, even if the
 /// resources have been trimmed aggressively using `xtask sizes` and `humility
 /// stackmargin`.
-#[cfg(feature = "panic-messages")]
+#[cfg(all(not(feature = "no-panic"), feature = "panic-messages"))]
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo<'_>) -> ! {
     // Implementation Note
@@ -1443,10 +1486,24 @@ fn panic(info: &core::panic::PanicInfo<'_>) -> ! {
 /// Panic handler for tasks without the `panic-messages` feature enabled. This
 /// kills the task with a fixed message, `"PANIC"`. While this is less helpful
 /// than a proper panic message, the stack trace can still be informative.
-#[cfg(not(feature = "panic-messages"))]
+#[cfg(all(not(feature = "no-panic"), not(feature = "panic-messages")))]
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo<'_>) -> ! {
     sys_panic(b"PANIC")
+}
+
+/// Panic handler for when panics are not permitted in a task. This is enabled
+/// by the `no-panic` feature and causes a link error if a panic is introduced.
+#[cfg(feature = "no-panic")]
+#[panic_handler]
+fn panic(_: &core::panic::PanicInfo<'_>) -> ! {
+    extern "C" {
+        fn you_have_introduced_a_panic_which_is_not_permitted() -> !;
+    }
+
+    // Safety: this function does not exist, this code will not pass the linker
+    // and is thus not reachable.
+    unsafe { you_have_introduced_a_panic_which_is_not_permitted() }
 }
 
 #[inline(always)]

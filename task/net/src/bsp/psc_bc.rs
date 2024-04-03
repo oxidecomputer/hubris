@@ -17,7 +17,7 @@ use task_jefe_api::Jefe;
 use task_net_api::{
     ManagementCounters, ManagementLinkStatus, MgmtError, PhyError,
 };
-use userlib::{sys_recv_closed, FromPrimitive, TaskId};
+use userlib::{sys_recv_notification, FromPrimitive};
 use vsc7448_pac::types::PhyRegisterAddress;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -70,12 +70,9 @@ impl bsp_support::Bsp for BspImpl {
                 Some(PowerState::Init) | None => {
                     // This happens before we're in a valid power state.
                     //
-                    // Only listen to our Jefe notification. Discard any error
-                    // since this can't fail but the compiler doesn't know that.
-                    let _ = sys_recv_closed(
-                        &mut [],
+                    // Only listen to our Jefe notification.
+                    sys_recv_notification(
                         notifications::JEFE_STATE_CHANGE_MASK,
-                        TaskId::KERNEL,
                     );
                 }
             }

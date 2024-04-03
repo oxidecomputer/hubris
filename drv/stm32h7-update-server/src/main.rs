@@ -264,12 +264,7 @@ impl<'a> ServerImpl<'a> {
 
         // Wait for EOP notification via interrupt.
         loop {
-            sys_recv_closed(
-                &mut [],
-                notifications::FLASH_IRQ_MASK,
-                TaskId::KERNEL,
-            )
-            .unwrap_lite();
+            sys_recv_notification(notifications::FLASH_IRQ_MASK);
             if self.flash.bank2().sr.read().eop().bit() {
                 break;
             } else {

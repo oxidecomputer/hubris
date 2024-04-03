@@ -38,12 +38,7 @@ fn main() -> ! {
                         Ok(()) => break,
                         Err(SendError::QueueFull) => {
                             // Our outgoing queue is full; wait for space.
-                            sys_recv_closed(
-                                &mut [],
-                                notifications::SOCKET_MASK,
-                                TaskId::KERNEL,
-                            )
-                            .unwrap();
+                            sys_recv_notification(notifications::SOCKET_MASK);
                         }
                         Err(SendError::ServerRestarted) => {
                             // Welp, lost an echo, we'll just soldier on.
@@ -53,12 +48,7 @@ fn main() -> ! {
             }
             Err(RecvError::QueueEmpty) => {
                 // Our incoming queue is empty. Wait for more packets.
-                sys_recv_closed(
-                    &mut [],
-                    notifications::SOCKET_MASK,
-                    TaskId::KERNEL,
-                )
-                .unwrap();
+                sys_recv_notification(notifications::SOCKET_MASK);
             }
             Err(RecvError::ServerRestarted) => {
                 // `net` restarted, the poor thing; just retry.

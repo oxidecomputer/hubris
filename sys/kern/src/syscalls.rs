@@ -191,12 +191,35 @@ fn send(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
 ///
 /// `caller` is a valid task index (i.e. not directly from user code).
 ///
+/// # Returns
+///
+/// If the operation found a sender and delivered a message,
+/// `Ok(NextTask::Same)` to drop us right back into the caller.
+///
+/// If the operation did not find a sender but was otherwise valid (i.e. needs
+/// to block the sender), `Ok(something_else)` to context switch away from the
+/// sender.
+///
+/// This may also return `Ok(something_else)` to context switch to the
+/// supervisor even if a message was successfully delivered, but only if at
+/// least one blocked sender with invalid configuration was found and faulted
+/// along the way.
+///
+/// In terms of errors,
+///
+/// `Err(UserError::Recoverable(..))` is only used to return Dead Codes, and
+/// only in closed receive specifically.
+///
+/// All other errors are `Err(UserError::Unrecoverable(_))` that result in a
+/// fault delivered to the caller. This indicates that the location where the
+/// caller requested to receive a delivered message isn't accessible or valid.
+///
 /// # Panics
 ///
 /// If `caller` is out of range for `tasks`.
 fn recv(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
-    // We allow tasks to atomically replace their notification mask at each
-    // receive. We simultaneously find out if there are notifications pending.
+    // `take_notifications` interprets the new notification mask and finds out
+    // if notifications are pending.
     if let Some(firing) = tasks[caller].take_notifications() {
         // Pending! Deliver an artificial message from the kernel.
         tasks[caller].save_mut().set_recv_result(
@@ -226,7 +249,12 @@ fn recv(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
         // outcomes here.
 
         // First possibility: that task you're asking about is DEAD.
+        //
+        // N.B. this is actually the only point in the RECV implementation where
+        // the sender may receive an error code (as opposed to being faulted or
+        // just blocking waiting for a valid sender).
         let sender_idx = task::check_task_id_against_table(tasks, sender_id)?;
+
         // Second possibility: task has a message for us.
         if tasks[sender_idx].state().is_sending_to(caller_id) {
             // Oh hello sender!
@@ -238,15 +266,24 @@ fn recv(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
                 }
                 Err(interact) => {
                     // Delivery failed because of fault events in one or both
-                    // tasks.  We need to apply the fault status, and then if we
-                    // didn't have to murder the caller, we'll retry receiving a
-                    // message.
+                    // tasks. `apply_to_src` extracts the src (sender) side and
+                    // applies it directly to the task; if there was a problem
+                    // on the dst (recv'r, us) side we ? it. It's a FaultInfo,
+                    // so if dst screwed up the caller task will be faulted.
+                    //
+                    // If there was no problem, the caller will be informed that
+                    // the task has died, and will generally opt to retry the
+                    // recv as an open recv.
+                    //
+                    // The wake hint here may wake the supervisor before the
+                    // caller regains control.
                     let wake_hint = interact.apply_to_src(tasks, sender_idx)?;
+                    // No fault in the caller at least, carry on.
                     next_task = next_task.combine(wake_hint);
                 }
             }
         }
-    // Third possibility: we need to block; fall through below.
+        // Third possibility: we need to block; fall through below.
     } else {
         // Open Receive
 
@@ -269,20 +306,22 @@ fn recv(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
         }) {
             // Oh hello sender!
             match deliver(tasks, sender, caller) {
-                Ok(_) => {
+                Ok(()) => {
                     // Delivery succeeded! Sender is now blocked in reply. Go ahead
                     // and let the caller resume.
                     return Ok(next_task);
                 }
                 Err(interact) => {
                     // Delivery failed because of fault events in one or both
-                    // tasks.  We need to apply the fault status, and then if we
-                    // didn't have to murder the caller, we'll retry receiving a
-                    // message.
+                    // tasks. Because we're transferring a message from the
+                    // sender to the recv'r (us, the caller) we use apply_to_src
+                    // to potentially fault the sender, and then apply the dst
+                    // side to the caller using ?.
                     let wake_hint = interact.apply_to_src(tasks, sender)?;
+                    // No fault in the caller, at least. This may wake the
+                    // supervisor.
                     next_task = next_task.combine(wake_hint);
-                    // Okay, if we didn't just return, retry the search from a new
-                    // position.
+                    // Retry the search from our new position.
                     last = sender;
                 }
             }

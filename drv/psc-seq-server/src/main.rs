@@ -45,6 +45,6 @@ fn main() -> ! {
     // We have nothing else to do, so sleep forever via waiting for a message
     // from the kernel that won't arrive.
     loop {
-        _ = sys_recv_closed(&mut [], 0, TaskId::KERNEL);
+        sys_recv_notification(0);
     }
 }
