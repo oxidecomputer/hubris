@@ -398,7 +398,7 @@ fn main() -> ! {
                 // Process entries that are filled in...
                 if let &Some(ExtiDispatch { port, .. }) = entry {
                     let register = i >> 2;
-                    let slot = i % 2;
+                    let slot = i & 0b11;
 
                     // This is an array of 4-bit fields spread across 4 32-bit
                     // registers. We're indexing them with i. There is really no
