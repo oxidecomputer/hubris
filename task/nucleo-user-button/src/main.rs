@@ -11,7 +11,7 @@
 #![no_std]
 #![no_main]
 
-use drv_stm32xx_sys_api::{Edge, PinSet, Port, Pull};
+use drv_stm32xx_sys_api::{Edge, IrqControl, PinSet, Port, Pull};
 use ringbuf::ringbuf_entry;
 use userlib::*;
 
@@ -46,8 +46,8 @@ enum Trace {
     /// We called the `Sys.gpio_irq_control` IPC with these arguments, and it
     /// returned whether the interrupt had fired or not.
     GpioIrqControl {
-        enable_mask: u32,
-        disable_mask: u32,
+        mask: u32,
+        op: IrqControl,
         #[count(children)]
         fired: bool,
     },
@@ -88,14 +88,17 @@ pub fn main() -> ! {
     loop {
         // Call `Sys.gpio_irq_control` to enable our interrupt, returning
         // whether it has fired.
-        let enable_mask = notifications::BUTTON_MASK;
-        let disable_mask = 0;
-        let fired = sys
-            .gpio_irq_control(disable_mask, enable_mask)
-            .unwrap_lite();
+        let fired = match sys
+            .gpio_irq_control(notifications::BUTTON_MASK, IrqControl::Enable)
+        {
+            Ok(fired) => fired,
+            // If the sys task panicked, okay, let's just try to enable the IRQ
+            // again.
+            Err(_) => continue,
+        };
         ringbuf_entry!(Trace::GpioIrqControl {
-            enable_mask,
-            disable_mask,
+            mask: notifications::BUTTON_MASK,
+            op: IrqControl::Enable,
             fired
         });
 

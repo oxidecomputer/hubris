@@ -52,6 +52,25 @@ pub enum Edge {
     Both = 0b11,
 }
 
+/// Describes which operation is performed by the [`Sys::gpio_irq_control`] IPC.
+#[derive(
+    Copy, Clone, FromPrimitive, PartialEq, Eq, AsBytes, serde::Deserialize,
+)]
+// repr attribute is required for the derived `AsBytes` implementation
+#[repr(u8)]
+pub enum IrqControl {
+    /// Disable any interrupts mapped to the provided notification mask.
+    Disable = 0,
+    /// Enable any interrupts mapped to the provided notification mask.
+    Enable,
+    /// Check if any interrupts mapped to the provided notification mask have
+    /// been triggered, *without* enabling or disabling the interrupt.
+    ///
+    /// If an interrupt is currently enabled, it will remain enabled, while if
+    /// it is currently disabled, it will remain disabled.
+    Check = 0b11,
+}
+
 impl Sys {
     /// Requests that the clock to a peripheral be turned on.
     ///
@@ -328,6 +347,22 @@ impl core::ops::BitOr for Edge {
             (Edge::Falling, Edge::Falling) => Edge::Falling,
             _ => Edge::Both,
         }
+    }
+}
+
+impl From<bool> for IrqControl {
+    fn from(value: bool) -> Self {
+        if value {
+            IrqControl::Enable
+        } else {
+            IrqControl::Disable
+        }
+    }
+}
+
+impl From<Option<bool>> for IrqControl {
+    fn from(value: Option<bool>) -> Self {
+        value.map(Self::from).unwrap_or(Self::Check)
     }
 }
 

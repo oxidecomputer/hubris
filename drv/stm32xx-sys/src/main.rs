@@ -228,7 +228,7 @@
 //! ```rust,no-run
 //! # fn handle_interrupt() {}
 //! # mod notifications { pub const MY_GPIO_NOTIFICATION_MASK: u32 = 1 << 0; }
-//! use drv_stm32xx_sys_api::{PinSet, Port, Pull, Edge};
+//! use drv_stm32xx_sys_api::{PinSet, Port, Pull, Edge, IrqControl};
 //! use userlib::*;
 //!
 //! task_slot!(SYS, sys);
@@ -251,30 +251,27 @@
 //!     );
 //!
 //!     // First, enable the interrupt, so that we can receive our
-//!     // notification:
-//!     sys.gpio_irq_control(0, notifications::MY_GPIO_NOTIFICATION_MASK)
-//!         .unwrap_lite();
+//!     // notification. We loop here to retry if the `sys` task has panicked.
+//!     while sys
+//!         .gpio_irq_control(notifications::MY_GPIO_NOTIFICATION_MASK, IrqControl::Enable)
+//!         .is_err()
+//!     {}
 //!
 //!     // Wait to recieve notifications for our GPIO interrupt in a loop:
 //!     loop {
-//!         // Wait for a notification:
-//!         //
-//!         // We only care about notifications, so we can pass a zero-sized
-//!         // recv buffer, and the kernel's task ID.
-//!         let recvmsg = sys_recv_closed(
-//!             &mut [],
-//!             notifications::BUTTON_MASK,
-//!             TaskId::KERNEL,
-//!         )
-//!         // Recv from the kernel never returns an error.
-//!         .unwrap_lite();
+//!         // Wait for a notification.
+//!         sys_recv_notification(notifications::MY_GPIO_NOTIFICATION_MASK);
 //!
 //!         // Call `sys.gpio_irq_control()` to both re-enable the interrupt
 //!         // and ask the `sys` task to confirm for us that the interrupt has
 //!         // actually fired.
+//!         //
+//!         // If we did *not* want to re-enable the interrupt here, we could
+//!         // pass `IrqControl::Check` rather than `IrqControl::Enable`.
 //!         let fired = sys
-//!             .gpio_irq_control(0, notifications::MY_GPIO_NOTIFICATION_MASK)
-//!             .unwrap_lite()
+//!             .gpio_irq_control(notifications::MY_GPIO_NOTIFICATION_MASK, IrqControl::Enable)
+//!             // If the `sys` task panicked, just wait for another notification.
+//!             .unwrap_or(false)
 //!         if fired {
 //!             // If the sys task confirms that our interrupt has fired, do...
 //!             // whatever it is this task is supposed to do when that happens.
@@ -324,7 +321,7 @@ cfg_if! {
 }
 
 use drv_stm32xx_gpio_common::{server::get_gpio_regs, Port};
-use drv_stm32xx_sys_api::{Edge, Group, RccError};
+use drv_stm32xx_sys_api::{Edge, Group, IrqControl, RccError};
 use idol_runtime::{ClientError, NotificationHandler, RequestError};
 #[cfg(not(feature = "test"))]
 use task_jefe_api::{Jefe, ResetReason};
@@ -667,8 +664,8 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
     fn gpio_irq_control(
         &mut self,
         rm: &RecvMessage,
-        disable_mask: u32,
-        enable_mask: u32,
+        mask: u32,
+        op: IrqControl,
     ) -> Result<bool, RequestError<core::convert::Infallible>> {
         // We want to only include code for this if exti is requested.
         // Unfortunately the _operation_ is available unconditionally, but we'll
@@ -686,47 +683,40 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
                 // didn't.
                 let mut slot_mask = 0u16;
 
-                for (i, entry) in
-                    generated::EXTI_DISPATCH_TABLE.iter().enumerate()
-                {
-                    // Only use populated rows in the table
-                    if let &Some(ExtiDispatch { mask, task, .. }) = entry {
-                        // Ignore anything assigned to another task
-                        if task.index() == rm.sender.index() {
+                for (i, _) in exti_dispatch_for(rm.sender, mask) {
+                    // What bit do we touch for this entry?
+                    let bit = 1 << i;
 
-                            // Apply disable first so that including the same
-                            // thing in both masks is a no-op.
-                            if mask & disable_mask != 0 {
-                                // Record that these bits meant something.
-                                let bit = 1 << i;
-                                slot_mask |= bit;
+                    // Record that these bits meant something.
+                    slot_mask |= bit;
 
-                                // Disable this source by _clearing_ the
-                                // corresponding mask bit.
-                                self.exti.cpuimr1.modify(|r, w| {
-                                    let new_value = r.bits() & !(bit as u32);
-                                    // Safety: not actually unsafe, PAC didn't
-                                    // model this field right
-                                    unsafe {
-                                        w.bits(new_value)
-                                    }
-                                });
-                            }
-
-                            if mask & enable_mask != 0 {
-                                // Record that these bits meant something.
-                                let bit = 1 << i;
-                                slot_mask |= bit;
-
-                                // Enable this source by _setting_ the
-                                // corresponding mask bit.
-                                self.exti.cpuimr1.modify(|r, w| {
-                                    let new_value = r.bits() | (bit as u32);
-                                    // Safety: not actually unsafe, PAC didn't
-                                    // model this field right
-                                    unsafe { w.bits(new_value) }
-                                });
-                            }
+                    match op {
+                        IrqControl::Enable => {
+                            // Enable this source by _setting_ the
+                            // corresponding mask bit.
+                            self.exti.cpuimr1.modify(|r, w| {
+                                let new_value = r.bits() | (bit as u32);
+                                // Safety: not actually unsafe, PAC didn't
+                                // model this field right
+                                unsafe { w.bits(new_value) }
+                            });
+                        },
+                        IrqControl::Disable => {
+                            // Disable this source by _clearing_ the
+                            // corresponding mask bit.
+                            self.exti.cpuimr1.modify(|r, w| {
+                                let new_value = r.bits() & !(bit as u32);
+                                // Safety: not actually unsafe, PAC didn't
+                                // model this field right
+                                unsafe {
+                                    w.bits(new_value)
+                                }
+                            });
+                        },
+                        IrqControl::Check => {
+                            // We are just checking if an IRQ has triggered,
+                            // so don't actually mess with the source's mask
+                            // register at all.
                         }
                     }
                 }
@@ -758,7 +748,7 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
             } else {
                 // Suppress unused variable warnings (yay conditional
                 // compilation)
-                let _ = (rm, enable_mask, disable_mask);
+                let _ = (rm, mask, op);
 
                 // Fault any clients who try to use this in an image where it's
                 // not included.
@@ -783,45 +773,34 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
                 // actually matched things.
                 let mut used_bits = 0u32;
 
-                for (i, entry) in
-                    generated::EXTI_DISPATCH_TABLE.iter().enumerate()
-                {
-                    // Only use populated rows in the table
-                    if let Some(ExtiDispatch { task, mask: entry_mask, .. }) = entry {
-                        // Operate only on rows assigned to the sending task
-                        // _and_ that are relevant based on the arguments.
-                        if task.index() == rm.sender.index()
-                            && mask & entry_mask != 0
-                        {
-                            used_bits |= mask;
+                for (i, entry) in exti_dispatch_for(rm.sender, mask) {
+                    used_bits |= entry.mask;
 
-                            // Set or clear Rising Trigger Selection
-                            // Register bit according to the rising flag
-                            self.exti.rtsr1.modify(|r, w| {
-                                let new_value = if edge.is_rising() {
-                                    r.bits() | (1 << i)
-                                } else {
-                                    r.bits() & !(1 << i)
-                                };
-                                unsafe {
-                                    w.bits(new_value)
-                                }
-                            });
-
-                            // Set or clear Falling Trigger Selection
-                            // Register bit according to the rising flag
-                            self.exti.ftsr1.modify(|r, w| {
-                                let new_value = if edge.is_falling() {
-                                    r.bits() | (1 << i)
-                                } else {
-                                    r.bits() & !(1 << i)
-                                };
-                                unsafe {
-                                    w.bits(new_value)
-                                }
-                            });
+                    // Set or clear Rising Trigger Selection
+                    // Register bit according to the rising flag
+                    self.exti.rtsr1.modify(|r, w| {
+                        let new_value = if edge.is_rising() {
+                            r.bits() | (1 << i)
+                        } else {
+                            r.bits() & !(1 << i)
+                        };
+                        unsafe {
+                            w.bits(new_value)
                         }
-                    }
+                    });
+
+                    // Set or clear Falling Trigger Selection
+                    // Register bit according to the rising flag
+                    self.exti.ftsr1.modify(|r, w| {
+                        let new_value = if edge.is_falling() {
+                            r.bits() | (1 << i)
+                        } else {
+                            r.bits() & !(1 << i)
+                        };
+                        unsafe {
+                            w.bits(new_value)
+                        }
+                    });
                 }
 
                 // Check that all the set bits in the caller's provided masks
@@ -861,6 +840,26 @@ struct ExtiDispatch {
     task: TaskId,
     mask: u32,
     name: generated::ExtiIrq,
+}
+
+/// Iterates over the indices of EXTI sources mapped to the provided
+/// notification `mask` for the task with ID `task`.
+#[cfg(feature = "exti")]
+fn exti_dispatch_for(
+    task: TaskId,
+    mask: u32,
+) -> impl Iterator<Item = (usize, &'static ExtiDispatch)> {
+    generated::EXTI_DISPATCH_TABLE
+        .iter()
+        .enumerate()
+        .filter_map(move |(i, entry)| {
+            let entry = entry.as_ref()?;
+            if task.index() == entry.task.index() && mask & entry.mask != 0 {
+                Some((i, entry))
+            } else {
+                None
+            }
+        })
 }
 
 impl NotificationHandler for ServerImpl<'_> {
@@ -1218,7 +1217,7 @@ cfg_if! {
 include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
 
 mod idl {
-    use super::{Edge, Port, RccError};
+    use super::{Edge, IrqControl, Port, RccError};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
