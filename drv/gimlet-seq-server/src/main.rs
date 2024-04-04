@@ -8,6 +8,7 @@
 #![no_main]
 
 mod seq_spi;
+mod vcore;
 
 use counters::*;
 use ringbuf::*;
@@ -166,6 +167,7 @@ struct ServerImpl<S: SpiServer> {
     seq: seq_spi::SequencerFpga<S>,
     jefe: Jefe,
     hf: hf_api::HostFlash,
+    vcore: vcore::VCore,
     deadline: u64,
 }
 
@@ -447,6 +449,8 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
         // Turn on the chassis LED once we reach A2
         sys.gpio_set(CHASSIS_LED);
 
+        let (device, rail) = i2c_config::pmbus::vdd_vcore(I2C.get_task_id());
+
         let mut server = Self {
             state: PowerState::A2,
             sys: sys.clone(),
@@ -454,6 +458,7 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
             jefe,
             hf,
             deadline: 0,
+            vcore: vcore::VCore::new(&sys, &device, rail),
         };
 
         // Power on, unless suppressed by the `stay-in-a2` feature
@@ -485,15 +490,12 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
 
 impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
     fn current_notification_mask(&self) -> u32 {
-        notifications::TIMER_MASK | notifications::VCORE_MASK
+        notifications::TIMER_MASK | self.vcore.mask()
     }
 
     fn handle_notification(&mut self, bits: u32) {
-        if (bits & notifications::VCORE_MASK) != 0 {
-            ringbuf_entry!(Trace::VCoreFault(self.sys.gpio_read(
-                VCORE_TO_SP_ALERT_L
-            ) != 0));
-            self.sys.gpio_irq_control(0, notifications::VCORE_MASK);
+        if (bits & self.vcore.mask()) != 0 {
+            self.vcore.handle_notification();
         }
 
         if (bits & notifications::TIMER_MASK) == 0 {
@@ -535,7 +537,6 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
                     self.seq
                         .clear_bytes(Addr::NIC_CTRL, &[cld_rst])
                         .unwrap_lite();
-                    self.sys.gpio_irq_control(0, notifications::VCORE_MASK);
                     self.update_state_internal(PowerState::A0PlusHP);
                 }
 
@@ -678,6 +679,8 @@ impl<S: SpiServer> ServerImpl<S> {
                     return Err(SeqError::MuxToHostCPUFailed);
                 }
 
+                self.vcore.initialize_uv_warning();
+
                 let start = sys_get_timer().now;
                 let deadline = start + A0_TIMEOUT_MILLIS;
 
@@ -798,17 +801,6 @@ impl<S: SpiServer> ServerImpl<S> {
 
                     hl::sleep_for(1);
                 }
-
-                // Set our alert line to be an input
-                sys.gpio_configure_input(
-                    VCORE_TO_SP_ALERT_L,
-                    VCORE_TO_SP_ALERT_PULL
-                );
-                sys.gpio_irq_configure(
-                    notifications::VCORE_MASK,
-                    sys_api::Edge::Falling
-                );
-                sys.gpio_irq_control(0, notifications::VCORE_MASK);
 
                 //
                 // And establish our timer to check SP3_TO_SP_NIC_PWREN_L.
@@ -1315,9 +1307,6 @@ cfg_if::cfg_if! {
         const CPU_PRESENT_L_PULL: sys_api::Pull = sys_api::Pull::None;
         const SP3R1_PULL: sys_api::Pull = sys_api::Pull::None;
         const SP3R2_PULL: sys_api::Pull = sys_api::Pull::None;
-
-        const VCORE_TO_SP_ALERT_L: sys_api::PinSet = sys_api::Port::I.pin(14);
-        const VCORE_TO_SP_ALERT_PULL: sys_api::Pull = sys_api::Pull::None;
 
         fn vcore_soc_off() -> Result<(), i2c::ResponseCode> {
             use drv_i2c_devices::raa229618::Raa229618;
