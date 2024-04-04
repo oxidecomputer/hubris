@@ -1058,11 +1058,9 @@ impl ServerImpl {
         self.write_single_target_addr(OPTCR, optcr)?;
 
         // Wait for option bit programming to finish
-        loop {
-            let optsr_cur = self.read_single_target_addr(OPTSR_CUR)?;
-            if optsr_cur & OPTSR_OPT_BUSY_BIT == 0 {
-                break;
-            }
+        while self.read_single_target_addr(OPTSR_CUR)? & OPTSR_OPT_BUSY_BIT != 0
+        {
+            hl::sleep_for(5);
         }
 
         // Reset the STM32, causing it to reboot into the newly-set slot
