@@ -65,24 +65,6 @@ pub trait Cert: AsBytes {
     }
 }
 
-pub trait IssuerCnCert: Cert {
-    const ISSUER_CN_RANGE: Range<usize>;
-
-    fn get_issuer_cn(&self) -> PlatformId {
-        PlatformId::try_from(self.get_range::<&[u8]>(Self::ISSUER_CN_RANGE))
-            .unwrap_lite()
-    }
-}
-
-pub trait SubjectCnCert: Cert {
-    const SUBJECT_CN_RANGE: Range<usize>;
-
-    fn get_subject_cn(&self) -> PlatformId {
-        PlatformId::try_from(self.get_range::<&[u8]>(Self::SUBJECT_CN_RANGE))
-            .unwrap_lite()
-    }
-}
-
 /// Trait for Certs with the TCG DICE TcbInfo structure w/ the FWID member.
 pub trait FwidCert: Cert {
     const FWID_RANGE: Range<usize>;
