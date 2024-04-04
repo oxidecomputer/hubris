@@ -910,7 +910,7 @@ fn copy_from_caboose_chunk(
     // Early exit if the caller didn't provide enough space in the lease
     let mut remaining = pos.end - pos.start;
     if remaining as usize > data.len() {
-        return Err(RequestError::Fail(ClientError::BadLease))?;
+        return Err(RequestError::Fail(ClientError::BadLease));
     }
 
     const BUF_SIZE: usize = 128;
@@ -938,7 +938,7 @@ fn copy_from_flash_range(
     // Early exit if the caller didn't provide enough space in the lease
     let mut remaining = pos.end - pos.start;
     if remaining as usize > data.len() {
-        return Err(RequestError::Fail(ClientError::BadLease))?;
+        return Err(RequestError::Fail(ClientError::BadLease));
     }
 
     const BUF_SIZE: usize = 128;
