@@ -422,6 +422,8 @@ impl ServerImpl {
         addr: Option<u32>,
         raw_data: &RawPersistentData,
     ) -> Result<(), HfError> {
+        // Clippy misfire as of 2024-04
+        #[allow(clippy::manual_unwrap_or_default)]
         let addr = match addr {
             Some(a) => a,
             None => {
