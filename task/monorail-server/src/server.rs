@@ -365,9 +365,7 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
                 if let Some(Err(e)) = self.bsp.phy_fn(port, |phy| {
                     phy.read(phy::STANDARD::INTERRUPT_STATUS())
                 }) {
-                    return Err(e)
-                        .map_err(MonorailError::from)
-                        .map_err(RequestError::from);
+                    return Err(RequestError::from(MonorailError::from(e)));
                 }
 
                 // Clear the two bits that we use to detect link drops
