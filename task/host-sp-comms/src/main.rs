@@ -1342,7 +1342,7 @@ fn claim_uart_rx_buf() -> &'static mut Vec<u8, MAX_PACKET_SIZE> {
     // the AtomicBool swap above, combined with the lexical scoping of
     // `UART_RX_BUF`, means that this reference can't be aliased by any
     // other reference in the program.
-    unsafe { &mut UART_RX_BUF }
+    unsafe { &mut *core::ptr::addr_of_mut!(UART_RX_BUF) }
 }
 
 mod idl {
