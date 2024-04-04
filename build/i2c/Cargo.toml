@@ -12,6 +12,7 @@ convert_case = { workspace = true }
 indexmap = { workspace = true }
 multimap = { workspace = true }
 serde = { workspace = true }
+rangemap.workspace = true
 
 [features]
 h743 = []
