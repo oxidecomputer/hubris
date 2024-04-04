@@ -3,9 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::mgs_handler::UpdateBuffer;
-use gateway_messages::{
-    ComponentUpdatePrepare, SpError, UpdateId, UpdateStatus,
-};
+use gateway_messages::{SpError, UpdateId, UpdateStatus};
 
 #[cfg(feature = "gimlet")]
 pub(crate) mod host_flash;
@@ -30,6 +28,15 @@ pub(crate) trait ComponentUpdater {
     /// mechanism wants as a single chunk.
     const BLOCK_SIZE: usize;
 
+    /// Record provided to the `prepare` operation. Generally
+    /// `ComponentUpdatePrepare`, and would default to that if associated type
+    /// defaults were stable at the time of this writing (2024-04), which they
+    /// are not.
+    type UpdatePrepare;
+
+    /// Type used to specify sub-components within a component.
+    type SubComponent;
+
     /// Attempt to start preparing for an update, using `buffer` as the backing
     /// store for incoming data.
     ///
@@ -38,7 +45,7 @@ pub(crate) trait ComponentUpdater {
     fn prepare(
         &mut self,
         buffer: &'static UpdateBuffer,
-        update: ComponentUpdatePrepare,
+        update: Self::UpdatePrepare,
     ) -> Result<(), SpError>;
 
     /// Returns true if this task needs `step_preparation()` called.
@@ -53,6 +60,7 @@ pub(crate) trait ComponentUpdater {
     /// Attempt to ingest a single update chunk from MGS.
     fn ingest_chunk(
         &mut self,
+        sub: &Self::SubComponent,
         id: &UpdateId,
         offset: u32,
         data: &[u8],
