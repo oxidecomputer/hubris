@@ -775,18 +775,10 @@ impl ServerImpl {
     }
 
     fn swd_dongle_detected(&self) -> bool {
-        cfg_if::cfg_if! {
-            if #[cfg(any(
-                target_board = "oxide-rot-1",
-            ))] {
-                use drv_lpc55_gpio_api::*;
+        use drv_lpc55_gpio_api::*;
 
-                let gpio = Pins::from(self.gpio);
-                gpio.read_val(SP_TO_ROT_JTAG_DETECT_L) == Value::Zero
-            } else {
-                false
-            }
-        }
+        let gpio = Pins::from(self.gpio);
+        gpio.read_val(SP_TO_ROT_JTAG_DETECT_L) == Value::Zero
     }
 
     fn swd_setup(&mut self) -> Result<(), Ack> {

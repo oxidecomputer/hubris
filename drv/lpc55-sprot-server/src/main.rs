@@ -67,7 +67,6 @@ use handler::Handler;
 #[derive(Copy, Clone, PartialEq)]
 pub(crate) enum Trace {
     None,
-    Dump(u32),
     ReceivedBytes(usize),
     Flush,
     FlowError,
@@ -76,6 +75,9 @@ pub(crate) enum Trace {
     Err(SprotProtocolError),
     Stats(RotIoStats),
     Desynchronized,
+
+    #[cfg(feature = "sp-ctrl")]
+    Dump(u32),
 }
 ringbuf!(Trace, 32, Trace::None);
 

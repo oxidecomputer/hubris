@@ -79,7 +79,7 @@ name = "drv-lpc55-sprot-server"
 priority = 6
 max-sizes = {flash = 51168, ram = 32768}
 uses = ["flexcomm8", "bootrom"]
-features = ["spi0"]
+features = ["spi0", "sp-ctrl"]
 start = true
 notifications = ["spi-irq"]
 interrupts = {"flexcomm8.hs_spi" = "spi-irq"}
