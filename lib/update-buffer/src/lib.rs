@@ -28,7 +28,6 @@ impl<T, const N: usize> Default for UpdateBuffer<T, N> {
     }
 }
 
-
 impl<T, const N: usize> UpdateBuffer<T, N> {
     pub const MAX_CAPACITY: usize = N;
 
