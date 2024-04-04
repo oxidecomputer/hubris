@@ -17,6 +17,7 @@ use drv_stm32xx_sys_api as sys_api;
 use hubpack::SerializedSize;
 use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::*;
+use sys_api::IrqControl;
 use userlib::*;
 
 cfg_if::cfg_if! {
@@ -362,18 +363,6 @@ impl<S: SpiServer> Io<S> {
         self.sys.gpio_read(ROT_IRQ) == 0
     }
 
-    fn enable_rot_irq(&self) -> bool {
-        self.sys
-            .gpio_irq_control(0, notifications::ROT_IRQ_MASK)
-            .unwrap_lite()
-    }
-
-    fn disable_rot_irq(&self) -> bool {
-        self.sys
-            .gpio_irq_control(notifications::ROT_IRQ_MASK, 0)
-            .unwrap_lite()
-    }
-
     // Poll ROT_IRQ until asserted (true) or deasserted (false).
     //
     // We do this by asking the `sys` task to notify us when the GPIO pin's
@@ -391,8 +380,11 @@ impl<S: SpiServer> Io<S> {
         self.sys
             .gpio_irq_configure(notifications::ROT_IRQ_MASK, sensitivity);
 
-        // Enable the GPIO pin's interrupt.
-        self.enable_rot_irq();
+        // Enable the interrupt.
+        self.sys
+            .gpio_irq_control(notifications::ROT_IRQ_MASK, IrqControl::Enable)
+            // Just unwrap this, because the `sys` task should never panic.
+            .unwrap_lite();
 
         // Determine the deadline after which we'll give up, and start the clock.
         let deadline = sys_get_timer()
@@ -406,44 +398,48 @@ impl<S: SpiServer> Io<S> {
             // changing state.
             const MASK: u32 =
                 notifications::sprot::TIMER_MASK | notifications::ROT_IRQ_MASK;
-            let recv = sys_recv_closed(&mut [], MASK, TaskId::KERNEL)
-                // recv from the kernel should never fail.
-                .unwrap_lite();
+            let notif = sys_recv_notification(MASK);
 
-            // Was the notification bit mapped to `ROT_IRQ` posted?
+            // First, check if the IRQ has fired. We do this by checking if the
+            // ROT_IRQ notification bit has been posted, and then asking the
+            // `sys` task to confirm that we actually got the IRQ.
             //
             // N.B. that we check this *before* checking for the timer
             // notification bit, because it's possible *both* notifications were
             // posted before we were scheduled again, and if the IRQ did fire,
             // we'd prefer to honor that.
-            if recv.operation & notifications::ROT_IRQ_MASK {
-                // Okay, let's now check whether the notification was actually
-                // sent by the `sys` task in response to a real interrupt.
-                //
-                // Note that we pass `ROT_IRQ_MASK` to the *disable* argument to
-                // `sys.gpio_irq_control` here, as we do *not* want to receive
-                // another interrupt if the pin changes state while we're not
-                // waiting for it here.
-                if self.disable_rot_irq() {
-                    break;
-                }
+            let irq_fired = notif & notifications::ROT_IRQ_MASK != 0
+                && self
+                    .sys
+                    .gpio_irq_control(
+                        notifications::ROT_IRQ_MASK,
+                        // If the IRQ hasn't fired, leave it enabled, otherwise,
+                        // if it has fired, don't re-enable the IRQ.
+                        IrqControl::Check,
+                    )
+                    // Sys task shouldn't panic.
+                    .unwrap_lite();
+            if irq_fired {
+                break;
             }
 
             // If the timer notification was posted, and the GPIO IRQ
             // notification wasn't, we've waited for the timeout. Too bad!
-            if recv.operation & notifications::TIMER_MASK != 0 {
+            if notif & notifications::TIMER_MASK != 0 {
                 // Disable the IRQ so that its notification doesn't go off
                 // again when we're not expecting it.
-                self.disable_rot_irq();
+                self.sys
+                    .gpio_irq_control(
+                        notifications::ROT_IRQ_MASK,
+                        IrqControl::Disable,
+                    )
+                    .unwrap_lite();
 
                 // Record the timeout.
                 self.stats.timeouts = self.stats.timeouts.wrapping_add(1);
                 ringbuf_entry!(Trace::RotReadyTimeout);
                 return false;
             }
-
-            // Re-enable the IRQ notification, as we are going to continue waiting.
-            self.enable_rot_irq();
         }
 
         // Ensure the timer gets unset before returning, to avoid frightening
