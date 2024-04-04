@@ -252,7 +252,7 @@ notifications = ["timer"]
 name = "task-thermal"
 features = ["sidecar"]
 priority = 5
-max-sizes = {flash = 65536, ram = 16384 }
+max-sizes = {flash = 32768, ram = 16384 }
 stacksize = 8096
 start = true
 task-slots = ["i2c_driver", "sensor", "sequencer"]
