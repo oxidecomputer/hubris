@@ -1038,20 +1038,22 @@ impl ServerImpl {
                     sequence,
                     &SpToHost::KeyLookupResult(KeyLookupResult::Ok),
                     |buf| {
-                        // `MIN_SP_TO_HOST_FILL_DATA_LEN` is calculated assuming
-                        // `SpToHost::MAX_SIZE`, but we know in this callback
-                        // we're appending to
-                        // `SpToHost::KeyLookupResult(KeyLookupResult::Ok)`,
-                        // which is only 2 bytes. Recompute the exact max space
-                        // we have for our response, then statically guarantee
-                        // we have sufficient space in `buf` for longest
-                        // possible DTRACE_CONF blob.
-                        const SP_TO_HOST_FILL_DATA_LEN: usize =
-                            MIN_SP_TO_HOST_FILL_DATA_LEN + SpToHost::MAX_SIZE
-                                - 2;
-                        const_assert!(
+                        const_assert!({
+                            // `MIN_SP_TO_HOST_FILL_DATA_LEN` is calculated
+                            // assuming `SpToHost::MAX_SIZE`, but we know in
+                            // this callback we're appending to
+                            // `SpToHost::KeyLookupResult(KeyLookupResult::Ok)`,
+                            // which is only 2 bytes. Recompute the exact max
+                            // space we have for our response, then statically
+                            // guarantee we have sufficient space in `buf` for
+                            // longest possible DTRACE_CONF blob.
+                            #[allow(dead_code)] // suppress warning in nightly
+                            const SP_TO_HOST_FILL_DATA_LEN: usize =
+                                MIN_SP_TO_HOST_FILL_DATA_LEN
+                                    + SpToHost::MAX_SIZE
+                                    - 2;
                             SP_TO_HOST_FILL_DATA_LEN >= MAX_DTRACE_CONF_LEN
-                        );
+                        });
 
                         buf[..response_len].copy_from_slice(
                             &self.host_kv_storage.dtrace_conf[..response_len],
