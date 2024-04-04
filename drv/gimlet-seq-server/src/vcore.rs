@@ -86,7 +86,7 @@ cfg_if::cfg_if! {
 impl VCore {
     pub fn new(sys: &sys_api::Sys, device: &I2cDevice, rail: u8) -> Self {
         Self {
-            device: Raa229618::new(&device, rail),
+            device: Raa229618::new(device, rail),
             sys: sys.clone(),
         }
     }
