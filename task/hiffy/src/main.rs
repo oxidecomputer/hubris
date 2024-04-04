@@ -166,6 +166,9 @@ fn main() -> ! {
         sleep_ms = 1;
         sleeps = 0;
 
+        // TODO without a safety comment explaining why these are safe, it is
+        // not clear if this is sound, do _not_ "fix" this by slapping on an
+        // addr_of_mut! without further analysis!
         let text = unsafe { &HIFFY_TEXT };
         let data = unsafe { &HIFFY_DATA };
         let rstack = unsafe { &mut HIFFY_RSTACK[0..] };

@@ -6,7 +6,7 @@ fwid = true
 
 [kernel]
 name = "sidecar"
-requires = {flash = 25952, ram = 6256}
+requires = {flash = 25984, ram = 6256}
 features = ["dump"]
 
 [caboose]
@@ -31,7 +31,7 @@ request_reset = ["hiffy", "control_plane_agent"]
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
-features = ["h753"]
+features = ["h753", "no-panic"]
 priority = 1
 max-sizes = {flash = 2048, ram = 2048}
 uses = ["rcc", "gpios", "system_flash"]

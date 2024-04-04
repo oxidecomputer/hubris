@@ -11,7 +11,6 @@ use crate::{
     },
     i2c_config::{devices, sensors},
 };
-use core::convert::TryInto;
 pub use drv_gimlet_seq_api::SeqError;
 use drv_gimlet_seq_api::{PowerState, Sequencer};
 use drv_i2c_devices::max31790::Max31790;

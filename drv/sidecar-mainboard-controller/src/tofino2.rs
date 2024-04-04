@@ -4,7 +4,6 @@
 
 use crate::{Addr, MainboardController, Reg};
 use bitfield::bitfield;
-use core::convert::Into;
 use derive_more::{From, Into};
 use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
 use drv_fpga_user_api::power_rail::*;

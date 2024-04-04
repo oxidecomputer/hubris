@@ -50,7 +50,7 @@ notifications = ["eth-irq", "mdio-timer-irq", "wake-timer", "jefe-state-change"]
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
-features = ["h753", "exti"]
+features = ["h753", "exti", "no-panic"]
 priority = 1
 uses = ["rcc", "gpios", "system_flash", "syscfg", "exti"]
 start = true

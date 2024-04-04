@@ -154,7 +154,6 @@ impl bsp_support::Bsp for BspImpl {
             power_en: None,
             slow_power_en: false,
             power_good: &[],
-            pll_lock: None,
 
             ksz8463: Ksz8463::new(ksz8463_dev),
             ksz8463_nrst: Port::A.pin(9),

@@ -7,7 +7,6 @@
 #![deny(elided_lifetimes_in_paths)]
 
 use attest_api::{AttestError, HashAlgorithm, NONCE_MAX_SIZE, NONCE_MIN_SIZE};
-use core::convert::Into;
 use drv_lpc55_update_api::{
     RotBootInfo, RotPage, SlotId, SwitchDuration, UpdateTarget,
 };
