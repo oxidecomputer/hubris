@@ -89,8 +89,7 @@ enum Trace {
     EnabledWatchdog,
     DisabledWatchdog,
     WatchdogFired,
-    WatchdogSwapOk,
-    WatchdogSwapErr(Ack),
+    WatchdogSwap(Result<(), Ack>),
 }
 
 ringbuf!(Trace, 128, Trace::None);
@@ -528,10 +527,8 @@ impl NotificationHandler for ServerImpl {
         sys_set_timer(None, notifications::TIMER_MASK);
 
         // Attempt to do the swap
-        match self.swap_sp_slot() {
-            Ok(()) => ringbuf_entry!(Trace::WatchdogSwapOk),
-            Err(e) => ringbuf_entry!(Trace::WatchdogSwapErr(e)),
-        }
+        let r = self.swap_sp_slot();
+        ringbuf_entry!(Trace::WatchdogSwap(r));
 
         // Force reinitialization
         self.init = false;
