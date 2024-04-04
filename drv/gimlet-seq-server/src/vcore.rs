@@ -3,30 +3,30 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 ///
-/// We have seen adventures on the V12_SYS_A2 rail in that it will (on some
-/// machines and for unclear reason) very rarely droop from 12V to ~8V over a
-/// period of about ~4ms, and then rise back 12V over ~7ms. (This dip in power
-/// results in U.2 drives resetting, and ultimately, the system resetting
-/// itself.)  To understand these dips we are using one of the rails on of the
-/// RAA229618s (specifically, VDD_VCORE) as a witness to any V12_SYS_A2 rail
-/// fluctuation via its VIN: we set its VIN undervoltage warning limit to a
-/// value that is lower than any we expect in an operable system (but higher
-/// than the droops we have observed), and then setup its fault output
-/// (PWR_CONT1_VCORE_TO_SP_ALERT_L, on PI14) to generate an interrupt on a
-/// falling edge.  Upon the interrupt, we will get notification here, and we
-/// will record values of VIN as quickly as we can.  This is as fast as I2C,
-/// which necessitates 8 bytes per READ_VIN:
+/// We have seen adventures on the V12_SYS_A2 rail in that it will droop from
+/// 12V to ~8V over a period of about ~4ms, and then rise back 12V over ~7ms.
+/// This happens only on very few machines, and even then happens very rarely
+/// (happening once over hours or days), but the consequences are acute:  the
+/// dip in power results in U.2 drives resetting, and ultimately, the system
+/// resetting itself.  To better characterize any such dips, we want to use
+/// one of the rails on of the RAA229618s (specifically, VDD_VCORE) as a
+/// witness to any V12_SYS_A2 rail fluctuation via its VIN: we set its VIN
+/// undervoltage warning limit to a value that is lower than any we expect in
+/// an operable system (but higher than the droops we have observed), and then
+/// configure its fault output (PWR_CONT1_VCORE_TO_SP_ALERT_L, connected to
+/// PI14) to generate an interrupt on a falling edge.  Upon the interrupt, we
+/// will get notification here, and we will record values of VIN as quickly as
+/// we can.  Each READ_VIN requires 8 bytes, over 3 I2C transactions:
 ///
-///   [Write PAGE rail] [Write READ_VIN] [Read MSB LSB]
+///   [Write + PAGE + rail] [Write + READ_VIN] [Read + MSB + LSB]
 ///
-/// At 100kHz, this is ~900µs per READ_VIN.  We gather 50 of these READ_VIN
-/// measurements, along with timestamps before and after the operations, and
-/// put them all in a ring buffer.  Note that we don't clear faults after this
-/// condition; we will wait until the machine next makes an A2 to A0
-/// transition to clear faults.
+/// At our midbus speed of 100kHz, this is ~900µs per READ_VIN.  We gather 50
+/// of these READ_VIN measurements, along with timestamps before and after the
+/// operations, and put them all in a ring buffer.  Note that we don't clear
+/// faults after this condition; we will wait until the machine next makes an
+/// A2 to A0 transition to clear faults.
 ///
-///
-use drv_i2c_api::I2cDevice;
+use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_i2c_devices::raa229618::Raa229618;
 use drv_stm32xx_sys_api as sys_api;
 use ringbuf::*;
@@ -45,16 +45,43 @@ enum Trace {
     Fault,
     Start(u64),
     Reading(units::Volts),
-    Error(drv_i2c_api::ResponseCode),
+    Error(ResponseCode),
     Done(u64),
     None,
 }
 
 ringbuf!(Trace, 120, Trace::None);
 
+///
+/// We are going to set our input undervoltage warn limit to be 11.75 volts.
+/// Note that we will not fault if VIN goes below this (that is, we will not
+/// lose POWER_GOOD), but the part will indicate an input fault and pull 
+/// PWR_CONT1_VCORE_TO_SP_ALERT_L low.
+///
+const VCORE_UV_WARN_LIMIT: units::Volts = units::Volts(11.75);
+
+///
+/// We want to collect enough samples (at ~900µs per sample) to adequately
+/// cover any anticipated dip.  We have seen these have an ~11ms total width
+/// in the wild, so we give ourselves plenty of margin here and get ~45ms
+/// of data.
+///
 const VCORE_NSAMPLES: usize = 50;
+
 const VCORE_TO_SP_ALERT_L: sys_api::PinSet = sys_api::Port::I.pin(14);
 const VCORE_TO_SP_ALERT_PULL: sys_api::Pull = sys_api::Pull::None;
+
+cfg_if::cfg_if! {
+    if #[cfg(not(any(
+        target_board = "gimlet-b",
+        target_board = "gimlet-c",
+        target_board = "gimlet-d",
+        target_board = "gimlet-e",
+        target_board = "gimlet-f",
+    )))] {
+        compile_error!("RAA229618 VIN monitoring unsupported for this board");
+    }
+}
 
 impl VCore {
     pub fn new(sys: &sys_api::Sys, device: &I2cDevice, rail: u8) -> Self {
@@ -68,25 +95,23 @@ impl VCore {
         crate::notifications::VCORE_MASK
     }
 
-    pub fn initialize_uv_warning(&self) {
-        //
-        // We are going to set our input undervoltage warn limit to be 11.75
-        // volts.  We definitely don't expect the line to droop that far --
-        // and if it does, we assume that we are interested in collecting our
-        // VIN samples.
-        //
-        self.device.set_vin_uv_warn_limit(units::Volts(11.75));
+    pub fn initialize_uv_warning(&self) -> Result<(), ResponseCode> {
+        let sys = &self.sys;
+
+        // Set our warn limit
+        self.device.set_vin_uv_warn_limit(VCORE_UV_WARN_LIMIT)?;
 
         // Clear our faults
-        self.device.clear_faults();
+        self.device.clear_faults()?;
 
         // Set our alert line to be an input
-        self.sys
-            .gpio_configure_input(VCORE_TO_SP_ALERT_L, VCORE_TO_SP_ALERT_PULL);
-        self.sys
-            .gpio_irq_configure(self.mask(), sys_api::Edge::Falling);
+        sys.gpio_configure_input(VCORE_TO_SP_ALERT_L, VCORE_TO_SP_ALERT_PULL);
+        sys.gpio_irq_configure(self.mask(), sys_api::Edge::Falling);
 
+        // Enable the interrupt!
         self.sys.gpio_irq_control(0, self.mask());
+
+        Ok(())
     }
 
     pub fn handle_notification(&self) {
