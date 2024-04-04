@@ -623,10 +623,10 @@ impl SpHandler for MgsHandler {
                 .ingest_chunk(&chunk.component, &chunk.id, chunk.offset, data),
             SpComponent::HOST_CPU_BOOT_FLASH => self
                 .host_flash_update
-                .ingest_chunk(&chunk.id, chunk.offset, data),
-            SpComponent::ROT | SpComponent::STAGE0 => {
-                self.rot_update.ingest_chunk(&chunk.id, chunk.offset, data)
-            }
+                .ingest_chunk(&(), &chunk.id, chunk.offset, data),
+            SpComponent::ROT | SpComponent::STAGE0 => self
+                .rot_update
+                .ingest_chunk(&(), &chunk.id, chunk.offset, data),
             _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
