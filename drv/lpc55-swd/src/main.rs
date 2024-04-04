@@ -1064,14 +1064,11 @@ impl ServerImpl {
         }
 
         // Reset the STM32, causing it to reboot into the newly-set slot
-        // Details from PM0253, Section 4.3.5
-        const AIRCR: u32 = 0xE000ED0C;
-        const AIRCR_VECTKEY: u32 = 0x5FA << 16;
-        const AIRCR_SYSRESETREQ: u32 = 1 << 2;
-        self.write_single_target_addr(
-            AIRCR,
-            AIRCR_VECTKEY | AIRCR_SYSRESETREQ,
-        )?;
+        use drv_lpc55_gpio_api::{Pins, Value};
+        let gpio = Pins::from(self.gpio);
+        gpio.set_val(ROT_TO_SP_RESET_L, Value::Zero);
+        hl::sleep_for(10);
+        gpio.set_val(ROT_TO_SP_RESET_L, Value::One);
 
         Ok(())
     }

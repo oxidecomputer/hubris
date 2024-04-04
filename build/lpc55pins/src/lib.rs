@@ -50,7 +50,9 @@ pub struct PinConfig {
     digimode: Digimode,
     #[serde(default)]
     opendrain: Opendrain,
+
     direction: Option<Direction>,
+    value: Option<bool>,
     name: Option<String>,
 }
 
@@ -155,6 +157,21 @@ pub fn codegen(pins: Vec<PinConfig>) -> Result<()> {
         writeln!(&mut file, "{}", p.to_token_stream())?;
         writeln!(&mut file, ");")?;
 
+        // Output pins can specify their value, which is set before configuring
+        // their output mode (to avoid glitching).
+        if let Some(v) = p.value {
+            assert!(
+                matches!(p.direction.as_deref(), Some("output")),
+                "can only set value for output pins"
+            );
+            writeln!(&mut file, "iocon.set_val(")?;
+            writeln!(&mut file, "{}", p.pin.to_token_stream())?;
+            writeln!(
+                &mut file,
+                "{});",
+                if v { "Value::One" } else { "Value::Zero" }
+            )?;
+        }
         match p.direction {
             None => (),
             Some(d) => {
