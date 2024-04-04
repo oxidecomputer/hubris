@@ -397,7 +397,7 @@ fn main() -> ! {
             // API the way we use peripherals.
             let syscfg = unsafe { &*device::SYSCFG::ptr() };
 
-            for (i, entry) in generated::EXTI_DISPATCH_TABLE.iter().enumerate() {
+            for (i, entry) in dispatch_table_iter() {
                 // Process entries that are filled in...
                 if let &Some(ExtiDispatch { port, .. }) = entry {
                     let register = i >> 2;
@@ -684,8 +684,10 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
                 let mut slot_mask = 0u16;
 
                 for (i, _) in exti_dispatch_for(rm.sender, mask) {
-                    // What bit do we touch for this entry?
-                    let bit = 1 << i;
+                    // What bit do we touch for this entry? (Mask is to ensure
+                    // that the compiler understands this shift cannot
+                    // overflow.)
+                    let bit = 1 << (i & 0xF);
 
                     // Record that these bits meant something.
                     slot_mask |= bit;
@@ -774,15 +776,19 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
                 let mut used_bits = 0u32;
 
                 for (i, entry) in exti_dispatch_for(rm.sender, mask) {
+                    // (Mask is to ensure that the compiler understands this
+                    // shift cannot overflow.)
+                    let imask = 1 << (i & 0xF);
+
                     used_bits |= entry.mask;
 
                     // Set or clear Rising Trigger Selection
                     // Register bit according to the rising flag
                     self.exti.rtsr1.modify(|r, w| {
                         let new_value = if edge.is_rising() {
-                            r.bits() | (1 << i)
+                            r.bits() | imask
                         } else {
-                            r.bits() & !(1 << i)
+                            r.bits() & !imask
                         };
                         unsafe {
                             w.bits(new_value)
@@ -793,9 +799,9 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
                     // Register bit according to the rising flag
                     self.exti.ftsr1.modify(|r, w| {
                         let new_value = if edge.is_falling() {
-                            r.bits() | (1 << i)
+                            r.bits() | imask
                         } else {
-                            r.bits() & !(1 << i)
+                            r.bits() & !imask
                         };
                         unsafe {
                             w.bits(new_value)
@@ -849,17 +855,18 @@ fn exti_dispatch_for(
     task: TaskId,
     mask: u32,
 ) -> impl Iterator<Item = (usize, &'static ExtiDispatch)> {
-    generated::EXTI_DISPATCH_TABLE
-        .iter()
-        .enumerate()
-        .filter_map(move |(i, entry)| {
-            let entry = entry.as_ref()?;
-            if task.index() == entry.task.index() && mask & entry.mask != 0 {
-                Some((i, entry))
-            } else {
-                None
-            }
-        })
+    // This is semantically equivalent to iter.enumerate, but winds up handing
+    // the compiler very different code that avoids an otherwise-difficult panic
+    // site on an apparently-overflowing addition (that was not actually capable
+    // of overflowing).
+    dispatch_table_iter().filter_map(move |(i, entry)| {
+        let entry = entry.as_ref()?;
+        if task.index() == entry.task.index() && mask & entry.mask != 0 {
+            Some((i, entry))
+        } else {
+            None
+        }
+    })
 }
 
 impl NotificationHandler for ServerImpl<'_> {
@@ -898,9 +905,13 @@ impl NotificationHandler for ServerImpl<'_> {
 
                     let mut bits_to_acknowledge = 0u16;
 
-                    for (pin_idx, entry) in
-                        generated::EXTI_DISPATCH_TABLE.iter().enumerate()
-                    {
+                    for pin_idx in 0..16 {
+                        // TODO: this sure looks like it should be using
+                        // iter.enumerate, doesn't it? Unfortunately that's not
+                        // currently getting inlined by rustc, resulting in rather
+                        // silly code containing panics. This is significantly
+                        // smaller.
+                        let entry = &generated::EXTI_DISPATCH_TABLE[pin_idx];
                         if pending_and_enabled & 1 << pin_idx != 0 {
                             // A channel is pending! We need to handle this
                             // basically like the kernel handles native hardware
@@ -1212,6 +1223,17 @@ cfg_if! {
     } else {
         compile_error!("unsupported SoC family");
     }
+}
+
+#[cfg(feature = "exti")]
+#[inline(always)]
+fn dispatch_table_iter(
+) -> impl Iterator<Item = (usize, &'static Option<ExtiDispatch>)> {
+    // TODO: this sure looks like it should be using iter.enumerate, doesn't it?
+    // Unfortunately that's not currently getting inlined by rustc, resulting in
+    // rather silly code containing panics. This is significantly smaller.
+    (0..generated::EXTI_DISPATCH_TABLE.len())
+        .zip(&generated::EXTI_DISPATCH_TABLE)
 }
 
 include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
