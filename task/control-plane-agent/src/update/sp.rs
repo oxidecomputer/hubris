@@ -56,6 +56,7 @@
 
 use crate::mgs_common::UPDATE_SERVER;
 use crate::mgs_handler::{BorrowedUpdateBuffer, UpdateBuffer};
+use crate::update::ComponentUpdater;
 use cfg_if::cfg_if;
 use core::ops::{Deref, DerefMut};
 use drv_caboose::CabooseReader;
@@ -98,12 +99,6 @@ pub(crate) struct SpUpdate {
 }
 
 impl SpUpdate {
-    #[cfg(feature = "auxflash")]
-    pub(crate) const BLOCK_SIZE: usize =
-        crate::usize_max(BLOCK_SIZE_BYTES, drv_auxflash_api::PAGE_SIZE_BYTES);
-    #[cfg(not(feature = "auxflash"))]
-    pub(crate) const BLOCK_SIZE: usize = BLOCK_SIZE_BYTES;
-
     pub(crate) fn new() -> Self {
         Self {
             sp_task: Update::from(UPDATE_SERVER.get_task_id()),
@@ -111,11 +106,22 @@ impl SpUpdate {
             current: None,
         }
     }
+}
 
-    pub(crate) fn prepare(
+impl ComponentUpdater for SpUpdate {
+    #[cfg(feature = "auxflash")]
+    const BLOCK_SIZE: usize =
+        crate::usize_max(BLOCK_SIZE_BYTES, drv_auxflash_api::PAGE_SIZE_BYTES);
+    #[cfg(not(feature = "auxflash"))]
+    const BLOCK_SIZE: usize = BLOCK_SIZE_BYTES;
+
+    type UpdatePrepare = SpUpdatePrepare;
+    type SubComponent = SpComponent;
+
+    fn prepare(
         &mut self,
         buffer: &'static UpdateBuffer,
-        update: SpUpdatePrepare,
+        update: Self::UpdatePrepare,
     ) -> Result<(), SpError> {
         // Do we have an update already in progress?
         match self.current.as_ref().map(|c| c.state()) {
@@ -178,14 +184,14 @@ impl SpUpdate {
         Ok(())
     }
 
-    pub(crate) fn is_preparing(&self) -> bool {
+    fn is_preparing(&self) -> bool {
         match self.current.as_ref().map(|c| c.state()) {
             Some(State::AuxFlash(s)) => s.is_preparing(),
             _ => false,
         }
     }
 
-    pub(crate) fn step_preparation(&mut self) {
+    fn step_preparation(&mut self) {
         // Do we have an update?
         let current = match self.current.as_mut() {
             Some(current) => current,
@@ -231,7 +237,7 @@ impl SpUpdate {
         });
     }
 
-    pub(crate) fn status(&self) -> UpdateStatus {
+    fn status(&self) -> UpdateStatus {
         let current = match self.current.as_ref() {
             Some(current) => current,
             None => return UpdateStatus::None,
@@ -264,7 +270,7 @@ impl SpUpdate {
         }
     }
 
-    pub(crate) fn ingest_chunk(
+    fn ingest_chunk(
         &mut self,
         component: &SpComponent,
         id: &UpdateId,
@@ -377,7 +383,7 @@ impl SpUpdate {
         })
     }
 
-    pub(crate) fn abort(&mut self, id: &UpdateId) -> Result<(), SpError> {
+    fn abort(&mut self, id: &UpdateId) -> Result<(), SpError> {
         // Do we have an update in progress? If not, nothing to do.
         let current = match self.current.as_mut() {
             Some(current) => current,
