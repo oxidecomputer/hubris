@@ -83,9 +83,7 @@ impl FrontIOBoard {
                 });
 
                 if let Err(e) = controller.load_bitstream(self.auxflash_task) {
-                    ringbuf_entry!(Trace::FpgaBitstreamError(
-                        u32::try_from(e).unwrap()
-                    ));
+                    ringbuf_entry!(Trace::FpgaBitstreamError(u32::from(e)));
                     return Err(e);
                 }
 

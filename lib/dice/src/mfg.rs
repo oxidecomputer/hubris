@@ -187,8 +187,7 @@ impl<'a> SerialMfg<'a> {
     }
 
     fn send_ack(&mut self) -> Result<(), Error> {
-        let hash: MessageHash =
-            self.hash.finalize_fixed_reset().try_into().unwrap();
+        let hash: MessageHash = self.hash.finalize_fixed_reset().into();
         self.send_msg(MfgMessage::Ack(hash))
     }
 
