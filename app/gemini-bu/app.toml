@@ -134,7 +134,7 @@ start = true
 task-slots = ["sys"]
 uses = ["spi4"]
 features = ["use-spi-core", "h753", "spi4"]
-notifications = ["spi-irq", "rot-irq"]
+notifications = ["spi-irq", "rot-irq", "timer"]
 interrupts = {"spi4.irq" = "spi-irq"}
 
 [tasks.validate]
