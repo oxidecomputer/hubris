@@ -22,7 +22,14 @@ pub struct UpdateBuffer<T, const N: usize> {
     data: Mutex<[u8; N]>,
 }
 
-impl<T: Clone, const N: usize> UpdateBuffer<T, N> {
+impl<T, const N: usize> Default for UpdateBuffer<T, N> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+
+impl<T, const N: usize> UpdateBuffer<T, N> {
     pub const MAX_CAPACITY: usize = N;
 
     pub const fn new() -> Self {
@@ -31,7 +38,9 @@ impl<T: Clone, const N: usize> UpdateBuffer<T, N> {
             data: Mutex::new([0; N]),
         }
     }
+}
 
+impl<T: Clone, const N: usize> UpdateBuffer<T, N> {
     /// Borrow this buffer with an artifical cap of `capacity`.
     ///
     /// On success, records that this buffer is owned by `owner` until the

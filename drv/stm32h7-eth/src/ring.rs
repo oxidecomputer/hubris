@@ -45,6 +45,7 @@ unsafe impl Sync for Buffer {}
 
 impl Buffer {
     /// Creates a zero-initialized buffer.
+    #[allow(clippy::new_without_default)]
     pub const fn new() -> Self {
         Self(UnsafeCell::new([0; BUFSZ]))
     }
@@ -58,6 +59,7 @@ impl Buffer {
 /// When configured in VLAN mode, we write _two_ descriptors (each 4 bytes):
 /// - the configuration descriptor, which sets the VLAN for subsequent packets
 /// - the actual packet transmit descriptor
+#[derive(Default)]
 #[repr(transparent)]
 pub struct TxDesc {
     /// Transmit descriptor
@@ -348,6 +350,7 @@ impl TxRing {
 ///
 /// This is deliberately opaque to viewers outside this module, so that we can
 /// carefully control accesses to its contents.
+#[derive(Default)]
 #[repr(transparent)]
 pub struct RxDesc {
     rdes: [AtomicU32; 4],
