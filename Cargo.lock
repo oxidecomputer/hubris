@@ -243,6 +243,7 @@ dependencies = [
  "convert_case",
  "indexmap 1.9.1",
  "multimap",
+ "rangemap",
  "serde",
 ]
 
