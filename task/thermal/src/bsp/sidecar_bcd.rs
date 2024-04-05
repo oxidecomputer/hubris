@@ -8,7 +8,6 @@ use crate::control::{
     ChannelType, Device, FanControl, Fans, InputChannel, PidConfig,
     TemperatureSensor,
 };
-use core::convert::TryInto;
 use drv_i2c_devices::max31790::Max31790;
 use drv_i2c_devices::tmp451::*;
 pub use drv_sidecar_seq_api::SeqError;

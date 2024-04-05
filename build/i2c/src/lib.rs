@@ -6,6 +6,7 @@ use anyhow::{bail, Context, Result};
 use convert_case::{Case, Casing};
 use indexmap::IndexMap;
 use multimap::MultiMap;
+use rangemap::RangeSet;
 use serde::Deserialize;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Write;
@@ -266,21 +267,6 @@ struct DeviceNameKey {
 struct DeviceRefdesKey {
     device: String,
     refdes: String,
-    kind: Sensor,
-}
-
-#[derive(Debug, PartialEq, Eq, Hash)]
-struct DeviceBusKey {
-    device: String,
-    bus: String,
-    kind: Sensor,
-}
-
-#[derive(Debug, PartialEq, Eq, Hash)]
-struct DeviceBusNameKey {
-    device: String,
-    bus: String,
-    name: String,
     kind: Sensor,
 }
 
@@ -573,7 +559,7 @@ impl ConfigGenerator {
                             d.device, d.address
                         );
                     }
-                    (_, Some(bus)) if buses.get(bus).is_none() => {
+                    (_, Some(bus)) if !buses.contains_key(bus) => {
                         panic!(
                             "device {} at address {:#x} specifies \
                             unknown bus \"{}\"",
@@ -1016,20 +1002,9 @@ impl ConfigGenerator {
         let mut all: Vec<_> = by_controller.iter_all().collect();
         all.sort();
 
-        for (controller, indices) in all {
-            let mut s: Vec<String> =
-                indices.iter().map(|f| format!("{}", f)).collect::<_>();
-
-            s.sort();
-
-            write!(
-                &mut self.output,
-                r##"
-                {} => Some(Controller::I2C{}),"##,
-                s.join("\n                | "),
-                controller,
-            )?;
-        }
+        match_arms(&mut self.output, all, |c| {
+            format!("Some(Controller::I2C{c})")
+        })?;
 
         write!(
             &mut self.output,
@@ -1052,20 +1027,7 @@ impl ConfigGenerator {
         let mut all: Vec<_> = by_port.iter_all().collect();
         all.sort();
 
-        for (port, indices) in all {
-            let mut s: Vec<String> =
-                indices.iter().map(|f| format!("{}", f)).collect::<_>();
-
-            s.sort();
-
-            write!(
-                &mut self.output,
-                r##"
-                {} => Some(PortIndex({})),"##,
-                s.join("\n                | "),
-                port,
-            )?;
-        }
+        match_arms(&mut self.output, all, |p| format!("Some(PortIndex({p}))"))?;
 
         write!(
             &mut self.output,
@@ -1254,7 +1216,7 @@ impl ConfigGenerator {
         // returned by `device_descriptions()` below: if we change the ordering
         // here, it must be updated there as well.
         for (index, device) in self.devices.iter().enumerate() {
-            if drivers.get(&device.device).is_some() {
+            if drivers.contains(&device.device) {
                 let driver = device.device.to_case(Case::UpperCamel);
                 let out = self.generate_device(device, 24);
 
@@ -1471,7 +1433,7 @@ impl ConfigGenerator {
         {
             writeln!(
                 &mut self.output,
-                "\n        #[allow(non_camel_case_types)]
+                "\n        #[allow(non_camel_case_types, dead_code)]
         pub struct Sensors_{struct_name} {{",
             )?;
             let mut f = |name, count| match count {
@@ -1769,4 +1731,34 @@ pub fn device_descriptions() -> impl Iterator<Item = I2cDeviceDescription> {
             sensors,
         },
     )
+}
+
+fn match_arms<'a, C>(
+    mut out: impl Write,
+    source: impl IntoIterator<Item = (&'a C, &'a Vec<usize>)>,
+    fmt: impl Fn(&C) -> String,
+) -> Result<()>
+where
+    C: 'a,
+{
+    for (controller, indices) in source {
+        let indices = indices
+            .iter()
+            .map(|&i| i..i + 1)
+            .collect::<RangeSet<usize>>();
+        let s = indices
+            .iter()
+            .map(|range| format!("{}..={}", range.start, range.end - 1))
+            .collect::<Vec<_>>()
+            .join("\n                | ");
+
+        let result = fmt(controller);
+
+        write!(
+            &mut out,
+            r##"
+                {s} => {result},"##,
+        )?;
+    }
+    Ok(())
 }

@@ -51,6 +51,9 @@ enum State {
 impl ComponentUpdater for RotUpdate {
     const BLOCK_SIZE: usize = BLOCK_SIZE_BYTES;
 
+    type UpdatePrepare = ComponentUpdatePrepare;
+    type SubComponent = ();
+
     fn prepare(
         &mut self,
         buffer: &'static UpdateBuffer,
@@ -131,6 +134,7 @@ impl ComponentUpdater for RotUpdate {
 
     fn ingest_chunk(
         &mut self,
+        _sub: &(),
         id: &UpdateId,
         offset: u32,
         mut data: &[u8],

@@ -242,6 +242,7 @@ pub(crate) struct DynamicInputChannel {
 ////////////////////////////////////////////////////////////////////////////////
 
 #[derive(Copy, Clone)]
+#[allow(dead_code)] // used only by the debugger
 pub struct TimestampedSensorError {
     pub timestamp: u64,
     pub id: SensorId,
@@ -418,11 +419,14 @@ impl OneSidedPidState {
         } else {
             (-out_pd, output_limit - out_pd)
         };
-        self.integral = self.integral.clamp(integral_min, integral_max);
+        // f32::clamp is not inlining well as of 2024-04 so we do it by hand
+        // here and below.
+        self.integral = self.integral.max(integral_min).min(integral_max);
 
         // Clamp output values to valid range.
         let out = out_pd + self.integral;
-        out.clamp(0.0, output_limit)
+        // same issue with f32::clamp (above)
+        out.max(0.0).min(output_limit)
     }
 }
 

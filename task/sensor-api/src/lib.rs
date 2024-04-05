@@ -8,13 +8,10 @@
 
 use userlib::*;
 
-use core::convert::TryFrom;
-
 use derive_idol_err::IdolError;
 use drv_i2c_api::ResponseCode;
 use hubpack::SerializedSize;
 use num_derive::FromPrimitive;
-use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 
 /// A validated sensor ID.

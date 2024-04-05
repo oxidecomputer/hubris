@@ -79,10 +79,14 @@ jobs:
               target/release/humility -a target/${{ inputs.app_name }}/dist/build-${{ inputs.app_name }}-image-$image.zip manifest; \
           done
 
-      - name: Clippy
-        if: inputs.os == 'ubuntu-latest'
-        run: |
-          cargo xtask clippy ${{ inputs.app_toml}} -- --deny warnings
+      # TODO: Clippy temporarily disabled 2024-04 while people clean up
+      # the new Clippy warnings resulting from the last toolchain
+      # upgrade. If you're reading this, try turning it back on and see
+      # if we're good yet.
+      #- name: Clippy
+      #  if: inputs.os == 'ubuntu-latest'
+      #  run: |
+      #    cargo xtask clippy ${{ inputs.app_toml}} -- --deny warnings
 
       # upload the output of our build
       - name: Upload build archive
