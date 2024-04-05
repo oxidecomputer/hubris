@@ -388,10 +388,15 @@ impl<S: SpiServer> Io<S> {
         // Determine the deadline after which we'll give up, and start the clock.
         let deadline = sys_get_timer()
             .now
-            .checked_add(max_sleep as u64)
-            .unwrap_lite();
+            // Values passed to `max_sleep` are all constants that are small
+            // enough that this will almost certainly not overflow unless the SP
+            // has been running without a reset for at least a couple million
+            // years. Using saturating arithmetic here lets us avoid a bounds
+            // check.
+            .saturating_add(max_sleep as u64);
         sys_set_timer(Some(deadline), notifications::sprot::TIMER_MASK);
 
+        let mut irq_fired = false;
         while self.is_rot_irq_asserted() != desired {
             // Wait to be notified either by the timeout or by the ROT_IRQ pin
             // changing state.
@@ -407,7 +412,7 @@ impl<S: SpiServer> Io<S> {
             // notification bit, because it's possible *both* notifications were
             // posted before we were scheduled again, and if the IRQ did fire,
             // we'd prefer to honor that.
-            let irq_fired = notif & notifications::ROT_IRQ_MASK != 0
+            irq_fired = notif & notifications::ROT_IRQ_MASK != 0
                 && self
                     .sys
                     .gpio_irq_control(
@@ -425,19 +430,10 @@ impl<S: SpiServer> Io<S> {
             // If the timer notification was posted, and the GPIO IRQ
             // notification wasn't, we've waited for the timeout. Too bad!
             if notif & notifications::TIMER_MASK != 0 {
-                // Disable the IRQ so that its notification doesn't go off
-                // again when we're not expecting it.
-                self.sys
-                    .gpio_irq_control(
-                        notifications::ROT_IRQ_MASK,
-                        IrqControl::Disable,
-                    )
-                    .unwrap_lite();
-
                 // Record the timeout.
                 self.stats.timeouts = self.stats.timeouts.wrapping_add(1);
                 ringbuf_entry!(Trace::RotReadyTimeout);
-                return false;
+                break;
             }
         }
 
@@ -445,8 +441,18 @@ impl<S: SpiServer> Io<S> {
         // our IPC server when it's waiting in recv without expecting a timer to
         // go off.
         sys_set_timer(None, notifications::sprot::TIMER_MASK);
+        // If the IRQ didn't fire, let's also disable it, so that it also
+        // doesn't go off later.
+        if !irq_fired {
+            self.sys
+                .gpio_irq_control(
+                    notifications::ROT_IRQ_MASK,
+                    IrqControl::Disable,
+                )
+                .unwrap_lite();
+        }
 
-        true
+        irq_fired
     }
 }
 
