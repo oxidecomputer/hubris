@@ -482,12 +482,16 @@ impl MgsCommon {
         Ok(cnt)
     }
 
-    pub(crate) fn enable_sp_slot_watchdog(
+    pub(crate) fn reset_with_watchdog(
         &mut self,
         time_ms: u32,
-    ) -> Result<(), SpError> {
+    ) -> Result<core::convert::Infallible, SpError> {
+        if self.reset_component_requested != Some(SpComponent::SP_ITSELF) {
+            return Err(SpError::ResetComponentTriggerWithoutPrepare);
+        }
         self.sprot.enable_sp_slot_watchdog(time_ms)?;
-        Ok(())
+        task_jefe_api::Jefe::from(crate::JEFE.get_task_id()).request_reset();
+        panic!(); // we really really shouldn't get here
     }
 
     pub(crate) fn disable_sp_slot_watchdog(&mut self) -> Result<(), SpError> {

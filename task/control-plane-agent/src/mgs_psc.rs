@@ -649,8 +649,14 @@ impl SpHandler for MgsHandler {
         self.common.vpd_lock_status_all(buf)
     }
 
-    fn enable_sp_slot_watchdog(&mut self, time_ms: u32) -> Result<(), SpError> {
-        self.common.enable_sp_slot_watchdog(time_ms)
+    fn reset_with_watchdog(
+        &mut self,
+        time_ms: u32,
+    ) -> Result<core::convert::Infallible, SpError> {
+        if !matches!(self.sp_update.status(), UpdateStatus::Complete(..)) {
+            return Err(SpError::Watchdog(WatchdogError::NoCompletedUpdate));
+        }
+        self.common.reset_with_watchdog(time_ms)
     }
 
     fn disable_sp_slot_watchdog(&mut self) -> Result<(), SpError> {
