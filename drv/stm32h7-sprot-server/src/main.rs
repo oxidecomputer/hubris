@@ -368,6 +368,7 @@ impl<S: SpiServer> Io<S> {
     // state changes (using EXTI), and waiting for either that or timeout
     // determined based on `max_sleep`.
     fn wait_rot_irq(&mut self, desired: bool, max_sleep: u32) -> bool {
+        use notifications::{sprot::TIMER_MASK, ROT_IRQ_MASK};
         // Determine our edge sensitivity for the interrupt. If we want to wait
         // for the line to be asserted, we want to wait for a rising edge. If
         // the line is currently asserted, and we're waiting for it to be
@@ -376,12 +377,11 @@ impl<S: SpiServer> Io<S> {
             true => sys_api::Edge::Rising,
             false => sys_api::Edge::Falling,
         };
-        self.sys
-            .gpio_irq_configure(notifications::ROT_IRQ_MASK, sensitivity);
+        self.sys.gpio_irq_configure(ROT_IRQ_MASK, sensitivity);
 
         // Enable the interrupt.
         self.sys
-            .gpio_irq_control(notifications::ROT_IRQ_MASK, IrqControl::Enable)
+            .gpio_irq_control(ROT_IRQ_MASK, IrqControl::Enable)
             // Just unwrap this, because the `sys` task should never panic.
             .unwrap_lite();
 
@@ -394,14 +394,13 @@ impl<S: SpiServer> Io<S> {
             // years. Using saturating arithmetic here lets us avoid a bounds
             // check.
             .saturating_add(max_sleep as u64);
-        sys_set_timer(Some(deadline), notifications::sprot::TIMER_MASK);
+        sys_set_timer(Some(deadline), TIMER_MASK);
 
         let mut irq_fired = false;
         while self.is_rot_irq_asserted() != desired {
             // Wait to be notified either by the timeout or by the ROT_IRQ pin
             // changing state.
-            const MASK: u32 =
-                notifications::sprot::TIMER_MASK | notifications::ROT_IRQ_MASK;
+            const MASK: u32 = TIMER_MASK | ROT_IRQ_MASK;
             let notif = sys_recv_notification(MASK);
 
             // First, check if the IRQ has fired. We do this by checking if the
@@ -412,15 +411,12 @@ impl<S: SpiServer> Io<S> {
             // notification bit, because it's possible *both* notifications were
             // posted before we were scheduled again, and if the IRQ did fire,
             // we'd prefer to honor that.
-            irq_fired = notif & notifications::ROT_IRQ_MASK != 0
+            irq_fired = notif & ROT_IRQ_MASK != 0
                 && self
                     .sys
-                    .gpio_irq_control(
-                        notifications::ROT_IRQ_MASK,
-                        // If the IRQ hasn't fired, leave it enabled, otherwise,
-                        // if it has fired, don't re-enable the IRQ.
-                        IrqControl::Check,
-                    )
+                    // If the IRQ hasn't fired, leave it enabled, otherwise,
+                    // if it has fired, don't re-enable the IRQ.
+                    .gpio_irq_control(ROT_IRQ_MASK, IrqControl::Check)
                     // Sys task shouldn't panic.
                     .unwrap_lite();
             if irq_fired {
@@ -429,7 +425,7 @@ impl<S: SpiServer> Io<S> {
 
             // If the timer notification was posted, and the GPIO IRQ
             // notification wasn't, we've waited for the timeout. Too bad!
-            if notif & notifications::TIMER_MASK != 0 {
+            if notif & TIMER_MASK != 0 {
                 // Record the timeout.
                 self.stats.timeouts = self.stats.timeouts.wrapping_add(1);
                 ringbuf_entry!(Trace::RotReadyTimeout);
@@ -440,15 +436,12 @@ impl<S: SpiServer> Io<S> {
         // Ensure the timer gets unset before returning, to avoid frightening
         // our IPC server when it's waiting in recv without expecting a timer to
         // go off.
-        sys_set_timer(None, notifications::sprot::TIMER_MASK);
+        sys_set_timer(None, TIMER_MASK);
         // If the IRQ didn't fire, let's also disable it, so that it also
         // doesn't go off later.
         if !irq_fired {
             self.sys
-                .gpio_irq_control(
-                    notifications::ROT_IRQ_MASK,
-                    IrqControl::Disable,
-                )
+                .gpio_irq_control(ROT_IRQ_MASK, IrqControl::Disable)
                 .unwrap_lite();
         }
 
