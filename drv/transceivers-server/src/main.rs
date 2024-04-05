@@ -596,129 +596,122 @@ impl NotificationHandler for ServerImpl {
 
 #[export_name = "main"]
 fn main() -> ! {
+    // This is a temporary workaround that makes sure the FPGAs are up
+    // before we start doing things with them. A more sophisticated
+    // notification system will be put in place.
+    let seq = Sequencer::from(SEQ.get_task_id());
+
+    let transceivers = Transceivers::new(FRONT_IO.get_task_id());
+    let leds = Leds::new(
+        &i2c_config::devices::pca9956b_front_leds_left(I2C.get_task_id()),
+        &i2c_config::devices::pca9956b_front_leds_right(I2C.get_task_id()),
+    );
+
+    let net = task_net_api::Net::from(NET.get_task_id());
+    let thermal_api = Thermal::from(THERMAL.get_task_id());
+    let sensor_api = Sensor::from(SENSOR.get_task_id());
+    let (tx_data_buf, rx_data_buf) = claim_statics();
+    let mut server = ServerImpl {
+        transceivers,
+        leds,
+        net,
+        modules_present: LogicalPortMask(0),
+        front_io_board_present: FrontIOStatus::NotReady,
+        led_error: Default::default(),
+        leds_initialized: false,
+        led_states: LedStates([LedState::Off; NUM_PORTS as usize]),
+        blink_on: false,
+        system_led_state: LedState::Off,
+        disabled: LogicalPortMask(0),
+        consecutive_nacks: [0; NUM_PORTS as usize],
+        thermal_api,
+        sensor_api,
+        thermal_models: [None; NUM_PORTS as usize],
+    };
+
+    // There are two timers, one for each communication bus:
+    #[derive(Copy, Clone, Enum)]
+    #[allow(clippy::upper_case_acronyms)]
+    enum Timers {
+        I2C,
+        SPI,
+        Blink,
+    }
+    let mut multitimer = Multitimer::<Timers>::new(notifications::TIMER_BIT);
+    // Immediately fire each timer, then begin to service regularly
+    let now = sys_get_timer().now;
+    multitimer.set_timer(
+        Timers::I2C,
+        now,
+        Some(Repeat::AfterDeadline(I2C_INTERVAL)),
+    );
+    multitimer.set_timer(
+        Timers::SPI,
+        now,
+        Some(Repeat::AfterDeadline(SPI_INTERVAL)),
+    );
+    multitimer.set_timer(
+        Timers::Blink,
+        now,
+        Some(Repeat::AfterDeadline(BLINK_INTERVAL)),
+    );
+
+    let mut buffer = [0; idl::INCOMING_SIZE];
     loop {
-        // This is a temporary workaround that makes sure the FPGAs are up
-        // before we start doing things with them. A more sophisticated
-        // notification system will be put in place.
-        let seq = Sequencer::from(SEQ.get_task_id());
+        if server.front_io_board_present == FrontIOStatus::NotReady {
+            server.front_io_board_present = match seq.front_io_board_ready() {
+                Ok(true) => {
+                    ringbuf_entry!(Trace::FrontIOBoardReady(true));
+                    FrontIOStatus::Ready
+                }
+                Err(SeqError::NoFrontIOBoard) => {
+                    ringbuf_entry!(Trace::FrontIOSeqErr(
+                        SeqError::NoFrontIOBoard
+                    ));
+                    FrontIOStatus::NotPresent
+                }
+                _ => {
+                    ringbuf_entry!(Trace::FrontIOBoardReady(false));
+                    FrontIOStatus::NotReady
+                }
+            };
 
-        let transceivers = Transceivers::new(FRONT_IO.get_task_id());
-        let leds = Leds::new(
-            &i2c_config::devices::pca9956b_front_leds_left(I2C.get_task_id()),
-            &i2c_config::devices::pca9956b_front_leds_right(I2C.get_task_id()),
-        );
-
-        let net = task_net_api::Net::from(NET.get_task_id());
-        let thermal_api = Thermal::from(THERMAL.get_task_id());
-        let sensor_api = Sensor::from(SENSOR.get_task_id());
-        let (tx_data_buf, rx_data_buf) = claim_statics();
-        let mut server = ServerImpl {
-            transceivers,
-            leds,
-            net,
-            modules_present: LogicalPortMask(0),
-            front_io_board_present: FrontIOStatus::NotReady,
-            led_error: Default::default(),
-            leds_initialized: false,
-            led_states: LedStates([LedState::Off; NUM_PORTS as usize]),
-            blink_on: false,
-            system_led_state: LedState::Off,
-            disabled: LogicalPortMask(0),
-            consecutive_nacks: [0; NUM_PORTS as usize],
-            thermal_api,
-            sensor_api,
-            thermal_models: [None; NUM_PORTS as usize],
-        };
-
-        // There are two timers, one for each communication bus:
-        #[derive(Copy, Clone, Enum)]
-        #[allow(clippy::upper_case_acronyms)]
-        enum Timers {
-            I2C,
-            SPI,
-            Blink,
-        }
-        let mut multitimer =
-            Multitimer::<Timers>::new(notifications::TIMER_BIT);
-        // Immediately fire each timer, then begin to service regularly
-        let now = sys_get_timer().now;
-        multitimer.set_timer(
-            Timers::I2C,
-            now,
-            Some(Repeat::AfterDeadline(I2C_INTERVAL)),
-        );
-        multitimer.set_timer(
-            Timers::SPI,
-            now,
-            Some(Repeat::AfterDeadline(SPI_INTERVAL)),
-        );
-        multitimer.set_timer(
-            Timers::Blink,
-            now,
-            Some(Repeat::AfterDeadline(BLINK_INTERVAL)),
-        );
-
-        let mut buffer = [0; idl::INCOMING_SIZE];
-        loop {
-            if server.front_io_board_present == FrontIOStatus::NotReady {
-                server.front_io_board_present = match seq.front_io_board_ready()
-                {
-                    Ok(true) => {
-                        ringbuf_entry!(Trace::FrontIOBoardReady(true));
-                        FrontIOStatus::Ready
-                    }
-                    Err(SeqError::NoFrontIOBoard) => {
-                        ringbuf_entry!(Trace::FrontIOSeqErr(
-                            SeqError::NoFrontIOBoard
-                        ));
-                        FrontIOStatus::NotPresent
-                    }
-                    _ => {
-                        ringbuf_entry!(Trace::FrontIOBoardReady(false));
-                        FrontIOStatus::NotReady
+            // If a board is present, attempt to initialize its
+            // LED drivers
+            if server.front_io_board_present == FrontIOStatus::Ready {
+                ringbuf_entry!(Trace::LEDInit);
+                match server.transceivers.enable_led_controllers() {
+                    Ok(_) => server.led_init(),
+                    Err(e) => {
+                        ringbuf_entry!(Trace::LEDEnableError(e))
                     }
                 };
-
-                // If a board is present, attempt to initialize its
-                // LED drivers
-                if server.front_io_board_present == FrontIOStatus::Ready {
-                    ringbuf_entry!(Trace::LEDInit);
-                    match server.transceivers.enable_led_controllers() {
-                        Ok(_) => server.led_init(),
-                        Err(e) => {
-                            ringbuf_entry!(Trace::LEDEnableError(e))
-                        }
-                    };
-                }
             }
-
-            multitimer.poll_now();
-            for t in multitimer.iter_fired() {
-                match t {
-                    Timers::I2C => {
-                        // Handle the Front IO status checking as part of this
-                        // loop because the frequency is what we had before and
-                        // the server itself has no knowledge of the sequencer.
-                        server.handle_i2c_loop();
-                    }
-                    Timers::SPI => {
-                        if server.front_io_board_present == FrontIOStatus::Ready
-                        {
-                            server.handle_spi_loop();
-                        }
-                    }
-                    Timers::Blink => {
-                        server.blink_on = !server.blink_on;
-                    }
-                }
-            }
-
-            server.check_net(
-                tx_data_buf.as_mut_slice(),
-                rx_data_buf.as_mut_slice(),
-            );
-            idol_runtime::dispatch(&mut buffer, &mut server);
         }
+
+        multitimer.poll_now();
+        for t in multitimer.iter_fired() {
+            match t {
+                Timers::I2C => {
+                    // Handle the Front IO status checking as part of this
+                    // loop because the frequency is what we had before and
+                    // the server itself has no knowledge of the sequencer.
+                    server.handle_i2c_loop();
+                }
+                Timers::SPI => {
+                    if server.front_io_board_present == FrontIOStatus::Ready {
+                        server.handle_spi_loop();
+                    }
+                }
+                Timers::Blink => {
+                    server.blink_on = !server.blink_on;
+                }
+            }
+        }
+
+        server
+            .check_net(tx_data_buf.as_mut_slice(), rx_data_buf.as_mut_slice());
+        idol_runtime::dispatch(&mut buffer, &mut server);
     }
 }
 ////////////////////////////////////////////////////////////////////////////////
