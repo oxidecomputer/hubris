@@ -6,6 +6,7 @@ use anyhow::{bail, Context, Result};
 use convert_case::{Case, Casing};
 use indexmap::IndexMap;
 use multimap::MultiMap;
+use rangemap::RangeSet;
 use serde::Deserialize;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Write;
@@ -1002,20 +1003,9 @@ impl ConfigGenerator {
         let mut all: Vec<_> = by_controller.iter_all().collect();
         all.sort();
 
-        for (controller, indices) in all {
-            let mut s: Vec<String> =
-                indices.iter().map(|f| format!("{}", f)).collect::<_>();
-
-            s.sort();
-
-            write!(
-                &mut self.output,
-                r##"
-                {} => Some(Controller::I2C{}),"##,
-                s.join("\n                | "),
-                controller,
-            )?;
-        }
+        match_arms(&mut self.output, all, |c| {
+            format!("Some(Controller::I2C{c})")
+        })?;
 
         write!(
             &mut self.output,
@@ -1039,20 +1029,7 @@ impl ConfigGenerator {
         let mut all: Vec<_> = by_port.iter_all().collect();
         all.sort();
 
-        for (port, indices) in all {
-            let mut s: Vec<String> =
-                indices.iter().map(|f| format!("{}", f)).collect::<_>();
-
-            s.sort();
-
-            write!(
-                &mut self.output,
-                r##"
-                {} => Some(PortIndex({})),"##,
-                s.join("\n                | "),
-                port,
-            )?;
-        }
+        match_arms(&mut self.output, all, |p| format!("Some(PortIndex({p}))"))?;
 
         write!(
             &mut self.output,
@@ -1756,4 +1733,34 @@ pub fn device_descriptions() -> impl Iterator<Item = I2cDeviceDescription> {
             sensors,
         },
     )
+}
+
+fn match_arms<'a, C>(
+    mut out: impl Write,
+    source: impl IntoIterator<Item = (&'a C, &'a Vec<usize>)>,
+    fmt: impl Fn(&C) -> String,
+) -> Result<()>
+where
+    C: 'a,
+{
+    for (controller, indices) in source {
+        let indices = indices
+            .iter()
+            .map(|&i| i..i + 1)
+            .collect::<RangeSet<usize>>();
+        let s = indices
+            .iter()
+            .map(|range| format!("{}..={}", range.start, range.end - 1))
+            .collect::<Vec<_>>()
+            .join("\n                | ");
+
+        let result = fmt(controller);
+
+        write!(
+            &mut out,
+            r##"
+                {s} => {result},"##,
+        )?;
+    }
+    Ok(())
 }

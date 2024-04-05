@@ -84,6 +84,9 @@ static_assertions::const_assert!(
 impl ComponentUpdater for HostFlashUpdate {
     const BLOCK_SIZE: usize = PAGE_SIZE_BYTES;
 
+    type UpdatePrepare = ComponentUpdatePrepare;
+    type SubComponent = ();
+
     fn prepare(
         &mut self,
         buffer: &'static UpdateBuffer,
@@ -243,6 +246,7 @@ impl ComponentUpdater for HostFlashUpdate {
 
     fn ingest_chunk(
         &mut self,
+        _sub: &(),
         id: &UpdateId,
         offset: u32,
         mut data: &[u8],

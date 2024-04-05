@@ -332,9 +332,9 @@ impl SpHandler for MgsHandler {
             SpComponent::SP_ITSELF | SpComponent::SP_AUX_FLASH => self
                 .sp_update
                 .ingest_chunk(&chunk.component, &chunk.id, chunk.offset, data),
-            SpComponent::ROT | SpComponent::STAGE0 => {
-                self.rot_update.ingest_chunk(&chunk.id, chunk.offset, data)
-            }
+            SpComponent::ROT | SpComponent::STAGE0 => self
+                .rot_update
+                .ingest_chunk(&(), &chunk.id, chunk.offset, data),
             _ => Err(SpError::RequestUnsupportedForComponent),
         }
     }
