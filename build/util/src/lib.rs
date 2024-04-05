@@ -42,6 +42,11 @@ pub fn target_os() -> String {
     std::env::var("CARGO_CFG_TARGET_OS").unwrap()
 }
 
+/// Reads the `HUBRIS_TASK_NAME` env var.
+pub fn task_name() -> String {
+    crate::env_var("HUBRIS_TASK_NAME").expect("missing HUBRIS_TASK_NAME")
+}
+
 /// Checks to see whether the given feature is enabled
 pub fn has_feature(s: &str) -> bool {
     std::env::var(format!(
@@ -104,12 +109,10 @@ pub fn config<T: DeserializeOwned>() -> Result<T> {
 
 /// Pulls the task configuration. See `config` for more details.
 pub fn task_config<T: DeserializeOwned>() -> Result<T> {
-    let task_name =
-        crate::env_var("HUBRIS_TASK_NAME").expect("missing HUBRIS_TASK_NAME");
     task_maybe_config()?.ok_or_else(|| {
         anyhow!(
             "app.toml missing task config section [tasks.{}.config]",
-            task_name
+            task_name()
         )
     })
 }

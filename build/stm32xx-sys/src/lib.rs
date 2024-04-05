@@ -2,14 +2,16 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use anyhow::Context;
 use quote::{quote, TokenStreamExt};
 use serde::Deserialize;
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, io::Write};
 
 #[derive(Deserialize, Default)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+#[serde(rename_all = "kebab-case")]
 pub struct SysConfig {
     /// EXTI interrupts
+    #[serde(default)]
     gpio_irqs: BTreeMap<String, GpioIrqConfig>,
 }
 
@@ -17,7 +19,7 @@ pub struct SysConfig {
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 struct GpioIrqConfig {
     port: Port,
-    pin: u8,
+    pin: usize,
     owner: GpioIrqOwner,
 }
 
@@ -68,6 +70,62 @@ to_tokens_enum! {
     }
 }
 
+pub fn build_gpio_irq_pins() -> anyhow::Result<()> {
+    let out_dir = build_util::out_dir();
+    let dest_path = out_dir.join("gpio_irq_pins.rs");
+    let mut out = std::fs::File::create(&dest_path).with_context(|| {
+        format!("failed to create file '{}'", dest_path.display())
+    })?;
+
+    let Some(sys_config) =
+        build_util::other_task_full_config::<SysConfig>("sys")?.config
+    else {
+        // No GPIO IRQs are configured; nothing left to do here!
+        return Ok(());
+    };
+
+    let task = build_util::task_name();
+    let pins = sys_config
+        .gpio_irqs
+        .iter()
+        .filter_map(|(name, cfg)| {
+            let &GpioIrqConfig {
+                pin,
+                port,
+                ref owner,
+            } = cfg;
+            // Only generate constants for pins owned by the current task.
+            if owner.name != task {
+                return None;
+            }
+
+            let name = match to_const_name(name.clone()) {
+                Ok(name) => name,
+                Err(e) => return Some(Err(e)),
+            };
+
+            Some(Ok(quote! {
+                pub const #name: PinSet = #port.pin(#pin);
+            }))
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
+
+    // Don't generate an empty module if there are no pins.
+    if pins.is_empty() {
+        return Ok(());
+    }
+
+    let tokens = quote! {
+        pub mod gpio_irq_pins {
+            use drv_stm32xx_gpio_common::{PinSet, Port};
+            #( #pins )*
+        }
+    };
+    writeln!(out, "{tokens}")?;
+
+    Ok(())
+}
+
 impl SysConfig {
     pub fn load() -> anyhow::Result<Self> {
         Ok(build_util::task_maybe_config::<Self>()?.unwrap_or_default())
@@ -111,7 +169,7 @@ impl SysConfig {
                     let task = syn::parse_str(&owner.name)?;
                     let note = quote::format_ident!(
                         "{}_MASK",
-                        owner.notification.to_uppercase().replace('-', "_")
+                        to_const_name(owner.notification.clone())?
                     );
 
                     let name = quote::format_ident!(
@@ -180,4 +238,11 @@ impl SysConfig {
             ];
         })
     }
+}
+
+fn to_const_name(mut s: String) -> anyhow::Result<syn::Ident> {
+    s.make_ascii_uppercase();
+    let s = s.replace("-", "_");
+    syn::parse_str::<syn::Ident>(&s)
+        .with_context(|| format!("`{s}` is not a valid Rust identifier"))
 }
