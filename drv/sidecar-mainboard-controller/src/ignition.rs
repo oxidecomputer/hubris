@@ -23,10 +23,12 @@ impl IgnitionController {
 
     #[inline]
     fn port_addr(&self, port: u8, offset: Addr) -> u16 {
-        u16::from(MainboardControllerAddr::IGNITION_CONTROLLERS_COUNT)
-            + 0x100
-            + (0x100 * u16::from(port))
-            + u16::from(offset)
+        // Ignition controllers are mapped into the 16 bit address space as
+        // follows:
+        //
+        // 0b01[ControllerId (6 bits)][RegisterId (8 bits)]
+        //
+        0x4000u16 + (u16::from(port) << 8) + u16::from(offset)
     }
 
     #[inline]
@@ -55,20 +57,6 @@ impl IgnitionController {
             .write(WriteOp::Write, self.port_addr(port, offset), value)
     }
 
-    #[inline]
-    fn update_port_register<T>(
-        &self,
-        op: WriteOp,
-        port: u8,
-        offset: IgnitionPageAddr,
-        value: T,
-    ) -> Result<(), FpgaError>
-    where
-        T: AsBytes + FromBytes,
-    {
-        self.fpga.write(op, self.port_addr(port, offset), value)
-    }
-
     /// Return the number of ports exposed by the Controller.
     #[inline]
     pub fn port_count(&self) -> Result<u8, FpgaError> {
@@ -84,9 +72,9 @@ impl IgnitionController {
         // templating shenanigans and a mismatch between the Controller logic
         // and device pins.
         //
-        // To avoid this additional complexity in the RTL the port count for
-        // rev B systems is adjusted here, allowing anything querying a Sidecar
-        // can distinguish between a rev B and a rev C with a faulty local link.
+        // To avoid this additional complexity in the RTL the port count for rev
+        // B systems is adjusted here, allowing anything querying a Sidecar to
+        // distinguish between a rev B and a rev C with a faulty local link.
         if cfg!(target_board = "sidecar-b") && count == 36 {
             Ok(35)
         } else {
@@ -105,18 +93,22 @@ impl IgnitionController {
     /// Return the state for the given port.
     #[inline]
     pub fn port_state(&self, port: u8) -> Result<PortState, FpgaError> {
-        self.read_port_register::<u64>(port, IgnitionPageAddr::CONTROLLER_STATE)
-            .map(PortState::from)
+        self.read_port_register::<u64>(
+            port,
+            IgnitionPageAddr::TRANSCEIVER_STATE,
+        )
+        .map(PortState::from)
     }
 
     /// Return if the given port transmits even if no Target is present.
     #[inline]
-    pub fn always_transmit(&self, port: u8) -> Result<bool, FpgaError> {
-        Ok(self.read_port_register::<u8>(
-            port,
-            IgnitionPageAddr::CONTROLLER_STATE,
-        )? & Reg::CONTROLLER_STATE::ALWAYS_TRANSMIT
-            != 0)
+    pub fn always_transmit(&self, _port: u8) -> Result<bool, FpgaError> {
+        // Ok(self.read_port_register::<u8>(
+        //     port,
+        //     IgnitionPageAddr::CONTROLLER_STATE,
+        // )? & Reg::CONTROLLER_STATE::ALWAYS_TRANSMIT
+        //     != 0)
+        Ok(false)
     }
 
     /// Set whether or not the given port should transmit even if no Target is
@@ -124,46 +116,62 @@ impl IgnitionController {
     #[inline]
     pub fn set_always_transmit(
         &self,
-        port: u8,
-        enabled: bool,
+        _port: u8,
+        _enabled: bool,
     ) -> Result<(), FpgaError> {
-        self.update_port_register(
-            if enabled {
-                WriteOp::BitSet
-            } else {
-                WriteOp::BitClear
-            },
-            port,
-            Addr::CONTROLLER_STATE,
-            Reg::CONTROLLER_STATE::ALWAYS_TRANSMIT,
-        )
+        // self.update_port_register(
+        //     if enabled {
+        //         WriteOp::BitSet
+        //     } else {
+        //         WriteOp::BitClear
+        //     },
+        //     port,
+        //     Addr::CONTROLLER_STATE,
+        //     Reg::CONTROLLER_STATE::ALWAYS_TRANSMIT,
+        // )
+        Ok(())
     }
 
-    /// Return the high level counters for the given port.
+    /// Return the application counters for the given port.
     #[inline]
-    pub fn counters(&self, port: u8) -> Result<Counters, FpgaError> {
-        self.read_port_register::<[u8; 4]>(
+    pub fn application_counters(
+        &self,
+        port: u8,
+    ) -> Result<ApplicationCounters, FpgaError> {
+        self.read_port_register::<[u8; 6]>(
             port,
-            IgnitionPageAddr::CONTROLLER_STATUS_RECEIVED_COUNT,
+            IgnitionPageAddr::TARGET_PRESENT_COUNT,
         )
-        .map(Counters::from)
+        .map(ApplicationCounters::from)
     }
 
+    /// Return the transceiver counters for the given port and transceiver.
     #[inline]
-    const fn transceiver_events_addr(
+    pub fn transceiver_counters(
+        &self,
+        port: u8,
         txr: TransceiverSelect,
-    ) -> IgnitionPageAddr {
-        match txr {
-            TransceiverSelect::Controller => {
-                IgnitionPageAddr::CONTROLLER_LINK_EVENTS_SUMMARY
-            }
-            TransceiverSelect::TargetLink0 => {
-                IgnitionPageAddr::TARGET_LINK0_EVENTS_SUMMARY
-            }
-            TransceiverSelect::TargetLink1 => {
-                IgnitionPageAddr::TARGET_LINK1_EVENTS_SUMMARY
-            }
-        }
+    ) -> Result<TransceiverCounters, FpgaError> {
+        let (base, decode_func): (
+            IgnitionPageAddr,
+            fn([u8; 10]) -> TransceiverCounters,
+        ) = match txr {
+            TransceiverSelect::Controller => (
+                IgnitionPageAddr::CONTROLLER_RECEIVER_RESET_COUNT,
+                TransceiverCounters::from_controller,
+            ),
+            TransceiverSelect::TargetLink0 => (
+                IgnitionPageAddr::TARGET_LINK0_RECEIVER_RESET_COUNT,
+                TransceiverCounters::from_target_link0,
+            ),
+            TransceiverSelect::TargetLink1 => (
+                IgnitionPageAddr::TARGET_LINK1_RECEIVER_RESET_COUNT,
+                TransceiverCounters::from_target_link0,
+            ),
+        };
+
+        self.read_port_register::<[u8; 10]>(port, base)
+            .map(decode_func)
     }
 
     /// Return the event summary vector for the given port and link.
@@ -173,7 +181,39 @@ impl IgnitionController {
         port: u8,
         txr: TransceiverSelect,
     ) -> Result<u8, FpgaError> {
-        self.read_port_register(port, Self::transceiver_events_addr(txr))
+        let counters = self.transceiver_counters(port, txr)?;
+
+        Ok(0u8
+            | if counters.encoding_error > 0 {
+                1 << 0
+            } else {
+                0
+            }
+            | if counters.decoding_error > 0 {
+                1 << 1
+            } else {
+                0
+            }
+            | if counters.ordered_set_invalid > 0 {
+                1 << 2
+            } else {
+                0
+            }
+            | if counters.message_version_invalid > 8 {
+                1 << 3
+            } else {
+                0
+            }
+            | if counters.message_type_invalid > 8 {
+                1 << 4
+            } else {
+                0
+            }
+            | if counters.message_checksum_invalid > 8 {
+                1 << 5
+            } else {
+                0
+            })
     }
 
     /// Clear the events for the given port, link.
@@ -183,17 +223,14 @@ impl IgnitionController {
         port: u8,
         txr: TransceiverSelect,
     ) -> Result<(), FpgaError> {
-        self.write_port_register(
-            port,
-            Self::transceiver_events_addr(txr),
-            u8::from(TransceiverEvents::ALL),
-        )
+        let _ = self.transceiver_events(port, txr)?;
+        Ok(())
     }
 
     /// Read the request register for the given port.
     #[inline]
-    pub fn request(&self, port: u8) -> Result<u8, FpgaError> {
-        self.read_port_register(port, IgnitionPageAddr::TARGET_REQUEST)
+    pub fn request(&self, _port: u8) -> Result<u8, FpgaError> {
+        Ok(0)
     }
 
     /// Set the request register for the given port.
@@ -205,8 +242,8 @@ impl IgnitionController {
     ) -> Result<(), FpgaError> {
         self.write_port_register(
             port,
-            IgnitionPageAddr::TARGET_REQUEST,
-            u8::from(request),
+            IgnitionPageAddr::TARGET_SYSTEM_POWER_REQUEST_STATUS,
+            u8::from(request) << 4,
         )
     }
 }

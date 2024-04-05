@@ -50,13 +50,27 @@ Interface(
                 err: CLike("drv_ignition_api::IgnitionError"),
             ),
         ),
-        "counters": (
-            doc: "Return the counters for the given controller port",
+        "application_counters": (
+            doc: "Return the application counters for the given controller port",
             args: {
                 "port": "u8",
             },
             reply: Result(
-                ok: "drv_ignition_api::Counters",
+                ok: "drv_ignition_api::ApplicationCounters",
+                err: CLike("drv_ignition_api::IgnitionError"),
+            ),
+        ),
+        "transceiver_counters": (
+            doc: "Return the Controller transceiver counters for the given controller port",
+            args: {
+                "port": "u8",
+                "txr": (
+                    type: "drv_ignition_api::TransceiverSelect",
+                    recv: FromPrimitive("u8"),
+                ),
+            },
+            reply: Result(
+                ok: "drv_ignition_api::TransceiverCounters",
                 err: CLike("drv_ignition_api::IgnitionError"),
             ),
         ),

@@ -162,7 +162,7 @@ impl ServerImpl {
         ringbuf_entry!(Trace::TargetArrive(port));
 
         // Clear counters.
-        self.controller.counters(port)?;
+        //self.controller.counters(port)?;
 
         // Reset the events for each transceiver if the register is set to its
         // default value.
@@ -300,17 +300,33 @@ impl idl::InOrderIgnitionImpl for ServerImpl {
             .map_err(RequestError::from)
     }
 
-    fn counters(
+    fn application_counters(
         &mut self,
         _: &userlib::RecvMessage,
         port: u8,
-    ) -> Result<Counters, RequestError> {
+    ) -> Result<ApplicationCounters, RequestError> {
         if port >= self.port_count {
             return Err(RequestError::from(IgnitionError::InvalidPort));
         }
 
         self.controller
-            .counters(port)
+            .application_counters(port)
+            .map_err(IgnitionError::from)
+            .map_err(RequestError::from)
+    }
+
+    fn transceiver_counters(
+        &mut self,
+        _: &userlib::RecvMessage,
+        port: u8,
+        txr: TransceiverSelect,
+    ) -> Result<TransceiverCounters, RequestError> {
+        if port >= self.port_count {
+            return Err(RequestError::from(IgnitionError::InvalidPort));
+        }
+
+        self.controller
+            .transceiver_counters(port, txr)
             .map_err(IgnitionError::from)
             .map_err(RequestError::from)
     }

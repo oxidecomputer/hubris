@@ -240,7 +240,7 @@ impl From<SystemPowerStateConvert> for SystemPowerState {
     }
 }
 
-struct SystemFaultsConvert(drv_ignition_api::SystemFaults);
+struct SystemFaultsConvert(drv_ignition_api::SystemEvents);
 
 impl From<SystemFaultsConvert> for SystemFaults {
     fn from(s: SystemFaultsConvert) -> Self {

@@ -142,11 +142,14 @@ impl Ignition {
         self.controller.send_request(port, request)
     }
 
-    /// Return the `Counters` for the given port. This function has the
-    /// side-effect of clearing the counters.
+    /// Return the `ApplicationCounters` for the given port. This function has
+    /// the side-effect of clearing the counters.
     #[inline]
-    pub fn counters(&self, port: u8) -> Result<Counters, IgnitionError> {
-        self.controller.counters(port)
+    pub fn application_counters(
+        &self,
+        port: u8,
+    ) -> Result<ApplicationCounters, IgnitionError> {
+        self.controller.application_counters(port)
     }
 
     /// Return the `TransceiverEvents` for the given port and transceiver. See
@@ -250,7 +253,7 @@ impl PortState {
     /// assumptions about addresses used to access data.
     #[inline]
     const fn byte_offset(addr: Addr) -> usize {
-        (addr as usize) - (Addr::CONTROLLER_STATE as usize)
+        (addr as usize) - (Addr::TRANSCEIVER_STATE as usize)
     }
 
     #[inline]
@@ -276,10 +279,11 @@ impl From<PortState> for Port {
             != 0;
 
         Self {
-            always_transmit: state.byte(Addr::CONTROLLER_STATE)
-                & Reg::CONTROLLER_STATE::ALWAYS_TRANSMIT
-                != 0,
-            receiver_status: state.byte(Addr::CONTROLLER_LINK_STATUS).into(),
+            // always_transmit: state.byte(Addr::CONTROLLER_STATE)
+            //     & Reg::CONTROLLER_STATE::ALWAYS_TRANSMIT
+            //     != 0,
+            always_transmit: false,
+            receiver_status: state.byte(Addr::TRANSCEIVER_STATE).into(),
             target: if target_present {
                 Some(Target::from(state))
             } else {
@@ -307,12 +311,12 @@ pub struct ReceiverStatus {
 
 impl From<u8> for ReceiverStatus {
     fn from(r: u8) -> ReceiverStatus {
-        use Reg::CONTROLLER_LINK_STATUS::*;
+        use Reg::TRANSCEIVER_STATE::*;
 
         ReceiverStatus {
             aligned: r & RECEIVER_ALIGNED != 0,
             locked: r & RECEIVER_LOCKED != 0,
-            polarity_inverted: r & POLARITY_INVERTED != 0,
+            polarity_inverted: r & RECEIVER_POLARITY_INVERTED != 0,
         }
     }
 }
@@ -329,7 +333,7 @@ pub struct Target {
     pub power_reset_in_progress: bool,
     /// Flags indicating system faults as observed by the Target. The precise
     /// meaning of these may be dependent on the system id.
-    pub faults: SystemFaults,
+    pub faults: SystemEvents,
     /// The Target has observed the presence of a Controller on link 0.
     pub controller0_present: bool,
     /// The Target has observed the presence of a Controller on link 1.
@@ -353,21 +357,23 @@ impl Target {
 
 impl From<PortState> for Target {
     fn from(state: PortState) -> Self {
-        use Reg::TARGET_REQUEST_STATUS::*;
+        use Reg::TARGET_SYSTEM_POWER_REQUEST_STATUS::*;
         use Reg::TARGET_SYSTEM_STATUS::*;
 
         let system_status = state.byte(Addr::TARGET_SYSTEM_STATUS);
-        let request_status = state.byte(Addr::TARGET_REQUEST_STATUS);
+        let system_power_request_status =
+            state.byte(Addr::TARGET_SYSTEM_POWER_REQUEST_STATUS);
 
         Target {
             id: SystemId(state.byte(Addr::TARGET_SYSTEM_TYPE)),
-            power_state: SystemPowerState::from((
+            power_state: SystemPowerState::from_status(
                 system_status,
-                request_status,
-            )),
-            power_reset_in_progress: request_status & SYSTEM_RESET_IN_PROGRESS
+                system_power_request_status,
+            ),
+            power_reset_in_progress: system_power_request_status
+                & POWER_RESET_IN_PROGRESS
                 != 0,
-            faults: SystemFaults::from(state.byte(Addr::TARGET_SYSTEM_FAULTS)),
+            faults: SystemEvents::from(state.byte(Addr::TARGET_SYSTEM_EVENTS)),
             controller0_present: system_status & CONTROLLER0_DETECTED != 0,
             controller1_present: system_status & CONTROLLER1_DETECTED != 0,
             link0_receiver_status: state.byte(Addr::TARGET_LINK0_STATUS).into(),
@@ -395,18 +401,16 @@ pub enum SystemPowerState {
     PoweringOn,
 }
 
-impl From<(u8, u8)> for SystemPowerState {
-    fn from(state: (u8, u8)) -> Self {
-        use Reg::TARGET_REQUEST_STATUS::*;
+impl SystemPowerState {
+    fn from_status(system_status: u8, system_power_request_status: u8) -> Self {
+        use Reg::TARGET_SYSTEM_POWER_REQUEST_STATUS::*;
         use Reg::TARGET_SYSTEM_STATUS::*;
-
-        let (system_status, request_status) = state;
 
         if system_status & SYSTEM_POWER_ABORT != 0 {
             SystemPowerState::Aborted
-        } else if request_status & POWER_ON_IN_PROGRESS != 0 {
+        } else if system_power_request_status & POWER_ON_IN_PROGRESS != 0 {
             SystemPowerState::PoweringOn
-        } else if request_status & POWER_OFF_IN_PROGRESS != 0 {
+        } else if system_power_request_status & POWER_OFF_IN_PROGRESS != 0 {
             SystemPowerState::PoweringOff
         } else if system_status & SYSTEM_POWER_ENABLED != 0 {
             SystemPowerState::On
@@ -418,7 +422,7 @@ impl From<(u8, u8)> for SystemPowerState {
 
 /// `SystemFaults` are faults in a system which may be observed by the Target.
 #[derive(Copy, Clone, Debug, Default, Serialize)]
-pub struct SystemFaults {
+pub struct SystemEvents {
     /// A fault occured with one of the components in the A3 power domain.
     pub power_a3: bool,
     /// A fault occured with one of the components in the A2 power domain.
@@ -430,15 +434,15 @@ pub struct SystemFaults {
     pub sp: bool,
 }
 
-impl From<u8> for SystemFaults {
+impl From<u8> for SystemEvents {
     fn from(r: u8) -> Self {
-        use Reg::TARGET_SYSTEM_FAULTS::*;
+        use Reg::TARGET_SYSTEM_EVENTS::*;
 
         Self {
             power_a3: r & POWER_FAULT_A3 != 0,
             power_a2: r & POWER_FAULT_A2 != 0,
-            rot: r & ROT_FAULT != 0,
-            sp: r & SP_FAULT != 0,
+            rot: r & ROT != 0,
+            sp: r & SP != 0,
         }
     }
 }
@@ -490,39 +494,42 @@ impl From<Request> for u8 {
     Copy, Clone, Debug, Default, PartialEq, Eq, AsBytes, FromBytes, Serialize,
 )]
 #[repr(C)]
-pub struct Counters {
+pub struct ApplicationCounters {
+    pub target_present: u8,
+    pub target_timeout: u8,
     /// The number of Status messages received from the Target.
-    pub status_received: u8,
+    pub target_status_received: u8,
+    /// The number of Status timeout events observed by the Controller.
+    pub target_status_timeout: u8,
     /// The number of Hello messages sent by the Controller.
     pub hello_sent: u8,
-    /// The number of requests sent by the Controller.
-    pub request_sent: u8,
-    /// The number of Hello or Request messages dropped by the Controller. A
-    /// Target does not send these messages thus this counter is expected to
-    /// always be zero.
-    pub message_dropped: u8,
+    /// The number of system power requests sent by the Controller.
+    pub system_power_request_sent: u8,
 }
 
-impl Counters {
+impl ApplicationCounters {
     /// A const helper which can be used in static asserts below to check
     /// assumptions about addresses used to access data.
     #[inline]
     const fn byte_offset(addr: Addr) -> usize {
-        (addr as usize) - (Addr::CONTROLLER_STATUS_RECEIVED_COUNT as usize)
+        (addr as usize) - (Addr::TARGET_PRESENT_COUNT as usize)
     }
 }
 
-impl From<[u8; 4]> for Counters {
-    fn from(data: [u8; 4]) -> Self {
-        Counters {
-            status_received: data
-                [Self::byte_offset(Addr::CONTROLLER_STATUS_RECEIVED_COUNT)],
+impl From<[u8; 6]> for ApplicationCounters {
+    fn from(data: [u8; 6]) -> Self {
+        ApplicationCounters {
+            target_present: data[Self::byte_offset(Addr::TARGET_PRESENT_COUNT)],
+            target_timeout: data[Self::byte_offset(Addr::TARGET_TIMEOUT_COUNT)],
+            target_status_received: data
+                [Self::byte_offset(Addr::TARGET_STATUS_RECEIVED_COUNT)],
+            target_status_timeout: data
+                [Self::byte_offset(Addr::TARGET_STATUS_TIMEOUT_COUNT)],
             hello_sent: data
                 [Self::byte_offset(Addr::CONTROLLER_HELLO_SENT_COUNT)],
-            request_sent: data
-                [Self::byte_offset(Addr::CONTROLLER_REQUEST_SENT_COUNT)],
-            message_dropped: data
-                [Self::byte_offset(Addr::CONTROLLER_MESSAGE_DROPPED_COUNT)],
+            system_power_request_sent: data[Self::byte_offset(
+                Addr::CONTROLLER_SYSTEM_POWER_REQUEST_SENT_COUNT,
+            )],
         }
     }
 }
@@ -561,16 +568,25 @@ impl TransceiverEvents {
     pub const ALL: Self = Self::from_u8(0x3f);
 
     // Implement as const functions to allow use above.
-    const fn from_u8(r: u8) -> Self {
-        use Reg::CONTROLLER_LINK_EVENTS_SUMMARY::*;
+    const fn from_u8(_r: u8) -> Self {
+        // use Reg::CONTROLLER_LINK_EVENTS_SUMMARY::*;
+
+        // Self {
+        //     encoding_error: r & ENCODING_ERROR != 0,
+        //     decoding_error: r & DECODING_ERROR != 0,
+        //     ordered_set_invalid: r & ORDERED_SET_INVALID != 0,
+        //     message_version_invalid: r & MESSAGE_VERSION_INVALID != 0,
+        //     message_type_invalid: r & MESSAGE_TYPE_INVALID != 0,
+        //     message_checksum_invalid: r & MESSAGE_CHECKSUM_INVALID != 0,
+        // }
 
         Self {
-            encoding_error: r & ENCODING_ERROR != 0,
-            decoding_error: r & DECODING_ERROR != 0,
-            ordered_set_invalid: r & ORDERED_SET_INVALID != 0,
-            message_version_invalid: r & MESSAGE_VERSION_INVALID != 0,
-            message_type_invalid: r & MESSAGE_TYPE_INVALID != 0,
-            message_checksum_invalid: r & MESSAGE_CHECKSUM_INVALID != 0,
+            encoding_error: false,
+            decoding_error: false,
+            ordered_set_invalid: false,
+            message_version_invalid: false,
+            message_type_invalid: false,
+            message_checksum_invalid: false,
         }
     }
 }
@@ -582,33 +598,221 @@ impl From<u8> for TransceiverEvents {
 }
 
 impl From<TransceiverEvents> for u8 {
-    fn from(events: TransceiverEvents) -> u8 {
-        use Reg::CONTROLLER_LINK_EVENTS_SUMMARY::*;
+    fn from(_events: TransceiverEvents) -> u8 {
+        // use Reg::CONTROLLER_LINK_EVENTS_SUMMARY::*;
 
-        0u8 | if events.encoding_error {
-            ENCODING_ERROR
-        } else {
-            0
-        } | if events.decoding_error {
-            DECODING_ERROR
-        } else {
-            0
-        } | if events.ordered_set_invalid {
-            ORDERED_SET_INVALID
-        } else {
-            0
-        } | if events.message_version_invalid {
-            MESSAGE_VERSION_INVALID
-        } else {
-            0
-        } | if events.message_type_invalid {
-            MESSAGE_TYPE_INVALID
-        } else {
-            0
-        } | if events.message_checksum_invalid {
-            MESSAGE_CHECKSUM_INVALID
-        } else {
-            0
+        // 0u8 | if events.encoding_error {
+        //     ENCODING_ERROR
+        // } else {
+        //     0
+        // } | if events.decoding_error {
+        //     DECODING_ERROR
+        // } else {
+        //     0
+        // } | if events.ordered_set_invalid {
+        //     ORDERED_SET_INVALID
+        // } else {
+        //     0
+        // } | if events.message_version_invalid {
+        //     MESSAGE_VERSION_INVALID
+        // } else {
+        //     0
+        // } | if events.message_type_invalid {
+        //     MESSAGE_TYPE_INVALID
+        // } else {
+        //     0
+        // } | if events.message_checksum_invalid {
+        //     MESSAGE_CHECKSUM_INVALID
+        // } else {
+        //     0
+        // }
+
+        0u8
+    }
+}
+
+/// `TransceiverEvents` can be used to track some implementation details of an
+/// Ignition transceiver. These are sticky and indicate at least one of these
+/// events occured since they were cleared.
+#[derive(
+    Copy, Clone, Debug, Default, PartialEq, Eq, AsBytes, FromBytes, Serialize,
+)]
+#[repr(C)]
+pub struct TransceiverCounters {
+    pub receiver_reset: u8,
+    pub receiver_aligned: u8,
+    pub receiver_locked: u8,
+    pub receiver_polarity_inverted: u8,
+    /// The transmitter encoded an invalid 8B10B control character. This should
+    /// never occur and is either an indication of a design flaw or corruption
+    /// (think bit flip in a LUT) of the logic in the FPGAs implementing the
+    /// Controller or Target.
+    pub encoding_error: u8,
+    /// The receiver received an 8B10B character which was invalid given the
+    /// decoder state. This usually indicates bit errors in the received data
+    /// These errors are expected to occur during link start-up or when a Target
+    /// suddenly goes away due to a loss of power.
+    pub decoding_error: u8,
+    /// An 8B10B character was received which did not match the expected
+    /// character sequence for the expected ordered set. These events may occur
+    /// when a Target suddenly goes away due to a loss of power.
+    pub ordered_set_invalid: u8,
+    /// The version of a received message was invalid.
+    pub message_version_invalid: u8,
+    /// The type of a received message was invalid. This depends on the system
+    /// receiving the message, e.g. this event will occur when a Target receives
+    /// a Status message.
+    pub message_type_invalid: u8,
+    /// The checksum of the message was invalid.
+    pub message_checksum_invalid: u8,
+}
+
+impl TransceiverCounters {
+    /// A const helper which can be used in static asserts below to check
+    /// assumptions about addresses used to access data.
+    #[inline]
+    const fn byte_offset(base: Addr, addr: Addr) -> usize {
+        (addr as usize) - (base as usize)
+    }
+
+    pub fn from_controller(data: [u8; 10]) -> Self {
+        let base = Addr::CONTROLLER_RECEIVER_RESET_COUNT;
+
+        Self {
+            receiver_reset: data[Self::byte_offset(
+                base,
+                Addr::CONTROLLER_RECEIVER_RESET_COUNT,
+            )],
+            receiver_aligned: data[Self::byte_offset(
+                base,
+                Addr::CONTROLLER_RECEIVER_ALIGNED_COUNT,
+            )],
+            receiver_locked: data[Self::byte_offset(
+                base,
+                Addr::CONTROLLER_RECEIVER_LOCKED_COUNT,
+            )],
+            receiver_polarity_inverted: data[Self::byte_offset(
+                base,
+                Addr::CONTROLLER_RECEIVER_POLARITY_INVERTED_COUNT,
+            )],
+            encoding_error: data[Self::byte_offset(
+                base,
+                Addr::CONTROLLER_ENCODING_ERROR_COUNT,
+            )],
+            decoding_error: data[Self::byte_offset(
+                base,
+                Addr::CONTROLLER_DECODING_ERROR_COUNT,
+            )],
+            ordered_set_invalid: data[Self::byte_offset(
+                base,
+                Addr::CONTROLLER_ORDERED_SET_INVALID_COUNT,
+            )],
+            message_version_invalid: data[Self::byte_offset(
+                base,
+                Addr::CONTROLLER_MESSAGE_VERSION_INVALID_COUNT,
+            )],
+            message_type_invalid: data[Self::byte_offset(
+                base,
+                Addr::CONTROLLER_MESSAGE_TYPE_INVALID_COUNT,
+            )],
+            message_checksum_invalid: data[Self::byte_offset(
+                base,
+                Addr::CONTROLLER_MESSAGE_CHECKSUM_INVALID_COUNT,
+            )],
+        }
+    }
+
+    pub fn from_target_link0(data: [u8; 10]) -> Self {
+        let base = Addr::TARGET_LINK0_RECEIVER_RESET_COUNT;
+
+        Self {
+            receiver_reset: data[Self::byte_offset(
+                base,
+                Addr::TARGET_LINK0_RECEIVER_RESET_COUNT,
+            )],
+            receiver_aligned: data[Self::byte_offset(
+                base,
+                Addr::TARGET_LINK0_RECEIVER_ALIGNED_COUNT,
+            )],
+            receiver_locked: data[Self::byte_offset(
+                base,
+                Addr::TARGET_LINK0_RECEIVER_LOCKED_COUNT,
+            )],
+            receiver_polarity_inverted: data[Self::byte_offset(
+                base,
+                Addr::TARGET_LINK0_RECEIVER_POLARITY_INVERTED_COUNT,
+            )],
+            encoding_error: data[Self::byte_offset(
+                base,
+                Addr::TARGET_LINK0_ENCODING_ERROR_COUNT,
+            )],
+            decoding_error: data[Self::byte_offset(
+                base,
+                Addr::TARGET_LINK0_DECODING_ERROR_COUNT,
+            )],
+            ordered_set_invalid: data[Self::byte_offset(
+                base,
+                Addr::TARGET_LINK0_ORDERED_SET_INVALID_COUNT,
+            )],
+            message_version_invalid: data[Self::byte_offset(
+                base,
+                Addr::TARGET_LINK0_MESSAGE_VERSION_INVALID_COUNT,
+            )],
+            message_type_invalid: data[Self::byte_offset(
+                base,
+                Addr::TARGET_LINK0_MESSAGE_TYPE_INVALID_COUNT,
+            )],
+            message_checksum_invalid: data[Self::byte_offset(
+                base,
+                Addr::TARGET_LINK0_MESSAGE_CHECKSUM_INVALID_COUNT,
+            )],
+        }
+    }
+
+    pub fn from_target_link1(data: [u8; 10]) -> Self {
+        let base = Addr::TARGET_LINK1_RECEIVER_RESET_COUNT;
+
+        Self {
+            receiver_reset: data[Self::byte_offset(
+                base,
+                Addr::TARGET_LINK1_RECEIVER_RESET_COUNT,
+            )],
+            receiver_aligned: data[Self::byte_offset(
+                base,
+                Addr::TARGET_LINK1_RECEIVER_ALIGNED_COUNT,
+            )],
+            receiver_locked: data[Self::byte_offset(
+                base,
+                Addr::TARGET_LINK1_RECEIVER_LOCKED_COUNT,
+            )],
+            receiver_polarity_inverted: data[Self::byte_offset(
+                base,
+                Addr::TARGET_LINK1_RECEIVER_POLARITY_INVERTED_COUNT,
+            )],
+            encoding_error: data[Self::byte_offset(
+                base,
+                Addr::TARGET_LINK1_ENCODING_ERROR_COUNT,
+            )],
+            decoding_error: data[Self::byte_offset(
+                base,
+                Addr::TARGET_LINK1_DECODING_ERROR_COUNT,
+            )],
+            ordered_set_invalid: data[Self::byte_offset(
+                base,
+                Addr::TARGET_LINK1_ORDERED_SET_INVALID_COUNT,
+            )],
+            message_version_invalid: data[Self::byte_offset(
+                base,
+                Addr::TARGET_LINK1_MESSAGE_VERSION_INVALID_COUNT,
+            )],
+            message_type_invalid: data[Self::byte_offset(
+                base,
+                Addr::TARGET_LINK1_MESSAGE_TYPE_INVALID_COUNT,
+            )],
+            message_checksum_invalid: data[Self::byte_offset(
+                base,
+                Addr::TARGET_LINK1_MESSAGE_CHECKSUM_INVALID_COUNT,
+            )],
         }
     }
 }
@@ -664,7 +868,7 @@ pub struct IgnitionPortStateForHumility {
     pub target_present: bool,
     pub target: Target,
     pub receiver_status: ReceiverStatus,
-    pub counters: Counters,
+    pub application_counters: ApplicationCounters,
     pub link_events: LinkEvents,
 }
 
@@ -675,7 +879,7 @@ impl From<Port> for IgnitionPortStateForHumility {
             target: port.target.unwrap_or_default(),
             receiver_status: port.receiver_status,
             // The remaining fields require additional data so use defaults.
-            counters: Default::default(),
+            application_counters: Default::default(),
             link_events: Default::default(),
         }
     }
@@ -700,11 +904,10 @@ mod reg_map {
 use core::mem::size_of;
 
 const_assert!(
-    PortState::byte_offset(Addr::CONTROLLER_STATE) < size_of::<PortState>()
+    PortState::byte_offset(Addr::TRANSCEIVER_STATE) < size_of::<PortState>()
 );
 const_assert!(
-    PortState::byte_offset(Addr::CONTROLLER_LINK_STATUS)
-        < size_of::<PortState>()
+    PortState::byte_offset(Addr::CONTROLLER_STATE) < size_of::<PortState>()
 );
 const_assert!(
     PortState::byte_offset(Addr::TARGET_SYSTEM_TYPE) < size_of::<PortState>()
@@ -713,10 +916,10 @@ const_assert!(
     PortState::byte_offset(Addr::TARGET_SYSTEM_STATUS) < size_of::<PortState>()
 );
 const_assert!(
-    PortState::byte_offset(Addr::TARGET_SYSTEM_FAULTS) < size_of::<PortState>()
+    PortState::byte_offset(Addr::TARGET_SYSTEM_EVENTS) < size_of::<PortState>()
 );
 const_assert!(
-    PortState::byte_offset(Addr::TARGET_REQUEST_STATUS)
+    PortState::byte_offset(Addr::TARGET_SYSTEM_POWER_REQUEST_STATUS)
         < size_of::<PortState>()
 );
 const_assert!(
@@ -727,13 +930,204 @@ const_assert!(
 );
 
 // Check assumptions about register addresses for counters.
+const_assert!(ApplicationCounters::byte_offset(Addr::TARGET_PRESENT_COUNT) < 6);
+const_assert!(ApplicationCounters::byte_offset(Addr::TARGET_TIMEOUT_COUNT) < 6);
 const_assert!(
-    Counters::byte_offset(Addr::CONTROLLER_STATUS_RECEIVED_COUNT) < 4
+    ApplicationCounters::byte_offset(Addr::TARGET_STATUS_RECEIVED_COUNT) < 6
 );
-const_assert!(Counters::byte_offset(Addr::CONTROLLER_HELLO_SENT_COUNT) < 4);
-const_assert!(Counters::byte_offset(Addr::CONTROLLER_REQUEST_SENT_COUNT) < 4);
 const_assert!(
-    Counters::byte_offset(Addr::CONTROLLER_MESSAGE_DROPPED_COUNT) < 4
+    ApplicationCounters::byte_offset(Addr::TARGET_STATUS_TIMEOUT_COUNT) < 6
+);
+const_assert!(
+    ApplicationCounters::byte_offset(Addr::CONTROLLER_HELLO_SENT_COUNT) < 6
+);
+const_assert!(
+    ApplicationCounters::byte_offset(
+        Addr::CONTROLLER_SYSTEM_POWER_REQUEST_SENT_COUNT
+    ) < 6
+);
+
+const_assert!(
+    TransceiverCounters::byte_offset(
+        Addr::CONTROLLER_RECEIVER_RESET_COUNT,
+        Addr::CONTROLLER_RECEIVER_RESET_COUNT
+    ) < 10
+);
+const_assert!(
+    TransceiverCounters::byte_offset(
+        Addr::CONTROLLER_RECEIVER_RESET_COUNT,
+        Addr::CONTROLLER_RECEIVER_ALIGNED_COUNT
+    ) < 10
+);
+const_assert!(
+    TransceiverCounters::byte_offset(
+        Addr::CONTROLLER_RECEIVER_RESET_COUNT,
+        Addr::CONTROLLER_RECEIVER_LOCKED_COUNT
+    ) < 10
+);
+const_assert!(
+    TransceiverCounters::byte_offset(
+        Addr::CONTROLLER_RECEIVER_RESET_COUNT,
+        Addr::CONTROLLER_RECEIVER_POLARITY_INVERTED_COUNT
+    ) < 10
+);
+const_assert!(
+    TransceiverCounters::byte_offset(
+        Addr::CONTROLLER_RECEIVER_RESET_COUNT,
+        Addr::CONTROLLER_ENCODING_ERROR_COUNT
+    ) < 10
+);
+const_assert!(
+    TransceiverCounters::byte_offset(
+        Addr::CONTROLLER_RECEIVER_RESET_COUNT,
+        Addr::CONTROLLER_DECODING_ERROR_COUNT
+    ) < 10
+);
+const_assert!(
+    TransceiverCounters::byte_offset(
+        Addr::CONTROLLER_RECEIVER_RESET_COUNT,
+        Addr::CONTROLLER_ORDERED_SET_INVALID_COUNT
+    ) < 10
+);
+const_assert!(
+    TransceiverCounters::byte_offset(
+        Addr::CONTROLLER_RECEIVER_RESET_COUNT,
+        Addr::CONTROLLER_MESSAGE_VERSION_INVALID_COUNT
+    ) < 10
+);
+const_assert!(
+    TransceiverCounters::byte_offset(
+        Addr::CONTROLLER_RECEIVER_RESET_COUNT,
+        Addr::CONTROLLER_MESSAGE_TYPE_INVALID_COUNT
+    ) < 10
+);
+const_assert!(
+    TransceiverCounters::byte_offset(
+        Addr::CONTROLLER_RECEIVER_RESET_COUNT,
+        Addr::CONTROLLER_MESSAGE_CHECKSUM_INVALID_COUNT
+    ) < 10
+);
+
+const_assert!(
+    TransceiverCounters::byte_offset(
+        Addr::TARGET_LINK0_RECEIVER_RESET_COUNT,
+        Addr::TARGET_LINK0_RECEIVER_RESET_COUNT
+    ) < 10
+);
+const_assert!(
+    TransceiverCounters::byte_offset(
+        Addr::TARGET_LINK0_RECEIVER_RESET_COUNT,
+        Addr::TARGET_LINK0_RECEIVER_ALIGNED_COUNT
+    ) < 10
+);
+const_assert!(
+    TransceiverCounters::byte_offset(
+        Addr::TARGET_LINK0_RECEIVER_RESET_COUNT,
+        Addr::TARGET_LINK0_RECEIVER_LOCKED_COUNT
+    ) < 10
+);
+const_assert!(
+    TransceiverCounters::byte_offset(
+        Addr::TARGET_LINK0_RECEIVER_RESET_COUNT,
+        Addr::TARGET_LINK0_RECEIVER_POLARITY_INVERTED_COUNT
+    ) < 10
+);
+const_assert!(
+    TransceiverCounters::byte_offset(
+        Addr::TARGET_LINK0_RECEIVER_RESET_COUNT,
+        Addr::TARGET_LINK0_ENCODING_ERROR_COUNT
+    ) < 10
+);
+const_assert!(
+    TransceiverCounters::byte_offset(
+        Addr::TARGET_LINK0_RECEIVER_RESET_COUNT,
+        Addr::TARGET_LINK0_DECODING_ERROR_COUNT
+    ) < 10
+);
+const_assert!(
+    TransceiverCounters::byte_offset(
+        Addr::TARGET_LINK0_RECEIVER_RESET_COUNT,
+        Addr::TARGET_LINK0_ORDERED_SET_INVALID_COUNT
+    ) < 10
+);
+const_assert!(
+    TransceiverCounters::byte_offset(
+        Addr::TARGET_LINK0_RECEIVER_RESET_COUNT,
+        Addr::TARGET_LINK0_MESSAGE_VERSION_INVALID_COUNT
+    ) < 10
+);
+const_assert!(
+    TransceiverCounters::byte_offset(
+        Addr::TARGET_LINK0_RECEIVER_RESET_COUNT,
+        Addr::TARGET_LINK0_MESSAGE_TYPE_INVALID_COUNT
+    ) < 10
+);
+const_assert!(
+    TransceiverCounters::byte_offset(
+        Addr::TARGET_LINK0_RECEIVER_RESET_COUNT,
+        Addr::TARGET_LINK0_MESSAGE_CHECKSUM_INVALID_COUNT
+    ) < 10
+);
+
+const_assert!(
+    TransceiverCounters::byte_offset(
+        Addr::TARGET_LINK1_RECEIVER_RESET_COUNT,
+        Addr::TARGET_LINK1_RECEIVER_RESET_COUNT
+    ) < 10
+);
+const_assert!(
+    TransceiverCounters::byte_offset(
+        Addr::TARGET_LINK1_RECEIVER_RESET_COUNT,
+        Addr::TARGET_LINK1_RECEIVER_ALIGNED_COUNT
+    ) < 10
+);
+const_assert!(
+    TransceiverCounters::byte_offset(
+        Addr::TARGET_LINK1_RECEIVER_RESET_COUNT,
+        Addr::TARGET_LINK1_RECEIVER_LOCKED_COUNT
+    ) < 10
+);
+const_assert!(
+    TransceiverCounters::byte_offset(
+        Addr::TARGET_LINK1_RECEIVER_RESET_COUNT,
+        Addr::TARGET_LINK1_RECEIVER_POLARITY_INVERTED_COUNT
+    ) < 10
+);
+const_assert!(
+    TransceiverCounters::byte_offset(
+        Addr::TARGET_LINK1_RECEIVER_RESET_COUNT,
+        Addr::TARGET_LINK1_ENCODING_ERROR_COUNT
+    ) < 10
+);
+const_assert!(
+    TransceiverCounters::byte_offset(
+        Addr::TARGET_LINK1_RECEIVER_RESET_COUNT,
+        Addr::TARGET_LINK1_DECODING_ERROR_COUNT
+    ) < 10
+);
+const_assert!(
+    TransceiverCounters::byte_offset(
+        Addr::TARGET_LINK1_RECEIVER_RESET_COUNT,
+        Addr::TARGET_LINK1_ORDERED_SET_INVALID_COUNT
+    ) < 10
+);
+const_assert!(
+    TransceiverCounters::byte_offset(
+        Addr::TARGET_LINK1_RECEIVER_RESET_COUNT,
+        Addr::TARGET_LINK1_MESSAGE_VERSION_INVALID_COUNT
+    ) < 10
+);
+const_assert!(
+    TransceiverCounters::byte_offset(
+        Addr::TARGET_LINK1_RECEIVER_RESET_COUNT,
+        Addr::TARGET_LINK1_MESSAGE_TYPE_INVALID_COUNT
+    ) < 10
+);
+const_assert!(
+    TransceiverCounters::byte_offset(
+        Addr::TARGET_LINK1_RECEIVER_RESET_COUNT,
+        Addr::TARGET_LINK1_MESSAGE_CHECKSUM_INVALID_COUNT
+    ) < 10
 );
 
 mod idl {
