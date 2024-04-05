@@ -604,7 +604,6 @@ task_slot!(I2C, i2c_driver);
 #[cfg(feature = "fru-id-eeprom")]
 mod at24csw080 {
     use super::*;
-    use drv_i2c_devices::at24csw080::Error;
     use drv_i2c_devices::at24csw080::*;
 
     const EEPROM_SIZE: u16 = 1024;
