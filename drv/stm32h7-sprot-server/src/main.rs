@@ -97,7 +97,10 @@ const MAX_UPDATE_ATTEMPTS: u16 = 3;
 // On the flipside, we have learned via unintended experiment that 5ms is too short!
 const DUMP_TIMEOUT: u32 = 1000;
 
-// ROT_IRQ comes from app.toml
+// On Gemini, the STM32H753 is in a LQFP176 package with ROT_IRQ
+// on pin2/PE3
+use drv_stm32xx_sys_api::gpio_irq_pins::ROT_IRQ;
+
 // We use spi3 on gimletlet and spi4 on gemini and gimlet.
 // You should be able to move the RoT board between SPI3, SPI4, and SPI6
 // without much trouble even though SPI3 is the preferred connector and
@@ -117,20 +120,10 @@ cfg_if::cfg_if! {
             target_board = "psc-c",
             target_board = "gemini-bu-1"
             ))] {
-        const ROT_IRQ: sys_api::PinSet = sys_api::PinSet {
-            // On Gemini, the STM32H753 is in a LQFP176 package with ROT_IRQ
-            // on pin2/PE3
-            port: sys_api::Port::E,
-            pin_mask: 1 << 3,
-        };
         const ROT_SPI_DEVICE: u8 = drv_spi_api::devices::ROT;
         fn debug_config(_sys: &sys_api::Sys) { }
         fn debug_set(_sys: &sys_api::Sys, _asserted: bool) { }
     } else if #[cfg(target_board = "gimletlet-2")] {
-        const ROT_IRQ: sys_api::PinSet = sys_api::PinSet {
-            port: sys_api::Port::D,
-            pin_mask: 1 << 0,
-        };
         const DEBUG_PIN: sys_api::PinSet = sys_api::PinSet {
             port: sys_api::Port::E,
             pin_mask: 1 << 6,
@@ -151,7 +144,7 @@ cfg_if::cfg_if! {
         }
         const ROT_SPI_DEVICE: u8 = drv_spi_api::devices::SPI3_HEADER;
     } else {
-        compile_error!("No configuration for ROT_IRQ");
+        compile_error!("No configuration for ROT_SPI_DEVICE");
     }
 }
 

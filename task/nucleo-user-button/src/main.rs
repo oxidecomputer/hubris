@@ -11,7 +11,7 @@
 #![no_std]
 #![no_main]
 
-use drv_stm32xx_sys_api::{Edge, IrqControl, PinSet, Port, Pull};
+use drv_stm32xx_sys_api::{Edge, IrqControl, Pull};
 use ringbuf::ringbuf_entry;
 use userlib::*;
 
@@ -72,10 +72,7 @@ pub fn main() -> ! {
     });
 
     sys.gpio_configure_input(
-        PinSet {
-            port: Port::C,
-            pin_mask: (1 << 13),
-        },
+        drv_stm32xx_sys_api::gpio_irq_pins::BUTTON,
         Pull::None,
     );
 

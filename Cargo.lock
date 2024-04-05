@@ -2038,6 +2038,7 @@ dependencies = [
 name = "drv-stm32xx-sys-api"
 version = "0.1.0"
 dependencies = [
+ "build-stm32xx-sys",
  "byteorder",
  "cfg-if",
  "counters",
