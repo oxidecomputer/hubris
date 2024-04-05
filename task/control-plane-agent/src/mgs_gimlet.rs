@@ -121,8 +121,6 @@ impl AttachedSerialConsoleMgs {
 pub(crate) struct MgsHandler {
     common: MgsCommon,
     sequencer: Sequencer,
-    sp_update: SpUpdate,
-    rot_update: RotUpdate,
     host_flash_update: HostFlashUpdate,
     host_phase2: HostPhase2Requester,
     usart: UsartHandler,
@@ -143,8 +141,6 @@ impl MgsHandler {
             common: MgsCommon::claim_static_resources(base_mac_address),
             host_flash_update: HostFlashUpdate::new(),
             host_phase2: HostPhase2Requester::claim_static_resources(),
-            sp_update: SpUpdate::new(),
-            rot_update: RotUpdate::new(),
             sequencer: Sequencer::from(GIMLET_SEQ.get_task_id()),
             user_leds: UserLeds::from(USER_LEDS.get_task_id()),
             usart,
@@ -173,7 +169,7 @@ impl MgsHandler {
         // set our timer for 1 tick from now to give a window for other
         // interrupts/notifications to arrive.
         if self.host_flash_update.is_preparing()
-            || self.sp_update.is_preparing()
+            || self.common.sp_update.is_preparing()
         {
             Some(sys_get_timer().now + 1)
         } else {
@@ -194,7 +190,7 @@ impl MgsHandler {
         // active at a time. For any inactive update, `step_preparation()` is a
         // no-op.
         self.host_flash_update.step_preparation();
-        self.sp_update.step_preparation();
+        self.common.sp_update.step_preparation();
         // Even though `timer_deadline()` can return a timer related to usart
         // flushing or host phase2 data handling, we don't need to do anything
         // here; `NetHandler` in main.rs will call
@@ -555,7 +551,7 @@ impl SpHandler for MgsHandler {
             slot: 0,
         }));
 
-        self.sp_update.prepare(&UPDATE_MEMORY, update)
+        self.common.sp_update.prepare(&UPDATE_MEMORY, update)
     }
 
     fn component_update_prepare(
@@ -576,7 +572,7 @@ impl SpHandler for MgsHandler {
                 self.host_flash_update.prepare(&UPDATE_MEMORY, update)
             }
             SpComponent::ROT | SpComponent::STAGE0 => {
-                self.rot_update.prepare(&UPDATE_MEMORY, update)
+                self.common.rot_update.prepare(&UPDATE_MEMORY, update)
             }
             _ => Err(SpError::RequestUnsupportedForComponent),
         }
@@ -619,12 +615,14 @@ impl SpHandler for MgsHandler {
 
         match chunk.component {
             SpComponent::SP_ITSELF | SpComponent::SP_AUX_FLASH => self
+                .common
                 .sp_update
                 .ingest_chunk(&chunk.component, &chunk.id, chunk.offset, data),
             SpComponent::HOST_CPU_BOOT_FLASH => self
                 .host_flash_update
                 .ingest_chunk(&(), &chunk.id, chunk.offset, data),
             SpComponent::ROT | SpComponent::STAGE0 => self
+                .common
                 .rot_update
                 .ingest_chunk(&(), &chunk.id, chunk.offset, data),
             _ => Err(SpError::RequestUnsupportedForComponent),
@@ -649,9 +647,11 @@ impl SpHandler for MgsHandler {
             // includes an aux flash image, which they don't need to know).
             // Similarly, they will only ask for the status of an `SP_ITSELF`
             // update, not an `SP_AUX_FLASH` update (which isn't a thing).
-            SpComponent::SP_ITSELF => self.sp_update.status(),
+            SpComponent::SP_ITSELF => self.common.sp_update.status(),
             SpComponent::HOST_CPU_BOOT_FLASH => self.host_flash_update.status(),
-            SpComponent::ROT | SpComponent::STAGE0 => self.rot_update.status(),
+            SpComponent::ROT | SpComponent::STAGE0 => {
+                self.common.rot_update.status()
+            }
             _ => return Err(SpError::RequestUnsupportedForComponent),
         };
 
@@ -677,12 +677,12 @@ impl SpHandler for MgsHandler {
             // includes an aux flash image, which they don't need to know).
             // Similarly, they will only attempt to abort an `SP_ITSELF`
             // update, not an `SP_AUX_FLASH` update (which isn't a thing).
-            SpComponent::SP_ITSELF => self.sp_update.abort(&id),
+            SpComponent::SP_ITSELF => self.common.sp_update.abort(&id),
             SpComponent::HOST_CPU_BOOT_FLASH => {
                 self.host_flash_update.abort(&id)
             }
             SpComponent::ROT | SpComponent::STAGE0 => {
-                self.rot_update.abort(&id)
+                self.common.rot_update.abort(&id)
             }
             _ => Err(SpError::RequestUnsupportedForComponent),
         }
