@@ -995,7 +995,6 @@ impl ConfigGenerator {
             r##"
         #[allow(dead_code)]
         #[allow(clippy::match_single_binding)]
-        #[allow(clippy::manual_range_patterns)]
         pub fn lookup_controller(index: usize) -> Option<Controller> {{
             match index {{"##
         )?;
@@ -1021,7 +1020,6 @@ impl ConfigGenerator {
             r##"
         #[allow(dead_code)]
         #[allow(clippy::match_single_binding)]
-        #[allow(clippy::manual_range_patterns)]
         pub fn lookup_port(index: usize) -> Option<PortIndex> {{
             match index {{"##
         )?;
