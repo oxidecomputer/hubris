@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 ///
-/// We have seen adventures on the V12_SYS_A2 rail in that it will droop from
+/// We have seen adventures on the V12_SYS_A2 rail in that it will sag from
 /// 12V to ~8V over a period of about ~4ms, and then rise back 12V over ~7ms.
 /// This happens only on very few machines, and even then happens very rarely
 /// (happening once over hours or days), but the consequences are acute:  the
@@ -12,7 +12,7 @@
 /// one of the rails on of the RAA229618s (specifically, VDD_VCORE) as a
 /// witness to any V12_SYS_A2 rail fluctuation via its VIN: we set its VIN
 /// undervoltage warning limit to a value that is lower than any we expect in
-/// an operable system (but higher than the droops we have observed), and then
+/// an operable system (but higher than the sags we have observed), and then
 /// configure its fault output (PWR_CONT1_VCORE_TO_SP_ALERT_L, connected to
 /// PI14) to generate an interrupt on a falling edge.  Upon the interrupt, we
 /// will get notification here, and we will record values of VIN as quickly as
