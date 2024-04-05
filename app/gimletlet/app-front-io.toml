@@ -27,11 +27,11 @@ stacksize = 800
 # SPI
 [config.spi.spi6.devices.ecp5_front_io_fpga]
 mux = "port_g"
-cs = [{port = "G", pin = 10}] # FRONT_IO_CS_CONFIG_L
+cs = [{port = "B", pin = 15}] # FRONT_IO_CS_CONFIG_L
 
 [config.spi.spi6.devices.ecp5_front_io_user_design]
 mux = "port_g"
-cs = [{port = "A", pin = 15}] # FRONT_IO_CS_USER_L
+cs = [{port = "D", pin = 8}] # FRONT_IO_CS_USER_L
 
 # The Front I/O board has a mux to select which FPGA the SPI bus will go to.
 # The FPGA select pin is not exposed via TOML but is instead hardcoded as part
