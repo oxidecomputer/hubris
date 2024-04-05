@@ -40,6 +40,10 @@ pub struct VCore {
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    Initializing,
+    Initialized,
+    LimitLoaded,
+    FaultsCleared,
     Notified,
     Fault,
     Start(u64),
@@ -97,11 +101,15 @@ impl VCore {
     pub fn initialize_uv_warning(&self) -> Result<(), ResponseCode> {
         let sys = &self.sys;
 
+        ringbuf_entry!(Trace::Initializing);
+
         // Set our warn limit
         self.device.set_vin_uv_warn_limit(VCORE_UV_WARN_LIMIT)?;
+        ringbuf_entry!(Trace::LimitLoaded);
 
         // Clear our faults
         self.device.clear_faults()?;
+        ringbuf_entry!(Trace::FaultsCleared);
 
         // Set our alert line to be an input
         sys.gpio_configure_input(VCORE_TO_SP_ALERT_L, VCORE_TO_SP_ALERT_PULL);
@@ -109,6 +117,8 @@ impl VCore {
 
         // Enable the interrupt!
         let _ = self.sys.gpio_irq_control(self.mask(), IrqControl::Enable);
+
+        ringbuf_entry!(Trace::Initialized);
 
         Ok(())
     }
