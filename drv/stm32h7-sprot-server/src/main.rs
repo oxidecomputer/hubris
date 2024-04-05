@@ -426,10 +426,19 @@ impl<S: SpiServer> Io<S> {
             // If the timer notification was posted, and the GPIO IRQ
             // notification wasn't, we've waited for the timeout. Too bad!
             if notif & TIMER_MASK != 0 {
+                // Disable the IRQ, so that we don't get the notification later
+                // while in `recv`.
+                self.sys
+                    .gpio_irq_control(
+                        notifications::ROT_IRQ_MASK,
+                        IrqControl::Disable,
+                    )
+                    .unwrap_lite();
+
                 // Record the timeout.
                 self.stats.timeouts = self.stats.timeouts.wrapping_add(1);
                 ringbuf_entry!(Trace::RotReadyTimeout);
-                break;
+                return false;
             }
         }
 
@@ -441,11 +450,17 @@ impl<S: SpiServer> Io<S> {
         // doesn't go off later.
         if !irq_fired {
             self.sys
-                .gpio_irq_control(ROT_IRQ_MASK, IrqControl::Disable)
+                .gpio_irq_control(
+                    notifications::ROT_IRQ_MASK,
+                    IrqControl::Disable,
+                )
                 .unwrap_lite();
         }
 
-        irq_fired
+        // We return `true` here regardless of `irq_fired`, because we may not
+        // have looped at all, if the line was asserted before we started
+        // waiting for the IRQ. The timeout case returns early, above.
+        true
     }
 }
 
