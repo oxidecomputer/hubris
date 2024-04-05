@@ -30,9 +30,8 @@ use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_i2c_devices::raa229618::Raa229618;
 use drv_stm32xx_sys_api as sys_api;
 use ringbuf::*;
+use sys_api::IrqControl;
 use userlib::*;
-
-use crate::notifications;
 
 pub struct VCore {
     device: Raa229618,
@@ -55,7 +54,7 @@ ringbuf!(Trace, 120, Trace::None);
 ///
 /// We are going to set our input undervoltage warn limit to be 11.75 volts.
 /// Note that we will not fault if VIN goes below this (that is, we will not
-/// lose POWER_GOOD), but the part will indicate an input fault and pull 
+/// lose POWER_GOOD), but the part will indicate an input fault and pull
 /// PWR_CONT1_VCORE_TO_SP_ALERT_L low.
 ///
 const VCORE_UV_WARN_LIMIT: units::Volts = units::Volts(11.75);
@@ -109,7 +108,7 @@ impl VCore {
         sys.gpio_irq_configure(self.mask(), sys_api::Edge::Falling);
 
         // Enable the interrupt!
-        self.sys.gpio_irq_control(0, self.mask());
+        let _ = self.sys.gpio_irq_control(self.mask(), IrqControl::Enable);
 
         Ok(())
     }
@@ -119,22 +118,20 @@ impl VCore {
 
         ringbuf_entry!(Trace::Notified);
 
-        if !faulted {
-            self.sys.gpio_irq_control(0, notifications::VCORE_MASK);
-            return;
-        }
+        if faulted {
+            ringbuf_entry!(Trace::Fault);
+            ringbuf_entry!(Trace::Start(sys_get_timer().now));
 
-        ringbuf_entry!(Trace::Fault);
-        ringbuf_entry!(Trace::Start(sys_get_timer().now));
-
-        for _ in 0..VCORE_NSAMPLES {
-            match self.device.read_vin() {
-                Ok(val) => ringbuf_entry!(Trace::Reading(val)),
-                Err(code) => ringbuf_entry!(Trace::Error(code.into())),
+            for _ in 0..VCORE_NSAMPLES {
+                match self.device.read_vin() {
+                    Ok(val) => ringbuf_entry!(Trace::Reading(val)),
+                    Err(code) => ringbuf_entry!(Trace::Error(code.into())),
+                }
             }
+
+            ringbuf_entry!(Trace::Done(sys_get_timer().now));
         }
 
-        ringbuf_entry!(Trace::Done(sys_get_timer().now));
-        self.sys.gpio_irq_control(0, notifications::VCORE_MASK);
+        let _ = self.sys.gpio_irq_control(self.mask(), IrqControl::Enable);
     }
 }
