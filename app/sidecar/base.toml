@@ -6,7 +6,7 @@ fwid = true
 
 [kernel]
 name = "sidecar"
-requires = {flash = 25984, ram = 6256}
+requires = {flash = 26176, ram = 6256}
 features = ["dump"]
 
 [caboose]
@@ -31,12 +31,27 @@ request_reset = ["hiffy", "control_plane_agent"]
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
-features = ["h753", "no-panic"]
+features = ["h753", "exti", "no-panic"]
 priority = 1
-max-sizes = {flash = 2048, ram = 2048}
-uses = ["rcc", "gpios", "system_flash"]
+max-sizes = {flash = 4096, ram = 2048}
+uses = ["rcc", "gpios", "system_flash", "syscfg", "exti"]
 start = true
 task-slots = ["jefe"]
+notifications = ["exti-wildcard-irq"]
+
+[tasks.sys.interrupts]
+"exti.exti0" = "exti-wildcard-irq"
+"exti.exti1" = "exti-wildcard-irq"
+"exti.exti2" = "exti-wildcard-irq"
+"exti.exti3" = "exti-wildcard-irq"
+"exti.exti4" = "exti-wildcard-irq"
+"exti.exti9_5" = "exti-wildcard-irq"
+"exti.exti15_10" = "exti-wildcard-irq"
+
+[tasks.sys.config.gpio-irqs.rot_irq]
+port = "E"
+pin = 3
+owner = {name = "sprot", notification = "rot_irq"}
 
 [tasks.update_server]
 name = "stm32h7-update-server"
@@ -113,7 +128,7 @@ start = true
 task-slots = ["sys"]
 features = ["sink_test", "use-spi-core", "h753", "spi4"]
 uses = ["spi4"]
-notifications = ["spi-irq"]
+notifications = ["spi-irq", "rot-irq", "timer"]
 interrupts = {"spi4.irq" = "spi-irq"}
 
 [tasks.udpecho]

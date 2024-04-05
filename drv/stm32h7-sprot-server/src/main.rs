@@ -16,6 +16,7 @@ use drv_stm32xx_sys_api as sys_api;
 use hubpack::SerializedSize;
 use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::*;
+use sys_api::IrqControl;
 use userlib::*;
 
 cfg_if::cfg_if! {
@@ -363,31 +364,102 @@ impl<S: SpiServer> Io<S> {
 
     // Poll ROT_IRQ until asserted (true) or deasserted (false).
     //
-    // We sleep and poll for what should be long enough for the RoT to queue
-    // a response.
-    //
-    // TODO: Use STM32 EXTI as  an interrupt allows for better performance and
-    // power efficiency.
-    //
-    // STM32 EXTI allows for 16 interrupts for GPIOs.
-    // Each of those can represent Pin X from a GPIO bank (A through K)
-    // So, only one bank's Pin 3, for example, can have the #3 interrupt.
-    // For ROT_IRQ, we would configure for the falling edge to trigger
-    // the interrupt. That configuration should be specified in the app.toml
-    // for the board. Work needs to be done to generalize the EXTI facility.
-    // But, hacking in one interrupt as an example should be ok to start things
-    // off.
+    // We do this by asking the `sys` task to notify us when the GPIO pin's
+    // state changes (using EXTI), and waiting for either that or timeout
+    // determined based on `max_sleep`.
     fn wait_rot_irq(&mut self, desired: bool, max_sleep: u32) -> bool {
-        let mut slept = 0;
+        use notifications::{sprot::TIMER_MASK, ROT_IRQ_MASK};
+        // Determine our edge sensitivity for the interrupt. If we want to wait
+        // for the line to be asserted, we want to wait for a rising edge. If
+        // the line is currently asserted, and we're waiting for it to be
+        // *deasserted*, we want to wait for a falling edge.
+        let sensitivity = match desired {
+            true => sys_api::Edge::Rising,
+            false => sys_api::Edge::Falling,
+        };
+        self.sys.gpio_irq_configure(ROT_IRQ_MASK, sensitivity);
+
+        // Enable the interrupt.
+        self.sys
+            .gpio_irq_control(ROT_IRQ_MASK, IrqControl::Enable)
+            // Just unwrap this, because the `sys` task should never panic.
+            .unwrap_lite();
+
+        // Determine the deadline after which we'll give up, and start the clock.
+        let deadline = sys_get_timer()
+            .now
+            // Values passed to `max_sleep` are all constants that are small
+            // enough that this will almost certainly not overflow unless the SP
+            // has been running without a reset for at least a couple million
+            // years. Using saturating arithmetic here lets us avoid a bounds
+            // check.
+            .saturating_add(max_sleep as u64);
+        sys_set_timer(Some(deadline), TIMER_MASK);
+
+        let mut irq_fired = false;
         while self.is_rot_irq_asserted() != desired {
-            if slept == max_sleep {
+            // Wait to be notified either by the timeout or by the ROT_IRQ pin
+            // changing state.
+            const MASK: u32 = TIMER_MASK | ROT_IRQ_MASK;
+            let notif = sys_recv_notification(MASK);
+
+            // First, check if the IRQ has fired. We do this by checking if the
+            // ROT_IRQ notification bit has been posted, and then asking the
+            // `sys` task to confirm that we actually got the IRQ.
+            //
+            // N.B. that we check this *before* checking for the timer
+            // notification bit, because it's possible *both* notifications were
+            // posted before we were scheduled again, and if the IRQ did fire,
+            // we'd prefer to honor that.
+            irq_fired = notif & ROT_IRQ_MASK != 0
+                && self
+                    .sys
+                    // If the IRQ hasn't fired, leave it enabled, otherwise,
+                    // if it has fired, don't re-enable the IRQ.
+                    .gpio_irq_control(ROT_IRQ_MASK, IrqControl::Check)
+                    // Sys task shouldn't panic.
+                    .unwrap_lite();
+            if irq_fired {
+                break;
+            }
+
+            // If the timer notification was posted, and the GPIO IRQ
+            // notification wasn't, we've waited for the timeout. Too bad!
+            if notif & TIMER_MASK != 0 {
+                // Disable the IRQ, so that we don't get the notification later
+                // while in `recv`.
+                self.sys
+                    .gpio_irq_control(
+                        notifications::ROT_IRQ_MASK,
+                        IrqControl::Disable,
+                    )
+                    .unwrap_lite();
+
+                // Record the timeout.
                 self.stats.timeouts = self.stats.timeouts.wrapping_add(1);
                 ringbuf_entry!(Trace::RotReadyTimeout);
                 return false;
             }
-            hl::sleep_for(1);
-            slept += 1;
         }
+
+        // Ensure the timer gets unset before returning, to avoid frightening
+        // our IPC server when it's waiting in recv without expecting a timer to
+        // go off.
+        sys_set_timer(None, TIMER_MASK);
+        // If the IRQ didn't fire, let's also disable it, so that it also
+        // doesn't go off later.
+        if !irq_fired {
+            self.sys
+                .gpio_irq_control(
+                    notifications::ROT_IRQ_MASK,
+                    IrqControl::Disable,
+                )
+                .unwrap_lite();
+        }
+
+        // We return `true` here regardless of `irq_fired`, because we may not
+        // have looped at all, if the line was asserted before we started
+        // waiting for the IRQ. The timeout case returns early, above.
         true
     }
 }
@@ -1097,7 +1169,8 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
 
 impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
     fn current_notification_mask(&self) -> u32 {
-        // We don't use notifications, don't listen for any.
+        // Neither our timer nor our GPIO IRQ notifications are needed while the
+        // server is in recv.
         0
     }
 
