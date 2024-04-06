@@ -23,12 +23,27 @@ request_reset = ["hiffy"]
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
-features = ["h753"]
+features = ["h753", "exti"]
 priority = 1
-max-sizes = {flash = 2048, ram = 2048}
-uses = ["rcc", "gpios", "system_flash"]
+max-sizes = {flash = 4096, ram = 2048}
+uses = ["rcc", "gpios", "system_flash", "syscfg", "exti"]
 start = true
 task-slots = ["jefe"]
+notifications = ["exti-wildcard-irq"]
+
+[tasks.sys.interrupts]
+"exti.exti0" = "exti-wildcard-irq"
+"exti.exti1" = "exti-wildcard-irq"
+"exti.exti2" = "exti-wildcard-irq"
+"exti.exti3" = "exti-wildcard-irq"
+"exti.exti4" = "exti-wildcard-irq"
+"exti.exti9_5" = "exti-wildcard-irq"
+"exti.exti15_10" = "exti-wildcard-irq"
+
+[tasks.sys.config.gpio-irqs.rot_irq]
+port = "E"
+pin = 3
+owner = {name = "sprot", notification = "rot_irq"}
 
 [tasks.i2c_driver]
 name = "drv-stm32xx-i2c-server"
@@ -119,7 +134,7 @@ start = true
 task-slots = ["sys"]
 uses = ["spi4"]
 features = ["use-spi-core", "h753", "spi4"]
-notifications = ["spi-irq"]
+notifications = ["spi-irq", "rot-irq", "timer"]
 interrupts = {"spi4.irq" = "spi-irq"}
 
 [tasks.validate]
@@ -303,5 +318,4 @@ clock_divider = "DIV256"
 
 [config.sprot]
 # ROT_IRQ (af=0 for GPIO, af=15 when EXTI is implemneted)
-# {port = "D", pins = [0], af = 0},
-rot_irq = { port = "E", pin = 3, af = 0}
+rot_irq = { port = "E", pin = 3, af = 15}

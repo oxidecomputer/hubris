@@ -19,6 +19,27 @@ request_reset = ["hiffy", "control_plane_agent", "udprpc"]
 [tasks.jefe.config.on-state-change]
 host_sp_comms = "jefe-state-change"
 
+[tasks.sys]
+# Enable EXTI in the sys task so that we can notify sprot when the RoT
+# raises an IRQ.
+features = ["exti"]
+notifications = ["exti-wildcard-irq"]
+uses = ["syscfg", "exti"]
+
+[tasks.sys.interrupts]
+"exti.exti0" = "exti-wildcard-irq"
+"exti.exti1" = "exti-wildcard-irq"
+"exti.exti2" = "exti-wildcard-irq"
+"exti.exti3" = "exti-wildcard-irq"
+"exti.exti4" = "exti-wildcard-irq"
+"exti.exti9_5" = "exti-wildcard-irq"
+"exti.exti15_10" = "exti-wildcard-irq"
+
+[tasks.sys.config.gpio-irqs.rot_irq]
+port = "D"
+pin = 0
+owner = {name = "sprot", notification = "rot_irq"}
+
 [tasks.packrat]
 name = "task-packrat"
 priority = 3
@@ -217,14 +238,14 @@ start = true
 task-slots = ["sys"]
 features = ["sink_test", "use-spi-core", "h753", "spi3"]
 uses = ["spi3"]
-notifications = ["spi-irq"]
+notifications = ["spi-irq", "rot-irq", "timer"]
 interrupts = {"spi3.irq" = "spi-irq"}
 
 [config.sprot]
 # TODO: This config is inert. Need to implement STM32 build.rs like the LPC55 has.
 pins = [
-    # ROT_IRQ (af=0 for GPIO, af=15 when EXTI is implemented)
-    { name = "ROT_IRQ", pin = { port = "D", pin = 0, af = 0, direction = "input"}},
+    # ROT_IRQ (af=15 for EXTI)
+    { name = "ROT_IRQ", pin = { port = "D", pin = 0, af = 15, direction = "input"}},
     # SPI6 CS repurposed for debugging
     { name = "DEBUG", pin = { port = "G", pin = 8, af = 0, direction = "output"}}
 ]
