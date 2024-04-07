@@ -52,8 +52,8 @@ notifications = ["exti-wildcard-irq"]
 "exti.exti15_10" = "exti-wildcard-irq"
 
 [tasks.sys.config.gpio-irqs.rot_irq]
-port = "D"
-pin = 0
+port = "E"
+pin = 3
 owner = {name = "sprot", notification = "rot_irq"}
 
 [tasks.i2c_driver]
