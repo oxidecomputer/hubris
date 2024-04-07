@@ -296,6 +296,40 @@ fn reset_if_needed(
     }
 }
 
+fn reset_and_wiggle_if_needed(
+    code: ResponseCode,
+    controller: &I2cController<'_>,
+    port: PortIndex,
+    muxes: &[I2cMux<'_>],
+    muxmap: &mut MuxMap,
+    pins: &[I2cPins],
+) {
+    if reset_needed(code) {
+        let sys = SYS.get_task_id();
+        let sys = Sys::from(sys);
+
+        for pin in pins
+            .iter()
+            .filter(|p| p.controller == controller.controller)
+            .filter(|p| p.port == port)
+        {
+            wiggle_scl(&sys, pin.scl, pin.sda);
+
+            for gpio_pin in &[pin.scl, pin.sda] {
+                sys.gpio_configure_alternate(
+                    *gpio_pin,
+                    OutputType::OpenDrain,
+                    Speed::Low,
+                    Pull::None,
+                    pin.function,
+                );
+            }
+        }
+
+        reset(controller, port, muxes, muxmap);
+    }
+}
+
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
 type PortMap = FixedMap<Controller, PortIndex, { i2c_config::NCONTROLLERS }>;
@@ -487,12 +521,13 @@ fn main() -> ! {
                                 }
                             }
 
-                            reset_if_needed(
+                            reset_and_wiggle_if_needed(
                                 code,
                                 controller,
                                 port,
                                 &muxes,
                                 &mut muxmap,
+                                &pins,
                             );
                             return Err(code);
                         }

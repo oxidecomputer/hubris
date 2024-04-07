@@ -109,8 +109,13 @@ enum Trace {
     V3P3SysA0VOut(units::Volts),
 
     SpdBankAbsent(u8),
+    SpdBankPresent(u8),
     SpdAbsent(u8, u8, u8),
+    SpdPresent(u8, u8, u8),
+    SpdLoaded(u8, u8, u8),
     SpdDimmsFound(usize),
+    SpdTop(u8),
+    SpdTopLoaded(u8),
     I2cFault {
         retries_remaining: u8,
         #[count(children)]
@@ -598,7 +603,7 @@ where
     i2c::ResponseCode: From<E>,
 {
     // Chosen by fair dice roll, seems reasonable-ish?
-    let mut retries_remaining = 3;
+    let mut retries_remaining = 1;
     loop {
         match txn() {
             Ok(x) => return Ok(x),
@@ -1097,6 +1102,8 @@ fn read_spd_data_and_load_packrat(
             continue;
         }
 
+        ringbuf_entry!(Trace::SpdBankPresent(nbank));
+
         for i in 0..spd::MAX_DEVICES {
             let mem = spd::Function::Memory(i).to_device_code().unwrap_lite();
             let spd = I2cDevice::new(i2c_task, controller, port, mux, mem);
@@ -1107,6 +1114,7 @@ fn read_spd_data_and_load_packrat(
             let first = match spd.read_reg::<u8, u8>(0) {
                 Ok(val) => {
                     present[usize::from(ndx)] = true;
+                    ringbuf_entry!(Trace::SpdPresent(nbank, i, ndx));
                     npresent += 1;
                     val
                 }
@@ -1119,9 +1127,19 @@ fn read_spd_data_and_load_packrat(
             // We'll store that byte and then read 255 more.
             tmp[0] = first;
 
-            retry_i2c_txn(|| spd.read_into(&mut tmp[1..]))?;
+            let mut retried = false;
+
+            retry_i2c_txn(|| {
+                if retried {
+                    _ = spd.read_reg::<u8, u8>(0)?;
+                }
+
+                retried = true;
+                spd.read_into(&mut tmp[1..])
+            })?;
 
             packrat.set_spd_eeprom(ndx, false, 0, &tmp);
+            ringbuf_entry!(Trace::SpdLoaded(nbank, i, ndx));
         }
 
         // Now flip over to the top page.
@@ -1142,14 +1160,18 @@ fn read_spd_data_and_load_packrat(
                 continue;
             }
 
+            ringbuf_entry!(Trace::SpdTop(i));
+
             let mem = spd::Function::Memory(i).to_device_code().unwrap_lite();
             let spd = I2cDevice::new(i2c_task, controller, port, mux, mem);
 
             let chunk = 128;
-            retry_i2c_txn(|| spd.read_reg_into::<u8>(0, &mut tmp[..chunk]))?;
+            retry_i2c_txn(|| {
+                spd.read_reg_into::<u8>(0, &mut tmp[..chunk])?;
+                spd.read_into(&mut tmp[chunk..])
+            })?;
 
-            retry_i2c_txn(|| spd.read_into(&mut tmp[chunk..]))?;
-
+            ringbuf_entry!(Trace::SpdTopLoaded(i));
             packrat.set_spd_eeprom(ndx, true, 0, &tmp);
         }
     }
