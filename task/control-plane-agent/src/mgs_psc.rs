@@ -659,4 +659,8 @@ impl SpHandler for MgsHandler {
     fn disable_sp_slot_watchdog(&mut self) -> Result<(), SpError> {
         self.common.disable_sp_slot_watchdog()
     }
+
+    fn sp_slot_watchdog_supported(&mut self) -> Result<(), SpError> {
+        self.common.sp_slot_watchdog_supported()
+    }
 }
