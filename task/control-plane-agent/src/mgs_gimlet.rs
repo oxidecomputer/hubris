@@ -1136,9 +1136,6 @@ impl SpHandler for MgsHandler {
         &mut self,
         time_ms: u32,
     ) -> Result<core::convert::Infallible, SpError> {
-        if !matches!(self.sp_update.status(), UpdateStatus::Complete(..)) {
-            return Err(SpError::Watchdog(WatchdogError::NoCompletedUpdate));
-        }
         self.common.reset_with_watchdog(time_ms)
     }
 
