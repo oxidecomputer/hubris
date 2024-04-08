@@ -117,7 +117,7 @@ task-slots = ["i2c_driver"]
 
 [tasks.net]
 name = "task-net"
-stacksize = 6040
+stacksize = 8000
 priority = 4
 features = ["mgmt", "h753", "psc", "vlan", "vpd-mac", "use-spi-core", "spi2"]
 max-sizes = {flash = 131072, ram = 65536, sram1 = 16384}

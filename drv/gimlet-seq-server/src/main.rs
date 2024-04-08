@@ -47,6 +47,16 @@ include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 mod payload;
 
 #[derive(Copy, Clone, PartialEq, Count)]
+enum I2cTxn {
+    SpdLoad(u8, u8),
+    SpdLoadTop(u8, u8),
+    VCoreOn,
+    VCoreOff,
+    SocOn,
+    SocOff,
+}
+
+#[derive(Copy, Clone, PartialEq, Count)]
 enum Trace {
     Ice40Rails(bool, bool),
     IdentValid(#[count(children)] bool),
@@ -109,17 +119,17 @@ enum Trace {
     V3P3SysA0VOut(units::Volts),
 
     SpdBankAbsent(u8),
-    SpdBankPresent(u8),
     SpdAbsent(u8, u8, u8),
-    SpdPresent(u8, u8, u8),
-    SpdLoaded(u8, u8, u8),
     SpdDimmsFound(usize),
-    SpdTop(u8),
-    SpdTopLoaded(u8),
-    I2cFault {
-        retries_remaining: u8,
+    I2cError {
+        txn: I2cTxn,
         #[count(children)]
         code: i2c::ResponseCode,
+    },
+    I2cFault(I2cTxn),
+    I2cRetry {
+        txn: I2cTxn,
+        retries_remaining: u8,
     },
     StartFailed(#[count(children)] SeqError),
     #[count(skip)]
@@ -597,26 +607,30 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
 }
 
 fn retry_i2c_txn<T, E>(
+    which: I2cTxn,
     mut txn: impl FnMut() -> Result<T, E>,
 ) -> Result<T, i2c::ResponseCode>
 where
     i2c::ResponseCode: From<E>,
 {
     // Chosen by fair dice roll, seems reasonable-ish?
-    let mut retries_remaining = 1;
+    let mut retries_remaining = 3;
     loop {
         match txn() {
             Ok(x) => return Ok(x),
             Err(e) => {
                 let code = e.into();
-                ringbuf_entry!(Trace::I2cFault {
-                    retries_remaining,
-                    code,
-                });
+                ringbuf_entry!(Trace::I2cError { txn: which, code });
 
                 if retries_remaining == 0 {
+                    ringbuf_entry!(Trace::I2cFault(which));
                     return Err(code);
                 }
+
+                ringbuf_entry!(Trace::I2cRetry {
+                    txn: which,
+                    retries_remaining
+                });
 
                 retries_remaining -= 1;
             }
@@ -1102,8 +1116,6 @@ fn read_spd_data_and_load_packrat(
             continue;
         }
 
-        ringbuf_entry!(Trace::SpdBankPresent(nbank));
-
         for i in 0..spd::MAX_DEVICES {
             let mem = spd::Function::Memory(i).to_device_code().unwrap_lite();
             let spd = I2cDevice::new(i2c_task, controller, port, mux, mem);
@@ -1114,7 +1126,6 @@ fn read_spd_data_and_load_packrat(
             let first = match spd.read_reg::<u8, u8>(0) {
                 Ok(val) => {
                     present[usize::from(ndx)] = true;
-                    ringbuf_entry!(Trace::SpdPresent(nbank, i, ndx));
                     npresent += 1;
                     val
                 }
@@ -1129,8 +1140,12 @@ fn read_spd_data_and_load_packrat(
 
             let mut retried = false;
 
-            retry_i2c_txn(|| {
+            retry_i2c_txn(I2cTxn::SpdLoad(nbank, i), || {
                 if retried {
+                    //
+                    // If our read needs to be retried, we need to also reset
+                    // ourselves back to the 0th byte.
+                    //
                     _ = spd.read_reg::<u8, u8>(0)?;
                 }
 
@@ -1139,7 +1154,6 @@ fn read_spd_data_and_load_packrat(
             })?;
 
             packrat.set_spd_eeprom(ndx, false, 0, &tmp);
-            ringbuf_entry!(Trace::SpdLoaded(nbank, i, ndx));
         }
 
         // Now flip over to the top page.
@@ -1160,18 +1174,21 @@ fn read_spd_data_and_load_packrat(
                 continue;
             }
 
-            ringbuf_entry!(Trace::SpdTop(i));
-
             let mem = spd::Function::Memory(i).to_device_code().unwrap_lite();
             let spd = I2cDevice::new(i2c_task, controller, port, mux, mem);
 
             let chunk = 128;
-            retry_i2c_txn(|| {
+
+            retry_i2c_txn(I2cTxn::SpdLoadTop(nbank, i), || {
+                //
+                // Both of these reads need to be in a single transaction from
+                // the perspective of the retry logic: if either fails, we
+                // must redo both.
+                //
                 spd.read_reg_into::<u8>(0, &mut tmp[..chunk])?;
                 spd.read_into(&mut tmp[chunk..])
             })?;
 
-            ringbuf_entry!(Trace::SpdTopLoaded(i));
             packrat.set_spd_eeprom(ndx, true, 0, &tmp);
         }
     }
@@ -1324,8 +1341,8 @@ cfg_if::cfg_if! {
             let (device, rail) = i2c_config::pmbus::vddcr_soc(i2c);
             let mut vddcr_soc = Raa229618::new(&device, rail);
 
-            retry_i2c_txn(|| vdd_vcore.turn_off())?;
-            retry_i2c_txn(|| vddcr_soc.turn_off())?;
+            retry_i2c_txn(I2cTxn::VCoreOff, || vdd_vcore.turn_off())?;
+            retry_i2c_txn(I2cTxn::SocOff, || vddcr_soc.turn_off())?;
             Ok(())
         }
 
@@ -1339,8 +1356,8 @@ cfg_if::cfg_if! {
             let (device, rail) = i2c_config::pmbus::vddcr_soc(i2c);
             let mut vddcr_soc = Raa229618::new(&device, rail);
 
-            retry_i2c_txn(|| vdd_vcore.turn_on())?;
-            retry_i2c_txn(|| vddcr_soc.turn_on())?;
+            retry_i2c_txn(I2cTxn::VCoreOn, || vdd_vcore.turn_on())?;
+            retry_i2c_txn(I2cTxn::SocOn, || vddcr_soc.turn_on())?;
             Ok(())
         }
 

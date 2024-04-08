@@ -37,7 +37,7 @@ request_reset = ["hiffy", "control_plane_agent"]
 
 [tasks.net]
 name = "task-net"
-stacksize = 6040
+stacksize = 8000
 priority = 5
 features = ["mgmt", "h753", "gimlet", "vlan", "vpd-mac"]
 max-sizes = {flash = 131072, ram = 65536, sram1 = 16384}
