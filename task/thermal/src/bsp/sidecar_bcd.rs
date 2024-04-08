@@ -14,7 +14,7 @@ pub use drv_sidecar_seq_api::SeqError;
 use drv_sidecar_seq_api::{Sequencer, TofinoSeqState, TofinoSequencerPolicy};
 use task_sensor_api::SensorId;
 use task_thermal_api::ThermalProperties;
-use userlib::{task_slot, units::Celsius, TaskId};
+use userlib::{task_slot, units::Celsius, TaskId, UnwrapLite};
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 use i2c_config::devices;
@@ -114,7 +114,7 @@ impl Bsp {
             3 => 1,
             _ => panic!(),
         };
-        FanControl::Max31790(controller, fan_physical.try_into().unwrap())
+        FanControl::Max31790(controller, fan_physical.try_into().unwrap_lite())
     }
 
     pub fn for_each_fctrl(&self, mut fctrl: impl FnMut(FanControl<'_>)) {
@@ -162,8 +162,8 @@ impl Bsp {
 
         let fctrl_east = Max31790::new(&devices::max31790_east(i2c_task));
         let fctrl_west = Max31790::new(&devices::max31790_west(i2c_task));
-        fctrl_east.initialize().unwrap();
-        fctrl_west.initialize().unwrap();
+        fctrl_east.initialize().unwrap_lite();
+        fctrl_west.initialize().unwrap_lite();
 
         Self {
             seq,
