@@ -296,6 +296,10 @@ fn reset_if_needed(
     }
 }
 
+///
+/// A variant of [`reset_if_needed`] that will also wiggle the SCL lines
+/// via [`wiggle_scl`].
+///
 fn reset_and_wiggle_if_needed(
     code: ResponseCode,
     controller: &I2cController<'_>,
@@ -623,13 +627,15 @@ fn configure_port(
 }
 
 ///
-/// When the system is reset without power loss, I2C can be in an arbitrary
-/// state with respect to the bus -- and we can therefore come to life with a
-/// transaction already in flight.  It is very important that we abort any
-/// such transaction:  failure to do so will result in our first I2C
-/// transaction being corrupted.  (And especially because our first I2C
-/// transactions may well be to disable segments on a mux, this can result in
-/// nearly arbitrary mayhem down the road!)  To do this, we engage in the
+/// When the system is either reset without power loss (e.g., due to an SP
+/// upgrade) or I2C is preempted longer than the 25ms I2C timeout (e.g., due
+/// to a large process panicking and being dumped by jefe), I2C can be in an
+/// arbitrary state with respect to the bus -- and we can therefore come to
+/// life with a transaction already in flight.  It is very important that we
+/// abort any such transaction:  failure to do so will result in our first I2C
+/// transaction being corrupted.  (And because our first I2C transaction on SP
+/// boot may well be to disable segments on a mux, this can result in nearly
+/// arbitrary mayhem down the road!)  To do this, we engage in the
 /// time-honored[0] tradition of "clocking through the problem":  wiggling SCL
 /// until we see SDA high, and then pulling SDA low and releasing SCL to
 /// indicate a STOP condition.  (Note that we need to do this up to 9 times to
