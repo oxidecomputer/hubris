@@ -7,6 +7,7 @@ use crate::{
     update::rot::RotUpdate, update::sp::SpUpdate, update::ComponentUpdater,
     usize_max, vlan_id_from_sp_port, CriticalEvent, Log, MgsMessage, SYS,
 };
+use core::cell::UnsafeCell;
 use core::sync::atomic::{AtomicBool, Ordering};
 use core::time::Duration;
 use drv_gimlet_seq_api::Sequencer;
@@ -135,6 +136,8 @@ impl MgsHandler {
     /// Instantiate an `MgsHandler` that claims static buffers and device
     /// resources. Can only be called once; will panic if called multiple times!
     pub(crate) fn claim_static_resources(base_mac_address: MacAddress) -> Self {
+        static INSTALLINATOR_IMAGE_ID: ClaimOnce<InstallinatorImageIdBuf> =
+            ClaimOnce::new(InstallinatorImageIdBuf::new());
         let usart = UsartHandler::claim_static_resources();
 
         Self {
@@ -147,7 +150,7 @@ impl MgsHandler {
             attached_serial_console_mgs: None,
             serial_console_write_offset: 0,
             next_message_id: 0,
-            installinator_image_id: claim_installinator_image_id_static(),
+            installinator_image_id: INSTALLINATOR_IMAGE_ID.claim(),
         }
     }
 
@@ -1124,17 +1127,22 @@ struct UsartHandler {
 
 impl UsartHandler {
     fn claim_static_resources() -> Self {
+        static UART_TX_BUF: ClaimOnce<
+            Deque<u8, MGS_TO_SP_SERIAL_CONSOLE_BUFFER_SIZE>,
+        > = ClaimOnce::new(Deque::new());
+        static UART_RX_BUF: ClaimOnce<
+            Deque<u8, SP_TO_MGS_SERIAL_CONSOLE_BUFFER_SIZE>,
+        > = ClaimOnce::new(Deque::new());
+
         let usart = configure_usart();
-        let to_tx = claim_mgs_to_sp_usart_buf_static();
-        let from_rx = claim_sp_to_mgs_usart_buf_static();
 
         // Enable USART interrupts.
         sys_irq_control(notifications::USART_IRQ_MASK, true);
 
         Self {
             usart,
-            to_tx,
-            from_rx,
+            to_tx: UART_TX_BUF.claim(),
+            from_rx: UART_RX_BUF.claim(),
             from_rx_flush_deadline: None,
             from_rx_offset: 0,
             client: UartClient::Mgs,
@@ -1414,52 +1422,36 @@ impl<T, const N: usize> DequeExt for Deque<T, N> {
     }
 }
 
-fn claim_mgs_to_sp_usart_buf_static(
-) -> &'static mut Deque<u8, MGS_TO_SP_SERIAL_CONSOLE_BUFFER_SIZE> {
-    static mut UART_TX_BUF: Deque<u8, MGS_TO_SP_SERIAL_CONSOLE_BUFFER_SIZE> =
-        Deque::new();
-
-    static TAKEN: AtomicBool = AtomicBool::new(false);
-    if TAKEN.swap(true, Ordering::Relaxed) {
-        panic!()
-    }
-
-    // Safety: unsafe because of references to mutable statics; safe because of
-    // the AtomicBool swap above, combined with the lexical scoping of
-    // `UART_TX_BUF`, means that this reference can't be aliased by any
-    // other reference in the program.
-    unsafe { &mut *core::ptr::addr_of_mut!(UART_TX_BUF) }
+struct ClaimOnce<T> {
+    value: UnsafeCell<T>,
+    taken: AtomicBool,
 }
 
-fn claim_sp_to_mgs_usart_buf_static(
-) -> &'static mut Deque<u8, SP_TO_MGS_SERIAL_CONSOLE_BUFFER_SIZE> {
-    static mut UART_RX_BUF: Deque<u8, SP_TO_MGS_SERIAL_CONSOLE_BUFFER_SIZE> =
-        Deque::new();
+// Safety: because a `ClaimOnce` may only create a single mutable reference to
+// the inner value a single time, it can implement `Sync` freely, as the inner
+// `UnsafeCell`'s value cannot be mutably aliased.
+unsafe impl<T> Sync for ClaimOnce<T> where for<'a> &'a T: Send {}
 
-    static TAKEN: AtomicBool = AtomicBool::new(false);
-    if TAKEN.swap(true, Ordering::Relaxed) {
-        panic!()
+impl<T> ClaimOnce<T> {
+    const fn new(value: T) -> Self {
+        Self {
+            value: UnsafeCell::new(value),
+            taken: AtomicBool::new(false),
+        }
     }
 
-    // Safety: unsafe because of references to mutable statics; safe because of
-    // the AtomicBool swap above, combined with the lexical scoping of
-    // `UART_RX_BUF`, means that this reference can't be aliased by any
-    // other reference in the program.
-    unsafe { &mut *core::ptr::addr_of_mut!(UART_RX_BUF) }
-}
+    fn claim(&self) -> &mut T {
+        if self.taken.swap(true, Ordering::Relaxed) {
+            panic!();
+        }
 
-fn claim_installinator_image_id_static() -> &'static mut InstallinatorImageIdBuf
-{
-    static mut INSTALLINATOR_IMAGE_ID_BUF: InstallinatorImageIdBuf = Vec::new();
-
-    static TAKEN: AtomicBool = AtomicBool::new(false);
-    if TAKEN.swap(true, Ordering::Relaxed) {
-        panic!()
+        unsafe {
+            // Safety: dereferencing a raw pointer is unsafe as the value may
+            // be aliased. However, because `ClaimOnce::claim` is the *only* way
+            // to access the inner value, and the `taken` bool ensures it is
+            // only ever called once, we know that this raw pointer does not
+            // point to aliased data.
+            &mut *self.value.get()
+        }
     }
-
-    // Safety: unsafe because of references to mutable statics; safe because of
-    // the AtomicBool swap above, combined with the lexical scoping of
-    // `INSTALLINATOR_IMAGE_ID_BUF`, means that this reference can't be aliased
-    // by any other reference in the program.
-    unsafe { &mut *core::ptr::addr_of_mut!(INSTALLINATOR_IMAGE_ID_BUF) }
 }

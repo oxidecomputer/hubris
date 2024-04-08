@@ -3,7 +3,6 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::vlan_id_from_sp_port;
-use core::sync::atomic::{AtomicBool, Ordering};
 use gateway_messages::{Header, Message, MessageKind, SpPort, SpRequest};
 use heapless::Vec;
 use idol_runtime::{Leased, RequestError};
@@ -55,20 +54,25 @@ const DELAY_TRY_OTHER_MGS: u64 = 500;
 const DELAY_RETRY: u64 = 1_000;
 const MAX_ATTEMPTS: u8 = 6;
 
+type Phase2Buf = Vec<u8, { gateway_messages::MAX_SERIALIZED_SIZE }>;
+
 pub(crate) struct HostPhase2Requester {
     current: Option<CurrentRequest>,
     last_responsive_mgs: SpPort,
-    buffer: &'static mut Vec<u8, { gateway_messages::MAX_SERIALIZED_SIZE }>,
+    buffer: &'static mut Phase2Buf,
 }
 
 impl HostPhase2Requester {
     // This function can only be called once; it acquires static memory set
     // aside for buffering data from MGS.
     pub(crate) fn claim_static_resources() -> Self {
+        static PHASE2_BUF: super::ClaimOnce<Phase2Buf> =
+            super::ClaimOnce::new(Phase2Buf::new());
+
         Self {
             current: None,
             last_responsive_mgs: SpPort::One,
-            buffer: claim_phase2_buffer(),
+            buffer: PHASE2_BUF.claim(),
         }
     }
 
@@ -315,21 +319,4 @@ impl State {
             | State::WaitingForSecondMgs { deadline, .. } => Some(*deadline),
         }
     }
-}
-
-fn claim_phase2_buffer(
-) -> &'static mut Vec<u8, { gateway_messages::MAX_SERIALIZED_SIZE }> {
-    static mut PHASE2_BUF: Vec<u8, { gateway_messages::MAX_SERIALIZED_SIZE }> =
-        Vec::new();
-
-    static TAKEN: AtomicBool = AtomicBool::new(false);
-    if TAKEN.swap(true, Ordering::Relaxed) {
-        panic!()
-    }
-
-    // Safety: unsafe because of references to mutable statics; safe because of
-    // the AtomicBool swap above, combined with the lexical scoping of
-    // `PHASE2_BUF`, means that this reference can't be aliased by any
-    // other reference in the program.
-    unsafe { &mut *core::ptr::addr_of_mut!(PHASE2_BUF) }
 }
