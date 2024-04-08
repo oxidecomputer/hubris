@@ -136,7 +136,6 @@ impl ThermalProperties {
 #[derive(
     Copy,
     Clone,
-    Debug,
     Eq,
     PartialEq,
     Serialize,

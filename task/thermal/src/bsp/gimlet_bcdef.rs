@@ -16,7 +16,7 @@ use drv_gimlet_seq_api::{PowerState, Sequencer};
 use drv_i2c_devices::max31790::Max31790;
 use task_sensor_api::SensorId;
 use task_thermal_api::ThermalProperties;
-use userlib::{task_slot, units::Celsius, TaskId};
+use userlib::{task_slot, units::Celsius, TaskId, UnwrapLite};
 
 task_slot!(SEQ, gimlet_seq);
 
@@ -94,7 +94,7 @@ bitflags::bitflags! {
 
 impl Bsp {
     pub fn fan_control(&self, fan: crate::Fan) -> FanControl<'_> {
-        FanControl::Max31790(&self.fctrl, fan.0.try_into().unwrap())
+        FanControl::Max31790(&self.fctrl, fan.0.try_into().unwrap_lite())
     }
 
     pub fn for_each_fctrl(&self, mut fctrl: impl FnMut(FanControl<'_>)) {
@@ -159,7 +159,7 @@ impl Bsp {
     pub fn new(i2c_task: TaskId) -> Self {
         // Initializes and build a handle to the fan controller IC
         let fctrl = Max31790::new(&devices::max31790(i2c_task)[0]);
-        fctrl.initialize().unwrap();
+        fctrl.initialize().unwrap_lite();
 
         // Handle for the sequencer task, which we check for power state
         let seq = Sequencer::from(SEQ.get_task_id());

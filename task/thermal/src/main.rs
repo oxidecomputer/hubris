@@ -63,7 +63,7 @@ impl From<usize> for Fan {
 task_slot!(I2C, i2c_driver);
 task_slot!(SENSOR, sensor);
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, counters::Count)]
+#[derive(Copy, Clone, Eq, PartialEq, counters::Count)]
 enum Trace {
     #[count(skip)]
     None,
@@ -357,9 +357,9 @@ fn main() -> ! {
         runtime: 0,
     };
     if bsp::USE_CONTROLLER {
-        server.set_mode_auto().unwrap();
+        server.set_mode_auto().unwrap_lite();
     } else {
-        server.set_mode_manual(PWMDuty(0)).unwrap();
+        server.set_mode_manual(PWMDuty(0)).unwrap_lite();
     }
 
     //
@@ -370,7 +370,9 @@ fn main() -> ! {
     // which may induce a flight-or-fight reaction for whomever is near the
     // fans when they blast off...
     //
-    server.set_watchdog(I2cWatchdog::ThirtySeconds).unwrap();
+    server
+        .set_watchdog(I2cWatchdog::ThirtySeconds)
+        .unwrap_lite();
 
     let mut buffer = [0; idl::INCOMING_SIZE];
     loop {

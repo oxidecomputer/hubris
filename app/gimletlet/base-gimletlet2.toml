@@ -26,7 +26,7 @@ set_reset_reason = ["sys"]
 name = "drv-stm32xx-sys"
 features = ["h753"]
 priority = 1
-max-sizes = {flash = 2048, ram = 2048}
+max-sizes = {flash = 4096, ram = 2048}
 uses = ["rcc", "gpios", "system_flash"]
 start = true
 task-slots = ["jefe"]
