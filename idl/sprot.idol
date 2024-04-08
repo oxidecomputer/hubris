@@ -297,5 +297,13 @@ Interface(
             ),
             encoding: Hubpack,
         ),
+        "sp_slot_watchdog_supported": (
+            doc: "Checks if the SP slot watchdog is supported",
+            reply: Result(
+                ok: "()",
+                err: Complex("SprotError"),
+            ),
+            encoding: Hubpack,
+        ),
     }
 )

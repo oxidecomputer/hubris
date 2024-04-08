@@ -2347,7 +2347,7 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=sp-slot-watchdog#55f6dc7bec7e8cdc82cc059b6a5dec010bda242f"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=sp-slot-watchdog#ab85ea745c6391a6d7c3fe6dc58664fc67216b88"
 dependencies = [
  "bitflags 2.5.0",
  "hubpack",

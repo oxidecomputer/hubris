@@ -19,7 +19,7 @@ use gateway_messages::{
     DiscoverResponse, Header, IgnitionCommand, IgnitionState, Message,
     MessageKind, MgsError, PowerState, RotRequest, RotResponse, SensorRequest,
     SensorResponse, SpComponent, SpError, SpPort, SpRequest, SpStateV2,
-    SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus, WatchdogError,
+    SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
     SERIAL_CONSOLE_IDLE_TIMEOUT,
 };
 use heapless::{Deque, Vec};
@@ -1141,6 +1141,9 @@ impl SpHandler for MgsHandler {
 
     fn disable_sp_slot_watchdog(&mut self) -> Result<(), SpError> {
         self.common.disable_sp_slot_watchdog()
+    }
+    fn sp_slot_watchdog_supported(&mut self) -> Result<(), SpError> {
+        self.common.sp_slot_watchdog_supported()
     }
 }
 

@@ -502,6 +502,11 @@ impl MgsCommon {
         self.sprot.disable_sp_slot_watchdog()?;
         Ok(())
     }
+
+    pub(crate) fn sp_slot_watchdog_supported(&mut self) -> Result<(), SpError> {
+        self.sprot.sp_slot_watchdog_supported()?;
+        Ok(())
+    }
 }
 
 fn translate_sensor_nodata(

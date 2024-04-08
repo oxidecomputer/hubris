@@ -471,6 +471,18 @@ impl<'a> Handler {
                 #[cfg(not(feature = "sp-ctrl"))]
                 Err(SprotError::Protocol(SprotProtocolError::BadMessageType))
             }
+            ReqBody::Swd(SwdReq::SpSlotWatchdogSupported) => {
+                #[cfg(feature = "sp-ctrl")]
+                match self.sp_ctrl.setup() {
+                    Ok(()) => Ok((RspBody::Ok, None)),
+                    Err(_e) => Err(SprotError::Watchdog(
+                        drv_sprot_api::WatchdogError::SpCtrl,
+                    )),
+                }
+
+                #[cfg(not(feature = "sp-ctrl"))]
+                Err(SprotError::Protocol(SprotProtocolError::BadMessageType))
+            }
         }
     }
 }

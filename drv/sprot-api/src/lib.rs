@@ -352,8 +352,17 @@ pub enum ReqBody {
 // Added in sprot protocol version 5
 #[derive(Clone, Serialize, Deserialize, SerializedSize)]
 pub enum SwdReq {
-    EnableSpSlotWatchdog { time_ms: u32 },
+    EnableSpSlotWatchdog {
+        time_ms: u32,
+    },
     DisableSpSlotWatchdog,
+
+    /// Checks whether the SP slot watchdog is supported
+    ///
+    /// In practice, this calls `drv_lpc55_swd::ServerImpl::setup` to make sure
+    /// that there's no debugger attached that would prevent us from talking to
+    /// the SP.
+    SpSlotWatchdogSupported,
 }
 
 /// Instruct the RoT to take a dump of the SP via SWD
