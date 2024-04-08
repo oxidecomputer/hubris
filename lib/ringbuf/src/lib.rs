@@ -389,6 +389,7 @@ macro_rules! counted_ringbuf {
         static $name: $crate::CountedRingbuf<$t, (), $n> =
             $crate::CountedRingbuf {
                 counters: <$t as $crate::Count>::NEW_COUNTERS,
+                _c: core::marker::PhantomData,
             };
     };
     ($name:ident, $t:ident, $n:expr, $init:expr) => {
@@ -396,6 +397,7 @@ macro_rules! counted_ringbuf {
         static $name: $crate::CountedRingbuf<$t, u16, $n> =
             $crate::CountedRingbuf {
                 counters: <$t as $crate::Count>::NEW_COUNTERS,
+                _c: core::marker::PhantomData,
             };
     };
     ($t:ident, $n:expr, $init:expr, no_dedup) => {
@@ -531,6 +533,9 @@ pub struct CountedRingbuf<T: Count + Copy, C, const N: usize> {
     /// `CountedRingbuf`.
     #[cfg(not(feature = "disabled"))]
     pub ringbuf: StaticCell<Ringbuf<T, C, N>>,
+
+    #[cfg(feature = "disabled")]
+    pub _c: core::marker::PhantomData<fn(C)>,
 
     /// Counts of the total number of times each variant of `T` has been
     /// recorded, as defined by `T`'s [`Count`] impl.
