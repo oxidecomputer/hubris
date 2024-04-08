@@ -2,7 +2,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{inventory::Inventory, Log, MgsMessage};
+use crate::{
+    inventory::Inventory, update::rot::RotUpdate, update::sp::SpUpdate, Log,
+    MgsMessage,
+};
 use drv_caboose::{CabooseError, CabooseReader};
 use drv_sprot_api::{
     CabooseOrSprotError, RotState as SprotRotState, SpRot, SprotError,
@@ -30,24 +33,30 @@ task_slot!(pub UPDATE_SERVER, update_server);
 
 /// Provider of MGS handler logic common to all targets (gimlet, sidecar, psc).
 pub(crate) struct MgsCommon {
+    pub sp_update: SpUpdate,
+    pub rot_update: RotUpdate,
+
     reset_component_requested: Option<SpComponent>,
     inventory: Inventory,
     base_mac_address: MacAddress,
     packrat: Packrat,
     sprot: SpRot,
-    sp_update: Update,
+    update_sp: Update,
     sensor: Sensor,
 }
 
 impl MgsCommon {
     pub(crate) fn claim_static_resources(base_mac_address: MacAddress) -> Self {
         Self {
+            sp_update: SpUpdate::new(),
+            rot_update: RotUpdate::new(),
+
             reset_component_requested: None,
             inventory: Inventory::new(),
             base_mac_address,
             packrat: Packrat::from(PACKRAT.get_task_id()),
             sprot: SpRot::from(SPROT.get_task_id()),
-            sp_update: Update::from(UPDATE_SERVER.get_task_id()),
+            update_sp: Update::from(UPDATE_SERVER.get_task_id()),
             sensor: Sensor::from(SENSOR.get_task_id()),
         }
     }
@@ -162,7 +171,7 @@ impl MgsCommon {
                 }
                 1 => {
                     let len = self
-                        .sp_update
+                        .update_sp
                         .read_caboose_value(key, buf)
                         .map_err(caboose_to_sp_error)?;
                     Ok(len as usize)
