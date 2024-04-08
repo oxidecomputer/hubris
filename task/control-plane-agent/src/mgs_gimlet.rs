@@ -7,8 +7,6 @@ use crate::{
     update::rot::RotUpdate, update::sp::SpUpdate, update::ComponentUpdater,
     usize_max, vlan_id_from_sp_port, CriticalEvent, Log, MgsMessage, SYS,
 };
-use core::cell::UnsafeCell;
-use core::sync::atomic::{AtomicBool, Ordering};
 use core::time::Duration;
 use drv_gimlet_seq_api::Sequencer;
 use drv_stm32h7_usart::Usart;
@@ -28,6 +26,7 @@ use heapless::{Deque, Vec};
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
 use ringbuf::ringbuf_entry_root;
+use static_cell::ClaimOnceCell;
 use task_control_plane_agent_api::{
     ControlPlaneAgentError, UartClient, VpdIdentity,
     MAX_INSTALLINATOR_IMAGE_ID_LEN,
@@ -136,8 +135,8 @@ impl MgsHandler {
     /// Instantiate an `MgsHandler` that claims static buffers and device
     /// resources. Can only be called once; will panic if called multiple times!
     pub(crate) fn claim_static_resources(base_mac_address: MacAddress) -> Self {
-        static INSTALLINATOR_IMAGE_ID: ClaimOnce<InstallinatorImageIdBuf> =
-            ClaimOnce::new(InstallinatorImageIdBuf::new());
+        static INSTALLINATOR_IMAGE_ID: ClaimOnceCell<InstallinatorImageIdBuf> =
+            ClaimOnceCell::new(InstallinatorImageIdBuf::new());
         let usart = UsartHandler::claim_static_resources();
 
         Self {
@@ -1127,12 +1126,12 @@ struct UsartHandler {
 
 impl UsartHandler {
     fn claim_static_resources() -> Self {
-        static UART_TX_BUF: ClaimOnce<
+        static UART_TX_BUF: ClaimOnceCell<
             Deque<u8, MGS_TO_SP_SERIAL_CONSOLE_BUFFER_SIZE>,
-        > = ClaimOnce::new(Deque::new());
-        static UART_RX_BUF: ClaimOnce<
+        > = ClaimOnceCell::new(Deque::new());
+        static UART_RX_BUF: ClaimOnceCell<
             Deque<u8, SP_TO_MGS_SERIAL_CONSOLE_BUFFER_SIZE>,
-        > = ClaimOnce::new(Deque::new());
+        > = ClaimOnceCell::new(Deque::new());
 
         let usart = configure_usart();
 
@@ -1418,40 +1417,6 @@ impl<T, const N: usize> DequeExt for Deque<T, N> {
     fn drain_front(&mut self, n: usize) {
         for _ in 0..n {
             self.pop_front().unwrap_lite();
-        }
-    }
-}
-
-struct ClaimOnce<T> {
-    value: UnsafeCell<T>,
-    taken: AtomicBool,
-}
-
-// Safety: because a `ClaimOnce` may only create a single mutable reference to
-// the inner value a single time, it can implement `Sync` freely, as the inner
-// `UnsafeCell`'s value cannot be mutably aliased.
-unsafe impl<T> Sync for ClaimOnce<T> where for<'a> &'a T: Send {}
-
-impl<T> ClaimOnce<T> {
-    const fn new(value: T) -> Self {
-        Self {
-            value: UnsafeCell::new(value),
-            taken: AtomicBool::new(false),
-        }
-    }
-
-    fn claim(&self) -> &mut T {
-        if self.taken.swap(true, Ordering::Relaxed) {
-            panic!();
-        }
-
-        unsafe {
-            // Safety: dereferencing a raw pointer is unsafe as the value may
-            // be aliased. However, because `ClaimOnce::claim` is the *only* way
-            // to access the inner value, and the `taken` bool ensures it is
-            // only ever called once, we know that this raw pointer does not
-            // point to aliased data.
-            &mut *self.value.get()
         }
     }
 }

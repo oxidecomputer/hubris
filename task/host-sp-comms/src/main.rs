@@ -25,6 +25,7 @@ use multitimer::{Multitimer, Repeat};
 use mutable_statics::mutable_statics;
 use ringbuf::{counted_ringbuf, ringbuf_entry};
 use static_assertions::const_assert;
+use static_cell::ClaimOnceCell;
 use task_control_plane_agent_api::{
     ControlPlaneAgent, MAX_INSTALLINATOR_IMAGE_ID_LEN,
 };
@@ -278,12 +279,15 @@ impl ServerImpl {
             Some(Repeat::AfterWake(UART_ZERO_DELAY)),
         );
 
+        static UART_RX_BUF: ClaimOnceCell<Vec<u8, MAX_PACKET_SIZE>> =
+            ClaimOnceCell::new(Vec::new());
+
         Self {
             uart,
             sys,
             timers,
             tx_buf: TxBuf::claim_static_resources(),
-            rx_buf: claim_uart_rx_buf(),
+            rx_buf: UART_RX_BUF.claim(),
             status: Status::empty(),
             sequencer: Sequencer::from(GIMLET_SEQ.get_task_id()),
             hf: HostFlash::from(HOST_FLASH.get_task_id()),

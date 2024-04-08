@@ -43,6 +43,7 @@ task-sensor-api = { path = "../sensor-api" }
 task-validate-api = { path = "../validate-api" }
 update-buffer = { path = "../../lib/update-buffer" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+static-cell = { path = "../../lib/static-cell", optional = true }
 
 [build-dependencies]
 build-util = { path = "../../build/util" }
@@ -50,7 +51,7 @@ idol = { workspace = true }
 
 [features]
 no-ipc-counters = ["idol/no-counters"]
-gimlet = ["drv-gimlet-hf-api", "drv-gimlet-seq-api", "drv-stm32h7-usart", "drv-user-leds-api"]
+gimlet = ["drv-gimlet-hf-api", "drv-gimlet-seq-api", "drv-stm32h7-usart", "drv-user-leds-api", "static-cell"]
 sidecar = ["drv-sidecar-seq-api", "drv-monorail-api", "drv-ignition-api", "drv-transceivers-api"]
 psc = ["drv-user-leds-api"]
 vpd = ["task-vpd-api"]
