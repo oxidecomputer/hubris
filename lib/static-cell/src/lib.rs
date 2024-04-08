@@ -75,3 +75,57 @@ impl<'a, T> core::ops::DerefMut for StaticRef<'a, T> {
         self.contents
     }
 }
+
+/// A simpler variant of [`StaticCell`], which may be claimed only a single
+/// time.
+///
+/// Because the value may only be claimed once, and any repeated call to
+/// [`ClaimOnceCell::claim`] will panic, the method may return a `&'static mut
+/// T` rather than a `StaticRef<'static, T>` guard. Once the value has been
+/// claimed, no other reference to it may ever be created, so a type
+/// implementing `Drop` is not required to release it.
+pub struct ClaimOnceCell<T> {
+    taken: AtomicBool,
+    cell: UnsafeCell<T>,
+}
+
+// Safety: because a `ClaimOnceCell` may only create a single mutable reference to
+// the inner value a single time, it can implement `Sync` freely, as the inner
+// `UnsafeCell`'s value cannot be mutably aliased.
+unsafe impl<T> Sync for ClaimOnceCell<T> where for<'a> &'a T: Send {}
+
+impl<T> ClaimOnceCell<T> {
+    /// Returns a new `ClaimOnceCell` containing the provided `value`.
+    ///
+    /// The returned `ClaimOnceCell` will not have yet been claimed, and the
+    /// [`ClaimOnceCell::claim`] method may be called to claim exclusive access
+    /// to the contents.
+    pub const fn new(value: T) -> Self {
+        Self {
+            taken: AtomicBool::new(false),
+            cell: UnsafeCell::new(value),
+        }
+    }
+
+    /// Claims the value inside this cell, if it has not already been claimed,
+    /// returning a `&mut T` referencing the value.
+    ///
+    /// If this method has already been called, subsequent calls will panic.
+    #[track_caller] // Let's get useful panic locations
+    #[must_use = "claiming a `ClaimOnceCell` and not accessing it will render \
+         it permanently unusable, as it will have already been claimed!"]
+    pub fn claim(&self) -> &mut T {
+        if self.taken.swap(true, Ordering::Relaxed) {
+            panic!();
+        }
+
+        unsafe {
+            // Safety: dereferencing a raw pointer is unsafe as the value may
+            // be aliased. However, because `ClaimOnceCell::claim` is the
+            // *only*  way to access the inner value, and the `taken` bool
+            // ensures it is only ever called once, we know that this raw
+            // pointer does not point to aliased data.
+            &mut *self.cell.get()
+        }
+    }
+}
