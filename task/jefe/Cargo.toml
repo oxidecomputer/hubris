@@ -13,6 +13,7 @@ zerocopy = { workspace = true }
 hubpack = { workspace = true }
 humpty = { workspace = true }
 cfg-if = { workspace = true }
+heapless = { workspace = true, optional = true }
 
 abi = { path = "../../sys/abi" }
 armv6m-atomic-hack = { path = "../../lib/armv6m-atomic-hack" }
@@ -27,9 +28,11 @@ idol = { workspace = true }
 serde = { workspace = true }
 
 build-util = { path = "../../build/util" }
+build-dump-regions = { path = "../../build/dump-regions", optional = true}
 
 [features]
-dump = []
+dump = ["build-dump-regions"]
+background-dump = ["heapless"]
 nano = [ "ringbuf/disabled" ]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,

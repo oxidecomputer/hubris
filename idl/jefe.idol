@@ -95,6 +95,28 @@ Interface(
             encoding: Hubpack,
         ),
 
+        "get_background_dump_task": (
+            description: "returns the ID of the last faulted task which requires
+            a background dump",
+            reply: Simple("Option<u32>"),
+            encoding: Hubpack,
+            // well, it's not *really* idempotent, but if Jefe has crashed,
+            // retrying it will just get you nothing, and that's fine-ish...
+            idempotent: true,
+        ),
+
+        "finish_background_dump": (
+            description: "marks the background dump of the task with the
+            provided ID as complete",
+            // TODO(eliza): should the background dumper be given the option to
+            // mark the dump as *failed* here?
+            args: {
+                "task": "u32",
+            },
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+
         // Note: this is the "raw" API; there is a nice wrapper in the client
         // crate.
         "restart_me_raw": (

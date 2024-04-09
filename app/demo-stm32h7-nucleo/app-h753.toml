@@ -14,14 +14,15 @@ name = "task-jefe"
 priority = 0
 max-sizes = {flash = 16384, ram = 2048}
 start = true
-features = ["dump"]
+features = ["background-dump"]
 stacksize = 1536
 notifications = ["fault", "timer"]
-extern-regions = [ "sram2", "sram3", "sram4" ]
+task-slots = ["jeffrey"]
 
 [tasks.jefe.config.allowed-callers]
 set_reset_reason = ["sys"]
 request_reset = ["hiffy"]
+
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
@@ -175,12 +176,19 @@ stacksize = 2048
 start = true
 uses = ["hash"]
 notifications = ["hash-irq"]
-interrupts = {"hash.irq" = "hash-irq"}
-task-slots = ["sys"]
+
+[tasks.jeffrey]
+name = "task-jeffrey"
+priority = 7
+stacksize = 2048
+start = true
+notifications = ["dump-request", "timeout"]
+task-slots = ["jefe"]
+extern-regions = [ "sram2", "sram3", "sram4" ]
 
 [tasks.idle]
 name = "task-idle"
-priority = 7
+priority = 8
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true
@@ -197,11 +205,11 @@ uses = ["rng"]
 
 [tasks.dump_agent]
 name = "task-dump-agent"
-features = ["no-rot"]
+features = ["no-rot", "jeffrey"]
 priority = 4
 max-sizes = {flash = 32768, ram = 2048 }
 start = true
-task-slots = ["jefe"]
+task-slots = ["jeffrey"]
 stacksize = 1200
 extern-regions = [ "sram2", "sram3", "sram4" ]
 

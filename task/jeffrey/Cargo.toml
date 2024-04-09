@@ -1,0 +1,28 @@
+[package]
+name = "task-jeffrey"
+version = "0.1.0"
+edition = "2021"
+
+
+[dependencies]
+hubpack.workspace = true
+humpty.workspace = true
+ringbuf.path = "../../lib/ringbuf"
+task-jefe-api.path = "../../task/jefe-api"
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+
+[features]
+
+[build-dependencies]
+idol.workspace = true
+
+build-util.path = "../../build/util"
+build-dump-regions.path = "../../build/dump-regions"
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "task-jeffrey"
+test = false
+doctest = false
+bench = false

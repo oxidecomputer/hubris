@@ -26,6 +26,13 @@
 #![no_std]
 #![no_main]
 
+#[cfg(all(feature = "dump", feature = "background-dump"))]
+compile_error!(
+    "cannot enable both the \"dump\" and \"background-dump\" features at the same time"
+);
+
+#[cfg(feature = "background-dump")]
+mod background_dump;
 #[cfg(feature = "dump")]
 mod dump;
 
@@ -35,7 +42,7 @@ use core::convert::Infallible;
 
 use hubris_num_tasks::NUM_TASKS;
 use humpty::DumpArea;
-use idol_runtime::RequestError;
+use idol_runtime::{ClientError, RequestError};
 use task_jefe_api::{DumpAgentError, ResetReason};
 use userlib::*;
 
@@ -55,7 +62,7 @@ const TIMER_INTERVAL: u64 = 100;
 
 #[export_name = "main"]
 fn main() -> ! {
-    let mut task_states = [TaskStatus::default(); hubris_num_tasks::NUM_TASKS];
+    let mut task_states = [TaskStatus::default(); NUM_TASKS];
     for held_task in generated::HELD_TASKS {
         task_states[held_task as usize].disposition = Disposition::Hold;
     }
@@ -73,6 +80,9 @@ fn main() -> ! {
         reset_reason: ResetReason::Unknown,
         #[cfg(feature = "dump")]
         dump_areas: dump::initialize_dump_areas(),
+
+        #[cfg(feature = "background-dump")]
+        dump_queue: background_dump::DumpQueue::new(),
     };
     let mut buf = [0u8; idl::INCOMING_SIZE];
 
@@ -88,6 +98,9 @@ struct ServerImpl<'s> {
     reset_reason: ResetReason,
     #[cfg(feature = "dump")]
     dump_areas: u32,
+
+    #[cfg(feature = "background-dump")]
+    dump_queue: background_dump::DumpQueue,
 }
 
 impl idl::InOrderJefeImpl for ServerImpl<'_> {
@@ -152,6 +165,53 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
         // work. This is a compromise because Idol can't easily describe an IPC
         // that won't return at this time.
         Ok(())
+    }
+
+    // Background dump API
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "background-dump")] {
+            fn get_background_dump_task(
+                &mut self,
+                _msg: &userlib::RecvMessage,
+            ) -> Result<Option<u32>, RequestError<Infallible>> {
+                Ok(self.dump_queue.start_dump())
+            }
+
+            fn finish_background_dump(
+                &mut self,
+                _msg: &userlib::RecvMessage,
+                task: u32,
+            ) -> Result<(), RequestError<Infallible>> {
+                let status = self
+                    .task_states.get_mut(task.index())
+                    .ok_or(RequestError::Fail(ClientError::BadMessageContents))?;
+
+                // If this task is supposed to be restarted, let's do that, now
+                // that the dump is done.
+                if status.disposition == Disposition::Restart {
+                    status.holding_fault = false;
+                    kipc::restart_task(task.index(), true);
+                }
+
+                self.dump_queue.finish_dump(task)
+            }
+        } else {
+            fn get_background_dump_task(
+                &mut self,
+                _msg: &userlib::RecvMessage,
+            ) -> Result<Option<u32>, RequestError<Infallible>> {
+                // You're not Jeffrey! Go away!
+                Err(RequestError::Fail(ClientError::BadMessageContents))
+            }
+
+            fn finish_background_dump(
+                &mut self,
+                _msg: &userlib::RecvMessage,
+                _task: u32,
+            ) -> Result<(), RequestError<Infallible>> {
+                Err(RequestError::Fail(ClientError::BadMessageContents))
+            }
+        }
     }
 
     cfg_if::cfg_if! {
@@ -328,6 +388,15 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
                         _ = dump::dump_task(self.dump_areas, i);
                     }
 
+                    #[cfg(feature = "background-dump")]
+                    {
+                        // Queue up a background dump for this task, and leave
+                        // it in the faulted state until it's done.
+                        self.dump_queue.fault(i as usize);
+                        status.holding_fault = true;
+                    }
+
+                    #[cfg(not(feature = "background-dump"))]
                     if status.disposition == Disposition::Restart {
                         // Stand it back up
                         kipc::restart_task(i, true);
