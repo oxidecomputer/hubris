@@ -46,8 +46,6 @@ static UPDATE_MEMORY: UpdateBuffer = UpdateBuffer::new();
 
 pub(crate) struct MgsHandler {
     common: MgsCommon,
-    sp_update: SpUpdate,
-    rot_update: RotUpdate,
     user_leds: UserLeds,
 }
 
@@ -57,8 +55,6 @@ impl MgsHandler {
     pub(crate) fn claim_static_resources(base_mac_address: MacAddress) -> Self {
         Self {
             common: MgsCommon::claim_static_resources(base_mac_address),
-            sp_update: SpUpdate::new(),
-            rot_update: RotUpdate::new(),
             user_leds: UserLeds::from(USER_LEDS.get_task_id()),
         }
     }
