@@ -60,6 +60,13 @@ fn main() -> Result<()> {
         writeln!(out, "];")?;
     }
 
+    #[cfg(feature = "background-dump")]
+    writeln!(
+        out,
+        "pub(crate) const LITTLE_HELPER: {task} = {task}::{};",
+        cfg.little_helper,
+    )?;
+
     Ok(())
 }
 
@@ -78,4 +85,7 @@ struct Config {
     /// failure, unless overridden at runtime through Humility.
     #[serde(default)]
     tasks_to_hold: BTreeSet<String>,
+    /// Name of the background dump task.
+    #[cfg(feature = "background-dump")]
+    little_helper: String,
 }

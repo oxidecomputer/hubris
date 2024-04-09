@@ -20,9 +20,11 @@ zerocopy.workspace = true
 drv-sprot-api.path = "../../drv/sprot-api"
 dump-agent-api.path = "../dump-agent-api"
 dumper-api.path = "../dumper-api"
+dump-types.path = "../dump-types"
 mutable-statics.path = "../../lib/mutable-statics"
 ringbuf.path = "../../lib/ringbuf"
-task-jefe-api.path = "../../task/jefe-api"
+task-jefe-api = { path = "../../task/jefe-api", optional = true }
+task-jeffrey-api = { path = "../../task/jeffrey-api", optional = true }
 task-net-api = { path = "../../task/net-api", optional = true }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
@@ -36,6 +38,9 @@ net = ["task-net-api"]
 # Configures the net task with VLANs enabled
 vlan = ["task-net-api?/vlan"]
 no-ipc-counters = ["idol/no-counters"]
+
+jefe = ["task-jeffrey-api"]
+jeffrey = ["task-jeffrey-api"]
 
 [build-dependencies]
 anyhow.workspace = true

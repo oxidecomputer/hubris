@@ -272,12 +272,6 @@ fn read_task_dump_region(
     use crate::umem::safe_copy_dma;
     use crate::util::index2_distinct;
 
-    if caller != 0 {
-        return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
-            UsageError::NotSupervisor,
-        )));
-    }
-
     let (index, region): (u32, abi::TaskDumpRegion) =
         deserialize_message(&tasks[caller], message)?;
     // It's far more convenient to deal with index as a usize from here on.

@@ -1,22 +1,16 @@
 [package]
-name = "task-jefe-api"
+name = "dump-types"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 num-traits = { workspace = true }
-serde = { workspace = true }
-ssmarshal = { workspace = true }
-zerocopy = { workspace = true }
-hubpack = { workspace = true }
+num-derive = { workspace = true }
 humpty = { workspace = true }
 
-dump-types = { path = "../dump-types" }
-userlib = { path = "../../sys/userlib" }
 counters = { path = "../../lib/counters" }
-
-[build-dependencies]
-idol = { workspace = true }
+derive-idol-err = { path = "../../lib/derive-idol-err" }
+dump-agent-api = { path = "../dump-agent-api" }
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

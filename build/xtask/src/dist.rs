@@ -1317,6 +1317,28 @@ fn update_image_header(
 /// (namely, Jefe attempting accessing memory that it doesn't have access to
 /// or making a system call that is unsupported) into a compile-time one.
 fn check_dump_config(toml: &Config) -> Result<()> {
+    use crate::config::Task;
+
+    fn check_dump_regions(dump_agent: &Task, dumpist: &Task) -> Result<()> {
+        //
+        // We have a dump agent, and it has a slot for Jefe, denoting that
+        // it is configured for task dumps; now we want to check that the
+        // dumping task (1) has extern regions configured, and (2) uses
+        // everything that the dump agent is using.
+        for u in &dump_agent.extern_regions {
+            if !dumpist.extern_regions.iter().any(|j| j == u) {
+                bail!(
+                    "dump agent/{d} misconfiguration: dump agent has {u} as \
+                    an extern-region and depends on {d}, but {d} does not \
+                    have {u} as an extern-region",
+                    d = dumpist.name,
+                );
+            }
+        }
+
+        Ok(())
+    }
+
     let dump_support = toml.kernel.features.iter().find(|&f| f == "dump");
 
     if let Some(task) = toml.tasks.get("dump_agent") {
@@ -1327,26 +1349,19 @@ fn check_dump_config(toml: &Config) -> Result<()> {
             );
         }
 
-        if task.task_slots.get("jefe").is_none() {
-            bail!(
-                "dump agent misconfiguration: dump agent is present \
-                but has not been configured to depend on jefe"
-            );
-        }
+        if task.task_slots.get("jefe").is_some() {
+            let jefe = toml.tasks.get("jeffrey").context("missing jeffrey?")?;
+            if !jefe.features.iter().any(|f| f == "dump") {
+                bail!(
+                    "dump agent/jefe misconfiguration: dump agent depends \
+                    on jefe, but jefe does not have the dump feature enabled"
+                );
+            }
 
-        //
-        // We have a dump agent, and it has a slot for Jefe, denoting that
-        // it is configured for task dumps; now we want to check that Jefe
-        // (1) has the dump feature enabled (2) has extern regions and
-        // (3) uses everything that the dump agent is using.
-        //
-        let jefe = toml.tasks.get("jefe").context("missing jefe?")?;
-
-        if !jefe.features.iter().any(|f| f == "dump") {
-            bail!(
-                "dump agent/jefe misconfiguration: dump agent depends \
-                on jefe, but jefe does not have the dump feature enabled"
-            );
+            check_dump_regions(task, jefe)?;
+        } else if task.task_slots.get("jeffrey").is_some() {
+            let jeff = toml.tasks.get("jeffrey").context("missing jeffrey?")?;
+            check_dump_regions(task, jeff)?;
         }
 
         if dump_support.is_none() {
@@ -1355,16 +1370,6 @@ fn check_dump_config(toml: &Config) -> Result<()> {
                 for dumping, but kernel does not have the dump feature enabled
             "
             );
-        }
-
-        for u in &task.extern_regions {
-            if !jefe.extern_regions.iter().any(|j| j == u) {
-                bail!(
-                    "dump agent/jefe misconfiguration: dump agent has \
-                    {u} as an extern-region and depends on jefe, but jefe \
-                    does not have {u} as an extern-region"
-                );
-            }
         }
     } else if dump_support.is_some() {
         bail!("kernel dump support is enabled, but dump agent is missing");

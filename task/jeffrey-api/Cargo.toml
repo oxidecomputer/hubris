@@ -1,5 +1,5 @@
 [package]
-name = "task-jefe-api"
+name = "task-jeffrey-api"
 version = "0.1.0"
 edition = "2021"
 
@@ -12,6 +12,7 @@ hubpack = { workspace = true }
 humpty = { workspace = true }
 
 dump-types = { path = "../dump-types" }
+derive-idol-err = { path = "../../lib/derive-idol-err" }
 userlib = { path = "../../sys/userlib" }
 counters = { path = "../../lib/counters" }
 

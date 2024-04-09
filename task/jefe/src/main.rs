@@ -180,14 +180,14 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
                 task: u32,
             ) -> Result<(), RequestError<Infallible>> {
                 let status = self
-                    .task_states.get_mut(task.index())
+                    .task_states.get_mut(task as usize)
                     .ok_or(RequestError::Fail(ClientError::BadMessageContents))?;
 
                 // If this task is supposed to be restarted, let's do that, now
                 // that the dump is done.
                 if status.disposition == Disposition::Restart {
                     status.holding_fault = false;
-                    kipc::restart_task(task.index(), true);
+                    kipc::restart_task(task as usize, true);
                 }
 
                 self.dump_queue.finish_dump(task)
@@ -389,8 +389,13 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
                     {
                         // Queue up a background dump for this task, and leave
                         // it in the faulted state until it's done.
-                        self.dump_queue.fault(i as usize);
+                        self.dump_queue.fault(i as u32);
                         status.holding_fault = true;
+
+                        // TODO(eliza): if the task that faulted was the
+                        // background dumping task, we should release any tasks
+                        // that currently haven't been restarted because they
+                        // were waiting to be dumped!
                     }
 
                     #[cfg(not(feature = "background-dump"))]

@@ -2176,6 +2176,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "dump-types"
+version = "0.1.0"
+dependencies = [
+ "counters",
+ "derive-idol-err",
+ "dump-agent-api",
+ "humpty",
+ "num-derive",
+ "num-traits",
+]
+
+[[package]]
 name = "dumper-api"
 version = "0.1.0"
 dependencies = [
@@ -4351,6 +4363,7 @@ dependencies = [
  "cortex-m",
  "drv-sprot-api",
  "dump-agent-api",
+ "dump-types",
  "dumper-api",
  "hubpack",
  "humpty",
@@ -4362,6 +4375,7 @@ dependencies = [
  "serde",
  "static_assertions",
  "task-jefe-api",
+ "task-jeffrey-api",
  "task-net-api",
  "userlib",
  "zerocopy 0.6.6",
@@ -4512,6 +4526,7 @@ dependencies = [
  "build-util",
  "cfg-if",
  "cortex-m",
+ "counters",
  "dumptruck",
  "heapless",
  "hubpack",
@@ -4533,8 +4548,7 @@ name = "task-jefe-api"
 version = "0.1.0"
 dependencies = [
  "counters",
- "derive-idol-err",
- "dump-agent-api",
+ "dump-types",
  "hubpack",
  "humpty",
  "idol",
@@ -4550,12 +4564,34 @@ name = "task-jeffrey"
 version = "0.1.0"
 dependencies = [
  "build-util",
+ "counters",
  "dumptruck",
  "hubpack",
+ "humpty",
  "idol",
+ "idol-runtime",
+ "num-traits",
  "ringbuf",
+ "serde",
  "task-jefe-api",
  "userlib",
+]
+
+[[package]]
+name = "task-jeffrey-api"
+version = "0.1.0"
+dependencies = [
+ "counters",
+ "derive-idol-err",
+ "dump-types",
+ "hubpack",
+ "humpty",
+ "idol",
+ "num-traits",
+ "serde",
+ "ssmarshal",
+ "userlib",
+ "zerocopy 0.6.6",
 ]
 
 [[package]]

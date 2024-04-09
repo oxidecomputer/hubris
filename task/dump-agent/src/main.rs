@@ -8,10 +8,10 @@
 #![no_main]
 
 use dump_agent_api::*;
+use dump_types::Dump;
 use idol_runtime::RequestError;
 use ringbuf::*;
 use static_assertions::const_assert;
-use task_jefe_api::Jefe;
 use userlib::*;
 
 #[cfg(feature = "net")]
@@ -24,8 +24,8 @@ mod udp;
 const_assert!(DUMP_READ_SIZE & (DUMP_READ_SIZE - 1) == 0);
 const_assert!(DUMP_READ_SIZE <= 1024);
 
-struct ServerImpl {
-    jefe: Jefe,
+struct ServerImpl<J: Dump> {
+    jefe: J,
     #[cfg(feature = "net")]
     net: task_net_api::Net,
 }
@@ -44,9 +44,7 @@ ringbuf!(Trace, 4, Trace::None);
 #[cfg(not(feature = "no-rot"))]
 task_slot!(SPROT, sprot);
 
-task_slot!(JEFE, jefe);
-
-impl ServerImpl {
+impl<J: Dump> ServerImpl<J> {
     fn initialize(&self) -> Result<(), DumpAgentError> {
         self.jefe.reinitialize_dump_areas()
     }
@@ -185,7 +183,7 @@ impl ServerImpl {
 }
 
 #[cfg(feature = "net")]
-impl idol_runtime::NotificationHandler for ServerImpl {
+impl<J: Dump> idol_runtime::NotificationHandler for ServerImp<J: Dump> {
     fn current_notification_mask(&self) -> u32 {
         notifications::SOCKET_MASK
     }
@@ -198,7 +196,7 @@ impl idol_runtime::NotificationHandler for ServerImpl {
 
 // If we are not built with net support, we expect no notifications.
 #[cfg(not(feature = "net"))]
-impl idol_runtime::NotificationHandler for ServerImpl {
+impl<J: Dump> idol_runtime::NotificationHandler for ServerImpl<J> {
     fn current_notification_mask(&self) -> u32 {
         0
     }
@@ -207,7 +205,7 @@ impl idol_runtime::NotificationHandler for ServerImpl {
     }
 }
 
-impl idl::InOrderDumpAgentImpl for ServerImpl {
+impl<J: Dump> idl::InOrderDumpAgentImpl for ServerImpl<J> {
     fn get_dump_area(
         &mut self,
         _msg: &RecvMessage,
@@ -285,12 +283,38 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
 fn main() -> ! {
     let mut buffer = [0; idl::INCOMING_SIZE];
 
+    #[cfg(feature = "jefe")]
+    let jefe = {
+        task_slot!(JEFE, jefe);
+        task_jefe_api::Jefe::from(JEFE.get_task_id())
+    };
+
+    #[cfg(feature = "jeffrey")]
+    let jefe = {
+        task_slot!(JEFFREY, jeffrey);
+        task_jeffrey_api::Jeffrey::from(JEFFREY.get_task_id())
+    };
+
+    #[cfg(all(feature = "jefe", feature = "jeffrey"))]
+    {
+        compile_error!(
+            "either the 'jefe' or 'jeffrey' feature must be enabled"
+        );
+    }
+
+    #[cfg(not(any(feature = "jefe", feature = "jeffrey")))]
+    {
+        compile_error!(
+            "either the 'jefe' or 'jeffrey' feature must be enabled"
+        );
+    }
+
     #[cfg(feature = "net")]
     {
         task_slot!(NET, net);
         let (rx_data_buf, tx_data_buf) = udp::claim_statics();
         let mut server = ServerImpl {
-            jefe: Jefe::from(JEFE.get_task_id()),
+            jefe,
             net: task_net_api::Net::from(NET.get_task_id()),
         };
 
@@ -305,9 +329,7 @@ fn main() -> ! {
 
     #[cfg(not(feature = "net"))]
     {
-        let mut server = ServerImpl {
-            jefe: Jefe::from(JEFE.get_task_id()),
-        };
+        let mut server = ServerImpl { jefe };
         loop {
             idol_runtime::dispatch(&mut buffer, &mut server);
         }

@@ -3,10 +3,9 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::notifications;
+use core::convert::Infallible;
 use ringbuf::*;
-use userlib::{sys_get_timer, sys_post};
-
-task_slot!(JEFFREY, jeffrey);
+use userlib::{sys_get_timer, sys_post, sys_refresh_task_id, TaskId};
 
 pub(super) struct DumpQueue {
     /// Queue of tasks to dump in the background.
@@ -14,7 +13,8 @@ pub(super) struct DumpQueue {
     /// Since a task is not restarted until it has finished being dumped, we can
     /// use `NUM_TASKS` as the size for this queue --- it will never contain
     /// more than `NUM_TASKS` IDs waiting to dump.
-    queue: heapless::Deque<u32, hubris_num_tasks::NUM_TASKS>,
+    queue: heapless::Deque<u32, { hubris_num_tasks::NUM_TASKS }>,
+    jeff: TaskId,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, counters::Count)]
@@ -33,10 +33,6 @@ enum Trace {
         task: u32,
         now: u64,
     },
-    DumpTimeout {
-        task: u32,
-        now: u64,
-    },
     DumpQueueFull,
     UnexpectedDumpReq,
 }
@@ -44,13 +40,22 @@ enum Trace {
 counted_ringbuf!(Trace, 8, Trace::None);
 
 impl DumpQueue {
+    pub(super) fn new() -> Self {
+        Self {
+            queue: heapless::Deque::new(),
+            jeff: TaskId::for_index_and_gen(
+                super::generated::LITTLE_HELPER as usize,
+                userlib::Generation::ZERO,
+            ),
+        }
+    }
     pub(super) fn fault(&mut self, task: u32) {
         if self.queue.push_back(task).is_ok() {
             let now = sys_get_timer().now;
             ringbuf_entry!(Trace::NeedsDump { task, now });
             sys_post(
-                JEFFREY.get_task_id(),
-                notifications::jeffrey::DUMP_REQUEST,
+                sys_refresh_task_id(self.jeff),
+                notifications::jeffrey::DUMP_REQUEST_MASK,
             );
         } else {
             // in practice, this should never happen...but let's not generate
@@ -63,7 +68,6 @@ impl DumpQueue {
         let now = sys_get_timer().now;
         if let Some(task) = self.queue.front().copied() {
             ringbuf_entry!(Trace::StartDump { task, now });
-            // TODO(eliza): start multitimer timeout...
             Some(task)
         } else {
             ringbuf_entry!(Trace::UnexpectedDumpReq);
@@ -88,8 +92,8 @@ impl DumpQueue {
         // more work to do.
         if !self.queue.is_empty() {
             sys_post(
-                JEFFREY.get_task_id(),
-                notifications::jeffrey::DUMP_REQUEST,
+                sys_refresh_task_id(self.jeff),
+                notifications::jeffrey::DUMP_REQUEST_MASK,
             );
         }
 

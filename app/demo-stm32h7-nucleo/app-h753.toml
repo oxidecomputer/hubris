@@ -17,12 +17,15 @@ start = true
 features = ["background-dump"]
 stacksize = 1536
 notifications = ["fault", "timer"]
-task-slots = ["jeffrey"]
+
+[tasks.jefe.config]
+little-helper = "jeffrey"
 
 [tasks.jefe.config.allowed-callers]
 set_reset_reason = ["sys"]
 request_reset = ["hiffy"]
-
+get_background_dump_task = ["jeffrey"]
+finish_background_dump = ["jeffrey"]
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
@@ -118,6 +121,7 @@ start = true
 task-slots = ["sys", "user_leds"]
 notifications = ["button"]
 config = { led = 1, edge = "Edge::Rising" }
+features = ["crashme"]
 
 [tasks.udpecho]
 name = "task-udpecho"
@@ -176,13 +180,14 @@ stacksize = 2048
 start = true
 uses = ["hash"]
 notifications = ["hash-irq"]
+task-slots = ["sys"]
 
 [tasks.jeffrey]
 name = "task-jeffrey"
-priority = 7
+priority = 4
 stacksize = 2048
 start = true
-notifications = ["dump-request", "timeout"]
+notifications = ["dump-request"]
 task-slots = ["jefe"]
 extern-regions = [ "sram2", "sram3", "sram4" ]
 
@@ -206,7 +211,7 @@ uses = ["rng"]
 [tasks.dump_agent]
 name = "task-dump-agent"
 features = ["no-rot", "jeffrey"]
-priority = 4
+priority = 5
 max-sizes = {flash = 32768, ram = 2048 }
 start = true
 task-slots = ["jeffrey"]

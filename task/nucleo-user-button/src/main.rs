@@ -102,6 +102,9 @@ pub fn main() -> ! {
         // If the button has changed state, toggle the LED.
         if fired {
             ringbuf_entry!(Trace::LedToggle { led });
+            #[cfg(feature = "crashme")]
+            panic!();
+
             user_leds.led_toggle(led).unwrap_lite();
         }
 

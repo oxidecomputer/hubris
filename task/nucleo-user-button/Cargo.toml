@@ -5,6 +5,9 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+crashme = []
+
 [dependencies]
 drv-user-leds-api = { path = "../../drv/user-leds-api" }
 drv-stm32xx-sys-api = { path = "../../drv/stm32xx-sys-api", features = ["family-stm32h7"] }
