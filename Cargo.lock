@@ -1024,6 +1024,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-gimletlet-front-io-seq-server"
+version = "0.1.0"
+dependencies = [
+ "build-i2c",
+ "build-util",
+ "byteorder",
+ "cfg-if",
+ "cortex-m",
+ "drv-fpga-api",
+ "drv-fpga-user-api",
+ "drv-i2c-api",
+ "drv-i2c-devices",
+ "drv-sidecar-front-io",
+ "hubpack",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "ringbuf",
+ "serde",
+ "userlib",
+ "zerocopy 0.6.6",
+]
+
+[[package]]
 name = "drv-hash-api"
 version = "0.1.0"
 dependencies = [
@@ -1560,6 +1584,7 @@ name = "drv-sidecar-front-io"
 version = "0.1.0"
 dependencies = [
  "build-fpga-regmap",
+ "build-i2c",
  "build-util",
  "cfg-if",
  "drv-auxflash-api",

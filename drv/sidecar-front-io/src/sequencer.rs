@@ -2,13 +2,40 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::*;
+use super::controller::FrontIOController;
+use super::phy_smi::PhySmi;
+
+use drv_fpga_api::{DeviceState, FpgaError};
 use drv_i2c_devices::{at24csw080::At24Csw080, Validate};
-use drv_sidecar_front_io::controller::FrontIOController;
-use drv_sidecar_front_io::phy_smi::PhySmi;
+
+use ringbuf::*;
+
+include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
+
+#[derive(Copy, Clone, PartialEq)]
+enum Trace {
+    None,
+    FpgaBitstreamError(u32),
+    LoadingFrontIOControllerBitstream {
+        fpga_id: usize,
+    },
+    SkipLoadingFrontIOControllerBitstream {
+        fpga_id: usize,
+    },
+    FrontIOControllerIdent {
+        fpga_id: usize,
+        ident: u32,
+    },
+    FrontIOControllerChecksum {
+        fpga_id: usize,
+        checksum: [u8; 4],
+        expected: [u8; 4],
+    },
+}
+ringbuf!(Trace, 32, Trace::None);
 
 #[allow(dead_code)]
-pub(crate) struct FrontIOBoard {
+pub struct FrontIOBoard {
     pub controllers: [FrontIOController; 2],
     fpga_task: userlib::TaskId,
     auxflash_task: userlib::TaskId,

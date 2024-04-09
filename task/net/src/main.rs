@@ -42,7 +42,10 @@ mod server;
 )]
 #[cfg_attr(target_board = "gimletlet-1", path = "bsp/gimletlet_mgmt.rs")]
 #[cfg_attr(
-    all(target_board = "gimletlet-2", feature = "gimletlet-nic"),
+    any(
+        all(target_board = "gimletlet-2", feature = "gimletlet-nic"),
+        all(target_board = "gimletlet-front-io", feature = "gimletlet-nic"),
+    ),
     path = "bsp/gimletlet_nic.rs"
 )]
 mod bsp;

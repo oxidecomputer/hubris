@@ -7,9 +7,21 @@ use std::{fs, io::Write};
 
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     build_util::expose_target_board();
+    build_util::build_notifications()?;
+
+    let disposition = build_i2c::Disposition::Devices;
+
+    if let Err(e) = build_i2c::codegen(disposition) {
+        println!("code generation failed: {}", e);
+        std::process::exit(1);
+    }
 
     let board = build_util::env_var("HUBRIS_BOARD")?;
-    if board != "sidecar-b" && board != "sidecar-c" && board != "sidecar-d" {
+    if board != "sidecar-b"
+        && board != "sidecar-c"
+        && board != "sidecar-d"
+        && board != "gimletlet-front-io"
+    {
         panic!("unknown target board");
     }
 

@@ -17,3 +17,5 @@ pub mod leds;
 pub mod phy_smi;
 #[cfg(feature = "transceivers")]
 pub mod transceivers;
+#[cfg(all(feature = "sequencer", feature = "controller", feature = "phy_smi"))]
+pub mod sequencer;

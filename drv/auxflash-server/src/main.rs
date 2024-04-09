@@ -5,6 +5,20 @@
 #![no_std]
 #![no_main]
 
+#[cfg_attr(
+    any(
+        target_board = "sidecar-b",
+        target_board = "sidecar-c",
+        target_board = "sidecar-d",
+    ),
+    path = "bsp/sidecar_bcd.rs"
+)]
+#[cfg_attr(
+    target_board = "gimletlet-front-io",
+    path = "bsp/gimletlet_front_io.rs"
+)]
+mod bsp;
+
 use drv_auxflash_api::{
     AuxFlashBlob, AuxFlashChecksum, AuxFlashError, AuxFlashId,
     TlvcReadAuxFlash, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES, SLOT_COUNT,
@@ -53,6 +67,10 @@ impl<'a> TlvcRead for SlotReader<'a> {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+struct Config {
+    pub reset: sys_api::PinSet,
+}
+
 #[export_name = "main"]
 fn main() -> ! {
     let sys = sys_api::Sys::from(SYS.get_task_id());
@@ -63,53 +81,8 @@ fn main() -> ! {
     let reg = unsafe { &*device::QUADSPI::ptr() };
     let qspi = Qspi::new(reg, notifications::QSPI_IRQ_MASK);
 
-    let clock = 5; // 200MHz kernel / 5 = 40MHz clock
-    const MEMORY_SIZE: usize = SLOT_COUNT as usize * SLOT_SIZE;
-    assert!(MEMORY_SIZE.is_power_of_two());
-    let memory_size_log2 = MEMORY_SIZE.trailing_zeros().try_into().unwrap();
-    qspi.configure(clock, memory_size_log2);
-
-    // Sidecar-only for now!
-    //
-    // This is mostly copied from `gimlet-hf-server`, with a few pin adjustments
-    //
-    // SP_QSPI_RESET_L     PF5     GPIO
-    // SP_QSPI_CLK         PF10    QUADSPI_CLK
-    // SP_QSPI_IO0 (SI)    PF8     QUADSPI_BK1_IO0
-    // SP_QSPI_IO1 (SO)    PF9     QUADSPI_BK1_IO1
-    // SP_QSPI_CS_L        PG6     QUADSPI_BK1_NCS (or GPIO?)
-    // SP_QSPI_IO2 (*WP)   PF7     QUADSPI_BK1_IO2
-    // SP_QSPI_IO3 (*HOLD) PF6     QUADSPI_BK1_IO3
-    sys.gpio_configure_alternate(
-        sys_api::Port::F.pin(6).and_pin(7).and_pin(10),
-        sys_api::OutputType::PushPull,
-        sys_api::Speed::Medium,
-        sys_api::Pull::None,
-        sys_api::Alternate::AF9,
-    );
-    sys.gpio_configure_alternate(
-        sys_api::Port::F.pin(8).and_pin(9),
-        sys_api::OutputType::PushPull,
-        sys_api::Speed::Medium,
-        sys_api::Pull::None,
-        sys_api::Alternate::AF10,
-    );
-    sys.gpio_configure_alternate(
-        sys_api::Port::G.pin(6),
-        sys_api::OutputType::PushPull,
-        sys_api::Speed::Medium,
-        sys_api::Pull::None,
-        sys_api::Alternate::AF10,
-    );
-
-    let qspi_reset = sys_api::Port::F.pin(5);
-    sys.gpio_reset(qspi_reset);
-    sys.gpio_configure_output(
-        qspi_reset,
-        sys_api::OutputType::PushPull,
-        sys_api::Speed::Low,
-        sys_api::Pull::None,
-    );
+    // Build a pin struct using a board-specific init function
+    let cfg = bsp::init(&qspi, &sys);
 
     // TODO: The best clock frequency to use can vary based on the flash
     // part, the command used, and signal integrity limits of the board.
@@ -119,7 +92,7 @@ fn main() -> ! {
     hl::sleep_for(1);
 
     // Release reset and let it stabilize.
-    sys.gpio_set(qspi_reset);
+    sys.gpio_set(cfg.reset);
     hl::sleep_for(10);
 
     // TODO: check the ID and make sure it's what we expect
