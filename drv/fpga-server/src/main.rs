@@ -12,7 +12,7 @@ use userlib::*;
 use zerocopy::{byteorder, AsBytes, Unaligned, U16};
 
 use drv_fpga_api::{BitstreamType, DeviceState, FpgaError, WriteOp};
-use drv_fpga_devices::{ecp5, Fpga, FpgaBitstream, FpgaUserDesign};
+use drv_fpga_devices::{ecp5, BitstreamLoader, Fpga, FpgaUserDesign};
 use drv_spi_api::SpiServer;
 use drv_stm32xx_sys_api::{self as sys_api, Sys};
 use idol_runtime::{ClientError, Leased, LenLimit, R, W};
@@ -175,11 +175,6 @@ fn main() -> ! {
     loop {
         idol_runtime::dispatch(&mut incoming, &mut server);
     }
-}
-
-enum BitstreamLoader<'a, Device: Fpga<'a>> {
-    Uncompressed(Device::Bitstream, usize),
-    Compressed(gnarle::Decompressor, Device::Bitstream, usize),
 }
 
 struct LockState {
@@ -392,17 +387,10 @@ impl<'a, Device: Fpga<'a> + FpgaUserDesign> idl::InOrderFpgaImpl
 
         let device =
             self.check_lock_and_get_device(msg.sender, device_index)?;
-
-        self.bitstream_loader = Some(match bitstream_type {
-            BitstreamType::Uncompressed => {
-                BitstreamLoader::Uncompressed(device.start_bitstream_load()?, 0)
-            }
-            BitstreamType::Compressed => BitstreamLoader::Compressed(
-                gnarle::Decompressor::default(),
-                device.start_bitstream_load()?,
-                0,
-            ),
-        });
+        self.bitstream_loader = Some(drv_fpga_devices::start_bitstream_load(
+            device,
+            bitstream_type,
+        )?);
 
         ringbuf_entry!(Trace::StartBitstreamLoad(device_index, bitstream_type));
         Ok(())
@@ -416,33 +404,12 @@ impl<'a, Device: Fpga<'a> + FpgaUserDesign> idl::InOrderFpgaImpl
         data.read_range(0..data.len(), &mut self.buffer[..data.len()])
             .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
 
-        let mut chunk = &self.buffer[..data.len()];
+        let chunk = &mut self.buffer[..data.len()];
 
-        match &mut self.bitstream_loader {
+        match self.bitstream_loader.as_mut() {
             None => return Err(RequestError::Runtime(FpgaError::InvalidState)),
-            Some(BitstreamLoader::Uncompressed(bitstream, len)) => {
-                bitstream.continue_load(chunk)?;
-                *len += chunk.len();
-            }
-            Some(BitstreamLoader::Compressed(decompressor, bitstream, len)) => {
-                let mut decompress_buffer = [0; 512];
-
-                while !chunk.is_empty() {
-                    let decompressed_chunk = gnarle::decompress(
-                        decompressor,
-                        &mut chunk,
-                        &mut decompress_buffer,
-                    );
-
-                    // The compressor may have encountered a partial run at the
-                    // end of the `chunk`, in which case `decompressed_chunk`
-                    // will be empty since more data is needed before output is
-                    // generated.
-                    if !decompressed_chunk.is_empty() {
-                        bitstream.continue_load(decompressed_chunk)?;
-                        *len += decompressed_chunk.len();
-                    }
-                }
+            Some(loader) => {
+                drv_fpga_devices::continue_bitstream_load(loader, chunk)?
             }
         }
 
@@ -454,19 +421,16 @@ impl<'a, Device: Fpga<'a> + FpgaUserDesign> idl::InOrderFpgaImpl
         &mut self,
         _: &RecvMessage,
     ) -> Result<(), RequestError> {
-        match &mut self.bitstream_loader {
+        match self.bitstream_loader.as_mut() {
             None => return Err(RequestError::Runtime(FpgaError::InvalidState)),
-            Some(BitstreamLoader::Uncompressed(bitstream, len)) => {
-                ringbuf_entry!(Trace::FinishBitstreamLoad(*len));
-                bitstream.finish_load()?;
-            }
-            Some(BitstreamLoader::Compressed(_, bitstream, len)) => {
-                ringbuf_entry!(Trace::FinishBitstreamLoad(*len));
-                bitstream.finish_load()?;
+            Some(loader) => {
+                ringbuf_entry!(Trace::FinishBitstreamLoad(
+                    drv_fpga_devices::finish_bitstream_load(loader)?
+                ));
+                self.bitstream_loader = None;
             }
         }
 
-        self.bitstream_loader = None;
         Ok(())
     }
 

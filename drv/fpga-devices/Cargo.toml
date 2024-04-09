@@ -4,18 +4,18 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-num-traits = { workspace = true }
-cfg-if = { workspace = true }
 bitfield = { workspace = true }
-zerocopy = { workspace = true }
-
-userlib = { path = "../../sys/userlib" }
-ringbuf = { path = "../../lib/ringbuf" }
+cfg-if = { workspace = true }
+drv-fpga-api = { path = "../../drv/fpga-api" }
 drv-i2c-api = { path = "../../drv/i2c-api" }
 drv-i2c-devices = { path = "../../drv/i2c-devices" }
-drv-fpga-api = { path = "../../drv/fpga-api" }
 drv-spi-api = { path = "../../drv/spi-api" }
 drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
+gnarle = { path = "../../lib/gnarle" }
+num-traits = { workspace = true }
+ringbuf = { path = "../../lib/ringbuf" }
+userlib = { path = "../../sys/userlib" }
+zerocopy = { workspace = true }
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

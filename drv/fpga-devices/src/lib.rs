@@ -6,7 +6,7 @@
 
 #![no_std]
 
-use drv_fpga_api::{DeviceState, FpgaError};
+use drv_fpga_api::{BitstreamType, DeviceState, FpgaError};
 
 pub mod ecp5;
 pub mod ecp5_spi;
@@ -69,4 +69,74 @@ pub trait FpgaUserDesign {
 
     /// Release the lock on the user design held previously.
     fn user_design_release(&self) -> Result<(), FpgaError>;
+}
+
+pub enum BitstreamLoader<'a, D: Fpga<'a>> {
+    Uncompressed(D::Bitstream, usize),
+    Compressed(gnarle::Decompressor, D::Bitstream, usize),
+}
+
+pub fn start_bitstream_load<'a, D: Fpga<'a>>(
+    device: &'a D,
+    bitstream_type: BitstreamType,
+) -> Result<BitstreamLoader<'a, D>, FpgaError> {
+    Ok(match bitstream_type {
+        BitstreamType::Uncompressed => {
+            BitstreamLoader::Uncompressed(device.start_bitstream_load()?, 0)
+        }
+        BitstreamType::Compressed => BitstreamLoader::Compressed(
+            gnarle::Decompressor::default(),
+            device.start_bitstream_load()?,
+            0,
+        ),
+    })
+}
+
+pub fn continue_bitstream_load<'a, 'b, D: Fpga<'a>>(
+    bitstream_loader: &'b mut BitstreamLoader<'a, D>,
+    chunk: &mut [u8],
+) -> Result<(), FpgaError> {
+    match bitstream_loader {
+        BitstreamLoader::Uncompressed(bitstream, len) => {
+            bitstream.continue_load(chunk)?;
+            *len += chunk.len();
+        }
+        BitstreamLoader::Compressed(decompressor, bitstream, len) => {
+            let mut decompress_buffer = [0; 512];
+
+            while !chunk.is_empty() {
+                let decompressed_chunk = gnarle::decompress(
+                    decompressor,
+                    &mut &*chunk,
+                    &mut decompress_buffer,
+                );
+
+                // The compressor may have encountered a partial run at the
+                // end of the `chunk`, in which case `decompressed_chunk`
+                // will be empty since more data is needed before output is
+                // generated.
+                if !decompressed_chunk.is_empty() {
+                    bitstream.continue_load(decompressed_chunk)?;
+                    *len += decompressed_chunk.len();
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+pub fn finish_bitstream_load<'a, 'b, D: Fpga<'a>>(
+    bitstream_loader: &'b mut BitstreamLoader<'a, D>,
+) -> Result<usize, FpgaError> {
+    match bitstream_loader {
+        BitstreamLoader::Uncompressed(bitstream, len) => {
+            bitstream.finish_load()?;
+            Ok(*len)
+        }
+        BitstreamLoader::Compressed(_, bitstream, len) => {
+            bitstream.finish_load()?;
+            Ok(*len)
+        }
+    }
 }
