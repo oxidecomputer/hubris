@@ -17,6 +17,7 @@ heapless = { workspace = true, optional = true }
 
 abi = { path = "../../sys/abi" }
 armv6m-atomic-hack = { path = "../../lib/armv6m-atomic-hack" }
+dumptruck = { path = "../../lib/dumptruck", optional = true }
 hubris-num-tasks = { path = "../../sys/num-tasks", features = ["task-enum"] }
 ringbuf = { path = "../../lib/ringbuf"  }
 task-jefe-api = { path = "../jefe-api" }
@@ -28,10 +29,9 @@ idol = { workspace = true }
 serde = { workspace = true }
 
 build-util = { path = "../../build/util" }
-build-dump-regions = { path = "../../build/dump-regions", optional = true}
 
 [features]
-dump = ["build-dump-regions"]
+dump = ["dumptruck"]
 background-dump = ["heapless"]
 nano = [ "ringbuf/disabled" ]
 

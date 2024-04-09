@@ -33,9 +33,6 @@ compile_error!(
 
 #[cfg(feature = "background-dump")]
 mod background_dump;
-#[cfg(feature = "dump")]
-mod dump;
-
 mod external;
 
 use core::convert::Infallible;
@@ -79,7 +76,7 @@ fn main() -> ! {
         task_states: &mut task_states,
         reset_reason: ResetReason::Unknown,
         #[cfg(feature = "dump")]
-        dump_areas: dump::initialize_dump_areas(),
+        dump_areas: dumptruck::initialize_dump_areas(),
 
         #[cfg(feature = "background-dump")]
         dump_queue: background_dump::DumpQueue::new(),
@@ -221,7 +218,7 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
                 _msg: &userlib::RecvMessage,
                 index: u8,
             ) -> Result<DumpArea, RequestError<DumpAgentError>> {
-                dump::get_dump_area(self.dump_areas, index)
+                dumptruck::get_dump_area(self.dump_areas, index)
                     .map_err(|e| e.into())
             }
 
@@ -229,14 +226,14 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
                 &mut self,
                 _msg: &userlib::RecvMessage,
             ) -> Result<DumpArea, RequestError<DumpAgentError>> {
-                dump::claim_dump_area(self.dump_areas).map_err(|e| e.into())
+                dumptruck::claim_dump_area(self.dump_areas).map_err(|e| e.into())
             }
 
             fn reinitialize_dump_areas(
                 &mut self,
                 _msg: &userlib::RecvMessage,
             ) -> Result<(), RequestError<DumpAgentError>> {
-                self.dump_areas = dump::initialize_dump_areas();
+                self.dump_areas = dumptruck::initialize_dump_areas();
                 Ok(())
             }
 
@@ -254,7 +251,7 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
                     // Can't dump a non-existent task
                     return Err(DumpAgentError::BadOffset.into());
                 }
-                dump::dump_task(self.dump_areas, task_index as usize)
+                dumptruck::dump_task(self.dump_areas, task_index as usize)
                     .map_err(|e| e.into())
             }
 
@@ -270,7 +267,7 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
                 } else if task_index as usize >= self.task_states.len() {
                     return Err(DumpAgentError::BadOffset.into());
                 }
-                dump::dump_task_region(
+                dumptruck::dump_task_region(
                     self.dump_areas, task_index as usize, address, length
                 ).map_err(|e| e.into())
             }
@@ -280,7 +277,7 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
                 _msg: &userlib::RecvMessage,
                 index: u8,
             ) -> Result<(), RequestError<DumpAgentError>> {
-                dump::reinitialize_dump_from(self.dump_areas, index)
+                dumptruck::reinitialize_dump_from(self.dump_areas, index)
                     .map_err(|e| e.into())
             }
         } else {
@@ -385,7 +382,7 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
                         // dealing with that right now.
                         //
                         // TODO: some kind of circular buffer?
-                        _ = dump::dump_task(self.dump_areas, i);
+                        _ = dumptruck::dump_task(self.dump_areas, i);
                     }
 
                     #[cfg(feature = "background-dump")]

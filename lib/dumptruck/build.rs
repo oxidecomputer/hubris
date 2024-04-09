@@ -12,12 +12,24 @@ struct DumpRegion {
     pub size: u32,
 }
 
+fn main() -> anyhow::Result<()> {
+    build_util::expose_target_board();
+
+    let out_dir = build_util::out_dir();
+    let dest_path = out_dir.join("dumptruck_generated.rs");
+    let mut out = std::fs::File::create(&dest_path)
+        .with_context(|| format!("failed to create {}", dest_path.display()))?;
+    output_dump_areas(&mut out).context("failed to generate dump areas")?;
+
+    Ok(())
+}
+
 /// Output our dump areas, making the assumption that any extern regions in use
 /// by this task are in fact alternate RAMs for dump areas.  Because this assumption
 /// is a tad aggressive, we also make sure that those extern regions match
 /// exactly what the dump agent itself is using.
 ///
-pub fn output_dump_areas(out: &mut impl Write) -> Result<()> {
+fn output_dump_areas(out: &mut impl Write) -> Result<()> {
     let task = build_util::task_name();
     let dump_regions = build_util::task_extern_regions::<DumpRegion>()?;
 

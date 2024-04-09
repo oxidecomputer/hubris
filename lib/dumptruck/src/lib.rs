@@ -2,12 +2,13 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//! Dump support for Jefe
+//! Dumptruck --- dump machinery.
+#![no_std]
 
 use crate::generated::{DUMP_ADDRESS_MAX, DUMP_ADDRESS_MIN, DUMP_AREAS};
+use dump_agent_api::DumpAgentError;
 use humpty::{DumpArea, DumpContents};
 use ringbuf::*;
-use task_jefe_api::DumpAgentError;
 use userlib::*;
 
 #[cfg(all(
@@ -43,7 +44,7 @@ enum Trace {
         length: u32,
     },
     DumpArea(Result<Option<DumpArea>, humpty::DumpError<()>>),
-    DumpRegion(abi::TaskDumpRegion),
+    DumpRegion(TaskDumpRegion),
     DumpRegionsFailed(humpty::DumpError<()>),
     DumpStart {
         base: u32,
@@ -360,4 +361,8 @@ pub fn reinitialize_dump_from(
         |addr, buf| unsafe { humpty::to_mem(addr, buf) },
     )
     .map_err(|_| DumpAgentError::DumpFailed)
+}
+
+mod generated {
+    include!(concat!(env!("OUT_DIR"), "/dumptruck_generated.rs"));
 }

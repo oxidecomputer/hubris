@@ -5,19 +5,17 @@ edition = "2021"
 
 
 [dependencies]
-hubpack.workspace = true
-humpty.workspace = true
-ringbuf.path = "../../lib/ringbuf"
-task-jefe-api.path = "../../task/jefe-api"
+hubpack = { workspace = true }
+dumptruck = { path = "../../lib/dumptruck" }
+ringbuf = { path = "../../lib/ringbuf" }
+task-jefe-api = { path = "../../task/jefe-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 [features]
 
 [build-dependencies]
-idol.workspace = true
-
-build-util.path = "../../build/util"
-build-dump-regions.path = "../../build/dump-regions"
+idol = { workspace = true }
+build-util = { path = "../../build/util" }
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

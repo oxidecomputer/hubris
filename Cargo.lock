@@ -225,18 +225,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bd769563b4ea2953e2825c9e6b7470a5f55f67e0be00030bf3e390a2a6071f64"
 
 [[package]]
-name = "build-dump-regions"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "build-util",
- "proc-macro2",
- "quote",
- "serde",
- "syn 1.0.94",
-]
-
-[[package]]
 name = "build-fpga-regmap"
 version = "0.1.0"
 dependencies = [
@@ -2201,6 +2189,19 @@ dependencies = [
  "serde",
  "userlib",
  "zerocopy 0.6.6",
+]
+
+[[package]]
+name = "dumptruck"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "build-util",
+ "dump-agent-api",
+ "humpty",
+ "ringbuf",
+ "serde",
+ "userlib",
 ]
 
 [[package]]
@@ -4508,10 +4509,10 @@ dependencies = [
  "abi",
  "anyhow",
  "armv6m-atomic-hack",
- "build-dump-regions",
  "build-util",
  "cfg-if",
  "cortex-m",
+ "dumptruck",
  "heapless",
  "hubpack",
  "hubris-num-tasks",
@@ -4548,10 +4549,9 @@ dependencies = [
 name = "task-jeffrey"
 version = "0.1.0"
 dependencies = [
- "build-dump-regions",
  "build-util",
+ "dumptruck",
  "hubpack",
- "humpty",
  "idol",
  "ringbuf",
  "task-jefe-api",

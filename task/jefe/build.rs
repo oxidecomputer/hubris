@@ -60,8 +60,6 @@ fn main() -> Result<()> {
         writeln!(out, "];")?;
     }
 
-    #[cfg(feature = "dump")]
-    build_dump_regions::output_dump_areas(&mut out)?;
     Ok(())
 }
 
