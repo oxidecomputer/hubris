@@ -649,18 +649,26 @@ impl SpHandler for MgsHandler {
         self.common.vpd_lock_status_all(buf)
     }
 
-    fn reset_with_watchdog(
+    fn reset_component_trigger_with_watchdog(
         &mut self,
+        component: SpComponent,
         time_ms: u32,
     ) -> Result<core::convert::Infallible, SpError> {
-        self.common.reset_with_watchdog(time_ms)
+        self.common
+            .reset_component_trigger_with_watchdog(component, time_ms)
     }
 
-    fn disable_sp_slot_watchdog(&mut self) -> Result<(), SpError> {
-        self.common.disable_sp_slot_watchdog()
+    fn disable_component_watchdog(
+        &mut self,
+        component: SpComponent,
+    ) -> Result<(), SpError> {
+        self.common.disable_component_watchdog(component)
     }
 
-    fn sp_slot_watchdog_supported(&mut self) -> Result<(), SpError> {
-        self.common.sp_slot_watchdog_supported()
+    fn component_watchdog_supported(
+        &mut self,
+        component: SpComponent,
+    ) -> Result<(), SpError> {
+        self.common.component_watchdog_supported(component)
     }
 }

@@ -483,28 +483,49 @@ impl MgsCommon {
         Ok(cnt)
     }
 
-    pub(crate) fn reset_with_watchdog(
+    pub(crate) fn reset_component_trigger_with_watchdog(
         &mut self,
+        component: SpComponent,
         time_ms: u32,
     ) -> Result<core::convert::Infallible, SpError> {
-        if self.reset_component_requested != Some(SpComponent::SP_ITSELF) {
+        if self.reset_component_requested != Some(component) {
             return Err(SpError::ResetComponentTriggerWithoutPrepare);
         }
         if !matches!(self.sp_update.status(), UpdateStatus::Complete(..)) {
             return Err(SpError::Watchdog(WatchdogError::NoCompletedUpdate));
         }
-        self.sprot.enable_sp_slot_watchdog(time_ms)?;
-        task_jefe_api::Jefe::from(crate::JEFE.get_task_id()).request_reset();
-        panic!(); // we really really shouldn't get here
+
+        if component == SpComponent::SP_ITSELF {
+            self.sprot.enable_sp_slot_watchdog(time_ms)?;
+            task_jefe_api::Jefe::from(crate::JEFE.get_task_id())
+                .request_reset();
+            panic!(); // we really really shouldn't get here
+        } else {
+            return Err(SpError::RequestUnsupportedForComponent);
+        }
     }
 
-    pub(crate) fn disable_sp_slot_watchdog(&mut self) -> Result<(), SpError> {
-        self.sprot.disable_sp_slot_watchdog()?;
+    pub(crate) fn disable_component_watchdog(
+        &mut self,
+        component: SpComponent,
+    ) -> Result<(), SpError> {
+        if component == SpComponent::SP_ITSELF {
+            self.sprot.disable_sp_slot_watchdog()?;
+        } else {
+            return Err(SpError::RequestUnsupportedForComponent);
+        }
         Ok(())
     }
 
-    pub(crate) fn sp_slot_watchdog_supported(&mut self) -> Result<(), SpError> {
-        self.sprot.sp_slot_watchdog_supported()?;
+    pub(crate) fn component_watchdog_supported(
+        &mut self,
+        component: SpComponent,
+    ) -> Result<(), SpError> {
+        if component == SpComponent::SP_ITSELF {
+            self.sprot.sp_slot_watchdog_supported()?;
+        } else {
+            return Err(SpError::RequestUnsupportedForComponent);
+        }
         Ok(())
     }
 }
