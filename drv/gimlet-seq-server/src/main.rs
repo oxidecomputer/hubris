@@ -128,6 +128,7 @@ enum Trace {
     },
     I2cFault(I2cTxn),
     I2cRetry {
+        #[count(children)]
         txn: I2cTxn,
         retries_remaining: u8,
     },

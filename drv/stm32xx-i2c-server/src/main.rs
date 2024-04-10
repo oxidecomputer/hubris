@@ -319,6 +319,10 @@ fn reset_and_wiggle_if_needed(
         {
             wiggle_scl(&sys, pin.scl, pin.sda);
 
+            //
+            // [`wiggle_scl`] puts our pins in output (and input) mode; set
+            // them back to be configured for I2C before we reset.
+            //
             for gpio_pin in &[pin.scl, pin.sda] {
                 sys.gpio_configure_alternate(
                     *gpio_pin,
@@ -639,7 +643,11 @@ fn configure_port(
 /// time-honored[0] tradition of "clocking through the problem":  wiggling SCL
 /// until we see SDA high, and then pulling SDA low and releasing SCL to
 /// indicate a STOP condition.  (Note that we need to do this up to 9 times to
-/// assure that we have clocked through the entire transaction.)
+/// assure that we have clocked through the entire transaction.)  Our assumption
+/// is that if SCL is being stretched by an errant target, it has been already
+/// stretched beyond our timeout (25ms); if this is the case, us trying to
+/// wiggle SCL here won't actually wiggle SCL -- but unless such a device is
+/// isolated to a segment on a mux that we can reset, nothing will in fact help.
 ///
 /// [0] Analog Devices. AN-686: Implementing an I2C Reset. 2003.
 ///
