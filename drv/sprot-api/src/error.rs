@@ -15,7 +15,8 @@ use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
 
 use gateway_messages::{
-    RotError, SpError, SprocketsError as GwSprocketsErr,
+    RotError, RotWatchdogError as GwRotWatchdogError, SpError,
+    SprocketsError as GwSprocketsErr,
     SprotProtocolError as GwSprotProtocolError,
     WatchdogError as GwWatchdogError,
 };
@@ -318,13 +319,18 @@ impl From<idol_runtime::ServerDeath> for AttestOrSprotError {
 )]
 pub enum WatchdogError {
     /// Could not control the SP over SWD
-    SpCtrl,
+    DongleDetected,
+    /// Raw `SpCtrlError` value
+    Other(u32),
 }
 
 impl From<WatchdogError> for GwWatchdogError {
     fn from(s: WatchdogError) -> Self {
         match s {
-            WatchdogError::SpCtrl => Self::SpCtrl,
+            WatchdogError::DongleDetected => {
+                Self::Rot(GwRotWatchdogError::DongleDetected)
+            }
+            WatchdogError::Other(i) => Self::Rot(GwRotWatchdogError::Other(i)),
         }
     }
 }
