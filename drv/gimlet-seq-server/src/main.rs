@@ -8,6 +8,7 @@
 #![no_main]
 
 mod seq_spi;
+mod vcore;
 
 use counters::*;
 use ringbuf::*;
@@ -52,6 +53,7 @@ enum I2cTxn {
     SpdLoadTop(u8, u8),
     VCoreOn,
     VCoreOff,
+    VCoreUndervoltageInitialize,
     SocOn,
     SocOff,
 }
@@ -181,6 +183,7 @@ struct ServerImpl<S: SpiServer> {
     seq: seq_spi::SequencerFpga<S>,
     jefe: Jefe,
     hf: hf_api::HostFlash,
+    vcore: vcore::VCore,
     deadline: u64,
 }
 
@@ -462,6 +465,8 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
         // Turn on the chassis LED once we reach A2
         sys.gpio_set(CHASSIS_LED);
 
+        let (device, rail) = i2c_config::pmbus::vdd_vcore(I2C.get_task_id());
+
         let mut server = Self {
             state: PowerState::A2,
             sys: sys.clone(),
@@ -469,6 +474,7 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
             jefe,
             hf,
             deadline: 0,
+            vcore: vcore::VCore::new(sys, &device, rail),
         };
 
         // Power on, unless suppressed by the `stay-in-a2` feature
@@ -500,10 +506,18 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
 
 impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
     fn current_notification_mask(&self) -> u32 {
-        notifications::TIMER_MASK
+        notifications::TIMER_MASK | self.vcore.mask()
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
+    fn handle_notification(&mut self, bits: u32) {
+        if (bits & self.vcore.mask()) != 0 {
+            self.vcore.handle_notification();
+        }
+
+        if (bits & notifications::TIMER_MASK) == 0 {
+            return;
+        }
+
         let ifr = self.seq.read_byte(Addr::IFR).unwrap_lite();
         ringbuf_entry!(Trace::Status {
             ier: self.seq.read_byte(Addr::IER).unwrap_lite(),
@@ -684,6 +698,15 @@ impl<S: SpiServer> ServerImpl<S> {
                 if self.hf.set_mux(hf_api::HfMuxState::HostCPU).is_err() {
                     return Err(SeqError::MuxToHostCPUFailed);
                 }
+
+                //
+                // If we fail to initialize our UV warning despite retries, we
+                // will drive on: the failures will be logged, and this isn't
+                // strictly required to sequence.
+                //
+                _ = retry_i2c_txn(I2cTxn::VCoreUndervoltageInitialize, || {
+                    self.vcore.initialize_uv_warning()
+                });
 
                 let start = sys_get_timer().now;
                 let deadline = start + A0_TIMEOUT_MILLIS;

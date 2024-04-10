@@ -66,6 +66,12 @@ notifications = ["exti-wildcard-irq"]
 "exti.exti9_5" = "exti-wildcard-irq"
 "exti.exti15_10" = "exti-wildcard-irq"
 
+# PWR_CONT1_VCORE_TO_SP_ALERT_L
+[tasks.sys.config.gpio-irqs.vcore_to_sp_alert_l]
+port = "I"
+pin = 14
+owner = {name = "gimlet_seq", notification = "vcore"}
+
 [tasks.sys.config.gpio-irqs.rot_irq]
 port = "E"
 pin = 3
@@ -157,11 +163,11 @@ task-slots = ["sys", "hf", "i2c_driver", "hash_driver", "update_server", "sprot"
 name = "drv-gimlet-seq-server"
 features = ["h753"]
 priority = 4
-max-sizes = {flash = 131072, ram = 8192 }
+max-sizes = {flash = 131072, ram = 16384 }
 stacksize = 1600
 start = true
 task-slots = ["sys", "i2c_driver", {spi_driver = "spi2_driver"}, "hf", "jefe", "packrat"]
-notifications = ["timer"]
+notifications = ["timer", "vcore"]
 copy-to-archive = ["register_defs"]
 
 [tasks.gimlet_seq.config]
