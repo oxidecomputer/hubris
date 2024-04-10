@@ -362,13 +362,13 @@ impl<S: SpiServer> Io<S> {
     // determined based on `max_sleep`.
     fn wait_rot_irq(&mut self, desired: bool, max_sleep: u32) -> bool {
         use notifications::{sprot::TIMER_MASK, ROT_IRQ_MASK};
-        // Determine our edge sensitivity for the interrupt. If we want to wait
-        // for the line to be asserted, we want to wait for a rising edge. If
-        // the line is currently asserted, and we're waiting for it to be
-        // *deasserted*, we want to wait for a falling edge.
+        // Determine our edge sensitivity for the interrupt. The ROT_IRQ line is
+        // active low, so if we want to wait for it to be asserted, wait for the
+        // falling edge. If the line is currently asserted, and we're waiting
+        // for it to be *deasserted*, we want to wait for a rising edge.
         let sensitivity = match desired {
-            true => sys_api::Edge::Rising,
-            false => sys_api::Edge::Falling,
+            false => sys_api::Edge::Rising,
+            true => sys_api::Edge::Falling,
         };
         self.sys.gpio_irq_configure(ROT_IRQ_MASK, sensitivity);
 

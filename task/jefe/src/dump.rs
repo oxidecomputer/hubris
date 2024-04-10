@@ -55,6 +55,10 @@ enum Trace {
     },
     DumpRead(usize),
     DumpDone(Result<(), humpty::DumpError<()>>),
+    DumpTime {
+        start: u64,
+        end: u64,
+    },
 }
 
 ringbuf!(Trace, 8, Trace::None);
@@ -178,6 +182,7 @@ fn dump_task_setup(
 /// Once a task dump is set up, this function executes it
 fn dump_task_run(base: u32, task: usize) -> Result<(), DumpAgentError> {
     ringbuf_entry!(Trace::DumpStart { base });
+    let start = sys_get_timer().now;
 
     //
     // The humpty dance is your chance... to do the dump!
@@ -225,6 +230,11 @@ fn dump_task_run(base: u32, task: usize) -> Result<(), DumpAgentError> {
     );
 
     ringbuf_entry!(Trace::DumpDone(r));
+    ringbuf_entry!(Trace::DumpTime {
+        start,
+        end: sys_get_timer().now
+    });
+
     r.map_err(|_| DumpAgentError::DumpFailed)?;
     Ok(())
 }

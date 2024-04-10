@@ -48,6 +48,16 @@ include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 mod payload;
 
 #[derive(Copy, Clone, PartialEq, Count)]
+enum I2cTxn {
+    SpdLoad(u8, u8),
+    SpdLoadTop(u8, u8),
+    VCoreOn,
+    VCoreOff,
+    SocOn,
+    SocOff,
+}
+
+#[derive(Copy, Clone, PartialEq, Count)]
 enum Trace {
     Ice40Rails(bool, bool),
     IdentValid(#[count(children)] bool),
@@ -112,10 +122,16 @@ enum Trace {
     SpdBankAbsent(u8),
     SpdAbsent(u8, u8, u8),
     SpdDimmsFound(usize),
-    I2cFault {
-        retries_remaining: u8,
+    I2cError {
+        txn: I2cTxn,
         #[count(children)]
         code: i2c::ResponseCode,
+    },
+    I2cFault(I2cTxn),
+    I2cRetry {
+        #[count(children)]
+        txn: I2cTxn,
+        retries_remaining: u8,
     },
     StartFailed(#[count(children)] SeqError),
     #[count(skip)]
@@ -605,6 +621,7 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
 }
 
 fn retry_i2c_txn<T, E>(
+    which: I2cTxn,
     mut txn: impl FnMut() -> Result<T, E>,
 ) -> Result<T, i2c::ResponseCode>
 where
@@ -617,14 +634,17 @@ where
             Ok(x) => return Ok(x),
             Err(e) => {
                 let code = e.into();
-                ringbuf_entry!(Trace::I2cFault {
-                    retries_remaining,
-                    code,
-                });
+                ringbuf_entry!(Trace::I2cError { txn: which, code });
 
                 if retries_remaining == 0 {
+                    ringbuf_entry!(Trace::I2cFault(which));
                     return Err(code);
                 }
+
+                ringbuf_entry!(Trace::I2cRetry {
+                    txn: which,
+                    retries_remaining
+                });
 
                 retries_remaining -= 1;
             }
@@ -1139,7 +1159,20 @@ fn read_spd_data_and_load_packrat(
             // We'll store that byte and then read 255 more.
             tmp[0] = first;
 
-            retry_i2c_txn(|| spd.read_into(&mut tmp[1..]))?;
+            let mut retried = false;
+
+            retry_i2c_txn(I2cTxn::SpdLoad(nbank, i), || {
+                if retried {
+                    //
+                    // If our read needs to be retried, we need to also reset
+                    // ourselves back to the 0th byte.
+                    //
+                    _ = spd.read_reg::<u8, u8>(0)?;
+                }
+
+                retried = true;
+                spd.read_into(&mut tmp[1..])
+            })?;
 
             packrat.set_spd_eeprom(ndx, false, 0, &tmp);
         }
@@ -1166,9 +1199,16 @@ fn read_spd_data_and_load_packrat(
             let spd = I2cDevice::new(i2c_task, controller, port, mux, mem);
 
             let chunk = 128;
-            retry_i2c_txn(|| spd.read_reg_into::<u8>(0, &mut tmp[..chunk]))?;
 
-            retry_i2c_txn(|| spd.read_into(&mut tmp[chunk..]))?;
+            retry_i2c_txn(I2cTxn::SpdLoadTop(nbank, i), || {
+                //
+                // Both of these reads need to be in a single transaction from
+                // the perspective of the retry logic: if either fails, we
+                // must redo both.
+                //
+                spd.read_reg_into::<u8>(0, &mut tmp[..chunk])?;
+                spd.read_into(&mut tmp[chunk..])
+            })?;
 
             packrat.set_spd_eeprom(ndx, true, 0, &tmp);
         }
@@ -1322,8 +1362,8 @@ cfg_if::cfg_if! {
             let (device, rail) = i2c_config::pmbus::vddcr_soc(i2c);
             let mut vddcr_soc = Raa229618::new(&device, rail);
 
-            retry_i2c_txn(|| vdd_vcore.turn_off())?;
-            retry_i2c_txn(|| vddcr_soc.turn_off())?;
+            retry_i2c_txn(I2cTxn::VCoreOff, || vdd_vcore.turn_off())?;
+            retry_i2c_txn(I2cTxn::SocOff, || vddcr_soc.turn_off())?;
             Ok(())
         }
 
@@ -1337,8 +1377,8 @@ cfg_if::cfg_if! {
             let (device, rail) = i2c_config::pmbus::vddcr_soc(i2c);
             let mut vddcr_soc = Raa229618::new(&device, rail);
 
-            retry_i2c_txn(|| vdd_vcore.turn_on())?;
-            retry_i2c_txn(|| vddcr_soc.turn_on())?;
+            retry_i2c_txn(I2cTxn::VCoreOn, || vdd_vcore.turn_on())?;
+            retry_i2c_txn(I2cTxn::SocOn, || vddcr_soc.turn_on())?;
             Ok(())
         }
 

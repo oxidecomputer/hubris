@@ -37,7 +37,7 @@ request_reset = ["hiffy", "control_plane_agent"]
 
 [tasks.net]
 name = "task-net"
-stacksize = 6040
+stacksize = 8000
 priority = 5
 features = ["mgmt", "h753", "gimlet", "vlan", "vpd-mac"]
 max-sizes = {flash = 131072, ram = 65536, sram1 = 16384}
@@ -145,7 +145,7 @@ name = "task-power"
 features = ["gimlet"]
 priority = 6
 max-sizes = {flash = 65536, ram = 16384 }
-stacksize = 2800
+stacksize = 3800
 start = true
 task-slots = ["i2c_driver", "sensor", "gimlet_seq"]
 notifications = ["timer", "external_badness"]
