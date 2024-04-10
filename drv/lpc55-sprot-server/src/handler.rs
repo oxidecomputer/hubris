@@ -445,13 +445,9 @@ impl<'a> Handler {
                 // working.
                 #[cfg(feature = "sp-ctrl")]
                 {
-                    self.sp_ctrl
-                        .setup()
-                        .and_then(|()| {
-                            self.sp_ctrl.enable_sp_slot_watchdog(time_ms)
-                        })
-                        .map_err(decode_watchdog_err)
-                        .map(|()| (RspBody::Ok, None))
+                    decode_watchdog_err(self.sp_ctrl.setup().and_then(|()| {
+                        self.sp_ctrl.enable_sp_slot_watchdog(time_ms)
+                    }))
                 }
 
                 #[cfg(not(feature = "sp-ctrl"))]
@@ -475,10 +471,7 @@ impl<'a> Handler {
             ReqBody::Swd(SwdReq::SpSlotWatchdogSupported) => {
                 #[cfg(feature = "sp-ctrl")]
                 {
-                    self.sp_ctrl
-                        .setup()
-                        .map_err(decode_watchdog_err)
-                        .map(|()| (RspBody::Ok, None))
+                    decode_watchdog_err(self.sp_ctrl.setup())
                 }
 
                 #[cfg(not(feature = "sp-ctrl"))]
@@ -488,15 +481,18 @@ impl<'a> Handler {
     }
 }
 
-/// Converts a `SpCtrlError` into a `SprotError::Watchdog(..)`
+/// Converts a `Result<(), SpCtrlError>` into a watchdog-flavored response
 #[cfg(feature = "sp-ctrl")]
-fn decode_watchdog_err(s: drv_sp_ctrl_api::SpCtrlError) -> SprotError {
+fn decode_watchdog_err<'a>(
+    s: Result<(), drv_sp_ctrl_api::SpCtrlError>,
+) -> Result<(RspBody, Option<TrailingData<'a>>), SprotError> {
     match s {
-        drv_sp_ctrl_api::SpCtrlError::DongleDetected => {
-            SprotError::Watchdog(drv_sprot_api::WatchdogError::DongleDetected)
-        }
-        i => SprotError::Watchdog(drv_sprot_api::WatchdogError::Other(
-            u32::from(i),
+        Ok(()) => Ok((RspBody::Ok, None)),
+        Err(drv_sp_ctrl_api::SpCtrlError::DongleDetected) => Err(
+            SprotError::Watchdog(drv_sprot_api::WatchdogError::DongleDetected),
+        ),
+        Err(i) => Err(SprotError::Watchdog(
+            drv_sprot_api::WatchdogError::Other(u32::from(i)),
         )),
     }
 }
