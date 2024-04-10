@@ -89,7 +89,7 @@ task-slots = ["sys"]
 
 [tasks.net]
 name = "task-net"
-stacksize = 3000
+stacksize = 4000
 priority = 2
 max-sizes = {flash = 131072, ram = 16384, sram1 = 32768}
 features = ["h753"]
