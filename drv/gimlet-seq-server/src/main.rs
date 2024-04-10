@@ -53,6 +53,7 @@ enum I2cTxn {
     SpdLoadTop(u8, u8),
     VCoreOn,
     VCoreOff,
+    VCoreUndervoltageInitialize,
     SocOn,
     SocOff,
 }
@@ -703,7 +704,9 @@ impl<S: SpiServer> ServerImpl<S> {
                 // will drive on: the failures will be logged, and this isn't
                 // strictly required to sequence.
                 //
-                _ = retry_i2c_txn(|| self.vcore.initialize_uv_warning());
+                _ = retry_i2c_txn(I2cTxn::VCoreUndervoltageInitialize, || {
+                    self.vcore.initialize_uv_warning()
+                });
 
                 let start = sys_get_timer().now;
                 let deadline = start + A0_TIMEOUT_MILLIS;

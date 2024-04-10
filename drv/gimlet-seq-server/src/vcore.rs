@@ -30,7 +30,7 @@ use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_i2c_devices::raa229618::Raa229618;
 use drv_stm32xx_sys_api as sys_api;
 use ringbuf::*;
-use sys_api::IrqControl;
+use sys_api::{gpio_irq_pins::VCORE_TO_SP_ALERT_L, IrqControl};
 use userlib::*;
 
 pub struct VCore {
@@ -46,10 +46,8 @@ enum Trace {
     FaultsCleared,
     Notified,
     Fault,
-    Start(u64),
-    Reading(units::Volts),
+    Reading { timestamp: u64, volts: units::Volts },
     Error(ResponseCode),
-    Done(u64),
     None,
 }
 
@@ -70,9 +68,6 @@ const VCORE_UV_WARN_LIMIT: units::Volts = units::Volts(11.75);
 /// of data.
 ///
 const VCORE_NSAMPLES: usize = 50;
-
-const VCORE_TO_SP_ALERT_L: sys_api::PinSet = sys_api::Port::I.pin(14);
-const VCORE_TO_SP_ALERT_PULL: sys_api::Pull = sys_api::Pull::None;
 
 cfg_if::cfg_if! {
     if #[cfg(not(any(
@@ -112,7 +107,7 @@ impl VCore {
         ringbuf_entry!(Trace::FaultsCleared);
 
         // Set our alert line to be an input
-        sys.gpio_configure_input(VCORE_TO_SP_ALERT_L, VCORE_TO_SP_ALERT_PULL);
+        sys.gpio_configure_input(VCORE_TO_SP_ALERT_L, sys_api::Pull::None);
         sys.gpio_irq_configure(self.mask(), sys_api::Edge::Falling);
 
         // Enable the interrupt!
@@ -130,16 +125,30 @@ impl VCore {
 
         if faulted {
             ringbuf_entry!(Trace::Fault);
-            ringbuf_entry!(Trace::Start(sys_get_timer().now));
 
             for _ in 0..VCORE_NSAMPLES {
                 match self.device.read_vin() {
-                    Ok(val) => ringbuf_entry!(Trace::Reading(val)),
+                    Ok(val) => {
+                        //
+                        // Record our reading, along with a timestamp.  On the
+                        // one hand, it's a little exceesive to record a
+                        // timestamp on every reading:  it's in milliseconds,
+                        // and because it takes ~900µs per reading, we expect
+                        // the timestamp to (basically) be incremented by 1 with
+                        // every reading (with a duplicate timestamp occuring
+                        // every ~7-9 entries).  But on the other, it's not
+                        // impossible to be preempted, and it's valuable to have
+                        // as tight a coupling as possible between observed
+                        // reading and observed time.
+                        //
+                        ringbuf_entry!(Trace::Reading {
+                            timestamp: sys_get_timer().now,
+                            volts: val,
+                        });
+                    }
                     Err(code) => ringbuf_entry!(Trace::Error(code.into())),
                 }
             }
-
-            ringbuf_entry!(Trace::Done(sys_get_timer().now));
         }
 
         let _ = self.sys.gpio_irq_control(self.mask(), IrqControl::Enable);
