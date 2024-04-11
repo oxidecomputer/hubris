@@ -20,6 +20,7 @@ use enum_map::Enum;
 use idol_runtime::{NotificationHandler, RequestError};
 use multitimer::{Multitimer, Repeat};
 use ringbuf::*;
+use static_cell::ClaimOnceCell;
 use task_sensor_api::{NoData, Sensor};
 use task_thermal_api::{Thermal, ThermalError, ThermalProperties};
 use transceiver_messages::{
@@ -610,7 +611,19 @@ fn main() -> ! {
     let net = task_net_api::Net::from(NET.get_task_id());
     let thermal_api = Thermal::from(THERMAL.get_task_id());
     let sensor_api = Sensor::from(SENSOR.get_task_id());
-    let (tx_data_buf, rx_data_buf) = claim_statics();
+
+    let tx_data_buf = {
+        static BUF: ClaimOnceCell<[u8; MAX_PACKET_SIZE]> =
+            ClaimOnceCell::new([0; MAX_PACKET_SIZE]);
+        BUF.claim()
+    };
+
+    let rx_data_buf = {
+        static BUF: ClaimOnceCell<[u8; MAX_PACKET_SIZE]> =
+            ClaimOnceCell::new([0; MAX_PACKET_SIZE]);
+        BUF.claim()
+    };
+
     let mut server = ServerImpl {
         transceivers,
         leds,
@@ -714,21 +727,6 @@ fn main() -> ! {
         idol_runtime::dispatch(&mut buffer, &mut server);
     }
 }
-////////////////////////////////////////////////////////////////////////////////
-
-/// Grabs references to the static descriptor/buffer receive rings. Can only be
-/// called once.
-pub fn claim_statics() -> (
-    &'static mut [u8; MAX_PACKET_SIZE],
-    &'static mut [u8; MAX_PACKET_SIZE],
-) {
-    const S: usize = MAX_PACKET_SIZE;
-    mutable_statics::mutable_statics! {
-        static mut TX_BUF: [u8; S] = [|| 0u8; _];
-        static mut RX_BUF: [u8; S] = [|| 0u8; _];
-    }
-}
-////////////////////////////////////////////////////////////////////////////////
 
 mod idl {
     use super::{ModuleStatus, TransceiversError};

@@ -32,7 +32,6 @@ drv-user-leds-api = { path = "../../drv/user-leds-api", optional = true }
 task-vpd-api = { path = "../../task/vpd-api", optional = true }
 host-sp-messages = { path = "../../lib/host-sp-messages" }
 lpc55-rom-data = { path = "../../lib/lpc55-rom-data" }
-mutable-statics = { path = "../../lib/mutable-statics" }
 ringbuf = { path = "../../lib/ringbuf" }
 counters = { path = "../../lib/counters" }
 task-control-plane-agent-api = { path = "../control-plane-agent-api" }
@@ -43,7 +42,7 @@ task-sensor-api = { path = "../sensor-api" }
 task-validate-api = { path = "../validate-api" }
 update-buffer = { path = "../../lib/update-buffer" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
-static-cell = { path = "../../lib/static-cell", optional = true }
+static-cell = { path = "../../lib/static-cell" }
 
 [build-dependencies]
 build-util = { path = "../../build/util" }
@@ -51,7 +50,7 @@ idol = { workspace = true }
 
 [features]
 no-ipc-counters = ["idol/no-counters"]
-gimlet = ["drv-gimlet-hf-api", "drv-gimlet-seq-api", "drv-stm32h7-usart", "drv-user-leds-api", "static-cell"]
+gimlet = ["drv-gimlet-hf-api", "drv-gimlet-seq-api", "drv-stm32h7-usart", "drv-user-leds-api"]
 sidecar = ["drv-sidecar-seq-api", "drv-monorail-api", "drv-ignition-api", "drv-transceivers-api"]
 psc = ["drv-user-leds-api"]
 vpd = ["task-vpd-api"]

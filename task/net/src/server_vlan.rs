@@ -9,7 +9,7 @@
 
 use drv_stm32h7_eth as eth;
 
-use mutable_statics::mutable_statics;
+use static_cell::ClaimOnceCell;
 use task_net_api::UdpMetadata;
 
 use crate::bsp_support;
@@ -18,13 +18,6 @@ use crate::{
     server::{DeviceExt, GenServerImpl, Storage},
     MacAddressBlock,
 };
-
-/// Grabs references to the server storage arrays.  Can only be called once!
-fn claim_server_storage_statics() -> &'static mut [Storage; VLAN_COUNT] {
-    mutable_statics! {
-        static mut STORAGE: [Storage; VLAN_COUNT] = [Default::default; _];
-    }
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -109,6 +102,7 @@ impl<'a> smoltcp::phy::TxToken for VLanTxToken<'a> {
 
 pub type ServerImpl<'a, B> = GenServerImpl<'a, B, VLanEthernet<'a>, VLAN_COUNT>;
 
+/// Grabs references to the server storage arrays.  Can only be called once!
 pub fn new<B>(
     eth: &eth::Ethernet,
     mac: MacAddressBlock,
@@ -117,11 +111,15 @@ pub fn new<B>(
 where
     B: bsp_support::Bsp,
 {
+    const EMPTY_STORAGE: Storage = Storage::new();
+    static STORAGE: ClaimOnceCell<[Storage; VLAN_COUNT]> =
+        ClaimOnceCell::new([EMPTY_STORAGE; VLAN_COUNT]);
+
     ServerImpl::new(
         eth,
         mac,
         bsp,
-        claim_server_storage_statics(),
+        STORAGE.claim(),
         generated::construct_sockets(),
         |i| VLanEthernet {
             eth,

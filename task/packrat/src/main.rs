@@ -31,8 +31,8 @@
 
 use core::convert::Infallible;
 use idol_runtime::{Leased, LenLimit, NotificationHandler, RequestError};
-use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
+use static_cell::ClaimOnceCell;
 use task_packrat_api::{
     CacheGetError, CacheSetError, HostStartupOptions, MacAddressBlock,
     VpdIdentity,
@@ -84,15 +84,14 @@ ringbuf!(Trace, 16, Trace::None);
 
 #[export_name = "main"]
 fn main() -> ! {
-    let (mac_address_block, identity) = mutable_statics! {
-        static mut MAC_ADDRESS_BLOCK: [Option<MacAddressBlock>; 1]
-            = [|| None; _];
-        static mut IDENTITY: [Option<VpdIdentity>; 1] = [|| None; _];
-    };
+    static MAC_ADDRESS_BLOCK: ClaimOnceCell<Option<MacAddressBlock>> =
+        ClaimOnceCell::new(None);
+    static IDENTITY: ClaimOnceCell<Option<VpdIdentity>> =
+        ClaimOnceCell::new(None);
 
     let mut server = ServerImpl {
-        mac_address_block: &mut mac_address_block[0],
-        identity: &mut identity[0],
+        mac_address_block: MAC_ADDRESS_BLOCK.claim(),
+        identity: IDENTITY.claim(),
         #[cfg(feature = "gimlet")]
         gimlet_data: gimlet::GimletData::claim_static_resources(),
     };

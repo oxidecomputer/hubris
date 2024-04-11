@@ -33,6 +33,7 @@ ksz8463 = {path = "../../drv/ksz8463", optional = true }
 multitimer = { path = "../../lib/multitimer" }
 mutable-statics = { path = "../../lib/mutable-statics" }
 ringbuf = { path = "../../lib/ringbuf" }
+static-cell = { path = "../../lib/static-cell" }
 task-jefe-api = { path = "../jefe-api" }
 task-net-api = { path = "../net-api", features = ["use-smoltcp"] }
 task-packrat-api = { path = "../packrat-api", optional = true }

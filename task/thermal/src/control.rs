@@ -249,16 +249,22 @@ pub struct TimestampedSensorError {
     pub err: SensorReadError,
 }
 
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone)]
 pub struct ThermalSensorErrors {
     pub values: [Option<TimestampedSensorError>; 16],
     pub next: u32,
 }
 
 impl ThermalSensorErrors {
+    pub const fn new() -> Self {
+        Self {
+            values: [None; 16],
+            next: 0,
+        }
+    }
+
     pub fn clear(&mut self) {
-        self.values = Default::default();
-        self.next = 0;
+        *self = Self::new();
     }
 
     pub fn push(&mut self, id: SensorId, err: SensorReadError) {
@@ -524,11 +530,13 @@ impl<'a> ThermalControl<'a> {
     /// This function can only be called once, because it claims mutable static
     /// buffers.
     pub fn new(bsp: &'a Bsp, i2c_task: TaskId, sensor_api: SensorApi) -> Self {
-        use mutable_statics::mutable_statics;
-        let [err_blackbox, prev_err_blackbox] = mutable_statics! {
-            static mut ERR_BLACKBOX: [ThermalSensorErrors; 2] =
-                [Default::default; _];
-        };
+        use static_cell::ClaimOnceCell;
+
+        static ERR_BLACKBOX: ClaimOnceCell<ThermalSensorErrors> =
+            ClaimOnceCell::new(ThermalSensorErrors::new());
+        static PREV_ERR_BLACKBOX: ClaimOnceCell<ThermalSensorErrors> =
+            ClaimOnceCell::new(ThermalSensorErrors::new());
+
         Self {
             bsp,
             i2c_task,
@@ -549,8 +557,8 @@ impl<'a> ThermalControl<'a> {
             fans: Fans::new(),
             last_pwm: PWMDuty(0),
 
-            err_blackbox,
-            prev_err_blackbox,
+            err_blackbox: ERR_BLACKBOX.claim(),
+            prev_err_blackbox: PREV_ERR_BLACKBOX.claim(),
         }
     }
 

@@ -16,6 +16,7 @@ use drv_stm32xx_sys_api as sys_api;
 use hubpack::SerializedSize;
 use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::*;
+use static_cell::ClaimOnceCell;
 use sys_api::IrqControl;
 use userlib::*;
 
@@ -177,12 +178,17 @@ fn main() -> ! {
         spi,
         stats: SpIoStats::default(),
     };
-
-    let (tx_buf, rx_buf) = mutable_statics::mutable_statics! {
-        static mut TX_BUF: [u8; REQUEST_BUF_SIZE] = [|| 0; _];
-        static mut RX_BUF: [u8; RESPONSE_BUF_SIZE] = [|| 0; _];
+    let mut server = {
+        static RX_BUF: ClaimOnceCell<[u8; REQUEST_BUF_SIZE]> =
+            ClaimOnceCell::new([0; REQUEST_BUF_SIZE]);
+        static TX_BUF: ClaimOnceCell<[u8; RESPONSE_BUF_SIZE]> =
+            ClaimOnceCell::new([0; RESPONSE_BUF_SIZE]);
+        ServerImpl {
+            io,
+            tx_buf: TX_BUF.claim(),
+            rx_buf: RX_BUF.claim(),
+        }
     };
-    let mut server = ServerImpl { io, tx_buf, rx_buf };
 
     loop {
         idol_runtime::dispatch(&mut buffer, &mut server);

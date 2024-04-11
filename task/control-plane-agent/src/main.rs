@@ -14,8 +14,8 @@ use host_sp_messages::HostStartupOptions;
 use idol_runtime::{
     ClientError, Leased, LenLimit, NotificationHandler, RequestError,
 };
-use mutable_statics::mutable_statics;
 use ringbuf::{counted_ringbuf, ringbuf_entry};
+use static_cell::ClaimOnceCell;
 use task_control_plane_agent_api::MAX_INSTALLINATOR_IMAGE_ID_LEN;
 use task_control_plane_agent_api::{
     BarcodeParseError, ControlPlaneAgentError, UartClient, VpdIdentity,
@@ -461,17 +461,18 @@ struct NetHandler {
 
 impl NetHandler {
     fn claim_static_resources() -> Self {
-        let (tx_buf, rx_buf) = mutable_statics! {
-            static mut NET_TX_BUF: [u8; gateway_messages::MAX_SERIALIZED_SIZE] =
-                [|| 0; _];
+        static RX_BUF: ClaimOnceCell<
+            [u8; gateway_messages::MAX_SERIALIZED_SIZE],
+        > = ClaimOnceCell::new([0; gateway_messages::MAX_SERIALIZED_SIZE]);
 
-            static mut NET_RX_BUF: [u8; gateway_messages::MAX_SERIALIZED_SIZE] =
-                [|| 0; _];
-        };
+        static TX_BUF: ClaimOnceCell<
+            [u8; gateway_messages::MAX_SERIALIZED_SIZE],
+        > = ClaimOnceCell::new([0; gateway_messages::MAX_SERIALIZED_SIZE]);
+
         Self {
             net: Net::from(NET.get_task_id()),
-            tx_buf,
-            rx_buf,
+            tx_buf: TX_BUF.claim(),
+            rx_buf: RX_BUF.claim(),
             packet_to_send: None,
         }
     }
