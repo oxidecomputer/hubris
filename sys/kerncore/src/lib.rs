@@ -162,24 +162,40 @@ where
     let start_addr = slice.base_addr();
     let end_addr = slice.end_addr();
 
-    // First find the start region. Note that if we do not find anything,
-    // then i == table.len().
     let mut i = 0;
     for region in table {
         if region.contains(start_addr) {
+            // Make sure it's permissible!
+            if !region_ok(region) {
+                // The start region wasn't permissible, error out.
+                return false;
+            }
+
+            if end_addr <= region.end_addr() {
+                // We've exhausted the slice in this region, we don't have
+                // to continue processing.
+                return true;
+            }
+
+            // We found our start region, it is permissible and does not
+            // contain the end address. We should look for the end region
+            // starting from the next region over.
+            i += 1;
             break;
+        }
+        if region.base_addr() > end_addr {
+            // We've passed our target address without finding regions that
+            // work!
+            return false;
         }
         // Continue scanning from the next region
         i += 1;
     }
 
-    // Start region was found or all regions were scanned; look for the end.
-    // SAFETY: The i index is only incremented while we're iterating over
-    // the original table slice. The index is always 0 <= i <= table.len().
-    let (_, table) = unsafe { table.split_at_unchecked(i) };
-    for region in table {
+    // Start region was found; now to find the end region.
+    for region in &table[i..] {
         if !region_ok(region) {
-            // Region wasn't permissible, skip to error
+            // End or intermediate region wasn't permissible, skip to error
             // handling code at the end.
             break;
         }
