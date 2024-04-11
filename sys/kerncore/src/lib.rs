@@ -444,6 +444,8 @@ mod tests {
 
     #[test]
     fn cannot_access_slice_spanning_over_uncontained_memory() {
+        // Using a custom region table to not cause cannot_access_uncontained_memory
+        // to spuriously fail.
         let region_table = vec![
             TestRegion {
                 base: 0x1238_5678,
