@@ -331,5 +331,5 @@ fn claim_phase2_buffer(
     // the AtomicBool swap above, combined with the lexical scoping of
     // `PHASE2_BUF`, means that this reference can't be aliased by any
     // other reference in the program.
-    unsafe { &mut PHASE2_BUF }
+    unsafe { &mut *core::ptr::addr_of_mut!(PHASE2_BUF) }
 }

@@ -1428,7 +1428,7 @@ fn claim_mgs_to_sp_usart_buf_static(
     // the AtomicBool swap above, combined with the lexical scoping of
     // `UART_TX_BUF`, means that this reference can't be aliased by any
     // other reference in the program.
-    unsafe { &mut UART_TX_BUF }
+    unsafe { &mut *core::ptr::addr_of_mut!(UART_TX_BUF) }
 }
 
 fn claim_sp_to_mgs_usart_buf_static(
@@ -1445,7 +1445,7 @@ fn claim_sp_to_mgs_usart_buf_static(
     // the AtomicBool swap above, combined with the lexical scoping of
     // `UART_RX_BUF`, means that this reference can't be aliased by any
     // other reference in the program.
-    unsafe { &mut UART_RX_BUF }
+    unsafe { &mut *core::ptr::addr_of_mut!(UART_RX_BUF) }
 }
 
 fn claim_installinator_image_id_static() -> &'static mut InstallinatorImageIdBuf
@@ -1461,5 +1461,5 @@ fn claim_installinator_image_id_static() -> &'static mut InstallinatorImageIdBuf
     // the AtomicBool swap above, combined with the lexical scoping of
     // `INSTALLINATOR_IMAGE_ID_BUF`, means that this reference can't be aliased
     // by any other reference in the program.
-    unsafe { &mut INSTALLINATOR_IMAGE_ID_BUF }
+    unsafe { &mut *core::ptr::addr_of_mut!(INSTALLINATOR_IMAGE_ID_BUF) }
 }

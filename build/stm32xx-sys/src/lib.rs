@@ -160,7 +160,7 @@ impl SysConfig {
             },
         ) in &self.gpio_irqs
         {
-            match dispatch_table.get_mut(pin as usize) {
+            match dispatch_table.get_mut(pin) {
                 Some(Some(curr)) => {
                     anyhow::bail!("pin {pin} is already mapped to IRQ {curr:?}")
                 }
@@ -242,7 +242,7 @@ impl SysConfig {
 
 fn to_const_name(mut s: String) -> anyhow::Result<syn::Ident> {
     s.make_ascii_uppercase();
-    let s = s.replace("-", "_");
+    let s = s.replace('-', "_");
     syn::parse_str::<syn::Ident>(&s)
         .with_context(|| format!("`{s}` is not a valid Rust identifier"))
 }

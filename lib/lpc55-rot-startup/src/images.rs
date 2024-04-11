@@ -145,7 +145,7 @@ impl Image {
             }
         }
 
-        hash.finalize().try_into().unwrap_lite()
+        hash.finalize().into()
     }
 
     pub fn get_image_version(&self) -> ImageVersion {

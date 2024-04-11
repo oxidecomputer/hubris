@@ -171,7 +171,7 @@ where
         i: u16,
     ) -> Result<KszMacTableEntry, RequestError<KszError>> {
         if i >= 1024 {
-            return Err(KszError::BadMacIndex).map_err(RequestError::from);
+            return Err(RequestError::from(KszError::BadMacIndex));
         }
         let (_eth, bsp) = self.eth_bsp();
         let ksz8463 = bsp.ksz8463();

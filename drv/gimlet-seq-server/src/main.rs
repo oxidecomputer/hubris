@@ -8,6 +8,7 @@
 #![no_main]
 
 mod seq_spi;
+mod vcore;
 
 use counters::*;
 use ringbuf::*;
@@ -45,6 +46,17 @@ include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
     path = "payload_cdef.rs"
 )]
 mod payload;
+
+#[derive(Copy, Clone, PartialEq, Count)]
+enum I2cTxn {
+    SpdLoad(u8, u8),
+    SpdLoadTop(u8, u8),
+    VCoreOn,
+    VCoreOff,
+    VCoreUndervoltageInitialize,
+    SocOn,
+    SocOff,
+}
 
 #[derive(Copy, Clone, PartialEq, Count)]
 enum Trace {
@@ -111,10 +123,16 @@ enum Trace {
     SpdBankAbsent(u8),
     SpdAbsent(u8, u8, u8),
     SpdDimmsFound(usize),
-    I2cFault {
-        retries_remaining: u8,
+    I2cError {
+        txn: I2cTxn,
         #[count(children)]
         code: i2c::ResponseCode,
+    },
+    I2cFault(I2cTxn),
+    I2cRetry {
+        #[count(children)]
+        txn: I2cTxn,
+        retries_remaining: u8,
     },
     StartFailed(#[count(children)] SeqError),
     #[count(skip)]
@@ -165,6 +183,7 @@ struct ServerImpl<S: SpiServer> {
     seq: seq_spi::SequencerFpga<S>,
     jefe: Jefe,
     hf: hf_api::HostFlash,
+    vcore: vcore::VCore,
     deadline: u64,
 }
 
@@ -446,6 +465,8 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
         // Turn on the chassis LED once we reach A2
         sys.gpio_set(CHASSIS_LED);
 
+        let (device, rail) = i2c_config::pmbus::vdd_vcore(I2C.get_task_id());
+
         let mut server = Self {
             state: PowerState::A2,
             sys: sys.clone(),
@@ -453,6 +474,7 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
             jefe,
             hf,
             deadline: 0,
+            vcore: vcore::VCore::new(sys, &device, rail),
         };
 
         // Power on, unless suppressed by the `stay-in-a2` feature
@@ -484,10 +506,18 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
 
 impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
     fn current_notification_mask(&self) -> u32 {
-        notifications::TIMER_MASK
+        notifications::TIMER_MASK | self.vcore.mask()
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
+    fn handle_notification(&mut self, bits: u32) {
+        if (bits & self.vcore.mask()) != 0 {
+            self.vcore.handle_notification();
+        }
+
+        if (bits & notifications::TIMER_MASK) == 0 {
+            return;
+        }
+
         let ifr = self.seq.read_byte(Addr::IFR).unwrap_lite();
         ringbuf_entry!(Trace::Status {
             ier: self.seq.read_byte(Addr::IER).unwrap_lite(),
@@ -592,6 +622,7 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
 }
 
 fn retry_i2c_txn<T, E>(
+    which: I2cTxn,
     mut txn: impl FnMut() -> Result<T, E>,
 ) -> Result<T, i2c::ResponseCode>
 where
@@ -604,14 +635,17 @@ where
             Ok(x) => return Ok(x),
             Err(e) => {
                 let code = e.into();
-                ringbuf_entry!(Trace::I2cFault {
-                    retries_remaining,
-                    code,
-                });
+                ringbuf_entry!(Trace::I2cError { txn: which, code });
 
                 if retries_remaining == 0 {
+                    ringbuf_entry!(Trace::I2cFault(which));
                     return Err(code);
                 }
+
+                ringbuf_entry!(Trace::I2cRetry {
+                    txn: which,
+                    retries_remaining
+                });
 
                 retries_remaining -= 1;
             }
@@ -664,6 +698,15 @@ impl<S: SpiServer> ServerImpl<S> {
                 if self.hf.set_mux(hf_api::HfMuxState::HostCPU).is_err() {
                     return Err(SeqError::MuxToHostCPUFailed);
                 }
+
+                //
+                // If we fail to initialize our UV warning despite retries, we
+                // will drive on: the failures will be logged, and this isn't
+                // strictly required to sequence.
+                //
+                _ = retry_i2c_txn(I2cTxn::VCoreUndervoltageInitialize, || {
+                    self.vcore.initialize_uv_warning()
+                });
 
                 let start = sys_get_timer().now;
                 let deadline = start + A0_TIMEOUT_MILLIS;
@@ -1119,7 +1162,20 @@ fn read_spd_data_and_load_packrat(
             // We'll store that byte and then read 255 more.
             tmp[0] = first;
 
-            retry_i2c_txn(|| spd.read_into(&mut tmp[1..]))?;
+            let mut retried = false;
+
+            retry_i2c_txn(I2cTxn::SpdLoad(nbank, i), || {
+                if retried {
+                    //
+                    // If our read needs to be retried, we need to also reset
+                    // ourselves back to the 0th byte.
+                    //
+                    _ = spd.read_reg::<u8, u8>(0)?;
+                }
+
+                retried = true;
+                spd.read_into(&mut tmp[1..])
+            })?;
 
             packrat.set_spd_eeprom(ndx, false, 0, &tmp);
         }
@@ -1146,9 +1202,16 @@ fn read_spd_data_and_load_packrat(
             let spd = I2cDevice::new(i2c_task, controller, port, mux, mem);
 
             let chunk = 128;
-            retry_i2c_txn(|| spd.read_reg_into::<u8>(0, &mut tmp[..chunk]))?;
 
-            retry_i2c_txn(|| spd.read_into(&mut tmp[chunk..]))?;
+            retry_i2c_txn(I2cTxn::SpdLoadTop(nbank, i), || {
+                //
+                // Both of these reads need to be in a single transaction from
+                // the perspective of the retry logic: if either fails, we
+                // must redo both.
+                //
+                spd.read_reg_into::<u8>(0, &mut tmp[..chunk])?;
+                spd.read_into(&mut tmp[chunk..])
+            })?;
 
             packrat.set_spd_eeprom(ndx, true, 0, &tmp);
         }
@@ -1302,8 +1365,8 @@ cfg_if::cfg_if! {
             let (device, rail) = i2c_config::pmbus::vddcr_soc(i2c);
             let mut vddcr_soc = Raa229618::new(&device, rail);
 
-            retry_i2c_txn(|| vdd_vcore.turn_off())?;
-            retry_i2c_txn(|| vddcr_soc.turn_off())?;
+            retry_i2c_txn(I2cTxn::VCoreOff, || vdd_vcore.turn_off())?;
+            retry_i2c_txn(I2cTxn::SocOff, || vddcr_soc.turn_off())?;
             Ok(())
         }
 
@@ -1317,8 +1380,8 @@ cfg_if::cfg_if! {
             let (device, rail) = i2c_config::pmbus::vddcr_soc(i2c);
             let mut vddcr_soc = Raa229618::new(&device, rail);
 
-            retry_i2c_txn(|| vdd_vcore.turn_on())?;
-            retry_i2c_txn(|| vddcr_soc.turn_on())?;
+            retry_i2c_txn(I2cTxn::VCoreOn, || vdd_vcore.turn_on())?;
+            retry_i2c_txn(I2cTxn::SocOn, || vddcr_soc.turn_on())?;
             Ok(())
         }
 

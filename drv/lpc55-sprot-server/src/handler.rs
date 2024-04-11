@@ -122,16 +122,18 @@ impl<'a> Handler {
                         tx_buf,
                     )
                 } else {
-                    match Response::pack_with_cb(&rsp_body, tx_buf, |buf| {
-                        self.update
-                            .read_raw_caboose(
-                                slot,
-                                start,
-                                &mut buf[..blob_size],
-                            )
-                            .map_err(|e| RspBody::Caboose(Err(e)))?;
-                        Ok(blob_size)
-                    }) {
+                    let pack_result =
+                        Response::pack_with_cb(&rsp_body, tx_buf, |buf| {
+                            self.update
+                                .read_raw_caboose(
+                                    slot,
+                                    start,
+                                    &mut buf[..blob_size],
+                                )
+                                .map_err(|e| RspBody::Caboose(Err(e)))?;
+                            Ok(blob_size)
+                        });
+                    match pack_result {
                         Ok(size) => size,
                         Err(e) => Response::pack(&Ok(e), tx_buf),
                     }
@@ -151,12 +153,14 @@ impl<'a> Handler {
                         tx_buf,
                     )
                 } else {
-                    match Response::pack_with_cb(&rsp_body, tx_buf, |buf| {
-                        self.attest
-                            .cert(index, offset, &mut buf[..size])
-                            .map_err(|e| RspBody::Attest(Err(e)))?;
-                        Ok(size)
-                    }) {
+                    let pack_result =
+                        Response::pack_with_cb(&rsp_body, tx_buf, |buf| {
+                            self.attest
+                                .cert(index, offset, &mut buf[..size])
+                                .map_err(|e| RspBody::Attest(Err(e)))?;
+                            Ok(size)
+                        });
+                    match pack_result {
                         Ok(size) => size,
                         Err(e) => Response::pack(&Ok(e), tx_buf),
                     }
@@ -168,12 +172,14 @@ impl<'a> Handler {
                     lpc55_rom_data::FLASH_PAGE_SIZE
                         <= drv_sprot_api::MAX_BLOB_SIZE
                 );
-                match Response::pack_with_cb(&rsp_body, tx_buf, |buf| {
-                    self.update
-                        .read_rot_page(page, &mut buf[..size])
-                        .map_err(|e| RspBody::Page(Err(e)))?;
-                    Ok(size)
-                }) {
+                let pack_result =
+                    Response::pack_with_cb(&rsp_body, tx_buf, |buf| {
+                        self.update
+                            .read_rot_page(page, &mut buf[..size])
+                            .map_err(|e| RspBody::Page(Err(e)))?;
+                        Ok(size)
+                    });
+                match pack_result {
                     Ok(size) => size,
                     Err(e) => Response::pack(&Ok(e), tx_buf),
                 }
@@ -188,12 +194,14 @@ impl<'a> Handler {
                         tx_buf,
                     )
                 } else {
-                    match Response::pack_with_cb(&rsp_body, tx_buf, |buf| {
-                        self.attest
-                            .log(offset, &mut buf[..size])
-                            .map_err(|e| RspBody::Attest(Err(e)))?;
-                        Ok(size)
-                    }) {
+                    let pack_result =
+                        Response::pack_with_cb(&rsp_body, tx_buf, |buf| {
+                            self.attest
+                                .log(offset, &mut buf[..size])
+                                .map_err(|e| RspBody::Attest(Err(e)))?;
+                            Ok(size)
+                        });
+                    match pack_result {
                         Ok(size) => size,
                         Err(e) => Response::pack(&Ok(e), tx_buf),
                     }
@@ -208,12 +216,14 @@ impl<'a> Handler {
                         tx_buf,
                     )
                 } else {
-                    match Response::pack_with_cb(&rsp_body, tx_buf, |buf| {
-                        self.attest
-                            .attest(nonce, &mut buf[..write_size as usize])
-                            .map_err(|e| RspBody::Attest(Err(e)))?;
-                        Ok(write_size as usize)
-                    }) {
+                    let pack_result =
+                        Response::pack_with_cb(&rsp_body, tx_buf, |buf| {
+                            self.attest
+                                .attest(nonce, &mut buf[..write_size as usize])
+                                .map_err(|e| RspBody::Attest(Err(e)))?;
+                            Ok(write_size as usize)
+                        });
+                    match pack_result {
                         Ok(size) => size,
                         Err(e) => Response::pack(&Ok(e), tx_buf),
                     }

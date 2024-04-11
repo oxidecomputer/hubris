@@ -834,7 +834,7 @@ fn main() -> ! {
                 .load_bitstream(AUXFLASH.get_task_id())
             {
                 Err(e) => {
-                    let code = u32::try_from(e).unwrap_lite();
+                    let code = u32::from(e);
                     ringbuf_entry!(Trace::FpgaBitstreamError(code));
 
                     // If this is an auxflash error indicating that we can't
