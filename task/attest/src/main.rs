@@ -89,11 +89,19 @@ struct AttestServer {
     cert_data: Option<CertData>,
     measurements: Log,
 }
-
-impl Default for AttestServer {
-    fn default() -> Self {
-        static LOG_BUF: ClaimOnceCell<[u8; Log::MAX_SIZE]> =
-            ClaimOnceCell::new([0; Log::MAX_SIZE]);
+impl AttestServer {
+    /// Claims static resources and loads data.
+    //
+    /// # Panics
+    ///
+    /// This function panics if called more than once.
+    fn claim_static_resources() -> Self {
+        let buf = {
+            use static_cell::ClaimOnceCell;
+            static LOG_BUF: ClaimOnceCell<[u8; Log::MAX_SIZE]> =
+                ClaimOnceCell::new([0; Log::MAX_SIZE]);
+            LOG_BUF.claim()
+        };
 
         let alias_data: Option<AliasData> = load_data_from_region(&ALIAS_DATA);
         let alias_keypair = alias_data
@@ -103,14 +111,12 @@ impl Default for AttestServer {
         Self {
             alias_data,
             alias_keypair,
-            buf: LOG_BUF.claim(),
+            buf,
             cert_data: load_data_from_region(&CERT_DATA),
             measurements: Log::default(),
         }
     }
-}
 
-impl AttestServer {
     fn get_cert_bytes_from_index(
         &self,
         index: u32,
@@ -396,7 +402,7 @@ fn main() -> ! {
     ringbuf_entry!(Trace::Startup);
 
     let mut buffer = [0; idl::INCOMING_SIZE];
-    let mut attest = AttestServer::default();
+    let mut attest = AttestServer::claim_static_resources();
     loop {
         idol_runtime::dispatch(&mut buffer, &mut attest);
     }
