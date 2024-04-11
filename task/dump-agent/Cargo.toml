@@ -20,8 +20,8 @@ zerocopy.workspace = true
 drv-sprot-api.path = "../../drv/sprot-api"
 dump-agent-api.path = "../dump-agent-api"
 dumper-api.path = "../dumper-api"
-mutable-statics.path = "../../lib/mutable-statics"
 ringbuf.path = "../../lib/ringbuf"
+static-cell.path = "../../lib/static-cell"
 task-jefe-api.path = "../../task/jefe-api"
 task-net-api = { path = "../../task/net-api", optional = true }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }

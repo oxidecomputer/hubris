@@ -8,25 +8,30 @@ use crate::Trace;
 use core::convert::Infallible;
 use drv_gimlet_seq_api::NUM_SPD_BANKS;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError};
-use mutable_statics::mutable_statics;
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use task_packrat_api::HostStartupOptions;
 
 const SPD_DATA_LEN: usize =
     NUM_SPD_BANKS * spd::MAX_SIZE * spd::MAX_DEVICES as usize;
+const SPD_PRESENT_LEN: usize = NUM_SPD_BANKS * spd::MAX_DEVICES as usize;
 static_assertions::const_assert_eq!(SPD_DATA_LEN, 8192);
 
 pub(crate) struct GimletData {
     host_startup_options: &'static mut HostStartupOptions,
-    spd_present: &'static mut [bool; NUM_SPD_BANKS * spd::MAX_DEVICES as usize],
+    spd_present: &'static mut [bool; SPD_PRESENT_LEN],
     spd_data: &'static mut [u8; SPD_DATA_LEN],
 }
 
-fn default_host_startup_options() -> HostStartupOptions {
+const fn default_host_startup_options() -> HostStartupOptions {
     if cfg!(feature = "boot-kmdb") {
-        HostStartupOptions::STARTUP_KMDB
-            | HostStartupOptions::STARTUP_PROM
-            | HostStartupOptions::STARTUP_VERBOSE
+        // We have to do this because const fn.
+        let bits = HostStartupOptions::STARTUP_KMDB.bits()
+            | HostStartupOptions::STARTUP_PROM.bits()
+            | HostStartupOptions::STARTUP_VERBOSE.bits();
+        match HostStartupOptions::from_bits(bits) {
+            Some(options) => options,
+            None => panic!("must be valid at compile-time"),
+        }
     } else {
         HostStartupOptions::empty()
     }
@@ -35,21 +40,18 @@ fn default_host_startup_options() -> HostStartupOptions {
 impl GimletData {
     // Panics if called more than once.
     pub(crate) fn claim_static_resources() -> Self {
-        let (spd_present, spd_data, host_startup_options) = mutable_statics! {
-            static mut SPD_PRESENT:
-                [bool; NUM_SPD_BANKS * spd::MAX_DEVICES as usize]
-                    = [|| false; _];
+        use static_cell::ClaimOnceCell;
+        static SPD_PRESENT: ClaimOnceCell<[bool; SPD_PRESENT_LEN]> =
+            ClaimOnceCell::new([false; SPD_PRESENT_LEN]);
+        static SPD_DATA: ClaimOnceCell<[u8; SPD_DATA_LEN]> =
+            ClaimOnceCell::new([0; SPD_DATA_LEN]);
 
-            static mut SPD_DATA: [u8; SPD_DATA_LEN] = [|| 0; _];
-
-            static mut HOST_STARTUP_OPTIONS: [HostStartupOptions; 1] =
-                [default_host_startup_options; _];
-        };
-
+        static HOST_STARTUP_OPTIONS: ClaimOnceCell<HostStartupOptions> =
+            ClaimOnceCell::new(default_host_startup_options());
         Self {
-            host_startup_options: &mut host_startup_options[0],
-            spd_present,
-            spd_data,
+            host_startup_options: HOST_STARTUP_OPTIONS.claim(),
+            spd_present: SPD_PRESENT.claim(),
+            spd_data: SPD_DATA.claim(),
         }
     }
 

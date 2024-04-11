@@ -7,8 +7,8 @@ use core::ops::Range;
 use host_sp_messages::{
     DecodeFailureReason, Header, InventoryData, InventoryDataResult, SpToHost,
 };
-use mutable_statics::mutable_statics;
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
+use static_cell::ClaimOnceCell;
 use userlib::{sys_get_timer, UnwrapLite};
 
 /// We set the high bit of the sequence number before replying to host requests.
@@ -36,13 +36,14 @@ pub(super) struct TxBuf {
 
 impl TxBuf {
     pub(crate) fn claim_static_resources() -> Self {
-        let (msg, pkt) = mutable_statics! {
-            static mut UART_TX_MSG_BUF: [u8; MAX_MESSAGE_SIZE] = [|| 0; _];
-            static mut UART_TX_PKT_BUF: [u8; MAX_PACKET_SIZE + 1] = [|| 0; _];
-        };
+        static UART_TX_MSG_BUF: ClaimOnceCell<[u8; MAX_MESSAGE_SIZE]> =
+            ClaimOnceCell::new([0; MAX_MESSAGE_SIZE]);
+        static UART_TX_PKT_BUF: ClaimOnceCell<[u8; MAX_PACKET_SIZE + 1]> =
+            ClaimOnceCell::new([0; MAX_PACKET_SIZE + 1]);
+
         Self {
-            msg,
-            pkt,
+            msg: UART_TX_MSG_BUF.claim(),
+            pkt: UART_TX_PKT_BUF.claim(),
             state: State::Idle,
         }
     }

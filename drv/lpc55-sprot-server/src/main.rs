@@ -164,10 +164,15 @@ enum IoError {
 #[export_name = "main"]
 fn main() -> ! {
     let mut io = configure_spi();
-
-    let (rx_buf, tx_buf) = mutable_statics::mutable_statics! {
-        static mut RX_BUF: [u8; REQUEST_BUF_SIZE] = [|| 0; _];
-        static mut TX_BUF: [u8; RESPONSE_BUF_SIZE] = [|| 0; _];
+    let rx_buf = {
+        static RX_BUF: ClaimOnceCell<[u8; REQUEST_BUF_SIZE]> =
+            ClaimOnceCell::new([0; REQUEST_BUF_SIZE]);
+        RX_BUF.claim()
+    };
+    let tx_buf = {
+        static TX_BUF: ClaimOnceCell<[u8; RESPONSE_BUF_SIZE]> =
+            ClaimOnceCell::new([0; RESPONSE_BUF_SIZE]);
+        TX_BUF.claim()
     };
 
     let mut handler = Handler::new();

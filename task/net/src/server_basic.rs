@@ -14,20 +14,13 @@ use crate::{
     server::{DeviceExt, GenServerImpl, Storage},
     MacAddressBlock,
 };
-use mutable_statics::mutable_statics;
 use task_net_api::UdpMetadata;
-
-/// Grabs references to the server storage arrays.  Can only be called once!
-fn claim_server_storage_statics() -> &'static mut [Storage; 1] {
-    mutable_statics! {
-        static mut STORAGE: [Storage; 1] = [Default::default; _];
-    }
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 
 pub type ServerImpl<'a, B> = GenServerImpl<'a, B, Smol<'a>, 1>;
 
+/// Grabs references to the server storage arrays.  Can only be called once!
 pub fn new<B>(
     eth: &eth::Ethernet,
     mac: MacAddressBlock,
@@ -36,11 +29,13 @@ pub fn new<B>(
 where
     B: bsp_support::Bsp,
 {
+    static STORAGE: ClaimOnceCell<[Storage; 1]> =
+        ClaimOnceCell::new([Storage::new()]);
     ServerImpl::new(
         eth,
         mac,
         bsp,
-        claim_server_storage_statics(),
+        STORAGE.claim(),
         generated::construct_sockets(),
         |_| Smol::from(eth),
     )

@@ -22,7 +22,6 @@ use host_sp_messages::{
 use hubpack::SerializedSize;
 use idol_runtime::{NotificationHandler, RequestError};
 use multitimer::{Multitimer, Repeat};
-use mutable_statics::mutable_statics;
 use ringbuf::{counted_ringbuf, ringbuf_entry};
 use static_assertions::const_assert;
 use static_cell::ClaimOnceCell;
@@ -196,23 +195,25 @@ struct HostKeyValueStorage {
 
 impl HostKeyValueStorage {
     fn claim_static_resources() -> Self {
-        let (last_boot_fail, last_panic, etc_system, dtrace_conf) = mutable_statics! {
-            static mut LAST_HOST_BOOT_FAIL: [u8; MAX_HOST_FAIL_MESSAGE_LEN] =
-                [|| 0; _];
-            static mut LAST_HOST_PANIC: [u8; MAX_HOST_FAIL_MESSAGE_LEN] =
-                [|| 0; _];
-            static mut HOST_ETC_SYSTEM: [u8; MAX_ETC_SYSTEM_LEN] =
-                [|| 0; _];
-            static mut HOST_DTRACE_CONF: [u8; MAX_DTRACE_CONF_LEN] =
-                [|| 0; _];
-        };
+        static LAST_HOST_BOOT_FAIL: ClaimOnceCell<
+            [u8; MAX_HOST_FAIL_MESSAGE_LEN],
+        > = ClaimOnceCell::new([0; MAX_HOST_FAIL_MESSAGE_LEN]);
+
+        static LAST_HOST_PANIC: ClaimOnceCell<[u8; MAX_HOST_FAIL_MESSAGE_LEN]> =
+            ClaimOnceCell::new([0; MAX_HOST_FAIL_MESSAGE_LEN]);
+
+        static HOST_ETC_SYSTEM: ClaimOnceCell<[u8; MAX_ETC_SYSTEM_LEN]> =
+            ClaimOnceCell::new([0; MAX_ETC_SYSTEM_LEN]);
+
+        static HOST_DTRACE_CONF: ClaimOnceCell<[u8; MAX_DTRACE_CONF_LEN]> =
+            ClaimOnceCell::new([0; MAX_DTRACE_CONF_LEN]);
 
         Self {
-            last_boot_fail,
-            last_panic,
-            etc_system,
+            last_boot_fail: LAST_HOST_BOOT_FAIL.claim(),
+            last_panic: LAST_HOST_PANIC.claim(),
+            etc_system: HOST_ETC_SYSTEM.claim(),
             etc_system_len: 0,
-            dtrace_conf,
+            dtrace_conf: HOST_DTRACE_CONF.claim(),
             dtrace_conf_len: 0,
         }
     }
@@ -1337,18 +1338,10 @@ fn sp_to_sp3_interrupt_enable(sys: &sys_api::Sys) {
 fn claim_uart_rx_buf() -> &'static mut Vec<u8, MAX_PACKET_SIZE> {
     use core::sync::atomic::{AtomicBool, Ordering};
 
-    static mut UART_RX_BUF: Vec<u8, MAX_PACKET_SIZE> = Vec::new();
+    static UART_RX_BUF: ClaimOnceCell<Vec<u8, MAX_PACKET_SIZE>> =
+        ClaimOnceCell::new(Vec::new());
 
-    static TAKEN: AtomicBool = AtomicBool::new(false);
-    if TAKEN.swap(true, Ordering::Relaxed) {
-        panic!()
-    }
-
-    // Safety: unsafe because of references to mutable statics; safe because of
-    // the AtomicBool swap above, combined with the lexical scoping of
-    // `UART_RX_BUF`, means that this reference can't be aliased by any
-    // other reference in the program.
-    unsafe { &mut *core::ptr::addr_of_mut!(UART_RX_BUF) }
+    UART_RX_BUF.claim()
 }
 
 mod idl {

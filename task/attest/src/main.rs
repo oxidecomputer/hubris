@@ -22,7 +22,6 @@ use idol_runtime::{
     ClientError, Leased, LenLimit, NotificationHandler, RequestError, R, W,
 };
 use lib_dice::{AliasData, CertData, SeedBuf};
-use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
 use salty::signature::Keypair;
 use serde::Deserialize;
@@ -93,9 +92,8 @@ struct AttestServer {
 
 impl Default for AttestServer {
     fn default() -> Self {
-        let buf = mutable_statics! {
-            static mut LOG_BUF: [u8; Log::MAX_SIZE] = [|| 0; _];
-        };
+        static LOG_BUF: ClaimOnceCell<[u8; Log::MAX_SIZE]> =
+            ClaimOnceCell::new([0; Log::MAX_SIZE]);
 
         let alias_data: Option<AliasData> = load_data_from_region(&ALIAS_DATA);
         let alias_keypair = alias_data
@@ -105,7 +103,7 @@ impl Default for AttestServer {
         Self {
             alias_data,
             alias_keypair,
-            buf,
+            buf: LOG_BUF.claim(),
             cert_data: load_data_from_region(&CERT_DATA),
             measurements: Log::default(),
         }
