@@ -8,7 +8,6 @@ use host_sp_messages::{
     DecodeFailureReason, Header, InventoryData, InventoryDataResult, SpToHost,
 };
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
-use static_cell::ClaimOnceCell;
 use userlib::{sys_get_timer, UnwrapLite};
 
 /// We set the high bit of the sequence number before replying to host requests.
@@ -34,16 +33,30 @@ pub(super) struct TxBuf {
     state: State,
 }
 
-impl TxBuf {
-    pub(crate) fn claim_static_resources() -> Self {
-        static UART_TX_MSG_BUF: ClaimOnceCell<[u8; MAX_MESSAGE_SIZE]> =
-            ClaimOnceCell::new([0; MAX_MESSAGE_SIZE]);
-        static UART_TX_PKT_BUF: ClaimOnceCell<[u8; MAX_PACKET_SIZE + 1]> =
-            ClaimOnceCell::new([0; MAX_PACKET_SIZE + 1]);
+pub(super) struct StaticBufs {
+    msg: [u8; MAX_MESSAGE_SIZE],
+    pkt: [u8; MAX_PACKET_SIZE + 1],
+}
 
+impl StaticBufs {
+    pub(super) const fn new() -> Self {
         Self {
-            msg: UART_TX_MSG_BUF.claim(),
-            pkt: UART_TX_PKT_BUF.claim(),
+            msg: [0; MAX_MESSAGE_SIZE],
+            pkt: [0; MAX_PACKET_SIZE + 1],
+        }
+    }
+}
+
+impl TxBuf {
+    pub(crate) fn new(
+        StaticBufs {
+            ref mut msg,
+            ref mut pkt,
+        }: &'static mut StaticBufs,
+    ) -> Self {
+        Self {
+            msg,
+            pkt,
             state: State::Idle,
         }
     }

@@ -532,10 +532,11 @@ impl<'a> ThermalControl<'a> {
     pub fn new(bsp: &'a Bsp, i2c_task: TaskId, sensor_api: SensorApi) -> Self {
         use static_cell::ClaimOnceCell;
 
-        static ERR_BLACKBOX: ClaimOnceCell<ThermalSensorErrors> =
-            ClaimOnceCell::new(ThermalSensorErrors::new());
-        static PREV_ERR_BLACKBOX: ClaimOnceCell<ThermalSensorErrors> =
-            ClaimOnceCell::new(ThermalSensorErrors::new());
+        let [err_blackbox, prev_err_blackbox] = {
+            static BLACKBOXEN: ClaimOnceCell<[ThermalSensorErrors; 2]> =
+                ClaimOnceCell::new([ThermalSensorErrors::new(); 2]);
+            BLACKBOXEN.claim()
+        };
 
         Self {
             bsp,
@@ -557,8 +558,8 @@ impl<'a> ThermalControl<'a> {
             fans: Fans::new(),
             last_pwm: PWMDuty(0),
 
-            err_blackbox: ERR_BLACKBOX.claim(),
-            prev_err_blackbox: PREV_ERR_BLACKBOX.claim(),
+            err_blackbox,
+            prev_err_blackbox,
         }
     }
 

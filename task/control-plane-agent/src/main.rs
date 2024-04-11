@@ -454,25 +454,25 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
 
 struct NetHandler {
     net: Net,
-    tx_buf: &'static mut [u8; gateway_messages::MAX_SERIALIZED_SIZE],
-    rx_buf: &'static mut [u8; gateway_messages::MAX_SERIALIZED_SIZE],
+    tx_buf: &'static mut NetBuf,
+    rx_buf: &'static mut NetBuf,
     packet_to_send: Option<UdpMetadata>,
 }
 
+type NetBuf = [u8; gateway_messages::MAX_SERIALIZED_SIZE];
+
 impl NetHandler {
     fn claim_static_resources() -> Self {
-        static RX_BUF: ClaimOnceCell<
-            [u8; gateway_messages::MAX_SERIALIZED_SIZE],
-        > = ClaimOnceCell::new([0; gateway_messages::MAX_SERIALIZED_SIZE]);
-
-        static TX_BUF: ClaimOnceCell<
-            [u8; gateway_messages::MAX_SERIALIZED_SIZE],
-        > = ClaimOnceCell::new([0; gateway_messages::MAX_SERIALIZED_SIZE]);
-
+        let [tx_buf, rx_buf] = {
+            static BUFS: ClaimOnceCell<[NetBuf; 2]> = ClaimOnceCell::new(
+                [[0; gateway_messages::MAX_SERIALIZED_SIZE]; 2],
+            );
+            BUFS.claim()
+        };
         Self {
             net: Net::from(NET.get_task_id()),
-            tx_buf: TX_BUF.claim(),
-            rx_buf: RX_BUF.claim(),
+            tx_buf,
+            rx_buf,
             packet_to_send: None,
         }
     }

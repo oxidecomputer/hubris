@@ -37,21 +37,34 @@ const fn default_host_startup_options() -> HostStartupOptions {
     }
 }
 
-impl GimletData {
-    // Panics if called more than once.
-    pub(crate) fn claim_static_resources() -> Self {
-        use static_cell::ClaimOnceCell;
-        static SPD_PRESENT: ClaimOnceCell<[bool; SPD_PRESENT_LEN]> =
-            ClaimOnceCell::new([false; SPD_PRESENT_LEN]);
-        static SPD_DATA: ClaimOnceCell<[u8; SPD_DATA_LEN]> =
-            ClaimOnceCell::new([0; SPD_DATA_LEN]);
+pub(crate) struct StaticBufs {
+    spd_present: [bool; SPD_PRESENT_LEN],
+    spd_data: [u8; SPD_DATA_LEN],
+    host_startup_options: HostStartupOptions,
+}
 
-        static HOST_STARTUP_OPTIONS: ClaimOnceCell<HostStartupOptions> =
-            ClaimOnceCell::new(default_host_startup_options());
+impl StaticBufs {
+    pub(crate) const fn new() -> Self {
         Self {
-            host_startup_options: HOST_STARTUP_OPTIONS.claim(),
-            spd_present: SPD_PRESENT.claim(),
-            spd_data: SPD_DATA.claim(),
+            spd_present: [false; SPD_PRESENT_LEN],
+            spd_data: [0; SPD_DATA_LEN],
+            host_startup_options: default_host_startup_options(),
+        }
+    }
+}
+
+impl GimletData {
+    pub(crate) fn new(
+        StaticBufs {
+            ref mut host_startup_options,
+            ref mut spd_data,
+            ref mut spd_present,
+        }: &'static mut StaticBufs,
+    ) -> Self {
+        Self {
+            host_startup_options,
+            spd_present,
+            spd_data,
         }
     }
 

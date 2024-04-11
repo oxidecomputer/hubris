@@ -84,16 +84,33 @@ ringbuf!(Trace, 16, Trace::None);
 
 #[export_name = "main"]
 fn main() -> ! {
-    static MAC_ADDRESS_BLOCK: ClaimOnceCell<Option<MacAddressBlock>> =
-        ClaimOnceCell::new(None);
-    static IDENTITY: ClaimOnceCell<Option<VpdIdentity>> =
-        ClaimOnceCell::new(None);
+    struct StaticBufs {
+        mac_address_block: Option<MacAddressBlock>,
+        identity: Option<VpdIdentity>,
+        #[cfg(feature = "gimlet")]
+        gimlet_bufs: gimlet::StaticBufs,
+    }
+    let StaticBufs {
+        ref mut mac_address_block,
+        ref mut identity,
+        #[cfg(feature = "gimlet")]
+        ref mut gimlet_bufs,
+    } = {
+        static BUFS: ClaimOnceCell<StaticBufs> =
+            ClaimOnceCell::new(StaticBufs {
+                mac_address_block: None,
+                identity: None,
+                #[cfg(feature = "gimlet")]
+                gimlet_bufs: gimlet::StaticBufs::new(),
+            });
+        BUFS.claim()
+    };
 
     let mut server = ServerImpl {
-        mac_address_block: MAC_ADDRESS_BLOCK.claim(),
-        identity: IDENTITY.claim(),
+        mac_address_block,
+        identity,
         #[cfg(feature = "gimlet")]
-        gimlet_data: gimlet::GimletData::claim_static_resources(),
+        gimlet_data: gimlet::GimletData::new(gimlet_bufs),
     };
 
     let mut buffer = [0; idl::INCOMING_SIZE];

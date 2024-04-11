@@ -612,16 +612,12 @@ fn main() -> ! {
     let thermal_api = Thermal::from(THERMAL.get_task_id());
     let sensor_api = Sensor::from(SENSOR.get_task_id());
 
-    let tx_data_buf = {
-        static BUF: ClaimOnceCell<[u8; MAX_PACKET_SIZE]> =
-            ClaimOnceCell::new([0; MAX_PACKET_SIZE]);
-        BUF.claim()
-    };
-
-    let rx_data_buf = {
-        static BUF: ClaimOnceCell<[u8; MAX_PACKET_SIZE]> =
-            ClaimOnceCell::new([0; MAX_PACKET_SIZE]);
-        BUF.claim()
+    let (tx_data_buf, rx_data_buf) = {
+        static BUFS: ClaimOnceCell<(
+            [u8; MAX_PACKET_SIZE],
+            [u8; MAX_PACKET_SIZE],
+        )> = ClaimOnceCell::new(([0; MAX_PACKET_SIZE], [0; MAX_PACKET_SIZE]));
+        BUFS.claim()
     };
 
     let mut server = ServerImpl {
