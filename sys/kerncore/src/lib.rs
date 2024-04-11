@@ -159,16 +159,15 @@ where
     // Per the function's preconditions, the region table is sorted in ascending
     // order of base address, and the regions within it do not overlap. This
     // lets us use a one-pass algorithm.
-    let start_addr = slice.base_addr();
+    let mut scan_addr = slice.base_addr();
     let end_addr = slice.end_addr();
 
-    let mut i = 0;
     for region in table {
-        if region.contains(start_addr) {
+        if region.contains(scan_addr) {
             // Make sure it's permissible!
             if !region_ok(region) {
-                // The start region wasn't permissible, error out.
-                return false;
+                // bail to the fail handling code at the end.
+                break;
             }
 
             if end_addr <= region.end_addr() {
@@ -177,32 +176,12 @@ where
                 return true;
             }
 
-            // We found our start region, it is permissible and does not
-            // contain the end address. We should look for the end region
-            // starting from the next region over.
-            i += 1;
-            break;
-        }
-        if region.base_addr() > end_addr {
+            // Continue scanning at the end of this region.
+            scan_addr = region.end_addr();
+        } else if region.base_addr() > scan_addr {
             // We've passed our target address without finding regions that
             // work!
-            return false;
-        }
-        // Continue scanning from the next region
-        i += 1;
-    }
-
-    // Start region was found; now to find the end region.
-    for region in &table[i..] {
-        if !region_ok(region) {
-            // End or intermediate region wasn't permissible, skip to error
-            // handling code at the end.
             break;
-        }
-
-        if end_addr <= region.end_addr() {
-            // The slice ends in this region, the slice was okay.
-            return true;
         }
     }
 
