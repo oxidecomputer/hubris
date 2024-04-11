@@ -14,7 +14,11 @@
 //! ## Constraints
 //!
 //! The main constraint for a ring buffer is that the type in the ring buffer
-//! must implement both `Copy` and `PartialEq`.
+//! must implement [`Copy`]. If [de-duplication](#entry-de-duplication) is
+//! enabled, the entry type must also implement [`PartialEq`]. When using the
+//! [`counted_ringbuf!`] macro to [count ring buffer
+//! entries](#counted-ring-buffers), the entry type must implement the
+//! [`counters::Count`] trait.
 //!
 //! If you use the variants of the `ringbuf!` macro that leave the name of the
 //! data structure implicit, you can only have one per module. (You can lift
@@ -124,6 +128,40 @@
 //! ringbuf_entry!(MyEvent::SomethingElseHappened(666));
 //! ```
 //!
+//! ### Entry de-duplication
+//!
+//! By default, when the same value is recorded in a ring buffer multiple times
+//! in a row, the subsequent entries are recorded by incrementing a counter
+//! stored in the initial entry, rather than by adding new entries to the
+//! ringbuf. This de-duplication prevents the ring buffer from filling up with a
+//! large number of duplicate entries, allowing the earlier history to be
+//! recorded.
+//!
+//! However, this de-duplication requires the entry type to implement the
+//! [`PartialEq`] trait, and performs a comparison with the previous entry
+//! whenever an entry is recorded. The [`PartialEq`] implementation and
+//! comparisons can have a meaningful impact on binary size, especially when the
+//! entry type is complex. Therefore, code which does not record a large number
+//! of duplicate entries, or which does not care about de-duplicating them, can
+//! disable de-duplication by adding the `no_dedup` argument at the end of the
+//! [`ringbuf!`] or [`counted_ringbuf!`] macro. For example:
+//!
+//! ```
+//! ringbuf!(u32, 16, 0, no_dedup);
+//! ```
+//!
+//! Or, with [`counted_ringbuf!`]:
+//!
+//! ````
+//! #[derive(Copy, Clone, Debug, Eq, counters::Count)]
+//! pub enum MyEvent {
+//!     NothingHappened,
+//!     SomethingHappened,
+//!     SomethingElseHappened(u32),
+//!     // ...
+//! }
+//! counted_ringbuf!(MyEvent, 16, MyEvent::NothingHappened, no_dedup);
+//! ```
 //!
 //! ## Inspecting a ring buffer via Humility
 //!
@@ -205,6 +243,25 @@ pub use counters::Count;
 /// macros is guaranteed to be able to find them.
 pub use static_cell::StaticCell;
 
+#[cfg(feature = "disabled")]
+#[macro_export]
+macro_rules! ringbuf {
+    ($name:ident, $t:ty, $n:expr, $init:expr, no_dedup) => {
+        $crate::ringbuf!($name, $t, $n, $init)
+    };
+    ($name:ident, $t:ty, $n:expr, $init:expr) => {
+        #[allow(dead_code)]
+        const _: $t = $init;
+        static $name: () = ();
+    };
+    ($t:ty, $n:expr, $init:expr, no_dedup) => {
+        $crate::ringbuf!(__RINGBUF, $t, $n, $init);
+    };
+    ($t:ty, $n:expr, $init:expr) => {
+        $crate::ringbuf!(__RINGBUF, $t, $n, $init);
+    };
+}
+
 /// Declares a ringbuffer in the current module or context.
 ///
 /// `ringbuf!(NAME, Type, N, expr)` makes a ringbuffer named `NAME`,
@@ -224,7 +281,7 @@ pub use static_cell::StaticCell;
 macro_rules! ringbuf {
     ($name:ident, $t:ty, $n:expr, $init:expr) => {
         #[used]
-        static $name: $crate::StaticCell<$crate::Ringbuf<$t, $n>> =
+        static $name: $crate::StaticCell<$crate::Ringbuf<$t, u16, $n>> =
             $crate::StaticCell::new($crate::Ringbuf {
                 last: None,
                 buffer: [$crate::RingbufEntry {
@@ -235,18 +292,21 @@ macro_rules! ringbuf {
                 }; $n],
             });
     };
-    ($t:ty, $n:expr, $init:expr) => {
-        $crate::ringbuf!(__RINGBUF, $t, $n, $init);
+    ($name:ident, $t:ty, $n:expr, $init:expr, no_dedup) => {
+        #[used]
+        static $name: $crate::StaticCell<$crate::Ringbuf<$t, () $n>> =
+            $crate::StaticCell::new($crate::Ringbuf {
+                last: None,
+                buffer: [$crate::RingbufEntry {
+                    line: 0,
+                    generation: 0,
+                    count: (),
+                    payload: $init,
+                }; $n],
+            });
     };
-}
-
-#[cfg(feature = "disabled")]
-#[macro_export]
-macro_rules! ringbuf {
-    ($name:ident, $t:ty, $n:expr, $init:expr) => {
-        #[allow(dead_code)]
-        const _: $t = $init;
-        static $name: () = ();
+    ($t:ty, $n:expr, $init:expr, no_dedup) => {
+        $crate::ringbuf!(__RINGBUF, $t, $n, $init, no_dedup);
     };
     ($t:ty, $n:expr, $init:expr) => {
         $crate::ringbuf!(__RINGBUF, $t, $n, $init);
@@ -279,18 +339,38 @@ macro_rules! ringbuf {
 macro_rules! counted_ringbuf {
     ($name:ident, $t:ident, $n:expr, $init:expr) => {
         #[used]
-        static $name: $crate::CountedRingbuf<$t, $n> = $crate::CountedRingbuf {
-            ringbuf: $crate::StaticCell::new($crate::Ringbuf {
-                last: None,
-                buffer: [$crate::RingbufEntry {
-                    line: 0,
-                    generation: 0,
-                    count: 0,
-                    payload: $init,
-                }; $n],
-            }),
-            counters: <$t as $crate::Count>::NEW_COUNTERS,
-        };
+        static $name: $crate::CountedRingbuf<$t, u16, $n> =
+            $crate::CountedRingbuf {
+                ringbuf: $crate::StaticCell::new($crate::Ringbuf {
+                    last: None,
+                    buffer: [$crate::RingbufEntry {
+                        line: 0,
+                        generation: 0,
+                        count: 0,
+                        payload: $init,
+                    }; $n],
+                }),
+                counters: <$t as $crate::Count>::NEW_COUNTERS,
+            };
+    };
+    ($name:ident, $t:ident, $n:expr, $init:expr, no_dedup) => {
+        #[used]
+        static $name: $crate::CountedRingbuf<$t, (), $n> =
+            $crate::CountedRingbuf {
+                ringbuf: $crate::StaticCell::new($crate::Ringbuf {
+                    last: None,
+                    buffer: [$crate::RingbufEntry {
+                        line: 0,
+                        generation: 0,
+                        count: (),
+                        payload: $init,
+                    }; $n],
+                }),
+                counters: <$t as $crate::Count>::NEW_COUNTERS,
+            };
+    };
+    ($t:ident, $n:expr, $init:expr, no_dedup) => {
+        $crate::counted_ringbuf!(__RINGBUF, $t, $n, $init, no_dedup);
     };
     ($t:ident, $n:expr, $init:expr) => {
         $crate::counted_ringbuf!(__RINGBUF, $t, $n, $init);
@@ -304,11 +384,24 @@ macro_rules! counted_ringbuf {
 ))]
 #[macro_export]
 macro_rules! counted_ringbuf {
+    ($name:ident, $t:ident, $n:expr, $init:expr, no_dedup) => {
+        #[used]
+        static $name: $crate::CountedRingbuf<$t, (), $n> =
+            $crate::CountedRingbuf {
+                counters: <$t as $crate::Count>::NEW_COUNTERS,
+                _c: core::marker::PhantomData,
+            };
+    };
     ($name:ident, $t:ident, $n:expr, $init:expr) => {
         #[used]
-        static $name: $crate::CountedRingbuf<$t, $n> = $crate::CountedRingbuf {
-            counters: <$t as $crate::Count>::NEW_COUNTERS,
-        };
+        static $name: $crate::CountedRingbuf<$t, u16, $n> =
+            $crate::CountedRingbuf {
+                counters: <$t as $crate::Count>::NEW_COUNTERS,
+                _c: core::marker::PhantomData,
+            };
+    };
+    ($t:ident, $n:expr, $init:expr, no_dedup) => {
+        $crate::counted_ringbuf!(__RINGBUF, $t, $n, $init, no_dedup);
     };
     ($t:ident, $n:expr, $init:expr) => {
         $crate::counted_ringbuf!(__RINGBUF, $t, $n, $init);
@@ -322,10 +415,14 @@ macro_rules! counted_ringbuf {
 ))]
 #[macro_export]
 macro_rules! counted_ringbuf {
+    ($name:ident, $t:ident, $n:expr, $init:expr, no_dedup) => {
+        $crate::ringbuf!($name, $t, $n, $init, no_dedup)
+    };
     ($name:ident, $t:ident, $n:expr, $init:expr) => {
-        #[allow(dead_code)]
-        const _: $t = $init;
-        static $name: () = ();
+        $crate::ringbuf!($name, $t, $n, $init)
+    };
+    ($t:ident, $n:expr, $init:expr, no_dedup) => {
+        $crate::ringbuf!(__RINGBUF, $t, $n, $init, no_dedup);
     };
     ($t:ident, $n:expr, $init:expr) => {
         $crate::ringbuf!(__RINGBUF, $t, $n, $init);
@@ -339,10 +436,16 @@ macro_rules! counted_ringbuf {
 ))]
 #[macro_export]
 macro_rules! counted_ringbuf {
+    ($name:ident, $t:ident, $n:expr, $init:expr, no_dedup) => {
+        $crate::counted_ringbuf!(%name, $t, $n, $init)
+    };
     ($name:ident, $t:ident, $n:expr, $init:expr) => {
         #[allow(dead_code)]
         const _: $t = $init;
         static $name: () = ();
+    };
+    ($t:ident, $n:expr, $init:expr, no_dedup) => {
+        $crate::counted_ringbuf!(__RINGBUF, $t, $n, $init);
     };
     ($t:ident, $n:expr, $init:expr) => {
         $crate::counted_ringbuf!(__RINGBUF, $t, $n, $init);
@@ -394,11 +497,11 @@ macro_rules! ringbuf_entry_root {
 /// be incremented rather than generating a new entry.
 ///
 #[derive(Debug, Copy, Clone)]
-pub struct RingbufEntry<T: Copy + PartialEq> {
+pub struct RingbufEntry<T: Copy, C> {
     pub line: u16,
     pub generation: u16,
-    pub count: u32,
     pub payload: T,
+    pub count: C,
 }
 
 ///
@@ -406,9 +509,9 @@ pub struct RingbufEntry<T: Copy + PartialEq> {
 /// this directly is strange -- see the [`ringbuf!`] macro.
 ///
 #[derive(Debug)]
-pub struct Ringbuf<T: Copy + PartialEq, const N: usize> {
+pub struct Ringbuf<T: Copy, C, const N: usize> {
     pub last: Option<usize>,
-    pub buffer: [RingbufEntry<T>; N],
+    pub buffer: [RingbufEntry<T, C>; N],
 }
 
 ///
@@ -425,11 +528,14 @@ pub struct Ringbuf<T: Copy + PartialEq, const N: usize> {
 /// [`counted_ringbuf!`] macro.
 ///
 #[cfg(feature = "counters")]
-pub struct CountedRingbuf<T: Count + Copy + PartialEq, const N: usize> {
+pub struct CountedRingbuf<T: Count + Copy, C, const N: usize> {
     /// A ring buffer of the `N` most recent entries recorded by this
     /// `CountedRingbuf`.
     #[cfg(not(feature = "disabled"))]
-    pub ringbuf: StaticCell<Ringbuf<T, N>>,
+    pub ringbuf: StaticCell<Ringbuf<T, C, N>>,
+
+    #[cfg(feature = "disabled")]
+    pub _c: core::marker::PhantomData<fn(C)>,
 
     /// Counts of the total number of times each variant of `T` has been
     /// recorded, as defined by `T`'s [`Count`] impl.
@@ -455,7 +561,7 @@ pub struct CountedRingbuf<T: Count + Copy + PartialEq, const N: usize> {
 /// It's typically unnecessary to implement this trait for other types, as its
 /// only purpose is to allow the [`ringbuf_entry!`] and [`ringbuf_entry_root!`]
 /// macros to dispatch based on which ringbuf type is being used.
-pub trait RecordEntry<T: Copy + PartialEq> {
+pub trait RecordEntry<T: Copy> {
     /// Record a `T`-typed entry in this ringbuf. The `line` parameter should be
     /// the source code line on which the entry was recorded.
     ///
@@ -466,7 +572,7 @@ pub trait RecordEntry<T: Copy + PartialEq> {
 }
 
 impl<T: Copy + PartialEq, const N: usize> RecordEntry<T>
-    for StaticCell<Ringbuf<T, { N }>>
+    for StaticCell<Ringbuf<T, u16, { N }>>
 {
     fn record_entry(&self, line: u16, payload: T) {
         let mut ring = self.borrow_mut();
@@ -493,40 +599,30 @@ impl<T: Copy + PartialEq, const N: usize> RecordEntry<T>
             }
         }
 
-        // Either we were unable to reuse the entry, or the last index was out
-        // of range (perhaps because this is the first insertion). We're going
-        // to advance last and wrap if required. This uses a wrapping_add
-        // because if last is usize::MAX already, we want it to wrap to zero
-        // regardless -- and this avoids a checked arithmetic panic on the +1.
-        let ndx = {
-            let last_plus_1 = last.wrapping_add(1);
-            // You're probably wondering why this isn't a remainder operation.
-            // This is because none of our target platforms currently have
-            // hardware modulus, and many of them don't even have hardware
-            // divide, making remainder quite expensive.
-            if last_plus_1 >= ring.buffer.len() {
-                0
-            } else {
-                last_plus_1
-            }
-        };
+        ring.do_record(last, line, 1, payload);
+    }
+}
 
-        let ent = &mut ring.buffer[ndx];
-        *ent = RingbufEntry {
-            line,
-            payload,
-            count: 1,
-            generation: ent.generation.wrapping_add(1),
-        };
-
-        ring.last = Some(ndx);
+impl<T: Copy, const N: usize> RecordEntry<T>
+    for StaticCell<Ringbuf<T, (), { N }>>
+{
+    fn record_entry(&self, line: u16, payload: T) {
+        let mut ring = self.borrow_mut();
+        // If this is the first time this ringbuf has been poked, last will be
+        // None. In this specific case we want to make sure we don't add to the
+        // count of an existing entry, and also that we deposit the first entry
+        // in slot 0. From a code generation perspective, the cheapest thing to
+        // do is to treat None as an out-of-range value:
+        let last = ring.last.unwrap_or(usize::MAX);
+        ring.do_record(last, line, (), payload);
     }
 }
 
 #[cfg(feature = "counters")]
-impl<T, const N: usize> RecordEntry<T> for CountedRingbuf<T, { N }>
+impl<T, C, const N: usize> RecordEntry<T> for CountedRingbuf<T, C, { N }>
 where
-    T: Count + Copy + PartialEq,
+    T: Count + Copy,
+    StaticCell<Ringbuf<T, C, N>>: RecordEntry<T>,
 {
     fn record_entry(&self, _line: u16, payload: T) {
         payload.count(&self.counters);
@@ -541,4 +637,36 @@ where
     T: Copy + PartialEq,
 {
     fn record_entry(&self, _: u16, _: T) {}
+}
+
+impl<T: Copy, C, const N: usize> Ringbuf<T, C, N> {
+    fn do_record(&mut self, last: usize, line: u16, count: C, payload: T) {
+        // Either we were unable to reuse the entry, or the last index was out
+        // of range (perhaps because this is the first insertion). We're going
+        // to advance last and wrap if required. This uses a wrapping_add
+        // because if last is usize::MAX already, we want it to wrap to zero
+        // regardless -- and this avoids a checked arithmetic panic on the +1.
+        let ndx = {
+            let last_plus_1 = last.wrapping_add(1);
+            // You're probably wondering why this isn't a remainder operation.
+            // This is because none of our target platforms currently have
+            // hardware modulus, and many of them don't even have hardware
+            // divide, making remainder quite expensive.
+            if last_plus_1 >= self.buffer.len() {
+                0
+            } else {
+                last_plus_1
+            }
+        };
+
+        let ent = &mut self.buffer[ndx];
+        *ent = RingbufEntry {
+            line,
+            payload,
+            count,
+            generation: ent.generation.wrapping_add(1),
+        };
+
+        self.last = Some(ndx);
+    }
 }
