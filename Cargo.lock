@@ -4594,7 +4594,6 @@ dependencies = [
  "ringbuf",
  "serde",
  "smoltcp",
- "static-cell",
  "stm32h7",
  "syn 1.0.94",
  "task-jefe-api",

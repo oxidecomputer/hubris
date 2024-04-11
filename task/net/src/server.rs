@@ -662,17 +662,11 @@ pub struct Storage {
     iface: core::mem::MaybeUninit<Interface>,
 }
 
-impl Storage {
-    pub const fn new() -> Self {
-        Self {
-            sockets: [SocketStorage::EMPTY; SOCKET_COUNT],
-            iface: core::mem::MaybeUninit::uninit(),
-        }
-    }
-}
-
 impl Default for Storage {
     fn default() -> Self {
-        Self::new()
+        Self {
+            sockets: Default::default(),
+            iface: core::mem::MaybeUninit::uninit(),
+        }
     }
 }
