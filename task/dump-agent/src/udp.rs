@@ -67,12 +67,10 @@ pub fn claim_statics() -> (
     &'static mut [u8; SOCKET_TX_SIZE],
 ) {
     use static_cell::ClaimOnceCell;
-    static RX_BUF: ClaimOnceCell<[u8; SOCKET_RX_SIZE]> =
-        ClaimOnceCell::new([0u8; SOCKET_RX_SIZE]);
-    static TX_BUF: ClaimOnceCell<[u8; SOCKET_TX_SIZE]> =
-        ClaimOnceCell::new([0u8; SOCKET_TX_SIZE]);
-
-    (RX_BUF.claim(), TX_BUF.claim())
+    static BUFS: ClaimOnceCell<([u8; SOCKET_RX_SIZE], [u8; SOCKET_TX_SIZE])> =
+        ClaimOnceCell::new(([0; SOCKET_RX_SIZE], [0; SOCKET_TX_SIZE]));
+    let (rx, tx) = BUFS.claim();
+    (rx, tx)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

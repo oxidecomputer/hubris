@@ -6,7 +6,6 @@ use crate::vlan_id_from_sp_port;
 use gateway_messages::{Header, Message, MessageKind, SpPort, SpRequest};
 use heapless::Vec;
 use idol_runtime::{Leased, RequestError};
-use static_cell::ClaimOnceCell;
 use task_control_plane_agent_api::ControlPlaneAgentError;
 use task_net_api::{Address, Ipv6Address, UdpMetadata};
 use userlib::{sys_get_timer, sys_post, TaskId, UnwrapLite};
@@ -55,7 +54,7 @@ const DELAY_TRY_OTHER_MGS: u64 = 500;
 const DELAY_RETRY: u64 = 1_000;
 const MAX_ATTEMPTS: u8 = 6;
 
-type Phase2Buf = Vec<u8, { gateway_messages::MAX_SERIALIZED_SIZE }>;
+pub(super) type Phase2Buf = Vec<u8, { gateway_messages::MAX_SERIALIZED_SIZE }>;
 
 pub(crate) struct HostPhase2Requester {
     current: Option<CurrentRequest>,
@@ -64,16 +63,12 @@ pub(crate) struct HostPhase2Requester {
 }
 
 impl HostPhase2Requester {
-    // This function can only be called once; it acquires static memory set
-    // aside for buffering data from MGS.
-    pub(crate) fn claim_static_resources() -> Self {
-        static PHASE2_BUF: ClaimOnceCell<Phase2Buf> =
-            ClaimOnceCell::new(Phase2Buf::new());
-
+    // This function can only be called once;
+    pub(super) fn new(buffer: &'static mut Phase2Buf) -> Self {
         Self {
             current: None,
             last_responsive_mgs: SpPort::One,
-            buffer: PHASE2_BUF.claim(),
+            buffer,
         }
     }
 

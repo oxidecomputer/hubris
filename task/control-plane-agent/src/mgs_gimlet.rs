@@ -135,21 +135,39 @@ impl MgsHandler {
     /// Instantiate an `MgsHandler` that claims static buffers and device
     /// resources. Can only be called once; will panic if called multiple times!
     pub(crate) fn claim_static_resources(base_mac_address: MacAddress) -> Self {
-        static INSTALLINATOR_IMAGE_ID: ClaimOnceCell<InstallinatorImageIdBuf> =
-            ClaimOnceCell::new(InstallinatorImageIdBuf::new());
-        let usart = UsartHandler::claim_static_resources();
+        struct Bufs {
+            usart_to_tx: Deque<u8, MGS_TO_SP_SERIAL_CONSOLE_BUFFER_SIZE>,
+            usart_from_rx: Deque<u8, SP_TO_MGS_SERIAL_CONSOLE_BUFFER_SIZE>,
+            installinator_image_id: InstallinatorImageIdBuf,
+            host_phase2_buf: host_phase2::Phase2Buf,
+        }
+        let Bufs {
+            ref mut usart_to_tx,
+            ref mut usart_from_rx,
+            ref mut installinator_image_id,
+            ref mut host_phase2_buf,
+        } = {
+            static BUFS: ClaimOnceCell<Bufs> = ClaimOnceCell::new(Bufs {
+                usart_to_tx: Deque::new(),
+                usart_from_rx: Deque::new(),
+                host_phase2_buf: host_phase2::Phase2Buf::new(),
+                installinator_image_id: InstallinatorImageIdBuf::new(),
+            });
+            BUFS.claim()
+        };
+        let usart = UsartHandler::new(usart_to_tx, usart_from_rx);
 
         Self {
             common: MgsCommon::claim_static_resources(base_mac_address),
             host_flash_update: HostFlashUpdate::new(),
-            host_phase2: HostPhase2Requester::claim_static_resources(),
+            host_phase2: HostPhase2Requester::new(host_phase2_buf),
             sequencer: Sequencer::from(GIMLET_SEQ.get_task_id()),
             user_leds: UserLeds::from(USER_LEDS.get_task_id()),
             usart,
             attached_serial_console_mgs: None,
             serial_console_write_offset: 0,
             next_message_id: 0,
-            installinator_image_id: INSTALLINATOR_IMAGE_ID.claim(),
+            installinator_image_id,
         }
     }
 
@@ -1125,14 +1143,10 @@ struct UsartHandler {
 }
 
 impl UsartHandler {
-    fn claim_static_resources() -> Self {
-        static UART_TX_BUF: ClaimOnceCell<
-            Deque<u8, MGS_TO_SP_SERIAL_CONSOLE_BUFFER_SIZE>,
-        > = ClaimOnceCell::new(Deque::new());
-        static UART_RX_BUF: ClaimOnceCell<
-            Deque<u8, SP_TO_MGS_SERIAL_CONSOLE_BUFFER_SIZE>,
-        > = ClaimOnceCell::new(Deque::new());
-
+    fn new(
+        to_tx: &'static mut Deque<u8, MGS_TO_SP_SERIAL_CONSOLE_BUFFER_SIZE>,
+        from_rx: &'static mut Deque<u8, SP_TO_MGS_SERIAL_CONSOLE_BUFFER_SIZE>,
+    ) -> Self {
         let usart = configure_usart();
 
         // Enable USART interrupts.
@@ -1140,8 +1154,8 @@ impl UsartHandler {
 
         Self {
             usart,
-            to_tx: UART_TX_BUF.claim(),
-            from_rx: UART_RX_BUF.claim(),
+            to_tx,
+            from_rx,
             from_rx_flush_deadline: None,
             from_rx_offset: 0,
             client: UartClient::Mgs,

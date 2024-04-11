@@ -179,15 +179,13 @@ fn main() -> ! {
         stats: SpIoStats::default(),
     };
     let mut server = {
-        static RX_BUF: ClaimOnceCell<[u8; REQUEST_BUF_SIZE]> =
-            ClaimOnceCell::new([0; REQUEST_BUF_SIZE]);
-        static TX_BUF: ClaimOnceCell<[u8; RESPONSE_BUF_SIZE]> =
-            ClaimOnceCell::new([0; RESPONSE_BUF_SIZE]);
-        ServerImpl {
-            io,
-            tx_buf: TX_BUF.claim(),
-            rx_buf: RX_BUF.claim(),
-        }
+        static BUFS: ClaimOnceCell<(
+            [u8; REQUEST_BUF_SIZE],
+            [u8; RESPONSE_BUF_SIZE],
+        )> =
+            ClaimOnceCell::new(([0; REQUEST_BUF_SIZE], [0; RESPONSE_BUF_SIZE]));
+        let (tx_buf, rx_buf) = BUFS.claim();
+        ServerImpl { io, tx_buf, rx_buf }
     };
 
     loop {

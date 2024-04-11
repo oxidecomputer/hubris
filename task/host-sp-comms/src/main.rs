@@ -194,30 +194,6 @@ struct HostKeyValueStorage {
 }
 
 impl HostKeyValueStorage {
-    fn claim_static_resources() -> Self {
-        static LAST_HOST_BOOT_FAIL: ClaimOnceCell<
-            [u8; MAX_HOST_FAIL_MESSAGE_LEN],
-        > = ClaimOnceCell::new([0; MAX_HOST_FAIL_MESSAGE_LEN]);
-
-        static LAST_HOST_PANIC: ClaimOnceCell<[u8; MAX_HOST_FAIL_MESSAGE_LEN]> =
-            ClaimOnceCell::new([0; MAX_HOST_FAIL_MESSAGE_LEN]);
-
-        static HOST_ETC_SYSTEM: ClaimOnceCell<[u8; MAX_ETC_SYSTEM_LEN]> =
-            ClaimOnceCell::new([0; MAX_ETC_SYSTEM_LEN]);
-
-        static HOST_DTRACE_CONF: ClaimOnceCell<[u8; MAX_DTRACE_CONF_LEN]> =
-            ClaimOnceCell::new([0; MAX_DTRACE_CONF_LEN]);
-
-        Self {
-            last_boot_fail: LAST_HOST_BOOT_FAIL.claim(),
-            last_panic: LAST_HOST_PANIC.claim(),
-            etc_system: HOST_ETC_SYSTEM.claim(),
-            etc_system_len: 0,
-            dtrace_conf: HOST_DTRACE_CONF.claim(),
-            dtrace_conf_len: 0,
-        }
-    }
-
     fn key_set(&mut self, key: u8, data: &[u8]) -> KeySetResult {
         let Some(key) = Key::from_u8(key) else {
             return KeySetResult::InvalidKey;
@@ -280,15 +256,38 @@ impl ServerImpl {
             Some(Repeat::AfterWake(UART_ZERO_DELAY)),
         );
 
-        static UART_RX_BUF: ClaimOnceCell<Vec<u8, MAX_PACKET_SIZE>> =
-            ClaimOnceCell::new(Vec::new());
-
+        struct Bufs {
+            tx_buf: tx_buf::StaticBufs,
+            rx_buf: Vec<u8, MAX_PACKET_SIZE>,
+            last_boot_fail: [u8; MAX_HOST_FAIL_MESSAGE_LEN],
+            last_panic: [u8; MAX_HOST_FAIL_MESSAGE_LEN],
+            etc_system: [u8; MAX_ETC_SYSTEM_LEN],
+            dtrace_conf: [u8; MAX_DTRACE_CONF_LEN],
+        }
+        let Bufs {
+            ref mut tx_buf,
+            ref mut rx_buf,
+            ref mut last_boot_fail,
+            ref mut last_panic,
+            ref mut etc_system,
+            ref mut dtrace_conf,
+        } = {
+            static BUFS: ClaimOnceCell<Bufs> = ClaimOnceCell::new(Bufs {
+                tx_buf: tx_buf::StaticBufs::new(),
+                rx_buf: Vec::new(),
+                last_boot_fail: [0; MAX_HOST_FAIL_MESSAGE_LEN],
+                last_panic: [0; MAX_HOST_FAIL_MESSAGE_LEN],
+                etc_system: [0; MAX_ETC_SYSTEM_LEN],
+                dtrace_conf: [0; MAX_DTRACE_CONF_LEN],
+            });
+            BUFS.claim()
+        };
         Self {
             uart,
             sys,
             timers,
-            tx_buf: TxBuf::claim_static_resources(),
-            rx_buf: UART_RX_BUF.claim(),
+            tx_buf: tx_buf::TxBuf::new(tx_buf),
+            rx_buf,
             status: Status::empty(),
             sequencer: Sequencer::from(GIMLET_SEQ.get_task_id()),
             hf: HostFlash::from(HOST_FLASH.get_task_id()),
@@ -298,7 +297,14 @@ impl ServerImpl {
             ),
             packrat: Packrat::from(PACKRAT.get_task_id()),
             reboot_state: None,
-            host_kv_storage: HostKeyValueStorage::claim_static_resources(),
+            host_kv_storage: HostKeyValueStorage {
+                last_boot_fail,
+                last_panic,
+                etc_system,
+                etc_system_len: 0,
+                dtrace_conf,
+                dtrace_conf_len: 0,
+            },
             hf_mux_state: None,
         }
     }
@@ -1333,15 +1339,6 @@ fn sp_to_sp3_interrupt_enable(sys: &sys_api::Sys) {
         sys_api::Speed::Low,
         sys_api::Pull::None,
     );
-}
-
-fn claim_uart_rx_buf() -> &'static mut Vec<u8, MAX_PACKET_SIZE> {
-    use core::sync::atomic::{AtomicBool, Ordering};
-
-    static UART_RX_BUF: ClaimOnceCell<Vec<u8, MAX_PACKET_SIZE>> =
-        ClaimOnceCell::new(Vec::new());
-
-    UART_RX_BUF.claim()
 }
 
 mod idl {
