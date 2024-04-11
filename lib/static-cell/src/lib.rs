@@ -114,6 +114,14 @@ impl<T> ClaimOnceCell<T> {
     #[track_caller] // Let's get useful panic locations
     #[must_use = "claiming a `ClaimOnceCell` and not accessing it will render \
          it permanently unusable, as it will have already been claimed!"]
+    // Clippy (quite rightly!) complains about code which "[c]reat[es] a mutable
+    // reference which can be repeatedly derived from an immutable reference",
+    // as this allows mutable aliasing. But, what Clippy *doesn't* realize,
+    // because it's just a dumb machine that can only look at the function's
+    // signature and apply simple rules to it, is that the entire point of this
+    // thing is that the mutable reference can only be ever created once. So,
+    // let's silence Clippy's criticism here.
+    #[allow(clippy::mut_from_ref)]
     pub fn claim(&self) -> &mut T {
         if self.taken.swap(true, Ordering::Relaxed) {
             panic!();
