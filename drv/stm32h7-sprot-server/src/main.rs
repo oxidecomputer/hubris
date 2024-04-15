@@ -422,7 +422,7 @@ impl<S: SpiServer> Io<S> {
 
             // If the timer notification was posted, and the GPIO IRQ
             // notification wasn't, we've waited for the timeout. Too bad!
-            if notif & TIMER_MASK != 0 {
+            if notif & TIMER_MASK != 0 && sys_get_timer().now >= expected_wake {
                 // Disable the IRQ, so that we don't get the notification later
                 // while in `recv`.
                 self.sys
@@ -439,9 +439,11 @@ impl<S: SpiServer> Io<S> {
             }
         }
 
-        // Ensure the timer gets unset before returning, to avoid frightening
-        // our IPC server when it's waiting in recv without expecting a timer to
-        // go off.
+        // Ensure the timer gets unset before returning, to reduce the
+        // likelihood that we get an immediate wake on the TIMER notification
+        // next time into this routine. (We might still get one, but for it to
+        // occur the timer needs to go off between the recv above, and this
+        // line.)
         sys_set_timer(None, TIMER_MASK);
         // If the IRQ didn't fire, let's also disable it, so that it also
         // doesn't go off later.
