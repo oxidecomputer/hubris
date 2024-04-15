@@ -49,40 +49,45 @@ pub struct PinConfig {
     name: Option<String>,
 }
 
-#[derive(Copy, Clone, Debug, Deserialize)]
+#[derive(Copy, Clone, Debug, Default, Deserialize)]
 #[serde(rename_all = "lowercase")]
 enum Mode {
+    #[default]
     NoPull,
     PullDown,
     PullUp,
     Repeater,
 }
 
-#[derive(Copy, Clone, Debug, Deserialize)]
+#[derive(Copy, Clone, Debug, Default, Deserialize)]
 #[serde(rename_all = "lowercase")]
 enum Slew {
+    #[default]
     Standard,
     Fast,
 }
 
-#[derive(Copy, Clone, Debug, Deserialize)]
+#[derive(Copy, Clone, Debug, Default, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Invert {
+    #[default]
     Disable,
     Enabled,
 }
 
-#[derive(Copy, Clone, Debug, Deserialize)]
+#[derive(Copy, Clone, Debug, Default, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Opendrain {
+    #[default]
     Normal,
     Opendrain,
 }
 
-#[derive(Copy, Clone, Debug, Deserialize)]
+#[derive(Copy, Clone, Debug, Default, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Digimode {
     Analog,
+    #[default]
     Digital,
 }
 
@@ -94,26 +99,6 @@ pub enum Direction {
 }
 
 impl PinConfig {
-    fn get_mode(&self) -> Mode {
-        self.mode.unwrap_or(Mode::NoPull)
-    }
-
-    fn get_slew(&self) -> Slew {
-        self.slew.unwrap_or(Slew::Standard)
-    }
-
-    fn get_invert(&self) -> Invert {
-        self.invert.unwrap_or(Invert::Disable)
-    }
-
-    fn get_digimode(&self) -> Digimode {
-        self.digimode.unwrap_or(Digimode::Digital)
-    }
-
-    fn get_opendrain(&self) -> Opendrain {
-        self.opendrain.unwrap_or(Opendrain::Normal)
-    }
-
     fn get_alt(&self) -> usize {
         if self.alt > 9 {
             panic!("Invalid alt setting {}", self.alt);
@@ -128,12 +113,22 @@ impl ToTokens for PinConfig {
         let final_pin = self.pin.to_token_stream();
         let alt_num = format_ident!("Alt{}", self.get_alt());
 
-        let mode = format_ident!("{}", format!("{:?}", self.get_mode()));
-        let slew = format_ident!("{}", format!("{:?}", self.get_slew()));
-        let invert = format_ident!("{}", format!("{:?}", self.get_invert()));
-        let digimode =
-            format_ident!("{}", format!("{:?}", self.get_digimode()));
-        let od = format_ident!("{}", format!("{:?}", self.get_opendrain()));
+        let mode =
+            format_ident!("{}", format!("{:?}", self.mode.unwrap_or_default()));
+        let slew =
+            format_ident!("{}", format!("{:?}", self.slew.unwrap_or_default()));
+        let invert = format_ident!(
+            "{}",
+            format!("{:?}", self.invert.unwrap_or_default())
+        );
+        let digimode = format_ident!(
+            "{}",
+            format!("{:?}", self.digimode.unwrap_or_default())
+        );
+        let od = format_ident!(
+            "{}",
+            format!("{:?}", self.opendrain.unwrap_or_default())
+        );
         tokens.append_all(final_pin);
         tokens.append_all(quote::quote! {
             AltFn::#alt_num,
