@@ -161,7 +161,7 @@ pub fn codegen(pins: Vec<PinConfig>) -> Result<()> {
         // their output mode (to avoid glitching).
         if let Some(v) = p.value {
             assert!(
-                matches!(p.direction.as_deref(), Some("output")),
+                matches!(p.direction, Some(Direction::Output)),
                 "can only set value for output pins"
             );
             writeln!(&mut file, "iocon.set_val(")?;

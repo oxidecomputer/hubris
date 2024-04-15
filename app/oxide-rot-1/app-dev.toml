@@ -132,7 +132,7 @@ pins = [
     # SCK
     { pin = { port = 0, pin = 7 }, alt = 3 },
     { name = "SP_TO_ROT_JTAG_DETECT_L", pin = { port = 0, pin = 20 }, alt = 0, direction = "input" },
-    { name = "ROT_TO_SP_RESET_L", pin = { port = 0, pin = 13 }, alt = 0, value = true, direction = "output", opendrain = "Opendrain" },
+    { name = "ROT_TO_SP_RESET_L", pin = { port = 0, pin = 13 }, alt = 0, value = true, direction = "output", opendrain = "opendrain" },
 ]
 spi_num = 5
 
