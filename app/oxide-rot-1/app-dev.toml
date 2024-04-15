@@ -121,12 +121,12 @@ interrupts = {"flexcomm5.irq" = "spi-irq"}
 # Out = MOSI on, MISO off
 out_cfg = [
     { pin = { port = 0, pin = 8 }, alt = 3 },
-    { pin = { port = 0, pin = 9 }, alt = 0, mode = "PullDown" },
+    { pin = { port = 0, pin = 9 }, alt = 0, mode = "pulldown" },
 ]
 # In = MISO on, MOSI off
 in_cfg = [
     { pin = { port = 0, pin = 9 }, alt = 3 },
-    { pin = { port = 0, pin = 8 }, alt = 0, mode = "PullDown" },
+    { pin = { port = 0, pin = 8 }, alt = 0, mode = "pulldown" },
 ]
 pins = [
     # SCK

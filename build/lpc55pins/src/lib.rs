@@ -9,7 +9,7 @@ use serde::Deserialize;
 use std::io::{BufWriter, Write};
 
 #[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+#[serde(rename_all = "lowercase", deny_unknown_fields)]
 struct Pin {
     port: usize,
     pin: usize,
@@ -36,55 +36,74 @@ impl ToTokens for Pin {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+#[serde(rename_all = "lowercase", deny_unknown_fields)]
 pub struct PinConfig {
     pin: Pin,
     alt: usize,
-    mode: Option<String>,
-    slew: Option<String>,
-    invert: Option<String>,
-    digimode: Option<String>,
-    opendrain: Option<String>,
-    direction: Option<String>,
+    #[serde(default)]
+    mode: Mode,
+    #[serde(default)]
+    slew: Slew,
+    #[serde(default)]
+    invert: Invert,
+    #[serde(default)]
+    digimode: Digimode,
+    #[serde(default)]
+    opendrain: Opendrain,
+    direction: Option<Direction>,
     name: Option<String>,
 }
 
+#[derive(Copy, Clone, Debug, Default, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum Mode {
+    #[default]
+    NoPull,
+    PullDown,
+    PullUp,
+    Repeater,
+}
+
+#[derive(Copy, Clone, Debug, Default, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum Slew {
+    #[default]
+    Standard,
+    Fast,
+}
+
+#[derive(Copy, Clone, Debug, Default, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Invert {
+    #[default]
+    Disable,
+    Enabled,
+}
+
+#[derive(Copy, Clone, Debug, Default, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Digimode {
+    #[default]
+    Digital,
+    Analog,
+}
+
+#[derive(Copy, Clone, Debug, Default, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Opendrain {
+    #[default]
+    Normal,
+    Opendrain,
+}
+
+#[derive(Copy, Clone, Debug, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Direction {
+    Input,
+    Output,
+}
+
 impl PinConfig {
-    fn get_mode(&self) -> String {
-        match &self.mode {
-            None => "NoPull".to_string(),
-            Some(s) => s.to_string(),
-        }
-    }
-
-    fn get_slew(&self) -> String {
-        match &self.slew {
-            None => "Standard".to_string(),
-            Some(s) => s.to_string(),
-        }
-    }
-
-    fn get_invert(&self) -> String {
-        match &self.invert {
-            None => "Disable".to_string(),
-            Some(s) => s.to_string(),
-        }
-    }
-
-    fn get_digimode(&self) -> String {
-        match &self.digimode {
-            None => "Digital".to_string(),
-            Some(s) => s.to_string(),
-        }
-    }
-
-    fn get_opendrain(&self) -> String {
-        match &self.opendrain {
-            None => "Normal".to_string(),
-            Some(s) => s.to_string(),
-        }
-    }
-
     fn get_alt(&self) -> usize {
         if self.alt > 9 {
             panic!("Invalid alt setting {}", self.alt);
@@ -98,12 +117,12 @@ impl ToTokens for PinConfig {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let final_pin = self.pin.to_token_stream();
         let alt_num = format_ident!("Alt{}", self.get_alt());
-        let mode = format_ident!("{}", self.get_mode());
-        let slew = format_ident!("{}", self.get_slew());
-        let invert = format_ident!("{}", self.get_invert());
-        let digimode = format_ident!("{}", self.get_digimode());
-        let od = format_ident!("{}", self.get_opendrain());
 
+        let mode = format_ident!("{}", format!("{:?}", self.mode));
+        let slew = format_ident!("{}", format!("{:?}", self.slew));
+        let invert = format_ident!("{}", format!("{:?}", self.invert));
+        let digimode = format_ident!("{}", format!("{:?}", self.digimode));
+        let od = format_ident!("{}", format!("{:?}", self.opendrain));
         tokens.append_all(final_pin);
         tokens.append_all(quote::quote! {
             AltFn::#alt_num,
@@ -135,16 +154,13 @@ pub fn codegen(pins: Vec<PinConfig>) -> Result<()> {
         writeln!(&mut file, "iocon.iocon_configure(")?;
         writeln!(&mut file, "{}", p.to_token_stream())?;
         writeln!(&mut file, ");")?;
+
         match p.direction {
             None => (),
             Some(d) => {
                 writeln!(&mut file, "iocon.set_dir(")?;
                 writeln!(&mut file, "{}", p.pin.to_token_stream())?;
-                if d == "output" {
-                    writeln!(&mut file, "Direction::Output")?;
-                } else {
-                    writeln!(&mut file, "Direction::Input")?;
-                }
+                writeln!(&mut file, "Direction::{d:?}")?;
                 writeln!(&mut file, ");")?;
             }
         }
