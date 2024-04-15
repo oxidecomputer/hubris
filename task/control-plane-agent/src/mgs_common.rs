@@ -501,7 +501,7 @@ impl MgsCommon {
                 .request_reset();
             panic!(); // we really really shouldn't get here
         } else {
-            return Err(SpError::RequestUnsupportedForComponent);
+            Err(SpError::RequestUnsupportedForComponent)
         }
     }
 

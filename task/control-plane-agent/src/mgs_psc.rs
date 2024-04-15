@@ -15,7 +15,7 @@ use gateway_messages::{
     DiscoverResponse, IgnitionCommand, IgnitionState, MgsError, PowerState,
     RotRequest, RotResponse, SensorRequest, SensorResponse, SpComponent,
     SpError, SpPort, SpStateV2, SpUpdatePrepare, UpdateChunk, UpdateId,
-    UpdateStatus, WatchdogError,
+    UpdateStatus,
 };
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
