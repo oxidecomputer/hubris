@@ -1,0 +1,18 @@
+#
+# This file, with this flag, must be present in the default branch in order for
+# the buildomat integration to create check suites.
+#
+enable = true
+
+#
+# Require approval for pull requests made by users outside our organisation.
+#
+org_only = true
+
+#
+# We accept pull requests from several automated services that are outside the
+# organisation.  Allow jobs from those sources to proceed without manual
+# approval:
+#
+allow_users = []
+
