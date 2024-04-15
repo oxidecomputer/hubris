@@ -40,11 +40,16 @@ impl ToTokens for Pin {
 pub struct PinConfig {
     pin: Pin,
     alt: usize,
-    mode: Option<Mode>,
-    slew: Option<Slew>,
-    invert: Option<Invert>,
-    digimode: Option<Digimode>,
-    opendrain: Option<Opendrain>,
+    #[serde(default)]
+    mode: Mode,
+    #[serde(default)]
+    slew: Slew,
+    #[serde(default)]
+    invert: Invert,
+    #[serde(default)]
+    digimode: Digimode,
+    #[serde(default)]
+    opendrain: Opendrain,
     direction: Option<Direction>,
     name: Option<String>,
 }
@@ -77,18 +82,18 @@ pub enum Invert {
 
 #[derive(Copy, Clone, Debug, Default, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum Opendrain {
+pub enum Digimode {
     #[default]
-    Normal,
-    Opendrain,
+    Digital,
+    Analog,
 }
 
 #[derive(Copy, Clone, Debug, Default, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum Digimode {
-    Analog,
+pub enum Opendrain {
     #[default]
-    Digital,
+    Normal,
+    Opendrain,
 }
 
 #[derive(Copy, Clone, Debug, Deserialize)]
@@ -113,22 +118,11 @@ impl ToTokens for PinConfig {
         let final_pin = self.pin.to_token_stream();
         let alt_num = format_ident!("Alt{}", self.get_alt());
 
-        let mode =
-            format_ident!("{}", format!("{:?}", self.mode.unwrap_or_default()));
-        let slew =
-            format_ident!("{}", format!("{:?}", self.slew.unwrap_or_default()));
-        let invert = format_ident!(
-            "{}",
-            format!("{:?}", self.invert.unwrap_or_default())
-        );
-        let digimode = format_ident!(
-            "{}",
-            format!("{:?}", self.digimode.unwrap_or_default())
-        );
-        let od = format_ident!(
-            "{}",
-            format!("{:?}", self.opendrain.unwrap_or_default())
-        );
+        let mode = format_ident!("{}", format!("{:?}", self.mode));
+        let slew = format_ident!("{}", format!("{:?}", self.slew));
+        let invert = format_ident!("{}", format!("{:?}", self.invert));
+        let digimode = format_ident!("{}", format!("{:?}", self.digimode));
+        let od = format_ident!("{}", format!("{:?}", self.opendrain));
         tokens.append_all(final_pin);
         tokens.append_all(quote::quote! {
             AltFn::#alt_num,
