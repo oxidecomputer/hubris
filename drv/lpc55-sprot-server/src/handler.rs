@@ -7,12 +7,12 @@ use attest_api::Attest;
 use crc::{Crc, CRC_32_CKSUM};
 use drv_lpc55_update_api::{RotPage, SlotId, Update};
 use drv_sprot_api::{
-    AttestReq, AttestRsp, CabooseReq, CabooseRsp, DumpReq, DumpRsp, ReqBody,
-    Request, Response, RotIoStats, RotPageRsp, RotState, RotStatus, RspBody,
-    SprocketsError, SprotError, SprotProtocolError, UpdateReq, UpdateRsp,
-    CURRENT_VERSION, MIN_VERSION, REQUEST_BUF_SIZE, RESPONSE_BUF_SIZE,
+    AttestReq, AttestRsp, CabooseReq, CabooseRsp, DumpReq, ReqBody, Request,
+    Response, RotIoStats, RotPageRsp, RotState, RotStatus, RspBody,
+    SprocketsError, SprotError, SprotProtocolError, SwdReq, UpdateReq,
+    UpdateRsp, CURRENT_VERSION, MIN_VERSION, REQUEST_BUF_SIZE,
+    RESPONSE_BUF_SIZE,
 };
-use dumper_api::Dumper;
 use lpc55_romapi::bootrom;
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use sprockets_rot::RotSprocket;
@@ -22,9 +22,13 @@ mod sprockets;
 
 task_slot!(UPDATE_SERVER, update_server);
 
+#[cfg(feature = "sp-ctrl")]
 task_slot!(DUMPER, dumper);
 
 task_slot!(ATTEST, attest);
+
+#[cfg(feature = "sp-ctrl")]
+task_slot!(SP_CTRL, swd);
 
 pub const CRC32: Crc<u32> = Crc::<u32>::new(&CRC_32_CKSUM);
 
@@ -56,6 +60,9 @@ pub struct Handler {
     update: Update,
     startup_state: StartupState,
     attest: Attest,
+
+    #[cfg(feature = "sp-ctrl")]
+    sp_ctrl: drv_sp_ctrl_api::SpCtrl,
 }
 
 impl<'a> Handler {
@@ -69,6 +76,9 @@ impl<'a> Handler {
                 max_response_size: RESPONSE_BUF_SIZE.try_into().unwrap_lite(),
             },
             attest: Attest::from(ATTEST.get_task_id()),
+
+            #[cfg(feature = "sp-ctrl")]
+            sp_ctrl: drv_sp_ctrl_api::SpCtrl::from(SP_CTRL.get_task_id()),
         }
     }
 
@@ -273,10 +283,24 @@ impl<'a> Handler {
                 None,
             )),
             ReqBody::Dump(DumpReq::V1 { addr }) => {
-                ringbuf_entry!(Trace::Dump(addr));
-                let dumper = Dumper::from(DUMPER.get_task_id());
-                let err = dumper.dump(addr).err();
-                Ok((RspBody::Dump(DumpRsp::V1 { err }), None))
+                #[cfg(feature = "sp-ctrl")]
+                {
+                    use dumper_api::Dumper;
+                    ringbuf_entry!(Trace::Dump(addr));
+                    let dumper = Dumper::from(DUMPER.get_task_id());
+                    let err = dumper.dump(addr).err();
+                    Ok((
+                        RspBody::Dump(drv_sprot_api::DumpRsp::V1 { err }),
+                        None,
+                    ))
+                }
+                #[cfg(not(feature = "sp-ctrl"))]
+                {
+                    let _ = addr;
+                    Err(SprotError::Protocol(
+                        SprotProtocolError::BadMessageType,
+                    ))
+                }
             }
             ReqBody::Update(UpdateReq::GetBlockSize) => {
                 let size = self.update.block_size()?;
@@ -415,6 +439,60 @@ impl<'a> Handler {
                 };
                 Ok((RspBody::Attest(rsp), None))
             }
+            ReqBody::Swd(SwdReq::EnableSpSlotWatchdog { time_ms }) => {
+                // Enabling the watchdog doesn't actually do any SWD work, but
+                // we'll call `setup()` now to make sure that the SWD system is
+                // working.
+                #[cfg(feature = "sp-ctrl")]
+                {
+                    decode_watchdog_err(self.sp_ctrl.setup().and_then(|()| {
+                        self.sp_ctrl.enable_sp_slot_watchdog(time_ms)
+                    }))
+                }
+
+                #[cfg(not(feature = "sp-ctrl"))]
+                {
+                    let _ = time_ms;
+                    Err(SprotError::Protocol(
+                        SprotProtocolError::BadMessageType,
+                    ))
+                }
+            }
+            ReqBody::Swd(SwdReq::DisableSpSlotWatchdog) => {
+                #[cfg(feature = "sp-ctrl")]
+                {
+                    self.sp_ctrl.disable_sp_slot_watchdog();
+                    Ok((RspBody::Ok, None))
+                }
+
+                #[cfg(not(feature = "sp-ctrl"))]
+                Err(SprotError::Protocol(SprotProtocolError::BadMessageType))
+            }
+            ReqBody::Swd(SwdReq::SpSlotWatchdogSupported) => {
+                #[cfg(feature = "sp-ctrl")]
+                {
+                    decode_watchdog_err(self.sp_ctrl.setup())
+                }
+
+                #[cfg(not(feature = "sp-ctrl"))]
+                Err(SprotError::Protocol(SprotProtocolError::BadMessageType))
+            }
         }
+    }
+}
+
+/// Converts a `Result<(), SpCtrlError>` into a watchdog-flavored response
+#[cfg(feature = "sp-ctrl")]
+fn decode_watchdog_err<'a>(
+    s: Result<(), drv_sp_ctrl_api::SpCtrlError>,
+) -> Result<(RspBody, Option<TrailingData<'a>>), SprotError> {
+    match s {
+        Ok(()) => Ok((RspBody::Ok, None)),
+        Err(drv_sp_ctrl_api::SpCtrlError::DongleDetected) => Err(
+            SprotError::Watchdog(drv_sprot_api::WatchdogError::DongleDetected),
+        ),
+        Err(i) => Err(SprotError::Watchdog(
+            drv_sprot_api::WatchdogError::Other(u32::from(i)),
+        )),
     }
 }

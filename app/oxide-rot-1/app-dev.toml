@@ -77,14 +77,14 @@ task-slots = ["syscon_driver"]
 [tasks.sprot]
 name = "drv-lpc55-sprot-server"
 priority = 6
-max-sizes = {flash = 48608, ram = 32768}
+max-sizes = {flash = 51168, ram = 32768}
 uses = ["flexcomm8", "bootrom"]
-features = ["spi0"]
+features = ["spi0", "sp-ctrl"]
 start = true
 notifications = ["spi-irq"]
 interrupts = {"flexcomm8.hs_spi" = "spi-irq"}
 stacksize = 16384
-task-slots = ["gpio_driver", "syscon_driver", "update_server", "dumper", "attest"]
+task-slots = ["gpio_driver", "syscon_driver", "update_server", "dumper", "attest", "swd"]
 
 [tasks.sprot.config]
 pins = [
@@ -110,7 +110,7 @@ uses = ["flexcomm5", "iocon"]
 start = true
 stacksize = 1000
 task-slots = ["gpio_driver", "syscon_driver"]
-notifications = ["spi-irq"]
+notifications = ["spi-irq", "timer"]
 interrupts = {"flexcomm5.irq" = "spi-irq"}
 
 [tasks.swd.config]
@@ -132,6 +132,7 @@ pins = [
     # SCK
     { pin = { port = 0, pin = 7 }, alt = 3 },
     { name = "SP_TO_ROT_JTAG_DETECT_L", pin = { port = 0, pin = 20 }, alt = 0, direction = "input" },
+    { name = "ROT_TO_SP_RESET_L", pin = { port = 0, pin = 13 }, alt = 0, value = true, direction = "output", opendrain = "opendrain" },
 ]
 spi_num = 5
 

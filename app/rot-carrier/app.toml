@@ -108,14 +108,14 @@ task-slots = ["syscon_driver"]
 [tasks.sprot]
 name = "drv-lpc55-sprot-server"
 priority = 6
-max-sizes = {flash = 48608, ram = 32768}
+max-sizes = {flash = 49728, ram = 32768}
 uses = ["flexcomm8", "bootrom"]
 features = ["spi0"]
 start = true
 notifications = ["spi-irq"]
 interrupts = {"flexcomm8.hs_spi" = "spi-irq"}
 stacksize = 16384
-task-slots = ["gpio_driver", "syscon_driver", "update_server", "dumper", "attest"]
+task-slots = ["gpio_driver", "syscon_driver", "update_server", "attest"]
 
 [tasks.sprot.config]
 pins = [
@@ -133,47 +133,6 @@ pins = [
     { name = "SP_RESET", pin = { port = 0, pin = 9}, alt = 0, direction = "input"},
 ]
 
-[tasks.swd]
-name = "drv-lpc55-swd"
-priority = 4
-max-sizes = {flash = 16384, ram = 4096}
-uses = ["flexcomm3", "iocon"]
-start = true
-stacksize = 1000
-notifications = ["spi-irq"]
-task-slots = ["gpio_driver", "syscon_driver"]
-interrupts = {"flexcomm3.irq" = "spi-irq"}
-
-[tasks.swd.config]
-# MOSI = PIO0_3
-# MISO = PIO0_2
-
-# Out = MOSI on, MISO off
-out_cfg = [
-    { pin = { port = 0, pin = 3 }, alt = 1 },
-    { pin = { port = 0, pin = 2 }, alt = 0, mode = "pulldown" },
-]
-# In = MISO on, MOSI off
-in_cfg = [
-    { pin = { port = 0, pin = 2 }, alt = 1 },
-    { pin = { port = 0, pin = 3 }, alt = 0, mode = "pulldown" },
-]
-pins = [
-    # SCK
-    { pin =  { port = 0, pin = 6 }, alt = 1 },
-    # CS, not strictly necessary but handy for debugging
-    # { pin = {port = 0, pin = 20}, alt =  1},
-]
-spi_num = 3
-
-[tasks.dumper]
-name = "task-dumper"
-priority = 5
-max-sizes = {flash = 16384, ram = 4096}
-start = true
-stacksize = 2600
-task-slots = ["swd"]
-
 [tasks.pong]
 name = "task-pong"
 priority = 7
@@ -185,21 +144,11 @@ notifications = ["timer"]
 [tasks.hiffy]
 name = "task-hiffy"
 priority = 6
-features = ["lpc55", "gpio", "spctrl", "spi"]
+features = ["lpc55", "gpio", "spi"]
 max-sizes = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true
-task-slots = ["gpio_driver", "swd", "update_server"]
-
-[tasks.sp_measure]
-name = "task-sp-measure"
-priority = 6
-max-sizes = {flash = 131072, ram = 8192}
-task-slots = ["swd"]
-stacksize = 2048
-
-[tasks.sp_measure.config]
-binary_path = "../../target/gemini-bu/dist/final.bin"
+task-slots = ["gpio_driver", "update_server"]
 
 [tasks.attest]
 name = "task-attest"
