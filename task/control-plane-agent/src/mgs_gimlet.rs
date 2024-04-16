@@ -1136,9 +1136,10 @@ impl SpHandler for MgsHandler {
         &mut self,
         component: SpComponent,
         time_ms: u32,
-    ) -> Result<core::convert::Infallible, SpError> {
+    ) -> Result<(), SpError> {
         self.common
             .reset_component_trigger_with_watchdog(component, time_ms)
+            .map(|_| ())
     }
 
     fn disable_component_watchdog(

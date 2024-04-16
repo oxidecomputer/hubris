@@ -487,7 +487,7 @@ impl MgsCommon {
         &mut self,
         component: SpComponent,
         time_ms: u32,
-    ) -> Result<core::convert::Infallible, SpError> {
+    ) -> Result<(), SpError> {
         if self.reset_component_requested != Some(component) {
             return Err(SpError::ResetComponentTriggerWithoutPrepare);
         }
