@@ -6,9 +6,9 @@
 
 use crate::generated::{DUMP_ADDRESS_MAX, DUMP_ADDRESS_MIN, DUMP_AREAS};
 use humpty::{DumpArea, DumpContents};
-use ringbuf::*;
+use ringbuf::{ringbuf, ringbuf_entry};
 use task_jefe_api::DumpAgentError;
-use userlib::*;
+use userlib::{kipc, TaskDumpRegion, UnwrapLite};
 
 #[cfg(all(
     armv8m,
@@ -182,14 +182,17 @@ fn dump_task_setup(
 /// Once a task dump is set up, this function executes it
 fn dump_task_run(base: u32, task: usize) -> Result<(), DumpAgentError> {
     ringbuf_entry!(Trace::DumpStart { base });
-    let start = sys_get_timer().now;
+    let start = userlib::sys_get_timer().now;
 
     //
     // The humpty dance is your chance... to do the dump!
     //
     let r = humpty::dump::<(), 512, { humpty::DUMPER_JEFE }>(
         base,
-        Some(humpty::DumpTask::new(task as u16, sys_get_timer().now)),
+        Some(humpty::DumpTask::new(
+            task as u16,
+            userlib::sys_get_timer().now,
+        )),
         || Ok(None),
         |addr, buf, meta| {
             ringbuf_entry!(Trace::DumpReading {
@@ -232,7 +235,7 @@ fn dump_task_run(base: u32, task: usize) -> Result<(), DumpAgentError> {
     ringbuf_entry!(Trace::DumpDone(r));
     ringbuf_entry!(Trace::DumpTime {
         start,
-        end: sys_get_timer().now
+        end: userlib::sys_get_timer().now
     });
 
     r.map_err(|_| DumpAgentError::DumpFailed)?;

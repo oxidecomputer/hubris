@@ -23,9 +23,13 @@
 #![no_main]
 
 use hubris_num_tasks::NUM_TASKS;
-use ringbuf::*;
-use test_api::*;
-use userlib::*;
+use ringbuf::{ringbuf, ringbuf_entry};
+use test_api::{AssistOp, RunnerOp, SuiteOp};
+use userlib::{
+    hl, kipc, task_slot, FaultInfo, FaultSource, Generation, IrqStatus,
+    LeaseAttributes, ReplyFaultReason, SchedState, TaskId, TaskState,
+    UsageError,
+};
 use zerocopy::AsBytes;
 
 #[derive(Copy, Clone, PartialEq)]
@@ -137,7 +141,7 @@ fn test_send() {
     let assist = assist_task_id();
     let challenge = 0xDEADBEEF_u32;
     let mut response = 0_u32;
-    let (rc, len) = sys_send(
+    let (rc, len) = userlib::sys_send(
         assist,
         AssistOp::JustReply as u16,
         &challenge.to_le_bytes(),
@@ -156,7 +160,7 @@ fn test_recv_reply() {
     // Ask the assistant to send us a message containing this challenge value.
     let challenge = 0xCAFE_F00Du32;
     let mut response = 0_u32;
-    let (rc, len) = sys_send(
+    let (rc, len) = userlib::sys_send(
         assist,
         AssistOp::SendBack as u16,
         &challenge.to_le_bytes(),
@@ -168,7 +172,7 @@ fn test_recv_reply() {
     // Don't actually care about the response in this case
 
     // Switch roles and wait for the message, blocking notifications.
-    let rm = sys_recv_open(response.as_bytes_mut(), 0);
+    let rm = userlib::sys_recv_open(response.as_bytes_mut(), 0);
     assert_eq!(rm.sender, assist);
     assert_eq!(rm.operation, 42); // assistant always sends this
 
@@ -182,10 +186,10 @@ fn test_recv_reply() {
 
     // Send a recognizeable value in our reply; the assistant will record it.
     let reply_token = 0x1DE_u32;
-    sys_reply(assist, 0, &reply_token.to_le_bytes());
+    userlib::sys_reply(assist, 0, &reply_token.to_le_bytes());
 
     // Call back to the assistant and request a copy of our most recent reply.
-    let (rc, len) = sys_send(
+    let (rc, len) = userlib::sys_send(
         assist,
         AssistOp::LastReply as u16,
         &challenge.to_le_bytes(),
@@ -204,7 +208,7 @@ fn test_recv_reply_fault() {
     // Ask the assistant to send us a message containing this challenge value.
     let challenge = 0xCAFE_F00Du32;
     let mut response = 0_u32;
-    let (rc, len) = sys_send(
+    let (rc, len) = userlib::sys_send(
         assist,
         AssistOp::SendBack as u16,
         &challenge.to_le_bytes(),
@@ -215,16 +219,16 @@ fn test_recv_reply_fault() {
     assert_eq!(len, 4);
 
     // Now take the message. This is necessary to be able to fault the task.
-    let _rm = sys_recv_open(response.as_bytes_mut(), 0);
+    let _rm = userlib::sys_recv_open(response.as_bytes_mut(), 0);
 
     // We don't validate the message itself because the test_recv_reply above
     // covers that. We're specifically interested in what happens if we...
-    sys_reply_fault(assist, ReplyFaultReason::AccessViolation);
+    userlib::sys_reply_fault(assist, ReplyFaultReason::AccessViolation);
 
     // Ask the kernel to report the assistant's state.
     let status = kipc::read_task_status(ASSIST.get_task_index().into());
     let this_task = TaskId::for_index_and_gen(1, Generation::default());
-    let this_task = sys_refresh_task_id(this_task);
+    let this_task = userlib::sys_refresh_task_id(this_task);
 
     match status {
         TaskState::Faulted { fault, .. } => {
@@ -249,7 +253,7 @@ fn test_fault(op: AssistOp, arg: u32) -> FaultInfo {
     let assist = assist_task_id();
 
     let mut response = 0_u32;
-    let (rc, len) = sys_send(
+    let (rc, len) = userlib::sys_send(
         assist,
         op as u16,
         &arg.to_le_bytes(),
@@ -281,7 +285,10 @@ cfg_if::cfg_if! {
     if #[cfg(armv6m)] {
         macro_rules! assert_fault_eq {
             ($name:expr, $expected:expr) => {
-                assert_eq!($name, FaultInfo::InvalidOperation(0));
+                assert_eq!($name, {
+                    let _expected = $expected;
+                    FaultInfo::InvalidOperation(0)
+                });
             };
         }
     } else {
@@ -454,7 +461,7 @@ fn test_panic() {
 
     // Ask the assistant to panic.
     let mut response = 0_u32;
-    let (rc, len) = sys_send(
+    let (rc, len) = userlib::sys_send(
         assist,
         AssistOp::Panic as u16,
         &0u32.to_le_bytes(),
@@ -554,7 +561,7 @@ fn test_idol_ssmarshal() {
 }
 
 fn test_idol_ssmarshal_multiarg() {
-    use test_idol_api::*;
+    use test_idol_api::{Address, Ipv6Address, UdpMetadata};
     let idol = idol_handle();
     let r = idol
         .extract_vid(
@@ -574,7 +581,7 @@ fn test_idol_ssmarshal_multiarg() {
 }
 
 fn test_idol_ssmarshal_multiarg_enum() {
-    use test_idol_api::*;
+    use test_idol_api::{Address, Ipv6Address, SocketName, UdpMetadata};
     let idol = idol_handle();
     let r = idol
         .extract_vid_enum(
@@ -603,8 +610,8 @@ task_slot!(I2C, i2c_driver);
 // a single cfg block
 #[cfg(feature = "fru-id-eeprom")]
 mod at24csw080 {
-    use super::*;
-    use drv_i2c_devices::at24csw080::*;
+    use super::{i2c_config, I2C};
+    use drv_i2c_devices::at24csw080::{At24Csw080, Error, WriteProtectBlock};
 
     const EEPROM_SIZE: u16 = 1024;
     const PAGE_SIZE: u16 = 16;
@@ -867,7 +874,7 @@ fn test_restart() {
     // value is swapped for the previous contents, which should be zero.
     let value = 0xDEAD_F00D_u32;
     let mut response = 0_u32;
-    let (rc, len) = sys_send(
+    let (rc, len) = userlib::sys_send(
         assist,
         AssistOp::Store as u16,
         &value.to_le_bytes(),
@@ -882,7 +889,7 @@ fn test_restart() {
 
     // Read it back and replace it.
     let value2 = 0x1DE_u32;
-    let (rc, len) = sys_send(
+    let (rc, len) = userlib::sys_send(
         assist,
         AssistOp::Store as u16,
         &value2.to_le_bytes(),
@@ -899,7 +906,7 @@ fn test_restart() {
     let assist = assist_task_id();
 
     // Swap values again.
-    let (rc, len) = sys_send(
+    let (rc, len) = userlib::sys_send(
         assist,
         AssistOp::Store as u16,
         &value.to_le_bytes(),
@@ -920,7 +927,7 @@ fn test_restart_taskgen() {
 
     // Ask the assistant to panic.
     let mut response = 0_u32;
-    let (rc, len) = sys_send(
+    let (rc, len) = userlib::sys_send(
         assist,
         AssistOp::Panic as u16,
         &0u32.to_le_bytes(),
@@ -945,7 +952,7 @@ fn test_restart_taskgen() {
     // with a hint as to our generation.
     let payload = 0xDEAD_F00Du32;
     let mut response = 0_u32;
-    let (rc, len) = sys_send(
+    let (rc, len) = userlib::sys_send(
         assist,
         AssistOp::SendBack as u16,
         &payload.to_le_bytes(),
@@ -971,7 +978,7 @@ fn test_borrow_info() {
     // Ask the assistant to call us back with two particularly shaped loans
     // (which are hardcoded in the assistant, not encoded here).
     let mut response = 0_u32;
-    let (rc, len) = sys_send(
+    let (rc, len) = userlib::sys_send(
         assist,
         AssistOp::SendBackWithLoans as u16,
         &0u32.to_le_bytes(),
@@ -1014,7 +1021,7 @@ fn test_borrow_read() {
     // Ask the assistant to call us back with two particularly shaped loans
     // (which are hardcoded in the assistant, not encoded here).
     let mut response = 0_u32;
-    let (rc, len) = sys_send(
+    let (rc, len) = userlib::sys_send(
         assist,
         AssistOp::SendBackWithLoans as u16,
         &0u32.to_le_bytes(),
@@ -1055,7 +1062,7 @@ fn test_borrow_write() {
     // Ask the assistant to call us back with two particularly shaped loans
     // (which are hardcoded in the assistant, not encoded here).
     let mut response = 0_u32;
-    let (rc, len) = sys_send(
+    let (rc, len) = userlib::sys_send(
         assist,
         AssistOp::SendBackWithLoans as u16,
         &0u32.to_le_bytes(),
@@ -1098,22 +1105,22 @@ fn test_borrow_without_peer_waiting() {
     let initial_id = assist_task_id();
 
     // First, try getting borrow info (which shouldn't exist)
-    let info = sys_borrow_info(initial_id, 0);
+    let info = userlib::sys_borrow_info(initial_id, 0);
     assert!(info.is_none(), "expected to fail sys_borrow_info");
-    let new_id = sys_refresh_task_id(initial_id);
+    let new_id = userlib::sys_refresh_task_id(initial_id);
     assert_eq!(initial_id, new_id, "id should not change");
 
     // Next, attempt to do a non-existent borrow read
     let mut buf = [0; 16];
-    let (rc, _n) = sys_borrow_read(initial_id, 0, 0, &mut buf);
-    assert_eq!(rc, DEFECT, "expected to fail sys_borrow_read");
-    let new_id = sys_refresh_task_id(initial_id);
+    let (rc, _n) = userlib::sys_borrow_read(initial_id, 0, 0, &mut buf);
+    assert_eq!(rc, userlib::DEFECT, "expected to fail sys_borrow_read");
+    let new_id = userlib::sys_refresh_task_id(initial_id);
     assert_eq!(initial_id, new_id, "id should not change");
 
     // Finally, attempt to do a non-existent borrow read
-    let (rc, _n) = sys_borrow_write(initial_id, 0, 0, &buf);
-    assert_eq!(rc, DEFECT, "expected to fail sys_borrow_write");
-    let new_id = sys_refresh_task_id(initial_id);
+    let (rc, _n) = userlib::sys_borrow_write(initial_id, 0, 0, &buf);
+    assert_eq!(rc, userlib::DEFECT, "expected to fail sys_borrow_write");
+    let new_id = userlib::sys_refresh_task_id(initial_id);
     assert_eq!(initial_id, new_id, "id should not change");
 }
 
@@ -1132,7 +1139,7 @@ fn test_supervisor_fault_notification() {
         let assist = assist_task_id();
         let mut response = 0_u32;
         // Request a crash
-        let (rc, len) = sys_send(
+        let (rc, len) = userlib::sys_send(
             assist,
             AssistOp::Panic as u16,
             &0u32.to_le_bytes(),
@@ -1155,8 +1162,8 @@ fn test_supervisor_fault_notification() {
 /// This test will fail by hanging. We can't set an iteration limit because who
 /// knows how fast our computer is in relation to the tick rate?
 fn test_timer_advance() {
-    let initial_time = sys_get_timer().now;
-    while sys_get_timer().now == initial_time {
+    let initial_time = userlib::sys_get_timer().now;
+    while userlib::sys_get_timer().now == initial_time {
         // doot doot
     }
 }
@@ -1165,15 +1172,19 @@ fn test_timer_advance() {
 fn test_timer_notify() {
     const ARBITRARY_NOTIFICATION: u32 = 1 << 16;
 
-    let start_time = sys_get_timer().now;
+    let start_time = userlib::sys_get_timer().now;
     // We'll arbitrarily set our deadline 2 ticks in the future.
     let deadline = start_time + 2;
-    sys_set_timer(Some(deadline), ARBITRARY_NOTIFICATION);
+    userlib::sys_set_timer(Some(deadline), ARBITRARY_NOTIFICATION);
 
     // Deliberately not using the sys_recv_notification convenience operation so
     // that we can examine more of the results.
-    let rm = sys_recv_closed(&mut [], ARBITRARY_NOTIFICATION, TaskId::KERNEL)
-        .unwrap();
+    let rm = userlib::sys_recv_closed(
+        &mut [],
+        ARBITRARY_NOTIFICATION,
+        TaskId::KERNEL,
+    )
+    .unwrap();
 
     assert_eq!(rm.sender, TaskId::KERNEL);
     assert_eq!(rm.operation, ARBITRARY_NOTIFICATION);
@@ -1183,21 +1194,25 @@ fn test_timer_notify() {
 
     // In the interest of not making this test performance-sensitive, we merely
     // verify that the timer is at _or beyond_ our deadline.
-    assert!(sys_get_timer().now >= deadline);
+    assert!(userlib::sys_get_timer().now >= deadline);
 }
 
 /// Tests that we can set a timer in the past and get immediate notification.
 fn test_timer_notify_past() {
     const ARBITRARY_NOTIFICATION: u32 = 1 << 16;
 
-    let start_time = sys_get_timer().now;
+    let start_time = userlib::sys_get_timer().now;
     let deadline = start_time;
-    sys_set_timer(Some(deadline), ARBITRARY_NOTIFICATION);
+    userlib::sys_set_timer(Some(deadline), ARBITRARY_NOTIFICATION);
 
     // Deliberately not using the sys_recv_notification convenience operation so
     // that we can examine more of the results.
-    let rm = sys_recv_closed(&mut [], ARBITRARY_NOTIFICATION, TaskId::KERNEL)
-        .unwrap();
+    let rm = userlib::sys_recv_closed(
+        &mut [],
+        ARBITRARY_NOTIFICATION,
+        TaskId::KERNEL,
+    )
+    .unwrap();
 
     assert_eq!(rm.sender, TaskId::KERNEL);
     assert_eq!(rm.operation, ARBITRARY_NOTIFICATION);
@@ -1239,7 +1254,7 @@ fn test_floating_point(highregs: bool) {
     let mut response = 0_u32;
     let which = highregs as u32;
 
-    let (rc, len) = sys_send(
+    let (rc, len) = userlib::sys_send(
         assist,
         AssistOp::EatSomePi as u16,
         &which.to_le_bytes(),
@@ -1290,7 +1305,7 @@ fn test_task_status() {
 
     loop {
         let mut response = 0_u32;
-        let (rc, len) = sys_send(
+        let (rc, len) = userlib::sys_send(
             assist,
             AssistOp::ReadTaskStatus as u16,
             &id.to_le_bytes(),
@@ -1350,7 +1365,7 @@ fn test_task_fault_injection() {
 fn test_refresh_task_id_basic() {
     let initial_id = assist_task_id();
     restart_assistant();
-    let new_id = sys_refresh_task_id(initial_id);
+    let new_id = userlib::sys_refresh_task_id(initial_id);
 
     assert_eq!(
         new_id.index(),
@@ -1384,7 +1399,7 @@ fn test_post() {
 
     // Do an initial call to drain any previously posted bits.
     let unused = 0u32;
-    let (rc, len) = sys_send(
+    let (rc, len) = userlib::sys_send(
         assist,
         AssistOp::ReadNotifications as u16,
         unused.as_bytes(),
@@ -1396,12 +1411,12 @@ fn test_post() {
 
     // Now, post some bits.
     const ARBITRARY_MASK: u32 = 0xAA00006A;
-    let post_rc = sys_post(assist, ARBITRARY_MASK);
+    let post_rc = userlib::sys_post(assist, ARBITRARY_MASK);
     // Should not have died.
     assert_eq!(post_rc, 0);
 
     // And read them back.
-    let (rc, len) = sys_send(
+    let (rc, len) = userlib::sys_send(
         assist,
         AssistOp::ReadNotifications as u16,
         unused.as_bytes(),
@@ -1416,15 +1431,18 @@ fn test_post() {
 
 /// Tests that a task is notified on receipt of a hardware interrupt.
 fn test_irq_notif() {
-    sys_irq_control(notifications::TEST_IRQ_MASK, true);
+    userlib::sys_irq_control(notifications::TEST_IRQ_MASK, true);
 
     trigger_test_irq();
 
     // Deliberately not using the sys_recv_notification convenience operation so
     // that we can examine more of the results.
-    let rm =
-        sys_recv_closed(&mut [], notifications::TEST_IRQ_MASK, TaskId::KERNEL)
-            .unwrap();
+    let rm = userlib::sys_recv_closed(
+        &mut [],
+        notifications::TEST_IRQ_MASK,
+        TaskId::KERNEL,
+    )
+    .unwrap();
 
     assert_eq!(rm.sender, TaskId::KERNEL);
     assert_eq!(rm.operation, notifications::TEST_IRQ_MASK);
@@ -1435,25 +1453,25 @@ fn test_irq_notif() {
 
 /// Tests the IRQ_STATUS syscall.
 fn test_irq_status() {
-    sys_irq_control(notifications::TEST_IRQ_MASK, false);
+    userlib::sys_irq_control(notifications::TEST_IRQ_MASK, false);
 
     // the interrupt should not be pending
-    let status = sys_irq_status(notifications::TEST_IRQ_MASK);
+    let status = userlib::sys_irq_status(notifications::TEST_IRQ_MASK);
     assert_eq!(status, IrqStatus::empty());
 
     // trigger an interrupt *without* setting the enabled flag. now, the
     // interrupt should be pending but not posted.
     trigger_test_irq();
 
-    let status = sys_irq_status(notifications::TEST_IRQ_MASK);
+    let status = userlib::sys_irq_status(notifications::TEST_IRQ_MASK);
     let expected_status = IrqStatus::PENDING;
     assert_eq!(status, expected_status);
 
     // enable the interrupt
-    sys_irq_control(notifications::TEST_IRQ_MASK, true);
+    userlib::sys_irq_control(notifications::TEST_IRQ_MASK, true);
 
     // now, the pending IRQ should be posted to this task.
-    let status = sys_irq_status(notifications::TEST_IRQ_MASK);
+    let status = userlib::sys_irq_status(notifications::TEST_IRQ_MASK);
     let expected_status = IrqStatus::POSTED;
     assert_eq!(status, expected_status);
 
@@ -1464,7 +1482,7 @@ fn test_irq_status() {
     // does *not* include the notification mask, we will not consume the posted
     // notification.
     trigger_test_irq();
-    let status = sys_irq_status(notifications::TEST_IRQ_MASK);
+    let status = userlib::sys_irq_status(notifications::TEST_IRQ_MASK);
     let expected_status = IrqStatus::POSTED | IrqStatus::PENDING;
     assert_eq!(status, expected_status);
 
@@ -1473,10 +1491,14 @@ fn test_irq_status() {
     //
     // Deliberately not using the sys_recv_notification convenience operation so
     // that we can examine more of the results.
-    sys_recv_closed(&mut [], notifications::TEST_IRQ_MASK, TaskId::KERNEL)
-        .unwrap();
+    userlib::sys_recv_closed(
+        &mut [],
+        notifications::TEST_IRQ_MASK,
+        TaskId::KERNEL,
+    )
+    .unwrap();
 
-    let status = sys_irq_status(notifications::TEST_IRQ_MASK);
+    let status = userlib::sys_irq_status(notifications::TEST_IRQ_MASK);
     let expected_status = IrqStatus::PENDING;
     assert_eq!(status, expected_status);
 }
@@ -1489,8 +1511,13 @@ fn trigger_test_irq() {
     let mut response = 0u32;
     let op = RunnerOp::SoftIrq as u16;
     let arg = notifications::TEST_IRQ_MASK;
-    let (rc, len) =
-        sys_send(runner, op, arg.as_bytes(), response.as_bytes_mut(), &[]);
+    let (rc, len) = userlib::sys_send(
+        runner,
+        op,
+        arg.as_bytes(),
+        response.as_bytes_mut(),
+        &[],
+    );
     assert_eq!(rc, 0);
     assert_eq!(len, 0);
 }
@@ -1527,7 +1554,8 @@ fn read_runner_notifications() -> u32 {
     let runner = RUNNER.get_task_id();
     let mut response = 0u32;
     let op = RunnerOp::ReadAndClearNotes as u16;
-    let (rc, len) = sys_send(runner, op, &[], response.as_bytes_mut(), &[]);
+    let (rc, len) =
+        userlib::sys_send(runner, op, &[], response.as_bytes_mut(), &[]);
     assert_eq!(rc, 0);
     assert_eq!(len, 4);
     response
@@ -1544,7 +1572,7 @@ fn main() -> ! {
         let assist = assist_task_id();
         let challenge = 0xDEADBEEF_u32;
         let mut response = 0_u32;
-        let (rc, _) = sys_send(
+        let (rc, _) = userlib::sys_send(
             assist,
             0,
             &challenge.to_le_bytes(),
@@ -1574,7 +1602,7 @@ fn main() -> ! {
 
                         ringbuf_entry!(Trace::TestFinish);
                         // Report back to the runner (aka our monitor)
-                        let (rc, len) = sys_send(
+                        let (rc, len) = userlib::sys_send(
                             RUNNER.get_task_id(),
                             op,
                             &[],

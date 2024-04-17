@@ -7,7 +7,7 @@
 
 use idol_runtime::{NotificationHandler, RequestError};
 use test_idol_api::{FancyTestType, IdolTestError, SocketName, UdpMetadata};
-use userlib::*;
+use userlib::RecvMessage;
 
 struct ServerImpl;
 
@@ -103,7 +103,8 @@ fn main() -> ! {
 }
 
 mod idl {
-    use super::*;
+    use super::FancyTestType;
+    use test_idol_api::{IdolTestError, SocketName, UdpMetadata};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

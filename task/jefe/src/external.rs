@@ -50,8 +50,8 @@ use core::sync::atomic::{AtomicU32, Ordering};
 #[allow(unused_imports)]
 use armv6m_atomic_hack::AtomicU32Ext;
 
-use ringbuf::*;
-use userlib::*;
+use ringbuf::{ringbuf, ringbuf_entry};
+use userlib::{kipc, FromPrimitive};
 
 /// The actual requests that we honor from an external source entity
 #[derive(FromPrimitive, Copy, Clone, Debug, Eq, PartialEq)]

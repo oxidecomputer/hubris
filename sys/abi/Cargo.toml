@@ -9,3 +9,6 @@ bitflags = { workspace = true }
 byteorder = { workspace = true }
 serde = { workspace = true }
 phash = { path = "../../lib/phash" }
+
+[lints]
+workspace = true
