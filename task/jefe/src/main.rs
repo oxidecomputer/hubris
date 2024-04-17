@@ -37,7 +37,7 @@ use hubris_num_tasks::NUM_TASKS;
 use humpty::DumpArea;
 use idol_runtime::RequestError;
 use task_jefe_api::{DumpAgentError, ResetReason};
-use userlib::*;
+use userlib::{kipc, Generation, TaskId};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
 pub enum Disposition {
@@ -61,7 +61,7 @@ fn main() -> ! {
     }
 
     let deadline =
-        set_timer_relative(TIMER_INTERVAL, notifications::TIMER_MASK);
+        userlib::set_timer_relative(TIMER_INTERVAL, notifications::TIMER_MASK);
 
     external::set_ready();
 
@@ -133,8 +133,8 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
             for (task, mask) in generated::MAILING_LIST {
                 let taskid =
                     TaskId::for_index_and_gen(task as usize, Generation::ZERO);
-                let taskid = sys_refresh_task_id(taskid);
-                sys_post(taskid, mask);
+                let taskid = userlib::sys_refresh_task_id(taskid);
+                userlib::sys_post(taskid, mask);
             }
         }
         Ok(())
@@ -293,8 +293,8 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
 
         if bits & notifications::TIMER_MASK != 0 {
             // If our timer went off, we need to reestablish it
-            if sys_get_timer().now >= self.deadline {
-                self.deadline = set_timer_relative(
+            if userlib::sys_get_timer().now >= self.deadline {
+                self.deadline = userlib::set_timer_relative(
                     TIMER_INTERVAL,
                     notifications::TIMER_MASK,
                 );

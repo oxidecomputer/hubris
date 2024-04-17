@@ -4,7 +4,7 @@
 
 #![no_std]
 
-use userlib::*;
+use userlib::FromPrimitive;
 
 /// Operations that are performed by the test-assist
 #[derive(FromPrimitive, Debug, Eq, PartialEq)]
