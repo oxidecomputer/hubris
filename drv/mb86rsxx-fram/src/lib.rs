@@ -2,21 +2,25 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-/// A driver for the Fujitsu MB85RS series of SPI FRAM chips.
-///
-/// See <https://www.mouser.com/datasheet/2/1113/MB85RS64T_DS501_00051_2v0_E-2329177.pdf>
+//! A driver for the Fujitsu MB85RS series of SPI FRAM chips.
+//!
+//! See
+//! <https://www.mouser.com/datasheet/2/1113/MB85RS64T_DS501_00051_2v0_E-2329177.pdf>
+
 #![no_std]
 
-use drv_spi_api::SpiDevice;
+use drv_spi_api::{CsState, SpiDevice, SpiServer};
 use ringbuf::ringbuf_entry;
 
 pub type Mb86rs64t<S> = Fram<S, 8191>;
 
-pub struct Fram<S: SpiDevice, const SIZE: u16> {
-    spi: S,
+pub struct Fram<S: SpiServer, const SIZE: u16> {
+    spi: SpiDevice<S>,
 }
 
-pub struct WritableFram<'fram, S: SpiDevice, const SIZE: u16>(&'fram Fram<S, SIZE>);
+pub struct WritableFram<'fram, S: SpiServer, const SIZE: u16>(
+    &'fram Fram<S, SIZE>,
+);
 
 #[derive(Eq, PartialEq, Copy, Clone, counters::Count)]
 pub enum FramError {
@@ -59,21 +63,26 @@ enum Opcode {
 enum Trace {
     #[count(skip)]
     None,
-    Write { addr: u16, len: u16 },
+    Write {
+        addr: u16,
+        len: u16,
+    },
     Written(#[count(children)] Result<(), FramError>),
-    Read { addr: u16, len: u16 },
+    Read {
+        addr: u16,
+        len: u16,
+    },
     // Unfortunately, the present and past tense of "read" are the same word,
     // because English is a very normal language. So, I've made up my own,
     // better past tense.
     Readed(#[count(children)] Result<(), FramError>),
-    WriteEnable(#[count(children)] bool)
+    WriteEnable(#[count(children)] bool),
 }
 
 ringbuf::counted_ringbuf!(Trace, 16, Trace::None);
 
-
-impl<S: SpiDevice, const SIZE: u16> Fram<S, Size> {
-    pub const fn new(spi: S) -> Self {
+impl<S: SpiServer, const SIZE: u16> Fram<S, { SIZE }> {
+    pub const fn new(spi: SpiDevice<S>) -> Self {
         Self { spi }
     }
 
@@ -95,7 +104,10 @@ impl<S: SpiDevice, const SIZE: u16> Fram<S, Size> {
     }
 
     pub fn write(&self, addr: u16, data: &[u8]) -> Result<(), FramError> {
-        ringbuf_entry!(Trace::Write { addr, len: data.len() as u16 });
+        ringbuf_entry!(Trace::Write {
+            addr,
+            len: data.len() as u16
+        });
         let result = self.actually_write(addr, data);
         ringbuf_entry!(Trace::Written(result));
         result
@@ -137,7 +149,10 @@ impl<S: SpiDevice, const SIZE: u16> Fram<S, Size> {
         // > infinitely.
 
         // Anyway, let's pull CS low.
-        let lock = self.spi.lock_auto(CsState::Asserted).map_err(|_| FramError::SpiServerDead)?;
+        let lock = self
+            .spi
+            .lock_auto(CsState::Asserted)
+            .map_err(|_| FramError::SpiServerDead)?;
         // Write the `WRITE` command
         self.spi.write(&[Opcode::Write as u8])?;
         // Write address --- this is big-endian per the datasheet.
@@ -151,12 +166,14 @@ impl<S: SpiDevice, const SIZE: u16> Fram<S, Size> {
     }
 
     pub fn read(&self, addr: u16, data: &mut [u8]) -> Result<(), FramError> {
-        ringbuf_entry!(Trace::Read { addr, len: data.len() as u16 });
+        ringbuf_entry!(Trace::Read {
+            addr,
+            len: data.len() as u16
+        });
         let result = self.do_read(addr, data);
         ringbuf_entry!(Trace::Readed(result));
         result
     }
-
 
     /// Actually do a read.
     ///
@@ -164,11 +181,15 @@ impl<S: SpiDevice, const SIZE: u16> Fram<S, Size> {
     /// get back and stick it in the ringbuf. If rustc doesn't inline this, I
     /// will be very sad.
     #[inline(always)]
-    fn actually_read(&self, addr: u16, data: &mut [u8]) -> Result<(), FramError> {
-        if addr > MAX_ADDR {
+    fn actually_read(
+        &self,
+        addr: u16,
+        data: &mut [u8],
+    ) -> Result<(), FramError> {
+        if addr > SIZE {
             return Err(FramError::InvalidAddr);
         }
-        if addr as usize + data.len() > MAX_ADDR as usize {
+        if addr as usize + data.len() > SIZE as usize {
             return Err(FramError::WouldWrap);
         }
 
@@ -187,7 +208,10 @@ impl<S: SpiDevice, const SIZE: u16> Fram<S, Size> {
         // > keeps on infinitely
 
         // Anyway, let's pull CS low.
-        let lock = self.spi.lock_auto(CsState::Asserted).map_err(|_| FramError::SpiServerDead)?;
+        let lock = self
+            .spi
+            .lock_auto(CsState::Asserted)
+            .map_err(|_| FramError::SpiServerDead)?;
         // Write the `READ` command
         self.spi.write(&[Opcode::Write as u8])?;
         // Write address --- this is big-endian per the datasheet.
@@ -198,9 +222,7 @@ impl<S: SpiDevice, const SIZE: u16> Fram<S, Size> {
 
         Ok(())
     }
-
 }
-
 
 impl From<drv_spi_api::SpiError> for FramError {
     fn from(value: drv_spi_api::SpiError) -> Self {
@@ -208,7 +230,7 @@ impl From<drv_spi_api::SpiError> for FramError {
     }
 }
 
-impl WritableFram<'_> {
+impl<S: SpiServer, const SIZE: usize> WritableFram<'_, S, { SIZE }> {
     pub fn write(&self, addr: u16, data: &[u8]) -> Result<(), FramError> {
         self.0.write(addr, data)
     }
@@ -218,7 +240,7 @@ impl WritableFram<'_> {
     }
 }
 
-impl Drop for WritableFram<'_> {
+impl<S: SpiServer, const SIZE: usize> Drop for WritableFram<'_, S, { SIZE }> {
     fn drop(&mut self) {
         let _ = self.0.write_disable();
     }
