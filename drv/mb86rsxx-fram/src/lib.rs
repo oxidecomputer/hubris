@@ -32,6 +32,7 @@ pub enum FramError {
     ///
     /// You probably don't want that.
     WouldWrap,
+    BadId,
 }
 
 #[derive(Eq, PartialEq, Copy, Clone, counters::Count)]
@@ -63,6 +64,13 @@ enum Opcode {
 enum Trace {
     #[count(skip)]
     None,
+
+    ReadId {
+        mfg_id: u8,
+        cont: u8,
+        id_lo: u8,
+        id_hi: u8,
+    },
     Write {
         addr: u16,
         len: u16,
@@ -79,11 +87,32 @@ enum Trace {
     WriteEnable(#[count(children)] bool),
 }
 
+const FUJITSU: u8 = 0x04;
 ringbuf::counted_ringbuf!(Trace, 16, Trace::None);
 
 impl<S: SpiServer, const SIZE: u16> Fram<S, { SIZE }> {
-    pub const fn new(spi: SpiDevice<S>) -> Self {
-        Self { spi }
+    pub fn new(spi: SpiDevice<S>) -> Result<Self, FramError> {
+        {
+            // Anyway, let's pull CS low.
+            let _cs_is_held_low_while_this_exists = spi
+                .lock_auto(CsState::Asserted)
+                .map_err(|_| FramError::SpiServerDead)?;
+            spi.write(&[Opcode::ReadId as u8])?;
+            let mut bytes = [0u8; 4];
+            spi.read(&mut bytes)?;
+            ringbuf_entry!(Trace::ReadId {
+                mfg_id: bytes[0],
+                cont: bytes[1],
+                id_lo: bytes[2],
+                id_hi: bytes[3]
+            });
+
+            // Manufacturer ID mismatch, seems bad!
+            if bytes[0] != FUJITSU {
+                return Err(FramError::BadId);
+            }
+        }
+        Ok(Self { spi })
     }
 
     pub fn write_enable(&self) -> Result<(), FramError> {
@@ -98,8 +127,10 @@ impl<S: SpiServer, const SIZE: u16> Fram<S, { SIZE }> {
         Ok(())
     }
 
-    pub fn with_write_enabled(&self) -> Result<WritableFram<'_>, FramError> {
-        self.write_enable_raw()?;
+    pub fn with_write_enabled(
+        &self,
+    ) -> Result<WritableFram<'_, S, { SIZE }>, FramError> {
+        self.write_enable()?;
         Ok(WritableFram(self))
     }
 
@@ -149,14 +180,14 @@ impl<S: SpiServer, const SIZE: u16> Fram<S, { SIZE }> {
         // > infinitely.
 
         // Anyway, let's pull CS low.
-        let lock = self
+        let _cs_is_held_low_while_this_exists = self
             .spi
             .lock_auto(CsState::Asserted)
             .map_err(|_| FramError::SpiServerDead)?;
         // Write the `WRITE` command
         self.spi.write(&[Opcode::Write as u8])?;
         // Write address --- this is big-endian per the datasheet.
-        self.spi.write(u16::to_be_bytes(addr))?;
+        self.spi.write(&u16::to_be_bytes(addr))?;
         // Here is where we get to find out if the cool autoincrement thingy
         // actually works! We *should* be able to just keep squirting data bytes
         // at it as long as CS is held low, and it'll just do the right thing.
@@ -170,7 +201,7 @@ impl<S: SpiServer, const SIZE: u16> Fram<S, { SIZE }> {
             addr,
             len: data.len() as u16
         });
-        let result = self.do_read(addr, data);
+        let result = self.actually_read(addr, data);
         ringbuf_entry!(Trace::Readed(result));
         result
     }
@@ -208,14 +239,14 @@ impl<S: SpiServer, const SIZE: u16> Fram<S, { SIZE }> {
         // > keeps on infinitely
 
         // Anyway, let's pull CS low.
-        let lock = self
+        let _cs_is_held_low_while_this_exists = self
             .spi
             .lock_auto(CsState::Asserted)
             .map_err(|_| FramError::SpiServerDead)?;
         // Write the `READ` command
-        self.spi.write(&[Opcode::Write as u8])?;
+        self.spi.write(&[Opcode::Read as u8])?;
         // Write address --- this is big-endian per the datasheet.
-        self.spi.write(u16::to_be_bytes(addr))?;
+        self.spi.write(&u16::to_be_bytes(addr))?;
         // Now we ought to be able to keep reading until we've read the whole
         // buffer.
         self.spi.read(data)?;
@@ -230,7 +261,7 @@ impl From<drv_spi_api::SpiError> for FramError {
     }
 }
 
-impl<S: SpiServer, const SIZE: usize> WritableFram<'_, S, { SIZE }> {
+impl<S: SpiServer, const SIZE: u16> WritableFram<'_, S, { SIZE }> {
     pub fn write(&self, addr: u16, data: &[u8]) -> Result<(), FramError> {
         self.0.write(addr, data)
     }
@@ -240,7 +271,7 @@ impl<S: SpiServer, const SIZE: usize> WritableFram<'_, S, { SIZE }> {
     }
 }
 
-impl<S: SpiServer, const SIZE: usize> Drop for WritableFram<'_, S, { SIZE }> {
+impl<S: SpiServer, const SIZE: u16> Drop for WritableFram<'_, S, { SIZE }> {
     fn drop(&mut self) {
         let _ = self.0.write_disable();
     }
