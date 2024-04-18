@@ -264,12 +264,25 @@ mod tests {
                 size: 0x0001_0000,
                 label: "good".to_string(),
             },
+            TestRegion {
+                base: 0x1237_5678,
+                size: 0x0001_0000,
+                label: "bad".to_string(),
+            },
+            TestRegion {
+                base: 0x1238_5678,
+                size: 0x0001_0000,
+                label: "good".to_string(),
+            },
         ]
     }
     const GOOD_REGION_0_IDX: usize = 0;
     const GOOD_REGION_1_IDX: usize = 1;
     const BAD_REGION_0_IDX: usize = 2;
     const BAD_REGION_1_IDX: usize = 3;
+    const GOOD_REGION_2_IDX: usize = 4;
+    const BAD_REGION_2_IDX: usize = 5;
+    const GOOD_REGION_3_IDX: usize = 6;
 
     // Predicate to use when matching _any_ region would be interesting, such as
     // if a slice is expected to be outside all regions.
@@ -303,7 +316,7 @@ mod tests {
     #[test]
     fn cannot_access_single_bad_region() {
         let region_table = make_fake_region_table();
-        for i in [BAD_REGION_0_IDX, BAD_REGION_1_IDX] {
+        for i in [BAD_REGION_0_IDX, BAD_REGION_1_IDX, BAD_REGION_2_IDX] {
             assert!(
                 // load-bearing tiny punctuation character:
                 !can_access(
@@ -384,6 +397,58 @@ mod tests {
                 accept_only_good_regions,
             ),
             "should NOT be able to access slice that spans adjacent bad ranges, but can",
+        );
+    }
+
+    #[test]
+    fn cannot_access_contiguous_regions_with_bad_region_interleaved() {
+        let region_table = make_fake_region_table();
+
+        let base = region_table[GOOD_REGION_2_IDX].base + 10;
+        let end = region_table[GOOD_REGION_3_IDX].end_addr() - 10;
+        let slice = TestSlice {
+            base,
+            size: end - base,
+        };
+
+        assert!(
+            // Load-bearing tiny punctuation character:
+            !can_access(slice, &region_table, accept_only_good_regions,),
+            "should NOT be able to access slice that starts and ends in good \
+             ranges but passes through bad one, but can",
+        );
+    }
+
+    #[test]
+    fn cannot_access_slice_spanning_over_uncontained_memory() {
+        // Using a custom region table to not cause
+        // cannot_access_uncontained_memory to spuriously fail.
+        let region_table = vec![
+            TestRegion {
+                base: 0x1238_5678,
+                size: 0x0001_0000,
+                label: "good".to_string(),
+            },
+            TestRegion {
+                // 64 kiB separated from previous region
+                base: 0x123A_5678,
+                size: 0x0001_0000,
+                label: "good".to_string(),
+            },
+        ];
+
+        let base = region_table[GOOD_REGION_0_IDX].base + 10;
+        let end = region_table[GOOD_REGION_1_IDX].end_addr() - 10;
+        let slice = TestSlice {
+            base,
+            size: end - base,
+        };
+
+        assert!(
+            // Load-bearing tiny punctuation character:
+            !can_access(slice, &region_table, accept_only_good_regions,),
+            "should NOT be able to access slice that starts and ends in \
+             good ranges but passes through uncontained memory, but can",
         );
     }
 }

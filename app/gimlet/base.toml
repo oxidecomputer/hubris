@@ -37,7 +37,7 @@ request_reset = ["hiffy", "control_plane_agent"]
 
 [tasks.net]
 name = "task-net"
-stacksize = 6040
+stacksize = 8000
 priority = 5
 features = ["mgmt", "h753", "gimlet", "vlan", "vpd-mac"]
 max-sizes = {flash = 131072, ram = 65536, sram1 = 16384}
@@ -65,6 +65,12 @@ notifications = ["exti-wildcard-irq"]
 "exti.exti4" = "exti-wildcard-irq"
 "exti.exti9_5" = "exti-wildcard-irq"
 "exti.exti15_10" = "exti-wildcard-irq"
+
+# PWR_CONT1_VCORE_TO_SP_ALERT_L
+[tasks.sys.config.gpio-irqs.vcore_to_sp_alert_l]
+port = "I"
+pin = 14
+owner = {name = "gimlet_seq", notification = "vcore"}
 
 [tasks.sys.config.gpio-irqs.rot_irq]
 port = "E"
@@ -118,7 +124,6 @@ notifications = ["i2c1-irq", "jefe-state-change"]
 [tasks.packrat]
 name = "task-packrat"
 priority = 1
-max-sizes = {flash = 8192, ram = 16384}
 start = true
 # task-slots is explicitly empty: packrat should not send IPCs!
 task-slots = []
@@ -139,7 +144,7 @@ name = "task-power"
 features = ["gimlet"]
 priority = 6
 max-sizes = {flash = 65536, ram = 16384 }
-stacksize = 2800
+stacksize = 3800
 start = true
 task-slots = ["i2c_driver", "sensor", "gimlet_seq"]
 notifications = ["timer", "external_badness"]
@@ -157,11 +162,11 @@ task-slots = ["sys", "hf", "i2c_driver", "hash_driver", "update_server", "sprot"
 name = "drv-gimlet-seq-server"
 features = ["h753"]
 priority = 4
-max-sizes = {flash = 131072, ram = 8192 }
-stacksize = 1600
+max-sizes = {flash = 131072, ram = 16384 }
+stacksize = 2600
 start = true
 task-slots = ["sys", "i2c_driver", {spi_driver = "spi2_driver"}, "hf", "jefe", "packrat"]
-notifications = ["timer"]
+notifications = ["timer", "vcore"]
 copy-to-archive = ["register_defs"]
 
 [tasks.gimlet_seq.config]

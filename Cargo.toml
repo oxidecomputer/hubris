@@ -34,7 +34,7 @@ anyhow = { version = "1.0.31", default-features = false, features = ["std"] }
 arrayvec = { version = "0.7.4", default-features = false }
 atty = { version = "0.2", default-features = false }
 bitfield = { version = "0.13", default-features = false }
-bitflags = { version = "2.4.1", default-features = false }
+bitflags = { version = "2.5.0", default-features = false }
 bstringify = { version = "0.1.2", default-features = false }
 byteorder = { version = "1.3.4", default-features = false }
 cargo_metadata = { version = "0.12.0", default-features = false }
@@ -135,3 +135,6 @@ tlvc = { git = "https://github.com/oxidecomputer/tlvc", default-features = false
 tlvc-text = { git = "https://github.com/oxidecomputer/tlvc", default-features = false, version = "0.3.0" }
 transceiver-messages = { git = "https://github.com/oxidecomputer/transceiver-control/", default-features = false}
 vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448", default-features = false }
+
+[workspace.lints.clippy]
+wildcard_imports = "deny"

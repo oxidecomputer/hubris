@@ -140,8 +140,12 @@ impl<E: EnumArray<Timer> + Copy> Multitimer<E> {
                     // Apply the repeat setting or disable the timer.
                     if let Some(kind) = r {
                         let next = match kind {
-                            Repeat::AfterWake(period) => t + period,
-                            Repeat::AfterDeadline(period) => d + period,
+                            Repeat::AfterWake(period) => {
+                                t.saturating_add(period)
+                            }
+                            Repeat::AfterDeadline(period) => {
+                                d.saturating_add(period)
+                            }
                         };
                         timer.deadline = Some((next, r));
                     } else {
@@ -209,8 +213,8 @@ mod fakes {
     use core::cell::Cell;
 
     thread_local! {
-        pub static CURRENT_TIME: Cell<u64> = Cell::new(0);
-        pub static TIMER_SETTING: Cell<(Option<u64>, u32)> = Cell::default();
+        pub static CURRENT_TIME: Cell<u64> = const { Cell::new(0) };
+        pub static TIMER_SETTING: Cell<(Option<u64>, u32)> = const { Cell::new((None, 0)) };
     }
 
     pub fn sys_set_timer(deadline: Option<u64>, not: u32) {
@@ -235,11 +239,12 @@ mod fakes {
     }
 }
 #[cfg(not(target_os = "none"))]
-use self::fakes::*;
+use self::fakes::{sys_get_timer, sys_set_timer};
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::fakes::CURRENT_TIME;
+    use super::{sys_get_timer, EnumMap, Multitimer, Repeat, Timer};
 
     fn change_time(time: u64) {
         CURRENT_TIME.with(|t| t.set(time));

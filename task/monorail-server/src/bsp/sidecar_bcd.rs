@@ -16,8 +16,7 @@ task_slot!(SEQ, seq);
 task_slot!(FRONT_IO, ecp5_front_io);
 
 /// Interval at which `Bsp::wake()` is called by the main loop
-const WAKE_INTERVAL_MS: u64 = 500;
-pub const WAKE_INTERVAL: Option<u64> = Some(WAKE_INTERVAL_MS);
+pub const WAKE_INTERVAL: Option<u32> = Some(500);
 
 #[derive(Copy, Clone, PartialEq, counters::Count)]
 enum Trace {
@@ -497,7 +496,9 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             if link_down {
                 let now = userlib::sys_get_timer().now;
                 if let Some(link_down_at) = self.link_down_at {
-                    if now - link_down_at >= 20_000 {
+                    // We can use wrapping arithmetic here because the timer is
+                    // monotonic.
+                    if now.wrapping_sub(link_down_at) >= 20_000 {
                         self.link_down_at = None;
                         // This logs Trace::Reinit in the ringbuf
                         self.reinit()?;

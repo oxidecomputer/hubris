@@ -14,6 +14,15 @@
 
 #![no_std]
 #![no_main]
+//
+// TODO: Hiffy is using unsafe and static mut in ways that are not obviously
+// sound. This became a warning in early 2024. In the interest of preventing
+// regressions in everything _else_ I'm suppressing the warning here so we can
+// turn Clippy back on. If you're reading this, this file is potentially unsound
+// and needs attention!
+//
+#![allow(static_mut_refs)]
+
 // This trait may not be needed, if compiling for a non-armv6m target.
 #[allow(unused_imports)]
 use armv6m_atomic_hack::AtomicU32Ext;

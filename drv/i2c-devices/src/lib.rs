@@ -117,6 +117,18 @@ macro_rules! pmbus_rail_phase_read {
 }
 
 macro_rules! pmbus_write {
+    ($device:expr, $cmd:ident) => {{
+        let payload = [CommandCode::$cmd as u8];
+
+        match $device.write(&payload) {
+            Err(code) => Err(Error::BadWrite {
+                cmd: CommandCode::$cmd as u8,
+                code,
+            }),
+            Ok(_) => Ok(()),
+        }
+    }};
+
     ($device:expr, $cmd:ident, $data:expr) => {{
         let mut payload = [0u8; $cmd::CommandData::len() + 1];
         payload[0] = $cmd::CommandData::code();

@@ -13,7 +13,6 @@ serde.workspace = true
 ssmarshal.workspace = true
 zerocopy.workspace = true
 
-mutable-statics = { path = "../../lib/mutable-statics" }
 drv-spi-api = { path = "../../drv/spi-api" }
 drv-sprot-api = { path = "../../drv/sprot-api", features = ["sink_test"] }
 drv-stm32h7-spi-server-core = { path = "../../drv/stm32h7-spi-server-core", optional = true }
@@ -22,6 +21,7 @@ drv-update-api = { path = "../../drv/update-api" }
 drv-lpc55-update-api = { path = "../../drv/lpc55-update-api" }
 drv-caboose = { path = "../../drv/caboose" }
 ringbuf = { path = "../../lib/ringbuf" }
+static-cell = { path = "../../lib/static-cell" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 [build-dependencies]

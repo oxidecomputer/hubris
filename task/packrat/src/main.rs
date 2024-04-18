@@ -31,8 +31,8 @@
 
 use core::convert::Infallible;
 use idol_runtime::{Leased, LenLimit, NotificationHandler, RequestError};
-use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
+use static_cell::ClaimOnceCell;
 use task_packrat_api::{
     CacheGetError, CacheSetError, HostStartupOptions, MacAddressBlock,
     VpdIdentity,
@@ -84,17 +84,33 @@ ringbuf!(Trace, 16, Trace::None);
 
 #[export_name = "main"]
 fn main() -> ! {
-    let (mac_address_block, identity) = mutable_statics! {
-        static mut MAC_ADDRESS_BLOCK: [Option<MacAddressBlock>; 1]
-            = [|| None; _];
-        static mut IDENTITY: [Option<VpdIdentity>; 1] = [|| None; _];
+    struct StaticBufs {
+        mac_address_block: Option<MacAddressBlock>,
+        identity: Option<VpdIdentity>,
+        #[cfg(feature = "gimlet")]
+        gimlet_bufs: gimlet::StaticBufs,
+    }
+    let StaticBufs {
+        ref mut mac_address_block,
+        ref mut identity,
+        #[cfg(feature = "gimlet")]
+        ref mut gimlet_bufs,
+    } = {
+        static BUFS: ClaimOnceCell<StaticBufs> =
+            ClaimOnceCell::new(StaticBufs {
+                mac_address_block: None,
+                identity: None,
+                #[cfg(feature = "gimlet")]
+                gimlet_bufs: gimlet::StaticBufs::new(),
+            });
+        BUFS.claim()
     };
 
     let mut server = ServerImpl {
-        mac_address_block: &mut mac_address_block[0],
-        identity: &mut identity[0],
+        mac_address_block,
+        identity,
         #[cfg(feature = "gimlet")]
-        gimlet_data: gimlet::GimletData::claim_static_resources(),
+        gimlet_data: gimlet::GimletData::new(gimlet_bufs),
     };
 
     let mut buffer = [0; idl::INCOMING_SIZE];

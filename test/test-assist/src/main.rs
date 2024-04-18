@@ -9,8 +9,10 @@
 
 use core::arch::asm;
 use hubris_num_tasks::NUM_TASKS;
-use test_api::*;
-use userlib::*;
+use test_api::AssistOp;
+use userlib::{
+    hl, kipc, sys_refresh_task_id, sys_send, Generation, Lease, TaskId,
+};
 use zerocopy::AsBytes;
 
 #[inline(never)]

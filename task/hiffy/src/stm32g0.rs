@@ -20,7 +20,8 @@ use drv_i2c_api::{
 #[cfg(feature = "i2c")]
 task_slot!(I2C, i2c_driver);
 
-pub struct Buffer(u8);
+// TODO: this type is copy-pasted in several modules
+pub struct Buffer(#[allow(dead_code)] u8);
 
 //
 // The order in this enum must match the order in the functions array that

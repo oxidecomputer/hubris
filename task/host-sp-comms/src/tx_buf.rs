@@ -7,7 +7,6 @@ use core::ops::Range;
 use host_sp_messages::{
     DecodeFailureReason, Header, InventoryData, InventoryDataResult, SpToHost,
 };
-use mutable_statics::mutable_statics;
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use userlib::{sys_get_timer, UnwrapLite};
 
@@ -34,12 +33,27 @@ pub(super) struct TxBuf {
     state: State,
 }
 
+pub(super) struct StaticBufs {
+    msg: [u8; MAX_MESSAGE_SIZE],
+    pkt: [u8; MAX_PACKET_SIZE + 1],
+}
+
+impl StaticBufs {
+    pub(super) const fn new() -> Self {
+        Self {
+            msg: [0; MAX_MESSAGE_SIZE],
+            pkt: [0; MAX_PACKET_SIZE + 1],
+        }
+    }
+}
+
 impl TxBuf {
-    pub(crate) fn claim_static_resources() -> Self {
-        let (msg, pkt) = mutable_statics! {
-            static mut UART_TX_MSG_BUF: [u8; MAX_MESSAGE_SIZE] = [|| 0; _];
-            static mut UART_TX_PKT_BUF: [u8; MAX_PACKET_SIZE + 1] = [|| 0; _];
-        };
+    pub(crate) fn new(
+        StaticBufs {
+            ref mut msg,
+            ref mut pkt,
+        }: &'static mut StaticBufs,
+    ) -> Self {
         Self {
             msg,
             pkt,

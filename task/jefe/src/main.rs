@@ -37,7 +37,7 @@ use hubris_num_tasks::NUM_TASKS;
 use humpty::DumpArea;
 use idol_runtime::RequestError;
 use task_jefe_api::{DumpAgentError, ResetReason};
-use userlib::*;
+use userlib::{kipc, Generation, TaskId};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
 pub enum Disposition {
@@ -51,7 +51,7 @@ pub enum Disposition {
 // generally be fast for a human but slow for a computer; we pick a
 // value of ~100 ms.  Our timer mask can't conflict with our fault
 // notification, but can otherwise be arbitrary.
-const TIMER_INTERVAL: u64 = 100;
+const TIMER_INTERVAL: u32 = 100;
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -60,9 +60,8 @@ fn main() -> ! {
         task_states[held_task as usize].disposition = Disposition::Hold;
     }
 
-    let deadline = sys_get_timer().now + TIMER_INTERVAL;
-
-    sys_set_timer(Some(deadline), notifications::TIMER_MASK);
+    let deadline =
+        userlib::set_timer_relative(TIMER_INTERVAL, notifications::TIMER_MASK);
 
     external::set_ready();
 
@@ -134,8 +133,8 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
             for (task, mask) in generated::MAILING_LIST {
                 let taskid =
                     TaskId::for_index_and_gen(task as usize, Generation::ZERO);
-                let taskid = sys_refresh_task_id(taskid);
-                sys_post(taskid, mask);
+                let taskid = userlib::sys_refresh_task_id(taskid);
+                userlib::sys_post(taskid, mask);
             }
         }
         Ok(())
@@ -294,9 +293,11 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
 
         if bits & notifications::TIMER_MASK != 0 {
             // If our timer went off, we need to reestablish it
-            if sys_get_timer().now >= self.deadline {
-                self.deadline += TIMER_INTERVAL;
-                sys_set_timer(Some(self.deadline), notifications::TIMER_MASK);
+            if userlib::sys_get_timer().now >= self.deadline {
+                self.deadline = userlib::set_timer_relative(
+                    TIMER_INTERVAL,
+                    notifications::TIMER_MASK,
+                );
             }
         }
 

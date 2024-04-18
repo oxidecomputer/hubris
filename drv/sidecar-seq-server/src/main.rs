@@ -790,7 +790,10 @@ impl NotificationHandler for ServerImpl {
         // be fine. Anyway, armed with this information, find the next deadline
         // some multiple of `TIMER_INTERVAL` in the future.
 
-        let delta = finish - start;
+        // The timer is monotonic, so finish >= start, so we use wrapping_add
+        // here to avoid an overflow check that the compiler conservatively
+        // inserts.
+        let delta = finish.wrapping_sub(start);
         let next_deadline = finish + TIMER_INTERVAL - (delta % TIMER_INTERVAL);
 
         sys_set_timer(Some(next_deadline), notifications::TIMER_MASK);
@@ -834,7 +837,7 @@ fn main() -> ! {
                 .load_bitstream(AUXFLASH.get_task_id())
             {
                 Err(e) => {
-                    let code = u32::try_from(e).unwrap_lite();
+                    let code = u32::from(e);
                     ringbuf_entry!(Trace::FpgaBitstreamError(code));
 
                     // If this is an auxflash error indicating that we can't

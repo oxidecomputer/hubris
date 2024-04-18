@@ -16,6 +16,7 @@ use drv_stm32xx_sys_api as sys_api;
 use hubpack::SerializedSize;
 use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::*;
+use static_cell::ClaimOnceCell;
 use sys_api::IrqControl;
 use userlib::*;
 
@@ -177,12 +178,15 @@ fn main() -> ! {
         spi,
         stats: SpIoStats::default(),
     };
-
-    let (tx_buf, rx_buf) = mutable_statics::mutable_statics! {
-        static mut TX_BUF: [u8; REQUEST_BUF_SIZE] = [|| 0; _];
-        static mut RX_BUF: [u8; RESPONSE_BUF_SIZE] = [|| 0; _];
+    let mut server = {
+        static BUFS: ClaimOnceCell<(
+            [u8; REQUEST_BUF_SIZE],
+            [u8; RESPONSE_BUF_SIZE],
+        )> =
+            ClaimOnceCell::new(([0; REQUEST_BUF_SIZE], [0; RESPONSE_BUF_SIZE]));
+        let (tx_buf, rx_buf) = BUFS.claim();
+        ServerImpl { io, tx_buf, rx_buf }
     };
-    let mut server = ServerImpl { io, tx_buf, rx_buf };
 
     loop {
         idol_runtime::dispatch(&mut buffer, &mut server);
@@ -379,15 +383,7 @@ impl<S: SpiServer> Io<S> {
             .unwrap_lite();
 
         // Determine the deadline after which we'll give up, and start the clock.
-        let deadline = sys_get_timer()
-            .now
-            // Values passed to `max_sleep` are all constants that are small
-            // enough that this will almost certainly not overflow unless the SP
-            // has been running without a reset for at least a couple million
-            // years. Using saturating arithmetic here lets us avoid a bounds
-            // check.
-            .saturating_add(max_sleep as u64);
-        sys_set_timer(Some(deadline), TIMER_MASK);
+        let expected_wake = set_timer_relative(max_sleep, TIMER_MASK);
 
         let mut irq_fired = false;
         while self.is_rot_irq_asserted() != desired {
@@ -418,7 +414,7 @@ impl<S: SpiServer> Io<S> {
 
             // If the timer notification was posted, and the GPIO IRQ
             // notification wasn't, we've waited for the timeout. Too bad!
-            if notif & TIMER_MASK != 0 {
+            if notif & TIMER_MASK != 0 && sys_get_timer().now >= expected_wake {
                 // Disable the IRQ, so that we don't get the notification later
                 // while in `recv`.
                 self.sys
@@ -435,9 +431,11 @@ impl<S: SpiServer> Io<S> {
             }
         }
 
-        // Ensure the timer gets unset before returning, to avoid frightening
-        // our IPC server when it's waiting in recv without expecting a timer to
-        // go off.
+        // Ensure the timer gets unset before returning, to reduce the
+        // likelihood that we get an immediate wake on the TIMER notification
+        // next time into this routine. (We might still get one, but for it to
+        // occur the timer needs to go off between the recv above, and this
+        // line.)
         sys_set_timer(None, TIMER_MASK);
         // If the IRQ didn't fire, let's also disable it, so that it also
         // doesn't go off later.
@@ -1157,6 +1155,40 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
             .into()),
             Err(e) => Err(AttestOrSprotError::Sprot(e).into()),
         }
+    }
+
+    fn enable_sp_slot_watchdog(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        time_ms: u32,
+    ) -> Result<(), idol_runtime::RequestError<SprotError>> {
+        let body = ReqBody::Swd(SwdReq::EnableSpSlotWatchdog { time_ms });
+        let tx_size = Request::pack(&body, self.tx_buf);
+        let rsp = self.do_send_recv_retries(tx_size, TIMEOUT_QUICK, 1)?;
+        rsp.body?;
+        Ok(())
+    }
+
+    fn disable_sp_slot_watchdog(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<(), idol_runtime::RequestError<SprotError>> {
+        let body = ReqBody::Swd(SwdReq::DisableSpSlotWatchdog);
+        let tx_size = Request::pack(&body, self.tx_buf);
+        let rsp = self.do_send_recv_retries(tx_size, TIMEOUT_QUICK, 1)?;
+        rsp.body?;
+        Ok(())
+    }
+
+    fn sp_slot_watchdog_supported(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<(), idol_runtime::RequestError<SprotError>> {
+        let body = ReqBody::Swd(SwdReq::SpSlotWatchdogSupported);
+        let tx_size = Request::pack(&body, self.tx_buf);
+        let rsp = self.do_send_recv_retries(tx_size, TIMEOUT_QUICK, 1)?;
+        rsp.body?;
+        Ok(())
     }
 }
 

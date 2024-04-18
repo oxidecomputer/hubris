@@ -3,7 +3,6 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::vlan_id_from_sp_port;
-use core::sync::atomic::{AtomicBool, Ordering};
 use gateway_messages::{Header, Message, MessageKind, SpPort, SpRequest};
 use heapless::Vec;
 use idol_runtime::{Leased, RequestError};
@@ -55,20 +54,21 @@ const DELAY_TRY_OTHER_MGS: u64 = 500;
 const DELAY_RETRY: u64 = 1_000;
 const MAX_ATTEMPTS: u8 = 6;
 
+pub(super) type Phase2Buf = Vec<u8, { gateway_messages::MAX_SERIALIZED_SIZE }>;
+
 pub(crate) struct HostPhase2Requester {
     current: Option<CurrentRequest>,
     last_responsive_mgs: SpPort,
-    buffer: &'static mut Vec<u8, { gateway_messages::MAX_SERIALIZED_SIZE }>,
+    buffer: &'static mut Phase2Buf,
 }
 
 impl HostPhase2Requester {
-    // This function can only be called once; it acquires static memory set
-    // aside for buffering data from MGS.
-    pub(crate) fn claim_static_resources() -> Self {
+    // This function can only be called once;
+    pub(super) fn new(buffer: &'static mut Phase2Buf) -> Self {
         Self {
             current: None,
             last_responsive_mgs: SpPort::One,
-            buffer: claim_phase2_buffer(),
+            buffer,
         }
     }
 
@@ -118,9 +118,12 @@ impl HostPhase2Requester {
         // in our outgoing net task queue).
         let port = match current.state {
             State::NeedToSendFirstMgs(port) => {
+                // Using saturating_add here because it's cheaper than
+                // panicking, and timestamps won't saturate for 584 million
+                // years.
                 current.state = State::WaitingForFirstMgs {
                     port,
-                    deadline: now + DELAY_TRY_OTHER_MGS,
+                    deadline: now.saturating_add(DELAY_TRY_OTHER_MGS),
                 };
                 port
             }
@@ -136,7 +139,7 @@ impl HostPhase2Requester {
                 };
                 current.state = State::WaitingForSecondMgs {
                     port,
-                    deadline: now + DELAY_RETRY,
+                    deadline: now.saturating_add(DELAY_RETRY),
                 };
                 port
             }
@@ -158,7 +161,7 @@ impl HostPhase2Requester {
                 };
                 current.state = State::WaitingForFirstMgs {
                     port,
-                    deadline: now + DELAY_TRY_OTHER_MGS,
+                    deadline: now.saturating_add(DELAY_TRY_OTHER_MGS),
                 };
                 port
             }
@@ -315,21 +318,4 @@ impl State {
             | State::WaitingForSecondMgs { deadline, .. } => Some(*deadline),
         }
     }
-}
-
-fn claim_phase2_buffer(
-) -> &'static mut Vec<u8, { gateway_messages::MAX_SERIALIZED_SIZE }> {
-    static mut PHASE2_BUF: Vec<u8, { gateway_messages::MAX_SERIALIZED_SIZE }> =
-        Vec::new();
-
-    static TAKEN: AtomicBool = AtomicBool::new(false);
-    if TAKEN.swap(true, Ordering::Relaxed) {
-        panic!()
-    }
-
-    // Safety: unsafe because of references to mutable statics; safe because of
-    // the AtomicBool swap above, combined with the lexical scoping of
-    // `PHASE2_BUF`, means that this reference can't be aliased by any
-    // other reference in the program.
-    unsafe { &mut PHASE2_BUF }
 }

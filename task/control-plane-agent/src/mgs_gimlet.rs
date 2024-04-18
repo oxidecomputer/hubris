@@ -7,7 +7,6 @@ use crate::{
     update::rot::RotUpdate, update::sp::SpUpdate, update::ComponentUpdater,
     usize_max, vlan_id_from_sp_port, CriticalEvent, Log, MgsMessage, SYS,
 };
-use core::sync::atomic::{AtomicBool, Ordering};
 use core::time::Duration;
 use drv_gimlet_seq_api::Sequencer;
 use drv_stm32h7_usart::Usart;
@@ -27,6 +26,7 @@ use heapless::{Deque, Vec};
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
 use ringbuf::ringbuf_entry_root;
+use static_cell::ClaimOnceCell;
 use task_control_plane_agent_api::{
     ControlPlaneAgentError, UartClient, VpdIdentity,
     MAX_INSTALLINATOR_IMAGE_ID_LEN,
@@ -135,19 +135,39 @@ impl MgsHandler {
     /// Instantiate an `MgsHandler` that claims static buffers and device
     /// resources. Can only be called once; will panic if called multiple times!
     pub(crate) fn claim_static_resources(base_mac_address: MacAddress) -> Self {
-        let usart = UsartHandler::claim_static_resources();
+        struct Bufs {
+            usart_to_tx: Deque<u8, MGS_TO_SP_SERIAL_CONSOLE_BUFFER_SIZE>,
+            usart_from_rx: Deque<u8, SP_TO_MGS_SERIAL_CONSOLE_BUFFER_SIZE>,
+            installinator_image_id: InstallinatorImageIdBuf,
+            host_phase2_buf: host_phase2::Phase2Buf,
+        }
+        let Bufs {
+            ref mut usart_to_tx,
+            ref mut usart_from_rx,
+            ref mut installinator_image_id,
+            ref mut host_phase2_buf,
+        } = {
+            static BUFS: ClaimOnceCell<Bufs> = ClaimOnceCell::new(Bufs {
+                usart_to_tx: Deque::new(),
+                usart_from_rx: Deque::new(),
+                host_phase2_buf: host_phase2::Phase2Buf::new(),
+                installinator_image_id: InstallinatorImageIdBuf::new(),
+            });
+            BUFS.claim()
+        };
+        let usart = UsartHandler::new(usart_to_tx, usart_from_rx);
 
         Self {
             common: MgsCommon::claim_static_resources(base_mac_address),
             host_flash_update: HostFlashUpdate::new(),
-            host_phase2: HostPhase2Requester::claim_static_resources(),
+            host_phase2: HostPhase2Requester::new(host_phase2_buf),
             sequencer: Sequencer::from(GIMLET_SEQ.get_task_id()),
             user_leds: UserLeds::from(USER_LEDS.get_task_id()),
             usart,
             attached_serial_console_mgs: None,
             serial_console_write_offset: 0,
             next_message_id: 0,
-            installinator_image_id: claim_installinator_image_id_static(),
+            installinator_image_id,
         }
     }
 
@@ -1111,6 +1131,30 @@ impl SpHandler for MgsHandler {
     ) -> Result<usize, SpError> {
         self.common.vpd_lock_status_all(buf)
     }
+
+    fn reset_component_trigger_with_watchdog(
+        &mut self,
+        component: SpComponent,
+        time_ms: u32,
+    ) -> Result<(), SpError> {
+        self.common
+            .reset_component_trigger_with_watchdog(component, time_ms)
+            .map(|_| ())
+    }
+
+    fn disable_component_watchdog(
+        &mut self,
+        component: SpComponent,
+    ) -> Result<(), SpError> {
+        self.common.disable_component_watchdog(component)
+    }
+
+    fn component_watchdog_supported(
+        &mut self,
+        component: SpComponent,
+    ) -> Result<(), SpError> {
+        self.common.component_watchdog_supported(component)
+    }
 }
 
 struct UsartHandler {
@@ -1123,10 +1167,11 @@ struct UsartHandler {
 }
 
 impl UsartHandler {
-    fn claim_static_resources() -> Self {
+    fn new(
+        to_tx: &'static mut Deque<u8, MGS_TO_SP_SERIAL_CONSOLE_BUFFER_SIZE>,
+        from_rx: &'static mut Deque<u8, SP_TO_MGS_SERIAL_CONSOLE_BUFFER_SIZE>,
+    ) -> Self {
         let usart = configure_usart();
-        let to_tx = claim_mgs_to_sp_usart_buf_static();
-        let from_rx = claim_sp_to_mgs_usart_buf_static();
 
         // Enable USART interrupts.
         sys_irq_control(notifications::USART_IRQ_MASK, true);
@@ -1412,54 +1457,4 @@ impl<T, const N: usize> DequeExt for Deque<T, N> {
             self.pop_front().unwrap_lite();
         }
     }
-}
-
-fn claim_mgs_to_sp_usart_buf_static(
-) -> &'static mut Deque<u8, MGS_TO_SP_SERIAL_CONSOLE_BUFFER_SIZE> {
-    static mut UART_TX_BUF: Deque<u8, MGS_TO_SP_SERIAL_CONSOLE_BUFFER_SIZE> =
-        Deque::new();
-
-    static TAKEN: AtomicBool = AtomicBool::new(false);
-    if TAKEN.swap(true, Ordering::Relaxed) {
-        panic!()
-    }
-
-    // Safety: unsafe because of references to mutable statics; safe because of
-    // the AtomicBool swap above, combined with the lexical scoping of
-    // `UART_TX_BUF`, means that this reference can't be aliased by any
-    // other reference in the program.
-    unsafe { &mut UART_TX_BUF }
-}
-
-fn claim_sp_to_mgs_usart_buf_static(
-) -> &'static mut Deque<u8, SP_TO_MGS_SERIAL_CONSOLE_BUFFER_SIZE> {
-    static mut UART_RX_BUF: Deque<u8, SP_TO_MGS_SERIAL_CONSOLE_BUFFER_SIZE> =
-        Deque::new();
-
-    static TAKEN: AtomicBool = AtomicBool::new(false);
-    if TAKEN.swap(true, Ordering::Relaxed) {
-        panic!()
-    }
-
-    // Safety: unsafe because of references to mutable statics; safe because of
-    // the AtomicBool swap above, combined with the lexical scoping of
-    // `UART_RX_BUF`, means that this reference can't be aliased by any
-    // other reference in the program.
-    unsafe { &mut UART_RX_BUF }
-}
-
-fn claim_installinator_image_id_static() -> &'static mut InstallinatorImageIdBuf
-{
-    static mut INSTALLINATOR_IMAGE_ID_BUF: InstallinatorImageIdBuf = Vec::new();
-
-    static TAKEN: AtomicBool = AtomicBool::new(false);
-    if TAKEN.swap(true, Ordering::Relaxed) {
-        panic!()
-    }
-
-    // Safety: unsafe because of references to mutable statics; safe because of
-    // the AtomicBool swap above, combined with the lexical scoping of
-    // `INSTALLINATOR_IMAGE_ID_BUF`, means that this reference can't be aliased
-    // by any other reference in the program.
-    unsafe { &mut INSTALLINATOR_IMAGE_ID_BUF }
 }

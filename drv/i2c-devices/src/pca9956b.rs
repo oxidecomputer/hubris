@@ -93,18 +93,13 @@ const MAX_AUTO_INC_REG: Register = Register::ALLCALLADR;
 const MAX_BUF_SIZE: usize = MAX_AUTO_INC_REG as usize;
 
 /// ERR representations per Table 21 of the datasheet
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
 pub enum LedErr {
+    #[default]
     NoError = 0b00,
     ShortCircuit = 0b01,
     OpenCircuit = 0b10,
     Invalid = 0b11,
-}
-
-impl Default for LedErr {
-    fn default() -> Self {
-        LedErr::NoError
-    }
 }
 
 impl From<u8> for LedErr {

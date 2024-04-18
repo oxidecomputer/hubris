@@ -757,6 +757,29 @@ impl SpHandler for MgsHandler {
     ) -> Result<usize, SpError> {
         self.common.vpd_lock_status_all(buf)
     }
+
+    fn reset_component_trigger_with_watchdog(
+        &mut self,
+        component: SpComponent,
+        time_ms: u32,
+    ) -> Result<(), SpError> {
+        self.common
+            .reset_component_trigger_with_watchdog(component, time_ms)
+    }
+
+    fn disable_component_watchdog(
+        &mut self,
+        component: SpComponent,
+    ) -> Result<(), SpError> {
+        self.common.disable_component_watchdog(component)
+    }
+
+    fn component_watchdog_supported(
+        &mut self,
+        component: SpComponent,
+    ) -> Result<(), SpError> {
+        self.common.component_watchdog_supported(component)
+    }
 }
 
 // Helper function for `.map_err()`; we can't use `?` because we can't implement

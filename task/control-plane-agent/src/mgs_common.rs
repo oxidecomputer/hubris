@@ -3,8 +3,9 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    inventory::Inventory, update::rot::RotUpdate, update::sp::SpUpdate, Log,
-    MgsMessage,
+    inventory::Inventory,
+    update::{rot::RotUpdate, sp::SpUpdate, ComponentUpdater},
+    Log, MgsMessage,
 };
 use drv_caboose::{CabooseError, CabooseReader};
 use drv_sprot_api::{
@@ -15,8 +16,8 @@ use drv_stm32h7_update_api::Update;
 use gateway_messages::{
     CfpaPage, DiscoverResponse, PowerState, RotError, RotRequest, RotResponse,
     RotSlotId, RotStateV2, SensorReading, SensorRequest, SensorRequestKind,
-    SensorResponse, SpComponent, SpError, SpPort, SpStateV2,
-    VpdError as GatewayVpdError,
+    SensorResponse, SpComponent, SpError, SpPort, SpStateV2, UpdateStatus,
+    VpdError as GatewayVpdError, WatchdogError,
 };
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use static_assertions::const_assert;
@@ -480,6 +481,52 @@ impl MgsCommon {
         }
 
         Ok(cnt)
+    }
+
+    pub(crate) fn reset_component_trigger_with_watchdog(
+        &mut self,
+        component: SpComponent,
+        time_ms: u32,
+    ) -> Result<(), SpError> {
+        if self.reset_component_requested != Some(component) {
+            return Err(SpError::ResetComponentTriggerWithoutPrepare);
+        }
+        if !matches!(self.sp_update.status(), UpdateStatus::Complete(..)) {
+            return Err(SpError::Watchdog(WatchdogError::NoCompletedUpdate));
+        }
+
+        if component == SpComponent::SP_ITSELF {
+            self.sprot.enable_sp_slot_watchdog(time_ms)?;
+            task_jefe_api::Jefe::from(crate::JEFE.get_task_id())
+                .request_reset();
+            panic!(); // we really really shouldn't get here
+        } else {
+            Err(SpError::RequestUnsupportedForComponent)
+        }
+    }
+
+    pub(crate) fn disable_component_watchdog(
+        &mut self,
+        component: SpComponent,
+    ) -> Result<(), SpError> {
+        if component == SpComponent::SP_ITSELF {
+            self.sprot.disable_sp_slot_watchdog()?;
+        } else {
+            return Err(SpError::RequestUnsupportedForComponent);
+        }
+        Ok(())
+    }
+
+    pub(crate) fn component_watchdog_supported(
+        &mut self,
+        component: SpComponent,
+    ) -> Result<(), SpError> {
+        if component == SpComponent::SP_ITSELF {
+            self.sprot.sp_slot_watchdog_supported()?;
+        } else {
+            return Err(SpError::RequestUnsupportedForComponent);
+        }
+        Ok(())
     }
 }
 

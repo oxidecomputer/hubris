@@ -115,6 +115,21 @@ impl Raa229618 {
         }
     }
 
+    pub fn clear_faults(&self) -> Result<(), Error> {
+        pmbus_write!(self.device, CLEAR_FAULTS)
+    }
+
+    pub fn set_vin_uv_warn_limit(&self, value: Volts) -> Result<(), Error> {
+        let mut vin = VIN_UV_WARN_LIMIT::CommandData(0);
+        vin.set(pmbus::units::Volts(value.0))?;
+        pmbus_rail_write!(self.device, self.rail, VIN_UV_WARN_LIMIT, vin)
+    }
+
+    pub fn read_vin(&self) -> Result<Volts, Error> {
+        let vin = pmbus_rail_read!(self.device, self.rail, READ_VIN)?;
+        Ok(Volts(vin.get()?.0))
+    }
+
     pub fn read_phase_current(&self, phase: Phase) -> Result<Amperes, Error> {
         let iout = pmbus_rail_phase_read!(
             self.device,

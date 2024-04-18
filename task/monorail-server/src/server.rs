@@ -61,9 +61,8 @@ impl<'a, R: Vsc7448Rw> ServerImpl<'a, R> {
         if let Some(wake_interval) = bsp::WAKE_INTERVAL {
             if now >= self.wake_target_time {
                 let out = self.bsp.wake();
-                self.wake_target_time = now + wake_interval;
-                sys_set_timer(
-                    Some(self.wake_target_time),
+                self.wake_target_time = userlib::set_timer_relative(
+                    wake_interval,
                     notifications::WAKE_TIMER_MASK,
                 );
                 return out;
@@ -241,9 +240,10 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
 
                 // Take the union of the "link changed" bit on the PHY and our
                 // local sticky value (since the PHY bit is self-resetting)
-                let v = match self.bsp.phy_fn(port, |phy| {
+                let r = self.bsp.phy_fn(port, |phy| {
                     phy.read(phy::STANDARD::INTERRUPT_STATUS())
-                }) {
+                });
+                let v = match r {
                     // If there is no PHY present, then the PHY link down
                     // indication is always false.
                     None => false,
@@ -365,9 +365,7 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
                 if let Some(Err(e)) = self.bsp.phy_fn(port, |phy| {
                     phy.read(phy::STANDARD::INTERRUPT_STATUS())
                 }) {
-                    return Err(e)
-                        .map_err(MonorailError::from)
-                        .map_err(RequestError::from);
+                    return Err(RequestError::from(MonorailError::from(e)));
                 }
 
                 // Clear the two bits that we use to detect link drops
@@ -458,58 +456,62 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
         port: u8,
     ) -> Result<PhyStatus, RequestError<MonorailError>> {
         self.check_port(port)?;
-        match self.bsp.phy_fn(port, |phy| -> Result<PhyStatus, VscError> {
-            let (_id, ty) = Self::decode_phy_id(&phy)?;
-            let status = phy.read(phy::STANDARD::MODE_STATUS())?;
-            let media_link_up = (status.0 & (1 << 2)) != 0;
+        let phy_result =
+            self.bsp.phy_fn(port, |phy| -> Result<PhyStatus, VscError> {
+                let (_id, ty) = Self::decode_phy_id(&phy)?;
+                let status = phy.read(phy::STANDARD::MODE_STATUS())?;
+                let media_link_up = (status.0 & (1 << 2)) != 0;
 
-            // The VSC8504 is running in forced-speed protocol transfer mode.
-            // Experimentally, packets get through without MAC_LINK_STATUS
-            // set, and despite what "ENT-AN1175" says, I don't see anything
-            // in register 24G.  As such, we'll be optimistic: if there's a
-            // valid QSGMII link and MAC_PCS_SIG_DETECT, then let's call it
-            // good.
-            let status = phy.read(phy::EXTENDED_3::MAC_SERDES_PCS_STATUS())?;
-            let mac_serdes = phy.read(phy::EXTENDED_3::MAC_SERDES_STATUS())?;
-            let qsgmii_mask = ty.qsgmii_okay_mask();
-            let mac_link_up = match ty {
-                PhyType::Vsc8504 => {
-                    if status.mac_pcs_sig_detect() == 0 {
-                        LinkStatus::Down
-                    } else if status.mac_sync_fail() != 0
-                        || status.mac_cgbad() != 0
-                        || (mac_serdes.0 & qsgmii_mask) != qsgmii_mask
-                    {
-                        LinkStatus::Error
-                    } else {
-                        LinkStatus::Up
+                // The VSC8504 is running in forced-speed protocol transfer mode.
+                // Experimentally, packets get through without MAC_LINK_STATUS
+                // set, and despite what "ENT-AN1175" says, I don't see anything
+                // in register 24G.  As such, we'll be optimistic: if there's a
+                // valid QSGMII link and MAC_PCS_SIG_DETECT, then let's call it
+                // good.
+                let status =
+                    phy.read(phy::EXTENDED_3::MAC_SERDES_PCS_STATUS())?;
+                let mac_serdes =
+                    phy.read(phy::EXTENDED_3::MAC_SERDES_STATUS())?;
+                let qsgmii_mask = ty.qsgmii_okay_mask();
+                let mac_link_up = match ty {
+                    PhyType::Vsc8504 => {
+                        if status.mac_pcs_sig_detect() == 0 {
+                            LinkStatus::Down
+                        } else if status.mac_sync_fail() != 0
+                            || status.mac_cgbad() != 0
+                            || (mac_serdes.0 & qsgmii_mask) != qsgmii_mask
+                        {
+                            LinkStatus::Error
+                        } else {
+                            LinkStatus::Up
+                        }
                     }
-                }
-                PhyType::Vsc8522 | PhyType::Vsc8552 | PhyType::Vsc8562 => {
-                    if status.mac_link_status() == 0 {
-                        LinkStatus::Down
-                    } else if status.mac_sync_fail() != 0
-                        || status.mac_cgbad() != 0
-                        || status.mac_pcs_sig_detect() == 0
-                        || (mac_serdes.0 & qsgmii_mask) != qsgmii_mask
-                    {
-                        LinkStatus::Error
-                    } else {
-                        LinkStatus::Up
+                    PhyType::Vsc8522 | PhyType::Vsc8552 | PhyType::Vsc8562 => {
+                        if status.mac_link_status() == 0 {
+                            LinkStatus::Down
+                        } else if status.mac_sync_fail() != 0
+                            || status.mac_cgbad() != 0
+                            || status.mac_pcs_sig_detect() == 0
+                            || (mac_serdes.0 & qsgmii_mask) != qsgmii_mask
+                        {
+                            LinkStatus::Error
+                        } else {
+                            LinkStatus::Up
+                        }
                     }
-                }
-            };
+                };
 
-            Ok(PhyStatus {
-                ty,
-                mac_link_up,
-                media_link_up: if media_link_up {
-                    LinkStatus::Up
-                } else {
-                    LinkStatus::Down
-                },
-            })
-        }) {
+                Ok(PhyStatus {
+                    ty,
+                    mac_link_up,
+                    media_link_up: if media_link_up {
+                        LinkStatus::Up
+                    } else {
+                        LinkStatus::Down
+                    },
+                })
+            });
+        match phy_result {
             None => Err(MonorailError::NoPhy.into()),
             Some(r) => {
                 r.map_err(MonorailError::from).map_err(RequestError::from)

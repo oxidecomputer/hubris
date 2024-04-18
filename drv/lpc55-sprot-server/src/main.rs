@@ -67,7 +67,6 @@ use handler::Handler;
 #[derive(Copy, Clone, PartialEq)]
 pub(crate) enum Trace {
     None,
-    Dump(u32),
     ReceivedBytes(usize),
     Flush,
     FlowError,
@@ -76,6 +75,9 @@ pub(crate) enum Trace {
     Err(SprotProtocolError),
     Stats(RotIoStats),
     Desynchronized,
+
+    #[cfg(feature = "sp-ctrl")]
+    Dump(u32),
 }
 ringbuf!(Trace, 32, Trace::None);
 
@@ -164,10 +166,14 @@ enum IoError {
 #[export_name = "main"]
 fn main() -> ! {
     let mut io = configure_spi();
-
-    let (rx_buf, tx_buf) = mutable_statics::mutable_statics! {
-        static mut RX_BUF: [u8; REQUEST_BUF_SIZE] = [|| 0; _];
-        static mut TX_BUF: [u8; RESPONSE_BUF_SIZE] = [|| 0; _];
+    let (rx_buf, tx_buf) = {
+        use static_cell::ClaimOnceCell;
+        static BUFS: ClaimOnceCell<(
+            [u8; REQUEST_BUF_SIZE],
+            [u8; RESPONSE_BUF_SIZE],
+        )> =
+            ClaimOnceCell::new(([0; REQUEST_BUF_SIZE], [0; RESPONSE_BUF_SIZE]));
+        BUFS.claim()
     };
 
     let mut handler = Handler::new();

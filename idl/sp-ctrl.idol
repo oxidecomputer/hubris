@@ -89,5 +89,20 @@ Interface(
                 err: CLike("SpCtrlError"),
             )
         ),
+        "enable_sp_slot_watchdog": (
+            doc: "Enable a watchdog that will reset the SP into the inactive slot",
+            args: {
+                "time_ms" : "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("SpCtrlError"),
+            ),
+        ),
+        "disable_sp_slot_watchdog": (
+            doc: "Disable the SP slot watchdog",
+            reply: Simple("()"),
+            idempotent: true,
+        ),
     }
 )

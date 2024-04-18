@@ -5,7 +5,9 @@
 use hif::Function;
 use hubris_num_tasks::Task;
 
-pub struct Buffer(u8);
+// This type is only used by the debugger apparently, so its field appears
+// unused to the compiler.
+pub struct Buffer(#[allow(dead_code)] u8);
 
 pub enum Functions {
     Sleep(u16, u32),

@@ -22,9 +22,9 @@ use host_sp_messages::{
 use hubpack::SerializedSize;
 use idol_runtime::{NotificationHandler, RequestError};
 use multitimer::{Multitimer, Repeat};
-use mutable_statics::mutable_statics;
 use ringbuf::{counted_ringbuf, ringbuf_entry};
 use static_assertions::const_assert;
+use static_cell::ClaimOnceCell;
 use task_control_plane_agent_api::{
     ControlPlaneAgent, MAX_INSTALLINATOR_IMAGE_ID_LEN,
 };
@@ -194,28 +194,6 @@ struct HostKeyValueStorage {
 }
 
 impl HostKeyValueStorage {
-    fn claim_static_resources() -> Self {
-        let (last_boot_fail, last_panic, etc_system, dtrace_conf) = mutable_statics! {
-            static mut LAST_HOST_BOOT_FAIL: [u8; MAX_HOST_FAIL_MESSAGE_LEN] =
-                [|| 0; _];
-            static mut LAST_HOST_PANIC: [u8; MAX_HOST_FAIL_MESSAGE_LEN] =
-                [|| 0; _];
-            static mut HOST_ETC_SYSTEM: [u8; MAX_ETC_SYSTEM_LEN] =
-                [|| 0; _];
-            static mut HOST_DTRACE_CONF: [u8; MAX_DTRACE_CONF_LEN] =
-                [|| 0; _];
-        };
-
-        Self {
-            last_boot_fail,
-            last_panic,
-            etc_system,
-            etc_system_len: 0,
-            dtrace_conf,
-            dtrace_conf_len: 0,
-        }
-    }
-
     fn key_set(&mut self, key: u8, data: &[u8]) -> KeySetResult {
         let Some(key) = Key::from_u8(key) else {
             return KeySetResult::InvalidKey;
@@ -278,12 +256,38 @@ impl ServerImpl {
             Some(Repeat::AfterWake(UART_ZERO_DELAY)),
         );
 
+        struct Bufs {
+            tx_buf: tx_buf::StaticBufs,
+            rx_buf: Vec<u8, MAX_PACKET_SIZE>,
+            last_boot_fail: [u8; MAX_HOST_FAIL_MESSAGE_LEN],
+            last_panic: [u8; MAX_HOST_FAIL_MESSAGE_LEN],
+            etc_system: [u8; MAX_ETC_SYSTEM_LEN],
+            dtrace_conf: [u8; MAX_DTRACE_CONF_LEN],
+        }
+        let Bufs {
+            ref mut tx_buf,
+            ref mut rx_buf,
+            ref mut last_boot_fail,
+            ref mut last_panic,
+            ref mut etc_system,
+            ref mut dtrace_conf,
+        } = {
+            static BUFS: ClaimOnceCell<Bufs> = ClaimOnceCell::new(Bufs {
+                tx_buf: tx_buf::StaticBufs::new(),
+                rx_buf: Vec::new(),
+                last_boot_fail: [0; MAX_HOST_FAIL_MESSAGE_LEN],
+                last_panic: [0; MAX_HOST_FAIL_MESSAGE_LEN],
+                etc_system: [0; MAX_ETC_SYSTEM_LEN],
+                dtrace_conf: [0; MAX_DTRACE_CONF_LEN],
+            });
+            BUFS.claim()
+        };
         Self {
             uart,
             sys,
             timers,
-            tx_buf: TxBuf::claim_static_resources(),
-            rx_buf: claim_uart_rx_buf(),
+            tx_buf: tx_buf::TxBuf::new(tx_buf),
+            rx_buf,
             status: Status::empty(),
             sequencer: Sequencer::from(GIMLET_SEQ.get_task_id()),
             hf: HostFlash::from(HOST_FLASH.get_task_id()),
@@ -293,7 +297,14 @@ impl ServerImpl {
             ),
             packrat: Packrat::from(PACKRAT.get_task_id()),
             reboot_state: None,
-            host_kv_storage: HostKeyValueStorage::claim_static_resources(),
+            host_kv_storage: HostKeyValueStorage {
+                last_boot_fail,
+                last_panic,
+                etc_system,
+                etc_system_len: 0,
+                dtrace_conf,
+                dtrace_conf_len: 0,
+            },
             hf_mux_state: None,
         }
     }
@@ -390,9 +401,13 @@ impl ServerImpl {
                     if reboot {
                         // Somehow we're already in A2 when the host wanted to
                         // reboot; set our reboot timer.
+                        //
+                        // Using saturating add here because it's cheaper than
+                        // potentially panicking, and timestamps won't saturate
+                        // for 584 million years.
                         self.timers.set_timer(
                             Timers::WaitingInA2ToReboot,
-                            sys_get_timer().now + A2_REBOOT_DELAY,
+                            sys_get_timer().now.saturating_add(A2_REBOOT_DELAY),
                             None,
                         );
                         self.reboot_state =
@@ -1038,20 +1053,22 @@ impl ServerImpl {
                     sequence,
                     &SpToHost::KeyLookupResult(KeyLookupResult::Ok),
                     |buf| {
-                        // `MIN_SP_TO_HOST_FILL_DATA_LEN` is calculated assuming
-                        // `SpToHost::MAX_SIZE`, but we know in this callback
-                        // we're appending to
-                        // `SpToHost::KeyLookupResult(KeyLookupResult::Ok)`,
-                        // which is only 2 bytes. Recompute the exact max space
-                        // we have for our response, then statically guarantee
-                        // we have sufficient space in `buf` for longest
-                        // possible DTRACE_CONF blob.
-                        const SP_TO_HOST_FILL_DATA_LEN: usize =
-                            MIN_SP_TO_HOST_FILL_DATA_LEN + SpToHost::MAX_SIZE
-                                - 2;
-                        const_assert!(
+                        const_assert!({
+                            // `MIN_SP_TO_HOST_FILL_DATA_LEN` is calculated
+                            // assuming `SpToHost::MAX_SIZE`, but we know in
+                            // this callback we're appending to
+                            // `SpToHost::KeyLookupResult(KeyLookupResult::Ok)`,
+                            // which is only 2 bytes. Recompute the exact max
+                            // space we have for our response, then statically
+                            // guarantee we have sufficient space in `buf` for
+                            // longest possible DTRACE_CONF blob.
+                            #[allow(dead_code)] // suppress warning in nightly
+                            const SP_TO_HOST_FILL_DATA_LEN: usize =
+                                MIN_SP_TO_HOST_FILL_DATA_LEN
+                                    + SpToHost::MAX_SIZE
+                                    - 2;
                             SP_TO_HOST_FILL_DATA_LEN >= MAX_DTRACE_CONF_LEN
-                        );
+                        });
 
                         buf[..response_len].copy_from_slice(
                             &self.host_kv_storage.dtrace_conf[..response_len],
@@ -1326,23 +1343,6 @@ fn sp_to_sp3_interrupt_enable(sys: &sys_api::Sys) {
         sys_api::Speed::Low,
         sys_api::Pull::None,
     );
-}
-
-fn claim_uart_rx_buf() -> &'static mut Vec<u8, MAX_PACKET_SIZE> {
-    use core::sync::atomic::{AtomicBool, Ordering};
-
-    static mut UART_RX_BUF: Vec<u8, MAX_PACKET_SIZE> = Vec::new();
-
-    static TAKEN: AtomicBool = AtomicBool::new(false);
-    if TAKEN.swap(true, Ordering::Relaxed) {
-        panic!()
-    }
-
-    // Safety: unsafe because of references to mutable statics; safe because of
-    // the AtomicBool swap above, combined with the lexical scoping of
-    // `UART_RX_BUF`, means that this reference can't be aliased by any
-    // other reference in the program.
-    unsafe { &mut UART_RX_BUF }
 }
 
 mod idl {

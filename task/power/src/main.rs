@@ -51,7 +51,7 @@ enum PowerState {
     A2,
 }
 
-const TIMER_INTERVAL: u64 = 1000;
+const TIMER_INTERVAL: u32 = 1000;
 
 task_slot!(I2C, i2c_driver);
 task_slot!(SENSOR, sensor);
@@ -419,10 +419,7 @@ fn main() -> ! {
     };
     let mut buffer = [0; idl::INCOMING_SIZE];
 
-    sys_set_timer(
-        Some(sys_get_timer().now + TIMER_INTERVAL),
-        notifications::TIMER_MASK,
-    );
+    userlib::set_timer_relative(TIMER_INTERVAL, notifications::TIMER_MASK);
     loop {
         idol_runtime::dispatch(&mut buffer, &mut server);
     }
@@ -626,10 +623,7 @@ impl idol_runtime::NotificationHandler for ServerImpl {
 
     fn handle_notification(&mut self, _bits: u32) {
         self.handle_timer_fired();
-        sys_set_timer(
-            Some(sys_get_timer().now + TIMER_INTERVAL),
-            notifications::TIMER_MASK,
-        );
+        userlib::set_timer_relative(TIMER_INTERVAL, notifications::TIMER_MASK);
     }
 }
 

@@ -86,6 +86,10 @@ enum Trace {
     DongleDetected,
     Dhcsr(u32),
     ParityFail { data: u32, received_parity: u16 },
+    EnabledWatchdog,
+    DisabledWatchdog,
+    WatchdogFired,
+    WatchdogSwap(Result<(), Ack>),
 }
 
 ringbuf!(Trace, 128, Trace::None);
@@ -484,16 +488,49 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
             Err(_) => Err(SpCtrlError::Fault.into()),
         }
     }
+
+    fn enable_sp_slot_watchdog(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        time_ms: u32,
+    ) -> Result<(), RequestError<SpCtrlError>> {
+        ringbuf_entry!(Trace::EnabledWatchdog);
+        if !self.init {
+            return Err(SpCtrlError::NeedInit.into());
+        }
+        // This function is idempotent(ish), so we don't care if the timer was
+        // already running; set the new deadline based on current time.
+        set_timer_relative(time_ms, notifications::TIMER_MASK);
+        Ok(())
+    }
+
+    fn disable_sp_slot_watchdog(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
+        ringbuf_entry!(Trace::DisabledWatchdog);
+        sys_set_timer(None, notifications::TIMER_MASK);
+        Ok(())
+    }
 }
 
 impl NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
-        // We don't use notifications, don't listen for any.
-        0
+        notifications::TIMER_MASK
     }
 
     fn handle_notification(&mut self, _bits: u32) {
-        unreachable!()
+        ringbuf_entry!(Trace::WatchdogFired);
+
+        // Disable the watchdog timer
+        sys_set_timer(None, notifications::TIMER_MASK);
+
+        // Attempt to do the swap
+        let r = self.swap_sp_slot();
+        ringbuf_entry!(Trace::WatchdogSwap(r));
+
+        // Force reinitialization
+        self.init = false;
     }
 }
 
@@ -737,18 +774,10 @@ impl ServerImpl {
     }
 
     fn swd_dongle_detected(&self) -> bool {
-        cfg_if::cfg_if! {
-            if #[cfg(any(
-                target_board = "oxide-rot-1",
-            ))] {
-                use drv_lpc55_gpio_api::*;
+        use drv_lpc55_gpio_api::*;
 
-                let gpio = Pins::from(self.gpio);
-                gpio.read_val(SP_TO_ROT_JTAG_DETECT_L) == Value::Zero
-            } else {
-                false
-            }
-        }
+        let gpio = Pins::from(self.gpio);
+        gpio.read_val(SP_TO_ROT_JTAG_DETECT_L) == Value::Zero
     }
 
     fn swd_setup(&mut self) -> Result<(), Ack> {
@@ -972,6 +1001,68 @@ impl ServerImpl {
     fn pin_setup(&mut self) {
         setup_pins(self.gpio).unwrap_lite();
     }
+
+    /// Swaps the currently-active SP slot
+    fn swap_sp_slot(&mut self) -> Result<(), Ack> {
+        // All registers and constants are within the FLASH peripheral block, so
+        // I'm going to skip prefixing everything with `FLASH_`.
+
+        // RM0433 Table 8
+        const BASE: u32 = 0x52002000;
+
+        // RM0433 Section 4
+        const OPTCR: u32 = BASE + 0x018;
+        const OPTCR_OPTLOCK_BIT: u32 = 1 << 0;
+        const OPTCR_OPTSTART_BIT: u32 = 1 << 1;
+
+        // Check whether we have to unlock the flash control register
+        let optcr = self.read_single_target_addr(OPTCR)?;
+        if optcr & OPTCR_OPTLOCK_BIT != 0 {
+            // Keys constants are defined in RM0433 Rev 7
+            // Section 4.9.3
+            const OPT_KEY1: u32 = 0x0819_2A3B;
+            const OPT_KEY2: u32 = 0x4C5D_6E7F;
+            const OPTKEYR: u32 = BASE + 0x008;
+            self.write_single_target_addr(OPTKEYR, OPT_KEY1)?;
+            self.write_single_target_addr(OPTKEYR, OPT_KEY2)?;
+        }
+
+        // Read the current bank swap bit
+        const OPTSR_CUR: u32 = BASE + 0x01C;
+        const OPTSR_SWAP_BANK_OPT_BIT: u32 = 1 << 31;
+        const OPTSR_OPT_BUSY_BIT: u32 = 1 << 0;
+        let optsr_cur = self.read_single_target_addr(OPTSR_CUR)?;
+
+        // Mask and toggle the bank swap bit
+        let new_swap =
+            (optsr_cur & OPTSR_SWAP_BANK_OPT_BIT) ^ OPTSR_SWAP_BANK_OPT_BIT;
+
+        // Modify the bank swap bit in OPTSR_PRG
+        const OPTSR_PRG: u32 = BASE + 0x020;
+        let mut optsr_prg = self.read_single_target_addr(OPTSR_PRG)?;
+        optsr_prg = (optsr_prg & !OPTSR_SWAP_BANK_OPT_BIT) | new_swap;
+        self.write_single_target_addr(OPTSR_PRG, optsr_prg)?;
+
+        // Start programming option bits
+        let mut optcr = self.read_single_target_addr(OPTCR)?;
+        optcr |= OPTCR_OPTSTART_BIT;
+        self.write_single_target_addr(OPTCR, optcr)?;
+
+        // Wait for option bit programming to finish
+        while self.read_single_target_addr(OPTSR_CUR)? & OPTSR_OPT_BUSY_BIT != 0
+        {
+            hl::sleep_for(5);
+        }
+
+        // Reset the STM32, causing it to reboot into the newly-set slot
+        use drv_lpc55_gpio_api::{Pins, Value};
+        let gpio = Pins::from(self.gpio);
+        gpio.set_val(ROT_TO_SP_RESET_L, Value::Zero);
+        hl::sleep_for(10);
+        gpio.set_val(ROT_TO_SP_RESET_L, Value::One);
+
+        Ok(())
+    }
 }
 
 #[export_name = "main"]
@@ -1015,3 +1106,4 @@ mod idl {
 
 include!(concat!(env!("OUT_DIR"), "/pin_config.rs"));
 include!(concat!(env!("OUT_DIR"), "/swd.rs"));
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

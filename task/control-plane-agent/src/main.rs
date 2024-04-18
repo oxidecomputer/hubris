@@ -14,8 +14,8 @@ use host_sp_messages::HostStartupOptions;
 use idol_runtime::{
     ClientError, Leased, LenLimit, NotificationHandler, RequestError,
 };
-use mutable_statics::mutable_statics;
 use ringbuf::{counted_ringbuf, ringbuf_entry};
+use static_cell::ClaimOnceCell;
 use task_control_plane_agent_api::MAX_INSTALLINATOR_IMAGE_ID_LEN;
 use task_control_plane_agent_api::{
     BarcodeParseError, ControlPlaneAgentError, UartClient, VpdIdentity,
@@ -454,19 +454,20 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
 
 struct NetHandler {
     net: Net,
-    tx_buf: &'static mut [u8; gateway_messages::MAX_SERIALIZED_SIZE],
-    rx_buf: &'static mut [u8; gateway_messages::MAX_SERIALIZED_SIZE],
+    tx_buf: &'static mut NetBuf,
+    rx_buf: &'static mut NetBuf,
     packet_to_send: Option<UdpMetadata>,
 }
 
+type NetBuf = [u8; gateway_messages::MAX_SERIALIZED_SIZE];
+
 impl NetHandler {
     fn claim_static_resources() -> Self {
-        let (tx_buf, rx_buf) = mutable_statics! {
-            static mut NET_TX_BUF: [u8; gateway_messages::MAX_SERIALIZED_SIZE] =
-                [|| 0; _];
-
-            static mut NET_RX_BUF: [u8; gateway_messages::MAX_SERIALIZED_SIZE] =
-                [|| 0; _];
+        let [tx_buf, rx_buf] = {
+            static BUFS: ClaimOnceCell<[NetBuf; 2]> = ClaimOnceCell::new(
+                [[0; gateway_messages::MAX_SERIALIZED_SIZE]; 2],
+            );
+            BUFS.claim()
         };
         Self {
             net: Net::from(NET.get_task_id()),

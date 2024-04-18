@@ -103,8 +103,8 @@ impl idl::InOrderMeanwellImpl for ServerImpl {
 task_slot!(USER_LEDS, user_leds);
 task_slot!(SYS, sys);
 
-const TIMER_INTERVAL_LONG: u64 = 900;
-const TIMER_INTERVAL_SHORT: u64 = 100;
+const TIMER_INTERVAL_LONG: u32 = 900;
+const TIMER_INTERVAL_SHORT: u32 = 100;
 
 impl NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
@@ -115,17 +115,21 @@ impl NotificationHandler for ServerImpl {
         let user_leds =
             drv_user_leds_api::UserLeds::from(USER_LEDS.get_task_id());
 
-        if !self.led_on {
+        let interval = if !self.led_on {
             user_leds.led_on(LED_INDEX).unwrap();
             self.led_on = true;
-            self.deadline += TIMER_INTERVAL_SHORT;
+            TIMER_INTERVAL_SHORT
         } else {
             user_leds.led_off(LED_INDEX).unwrap();
             self.led_on = false;
-            self.deadline += TIMER_INTERVAL_LONG;
-        }
+            TIMER_INTERVAL_LONG
+        };
 
-        sys_set_timer(Some(self.deadline), notifications::TIMER_MASK);
+        // This is technically slightly wrong in that, if there's CPU
+        // contention, the LEDs may blink at slightly lower than their intended
+        // frequency. But since the frequency isn't load-bearing, this is
+        // significantly less code:
+        self.deadline = set_timer_relative(interval, notifications::TIMER_MASK);
     }
 }
 

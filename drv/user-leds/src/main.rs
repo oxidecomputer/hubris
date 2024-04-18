@@ -45,7 +45,7 @@ task_config::optional_task_config! {
     blink_at_start: &'static [Led],
 }
 
-const BLINK_INTERVAL: u64 = 500;
+const BLINK_INTERVAL: u32 = 500;
 
 cfg_if::cfg_if! {
     // Target boards with 4 leds
@@ -148,10 +148,7 @@ impl idl::InOrderUserLedsImpl for ServerImpl {
         self.blinking[led] = true;
 
         if !any_blinking {
-            sys_set_timer(
-                Some(sys_get_timer().now + BLINK_INTERVAL),
-                notifications::TIMER_MASK,
-            );
+            set_timer_relative(BLINK_INTERVAL, notifications::TIMER_MASK);
         }
         Ok(())
     }
@@ -172,10 +169,7 @@ impl idol_runtime::NotificationHandler for ServerImpl {
                 }
             }
             if any_blinking {
-                sys_set_timer(
-                    Some(sys_get_timer().now + BLINK_INTERVAL),
-                    notifications::TIMER_MASK,
-                );
+                set_timer_relative(BLINK_INTERVAL, notifications::TIMER_MASK);
             }
         }
     }
@@ -193,10 +187,7 @@ fn main() -> ! {
             blinking[led] = true;
         }
         if !config.blink_at_start.is_empty() {
-            sys_set_timer(
-                Some(sys_get_timer().now + BLINK_INTERVAL),
-                notifications::TIMER_MASK,
-            );
+            set_timer_relative(BLINK_INTERVAL, notifications::TIMER_MASK);
         }
     }
     let mut server = ServerImpl { blinking };

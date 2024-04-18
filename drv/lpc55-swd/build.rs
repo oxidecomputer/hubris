@@ -100,6 +100,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         )?;
 
     build_util::expose_target_board();
+    build_util::build_notifications()?;
 
     let task_config = build_util::task_config::<TaskConfig>()?;
 

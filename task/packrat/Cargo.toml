@@ -13,6 +13,7 @@ zerocopy.workspace = true
 drv-gimlet-seq-api = { path = "../../drv/gimlet-seq-api", optional = true }
 mutable-statics = { path = "../../lib/mutable-statics" }
 ringbuf = { path = "../../lib/ringbuf"  }
+static-cell = { path = "../../lib/static-cell" }
 task-packrat-api = { path = "../packrat-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 

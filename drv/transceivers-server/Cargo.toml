@@ -12,8 +12,8 @@ drv-sidecar-front-io = { path = "../sidecar-front-io", features = ["transceivers
 drv-sidecar-seq-api = { path = "../sidecar-seq-api" }
 drv-transceivers-api = { path = "../transceivers-api" }
 multitimer = { path = "../../lib/multitimer" }
-mutable-statics = { path = "../../lib/mutable-statics" }
 ringbuf = { path = "../../lib/ringbuf" }
+static-cell = { path = "../../lib/static-cell" }
 task-net-api = { path = "../../task/net-api" }
 task-sensor-api = { path = "../../task/sensor-api" }
 task-thermal-api = { path = "../../task/thermal-api" }
