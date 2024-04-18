@@ -14,6 +14,7 @@ zerocopy.workspace = true
 zerocopy-derive.workspace = true
 
 drv-cpu-seq-api = { path = "../../drv/cpu-seq-api", optional = true }
+drv-front-io-api = { path = "../../drv/front-io-api", optional = true }
 drv-sidecar-seq-api = { path = "../../drv/sidecar-seq-api", optional = true }
 drv-transceivers-api = { path = "../../drv/transceivers-api", optional = true }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
@@ -38,7 +39,7 @@ build-util = { path = "../../build/util" }
 [features]
 gimlet = ["drv-cpu-seq-api", "h753"]
 cosmo = ["drv-cpu-seq-api", "h753"]
-sidecar = ["drv-sidecar-seq-api", "drv-transceivers-api", "h753"]
+sidecar = ["drv-sidecar-seq-api", "drv-front-io-api", "drv-transceivers-api", "h753"]
 medusa = ["h753", "drv-transceivers-api"]
 grapefruit = ["h753"]
 minibar = ["h753"]

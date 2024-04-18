@@ -8,6 +8,7 @@
 
 use derive_idol_err::IdolError;
 use drv_fpga_api::FpgaError;
+use drv_front_io_api::FrontIOError;
 pub use drv_sidecar_mainboard_controller::{
     fan_modules::{FanModuleStatus, NUM_FAN_MODULES},
     tofino2::{
@@ -36,6 +37,7 @@ pub enum SeqError {
     NoFrontIOBoard,
     FrontIOBoardPowerFault,
     FrontIOPowerNotGood,
+    FrontIOError,
 
     #[idol(server_death)]
     ServerRestarted,
@@ -44,6 +46,12 @@ pub enum SeqError {
 impl From<FpgaError> for SeqError {
     fn from(_: FpgaError) -> Self {
         Self::FpgaError
+    }
+}
+
+impl From<FrontIOError> for SeqError {
+    fn from(_: FrontIOError) -> Self {
+        Self::FrontIOError
     }
 }
 

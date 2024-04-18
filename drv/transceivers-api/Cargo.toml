@@ -13,6 +13,7 @@ zerocopy-derive = { workspace = true }
 counters = { path = "../../lib/counters" }
 derive-idol-err = { path = "../../lib/derive-idol-err" }
 drv-fpga-api = { path = "../fpga-api" }
+drv-front-io-api = { path = "../front-io-api" }
 task-sensor-api = { path = "../../task/sensor-api" }
 userlib = { path = "../../sys/userlib" }
 

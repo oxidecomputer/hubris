@@ -14,6 +14,7 @@ counters = { path = "../../lib/counters" }
 derive-idol-err = { path = "../../lib/derive-idol-err" }
 drv-fpga-api = { path = "../fpga-api" }
 drv-fpga-user-api = { path = "../fpga-user-api" }
+drv-front-io-api = { path = "../front-io-api" }
 drv-sidecar-mainboard-controller = { path = "../sidecar-mainboard-controller" }
 userlib = { path = "../../sys/userlib" }
 
