@@ -206,9 +206,9 @@ fn write_reg_fields(
                     "
 {prefix}        use hubpack::SerializedSize;
 {prefix}        use serde::{{Deserialize, Serialize}};
-
+{prefix}        #[derive(Copy, Clone, Eq, PartialEq, Deserialize, Serialize, SerializedSize)]
+{prefix}        #[repr(u8)]
 {prefix}        #[allow(dead_code)]
-{prefix}        #[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, SerializedSize)]
 {prefix}        pub enum {encode_name} {{"
                 )
                 .unwrap();

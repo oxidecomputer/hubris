@@ -1,0 +1,33 @@
+[package]
+name = "drv-front-io-api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+hubpack.workspace = true
+num-traits.workspace = true
+idol-runtime.workspace = true
+serde.workspace = true
+transceiver-messages.workspace = true
+zerocopy.workspace = true
+zerocopy-derive.workspace = true
+
+counters = { path = "../../lib/counters", features = ["derive"] }
+drv-auxflash-api = { path = "../../drv/auxflash-api" }
+drv-fpga-api = { path = "../fpga-api", features = ["auxflash"] }
+drv-fpga-user-api = { path = "../fpga-user-api" }
+drv-i2c-api = { path = "../i2c-api" }
+drv-i2c-devices = { path = "../i2c-devices" }
+derive-idol-err = { path = "../../lib/derive-idol-err" }
+userlib = { path = "../../sys/userlib" }
+vsc85xx = { path = "../../drv/vsc85xx"  }
+
+[build-dependencies]
+build-fpga-regmap = { path = "../../build/fpga-regmap" }
+build-util = { path = "../../build/util" }
+idol.workspace = true
+
+[lib]
+test = false
+doctest = false
+bench = false

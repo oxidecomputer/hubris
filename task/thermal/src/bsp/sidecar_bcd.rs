@@ -34,7 +34,7 @@ pub const NUM_TEMPERATURE_INPUTS: usize =
 // External temperature inputs, which are provided to the task over IPC
 // In practice, these are our transceivers.
 pub const NUM_DYNAMIC_TEMPERATURE_INPUTS: usize =
-    drv_transceivers_api::NUM_PORTS as usize;
+    drv_front_io_api::transceivers::NUM_PORTS as usize;
 
 // Number of individual fans
 pub const NUM_FANS: usize = sensors::NUM_MAX31790_SPEED_SENSORS;
