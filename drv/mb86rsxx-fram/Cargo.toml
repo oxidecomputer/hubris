@@ -1,0 +1,14 @@
+[package]
+name = "drv-mb86rsxx-fram"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bitflags = { workspace = true }
+
+drv-spi-api = { path = "../spi-api" }
+counters = { path = "../../lib/counters" }
+ringbuf = { path = "../../lib/ringbuf" }
+
+[lints]
+workspace = true
