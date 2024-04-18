@@ -117,6 +117,7 @@ task-slots = [
     "monorail",
     "net",
     "packrat",
+<<<<<<< HEAD
     "rng_driver",
     "sensor",
     "sequencer",
@@ -125,6 +126,9 @@ task-slots = [
     "transceivers",
     "update_server",
     "validate",
+=======
+    "front_io",
+>>>>>>> 33426c6b (Add a front-io-server to service the front-io board)
     "vpd",
 ]
 features = ["sidecar", "vlan", "auxflash", "vpd"]
@@ -172,7 +176,7 @@ max-sizes = {flash = 262144, ram = 16384}
 features = ["mgmt", "sidecar", "vlan", "use-spi-core", "h753", "spi2"]
 stacksize = 4096
 start = true
-task-slots = ["ecp5_front_io", "sys", { seq = "sequencer" }]
+task-slots = ["front_io", "sys", { seq = "sequencer" }]
 uses = ["spi2"]
 notifications = ["spi-irq", "wake-timer"]
 interrupts = {"spi2.irq" = "spi-irq"}
@@ -246,7 +250,6 @@ max-sizes = {flash = 65536, ram = 16384}
 stacksize = 4096
 start = true
 task-slots = [
-    "i2c_driver",
     "net",
     "sensor",
     "sys",
@@ -254,6 +257,19 @@ task-slots = [
     {front_io = "ecp5_front_io"},
     {seq = "sequencer"}]
 notifications = ["socket", "timer"]
+
+[tasks.front_io]
+name = "drv-front-io-server"
+priority = 4
+max-sizes = {flash = 65536, ram = 16384}
+stacksize = 4096
+start = true
+task-slots = [
+    "sys",
+    "auxflash",
+    "i2c_driver",
+    {front_io = "ecp5_front_io"}]
+notifications = ["timer"]
 
 [tasks.packrat]
 name = "task-packrat"
@@ -1169,7 +1185,7 @@ memory-size = 33_554_432 # 256 Mib / 32 MiB
 slot-count = 16 # 2 MiB slots
 
 [[auxflash.blobs]]
-file = "drv/sidecar-front-io/sidecar_qsfp_x32_controller_rev_b_c.bit"
+file = "drv/front-io-api/sidecar_qsfp_x32_controller_rev_b_c.bit"
 compress = true
 tag = "QSFP"
 
