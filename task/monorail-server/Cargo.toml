@@ -5,9 +5,9 @@ edition = "2021"
 
 [dependencies]
 drv-medusa-seq-api = { path = "../../drv/medusa-seq-api", optional = true }
-drv-monorail-api = { path = "../../drv/monorail-api"  }
-drv-sidecar-mainboard-controller = { path = "../../drv/sidecar-mainboard-controller"  }
-drv-sidecar-front-io = { path = "../../drv/sidecar-front-io", features = ["phy_smi"], optional = true }
+drv-front-io-api = { path = "../../drv/front-io-api", optional = true }
+drv-monorail-api = { path = "../../drv/monorail-api" }
+drv-sidecar-mainboard-controller = { path = "../../drv/sidecar-mainboard-controller" }
 drv-sidecar-seq-api = { path = "../../drv/sidecar-seq-api", optional = true }
 drv-spi-api = { path = "../../drv/spi-api" }
 drv-stm32h7-spi-server-core = { path = "../../drv/stm32h7-spi-server-core", optional = true }
@@ -31,9 +31,9 @@ zerocopy-derive.workspace = true
 
 [features]
 leds = ["drv-user-leds-api"]
-medusa = ["drv-medusa-seq-api", "drv-sidecar-front-io"]
+medusa = ["drv-medusa-seq-api", "drv-front-io-api"]
 mgmt = ["task-net-api"]
-sidecar = ["drv-sidecar-seq-api", "drv-sidecar-front-io"]
+sidecar = ["drv-sidecar-seq-api", "drv-front-io-api"]
 minibar = []
 vlan = ["task-net-api?/vlan"]
 no-ipc-counters = ["idol/no-counters"]

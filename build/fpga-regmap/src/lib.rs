@@ -202,7 +202,10 @@ fn write_reg_fields(
                 writeln!(
                     output,
                     "
-{prefix}        #[derive(Copy, Clone, Eq, PartialEq)]
+{prefix}        use hubpack::SerializedSize;
+{prefix}        use serde::{{Deserialize, Serialize}};
+{prefix}        #[derive(Copy, Clone, Eq, PartialEq, Deserialize, Serialize, SerializedSize)]
+{prefix}        #[repr(u8)]
 {prefix}        #[allow(dead_code)]
 {prefix}        pub enum {encode_name} {{"
                 )

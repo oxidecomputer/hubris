@@ -1,38 +1,16 @@
-// Transceivers API
-
+// Transceivers task API
+//
+// Right now, this doesn't actually do anything, but it lets us use the idol
+// runtime for notifications / dispatch.
 Interface(
     name: "Transceivers",
     ops: {
-        "get_module_status": (
-            doc: "Collect the status of each modules control and status signals",
-            reply: Result(
-                ok: "ModuleStatus",
-                err: CLike("TransceiversError"),
-            ),
+        "ping": (
+            doc: "blocks until the server is running",
+            args: {},
+            reply: Simple("()"),
+            idempotent: true,
         ),
-
-        "set_system_led_on": (
-            doc: "Turn on the System LED.",
-            reply: Result(
-                ok: "()",
-                err: CLike("TransceiversError"),
-            ),
-        ),
-
-        "set_system_led_off": (
-            doc: "Turn off the System LED.",
-            reply: Result(
-                ok: "()",
-                err: CLike("TransceiversError"),
-            ),
-        ),
-
-        "set_system_led_blink": (
-            doc: "Blink the System LED.",
-            reply: Result(
-                ok: "()",
-                err: CLike("TransceiversError"),
-            ),
-        ),
-    }
+    },
 )
+

@@ -2,9 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use drv_front_io_api::phy_smi::PhySmi;
 use drv_medusa_seq_api::Sequencer;
 use drv_monorail_api::MonorailError;
-use drv_sidecar_front_io::phy_smi::PhySmi;
 use idol_runtime::{ClientError, RequestError};
 use ringbuf::*;
 use userlib::{task_slot, UnwrapLite};
