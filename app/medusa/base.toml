@@ -263,7 +263,7 @@ memory-size = 33_554_432 # 256 Mib / 32 MiB
 slot-count = 16 # 2 MiB slots
 
 [[auxflash.blobs]]
-file = "drv/sidecar-front-io/sidecar_qsfp_x32_controller_rev_b_c.bit"
+file = "drv/front-io-api/sidecar_qsfp_x32_controller_rev_b_c.bit"
 compress = true
 tag = "QSFP"
 

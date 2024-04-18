@@ -25,6 +25,7 @@ drv-caboose = { path = "../../drv/caboose" }
 drv-caboose-pos = { path = "../../drv/caboose-pos" }
 drv-hf-api = { path = "../../drv/hf-api", optional = true }
 drv-cpu-seq-api = { path = "../../drv/cpu-seq-api", optional = true }
+drv-front-io-api = { path = "../../drv/front-io-api", optional = true }
 drv-ignition-api = { path = "../../drv/ignition-api", optional = true }
 drv-lpc55-update-api = { path = "../../drv/lpc55-update-api" }
 drv-monorail-api = { path = "../../drv/monorail-api", optional = true }
@@ -32,7 +33,6 @@ drv-sidecar-seq-api = { path = "../../drv/sidecar-seq-api", optional = true }
 drv-sprot-api = { path = "../../drv/sprot-api" }
 drv-stm32h7-update-api = { path = "../../drv/stm32h7-update-api" }
 drv-stm32h7-usart = { path = "../../drv/stm32h7-usart", features = ["h753"], optional = true }
-drv-transceivers-api = { path = "../../drv/transceivers-api", optional = true }
 drv-update-api = { path = "../../drv/update-api" }
 drv-user-leds-api = { path = "../../drv/user-leds-api", optional = true }
 drv-rng-api = { path = "../../drv/rng-api", optional = true }
@@ -64,7 +64,7 @@ no-ipc-counters = ["idol/no-counters"]
 compute-sled = ["drv-hf-api", "drv-cpu-seq-api", "drv-stm32h7-usart", "drv-user-leds-api"]
 gimlet = ["compute-sled"]
 cosmo = ["compute-sled"]
-sidecar = ["drv-sidecar-seq-api", "drv-monorail-api", "drv-ignition-api", "drv-transceivers-api", "p256", "sha2", "drv-rng-api"]
+sidecar = ["drv-sidecar-seq-api", "drv-monorail-api", "drv-ignition-api", "drv-front-io-api", "p256", "sha2", "drv-rng-api"]
 psc = ["drv-user-leds-api"]
 vpd = ["task-vpd-api"]
 vlan = ["task-net-api/vlan"]

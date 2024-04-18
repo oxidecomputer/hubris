@@ -1,0 +1,351 @@
+// Front IO API
+
+Interface(
+    name: "FrontIO",
+    ops: {
+        "set_power_enable": (
+            args: {
+                "enable": "bool",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("FrontIOError"),
+            ),
+        ),
+
+        "power_good": (
+            args: {},
+            reply: Simple("bool"),
+            idempotent: true,
+        ),
+
+        "power_rail_status": (
+            args: {},
+            reply: Result(
+                ok: (
+                    type: "PowerRailStatus",
+                    recv: FromPrimitive("u8"),
+                ),
+                err: CLike("FrontIOError"),
+            ),
+        ),
+
+        "power_on": (
+            args: {},
+            reply: Result(
+                ok: "()",
+                err: CLike("FrontIOError"),
+            ),
+        ),
+
+        "board_reset": (
+            args: {},
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+
+        "board_status": (
+            args: {},
+            reply: Simple("FrontIOStatus"),
+            idempotent: true,
+            encoding: Hubpack,
+        ),
+
+        "board_present": (
+            args: {},
+            reply: Simple("bool"),
+            idempotent: true,
+        ),
+
+        "board_ready": (
+            args: {},
+            reply: Simple("bool"),
+            idempotent: true,
+        ),
+
+        "phy_reset": (
+            args: {},
+            reply: Result(
+                ok: "()",
+                err: CLike("FrontIOError"),
+            ),
+        ),
+
+        "phy_osc_state": (
+            args: {},
+            reply: Result(
+                ok: (
+                    type: "PhyOscState",
+                    recv: FromPrimitive("u8"),
+                ),
+                err: CLike("FrontIOError"),
+            ),
+        ),
+
+        "phy_ready": (
+            args: {},
+            reply: Result(
+                ok: "bool",
+                err: CLike("FrontIOError"),
+            ),
+        ),
+
+        "phy_set_osc_state": (
+            args: {
+                "good": "bool",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("FrontIOError"),
+            ),
+        ),
+
+        "phy_enable_power": (
+            args: {},
+            reply: Result(
+                ok: "()",
+                err: CLike("FrontIOError"),
+            ),
+        ),
+
+        "phy_disable_power": (
+            args: {},
+            reply: Result(
+                ok: "()",
+                err: CLike("FrontIOError"),
+            ),
+        ),
+
+        "phy_set_coma_mode": (
+            args: {
+                "asserted": "bool",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("FrontIOError"),
+            ),
+        ),
+
+        "phy_read": (
+            args: {
+                "phy": "u8",
+                "reg": "u8",
+            },
+            reply: Result(
+                ok: "u16",
+                err: CLike("FrontIOError"),
+            ),
+        ),
+
+        "phy_write": (
+            args: {
+                "phy": "u8",
+                "reg": "u8",
+                "value": "u16",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("FrontIOError"),
+            ),
+        ),
+
+        "leds_assert_reset": (
+            args: {},
+            reply: Result(
+                ok: "()",
+                err: CLike("FrontIOError"),
+            ),
+        ),
+
+        "leds_deassert_reset": (
+            args: {},
+            reply: Result(
+                ok: "()",
+                err: CLike("FrontIOError"),
+            ),
+        ),
+
+        "leds_enable": (
+            args: {},
+            reply: Result(
+                ok: "()",
+                err: CLike("FrontIOError"),
+            ),
+        ),
+
+        "leds_disable": (
+            args: {},
+            reply: Result(
+                ok: "()",
+                err: CLike("FrontIOError"),
+            ),
+        ),
+
+        "led_set_state": (
+            args: {
+                "mask": "LogicalPortMask",
+                "state": "LedState",
+            },
+            reply: Simple("()"),
+            idempotent: true,
+            encoding: Hubpack,
+        ),
+
+        "led_get_state": (
+            args: {
+                "mask": "LogicalPort",
+            },
+            reply: Simple("LedState"),
+            idempotent: true,
+            encoding: Hubpack,
+        ),
+
+        "led_set_system_on": (
+            doc: "Turn on the System LED.",
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+
+        "led_set_system_off": (
+            doc: "Turn off the System LED.",
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+
+        "led_set_system_blink": (
+            doc: "Blink the System LED.",
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+
+        "led_get_system_state": (
+            args: {},
+            reply: Simple("LedState"),
+            idempotent: true,
+            encoding: Hubpack,
+        ),
+
+        "transceivers_status": (
+            args: {},
+            reply: Simple("TransceiverStatus"),
+            idempotent: true,
+        ),
+
+        "transceivers_enable_power": (
+            args: {
+                "mask": "LogicalPortMask",
+            },
+            reply: Simple("ModuleResultNoFailure"),
+            idempotent: true,
+        ),
+
+        "transceivers_disable_power": (
+            args: {
+                "mask": "LogicalPortMask",
+            },
+            reply: Simple("ModuleResultNoFailure"),
+            idempotent: true,
+        ),
+
+        "transceivers_clear_power_fault": (
+            args: {
+                "mask": "LogicalPortMask",
+            },
+            reply: Simple("ModuleResultNoFailure"),
+            idempotent: true,
+        ),
+
+        "transceivers_assert_reset": (
+            args: {
+                "mask": "LogicalPortMask",
+            },
+            reply: Simple("ModuleResultNoFailure"),
+            idempotent: true,
+        ),
+
+        "transceivers_deassert_reset": (
+            args: {
+                "mask": "LogicalPortMask",
+            },
+            reply: Simple("ModuleResultNoFailure"),
+            idempotent: true,
+        ),
+
+        "transceivers_assert_lpmode": (
+            args: {
+                "mask": "LogicalPortMask",
+            },
+            reply: Simple("ModuleResultNoFailure"),
+            idempotent: true,
+        ),
+
+        "transceivers_deassert_lpmode": (
+            args: {
+                "mask": "LogicalPortMask",
+            },
+            reply: Simple("ModuleResultNoFailure"),
+            idempotent: true,
+        ),
+
+        "transceivers_setup_i2c_read": (
+            args: {
+                "reg": "u8",
+                "num_bytes": "u8",
+                "mask": "LogicalPortMask",
+            },
+            reply: Result(
+                ok: "ModuleResultNoFailure",
+                err: CLike("FrontIOError"),
+            ),
+        ),
+
+        "transceivers_setup_i2c_write": (
+            args: {
+                "reg": "u8",
+                "num_bytes": "u8",
+                "mask": "LogicalPortMask",
+            },
+            reply: Result(
+                ok: "ModuleResultNoFailure",
+                err: CLike("FrontIOError"),
+            ),
+        ),
+
+        "transceivers_get_i2c_status_and_read_buffer": (
+            args: {
+                "port": "LogicalPort",
+            },
+            leases: {
+                "dest": (type: "[u8]", write: true),
+            },
+            reply: Result(
+                ok: "PortI2CStatus",
+                err: CLike("FrontIOError"),
+            ),
+            encoding: Hubpack,
+        ),
+
+        "transceivers_set_i2c_write_buffer": (
+            args: {
+                "mask": "LogicalPortMask",
+            },
+            leases: {
+                "data": (type: "[u8]", read: true),
+            },
+            reply: Result(
+                ok: "ModuleResultNoFailure",
+                err: CLike("FrontIOError"),
+            ),
+            encoding: Hubpack,
+        ),
+
+        "transceivers_wait_and_check_i2c": (
+            args: {
+                "mask": "LogicalPortMask",
+            },
+            reply: Simple("ModuleResult"),
+            idempotent: true,
+            encoding: Hubpack,
+        ),
+    },
+)

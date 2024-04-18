@@ -1213,6 +1213,59 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-front-io-api"
+version = "0.1.0"
+dependencies = [
+ "build-fpga-regmap",
+ "build-util",
+ "counters",
+ "derive-idol-err",
+ "drv-auxflash-api",
+ "drv-fpga-api",
+ "drv-fpga-user-api",
+ "drv-i2c-api",
+ "drv-i2c-devices",
+ "hubpack",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "serde",
+ "transceiver-messages",
+ "userlib",
+ "vsc85xx",
+ "zerocopy 0.8.25",
+ "zerocopy-derive 0.8.25",
+]
+
+[[package]]
+name = "drv-front-io-server"
+version = "0.1.0"
+dependencies = [
+ "build-i2c",
+ "build-util",
+ "drv-auxflash-api",
+ "drv-fpga-api",
+ "drv-fpga-user-api",
+ "drv-front-io-api",
+ "drv-i2c-api",
+ "drv-i2c-devices",
+ "drv-sidecar-mainboard-controller",
+ "drv-stm32xx-sys-api",
+ "drv-transceivers-api",
+ "enum-map",
+ "hubpack",
+ "idol",
+ "idol-runtime",
+ "multitimer",
+ "num-traits",
+ "ringbuf",
+ "serde",
+ "userlib",
+ "zerocopy 0.8.25",
+ "zerocopy-derive 0.8.25",
+]
+
+[[package]]
 name = "drv-gimlet-hf-server"
 version = "0.1.0"
 dependencies = [
@@ -1254,6 +1307,7 @@ dependencies = [
  "drv-stm32h7-spi",
  "drv-stm32xx-sys-api",
  "gnarle",
+ "hubpack",
  "idol",
  "idol-runtime",
  "num-derive 0.4.2",
@@ -1771,11 +1825,11 @@ dependencies = [
  "cortex-m",
  "drv-fpga-api",
  "drv-fpga-user-api",
+ "drv-front-io-api",
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-medusa-seq-api",
  "drv-packrat-vpd-loader",
- "drv-sidecar-front-io",
  "drv-sidecar-mainboard-controller",
  "drv-stm32xx-sys-api",
  "hubpack",
@@ -2041,31 +2095,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "drv-sidecar-front-io"
-version = "0.1.0"
-dependencies = [
- "build-fpga-regmap",
- "build-util",
- "cfg-if",
- "drv-auxflash-api",
- "drv-fpga-api",
- "drv-i2c-api",
- "drv-i2c-devices",
- "drv-transceivers-api",
- "gnarle",
- "idol",
- "num-derive 0.4.2",
- "num-traits",
- "ringbuf",
- "transceiver-messages",
- "userlib",
- "vsc7448-pac",
- "vsc85xx",
- "zerocopy 0.8.25",
- "zerocopy-derive 0.8.25",
-]
-
-[[package]]
 name = "drv-sidecar-mainboard-controller"
 version = "0.1.0"
 dependencies = [
@@ -2106,6 +2135,7 @@ dependencies = [
  "derive-idol-err",
  "drv-fpga-api",
  "drv-fpga-user-api",
+ "drv-front-io-api",
  "drv-sidecar-mainboard-controller",
  "hubpack",
  "idol",
@@ -2128,13 +2158,12 @@ dependencies = [
  "cortex-m",
  "drv-fpga-api",
  "drv-fpga-user-api",
+ "drv-front-io-api",
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-packrat-vpd-loader",
- "drv-sidecar-front-io",
  "drv-sidecar-mainboard-controller",
  "drv-sidecar-seq-api",
- "drv-stm32xx-sys-api",
  "hubpack",
  "idol",
  "idol-runtime",
@@ -2625,6 +2654,7 @@ dependencies = [
  "counters",
  "derive-idol-err",
  "drv-fpga-api",
+ "drv-front-io-api",
  "idol",
  "idol-runtime",
  "num-traits",
@@ -2639,21 +2669,17 @@ dependencies = [
 name = "drv-transceivers-server"
 version = "0.1.0"
 dependencies = [
- "build-i2c",
  "build-util",
  "cfg-if",
  "counters",
  "drv-fpga-api",
- "drv-i2c-api",
- "drv-i2c-devices",
- "drv-sidecar-front-io",
+ "drv-front-io-api",
  "drv-sidecar-seq-api",
  "drv-transceivers-api",
  "enum-map",
  "hubpack",
  "idol",
  "idol-runtime",
- "multitimer",
  "num-traits",
  "ringbuf",
  "serde",
@@ -3341,7 +3367,7 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 [[package]]
 name = "idol"
 version = "0.5.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#6c54f3b87c58f329b07d5bf736624cf591b7c8c5"
+source = "git+https://github.com/oxidecomputer/idolatry.git#7df9c0d9eefed605e5d108f33e42c1e27e1ee11d"
 dependencies = [
  "indexmap 1.9.1",
  "once_cell",
@@ -5216,6 +5242,7 @@ dependencies = [
  "drv-caboose",
  "drv-caboose-pos",
  "drv-cpu-seq-api",
+ "drv-front-io-api",
  "drv-hf-api",
  "drv-ignition-api",
  "drv-lpc55-update-api",
@@ -5225,7 +5252,6 @@ dependencies = [
  "drv-sprot-api",
  "drv-stm32h7-update-api",
  "drv-stm32h7-usart",
- "drv-transceivers-api",
  "drv-update-api",
  "drv-user-leds-api",
  "dump-agent-api",
@@ -5554,9 +5580,9 @@ dependencies = [
  "build-util",
  "cfg-if",
  "counters",
+ "drv-front-io-api",
  "drv-medusa-seq-api",
  "drv-monorail-api",
- "drv-sidecar-front-io",
  "drv-sidecar-mainboard-controller",
  "drv-sidecar-seq-api",
  "drv-spi-api",
@@ -5869,6 +5895,7 @@ dependencies = [
  "cortex-m",
  "counters",
  "drv-cpu-seq-api",
+ "drv-front-io-api",
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-onewire",

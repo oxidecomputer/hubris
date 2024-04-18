@@ -9,7 +9,6 @@ use drv_fpga_api::*;
 include!(concat!(env!("OUT_DIR"), "/sidecar_mainboard_controller.rs"));
 
 pub mod fan_modules;
-pub mod front_io;
 pub mod ignition;
 pub mod tofino2;
 

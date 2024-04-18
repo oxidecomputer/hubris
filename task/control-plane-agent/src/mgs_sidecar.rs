@@ -6,10 +6,10 @@ use crate::{
     mgs_common::MgsCommon, update::rot::RotUpdate, update::sp::SpUpdate,
     update::ComponentUpdater, usize_max, CriticalEvent, Log, MgsMessage,
 };
+use drv_front_io_api::FrontIO;
 use drv_ignition_api::IgnitionError;
 use drv_monorail_api::{Monorail, MonorailError};
 use drv_sidecar_seq_api::Sequencer;
-use drv_transceivers_api::Transceivers;
 use enum_map::EnumMap;
 use gateway_messages::sp_impl::{
     BoundsChecked, DeviceDescription, Sender, SpHandler,
@@ -44,8 +44,8 @@ use ignition_handler::IgnitionController;
 
 userlib::task_slot!(SIDECAR_SEQ, sequencer);
 userlib::task_slot!(MONORAIL, monorail);
-userlib::task_slot!(TRANSCEIVERS, transceivers);
 userlib::task_slot!(RNG, rng_driver);
+userlib::task_slot!(FRONT_IO, front_io);
 
 #[allow(dead_code)] // Not all cases are used by all variants
 #[derive(Clone, Copy, PartialEq, ringbuf::Count)]
@@ -131,7 +131,7 @@ pub(crate) struct MgsHandler {
     common: MgsCommon,
     sequencer: Sequencer,
     monorail: Monorail,
-    transceivers: Transceivers,
+    front_io: FrontIO,
     ignition: IgnitionController,
 
     last_challenge: Option<(UnlockChallenge, u64)>,
@@ -147,7 +147,7 @@ impl MgsHandler {
             common: MgsCommon::claim_static_resources(base_mac_address),
             sequencer: Sequencer::from(SIDECAR_SEQ.get_task_id()),
             monorail: Monorail::from(MONORAIL.get_task_id()),
-            transceivers: Transceivers::from(TRANSCEIVERS.get_task_id()),
+            front_io: FrontIO::from(FRONT_IO.get_task_id()),
             ignition: IgnitionController::new(),
 
             last_challenge: None,
@@ -654,16 +654,15 @@ impl SpHandler for MgsHandler {
                 use gateway_messages::LedComponentAction;
                 match action {
                     LedComponentAction::TurnOn => {
-                        self.transceivers.set_system_led_on()
+                        self.front_io.led_set_system_on();
                     }
                     LedComponentAction::Blink => {
-                        self.transceivers.set_system_led_blink()
+                        self.front_io.led_set_system_blink();
                     }
                     LedComponentAction::TurnOff => {
-                        self.transceivers.set_system_led_off()
+                        self.front_io.led_set_system_off();
                     }
                 }
-                .unwrap();
                 Ok(ComponentActionResponse::Ack)
             }
             (SpComponent::MONORAIL, ComponentAction::Monorail(action)) => {

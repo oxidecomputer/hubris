@@ -87,7 +87,7 @@ task-slots = ["sys"]
 [tasks.net]
 name = "task-net"
 stacksize = 10000
-priority = 5
+priority = 6
 features = ["mgmt", "h753", "sidecar", "vlan", "vpd-mac", "use-spi-core", "spi3"]
 max-sizes = {flash = 131072, ram = 131072, sram1_mac = 16384}
 sections = {eth_bulk = "sram1_mac"}
@@ -103,7 +103,7 @@ task-slots = ["sys", "packrat", { seq = "sequencer" }, "jefe"]
 
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
-priority = 7
+priority = 8
 # This is a big number -- do we need to tune this?
 stacksize = 12000
 start = true
@@ -121,9 +121,9 @@ task-slots = [
     "sequencer",
     "sprot",
     "sys",
-    "transceivers",
     "update_server",
     "validate",
+    "front_io",
     "vpd",
 ]
 features = ["sidecar", "vlan", "auxflash", "vpd"]
@@ -146,7 +146,7 @@ interrupts = {"spi4.irq" = "spi-irq"}
 
 [tasks.udpecho]
 name = "task-udpecho"
-priority = 6
+priority = 7
 max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
@@ -156,7 +156,7 @@ notifications = ["socket"]
 
 [tasks.udpbroadcast]
 name = "task-udpbroadcast"
-priority = 6
+priority = 7
 max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
@@ -171,7 +171,7 @@ max-sizes = {flash = 262144, ram = 16384}
 features = ["mgmt", "sidecar", "vlan", "use-spi-core", "h753", "spi2"]
 stacksize = 4096
 start = true
-task-slots = ["ecp5_front_io", "sys", { seq = "sequencer" }]
+task-slots = ["front_io", "sys", { seq = "sequencer" }]
 uses = ["spi2"]
 notifications = ["spi-irq", "wake-timer"]
 interrupts = {"spi2.irq" = "spi-irq"}
@@ -240,19 +240,32 @@ interrupts = {"spi1.irq" = "spi-irq"}
 [tasks.transceivers]
 name = "drv-transceivers-server"
 features = ["vlan", "thermal-control"]
-priority = 6
+priority = 7
 max-sizes = {flash = 65536, ram = 16384}
 stacksize = 4096
 start = true
 task-slots = [
-    "i2c_driver",
     "net",
     "sensor",
     "sys",
     "thermal",
-    {front_io = "ecp5_front_io"},
+    "front_io",
     {seq = "sequencer"}]
 notifications = ["socket", "timer"]
+
+[tasks.front_io]
+name = "drv-front-io-server"
+priority = 4
+max-sizes = {flash = 65536, ram = 16384}
+stacksize = 4096
+start = true
+task-slots = [
+    "sys",
+    "auxflash",
+    "i2c_driver",
+    {mainboard = "ecp5_mainboard"},
+    {front_io = "ecp5_front_io"}]
+notifications = ["timer"]
 
 [tasks.packrat]
 name = "task-packrat"
@@ -264,22 +277,21 @@ task-slots = []
 
 [tasks.sequencer]
 name = "drv-sidecar-seq-server"
-priority = 4
+priority = 5
 stacksize = 4096
 start = true
 task-slots = [
-    "sys",
     "i2c_driver",
     "auxflash",
     "packrat",
-    {mainboard = "ecp5_mainboard"},
-    {front_io = "ecp5_front_io"}]
+    "front_io",
+    {mainboard = "ecp5_mainboard"}]
 notifications = ["timer"]
 
 [tasks.thermal]
 name = "task-thermal"
 features = ["sidecar"]
-priority = 5
+priority = 6
 max-sizes = {flash = 32768, ram = 16384 }
 stacksize = 8096
 start = true
@@ -307,7 +319,7 @@ task-slots = ["i2c_driver"]
 [tasks.ignition]
 name = "drv-ignition-server"
 features = ["sequencer"]
-priority = 5
+priority = 6
 max-sizes = {flash = 16384, ram = 8192}
 stacksize = 2048
 start = true
@@ -324,7 +336,7 @@ stacksize = 800
 
 [tasks.dump_agent]
 name = "task-dump-agent"
-priority = 6
+priority = 7
 max-sizes = {flash = 32768, ram = 16384 }
 start = true
 task-slots = ["sprot", "jefe", "net"]
@@ -335,7 +347,7 @@ features = ["net", "vlan"]
 
 [tasks.idle]
 name = "task-idle"
-priority = 8
+priority = 10
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true
@@ -1168,7 +1180,7 @@ memory-size = 33_554_432 # 256 Mib / 32 MiB
 slot-count = 16 # 2 MiB slots
 
 [[auxflash.blobs]]
-file = "drv/sidecar-front-io/sidecar_qsfp_x32_controller_rev_b_c.bit"
+file = "drv/front-io-api/sidecar_qsfp_x32_controller_rev_b_c.bit"
 compress = true
 tag = "QSFP"
 

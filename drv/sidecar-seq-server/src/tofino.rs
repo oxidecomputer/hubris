@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::*;
+use drv_fpga_user_api::power_rail::PowerRailStatus;
 use drv_i2c_devices::raa229618::Raa229618;
 
 pub(crate) struct Tofino {
