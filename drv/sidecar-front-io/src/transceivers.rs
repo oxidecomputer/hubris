@@ -1198,7 +1198,7 @@ impl Transceivers {
         #[repr(C)]
         struct BusyAndPortStatus {
             busy: u16,
-            status: [u8; 8],
+            status: [u8; 16],
         }
         for fpga_index in phys_mask.iter_fpgas() {
             let fpga = self.fpga(fpga_index);
