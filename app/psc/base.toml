@@ -427,12 +427,6 @@ outputs = [
 ]
 input = {port = "I", pin = 2, af = 5}
 
-[config.spi.spi2.mux_options.port_b]
-outputs = [
-    {port = "B", pins = [13, 15], af = 5},
-]
-input = {port = "B", pin = 14, af = 5}
-
 [config.spi.spi2.devices.ksz8463]
 mux = "port_i"
 cs = [{port = "I", pin = 0}]

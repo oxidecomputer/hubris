@@ -3,6 +3,14 @@ board = "psc-c"
 
 inherit = "base.toml"
 
+# N.B. that the FRAM device is only present on rev-C PSC boards and later, so
+# this mux config isn't needed on earlier revisions.
+[config.spi.spi2.mux_options.port_b]
+outputs = [
+    {port = "B", pins = [13, 15], af = 5},
+]
+input = {port = "B", pin = 14, af = 5}
+
 [config.spi.spi2.devices.mb86rs64t]
 mux = "port_b"
 cs = [{port = "B", pin = 12}]
