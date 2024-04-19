@@ -6,7 +6,7 @@ fwid = true
 
 [kernel]
 name = "psc"
-requires = {flash = 32768, ram = 4880}
+requires = {flash = 32868, ram = 5216}
 features = ["dump"]
 
 [caboose]
@@ -426,6 +426,12 @@ outputs = [
     {port = "I", pins = [1, 3], af = 5},
 ]
 input = {port = "I", pin = 2, af = 5}
+
+[config.spi.spi2.mux_options.port_b]
+outputs = [
+    {port = "B", pins = [13, 15], af = 5},
+]
+input = {port = "B", pin = 14, af = 5}
 
 [config.spi.spi2.devices.ksz8463]
 mux = "port_i"

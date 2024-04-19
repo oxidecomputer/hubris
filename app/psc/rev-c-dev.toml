@@ -1,2 +1,11 @@
 name = "psc-c-dev"
 inherit = ["rev-c.toml", "dev.toml"]
+
+
+[tasks.framulator]
+name = "task-framulator"
+priority = 5
+start = true
+task-slots = [{spi_driver = "spi2_driver"}]
+stacksize = 2048
+notifications = ["hey-you"]

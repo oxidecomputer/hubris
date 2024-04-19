@@ -1368,6 +1368,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-mb86rsxx-fram"
+version = "0.1.0"
+dependencies = [
+ "bitflags 2.5.0",
+ "counters",
+ "drv-spi-api",
+ "num-derive",
+ "num-traits",
+ "ringbuf",
+]
+
+[[package]]
 name = "drv-meanwell"
 version = "0.1.0"
 dependencies = [
@@ -3060,16 +3072,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0ca88d725a0a943b096803bd34e73a4437208b6077654cc4ecb2947a5f91618d"
 
 [[package]]
-name = "mb86rsxx"
-version = "0.1.0"
-dependencies = [
- "bitflags 2.5.0",
- "counters",
- "drv-spi-api",
- "ringbuf",
-]
-
-[[package]]
 name = "memchr"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4382,6 +4384,18 @@ dependencies = [
  "serde",
  "userlib",
  "zerocopy 0.6.6",
+]
+
+[[package]]
+name = "task-framulator"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "drv-mb86rsxx-fram",
+ "drv-spi-api",
+ "drv-stm32h7-spi-server",
+ "ringbuf",
+ "userlib",
 ]
 
 [[package]]

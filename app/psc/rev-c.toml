@@ -2,3 +2,7 @@ name = "psc-c"
 board = "psc-c"
 
 inherit = "base.toml"
+
+[config.spi.spi2.devices.mb86rs64t]
+mux = "port_b"
+cs = [{port = "B", pin = 12}]
