@@ -136,7 +136,7 @@ fn main() -> ! {
         } else if #[cfg(target_board = "gimletlet-2")] {
             // Hard-coding because the TOML file doesn't specify great names
             let configuration_port = spi.device(0);
-            let user_design = spi.device(drv_spi_api::devices::SPI6_HEADER);
+            let user_design = spi.device(1);
             let driver = drv_fpga_devices::ecp5_spi::Ecp5UsingSpi {
                 sys,
                 done: sys_api::Port::E.pin(15),
