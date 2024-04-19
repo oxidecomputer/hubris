@@ -589,19 +589,21 @@ impl ModuleResult {
         // supercede failures, so make sure to clear any failures where an error
         // has subsequently occurred.
         let failure = (self.failure() | next.failure()) & !self.error();
+
         // merge the failure types observed, prefering newer failure types
         // should both results have a failure at the same port.
-        let mut failure_types = LogicalPortFailures::default();
+        let mut combined_failures = LogicalPortFailureTypes::default();
         for p in failure.to_indices() {
-            if next.failure.is_set(p) {
-                failure_types.0[p.0 as usize] =
-                    next.failure_types.0[p.0 as usize]
-            } else if self.failure.is_set(p) {
-                failure_types.0[p.0 as usize] =
-                    self.failure_types.0[p.0 as usize]
+            if next.failure().is_set(p) {
+                combined_failures.0[p.0 as usize] =
+                    next.failure_types().0[p.0 as usize];
+            } else if self.failure().is_set(p) {
+                combined_failures.0[p.0 as usize] =
+                    self.failure_types().0[p.0 as usize];
             }
         }
-        Self::new(success, failure, error, failure_types).unwrap_lite()
+
+        Self::new(success, failure, error, combined_failures).unwrap_lite()
     }
 
     /// Helper to provide a nice way to get a ModuleResultSlim from this result
