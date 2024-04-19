@@ -1,7 +1,6 @@
 name = "psc-c-dev"
 inherit = ["rev-c.toml", "dev.toml"]
 
-
 [tasks.framulator]
 name = "task-framulator"
 priority = 5
