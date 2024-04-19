@@ -9,30 +9,81 @@
 
 #![no_std]
 
-use drv_spi_api::{CsState, SpiDevice, SpiServer};
+use bitflags::bitflags;
+use drv_spi_api::{CsState, SpiDevice, SpiError, SpiServer};
+use num_traits::FromPrimitive;
 use ringbuf::ringbuf_entry;
 
-pub type Mb86rs64t<S> = Fram<S, 8191>;
+/// A MB85RS64T FRAM chip.
+pub type Mb86rs64t<S> = Fram<S, { 8 * KIB }>;
 
-pub struct Fram<S: SpiServer, const SIZE: u16> {
+/// A generic Fujitsu FRAM chip of arbitrary size.
+///
+/// By default, the write enable latch on the FRAM is not set, so this type
+/// cannot be written to. To write to a FRAM chip, first call
+/// [`Fram::write_enable`], which returns a [`WritableFram`].
+#[must_use = "a Fram does nothing if constructed but not read from or written to"]
+pub struct Fram<S: SpiServer, const SIZE: usize> {
     spi: SpiDevice<S>,
 }
 
-pub struct WritableFram<'fram, S: SpiServer, const SIZE: u16>(
+/// A generic Fujitsu FRAM chip with its write enable latch set.
+///
+/// This type is returned by [`Fram::write_enable`], and will unset the write
+/// latch when it's dropped. This way, the FRAM remains in the write-protected
+/// state when you're not actively trying to write to it.
+///
+/// To write to the FRAM chip, use [`WritableFram::write`]. This type also
+/// exposes a [`WritableFram::read`] method, so the FRAM chip may also be read
+/// from while the write enable latch is set.
+#[must_use = "a WritableFram does nothing if constructed but not read from or written to"]
+pub struct WritableFram<'fram, S: SpiServer, const SIZE: usize>(
     &'fram Fram<S, SIZE>,
 );
 
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub struct FramId {
+    pub mfg_id: u8,
+    pub product_id: ProductId,
+}
+
+#[derive(Eq, PartialEq, Copy, Clone, counters::Count)]
+pub enum FramInitError {
+    SpiError(#[count(children)] SpiError),
+    UnknownManufacturerId(u8),
+    UnknownProductId(u16),
+    WrongSize { actual: usize, expected: usize },
+}
+
+/// Errors returned by the [`Fram::read`] and [`WritableFram::write`] methods.
 #[derive(Eq, PartialEq, Copy, Clone, counters::Count)]
 pub enum FramError {
-    SpiError(drv_spi_api::SpiError),
-    SpiServerDead,
+    SpiError(#[count(children)] SpiError),
     InvalidAddr,
     /// The write is longer than the highest address, would wrap around to the
     /// beginning of the FRAM!
     ///
     /// You probably don't want that.
     WouldWrap,
-    BadId,
+}
+
+#[derive(Eq, PartialEq, Copy, Clone, num_derive::FromPrimitive)]
+#[repr(u16)]
+pub enum ProductId {
+    /// 2kb Fujitsu FRAM
+    Mb84rs16 = 0x0101,
+    /// 8kb Fujitsu FRAM
+    Mb85rs64v = 0x0302,
+    /// 8kb Fujitsu FRAM
+    Mb85rs64t = 0x2303,
+    /// 32kb Fujitsu FRAM
+    Mb85rs256ty = 0x2503,
+    /// 128kb Fujitsu FRAM
+    Mb85rs1mt = 0x2703,
+    /// 256kb Fujitsu FRAM
+    Mb85rs2mta = 0x4803,
+    /// 512kb Fujitsu FRAM
+    Mb85rs4mt = 0x4903,
 }
 
 #[derive(Eq, PartialEq, Copy, Clone, counters::Count)]
@@ -60,113 +111,142 @@ enum Opcode {
     Reserved = 0b0000_1011,
 }
 
+bitflags! {
+    #[derive(Copy, Clone, PartialEq, Eq)]
+    pub struct Status: u8 {
+        /// Write enable latch
+        const WEL = 1 << 1;
+        /// Block protect 0
+        const BP0 = 1 << 2;
+        /// Block protect 1
+        const BP1 = 1 << 3;
+        /// Status register write protect enabled
+        const WPEN = 1 << 7;
+    }
+}
+
 #[derive(Eq, PartialEq, Copy, Clone, counters::Count)]
 enum Trace {
     #[count(skip)]
     None,
-
-    ReadId {
+    ReadIdLow {
         mfg_id: u8,
         cont: u8,
-        id_lo: u8,
-        id_hi: u8,
     },
-    Write {
-        addr: u16,
-        len: u16,
+    ReadIdHigh {
+        product_id: u16,
     },
-    Written(#[count(children)] Result<(), FramError>),
-    Read {
-        addr: u16,
-        len: u16,
+    Init {
+        id: FramId,
+        size: usize,
     },
-    // Unfortunately, the present and past tense of "read" are the same word,
-    // because English is a very normal language. So, I've made up my own,
-    // better past tense.
-    Readed(#[count(children)] Result<(), FramError>),
+    InitError(#[count(children)] FramInitError),
+
+    #[count(skip)]
+    Status(Status),
+    Writing {
+        addr: usize,
+        len: usize,
+    },
+    Wrote(#[count(children)] Result<(), FramError>),
+    Reading {
+        addr: usize,
+        len: usize,
+    },
+    Read(#[count(children)] Result<(), FramError>),
     WriteEnable(#[count(children)] bool),
 }
 
-const FUJITSU: u8 = 0x04;
 ringbuf::counted_ringbuf!(Trace, 16, Trace::None);
 
-impl<S: SpiServer, const SIZE: u16> Fram<S, { SIZE }> {
-    pub fn new(spi: SpiDevice<S>) -> Result<Self, FramError> {
-        {
-            // Anyway, let's pull CS low.
-            let _cs_is_held_low_while_this_exists = spi
-                .lock_auto(CsState::Asserted)
-                .map_err(|_| FramError::SpiServerDead)?;
-            spi.write(&[Opcode::ReadId as u8])?;
-            let mut bytes = [0u8; 4];
-            spi.read(&mut bytes)?;
-            ringbuf_entry!(Trace::ReadId {
-                mfg_id: bytes[0],
-                cont: bytes[1],
-                id_lo: bytes[2],
-                id_hi: bytes[3]
-            });
+const KIB: usize = 1024;
 
-            // Manufacturer ID mismatch, seems bad!
-            if bytes[0] != FUJITSU {
-                return Err(FramError::BadId);
+impl<S: SpiServer, const SIZE: usize> Fram<S, { SIZE }> {
+    const NEEDS_THREE_BYTE_ADDRS: bool = SIZE > 64 * 1024;
+
+    pub fn new(spi: SpiDevice<S>) -> Result<Self, FramInitError> {
+        // Look at the FRAM's ID to make sure it's the device we expect it to
+        // be. In particular, make sure it's the size we think it is.
+        match FramId::read(&spi) {
+            Err(e) => {
+                ringbuf_entry!(Trace::InitError(e));
+                return Err(e);
             }
-        }
+            Ok(id) => {
+                let size = id.size();
+                ringbuf_entry!(Trace::Init { id, size });
+                if size != SIZE {
+                    return Err(FramInitError::WrongSize {
+                        actual: size,
+                        expected: SIZE,
+                    });
+                }
+            }
+        };
+
         Ok(Self { spi })
     }
 
-    pub fn write_enable(&self) -> Result<(), FramError> {
-        ringbuf_entry!(Trace::WriteEnable(true));
-        self.spi.write(&[Opcode::SetWriteEn as u8])?;
-        Ok(())
+    /// Reads the FRAM device's product ID.
+    pub fn read_id(&self) -> Result<FramId, FramInitError> {
+        FramId::read(&self.spi)
     }
 
-    pub fn write_disable(&self) -> Result<(), FramError> {
-        ringbuf_entry!(Trace::WriteEnable(false));
-        self.spi.write(&[Opcode::ResetWriteEn as u8])?;
-        Ok(())
-    }
-
-    pub fn with_write_enabled(
+    /// Set the write enable latch, returning a [`WritableFram`] type that
+    /// unsets the write enable latch when it's dropped. This way, the FRAM
+    /// remains in the write-protected state unless you actually intend to write
+    /// to it.
+    pub fn write_enable(
         &self,
-    ) -> Result<WritableFram<'_, S, { SIZE }>, FramError> {
-        self.write_enable()?;
+    ) -> Result<WritableFram<'_, S, { SIZE }>, SpiError> {
+        self.do_write_enable()?;
         Ok(WritableFram(self))
     }
 
-    pub fn write(&self, addr: u16, data: &[u8]) -> Result<(), FramError> {
-        ringbuf_entry!(Trace::Write {
+    /// Read bytes from the FRAM starting at `addr` into `buf`.
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(())` if the read was successful.
+    /// - [`Err`]`(`[`FramError::InvalidAddr`]`)` if the base address is larger
+    ///   than the size of this FRAM chip (`SIZE`).
+    /// - [`Err`]`(`[`FramError::WouldWrap`)` if the *last* address to read from
+    ///   (i.e. `addr + buf.len()`) is larger than the size of this FRAM chip
+    ///   (`SIZE`). would wrap around to the beginning of the FRAM. You probably
+    ///   don't actually want that, so we won't let you do it.
+    /// - [`Err`]`(`[`FramError::SpiError`]`)` if the SPI driver returned an
+    ///   error.
+    pub fn read(&self, addr: usize, buf: &mut [u8]) -> Result<(), FramError> {
+        ringbuf_entry!(Trace::Reading {
             addr,
-            len: data.len() as u16
+            len: buf.len(),
         });
-        let result = self.actually_write(addr, data);
-        ringbuf_entry!(Trace::Written(result));
+        let result = self.actually_read(addr, buf);
+        ringbuf_entry!(Trace::Read(result));
         result
     }
 
-    /// Actually do a write.
+    /// Wham, bam, write to the FRAM!
     ///
     /// This is a separate function just so we can look at the result that we
     /// get back and stick it in the ringbuf. If rustc doesn't inline this, I
     /// will be very sad.
     #[inline(always)]
-    fn actually_write(&self, addr: u16, data: &[u8]) -> Result<(), FramError> {
-        if addr > SIZE {
-            return Err(FramError::InvalidAddr);
-        }
-        if addr as usize + data.len() > SIZE as usize {
-            return Err(FramError::WouldWrap);
-        }
+    fn actually_write(
+        &self,
+        addr: usize,
+        data: &[u8],
+    ) -> Result<(), FramError> {
+        Self::bounds_check(addr, data.len())?;
 
         // The FRAM has a neat behavior where it can do multiple writes with
-        // autoincrement for as long as CS remains low. If I understand the
-        // datasheet correctly, this means that we can write the "write" opcode
-        // followed by the start address and the first byte, and then continue
-        // writing bytes to subsequent addresses without having to resend the
-        // write command.
+        // autoincrement for as long as CS remains low. This means that we can
+        // write the "write" opcode followed by the start address and the first
+        // byte, and then continue writing clocking in bytes to subsequent
+        // addresses without  having to resend the write command or address.
         //
-        // This is, of course, contingent on my understanding the kind of
-        // strangely worded datasheet text correctly (as is traditional):
+        // Here's the kind of strangely-worded explanation of this from the
+        // Fujitsu datasheet:
         //
         // > The WRITE command writes data to FRAM memory cell array. WRITE
         // > op-code, arbitrary 16 bits of address and 8 bits of writing data
@@ -179,31 +259,13 @@ impl<S: SpiServer, const SIZE: u16> Fram<S, { SIZE }> {
         // > over to the starting address, and writing cycle keeps on continued
         // > infinitely.
 
-        // Anyway, let's pull CS low.
-        let _cs_is_held_low_while_this_exists = self
-            .spi
-            .lock_auto(CsState::Asserted)
-            .map_err(|_| FramError::SpiServerDead)?;
-        // Write the `WRITE` command
-        self.spi.write(&[Opcode::Write as u8])?;
-        // Write address --- this is big-endian per the datasheet.
-        self.spi.write(&u16::to_be_bytes(addr))?;
-        // Here is where we get to find out if the cool autoincrement thingy
-        // actually works! We *should* be able to just keep squirting data bytes
-        // at it as long as CS is held low, and it'll just do the right thing.
+        // Start the write command.
+        let _cs_is_held_low_while_this_exists =
+            self.start_rw_command(Opcode::Write, addr)?;
+        // Actually write the data.
         self.spi.write(data)?;
 
         Ok(())
-    }
-
-    pub fn read(&self, addr: u16, data: &mut [u8]) -> Result<(), FramError> {
-        ringbuf_entry!(Trace::Read {
-            addr,
-            len: data.len() as u16
-        });
-        let result = self.actually_read(addr, data);
-        ringbuf_entry!(Trace::Readed(result));
-        result
     }
 
     /// Actually do a read.
@@ -214,15 +276,10 @@ impl<S: SpiServer, const SIZE: u16> Fram<S, { SIZE }> {
     #[inline(always)]
     fn actually_read(
         &self,
-        addr: u16,
+        addr: usize,
         data: &mut [u8],
     ) -> Result<(), FramError> {
-        if addr > SIZE {
-            return Err(FramError::InvalidAddr);
-        }
-        if addr as usize + data.len() > SIZE as usize {
-            return Err(FramError::WouldWrap);
-        }
+        Self::bounds_check(addr, data.len())?;
 
         // Similarly to writes, the FRAM is supposed to auto-increment as long
         // as we keep clocking SCK with CS low. The datasheet says:
@@ -238,41 +295,183 @@ impl<S: SpiServer, const SIZE: u16> Fram<S, { SIZE }> {
         // > address, it rolls over to the starting address, and reading cycle
         // > keeps on infinitely
 
-        // Anyway, let's pull CS low.
-        let _cs_is_held_low_while_this_exists = self
-            .spi
-            .lock_auto(CsState::Asserted)
-            .map_err(|_| FramError::SpiServerDead)?;
-        // Write the `READ` command
-        self.spi.write(&[Opcode::Read as u8])?;
-        // Write address --- this is big-endian per the datasheet.
-        self.spi.write(&u16::to_be_bytes(addr))?;
-        // Now we ought to be able to keep reading until we've read the whole
-        // buffer.
+        // Start the read command.
+        let _cs_is_held_low_while_this_exists =
+            self.start_rw_command(Opcode::Read, addr)?;
+        // Read until the buffer's full.
         self.spi.read(data)?;
 
         Ok(())
     }
+
+    /// Starts a read or write command with an address to the FRAM, asserting CS
+    /// and returning a lock that holds CS low.
+    /// This assumes CS is held asserted.
+    fn start_rw_command(
+        &self,
+        cmd: Opcode,
+        addr: usize,
+    ) -> Result<drv_spi_api::ControllerLock<'_, S>, FramError> {
+        // Assert CS.
+        let lock = self
+            .spi
+            .lock_auto(CsState::Asserted)
+            .map_err(|_| SpiError::TaskRestarted)?;
+
+        // Write the base address. Depending on the size of the FRAM chip, this
+        // may be a two- or three-byte address, but because we determine this in
+        // const-eval, only one of these branches should be compiled in.
+        let mut buf = u32::to_be_bytes(addr as u32);
+        let buf = if Self::NEEDS_THREE_BYTE_ADDRS {
+            // The biggest FRAM we support only has three significant bytes of
+            // address, so the first byte should be 0 and we can clobber it with
+            // the opcode.
+            buf[0] = cmd as u8;
+            &buf[..]
+        } else {
+            // First two bytes should be zero, write the command to the second
+            // one.
+            buf[1] = cmd as u8;
+            &buf[1..]
+        };
+        self.spi.write(buf)?;
+        Ok(lock)
+    }
+
+    fn bounds_check(addr: usize, len: usize) -> Result<(), FramError> {
+        if addr > SIZE {
+            return Err(FramError::InvalidAddr);
+        }
+        if addr + len > SIZE {
+            return Err(FramError::WouldWrap);
+        }
+        Ok(())
+    }
+
+    fn do_write_enable(&self) -> Result<(), SpiError> {
+        ringbuf_entry!(Trace::WriteEnable(true));
+        self.spi.write(&[Opcode::SetWriteEn as u8])?;
+        Ok(())
+    }
+
+    fn do_write_disable(&self) -> Result<(), SpiError> {
+        ringbuf_entry!(Trace::WriteEnable(false));
+        self.spi.write(&[Opcode::ResetWriteEn as u8])?;
+        Ok(())
+    }
 }
 
-impl From<drv_spi_api::SpiError> for FramError {
-    fn from(value: drv_spi_api::SpiError) -> Self {
+impl<S: SpiServer, const SIZE: usize> WritableFram<'_, S, { SIZE }> {
+    /// Write bytes from `buf` to the FRAM, starting at `addr`.
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(())` if the read was successful.
+    /// - [`Err`]`(`[`FramError::InvalidAddr`]`)` if the base address is larger
+    ///   than the size of this FRAM chip (`SIZE`).
+    /// - [`Err`]`(`[`FramError::WouldWrap`)` if the *last* address to write to
+    ///   (i.e. `addr + buf.len()`) is larger than the size of this FRAM chip
+    ///   (`SIZE`). would wrap around to the beginning of the FRAM. You probably
+    ///   don't actually want that, so we won't let you do it.
+    /// - [`Err`]`(`[`FramError::SpiError`]`)` if the SPI driver returned an
+    ///   error.
+    pub fn write(&self, addr: usize, buf: &[u8]) -> Result<(), FramError> {
+        ringbuf_entry!(Trace::Writing {
+            addr,
+            len: buf.len(),
+        });
+        let result = self.0.actually_write(addr, buf);
+        ringbuf_entry!(Trace::Wrote(result));
+        result
+    }
+
+    /// Read bytes from the FRAM starting at `addr` into `buf`.
+    ///
+    /// This is the same as [`Fram::read`], see the documentation for that
+    /// method for details.
+    pub fn read(&self, addr: usize, data: &mut [u8]) -> Result<(), FramError> {
+        self.0.read(addr, data)
+    }
+
+    /// Reads the FRAM device's product ID.
+    pub fn read_id(&self) -> Result<FramId, FramInitError> {
+        self.0.read_id()
+    }
+
+    pub fn write_disable(self) -> Result<(), SpiError> {
+        self.0.do_write_disable()?;
+        // Don't do it again.
+        core::mem::forget(self);
+        Ok(())
+    }
+}
+
+impl FramId {
+    const MANUFACTURER_FUJITSU: u8 = 0x04;
+
+    fn read<S: SpiServer>(spi: &SpiDevice<S>) -> Result<Self, FramInitError> {
+        // Indicates that we must read another two bytes to get the product ID.
+        const CONTINUE: u8 = 0x7f;
+
+        let _cs_is_held_low_while_this_exists = spi
+            .lock_auto(CsState::Asserted)
+            .map_err(|_| FramInitError::SpiError(SpiError::TaskRestarted))?;
+        let mut buf = [0; 3];
+        spi.exchange(&[Opcode::ReadId as u8, 0, 0], &mut buf)?;
+        let [_, mfg_id, cont] = buf;
+        ringbuf_entry!(Trace::ReadIdLow { mfg_id, cont });
+
+        if mfg_id != Self::MANUFACTURER_FUJITSU {
+            return Err(FramInitError::UnknownManufacturerId(mfg_id));
+        }
+
+        let product_id = {
+            let bytes = if cont == CONTINUE {
+                let mut buf = [0; 2];
+                spi.read(&mut buf)?;
+                u16::from_be_bytes(buf)
+            } else {
+                // no continuation code --- use the bytes we just read.
+                // AFAICT, the Fujitsu FRAM chips don't do this, but other
+                // manufacturers' FRAM chips that use the same protocol do? Would
+                // have to read some more datasheets to be sure.
+                u16::from_be_bytes([mfg_id, cont])
+            };
+            ringbuf_entry!(Trace::ReadIdHigh { product_id: bytes });
+            ProductId::from_u16(bytes)
+                .ok_or(FramInitError::UnknownProductId(bytes))?
+        };
+
+        Ok(Self { mfg_id, product_id })
+    }
+
+    fn size(&self) -> usize {
+        match self.product_id {
+            ProductId::Mb84rs16 => 2 * KIB,
+            ProductId::Mb85rs64v | ProductId::Mb85rs64t => 8 * KIB,
+            ProductId::Mb85rs256ty => 32 * KIB,
+            ProductId::Mb85rs1mt => 128 * KIB,
+            ProductId::Mb85rs2mta => 256 * KIB,
+            ProductId::Mb85rs4mt => 512 * KIB,
+        }
+    }
+}
+
+impl<S: SpiServer, const SIZE: usize> Drop for WritableFram<'_, S, { SIZE }> {
+    fn drop(&mut self) {
+        // Put the FRAM back the way we found it.
+        let _ = self.0.do_write_disable();
+    }
+}
+
+impl From<SpiError> for FramError {
+    fn from(value: SpiError) -> Self {
         FramError::SpiError(value)
     }
 }
 
-impl<S: SpiServer, const SIZE: u16> WritableFram<'_, S, { SIZE }> {
-    pub fn write(&self, addr: u16, data: &[u8]) -> Result<(), FramError> {
-        self.0.write(addr, data)
-    }
-
-    pub fn read(&self, addr: u16, data: &mut [u8]) -> Result<(), FramError> {
-        self.0.read(addr, data)
-    }
-}
-
-impl<S: SpiServer, const SIZE: u16> Drop for WritableFram<'_, S, { SIZE }> {
-    fn drop(&mut self) {
-        let _ = self.0.write_disable();
+impl From<SpiError> for FramInitError {
+    fn from(value: SpiError) -> Self {
+        FramInitError::SpiError(value)
     }
 }
