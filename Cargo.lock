@@ -1374,8 +1374,6 @@ dependencies = [
  "bitflags 2.5.0",
  "counters",
  "drv-spi-api",
- "num-derive",
- "num-traits",
  "ringbuf",
 ]
 

@@ -2,7 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//! A driver for the Fujitsu MB85RS series of SPI FRAM chips.
+//! A driver for the Fujitsu MB85RS series of SPI ferroelectric RAM (FRAM)
+//! chips.
 //!
 //! See
 //! <https://www.mouser.com/datasheet/2/1113/MB85RS64T_DS501_00051_2v0_E-2329177.pdf>
@@ -71,6 +72,10 @@ pub enum FramError {
 }
 
 #[derive(Eq, PartialEq, Copy, Clone, counters::Count)]
+// We don't actually use all of these, because this driver doesn't currently
+// use all the FRAM chip's features (e.g. bank protection, sleep mode, etc).
+// But, I wanted to write out all supported opcodes anyway.
+#[allow(dead_code)]
 #[repr(u8)]
 enum Opcode {
     /// Set the write enable latch (WREN)
@@ -121,8 +126,6 @@ enum Trace {
         product_id: u16,
     },
 
-    #[count(skip)]
-    Status(Status),
     Writing {
         addr: usize,
         len: usize,
@@ -150,6 +153,10 @@ impl<S: SpiServer, const ID: u16> Fram<S, { ID }> {
     // How many bytes of address are significant when reading/writing to this FRAM?
     const NEEDS_THREE_BYTE_ADDRS: bool = Self::SIZE > 64 * KIB;
 
+    /// Constructs a new `Fram` driver for the given SPI device.
+    ///
+    /// This function reads the FRAM's product ID and checks that it is the
+    /// device the driver thinks it's talking to, returning an error if it's not.
     pub fn new(spi: SpiDevice<S>) -> Result<Self, FramInitError> {
         // Look at the FRAM's ID to make sure it's the device we expect it to
         // be. In particular, make sure it's the size we think it is.
@@ -433,7 +440,16 @@ impl From<SpiError> for FramInitError {
     }
 }
 
+/// Product IDs for various Fujitsu FRAM devices.
+///
+/// This driver primarily uses the product ID to determine whether the size of
+/// the FRAM chip matches the expected size. Other features of the FRAM chip can
+/// also be determined from the product ID, as well; however, for the purposes
+/// of this driver, we basically only care about the size of the device, because
+/// we don't use some of the fancier features, such as bank protection or the
+/// HOLD_L and WP_L pins.
 pub mod product_id {
+
     /// 2kb Fujitsu FRAM
     pub const MB85RS16: u16 = 0x0101;
     /// 8kb Fujitsu FRAM
