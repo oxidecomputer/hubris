@@ -14,8 +14,8 @@ use drv_spi_api::{CsState, SpiDevice, SpiError, SpiServer};
 use num_traits::FromPrimitive;
 use ringbuf::ringbuf_entry;
 
-pub type Mb86rs64v<S> = Fram<S, { product_id::MB85RS64V }>;
-pub type Mb86rs64t<S> = Fram<S, { product_id::MB85RS64T }>;
+pub type Mb85rs64v<S> = Fram<S, { product_id::MB85RS64V }>;
+pub type Mb85rs64t<S> = Fram<S, { product_id::MB85RS64T }>;
 pub type Mb85rs256ty<S> = Fram<S, { product_id::MB85RS256TY }>;
 pub type Mb85rs1mt<S> = Fram<S, { product_id::MB85RS1MT }>;
 pub type Mb85rs2mta<S> = Fram<S, { product_id::MB85RS2MTA }>;

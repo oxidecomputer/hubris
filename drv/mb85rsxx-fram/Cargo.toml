@@ -1,5 +1,5 @@
 [package]
-name = "drv-mb86rsxx-fram"
+name = "drv-mb85rsxx-fram"
 version = "0.1.0"
 edition = "2021"
 

@@ -11,7 +11,7 @@ insomniac = []
 userlib = { path = "../../sys/userlib" }
 ringbuf = { path = "../../lib/ringbuf" }
 
-drv-mb86rsxx-fram = { path = "../../drv/mb86rsxx-fram" }
+drv-mb85rsxx-fram = { path = "../../drv/mb85rsxx-fram" }
 drv-spi-api = { path = "../../drv/spi-api" }
 drv-stm32h7-spi-server = { path = "../../drv/stm32h7-spi-server" }
 
