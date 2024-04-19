@@ -6,7 +6,7 @@ fwid = true
 
 [kernel]
 name = "psc"
-requires = {flash = 32768, ram = 4880}
+requires = {flash = 32768, ram = 5080}
 features = ["dump"]
 
 [caboose]
@@ -56,6 +56,42 @@ port = "E"
 pin = 3
 owner = {name = "sprot", notification = "rot_irq"}
 
+# Note: present_l IRQs are missing because of a conflict with ROT_IRQ above;
+# these signals are currently polled.
+
+[tasks.sys.config.gpio-irqs.psu_pwr_ok_1]
+port = "J"
+pin = 6
+owner = {name = "sequencer", notification = "psu_pwr_ok_1"}
+
+[tasks.sys.config.gpio-irqs.psu_pwr_ok_2]
+port = "J"
+pin = 7
+owner = {name = "sequencer", notification = "psu_pwr_ok_2"}
+
+[tasks.sys.config.gpio-irqs.psu_pwr_ok_3]
+port = "J"
+pin = 8
+owner = {name = "sequencer", notification = "psu_pwr_ok_3"}
+
+[tasks.sys.config.gpio-irqs.psu_pwr_ok_4]
+port = "J"
+pin = 9
+owner = {name = "sequencer", notification = "psu_pwr_ok_4"}
+
+[tasks.sys.config.gpio-irqs.psu_pwr_ok_5]
+port = "J"
+pin = 10
+owner = {name = "sequencer", notification = "psu_pwr_ok_5"}
+
+[tasks.sys.config.gpio-irqs.psu_pwr_ok_6]
+port = "J"
+pin = 11
+owner = {name = "sequencer", notification = "psu_pwr_ok_6"}
+
+
+
+
 [tasks.i2c_driver]
 name = "drv-stm32xx-i2c-server"
 stacksize = 1048
@@ -86,6 +122,15 @@ priority = 4
 stacksize = 4096
 start = true
 task-slots = ["jefe", "packrat", "i2c_driver", "sys"]
+notifications = [
+    "psu_pwr_ok_1",
+    "psu_pwr_ok_2",
+    "psu_pwr_ok_3",
+    "psu_pwr_ok_4",
+    "psu_pwr_ok_5",
+    "psu_pwr_ok_6",
+    "timer",
+]
 
 [tasks.update_server]
 name = "stm32h7-update-server"

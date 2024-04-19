@@ -1495,10 +1495,12 @@ dependencies = [
 name = "drv-psc-seq-server"
 version = "0.1.0"
 dependencies = [
+ "build-util",
  "drv-packrat-vpd-loader",
  "drv-psc-seq-api",
  "drv-stm32xx-sys-api",
  "idol",
+ "ringbuf",
  "task-jefe-api",
  "userlib",
 ]
