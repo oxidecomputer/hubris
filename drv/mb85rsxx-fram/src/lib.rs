@@ -11,7 +11,6 @@
 
 use bitflags::bitflags;
 use drv_spi_api::{CsState, SpiDevice, SpiError, SpiServer};
-use num_traits::FromPrimitive;
 use ringbuf::ringbuf_entry;
 
 pub type Mb85rs64v<S> = Fram<S, { product_id::MB85RS64V }>;

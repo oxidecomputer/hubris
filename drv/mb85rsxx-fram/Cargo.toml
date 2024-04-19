@@ -5,8 +5,6 @@ edition = "2021"
 
 [dependencies]
 bitflags = { workspace = true }
-num-derive = { workspace = true }
-num-traits = { workspace = true }
 
 drv-spi-api = { path = "../spi-api" }
 counters = { path = "../../lib/counters" }
