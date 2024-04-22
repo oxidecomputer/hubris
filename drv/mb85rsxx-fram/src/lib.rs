@@ -59,18 +59,6 @@ pub enum FramInitError {
     UnexpectedProductId { expected: u16, actual: u16 },
 }
 
-/// Errors returned by the [`Fram::read`] and [`WritableFram::write`] methods.
-#[derive(Eq, PartialEq, Copy, Clone, counters::Count)]
-pub enum FramError {
-    SpiError(#[count(children)] SpiError),
-    InvalidAddr,
-    /// The write is longer than the highest address, would wrap around to the
-    /// beginning of the FRAM!
-    ///
-    /// You probably don't want that.
-    WouldWrap,
-}
-
 #[derive(Eq, PartialEq, Copy, Clone, counters::Count)]
 // We don't actually use all of these, because this driver doesn't currently
 // use all the FRAM chip's features (e.g. bank protection, sleep mode, etc).
@@ -130,12 +118,12 @@ enum Trace {
         addr: usize,
         len: usize,
     },
-    Wrote(#[count(children)] Result<(), FramError>),
+    Wrote(#[count(children)] Result<(), SpiError>),
     Reading {
         addr: usize,
         len: usize,
     },
-    Read(#[count(children)] Result<(), FramError>),
+    Read(#[count(children)] Result<(), SpiError>),
     WriteEnable(#[count(children)] bool),
 }
 
@@ -195,15 +183,19 @@ impl<S: SpiServer, const ID: u16> Fram<S, { ID }> {
     /// # Returns
     ///
     /// - `Ok(())` if the read was successful.
-    /// - [`Err`]`(`[`FramError::InvalidAddr`]`)` if the base address is larger
-    ///   than the size of this FRAM chip ([`Self::SIZE`]).
-    /// - [`Err`]`(`[`FramError::WouldWrap`)` if the *last* address to read from
-    ///   (i.e. `addr + buf.len()`) is larger than the size of this FRAM chip
-    ///   ([`Self::SIZE`]). would wrap around to the beginning of the FRAM. You
-    ///   probably don't actually want that, so we won't let you do it.
-    /// - [`Err`]`(`[`FramError::SpiError`]`)` if the SPI driver returned an
+    /// - [`Err`]`(`[`SpiError`]`)` if the SPI driver returned an
     ///   error.
-    pub fn read(&self, addr: usize, buf: &mut [u8]) -> Result<(), FramError> {
+    ///
+    /// # Panics
+    ///
+    /// - If the base address is higher than the highest address in the FRAM
+    ///   chip's address space ([`Self::MAX_ADDR`]).
+    /// - If the *last* address to read from i.e. `addr + buf.len()`) is larger
+    ///   than the highest address of this FRAM chip's address space
+    ///   ([`Self::MAX_ADDR`]). In this case, the read would wrap around to the
+    ///   beginning of the FRAM. You probably don't actually want that, so we
+    ///   won't let you do it.
+    pub fn read(&self, addr: usize, buf: &mut [u8]) -> Result<(), SpiError> {
         ringbuf_entry!(Trace::Reading {
             addr,
             len: buf.len(),
@@ -219,12 +211,8 @@ impl<S: SpiServer, const ID: u16> Fram<S, { ID }> {
     /// get back and stick it in the ringbuf. If rustc doesn't inline this, I
     /// will be very sad.
     #[inline(always)]
-    fn actually_write(
-        &self,
-        addr: usize,
-        data: &[u8],
-    ) -> Result<(), FramError> {
-        Self::bounds_check(addr, data.len())?;
+    fn actually_write(&self, addr: usize, data: &[u8]) -> Result<(), SpiError> {
+        Self::bounds_check(addr, data.len());
 
         // The FRAM has a neat behavior where it can do multiple writes with
         // autoincrement for as long as CS remains low. This means that we can
@@ -265,8 +253,8 @@ impl<S: SpiServer, const ID: u16> Fram<S, { ID }> {
         &self,
         addr: usize,
         data: &mut [u8],
-    ) -> Result<(), FramError> {
-        Self::bounds_check(addr, data.len())?;
+    ) -> Result<(), SpiError> {
+        Self::bounds_check(addr, data.len());
 
         // Similarly to writes, the FRAM is supposed to auto-increment as long
         // as we keep clocking SCK with CS low. The datasheet says:
@@ -298,7 +286,7 @@ impl<S: SpiServer, const ID: u16> Fram<S, { ID }> {
         &self,
         cmd: Opcode,
         addr: usize,
-    ) -> Result<drv_spi_api::ControllerLock<'_, S>, FramError> {
+    ) -> Result<drv_spi_api::ControllerLock<'_, S>, SpiError> {
         // Assert CS.
         let lock = self
             .spi
@@ -320,14 +308,16 @@ impl<S: SpiServer, const ID: u16> Fram<S, { ID }> {
         Ok(lock)
     }
 
-    fn bounds_check(addr: usize, len: usize) -> Result<(), FramError> {
+    fn bounds_check(addr: usize, len: usize) {
         if addr > Self::MAX_ADDR {
-            return Err(FramError::InvalidAddr);
+            panic!();
         }
-        if addr + len > Self::MAX_ADDR {
-            return Err(FramError::WouldWrap);
+        let Some(end_addr) = addr.checked_add(len) else {
+            panic!();
+        };
+        if end_addr > Self::MAX_ADDR {
+            panic!();
         }
-        Ok(())
     }
 
     fn do_write_enable(&self) -> Result<(), SpiError> {
@@ -349,15 +339,19 @@ impl<S: SpiServer, const ID: u16> WritableFram<'_, S, { ID }> {
     /// # Returns
     ///
     /// - `Ok(())` if the read was successful.
-    /// - [`Err`]`(`[`FramError::InvalidAddr`]`)` if the base address is larger
-    ///   than the size of this FRAM chip (`SIZE`).
-    /// - [`Err`]`(`[`FramError::WouldWrap`)` if the *last* address to write to
-    ///   (i.e. `addr + buf.len()`) is larger than the size of this FRAM chip
-    ///   (`SIZE`). would wrap around to the beginning of the FRAM. You probably
-    ///   don't actually want that, so we won't let you do it.
-    /// - [`Err`]`(`[`FramError::SpiError`]`)` if the SPI driver returned an
+    /// - [`Err`]`(`[`SpiError`]`)` if the SPI driver returned an
     ///   error.
-    pub fn write(&self, addr: usize, buf: &[u8]) -> Result<(), FramError> {
+    ///
+    /// # Panics
+    ///
+    /// - If the base address is higher than the highest address in the FRAM
+    ///   chip's address space ([`Self::MAX_ADDR`]).
+    /// - If the *last* address to read from i.e. `addr + buf.len()`) is larger
+    ///   than the highest address of this FRAM chip's address space
+    ///   ([`Self::MAX_ADDR`]). In this case, the read would wrap around to the
+    ///   beginning of the FRAM. You probably don't actually want that, so we
+    ///   won't let you do it.
+    pub fn write(&self, addr: usize, buf: &[u8]) -> Result<(), SpiError> {
         ringbuf_entry!(Trace::Writing {
             addr,
             len: buf.len(),
@@ -371,7 +365,7 @@ impl<S: SpiServer, const ID: u16> WritableFram<'_, S, { ID }> {
     ///
     /// This is the same as [`Fram::read`], see the documentation for that
     /// method for details.
-    pub fn read(&self, addr: usize, data: &mut [u8]) -> Result<(), FramError> {
+    pub fn read(&self, addr: usize, data: &mut [u8]) -> Result<(), SpiError> {
         self.0.read(addr, data)
     }
 
@@ -425,12 +419,6 @@ impl<S: SpiServer, const ID: u16> Drop for WritableFram<'_, S, { ID }> {
     fn drop(&mut self) {
         // Put the FRAM back the way we found it.
         let _ = self.0.do_write_disable();
-    }
-}
-
-impl From<SpiError> for FramError {
-    fn from(value: SpiError) -> Self {
-        FramError::SpiError(value)
     }
 }
 
