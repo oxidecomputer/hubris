@@ -178,12 +178,17 @@ impl<S: SpiServer, const ID: u16> Fram<S, { ID }> {
     /// Set the write enable latch, returning a [`WritableFram`] type that
     /// unsets the write enable latch when it's dropped. This way, the FRAM
     /// remains in the write-protected state unless you actually intend to write
-    /// to it.
+    /// to it.[^1]
     ///
     /// This mutably borrows `self` so that only a single instance of
     /// `WritableFram` can exist for this FRAM chip at any time. This prevents
     /// situations where the write-enable latch is unset by dropping a
     /// different `WritableFram` instance while another one is still in scope.
+    ///
+    /// [^1]: Unless the call to disable the write enable latch in
+    ///     [`WritableFram::drop`] fails. In that case, the FRAM may remain
+    ///     writable. But,in general, we will keep the FRAM write-protected
+    ///     whenever possible.
     pub fn write_enable(
         &mut self,
     ) -> Result<WritableFram<'_, S, { ID }>, SpiError> {
