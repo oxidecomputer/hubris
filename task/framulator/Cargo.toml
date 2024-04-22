@@ -3,10 +3,6 @@ name = "task-framulator"
 version = "0.1.0"
 edition = "2021"
 
-[features]
-default = []
-insomniac = []
-
 [dependencies]
 userlib = { path = "../../sys/userlib" }
 ringbuf = { path = "../../lib/ringbuf" }

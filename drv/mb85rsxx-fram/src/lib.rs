@@ -480,7 +480,7 @@ pub mod product_id {
         //  0x03 & 0b0001_1111 = 3
         //  0x23 & 0b0001_1111 = 3
         //  2^3 = 8
-        //  8 * 1024 * 8 = 8192 bytes
+        //  8 * 1024 = 8192 bytes
         const MASK: u8 = 0b0001_1111;
         let [hi, _] = u16::to_be_bytes(product_id);
         let density = hi & MASK;
