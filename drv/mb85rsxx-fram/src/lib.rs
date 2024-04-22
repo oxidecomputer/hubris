@@ -43,7 +43,7 @@ pub struct Fram<S: SpiServer, const ID: u16> {
 #[must_use = "a WritableFram does nothing if constructed but not read from \
     or written to"]
 pub struct WritableFram<'fram, S: SpiServer, const ID: u16>(
-    &'fram Fram<S, { ID }>,
+    &'fram mut Fram<S, { ID }>,
 );
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -159,7 +159,15 @@ impl<S: SpiServer, const ID: u16> Fram<S, { ID }> {
             });
         }
 
-        Ok(Self { spi })
+        // The FRAM device will always have the write-enable latch unset on
+        // initial power-up. However, we may construct a `Fram` in cases other
+        // than immediately after powering up (e.g. the task may have
+        // restarted). Thus, always ensure that the write enable latch is unset
+        // here.
+        let fram = Self { spi };
+        fram.do_write_disable()?;
+
+        Ok(fram)
     }
 
     /// Reads the FRAM device's product ID.
@@ -171,8 +179,13 @@ impl<S: SpiServer, const ID: u16> Fram<S, { ID }> {
     /// unsets the write enable latch when it's dropped. This way, the FRAM
     /// remains in the write-protected state unless you actually intend to write
     /// to it.
+    ///
+    /// This mutably borrows `self` so that only a single instance of
+    /// `WritableFram` can exist for this FRAM chip at any time. This prevents
+    /// situations where the write-enable latch is unset by dropping a
+    /// different `WritableFram` instance while another one is still in scope.
     pub fn write_enable(
-        &self,
+        &mut self,
     ) -> Result<WritableFram<'_, S, { ID }>, SpiError> {
         self.do_write_enable()?;
         Ok(WritableFram(self))
@@ -374,11 +387,19 @@ impl<S: SpiServer, const ID: u16> WritableFram<'_, S, { ID }> {
         self.0.read_id()
     }
 
-    pub fn write_disable(self) -> Result<(), SpiError> {
-        self.0.do_write_disable()?;
-        // Don't do it again.
-        core::mem::forget(self);
-        Ok(())
+    /// Unset the write enable latch on the FRAM.
+    ///
+    /// If this operation fails, this method returns `Self` so that unsetting
+    /// the write enable latch can be retried.
+    pub fn write_disable(self) -> Result<(), (SpiError, Self)> {
+        match self.0.do_write_disable() {
+            Ok(_) => {
+                // Don't do it again.
+                core::mem::forget(self);
+                Ok(())
+            }
+            Err(e) => Err((e, self)),
+        }
     }
 }
 

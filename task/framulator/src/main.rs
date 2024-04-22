@@ -30,7 +30,7 @@ ringbuf!(Trace, { TEXT.len() + 8 }, Trace::None);
 fn main() -> ! {
     let spi = drv_spi_api::Spi::from(SPI.get_task_id());
     let spi_device = spi.device(drv_spi_api::devices::MB86RS64T);
-    let fram = drv_mb85rsxx_fram::Mb85rs64t::new(spi_device).unwrap_lite();
+    let mut fram = drv_mb85rsxx_fram::Mb85rs64t::new(spi_device).unwrap_lite();
     fram.write_enable()
         .unwrap_lite()
         .write(0, TEXT)
