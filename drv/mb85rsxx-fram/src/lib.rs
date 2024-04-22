@@ -12,7 +12,6 @@
 
 use bitflags::bitflags;
 use drv_spi_api::{CsState, SpiDevice, SpiError, SpiServer};
-use ringbuf::ringbuf_entry;
 
 pub type Mb85rs64v<S> = Fram<S, { product_id::MB85RS64V }>;
 pub type Mb85rs64t<S> = Fram<S, { product_id::MB85RS64T }>;
@@ -102,33 +101,6 @@ bitflags! {
     }
 }
 
-#[derive(Eq, PartialEq, Copy, Clone, counters::Count)]
-enum Trace {
-    #[count(skip)]
-    None,
-    ReadIdLow {
-        mfg_id: u8,
-        cont: u8,
-    },
-    ReadIdHigh {
-        product_id: u16,
-    },
-
-    Writing {
-        addr: usize,
-        len: usize,
-    },
-    Wrote(#[count(children)] Result<(), SpiError>),
-    Reading {
-        addr: usize,
-        len: usize,
-    },
-    Read(#[count(children)] Result<(), SpiError>),
-    WriteEnable(#[count(children)] bool),
-}
-
-ringbuf::counted_ringbuf!(Trace, 16, Trace::None);
-
 const KIB: usize = 1024;
 
 impl<S: SpiServer, const ID: u16> Fram<S, { ID }> {
@@ -214,65 +186,7 @@ impl<S: SpiServer, const ID: u16> Fram<S, { ID }> {
     ///   beginning of the FRAM. You probably don't actually want that, so we
     ///   won't let you do it.
     pub fn read(&self, addr: usize, buf: &mut [u8]) -> Result<(), SpiError> {
-        ringbuf_entry!(Trace::Reading {
-            addr,
-            len: buf.len(),
-        });
-        let result = self.actually_read(addr, buf);
-        ringbuf_entry!(Trace::Read(result));
-        result
-    }
-
-    /// Wham, bam, write to the FRAM!
-    ///
-    /// This is a separate function just so we can look at the result that we
-    /// get back and stick it in the ringbuf. If rustc doesn't inline this, I
-    /// will be very sad.
-    #[inline(always)]
-    fn actually_write(&self, addr: usize, data: &[u8]) -> Result<(), SpiError> {
-        Self::bounds_check(addr, data.len());
-
-        // The FRAM has a neat behavior where it can do multiple writes with
-        // autoincrement for as long as CS remains low. This means that we can
-        // write the "write" opcode followed by the start address and the first
-        // byte, and then continue writing clocking in bytes to subsequent
-        // addresses without  having to resend the write command or address.
-        //
-        // Here's the kind of strangely-worded explanation of this from the
-        // Fujitsu datasheet:
-        //
-        // > The WRITE command writes data to FRAM memory cell array. WRITE
-        // > op-code, arbitrary 16 bits of address and 8 bits of writing data
-        // > are input to SI. The 3-bit upper address bit is invalid. When 8
-        // > bits of writing data is input, data is written to FRAM memory cell
-        // > array. Risen CS will terminate the WRITE command. However, if you
-        // > continue sending the writing data for 8 bits each before CS rising,
-        // > it is possible to continue writing with automatic address
-        // > increment. When it reaches the most significant address, it rolls
-        // > over to the starting address, and writing cycle keeps on continued
-        // > infinitely.
-
-        // Start the write command.
-        let _cs_is_held_low_while_this_exists =
-            self.start_rw_command(Opcode::Write, addr)?;
-        // Actually write the data.
-        self.spi.write(data)?;
-
-        Ok(())
-    }
-
-    /// Actually do a read.
-    ///
-    /// This is a separate function just so we can look at the result that we
-    /// get back and stick it in the ringbuf. If rustc doesn't inline this, I
-    /// will be very sad.
-    #[inline(always)]
-    fn actually_read(
-        &self,
-        addr: usize,
-        data: &mut [u8],
-    ) -> Result<(), SpiError> {
-        Self::bounds_check(addr, data.len());
+        Self::bounds_check(addr, buf.len());
 
         // Similarly to writes, the FRAM is supposed to auto-increment as long
         // as we keep clocking SCK with CS low. The datasheet says:
@@ -292,9 +206,7 @@ impl<S: SpiServer, const ID: u16> Fram<S, { ID }> {
         let _cs_is_held_low_while_this_exists =
             self.start_rw_command(Opcode::Read, addr)?;
         // Read until the buffer's full.
-        self.spi.read(data)?;
-
-        Ok(())
+        self.spi.read(buf)
     }
 
     /// Starts a read or write command with an address to the FRAM, asserting CS
@@ -339,15 +251,11 @@ impl<S: SpiServer, const ID: u16> Fram<S, { ID }> {
     }
 
     fn do_write_enable(&self) -> Result<(), SpiError> {
-        ringbuf_entry!(Trace::WriteEnable(true));
-        self.spi.write(&[Opcode::SetWriteEn as u8])?;
-        Ok(())
+        self.spi.write(&[Opcode::SetWriteEn as u8])
     }
 
     fn do_write_disable(&self) -> Result<(), SpiError> {
-        ringbuf_entry!(Trace::WriteEnable(false));
-        self.spi.write(&[Opcode::ResetWriteEn as u8])?;
-        Ok(())
+        self.spi.write(&[Opcode::ResetWriteEn as u8])
     }
 }
 
@@ -370,13 +278,33 @@ impl<S: SpiServer, const ID: u16> WritableFram<'_, S, { ID }> {
     ///   beginning of the FRAM. You probably don't actually want that, so we
     ///   won't let you do it.
     pub fn write(&self, addr: usize, buf: &[u8]) -> Result<(), SpiError> {
-        ringbuf_entry!(Trace::Writing {
-            addr,
-            len: buf.len(),
-        });
-        let result = self.0.actually_write(addr, buf);
-        ringbuf_entry!(Trace::Wrote(result));
-        result
+        Fram::<S, { ID }>::bounds_check(addr, buf.len());
+
+        // The FRAM has a neat behavior where it can do multiple writes with
+        // autoincrement for as long as CS remains low. This means that we can
+        // write the "write" opcode followed by the start address and the first
+        // byte, and then continue writing clocking in bytes to subsequent
+        // addresses without  having to resend the write command or address.
+        //
+        // Here's the kind of strangely-worded explanation of this from the
+        // Fujitsu datasheet:
+        //
+        // > The WRITE command writes data to FRAM memory cell array. WRITE
+        // > op-code, arbitrary 16 bits of address and 8 bits of writing data
+        // > are input to SI. The 3-bit upper address bit is invalid. When 8
+        // > bits of writing data is input, data is written to FRAM memory cell
+        // > array. Risen CS will terminate the WRITE command. However, if you
+        // > continue sending the writing data for 8 bits each before CS rising,
+        // > it is possible to continue writing with automatic address
+        // > increment. When it reaches the most significant address, it rolls
+        // > over to the starting address, and writing cycle keeps on continued
+        // > infinitely.
+
+        // Start the write command.
+        let _cs_is_held_low_while_this_exists =
+            self.0.start_rw_command(Opcode::Write, addr)?;
+        // Wham, bam, write to the FRAM!
+        self.0.spi.write(buf)
     }
 
     /// Read bytes from the FRAM starting at `addr` into `buf`.
@@ -421,7 +349,6 @@ impl FramId {
         let mut buf = [0; 3];
         spi.exchange(&[Opcode::ReadId as u8, 0, 0], &mut buf)?;
         let [_, mfg_id, cont] = buf;
-        ringbuf_entry!(Trace::ReadIdLow { mfg_id, cont });
 
         let product_id = if cont == CONTINUE {
             let mut buf = [0; 2];
@@ -434,8 +361,6 @@ impl FramId {
             // have to read some more datasheets to be sure.
             u16::from_be_bytes([mfg_id, cont])
         };
-
-        ringbuf_entry!(Trace::ReadIdHigh { product_id });
 
         Ok(Self { mfg_id, product_id })
     }
