@@ -232,9 +232,10 @@ During an open receive, a task may receive messages sent by any other task, plus
 any notifications enabled by the notification mask.
 
 During a closed receive, a task will receive messages only from the chosen task.
-The task will *not* receive notifications unless the chosen sender ID is the
-kernel's task ID, `0xFFFF`. (This behavior is a little odd because it predates
-notification masks, and may change.)
+The task will still receive any notifications set in its notification mask.
+
+To listen *only* for notifications, a task can perform a closed receive against
+the kernel's task ID, `0xFFFF`.
 
 ==== Arguments
 

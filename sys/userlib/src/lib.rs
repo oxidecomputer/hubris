@@ -255,9 +255,8 @@ pub fn sys_recv_open(buffer: &mut [u8], notification_mask: u32) -> RecvMessage {
 /// its information returned.
 ///
 /// `notification_mask` determines which notification bits can interrupt this
-/// RECV (any that are 1). Note that, if `sender` is not `TaskId::KERNEL`, you
-/// can't actually receive any notifications with this operation, so
-/// `notification_mask` should always be zero in that case.
+/// RECV (any that are 1). To listen _only_ for notifications, pass the `sender`
+/// `TaskId::KERNEL`.
 ///
 /// If `sender` is stale (i.e. refers to a deceased generation of the task) when
 /// you call this, or if `sender` is rebooted while you're blocked in this
