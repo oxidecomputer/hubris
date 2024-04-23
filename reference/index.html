@@ -3063,9 +3063,11 @@ any notifications enabled by the notification mask.</p>
 </div>
 <div class="paragraph">
 <p>During a closed receive, a task will receive messages only from the chosen task.
-The task will <strong>not</strong> receive notifications unless the chosen sender ID is the
-kernel&#8217;s task ID, <code>0xFFFF</code>. (This behavior is a little odd because it predates
-notification masks, and may change.)</p>
+The task will still receive any notifications set in its notification mask.</p>
+</div>
+<div class="paragraph">
+<p>To listen <strong>only</strong> for notifications, a task can perform a closed receive against
+the kernel&#8217;s task ID, <code>0xFFFF</code>.</p>
 </div>
 </div>
 <div class="sect4">
@@ -5626,7 +5628,7 @@ tool to a high-reliability research platform.</em></p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2024-04-18 16:34:31 UTC
+Last updated 2024-04-23 19:49:51 UTC
 </div>
 </div>
 </body>
