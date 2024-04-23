@@ -255,25 +255,19 @@ impl Task {
     /// if any bits are set in both words, clears those bits in the notification
     /// bits and returns them.
     ///
-    /// If the `specific_sender` filter disallows the receipt of kernel
-    /// messages, we will treat the notification mask as 0, and you will always
-    /// get `None` here.
-    ///
     /// This directly accesses the RECV syscall arguments from the task's saved
     /// state, so it doesn't make sense if the task is not performing a RECV --
     /// but this is not checked.
     pub fn take_notifications(&mut self) -> Option<u32> {
         let args = self.save.as_recv_args();
-        let ss = args.specific_sender;
-        if ss.is_none() || ss == Some(TaskId::KERNEL) {
-            // Notifications are not filtered out.
-            let firing = self.notifications & args.notification_mask;
-            if firing != 0 {
-                self.notifications &= !firing;
-                return Some(firing);
-            }
+
+        let firing = self.notifications & args.notification_mask;
+        if firing != 0 {
+            self.notifications &= !firing;
+            Some(firing)
+        } else {
+            None
         }
-        None
     }
 
     /// Returns `true` if any of the notification bits in `mask` are set in this
