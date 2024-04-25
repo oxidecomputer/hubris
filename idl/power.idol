@@ -80,6 +80,14 @@ Interface(
             ),
             idempotent: true,
         ),
+        "bmr491_trace_raw_vin": (
+            doc: "trace raw Vin samples to a ring buffer",
+            reply: Result(
+                ok: "()",
+                err: CLike("ResponseCode"),
+            ),
+            idempotent: true,
+        ),
         "rendmp_blackbox_dump": (
             doc: "reads the RAM blackbox of a Renesas multiphase power controller",
             args: {

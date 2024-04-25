@@ -11,12 +11,14 @@ use crate::{
     VoltageSensor,
 };
 use drv_i2c_api::*;
+use pmbus::commands::bmr491::MFR_SPECIAL_OPTIONS;
 use pmbus::commands::*;
 use userlib::units::*;
 
 pub struct Bmr491 {
     device: I2cDevice,
     mode: Cell<Option<pmbus::VOutModeCommandData>>,
+    options: Cell<Option<MFR_SPECIAL_OPTIONS::CommandData>>,
 }
 
 #[derive(Debug)]
@@ -59,6 +61,7 @@ impl Bmr491 {
         Bmr491 {
             device: *device,
             mode: Cell::new(None),
+            options: Cell::new(None),
         }
     }
 
@@ -76,6 +79,34 @@ impl Bmr491 {
     pub fn read_vout(&self) -> Result<Volts, Error> {
         let vout = pmbus_read!(self.device, bmr491::READ_VOUT)?;
         Ok(Volts(vout.get(self.read_mode()?)?.0))
+    }
+
+    pub fn set_telemetry_raw(&self, raw: bool) -> Result<(), Error> {
+        use bmr491::MFR_SPECIAL_OPTIONS::TelemetryMode;
+
+        let mut options = match self.options.get() {
+            None => {
+                let options = pmbus_read!(self.device, MFR_SPECIAL_OPTIONS)?;
+                self.options.set(Some(options));
+                options
+            }
+            Some(options) => options,
+        };
+
+        if raw {
+            options.set_telemetry_mode(TelemetryMode::Raw);
+        } else {
+            options.set_telemetry_mode(TelemetryMode::Converted);
+        }
+
+        pmbus_write!(self.device, MFR_SPECIAL_OPTIONS, options)?;
+
+        self.options.set(Some(options));
+        Ok(())
+    }
+
+    pub fn read_vin_raw(&self) -> Result<u16, Error> {
+        Ok(pmbus_read!(self.device, bmr491::READ_VIN)?.0)
     }
 
     pub fn i2c_device(&self) -> &I2cDevice {

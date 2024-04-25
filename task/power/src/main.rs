@@ -34,6 +34,8 @@ use drv_i2c_devices::{
     VoltageSensor,
 };
 
+mod bmr491;
+
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     GotVersion(u32),
@@ -505,6 +507,15 @@ impl ServerImpl {
         }
 
         self.bsp.handle_timer_fired(self.devices, state);
+
+        self.devices.iter().any(|dev| {
+            if let Device::Bmr491(dev) = dev {
+                bmr491::trace_raw_vin(dev, bmr491::TraceCount::Once);
+                true
+            } else {
+                false
+            }
+        });
     }
 
     /// Find the BMR491 and return an `I2cDevice` handle
@@ -890,6 +901,20 @@ impl idl::InOrderPowerImpl for ServerImpl {
             pmbus::commands::bmr491::CommandCode::MFR_EVENT_INDEX as u8,
         )?;
         Ok(out)
+    }
+
+    fn bmr491_trace_raw_vin(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<(), idol_runtime::RequestError<ResponseCode>> {
+        for dev in self.devices.iter() {
+            if let Device::Bmr491(dev) = dev {
+                bmr491::trace_raw_vin(dev, bmr491::TraceCount::Fill);
+                return Ok(());
+            }
+        }
+
+        Err(ResponseCode::NoDevice.into())
     }
 
     fn rendmp_blackbox_dump(
