@@ -1001,6 +1001,9 @@ fn main() -> ! {
         None => {}
     }
 
+    // Clear debug port state in the FPGA
+    server.tofino.debug_port.reset().unwrap_lite();
+
     // Power on, unless suppressed by the `stay-in-a2` feature
     if !cfg!(feature = "stay-in-a2") {
         server.tofino.policy = TofinoSequencerPolicy::LatchOffOnFault;
