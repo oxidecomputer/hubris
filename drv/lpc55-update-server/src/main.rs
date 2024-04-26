@@ -741,10 +741,13 @@ impl ServerImpl<'_> {
                 }
             }
             Ok(()) => {
-                // Programmed pages after an image will contribute to the
-                // flash slot digest which can cause an image to mismatch with
-                // a flash slot digest even though the contained image is
-                // the same.
+                // Unerased pages after an image are also hashed and
+                // therefore contribute to the firmware ID.
+                // This mechanism helps detect "dirty" flash banks
+                // and the possible exfiltration of data or incomplete
+                // update operations.
+                // It will produce a false negative for image matching
+                // but this is intended.
             }
             Err(e) => {
                 return Err(e.into()); // Non-fatal error. We did not alter stage0.

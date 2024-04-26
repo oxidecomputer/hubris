@@ -77,9 +77,11 @@ const TIMEOUT_QUICK: u32 = 5;
 const DEFAULT_ATTEMPTS: u16 = 3;
 /// Slightly longer timeout
 const TIMEOUT_MEDIUM: u32 = 50;
+/// Long timeout
+const TIMEOUT_LONG: u32 = 200;
 
 // Delay between asserting CSn and sending the portion of a message
-// that fits entierly in the RoT's FIFO.
+// that fits entirely in the RoT's FIFO.
 const PART1_DELAY: u64 = 0;
 
 // Delay between sending the portion of a message that fits entirely in the
@@ -736,9 +738,12 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
     ) -> Result<(), idol_runtime::RequestError<SprotError>> {
         let body = ReqBody::Update(UpdateReq::Finish);
         let tx_size = Request::pack(&body, self.tx_buf);
+        // For stage0next updates, erase and flash doesn't happen
+        // until the finish operations. Use a long timeout.
         let rsp = self.do_send_recv_retries(
             tx_size,
-            TIMEOUT_QUICK,
+            // TODO: Tune TIMEOUT_LONG and deal with retried finish_image_update.
+            TIMEOUT_LONG,
             DEFAULT_ATTEMPTS,
         )?;
         if let RspBody::Ok = rsp.body? {
