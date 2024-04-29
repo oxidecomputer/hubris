@@ -1082,7 +1082,7 @@ impl ServerImpl {
         // We can always write the lower page; upper pages require modifying
         // registers in the transceiver to select it.
         if let Some(page) = page.page() {
-            self.transceivers.set_i2c_write_buffer(&[page]);
+            self.transceivers.set_i2c_write_buffer(&[page], mask);
             result = result.chain(self.transceivers.setup_i2c_write(
                 PAGE_SELECT,
                 1,
@@ -1101,7 +1101,7 @@ impl ServerImpl {
         }
 
         if let Some(bank) = page.bank() {
-            self.transceivers.set_i2c_write_buffer(&[bank]);
+            self.transceivers.set_i2c_write_buffer(&[bank], mask);
             result = result.chain(self.transceivers.setup_i2c_write(
                 BANK_SELECT,
                 1,
@@ -1222,7 +1222,7 @@ impl ServerImpl {
 
         // Copy data into the FPGA write buffer
         self.transceivers
-            .set_i2c_write_buffer(&data[..mem.len() as usize]);
+            .set_i2c_write_buffer(&data[..mem.len() as usize], modules);
 
         // Trigger a multicast write to all transceivers in the mask
         result = result.chain(self.transceivers.setup_i2c_write(

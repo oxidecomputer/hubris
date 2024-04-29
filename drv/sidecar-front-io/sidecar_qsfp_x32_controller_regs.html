@@ -279,7 +279,7 @@
         <td class="FieldDesc" colspan="2*">ID0</td>
         <td class="FieldDesc" colspan="1*">7:0</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="2*">0x1</td>
         <td class="FieldDesc" colspan="14">Byte 0 of ID
         </td>
     </tr>
@@ -313,7 +313,7 @@
         <td class="FieldDesc" colspan="2*">ID1</td>
         <td class="FieldDesc" colspan="1*">7:0</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="2*">0xde</td>
         <td class="FieldDesc" colspan="14">Byte 1 of ID
         </td>
     </tr>
@@ -347,7 +347,7 @@
         <td class="FieldDesc" colspan="2*">ID2</td>
         <td class="FieldDesc" colspan="1*">7:0</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="2*">0xaa</td>
         <td class="FieldDesc" colspan="14">Byte 2 of ID
         </td>
     </tr>
@@ -381,7 +381,7 @@
         <td class="FieldDesc" colspan="2*">ID3</td>
         <td class="FieldDesc" colspan="1*">7:0</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="2*">0x55</td>
         <td class="FieldDesc" colspan="14">Byte 3 of ID
         </td>
     </tr>
@@ -1240,7 +1240,7 @@
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="24">QSFP_I2C_BUS_ADDR</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1000
+                0x200
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
@@ -1275,7 +1275,7 @@
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="25">QSFP_I2C_REG_ADDR</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1001
+                0x201
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
@@ -1309,7 +1309,7 @@
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="26">QSFP_I2C_NUM_BYTES</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1002
+                0x202
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
@@ -1343,7 +1343,7 @@
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="27">QSFP_I2C_BCAST0</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1003
+                0x203
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
@@ -1447,7 +1447,7 @@
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="28">QSFP_I2C_BCAST1</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1004
+                0x204
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
@@ -1551,7 +1551,7 @@
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="29">QSFP_I2C_CTRL</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1005
+                0x205
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
@@ -1596,7 +1596,7 @@
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="30">QSFP_I2C_BUSY0</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1006
+                0x206
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
@@ -1700,7 +1700,7 @@
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="31">QSFP_I2C_BUSY1</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1007
+                0x207
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
@@ -1801,21 +1801,23 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="32">QSFP_STATUS_PORT0</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="32">QSFP_PORT0_STATUS</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1008
+                0x208
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;STATUS_PORT0</td>
+        <td class="Description" colspan="16">&nbsp;PORT0_STATUS</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat32" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="6*">RSVD</td>
+                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">RDATA_FIFO_EMPTY</td>
+                <td class="validspandef" colspan="2*">WDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">BUSY</td>
                 <td class="validspandef" colspan="8*">ERROR</td>
     </tr>
@@ -1829,11 +1831,29 @@
     </tr>
     <tr class="cat32" style="display: none">
         <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RDATA_FIFO_EMPTY</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the I2C read data buffer is empty.
+        </td>
+    </tr>
+    <tr class="cat32" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">WDATA_FIFO_EMPTY</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the I2C write data buffer is empty.
+        </td>
+    </tr>
+    <tr class="cat32" style="display: none">
+        <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">BUSY</td>
         <td class="FieldDesc" colspan="1*">4</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">'1' if the bus is busy.
+        <td class="FieldDesc" colspan="14">'1' if the I2C bus is busy.
         </td>
     </tr>
     <tr class="cat32" style="display: none">
@@ -1855,21 +1875,23 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="33">QSFP_STATUS_PORT1</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="33">QSFP_PORT1_STATUS</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1009
+                0x209
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;STATUS_PORT1</td>
+        <td class="Description" colspan="16">&nbsp;PORT1_STATUS</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat33" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="6*">RSVD</td>
+                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">RDATA_FIFO_EMPTY</td>
+                <td class="validspandef" colspan="2*">WDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">BUSY</td>
                 <td class="validspandef" colspan="8*">ERROR</td>
     </tr>
@@ -1883,11 +1905,29 @@
     </tr>
     <tr class="cat33" style="display: none">
         <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RDATA_FIFO_EMPTY</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the I2C read data buffer is empty.
+        </td>
+    </tr>
+    <tr class="cat33" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">WDATA_FIFO_EMPTY</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the I2C write data buffer is empty.
+        </td>
+    </tr>
+    <tr class="cat33" style="display: none">
+        <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">BUSY</td>
         <td class="FieldDesc" colspan="1*">4</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">'1' if the bus is busy.
+        <td class="FieldDesc" colspan="14">'1' if the I2C bus is busy.
         </td>
     </tr>
     <tr class="cat33" style="display: none">
@@ -1909,21 +1949,23 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="34">QSFP_STATUS_PORT2</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="34">QSFP_PORT2_STATUS</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x100a
+                0x20a
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;STATUS_PORT2</td>
+        <td class="Description" colspan="16">&nbsp;PORT2_STATUS</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat34" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="6*">RSVD</td>
+                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">RDATA_FIFO_EMPTY</td>
+                <td class="validspandef" colspan="2*">WDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">BUSY</td>
                 <td class="validspandef" colspan="8*">ERROR</td>
     </tr>
@@ -1937,11 +1979,29 @@
     </tr>
     <tr class="cat34" style="display: none">
         <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RDATA_FIFO_EMPTY</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the I2C read data buffer is empty.
+        </td>
+    </tr>
+    <tr class="cat34" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">WDATA_FIFO_EMPTY</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the I2C write data buffer is empty.
+        </td>
+    </tr>
+    <tr class="cat34" style="display: none">
+        <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">BUSY</td>
         <td class="FieldDesc" colspan="1*">4</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">'1' if the bus is busy.
+        <td class="FieldDesc" colspan="14">'1' if the I2C bus is busy.
         </td>
     </tr>
     <tr class="cat34" style="display: none">
@@ -1963,21 +2023,23 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="35">QSFP_STATUS_PORT3</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="35">QSFP_PORT3_STATUS</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x100b
+                0x20b
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;STATUS_PORT3</td>
+        <td class="Description" colspan="16">&nbsp;PORT3_STATUS</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat35" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="6*">RSVD</td>
+                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">RDATA_FIFO_EMPTY</td>
+                <td class="validspandef" colspan="2*">WDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">BUSY</td>
                 <td class="validspandef" colspan="8*">ERROR</td>
     </tr>
@@ -1991,11 +2053,29 @@
     </tr>
     <tr class="cat35" style="display: none">
         <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RDATA_FIFO_EMPTY</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the I2C read data buffer is empty.
+        </td>
+    </tr>
+    <tr class="cat35" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">WDATA_FIFO_EMPTY</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the I2C write data buffer is empty.
+        </td>
+    </tr>
+    <tr class="cat35" style="display: none">
+        <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">BUSY</td>
         <td class="FieldDesc" colspan="1*">4</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">'1' if the bus is busy.
+        <td class="FieldDesc" colspan="14">'1' if the I2C bus is busy.
         </td>
     </tr>
     <tr class="cat35" style="display: none">
@@ -2017,21 +2097,23 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="36">QSFP_STATUS_PORT4</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="36">QSFP_PORT4_STATUS</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x100c
+                0x20c
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;STATUS_PORT4</td>
+        <td class="Description" colspan="16">&nbsp;PORT4_STATUS</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat36" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="6*">RSVD</td>
+                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">RDATA_FIFO_EMPTY</td>
+                <td class="validspandef" colspan="2*">WDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">BUSY</td>
                 <td class="validspandef" colspan="8*">ERROR</td>
     </tr>
@@ -2045,11 +2127,29 @@
     </tr>
     <tr class="cat36" style="display: none">
         <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RDATA_FIFO_EMPTY</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the I2C read data buffer is empty.
+        </td>
+    </tr>
+    <tr class="cat36" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">WDATA_FIFO_EMPTY</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the I2C write data buffer is empty.
+        </td>
+    </tr>
+    <tr class="cat36" style="display: none">
+        <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">BUSY</td>
         <td class="FieldDesc" colspan="1*">4</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">'1' if the bus is busy.
+        <td class="FieldDesc" colspan="14">'1' if the I2C bus is busy.
         </td>
     </tr>
     <tr class="cat36" style="display: none">
@@ -2071,21 +2171,23 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="37">QSFP_STATUS_PORT5</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="37">QSFP_PORT5_STATUS</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x100d
+                0x20d
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;STATUS_PORT5</td>
+        <td class="Description" colspan="16">&nbsp;PORT5_STATUS</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat37" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="6*">RSVD</td>
+                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">RDATA_FIFO_EMPTY</td>
+                <td class="validspandef" colspan="2*">WDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">BUSY</td>
                 <td class="validspandef" colspan="8*">ERROR</td>
     </tr>
@@ -2099,11 +2201,29 @@
     </tr>
     <tr class="cat37" style="display: none">
         <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RDATA_FIFO_EMPTY</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the I2C read data buffer is empty.
+        </td>
+    </tr>
+    <tr class="cat37" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">WDATA_FIFO_EMPTY</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the I2C write data buffer is empty.
+        </td>
+    </tr>
+    <tr class="cat37" style="display: none">
+        <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">BUSY</td>
         <td class="FieldDesc" colspan="1*">4</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">'1' if the bus is busy.
+        <td class="FieldDesc" colspan="14">'1' if the I2C bus is busy.
         </td>
     </tr>
     <tr class="cat37" style="display: none">
@@ -2125,21 +2245,23 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="38">QSFP_STATUS_PORT6</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="38">QSFP_PORT6_STATUS</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x100e
+                0x20e
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;STATUS_PORT6</td>
+        <td class="Description" colspan="16">&nbsp;PORT6_STATUS</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat38" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="6*">RSVD</td>
+                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">RDATA_FIFO_EMPTY</td>
+                <td class="validspandef" colspan="2*">WDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">BUSY</td>
                 <td class="validspandef" colspan="8*">ERROR</td>
     </tr>
@@ -2153,11 +2275,29 @@
     </tr>
     <tr class="cat38" style="display: none">
         <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RDATA_FIFO_EMPTY</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the I2C read data buffer is empty.
+        </td>
+    </tr>
+    <tr class="cat38" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">WDATA_FIFO_EMPTY</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the I2C write data buffer is empty.
+        </td>
+    </tr>
+    <tr class="cat38" style="display: none">
+        <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">BUSY</td>
         <td class="FieldDesc" colspan="1*">4</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">'1' if the bus is busy.
+        <td class="FieldDesc" colspan="14">'1' if the I2C bus is busy.
         </td>
     </tr>
     <tr class="cat38" style="display: none">
@@ -2179,21 +2319,23 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="39">QSFP_STATUS_PORT7</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="39">QSFP_PORT7_STATUS</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x100f
+                0x20f
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;STATUS_PORT7</td>
+        <td class="Description" colspan="16">&nbsp;PORT7_STATUS</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat39" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="6*">RSVD</td>
+                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">RDATA_FIFO_EMPTY</td>
+                <td class="validspandef" colspan="2*">WDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">BUSY</td>
                 <td class="validspandef" colspan="8*">ERROR</td>
     </tr>
@@ -2207,11 +2349,29 @@
     </tr>
     <tr class="cat39" style="display: none">
         <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RDATA_FIFO_EMPTY</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the I2C read data buffer is empty.
+        </td>
+    </tr>
+    <tr class="cat39" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">WDATA_FIFO_EMPTY</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the I2C write data buffer is empty.
+        </td>
+    </tr>
+    <tr class="cat39" style="display: none">
+        <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">BUSY</td>
         <td class="FieldDesc" colspan="1*">4</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">'1' if the bus is busy.
+        <td class="FieldDesc" colspan="14">'1' if the I2C bus is busy.
         </td>
     </tr>
     <tr class="cat39" style="display: none">
@@ -2233,21 +2393,23 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="40">QSFP_STATUS_PORT8</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="40">QSFP_PORT8_STATUS</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1010
+                0x210
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;STATUS_PORT8</td>
+        <td class="Description" colspan="16">&nbsp;PORT8_STATUS</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat40" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="6*">RSVD</td>
+                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">RDATA_FIFO_EMPTY</td>
+                <td class="validspandef" colspan="2*">WDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">BUSY</td>
                 <td class="validspandef" colspan="8*">ERROR</td>
     </tr>
@@ -2261,11 +2423,29 @@
     </tr>
     <tr class="cat40" style="display: none">
         <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RDATA_FIFO_EMPTY</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the I2C read data buffer is empty.
+        </td>
+    </tr>
+    <tr class="cat40" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">WDATA_FIFO_EMPTY</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the I2C write data buffer is empty.
+        </td>
+    </tr>
+    <tr class="cat40" style="display: none">
+        <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">BUSY</td>
         <td class="FieldDesc" colspan="1*">4</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">'1' if the bus is busy.
+        <td class="FieldDesc" colspan="14">'1' if the I2C bus is busy.
         </td>
     </tr>
     <tr class="cat40" style="display: none">
@@ -2287,21 +2467,23 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="41">QSFP_STATUS_PORT9</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="41">QSFP_PORT9_STATUS</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1011
+                0x211
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;STATUS_PORT9</td>
+        <td class="Description" colspan="16">&nbsp;PORT9_STATUS</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat41" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="6*">RSVD</td>
+                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">RDATA_FIFO_EMPTY</td>
+                <td class="validspandef" colspan="2*">WDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">BUSY</td>
                 <td class="validspandef" colspan="8*">ERROR</td>
     </tr>
@@ -2315,11 +2497,29 @@
     </tr>
     <tr class="cat41" style="display: none">
         <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RDATA_FIFO_EMPTY</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the I2C read data buffer is empty.
+        </td>
+    </tr>
+    <tr class="cat41" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">WDATA_FIFO_EMPTY</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the I2C write data buffer is empty.
+        </td>
+    </tr>
+    <tr class="cat41" style="display: none">
+        <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">BUSY</td>
         <td class="FieldDesc" colspan="1*">4</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">'1' if the bus is busy.
+        <td class="FieldDesc" colspan="14">'1' if the I2C bus is busy.
         </td>
     </tr>
     <tr class="cat41" style="display: none">
@@ -2341,21 +2541,23 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="42">QSFP_STATUS_PORT10</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="42">QSFP_PORT10_STATUS</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1012
+                0x212
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;STATUS_PORT10</td>
+        <td class="Description" colspan="16">&nbsp;PORT10_STATUS</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat42" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="6*">RSVD</td>
+                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">RDATA_FIFO_EMPTY</td>
+                <td class="validspandef" colspan="2*">WDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">BUSY</td>
                 <td class="validspandef" colspan="8*">ERROR</td>
     </tr>
@@ -2369,11 +2571,29 @@
     </tr>
     <tr class="cat42" style="display: none">
         <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RDATA_FIFO_EMPTY</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the I2C read data buffer is empty.
+        </td>
+    </tr>
+    <tr class="cat42" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">WDATA_FIFO_EMPTY</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the I2C write data buffer is empty.
+        </td>
+    </tr>
+    <tr class="cat42" style="display: none">
+        <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">BUSY</td>
         <td class="FieldDesc" colspan="1*">4</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">'1' if the bus is busy.
+        <td class="FieldDesc" colspan="14">'1' if the I2C bus is busy.
         </td>
     </tr>
     <tr class="cat42" style="display: none">
@@ -2395,21 +2615,23 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="43">QSFP_STATUS_PORT11</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="43">QSFP_PORT11_STATUS</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1013
+                0x213
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;STATUS_PORT11</td>
+        <td class="Description" colspan="16">&nbsp;PORT11_STATUS</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat43" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="6*">RSVD</td>
+                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">RDATA_FIFO_EMPTY</td>
+                <td class="validspandef" colspan="2*">WDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">BUSY</td>
                 <td class="validspandef" colspan="8*">ERROR</td>
     </tr>
@@ -2423,11 +2645,29 @@
     </tr>
     <tr class="cat43" style="display: none">
         <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RDATA_FIFO_EMPTY</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the I2C read data buffer is empty.
+        </td>
+    </tr>
+    <tr class="cat43" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">WDATA_FIFO_EMPTY</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the I2C write data buffer is empty.
+        </td>
+    </tr>
+    <tr class="cat43" style="display: none">
+        <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">BUSY</td>
         <td class="FieldDesc" colspan="1*">4</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">'1' if the bus is busy.
+        <td class="FieldDesc" colspan="14">'1' if the I2C bus is busy.
         </td>
     </tr>
     <tr class="cat43" style="display: none">
@@ -2449,21 +2689,23 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="44">QSFP_STATUS_PORT12</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="44">QSFP_PORT12_STATUS</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1014
+                0x214
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;STATUS_PORT12</td>
+        <td class="Description" colspan="16">&nbsp;PORT12_STATUS</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat44" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="6*">RSVD</td>
+                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">RDATA_FIFO_EMPTY</td>
+                <td class="validspandef" colspan="2*">WDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">BUSY</td>
                 <td class="validspandef" colspan="8*">ERROR</td>
     </tr>
@@ -2477,11 +2719,29 @@
     </tr>
     <tr class="cat44" style="display: none">
         <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RDATA_FIFO_EMPTY</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the I2C read data buffer is empty.
+        </td>
+    </tr>
+    <tr class="cat44" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">WDATA_FIFO_EMPTY</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the I2C write data buffer is empty.
+        </td>
+    </tr>
+    <tr class="cat44" style="display: none">
+        <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">BUSY</td>
         <td class="FieldDesc" colspan="1*">4</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">'1' if the bus is busy.
+        <td class="FieldDesc" colspan="14">'1' if the I2C bus is busy.
         </td>
     </tr>
     <tr class="cat44" style="display: none">
@@ -2503,21 +2763,23 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="45">QSFP_STATUS_PORT13</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="45">QSFP_PORT13_STATUS</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1015
+                0x215
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;STATUS_PORT13</td>
+        <td class="Description" colspan="16">&nbsp;PORT13_STATUS</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat45" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="6*">RSVD</td>
+                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">RDATA_FIFO_EMPTY</td>
+                <td class="validspandef" colspan="2*">WDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">BUSY</td>
                 <td class="validspandef" colspan="8*">ERROR</td>
     </tr>
@@ -2531,11 +2793,29 @@
     </tr>
     <tr class="cat45" style="display: none">
         <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RDATA_FIFO_EMPTY</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the I2C read data buffer is empty.
+        </td>
+    </tr>
+    <tr class="cat45" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">WDATA_FIFO_EMPTY</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the I2C write data buffer is empty.
+        </td>
+    </tr>
+    <tr class="cat45" style="display: none">
+        <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">BUSY</td>
         <td class="FieldDesc" colspan="1*">4</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">'1' if the bus is busy.
+        <td class="FieldDesc" colspan="14">'1' if the I2C bus is busy.
         </td>
     </tr>
     <tr class="cat45" style="display: none">
@@ -2557,21 +2837,23 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="46">QSFP_STATUS_PORT14</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="46">QSFP_PORT14_STATUS</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1016
+                0x216
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;STATUS_PORT14</td>
+        <td class="Description" colspan="16">&nbsp;PORT14_STATUS</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat46" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="6*">RSVD</td>
+                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">RDATA_FIFO_EMPTY</td>
+                <td class="validspandef" colspan="2*">WDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">BUSY</td>
                 <td class="validspandef" colspan="8*">ERROR</td>
     </tr>
@@ -2585,11 +2867,29 @@
     </tr>
     <tr class="cat46" style="display: none">
         <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RDATA_FIFO_EMPTY</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the I2C read data buffer is empty.
+        </td>
+    </tr>
+    <tr class="cat46" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">WDATA_FIFO_EMPTY</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the I2C write data buffer is empty.
+        </td>
+    </tr>
+    <tr class="cat46" style="display: none">
+        <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">BUSY</td>
         <td class="FieldDesc" colspan="1*">4</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">'1' if the bus is busy.
+        <td class="FieldDesc" colspan="14">'1' if the I2C bus is busy.
         </td>
     </tr>
     <tr class="cat46" style="display: none">
@@ -2611,21 +2911,23 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="47">QSFP_STATUS_PORT15</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="47">QSFP_PORT15_STATUS</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1017
+                0x217
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;STATUS_PORT15</td>
+        <td class="Description" colspan="16">&nbsp;PORT15_STATUS</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat47" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="6*">RSVD</td>
+                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">RDATA_FIFO_EMPTY</td>
+                <td class="validspandef" colspan="2*">WDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">BUSY</td>
                 <td class="validspandef" colspan="8*">ERROR</td>
     </tr>
@@ -2639,11 +2941,29 @@
     </tr>
     <tr class="cat47" style="display: none">
         <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RDATA_FIFO_EMPTY</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the I2C read data buffer is empty.
+        </td>
+    </tr>
+    <tr class="cat47" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">WDATA_FIFO_EMPTY</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the I2C write data buffer is empty.
+        </td>
+    </tr>
+    <tr class="cat47" style="display: none">
+        <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">BUSY</td>
         <td class="FieldDesc" colspan="1*">4</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">'1' if the bus is busy.
+        <td class="FieldDesc" colspan="14">'1' if the I2C bus is busy.
         </td>
     </tr>
     <tr class="cat47" style="display: none">
@@ -2665,21 +2985,23 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="48">QSFP_CONTROL_PORT0</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="48">QSFP_PORT0_CONTROL</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1018
+                0x218
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;CONTROL_PORT0</td>
+        <td class="Description" colspan="16">&nbsp;PORT0_CONTROL</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat48" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="14*">RSVD</td>
+                <td class="rsvdspandef" colspan="10*">RSVD</td>
+                <td class="validspandef" colspan="2*">RDATA_FIFO_CLEAR</td>
+                <td class="validspandef" colspan="2*">WDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">CLEAR_FAULT</td>
     </tr>
     <tr class="cat48" style="display: none">
@@ -2692,6 +3014,24 @@
     </tr>
     <tr class="cat48" style="display: none">
         <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RDATA_FIFO_CLEAR</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Setting this bit will clear the I2C read data FIFO. This bit auto-clears.
+        </td>
+    </tr>
+    <tr class="cat48" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">WDATA_FIFO_CLEAR</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Setting this bit will clear the I2C write data FIFO. This bit auto-clears.
+        </td>
+    </tr>
+    <tr class="cat48" style="display: none">
+        <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">CLEAR_FAULT</td>
         <td class="FieldDesc" colspan="1*">0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
@@ -2700,21 +3040,23 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="49">QSFP_CONTROL_PORT1</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="49">QSFP_PORT1_CONTROL</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1019
+                0x219
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;CONTROL_PORT1</td>
+        <td class="Description" colspan="16">&nbsp;PORT1_CONTROL</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat49" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="14*">RSVD</td>
+                <td class="rsvdspandef" colspan="10*">RSVD</td>
+                <td class="validspandef" colspan="2*">RDATA_FIFO_CLEAR</td>
+                <td class="validspandef" colspan="2*">WDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">CLEAR_FAULT</td>
     </tr>
     <tr class="cat49" style="display: none">
@@ -2727,6 +3069,24 @@
     </tr>
     <tr class="cat49" style="display: none">
         <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RDATA_FIFO_CLEAR</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Setting this bit will clear the I2C read data FIFO. This bit auto-clears.
+        </td>
+    </tr>
+    <tr class="cat49" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">WDATA_FIFO_CLEAR</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Setting this bit will clear the I2C write data FIFO. This bit auto-clears.
+        </td>
+    </tr>
+    <tr class="cat49" style="display: none">
+        <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">CLEAR_FAULT</td>
         <td class="FieldDesc" colspan="1*">0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
@@ -2735,21 +3095,23 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="50">QSFP_CONTROL_PORT2</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="50">QSFP_PORT2_CONTROL</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x101a
+                0x21a
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;CONTROL_PORT2</td>
+        <td class="Description" colspan="16">&nbsp;PORT2_CONTROL</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat50" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="14*">RSVD</td>
+                <td class="rsvdspandef" colspan="10*">RSVD</td>
+                <td class="validspandef" colspan="2*">RDATA_FIFO_CLEAR</td>
+                <td class="validspandef" colspan="2*">WDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">CLEAR_FAULT</td>
     </tr>
     <tr class="cat50" style="display: none">
@@ -2762,6 +3124,24 @@
     </tr>
     <tr class="cat50" style="display: none">
         <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RDATA_FIFO_CLEAR</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Setting this bit will clear the I2C read data FIFO. This bit auto-clears.
+        </td>
+    </tr>
+    <tr class="cat50" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">WDATA_FIFO_CLEAR</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Setting this bit will clear the I2C write data FIFO. This bit auto-clears.
+        </td>
+    </tr>
+    <tr class="cat50" style="display: none">
+        <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">CLEAR_FAULT</td>
         <td class="FieldDesc" colspan="1*">0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
@@ -2770,21 +3150,23 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="51">QSFP_CONTROL_PORT3</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="51">QSFP_PORT3_CONTROL</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x101b
+                0x21b
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;CONTROL_PORT3</td>
+        <td class="Description" colspan="16">&nbsp;PORT3_CONTROL</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat51" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="14*">RSVD</td>
+                <td class="rsvdspandef" colspan="10*">RSVD</td>
+                <td class="validspandef" colspan="2*">RDATA_FIFO_CLEAR</td>
+                <td class="validspandef" colspan="2*">WDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">CLEAR_FAULT</td>
     </tr>
     <tr class="cat51" style="display: none">
@@ -2797,6 +3179,24 @@
     </tr>
     <tr class="cat51" style="display: none">
         <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RDATA_FIFO_CLEAR</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Setting this bit will clear the I2C read data FIFO. This bit auto-clears.
+        </td>
+    </tr>
+    <tr class="cat51" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">WDATA_FIFO_CLEAR</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Setting this bit will clear the I2C write data FIFO. This bit auto-clears.
+        </td>
+    </tr>
+    <tr class="cat51" style="display: none">
+        <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">CLEAR_FAULT</td>
         <td class="FieldDesc" colspan="1*">0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
@@ -2805,21 +3205,23 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="52">QSFP_CONTROL_PORT4</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="52">QSFP_PORT4_CONTROL</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x101c
+                0x21c
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;CONTROL_PORT4</td>
+        <td class="Description" colspan="16">&nbsp;PORT4_CONTROL</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat52" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="14*">RSVD</td>
+                <td class="rsvdspandef" colspan="10*">RSVD</td>
+                <td class="validspandef" colspan="2*">RDATA_FIFO_CLEAR</td>
+                <td class="validspandef" colspan="2*">WDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">CLEAR_FAULT</td>
     </tr>
     <tr class="cat52" style="display: none">
@@ -2832,6 +3234,24 @@
     </tr>
     <tr class="cat52" style="display: none">
         <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RDATA_FIFO_CLEAR</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Setting this bit will clear the I2C read data FIFO. This bit auto-clears.
+        </td>
+    </tr>
+    <tr class="cat52" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">WDATA_FIFO_CLEAR</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Setting this bit will clear the I2C write data FIFO. This bit auto-clears.
+        </td>
+    </tr>
+    <tr class="cat52" style="display: none">
+        <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">CLEAR_FAULT</td>
         <td class="FieldDesc" colspan="1*">0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
@@ -2840,21 +3260,23 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="53">QSFP_CONTROL_PORT5</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="53">QSFP_PORT5_CONTROL</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x101d
+                0x21d
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;CONTROL_PORT5</td>
+        <td class="Description" colspan="16">&nbsp;PORT5_CONTROL</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat53" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="14*">RSVD</td>
+                <td class="rsvdspandef" colspan="10*">RSVD</td>
+                <td class="validspandef" colspan="2*">RDATA_FIFO_CLEAR</td>
+                <td class="validspandef" colspan="2*">WDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">CLEAR_FAULT</td>
     </tr>
     <tr class="cat53" style="display: none">
@@ -2867,6 +3289,24 @@
     </tr>
     <tr class="cat53" style="display: none">
         <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RDATA_FIFO_CLEAR</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Setting this bit will clear the I2C read data FIFO. This bit auto-clears.
+        </td>
+    </tr>
+    <tr class="cat53" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">WDATA_FIFO_CLEAR</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Setting this bit will clear the I2C write data FIFO. This bit auto-clears.
+        </td>
+    </tr>
+    <tr class="cat53" style="display: none">
+        <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">CLEAR_FAULT</td>
         <td class="FieldDesc" colspan="1*">0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
@@ -2875,21 +3315,23 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="54">QSFP_CONTROL_PORT6</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="54">QSFP_PORT6_CONTROL</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x101e
+                0x21e
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;CONTROL_PORT6</td>
+        <td class="Description" colspan="16">&nbsp;PORT6_CONTROL</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat54" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="14*">RSVD</td>
+                <td class="rsvdspandef" colspan="10*">RSVD</td>
+                <td class="validspandef" colspan="2*">RDATA_FIFO_CLEAR</td>
+                <td class="validspandef" colspan="2*">WDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">CLEAR_FAULT</td>
     </tr>
     <tr class="cat54" style="display: none">
@@ -2902,6 +3344,24 @@
     </tr>
     <tr class="cat54" style="display: none">
         <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RDATA_FIFO_CLEAR</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Setting this bit will clear the I2C read data FIFO. This bit auto-clears.
+        </td>
+    </tr>
+    <tr class="cat54" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">WDATA_FIFO_CLEAR</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Setting this bit will clear the I2C write data FIFO. This bit auto-clears.
+        </td>
+    </tr>
+    <tr class="cat54" style="display: none">
+        <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">CLEAR_FAULT</td>
         <td class="FieldDesc" colspan="1*">0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
@@ -2910,21 +3370,23 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="55">QSFP_CONTROL_PORT7</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="55">QSFP_PORT7_CONTROL</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x101f
+                0x21f
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;CONTROL_PORT7</td>
+        <td class="Description" colspan="16">&nbsp;PORT7_CONTROL</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat55" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="14*">RSVD</td>
+                <td class="rsvdspandef" colspan="10*">RSVD</td>
+                <td class="validspandef" colspan="2*">RDATA_FIFO_CLEAR</td>
+                <td class="validspandef" colspan="2*">WDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">CLEAR_FAULT</td>
     </tr>
     <tr class="cat55" style="display: none">
@@ -2937,6 +3399,24 @@
     </tr>
     <tr class="cat55" style="display: none">
         <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RDATA_FIFO_CLEAR</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Setting this bit will clear the I2C read data FIFO. This bit auto-clears.
+        </td>
+    </tr>
+    <tr class="cat55" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">WDATA_FIFO_CLEAR</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Setting this bit will clear the I2C write data FIFO. This bit auto-clears.
+        </td>
+    </tr>
+    <tr class="cat55" style="display: none">
+        <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">CLEAR_FAULT</td>
         <td class="FieldDesc" colspan="1*">0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
@@ -2945,21 +3425,23 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="56">QSFP_CONTROL_PORT8</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="56">QSFP_PORT8_CONTROL</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1020
+                0x220
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;CONTROL_PORT8</td>
+        <td class="Description" colspan="16">&nbsp;PORT8_CONTROL</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat56" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="14*">RSVD</td>
+                <td class="rsvdspandef" colspan="10*">RSVD</td>
+                <td class="validspandef" colspan="2*">RDATA_FIFO_CLEAR</td>
+                <td class="validspandef" colspan="2*">WDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">CLEAR_FAULT</td>
     </tr>
     <tr class="cat56" style="display: none">
@@ -2972,6 +3454,24 @@
     </tr>
     <tr class="cat56" style="display: none">
         <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RDATA_FIFO_CLEAR</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Setting this bit will clear the I2C read data FIFO. This bit auto-clears.
+        </td>
+    </tr>
+    <tr class="cat56" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">WDATA_FIFO_CLEAR</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Setting this bit will clear the I2C write data FIFO. This bit auto-clears.
+        </td>
+    </tr>
+    <tr class="cat56" style="display: none">
+        <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">CLEAR_FAULT</td>
         <td class="FieldDesc" colspan="1*">0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
@@ -2980,21 +3480,23 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="57">QSFP_CONTROL_PORT9</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="57">QSFP_PORT9_CONTROL</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1021
+                0x221
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;CONTROL_PORT9</td>
+        <td class="Description" colspan="16">&nbsp;PORT9_CONTROL</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat57" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="14*">RSVD</td>
+                <td class="rsvdspandef" colspan="10*">RSVD</td>
+                <td class="validspandef" colspan="2*">RDATA_FIFO_CLEAR</td>
+                <td class="validspandef" colspan="2*">WDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">CLEAR_FAULT</td>
     </tr>
     <tr class="cat57" style="display: none">
@@ -3007,6 +3509,24 @@
     </tr>
     <tr class="cat57" style="display: none">
         <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RDATA_FIFO_CLEAR</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Setting this bit will clear the I2C read data FIFO. This bit auto-clears.
+        </td>
+    </tr>
+    <tr class="cat57" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">WDATA_FIFO_CLEAR</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Setting this bit will clear the I2C write data FIFO. This bit auto-clears.
+        </td>
+    </tr>
+    <tr class="cat57" style="display: none">
+        <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">CLEAR_FAULT</td>
         <td class="FieldDesc" colspan="1*">0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
@@ -3015,21 +3535,23 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="58">QSFP_CONTROL_PORT10</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="58">QSFP_PORT10_CONTROL</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1022
+                0x222
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;CONTROL_PORT10</td>
+        <td class="Description" colspan="16">&nbsp;PORT10_CONTROL</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat58" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="14*">RSVD</td>
+                <td class="rsvdspandef" colspan="10*">RSVD</td>
+                <td class="validspandef" colspan="2*">RDATA_FIFO_CLEAR</td>
+                <td class="validspandef" colspan="2*">WDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">CLEAR_FAULT</td>
     </tr>
     <tr class="cat58" style="display: none">
@@ -3042,6 +3564,24 @@
     </tr>
     <tr class="cat58" style="display: none">
         <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RDATA_FIFO_CLEAR</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Setting this bit will clear the I2C read data FIFO. This bit auto-clears.
+        </td>
+    </tr>
+    <tr class="cat58" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">WDATA_FIFO_CLEAR</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Setting this bit will clear the I2C write data FIFO. This bit auto-clears.
+        </td>
+    </tr>
+    <tr class="cat58" style="display: none">
+        <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">CLEAR_FAULT</td>
         <td class="FieldDesc" colspan="1*">0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
@@ -3050,21 +3590,23 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="59">QSFP_CONTROL_PORT11</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="59">QSFP_PORT11_CONTROL</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1023
+                0x223
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;CONTROL_PORT11</td>
+        <td class="Description" colspan="16">&nbsp;PORT11_CONTROL</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat59" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="14*">RSVD</td>
+                <td class="rsvdspandef" colspan="10*">RSVD</td>
+                <td class="validspandef" colspan="2*">RDATA_FIFO_CLEAR</td>
+                <td class="validspandef" colspan="2*">WDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">CLEAR_FAULT</td>
     </tr>
     <tr class="cat59" style="display: none">
@@ -3077,6 +3619,24 @@
     </tr>
     <tr class="cat59" style="display: none">
         <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RDATA_FIFO_CLEAR</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Setting this bit will clear the I2C read data FIFO. This bit auto-clears.
+        </td>
+    </tr>
+    <tr class="cat59" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">WDATA_FIFO_CLEAR</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Setting this bit will clear the I2C write data FIFO. This bit auto-clears.
+        </td>
+    </tr>
+    <tr class="cat59" style="display: none">
+        <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">CLEAR_FAULT</td>
         <td class="FieldDesc" colspan="1*">0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
@@ -3085,21 +3645,23 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="60">QSFP_CONTROL_PORT12</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="60">QSFP_PORT12_CONTROL</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1024
+                0x224
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;CONTROL_PORT12</td>
+        <td class="Description" colspan="16">&nbsp;PORT12_CONTROL</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat60" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="14*">RSVD</td>
+                <td class="rsvdspandef" colspan="10*">RSVD</td>
+                <td class="validspandef" colspan="2*">RDATA_FIFO_CLEAR</td>
+                <td class="validspandef" colspan="2*">WDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">CLEAR_FAULT</td>
     </tr>
     <tr class="cat60" style="display: none">
@@ -3112,6 +3674,24 @@
     </tr>
     <tr class="cat60" style="display: none">
         <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RDATA_FIFO_CLEAR</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Setting this bit will clear the I2C read data FIFO. This bit auto-clears.
+        </td>
+    </tr>
+    <tr class="cat60" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">WDATA_FIFO_CLEAR</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Setting this bit will clear the I2C write data FIFO. This bit auto-clears.
+        </td>
+    </tr>
+    <tr class="cat60" style="display: none">
+        <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">CLEAR_FAULT</td>
         <td class="FieldDesc" colspan="1*">0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
@@ -3120,21 +3700,23 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="61">QSFP_CONTROL_PORT13</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="61">QSFP_PORT13_CONTROL</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1025
+                0x225
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;CONTROL_PORT13</td>
+        <td class="Description" colspan="16">&nbsp;PORT13_CONTROL</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat61" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="14*">RSVD</td>
+                <td class="rsvdspandef" colspan="10*">RSVD</td>
+                <td class="validspandef" colspan="2*">RDATA_FIFO_CLEAR</td>
+                <td class="validspandef" colspan="2*">WDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">CLEAR_FAULT</td>
     </tr>
     <tr class="cat61" style="display: none">
@@ -3147,6 +3729,24 @@
     </tr>
     <tr class="cat61" style="display: none">
         <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RDATA_FIFO_CLEAR</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Setting this bit will clear the I2C read data FIFO. This bit auto-clears.
+        </td>
+    </tr>
+    <tr class="cat61" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">WDATA_FIFO_CLEAR</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Setting this bit will clear the I2C write data FIFO. This bit auto-clears.
+        </td>
+    </tr>
+    <tr class="cat61" style="display: none">
+        <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">CLEAR_FAULT</td>
         <td class="FieldDesc" colspan="1*">0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
@@ -3155,21 +3755,23 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="62">QSFP_CONTROL_PORT14</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="62">QSFP_PORT14_CONTROL</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1026
+                0x226
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;CONTROL_PORT14</td>
+        <td class="Description" colspan="16">&nbsp;PORT14_CONTROL</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat62" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="14*">RSVD</td>
+                <td class="rsvdspandef" colspan="10*">RSVD</td>
+                <td class="validspandef" colspan="2*">RDATA_FIFO_CLEAR</td>
+                <td class="validspandef" colspan="2*">WDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">CLEAR_FAULT</td>
     </tr>
     <tr class="cat62" style="display: none">
@@ -3182,6 +3784,24 @@
     </tr>
     <tr class="cat62" style="display: none">
         <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RDATA_FIFO_CLEAR</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Setting this bit will clear the I2C read data FIFO. This bit auto-clears.
+        </td>
+    </tr>
+    <tr class="cat62" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">WDATA_FIFO_CLEAR</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Setting this bit will clear the I2C write data FIFO. This bit auto-clears.
+        </td>
+    </tr>
+    <tr class="cat62" style="display: none">
+        <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">CLEAR_FAULT</td>
         <td class="FieldDesc" colspan="1*">0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
@@ -3190,21 +3810,23 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="63">QSFP_CONTROL_PORT15</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="63">QSFP_PORT15_CONTROL</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1027
+                0x227
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;CONTROL_PORT15</td>
+        <td class="Description" colspan="16">&nbsp;PORT15_CONTROL</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat63" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="14*">RSVD</td>
+                <td class="rsvdspandef" colspan="10*">RSVD</td>
+                <td class="validspandef" colspan="2*">RDATA_FIFO_CLEAR</td>
+                <td class="validspandef" colspan="2*">WDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">CLEAR_FAULT</td>
     </tr>
     <tr class="cat63" style="display: none">
@@ -3214,6 +3836,24 @@
         <td class="FieldHeader" colspan="2*">Access</td>
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat63" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">RDATA_FIFO_CLEAR</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Setting this bit will clear the I2C read data FIFO. This bit auto-clears.
+        </td>
+    </tr>
+    <tr class="cat63" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">WDATA_FIFO_CLEAR</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Setting this bit will clear the I2C write data FIFO. This bit auto-clears.
+        </td>
     </tr>
     <tr class="cat63" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -3228,7 +3868,7 @@
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="64">QSFP_POWER_EN0</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1028
+                0x228
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
@@ -3332,7 +3972,7 @@
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="65">QSFP_POWER_EN1</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1029
+                0x229
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
@@ -3436,7 +4076,7 @@
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="66">QSFP_POWER_GOOD0</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x102a
+                0x22a
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
@@ -3540,7 +4180,7 @@
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="67">QSFP_POWER_GOOD1</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x102b
+                0x22b
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
@@ -3644,7 +4284,7 @@
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="68">QSFP_POWER_GOOD_TIMEOUT0</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x102c
+                0x22c
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
@@ -3748,7 +4388,7 @@
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="69">QSFP_POWER_GOOD_TIMEOUT1</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x102d
+                0x22d
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
@@ -3852,7 +4492,7 @@
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="70">QSFP_POWER_GOOD_LOST0</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x102e
+                0x22e
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
@@ -3956,7 +4596,7 @@
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="71">QSFP_POWER_GOOD_LOST1</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x102f
+                0x22f
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
@@ -4060,7 +4700,7 @@
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="72">QSFP_MOD_RESETL0</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1030
+                0x230
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
@@ -4164,7 +4804,7 @@
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="73">QSFP_MOD_RESETL1</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1031
+                0x231
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
@@ -4268,7 +4908,7 @@
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="74">QSFP_MOD_LPMODE0</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1032
+                0x232
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
@@ -4372,7 +5012,7 @@
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="75">QSFP_MOD_LPMODE1</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1033
+                0x233
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
@@ -4476,7 +5116,7 @@
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="76">QSFP_MOD_MODPRSL0</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1034
+                0x234
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
@@ -4580,7 +5220,7 @@
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="77">QSFP_MOD_MODPRSL1</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1035
+                0x235
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
@@ -4684,7 +5324,7 @@
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="78">QSFP_MOD_INTL0</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1036
+                0x236
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
@@ -4788,7 +5428,7 @@
         <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="79">QSFP_MOD_INTL1</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1037
+                0x237
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
@@ -4889,23 +5529,21 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="80">QSFP_PORT0_STATUS</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="80">QSFP_PORT0_I2C_DATA</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x107f
+                0x280
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;PORT0_STATUS</td>
+        <td class="Description" colspan="16">&nbsp;Port 0 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat80" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="6*">RSVD</td>
-                <td class="validspandef" colspan="2*">BUSY</td>
-                <td class="validspandef" colspan="8*">ERROR</td>
+                <td class="validspandef" colspan="16*">DATA</td>
     </tr>
     <tr class="cat80" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -4917,46 +5555,29 @@
     </tr>
     <tr class="cat80" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">BUSY</td>
-        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">DATA</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">'1' if the bus is busy.
-        </td>
-    </tr>
-    <tr class="cat80" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">ERROR</td>
-        <td class="FieldDesc" colspan="1*">3:0</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Port I2C error status
-        <br>
-        <br>
-            NoError = 0x0 <br>
-            NoModule = 0x1 <br>
-            NoPower = 0x2 <br>
-            PowerFault = 0x3 <br>
-            NotInitialized = 0x4 <br>
-            I2cAddressNack = 0x5 <br>
-            I2cByteNack = 0x6 
+        <td class="FieldDesc" colspan="2*">None</td>
+        <td class="FieldDesc" colspan="14">None
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;QSFP_PORT0_READ_BUFFER</td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="81">QSFP_PORT1_I2C_DATA</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1080
+                0x281
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
+        <td class="Description" colspan="16">&nbsp;Port 1 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat81" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">DATA</td>
     </tr>
     <tr class="cat81" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -4966,24 +5587,31 @@
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
+    <tr class="cat81" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">DATA</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">None</td>
+        <td class="FieldDesc" colspan="14">None
+        </td>
+    </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="82">QSFP_PORT1_STATUS</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="82">QSFP_PORT2_I2C_DATA</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x117f
+                0x282
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;PORT1_STATUS</td>
+        <td class="Description" colspan="16">&nbsp;Port 2 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat82" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="6*">RSVD</td>
-                <td class="validspandef" colspan="2*">BUSY</td>
-                <td class="validspandef" colspan="8*">ERROR</td>
+                <td class="validspandef" colspan="16*">DATA</td>
     </tr>
     <tr class="cat82" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -4995,46 +5623,29 @@
     </tr>
     <tr class="cat82" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">BUSY</td>
-        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">DATA</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">'1' if the bus is busy.
-        </td>
-    </tr>
-    <tr class="cat82" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">ERROR</td>
-        <td class="FieldDesc" colspan="1*">3:0</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Port I2C error status
-        <br>
-        <br>
-            NoError = 0x0 <br>
-            NoModule = 0x1 <br>
-            NoPower = 0x2 <br>
-            PowerFault = 0x3 <br>
-            NotInitialized = 0x4 <br>
-            I2cAddressNack = 0x5 <br>
-            I2cByteNack = 0x6 
+        <td class="FieldDesc" colspan="2*">None</td>
+        <td class="FieldDesc" colspan="14">None
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;QSFP_PORT1_READ_BUFFER</td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="83">QSFP_PORT3_I2C_DATA</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1180
+                0x283
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
+        <td class="Description" colspan="16">&nbsp;Port 3 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat83" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">DATA</td>
     </tr>
     <tr class="cat83" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -5044,24 +5655,31 @@
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
+    <tr class="cat83" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">DATA</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">None</td>
+        <td class="FieldDesc" colspan="14">None
+        </td>
+    </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="84">QSFP_PORT2_STATUS</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="84">QSFP_PORT4_I2C_DATA</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x127f
+                0x284
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;PORT2_STATUS</td>
+        <td class="Description" colspan="16">&nbsp;Port 4 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat84" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="6*">RSVD</td>
-                <td class="validspandef" colspan="2*">BUSY</td>
-                <td class="validspandef" colspan="8*">ERROR</td>
+                <td class="validspandef" colspan="16*">DATA</td>
     </tr>
     <tr class="cat84" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -5073,46 +5691,29 @@
     </tr>
     <tr class="cat84" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">BUSY</td>
-        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">DATA</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">'1' if the bus is busy.
-        </td>
-    </tr>
-    <tr class="cat84" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">ERROR</td>
-        <td class="FieldDesc" colspan="1*">3:0</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Port I2C error status
-        <br>
-        <br>
-            NoError = 0x0 <br>
-            NoModule = 0x1 <br>
-            NoPower = 0x2 <br>
-            PowerFault = 0x3 <br>
-            NotInitialized = 0x4 <br>
-            I2cAddressNack = 0x5 <br>
-            I2cByteNack = 0x6 
+        <td class="FieldDesc" colspan="2*">None</td>
+        <td class="FieldDesc" colspan="14">None
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;QSFP_PORT2_READ_BUFFER</td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="85">QSFP_PORT5_I2C_DATA</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1280
+                0x285
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
+        <td class="Description" colspan="16">&nbsp;Port 5 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat85" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">DATA</td>
     </tr>
     <tr class="cat85" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -5122,24 +5723,31 @@
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
+    <tr class="cat85" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">DATA</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">None</td>
+        <td class="FieldDesc" colspan="14">None
+        </td>
+    </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="86">QSFP_PORT3_STATUS</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="86">QSFP_PORT6_I2C_DATA</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x137f
+                0x286
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;PORT3_STATUS</td>
+        <td class="Description" colspan="16">&nbsp;Port 6 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat86" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="6*">RSVD</td>
-                <td class="validspandef" colspan="2*">BUSY</td>
-                <td class="validspandef" colspan="8*">ERROR</td>
+                <td class="validspandef" colspan="16*">DATA</td>
     </tr>
     <tr class="cat86" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -5151,46 +5759,29 @@
     </tr>
     <tr class="cat86" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">BUSY</td>
-        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">DATA</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">'1' if the bus is busy.
-        </td>
-    </tr>
-    <tr class="cat86" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">ERROR</td>
-        <td class="FieldDesc" colspan="1*">3:0</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Port I2C error status
-        <br>
-        <br>
-            NoError = 0x0 <br>
-            NoModule = 0x1 <br>
-            NoPower = 0x2 <br>
-            PowerFault = 0x3 <br>
-            NotInitialized = 0x4 <br>
-            I2cAddressNack = 0x5 <br>
-            I2cByteNack = 0x6 
+        <td class="FieldDesc" colspan="2*">None</td>
+        <td class="FieldDesc" colspan="14">None
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;QSFP_PORT3_READ_BUFFER</td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="87">QSFP_PORT7_I2C_DATA</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1380
+                0x287
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
+        <td class="Description" colspan="16">&nbsp;Port 7 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat87" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">DATA</td>
     </tr>
     <tr class="cat87" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -5200,24 +5791,31 @@
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
+    <tr class="cat87" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">DATA</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">None</td>
+        <td class="FieldDesc" colspan="14">None
+        </td>
+    </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="88">QSFP_PORT4_STATUS</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="88">QSFP_PORT8_I2C_DATA</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x147f
+                0x288
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;PORT4_STATUS</td>
+        <td class="Description" colspan="16">&nbsp;Port 8 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat88" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="6*">RSVD</td>
-                <td class="validspandef" colspan="2*">BUSY</td>
-                <td class="validspandef" colspan="8*">ERROR</td>
+                <td class="validspandef" colspan="16*">DATA</td>
     </tr>
     <tr class="cat88" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -5229,46 +5827,29 @@
     </tr>
     <tr class="cat88" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">BUSY</td>
-        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">DATA</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">'1' if the bus is busy.
-        </td>
-    </tr>
-    <tr class="cat88" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">ERROR</td>
-        <td class="FieldDesc" colspan="1*">3:0</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Port I2C error status
-        <br>
-        <br>
-            NoError = 0x0 <br>
-            NoModule = 0x1 <br>
-            NoPower = 0x2 <br>
-            PowerFault = 0x3 <br>
-            NotInitialized = 0x4 <br>
-            I2cAddressNack = 0x5 <br>
-            I2cByteNack = 0x6 
+        <td class="FieldDesc" colspan="2*">None</td>
+        <td class="FieldDesc" colspan="14">None
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;QSFP_PORT4_READ_BUFFER</td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="89">QSFP_PORT9_I2C_DATA</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1480
+                0x289
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
+        <td class="Description" colspan="16">&nbsp;Port 9 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat89" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">DATA</td>
     </tr>
     <tr class="cat89" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -5278,24 +5859,31 @@
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
+    <tr class="cat89" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">DATA</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">None</td>
+        <td class="FieldDesc" colspan="14">None
+        </td>
+    </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="90">QSFP_PORT5_STATUS</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="90">QSFP_PORT10_I2C_DATA</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x157f
+                0x28a
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;PORT5_STATUS</td>
+        <td class="Description" colspan="16">&nbsp;Port 10 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat90" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="6*">RSVD</td>
-                <td class="validspandef" colspan="2*">BUSY</td>
-                <td class="validspandef" colspan="8*">ERROR</td>
+                <td class="validspandef" colspan="16*">DATA</td>
     </tr>
     <tr class="cat90" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -5307,46 +5895,29 @@
     </tr>
     <tr class="cat90" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">BUSY</td>
-        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">DATA</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">'1' if the bus is busy.
-        </td>
-    </tr>
-    <tr class="cat90" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">ERROR</td>
-        <td class="FieldDesc" colspan="1*">3:0</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Port I2C error status
-        <br>
-        <br>
-            NoError = 0x0 <br>
-            NoModule = 0x1 <br>
-            NoPower = 0x2 <br>
-            PowerFault = 0x3 <br>
-            NotInitialized = 0x4 <br>
-            I2cAddressNack = 0x5 <br>
-            I2cByteNack = 0x6 
+        <td class="FieldDesc" colspan="2*">None</td>
+        <td class="FieldDesc" colspan="14">None
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;QSFP_PORT5_READ_BUFFER</td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="91">QSFP_PORT11_I2C_DATA</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1580
+                0x28b
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
+        <td class="Description" colspan="16">&nbsp;Port 11 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat91" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">DATA</td>
     </tr>
     <tr class="cat91" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -5356,24 +5927,31 @@
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
+    <tr class="cat91" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">DATA</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">None</td>
+        <td class="FieldDesc" colspan="14">None
+        </td>
+    </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="92">QSFP_PORT6_STATUS</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="92">QSFP_PORT12_I2C_DATA</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x167f
+                0x28c
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;PORT6_STATUS</td>
+        <td class="Description" colspan="16">&nbsp;Port 12 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat92" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="6*">RSVD</td>
-                <td class="validspandef" colspan="2*">BUSY</td>
-                <td class="validspandef" colspan="8*">ERROR</td>
+                <td class="validspandef" colspan="16*">DATA</td>
     </tr>
     <tr class="cat92" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -5385,46 +5963,29 @@
     </tr>
     <tr class="cat92" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">BUSY</td>
-        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">DATA</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">'1' if the bus is busy.
-        </td>
-    </tr>
-    <tr class="cat92" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">ERROR</td>
-        <td class="FieldDesc" colspan="1*">3:0</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Port I2C error status
-        <br>
-        <br>
-            NoError = 0x0 <br>
-            NoModule = 0x1 <br>
-            NoPower = 0x2 <br>
-            PowerFault = 0x3 <br>
-            NotInitialized = 0x4 <br>
-            I2cAddressNack = 0x5 <br>
-            I2cByteNack = 0x6 
+        <td class="FieldDesc" colspan="2*">None</td>
+        <td class="FieldDesc" colspan="14">None
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;QSFP_PORT6_READ_BUFFER</td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="93">QSFP_PORT13_I2C_DATA</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1680
+                0x28d
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
+        <td class="Description" colspan="16">&nbsp;Port 13 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat93" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">DATA</td>
     </tr>
     <tr class="cat93" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -5434,24 +5995,31 @@
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
+    <tr class="cat93" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">DATA</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">None</td>
+        <td class="FieldDesc" colspan="14">None
+        </td>
+    </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="94">QSFP_PORT7_STATUS</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="94">QSFP_PORT14_I2C_DATA</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x177f
+                0x28e
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;PORT7_STATUS</td>
+        <td class="Description" colspan="16">&nbsp;Port 14 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat94" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="6*">RSVD</td>
-                <td class="validspandef" colspan="2*">BUSY</td>
-                <td class="validspandef" colspan="8*">ERROR</td>
+                <td class="validspandef" colspan="16*">DATA</td>
     </tr>
     <tr class="cat94" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -5463,46 +6031,29 @@
     </tr>
     <tr class="cat94" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">BUSY</td>
-        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">DATA</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">'1' if the bus is busy.
-        </td>
-    </tr>
-    <tr class="cat94" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">ERROR</td>
-        <td class="FieldDesc" colspan="1*">3:0</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Port I2C error status
-        <br>
-        <br>
-            NoError = 0x0 <br>
-            NoModule = 0x1 <br>
-            NoPower = 0x2 <br>
-            PowerFault = 0x3 <br>
-            NotInitialized = 0x4 <br>
-            I2cAddressNack = 0x5 <br>
-            I2cByteNack = 0x6 
+        <td class="FieldDesc" colspan="2*">None</td>
+        <td class="FieldDesc" colspan="14">None
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;QSFP_PORT7_READ_BUFFER</td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="95">QSFP_PORT15_I2C_DATA</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x1780
+                0x28f
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
+        <td class="Description" colspan="16">&nbsp;Port 15 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
     <!-- Loop over bytes in register !-->
     <tr class="cat95" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">DATA</td>
     </tr>
     <tr class="cat95" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -5512,653 +6063,14 @@
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="96">QSFP_PORT8_STATUS</a></td>
-        <td class="Offset" colspan="2*">&nbsp;
-            <div class="offset_tooltip">
-                0x187f
-            </div>
-        </td>
-        <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;PORT8_STATUS</td>
-    </tr>
-    <!-- Loop over bytes in register !-->
-    <tr class="cat96" style="display: none">
-        <td class="RegisterName" colspan="3*"></td>
-        <td class="Offset" colspan="2*"></td>
-        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="6*">RSVD</td>
-                <td class="validspandef" colspan="2*">BUSY</td>
-                <td class="validspandef" colspan="8*">ERROR</td>
-    </tr>
-    <tr class="cat96" style="display: none">
+    <tr class="cat95" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldHeader" colspan="2*">Name</td>
-        <td class="FieldHeader" colspan="1*">Bit(s)</td>
-        <td class="FieldHeader" colspan="2*">Access</td>
-        <td class="FieldHeader" colspan="2*">Reset</td>
-        <td class="FieldHeader" colspan="14">Description</td>
-    </tr>
-    <tr class="cat96" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">BUSY</td>
-        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">DATA</td>
+        <td class="FieldDesc" colspan="1*">7:0</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">'1' if the bus is busy.
+        <td class="FieldDesc" colspan="2*">None</td>
+        <td class="FieldDesc" colspan="14">None
         </td>
-    </tr>
-    <tr class="cat96" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">ERROR</td>
-        <td class="FieldDesc" colspan="1*">3:0</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Port I2C error status
-        <br>
-        <br>
-            NoError = 0x0 <br>
-            NoModule = 0x1 <br>
-            NoPower = 0x2 <br>
-            PowerFault = 0x3 <br>
-            NotInitialized = 0x4 <br>
-            I2cAddressNack = 0x5 <br>
-            I2cByteNack = 0x6 
-        </td>
-    </tr>
-    <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;QSFP_PORT8_READ_BUFFER</td>
-        <td class="Offset" colspan="2*">&nbsp;
-            <div class="offset_tooltip">
-                0x1880
-            </div>
-        </td>
-        <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
-    </tr>
-    <!-- Loop over bytes in register !-->
-    <tr class="cat97" style="display: none">
-        <td class="RegisterName" colspan="3*"></td>
-        <td class="Offset" colspan="2*"></td>
-        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-    </tr>
-    <tr class="cat97" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldHeader" colspan="2*">Name</td>
-        <td class="FieldHeader" colspan="1*">Bit(s)</td>
-        <td class="FieldHeader" colspan="2*">Access</td>
-        <td class="FieldHeader" colspan="2*">Reset</td>
-        <td class="FieldHeader" colspan="14">Description</td>
-    </tr>
-    <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="98">QSFP_PORT9_STATUS</a></td>
-        <td class="Offset" colspan="2*">&nbsp;
-            <div class="offset_tooltip">
-                0x197f
-            </div>
-        </td>
-        <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;PORT9_STATUS</td>
-    </tr>
-    <!-- Loop over bytes in register !-->
-    <tr class="cat98" style="display: none">
-        <td class="RegisterName" colspan="3*"></td>
-        <td class="Offset" colspan="2*"></td>
-        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="6*">RSVD</td>
-                <td class="validspandef" colspan="2*">BUSY</td>
-                <td class="validspandef" colspan="8*">ERROR</td>
-    </tr>
-    <tr class="cat98" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldHeader" colspan="2*">Name</td>
-        <td class="FieldHeader" colspan="1*">Bit(s)</td>
-        <td class="FieldHeader" colspan="2*">Access</td>
-        <td class="FieldHeader" colspan="2*">Reset</td>
-        <td class="FieldHeader" colspan="14">Description</td>
-    </tr>
-    <tr class="cat98" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">BUSY</td>
-        <td class="FieldDesc" colspan="1*">4</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">'1' if the bus is busy.
-        </td>
-    </tr>
-    <tr class="cat98" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">ERROR</td>
-        <td class="FieldDesc" colspan="1*">3:0</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Port I2C error status
-        <br>
-        <br>
-            NoError = 0x0 <br>
-            NoModule = 0x1 <br>
-            NoPower = 0x2 <br>
-            PowerFault = 0x3 <br>
-            NotInitialized = 0x4 <br>
-            I2cAddressNack = 0x5 <br>
-            I2cByteNack = 0x6 
-        </td>
-    </tr>
-    <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;QSFP_PORT9_READ_BUFFER</td>
-        <td class="Offset" colspan="2*">&nbsp;
-            <div class="offset_tooltip">
-                0x1980
-            </div>
-        </td>
-        <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
-    </tr>
-    <!-- Loop over bytes in register !-->
-    <tr class="cat99" style="display: none">
-        <td class="RegisterName" colspan="3*"></td>
-        <td class="Offset" colspan="2*"></td>
-        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-    </tr>
-    <tr class="cat99" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldHeader" colspan="2*">Name</td>
-        <td class="FieldHeader" colspan="1*">Bit(s)</td>
-        <td class="FieldHeader" colspan="2*">Access</td>
-        <td class="FieldHeader" colspan="2*">Reset</td>
-        <td class="FieldHeader" colspan="14">Description</td>
-    </tr>
-    <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="100">QSFP_PORT10_STATUS</a></td>
-        <td class="Offset" colspan="2*">&nbsp;
-            <div class="offset_tooltip">
-                0x1a7f
-            </div>
-        </td>
-        <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;PORT10_STATUS</td>
-    </tr>
-    <!-- Loop over bytes in register !-->
-    <tr class="cat100" style="display: none">
-        <td class="RegisterName" colspan="3*"></td>
-        <td class="Offset" colspan="2*"></td>
-        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="6*">RSVD</td>
-                <td class="validspandef" colspan="2*">BUSY</td>
-                <td class="validspandef" colspan="8*">ERROR</td>
-    </tr>
-    <tr class="cat100" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldHeader" colspan="2*">Name</td>
-        <td class="FieldHeader" colspan="1*">Bit(s)</td>
-        <td class="FieldHeader" colspan="2*">Access</td>
-        <td class="FieldHeader" colspan="2*">Reset</td>
-        <td class="FieldHeader" colspan="14">Description</td>
-    </tr>
-    <tr class="cat100" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">BUSY</td>
-        <td class="FieldDesc" colspan="1*">4</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">'1' if the bus is busy.
-        </td>
-    </tr>
-    <tr class="cat100" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">ERROR</td>
-        <td class="FieldDesc" colspan="1*">3:0</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Port I2C error status
-        <br>
-        <br>
-            NoError = 0x0 <br>
-            NoModule = 0x1 <br>
-            NoPower = 0x2 <br>
-            PowerFault = 0x3 <br>
-            NotInitialized = 0x4 <br>
-            I2cAddressNack = 0x5 <br>
-            I2cByteNack = 0x6 
-        </td>
-    </tr>
-    <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;QSFP_PORT10_READ_BUFFER</td>
-        <td class="Offset" colspan="2*">&nbsp;
-            <div class="offset_tooltip">
-                0x1a80
-            </div>
-        </td>
-        <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
-    </tr>
-    <!-- Loop over bytes in register !-->
-    <tr class="cat101" style="display: none">
-        <td class="RegisterName" colspan="3*"></td>
-        <td class="Offset" colspan="2*"></td>
-        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-    </tr>
-    <tr class="cat101" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldHeader" colspan="2*">Name</td>
-        <td class="FieldHeader" colspan="1*">Bit(s)</td>
-        <td class="FieldHeader" colspan="2*">Access</td>
-        <td class="FieldHeader" colspan="2*">Reset</td>
-        <td class="FieldHeader" colspan="14">Description</td>
-    </tr>
-    <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="102">QSFP_PORT11_STATUS</a></td>
-        <td class="Offset" colspan="2*">&nbsp;
-            <div class="offset_tooltip">
-                0x1b7f
-            </div>
-        </td>
-        <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;PORT11_STATUS</td>
-    </tr>
-    <!-- Loop over bytes in register !-->
-    <tr class="cat102" style="display: none">
-        <td class="RegisterName" colspan="3*"></td>
-        <td class="Offset" colspan="2*"></td>
-        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="6*">RSVD</td>
-                <td class="validspandef" colspan="2*">BUSY</td>
-                <td class="validspandef" colspan="8*">ERROR</td>
-    </tr>
-    <tr class="cat102" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldHeader" colspan="2*">Name</td>
-        <td class="FieldHeader" colspan="1*">Bit(s)</td>
-        <td class="FieldHeader" colspan="2*">Access</td>
-        <td class="FieldHeader" colspan="2*">Reset</td>
-        <td class="FieldHeader" colspan="14">Description</td>
-    </tr>
-    <tr class="cat102" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">BUSY</td>
-        <td class="FieldDesc" colspan="1*">4</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">'1' if the bus is busy.
-        </td>
-    </tr>
-    <tr class="cat102" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">ERROR</td>
-        <td class="FieldDesc" colspan="1*">3:0</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Port I2C error status
-        <br>
-        <br>
-            NoError = 0x0 <br>
-            NoModule = 0x1 <br>
-            NoPower = 0x2 <br>
-            PowerFault = 0x3 <br>
-            NotInitialized = 0x4 <br>
-            I2cAddressNack = 0x5 <br>
-            I2cByteNack = 0x6 
-        </td>
-    </tr>
-    <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;QSFP_PORT11_READ_BUFFER</td>
-        <td class="Offset" colspan="2*">&nbsp;
-            <div class="offset_tooltip">
-                0x1b80
-            </div>
-        </td>
-        <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
-    </tr>
-    <!-- Loop over bytes in register !-->
-    <tr class="cat103" style="display: none">
-        <td class="RegisterName" colspan="3*"></td>
-        <td class="Offset" colspan="2*"></td>
-        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-    </tr>
-    <tr class="cat103" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldHeader" colspan="2*">Name</td>
-        <td class="FieldHeader" colspan="1*">Bit(s)</td>
-        <td class="FieldHeader" colspan="2*">Access</td>
-        <td class="FieldHeader" colspan="2*">Reset</td>
-        <td class="FieldHeader" colspan="14">Description</td>
-    </tr>
-    <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="104">QSFP_PORT12_STATUS</a></td>
-        <td class="Offset" colspan="2*">&nbsp;
-            <div class="offset_tooltip">
-                0x1c7f
-            </div>
-        </td>
-        <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;PORT12_STATUS</td>
-    </tr>
-    <!-- Loop over bytes in register !-->
-    <tr class="cat104" style="display: none">
-        <td class="RegisterName" colspan="3*"></td>
-        <td class="Offset" colspan="2*"></td>
-        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="6*">RSVD</td>
-                <td class="validspandef" colspan="2*">BUSY</td>
-                <td class="validspandef" colspan="8*">ERROR</td>
-    </tr>
-    <tr class="cat104" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldHeader" colspan="2*">Name</td>
-        <td class="FieldHeader" colspan="1*">Bit(s)</td>
-        <td class="FieldHeader" colspan="2*">Access</td>
-        <td class="FieldHeader" colspan="2*">Reset</td>
-        <td class="FieldHeader" colspan="14">Description</td>
-    </tr>
-    <tr class="cat104" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">BUSY</td>
-        <td class="FieldDesc" colspan="1*">4</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">'1' if the bus is busy.
-        </td>
-    </tr>
-    <tr class="cat104" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">ERROR</td>
-        <td class="FieldDesc" colspan="1*">3:0</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Port I2C error status
-        <br>
-        <br>
-            NoError = 0x0 <br>
-            NoModule = 0x1 <br>
-            NoPower = 0x2 <br>
-            PowerFault = 0x3 <br>
-            NotInitialized = 0x4 <br>
-            I2cAddressNack = 0x5 <br>
-            I2cByteNack = 0x6 
-        </td>
-    </tr>
-    <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;QSFP_PORT12_READ_BUFFER</td>
-        <td class="Offset" colspan="2*">&nbsp;
-            <div class="offset_tooltip">
-                0x1c80
-            </div>
-        </td>
-        <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
-    </tr>
-    <!-- Loop over bytes in register !-->
-    <tr class="cat105" style="display: none">
-        <td class="RegisterName" colspan="3*"></td>
-        <td class="Offset" colspan="2*"></td>
-        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-    </tr>
-    <tr class="cat105" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldHeader" colspan="2*">Name</td>
-        <td class="FieldHeader" colspan="1*">Bit(s)</td>
-        <td class="FieldHeader" colspan="2*">Access</td>
-        <td class="FieldHeader" colspan="2*">Reset</td>
-        <td class="FieldHeader" colspan="14">Description</td>
-    </tr>
-    <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="106">QSFP_PORT13_STATUS</a></td>
-        <td class="Offset" colspan="2*">&nbsp;
-            <div class="offset_tooltip">
-                0x1d7f
-            </div>
-        </td>
-        <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;PORT13_STATUS</td>
-    </tr>
-    <!-- Loop over bytes in register !-->
-    <tr class="cat106" style="display: none">
-        <td class="RegisterName" colspan="3*"></td>
-        <td class="Offset" colspan="2*"></td>
-        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="6*">RSVD</td>
-                <td class="validspandef" colspan="2*">BUSY</td>
-                <td class="validspandef" colspan="8*">ERROR</td>
-    </tr>
-    <tr class="cat106" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldHeader" colspan="2*">Name</td>
-        <td class="FieldHeader" colspan="1*">Bit(s)</td>
-        <td class="FieldHeader" colspan="2*">Access</td>
-        <td class="FieldHeader" colspan="2*">Reset</td>
-        <td class="FieldHeader" colspan="14">Description</td>
-    </tr>
-    <tr class="cat106" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">BUSY</td>
-        <td class="FieldDesc" colspan="1*">4</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">'1' if the bus is busy.
-        </td>
-    </tr>
-    <tr class="cat106" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">ERROR</td>
-        <td class="FieldDesc" colspan="1*">3:0</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Port I2C error status
-        <br>
-        <br>
-            NoError = 0x0 <br>
-            NoModule = 0x1 <br>
-            NoPower = 0x2 <br>
-            PowerFault = 0x3 <br>
-            NotInitialized = 0x4 <br>
-            I2cAddressNack = 0x5 <br>
-            I2cByteNack = 0x6 
-        </td>
-    </tr>
-    <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;QSFP_PORT13_READ_BUFFER</td>
-        <td class="Offset" colspan="2*">&nbsp;
-            <div class="offset_tooltip">
-                0x1d80
-            </div>
-        </td>
-        <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
-    </tr>
-    <!-- Loop over bytes in register !-->
-    <tr class="cat107" style="display: none">
-        <td class="RegisterName" colspan="3*"></td>
-        <td class="Offset" colspan="2*"></td>
-        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-    </tr>
-    <tr class="cat107" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldHeader" colspan="2*">Name</td>
-        <td class="FieldHeader" colspan="1*">Bit(s)</td>
-        <td class="FieldHeader" colspan="2*">Access</td>
-        <td class="FieldHeader" colspan="2*">Reset</td>
-        <td class="FieldHeader" colspan="14">Description</td>
-    </tr>
-    <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="108">QSFP_PORT14_STATUS</a></td>
-        <td class="Offset" colspan="2*">&nbsp;
-            <div class="offset_tooltip">
-                0x1e7f
-            </div>
-        </td>
-        <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;PORT14_STATUS</td>
-    </tr>
-    <!-- Loop over bytes in register !-->
-    <tr class="cat108" style="display: none">
-        <td class="RegisterName" colspan="3*"></td>
-        <td class="Offset" colspan="2*"></td>
-        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="6*">RSVD</td>
-                <td class="validspandef" colspan="2*">BUSY</td>
-                <td class="validspandef" colspan="8*">ERROR</td>
-    </tr>
-    <tr class="cat108" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldHeader" colspan="2*">Name</td>
-        <td class="FieldHeader" colspan="1*">Bit(s)</td>
-        <td class="FieldHeader" colspan="2*">Access</td>
-        <td class="FieldHeader" colspan="2*">Reset</td>
-        <td class="FieldHeader" colspan="14">Description</td>
-    </tr>
-    <tr class="cat108" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">BUSY</td>
-        <td class="FieldDesc" colspan="1*">4</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">'1' if the bus is busy.
-        </td>
-    </tr>
-    <tr class="cat108" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">ERROR</td>
-        <td class="FieldDesc" colspan="1*">3:0</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Port I2C error status
-        <br>
-        <br>
-            NoError = 0x0 <br>
-            NoModule = 0x1 <br>
-            NoPower = 0x2 <br>
-            PowerFault = 0x3 <br>
-            NotInitialized = 0x4 <br>
-            I2cAddressNack = 0x5 <br>
-            I2cByteNack = 0x6 
-        </td>
-    </tr>
-    <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;QSFP_PORT14_READ_BUFFER</td>
-        <td class="Offset" colspan="2*">&nbsp;
-            <div class="offset_tooltip">
-                0x1e80
-            </div>
-        </td>
-        <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
-    </tr>
-    <!-- Loop over bytes in register !-->
-    <tr class="cat109" style="display: none">
-        <td class="RegisterName" colspan="3*"></td>
-        <td class="Offset" colspan="2*"></td>
-        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-    </tr>
-    <tr class="cat109" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldHeader" colspan="2*">Name</td>
-        <td class="FieldHeader" colspan="1*">Bit(s)</td>
-        <td class="FieldHeader" colspan="2*">Access</td>
-        <td class="FieldHeader" colspan="2*">Reset</td>
-        <td class="FieldHeader" colspan="14">Description</td>
-    </tr>
-    <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="110">QSFP_PORT15_STATUS</a></td>
-        <td class="Offset" colspan="2*">&nbsp;
-            <div class="offset_tooltip">
-                0x1f7f
-            </div>
-        </td>
-        <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;PORT15_STATUS</td>
-    </tr>
-    <!-- Loop over bytes in register !-->
-    <tr class="cat110" style="display: none">
-        <td class="RegisterName" colspan="3*"></td>
-        <td class="Offset" colspan="2*"></td>
-        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="6*">RSVD</td>
-                <td class="validspandef" colspan="2*">BUSY</td>
-                <td class="validspandef" colspan="8*">ERROR</td>
-    </tr>
-    <tr class="cat110" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldHeader" colspan="2*">Name</td>
-        <td class="FieldHeader" colspan="1*">Bit(s)</td>
-        <td class="FieldHeader" colspan="2*">Access</td>
-        <td class="FieldHeader" colspan="2*">Reset</td>
-        <td class="FieldHeader" colspan="14">Description</td>
-    </tr>
-    <tr class="cat110" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">BUSY</td>
-        <td class="FieldDesc" colspan="1*">4</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">'1' if the bus is busy.
-        </td>
-    </tr>
-    <tr class="cat110" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">ERROR</td>
-        <td class="FieldDesc" colspan="1*">3:0</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Port I2C error status
-        <br>
-        <br>
-            NoError = 0x0 <br>
-            NoModule = 0x1 <br>
-            NoPower = 0x2 <br>
-            PowerFault = 0x3 <br>
-            NotInitialized = 0x4 <br>
-            I2cAddressNack = 0x5 <br>
-            I2cByteNack = 0x6 
-        </td>
-    </tr>
-    <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;QSFP_PORT15_READ_BUFFER</td>
-        <td class="Offset" colspan="2*">&nbsp;
-            <div class="offset_tooltip">
-                0x1f80
-            </div>
-        </td>
-        <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
-    </tr>
-    <!-- Loop over bytes in register !-->
-    <tr class="cat111" style="display: none">
-        <td class="RegisterName" colspan="3*"></td>
-        <td class="Offset" colspan="2*"></td>
-        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-    </tr>
-    <tr class="cat111" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldHeader" colspan="2*">Name</td>
-        <td class="FieldHeader" colspan="1*">Bit(s)</td>
-        <td class="FieldHeader" colspan="2*">Access</td>
-        <td class="FieldHeader" colspan="2*">Reset</td>
-        <td class="FieldHeader" colspan="14">Description</td>
-    </tr>
-    <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;QSFP_WRITE_BUFFER</td>
-        <td class="Offset" colspan="2*">&nbsp;
-            <div class="offset_tooltip">
-                0x2000
-            </div>
-        </td>
-        <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Number of entries: 128</td>
-    </tr>
-    <!-- Loop over bytes in register !-->
-    <tr class="cat112" style="display: none">
-        <td class="RegisterName" colspan="3*"></td>
-        <td class="Offset" colspan="2*"></td>
-        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-    </tr>
-    <tr class="cat112" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldHeader" colspan="2*">Name</td>
-        <td class="FieldHeader" colspan="1*">Bit(s)</td>
-        <td class="FieldHeader" colspan="2*">Access</td>
-        <td class="FieldHeader" colspan="2*">Reset</td>
-        <td class="FieldHeader" colspan="14">Description</td>
     </tr>
     </table>
     </body>
