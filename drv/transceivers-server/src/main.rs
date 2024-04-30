@@ -26,7 +26,7 @@ use task_thermal_api::{Thermal, ThermalError, ThermalProperties};
 use transceiver_messages::{
     message::LedState, mgmt::ManagementInterface, MAX_PACKET_SIZE,
 };
-use userlib::{sys_get_timer, task_slot, units::Celsius, FromPrimitive};
+use userlib::{sys_get_timer, task_slot, units::Celsius};
 use zerocopy::{AsBytes, FromBytes};
 
 mod udp; // UDP API is implemented in a separate file
@@ -60,10 +60,10 @@ enum Trace {
     UnknownInterface(u8, ManagementInterface),
     UnpluggedModule(usize),
     RemovedDisabledModuleThermalModel(usize),
-    TemperatureReadError(usize, Reg::QSFP::PORT0_STATUS::Encoded),
+    TemperatureReadError(usize, Reg::QSFP::PORT0_STATUS::ERROR_Encoded),
     TemperatureReadUnexpectedError(usize, FpgaError),
     ThermalError(usize, ThermalError),
-    GetInterfaceError(usize, Reg::QSFP::PORT0_STATUS::Encoded),
+    GetInterfaceError(usize, Reg::QSFP::PORT0_STATUS::ERROR_Encoded),
     GetInterfaceUnexpectedError(usize, FpgaError),
     InvalidPortStatusError(usize, u8),
     DisablingPorts(LogicalPortMask),
@@ -359,11 +359,13 @@ impl ServerImpl {
                             self.decode_interface(port, interface)
                     }
                     Err(FpgaError::ImplError(e)) => {
-                        match Reg::QSFP::PORT0_STATUS::Encoded::from_u8(e) {
-                            Some(val) => {
+                        match Reg::QSFP::PORT0_STATUS::ERROR_Encoded::try_from(
+                            e,
+                        ) {
+                            Ok(val) => {
                                 ringbuf_entry!(Trace::GetInterfaceError(i, val))
                             }
-                            None => {
+                            Err(_) => {
                                 // Error code cannot be decoded
                                 ringbuf_entry!(Trace::InvalidPortStatusError(
                                     i, e
@@ -445,13 +447,14 @@ impl ServerImpl {
                 // be transient (and we'll remove the transceiver on the
                 // next pass through this function).
                 Err(FpgaError::ImplError(e)) => {
-                    use Reg::QSFP::PORT0_STATUS::Encoded;
-                    match Encoded::from_u8(e) {
-                        Some(val) => {
-                            got_nack |= matches!(val, Encoded::I2cAddressNack);
+                    use Reg::QSFP::PORT0_STATUS::ERROR_Encoded;
+                    match ERROR_Encoded::try_from(e) {
+                        Ok(val) => {
+                            got_nack |=
+                                matches!(val, ERROR_Encoded::I2cAddressNack);
                             ringbuf_entry!(Trace::TemperatureReadError(i, val))
                         }
-                        None => {
+                        Err(_) => {
                             // Error code cannot be decoded
                             ringbuf_entry!(Trace::InvalidPortStatusError(i, e))
                         }

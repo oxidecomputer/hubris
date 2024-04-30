@@ -6,7 +6,7 @@ use crate::{Addr, Reg};
 use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
 use drv_transceivers_api::{ModuleStatus, TransceiversError, NUM_PORTS};
 use transceiver_messages::ModuleId;
-use userlib::{FromPrimitive, UnwrapLite};
+use userlib::UnwrapLite;
 use zerocopy::{byteorder, AsBytes, FromBytes, Unaligned, U16};
 
 // The transceiver modules are split across two FPGAs on the QSFP Front IO
@@ -651,7 +651,7 @@ impl ModuleResultNoFailure {
 }
 
 /// A type to provide more ergonomic access to the FPGA generated type
-pub type FpgaI2CFailure = Reg::QSFP::PORT0_STATUS::Encoded;
+pub type FpgaI2CFailure = Reg::QSFP::PORT0_STATUS::ERROR_Encoded;
 
 /// A type to consolidate per-module failure types.
 ///
@@ -685,10 +685,7 @@ impl PortI2CStatus {
     pub fn new(status: u8) -> Self {
         Self {
             done: (status & Reg::QSFP::PORT0_STATUS::BUSY) == 0,
-            error: FpgaI2CFailure::from_u8(
-                status & Reg::QSFP::PORT0_STATUS::ERROR,
-            )
-            .unwrap_lite(),
+            error: FpgaI2CFailure::try_from(status).unwrap_lite(),
         }
     }
 }
@@ -1233,11 +1230,11 @@ impl Transceivers {
                 }
 
                 // cast status byte into a type
-                let failure = FpgaI2CFailure::from_u8(
-                    status_all.status[port.0 as usize]
-                        & Reg::QSFP::PORT0_STATUS::ERROR,
+                let failure = FpgaI2CFailure::try_from(
+                    status_all.status[port.0 as usize],
                 )
                 .unwrap_lite();
+
                 // if a failure occurred, mark it and record the failure type
                 if failure != FpgaI2CFailure::NoError {
                     physical_failure.get_mut(fpga_index).set(port);

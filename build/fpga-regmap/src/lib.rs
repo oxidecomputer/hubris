@@ -136,7 +136,15 @@ impl Addr {{
 
 ////////////////////////////////////////////////////////////////////////////////
 
-fn write_reg_fields(children: &[Node], prefix: &str, output: &mut String) {
+fn write_reg_fields(
+    parents: Vec<String>,
+    children: &[Node],
+    prefix: &str,
+    output: &mut String,
+) {
+    // We need this to implement the u8 -> enum conversation
+    let parent_chain = parents.join("::");
+
     for child in children.iter() {
         if let Node::Field {
             inst_name,
@@ -155,19 +163,22 @@ fn write_reg_fields(children: &[Node], prefix: &str, output: &mut String) {
 {prefix}        pub const {inst_name}: u8 = 0b{mask:08b};",
             )
             .unwrap();
+
             // Deal with optional encoded Enums on this field
             match encode {
                 Some(x) => {
+                    let encode_name = inst_name.clone() + "_Encoded";
                     writeln!(
                         output,
                         "
-{prefix}        use num_derive::{{ToPrimitive, FromPrimitive}};
-{prefix}        #[derive(Copy, Clone, Eq, PartialEq, FromPrimitive, ToPrimitive)]
+{prefix}        #[derive(Copy, Clone, Eq, PartialEq)]
 {prefix}        #[allow(dead_code)]
 {prefix}        #[allow(non_camel_case_types, clippy::upper_case_acronyms)]
-{prefix}        pub enum Encoded {{"
+{prefix}        pub enum {encode_name} {{"
                     )
                     .unwrap();
+
+                    // unpack all of the enum variant -> u8 information
                     for item in x {
                         writeln!(
                             output,
@@ -176,7 +187,41 @@ fn write_reg_fields(children: &[Node], prefix: &str, output: &mut String) {
                         )
                         .unwrap();
                     }
+
                     writeln!(output, "{prefix}        }}").unwrap();
+
+                    // We want to implement TryFrom<u8> rather than From<u8>
+                    // because the u8 -> enum conversion can fail if the value
+                    // is not a valid enum variant. Additionally, we mask off
+                    // the supplied u8 with the mask of the field so encoded
+                    // fields could be colocated in a register with other fields
+                    writeln!(
+                        output,
+                        "
+{prefix}        impl TryFrom<u8> for {encode_name} {{
+{prefix}            type Error = ();
+{prefix}            fn try_from(x: u8) -> Result<Self, Self::Error> {{
+{prefix}                use crate::{parent_chain}::{encode_name}::*;
+{prefix}                let x_masked = x & {inst_name};
+{prefix}                match x_masked {{"
+                    )
+                    .unwrap();
+                    for item in x {
+                        writeln!(
+                            output,
+                            "{prefix}                    {1:#04x} => Ok({0}),",
+                            item.name, item.value
+                        )
+                        .unwrap();
+                    }
+                    writeln!(
+                        output,
+                        "{prefix}                    _ => Err(()),
+{prefix}                }}
+{prefix}            }}
+{prefix}        }}\n"
+                    )
+                    .unwrap();
                 }
                 None => {}
             }
@@ -186,7 +231,13 @@ fn write_reg_fields(children: &[Node], prefix: &str, output: &mut String) {
     }
 }
 
-fn write_node(node: &Node, prefix: &str, output: &mut String) {
+fn write_node(
+    parents: Vec<String>,
+    node: &Node,
+    prefix: &str,
+    output: &mut String,
+) {
+    let mut new_parents = parents.clone();
     match node {
         Node::Reg {
             inst_name,
@@ -205,7 +256,10 @@ fn write_node(node: &Node, prefix: &str, output: &mut String) {
 {prefix}    pub mod {inst_name} {{",
             )
             .unwrap();
-            write_reg_fields(children, prefix, output);
+
+            // Extend the knowledge of parents as we descend
+            new_parents.push(inst_name.clone());
+            write_reg_fields(new_parents, children, prefix, output);
 
             writeln!(output, "{prefix}    }}").unwrap();
         }
@@ -235,7 +289,14 @@ fn write_node(node: &Node, prefix: &str, output: &mut String) {
 {prefix}    pub mod {inst_name} {{",
             )
             .unwrap();
-            recurse_reg_map(children, &format!("    {prefix}"), output);
+
+            new_parents.push(inst_name.clone());
+            recurse_reg_map(
+                new_parents,
+                children,
+                &format!("    {prefix}"),
+                output,
+            );
             writeln!(output, "{prefix}    }}").unwrap();
         }
 
@@ -245,9 +306,14 @@ fn write_node(node: &Node, prefix: &str, output: &mut String) {
     }
 }
 
-fn recurse_reg_map(children: &[Node], prefix: &str, output: &mut String) {
+fn recurse_reg_map(
+    parents: Vec<String>,
+    children: &[Node],
+    prefix: &str,
+    output: &mut String,
+) {
     for child in children.iter() {
-        write_node(child, prefix, output);
+        write_node(parents.clone(), child, prefix, output);
     }
 }
 
@@ -266,7 +332,11 @@ pub mod Reg {{"
     )
     .unwrap();
 
-    recurse_reg_map(children, "", output);
+    // The nested layers may require type information that requires knowledge
+    // of where they are in the tree.
+    let mut root = Vec::<String>::new();
+    root.push("Reg".to_string());
+    recurse_reg_map(root, children, "", output);
 
     writeln!(output, "}}").unwrap();
 }
