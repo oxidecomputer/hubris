@@ -18,7 +18,7 @@ use handoff::Handoff;
 
 use armv8_m_mpu::{disable_mpu, enable_mpu};
 use cortex_m::peripheral::MPU;
-use stage0_handoff::{RotBootState, RotSlot};
+use stage0_handoff::{RotBootStateV2, RotImageDetailsV2, RotSlot};
 
 const ROM_VER: u32 = 1;
 
@@ -93,7 +93,7 @@ fn enable_debug(peripherals: &lpc55_pac::Peripherals) {
         // This information comes from Section 4.5.83 of UM11126
         const SYSCON_SWDCPU0: u32 = 0x4000_0FB4;
         // Enable SWD port access for CPU0
-        // SAFETY: writing anything other than the defined magic will lock
+        // Safety: writing anything other than the defined magic will lock
         // out debug access which is the behavior we want here!
         unsafe {
             core::ptr::write_volatile(SYSCON_SWDCPU0 as *mut u32, SWD_MAGIC);
@@ -171,22 +171,55 @@ pub fn startup(
     #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
     puf_check(&peripherals.PUF);
 
-    // Write the image details to handoff RAM. Use the address of the current
-    // function to determine which image is running.
-    let img_a = images::get_image_a(&mut flash);
-    let img_b = images::get_image_b(&mut flash);
-    let here = startup as *const u8;
-    let active = if img_a.as_ref().map(|i| i.contains(here)).unwrap_or(false) {
+    // Write the image details to handoff RAM.
+
+    // Pre-main code makes calls to the ROM-based signature
+    // verification routines and requires its own HASHCRYPT IRQ handler.
+    set_hashcrypt_rom();
+
+    let (slot_a, img_a) =
+        images::Image::get_image_a(&mut flash, &peripherals.SYSCON);
+    let (slot_b, img_b) =
+        images::Image::get_image_b(&mut flash, &peripherals.SYSCON);
+    let (slot_stage0, img_stage0) =
+        images::Image::get_image_stage0(&mut flash, &peripherals.SYSCON);
+    let (slot_stage0next, img_stage0next) =
+        images::Image::get_image_stage0next(&mut flash, &peripherals.SYSCON);
+
+    // Once the kernel is started, the normal HASHCRYPT IRQ handler needs to
+    // be active.
+    set_hashcrypt_default();
+
+    // Use the address of the current function to determine which image
+    // is running.
+    let here = startup as *const u8 as u32;
+    let active = if slot_a.contains(&here) {
         RotSlot::A
-    } else if img_b.as_ref().map(|i| i.contains(here)).unwrap_or(false) {
+    } else if slot_b.contains(&here) {
         RotSlot::B
     } else {
         panic!();
     };
-    let a = img_a.map(|i| images::image_details(i, &mut flash));
-    let b = img_b.map(|i| images::image_details(i, &mut flash));
 
-    let details = RotBootState { active, a, b };
+    let details = RotBootStateV2 {
+        active,
+        a: RotImageDetailsV2 {
+            digest: slot_a.fwid(),
+            status: img_a.map(|_| ()),
+        },
+        b: RotImageDetailsV2 {
+            digest: slot_b.fwid(),
+            status: img_b.map(|_| ()),
+        },
+        stage0: RotImageDetailsV2 {
+            digest: slot_stage0.fwid(),
+            status: img_stage0.map(|_| ()),
+        },
+        stage0next: RotImageDetailsV2 {
+            digest: slot_stage0next.fwid(),
+            status: img_stage0next.map(|_| ()),
+        },
+    };
 
     handoff.store(&details);
 
@@ -288,5 +321,30 @@ extern "C" fn nuke_stack() {
             stack_base = sym _stack_base,
             options(noreturn)
         )
+    }
+}
+
+static USE_ROM: core::sync::atomic::AtomicBool =
+    core::sync::atomic::AtomicBool::new(false);
+
+pub fn set_hashcrypt_default() {
+    USE_ROM.store(false, core::sync::atomic::Ordering::Relaxed);
+}
+
+pub fn set_hashcrypt_rom() {
+    USE_ROM.store(true, core::sync::atomic::Ordering::Relaxed);
+}
+
+#[allow(non_snake_case)]
+#[no_mangle]
+// SAFETY: The atomic bool is only manipulated from the kernel pre-main context.
+// This interrupt handler re-directs to the ROM to allow pre-main to use the
+// ROM's signature checking routine. All HASHCRYPT interrupts after kernel main()
+// use the normal Hubris interrupt handling.
+pub unsafe extern "C" fn HASHCRYPT() {
+    if USE_ROM.load(core::sync::atomic::Ordering::Relaxed) {
+        lpc55_romapi::skboot_hashcrypt_handler();
+    } else {
+        kern::arch::DefaultHandler();
     }
 }

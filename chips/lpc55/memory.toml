@@ -15,9 +15,24 @@ execute = true
 [[flash]]
 name = "stage0"
 address = 0x00000000
-size = 0x10000
+size = 0x02000
 read = true
 execute = true
+
+# Staging area for "stage0" updates.
+#
+# The largest stage0 image to date is about 6-ish KiB,
+# while the current release is 4-ish KiB.
+# That leaves at least 56 KiB of "stage0" unused.
+# The Hubris pre-main kernel code checks "stage0next" at boot time
+# When it is still possible to call the ROM-based signature verification
+# routine.
+[[flash]]
+name = "stage0next"
+address = 0x00002000
+size = 0x02000
+read = true
+execute = false
 
 [[flash]]
 name = "dice-mfg"

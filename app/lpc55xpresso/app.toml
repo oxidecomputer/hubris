@@ -9,7 +9,7 @@ fwid = true
 [kernel]
 name = "lpc55xpresso"
 features = ["dump", "dice-self"]
-requires = {flash = 54464, ram = 4096}
+requires = {flash = 55040, ram = 4096}
 
 [caboose]
 region = "flash"
@@ -48,7 +48,7 @@ start = true
 [tasks.update_server]
 name = "lpc55-update-server"
 priority = 3
-max-sizes = {flash = 16384, ram = 4096}
+max-sizes = {flash = 26720, ram = 16384}
 stacksize = 2048
 start = true
 sections = {bootstate = "usbsram"}

@@ -17,9 +17,9 @@ use gateway_messages::sp_impl::{
 use gateway_messages::{
     ignition, ComponentAction, ComponentDetails, ComponentUpdatePrepare,
     DiscoverResponse, Header, IgnitionCommand, IgnitionState, Message,
-    MessageKind, MgsError, PowerState, RotRequest, RotResponse, SensorRequest,
-    SensorResponse, SpComponent, SpError, SpPort, SpRequest, SpStateV2,
-    SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
+    MessageKind, MgsError, PowerState, RotBootInfo, RotRequest, RotResponse,
+    SensorRequest, SensorResponse, SpComponent, SpError, SpPort, SpRequest,
+    SpStateV2, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
     SERIAL_CONSOLE_IDLE_TIMEOUT,
 };
 use heapless::{Deque, Vec};
@@ -1154,6 +1154,15 @@ impl SpHandler for MgsHandler {
         component: SpComponent,
     ) -> Result<(), SpError> {
         self.common.component_watchdog_supported(component)
+    }
+
+    fn versioned_rot_boot_info(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        version: u8,
+    ) -> Result<RotBootInfo, SpError> {
+        self.common.versioned_rot_boot_info(version)
     }
 }
 
