@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use convert_case::{Case, Casing};
 use serde::Deserialize;
 use std::fmt::Write;
 
@@ -142,7 +143,7 @@ fn write_reg_fields(
     prefix: &str,
     output: &mut String,
 ) {
-    // We need this to implement the u8 -> enum conversation
+    // We need this to implement the u8 -> enum conversion
     let parent_chain = parents.join("::");
 
     for child in children.iter() {
@@ -167,13 +168,13 @@ fn write_reg_fields(
             // Deal with optional encoded Enums on this field
             match encode {
                 Some(x) => {
-                    let encode_name = inst_name.clone() + "_Encoded";
+                    let name_camel = inst_name.to_case(Case::UpperCamel);
+                    let encode_name = format!("{name_camel}Encoded");
                     writeln!(
                         output,
                         "
 {prefix}        #[derive(Copy, Clone, Eq, PartialEq)]
 {prefix}        #[allow(dead_code)]
-{prefix}        #[allow(non_camel_case_types, clippy::upper_case_acronyms)]
 {prefix}        pub enum {encode_name} {{"
                     )
                     .unwrap();
@@ -183,7 +184,8 @@ fn write_reg_fields(
                         writeln!(
                             output,
                             "{prefix}            {0} = {1:#04x},",
-                            item.name, item.value
+                            item.name.to_case(Case::UpperCamel),
+                            item.value
                         )
                         .unwrap();
                     }
@@ -210,7 +212,8 @@ fn write_reg_fields(
                         writeln!(
                             output,
                             "{prefix}                    {1:#04x} => Ok({0}),",
-                            item.name, item.value
+                            item.name.to_case(Case::UpperCamel),
+                            item.value
                         )
                         .unwrap();
                     }
@@ -232,12 +235,11 @@ fn write_reg_fields(
 }
 
 fn write_node(
-    parents: Vec<String>,
+    parents: &Vec<String>,
     node: &Node,
     prefix: &str,
     output: &mut String,
 ) {
-    let mut new_parents = parents.clone();
     match node {
         Node::Reg {
             inst_name,
@@ -248,7 +250,6 @@ fn write_node(
             if *regwidth != 8 {
                 panic!("only 8-bit registers supported");
             }
-
             writeln!(
                 output,
                 "\
@@ -258,6 +259,7 @@ fn write_node(
             .unwrap();
 
             // Extend the knowledge of parents as we descend
+            let mut new_parents = parents.clone();
             new_parents.push(inst_name.clone());
             write_reg_fields(new_parents, children, prefix, output);
 
@@ -290,9 +292,10 @@ fn write_node(
             )
             .unwrap();
 
+            let mut new_parents = parents.clone();
             new_parents.push(inst_name.clone());
             recurse_reg_map(
-                new_parents,
+                &new_parents,
                 children,
                 &format!("    {prefix}"),
                 output,
@@ -307,13 +310,13 @@ fn write_node(
 }
 
 fn recurse_reg_map(
-    parents: Vec<String>,
+    parents: &Vec<String>,
     children: &[Node],
     prefix: &str,
     output: &mut String,
 ) {
     for child in children.iter() {
-        write_node(parents.clone(), child, prefix, output);
+        write_node(parents, child, prefix, output);
     }
 }
 
@@ -335,7 +338,7 @@ pub mod Reg {{"
     // The nested layers may require type information that requires knowledge
     // of where they are in the tree.
     let root = vec!["Reg".to_string()];
-    recurse_reg_map(root, children, "", output);
+    recurse_reg_map(&root, children, "", output);
 
     writeln!(output, "}}").unwrap();
 }

@@ -651,7 +651,7 @@ impl ModuleResultNoFailure {
 }
 
 /// A type to provide more ergonomic access to the FPGA generated type
-pub type FpgaI2CFailure = Reg::QSFP::PORT0_STATUS::ERROR_Encoded;
+pub type FpgaI2CFailure = Reg::QSFP::PORT0_STATUS::ErrorEncoded;
 
 /// A type to consolidate per-module failure types.
 ///

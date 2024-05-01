@@ -788,10 +788,10 @@ impl ServerImpl {
                         FpgaI2CFailure::NotInitialized => {
                             HwError::NotInitialized
                         }
-                        FpgaI2CFailure::I2cAddressNack => {
+                        FpgaI2CFailure::I2CAddressNack => {
                             HwError::I2cAddressNack
                         }
-                        FpgaI2CFailure::I2cByteNack => HwError::I2cByteNack,
+                        FpgaI2CFailure::I2CByteNack => HwError::I2cByteNack,
                         // We only mark failures when an error is set, so this
                         // branch should never match.
                         FpgaI2CFailure::NoError => unreachable!(),

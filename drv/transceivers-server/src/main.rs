@@ -60,10 +60,10 @@ enum Trace {
     UnknownInterface(u8, ManagementInterface),
     UnpluggedModule(usize),
     RemovedDisabledModuleThermalModel(usize),
-    TemperatureReadError(usize, Reg::QSFP::PORT0_STATUS::ERROR_Encoded),
+    TemperatureReadError(usize, Reg::QSFP::PORT0_STATUS::ErrorEncoded),
     TemperatureReadUnexpectedError(usize, FpgaError),
     ThermalError(usize, ThermalError),
-    GetInterfaceError(usize, Reg::QSFP::PORT0_STATUS::ERROR_Encoded),
+    GetInterfaceError(usize, Reg::QSFP::PORT0_STATUS::ErrorEncoded),
     GetInterfaceUnexpectedError(usize, FpgaError),
     InvalidPortStatusError(usize, u8),
     DisablingPorts(LogicalPortMask),
@@ -359,9 +359,8 @@ impl ServerImpl {
                             self.decode_interface(port, interface)
                     }
                     Err(FpgaError::ImplError(e)) => {
-                        match Reg::QSFP::PORT0_STATUS::ERROR_Encoded::try_from(
-                            e,
-                        ) {
+                        match Reg::QSFP::PORT0_STATUS::ErrorEncoded::try_from(e)
+                        {
                             Ok(val) => {
                                 ringbuf_entry!(Trace::GetInterfaceError(i, val))
                             }
@@ -447,11 +446,11 @@ impl ServerImpl {
                 // be transient (and we'll remove the transceiver on the
                 // next pass through this function).
                 Err(FpgaError::ImplError(e)) => {
-                    use Reg::QSFP::PORT0_STATUS::ERROR_Encoded;
-                    match ERROR_Encoded::try_from(e) {
+                    use Reg::QSFP::PORT0_STATUS::ErrorEncoded;
+                    match ErrorEncoded::try_from(e) {
                         Ok(val) => {
                             got_nack |=
-                                matches!(val, ERROR_Encoded::I2cAddressNack);
+                                matches!(val, ErrorEncoded::I2CAddressNack);
                             ringbuf_entry!(Trace::TemperatureReadError(i, val))
                         }
                         Err(_) => {
