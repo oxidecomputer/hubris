@@ -334,8 +334,7 @@ pub mod Reg {{"
 
     // The nested layers may require type information that requires knowledge
     // of where they are in the tree.
-    let mut root = Vec::<String>::new();
-    root.push("Reg".to_string());
+    let root = vec!["Reg".to_string()];
     recurse_reg_map(root, children, "", output);
 
     writeln!(output, "}}").unwrap();
