@@ -212,7 +212,7 @@ impl Config {
             .collect();
         scored.sort();
         let mut out = format!("'{}' is not a valid task name.", name);
-        if let Some((_, s)) = scored.get(0) {
+        if let Some((_, s)) = scored.first() {
             out.push_str(&format!(" Did you mean '{}'?", s));
         }
         out
@@ -285,7 +285,7 @@ impl Config {
         let out_path = Path::new("")
             .join(&self.target)
             .join("release")
-            .join(&crate_name);
+            .join(crate_name);
 
         BuildConfig {
             args,
@@ -510,7 +510,7 @@ impl Config {
                     .get(r)
                     .ok_or_else(|| anyhow!("invalid extern region {r}"))?
                     .iter()
-                    .filter(|o| &o.name == image_name);
+                    .filter(|o| o.name == image_name);
                 let out = regions.next().expect("no extern region for name");
                 if regions.next().is_some() {
                     bail!(
@@ -741,7 +741,7 @@ fn read_and_flatten_toml(
              diamond dependencies are not allowed"
         );
     }
-    let cfg_contents = std::fs::read(&cfg)
+    let cfg_contents = std::fs::read(cfg)
         .with_context(|| format!("could not read {}", cfg.display()))?;
 
     // Accumulate the contents into the buildhash here, so that we hash both

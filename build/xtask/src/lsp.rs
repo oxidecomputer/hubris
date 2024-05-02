@@ -237,7 +237,7 @@ fn check_task(
     if dependencies.contains_key(package_name) {
         let build_cfg = app_cfg
             .toml
-            .task_build_config(&task_name, false, None)
+            .task_build_config(task_name, false, None)
             .map_err(|_| {
                 anyhow!("could not get build config for {}", task_name)
             })
@@ -247,7 +247,7 @@ fn check_task(
         let mut target = None;
         while let Some(t) = iter.next() {
             if t == "--target" {
-                target = iter.next().to_owned();
+                iter.next().clone_into(&mut target);
             }
         }
 

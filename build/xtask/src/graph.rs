@@ -37,10 +37,8 @@ pub fn task_graph(app_toml: &Path, path: &Path) -> Result<()> {
         to: u8,
     }
 
-    for (_i, (name, task)) in toml.tasks.iter().enumerate() {
-        if !priorities.contains_key(&task.priority) {
-            priorities.insert(task.priority, Vec::new());
-        }
+    for (name, task) in toml.tasks.iter() {
+        priorities.entry(task.priority).or_insert_with(Vec::new);
         if let Some(v) = priorities.get_mut(&task.priority) {
             v.push(name.to_string());
         }
@@ -52,8 +50,8 @@ pub fn task_graph(app_toml: &Path, path: &Path) -> Result<()> {
                 .priority;
             let inverted = p >= task.priority && name != callee;
             edges.push(Edge {
-                from: &name,
-                to: &callee,
+                from: name,
+                to: callee,
                 inverted,
             });
             let rank = Rank {
