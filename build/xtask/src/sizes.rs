@@ -292,7 +292,7 @@ fn print_memory_map(
         .flat_map(|m| m.values())
         .map(|c| format!("{}", c.total_size.iter().sum::<u32>()).len())
         .max()
-        .unwrap_or(0) as usize;
+        .unwrap_or(0);
     for (mem_name, map) in map {
         println!("\n{}:", mem_name);
         if verbose {
