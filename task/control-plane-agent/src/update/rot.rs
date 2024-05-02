@@ -16,12 +16,13 @@ use gateway_messages::{
 
 ringbuf!(Trace, 64, Trace::None);
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 enum Trace {
     None,
     IngestChunkInput { offset: u32, len: usize },
     IngestChunkState { offset: u32, len: usize },
     WriteOneBlock(u32, usize, usize),
+    Target(u8, u16),
 }
 
 pub(crate) struct RotUpdate {
@@ -77,10 +78,11 @@ impl ComponentUpdater for RotUpdate {
             .map_err(SpError::OtherComponentUpdateInProgress)?;
 
         // Which target are we updating?
+        ringbuf_entry!(Trace::Target(update.component.id[0], update.slot));
         let target = match (update.component, update.slot) {
             (SpComponent::ROT, 0) => UpdateTarget::ImageA,
             (SpComponent::ROT, 1) => UpdateTarget::ImageB,
-            (SpComponent::STAGE0, 0) => UpdateTarget::Bootloader,
+            (SpComponent::STAGE0, 1) => UpdateTarget::Bootloader,
             _ => return Err(SpError::InvalidSlotForComponent),
         };
 

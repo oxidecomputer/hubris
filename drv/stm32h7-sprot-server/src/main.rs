@@ -8,7 +8,7 @@
 
 use attest_api::{AttestError, HashAlgorithm, NONCE_MAX_SIZE, NONCE_MIN_SIZE};
 use drv_lpc55_update_api::{
-    RotBootInfo, RotPage, SlotId, SwitchDuration, UpdateTarget,
+    RotBootInfo, RotComponent, RotPage, SlotId, SwitchDuration, UpdateTarget,
 };
 use drv_spi_api::{CsState, SpiDevice, SpiServer};
 use drv_sprot_api::*;
@@ -77,9 +77,11 @@ const TIMEOUT_QUICK: u32 = 5;
 const DEFAULT_ATTEMPTS: u16 = 3;
 /// Slightly longer timeout
 const TIMEOUT_MEDIUM: u32 = 50;
+/// Long timeout
+const TIMEOUT_LONG: u32 = 200;
 
 // Delay between asserting CSn and sending the portion of a message
-// that fits entierly in the RoT's FIFO.
+// that fits entirely in the RoT's FIFO.
 const PART1_DELAY: u64 = 0;
 
 // Delay between sending the portion of a message that fits entirely in the
@@ -643,6 +645,28 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         }
     }
 
+    /// Return more useful boot info about the RoT
+    fn versioned_rot_boot_info(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        version: u8,
+    ) -> Result<VersionedRotBootInfo, RequestError<SprotError>> {
+        let body = ReqBody::Update(UpdateReq::VersionedBootInfo { version });
+        let tx_size = Request::pack(&body, self.tx_buf);
+        let rsp = self.do_send_recv_retries(
+            tx_size,
+            TIMEOUT_QUICK,
+            DEFAULT_ATTEMPTS,
+        )?;
+        if let RspBody::Update(UpdateRsp::VersionedBootInfo(vboot_info)) =
+            rsp.body?
+        {
+            Ok(vboot_info)
+        } else {
+            Err(SprotProtocolError::UnexpectedResponse)?
+        }
+    }
+
     /// Return the block size of the update server
     fn block_size(
         &mut self,
@@ -714,9 +738,12 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
     ) -> Result<(), idol_runtime::RequestError<SprotError>> {
         let body = ReqBody::Update(UpdateReq::Finish);
         let tx_size = Request::pack(&body, self.tx_buf);
+        // For stage0next updates, erase and flash doesn't happen
+        // until the finish operations. Use a long timeout.
         let rsp = self.do_send_recv_retries(
             tx_size,
-            TIMEOUT_QUICK,
+            // TODO: Tune TIMEOUT_LONG and deal with retried finish_image_update.
+            TIMEOUT_LONG,
             DEFAULT_ATTEMPTS,
         )?;
         if let RspBody::Ok = rsp.body? {
@@ -1190,6 +1217,132 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         rsp.body?;
         Ok(())
     }
+
+    fn component_caboose_size(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        component: RotComponent,
+        slot: SlotId,
+    ) -> Result<u32, idol_runtime::RequestError<RawCabooseOrSprotError>> {
+        let body =
+            ReqBody::Caboose(CabooseReq::ComponentSize { component, slot });
+        let tx_size = Request::pack(&body, self.tx_buf);
+        let rsp = self
+            .do_send_recv_retries(tx_size, DUMP_TIMEOUT, 1)
+            .map_err(RawCabooseOrSprotError::Sprot)?;
+        match rsp.body {
+            Ok(RspBody::Caboose(Ok(CabooseRsp::ComponentSize(size)))) => {
+                Ok(size)
+            }
+            Ok(RspBody::Caboose(Err(e))) => {
+                Err(RawCabooseOrSprotError::Caboose(e).into())
+            }
+            Ok(RspBody::Caboose(_)) | Ok(_) => {
+                Err(RawCabooseOrSprotError::Sprot(SprotError::Protocol(
+                    SprotProtocolError::UnexpectedResponse,
+                ))
+                .into())
+            }
+            Err(e) => Err(RawCabooseOrSprotError::Sprot(e).into()),
+        }
+    }
+
+    fn component_read_caboose_region(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        offset: u32,
+        component: RotComponent,
+        slot: SlotId,
+        data: idol_runtime::Leased<idol_runtime::W, [u8]>,
+    ) -> Result<(), idol_runtime::RequestError<RawCabooseOrSprotError>> {
+        let body = ReqBody::Caboose(CabooseReq::ComponentRead {
+            component,
+            slot,
+            start: offset,
+            size: data.len() as u32,
+        });
+        let tx_size = Request::pack(&body, self.tx_buf);
+        let rsp = self
+            .do_send_recv_retries(tx_size, DUMP_TIMEOUT, 4)
+            .map_err(RawCabooseOrSprotError::Sprot)?;
+
+        match rsp.body {
+            Ok(RspBody::Caboose(Ok(CabooseRsp::ComponentRead))) => {
+                // Copy from the trailing data into the lease
+                if rsp.blob.len() < data.len() {
+                    return Err(idol_runtime::RequestError::Fail(
+                        idol_runtime::ClientError::BadLease,
+                    ));
+                }
+                data.write_range(0..data.len(), &rsp.blob[..data.len()])
+                    .map_err(|()| {
+                        idol_runtime::RequestError::Fail(
+                            idol_runtime::ClientError::WentAway,
+                        )
+                    })?;
+                Ok(())
+            }
+            Ok(RspBody::Caboose(Err(e))) => {
+                Err(RawCabooseOrSprotError::Caboose(e).into())
+            }
+            Ok(RspBody::Caboose(_)) | Ok(_) => {
+                Err(RawCabooseOrSprotError::Sprot(SprotError::Protocol(
+                    SprotProtocolError::UnexpectedResponse,
+                ))
+                .into())
+            }
+            Err(e) => Err(RawCabooseOrSprotError::Sprot(e).into()),
+        }
+    }
+
+    fn component_prep_image_update(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        component: RotComponent,
+        slot: SlotId,
+    ) -> Result<(), idol_runtime::RequestError<SprotError>>
+    where
+        SprotError: From<idol_runtime::ServerDeath>,
+    {
+        let body =
+            ReqBody::Update(UpdateReq::ComponentPrep { component, slot });
+        let tx_size = Request::pack(&body, self.tx_buf);
+        let rsp = self.do_send_recv_retries(
+            tx_size,
+            TIMEOUT_QUICK,
+            DEFAULT_ATTEMPTS,
+        )?;
+        if let RspBody::Ok = rsp.body? {
+            Ok(())
+        } else {
+            Err(SprotProtocolError::UnexpectedResponse)?
+        }
+    }
+
+    fn component_switch_default_image(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        component: RotComponent,
+        slot: SlotId,
+        duration: SwitchDuration,
+    ) -> Result<(), idol_runtime::RequestError<SprotError>> {
+        let body = ReqBody::Update(UpdateReq::ComponentSwitchDefaultImage {
+            component,
+            slot,
+            duration,
+        });
+        let tx_size = Request::pack(&body, self.tx_buf);
+        let rsp = self.do_send_recv_retries(
+            tx_size,
+            TIMEOUT_QUICK,
+            DEFAULT_ATTEMPTS,
+        )?;
+        if let RspBody::Ok = rsp.body? {
+            Ok(())
+        } else {
+            Err(SprotProtocolError::UnexpectedResponse)?
+        }
+    }
 }
 
 impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
@@ -1207,8 +1360,9 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
 mod idl {
     use super::{
         AttestOrSprotError, DumpOrSprotError, HashAlgorithm, PulseStatus,
-        RawCabooseOrSprotError, RotBootInfo, RotPage, RotState, SlotId,
-        SprotError, SprotIoStats, SprotStatus, SwitchDuration, UpdateTarget,
+        RawCabooseOrSprotError, RotBootInfo, RotComponent, RotPage, RotState,
+        SlotId, SprotError, SprotIoStats, SprotStatus, SwitchDuration,
+        UpdateTarget, VersionedRotBootInfo,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

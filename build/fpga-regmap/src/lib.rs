@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use convert_case::{Case, Casing};
 use serde::Deserialize;
 use std::fmt::Write;
 
@@ -136,7 +137,15 @@ impl Addr {{
 
 ////////////////////////////////////////////////////////////////////////////////
 
-fn write_reg_fields(children: &[Node], prefix: &str, output: &mut String) {
+fn write_reg_fields(
+    parents: Vec<String>,
+    children: &[Node],
+    prefix: &str,
+    output: &mut String,
+) {
+    // We need this to implement the u8 -> enum conversion
+    let parent_chain = parents.join("::");
+
     for child in children.iter() {
         if let Node::Field {
             inst_name,
@@ -155,28 +164,67 @@ fn write_reg_fields(children: &[Node], prefix: &str, output: &mut String) {
 {prefix}        pub const {inst_name}: u8 = 0b{mask:08b};",
             )
             .unwrap();
+
             // Deal with optional encoded Enums on this field
             match encode {
                 Some(x) => {
+                    let name_camel = inst_name.to_case(Case::UpperCamel);
+                    let encode_name = format!("{name_camel}Encoded");
                     writeln!(
                         output,
                         "
-{prefix}        use num_derive::{{ToPrimitive, FromPrimitive}};
-{prefix}        #[derive(Copy, Clone, Eq, PartialEq, FromPrimitive, ToPrimitive)]
+{prefix}        #[derive(Copy, Clone, Eq, PartialEq)]
 {prefix}        #[allow(dead_code)]
-{prefix}        #[allow(non_camel_case_types, clippy::upper_case_acronyms)]
-{prefix}        pub enum Encoded {{"
+{prefix}        pub enum {encode_name} {{"
+                    )
+                    .unwrap();
+
+                    // unpack all of the enum variant -> u8 information
+                    for item in x {
+                        writeln!(
+                            output,
+                            "{prefix}            {0} = {1:#04x},",
+                            item.name.to_case(Case::UpperCamel),
+                            item.value
+                        )
+                        .unwrap();
+                    }
+
+                    writeln!(output, "{prefix}        }}").unwrap();
+
+                    // We want to implement TryFrom<u8> rather than From<u8>
+                    // because the u8 -> enum conversion can fail if the value
+                    // is not a valid enum variant. Additionally, we mask off
+                    // the supplied u8 with the mask of the field so encoded
+                    // fields could be colocated in a register with other fields
+                    writeln!(
+                        output,
+                        "
+{prefix}        impl TryFrom<u8> for {encode_name} {{
+{prefix}            type Error = ();
+{prefix}            fn try_from(x: u8) -> Result<Self, Self::Error> {{
+{prefix}                use crate::{parent_chain}::{encode_name}::*;
+{prefix}                let x_masked = x & {inst_name};
+{prefix}                match x_masked {{"
                     )
                     .unwrap();
                     for item in x {
                         writeln!(
                             output,
-                            "{prefix}            {0} = {1:#04x},",
-                            item.name, item.value
+                            "{prefix}                    {1:#04x} => Ok({0}),",
+                            item.name.to_case(Case::UpperCamel),
+                            item.value
                         )
                         .unwrap();
                     }
-                    writeln!(output, "{prefix}        }}").unwrap();
+                    writeln!(
+                        output,
+                        "{prefix}                    _ => Err(()),
+{prefix}                }}
+{prefix}            }}
+{prefix}        }}\n"
+                    )
+                    .unwrap();
                 }
                 None => {}
             }
@@ -186,7 +234,12 @@ fn write_reg_fields(children: &[Node], prefix: &str, output: &mut String) {
     }
 }
 
-fn write_node(node: &Node, prefix: &str, output: &mut String) {
+fn write_node(
+    parents: &[String],
+    node: &Node,
+    prefix: &str,
+    output: &mut String,
+) {
     match node {
         Node::Reg {
             inst_name,
@@ -197,7 +250,6 @@ fn write_node(node: &Node, prefix: &str, output: &mut String) {
             if *regwidth != 8 {
                 panic!("only 8-bit registers supported");
             }
-
             writeln!(
                 output,
                 "\
@@ -205,7 +257,11 @@ fn write_node(node: &Node, prefix: &str, output: &mut String) {
 {prefix}    pub mod {inst_name} {{",
             )
             .unwrap();
-            write_reg_fields(children, prefix, output);
+
+            // Extend the knowledge of parents as we descend
+            let mut new_parents = parents.to_owned();
+            new_parents.push(inst_name.clone());
+            write_reg_fields(new_parents, children, prefix, output);
 
             writeln!(output, "{prefix}    }}").unwrap();
         }
@@ -235,7 +291,15 @@ fn write_node(node: &Node, prefix: &str, output: &mut String) {
 {prefix}    pub mod {inst_name} {{",
             )
             .unwrap();
-            recurse_reg_map(children, &format!("    {prefix}"), output);
+
+            let mut new_parents = parents.to_owned();
+            new_parents.push(inst_name.clone());
+            recurse_reg_map(
+                &new_parents,
+                children,
+                &format!("    {prefix}"),
+                output,
+            );
             writeln!(output, "{prefix}    }}").unwrap();
         }
 
@@ -245,9 +309,14 @@ fn write_node(node: &Node, prefix: &str, output: &mut String) {
     }
 }
 
-fn recurse_reg_map(children: &[Node], prefix: &str, output: &mut String) {
+fn recurse_reg_map(
+    parents: &[String],
+    children: &[Node],
+    prefix: &str,
+    output: &mut String,
+) {
     for child in children.iter() {
-        write_node(child, prefix, output);
+        write_node(parents, child, prefix, output);
     }
 }
 
@@ -266,7 +335,10 @@ pub mod Reg {{"
     )
     .unwrap();
 
-    recurse_reg_map(children, "", output);
+    // The nested layers may require type information that requires knowledge
+    // of where they are in the tree.
+    let root = vec!["Reg".to_string()];
+    recurse_reg_map(&root, children, "", output);
 
     writeln!(output, "}}").unwrap();
 }

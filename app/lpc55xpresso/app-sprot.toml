@@ -17,7 +17,7 @@ fwid = true
 [kernel]
 name = "lpc55xpresso"
 features = ["dice-self"]
-requires = {flash = 53504, ram = 4096}
+requires = {flash = 54128, ram = 4096}
 
 [caboose]
 region = "flash"
@@ -55,7 +55,6 @@ start = true
 [tasks.update_server]
 name = "lpc55-update-server"
 priority = 3
-max-sizes = {flash = 32768, ram = 4096}
 stacksize = 3000
 start = true
 sections = {bootstate = "usbsram"}
@@ -182,7 +181,6 @@ task-slots = ["swd"]
 [tasks.sprot]
 name = "drv-lpc55-sprot-server"
 priority = 6
-max-sizes = {flash = 48512, ram = 32768}
 uses = ["flexcomm8", "bootrom"]
 features = ["spi0"]
 start = true

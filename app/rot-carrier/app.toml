@@ -11,7 +11,7 @@ fwid = true
 [kernel]
 name = "rot-carrier"
 features = ["dice-self"]
-requires = {flash = 53600, ram = 4096}
+requires = {flash = 54176, ram = 3876}
 
 [caboose]
 tasks = ["caboose_reader", "sprot"]
@@ -46,8 +46,8 @@ start = true
 [tasks.update_server]
 name = "lpc55-update-server"
 priority = 3
-max-sizes = {flash = 32768, ram = 4096, usbsram = 4096}
-stacksize = 2560
+# TODO size this appropriately
+stacksize = 8192
 start = true
 sections = {bootstate = "usbsram"}
 uses = ["flash_controller", "hash_crypt"]
@@ -108,7 +108,7 @@ task-slots = ["syscon_driver"]
 [tasks.sprot]
 name = "drv-lpc55-sprot-server"
 priority = 6
-max-sizes = {flash = 49728, ram = 32768}
+max-sizes = {flash = 54000, ram = 32768}
 uses = ["flexcomm8", "bootrom"]
 features = ["spi0"]
 start = true

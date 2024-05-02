@@ -646,6 +646,14 @@ impl DebugPort {
         self.fpga.read(Addr::TOFINO_DEBUG_PORT_STATE)
     }
 
+    /// Resets debug port state by clearing the send and receive buffers
+    pub fn reset(&self) -> Result<(), FpgaError> {
+        let mut state = DebugPortState(0);
+        state.set_send_buffer_empty(true);
+        state.set_receive_buffer_empty(true);
+        self.set_state(state)
+    }
+
     pub fn set_state(&self, state: DebugPortState) -> Result<(), FpgaError> {
         self.fpga
             .write(WriteOp::Write, Addr::TOFINO_DEBUG_PORT_STATE, state)
