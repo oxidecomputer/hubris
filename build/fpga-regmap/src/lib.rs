@@ -235,7 +235,7 @@ fn write_reg_fields(
 }
 
 fn write_node(
-    parents: &Vec<String>,
+    parents: &[String],
     node: &Node,
     prefix: &str,
     output: &mut String,
@@ -259,7 +259,7 @@ fn write_node(
             .unwrap();
 
             // Extend the knowledge of parents as we descend
-            let mut new_parents = parents.clone();
+            let mut new_parents = parents.to_owned();
             new_parents.push(inst_name.clone());
             write_reg_fields(new_parents, children, prefix, output);
 
@@ -292,7 +292,7 @@ fn write_node(
             )
             .unwrap();
 
-            let mut new_parents = parents.clone();
+            let mut new_parents = parents.to_owned();
             new_parents.push(inst_name.clone());
             recurse_reg_map(
                 &new_parents,
@@ -310,7 +310,7 @@ fn write_node(
 }
 
 fn recurse_reg_map(
-    parents: &Vec<String>,
+    parents: &[String],
     children: &[Node],
     prefix: &str,
     output: &mut String,
