@@ -228,6 +228,7 @@ checksum = "bd769563b4ea2953e2825c9e6b7470a5f55f67e0be00030bf3e390a2a6071f64"
 name = "build-fpga-regmap"
 version = "0.1.0"
 dependencies = [
+ "convert_case",
  "serde",
  "serde_json",
 ]

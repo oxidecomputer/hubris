@@ -730,7 +730,7 @@ impl<S: SpiServer> ServerImpl<S> {
                         .unwrap_lite();
                     ringbuf_entry!(Trace::A1Status(status[0]));
 
-                    if status[0] == Reg::A1SMSTATUS::Encoded::DONE as u8 {
+                    if status[0] == Reg::A1SMSTATUS::A1SmEncoded::Done as u8 {
                         break;
                     }
 
@@ -786,7 +786,8 @@ impl<S: SpiServer> ServerImpl<S> {
                         .unwrap_lite();
                     ringbuf_entry!(Trace::A0Status(status[0]));
 
-                    if status[0] == Reg::A0SMSTATUS::Encoded::GROUPC_PG as u8 {
+                    if status[0] == Reg::A0SMSTATUS::A0SmEncoded::GroupcPg as u8
+                    {
                         break;
                     }
 
@@ -818,7 +819,7 @@ impl<S: SpiServer> ServerImpl<S> {
                         .unwrap_lite();
                     ringbuf_entry!(Trace::A0Power(status[0]));
 
-                    if status[0] == Reg::A0SMSTATUS::Encoded::DONE as u8 {
+                    if status[0] == Reg::A0SMSTATUS::A0SmEncoded::Done as u8 {
                         break;
                     }
 
