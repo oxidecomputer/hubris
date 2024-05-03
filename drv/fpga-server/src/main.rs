@@ -11,7 +11,7 @@ use ringbuf::*;
 use userlib::*;
 use zerocopy::{byteorder, AsBytes, Unaligned, U16};
 
-use drv_fpga_api::{BitstreamType, DeviceState, FpgaError, WriteOp};
+use drv_fpga_api::{BitstreamType, DeviceState, FpgaError, ReadOp, WriteOp};
 use drv_fpga_devices::{ecp5, Fpga, FpgaBitstream, FpgaUserDesign};
 use drv_spi_api::SpiServer;
 use drv_stm32xx_sys_api::{self as sys_api, Sys};
@@ -474,11 +474,12 @@ impl<'a, Device: Fpga<'a> + FpgaUserDesign> idl::InOrderFpgaImpl
         &mut self,
         msg: &RecvMessage,
         device_index: u8,
+        op: ReadOp,
         addr: u16,
         data: Leased<W, [u8]>,
     ) -> Result<(), RequestError> {
         let header = UserDesignRequestHeader {
-            cmd: 0x1,
+            cmd: u8::from(op),
             addr: U16::new(addr),
         };
 
@@ -616,7 +617,7 @@ struct UserDesignRequestHeader {
 }
 
 mod idl {
-    use super::{BitstreamType, DeviceState, FpgaError, WriteOp};
+    use super::{BitstreamType, DeviceState, FpgaError, ReadOp, WriteOp};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
