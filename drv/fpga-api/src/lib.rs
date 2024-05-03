@@ -131,8 +131,11 @@ pub enum BitstreamType {
     The {Write,Read}NoAddrIncr operations support sequential write/read to the
     same address. These operations are useful for exposing FIFO-like interfaces
     via a single memory-mapped address location.
+
+    These operations are split into WriteOp and ReadOp enums below.
 */
 
+/// This is just writes; for reads, see ReadOp
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, AsBytes)]
 #[repr(u8)]
 pub enum WriteOp {
@@ -158,6 +161,7 @@ impl From<bool> for WriteOp {
     }
 }
 
+/// This is just reads; for writes, see WriteOp
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, AsBytes)]
 #[repr(u8)]
 pub enum ReadOp {

@@ -1103,8 +1103,6 @@ impl Transceivers {
         }
         // success is wherever we did not encounter an `FpgaError`
         let success = mask & !error;
-        // only have an error where there was a requested module in mask
-        error &= mask;
 
         ModuleResultNoFailure::new(success, error).unwrap_lite()
     }
