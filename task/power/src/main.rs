@@ -387,12 +387,8 @@ macro_rules! mwocp68_controller {
     path = "bsp/gimlet_bcdef.rs"
 )]
 #[cfg_attr(
-    any(
-        target_board = "psc-a",
-        target_board = "psc-b",
-        target_board = "psc-c"
-    ),
-    path = "bsp/psc_abc.rs"
+    any(target_board = "psc-b", target_board = "psc-c"),
+    path = "bsp/psc_bc.rs"
 )]
 #[cfg_attr(
     any(

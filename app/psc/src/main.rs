@@ -58,9 +58,7 @@ fn system_init() {
     let rev = p.GPIOG.idr.read().bits() & 0b111;
 
     cfg_if::cfg_if! {
-        if #[cfg(target_board = "psc-a")] {
-            let expected_rev = 0b111;
-        } else if #[cfg(target_board = "psc-b")] {
+        if #[cfg(target_board = "psc-b")] {
             let expected_rev = 0b001;
         } else if #[cfg(target_board = "psc-c")] {
             let expected_rev = 0b010;
