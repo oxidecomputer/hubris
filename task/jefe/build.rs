@@ -8,6 +8,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::io::Write;
 
 fn main() -> Result<()> {
+    build_util::expose_m_profile()?;
+
     let cfg = build_util::task_maybe_config::<Config>()?.unwrap_or_default();
 
     let allowed_callers = build_util::task_ids()
