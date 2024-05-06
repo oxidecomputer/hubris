@@ -74,8 +74,8 @@ cfg_if::cfg_if! {
     // Target boards with 1 led
     else if #[cfg(any(
         target_board = "stm32g031-nucleo",
-        target_board = "stm32g070",
-        target_board = "stm32g0b1",
+        target_board = "stm32g070-nucleo",
+        target_board = "stm32g0b1-nucleo",
         target_board = "donglet-g030",
         target_board = "donglet-g031",
         target_board = "gimlet-b",
@@ -345,7 +345,6 @@ cfg_if::cfg_if! {
         {
             cfg_if::cfg_if! {
                 if #[cfg(any(
-                    target_board = "stm32g031",
                     target_board = "stm32g031-nucleo"
                 ))] {
                     (drv_stm32xx_sys_api::Port::C.pin(6), true)
