@@ -624,19 +624,21 @@ impl ConfigGenerator {
                 &mut s,
                 r##"
         use drv_stm32xx_sys_api::Peripheral;
-        use drv_i2c_api::Controller;
-
-        #[cfg(feature = "h743")]
-        use stm32h7::stm32h743 as device;
-
-        #[cfg(feature = "h753")]
-        use stm32h7::stm32h753 as device;
-
-        #[cfg(feature = "g031")]
-        use stm32g0::stm32g031 as device;
-        #[cfg(feature = "g030")]
-        use stm32g0::stm32g030 as device;"##
+        use drv_i2c_api::Controller;"##
             )?;
+
+            if build_util::has_feature("h743") {
+                writeln!(&mut s, "use stm32h7::stm32h743 as device;")?;
+            }
+            if build_util::has_feature("h753") {
+                writeln!(&mut s, "use stm32h7::stm32h753 as device;")?;
+            }
+            if build_util::has_feature("g031") {
+                writeln!(&mut s, "use stm32g0::stm32g031 as device;")?;
+            }
+            if build_util::has_feature("g030") {
+                writeln!(&mut s, "use stm32g0::stm32g030 as device;")?;
+            }
         }
 
         write!(
