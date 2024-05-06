@@ -7,20 +7,11 @@
 
 #![no_std]
 
-#[cfg(feature = "h7b3")]
-use stm32h7::stm32h7b3 as device;
-
 #[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
 
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
-
-#[cfg(feature = "h7b3")]
-pub type RegisterBlock = device::i2c3::RegisterBlock;
-
-#[cfg(feature = "h7b3")]
-pub type Isr = device::i2c3::isr::R;
 
 #[cfg(feature = "g031")]
 use stm32g0::stm32g031 as device;
@@ -282,31 +273,7 @@ impl I2cController<'_> {
         // hybrid of "CPU model" and "board name" sensing. Should move to
         // configuration!
         cfg_if::cfg_if! {
-            if #[cfg(feature = "h7b3")] {
-                // We want to set our timing to achieve a 100kHz SCL. Given
-                // our APB4 peripheral clock of 280MHz, here is how we
-                // configure our timing:
-                //
-                // - A PRESC of 7, yielding a t_presc of 28.57 ns.
-                // - An SCLH of 137 (0x89), yielding a t_sclh of 3942.86 ns.
-                // - An SCLL of 207 (0xcf), yielding a t_scll of 5942.86 ns.
-                //
-                // Taken together, this yields a t_scl of 9885.71 ns.  Which,
-                // when added to our t_sync1 and t_sync2 will be close to our
-                // target of 10000 ns.  Finally, we set SCLDEL to 8 and SDADEL
-                // to 0 -- values that come from the STM32CubeMX tool (as
-                // advised by 52.4.10).
-                i2c.timingr.write(|w| { w
-                    .presc().bits(7)
-                    .sclh().bits(137)
-                    .scll().bits(207)
-                    .scldel().bits(8)
-                    .sdadel().bits(0)
-                });
-
-                #[cfg(feature = "amd_erratum_1394")]
-                compile_error!("no support for amd_erratum_1394 on h7b3");
-            } else if #[cfg(any(feature = "h743", feature = "h753"))] {
+            if #[cfg(any(feature = "h743", feature = "h753"))] {
                 cfg_if::cfg_if! {
                     // Due to AMD Milan erratum 1394, the processor needs an
                     // abnormally long data setup time from an I2C target
@@ -400,19 +367,14 @@ impl I2cController<'_> {
             //   t_timeout = (TIMEOUTA + 1) x 2048 x t_i2cclk
             //
             // We want our t_timeout to be at least 25 ms: on h743 with a 10 ns
-            // t_i2cclk this yields 1219.7 (1220); on h7b3, this is 3416.9
-            // (3417); on g031, this is 195.88 (196).
+            // t_i2cclk this yields 1219.7 (1220); on g031, this is 195.88
+            // (196). Note that these numbers make assumptions about the
+            // system's clocking and clock tree configuration; TODO.
             //
             if #[cfg(any(feature = "h743", feature = "h753"))] {
                 i2c.timeoutr.write(|w| { w
                     .timouten().set_bit()           // Enable SCL timeout
                     .timeouta().bits(1220)          // Timeout value
-                    .tidle().clear_bit()            // Want SCL, not IDLE
-                });
-            } else if #[cfg(feature = "h7b3")] {
-                i2c.timeoutr.write(|w| { w
-                    .timouten().set_bit()           // Enable SCL timeout
-                    .timeouta().bits(3417)          // Timeout value
                     .tidle().clear_bit()            // Want SCL, not IDLE
                 });
             } else if #[cfg(any(feature = "g030", feature = "g031"))] {

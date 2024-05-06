@@ -435,13 +435,7 @@ cfg_if::cfg_if! {
         task_slot!(SYS, sys);
 
         cfg_if::cfg_if! {
-            if #[cfg(target_board = "stm32h7b3i-dk")] {
-                // STM32H7B3 DISCOVERY kit: LEDs are on G2 and G11.
-                const LEDS: &[(drv_stm32xx_sys_api::PinSet, bool)] = &[
-                    (drv_stm32xx_sys_api::Port::G.pin(2), true),
-                    (drv_stm32xx_sys_api::Port::G.pin(11), true),
-                ];
-            } else if #[cfg(any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi"))] {
+            if #[cfg(any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi"))] {
                 // Nucleo boards: LEDs are on PB0, PB14 and PE1.
                 const LEDS: &[(drv_stm32xx_sys_api::PinSet, bool)] = &[
                     (drv_stm32xx_sys_api::Port::B.pin(0), false),

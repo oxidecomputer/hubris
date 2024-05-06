@@ -172,9 +172,9 @@ pub fn config(
         }
 
         "stm32f3-discovery" | "stm32f4-discovery" | "nucleo-h743zi2"
-        | "nucleo-h753zi" | "stm32h7b3i-dk" | "gemini-bu-1" | "gimletlet-1"
-        | "gimletlet-2" | "gimlet-b" | "gimlet-c" | "gimlet-d" | "gimlet-e"
-        | "psc-b" | "psc-c" | "sidecar-b" | "sidecar-c" | "sidecar-d"
+        | "nucleo-h753zi" | "gemini-bu-1" | "gimletlet-1" | "gimletlet-2"
+        | "gimlet-b" | "gimlet-c" | "gimlet-d" | "gimlet-e" | "psc-b"
+        | "psc-c" | "sidecar-b" | "sidecar-c" | "sidecar-d"
         | "stm32g031-nucleo" | "donglet-g030" | "donglet-g031"
         | "oxcon2023g0" | "stm32g070-nucleo" | "stm32g0b1-nucleo"
         | "medusa-a" | "grapefruit" => {
@@ -211,7 +211,6 @@ pub fn chip_name(board: &str) -> anyhow::Result<&'static str> {
         "stm32f4-discovery" => "STM32F407VGTx",
         "nucleo-h743zi2" => "STM32H743ZITx",
         "nucleo-h753zi" => "STM32H753ZITx",
-        "stm32h7b3i-dk" => "STM32H7B3IITx",
         "gemini-bu-1" | "gimletlet-1" | "gimletlet-2" | "gimlet-b"
         | "gimlet-c" | "gimlet-d" | "gimlet-e" | "psc-a" | "psc-b"
         | "psc-c" | "sidecar-b" | "sidecar-c" | "sidecar-d" | "medusa-a"
