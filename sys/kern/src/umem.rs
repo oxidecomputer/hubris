@@ -75,7 +75,7 @@ impl<T> USlice<T> {
             .ok_or(UsageError::InvalidSlice)?;
         // Note: this subtraction cannot underflow. You can subtract any usize
         // from usize::MAX.
-        let highest_possible_base = core::usize::MAX - size_in_bytes;
+        let highest_possible_base = usize::MAX - size_in_bytes;
         if base_address <= highest_possible_base {
             Ok(Self {
                 base_address,

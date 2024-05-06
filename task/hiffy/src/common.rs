@@ -113,7 +113,7 @@ pub(crate) fn send(
 
     let op = match stack[fp + 1] {
         Some(op) => {
-            if op > core::u16::MAX.into() {
+            if op > u16::MAX.into() {
                 return Err(Failure::Fault(Fault::BadParameter(1)));
             }
 
@@ -136,7 +136,7 @@ pub(crate) fn send(
     for i in base..base + nbytes {
         payload[i - base] = match stack[i] {
             Some(byte) => {
-                if byte > core::u8::MAX.into() {
+                if byte > u8::MAX.into() {
                     return Err(Failure::Fault(Fault::BadParameter(2)));
                 }
 
@@ -238,7 +238,7 @@ pub(crate) fn send_lease_read(
 
     let op = match stack[fp + 1] {
         Some(op) => {
-            if op > core::u16::MAX.into() {
+            if op > u16::MAX.into() {
                 return Err(Failure::Fault(Fault::BadParameter(1)));
             }
 
@@ -261,7 +261,7 @@ pub(crate) fn send_lease_read(
     for i in base..base + nbytes {
         payload[i - base] = match stack[i] {
             Some(byte) => {
-                if byte > core::u8::MAX.into() {
+                if byte > u8::MAX.into() {
                     return Err(Failure::Fault(Fault::BadParameter(2)));
                 }
 
@@ -365,7 +365,7 @@ pub(crate) fn send_lease_write(
 
     let op = match stack[fp + 1] {
         Some(op) => {
-            if op > core::u16::MAX.into() {
+            if op > u16::MAX.into() {
                 return Err(Failure::Fault(Fault::BadParameter(1)));
             }
 
@@ -388,7 +388,7 @@ pub(crate) fn send_lease_write(
     for i in base..base + nbytes {
         payload[i - base] = match stack[i] {
             Some(byte) => {
-                if byte > core::u8::MAX.into() {
+                if byte > u8::MAX.into() {
                     return Err(Failure::Fault(Fault::BadParameter(2)));
                 }
 
@@ -518,7 +518,7 @@ pub(crate) fn send_lease_read_write(
     // get id of the operation we've been asked to call
     let op = match stack[fp + 1] {
         Some(op) => {
-            if op > core::u16::MAX.into() {
+            if op > u16::MAX.into() {
                 return Err(Failure::Fault(Fault::BadParameter(1)));
             }
 
@@ -539,7 +539,7 @@ pub(crate) fn send_lease_read_write(
     for i in base..base + nbytes {
         payload[i - base] = match stack[i] {
             Some(byte) => {
-                if byte > core::u8::MAX.into() {
+                if byte > u8::MAX.into() {
                     return Err(Failure::Fault(Fault::BadParameter(2)));
                 }
 
