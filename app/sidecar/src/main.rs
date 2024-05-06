@@ -21,9 +21,6 @@ fn main() -> ! {
 
     const CYCLES_PER_MS: u32 = 400_000;
 
-    #[cfg(feature = "traptrace")]
-    kern::profiling::configure_events_table(tracing::table());
-
     unsafe { kern::startup::start_kernel(CYCLES_PER_MS) }
 }
 
