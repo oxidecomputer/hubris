@@ -98,7 +98,7 @@ fn i2c_args_to_device(
     // and correctly specify a port index: this is an error.
     //
     let port = stack[1].ok_or(Fault::EmptyParameter(1))?;
-    let port = if port > core::u8::MAX.into() {
+    let port = if port > u8::MAX.into() {
         return Err(Failure::Fault(Fault::BadParameter(1)));
     } else {
         PortIndex(port as u8)
