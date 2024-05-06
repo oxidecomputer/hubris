@@ -1,6 +1,6 @@
 name = "tests-stm32g070"
 target = "thumbv6m-none-eabi"
-board = "stm32g070"
+board = "stm32g070-nucleo"
 chip = "../../chips/stm32g0"
 memory = "memory-g070.toml"
 

@@ -176,8 +176,8 @@ pub fn config(
         | "gimletlet-2" | "gimlet-b" | "gimlet-c" | "gimlet-d" | "gimlet-e"
         | "psc-a" | "psc-b" | "psc-c" | "sidecar-b" | "sidecar-c"
         | "sidecar-d" | "stm32g031-nucleo" | "donglet-g030"
-        | "donglet-g031" | "oxcon2023g0" | "stm32g070" | "stm32g0b1"
-        | "medusa-a" | "grapefruit" => {
+        | "donglet-g031" | "oxcon2023g0" | "stm32g070-nucleo"
+        | "stm32g0b1-nucleo" | "medusa-a" | "grapefruit" => {
             let cfg = FlashProgramConfig::new(chip_dir.join("openocd.cfg"));
 
             let mut flash = FlashConfig::new(FlashProgram::OpenOcd(cfg));
@@ -220,8 +220,8 @@ pub fn chip_name(board: &str) -> anyhow::Result<&'static str> {
         "donglet-g031" => "STM32G031F8Px",
         "stm32g031-nucleo" => "STM32G031Y8Yx",
         "oxcon2023g0" => "STM32G030J6Mx",
-        "stm32g070" => "STM32G070KBTx",
-        "stm32g0b1" => anyhow::bail!(
+        "stm32g070-nucleo" => "STM32G070KBTx",
+        "stm32g0b1-nucleo" => anyhow::bail!(
             "This board is not yet supported by probe-rs, \
             please use OpenOCD directly"
         ),
