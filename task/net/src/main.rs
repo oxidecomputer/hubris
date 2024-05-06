@@ -35,7 +35,6 @@ mod server;
     ),
     path = "bsp/gimlet_bcdef.rs"
 )]
-#[cfg_attr(target_board = "psc-a", path = "bsp/psc_a.rs")]
 #[cfg_attr(
     any(target_board = "psc-b", target_board = "psc-c"),
     path = "bsp/psc_bc.rs"

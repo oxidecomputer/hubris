@@ -83,7 +83,6 @@ cfg_if::cfg_if! {
         target_board = "gimlet-d",
         target_board = "gimlet-e",
         target_board = "gimlet-f",
-        target_board = "psc-a",
         target_board = "psc-b",
         target_board = "psc-c",
         target_board = "oxcon2023g0",
@@ -478,7 +477,6 @@ cfg_if::cfg_if! {
                                 target_board = "gimlet-d",
                                 target_board = "gimlet-e",
                                 target_board = "gimlet-f",
-                                target_board = "psc-a",
                                 target_board = "psc-b",
                                 target_board = "psc-c",
             ))] {
