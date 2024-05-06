@@ -25,7 +25,6 @@
 //! See: https://github.com/rust-lang/rust/issues/73450#issuecomment-650463347
 
 #![no_std]
-#![feature(asm_const)]
 #![feature(naked_functions)]
 #![forbid(clippy::wildcard_imports)]
 
