@@ -174,10 +174,10 @@ pub fn config(
         "stm32f3-discovery" | "stm32f4-discovery" | "nucleo-h743zi2"
         | "nucleo-h753zi" | "stm32h7b3i-dk" | "gemini-bu-1" | "gimletlet-1"
         | "gimletlet-2" | "gimlet-b" | "gimlet-c" | "gimlet-d" | "gimlet-e"
-        | "psc-a" | "psc-b" | "psc-c" | "sidecar-b" | "sidecar-c"
-        | "sidecar-d" | "stm32g031-nucleo" | "donglet-g030"
-        | "donglet-g031" | "oxcon2023g0" | "stm32g070-nucleo"
-        | "stm32g0b1-nucleo" | "medusa-a" | "grapefruit" => {
+        | "psc-b" | "psc-c" | "sidecar-b" | "sidecar-c" | "sidecar-d"
+        | "stm32g031-nucleo" | "donglet-g030" | "donglet-g031"
+        | "oxcon2023g0" | "stm32g070-nucleo" | "stm32g0b1-nucleo"
+        | "medusa-a" | "grapefruit" => {
             let cfg = FlashProgramConfig::new(chip_dir.join("openocd.cfg"));
 
             let mut flash = FlashConfig::new(FlashProgram::OpenOcd(cfg));
