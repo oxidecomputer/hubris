@@ -1,0 +1,8 @@
+# Board definitions
+
+This directory contains a file specifying each supported board (for the `board`
+key in the `app.toml` and the `target_board` `cfg` in Rust).
+
+Currently the contents of the files are ... minimal. The mere existence of a
+file creates a board with the corresponding name, as far as the build system is
+concerned.

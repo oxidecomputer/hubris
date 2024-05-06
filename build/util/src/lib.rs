@@ -6,6 +6,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use indexmap::IndexMap;
 use serde::de::DeserializeOwned;
 use std::collections::BTreeMap;
+use std::ffi::OsStr;
 use std::io::Write;
 
 /// Reads the given environment variable and marks that it's used
@@ -64,6 +65,10 @@ pub fn has_feature(s: &str) -> bool {
 pub fn expose_m_profile() -> Result<()> {
     let target = crate::target();
 
+    println!("cargo:rustc-check-cfg=cfg(armv6m)");
+    println!("cargo:rustc-check-cfg=cfg(armv7m)");
+    println!("cargo:rustc-check-cfg=cfg(armv8m)");
+
     if target.starts_with("thumbv6m") {
         println!("cargo:rustc-cfg=armv6m");
     } else if target.starts_with("thumbv7m") || target.starts_with("thumbv7em")
@@ -85,6 +90,48 @@ pub fn target_board() -> Option<String> {
 /// Exposes the board type from the `HUBRIS_BOARD` envvar into
 /// `cfg(target_board="...")`.
 pub fn expose_target_board() {
+    let mut boards = vec![];
+    let mut out_dir =
+        std::path::PathBuf::from(std::env::var("OUT_DIR").unwrap());
+    loop {
+        let done = out_dir.file_name() == Some(OsStr::new("target"));
+        out_dir.pop();
+        if done {
+            break;
+        }
+    }
+    out_dir.push("boards");
+    println!("cargo:rerun-if-changed={}", out_dir.display());
+    if let Ok(dir) = std::fs::read_dir(&out_dir) {
+        for dirent in dir {
+            let Ok(dirent) = dirent else {
+                eprintln!("warning: bogus dirent?");
+                continue;
+            };
+            let path = dirent.path();
+
+            if path.extension() != Some(OsStr::new("toml")) {
+                // Ignore other files, such as READMEs, in the directory.
+                continue;
+            }
+
+            if let Some(stem) = path.file_stem() {
+                let stem = stem.to_string_lossy();
+                boards.push(format!("\"{stem}\""));
+            }
+        }
+    } else {
+        eprintln!(
+            "warning: boards directory not found, \
+                  target_board can't validate"
+        );
+    }
+    boards.sort();
+    boards.dedup();
+
+    let values = boards.join(",");
+
+    println!("cargo:rustc-check-cfg=cfg(target_board, values({values}))");
     if let Some(board) = target_board() {
         println!("cargo:rustc-cfg=target_board=\"{}\"", board);
     }
