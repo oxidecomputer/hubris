@@ -10,13 +10,17 @@
 //!
 //! All of the API types in `transceiver_messages` operate on **physical**
 //! ports, i.e. an FPGA paired by a physical port index (or mask).
+//!
+use counters::Count;
+use ringbuf::*;
+use userlib::UnwrapLite;
+
 use crate::{FrontIOStatus, ServerImpl};
 use drv_sidecar_front_io::transceivers::{
     FpgaI2CFailure, LogicalPort, LogicalPortFailureTypes, LogicalPortMask,
     ModuleResult, ModuleResultNoFailure, ModuleResultSlim, PortI2CStatus,
 };
 use hubpack::SerializedSize;
-use ringbuf::*;
 use task_net_api::*;
 use transceiver_messages::{
     mac::MacAddrs,
@@ -24,11 +28,10 @@ use transceiver_messages::{
     mgmt::{ManagementInterface, MemoryRead, MemoryWrite, Page},
     ModuleId,
 };
-use userlib::UnwrapLite;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Count)]
 enum Trace {
     None,
     DeserializeError(hubpack::Error),
@@ -63,7 +66,7 @@ enum Trace {
     WriteI2CFailures(LogicalPort, FpgaI2CFailure),
 }
 
-ringbuf!(Trace, 16, Trace::None);
+counted_ringbuf!(Trace, 32, Trace::None);
 
 ////////////////////////////////////////////////////////////////////////////////
 #[derive(Copy, Clone, PartialEq)]

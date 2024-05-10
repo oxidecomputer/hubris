@@ -2087,6 +2087,7 @@ dependencies = [
  "build-i2c",
  "build-util",
  "cfg-if",
+ "counters",
  "drv-fpga-api",
  "drv-i2c-api",
  "drv-i2c-devices",

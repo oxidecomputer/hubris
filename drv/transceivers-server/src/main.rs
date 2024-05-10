@@ -5,6 +5,10 @@
 #![no_std]
 #![no_main]
 
+use counters::Count;
+use ringbuf::*;
+use userlib::{sys_get_timer, task_slot, units::Celsius};
+
 use drv_fpga_api::FpgaError;
 use drv_i2c_devices::pca9956b::Error;
 use drv_sidecar_front_io::{
@@ -19,14 +23,13 @@ use drv_transceivers_api::{
 use enum_map::Enum;
 use idol_runtime::{NotificationHandler, RequestError};
 use multitimer::{Multitimer, Repeat};
-use ringbuf::*;
 use static_cell::ClaimOnceCell;
 use task_sensor_api::{NoData, Sensor};
 use task_thermal_api::{Thermal, ThermalError, ThermalProperties};
 use transceiver_messages::{
     message::LedState, mgmt::ManagementInterface, MAX_PACKET_SIZE,
 };
-use userlib::{sys_get_timer, task_slot, units::Celsius};
+
 use zerocopy::{AsBytes, FromBytes};
 
 mod udp; // UDP API is implemented in a separate file
@@ -41,7 +44,7 @@ task_slot!(SENSOR, sensor);
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
 #[allow(dead_code)]
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Count)]
 enum Trace {
     None,
     FrontIOBoardReady(bool),
@@ -70,7 +73,8 @@ enum Trace {
     DisableFailed(usize, LogicalPortMask),
     ClearDisabledPorts(LogicalPortMask),
 }
-ringbuf!(Trace, 16, Trace::None);
+
+counted_ringbuf!(Trace, 16, Trace::None);
 
 ////////////////////////////////////////////////////////////////////////////////
 
