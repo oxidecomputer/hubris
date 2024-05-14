@@ -12,6 +12,7 @@
 //! ports, i.e. an FPGA paired by a physical port index (or mask).
 //!
 use counters::Count;
+use hubpack::SerializedSize;
 use ringbuf::*;
 use userlib::UnwrapLite;
 
@@ -20,7 +21,6 @@ use drv_sidecar_front_io::transceivers::{
     FpgaI2CFailure, LogicalPort, LogicalPortFailureTypes, LogicalPortMask,
     ModuleResult, ModuleResultNoFailure, ModuleResultSlim, PortI2CStatus,
 };
-use hubpack::SerializedSize;
 use task_net_api::*;
 use transceiver_messages::{
     mac::MacAddrs,
@@ -33,6 +33,7 @@ use transceiver_messages::{
 
 #[derive(Copy, Clone, PartialEq, Count)]
 enum Trace {
+    #[count(skip)]
     None,
     DeserializeError(hubpack::Error),
     DeserializeHeaderError(hubpack::Error),

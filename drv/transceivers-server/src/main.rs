@@ -6,7 +6,10 @@
 #![no_main]
 
 use counters::Count;
+use idol_runtime::{NotificationHandler, RequestError};
+use multitimer::{Multitimer, Repeat};
 use ringbuf::*;
+use static_cell::ClaimOnceCell;
 use userlib::{sys_get_timer, task_slot, units::Celsius};
 
 use drv_fpga_api::FpgaError;
@@ -21,9 +24,6 @@ use drv_transceivers_api::{
     ModuleStatus, TransceiversError, NUM_PORTS, TRANSCEIVER_TEMPERATURE_SENSORS,
 };
 use enum_map::Enum;
-use idol_runtime::{NotificationHandler, RequestError};
-use multitimer::{Multitimer, Repeat};
-use static_cell::ClaimOnceCell;
 use task_sensor_api::{NoData, Sensor};
 use task_thermal_api::{Thermal, ThermalError, ThermalProperties};
 use transceiver_messages::{
@@ -46,8 +46,9 @@ include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 #[allow(dead_code)]
 #[derive(Copy, Clone, PartialEq, Eq, Count)]
 enum Trace {
+    #[count(skip)]
     None,
-    FrontIOBoardReady(bool),
+    FrontIOBoardReady(#[count(children)] bool),
     FrontIOSeqErr(SeqError),
     LEDInit,
     LEDInitComplete,
@@ -58,7 +59,7 @@ enum Trace {
     LEDReadError(Error),
     LEDUpdateError(Error),
     ModulePresenceUpdate(LogicalPortMask),
-    TransceiversError(TransceiversError),
+    TransceiversError(#[count(children)] TransceiversError),
     GotInterface(u8, ManagementInterface),
     UnknownInterface(u8, ManagementInterface),
     UnpluggedModule(usize),
