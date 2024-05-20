@@ -270,9 +270,9 @@ impl ServerImpl {
             // increments of 1/256 degrees Celsius"
             //
             // - SFF-8636 rev 2.10a, Section 6.2.4
-            return Ok(Celsius(out.temperature.get() as f32 / 256.0));
+            Ok(Celsius(out.temperature.get() as f32 / 256.0))
         } else {
-            return Err(FpgaError::ImplError(status.as_bytes()[0]));
+            Err(FpgaError::ImplError(status.as_bytes()[0]))
         }
     }
 
