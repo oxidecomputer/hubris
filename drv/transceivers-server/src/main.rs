@@ -272,7 +272,7 @@ impl ServerImpl {
             // - SFF-8636 rev 2.10a, Section 6.2.4
             Ok(Celsius(out.temperature.get() as f32 / 256.0))
         } else {
-            Err(FpgaError::ImplError(status.as_bytes()[0]))
+            Err(FpgaError::ImplError(status.error.as_bytes()[0]))
         }
     }
 
@@ -301,7 +301,7 @@ impl ServerImpl {
         } else {
             // TODO: how should we handle this?
             // Right now, we'll retry on the next pass through the loop.
-            Err(FpgaError::ImplError(status.as_bytes()[0]))
+            Err(FpgaError::ImplError(status.error.as_bytes()[0]))
         }
     }
 

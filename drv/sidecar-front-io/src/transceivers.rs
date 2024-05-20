@@ -675,8 +675,7 @@ impl core::ops::Index<LogicalPort> for LogicalPortFailureTypes {
     }
 }
 
-#[derive(Copy, Clone, AsBytes)]
-#[repr(C)]
+#[derive(Copy, Clone)]
 pub struct PortI2CStatus {
     pub rdata_fifo_empty: bool,
     pub wdata_fifo_empty: bool,
