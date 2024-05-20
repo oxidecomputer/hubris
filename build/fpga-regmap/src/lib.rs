@@ -173,7 +173,9 @@ fn write_reg_fields(
                     writeln!(
                         output,
                         "
-{prefix}        #[derive(Copy, Clone, Eq, PartialEq)]
+{prefix}        use zerocopy::AsBytes;
+{prefix}        #[derive(Copy, Clone, Eq, PartialEq, AsBytes)]
+{prefix}        #[repr(C)]
 {prefix}        #[allow(dead_code)]
 {prefix}        pub enum {encode_name} {{"
                     )

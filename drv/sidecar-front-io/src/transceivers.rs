@@ -675,15 +675,25 @@ impl core::ops::Index<LogicalPort> for LogicalPortFailureTypes {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, AsBytes)]
+#[repr(C)]
 pub struct PortI2CStatus {
+    pub rdata_fifo_empty: bool,
+    pub wdata_fifo_empty: bool,
     pub done: bool,
     pub error: FpgaI2CFailure,
 }
 
 impl PortI2CStatus {
     pub fn new(status: u8) -> Self {
+        // Use QSFP::PORT0 for constants, since they're all identical
         Self {
+            rdata_fifo_empty: (status
+                & Reg::QSFP::PORT0_STATUS::RDATA_FIFO_EMPTY)
+                != 0,
+            wdata_fifo_empty: (status
+                & Reg::QSFP::PORT0_STATUS::WDATA_FIFO_EMPTY)
+                != 0,
             done: (status & Reg::QSFP::PORT0_STATUS::BUSY) == 0,
             error: FpgaI2CFailure::try_from(status).unwrap_lite(),
         }
@@ -1028,13 +1038,13 @@ impl Transceivers {
             .read(Addr::QSFP_PORT0_STATUS as u16 + port_loc.port.0 as u16)
     }
 
-    /// Get `buf.len()` bytes of data, where the first byte is port status and
-    /// trailing bytes are the I2C read buffer for a `port`. The buffer stores
-    /// data from the last I2C read transaction done and thus only the number of
-    /// bytes read will be valid in the buffer.
+    /// Returns a PortI2CStatus and will fill `buf.len()` bytes of data with the
+    /// I2C read buffer for a `port`. The buffer stores data from the last I2C
+    /// read transaction done and thus only the number of bytes read will be
+    /// valid in the buffer.
     ///
     /// Poll the status register for a port until an I2C transaction is done.
-    /// Upon completion, pass the status byte back alongside the read data. The
+    /// Upon completion, return the status struct back and the read data. The
     /// read data buffer stores I2C read data from the last transaction so the
     /// FIFO will only contain that many bytes. The FPGA automatically clears
     /// the read data FIFO before starting a new read, so there's no need for
@@ -1043,14 +1053,23 @@ impl Transceivers {
         &self,
         port: P,
         buf: &mut [u8],
-    ) -> Result<(), FpgaError> {
+    ) -> Result<PortI2CStatus, FpgaError> {
         let port_loc = port.into();
-        buf[0] = self.get_i2c_status(port_loc)?;
-        self.fpga(port_loc.controller).read_bytes(
-            ReadOp::ReadNoAddrIncr,
-            Addr::QSFP_PORT0_I2C_DATA as u16 + port_loc.port.0 as u16,
-            &mut buf[1..],
-        )
+        loop {
+            let status_byte = self.get_i2c_status(port_loc)?;
+            let status = PortI2CStatus::new(status_byte);
+
+            if status.done {
+                self.fpga(port_loc.controller).read_bytes(
+                    ReadOp::ReadNoAddrIncr,
+                    Addr::QSFP_PORT0_I2C_DATA as u16 + port_loc.port.0 as u16,
+                    buf,
+                )?;
+                return Ok(status);
+            }
+
+            userlib::hl::sleep_for(1);
+        }
     }
 
     /// Write `buf.len()` bytes of data into the I2C write buffer of the `mask`

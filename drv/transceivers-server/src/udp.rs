@@ -19,7 +19,7 @@ use userlib::UnwrapLite;
 use crate::{FrontIOStatus, ServerImpl};
 use drv_sidecar_front_io::transceivers::{
     FpgaI2CFailure, LogicalPort, LogicalPortFailureTypes, LogicalPortMask,
-    ModuleResult, ModuleResultNoFailure, ModuleResultSlim, PortI2CStatus,
+    ModuleResult, ModuleResultNoFailure, ModuleResultSlim,
 };
 use task_net_api::*;
 use transceiver_messages::{
@@ -1156,48 +1156,34 @@ impl ServerImpl {
         let mut failure_types = LogicalPortFailureTypes::default();
 
         for port in result.success().to_indices() {
-            // The status register is contiguous with the output buffer, so
-            // we'll read them all in a single pass.  This should normally
-            // terminate with a single read, since I2C is faster than Hubris
-            // IPC.
-            let mut buf = [0u8; 129];
+            let mut buf = [0u8; 128];
             let port_loc = port.get_physical_location();
-            loop {
-                // If we have not encountered any errors, keep pulling full
-                // status + buffer payloads.
-                if self
-                    .transceivers
-                    .get_i2c_status_and_read_buffer(
-                        port_loc,
-                        &mut buf[0..(buf_len + 1)],
-                    )
-                    .is_err()
-                {
+
+            // If we have not encountered any errors, keep pulling full
+            // status + buffer payloads.
+            let status = match self
+                .transceivers
+                .get_i2c_status_and_read_buffer(port_loc, &mut buf[0..buf_len])
+            {
+                Ok(status) => status,
+                Err(_) => {
                     error.set(port);
                     break;
-                };
-
-                let status = PortI2CStatus::new(buf[0]);
-
-                // Use QSFP::PORT0 for constants, since they're all identical
-                if status.done {
-                    // Check error mask
-                    if status.error != FpgaI2CFailure::NoError {
-                        // Record which port the error ocurred at so we can
-                        // give the host a more meaningful error.
-                        failure.set(port);
-                        failure_types.0[port.0 as usize] = status.error
-                    } else {
-                        // Add data to payload
-                        success.set(port);
-                        let end_idx = idx + buf_len;
-                        out[idx..end_idx].copy_from_slice(&buf[1..][..buf_len]);
-                        idx = end_idx;
-                    }
-                    break;
                 }
+            };
 
-                userlib::hl::sleep_for(1);
+            // Check error mask
+            if status.error != FpgaI2CFailure::NoError {
+                // Record which port the error ocurred at so we can
+                // give the host a more meaningful error.
+                failure.set(port);
+                failure_types.0[port.0 as usize] = status.error
+            } else {
+                // Add data to payload
+                success.set(port);
+                let end_idx = idx + buf_len;
+                out[idx..end_idx].copy_from_slice(&buf[..buf_len]);
+                idx = end_idx;
             }
         }
         let mut final_result =
