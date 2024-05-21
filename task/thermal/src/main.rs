@@ -79,6 +79,9 @@ enum Trace {
     ControlError(#[count(children)] ThermalError),
     FanControllerInitialized,
     FanControllerInitError(#[count(children)] ResponseCode),
+    FanControllerInitRetry {
+        remaining: usize,
+    },
     FanPresenceUpdateFailed(SeqError),
     FanAdded(Fan),
     FanRemoved(Fan),
@@ -101,7 +104,14 @@ impl Max31790State {
             max31790,
             initialized: false,
         };
-        let _ = this.try_initialize();
+        // When we first start up, try to initialize the fan controller a few
+        // times, in case there's a transient I2C error.
+        for remaining in (0..3).rev() {
+            if this.initialize().is_ok() {
+                break;
+            }
+            ringbuf_entry!(Trace::FanControllerInitRetry { remaining });
+        }
         this
     }
 
