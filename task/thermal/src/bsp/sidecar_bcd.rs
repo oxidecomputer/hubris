@@ -4,12 +4,9 @@
 
 //! BSP for Sidecar
 
-use crate::{
-    control::{
-        ChannelType, Device, FanControl, Fans, InputChannel, PidConfig,
-        TemperatureSensor,
-    },
-    ControllerInitError,
+use crate::control::{
+    ChannelType, ControllerInitError, Device, FanControl, Fans, InputChannel,
+    Max31790State, PidConfig, TemperatureSensor,
 };
 use drv_i2c_devices::max31790::Max31790;
 use drv_i2c_devices::tmp451::*;
@@ -68,8 +65,8 @@ pub(crate) struct Bsp {
     pub misc_sensors: &'static [TemperatureSensor],
 
     /// Our two fan controllers: east for 0/1 and west for 1/2
-    fctrl_east: crate::Max31790State,
-    fctrl_west: crate::Max31790State,
+    fctrl_east: Max31790State,
+    fctrl_west: Max31790State,
 
     seq: Sequencer,
 
@@ -177,10 +174,10 @@ impl Bsp {
         // fan presence
         let seq = Sequencer::from(SEQUENCER.get_task_id());
 
-        let fctrl_east = crate::Max31790State::new(Max31790::new(
+        let fctrl_east = Max31790State::new(Max31790::new(
             &devices::max31790_east(i2c_task),
         ));
-        let fctrl_west = crate::Max31790State::new(Max31790::new(
+        let fctrl_west = Max31790State::new(Max31790::new(
             &devices::max31790_west(i2c_task),
         ));
 

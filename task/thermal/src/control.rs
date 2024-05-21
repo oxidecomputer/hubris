@@ -278,6 +278,84 @@ impl ThermalSensorErrors {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+/// Tracks whether a MAX31790 fan controller has been initialized, and
+/// initializes it on demand when accessed, if necessary.
+///
+/// Because initializing the fan controller can fail due to a transient bus
+/// error, we don't panic if an initial attempt to initialize it as soon as the
+/// `thermal` task starts fails. Because the fan controller's I2C watchdog will
+/// simply run the fans at 100% if we aren't able to talk to it right away, the
+/// `thermal` task should keep running, publishing sensor measurements, and
+/// periodically trying to reach the fan controller until we're able to
+/// initialize it successfully. Thus, we wrap it in this struct to track whether
+/// it's been successfully initialized yet.
+pub(crate) struct Max31790State {
+    max31790: Max31790,
+    initialized: bool,
+}
+
+impl Max31790State {
+    pub(crate) fn new(max31790: Max31790) -> Self {
+        let mut this = Self {
+            max31790,
+            initialized: false,
+        };
+        // When we first start up, try to initialize the fan controller a few
+        // times, in case there's a transient I2C error.
+        for remaining in (0..3).rev() {
+            if this.initialize().is_ok() {
+                break;
+            }
+            ringbuf_entry!(Trace::FanControllerInitRetry { remaining });
+        }
+        this
+    }
+
+    /// Access the fan controller, attempting to initialize it if it has not yet
+    /// been initialized.
+    #[inline]
+    pub(crate) fn try_initialize(
+        &mut self,
+    ) -> Result<&mut Max31790, ControllerInitError> {
+        if self.initialized {
+            return Ok(&mut self.max31790);
+        }
+
+        self.initialize()
+    }
+
+    // Slow path that actually performs initialization. This is "outlined" so
+    // that we can avoid pushing a stack frame in the case where we just need to
+    // check a bool and return a pointer.
+    #[inline(never)]
+    fn initialize(&mut self) -> Result<&mut Max31790, ControllerInitError> {
+        self.max31790.initialize().map_err(|e| {
+            ringbuf_entry!(Trace::FanControllerInitError(e));
+            ControllerInitError(e)
+        })?;
+
+        self.initialized = true;
+        ringbuf_entry!(Trace::FanControllerInitialized);
+        Ok(&mut self.max31790)
+    }
+}
+
+pub(crate) struct ControllerInitError(ResponseCode);
+
+impl From<ControllerInitError> for ThermalError {
+    fn from(_: ControllerInitError) -> Self {
+        ThermalError::FanControllerUninitialized
+    }
+}
+
+impl From<ControllerInitError> for SensorReadError {
+    fn from(ControllerInitError(code): ControllerInitError) -> Self {
+        SensorReadError::I2cError(code)
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 /// The thermal control loop.
 ///
 /// This object uses slices of sensors and fans, which must be owned

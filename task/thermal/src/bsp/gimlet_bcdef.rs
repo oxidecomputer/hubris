@@ -6,11 +6,10 @@
 
 use crate::{
     control::{
-        ChannelType, Device, FanControl, Fans, InputChannel, PidConfig,
-        TemperatureSensor,
+        ChannelType, ControllerInitError, Device, FanControl, Fans,
+        InputChannel, Max31790State, PidConfig, TemperatureSensor,
     },
     i2c_config::{devices, sensors},
-    ControllerInitError,
 };
 pub use drv_gimlet_seq_api::SeqError;
 use drv_gimlet_seq_api::{PowerState, Sequencer};
@@ -63,7 +62,7 @@ pub(crate) struct Bsp {
     pub misc_sensors: &'static [TemperatureSensor],
 
     /// Fan control IC
-    fctrl: crate::Max31790State,
+    fctrl: Max31790State,
 
     /// Handle to the sequencer task, to query power state
     seq: Sequencer,
@@ -167,9 +166,8 @@ impl Bsp {
 
     pub fn new(i2c_task: TaskId) -> Self {
         // Initializes and build a handle to the fan controller IC
-        let fctrl = crate::Max31790State::new(Max31790::new(
-            &devices::max31790(i2c_task)[0],
-        ));
+        let fctrl =
+            Max31790State::new(Max31790::new(&devices::max31790(i2c_task)[0]));
 
         // Handle for the sequencer task, which we check for power state
         let seq = Sequencer::from(SEQ.get_task_id());
