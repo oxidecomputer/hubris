@@ -6,7 +6,7 @@ use crate::{
     bsp::{self, Bsp, PowerBitmask},
     Fan, ThermalError, Trace,
 };
-use drv_i2c_api::ResponseCode;
+use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_i2c_devices::{
     max31790::{I2cWatchdog, Max31790},
     nvme_bmc::NvmeBmc,
@@ -295,9 +295,9 @@ pub(crate) struct Max31790State {
 }
 
 impl Max31790State {
-    pub(crate) fn new(max31790: Max31790) -> Self {
+    pub(crate) fn new(dev: &I2cDevice) -> Self {
         let mut this = Self {
-            max31790,
+            max31790: Max31790::new(dev),
             initialized: false,
         };
         // When we first start up, try to initialize the fan controller a few

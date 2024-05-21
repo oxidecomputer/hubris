@@ -13,7 +13,6 @@ use crate::{
 };
 pub use drv_gimlet_seq_api::SeqError;
 use drv_gimlet_seq_api::{PowerState, Sequencer};
-use drv_i2c_devices::max31790::Max31790;
 use task_sensor_api::SensorId;
 use task_thermal_api::ThermalProperties;
 use userlib::{task_slot, units::Celsius, TaskId, UnwrapLite};
@@ -166,8 +165,7 @@ impl Bsp {
 
     pub fn new(i2c_task: TaskId) -> Self {
         // Initializes and build a handle to the fan controller IC
-        let fctrl =
-            Max31790State::new(Max31790::new(&devices::max31790(i2c_task)[0]));
+        let fctrl = Max31790State::new(&devices::max31790(i2c_task)[0]);
 
         // Handle for the sequencer task, which we check for power state
         let seq = Sequencer::from(SEQ.get_task_id());

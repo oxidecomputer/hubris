@@ -8,7 +8,6 @@ use crate::control::{
     ChannelType, ControllerInitError, Device, FanControl, Fans, InputChannel,
     Max31790State, PidConfig, TemperatureSensor,
 };
-use drv_i2c_devices::max31790::Max31790;
 use drv_i2c_devices::tmp451::*;
 pub use drv_sidecar_seq_api::SeqError;
 use drv_sidecar_seq_api::{Sequencer, TofinoSeqState, TofinoSequencerPolicy};
@@ -128,11 +127,11 @@ impl Bsp {
         // Run the function on each fan control chip
         match self.fan_control(0.into()) {
             Ok(c) => fctrl(c),
-            Err(e) => last_err = Err(e.into()),
+            Err(e) => last_err = Err(e),
         }
         match self.fan_control(4.into()) {
             Ok(c) => fctrl(c),
-            Err(e) => last_err = Err(e.into()),
+            Err(e) => last_err = Err(e),
         }
         last_err
     }
@@ -174,12 +173,8 @@ impl Bsp {
         // fan presence
         let seq = Sequencer::from(SEQUENCER.get_task_id());
 
-        let fctrl_east = Max31790State::new(Max31790::new(
-            &devices::max31790_east(i2c_task),
-        ));
-        let fctrl_west = Max31790State::new(Max31790::new(
-            &devices::max31790_west(i2c_task),
-        ));
+        let fctrl_east = Max31790State::new(&devices::max31790_east(i2c_task));
+        let fctrl_west = Max31790State::new(&devices::max31790_west(i2c_task));
 
         Self {
             seq,
