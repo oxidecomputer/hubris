@@ -105,6 +105,9 @@ impl Max31790State {
         this
     }
 
+    /// Access the fan controller, attempting to initialize it if it has not yet
+    /// been initialized.
+    #[inline]
     pub(crate) fn try_initialize(
         &mut self,
     ) -> Result<&mut Max31790, ControllerInitError> {
@@ -112,6 +115,14 @@ impl Max31790State {
             return Ok(&mut self.max31790);
         }
 
+        self.initialize()
+    }
+
+    // Slow path that actually performs initialization. This is "outlined" so
+    // that we can avoid pushing a stack frame in the case where we just need to
+    // check a bool and return a pointer.
+    #[inline(never)]
+    fn initialize(&mut self) -> Result<&mut Max31790, ControllerInitError> {
         self.max31790.initialize().map_err(|e| {
             ringbuf_entry!(Trace::FanControllerInitError(e));
             ControllerInitError(e)
