@@ -4,9 +4,12 @@
 
 //! BSP for Sidecar
 
-use crate::control::{
-    ChannelType, Device, FanControl, Fans, InputChannel, PidConfig,
-    TemperatureSensor,
+use crate::{
+    control::{
+        ChannelType, Device, FanControl, Fans, InputChannel, PidConfig,
+        TemperatureSensor,
+    },
+    ControllerInitError,
 };
 use drv_i2c_devices::max31790::Max31790;
 use drv_i2c_devices::tmp451::*;
@@ -65,8 +68,8 @@ pub(crate) struct Bsp {
     pub misc_sensors: &'static [TemperatureSensor],
 
     /// Our two fan controllers: east for 0/1 and west for 1/2
-    fctrl_east: Max31790,
-    fctrl_west: Max31790,
+    fctrl_east: crate::Max31790State,
+    fctrl_west: crate::Max31790State,
 
     seq: Sequencer,
 
@@ -75,9 +78,9 @@ pub(crate) struct Bsp {
 
 impl Bsp {
     pub fn fan_control(
-        &self,
+        &mut self,
         fan: crate::Fan,
-    ) -> crate::control::FanControl<'_> {
+    ) -> Result<crate::control::FanControl<'_>, ControllerInitError> {
         //
         // Fan module 0/1 are on the east max31790; fan module 2/3 are on west
         // max31790. Each fan module has two fans which are not mapped in a
@@ -100,9 +103,9 @@ impl Bsp {
         // The supplied `fan` is the System Index. From that we can map to a fan
         // and controller.
         let (fan_logical, controller) = if fan.0 < 4 {
-            (fan.0, &self.fctrl_east)
+            (fan.0, &mut self.fctrl_east)
         } else if fan.0 < 8 {
-            (fan.0 - 4, &self.fctrl_west)
+            (fan.0 - 4, &mut self.fctrl_west)
         } else {
             panic!();
         };
@@ -114,13 +117,27 @@ impl Bsp {
             3 => 1,
             _ => panic!(),
         };
-        FanControl::Max31790(controller, fan_physical.try_into().unwrap_lite())
+        Ok(FanControl::Max31790(
+            controller.try_initialize()?,
+            fan_physical.try_into().unwrap_lite(),
+        ))
     }
 
-    pub fn for_each_fctrl(&self, mut fctrl: impl FnMut(FanControl<'_>)) {
+    pub fn for_each_fctrl(
+        &mut self,
+        mut fctrl: impl FnMut(FanControl<'_>),
+    ) -> Result<(), ControllerInitError> {
+        let mut last_err = Ok(());
         // Run the function on each fan control chip
-        fctrl(self.fan_control(0.into()));
-        fctrl(self.fan_control(4.into()));
+        match self.fan_control(0.into()) {
+            Ok(c) => fctrl(c),
+            Err(e) => last_err = Err(e.into()),
+        }
+        match self.fan_control(4.into()) {
+            Ok(c) => fctrl(c),
+            Err(e) => last_err = Err(e.into()),
+        }
+        last_err
     }
 
     pub fn power_mode(&self) -> PowerBitmask {
@@ -160,10 +177,12 @@ impl Bsp {
         // fan presence
         let seq = Sequencer::from(SEQUENCER.get_task_id());
 
-        let fctrl_east = Max31790::new(&devices::max31790_east(i2c_task));
-        let fctrl_west = Max31790::new(&devices::max31790_west(i2c_task));
-        fctrl_east.initialize().unwrap_lite();
-        fctrl_west.initialize().unwrap_lite();
+        let fctrl_east = crate::Max31790State::new(Max31790::new(
+            &devices::max31790_east(i2c_task),
+        ));
+        let fctrl_west = crate::Max31790State::new(Max31790::new(
+            &devices::max31790_west(i2c_task),
+        ));
 
         Self {
             seq,

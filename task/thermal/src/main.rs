@@ -38,7 +38,7 @@ use crate::{
     control::ThermalControl,
 };
 use drv_i2c_api::ResponseCode;
-use drv_i2c_devices::max31790::I2cWatchdog;
+use drv_i2c_devices::max31790::{I2cWatchdog, Max31790};
 use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::*;
 use task_sensor_api::{Sensor as SensorApi, SensorId};
@@ -70,13 +70,15 @@ enum Trace {
     Start,
     ThermalMode(#[count(children)] ThermalMode),
     AutoState(#[count(children)] ThermalAutoState),
-    FanReadFailed(SensorId, ResponseCode),
+    FanReadFailed(SensorId, SensorReadError),
     MiscReadFailed(SensorId, SensorReadError),
     SensorReadFailed(SensorId, SensorReadError),
     ControlPwm(u8),
     PowerModeChanged(PowerBitmask),
     PowerDownFailed(SeqError),
     ControlError(#[count(children)] ThermalError),
+    FanControllerInitialized,
+    FanControllerInitError(#[count(children)] ResponseCode),
     FanPresenceUpdateFailed(SeqError),
     FanAdded(Fan),
     FanRemoved(Fan),
@@ -87,6 +89,53 @@ enum Trace {
 counted_ringbuf!(Trace, 32, Trace::None);
 
 ////////////////////////////////////////////////////////////////////////////////
+
+pub(crate) struct Max31790State {
+    max31790: Max31790,
+    initialized: bool,
+}
+
+impl Max31790State {
+    pub(crate) fn new(max31790: Max31790) -> Self {
+        let mut this = Self {
+            max31790,
+            initialized: false,
+        };
+        let _ = this.try_initialize();
+        this
+    }
+
+    pub(crate) fn try_initialize(
+        &mut self,
+    ) -> Result<&mut Max31790, ControllerInitError> {
+        if self.initialized {
+            return Ok(&mut self.max31790);
+        }
+
+        self.max31790.initialize().map_err(|e| {
+            ringbuf_entry!(Trace::FanControllerInitError(e));
+            ControllerInitError(e)
+        })?;
+
+        self.initialized = true;
+        ringbuf_entry!(Trace::FanControllerInitialized);
+        Ok(&mut self.max31790)
+    }
+}
+
+pub(crate) struct ControllerInitError(ResponseCode);
+
+impl From<ControllerInitError> for ThermalError {
+    fn from(_: ControllerInitError) -> Self {
+        ThermalError::FanControllerUninitialized
+    }
+}
+
+impl From<ControllerInitError> for SensorReadError {
+    fn from(ControllerInitError(code): ControllerInitError) -> Self {
+        SensorReadError::I2cError(code)
+    }
+}
 
 struct ServerImpl<'a> {
     mode: ThermalMode,
@@ -131,7 +180,7 @@ impl<'a> ServerImpl<'a> {
         ringbuf_entry!(Trace::ThermalMode(m));
     }
 
-    fn set_watchdog(&self, wd: I2cWatchdog) -> Result<(), ThermalError> {
+    fn set_watchdog(&mut self, wd: I2cWatchdog) -> Result<(), ThermalError> {
         self.control
             .set_watchdog(wd)
             .map_err(|_| ThermalError::DeviceError)
@@ -344,8 +393,8 @@ fn main() -> ! {
 
     ringbuf_entry!(Trace::Start);
 
-    let bsp = Bsp::new(i2c_task);
-    let control = ThermalControl::new(&bsp, i2c_task, sensor_api);
+    let mut bsp = Bsp::new(i2c_task);
+    let control = ThermalControl::new(&mut bsp, i2c_task, sensor_api);
 
     // This will put our timer in the past, and should immediately kick us.
     let deadline = sys_get_timer().now;
