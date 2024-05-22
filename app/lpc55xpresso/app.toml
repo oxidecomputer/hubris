@@ -112,11 +112,13 @@ task-slots = ["gpio_driver", "syscon_driver"]
 
 [tasks.rng_driver]
 name = "drv-lpc55-rng"
+features = ["dice-seed"]
 priority = 3
 uses = ["rng", "pmc"]
 start = true
-stacksize = 2600
+stacksize = 2704
 task-slots = ["syscon_driver"]
+extern-regions = ["dice_rng"]
 
 [tasks.pong]
 name = "task-pong"

@@ -101,8 +101,9 @@ name = "drv-lpc55-rng"
 priority = 5
 uses = ["rng", "pmc"]
 start = true
-stacksize = 2600
+stacksize = 2704
 task-slots = ["syscon_driver"]
+extern-regions = ["dice_rng"]
 
 [tasks.sprot]
 name = "drv-lpc55-sprot-server"
