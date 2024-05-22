@@ -1298,8 +1298,10 @@ dependencies = [
  "num-traits",
  "rand_chacha",
  "rand_core",
+ "sha3",
  "userlib",
  "zerocopy 0.6.6",
+ "zeroize",
 ]
 
 [[package]]

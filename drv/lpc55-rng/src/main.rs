@@ -16,22 +16,31 @@ use idol_runtime::{ClientError, NotificationHandler, RequestError};
 use lib_lpc55_rng::Lpc55Rng;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{impls, Error, RngCore, SeedableRng};
+use sha3::{
+    digest::crypto_common::{generic_array::GenericArray, OutputSizeUser},
+    digest::FixedOutputReset,
+    Digest, Sha3_256,
+};
 use userlib::task_slot;
+use zeroize::Zeroizing;
 
 task_slot!(SYSCON, syscon_driver);
 
 // low-budget rand::rngs::adapter::ReseedingRng w/o fork stuff
-struct ReseedingRng<T: SeedableRng, R: RngCore> {
+struct ReseedingRng<T: SeedableRng, R: RngCore, H: Digest> {
     inner: T,
     reseeder: R,
     threshold: usize,
     bytes_until_reseed: usize,
+    mixer: H,
 }
 
-impl<T, R> ReseedingRng<T, R>
+impl<T, R, H> ReseedingRng<T, R, H>
 where
-    T: SeedableRng,
+    T: SeedableRng<Seed = [u8; 32]> + RngCore,
     R: RngCore,
+    H: FixedOutputReset + Default + Digest,
+    [u8; 32]: From<GenericArray<u8, <H as OutputSizeUser>::OutputSize>>,
 {
     fn new(mut reseeder: R, threshold: usize) -> Result<Self, Error> {
         let threshold = if threshold == 0 {
@@ -45,14 +54,17 @@ where
             reseeder,
             threshold,
             bytes_until_reseed: threshold,
+            mixer: H::default(),
         })
     }
 }
 
-impl<T, R> RngCore for ReseedingRng<T, R>
+impl<T, R, H> RngCore for ReseedingRng<T, R, H>
 where
-    T: SeedableRng + RngCore,
+    T: SeedableRng<Seed = [u8; 32]> + RngCore,
     R: RngCore,
+    H: FixedOutputReset + Default + Digest,
+    [u8; 32]: From<GenericArray<u8, <H as OutputSizeUser>::OutputSize>>,
 {
     fn next_u32(&mut self) -> u32 {
         impls::next_u32_via_fill(self)
@@ -65,18 +77,43 @@ where
             .expect("Failed to get entropy from RNG.")
     }
     fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), Error> {
-        let num_bytes = dest.len();
-        if num_bytes >= self.bytes_until_reseed || num_bytes >= self.threshold {
-            self.inner = T::from_rng(&mut self.reseeder)?;
-            self.bytes_until_reseed = self.threshold;
-        } else {
-            self.bytes_until_reseed -= num_bytes;
+        let mut filled = 0;
+
+        while filled < dest.len() {
+            if self.bytes_until_reseed > 0 {
+                // fill dest as much as we can
+                let len =
+                    cmp::min(dest.len() - filled, self.bytes_until_reseed);
+                self.inner.try_fill_bytes(&mut dest[filled..filled + len])?;
+
+                filled += len;
+                self.bytes_until_reseed -= len;
+            } else {
+                // create seed for next PRNG & reset mixer
+                let mut buf = Zeroizing::new(T::Seed::default());
+
+                // mix 32 bytes from current PRNG instance
+                self.inner.try_fill_bytes(buf.as_mut())?;
+                Digest::update(&mut self.mixer, buf.as_mut());
+
+                // w/ 32 bytes from HRNG
+                self.reseeder.try_fill_bytes(buf.as_mut())?;
+                Digest::update(&mut self.mixer, buf.as_mut());
+
+                // seed new RNG instance & reset mixer
+                self.inner =
+                    T::from_seed(self.mixer.finalize_fixed_reset().into());
+
+                // reset reseed countdown
+                self.bytes_until_reseed = self.threshold;
+            }
         }
-        self.inner.try_fill_bytes(dest)
+
+        Ok(())
     }
 }
 
-struct Lpc55RngServer(ReseedingRng<ChaCha20Rng, Lpc55Rng>);
+struct Lpc55RngServer(ReseedingRng<ChaCha20Rng, Lpc55Rng, Sha3_256>);
 
 impl Lpc55RngServer {
     fn new(reseeder: Lpc55Rng, threshold: usize) -> Result<Self, Error> {
