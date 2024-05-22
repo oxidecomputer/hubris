@@ -259,7 +259,16 @@ enum PresentState {
     NewlyInserted { settle_deadline: u64 },
     /// The PSU has unexpectedly deasserted the OK signal, or failed to assert
     /// it within a reasonable amount of time after being turned on.
-    Faulted { turn_on_deadline: u64 },
+    Faulted {
+        // Try to turn the PSU back on when this time is reached, but only if
+        // the fault has cleared. Otherwise, we will stay in the fault state
+        // with a "sticky fault" situation.
+        turn_on_deadline: u64,
+        /// Initially false, this gets set to true once we've attempted to clear
+        /// the current fault condition, and failed, at least once. We use this
+        /// to suppress repeated logging of the condition.
+        already_sticky: bool,
+    },
 }
 
 #[export_name = "main"]
@@ -385,6 +394,7 @@ fn main() -> ! {
             ));
             PresentState::Faulted {
                 turn_on_deadline: start_time.saturating_add(FAULT_OFF_MS),
+                already_sticky: false,
             }
         })
     });
@@ -565,6 +575,8 @@ impl Psu {
                 let turn_on_deadline = now.wrapping_add(FAULT_OFF_MS);
                 self.state = PsuState::Present(PresentState::Faulted {
                     turn_on_deadline,
+                    // We're newly entering a fault state, so, not sticky yet.
+                    already_sticky: false,
                 });
                 Some(ActionRequired::DisableMe {
                     attempt_snapshot: true,
@@ -572,7 +584,10 @@ impl Psu {
             }
 
             (
-                PsuState::Present(PresentState::Faulted { turn_on_deadline }),
+                PsuState::Present(PresentState::Faulted {
+                    turn_on_deadline,
+                    already_sticky,
+                }),
                 _,
                 ok,
             ) => {
@@ -585,8 +600,15 @@ impl Psu {
                             self.state =
                                 PsuState::Present(PresentState::Faulted {
                                     turn_on_deadline,
+                                    already_sticky: true,
                                 });
-                            Some(ActionRequired::NoteStickyFault)
+                            if already_sticky {
+                                // Don't repeat this in the logs until we clear
+                                // the fault condition.
+                                None
+                            } else {
+                                Some(ActionRequired::NoteStickyFault)
+                            }
                         }
                         Status::Good => {
                             self.state = PsuState::Present(PresentState::On);
