@@ -99,10 +99,9 @@ pins = [
 [tasks.rng_driver]
 name = "drv-lpc55-rng"
 priority = 5
-max-sizes = {flash = 16384, ram = 4096}
 uses = ["rng", "pmc"]
 start = true
-stacksize = 2200
+stacksize = 2600
 task-slots = ["syscon_driver"]
 
 [tasks.sprot]
