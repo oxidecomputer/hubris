@@ -1289,16 +1289,23 @@ dependencies = [
 name = "drv-lpc55-rng"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "build-util",
  "cfg-if",
  "drv-lpc55-syscon-api",
  "drv-rng-api",
+ "hubpack",
  "idol",
  "idol-runtime",
+ "lib-dice",
  "lib-lpc55-rng",
  "num-traits",
  "rand_chacha",
  "rand_core",
+ "ringbuf",
+ "serde",
  "sha3",
+ "stage0-handoff",
  "userlib",
  "zerocopy 0.6.6",
  "zeroize",
