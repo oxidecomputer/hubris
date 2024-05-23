@@ -73,10 +73,6 @@
 //! - Wait some time for it to wake.
 //! - Start watching the fault signal again.
 //!
-//! We count the number of times we have had to reset a PSU in a row, and if the
-//! PSU reaches a limit (configurable), we will hold it in the OFF state until
-//! it is removed and reinserted.
-//!
 //! Removing and reinserting a PSU in general clears the fault state _and_
 //! resets the retry counter.
 //!
@@ -141,12 +137,6 @@ enum Trace {
     Disabling {
         psu: u8,
         present: bool,
-    },
-    /// Emitted if we disable a power supply and wait for its fault to clear...
-    /// and it doesn't. We emit one of these each time we hit this condition,
-    /// periodically retesting.
-    StickyFault {
-        psu: u8,
     },
 }
 
@@ -225,11 +215,6 @@ enum ActionRequired {
     /// believed to still be present and recording data may be useful, or
     /// `false` if the PSU is believed removed and isn't worth polling.
     DisableMe { attempt_snapshot: bool },
-    /// Emitted when a PSU is disabled due to a fault, has gone through the
-    /// fault recovery process, but is still indicating a fault. The caller
-    /// may wish to log this condition, or may not, since it will appear
-    /// every `FAULT_MS` milliseconds and could dominate the logs.
-    NoteStickyFault,
 }
 
 #[derive(Copy, Clone)]
@@ -264,10 +249,6 @@ enum PresentState {
         // the fault has cleared. Otherwise, we will stay in the fault state
         // with a "sticky fault" situation.
         turn_on_deadline: u64,
-        /// Initially false, this gets set to true once we've attempted to clear
-        /// the current fault condition, and failed, at least once. We use this
-        /// to suppress repeated logging of the condition.
-        already_sticky: bool,
     },
 }
 
@@ -394,7 +375,6 @@ fn main() -> ! {
             ));
             PresentState::Faulted {
                 turn_on_deadline: start_time.saturating_add(FAULT_OFF_MS),
-                already_sticky: false,
             }
         })
     });
@@ -461,10 +441,6 @@ fn main() -> ! {
                         Speed::Low,
                         Pull::None,
                     );
-                }
-                Some(ActionRequired::NoteStickyFault) => {
-                    ringbuf_entry!((now, Trace::StickyFault { psu: i as u8 }));
-                    // Not taking any particular action at this time.
                 }
             }
         }
@@ -575,8 +551,6 @@ impl Psu {
                 let turn_on_deadline = now.wrapping_add(FAULT_OFF_MS);
                 self.state = PsuState::Present(PresentState::Faulted {
                     turn_on_deadline,
-                    // We're newly entering a fault state, so, not sticky yet.
-                    already_sticky: false,
                 });
                 Some(ActionRequired::DisableMe {
                     attempt_snapshot: true,
@@ -584,37 +558,16 @@ impl Psu {
             }
 
             (
-                PsuState::Present(PresentState::Faulted {
-                    turn_on_deadline,
-                    already_sticky,
-                }),
+                PsuState::Present(PresentState::Faulted { turn_on_deadline }),
                 _,
-                ok,
+                _,
             ) => {
                 if turn_on_deadline <= now {
-                    match ok {
-                        Status::NotGood => {
-                            // Do it all again then, I guess.
-                            let turn_on_deadline =
-                                now.wrapping_add(FAULT_OFF_MS);
-                            self.state =
-                                PsuState::Present(PresentState::Faulted {
-                                    turn_on_deadline,
-                                    already_sticky: true,
-                                });
-                            if already_sticky {
-                                // Don't repeat this in the logs until we clear
-                                // the fault condition.
-                                None
-                            } else {
-                                Some(ActionRequired::NoteStickyFault)
-                            }
-                        }
-                        Status::Good => {
-                            self.state = PsuState::Present(PresentState::On);
-                            Some(ActionRequired::EnableMe)
-                        }
-                    }
+                    // We turn the PSU back on _without regard_ to the OK signal
+                    // state, because the PSU won't assert OK when it's off! We
+                    // learned this the hard way. See #1800.
+                    self.state = PsuState::Present(PresentState::On);
+                    Some(ActionRequired::EnableMe)
                 } else {
                     // Remain in this state.
                     None
