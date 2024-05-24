@@ -93,6 +93,22 @@ write = true
 execute = false
 dma = true
 
+[[override]]
+name = "a"
+address = 0x3003ffe0
+size = 32
+read = true
+write = true
+execute = false
+
+[[override]]
+name = "b"
+address = 0x3003ffe0
+size = 32
+read = true
+write = true
+execute = false
+
 # Info about the images loaded into flash and dumped by stage0 into USB SRAM
 # for hubris use.
 [[usbsram]]

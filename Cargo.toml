@@ -82,6 +82,7 @@ getrandom = { version = "0.2", default-features = false }
 goblin = { version = "0.4.3", default-features = true } # goblin::Object doesn't work without everything enabled
 heapless = { version = "0.7.17", default-features = false }
 heck = { version = "0.5.0", default-features = false }
+hex-literal = { version = "0.4.1" }
 hkdf = { version = "0.12", default-features = false }
 hmac = { version = "0.12.1", default-features = false }
 hubpack = { version = "0.1.2", default-features = false }
