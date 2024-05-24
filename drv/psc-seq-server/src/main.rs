@@ -199,6 +199,15 @@ const FAULT_OFF_MS: u64 = 5_000; // Current value is somewhat arbitrary.
 /// that things are firmly mated before activating anything.
 const INSERT_DEBOUNCE_MS: u64 = 1_000; // Current value is somewhat arbitrary.
 
+/// How long after exiting a fault state before we require the PSU to start
+/// asserting OK. Or, conversely, how long to ignore the OK output after
+/// re-enabling a faulted PSU.
+///
+/// We have observed delays of up to 92 ms in practice. Leaving the PSU enabled
+/// in a fault state shouldn't be destructive, so we've padded this to avoid
+/// flapping.
+const PROBATION_MS: u64 = 1000;
+
 /// How often to check the status of polled inputs.
 ///
 /// This should be fast enough to reliably spot removed sleds.
@@ -250,6 +259,19 @@ enum PresentState {
         // with a "sticky fault" situation.
         turn_on_deadline: u64,
     },
+
+    /// We are allowing the ON signal to float active, as in the `On` state, but
+    /// we're not convinced the PSU is okay. We enter this state when bringing a
+    /// PSU out of an observed fault state, and it causes us to ignore its OK
+    /// output for a brief period (the deadline parameter, initialized as
+    /// current time plus `DEADLINE_MS`).
+    ///
+    /// We do this because PSUs have been observed, in practice, taking up to
+    /// ~100ms to assert OK after being enabled.
+    ///
+    /// Once the deadline elapses, we'll transition to the `On` state and start
+    /// requiring OK to be asserted.
+    OnProbation { deadline: u64 },
 }
 
 #[export_name = "main"]
@@ -566,12 +588,28 @@ impl Psu {
                     // We turn the PSU back on _without regard_ to the OK signal
                     // state, because the PSU won't assert OK when it's off! We
                     // learned this the hard way. See #1800.
-                    self.state = PsuState::Present(PresentState::On);
+                    self.state = PsuState::Present(PresentState::OnProbation {
+                        deadline: now.saturating_add(PROBATION_MS),
+                    });
                     Some(ActionRequired::EnableMe)
                 } else {
                     // Remain in this state.
                     None
                 }
+            }
+            (
+                PsuState::Present(PresentState::OnProbation { deadline }),
+                _,
+                _,
+            ) => {
+                if deadline <= now {
+                    // Take PSU out of probation state and start monitoring its
+                    // OK line.
+                    self.state = PsuState::Present(PresentState::On);
+                } else {
+                    // Remain in this state.
+                }
+                None
             }
         }
     }
