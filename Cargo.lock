@@ -4875,6 +4875,7 @@ dependencies = [
  "drv-onewire",
  "drv-onewire-devices",
  "drv-sidecar-seq-api",
+ "drv-stm32xx-sys-api",
  "drv-transceivers-api",
  "hubpack",
  "idol",

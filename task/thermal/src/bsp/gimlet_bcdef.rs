@@ -10,15 +10,18 @@ use crate::{
         TemperatureSensor,
     },
     i2c_config::{devices, sensors},
+    notifications,
 };
 pub use drv_gimlet_seq_api::SeqError;
 use drv_gimlet_seq_api::{PowerState, Sequencer};
 use drv_i2c_devices::max31790::Max31790;
+use drv_stm32xx_sys_api::{self as sys_api, Sys};
 use task_sensor_api::SensorId;
 use task_thermal_api::ThermalProperties;
 use userlib::{task_slot, units::Celsius, TaskId, UnwrapLite};
 
 task_slot!(SEQ, gimlet_seq);
+task_slot!(SYS, sys);
 
 // We monitor the TMP117 air temperature sensors, but don't use them as part of
 // the control loop.
@@ -53,6 +56,10 @@ pub const NUM_FANS: usize = drv_i2c_devices::max31790::MAX_FANS as usize;
 /// This controller is tuned and ready to go
 pub const USE_CONTROLLER: bool = true;
 
+pub(crate) const ALERT_MASK: u32 =
+    notifications::SMBUS_NIC_TEMP_TO_SP_ALERT_L_MASK
+        | notifications::SP3_TO_SP_ALERT_L_MASK;
+
 pub(crate) struct Bsp {
     /// Controlled sensors
     pub inputs: &'static [InputChannel],
@@ -67,11 +74,22 @@ pub(crate) struct Bsp {
     /// Handle to the sequencer task, to query power state
     seq: Sequencer,
 
+    /// Handle to the sys task for GPIO alert interrupt control.
+    sys: Sys,
+
     /// Id of the I2C task, to query MAX5970 status
     i2c_task: TaskId,
 
     /// Tuning for the PID controller
     pub pid_config: PidConfig,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, counters::Count)]
+pub(crate) enum Alert {
+    /// Alert from the CPU on `SP3_TO_SP_ALERT_L`
+    SmbusSbTsiAlert,
+    /// Alert from the T6 on `SMBUS_NIC_TEMP_TO_SP_ALERT_L`
+    SmbusNicTemp,
 }
 
 bitflags::bitflags! {
@@ -93,6 +111,36 @@ bitflags::bitflags! {
 }
 
 impl Bsp {
+    pub fn is_alerted(&self, notif: u32) -> Option<Alert> {
+        if notif & notifications::SP3_TO_SP_ALERT_L_MASK != 0
+            && self
+                .sys
+                .gpio_irq_control(
+                    notifications::SP3_TO_SP_ALERT_L_MASK,
+                    sys_api::IrqControl::Enable,
+                )
+                .unwrap_lite()
+        {
+            return Some(Alert::SmbusSbTsiAlert);
+        }
+
+        if notif & notifications::SMBUS_NIC_TEMP_TO_SP_ALERT_L_MASK != 0 {
+            if self.seq.get_state() == PowerState::A0PlusHP
+                && self
+                    .sys
+                    .gpio_irq_control(
+                        notifications::SMBUS_NIC_TEMP_TO_SP_ALERT_L_MASK,
+                        sys_api::IrqControl::Enable,
+                    )
+                    .unwrap_lite()
+            {
+                return Some(Alert::SmbusNicTemp);
+            }
+        }
+
+        None
+    }
+
     pub fn fan_control(&self, fan: crate::Fan) -> FanControl<'_> {
         FanControl::Max31790(&self.fctrl, fan.0.try_into().unwrap_lite())
     }
@@ -163,9 +211,32 @@ impl Bsp {
 
         // Handle for the sequencer task, which we check for power state
         let seq = Sequencer::from(SEQ.get_task_id());
+        let sys = Sys::from(SYS.get_task_id());
+
+        // Configure GPIO IRQs for thermal alert pins.
+        // Leave this alone for now; we only want to get an IRQ from it once the
+        // NIC is up.
+        // sys.gpio_configure_input(
+        //     sys_api::gpio_irqs::SMBUS_NIC_TEMP_TO_SP_ALERT_L,
+        //     sys_api::Pull::None,
+        // );
+        // sys.gpio_irq_configure(
+        // notifications::SMBUS_NIC_TEMP_TO_SP_ALERT_L,
+        // sys_api::Edge::Falling,
+        // );
+        sys.gpio_configure_input(
+            sys_api::gpio_irq_pins::SP3_TO_SP_ALERT_L,
+            // XXX(eliza): IS THIS RIGHT???
+            sys_api::Pull::None,
+        );
+        sys.gpio_irq_configure(
+            notifications::SP3_TO_SP_ALERT_L_MASK,
+            sys_api::Edge::Falling,
+        );
 
         Self {
             seq,
+            sys,
             i2c_task,
             fctrl,
 

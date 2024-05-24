@@ -77,6 +77,17 @@ port = "E"
 pin = 3
 owner = {name = "sprot", notification = "rot_irq"}
 
+[tasks.sys.config.gpio-irqs.sp3_to_sp_alert_l]
+port = "D"
+pin = 6
+owner = {name = "thermal", notification = "sp3_to_sp_alert_l"}
+
+[tasks.sys.config.gpio-irqs.smbus_nic_temp_to_sp_alert_l]
+port = "D"
+pin = 15
+owner = {name = "thermal", notification = "smbus_nic_temp_to_sp_alert_l"}
+
+
 [tasks.spi2_driver]
 name = "drv-stm32h7-spi-server"
 priority = 3
@@ -136,8 +147,8 @@ priority = 5
 max-sizes = {flash = 32768, ram = 8192 }
 stacksize = 6000
 start = true
-task-slots = ["i2c_driver", "sensor", "gimlet_seq", "jefe"]
-notifications = ["timer"]
+task-slots = ["i2c_driver", "sensor", "gimlet_seq", "jefe", "sys"]
+notifications = ["timer", "sp3_to_sp_alert_l", "smbus_nic_temp_to_sp_alert_l"]
 
 [tasks.power]
 name = "task-power"

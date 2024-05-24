@@ -43,6 +43,8 @@ pub const NUM_FANS: usize = sensors::NUM_MAX31790_SPEED_SENSORS;
 // Run the PID loop on startup
 pub const USE_CONTROLLER: bool = true;
 
+pub(crate) const ALERT_MASK: u32 = 0;
+
 ////////////////////////////////////////////////////////////////////////////////
 
 bitflags::bitflags! {
@@ -73,7 +75,14 @@ pub(crate) struct Bsp {
     pub pid_config: PidConfig,
 }
 
+#[derive(Copy, Clone, PartialEq, Eq, counters::Count)]
+pub(crate) enum Alert {}
+
 impl Bsp {
+    pub fn is_alerted(&mut self, notif: u32) -> Option<Alert> {
+        None
+    }
+
     pub fn fan_control(
         &self,
         fan: crate::Fan,

@@ -83,12 +83,18 @@ enum Trace {
     PowerDownAt(u64),
     AddedDynamicInput(usize),
     RemovedDynamicInput(usize),
+    Alert {
+        now: u64,
+        #[count(children)]
+        alert: bsp::Alert,
+    },
 }
 counted_ringbuf!(Trace, 32, Trace::None);
 
 ////////////////////////////////////////////////////////////////////////////////
 
 struct ServerImpl<'a> {
+    bsp: &'a Bsp,
     mode: ThermalMode,
     control: ThermalControl<'a>,
     deadline: u64,
@@ -291,13 +297,24 @@ impl<'a> idl::InOrderThermalImpl for ServerImpl<'a> {
 
 impl<'a> NotificationHandler for ServerImpl<'a> {
     fn current_notification_mask(&self) -> u32 {
-        notifications::TIMER_MASK
+        notifications::TIMER_MASK | bsp::ALERT_MASK
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
+    fn handle_notification(&mut self, bits: u32) {
         let now = sys_get_timer().now;
-        if now >= self.deadline {
+        let should_do_work = if let Some(alert) = self.bsp.is_alerted(bits) {
+            ringbuf_entry!(Trace::Alert { now, alert });
+            true
+        } else if now >= self.deadline {
+            self.deadline = now + TIMER_INTERVAL;
+            true
+        } else {
+            false
+        };
+
+        if should_do_work {
             // See if any fans were removed or added since last iteration
+            // TODO(eliza): should we still do this if woken by an alert?
             self.control.update_fan_presence();
 
             // We *always* read sensor data, which does not touch the control
@@ -327,7 +344,6 @@ impl<'a> NotificationHandler for ServerImpl<'a> {
                     panic!("Mode must not be 'Off' when server is running")
                 }
             }
-            self.deadline = now + TIMER_INTERVAL;
         }
         // We can use wrapping arithmetic here because the timer is monotonic.
         self.runtime = sys_get_timer().now.wrapping_sub(now);
@@ -352,6 +368,7 @@ fn main() -> ! {
     sys_set_timer(Some(deadline), notifications::TIMER_MASK);
 
     let mut server = ServerImpl {
+        bsp: &bsp,
         mode: ThermalMode::Off,
         control,
         deadline,
