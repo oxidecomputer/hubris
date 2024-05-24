@@ -18,6 +18,7 @@ use drv_lpc55_update_api::{
     SlotId, SwitchDuration, UpdateTarget, VersionedRotBootInfo,
 };
 use drv_update_api::UpdateError;
+use hex_literal::hex;
 use idol_runtime::{
     ClientError, Leased, LenLimit, NotificationHandler, RequestError, R, W,
 };
@@ -39,6 +40,10 @@ const PAGE_SIZE: u32 = BYTES_PER_FLASH_PAGE as u32;
 #[used]
 #[link_section = ".bootstate"]
 static BOOTSTATE: MaybeUninit<[u8; 0x1000]> = MaybeUninit::uninit();
+
+#[used]
+#[link_section = ".transient_override"]
+static mut TRANSIENT_OVERRIDE: MaybeUninit<[u8; 32]> = MaybeUninit::uninit();
 
 #[derive(Copy, Clone, PartialEq)]
 enum UpdateState {
@@ -503,6 +508,12 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         ringbuf_entry!(Trace::State(self.state));
         self.next_block = None;
         self.fw_cache.fill(0);
+        // The sequence: [update, set transient preference, update] is legal.
+        // Clear any stale transient preference before update.
+        // Stage0 doesn't support transient override.
+        if component == RotComponent::Hubris {
+            set_hubris_transient_override(None);
+        }
         Ok(())
     }
 
@@ -907,8 +918,11 @@ impl ServerImpl<'_> {
     ) -> Result<(), RequestError<UpdateError>> {
         match duration {
             SwitchDuration::Once => {
-                // TODO deposit command token into buffer
-                return Err(UpdateError::NotImplemented.into());
+                // TODO check Rollback policy vs epoch before activating.
+                // TODO: prep-image-update should clear transient selection.
+                //   e.g. update, activate, update, reboot should not have
+                //   transient boot set.
+                set_hubris_transient_override(Some(slot));
             }
             SwitchDuration::Forever => {
                 // Locate and return the authoritative CFPA flash word number
@@ -1335,6 +1349,35 @@ fn bootstate() -> Result<RotBootStateV2, HandoffDataLoadError> {
     // Safety: Data is published by stage0
     let addr = unsafe { BOOTSTATE.assume_init_ref() };
     RotBootStateV2::load_from_addr(addr)
+}
+
+fn set_transient_override(preference: [u8; 32]) {
+    // Safety: Data is consumed by Bootleby on next boot.
+    // There are no concurrent writers possible.
+    // Calling this function multiple times is ok.
+    // Bootleby is careful to vet contents before acting.
+    unsafe {
+        TRANSIENT_OVERRIDE.write(preference);
+    }
+}
+
+pub fn set_hubris_transient_override(bank: Option<SlotId>) {
+    // Preference constants are taken from bootleby:src/lib.rs
+    const PREFER_SLOT_A: [u8; 32] = hex!(
+        "edb23f2e9b399c3d57695262f29615910ed10c8d9b261bfc2076b8c16c84f66d"
+    );
+    const PREFER_SLOT_B: [u8; 32] = hex!(
+        "70ed2914e6fdeeebbb02763b96da9faa0160b7fc887425f4d45547071d0ce4ba"
+    );
+    // Bootleby writes all zeros after reading. We write all ones to reset.
+    const PREFER_NOTHING: [u8; 32] = [0xffu8; 32];
+
+    match bank {
+        // Do we need a  value that says we were here and cleared?
+        None => set_transient_override(PREFER_NOTHING),
+        Some(SlotId::A) => set_transient_override(PREFER_SLOT_A),
+        Some(SlotId::B) => set_transient_override(PREFER_SLOT_B),
+    }
 }
 
 fn round_up_to_flash_page(offset: u32) -> Option<u32> {
