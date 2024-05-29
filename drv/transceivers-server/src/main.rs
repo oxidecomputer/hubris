@@ -5,11 +5,20 @@
 #![no_std]
 #![no_main]
 
+use counters::Count;
+use idol_runtime::{NotificationHandler, RequestError};
+use multitimer::{Multitimer, Repeat};
+use ringbuf::*;
+use static_cell::ClaimOnceCell;
+use userlib::{sys_get_timer, task_slot, units::Celsius};
+
 use drv_fpga_api::FpgaError;
 use drv_i2c_devices::pca9956b::Error;
 use drv_sidecar_front_io::{
     leds::{FullErrorSummary, Leds},
-    transceivers::{LogicalPort, LogicalPortMask, Transceivers},
+    transceivers::{
+        FpgaI2CFailure, LogicalPort, LogicalPortMask, Transceivers,
+    },
     Reg,
 };
 use drv_sidecar_seq_api::{SeqError, Sequencer};
@@ -17,16 +26,12 @@ use drv_transceivers_api::{
     ModuleStatus, TransceiversError, NUM_PORTS, TRANSCEIVER_TEMPERATURE_SENSORS,
 };
 use enum_map::Enum;
-use idol_runtime::{NotificationHandler, RequestError};
-use multitimer::{Multitimer, Repeat};
-use ringbuf::*;
-use static_cell::ClaimOnceCell;
 use task_sensor_api::{NoData, Sensor};
 use task_thermal_api::{Thermal, ThermalError, ThermalProperties};
 use transceiver_messages::{
     message::LedState, mgmt::ManagementInterface, MAX_PACKET_SIZE,
 };
-use userlib::{sys_get_timer, task_slot, units::Celsius};
+
 use zerocopy::{AsBytes, FromBytes};
 
 mod udp; // UDP API is implemented in a separate file
@@ -41,10 +46,11 @@ task_slot!(SENSOR, sensor);
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
 #[allow(dead_code)]
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Count)]
 enum Trace {
+    #[count(skip)]
     None,
-    FrontIOBoardReady(bool),
+    FrontIOBoardReady(#[count(children)] bool),
     FrontIOSeqErr(SeqError),
     LEDInit,
     LEDInitComplete,
@@ -55,7 +61,7 @@ enum Trace {
     LEDReadError(Error),
     LEDUpdateError(Error),
     ModulePresenceUpdate(LogicalPortMask),
-    TransceiversError(TransceiversError),
+    TransceiversError(#[count(children)] TransceiversError),
     GotInterface(u8, ManagementInterface),
     UnknownInterface(u8, ManagementInterface),
     UnpluggedModule(usize),
@@ -70,7 +76,8 @@ enum Trace {
     DisableFailed(usize, LogicalPortMask),
     ClearDisabledPorts(LogicalPortMask),
 }
-ringbuf!(Trace, 16, Trace::None);
+
+counted_ringbuf!(Trace, 16, Trace::None);
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -248,28 +255,24 @@ impl ServerImpl {
 
         #[derive(Copy, Clone, FromBytes, AsBytes)]
         #[repr(C)]
-        struct StatusAndTemperature {
-            status: u8,
+        struct Temperature {
             temperature: zerocopy::I16<zerocopy::BigEndian>,
         }
 
-        loop {
-            let mut out = StatusAndTemperature::new_zeroed();
-            self.transceivers
-                .get_i2c_status_and_read_buffer(port, out.as_bytes_mut())?;
-            if out.status & Reg::QSFP::PORT0_STATUS::BUSY == 0 {
-                if out.status & Reg::QSFP::PORT0_STATUS::ERROR != 0 {
-                    return Err(FpgaError::ImplError(out.status));
-                } else {
-                    // "Internally measured free side device temperatures are
-                    // represented as a 16-bit signed twos complement value in
-                    // increments of 1/256 degrees Celsius"
-                    //
-                    // - SFF-8636 rev 2.10a, Section 6.2.4
-                    return Ok(Celsius(out.temperature.get() as f32 / 256.0));
-                }
-            }
-            userlib::hl::sleep_for(1);
+        let mut out = Temperature::new_zeroed();
+        let status = self
+            .transceivers
+            .get_i2c_status_and_read_buffer(port, out.as_bytes_mut())?;
+
+        if status.error == FpgaI2CFailure::NoError {
+            // "Internally measured free side device temperatures are
+            // represented as a 16-bit signed twos complement value in
+            // increments of 1/256 degrees Celsius"
+            //
+            // - SFF-8636 rev 2.10a, Section 6.2.4
+            Ok(Celsius(out.temperature.get() as f32 / 256.0))
+        } else {
+            Err(FpgaError::ImplError(status.error as u8))
         }
     }
 
@@ -282,20 +285,15 @@ impl ServerImpl {
             return Err(FpgaError::CommsError);
         }
 
-        let mut out = [0u8; 2]; // [status, SFF8024Identifier]
+        let mut out = [0u8; 1]; // [SFF8024Identifier]
 
         // Wait for the I2C transaction to complete
-        loop {
-            self.transceivers
-                .get_i2c_status_and_read_buffer(port, &mut out)?;
-            if out[0] & Reg::QSFP::PORT0_STATUS::BUSY == 0 {
-                break;
-            }
-            userlib::hl::sleep_for(1);
-        }
+        let status = self
+            .transceivers
+            .get_i2c_status_and_read_buffer(port, &mut out)?;
 
-        if out[0] & Reg::QSFP::PORT0_STATUS::ERROR == 0 {
-            match out[1] {
+        if status.error == FpgaI2CFailure::NoError {
+            match out[0] {
                 0x1E => Ok(ManagementInterface::Cmis),
                 0x0D | 0x11 => Ok(ManagementInterface::Sff8636),
                 i => Ok(ManagementInterface::Unknown(i)),
@@ -303,7 +301,7 @@ impl ServerImpl {
         } else {
             // TODO: how should we handle this?
             // Right now, we'll retry on the next pass through the loop.
-            Err(FpgaError::ImplError(out[0]))
+            Err(FpgaError::ImplError(status.error as u8))
         }
     }
 

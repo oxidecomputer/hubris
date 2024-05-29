@@ -73,10 +73,6 @@
 //! - Wait some time for it to wake.
 //! - Start watching the fault signal again.
 //!
-//! We count the number of times we have had to reset a PSU in a row, and if the
-//! PSU reaches a limit (configurable), we will hold it in the OFF state until
-//! it is removed and reinserted.
-//!
 //! Removing and reinserting a PSU in general clears the fault state _and_
 //! resets the retry counter.
 //!
@@ -142,12 +138,6 @@ enum Trace {
         psu: u8,
         present: bool,
     },
-    /// Emitted if we disable a power supply and wait for its fault to clear...
-    /// and it doesn't. We emit one of these each time we hit this condition,
-    /// periodically retesting.
-    StickyFault {
-        psu: u8,
-    },
 }
 
 ringbuf!((u64, Trace), 128, (0, Trace::Empty));
@@ -209,6 +199,15 @@ const FAULT_OFF_MS: u64 = 5_000; // Current value is somewhat arbitrary.
 /// that things are firmly mated before activating anything.
 const INSERT_DEBOUNCE_MS: u64 = 1_000; // Current value is somewhat arbitrary.
 
+/// How long after exiting a fault state before we require the PSU to start
+/// asserting OK. Or, conversely, how long to ignore the OK output after
+/// re-enabling a faulted PSU.
+///
+/// We have observed delays of up to 92 ms in practice. Leaving the PSU enabled
+/// in a fault state shouldn't be destructive, so we've padded this to avoid
+/// flapping.
+const PROBATION_MS: u64 = 1000;
+
 /// How often to check the status of polled inputs.
 ///
 /// This should be fast enough to reliably spot removed sleds.
@@ -225,11 +224,6 @@ enum ActionRequired {
     /// believed to still be present and recording data may be useful, or
     /// `false` if the PSU is believed removed and isn't worth polling.
     DisableMe { attempt_snapshot: bool },
-    /// Emitted when a PSU is disabled due to a fault, has gone through the
-    /// fault recovery process, but is still indicating a fault. The caller
-    /// may wish to log this condition, or may not, since it will appear
-    /// every `FAULT_MS` milliseconds and could dominate the logs.
-    NoteStickyFault,
 }
 
 #[derive(Copy, Clone)]
@@ -259,7 +253,25 @@ enum PresentState {
     NewlyInserted { settle_deadline: u64 },
     /// The PSU has unexpectedly deasserted the OK signal, or failed to assert
     /// it within a reasonable amount of time after being turned on.
-    Faulted { turn_on_deadline: u64 },
+    Faulted {
+        // Try to turn the PSU back on when this time is reached, but only if
+        // the fault has cleared. Otherwise, we will stay in the fault state
+        // with a "sticky fault" situation.
+        turn_on_deadline: u64,
+    },
+
+    /// We are allowing the ON signal to float active, as in the `On` state, but
+    /// we're not convinced the PSU is okay. We enter this state when bringing a
+    /// PSU out of an observed fault state, and it causes us to ignore its OK
+    /// output for a brief period (the deadline parameter, initialized as
+    /// current time plus `DEADLINE_MS`).
+    ///
+    /// We do this because PSUs have been observed, in practice, taking up to
+    /// ~100ms to assert OK after being enabled.
+    ///
+    /// Once the deadline elapses, we'll transition to the `On` state and start
+    /// requiring OK to be asserted.
+    OnProbation { deadline: u64 },
 }
 
 #[export_name = "main"]
@@ -452,10 +464,6 @@ fn main() -> ! {
                         Pull::None,
                     );
                 }
-                Some(ActionRequired::NoteStickyFault) => {
-                    ringbuf_entry!((now, Trace::StickyFault { psu: i as u8 }));
-                    // Not taking any particular action at this time.
-                }
             }
         }
 
@@ -574,29 +582,34 @@ impl Psu {
             (
                 PsuState::Present(PresentState::Faulted { turn_on_deadline }),
                 _,
-                ok,
+                _,
             ) => {
                 if turn_on_deadline <= now {
-                    match ok {
-                        Status::NotGood => {
-                            // Do it all again then, I guess.
-                            let turn_on_deadline =
-                                now.wrapping_add(FAULT_OFF_MS);
-                            self.state =
-                                PsuState::Present(PresentState::Faulted {
-                                    turn_on_deadline,
-                                });
-                            Some(ActionRequired::NoteStickyFault)
-                        }
-                        Status::Good => {
-                            self.state = PsuState::Present(PresentState::On);
-                            Some(ActionRequired::EnableMe)
-                        }
-                    }
+                    // We turn the PSU back on _without regard_ to the OK signal
+                    // state, because the PSU won't assert OK when it's off! We
+                    // learned this the hard way. See #1800.
+                    self.state = PsuState::Present(PresentState::OnProbation {
+                        deadline: now.saturating_add(PROBATION_MS),
+                    });
+                    Some(ActionRequired::EnableMe)
                 } else {
                     // Remain in this state.
                     None
                 }
+            }
+            (
+                PsuState::Present(PresentState::OnProbation { deadline }),
+                _,
+                _,
+            ) => {
+                if deadline <= now {
+                    // Take PSU out of probation state and start monitoring its
+                    // OK line.
+                    self.state = PsuState::Present(PresentState::On);
+                } else {
+                    // Remain in this state.
+                }
+                None
             }
         }
     }
