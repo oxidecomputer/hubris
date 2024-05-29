@@ -6,14 +6,13 @@
 
 use crate::{
     control::{
-        ChannelType, Device, FanControl, Fans, InputChannel, PidConfig,
-        TemperatureSensor,
+        ChannelType, ControllerInitError, Device, FanControl, Fans,
+        InputChannel, Max31790State, PidConfig, TemperatureSensor,
     },
     i2c_config::{devices, sensors},
 };
 pub use drv_gimlet_seq_api::SeqError;
 use drv_gimlet_seq_api::{PowerState, Sequencer};
-use drv_i2c_devices::max31790::Max31790;
 use task_sensor_api::SensorId;
 use task_thermal_api::ThermalProperties;
 use userlib::{task_slot, units::Celsius, TaskId, UnwrapLite};
@@ -62,7 +61,7 @@ pub(crate) struct Bsp {
     pub misc_sensors: &'static [TemperatureSensor],
 
     /// Fan control IC
-    fctrl: Max31790,
+    fctrl: Max31790State,
 
     /// Handle to the sequencer task, to query power state
     seq: Sequencer,
@@ -93,12 +92,20 @@ bitflags::bitflags! {
 }
 
 impl Bsp {
-    pub fn fan_control(&self, fan: crate::Fan) -> FanControl<'_> {
-        FanControl::Max31790(&self.fctrl, fan.0.try_into().unwrap_lite())
+    pub fn fan_control(
+        &mut self,
+        fan: crate::Fan,
+    ) -> Result<FanControl<'_>, ControllerInitError> {
+        let fctrl = self.fctrl.try_initialize()?;
+        Ok(FanControl::Max31790(fctrl, fan.0.try_into().unwrap_lite()))
     }
 
-    pub fn for_each_fctrl(&self, mut fctrl: impl FnMut(FanControl<'_>)) {
-        fctrl(self.fan_control(0.into()))
+    pub fn for_each_fctrl(
+        &mut self,
+        mut fctrl: impl FnMut(FanControl<'_>),
+    ) -> Result<(), ControllerInitError> {
+        fctrl(self.fan_control(0.into())?);
+        Ok(())
     }
 
     pub fn power_down(&self) -> Result<(), SeqError> {
@@ -158,8 +165,7 @@ impl Bsp {
 
     pub fn new(i2c_task: TaskId) -> Self {
         // Initializes and build a handle to the fan controller IC
-        let fctrl = Max31790::new(&devices::max31790(i2c_task)[0]);
-        fctrl.initialize().unwrap_lite();
+        let fctrl = Max31790State::new(&devices::max31790(i2c_task)[0]);
 
         // Handle for the sequencer task, which we check for power state
         let seq = Sequencer::from(SEQ.get_task_id());
