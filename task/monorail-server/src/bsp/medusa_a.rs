@@ -2,20 +2,21 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use drv_medusa_seq_api::Sequencer;
 use drv_sidecar_front_io::phy_smi::PhySmi;
 use ringbuf::*;
-use userlib::{hl::sleep_for, task_slot};
+use userlib::{task_slot, UnwrapLite};
 use vsc7448::{
     config::Speed, miim_phy::Vsc7448MiimPhy, Vsc7448, Vsc7448Rw, VscError,
 };
 use vsc7448_pac::{DEVCPU_GCB, HSIO, VAUI0, VAUI1};
 use vsc85xx::{vsc8504::Vsc8504, vsc8562::Vsc8562Phy, PhyRw};
 
+task_slot!(SEQ, seq);
 task_slot!(FRONT_IO, ecp5_front_io);
 
-/// Interval at which `Bsp::wake()` is called by the main loop
-const WAKE_INTERVAL_MS: u64 = 500;
-pub const WAKE_INTERVAL: Option<u64> = Some(WAKE_INTERVAL_MS);
+/// Interval in milliseconds at which `Bsp::wake()` is called by the main loop
+pub const WAKE_INTERVAL: Option<u32> = Some(500);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
@@ -27,7 +28,6 @@ enum Trace {
     },
     FrontIoPhyOscillatorBad,
     AnegCheckFailed(VscError),
-    Restarted10GAneg,
     Reinit,
 }
 ringbuf!(Trace, 16, Trace::None);
@@ -36,6 +36,9 @@ ringbuf!(Trace, 16, Trace::None);
 
 pub struct Bsp<'a, R> {
     vsc7448: &'a Vsc7448<'a, R>,
+
+    /// Handle for the sequencer task
+    seq: Sequencer,
 
     /// PHY for the on-board PHY ("PHY4")
     vsc8504: Vsc8504,
@@ -132,10 +135,16 @@ mod map {
         SGMII, // 52 | DEV2G5_28 | SERDES10G_3 | Cubby 31 (shadows DEV10G_3)
     ]);
 }
+pub use map::PORT_MAP;
+
+pub fn preinit() {
+    // Nothing to do here, just stubbing out for the BSP interface
+}
 
 impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
     /// Constructs and initializes a new BSP handle
     pub fn new(vsc7448: &'a Vsc7448<'a, R>) -> Result<Self, VscError> {
+        let seq = Sequencer::from(SEQ.get_task_id());
         let has_front_io = seq.front_io_board_present();
         let mut out = Bsp {
             vsc7448,
@@ -147,14 +156,11 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             },
             front_io_speed: [Speed::Speed1G; 2],
             link_down_at: None,
+            seq,
         };
 
         out.reinit()?;
         Ok(out)
-    }
-
-    fn preinit() {
-        // TODO
     }
 
     pub fn reinit(&mut self) -> Result<(), VscError> {
@@ -355,7 +361,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
 
         // The VSC8504 on the sidecar has its SIGDET GPIOs pulled down,
         // for some reason.
-        self.vsc8504.set_sigdet_polarity(rw, true).unwrap();
+        self.vsc8504.set_sigdet_polarity(rw, true).unwrap_lite();
 
         // Switch the GPIO to an output.  Since the output register is low
         // by default, this pulls COMA_MODE low, bringing the VSC8504 into
@@ -459,44 +465,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             }
         }
 
-        // Workaround for the link-stuck issue discussed in
-        // https://github.com/oxidecomputer/bf_sde/issues/5. This should only
-        // run if the Tofino PCIe link is up otherwise the Tofino port is almost
-        // certainly down and the condition we are trying to avoid here does not
-        // matter.
-        if self.seq.tofino_pcie_link_up() {
-            if self.vsc7448.check_10gbase_kr_aneg(0)? {
-                ringbuf_entry!(Trace::Restarted10GAneg);
-            }
-
-            // Follow-up workaround for the other link-stuck issue discussed in
-            // https://github.com/oxidecomputer/bf_sde/issues/27
-            // If we remain down for 20 seconds, then reinitialize everything.
-            //
-            // (see comment in `monorail-server/src/server.rs` about this check)
-            use vsc7448_pac::PCS10G_BR;
-            let link_down = self
-                .vsc7448
-                .read(PCS10G_BR(0).PCS_10GBR_STATUS().PCS_STATUS())?
-                .rx_block_lock()
-                == 0;
-            if link_down {
-                let now = userlib::sys_get_timer().now;
-                if let Some(link_down_at) = self.link_down_at {
-                    if now - link_down_at >= 20_000 {
-                        self.link_down_at = None;
-                        // This logs Trace::Reinit in the ringbuf
-                        self.reinit()?;
-                    }
-                } else {
-                    self.link_down_at = Some(now);
-                }
-            } else {
-                self.link_down_at = None;
-            }
-        } else {
-            self.link_down_at = None;
-        }
+        self.link_down_at = None;
 
         Ok(())
     }

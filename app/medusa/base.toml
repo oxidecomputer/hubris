@@ -91,25 +91,23 @@ task-slots = ["sys", "i2c_driver"]
 notifications = ["spi-irq"]
 interrupts = {"spi1.irq" = "spi-irq"}
 
-# [tasks.monorail]
-# name = "task-monorail-server"
-# priority = 6
-# max-sizes = {flash = 262144, ram = 8192}
-# features = ["mgmt", "sidecar", "vlan", "use-spi-core", "h753", "spi2"]
-# stacksize = 4096
-# start = true
-# # task-slots = ["ecp5_front_io", "sys", { seq = "sequencer" }]
-# task-slots = ["ecp5_front_io", "sys"]
-# uses = ["spi2"]
-# notifications = ["spi-irq", "wake-timer"]
-# interrupts = {"spi2.irq" = "spi-irq"}
+[tasks.monorail]
+name = "task-monorail-server"
+priority = 6
+max-sizes = {flash = 262144, ram = 8192}
+features = ["mgmt", "medusa", "vlan", "use-spi-core", "h753", "spi2"]
+stacksize = 4096
+start = true
+task-slots = ["ecp5_front_io", "sys", { seq = "sequencer" }]
+uses = ["spi2"]
+notifications = ["spi-irq", "wake-timer"]
+interrupts = {"spi2.irq" = "spi-irq"}
 
 [tasks.net]
 name = "task-net"
 stacksize = 6040
 priority = 5
-# features = ["mgmt", "h753", "medusa", "vlan", "vpd-mac", "use-spi-core", "spi3"]
-features = ["mgmt", "h753", "vlan", "vpd-mac", "use-spi-core", "spi3"]
+features = ["mgmt", "h753", "medusa", "vlan", "vpd-mac", "use-spi-core", "spi3"]
 max-sizes = {flash = 131072, ram = 65536, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "tim16", "spi3"]

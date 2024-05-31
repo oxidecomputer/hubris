@@ -10,7 +10,7 @@ num-traits.workspace = true
 serde.workspace = true
 zerocopy.workspace = true
 counters = { path = "../../lib/counters" }
-derive-idol-err = { path = "../../lib/derive-idol-err"  }
+derive-idol-err = { path = "../../lib/derive-idol-err" }
 drv-fpga-api = { path = "../fpga-api" }
 drv-fpga-user-api = { path = "../fpga-user-api" }
 drv-sidecar-mainboard-controller = { path = "../sidecar-mainboard-controller" }

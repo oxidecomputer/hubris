@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+drv-medusa-seq-api = { path = "../../drv/medusa-seq-api", optional = true }
 drv-monorail-api = { path = "../../drv/monorail-api"  }
 drv-sidecar-mainboard-controller = { path = "../../drv/sidecar-mainboard-controller"  }
 drv-sidecar-front-io = { path = "../../drv/sidecar-front-io", features = ["phy_smi"], optional = true }
@@ -29,6 +30,7 @@ zerocopy.workspace = true
 
 [features]
 leds = ["drv-user-leds-api"]
+medusa = ["drv-medusa-seq-api", "drv-sidecar-front-io"]
 mgmt = ["task-net-api"]
 sidecar = ["drv-sidecar-seq-api", "drv-sidecar-front-io"]
 vlan = ["task-net-api?/vlan"]

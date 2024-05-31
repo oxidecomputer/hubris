@@ -54,7 +54,7 @@ pub struct TemperatureSensor {
 }
 
 impl TemperatureSensor {
-#[allow(dead_code)] // not all BSPS
+    #[allow(dead_code)] // not all BSPS
     pub const fn new(
         device: Device,
         builder: fn(TaskId) -> drv_i2c_api::I2cDevice,

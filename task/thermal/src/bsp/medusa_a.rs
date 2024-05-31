@@ -5,8 +5,7 @@
 //! BSP for Medusa
 
 use crate::control::{
-    FanControl, Fans, InputChannel, PidConfig,
-    TemperatureSensor,
+    FanControl, Fans, InputChannel, PidConfig, TemperatureSensor,
 };
 use task_sensor_api::SensorId;
 use userlib::TaskId;
@@ -100,8 +99,6 @@ impl Bsp {
     }
 }
 
-const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
-];
+const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [];
 
-const MISC_SENSORS: [TemperatureSensor; NUM_TEMPERATURE_SENSORS] = [
-];
+const MISC_SENSORS: [TemperatureSensor; NUM_TEMPERATURE_SENSORS] = [];

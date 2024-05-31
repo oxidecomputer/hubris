@@ -1399,6 +1399,16 @@ dependencies = [
 [[package]]
 name = "drv-medusa-seq-api"
 version = "0.1.0"
+dependencies = [
+ "counters",
+ "derive-idol-err",
+ "drv-fpga-api",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "userlib",
+ "zerocopy 0.6.6",
+]
 
 [[package]]
 name = "drv-medusa-seq-server"
@@ -1406,21 +1416,21 @@ version = "0.1.0"
 dependencies = [
  "build-i2c",
  "build-util",
- "byteorder",
  "cfg-if",
  "cortex-m",
  "drv-fpga-api",
  "drv-fpga-user-api",
  "drv-i2c-api",
  "drv-i2c-devices",
+ "drv-medusa-seq-api",
  "drv-packrat-vpd-loader",
  "drv-sidecar-front-io",
- "hubpack",
+ "drv-sidecar-mainboard-controller",
+ "drv-stm32xx-sys-api",
  "idol",
  "idol-runtime",
  "num-traits",
  "ringbuf",
- "serde",
  "userlib",
  "zerocopy 0.6.6",
 ]
@@ -4587,6 +4597,7 @@ dependencies = [
  "build-util",
  "cfg-if",
  "counters",
+ "drv-medusa-seq-api",
  "drv-monorail-api",
  "drv-sidecar-front-io",
  "drv-sidecar-mainboard-controller",
@@ -4620,6 +4631,7 @@ dependencies = [
  "cortex-m",
  "counters",
  "drv-gimlet-seq-api",
+ "drv-medusa-seq-api",
  "drv-psc-seq-api",
  "drv-sidecar-seq-api",
  "drv-spi-api",
