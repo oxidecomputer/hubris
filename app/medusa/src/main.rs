@@ -60,30 +60,30 @@ fn system_init() {
     // if you've flashed the wrong one, only.
     //
     // The model is on the following pins:
-    // - ID0: PE6
-    // - ID1: PE7
-    // - ID2: PE8
-    // Un-gate the clock to GPIO bank E.
+    // - ID0: PC6
+    // - ID1: PC7
+    // - ID2: PC13
+    // Un-gate the clock to GPIO bank C.
     p.RCC.ahb4enr.modify(|_, w| w.gpiogen().set_bit());
     cortex_m::asm::dsb();
-    // PE8:6 are already inputs after reset
+    // PE{13,7,6} are already inputs after reset
     #[rustfmt::skip]
-    p.GPIOG.moder.modify(|_, w| w
+    p.GPIOC.moder.modify(|_, w| w
         .moder6().input()
         .moder7().input()
-        .moder8().input());
+        .moder13().input());
 
     // Unlike other designs, we aren't using any internal pullup resistors, so
     // we won't wait for the inputs or ID traces to charge.
 
-    let id_mask = (1 << 6) | (1 << 7) | (1 << 8);
-    let model = p.GPIOE.idr.read().bits() & id_mask;
+    let id_mask = (1 << 6) | (1 << 7) | (1 << 13);
+    let model = p.GPIOC.idr.read().bits() & id_mask;
 
     cfg_if::cfg_if! {
         if #[cfg(target_board = "medusa-a")] {
             let expected_model = 0b000;
         } else {
-            compile_error!("not a recognized medua board");
+            compile_error!("not a recognized medusa board");
         }
     }
 
