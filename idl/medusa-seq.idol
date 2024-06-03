@@ -26,5 +26,35 @@ Interface(
                 err: CLike("MedusaError"),
             ),
         ),
+
+        "control_mgmt_rails": (
+            args: {
+                "enabled": "bool",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("MedusaError"),
+            ),
+        ),
+
+        "control_phy_rails": (
+            args: {
+                "enabled": "bool",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("MedusaError"),
+            ),
+        ),
+
+        "control_rail": (
+            args: {
+                "name": "RailName",
+                "enabled": "bool",
+            },
+            reply: Simple("()"),
+            idempotent: true,
+            encoding: Hubpack,
+        ),
     },
 )

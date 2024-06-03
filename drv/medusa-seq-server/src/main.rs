@@ -10,7 +10,7 @@
 use crate::front_io::FrontIOBoard;
 use crate::power_control::PowerControl;
 use core::convert::Infallible;
-use drv_medusa_seq_api::MedusaError;
+use drv_medusa_seq_api::{MedusaError, RailName};
 use drv_sidecar_front_io::phy_smi::PhyOscState;
 use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::{ringbuf, ringbuf_entry};
@@ -34,6 +34,7 @@ enum Trace {
     FrontIOBoardNotPresent,
     FrontIOBoardPresent,
     FrontIOBoardPowerEnable(bool),
+    FrontIOBoardPowerGood,
     FrontIOBoardPowerFault,
     FrontIOBoardPhyPowerEnable(bool),
     FrontIOBoardPhyOscGood,
@@ -53,6 +54,10 @@ enum Trace {
         checksum: [u8; 4],
         expected: [u8; 4],
     },
+    PowerEnable(RailName, bool),
+    PowerFault(RailName),
+    MgmtPowerGood,
+    PhyPowerGood,
 }
 
 ringbuf!(Trace, 32, Trace::None);
@@ -70,11 +75,12 @@ impl ServerImpl {
         self.power_control.v12_qsfp_out.set_enable(true);
 
         // Wait a bit for it to ramp and then check that we can that it is happy
-        userlib::hl::sleep_for(50); // TODO, tune this
+        // The EN->PG time for this part was experimentally determined to be
+        // 35ms, so we roughly double that.
+        userlib::hl::sleep_for(75);
 
         // Power is not good. Disable the rail and log that this happened.
-        if !self.power_control.v12_qsfp_out.power_good() {
-            self.power_control.v12_qsfp_out.set_enable(false);
+        if !self.power_control.v12_qsfp_out.check_power_good() {
             return Err(MedusaError::FrontIOBoardPowerFault);
         }
 
@@ -164,6 +170,56 @@ impl ServerImpl {
 }
 
 impl idl::InOrderSequencerImpl for ServerImpl {
+    fn control_mgmt_rails(
+        &mut self,
+        _: &RecvMessage,
+        enabled: bool,
+    ) -> Result<(), RequestError<MedusaError>> {
+        self.power_control.v1p0_mgmt.set_enable(enabled);
+        self.power_control.v1p2_mgmt.set_enable(enabled);
+        self.power_control.v2p5_mgmt.set_enable(enabled);
+
+        if enabled {
+            userlib::hl::sleep_for(10);
+            if !self.power_control.mgmt_power_check() {
+                return Err(RequestError::from(MedusaError::PowerFault));
+            }
+            ringbuf_entry!(Trace::MgmtPowerGood);
+        }
+
+        Ok(())
+    }
+
+    fn control_phy_rails(
+        &mut self,
+        _: &RecvMessage,
+        enabled: bool,
+    ) -> Result<(), RequestError<MedusaError>> {
+        self.power_control.v1p0_phy.set_enable(enabled);
+        self.power_control.v2p5_phy.set_enable(enabled);
+
+        if enabled {
+            userlib::hl::sleep_for(10);
+            if !self.power_control.phy_power_check() {
+                return Err(RequestError::from(MedusaError::PowerFault));
+            }
+            ringbuf_entry!(Trace::PhyPowerGood);
+        }
+
+        Ok(())
+    }
+
+    fn control_rail(
+        &mut self,
+        _: &RecvMessage,
+        name: RailName,
+        enabled: bool,
+    ) -> Result<(), RequestError<Infallible>> {
+        let rail = self.power_control.get_rail(name);
+        rail.set_enable(enabled);
+        Ok(())
+    }
+
     fn front_io_board_present(
         &mut self,
         _: &RecvMessage,
@@ -248,6 +304,7 @@ fn main() -> ! {
     match server.front_io_board_preinit() {
         Ok(true) => {
             ringbuf_entry!(Trace::FrontIOBoardPresent);
+            ringbuf_entry!(Trace::FrontIOBoardPowerGood);
 
             let mut front_io_board = FrontIOBoard::new(
                 FRONT_IO.get_task_id(),
@@ -256,7 +313,7 @@ fn main() -> ! {
 
             front_io_board.init().unwrap_lite();
 
-            // TODO (arjen): check/load VPD data into packrat.
+            // TODO: check/load VPD data into packrat.
 
             // So far the front IO board looks functional. Assign it to the
             // server, implicitly marking it present for the lifetime of this
@@ -274,6 +331,15 @@ fn main() -> ! {
         Err(_) => panic!("unknown front IO board preinit failure"),
     }
 
+    // The MGMT and PHY rails are enabled automatically by pullups, so we will
+    // check their power good signals and take action as appropriate.
+    if server.power_control.mgmt_power_check() {
+        ringbuf_entry!(Trace::MgmtPowerGood);
+    }
+    if server.power_control.phy_power_check() {
+        ringbuf_entry!(Trace::PhyPowerGood);
+    }
+
     // This will put our timer in the past, and should immediately kick us.
     let deadline = sys_get_timer().now;
     sys_set_timer(Some(deadline), notifications::TIMER_MASK);
@@ -284,7 +350,7 @@ fn main() -> ! {
 }
 
 mod idl {
-    use super::MedusaError;
+    use super::{MedusaError, RailName};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

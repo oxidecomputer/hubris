@@ -8,13 +8,20 @@
 
 use derive_idol_err::IdolError;
 use drv_fpga_api::FpgaError;
+use hubpack::SerializedSize;
+use serde::{Deserialize, Serialize};
 use userlib::{sys_send, FromPrimitive};
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, FromPrimitive)]
-#[repr(u8)]
-pub enum PowerState {
-    Init = 0,
-    A2 = 1,
+#[derive(
+    Copy, Clone, Debug, PartialEq, Deserialize, Serialize, SerializedSize,
+)]
+pub enum RailName {
+    V1P0Mgmt,
+    V1P2Mgmt,
+    V2P5Mgmt,
+    V1P0Phy,
+    V2P5Phy,
+    V12QsfpOut,
 }
 
 #[derive(
@@ -24,6 +31,7 @@ pub enum MedusaError {
     FpgaError = 1,
     NoFrontIOBoard,
     FrontIOBoardPowerFault,
+    PowerFault,
 
     #[idol(server_death)]
     ServerRestarted,

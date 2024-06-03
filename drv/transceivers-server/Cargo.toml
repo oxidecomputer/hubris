@@ -33,6 +33,7 @@ zerocopy = { workspace = true }
 
 [features]
 vlan = ["task-net-api/vlan"]
+thermal-control = []
 no-ipc-counters = ["idol/no-counters"]
 
 [build-dependencies]
