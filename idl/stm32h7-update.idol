@@ -69,5 +69,24 @@ Interface(
             ),
             idempotent: true,
         ),
+        "get_pending_boot_slot": (
+            doc: "Get the boot setting that will be applied on the next reboot",
+            args: {},
+            reply: Simple("SlotId"),
+            idempotent: true,
+            encoding: Hubpack
+        ),
+        "set_pending_boot_slot": (
+            doc: "Set the boot setting that will be applied on the next reboot",
+            args: {
+                "slot": "SlotId",
+            },
+            reply: Result (
+                ok: "()",
+                err: CLike("drv_update_api::UpdateError"),
+            ),
+            encoding: Hubpack
+        ),
+
     },
 )

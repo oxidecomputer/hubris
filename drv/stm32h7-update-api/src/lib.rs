@@ -5,7 +5,9 @@
 #![no_std]
 
 use drv_caboose::CabooseError;
-use userlib::sys_send;
+use hubpack::SerializedSize;
+use serde::{Deserialize, Serialize};
+use userlib::{sys_send, FromPrimitive};
 
 pub use stage0_handoff::ImageVersion;
 
@@ -25,5 +27,36 @@ pub const FLASH_WORDS_PER_BLOCK: usize = 32;
 pub const BLOCK_SIZE_BYTES: usize = FLASH_WORD_BYTES * FLASH_WORDS_PER_BLOCK;
 
 pub const BLOCK_SIZE_WORDS: usize = BLOCK_SIZE_BYTES / 4;
+
+#[derive(
+    Clone,
+    Copy,
+    Eq,
+    PartialEq,
+    FromPrimitive,
+    Serialize,
+    Deserialize,
+    SerializedSize,
+)]
+pub enum SlotId {
+    Active = 0,
+    Inactive = 1,
+}
+
+impl TryFrom<u16> for SlotId {
+    type Error = ();
+    fn try_from(i: u16) -> Result<Self, Self::Error> {
+        Self::from_u16(i).ok_or(())
+    }
+}
+
+impl From<SlotId> for u16 {
+    fn from(id: SlotId) -> u16 {
+        match id {
+            SlotId::Active => 0,
+            SlotId::Inactive => 1,
+        }
+    }
+}
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
