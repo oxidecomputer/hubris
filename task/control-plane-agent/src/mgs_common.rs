@@ -179,6 +179,7 @@ impl MgsCommon {
         match component {
             SpComponent::SP_ITSELF => match slot {
                 0 => {
+                    // Active running slot
                     let reader = drv_caboose_pos::CABOOSE_POS
                         .as_slice()
                         .map(CabooseReader::new)
@@ -193,6 +194,7 @@ impl MgsCommon {
                     }
                 }
                 1 => {
+                    // Inactive slot
                     let len = self
                         .update_sp
                         .read_caboose_value(key, buf)
@@ -336,6 +338,9 @@ impl MgsCommon {
         component: SpComponent,
     ) -> Result<u16, GwSpError> {
         match component {
+            SpComponent::SP_ITSELF => {
+                Ok(self.update_sp.get_pending_boot_slot().into())
+            }
             SpComponent::ROT => {
                 let slot = match self.sprot.rot_boot_info()?.active {
                     SpSlotId::A => 0,
@@ -386,12 +391,19 @@ impl MgsCommon {
                 Ok(())
             }
 
-            // SpComponent::SP_ITSELF:
-            // update_server for SP needs to decouple finish_update()
-            // from swap_banks() for SwitchDuration::Forever to make sense.
-            // There isn't currently a mechanism implemented for SP that
-            // enables SwitchDuration::Once.
-            //
+            SpComponent::SP_ITSELF => {
+                let slot = slot
+                    .try_into()
+                    .map_err(|()| GwSpError::RequestUnsupportedForComponent)?;
+                if !persist {
+                    // We have no mechanism to temporarily swap the banks on the SP
+                    return Err(GwSpError::RequestUnsupportedForComponent);
+                };
+                self.update_sp
+                    .set_pending_boot_slot(slot)
+                    .map_err(|err| GwSpError::UpdateFailed(err as u32))?;
+                Ok(())
+            }
             // Other components might also be served someday.
             _ => Err(GwSpError::RequestUnsupportedForComponent),
         }

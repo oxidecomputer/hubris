@@ -60,7 +60,7 @@ use crate::update::ComponentUpdater;
 use cfg_if::cfg_if;
 use core::ops::{Deref, DerefMut};
 use drv_caboose::CabooseReader;
-use drv_stm32h7_update_api::{Update, BLOCK_SIZE_BYTES};
+use drv_stm32h7_update_api::{SlotId, Update, BLOCK_SIZE_BYTES};
 use drv_update_api::UpdateError;
 use gateway_messages::{
     ImageVersion, SpComponent, SpError, SpUpdatePrepare, UpdateId,
@@ -536,7 +536,17 @@ impl AcceptingData {
             if let Ok(n) = sp_task.read_caboose_value(BOARD_KEY, &mut other) {
                 if ours.map(|b| b == &other[..n as usize]).unwrap_or(true) {
                     match sp_task.finish_image_update() {
-                        Ok(()) => (State::Complete, Ok(())),
+                        Ok(()) => {
+                            match sp_task
+                                .set_pending_boot_slot(SlotId::Inactive)
+                            {
+                                Ok(()) => (State::Complete, Ok(())),
+                                Err(err) => (
+                                    State::Failed(err),
+                                    Err(SpError::UpdateFailed(err as u32)),
+                                ),
+                            }
+                        }
                         Err(err) => (
                             State::Failed(err),
                             Err(SpError::UpdateFailed(err as u32)),
