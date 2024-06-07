@@ -52,6 +52,8 @@ enum Trace {
     None,
     State(UpdateState),
     Prep(RotComponent, SlotId),
+    Begin{now: u32},
+    End{now: u32},
 }
 
 ringbuf!(Trace, 16, Trace::None);
@@ -114,13 +116,16 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         msg: &RecvMessage,
         image_type: UpdateTarget,
     ) -> Result<(), RequestError<UpdateError>> {
+        ringbuf_entry!(Trace::Begin{now: sys_get_timer().now as u32});
         let (component, slot) = match image_type {
             UpdateTarget::ImageA => (RotComponent::Hubris, SlotId::A),
             UpdateTarget::ImageB => (RotComponent::Hubris, SlotId::B),
             UpdateTarget::Bootloader => (RotComponent::Stage0, SlotId::B),
             _ => return Err(UpdateError::InvalidSlotIdForOperation.into()),
         };
-        self.component_prep_image_update(msg, component, slot)
+        let r = self.component_prep_image_update(msg, component, slot);
+        ringbuf_entry!(Trace::End{now: sys_get_timer().now as u32});
+        r
     }
 
     fn abort_update(
@@ -218,6 +223,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         &mut self,
         _: &RecvMessage,
     ) -> Result<(), RequestError<UpdateError>> {
+        ringbuf_entry!(Trace::Begin{now: sys_get_timer().now as u32});
         ringbuf_entry!(Trace::State(self.state));
         match self.state {
             UpdateState::NoUpdate => {
@@ -259,6 +265,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         self.state = UpdateState::Finished;
         ringbuf_entry!(Trace::State(self.state));
         self.image = None;
+        ringbuf_entry!(Trace::End{now: sys_get_timer().now as u32});
         Ok(())
     }
 
@@ -482,6 +489,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         component: RotComponent,
         slot: SlotId,
     ) -> Result<(), RequestError<UpdateError>> {
+        ringbuf_entry!(Trace::Begin{now: sys_get_timer().now as u32});
         // The LPC55 doesn't have an easily accessible mass erase mechanism
         // so this is just bookkeeping
         ringbuf_entry!(Trace::State(self.state));
@@ -503,6 +511,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         ringbuf_entry!(Trace::State(self.state));
         self.next_block = None;
         self.fw_cache.fill(0);
+        ringbuf_entry!(Trace::End{now: sys_get_timer().now as u32});
         Ok(())
     }
 
@@ -513,7 +522,8 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         slot: SlotId,
         duration: SwitchDuration,
     ) -> Result<(), RequestError<UpdateError>> {
-        match component {
+        ringbuf_entry!(Trace::Begin{now: sys_get_timer().now as u32});
+        let r = match component {
             RotComponent::Hubris => {
                 self.switch_default_hubris_image(slot, duration)
             }
@@ -527,7 +537,9 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
                     SlotId::B => self.switch_default_boot_image(duration),
                 }
             }
-        }
+        };
+        ringbuf_entry!(Trace::End{now: sys_get_timer().now as u32});
+        r
     }
 }
 
