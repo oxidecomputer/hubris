@@ -12,7 +12,8 @@
 use core::convert::Infallible;
 use drv_caboose::{CabooseError, CabooseReader};
 use drv_stm32h7_update_api::{
-    ImageVersion, BLOCK_SIZE_BYTES, FLASH_WORDS_PER_BLOCK, FLASH_WORD_BYTES,
+    ImageVersion, SlotId, BLOCK_SIZE_BYTES, FLASH_WORDS_PER_BLOCK,
+    FLASH_WORD_BYTES,
 };
 use drv_update_api::UpdateError;
 use idol_runtime::{
@@ -67,12 +68,14 @@ ringbuf!(Trace, 64, Trace::None);
 struct ServerImpl<'a> {
     flash: &'a device::flash::RegisterBlock,
     state: UpdateState,
+    pending: SlotId,
 }
 
 impl<'a> ServerImpl<'a> {
     // See RM0433 Rev 7 section 4.3.13
     fn swap_banks(&mut self) -> Result<(), RequestError<UpdateError>> {
         ringbuf_entry!(Trace::FinishStart);
+        self.unlock();
         if self.flash.optsr_cur().read().swap_bank_opt().bit() {
             self.flash
                 .optsr_prg()
@@ -91,6 +94,10 @@ impl<'a> ServerImpl<'a> {
             }
         }
 
+        self.pending = match self.pending {
+            SlotId::Active => SlotId::Inactive,
+            SlotId::Inactive => SlotId::Active,
+        };
         ringbuf_entry!(Trace::FinishEnd);
         Ok(())
     }
@@ -279,6 +286,24 @@ impl<'a> ServerImpl<'a> {
 }
 
 impl idl::InOrderUpdateImpl for ServerImpl<'_> {
+    fn set_pending_boot_slot(
+        &mut self,
+        _: &RecvMessage,
+        slot: SlotId,
+    ) -> Result<(), RequestError<UpdateError>> {
+        if slot != self.pending {
+            self.swap_banks()?;
+        }
+        Ok(())
+    }
+
+    fn get_pending_boot_slot(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<SlotId, RequestError<Infallible>> {
+        Ok(self.pending)
+    }
+
     fn prep_image_update(
         &mut self,
         _: &RecvMessage,
@@ -380,7 +405,6 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
             UpdateState::InProgress => (),
         }
 
-        self.swap_banks()?;
         self.state = UpdateState::Finished;
         Ok(())
     }
@@ -519,9 +543,24 @@ impl NotificationHandler for ServerImpl<'_> {
 fn main() -> ! {
     let flash = unsafe { &*device::FLASH::ptr() };
 
+    // If the server restarts we need to fix our pending state
+    // `FLASH_OPTCR` always has our current bank swap bit while
+    // `FLASH_OPTSR_CUR` has the result after we have programmed.
+    // If they are the same this means we will be booking into the
+    // active slot. If they differ, we will be booting into the
+    // alternate slot.
+    let pending = if flash.optsr_cur().read().swap_bank_opt().bit()
+        == flash.optcr().read().swap_bank().bit()
+    {
+        SlotId::Active
+    } else {
+        SlotId::Inactive
+    };
+
     let mut server = ServerImpl {
         flash,
         state: UpdateState::NoUpdate,
+        pending,
     };
     let mut incoming = [0u8; idl::INCOMING_SIZE];
 
@@ -532,7 +571,7 @@ fn main() -> ! {
 
 include!(concat!(env!("OUT_DIR"), "/consts.rs"));
 mod idl {
-    use super::{CabooseError, ImageVersion};
+    use super::{CabooseError, ImageVersion, SlotId};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

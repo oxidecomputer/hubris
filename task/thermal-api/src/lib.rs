@@ -26,6 +26,7 @@ pub enum ThermalError {
     InvalidWatchdogTime = 7,
     InvalidParameter = 8,
     InvalidIndex = 9,
+    FanControllerUninitialized = 10,
 
     #[idol(server_death)]
     ServerDeath,

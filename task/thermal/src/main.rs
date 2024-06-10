@@ -70,13 +70,18 @@ enum Trace {
     Start,
     ThermalMode(#[count(children)] ThermalMode),
     AutoState(#[count(children)] ThermalAutoState),
-    FanReadFailed(SensorId, ResponseCode),
+    FanReadFailed(SensorId, SensorReadError),
     MiscReadFailed(SensorId, SensorReadError),
     SensorReadFailed(SensorId, SensorReadError),
     ControlPwm(u8),
     PowerModeChanged(PowerBitmask),
     PowerDownFailed(SeqError),
     ControlError(#[count(children)] ThermalError),
+    FanControllerInitialized,
+    FanControllerInitError(#[count(children)] ResponseCode),
+    FanControllerInitRetry {
+        remaining: usize,
+    },
     FanPresenceUpdateFailed(SeqError),
     FanAdded(Fan),
     FanRemoved(Fan),
@@ -131,7 +136,7 @@ impl<'a> ServerImpl<'a> {
         ringbuf_entry!(Trace::ThermalMode(m));
     }
 
-    fn set_watchdog(&self, wd: I2cWatchdog) -> Result<(), ThermalError> {
+    fn set_watchdog(&mut self, wd: I2cWatchdog) -> Result<(), ThermalError> {
         self.control
             .set_watchdog(wd)
             .map_err(|_| ThermalError::DeviceError)
@@ -344,8 +349,8 @@ fn main() -> ! {
 
     ringbuf_entry!(Trace::Start);
 
-    let bsp = Bsp::new(i2c_task);
-    let control = ThermalControl::new(&bsp, i2c_task, sensor_api);
+    let mut bsp = Bsp::new(i2c_task);
+    let control = ThermalControl::new(&mut bsp, i2c_task, sensor_api);
 
     // This will put our timer in the past, and should immediately kick us.
     let deadline = sys_get_timer().now;
