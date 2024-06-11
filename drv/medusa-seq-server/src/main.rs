@@ -74,7 +74,7 @@ impl ServerImpl {
         // Enale the V12_QSFP_OUT rail
         self.power_control.v12_qsfp_out.set_enable(true);
 
-        // Wait a bit for it to ramp and then check that we can that it is happy
+        // Wait a bit for it to ramp and then check that it is happy.
         // The EN->PG time for this part was experimentally determined to be
         // 35ms, so we roughly double that.
         userlib::hl::sleep_for(75);
@@ -83,8 +83,6 @@ impl ServerImpl {
         if !self.power_control.v12_qsfp_out.check_power_good() {
             return Err(MedusaError::FrontIOBoardPowerFault);
         }
-
-        userlib::hl::sleep_for(25);
 
         // Determine if a front IO board is present.
         Ok(FrontIOBoard::present(I2C.get_task_id()))
@@ -327,8 +325,9 @@ fn main() -> ! {
         Err(MedusaError::FrontIOBoardPowerFault) => {
             ringbuf_entry!(Trace::FrontIOBoardPowerFault)
         }
-        // Something went wrong getting the HSC status, eject.
-        Err(_) => panic!("unknown front IO board preinit failure"),
+        // `front_io_board_preinit` currently only returns a
+        // MedusaError::FrontIOBoardPowerFault
+        Err(_) => unreachable!(),
     }
 
     // The MGMT and PHY rails are enabled automatically by pullups, so we will

@@ -44,8 +44,7 @@ impl PowerRail {
     }
 
     /// Sets the enable pin for the power rail to HIGH if `enabled` is true or
-    /// LOW if it is false. If `enabled` is true, this function will also
-    /// monitor the power good signal for the supply.
+    /// LOW if it is false.
     pub fn set_enable(&self, enabled: bool) {
         let sys = Sys::from(SYS.get_task_id());
         sys.gpio_set_to(self.enable, enabled);
@@ -81,9 +80,7 @@ pub struct PowerControl {
 
 impl PowerControl {
     pub fn new() -> Self {
-        // Wait a bit for it to ramp and then check that we can that it is happy
-        // The EN->PG time for this part was experimentally determined to be
-        // 35ms, so we roughly double that.
+        // 12V HSC for the Front IO board
         let v12_qsfp_out = PowerRail::new(
             Port::J.pin(2),
             Port::J.pin(1),
@@ -132,7 +129,7 @@ impl PowerControl {
     }
 
     /// Returns true if all PHY power rails are good. If that is not the case,
-    /// disable all management rails and returns false.
+    /// disable all PHY rails and returns false.
     pub fn phy_power_check(&self) -> bool {
         let all_good = self.v1p0_phy.check_power_good()
             && self.v2p5_phy.check_power_good();
