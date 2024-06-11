@@ -58,6 +58,18 @@ port = "F"
 pin = 2
 owner = {name = "sprot", notification = "rot_irq"}
 
+[tasks.spi2_driver]
+name = "drv-stm32h7-spi-server"
+priority = 2
+max-sizes = {flash = 16384, ram = 4096}
+features = ["spi2", "h753"]
+uses = ["spi2"]
+start = true
+interrupts = {"spi2.irq" = "spi-irq"}
+stacksize = 872
+task-slots = ["sys"]
+notifications = ["spi-irq"]
+
 [tasks.i2c_driver]
 name = "drv-stm32xx-i2c-server"
 stacksize = 1048
@@ -143,22 +155,33 @@ uses = ["spi4"]
 notifications = ["spi-irq", "rot-irq", "timer"]
 interrupts = {"spi4.irq" = "spi-irq"}
 
+[tasks.auxflash]
+name = "drv-auxflash-server"
+priority = 3
+max-sizes = {flash = 32768, ram = 4096}
+features = ["h753"]
+uses = ["quadspi"]
+start = true
+notifications = ["qspi-irq"]
+interrupts = {"quadspi.irq" = "qspi-irq"}
+stacksize = 3504
+task-slots = ["sys"]
+
 [tasks.net]
 name = "task-net"
 stacksize = 8000
 priority = 3
-features = ["h753", "vlan", "grapefruit", "use-spi-core", "spi4"]
+features = ["h753", "vlan", "grapefruit"]
 max-sizes = {flash = 131072, ram = 65536, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
-uses = ["eth", "tim16", "spi4"]
+uses = ["eth", "tim16"]
 start = true
-task-slots = ["sys", "jefe"]
+task-slots = ["sys", "jefe", { spi_driver = "spi2_driver" }]
 notifications = ["eth-irq", "mdio-timer-irq", "spi-irq", "wake-timer"]
 
 [tasks.net.interrupts]
 "eth.irq" = "eth-irq"
 "tim16.irq" = "mdio-timer-irq"
-"spi4.irq" = "spi-irq"
 
 [tasks.udprpc]
 name = "task-udprpc"
@@ -302,3 +325,15 @@ input = {port = "E", pin = 5, af = 5}
 mux = "port_e"
 cs = [{port = "E", pin = 4}]
 clock_divider = "DIV256"
+
+################################################################################
+
+[config.auxflash]
+memory-size = 33_554_432 # 256 Mib / 32 MiB
+slot-count = 16 # 2 MiB slots
+
+[[auxflash.blobs]]
+# XXX Dummy bitstream for now
+file = "drv/gimlet-seq-server/fpga-b.bin"
+compress = true
+tag = "FPGA"
