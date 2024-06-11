@@ -336,6 +336,13 @@ impl<S: SpiServer, const ID: u16> WritableFram<'_, S, { ID }> {
     }
 }
 
+impl<S: SpiServer, const ID: u16> Drop for WritableFram<'_, S, { ID }> {
+    fn drop(&mut self) {
+        // Put the FRAM back the way we found it.
+        let _ = self.0.do_write_disable();
+    }
+}
+
 impl FramId {
     const MANUFACTURER_FUJITSU: u8 = 0x04;
 
@@ -363,13 +370,6 @@ impl FramId {
         };
 
         Ok(Self { mfg_id, product_id })
-    }
-}
-
-impl<S: SpiServer, const ID: u16> Drop for WritableFram<'_, S, { ID }> {
-    fn drop(&mut self) {
-        // Put the FRAM back the way we found it.
-        let _ = self.0.do_write_disable();
     }
 }
 
@@ -407,7 +407,7 @@ pub mod product_id {
     /// Returns the size in bytes of the FRAM chip, based on its product ID.
     pub(super) const fn size(product_id: u16) -> usize {
         // The first 5 bits of the product ID give the density of the FRAM chip
-        // in multiples of 2KiB.
+        // in powers of two kilobytes.
         //
         // For example, the 2kb MB85RS16 has the product ID 0x0101, so:
         //  0x01 & 0b0001_1111 = 1
@@ -423,6 +423,6 @@ pub mod product_id {
         const MASK: u8 = 0b0001_1111;
         let [hi, _] = u16::to_be_bytes(product_id);
         let density = hi & MASK;
-        2usize.pow(density as u32) * super::KIB
+        (1 << density as u32) * super::KIB
     }
 }

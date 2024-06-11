@@ -927,24 +927,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "drv-fram-api"
-version = "0.1.0"
-dependencies = [
- "build-util",
- "counters",
- "derive-idol-err",
- "drv-mb85rsxx-fram",
- "idol",
- "idol-runtime",
- "num-traits",
- "serde",
- "sha3",
- "tlvc",
- "userlib",
- "zerocopy 0.6.6",
-]
-
-[[package]]
 name = "drv-gimlet-hf-api"
 version = "0.1.0"
 dependencies = [
@@ -1393,7 +1375,6 @@ dependencies = [
  "bitflags 2.5.0",
  "counters",
  "drv-spi-api",
- "ringbuf",
 ]
 
 [[package]]
