@@ -1,0 +1,12 @@
+**/*.rs.bk
+.#*
+.gdb_history
+target/
+
+# editor files
+.vscode/*
+!.vscode/*.md
+!.vscode/*.svd
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/extensions.json
