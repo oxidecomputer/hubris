@@ -121,7 +121,8 @@ cfg_if::cfg_if! {
             target_board = "psc-a",
             target_board = "psc-b",
             target_board = "psc-c",
-            target_board = "gemini-bu-1"
+            target_board = "gemini-bu-1",
+            target_board = "grapefruit",
             ))] {
         const ROT_SPI_DEVICE: u8 = drv_spi_api::devices::ROT;
         fn debug_config(_sys: &sys_api::Sys) { }

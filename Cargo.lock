@@ -2491,6 +2491,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "grapefruit"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if",
+ "cortex-m",
+ "cortex-m-rt",
+ "drv-stm32h7-startup",
+ "kern",
+ "stm32h7",
+]
+
+[[package]]
 name = "hash32"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
