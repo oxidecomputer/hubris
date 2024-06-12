@@ -2,7 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use build_fpga_regmap::fpga_regs;
 use std::{fs, io::Write};
 
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -11,12 +10,6 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let out_dir = build_util::out_dir();
     let out_file = out_dir.join("grapefruit_fpga.rs");
     let mut file = fs::File::create(out_file)?;
-    // TODO use the actual FPGA regs
-    write!(
-        &mut file,
-        "{}",
-        fpga_regs(include_str!("grapefruit-regs.json"))?,
-    )?;
 
     // Check that a valid bitstream is available for this board.
     let board = build_util::env_var("HUBRIS_BOARD")?;

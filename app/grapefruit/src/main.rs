@@ -83,7 +83,7 @@ fn system_init() {
     assert_eq!(rev, expected_rev);
 
     // Do most of the setup with the common implementation.
-    let p = drv_stm32h7_startup::system_init_custom(
+    drv_stm32h7_startup::system_init_custom(
         cp,
         p,
         ClockConfig {
