@@ -10,6 +10,7 @@
 use drv_spi_api::{SpiDevice, SpiServer};
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};
+use sha3::{Digest, Sha3_256};
 use userlib::{hl, sys_recv_notification, task_slot, RecvMessage};
 
 use ringbuf::{counted_ringbuf, ringbuf_entry, Count};
@@ -17,22 +18,33 @@ use ringbuf::{counted_ringbuf, ringbuf_entry, Count};
 #[derive(Copy, Clone, PartialEq, Count)]
 enum Trace {
     Ice40Init(#[count(children)] bool),
-    StartFailed,
+    StartFailed(#[count(children)] SeqError),
+    ContinueBitstreamLoad(usize),
     Programmed,
     None,
+}
+
+#[derive(Copy, Clone, PartialEq, Count)]
+enum SeqError {
+    AuxMissingBlob,
+    AuxReadError(#[count(children)] drv_auxflash_api::AuxFlashError),
+    AuxChecksumMismatch,
+    SpiWrite(#[count(children)] drv_spi_api::SpiError),
 }
 
 counted_ringbuf!(Trace, 128, Trace::None);
 
 task_slot!(SYS, sys);
 task_slot!(SPI, spi);
+task_slot!(AUXFLASH, auxflash);
 
 #[export_name = "main"]
 fn main() -> ! {
     let sys = sys_api::Sys::from(SYS.get_task_id());
     let spi = drv_spi_api::Spi::from(SPI.get_task_id());
+    let aux = drv_auxflash_api::AuxFlash::from(AUXFLASH.get_task_id());
 
-    match ServerImpl::init(&sys, spi) {
+    match ServerImpl::init(&sys, spi, aux) {
         // Set up everything nicely, time to start serving incoming messages.
         Ok(mut server) => {
             let mut buffer = [0; idl::INCOMING_SIZE];
@@ -42,9 +54,9 @@ fn main() -> ! {
         }
 
         // Initializing the sequencer failed.
-        Err(_) => {
+        Err(e) => {
             // Tell everyone that something's broken, as loudly as possible.
-            ringbuf_entry!(Trace::StartFailed);
+            ringbuf_entry!(Trace::StartFailed(e));
             sys.gpio_set(FAULT_PIN_L);
 
             // All these moments will be lost in time, like tears in rain...
@@ -73,7 +85,11 @@ const FPGA_PROGRAM_L: sys_api::PinSet = sys_api::Port::B.pin(5);
 const FPGA_INIT_L: sys_api::PinSet = sys_api::Port::B.pin(6);
 
 impl<S: SpiServer + Clone> ServerImpl<S> {
-    fn init(sys: &sys_api::Sys, spi: S) -> Result<Self, drv_spi_api::SpiError> {
+    fn init(
+        sys: &sys_api::Sys,
+        spi: S,
+        aux: drv_auxflash_api::AuxFlash,
+    ) -> Result<Self, SeqError> {
         // Ensure the SP fault pin is configured as an open-drain output, and pull
         // it low to make the sequencer restart externally visible.
         sys.gpio_configure_output(
@@ -136,6 +152,60 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
         // Bind to the sequencer device on our SPI port
         let seq = spi.device(drv_spi_api::devices::FPGA);
 
+        // XXX does this already check the checksum?
+        let blob = aux
+            .get_blob_by_tag(*b"FPGA")
+            .map_err(|_| SeqError::AuxMissingBlob)?;
+
+        let mut scratch_buf = [0u8; 128];
+        let mut pos = blob.start;
+        let mut sha = Sha3_256::new();
+        let mut decompressor = gnarle::Decompressor::default();
+        while pos < blob.end {
+            let amount = (blob.end - pos).min(scratch_buf.len() as u32);
+            let chunk = &mut scratch_buf[0..(amount as usize)];
+            if let Err(e) = aux.read_slot_with_offset(blob.slot, pos, chunk) {
+                return Err(SeqError::AuxReadError(e));
+            }
+            sha.update(&chunk);
+            pos += amount;
+
+            // Reborrow as an immutable chunk, then decompress
+            let mut chunk = &scratch_buf[0..(amount as usize)];
+            let mut decompress_buffer = [0; 512];
+
+            while !chunk.is_empty() {
+                let decompressed_chunk = gnarle::decompress(
+                    &mut decompressor,
+                    &mut chunk,
+                    &mut decompress_buffer,
+                );
+
+                // The compressor may have encountered a partial run at the
+                // end of the `chunk`, in which case `decompressed_chunk`
+                // will be empty since more data is needed before output is
+                // generated.
+                if !decompressed_chunk.is_empty() {
+                    // TODO write the bitstream to the FPGA using SPI
+                    seq.write(&decompressed_chunk)
+                        .map_err(|e| SeqError::SpiWrite(e))?;
+                    ringbuf_entry!(Trace::ContinueBitstreamLoad(
+                        decompressed_chunk.len()
+                    ));
+                }
+            }
+        }
+
+        let sha_out: [u8; 32] = sha.finalize().into();
+        if sha_out != gen::FPGA_BITSTREAM_CHECKSUM {
+            // Reset the FPGA to clear the invalid bitstream
+            sys.gpio_reset(FPGA_PROGRAM_L);
+            hl::sleep_for(1);
+            sys.gpio_set(FPGA_PROGRAM_L);
+
+            return Err(SeqError::AuxChecksumMismatch);
+        }
+
         /////////////////////////////////////////////////////////////////////
 
         ringbuf_entry!(Trace::Programmed);
@@ -174,4 +244,8 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
 
 mod idl {
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
+}
+
+mod gen {
+    include!(concat!(env!("OUT_DIR"), "/grapefruit_fpga.rs"));
 }
