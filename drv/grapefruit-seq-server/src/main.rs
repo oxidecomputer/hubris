@@ -83,6 +83,7 @@ const FAULT_PIN_L: sys_api::PinSet = sys_api::Port::A.pin(15);
 
 const FPGA_PROGRAM_L: sys_api::PinSet = sys_api::Port::B.pin(5);
 const FPGA_INIT_L: sys_api::PinSet = sys_api::Port::B.pin(6);
+const FPGA_CONFIG_DONE: sys_api::PinSet = sys_api::Port::B.pin(4);
 
 impl<S: SpiServer + Clone> ServerImpl<S> {
     fn init(
@@ -102,12 +103,14 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
 
         // To allow for the possibility that we are restarting, rather than
         // starting, we take care during early sequencing to _not turn anything
-        // off,_ only on. This means if it was _already_ on, the outputs should not
-        // glitch.
+        // off,_ only on. This means if it was _already_ on, the outputs should
+        // not glitch.
 
         // To program the FPGA, we're using "slave serial" mode.
         //
-        // See "7 Series FPGAs Configuration", UG470 (v1.17) for details
+        // See "7 Series FPGAs Configuration", UG470 (v1.17) for details,
+        // as well as "Using a Microprocessor to Configure Xilinx 7 Series FPGAs
+        // via Slave Serial or Slave SelectMAP Mode Application Note" (XAPP583)
 
         // Configure the PROGRAM_B line to the FPGA
         sys.gpio_set(FPGA_PROGRAM_L);
@@ -152,11 +155,12 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
         // Bind to the sequencer device on our SPI port
         let seq = spi.device(drv_spi_api::devices::FPGA);
 
-        // XXX does this already check the checksum?
+        // TODO do we need to send the bus width / synchronization word / device
+        // ID ourselves, or are they built into the image?
+
         let blob = aux
             .get_blob_by_tag(*b"FPGA")
             .map_err(|_| SeqError::AuxMissingBlob)?;
-
         let mut scratch_buf = [0u8; 128];
         let mut pos = blob.start;
         let mut sha = Sha3_256::new();
@@ -186,7 +190,7 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
                 // will be empty since more data is needed before output is
                 // generated.
                 if !decompressed_chunk.is_empty() {
-                    // TODO write the bitstream to the FPGA using SPI
+                    // Write the decompressed bitstream to the FPGA over SPI
                     seq.write(&decompressed_chunk)
                         .map_err(|e| SeqError::SpiWrite(e))?;
                     ringbuf_entry!(Trace::ContinueBitstreamLoad(
