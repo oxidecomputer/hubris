@@ -9,8 +9,9 @@
 #![no_std]
 #![no_main]
 
+use crate::images::{validate_header_block, ImageVectorsLpc55};
 use core::convert::Infallible;
-use core::mem::MaybeUninit;
+use core::mem::{size_of, MaybeUninit};
 use core::ops::Range;
 use drv_lpc55_flash::{BYTES_PER_FLASH_PAGE, BYTES_PER_FLASH_WORD};
 use drv_lpc55_update_api::{
@@ -28,13 +29,18 @@ use stage0_handoff::{
     RotBootStateV2,
 };
 use userlib::*;
-use zerocopy::{AsBytes, FromBytes};
+use zerocopy::AsBytes;
 
 mod images;
-use crate::images::*;
+use crate::images::{
+    caboose_slice, flash_range, is_current_hubris_image, ImageAccess,
+    HEADER_BLOCK,
+};
 
-const U32_SIZE: u32 = core::mem::size_of::<u32>() as u32;
 const PAGE_SIZE: u32 = BYTES_PER_FLASH_PAGE as u32;
+
+const SIZEOF_U32: usize = size_of::<u32>();
+const U32_SIZE: u32 = SIZEOF_U32 as u32;
 
 #[used]
 #[link_section = ".bootstate"]
@@ -56,7 +62,7 @@ enum Trace {
 
 ringbuf!(Trace, 16, Trace::None);
 
-/// FW_CACHE_MAX accomodates the largest production
+/// FW_CACHE_MAX accommodates the largest production
 /// bootloader image while allowing some room for growth.
 ///
 /// NOTE: The erase/flash of stage0 can be interrupted by a power failure or
@@ -88,7 +94,7 @@ struct ServerImpl<'a> {
     // Used to enforce sequential writes from the control plane.
     next_block: Option<usize>,
     // Keep the fw cache 32-bit aligned to make NXP header access easier.
-    fw_cache: &'a mut [u32; FW_CACHE_MAX / core::mem::size_of::<u32>()],
+    fw_cache: &'a mut [u32; FW_CACHE_MAX / SIZEOF_U32],
 }
 
 const BLOCK_SIZE_BYTES: usize = BYTES_PER_FLASH_PAGE;
@@ -175,7 +181,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
             return Err(UpdateError::BadLength.into());
         }
 
-        // Match the behvaior of the CMSIS flash driver where erased bytes are
+        // Match the behavior of the CMSIS flash driver where erased bytes are
         // read as 0xff so the image is padded with 0xff
         const ERASE_BYTE: u8 = 0xff;
         let mut flash_page = [ERASE_BYTE; BLOCK_SIZE_BYTES];
@@ -188,8 +194,9 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
                 .read_range(0..len, &mut header_block[..])
                 .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
             header_block[len..].fill(ERASE_BYTE);
-            if let Err(e) = validate_header_block(component, slot, header_block)
-            {
+            let next_image =
+                ImageAccess::new_ram(header_block, component, slot);
+            if let Err(e) = validate_header_block(&next_image) {
                 self.header_block = None;
                 return Err(e.into());
             }
@@ -253,7 +260,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         // Now erase the unused portion of the flash slot so that
         // flash slot has predictable contents and the FWID for it
         // has some meaning.
-        let range = image_range(component, slot).0;
+        let range = &flash_range(component, slot).stored;
         let erase_start = range.start + (endblock as u32 * PAGE_SIZE);
         self.flash_erase_range(erase_start..range.end)?;
         self.state = UpdateState::Finished;
@@ -270,7 +277,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
     }
 
     // TODO(AJS): Remove this in favor of `status`, once SP code is updated.
-    // This has ripple effects up thorugh control-plane-agent.
+    // This has ripple effects up through control-plane-agent.
     fn current_version(
         &mut self,
         _: &RecvMessage,
@@ -368,30 +375,26 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
 
     fn read_raw_caboose(
         &mut self,
-        _msg: &RecvMessage,
+        msg: &RecvMessage,
         slot: SlotId,
         offset: u32,
         data: Leased<idol_runtime::W, [u8]>,
     ) -> Result<(), RequestError<RawCabooseError>> {
-        let caboose = caboose_slice(&self.flash, RotComponent::Hubris, slot)?;
-        if offset as usize + data.len() > caboose.len() {
-            return Err(RawCabooseError::InvalidRead.into());
-        }
-        copy_from_caboose_chunk(
-            &self.flash,
-            caboose,
-            offset..offset + data.len() as u32,
+        self.component_read_raw_caboose(
+            msg,
+            RotComponent::Hubris,
+            slot,
+            offset,
             data,
         )
     }
 
     fn caboose_size(
         &mut self,
-        _: &RecvMessage,
+        msg: &RecvMessage,
         slot: SlotId,
     ) -> Result<u32, RequestError<RawCabooseError>> {
-        let caboose = caboose_slice(&self.flash, RotComponent::Hubris, slot)?;
-        Ok(caboose.end - caboose.start)
+        self.component_caboose_size(msg, RotComponent::Hubris, slot)
     }
 
     fn switch_default_image(
@@ -452,8 +455,13 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         component: RotComponent,
         slot: SlotId,
     ) -> Result<u32, idol_runtime::RequestError<RawCabooseError>> {
-        let caboose = caboose_slice(&self.flash, component, slot)?;
-        Ok(caboose.end - caboose.start)
+        let image = ImageAccess::new_flash(&self.flash, component, slot);
+        let caboose = caboose_slice(&image)?;
+        if let Some(caboose_len) = caboose.end.checked_sub(caboose.start) {
+            Ok(caboose_len)
+        } else {
+            Err(RawCabooseError::MissingCaboose.into())
+        }
     }
 
     fn component_read_raw_caboose(
@@ -464,12 +472,16 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         offset: u32,
         data: Leased<idol_runtime::W, [u8]>,
     ) -> Result<(), idol_runtime::RequestError<RawCabooseError>> {
-        let caboose = caboose_slice(&self.flash, component, slot)?;
-        if offset as usize + data.len() > caboose.len() {
+        let image = ImageAccess::new_flash(&self.flash, component, slot);
+        let caboose = caboose_slice(&image)?;
+        let Some(caboose_len) = caboose.end.checked_sub(caboose.start) else {
+            return Err(RawCabooseError::MissingCaboose.into());
+        };
+        if offset as usize + data.len() > (caboose_len as usize) {
             return Err(RawCabooseError::InvalidRead.into());
         }
-        copy_from_caboose_chunk(
-            &self.flash,
+        copy_from_caboose_chunk_to_lease(
+            &image,
             caboose,
             offset..offset + data.len() as u32,
             data,
@@ -679,7 +691,7 @@ impl ServerImpl<'_> {
         // through 3) to ensure that RoT image signatures are valid before any
         // system continues to step 4.
         //
-        // TBD: While Failures up to step 3 do not adversly affect the RoT,
+        // TBD: While Failures up to step 3 do not adversely affect the RoT,
         // resetting the RoT to evaluate signatures may be service affecting
         // to the system depending on how the RoT and SP interact with respect
         // to their reset handling and the RoT measurement of the SP.
@@ -690,14 +702,13 @@ impl ServerImpl<'_> {
         // updating stage0next to the original stage0 contents that were
         // validated reset and then copying those to stage0.
         //
-        // It is assumed that a hash collision is not computaionally feasible
+        // It is assumed that a hash collision is not computationally feasible
         // for either the image hash done by rot-startup or used by the ROM
         // signature routine.
 
         // Read stage0next contents into RAM.
-        let staged = image_range(RotComponent::Stage0, SlotId::B);
-        let len = self.read_flash_image_to_cache(staged.0)?;
-        let bootloader = &self.fw_cache[..len / core::mem::size_of::<u32>()];
+        let len = self.read_stage0next_to_cache()?;
+        let bootloader = &self.fw_cache[..len / SIZEOF_U32];
 
         let mut hash = Sha3_256::new();
         for page in bootloader.as_bytes().chunks(512) {
@@ -722,12 +733,9 @@ impl ServerImpl<'_> {
         };
 
         // Don't risk an update if the cache already matches the bootloader.
-        let stage0 = image_range(RotComponent::Stage0, SlotId::A);
-        match self.compare_cache_to_flash(&stage0.0) {
+        match self.compare_cache_to_stage0() {
             Err(UpdateError::ImageMismatch) => {
-                if let Err(e) =
-                    self.write_cache_to_flash(RotComponent::Stage0, SlotId::A)
-                {
+                if let Err(e) = self.write_cache_to_stage0() {
                     // N.B. An error here is bad since it means we've likely
                     // bricked the machine if we reset now.
                     // We do not want the RoT reset.
@@ -757,8 +765,10 @@ impl ServerImpl<'_> {
         // Finish by erasing the unused portion of flash bank.
         // An error here means that the stage0 slot may not be clean but at least
         // it has the intended bootloader written.
-        let erase_start = stage0.0.start.checked_add(len as u32).unwrap_lite();
-        self.flash_erase_range(erase_start..stage0.0.end)?;
+        let stage0 = &flash_range(RotComponent::Stage0, SlotId::A).stored;
+        if let Some(erase_start) = stage0.start.checked_add(len as u32) {
+            self.flash_erase_range(erase_start..stage0.end)?;
+        }
         Ok(())
     }
 
@@ -781,105 +791,91 @@ impl ServerImpl<'_> {
         }
     }
 
-    fn compare_cache_to_flash(
-        &self,
-        span: &Range<u32>,
-    ) -> Result<(), UpdateError> {
-        // Is there a cached image?
-        // no, return error
-
+    fn compare_cache_to_stage0(&self) -> Result<(), UpdateError> {
         // Lengths are rounded up to a flash page boundary.
-        let clen = self.cache_image_len()?;
-        let flen = self.flash_image_len(span)?;
-        if clen != flen {
-            return Err(UpdateError::ImageMismatch);
-        }
-        // compare flash page to cache
-        let cached =
-            self.fw_cache[0..flen / core::mem::size_of::<u32>()].as_bytes();
-        let mut flash_page = [0u8; BYTES_PER_FLASH_PAGE];
-        for addr in (0..flen).step_by(BYTES_PER_FLASH_PAGE) {
-            let size = if addr + BYTES_PER_FLASH_PAGE > flen {
-                flen - addr
-            } else {
-                BYTES_PER_FLASH_PAGE
-            };
+        let clen = self.cached_stage0_image_len()?;
 
-            indirect_flash_read(
-                &self.flash,
-                addr as u32,
-                &mut flash_page[..size],
-            )?;
-            if flash_page[0..size] != cached[addr..addr + size] {
+        let stage0 = ImageAccess::new_flash(
+            &self.flash,
+            RotComponent::Stage0,
+            SlotId::A,
+        );
+        if let Ok(stage0_len) = stage0.padded_image_len() {
+            if clen != stage0_len as usize {
+                // Different sizes cannot match.
+                // Ok to update if signature on stage0next is good.
+                return Err(UpdateError::ImageMismatch);
+            }
+        } else {
+            // We can't get a length for stage0.
+            // Perhaps it has been corrupted by an earlier update attempt
+            // and we're desperately trying to fix it by writing a good stage0
+            // image.
+            // Ok to update if signature on stage0next is good.
+            return Err(UpdateError::ImageMismatch);
+        };
+        // compare flash page to cache
+        let cached = self.fw_cache[0..clen / SIZEOF_U32].as_bytes();
+        let mut flash_page = [0u8; BYTES_PER_FLASH_PAGE];
+        for addr in (0u32..(clen as u32)).step_by(BYTES_PER_FLASH_PAGE) {
+            // If we encounter an unreadable page in stage0 then
+            // ok to update if signature on stage0next later tests ok.
+            stage0
+                .read_bytes(addr, flash_page.as_bytes_mut())
+                .map_err(|_| UpdateError::ImageMismatch)?;
+            let Some(end) = (addr as usize).checked_add(BYTES_PER_FLASH_PAGE)
+            else {
+                return Err(UpdateError::ImageMismatch);
+            };
+            if flash_page != cached[(addr as usize)..end] {
                 return Err(UpdateError::ImageMismatch);
             }
         }
+        // Images already match, don't wear out flash more than necessary.
         Ok(())
     }
 
-    // Looking at a region of flash, determine if there is a possible NXP
-    // image programmed. Return the length in bytes of the flash pages
-    // comprising the image including padding to fill to a page boundary.
-    fn flash_image_len(&self, span: &Range<u32>) -> Result<usize, UpdateError> {
-        let buf = &mut [0u32; 1];
-        indirect_flash_read(
-            &self.flash,
-            span.start + LENGTH_OFFSET as u32,
-            buf[..].as_bytes_mut(),
-        )?;
-        if let Some(len) = round_up_to_flash_page(buf[0]) {
-            // The minimum image size should be further constrained
-            // but this is enough bytes for an NXP header and not
-            // bigger than the flash slot.
-            if len as usize <= span.len() && len >= HEADER_OFFSET {
-                return Ok(len as usize);
+    fn cached_stage0_image_len(&self) -> Result<usize, UpdateError> {
+        if let Ok(vectors) = ImageVectorsLpc55::try_from(
+            self.fw_cache[0..BLOCK_SIZE_BYTES].as_bytes(),
+        ) {
+            // Get the length of the image iff it fits in its ultimate destination.
+            let exec_range =
+                &flash_range(RotComponent::Stage0, SlotId::A).at_runtime;
+            if let Some(image) = vectors.padded_image_range(exec_range) {
+                return Ok(image.len());
             }
         }
         Err(UpdateError::BadLength)
     }
 
-    fn cache_image_len(&self) -> Result<usize, UpdateError> {
-        let len = round_up_to_flash_page(
-            self.fw_cache[LENGTH_OFFSET / core::mem::size_of::<u32>()],
-        )
-        .ok_or(UpdateError::BadLength)?;
-
-        if len as usize > self.fw_cache.as_bytes().len() || len < HEADER_OFFSET
-        {
-            return Err(UpdateError::BadLength);
-        }
-        Ok(len as usize)
-    }
-
-    fn read_flash_image_to_cache(
-        &mut self,
-        span: Range<u32>,
-    ) -> Result<usize, UpdateError> {
-        // Returns error if flash page is erased.
-        let staged = image_range(RotComponent::Stage0, SlotId::B);
-        let len = self.flash_image_len(&staged.0)?;
-        if len as u32 > span.end || len > self.fw_cache.as_bytes().len() {
-            return Err(UpdateError::BadLength);
-        }
-        indirect_flash_read(
+    // Note: The only use case is to read stage0next into RAM.
+    fn read_stage0next_to_cache(&mut self) -> Result<usize, UpdateError> {
+        let stage0next = ImageAccess::new_flash(
             &self.flash,
-            span.start,
-            self.fw_cache[0..len / core::mem::size_of::<u32>()].as_bytes_mut(),
-        )?;
+            RotComponent::Stage0,
+            SlotId::B,
+        );
+        let len = stage0next.padded_image_len()? as usize;
+        if len > self.fw_cache.as_bytes().len() {
+            // This stage0 image is too big for our buffer.
+            return Err(UpdateError::BadLength);
+        }
+        stage0next
+            .read_bytes(0, self.fw_cache.as_bytes_mut()[0..len].as_mut())?;
         Ok(len)
     }
 
-    fn write_cache_to_flash(
-        &mut self,
-        component: RotComponent,
-        slot: SlotId,
-    ) -> Result<(), UpdateError> {
-        let clen = self.cache_image_len()?;
+    fn write_cache_to_stage0(&mut self) -> Result<(), UpdateError> {
+        let clen = self.cached_stage0_image_len()?;
         if clen % BYTES_PER_FLASH_PAGE != 0 {
             return Err(UpdateError::BadLength);
         }
-        let span = image_range(component, slot).0;
-        if span.end < span.start + clen as u32 {
+        let span = &flash_range(RotComponent::Stage0, SlotId::A);
+        let Some(end) = span.stored.start.checked_add(clen as u32) else {
+            return Err(UpdateError::BadLength);
+        };
+        if span.stored.end < end {
             return Err(UpdateError::BadLength);
         }
         // Sanity check could be repeated here.
@@ -891,8 +887,8 @@ impl ServerImpl<'_> {
             let flash_page = block.try_into().unwrap_lite();
             do_block_write(
                 &mut self.flash,
-                component,
-                slot,
+                RotComponent::Stage0,
+                SlotId::A,
                 block_num,
                 flash_page,
             )?;
@@ -1158,7 +1154,7 @@ fn do_block_write(
     let page_num = block_num as u32;
 
     // Can only update opposite image
-    if same_image(component, slot) {
+    if is_current_hubris_image(component, slot) {
         return Err(UpdateError::RunningImage);
     }
 
@@ -1188,7 +1184,7 @@ fn target_addr(
     slot: SlotId,
     page_num: u32,
 ) -> Option<u32> {
-    let range = image_range(component, slot).0;
+    let range = &flash_range(component, slot).stored;
 
     // This is safely calculating addr = base + page_num * PAGE_SIZE
     let addr = page_num
@@ -1203,81 +1199,8 @@ fn target_addr(
     Some(addr)
 }
 
-/// Finds the memory range which contains the caboose for the given slot
-///
-/// This implementation has similar logic to the one in `stm32h7-update-server`,
-/// but uses indirect reads instead of mapping the alternate bank into flash.
-fn caboose_slice(
-    flash: &drv_lpc55_flash::Flash<'_>,
-    component: RotComponent,
-    slot: SlotId,
-) -> Result<core::ops::Range<u32>, RawCabooseError> {
-    let flash_range = image_range(component, slot).0;
-
-    // If all is going according to plan, there will be a valid Hubris image
-    // flashed into the other slot, delimited by `__IMAGE_A/B_BASE` and
-    // `__IMAGE_A/B_END` (which are symbols injected by the linker).
-    //
-    // We'll first want to read the image header, which is at a fixed
-    // location at the end of the vector table.  The length of the vector
-    // table is fixed in hardware, so this should never change.
-    const HEADER_OFFSET: u32 = 0x130;
-    let mut header = ImageHeader::new_zeroed();
-
-    indirect_flash_read(
-        flash,
-        flash_range.start + HEADER_OFFSET,
-        header.as_bytes_mut(),
-    )
-    .map_err(|_| RawCabooseError::ReadFailed)?;
-    if header.magic != HEADER_MAGIC {
-        return Err(RawCabooseError::NoImageHeader);
-    }
-
-    // Calculate where the image header implies that the image should end
-    //
-    // This is a one-past-the-end value.
-    let image_end = flash_range.start + header.total_image_len;
-
-    // Then, check that value against the BANK2 bounds.
-    //
-    // Safety: populated by the linker, so this should be valid
-    if image_end > flash_range.end {
-        return Err(RawCabooseError::MissingCaboose);
-    }
-
-    // By construction, the last word of the caboose is its size as a `u32`
-    let mut caboose_size = 0u32;
-    indirect_flash_read(
-        flash,
-        image_end - U32_SIZE,
-        caboose_size.as_bytes_mut(),
-    )
-    .map_err(|_| RawCabooseError::ReadFailed)?;
-
-    let caboose_start = image_end.saturating_sub(caboose_size);
-    let caboose_range = if caboose_start < flash_range.start {
-        // This branch will be encountered if there's no caboose, because
-        // then the nominal caboose size will be 0xFFFFFFFF, which will send
-        // us out of the bank2 region.
-        return Err(RawCabooseError::MissingCaboose);
-    } else {
-        // Safety: we know this pointer is within the programmed flash region,
-        // since it's checked above.
-        let mut v = 0u32;
-        indirect_flash_read(flash, caboose_start, v.as_bytes_mut())
-            .map_err(|_| RawCabooseError::ReadFailed)?;
-        if v == CABOOSE_MAGIC {
-            caboose_start + U32_SIZE..image_end - U32_SIZE
-        } else {
-            return Err(RawCabooseError::MissingCaboose);
-        }
-    };
-    Ok(caboose_range)
-}
-
-fn copy_from_caboose_chunk(
-    flash: &drv_lpc55_flash::Flash<'_>,
+fn copy_from_caboose_chunk_to_lease(
+    image: &ImageAccess<'_>,
     caboose: core::ops::Range<u32>,
     pos: core::ops::Range<u32>,
     data: Leased<idol_runtime::W, [u8]>,
@@ -1289,17 +1212,22 @@ fn copy_from_caboose_chunk(
     }
 
     const BUF_SIZE: usize = 128;
-    let mut offset = 0;
+    let mut offset = 0u32;
     let mut buf = [0u8; BUF_SIZE];
     while remaining > 0 {
         let count = remaining.min(buf.len() as u32);
         let buf = &mut buf[..count as usize];
-        indirect_flash_read(flash, caboose.start + pos.start + offset, buf)
+        image
+            .read_bytes(caboose.start + pos.start + offset, buf)
             .map_err(|_| RequestError::from(RawCabooseError::ReadFailed))?;
         data.write_range(offset as usize..(offset + count) as usize, buf)
             .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
-        offset += count;
-        remaining -= count;
+        offset = offset
+            .checked_add(count)
+            .ok_or(RawCabooseError::ReadFailed)?;
+        remaining = remaining
+            .checked_sub(count)
+            .ok_or(RawCabooseError::ReadFailed)?;
     }
     Ok(())
 }
@@ -1351,7 +1279,7 @@ fn main() -> ! {
     // Go ahead and put the HASHCRYPT unit into reset.
     syscon.enter_reset(drv_lpc55_syscon_api::Peripheral::HashAes);
     let fw_cache = mutable_statics::mutable_statics! {
-        static mut FW_CACHE: [u32; FW_CACHE_MAX / core::mem::size_of::<u32>()] = [|| 0; _];
+        static mut FW_CACHE: [u32; FW_CACHE_MAX / SIZEOF_U32] = [|| 0; _];
     };
     let mut server = ServerImpl {
         header_block: None,
