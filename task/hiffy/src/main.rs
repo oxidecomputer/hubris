@@ -71,7 +71,6 @@ cfg_if::cfg_if! {
         target_board = "gimlet-d",
         target_board = "gimlet-e",
         target_board = "gimlet-f",
-        target_board = "sidecar-a",
         target_board = "sidecar-b",
         target_board = "gimletlet-2",
         target_board = "nucleo-h743zi2",

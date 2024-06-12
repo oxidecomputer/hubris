@@ -74,8 +74,8 @@ cfg_if::cfg_if! {
     // Target boards with 1 led
     else if #[cfg(any(
         target_board = "stm32g031-nucleo",
-        target_board = "stm32g070",
-        target_board = "stm32g0b1",
+        target_board = "stm32g070-nucleo",
+        target_board = "stm32g0b1-nucleo",
         target_board = "donglet-g030",
         target_board = "donglet-g031",
         target_board = "gimlet-b",
@@ -83,7 +83,6 @@ cfg_if::cfg_if! {
         target_board = "gimlet-d",
         target_board = "gimlet-e",
         target_board = "gimlet-f",
-        target_board = "psc-a",
         target_board = "psc-b",
         target_board = "psc-c",
         target_board = "oxcon2023g0",
@@ -345,7 +344,6 @@ cfg_if::cfg_if! {
         {
             cfg_if::cfg_if! {
                 if #[cfg(any(
-                    target_board = "stm32g031",
                     target_board = "stm32g031-nucleo"
                 ))] {
                     (drv_stm32xx_sys_api::Port::C.pin(6), true)
@@ -437,13 +435,7 @@ cfg_if::cfg_if! {
         task_slot!(SYS, sys);
 
         cfg_if::cfg_if! {
-            if #[cfg(target_board = "stm32h7b3i-dk")] {
-                // STM32H7B3 DISCOVERY kit: LEDs are on G2 and G11.
-                const LEDS: &[(drv_stm32xx_sys_api::PinSet, bool)] = &[
-                    (drv_stm32xx_sys_api::Port::G.pin(2), true),
-                    (drv_stm32xx_sys_api::Port::G.pin(11), true),
-                ];
-            } else if #[cfg(any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi"))] {
+            if #[cfg(any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi"))] {
                 // Nucleo boards: LEDs are on PB0, PB14 and PE1.
                 const LEDS: &[(drv_stm32xx_sys_api::PinSet, bool)] = &[
                     (drv_stm32xx_sys_api::Port::B.pin(0), false),
@@ -479,7 +471,6 @@ cfg_if::cfg_if! {
                                 target_board = "gimlet-d",
                                 target_board = "gimlet-e",
                                 target_board = "gimlet-f",
-                                target_board = "psc-a",
                                 target_board = "psc-b",
                                 target_board = "psc-c",
             ))] {

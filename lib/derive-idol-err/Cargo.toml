@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-syn = { workspace = true }
+syn = { workspace = true, features = ["parsing", "printing"] }
 quote = { workspace = true }
 proc-macro2 = {workspace = true}
 

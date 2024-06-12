@@ -3,7 +3,7 @@ name = "demo-stm32g070-nucleo"
 target = "thumbv6m-none-eabi"
 chip = "../../chips/stm32g0"
 memory = "memory-g070.toml"
-board = "stm32g070"
+board = "stm32g070-nucleo"
 stacksize = 944
 
 [kernel]
