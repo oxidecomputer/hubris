@@ -69,9 +69,9 @@ impl bsp_support::Bsp for BspImpl {
         pins::RmiiPins {
             refclk: Port::A.pin(1),
             crs_dv: Port::A.pin(7),
-            tx_en: Port::B.pin(11),
-            txd0: Port::B.pin(12),
-            txd1: Port::B.pin(13),
+            tx_en: Port::G.pin(11),
+            txd0: Port::G.pin(13),
+            txd1: Port::G.pin(12),
             rxd0: Port::C.pin(4),
             rxd1: Port::C.pin(5),
             af: Alternate::AF11,
@@ -84,8 +84,8 @@ impl bsp_support::Bsp for BspImpl {
             let spi = bsp_support::claim_spi(sys);
             let ksz8463_spi = spi.device(drv_spi_api::devices::KSZ8463);
 
-            // Initialize the KSZ8463 (using SPI4_RESET, PB10)
-            sys.gpio_init_reset_pulse(Port::B.pin(10), 10, 1);
+            // Initialize the KSZ8463 (using SP_TO_MN_SW_RESET_L, PC2)
+            sys.gpio_init_reset_pulse(Port::C.pin(2), 10, 1);
             let ksz8463 = Ksz8463::new(ksz8463_spi);
 
             #[cfg(feature = "vlan")]

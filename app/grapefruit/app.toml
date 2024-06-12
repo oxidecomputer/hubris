@@ -155,6 +155,15 @@ uses = ["spi4"]
 notifications = ["spi-irq", "rot-irq", "timer"]
 interrupts = {"spi4.irq" = "spi-irq"}
 
+[tasks.grapefruit_seq]
+name = "drv-grapefruit-seq-server"
+features = ["h753"]
+priority = 4
+max-sizes = {flash = 131072, ram = 16384 }
+stacksize = 2600
+start = true
+task-slots = ["sys", {spi = "spi2_driver"}]
+
 [tasks.auxflash]
 name = "drv-auxflash-server"
 priority = 3
@@ -309,8 +318,12 @@ cs = [{port = "I", pin = 0}]
 outputs = [
     {port = "B", pins = [13, 15], af = 5},
 ]
-input = {port = "B", pin = 14, af = 5}
-# TODO FPGA device on spi2.port_b
+input = {port = "B", pin = 14, af = 5} # not actually used in FPGA config
+
+[config.spi.spi2.devices.fpga]
+mux = "port_b"
+cs = []
+# no CS pin; we're using the SPI peripheral to send synchronized CLK + DATA
 
 [config.spi.spi4]
 controller = 4
@@ -334,6 +347,6 @@ slot-count = 16 # 2 MiB slots
 
 [[auxflash.blobs]]
 # XXX Dummy bitstream for now
-file = "drv/gimlet-seq-server/fpga-b.bin"
+file = "drv/grapefruit-seq-server/grapefruit-fpga.bin"
 compress = true
 tag = "FPGA"

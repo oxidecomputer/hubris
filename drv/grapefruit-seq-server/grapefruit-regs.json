@@ -1,0 +1,6 @@
+{
+    "type": "addrmap",
+    "inst_name": "grapefruit_fpga",
+    "addr_offset": 0,
+    "children": []
+}
