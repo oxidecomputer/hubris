@@ -124,7 +124,7 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
         );
 
         // Pulse PROGRAM_B low for 1 ms to reset the bitstream
-        // (T_PROGRAM is 250 ns, so this is fine)
+        // (T_PROGRAM is 250 ns min, so this is fine)
         // https://docs.amd.com/r/en-US/ds189-spartan-7-data-sheet/XADC-Specifications
         sys.gpio_reset(FPGA_PROGRAM_L);
         hl::sleep_for(1);
