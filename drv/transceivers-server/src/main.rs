@@ -27,6 +27,7 @@ use drv_transceivers_api::{
 };
 use enum_map::Enum;
 use task_sensor_api::{NoData, Sensor};
+#[allow(unused_imports)]
 use task_thermal_api::{Thermal, ThermalError, ThermalProperties};
 use transceiver_messages::{
     message::LedState, mgmt::ManagementInterface, MAX_PACKET_SIZE,
@@ -129,7 +130,8 @@ struct ServerImpl {
     consecutive_nacks: [u8; NUM_PORTS as usize],
 
     /// Handle to write thermal models and presence to the `thermal` task
-    thermal_api: Option<Thermal>,
+    #[cfg(feature = "thermal-control")]
+    thermal_api: Thermal,
 
     /// Handle to write temperatures to the `sensors` task
     sensor_api: Sensor,
@@ -137,13 +139,13 @@ struct ServerImpl {
     /// Thermal models are populated by the host
     thermal_models: [Option<ThermalModel>; NUM_PORTS as usize],
 }
-
 #[derive(Copy, Clone)]
 struct ThermalModel {
     /// What kind of transceiver is this?
     interface: ManagementInterface,
 
     /// What are its thermal properties, e.g. critical temperature?
+    #[allow(dead_code)]
     model: ThermalProperties,
 }
 
@@ -380,9 +382,10 @@ impl ServerImpl {
                     }
                 }
             } else if !operational && self.thermal_models[i].is_some() {
-                if let Some(thermal_api) = &self.thermal_api {
+                #[cfg(feature = "thermal-control")]
+                {
                     // This transceiver went away; remove it from the thermal loop
-                    if let Err(e) = thermal_api.remove_dynamic_input(i) {
+                    if let Err(e) = self.thermal_api.remove_dynamic_input(i) {
                         ringbuf_entry!(Trace::ThermalError(i, e));
                     }
                 }
@@ -412,13 +415,14 @@ impl ServerImpl {
                 None => continue,
             };
 
-            if let Some(thermal_api) = &self.thermal_api {
+            #[cfg(feature = "thermal-control")]
+            {
                 // *Always* post the thermal model over to the thermal task, so
                 // that the thermal task still has it in case of restart.  This
                 // will return a `NotInAutoMode` error if the thermal loop is in
                 // manual mode; this is harmless and will be ignored (instead of
                 // cluttering up the logs).
-                match thermal_api.update_dynamic_input(i, m.model) {
+                match self.thermal_api.update_dynamic_input(i, m.model) {
                     Ok(()) | Err(ThermalError::NotInAutoMode) => (),
                     Err(e) => ringbuf_entry!(Trace::ThermalError(i, e)),
                 }
@@ -626,9 +630,7 @@ fn main() -> ! {
     };
 
     #[cfg(feature = "thermal-control")]
-    let thermal_api = Some(Thermal::from(THERMAL.get_task_id()));
-    #[cfg(not(feature = "thermal-control"))]
-    let thermal_api = None;
+    let thermal_api = Thermal::from(THERMAL.get_task_id());
 
     let mut server = ServerImpl {
         transceivers,
@@ -643,6 +645,7 @@ fn main() -> ! {
         system_led_state: LedState::Off,
         disabled: LogicalPortMask(0),
         consecutive_nacks: [0; NUM_PORTS as usize],
+        #[cfg(feature = "thermal-control")]
         thermal_api,
         sensor_api,
         thermal_models: [None; NUM_PORTS as usize],

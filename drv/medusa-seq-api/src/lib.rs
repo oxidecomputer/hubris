@@ -30,7 +30,9 @@ pub enum RailName {
 pub enum MedusaError {
     FpgaError = 1,
     NoFrontIOBoard,
+    // The Front IO board power faulted
     FrontIOBoardPowerFault,
+    // An power supply on Medusa faulted
     PowerFault,
 
     #[idol(server_death)]

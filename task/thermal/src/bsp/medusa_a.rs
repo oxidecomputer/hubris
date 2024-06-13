@@ -36,8 +36,7 @@ pub const USE_CONTROLLER: bool = false;
 
 bitflags::bitflags! {
     #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-    pub struct PowerBitmask: u32 {
-    }
+    pub struct PowerBitmask: u32 {}
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]

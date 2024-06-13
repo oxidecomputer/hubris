@@ -2,10 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//! BSP for the Sidecar rev B
-//!
-//! Right now, this is identical to the rev A BSP, but that may change in the
-//! future, so they're kept separate.
+//! BSP for the Medusa model A
 
 #[cfg(not(all(feature = "ksz8463", feature = "mgmt")))]
 compile_error!("this BSP requires the ksz8463 and mgmt features");

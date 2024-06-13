@@ -35,9 +35,9 @@ build-i2c = { path = "../../build/i2c" }
 build-util = { path = "../../build/util" }
 
 [features]
-gimlet = ["dep:drv-gimlet-seq-api", "h753"]
-sidecar = ["dep:drv-sidecar-seq-api", "dep:drv-transceivers-api", "h753"]
-medusa = ["h753", "dep:drv-transceivers-api"]
+gimlet = ["drv-gimlet-seq-api", "h753"]
+sidecar = ["drv-sidecar-seq-api", "drv-transceivers-api", "h753"]
+medusa = ["h753", "drv-transceivers-api"]
 h743 = ["build-i2c/h743"]
 h753 = ["build-i2c/h753"]
 h7b3 = ["build-i2c/h7b3"]

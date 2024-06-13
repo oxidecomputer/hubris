@@ -71,7 +71,7 @@ struct ServerImpl {
 
 impl ServerImpl {
     fn front_io_board_preinit(&self) -> Result<bool, MedusaError> {
-        // Enale the V12_QSFP_OUT rail
+        // Enable the V12_QSFP_OUT rail
         self.power_control.v12_qsfp_out.set_enable(true);
 
         // Wait a bit for it to ramp and then check that it is happy.
@@ -143,27 +143,27 @@ impl ServerImpl {
         // Run preinit to check HSC status.
         self.front_io_board_preinit()?;
 
-        if let Some(front_io_board) = self.front_io_board.as_mut() {
-            // At this point the front IO board has either not yet been
-            // initalized or may have been power cycled and should be
-            // initialized.
-            if !front_io_board.initialized() {
-                front_io_board.init()?;
-            }
+        let front_io_board = self
+            .front_io_board
+            .as_mut()
+            .ok_or(MedusaError::NoFrontIOBoard)?;
 
-            // The PHY is still powered down. Request the sequencer to power up
-            // and wait for it to be ready.
-            front_io_board.phy().set_phy_power_enabled(true)?;
-            ringbuf_entry!(Trace::FrontIOBoardPhyPowerEnable(true));
-
-            while !front_io_board.phy().powered_up_and_ready()? {
-                userlib::hl::sleep_for(20);
-            }
-
-            Ok(())
-        } else {
-            Err(MedusaError::NoFrontIOBoard)
+        // At this point the front IO board has either not yet been
+        // initialized or may have been power cycled and should be
+        // initialized.
+        if !front_io_board.initialized() {
+            front_io_board.init()?;
         }
+
+        // The PHY is still powered down. Request the sequencer to power up
+        // and wait for it to be ready.
+        front_io_board.phy().set_phy_power_enabled(true)?;
+        ringbuf_entry!(Trace::FrontIOBoardPhyPowerEnable(true));
+        while !front_io_board.phy().powered_up_and_ready()? {
+            userlib::hl::sleep_for(20);
+        }
+
+        Ok(())
     }
 }
 
