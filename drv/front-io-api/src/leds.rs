@@ -1,10 +1,9 @@
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
-use super::transceivers::{LogicalPort, LogicalPortMask};
+use crate::transceivers::{LogicalPort, LogicalPortMask, NUM_PORTS};
 use drv_i2c_api::I2cDevice;
 use drv_i2c_devices::pca9956b::{Error, LedErr, Pca9956B};
-use drv_transceivers_api::NUM_PORTS;
 
 /// Leds controllers and brightness state
 pub struct Leds {

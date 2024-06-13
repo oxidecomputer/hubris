@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use drv_sidecar_front_io::phy_smi::PhySmi;
+use drv_front_io_api::FrontIO;
 use drv_sidecar_seq_api::Sequencer;
 use ringbuf::*;
 use userlib::{hl::sleep_for, task_slot, UnwrapLite};
@@ -13,7 +13,7 @@ use vsc7448_pac::{DEVCPU_GCB, HSIO, VAUI0, VAUI1};
 use vsc85xx::{vsc8504::Vsc8504, vsc8562::Vsc8562Phy, PhyRw};
 
 task_slot!(SEQ, seq);
-task_slot!(FRONT_IO, ecp5_front_io);
+task_slot!(FRONT_IO, front_io);
 
 /// Interval at which `Bsp::wake()` is called by the main loop
 pub const WAKE_INTERVAL: Option<u32> = Some(500);
@@ -45,6 +45,9 @@ pub struct Bsp<'a, R> {
 
     /// PHY for the on-board PHY ("PHY4")
     vsc8504: Vsc8504,
+
+    /// handle for the front-io task
+    front_io: FrontIO,
 
     /// RPC handle for the front IO board's PHY, which is a VSC8562. This is
     /// used for PHY control via a Rube Goldberg machine of
@@ -151,19 +154,20 @@ pub fn preinit() {
 impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
     /// Constructs and initializes a new BSP handle
     pub fn new(vsc7448: &'a Vsc7448<'a, R>) -> Result<Self, VscError> {
-        let seq = Sequencer::from(SEQ.get_task_id());
-        let has_front_io = seq.front_io_board_present();
+        let front_io = FrontIO::from(FRONT_IO.get_task_id());
+        let has_front_io = front_io.board_present();
         let mut out = Bsp {
             vsc7448,
             vsc8504: Vsc8504::empty(),
+            front_io_speed: [Speed::Speed1G; 2],
+            link_down_at: None,
+            seq: Sequencer::from(SEQ.get_task_id()),
+            front_io,
             vsc8562: if has_front_io {
                 Some(PhySmi::new(FRONT_IO.get_task_id()))
             } else {
                 None
             },
-            front_io_speed: [Speed::Speed1G; 2],
-            link_down_at: None,
-            seq,
         };
 
         out.reinit()?;
@@ -229,11 +233,11 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
 
             osc_good = self.is_front_io_link_good()?;
 
-            // Notify the sequencer about the state of the oscillator. If the
+            // Notify the front IO about the state of the oscillator. If the
             // oscillator is good any future resets of the PHY do not require a
             // full power cycle of the front IO board.
-            self.seq
-                .set_front_io_phy_osc_state(osc_good)
+            self.front_io
+                .phy_set_osc_state(osc_good)
                 .map_err(|e| VscError::ProxyError(e.into()))?;
 
             if !osc_good {
@@ -396,8 +400,8 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
                 let mut v = Vsc8562Phy { phy: &mut phy };
                 v.init_qsgmii()?;
             }
-            phy_rw
-                .set_coma_mode(false)
+            self.front_io
+                .phy_set_coma_mode(false)
                 .map_err(|e| VscError::ProxyError(e.into()))?;
         }
 
@@ -570,5 +574,33 @@ impl<'a, R: Vsc7448Rw> PhyRw for GenericPhyRw<'a, R> {
             GenericPhyRw::Vsc7448(n) => n.write_raw(port, reg, value),
             GenericPhyRw::FrontIo(n) => n.write_raw(port, reg, value),
         }
+    }
+}
+
+pub struct PhySmi {
+    server: FrontIO,
+}
+
+impl PhySmi {
+    pub fn new(front_io_task: userlib::TaskId) -> Self {
+        Self {
+            server: FrontIO::from(front_io_task),
+        }
+    }
+}
+
+impl PhyRw for PhySmi {
+    #[inline(always)]
+    fn read_raw(&self, phy: u8, reg: u8) -> Result<u16, VscError> {
+        self.server
+            .phy_read(phy, reg)
+            .map_err(|e| VscError::ProxyError(e.into()))
+    }
+
+    #[inline(always)]
+    fn write_raw(&self, phy: u8, reg: u8, value: u16) -> Result<(), VscError> {
+        self.server
+            .phy_write(phy, reg, value)
+            .map_err(|e| VscError::ProxyError(e.into()))
     }
 }

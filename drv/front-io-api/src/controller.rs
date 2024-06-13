@@ -8,7 +8,7 @@ use userlib::UnwrapLite;
 
 pub struct FrontIOController {
     fpga: Fpga,
-    user_design: FpgaUserDesign,
+    pub user_design: FpgaUserDesign,
 }
 
 impl FrontIOController {

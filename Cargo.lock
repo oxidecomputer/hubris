@@ -927,6 +927,53 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-front-io-api"
+version = "0.1.0"
+dependencies = [
+ "build-fpga-regmap",
+ "build-util",
+ "counters",
+ "derive-idol-err",
+ "drv-auxflash-api",
+ "drv-fpga-api",
+ "drv-i2c-api",
+ "drv-i2c-devices",
+ "hubpack",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "serde",
+ "transceiver-messages",
+ "userlib",
+ "zerocopy 0.6.6",
+]
+
+[[package]]
+name = "drv-front-io-server"
+version = "0.1.0"
+dependencies = [
+ "build-i2c",
+ "build-util",
+ "drv-auxflash-api",
+ "drv-fpga-api",
+ "drv-fpga-user-api",
+ "drv-front-io-api",
+ "drv-i2c-api",
+ "drv-i2c-devices",
+ "drv-transceivers-api",
+ "enum-map",
+ "hubpack",
+ "idol",
+ "idol-runtime",
+ "multitimer",
+ "num-traits",
+ "ringbuf",
+ "serde",
+ "userlib",
+ "zerocopy 0.6.6",
+]
+
+[[package]]
 name = "drv-gimlet-hf-api"
 version = "0.1.0"
 dependencies = [
@@ -1569,30 +1616,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "drv-sidecar-front-io"
-version = "0.1.0"
-dependencies = [
- "build-fpga-regmap",
- "build-util",
- "cfg-if",
- "drv-auxflash-api",
- "drv-fpga-api",
- "drv-i2c-api",
- "drv-i2c-devices",
- "drv-transceivers-api",
- "gnarle",
- "idol",
- "num-derive",
- "num-traits",
- "ringbuf",
- "transceiver-messages",
- "userlib",
- "vsc7448-pac",
- "vsc85xx",
- "zerocopy 0.6.6",
-]
-
-[[package]]
 name = "drv-sidecar-mainboard-controller"
 version = "0.1.0"
 dependencies = [
@@ -1632,6 +1655,7 @@ dependencies = [
  "derive-idol-err",
  "drv-fpga-api",
  "drv-fpga-user-api",
+ "drv-front-io-api",
  "drv-sidecar-mainboard-controller",
  "hubpack",
  "idol",
@@ -1653,10 +1677,10 @@ dependencies = [
  "cortex-m",
  "drv-fpga-api",
  "drv-fpga-user-api",
+ "drv-front-io-api",
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-packrat-vpd-loader",
- "drv-sidecar-front-io",
  "drv-sidecar-mainboard-controller",
  "drv-sidecar-seq-api",
  "hubpack",
@@ -2080,6 +2104,7 @@ dependencies = [
  "counters",
  "derive-idol-err",
  "drv-fpga-api",
+ "drv-front-io-api",
  "idol",
  "idol-runtime",
  "num-traits",
@@ -2093,21 +2118,16 @@ dependencies = [
 name = "drv-transceivers-server"
 version = "0.1.0"
 dependencies = [
- "build-i2c",
  "build-util",
  "cfg-if",
  "counters",
  "drv-fpga-api",
- "drv-i2c-api",
- "drv-i2c-devices",
- "drv-sidecar-front-io",
+ "drv-front-io-api",
  "drv-sidecar-seq-api",
  "drv-transceivers-api",
- "enum-map",
  "hubpack",
  "idol",
  "idol-runtime",
- "multitimer",
  "num-traits",
  "ringbuf",
  "serde",
@@ -4292,6 +4312,7 @@ dependencies = [
  "drv-auxflash-api",
  "drv-caboose",
  "drv-caboose-pos",
+ "drv-front-io-api",
  "drv-gimlet-hf-api",
  "drv-gimlet-seq-api",
  "drv-ignition-api",
@@ -4301,7 +4322,6 @@ dependencies = [
  "drv-sprot-api",
  "drv-stm32h7-update-api",
  "drv-stm32h7-usart",
- "drv-transceivers-api",
  "drv-update-api",
  "drv-user-leds-api",
  "gateway-messages",
@@ -4566,8 +4586,8 @@ dependencies = [
  "build-util",
  "cfg-if",
  "counters",
+ "drv-front-io-api",
  "drv-monorail-api",
- "drv-sidecar-front-io",
  "drv-sidecar-mainboard-controller",
  "drv-sidecar-seq-api",
  "drv-spi-api",
@@ -4890,6 +4910,7 @@ dependencies = [
  "build-util",
  "cortex-m",
  "counters",
+ "drv-front-io-api",
  "drv-gimlet-seq-api",
  "drv-i2c-api",
  "drv-i2c-devices",

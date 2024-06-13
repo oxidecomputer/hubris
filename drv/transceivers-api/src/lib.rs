@@ -8,21 +8,17 @@
 
 use derive_idol_err::IdolError;
 use drv_fpga_api::FpgaError;
+use drv_front_io_api::transceivers::NUM_PORTS;
 use task_sensor_api::{config::other_sensors, SensorId};
-use userlib::{sys_send, FromPrimitive};
-use zerocopy::{AsBytes, FromBytes};
+use userlib::FromPrimitive;
 
 #[derive(
     Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, counters::Count,
 )]
 pub enum TransceiversError {
     FpgaError = 1,
-    InvalidPortNumber,
-    InvalidNumberOfBytes,
     InvalidPowerState,
-    InvalidModuleResult,
     LedI2cError,
-    InvalidPhysicalToLogicalMap,
 
     #[idol(server_death)]
     ServerRestarted,
@@ -33,34 +29,6 @@ impl From<FpgaError> for TransceiversError {
         Self::FpgaError
     }
 }
-
-/// Each field is a bitmask of the 32 transceivers in big endian order, which
-/// results in Port 31 being bit 31, and so forth.
-#[derive(Copy, Clone, Default, FromBytes, AsBytes)]
-#[repr(C)]
-pub struct ModuleStatus {
-    pub power_enable: u32,
-    pub power_good: u32,
-    pub power_good_timeout: u32,
-    pub power_good_fault: u32,
-    pub resetl: u32,
-    pub lpmode_txdis: u32,
-    pub modprsl: u32,
-    pub intl_rxlosl: u32,
-}
-
-/// Size in bytes of a page section we will read or write
-///
-/// QSFP module's internal memory map is 256 bytes, with the lower 128 being
-/// static and then the upper 128 are paged in. The internal address register
-/// is only 7 bits, so you can only access half in any single transaction and
-/// thus our communication mechanisms have been designed for that.
-/// See SFF-8636 and CMIS specifications for details.
-pub const PAGE_SIZE_BYTES: usize = 128;
-
-/// The only instantiation of Front IO board that exists is one with 32 QSFP
-/// ports.
-pub const NUM_PORTS: u8 = 32;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -98,6 +66,3 @@ pub const TRANSCEIVER_TEMPERATURE_SENSORS: [SensorId; NUM_PORTS as usize] = [
     other_sensors::QSFP_XCVR30_TEMPERATURE_SENSOR,
     other_sensors::QSFP_XCVR31_TEMPERATURE_SENSOR,
 ];
-////////////////////////////////////////////////////////////////////////////////
-
-include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

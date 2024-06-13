@@ -2,12 +2,56 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{Addr, Reg};
+use crate::{Addr, FrontIOError, Reg};
 use drv_fpga_api::{FpgaError, FpgaUserDesign, ReadOp, WriteOp};
-use drv_transceivers_api::{ModuleStatus, TransceiversError, NUM_PORTS};
-use transceiver_messages::ModuleId;
+use hubpack::SerializedSize;
+use serde::{Deserialize, Serialize};
+use transceiver_messages::{message::LedState, ModuleId};
 use userlib::UnwrapLite;
 use zerocopy::{byteorder, AsBytes, FromBytes, Unaligned, U16};
+
+/// The only instantiation of Front IO board that exists is one with 32 QSFP
+/// ports.
+pub const NUM_PORTS: u8 = 32;
+
+/// Size in bytes of a page section we will read or write
+///
+/// QSFP module's internal memory map is 256 bytes, with the lower 128 being
+/// static and then the upper 128 are paged in. The internal address register
+/// is only 7 bits, so you can only access half in any single transaction and
+/// thus our communication mechanisms have been designed for that.
+/// See SFF-8636 and CMIS specifications for details.
+pub const PAGE_SIZE_BYTES: usize = 128;
+
+#[derive(Copy, Clone)]
+pub struct LedStates([LedState; NUM_PORTS as usize]);
+
+impl LedStates {
+    pub fn set(mut self, mask: LogicalPortMask, state: LedState) {
+        for port in mask.to_indices() {
+            self.0[port.0 as usize] = state
+        }
+    }
+
+    pub fn get(self, port: LogicalPort) -> LedState {
+        self.0[port.0 as usize]
+    }
+}
+
+impl Default for LedStates {
+    fn default() -> Self {
+        LedStates([LedState::Off; NUM_PORTS as usize])
+    }
+}
+
+impl<'a> IntoIterator for &'a LedStates {
+    type Item = &'a LedState;
+    type IntoIter = core::slice::Iter<'a, LedState>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.as_slice().iter()
+    }
+}
 
 // The transceiver modules are split across two FPGAs on the QSFP Front IO
 // board, so while we present the modules as a unit, the communication is
@@ -18,14 +62,16 @@ pub struct Transceivers {
 
 // There are two FPGA controllers, each controlling the FPGA on either the left
 // or right of the board.
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(
+    Copy, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+)]
 pub enum FpgaController {
     Left = 0,
     Right = 1,
 }
 
 /// Physical port location
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Deserialize, Serialize, SerializedSize)]
 pub struct PortLocation {
     pub controller: FpgaController,
     pub port: PhysicalPort,
@@ -38,7 +84,7 @@ impl From<LogicalPort> for PortLocation {
 }
 
 /// Physical port location within a particular FPGA, as a 0-15 index
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Deserialize, Serialize, SerializedSize)]
 pub struct PhysicalPort(pub u8);
 impl PhysicalPort {
     pub fn as_mask(&self) -> PhysicalPortMask {
@@ -52,14 +98,14 @@ impl PhysicalPort {
     pub fn to_logical_port(
         &self,
         fpga: FpgaController,
-    ) -> Result<LogicalPort, TransceiversError> {
+    ) -> Result<LogicalPort, FrontIOError> {
         let loc = PortLocation {
             controller: fpga,
             port: *self,
         };
         match PORT_MAP.into_iter().position(|&l| l == loc) {
             Some(p) => Ok(LogicalPort(p as u8)),
-            None => Err(TransceiversError::InvalidPhysicalToLogicalMap),
+            None => Err(FrontIOError::InvalidPhysicalToLogicalMap),
         }
     }
 }
@@ -120,7 +166,19 @@ impl FpgaPortMasks {
 }
 
 /// Represents a single logical port (0-31)
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    PartialEq,
+    PartialOrd,
+    FromBytes,
+    AsBytes,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+)]
+#[repr(transparent)]
 pub struct LogicalPort(pub u8);
 impl LogicalPort {
     pub fn as_mask(&self) -> LogicalPortMask {
@@ -132,7 +190,20 @@ impl LogicalPort {
     }
 }
 /// Represents a set of selected logical ports, i.e. a 32-bit bitmask
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    FromBytes,
+    AsBytes,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+)]
+#[repr(transparent)]
 pub struct LogicalPortMask(pub u32);
 
 impl LogicalPortMask {
@@ -489,7 +560,10 @@ const RIGHT_LOGICAL_MASK: LogicalPortMask = LogicalPortMask(0xff00ff00);
 /// - The module operation succeeded
 /// - The module operation failed
 /// - The module could not be interacted with due to an FPGA communication error
-#[derive(Copy, Clone, Default, PartialEq)]
+#[derive(
+    Copy, Clone, Default, PartialEq, Deserialize, Serialize, SerializedSize,
+)]
+#[repr(C)]
 pub struct ModuleResult {
     success: LogicalPortMask,
     failure: LogicalPortMask,
@@ -524,12 +598,12 @@ impl ModuleResult {
         failure: LogicalPortMask,
         error: LogicalPortMask,
         failure_types: LogicalPortFailureTypes,
-    ) -> Result<Self, TransceiversError> {
+    ) -> Result<Self, FrontIOError> {
         if !(success & failure).is_empty()
             || !(success & error).is_empty()
             || !(failure & error).is_empty()
         {
-            return Err(TransceiversError::InvalidModuleResult);
+            return Err(FrontIOError::InvalidModuleResult);
         }
         Ok(Self {
             success,
@@ -623,7 +697,18 @@ impl ModuleResult {
 /// handle a mix of the following cases on a per-module basis:
 /// - The module operation succeeded
 /// - The module could not be interacted with due to an FPGA communication error
-#[derive(Copy, Clone, Default, PartialEq)]
+#[derive(
+    Copy,
+    Clone,
+    Default,
+    PartialEq,
+    FromBytes,
+    AsBytes,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+)]
+#[repr(C)]
 pub struct ModuleResultNoFailure {
     success: LogicalPortMask,
     error: LogicalPortMask,
@@ -634,9 +719,9 @@ impl ModuleResultNoFailure {
     pub fn new(
         success: LogicalPortMask,
         error: LogicalPortMask,
-    ) -> Result<Self, TransceiversError> {
+    ) -> Result<Self, FrontIOError> {
         if !(success & error).is_empty() {
-            return Err(TransceiversError::InvalidModuleResult);
+            return Err(FrontIOError::InvalidModuleResult);
         }
         Ok(Self { success, error })
     }
@@ -651,6 +736,7 @@ impl ModuleResultNoFailure {
 }
 
 /// A type to provide more ergonomic access to the FPGA generated type
+// #[derive(AsBytes, FromBytes)]
 pub type FpgaI2CFailure = Reg::QSFP::PORT0_STATUS::ErrorEncoded;
 
 /// A type to consolidate per-module failure types.
@@ -658,7 +744,8 @@ pub type FpgaI2CFailure = Reg::QSFP::PORT0_STATUS::ErrorEncoded;
 /// Currently the only types of operations that can be considered failures are
 /// those that involve the FPGA doing I2C. Thus, that is the only supported type
 /// right now.
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Deserialize, Serialize, SerializedSize)]
+#[repr(C)]
 pub struct LogicalPortFailureTypes(pub [FpgaI2CFailure; NUM_PORTS as usize]);
 
 impl Default for LogicalPortFailureTypes {
@@ -675,7 +762,7 @@ impl core::ops::Index<LogicalPort> for LogicalPortFailureTypes {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Deserialize, Serialize, SerializedSize)]
 pub struct PortI2CStatus {
     pub rdata_fifo_empty: bool,
     pub wdata_fifo_empty: bool,
@@ -883,12 +970,6 @@ impl Transceivers {
         )
     }
 
-    /// Clear a fault for each port per the specified `mask`.
-    ///
-    /// The meaning of the
-    /// returned `ModuleResultNoFailure`:
-    /// success: we were able to write to the FPGA
-    /// error: an `FpgaError` occurred
     pub fn clear_power_fault(
         &self,
         mask: LogicalPortMask,
@@ -928,36 +1009,6 @@ impl Transceivers {
         ModuleResultNoFailure::new(success, error).unwrap_lite()
     }
 
-    /// Initiate an I2C random read on all ports per the specified `mask`.
-    ///
-    /// The maximum value of `num_bytes` is 128.The meaning of the returned
-    /// `ModuleResultNoFailure`:
-    /// success: we were able to write to the FPGA
-    /// error: an `FpgaError` occurred
-    pub fn setup_i2c_read(
-        &self,
-        reg: u8,
-        num_bytes: u8,
-        mask: LogicalPortMask,
-    ) -> ModuleResultNoFailure {
-        self.setup_i2c_op(true, reg, num_bytes, mask)
-    }
-
-    /// Initiate an I2C write on all ports per the specified `mask`.
-    ///
-    /// The maximum value of `num_bytes` is 128. The meaning of the
-    /// returned `ModuleResultNoFailure`:
-    /// success: we were able to write to the FPGA
-    /// error: an `FpgaError` occurred
-    pub fn setup_i2c_write(
-        &self,
-        reg: u8,
-        num_bytes: u8,
-        mask: LogicalPortMask,
-    ) -> ModuleResultNoFailure {
-        self.setup_i2c_op(false, reg, num_bytes, mask)
-    }
-
     /// Initiate an I2C operation on all ports per the specified `mask`.
     ///
     /// When `is_read` is true, the operation will be a random-read, not a pure
@@ -965,7 +1016,7 @@ impl Transceivers {
     /// The meaning of the returned `ModuleResultNoFailure`:
     /// success: we were able to write to the FPGA
     /// error: an `FpgaError` occurred
-    fn setup_i2c_op(
+    pub fn setup_i2c_op(
         &self,
         is_read: bool,
         reg: u8,
@@ -1125,45 +1176,6 @@ impl Transceivers {
         ModuleResultNoFailure::new(success, error).unwrap_lite()
     }
 
-    /// Apply reset to the LED controller
-    ///
-    /// Per section 7.6 of the datasheet the minimum required pulse width here
-    /// is 2.5 microseconds. Given the SPI interface runs at 3MHz, the
-    /// transaction to clear the reset would take ~10 microseconds on its own,
-    /// so there is no additional delay here.
-    pub fn assert_led_controllers_reset(&mut self) -> Result<(), FpgaError> {
-        for fpga in &self.fpgas {
-            fpga.write(WriteOp::BitSet, Addr::LED_CTRL, Reg::LED_CTRL::RESET)?;
-        }
-        Ok(())
-    }
-
-    /// Remove reset from the LED controller
-    ///
-    /// Per section 7.6 of the datasheet the device has a maximum wait time of
-    /// 1.5 milliseconds after the release of reset to normal operation, so
-    /// there is a 2 millisecond wait here.
-    pub fn deassert_led_controllers_reset(&mut self) -> Result<(), FpgaError> {
-        for fpga in &self.fpgas {
-            fpga.write(
-                WriteOp::BitClear,
-                Addr::LED_CTRL,
-                Reg::LED_CTRL::RESET,
-            )?;
-        }
-        userlib::hl::sleep_for(2);
-        Ok(())
-    }
-
-    /// Releases the LED controller from reset and enables the output
-    pub fn enable_led_controllers(&mut self) -> Result<(), FpgaError> {
-        self.deassert_led_controllers_reset()?;
-        for fpga in &self.fpgas {
-            fpga.write(WriteOp::BitSet, Addr::LED_CTRL, Reg::LED_CTRL::OE)?;
-        }
-        Ok(())
-    }
-
     /// Waits for all of the I2C busy bits to go low
     ///
     /// Returns a set of masks indicating which channels (among the ones active
@@ -1266,4 +1278,28 @@ pub struct TransceiversI2CRequest {
     num_bytes: u8,
     mask: U16<byteorder::LittleEndian>,
     op: u8,
+}
+
+/// Each field is a bitmask of the 32 transceivers in big endian order, which
+/// results in Port 31 being bit 31, and so forth.
+#[derive(Copy, Clone, Default, FromBytes, AsBytes)]
+#[repr(C)]
+pub struct ModuleStatus {
+    pub power_enable: u32,
+    pub power_good: u32,
+    pub power_good_timeout: u32,
+    pub power_good_fault: u32,
+    pub resetl: u32,
+    pub lpmode_txdis: u32,
+    pub modprsl: u32,
+    pub intl_rxlosl: u32,
+}
+
+/// Composite struct to package a ModuleStatus and a ModuleResultNoFailure for
+/// IPC
+#[derive(Copy, Clone, Default, FromBytes, AsBytes)]
+#[repr(C)]
+pub struct TransceiverStatus {
+    pub status: ModuleStatus,
+    pub result: ModuleResultNoFailure,
 }

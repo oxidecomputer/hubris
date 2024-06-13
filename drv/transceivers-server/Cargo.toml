@@ -7,12 +7,9 @@ edition = "2021"
 [dependencies]
 counters = { path = "../../lib/counters" }
 drv-fpga-api = { path = "../fpga-api" }
-drv-i2c-api = { path = "../i2c-api" }
-drv-i2c-devices = { path = "../i2c-devices" }
-drv-sidecar-front-io = { path = "../sidecar-front-io", features = ["transceivers", "leds"] }
+drv-front-io-api = { path = "../front-io-api" }
 drv-sidecar-seq-api = { path = "../sidecar-seq-api" }
 drv-transceivers-api = { path = "../transceivers-api" }
-multitimer = { path = "../../lib/multitimer" }
 ringbuf = { path = "../../lib/ringbuf" }
 static-cell = { path = "../../lib/static-cell" }
 task-net-api = { path = "../../task/net-api" }
@@ -20,16 +17,15 @@ task-sensor-api = { path = "../../task/sensor-api" }
 task-thermal-api = { path = "../../task/thermal-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
-cfg-if = { workspace = true }
-enum-map = { workspace = true }
-hubpack = { workspace = true }
-idol-runtime = { workspace = true }
-num-traits = { workspace = true }
-serde = { workspace = true }
-ssmarshal = { workspace = true }
-stm32h7 = { workspace = true }
-transceiver-messages = { workspace = true }
-zerocopy = { workspace = true }
+cfg-if.workspace = true
+hubpack.workspace = true
+idol-runtime.workspace = true
+num-traits.workspace = true
+serde.workspace = true
+ssmarshal.workspace = true
+stm32h7.workspace = true
+transceiver-messages.workspace = true
+zerocopy.workspace = true
 
 [features]
 vlan = ["task-net-api/vlan"]
@@ -37,7 +33,6 @@ no-ipc-counters = ["idol/no-counters"]
 
 [build-dependencies]
 build-util = { path = "../../build/util" }
-build-i2c = { path = "../../build/i2c" }
 
 idol = { workspace = true }
 

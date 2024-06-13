@@ -6,60 +6,42 @@
 #![no_main]
 
 use counters::Count;
-use idol_runtime::{NotificationHandler, RequestError};
-use multitimer::{Multitimer, Repeat};
+use idol_runtime::NotificationHandler;
 use ringbuf::*;
 use static_cell::ClaimOnceCell;
-use userlib::{sys_get_timer, task_slot, units::Celsius};
+use userlib::{sys_get_timer, sys_set_timer, task_slot, units::Celsius};
 
 use drv_fpga_api::FpgaError;
-use drv_i2c_devices::pca9956b::Error;
-use drv_sidecar_front_io::{
-    leds::{FullErrorSummary, Leds},
+use drv_front_io_api::{
     transceivers::{
-        FpgaI2CFailure, LogicalPort, LogicalPortMask, Transceivers,
+        FpgaI2CFailure, LogicalPort, LogicalPortMask, ModuleStatus, NUM_PORTS,
     },
-    Reg,
+    FrontIO, FrontIOError, FrontIOStatus, Reg,
 };
-use drv_sidecar_seq_api::{SeqError, Sequencer};
 use drv_transceivers_api::{
-    ModuleStatus, TransceiversError, NUM_PORTS, TRANSCEIVER_TEMPERATURE_SENSORS,
+    TransceiversError, TRANSCEIVER_TEMPERATURE_SENSORS,
 };
-use enum_map::Enum;
 use task_sensor_api::{NoData, Sensor};
 use task_thermal_api::{Thermal, ThermalError, ThermalProperties};
-use transceiver_messages::{
-    message::LedState, mgmt::ManagementInterface, MAX_PACKET_SIZE,
-};
+use transceiver_messages::{mgmt::ManagementInterface, MAX_PACKET_SIZE};
 
 use zerocopy::{AsBytes, FromBytes};
 
 mod udp; // UDP API is implemented in a separate file
 
-task_slot!(I2C, i2c_driver);
 task_slot!(FRONT_IO, front_io);
-task_slot!(SEQ, seq);
 task_slot!(NET, net);
 task_slot!(THERMAL, thermal);
 task_slot!(SENSOR, sensor);
-
-include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
 #[allow(dead_code)]
 #[derive(Copy, Clone, PartialEq, Eq, Count)]
 enum Trace {
     #[count(skip)]
     None,
-    FrontIOBoardReady(#[count(children)] bool),
-    FrontIOSeqErr(SeqError),
+    FrontIOStatus(#[count(children)] FrontIOStatus),
     LEDInit,
-    LEDInitComplete,
-    LEDInitError(Error),
-    LEDErrorSummary(FullErrorSummary),
-    LEDUninitialized,
-    LEDEnableError(FpgaError),
-    LEDReadError(Error),
-    LEDUpdateError(Error),
+    LEDEnableError(FrontIOError),
     ModulePresenceUpdate(LogicalPortMask),
     TransceiversError(#[count(children)] TransceiversError),
     GotInterface(u8, ManagementInterface),
@@ -94,31 +76,14 @@ const MAX_CONSECUTIVE_NACKS: u8 = 3;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-#[derive(Copy, Clone)]
-struct LedStates([LedState; NUM_PORTS as usize]);
-
-#[derive(Copy, Clone, PartialEq)]
-enum FrontIOStatus {
-    NotReady,
-    NotPresent,
-    Ready,
-}
-
 struct ServerImpl {
-    transceivers: Transceivers,
-    leds: Leds,
+    /// The FrontIO server is the interface to the transceivers and LED drivers
+    front_io: FrontIO,
     net: task_net_api::Net,
     modules_present: LogicalPortMask,
 
     /// The Front IO board is not guaranteed to be present and ready
-    front_io_board_present: FrontIOStatus,
-
-    /// State around LED management
-    led_error: FullErrorSummary,
-    leds_initialized: bool,
-    led_states: LedStates,
-    blink_on: bool,
-    system_led_state: LedState,
+    front_io_status: FrontIOStatus,
 
     /// Modules that are physically present but disabled by Hubris
     disabled: LogicalPortMask,
@@ -151,73 +116,6 @@ struct ThermalModel {
 /// their temperature and send it to the `thermal` task.
 const SPI_INTERVAL: u64 = 500;
 
-/// Controls how often we update the LED controllers (in milliseconds).
-const I2C_INTERVAL: u64 = 100;
-
-/// Blink LEDs at a 50% duty cycle (in milliseconds)
-const BLINK_INTERVAL: u64 = 500;
-
-impl ServerImpl {
-    fn led_init(&mut self) {
-        match self.leds.initialize_current() {
-            Ok(_) => {
-                self.set_system_led_state(LedState::On);
-                self.leds_initialized = true;
-                ringbuf_entry!(Trace::LEDInitComplete);
-            }
-            Err(e) => ringbuf_entry!(Trace::LEDInitError(e)),
-        };
-    }
-
-    fn set_led_state(&mut self, mask: LogicalPortMask, state: LedState) {
-        for index in mask.to_indices() {
-            self.led_states.0[index.0 as usize] = state;
-        }
-    }
-
-    fn get_led_state(&self, port: LogicalPort) -> LedState {
-        self.led_states.0[port.0 as usize]
-    }
-
-    fn set_system_led_state(&mut self, state: LedState) {
-        self.system_led_state = state;
-    }
-
-    #[allow(dead_code)]
-    fn get_system_led_state(&self) -> LedState {
-        self.system_led_state
-    }
-
-    fn update_leds(&mut self) {
-        // handle port LEDs
-        let mut next_state = LogicalPortMask(0);
-        for (i, state) in self.led_states.0.into_iter().enumerate() {
-            let i = LogicalPort(i as u8);
-            match state {
-                LedState::On => next_state.set(i),
-                LedState::Blink => {
-                    if self.blink_on {
-                        next_state.set(i)
-                    }
-                }
-                LedState::Off => (),
-            }
-        }
-        if let Err(e) = self.leds.update_led_state(next_state) {
-            ringbuf_entry!(Trace::LEDUpdateError(e));
-        }
-        // handle system LED
-        let system_led_on = match self.system_led_state {
-            LedState::On => true,
-            LedState::Blink => self.blink_on,
-            LedState::Off => false,
-        };
-        if let Err(e) = self.leds.update_system_led_state(system_led_on) {
-            ringbuf_entry!(Trace::LEDUpdateError(e));
-        }
-    }
-}
-
 impl ServerImpl {
     /// Returns the temperature from a CMIS transceiver.
     ///
@@ -248,7 +146,15 @@ impl ServerImpl {
         port: LogicalPort,
         reg: u8,
     ) -> Result<Celsius, FpgaError> {
-        let result = self.transceivers.setup_i2c_read(reg, 2, port.as_mask());
+        let result = match self.front_io.transceivers_setup_i2c_read(
+            reg,
+            2,
+            port.as_mask(),
+        ) {
+            Ok(r) => r,
+            Err(e) => return Err(FpgaError::ImplError(e as u8)),
+        };
+
         if !result.error().is_empty() {
             return Err(FpgaError::CommsError);
         }
@@ -261,8 +167,12 @@ impl ServerImpl {
 
         let mut out = Temperature::new_zeroed();
         let status = self
-            .transceivers
-            .get_i2c_status_and_read_buffer(port, out.as_bytes_mut())?;
+            .front_io
+            .transceivers_get_i2c_status_and_read_buffer(
+                port,
+                out.as_bytes_mut(),
+            )
+            .map_err(|e| FpgaError::ImplError(e as u8))?;
 
         if status.error == FpgaI2CFailure::NoError {
             // "Internally measured free side device temperatures are
@@ -280,7 +190,15 @@ impl ServerImpl {
         &mut self,
         port: LogicalPort,
     ) -> Result<ManagementInterface, FpgaError> {
-        let result = self.transceivers.setup_i2c_read(0, 1, port.as_mask());
+        let result = match self.front_io.transceivers_setup_i2c_read(
+            0,
+            1,
+            port.as_mask(),
+        ) {
+            Ok(r) => r,
+            Err(e) => return Err(FpgaError::ImplError(e as u8)),
+        };
+
         if !result.error().is_empty() {
             return Err(FpgaError::CommsError);
         }
@@ -289,8 +207,9 @@ impl ServerImpl {
 
         // Wait for the I2C transaction to complete
         let status = self
-            .transceivers
-            .get_i2c_status_and_read_buffer(port, &mut out)?;
+            .front_io
+            .transceivers_get_i2c_status_and_read_buffer(port, &mut out)
+            .map_err(|e| FpgaError::ImplError(e as u8))?;
 
         if status.error == FpgaI2CFailure::NoError {
             match out[0] {
@@ -480,14 +399,14 @@ impl ServerImpl {
     fn disable_ports(&mut self, mask: LogicalPortMask) {
         ringbuf_entry!(Trace::DisablingPorts(mask));
         for (step, f) in [
-            Transceivers::assert_reset,
-            Transceivers::deassert_lpmode,
-            Transceivers::disable_power,
+            FrontIO::transceivers_assert_reset,
+            FrontIO::transceivers_deassert_lpmode,
+            FrontIO::transceivers_disable_power,
         ]
         .iter()
         .enumerate()
         {
-            let err = f(&mut self.transceivers, mask).error();
+            let err = f(&mut self.front_io, mask).error();
             if !err.is_empty() {
                 ringbuf_entry!(Trace::DisableFailed(step, err));
             }
@@ -498,30 +417,11 @@ impl ServerImpl {
         // the `sensors` and `thermal` tasks.
     }
 
-    fn handle_i2c_loop(&mut self) {
-        if self.leds_initialized {
-            self.update_leds();
-            let errors = match self.leds.error_summary() {
-                Ok(errs) => errs,
-                Err(e) => {
-                    ringbuf_entry!(Trace::LEDReadError(e));
-                    Default::default()
-                }
-            };
-            if errors != self.led_error {
-                self.led_error = errors;
-                ringbuf_entry!(Trace::LEDErrorSummary(errors));
-            }
-        } else {
-            ringbuf_entry!(Trace::LEDUninitialized);
-        }
-    }
-
     fn handle_spi_loop(&mut self) {
         // Query module presence as this drives other state
-        let (status, _) = self.transceivers.get_module_status();
+        let xcvr_status = self.front_io.transceivers_status();
 
-        let modules_present = LogicalPortMask(!status.modprsl);
+        let modules_present = LogicalPortMask(!xcvr_status.status.modprsl);
         if modules_present != self.modules_present {
             // check to see if any disabled ports had their modules removed and
             // allow their power to be turned on when a module is reinserted
@@ -529,7 +429,8 @@ impl ServerImpl {
                 self.modules_present & !modules_present & self.disabled;
             if !disabled_ports_removed.is_empty() {
                 self.disabled &= !disabled_ports_removed;
-                self.transceivers.enable_power(disabled_ports_removed);
+                self.front_io
+                    .transceivers_enable_power(disabled_ports_removed);
                 ringbuf_entry!(Trace::ClearDisabledPorts(
                     disabled_ports_removed
                 ));
@@ -539,50 +440,11 @@ impl ServerImpl {
             ringbuf_entry!(Trace::ModulePresenceUpdate(modules_present));
         }
 
-        self.update_thermal_loop(status);
+        self.update_thermal_loop(xcvr_status.status);
     }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-
-impl idl::InOrderTransceiversImpl for ServerImpl {
-    fn get_module_status(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-    ) -> Result<ModuleStatus, idol_runtime::RequestError<TransceiversError>>
-    {
-        let (mod_status, result) = self.transceivers.get_module_status();
-        if result.error().is_empty() {
-            Ok(mod_status)
-        } else {
-            Err(RequestError::from(TransceiversError::FpgaError))
-        }
-    }
-
-    fn set_system_led_on(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-    ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        self.set_system_led_state(LedState::On);
-        Ok(())
-    }
-
-    fn set_system_led_off(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-    ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        self.set_system_led_state(LedState::Off);
-        Ok(())
-    }
-
-    fn set_system_led_blink(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-    ) -> Result<(), idol_runtime::RequestError<TransceiversError>> {
-        self.set_system_led_state(LedState::Blink);
-        Ok(())
-    }
-}
 
 impl NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
@@ -590,8 +452,13 @@ impl NotificationHandler for ServerImpl {
     }
 
     fn handle_notification(&mut self, _bits: u32) {
-        // Nothing to do here; notifications are just to wake up this task, and
-        // all of the actual work is handled in the main loop
+        if self.front_io_status == FrontIOStatus::Ready {
+            self.handle_spi_loop();
+        }
+
+        // Set next timer
+        let next_deadline = sys_get_timer().now + SPI_INTERVAL;
+        sys_set_timer(Some(next_deadline), notifications::TIMER_MASK);
     }
 }
 
@@ -600,13 +467,7 @@ fn main() -> ! {
     // This is a temporary workaround that makes sure the FPGAs are up
     // before we start doing things with them. A more sophisticated
     // notification system will be put in place.
-    let seq = Sequencer::from(SEQ.get_task_id());
-
-    let transceivers = Transceivers::new(FRONT_IO.get_task_id());
-    let leds = Leds::new(
-        &i2c_config::devices::pca9956b_front_leds_left(I2C.get_task_id()),
-        &i2c_config::devices::pca9956b_front_leds_right(I2C.get_task_id()),
-    );
+    let front_io = FrontIO::from(FRONT_IO.get_task_id());
 
     let net = task_net_api::Net::from(NET.get_task_id());
     let thermal_api = Thermal::from(THERMAL.get_task_id());
@@ -621,16 +482,10 @@ fn main() -> ! {
     };
 
     let mut server = ServerImpl {
-        transceivers,
-        leds,
+        front_io,
         net,
         modules_present: LogicalPortMask(0),
-        front_io_board_present: FrontIOStatus::NotReady,
-        led_error: Default::default(),
-        leds_initialized: false,
-        led_states: LedStates([LedState::Off; NUM_PORTS as usize]),
-        blink_on: false,
-        system_led_state: LedState::Off,
+        front_io_status: FrontIOStatus::NotPresent,
         disabled: LogicalPortMask(0),
         consecutive_nacks: [0; NUM_PORTS as usize],
         thermal_api,
@@ -638,96 +493,29 @@ fn main() -> ! {
         thermal_models: [None; NUM_PORTS as usize],
     };
 
-    // There are two timers, one for each communication bus:
-    #[derive(Copy, Clone, Enum)]
-    #[allow(clippy::upper_case_acronyms)]
-    enum Timers {
-        I2C,
-        SPI,
-        Blink,
-    }
-    let mut multitimer = Multitimer::<Timers>::new(notifications::TIMER_BIT);
-    // Immediately fire each timer, then begin to service regularly
-    let now = sys_get_timer().now;
-    multitimer.set_timer(
-        Timers::I2C,
-        now,
-        Some(Repeat::AfterDeadline(I2C_INTERVAL)),
-    );
-    multitimer.set_timer(
-        Timers::SPI,
-        now,
-        Some(Repeat::AfterDeadline(SPI_INTERVAL)),
-    );
-    multitimer.set_timer(
-        Timers::Blink,
-        now,
-        Some(Repeat::AfterDeadline(BLINK_INTERVAL)),
-    );
+    //
+    // This will put our timer in the past, and should immediately kick us.
+    //
+    let deadline = sys_get_timer().now;
+    sys_set_timer(Some(deadline), notifications::TIMER_MASK);
 
-    let mut buffer = [0; idl::INCOMING_SIZE];
     loop {
-        if server.front_io_board_present == FrontIOStatus::NotReady {
-            server.front_io_board_present = match seq.front_io_board_ready() {
-                Ok(true) => {
-                    ringbuf_entry!(Trace::FrontIOBoardReady(true));
-                    FrontIOStatus::Ready
-                }
-                Err(SeqError::NoFrontIOBoard) => {
-                    ringbuf_entry!(Trace::FrontIOSeqErr(
-                        SeqError::NoFrontIOBoard
-                    ));
-                    FrontIOStatus::NotPresent
-                }
-                _ => {
-                    ringbuf_entry!(Trace::FrontIOBoardReady(false));
-                    FrontIOStatus::NotReady
-                }
+        // We do this check within the main loop because we still want to
+        // service any requests from `net` even if a front IO board is not ready
+        // If a board is ready, attempt to initialize its LED drivers
+        if server.front_io_status == FrontIOStatus::Ready {
+            if let Err(e) = server.front_io.leds_enable() {
+                ringbuf_entry!(Trace::LEDEnableError(e));
             };
-
-            // If a board is present, attempt to initialize its
-            // LED drivers
-            if server.front_io_board_present == FrontIOStatus::Ready {
-                ringbuf_entry!(Trace::LEDInit);
-                match server.transceivers.enable_led_controllers() {
-                    Ok(_) => server.led_init(),
-                    Err(e) => {
-                        ringbuf_entry!(Trace::LEDEnableError(e))
-                    }
-                };
-            }
+        } else {
+            server.front_io_status = server.front_io.board_status();
+            ringbuf_entry!(Trace::FrontIOStatus(server.front_io_status));
         }
 
-        multitimer.poll_now();
-        for t in multitimer.iter_fired() {
-            match t {
-                Timers::I2C => {
-                    // Handle the Front IO status checking as part of this
-                    // loop because the frequency is what we had before and
-                    // the server itself has no knowledge of the sequencer.
-                    server.handle_i2c_loop();
-                }
-                Timers::SPI => {
-                    if server.front_io_board_present == FrontIOStatus::Ready {
-                        server.handle_spi_loop();
-                    }
-                }
-                Timers::Blink => {
-                    server.blink_on = !server.blink_on;
-                }
-            }
-        }
-
+        // monitor messages from the host
         server
             .check_net(tx_data_buf.as_mut_slice(), rx_data_buf.as_mut_slice());
-        idol_runtime::dispatch(&mut buffer, &mut server);
     }
-}
-
-mod idl {
-    use super::{ModuleStatus, TransceiversError};
-
-    include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
 
 include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

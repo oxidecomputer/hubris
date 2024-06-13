@@ -2,18 +2,18 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use core::cell::Cell;
-
 use crate::{Addr, Reg};
+use core::cell::Cell;
 use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
-use vsc85xx::{PhyRw, VscError};
+use userlib::FromPrimitive;
 use zerocopy::{byteorder, AsBytes, FromBytes, Unaligned, U16};
 
-#[derive(Copy, Clone, Eq, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, AsBytes)]
+#[repr(u8)]
 pub enum PhyOscState {
-    Unknown,
-    Bad,
-    Good,
+    Unknown = 0,
+    Bad = 1,
+    Good = 2,
 }
 
 pub struct PhySmi {
@@ -119,7 +119,7 @@ impl PhySmi {
     }
 
     #[inline(never)]
-    fn read_raw_inner(&self, phy: u8, reg: u8) -> Result<u16, FpgaError> {
+    pub fn read_raw(&self, phy: u8, reg: u8) -> Result<u16, FpgaError> {
         let request = SmiReadRequest {
             phy,
             reg,
@@ -152,7 +152,7 @@ impl PhySmi {
     }
 
     #[inline(never)]
-    fn write_raw_inner(
+    pub fn write_raw(
         &self,
         phy: u8,
         reg: u8,
@@ -171,20 +171,6 @@ impl PhySmi {
 
         self.fpga
             .write(WriteOp::Write, Addr::VSC8562_PHY_SMI_WDATA0, request)
-    }
-}
-
-impl PhyRw for PhySmi {
-    #[inline(always)]
-    fn read_raw(&self, phy: u8, reg: u8) -> Result<u16, VscError> {
-        self.read_raw_inner(phy, reg)
-            .map_err(|e| VscError::ProxyError(e.into()))
-    }
-
-    #[inline(always)]
-    fn write_raw(&self, phy: u8, reg: u8, value: u16) -> Result<(), VscError> {
-        self.write_raw_inner(phy, reg, value)
-            .map_err(|e| VscError::ProxyError(e.into()))
     }
 }
 
