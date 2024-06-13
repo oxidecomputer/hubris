@@ -59,7 +59,7 @@ fn main() -> ! {
         Err(e) => {
             // Tell everyone that something's broken, as loudly as possible.
             ringbuf_entry!(Trace::StartFailed(e));
-            sys.gpio_set(FAULT_PIN_L); // TODO should this be reset, not set?
+            // Leave FAULT_PIN_L low (which is done at the start of init)
 
             // All these moments will be lost in time, like tears in rain...
             // Time to die.
