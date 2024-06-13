@@ -17,7 +17,7 @@ use ringbuf::{counted_ringbuf, ringbuf_entry, Count};
 
 #[derive(Copy, Clone, PartialEq, Count)]
 enum Trace {
-    Ice40Init(#[count(children)] bool),
+    FpgaInit(#[count(children)] bool),
     StartFailed(#[count(children)] SeqError),
     ContinueBitstreamLoad(usize),
     WaitForDone,
@@ -132,7 +132,7 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
         // Wait for INIT_B to rise
         loop {
             let init = sys.gpio_read(FPGA_INIT_L) != 0;
-            ringbuf_entry!(Trace::Ice40Init(init));
+            ringbuf_entry!(Trace::FpgaInit(init));
             if init {
                 break;
             }
