@@ -22,6 +22,7 @@ enum Trace {
     ContinueBitstreamLoad(usize),
     WaitForDone,
     Programmed,
+    #[count(skip)]
     None,
 }
 
