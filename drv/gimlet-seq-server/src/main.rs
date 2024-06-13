@@ -160,7 +160,7 @@ fn main() -> ! {
         Err(_) => {
             // Tell everyone that something's broken, as loudly as possible.
             ringbuf_entry!(Trace::StartFailed(SeqError::I2cFault));
-            sys.gpio_set(FAULT_PIN_L);
+            // Leave FAULT_PIN_L low (which is done at the start of init)
 
             // All these moments will be lost in time, like tears in rain...
             // Time to die.
