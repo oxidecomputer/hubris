@@ -46,6 +46,7 @@ pub enum Device {
 /// The sensor includes a device type, used to decide how to read it;
 /// a free function that returns the raw `I2cDevice`, so that this can be
 /// `const`); and the sensor ID, to post data to the `sensors` task.
+#[allow(dead_code)] // not all BSPS
 pub struct TemperatureSensor {
     device: Device,
     builder: fn(TaskId) -> drv_i2c_api::I2cDevice,
@@ -53,6 +54,7 @@ pub struct TemperatureSensor {
 }
 
 impl TemperatureSensor {
+    #[allow(dead_code)] // not all BSPS
     pub const fn new(
         device: Device,
         builder: fn(TaskId) -> drv_i2c_api::I2cDevice,
@@ -125,6 +127,7 @@ impl Fans<{ bsp::NUM_FANS }> {
 /// Enum representing any of our fan controller types, bound to one of their
 /// fans.  This lets us handle heterogeneous fan controller ICs generically
 /// (although there's only one at the moment)
+#[allow(dead_code)] // a typical BSP uses only _one_ of these
 pub enum FanControl<'a> {
     Max31790(&'a Max31790, drv_i2c_devices::max31790::Fan),
 }
@@ -168,6 +171,7 @@ pub(crate) struct InputChannel {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
+#[allow(dead_code)] // a typical BSP uses only a subset of these.
 pub(crate) enum ChannelType {
     /// `MustBePresent` is exactly what it says on the tin
     ///
@@ -207,6 +211,7 @@ pub(crate) enum ChannelType {
 }
 
 impl InputChannel {
+    #[allow(dead_code)] // not all BSPS
     pub const fn new(
         sensor: TemperatureSensor,
         model: ThermalProperties,

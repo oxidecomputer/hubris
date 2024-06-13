@@ -27,6 +27,7 @@ use drv_transceivers_api::{
 };
 use enum_map::Enum;
 use task_sensor_api::{NoData, Sensor};
+#[allow(unused_imports)]
 use task_thermal_api::{Thermal, ThermalError, ThermalProperties};
 use transceiver_messages::{
     message::LedState, mgmt::ManagementInterface, MAX_PACKET_SIZE,
@@ -40,8 +41,10 @@ task_slot!(I2C, i2c_driver);
 task_slot!(FRONT_IO, front_io);
 task_slot!(SEQ, seq);
 task_slot!(NET, net);
-task_slot!(THERMAL, thermal);
 task_slot!(SENSOR, sensor);
+
+#[cfg(feature = "thermal-control")]
+task_slot!(THERMAL, thermal);
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
@@ -127,6 +130,7 @@ struct ServerImpl {
     consecutive_nacks: [u8; NUM_PORTS as usize],
 
     /// Handle to write thermal models and presence to the `thermal` task
+    #[cfg(feature = "thermal-control")]
     thermal_api: Thermal,
 
     /// Handle to write temperatures to the `sensors` task
@@ -135,13 +139,13 @@ struct ServerImpl {
     /// Thermal models are populated by the host
     thermal_models: [Option<ThermalModel>; NUM_PORTS as usize],
 }
-
 #[derive(Copy, Clone)]
 struct ThermalModel {
     /// What kind of transceiver is this?
     interface: ManagementInterface,
 
     /// What are its thermal properties, e.g. critical temperature?
+    #[allow(dead_code)]
     model: ThermalProperties,
 }
 
@@ -378,9 +382,12 @@ impl ServerImpl {
                     }
                 }
             } else if !operational && self.thermal_models[i].is_some() {
-                // This transceiver went away; remove it from the thermal loop
-                if let Err(e) = self.thermal_api.remove_dynamic_input(i) {
-                    ringbuf_entry!(Trace::ThermalError(i, e));
+                #[cfg(feature = "thermal-control")]
+                {
+                    // This transceiver went away; remove it from the thermal loop
+                    if let Err(e) = self.thermal_api.remove_dynamic_input(i) {
+                        ringbuf_entry!(Trace::ThermalError(i, e));
+                    }
                 }
 
                 // Tell the `sensor` task that this device is no longer present
@@ -408,14 +415,17 @@ impl ServerImpl {
                 None => continue,
             };
 
-            // *Always* post the thermal model over to the thermal task, so that
-            // the thermal task still has it in case of restart.  This will
-            // return a `NotInAutoMode` error if the thermal loop is in manual
-            // mode; this is harmless and will be ignored (instead of cluttering
-            // up the logs).
-            match self.thermal_api.update_dynamic_input(i, m.model) {
-                Ok(()) | Err(ThermalError::NotInAutoMode) => (),
-                Err(e) => ringbuf_entry!(Trace::ThermalError(i, e)),
+            #[cfg(feature = "thermal-control")]
+            {
+                // *Always* post the thermal model over to the thermal task, so
+                // that the thermal task still has it in case of restart.  This
+                // will return a `NotInAutoMode` error if the thermal loop is in
+                // manual mode; this is harmless and will be ignored (instead of
+                // cluttering up the logs).
+                match self.thermal_api.update_dynamic_input(i, m.model) {
+                    Ok(()) | Err(ThermalError::NotInAutoMode) => (),
+                    Err(e) => ringbuf_entry!(Trace::ThermalError(i, e)),
+                }
             }
 
             let temperature = match m.interface {
@@ -609,7 +619,6 @@ fn main() -> ! {
     );
 
     let net = task_net_api::Net::from(NET.get_task_id());
-    let thermal_api = Thermal::from(THERMAL.get_task_id());
     let sensor_api = Sensor::from(SENSOR.get_task_id());
 
     let (tx_data_buf, rx_data_buf) = {
@@ -619,6 +628,9 @@ fn main() -> ! {
         )> = ClaimOnceCell::new(([0; MAX_PACKET_SIZE], [0; MAX_PACKET_SIZE]));
         BUFS.claim()
     };
+
+    #[cfg(feature = "thermal-control")]
+    let thermal_api = Thermal::from(THERMAL.get_task_id());
 
     let mut server = ServerImpl {
         transceivers,
@@ -633,6 +645,7 @@ fn main() -> ! {
         system_led_state: LedState::Off,
         disabled: LogicalPortMask(0),
         consecutive_nacks: [0; NUM_PORTS as usize],
+        #[cfg(feature = "thermal-control")]
         thermal_api,
         sensor_api,
         thermal_models: [None; NUM_PORTS as usize],

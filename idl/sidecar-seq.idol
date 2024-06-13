@@ -1,4 +1,4 @@
-// Gimlet Sequencer API
+// Sidecar Sequencer API
 
 Interface(
     name: "Sequencer",
