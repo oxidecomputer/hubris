@@ -486,6 +486,10 @@ cfg_if::cfg_if! {
                 const LEDS: &[(drv_stm32xx_sys_api::PinSet, bool)] = &[
                     (drv_stm32xx_sys_api::Port::A.pin(3), false),
                 ];
+            } else if #[cfg(target_board = "grapefruit")] {
+                const LEDS: &[(drv_stm32xx_sys_api::PinSet, bool)] = &[
+                    (drv_stm32xx_sys_api::Port::C.pin(6), false),
+                ];
             } else {
                 compile_error!("no LED mapping for unknown board");
             }
@@ -526,6 +530,7 @@ fn led_info(led: Led) -> (drv_stm32xx_sys_api::PinSet, bool) {
             target_board = "gemini-bu-1",
             target_board = "gimletlet-1",
             target_board = "gimletlet-2",
+            target_board = "grapefruit",
         ))]
         Led::One => LEDS[1],
         #[cfg(any(

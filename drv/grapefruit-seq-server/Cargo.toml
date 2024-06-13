@@ -1,0 +1,32 @@
+[package]
+name = "drv-grapefruit-seq-server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+drv-spi-api = { path = "../spi-api" }
+drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
+drv-auxflash-api = { path = "../auxflash-api" }
+counters = { path = "../../lib/counters" }
+gnarle = { path = "../../lib/gnarle" }
+ringbuf = { path = "../../lib/ringbuf" }
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+
+cfg-if = { workspace = true }
+idol-runtime.workspace = true
+num-traits = { workspace = true }
+sha3 = { workspace = true }
+zerocopy = { workspace = true }
+
+[build-dependencies]
+build-util = { path = "../../build/util" }
+idol = { workspace = true }
+
+[features]
+h753 = ["drv-stm32xx-sys-api/h753"]
+
+[[bin]]
+name = "drv-grapefruit-seq-server"
+test = false
+doctest = false
+bench = false
