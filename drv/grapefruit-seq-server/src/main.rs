@@ -170,7 +170,8 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
         while pos < blob.end {
             let amount = (blob.end - pos).min(scratch_buf.len() as u32);
             let chunk = &mut scratch_buf[0..(amount as usize)];
-            aux.read_slot_with_offset(blob.slot, pos, chunk).map_err(SeqError::AuxReadError)?;
+            aux.read_slot_with_offset(blob.slot, pos, chunk)
+                .map_err(SeqError::AuxReadError)?;
             sha.update(&chunk);
             pos += amount;
 
