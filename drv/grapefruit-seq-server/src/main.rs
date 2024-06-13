@@ -20,6 +20,7 @@ enum Trace {
     Ice40Init(#[count(children)] bool),
     StartFailed(#[count(children)] SeqError),
     ContinueBitstreamLoad(usize),
+    WaitForDone,
     Programmed,
     None,
 }
@@ -57,7 +58,7 @@ fn main() -> ! {
         Err(e) => {
             // Tell everyone that something's broken, as loudly as possible.
             ringbuf_entry!(Trace::StartFailed(e));
-            sys.gpio_set(FAULT_PIN_L);
+            sys.gpio_set(FAULT_PIN_L); // TODO should this be reset, not set?
 
             // All these moments will be lost in time, like tears in rain...
             // Time to die.
@@ -210,8 +211,18 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
             return Err(SeqError::AuxChecksumMismatch);
         }
 
-        /////////////////////////////////////////////////////////////////////
-
+        // Wait for the FPGA to pull DONE high
+        //
+        // This pin is by default an input, and we never change it
+        loop {
+            let done = sys.gpio_read(FPGA_CONFIG_DONE) != 0;
+            if done {
+                break;
+            } else {
+                ringbuf_entry!(Trace::WaitForDone);
+                hl::sleep_for(2);
+            }
+        }
         ringbuf_entry!(Trace::Programmed);
 
         let server = Self {
@@ -219,8 +230,8 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
             seq,
         };
 
-        // Clear the external fault now that we're about to start serving messages
-        // and fewer things can go wrong.
+        // Clear the external fault now that we're about to start serving
+        // messages and fewer things can go wrong.
         sys.gpio_set(FAULT_PIN_L);
 
         Ok(server)
