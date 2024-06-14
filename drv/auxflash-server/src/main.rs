@@ -102,25 +102,9 @@ fn main() -> ! {
         sys_api::Alternate::AF10,
     );
 
-    let qspi_reset = sys_api::Port::F.pin(5);
-    sys.gpio_reset(qspi_reset);
-    sys.gpio_configure_output(
-        qspi_reset,
-        sys_api::OutputType::PushPull,
-        sys_api::Speed::Low,
-        sys_api::Pull::None,
-    );
-
-    // TODO: The best clock frequency to use can vary based on the flash
-    // part, the command used, and signal integrity limits of the board.
-
     // Ensure hold time for reset in case we just restarted.
     // TODO look up actual hold time requirement
-    hl::sleep_for(1);
-
-    // Release reset and let it stabilize.
-    sys.gpio_set(qspi_reset);
-    hl::sleep_for(10);
+    hl::sleep_for(15);
 
     // TODO: check the ID and make sure it's what we expect
     //
