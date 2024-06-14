@@ -12,10 +12,33 @@ cfg_if::cfg_if! {
         }
         use anyhow::Context;
         use config::DataRegion;
+        use indexmap::IndexMap;
         use std::{fs::File, io::Write};
 
         const CFG_SRC: &str = "rng-config.rs";
     }
+}
+
+#[cfg(feature = "dice-seed")]
+fn extern_region_to_cfg<W: Write>(
+    out: &mut W,
+    data_regions: &IndexMap<String, DataRegion>,
+    name: &str,
+) -> Result<()> {
+    let region = data_regions
+        .get(name)
+        .ok_or_else(|| anyhow::anyhow!("dice_certs data region not found"))?;
+
+    Ok(writeln!(
+        out,
+        r##"pub const {}: DataRegion = DataRegion {{
+    address: {:#x},
+    size: {:#x},
+}};"##,
+        name.to_uppercase(),
+        region.address,
+        region.size
+    )?)
 }
 
 #[cfg(feature = "dice-seed")]
@@ -32,18 +55,8 @@ fn extern_regions_to_cfg(path: &str) -> Result<()> {
 
     writeln!(out, "use crate::config::DataRegion;\n\n")?;
 
-    let region = data_regions
-        .get("dice_rng")
-        .ok_or_else(|| anyhow::anyhow!("dice_certs data region not found"))?;
-
-    Ok(writeln!(
-        out,
-        r##"pub const DICE_RNG: DataRegion = DataRegion {{
-    address: {:#x},
-    size: {:#x},
-}};"##,
-        region.address, region.size
-    )?)
+    extern_region_to_cfg(&mut out, &data_regions, "dice_certs")?;
+    extern_region_to_cfg(&mut out, &data_regions, "dice_rng")
 }
 
 fn main() -> Result<()> {

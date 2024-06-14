@@ -1297,6 +1297,7 @@ dependencies = [
  "hubpack",
  "idol",
  "idol-runtime",
+ "indexmap 1.9.1",
  "lib-dice",
  "lib-lpc55-rng",
  "num-traits",

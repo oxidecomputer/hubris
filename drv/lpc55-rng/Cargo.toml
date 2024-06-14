@@ -28,11 +28,12 @@ anyhow.workspace = true
 build-util.path = "../../build/util"
 cfg-if.workspace = true
 idol.workspace = true
+indexmap = { workspace = true, optional = true }
 serde.workspace = true
 
 [features]
 default = ["dice-seed"]
-dice-seed = ["stage0-handoff"]
+dice-seed = ["indexmap", "stage0-handoff"]
 no-ipc-counters = ["idol/no-counters"]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
