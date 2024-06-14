@@ -102,6 +102,10 @@ fn main() -> ! {
         sys_api::Alternate::AF10,
     );
 
+    // Ensure hold time for reset in case we just restarted.
+    // TODO look up actual hold time requirement
+    hl::sleep_for(15);
+
     // TODO: check the ID and make sure it's what we expect
     //
     // Gimlet is  MT25QU256ABA8E12
