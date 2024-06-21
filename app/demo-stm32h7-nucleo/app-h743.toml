@@ -120,12 +120,12 @@ notifications = ["socket"]
 
 [tasks.hiffy]
 name = "task-hiffy"
-features = ["h743", "stm32h7", "i2c", "gpio", "spi", "rng"]
+features = ["h743", "stm32h7", "i2c", "gpio", "spi"]
 priority = 4
 max-sizes = {flash = 32768, ram = 32768 }
 stacksize = 2048
 start = true
-task-slots = ["sys", "i2c_driver", "rng_driver"]
+task-slots = ["sys", "i2c_driver"]
 
 [tasks.idle]
 name = "task-idle"
