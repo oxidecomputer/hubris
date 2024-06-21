@@ -998,32 +998,3 @@ pub(crate) fn hash_finalize_sha256(
     rval[..hash::SHA256_SZ].copy_from_slice(&sha256sum);
     Ok(hash::SHA256_SZ)
 }
-
-#[cfg(feature = "rng")]
-task_slot!(RNG, rng_driver);
-
-#[cfg(feature = "rng")]
-pub(crate) fn rng_fill(
-    stack: &[Option<u32>],
-    _data: &[u8],
-    rval: &mut [u8],
-) -> Result<usize, Failure> {
-    use drv_rng_api::Rng;
-
-    if stack.is_empty() {
-        return Err(Failure::Fault(Fault::MissingParameters));
-    }
-    if stack.len() > 1 {
-        return Err(Failure::Fault(Fault::BadParameter(2)));
-    }
-
-    let frame = &stack[stack.len() - 1..];
-    let count =
-        frame[0].ok_or(Failure::Fault(Fault::MissingParameters))? as usize;
-    if count > rval.len() {
-        return Err(Failure::Fault(Fault::AccessOutOfBounds));
-    }
-
-    func_err(Rng::from(RNG.get_task_id()).fill(&mut rval[0..count]))?;
-    Ok(count)
-}

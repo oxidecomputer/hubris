@@ -32,11 +32,11 @@ request_reset = ["update_server"]
 [tasks.hiffy]
 name = "task-hiffy"
 priority = 5
-features = ["lpc55", "gpio", "rng"]
+features = ["lpc55", "gpio"]
 max-sizes = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true
-task-slots = ["gpio_driver", "rng_driver", "update_server"]
+task-slots = ["gpio_driver", "update_server"]
 
 [tasks.idle]
 name = "task-idle"

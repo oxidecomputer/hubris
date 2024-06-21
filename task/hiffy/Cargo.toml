@@ -9,7 +9,6 @@ drv-gimlet-hf-api = { path = "../../drv/gimlet-hf-api", optional = true }
 drv-hash-api = { path = "../../drv/hash-api", optional = true }
 drv-i2c-api = { path = "../../drv/i2c-api" }
 drv-lpc55-gpio-api = { path = "../../drv/lpc55-gpio-api", optional = true }
-drv-rng-api = { path = "../../drv/rng-api", optional = true }
 drv-sp-ctrl-api = { path = "../../drv/sp-ctrl-api", optional = true }
 drv-spi-api = { path = "../../drv/spi-api" }
 drv-sprot-api = { path = "../../drv/sprot-api", optional = true }
@@ -57,7 +56,6 @@ g031 = ["stm32g0", "drv-stm32xx-i2c/g031", "build-i2c/g031"]
 g030 = ["stm32g0", "drv-stm32xx-i2c/g030", "build-i2c/g030"]
 micro = ["no-ipc-counters"]
 panic-messages = ["userlib/panic-messages"]
-rng = ["drv-rng-api"]
 spctrl = ["drv-sp-ctrl-api"]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
