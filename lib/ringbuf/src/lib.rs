@@ -243,25 +243,6 @@ pub use counters::Count;
 /// macros is guaranteed to be able to find them.
 pub use static_cell::StaticCell;
 
-#[cfg(feature = "disabled")]
-#[macro_export]
-macro_rules! ringbuf {
-    ($name:ident, $t:ty, $n:expr, $init:expr, no_dedup) => {
-        $crate::ringbuf!($name, $t, $n, $init)
-    };
-    ($name:ident, $t:ty, $n:expr, $init:expr) => {
-        #[allow(dead_code)]
-        const _: $t = $init;
-        static $name: () = ();
-    };
-    ($t:ty, $n:expr, $init:expr, no_dedup) => {
-        $crate::ringbuf!(__RINGBUF, $t, $n, $init);
-    };
-    ($t:ty, $n:expr, $init:expr) => {
-        $crate::ringbuf!(__RINGBUF, $t, $n, $init);
-    };
-}
-
 /// Declares a ringbuffer in the current module or context.
 ///
 /// `ringbuf!(NAME, Type, N, expr)` makes a ringbuffer named `NAME`,
@@ -276,34 +257,17 @@ macro_rules! ringbuf {
 ///
 /// To support the common case of having one quickly-installed ringbuffer per
 /// module, if you omit the name, it will default to `__RINGBUF`.
-#[cfg(not(feature = "disabled"))]
 #[macro_export]
 macro_rules! ringbuf {
     ($name:ident, $t:ty, $n:expr, $init:expr) => {
         #[used]
-        static $name: $crate::StaticCell<$crate::Ringbuf<$t, u16, $n>> =
-            $crate::StaticCell::new($crate::Ringbuf {
-                last: None,
-                buffer: [$crate::RingbufEntry {
-                    line: 0,
-                    generation: 0,
-                    count: 0,
-                    payload: $init,
-                }; $n],
-            });
+        static $name: $crate::Ringbuf<$t, u16, $n> =
+            $crate::Ringbuf::<$t, u16, $n>::new($init);
     };
     ($name:ident, $t:ty, $n:expr, $init:expr, no_dedup) => {
         #[used]
-        static $name: $crate::StaticCell<$crate::Ringbuf<$t, () $n>> =
-            $crate::StaticCell::new($crate::Ringbuf {
-                last: None,
-                buffer: [$crate::RingbufEntry {
-                    line: 0,
-                    generation: 0,
-                    count: (),
-                    payload: $init,
-                }; $n],
-            });
+        static $name: $crate::Ringbuf<$t, (), $n> =
+            $crate::Ringbuf::<$t, (), $n>::new($init);
     };
     ($t:ty, $n:expr, $init:expr, no_dedup) => {
         $crate::ringbuf!(__RINGBUF, $t, $n, $init, no_dedup);
@@ -330,122 +294,20 @@ macro_rules! ringbuf {
 /// To support the common case of having one quickly-installed ringbuffer per
 /// module, if you omit the name, it will default to `__RINGBUF`.
 ///
-#[cfg(all(
-    not(feature = "disabled"),
-    not(feature = "counters-disabled"),
-    feature = "counters"
-))]
-#[macro_export]
-macro_rules! counted_ringbuf {
-    ($name:ident, $t:ident, $n:expr, $init:expr) => {
-        #[used]
-        static $name: $crate::CountedRingbuf<$t, u16, $n> =
-            $crate::CountedRingbuf {
-                ringbuf: $crate::StaticCell::new($crate::Ringbuf {
-                    last: None,
-                    buffer: [$crate::RingbufEntry {
-                        line: 0,
-                        generation: 0,
-                        count: 0,
-                        payload: $init,
-                    }; $n],
-                }),
-                counters: <$t as $crate::Count>::NEW_COUNTERS,
-            };
-    };
-    ($name:ident, $t:ident, $n:expr, $init:expr, no_dedup) => {
-        #[used]
-        static $name: $crate::CountedRingbuf<$t, (), $n> =
-            $crate::CountedRingbuf {
-                ringbuf: $crate::StaticCell::new($crate::Ringbuf {
-                    last: None,
-                    buffer: [$crate::RingbufEntry {
-                        line: 0,
-                        generation: 0,
-                        count: (),
-                        payload: $init,
-                    }; $n],
-                }),
-                counters: <$t as $crate::Count>::NEW_COUNTERS,
-            };
-    };
-    ($t:ident, $n:expr, $init:expr, no_dedup) => {
-        $crate::counted_ringbuf!(__RINGBUF, $t, $n, $init, no_dedup);
-    };
-    ($t:ident, $n:expr, $init:expr) => {
-        $crate::counted_ringbuf!(__RINGBUF, $t, $n, $init);
-    };
-}
-
-#[cfg(all(
-    feature = "counters",
-    not(feature = "counters-disabled"),
-    feature = "disabled"
-))]
 #[macro_export]
 macro_rules! counted_ringbuf {
     ($name:ident, $t:ident, $n:expr, $init:expr, no_dedup) => {
         #[used]
         static $name: $crate::CountedRingbuf<$t, (), $n> =
-            $crate::CountedRingbuf {
-                counters: <$t as $crate::Count>::NEW_COUNTERS,
-                _c: core::marker::PhantomData,
-            };
+            $crate::CountedRingbuf::<$t, (), $n>::new($init);
     };
     ($name:ident, $t:ident, $n:expr, $init:expr) => {
         #[used]
         static $name: $crate::CountedRingbuf<$t, u16, $n> =
-            $crate::CountedRingbuf {
-                counters: <$t as $crate::Count>::NEW_COUNTERS,
-                _c: core::marker::PhantomData,
-            };
+            $crate::CountedRingbuf::<$t, u16, $n>::new($init);
     };
     ($t:ident, $n:expr, $init:expr, no_dedup) => {
         $crate::counted_ringbuf!(__RINGBUF, $t, $n, $init, no_dedup);
-    };
-    ($t:ident, $n:expr, $init:expr) => {
-        $crate::counted_ringbuf!(__RINGBUF, $t, $n, $init);
-    };
-}
-
-#[cfg(all(
-    feature = "counters",
-    feature = "counters-disabled",
-    not(feature = "disabled")
-))]
-#[macro_export]
-macro_rules! counted_ringbuf {
-    ($name:ident, $t:ident, $n:expr, $init:expr, no_dedup) => {
-        $crate::ringbuf!($name, $t, $n, $init, no_dedup)
-    };
-    ($name:ident, $t:ident, $n:expr, $init:expr) => {
-        $crate::ringbuf!($name, $t, $n, $init)
-    };
-    ($t:ident, $n:expr, $init:expr, no_dedup) => {
-        $crate::ringbuf!(__RINGBUF, $t, $n, $init, no_dedup);
-    };
-    ($t:ident, $n:expr, $init:expr) => {
-        $crate::ringbuf!(__RINGBUF, $t, $n, $init);
-    };
-}
-
-#[cfg(all(
-    feature = "counters",
-    feature = "counters-disabled",
-    feature = "disabled"
-))]
-#[macro_export]
-macro_rules! counted_ringbuf {
-    ($name:ident, $t:ident, $n:expr, $init:expr, no_dedup) => {
-        $crate::counted_ringbuf!(%name, $t, $n, $init)
-    };
-    ($name:ident, $t:ident, $n:expr, $init:expr) => {
-        #[allow(dead_code)]
-        const _: $t = $init;
-        static $name: () = ();
-    };
-    ($t:ident, $n:expr, $init:expr, no_dedup) => {
-        $crate::counted_ringbuf!(__RINGBUF, $t, $n, $init);
     };
     ($t:ident, $n:expr, $init:expr) => {
         $crate::counted_ringbuf!(__RINGBUF, $t, $n, $init);
@@ -469,7 +331,7 @@ macro_rules! ringbuf_entry {
         let (p, buf) = ($payload, &$buf);
         // Invoke these functions using slightly weird syntax to avoid
         // accidentally calling a _different_ routine called record_entry.
-        $crate::RecordEntry::record_entry(buf, line!() as u16, p);
+        buf.record(p);
     }};
     ($payload:expr) => {
         $crate::ringbuf_entry!(__RINGBUF, $payload);
@@ -497,21 +359,23 @@ macro_rules! ringbuf_entry_root {
 /// be incremented rather than generating a new entry.
 ///
 #[derive(Debug, Copy, Clone)]
-pub struct RingbufEntry<T: Copy, C> {
-    pub line: u16,
-    pub generation: u16,
-    pub payload: T,
-    pub count: C,
+struct RingbufEntry<T: Copy, C> {
+    line: u16,
+    generation: u16,
+    payload: T,
+    count: C,
 }
 
 ///
 /// A ring buffer of parametrized type and size.  In practice, instantiating
 /// this directly is strange -- see the [`ringbuf!`] macro.
 ///
-#[derive(Debug)]
 pub struct Ringbuf<T: Copy, C, const N: usize> {
-    pub last: Option<usize>,
-    pub buffer: [RingbufEntry<T, C>; N],
+    #[cfg(not(feature = "disabled"))]
+    inner: StaticCell<RingbufInner<T, C, N>>,
+
+    #[cfg(feature = "disabled")]
+    _c: core::marker::PhantomData<fn(T, C)>,
 }
 
 ///
@@ -532,14 +396,22 @@ pub struct CountedRingbuf<T: Count + Copy, C, const N: usize> {
     /// A ring buffer of the `N` most recent entries recorded by this
     /// `CountedRingbuf`.
     #[cfg(not(feature = "disabled"))]
-    pub ringbuf: StaticCell<Ringbuf<T, C, N>>,
+    pub ringbuf: Ringbuf<T, C, N>,
 
     #[cfg(feature = "disabled")]
     pub _c: core::marker::PhantomData<fn(C)>,
 
     /// Counts of the total number of times each variant of `T` has been
     /// recorded, as defined by `T`'s [`Count`] impl.
+
+    #[cfg(not(feature = "counters-disabled"))]
     pub counters: T::Counters,
+}
+
+#[cfg(not(feature = "disabled"))]
+struct RingbufInner<T: Copy, C, const N: usize> {
+    last: Option<usize>,
+    buffer: [RingbufEntry<T, C>; N],
 }
 
 ///
@@ -571,18 +443,135 @@ pub trait RecordEntry<T: Copy> {
     fn record_entry(&self, line: u16, payload: T);
 }
 
-impl<T: Copy + PartialEq, const N: usize> RecordEntry<T>
-    for StaticCell<Ringbuf<T, u16, { N }>>
+impl<T, const N: usize> CountedRingbuf<T, (), { N }>
+where
+    T: Count + Copy,
 {
-    fn record_entry(&self, line: u16, payload: T) {
-        let mut ring = self.borrow_mut();
+    pub const fn new(init: T) -> Self {
+        Self {
+            #[cfg(not(feature = "disabled"))]
+            ringbuf: Ringbuf::<T, (), { N }>::new(init),
+
+            #[cfg(not(feature = "counters-disabled"))]
+            counters: T::NEW_COUNTERS,
+
+            #[cfg(feature = "disabled")]
+            _c: core::marker::PhantomData,
+        }
+    }
+
+    #[track_caller]
+    pub fn record(&self, payload: T) {
+        #[cfg(not(feature = "counters-disabled"))]
+        payload.count(&self.counters);
+
+        #[cfg(not(feature = "disabled"))]
+        self.ringbuf.record(payload);
+
+        #[cfg(all(feature = "disabled", feature = "counters-disabled"))]
+        let _ = payload;
+    }
+}
+
+impl<T, const N: usize> CountedRingbuf<T, u16, { N }>
+where
+    T: Count + Copy + PartialEq,
+{
+    pub const fn new(init: T) -> Self {
+        Self {
+            #[cfg(not(feature = "disabled"))]
+            ringbuf: Ringbuf::<T, u16, { N }>::new(init),
+
+            #[cfg(not(feature = "counters-disabled"))]
+            counters: T::NEW_COUNTERS,
+
+            #[cfg(feature = "disabled")]
+            _c: core::marker::PhantomData,
+        }
+    }
+
+    #[track_caller]
+    pub fn record(&self, payload: T) {
+        #[cfg(not(feature = "counters-disabled"))]
+        payload.count(&self.counters);
+
+        #[cfg(not(feature = "disabled"))]
+        self.ringbuf.record(payload);
+
+        #[cfg(all(feature = "disabled", feature = "counters-disabled"))]
+        let _ = payload;
+    }
+}
+
+impl<T: Copy, const N: usize> Ringbuf<T, (), { N }> {
+    pub const fn new(init: T) -> Self {
+        Self {
+            #[cfg(not(feature = "disabled"))]
+            inner: StaticCell::new(RingbufInner {
+                last: None,
+                buffer: [RingbufEntry {
+                    line: 0,
+                    generation: 0,
+                    count: (),
+                    payload: init,
+                }; N],
+            }),
+
+            #[cfg(feature = "disabled")]
+            _c: core::marker::PhantomData,
+        }
+    }
+
+    #[cfg(not(feature = "disabled)"))]
+    pub fn record(&self, payload: T) {
+        let mut ring = self.inner.borrow_mut();
         // If this is the first time this ringbuf has been poked, last will be
         // None. In this specific case we want to make sure we don't add to the
         // count of an existing entry, and also that we deposit the first entry
         // in slot 0. From a code generation perspective, the cheapest thing to
         // do is to treat None as an out-of-range value:
         let last = ring.last.unwrap_or(usize::MAX);
+        ring.do_record(
+            last,
+            core::panic::Location::caller().line() as u16,
+            (),
+            payload,
+        );
+    }
 
+    #[cfg(feature = "disabled)")]
+    pub fn record(&self, _: T) {}
+}
+
+impl<T: Copy + PartialEq, const N: usize> Ringbuf<T, u16, { N }> {
+    pub const fn new(init: T) -> Self {
+        Self {
+            #[cfg(not(feature = "disabled"))]
+            inner: StaticCell::new(RingbufInner {
+                last: None,
+                buffer: [RingbufEntry {
+                    line: 0,
+                    generation: 0,
+                    count: 0,
+                    payload: init,
+                }; N],
+            }),
+
+            #[cfg(feature = "disabled")]
+            _c: core::marker::PhantomData,
+        }
+    }
+
+    #[cfg(not(feature = "disabled)"))]
+    pub fn record(&self, payload: T) {
+        let mut ring = self.inner.borrow_mut();
+        // If this is the first time this ringbuf has been poked, last will be
+        // None. In this specific case we want to make sure we don't add to the
+        // count of an existing entry, and also that we deposit the first entry
+        // in slot 0. From a code generation perspective, the cheapest thing to
+        // do is to treat None as an out-of-range value:
+        let last = ring.last.unwrap_or(usize::MAX);
+        let line = core::panic::Location::caller().line() as u16;
         // Check to see if we can reuse the most recent entry. This uses get_mut
         // both to avoid checking an entry on the first insertion (see above),
         // and also to handle the case where last is somehow corrupted to point
@@ -601,45 +590,12 @@ impl<T: Copy + PartialEq, const N: usize> RecordEntry<T>
 
         ring.do_record(last, line, 1, payload);
     }
+
+    #[cfg(feature = "disabled)")]
+    pub fn record(&self, _: T) {}
 }
 
-impl<T: Copy, const N: usize> RecordEntry<T>
-    for StaticCell<Ringbuf<T, (), { N }>>
-{
-    fn record_entry(&self, line: u16, payload: T) {
-        let mut ring = self.borrow_mut();
-        // If this is the first time this ringbuf has been poked, last will be
-        // None. In this specific case we want to make sure we don't add to the
-        // count of an existing entry, and also that we deposit the first entry
-        // in slot 0. From a code generation perspective, the cheapest thing to
-        // do is to treat None as an out-of-range value:
-        let last = ring.last.unwrap_or(usize::MAX);
-        ring.do_record(last, line, (), payload);
-    }
-}
-
-#[cfg(feature = "counters")]
-impl<T, C, const N: usize> RecordEntry<T> for CountedRingbuf<T, C, { N }>
-where
-    T: Count + Copy,
-    StaticCell<Ringbuf<T, C, N>>: RecordEntry<T>,
-{
-    fn record_entry(&self, _line: u16, payload: T) {
-        payload.count(&self.counters);
-
-        #[cfg(not(feature = "disabled"))]
-        self.ringbuf.record_entry(_line, payload)
-    }
-}
-
-impl<T> RecordEntry<T> for ()
-where
-    T: Copy + PartialEq,
-{
-    fn record_entry(&self, _: u16, _: T) {}
-}
-
-impl<T: Copy, C, const N: usize> Ringbuf<T, C, N> {
+impl<T: Copy, C, const N: usize> RingbufInner<T, C, { N }> {
     fn do_record(&mut self, last: usize, line: u16, count: C, payload: T) {
         // Either we were unable to reuse the entry, or the last index was out
         // of range (perhaps because this is the first insertion). We're going
