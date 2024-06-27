@@ -9,7 +9,7 @@
 #![no_std]
 #![no_main]
 
-use core::{mem::size_of, usize};
+use core::{cmp, usize};
 use drv_lpc55_syscon_api::Syscon;
 use drv_rng_api::RngError;
 use idol_runtime::{ClientError, NotificationHandler, RequestError};
@@ -89,24 +89,19 @@ impl idl::InOrderRngImpl for Lpc55RngServer {
         dest: idol_runtime::Leased<idol_runtime::W, [u8]>,
     ) -> Result<usize, RequestError<RngError>> {
         let mut cnt = 0;
-        const STEP: usize = size_of::<u32>();
-        let mut buf = [0u8; STEP];
-        // fill in multiples of STEP / RNG register size
-        for _ in 0..(dest.len() / STEP) {
-            self.0.try_fill_bytes(&mut buf).map_err(RngError::from)?;
-            dest.write_range(cnt..cnt + STEP, &buf)
+        let mut buf = [0u8; 32];
+        while cnt < dest.len() {
+            let len = cmp::min(buf.len(), dest.len() - cnt);
+
+            self.0
+                .try_fill_bytes(&mut buf[..len])
+                .map_err(RngError::from)?;
+            dest.write_range(cnt..cnt + len, &buf[..len])
                 .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
-            cnt += STEP;
+
+            cnt += len;
         }
-        // fill in remaining
-        let remain = dest.len() - cnt;
-        assert!(remain < STEP);
-        if remain > 0 {
-            self.0.try_fill_bytes(&mut buf).map_err(RngError::from)?;
-            dest.write_range(dest.len() - remain..dest.len(), &buf)
-                .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
-            cnt += remain;
-        }
+
         Ok(cnt)
     }
 }
