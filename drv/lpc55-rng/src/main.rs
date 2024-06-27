@@ -21,18 +21,19 @@ use userlib::task_slot;
 task_slot!(SYSCON, syscon_driver);
 
 // low-budget rand::rngs::adapter::ReseedingRng w/o fork stuff
-struct ReseedingRng<T: SeedableRng> {
+struct ReseedingRng<T: SeedableRng, R: RngCore> {
     inner: T,
-    reseeder: Lpc55Rng,
+    reseeder: R,
     threshold: usize,
     bytes_until_reseed: usize,
 }
 
-impl<T> ReseedingRng<T>
+impl<T, R> ReseedingRng<T, R>
 where
     T: SeedableRng,
+    R: RngCore,
 {
-    fn new(mut reseeder: Lpc55Rng, threshold: usize) -> Result<Self, Error> {
+    fn new(mut reseeder: R, threshold: usize) -> Result<Self, Error> {
         let threshold = if threshold == 0 {
             usize::MAX
         } else {
@@ -48,9 +49,10 @@ where
     }
 }
 
-impl<T> RngCore for ReseedingRng<T>
+impl<T, R> RngCore for ReseedingRng<T, R>
 where
     T: SeedableRng + RngCore,
+    R: RngCore,
 {
     fn next_u32(&mut self) -> u32 {
         impls::next_u32_via_fill(self)
@@ -74,7 +76,7 @@ where
     }
 }
 
-struct Lpc55RngServer(ReseedingRng<ChaCha20Rng>);
+struct Lpc55RngServer(ReseedingRng<ChaCha20Rng, Lpc55Rng>);
 
 impl Lpc55RngServer {
     fn new(reseeder: Lpc55Rng, threshold: usize) -> Result<Self, Error> {
