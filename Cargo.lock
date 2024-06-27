@@ -1294,7 +1294,7 @@ dependencies = [
  "drv-rng-api",
  "idol",
  "idol-runtime",
- "lpc55-pac",
+ "lib-lpc55-rng",
  "num-traits",
  "rand_chacha",
  "rand_core",
@@ -3067,6 +3067,16 @@ dependencies = [
  "vcell",
  "zerocopy 0.6.6",
  "zeroize",
+]
+
+[[package]]
+name = "lib-lpc55-rng"
+version = "0.1.0"
+dependencies = [
+ "drv-lpc55-syscon-api",
+ "drv-rng-api",
+ "lpc55-pac",
+ "rand_core",
 ]
 
 [[package]]
