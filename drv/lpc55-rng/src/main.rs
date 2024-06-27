@@ -9,7 +9,7 @@
 #![no_std]
 #![no_main]
 
-use core::mem::size_of;
+use core::{mem::size_of, usize};
 use drv_lpc55_syscon_api::Syscon;
 use drv_rng_api::RngError;
 use idol_runtime::{ClientError, NotificationHandler, RequestError};
@@ -33,17 +33,14 @@ where
     T: SeedableRng,
 {
     fn new(mut reseeder: Lpc55Rng, threshold: usize) -> Result<Self, Error> {
-        use ::core::usize::MAX;
-
-        let threshold = if threshold == 0 { MAX } else { threshold };
-
-        // try_trait_v2 is still experimental
-        let inner = match T::from_rng(&mut reseeder) {
-            Ok(rng) => rng,
-            Err(err) => return Err(err),
+        let threshold = if threshold == 0 {
+            usize::MAX
+        } else {
+            threshold
         };
+
         Ok(ReseedingRng {
-            inner,
+            inner: T::from_rng(&mut reseeder)?,
             reseeder,
             threshold,
             bytes_until_reseed: threshold,
@@ -68,11 +65,7 @@ where
     fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), Error> {
         let num_bytes = dest.len();
         if num_bytes >= self.bytes_until_reseed || num_bytes >= self.threshold {
-            // try_trait_v2 is still experimental
-            self.inner = match T::from_rng(&mut self.reseeder) {
-                Ok(rng) => rng,
-                Err(e) => return Err(e),
-            };
+            self.inner = T::from_rng(&mut self.reseeder)?;
             self.bytes_until_reseed = self.threshold;
         } else {
             self.bytes_until_reseed -= num_bytes;
