@@ -131,8 +131,7 @@ impl NotificationHandler for Lpc55RngServer {
 
 #[export_name = "main"]
 fn main() -> ! {
-    let rng = Lpc55Rng::new(Syscon::from(SYSCON.get_task_id()));
-    rng.init();
+    let rng = Lpc55Rng::new(&Syscon::from(SYSCON.get_task_id()));
 
     let threshold = 0x100000; // 1 MiB
     let mut rng = Lpc55RngServer::new(rng, threshold)
