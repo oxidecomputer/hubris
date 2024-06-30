@@ -9,7 +9,9 @@
 #![no_std]
 #![no_main]
 
-use crate::images::{validate_header_block, ImageVectorsLpc55};
+use crate::images::{
+    check_rollback_policy, validate_header_block, ImageVectorsLpc55,
+};
 use core::convert::Infallible;
 use core::mem::{size_of, MaybeUninit};
 use core::ops::Range;
@@ -193,13 +195,21 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
                 .read_range(0..len, &mut header_block[..])
                 .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
             header_block[len..].fill(ERASE_BYTE);
-            let image =
-                ImageAccess::new(None, Some(header_block), component, slot)
-                    .ok_or(UpdateError::BadLength)?;
-            if let Err(e) = validate_header_block(
-                &image,
-                &flash_range(component, slot).exec,
-            ) {
+            let next_image =
+                ImageAccess::new(None, Some(header_block), component, slot);
+            if let Err(e) = validate_header_block(&next_image) {
+                self.header_block = None;
+                return Err(e.into());
+            }
+            let active_image = ImageAccess::new(
+                Some(&self.flash),
+                None,
+                component,
+                slot.other(),
+            );
+            if let Err(e) =
+                check_rollback_policy(active_image, next_image, false)
+            {
                 self.header_block = None;
                 return Err(e.into());
             }
@@ -252,13 +262,14 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         }
 
         let (component, slot) = self.image.unwrap_lite();
-        do_block_write(
-            &mut self.flash,
-            component,
-            slot,
-            HEADER_BLOCK,
-            self.header_block.as_ref().unwrap_lite(),
-        )?;
+        let buffer = self.header_block.as_ref().unwrap_lite();
+        let next_image =
+            ImageAccess::new(Some(&self.flash), Some(buffer), component, slot);
+        let active_image =
+            ImageAccess::new(Some(&self.flash), None, component, slot.other());
+        check_rollback_policy(active_image, next_image, true)?;
+
+        do_block_write(&mut self.flash, component, slot, HEADER_BLOCK, buffer)?;
 
         // Now erase the unused portion of the flash slot so that
         // flash slot has predictable contents and the FWID for it
@@ -458,10 +469,8 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         component: RotComponent,
         slot: SlotId,
     ) -> Result<u32, idol_runtime::RequestError<RawCabooseError>> {
-        let image = ImageAccess::new(Some(&self.flash), None, component, slot)
-            .ok_or(RawCabooseError::InvalidRead)?;
-        let caboose =
-            caboose_slice(&image, &flash_range(component, slot).exec)?;
+        let image = ImageAccess::new(Some(&self.flash), None, component, slot);
+        let caboose = caboose_slice(&image)?;
         let caboose_len = caboose.end.saturating_sub(caboose.start);
         Ok(caboose_len)
     }
@@ -474,10 +483,8 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         offset: u32,
         data: Leased<idol_runtime::W, [u8]>,
     ) -> Result<(), idol_runtime::RequestError<RawCabooseError>> {
-        let image = ImageAccess::new(Some(&self.flash), None, component, slot)
-            .ok_or(RequestError::from(RawCabooseError::InvalidRead))?;
-        let caboose =
-            caboose_slice(&image, &flash_range(component, slot).exec)?;
+        let image = ImageAccess::new(Some(&self.flash), None, component, slot);
+        let caboose = caboose_slice(&image)?;
         let caboose_len = caboose.end.saturating_sub(caboose.start);
         if offset as usize + data.len() > (caboose_len as usize) {
             return Err(RawCabooseError::InvalidRead.into());
@@ -802,8 +809,7 @@ impl ServerImpl<'_> {
             None,
             RotComponent::Stage0,
             SlotId::A,
-        )
-        .ok_or(UpdateError::BadLength)?;
+        );
         if let Ok(stage0_len) = stage0.padded_image_len() {
             if clen != stage0_len as usize {
                 // Different sizes cannot match.
@@ -858,8 +864,7 @@ impl ServerImpl<'_> {
             None,
             RotComponent::Stage0,
             SlotId::B,
-        )
-        .ok_or(UpdateError::BadLength)?;
+        );
         let len = stage0next.padded_image_len()? as usize;
         if len > self.fw_cache.as_bytes().len() {
             // This stage0 image is too big for our buffer.

@@ -242,6 +242,16 @@ impl From<RotSlot> for SlotId {
     }
 }
 
+impl SlotId {
+    pub fn other(&self) -> SlotId {
+        if *self == SlotId::A {
+            SlotId::B
+        } else {
+            SlotId::A
+        }
+    }
+}
+
 impl TryFrom<u16> for SlotId {
     type Error = ();
     fn try_from(i: u16) -> Result<Self, Self::Error> {
