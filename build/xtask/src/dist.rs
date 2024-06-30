@@ -638,7 +638,7 @@ pub fn package(
                 // The Git hash is included in the default caboose under the key
                 // `GITC`, so we don't include it in the pseudo-version.
                 archive
-                    .write_default_caboose(None)
+                    .write_default_caboose(None, None)
                     .context("writing caboose into archive")?;
                 archive.overwrite().context("overwriting archive")?;
             }

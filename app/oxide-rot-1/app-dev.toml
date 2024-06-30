@@ -53,7 +53,7 @@ start = true
 [tasks.update_server]
 name = "lpc55-update-server"
 priority = 3
-max-sizes = {flash = 27904, ram = 17344, usbsram = 4096}
+max-sizes = {flash = 30368, ram = 17344, usbsram = 4096}
 # TODO: Size this appropriately
 stacksize = 8192
 start = true

@@ -9,7 +9,9 @@
 #![no_std]
 #![no_main]
 
-use crate::images::{validate_header_block, ImageVectorsLpc55};
+use crate::images::{
+    check_rollback_policy, validate_header_block, ImageVectorsLpc55,
+};
 use core::convert::Infallible;
 use core::mem::{size_of, MaybeUninit};
 use core::ops::Range;
@@ -200,6 +202,14 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
                 self.header_block = None;
                 return Err(e.into());
             }
+            let active_image =
+                ImageAccess::new_flash(&self.flash, component, slot.other());
+            if let Err(e) =
+                check_rollback_policy(active_image, next_image, false)
+            {
+                self.header_block = None;
+                return Err(e.into());
+            }
         } else {
             // Block order is enforced above. If we're here then we have
             // seen block zero already.
@@ -249,13 +259,14 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         }
 
         let (component, slot) = self.image.unwrap_lite();
-        do_block_write(
-            &mut self.flash,
-            component,
-            slot,
-            HEADER_BLOCK,
-            self.header_block.as_ref().unwrap_lite(),
-        )?;
+        let buffer = self.header_block.as_ref().unwrap_lite();
+        let next_image =
+            ImageAccess::new_hybrid(&self.flash, buffer, component, slot);
+        let active_image =
+            ImageAccess::new_flash(&self.flash, component, slot.other());
+        check_rollback_policy(active_image, next_image, true)?;
+
+        do_block_write(&mut self.flash, component, slot, HEADER_BLOCK, buffer)?;
 
         // Now erase the unused portion of the flash slot so that
         // flash slot has predictable contents and the FWID for it
