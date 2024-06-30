@@ -3,6 +3,7 @@ chip = "../../chips/stm32h7"
 memory = "memory-large.toml"
 stacksize = 896
 fwid = true
+epoch = 0
 
 [kernel]
 name = "gimlet"

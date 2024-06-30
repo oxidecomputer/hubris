@@ -20,7 +20,10 @@ use crate::{
 use abi::{ImageHeader, CABOOSE_MAGIC, HEADER_MAGIC};
 use core::ops::Range;
 use core::ptr::addr_of;
-use drv_lpc55_update_api::{RawCabooseError, RotComponent, SlotId};
+use drv_caboose::CabooseReader;
+use drv_lpc55_update_api::{
+    RawCabooseError, RotComponent, SlotId, BLOCK_SIZE_BYTES,
+};
 use drv_update_api::UpdateError;
 use zerocopy::{AsBytes, FromBytes};
 
@@ -47,6 +50,7 @@ pub const HEADER_BLOCK: usize = 0;
 // An image may have an ImageHeader located after the
 // LPC55's mixed header/vector table.
 pub const IMAGE_HEADER_OFFSET: u32 = 0x130;
+pub const CABOOSE_TAG_EPOC: [u8; 4] = [b'E', b'P', b'O', b'C'];
 
 /// Address ranges that may contain an image during storage and active use.
 /// `stored` and `at_runtime` ranges are the same except for `stage0next`.
@@ -99,8 +103,7 @@ pub fn is_current_hubris_image(component: RotComponent, slot: SlotId) -> bool {
     // Safety: extern statics aren't controlled by Rust so poking them can
     // cause UB; in this case, it's zero length and we are only taking its
     // numerical address, so we're not at risk.
-    flash_range(component, slot).stored.start
-        == unsafe { addr_of!(__this_image) as u32 }
+    flash_range(component, slot).stored.start == addr_of!(__this_image) as u32
 }
 
 // LPC55 defined image content
@@ -181,7 +184,7 @@ impl TryFrom<&[u8]> for ImageVectorsLpc55 {
 /// the end of optional caboose and the beginning of the signature block.
 pub fn validate_header_block(
     header_access: &ImageAccess<'_>,
-) -> Result<u32, UpdateError> {
+) -> Result<(Option<Epoch>, u32), UpdateError> {
     let mut vectors = ImageVectorsLpc55::new_zeroed();
     let mut header = ImageHeader::new_zeroed();
 
@@ -208,15 +211,17 @@ pub fn validate_header_block(
     // Note that `ImageHeader.epoch` is used by rollback protection for early
     // rejection of invalid images.
     // TODO: Improve estimate of where the first executable instruction can be.
-    let code_offset = if header.magic == HEADER_MAGIC {
+    let (code_offset, epoch) = if header.magic == HEADER_MAGIC {
         if header.total_image_len != vectors.nxp_offset_to_specific_header {
             // ImageHeader disagrees with LPC55 vectors.
             return Err(UpdateError::InvalidHeaderBlock);
         }
-        // Adding constants should be resolved at compile time: no call to panic.
-        IMAGE_HEADER_OFFSET + (core::mem::size_of::<ImageHeader>() as u32)
+        (
+            IMAGE_HEADER_OFFSET + (core::mem::size_of::<ImageHeader>() as u32),
+            Some(Epoch::from(header.epoch)),
+        )
     } else {
-        IMAGE_HEADER_OFFSET
+        (IMAGE_HEADER_OFFSET, None)
     };
 
     if vectors.nxp_image_length as usize > header_access.at_runtime().len() {
@@ -243,7 +248,7 @@ pub fn validate_header_block(
         return Err(UpdateError::InvalidHeaderBlock);
     }
 
-    Ok(vectors.nxp_offset_to_specific_header)
+    Ok((epoch, vectors.nxp_offset_to_specific_header))
 }
 
 /// Get the range of the caboose contained within an image if it exists.
@@ -260,7 +265,7 @@ pub fn caboose_slice(
     //
     // In this context, NoImageHeader actually means that the image
     // is not well formed.
-    let image_end_offset = validate_header_block(image)
+    let (_epoch, image_end_offset) = validate_header_block(image)
         .map_err(|_| RawCabooseError::NoImageHeader)?;
 
     // By construction, the last word of the caboose is its size as a `u32`
@@ -318,7 +323,7 @@ enum Accessor<'a> {
     },
     // Hybrid is used for later implementation of rollback protection.
     // The buffer is used in place of the beginning of the flash range.
-    _Hybrid {
+    Hybrid {
         buffer: &'a [u8],
         flash: &'a drv_lpc55_flash::Flash<'a>,
         span: FlashRange,
@@ -330,7 +335,7 @@ impl Accessor<'_> {
         match self {
             Accessor::Flash { span, .. }
             | Accessor::Ram { span, .. }
-            | Accessor::_Hybrid { span, .. } => &span.at_runtime,
+            | Accessor::Hybrid { span, .. } => &span.at_runtime,
         }
     }
 }
@@ -375,7 +380,7 @@ impl ImageAccess<'_> {
         }
     }
 
-    pub fn _new_hybrid<'a>(
+    pub fn new_hybrid<'a>(
         flash: &'a drv_lpc55_flash::Flash<'a>,
         buffer: &'a [u8],
         component: RotComponent,
@@ -383,7 +388,7 @@ impl ImageAccess<'_> {
     ) -> ImageAccess<'a> {
         let span = flash_range(component, slot);
         ImageAccess {
-            accessor: Accessor::_Hybrid {
+            accessor: Accessor::Hybrid {
                 flash,
                 buffer,
                 span,
@@ -430,7 +435,7 @@ impl ImageAccess<'_> {
                     .and_then(u32::read_from)
                     .ok_or(UpdateError::OutOfBounds)?)
             }
-            Accessor::_Hybrid {
+            Accessor::Hybrid {
                 buffer,
                 flash,
                 span,
@@ -491,7 +496,7 @@ impl ImageAccess<'_> {
                     Err(UpdateError::OutOfBounds)
                 }
             }
-            Accessor::_Hybrid {
+            Accessor::Hybrid {
                 buffer: ram,
                 flash,
                 span,
@@ -547,12 +552,131 @@ impl ImageAccess<'_> {
                 ImageVectorsLpc55::read_from_prefix(&buffer[..])
                     .ok_or(UpdateError::OutOfBounds)
             }
-            Accessor::Ram { buffer, .. } | Accessor::_Hybrid { buffer, .. } => {
+            Accessor::Ram { buffer, .. } | Accessor::Hybrid { buffer, .. } => {
                 ImageVectorsLpc55::read_from_prefix(buffer)
                     .ok_or(UpdateError::OutOfBounds)
             }
         }?;
         let len = vectors.image_length().ok_or(UpdateError::BadLength)?;
         round_up_to_flash_page(len).ok_or(UpdateError::BadLength)
+    }
+}
+
+#[derive(Clone, PartialEq)]
+pub struct Epoch {
+    value: u32,
+}
+
+/// Convert from the ImageHeader.epoch format
+impl From<u32> for Epoch {
+    fn from(number: u32) -> Self {
+        Epoch { value: number }
+    }
+}
+
+/// Convert from the caboose EPOC value format.
+//
+// Invalid EPOC values converted to Epoch{value:0} include:
+//   - empty slice
+//   - any non-ASCII-digits in slice
+//   - any non-UTF8 in slice
+//   - leading '+' normally allowed by parse()
+//   - values greater than u32::MAX
+//
+//   Hand coding reduces size by about 950 bytes.
+impl From<&[u8]> for Epoch {
+    fn from(chars: &[u8]) -> Self {
+        let epoch =
+            if chars.first().map(|c| c.is_ascii_digit()).unwrap_or(false) {
+                if let Ok(chars) = core::str::from_utf8(chars) {
+                    chars.parse::<u32>().unwrap_or(0)
+                } else {
+                    0
+                }
+            } else {
+                0
+            };
+        Epoch::from(epoch)
+    }
+}
+
+impl Epoch {
+    pub fn can_update_to(&self, next: Epoch) -> bool {
+        self.value >= next.value
+    }
+}
+
+/// Check a next image against an active image to determine
+/// if rollback policy allows the next image.
+/// If ImageHeader and Caboose are absent or Caboose does
+/// not have an `EPOC` tag, then the Epoch is defaulted to zero.
+/// This test is also used when the header block first arrives
+/// so that images can be rejected early, i.e. before any flash has
+/// been altered.
+pub fn check_rollback_policy(
+    next_image: ImageAccess<'_>,
+    active_image: ImageAccess<'_>,
+    complete: bool,
+) -> Result<(), UpdateError> {
+    let next_epoch = get_image_epoch(&next_image)?;
+    let active_epoch = get_image_epoch(&active_image)?;
+    match (active_epoch, next_epoch) {
+        // No active_epoch is treated as zero; update can proceed.
+        (None, _) => Ok(()),
+        (Some(active_epoch), None) => {
+            // If next_image is partial and HEADER_BLOCK has no ImageHeader,
+            // then there is no early rejection, proceed.
+            if !complete || active_epoch.can_update_to(Epoch::from(0u32)) {
+                Ok(())
+            } else {
+                Err(UpdateError::RollbackProtection)
+            }
+        }
+        (Some(active_epoch), Some(next_epoch)) => {
+            if active_epoch.can_update_to(next_epoch) {
+                Ok(())
+            } else {
+                Err(UpdateError::RollbackProtection)
+            }
+        }
+    }
+}
+
+/// Get ImageHeader epoch and/or caboose EPOC from an Image if it exists.
+/// Return default of zero epoch if neither is present.
+/// This function is called at points where the image's signature has not been
+/// checked or the image is incomplete. Sanity checks are required before using
+/// any data.
+fn get_image_epoch(
+    image: &ImageAccess<'_>,
+) -> Result<Option<Epoch>, UpdateError> {
+    let (header_epoch, _caboose_offset) = validate_header_block(image)?;
+
+    if let Ok(span) = caboose_slice(image) {
+        let mut block = [0u8; BLOCK_SIZE_BYTES];
+        let caboose = block[0..span.len()].as_bytes_mut();
+        image.read_bytes(span.start, caboose)?;
+        let reader = CabooseReader::new(caboose);
+        let caboose_epoch = if let Ok(epoc) = reader.get(CABOOSE_TAG_EPOC) {
+            Some(Epoch::from(epoc))
+        } else {
+            None
+        };
+        match (header_epoch, caboose_epoch) {
+            (None, None) => Ok(None),
+            (Some(header_epoch), None) => Ok(Some(header_epoch)),
+            (None, Some(caboose_epoch)) => Ok(Some(caboose_epoch)),
+            (Some(header_epoch), Some(caboose_epoch)) => {
+                if caboose_epoch == header_epoch {
+                    Ok(Some(caboose_epoch))
+                } else {
+                    // Epochs present in both and not matching is invalid.
+                    // The image will be rejected after epoch 0.
+                    Ok(Some(Epoch::from(0u32)))
+                }
+            }
+        }
+    } else {
+        Ok(header_epoch)
     }
 }
