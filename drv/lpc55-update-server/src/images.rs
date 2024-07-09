@@ -19,7 +19,6 @@ use crate::{
 };
 use abi::{ImageHeader, CABOOSE_MAGIC, HEADER_MAGIC};
 use core::ops::Range;
-use drv_lpc55_flash::BYTES_PER_FLASH_PAGE;
 use drv_lpc55_update_api::{RawCabooseError, RotComponent, SlotId};
 use drv_update_api::UpdateError;
 use zerocopy::{AsBytes, FromBytes};
@@ -91,7 +90,7 @@ pub fn flash_range(component: RotComponent, slot: SlotId) -> FlashRange {
 }
 
 /// Does (component, slot) refer to the currently running Hubris image?
-pub fn same_image(component: RotComponent, slot: SlotId) -> bool {
+pub fn is_current_hubris_image(component: RotComponent, slot: SlotId) -> bool {
     // Safety: We are trusting the linker.
     flash_range(component, slot).store.start
         == unsafe { &__this_image } as *const _ as u32
@@ -293,7 +292,7 @@ pub fn caboose_slice(
     }
 }
 
-// Accessor keeps the implementation details of ImageAccess private
+/// Accessor keeps the implementation details of ImageAccess private
 enum Accessor<'a> {
     // Flash driver, flash device range
     Flash {
@@ -372,8 +371,6 @@ impl ImageAccess<'_> {
         component: RotComponent,
         slot: SlotId,
     ) -> ImageAccess<'a> {
-        assert!((buffer.len() % BYTES_PER_FLASH_PAGE) == 0);
-        assert!(((buffer.as_ptr() as u32) % U32_SIZE) == 0);
         let span = flash_range(component, slot);
         ImageAccess {
             accessor: Accessor::_Hybrid {
@@ -459,9 +456,8 @@ impl ImageAccess<'_> {
         let len = buffer.len() as u32;
         match &self.accessor {
             Accessor::Flash { flash, span } => {
-                let start = offset.saturating_add(span.store.start);
-                let end =
-                    offset.saturating_add(span.store.start).saturating_add(len);
+                let start = span.store.start.saturating_add(offset);
+                let end = start.saturating_add(len);
                 if span.store.contains(&start)
                     && (span.store.start..=span.store.end).contains(&end)
                 {
@@ -503,14 +499,12 @@ impl ImageAccess<'_> {
                 }
                 // Transfer data from the flash-backed portion of the image.
                 if remainder > 0 {
-                    let start =
-                        offset.saturating_add(span.store.start as usize);
-                    let end = start.saturating_add(remainder);
-                    if span.store.contains(&(start as u32))
-                        && (span.store.start..=span.store.end)
-                            .contains(&(end as u32))
+                    let start = span.store.start.saturating_add(offset as u32);
+                    let end = start.saturating_add(remainder as u32);
+                    if span.store.contains(&start)
+                        && (span.store.start..=span.store.end).contains(&end)
                     {
-                        indirect_flash_read(flash, start as u32, buffer)?;
+                        indirect_flash_read(flash, start, buffer)?;
                     } else {
                         return Err(UpdateError::OutOfBounds);
                     }

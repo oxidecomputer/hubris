@@ -33,7 +33,8 @@ use zerocopy::AsBytes;
 
 mod images;
 use crate::images::{
-    caboose_slice, flash_range, same_image, ImageAccess, HEADER_BLOCK,
+    caboose_slice, flash_range, is_current_hubris_image, ImageAccess,
+    HEADER_BLOCK,
 };
 
 const PAGE_SIZE: u32 = BYTES_PER_FLASH_PAGE as u32;
@@ -1143,7 +1144,7 @@ fn do_block_write(
     let page_num = block_num as u32;
 
     // Can only update opposite image
-    if same_image(component, slot) {
+    if is_current_hubris_image(component, slot) {
         return Err(UpdateError::RunningImage);
     }
 
