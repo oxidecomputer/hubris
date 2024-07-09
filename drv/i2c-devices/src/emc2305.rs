@@ -214,6 +214,7 @@ fn write_reg16(
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     ZeroTach(Fan),
+    TachOverflow(u32),
     BadFanCount(u8),
     None,
 }
@@ -266,50 +267,42 @@ impl Emc2305 {
     pub fn fan_rpm(&self, fan: Fan) -> Result<Rpm, ResponseCode> {
         let val = read_reg16(&self.device, fan.tach_count())?;
 
+        // See section 4.4.1 in the datasheet for details
         //
-        // The tach count is somewhat misnamed: it is in fact the number of
-        // 8192 Hz clock cycles counted in a configurable number of pulses of
-        // the tach.  (It would be more aptly named a pulse count.) The number
-        // of pulses (NP) per revolution of the fan is specific to the fan,
-        // but is generally two for the DC brushless fans we care about.  The
-        // number of pulses of the tach measured is called the Speed Range
-        // (SR) and defaults to 4.
+        // The tachometer reading represents the number of 32 KHz clock cycles
+        // counted in a single revolution of the fan.
         //
         // So to get from the tach count to the time per revolution:
         //
-        //                    count * NP
-        //                t = ----------
-        //                    8192 * SR
+        //              1         n - 1
+        //      RPM = ----- x ------------- x f_TACH x 60
+        //            poles    count * 1/m
         //
-        // And to get from there to RPM, we want to divide 60 by t:
+        // Our settings are the following:
+        //   poles = 2
+        //   n = edges measured (set to 5 in `cfg1` above)
+        //   m = range multiplier (2x, per configuration above)
+        //   f_TACH = tachometer measurement frequency (32 KHz)
+        //   count = reading
         //
-        //                   60 * 8192 * SR
-        //   RPM = 60 / t =  --------------
-        //                     count * NP
-        //
-        let count = ((val[0] as u32) << 3) | (val[1] >> 5) as u32;
-
-        const TACH_POR_VALUE: u32 = 0b111_1111_1111;
-        const SR: u32 = 4;
-        const NP: u32 = 2;
-        const FREQ: u32 = 8192;
+        // Doing the math, we end up with
+        //   RPM = 7680000 / count
+        let count = ((val[0] as u32) << 5) | (val[1] >> 3) as u32;
 
         if count == 0 {
+            // What happens if the fan is idle / stalled / unplugged?
             //
-            // We don't really expect this:  generally, if a fan is off (or is
-            // otherwise emiting non-detectable tach input pulses), the
-            // controller will report the power-on-reset value for the tach
-            // count, not 0.  So if we see a zero count, we will assume that
-            // this is an error rather than a 0 RPM reading, and record it to
-            // a (small) ring buffer and return accordingly.
-            //
+            // On the MAX31790, it returns all ones for the tach reading, but
+            // it's not clear whether that's also the case for this chip.
             ringbuf_entry!(Trace::ZeroTach(fan));
             Err(ResponseCode::BadDeviceState)
-        } else if count == TACH_POR_VALUE {
-            Ok(Rpm(0))
         } else {
-            let rpm = (60 * FREQ * SR) / (count * NP);
-            Ok(Rpm(rpm as u16))
+            let rpm = 7_680_000 / count;
+            let Ok(rpm) = rpm.try_into() else {
+                ringbuf_entry!(Trace::TachOverflow(count));
+                return Err(ResponseCode::BadDeviceState);
+            };
+            Ok(Rpm(rpm))
         }
     }
 
@@ -331,12 +324,6 @@ impl Emc2305 {
 
 impl Validate<ResponseCode> for Emc2305 {
     fn validate(device: &I2cDevice) -> Result<bool, ResponseCode> {
-        //
-        // The device doesn't have an identity register per se; to validate it,
-        // we make sure that the PWM Frequency register contains valid
-        // frequencies -- which doesn't eliminate many possibilities, but is
-        // better than nothing.
-        //
         let pid = read_reg8(device, Register::ProductId)?;
         let mfg = read_reg8(device, Register::MfgId)?;
 

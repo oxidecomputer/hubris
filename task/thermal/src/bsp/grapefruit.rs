@@ -53,11 +53,9 @@ pub(crate) struct Bsp {
     pub inputs: &'static [InputChannel],
     pub dynamic_inputs: &'static [SensorId],
     pub misc_sensors: &'static [TemperatureSensor],
+    pub pid_config: PidConfig,
 
     fctrl: Emc2305State,
-
-    pub pid_config: PidConfig,
-    // TODO fan control
 }
 
 impl Bsp {
