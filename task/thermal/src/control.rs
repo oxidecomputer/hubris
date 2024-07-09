@@ -8,8 +8,10 @@ use crate::{
 };
 use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_i2c_devices::{
+    emc2305::Emc2305,
     max31790::{I2cWatchdog, Max31790},
     nvme_bmc::NvmeBmc,
+    pct2075::Pct2075,
     sbtsi::Sbtsi,
     tmp117::Tmp117,
     tmp451::Tmp451,
@@ -39,6 +41,7 @@ pub enum Device {
     Dimm,
     U2,
     M2,
+    LM75,
 }
 
 /// Represents a sensor in the system.
@@ -74,6 +77,7 @@ impl TemperatureSensor {
             Device::Tmp451(t) => Tmp451::new(&dev, *t).read_temperature()?,
             Device::Dimm => Tse2004Av::new(&dev).read_temperature()?,
             Device::U2 | Device::M2 => NvmeBmc::new(&dev).read_temperature()?,
+            Device::LM75 => Pct2075::new(&dev).read_temperature()?,
         };
         Ok(t)
     }
@@ -130,24 +134,32 @@ impl Fans<{ bsp::NUM_FANS }> {
 #[allow(dead_code)] // a typical BSP uses only _one_ of these
 pub enum FanControl<'a> {
     Max31790(&'a Max31790, drv_i2c_devices::max31790::Fan),
+    Emc2305(&'a Emc2305, drv_i2c_devices::emc2305::Fan),
 }
 
 impl<'a> FanControl<'a> {
     fn set_pwm(&self, pwm: PWMDuty) -> Result<(), ResponseCode> {
         match self {
             Self::Max31790(m, fan) => m.set_pwm(*fan, pwm),
+            Self::Emc2305(m, fan) => m.set_pwm(*fan, pwm),
         }
     }
 
     pub fn fan_rpm(&self) -> Result<Rpm, ResponseCode> {
         match self {
             Self::Max31790(m, fan) => m.fan_rpm(*fan),
+            Self::Emc2305(m, fan) => m.fan_rpm(*fan),
         }
     }
 
     pub fn set_watchdog(&self, wd: I2cWatchdog) -> Result<(), ResponseCode> {
         match self {
             Self::Max31790(m, _fan) => m.set_watchdog(wd),
+            Self::Emc2305(m, _fan) => {
+                // The EMC2305 doesn't support setting the watchdog time, just
+                // whether it's enabled or disabled
+                m.set_watchdog(!matches!(wd, I2cWatchdog::Disabled))
+            }
         }
     }
 }
@@ -300,6 +312,7 @@ pub(crate) struct Max31790State {
 }
 
 impl Max31790State {
+    #[allow(dead_code)]
     pub(crate) fn new(dev: &I2cDevice) -> Self {
         let mut this = Self {
             max31790: Max31790::new(dev),
@@ -319,6 +332,7 @@ impl Max31790State {
     /// Access the fan controller, attempting to initialize it if it has not yet
     /// been initialized.
     #[inline]
+    #[allow(dead_code)]
     pub(crate) fn try_initialize(
         &mut self,
     ) -> Result<&mut Max31790, ControllerInitError> {
@@ -342,6 +356,65 @@ impl Max31790State {
         self.initialized = true;
         ringbuf_entry!(Trace::FanControllerInitialized);
         Ok(&mut self.max31790)
+    }
+}
+
+/// Tracks whether a EMC2305 fan controller has been initialized, and
+/// initializes it on demand when accessed, if necessary.
+///
+/// This is copy-pasted from [`Max31790`]
+pub(crate) struct Emc2305State {
+    emc2305: Emc2305,
+    fan_count: u8,
+    initialized: bool,
+}
+
+impl Emc2305State {
+    #[allow(dead_code)]
+    pub(crate) fn new(dev: &I2cDevice, fan_count: u8) -> Self {
+        let mut this = Self {
+            emc2305: Emc2305::new(dev),
+            fan_count,
+            initialized: false,
+        };
+        // When we first start up, try to initialize the fan controller a few
+        // times, in case there's a transient I2C error.
+        for remaining in (0..3).rev() {
+            if this.initialize().is_ok() {
+                break;
+            }
+            ringbuf_entry!(Trace::FanControllerInitRetry { remaining });
+        }
+        this
+    }
+
+    /// Access the fan controller, attempting to initialize it if it has not yet
+    /// been initialized.
+    #[inline]
+    #[allow(dead_code)]
+    pub(crate) fn try_initialize(
+        &mut self,
+    ) -> Result<&mut Emc2305, ControllerInitError> {
+        if self.initialized {
+            return Ok(&mut self.emc2305);
+        }
+
+        self.initialize()
+    }
+
+    // Slow path that actually performs initialization. This is "outlined" so
+    // that we can avoid pushing a stack frame in the case where we just need to
+    // check a bool and return a pointer.
+    #[inline(never)]
+    fn initialize(&mut self) -> Result<&mut Emc2305, ControllerInitError> {
+        self.emc2305.initialize(self.fan_count).map_err(|e| {
+            ringbuf_entry!(Trace::FanControllerInitError(e));
+            ControllerInitError(e)
+        })?;
+
+        self.initialized = true;
+        ringbuf_entry!(Trace::FanControllerInitialized);
+        Ok(&mut self.emc2305)
     }
 }
 

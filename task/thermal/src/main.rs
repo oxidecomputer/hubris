@@ -31,6 +31,7 @@
     path = "bsp/sidecar_bcd.rs"
 )]
 #[cfg_attr(any(target_board = "medusa-a"), path = "bsp/medusa_a.rs")]
+#[cfg_attr(any(target_board = "grapefruit"), path = "bsp/grapefruit.rs")]
 mod bsp;
 mod control;
 
