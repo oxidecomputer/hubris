@@ -78,7 +78,7 @@ task-slots = ["syscon_driver"]
 [tasks.sprot]
 name = "drv-lpc55-sprot-server"
 priority = 6
-max-sizes = {flash = 54016, ram = 32768}
+max-sizes = {flash = 54048, ram = 32768}
 uses = ["flexcomm8", "bootrom"]
 features = ["spi0", "sp-ctrl"]
 start = true
