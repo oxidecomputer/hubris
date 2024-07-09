@@ -14,18 +14,26 @@ use userlib::*;
 bitfield! {
     pub struct Configuration(u8);
     mask, set_mask: 7;
-    dis_to, set_dis_to: 6;
-    wd_en, set_wd_en: 6;
-    dreck, set_dreck: 1;
-    useck, set_useck: 0;
+    disable_timeout, set_disable_timeout: 6;
+    watchdog_enable, set_watchdog_enable: 6;
+    drive_clk, set_drive_clk: 1;
+    use_clk, set_use_clk: 0;
 }
 
 bitfield! {
     pub struct FanCfg1(u8);
-    enag, set_enag: 7;
-    rng, set_rng: 6, 5;
-    edg, set_edg: 4, 3;
-    udt, set_udt: 2, 1, 0;
+    closed_loop, set_closed_loop: 7;
+    range, set_range: 6, 5;
+    edges, set_edges: 4, 3;
+    update_time, set_update_time: 2, 1, 0;
+}
+
+bitfield! {
+    pub struct FanCfg2(u8);
+    enable_ramp_control, set_enable_ramp_control: 6;
+    enable_glitch_filter, set_enable_glitch_filter: 5;
+    derivative_options, set_derivative_options: 4, 3;
+    error_window, set_error_window: 2, 1;
 }
 
 #[allow(dead_code)]
@@ -229,17 +237,24 @@ impl Emc2305 {
         // Enable the watchdog at all times
         let mut config =
             Configuration(read_reg8(device, Register::Configuration)?);
-        config.set_wd_en(true);
+        config.set_watchdog_enable(true);
         write_reg8(device, Register::Configuration, config.0)?;
 
         for fan in 0..fan_count {
             let fan = Fan::try_from(fan).unwrap();
 
-            let reg = fan.configuration1();
-            let mut config = FanCfg1(read_reg8(device, reg)?);
-            config.set_rng(0b01); // 1000 RPM minimum, TACH count multiple = 2
-            config.set_edg(0b01); // 5 edges sampled, TACH multiple = 1x
-            write_reg8(device, reg, config.0)?;
+            // Configure tach stuff
+            let reg1 = fan.configuration1();
+            let mut cfg1 = FanCfg1(read_reg8(device, reg1)?);
+            cfg1.set_range(0b01); // 1000 RPM minimum, TACH count multiple = 2
+            cfg1.set_edges(0b01); // 5 edges sampled, TACH multiple = 1x
+            write_reg8(device, reg1, cfg1.0)?;
+
+            // Enable ramp control, to avoid the fans going from 0-100%
+            let reg2 = fan.configuration2();
+            let mut cfg2 = FanCfg2(read_reg8(device, reg2)?);
+            cfg2.set_enable_ramp_control(true);
+            write_reg8(device, reg2, cfg2.0)?;
 
             write_reg8(device, fan.pwm_target(), 0)?;
         }
@@ -309,7 +324,7 @@ impl Emc2305 {
     pub fn set_watchdog(&self, enabled: bool) -> Result<(), ResponseCode> {
         let mut config =
             Configuration(read_reg8(&self.device, Register::Configuration)?);
-        config.set_wd_en(enabled);
+        config.set_watchdog_enable(enabled);
         write_reg8(&self.device, Register::Configuration, config.0)
     }
 }
