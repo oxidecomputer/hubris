@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use drv_monorail_api::MonorailError;
 use drv_sidecar_front_io::phy_smi::PhySmi;
 use drv_sidecar_seq_api::Sequencer;
 use ringbuf::*;
@@ -32,8 +33,19 @@ enum Trace {
     AnegCheckFailed(#[count(children)] VscError),
     Restarted10GAneg,
     Reinit,
+    UnlockUntil(u64),
+    LockingVLans,
+    AutomaticLock,
+    LockError(#[count(children)] VscError),
+    UnlockError(#[count(children)] VscError),
 }
 ringbuf!(Trace, 16, Trace::None);
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum VLanMode {
+    Locked,
+    UnlockedUntil(u64),
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -63,6 +75,9 @@ pub struct Bsp<'a, R> {
 
     /// Time at which the 10G link went down
     link_down_at: Option<u64>,
+
+    /// VLAN lock state
+    vlan_mode: VLanMode,
 }
 
 pub const REFCLK_SEL: vsc7448::RefClockFreq =
@@ -163,6 +178,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             },
             front_io_speed: [Speed::Speed1G; 2],
             link_down_at: None,
+            vlan_mode: VLanMode::Locked,
             seq,
         };
 
@@ -201,7 +217,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         // them!
         //
         // (ports will be added back to VLANs after configuration is done, in
-        // the call to `configure_vlan_semistrict` below)
+        // the call to `configure_vlan_sidecar_locked` below)
         //
         // The root cause is unknown, but we suspect a hardware race condition
         // in the switch IC; see this issue for detailed discussion:
@@ -215,7 +231,19 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         self.phy_vsc8504_init()?;
 
         self.vsc7448.configure_ports_from_map(&PORT_MAP)?;
-        self.vsc7448.configure_vlan_semistrict()?;
+        match self.vlan_mode {
+            VLanMode::Locked => self.vsc7448.configure_vlan_sidecar_locked()?,
+            VLanMode::UnlockedUntil(t) => {
+                let now = userlib::sys_get_timer().now;
+                if now < t {
+                    self.vsc7448.configure_vlan_sidecar_unlocked()?
+                } else {
+                    ringbuf_entry!(Trace::AutomaticLock);
+                    self.vlan_mode = VLanMode::Locked;
+                    self.vsc7448.configure_vlan_sidecar_locked()?
+                }
+            }
+        }
         self.vsc7448_postconfig()?;
 
         // Some front IO boards have a faulty oscillator driving the PHY,
@@ -472,6 +500,15 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             }
         }
 
+        if let VLanMode::UnlockedUntil(t) = self.vlan_mode {
+            let now = userlib::sys_get_timer().now;
+            if now >= t {
+                ringbuf_entry!(Trace::AutomaticLock);
+                // Discard the error, because it's already logged in lock_vlans
+                let _ = self.lock_vlans();
+            }
+        }
+
         // Workaround for the link-stuck issue discussed in
         // https://github.com/oxidecomputer/bf_sde/issues/5. This should only
         // run if the Tofino PCIe link is up otherwise the Tofino port is almost
@@ -547,6 +584,31 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         };
         let phy = vsc85xx::Phy::new(phy_port, &mut phy_rw);
         Some(callback(phy))
+    }
+
+    pub(crate) fn unlock_vlans_until(
+        &mut self,
+        unlock_until: u64,
+    ) -> Result<(), MonorailError> {
+        ringbuf_entry!(Trace::UnlockUntil(unlock_until));
+        self.vsc7448
+            .configure_vlan_sidecar_unlocked()
+            .map_err(|e| {
+                ringbuf_entry!(Trace::UnlockError(e));
+                MonorailError::from(e)
+            })?;
+        self.vlan_mode = VLanMode::UnlockedUntil(unlock_until);
+        Ok(())
+    }
+
+    pub(crate) fn lock_vlans(&mut self) -> Result<(), MonorailError> {
+        ringbuf_entry!(Trace::LockingVLans);
+        self.vsc7448.configure_vlan_sidecar_locked().map_err(|e| {
+            ringbuf_entry!(Trace::LockError(e));
+            MonorailError::from(e)
+        })?;
+        self.vlan_mode = VLanMode::Locked;
+        Ok(())
     }
 }
 

@@ -605,11 +605,7 @@ impl RxRing {
     /// packets from the Rx ring, to avoid blocking the queue.  It returns a
     /// tuple of `(next_free, any_dropped)`. If packets have been dropped, the
     /// caller should poke the DMA registers to inform them.
-    pub fn vlan_is_next_free(
-        &self,
-        vid: u16,
-        vid_range: core::ops::Range<u16>,
-    ) -> (bool, bool) {
+    pub fn vlan_is_next_free(&self, vid: u16, vlans: &[u16]) -> (bool, bool) {
         let mut any_dropped = false;
         loop {
             let d = &self.storage[self.next.get()];
@@ -639,7 +635,7 @@ impl RxRing {
                 if this_vid == vid {
                     // If this matches our target VLAN, then we're good!
                     return (true, any_dropped);
-                } else if vid_range.contains(&this_vid) {
+                } else if vlans.contains(&this_vid) {
                     // If this matches a _different_ valid VLAN, then return
                     // and trust that another instance will handle it.
                     return (false, any_dropped);

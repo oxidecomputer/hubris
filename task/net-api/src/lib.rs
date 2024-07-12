@@ -50,6 +50,26 @@ pub enum RecvError {
     ServerRestarted = 2,
 }
 
+/// Errors that can occur when trying to set a VLAN as trusted
+#[derive(
+    Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError, counters::Count,
+)]
+#[repr(u32)]
+pub enum TrustError {
+    /// There is no such VLAN
+    NoSuchVLAN = 1,
+
+    /// The given VLAN is always trusted, and as such cannot be marked as
+    /// temporarily trusted
+    AlwaysTrusted,
+
+    /// The server has restarted. Clients may or may not actually care about
+    /// this; often you'll just want to retry, but because a netstack restart
+    /// may imply one or more lost packets, we don't want to assume that.
+    #[idol(server_death)]
+    ServerRestarted,
+}
+
 #[derive(
     Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError, counters::Count,
 )]
@@ -263,6 +283,31 @@ impl From<Ipv6Address> for smoltcp::wire::Ipv6Address {
     fn from(a: Ipv6Address) -> Self {
         Self(a.0)
     }
+}
+
+/// Upstream SP port
+///
+/// Values are based on the KSZ8463's numbering (1-3); port 3 is connected to
+/// the SP itself and cannot be used as a source / destination.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum SpPort {
+    One,
+    Two,
+}
+
+/// Configuration for a SP VLAN
+#[derive(Copy, Clone, Debug)]
+pub struct VLanConfig {
+    /// VLAN VID
+    pub vid: u16,
+
+    /// Whether this VLAN is initially trusted
+    pub trusted: bool,
+
+    /// SP port associated with this VLAN
+    ///
+    /// In rare cases, multiple VLANs can be associated with the same SP port
+    pub port: SpPort,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

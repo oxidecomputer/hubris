@@ -2,7 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::vlan_id_from_sp_port;
 use gateway_messages::{Header, Message, MessageKind, SpPort, SpRequest};
 use heapless::Vec;
 use idol_runtime::{Leased, RequestError};
@@ -181,11 +180,23 @@ impl HostPhase2Requester {
 
         let n = gateway_messages::serialize(tx_buf, &message).unwrap_lite();
 
+        let vid = {
+            let target = match port {
+                SpPort::One => task_net_api::SpPort::One,
+                SpPort::Two => task_net_api::SpPort::Two,
+            };
+            task_net_api::VLANS
+                .iter()
+                .find(|v| v.port == target)
+                .unwrap()
+                .vid
+        };
+
         Some(UdpMetadata {
             addr: SP_TO_MGS_MULTICAST_ADDR,
             port: MGS_UDP_PORT,
             size: n as u32,
-            vid: vlan_id_from_sp_port(port),
+            vid,
         })
     }
 
