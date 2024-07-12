@@ -13,7 +13,7 @@ use mutable_statics::mutable_statics;
 use task_net_api::UdpMetadata;
 
 use crate::bsp_support;
-use crate::generated::{self, VLAN_COUNT, VLAN_RANGE};
+use crate::generated::{self, VLAN_COUNT, VLAN_VIDS};
 use crate::{
     server::{DeviceExt, GenServerImpl, Storage},
     MacAddressBlock,
@@ -41,7 +41,7 @@ impl<'a> smoltcp::phy::Device for VLanEthernet<'a> {
         &mut self,
         _timestamp: smoltcp::time::Instant,
     ) -> Option<(Self::RxToken<'a>, Self::TxToken<'a>)> {
-        if self.eth.vlan_can_recv(self.vid, VLAN_RANGE) && self.eth.can_send() {
+        if self.eth.vlan_can_recv(self.vid, &VLAN_VIDS) && self.eth.can_send() {
             Some((
                 VLanRxToken(self.eth, self.vid),
                 VLanTxToken(self.eth, self.vid),
@@ -125,7 +125,7 @@ where
         generated::construct_sockets(),
         |i| VLanEthernet {
             eth,
-            vid: generated::VLAN_RANGE.start + i as u16,
+            vid: generated::VLAN_VIDS[i],
         },
     )
 }

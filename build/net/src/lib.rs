@@ -4,7 +4,7 @@
 
 use anyhow::Result;
 use serde::Deserialize;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 ///////////////////////////////////////////////////////////////////////////////
 // Network config schema definition.
@@ -25,9 +25,10 @@ pub struct NetConfig {
     pub sockets: BTreeMap<String, SocketConfig>,
 
     /// VLAN configuration, or None. This is checked against enabled features
-    /// during the `net` build, so it must be present iff the `vlan` feature
+    /// during the `net` build, so it must be non-empty iff the `vlan` feature
     /// is turned on.
-    pub vlan: Option<VLanConfig>,
+    #[serde(default)]
+    pub vlans: Vec<VLanConfig>,
 }
 
 /// TODO: this type really wants to be an enum, but the toml crate's enum
@@ -41,15 +42,22 @@ pub struct SocketConfig {
     pub port: u16,
     pub tx: BufSize,
     pub rx: BufSize,
+
+    #[serde(default)]
+    pub accept_untrusted: bool,
 }
 
 #[derive(Copy, Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct VLanConfig {
-    /// Address of the 0-index VLAN
-    pub start: usize,
-    /// Number of VLANs
-    pub count: usize,
+    /// VLAN VID
+    pub vid: u16,
+
+    /// Whether this VLAN is initially trusted
+    pub trusted: bool,
+
+    /// Equivalent SP port (one or two)
+    pub port: u8,
 }
 
 #[derive(Deserialize)]
@@ -69,11 +77,11 @@ pub struct TaskNote {
 pub fn load_net_config() -> Result<NetConfig> {
     let cfg = build_util::config::<GlobalConfig>()?.net;
 
-    match (cfg!(feature = "vlan"), cfg.vlan.is_some()) {
-        (true, false) => {
+    match (cfg!(feature = "vlan"), cfg.vlans.is_empty()) {
+        (true, true) => {
             panic!("VLAN feature is enabled, but vlan is missing from config")
         }
-        (false, true) => {
+        (false, false) => {
             panic!("VLAN feature is disabled, but vlan is present in config")
         }
         _ => (),
@@ -82,23 +90,65 @@ pub fn load_net_config() -> Result<NetConfig> {
     Ok(cfg)
 }
 
+pub fn generate_port_consts(
+    config: &NetConfig,
+    mut out: impl std::io::Write,
+) -> Result<(), std::io::Error> {
+    let ports = config
+        .vlans
+        .iter()
+        .map(|v| v.port)
+        .collect::<HashSet<_>>()
+        .len();
+    assert!(ports <= 2);
+    writeln!(out, "pub const PORT_COUNT: usize = {};", ports.max(1))
+}
+
 pub fn generate_vlan_consts(
     config: &NetConfig,
     mut out: impl std::io::Write,
 ) -> Result<(), std::io::Error> {
-    let vlan = config.vlan.unwrap();
-    let end = vlan.start + vlan.count;
-    if end > 0xFFF {
-        panic!("Invalid VLAN range (must be < 4096)");
+    if config.vlans.iter().any(|v| v.vid > 0xFFF) {
+        panic!("Invalid VLAN VID (must be < 4096)");
     }
     writeln!(
         out,
         "
-pub const VLAN_RANGE: core::ops::Range<u16> = {:#x}..{:#x};
-pub const VLAN_COUNT: usize = {};
-",
-        vlan.start, end, vlan.count
-    )
+    pub const VLAN_COUNT: usize = {0};
+    pub const VLANS: [VLanConfig; {0}] = [",
+        config.vlans.len()
+    )?;
+    for v in &config.vlans {
+        writeln!(
+            out,
+            "
+    VLanConfig {{
+        vid: {:#x},
+        trusted: {},
+        port: {}
+    }},",
+            v.vid,
+            v.trusted,
+            match v.port {
+                1 => "SpPort::One",
+                2 => "SpPort::Two",
+                _ => panic!("invalid SP port, must be 1 or 2"),
+            }
+        )?;
+    }
+    writeln!(out, "];")?;
+    write!(
+        out,
+        "
+    pub const VLAN_VIDS: [u16; {0}] = [",
+        config.vlans.len()
+    )?;
+    for v in &config.vlans {
+        write!(out, "{:#x},", v.vid)?;
+    }
+    writeln!(out, "];")?;
+
+    Ok(())
 }
 
 pub fn generate_socket_enum(
@@ -141,6 +191,17 @@ pub fn generate_socket_enum(
     )?;
     for c in config.sockets.values() {
         writeln!(out, "{},", c.rx.bytes)?;
+    }
+    writeln!(out, "];")?;
+
+    writeln!(
+        out,
+        "#[allow(unused)]\
+        pub const SOCKET_ACCEPT_UNTRUSTED: [bool; {}] = [",
+        config.sockets.len(),
+    )?;
+    for c in config.sockets.values() {
+        writeln!(out, "{},", c.accept_untrusted)?;
     }
     writeln!(out, "];")?;
 

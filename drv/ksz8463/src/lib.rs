@@ -43,6 +43,23 @@ pub enum VLanMode {
     /// Reject tagged frames on ingress into ports 1 and 2.
     Mandatory,
 
+    /// This is a tricky one!
+    ///
+    /// Ports 1 (to the local Sidecar) and 3 (to the SP) require tagged frames.
+    ///
+    /// Port 1 is associated with VLANs 0x12C, 0x12D, and 0x130, corresponding
+    /// to the two tech ports and the Tofino respectively.  These sources are
+    /// all local to the Sidecar itself, and we want to distinguish between
+    /// them.
+    ///
+    /// Port 2 requires untagged frames, which are assigned to VID 0x302.  This
+    /// is the connection to the rest of the management network, which is an
+    /// untagged backplane.
+    ///
+    /// Port 3 requires tagged frames, which can be any of the above VIDs
+    /// (because they're all heading to the SP)
+    Sidecar,
+
     /// Don't do any configuration of the VLANs.
     Off,
 }
@@ -438,13 +455,65 @@ impl<S: SpiServer> Ksz8463<S> {
                 self.modify(Register::P3CR2, |r| *r |= 1 << 14)?;
             }
 
+            // In `VLanMode::Sidecar`, we expect tagged frames on Ports 1/3
+            // and untagged frames on Port 2. Untagged frames arriving on Port
+            // 1/3 are assigned to VLAN 0x3FF, which drops them.
+            VLanMode::Sidecar => {
+                // Configure VLAN table for the device:
+                // - VLAN 0 has tag 0x12C, and contains ports 1 and 3 (tp1)
+                // - VLAN 1 has tag 0x12D, and contains ports 1 and 3 (tp2)
+                // - VLAN 2 has tag 0x130, and contains ports 1 and 3 (Tofino)
+                // - VLAN 3 has tag 0x302, and contains ports 2 and 3
+                // - VLAN 4 has tag 0x3FF, and contains no ports
+                //
+                // This uses slots 0-4 in the table, and FID 0-4 (same as
+                // slot); all other VLANs are disabled (in particular, VLAN
+                // with VID 1, which by default includes all ports).
+                self.write_vlan_table(0, 0b101, 0x12C)?;
+                self.write_vlan_table(1, 0b101, 0x12D)?;
+                self.write_vlan_table(2, 0b101, 0x130)?;
+                self.write_vlan_table(3, 0b110, 0x302)?;
+                self.write_vlan_table(4, 0b000, 0x3FF)?;
+                for i in 5..16 {
+                    self.disable_vlan(i)?;
+                }
+
+                // Assign default VLAN tags to each port
+                self.write(Register::P1VIDCR, 0x3FF)?;
+                self.write(Register::P2VIDCR, 0x302)?;
+                self.write(Register::P3VIDCR, 0x3FF)?;
+
+                // Enable tag removal on port 2
+                self.modify(Register::P2CR1, |r| {
+                    *r |= 1 << 9; // Drop tagged ingress packets
+                    *r |= 1 << 1; // Remove tags on egress
+                })?;
+
+                for i in [1, 3] {
+                    // Insert tags before egress on Ports 1 and 3
+                    self.modify(Register::PxCR1(i), |r| *r |= 1 << 2)?;
+
+                    // Enable ingress VLAN filtering on Ports 1 and 3.  This
+                    // will cause them to drop packets that have invalid
+                    // tags (and untagged frames will be assigned 0x3FF then
+                    // unceremoniously dropped).
+                    self.modify(Register::PxCR2(i), |r| *r |= 1 << 14)?;
+                }
+
+                // There's a secret bonus register which _actually_ enables
+                // PVID tagging, despite not being mentioned in the VLAN
+                // tagging section of the datasheet.  We enable tagging when
+                // frames come from Port 2 and go to Port 3.
+                self.write(Register::SGCR9, 1 << 3)?;
+            }
+
             VLanMode::Off => (),
         }
 
         // Enable 802.1Q VLAN mode.  This must happen after the VLAN tables
         // are configured.
         match vlan_mode {
-            VLanMode::Optional | VLanMode::Mandatory => {
+            VLanMode::Optional | VLanMode::Mandatory | VLanMode::Sidecar => {
                 self.modify(Register::SGCR2, |r| {
                     *r |= 1 << 15;
                 })?
