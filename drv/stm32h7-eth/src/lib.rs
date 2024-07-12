@@ -516,13 +516,9 @@ impl Ethernet {
     /// function to prevent them from clogging up the system. Packets with
     /// a VID that doesn't match `vid` but is in `vid_range` will not be
     /// dropped, but this function will return `false` in that case.
-    pub fn vlan_can_recv(
-        &self,
-        vid: u16,
-        vid_range: core::ops::Range<u16>,
-    ) -> bool {
+    pub fn vlan_can_recv(&self, vid: u16, vlans: &[u16]) -> bool {
         let (can_recv, any_dropped) =
-            self.rx_ring.vlan_is_next_free(vid, vid_range);
+            self.rx_ring.vlan_is_next_free(vid, vlans);
         if any_dropped {
             self.rx_notify();
         }

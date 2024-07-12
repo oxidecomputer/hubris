@@ -7,8 +7,8 @@
 //! Right now, this is identical to the rev A BSP, but that may change in the
 //! future, so they're kept separate.
 
-#[cfg(not(all(feature = "ksz8463", feature = "mgmt")))]
-compile_error!("this BSP requires the ksz8463 and mgmt features");
+#[cfg(not(all(feature = "ksz8463", feature = "mgmt", feature = "vlan")))]
+compile_error!("this BSP requires the ksz8463, mgmt, and vlan features");
 
 use crate::{
     bsp_support::{self, Ksz8463},
@@ -80,11 +80,7 @@ impl bsp_support::Bsp for BspImpl {
             // SP_TO_EPE_RESET_L
             ksz8463_nrst: Port::A.pin(0),
             ksz8463_rst_type: mgmt::Ksz8463ResetSpeed::Normal,
-
-            #[cfg(feature = "vlan")]
-            ksz8463_vlan_mode: ksz8463::VLanMode::Mandatory,
-            #[cfg(not(feature = "vlan"))]
-            ksz8463_vlan_mode: ksz8463::VLanMode::Optional,
+            ksz8463_vlan_mode: ksz8463::VLanMode::Sidecar,
 
             // SP_TO_PHY2_COMA_MODE_3V3
             vsc85x2_coma_mode: Some(Port::I.pin(15)),

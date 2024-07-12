@@ -78,10 +78,10 @@ task-slots = ["sys"]
 
 [tasks.net]
 name = "task-net"
-stacksize = 8000
+stacksize = 10000
 priority = 5
 features = ["mgmt", "h753", "sidecar", "vlan", "vpd-mac", "use-spi-core", "spi3"]
-max-sizes = {flash = 131072, ram = 65536, sram1 = 16384}
+max-sizes = {flash = 131072, ram = 131072, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "tim16", "spi3"]
 start = true
@@ -96,24 +96,24 @@ task-slots = ["sys", "packrat", { seq = "sequencer" }, "jefe"]
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
 priority = 7
-max-sizes = {flash = 131072, ram = 32768 }
-stacksize = 6144
+max-sizes = {flash = 140672, ram = 65536 }
+stacksize = 12000
 start = true
 uses = []
 task-slots = [
-    "jefe",
-    "net",
-    "update_server",
-    "sys",
-    "sequencer",
     "auxflash",
-    "validate",
-    "monorail",
-    "sensor",
-    "sprot",
     "ignition",
+    "jefe",
+    "monorail",
+    "net",
     "packrat",
+    "sensor",
+    "sequencer",
+    "sprot",
+    "sys",
     "transceivers",
+    "update_server",
+    "validate",
     "vpd",
 ]
 features = ["sidecar", "vlan", "auxflash", "vpd"]
@@ -1091,7 +1091,12 @@ mux = "port_jk"
 cs = [{port = "J", pin = 6}] # SPI_SP_TO_FPGA_CS_USER_L
 
 [config.net]
-vlan = { start = 0x301, count = 2 }
+vlans = [
+    {vid = 0x12C, trusted = false, port = 1},
+    {vid = 0x12D, trusted = false, port = 1},
+    {vid = 0x130, trusted = true, port = 1},
+    {vid = 0x302, trusted = true, port = 2}
+]
 # UDP ports in sockets below are assigned in oxidecomputer/oana
 
 [config.net.sockets.echo]
@@ -1114,6 +1119,7 @@ owner = {name = "control_plane_agent", notification = "socket"}
 port = 11111
 tx = { packets = 3, bytes = 2048 }
 rx = { packets = 3, bytes = 2048 }
+accept-untrusted = true
 
 [config.net.sockets.dump_agent]
 kind = "udp"

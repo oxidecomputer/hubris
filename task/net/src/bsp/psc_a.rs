@@ -2,8 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#[cfg(not(all(feature = "ksz8463", feature = "mgmt")))]
-compile_error!("this BSP requires the ksz8463 and mgmt features");
+#[cfg(not(all(feature = "ksz8463", feature = "mgmt", feature = "vlan")))]
+compile_error!("this BSP requires the ksz8463, mgmt, and vlan features");
 
 use crate::{
     bsp_support::{self, Ksz8463},
@@ -87,11 +87,7 @@ impl bsp_support::Bsp for BspImpl {
             ksz8463: Ksz8463::new(ksz8463_dev),
             ksz8463_nrst: Port::C.pin(2),
             ksz8463_rst_type: mgmt::Ksz8463ResetSpeed::Normal,
-
-            #[cfg(feature = "vlan")]
             ksz8463_vlan_mode: ksz8463::VLanMode::Mandatory,
-            #[cfg(not(feature = "vlan"))]
-            ksz8463_vlan_mode: ksz8463::VLanMode::Optional,
 
             // SP_TO_MGMT_PHY_COMA_MODE
             vsc85x2_coma_mode: Some(Port::D.pin(7)),

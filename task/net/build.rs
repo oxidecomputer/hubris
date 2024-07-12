@@ -54,11 +54,7 @@ fn generate_net_config(config: &NetConfig) -> Result<()> {
         writeln!(
             out,
             "{}",
-            generate_socket_state(
-                name,
-                socket,
-                config.vlan.map(|v| v.count).unwrap_or(1)
-            )?
+            generate_socket_state(name, socket, config.vlans.len().max(1))?
         )?;
     }
     writeln!(out, "{}", generate_state_struct(config))?;
@@ -66,6 +62,7 @@ fn generate_net_config(config: &NetConfig) -> Result<()> {
     writeln!(out, "{}", generate_owner_info(config)?)?;
     writeln!(out, "{}", generate_port_table(config)?)?;
 
+    build_net::generate_port_consts(config, &mut out)?;
     build_net::generate_socket_enum(config, &mut out)?;
 
     drop(out);
@@ -192,7 +189,7 @@ fn generate_constructor(config: &NetConfig) -> Result<TokenStream> {
             )
         }
     };
-    let vlan_count = config.vlan.map(|v| v.count).unwrap_or(1);
+    let vlan_count = config.vlans.len().max(1);
     let sockets = (0..vlan_count)
         .map(|i| {
             let s = config

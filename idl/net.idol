@@ -134,5 +134,28 @@ Interface(
             ),
             encoding: Hubpack,
         ),
+        "trust_vlan": (
+            doc: "Marks the given VID as trusted for some amount of time",
+            args: {
+                "vid": "u16",
+                "trust_until": "u64",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("task_net_api::TrustError"),
+            ),
+            encoding: Hubpack
+        ),
+        "distrust_vlan": (
+            doc: "Marks the given VID as untrusted",
+            args: {
+                "vid": "u16",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("task_net_api::TrustError"),
+            ),
+            encoding: Hubpack
+        ),
     },
 )

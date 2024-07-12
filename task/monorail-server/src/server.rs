@@ -792,6 +792,23 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
             .map_err(MonorailError::from)
             .map_err(RequestError::from)
     }
+
+    fn unlock_vlans(
+        &mut self,
+        _mgs: &userlib::RecvMessage,
+        unlock_until: u64,
+    ) -> Result<(), RequestError<MonorailError>> {
+        self.bsp
+            .unlock_vlans_until(unlock_until)
+            .map_err(RequestError::from)
+    }
+
+    fn lock_vlans(
+        &mut self,
+        _mgs: &userlib::RecvMessage,
+    ) -> Result<(), RequestError<MonorailError>> {
+        self.bsp.lock_vlans().map_err(RequestError::from)
+    }
 }
 
 impl<'a, R> NotificationHandler for ServerImpl<'a, R> {

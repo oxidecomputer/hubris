@@ -64,7 +64,7 @@ fn main() -> ! {
     // If this system is running in VLAN mode, then we broadcast to each
     // possible VLAN in turn.  Otherwise, broadcast normal packets.
     #[cfg(feature = "vlan")]
-    let mut vid_iter = VLAN_RANGE.cycle();
+    let mut vid_iter = VLAN_VIDS.iter().cloned().cycle();
 
     // Ask `net` for our mac address first; this also serves as a useful wait
     // for `packrat` to be loaded by the sequencer if we're on a board with VPD.

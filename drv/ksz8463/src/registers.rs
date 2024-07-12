@@ -1074,31 +1074,42 @@ pub enum Register {
 impl Register {
     #[inline(always)]
     pub fn PxPHYCTRL(i: u8) -> Self {
-        Self::select(i, Self::P1PHYCTRL, Self::P2PHYCTRL)
+        Self::select2(i, Self::P1PHYCTRL, Self::P2PHYCTRL)
     }
     #[inline(always)]
     pub fn PxMBSR(i: u8) -> Self {
-        Self::select(i, Self::P1MBSR, Self::P2MBSR)
+        Self::select2(i, Self::P1MBSR, Self::P2MBSR)
     }
     #[inline(always)]
     pub fn PxMBCR(i: u8) -> Self {
-        Self::select(i, Self::P1MBCR, Self::P2MBCR)
+        Self::select2(i, Self::P1MBCR, Self::P2MBCR)
     }
     #[inline(always)]
     pub fn PxCR1(i: u8) -> Self {
-        Self::select(i, Self::P1CR1, Self::P2CR1)
+        Self::select3(i, Self::P1CR1, Self::P2CR1, Self::P3CR1)
     }
     #[inline(always)]
     pub fn PxCR2(i: u8) -> Self {
-        Self::select(i, Self::P1CR2, Self::P2CR2)
+        Self::select3(i, Self::P1CR2, Self::P2CR2, Self::P3CR2)
     }
 
     // Helper function to dispatch between two registers
     #[inline(always)]
-    fn select(i: u8, r1: Register, r2: Register) -> Register {
+    fn select2(i: u8, r1: Register, r2: Register) -> Register {
         match i {
             1 => r1,
             2 => r2,
+            _ => panic!("Invalid port {}", i),
+        }
+    }
+
+    // Helper function to dispatch between two registers
+    #[inline(always)]
+    fn select3(i: u8, r1: Register, r2: Register, r3: Register) -> Register {
+        match i {
+            1 => r1,
+            2 => r2,
+            3 => r3,
             _ => panic!("Invalid port {}", i),
         }
     }

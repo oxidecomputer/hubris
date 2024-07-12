@@ -183,5 +183,22 @@ Interface(
                 err: CLike("drv_monorail_api::MonorailError"),
             ),
         ),
+        "unlock_vlans": (
+            doc: "Configures the VLANs according to configure_vlan_sidecar_unlocked",
+            args: {
+                "unlock_until": "u64",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("drv_monorail_api::MonorailError"),
+            ),
+        ),
+        "lock_vlans": (
+            doc: "Configures the VLANs according to configure_vlan_sidecar_locked",
+            reply: Result(
+                ok: "()",
+                err: CLike("drv_monorail_api::MonorailError"),
+            ),
+        ),
     },
 )

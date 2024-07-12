@@ -194,7 +194,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         // them!
         //
         // (ports will be added back to VLANs after configuration is done, in
-        // the call to `configure_vlan_semistrict` below)
+        // the call to `configure_vlan_sidecar_unlocked` below)
         //
         // The root cause is unknown, but we suspect a hardware race condition
         // in the switch IC; see this issue for detailed discussion:
@@ -208,7 +208,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         self.phy_vsc8504_init()?;
 
         self.vsc7448.configure_ports_from_map(&PORT_MAP)?;
-        self.vsc7448.configure_vlan_semistrict()?;
+        self.vsc7448.configure_vlan_sidecar_unlocked()?;
         self.vsc7448_postconfig()?;
 
         // Some front IO boards have a faulty oscillator driving the PHY,
@@ -501,6 +501,17 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         };
         let phy = vsc85xx::Phy::new(phy_port, &mut phy_rw);
         Some(callback(phy))
+    }
+
+    fn unlock_vlans_until(
+        &mut self,
+        unlock_until: u64,
+    ) -> Result<MonorailError> {
+        Err(MonorailError::NotImplemented)
+    }
+
+    fn lock_vlans(&mut self) -> Result<(), MonorailError> {
+        Err(MonorailError::NotImplemented)
     }
 }
 

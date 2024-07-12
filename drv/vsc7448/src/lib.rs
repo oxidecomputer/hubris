@@ -712,6 +712,13 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         Ok(())
     }
 
+    fn configure_vlan_with_mask(
+        &self,
+        f: fn(u8) -> u64,
+    ) -> Result<(), VscError> {
+        self.configure_vlan_with_mask_and_tagged(|p| (f(p), false))
+    }
+
     /// Configures VLANs for a production-style system.
     ///
     /// For details, see RFD 250, but in brief:
@@ -725,40 +732,80 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
     /// - The uplink port (49) sends and receives packets with one VLAN tag, and
     ///   uses that packet to select which VLAN (i.e. which downstream port)
     ///   should receive that packet.  The VLAN tag is stripped on egress.
-    fn configure_vlan_with_mask(
+    fn configure_vlan_with_mask_and_tagged<F: Fn(u8) -> (u64, bool)>(
         &self,
-        f: fn(u8) -> u64,
+        f: F,
     ) -> Result<(), VscError> {
         const UPLINK: u8 = 49; // DEV10G_0, uplink to the Tofino 2
 
-        // Configure the downstream ports, which each have their own VLANs
-        for p in (0..=52).filter(|p| *p != UPLINK) {
+        // Configure one VLAN per downstream port, then do per-port
+        // configuration based on whether the port is tagged or not.
+        for p in 0..=52 {
             let port = ANA_CL().PORT(p);
 
-            // Configure the 0x1YY VLAN for this port, using our closure to
-            // decide what mask to apply
-            self.write_port_mask(
-                ANA_L3().VLAN(0x100 + p as u16).VLAN_MASK_CFG(),
-                f(p),
-            )?;
+            // Special case for the uplink port
+            let tagged = if p == UPLINK {
+                true
+            } else {
+                let (mask, tagged) = f(p);
+                // Configure the 0x1YY VLAN for this port, using our closure to
+                // decide what mask to apply
+                self.write_port_mask(
+                    ANA_L3().VLAN(0x100 + p as u16).VLAN_MASK_CFG(),
+                    mask,
+                )?;
+                tagged
+            };
 
-            // The downstream ports expect untagged frames, and classify
-            // them based on a per-port VID assigned here.
-            self.modify(port.VLAN_CTRL(), |r| {
-                r.set_port_vid(0x100 + p as u32);
-                r.set_vlan_aware_ena(1);
-            })?;
-            // Accept no TPIDs, and only route untagged frames.
-            self.modify(port.VLAN_TPID_CTRL(), |r| {
-                r.set_basic_tpid_aware_dis(0b1111);
-                r.set_rt_tag_ctrl(0b0001);
-            })?;
+            if tagged {
+                // Tagged ports (e.g. uplink) require one VLAN tag, and pop it
+                // on ingress
+                //
+                // They have a default VID of 0x1, but we removed all ports from
+                // that VLAN (in configure_vlan_none), so it will only accept
+                // our desired set of VIDs.
+                self.modify(port.VLAN_CTRL(), |r| {
+                    r.set_vlan_pop_cnt(1);
+                    r.set_vlan_aware_ena(1);
+                })?;
+                self.modify(port.VLAN_TPID_CTRL(), |r| {
+                    // Only accept 0x8100 as a valid TPID, to keep things
+                    // simple. This is the designated EtherType for "Customer
+                    // VLAN tag" in IEEE 802.1Q; the register's polarity
+                    // requires us to **clear** bit 0 to accept this TPID.
+                    r.set_basic_tpid_aware_dis(0b1110);
+
+                    // Only route frames with one accepted tag
+                    r.set_rt_tag_ctrl(0b0010);
+                })?;
+
+                // Discard frames with < 1 tag
+                self.modify(port.VLAN_FILTER_CTRL(0), |r| {
+                    r.set_tag_required_ena(1);
+                })?;
+
+                // Use the rewriter to tag all frames on egress from the
+                // upstream port (using the VID assigned on ingress into a
+                // downstream port)
+                let rew = REW().PORT(p);
+                self.modify(rew.TAG_CTRL(), |r| {
+                    r.set_tag_cfg(1);
+                })?;
+            } else {
+                // The downstream ports expect untagged frames, and classify
+                // them based on a per-port VID assigned here.
+                self.modify(port.VLAN_CTRL(), |r| {
+                    r.set_port_vid(0x100 + p as u32);
+                    r.set_vlan_aware_ena(1);
+                })?;
+                // Accept no TPIDs, and only route untagged frames.
+                self.modify(port.VLAN_TPID_CTRL(), |r| {
+                    r.set_basic_tpid_aware_dis(0b1111);
+                    r.set_rt_tag_ctrl(0b0001);
+                })?;
+            }
         }
 
-        // The uplink port requires one VLAN tag, and pops it on ingress
-        //
-        // It has a default VID of 0x1, but we removed all ports from
-        // that VLAN, so it will only accept our desired set of VIDs.
         let port = ANA_CL().PORT(UPLINK);
         self.modify(port.VLAN_CTRL(), |r| {
             r.set_vlan_pop_cnt(1);
@@ -806,23 +853,48 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
     /// Implements the VLAN scheme described in RFD 250, with one exception:
     /// the technician ports are on **every VLAN**, so they can talk to any SP
     /// without having to go through the CPU port to the Tofino.
-    pub fn configure_vlan_semistrict(&self) -> Result<(), VscError> {
+    pub fn configure_vlan_sidecar_unlocked(&self) -> Result<(), VscError> {
+        const LOCAL_SP: u8 = 48; // Connection to the local SP
         const UPLINK: u8 = 49; // DEV10G_0, uplink to the Tofino 2
         const TECHNICIAN_1: u8 = 44;
         const TECHNICIAN_2: u8 = 45;
-        self.configure_vlan_with_mask(|p| {
+        self.configure_vlan_with_mask_and_tagged(|p| {
             if p == TECHNICIAN_1 {
                 // Technician ports are connected to every port, but not to each
                 // other (to prevent spanning tree fun)
-                ((1 << 53) - 1) & !(1 << TECHNICIAN_2)
+                (((1 << 53) - 1) & !(1 << TECHNICIAN_2), false)
             } else if p == TECHNICIAN_2 {
-                ((1 << 53) - 1) & !(1 << TECHNICIAN_1)
+                (((1 << 53) - 1) & !(1 << TECHNICIAN_1), false)
             } else {
                 // SPs are only connected to the Tofino and technician ports
-                (1 << p)
-                    | (1 << UPLINK)
-                    | (1 << TECHNICIAN_1)
-                    | (1 << TECHNICIAN_2)
+                (
+                    (1 << p)
+                        | (1 << UPLINK)
+                        | (1 << TECHNICIAN_1)
+                        | (1 << TECHNICIAN_2),
+                    p == LOCAL_SP,
+                )
+            }
+        })
+    }
+
+    /// Implements the VLAN scheme described in RFD 492
+    pub fn configure_vlan_sidecar_locked(&self) -> Result<(), VscError> {
+        const LOCAL_SP: u8 = 48; // Connection to the local SP
+        const UPLINK: u8 = 49; // Uplink to the Tofino 2
+        const TECHNICIAN_1: u8 = 44;
+        const TECHNICIAN_2: u8 = 45;
+        self.configure_vlan_with_mask_and_tagged(|p| {
+            if p == TECHNICIAN_1 || p == TECHNICIAN_2 {
+                ((1 << p) | (1 << UPLINK) | (1 << LOCAL_SP), false)
+            } else if p == LOCAL_SP {
+                // The local SP is on a tagged segment, so we can distinguish
+                // between packets coming from the uplink (on the LOCAL_SP VLAN)
+                // versus the two tech ports.
+                ((1 << p) | (1 << UPLINK), true)
+            } else {
+                // Other SPs are only connected to the Tofino
+                ((1 << p) | (1 << UPLINK), false)
             }
         })
     }
