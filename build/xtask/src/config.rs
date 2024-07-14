@@ -697,7 +697,6 @@ impl BuildConfig<'_> {
         let mut nightly_features = vec![];
         // nightly features that we use:
         nightly_features.extend([
-            "array_methods",
             "asm_const",
             "naked_functions",
             "used_with_arg",
