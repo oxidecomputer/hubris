@@ -12,7 +12,6 @@ idol-runtime.workspace = true
 memoffset.workspace = true
 num-traits.workspace = true
 serde.workspace = true
-sprockets-common.workspace = true
 static_assertions.workspace = true
 tlvc.workspace = true
 zerocopy.workspace = true
@@ -28,6 +27,9 @@ dumper-api = { path = "../../task/dumper-api" }
 ringbuf = { path = "../../lib/ringbuf" }
 unwrap-lite = { path = "../../lib/unwrap-lite" }
 userlib = { path = "../../sys/userlib" }
+
+# We need this for ABI reasons
+sprockets-common = { git = "https://github.com/oxidecomputer/sprockets.git", default-features = false }
 
 [build-dependencies]
 idol = { workspace = true }

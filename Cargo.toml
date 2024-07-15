@@ -129,8 +129,6 @@ ordered-toml = { git = "https://github.com/oxidecomputer/ordered-toml", default-
 pmbus = { git = "https://github.com/oxidecomputer/pmbus", default-features = false }
 salty = { version = "0.3", default-features = false }
 spd = { git = "https://github.com/oxidecomputer/spd", default-features = false }
-sprockets-common = { git = "https://github.com/oxidecomputer/sprockets.git", default-features = false }
-sprockets-rot = { git = "https://github.com/oxidecomputer/sprockets.git", default-features = false }
 tlvc = { git = "https://github.com/oxidecomputer/tlvc", default-features = false, version = "0.3.1" }
 tlvc-text = { git = "https://github.com/oxidecomputer/tlvc", default-features = false, version = "0.3.0" }
 transceiver-messages = { git = "https://github.com/oxidecomputer/transceiver-control/", default-features = false}
