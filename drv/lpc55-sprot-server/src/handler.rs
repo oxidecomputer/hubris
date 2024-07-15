@@ -15,10 +15,7 @@ use drv_sprot_api::{
 };
 use lpc55_romapi::bootrom;
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
-use sprockets_rot::RotSprocket;
 use userlib::{task_slot, UnwrapLite};
-
-mod sprockets;
 
 task_slot!(UPDATE_SERVER, update_server);
 
@@ -78,7 +75,6 @@ pub enum TrailingData<'a> {
 }
 
 pub struct Handler {
-    sprocket: RotSprocket,
     update: Update,
     startup_state: StartupState,
     attest: Attest,
@@ -90,7 +86,6 @@ pub struct Handler {
 impl<'a> Handler {
     pub fn new() -> Handler {
         Handler {
-            sprocket: crate::handler::sprockets::init(),
             update: Update::from(UPDATE_SERVER.get_task_id()),
             startup_state: StartupState {
                 bootrom_crc32: CRC32.checksum(&bootrom().data[..]),
@@ -328,16 +323,10 @@ impl<'a> Handler {
                     Err(SprotProtocolError::BadUpdateStatus)?
                 }
             },
-            ReqBody::Sprockets(req) => Ok((
-                RspBody::Sprockets(
-                    // The only error we can get here is a serialization error,
-                    // which is represented as `BadEncoding`.
-                    self.sprocket
-                        .handle_deserialized(req)
-                        .map_err(|_| SprocketsError::BadEncoding)?,
-                ),
-                None,
-            )),
+            // Sprockets is deprecated
+            ReqBody::Sprockets(_) => {
+                Err(SprotError::Sprockets(SprocketsError::UnsupportedVersion))
+            }
             ReqBody::Dump(DumpReq::V1 { addr }) => {
                 #[cfg(feature = "sp-ctrl")]
                 {
