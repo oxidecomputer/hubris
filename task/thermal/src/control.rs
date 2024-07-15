@@ -806,10 +806,10 @@ impl<'a> ThermalControl<'a> {
         if !self.fan_watchdog_configured {
             match self.set_watchdog(I2cWatchdog::ThirtySeconds) {
                 Ok(()) => {
-                    ringbuf_entry!(Trace::SetWatchdogOk);
+                    ringbuf_entry!(Trace::SetFanWatchdogOk);
                     self.fan_watchdog_configured = true;
                 }
-                Err(e) => ringbuf_entry!(Trace::SetWatchdogError(e)),
+                Err(e) => ringbuf_entry!(Trace::SetFanWatchdogError(e)),
             }
         }
 
