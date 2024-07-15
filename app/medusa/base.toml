@@ -34,7 +34,7 @@ name = "stm32h7-update-server"
 priority = 3
 max-sizes = {flash = 16384, ram = 4096}
 stacksize = 2048
-start = true
+start = false
 uses = ["flash_controller"]
 extern-regions = ["bank2"]
 notifications = ["flash-irq"]
@@ -49,7 +49,7 @@ default = true
 name = "task-caboose-reader"
 priority = 2
 max-sizes = {flash = 16384, ram = 2048}
-start = true
+start = false
 
 [tasks.hiffy]
 name = "task-hiffy"
@@ -85,7 +85,7 @@ features = ["front_io", "use-spi-core", "h753", "spi1"]
 priority = 3
 max-sizes = {flash = 32768, ram = 8192}
 stacksize = 2048
-start = true
+start = false
 uses = ["spi1"]
 task-slots = ["sys", "i2c_driver"]
 notifications = ["spi-irq"]
@@ -97,7 +97,7 @@ priority = 6
 max-sizes = {flash = 262144, ram = 8192}
 features = ["mgmt", "medusa", "vlan", "use-spi-core", "h753", "spi2"]
 stacksize = 4096
-start = true
+start = false
 task-slots = ["ecp5_front_io", "sys", { seq = "sequencer" }]
 uses = ["spi2"]
 notifications = ["spi-irq", "wake-timer"]
@@ -111,7 +111,7 @@ features = ["mgmt", "h753", "medusa", "vlan", "vpd-mac", "use-spi-core", "spi3"]
 max-sizes = {flash = 131072, ram = 65536, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "tim16", "spi3"]
-start = true
+start = false
 notifications = ["eth-irq", "mdio-timer-irq", "spi-irq", "wake-timer"]
 task-slots = ["sys", "packrat", { seq = "sequencer" }, "jefe"]
 
@@ -124,7 +124,7 @@ task-slots = ["sys", "packrat", { seq = "sequencer" }, "jefe"]
 name = "drv-medusa-seq-server"
 priority = 4
 stacksize = 4096
-start = true
+start = false
 task-slots = [
     "sys",
     "i2c_driver",
@@ -139,7 +139,7 @@ features = ["vlan"]
 priority = 6
 max-sizes = {flash = 65536, ram = 16384}
 stacksize = 4096
-start = true
+start = false
 task-slots = [
     "i2c_driver",
     "net",
@@ -153,7 +153,7 @@ notifications = ["socket", "timer"]
 name = "task-packrat"
 priority = 3
 max-sizes = {flash = 8192, ram = 2048}
-start = true
+start = false
 # task-slots is explicitly empty: packrat should not send IPCs!
 task-slots = []
 
@@ -205,7 +205,7 @@ name = "task-udpecho"
 priority = 6
 max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
-start = true
+start = false
 task-slots = ["net"]
 features = ["vlan"]
 notifications = ["socket"]
@@ -215,7 +215,7 @@ name = "task-udpbroadcast"
 priority = 6
 max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
-start = true
+start = false
 task-slots = ["net", "packrat"]
 features = ["vlan"]
 notifications = ["socket"]

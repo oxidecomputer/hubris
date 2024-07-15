@@ -73,11 +73,10 @@ fn system_init() {
         .moder7().input()
         .moder13().input());
 
-    // Unlike other designs, we aren't using any internal pullup resistors, so
-    // we won't wait for the inputs or ID traces to charge.
-
-    let id_mask = (1 << 6) | (1 << 7) | (1 << 13);
-    let model = p.GPIOC.idr.read().bits() & id_mask;
+    let id_bits = !p.GPIOC.idr.read().bits();
+    let model = (id_bits & (1 << 6) >> 6)
+        | (id_bits & (1 << 7) >> 6)
+        | (id_bits & (1 << 13) >> 11);
 
     cfg_if::cfg_if! {
         if #[cfg(target_board = "medusa-a")] {
