@@ -795,7 +795,14 @@ impl<'a> ThermalControl<'a> {
 
     /// Get latest fan presence state
     pub fn update_fan_presence(&mut self) {
-        // Try to configure the fan watchdog if unconfigured
+        // Try to configure the fan watchdog, if not yet configured
+        //
+        // With its longest timeout of 30 seconds, this is longer than it takes
+        // to flash on Gimlet -- and right on the edge of how long it takes to
+        // dump. On some platforms and/or under some conditions, "humility dump"
+        // might be able to induce the watchdog to kick, which may induce a
+        // flight-or-fight reaction for whomever is near the fans when they
+        // blast off...
         if !self.fan_watchdog_configured {
             match self.set_watchdog(I2cWatchdog::ThirtySeconds) {
                 Ok(()) => {
