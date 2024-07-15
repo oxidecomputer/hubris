@@ -90,6 +90,8 @@ enum Trace {
     PowerDownAt(u64),
     AddedDynamicInput(usize),
     RemovedDynamicInput(usize),
+    SetFanWatchdogOk,
+    SetFanWatchdogError(ThermalError),
 }
 counted_ringbuf!(Trace, 32, Trace::None);
 

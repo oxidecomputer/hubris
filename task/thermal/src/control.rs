@@ -490,6 +490,9 @@ pub(crate) struct ThermalControl<'a> {
 
     /// Last group PWM control value
     last_pwm: PWMDuty,
+
+    /// Has the fan watchdog been configured yet?
+    fan_watchdog_configured: bool,
 }
 
 /// Represents the state of a temperature sensor, which either has a valid
@@ -721,6 +724,7 @@ impl<'a> ThermalControl<'a> {
 
             err_blackbox,
             prev_err_blackbox,
+            fan_watchdog_configured: false,
         }
     }
 
@@ -791,6 +795,17 @@ impl<'a> ThermalControl<'a> {
 
     /// Get latest fan presence state
     pub fn update_fan_presence(&mut self) {
+        // Try to configure the fan watchdog if unconfigured
+        if !self.fan_watchdog_configured {
+            match self.set_watchdog(I2cWatchdog::ThirtySeconds) {
+                Ok(()) => {
+                    ringbuf_entry!(Trace::SetWatchdogOk);
+                    self.fan_watchdog_configured = true;
+                }
+                Err(e) => ringbuf_entry!(Trace::SetWatchdogError(e)),
+            }
+        }
+
         match self.bsp.get_fan_presence() {
             Ok(next) => {
                 for fan in next.as_fans() {
