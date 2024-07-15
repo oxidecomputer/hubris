@@ -128,8 +128,6 @@ pub enum Functions {
     HashUpdate(u32, drv_hash_api::HashError),
     #[cfg(feature = "hash")]
     HashFinalize((), drv_hash_api::HashError),
-    #[cfg(feature = "rng")]
-    Rng(usize, drv_rng_api::RngError),
 }
 
 #[cfg(feature = "i2c")]
@@ -578,8 +576,6 @@ pub(crate) static HIFFY_FUNCS: &[Function] = &[
     hash_update,
     #[cfg(feature = "hash")]
     hash_finalize_sha256,
-    #[cfg(feature = "rng")]
-    crate::common::rng_fill,
 ];
 
 //

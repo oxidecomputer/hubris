@@ -4461,7 +4461,6 @@ dependencies = [
  "drv-hash-api",
  "drv-i2c-api",
  "drv-lpc55-gpio-api",
- "drv-rng-api",
  "drv-sp-ctrl-api",
  "drv-spi-api",
  "drv-sprot-api",
