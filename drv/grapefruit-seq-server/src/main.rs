@@ -83,8 +83,8 @@ struct ServerImpl<S: SpiServer> {
 
 const FAULT_PIN_L: sys_api::PinSet = sys_api::Port::A.pin(15);
 
-const FPGA_PROGRAM_L: sys_api::PinSet = sys_api::Port::B.pin(5);
-const FPGA_INIT_L: sys_api::PinSet = sys_api::Port::B.pin(6);
+const FPGA_PROGRAM_L: sys_api::PinSet = sys_api::Port::B.pin(6);
+const FPGA_INIT_L: sys_api::PinSet = sys_api::Port::B.pin(5);
 const FPGA_CONFIG_DONE: sys_api::PinSet = sys_api::Port::B.pin(4);
 
 impl<S: SpiServer + Clone> ServerImpl<S> {
