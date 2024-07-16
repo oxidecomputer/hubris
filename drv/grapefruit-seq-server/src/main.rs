@@ -103,6 +103,9 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
         );
         sys.gpio_reset(FAULT_PIN_L);
 
+        // Configure the FPGA_INIT_L line as an input
+        sys.gpio_configure_input(FPGA_INIT_L, sys_api::Pull::None);
+
         // To allow for the possibility that we are restarting, rather than
         // starting, we take care during early sequencing to _not turn anything
         // off,_ only on. This means if it was _already_ on, the outputs should
