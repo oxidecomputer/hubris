@@ -216,7 +216,7 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
         }
 
         // Wait for the FPGA to pull DONE high
-        while sys.gpio_read(FPGA_CONFIG_DONE) != 0 {
+        while sys.gpio_read(FPGA_CONFIG_DONE) == 0 {
             ringbuf_entry!(Trace::WaitForDone);
             hl::sleep_for(2);
         }
