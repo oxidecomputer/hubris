@@ -71,15 +71,9 @@ impl Bsp {
 
     pub fn for_each_fctrl(
         &mut self,
-        mut fctrl: impl FnMut(FanControl<'_>),
+        fctrl: impl FnMut(FanControl<'_>),
     ) -> Result<(), ControllerInitError> {
-        match self.fan_control(0.into()) {
-            Ok(c) => {
-                fctrl(c);
-                Ok(())
-            }
-            Err(e) => Err(e),
-        }
+        self.fan_control(0.into()).map(fctrl)
     }
 
     pub fn power_mode(&self) -> PowerBitmask {

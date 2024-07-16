@@ -318,14 +318,7 @@ impl Max31790State {
             max31790: Max31790::new(dev),
             initialized: false,
         };
-        // When we first start up, try to initialize the fan controller a few
-        // times, in case there's a transient I2C error.
-        for remaining in (0..3).rev() {
-            if this.initialize().is_ok() {
-                break;
-            }
-            ringbuf_entry!(Trace::FanControllerInitRetry { remaining });
-        }
+        retry_init(|| this.initialize().map(|_| ()));
         this
     }
 
@@ -377,14 +370,7 @@ impl Emc2305State {
             fan_count,
             initialized: false,
         };
-        // When we first start up, try to initialize the fan controller a few
-        // times, in case there's a transient I2C error.
-        for remaining in (0..3).rev() {
-            if this.initialize().is_ok() {
-                break;
-            }
-            ringbuf_entry!(Trace::FanControllerInitRetry { remaining });
-        }
+        retry_init(|| this.initialize().map(|_| ()));
         this
     }
 
@@ -415,6 +401,18 @@ impl Emc2305State {
         self.initialized = true;
         ringbuf_entry!(Trace::FanControllerInitialized);
         Ok(&mut self.emc2305)
+    }
+}
+
+/// Helper function to retry initialization several times, logging errors
+fn retry_init<F: FnMut() -> Result<(), ControllerInitError>>(mut init: F) {
+    // When we first start up, try to initialize the fan controller a few
+    // times, in case there's a transient I2C error.
+    for remaining in (0..3).rev() {
+        if init().is_ok() {
+            break;
+        }
+        ringbuf_entry!(Trace::FanControllerInitRetry { remaining });
     }
 }
 

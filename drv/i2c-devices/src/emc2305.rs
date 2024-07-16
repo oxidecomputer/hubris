@@ -161,7 +161,7 @@ impl TryFrom<u8> for Fan {
 
 impl Fan {
     fn register(&self, base: Register) -> Register {
-        Register::from_u8((base as u8) + self.0 * 0x10).unwrap()
+        Register::from_u8((base as u8) + self.0 * 0x10).unwrap_lite()
     }
 
     fn configuration1(&self) -> Register {
@@ -242,7 +242,7 @@ impl Emc2305 {
         write_reg8(device, Register::Configuration, config.0)?;
 
         for fan in 0..fan_count {
-            let fan = Fan::try_from(fan).unwrap();
+            let fan = Fan::try_from(fan).unwrap_lite();
 
             // Configure tach stuff
             let reg1 = fan.configuration1();
@@ -287,6 +287,10 @@ impl Emc2305 {
         //
         // Doing the math, we end up with
         //   RPM = 7680000 / count
+        //
+        // The count field is a 12-bit value, shifted by 3 and split between the
+        // high and low bytes (see TACHOMETER READING HIGH BYTE REGISTER and
+        // TACHOMETER READING LOW BYTE REGISTER in the datasheet).
         let count = ((val[0] as u32) << 5) | (val[1] >> 3) as u32;
 
         if count == 0 {
@@ -295,15 +299,14 @@ impl Emc2305 {
             // On the MAX31790, it returns all ones for the tach reading, but
             // it's not clear whether that's also the case for this chip.
             ringbuf_entry!(Trace::ZeroTach(fan));
-            Err(ResponseCode::BadDeviceState)
-        } else {
-            let rpm = 7_680_000 / count;
-            let Ok(rpm) = rpm.try_into() else {
-                ringbuf_entry!(Trace::TachOverflow(count));
-                return Err(ResponseCode::BadDeviceState);
-            };
-            Ok(Rpm(rpm))
+            return Err(ResponseCode::BadDeviceState);
         }
+        let rpm = 7_680_000 / count;
+        let Ok(rpm) = rpm.try_into() else {
+            ringbuf_entry!(Trace::TachOverflow(count));
+            return Err(ResponseCode::BadDeviceState);
+        };
+        Ok(Rpm(rpm))
     }
 
     /// Set the PWM duty cycle for a fan
