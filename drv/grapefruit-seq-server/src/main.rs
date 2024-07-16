@@ -216,8 +216,6 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
         }
 
         // Wait for the FPGA to pull DONE high
-        //
-        // This pin is by default an input, and we never change it
         while sys.gpio_read(FPGA_CONFIG_DONE) != 0 {
             ringbuf_entry!(Trace::WaitForDone);
             hl::sleep_for(2);
