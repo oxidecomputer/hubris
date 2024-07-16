@@ -87,6 +87,8 @@ const FPGA_PROGRAM_L: sys_api::PinSet = sys_api::Port::B.pin(6);
 const FPGA_INIT_L: sys_api::PinSet = sys_api::Port::B.pin(5);
 const FPGA_CONFIG_DONE: sys_api::PinSet = sys_api::Port::B.pin(4);
 
+const FPGA_LOGIC_RESET_L: sys_api::PinSet = sys_api::Port::I.pin(15);
+
 impl<S: SpiServer + Clone> ServerImpl<S> {
     fn init(
         sys: &sys_api::Sys,
@@ -102,6 +104,15 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
             sys_api::Pull::None,
         );
         sys.gpio_reset(FAULT_PIN_L);
+
+        // Hold the user logic in reset until we've loaded the bitstream
+        sys.gpio_reset(FPGA_LOGIC_RESET_L);
+        sys.gpio_configure_output(
+            FPGA_LOGIC_RESET_L,
+            sys_api::OutputType::PushPull,
+            sys_api::Speed::Low,
+            sys_api::Pull::None,
+        );
 
         // Configure the FPGA_INIT_L and FPGA_CONFIG_DONE lines as inputs
         sys.gpio_configure_input(FPGA_INIT_L, sys_api::Pull::None);
@@ -230,6 +241,9 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
         // Clear the external fault now that we're about to start serving
         // messages and fewer things can go wrong.
         sys.gpio_set(FAULT_PIN_L);
+
+        // Enable the user design
+        sys.gpio_set(FPGA_LOGIC_RESET_L);
 
         Ok(server)
     }
