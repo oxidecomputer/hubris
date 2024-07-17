@@ -3,7 +3,6 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    build_stm32xx_sys::build_gpio_irq_pins()?;
     idol::client::build_client_stub(
         "../../idl/stm32xx-sys.idol",
         "client_stub.rs",

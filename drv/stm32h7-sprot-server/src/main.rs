@@ -102,7 +102,7 @@ const DUMP_TIMEOUT: u32 = 1000;
 
 // On Gemini, the STM32H753 is in a LQFP176 package with ROT_IRQ
 // on pin2/PE3
-use drv_stm32xx_sys_api::gpio_irq_pins::ROT_IRQ;
+use gpio_irq_pins::ROT_IRQ;
 
 // We use spi3 on gimletlet and spi4 on gemini and gimlet.
 // You should be able to move the RoT board between SPI3, SPI4, and SPI6
@@ -1367,3 +1367,4 @@ mod idl {
 }
 
 include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
+include!(concat!(env!("OUT_DIR"), "/gpio_irq_pins.rs"));

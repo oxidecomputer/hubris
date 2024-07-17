@@ -117,7 +117,7 @@ pub fn build_gpio_irq_pins() -> anyhow::Result<()> {
 
     let tokens = quote! {
         pub mod gpio_irq_pins {
-            use drv_stm32xx_gpio_common::{PinSet, Port};
+            use drv_stm32xx_sys_api::{PinSet, Port};
             #( #pins )*
         }
     };
