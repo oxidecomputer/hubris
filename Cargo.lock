@@ -1025,6 +1025,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-grapefruit-seq-server"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if",
+ "counters",
+ "drv-auxflash-api",
+ "drv-spi-api",
+ "drv-stm32xx-sys-api",
+ "gnarle",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "ringbuf",
+ "sha3",
+ "userlib",
+ "zerocopy 0.6.6",
+]
+
+[[package]]
 name = "drv-hash-api"
 version = "0.1.0"
 dependencies = [
@@ -2488,6 +2508,19 @@ dependencies = [
  "log",
  "plain",
  "scroll",
+]
+
+[[package]]
+name = "grapefruit"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if",
+ "cortex-m",
+ "cortex-m-rt",
+ "drv-stm32h7-startup",
+ "kern",
+ "stm32h7",
 ]
 
 [[package]]

@@ -220,4 +220,13 @@ impl From<SensorReadError> for task_sensor_api::NoData {
     }
 }
 
+impl From<drv_i2c_devices::pct2075::Error> for SensorReadError {
+    fn from(s: drv_i2c_devices::pct2075::Error) -> Self {
+        use drv_i2c_devices::pct2075::Error::*;
+        match s {
+            BadTempRead { code, .. } => Self::I2cError(code),
+        }
+    }
+}
+
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

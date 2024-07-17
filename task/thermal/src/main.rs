@@ -31,6 +31,7 @@
     path = "bsp/sidecar_bcd.rs"
 )]
 #[cfg_attr(any(target_board = "medusa-a"), path = "bsp/medusa_a.rs")]
+#[cfg_attr(any(target_board = "grapefruit"), path = "bsp/grapefruit.rs")]
 mod bsp;
 mod control;
 
@@ -89,6 +90,8 @@ enum Trace {
     PowerDownAt(u64),
     AddedDynamicInput(usize),
     RemovedDynamicInput(usize),
+    SetFanWatchdogOk,
+    SetFanWatchdogError(ThermalError),
 }
 counted_ringbuf!(Trace, 32, Trace::None);
 
@@ -368,18 +371,6 @@ fn main() -> ! {
     } else {
         server.set_mode_manual(PWMDuty(0)).unwrap_lite();
     }
-
-    //
-    // We enable the fan watchdog, but with its longest timeout of 30 seconds.
-    // This is longer than it takes to flash on Gimlet -- and right on the edge
-    // of how long it takes to dump.  On some platforms and/or under some
-    // conditions, "humility dump" might be able to induce the watchdog to kick,
-    // which may induce a flight-or-fight reaction for whomever is near the
-    // fans when they blast off...
-    //
-    server
-        .set_watchdog(I2cWatchdog::ThirtySeconds)
-        .unwrap_lite();
 
     let mut buffer = [0; idl::INCOMING_SIZE];
     loop {

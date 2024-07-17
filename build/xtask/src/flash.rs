@@ -177,7 +177,7 @@ pub fn config(
         | "psc-a" | "psc-b" | "psc-c" | "sidecar-b" | "sidecar-c"
         | "sidecar-d" | "stm32g031-nucleo" | "donglet-g030"
         | "donglet-g031" | "oxcon2023g0" | "stm32g070" | "stm32g0b1"
-        | "medusa-a" => {
+        | "medusa-a" | "grapefruit" => {
             let cfg = FlashProgramConfig::new(chip_dir.join("openocd.cfg"));
 
             let mut flash = FlashConfig::new(FlashProgram::OpenOcd(cfg));
@@ -214,9 +214,8 @@ pub fn chip_name(board: &str) -> anyhow::Result<&'static str> {
         "stm32h7b3i-dk" => "STM32H7B3IITx",
         "gemini-bu-1" | "gimletlet-1" | "gimletlet-2" | "gimlet-b"
         | "gimlet-c" | "gimlet-d" | "gimlet-e" | "psc-a" | "psc-b"
-        | "psc-c" | "sidecar-b" | "sidecar-c" | "sidecar-d" | "medusa-a" => {
-            "STM32H753ZITx"
-        }
+        | "psc-c" | "sidecar-b" | "sidecar-c" | "sidecar-d" | "medusa-a"
+        | "grapefruit" => "STM32H753ZITx",
         "donglet-g030" => "STM32G030F6Px",
         "donglet-g031" => "STM32G031F8Px",
         "stm32g031-nucleo" => "STM32G031Y8Yx",
