@@ -983,6 +983,7 @@ version = "0.1.0"
 dependencies = [
  "build-fpga-regmap",
  "build-i2c",
+ "build-stm32xx-sys",
  "build-util",
  "byteorder",
  "cfg-if",
@@ -1978,6 +1979,7 @@ name = "drv-stm32h7-sprot-server"
 version = "0.1.0"
 dependencies = [
  "attest-api",
+ "build-stm32xx-sys",
  "build-util",
  "cfg-if",
  "drv-caboose",
@@ -2112,7 +2114,6 @@ dependencies = [
 name = "drv-stm32xx-sys-api"
 version = "0.1.0"
 dependencies = [
- "build-stm32xx-sys",
  "byteorder",
  "cfg-if",
  "counters",
@@ -4722,6 +4723,7 @@ dependencies = [
 name = "task-nucleo-user-button"
 version = "0.1.0"
 dependencies = [
+ "build-stm32xx-sys",
  "build-util",
  "counters",
  "drv-stm32xx-sys-api",

@@ -16,6 +16,7 @@ task-config = { path = "../../lib/task-config" }
 
 [build-dependencies]
 build-util = { path = "../../build/util" }
+build-stm32xx-sys = { path = "../../build/stm32xx-sys" }
 
 [[bin]]
 name = "task-nucleo-user-button"

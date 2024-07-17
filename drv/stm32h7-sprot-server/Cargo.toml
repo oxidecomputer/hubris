@@ -26,6 +26,7 @@ userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 [build-dependencies]
 build-util = { path = "../../build/util" }
+build-stm32xx-sys = { path = "../../build/stm32xx-sys" }
 idol = { workspace = true }
 
 [features]

@@ -71,10 +71,7 @@ pub fn main() -> ! {
         edge: Edge::Rising,
     });
 
-    sys.gpio_configure_input(
-        drv_stm32xx_sys_api::gpio_irq_pins::BUTTON,
-        Pull::None,
-    );
+    sys.gpio_configure_input(gpio_irq_pins::BUTTON, Pull::None);
 
     ringbuf_entry!(Trace::GpioIrqConfigure {
         mask: notifications::BUTTON_MASK,
@@ -112,3 +109,4 @@ pub fn main() -> ! {
 }
 
 include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
+include!(concat!(env!("OUT_DIR"), "/gpio_irq_pins.rs"));

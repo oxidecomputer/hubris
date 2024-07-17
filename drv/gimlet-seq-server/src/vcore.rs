@@ -26,11 +26,12 @@
 /// faults after this condition; we will wait until the machine next makes an
 /// A2 to A0 transition to clear faults.
 ///
+use crate::gpio_irq_pins::VCORE_TO_SP_ALERT_L;
 use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_i2c_devices::raa229618::Raa229618;
 use drv_stm32xx_sys_api as sys_api;
 use ringbuf::*;
-use sys_api::{gpio_irq_pins::VCORE_TO_SP_ALERT_L, IrqControl};
+use sys_api::IrqControl;
 use userlib::*;
 
 pub struct VCore {

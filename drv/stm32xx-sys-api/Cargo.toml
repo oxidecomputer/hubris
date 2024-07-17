@@ -18,7 +18,6 @@ userlib = { path = "../../sys/userlib" }
 
 [build-dependencies]
 idol.workspace = true
-build-stm32xx-sys = { path = "../../build/stm32xx-sys" }
 
 [features]
 family-stm32h7 = ["drv-stm32xx-gpio-common/family-stm32h7"]
