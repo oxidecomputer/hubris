@@ -239,6 +239,14 @@ task-slots = ["net", "packrat"]
 features = ["vlan"]
 notifications = ["socket"]
 
+[tasks.fmc_demo]
+name = "drv-stm32h7-fmc-demo-server"
+features = ["h753"]
+priority = 4
+start = true
+task-slots = ["sys"]
+uses = ["fmc", "fmc_nor_psram_bank_1"]
+
 [config.net]
 # VLAN configuration
 [config.net.vlans.sidecar1]
