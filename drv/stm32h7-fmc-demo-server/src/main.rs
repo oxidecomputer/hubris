@@ -54,11 +54,27 @@ fn main() -> ! {
     //  D5      FMC_NWE
     //  D6      FMC_NWAIT   (also available on C6 as AF9)
     //  D7      FMC_NE1     (also available on C7 as AF9)
+    //  D8      FMC_DA13
+    //  D9      FMC_DA14
+    //  D10     FMC_DA15
+    //  D11     FMC_A16
+    //  D12     FMC_A17
+    //  D13     FMC_A18
     //  D14     FMC_DA0
     //  D15     FMC_DA1
     //
     //  E0      FMC_NBL0
     //  E1      FMC_NBL1
+    //  E3      FMC_A19
+    //  E7      FMC_DA4
+    //  E8      FMC_DA5
+    //  E9      FMC_DA6
+    //  E10     FMC_DA7
+    //  E11     FMC_DA8
+    //  E12     FMC_DA9
+    //  E13     FMC_DA10
+    //  E14     FMC_DA11
+    //  E15     FMC_DA12
     //
     //  If you're probing this on a Nucleo:
     //
@@ -78,8 +94,8 @@ fn main() -> ! {
 
     let the_pins = [
         (Port::B.pin(7), Alternate::AF12),
-        (Port::D.pins([0, 1, 3, 4, 5, 6, 7, 14, 15]), Alternate::AF12),
-        (Port::E.pins([0, 1]), Alternate::AF12),
+        (Port::D.pins([0, 1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]), Alternate::AF12),
+        (Port::E.pins([0, 1, 3, 7, 8, 9, 10, 11, 12, 13, 14, 15]), Alternate::AF12),
     ];
     for (pinset, af) in the_pins {
         sys.gpio_configure_alternate(
@@ -107,8 +123,11 @@ fn main() -> ! {
         // ...and also reads.
         w.bursten().set_bit();
 
-        // Disable wait states for now.
-        w.waiten().clear_bit();
+        // Have FPGA, enable wait states.
+        w.waiten().set_bit();
+
+        // Set waitconfig to 1.
+        w.waitcfg().set_bit();
 
         // Enable writes.
         w.wren().set_bit();
