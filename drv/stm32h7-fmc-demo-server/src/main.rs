@@ -168,7 +168,7 @@ fn main() -> ! {
     const DATLAT: u8 = 0;
     // FMC_CLK division ratio relative to input (AHB3) clock, minus 1. Range:
     // 1..=15.
-    const CLKDIV: u8 = 15; // /4, for 50 MHz
+    const CLKDIV: u8 = 3; // /3, for 66.666 MHz
 
     // Bus turnaround time in FMC_CLK cycles, 0..=15
     const BUSTURN: u8 = 0;
