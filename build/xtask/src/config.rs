@@ -222,14 +222,14 @@ impl Config {
         &self,
         verbose: bool,
         crate_name: &str,
+        no_default_features: bool,
         features: &[String],
         sysroot: Option<&'a Path>,
     ) -> BuildConfig<'a> {
-        let mut args = vec![
-            "--no-default-features".to_string(),
-            "--target".to_string(),
-            self.target.to_string(),
-        ];
+        let mut args = vec!["--target".to_string(), self.target.to_string()];
+        if no_default_features {
+            args.push("--no-default-features".to_string());
+        }
         if verbose {
             args.push("-v".to_string());
         }
@@ -305,6 +305,7 @@ impl Config {
         let mut out = self.common_build_config(
             verbose,
             &self.kernel.name,
+            self.kernel.no_default_features,
             &self.kernel.features,
             sysroot,
         );
@@ -327,6 +328,7 @@ impl Config {
         let mut out = self.common_build_config(
             verbose,
             &task_toml.name,
+            task_toml.no_default_features,
             &task_toml.features,
             sysroot,
         );
@@ -626,6 +628,8 @@ pub struct Kernel {
     pub stacksize: Option<u32>,
     #[serde(default)]
     pub features: Vec<String>,
+    #[serde(default)]
+    pub no_default_features: bool,
 }
 
 fn default_name() -> String {

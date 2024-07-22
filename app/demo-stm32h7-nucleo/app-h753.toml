@@ -207,6 +207,8 @@ extern-regions = [ "sram2", "sram3", "sram4" ]
 
 [tasks.fmc_demo]
 name = "drv-stm32h7-fmc-demo-server"
+# drv/stmh32h7-fmc-demo-server includes the `h743` feature in its defaults
+no-default-features = true
 features = ["h753"]
 priority = 4
 start = true
