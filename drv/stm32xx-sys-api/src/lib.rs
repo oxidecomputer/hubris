@@ -367,4 +367,3 @@ impl From<Option<bool>> for IrqControl {
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
-include!(concat!(env!("OUT_DIR"), "/gpio_irq_pins.rs"));

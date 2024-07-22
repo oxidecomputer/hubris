@@ -34,6 +34,7 @@ spd = { workspace = true }
 build-fpga-regmap = { path = "../../build/fpga-regmap" }
 build-i2c = { path = "../../build/i2c" }
 build-util = { path = "../../build/util" }
+build-stm32xx-sys = { path = "../../build/stm32xx-sys" }
 gnarle = { path = "../../lib/gnarle", features=["std"] }
 
 idol = { workspace = true }
