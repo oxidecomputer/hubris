@@ -16,11 +16,15 @@ use task_net_api::{
 };
 use userlib::*;
 
-#[cfg(feature = "h743")]
-use stm32h7::stm32h743 as device;
-
-#[cfg(feature = "h753")]
-use stm32h7::stm32h753 as device;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "h743")] {
+        use stm32h7::stm32h743 as device;
+    } else if #[cfg(feature = "h753")] {
+        use stm32h7::stm32h753 as device;
+    } else {
+        compile_error!("missing supported SoC feature");
+    }
+}
 
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};
