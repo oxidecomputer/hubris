@@ -1930,6 +1930,7 @@ name = "drv-stm32h7-fmc-demo-server"
 version = "0.1.0"
 dependencies = [
  "build-util",
+ "cfg-if",
  "cortex-m",
  "counters",
  "drv-stm32xx-sys-api",
