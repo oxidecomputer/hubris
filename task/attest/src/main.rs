@@ -54,6 +54,8 @@ enum Trace {
     LogLen(u32),
     Log,
     ClientError(ClientError),
+    StartAttest,
+    FinishAttest,
     None,
 }
 
@@ -294,6 +296,7 @@ impl idl::InOrderAttestImpl for AttestServer {
         nonce: LenLimit<Leased<R, [u8]>, { NONCE_MAX_SIZE }>,
         dest: Leased<W, [u8]>,
     ) -> Result<(), RequestError<AttestError>> {
+        ringbuf_entry!(Trace::StartAttest);
         if nonce.len() < NONCE_MIN_SIZE {
             let err = AttestError::BadLease;
             ringbuf_entry!(Trace::AttestError(err));
@@ -361,6 +364,7 @@ impl idl::InOrderAttestImpl for AttestServer {
             return Err(err.into());
         }
 
+        ringbuf_entry!(Trace::FinishAttest);
         // copy attestation from temp buffer to output lease
         dest.write_range(0..dest.len(), &self.buf[0..len])
             .map_err(|_| {
