@@ -165,6 +165,15 @@ stacksize = 12304
 start = true
 extern-regions = ["dice_alias", "dice_certs"]
 
+[tasks.rng_driver]
+name = "drv-lpc55-rng"
+priority = 6
+uses = ["rng", "pmc"]
+start = true
+stacksize = 4200
+task-slots = ["syscon_driver"]
+extern-regions = ["dice_certs", "dice_rng"]
+
 [signing.certs]
 signing-certs = ["../../support/fake_certs/fake_certificate.der.crt"]
 root-certs = ["../../support/fake_certs/fake_certificate.der.crt"]
