@@ -30,7 +30,7 @@ mod alias_cert_tmpl;
 mod deviceid_cert_tmpl;
 mod handoff;
 mod mfg;
-mod persistid_cert_tmpl;
+pub mod persistid_cert_tmpl;
 mod persistid_csr_tmpl;
 pub use crate::mfg::{
     DiceMfg, DiceMfgState, PersistIdSeed, SelfMfg, SerialMfg,

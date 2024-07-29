@@ -156,3 +156,19 @@ size = 0x800
 read = true
 write = true
 execute = false
+
+[[dice_rng]]
+name = "a"
+address =0x40101a00
+size = 0x100
+read = true
+write = true
+execute = false
+
+[[dice_rng]]
+name = "b"
+address =0x40101a00
+size = 0x100
+read = true
+write = true
+execute = false

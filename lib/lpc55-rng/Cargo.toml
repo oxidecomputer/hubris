@@ -1,0 +1,16 @@
+[package]
+name = "lib-lpc55-rng"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lpc55-pac.workspace = true
+rand_core.workspace = true
+
+drv-lpc55-syscon-api.path = "../../drv/lpc55-syscon-api"
+drv-rng-api.path = "../../drv/rng-api"
+
+[lib]
+test = false
+doctest = false
+bench = false
