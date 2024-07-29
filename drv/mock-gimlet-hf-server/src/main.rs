@@ -10,7 +10,10 @@
 #![no_std]
 #![no_main]
 
-use drv_gimlet_hf_api::{HfDevSelect, HfError, HfMuxState, PAGE_SIZE_BYTES};
+use drv_gimlet_hf_api::{
+    HfDevSelect, HfError, HfMuxState, HfPersistentData, HfProtectMode,
+    PAGE_SIZE_BYTES,
+};
 use drv_hash_api::SHA256_SZ;
 use idol_runtime::{
     ClientError, Leased, LenLimit, NotificationHandler, RequestError, R, W,
@@ -66,6 +69,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     fn bulk_erase(
         &mut self,
         _: &RecvMessage,
+        _protect: HfProtectMode,
     ) -> Result<(), RequestError<HfError>> {
         Ok(())
     }
@@ -74,6 +78,8 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
         _addr: u32,
+        _protect: HfProtectMode,
+
         _data: LenLimit<Leased<R, [u8]>, PAGE_SIZE_BYTES>,
     ) -> Result<(), RequestError<HfError>> {
         Ok(())
@@ -97,6 +103,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
         _addr: u32,
+        _protect: HfProtectMode,
     ) -> Result<(), RequestError<HfError>> {
         Ok(())
     }
@@ -152,6 +159,21 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     ) -> Result<[u8; SHA256_SZ], RequestError<HfError>> {
         Err(HfError::HashNotConfigured.into())
     }
+
+    fn write_persistent_data(
+        &mut self,
+        _: &RecvMessage,
+        _: HfDevSelect,
+    ) -> Result<(), RequestError<HfError>> {
+        Ok(())
+    }
+
+    fn get_persistent_data(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<HfPersistentData, RequestError<HfError>> {
+        Err(HfError::HashNotConfigured.into())
+    }
 }
 
 impl NotificationHandler for ServerImpl {
@@ -165,7 +187,9 @@ impl NotificationHandler for ServerImpl {
     }
 }
 mod idl {
-    use super::{HfDevSelect, HfError, HfMuxState};
+    use super::{
+        HfDevSelect, HfError, HfMuxState, HfPersistentData, HfProtectMode,
+    };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
