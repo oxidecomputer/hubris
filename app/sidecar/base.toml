@@ -53,6 +53,16 @@ port = "E"
 pin = 3
 owner = {name = "sprot", notification = "rot_irq"}
 
+[tasks.rng_driver]
+features = ["h753"]
+name = "drv-stm32h7-rng"
+priority = 6
+max-sizes = {flash = 8192, ram = 512}
+uses = ["rng"]
+start = true
+stacksize = 256
+task-slots = ["sys"]
+
 [tasks.update_server]
 name = "stm32h7-update-server"
 priority = 3
@@ -107,6 +117,7 @@ task-slots = [
     "monorail",
     "net",
     "packrat",
+    "rng_driver",
     "sensor",
     "sequencer",
     "sprot",
@@ -118,6 +129,9 @@ task-slots = [
 ]
 features = ["sidecar", "vlan", "auxflash", "vpd"]
 notifications = ["socket", "usart-irq", "timer"]
+
+[tasks.control_plane_agent.config]
+trusted-keys = ["../../support/fake_keys/id_ecdsa.pub"]
 
 [tasks.sprot]
 name = "drv-stm32h7-sprot-server"
