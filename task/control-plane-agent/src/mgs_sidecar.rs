@@ -42,6 +42,7 @@ use ignition_handler::IgnitionController;
 userlib::task_slot!(SIDECAR_SEQ, sequencer);
 userlib::task_slot!(MONORAIL, monorail);
 userlib::task_slot!(TRANSCEIVERS, transceivers);
+userlib::task_slot!(RNG, rng_driver);
 
 #[allow(dead_code)] // Not all cases are used by all variants
 #[derive(Clone, Copy, PartialEq, ringbuf::Count)]
@@ -91,6 +92,7 @@ enum Trace {
     ChallengeExpired,
     WrongKey,
     UntrustedResponse(GwMonorailError),
+    RngFillFailed(drv_rng_api::RngError),
 }
 counted_ringbuf!(Trace, 16, Trace::None);
 
@@ -312,6 +314,10 @@ impl MgsHandler {
                 UnlockChallenge::Trivial { timestamp: ts1 },
                 UnlockResponse::Trivial { timestamp: ts2 },
             ) if ts1 == ts2 => Ok(()),
+            (
+                UnlockChallenge::EcdsaSha2Nistp256(data),
+                UnlockResponse::EcdsaSha2Nistp256 { key, signature },
+            ) => verify_signature(&data, &key, &signature),
             _ => Err(GwMonorailError::UnlockAuthFailed),
         }?;
         ringbuf_entry!(Trace::UnlockAuthSucceeded);
@@ -391,6 +397,63 @@ impl MgsHandler {
             Err(GwMonorailError::ManagementNetworkLocked)
         }
     }
+}
+
+fn verify_signature(
+    data: &[u8; 32],
+    key: &[u8; 65],
+    signature: &[u8; 64],
+) -> Result<(), GwMonorailError> {
+    if !TRUSTED_KEYS.iter().any(|t| t == key) {
+        ringbuf_entry!(Trace::WrongKey);
+        return Err(GwMonorailError::UnlockAuthFailed);
+    }
+
+    let sig = p256::ecdsa::Signature::from_bytes(signature.as_slice().into())
+        .map_err(|_| GwMonorailError::UnlockAuthFailed)?;
+
+    let v = p256::ecdsa::VerifyingKey::from_encoded_point(
+        &p256::EncodedPoint::from_bytes(key)
+            .map_err(|_| GwMonorailError::UnlockAuthFailed)?,
+    )
+    .map_err(|_| GwMonorailError::UnlockAuthFailed)?;
+
+    // Build an SSH signature blob to be verified
+    //
+    // See https://github.com/openssh/openssh-portable/blob/master/PROTOCOL.sshsig
+    // for the signature blob format
+    #[rustfmt::skip]
+    let mut buf = [
+        // MAGIC_PREAMBLE
+        b'S', b'S', b'H', b'S', b'I', b'G',
+
+        // namespace
+        0, 0, 0, 15,
+        b'm', b'o', b'n', b'o', b'r', b'a', b'i', b'l', b'-',
+        b'u', b'n', b'l', b'o', b'c', b'k',
+
+        // reserved
+        0, 0, 0, 0,
+
+        0, 0, 0, 6, // hash type
+        b's', b'h', b'a', b'2', b'5', b'6',
+
+        0, 0, 0, 32, // hash of our actual data
+        0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0,
+    ];
+
+    let mut hasher = sha2::Sha256::new();
+    use sha2::Digest;
+    hasher.update(data);
+    let hash = hasher.finalize();
+    buf[43..].copy_from_slice(&hash);
+
+    use p256::ecdsa::signature::Verifier;
+    v.verify(&buf, &sig)
+        .map_err(|_| GwMonorailError::UnlockAuthFailed)
 }
 
 impl SpHandler for MgsHandler {
@@ -597,9 +660,19 @@ impl SpHandler for MgsHandler {
             (SpComponent::MONORAIL, ComponentAction::Monorail(action)) => {
                 match action {
                     MonorailComponentAction::RequestChallenge => {
+                        // TODO is this sufficient?
+                        let rng = drv_rng_api::Rng::from(RNG.get_task_id());
+                        let mut buf = [0u8; 32];
+                        rng.fill(&mut buf).map_err(|e| {
+                            ringbuf_entry!(Trace::RngFillFailed(e));
+                            SpError::Monorail(
+                                GwMonorailError::GetChallengeFailed,
+                            )
+                        })?;
+                        let c = UnlockChallenge::EcdsaSha2Nistp256(buf);
+
                         // Store the new challenge, which expires in 60 seconds
                         let now = sys_get_timer().now;
-                        let c = UnlockChallenge::Trivial { timestamp: now };
                         self.last_challenge = Some((c, now));
 
                         Ok(ComponentActionResponse::Monorail(
@@ -1042,3 +1115,5 @@ fn sp_error_from_ignition_error(err: IgnitionError) -> SpError {
     };
     SpError::Ignition(err)
 }
+
+include!(concat!(env!("OUT_DIR"), "/trusted_keys.rs"));

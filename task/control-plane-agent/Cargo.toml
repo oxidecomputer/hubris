@@ -15,6 +15,9 @@ ssmarshal.workspace = true
 static_assertions.workspace = true
 zerocopy.workspace = true
 
+p256 = { workspace = true, optional = true }
+sha2 = { workspace = true, optional = true }
+
 drv-auxflash-api = { path = "../../drv/auxflash-api", optional = true }
 drv-caboose = { path = "../../drv/caboose" }
 drv-caboose-pos = { path = "../../drv/caboose-pos" }
@@ -30,6 +33,7 @@ drv-stm32h7-usart = { path = "../../drv/stm32h7-usart", features = ["h753"], opt
 drv-transceivers-api = { path = "../../drv/transceivers-api", optional = true }
 drv-update-api = { path = "../../drv/update-api" }
 drv-user-leds-api = { path = "../../drv/user-leds-api", optional = true }
+drv-rng-api = { path = "../../drv/rng-api", optional = true }
 task-vpd-api = { path = "../../task/vpd-api", optional = true }
 host-sp-messages = { path = "../../lib/host-sp-messages" }
 lpc55-rom-data = { path = "../../lib/lpc55-rom-data" }
@@ -50,11 +54,12 @@ build-util = { path = "../../build/util" }
 anyhow = { workspace = true }
 idol = { workspace = true }
 serde = { workspace = true }
+ssh-key = { workspace = true }
 
 [features]
 no-ipc-counters = ["idol/no-counters"]
 gimlet = ["drv-hf-api", "drv-gimlet-seq-api", "drv-stm32h7-usart", "drv-user-leds-api"]
-sidecar = ["drv-sidecar-seq-api", "drv-monorail-api", "drv-ignition-api", "drv-transceivers-api" ]
+sidecar = ["drv-sidecar-seq-api", "drv-monorail-api", "drv-ignition-api", "drv-transceivers-api", "p256", "sha2", "drv-rng-api"]
 psc = ["drv-user-leds-api"]
 vpd = ["task-vpd-api"]
 vlan = ["task-net-api/vlan"]
