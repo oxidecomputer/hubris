@@ -804,32 +804,6 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
             }
         }
 
-        let port = ANA_CL().PORT(sidecar::UPLINK);
-        self.modify(port.VLAN_CTRL(), |r| {
-            r.set_vlan_pop_cnt(1);
-            r.set_vlan_aware_ena(1);
-        })?;
-        self.modify(port.VLAN_TPID_CTRL(), |r| {
-            // Only accept 0x8100 as a valid TPID, to keep things simple. This
-            // is the designated EtherType for "Customer VLAN tag" in IEEE
-            // 802.1Q; the register's polarity requires us to **clear** bit 0 to
-            // accept this TPID.
-            r.set_basic_tpid_aware_dis(0b1110);
-
-            // Only route frames with one accepted tag
-            r.set_rt_tag_ctrl(0b0010);
-        })?;
-        // Discard frames with < 1 tag
-        self.modify(port.VLAN_FILTER_CTRL(0), |r| {
-            r.set_tag_required_ena(1);
-        })?;
-        let rew = REW().PORT(sidecar::UPLINK);
-        // Use the rewriter to tag all frames on egress from the upstream port
-        // (using the VID assigned on ingress into a downstream port)
-        self.modify(rew.TAG_CTRL(), |r| {
-            r.set_tag_cfg(1);
-        })?;
-
         // Configure VLAN ingress filtering, so packets that arrive and
         // aren't part of an appropriate VLAN are dropped.  This occurs
         // after VLAN classification, so the downstream ports that have
