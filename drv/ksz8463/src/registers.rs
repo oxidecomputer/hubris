@@ -1103,7 +1103,7 @@ impl Register {
         }
     }
 
-    // Helper function to dispatch between two registers
+    // Helper function to dispatch between three registers
     #[inline(always)]
     fn select3(i: u8, r1: Register, r2: Register, r3: Register) -> Register {
         match i {

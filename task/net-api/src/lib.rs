@@ -52,7 +52,7 @@ pub enum RecvError {
 
 /// Errors that can occur when trying to set a VLAN as trusted
 #[derive(
-    Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError, counters::Count,
+    Copy, Clone, PartialEq, Eq, FromPrimitive, IdolError, counters::Count,
 )]
 #[repr(u32)]
 pub enum TrustError {
@@ -289,14 +289,14 @@ impl From<Ipv6Address> for smoltcp::wire::Ipv6Address {
 ///
 /// Values are based on the KSZ8463's numbering (1-3); port 3 is connected to
 /// the SP itself and cannot be used as a source / destination.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum SpPort {
     One,
     Two,
 }
 
 /// Configuration for a SP VLAN
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone)]
 pub struct VLanConfig {
     /// VLAN VID
     pub vid: u16,

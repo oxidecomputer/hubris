@@ -469,19 +469,26 @@ impl<S: SpiServer> Ksz8463<S> {
                 // This uses slots 0-4 in the table, and FID 0-4 (same as
                 // slot); all other VLANs are disabled (in particular, VLAN
                 // with VID 1, which by default includes all ports).
-                self.write_vlan_table(0, 0b101, 0x12C)?;
-                self.write_vlan_table(1, 0b101, 0x12D)?;
-                self.write_vlan_table(2, 0b101, 0x130)?;
-                self.write_vlan_table(3, 0b110, 0x302)?;
-                self.write_vlan_table(4, 0b000, 0x3FF)?;
+
+                const TP1_VID: u16 = 0x12C;
+                const TP2_VID: u16 = 0x12D;
+                const TOFINO_VID: u16 = 0x130;
+                const PEER_SIDECAR_VID: u16 = 0x302;
+                const INVALID_VID: u16 = 0x3FF;
+
+                self.write_vlan_table(0, 0b101, TP1_VID)?;
+                self.write_vlan_table(1, 0b101, TP2_VID)?;
+                self.write_vlan_table(2, 0b101, TOFINO_VID)?;
+                self.write_vlan_table(3, 0b110, PEER_SIDECAR_VID)?;
+                self.write_vlan_table(4, 0b000, INVALID_VID)?;
                 for i in 5..16 {
                     self.disable_vlan(i)?;
                 }
 
                 // Assign default VLAN tags to each port
-                self.write(Register::P1VIDCR, 0x3FF)?;
-                self.write(Register::P2VIDCR, 0x302)?;
-                self.write(Register::P3VIDCR, 0x3FF)?;
+                self.write(Register::P1VIDCR, INVALID_VID)?;
+                self.write(Register::P2VIDCR, PEER_SIDECAR_VID)?;
+                self.write(Register::P3VIDCR, INVALID_VID)?;
 
                 // Enable tag removal on port 2
                 self.modify(Register::P2CR1, |r| {
