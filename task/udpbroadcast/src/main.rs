@@ -86,6 +86,12 @@ fn main() -> ! {
         serial: identity.serial,
     };
 
+    #[cfg(feature = "vlan")]
+    let sleep_time = (1000 / VLAN_COUNT) as u64;
+
+    #[cfg(not(feature = "vlan"))]
+    let sleep_time = 1000;
+
     let mut out = [0u8; BroadcastData::MAX_SIZE];
     let n = hubpack::serialize(&mut out, &data).unwrap_lite();
     let out = &out[..n];
@@ -102,7 +108,7 @@ fn main() -> ! {
             vid: vid_iter.next().unwrap(),
         };
 
-        hl::sleep_for(500);
+        hl::sleep_for(sleep_time);
         match net.send_packet(SOCKET, meta, out) {
             Ok(()) => UDP_BROADCAST_COUNT
                 .fetch_add(1, core::sync::atomic::Ordering::Relaxed),
