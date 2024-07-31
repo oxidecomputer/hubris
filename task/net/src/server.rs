@@ -28,8 +28,12 @@ enum Trace {
         vid: u16,
         t: VLanTrust,
     },
-    TrustExpired(u16),
-    SkipUntrustedPacket(u16),
+    TrustExpired {
+        vid: u16,
+    },
+    SkipUntrustedPacket {
+        vid: u16,
+    },
 }
 ringbuf!(Trace, 16, Trace::None);
 
@@ -352,7 +356,7 @@ impl<E: DeviceExt> VLanState<E> {
             VLanTrust::Distrust => false,
             VLanTrust::TrustUntil(t) => {
                 if now >= t {
-                    ringbuf_entry!(Trace::TrustExpired(self.vid));
+                    ringbuf_entry!(Trace::TrustExpired { vid: self.vid });
                     self.trust = VLanTrust::Distrust;
                     false
                 } else {
@@ -659,7 +663,7 @@ where
                         // Drop packets from untrusted VLANs after receiving
                         // them (to avoid clogging the queue)
                         if !trust {
-                            ringbuf_entry!(Trace::SkipUntrustedPacket(vid));
+                            ringbuf_entry!(Trace::SkipUntrustedPacket { vid });
                             continue;
                         }
 
