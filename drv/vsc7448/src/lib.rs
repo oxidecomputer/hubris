@@ -712,50 +712,35 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         Ok(())
     }
 
-    fn configure_vlan_with_mask(
-        &self,
-        f: fn(u8) -> u64,
-    ) -> Result<(), VscError> {
-        self.configure_vlan_with_mask_and_tagged(|p| (f(p), false))
-    }
-
-    /// Configures VLANs for a production-style system.
+    /// Configures VLANs 0x100 through 0x134 (i.e. 53 unique VLANs)
     ///
-    /// For details, see RFD 250, but in brief:
-    ///
-    /// - VLANs in the form 0x1YY are configured for each downstream port.
-    ///   Ports active on a given VLAN are selected by the given function `f`;
-    ///   typically, each VLAN will contain a downstream port and the uplink
-    ///   port.
-    /// - Downstream ports send and receive untagged frames, and apply their
-    ///   VLAN tag on packet ingress.
-    /// - The uplink port (49) sends and receives packets with one VLAN tag, and
-    ///   uses that packet to select which VLAN (i.e. which downstream port)
-    ///   should receive that packet.  The VLAN tag is stripped on egress.
-    fn configure_vlan_with_mask_and_tagged<F: Fn(u8) -> (u64, bool)>(
+    /// The provided function is passed a value from 0-52 and should return a
+    /// port mask associated with that VLAN, or `None` if we're not using that
+    /// VLAN.
+    fn configure_vlans(
         &self,
-        f: F,
+        f: fn(u8) -> Option<u64>,
     ) -> Result<(), VscError> {
-        // Configure one VLAN per downstream port, then do per-port
-        // configuration based on whether the port is tagged or not.
         for p in 0..=52 {
-            let port = ANA_CL().PORT(p);
-
-            // Special case for the uplink port
-            let tagged = if p == sidecar::UPLINK {
-                true
-            } else {
-                let (mask, tagged) = f(p);
-                // Configure the 0x1YY VLAN for this port, using our closure to
-                // decide what mask to apply
+            if let Some(mask) = f(p) {
+                // Configure the 0x1YY VLAN, using our closure to decide what
+                // mask to apply
                 self.write_port_mask(
                     ANA_L3().VLAN(0x100 + p as u16).VLAN_MASK_CFG(),
                     mask,
                 )?;
-                tagged
-            };
+            }
+        }
+        Ok(())
+    }
 
-            if tagged {
+    /// Configures all 53 ports as either tagged or untagged
+    ///
+    /// The closure should return `true` if the port is tagged
+    fn configure_port_tagged(&self, f: fn(u8) -> bool) -> Result<(), VscError> {
+        for p in 0..=52 {
+            let port = ANA_CL().PORT(p);
+            if f(p) {
                 // Tagged ports (e.g. uplink) require one VLAN tag, and pop it
                 // on ingress
                 //
@@ -817,52 +802,75 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
     }
 
     /// Implements the VLAN scheme described in RFD 250.
+    ///
+    /// In brief:
+    /// - VLANs in the form 0x1YY are configured for each downstream port.
+    ///   Ports active on a given VLAN are selected by the given function `f`;
+    ///   typically, each VLAN will contain a downstream port and the uplink
+    ///   port.
+    /// - Downstream ports send and receive untagged frames, and apply their
+    ///   VLAN tag on packet ingress.
+    /// - The uplink port (49) sends and receives packets with one VLAN tag, and
+    ///   uses that packet to select which VLAN (i.e. which downstream port)
+    ///   should receive that packet.  The VLAN tag is stripped on egress.
     pub fn configure_vlan_strict(&self) -> Result<(), VscError> {
-        self.configure_vlan_with_mask(|p| (1 << p) | (1 << sidecar::UPLINK))
-    }
-
-    /// Implements the VLAN scheme described in RFD 250, with one exception:
-    /// the technician ports are on **every VLAN**, so they can talk to any SP
-    /// without having to go through the CPU port to the Tofino.
-    pub fn configure_vlan_sidecar_unlocked(&self) -> Result<(), VscError> {
-        self.configure_vlan_with_mask_and_tagged(|p| match p {
-            sidecar::TECHNICIAN_1 => {
-                // Technician ports are connected to every port, but not to each
-                // other (to prevent spanning tree fun)
-                (((1 << 53) - 1) & !(1 << sidecar::TECHNICIAN_2), false)
-            }
-            sidecar::TECHNICIAN_2 => {
-                (((1 << 53) - 1) & !(1 << sidecar::TECHNICIAN_1), false)
-            }
-            _ => {
-                // SPs are only connected to the Tofino and technician ports
-                (
-                    (1 << p)
-                        | (1 << sidecar::UPLINK)
-                        | (1 << sidecar::TECHNICIAN_1)
-                        | (1 << sidecar::TECHNICIAN_2),
-                    p == sidecar::LOCAL_SP,
-                )
-            }
-        })
+        self.configure_vlans(|p| match p {
+            sidecar::UPLINK => None,
+            _ => Some((1 << p) | (1 << sidecar::UPLINK)),
+        })?;
+        self.configure_port_tagged(|p| p == sidecar::UPLINK)?;
+        Ok(())
     }
 
     /// Implements the VLAN scheme described in RFD 492
     pub fn configure_vlan_sidecar_locked(&self) -> Result<(), VscError> {
-        self.configure_vlan_with_mask_and_tagged(|p| match p {
-            sidecar::TECHNICIAN_1 | sidecar::TECHNICIAN_2 => (
+        self.sidecar_vlan_lock()?;
+        self.configure_port_tagged(|p| {
+            p == sidecar::UPLINK || p == sidecar::LOCAL_SP
+        })?;
+        Ok(())
+    }
+
+    /// Configures the VLANs to the locked state, per RFD 492
+    ///
+    /// The technician ports can only talk to the Tofino and Sidecar-local SP;
+    /// other SPs can only talk to the Tofino.
+    pub fn sidecar_vlan_lock(&self) -> Result<(), VscError> {
+        self.configure_vlans(|p| match p {
+            sidecar::UPLINK => None,
+            sidecar::TECHNICIAN_1 | sidecar::TECHNICIAN_2 => Some(
                 (1 << p) | (1 << sidecar::UPLINK) | (1 << sidecar::LOCAL_SP),
-                false,
             ),
-            sidecar::LOCAL_SP => {
-                // The local SP is on a tagged segment, so we can distinguish
-                // between packets coming from the uplink (on the LOCAL_SP VLAN)
-                // versus the two tech ports.
-                ((1 << p) | (1 << sidecar::UPLINK), true)
-            }
             _ => {
                 // Other SPs are only connected to the Tofino
-                ((1 << p) | (1 << sidecar::UPLINK), false)
+                Some((1 << p) | (1 << sidecar::UPLINK))
+            }
+        })
+    }
+
+    /// Configures the VLANs to the unlocked state, per RFD 492
+    ///
+    /// The technician ports can talk to any SP; SPs may talk to the Tofino or
+    /// to the technician ports.
+    pub fn sidecar_vlan_unlock(&self) -> Result<(), VscError> {
+        self.configure_vlans(|p| match p {
+            sidecar::UPLINK => None,
+            sidecar::TECHNICIAN_1 => {
+                // Technician ports are connected to every port, but not to each
+                // other (to prevent spanning tree fun)
+                Some(((1 << 53) - 1) & !(1 << sidecar::TECHNICIAN_2))
+            }
+            sidecar::TECHNICIAN_2 => {
+                Some(((1 << 53) - 1) & !(1 << sidecar::TECHNICIAN_1))
+            }
+            _ => {
+                // SPs are only connected to the Tofino and technician ports
+                Some(
+                    (1 << p)
+                        | (1 << sidecar::UPLINK)
+                        | (1 << sidecar::TECHNICIAN_1)
+                        | (1 << sidecar::TECHNICIAN_2),
+                )
             }
         })
     }
