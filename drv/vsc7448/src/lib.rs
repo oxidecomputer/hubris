@@ -736,15 +736,13 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         &self,
         f: F,
     ) -> Result<(), VscError> {
-        const UPLINK: u8 = 49; // DEV10G_0, uplink to the Tofino 2
-
         // Configure one VLAN per downstream port, then do per-port
         // configuration based on whether the port is tagged or not.
         for p in 0..=52 {
             let port = ANA_CL().PORT(p);
 
             // Special case for the uplink port
-            let tagged = if p == UPLINK {
+            let tagged = if p == sidecar::UPLINK {
                 true
             } else {
                 let (mask, tagged) = f(p);
@@ -806,7 +804,7 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
             }
         }
 
-        let port = ANA_CL().PORT(UPLINK);
+        let port = ANA_CL().PORT(sidecar::UPLINK);
         self.modify(port.VLAN_CTRL(), |r| {
             r.set_vlan_pop_cnt(1);
             r.set_vlan_aware_ena(1);
@@ -825,7 +823,7 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         self.modify(port.VLAN_FILTER_CTRL(0), |r| {
             r.set_tag_required_ena(1);
         })?;
-        let rew = REW().PORT(UPLINK);
+        let rew = REW().PORT(sidecar::UPLINK);
         // Use the rewriter to tag all frames on egress from the upstream port
         // (using the VID assigned on ingress into a downstream port)
         self.modify(rew.TAG_CTRL(), |r| {
@@ -846,33 +844,30 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
 
     /// Implements the VLAN scheme described in RFD 250.
     pub fn configure_vlan_strict(&self) -> Result<(), VscError> {
-        const UPLINK: u8 = 49; // DEV10G_0, uplink to the Tofino 2
-        self.configure_vlan_with_mask(|p| (1 << p) | (1 << UPLINK))
+        self.configure_vlan_with_mask(|p| (1 << p) | (1 << sidecar::UPLINK))
     }
 
     /// Implements the VLAN scheme described in RFD 250, with one exception:
     /// the technician ports are on **every VLAN**, so they can talk to any SP
     /// without having to go through the CPU port to the Tofino.
     pub fn configure_vlan_sidecar_unlocked(&self) -> Result<(), VscError> {
-        const LOCAL_SP: u8 = 48; // Connection to the local SP
-        const UPLINK: u8 = 49; // DEV10G_0, uplink to the Tofino 2
-        const TECHNICIAN_1: u8 = 44;
-        const TECHNICIAN_2: u8 = 45;
-        self.configure_vlan_with_mask_and_tagged(|p| {
-            if p == TECHNICIAN_1 {
+        self.configure_vlan_with_mask_and_tagged(|p| match p {
+            sidecar::TECHNICIAN_1 => {
                 // Technician ports are connected to every port, but not to each
                 // other (to prevent spanning tree fun)
-                (((1 << 53) - 1) & !(1 << TECHNICIAN_2), false)
-            } else if p == TECHNICIAN_2 {
-                (((1 << 53) - 1) & !(1 << TECHNICIAN_1), false)
-            } else {
+                (((1 << 53) - 1) & !(1 << sidecar::TECHNICIAN_2), false)
+            }
+            sidecar::TECHNICIAN_2 => {
+                (((1 << 53) - 1) & !(1 << sidecar::TECHNICIAN_1), false)
+            }
+            _ => {
                 // SPs are only connected to the Tofino and technician ports
                 (
                     (1 << p)
-                        | (1 << UPLINK)
-                        | (1 << TECHNICIAN_1)
-                        | (1 << TECHNICIAN_2),
-                    p == LOCAL_SP,
+                        | (1 << sidecar::UPLINK)
+                        | (1 << sidecar::TECHNICIAN_1)
+                        | (1 << sidecar::TECHNICIAN_2),
+                    p == sidecar::LOCAL_SP,
                 )
             }
         })
@@ -880,21 +875,20 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
 
     /// Implements the VLAN scheme described in RFD 492
     pub fn configure_vlan_sidecar_locked(&self) -> Result<(), VscError> {
-        const LOCAL_SP: u8 = 48; // Connection to the local SP
-        const UPLINK: u8 = 49; // Uplink to the Tofino 2
-        const TECHNICIAN_1: u8 = 44;
-        const TECHNICIAN_2: u8 = 45;
-        self.configure_vlan_with_mask_and_tagged(|p| {
-            if p == TECHNICIAN_1 || p == TECHNICIAN_2 {
-                ((1 << p) | (1 << UPLINK) | (1 << LOCAL_SP), false)
-            } else if p == LOCAL_SP {
+        self.configure_vlan_with_mask_and_tagged(|p| match p {
+            sidecar::TECHNICIAN_1 | sidecar::TECHNICIAN_2 => (
+                (1 << p) | (1 << sidecar::UPLINK) | (1 << sidecar::LOCAL_SP),
+                false,
+            ),
+            sidecar::LOCAL_SP => {
                 // The local SP is on a tagged segment, so we can distinguish
                 // between packets coming from the uplink (on the LOCAL_SP VLAN)
                 // versus the two tech ports.
-                ((1 << p) | (1 << UPLINK), true)
-            } else {
+                ((1 << p) | (1 << sidecar::UPLINK), true)
+            }
+            _ => {
                 // Other SPs are only connected to the Tofino
-                ((1 << p) | (1 << UPLINK), false)
+                ((1 << p) | (1 << sidecar::UPLINK), false)
             }
         })
     }
@@ -933,4 +927,18 @@ pub enum RefClockFreq {
     Clk25MHz = 0b100,
     Clk125MHz = 0b000,
     Clk156p25MHz = 0b001,
+}
+
+mod sidecar {
+    /// DEV10G_0, uplink to the Tofino 2
+    pub const UPLINK: u8 = 49;
+
+    /// Connection to the local SP
+    pub const LOCAL_SP: u8 = 48;
+
+    /// Technician port 1 (front IO board)
+    pub const TECHNICIAN_1: u8 = 44;
+
+    /// Technician port 2 (front IO board)
+    pub const TECHNICIAN_2: u8 = 45;
 }
