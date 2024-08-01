@@ -3,11 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    mgs_common::{MgsCommon, MgsVLanId},
-    update::rot::RotUpdate,
-    update::sp::SpUpdate,
-    update::ComponentUpdater,
-    usize_max, CriticalEvent, Log, MgsMessage,
+    mgs_common::MgsCommon, update::rot::RotUpdate, update::sp::SpUpdate,
+    update::ComponentUpdater, usize_max, CriticalEvent, Log, MgsMessage,
 };
 use drv_user_leds_api::UserLeds;
 use gateway_messages::sp_impl::{
@@ -24,7 +21,7 @@ use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
 use ringbuf::ringbuf_entry_root;
 use task_control_plane_agent_api::{ControlPlaneAgentError, VpdIdentity};
-use task_net_api::{MacAddress, UdpMetadata};
+use task_net_api::{MacAddress, UdpMetadata, VLanId};
 use userlib::sys_get_timer;
 
 // How big does our shared update buffer need to be? Has to be able to handle SP
@@ -140,12 +137,12 @@ impl MgsHandler {
 impl SpHandler for MgsHandler {
     type BulkIgnitionStateIter = core::iter::Empty<IgnitionState>;
     type BulkIgnitionLinkEventsIter = core::iter::Empty<ignition::LinkEvents>;
-    type VLanId = MgsVLanId;
+    type VLanId = VLanId;
 
     fn is_request_trusted(
         &mut self,
         _kind: &MgsRequest,
-        _sender: Sender<MgsVLanId>,
+        _sender: Sender<VLanId>,
     ) -> Result<(), SpError> {
         // PSCs are okay with everyone talking to them, since they're behind the
         // management network.
@@ -155,7 +152,7 @@ impl SpHandler for MgsHandler {
     fn is_response_trusted(
         &mut self,
         _kind: &MgsResponse,
-        _sender: Sender<MgsVLanId>,
+        _sender: Sender<VLanId>,
     ) -> bool {
         // Gimlets are okay with everyone talking to them, since they're behind
         // the management network.
@@ -164,7 +161,7 @@ impl SpHandler for MgsHandler {
 
     fn discover(
         &mut self,
-        sender: Sender<MgsVLanId>,
+        sender: Sender<VLanId>,
     ) -> Result<DiscoverResponse, SpError> {
         self.common.discover(sender.vid.into())
     }
@@ -273,7 +270,7 @@ impl SpHandler for MgsHandler {
 
     fn component_action(
         &mut self,
-        _sender: Sender<MgsVLanId>,
+        _sender: Sender<VLanId>,
         component: SpComponent,
         action: ComponentAction,
     ) -> Result<ComponentActionResponse, SpError> {
@@ -359,7 +356,7 @@ impl SpHandler for MgsHandler {
 
     fn set_power_state(
         &mut self,
-        sender: Sender<MgsVLanId>,
+        sender: Sender<VLanId>,
         power_state: PowerState,
     ) -> Result<(), SpError> {
         ringbuf_entry_root!(
@@ -380,7 +377,7 @@ impl SpHandler for MgsHandler {
 
     fn serial_console_attach(
         &mut self,
-        _sender: Sender<MgsVLanId>,
+        _sender: Sender<VLanId>,
         _component: SpComponent,
     ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleAttach));
@@ -389,7 +386,7 @@ impl SpHandler for MgsHandler {
 
     fn serial_console_write(
         &mut self,
-        _sender: Sender<MgsVLanId>,
+        _sender: Sender<VLanId>,
         offset: u64,
         data: &[u8],
     ) -> Result<u64, SpError> {
@@ -402,7 +399,7 @@ impl SpHandler for MgsHandler {
 
     fn serial_console_keepalive(
         &mut self,
-        _sender: Sender<MgsVLanId>,
+        _sender: Sender<VLanId>,
     ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(
             MgsMessage::SerialConsoleKeepAlive
@@ -412,7 +409,7 @@ impl SpHandler for MgsHandler {
 
     fn serial_console_detach(
         &mut self,
-        _sender: Sender<MgsVLanId>,
+        _sender: Sender<VLanId>,
     ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleDetach));
         Err(SpError::RequestUnsupportedForSp)
@@ -420,7 +417,7 @@ impl SpHandler for MgsHandler {
 
     fn serial_console_break(
         &mut self,
-        _sender: Sender<MgsVLanId>,
+        _sender: Sender<VLanId>,
     ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleBreak));
         Err(SpError::RequestUnsupportedForSp)
@@ -522,7 +519,7 @@ impl SpHandler for MgsHandler {
 
     fn mgs_response_host_phase2_data(
         &mut self,
-        _sender: Sender<MgsVLanId>,
+        _sender: Sender<VLanId>,
         _message_id: u32,
         hash: [u8; 32],
         offset: u64,
