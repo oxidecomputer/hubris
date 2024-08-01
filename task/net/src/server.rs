@@ -484,7 +484,10 @@ where
             let vlan_id = VLanId::from_usize(i);
 
             #[cfg(not(feature = "vlan"))]
-            let vlan_id = VLanId::None;
+            let vlan_id = {
+                let _ = i;
+                VLanId::None
+            };
 
             #[cfg(feature = "vlan")]
             let mac = port_to_mac[match vlan_id.cfg().port {
@@ -722,7 +725,11 @@ where
             return Err(ClientError::AccessViolation.fail());
         }
 
+        #[cfg(feature = "vlan")]
         let vlan = &mut self.vlan_state[metadata.vid];
+
+        #[cfg(not(feature = "vlan"))]
+        let vlan = &mut self.vlan_state[VLanId::None];
 
         // Refuse to send messages directed to an untrusted VLAN, silently
         // dropping them.

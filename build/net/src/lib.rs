@@ -31,8 +31,12 @@ pub struct NetConfig {
     /// VLAN configuration, or None. This is checked against enabled features
     /// during the `net` build, so it must be non-empty iff the `vlan` feature
     /// is turned on.
+    ///
+    /// MAC addresses are assigned based on order in the `enum VLanId`; we'll
+    /// use an `IndexMap` here to match the order from the TOML file for
+    /// consistency.
     #[serde(default)]
-    pub vlans: BTreeMap<String, VLanConfig>,
+    pub vlans: indexmap::IndexMap<String, VLanConfig>,
 }
 
 /// TODO: this type really wants to be an enum, but the toml crate's enum
@@ -158,6 +162,8 @@ pub fn generate_vlan_enum(
             #[derive(
                 Copy, Clone, Eq, PartialEq,
                 enum_map::Enum,
+                serde::Serialize, serde::Deserialize,
+                hubpack::SerializedSize,
             )]
             pub enum VLanId {
                 None,

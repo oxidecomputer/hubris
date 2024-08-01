@@ -180,16 +180,9 @@ impl HostPhase2Requester {
 
         let n = gateway_messages::serialize(tx_buf, &message).unwrap_lite();
 
-        let vid = {
-            let target = match port {
-                SpPort::One => task_net_api::SpPort::One,
-                SpPort::Two => task_net_api::SpPort::Two,
-            };
-            task_net_api::VLANS
-                .iter()
-                .find(|v| v.port == target)
-                .unwrap()
-                .vid
+        let vid = match port {
+            SpPort::One => task_net_api::VLanId::Sidecar2,
+            SpPort::Two => task_net_api::VLanId::Sidecar1,
         };
 
         Some(UdpMetadata {

@@ -5,12 +5,14 @@
 #![no_std]
 #![no_main]
 
-use enum_map::Enum;
 use hubpack::SerializedSize;
 use serde::Serialize;
 use task_net_api::*;
 use task_packrat_api::{Packrat, VpdIdentity};
 use userlib::*;
+
+#[cfg(feature = "vlan")]
+use enum_map::Enum;
 
 task_slot!(NET, net);
 task_slot!(PACKRAT, packrat);

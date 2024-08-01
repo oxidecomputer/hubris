@@ -279,6 +279,7 @@ dependencies = [
  "anyhow",
  "build-util",
  "convert_case",
+ "indexmap 1.9.1",
  "proc-macro2",
  "quote",
  "serde",
