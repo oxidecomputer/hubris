@@ -4,7 +4,7 @@
 
 use anyhow::Result;
 use serde::Deserialize;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 
 ///////////////////////////////////////////////////////////////////////////////
 // Network config schema definition.
@@ -98,7 +98,7 @@ pub fn generate_port_consts(
         .vlans
         .iter()
         .map(|v| v.port)
-        .collect::<HashSet<_>>()
+        .collect::<BTreeSet<_>>()
         .len();
     assert!(ports <= 2);
     writeln!(out, "pub const PORT_COUNT: usize = {};", ports.max(1))
