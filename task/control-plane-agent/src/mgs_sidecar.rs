@@ -353,10 +353,11 @@ impl MgsHandler {
         Ok(())
     }
 
-    fn is_sender_trusted(
+    fn ensure_sender_trusted<T>(
         &mut self,
+        message: T,
         sender: Sender<VLanId>,
-    ) -> Result<(), GwMonorailError> {
+    ) -> Result<T, GwMonorailError> {
         let vid = sender.vid;
 
         // If this message is arriving on a trusted VLAN, then the lock state is
@@ -364,14 +365,14 @@ impl MgsHandler {
         let cfg = vid.cfg();
         if cfg.always_trusted {
             ringbuf_entry!(Trace::MessageTrusted { vid });
-            return Ok(());
+            return Ok(message);
         }
 
         if let LockState::UnlockedUntil(t) = self.locked[vid] {
             let now = sys_get_timer().now;
             if now < t {
                 ringbuf_entry!(Trace::MessageTrusted { vid });
-                Ok(())
+                Ok(message)
             } else {
                 ringbuf_entry!(Trace::TimedRelock { vid });
                 self.lock(vid)?;
@@ -392,11 +393,11 @@ impl SpHandler for MgsHandler {
     type VLanId = VLanId;
 
     /// Checks whether we trust the given message
-    fn is_request_trusted(
+    fn ensure_request_trusted(
         &mut self,
-        kind: &MgsRequest,
+        kind: MgsRequest,
         sender: Sender<VLanId>,
-    ) -> Result<(), SpError> {
+    ) -> Result<MgsRequest, SpError> {
         // Certain messages are always trusted:
         //  - Discovery (for obvious reasons)
         //  - Messages needed for unlocking
@@ -419,22 +420,24 @@ impl SpHandler for MgsHandler {
                 }
                 | MgsRequest::DisableComponentWatchdog { .. }
         ) {
-            return Ok(());
+            return Ok(kind);
         }
 
-        self.is_sender_trusted(sender).map_err(SpError::Monorail)
+        self.ensure_sender_trusted(kind, sender)
+            .map_err(SpError::Monorail)
     }
 
-    fn is_response_trusted(
+    fn ensure_response_trusted(
         &mut self,
-        _kind: &MgsResponse,
+        kind: MgsResponse,
         sender: Sender<VLanId>,
-    ) -> bool {
-        if let Err(e) = self.is_sender_trusted(sender) {
-            ringbuf_entry!(Trace::UntrustedResponse(e));
-            false
-        } else {
-            true
+    ) -> Option<MgsResponse> {
+        match self.ensure_sender_trusted(kind, sender) {
+            Ok(k) => Some(k),
+            Err(e) => {
+                ringbuf_entry!(Trace::UntrustedResponse(e));
+                None
+            }
         }
     }
 

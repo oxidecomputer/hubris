@@ -139,24 +139,24 @@ impl SpHandler for MgsHandler {
     type BulkIgnitionLinkEventsIter = core::iter::Empty<ignition::LinkEvents>;
     type VLanId = VLanId;
 
-    fn is_request_trusted(
+    fn ensure_request_trusted(
         &mut self,
-        _kind: &MgsRequest,
+        kind: MgsRequest,
         _sender: Sender<VLanId>,
-    ) -> Result<(), SpError> {
+    ) -> Result<MgsRequest, SpError> {
         // PSCs are okay with everyone talking to them, since they're behind the
         // management network.
-        Ok(())
+        Ok(kind)
     }
 
-    fn is_response_trusted(
+    fn ensure_response_trusted(
         &mut self,
-        _kind: &MgsResponse,
+        kind: MgsResponse,
         _sender: Sender<VLanId>,
-    ) -> bool {
-        // Gimlets are okay with everyone talking to them, since they're behind
+    ) -> Option<MgsResponse> {
+        // PSCs are okay with everyone talking to them, since they're behind
         // the management network.
-        true
+        Some(kind)
     }
 
     fn discover(
