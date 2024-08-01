@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use crate::{KszPhyPort, KszPort};
 use userlib::FromPrimitive;
 
 /// Offsets used to access MIB counters
@@ -1073,44 +1074,47 @@ pub enum Register {
 #[allow(non_snake_case)]
 impl Register {
     #[inline(always)]
-    pub fn PxPHYCTRL(i: u8) -> Self {
+    pub fn PxPHYCTRL(i: KszPhyPort) -> Self {
         Self::select2(i, Self::P1PHYCTRL, Self::P2PHYCTRL)
     }
     #[inline(always)]
-    pub fn PxMBSR(i: u8) -> Self {
+    pub fn PxMBSR(i: KszPhyPort) -> Self {
         Self::select2(i, Self::P1MBSR, Self::P2MBSR)
     }
     #[inline(always)]
-    pub fn PxMBCR(i: u8) -> Self {
+    pub fn PxMBCR(i: KszPhyPort) -> Self {
         Self::select2(i, Self::P1MBCR, Self::P2MBCR)
     }
     #[inline(always)]
-    pub fn PxCR1(i: u8) -> Self {
+    pub fn PxCR1(i: KszPort) -> Self {
         Self::select3(i, Self::P1CR1, Self::P2CR1, Self::P3CR1)
     }
     #[inline(always)]
-    pub fn PxCR2(i: u8) -> Self {
+    pub fn PxCR2(i: KszPort) -> Self {
         Self::select3(i, Self::P1CR2, Self::P2CR2, Self::P3CR2)
     }
 
     // Helper function to dispatch between two registers
     #[inline(always)]
-    fn select2(i: u8, r1: Register, r2: Register) -> Register {
+    fn select2(i: KszPhyPort, r1: Register, r2: Register) -> Register {
         match i {
-            1 => r1,
-            2 => r2,
-            _ => panic!("Invalid port {}", i),
+            KszPhyPort::One => r1,
+            KszPhyPort::Two => r2,
         }
     }
 
     // Helper function to dispatch between three registers
     #[inline(always)]
-    fn select3(i: u8, r1: Register, r2: Register, r3: Register) -> Register {
+    fn select3(
+        i: KszPort,
+        r1: Register,
+        r2: Register,
+        r3: Register,
+    ) -> Register {
         match i {
-            1 => r1,
-            2 => r2,
-            3 => r3,
-            _ => panic!("Invalid port {}", i),
+            KszPort::One => r1,
+            KszPort::Two => r2,
+            KszPort::Three => r3,
         }
     }
 }

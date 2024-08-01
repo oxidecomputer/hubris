@@ -130,6 +130,30 @@ pub struct Ksz8463<S: SpiServer> {
     spi: SpiDevice<S>,
 }
 
+/// KSZ port with a PHY
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum KszPhyPort {
+    One,
+    Two,
+}
+
+/// Any KSZ port
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum KszPort {
+    One,
+    Two,
+    Three,
+}
+
+impl From<KszPhyPort> for KszPort {
+    fn from(p: KszPhyPort) -> KszPort {
+        match p {
+            KszPhyPort::One => KszPort::One,
+            KszPhyPort::Two => KszPort::Two,
+        }
+    }
+}
+
 impl<S: SpiServer> Ksz8463<S> {
     pub fn new(spi: SpiDevice<S>) -> Self {
         Self { spi }
@@ -202,14 +226,13 @@ impl<S: SpiServer> Ksz8463<S> {
     /// function will panic.
     pub fn read_mib_counter(
         &self,
-        port: u8,
+        port: KszPort,
         offset: MIBCounter,
     ) -> Result<MIBCounterValue, Error> {
         let b = match port {
-            1 => 0x0,
-            2 => 0x20,
-            3 => 0x40,
-            _ => panic!("Invalid port {}", port),
+            KszPort::One => 0x0,
+            KszPort::Two => 0x20,
+            KszPort::Three => 0x40,
         };
         // Request counter with given offset.
         self.write(
@@ -397,7 +420,7 @@ impl<S: SpiServer> Ksz8463<S> {
                 self.write(Register::P3VIDCR, 0x3FF)?;
 
                 // Enable ingress VLAN filtering on upstream ports
-                for i in [1, 2] {
+                for i in [KszPort::One, KszPort::Two] {
                     self.modify(Register::PxCR2(i), |r| *r |= 1 << 14)?;
                 }
 
@@ -429,7 +452,7 @@ impl<S: SpiServer> Ksz8463<S> {
                 self.write(Register::P3VIDCR, 0x3FF)?;
 
                 // Enable tag removal on both ports
-                for i in [1, 2] {
+                for i in [KszPort::One, KszPort::Two] {
                     // For upstream ports, drop tagged ingress packets and
                     // remove tags on packet egress.  This is because there
                     // should be no VLAN tags between the VSC7448 on the
@@ -496,7 +519,7 @@ impl<S: SpiServer> Ksz8463<S> {
                     *r |= 1 << 1; // Remove tags on egress
                 })?;
 
-                for i in [1, 3] {
+                for i in [KszPort::One, KszPort::Three] {
                     // Insert tags before egress on Ports 1 and 3
                     self.modify(Register::PxCR1(i), |r| *r |= 1 << 2)?;
 
