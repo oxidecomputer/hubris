@@ -49,20 +49,37 @@ enum Trace {
     None,
     TrustVLanFailed(task_net_api::TrustError),
     DistrustVLanFailed(task_net_api::TrustError),
-    UnlockRequested(u16),
+    UnlockRequested {
+        vid: u16,
+    },
     UnlockAuthFailed,
     UnlockAuthSucceeded,
-    UnlockedUntil(u16, u64),
+    UnlockedUntil {
+        vid: u16,
+        until: u64,
+    },
     MonorailUnlockFailed(drv_monorail_api::MonorailError),
     TimedLockFailed(gateway_messages::MonorailError),
-    TimedRelock(u16),
-    ExplicitRelock(u16),
-    Locking(u16),
-    MessageTrusted(u16),
-    MessageNotTrusted(u16),
+    TimedRelock {
+        vid: u16,
+    },
+    ExplicitRelock {
+        vid: u16,
+    },
+    Locking {
+        vid: u16,
+    },
+    MessageTrusted {
+        vid: u16,
+    },
+    MessageNotTrusted {
+        vid: u16,
+    },
     NoChallenge,
     WrongChallenge,
-    UnlockTimeTooLong(u32),
+    UnlockTimeTooLong {
+        time_sec: u32,
+    },
     ChallengeExpired,
     WrongKey,
     UntrustedResponse(GwMonorailError),
@@ -161,7 +178,7 @@ impl MgsHandler {
         for (i, k) in self.locked.clone().iter().enumerate() {
             if let LockState::UnlockedUntil(lock_at) = k {
                 if now >= *lock_at {
-                    ringbuf_entry!(Trace::TimedRelock(VLANS[i].vid));
+                    ringbuf_entry!(Trace::TimedRelock { vid: VLANS[i].vid });
                     if let Err(e) = self.lock(VLANS[i].vid) {
                         ringbuf_entry!(Trace::TimedLockFailed(e));
                     }
@@ -246,10 +263,10 @@ impl MgsHandler {
         response: UnlockResponse,
         time_sec: u32,
     ) -> Result<(), GwMonorailError> {
-        ringbuf_entry!(Trace::UnlockRequested(vid));
+        ringbuf_entry!(Trace::UnlockRequested { vid });
 
         if time_sec > MAX_UNLOCK_TIME_SECS {
-            ringbuf_entry!(Trace::UnlockTimeTooLong(time_sec));
+            ringbuf_entry!(Trace::UnlockTimeTooLong { time_sec });
             return Err(GwMonorailError::TimeIsTooLong);
         }
 
@@ -307,7 +324,10 @@ impl MgsHandler {
             ringbuf_entry!(Trace::TrustVLanFailed(e));
             return Err(GwMonorailError::UnlockFailed);
         }
-        ringbuf_entry!(Trace::UnlockedUntil(vid, trust_until));
+        ringbuf_entry!(Trace::UnlockedUntil {
+            vid,
+            until: trust_until
+        });
 
         // Reconfigure our own internal state to accept messages
         self.locked[vlan_index] = LockState::UnlockedUntil(trust_until);
@@ -316,7 +336,7 @@ impl MgsHandler {
     }
 
     fn lock(&mut self, vid: u16) -> Result<(), GwMonorailError> {
-        ringbuf_entry!(Trace::Locking(vid));
+        ringbuf_entry!(Trace::Locking { vid });
         let i = VLANS
             .iter()
             .position(|v| v.vid == vid)
@@ -356,23 +376,23 @@ impl MgsHandler {
             })
             .ok_or(GwMonorailError::InvalidVLAN)?;
         if VLANS[i].always_trusted {
-            ringbuf_entry!(Trace::MessageTrusted(VLANS[i].vid));
+            ringbuf_entry!(Trace::MessageTrusted { vid: VLANS[i].vid });
             return Ok(());
         }
 
         if let LockState::UnlockedUntil(t) = self.locked[i] {
             let now = sys_get_timer().now;
             if now < t {
-                ringbuf_entry!(Trace::MessageTrusted(VLANS[i].vid));
+                ringbuf_entry!(Trace::MessageTrusted { vid: VLANS[i].vid });
                 Ok(())
             } else {
-                ringbuf_entry!(Trace::TimedRelock(VLANS[i].vid));
+                ringbuf_entry!(Trace::TimedRelock { vid: VLANS[i].vid });
                 self.lock(VLANS[i].vid)?;
-                ringbuf_entry!(Trace::MessageNotTrusted(VLANS[i].vid));
+                ringbuf_entry!(Trace::MessageNotTrusted { vid: VLANS[i].vid });
                 Err(GwMonorailError::ManagementNetworkLocked)
             }
         } else {
-            ringbuf_entry!(Trace::MessageNotTrusted(VLANS[i].vid));
+            ringbuf_entry!(Trace::MessageNotTrusted { vid: VLANS[i].vid });
             Err(GwMonorailError::ManagementNetworkLocked)
         }
     }
@@ -600,7 +620,9 @@ impl SpHandler for MgsHandler {
                         .map(|()| ComponentActionResponse::Ack),
 
                     MonorailComponentAction::Lock => {
-                        ringbuf_entry!(Trace::ExplicitRelock(sender.vid));
+                        ringbuf_entry!(Trace::ExplicitRelock {
+                            vid: sender.vid
+                        });
                         self.lock(sender.vid)
                             .map_err(SpError::Monorail)
                             .map(|()| ComponentActionResponse::Ack)
