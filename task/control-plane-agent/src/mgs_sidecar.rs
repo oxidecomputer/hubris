@@ -3,11 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    mgs_common::{MgsCommon, MgsVLanId},
-    update::rot::RotUpdate,
-    update::sp::SpUpdate,
-    update::ComponentUpdater,
-    usize_max, CriticalEvent, Log, MgsMessage,
+    mgs_common::MgsCommon, update::rot::RotUpdate, update::sp::SpUpdate,
+    update::ComponentUpdater, usize_max, CriticalEvent, Log, MgsMessage,
 };
 use drv_ignition_api::IgnitionError;
 use drv_monorail_api::{Monorail, MonorailError};
@@ -358,9 +355,9 @@ impl MgsHandler {
 
     fn is_sender_trusted(
         &mut self,
-        sender: Sender<MgsVLanId>,
+        sender: Sender<VLanId>,
     ) -> Result<(), GwMonorailError> {
-        let vid = sender.vid.0;
+        let vid = sender.vid;
 
         // If this message is arriving on a trusted VLAN, then the lock state is
         // irrelevant.
@@ -392,13 +389,13 @@ impl SpHandler for MgsHandler {
     type BulkIgnitionStateIter = ignition_handler::BulkIgnitionStateIter;
     type BulkIgnitionLinkEventsIter =
         ignition_handler::BulkIgnitionLinkEventsIter;
-    type VLanId = MgsVLanId;
+    type VLanId = VLanId;
 
     /// Checks whether we trust the given message
     fn is_request_trusted(
         &mut self,
         kind: &MgsRequest,
-        sender: Sender<MgsVLanId>,
+        sender: Sender<VLanId>,
     ) -> Result<(), SpError> {
         // Certain messages are always trusted:
         //  - Discovery (for obvious reasons)
@@ -431,7 +428,7 @@ impl SpHandler for MgsHandler {
     fn is_response_trusted(
         &mut self,
         _kind: &MgsResponse,
-        sender: Sender<MgsVLanId>,
+        sender: Sender<VLanId>,
     ) -> bool {
         if let Err(e) = self.is_sender_trusted(sender) {
             ringbuf_entry!(Trace::UntrustedResponse(e));
@@ -443,9 +440,9 @@ impl SpHandler for MgsHandler {
 
     fn discover(
         &mut self,
-        sender: Sender<MgsVLanId>,
+        sender: Sender<VLanId>,
     ) -> Result<DiscoverResponse, SpError> {
-        self.common.discover(sender.vid.into())
+        self.common.discover(sender.vid)
     }
 
     fn num_ignition_ports(&mut self) -> Result<u32, SpError> {
@@ -566,7 +563,7 @@ impl SpHandler for MgsHandler {
 
     fn component_action(
         &mut self,
-        sender: Sender<MgsVLanId>,
+        sender: Sender<VLanId>,
         component: SpComponent,
         action: ComponentAction,
     ) -> Result<ComponentActionResponse, SpError> {
@@ -606,15 +603,15 @@ impl SpHandler for MgsHandler {
                         response,
                         time_sec,
                     } => self
-                        .unlock(sender.vid.0, challenge, response, time_sec)
+                        .unlock(sender.vid, challenge, response, time_sec)
                         .map_err(SpError::Monorail)
                         .map(|()| ComponentActionResponse::Ack),
 
                     MonorailComponentAction::Lock => {
                         ringbuf_entry!(Trace::ExplicitRelock {
-                            vid: sender.vid.0
+                            vid: sender.vid
                         });
-                        self.lock(sender.vid.0)
+                        self.lock(sender.vid)
                             .map_err(SpError::Monorail)
                             .map(|()| ComponentActionResponse::Ack)
                     }
@@ -689,7 +686,7 @@ impl SpHandler for MgsHandler {
 
     fn set_power_state(
         &mut self,
-        sender: Sender<MgsVLanId>,
+        sender: Sender<VLanId>,
         power_state: PowerState,
     ) -> Result<(), SpError> {
         ringbuf_entry_root!(
@@ -728,7 +725,7 @@ impl SpHandler for MgsHandler {
 
     fn serial_console_attach(
         &mut self,
-        _sender: Sender<MgsVLanId>,
+        _sender: Sender<VLanId>,
         _component: SpComponent,
     ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleAttach));
@@ -737,7 +734,7 @@ impl SpHandler for MgsHandler {
 
     fn serial_console_write(
         &mut self,
-        _sender: Sender<MgsVLanId>,
+        _sender: Sender<VLanId>,
         offset: u64,
         data: &[u8],
     ) -> Result<u64, SpError> {
@@ -750,7 +747,7 @@ impl SpHandler for MgsHandler {
 
     fn serial_console_keepalive(
         &mut self,
-        _sender: Sender<MgsVLanId>,
+        _sender: Sender<VLanId>,
     ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(
             MgsMessage::SerialConsoleKeepAlive
@@ -760,7 +757,7 @@ impl SpHandler for MgsHandler {
 
     fn serial_console_detach(
         &mut self,
-        _sender: Sender<MgsVLanId>,
+        _sender: Sender<VLanId>,
     ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleDetach));
         Err(SpError::RequestUnsupportedForSp)
@@ -768,7 +765,7 @@ impl SpHandler for MgsHandler {
 
     fn serial_console_break(
         &mut self,
-        _sender: Sender<MgsVLanId>,
+        _sender: Sender<VLanId>,
     ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleBreak));
         Err(SpError::RequestUnsupportedForSp)
@@ -908,7 +905,7 @@ impl SpHandler for MgsHandler {
 
     fn mgs_response_host_phase2_data(
         &mut self,
-        _sender: Sender<MgsVLanId>,
+        _sender: Sender<VLanId>,
         _message_id: u32,
         hash: [u8; 32],
         offset: u64,

@@ -22,7 +22,7 @@ use task_control_plane_agent_api::{
 };
 use task_net_api::{
     Address, LargePayloadBehavior, Net, RecvError, SendError, SocketName,
-    UdpMetadata,
+    UdpMetadata, VLanId,
 };
 use userlib::{sys_set_timer, task_slot};
 
@@ -200,7 +200,7 @@ enum CriticalEvent {
     /// logs the sender, in case the request was unexpected, and the target
     /// state.
     SetPowerState {
-        sender: Sender<mgs_common::MgsVLanId>,
+        sender: Sender<VLanId>,
         power_state: PowerState,
         ticks_since_boot: u64,
     },
@@ -572,7 +572,7 @@ impl NetHandler {
         assert!(self.packet_to_send.is_none());
         let sender = Sender {
             addr,
-            vid: mgs_common::MgsVLanId(meta.vid),
+            vid: meta.vid,
         };
         if let Some(n) = sp_impl::handle_message(
             sender,

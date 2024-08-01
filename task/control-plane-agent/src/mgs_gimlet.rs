@@ -3,12 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    mgs_common::{MgsCommon, MgsVLanId},
-    notifications,
-    update::host_flash::HostFlashUpdate,
-    update::rot::RotUpdate,
-    update::sp::SpUpdate,
-    update::ComponentUpdater,
+    mgs_common::MgsCommon, notifications, update::host_flash::HostFlashUpdate,
+    update::rot::RotUpdate, update::sp::SpUpdate, update::ComponentUpdater,
     usize_max, CriticalEvent, Log, MgsMessage, SYS,
 };
 use core::time::Duration;
@@ -23,8 +19,8 @@ use gateway_messages::{
     ComponentUpdatePrepare, DiscoverResponse, Header, IgnitionCommand,
     IgnitionState, Message, MessageKind, MgsError, MgsRequest, MgsResponse,
     PowerState, RotBootInfo, RotRequest, RotResponse, SensorRequest,
-    SensorResponse, SpComponent, SpError, SpRequest, SpStateV2,
-    SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
+    SensorResponse, SpComponent, SpError, SpPort as GwSpPort, SpRequest,
+    SpStateV2, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
     SERIAL_CONSOLE_IDLE_TIMEOUT,
 };
 use heapless::{Deque, Vec};
@@ -36,7 +32,7 @@ use task_control_plane_agent_api::{
     ControlPlaneAgentError, UartClient, VpdIdentity,
     MAX_INSTALLINATOR_IMAGE_ID_LEN,
 };
-use task_net_api::{Address, MacAddress, UdpMetadata};
+use task_net_api::{Address, MacAddress, UdpMetadata, VLanId};
 use userlib::{sys_get_timer, sys_irq_control, FromPrimitive, UnwrapLite};
 
 // We're included under a special `path` cfg from main.rs, which confuses rustc
@@ -97,7 +93,7 @@ userlib::task_slot!(USER_LEDS, user_leds);
 type InstallinatorImageIdBuf = Vec<u8, MAX_INSTALLINATOR_IMAGE_ID_LEN>;
 
 struct AttachedSerialConsoleMgs {
-    sender: Sender<MgsVLanId>,
+    sender: Sender<VLanId>,
     // The timestamp of the most recent keepalive (which can be an actual
     // keepalive packet or any other meaningful serial-console-related message:
     // connection, write, break, keepalive).
@@ -110,7 +106,7 @@ impl AttachedSerialConsoleMgs {
     /// returns an error.
     fn check_sender_and_update_keepalive(
         &mut self,
-        sender: Sender<MgsVLanId>,
+        sender: Sender<VLanId>,
     ) -> Result<(), SpError> {
         if sender != self.sender {
             return Err(SpError::SerialConsoleNotAttached);
@@ -338,7 +334,7 @@ impl MgsHandler {
             addr: Address::Ipv6(sender.addr.ip.into()),
             port: sender.addr.port,
             size: n as u32,
-            vid: sender.vid.0,
+            vid: sender.vid,
         })
     }
 
@@ -464,12 +460,12 @@ impl MgsHandler {
 impl SpHandler for MgsHandler {
     type BulkIgnitionStateIter = core::iter::Empty<IgnitionState>;
     type BulkIgnitionLinkEventsIter = core::iter::Empty<ignition::LinkEvents>;
-    type VLanId = MgsVLanId;
+    type VLanId = VLanId;
 
     fn is_request_trusted(
         &mut self,
         _kind: &MgsRequest,
-        _sender: Sender<MgsVLanId>,
+        _sender: Sender<VLanId>,
     ) -> Result<(), SpError> {
         // Gimlets are okay with everyone talking to them, since they're behind
         // the management network.
@@ -479,7 +475,7 @@ impl SpHandler for MgsHandler {
     fn is_response_trusted(
         &mut self,
         _kind: &MgsResponse,
-        _sender: Sender<MgsVLanId>,
+        _sender: Sender<VLanId>,
     ) -> bool {
         // Gimlets are okay with everyone talking to them, since they're behind
         // the management network.
@@ -488,7 +484,7 @@ impl SpHandler for MgsHandler {
 
     fn discover(
         &mut self,
-        sender: Sender<MgsVLanId>,
+        sender: Sender<VLanId>,
     ) -> Result<DiscoverResponse, SpError> {
         self.common.discover(sender.vid.into())
     }
@@ -600,7 +596,7 @@ impl SpHandler for MgsHandler {
 
     fn component_action(
         &mut self,
-        _sender: Sender<MgsVLanId>,
+        _sender: Sender<VLanId>,
         component: SpComponent,
         action: ComponentAction,
     ) -> Result<ComponentActionResponse, SpError> {
@@ -709,7 +705,7 @@ impl SpHandler for MgsHandler {
 
     fn set_power_state(
         &mut self,
-        sender: Sender<MgsVLanId>,
+        sender: Sender<VLanId>,
         power_state: PowerState,
     ) -> Result<(), SpError> {
         use drv_gimlet_seq_api::PowerState as DrvPowerState;
@@ -738,7 +734,7 @@ impl SpHandler for MgsHandler {
 
     fn serial_console_attach(
         &mut self,
-        sender: Sender<MgsVLanId>,
+        sender: Sender<VLanId>,
         component: SpComponent,
     ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleAttach));
@@ -774,7 +770,7 @@ impl SpHandler for MgsHandler {
 
     fn serial_console_write(
         &mut self,
-        sender: Sender<MgsVLanId>,
+        sender: Sender<VLanId>,
         mut offset: u64,
         mut data: &[u8],
     ) -> Result<u64, SpError> {
@@ -817,7 +813,7 @@ impl SpHandler for MgsHandler {
 
     fn serial_console_keepalive(
         &mut self,
-        sender: Sender<MgsVLanId>,
+        sender: Sender<VLanId>,
     ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(
             MgsMessage::SerialConsoleKeepAlive
@@ -831,7 +827,7 @@ impl SpHandler for MgsHandler {
 
     fn serial_console_detach(
         &mut self,
-        _sender: Sender<MgsVLanId>,
+        _sender: Sender<VLanId>,
     ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleDetach));
         self.attached_serial_console_mgs = None;
@@ -840,7 +836,7 @@ impl SpHandler for MgsHandler {
 
     fn serial_console_break(
         &mut self,
-        sender: Sender<MgsVLanId>,
+        sender: Sender<VLanId>,
     ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleBreak));
         // TODO: same caveats as above!
@@ -964,7 +960,7 @@ impl SpHandler for MgsHandler {
 
     fn mgs_response_host_phase2_data(
         &mut self,
-        sender: Sender<MgsVLanId>,
+        sender: Sender<VLanId>,
         _message_id: u32,
         hash: [u8; 32],
         offset: u64,
@@ -977,7 +973,10 @@ impl SpHandler for MgsHandler {
         }));
 
         self.host_phase2.ingest_incoming_data(
-            sender.vid.into(),
+            match sender.vid.cfg().port {
+                task_net_api::SpPort::One => GwSpPort::One,
+                task_net_api::SpPort::Two => GwSpPort::Two,
+            },
             hash,
             offset,
             data,

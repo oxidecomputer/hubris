@@ -87,10 +87,15 @@ impl MgsCommon {
 
     pub(crate) fn discover(
         &mut self,
-        port: GwSpPort,
+        vid: task_net_api::VLanId,
     ) -> Result<DiscoverResponse, GwSpError> {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::Discovery));
-        Ok(DiscoverResponse { sp_port: port })
+        Ok(DiscoverResponse {
+            sp_port: match vid.cfg().port {
+                task_net_api::SpPort::One => GwSpPort::One,
+                task_net_api::SpPort::Two => GwSpPort::Two,
+            },
+        })
     }
 
     pub(crate) fn identity(&self) -> VpdIdentity {
@@ -812,17 +817,5 @@ impl From<SpImageError> for MgsImageError {
             SpImageError::ResetVector => GwImageError::ResetVector,
             SpImageError::Signature => GwImageError::Signature,
         })
-    }
-}
-
-#[derive(Copy, Clone, Eq, PartialEq)]
-pub struct MgsVLanId(pub task_net_api::VLanId);
-
-impl From<MgsVLanId> for GwSpPort {
-    fn from(m: MgsVLanId) -> GwSpPort {
-        match m.0.cfg().port {
-            task_net_api::SpPort::One => GwSpPort::One,
-            task_net_api::SpPort::Two => GwSpPort::Two,
-        }
     }
 }
