@@ -278,6 +278,9 @@ impl MgsHandler {
             return Err(GwMonorailError::AlreadyTrusted);
         }
 
+        // Callers only get one attempt per challenge; if they fail to authorize
+        // the unlock (or something else goes wrong while communicating to
+        // hardware), they have to ask for a new challenge.
         let Some((last_challenge, challenge_time)) =
             core::mem::take(&mut self.last_challenge)
         else {
