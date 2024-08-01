@@ -163,7 +163,7 @@ impl SpHandler for MgsHandler {
         &mut self,
         sender: Sender<VLanId>,
     ) -> Result<DiscoverResponse, SpError> {
-        self.common.discover(sender.vid.into())
+        self.common.discover(sender.vid)
     }
 
     fn num_ignition_ports(&mut self) -> Result<u32, SpError> {
