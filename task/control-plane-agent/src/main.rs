@@ -8,7 +8,7 @@
 use drv_sprot_api::SprotError;
 use gateway_messages::{
     sp_impl::{self, Sender},
-    IgnitionCommand, MgsError, PowerState, SpComponent, SpPort, UpdateId,
+    IgnitionCommand, MgsError, PowerState, SpComponent, UpdateId,
 };
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{
@@ -22,7 +22,7 @@ use task_control_plane_agent_api::{
 };
 use task_net_api::{
     Address, LargePayloadBehavior, Net, RecvError, SendError, SocketName,
-    UdpMetadata, VLanId,
+    UdpMetadata,
 };
 use userlib::{sys_set_timer, task_slot};
 
@@ -200,7 +200,7 @@ enum CriticalEvent {
     /// logs the sender, in case the request was unexpected, and the target
     /// state.
     SetPowerState {
-        sender: Sender<VLanId>,
+        sender: Sender<mgs_common::MgsVLanId>,
         power_state: PowerState,
         ticks_since_boot: u64,
     },
@@ -570,11 +570,9 @@ impl NetHandler {
         // `MgsHandler` implementation, and serializing the response we should
         // send into `self.tx_buf`.
         assert!(self.packet_to_send.is_none());
-        let port = sp_port_from_udp_metadata(&meta);
         let sender = Sender {
             addr,
-            port,
-            vid: meta.vid,
+            vid: mgs_common::MgsVLanId(meta.vid),
         };
         if let Some(n) = sp_impl::handle_message(
             sender,
@@ -585,13 +583,6 @@ impl NetHandler {
             meta.size = n as u32;
             self.packet_to_send = Some(meta);
         }
-    }
-}
-
-fn sp_port_from_udp_metadata(meta: &UdpMetadata) -> SpPort {
-    match meta.vid.cfg().port {
-        task_net_api::SpPort::One => SpPort::One,
-        task_net_api::SpPort::Two => SpPort::Two,
     }
 }
 

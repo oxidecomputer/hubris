@@ -814,3 +814,15 @@ impl From<SpImageError> for MgsImageError {
         })
     }
 }
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub struct MgsVLanId(pub task_net_api::VLanId);
+
+impl From<MgsVLanId> for GwSpPort {
+    fn from(m: MgsVLanId) -> GwSpPort {
+        match m.0.cfg().port {
+            task_net_api::SpPort::One => GwSpPort::One,
+            task_net_api::SpPort::Two => GwSpPort::Two,
+        }
+    }
+}

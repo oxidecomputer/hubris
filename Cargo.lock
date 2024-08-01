@@ -2418,7 +2418,7 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=mkeeter/custom-sender-vid#23870ed63d4d21a84efa0397b3e90cb0c0c77ffb"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=mkeeter/custom-sender-vid#e0c241832894e1bb9c44b6ec5e1869531f41633d"
 dependencies = [
  "bitflags 2.6.0",
  "hubpack",
