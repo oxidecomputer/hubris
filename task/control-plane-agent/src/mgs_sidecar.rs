@@ -122,7 +122,7 @@ impl MgsHandler {
 
             last_challenge: None,
             locked: VLANS.map(|v| {
-                if v.trusted {
+                if v.always_trusted {
                     LockState::AlwaysUnlocked
                 } else {
                     LockState::Locked
@@ -257,7 +257,7 @@ impl MgsHandler {
             return Err(GwMonorailError::InvalidVLAN);
         };
 
-        if VLANS[vlan_index].trusted {
+        if VLANS[vlan_index].always_trusted {
             return Err(GwMonorailError::AlreadyTrusted);
         }
 
@@ -355,7 +355,7 @@ impl MgsHandler {
                 ) && v.vid == sender.vid
             })
             .ok_or(GwMonorailError::InvalidVLAN)?;
-        if VLANS[i].trusted {
+        if VLANS[i].always_trusted {
             ringbuf_entry!(Trace::MessageTrusted(VLANS[i].vid));
             return Ok(());
         }

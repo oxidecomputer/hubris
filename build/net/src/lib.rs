@@ -124,7 +124,7 @@ pub fn generate_vlan_consts(
             "
     VLanConfig {{
         vid: {:#x},
-        trusted: {},
+        always_trusted: {},
         port: {}
     }},",
             v.vid,

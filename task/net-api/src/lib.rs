@@ -301,8 +301,8 @@ pub struct VLanConfig {
     /// VLAN VID
     pub vid: u16,
 
-    /// Whether this VLAN is initially trusted
-    pub trusted: bool,
+    /// Whether this VLAN is always trusted
+    pub always_trusted: bool,
 
     /// SP port associated with this VLAN
     ///

@@ -520,7 +520,7 @@ where
 
             #[cfg(feature = "vlan")]
             let (trust, vid) = (
-                if VLANS[i].trusted {
+                if VLANS[i].always_trusted {
                     VLanTrust::AlwaysTrust
                 } else {
                     VLanTrust::Distrust
@@ -792,7 +792,7 @@ where
         let Some(i) = VLANS.iter().position(|v| v.vid == vid) else {
             return Err(TrustError::NoSuchVLAN);
         };
-        if VLANS[i].trusted {
+        if VLANS[i].always_trusted {
             return Err(TrustError::AlwaysTrusted);
         }
         ringbuf_entry!(Trace::SetTrust { vid, t });
