@@ -137,7 +137,7 @@ Interface(
         "trust_vlan": (
             doc: "Marks the given VID as trusted for some amount of time",
             args: {
-                "vid": "u16",
+                "vid": "VLanId",
                 "trust_until": "u64",
             },
             reply: Result(
@@ -149,7 +149,7 @@ Interface(
         "distrust_vlan": (
             doc: "Marks the given VID as untrusted",
             args: {
-                "vid": "u16",
+                "vid": "VLanId",
             },
             reply: Result(
                 ok: "()",

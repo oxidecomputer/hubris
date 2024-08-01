@@ -10,6 +10,7 @@ use drv_ignition_api::IgnitionError;
 use drv_monorail_api::{Monorail, MonorailError};
 use drv_sidecar_seq_api::Sequencer;
 use drv_transceivers_api::Transceivers;
+use enum_map::EnumMap;
 use gateway_messages::sp_impl::{
     BoundsChecked, DeviceDescription, Sender, SpHandler,
 };
@@ -26,7 +27,7 @@ use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
 use ringbuf::{counted_ringbuf, ringbuf_entry, ringbuf_entry_root};
 use task_control_plane_agent_api::{ControlPlaneAgentError, VpdIdentity};
-use task_net_api::{MacAddress, UdpMetadata, VLANS, VLAN_COUNT};
+use task_net_api::{MacAddress, UdpMetadata, VLanId};
 use userlib::sys_get_timer;
 
 // We're included under a special `path` cfg from main.rs, which confuses rustc
@@ -50,30 +51,30 @@ enum Trace {
     TrustVLanFailed(task_net_api::TrustError),
     DistrustVLanFailed(task_net_api::TrustError),
     UnlockRequested {
-        vid: u16,
+        vid: VLanId,
     },
     UnlockAuthFailed,
     UnlockAuthSucceeded,
     UnlockedUntil {
-        vid: u16,
+        vid: VLanId,
         until: u64,
     },
     MonorailUnlockFailed(drv_monorail_api::MonorailError),
     TimedLockFailed(gateway_messages::MonorailError),
     TimedRelock {
-        vid: u16,
+        vid: VLanId,
     },
     ExplicitRelock {
-        vid: u16,
+        vid: VLanId,
     },
     Locking {
-        vid: u16,
+        vid: VLanId,
     },
     MessageTrusted {
-        vid: u16,
+        vid: VLanId,
     },
     MessageNotTrusted {
-        vid: u16,
+        vid: VLanId,
     },
     NoChallenge,
     WrongChallenge,
@@ -123,7 +124,7 @@ pub(crate) struct MgsHandler {
 
     last_challenge: Option<(UnlockChallenge, u64)>,
 
-    locked: [LockState; VLAN_COUNT],
+    locked: EnumMap<VLanId, LockState>,
 }
 
 impl MgsHandler {
@@ -138,8 +139,8 @@ impl MgsHandler {
             ignition: IgnitionController::new(),
 
             last_challenge: None,
-            locked: VLANS.map(|v| {
-                if v.always_trusted {
+            locked: EnumMap::from_fn(|v: VLanId| {
+                if v.cfg().always_trusted {
                     LockState::AlwaysUnlocked
                 } else {
                     LockState::Locked
@@ -160,8 +161,9 @@ impl MgsHandler {
             Some(sys_get_timer().now + 1)
         } else {
             // Find the soonest LockState::UnlockedUntil time (if present)
+            // TODO replace with a multitimer?
             self.locked
-                .iter()
+                .values()
                 .flat_map(|k| match k {
                     LockState::UnlockedUntil(t) => Some(*t),
                     _ => None,
@@ -175,11 +177,11 @@ impl MgsHandler {
         self.common.sp_update.step_preparation();
 
         let now = sys_get_timer().now;
-        for (i, k) in self.locked.clone().iter().enumerate() {
+        for (vid, k) in self.locked.clone().iter() {
             if let LockState::UnlockedUntil(lock_at) = k {
                 if now >= *lock_at {
-                    ringbuf_entry!(Trace::TimedRelock { vid: VLANS[i].vid });
-                    if let Err(e) = self.lock(VLANS[i].vid) {
+                    ringbuf_entry!(Trace::TimedRelock { vid });
+                    if let Err(e) = self.lock(vid) {
                         ringbuf_entry!(Trace::TimedLockFailed(e));
                     }
                 }
@@ -258,7 +260,7 @@ impl MgsHandler {
     /// Unlocks the tech port if the challenge and response are compatible
     fn unlock(
         &mut self,
-        vid: u16,
+        vid: VLanId,
         challenge: UnlockChallenge,
         response: UnlockResponse,
         time_sec: u32,
@@ -270,11 +272,7 @@ impl MgsHandler {
             return Err(GwMonorailError::TimeIsTooLong);
         }
 
-        let Some(vlan_index) = VLANS.iter().position(|v| v.vid == vid) else {
-            return Err(GwMonorailError::InvalidVLAN);
-        };
-
-        if VLANS[vlan_index].always_trusted {
+        if vid.cfg().always_trusted {
             return Err(GwMonorailError::AlreadyTrusted);
         }
 
@@ -333,18 +331,14 @@ impl MgsHandler {
         });
 
         // Reconfigure our own internal state to accept messages
-        self.locked[vlan_index] = LockState::UnlockedUntil(trust_until);
+        self.locked[vid] = LockState::UnlockedUntil(trust_until);
 
         Ok(())
     }
 
-    fn lock(&mut self, vid: u16) -> Result<(), GwMonorailError> {
+    fn lock(&mut self, vid: VLanId) -> Result<(), GwMonorailError> {
         ringbuf_entry!(Trace::Locking { vid });
-        let i = VLANS
-            .iter()
-            .position(|v| v.vid == vid)
-            .ok_or(GwMonorailError::InvalidVLAN)?;
-        self.locked[i] = LockState::Locked;
+        self.locked[vid] = LockState::Locked;
 
         let net = task_net_api::Net::from(crate::NET.get_task_id());
         net.distrust_vlan(vid).map_err(|e| {
@@ -361,41 +355,42 @@ impl MgsHandler {
 
     fn is_sender_trusted(
         &mut self,
-        sender: Sender,
+        sender: Sender<VLanId>,
     ) -> Result<(), GwMonorailError> {
         use gateway_messages::SpPort as GwSpPort;
         use task_net_api::SpPort as NetSpPort;
 
+        let vid = sender.vid;
+
+        // If the port according to the VLAN ID disagrees with the port assigned
+        // by MGS, then something is weird (TODO remove this?)
+        match (vid.cfg().port, sender.port) {
+            (NetSpPort::One, GwSpPort::One)
+            | (NetSpPort::Two, GwSpPort::Two) => (),
+            _ => return Err(GwMonorailError::InvalidVLAN),
+        }
+
         // If this message is arriving on a trusted VLAN, then the lock state is
         // irrelevant.
-        let i = task_net_api::VLANS
-            .iter()
-            .position(|v| {
-                matches!(
-                    (v.port, sender.port),
-                    (NetSpPort::One, GwSpPort::One)
-                        | (NetSpPort::Two, GwSpPort::Two)
-                ) && v.vid == sender.vid
-            })
-            .ok_or(GwMonorailError::InvalidVLAN)?;
-        if VLANS[i].always_trusted {
-            ringbuf_entry!(Trace::MessageTrusted { vid: VLANS[i].vid });
+        let cfg = vid.cfg();
+        if cfg.always_trusted {
+            ringbuf_entry!(Trace::MessageTrusted { vid });
             return Ok(());
         }
 
-        if let LockState::UnlockedUntil(t) = self.locked[i] {
+        if let LockState::UnlockedUntil(t) = self.locked[vid] {
             let now = sys_get_timer().now;
             if now < t {
-                ringbuf_entry!(Trace::MessageTrusted { vid: VLANS[i].vid });
+                ringbuf_entry!(Trace::MessageTrusted { vid });
                 Ok(())
             } else {
-                ringbuf_entry!(Trace::TimedRelock { vid: VLANS[i].vid });
-                self.lock(VLANS[i].vid)?;
-                ringbuf_entry!(Trace::MessageNotTrusted { vid: VLANS[i].vid });
+                ringbuf_entry!(Trace::TimedRelock { vid });
+                self.lock(vid)?;
+                ringbuf_entry!(Trace::MessageNotTrusted { vid });
                 Err(GwMonorailError::ManagementNetworkLocked)
             }
         } else {
-            ringbuf_entry!(Trace::MessageNotTrusted { vid: VLANS[i].vid });
+            ringbuf_entry!(Trace::MessageNotTrusted { vid });
             Err(GwMonorailError::ManagementNetworkLocked)
         }
     }
@@ -405,12 +400,13 @@ impl SpHandler for MgsHandler {
     type BulkIgnitionStateIter = ignition_handler::BulkIgnitionStateIter;
     type BulkIgnitionLinkEventsIter =
         ignition_handler::BulkIgnitionLinkEventsIter;
+    type VLanId = VLanId;
 
     /// Checks whether we trust the given message
     fn is_request_trusted(
         &mut self,
         kind: &MgsRequest,
-        sender: Sender,
+        sender: Sender<VLanId>,
     ) -> Result<(), SpError> {
         // Certain messages are always trusted:
         //  - Discovery (for obvious reasons)
@@ -443,7 +439,7 @@ impl SpHandler for MgsHandler {
     fn is_response_trusted(
         &mut self,
         _kind: &MgsResponse,
-        sender: Sender,
+        sender: Sender<VLanId>,
     ) -> bool {
         if let Err(e) = self.is_sender_trusted(sender) {
             ringbuf_entry!(Trace::UntrustedResponse(e));
@@ -455,7 +451,7 @@ impl SpHandler for MgsHandler {
 
     fn discover(
         &mut self,
-        sender: Sender,
+        sender: Sender<VLanId>,
     ) -> Result<DiscoverResponse, SpError> {
         self.common.discover(sender.port)
     }
@@ -578,7 +574,7 @@ impl SpHandler for MgsHandler {
 
     fn component_action(
         &mut self,
-        sender: Sender,
+        sender: Sender<VLanId>,
         component: SpComponent,
         action: ComponentAction,
     ) -> Result<ComponentActionResponse, SpError> {
@@ -701,7 +697,7 @@ impl SpHandler for MgsHandler {
 
     fn set_power_state(
         &mut self,
-        sender: Sender,
+        sender: Sender<VLanId>,
         power_state: PowerState,
     ) -> Result<(), SpError> {
         ringbuf_entry_root!(
@@ -740,7 +736,7 @@ impl SpHandler for MgsHandler {
 
     fn serial_console_attach(
         &mut self,
-        _sender: Sender,
+        _sender: Sender<VLanId>,
         _component: SpComponent,
     ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleAttach));
@@ -749,7 +745,7 @@ impl SpHandler for MgsHandler {
 
     fn serial_console_write(
         &mut self,
-        _sender: Sender,
+        _sender: Sender<VLanId>,
         offset: u64,
         data: &[u8],
     ) -> Result<u64, SpError> {
@@ -762,7 +758,7 @@ impl SpHandler for MgsHandler {
 
     fn serial_console_keepalive(
         &mut self,
-        _sender: Sender,
+        _sender: Sender<VLanId>,
     ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(
             MgsMessage::SerialConsoleKeepAlive
@@ -772,13 +768,16 @@ impl SpHandler for MgsHandler {
 
     fn serial_console_detach(
         &mut self,
-        _sender: Sender,
+        _sender: Sender<VLanId>,
     ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleDetach));
         Err(SpError::RequestUnsupportedForSp)
     }
 
-    fn serial_console_break(&mut self, _sender: Sender) -> Result<(), SpError> {
+    fn serial_console_break(
+        &mut self,
+        _sender: Sender<VLanId>,
+    ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleBreak));
         Err(SpError::RequestUnsupportedForSp)
     }
@@ -917,7 +916,7 @@ impl SpHandler for MgsHandler {
 
     fn mgs_response_host_phase2_data(
         &mut self,
-        _sender: Sender,
+        _sender: Sender<VLanId>,
         _message_id: u32,
         hash: [u8; 32],
         offset: u64,

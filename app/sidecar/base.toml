@@ -1090,13 +1090,27 @@ cs = [{port = "K", pin = 1}] # SPI_SP_TO_FPGA_CS_CONFIG_L
 mux = "port_jk"
 cs = [{port = "J", pin = 6}] # SPI_SP_TO_FPGA_CS_USER_L
 
-[config.net]
-vlans = [
-    {vid = 0x12C, trusted = false, port = 1},
-    {vid = 0x12D, trusted = false, port = 1},
-    {vid = 0x130, trusted = true, port = 1},
-    {vid = 0x302, trusted = true, port = 2}
-]
+# VLAN configuration
+[config.net.vlans.tech_port_1]
+vid = 0x12C
+trusted = false
+port = 1
+
+[config.net.vlans.tech_port_2]
+vid = 0x12D
+trusted = false
+port = 1
+
+[config.net.vlans.local_sidecar]
+vid = 0x130
+trusted = true
+port = 1
+
+[config.net.vlans.peer_sidecar]
+vid = 0x302
+trusted = true
+port = 2
+
 # UDP ports in sockets below are assigned in oxidecomputer/oana
 
 [config.net.sockets.echo]

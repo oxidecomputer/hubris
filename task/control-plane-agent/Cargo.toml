@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 cfg-if.workspace = true
+enum-map.workspace = true
 gateway-messages.workspace = true
 heapless.workspace = true
 idol-runtime.workspace = true

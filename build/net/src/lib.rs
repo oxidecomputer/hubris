@@ -6,6 +6,10 @@ use anyhow::Result;
 use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
 
+use convert_case::{Case, Casing};
+use proc_macro2::TokenStream;
+use quote::quote;
+
 ///////////////////////////////////////////////////////////////////////////////
 // Network config schema definition.
 //
@@ -28,7 +32,7 @@ pub struct NetConfig {
     /// during the `net` build, so it must be non-empty iff the `vlan` feature
     /// is turned on.
     #[serde(default)]
-    pub vlans: Vec<VLanConfig>,
+    pub vlans: BTreeMap<String, VLanConfig>,
 }
 
 /// TODO: this type really wants to be an enum, but the toml crate's enum
@@ -96,59 +100,121 @@ pub fn generate_port_consts(
 ) -> Result<(), std::io::Error> {
     let ports = config
         .vlans
-        .iter()
+        .values()
         .map(|v| v.port)
         .collect::<BTreeSet<_>>()
         .len();
     assert!(ports <= 2);
-    writeln!(out, "pub const PORT_COUNT: usize = {};", ports.max(1))
+    let port_count = ports.max(1);
+    let s = quote! {
+        pub const PORT_COUNT: usize = #port_count;
+    };
+    writeln!(out, "{s}")
+}
+
+fn check_vlan_config(config: &NetConfig) {
+    if config.vlans.values().any(|v| v.vid > 0xFFF) {
+        panic!("Invalid VLAN VID (must be < 4096)");
+    }
+    for (k1, v1) in &config.vlans {
+        for (k2, v2) in &config.vlans {
+            if k1 != k2 && v1.vid == v2.vid {
+                panic!("Duplicate VID {} (in {k1} and {k2})", v1.vid);
+            }
+        }
+    }
 }
 
 pub fn generate_vlan_consts(
     config: &NetConfig,
     mut out: impl std::io::Write,
 ) -> Result<(), std::io::Error> {
-    if config.vlans.iter().any(|v| v.vid > 0xFFF) {
-        panic!("Invalid VLAN VID (must be < 4096)");
-    }
-    writeln!(
-        out,
-        "
-    pub const VLAN_COUNT: usize = {0};
-    pub const VLANS: [VLanConfig; {0}] = [",
-        config.vlans.len()
-    )?;
-    for v in &config.vlans {
-        writeln!(
-            out,
-            "
-    VLanConfig {{
-        vid: {:#x},
-        always_trusted: {},
-        port: {}
-    }},",
-            v.vid,
-            v.trusted,
-            match v.port {
-                1 => "SpPort::One",
-                2 => "SpPort::Two",
-                _ => panic!("invalid SP port, must be 1 or 2"),
-            }
-        )?;
-    }
-    writeln!(out, "];")?;
-    write!(
-        out,
-        "
-    pub const VLAN_VIDS: [u16; {0}] = [",
-        config.vlans.len()
-    )?;
-    for v in &config.vlans {
-        write!(out, "{:#x},", v.vid)?;
-    }
-    writeln!(out, "];")?;
+    check_vlan_config(config);
 
-    Ok(())
+    let vlan_count = config.vlans.len();
+    let vids = config.vlans.values().map(|cfg| cfg.vid).collect::<Vec<_>>();
+    let s = quote! {
+        #[allow(unused)]
+        pub const VLAN_COUNT: usize = #vlan_count;
+
+        #[allow(unused)]
+        pub const VLAN_VIDS: [u16; #vlan_count] = [
+            #(
+                #vids
+            ),*
+        ];
+    };
+    writeln!(out, "{s}")
+}
+
+pub fn generate_vlan_enum(
+    config: &NetConfig,
+    mut out: impl std::io::Write,
+) -> Result<(), std::io::Error> {
+    check_vlan_config(config);
+
+    let s = if config.vlans.is_empty() {
+        quote! {
+            #[derive(
+                Copy, Clone, Eq, PartialEq,
+                enum_map::Enum,
+            )]
+            pub enum VLanId {
+                None,
+            }
+        }
+    } else {
+        let names = config
+            .vlans
+            .keys()
+            .map(|b| -> TokenStream {
+                b.to_case(Case::UpperCamel).parse().unwrap()
+            })
+            .collect::<Vec<_>>();
+        let cfgs = config
+            .vlans
+            .values()
+            .map(|cfg| {
+                let vid = cfg.vid;
+                let always_trusted = cfg.trusted;
+                let port = match cfg.port {
+                    1 => quote! { SpPort::One },
+                    2 => quote! { SpPort::Two },
+                    _ => panic!("invalid SP port, must be 1 or 2"),
+                };
+                quote! {
+                    VLanConfig {
+                        vid: #vid,
+                        always_trusted: #always_trusted,
+                        port: #port,
+                    }
+                }
+            })
+            .collect::<Vec<_>>();
+        quote! {
+            #[derive(
+                Copy, Clone, Eq, PartialEq,
+                enum_map::Enum,
+                serde::Serialize, serde::Deserialize,
+                hubpack::SerializedSize,
+            )]
+            pub enum VLanId {
+                #(#names),*
+            }
+
+            impl VLanId {
+                pub fn cfg(&self) -> VLanConfig {
+                    match self {
+                    #(
+                        VLanId::#names => #cfgs
+                    ),*
+                    }
+                }
+            }
+        }
+    };
+
+    writeln!(out, "{s}")
 }
 
 pub fn generate_socket_enum(

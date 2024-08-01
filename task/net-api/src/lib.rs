@@ -209,7 +209,7 @@ pub enum LargePayloadBehavior {
 }
 
 #[derive(
-    Copy, Clone, Debug, Serialize, SerializedSize, Deserialize, PartialEq, Eq,
+    Copy, Clone, Serialize, SerializedSize, Deserialize, PartialEq, Eq,
 )]
 pub struct UdpMetadata {
     pub addr: Address,
@@ -217,7 +217,7 @@ pub struct UdpMetadata {
     pub size: u32,
 
     #[cfg(feature = "vlan")]
-    pub vid: u16,
+    pub vid: VLanId,
 }
 
 #[cfg(feature = "use-smoltcp")]

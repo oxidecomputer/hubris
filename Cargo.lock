@@ -278,6 +278,9 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "build-util",
+ "convert_case",
+ "proc-macro2",
+ "quote",
  "serde",
 ]
 
@@ -2316,22 +2319,22 @@ dependencies = [
 
 [[package]]
 name = "enum-map"
-version = "2.4.1"
+version = "2.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5a56d54c8dd9b3ad34752ed197a4eb2a6601bc010808eb097a04a58ae4c43e1"
+checksum = "6866f3bfdf8207509a033af1a75a7b08abda06bbaaeae6669323fd5a097df2e9"
 dependencies = [
  "enum-map-derive",
 ]
 
 [[package]]
 name = "enum-map-derive"
-version = "0.10.0"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9045e2676cd5af83c3b167d917b0a5c90a4d8e266e2683d6631b235c457fc27"
+checksum = "f282cfdfe92516eb26c2af8589c274c7c17681f5ecc03c18255fe741c6aa64eb"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 1.0.94",
+ "syn 2.0.52",
 ]
 
 [[package]]
@@ -2415,7 +2418,7 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#a7294c126c5c7ac92489bf1395ec480118063c46"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=mkeeter/custom-sender-vid#23870ed63d4d21a84efa0397b3e90cb0c0c77ffb"
 dependencies = [
  "bitflags 2.6.0",
  "hubpack",
@@ -4371,6 +4374,7 @@ dependencies = [
  "drv-transceivers-api",
  "drv-update-api",
  "drv-user-leds-api",
+ "enum-map",
  "gateway-messages",
  "heapless",
  "host-sp-messages",
@@ -4711,6 +4715,7 @@ dependencies = [
  "counters",
  "derive-idol-err",
  "drv-spi-api",
+ "enum-map",
  "hubpack",
  "idol",
  "idol-runtime",
@@ -5015,6 +5020,7 @@ dependencies = [
 name = "task-udpbroadcast"
 version = "0.1.0"
 dependencies = [
+ "enum-map",
  "hubpack",
  "idol",
  "num-traits",

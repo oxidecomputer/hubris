@@ -22,7 +22,7 @@ use task_control_plane_agent_api::{
 };
 use task_net_api::{
     Address, LargePayloadBehavior, Net, RecvError, SendError, SocketName,
-    UdpMetadata,
+    UdpMetadata, VLanId,
 };
 use userlib::{sys_set_timer, task_slot};
 
@@ -200,7 +200,7 @@ enum CriticalEvent {
     /// logs the sender, in case the request was unexpected, and the target
     /// state.
     SetPowerState {
-        sender: Sender,
+        sender: Sender<VLanId>,
         power_state: PowerState,
         ticks_since_boot: u64,
     },
@@ -589,8 +589,7 @@ impl NetHandler {
 }
 
 fn sp_port_from_udp_metadata(meta: &UdpMetadata) -> SpPort {
-    use task_net_api::VLANS;
-    match VLANS.iter().find(|v| v.vid == meta.vid).unwrap().port {
+    match meta.vid.cfg().port {
         task_net_api::SpPort::One => SpPort::One,
         task_net_api::SpPort::Two => SpPort::Two,
     }

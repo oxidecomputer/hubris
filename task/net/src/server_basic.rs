@@ -26,7 +26,7 @@ fn claim_server_storage_statics() -> &'static mut [Storage; 1] {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-pub type ServerImpl<'a, B> = GenServerImpl<'a, B, Smol<'a>, 1>;
+pub type ServerImpl<'a, B> = GenServerImpl<'a, B, Smol<'a>>;
 
 pub fn new<B>(
     eth: &eth::Ethernet,

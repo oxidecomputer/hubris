@@ -5,6 +5,7 @@
 #![no_std]
 #![no_main]
 
+use enum_map::Enum;
 use hubpack::SerializedSize;
 use serde::Serialize;
 use task_net_api::*;
@@ -64,7 +65,10 @@ fn main() -> ! {
     // If this system is running in VLAN mode, then we broadcast to each
     // possible VLAN in turn.  Otherwise, broadcast normal packets.
     #[cfg(feature = "vlan")]
-    let mut vid_iter = VLAN_VIDS.iter().cloned().cycle();
+    let mut vid_iter = (0..VLAN_COUNT)
+        .into_iter()
+        .map(|i| VLanId::from_usize(i))
+        .cycle();
 
     // Ask `net` for our mac address first; this also serves as a useful wait
     // for `packrat` to be loaded by the sequencer if we're on a board with VPD.

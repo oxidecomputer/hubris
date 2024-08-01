@@ -56,7 +56,7 @@ digest = { version = "0.10", default-features = false }
 dunce = { version = "1.0.2", default-features = false }
 embedded-hal = { version = "0.2", default-features = false }
 enum-kinds = { version = "0.5.1", default-features = false, features = ["no-stdlib"] }
-enum-map = { version = "2.4.1", default-features = false }
+enum-map = { version = "2.7.3", default-features = false }
 filetime = { version = "0.2.12", default-features = false }
 fletcher = { version = "0.3", default-features = false }
 fnv = { version = "1.0.7", default-features = false }
@@ -117,7 +117,7 @@ zip = { version = "0.6", default-features = false, features = ["bzip2"] }
 # Oxide forks and repos
 attest-data = { git = "https://github.com/oxidecomputer/dice-util", default-features = false, version = "0.1.0" }
 dice-mfg-msgs = { git = "https://github.com/oxidecomputer/dice-util", default-features = false, version = "0.2.1" }
-gateway-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false, features = ["smoltcp"] }
+gateway-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false, features = ["smoltcp"], branch = "mkeeter/custom-sender-vid" }
 gimlet-inspector-protocol = { git = "https://github.com/oxidecomputer/gimlet-inspector-protocol", version = "0.1.0" }
 hif = { git = "https://github.com/oxidecomputer/hif", default-features = false }
 humpty = { git = "https://github.com/oxidecomputer/humpty", default-features = false, version = "0.1.3" }
