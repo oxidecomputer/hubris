@@ -650,7 +650,7 @@ where
             // accept even untrusted packets (e.g. control_plane_agent needs to
             // receive an unlock message).
             let trust = vlan.check_trust(now)
-                | generated::SOCKET_ACCEPT_UNTRUSTED[socket_index];
+                | generated::SOCKET_ALLOW_UNTRUSTED[socket_index];
             let vid = vlan.vid; // for logging
 
             let socket = vlan
@@ -729,7 +729,7 @@ where
         // dropping them.
         let now = userlib::sys_get_timer().now;
         let trust = vlan.check_trust(now)
-            | generated::SOCKET_ACCEPT_UNTRUSTED[socket_index];
+            | generated::SOCKET_ALLOW_UNTRUSTED[socket_index];
         if !trust {
             return Ok(());
         }

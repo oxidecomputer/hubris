@@ -1119,7 +1119,7 @@ owner = {name = "control_plane_agent", notification = "socket"}
 port = 11111
 tx = { packets = 3, bytes = 2048 }
 rx = { packets = 3, bytes = 2048 }
-accept-untrusted = true
+allow-untrusted = true
 
 [config.net.sockets.dump_agent]
 kind = "udp"

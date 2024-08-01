@@ -44,7 +44,7 @@ pub struct SocketConfig {
     pub rx: BufSize,
 
     #[serde(default)]
-    pub accept_untrusted: bool,
+    pub allow_untrusted: bool,
 }
 
 #[derive(Copy, Clone, Debug, Deserialize)]
@@ -197,11 +197,11 @@ pub fn generate_socket_enum(
     writeln!(
         out,
         "#[allow(unused)]\
-        pub const SOCKET_ACCEPT_UNTRUSTED: [bool; {}] = [",
+        pub const SOCKET_ALLOW_UNTRUSTED: [bool; {}] = [",
         config.sockets.len(),
     )?;
     for c in config.sockets.values() {
-        writeln!(out, "{},", c.accept_untrusted)?;
+        writeln!(out, "{},", c.allow_untrusted)?;
     }
     writeln!(out, "];")?;
 
