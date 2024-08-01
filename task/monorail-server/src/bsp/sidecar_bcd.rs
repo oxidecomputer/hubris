@@ -5,6 +5,7 @@
 use drv_monorail_api::MonorailError;
 use drv_sidecar_front_io::phy_smi::PhySmi;
 use drv_sidecar_seq_api::Sequencer;
+use idol_runtime::RequestError;
 use ringbuf::*;
 use userlib::{hl::sleep_for, task_slot, UnwrapLite};
 use vsc7448::{
@@ -232,16 +233,17 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
 
         self.vsc7448.configure_ports_from_map(&PORT_MAP)?;
 
-        // Start with the VLANs locked, then unlock depending on mode
-        self.vsc7448.configure_vlan_sidecar_locked()?;
         match self.vlan_mode {
-            VLanMode::Locked => (), // already locked
+            VLanMode::Locked => {
+                self.vsc7448.configure_vlan_sidecar_locked()?;
+            }
             VLanMode::UnlockedUntil(t) => {
                 let now = userlib::sys_get_timer().now;
                 if now < t {
-                    self.vsc7448.sidecar_vlan_unlock()?
+                    self.vsc7448.configure_vlan_sidecar_unlocked()?;
                 } else {
                     ringbuf_entry!(Trace::AutomaticLock);
+                    self.vsc7448.configure_vlan_sidecar_locked()?;
                     self.vlan_mode = VLanMode::Locked;
                 }
             }
@@ -591,7 +593,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
     pub(crate) fn unlock_vlans_until(
         &mut self,
         unlock_until: u64,
-    ) -> Result<(), MonorailError> {
+    ) -> Result<(), RequestError<MonorailError>> {
         ringbuf_entry!(Trace::UnlockUntil(unlock_until));
         self.vsc7448.sidecar_vlan_unlock().map_err(|e| {
             ringbuf_entry!(Trace::UnlockError(e));
@@ -601,7 +603,9 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         Ok(())
     }
 
-    pub(crate) fn lock_vlans(&mut self) -> Result<(), MonorailError> {
+    pub(crate) fn lock_vlans(
+        &mut self,
+    ) -> Result<(), RequestError<MonorailError>> {
         ringbuf_entry!(Trace::LockingVLans);
         self.vsc7448.sidecar_vlan_lock().map_err(|e| {
             ringbuf_entry!(Trace::LockError(e));

@@ -824,9 +824,24 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         Ok(())
     }
 
-    /// Implements the VLAN scheme described in RFD 492
+    /// Implements the VLAN scheme described in RFD 492, locked
+    ///
+    /// To switch between locked and unlocked later, use
+    /// `sidecar_vlan_lock/unlock` (instead of calling this function again)
     pub fn configure_vlan_sidecar_locked(&self) -> Result<(), VscError> {
         self.sidecar_vlan_lock()?;
+        self.configure_port_tagged(|p| {
+            p == sidecar::UPLINK || p == sidecar::LOCAL_SP
+        })?;
+        Ok(())
+    }
+
+    /// Implements the VLAN scheme described in RFD 492, unlocked
+    ///
+    /// To switch between locked and unlocked later, use
+    /// `sidecar_vlan_lock/unlock` (instead of calling this function again)
+    pub fn configure_vlan_sidecar_unlocked(&self) -> Result<(), VscError> {
+        self.sidecar_vlan_unlock()?;
         self.configure_port_tagged(|p| {
             p == sidecar::UPLINK || p == sidecar::LOCAL_SP
         })?;

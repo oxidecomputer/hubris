@@ -3,7 +3,9 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use drv_medusa_seq_api::Sequencer;
+use drv_monorail_api::MonorailError;
 use drv_sidecar_front_io::phy_smi::PhySmi;
+use idol_runtime::{ClientError, RequestError};
 use ringbuf::*;
 use userlib::{task_slot, UnwrapLite};
 use vsc7448::{
@@ -503,15 +505,19 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         Some(callback(phy))
     }
 
-    fn unlock_vlans_until(
+    pub(crate) fn unlock_vlans_until(
         &mut self,
-        unlock_until: u64,
-    ) -> Result<MonorailError> {
-        Err(MonorailError::NotImplemented)
+        _unlock_until: u64,
+    ) -> Result<(), RequestError<MonorailError>> {
+        // Not implemented on Medusa
+        Err(RequestError::Fail(ClientError::BadMessageContents))
     }
 
-    fn lock_vlans(&mut self) -> Result<(), MonorailError> {
-        Err(MonorailError::NotImplemented)
+    pub(crate) fn lock_vlans(
+        &mut self,
+    ) -> Result<(), RequestError<MonorailError>> {
+        // Not implemented on Medusa
+        Err(RequestError::Fail(ClientError::BadMessageContents))
     }
 }
 
