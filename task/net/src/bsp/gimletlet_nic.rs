@@ -13,7 +13,8 @@ use drv_spi_api::SpiServer;
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{Alternate, Port, Sys};
 use ksz8463::{
-    Error as RawKszError, MIBCounter, MIBCounterValue, Register as KszRegister,
+    Error as RawKszError, KszPhyPort, KszPort, MIBCounter, MIBCounterValue,
+    Register as KszRegister,
 };
 use ringbuf::*;
 use task_net_api::PhyError;
@@ -37,17 +38,17 @@ enum Trace {
     // of counters. Instead, we just count the number of error event variants.
     #[count(skip)]
     Ksz8463Status {
-        port: u8,
+        port: KszPort,
         status: u16,
     },
     #[count(skip)]
     Ksz8463Control {
-        port: u8,
+        port: KszPort,
         control: u16,
     },
     #[count(skip)]
     Ksz8463Counter {
-        port: u8,
+        port: KszPort,
         counter: MIBCounterValue,
     },
 }
@@ -108,24 +109,33 @@ impl bsp_support::Bsp for BspImpl {
     }
 
     fn wake(&self, _eth: &eth::Ethernet) {
-        for port in [1, 2] {
+        for port in [KszPhyPort::One, KszPhyPort::Two] {
             ringbuf_entry!(
                 match self.ksz8463.read(KszRegister::PxMBSR(port)) {
-                    Ok(status) => Trace::Ksz8463Status { port, status },
+                    Ok(status) => Trace::Ksz8463Status {
+                        port: port.into(),
+                        status
+                    },
                     Err(err) => Trace::KszErr { err },
                 }
             );
             ringbuf_entry!(
                 match self.ksz8463.read(KszRegister::PxMBCR(port)) {
-                    Ok(control) => Trace::Ksz8463Control { port, control },
+                    Ok(control) => Trace::Ksz8463Control {
+                        port: port.into(),
+                        control
+                    },
                     Err(err) => Trace::KszErr { err },
                 }
             );
             ringbuf_entry!(match self
                 .ksz8463
-                .read_mib_counter(port, MIBCounter::RxLoPriorityByte)
+                .read_mib_counter(port.into(), MIBCounter::RxLoPriorityByte)
             {
-                Ok(counter) => Trace::Ksz8463Counter { port, counter },
+                Ok(counter) => Trace::Ksz8463Counter {
+                    port: port.into(),
+                    counter
+                },
                 Err(err) => Trace::KszErr { err },
             });
         }
