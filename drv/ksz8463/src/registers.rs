@@ -1094,6 +1094,11 @@ impl Register {
         Self::select3(i, Self::P1CR2, Self::P2CR2, Self::P3CR2)
     }
 
+    #[inline(always)]
+    pub fn PxVIDCR(i: KszPort) -> Self {
+        Self::select3(i, Self::P1VIDCR, Self::P2VIDCR, Self::P3VIDCR)
+    }
+
     // Helper function to dispatch between two registers
     #[inline(always)]
     fn select2(i: KszPhyPort, r1: Register, r2: Register) -> Register {
