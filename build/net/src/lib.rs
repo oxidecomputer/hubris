@@ -117,8 +117,8 @@ pub fn generate_port_consts(
 }
 
 fn check_vlan_config(config: &NetConfig) {
-    if config.vlans.values().any(|v| v.vid > 0xFFF) {
-        panic!("Invalid VLAN VID (must be < 4096)");
+    if let Some(v) = config.vlans.values().find(|v| v.vid > 0xFFF) {
+        panic!("Invalid VLAN VID {} (must be < 4096)", v.vid);
     }
     for (k1, v1) in &config.vlans {
         for (k2, v2) in &config.vlans {
@@ -138,9 +138,6 @@ pub fn generate_vlan_consts(
     let vlan_count = config.vlans.len();
     let vids = config.vlans.values().map(|cfg| cfg.vid).collect::<Vec<_>>();
     let s = quote! {
-        #[allow(unused)]
-        pub const VLAN_COUNT: usize = #vlan_count;
-
         #[allow(unused)]
         pub const VLAN_VIDS: [u16; #vlan_count] = [
             #(

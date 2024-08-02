@@ -9,8 +9,9 @@
 
 use drv_stm32h7_eth as eth;
 
+use enum_map::Enum;
 use mutable_statics::mutable_statics;
-use task_net_api::{UdpMetadata, VLanId, VLAN_COUNT, VLAN_VIDS};
+use task_net_api::{UdpMetadata, VLanId, VLAN_VIDS};
 
 use crate::bsp_support;
 use crate::generated::{self};
@@ -20,9 +21,9 @@ use crate::{
 };
 
 /// Grabs references to the server storage arrays.  Can only be called once!
-fn claim_server_storage_statics() -> &'static mut [Storage; VLAN_COUNT] {
+fn claim_server_storage_statics() -> &'static mut [Storage; VLanId::LENGTH] {
     mutable_statics! {
-        static mut STORAGE: [Storage; VLAN_COUNT] = [Default::default; _];
+        static mut STORAGE: [Storage; VLanId::LENGTH] = [Default::default; _];
     }
 }
 

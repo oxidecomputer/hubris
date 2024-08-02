@@ -98,8 +98,8 @@ task_slot!(PACKRAT, packrat);
 ///
 /// This uses a hash of the chip ID and returns a block with starting MAC
 /// address of the form `0e:1d:XX:XX:XX:XX`.  The MAC address block has a stride
-/// of 1 and contains `VLAN_COUNT` MAC addresses (or 1, if we're running without
-/// VLANs enabled).
+/// of 1 and contains `VLanId::LENGTH` MAC addresses (or 1, if we're running
+/// without VLANs enabled).
 fn mac_address_from_uid(sys: &Sys) -> MacAddressBlock {
     let mut buf = [0u8; 6];
     let uid = sys.read_uid();

@@ -72,6 +72,7 @@ pub enum Mode {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// NOTE: these VLAN VIDs should match the configuration in the TOML file
 
 /// VLAN for packets arriving on tech port 1
 const TP1_VID: u16 = 0x12C;

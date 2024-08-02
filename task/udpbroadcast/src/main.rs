@@ -90,7 +90,7 @@ fn main() -> ! {
     };
 
     #[cfg(feature = "vlan")]
-    let sleep_time = (1000 / VLAN_COUNT) as u64;
+    let sleep_time = (1000 / VLanId::LENGTH) as u64;
 
     #[cfg(not(feature = "vlan"))]
     let sleep_time = 1000;

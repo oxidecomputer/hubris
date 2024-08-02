@@ -1075,33 +1075,33 @@ pub enum Register {
 impl Register {
     #[inline(always)]
     pub fn PxPHYCTRL(i: KszPhyPort) -> Self {
-        Self::select2(i, Self::P1PHYCTRL, Self::P2PHYCTRL)
+        Self::select_phy_port(i, Self::P1PHYCTRL, Self::P2PHYCTRL)
     }
     #[inline(always)]
     pub fn PxMBSR(i: KszPhyPort) -> Self {
-        Self::select2(i, Self::P1MBSR, Self::P2MBSR)
+        Self::select_phy_port(i, Self::P1MBSR, Self::P2MBSR)
     }
     #[inline(always)]
     pub fn PxMBCR(i: KszPhyPort) -> Self {
-        Self::select2(i, Self::P1MBCR, Self::P2MBCR)
+        Self::select_phy_port(i, Self::P1MBCR, Self::P2MBCR)
     }
     #[inline(always)]
     pub fn PxCR1(i: KszPort) -> Self {
-        Self::select3(i, Self::P1CR1, Self::P2CR1, Self::P3CR1)
+        Self::select_port(i, Self::P1CR1, Self::P2CR1, Self::P3CR1)
     }
     #[inline(always)]
     pub fn PxCR2(i: KszPort) -> Self {
-        Self::select3(i, Self::P1CR2, Self::P2CR2, Self::P3CR2)
+        Self::select_port(i, Self::P1CR2, Self::P2CR2, Self::P3CR2)
     }
 
     #[inline(always)]
     pub fn PxVIDCR(i: KszPort) -> Self {
-        Self::select3(i, Self::P1VIDCR, Self::P2VIDCR, Self::P3VIDCR)
+        Self::select_port(i, Self::P1VIDCR, Self::P2VIDCR, Self::P3VIDCR)
     }
 
     // Helper function to dispatch between two registers
     #[inline(always)]
-    fn select2(i: KszPhyPort, r1: Register, r2: Register) -> Register {
+    fn select_phy_port(i: KszPhyPort, r1: Register, r2: Register) -> Register {
         match i {
             KszPhyPort::One => r1,
             KszPhyPort::Two => r2,
@@ -1110,7 +1110,7 @@ impl Register {
 
     // Helper function to dispatch between three registers
     #[inline(always)]
-    fn select3(
+    fn select_port(
         i: KszPort,
         r1: Register,
         r2: Register,
