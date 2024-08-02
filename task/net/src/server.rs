@@ -10,7 +10,7 @@ use crate::{idl, link_local_iface_addr, MacAddressBlock};
 use drv_stm32h7_eth as eth;
 use enum_map::Enum;
 use idol_runtime::{ClientError, RequestError};
-use ringbuf::{ringbuf, ringbuf_entry};
+use ringbuf::{counted_ringbuf, ringbuf_entry};
 use task_net_api::{
     KszError, KszMacTableEntry, LargePayloadBehavior, MacAddress,
     ManagementCounters, ManagementLinkStatus, MgmtError, PhyError, RecvError,
@@ -22,18 +22,29 @@ use task_net_api::{
 enum Trace {
     #[count(skip)]
     None,
-    SetTrust {
+    SetTrustUntil {
+        #[count(children)]
         vid: VLanId,
-        t: VLanTrust,
+        until: u64,
+    },
+    SetDistrust {
+        #[count(children)]
+        vid: VLanId,
     },
     TrustExpired {
+        #[count(children)]
         vid: VLanId,
     },
-    SkipUntrustedPacket {
+    SkipSendUntrustedPacket {
+        #[count(children)]
+        vid: VLanId,
+    },
+    SkipReceiveUntrustedPacket {
+        #[count(children)]
         vid: VLanId,
     },
 }
-ringbuf!(Trace, 16, Trace::None);
+counted_ringbuf!(Trace, 16, Trace::None);
 
 use core::iter::zip;
 use heapless::Vec;
@@ -264,6 +275,10 @@ where
         vid: VLanId,
         trust_until: u64,
     ) -> Result<(), RequestError<TrustError>> {
+        ringbuf_entry!(Trace::SetTrustUntil {
+            vid,
+            until: trust_until
+        });
         self.set_vlan_trust(vid, VLanTrust::TrustUntil(trust_until))
             .map_err(RequestError::from)
     }
@@ -274,6 +289,7 @@ where
         _msg: &userlib::RecvMessage,
         vid: VLanId,
     ) -> Result<(), RequestError<TrustError>> {
+        ringbuf_entry!(Trace::SetDistrust { vid });
         self.set_vlan_trust(vid, VLanTrust::Distrust)
             .map_err(RequestError::from)
     }
@@ -674,7 +690,9 @@ where
                         // Drop packets from untrusted VLANs after receiving
                         // them (to avoid clogging the queue)
                         if !trust {
-                            ringbuf_entry!(Trace::SkipUntrustedPacket { vid });
+                            ringbuf_entry!(Trace::SkipReceiveUntrustedPacket {
+                                vid
+                            });
                             continue;
                         }
 
@@ -737,6 +755,9 @@ where
         let trust = vlan.check_trust(now)
             | generated::SOCKET_ALLOW_UNTRUSTED[socket_index];
         if !trust {
+            ringbuf_entry!(Trace::SkipSendUntrustedPacket {
+                vid: metadata.vid
+            });
             return Ok(());
         }
 
@@ -796,7 +817,6 @@ where
         if vid.cfg().always_trusted {
             return Err(TrustError::AlwaysTrusted);
         }
-        ringbuf_entry!(Trace::SetTrust { vid, t });
         self.vlan_state[vid].trust = t;
         Ok(())
     }

@@ -161,6 +161,7 @@ pub fn generate_vlan_enum(
                 enum_map::Enum,
                 serde::Serialize, serde::Deserialize,
                 hubpack::SerializedSize,
+                counters::Count,
             )]
             pub enum VLanId {
                 None,
@@ -200,6 +201,7 @@ pub fn generate_vlan_enum(
                 enum_map::Enum,
                 serde::Serialize, serde::Deserialize,
                 hubpack::SerializedSize,
+                counters::Count,
             )]
             pub enum VLanId {
                 #(#names),*
