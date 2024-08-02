@@ -743,23 +743,27 @@ where
             return Err(ClientError::AccessViolation.fail());
         }
 
+        let now = userlib::sys_get_timer().now;
+
         #[cfg(feature = "vlan")]
-        let vlan = &mut self.vlan_state[metadata.vid];
+        let vlan = {
+            let vlan = &mut self.vlan_state[metadata.vid];
+            // Refuse to send messages directed to an untrusted VLAN, silently
+            // dropping them.
+            let trust = vlan.check_trust(now)
+                | generated::SOCKET_ALLOW_UNTRUSTED[socket_index];
+            if !trust {
+                #[cfg(feature = "vlan")]
+                ringbuf_entry!(Trace::SkipSendUntrustedPacket {
+                    vid: metadata.vid
+                });
+                return Ok(());
+            }
+            vlan
+        };
 
         #[cfg(not(feature = "vlan"))]
         let vlan = &mut self.vlan_state[VLanId::None];
-
-        // Refuse to send messages directed to an untrusted VLAN, silently
-        // dropping them.
-        let now = userlib::sys_get_timer().now;
-        let trust = vlan.check_trust(now)
-            | generated::SOCKET_ALLOW_UNTRUSTED[socket_index];
-        if !trust {
-            ringbuf_entry!(Trace::SkipSendUntrustedPacket {
-                vid: metadata.vid
-            });
-            return Ok(());
-        }
 
         let socket = vlan
             .get_socket_mut(socket_index)

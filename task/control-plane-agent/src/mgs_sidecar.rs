@@ -51,29 +51,36 @@ enum Trace {
     TrustVLanFailed(task_net_api::TrustError),
     DistrustVLanFailed(task_net_api::TrustError),
     UnlockRequested {
+        #[count(children)]
         vid: VLanId,
     },
     UnlockAuthFailed,
     UnlockAuthSucceeded,
     UnlockedUntil {
+        #[count(children)]
         vid: VLanId,
         until: u64,
     },
     MonorailUnlockFailed(drv_monorail_api::MonorailError),
     TimedLockFailed(gateway_messages::MonorailError),
     TimedRelock {
+        #[count(children)]
         vid: VLanId,
     },
     ExplicitRelock {
+        #[count(children)]
         vid: VLanId,
     },
     Locking {
+        #[count(children)]
         vid: VLanId,
     },
     MessageTrusted {
+        #[count(children)]
         vid: VLanId,
     },
     MessageNotTrusted {
+        #[count(children)]
         vid: VLanId,
     },
     NoChallenge,
