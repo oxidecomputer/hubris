@@ -1126,6 +1126,7 @@ owner = {name = "udpbroadcast", notification = "socket"}
 port = 997
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
+allow-untrusted = true # for low-level discovery
 
 [config.net.sockets.control_plane_agent]
 kind = "udp"
@@ -1133,7 +1134,7 @@ owner = {name = "control_plane_agent", notification = "socket"}
 port = 11111
 tx = { packets = 3, bytes = 2048 }
 rx = { packets = 3, bytes = 2048 }
-allow-untrusted = true
+allow-untrusted = true # for MGS-mediated discovery and unlock
 
 [config.net.sockets.dump_agent]
 kind = "udp"
