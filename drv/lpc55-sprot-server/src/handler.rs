@@ -72,6 +72,15 @@ pub enum TrailingData<'a> {
         start: u32,
         size: u32,
     },
+    AttestTqCert {
+        index: u32,
+        offset: u32,
+        size: u32,
+    },
+    AttestTqSign {
+        hash: &'a [u8],
+        write_size: u32,
+    },
 }
 
 pub struct Handler {
@@ -227,6 +236,34 @@ impl<'a> Handler {
                     }
                 }
             }
+            Some(TrailingData::AttestTqCert {
+                index,
+                offset,
+                size,
+            }) => {
+                let size: usize = usize::try_from(size).unwrap_lite();
+                if size > drv_sprot_api::MAX_BLOB_SIZE {
+                    Response::pack(
+                        &Err(SprotError::Protocol(
+                            SprotProtocolError::BadMessageLength,
+                        )),
+                        tx_buf,
+                    )
+                } else {
+                    let pack_result =
+                        Response::pack_with_cb(&rsp_body, tx_buf, |buf| {
+                            self.attest
+                                .tq_cert(index, offset, &mut buf[..size])
+                                .map_err(|e| RspBody::Attest(Err(e)))?;
+                            Ok(size)
+                        });
+                    match pack_result {
+                        Ok(size) => size,
+                        Err(e) => Response::pack(&Ok(e), tx_buf),
+                    }
+                }
+            }
+
             Some(TrailingData::RotPage { page }) => {
                 let size: usize = lpc55_rom_data::FLASH_PAGE_SIZE;
                 static_assertions::const_assert!(
@@ -290,6 +327,31 @@ impl<'a> Handler {
                     }
                 }
             }
+            Some(TrailingData::AttestTqSign { hash, write_size }) => {
+                let write_size: usize =
+                    usize::try_from(write_size).unwrap_lite();
+                if write_size > drv_sprot_api::MAX_BLOB_SIZE {
+                    Response::pack(
+                        &Err(SprotError::Protocol(
+                            SprotProtocolError::BadMessageLength,
+                        )),
+                        tx_buf,
+                    )
+                } else {
+                    let pack_result =
+                        Response::pack_with_cb(&rsp_body, tx_buf, |buf| {
+                            self.attest
+                                .tq_sign(hash, &mut buf[..write_size])
+                                .map_err(|e| RspBody::Attest(Err(e)))?;
+                            Ok(write_size)
+                        });
+                    match pack_result {
+                        Ok(size) => size,
+                        Err(e) => Response::pack(&Ok(e), tx_buf),
+                    }
+                }
+            }
+
             _ => Response::pack(&rsp_body, tx_buf),
         }
     }
@@ -511,6 +573,50 @@ impl<'a> Handler {
                 };
                 Ok((RspBody::Attest(rsp), None))
             }
+            ReqBody::Attest(AttestReq::TqCert {
+                index,
+                offset,
+                size,
+            }) => {
+                // This command returns a variable amount of data that belongs
+                // in the trailing data region of the response. We return a
+                // marker struct with the data necessary to retrieve this data so
+                // the work can be done elsewhere.
+                Ok((
+                    RspBody::Attest(Ok(AttestRsp::TqCert)),
+                    Some(TrailingData::AttestTqCert {
+                        index,
+                        offset,
+                        size,
+                    }),
+                ))
+            }
+            ReqBody::Attest(AttestReq::TqSign { write_size }) => Ok((
+                RspBody::Attest(Ok(AttestRsp::TqSign)),
+                Some(TrailingData::AttestTqSign {
+                    hash: req.blob,
+                    write_size,
+                }),
+            )),
+            ReqBody::Attest(AttestReq::TqSignLen) => {
+                let rsp = self.attest.tq_sign_len().map(AttestRsp::TqSignLen);
+                Ok((RspBody::Attest(rsp), None))
+            }
+            ReqBody::Attest(AttestReq::TqCertChainLen) => {
+                let rsp = self
+                    .attest
+                    .tq_cert_chain_len()
+                    .map(AttestRsp::TqCertChainLen);
+                Ok((RspBody::Attest(rsp), None))
+            }
+            ReqBody::Attest(AttestReq::TqCertLen(i)) => {
+                let rsp = match self.attest.tq_cert_len(i) {
+                    Ok(v) => Ok(AttestRsp::TqCertLen(v)),
+                    Err(e) => Err(e),
+                };
+                Ok((RspBody::Attest(rsp), None))
+            }
+
             ReqBody::Swd(SwdReq::EnableSpSlotWatchdog { time_ms }) => {
                 // Enabling the watchdog doesn't actually do any SWD work, but
                 // we'll call `setup()` now to make sure that the SWD system is
