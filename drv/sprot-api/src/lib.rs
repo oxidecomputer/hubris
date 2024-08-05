@@ -445,6 +445,12 @@ pub enum AttestReq {
     LogLen,
     Attest { nonce_size: u32, write_size: u32 },
     AttestLen,
+    // Added in protocol version 6
+    TqCertChainLen,
+    TqCertLen(u32),
+    TqCert { index: u32, offset: u32, size: u32 },
+    TqSign { write_size: u32 },
+    TqSignLen,
 }
 
 /// A response used for RoT updates
@@ -477,6 +483,12 @@ pub enum AttestRsp {
     LogLen(u32),
     Attest,
     AttestLen(u32),
+    // Added in version 6
+    TqCertChainLen(u32),
+    TqCertLen(u32),
+    TqCert,
+    TqSign,
+    TqSignLen(u32),
 }
 
 /// The body of a sprot response.
