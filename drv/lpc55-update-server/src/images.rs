@@ -19,6 +19,7 @@ use crate::{
 };
 use abi::{ImageHeader, CABOOSE_MAGIC, HEADER_MAGIC};
 use core::ops::Range;
+use core::ptr::addr_of;
 use drv_lpc55_update_api::{RawCabooseError, RotComponent, SlotId};
 use drv_update_api::UpdateError;
 use zerocopy::{AsBytes, FromBytes};
@@ -26,9 +27,7 @@ use zerocopy::{AsBytes, FromBytes};
 // Our layout of flash banks on the LPC55.
 // Addresses are from the linker.
 // The bootloader (`bootleby`) resides at __STAGE0_BASE and
-// only cares about IMAGE_A and IMAGE_B.
-// We shouldn't actually dereference these. The types are not correct.
-// They are just here to allow a mechanism for getting the addresses.
+// only references IMAGE_A and IMAGE_B.
 extern "C" {
     static __IMAGE_A_BASE: [u32; 0];
     static __IMAGE_B_BASE: [u32; 0];
@@ -50,39 +49,45 @@ pub const HEADER_BLOCK: usize = 0;
 pub const IMAGE_HEADER_OFFSET: u32 = 0x130;
 
 /// Address ranges that may contain an image during storage and active use.
-/// `store` and `exec` ranges are the same except for `stage0next`.
+/// `stored` and `at_runtime` ranges are the same except for `stage0next`.
+// TODO: Make these RangeInclusive in case we ever need to model
+// some slot at the end of the  address space.
 pub struct FlashRange {
-    pub store: Range<u32>,
-    pub exec: Range<u32>,
+    pub stored: Range<u32>,
+    pub at_runtime: Range<u32>,
 }
 
 /// Get the flash storage address range and flash execution address range.
 pub fn flash_range(component: RotComponent, slot: SlotId) -> FlashRange {
-    // Safety: Linker defined symbols are trusted.
+    // Safety: this block requires unsafe code to generate references to the
+    // extern "C" statics. Because we're only getting their addresses (all
+    // operations below are just as_ptr), we can't really trigger any UB here.
+    // The addresses themselves are assumed to be valid because they're
+    // produced by the linker, which we implicitly trust.
     unsafe {
         match (component, slot) {
             (RotComponent::Hubris, SlotId::A) => FlashRange {
-                store: __IMAGE_A_BASE.as_ptr() as u32
+                stored: __IMAGE_A_BASE.as_ptr() as u32
                     ..__IMAGE_A_END.as_ptr() as u32,
-                exec: __IMAGE_A_BASE.as_ptr() as u32
+                at_runtime: __IMAGE_A_BASE.as_ptr() as u32
                     ..__IMAGE_A_END.as_ptr() as u32,
             },
             (RotComponent::Hubris, SlotId::B) => FlashRange {
-                store: __IMAGE_B_BASE.as_ptr() as u32
+                stored: __IMAGE_B_BASE.as_ptr() as u32
                     ..__IMAGE_B_END.as_ptr() as u32,
-                exec: __IMAGE_B_BASE.as_ptr() as u32
+                at_runtime: __IMAGE_B_BASE.as_ptr() as u32
                     ..__IMAGE_B_END.as_ptr() as u32,
             },
             (RotComponent::Stage0, SlotId::A) => FlashRange {
-                store: __IMAGE_STAGE0_BASE.as_ptr() as u32
+                stored: __IMAGE_STAGE0_BASE.as_ptr() as u32
                     ..__IMAGE_STAGE0_END.as_ptr() as u32,
-                exec: __IMAGE_STAGE0_BASE.as_ptr() as u32
+                at_runtime: __IMAGE_STAGE0_BASE.as_ptr() as u32
                     ..__IMAGE_STAGE0_END.as_ptr() as u32,
             },
             (RotComponent::Stage0, SlotId::B) => FlashRange {
-                store: __IMAGE_STAGE0NEXT_BASE.as_ptr() as u32
+                stored: __IMAGE_STAGE0NEXT_BASE.as_ptr() as u32
                     ..__IMAGE_STAGE0NEXT_END.as_ptr() as u32,
-                exec: __IMAGE_STAGE0_BASE.as_ptr() as u32
+                at_runtime: __IMAGE_STAGE0_BASE.as_ptr() as u32
                     ..__IMAGE_STAGE0_END.as_ptr() as u32,
             },
         }
@@ -91,9 +96,11 @@ pub fn flash_range(component: RotComponent, slot: SlotId) -> FlashRange {
 
 /// Does (component, slot) refer to the currently running Hubris image?
 pub fn is_current_hubris_image(component: RotComponent, slot: SlotId) -> bool {
-    // Safety: We are trusting the linker.
-    flash_range(component, slot).store.start
-        == unsafe { &__this_image } as *const _ as u32
+    // Safety: extern statics aren't controlled by Rust so poking them can
+    // cause UB; in this case, it's zero length and we are only taking its
+    // numerical address, so we're not at risk.
+    flash_range(component, slot).stored.start
+        == unsafe { addr_of!(__this_image) as u32 }
 }
 
 // LPC55 defined image content
@@ -147,25 +154,13 @@ impl ImageVectorsLpc55 {
 
     /// Determine the bounds of an image assuming the given flash bank
     /// addresses.
-    pub fn padded_image_range(&self, exec: &Range<u32>) -> Option<Range<u32>> {
-        let image_start = exec.start;
-        let image_end = exec.start.saturating_add(self.padded_image_len()?);
-        // ImageHeader is optional. Assuming code cannot be earlier than
-        // IMAGE_HEADER_OFFSET.
-        let initial_pc_start = image_start.saturating_add(IMAGE_HEADER_OFFSET);
-        let initial_pc_end =
-            image_start.saturating_add(self.nxp_offset_to_specific_header);
-        let pc = exec.start.saturating_add(self.normalized_initial_pc());
-
-        if !exec.contains(&image_end)
-            || !exec.contains(&initial_pc_start)
-            || !exec.contains(&initial_pc_end)
-            || !(initial_pc_start..initial_pc_end).contains(&pc)
-        {
-            // One of these did not fit in the destination flash bank or
-            // exeecutable area of the image in that bank.
-            return None;
-        }
+    pub fn padded_image_range(
+        &self,
+        at_runtime: &Range<u32>,
+    ) -> Option<Range<u32>> {
+        let image_start = at_runtime.start;
+        let image_end =
+            at_runtime.start.checked_add(self.padded_image_len()?)?;
         Some(image_start..image_end)
     }
 }
@@ -190,15 +185,16 @@ pub fn validate_header_block(
     let mut vectors = ImageVectorsLpc55::new_zeroed();
     let mut header = ImageHeader::new_zeroed();
 
+    // Read block 0 and the header contained within (if available).
     if header_access.read_bytes(0, vectors.as_bytes_mut()).is_err()
         || header_access
             .read_bytes(IMAGE_HEADER_OFFSET, header.as_bytes_mut())
             .is_err()
     {
-        // can't read block0
         return Err(UpdateError::InvalidHeaderBlock);
     }
 
+    // Check image type and presence of signature block.
     if !vectors.is_image_type_signed_xip()
         || vectors.nxp_offset_to_specific_header >= vectors.nxp_image_length
     {
@@ -209,29 +205,40 @@ pub fn validate_header_block(
     }
 
     // We don't rely on the ImageHeader, but if it is there, it needs to be valid.
-    // Note that ImageHeader.epoch is needed for pre-flash-erase tests for
-    // rollback protection.
+    // Note that `ImageHeader.epoch` is used by rollback protection for early
+    // rejection of invalid images.
     // TODO: Improve estimate of where the first executable instruction can be.
     let code_offset = if header.magic == HEADER_MAGIC {
         if header.total_image_len != vectors.nxp_offset_to_specific_header {
             // ImageHeader disagrees with LPC55 vectors.
             return Err(UpdateError::InvalidHeaderBlock);
         }
+        // Adding constants should be resolved at compile time: no call to panic.
         IMAGE_HEADER_OFFSET + (core::mem::size_of::<ImageHeader>() as u32)
     } else {
         IMAGE_HEADER_OFFSET
     };
 
-    if vectors.nxp_image_length as usize > header_access.exec().len() {
+    if vectors.nxp_image_length as usize > header_access.at_runtime().len() {
         // Image extends outside of flash bank.
         return Err(UpdateError::InvalidHeaderBlock);
     }
 
+    // Check that the initial PC is pointing to a reasonable location.
+    // We only have information from image block zero, so this is just
+    // a basic sanity check.
+    // A check at signing time can be more exact, but this helps reject
+    // ridiculous images before any flash is erased.
     let caboose_end = header_access
-        .exec()
+        .at_runtime()
         .start
-        .saturating_add(vectors.nxp_offset_to_specific_header);
-    let text_start = header_access.exec().start.saturating_add(code_offset);
+        .checked_add(vectors.nxp_offset_to_specific_header)
+        .ok_or(UpdateError::InvalidHeaderBlock)?;
+    let text_start = header_access
+        .at_runtime()
+        .start
+        .checked_add(code_offset)
+        .ok_or(UpdateError::InvalidHeaderBlock)?;
     if !(text_start..caboose_end).contains(&vectors.normalized_initial_pc()) {
         return Err(UpdateError::InvalidHeaderBlock);
     }
@@ -239,7 +246,7 @@ pub fn validate_header_block(
     Ok(vectors.nxp_offset_to_specific_header)
 }
 
-/// Get the range of the coboose contained within an image if it exists.
+/// Get the range of the caboose contained within an image if it exists.
 ///
 /// This implementation has similar logic to the one in `stm32h7-update-server`,
 /// but uses ImageAccess for images that, during various operations,
@@ -257,21 +264,26 @@ pub fn caboose_slice(
         .map_err(|_| RawCabooseError::NoImageHeader)?;
 
     // By construction, the last word of the caboose is its size as a `u32`
-    let caboose_size_offset: u32 = image_end_offset.saturating_sub(U32_SIZE);
+    let caboose_size_offset = image_end_offset
+        .checked_sub(U32_SIZE)
+        .ok_or(RawCabooseError::MissingCaboose)?;
     let caboose_size = image
         .read_word(caboose_size_offset)
         .map_err(|_| RawCabooseError::ReadFailed)?;
 
     // Security considerations:
-    // If there is no caboose, then we may be indexing 0xff padding, or
-    // code/data and padding, or just code/data, and interpreting that as
-    // the caboose size. After an alignment and size check, some values
-    // could still get through. The pathological case would be code/data
-    // that indexes the CABOOSE_MAGIC constant in the code here that is
-    // testing for the caboose. The parts of the image that could then
-    // be accessed are already openly available. There doesn't seem
-    // to be an opportunity for any denial of service.
-    let caboose_magic_offset = image_end_offset.saturating_sub(caboose_size);
+    // A maliciously constructed image could be staged in flash
+    // with an apparently large caboose that would allow some access
+    // within its own flash slot. Presumably, we would never sign
+    // such an image so the bootloader would never execute it.
+    // However, reading out that image's caboose would be allowed.
+    // The range and size checks on caboose access are meant to keep
+    // accesses within the Hubris image which is constrained to its
+    // flash slot.
+    // There is no sensitive information to be found there.
+    let caboose_magic_offset = image_end_offset
+        .checked_sub(caboose_size)
+        .ok_or(RawCabooseError::MissingCaboose)?;
     if ((caboose_magic_offset % U32_SIZE) != 0)
         || !(IMAGE_HEADER_OFFSET..caboose_size_offset)
             .contains(&caboose_magic_offset)
@@ -280,13 +292,14 @@ pub fn caboose_slice(
     }
 
     let caboose_magic = image
-        .read_word(caboose_magic_offset as u32)
+        .read_word(caboose_magic_offset)
         .map_err(|_| RawCabooseError::MissingCaboose)?;
 
     if caboose_magic == CABOOSE_MAGIC {
-        let caboose_range = ((caboose_magic_offset as u32) + U32_SIZE)
-            ..(caboose_size_offset as u32);
-        Ok(caboose_range)
+        let caboose_start = caboose_magic_offset
+            .checked_add(U32_SIZE)
+            .ok_or(RawCabooseError::MissingCaboose)?;
+        Ok(caboose_start..caboose_size_offset)
     } else {
         Err(RawCabooseError::MissingCaboose)
     }
@@ -313,31 +326,28 @@ enum Accessor<'a> {
 }
 
 impl Accessor<'_> {
-    fn exec(&self) -> &Range<u32> {
+    fn at_runtime(&self) -> &Range<u32> {
         match self {
-            Accessor::Flash { flash: _, span }
-            | Accessor::Ram { buffer: _, span }
-            | Accessor::_Hybrid {
-                buffer: _,
-                flash: _,
-                span,
-            } => &span.exec,
+            Accessor::Flash { span, .. }
+            | Accessor::Ram { span, .. }
+            | Accessor::_Hybrid { span, .. } => &span.at_runtime,
         }
     }
 }
 
-/// The update_server needs to deal with images that are:
-///   - Entirely in flash
-///   - Header block in RAM with the remainder unavailable
-///   - Header block in RAM with the remainder in flash.
-///   - Entire image in RAM (cached Stage0)
-/// Calls to methods use image relative addresses.
-/// ImageAccess::Flash{_, span} gives the physical flash addresses
-/// being accessed.
+/// In addition to images that are located in their respective
+/// flash slots, the `update_server` needs to read data from
+/// complete and partial images in RAM or split between RAM
+/// and flash.
+/// The specific cases are when the
+///   - image is entirely in flash.
+///   - header block is in RAM with the remainder unavailable.
+///   - header block is in RAM with the remainder in flash.
+///   - entire image is in RAM (in the case of a cached Stage0 image).
 ///
-/// Any address here is the "storage" address which for stage0next
-/// and any image held temporarily in RAM is different than the
-/// execution address.
+/// Calls to methods use offsets into the image which is helpful
+/// when dealing with the offsets and sizes found in image headers
+/// and the caboose.
 pub struct ImageAccess<'a> {
     accessor: Accessor<'a>,
 }
@@ -381,65 +391,65 @@ impl ImageAccess<'_> {
         }
     }
 
-    fn exec(&self) -> &Range<u32> {
-        self.accessor.exec()
+    fn at_runtime(&self) -> &Range<u32> {
+        self.accessor.at_runtime()
     }
 
-    /// True if the u32 at offset is contained within the image.
+    /// True if the u32 at offset is contained within the slot.
     pub fn is_addressable(&self, offset: u32) -> bool {
-        let len = match &self.accessor {
-            Accessor::Flash { flash: _, span }
-            | Accessor::_Hybrid {
-                buffer: _,
-                flash: _,
-                span,
-            }
-            | Accessor::Ram { buffer: _, span } => {
-                span.store.end.saturating_sub(span.store.start)
-            }
-        };
-        offset < len && offset.saturating_add(U32_SIZE) <= len
+        let len = self.at_runtime().len() as u32;
+        if let Some(end) = offset.checked_add(U32_SIZE) {
+            end <= len
+        } else {
+            false
+        }
     }
 
-    // Fetch a u32 from an image.
+    /// Fetch a u32 from an image.
     pub fn read_word(&self, offset: u32) -> Result<u32, UpdateError> {
         if !self.is_addressable(offset) {
             return Err(UpdateError::OutOfBounds);
         }
         match &self.accessor {
             Accessor::Flash { flash, span } => {
-                let addr = span.store.start.saturating_add(offset);
+                let addr = span
+                    .stored
+                    .start
+                    .checked_add(offset)
+                    .ok_or(UpdateError::OutOfBounds)?;
                 let mut word = 0u32;
                 indirect_flash_read(flash, addr, word.as_bytes_mut())?;
                 Ok(word)
             }
-            Accessor::Ram { buffer, span: _ } => {
-                match buffer
-                    .get(offset as usize..(offset as usize + SIZEOF_U32))
+            Accessor::Ram { buffer, .. } => {
+                let word_end = (offset as usize)
+                    .checked_add(SIZEOF_U32)
+                    .ok_or(UpdateError::OutOfBounds)?;
+                Ok(buffer
+                    .get(offset as usize..word_end)
                     .and_then(u32::read_from)
-                {
-                    Some(word) => Ok(word),
-                    None => Err(UpdateError::OutOfBounds),
-                }
+                    .ok_or(UpdateError::OutOfBounds)?)
             }
             Accessor::_Hybrid {
                 buffer,
                 flash,
                 span,
             } => {
-                if offset < buffer.len() as u32 {
-                    match buffer
-                        .get(offset as usize..(offset as usize + SIZEOF_U32))
+                if (offset as usize) < buffer.len() {
+                    // Word is in the RAM portion
+                    let word_end = (offset as usize)
+                        .checked_add(SIZEOF_U32)
+                        .ok_or(UpdateError::OutOfBounds)?;
+                    Ok(buffer
+                        .get(offset as usize..word_end)
                         .and_then(u32::read_from)
-                    {
-                        Some(word) => Ok(word),
-                        // Note: The case of a transfer spanning the RAM/Flash
-                        // boundary would need to be unaligned given that the
-                        // RAM portion must be whole u32-aligned pages.
-                        None => Err(UpdateError::OutOfBounds),
-                    }
+                        .ok_or(UpdateError::OutOfBounds)?)
                 } else {
-                    let addr = span.store.start.saturating_add(offset);
+                    let addr = span
+                        .stored
+                        .start
+                        .checked_add(offset)
+                        .ok_or(UpdateError::OutOfBounds)?;
                     let mut word = 0u32;
                     indirect_flash_read(flash, addr, word.as_bytes_mut())?;
                     Ok(word)
@@ -456,23 +466,25 @@ impl ImageAccess<'_> {
         let len = buffer.len() as u32;
         match &self.accessor {
             Accessor::Flash { flash, span } => {
-                let start = span.store.start.saturating_add(offset);
-                let end = start.saturating_add(len);
-                if span.store.contains(&start)
-                    && (span.store.start..=span.store.end).contains(&end)
+                let start = span
+                    .stored
+                    .start
+                    .checked_add(offset)
+                    .ok_or(UpdateError::OutOfBounds)?;
+                let end =
+                    start.checked_add(len).ok_or(UpdateError::OutOfBounds)?;
+                if span.stored.contains(&start)
+                    && (span.stored.start..=span.stored.end).contains(&end)
                 {
                     Ok(indirect_flash_read(flash, start, buffer)?)
                 } else {
                     Err(UpdateError::OutOfBounds)
                 }
             }
-            Accessor::Ram {
-                buffer: src,
-                span: _,
-            } => {
-                if let Some(data) = src.get(
-                    (offset as usize)..(offset.saturating_add(len) as usize),
-                ) {
+            Accessor::Ram { buffer: src, .. } => {
+                let end =
+                    offset.checked_add(len).ok_or(UpdateError::OutOfBounds)?;
+                if let Some(data) = src.get((offset as usize)..(end as usize)) {
                     buffer.copy_from_slice(data);
                     Ok(())
                 } else {
@@ -484,25 +496,36 @@ impl ImageAccess<'_> {
                 flash,
                 span,
             } => {
-                let mut offset = offset as usize;
+                let mut start_offset = offset as usize;
                 let mut remainder = buffer.len();
+                let end_offset = start_offset
+                    .checked_add(remainder)
+                    .ok_or(UpdateError::OutOfBounds)?;
                 // Transfer data from the RAM portion of the image
-                if offset < ram.len() {
-                    let ram_end_offset = ram.len().min(offset + remainder);
+                if start_offset < ram.len() {
+                    let ram_end_offset = ram.len().min(end_offset);
                     // Transfer starts within the RAM part of this image.
                     let data = ram
-                        .get((offset)..ram_end_offset)
+                        .get((start_offset)..ram_end_offset)
                         .ok_or(UpdateError::OutOfBounds)?;
                     buffer.copy_from_slice(data);
-                    remainder -= data.len();
-                    offset = ram_end_offset;
+                    remainder = remainder
+                        .checked_sub(data.len())
+                        .ok_or(UpdateError::OutOfBounds)?;
+                    start_offset = ram_end_offset;
                 }
                 // Transfer data from the flash-backed portion of the image.
                 if remainder > 0 {
-                    let start = span.store.start.saturating_add(offset as u32);
-                    let end = start.saturating_add(remainder as u32);
-                    if span.store.contains(&start)
-                        && (span.store.start..=span.store.end).contains(&end)
+                    let start = span
+                        .stored
+                        .start
+                        .checked_add(start_offset as u32)
+                        .ok_or(UpdateError::OutOfBounds)?;
+                    let end = start
+                        .checked_add(remainder as u32)
+                        .ok_or(UpdateError::OutOfBounds)?;
+                    if span.stored.contains(&start)
+                        && (span.stored.start..=span.stored.end).contains(&end)
                     {
                         indirect_flash_read(flash, start, buffer)?;
                     } else {
@@ -524,13 +547,10 @@ impl ImageAccess<'_> {
                 ImageVectorsLpc55::read_from_prefix(&buffer[..])
                     .ok_or(UpdateError::OutOfBounds)
             }
-            Accessor::Ram { buffer, span: _ }
-            | Accessor::_Hybrid {
-                buffer,
-                flash: _,
-                span: _,
-            } => ImageVectorsLpc55::read_from_prefix(buffer)
-                .ok_or(UpdateError::OutOfBounds),
+            Accessor::Ram { buffer, .. } | Accessor::_Hybrid { buffer, .. } => {
+                ImageVectorsLpc55::read_from_prefix(buffer)
+                    .ok_or(UpdateError::OutOfBounds)
+            }
         }?;
         let len = vectors.image_length().ok_or(UpdateError::BadLength)?;
         round_up_to_flash_page(len).ok_or(UpdateError::BadLength)
