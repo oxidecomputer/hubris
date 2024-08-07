@@ -62,7 +62,7 @@ enum Trace {
 
 ringbuf!(Trace, 16, Trace::None);
 
-/// FW_CACHE_MAX accomodates the largest production
+/// FW_CACHE_MAX accommodates the largest production
 /// bootloader image while allowing some room for growth.
 ///
 /// NOTE: The erase/flash of stage0 can be interrupted by a power failure or
@@ -181,7 +181,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
             return Err(UpdateError::BadLength.into());
         }
 
-        // Match the behvaior of the CMSIS flash driver where erased bytes are
+        // Match the behavior of the CMSIS flash driver where erased bytes are
         // read as 0xff so the image is padded with 0xff
         const ERASE_BYTE: u8 = 0xff;
         let mut flash_page = [ERASE_BYTE; BLOCK_SIZE_BYTES];
@@ -260,7 +260,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         // Now erase the unused portion of the flash slot so that
         // flash slot has predictable contents and the FWID for it
         // has some meaning.
-        let range = &flash_range(component, slot).store;
+        let range = &flash_range(component, slot).stored;
         let erase_start = range.start + (endblock as u32 * PAGE_SIZE);
         self.flash_erase_range(erase_start..range.end)?;
         self.state = UpdateState::Finished;
@@ -277,7 +277,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
     }
 
     // TODO(AJS): Remove this in favor of `status`, once SP code is updated.
-    // This has ripple effects up thorugh control-plane-agent.
+    // This has ripple effects up through control-plane-agent.
     fn current_version(
         &mut self,
         _: &RecvMessage,
@@ -457,8 +457,11 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
     ) -> Result<u32, idol_runtime::RequestError<RawCabooseError>> {
         let image = ImageAccess::new_flash(&self.flash, component, slot);
         let caboose = caboose_slice(&image)?;
-        let caboose_len = caboose.end.saturating_sub(caboose.start);
-        Ok(caboose_len)
+        if let Some(caboose_len) = caboose.end.checked_sub(caboose.start) {
+            Ok(caboose_len)
+        } else {
+            Err(RawCabooseError::MissingCaboose.into())
+        }
     }
 
     fn component_read_raw_caboose(
@@ -471,7 +474,9 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
     ) -> Result<(), idol_runtime::RequestError<RawCabooseError>> {
         let image = ImageAccess::new_flash(&self.flash, component, slot);
         let caboose = caboose_slice(&image)?;
-        let caboose_len = caboose.end.saturating_sub(caboose.start);
+        let Some(caboose_len) = caboose.end.checked_sub(caboose.start) else {
+            return Err(RawCabooseError::MissingCaboose.into());
+        };
         if offset as usize + data.len() > (caboose_len as usize) {
             return Err(RawCabooseError::InvalidRead.into());
         }
@@ -686,7 +691,7 @@ impl ServerImpl<'_> {
         // through 3) to ensure that RoT image signatures are valid before any
         // system continues to step 4.
         //
-        // TBD: While Failures up to step 3 do not adversly affect the RoT,
+        // TBD: While Failures up to step 3 do not adversely affect the RoT,
         // resetting the RoT to evaluate signatures may be service affecting
         // to the system depending on how the RoT and SP interact with respect
         // to their reset handling and the RoT measurement of the SP.
@@ -697,7 +702,7 @@ impl ServerImpl<'_> {
         // updating stage0next to the original stage0 contents that were
         // validated reset and then copying those to stage0.
         //
-        // It is assumed that a hash collision is not computaionally feasible
+        // It is assumed that a hash collision is not computationally feasible
         // for either the image hash done by rot-startup or used by the ROM
         // signature routine.
 
@@ -760,7 +765,7 @@ impl ServerImpl<'_> {
         // Finish by erasing the unused portion of flash bank.
         // An error here means that the stage0 slot may not be clean but at least
         // it has the intended bootloader written.
-        let stage0 = &flash_range(RotComponent::Stage0, SlotId::A).store;
+        let stage0 = &flash_range(RotComponent::Stage0, SlotId::A).stored;
         if let Some(erase_start) = stage0.start.checked_add(len as u32) {
             self.flash_erase_range(erase_start..stage0.end)?;
         }
@@ -818,10 +823,11 @@ impl ServerImpl<'_> {
             stage0
                 .read_bytes(addr, flash_page.as_bytes_mut())
                 .map_err(|_| UpdateError::ImageMismatch)?;
-            if flash_page
-                != cached[(addr as usize)
-                    ..(addr as usize).saturating_add(BYTES_PER_FLASH_PAGE)]
-            {
+            let Some(end) = (addr as usize).checked_add(BYTES_PER_FLASH_PAGE)
+            else {
+                return Err(UpdateError::ImageMismatch);
+            };
+            if flash_page != cached[(addr as usize)..end] {
                 return Err(UpdateError::ImageMismatch);
             }
         }
@@ -834,7 +840,8 @@ impl ServerImpl<'_> {
             self.fw_cache[0..BLOCK_SIZE_BYTES].as_bytes(),
         ) {
             // Get the length of the image iff it fits in its ultimate destination.
-            let exec_range = &flash_range(RotComponent::Stage0, SlotId::A).exec;
+            let exec_range =
+                &flash_range(RotComponent::Stage0, SlotId::A).at_runtime;
             if let Some(image) = vectors.padded_image_range(exec_range) {
                 return Ok(image.len());
             }
@@ -865,7 +872,10 @@ impl ServerImpl<'_> {
             return Err(UpdateError::BadLength);
         }
         let span = &flash_range(RotComponent::Stage0, SlotId::A);
-        if span.store.end < span.store.start.saturating_add(clen as u32) {
+        let Some(end) = span.stored.start.checked_add(clen as u32) else {
+            return Err(UpdateError::BadLength);
+        };
+        if span.stored.end < end {
             return Err(UpdateError::BadLength);
         }
         // Sanity check could be repeated here.
@@ -1174,7 +1184,7 @@ fn target_addr(
     slot: SlotId,
     page_num: u32,
 ) -> Option<u32> {
-    let range = &flash_range(component, slot).store;
+    let range = &flash_range(component, slot).stored;
 
     // This is safely calculating addr = base + page_num * PAGE_SIZE
     let addr = page_num
@@ -1212,8 +1222,12 @@ fn copy_from_caboose_chunk_to_lease(
             .map_err(|_| RequestError::from(RawCabooseError::ReadFailed))?;
         data.write_range(offset as usize..(offset + count) as usize, buf)
             .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
-        offset = offset.saturating_add(count);
-        remaining = remaining.saturating_sub(count);
+        offset = offset
+            .checked_add(count)
+            .ok_or(RawCabooseError::ReadFailed)?;
+        remaining = remaining
+            .checked_sub(count)
+            .ok_or(RawCabooseError::ReadFailed)?;
     }
     Ok(())
 }
