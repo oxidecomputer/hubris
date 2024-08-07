@@ -1136,7 +1136,7 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
             )
         })?;
 
-        let rsp = self.do_send_recv_retries(tx_size, TIMEOUT_MEDIUM, 1)?;
+        let rsp = self.do_send_recv_retries(tx_size, TIMEOUT_LONG, 1)?;
 
         match rsp.body {
             Ok(RspBody::Attest(Ok(AttestRsp::Attest))) => {

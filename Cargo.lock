@@ -114,7 +114,7 @@ dependencies = [
 [[package]]
 name = "attest-data"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/dice-util#785ee6db783ecaafd741fcf59e21f2432e27c5ef"
+source = "git+https://github.com/oxidecomputer/dice-util?branch=attest_messages#10d084eb74aca27abb792bb455ad940c3f2ff2c2"
 dependencies = [
  "hubpack",
  "salty",
@@ -1474,9 +1474,11 @@ dependencies = [
  "build-util",
  "drv-gimlet-hf-api",
  "drv-hash-api",
+ "hubpack",
  "idol",
  "idol-runtime",
  "num-traits",
+ "serde",
  "userlib",
  "zerocopy 0.6.6",
 ]
@@ -1768,6 +1770,7 @@ name = "drv-sprot-api"
 version = "0.1.0"
 dependencies = [
  "attest-api",
+ "attest-data",
  "counters",
  "crc",
  "derive-idol-err",
@@ -4517,6 +4520,7 @@ dependencies = [
 name = "task-host-sp-comms"
 version = "0.1.0"
 dependencies = [
+ "attest-data",
  "build-i2c",
  "build-util",
  "cfg-if",
@@ -4529,6 +4533,7 @@ dependencies = [
  "drv-i2c-devices",
  "drv-oxide-vpd",
  "drv-spi-api",
+ "drv-sprot-api",
  "drv-stm32h7-dbgmcu",
  "drv-stm32h7-usart",
  "drv-stm32xx-sys-api",
