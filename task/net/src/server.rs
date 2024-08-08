@@ -497,22 +497,27 @@ where
         // Each of these is replicated once per VID. Loop over them in lockstep.
         for (i, (sockets, storage)) in zip(sockets.0, storage).enumerate() {
             #[cfg(feature = "vlan")]
-            let vlan_id = VLanId::from_usize(i);
-
-            #[cfg(not(feature = "vlan"))]
-            let vlan_id = {
-                let _ = i;
-                VLanId::None
+            let (vlan_id, mac, trust) = {
+                let vlan_id = VLanId::from_usize(i);
+                (
+                    vlan_id,
+                    port_to_mac[match vlan_id.cfg().port {
+                        task_net_api::SpPort::One => 0,
+                        task_net_api::SpPort::Two => 1,
+                    }],
+                    if vlan_id.cfg().always_trusted {
+                        VLanTrust::AlwaysTrust
+                    } else {
+                        VLanTrust::Distrust
+                    },
+                )
             };
 
-            #[cfg(feature = "vlan")]
-            let mac = port_to_mac[match vlan_id.cfg().port {
-                task_net_api::SpPort::One => 0,
-                task_net_api::SpPort::Two => 1,
-            }];
-
             #[cfg(not(feature = "vlan"))]
-            let mac = port_to_mac[0];
+            let (vlan_id, mac, trust) = {
+                let _ = i; // avoid warnings about unused variable
+                (VLanId::None, port_to_mac[0], VLanTrust::AlwaysTrust)
+            };
 
             let mac_addr = EthernetAddress::from_bytes(&mac);
             let ipv6_addr = link_local_iface_addr(mac_addr);
@@ -541,22 +546,9 @@ where
                     .unwrap_lite();
             }
 
-            #[cfg(feature = "vlan")]
-            let (trust, vid) = (
-                if vlan_id.cfg().always_trusted {
-                    VLanTrust::AlwaysTrust
-                } else {
-                    VLanTrust::Distrust
-                },
-                vlan_id,
-            );
-
-            #[cfg(not(feature = "vlan"))]
-            let (trust, vid) = (VLanTrust::AlwaysTrust, VLanId::None);
-
             vlan_state
                 .push(VLanState {
-                    vid,
+                    vid: vlan_id,
                     socket_handles,
                     iface,
                     device,
