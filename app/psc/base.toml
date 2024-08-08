@@ -23,7 +23,7 @@ start = true
 features = ["dump"]
 stacksize = 1536
 notifications = ["fault", "timer"]
-extern-regions = ["sram2", "sram3", "sram4"]
+extern-regions = ["sram1", "sram2", "sram3", "sram4"]
 
 [tasks.jefe.config.on-state-change]
 net = "jefe-state-change"
@@ -165,8 +165,8 @@ name = "task-net"
 stacksize = 8000
 priority = 4
 features = ["mgmt", "h753", "psc", "vlan", "vpd-mac", "spi2"]
-max-sizes = {flash = 131072, ram = 65536, sram1 = 16384}
-sections = {eth_bulk = "sram1"}
+max-sizes = {flash = 131072, ram = 65536, sram1_mac = 16384}
+sections = {eth_bulk = "sram1_mac"}
 uses = ["eth", "tim16"]
 start = true
 notifications = [
@@ -304,7 +304,7 @@ max-sizes = {flash = 32768, ram = 16384 }
 start = true
 task-slots = ["sprot", "jefe", "net"]
 stacksize = 2400
-extern-regions = [ "sram2", "sram3", "sram4" ]
+extern-regions = [ "sram1", "sram2", "sram3", "sram4" ]
 notifications = ["socket"]
 features = ["net", "vlan"]
 

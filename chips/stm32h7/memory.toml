@@ -14,12 +14,21 @@ write = true
 execute = false  # let's assume XN until proven otherwise
 
 # Network buffers are placed in sram1, which is directly accessible by the
-# Ethernet MAC.
-[[sram1]]
+# Ethernet MAC.  We limit this use of sram1 to 64 KiB, and preserve the
+# remainder to be used for disjoint purposes (e.g., as an external region).
+[[sram1_mac]]
 address = 0x30000000
-size = 0x20000
+size = 0x10000
 read = true
 write = true
+dma = true
+
+[[sram1]]
+address = 0x30010000
+size = 0x10000
+read = true
+write = true
+execute = false
 dma = true
 
 [[sram2]]

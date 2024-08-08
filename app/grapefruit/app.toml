@@ -26,7 +26,7 @@ start = true
 stacksize = 1536
 notifications = ["fault", "timer"]
 features = ["dump"]
-extern-regions = ["sram2", "sram3", "sram4"]
+extern-regions = ["sram1", "sram2", "sram3", "sram4"]
 
 [tasks.jefe.config.allowed-callers]
 set_reset_reason = ["sys"]
@@ -139,7 +139,7 @@ max-sizes = {flash = 32768, ram = 16384 }
 start = true
 task-slots = ["jefe", "net", "sprot"]
 stacksize = 2400
-extern-regions = ["sram2", "sram3", "sram4"]
+extern-regions = ["sram1", "sram2", "sram3", "sram4"]
 notifications = ["socket"]
 features = ["net", "vlan"]
 
@@ -198,8 +198,8 @@ name = "task-net"
 stacksize = 8000
 priority = 3
 features = ["h753", "vlan", "grapefruit"]
-max-sizes = {flash = 131072, ram = 65536, sram1 = 16384}
-sections = {eth_bulk = "sram1"}
+max-sizes = {flash = 131072, ram = 65536, sram1_mac = 16384}
+sections = {eth_bulk = "sram1_mac"}
 uses = ["eth", "tim16"]
 start = true
 task-slots = ["sys", "jefe", { spi_driver = "spi2_driver" }]

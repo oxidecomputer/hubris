@@ -10,7 +10,7 @@ task-slots = ["hash_driver", "hf", "i2c_driver", "sprot", "sys", "update_server"
 
 [tasks.jefe]
 features = ["dump"]
-extern-regions = ["sram2", "sram3", "sram4"]
+extern-regions = ["sram1", "sram2", "sram3", "sram4"]
 
 [tasks.jefe.config.allowed-callers]
 set_state = ["gimlet_seq"]
@@ -89,7 +89,7 @@ max-sizes = {flash = 32768, ram = 16384 }
 start = true
 task-slots = ["sprot", "jefe", "net"]
 stacksize = 2400
-extern-regions = ["sram2", "sram3", "sram4"]
+extern-regions = ["sram1", "sram2", "sram3", "sram4"]
 notifications = ["socket"]
 features = ["net", "vlan"]
 
@@ -148,8 +148,8 @@ name = "task-net"
 stacksize = 8000
 priority = 3
 features = ["h753", "vlan", "gimletlet-nic", "use-spi-core", "spi4"]
-max-sizes = {flash = 131072, ram = 65536, sram1 = 16384}
-sections = {eth_bulk = "sram1"}
+max-sizes = {flash = 131072, ram = 65536, sram1_mac = 16384}
+sections = {eth_bulk = "sram1_mac"}
 uses = ["eth", "tim16", "spi4"]
 start = true
 task-slots = ["sys", "jefe"]
