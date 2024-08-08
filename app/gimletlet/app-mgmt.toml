@@ -52,8 +52,8 @@ name = "task-net"
 stacksize = 3000
 priority = 3
 features = ["mgmt", "h753", "use-spi-core", "spi2"]
-max-sizes = {flash = 131072, ram = 16384, sram1 = 16384}
-sections = {eth_bulk = "sram1"}
+max-sizes = {flash = 131072, ram = 16384, sram1_mac = 16384}
+sections = {eth_bulk = "sram1_mac"}
 uses = ["eth", "tim16", "spi2"]
 start = true
 notifications = ["eth-irq", "mdio-timer-irq", "spi-irq", "wake-timer"]

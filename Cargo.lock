@@ -1474,9 +1474,11 @@ dependencies = [
  "build-util",
  "drv-gimlet-hf-api",
  "drv-hash-api",
+ "hubpack",
  "idol",
  "idol-runtime",
  "num-traits",
+ "serde",
  "userlib",
  "zerocopy 0.6.6",
 ]
