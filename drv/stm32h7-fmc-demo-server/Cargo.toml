@@ -23,6 +23,7 @@ idol = { workspace = true }
 default = ["h743"]
 h743 = ["stm32h7/stm32h743", "drv-stm32xx-sys-api/h743"]
 h753 = ["stm32h7/stm32h753", "drv-stm32xx-sys-api/h753"]
+init-hw = []
 
 [[bin]]
 name = "drv-stm32h7-fmc-demo-server"
