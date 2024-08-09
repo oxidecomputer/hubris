@@ -865,6 +865,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-fmc-nor-flash"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cortex-m",
+ "counters",
+ "hubpack",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "serde",
+ "stm32h7",
+ "userlib",
+]
+
+[[package]]
 name = "drv-fpga-api"
 version = "0.1.0"
 dependencies = [

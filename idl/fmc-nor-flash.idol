@@ -1,0 +1,12 @@
+// NOR Flash on the FMC
+
+Interface(
+    name: "FmcNorFlash",
+    ops: {
+        "ready": (
+            encoding: Hubpack,
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+    },
+)

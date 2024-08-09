@@ -247,6 +247,12 @@ start = true
 task-slots = ["sys"]
 uses = ["fmc", "fmc_nor_psram_bank_1"]
 
+[tasks.fmc_nor_flash]
+name = "drv-fmc-nor-flash"
+priority = 5
+start = true
+uses = ["fmc_nor_psram_bank_1"]
+
 [config.net]
 # VLAN configuration
 [config.net.vlans.sidecar1]
