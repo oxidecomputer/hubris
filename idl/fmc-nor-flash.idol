@@ -3,10 +3,41 @@
 Interface(
     name: "FmcNorFlash",
     ops: {
-        "ready": (
-            encoding: Hubpack,
-            reply: Simple("()"),
-            idempotent: true,
+        "page_write": (
+            doc: "writes to a particular full page in the flash",
+            args: {
+                "offset": "u32",
+            },
+            leases: {
+                "data": (type: "[u8]", read: true, max_len: Some(256)),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("NorFlashError"),
+            ),
+        ),
+        "read": (
+            doc: "reads from a particular address in the flash",
+            args: {
+                "offset": "u32",
+            },
+            leases: {
+                "data": (type: "[u8]", write: true, max_len: Some(256)),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("NorFlashError"),
+            ),
+        ),
+        "sector_erase": (
+            doc: "erase a 4K sector",
+            args: {
+                "offset": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("NorFlashError"),
+            ),
         ),
     },
 )

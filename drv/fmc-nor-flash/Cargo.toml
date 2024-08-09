@@ -4,8 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 counters = { path = "../../lib/counters" }
+derive-idol-err = { path = "../../lib/derive-idol-err" }
+ringbuf = { path = "../../lib/ringbuf" }
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 cortex-m = { workspace = true }
 idol-runtime = { workspace = true }
@@ -13,6 +15,7 @@ num-traits = { workspace = true }
 stm32h7 = { workspace = true }
 serde = { workspace = true }
 hubpack = { workspace = true }
+zerocopy = { workspace = true }
 
 [build-dependencies]
 build-util = { path = "../../build/util" }

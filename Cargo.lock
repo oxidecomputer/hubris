@@ -871,13 +871,16 @@ dependencies = [
  "build-util",
  "cortex-m",
  "counters",
+ "derive-idol-err",
  "hubpack",
  "idol",
  "idol-runtime",
  "num-traits",
+ "ringbuf",
  "serde",
  "stm32h7",
  "userlib",
+ "zerocopy 0.6.6",
 ]
 
 [[package]]
