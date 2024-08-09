@@ -3,7 +3,9 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use drv_medusa_seq_api::Sequencer;
+use drv_monorail_api::MonorailError;
 use drv_sidecar_front_io::phy_smi::PhySmi;
+use idol_runtime::{ClientError, RequestError};
 use ringbuf::*;
 use userlib::{task_slot, UnwrapLite};
 use vsc7448::{
@@ -194,7 +196,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         // them!
         //
         // (ports will be added back to VLANs after configuration is done, in
-        // the call to `configure_vlan_semistrict` below)
+        // the call to `configure_vlan_sidecar_unlocked` below)
         //
         // The root cause is unknown, but we suspect a hardware race condition
         // in the switch IC; see this issue for detailed discussion:
@@ -208,7 +210,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         self.phy_vsc8504_init()?;
 
         self.vsc7448.configure_ports_from_map(&PORT_MAP)?;
-        self.vsc7448.configure_vlan_semistrict()?;
+        self.vsc7448.configure_vlan_sidecar_unlocked()?;
         self.vsc7448_postconfig()?;
 
         // Some front IO boards have a faulty oscillator driving the PHY,
@@ -501,6 +503,21 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         };
         let phy = vsc85xx::Phy::new(phy_port, &mut phy_rw);
         Some(callback(phy))
+    }
+
+    pub(crate) fn unlock_vlans_until(
+        &mut self,
+        _unlock_until: u64,
+    ) -> Result<(), RequestError<MonorailError>> {
+        // Not implemented on Medusa
+        Err(RequestError::Fail(ClientError::BadMessageContents))
+    }
+
+    pub(crate) fn lock_vlans(
+        &mut self,
+    ) -> Result<(), RequestError<MonorailError>> {
+        // Not implemented on Medusa
+        Err(RequestError::Fail(ClientError::BadMessageContents))
     }
 }
 

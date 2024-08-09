@@ -5,20 +5,21 @@
 use crate::{
     mgs_common::MgsCommon, notifications, update::host_flash::HostFlashUpdate,
     update::rot::RotUpdate, update::sp::SpUpdate, update::ComponentUpdater,
-    usize_max, vlan_id_from_sp_port, CriticalEvent, Log, MgsMessage, SYS,
+    usize_max, CriticalEvent, Log, MgsMessage, SYS,
 };
 use core::time::Duration;
 use drv_gimlet_seq_api::Sequencer;
 use drv_stm32h7_usart::Usart;
 use drv_user_leds_api::UserLeds;
 use gateway_messages::sp_impl::{
-    BoundsChecked, DeviceDescription, SocketAddrV6, SpHandler,
+    BoundsChecked, DeviceDescription, Sender, SpHandler,
 };
 use gateway_messages::{
-    ignition, ComponentAction, ComponentDetails, ComponentUpdatePrepare,
-    DiscoverResponse, Header, IgnitionCommand, IgnitionState, Message,
-    MessageKind, MgsError, PowerState, RotBootInfo, RotRequest, RotResponse,
-    SensorRequest, SensorResponse, SpComponent, SpError, SpPort, SpRequest,
+    ignition, ComponentAction, ComponentActionResponse, ComponentDetails,
+    ComponentUpdatePrepare, DiscoverResponse, Header, IgnitionCommand,
+    IgnitionState, Message, MessageKind, MgsError, MgsRequest, MgsResponse,
+    PowerState, RotBootInfo, RotRequest, RotResponse, SensorRequest,
+    SensorResponse, SpComponent, SpError, SpPort as GwSpPort, SpRequest,
     SpStateV2, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
     SERIAL_CONSOLE_IDLE_TIMEOUT,
 };
@@ -31,7 +32,7 @@ use task_control_plane_agent_api::{
     ControlPlaneAgentError, UartClient, VpdIdentity,
     MAX_INSTALLINATOR_IMAGE_ID_LEN,
 };
-use task_net_api::{Address, MacAddress, UdpMetadata};
+use task_net_api::{Address, MacAddress, UdpMetadata, VLanId};
 use userlib::{sys_get_timer, sys_irq_control, FromPrimitive, UnwrapLite};
 
 // We're included under a special `path` cfg from main.rs, which confuses rustc
@@ -92,8 +93,7 @@ userlib::task_slot!(USER_LEDS, user_leds);
 type InstallinatorImageIdBuf = Vec<u8, MAX_INSTALLINATOR_IMAGE_ID_LEN>;
 
 struct AttachedSerialConsoleMgs {
-    address: SocketAddrV6,
-    port: SpPort,
+    sender: Sender<VLanId>,
     // The timestamp of the most recent keepalive (which can be an actual
     // keepalive packet or any other meaningful serial-console-related message:
     // connection, write, break, keepalive).
@@ -106,10 +106,9 @@ impl AttachedSerialConsoleMgs {
     /// returns an error.
     fn check_sender_and_update_keepalive(
         &mut self,
-        sender: SocketAddrV6,
-        port: SpPort,
+        sender: Sender<VLanId>,
     ) -> Result<(), SpError> {
-        if (sender, port) != (self.address, self.port) {
+        if sender != self.sender {
             return Err(SpError::SerialConsoleNotAttached);
         }
 
@@ -280,7 +279,7 @@ impl MgsHandler {
         }
 
         // Do we have an attached MGS instance that hasn't gone stale?
-        let (mgs_addr, sp_port) = match &self.attached_serial_console_mgs {
+        let sender = match &self.attached_serial_console_mgs {
             Some(attached) => {
                 // Check whether we think this client has disappeared
                 let client_age_ms = sys_get_timer()
@@ -293,7 +292,7 @@ impl MgsHandler {
                     self.attached_serial_console_mgs = None;
                     return None;
                 }
-                (attached.address, attached.port)
+                attached.sender
             }
             None => {
                 // Discard any buffered data and reset any usart-related timers.
@@ -332,10 +331,10 @@ impl MgsHandler {
         self.usart.drain_flushed_data(written);
 
         Some(UdpMetadata {
-            addr: Address::Ipv6(mgs_addr.ip.into()),
-            port: mgs_addr.port,
+            addr: Address::Ipv6(sender.addr.ip.into()),
+            port: sender.addr.port,
             size: n as u32,
-            vid: vlan_id_from_sp_port(sp_port),
+            vid: sender.vid,
         })
     }
 
@@ -461,25 +460,40 @@ impl MgsHandler {
 impl SpHandler for MgsHandler {
     type BulkIgnitionStateIter = core::iter::Empty<IgnitionState>;
     type BulkIgnitionLinkEventsIter = core::iter::Empty<ignition::LinkEvents>;
+    type VLanId = VLanId;
+
+    fn ensure_request_trusted(
+        &mut self,
+        kind: MgsRequest,
+        _sender: Sender<VLanId>,
+    ) -> Result<MgsRequest, SpError> {
+        // Gimlets are okay with everyone talking to them, since they're behind
+        // the management network.
+        Ok(kind)
+    }
+
+    fn ensure_response_trusted(
+        &mut self,
+        kind: MgsResponse,
+        _sender: Sender<VLanId>,
+    ) -> Option<MgsResponse> {
+        // Gimlets are okay with everyone talking to them, since they're behind
+        // the management network.
+        Some(kind)
+    }
 
     fn discover(
         &mut self,
-        _sender: SocketAddrV6,
-        port: SpPort,
+        sender: Sender<VLanId>,
     ) -> Result<DiscoverResponse, SpError> {
-        self.common.discover(port)
+        self.common.discover(sender.vid)
     }
 
     fn num_ignition_ports(&mut self) -> Result<u32, SpError> {
         Err(SpError::RequestUnsupportedForSp)
     }
 
-    fn ignition_state(
-        &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
-        target: u8,
-    ) -> Result<IgnitionState, SpError> {
+    fn ignition_state(&mut self, target: u8) -> Result<IgnitionState, SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::IgnitionState {
             target
         }));
@@ -488,8 +502,6 @@ impl SpHandler for MgsHandler {
 
     fn bulk_ignition_state(
         &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
         offset: u32,
     ) -> Result<Self::BulkIgnitionStateIter, SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::BulkIgnitionState {
@@ -500,8 +512,6 @@ impl SpHandler for MgsHandler {
 
     fn ignition_link_events(
         &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
         target: u8,
     ) -> Result<ignition::LinkEvents, SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::IgnitionLinkEvents {
@@ -512,8 +522,6 @@ impl SpHandler for MgsHandler {
 
     fn bulk_ignition_link_events(
         &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
         offset: u32,
     ) -> Result<Self::BulkIgnitionLinkEventsIter, SpError> {
         ringbuf_entry_root!(Log::MgsMessage(
@@ -524,8 +532,6 @@ impl SpHandler for MgsHandler {
 
     fn clear_ignition_link_events(
         &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
         _target: Option<u8>,
         _transceiver_select: Option<ignition::TransceiverSelect>,
     ) -> Result<(), SpError> {
@@ -537,8 +543,6 @@ impl SpHandler for MgsHandler {
 
     fn ignition_command(
         &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
         target: u8,
         command: IgnitionCommand,
     ) -> Result<(), SpError> {
@@ -549,19 +553,13 @@ impl SpHandler for MgsHandler {
         Err(SpError::RequestUnsupportedForSp)
     }
 
-    fn sp_state(
-        &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
-    ) -> Result<SpStateV2, SpError> {
+    fn sp_state(&mut self) -> Result<SpStateV2, SpError> {
         let power_state = self.power_state_impl()?;
         self.common.sp_state(power_state)
     }
 
     fn sp_update_prepare(
         &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
         update: SpUpdatePrepare,
     ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdatePrepare {
@@ -576,8 +574,6 @@ impl SpHandler for MgsHandler {
 
     fn component_update_prepare(
         &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
         update: ComponentUpdatePrepare,
     ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdatePrepare {
@@ -600,10 +596,10 @@ impl SpHandler for MgsHandler {
 
     fn component_action(
         &mut self,
-        _sender: SocketAddrV6,
+        _sender: Sender<VLanId>,
         component: SpComponent,
         action: ComponentAction,
-    ) -> Result<(), SpError> {
+    ) -> Result<ComponentActionResponse, SpError> {
         match (component, action) {
             (SpComponent::SYSTEM_LED, ComponentAction::Led(action)) => {
                 use gateway_messages::LedComponentAction;
@@ -615,7 +611,7 @@ impl SpHandler for MgsHandler {
                     LedComponentAction::Blink => self.user_leds.led_blink(0),
                 }
                 .unwrap();
-                Ok(())
+                Ok(ComponentActionResponse::Ack)
             }
             _ => Err(SpError::RequestUnsupportedForComponent),
         }
@@ -623,8 +619,6 @@ impl SpHandler for MgsHandler {
 
     fn update_chunk(
         &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
         chunk: UpdateChunk,
         data: &[u8],
     ) -> Result<(), SpError> {
@@ -651,8 +645,6 @@ impl SpHandler for MgsHandler {
 
     fn update_status(
         &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
         component: SpComponent,
     ) -> Result<UpdateStatus, SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdateStatus {
@@ -680,8 +672,6 @@ impl SpHandler for MgsHandler {
 
     fn update_abort(
         &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
         component: SpComponent,
         id: UpdateId,
     ) -> Result<(), SpError> {
@@ -708,19 +698,14 @@ impl SpHandler for MgsHandler {
         }
     }
 
-    fn power_state(
-        &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
-    ) -> Result<PowerState, SpError> {
+    fn power_state(&mut self) -> Result<PowerState, SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::GetPowerState));
         self.power_state_impl()
     }
 
     fn set_power_state(
         &mut self,
-        sender: SocketAddrV6,
-        port: SpPort,
+        sender: Sender<VLanId>,
         power_state: PowerState,
     ) -> Result<(), SpError> {
         use drv_gimlet_seq_api::PowerState as DrvPowerState;
@@ -728,7 +713,6 @@ impl SpHandler for MgsHandler {
             CRITICAL,
             CriticalEvent::SetPowerState {
                 sender,
-                port,
                 power_state,
                 ticks_since_boot: sys_get_timer().now,
             }
@@ -750,8 +734,7 @@ impl SpHandler for MgsHandler {
 
     fn serial_console_attach(
         &mut self,
-        sender: SocketAddrV6,
-        port: SpPort,
+        sender: Sender<VLanId>,
         component: SpComponent,
     ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleAttach));
@@ -770,8 +753,7 @@ impl SpHandler for MgsHandler {
         // TODO: Add some kind of auth check before allowing a serial console
         // attach. https://github.com/oxidecomputer/hubris/issues/723
         self.attached_serial_console_mgs = Some(AttachedSerialConsoleMgs {
-            address: sender,
-            port,
+            sender,
             last_keepalive_received: sys_get_timer().now,
         });
         self.serial_console_write_offset = 0;
@@ -788,8 +770,7 @@ impl SpHandler for MgsHandler {
 
     fn serial_console_write(
         &mut self,
-        sender: SocketAddrV6,
-        port: SpPort,
+        sender: Sender<VLanId>,
         mut offset: u64,
         mut data: &[u8],
     ) -> Result<u64, SpError> {
@@ -806,7 +787,7 @@ impl SpHandler for MgsHandler {
         self.attached_serial_console_mgs
             .as_mut()
             .ok_or(SpError::SerialConsoleNotAttached)?
-            .check_sender_and_update_keepalive(sender, port)?;
+            .check_sender_and_update_keepalive(sender)?;
 
         // Have we already received some or all of this data? (MGS may resend
         // packets that for which it hasn't received our ACK.)
@@ -832,8 +813,7 @@ impl SpHandler for MgsHandler {
 
     fn serial_console_keepalive(
         &mut self,
-        sender: SocketAddrV6,
-        port: SpPort,
+        sender: Sender<VLanId>,
     ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(
             MgsMessage::SerialConsoleKeepAlive
@@ -841,14 +821,13 @@ impl SpHandler for MgsHandler {
         self.attached_serial_console_mgs
             .as_mut()
             .ok_or(SpError::SerialConsoleNotAttached)?
-            .check_sender_and_update_keepalive(sender, port)?;
+            .check_sender_and_update_keepalive(sender)?;
         Ok(())
     }
 
     fn serial_console_detach(
         &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
+        _sender: Sender<VLanId>,
     ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleDetach));
         self.attached_serial_console_mgs = None;
@@ -857,20 +836,19 @@ impl SpHandler for MgsHandler {
 
     fn serial_console_break(
         &mut self,
-        sender: SocketAddrV6,
-        port: SpPort,
+        sender: Sender<VLanId>,
     ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleBreak));
         // TODO: same caveats as above!
         self.attached_serial_console_mgs
             .as_mut()
             .ok_or(SpError::SerialConsoleNotAttached)?
-            .check_sender_and_update_keepalive(sender, port)?;
+            .check_sender_and_update_keepalive(sender)?;
         self.usart.send_break();
         Ok(())
     }
 
-    fn num_devices(&mut self, _sender: SocketAddrV6, _port: SpPort) -> u32 {
+    fn num_devices(&mut self) -> u32 {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::Inventory));
         self.common.inventory().num_devices() as u32
     }
@@ -884,8 +862,6 @@ impl SpHandler for MgsHandler {
 
     fn get_startup_options(
         &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
     ) -> Result<gateway_messages::StartupOptions, SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::GetStartupOptions));
 
@@ -895,8 +871,6 @@ impl SpHandler for MgsHandler {
 
     fn set_startup_options(
         &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
         options: gateway_messages::StartupOptions,
     ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SetStartupOptions(
@@ -911,8 +885,6 @@ impl SpHandler for MgsHandler {
 
     fn num_component_details(
         &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
         component: SpComponent,
     ) -> Result<u32, SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::ComponentDetails {
@@ -932,8 +904,6 @@ impl SpHandler for MgsHandler {
 
     fn component_get_active_slot(
         &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
         component: SpComponent,
     ) -> Result<u16, SpError> {
         ringbuf_entry_root!(Log::MgsMessage(
@@ -950,8 +920,6 @@ impl SpHandler for MgsHandler {
 
     fn component_set_active_slot(
         &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
         component: SpComponent,
         slot: u16,
         persist: bool,
@@ -975,8 +943,6 @@ impl SpHandler for MgsHandler {
 
     fn component_clear_status(
         &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
         component: SpComponent,
     ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(
@@ -985,13 +951,7 @@ impl SpHandler for MgsHandler {
         Err(SpError::RequestUnsupportedForComponent)
     }
 
-    fn mgs_response_error(
-        &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
-        message_id: u32,
-        err: MgsError,
-    ) {
+    fn mgs_response_error(&mut self, message_id: u32, err: MgsError) {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::MgsError {
             message_id,
             err
@@ -1000,8 +960,7 @@ impl SpHandler for MgsHandler {
 
     fn mgs_response_host_phase2_data(
         &mut self,
-        _sender: SocketAddrV6,
-        port: SpPort,
+        sender: Sender<VLanId>,
         _message_id: u32,
         hash: [u8; 32],
         offset: u64,
@@ -1013,15 +972,18 @@ impl SpHandler for MgsHandler {
             data_len: data.len(),
         }));
 
-        self.host_phase2
-            .ingest_incoming_data(port, hash, offset, data);
+        self.host_phase2.ingest_incoming_data(
+            match sender.vid.cfg().port {
+                task_net_api::SpPort::One => GwSpPort::One,
+                task_net_api::SpPort::Two => GwSpPort::Two,
+            },
+            hash,
+            offset,
+            data,
+        );
     }
 
-    fn send_host_nmi(
-        &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
-    ) -> Result<(), SpError> {
+    fn send_host_nmi(&mut self) -> Result<(), SpError> {
         // This can only fail if the `gimlet-seq` server is dead; in that
         // case, send `Busy` because it should be rebooting.
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SendHostNmi));
@@ -1033,8 +995,6 @@ impl SpHandler for MgsHandler {
 
     fn set_ipcc_key_lookup_value(
         &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
         key: u8,
         value: &[u8],
     ) -> Result<(), SpError> {
@@ -1090,8 +1050,6 @@ impl SpHandler for MgsHandler {
 
     fn reset_component_prepare(
         &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
         component: SpComponent,
     ) -> Result<(), SpError> {
         self.common.reset_component_prepare(component)
@@ -1099,8 +1057,6 @@ impl SpHandler for MgsHandler {
 
     fn reset_component_trigger(
         &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
         component: SpComponent,
     ) -> Result<(), SpError> {
         self.common.reset_component_trigger(component)
@@ -1158,8 +1114,6 @@ impl SpHandler for MgsHandler {
 
     fn versioned_rot_boot_info(
         &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
         version: u8,
     ) -> Result<RotBootInfo, SpError> {
         self.common.versioned_rot_boot_info(version)

@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 cfg-if.workspace = true
+enum-map.workspace = true
 gateway-messages.workspace = true
 heapless.workspace = true
 idol-runtime.workspace = true
@@ -46,12 +47,14 @@ static-cell = { path = "../../lib/static-cell" }
 
 [build-dependencies]
 build-util = { path = "../../build/util" }
+anyhow = { workspace = true }
 idol = { workspace = true }
+serde = { workspace = true }
 
 [features]
 no-ipc-counters = ["idol/no-counters"]
 gimlet = ["drv-gimlet-hf-api", "drv-gimlet-seq-api", "drv-stm32h7-usart", "drv-user-leds-api"]
-sidecar = ["drv-sidecar-seq-api", "drv-monorail-api", "drv-ignition-api", "drv-transceivers-api"]
+sidecar = ["drv-sidecar-seq-api", "drv-monorail-api", "drv-ignition-api", "drv-transceivers-api" ]
 psc = ["drv-user-leds-api"]
 vpd = ["task-vpd-api"]
 vlan = ["task-net-api/vlan"]

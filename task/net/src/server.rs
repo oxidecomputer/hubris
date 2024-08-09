@@ -7,27 +7,55 @@ use crate::generated::{self, SOCKET_COUNT};
 use crate::notifications;
 use crate::{idl, link_local_iface_addr, MacAddressBlock};
 
-#[cfg(feature = "vlan")]
-use crate::generated::VLAN_RANGE;
-
 use drv_stm32h7_eth as eth;
+use enum_map::Enum;
 use idol_runtime::{ClientError, RequestError};
+use ringbuf::{counted_ringbuf, ringbuf_entry};
 use task_net_api::{
     KszError, KszMacTableEntry, LargePayloadBehavior, MacAddress,
     ManagementCounters, ManagementLinkStatus, MgmtError, PhyError, RecvError,
-    SendError, SocketName, UdpMetadata,
+    SendError, SocketName, TrustError, UdpMetadata, VLanId,
 };
+
+#[allow(dead_code)]
+#[derive(Copy, Clone, Eq, PartialEq, counters::Count)]
+enum Trace {
+    #[count(skip)]
+    None,
+    SetTrustUntil {
+        #[count(children)]
+        vid: VLanId,
+        until: u64,
+    },
+    SetDistrust {
+        #[count(children)]
+        vid: VLanId,
+    },
+    TrustExpired {
+        #[count(children)]
+        vid: VLanId,
+    },
+    SkipSendUntrustedPacket {
+        #[count(children)]
+        vid: VLanId,
+    },
+    SkipReceiveUntrustedPacket {
+        #[count(children)]
+        vid: VLanId,
+    },
+}
+counted_ringbuf!(Trace, 16, Trace::None);
 
 use core::iter::zip;
 use heapless::Vec;
 use smoltcp::iface::{Interface, SocketHandle, SocketStorage};
 use smoltcp::socket::udp;
 use smoltcp::wire::{EthernetAddress, Ipv6Cidr};
-use userlib::{sys_post, sys_refresh_task_id, UnwrapLite};
+use userlib::{sys_get_timer, sys_post, sys_refresh_task_id, UnwrapLite};
 use zerocopy::byteorder::U16;
 
 /// Implementation of the Net Idol interface.
-impl<B, E, const N: usize> idl::InOrderNetImpl for GenServerImpl<'_, B, E, N>
+impl<B, E> idl::InOrderNetImpl for GenServerImpl<'_, B, E>
 where
     B: bsp_support::Bsp,
     E: DeviceExt,
@@ -239,6 +267,51 @@ where
         let out = bsp.management_counters(eth).map_err(MgmtError::from)?;
         Ok(out)
     }
+
+    #[cfg(feature = "vlan")]
+    fn trust_vlan(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        vid: VLanId,
+        trust_until: u64,
+    ) -> Result<(), RequestError<TrustError>> {
+        ringbuf_entry!(Trace::SetTrustUntil {
+            vid,
+            until: trust_until
+        });
+        self.set_vlan_trust(vid, VLanTrust::TrustUntil(trust_until))
+            .map_err(RequestError::from)
+    }
+
+    #[cfg(feature = "vlan")]
+    fn distrust_vlan(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        vid: VLanId,
+    ) -> Result<(), RequestError<TrustError>> {
+        ringbuf_entry!(Trace::SetDistrust { vid });
+        self.set_vlan_trust(vid, VLanTrust::Distrust)
+            .map_err(RequestError::from)
+    }
+
+    #[cfg(not(feature = "vlan"))]
+    fn trust_vlan(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        _vid: VLanId,
+        _trust_until: u64,
+    ) -> Result<(), RequestError<TrustError>> {
+        Err(TrustError::NoSuchVLAN.into())
+    }
+
+    #[cfg(not(feature = "vlan"))]
+    fn distrust_vlan(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        _vid: VLanId,
+    ) -> Result<(), RequestError<TrustError>> {
+        Err(TrustError::NoSuchVLAN.into())
+    }
 }
 
 pub trait DeviceExt: smoltcp::phy::Device {
@@ -251,13 +324,13 @@ pub trait DeviceExt: smoltcp::phy::Device {
 }
 
 /// State for the running network server
-pub struct GenServerImpl<'a, B, E, const N: usize>
+pub struct GenServerImpl<'a, B, E>
 where
     E: DeviceExt,
 {
     eth: &'a eth::Ethernet,
 
-    vlan_state: [VLanState<E>; N],
+    vlan_state: enum_map::EnumMap<VLanId, VLanState<E>>,
     client_waiting_to_send: [bool; SOCKET_COUNT],
     bsp: B,
 
@@ -265,17 +338,47 @@ where
     spare_macs: MacAddressBlock,
 }
 
+/// Configuration
+#[cfg_attr(not(feature = "vlan"), allow(dead_code))]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum VLanTrust {
+    AlwaysTrust,
+    TrustUntil(u64),
+    Distrust,
+}
+
 struct VLanState<E>
 where
     E: DeviceExt,
 {
+    vid: VLanId, // used for logging
+
     socket_handles: [SocketHandle; SOCKET_COUNT],
     socket_set: smoltcp::iface::SocketSet<'static>,
     iface: &'static mut Interface,
     device: E,
+    trust: VLanTrust,
 
     /// Used to detect stuck queues (due to smoltcp#594)
     queue_watchdog: [QueueWatchdog; SOCKET_COUNT],
+}
+
+impl<E: DeviceExt> VLanState<E> {
+    fn check_trust(&mut self, now: u64) -> bool {
+        match self.trust {
+            VLanTrust::AlwaysTrust => true,
+            VLanTrust::Distrust => false,
+            VLanTrust::TrustUntil(t) => {
+                if now >= t {
+                    ringbuf_entry!(Trace::TrustExpired { vid: self.vid });
+                    self.trust = VLanTrust::Distrust;
+                    false
+                } else {
+                    true
+                }
+            }
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -336,7 +439,7 @@ impl<E: DeviceExt> VLanState<E> {
     }
 }
 
-impl<'a, B, E, const N: usize> GenServerImpl<'a, B, E, N>
+impl<'a, B, E> GenServerImpl<'a, B, E>
 where
     B: bsp_support::Bsp,
     E: DeviceExt,
@@ -346,19 +449,76 @@ where
         eth: &'a eth::Ethernet,
         mac_address_block: MacAddressBlock,
         bsp: B,
-        storage: &'static mut [Storage; N],
-        sockets: generated::Sockets<'static, N>,
-        mut mkdevice: impl FnMut(usize) -> E,
+        storage: &'static mut [Storage; VLanId::LENGTH],
+        sockets: generated::Sockets<'static, { VLanId::LENGTH }>,
+        mut mkdevice: impl FnMut(VLanId) -> E,
     ) -> Self {
         // Local storage; this will end up owned by the returned ServerImpl.
-        let mut vlan_state: Vec<VLanState<E>, N> = Vec::new();
+        let mut vlan_state: Vec<VLanState<E>, { VLanId::LENGTH }> = Vec::new();
 
         // Did you bring enough MAC addresses for everyone?
-        assert!(mac_address_block.count.get() as usize >= N);
+        assert!(
+            mac_address_block.count.get() as usize >= generated::PORT_COUNT
+        );
+
+        let mut port_to_mac: [[u8; 6]; generated::PORT_COUNT] =
+            Default::default();
         let mut mac: [u8; 6] = mac_address_block.base_mac;
+        for p in port_to_mac.iter_mut() {
+            *p = mac;
+
+            // Increment the MAC and IP addresses based on the stride in the
+            // configuration block, so that each port has a unique address.
+            //
+            // We only want to increment the lower 3 octets, leaving the OUI
+            // (top 3 octets) the same.
+            //
+            // It's a *little* awkward: We need a `[u8; 4]` to call
+            // `u32::from_be_bytes`, but only care about the lower 24 bits.
+            // To work around this, we include one octet of the OUI when
+            // converting into a `u32`, then mask the resulting value with
+            // `0xFFFFFF` afterwards.
+            let next_mac = (u32::from_be_bytes(mac[2..].try_into().unwrap())
+                & 0xFFFFFF)
+                + mac_address_block.stride as u32;
+
+            // Per https://github.com/oxidecomputer/oana/#mac-addresses, we
+            // reserve `F0:00:00` and above for software stuff if we're
+            // using the Oxide OUI
+            const OXIDE_OUI: [u8; 3] = [0xa8, 0x40, 0x25];
+            if mac[..3] == OXIDE_OUI && next_mac > 0xEFFFFF {
+                panic!("MAC overflow: {:?}", mac);
+            }
+
+            // Copy back into the (mutable) current MAC address
+            mac[3..].copy_from_slice(&next_mac.to_be_bytes()[1..]);
+        }
 
         // Each of these is replicated once per VID. Loop over them in lockstep.
         for (i, (sockets, storage)) in zip(sockets.0, storage).enumerate() {
+            #[cfg(feature = "vlan")]
+            let (vlan_id, mac, trust) = {
+                let vlan_id = VLanId::from_usize(i);
+                (
+                    vlan_id,
+                    port_to_mac[match vlan_id.cfg().port {
+                        task_net_api::SpPort::One => 0,
+                        task_net_api::SpPort::Two => 1,
+                    }],
+                    if vlan_id.cfg().always_trusted {
+                        VLanTrust::AlwaysTrust
+                    } else {
+                        VLanTrust::Distrust
+                    },
+                )
+            };
+
+            #[cfg(not(feature = "vlan"))]
+            let (vlan_id, mac, trust) = {
+                let _ = i; // avoid warnings about unused variable
+                (VLanId::None, port_to_mac[0], VLanTrust::AlwaysTrust)
+            };
+
             let mac_addr = EthernetAddress::from_bytes(&mac);
             let ipv6_addr = link_local_iface_addr(mac_addr);
 
@@ -367,7 +527,7 @@ where
 
             let mut config = smoltcp::iface::Config::new();
             config.hardware_addr = Some(mac_addr.into());
-            let mut device = mkdevice(i);
+            let mut device = mkdevice(vlan_id);
             let iface =
                 storage.iface.write(Interface::new(config, &mut device));
             iface.update_ip_addrs(|ip_addrs| {
@@ -388,50 +548,30 @@ where
 
             vlan_state
                 .push(VLanState {
+                    vid: vlan_id,
                     socket_handles,
                     iface,
                     device,
+                    trust,
                     socket_set,
                     queue_watchdog: [QueueWatchdog::Nominal; SOCKET_COUNT],
                 })
                 .unwrap_lite();
-
-            // Increment the MAC and IP addresses based on the stride in the
-            // configuration block, so that each VLAN has a unique address.
-            //
-            // We only want to increment the lower 3 octets, leaving the OUI
-            // (top 3 octets) the same.
-            //
-            // It's a *little* awkward:
-            // We need a `[u8; 4]` to call `u32::from_be_bytes`, but only care
-            // about the lower 24 bits. To work around this, we include one
-            // octet of the OUI when converting into a `u32`, then mask the
-            // resulting value with `0xFFFFFF` afterwards.
-            let next_mac = (u32::from_be_bytes(mac[2..].try_into().unwrap())
-                & 0xFFFFFF)
-                + mac_address_block.stride as u32;
-
-            // Per https://github.com/oxidecomputer/oana/#mac-addresses, we
-            // reserve `F0:00:00` and above for software stuff if we're using
-            // the Oxide OUI
-            const OXIDE_OUI: [u8; 3] = [0xa8, 0x40, 0x25];
-            if mac[..3] == OXIDE_OUI && next_mac > 0xEFFFFF {
-                panic!("MAC overflow: {:?}", mac);
-            }
-
-            // Copy back into the (mutable) current MAC address
-            mac[3..].copy_from_slice(&next_mac.to_be_bytes()[1..]);
         }
 
         Self {
             eth,
             client_waiting_to_send: [false; SOCKET_COUNT],
-            vlan_state: vlan_state.into_array().unwrap_lite(),
+            vlan_state: enum_map::EnumMap::from_array(
+                vlan_state.into_array().unwrap_lite(),
+            ),
             bsp,
             mac: EthernetAddress::from_bytes(&mac_address_block.base_mac),
             spare_macs: MacAddressBlock {
                 base_mac: mac,
-                count: U16::new(mac_address_block.count.get() - N as u16),
+                count: U16::new(
+                    mac_address_block.count.get() - VLanId::LENGTH as u16,
+                ),
                 stride: mac_address_block.stride,
             },
         }
@@ -442,7 +582,7 @@ where
         // Do not be tempted to use `Iterator::any` here, it short circuits and
         // we really do want to poll all of them.
         let mut ip = false;
-        for vlan in &mut self.vlan_state {
+        for vlan in self.vlan_state.values_mut() {
             ip |= vlan.iface.poll(
                 instant,
                 &mut vlan.device,
@@ -470,13 +610,13 @@ where
             // recv wake depends only on the state of the sockets.
             let recv_wake = self
                 .vlan_state
-                .iter_mut()
+                .values_mut()
                 .any(|v| v.get_socket_mut(i).unwrap().can_recv());
             // send wake only happens if the wait flag is set.
             let send_wake = self.client_waiting_to_send[i]
                 && self
                     .vlan_state
-                    .iter_mut()
+                    .values_mut()
                     .all(|v| v.get_socket_mut(i).unwrap().can_send());
 
             if recv_wake || send_wake {
@@ -519,10 +659,19 @@ where
         {
             return Err(ClientError::AccessViolation.fail());
         }
+        let now = sys_get_timer().now;
 
         // Iterate over all of the per-VLAN sockets, returning the first
         // available packet with a bonus `vid` tag attached in the metadata.
-        for vlan in &mut self.vlan_state {
+        for vlan in self.vlan_state.values_mut() {
+            // Decide whether to pass this packet to the socket, depending on
+            // whether we trust the VLAN or not.  Sockets can be configured to
+            // accept even untrusted packets (e.g. control_plane_agent needs to
+            // receive an unlock message).
+            let trust = vlan.check_trust(now)
+                | generated::SOCKET_ALLOW_UNTRUSTED[socket_index];
+            let vid = vlan.vid; // for logging
+
             let socket = vlan
                 .get_socket_mut(socket_index)
                 .ok_or(RequestError::Fail(ClientError::BadMessageContents))?;
@@ -530,6 +679,15 @@ where
             loop {
                 match socket.recv() {
                     Ok((body, endp)) => {
+                        // Drop packets from untrusted VLANs after receiving
+                        // them (to avoid clogging the queue)
+                        if !trust {
+                            ringbuf_entry!(Trace::SkipReceiveUntrustedPacket {
+                                vid
+                            });
+                            continue;
+                        }
+
                         if payload.len() < body.len() {
                             match large_payload_behavior {
                                 LargePayloadBehavior::Discard => continue,
@@ -577,18 +735,28 @@ where
             return Err(ClientError::AccessViolation.fail());
         }
 
-        #[cfg(feature = "vlan")]
-        let vlan_index = {
-            // Convert from absolute VID to an index in our VLAN array
-            if !VLAN_RANGE.contains(&metadata.vid) {
-                return Err(ClientError::BadMessageContents.fail());
-            }
-            usize::from(metadata.vid - VLAN_RANGE.start)
-        };
-        #[cfg(not(feature = "vlan"))]
-        let vlan_index = 0;
+        let now = userlib::sys_get_timer().now;
 
-        let vlan = &mut self.vlan_state[vlan_index];
+        #[cfg(feature = "vlan")]
+        let vlan = {
+            let vlan = &mut self.vlan_state[metadata.vid];
+            // Refuse to send messages directed to an untrusted VLAN, silently
+            // dropping them.
+            let trust = vlan.check_trust(now)
+                | generated::SOCKET_ALLOW_UNTRUSTED[socket_index];
+            if !trust {
+                #[cfg(feature = "vlan")]
+                ringbuf_entry!(Trace::SkipSendUntrustedPacket {
+                    vid: metadata.vid
+                });
+                return Ok(());
+            }
+            vlan
+        };
+
+        #[cfg(not(feature = "vlan"))]
+        let vlan = &mut self.vlan_state[VLanId::None];
+
         let socket = vlan
             .get_socket_mut(socket_index)
             .ok_or(RequestError::Fail(ClientError::BadMessageContents))?;
@@ -607,7 +775,6 @@ where
                 // Record a new QueueFull error if the socket had been working
                 // until now, or roll over into QueueFullTimeout if we've
                 // exceeded our timeout delay.
-                let now = userlib::sys_get_timer().now;
                 match vlan.queue_watchdog[socket_index] {
                     QueueWatchdog::Nominal => {
                         vlan.queue_watchdog[socket_index] =
@@ -636,10 +803,22 @@ where
             }
         }
     }
+
+    #[cfg(feature = "vlan")]
+    fn set_vlan_trust(
+        &mut self,
+        vid: VLanId,
+        t: VLanTrust,
+    ) -> Result<(), TrustError> {
+        if vid.cfg().always_trusted {
+            return Err(TrustError::AlwaysTrusted);
+        }
+        self.vlan_state[vid].trust = t;
+        Ok(())
+    }
 }
 
-impl<B, E, const N: usize> idol_runtime::NotificationHandler
-    for GenServerImpl<'_, B, E, N>
+impl<B, E> idol_runtime::NotificationHandler for GenServerImpl<'_, B, E>
 where
     E: DeviceExt,
 {

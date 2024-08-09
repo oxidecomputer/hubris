@@ -7,8 +7,8 @@
 
 use drv_sprot_api::SprotError;
 use gateway_messages::{
-    sp_impl, IgnitionCommand, MgsError, PowerState, SpComponent, SpPort,
-    UpdateId,
+    sp_impl::{self, Sender},
+    IgnitionCommand, MgsError, PowerState, SpComponent, UpdateId,
 };
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{
@@ -22,7 +22,7 @@ use task_control_plane_agent_api::{
 };
 use task_net_api::{
     Address, LargePayloadBehavior, Net, RecvError, SendError, SocketName,
-    UdpMetadata,
+    UdpMetadata, VLanId,
 };
 use userlib::{sys_set_timer, task_slot};
 
@@ -200,8 +200,7 @@ enum CriticalEvent {
     /// logs the sender, in case the request was unexpected, and the target
     /// state.
     SetPowerState {
-        sender: sp_impl::SocketAddrV6,
-        port: SpPort,
+        sender: Sender<VLanId>,
         power_state: PowerState,
         ticks_since_boot: u64,
     },
@@ -562,7 +561,7 @@ impl NetHandler {
         ringbuf_entry!(Log::Rx(meta));
 
         let Address::Ipv6(addr) = meta.addr;
-        let sender = gateway_messages::sp_impl::SocketAddrV6 {
+        let addr = gateway_messages::sp_impl::SocketAddrV6 {
             ip: addr.into(),
             port: meta.port,
         };
@@ -571,9 +570,12 @@ impl NetHandler {
         // `MgsHandler` implementation, and serializing the response we should
         // send into `self.tx_buf`.
         assert!(self.packet_to_send.is_none());
+        let sender = Sender {
+            addr,
+            vid: meta.vid,
+        };
         if let Some(n) = sp_impl::handle_message(
             sender,
-            sp_port_from_udp_metadata(&meta),
             &self.rx_buf[..meta.size as usize],
             mgs_handler,
             self.tx_buf,
@@ -581,29 +583,6 @@ impl NetHandler {
             meta.size = n as u32;
             self.packet_to_send = Some(meta);
         }
-    }
-}
-
-fn sp_port_from_udp_metadata(meta: &UdpMetadata) -> SpPort {
-    use task_net_api::VLAN_RANGE;
-    assert!(VLAN_RANGE.contains(&meta.vid));
-    assert_eq!(VLAN_RANGE.len(), 2);
-
-    match meta.vid - VLAN_RANGE.start {
-        0 => SpPort::One,
-        1 => SpPort::Two,
-        _ => unreachable!(),
-    }
-}
-
-#[allow(dead_code)]
-fn vlan_id_from_sp_port(port: SpPort) -> u16 {
-    use task_net_api::VLAN_RANGE;
-    assert_eq!(VLAN_RANGE.len(), 2);
-
-    match port {
-        SpPort::One => VLAN_RANGE.start,
-        SpPort::Two => VLAN_RANGE.start + 1,
     }
 }
 

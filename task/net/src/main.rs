@@ -60,7 +60,7 @@ mod idl {
     use task_net_api::{
         KszError, KszMacTableEntry, LargePayloadBehavior, MacAddress,
         MacAddressBlock, ManagementCounters, ManagementLinkStatus, MgmtError,
-        PhyError, SocketName, UdpMetadata,
+        PhyError, SocketName, UdpMetadata, VLanId,
     };
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
@@ -98,8 +98,8 @@ task_slot!(PACKRAT, packrat);
 ///
 /// This uses a hash of the chip ID and returns a block with starting MAC
 /// address of the form `0e:1d:XX:XX:XX:XX`.  The MAC address block has a stride
-/// of 1 and contains `VLAN_COUNT` MAC addresses (or 1, if we're running without
-/// VLANs enabled).
+/// of 1 and contains `VLanId::LENGTH` MAC addresses (or 1, if we're running
+/// without VLANs enabled).
 fn mac_address_from_uid(sys: &Sys) -> MacAddressBlock {
     let mut buf = [0u8; 6];
     let uid = sys.read_uid();
@@ -123,11 +123,7 @@ fn mac_address_from_uid(sys: &Sys) -> MacAddressBlock {
 
     MacAddressBlock {
         base_mac: buf,
-        #[cfg(feature = "vlan")]
-        count: U16::new(crate::generated::VLAN_COUNT.try_into().unwrap()),
-
-        #[cfg(not(feature = "vlan"))]
-        count: U16::new(1),
+        count: U16::new(crate::generated::PORT_COUNT.try_into().unwrap()),
         stride: 1,
     }
 }
