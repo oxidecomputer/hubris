@@ -1567,7 +1567,7 @@ fn build_kernel(
 /// Returns true if the header was found and updated,
 /// false otherwise.
 fn update_image_header(
-    cfg: &PackageConfig,
+    _cfg: &PackageConfig,
     input: &Path,
     output: &Path,
     map: &IndexMap<String, Range<u32>>,
@@ -1606,16 +1606,8 @@ fn update_image_header(
                 // `xtask build kernel`, we need a result from this calculation
                 // but `end` will be `None`. Substitute a placeholder:
                 let end = end.unwrap_or(flash.start);
-
                 let len = end - flash.start;
-
-                let header = abi::ImageHeader {
-                    version: cfg.toml.version,
-                    epoch: cfg.toml.epoch,
-                    magic: abi::HEADER_MAGIC,
-                    total_image_len: len,
-                    ..Default::default()
-                };
+                let header = abi::ImageHeader::new(len);
 
                 header
                     .write_to_prefix(

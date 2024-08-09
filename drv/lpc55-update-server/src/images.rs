@@ -184,7 +184,7 @@ impl TryFrom<&[u8]> for ImageVectorsLpc55 {
 /// the end of optional caboose and the beginning of the signature block.
 pub fn validate_header_block(
     header_access: &ImageAccess<'_>,
-) -> Result<(Option<Epoch>, u32), UpdateError> {
+) -> Result<u32, UpdateError> {
     let mut vectors = ImageVectorsLpc55::new_zeroed();
     let mut header = ImageHeader::new_zeroed();
 
@@ -211,17 +211,14 @@ pub fn validate_header_block(
     // Note that `ImageHeader.epoch` is used by rollback protection for early
     // rejection of invalid images.
     // TODO: Improve estimate of where the first executable instruction can be.
-    let (code_offset, epoch) = if header.magic == HEADER_MAGIC {
+    let code_offset = if header.magic == HEADER_MAGIC {
         if header.total_image_len != vectors.nxp_offset_to_specific_header {
             // ImageHeader disagrees with LPC55 vectors.
             return Err(UpdateError::InvalidHeaderBlock);
         }
-        (
-            IMAGE_HEADER_OFFSET + (core::mem::size_of::<ImageHeader>() as u32),
-            Some(Epoch::from(header.epoch)),
-        )
+        IMAGE_HEADER_OFFSET + (core::mem::size_of::<ImageHeader>() as u32)
     } else {
-        (IMAGE_HEADER_OFFSET, None)
+        IMAGE_HEADER_OFFSET
     };
 
     if vectors.nxp_image_length as usize > header_access.at_runtime().len() {
@@ -248,7 +245,7 @@ pub fn validate_header_block(
         return Err(UpdateError::InvalidHeaderBlock);
     }
 
-    Ok((epoch, vectors.nxp_offset_to_specific_header))
+    Ok(vectors.nxp_offset_to_specific_header)
 }
 
 /// Get the range of the caboose contained within an image if it exists.
@@ -265,7 +262,7 @@ pub fn caboose_slice(
     //
     // In this context, NoImageHeader actually means that the image
     // is not well formed.
-    let (_epoch, image_end_offset) = validate_header_block(image)
+    let image_end_offset = validate_header_block(image)
         .map_err(|_| RawCabooseError::NoImageHeader)?;
 
     // By construction, the last word of the caboose is its size as a `u32`
@@ -650,33 +647,17 @@ pub fn check_rollback_policy(
 fn get_image_epoch(
     image: &ImageAccess<'_>,
 ) -> Result<Option<Epoch>, UpdateError> {
-    let (header_epoch, _caboose_offset) = validate_header_block(image)?;
-
     if let Ok(span) = caboose_slice(image) {
         let mut block = [0u8; BLOCK_SIZE_BYTES];
         let caboose = block[0..span.len()].as_bytes_mut();
         image.read_bytes(span.start, caboose)?;
         let reader = CabooseReader::new(caboose);
-        let caboose_epoch = if let Ok(epoc) = reader.get(CABOOSE_TAG_EPOC) {
-            Some(Epoch::from(epoc))
+        if let Ok(epoc) = reader.get(CABOOSE_TAG_EPOC) {
+            Ok(Some(Epoch::from(epoc)))
         } else {
-            None
-        };
-        match (header_epoch, caboose_epoch) {
-            (None, None) => Ok(None),
-            (Some(header_epoch), None) => Ok(Some(header_epoch)),
-            (None, Some(caboose_epoch)) => Ok(Some(caboose_epoch)),
-            (Some(header_epoch), Some(caboose_epoch)) => {
-                if caboose_epoch == header_epoch {
-                    Ok(Some(caboose_epoch))
-                } else {
-                    // Epochs present in both and not matching is invalid.
-                    // The image will be rejected after epoch 0.
-                    Ok(Some(Epoch::from(0u32)))
-                }
-            }
+            Ok(None)
         }
     } else {
-        Ok(header_epoch)
+        Ok(None)
     }
 }

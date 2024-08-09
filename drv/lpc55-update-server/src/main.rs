@@ -289,13 +289,14 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
 
     // TODO(AJS): Remove this in favor of `status`, once SP code is updated.
     // This has ripple effects up through control-plane-agent.
+    /// Deprecated. The version and epoch are in the Caboose
     fn current_version(
         &mut self,
         _: &RecvMessage,
     ) -> Result<ImageVersion, RequestError<Infallible>> {
         Ok(ImageVersion {
-            epoch: HUBRIS_BUILD_EPOCH,
-            version: HUBRIS_BUILD_VERSION,
+            epoch: 0,
+            version: 0,
         })
     }
 
@@ -1312,7 +1313,6 @@ fn main() -> ! {
     }
 }
 
-include!(concat!(env!("OUT_DIR"), "/consts.rs"));
 include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
 mod idl {
     use super::{

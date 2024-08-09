@@ -24,10 +24,6 @@ struct RawConfig {
     board: String,
     chip: String,
     #[serde(default)]
-    epoch: u32,
-    #[serde(default)]
-    version: u32,
-    #[serde(default)]
     fwid: bool,
     memory: Option<String>,
     #[serde(default)]
@@ -50,8 +46,6 @@ pub struct Config {
     pub target: String,
     pub board: String,
     pub chip: String,
-    pub epoch: u32,
-    pub version: u32,
     pub fwid: bool,
     pub image_names: Vec<String>,
     pub signing: Option<RoTMfgSettings>,
@@ -174,8 +168,6 @@ impl Config {
             board: toml.board,
             image_names: img_names,
             chip: toml.chip,
-            epoch: toml.epoch,
-            version: toml.version,
             fwid: toml.fwid,
             signing: toml.signing,
             stacksize: toml.stacksize,
@@ -254,11 +246,6 @@ impl Config {
         let task_names =
             self.tasks.keys().cloned().collect::<Vec<_>>().join(",");
         env.insert("HUBRIS_TASKS".to_string(), task_names);
-        env.insert(
-            "HUBRIS_BUILD_VERSION".to_string(),
-            format!("{}", self.version),
-        );
-        env.insert("HUBRIS_BUILD_EPOCH".to_string(), format!("{}", self.epoch));
         env.insert("HUBRIS_BOARD".to_string(), self.board.to_string());
         env.insert(
             "HUBRIS_APP_TOML".to_string(),

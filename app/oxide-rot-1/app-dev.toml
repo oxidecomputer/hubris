@@ -8,8 +8,6 @@ board = "oxide-rot-1-selfsigned"
 chip = "../../chips/lpc55"
 stacksize = 1024
 image-names = ["a", "b"]
-epoch = 0
-version = 0
 fwid = true
 
 [kernel]

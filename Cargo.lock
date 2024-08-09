@@ -2953,8 +2953,8 @@ dependencies = [
 
 [[package]]
 name = "hubtools"
-version = "0.4.6"
-source = "git+https://github.com/oxidecomputer/hubtools#943c4bbe6b50d1ab635d085d6204895fb4154e79"
+version = "0.4.7"
+source = "git+https://github.com/oxidecomputer/hubtools#d38e22464c3991ffad8754020ad0dd533b7ccdde"
 dependencies = [
  "hex",
  "lpc55_areas",
