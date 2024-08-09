@@ -21,6 +21,15 @@ Interface(
             },
             reply: Simple("u32"),
         ),
+        "peek64": (
+            encoding: Hubpack,
+            args: {
+                "addr": (
+                    type: "u32",
+                ),
+            },
+            reply: Simple("u64"),
+        ),
         "poke16": (
             encoding: Hubpack,
             args: {
@@ -34,6 +43,14 @@ Interface(
             args: {
                 "addr": (type: "u32"),
                 "value": (type: "u32"),
+            },
+            reply: Simple("()"),
+        ),
+        "poke64": (
+            encoding: Hubpack,
+            args: {
+                "addr": (type: "u32"),
+                "value": (type: "u64"),
             },
             reply: Simple("()"),
         ),

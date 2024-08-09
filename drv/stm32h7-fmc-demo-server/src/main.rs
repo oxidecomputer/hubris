@@ -249,6 +249,16 @@ impl idl::InOrderFmcDemoImpl for ServerImpl {
         Ok(val)
     }
 
+    fn peek64(
+        &mut self,
+        _msg: &RecvMessage,
+        addr: u32,
+    ) -> Result<u64, RequestError<Infallible>> {
+        let ptr = addr as *const u64;
+        let val = unsafe { ptr.read_volatile() };
+        Ok(val)
+    }
+
     fn poke16(
         &mut self,
         _msg: &RecvMessage,
@@ -267,6 +277,17 @@ impl idl::InOrderFmcDemoImpl for ServerImpl {
         value: u32,
     ) -> Result<(), RequestError<Infallible>> {
         let ptr = addr as *mut u32;
+        unsafe { ptr.write_volatile(value) }
+        Ok(())
+    }
+
+    fn poke64(
+        &mut self,
+        _msg: &RecvMessage,
+        addr: u32,
+        value: u64,
+    ) -> Result<(), RequestError<Infallible>> {
+        let ptr = addr as *mut u64;
         unsafe { ptr.write_volatile(value) }
         Ok(())
     }
