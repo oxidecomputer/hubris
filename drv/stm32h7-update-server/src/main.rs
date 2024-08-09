@@ -416,13 +416,14 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         Ok(BLOCK_SIZE_BYTES)
     }
 
+    /// Deprecated. The version and epoch values are in the Caboose.
     fn current_version(
         &mut self,
         _: &RecvMessage,
     ) -> Result<ImageVersion, RequestError<Infallible>> {
         Ok(ImageVersion {
-            epoch: HUBRIS_BUILD_EPOCH,
-            version: HUBRIS_BUILD_VERSION,
+            epoch: 0,
+            version: 0,
         })
     }
 
@@ -569,7 +570,6 @@ fn main() -> ! {
     }
 }
 
-include!(concat!(env!("OUT_DIR"), "/consts.rs"));
 mod idl {
     use super::{CabooseError, ImageVersion, SlotId};
 

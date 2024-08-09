@@ -2672,7 +2672,7 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#1885b52b0601f4215c020cb17516c6a7fa1e2c9d"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#5fa00a08685adf5f7db7012589e927d39973b706"
 dependencies = [
  "bitflags 2.6.0",
  "hubpack",
@@ -2946,8 +2946,8 @@ dependencies = [
 
 [[package]]
 name = "hubtools"
-version = "0.4.6"
-source = "git+https://github.com/oxidecomputer/hubtools#943c4bbe6b50d1ab635d085d6204895fb4154e79"
+version = "0.4.7"
+source = "git+https://github.com/oxidecomputer/hubtools#d38e22464c3991ffad8754020ad0dd533b7ccdde"
 dependencies = [
  "hex",
  "lpc55_areas",
@@ -4816,7 +4816,6 @@ dependencies = [
  "drv-auxflash-api",
  "drv-caboose",
  "drv-caboose-pos",
- "drv-gimlet-hf-api",
  "drv-gimlet-seq-api",
  "drv-hf-api",
  "drv-ignition-api",
@@ -4958,8 +4957,8 @@ dependencies = [
  "byteorder",
  "cfg-if",
  "cortex-m",
- "drv-gimlet-hf-api",
  "drv-hash-api",
+ "drv-hf-api",
  "drv-i2c-api",
  "drv-lpc55-gpio-api",
  "drv-sp-ctrl-api",
