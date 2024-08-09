@@ -241,6 +241,13 @@ struct ServerImpl {
     reboot_state: Option<RebootState>,
     host_kv_storage: HostKeyValueStorage,
     hf_mux_state: Option<HfMuxState>,
+
+    /// Set when we receive a Boot Failed message from the host. This flag
+    /// changes the behavior in response to the next Request Reboot message. It
+    /// is cleared at Request Reboot, *or* at any of the messages sent during
+    /// host boot, to try and keep our state from getting out of sync for
+    /// whatever reason.
+    host_boot_just_failed: bool,
 }
 
 impl ServerImpl {
@@ -306,6 +313,8 @@ impl ServerImpl {
                 dtrace_conf_len: 0,
             },
             hf_mux_state: None,
+
+            host_boot_just_failed: false,
         }
     }
 
@@ -721,13 +730,24 @@ impl ServerImpl {
 
         // We defer any actions until after we've serialized our response to
         // avoid borrow checker issues with calling methods on `self`.
+        //
+        // NOTE: setting any action will also clear the `host_boot_just_failed`
+        // flag, to avoid keeping incorrect state around. Since we have no
+        // explicit way of tracking the host boot software's lifecycle, this is
+        // a compromise.
         let mut action = None;
+
         let response = match request {
             HostToSp::_Unused => {
                 Some(SpToHost::DecodeFailure(DecodeFailureReason::Deserialize))
             }
             HostToSp::RequestReboot => {
-                action = Some(Action::RebootHost);
+                if core::mem::take(&mut self.host_boot_just_failed) {
+                    // Do _not_ reboot. Reinterpret this as a poweroff request.
+                    action = Some(Action::PowerOffHost);
+                } else {
+                    action = Some(Action::RebootHost);
+                }
                 None
             }
             HostToSp::RequestPowerOff => {
@@ -797,6 +817,11 @@ impl ServerImpl {
                 for b in &mut self.host_kv_storage.last_boot_fail[n..] {
                     *b = 0;
                 }
+
+                // Record that this failure happened, which will change the
+                // behavior of the reboot request we expect to follow shortly.
+                self.host_boot_just_failed = true;
+
                 Some(SpToHost::Ack)
             }
             HostToSp::HostPanic { .. } => {
@@ -813,6 +838,10 @@ impl ServerImpl {
                 for b in &mut self.host_kv_storage.last_panic[n..] {
                     *b = 0;
                 }
+
+                // Neither set nor clear the host_boot_just_failed flag, for
+                // this message often immediately follows a boot failure.
+
                 Some(SpToHost::Ack)
             }
             HostToSp::GetStatus => {
@@ -908,6 +937,9 @@ impl ServerImpl {
         // Now that all buffer borrowing is done, we can borrow `self` mutably
         // again to perform any necessary action.
         if let Some(action) = action {
+            // Protectively clear this flag to avoid keeping state.
+            self.host_boot_just_failed = false;
+
             match action {
                 Action::RebootHost => self.power_off_host(true),
                 Action::PowerOffHost => self.power_off_host(false),
