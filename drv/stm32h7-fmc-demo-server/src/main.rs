@@ -22,8 +22,7 @@ use idol_runtime::{NotificationHandler, RequestError};
 
 task_slot!(SYS, sys);
 
-#[export_name = "main"]
-fn main() -> ! {
+fn initialize_hardware() {
     let sys = sys_api::Sys::from(SYS.get_task_id());
 
     // Alright. We assume, for these purposes, that the FMC clock generation is
@@ -174,7 +173,7 @@ fn main() -> ! {
     const DATLAT: u8 = 0;
     // FMC_CLK division ratio relative to input (AHB3) clock, minus 1. Range:
     // 1..=15.
-    const CLKDIV: u8 = 3; // /3, for 66.666 MHz
+    const CLKDIV: u8 = 3; // /4, for 50 MHz (field is divisor-minus-one)
 
     // Bus turnaround time in FMC_CLK cycles, 0..=15
     const BUSTURN: u8 = 0;
@@ -205,6 +204,17 @@ fn main() -> ! {
 
     // Turn on the controller.
     fmc.bcr1.modify(|_, w| w.fmcen().set_bit());
+}
+
+#[export_name = "main"]
+fn main() -> ! {
+    if cfg!(feature = "init-hw") {
+        initialize_hardware();
+    }
+
+    // Safety: we're materializing our sole pointer into the FMC controller
+    // space, which is fine even if it aliases (which it doesn't).
+    let fmc = unsafe { &*device::FMC::ptr() };
 
     // Fire up a server.
     let mut server = ServerImpl { fmc };
