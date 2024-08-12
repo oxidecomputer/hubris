@@ -66,17 +66,26 @@ fn main() -> ! {
     server.port_count = server.controller.port_count().unwrap_lite();
     ringbuf_entry!(Trace::PortCount(server.port_count));
 
-    // Set the `always_transmit` bit for each controller, causing each port to
-    // start transmitting whether or not a Target is present. This is disabled
-    // by default in order to not radiate out of empty cubbies, but for lab use
-    // this can help debugging link problems.
-    if cfg!(feature = "always-transmit") {
-        for port in 0..server.port_count.min(PORT_MAX) {
-            server
-                .controller
-                .set_always_transmit(port, true)
-                .unwrap_lite();
-        }
+    // Set the transmitter output enable mode bit for each controller. This
+    // determines if/when each port starts transmitting, useful for loopback
+    // testing and to avoid radiating out of empty cubbies. By default the
+    // transmitter output is only enabled when a link peer is observed.
+    //
+    // For lab use the transmitters are always enabled in order to avoid
+    // debugging/confusion caused by the transmitter remaining silent due to
+    // cable or receiver problems.
+    for port in 0..server.port_count.min(PORT_MAX) {
+        server
+            .controller
+            .set_transmitter_output_enable_mode(
+                port,
+                if cfg!(feature = "always-transmit") {
+                    TransmitterOutputEnableMode::AlwaysEnabled
+                } else {
+                    TransmitterOutputEnableMode::EnabledWhenReceiverAligned
+                },
+            )
+            .unwrap_lite();
     }
 
     // Set a timer in the past causing the presence state to be polled and
@@ -269,33 +278,33 @@ impl idl::InOrderIgnitionImpl for ServerImpl {
             .map_err(RequestError::from)
     }
 
-    fn always_transmit(
+    fn transmitter_output_enable_mode(
         &mut self,
         _: &userlib::RecvMessage,
         port: u8,
-    ) -> Result<bool, RequestError> {
+    ) -> Result<TransmitterOutputEnableMode, RequestError> {
         if port >= self.port_count {
             return Err(RequestError::from(IgnitionError::InvalidPort));
         }
 
         self.controller
-            .always_transmit(port)
+            .transmitter_output_enable_mode(port)
             .map_err(IgnitionError::from)
             .map_err(RequestError::from)
     }
 
-    fn set_always_transmit(
+    fn set_transmitter_output_enable_mode(
         &mut self,
         _: &userlib::RecvMessage,
         port: u8,
-        enabled: bool,
+        mode: TransmitterOutputEnableMode,
     ) -> Result<(), RequestError> {
         if port >= self.port_count {
             return Err(RequestError::from(IgnitionError::InvalidPort));
         }
 
         self.controller
-            .set_always_transmit(port, enabled)
+            .set_transmitter_output_enable_mode(port, mode)
             .map_err(IgnitionError::from)
             .map_err(RequestError::from)
     }

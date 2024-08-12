@@ -29,21 +29,27 @@ Interface(
                 err: CLike("drv_ignition_api::IgnitionError"),
             ),
         ),
-        "always_transmit": (
-            doc: "Return the whether or not the Controller port will transmit even if no Target present",
+        "transmitter_output_enable_mode": (
+            doc: "Return the output enable mode for the Controller port transmitter",
             args: {
                 "port": "u8",
             },
             reply: Result(
-                ok: "bool",
+                ok: (
+                    type: "drv_ignition_api::TransmitterOutputEnableMode",
+                    recv: FromPrimitive("u8"),
+                ),
                 err: CLike("drv_ignition_api::IgnitionError"),
             ),
         ),
-        "set_always_transmit": (
-            doc: "Set whether or not the Controller port will transmit even if no Target present",
+        "set_transmitter_output_enable_mode": (
+            doc: "Set the transmitter output enable mode for the given Controller port",
             args: {
                 "port": "u8",
-                "enabled": "bool",
+                "mode": (
+                    type: "drv_ignition_api::TransmitterOutputEnableMode",
+                    recv: FromPrimitive("u8"),
+                ),
             },
             reply: Result(
                 ok: "()",

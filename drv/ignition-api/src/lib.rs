@@ -104,22 +104,25 @@ impl Ignition {
         self.controller.port_state(port).map(Port::from)
     }
 
-    /// Return whether or not the port will always transmit even if no Target is
-    /// present.
+    /// Return the transmitter output enable mode for the given port. See the
+    /// type documentation for the different modes available.
     #[inline]
-    pub fn always_transmit(&self, port: u8) -> Result<bool, IgnitionError> {
-        self.controller.always_transmit(port)
-    }
-
-    /// Set whether or not the port will always transmit even if no Target is
-    /// present.
-    #[inline]
-    pub fn set_always_transmit(
+    pub fn transmitter_output_enable_mode(
         &self,
         port: u8,
-        enabled: bool,
+    ) -> Result<TransmitterOutputEnableMode, IgnitionError> {
+        self.controller.transmitter_output_enable_mode(port)
+    }
+
+    /// Set the transmitter output enable mode for the given port.
+    #[inline]
+    pub fn set_transmitter_output_enable_mode(
+        &self,
+        port: u8,
+        mode: TransmitterOutputEnableMode,
     ) -> Result<(), IgnitionError> {
-        self.controller.set_always_transmit(port, enabled)
+        self.controller
+            .set_transmitter_output_enable_mode(port, mode)
     }
 
     /// Return the `Target` for a given port if present.
@@ -150,6 +153,17 @@ impl Ignition {
         port: u8,
     ) -> Result<ApplicationCounters, IgnitionError> {
         self.controller.application_counters(port)
+    }
+
+    /// Return the `TransceiverCounters` for the given port and transceiver. See
+    /// `TransceiverSelect` for more details.
+    #[inline]
+    pub fn transceiver_counters(
+        &self,
+        port: u8,
+        txr: TransceiverSelect,
+    ) -> Result<TransceiverCounters, IgnitionError> {
+        self.controller.transceiver_counters(port, txr)
     }
 
     /// Return the `TransceiverEvents` for the given port and transceiver. See
@@ -264,10 +278,12 @@ impl PortState {
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Port {
-    /// The port is configured to transmit irrespective of Target presence.
-    pub always_transmit: bool,
     /// Receiver status of the Controller port.
     pub receiver_status: ReceiverStatus,
+    /// Flag indicating whether or not the transmitter output is enabled.
+    pub transmitter_output_enabled: bool,
+    /// Transmitter output enable mode. See type for details.
+    pub transmitter_output_enable_mode: TransmitterOutputEnableMode,
     /// State of the Target, if present. See `Target` for details.
     pub target: Option<Target>,
 }
@@ -279,11 +295,15 @@ impl From<PortState> for Port {
             != 0;
 
         Self {
-            // always_transmit: state.byte(Addr::CONTROLLER_STATE)
-            //     & Reg::CONTROLLER_STATE::ALWAYS_TRANSMIT
-            //     != 0,
-            always_transmit: false,
-            receiver_status: state.byte(Addr::TRANSCEIVER_STATE).into(),
+            receiver_status: (state.byte(Addr::TRANSCEIVER_STATE) & 0x7).into(),
+            transmitter_output_enabled: state.byte(Addr::TRANSCEIVER_STATE)
+                & 0x8
+                != 0,
+            transmitter_output_enable_mode: ((state
+                .byte(Addr::TRANSCEIVER_STATE)
+                >> 4)
+                & 0x3)
+                .into(),
             target: if target_present {
                 Some(Target::from(state))
             } else {
@@ -317,6 +337,62 @@ impl From<u8> for ReceiverStatus {
             aligned: r & RECEIVER_ALIGNED != 0,
             locked: r & RECEIVER_LOCKED != 0,
             polarity_inverted: r & RECEIVER_POLARITY_INVERTED != 0,
+        }
+    }
+}
+
+/// The `TransmitterOutputEnableMode` allow the state of the transmitter output
+/// enable of a Controller port to be controlled through software. This can be
+/// used when debugging the channel between two systems, is used during loopback
+/// testing during manufacturing and attempts to reduce EMI once deployed by
+/// keeping a Sidecar from radiating out of open connectors/cubbies.
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    From,
+    FromPrimitive,
+    ToPrimitive,
+    AsBytes,
+)]
+#[repr(u8)]
+pub enum TransmitterOutputEnableMode {
+    /// The transmitter output is disabled, independent of the receiver state.
+    #[default]
+    Disabled = 0,
+    /// The transmitter output is enabled when the receiver is aligned. This
+    /// enables the transmitter at the very first sign of a link peer being
+    /// present and requires receiving only a single K28.5 comma character. As a
+    /// result this mode is expected to enable the transmitter output even if
+    /// the link is (very) marginal or when two Controllers are connected
+    /// together.
+    EnabledWhenReceiverAligned = 1,
+    /// The transmitter output is enabled only when a Target is present. This
+    /// mode is more strict and requires several Status messages to be received
+    /// by the Controller before it will enable the transmitter output. In this
+    /// mode the transmitter will remain disabled if the port is connected to
+    /// another Controller.
+    EnabledWhenTargetPresent = 2,
+    /// The transmitter output is enabled, independent of the receiver state.
+    AlwaysEnabled = 3,
+}
+
+impl From<TransmitterOutputEnableMode> for u8 {
+    fn from(mode: TransmitterOutputEnableMode) -> Self {
+        mode as u8
+    }
+}
+
+impl From<u8> for TransmitterOutputEnableMode {
+    fn from(val: u8) -> Self {
+        match val {
+            1 => TransmitterOutputEnableMode::EnabledWhenReceiverAligned,
+            2 => TransmitterOutputEnableMode::EnabledWhenTargetPresent,
+            3 => TransmitterOutputEnableMode::AlwaysEnabled,
+            _ => TransmitterOutputEnableMode::Disabled,
         }
     }
 }
@@ -568,66 +644,61 @@ impl TransceiverEvents {
     pub const ALL: Self = Self::from_u8(0x3f);
 
     // Implement as const functions to allow use above.
-    const fn from_u8(_r: u8) -> Self {
-        // use Reg::CONTROLLER_LINK_EVENTS_SUMMARY::*;
-
-        // Self {
-        //     encoding_error: r & ENCODING_ERROR != 0,
-        //     decoding_error: r & DECODING_ERROR != 0,
-        //     ordered_set_invalid: r & ORDERED_SET_INVALID != 0,
-        //     message_version_invalid: r & MESSAGE_VERSION_INVALID != 0,
-        //     message_type_invalid: r & MESSAGE_TYPE_INVALID != 0,
-        //     message_checksum_invalid: r & MESSAGE_CHECKSUM_INVALID != 0,
-        // }
-
+    const fn from_u8(value: u8) -> Self {
         Self {
-            encoding_error: false,
-            decoding_error: false,
-            ordered_set_invalid: false,
-            message_version_invalid: false,
-            message_type_invalid: false,
-            message_checksum_invalid: false,
+            encoding_error: value & 1 << 0 != 0,
+            decoding_error: value & 1 << 1 != 0,
+            ordered_set_invalid: value & 1 << 2 != 0,
+            message_version_invalid: value & 1 << 3 != 0,
+            message_type_invalid: value & 1 << 4 != 0,
+            message_checksum_invalid: value & 1 << 5 != 0,
         }
     }
 }
 
 impl From<u8> for TransceiverEvents {
-    fn from(reg: u8) -> Self {
-        Self::from_u8(reg)
+    fn from(value: u8) -> Self {
+        Self::from_u8(value)
+    }
+}
+
+impl From<TransceiverCounters> for TransceiverEvents {
+    fn from(counters: TransceiverCounters) -> Self {
+        Self {
+            encoding_error: counters.encoding_error != 0,
+            decoding_error: counters.decoding_error != 0,
+            ordered_set_invalid: counters.ordered_set_invalid != 0,
+            message_version_invalid: counters.message_version_invalid != 0,
+            message_type_invalid: counters.message_type_invalid != 0,
+            message_checksum_invalid: counters.message_checksum_invalid != 0,
+        }
     }
 }
 
 impl From<TransceiverEvents> for u8 {
-    fn from(_events: TransceiverEvents) -> u8 {
-        // use Reg::CONTROLLER_LINK_EVENTS_SUMMARY::*;
-
-        // 0u8 | if events.encoding_error {
-        //     ENCODING_ERROR
-        // } else {
-        //     0
-        // } | if events.decoding_error {
-        //     DECODING_ERROR
-        // } else {
-        //     0
-        // } | if events.ordered_set_invalid {
-        //     ORDERED_SET_INVALID
-        // } else {
-        //     0
-        // } | if events.message_version_invalid {
-        //     MESSAGE_VERSION_INVALID
-        // } else {
-        //     0
-        // } | if events.message_type_invalid {
-        //     MESSAGE_TYPE_INVALID
-        // } else {
-        //     0
-        // } | if events.message_checksum_invalid {
-        //     MESSAGE_CHECKSUM_INVALID
-        // } else {
-        //     0
-        // }
-
-        0u8
+    fn from(events: TransceiverEvents) -> u8 {
+        0u8 | if events.encoding_error { 1 << 0 } else { 0 }
+            | if events.decoding_error { 1 << 1 } else { 0 }
+            | if events.ordered_set_invalid {
+                1 << 2
+            } else {
+                0
+            }
+            | if events.message_version_invalid {
+                1 << 3
+            } else {
+                0
+            }
+            | if events.message_type_invalid {
+                1 << 4
+            } else {
+                0
+            }
+            | if events.message_checksum_invalid {
+                1 << 5
+            } else {
+                0
+            }
     }
 }
 

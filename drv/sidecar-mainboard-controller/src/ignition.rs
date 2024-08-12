@@ -100,36 +100,36 @@ impl IgnitionController {
         .map(PortState::from)
     }
 
-    /// Return if the given port transmits even if no Target is present.
+    /// Return the transmitter output enable mode for the given Controller port.
     #[inline]
-    pub fn always_transmit(&self, _port: u8) -> Result<bool, FpgaError> {
-        // Ok(self.read_port_register::<u8>(
-        //     port,
-        //     IgnitionPageAddr::CONTROLLER_STATE,
-        // )? & Reg::CONTROLLER_STATE::ALWAYS_TRANSMIT
-        //     != 0)
-        Ok(false)
+    pub fn transmitter_output_enable_mode(
+        &self,
+        port: u8,
+    ) -> Result<TransmitterOutputEnableMode, FpgaError> {
+        let val = self.read_port_register::<u8>(
+            port,
+            IgnitionPageAddr::TRANSCEIVER_STATE,
+        )? >> 4;
+
+        if val < 4 {
+            Ok(TransmitterOutputEnableMode::from(val))
+        } else {
+            Err(FpgaError::InvalidValue)
+        }
     }
 
-    /// Set whether or not the given port should transmit even if no Target is
-    /// present.
+    /// Set the transmitter output enable mode for the given Controller port.
     #[inline]
-    pub fn set_always_transmit(
+    pub fn set_transmitter_output_enable_mode(
         &self,
-        _port: u8,
-        _enabled: bool,
+        port: u8,
+        mode: TransmitterOutputEnableMode,
     ) -> Result<(), FpgaError> {
-        // self.update_port_register(
-        //     if enabled {
-        //         WriteOp::BitSet
-        //     } else {
-        //         WriteOp::BitClear
-        //     },
-        //     port,
-        //     Addr::CONTROLLER_STATE,
-        //     Reg::CONTROLLER_STATE::ALWAYS_TRANSMIT,
-        // )
-        Ok(())
+        self.write_port_register(
+            port,
+            IgnitionPageAddr::TRANSCEIVER_STATE,
+            u8::from(mode) << 4,
+        )
     }
 
     /// Return the application counters for the given port.
@@ -181,39 +181,9 @@ impl IgnitionController {
         port: u8,
         txr: TransceiverSelect,
     ) -> Result<u8, FpgaError> {
-        let counters = self.transceiver_counters(port, txr)?;
-
-        Ok(0u8
-            | if counters.encoding_error > 0 {
-                1 << 0
-            } else {
-                0
-            }
-            | if counters.decoding_error > 0 {
-                1 << 1
-            } else {
-                0
-            }
-            | if counters.ordered_set_invalid > 0 {
-                1 << 2
-            } else {
-                0
-            }
-            | if counters.message_version_invalid > 8 {
-                1 << 3
-            } else {
-                0
-            }
-            | if counters.message_type_invalid > 8 {
-                1 << 4
-            } else {
-                0
-            }
-            | if counters.message_checksum_invalid > 8 {
-                1 << 5
-            } else {
-                0
-            })
+        self.transceiver_counters(port, txr)
+            .map(TransceiverEvents::from)
+            .map(Into::into)
     }
 
     /// Clear the events for the given port, link.
@@ -223,7 +193,7 @@ impl IgnitionController {
         port: u8,
         txr: TransceiverSelect,
     ) -> Result<(), FpgaError> {
-        let _ = self.transceiver_events(port, txr)?;
+        let _ = self.transceiver_counters(port, txr)?;
         Ok(())
     }
 
