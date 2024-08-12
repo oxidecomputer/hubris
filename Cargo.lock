@@ -6,7 +6,7 @@ version = 3
 name = "abi"
 version = "0.1.0"
 dependencies = [
- "bitflags 2.5.0",
+ "bitflags 2.6.0",
  "byteorder",
  "phash",
  "serde",
@@ -193,9 +193,9 @@ checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
 name = "bitflags"
-version = "2.5.0"
+version = "2.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf4b9d6a944f767f8e5e0db018570623c85f3d925ac718db4e06d0187adb21c1"
+checksum = "b048fb63fd8b5923fc5aa7b340d8e156aec7ec02f0c78fa8a6ddc2613f6f71de"
 
 [[package]]
 name = "bitvec"
@@ -252,7 +252,7 @@ dependencies = [
 name = "build-kconfig"
 version = "0.1.0"
 dependencies = [
- "bitflags 2.5.0",
+ "bitflags 2.6.0",
  "serde",
 ]
 
@@ -278,6 +278,10 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "build-util",
+ "convert_case",
+ "indexmap 1.9.1",
+ "proc-macro2",
+ "quote",
  "serde",
 ]
 
@@ -779,9 +783,9 @@ dependencies = [
 
 [[package]]
 name = "digest"
-version = "0.10.6"
+version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8168378f4e5023e7218c89c891c0fd8ecdb5e5e4f18cb78f38cf245dd021e76f"
+checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
 dependencies = [
  "block-buffer",
  "const-oid",
@@ -1391,7 +1395,7 @@ dependencies = [
 name = "drv-mb85rsxx-fram"
 version = "0.1.0"
 dependencies = [
- "bitflags 2.5.0",
+ "bitflags 2.6.0",
  "counters",
  "drv-spi-api",
 ]
@@ -2093,7 +2097,7 @@ dependencies = [
 name = "drv-stm32xx-sys"
 version = "0.1.0"
 dependencies = [
- "bitflags 2.5.0",
+ "bitflags 2.6.0",
  "build-stm32xx-sys",
  "build-util",
  "cfg-if",
@@ -2316,22 +2320,22 @@ dependencies = [
 
 [[package]]
 name = "enum-map"
-version = "2.4.1"
+version = "2.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5a56d54c8dd9b3ad34752ed197a4eb2a6601bc010808eb097a04a58ae4c43e1"
+checksum = "6866f3bfdf8207509a033af1a75a7b08abda06bbaaeae6669323fd5a097df2e9"
 dependencies = [
  "enum-map-derive",
 ]
 
 [[package]]
 name = "enum-map-derive"
-version = "0.10.0"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9045e2676cd5af83c3b167d917b0a5c90a4d8e266e2683d6631b235c457fc27"
+checksum = "f282cfdfe92516eb26c2af8589c274c7c17681f5ecc03c18255fe741c6aa64eb"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 1.0.94",
+ "syn 2.0.52",
 ]
 
 [[package]]
@@ -2415,11 +2419,12 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#c85a4ca043aaa389df12aac5348d8a3feda28762"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#9d731fdb64609b0aafabb348552d8866010c107c"
 dependencies = [
- "bitflags 2.5.0",
+ "bitflags 2.6.0",
  "hubpack",
  "serde",
+ "serde-big-array 0.5.1",
  "serde_repr",
  "smoltcp",
  "static_assertions",
@@ -2443,9 +2448,9 @@ dependencies = [
 
 [[package]]
 name = "generic-array"
-version = "0.14.6"
+version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bff49e947297f3312447abdca79f45f4738097cc82b06e72054d2223f601f1b9"
+checksum = "85649ca51fd72272d7821adaf274ad91c288277713d9c18820d8499a7ff69e9a"
 dependencies = [
  "typenum",
  "version_check",
@@ -2629,7 +2634,7 @@ dependencies = [
 name = "host-sp-messages"
 version = "0.1.0"
 dependencies = [
- "bitflags 2.5.0",
+ "bitflags 2.6.0",
  "counters",
  "drv-i2c-types",
  "fletcher",
@@ -2855,7 +2860,7 @@ dependencies = [
  "abi",
  "anyhow",
  "armv8-m-mpu",
- "bitflags 2.5.0",
+ "bitflags 2.6.0",
  "build-kconfig",
  "build-util",
  "byteorder",
@@ -4007,9 +4012,9 @@ dependencies = [
 
 [[package]]
 name = "sha2"
-version = "0.10.6"
+version = "0.10.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82e6b795fe2e3b1e845bafcb27aa35405c4d47cdfc92af5fc8d3002f76cebdc0"
+checksum = "793db75ad2bcafc3ffa7c68b215fee268f537982cd901d132f89c6343f3a3dc8"
 dependencies = [
  "cfg-if",
  "cpufeatures",
@@ -4103,9 +4108,9 @@ dependencies = [
 
 [[package]]
 name = "spki"
-version = "0.7.1"
+version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37a5be806ab6f127c3da44b7378837ebf01dadca8510a0e572460216b228bd0e"
+checksum = "d91ed6c858b01f942cd56b37a94b3e0a1798290327d1236e4d9cf4eaca44d29d"
 dependencies = [
  "base64ct",
  "der",
@@ -4351,6 +4356,7 @@ dependencies = [
 name = "task-control-plane-agent"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "build-util",
  "cfg-if",
  "counters",
@@ -4369,6 +4375,7 @@ dependencies = [
  "drv-transceivers-api",
  "drv-update-api",
  "drv-user-leds-api",
+ "enum-map",
  "gateway-messages",
  "heapless",
  "host-sp-messages",
@@ -4709,6 +4716,7 @@ dependencies = [
  "counters",
  "derive-idol-err",
  "drv-spi-api",
+ "enum-map",
  "hubpack",
  "idol",
  "idol-runtime",
@@ -4952,7 +4960,7 @@ name = "task-thermal"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bitflags 2.5.0",
+ "bitflags 2.6.0",
  "build-i2c",
  "build-util",
  "cortex-m",
@@ -5013,6 +5021,7 @@ dependencies = [
 name = "task-udpbroadcast"
 version = "0.1.0"
 dependencies = [
+ "enum-map",
  "hubpack",
  "idol",
  "num-traits",
@@ -5442,7 +5451,7 @@ name = "transceiver-messages"
 version = "0.1.1"
 source = "git+https://github.com/oxidecomputer/transceiver-control/#0a18f231372069b74b72f1756e2337186e888dc0"
 dependencies = [
- "bitflags 2.5.0",
+ "bitflags 2.6.0",
  "hubpack",
  "serde",
 ]
@@ -5505,9 +5514,9 @@ dependencies = [
 
 [[package]]
 name = "uuid"
-version = "1.8.0"
+version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a183cf7feeba97b4dd1c0d46788634f6221d87fa961b305bed08c851829efcc0"
+checksum = "81dfa00651efa65069b0b6b651f4aaa31ba9e3c3ce0137aaad053604ee7e0314"
 
 [[package]]
 name = "vcell"

@@ -9,20 +9,21 @@
 
 use drv_stm32h7_eth as eth;
 
+use enum_map::Enum;
 use mutable_statics::mutable_statics;
-use task_net_api::UdpMetadata;
+use task_net_api::{UdpMetadata, VLanId, VLAN_VIDS};
 
 use crate::bsp_support;
-use crate::generated::{self, VLAN_COUNT, VLAN_RANGE};
+use crate::generated::{self};
 use crate::{
     server::{DeviceExt, GenServerImpl, Storage},
     MacAddressBlock,
 };
 
 /// Grabs references to the server storage arrays.  Can only be called once!
-fn claim_server_storage_statics() -> &'static mut [Storage; VLAN_COUNT] {
+fn claim_server_storage_statics() -> &'static mut [Storage; VLanId::LENGTH] {
     mutable_statics! {
-        static mut STORAGE: [Storage; VLAN_COUNT] = [Default::default; _];
+        static mut STORAGE: [Storage; VLanId::LENGTH] = [Default::default; _];
     }
 }
 
@@ -30,7 +31,7 @@ fn claim_server_storage_statics() -> &'static mut [Storage; VLAN_COUNT] {
 
 pub struct VLanEthernet<'a> {
     pub eth: &'a eth::Ethernet,
-    pub vid: u16,
+    pub vid: VLanId,
 }
 
 impl<'a> smoltcp::phy::Device for VLanEthernet<'a> {
@@ -41,11 +42,9 @@ impl<'a> smoltcp::phy::Device for VLanEthernet<'a> {
         &mut self,
         _timestamp: smoltcp::time::Instant,
     ) -> Option<(Self::RxToken<'a>, Self::TxToken<'a>)> {
-        if self.eth.vlan_can_recv(self.vid, VLAN_RANGE) && self.eth.can_send() {
-            Some((
-                VLanRxToken(self.eth, self.vid),
-                VLanTxToken(self.eth, self.vid),
-            ))
+        let vid = self.vid.cfg().vid;
+        if self.eth.vlan_can_recv(vid, &VLAN_VIDS) && self.eth.can_send() {
+            Some((VLanRxToken(self.eth, vid), VLanTxToken(self.eth, vid)))
         } else {
             None
         }
@@ -54,8 +53,9 @@ impl<'a> smoltcp::phy::Device for VLanEthernet<'a> {
         &mut self,
         _timestamp: smoltcp::time::Instant,
     ) -> Option<Self::TxToken<'a>> {
+        let vid = self.vid.cfg().vid;
         if self.eth.can_send() {
-            Some(VLanTxToken(self.eth, self.vid))
+            Some(VLanTxToken(self.eth, vid))
         } else {
             None
         }
@@ -107,7 +107,7 @@ impl<'a> smoltcp::phy::TxToken for VLanTxToken<'a> {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-pub type ServerImpl<'a, B> = GenServerImpl<'a, B, VLanEthernet<'a>, VLAN_COUNT>;
+pub type ServerImpl<'a, B> = GenServerImpl<'a, B, VLanEthernet<'a>>;
 
 pub fn new<B>(
     eth: &eth::Ethernet,
@@ -123,9 +123,6 @@ where
         bsp,
         claim_server_storage_statics(),
         generated::construct_sockets(),
-        |i| VLanEthernet {
-            eth,
-            vid: generated::VLAN_RANGE.start + i as u16,
-        },
+        |vid| VLanEthernet { eth, vid },
     )
 }

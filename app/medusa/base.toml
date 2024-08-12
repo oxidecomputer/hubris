@@ -228,8 +228,17 @@ notifications = ["socket"]
 #
 # Net
 #
-[config.net]
-vlan = { start = 0x301, count = 2 }
+
+# VLAN configuration
+[config.net.vlans.sidecar1]
+vid = 0x301
+trusted = true
+port = 1
+
+[config.net.vlans.sidecar2]
+vid = 0x302
+trusted = true
+port = 2
 
 [config.net.sockets.echo]
 kind = "udp"

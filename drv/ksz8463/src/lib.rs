@@ -43,6 +43,23 @@ pub enum VLanMode {
     /// Reject tagged frames on ingress into ports 1 and 2.
     Mandatory,
 
+    /// This is a tricky one!
+    ///
+    /// Ports 1 (to the local Sidecar) and 3 (to the SP) require tagged frames.
+    ///
+    /// Port 1 is associated with VLANs 0x12C, 0x12D, and 0x130, corresponding
+    /// to the two tech ports and the Tofino respectively.  These sources are
+    /// all local to the Sidecar itself, and we want to distinguish between
+    /// them.
+    ///
+    /// Port 2 requires untagged frames, which are assigned to VID 0x302.  This
+    /// is the connection to the rest of the management network, which is an
+    /// untagged backplane.
+    ///
+    /// Port 3 requires tagged frames, which can be any of the above VIDs
+    /// (because they're all heading to the SP)
+    Sidecar,
+
     /// Don't do any configuration of the VLANs.
     Off,
 }
@@ -53,6 +70,33 @@ pub enum Mode {
     /// 100BASE-FX mode
     Fiber,
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// NOTE: these VLAN VIDs should match the configuration in the TOML file
+
+/// VLAN for packets arriving on tech port 1
+const TP1_VID: u16 = 0x12C;
+
+/// VLAN for packets arriving on tech port 2
+const TP2_VID: u16 = 0x12D;
+
+/// VLAN for packets arriving from the Tofino
+const TOFINO_VID: u16 = 0x130;
+
+/// VLAN for packets arriving from the local Sidecar's network
+///
+/// This is mutually exclusive with [`TP1_VID`] / [`TP2_VID`] / [`TOFINO_VID`];
+/// depending on how the VSC7448 is configured.
+const LOCAL_SIDECAR_VID: u16 = 0x301;
+
+/// VLAN for packets arriving from the peer Sidecar's network
+const PEER_SIDECAR_VID: u16 = 0x302;
+
+/// VID used to drop packets
+///
+/// If an untagged packet arrives on a port that expects tagged packets, it is
+/// classified to this VLAN then dropped.
+const INVALID_VID: u16 = 0x3FF;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -111,6 +155,30 @@ pub struct KszRawMacTableEntry {
 
 pub struct Ksz8463<S: SpiServer> {
     spi: SpiDevice<S>,
+}
+
+/// KSZ port with a PHY
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum KszPhyPort {
+    One,
+    Two,
+}
+
+/// Any KSZ port
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum KszPort {
+    One,
+    Two,
+    Three,
+}
+
+impl From<KszPhyPort> for KszPort {
+    fn from(p: KszPhyPort) -> KszPort {
+        match p {
+            KszPhyPort::One => KszPort::One,
+            KszPhyPort::Two => KszPort::Two,
+        }
+    }
 }
 
 impl<S: SpiServer> Ksz8463<S> {
@@ -185,14 +253,13 @@ impl<S: SpiServer> Ksz8463<S> {
     /// function will panic.
     pub fn read_mib_counter(
         &self,
-        port: u8,
+        port: KszPort,
         offset: MIBCounter,
     ) -> Result<MIBCounterValue, Error> {
         let b = match port {
-            1 => 0x0,
-            2 => 0x20,
-            3 => 0x40,
-            _ => panic!("Invalid port {}", port),
+            KszPort::One => 0x0,
+            KszPort::Two => 0x20,
+            KszPort::Three => 0x40,
         };
         // Request counter with given offset.
         self.write(
@@ -328,6 +395,39 @@ impl<S: SpiServer> Ksz8463<S> {
         self.write(Register::IACR, 0x400 | u16::from(table_entry))
     }
 
+    /// Configure the given port as untagged
+    ///
+    /// An untagged port will drop tagged ingress packets (to prevent
+    /// shenanigans) and will strip tags on egress.
+    fn configure_untagged(&self, port: KszPort, vid: u16) -> Result<(), Error> {
+        self.modify(Register::PxCR1(port), |r| {
+            *r |= 1 << 9; // Drop tagged ingress packets
+            *r |= 1 << 1; // Remove tags on egress
+        })?;
+        self.write(Register::PxVIDCR(port), vid)?;
+
+        Ok(())
+    }
+
+    /// Configures the given port as tagged
+    ///
+    /// Tagged ports will drop packets with invalid tags
+    fn configure_tagged(&self, port: KszPort) -> Result<(), Error> {
+        // Insert tags before egress
+        self.modify(Register::PxCR1(port), |r| *r |= 1 << 2)?;
+
+        // Untagged packets arriving on this port will be assigned to an invalid
+        // VID, which includes no ports.
+        self.write(Register::PxVIDCR(port), INVALID_VID)?;
+
+        // This will cause them to drop packets that have invalid
+        // tags (and untagged frames will be assigned 0x3FF then
+        // unceremoniously dropped).
+        self.modify(Register::PxCR2(port), |r| *r |= 1 << 14)?;
+
+        Ok(())
+    }
+
     /// Configures the KSZ8463 switch in 100BASE-FX mode.
     pub fn configure(
         &self,
@@ -367,20 +467,20 @@ impl<S: SpiServer> Ksz8463<S> {
                 //
                 // This uses slots 0-2 in the table, and FID 0-2 (same as slot),
                 // then disables the remaining slots in the VLAN table.
-                self.write_vlan_table(0, 0b101, 0x301)?;
-                self.write_vlan_table(1, 0b110, 0x302)?;
-                self.write_vlan_table(2, 0b111, 0x3FF)?;
+                self.write_vlan_table(0, 0b101, LOCAL_SIDECAR_VID)?;
+                self.write_vlan_table(1, 0b110, PEER_SIDECAR_VID)?;
+                self.write_vlan_table(2, 0b111, INVALID_VID)?;
                 for i in 3..16 {
                     self.disable_vlan(i)?;
                 }
 
                 // Assign default VLAN tags to each port
-                self.write(Register::P1VIDCR, 0x301)?;
-                self.write(Register::P2VIDCR, 0x302)?;
-                self.write(Register::P3VIDCR, 0x3FF)?;
+                self.write(Register::P1VIDCR, LOCAL_SIDECAR_VID)?;
+                self.write(Register::P2VIDCR, PEER_SIDECAR_VID)?;
+                self.write(Register::P3VIDCR, INVALID_VID)?;
 
                 // Enable ingress VLAN filtering on upstream ports
-                for i in [1, 2] {
+                for i in [KszPort::One, KszPort::Two] {
                     self.modify(Register::PxCR2(i), |r| *r |= 1 << 14)?;
                 }
 
@@ -399,43 +499,66 @@ impl<S: SpiServer> Ksz8463<S> {
                 // This uses slots 0-2 in the table, and FID 0-2 (same as
                 // slot); all other VLANs are disabled (in particular, VLAN
                 // with VID 1, which by default includes all ports).
-                self.write_vlan_table(0, 0b101, 0x301)?;
-                self.write_vlan_table(1, 0b110, 0x302)?;
-                self.write_vlan_table(2, 0b000, 0x3FF)?;
+                self.write_vlan_table(0, 0b101, LOCAL_SIDECAR_VID)?;
+                self.write_vlan_table(1, 0b110, PEER_SIDECAR_VID)?;
+                self.write_vlan_table(2, 0b000, INVALID_VID)?;
                 for i in 3..16 {
                     self.disable_vlan(i)?;
                 }
 
-                // Assign default VLAN tags to each port
-                self.write(Register::P1VIDCR, 0x301)?;
-                self.write(Register::P2VIDCR, 0x302)?;
-                self.write(Register::P3VIDCR, 0x3FF)?;
+                // Mark both upstream ports as untagged and configure the VLAN
+                // ID that is assigned to them on ingress.
+                self.configure_untagged(KszPort::One, LOCAL_SIDECAR_VID)?;
+                self.configure_untagged(KszPort::Two, PEER_SIDECAR_VID)?;
 
-                // Enable tag removal on both ports
-                for i in [1, 2] {
-                    // For upstream ports, drop tagged ingress packets and
-                    // remove tags on packet egress.  This is because there
-                    // should be no VLAN tags between the VSC7448 on the
-                    // Sidecar and the KSZ8463 on the connected board.
-                    self.modify(Register::PxCR1(i), |r| {
-                        *r |= 1 << 9; // Drop tagged ingress packets
-                        *r |= 1 << 1; // Remove tags on egress
-                    })?;
-                }
-                // Insert tags before egress on Port 3
-                self.modify(Register::P3CR1, |r| *r |= 1 << 2)?;
+                // Mark the downstream port as tagged (between the KSZ8463 and
+                // the SP), because we need to know from whence a packet came
+                self.configure_tagged(KszPort::Three)?;
 
                 // There's a secret bonus register which _actually_ enables
                 // PVID tagging, despite not being mentioned in the VLAN
                 // tagging section of the datasheet.  We enable tagging when
                 // frames come from Ports 1 and 2 and go to Port 3.
                 self.write(Register::SGCR9, (1 << 3) | (1 << 1))?;
+            }
 
-                // Enable ingress VLAN filtering on Port 3.  This will cause it
-                // to drop packets that have a tag other than 0x301/0x302 (and
-                // untagged frames will be assigned 0x3FF then unceremoniously
-                // dropped).
-                self.modify(Register::P3CR2, |r| *r |= 1 << 14)?;
+            // In `VLanMode::Sidecar`, we expect tagged frames on Ports 1/3
+            // and untagged frames on Port 2. Untagged frames arriving on Port
+            // 1/3 are assigned to VLAN 0x3FF, which drops them.
+            VLanMode::Sidecar => {
+                // Configure VLAN table for the device:
+                // - VLAN 0 has tag 0x12C, and contains ports 1 and 3 (tp1)
+                // - VLAN 1 has tag 0x12D, and contains ports 1 and 3 (tp2)
+                // - VLAN 2 has tag 0x130, and contains ports 1 and 3 (Tofino)
+                // - VLAN 3 has tag 0x302, and contains ports 2 and 3
+                // - VLAN 4 has tag 0x3FF, and contains no ports
+                //
+                // This uses slots 0-4 in the table, and FID 0-4 (same as
+                // slot); all other VLANs are disabled (in particular, VLAN
+                // with VID 1, which by default includes all ports).
+
+                self.write_vlan_table(0, 0b101, TP1_VID)?;
+                self.write_vlan_table(1, 0b101, TP2_VID)?;
+                self.write_vlan_table(2, 0b101, TOFINO_VID)?;
+                self.write_vlan_table(3, 0b110, PEER_SIDECAR_VID)?;
+                self.write_vlan_table(4, 0b000, INVALID_VID)?;
+                for i in 5..16 {
+                    self.disable_vlan(i)?;
+                }
+
+                // Configure port 2 as untagged and give it a VID
+                self.configure_untagged(KszPort::Two, PEER_SIDECAR_VID)?;
+
+                // Configure ports 1 and 3 as tagged
+                for p in [KszPort::One, KszPort::Three] {
+                    self.configure_tagged(p)?;
+                }
+
+                // There's a secret bonus register which _actually_ enables
+                // PVID tagging, despite not being mentioned in the VLAN
+                // tagging section of the datasheet.  We enable tagging when
+                // frames come from Port 2 and go to Port 3.
+                self.write(Register::SGCR9, 1 << 3)?;
             }
 
             VLanMode::Off => (),
@@ -444,7 +567,7 @@ impl<S: SpiServer> Ksz8463<S> {
         // Enable 802.1Q VLAN mode.  This must happen after the VLAN tables
         // are configured.
         match vlan_mode {
-            VLanMode::Optional | VLanMode::Mandatory => {
+            VLanMode::Optional | VLanMode::Mandatory | VLanMode::Sidecar => {
                 self.modify(Register::SGCR2, |r| {
                     *r |= 1 << 15;
                 })?

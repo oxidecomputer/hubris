@@ -4,10 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-vlan = ["task-net-api/vlan"]
+vlan = ["task-net-api/vlan", "enum-map"]
 no-ipc-counters = ["idol/no-counters"]
 
 [dependencies]
+enum-map = { workspace = true, optional = true }
 hubpack = { workspace = true }
 num-traits = { workspace = true }
 serde = { workspace = true }
