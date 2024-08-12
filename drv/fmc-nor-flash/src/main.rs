@@ -35,6 +35,7 @@ enum Trace {
     None,
 
     FpgaBusy(u32),
+    FlashStatus(u8),
     SectorEraseBusy,
     WriteBusy,
 }
@@ -88,6 +89,7 @@ mod instr {
     pub const PAGE_PROGRAM: u32 = 0x02;
     pub const READ: u32 = 0x03;
     pub const READ_STATUS_1: u32 = 0x05;
+    pub const READ_STATUS_3: u32 = 0x15;
     pub const WRITE_ENABLE: u32 = 0x06;
     pub const SECTOR_ERASE: u32 = 0x20;
 }
@@ -149,6 +151,8 @@ impl idl::InOrderFmcNorFlashImpl for ServerImpl {
         }
 
         ServerImpl::flash_write_enable(self);
+        let status = ServerImpl::read_flash_status_3(self);
+        ringbuf_entry!(Trace::FlashStatus(status));
         self.write_reg(reg::DATA_BYTES, data.len() as u32);
         self.write_reg(reg::ADDR, offset);
         self.write_reg(reg::DUMMY_CYCLES, 0);
@@ -227,6 +231,15 @@ impl ServerImpl {
         self.write_reg(reg::ADDR, 0);
         self.write_reg(reg::DUMMY_CYCLES, 0);
         self.write_reg(reg::INSTR, instr::READ_STATUS_1);
+        self.wait_fpga_busy();
+        self.read_reg(reg::RX_FIFO).to_le_bytes()[0]
+    }
+
+    fn read_flash_status_3(&self) -> u8 {
+        self.write_reg(reg::DATA_BYTES, 1);
+        self.write_reg(reg::ADDR, 0);
+        self.write_reg(reg::DUMMY_CYCLES, 0);
+        self.write_reg(reg::INSTR, instr::READ_STATUS_3);
         self.wait_fpga_busy();
         self.read_reg(reg::RX_FIFO).to_le_bytes()[0]
     }
