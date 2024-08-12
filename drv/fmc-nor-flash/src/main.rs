@@ -7,6 +7,7 @@
 #![no_std]
 #![no_main]
 
+use core::convert::Infallible;
 use userlib::{hl::sleep_for, *};
 
 use derive_idol_err::IdolError;
@@ -98,20 +99,18 @@ impl idl::InOrderFmcNorFlashImpl for ServerImpl {
         offset: u32,
         dest: LenLimit<Leased<W, [u8]>, 256>,
     ) -> Result<(), RequestError<NorFlashError>> {
-        unsafe {
-            reg::DATA_BYTES.write_volatile(dest.len() as u32);
-            reg::ADDR.write_volatile(offset);
-            reg::DUMMY_CYCLES.write_volatile(0);
-            reg::INSTR.write_volatile(instr::READ);
-            self.wait_fpga_busy();
-            for i in 0..dest.len().div_ceil(4) {
-                let v = reg::RX_FIFO.read_volatile().to_le_bytes();
-                for j in 0..4 {
-                    let k = i * 4 + j;
-                    if k < dest.len() {
-                        dest.write_at(k, v[j])
-                            .map_err(|_| RequestError::went_away())?;
-                    }
+        self.write_reg(reg::DATA_BYTES, dest.len() as u32);
+        self.write_reg(reg::ADDR, offset);
+        self.write_reg(reg::DUMMY_CYCLES, 0);
+        self.write_reg(reg::INSTR, instr::READ);
+        self.wait_fpga_busy();
+        for i in 0..dest.len().div_ceil(4) {
+            let v = self.read_reg(reg::RX_FIFO).to_le_bytes();
+            for j in 0..4 {
+                let k = i * 4 + j;
+                if k < dest.len() {
+                    dest.write_at(k, v[j])
+                        .map_err(|_| RequestError::went_away())?;
                 }
             }
         }
@@ -127,13 +126,11 @@ impl idl::InOrderFmcNorFlashImpl for ServerImpl {
             return Err(NorFlashError::NotSectorAligned.into());
         }
 
-        self.write_enable();
-        unsafe {
-            reg::DATA_BYTES.write_volatile(0);
-            reg::ADDR.write_volatile(offset);
-            reg::DUMMY_CYCLES.write_volatile(0);
-            reg::INSTR.write_volatile(instr::SECTOR_ERASE);
-        }
+        ServerImpl::flash_write_enable(self);
+        self.write_reg(reg::DATA_BYTES, 0);
+        self.write_reg(reg::ADDR, offset);
+        self.write_reg(reg::DUMMY_CYCLES, 0);
+        self.write_reg(reg::INSTR, instr::SECTOR_ERASE);
         // Wait for the busy flag to be unset
         self.wait_flash_busy(Trace::SectorEraseBusy);
         Ok(())
@@ -151,77 +148,95 @@ impl idl::InOrderFmcNorFlashImpl for ServerImpl {
             return Err(NorFlashError::NotFullPage.into());
         }
 
-        self.write_enable();
-        unsafe {
-            reg::DATA_BYTES.write_volatile(data.len() as u32);
-            reg::ADDR.write_volatile(offset);
-            reg::DUMMY_CYCLES.write_volatile(0);
-            for i in 0..data.len().div_ceil(4) {
-                let mut v = [0u8; 4];
-                for j in 0..4 {
-                    let k = i * 4 + j;
-                    if k < data.len() {
-                        if let Some(b) = data.read_at(i * 4 + j) {
-                            v[j] = b;
-                        } else {
-                            return Err(RequestError::went_away());
-                        }
+        ServerImpl::flash_write_enable(self);
+        self.write_reg(reg::DATA_BYTES, data.len() as u32);
+        self.write_reg(reg::ADDR, offset);
+        self.write_reg(reg::DUMMY_CYCLES, 0);
+        for i in 0..data.len().div_ceil(4) {
+            let mut v = [0u8; 4];
+            for j in 0..4 {
+                let k = i * 4 + j;
+                if k < data.len() {
+                    if let Some(b) = data.read_at(i * 4 + j) {
+                        v[j] = b;
+                    } else {
+                        return Err(RequestError::went_away());
                     }
                 }
-                reg::TX_FIFO.write_volatile(u32::from_le_bytes(v));
             }
-            reg::INSTR.write_volatile(instr::PAGE_PROGRAM);
-            self.wait_fpga_busy();
+            self.write_reg(reg::TX_FIFO, u32::from_le_bytes(v));
         }
+        self.write_reg(reg::INSTR, instr::PAGE_PROGRAM);
+        self.wait_fpga_busy();
 
         // Wait for the busy flag to be unset
         self.wait_flash_busy(Trace::WriteBusy);
         Ok(())
     }
-}
 
-impl ServerImpl {
     /// Reads the STATUS_1 register from the SPI flash
-    fn read_status(&self) -> u8 {
-        unsafe {
-            reg::DATA_BYTES.write_volatile(1);
-            reg::ADDR.write_volatile(0);
-            reg::DUMMY_CYCLES.write_volatile(0);
-            reg::INSTR.write_volatile(instr::READ_STATUS_1);
-            self.wait_fpga_busy();
-            reg::RX_FIFO.read_volatile().to_le_bytes()[0]
-        }
+    fn read_flash_status(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u8, RequestError<Infallible>> {
+        Ok(ServerImpl::read_flash_status(self))
     }
 
     /// Sets the write enable flag in the SPI flash
-    fn write_enable(&self) {
-        unsafe {
-            reg::DATA_BYTES.write_volatile(0);
-            reg::ADDR.write_volatile(0);
-            reg::DUMMY_CYCLES.write_volatile(0);
-            reg::INSTR.write_volatile(instr::WRITE_ENABLE);
-            self.wait_fpga_busy();
-        }
+    fn flash_write_enable(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<Infallible>> {
+        ServerImpl::flash_write_enable(self);
+        Ok(())
+    }
+}
+
+impl ServerImpl {
+    fn read_reg(&self, reg: *mut u32) -> u32 {
+        unsafe { reg.read_volatile() }
+    }
+
+    fn write_reg(&self, reg: *mut u32, v: u32) {
+        unsafe { reg.write_volatile(v) };
     }
 
     /// Wait until the FPGA is idle
     fn wait_fpga_busy(&self) {
-        unsafe {
-            let status = reg::SPISR.read_volatile();
-            while (status & 1) != 0 {
-                ringbuf_entry!(Trace::FpgaBusy(status));
-                sleep_for(1);
+        loop {
+            let status = self.read_reg(reg::SPISR);
+            if (status & 1) == 0 {
+                break;
             }
+            ringbuf_entry!(Trace::FpgaBusy(status));
+            sleep_for(1);
         }
     }
 
     /// Wait until the SPI flash is idle
     fn wait_flash_busy(&self, t: Trace) {
         // Wait for the busy flag to be unset
-        while (self.read_status() & 1) != 0 {
+        while (self.read_flash_status() & 1) != 0 {
             ringbuf_entry!(t);
             sleep_for(1);
         }
+    }
+
+    fn read_flash_status(&self) -> u8 {
+        self.write_reg(reg::DATA_BYTES, 1);
+        self.write_reg(reg::ADDR, 0);
+        self.write_reg(reg::DUMMY_CYCLES, 0);
+        self.write_reg(reg::INSTR, instr::READ_STATUS_1);
+        self.wait_fpga_busy();
+        self.read_reg(reg::RX_FIFO).to_le_bytes()[0]
+    }
+
+    fn flash_write_enable(&self) {
+        self.write_reg(reg::DATA_BYTES, 0);
+        self.write_reg(reg::ADDR, 0);
+        self.write_reg(reg::DUMMY_CYCLES, 0);
+        self.write_reg(reg::INSTR, instr::WRITE_ENABLE);
+        self.wait_fpga_busy();
     }
 }
 

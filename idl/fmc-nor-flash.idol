@@ -39,5 +39,13 @@ Interface(
                 err: CLike("NorFlashError"),
             ),
         ),
+        "read_flash_status": (
+            doc: "read the STATUS 1 register",
+            reply: Simple("u8"),
+        ),
+        "flash_write_enable": (
+            doc: "set the write enable flag",
+            reply: Simple("()"),
+        ),
     },
 )
