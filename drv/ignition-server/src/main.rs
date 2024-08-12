@@ -29,6 +29,7 @@ enum Trace {
     TargetDepart(u8),
     SystemPowerRequest(u8, Request),
     SystemPowerRequestError(u8, IgnitionError),
+    SetTransmitterOutputEnableMode(TransmitterOutputEnableMode),
 }
 ringbuf!(Trace, 16, Trace::None);
 
@@ -66,7 +67,7 @@ fn main() -> ! {
     server.port_count = server.controller.port_count().unwrap_lite();
     ringbuf_entry!(Trace::PortCount(server.port_count));
 
-    // Set the transmitter output enable mode bit for each controller. This
+    // Set the transmitter output enable mode for each controller. This
     // determines if/when each port starts transmitting, useful for loopback
     // testing and to avoid radiating out of empty cubbies. By default the
     // transmitter output is only enabled when a link peer is observed.
@@ -74,16 +75,20 @@ fn main() -> ! {
     // For lab use the transmitters are always enabled in order to avoid
     // debugging/confusion caused by the transmitter remaining silent due to
     // cable or receiver problems.
+    let transmitter_output_enable_mode = if cfg!(feature = "always-transmit") {
+        TransmitterOutputEnableMode::AlwaysEnabled
+    } else {
+        TransmitterOutputEnableMode::EnabledWhenReceiverAligned
+    };
+    ringbuf_entry!(Trace::SetTransmitterOutputEnableMode(
+        transmitter_output_enable_mode
+    ));
     for port in 0..server.port_count.min(PORT_MAX) {
         server
             .controller
             .set_transmitter_output_enable_mode(
                 port,
-                if cfg!(feature = "always-transmit") {
-                    TransmitterOutputEnableMode::AlwaysEnabled
-                } else {
-                    TransmitterOutputEnableMode::EnabledWhenReceiverAligned
-                },
+                transmitter_output_enable_mode,
             )
             .unwrap_lite();
     }
