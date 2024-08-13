@@ -1885,7 +1885,9 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "serde",
+ "static-cell",
  "stm32h7",
+ "task-net-api",
  "userlib",
 ]
 
