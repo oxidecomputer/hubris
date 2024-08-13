@@ -115,10 +115,10 @@ impl idl::InOrderFmcNorFlashImpl for ServerImpl {
             let v = self.read_reg(reg::RX_FIFO);
             ringbuf_entry!(Trace::ReadWord(v));
             let v = v.to_le_bytes();
-            for j in 0..4 {
+            for (j, byte) in v.iter().enumerate() {
                 let k = i * 4 + j;
                 if k < dest.len() {
-                    dest.write_at(k, v[j])
+                    dest.write_at(k, *byte)
                         .map_err(|_| RequestError::went_away())?;
                 }
             }
@@ -165,11 +165,11 @@ impl idl::InOrderFmcNorFlashImpl for ServerImpl {
         self.write_reg(reg::DUMMY_CYCLES, 0);
         for i in 0..data.len().div_ceil(4) {
             let mut v = [0u8; 4];
-            for j in 0..4 {
+            for (j, byte) in v.iter_mut().enumerate() {
                 let k = i * 4 + j;
                 if k < data.len() {
                     if let Some(b) = data.read_at(k) {
-                        v[j] = b;
+                        *byte = b;
                     } else {
                         return Err(RequestError::went_away());
                     }
