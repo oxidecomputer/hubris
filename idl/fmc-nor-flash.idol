@@ -47,5 +47,9 @@ Interface(
             doc: "set the write enable flag",
             reply: Simple("()"),
         ),
+        "write_test": (
+            doc: "low-level write test",
+            reply: Simple("()"),
+        ),
     },
 )

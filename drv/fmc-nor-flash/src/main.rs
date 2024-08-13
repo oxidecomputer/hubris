@@ -38,6 +38,8 @@ enum Trace {
     FlashStatus(u8),
     SectorEraseBusy,
     WriteBusy,
+
+    Lol(u32),
 }
 
 counted_ringbuf!(Trace, 32, Trace::None);
@@ -101,6 +103,7 @@ impl idl::InOrderFmcNorFlashImpl for ServerImpl {
         offset: u32,
         dest: LenLimit<Leased<W, [u8]>, 256>,
     ) -> Result<(), RequestError<NorFlashError>> {
+        self.clear_fifos();
         self.write_reg(reg::DATA_BYTES, dest.len() as u32);
         self.write_reg(reg::ADDR, offset);
         self.write_reg(reg::DUMMY_CYCLES, 0);
@@ -194,6 +197,79 @@ impl idl::InOrderFmcNorFlashImpl for ServerImpl {
         ServerImpl::flash_write_enable(self);
         Ok(())
     }
+
+    fn write_test(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<Infallible>> {
+        self.clear_fifos();
+        unsafe {
+            // Do Write enable
+            (0x60000108 as *mut u32).write_volatile(0x00);
+            sleep_for(100);
+            (0x6000010c as *mut u32).write_volatile(0x00);
+            sleep_for(100);
+            (0x60000110 as *mut u32).write_volatile(0x00);
+            sleep_for(100);
+            (0x60000114 as *mut u32).write_volatile(0x06);
+            sleep_for(100);
+
+            // Write to tx fifo
+            (0x60000118 as *mut u32).write_volatile(0x03020100);
+            sleep_for(100);
+            (0x60000118 as *mut u32).write_volatile(0x07060504);
+            sleep_for(100);
+
+            // Show 8 bytes in tx fifo
+            ringbuf_entry!(Trace::Lol(
+                (0x60000104 as *mut u32).read_volatile()
+            ));
+            sleep_for(100);
+            // Page write to flash
+            (0x60000110 as *mut u32).write_volatile(0x08);
+            sleep_for(100);
+            (0x60000114 as *mut u32).write_volatile(0x02);
+            sleep_for(100);
+
+            // Show empty tx fifo
+            ringbuf_entry!(Trace::Lol(
+                (0x60000104 as *mut u32).read_volatile()
+            ));
+            sleep_for(100);
+
+            // page read from flash
+            (0x60000108 as *mut u32).write_volatile(0x00);
+            sleep_for(100);
+            (0x60000110 as *mut u32).write_volatile(0x08);
+            sleep_for(100);
+            (0x60000114 as *mut u32).write_volatile(0x03);
+            sleep_for(100);
+
+            // Show non-empty read fifo
+            ringbuf_entry!(Trace::Lol(
+                (0x60000104 as *mut u32).read_volatile()
+            ));
+            sleep_for(100);
+
+            // read from fifo
+            ringbuf_entry!(Trace::Lol(
+                (0x6000011c as *mut u32).read_volatile()
+            ));
+            sleep_for(100);
+
+            ringbuf_entry!(Trace::Lol(
+                (0x6000011c as *mut u32).read_volatile()
+            ));
+            sleep_for(100);
+
+            // Show empty tx fifo
+            ringbuf_entry!(Trace::Lol(
+                (0x60000104 as *mut u32).read_volatile()
+            ));
+            sleep_for(100);
+        }
+        Ok(())
+    }
 }
 
 impl ServerImpl {
@@ -227,6 +303,7 @@ impl ServerImpl {
     }
 
     fn read_flash_status(&self) -> u8 {
+        self.clear_fifos();
         self.write_reg(reg::DATA_BYTES, 1);
         self.write_reg(reg::ADDR, 0);
         self.write_reg(reg::DUMMY_CYCLES, 0);
@@ -236,6 +313,7 @@ impl ServerImpl {
     }
 
     fn read_flash_status_3(&self) -> u8 {
+        self.clear_fifos();
         self.write_reg(reg::DATA_BYTES, 1);
         self.write_reg(reg::ADDR, 0);
         self.write_reg(reg::DUMMY_CYCLES, 0);
@@ -250,6 +328,10 @@ impl ServerImpl {
         self.write_reg(reg::DUMMY_CYCLES, 0);
         self.write_reg(reg::INSTR, instr::WRITE_ENABLE);
         self.wait_fpga_busy();
+    }
+
+    fn clear_fifos(&self) {
+        self.write_reg(reg::SPICR, 0x8080);
     }
 }
 
