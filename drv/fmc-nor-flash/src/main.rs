@@ -38,6 +38,8 @@ enum Trace {
     FlashStatus(u8),
     SectorEraseBusy,
     WriteBusy,
+    WriteWord(u32),
+    ReadWord(u32),
 
     Lol(u32),
 }
@@ -110,7 +112,9 @@ impl idl::InOrderFmcNorFlashImpl for ServerImpl {
         self.write_reg(reg::INSTR, instr::READ);
         self.wait_fpga_busy();
         for i in 0..dest.len().div_ceil(4) {
-            let v = self.read_reg(reg::RX_FIFO).to_le_bytes();
+            let v = self.read_reg(reg::RX_FIFO);
+            ringbuf_entry!(Trace::ReadWord(v));
+            let v = v.to_le_bytes();
             for j in 0..4 {
                 let k = i * 4 + j;
                 if k < dest.len() {
@@ -164,13 +168,14 @@ impl idl::InOrderFmcNorFlashImpl for ServerImpl {
             for j in 0..4 {
                 let k = i * 4 + j;
                 if k < data.len() {
-                    if let Some(b) = data.read_at(i * 4 + j) {
+                    if let Some(b) = data.read_at(k) {
                         v[j] = b;
                     } else {
                         return Err(RequestError::went_away());
                     }
                 }
             }
+            ringbuf_entry!(Trace::WriteWord(u32::from_le_bytes(v)));
             self.write_reg(reg::TX_FIFO, u32::from_le_bytes(v));
         }
         self.write_reg(reg::INSTR, instr::PAGE_PROGRAM);
