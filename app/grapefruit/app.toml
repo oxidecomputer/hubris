@@ -244,8 +244,9 @@ name = "drv-stm32h7-fmc-demo-server"
 features = ["h753"]
 priority = 4
 start = true
-task-slots = ["sys"]
+task-slots = ["sys", "net"]
 uses = ["fmc", "fmc_nor_psram_bank_1"]
+notifications = ["socket"]
 
 [tasks.fmc_nor_flash]
 name = "drv-fmc-nor-flash"
@@ -293,6 +294,13 @@ owner = {name = "dump_agent", notification = "socket"}
 port = 11113
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.fmc_test]
+kind = "udp"
+owner = {name = "fmc_demo", notification = "socket"}
+port = 11114
+tx = { packets = 3, bytes = 4096 }
+rx = { packets = 3, bytes = 4096 }
 
 ################################################################################
 

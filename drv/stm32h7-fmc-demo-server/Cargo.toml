@@ -7,6 +7,8 @@ edition = "2021"
 drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 counters = { path = "../../lib/counters" }
+static-cell = { path = "../../lib/static-cell" }
+task-net-api = { path = "../../task/net-api", features = ["vlan"] }
 
 cortex-m = { workspace = true }
 idol-runtime = { workspace = true }
