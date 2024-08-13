@@ -50,7 +50,7 @@ pub const MIN_VERSION: Version = Version(2);
 /// Code between the `CURRENT_VERSION` and `MIN_VERSION` must remain
 /// compatible. Use the rules described in the comments for [`Msg`] to evolve
 /// the protocol such that this remains true.
-pub const CURRENT_VERSION: Version = Version(5);
+pub const CURRENT_VERSION: Version = Version(6);
 
 /// We allow room in the buffer for message evolution
 pub const REQUEST_BUF_SIZE: usize = 1024;
@@ -349,6 +349,8 @@ pub enum ReqBody {
     RotPage { page: RotPage },
     // Added in sprot protocol version 5
     Swd(SwdReq),
+    // Added in sprot protocol version 6
+    Policy(PolicyReq),
 }
 
 // Added in sprot protocol version 5
@@ -365,6 +367,15 @@ pub enum SwdReq {
     /// that there's no debugger attached that would prevent us from talking to
     /// the SP.
     SpSlotWatchdogSupported,
+}
+
+// Added in sprot protocol version 6
+#[derive(Clone, Serialize, Deserialize, SerializedSize)]
+pub enum PolicyReq {
+    /// Checks whether the RoT is in development or release mode
+    ///
+    /// In release mode, security policy may be more stringent
+    DevOrRelease,
 }
 
 /// Instruct the RoT to take a dump of the SP via SWD
@@ -499,12 +510,26 @@ pub enum RspBody {
     Attest(Result<AttestRsp, AttestError>),
 
     Page(Result<RotPageRsp, UpdateError>),
+
+    // Added in sprot protocol version 6
+    Policy(PolicyRsp),
 }
 
 /// A response for reading a ROT page
 #[derive(Copy, Clone, Serialize, Deserialize, SerializedSize)]
 pub enum RotPageRsp {
     RotPage,
+}
+
+#[derive(Copy, Clone, Serialize, Deserialize, SerializedSize)]
+pub enum PolicyDevOrRelease {
+    Development,
+    Release,
+}
+
+#[derive(Copy, Clone, Serialize, Deserialize, SerializedSize)]
+pub enum PolicyRsp {
+    DevOrRelease(PolicyDevOrRelease),
 }
 
 /// A response from the Dumper
