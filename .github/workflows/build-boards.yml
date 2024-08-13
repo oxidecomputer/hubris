@@ -239,6 +239,10 @@ jobs:
             app_name: donglet-g031
             app_toml: app/donglet/app-g031.toml
             image: default
+          - build: grapefruit
+            app_name: grapefruit
+            app_toml: app/grapefruit/app.toml
+            image: default
     uses: ./.github/workflows/build-one.yml
     with:
       build: ${{ matrix.build }}
