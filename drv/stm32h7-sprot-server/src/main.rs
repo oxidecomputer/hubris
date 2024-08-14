@@ -1341,6 +1341,24 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
             Err(SprotProtocolError::UnexpectedResponse)?
         }
     }
+
+    fn policy_dev_or_release(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<
+        drv_sprot_api::PolicyDevOrRelease,
+        idol_runtime::RequestError<SprotError>,
+    > {
+        let body = ReqBody::Policy(PolicyReq::DevOrRelease);
+        let tx_size = Request::pack(&body, self.tx_buf);
+        let rsp =
+            self.do_send_recv_retries(tx_size, TIMEOUT_LONG, DEFAULT_ATTEMPTS)?;
+        if let RspBody::Policy(PolicyRsp::DevOrRelease(d)) = rsp.body? {
+            Ok(d)
+        } else {
+            Err(SprotProtocolError::UnexpectedResponse)?
+        }
+    }
 }
 
 impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
@@ -1357,10 +1375,10 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
 
 mod idl {
     use super::{
-        AttestOrSprotError, DumpOrSprotError, HashAlgorithm, PulseStatus,
-        RawCabooseOrSprotError, RotBootInfo, RotComponent, RotPage, RotState,
-        SlotId, SprotError, SprotIoStats, SprotStatus, SwitchDuration,
-        UpdateTarget, VersionedRotBootInfo,
+        AttestOrSprotError, DumpOrSprotError, HashAlgorithm,
+        PolicyDevOrRelease, PulseStatus, RawCabooseOrSprotError, RotBootInfo,
+        RotComponent, RotPage, RotState, SlotId, SprotError, SprotIoStats,
+        SprotStatus, SwitchDuration, UpdateTarget, VersionedRotBootInfo,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

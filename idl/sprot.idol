@@ -375,5 +375,14 @@ Interface(
             encoding: Hubpack,
             idempotent: true,
         ),
+        "policy_dev_or_release": (
+            doc: "Check whether the RoT is in development or release mode",
+            reply: Result(
+                ok: "PolicyDevOrRelease",
+                err: Complex("SprotError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
     }
 )
