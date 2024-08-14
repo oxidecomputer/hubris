@@ -15,7 +15,7 @@ max-sizes = {flash = 16384, ram = 2048}
 start = true
 stacksize = 1536
 notifications = ["fault", "timer"]
-extern-regions = ["sram2", "sram3", "sram4"]
+extern-regions = ["sram1", "sram2", "sram3", "sram4"]
 
 [tasks.jefe.config.allowed-callers]
 set_reset_reason = ["sys"]
@@ -108,8 +108,8 @@ name = "task-net"
 stacksize = 6040
 priority = 5
 features = ["mgmt", "h753", "medusa", "vlan", "vpd-mac", "use-spi-core", "spi3"]
-max-sizes = {flash = 131072, ram = 65536, sram1 = 16384}
-sections = {eth_bulk = "sram1"}
+max-sizes = {flash = 131072, ram = 65536, sram1_mac = 16384}
+sections = {eth_bulk = "sram1_mac"}
 uses = ["eth", "tim16", "spi3"]
 start = true
 notifications = ["eth-irq", "mdio-timer-irq", "spi-irq", "wake-timer"]
