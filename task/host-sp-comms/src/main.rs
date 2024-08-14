@@ -126,9 +126,6 @@ enum Trace {
         #[count(children)]
         message: SpToHost,
     },
-    BootFail {
-        reason: u8,
-    },
 }
 
 counted_ringbuf!(Trace, 20, Trace::None);
@@ -803,7 +800,6 @@ impl ServerImpl {
                     *b = 0;
                 }
                 self.host_kv_storage.last_boot_fail_reason = reason;
-                ringbuf_entry!(Trace::BootFail { reason });
                 Some(SpToHost::Ack)
             }
             HostToSp::HostPanic => {
