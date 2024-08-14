@@ -1351,8 +1351,11 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
     > {
         let body = ReqBody::Policy(PolicyReq::DevOrRelease);
         let tx_size = Request::pack(&body, self.tx_buf);
-        let rsp =
-            self.do_send_recv_retries(tx_size, TIMEOUT_LONG, DEFAULT_ATTEMPTS)?;
+        let rsp = self.do_send_recv_retries(
+            tx_size,
+            TIMEOUT_QUICK,
+            DEFAULT_ATTEMPTS,
+        )?;
         if let RspBody::Policy(PolicyRsp::DevOrRelease(d)) = rsp.body? {
             Ok(d)
         } else {
