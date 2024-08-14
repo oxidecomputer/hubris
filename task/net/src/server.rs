@@ -561,7 +561,9 @@ where
 
         Self {
             eth,
-            client_waiting_to_send: [false; SOCKET_COUNT],
+            // The 'true' here is load-bearing: it ensures that sockets receive
+            // a notification on stack restart.
+            client_waiting_to_send: [true; SOCKET_COUNT],
             vlan_state: enum_map::EnumMap::from_array(
                 vlan_state.into_array().unwrap_lite(),
             ),

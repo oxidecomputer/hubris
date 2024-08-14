@@ -242,6 +242,14 @@ fn main() -> ! {
         );
     }
 
+    // Ensure that sockets are woken at least once at startup, so that anyone
+    // who was waiting to hear back on their TX queue becoming non-full will
+    // snap out of it.
+    //
+    // This only works because we've set waiting_to_send to true for all sockets
+    // above.
+    server.wake_sockets();
+
     // Go!
     loop {
         count!(Event::Iter);
