@@ -185,6 +185,7 @@ const MAX_DTRACE_CONF_LEN: usize = 4096;
 // data for later read back (either by the host itself or by the control plane
 // via MGS).
 struct HostKeyValueStorage {
+    last_boot_fail_reason: u8,
     last_boot_fail: &'static mut [u8; MAX_HOST_FAIL_MESSAGE_LEN],
     last_panic: &'static mut [u8; MAX_HOST_FAIL_MESSAGE_LEN],
     etc_system: &'static mut [u8; MAX_ETC_SYSTEM_LEN],
@@ -298,6 +299,7 @@ impl ServerImpl {
             packrat: Packrat::from(PACKRAT.get_task_id()),
             reboot_state: None,
             host_kv_storage: HostKeyValueStorage {
+                last_boot_fail_reason: 0,
                 last_boot_fail,
                 last_panic,
                 etc_system,
@@ -783,11 +785,11 @@ impl ServerImpl {
                 };
                 Some(response)
             }
-            HostToSp::HostBootFailure { .. } => {
+            HostToSp::HostBootFailure { reason } => {
                 // TODO forward to MGS
                 //
                 // For now, copy it into a static var we can pull out via
-                // `humility readvar LAST_HOST_BOOT_FAIL`.
+                // `humility host boot-fail`.
                 let n = usize::min(
                     data.len(),
                     self.host_kv_storage.last_boot_fail.len(),
@@ -797,13 +799,14 @@ impl ServerImpl {
                 for b in &mut self.host_kv_storage.last_boot_fail[n..] {
                     *b = 0;
                 }
+                self.host_kv_storage.last_boot_fail_reason = reason;
                 Some(SpToHost::Ack)
             }
-            HostToSp::HostPanic { .. } => {
+            HostToSp::HostPanic => {
                 // TODO forward to MGS
                 //
                 // For now, copy it into a static var we can pull out via
-                // `humility readvar LAST_HOST_PANIC`.
+                // `humility host last-panic`.
                 let n = usize::min(
                     data.len(),
                     self.host_kv_storage.last_panic.len(),
