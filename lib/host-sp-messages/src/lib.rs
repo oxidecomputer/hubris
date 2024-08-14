@@ -92,10 +92,7 @@ pub enum HostToSp {
     HostBootFailure {
         reason: u8,
     },
-    HostPanic {
-        code: u16,
-        // Followed by a binary data blob (panic message?)
-    },
+    HostPanic, // Followed by a binary data blob (panic data)
     GetStatus,
     // Host ack'ing SP task startup.
     AckSpStart,
@@ -810,7 +807,7 @@ mod tests {
             (0x04, HostToSp::GetIdentity),
             (0x05, HostToSp::GetMacAddresses),
             (0x06, HostToSp::HostBootFailure { reason: 0 }),
-            (0x07, HostToSp::HostPanic { code: 0 }),
+            (0x07, HostToSp::HostPanic),
             (0x08, HostToSp::GetStatus),
             (0x09, HostToSp::AckSpStart),
             (0x0a, HostToSp::GetAlert),
@@ -1199,7 +1196,7 @@ mod tests {
             version: 123,
             sequence: 456,
         };
-        let host_to_sp = HostToSp::HostPanic { code: 78 };
+        let host_to_sp = HostToSp::HostPanic;
         let data_blob = &[1, 2, 3, 4, 5, 6, 7, 8, 9];
 
         let mut buf = [0; MAX_MESSAGE_SIZE];
@@ -1224,7 +1221,7 @@ mod tests {
             version: 123,
             sequence: 456,
         };
-        let host_to_sp = HostToSp::HostPanic { code: 78 };
+        let host_to_sp = HostToSp::HostPanic;
         let data_blob = (0_u32..)
             .into_iter()
             .map(|x| x as u8)
