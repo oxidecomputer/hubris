@@ -56,6 +56,8 @@ fn main() -> ! {
 
     // Fire up a server.
     let mut server = ServerImpl;
+    server.set_quad_enable();
+
     let mut buffer = [0; idl::INCOMING_SIZE];
     loop {
         idol_runtime::dispatch(&mut buffer, &mut server);
@@ -93,9 +95,13 @@ mod instr {
     pub const PAGE_PROGRAM: u32 = 0x02;
     pub const READ: u32 = 0x03;
     pub const READ_STATUS_1: u32 = 0x05;
+    pub const READ_STATUS_2: u32 = 0x35;
     pub const READ_STATUS_3: u32 = 0x15;
+    pub const WRITE_STATUS_2: u32 = 0x31;
     pub const WRITE_ENABLE: u32 = 0x06;
+    pub const FAST_READ_QUAD: u32 = 0x6b;
     pub const SECTOR_ERASE: u32 = 0x20;
+    pub const QUAD_INPUT_PAGE_PROGRAM: u32 = 0x32;
 }
 
 impl idl::InOrderFmcNorFlashImpl for ServerImpl {
@@ -110,6 +116,33 @@ impl idl::InOrderFmcNorFlashImpl for ServerImpl {
         self.write_reg(reg::ADDR, offset);
         self.write_reg(reg::DUMMY_CYCLES, 0);
         self.write_reg(reg::INSTR, instr::READ);
+        self.wait_fpga_busy();
+        for i in 0..dest.len().div_ceil(4) {
+            let v = self.read_reg(reg::RX_FIFO);
+            ringbuf_entry!(Trace::ReadWord(v));
+            let v = v.to_le_bytes();
+            for (j, byte) in v.iter().enumerate() {
+                let k = i * 4 + j;
+                if k < dest.len() {
+                    dest.write_at(k, *byte)
+                        .map_err(|_| RequestError::went_away())?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn read_quad(
+        &mut self,
+        _: &RecvMessage,
+        offset: u32,
+        dest: LenLimit<Leased<W, [u8]>, 256>,
+    ) -> Result<(), RequestError<NorFlashError>> {
+        self.clear_fifos();
+        self.write_reg(reg::DATA_BYTES, dest.len() as u32);
+        self.write_reg(reg::ADDR, offset);
+        self.write_reg(reg::DUMMY_CYCLES, 8);
+        self.write_reg(reg::INSTR, instr::FAST_READ_QUAD);
         self.wait_fpga_busy();
         for i in 0..dest.len().div_ceil(4) {
             let v = self.read_reg(reg::RX_FIFO);
@@ -179,6 +212,47 @@ impl idl::InOrderFmcNorFlashImpl for ServerImpl {
             self.write_reg(reg::TX_FIFO, u32::from_le_bytes(v));
         }
         self.write_reg(reg::INSTR, instr::PAGE_PROGRAM);
+        self.wait_fpga_busy();
+
+        // Wait for the busy flag to be unset
+        self.wait_flash_busy(Trace::WriteBusy);
+        Ok(())
+    }
+
+    fn page_write_quad(
+        &mut self,
+        _: &RecvMessage,
+        offset: u32,
+        data: LenLimit<Leased<R, [u8]>, 256>,
+    ) -> Result<(), RequestError<NorFlashError>> {
+        if offset % 256 != 0 {
+            return Err(NorFlashError::NotPageAligned.into());
+        } else if data.len() != 256 {
+            return Err(NorFlashError::NotFullPage.into());
+        }
+
+        ServerImpl::flash_write_enable(self);
+        let status = ServerImpl::read_flash_status_3(self);
+        ringbuf_entry!(Trace::FlashStatus(status));
+        self.write_reg(reg::DATA_BYTES, data.len() as u32);
+        self.write_reg(reg::ADDR, offset);
+        self.write_reg(reg::DUMMY_CYCLES, 0);
+        for i in 0..data.len().div_ceil(4) {
+            let mut v = [0u8; 4];
+            for (j, byte) in v.iter_mut().enumerate() {
+                let k = i * 4 + j;
+                if k < data.len() {
+                    if let Some(b) = data.read_at(k) {
+                        *byte = b;
+                    } else {
+                        return Err(RequestError::went_away());
+                    }
+                }
+            }
+            ringbuf_entry!(Trace::WriteWord(u32::from_le_bytes(v)));
+            self.write_reg(reg::TX_FIFO, u32::from_le_bytes(v));
+        }
+        self.write_reg(reg::INSTR, instr::QUAD_INPUT_PAGE_PROGRAM);
         self.wait_fpga_busy();
 
         // Wait for the busy flag to be unset
@@ -317,6 +391,26 @@ impl ServerImpl {
         self.read_reg(reg::RX_FIFO).to_le_bytes()[0]
     }
 
+    fn read_flash_status_2(&self) -> u8 {
+        self.clear_fifos();
+        self.write_reg(reg::DATA_BYTES, 1);
+        self.write_reg(reg::ADDR, 0);
+        self.write_reg(reg::DUMMY_CYCLES, 0);
+        self.write_reg(reg::INSTR, instr::READ_STATUS_2);
+        self.wait_fpga_busy();
+        self.read_reg(reg::RX_FIFO).to_le_bytes()[0]
+    }
+
+    fn write_flash_status_2(&self, v: u8) {
+        self.clear_fifos();
+        self.write_reg(reg::DATA_BYTES, 1);
+        self.write_reg(reg::ADDR, 0);
+        self.write_reg(reg::DUMMY_CYCLES, 0);
+        self.write_reg(reg::TX_FIFO, u32::from_le_bytes([v, 0, 0, 0]));
+        self.write_reg(reg::INSTR, instr::WRITE_STATUS_2);
+        self.wait_fpga_busy();
+    }
+
     fn read_flash_status_3(&self) -> u8 {
         self.clear_fifos();
         self.write_reg(reg::DATA_BYTES, 1);
@@ -325,6 +419,12 @@ impl ServerImpl {
         self.write_reg(reg::INSTR, instr::READ_STATUS_3);
         self.wait_fpga_busy();
         self.read_reg(reg::RX_FIFO).to_le_bytes()[0]
+    }
+
+    fn set_quad_enable(&self) {
+        let mut status = self.read_flash_status_2();
+        status |= 1 << 1; // QE bit
+        self.write_flash_status_2(status);
     }
 
     fn flash_write_enable(&self) {

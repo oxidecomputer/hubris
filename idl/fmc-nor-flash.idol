@@ -16,7 +16,33 @@ Interface(
                 err: CLike("NorFlashError"),
             ),
         ),
+        "page_write_quad": (
+            doc: "writes to a particular full page in the flash",
+            args: {
+                "offset": "u32",
+            },
+            leases: {
+                "data": (type: "[u8]", read: true, max_len: Some(256)),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("NorFlashError"),
+            ),
+        ),
         "read": (
+            doc: "reads from a particular address in the flash",
+            args: {
+                "offset": "u32",
+            },
+            leases: {
+                "data": (type: "[u8]", write: true, max_len: Some(256)),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("NorFlashError"),
+            ),
+        ),
+        "read_quad": (
             doc: "reads from a particular address in the flash",
             args: {
                 "offset": "u32",
