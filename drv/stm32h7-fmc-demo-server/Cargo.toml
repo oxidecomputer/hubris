@@ -7,6 +7,8 @@ edition = "2021"
 drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 counters = { path = "../../lib/counters" }
+static-cell = { path = "../../lib/static-cell" }
+task-net-api = { path = "../../task/net-api", features = ["vlan"] }
 
 cortex-m = { workspace = true }
 idol-runtime = { workspace = true }
@@ -23,6 +25,7 @@ idol = { workspace = true }
 default = ["h743"]
 h743 = ["stm32h7/stm32h743", "drv-stm32xx-sys-api/h743"]
 h753 = ["stm32h7/stm32h753", "drv-stm32xx-sys-api/h753"]
+init-hw = []
 
 [[bin]]
 name = "drv-stm32h7-fmc-demo-server"

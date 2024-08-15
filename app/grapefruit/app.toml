@@ -239,6 +239,21 @@ task-slots = ["net", "packrat"]
 features = ["vlan"]
 notifications = ["socket"]
 
+[tasks.fmc_demo]
+name = "drv-stm32h7-fmc-demo-server"
+features = ["h753"]
+priority = 4
+start = true
+task-slots = ["sys", "net"]
+uses = ["fmc", "fmc_nor_psram_bank_1"]
+notifications = ["socket"]
+
+[tasks.fmc_nor_flash]
+name = "drv-fmc-nor-flash"
+priority = 5
+start = true
+uses = ["fmc_nor_psram_bank_1"]
+
 [config.net]
 # VLAN configuration
 [config.net.vlans.sidecar1]
@@ -279,6 +294,13 @@ owner = {name = "dump_agent", notification = "socket"}
 port = 11113
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.fmc_test]
+kind = "udp"
+owner = {name = "fmc_demo", notification = "socket"}
+port = 11114
+tx = { packets = 3, bytes = 4096 }
+rx = { packets = 3, bytes = 4096 }
 
 ################################################################################
 
@@ -472,6 +494,7 @@ memory-size = 33_554_432 # 256 Mib / 32 MiB
 slot-count = 16 # 2 MiB slots
 
 [[auxflash.blobs]]
-file = "drv/grapefruit-seq-server/grapefruit.bit"
+file = "drv/grapefruit-seq-server/grapefruit.bz2"
+unzip = "bz2"
 compress = true
 tag = "FPGA"

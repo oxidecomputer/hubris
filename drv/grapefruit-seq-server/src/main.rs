@@ -76,6 +76,7 @@ fn main() -> ! {
     }
 }
 
+#[allow(unused)]
 struct ServerImpl<S: SpiServer> {
     sys: sys_api::Sys,
     seq: SpiDevice<S>,
@@ -207,8 +208,8 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
                 // generated.
                 if !decompressed_chunk.is_empty() {
                     // Write the decompressed bitstream to the FPGA over SPI
-                    seq.write(&decompressed_chunk)
-                        .map_err(|e| SeqError::SpiWrite(e))?;
+                    seq.write(decompressed_chunk)
+                        .map_err(SeqError::SpiWrite)?;
                     ringbuf_entry!(Trace::ContinueBitstreamLoad(
                         decompressed_chunk.len()
                     ));

@@ -16,6 +16,7 @@ toml_edit = { workspace = true }
 
 # for dist
 byteorder = { workspace = true }
+bzip2-rs = { workspace = true }
 ctrlc = { workspace = true }
 dunce = { workspace = true }
 filetime = { workspace = true }
