@@ -21,7 +21,7 @@ pmbus = { workspace = true, optional = true }
 
 counters.path = "../../lib/counters"
 
-drv-gimlet-hf-api.path= "../../drv/gimlet-hf-api"
+drv-hf-api.path= "../../drv/hf-api"
 drv-gimlet-seq-api.path= "../../drv/gimlet-seq-api"
 drv-oxide-vpd.path= "../../drv/oxide-vpd"
 drv-stm32h7-dbgmcu.path = "../../drv/stm32h7-dbgmcu"

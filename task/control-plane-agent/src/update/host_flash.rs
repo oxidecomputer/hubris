@@ -5,7 +5,7 @@
 use super::{common::CurrentUpdate, ComponentUpdater};
 use crate::mgs_handler::{BorrowedUpdateBuffer, UpdateBuffer};
 use core::ops::Range;
-use drv_gimlet_hf_api::{
+use drv_hf_api::{
     HfDevSelect, HfError, HfProtectMode, HostFlash, PAGE_SIZE_BYTES,
     SECTOR_SIZE_BYTES,
 };

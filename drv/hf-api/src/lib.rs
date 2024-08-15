@@ -7,7 +7,6 @@
 #![no_std]
 
 use derive_idol_err::IdolError;
-use drv_hash_api::SHA256_SZ;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
 use userlib::{sys_send, FromPrimitive};

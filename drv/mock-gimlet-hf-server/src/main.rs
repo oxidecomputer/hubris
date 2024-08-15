@@ -10,11 +10,11 @@
 #![no_std]
 #![no_main]
 
-use drv_gimlet_hf_api::{
+use drv_hash_api::SHA256_SZ;
+use drv_hf_api::{
     HfDevSelect, HfError, HfMuxState, HfPersistentData, HfProtectMode,
     PAGE_SIZE_BYTES,
 };
-use drv_hash_api::SHA256_SZ;
 use idol_runtime::{
     ClientError, Leased, LenLimit, NotificationHandler, RequestError, R, W,
 };

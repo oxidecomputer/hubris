@@ -860,6 +860,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-cosmo-hf"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cortex-m",
+ "counters",
+ "drv-hash-api",
+ "drv-hf-api",
+ "hubpack",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "ringbuf",
+ "serde",
+ "stm32h7",
+ "userlib",
+ "zerocopy 0.6.6",
+]
+
+[[package]]
 name = "drv-eeprom"
 version = "0.1.0"
 dependencies = [
@@ -870,25 +890,6 @@ dependencies = [
  "idol",
  "idol-runtime",
  "num-traits",
- "userlib",
- "zerocopy 0.6.6",
-]
-
-[[package]]
-name = "drv-fmc-nor-flash"
-version = "0.1.0"
-dependencies = [
- "build-util",
- "cortex-m",
- "counters",
- "derive-idol-err",
- "hubpack",
- "idol",
- "idol-runtime",
- "num-traits",
- "ringbuf",
- "serde",
- "stm32h7",
  "userlib",
  "zerocopy 0.6.6",
 ]
@@ -960,30 +961,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "drv-gimlet-hf-api"
-version = "0.1.0"
-dependencies = [
- "counters",
- "derive-idol-err",
- "drv-hash-api",
- "drv-qspi-api",
- "hubpack",
- "idol",
- "idol-runtime",
- "num-traits",
- "serde",
- "userlib",
- "zerocopy 0.6.6",
-]
-
-[[package]]
 name = "drv-gimlet-hf-server"
 version = "0.1.0"
 dependencies = [
  "build-util",
  "crc",
- "drv-gimlet-hf-api",
  "drv-hash-api",
+ "drv-hf-api",
  "drv-stm32h7-qspi",
  "drv-stm32xx-sys-api",
  "hubpack",
@@ -1022,9 +1006,9 @@ dependencies = [
  "cfg-if",
  "cortex-m",
  "counters",
- "drv-gimlet-hf-api",
  "drv-gimlet-seq-api",
  "drv-gimlet-state",
+ "drv-hf-api",
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-ice40-spi-program",
@@ -1087,6 +1071,23 @@ dependencies = [
  "idol",
  "idol-runtime",
  "num-traits",
+ "userlib",
+ "zerocopy 0.6.6",
+]
+
+[[package]]
+name = "drv-hf-api"
+version = "0.1.0"
+dependencies = [
+ "counters",
+ "derive-idol-err",
+ "drv-hash-api",
+ "drv-qspi-api",
+ "hubpack",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "serde",
  "userlib",
  "zerocopy 0.6.6",
 ]
@@ -1505,8 +1506,8 @@ name = "drv-mock-gimlet-hf-server"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "drv-gimlet-hf-api",
  "drv-hash-api",
+ "drv-hf-api",
  "hubpack",
  "idol",
  "idol-runtime",
@@ -4394,8 +4395,8 @@ dependencies = [
  "drv-auxflash-api",
  "drv-caboose",
  "drv-caboose-pos",
- "drv-gimlet-hf-api",
  "drv-gimlet-seq-api",
+ "drv-hf-api",
  "drv-ignition-api",
  "drv-lpc55-update-api",
  "drv-monorail-api",
@@ -4531,8 +4532,8 @@ dependencies = [
  "byteorder",
  "cfg-if",
  "cortex-m",
- "drv-gimlet-hf-api",
  "drv-hash-api",
+ "drv-hf-api",
  "drv-i2c-api",
  "drv-lpc55-gpio-api",
  "drv-sp-ctrl-api",
@@ -4563,8 +4564,8 @@ dependencies = [
  "corncobs",
  "cortex-m",
  "counters",
- "drv-gimlet-hf-api",
  "drv-gimlet-seq-api",
+ "drv-hf-api",
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-oxide-vpd",

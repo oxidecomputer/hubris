@@ -3,9 +3,6 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    idol::client::build_client_stub(
-        "../../idl/gimlet-hf.idol",
-        "client_stub.rs",
-    )?;
+    idol::client::build_client_stub("../../idl/hf.idol", "client_stub.rs")?;
     Ok(())
 }

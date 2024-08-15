@@ -8,8 +8,8 @@
 #[cfg(any(feature = "stm32h743", feature = "stm32h753"))]
 use drv_stm32h7_usart as drv_usart;
 
-use drv_gimlet_hf_api::{HfDevSelect, HfMuxState, HostFlash};
 use drv_gimlet_seq_api::{PowerState, SeqError, Sequencer};
+use drv_hf_api::{HfDevSelect, HfMuxState, HostFlash};
 use drv_stm32xx_sys_api as sys_api;
 use drv_usart::Usart;
 use enum_map::Enum;

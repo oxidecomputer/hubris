@@ -114,8 +114,8 @@ priority = 7
 max-sizes = {flash = 32768, ram = 32768}
 stacksize = 2048
 start = true
-features = ["h753", "stm32h7", "i2c", "gpio", "sprot"]
-task-slots = ["i2c_driver", "sys", "user_leds", "sprot"]
+features = ["h753", "stm32h7", "i2c", "gpio", "sprot", "qspi", "hash"]
+task-slots = ["i2c_driver", "sys", "user_leds", "sprot", "hf", "hash_driver"]
 
 [tasks.validate]
 name = "task-validate"
@@ -124,6 +124,18 @@ max-sizes = {flash = 32768, ram = 4096}
 stacksize = 1024
 start = true
 task-slots = ["i2c_driver"]
+
+[tasks.hash_driver]
+name = "drv-stm32h7-hash-server"
+features = ["h753"]
+priority = 2
+max-sizes = {flash = 16384, ram=4096 }
+stacksize = 2048
+start = true
+uses = ["hash"]
+interrupts = {"hash.irq" = "hash-irq"}
+task-slots = ["sys"]
+notifications = ["hash-irq"]
 
 [tasks.idle]
 name = "task-idle"
@@ -248,11 +260,12 @@ task-slots = ["sys", "net"]
 uses = ["fmc", "fmc_nor_psram_bank_1"]
 notifications = ["socket"]
 
-[tasks.fmc_nor_flash]
-name = "drv-fmc-nor-flash"
+[tasks.hf]
+name = "drv-cosmo-hf"
 priority = 5
 start = true
 uses = ["fmc_nor_psram_bank_1"]
+task-slots = ["hash_driver"]
 
 [config.net]
 # VLAN configuration

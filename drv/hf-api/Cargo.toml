@@ -1,5 +1,5 @@
 [package]
-name = "drv-gimlet-hf-api"
+name = "drv-hf-api"
 version = "0.1.0"
 edition = "2021"
 
