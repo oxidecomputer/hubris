@@ -494,6 +494,7 @@ memory-size = 33_554_432 # 256 Mib / 32 MiB
 slot-count = 16 # 2 MiB slots
 
 [[auxflash.blobs]]
-file = "drv/grapefruit-seq-server/grapefruit.bit"
+file = "drv/grapefruit-seq-server/grapefruit.bz2"
+unzip = "bz2"
 compress = true
 tag = "FPGA"

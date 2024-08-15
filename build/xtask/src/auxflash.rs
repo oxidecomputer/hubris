@@ -19,6 +19,7 @@ pub struct AuxFlash {
 #[derive(Clone, Debug, Deserialize)]
 pub struct AuxFlashBlob {
     pub file: String,
+    pub unzip: Option<String>,
     pub compress: bool,
     pub tag: String,
 }
@@ -44,6 +45,19 @@ fn pack_blob(
     }
     let data = std::fs::read(&blob.file)
         .with_context(|| format!("Could not read blob {}", blob.file))?;
+
+    let data = match blob.unzip.as_deref() {
+        None => data,
+        Some("bz2") => {
+            let mut reader =
+                bzip2_rs::DecoderReader::new(std::io::Cursor::new(data));
+            let mut out = std::io::Cursor::new(vec![]);
+            std::io::copy(&mut reader, &mut out)?;
+            out.into_inner()
+        }
+        Some(s) => bail!("unknown zip format '{s}' (must be 'bz2')"),
+    };
+
     let data = if blob.compress {
         gnarle::compress_to_vec(&data)
     } else {
