@@ -334,3 +334,27 @@ impl From<WatchdogError> for GwWatchdogError {
         }
     }
 }
+
+// Added in protocol v6
+#[derive(
+    Copy, Clone, Debug, Serialize, Deserialize, SerializedSize, counters::Count,
+)]
+pub enum StateError {
+    ReadCmpa(UpdateError),
+    ReadCfpa(UpdateError),
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    From,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    counters::Count,
+)]
+pub enum StateOrSprotError {
+    Sprot(#[count(children)] SprotError),
+    State(#[count(children)] StateError),
+}

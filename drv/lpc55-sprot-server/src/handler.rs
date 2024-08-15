@@ -7,11 +7,11 @@ use attest_api::Attest;
 use crc::{Crc, CRC_32_CKSUM};
 use drv_lpc55_update_api::{RotComponent, RotPage, SlotId, Update};
 use drv_sprot_api::{
-    AttestReq, AttestRsp, CabooseReq, CabooseRsp, DumpReq, PolicyDevOrRelease,
-    PolicyReq, PolicyRsp, ReqBody, Request, Response, RotIoStats, RotPageRsp,
-    RotState, RotStatus, RspBody, SprocketsError, SprotError,
-    SprotProtocolError, SwdReq, UpdateReq, UpdateRsp, CURRENT_VERSION,
-    MIN_VERSION, REQUEST_BUF_SIZE, RESPONSE_BUF_SIZE,
+    AttestReq, AttestRsp, CabooseReq, CabooseRsp, DumpReq, ReqBody, Request,
+    Response, RotIoStats, RotPageRsp, RotState, RotStatus, RspBody,
+    SprocketsError, SprotError, SprotProtocolError, StateDevOrRelease,
+    StateError, StateReq, StateRsp, SwdReq, UpdateReq, UpdateRsp,
+    CURRENT_VERSION, MIN_VERSION, REQUEST_BUF_SIZE, RESPONSE_BUF_SIZE,
 };
 use lpc55_romapi::bootrom;
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
@@ -568,37 +568,45 @@ impl<'a> Handler {
                 )?;
                 Ok((RspBody::Ok, None))
             }
-            ReqBody::Policy(PolicyReq::DevOrRelease) => {
-                let mut buf = [0u8; 512];
+            ReqBody::State(StateReq::DevOrRelease) => {
+                let out = self.state_dev_or_release();
 
-                // If the SHA-256 Digest is zeros, the CMPA is unlocked
-                self.update.read_rot_page(RotPage::Cmpa, &mut buf)?;
-                let unlocked = buf[480..].iter().all(|b| *b == 0);
-
-                // Otherwise, check which root keys are enabled
-                let dev = if unlocked {
-                    true
-                } else {
-                    self.update.read_rot_page(RotPage::CfpaActive, &mut buf)?;
-                    // Look at the ROTKH_REVOKE byte
-                    let revoke = buf[24];
-                    // Check if any of the development keys (slots 2 and 3) are
-                    // in the Valid state (0b01)
-                    [2, 3]
-                        .iter()
-                        .any(|slot| (revoke >> (slot * 2)) & 0b11 == 0b01)
-                };
-
-                Ok((
-                    RspBody::Policy(PolicyRsp::DevOrRelease(if dev {
-                        PolicyDevOrRelease::Development
-                    } else {
-                        PolicyDevOrRelease::Release
-                    })),
-                    None,
-                ))
+                Ok((RspBody::State(out.map(StateRsp::DevOrRelease)), None))
             }
         }
+    }
+
+    fn state_dev_or_release(
+        &mut self,
+    ) -> Result<StateDevOrRelease, StateError> {
+        let mut buf = [0u8; 512];
+
+        // If the SHA-256 Digest is zeros, the CMPA is unlocked
+        self.update
+            .read_rot_page(RotPage::Cmpa, &mut buf)
+            .map_err(StateError::ReadCmpa)?;
+        let unlocked = buf[480..].iter().all(|b| *b == 0);
+
+        // Otherwise, check which root keys are enabled
+        let dev = if unlocked {
+            true
+        } else {
+            self.update
+                .read_rot_page(RotPage::CfpaActive, &mut buf)
+                .map_err(StateError::ReadCfpa)?;
+            // Look at the ROTKH_REVOKE byte
+            let revoke = buf[24];
+            // Check if any of the development keys (slots 2 and 3) are
+            // in the Valid state (0b01)
+            [2, 3]
+                .iter()
+                .any(|slot| (revoke >> (slot * 2)) & 0b11 == 0b01)
+        };
+        Ok(if dev {
+            StateDevOrRelease::Development
+        } else {
+            StateDevOrRelease::Release
+        })
     }
 }
 

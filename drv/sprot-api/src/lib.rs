@@ -15,7 +15,7 @@ use dumper_api::DumperError;
 pub use error::{
     AttestOrSprotError, CabooseOrSprotError, DumpOrSprotError,
     RawCabooseOrSprotError, SprocketsError, SprotError, SprotProtocolError,
-    WatchdogError,
+    StateError, StateOrSprotError, WatchdogError,
 };
 
 use crc::{Crc, CRC_16_XMODEM};
@@ -350,7 +350,7 @@ pub enum ReqBody {
     // Added in sprot protocol version 5
     Swd(SwdReq),
     // Added in sprot protocol version 6
-    Policy(PolicyReq),
+    State(StateReq),
 }
 
 // Added in sprot protocol version 5
@@ -371,7 +371,7 @@ pub enum SwdReq {
 
 // Added in sprot protocol version 6
 #[derive(Clone, Serialize, Deserialize, SerializedSize)]
-pub enum PolicyReq {
+pub enum StateReq {
     /// Checks whether the RoT is in development or release mode
     ///
     /// In release mode, security policy may be more stringent
@@ -512,7 +512,7 @@ pub enum RspBody {
     Page(Result<RotPageRsp, UpdateError>),
 
     // Added in sprot protocol version 6
-    Policy(PolicyRsp),
+    State(Result<StateRsp, StateError>),
 }
 
 /// A response for reading a ROT page
@@ -522,14 +522,14 @@ pub enum RotPageRsp {
 }
 
 #[derive(Copy, Clone, Serialize, Deserialize, SerializedSize)]
-pub enum PolicyDevOrRelease {
+pub enum StateDevOrRelease {
     Development,
     Release,
 }
 
 #[derive(Copy, Clone, Serialize, Deserialize, SerializedSize)]
-pub enum PolicyRsp {
-    DevOrRelease(PolicyDevOrRelease),
+pub enum StateRsp {
+    DevOrRelease(StateDevOrRelease),
 }
 
 /// A response from the Dumper
