@@ -103,6 +103,7 @@ mod instr {
     pub const SECTOR_ERASE: u32 = 0x20;
     pub const READ_JEDEC_ID: u32 = 0x9f;
     pub const BLOCK_ERASE_64KB: u32 = 0xd8;
+    pub const BLOCK_ERASE_64KB_4B: u32 = 0xdc;
     pub const QUAD_INPUT_PAGE_PROGRAM: u32 = 0x32;
     pub const QUAD_INPUT_PAGE_PROGRAM_4B: u32 = 0x34;
 }
@@ -208,7 +209,7 @@ impl ServerImpl {
         self.write_reg(reg::DATA_BYTES, 0);
         self.write_reg(reg::ADDR, addr);
         self.write_reg(reg::DUMMY_CYCLES, 0);
-        self.write_reg(reg::INSTR, instr::BLOCK_ERASE_64KB);
+        self.write_reg(reg::INSTR, instr::BLOCK_ERASE_64KB_4B);
 
         // Wait for the busy flag to be unset
         self.wait_flash_busy(Trace::SectorEraseBusy);
