@@ -8,7 +8,7 @@
 #![no_main]
 
 use ringbuf::*;
-use userlib::*;
+use userlib::{task_slot, RecvMessage, TaskId};
 use zerocopy::{byteorder, AsBytes, Unaligned, U16};
 
 use drv_fpga_api::{BitstreamType, DeviceState, FpgaError, ReadOp, WriteOp};

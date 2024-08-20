@@ -8,7 +8,7 @@
 
 use counters::Count;
 use derive_idol_err::IdolError;
-use userlib::*;
+use userlib::{sys_send, FromPrimitive};
 
 // Re-export PowerState for client convenience.
 pub use drv_gimlet_state::PowerState;

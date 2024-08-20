@@ -24,7 +24,7 @@
 use drv_lpc55_gpio_api::*;
 use drv_lpc55_syscon_api::{Peripheral, Syscon};
 use lpc55_pac as device;
-use userlib::*;
+use userlib::{hl, task_slot, FromPrimitive, LeaseAttributes};
 
 task_slot!(SYSCON, syscon_driver);
 task_slot!(GPIO, gpio_driver);

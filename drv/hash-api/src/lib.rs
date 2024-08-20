@@ -7,7 +7,7 @@
 #![no_std]
 
 use derive_idol_err::IdolError;
-use userlib::*;
+use userlib::{sys_send, FromPrimitive};
 
 pub const SHA256_SZ: usize = 32;
 

@@ -28,7 +28,7 @@
 )]
 mod bsp;
 
-use userlib::*;
+use userlib::{hl, task_slot, FromPrimitive, RecvMessage};
 
 use drv_gimlet_hf_api::SECTOR_SIZE_BYTES;
 use drv_stm32h7_qspi::Qspi;

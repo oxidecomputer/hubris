@@ -16,7 +16,7 @@ use idol_runtime::{ClientError, NotificationHandler, RequestError};
 use rand_chacha::ChaCha20Rng;
 use rand_core::block::{BlockRng, BlockRngCore};
 use rand_core::{impls, Error, RngCore, SeedableRng};
-use userlib::*;
+use userlib::task_slot;
 
 use lpc55_pac as device;
 

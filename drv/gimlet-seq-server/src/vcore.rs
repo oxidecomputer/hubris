@@ -32,7 +32,7 @@ use drv_i2c_devices::raa229618::Raa229618;
 use drv_stm32xx_sys_api as sys_api;
 use ringbuf::*;
 use sys_api::IrqControl;
-use userlib::*;
+use userlib::{sys_get_timer, units};
 
 pub struct VCore {
     device: Raa229618,

@@ -8,8 +8,10 @@ use crate::Validate;
 use bitfield::bitfield;
 use drv_i2c_api::*;
 use ringbuf::*;
-use userlib::units::*;
-use userlib::*;
+use userlib::{
+    units::{PWMDuty, Rpm},
+    FromPrimitive, UnwrapLite,
+};
 
 bitfield! {
     pub struct Configuration(u8);
