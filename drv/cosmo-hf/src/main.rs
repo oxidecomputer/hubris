@@ -78,7 +78,10 @@ fn main() -> ! {
         fail(drv_hf_api::HfError::BadChipId);
     }
 
-    let mut server = hf::ServerImpl { drv };
+    let mut server = hf::ServerImpl {
+        drv,
+        dev: drv_hf_api::HfDevSelect::Flash0,
+    };
 
     let mut buffer = [0; hf::idl::INCOMING_SIZE];
     loop {
