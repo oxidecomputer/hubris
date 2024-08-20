@@ -795,13 +795,6 @@ pub(crate) fn qspi_read(
     Ok(len)
 }
 
-#[derive(Copy, Clone, PartialEq)]
-enum Trace {
-    None,
-    Mismatch(u8, u8, usize),
-}
-ringbuf::ringbuf!(Trace, 64, Trace::None);
-
 #[cfg(feature = "qspi")]
 pub(crate) fn qspi_verify(
     stack: &[Option<u32>],
@@ -836,7 +829,6 @@ pub(crate) fn qspi_verify(
 
     for i in 0..len {
         if data[i] != out[i] {
-            ringbuf::ringbuf_entry!(Trace::Mismatch(data[i], out[i], i));
             differ = true;
             break;
         }
