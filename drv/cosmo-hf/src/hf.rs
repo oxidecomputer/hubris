@@ -11,7 +11,7 @@ use idol_runtime::{
     RequestError, R, W,
 };
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
-use userlib::{task_slot, RecvMessage};
+use userlib::{task_slot, RecvMessage, UnwrapLite};
 
 use crate::{ServerImpl, Trace, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES};
 
@@ -58,18 +58,23 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         protect: HfProtectMode,
         data: LenLimit<Leased<R, [u8]>, PAGE_SIZE_BYTES>,
     ) -> Result<(), RequestError<HfError>> {
-        if addr as usize / SECTOR_SIZE_BYTES == 0
+        if addr < SECTOR_SIZE_BYTES
             && !matches!(protect, HfProtectMode::AllowModificationsToSector0)
         {
             return Err(HfError::Sector0IsReserved.into());
         }
-        self.flash_page_program(
+        self.flash_write(
             addr,
-            LeaseBufReader::<_, 32>::from(data.into_inner()),
+            &mut LeaseBufReader::<_, 32>::from(data.into_inner()),
         )
         .map_err(|()| RequestError::went_away())
     }
 
+    /// Erases the 64 KiB sector containing the given address
+    ///
+    /// If this is sector 0, requires `protect` to be
+    /// `HfProtectMode::AllowModificationsToSector0` (otherwise this function
+    /// will return an error).
     fn read(
         &mut self,
         _: &RecvMessage,
@@ -78,7 +83,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     ) -> Result<(), RequestError<HfError>> {
         self.flash_read(
             offset,
-            LeaseBufWriter::<_, 32>::from(dest.into_inner()),
+            &mut LeaseBufWriter::<_, 32>::from(dest.into_inner()),
         )
         .map_err(|_| RequestError::went_away())
     }
@@ -89,7 +94,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         addr: u32,
         protect: HfProtectMode,
     ) -> Result<(), RequestError<HfError>> {
-        if addr as usize / SECTOR_SIZE_BYTES == 0
+        if addr < SECTOR_SIZE_BYTES
             && !matches!(protect, HfProtectMode::AllowModificationsToSector0)
         {
             return Err(HfError::Sector0IsReserved.into());
@@ -141,26 +146,18 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         let begin = addr as usize;
         // TODO: Begin may be an address beyond physical end of
         // flash part and may wrap around.
-        let end = match begin.checked_add(len as usize) {
-            Some(end) => {
-                // Check end > maximum 4-byte address.
-                // TODO: End may be beyond physical end of flash part.
-                //       Use that limit rather than maximum 4-byte address.
-                if end > u32::MAX as usize {
-                    return Err(HfError::HashBadRange.into());
-                } else {
-                    end
-                }
-            }
-            None => {
-                return Err(HfError::HashBadRange.into());
-            }
-        };
-        // If we knew the flash part size, we'd check against those limits.
+        let end = begin
+            .checked_add(len as usize)
+            .ok_or(HfError::HashBadRange)?;
+
         let mut buf = [0u8; PAGE_SIZE_BYTES];
         for addr in (begin..end).step_by(buf.len()) {
             let size = (end - addr).min(buf.len());
-            self.flash_read(addr as u32, &mut buf[..size]).unwrap();
+            // This unwrap is safe because `flash_read` can only fail when given
+            // a lease (where writing into the lease fails if the client goes
+            // away).  Giving it a buffer is infallible.
+            self.flash_read(addr as u32, &mut &mut buf[..size])
+                .unwrap_lite();
             if let Err(e) = hash_driver.update(size as u32, &buf[..size]) {
                 ringbuf_entry!(Trace::HashUpdateError(e));
                 return Err(HfError::HashError.into());

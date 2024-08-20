@@ -52,7 +52,7 @@ pub const PAGE_SIZE_BYTES: usize = 256;
 /// **Note:** the datasheet refers to a "sector" as a 4K block, but also
 /// supports 64K block erases, so we call the latter a sector to match the
 /// behavior of the Gimlet host flash driver.
-pub const SECTOR_SIZE_BYTES: usize = 65_536;
+pub const SECTOR_SIZE_BYTES: u32 = 65_536;
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -145,7 +145,7 @@ impl ServerImpl {
         }
     }
 
-    /// Wait until a word is available in the RX buffer
+    /// Wait until a word is available in the FPGA's RX buffer
     fn wait_fpga_rx(&self) {
         for i in 0.. {
             let status = self.read_reg(reg::SPISR);
@@ -162,6 +162,11 @@ impl ServerImpl {
         }
     }
 
+    /// Clears the FPGA's internal FIFOs
+    fn clear_fifos(&self) {
+        self.write_reg(reg::SPICR, 0x8080);
+    }
+
     /// Wait until the SPI flash is idle
     fn wait_flash_busy(&self, t: Trace) {
         // Wait for the busy flag to be unset
@@ -171,6 +176,7 @@ impl ServerImpl {
         }
     }
 
+    /// Reads the STATUS1 register from flash
     fn read_flash_status(&self) -> u8 {
         self.clear_fifos();
         self.write_reg(reg::DATA_BYTES, 1);
@@ -181,6 +187,7 @@ impl ServerImpl {
         self.read_reg(reg::RX_FIFO).to_le_bytes()[0]
     }
 
+    /// Sets the write enable flag in flash
     fn flash_write_enable(&self) {
         self.write_reg(reg::DATA_BYTES, 0);
         self.write_reg(reg::ADDR, 0);
@@ -189,10 +196,7 @@ impl ServerImpl {
         self.wait_fpga_busy();
     }
 
-    fn clear_fifos(&self) {
-        self.write_reg(reg::SPICR, 0x8080);
-    }
-
+    /// Erases the 64KiB flash sector containing the given address
     fn flash_sector_erase(&mut self, addr: u32) {
         self.flash_write_enable();
         self.write_reg(reg::DATA_BYTES, 0);
@@ -204,66 +208,77 @@ impl ServerImpl {
         self.wait_flash_busy(Trace::SectorEraseBusy);
     }
 
-    fn flash_read<'a, B: idol_runtime::BufWriter<'a>>(
+    /// Reads data from the given address into a `BufWriter`
+    fn flash_read<'a>(
         &mut self,
         offset: u32,
-        mut dest: B,
+        dest: &mut dyn idol_runtime::BufWriter<'a>,
     ) -> Result<(), ()> {
-        let len = dest.remaining_size();
-        assert!(len <= 256);
-        self.clear_fifos();
-        self.write_reg(reg::DATA_BYTES, len as u32);
-        self.write_reg(reg::ADDR, offset);
-        self.write_reg(reg::DUMMY_CYCLES, 8);
-        self.write_reg(reg::INSTR, instr::FAST_READ_QUAD_OUTPUT_4B);
-        for i in 0..len.div_ceil(4) {
-            self.wait_fpga_rx();
-            let v = self.read_reg(reg::RX_FIFO);
-            let v = v.to_le_bytes();
-            for (j, byte) in v.iter().enumerate() {
-                let k = i * 4 + j;
-                if k < len {
-                    dest.write(*byte)?;
+        loop {
+            let len = dest.remaining_size().min(PAGE_SIZE_BYTES);
+            if len == 0 {
+                break;
+            }
+            self.clear_fifos();
+            self.write_reg(reg::DATA_BYTES, len as u32);
+            self.write_reg(reg::ADDR, offset);
+            self.write_reg(reg::DUMMY_CYCLES, 8);
+            self.write_reg(reg::INSTR, instr::FAST_READ_QUAD_OUTPUT_4B);
+            for i in 0..len.div_ceil(4) {
+                self.wait_fpga_rx();
+                let v = self.read_reg(reg::RX_FIFO);
+                let v = v.to_le_bytes();
+                for (j, byte) in v.iter().enumerate() {
+                    let k = i * 4 + j;
+                    if k < len {
+                        dest.write(*byte)?;
+                    }
                 }
             }
         }
         Ok(())
     }
 
-    fn flash_page_program<'a, B: idol_runtime::BufReader<'a>>(
+    /// Writes data from a `BufReader` into the flash
+    fn flash_write(
         &mut self,
         addr: u32,
-        mut data: B,
+        data: &mut dyn idol_runtime::BufReader,
     ) -> Result<(), ()> {
-        let len = data.remaining_size();
-        assert!(len <= 256);
-
-        self.flash_write_enable();
-        self.write_reg(reg::DATA_BYTES, len as u32);
-        self.write_reg(reg::ADDR, addr);
-        self.write_reg(reg::DUMMY_CYCLES, 0);
-        for i in 0..len.div_ceil(4) {
-            let mut v = [0u8; 4];
-            for (j, byte) in v.iter_mut().enumerate() {
-                let k = i * 4 + j;
-                if k < len {
-                    let Some(d) = data.read() else {
-                        return Err(());
-                    };
-                    *byte = d;
-                }
+        loop {
+            let len = data.remaining_size().min(PAGE_SIZE_BYTES);
+            if len == 0 {
+                break;
             }
-            let v = u32::from_le_bytes(v);
-            self.write_reg(reg::TX_FIFO, v);
-        }
-        self.write_reg(reg::INSTR, instr::QUAD_INPUT_PAGE_PROGRAM_4B);
-        self.wait_fpga_busy();
 
-        // Wait for the busy flag to be unset
-        self.wait_flash_busy(Trace::WriteBusy);
+            self.flash_write_enable();
+            self.write_reg(reg::DATA_BYTES, len as u32);
+            self.write_reg(reg::ADDR, addr);
+            self.write_reg(reg::DUMMY_CYCLES, 0);
+            for i in 0..len.div_ceil(4) {
+                let mut v = [0u8; 4];
+                for (j, byte) in v.iter_mut().enumerate() {
+                    let k = i * 4 + j;
+                    if k < len {
+                        let Some(d) = data.read() else {
+                            return Err(());
+                        };
+                        *byte = d;
+                    }
+                }
+                let v = u32::from_le_bytes(v);
+                self.write_reg(reg::TX_FIFO, v);
+            }
+            self.write_reg(reg::INSTR, instr::QUAD_INPUT_PAGE_PROGRAM_4B);
+            self.wait_fpga_busy();
+
+            // Wait for the busy flag to be unset
+            self.wait_flash_busy(Trace::WriteBusy);
+        }
         Ok(())
     }
 
+    /// Enable the quad enable bit in flash
     fn flash_set_quad_enable(&self) {
         let mut status = self.read_flash_status_2();
         status |= 1 << 1; // QE bit
