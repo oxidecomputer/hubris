@@ -2,7 +2,7 @@ name: dist
 on:
   pull_request:
   push:
-    branches: [master, grapefruit-bringup]
+    branches: [master]
 
 jobs:
   build:
