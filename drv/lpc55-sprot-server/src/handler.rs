@@ -579,13 +579,15 @@ impl<'a> Handler {
     fn state_dev_or_release(
         &mut self,
     ) -> Result<StateDevOrRelease, StateError> {
-        let mut buf = [0u8; 512];
+        const CMPA_SIZE: usize = 512;
+        let mut buf = [0u8; CMPA_SIZE];
 
-        // If the SHA-256 Digest is zeros, the CMPA is unlocked
+        // If the SHA-256 Digest is zeros, the CMPA is unlocked.  The SHA-256
+        // digest is located in the last 4 words of the CMPA.
         self.update
             .read_rot_page(RotPage::Cmpa, &mut buf)
             .map_err(StateError::ReadCmpa)?;
-        let unlocked = buf[480..].iter().all(|b| *b == 0);
+        let unlocked = buf[CMPA_SIZE - 32..].iter().all(|b| *b == 0);
 
         // Otherwise, check which root keys are enabled
         let dev = if unlocked {
