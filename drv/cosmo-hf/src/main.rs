@@ -209,10 +209,10 @@ impl ServerImpl {
     }
 
     /// Reads data from the given address into a `BufWriter`
-    fn flash_read<'a>(
+    fn flash_read(
         &mut self,
         offset: u32,
-        dest: &mut dyn idol_runtime::BufWriter<'a>,
+        dest: &mut dyn idol_runtime::BufWriter<'_>,
     ) -> Result<(), ()> {
         loop {
             let len = dest.remaining_size().min(PAGE_SIZE_BYTES);
@@ -243,7 +243,7 @@ impl ServerImpl {
     fn flash_write(
         &mut self,
         addr: u32,
-        data: &mut dyn idol_runtime::BufReader,
+        data: &mut dyn idol_runtime::BufReader<'_>,
     ) -> Result<(), ()> {
         loop {
             let len = data.remaining_size().min(PAGE_SIZE_BYTES);
