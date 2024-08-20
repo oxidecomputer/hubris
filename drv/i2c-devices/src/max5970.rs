@@ -7,8 +7,10 @@
 use crate::{CurrentSensor, Validate, VoltageSensor};
 use drv_i2c_api::*;
 use num_traits::float::FloatCore;
-use userlib::units::*;
-use userlib::*;
+use userlib::{
+    units::{Amperes, Ohms, Volts},
+    FromPrimitive,
+};
 
 #[allow(dead_code, non_camel_case_types)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, FromPrimitive)]
