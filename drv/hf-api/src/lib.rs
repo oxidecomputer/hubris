@@ -31,6 +31,8 @@ pub enum HfError {
     Sector0IsReserved,
     NoPersistentData,
     MonotonicCounterOverflow,
+    FpgaNotConfigured,
+    BadChipId,
 
     #[idol(server_death)]
     ServerRestarted,
