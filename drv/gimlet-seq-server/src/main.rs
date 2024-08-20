@@ -12,7 +12,10 @@ mod vcore;
 
 use counters::*;
 use ringbuf::*;
-use userlib::*;
+use userlib::{
+    hl, set_timer_relative, sys_get_timer, sys_recv_notification,
+    sys_set_timer, task_slot, units, RecvMessage, TaskId, UnwrapLite,
+};
 
 use drv_gimlet_hf_api as hf_api;
 use drv_gimlet_seq_api::{PowerState, SeqError};
