@@ -10,7 +10,7 @@ use derive_idol_err::IdolError;
 use drv_hash_api::SHA256_SZ;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
-use userlib::*;
+use userlib::{sys_send, FromPrimitive};
 use zerocopy::AsBytes;
 
 pub use drv_qspi_api::{PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES};
