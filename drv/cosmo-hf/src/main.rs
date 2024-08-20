@@ -74,7 +74,7 @@ fn main() -> ! {
 
     // Check the flash chip's ID against Table 7.3.1 in the datasheet
     let id = drv.flash_read_id();
-    if &id[0..3] != [0xef, 0x40, 0x21] {
+    if id[0..3] != [0xef, 0x40, 0x21] {
         fail(drv_hf_api::HfError::BadChipId);
     }
 
