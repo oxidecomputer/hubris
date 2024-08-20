@@ -2536,7 +2536,7 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=mkeeter/tech-port-unlock-ssh#445f7c117b54fbc31d43a3e72984a7ab972036c3"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=mkeeter/tech-port-unlock-ssh#4f357ea0cebd2d69a339aaf9f1eaa4e499dc4d83"
 dependencies = [
  "bitflags 2.6.0",
  "hubpack",

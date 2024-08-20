@@ -16,12 +16,13 @@ use gateway_messages::sp_impl::{
 };
 use gateway_messages::{
     ignition, ComponentAction, ComponentActionResponse, ComponentDetails,
-    ComponentUpdatePrepare, DiscoverResponse, IgnitionCommand, IgnitionState,
-    MgsError, MgsRequest, MgsResponse, MonorailComponentAction,
-    MonorailComponentActionResponse, MonorailError as GwMonorailError,
-    PowerState, RotBootInfo, RotRequest, RotResponse, SensorRequest,
-    SensorResponse, SpComponent, SpError, SpStateV2, SpUpdatePrepare,
-    UnlockChallenge, UnlockResponse, UpdateChunk, UpdateId, UpdateStatus,
+    ComponentUpdatePrepare, DiscoverResponse, EcdsaSha2Nistp256Challenge,
+    IgnitionCommand, IgnitionState, MgsError, MgsRequest, MgsResponse,
+    MonorailComponentAction, MonorailComponentActionResponse,
+    MonorailError as GwMonorailError, PowerState, RotBootInfo, RotRequest,
+    RotResponse, SensorRequest, SensorResponse, SpComponent, SpError,
+    SpStateV2, SpUpdatePrepare, UnlockChallenge, UnlockResponse, UpdateChunk,
+    UpdateId, UpdateStatus,
 };
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
@@ -29,6 +30,7 @@ use ringbuf::{counted_ringbuf, ringbuf_entry, ringbuf_entry_root};
 use task_control_plane_agent_api::{ControlPlaneAgentError, VpdIdentity};
 use task_net_api::{MacAddress, UdpMetadata, VLanId};
 use userlib::sys_get_timer;
+use zerocopy::AsBytes;
 
 // We're included under a special `path` cfg from main.rs, which confuses rustc
 // about where our submodules live. Pass explicit paths to correct it.
@@ -316,8 +318,12 @@ impl MgsHandler {
             ) if ts1 == ts2 => Ok(()),
             (
                 UnlockChallenge::EcdsaSha2Nistp256(data),
-                UnlockResponse::EcdsaSha2Nistp256 { key, signature },
-            ) => verify_signature(&data, &key, &signature),
+                UnlockResponse::EcdsaSha2Nistp256 {
+                    key,
+                    signer_nonce,
+                    signature,
+                },
+            ) => verify_signature(&data, &key, &signer_nonce, &signature),
             _ => Err(GwMonorailError::UnlockAuthFailed),
         }?;
         ringbuf_entry!(Trace::UnlockAuthSucceeded);
@@ -400,8 +406,9 @@ impl MgsHandler {
 }
 
 fn verify_signature(
-    data: &[u8; 32],
+    data: &EcdsaSha2Nistp256Challenge,
     key: &[u8; 65],
+    signer_nonce: &[u8; 8],
     signature: &[u8; 64],
 ) -> Result<(), GwMonorailError> {
     if !TRUSTED_KEYS.iter().any(|t| t == key) {
@@ -447,7 +454,8 @@ fn verify_signature(
 
     let mut hasher = sha2::Sha256::new();
     use sha2::Digest;
-    hasher.update(data);
+    hasher.update(data.as_bytes());
+    hasher.update(signer_nonce);
     let hash = hasher.finalize();
     buf[43..].copy_from_slice(&hash);
 
@@ -660,24 +668,32 @@ impl SpHandler for MgsHandler {
             (SpComponent::MONORAIL, ComponentAction::Monorail(action)) => {
                 match action {
                     MonorailComponentAction::RequestChallenge => {
-                        // TODO is this sufficient?
-                        let rng = drv_rng_api::Rng::from(RNG.get_task_id());
-                        let mut buf = [0u8; 32];
-                        rng.fill(&mut buf).map_err(|e| {
-                            ringbuf_entry!(Trace::RngFillFailed(e));
-                            SpError::Monorail(
-                                GwMonorailError::GetChallengeFailed,
+                        let sprot = drv_sprot_api::SpRot::from(
+                            crate::mgs_common::SPROT.get_task_id(),
+                        );
+                        let challenge = match sprot.state_dev_or_release() {
+                            Ok(
+                                drv_sprot_api::StateDevOrRelease::Development,
                             )
-                        })?;
-                        let c = UnlockChallenge::EcdsaSha2Nistp256(buf);
+                            | Err(_) => {
+                                let timestamp = sys_get_timer().now;
+                                UnlockChallenge::Trivial { timestamp }
+                            }
+
+                            Ok(drv_sprot_api::StateDevOrRelease::Release) => {
+                                UnlockChallenge::EcdsaSha2Nistp256(
+                                    get_ecdsa_challenge()?,
+                                )
+                            }
+                        };
 
                         // Store the new challenge, which expires in 60 seconds
                         let now = sys_get_timer().now;
-                        self.last_challenge = Some((c, now));
+                        self.last_challenge = Some((challenge, now));
 
                         Ok(ComponentActionResponse::Monorail(
                             MonorailComponentActionResponse::RequestChallenge(
-                                c,
+                                challenge,
                             ),
                         ))
                     }
@@ -1114,6 +1130,37 @@ fn sp_error_from_ignition_error(err: IgnitionError) -> SpError {
         _ => E::Other(err as u32),
     };
     SpError::Ignition(err)
+}
+
+fn get_ecdsa_challenge() -> Result<EcdsaSha2Nistp256Challenge, SpError> {
+    // Get a nonce from our RNG driver
+    let rng = drv_rng_api::Rng::from(RNG.get_task_id());
+    let mut buf = [0u8; 32];
+    rng.fill(&mut buf).map_err(|e| {
+        ringbuf_entry!(Trace::RngFillFailed(e));
+        SpError::Monorail(GwMonorailError::GetChallengeFailed)
+    })?;
+
+    // Get our hardware ID from Packrat
+    let packrat = task_packrat_api::Packrat::from(
+        crate::mgs_common::PACKRAT.get_task_id(),
+    );
+    let identity = packrat.get_identity().unwrap_or(VpdIdentity::default());
+    const HW_ID_LEN: usize = 32;
+    let mut hw_id = [0u8; HW_ID_LEN];
+    static_assertions::const_assert!(
+        HW_ID_LEN >= core::mem::size_of::<VpdIdentity>()
+    );
+    hw_id[..core::mem::size_of::<VpdIdentity>()]
+        .copy_from_slice(identity.as_bytes());
+
+    let now = sys_get_timer().now;
+    Ok(EcdsaSha2Nistp256Challenge {
+        hw_id,
+        sw_id: [0, 0, 0, 1],
+        time: now.to_le_bytes(),
+        nonce: buf,
+    })
 }
 
 include!(concat!(env!("OUT_DIR"), "/trusted_keys.rs"));

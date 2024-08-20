@@ -106,7 +106,7 @@ task-slots = ["sys", "packrat", { seq = "sequencer" }, "jefe"]
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
 priority = 7
-max-sizes = {flash = 140672, ram = 65536 }
+max-sizes = {flash = 140900, ram = 65536 }
 stacksize = 12000
 start = true
 uses = []
