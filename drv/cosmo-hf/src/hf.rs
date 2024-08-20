@@ -40,12 +40,15 @@ impl ServerImpl {
         }
     }
 
+    fn flash_base(&self) -> u32 {
+        match self.dev {
+            HfDevSelect::Flash0 => 0,
+            HfDevSelect::Flash1 => SLOT_SIZE_BYTES,
+        }
+    }
+
     fn flash_addr(&self, offset: u32) -> u32 {
-        offset
-            + match self.dev {
-                HfDevSelect::Flash0 => 0,
-                HfDevSelect::Flash1 => SLOT_SIZE_BYTES,
-            }
+        offset + self.flash_base()
     }
 }
 
@@ -80,7 +83,15 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         if !matches!(protect, HfProtectMode::AllowModificationsToSector0) {
             return Err(HfError::Sector0IsReserved.into());
         }
-        todo!()
+        // Don't use the bulk erase command, because it will erase the entire
+        // chip.  Instead, use the sector erase to erase the currently-active
+        // virtual device.
+        for offset in 0..SLOT_SIZE_BYTES / SECTOR_SIZE_BYTES as u32 {
+            self.drv.flash_sector_erase(
+                self.flash_addr(offset * SECTOR_SIZE_BYTES as u32),
+            );
+        }
+        Ok(())
     }
 
     fn page_program(

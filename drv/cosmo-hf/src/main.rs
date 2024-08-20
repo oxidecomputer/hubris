@@ -79,8 +79,9 @@ fn main() -> ! {
     }
 
     let mut server = hf::ServerImpl {
-        drv,
+        // TODO pick based on FPGA state
         dev: drv_hf_api::HfDevSelect::Flash0,
+        drv,
     };
 
     let mut buffer = [0; hf::idl::INCOMING_SIZE];
