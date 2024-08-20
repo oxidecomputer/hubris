@@ -866,6 +866,7 @@ dependencies = [
  "build-util",
  "cortex-m",
  "counters",
+ "drv-grapefruit-seq-api",
  "drv-hash-api",
  "drv-hf-api",
  "hubpack",
@@ -1037,6 +1038,18 @@ name = "drv-gimlet-state"
 version = "0.1.0"
 dependencies = [
  "counters",
+ "num-traits",
+ "userlib",
+ "zerocopy 0.6.6",
+]
+
+[[package]]
+name = "drv-grapefruit-seq-api"
+version = "0.1.0"
+dependencies = [
+ "counters",
+ "idol",
+ "idol-runtime",
  "num-traits",
  "userlib",
  "zerocopy 0.6.6",

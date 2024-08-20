@@ -265,7 +265,8 @@ name = "drv-cosmo-hf"
 priority = 5
 start = true
 uses = ["fmc_nor_psram_bank_1"]
-task-slots = ["hash_driver"]
+task-slots = ["hash_driver", "grapefruit_seq"]
+stacksize = 1536
 
 [config.net]
 # VLAN configuration

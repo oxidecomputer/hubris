@@ -13,18 +13,21 @@
 #![no_std]
 #![no_main]
 
-use userlib::hl::sleep_for;
-
 use ringbuf::{counted_ringbuf, ringbuf_entry};
+use userlib::{hl::sleep_for, task_slot};
 
 mod hf; // implementation of `HostFlash` API
+
+task_slot!(SEQ, grapefruit_seq);
 
 #[derive(Debug, Clone, Copy, PartialEq, counters::Count)]
 enum Trace {
     #[count(skip)]
     None,
 
-    FpgaBusy(u32),
+    FpgaBusy {
+        spi_sr: u32,
+    },
     SectorEraseBusy,
     WriteBusy,
 
@@ -56,8 +59,9 @@ pub const SECTOR_SIZE_BYTES: u32 = 65_536;
 
 #[export_name = "main"]
 fn main() -> ! {
-    // Wait for the FMC to be configured
-    userlib::hl::sleep_for(1000);
+    // Wait for the FPGA to be configured
+    let seq = drv_grapefruit_seq_api::Sequencer::from(SEQ.get_task_id());
+    seq.ping(); // waits until the sequencer has completed configuration
 
     let id = unsafe { reg::BASE.read_volatile() };
     assert_eq!(id, 0x1de);
@@ -136,11 +140,11 @@ impl ServerImpl {
     /// Wait until the FPGA is idle
     fn wait_fpga_busy(&self) {
         loop {
-            let status = self.read_reg(reg::SPISR);
-            if (status & 1) == 0 {
+            let spi_sr = self.read_reg(reg::SPISR);
+            if (spi_sr & 1) == 0 {
                 break;
             }
-            ringbuf_entry!(Trace::FpgaBusy(status));
+            ringbuf_entry!(Trace::FpgaBusy { spi_sr });
             sleep_for(1);
         }
     }
@@ -148,13 +152,12 @@ impl ServerImpl {
     /// Wait until a word is available in the FPGA's RX buffer
     fn wait_fpga_rx(&self) {
         for i in 0.. {
-            let status = self.read_reg(reg::SPISR);
-            // Wait for the
+            let spi_sr = self.read_reg(reg::SPISR);
             const RX_EMPTY_BIT: u32 = 1 << 6;
-            if status & RX_EMPTY_BIT == 0 {
+            if spi_sr & RX_EMPTY_BIT == 0 {
                 break;
             }
-            ringbuf_entry!(Trace::FpgaBusy(status));
+            ringbuf_entry!(Trace::FpgaBusy { spi_sr });
             // Initial busy-loop for faster response
             if i >= 32 {
                 sleep_for(1);

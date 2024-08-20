@@ -2,9 +2,9 @@
 Interface(
     name: "Sequencer",
     ops: {
-        "foo": (
+        "ping": (
             args: {},
-            reply: Simple("u8"),
+            reply: Simple("()"),
             idempotent: true,
         ),
     }
