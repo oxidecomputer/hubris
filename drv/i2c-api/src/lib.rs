@@ -25,7 +25,7 @@
 use zerocopy::{AsBytes, FromBytes};
 
 pub use drv_i2c_types::*;
-use userlib::*;
+use userlib::{sys_send, FromPrimitive, Lease, TaskId};
 
 ///
 /// The 5-tuple that uniquely identifies an I2C device.  The multiplexer and
