@@ -86,10 +86,8 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         // Don't use the bulk erase command, because it will erase the entire
         // chip.  Instead, use the sector erase to erase the currently-active
         // virtual device.
-        for offset in 0..SLOT_SIZE_BYTES / SECTOR_SIZE_BYTES as u32 {
-            self.drv.flash_sector_erase(
-                self.flash_addr(offset * SECTOR_SIZE_BYTES as u32),
-            );
+        for offset in (0..SLOT_SIZE_BYTES).step_by(SECTOR_SIZE_BYTES as usize) {
+            self.drv.flash_sector_erase(self.flash_addr(offset));
         }
         Ok(())
     }
