@@ -9,7 +9,7 @@
 use core::ops::Deref;
 
 use drv_spi_api::SpiError;
-use userlib::*;
+use userlib::{FromPrimitive, UnwrapLite};
 use zerocopy::{AsBytes, BigEndian, FromBytes, U32};
 
 #[cfg(feature = "auxflash")]
@@ -438,7 +438,7 @@ pub fn load_bitstream_from_auxflash(
 
 pub mod idl {
     use super::{BitstreamType, DeviceState, FpgaError, ReadOp, WriteOp};
-    use userlib::*;
+    use userlib::sys_send;
 
     include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
 }
