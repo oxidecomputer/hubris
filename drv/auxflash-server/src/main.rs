@@ -14,7 +14,7 @@ use idol_runtime::{
     ClientError, Leased, NotificationHandler, RequestError, R, W,
 };
 use tlvc::{TlvcRead, TlvcReadError, TlvcReader};
-use userlib::*;
+use userlib::{hl, task_slot, RecvMessage, UnwrapLite};
 
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
