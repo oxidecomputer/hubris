@@ -52,11 +52,7 @@ impl<T> StaticCell<T> {
     /// If a `StaticRef` for `self` still exists anywhere in the program, this
     /// will panic.
     pub fn borrow_mut(&self) -> StaticRef<'_, T> {
-        if let Some(borrow) = self.try_borrow_mut() {
-            borrow
-        } else {
-            panic!();
-        }
+        self.try_borrow_mut().unwrap()
     }
 }
 
