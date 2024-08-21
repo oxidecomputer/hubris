@@ -148,7 +148,8 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         len: u32,
     ) -> Result<[u8; SHA256_SZ], RequestError<HfError>> {
         let hash_driver = drv_hash_api::Hash::from(HASH.get_task_id());
-        if hash_driver.init_sha256().is_err() {
+        if let Err(e) = hash_driver.init_sha256() {
+            ringbuf_entry!(Trace::HashInitError(e));
             return Err(HfError::HashError.into());
         }
         let begin = addr as usize;

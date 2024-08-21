@@ -31,6 +31,7 @@ enum Trace {
     SectorEraseBusy,
     WriteBusy,
 
+    HashInitError(drv_hash_api::HashError),
     HashUpdateError(drv_hash_api::HashError),
     HashFinalizeError(drv_hash_api::HashError),
 }
