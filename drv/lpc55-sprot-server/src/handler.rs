@@ -7,11 +7,11 @@ use attest_api::Attest;
 use crc::{Crc, CRC_32_CKSUM};
 use drv_lpc55_update_api::{RotComponent, RotPage, SlotId, Update};
 use drv_sprot_api::{
-    AttestReq, AttestRsp, CabooseReq, CabooseRsp, DumpReq, ReqBody, Request,
-    Response, RotIoStats, RotPageRsp, RotState, RotStatus, RspBody,
-    SprocketsError, SprotError, SprotProtocolError, StateDevOrRelease,
-    StateError, StateReq, StateRsp, SwdReq, UpdateReq, UpdateRsp,
-    CURRENT_VERSION, MIN_VERSION, REQUEST_BUF_SIZE, RESPONSE_BUF_SIZE,
+    AttestReq, AttestRsp, CabooseReq, CabooseRsp, DumpReq, LifecycleState,
+    ReqBody, Request, Response, RotIoStats, RotPageRsp, RotState, RotStatus,
+    RspBody, SprocketsError, SprotError, SprotProtocolError, StateError,
+    StateReq, StateRsp, SwdReq, UpdateReq, UpdateRsp, CURRENT_VERSION,
+    MIN_VERSION, REQUEST_BUF_SIZE, RESPONSE_BUF_SIZE,
 };
 use lpc55_romapi::bootrom;
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
@@ -568,17 +568,15 @@ impl<'a> Handler {
                 )?;
                 Ok((RspBody::Ok, None))
             }
-            ReqBody::State(StateReq::DevOrRelease) => {
-                let out = self.state_dev_or_release();
+            ReqBody::State(StateReq::LifecycleState) => {
+                let out = self.lifecycle_state();
 
-                Ok((RspBody::State(out.map(StateRsp::DevOrRelease)), None))
+                Ok((RspBody::State(out.map(StateRsp::LifecycleState)), None))
             }
         }
     }
 
-    fn state_dev_or_release(
-        &mut self,
-    ) -> Result<StateDevOrRelease, StateError> {
+    fn lifecycle_state(&mut self) -> Result<LifecycleState, StateError> {
         const CMPA_SIZE: usize = 512;
         let mut buf = [0u8; CMPA_SIZE];
 
@@ -587,28 +585,45 @@ impl<'a> Handler {
         self.update
             .read_rot_page(RotPage::Cmpa, &mut buf)
             .map_err(StateError::ReadCmpa)?;
-        let unlocked = buf[CMPA_SIZE - 32..].iter().all(|b| *b == 0);
+        if buf[CMPA_SIZE - 32..].iter().all(|b| *b == 0) {
+            // We use Unprogrammed as a catchall if the CMPA is unlocked
+            return Ok(LifecycleState::Unprogrammed);
+        }
 
-        // Otherwise, check which root keys are enabled
-        let dev = if unlocked {
-            true
-        } else {
-            self.update
-                .read_rot_page(RotPage::CfpaActive, &mut buf)
-                .map_err(StateError::ReadCfpa)?;
-            // Look at the ROTKH_REVOKE byte
-            let revoke = buf[24];
-            // Check if any of the development keys (slots 2 and 3) are
-            // in the Valid state (0b01)
-            [2, 3]
-                .iter()
-                .any(|slot| (revoke >> (slot * 2)) & 0b11 == 0b01)
+        self.update
+            .read_rot_page(RotPage::CfpaActive, &mut buf)
+            .map_err(StateError::ReadCfpa)?;
+
+        // Look at the ROTKH_REVOKE byte
+        let revoke = buf[24];
+
+        // TODO use the type from dice_mfg_msgs?
+        enum S {
+            Invalid,
+            Enabled,
+            Revoked,
+        }
+        let slots = [0, 1, 2, 3].map(|i| match (revoke >> (i * 2)) & 0b11 {
+            0b00 => S::Invalid,
+            0b01 => S::Enabled,
+            _ => S::Revoked,
+        });
+
+        let state = match slots {
+            [S::Enabled, _, S::Invalid, S::Invalid]
+            | [_, S::Enabled, S::Invalid, S::Invalid] => {
+                LifecycleState::Release
+            }
+            [S::Revoked, S::Revoked, S::Enabled, _]
+            | [S::Revoked, S::Revoked, _, S::Enabled] => {
+                LifecycleState::Development
+            }
+            [S::Revoked, S::Revoked, S::Revoked, S::Revoked] => {
+                LifecycleState::EndOfLife
+            }
+            _ => return Err(StateError::BadRevoke { revoke }),
         };
-        Ok(if dev {
-            StateDevOrRelease::Development
-        } else {
-            StateDevOrRelease::Release
-        })
+        Ok(state)
     }
 }
 

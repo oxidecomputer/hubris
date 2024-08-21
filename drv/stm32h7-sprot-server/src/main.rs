@@ -1342,20 +1342,20 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         }
     }
 
-    fn state_dev_or_release(
+    fn lifecycle_state(
         &mut self,
         _msg: &userlib::RecvMessage,
     ) -> Result<
-        drv_sprot_api::StateDevOrRelease,
+        drv_sprot_api::LifecycleState,
         idol_runtime::RequestError<StateOrSprotError>,
     > {
-        let body = ReqBody::State(StateReq::DevOrRelease);
+        let body = ReqBody::State(StateReq::LifecycleState);
         let tx_size = Request::pack(&body, self.tx_buf);
         let rsp = self
             .do_send_recv_retries(tx_size, TIMEOUT_QUICK, DEFAULT_ATTEMPTS)
             .map_err(StateOrSprotError::Sprot)?;
         match rsp.body.map_err(StateOrSprotError::Sprot)? {
-            RspBody::State(Ok(StateRsp::DevOrRelease(d))) => Ok(d),
+            RspBody::State(Ok(StateRsp::LifecycleState(d))) => Ok(d),
             RspBody::State(Err(e)) => Err(StateOrSprotError::State(e).into()),
             _ => Err(StateOrSprotError::Sprot(SprotError::Protocol(
                 SprotProtocolError::UnexpectedResponse,
@@ -1379,9 +1379,9 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
 
 mod idl {
     use super::{
-        AttestOrSprotError, DumpOrSprotError, HashAlgorithm, PulseStatus,
-        RawCabooseOrSprotError, RotBootInfo, RotComponent, RotPage, RotState,
-        SlotId, SprotError, SprotIoStats, SprotStatus, StateDevOrRelease,
+        AttestOrSprotError, DumpOrSprotError, HashAlgorithm, LifecycleState,
+        PulseStatus, RawCabooseOrSprotError, RotBootInfo, RotComponent,
+        RotPage, RotState, SlotId, SprotError, SprotIoStats, SprotStatus,
         StateOrSprotError, SwitchDuration, UpdateTarget, VersionedRotBootInfo,
     };
 

@@ -342,6 +342,7 @@ impl From<WatchdogError> for GwWatchdogError {
 pub enum StateError {
     ReadCmpa(UpdateError),
     ReadCfpa(UpdateError),
+    BadRevoke { revoke: u8 },
 }
 
 #[derive(

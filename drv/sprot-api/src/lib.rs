@@ -372,10 +372,8 @@ pub enum SwdReq {
 // Added in sprot protocol version 6
 #[derive(Clone, Serialize, Deserialize, SerializedSize)]
 pub enum StateReq {
-    /// Checks whether the RoT is in development or release mode
-    ///
-    /// In release mode, security policy may be more stringent
-    DevOrRelease,
+    /// Checks the RoT's lifecycle state, per RFD 286
+    LifecycleState,
 }
 
 /// Instruct the RoT to take a dump of the SP via SWD
@@ -521,15 +519,27 @@ pub enum RotPageRsp {
     RotPage,
 }
 
+/// Life-cycle state, as defined in RFD 286
 #[derive(Copy, Clone, Serialize, Deserialize, SerializedSize)]
-pub enum StateDevOrRelease {
-    Development,
+pub enum LifecycleState {
+    /// Any state in which the CMPA is unlocked counts as unprogrammed
+    Unprogrammed,
+
+    /// At least one of the release trust anchors is valid, and both of the
+    /// development trust anchors are invalid
     Release,
+
+    /// At least one of the development trust anchors is valid, and both of the
+    /// release trust anchors are revoked
+    Development,
+
+    /// All four trust anchors are revoked
+    EndOfLife,
 }
 
 #[derive(Copy, Clone, Serialize, Deserialize, SerializedSize)]
 pub enum StateRsp {
-    DevOrRelease(StateDevOrRelease),
+    LifecycleState(LifecycleState),
 }
 
 /// A response from the Dumper

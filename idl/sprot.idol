@@ -375,10 +375,10 @@ Interface(
             encoding: Hubpack,
             idempotent: true,
         ),
-        "state_dev_or_release": (
-            doc: "Check whether the RoT is in development or release mode",
+        "lifecycle_state": (
+            doc: "Check the RoT's lifecycle state",
             reply: Result(
-                ok: "StateDevOrRelease",
+                ok: "LifecycleState",
                 err: Complex("StateOrSprotError"),
             ),
             encoding: Hubpack,
