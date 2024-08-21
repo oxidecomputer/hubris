@@ -575,7 +575,14 @@ impl<T: Copy + PartialEq, const N: usize> RecordEntry<T>
     for StaticCell<Ringbuf<T, u16, { N }>>
 {
     fn record_entry(&self, line: u16, payload: T) {
-        let mut ring = self.borrow_mut();
+        // If the ringbuf is already borrowed, just do nothing, to avoid
+        // panicking. This *shouldn't* ever happen, since we are
+        // single-threaded, and the code for recording ringbuf entries won't
+        // attempt to borrow the ringbuf twice...but, there's no nice way to
+        // guarantee this.
+        let Some(mut ring) = self.try_borrow_mut() else {
+            return;
+        };
         // If this is the first time this ringbuf has been poked, last will be
         // None. In this specific case we want to make sure we don't add to the
         // count of an existing entry, and also that we deposit the first entry
@@ -607,7 +614,14 @@ impl<T: Copy, const N: usize> RecordEntry<T>
     for StaticCell<Ringbuf<T, (), { N }>>
 {
     fn record_entry(&self, line: u16, payload: T) {
-        let mut ring = self.borrow_mut();
+        // If the ringbuf is already borrowed, just do nothing, to avoid
+        // panicking. This *shouldn't* ever happen, since we are
+        // single-threaded, and the code for recording ringbuf entries won't
+        // attempt to borrow the ringbuf twice...but, there's no nice way to
+        // guarantee this.
+        let Some(mut ring) = self.try_borrow_mut() else {
+            return;
+        };
         // If this is the first time this ringbuf has been poked, last will be
         // None. In this specific case we want to make sure we don't add to the
         // count of an existing entry, and also that we deposit the first entry
@@ -658,8 +672,18 @@ impl<T: Copy, C, const N: usize> Ringbuf<T, C, N> {
                 last_plus_1
             }
         };
-
-        let ent = &mut self.buffer[ndx];
+        let ent = unsafe {
+            // Safety: the code above guarantees that `ndx` is within the length
+            // of the buffer --- we checked whether it's greater than or equal
+            // to `self.buffer.len()` just a couple instructions ago. Thus,
+            // unchecked indexing is fine here, and lets us avoid a panic.
+            //
+            // We could, alternatively, avoid the unsafe code by doing
+            // `self.buffer.get_mut(ndx)` and then silently nop'ing if it
+            // returns `None`...but it seems nicer to also elide the bounds
+            // check, given that we *just* did one of our own!
+            self.buffer.get_unchecked_mut(ndx)
+        };
         *ent = RingbufEntry {
             line,
             payload,
