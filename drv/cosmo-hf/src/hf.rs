@@ -17,6 +17,22 @@ use crate::{ServerImpl, Trace, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES};
 
 task_slot!(HASH, hash_driver);
 
+impl ServerImpl {
+    fn check_addr_writable(
+        &self,
+        addr: u32,
+        protect: HfProtectMode,
+    ) -> Result<(), HfError> {
+        if addr < SECTOR_SIZE_BYTES
+            && !matches!(protect, HfProtectMode::AllowModificationsToSector0)
+        {
+            Err(HfError::Sector0IsReserved.into())
+        } else {
+            Ok(())
+        }
+    }
+}
+
 impl idl::InOrderHostFlashImpl for ServerImpl {
     fn read_id(
         &mut self,
@@ -58,11 +74,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         protect: HfProtectMode,
         data: LenLimit<Leased<R, [u8]>, PAGE_SIZE_BYTES>,
     ) -> Result<(), RequestError<HfError>> {
-        if addr < SECTOR_SIZE_BYTES
-            && !matches!(protect, HfProtectMode::AllowModificationsToSector0)
-        {
-            return Err(HfError::Sector0IsReserved.into());
-        }
+        self.check_addr_writable(addr, protect)?;
         self.flash_write(
             addr,
             &mut LeaseBufReader::<_, 32>::from(data.into_inner()),
@@ -70,11 +82,6 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         .map_err(|()| RequestError::went_away())
     }
 
-    /// Erases the 64 KiB sector containing the given address
-    ///
-    /// If this is sector 0, requires `protect` to be
-    /// `HfProtectMode::AllowModificationsToSector0` (otherwise this function
-    /// will return an error).
     fn read(
         &mut self,
         _: &RecvMessage,
@@ -88,17 +95,18 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         .map_err(|_| RequestError::went_away())
     }
 
+    /// Erases the 64 KiB sector containing the given address
+    ///
+    /// If this is sector 0, requires `protect` to be
+    /// `HfProtectMode::AllowModificationsToSector0` (otherwise this function
+    /// will return an error).
     fn sector_erase(
         &mut self,
         _: &RecvMessage,
         addr: u32,
         protect: HfProtectMode,
     ) -> Result<(), RequestError<HfError>> {
-        if addr < SECTOR_SIZE_BYTES
-            && !matches!(protect, HfProtectMode::AllowModificationsToSector0)
-        {
-            return Err(HfError::Sector0IsReserved.into());
-        }
+        self.check_addr_writable(addr, protect)?;
         self.flash_sector_erase(addr);
         Ok(())
     }
