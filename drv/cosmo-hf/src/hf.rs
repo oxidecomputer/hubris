@@ -26,7 +26,7 @@ impl ServerImpl {
         if addr < SECTOR_SIZE_BYTES
             && !matches!(protect, HfProtectMode::AllowModificationsToSector0)
         {
-            Err(HfError::Sector0IsReserved.into())
+            Err(HfError::Sector0IsReserved)
         } else {
             Ok(())
         }
