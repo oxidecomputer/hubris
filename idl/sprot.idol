@@ -375,5 +375,14 @@ Interface(
             encoding: Hubpack,
             idempotent: true,
         ),
+        "lifecycle_state": (
+            doc: "Check the RoT's lifecycle state",
+            reply: Result(
+                ok: "LifecycleState",
+                err: Complex("StateOrSprotError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
     }
 )

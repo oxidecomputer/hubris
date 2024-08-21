@@ -15,7 +15,7 @@ use dumper_api::DumperError;
 pub use error::{
     AttestOrSprotError, CabooseOrSprotError, DumpOrSprotError,
     RawCabooseOrSprotError, SprocketsError, SprotError, SprotProtocolError,
-    WatchdogError,
+    StateError, StateOrSprotError, WatchdogError,
 };
 
 use crc::{Crc, CRC_16_XMODEM};
@@ -50,7 +50,7 @@ pub const MIN_VERSION: Version = Version(2);
 /// Code between the `CURRENT_VERSION` and `MIN_VERSION` must remain
 /// compatible. Use the rules described in the comments for [`Msg`] to evolve
 /// the protocol such that this remains true.
-pub const CURRENT_VERSION: Version = Version(5);
+pub const CURRENT_VERSION: Version = Version(6);
 
 /// We allow room in the buffer for message evolution
 pub const REQUEST_BUF_SIZE: usize = 1024;
@@ -349,6 +349,8 @@ pub enum ReqBody {
     RotPage { page: RotPage },
     // Added in sprot protocol version 5
     Swd(SwdReq),
+    // Added in sprot protocol version 6
+    State(StateReq),
 }
 
 // Added in sprot protocol version 5
@@ -365,6 +367,13 @@ pub enum SwdReq {
     /// that there's no debugger attached that would prevent us from talking to
     /// the SP.
     SpSlotWatchdogSupported,
+}
+
+// Added in sprot protocol version 6
+#[derive(Clone, Serialize, Deserialize, SerializedSize)]
+pub enum StateReq {
+    /// Checks the RoT's lifecycle state, per RFD 286
+    LifecycleState,
 }
 
 /// Instruct the RoT to take a dump of the SP via SWD
@@ -499,12 +508,38 @@ pub enum RspBody {
     Attest(Result<AttestRsp, AttestError>),
 
     Page(Result<RotPageRsp, UpdateError>),
+
+    // Added in sprot protocol version 6
+    State(Result<StateRsp, StateError>),
 }
 
 /// A response for reading a ROT page
 #[derive(Copy, Clone, Serialize, Deserialize, SerializedSize)]
 pub enum RotPageRsp {
     RotPage,
+}
+
+/// Life-cycle state, as defined in RFD 286
+#[derive(Copy, Clone, Serialize, Deserialize, SerializedSize)]
+pub enum LifecycleState {
+    /// Any state in which the CMPA is unlocked counts as unprogrammed
+    Unprogrammed,
+
+    /// At least one of the release trust anchors is valid, and both of the
+    /// development trust anchors are invalid
+    Release,
+
+    /// At least one of the development trust anchors is valid, and both of the
+    /// release trust anchors are revoked
+    Development,
+
+    /// All four trust anchors are revoked
+    EndOfLife,
+}
+
+#[derive(Copy, Clone, Serialize, Deserialize, SerializedSize)]
+pub enum StateRsp {
+    LifecycleState(LifecycleState),
 }
 
 /// A response from the Dumper
