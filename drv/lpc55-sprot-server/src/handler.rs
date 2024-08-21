@@ -7,11 +7,11 @@ use attest_api::Attest;
 use crc::{Crc, CRC_32_CKSUM};
 use drv_lpc55_update_api::{RotComponent, RotPage, SlotId, Update};
 use drv_sprot_api::{
-    AttestReq, AttestRsp, CabooseReq, CabooseRsp, DumpReq, ReqBody, Request,
-    Response, RotIoStats, RotPageRsp, RotState, RotStatus, RspBody,
-    SprocketsError, SprotError, SprotProtocolError, SwdReq, UpdateReq,
-    UpdateRsp, CURRENT_VERSION, MIN_VERSION, REQUEST_BUF_SIZE,
-    RESPONSE_BUF_SIZE,
+    AttestReq, AttestRsp, CabooseReq, CabooseRsp, DumpReq, LifecycleState,
+    ReqBody, Request, Response, RotIoStats, RotPageRsp, RotState, RotStatus,
+    RspBody, SprocketsError, SprotError, SprotProtocolError, StateError,
+    StateReq, StateRsp, SwdReq, UpdateReq, UpdateRsp, CURRENT_VERSION,
+    MIN_VERSION, REQUEST_BUF_SIZE, RESPONSE_BUF_SIZE,
 };
 use lpc55_romapi::bootrom;
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
@@ -568,7 +568,66 @@ impl<'a> Handler {
                 )?;
                 Ok((RspBody::Ok, None))
             }
+            ReqBody::State(StateReq::LifecycleState) => {
+                let out = self.lifecycle_state();
+
+                Ok((RspBody::State(out.map(StateRsp::LifecycleState)), None))
+            }
         }
+    }
+
+    fn lifecycle_state(&mut self) -> Result<LifecycleState, StateError> {
+        const CMPA_SIZE: usize = 512;
+        let mut buf = [0u8; CMPA_SIZE];
+
+        // If the SHA-256 Digest is zeros, the CMPA is unlocked.  The SHA-256
+        // digest is located in the last 4 words of the CMPA.
+        self.update
+            .read_rot_page(RotPage::Cmpa, &mut buf)
+            .map_err(StateError::ReadCmpa)?;
+        if buf[CMPA_SIZE - 32..].iter().all(|b| *b == 0) {
+            // We use Unprogrammed as a catchall if the CMPA is unlocked
+            return Ok(LifecycleState::Unprogrammed);
+        }
+
+        self.update
+            .read_rot_page(RotPage::CfpaActive, &mut buf)
+            .map_err(StateError::ReadCfpa)?;
+
+        // Look at the ROTKH_REVOKE byte
+        let revoke = buf[24];
+
+        // TODO use the type from dice_mfg_msgs?
+        enum S {
+            Invalid,
+            Enabled,
+            Revoked,
+        }
+        let slots = [0, 1, 2, 3].map(|i| match (revoke >> (i * 2)) & 0b11 {
+            0b00 => S::Invalid,
+            0b01 => S::Enabled,
+            _ => S::Revoked,
+        });
+
+        let state = match slots {
+            [S::Enabled, _, S::Invalid, S::Invalid]
+            | [_, S::Enabled, S::Invalid, S::Invalid] => {
+                LifecycleState::Release
+            }
+            [S::Revoked, S::Revoked, S::Enabled, _]
+            | [S::Revoked, S::Revoked, _, S::Enabled] => {
+                LifecycleState::Development
+            }
+            [S::Revoked, S::Revoked, S::Revoked, S::Revoked] => {
+                // It would be very surprising to get here, because the RoT
+                // shouldn't be able to boot if all four trust anchors are
+                // revoked.  We'll report this seemingly-impossible state to the
+                // caller and let them figure out what to do with it.
+                LifecycleState::EndOfLife
+            }
+            _ => return Err(StateError::BadRevoke { revoke }),
+        };
+        Ok(state)
     }
 }
 
