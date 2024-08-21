@@ -619,6 +619,10 @@ impl<'a> Handler {
                 LifecycleState::Development
             }
             [S::Revoked, S::Revoked, S::Revoked, S::Revoked] => {
+                // It would be very surprising to get here, because the RoT
+                // shouldn't be able to boot if all four trust anchors are
+                // revoked.  We'll report this seemingly-impossible state to the
+                // caller and let them figure out what to do with it.
                 LifecycleState::EndOfLife
             }
             _ => return Err(StateError::BadRevoke { revoke }),
