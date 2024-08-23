@@ -14,7 +14,7 @@ use sys_api::{Alternate, OutputType, Peripheral, Port, Pull, Speed};
 use task_net_api::{
     LargePayloadBehavior, Net, RecvError, SendError, SocketName,
 };
-use userlib::*;
+use userlib::{sys_recv_notification, task_slot, RecvMessage};
 
 #[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
