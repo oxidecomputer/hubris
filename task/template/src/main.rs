@@ -9,7 +9,7 @@
 // we need to import userlib to get this to compile, but it throws a warning
 // because we're not actually using it yet!
 #[allow(unused_imports)]
-use userlib::*;
+use userlib::{};
 
 #[export_name = "main"]
 fn main() -> ! {

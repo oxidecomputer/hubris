@@ -48,8 +48,10 @@ use task_thermal_api::{
     SensorReadError, ThermalAutoState, ThermalError, ThermalMode,
     ThermalProperties,
 };
-use userlib::units::PWMDuty;
-use userlib::*;
+use userlib::{
+    sys_get_timer, sys_set_timer, task_slot, units::PWMDuty, RecvMessage,
+    UnwrapLite,
+};
 
 // We define our own Fan type, as we may have more fans than any single
 // controller supports.

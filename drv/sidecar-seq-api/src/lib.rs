@@ -19,7 +19,7 @@ pub use drv_sidecar_mainboard_controller::{
 
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
-use userlib::*;
+use userlib::{sys_send, FromPrimitive};
 use zerocopy::AsBytes;
 
 #[derive(

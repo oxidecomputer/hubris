@@ -14,7 +14,9 @@ use drv_medusa_seq_api::{MedusaError, RailName};
 use drv_sidecar_front_io::phy_smi::PhyOscState;
 use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::{ringbuf, ringbuf_entry};
-use userlib::*;
+use userlib::{
+    sys_get_timer, sys_set_timer, task_slot, RecvMessage, UnwrapLite,
+};
 
 task_slot!(I2C, i2c_driver);
 task_slot!(FRONT_IO, front_io);
