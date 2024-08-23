@@ -251,11 +251,11 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
 }
 
 impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
-    fn foo(
+    fn ping(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<u8, RequestError<core::convert::Infallible>> {
-        Ok(1)
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
+        Ok(())
     }
 }
 

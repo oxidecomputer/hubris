@@ -130,7 +130,7 @@ Interface(
                 "len": "u32",
             },
             reply: Result(
-                ok: "[u8; crate::SHA256_SZ]",
+                ok: "[u8; drv_hash_api::SHA256_SZ]",
                 err: CLike("HfError"),
             ),
         ),

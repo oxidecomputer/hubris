@@ -18,7 +18,7 @@ zerocopy.workspace = true
 drv-auxflash-api = { path = "../../drv/auxflash-api", optional = true }
 drv-caboose = { path = "../../drv/caboose" }
 drv-caboose-pos = { path = "../../drv/caboose-pos" }
-drv-gimlet-hf-api = { path = "../../drv/gimlet-hf-api", optional = true }
+drv-hf-api = { path = "../../drv/hf-api", optional = true }
 drv-gimlet-seq-api = { path = "../../drv/gimlet-seq-api", optional = true }
 drv-ignition-api = { path = "../../drv/ignition-api", optional = true }
 drv-lpc55-update-api = { path = "../../drv/lpc55-update-api" }
@@ -53,7 +53,7 @@ serde = { workspace = true }
 
 [features]
 no-ipc-counters = ["idol/no-counters"]
-gimlet = ["drv-gimlet-hf-api", "drv-gimlet-seq-api", "drv-stm32h7-usart", "drv-user-leds-api"]
+gimlet = ["drv-hf-api", "drv-gimlet-seq-api", "drv-stm32h7-usart", "drv-user-leds-api"]
 sidecar = ["drv-sidecar-seq-api", "drv-monorail-api", "drv-ignition-api", "drv-transceivers-api" ]
 psc = ["drv-user-leds-api"]
 vpd = ["task-vpd-api"]

@@ -10,7 +10,7 @@ zerocopy = { workspace = true }
 serde.workspace = true
 hubpack.workspace = true
 
-drv-gimlet-hf-api = { path = "../gimlet-hf-api" }
+drv-hf-api = { path = "../hf-api" }
 drv-hash-api = { path = "../hash-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 

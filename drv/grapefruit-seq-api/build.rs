@@ -4,14 +4,7 @@
 
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     idol::Generator::new()
-        .with_counters(
-            idol::CounterSettings::default().with_server_counters(false),
-        )
-        .build_server_support(
-            "../../idl/hf.idol",
-            "server_stub.rs",
-            idol::server::ServerStyle::InOrder,
-        )?;
-
+        .with_counters(idol::CounterSettings::default())
+        .build_client_stub("../../idl/grapefruit-seq.idol", "client_stub.rs")?;
     Ok(())
 }

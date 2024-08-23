@@ -17,8 +17,8 @@ use userlib::{
     sys_set_timer, task_slot, units, RecvMessage, TaskId, UnwrapLite,
 };
 
-use drv_gimlet_hf_api as hf_api;
 use drv_gimlet_seq_api::{PowerState, SeqError};
+use drv_hf_api as hf_api;
 use drv_i2c_api as i2c;
 use drv_ice40_spi_program as ice40;
 use drv_packrat_vpd_loader::{read_vpd_and_load_packrat, Packrat};

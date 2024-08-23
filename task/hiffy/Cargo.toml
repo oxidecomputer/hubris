@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 armv6m-atomic-hack = { path = "../../lib/armv6m-atomic-hack" }
-drv-gimlet-hf-api = { path = "../../drv/gimlet-hf-api", optional = true }
+drv-hf-api = { path = "../../drv/hf-api", optional = true }
 drv-hash-api = { path = "../../drv/hash-api", optional = true }
 drv-i2c-api = { path = "../../drv/i2c-api" }
 drv-lpc55-gpio-api = { path = "../../drv/lpc55-gpio-api", optional = true }
@@ -48,7 +48,7 @@ sprot = ["drv-sprot-api"]
 stm32h7 = ["drv-stm32xx-sys-api/family-stm32h7", "userlib/panic-messages", "send", "send-rw"]
 lpc55 = ["drv-lpc55-gpio-api", "userlib/panic-messages", "send", "send-rw"]
 stm32g0 = ["drv-stm32xx-sys-api/family-stm32g0"]
-qspi = ["drv-gimlet-hf-api"]
+qspi = ["drv-hf-api"]
 hash = ["drv-hash-api"]
 h743 = ["stm32h7", "drv-stm32xx-i2c/h743", "build-i2c/h743"]
 h753 = ["stm32h7", "drv-stm32xx-i2c/h753", "build-i2c/h753"]

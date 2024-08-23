@@ -30,7 +30,7 @@ mod bsp;
 
 use userlib::{hl, task_slot, FromPrimitive, RecvMessage};
 
-use drv_gimlet_hf_api::SECTOR_SIZE_BYTES;
+use drv_hf_api::SECTOR_SIZE_BYTES;
 use drv_stm32h7_qspi::Qspi;
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{
@@ -51,7 +51,7 @@ use stm32h7::stm32h753 as device;
 use drv_hash_api as hash_api;
 use drv_hash_api::SHA256_SZ;
 
-use drv_gimlet_hf_api::{
+use drv_hf_api::{
     HfDevSelect, HfError, HfMuxState, HfPersistentData, HfProtectMode,
     PAGE_SIZE_BYTES,
 };
