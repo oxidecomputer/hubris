@@ -65,18 +65,29 @@ fn main() -> ! {
     seq.ping(); // waits until the sequencer has completed configuration
 
     let id = unsafe { reg::BASE.read_volatile() };
-    assert_eq!(id, 0x1de);
+    if id != 0x1de {
+        fail(drv_hf_api::HfError::FpgaNotConfigured);
+    }
 
-    // Fire up a server.
-    let mut server = ServerImpl;
-    server.flash_set_quad_enable();
+    let drv = FlashDriver;
+    drv.flash_set_quad_enable();
+
+    // Check the flash chip's ID against Table 7.3.1 in the datasheet
+    let id = drv.flash_read_id();
+    if id[0..3] != [0xef, 0x40, 0x21] {
+        fail(drv_hf_api::HfError::BadChipId);
+    }
+
+    let mut server = hf::ServerImpl { drv };
+
     let mut buffer = [0; hf::idl::INCOMING_SIZE];
     loop {
         idol_runtime::dispatch(&mut buffer, &mut server);
     }
 }
 
-struct ServerImpl;
+/// Driver for a QSPI NOR flash controlled by an FPGA over FMC
+struct FlashDriver;
 
 #[allow(unused)]
 mod reg {
@@ -112,7 +123,7 @@ mod instr {
     pub const QUAD_INPUT_PAGE_PROGRAM_4B: u32 = 0x34;
 }
 
-impl ServerImpl {
+impl FlashDriver {
     fn flash_read_id(&self) -> [u8; 20] {
         self.clear_fifos();
         self.write_reg(reg::DATA_BYTES, 20);
@@ -307,6 +318,15 @@ impl ServerImpl {
         self.write_reg(reg::TX_FIFO, u32::from_le_bytes([v, 0, 0, 0]));
         self.write_reg(reg::INSTR, instr::WRITE_STATUS_2);
         self.wait_fpga_busy();
+    }
+}
+
+/// Failure function, running an Idol response loop that always returns an error
+fn fail(err: drv_hf_api::HfError) {
+    let mut buffer = [0; hf::idl::INCOMING_SIZE];
+    let mut server = hf::FailServer { err };
+    loop {
+        idol_runtime::dispatch(&mut buffer, &mut server);
     }
 }
 
