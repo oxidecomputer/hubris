@@ -20,7 +20,10 @@ use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::*;
 use static_cell::ClaimOnceCell;
 use sys_api::IrqControl;
-use userlib::*;
+use userlib::{
+    hl, set_timer_relative, sys_get_timer, sys_recv_notification,
+    sys_set_timer, task_slot, RecvMessage, UnwrapLite,
+};
 
 cfg_if::cfg_if! {
     // Select local vs server SPI communication

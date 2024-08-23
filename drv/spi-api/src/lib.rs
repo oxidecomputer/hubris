@@ -12,7 +12,7 @@ use derive_idol_err::IdolError;
 use gateway_messages::SpiError as GwSpiError;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
-use userlib::*;
+use userlib::{sys_send, FromPrimitive};
 
 #[derive(
     Copy,

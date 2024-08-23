@@ -29,7 +29,7 @@ use armv6m_atomic_hack::AtomicU32Ext;
 use core::sync::atomic::{AtomicU32, Ordering};
 use hif::*;
 use static_cell::*;
-use userlib::*;
+use userlib::hl;
 
 mod common;
 

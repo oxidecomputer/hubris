@@ -12,7 +12,7 @@
 
 #![no_std]
 
-use userlib::*;
+use userlib::FromPrimitive;
 
 /// 1-wire commands.  Most devices support more commands, but these commands
 /// are supported by all devices.

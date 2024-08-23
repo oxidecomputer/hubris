@@ -10,7 +10,7 @@
 use drv_i2c_devices::at24csw080::{At24Csw080, EEPROM_SIZE};
 use idol_runtime::{NotificationHandler, RequestError};
 use task_vpd_api::VpdError;
-use userlib::*;
+use userlib::{task_slot, RecvMessage};
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 

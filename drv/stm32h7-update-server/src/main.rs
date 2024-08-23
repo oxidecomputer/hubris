@@ -21,7 +21,10 @@ use idol_runtime::{
 };
 use ringbuf::*;
 use stm32h7::stm32h753 as device;
-use userlib::*;
+use userlib::{
+    sys_irq_control, sys_recv_notification, ImageHeader, RecvMessage,
+    CABOOSE_MAGIC, HEADER_MAGIC,
+};
 use zerocopy::AsBytes;
 
 // Internally we deal with flash blocks in groups of u32 words.

@@ -27,7 +27,10 @@ use stage0_handoff::{
     HandoffData, HandoffDataLoadError, ImageVersion, RotBootState,
     RotBootStateV2,
 };
-use userlib::*;
+use userlib::{
+    sys_irq_control, sys_recv_notification, task_slot, ImageHeader,
+    RecvMessage, UnwrapLite, CABOOSE_MAGIC, HEADER_MAGIC,
+};
 use zerocopy::{AsBytes, FromBytes};
 
 mod images;

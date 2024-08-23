@@ -26,7 +26,7 @@ use stm32h7::stm32h743 as device;
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
 
-use userlib::*;
+use userlib::{sys_irq_control, sys_recv_notification, TaskId, UnwrapLite};
 
 use drv_stm32h7_spi as spi_core;
 use drv_stm32xx_sys_api as sys_api;

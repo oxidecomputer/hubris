@@ -17,7 +17,7 @@ use idol_runtime::{
     LeaseBufReader, LeaseBufWriter, Leased, LenLimit, NotificationHandler,
     RequestError, R, W,
 };
-use userlib::*;
+use userlib::{task_slot, RecvMessage};
 
 use drv_stm32h7_spi_server_core::SpiServerCore;
 use drv_stm32xx_sys_api as sys_api;

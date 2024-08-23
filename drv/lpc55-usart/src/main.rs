@@ -20,7 +20,10 @@ use core::ops::Deref;
 use drv_lpc55_syscon_api::*;
 use lib_lpc55_usart::{Usart, Write};
 use lpc55_pac as device;
-use userlib::*;
+use userlib::{
+    sys_borrow_info, sys_borrow_read, sys_irq_control, sys_recv_open,
+    sys_reply, task_slot, LeaseAttributes, TaskId, UnwrapLite,
+};
 use zerocopy::AsBytes;
 
 task_slot!(SYSCON, syscon_driver);
