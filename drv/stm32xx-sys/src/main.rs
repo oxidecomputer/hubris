@@ -326,9 +326,11 @@ use idol_runtime::{ClientError, NotificationHandler, RequestError};
 #[cfg(not(feature = "test"))]
 use task_jefe_api::{Jefe, ResetReason};
 
+#[cfg(not(feature = "test"))]
+use userlib::task_slot;
 #[cfg(feature = "exti")]
 use userlib::{sys_irq_control, sys_post, sys_refresh_task_id, TaskId};
-use userlib::{task_slot, FromPrimitive, RecvMessage};
+use userlib::{FromPrimitive, RecvMessage};
 
 #[cfg(not(feature = "test"))]
 task_slot!(JEFE, jefe);
