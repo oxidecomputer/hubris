@@ -668,19 +668,21 @@ impl SpHandler for MgsHandler {
             (SpComponent::MONORAIL, ComponentAction::Monorail(action)) => {
                 match action {
                     MonorailComponentAction::RequestChallenge => {
-                        let sprot = drv_sprot_api::SpRot::from(
-                            crate::mgs_common::SPROT.get_task_id(),
-                        );
-                        let challenge = match sprot.state_dev_or_release() {
+                        use drv_sprot_api::{LifecycleState, SpRot};
+                        let sprot =
+                            SpRot::from(crate::mgs_common::SPROT.get_task_id());
+                        let challenge = match sprot.lifecycle_state() {
                             Ok(
-                                drv_sprot_api::StateDevOrRelease::Development,
+                                LifecycleState::Development
+                                | LifecycleState::Unprogrammed
+                                | LifecycleState::EndOfLife,
                             )
                             | Err(_) => {
                                 let timestamp = sys_get_timer().now;
                                 UnlockChallenge::Trivial { timestamp }
                             }
 
-                            Ok(drv_sprot_api::StateDevOrRelease::Release) => {
+                            Ok(LifecycleState::Release) => {
                                 UnlockChallenge::EcdsaSha2Nistp256(
                                     get_ecdsa_challenge()?,
                                 )
