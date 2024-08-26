@@ -113,8 +113,8 @@ dependencies = [
 
 [[package]]
 name = "attest-data"
-version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/dice-util#785ee6db783ecaafd741fcf59e21f2432e27c5ef"
+version = "0.2.0"
+source = "git+https://github.com/oxidecomputer/dice-util#f9498e808dd5643eaf9470fe0ef72b2cf27643de"
 dependencies = [
  "hubpack",
  "salty",
@@ -782,7 +782,7 @@ dependencies = [
 [[package]]
 name = "dice-mfg-msgs"
 version = "0.2.1"
-source = "git+https://github.com/oxidecomputer/dice-util#785ee6db783ecaafd741fcf59e21f2432e27c5ef"
+source = "git+https://github.com/oxidecomputer/dice-util#f9498e808dd5643eaf9470fe0ef72b2cf27643de"
 dependencies = [
  "corncobs",
  "hubpack",
@@ -1817,6 +1817,7 @@ name = "drv-sprot-api"
 version = "0.1.0"
 dependencies = [
  "attest-api",
+ "attest-data",
  "counters",
  "crc",
  "derive-idol-err",
@@ -4571,6 +4572,7 @@ dependencies = [
 name = "task-host-sp-comms"
 version = "0.1.0"
 dependencies = [
+ "attest-data",
  "build-i2c",
  "build-util",
  "cfg-if",
@@ -4583,6 +4585,7 @@ dependencies = [
  "drv-i2c-devices",
  "drv-oxide-vpd",
  "drv-spi-api",
+ "drv-sprot-api",
  "drv-stm32h7-dbgmcu",
  "drv-stm32h7-usart",
  "drv-stm32xx-sys-api",
