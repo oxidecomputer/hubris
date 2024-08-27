@@ -78,12 +78,7 @@ fn main() -> ! {
         fail(drv_hf_api::HfError::BadChipId);
     }
 
-    let mut server = hf::ServerImpl {
-        // TODO pick based on FPGA state
-        dev: drv_hf_api::HfDevSelect::Flash0,
-        drv,
-    };
-
+    let mut server = hf::ServerImpl::new(drv);
     let mut buffer = [0; hf::idl::INCOMING_SIZE];
     loop {
         idol_runtime::dispatch(&mut buffer, &mut server);
@@ -230,6 +225,9 @@ impl FlashDriver {
     }
 
     /// Reads data from the given address into a `BufWriter`
+    ///
+    /// This function will only return an error if it fails to read from a
+    /// provided lease; when given a slice, it is infallible.
     fn flash_read(
         &mut self,
         offset: u32,
@@ -261,6 +259,9 @@ impl FlashDriver {
     }
 
     /// Writes data from a `BufReader` into the flash
+    ///
+    /// This function will only return an error if it fails to write to a
+    /// provided lease; when given a slice, it is infallible.
     fn flash_write(
         &mut self,
         addr: u32,
