@@ -106,7 +106,7 @@ task-slots = ["sys", "packrat", { seq = "sequencer" }, "jefe"]
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
 priority = 7
-max-sizes = {flash = 141900, ram = 65536 }
+max-sizes = {flash = 142900, ram = 65536 }
 stacksize = 12000
 start = true
 uses = []
@@ -131,7 +131,7 @@ features = ["sidecar", "vlan", "auxflash", "vpd"]
 notifications = ["socket", "usart-irq", "timer"]
 
 [tasks.control_plane_agent.config]
-trusted-keys = ["../../support/fake_keys/id_ecdsa.pub"]
+authorized-keys = "../../support/support_tokens/authorized_keys"
 
 [tasks.sprot]
 name = "drv-stm32h7-sprot-server"

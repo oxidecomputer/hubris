@@ -10,7 +10,11 @@ use std::path::PathBuf;
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 struct Config {
-    trusted_keys: Option<Vec<PathBuf>>,
+    /// List of public keys in OpenSSH format
+    #[serde(default)]
+    trusted_keys: Vec<PathBuf>,
+    /// Single file in OpenSSS's `authorized_keys` format
+    authorized_keys: Option<PathBuf>,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -25,31 +29,64 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             idol::server::ServerStyle::InOrder,
         )?;
 
-    if let Some(tk) = build_util::task_maybe_config::<Config>()
-        .context("could not parse config.control_plane_agent")?
-        .and_then(|cfg| cfg.trusted_keys)
-    {
-        if tk.is_empty() {
-            panic!("cannot provide empty set of trusted keys");
-        }
-        let out_dir = build_util::out_dir();
-        let dest_path = out_dir.join("trusted_keys.rs");
-        let mut out = std::fs::File::create(&dest_path).with_context(|| {
-            format!("failed to create file '{}'", dest_path.display())
+    let cfg = build_util::task_maybe_config::<Config>()
+        .context("could not parse config.control_plane_agent")?;
+
+    if let Some(cfg) = cfg {
+        write_keys(cfg)?;
+    }
+    Ok(())
+}
+
+fn write_keys(
+    cfg: Config,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    if cfg.trusted_keys.is_empty() && cfg.authorized_keys.is_none() {
+        panic!("must provide trusted-keys or authorized-keys");
+    }
+
+    let out_dir = build_util::out_dir();
+    let dest_path = out_dir.join("trusted_keys.rs");
+    let mut out = std::fs::File::create(&dest_path).with_context(|| {
+        format!("failed to create file '{}'", dest_path.display())
+    })?;
+
+    let mut keys = vec![];
+    for k in cfg.trusted_keys {
+        println!("cargo:rerun-if-changed={k:?}");
+        let key = ssh_key::PublicKey::read_openssh_file(&k)
+            .with_context(|| format!("failed to read public key: {k:?}"))?;
+        let pub_bytes = key
+            .key_data()
+            .ecdsa()
+            .expect("must be ECDSA key")
+            .as_sec1_bytes();
+        keys.push(format!("{pub_bytes:?}"));
+    }
+    if let Some(k) = cfg.authorized_keys {
+        println!("cargo:rerun-if-changed={k:?}");
+        let ks = ssh_key::AuthorizedKeys::read_file(&k).with_context(|| {
+            format!("failed to read authorized keys from: {k:?}")
         })?;
-        writeln!(&mut out, "const TRUSTED_KEYS: [[u8; 65]; {}] = [", tk.len())?;
-        for k in tk {
-            let key = ssh_key::PublicKey::read_openssh_file(&k)
-                .with_context(|| format!("failed to read public key: {k:?}"))?;
+        for key in ks {
             let pub_bytes = key
+                .public_key()
                 .key_data()
                 .ecdsa()
                 .expect("must be ECDSA key")
                 .as_sec1_bytes();
-            writeln!(&mut out, "    {pub_bytes:?},")?;
+            keys.push(format!("{pub_bytes:?}"));
         }
-        writeln!(&mut out, "];")?;
     }
 
+    writeln!(
+        &mut out,
+        "const TRUSTED_KEYS: [[u8; 65]; {}] = [",
+        keys.len()
+    )?;
+    for k in keys {
+        writeln!(&mut out, "    {k},")?;
+    }
+    writeln!(&mut out, "];")?;
     Ok(())
 }
