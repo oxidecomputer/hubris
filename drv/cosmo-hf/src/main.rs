@@ -78,7 +78,11 @@ fn main() -> ! {
         fail(drv_hf_api::HfError::BadChipId);
     }
 
-    let mut server = hf::ServerImpl { drv };
+    let mut server = hf::ServerImpl {
+        // TODO pick based on FPGA state
+        dev: drv_hf_api::HfDevSelect::Flash0,
+        drv,
+    };
 
     let mut buffer = [0; hf::idl::INCOMING_SIZE];
     loop {
@@ -102,6 +106,7 @@ mod reg {
     pub const INSTR: *mut u32 = NOR.wrapping_add(0x5);
     pub const TX_FIFO: *mut u32 = NOR.wrapping_add(0x6);
     pub const RX_FIFO: *mut u32 = NOR.wrapping_add(0x7);
+    pub const SP5_FLASH_OFFSET: *mut u32 = NOR.wrapping_add(0x8);
 }
 
 #[allow(unused)]
@@ -218,6 +223,7 @@ impl FlashDriver {
         self.write_reg(reg::ADDR, addr);
         self.write_reg(reg::DUMMY_CYCLES, 0);
         self.write_reg(reg::INSTR, instr::BLOCK_ERASE_64KB_4B);
+        self.wait_fpga_busy();
 
         // Wait for the busy flag to be unset
         self.wait_flash_busy(Trace::SectorEraseBusy);
@@ -318,6 +324,10 @@ impl FlashDriver {
         self.write_reg(reg::TX_FIFO, u32::from_le_bytes([v, 0, 0, 0]));
         self.write_reg(reg::INSTR, instr::WRITE_STATUS_2);
         self.wait_fpga_busy();
+    }
+
+    fn set_espi_addr_offset(&self, v: u32) {
+        self.write_reg(reg::SP5_FLASH_OFFSET, v);
     }
 }
 

@@ -17,8 +17,15 @@ use crate::{FlashDriver, Trace, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES};
 
 task_slot!(HASH, hash_driver);
 
+/// We break the 128 MiB flash chip into 2x 32 MiB slots, to match Gimlet
+///
+/// The upper 64 MiB are unused (which is good, because it's a separate die and
+/// requires special handling).
+const SLOT_SIZE_BYTES: u32 = 1024 * 1024 * 32;
+
 pub struct ServerImpl {
     pub drv: FlashDriver,
+    pub dev: HfDevSelect,
 }
 
 impl ServerImpl {
@@ -34,6 +41,17 @@ impl ServerImpl {
         } else {
             Ok(())
         }
+    }
+
+    fn flash_base(&self) -> u32 {
+        match self.dev {
+            HfDevSelect::Flash0 => 0,
+            HfDevSelect::Flash1 => SLOT_SIZE_BYTES,
+        }
+    }
+
+    fn flash_addr(&self, offset: u32) -> u32 {
+        offset + self.flash_base()
     }
 }
 
@@ -68,7 +86,13 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         if !matches!(protect, HfProtectMode::AllowModificationsToSector0) {
             return Err(HfError::Sector0IsReserved.into());
         }
-        todo!()
+        // Don't use the bulk erase command, because it will erase the entire
+        // chip.  Instead, use the sector erase to erase the currently-active
+        // virtual device.
+        for offset in (0..SLOT_SIZE_BYTES).step_by(SECTOR_SIZE_BYTES as usize) {
+            self.drv.flash_sector_erase(self.flash_addr(offset));
+        }
+        Ok(())
     }
 
     fn page_program(
@@ -81,7 +105,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         self.check_addr_writable(addr, protect)?;
         self.drv
             .flash_write(
-                addr,
+                self.flash_addr(addr),
                 &mut LeaseBufReader::<_, 32>::from(data.into_inner()),
             )
             .map_err(|()| RequestError::went_away())
@@ -90,12 +114,12 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     fn read(
         &mut self,
         _: &RecvMessage,
-        offset: u32,
+        addr: u32,
         dest: LenLimit<Leased<W, [u8]>, PAGE_SIZE_BYTES>,
     ) -> Result<(), RequestError<HfError>> {
         self.drv
             .flash_read(
-                offset,
+                self.flash_addr(addr),
                 &mut LeaseBufWriter::<_, 32>::from(dest.into_inner()),
             )
             .map_err(|_| RequestError::went_away())
@@ -113,7 +137,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         protect: HfProtectMode,
     ) -> Result<(), RequestError<HfError>> {
         self.check_addr_writable(addr, protect)?;
-        self.drv.flash_sector_erase(addr);
+        self.drv.flash_sector_erase(self.flash_addr(addr));
         Ok(())
     }
 
@@ -136,15 +160,17 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<HfDevSelect, RequestError<HfError>> {
-        todo!()
+        Ok(self.dev)
     }
 
     fn set_dev(
         &mut self,
         _: &RecvMessage,
-        _state: HfDevSelect,
+        dev: HfDevSelect,
     ) -> Result<(), RequestError<HfError>> {
-        todo!()
+        self.dev = dev;
+        self.drv.set_espi_addr_offset(self.flash_base());
+        Ok(())
     }
 
     fn hash(
@@ -158,7 +184,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             ringbuf_entry!(Trace::HashInitError(e));
             return Err(HfError::HashError.into());
         }
-        let begin = addr as usize;
+        let begin = self.flash_addr(addr) as usize;
         // TODO: Begin may be an address beyond physical end of
         // flash part and may wrap around.
         let end = begin
