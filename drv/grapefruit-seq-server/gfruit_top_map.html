@@ -466,7 +466,8 @@
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;31..24</td>
-                <td class="rsvdspandef" colspan="16*">RSVD</td>
+                <td class="validspandef" colspan="2*">sp5_owns_flash</td>
+                <td class="rsvdspandef" colspan="14*">RSVD</td>
     </tr>
     <tr class="cat4" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
@@ -495,6 +496,17 @@
         <td class="FieldHeader" colspan="2*">Access</td>
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat4" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">sp5_owns_flash</td>
+        <td class="FieldDesc" colspan="1*">31</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Set to one to allow eSPI <-> SP5 interface read from flash. Hubris should
+not attempt any flash accesses with this bit set. This bit also enforces the
+flash offset in
+        </td>
     </tr>
     <tr class="cat4" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -936,6 +948,57 @@ This should be the last register written to during setup
         <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">Note: Reading side-effects the data by popping the fifo
+        </td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="12">spi_nor_SP5FlashOffset</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x120
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;SP5 Flash offset address</td>
+    </tr>
+    <tr class="cat12" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;31..24</td>
+                <td class="validspandef" colspan="16*">offset</td>
+    </tr>
+    <tr class="cat12" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;23..16</td>
+                <td class="validspandef" colspan="16*">offset</td>
+    </tr>
+    <tr class="cat12" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;15..8</td>
+                <td class="validspandef" colspan="16*">offset</td>
+    </tr>
+    <tr class="cat12" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">offset</td>
+    </tr>
+    <tr class="cat12" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat12" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">offset</td>
+        <td class="FieldDesc" colspan="1*">31..0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Address added to raw eSPI transactions to generate physical flash address
         </td>
     </tr>
     </table>

@@ -222,6 +222,7 @@ impl FlashDriver {
         self.write_reg(reg::ADDR, addr);
         self.write_reg(reg::DUMMY_CYCLES, 0);
         self.write_reg(reg::INSTR, instr::BLOCK_ERASE_64KB_4B);
+        self.wait_fpga_busy();
 
         // Wait for the busy flag to be unset
         self.wait_flash_busy(Trace::SectorEraseBusy);
