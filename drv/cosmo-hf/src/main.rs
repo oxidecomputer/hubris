@@ -106,6 +106,7 @@ mod reg {
     pub const INSTR: *mut u32 = NOR.wrapping_add(0x5);
     pub const TX_FIFO: *mut u32 = NOR.wrapping_add(0x6);
     pub const RX_FIFO: *mut u32 = NOR.wrapping_add(0x7);
+    pub const SP5_FLASH_OFFSET: *mut u32 = NOR.wrapping_add(0x8);
 }
 
 #[allow(unused)]
@@ -323,6 +324,10 @@ impl FlashDriver {
         self.write_reg(reg::TX_FIFO, u32::from_le_bytes([v, 0, 0, 0]));
         self.write_reg(reg::INSTR, instr::WRITE_STATUS_2);
         self.wait_fpga_busy();
+    }
+
+    fn set_espi_addr_offset(&self, v: u32) {
+        self.write_reg(reg::SP5_FLASH_OFFSET, v);
     }
 }
 

@@ -17,8 +17,11 @@ use crate::{FlashDriver, Trace, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES};
 
 task_slot!(HASH, hash_driver);
 
-/// We break the 128 MiB flash chip into 2x 64 MiB slots
-const SLOT_SIZE_BYTES: u32 = 1024 * 1024 * 64;
+/// We break the 128 MiB flash chip into 2x 32 MiB slots, to match Gimlet
+///
+/// The upper 64 MiB are unused (which is good, because it's a separate die and
+/// requires special handling).
+const SLOT_SIZE_BYTES: u32 = 1024 * 1024 * 32;
 
 pub struct ServerImpl {
     pub drv: FlashDriver,
@@ -166,6 +169,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         dev: HfDevSelect,
     ) -> Result<(), RequestError<HfError>> {
         self.dev = dev;
+        self.drv.set_espi_addr_offset(self.flash_base());
         Ok(())
     }
 
