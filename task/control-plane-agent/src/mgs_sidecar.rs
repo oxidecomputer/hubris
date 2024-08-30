@@ -16,12 +16,13 @@ use gateway_messages::sp_impl::{
 };
 use gateway_messages::{
     ignition, ComponentAction, ComponentActionResponse, ComponentDetails,
-    ComponentUpdatePrepare, DiscoverResponse, IgnitionCommand, IgnitionState,
-    MgsError, MgsRequest, MgsResponse, MonorailComponentAction,
-    MonorailComponentActionResponse, MonorailError as GwMonorailError,
-    PowerState, RotBootInfo, RotRequest, RotResponse, SensorRequest,
-    SensorResponse, SpComponent, SpError, SpStateV2, SpUpdatePrepare,
-    UnlockChallenge, UnlockResponse, UpdateChunk, UpdateId, UpdateStatus,
+    ComponentUpdatePrepare, DiscoverResponse, EcdsaSha2Nistp256Challenge,
+    IgnitionCommand, IgnitionState, MgsError, MgsRequest, MgsResponse,
+    MonorailComponentAction, MonorailComponentActionResponse,
+    MonorailError as GwMonorailError, PowerState, RotBootInfo, RotRequest,
+    RotResponse, SensorRequest, SensorResponse, SpComponent, SpError,
+    SpStateV2, SpUpdatePrepare, UnlockChallenge, UnlockResponse, UpdateChunk,
+    UpdateId, UpdateStatus,
 };
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
@@ -29,6 +30,7 @@ use ringbuf::{counted_ringbuf, ringbuf_entry, ringbuf_entry_root};
 use task_control_plane_agent_api::{ControlPlaneAgentError, VpdIdentity};
 use task_net_api::{MacAddress, UdpMetadata, VLanId};
 use userlib::sys_get_timer;
+use zerocopy::AsBytes;
 
 // We're included under a special `path` cfg from main.rs, which confuses rustc
 // about where our submodules live. Pass explicit paths to correct it.
@@ -42,6 +44,7 @@ use ignition_handler::IgnitionController;
 userlib::task_slot!(SIDECAR_SEQ, sequencer);
 userlib::task_slot!(MONORAIL, monorail);
 userlib::task_slot!(TRANSCEIVERS, transceivers);
+userlib::task_slot!(RNG, rng_driver);
 
 #[allow(dead_code)] // Not all cases are used by all variants
 #[derive(Clone, Copy, PartialEq, ringbuf::Count)]
@@ -91,6 +94,7 @@ enum Trace {
     ChallengeExpired,
     WrongKey,
     UntrustedResponse(GwMonorailError),
+    RngFillFailed(drv_rng_api::RngError),
 }
 counted_ringbuf!(Trace, 16, Trace::None);
 
@@ -304,14 +308,20 @@ impl MgsHandler {
             return Err(GwMonorailError::UnlockAuthFailed);
         }
 
-        // Check that the response is valid for our challenge.  Right now,
-        // there's only one option, but we'll use a match to check for the
-        // possibility of new types being added.
+        // Check that the response is valid for our current challenge.
         match (challenge, response) {
             (
                 UnlockChallenge::Trivial { timestamp: ts1 },
                 UnlockResponse::Trivial { timestamp: ts2 },
             ) if ts1 == ts2 => Ok(()),
+            (
+                UnlockChallenge::EcdsaSha2Nistp256(data),
+                UnlockResponse::EcdsaSha2Nistp256 {
+                    key,
+                    signer_nonce,
+                    signature,
+                },
+            ) => verify_signature(&data, &key, &signer_nonce, &signature),
             _ => Err(GwMonorailError::UnlockAuthFailed),
         }?;
         ringbuf_entry!(Trace::UnlockAuthSucceeded);
@@ -391,6 +401,67 @@ impl MgsHandler {
             Err(GwMonorailError::ManagementNetworkLocked)
         }
     }
+}
+
+fn verify_signature(
+    data: &EcdsaSha2Nistp256Challenge,
+    key: &[u8; 65],
+    signer_nonce: &[u8; 8],
+    signature: &[u8; 64],
+) -> Result<(), GwMonorailError> {
+    if !TRUSTED_KEYS.iter().any(|t| t == key) {
+        ringbuf_entry!(Trace::WrongKey);
+        return Err(GwMonorailError::UnlockAuthFailed);
+    }
+
+    let sig = p256::ecdsa::Signature::from_bytes(signature.as_slice().into())
+        .map_err(|_| GwMonorailError::UnlockAuthFailed)?;
+
+    let v = p256::ecdsa::VerifyingKey::from_encoded_point(
+        &p256::EncodedPoint::from_bytes(key)
+            .map_err(|_| GwMonorailError::UnlockAuthFailed)?,
+    )
+    .map_err(|_| GwMonorailError::UnlockAuthFailed)?;
+
+    // Build an SSH signature blob to be verified
+    //
+    // See https://github.com/openssh/openssh-portable/blob/master/PROTOCOL.sshsig
+    // for the signature blob format
+    #[rustfmt::skip]
+    let mut buf = [
+        // MAGIC_PREAMBLE
+        b'S', b'S', b'H', b'S', b'I', b'G',
+
+        // namespace
+        0, 0, 0, 15, // length
+        b'm', b'o', b'n', b'o', b'r', b'a', b'i', b'l', b'-',
+        b'u', b'n', b'l', b'o', b'c', b'k',
+
+        // reserved
+        0, 0, 0, 0,
+
+        // hash type
+        0, 0, 0, 6, // length
+        b's', b'h', b'a', b'2', b'5', b'6',
+
+        // hash of our actual data (to be filled in)
+        0, 0, 0, 32, // length
+        0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0,
+    ];
+
+    let mut hasher = sha2::Sha256::new();
+    use sha2::Digest;
+    hasher.update(data.as_bytes());
+    hasher.update(signer_nonce);
+    let hash = hasher.finalize();
+    buf[43..].copy_from_slice(&hash);
+
+    use p256::ecdsa::signature::Verifier;
+    v.verify(&buf, &sig)
+        .map_err(|_| GwMonorailError::UnlockAuthFailed)
 }
 
 impl SpHandler for MgsHandler {
@@ -597,14 +668,45 @@ impl SpHandler for MgsHandler {
             (SpComponent::MONORAIL, ComponentAction::Monorail(action)) => {
                 match action {
                     MonorailComponentAction::RequestChallenge => {
+                        use drv_sprot_api::{LifecycleState, SpRot};
+                        let sprot =
+                            SpRot::from(crate::mgs_common::SPROT.get_task_id());
+                        let challenge = match sprot.lifecycle_state() {
+                            Ok(
+                                LifecycleState::Development
+                                | LifecycleState::Unprogrammed
+                                | LifecycleState::EndOfLife,
+                            )
+                            | Err(_) => {
+                                // Right now, we fail open if we can't talk to
+                                // the RoT.  This is intentional: the RoT
+                                // protocol has checksum / retries, so we
+                                // shouldn't see spurious failures.  If
+                                // something has gone sufficiently wrong that we
+                                // can't talk to the RoT, then we probably want
+                                // to fail into a state where we can debug the
+                                // system over the tech port.
+                                //
+                                // XXX we may want to reevaluate this in the
+                                // future!
+                                let timestamp = sys_get_timer().now;
+                                UnlockChallenge::Trivial { timestamp }
+                            }
+
+                            Ok(LifecycleState::Release) => {
+                                UnlockChallenge::EcdsaSha2Nistp256(
+                                    get_ecdsa_challenge()?,
+                                )
+                            }
+                        };
+
                         // Store the new challenge, which expires in 60 seconds
                         let now = sys_get_timer().now;
-                        let c = UnlockChallenge::Trivial { timestamp: now };
-                        self.last_challenge = Some((c, now));
+                        self.last_challenge = Some((challenge, now));
 
                         Ok(ComponentActionResponse::Monorail(
                             MonorailComponentActionResponse::RequestChallenge(
-                                c,
+                                challenge,
                             ),
                         ))
                     }
@@ -1042,3 +1144,36 @@ fn sp_error_from_ignition_error(err: IgnitionError) -> SpError {
     };
     SpError::Ignition(err)
 }
+
+fn get_ecdsa_challenge() -> Result<EcdsaSha2Nistp256Challenge, SpError> {
+    // Get a nonce from our RNG driver
+    let rng = drv_rng_api::Rng::from(RNG.get_task_id());
+    let mut nonce = [0u8; 32];
+    rng.fill(&mut nonce).map_err(|e| {
+        ringbuf_entry!(Trace::RngFillFailed(e));
+        SpError::Monorail(GwMonorailError::GetChallengeFailed)
+    })?;
+
+    // Get our hardware ID from Packrat
+    let packrat = task_packrat_api::Packrat::from(
+        crate::mgs_common::PACKRAT.get_task_id(),
+    );
+    let identity = packrat.get_identity().unwrap_or(VpdIdentity::default());
+    const HW_ID_LEN: usize = 32;
+    let mut hw_id = [0u8; HW_ID_LEN];
+    static_assertions::const_assert!(
+        HW_ID_LEN >= core::mem::size_of::<VpdIdentity>()
+    );
+    hw_id[..core::mem::size_of::<VpdIdentity>()]
+        .copy_from_slice(identity.as_bytes());
+
+    let now = sys_get_timer().now;
+    Ok(EcdsaSha2Nistp256Challenge {
+        hw_id,
+        sw_id: [0, 0, 0, 1], // placeholder
+        time: now.to_le_bytes(),
+        nonce,
+    })
+}
+
+include!(concat!(env!("OUT_DIR"), "/trusted_keys.rs"));
