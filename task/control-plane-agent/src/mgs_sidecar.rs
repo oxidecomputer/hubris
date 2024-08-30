@@ -308,9 +308,7 @@ impl MgsHandler {
             return Err(GwMonorailError::UnlockAuthFailed);
         }
 
-        // Check that the response is valid for our challenge.  Right now,
-        // there's only one option, but we'll use a match to check for the
-        // possibility of new types being added.
+        // Check that the response is valid for our current challenge.
         match (challenge, response) {
             (
                 UnlockChallenge::Trivial { timestamp: ts1 },
