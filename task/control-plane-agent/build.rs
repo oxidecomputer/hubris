@@ -13,7 +13,7 @@ struct Config {
     /// List of public keys in OpenSSH format
     #[serde(default)]
     trusted_keys: Vec<PathBuf>,
-    /// Single file in OpenSSS's `authorized_keys` format
+    /// Single file in OpenSSH's `authorized_keys` format
     authorized_keys: Option<PathBuf>,
 }
 

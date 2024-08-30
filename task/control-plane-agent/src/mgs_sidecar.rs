@@ -435,17 +435,19 @@ fn verify_signature(
         b'S', b'S', b'H', b'S', b'I', b'G',
 
         // namespace
-        0, 0, 0, 15,
+        0, 0, 0, 15, // length
         b'm', b'o', b'n', b'o', b'r', b'a', b'i', b'l', b'-',
         b'u', b'n', b'l', b'o', b'c', b'k',
 
         // reserved
         0, 0, 0, 0,
 
-        0, 0, 0, 6, // hash type
+        // hash type
+        0, 0, 0, 6, // length
         b's', b'h', b'a', b'2', b'5', b'6',
 
-        0, 0, 0, 32, // hash of our actual data
+        // hash of our actual data (to be filled in)
+        0, 0, 0, 32, // length
         0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0,
@@ -678,6 +680,17 @@ impl SpHandler for MgsHandler {
                                 | LifecycleState::EndOfLife,
                             )
                             | Err(_) => {
+                                // Right now, we fail open if we can't talk to
+                                // the RoT.  This is intentional: the RoT
+                                // protocol has checksum / retries, so we
+                                // shouldn't see spurious failures.  If
+                                // something has gone sufficiently wrong that we
+                                // can't talk to the RoT, then we probably want
+                                // to fail into a state where we can debug the
+                                // system over the tech port.
+                                //
+                                // XXX we may want to reevaluate this in the
+                                // future!
                                 let timestamp = sys_get_timer().now;
                                 UnlockChallenge::Trivial { timestamp }
                             }
@@ -1137,8 +1150,8 @@ fn sp_error_from_ignition_error(err: IgnitionError) -> SpError {
 fn get_ecdsa_challenge() -> Result<EcdsaSha2Nistp256Challenge, SpError> {
     // Get a nonce from our RNG driver
     let rng = drv_rng_api::Rng::from(RNG.get_task_id());
-    let mut buf = [0u8; 32];
-    rng.fill(&mut buf).map_err(|e| {
+    let mut nonce = [0u8; 32];
+    rng.fill(&mut nonce).map_err(|e| {
         ringbuf_entry!(Trace::RngFillFailed(e));
         SpError::Monorail(GwMonorailError::GetChallengeFailed)
     })?;
@@ -1159,9 +1172,9 @@ fn get_ecdsa_challenge() -> Result<EcdsaSha2Nistp256Challenge, SpError> {
     let now = sys_get_timer().now;
     Ok(EcdsaSha2Nistp256Challenge {
         hw_id,
-        sw_id: [0, 0, 0, 1],
+        sw_id: [0, 0, 0, 1], // placeholder
         time: now.to_le_bytes(),
-        nonce: buf,
+        nonce,
     })
 }
 
