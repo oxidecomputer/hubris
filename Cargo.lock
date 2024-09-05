@@ -994,7 +994,6 @@ name = "drv-gimlet-hf-server"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "crc",
  "drv-hash-api",
  "drv-hf-api",
  "drv-stm32h7-qspi",
@@ -1121,6 +1120,7 @@ name = "drv-hf-api"
 version = "0.1.0"
 dependencies = [
  "counters",
+ "crc",
  "derive-idol-err",
  "drv-hash-api",
  "drv-qspi-api",
