@@ -62,23 +62,32 @@ impl ServerImpl {
     }
 
     fn flash_base(&self) -> u32 {
-        match self.dev {
+        Self::flash_base_for(self.dev)
+    }
+
+    fn flash_addr(&self, offset: u32) -> u32 {
+        Self::flash_addr_for(offset, self.dev)
+    }
+
+    fn flash_addr_for(offset: u32, dev: HfDevSelect) -> u32 {
+        offset + Self::flash_base_for(dev)
+    }
+
+    fn flash_base_for(dev: HfDevSelect) -> u32 {
+        match dev {
             HfDevSelect::Flash0 => 0,
             HfDevSelect::Flash1 => SLOT_SIZE_BYTES,
         }
     }
 
-    fn flash_addr(&self, offset: u32) -> u32 {
-        offset + self.flash_base()
-    }
-
-    /// Scans the currently active (virtual) device for persistent data
+    /// Scans the provided (virtual) device for persistent data
     ///
     /// Returns a tuple containing
-    /// - newest persistent data record
+    /// - newest valid persistent data record
     /// - address of first empty slot
     fn persistent_data_scan(
         &mut self,
+        dev: HfDevSelect,
     ) -> (Option<HfRawPersistentData>, Option<u32>) {
         let mut best: Option<HfRawPersistentData> = None;
         let mut empty_slot: Option<u32> = None;
@@ -86,11 +95,12 @@ impl ServerImpl {
             let addr = i * HF_PERSISTENT_DATA_STRIDE as u32;
             let mut data = HfRawPersistentData::new_zeroed();
             self.drv
-                .flash_read(self.flash_addr(addr), &mut data.as_bytes_mut())
+                .flash_read(
+                    Self::flash_addr_for(addr, dev),
+                    &mut data.as_bytes_mut(),
+                )
                 .unwrap_lite(); // flash_read is infallible when using a slice
-            if data.is_valid() && best.map(|b| data > b).unwrap_or(true) {
-                best = Some(data);
-            }
+            best = best.max(Some(data).filter(|d| d.is_valid()));
             if empty_slot.is_none()
                 && data.as_bytes().iter().all(|b| *b == 0xFF)
             {
@@ -101,11 +111,15 @@ impl ServerImpl {
     }
 
     fn get_persistent_data(&mut self) -> Result<HfPersistentData, HfError> {
-        let out = self.get_raw_persistent_data()?;
-        Ok(HfPersistentData {
+        self.get_raw_persistent_data().map(|out| HfPersistentData {
             dev_select: match out.dev_select {
                 0 => HfDevSelect::Flash0,
-                _ => HfDevSelect::Flash1,
+                1 => HfDevSelect::Flash1,
+
+                // get_raw_persistent_data only returns data with a valid
+                // HfDevSelect. TODO add an intermediate type for a validated
+                // HfRawPersistentData?
+                _ => unreachable!(),
             },
         })
     }
@@ -114,24 +128,11 @@ impl ServerImpl {
     fn get_raw_persistent_data(
         &mut self,
     ) -> Result<HfRawPersistentData, HfError> {
-        let prev_slot = self.dev;
+        // Read the two slots
+        let (data0, _) = self.persistent_data_scan(HfDevSelect::Flash0);
+        let (data1, _) = self.persistent_data_scan(HfDevSelect::Flash1);
 
-        // Look at the inactive slot first
-        self.dev = !prev_slot;
-        let (a, _) = self.persistent_data_scan();
-
-        // Then switch back to our current slot, so that the resulting state
-        // is unchanged.
-        self.dev = prev_slot;
-        let (b, _) = self.persistent_data_scan();
-
-        match (a, b) {
-            (Some(a), Some(b)) => Some(a.max(b)),
-            (Some(_), None) => a,
-            (None, Some(_)) => b,
-            (None, None) => None,
-        }
-        .ok_or(HfError::NoPersistentData)
+        data0.max(data1).ok_or(HfError::NoPersistentData)
     }
 
     /// Writes raw persistent data to the given address on the
@@ -143,11 +144,12 @@ impl ServerImpl {
         &mut self,
         addr: Option<u32>,
         raw_data: &HfRawPersistentData,
+        dev: HfDevSelect,
     ) {
         let addr = match addr {
-            Some(a) => self.flash_addr(a),
+            Some(a) => Self::flash_addr_for(a, dev),
             None => {
-                let addr = self.flash_addr(0);
+                let addr = Self::flash_addr_for(0, dev);
                 self.drv.flash_sector_erase(addr);
                 addr
             }
@@ -161,41 +163,29 @@ impl ServerImpl {
     /// Ensures that the persistent data is consistent between the virtual devs
     fn ensure_persistent_data_is_redundant(&mut self) {
         // Load the current state of persistent data from flash
-        let prev_slot = self.dev;
+        let (data0, next0) = self.persistent_data_scan(HfDevSelect::Flash0);
+        let (data1, next1) = self.persistent_data_scan(HfDevSelect::Flash1);
 
-        self.dev = !prev_slot;
-        let (a_data, a_next) = self.persistent_data_scan();
-
-        self.dev = prev_slot;
-        let (b_data, b_next) = self.persistent_data_scan();
-
-        match (a_data, b_data) {
-            (Some(a), Some(b)) => {
-                match a.cmp(&b) {
-                    core::cmp::Ordering::Less => {
-                        self.dev = !prev_slot;
-                        self.write_raw_persistent_data_to_addr(a_next, &b);
-                        self.dev = prev_slot;
-                    }
-                    core::cmp::Ordering::Greater => {
-                        self.write_raw_persistent_data_to_addr(b_next, &a)
-                    }
-                    core::cmp::Ordering::Equal => {
-                        // Redundant data is consistent
-                        // TODO: should we have a special case if they don't agree?
-                    }
-                }
+        // The unwrap_lite() are safe because we pick the larger of the two data
+        // values, which must be `Some(..)`; if both were `None`, then we'll hit
+        // the `Equal` branch below.
+        match data0.cmp(&data1) {
+            core::cmp::Ordering::Less => {
+                self.write_raw_persistent_data_to_addr(
+                    next0,
+                    &data1.unwrap_lite(),
+                    HfDevSelect::Flash0,
+                );
             }
-            (Some(a), None) => {
-                self.write_raw_persistent_data_to_addr(b_next, &a)
-            }
-            (None, Some(b)) => {
-                self.dev = !prev_slot;
-                self.write_raw_persistent_data_to_addr(a_next, &b);
-                self.dev = prev_slot;
-            }
-            (None, None) => {
-                // No persistent data recorded; nothing to do here
+            core::cmp::Ordering::Greater => self
+                .write_raw_persistent_data_to_addr(
+                    next1,
+                    &data0.unwrap_lite(),
+                    HfDevSelect::Flash1,
+                ),
+            core::cmp::Ordering::Equal => {
+                // Redundant data is consistent (or both empty)
+                // TODO: should we have a special case if they don't agree?
             }
         }
     }
@@ -224,6 +214,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         Ok(self.drv.read_flash_status())
     }
 
+    /// Erases the currently selected `dev`
     fn bulk_erase(
         &mut self,
         _: &RecvMessage,
@@ -241,6 +232,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         Ok(())
     }
 
+    /// Writes a page to the currently selected `dev`
     fn page_program(
         &mut self,
         _: &RecvMessage,
@@ -257,6 +249,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             .map_err(|()| RequestError::went_away())
     }
 
+    /// Reads a page from the currently selected `dev`
     fn read(
         &mut self,
         _: &RecvMessage,
@@ -271,7 +264,8 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             .map_err(|_| RequestError::went_away())
     }
 
-    /// Erases the 64 KiB sector containing the given address
+    /// Erases the 64 KiB sector in the selected `dev` containing the given
+    /// address
     ///
     /// If this is sector 0, requires `protect` to be
     /// `HfProtectMode::AllowModificationsToSector0` (otherwise this function
@@ -319,6 +313,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         Ok(())
     }
 
+    /// Hashes a region in the currently selected `dev`
     fn hash(
         &mut self,
         _: &RecvMessage,
@@ -374,25 +369,16 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     ) -> Result<(), RequestError<HfError>> {
         let data = HfPersistentData { dev_select };
 
-        let prev_slot = self.dev;
-
         // Scan both slots for persistent data
-        self.dev = !prev_slot;
-        let (a_data, a_next) = self.persistent_data_scan();
+        let (data0, next0) = self.persistent_data_scan(HfDevSelect::Flash0);
+        let (data1, next1) = self.persistent_data_scan(HfDevSelect::Flash1);
 
-        self.dev = prev_slot;
-        let (b_data, b_next) = self.persistent_data_scan();
-
-        let prev_monotonic_counter = match (a_data, b_data) {
-            (Some(a), Some(b)) => a.monotonic_counter.max(b.monotonic_counter),
-            (Some(a), None) => a.monotonic_counter,
-            (None, Some(b)) => b.monotonic_counter,
-            (None, None) => 0,
-        };
+        let prev_monotonic_counter =
+            data0.max(data1).map(|d| d.monotonic_counter).unwrap_or(0);
 
         // Early exit if the previous persistent data matches
         let prev_raw = HfRawPersistentData::new(data, prev_monotonic_counter);
-        if a_data == b_data && a_data == Some(prev_raw) {
+        if data0 == data1 && data0 == Some(prev_raw) {
             return Ok(());
         }
 
@@ -401,15 +387,17 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             .ok_or(HfError::MonotonicCounterOverflow)?;
         let raw = HfRawPersistentData::new(data, monotonic_counter);
 
-        // Write the persistent data to the currently inactive flash.
-        self.dev = !prev_slot;
-        self.write_raw_persistent_data_to_addr(a_next, &raw);
-
-        // Swap back to the currently selected flash
-        self.dev = prev_slot;
-
-        // Write the persistent data to the currently active flash
-        self.write_raw_persistent_data_to_addr(b_next, &raw);
+        // Write the persistent data to both flash slots
+        self.write_raw_persistent_data_to_addr(
+            next0,
+            &raw,
+            HfDevSelect::Flash0,
+        );
+        self.write_raw_persistent_data_to_addr(
+            next1,
+            &raw,
+            HfDevSelect::Flash1,
+        );
 
         Ok(())
     }
