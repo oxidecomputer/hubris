@@ -360,11 +360,11 @@ impl MgsHandler {
         let net = task_net_api::Net::from(crate::NET.get_task_id());
         net.distrust_vlan(vid).map_err(|e| {
             ringbuf_entry!(Trace::DistrustVLanFailed(e));
-            GwMonorailError::UnlockFailed
+            GwMonorailError::LockFailed
         })?;
         self.monorail.lock_vlans().map_err(|e| {
             ringbuf_entry!(Trace::MonorailUnlockFailed(e));
-            GwMonorailError::UnlockFailed
+            GwMonorailError::LockFailed
         })?;
 
         Ok(())
