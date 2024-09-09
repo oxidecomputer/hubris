@@ -163,32 +163,15 @@ pub fn startup(
 
     apply_memory_protection(mpu);
 
-    #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
-    dice::run(&handoff, peripherals, &mut flash);
-
-    nuke_stack();
-
-    #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
-    puf_check(&peripherals.PUF);
-
-    // Write the image details to handoff RAM.
-
     // Pre-main code makes calls to the ROM-based signature
     // verification routines and requires its own HASHCRYPT IRQ handler.
     set_hashcrypt_rom();
 
+    // Get Hubris flash bank state for DICE and handoff RAM.
     let (slot_a, img_a) =
         images::Image::get_image_a(&mut flash, &peripherals.SYSCON);
     let (slot_b, img_b) =
         images::Image::get_image_b(&mut flash, &peripherals.SYSCON);
-    let (slot_stage0, img_stage0) =
-        images::Image::get_image_stage0(&mut flash, &peripherals.SYSCON);
-    let (slot_stage0next, img_stage0next) =
-        images::Image::get_image_stage0next(&mut flash, &peripherals.SYSCON);
-
-    // Once the kernel is started, the normal HASHCRYPT IRQ handler needs to
-    // be active.
-    set_hashcrypt_default();
 
     // Use the address of the current function to determine which image
     // is running.
@@ -201,6 +184,30 @@ pub fn startup(
         panic!();
     };
 
+    #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
+    {
+        let slot = if active == RotSlot::A {
+            &slot_a
+        } else {
+            &slot_b
+        };
+        dice::run(&handoff, peripherals, &mut flash, &slot.fwid());
+    }
+    nuke_stack();
+
+    #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
+    puf_check(&peripherals.PUF);
+
+    let (slot_stage0, img_stage0) =
+        images::Image::get_image_stage0(&mut flash, &peripherals.SYSCON);
+    let (slot_stage0next, img_stage0next) =
+        images::Image::get_image_stage0next(&mut flash, &peripherals.SYSCON);
+
+    // Once the kernel is started, the normal HASHCRYPT IRQ handler needs to
+    // be active.
+    set_hashcrypt_default();
+
+    // Write the image details to handoff RAM.
     let details = RotBootStateV2 {
         active,
         a: RotImageDetailsV2 {
