@@ -6,7 +6,6 @@ on:
 
 jobs:
   release-mfg:
-    if: startsWith(github.ref, 'refs/tags/devboards')
     uses: ./.github/workflows/release.yml
 
 
