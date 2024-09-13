@@ -12,7 +12,7 @@ jobs:
     name: build-mfg
     strategy:
       matrix:
-        build: [sidecar-b-lab, sidecar-c-lab, sidecar-d-lab, gimlet-c-lab, gimlet-d-lab, gimlet-e-lab, gimlet-f-lab, psc-b-lab, psc-c-lab, oxide-rot-1-dev]
+        build: [sidecar-b-lab, sidecar-c-lab, sidecar-d-lab, gimlet-c-lab, gimlet-d-lab, gimlet-e-lab, gimlet-f-lab, oxide-rot-1-dev]
         include:
           - build: sidecar-b-lab
             app_name: sidecar-b-lab
