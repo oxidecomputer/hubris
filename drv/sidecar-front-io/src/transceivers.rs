@@ -3,10 +3,10 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{Addr, Reg};
-use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
+use drv_fpga_api::{FpgaError, FpgaUserDesign, ReadOp, WriteOp};
 use drv_transceivers_api::{ModuleStatus, TransceiversError, NUM_PORTS};
 use transceiver_messages::ModuleId;
-use userlib::{FromPrimitive, UnwrapLite};
+use userlib::UnwrapLite;
 use zerocopy::{byteorder, AsBytes, FromBytes, Unaligned, U16};
 
 // The transceiver modules are split across two FPGAs on the QSFP Front IO
@@ -651,7 +651,7 @@ impl ModuleResultNoFailure {
 }
 
 /// A type to provide more ergonomic access to the FPGA generated type
-pub type FpgaI2CFailure = Reg::QSFP::PORT0_STATUS::Encoded;
+pub type FpgaI2CFailure = Reg::QSFP::PORT0_STATUS::ErrorEncoded;
 
 /// A type to consolidate per-module failure types.
 ///
@@ -677,18 +677,24 @@ impl core::ops::Index<LogicalPort> for LogicalPortFailureTypes {
 
 #[derive(Copy, Clone)]
 pub struct PortI2CStatus {
+    pub rdata_fifo_empty: bool,
+    pub wdata_fifo_empty: bool,
     pub done: bool,
     pub error: FpgaI2CFailure,
 }
 
 impl PortI2CStatus {
     pub fn new(status: u8) -> Self {
+        // Use QSFP::PORT0 for constants, since they're all identical
         Self {
+            rdata_fifo_empty: (status
+                & Reg::QSFP::PORT0_STATUS::RDATA_FIFO_EMPTY)
+                != 0,
+            wdata_fifo_empty: (status
+                & Reg::QSFP::PORT0_STATUS::WDATA_FIFO_EMPTY)
+                != 0,
             done: (status & Reg::QSFP::PORT0_STATUS::BUSY) == 0,
-            error: FpgaI2CFailure::from_u8(
-                status & Reg::QSFP::PORT0_STATUS::ERROR,
-            )
-            .unwrap_lite(),
+            error: FpgaI2CFailure::try_from(status).unwrap_lite(),
         }
     }
 }
@@ -899,10 +905,10 @@ impl Transceivers {
                     if mask.is_set(PhysicalPort(port))
                         && fpga
                             .write(
-                                WriteOp::Write,
-                                Addr::QSFP_CONTROL_PORT0 as u16
+                                WriteOp::BitSet,
+                                Addr::QSFP_PORT0_CONTROL as u16
                                     + u16::from(port),
-                                Reg::QSFP::CONTROL_PORT0::CLEAR_FAULT,
+                                Reg::QSFP::PORT0_CONTROL::CLEAR_FAULT,
                             )
                             .is_err()
                     {
@@ -1028,114 +1034,95 @@ impl Transceivers {
     ) -> Result<u8, FpgaError> {
         let port_loc = port.into();
         self.fpga(port_loc.controller)
-            .read(Self::read_status_address(port_loc.port))
+            .read(Addr::QSFP_PORT0_STATUS as u16 + port_loc.port.0 as u16)
     }
 
-    /// Get `buf.len()` bytes of data from the I2C read buffer for a `port`.
+    /// Returns a PortI2CStatus and will fill `buf.len()` bytes of data with the
+    /// I2C read buffer for a `port`. The buffer stores data from the last I2C
+    /// read transaction done and thus only the number of bytes read will be
+    /// valid in the buffer.
     ///
-    /// The buffer stores data from the last I2C read transaction done and thus
-    /// only the number of bytes read will be valid in the buffer.
-    pub fn get_i2c_read_buffer<P: Into<PortLocation>>(
-        &self,
-        port: P,
-        buf: &mut [u8],
-    ) -> Result<(), FpgaError> {
-        let port_loc = port.into();
-        self.fpga(port_loc.controller)
-            .read_bytes(Self::read_buffer_address(port_loc.port), buf)
-    }
-
-    /// Get `buf.len()` bytes of data, where the first byte is port status and
-    /// trailing bytes are the I2C read buffer for a `port`. The buffer stores
-    /// data from the last I2C read transaction done and thus only the number of
-    /// bytes read will be valid in the buffer.
+    /// Poll the status register for a port until an I2C transaction is done.
+    /// Upon completion, return the status struct back and the read data. The
+    /// read data buffer stores I2C read data from the last transaction so the
+    /// FIFO will only contain that many bytes. The FPGA automatically clears
+    /// the read data FIFO before starting a new read, so there's no need for
+    /// the SP to do so.
     pub fn get_i2c_status_and_read_buffer<P: Into<PortLocation>>(
         &self,
         port: P,
         buf: &mut [u8],
-    ) -> Result<(), FpgaError> {
+    ) -> Result<PortI2CStatus, FpgaError> {
         let port_loc = port.into();
-        self.fpga(port_loc.controller)
-            .read_bytes(Self::read_status_address(port_loc.port), buf)
+        loop {
+            let status_byte = self.get_i2c_status(port_loc)?;
+            let status = PortI2CStatus::new(status_byte);
+
+            if status.done {
+                self.fpga(port_loc.controller).read_bytes(
+                    ReadOp::ReadNoAddrIncr,
+                    Addr::QSFP_PORT0_I2C_DATA as u16 + port_loc.port.0 as u16,
+                    buf,
+                )?;
+                return Ok(status);
+            }
+
+            userlib::hl::sleep_for(1);
+        }
     }
 
-    /// Write `buf.len()` bytes of data into the I2C write buffer.
+    /// Write `buf.len()` bytes of data into the I2C write buffer of the `mask`
     ///
-    /// Upon a write transaction happening, the number of bytes specified will
-    /// be pulled from the write buffer. Setting data in the write buffer does
-    /// not require a port be specified. This is because in the FPGA
-    /// implementation, the write buffer being written to simply pushes a copy
-    /// of the data into each individual port's write buffer. This keeps us from
-    /// needing to write to them all individually. In the event of an error
-    /// during FPGA communication, a `LogicalPortMask` representing the affected
-    /// ports is included.
+    /// Each port has a FIFO of write data that the I2C core will write to a
+    /// target on the next write operation. This function will clear the FIFO
+    /// prior to writing in the new data. This In the event of an error during
+    /// FPGA communication, a `LogicalPortMask` representing the affected ports
+    /// is included.
+    ///
     /// The meaning of the returned `ModuleResultNoFailure`:
     /// success: we were able to write to the FPGA
     /// error: an `FpgaError` occurred
-    pub fn set_i2c_write_buffer(&self, buf: &[u8]) -> ModuleResultNoFailure {
-        let mut success = LogicalPortMask(0);
-        if self
-            .fpga(FpgaController::Left)
-            .write_bytes(WriteOp::Write, Addr::QSFP_WRITE_BUFFER, buf)
-            .is_ok()
-        {
-            success |= LEFT_LOGICAL_MASK;
+    pub fn set_i2c_write_buffer(
+        &self,
+        buf: &[u8],
+        mask: LogicalPortMask,
+    ) -> ModuleResultNoFailure {
+        let mut error = LogicalPortMask(0);
+
+        // for every port in the mask
+        for port in mask.to_indices() {
+            // we need to know the FPGA and which physical port
+            let loc = port.get_physical_location();
+            let fpga = self.fpga(loc.controller);
+            let port_addr = loc.port.0 as u16;
+            // clear the FIFO
+            if fpga
+                .write(
+                    WriteOp::BitSet,
+                    Addr::QSFP_PORT0_CONTROL as u16 + port_addr,
+                    Reg::QSFP::PORT0_CONTROL::WDATA_FIFO_CLEAR,
+                )
+                .is_ok()
+            {
+                // write in the buffer
+                if fpga
+                    .write_bytes(
+                        WriteOp::WriteNoAddrIncr,
+                        Addr::QSFP_PORT0_I2C_DATA as u16 + port_addr,
+                        buf,
+                    )
+                    .is_err()
+                {
+                    error |= port.as_mask();
+                }
+            } else {
+                error |= port.as_mask();
+            }
         }
-        if self
-            .fpga(FpgaController::Right)
-            .write_bytes(WriteOp::Write, Addr::QSFP_WRITE_BUFFER, buf)
-            .is_ok()
-        {
-            success |= RIGHT_LOGICAL_MASK;
-        }
-        let error = !success;
+        // success is wherever we did not encounter an `FpgaError`
+        let success = mask & !error;
 
         ModuleResultNoFailure::new(success, error).unwrap_lite()
-    }
-
-    /// For a given `local_port`, return the Addr where its read buffer begins
-    pub fn read_buffer_address(local_port: PhysicalPort) -> Addr {
-        match local_port.0 % 16 {
-            0 => Addr::QSFP_PORT0_READ_BUFFER,
-            1 => Addr::QSFP_PORT1_READ_BUFFER,
-            2 => Addr::QSFP_PORT2_READ_BUFFER,
-            3 => Addr::QSFP_PORT3_READ_BUFFER,
-            4 => Addr::QSFP_PORT4_READ_BUFFER,
-            5 => Addr::QSFP_PORT5_READ_BUFFER,
-            6 => Addr::QSFP_PORT6_READ_BUFFER,
-            7 => Addr::QSFP_PORT7_READ_BUFFER,
-            8 => Addr::QSFP_PORT8_READ_BUFFER,
-            9 => Addr::QSFP_PORT9_READ_BUFFER,
-            10 => Addr::QSFP_PORT10_READ_BUFFER,
-            11 => Addr::QSFP_PORT11_READ_BUFFER,
-            12 => Addr::QSFP_PORT12_READ_BUFFER,
-            13 => Addr::QSFP_PORT13_READ_BUFFER,
-            14 => Addr::QSFP_PORT14_READ_BUFFER,
-            15 => Addr::QSFP_PORT15_READ_BUFFER,
-            _ => unreachable!(),
-        }
-    }
-
-    pub fn read_status_address(local_port: PhysicalPort) -> Addr {
-        match local_port.0 % 16 {
-            0 => Addr::QSFP_PORT0_STATUS,
-            1 => Addr::QSFP_PORT1_STATUS,
-            2 => Addr::QSFP_PORT2_STATUS,
-            3 => Addr::QSFP_PORT3_STATUS,
-            4 => Addr::QSFP_PORT4_STATUS,
-            5 => Addr::QSFP_PORT5_STATUS,
-            6 => Addr::QSFP_PORT6_STATUS,
-            7 => Addr::QSFP_PORT7_STATUS,
-            8 => Addr::QSFP_PORT8_STATUS,
-            9 => Addr::QSFP_PORT9_STATUS,
-            10 => Addr::QSFP_PORT10_STATUS,
-            11 => Addr::QSFP_PORT11_STATUS,
-            12 => Addr::QSFP_PORT12_STATUS,
-            13 => Addr::QSFP_PORT13_STATUS,
-            14 => Addr::QSFP_PORT14_STATUS,
-            15 => Addr::QSFP_PORT15_STATUS,
-            _ => unreachable!(),
-        }
     }
 
     /// Apply reset to the LED controller
@@ -1233,11 +1220,11 @@ impl Transceivers {
                 }
 
                 // cast status byte into a type
-                let failure = FpgaI2CFailure::from_u8(
-                    status_all.status[port.0 as usize]
-                        & Reg::QSFP::PORT0_STATUS::ERROR,
+                let failure = FpgaI2CFailure::try_from(
+                    status_all.status[port.0 as usize],
                 )
                 .unwrap_lite();
+
                 // if a failure occurred, mark it and record the failure type
                 if failure != FpgaI2CFailure::NoError {
                     physical_failure.get_mut(fpga_index).set(port);

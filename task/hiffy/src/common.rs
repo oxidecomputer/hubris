@@ -677,13 +677,11 @@ pub(crate) fn qspi_read_id(
     _data: &[u8],
     rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    use drv_gimlet_hf_api as hf;
-
     if rval.len() < 20 {
         return Err(Failure::Fault(Fault::ReturnValueOverflow));
     }
 
-    let server = hf::HostFlash::from(HF.get_task_id());
+    let server = drv_hf_api::HostFlash::from(HF.get_task_id());
     let id = func_err(server.read_id())?;
     rval[..20].copy_from_slice(&id);
     Ok(20)
@@ -695,13 +693,11 @@ pub(crate) fn qspi_read_status(
     _data: &[u8],
     rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    use drv_gimlet_hf_api as hf;
-
     if rval.is_empty() {
         return Err(Failure::Fault(Fault::ReturnValueOverflow));
     }
 
-    let server = hf::HostFlash::from(HF.get_task_id());
+    let server = drv_hf_api::HostFlash::from(HF.get_task_id());
     let x = func_err(server.read_status())?;
     rval[0] = x;
     Ok(1)
@@ -713,11 +709,10 @@ pub(crate) fn qspi_bulk_erase(
     _data: &[u8],
     _rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    use drv_gimlet_hf_api as hf;
-
-    let server = hf::HostFlash::from(HF.get_task_id());
+    let server = drv_hf_api::HostFlash::from(HF.get_task_id());
     func_err(
-        server.bulk_erase(hf::HfProtectMode::AllowModificationsToSector0),
+        server
+            .bulk_erase(drv_hf_api::HfProtectMode::AllowModificationsToSector0),
     )?;
     Ok(0)
 }
@@ -731,7 +726,7 @@ pub(crate) fn qspi_page_program(
     qspi_page_program_inner(
         stack,
         data,
-        drv_gimlet_hf_api::HfProtectMode::ProtectSector0,
+        drv_hf_api::HfProtectMode::ProtectSector0,
     )
 }
 
@@ -744,7 +739,7 @@ pub(crate) fn qspi_page_program_sector0(
     qspi_page_program_inner(
         stack,
         data,
-        drv_gimlet_hf_api::HfProtectMode::AllowModificationsToSector0,
+        drv_hf_api::HfProtectMode::AllowModificationsToSector0,
     )
 }
 
@@ -752,10 +747,8 @@ pub(crate) fn qspi_page_program_sector0(
 fn qspi_page_program_inner(
     stack: &[Option<u32>],
     data: &[u8],
-    protect: drv_gimlet_hf_api::HfProtectMode,
+    protect: drv_hf_api::HfProtectMode,
 ) -> Result<usize, Failure> {
-    use drv_gimlet_hf_api as hf;
-
     if stack.len() < 3 {
         return Err(Failure::Fault(Fault::MissingParameters));
     }
@@ -772,7 +765,7 @@ fn qspi_page_program_inner(
 
     let data = &data[offset..offset + len];
 
-    let server = hf::HostFlash::from(HF.get_task_id());
+    let server = drv_hf_api::HostFlash::from(HF.get_task_id());
     func_err(server.page_program(addr, protect, data))?;
     Ok(0)
 }
@@ -783,8 +776,6 @@ pub(crate) fn qspi_read(
     _data: &[u8],
     rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    use drv_gimlet_hf_api as hf;
-
     if stack.len() < 2 {
         return Err(Failure::Fault(Fault::MissingParameters));
     }
@@ -799,7 +790,7 @@ pub(crate) fn qspi_read(
 
     let out = &mut rval[..len];
 
-    let server = hf::HostFlash::from(HF.get_task_id());
+    let server = drv_hf_api::HostFlash::from(HF.get_task_id());
     func_err(server.read(addr, out))?;
     Ok(len)
 }
@@ -810,8 +801,6 @@ pub(crate) fn qspi_verify(
     data: &[u8],
     rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    use drv_gimlet_hf_api as hf;
-
     if stack.len() < 3 {
         return Err(Failure::Fault(Fault::MissingParameters));
     }
@@ -833,7 +822,7 @@ pub(crate) fn qspi_verify(
     let data = &data[offset..offset + len];
     let out = &mut rval[..len];
 
-    let server = hf::HostFlash::from(HF.get_task_id());
+    let server = drv_hf_api::HostFlash::from(HF.get_task_id());
     func_err(server.read(addr, out))?;
 
     let mut differ = false;
@@ -860,16 +849,16 @@ pub(crate) fn qspi_sector_erase(
     _data: &[u8],
     _rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    use drv_gimlet_hf_api as hf;
-
     if stack.is_empty() {
         return Err(Failure::Fault(Fault::MissingParameters));
     }
     let frame = &stack[stack.len() - 1..];
     let addr = frame[0].ok_or(Failure::Fault(Fault::MissingParameters))?;
 
-    let server = hf::HostFlash::from(HF.get_task_id());
-    func_err(server.sector_erase(addr, hf::HfProtectMode::ProtectSector0))?;
+    let server = drv_hf_api::HostFlash::from(HF.get_task_id());
+    func_err(
+        server.sector_erase(addr, drv_hf_api::HfProtectMode::ProtectSector0),
+    )?;
     Ok(0)
 }
 
@@ -879,12 +868,11 @@ pub(crate) fn qspi_sector0_erase(
     _data: &[u8],
     _rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    use drv_gimlet_hf_api as hf;
-
-    let server = hf::HostFlash::from(HF.get_task_id());
-    func_err(
-        server.sector_erase(0, hf::HfProtectMode::AllowModificationsToSector0),
-    )?;
+    let server = drv_hf_api::HostFlash::from(HF.get_task_id());
+    func_err(server.sector_erase(
+        0,
+        drv_hf_api::HfProtectMode::AllowModificationsToSector0,
+    ))?;
     Ok(0)
 }
 
@@ -898,7 +886,6 @@ pub(crate) fn qspi_hash(
     _data: &[u8],
     rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    use drv_gimlet_hf_api as hf;
     use drv_hash_api as hash;
 
     if stack.len() < 2 {
@@ -912,7 +899,7 @@ pub(crate) fn qspi_hash(
         return Err(Failure::Fault(Fault::ReturnValueOverflow));
     }
 
-    let server = hf::HostFlash::from(HF.get_task_id());
+    let server = drv_hf_api::HostFlash::from(HF.get_task_id());
     let sha256sum = func_err(server.hash(addr, len))?;
     rval[..hash::SHA256_SZ].copy_from_slice(&sha256sum);
     Ok(hash::SHA256_SZ)
@@ -997,33 +984,4 @@ pub(crate) fn hash_finalize_sha256(
     let sha256sum = func_err(server.finalize_sha256())?;
     rval[..hash::SHA256_SZ].copy_from_slice(&sha256sum);
     Ok(hash::SHA256_SZ)
-}
-
-#[cfg(feature = "rng")]
-task_slot!(RNG, rng_driver);
-
-#[cfg(feature = "rng")]
-pub(crate) fn rng_fill(
-    stack: &[Option<u32>],
-    _data: &[u8],
-    rval: &mut [u8],
-) -> Result<usize, Failure> {
-    use drv_rng_api::Rng;
-
-    if stack.is_empty() {
-        return Err(Failure::Fault(Fault::MissingParameters));
-    }
-    if stack.len() > 1 {
-        return Err(Failure::Fault(Fault::BadParameter(2)));
-    }
-
-    let frame = &stack[stack.len() - 1..];
-    let count =
-        frame[0].ok_or(Failure::Fault(Fault::MissingParameters))? as usize;
-    if count > rval.len() {
-        return Err(Failure::Fault(Fault::AccessOutOfBounds));
-    }
-
-    func_err(Rng::from(RNG.get_task_id()).fill(&mut rval[0..count]))?;
-    Ok(count)
 }

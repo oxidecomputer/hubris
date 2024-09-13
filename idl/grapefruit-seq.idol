@@ -1,0 +1,11 @@
+// Grapefruit Sequencer API
+Interface(
+    name: "Sequencer",
+    ops: {
+        "ping": (
+            args: {},
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+    }
+)

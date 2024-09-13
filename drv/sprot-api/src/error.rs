@@ -14,6 +14,7 @@ use dumper_api::DumperError;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
 
+use attest_data::messages::SprotError as AttestDataSprotError;
 use gateway_messages::{
     RotError, RotWatchdogError as GwRotWatchdogError, SpError,
     SprocketsError as GwSprocketsErr,
@@ -305,6 +306,77 @@ impl From<idol_runtime::ServerDeath> for AttestOrSprotError {
     }
 }
 
+impl From<AttestOrSprotError> for AttestDataSprotError {
+    fn from(err: AttestOrSprotError) -> Self {
+        match err {
+            AttestOrSprotError::Sprot(e) => match e {
+                SprotError::Protocol(e1) => match e1 {
+                    SprotProtocolError::InvalidCrc => Self::ProtocolInvalidCrc,
+                    SprotProtocolError::FlowError => Self::ProtocolFlowError,
+                    SprotProtocolError::UnsupportedProtocol => {
+                        Self::ProtocolUnsupportedProtocol
+                    }
+                    SprotProtocolError::BadMessageType => {
+                        Self::ProtocolBadMessageType
+                    }
+                    SprotProtocolError::BadMessageLength => {
+                        Self::ProtocolBadMessageLength
+                    }
+                    SprotProtocolError::CannotAssertCSn => {
+                        Self::ProtocolCannotAssertCSn
+                    }
+                    SprotProtocolError::Timeout => Self::ProtocolTimeout,
+                    SprotProtocolError::Deserialization => {
+                        Self::ProtocolDeserialization
+                    }
+                    SprotProtocolError::RotIrqRemainsAsserted => {
+                        Self::ProtocolRotIrqRemainsAsserted
+                    }
+                    SprotProtocolError::UnexpectedResponse => {
+                        Self::ProtocolUnexpectedResponse
+                    }
+                    SprotProtocolError::BadUpdateStatus => {
+                        Self::ProtocolBadUpdateStatus
+                    }
+                    SprotProtocolError::TaskRestarted => {
+                        Self::ProtocolTaskRestarted
+                    }
+                    SprotProtocolError::Desynchronized => {
+                        Self::ProtocolDesynchronized
+                    }
+                },
+                SprotError::Spi(e1) => match e1 {
+                    SpiError::BadTransferSize => Self::SpiBadTransferSize,
+                    SpiError::TaskRestarted => Self::SpiTaskRestarted,
+                },
+                // We should never return these but it's safer to return an
+                // enum just in case these come up
+                SprotError::Update(_) => Self::UpdateError,
+                SprotError::Sprockets(_) => Self::SprocketsError,
+                SprotError::Watchdog(_) => Self::WatchdogError,
+            },
+            AttestOrSprotError::Attest(e) => match e {
+                AttestError::CertTooBig => Self::AttestCertTooBig,
+                AttestError::InvalidCertIndex => Self::AttestInvalidCertIndex,
+                AttestError::NoCerts => Self::AttestNoCerts,
+                AttestError::OutOfRange => Self::AttestOutOfRange,
+                AttestError::LogFull => Self::AttestLogFull,
+                AttestError::LogTooBig => Self::AttestLogTooBig,
+                AttestError::TaskRestarted => Self::AttestTaskRestarted,
+                AttestError::BadLease => Self::AttestBadLease,
+                AttestError::UnsupportedAlgorithm => {
+                    Self::AttestUnsupportedAlgorithm
+                }
+                AttestError::SerializeLog => Self::AttestSerializeLog,
+                AttestError::SerializeSignature => {
+                    Self::AttestSerializeSignature
+                }
+                AttestError::SignatureTooBig => Self::AttestSignatureTooBig,
+            },
+        }
+    }
+}
+
 // Added in sprot protocol version 5
 #[derive(
     Copy,
@@ -333,4 +405,29 @@ impl From<WatchdogError> for GwWatchdogError {
             WatchdogError::Other(i) => Self::Rot(GwRotWatchdogError::Other(i)),
         }
     }
+}
+
+// Added in protocol v6
+#[derive(
+    Copy, Clone, Debug, Serialize, Deserialize, SerializedSize, counters::Count,
+)]
+pub enum StateError {
+    ReadCmpa(UpdateError),
+    ReadCfpa(UpdateError),
+    BadRevoke { revoke: u8 },
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    From,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    counters::Count,
+)]
+pub enum StateOrSprotError {
+    Sprot(#[count(children)] SprotError),
+    State(#[count(children)] StateError),
 }

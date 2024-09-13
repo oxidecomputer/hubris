@@ -70,7 +70,10 @@ use idol_runtime::{
 };
 use lpc55_pac as device;
 use ringbuf::*;
-use userlib::*;
+use userlib::{
+    hl, set_timer_relative, sys_set_timer, task_slot, RecvMessage, TaskId,
+    UnwrapLite,
+};
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {

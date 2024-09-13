@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-drv-gimlet-hf-api = { path = "../gimlet-hf-api" }
+drv-hf-api = { path = "../hf-api" }
 drv-gimlet-seq-api = { path = "../gimlet-seq-api" }
 drv-gimlet-state = { path = "../gimlet-state" }
 drv-i2c-api = { path = "../i2c-api" }
@@ -34,6 +34,7 @@ spd = { workspace = true }
 build-fpga-regmap = { path = "../../build/fpga-regmap" }
 build-i2c = { path = "../../build/i2c" }
 build-util = { path = "../../build/util" }
+build-stm32xx-sys = { path = "../../build/stm32xx-sys" }
 gnarle = { path = "../../lib/gnarle", features=["std"] }
 
 idol = { workspace = true }

@@ -12,7 +12,7 @@ use drv_lpc55_spi as spi_core;
 use drv_lpc55_syscon_api::{Peripheral, Syscon};
 use lpc55_pac as device;
 use ringbuf::*;
-use userlib::*;
+use userlib::{sys_irq_control, sys_recv_notification, task_slot};
 
 task_slot!(SYSCON, syscon_driver);
 task_slot!(GPIO, gpio_driver);

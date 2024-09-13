@@ -9,7 +9,7 @@
 use core::ops::Deref;
 
 use drv_spi_api::SpiError;
-use userlib::*;
+use userlib::{FromPrimitive, UnwrapLite};
 use zerocopy::{AsBytes, BigEndian, FromBytes, U32};
 
 #[cfg(feature = "auxflash")]
@@ -118,14 +118,31 @@ pub enum BitstreamType {
     Compressed = 1,
 }
 
+/*
+    The Ops defined by the FPGA peripheral are:
+    Write = 0
+    Read = 1
+    BitSet = 2
+    BitClear = 3
+    NoOp = 4
+    WriteNoAddrIncr = 5
+    ReadNoAddrIncr = 6
+
+    The {Write,Read}NoAddrIncr operations support sequential write/read to the
+    same address. These operations are useful for exposing FIFO-like interfaces
+    via a single memory-mapped address location.
+
+    These operations are split into WriteOp and ReadOp enums below.
+*/
+
+/// This is just writes; for reads, see ReadOp
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, AsBytes)]
 #[repr(u8)]
 pub enum WriteOp {
     Write = 0,
-    // This maps onto a generic Op type in Bluespec which defines Read = 1. The
-    // read/write split obviates the need for that operation.
     BitSet = 2,
     BitClear = 3,
+    WriteNoAddrIncr = 5,
 }
 
 impl From<WriteOp> for u8 {
@@ -141,6 +158,20 @@ impl From<bool> for WriteOp {
         } else {
             WriteOp::BitClear
         }
+    }
+}
+
+/// This is just reads; for writes, see WriteOp
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, AsBytes)]
+#[repr(u8)]
+pub enum ReadOp {
+    Read = 1,
+    ReadNoAddrIncr = 6,
+}
+
+impl From<ReadOp> for u8 {
+    fn from(op: ReadOp) -> Self {
+        op as u8
     }
 }
 
@@ -274,18 +305,19 @@ impl FpgaUserDesign {
         T: AsBytes + FromBytes,
     {
         let mut v = T::new_zeroed();
-        self.read_bytes(addr, v.as_bytes_mut())?;
+        self.read_bytes(ReadOp::Read, addr, v.as_bytes_mut())?;
         Ok(v)
     }
 
     #[inline]
     pub fn read_bytes(
         &self,
+        op: ReadOp,
         addr: impl Into<u16>,
         data: &mut [u8],
     ) -> Result<(), FpgaError> {
         self.server
-            .user_design_read(self.device_index, addr.into(), data)
+            .user_design_read(self.device_index, op, addr.into(), data)
     }
 
     #[inline]
@@ -405,8 +437,8 @@ pub fn load_bitstream_from_auxflash(
 }
 
 pub mod idl {
-    use super::{BitstreamType, DeviceState, FpgaError, WriteOp};
-    use userlib::*;
+    use super::{BitstreamType, DeviceState, FpgaError, ReadOp, WriteOp};
+    use userlib::sys_send;
 
     include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
 }

@@ -15,13 +15,14 @@ num-traits.workspace = true
 paste.workspace = true
 static_assertions.workspace = true
 zerocopy.workspace = true
+attest-data.workspace = true 
 
 tlvc = { workspace = true, optional = true }
 pmbus = { workspace = true, optional = true }
 
 counters.path = "../../lib/counters"
 
-drv-gimlet-hf-api.path= "../../drv/gimlet-hf-api"
+drv-hf-api.path= "../../drv/hf-api"
 drv-gimlet-seq-api.path= "../../drv/gimlet-seq-api"
 drv-oxide-vpd.path= "../../drv/oxide-vpd"
 drv-stm32h7-dbgmcu.path = "../../drv/stm32h7-dbgmcu"
@@ -43,6 +44,7 @@ drv-i2c-devices = { path = "../../drv/i2c-devices", optional = true }
 drv-stm32h7-usart = { path = "../../drv/stm32h7-usart", optional = true }
 task-sensor-api = { path = "../../task/sensor-api", optional = true }
 ksz8463 = { path = "../../drv/ksz8463", optional = true }
+drv-sprot-api = { path = "../../drv/sprot-api"}
 
 [build-dependencies]
 build-util.path = "../../build/util"

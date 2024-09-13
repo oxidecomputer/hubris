@@ -75,7 +75,8 @@ cfg_if::cfg_if! {
         target_board = "sidecar-b",
         target_board = "gimletlet-2",
         target_board = "nucleo-h743zi2",
-        target_board = "nucleo-h753zi"
+        target_board = "nucleo-h753zi",
+        target_board = "grapefruit",
     ))] {
         const HIFFY_DATA_SIZE: usize = 20_480;
         const HIFFY_TEXT_SIZE: usize = 2048;

@@ -26,6 +26,7 @@ pub enum ThermalError {
     InvalidWatchdogTime = 7,
     InvalidParameter = 8,
     InvalidIndex = 9,
+    FanControllerUninitialized = 10,
 
     #[idol(server_death)]
     ServerDeath,
@@ -215,6 +216,15 @@ impl From<SensorReadError> for task_sensor_api::NoData {
         match code {
             SensorReadError::I2cError(v) => v.into(),
             _ => Self::DeviceError,
+        }
+    }
+}
+
+impl From<drv_i2c_devices::pct2075::Error> for SensorReadError {
+    fn from(s: drv_i2c_devices::pct2075::Error) -> Self {
+        use drv_i2c_devices::pct2075::Error::*;
+        match s {
+            BadTempRead { code, .. } => Self::I2cError(code),
         }
     }
 }

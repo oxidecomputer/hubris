@@ -160,7 +160,7 @@ impl<'a> VisitMut for OffsetVisitor<'a> {
             // If `pos` is _before_ the first offset in the table, then return a
             // base case with no offset, i.e. (0, 0)
             let (prev_pos, offset) =
-                self.offsets.range(0..=pos).rev().next().unwrap_or((&0, &0));
+                self.offsets.range(0..=pos).next_back().unwrap_or((&0, &0));
             assert!(*prev_pos <= pos); // sanity-checking
             t.set_position(offset + pos);
         }
@@ -234,7 +234,7 @@ fn merge_toml_tables(
                     visitor.visit_item(v);
                     let start =
                         visitor.range.map(|r| r.start as isize).unwrap();
-                    let offset = last as isize - start as isize;
+                    let offset = last as isize - start;
 
                     // Apply that offset to the incoming tables
                     let mut visitor = TableShiftVisitor { offset };
@@ -252,7 +252,7 @@ fn merge_toml_tables(
             let mut visitor = TableRangeVisitor::default();
             visitor.visit_item(v);
             let start = visitor.range.map(|r| r.start as isize).unwrap_or(0);
-            let offset = last as isize - start as isize;
+            let offset = last as isize - start;
 
             // Apply that offset to the incoming tables
             let mut visitor = TableShiftVisitor { offset };

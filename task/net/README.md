@@ -174,7 +174,7 @@ When the feature is enabled, the build system reads a `vlan` dictionary from
 of VLANs. This information is used to generate **arrays of arrays** in the
 `net` build system; where we would previously make a single array of
 `SOCKET_COUNT` items, we're now building a nested array with
-`SOCKET_COUNT * VLAN_COUNT` total items.
+`SOCKET_COUNT * VLanId::LENGTH` total items.
 
 ## Basic architecture
 Each VLAN runs an independent instance of _smoltcp_ with `SOCKET_COUNT`

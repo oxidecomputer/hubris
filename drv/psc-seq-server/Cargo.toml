@@ -9,9 +9,11 @@ drv-psc-seq-api.path = "../psc-seq-api"
 drv-stm32xx-sys-api = { path = "../../drv/stm32xx-sys-api", features = ["family-stm32h7"] }
 task-jefe-api.path = "../../task/jefe-api"
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+ringbuf = { path = "../../lib/ringbuf" }
 
 [build-dependencies]
 idol.workspace = true
+build-util = {path = "../../build/util"}
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

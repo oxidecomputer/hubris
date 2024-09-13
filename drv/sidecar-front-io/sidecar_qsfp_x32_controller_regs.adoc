@@ -246,7 +246,7 @@ PHY PowerRail state (internal to FPGA)
 
 QSFP module I2C address
 [caption="Address: "]
-.0x1000 - QSFP_I2C_BUS_ADDR Register
+.0x0200 - QSFP_I2C_BUS_ADDR Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -256,7 +256,7 @@ QSFP module I2C address
 
 QSFP module register address
 [caption="Address: "]
-.0x1001 - QSFP_I2C_REG_ADDR Register
+.0x0201 - QSFP_I2C_REG_ADDR Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -265,7 +265,7 @@ QSFP module register address
 
 I2C_NUM_BYTES
 [caption="Address: "]
-.0x1002 - QSFP_I2C_NUM_BYTES Register
+.0x0202 - QSFP_I2C_NUM_BYTES Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -274,7 +274,7 @@ I2C_NUM_BYTES
 
 Ports 0 -> 7 Broadcast Control
 [caption="Address: "]
-.0x1003 - QSFP_I2C_BCAST0 Register
+.0x0203 - QSFP_I2C_BCAST0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -290,7 +290,7 @@ Ports 0 -> 7 Broadcast Control
 
 Ports 8 -> 15 Broadcast Control
 [caption="Address: "]
-.0x1004 - QSFP_I2C_BCAST1 Register
+.0x0204 - QSFP_I2C_BCAST1 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -306,7 +306,7 @@ Ports 8 -> 15 Broadcast Control
 
 Control bits for I2C communication.
 [caption="Address: "]
-.0x1005 - QSFP_I2C_CTRL Register
+.0x0205 - QSFP_I2C_CTRL Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -317,7 +317,7 @@ Control bits for I2C communication.
 
 Ports 0 -> 7 I2C core status. '1' is busy.
 [caption="Address: "]
-.0x1006 - QSFP_I2C_BUSY0 Register
+.0x0206 - QSFP_I2C_BUSY0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -333,599 +333,7 @@ Ports 0 -> 7 I2C core status. '1' is busy.
 
 Ports 8 -> 15 I2C core status. '1' is busy.
 [caption="Address: "]
-.0x1007 - QSFP_I2C_BUSY1 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | r | PORT15 | None
-|[6] | r | PORT14 | None
-|[5] | r | PORT13 | None
-|[4] | r | PORT12 | None
-|[3] | r | PORT11 | None
-|[2] | r | PORT10 | None
-|[1] | r | PORT9 | None
-|[0] | r | PORT8 | None
-|===
-
-STATUS_PORT0
-[caption="Address: "]
-.0x1008 - QSFP_STATUS_PORT0 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7:5] |  | - | Reserved
-|[4] | r | BUSY | '1' if the bus is busy.
-|[3:0] | r | ERROR | Port I2C error status
-|===
-
-STATUS_PORT1
-[caption="Address: "]
-.0x1009 - QSFP_STATUS_PORT1 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7:5] |  | - | Reserved
-|[4] | r | BUSY | '1' if the bus is busy.
-|[3:0] | r | ERROR | Port I2C error status
-|===
-
-STATUS_PORT2
-[caption="Address: "]
-.0x100a - QSFP_STATUS_PORT2 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7:5] |  | - | Reserved
-|[4] | r | BUSY | '1' if the bus is busy.
-|[3:0] | r | ERROR | Port I2C error status
-|===
-
-STATUS_PORT3
-[caption="Address: "]
-.0x100b - QSFP_STATUS_PORT3 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7:5] |  | - | Reserved
-|[4] | r | BUSY | '1' if the bus is busy.
-|[3:0] | r | ERROR | Port I2C error status
-|===
-
-STATUS_PORT4
-[caption="Address: "]
-.0x100c - QSFP_STATUS_PORT4 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7:5] |  | - | Reserved
-|[4] | r | BUSY | '1' if the bus is busy.
-|[3:0] | r | ERROR | Port I2C error status
-|===
-
-STATUS_PORT5
-[caption="Address: "]
-.0x100d - QSFP_STATUS_PORT5 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7:5] |  | - | Reserved
-|[4] | r | BUSY | '1' if the bus is busy.
-|[3:0] | r | ERROR | Port I2C error status
-|===
-
-STATUS_PORT6
-[caption="Address: "]
-.0x100e - QSFP_STATUS_PORT6 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7:5] |  | - | Reserved
-|[4] | r | BUSY | '1' if the bus is busy.
-|[3:0] | r | ERROR | Port I2C error status
-|===
-
-STATUS_PORT7
-[caption="Address: "]
-.0x100f - QSFP_STATUS_PORT7 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7:5] |  | - | Reserved
-|[4] | r | BUSY | '1' if the bus is busy.
-|[3:0] | r | ERROR | Port I2C error status
-|===
-
-STATUS_PORT8
-[caption="Address: "]
-.0x1010 - QSFP_STATUS_PORT8 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7:5] |  | - | Reserved
-|[4] | r | BUSY | '1' if the bus is busy.
-|[3:0] | r | ERROR | Port I2C error status
-|===
-
-STATUS_PORT9
-[caption="Address: "]
-.0x1011 - QSFP_STATUS_PORT9 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7:5] |  | - | Reserved
-|[4] | r | BUSY | '1' if the bus is busy.
-|[3:0] | r | ERROR | Port I2C error status
-|===
-
-STATUS_PORT10
-[caption="Address: "]
-.0x1012 - QSFP_STATUS_PORT10 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7:5] |  | - | Reserved
-|[4] | r | BUSY | '1' if the bus is busy.
-|[3:0] | r | ERROR | Port I2C error status
-|===
-
-STATUS_PORT11
-[caption="Address: "]
-.0x1013 - QSFP_STATUS_PORT11 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7:5] |  | - | Reserved
-|[4] | r | BUSY | '1' if the bus is busy.
-|[3:0] | r | ERROR | Port I2C error status
-|===
-
-STATUS_PORT12
-[caption="Address: "]
-.0x1014 - QSFP_STATUS_PORT12 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7:5] |  | - | Reserved
-|[4] | r | BUSY | '1' if the bus is busy.
-|[3:0] | r | ERROR | Port I2C error status
-|===
-
-STATUS_PORT13
-[caption="Address: "]
-.0x1015 - QSFP_STATUS_PORT13 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7:5] |  | - | Reserved
-|[4] | r | BUSY | '1' if the bus is busy.
-|[3:0] | r | ERROR | Port I2C error status
-|===
-
-STATUS_PORT14
-[caption="Address: "]
-.0x1016 - QSFP_STATUS_PORT14 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7:5] |  | - | Reserved
-|[4] | r | BUSY | '1' if the bus is busy.
-|[3:0] | r | ERROR | Port I2C error status
-|===
-
-STATUS_PORT15
-[caption="Address: "]
-.0x1017 - QSFP_STATUS_PORT15 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7:5] |  | - | Reserved
-|[4] | r | BUSY | '1' if the bus is busy.
-|[3:0] | r | ERROR | Port I2C error status
-|===
-
-CONTROL_PORT0
-[caption="Address: "]
-.0x1018 - QSFP_CONTROL_PORT0 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7:1] |  | - | Reserved
-|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
-|===
-
-CONTROL_PORT1
-[caption="Address: "]
-.0x1019 - QSFP_CONTROL_PORT1 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7:1] |  | - | Reserved
-|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
-|===
-
-CONTROL_PORT2
-[caption="Address: "]
-.0x101a - QSFP_CONTROL_PORT2 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7:1] |  | - | Reserved
-|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
-|===
-
-CONTROL_PORT3
-[caption="Address: "]
-.0x101b - QSFP_CONTROL_PORT3 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7:1] |  | - | Reserved
-|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
-|===
-
-CONTROL_PORT4
-[caption="Address: "]
-.0x101c - QSFP_CONTROL_PORT4 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7:1] |  | - | Reserved
-|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
-|===
-
-CONTROL_PORT5
-[caption="Address: "]
-.0x101d - QSFP_CONTROL_PORT5 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7:1] |  | - | Reserved
-|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
-|===
-
-CONTROL_PORT6
-[caption="Address: "]
-.0x101e - QSFP_CONTROL_PORT6 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7:1] |  | - | Reserved
-|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
-|===
-
-CONTROL_PORT7
-[caption="Address: "]
-.0x101f - QSFP_CONTROL_PORT7 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7:1] |  | - | Reserved
-|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
-|===
-
-CONTROL_PORT8
-[caption="Address: "]
-.0x1020 - QSFP_CONTROL_PORT8 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7:1] |  | - | Reserved
-|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
-|===
-
-CONTROL_PORT9
-[caption="Address: "]
-.0x1021 - QSFP_CONTROL_PORT9 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7:1] |  | - | Reserved
-|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
-|===
-
-CONTROL_PORT10
-[caption="Address: "]
-.0x1022 - QSFP_CONTROL_PORT10 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7:1] |  | - | Reserved
-|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
-|===
-
-CONTROL_PORT11
-[caption="Address: "]
-.0x1023 - QSFP_CONTROL_PORT11 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7:1] |  | - | Reserved
-|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
-|===
-
-CONTROL_PORT12
-[caption="Address: "]
-.0x1024 - QSFP_CONTROL_PORT12 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7:1] |  | - | Reserved
-|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
-|===
-
-CONTROL_PORT13
-[caption="Address: "]
-.0x1025 - QSFP_CONTROL_PORT13 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7:1] |  | - | Reserved
-|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
-|===
-
-CONTROL_PORT14
-[caption="Address: "]
-.0x1026 - QSFP_CONTROL_PORT14 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7:1] |  | - | Reserved
-|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
-|===
-
-CONTROL_PORT15
-[caption="Address: "]
-.0x1027 - QSFP_CONTROL_PORT15 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7:1] |  | - | Reserved
-|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
-|===
-
-Ports 0 -> 7 HSC Enable. Clear bit to remove module power.
-[caption="Address: "]
-.0x1028 - QSFP_POWER_EN0 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | r | PORT7 | None
-|[6] | r | PORT6 | None
-|[5] | r | PORT5 | None
-|[4] | r | PORT4 | None
-|[3] | r | PORT3 | None
-|[2] | r | PORT2 | None
-|[1] | r | PORT1 | None
-|[0] | r | PORT0 | None
-|===
-
-Ports 8 -> 15 HSC Enable. Clear bit to remove module power.
-[caption="Address: "]
-.0x1029 - QSFP_POWER_EN1 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | r | PORT15 | None
-|[6] | r | PORT14 | None
-|[5] | r | PORT13 | None
-|[4] | r | PORT12 | None
-|[3] | r | PORT11 | None
-|[2] | r | PORT10 | None
-|[1] | r | PORT9 | None
-|[0] | r | PORT8 | None
-|===
-
-Ports 0 -> 7 HSC power good
-[caption="Address: "]
-.0x102a - QSFP_POWER_GOOD0 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | r | PORT7 | None
-|[6] | r | PORT6 | None
-|[5] | r | PORT5 | None
-|[4] | r | PORT4 | None
-|[3] | r | PORT3 | None
-|[2] | r | PORT2 | None
-|[1] | r | PORT1 | None
-|[0] | r | PORT0 | None
-|===
-
-Ports 8 -> 15 HSC power good
-[caption="Address: "]
-.0x102b - QSFP_POWER_GOOD1 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | r | PORT15 | None
-|[6] | r | PORT14 | None
-|[5] | r | PORT13 | None
-|[4] | r | PORT12 | None
-|[3] | r | PORT11 | None
-|[2] | r | PORT10 | None
-|[1] | r | PORT9 | None
-|[0] | r | PORT8 | None
-|===
-
-Ports 0 -> 7 HSC power good not asserted within period after enabled
-[caption="Address: "]
-.0x102c - QSFP_POWER_GOOD_TIMEOUT0 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | r | PORT7 | None
-|[6] | r | PORT6 | None
-|[5] | r | PORT5 | None
-|[4] | r | PORT4 | None
-|[3] | r | PORT3 | None
-|[2] | r | PORT2 | None
-|[1] | r | PORT1 | None
-|[0] | r | PORT0 | None
-|===
-
-Ports 8 -> 15 HSC power good not asserted within period after enabled
-[caption="Address: "]
-.0x102d - QSFP_POWER_GOOD_TIMEOUT1 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | r | PORT15 | None
-|[6] | r | PORT14 | None
-|[5] | r | PORT13 | None
-|[4] | r | PORT12 | None
-|[3] | r | PORT11 | None
-|[2] | r | PORT10 | None
-|[1] | r | PORT9 | None
-|[0] | r | PORT8 | None
-|===
-
-Ports 0 -> 7 HSC power good lost after successful enable
-[caption="Address: "]
-.0x102e - QSFP_POWER_GOOD_LOST0 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | r | PORT7 | None
-|[6] | r | PORT6 | None
-|[5] | r | PORT5 | None
-|[4] | r | PORT4 | None
-|[3] | r | PORT3 | None
-|[2] | r | PORT2 | None
-|[1] | r | PORT1 | None
-|[0] | r | PORT0 | None
-|===
-
-Ports 8 -> 15 HSC power good lost after successful enable
-[caption="Address: "]
-.0x102f - QSFP_POWER_GOOD_LOST1 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | r | PORT15 | None
-|[6] | r | PORT14 | None
-|[5] | r | PORT13 | None
-|[4] | r | PORT12 | None
-|[3] | r | PORT11 | None
-|[2] | r | PORT10 | None
-|[1] | r | PORT9 | None
-|[0] | r | PORT8 | None
-|===
-
-Ports 0 -> 7 Module ResetL
-[caption="Address: "]
-.0x1030 - QSFP_MOD_RESETL0 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | rw | PORT7 | None
-|[6] | rw | PORT6 | None
-|[5] | rw | PORT5 | None
-|[4] | rw | PORT4 | None
-|[3] | rw | PORT3 | None
-|[2] | rw | PORT2 | None
-|[1] | rw | PORT1 | None
-|[0] | rw | PORT0 | None
-|===
-
-Ports 8 -> 15 Module ResetL
-[caption="Address: "]
-.0x1031 - QSFP_MOD_RESETL1 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | rw | PORT15 | None
-|[6] | rw | PORT14 | None
-|[5] | rw | PORT13 | None
-|[4] | rw | PORT12 | None
-|[3] | rw | PORT11 | None
-|[2] | rw | PORT10 | None
-|[1] | rw | PORT9 | None
-|[0] | rw | PORT8 | None
-|===
-
-Ports 0 -> 7 Module LPMode/TxDis
-[caption="Address: "]
-.0x1032 - QSFP_MOD_LPMODE0 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | rw | PORT7 | None
-|[6] | rw | PORT6 | None
-|[5] | rw | PORT5 | None
-|[4] | rw | PORT4 | None
-|[3] | rw | PORT3 | None
-|[2] | rw | PORT2 | None
-|[1] | rw | PORT1 | None
-|[0] | rw | PORT0 | None
-|===
-
-Ports 8 -> 15 Module LPMode/TxDis
-[caption="Address: "]
-.0x1033 - QSFP_MOD_LPMODE1 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | rw | PORT15 | None
-|[6] | rw | PORT14 | None
-|[5] | rw | PORT13 | None
-|[4] | rw | PORT12 | None
-|[3] | rw | PORT11 | None
-|[2] | rw | PORT10 | None
-|[1] | rw | PORT9 | None
-|[0] | rw | PORT8 | None
-|===
-
-Ports 0 -> 7 Module ModPrsL
-[caption="Address: "]
-.0x1034 - QSFP_MOD_MODPRSL0 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | r | PORT7 | None
-|[6] | r | PORT6 | None
-|[5] | r | PORT5 | None
-|[4] | r | PORT4 | None
-|[3] | r | PORT3 | None
-|[2] | r | PORT2 | None
-|[1] | r | PORT1 | None
-|[0] | r | PORT0 | None
-|===
-
-Ports 8 -> 15 Module ModPrsL
-[caption="Address: "]
-.0x1035 - QSFP_MOD_MODPRSL1 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | r | PORT15 | None
-|[6] | r | PORT14 | None
-|[5] | r | PORT13 | None
-|[4] | r | PORT12 | None
-|[3] | r | PORT11 | None
-|[2] | r | PORT10 | None
-|[1] | r | PORT9 | None
-|[0] | r | PORT8 | None
-|===
-
-Ports 0 -> 7 Module IntL/RxLOS
-[caption="Address: "]
-.0x1036 - QSFP_MOD_INTL0 Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7] | r | PORT7 | None
-|[6] | r | PORT6 | None
-|[5] | r | PORT5 | None
-|[4] | r | PORT4 | None
-|[3] | r | PORT3 | None
-|[2] | r | PORT2 | None
-|[1] | r | PORT1 | None
-|[0] | r | PORT0 | None
-|===
-
-Ports 8 -> 15 Module IntL/RxLOS
-[caption="Address: "]
-.0x1037 - QSFP_MOD_INTL1 Register
+.0x0207 - QSFP_I2C_BUSY1 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -941,314 +349,802 @@ Ports 8 -> 15 Module IntL/RxLOS
 
 PORT0_STATUS
 [caption="Address: "]
-.0x107f - QSFP_PORT0_STATUS Register
+.0x0208 - QSFP_PORT0_STATUS Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] |  | - | Reserved
-|[4] | r | BUSY | '1' if the bus is busy.
+|[7] |  | - | Reserved
+|[6] | r | RDATA_FIFO_EMPTY | '1' if the I2C read data buffer is empty.
+|[5] | r | WDATA_FIFO_EMPTY | '1' if the I2C write data buffer is empty.
+|[4] | r | BUSY | '1' if the I2C bus is busy.
 |[3:0] | r | ERROR | Port I2C error status
-|===
-
-PORT0_READ_BUFFER
-[caption="Address: "]
-.0x1080 - QSFP_PORT0_READ_BUFFER Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
 |===
 
 PORT1_STATUS
 [caption="Address: "]
-.0x117f - QSFP_PORT1_STATUS Register
+.0x0209 - QSFP_PORT1_STATUS Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] |  | - | Reserved
-|[4] | r | BUSY | '1' if the bus is busy.
+|[7] |  | - | Reserved
+|[6] | r | RDATA_FIFO_EMPTY | '1' if the I2C read data buffer is empty.
+|[5] | r | WDATA_FIFO_EMPTY | '1' if the I2C write data buffer is empty.
+|[4] | r | BUSY | '1' if the I2C bus is busy.
 |[3:0] | r | ERROR | Port I2C error status
-|===
-
-PORT1_READ_BUFFER
-[caption="Address: "]
-.0x1180 - QSFP_PORT1_READ_BUFFER Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
 |===
 
 PORT2_STATUS
 [caption="Address: "]
-.0x127f - QSFP_PORT2_STATUS Register
+.0x020a - QSFP_PORT2_STATUS Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] |  | - | Reserved
-|[4] | r | BUSY | '1' if the bus is busy.
+|[7] |  | - | Reserved
+|[6] | r | RDATA_FIFO_EMPTY | '1' if the I2C read data buffer is empty.
+|[5] | r | WDATA_FIFO_EMPTY | '1' if the I2C write data buffer is empty.
+|[4] | r | BUSY | '1' if the I2C bus is busy.
 |[3:0] | r | ERROR | Port I2C error status
-|===
-
-PORT2_READ_BUFFER
-[caption="Address: "]
-.0x1280 - QSFP_PORT2_READ_BUFFER Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
 |===
 
 PORT3_STATUS
 [caption="Address: "]
-.0x137f - QSFP_PORT3_STATUS Register
+.0x020b - QSFP_PORT3_STATUS Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] |  | - | Reserved
-|[4] | r | BUSY | '1' if the bus is busy.
+|[7] |  | - | Reserved
+|[6] | r | RDATA_FIFO_EMPTY | '1' if the I2C read data buffer is empty.
+|[5] | r | WDATA_FIFO_EMPTY | '1' if the I2C write data buffer is empty.
+|[4] | r | BUSY | '1' if the I2C bus is busy.
 |[3:0] | r | ERROR | Port I2C error status
-|===
-
-PORT3_READ_BUFFER
-[caption="Address: "]
-.0x1380 - QSFP_PORT3_READ_BUFFER Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
 |===
 
 PORT4_STATUS
 [caption="Address: "]
-.0x147f - QSFP_PORT4_STATUS Register
+.0x020c - QSFP_PORT4_STATUS Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] |  | - | Reserved
-|[4] | r | BUSY | '1' if the bus is busy.
+|[7] |  | - | Reserved
+|[6] | r | RDATA_FIFO_EMPTY | '1' if the I2C read data buffer is empty.
+|[5] | r | WDATA_FIFO_EMPTY | '1' if the I2C write data buffer is empty.
+|[4] | r | BUSY | '1' if the I2C bus is busy.
 |[3:0] | r | ERROR | Port I2C error status
-|===
-
-PORT4_READ_BUFFER
-[caption="Address: "]
-.0x1480 - QSFP_PORT4_READ_BUFFER Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
 |===
 
 PORT5_STATUS
 [caption="Address: "]
-.0x157f - QSFP_PORT5_STATUS Register
+.0x020d - QSFP_PORT5_STATUS Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] |  | - | Reserved
-|[4] | r | BUSY | '1' if the bus is busy.
+|[7] |  | - | Reserved
+|[6] | r | RDATA_FIFO_EMPTY | '1' if the I2C read data buffer is empty.
+|[5] | r | WDATA_FIFO_EMPTY | '1' if the I2C write data buffer is empty.
+|[4] | r | BUSY | '1' if the I2C bus is busy.
 |[3:0] | r | ERROR | Port I2C error status
-|===
-
-PORT5_READ_BUFFER
-[caption="Address: "]
-.0x1580 - QSFP_PORT5_READ_BUFFER Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
 |===
 
 PORT6_STATUS
 [caption="Address: "]
-.0x167f - QSFP_PORT6_STATUS Register
+.0x020e - QSFP_PORT6_STATUS Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] |  | - | Reserved
-|[4] | r | BUSY | '1' if the bus is busy.
+|[7] |  | - | Reserved
+|[6] | r | RDATA_FIFO_EMPTY | '1' if the I2C read data buffer is empty.
+|[5] | r | WDATA_FIFO_EMPTY | '1' if the I2C write data buffer is empty.
+|[4] | r | BUSY | '1' if the I2C bus is busy.
 |[3:0] | r | ERROR | Port I2C error status
-|===
-
-PORT6_READ_BUFFER
-[caption="Address: "]
-.0x1680 - QSFP_PORT6_READ_BUFFER Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
 |===
 
 PORT7_STATUS
 [caption="Address: "]
-.0x177f - QSFP_PORT7_STATUS Register
+.0x020f - QSFP_PORT7_STATUS Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] |  | - | Reserved
-|[4] | r | BUSY | '1' if the bus is busy.
+|[7] |  | - | Reserved
+|[6] | r | RDATA_FIFO_EMPTY | '1' if the I2C read data buffer is empty.
+|[5] | r | WDATA_FIFO_EMPTY | '1' if the I2C write data buffer is empty.
+|[4] | r | BUSY | '1' if the I2C bus is busy.
 |[3:0] | r | ERROR | Port I2C error status
-|===
-
-PORT7_READ_BUFFER
-[caption="Address: "]
-.0x1780 - QSFP_PORT7_READ_BUFFER Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
 |===
 
 PORT8_STATUS
 [caption="Address: "]
-.0x187f - QSFP_PORT8_STATUS Register
+.0x0210 - QSFP_PORT8_STATUS Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] |  | - | Reserved
-|[4] | r | BUSY | '1' if the bus is busy.
+|[7] |  | - | Reserved
+|[6] | r | RDATA_FIFO_EMPTY | '1' if the I2C read data buffer is empty.
+|[5] | r | WDATA_FIFO_EMPTY | '1' if the I2C write data buffer is empty.
+|[4] | r | BUSY | '1' if the I2C bus is busy.
 |[3:0] | r | ERROR | Port I2C error status
-|===
-
-PORT8_READ_BUFFER
-[caption="Address: "]
-.0x1880 - QSFP_PORT8_READ_BUFFER Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
 |===
 
 PORT9_STATUS
 [caption="Address: "]
-.0x197f - QSFP_PORT9_STATUS Register
+.0x0211 - QSFP_PORT9_STATUS Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] |  | - | Reserved
-|[4] | r | BUSY | '1' if the bus is busy.
+|[7] |  | - | Reserved
+|[6] | r | RDATA_FIFO_EMPTY | '1' if the I2C read data buffer is empty.
+|[5] | r | WDATA_FIFO_EMPTY | '1' if the I2C write data buffer is empty.
+|[4] | r | BUSY | '1' if the I2C bus is busy.
 |[3:0] | r | ERROR | Port I2C error status
-|===
-
-PORT9_READ_BUFFER
-[caption="Address: "]
-.0x1980 - QSFP_PORT9_READ_BUFFER Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
 |===
 
 PORT10_STATUS
 [caption="Address: "]
-.0x1a7f - QSFP_PORT10_STATUS Register
+.0x0212 - QSFP_PORT10_STATUS Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] |  | - | Reserved
-|[4] | r | BUSY | '1' if the bus is busy.
+|[7] |  | - | Reserved
+|[6] | r | RDATA_FIFO_EMPTY | '1' if the I2C read data buffer is empty.
+|[5] | r | WDATA_FIFO_EMPTY | '1' if the I2C write data buffer is empty.
+|[4] | r | BUSY | '1' if the I2C bus is busy.
 |[3:0] | r | ERROR | Port I2C error status
-|===
-
-PORT10_READ_BUFFER
-[caption="Address: "]
-.0x1a80 - QSFP_PORT10_READ_BUFFER Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
 |===
 
 PORT11_STATUS
 [caption="Address: "]
-.0x1b7f - QSFP_PORT11_STATUS Register
+.0x0213 - QSFP_PORT11_STATUS Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] |  | - | Reserved
-|[4] | r | BUSY | '1' if the bus is busy.
+|[7] |  | - | Reserved
+|[6] | r | RDATA_FIFO_EMPTY | '1' if the I2C read data buffer is empty.
+|[5] | r | WDATA_FIFO_EMPTY | '1' if the I2C write data buffer is empty.
+|[4] | r | BUSY | '1' if the I2C bus is busy.
 |[3:0] | r | ERROR | Port I2C error status
-|===
-
-PORT11_READ_BUFFER
-[caption="Address: "]
-.0x1b80 - QSFP_PORT11_READ_BUFFER Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
 |===
 
 PORT12_STATUS
 [caption="Address: "]
-.0x1c7f - QSFP_PORT12_STATUS Register
+.0x0214 - QSFP_PORT12_STATUS Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] |  | - | Reserved
-|[4] | r | BUSY | '1' if the bus is busy.
+|[7] |  | - | Reserved
+|[6] | r | RDATA_FIFO_EMPTY | '1' if the I2C read data buffer is empty.
+|[5] | r | WDATA_FIFO_EMPTY | '1' if the I2C write data buffer is empty.
+|[4] | r | BUSY | '1' if the I2C bus is busy.
 |[3:0] | r | ERROR | Port I2C error status
-|===
-
-PORT12_READ_BUFFER
-[caption="Address: "]
-.0x1c80 - QSFP_PORT12_READ_BUFFER Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
 |===
 
 PORT13_STATUS
 [caption="Address: "]
-.0x1d7f - QSFP_PORT13_STATUS Register
+.0x0215 - QSFP_PORT13_STATUS Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] |  | - | Reserved
-|[4] | r | BUSY | '1' if the bus is busy.
+|[7] |  | - | Reserved
+|[6] | r | RDATA_FIFO_EMPTY | '1' if the I2C read data buffer is empty.
+|[5] | r | WDATA_FIFO_EMPTY | '1' if the I2C write data buffer is empty.
+|[4] | r | BUSY | '1' if the I2C bus is busy.
 |[3:0] | r | ERROR | Port I2C error status
-|===
-
-PORT13_READ_BUFFER
-[caption="Address: "]
-.0x1d80 - QSFP_PORT13_READ_BUFFER Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
 |===
 
 PORT14_STATUS
 [caption="Address: "]
-.0x1e7f - QSFP_PORT14_STATUS Register
+.0x0216 - QSFP_PORT14_STATUS Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] |  | - | Reserved
-|[4] | r | BUSY | '1' if the bus is busy.
+|[7] |  | - | Reserved
+|[6] | r | RDATA_FIFO_EMPTY | '1' if the I2C read data buffer is empty.
+|[5] | r | WDATA_FIFO_EMPTY | '1' if the I2C write data buffer is empty.
+|[4] | r | BUSY | '1' if the I2C bus is busy.
 |[3:0] | r | ERROR | Port I2C error status
-|===
-
-PORT14_READ_BUFFER
-[caption="Address: "]
-.0x1e80 - QSFP_PORT14_READ_BUFFER Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
 |===
 
 PORT15_STATUS
 [caption="Address: "]
-.0x1f7f - QSFP_PORT15_STATUS Register
+.0x0217 - QSFP_PORT15_STATUS Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7:5] |  | - | Reserved
-|[4] | r | BUSY | '1' if the bus is busy.
+|[7] |  | - | Reserved
+|[6] | r | RDATA_FIFO_EMPTY | '1' if the I2C read data buffer is empty.
+|[5] | r | WDATA_FIFO_EMPTY | '1' if the I2C write data buffer is empty.
+|[4] | r | BUSY | '1' if the I2C bus is busy.
 |[3:0] | r | ERROR | Port I2C error status
 |===
 
-PORT15_READ_BUFFER
+PORT0_CONTROL
 [caption="Address: "]
-.0x1f80 - QSFP_PORT15_READ_BUFFER Register
+.0x0218 - QSFP_PORT0_CONTROL Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2] | rw | RDATA_FIFO_CLEAR | Setting this bit will clear the I2C read data FIFO. This bit auto-clears.
+|[1] | rw | WDATA_FIFO_CLEAR | Setting this bit will clear the I2C write data FIFO. This bit auto-clears.
+|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
 |===
 
-WRITE_BUFFER
+PORT1_CONTROL
 [caption="Address: "]
-.0x2000 - QSFP_WRITE_BUFFER Register
+.0x0219 - QSFP_PORT1_CONTROL Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2] | rw | RDATA_FIFO_CLEAR | Setting this bit will clear the I2C read data FIFO. This bit auto-clears.
+|[1] | rw | WDATA_FIFO_CLEAR | Setting this bit will clear the I2C write data FIFO. This bit auto-clears.
+|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
+|===
+
+PORT2_CONTROL
+[caption="Address: "]
+.0x021a - QSFP_PORT2_CONTROL Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2] | rw | RDATA_FIFO_CLEAR | Setting this bit will clear the I2C read data FIFO. This bit auto-clears.
+|[1] | rw | WDATA_FIFO_CLEAR | Setting this bit will clear the I2C write data FIFO. This bit auto-clears.
+|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
+|===
+
+PORT3_CONTROL
+[caption="Address: "]
+.0x021b - QSFP_PORT3_CONTROL Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2] | rw | RDATA_FIFO_CLEAR | Setting this bit will clear the I2C read data FIFO. This bit auto-clears.
+|[1] | rw | WDATA_FIFO_CLEAR | Setting this bit will clear the I2C write data FIFO. This bit auto-clears.
+|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
+|===
+
+PORT4_CONTROL
+[caption="Address: "]
+.0x021c - QSFP_PORT4_CONTROL Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2] | rw | RDATA_FIFO_CLEAR | Setting this bit will clear the I2C read data FIFO. This bit auto-clears.
+|[1] | rw | WDATA_FIFO_CLEAR | Setting this bit will clear the I2C write data FIFO. This bit auto-clears.
+|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
+|===
+
+PORT5_CONTROL
+[caption="Address: "]
+.0x021d - QSFP_PORT5_CONTROL Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2] | rw | RDATA_FIFO_CLEAR | Setting this bit will clear the I2C read data FIFO. This bit auto-clears.
+|[1] | rw | WDATA_FIFO_CLEAR | Setting this bit will clear the I2C write data FIFO. This bit auto-clears.
+|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
+|===
+
+PORT6_CONTROL
+[caption="Address: "]
+.0x021e - QSFP_PORT6_CONTROL Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2] | rw | RDATA_FIFO_CLEAR | Setting this bit will clear the I2C read data FIFO. This bit auto-clears.
+|[1] | rw | WDATA_FIFO_CLEAR | Setting this bit will clear the I2C write data FIFO. This bit auto-clears.
+|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
+|===
+
+PORT7_CONTROL
+[caption="Address: "]
+.0x021f - QSFP_PORT7_CONTROL Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2] | rw | RDATA_FIFO_CLEAR | Setting this bit will clear the I2C read data FIFO. This bit auto-clears.
+|[1] | rw | WDATA_FIFO_CLEAR | Setting this bit will clear the I2C write data FIFO. This bit auto-clears.
+|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
+|===
+
+PORT8_CONTROL
+[caption="Address: "]
+.0x0220 - QSFP_PORT8_CONTROL Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2] | rw | RDATA_FIFO_CLEAR | Setting this bit will clear the I2C read data FIFO. This bit auto-clears.
+|[1] | rw | WDATA_FIFO_CLEAR | Setting this bit will clear the I2C write data FIFO. This bit auto-clears.
+|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
+|===
+
+PORT9_CONTROL
+[caption="Address: "]
+.0x0221 - QSFP_PORT9_CONTROL Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2] | rw | RDATA_FIFO_CLEAR | Setting this bit will clear the I2C read data FIFO. This bit auto-clears.
+|[1] | rw | WDATA_FIFO_CLEAR | Setting this bit will clear the I2C write data FIFO. This bit auto-clears.
+|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
+|===
+
+PORT10_CONTROL
+[caption="Address: "]
+.0x0222 - QSFP_PORT10_CONTROL Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2] | rw | RDATA_FIFO_CLEAR | Setting this bit will clear the I2C read data FIFO. This bit auto-clears.
+|[1] | rw | WDATA_FIFO_CLEAR | Setting this bit will clear the I2C write data FIFO. This bit auto-clears.
+|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
+|===
+
+PORT11_CONTROL
+[caption="Address: "]
+.0x0223 - QSFP_PORT11_CONTROL Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2] | rw | RDATA_FIFO_CLEAR | Setting this bit will clear the I2C read data FIFO. This bit auto-clears.
+|[1] | rw | WDATA_FIFO_CLEAR | Setting this bit will clear the I2C write data FIFO. This bit auto-clears.
+|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
+|===
+
+PORT12_CONTROL
+[caption="Address: "]
+.0x0224 - QSFP_PORT12_CONTROL Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2] | rw | RDATA_FIFO_CLEAR | Setting this bit will clear the I2C read data FIFO. This bit auto-clears.
+|[1] | rw | WDATA_FIFO_CLEAR | Setting this bit will clear the I2C write data FIFO. This bit auto-clears.
+|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
+|===
+
+PORT13_CONTROL
+[caption="Address: "]
+.0x0225 - QSFP_PORT13_CONTROL Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2] | rw | RDATA_FIFO_CLEAR | Setting this bit will clear the I2C read data FIFO. This bit auto-clears.
+|[1] | rw | WDATA_FIFO_CLEAR | Setting this bit will clear the I2C write data FIFO. This bit auto-clears.
+|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
+|===
+
+PORT14_CONTROL
+[caption="Address: "]
+.0x0226 - QSFP_PORT14_CONTROL Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2] | rw | RDATA_FIFO_CLEAR | Setting this bit will clear the I2C read data FIFO. This bit auto-clears.
+|[1] | rw | WDATA_FIFO_CLEAR | Setting this bit will clear the I2C write data FIFO. This bit auto-clears.
+|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
+|===
+
+PORT15_CONTROL
+[caption="Address: "]
+.0x0227 - QSFP_PORT15_CONTROL Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2] | rw | RDATA_FIFO_CLEAR | Setting this bit will clear the I2C read data FIFO. This bit auto-clears.
+|[1] | rw | WDATA_FIFO_CLEAR | Setting this bit will clear the I2C write data FIFO. This bit auto-clears.
+|[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
+|===
+
+Ports 0 -> 7 HSC Enable. Clear bit to remove module power.
+[caption="Address: "]
+.0x0228 - QSFP_POWER_EN0 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | r | PORT7 | None
+|[6] | r | PORT6 | None
+|[5] | r | PORT5 | None
+|[4] | r | PORT4 | None
+|[3] | r | PORT3 | None
+|[2] | r | PORT2 | None
+|[1] | r | PORT1 | None
+|[0] | r | PORT0 | None
+|===
+
+Ports 8 -> 15 HSC Enable. Clear bit to remove module power.
+[caption="Address: "]
+.0x0229 - QSFP_POWER_EN1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | r | PORT15 | None
+|[6] | r | PORT14 | None
+|[5] | r | PORT13 | None
+|[4] | r | PORT12 | None
+|[3] | r | PORT11 | None
+|[2] | r | PORT10 | None
+|[1] | r | PORT9 | None
+|[0] | r | PORT8 | None
+|===
+
+Ports 0 -> 7 HSC power good
+[caption="Address: "]
+.0x022a - QSFP_POWER_GOOD0 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | r | PORT7 | None
+|[6] | r | PORT6 | None
+|[5] | r | PORT5 | None
+|[4] | r | PORT4 | None
+|[3] | r | PORT3 | None
+|[2] | r | PORT2 | None
+|[1] | r | PORT1 | None
+|[0] | r | PORT0 | None
+|===
+
+Ports 8 -> 15 HSC power good
+[caption="Address: "]
+.0x022b - QSFP_POWER_GOOD1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | r | PORT15 | None
+|[6] | r | PORT14 | None
+|[5] | r | PORT13 | None
+|[4] | r | PORT12 | None
+|[3] | r | PORT11 | None
+|[2] | r | PORT10 | None
+|[1] | r | PORT9 | None
+|[0] | r | PORT8 | None
+|===
+
+Ports 0 -> 7 HSC power good not asserted within period after enabled
+[caption="Address: "]
+.0x022c - QSFP_POWER_GOOD_TIMEOUT0 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | r | PORT7 | None
+|[6] | r | PORT6 | None
+|[5] | r | PORT5 | None
+|[4] | r | PORT4 | None
+|[3] | r | PORT3 | None
+|[2] | r | PORT2 | None
+|[1] | r | PORT1 | None
+|[0] | r | PORT0 | None
+|===
+
+Ports 8 -> 15 HSC power good not asserted within period after enabled
+[caption="Address: "]
+.0x022d - QSFP_POWER_GOOD_TIMEOUT1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | r | PORT15 | None
+|[6] | r | PORT14 | None
+|[5] | r | PORT13 | None
+|[4] | r | PORT12 | None
+|[3] | r | PORT11 | None
+|[2] | r | PORT10 | None
+|[1] | r | PORT9 | None
+|[0] | r | PORT8 | None
+|===
+
+Ports 0 -> 7 HSC power good lost after successful enable
+[caption="Address: "]
+.0x022e - QSFP_POWER_GOOD_LOST0 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | r | PORT7 | None
+|[6] | r | PORT6 | None
+|[5] | r | PORT5 | None
+|[4] | r | PORT4 | None
+|[3] | r | PORT3 | None
+|[2] | r | PORT2 | None
+|[1] | r | PORT1 | None
+|[0] | r | PORT0 | None
+|===
+
+Ports 8 -> 15 HSC power good lost after successful enable
+[caption="Address: "]
+.0x022f - QSFP_POWER_GOOD_LOST1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | r | PORT15 | None
+|[6] | r | PORT14 | None
+|[5] | r | PORT13 | None
+|[4] | r | PORT12 | None
+|[3] | r | PORT11 | None
+|[2] | r | PORT10 | None
+|[1] | r | PORT9 | None
+|[0] | r | PORT8 | None
+|===
+
+Ports 0 -> 7 Module ResetL
+[caption="Address: "]
+.0x0230 - QSFP_MOD_RESETL0 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | rw | PORT7 | None
+|[6] | rw | PORT6 | None
+|[5] | rw | PORT5 | None
+|[4] | rw | PORT4 | None
+|[3] | rw | PORT3 | None
+|[2] | rw | PORT2 | None
+|[1] | rw | PORT1 | None
+|[0] | rw | PORT0 | None
+|===
+
+Ports 8 -> 15 Module ResetL
+[caption="Address: "]
+.0x0231 - QSFP_MOD_RESETL1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | rw | PORT15 | None
+|[6] | rw | PORT14 | None
+|[5] | rw | PORT13 | None
+|[4] | rw | PORT12 | None
+|[3] | rw | PORT11 | None
+|[2] | rw | PORT10 | None
+|[1] | rw | PORT9 | None
+|[0] | rw | PORT8 | None
+|===
+
+Ports 0 -> 7 Module LPMode/TxDis
+[caption="Address: "]
+.0x0232 - QSFP_MOD_LPMODE0 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | rw | PORT7 | None
+|[6] | rw | PORT6 | None
+|[5] | rw | PORT5 | None
+|[4] | rw | PORT4 | None
+|[3] | rw | PORT3 | None
+|[2] | rw | PORT2 | None
+|[1] | rw | PORT1 | None
+|[0] | rw | PORT0 | None
+|===
+
+Ports 8 -> 15 Module LPMode/TxDis
+[caption="Address: "]
+.0x0233 - QSFP_MOD_LPMODE1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | rw | PORT15 | None
+|[6] | rw | PORT14 | None
+|[5] | rw | PORT13 | None
+|[4] | rw | PORT12 | None
+|[3] | rw | PORT11 | None
+|[2] | rw | PORT10 | None
+|[1] | rw | PORT9 | None
+|[0] | rw | PORT8 | None
+|===
+
+Ports 0 -> 7 Module ModPrsL
+[caption="Address: "]
+.0x0234 - QSFP_MOD_MODPRSL0 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | r | PORT7 | None
+|[6] | r | PORT6 | None
+|[5] | r | PORT5 | None
+|[4] | r | PORT4 | None
+|[3] | r | PORT3 | None
+|[2] | r | PORT2 | None
+|[1] | r | PORT1 | None
+|[0] | r | PORT0 | None
+|===
+
+Ports 8 -> 15 Module ModPrsL
+[caption="Address: "]
+.0x0235 - QSFP_MOD_MODPRSL1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | r | PORT15 | None
+|[6] | r | PORT14 | None
+|[5] | r | PORT13 | None
+|[4] | r | PORT12 | None
+|[3] | r | PORT11 | None
+|[2] | r | PORT10 | None
+|[1] | r | PORT9 | None
+|[0] | r | PORT8 | None
+|===
+
+Ports 0 -> 7 Module IntL/RxLOS
+[caption="Address: "]
+.0x0236 - QSFP_MOD_INTL0 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | r | PORT7 | None
+|[6] | r | PORT6 | None
+|[5] | r | PORT5 | None
+|[4] | r | PORT4 | None
+|[3] | r | PORT3 | None
+|[2] | r | PORT2 | None
+|[1] | r | PORT1 | None
+|[0] | r | PORT0 | None
+|===
+
+Ports 8 -> 15 Module IntL/RxLOS
+[caption="Address: "]
+.0x0237 - QSFP_MOD_INTL1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | r | PORT15 | None
+|[6] | r | PORT14 | None
+|[5] | r | PORT13 | None
+|[4] | r | PORT12 | None
+|[3] | r | PORT11 | None
+|[2] | r | PORT10 | None
+|[1] | r | PORT9 | None
+|[0] | r | PORT8 | None
+|===
+
+Port 0 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.
+[caption="Address: "]
+.0x0280 - QSFP_PORT0_I2C_DATA Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | DATA | None
+|===
+
+Port 1 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.
+[caption="Address: "]
+.0x0281 - QSFP_PORT1_I2C_DATA Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | DATA | None
+|===
+
+Port 2 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.
+[caption="Address: "]
+.0x0282 - QSFP_PORT2_I2C_DATA Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | DATA | None
+|===
+
+Port 3 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.
+[caption="Address: "]
+.0x0283 - QSFP_PORT3_I2C_DATA Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | DATA | None
+|===
+
+Port 4 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.
+[caption="Address: "]
+.0x0284 - QSFP_PORT4_I2C_DATA Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | DATA | None
+|===
+
+Port 5 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.
+[caption="Address: "]
+.0x0285 - QSFP_PORT5_I2C_DATA Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | DATA | None
+|===
+
+Port 6 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.
+[caption="Address: "]
+.0x0286 - QSFP_PORT6_I2C_DATA Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | DATA | None
+|===
+
+Port 7 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.
+[caption="Address: "]
+.0x0287 - QSFP_PORT7_I2C_DATA Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | DATA | None
+|===
+
+Port 8 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.
+[caption="Address: "]
+.0x0288 - QSFP_PORT8_I2C_DATA Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | DATA | None
+|===
+
+Port 9 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.
+[caption="Address: "]
+.0x0289 - QSFP_PORT9_I2C_DATA Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | DATA | None
+|===
+
+Port 10 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.
+[caption="Address: "]
+.0x028a - QSFP_PORT10_I2C_DATA Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | DATA | None
+|===
+
+Port 11 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.
+[caption="Address: "]
+.0x028b - QSFP_PORT11_I2C_DATA Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | DATA | None
+|===
+
+Port 12 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.
+[caption="Address: "]
+.0x028c - QSFP_PORT12_I2C_DATA Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | DATA | None
+|===
+
+Port 13 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.
+[caption="Address: "]
+.0x028d - QSFP_PORT13_I2C_DATA Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | DATA | None
+|===
+
+Port 14 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.
+[caption="Address: "]
+.0x028e - QSFP_PORT14_I2C_DATA Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | DATA | None
+|===
+
+Port 15 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.
+[caption="Address: "]
+.0x028f - QSFP_PORT15_I2C_DATA Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | DATA | None
 |===
 
 

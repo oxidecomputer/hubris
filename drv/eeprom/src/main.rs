@@ -17,7 +17,7 @@
 use derive_idol_err::IdolError;
 use drv_i2c_devices::at24csw080::*;
 use idol_runtime::{NotificationHandler, RequestError};
-use userlib::*;
+use userlib::{task_slot, FromPrimitive};
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 task_slot!(I2C, i2c_driver);

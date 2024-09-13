@@ -23,7 +23,7 @@ start = true
 features = ["dump"]
 stacksize = 1536
 notifications = ["fault", "timer"]
-extern-regions = ["sram2", "sram3", "sram4"]
+extern-regions = ["sram1", "sram2", "sram3", "sram4"]
 
 [tasks.jefe.config.allowed-callers]
 set_reset_reason = ["sys"]
@@ -53,6 +53,16 @@ port = "E"
 pin = 3
 owner = {name = "sprot", notification = "rot_irq"}
 
+[tasks.rng_driver]
+features = ["h753"]
+name = "drv-stm32h7-rng"
+priority = 6
+max-sizes = {flash = 8192, ram = 512}
+uses = ["rng"]
+start = true
+stacksize = 256
+task-slots = ["sys"]
+
 [tasks.update_server]
 name = "stm32h7-update-server"
 priority = 3
@@ -78,11 +88,11 @@ task-slots = ["sys"]
 
 [tasks.net]
 name = "task-net"
-stacksize = 8000
+stacksize = 10000
 priority = 5
 features = ["mgmt", "h753", "sidecar", "vlan", "vpd-mac", "use-spi-core", "spi3"]
-max-sizes = {flash = 131072, ram = 65536, sram1 = 16384}
-sections = {eth_bulk = "sram1"}
+max-sizes = {flash = 131072, ram = 131072, sram1_mac = 16384}
+sections = {eth_bulk = "sram1_mac"}
 uses = ["eth", "tim16", "spi3"]
 start = true
 notifications = ["eth-irq", "mdio-timer-irq", "spi-irq", "wake-timer"]
@@ -96,28 +106,32 @@ task-slots = ["sys", "packrat", { seq = "sequencer" }, "jefe"]
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
 priority = 7
-max-sizes = {flash = 131072, ram = 32768 }
-stacksize = 6144
+max-sizes = {flash = 142900, ram = 65536 }
+stacksize = 12000
 start = true
 uses = []
 task-slots = [
-    "jefe",
-    "net",
-    "update_server",
-    "sys",
-    "sequencer",
     "auxflash",
-    "validate",
-    "monorail",
-    "sensor",
-    "sprot",
     "ignition",
+    "jefe",
+    "monorail",
+    "net",
     "packrat",
+    "rng_driver",
+    "sensor",
+    "sequencer",
+    "sprot",
+    "sys",
     "transceivers",
+    "update_server",
+    "validate",
     "vpd",
 ]
 features = ["sidecar", "vlan", "auxflash", "vpd"]
 notifications = ["socket", "usart-irq", "timer"]
+
+[tasks.control_plane_agent.config]
+authorized-keys = "../../support/support_tokens/authorized_keys"
 
 [tasks.sprot]
 name = "drv-stm32h7-sprot-server"
@@ -226,7 +240,7 @@ interrupts = {"spi1.irq" = "spi-irq"}
 
 [tasks.transceivers]
 name = "drv-transceivers-server"
-features = ["vlan"]
+features = ["vlan", "thermal-control"]
 priority = 6
 max-sizes = {flash = 65536, ram = 16384}
 stacksize = 4096
@@ -316,7 +330,7 @@ max-sizes = {flash = 32768, ram = 16384 }
 start = true
 task-slots = ["sprot", "jefe", "net"]
 stacksize = 2400
-extern-regions = [ "sram2", "sram3", "sram4" ]
+extern-regions = [ "sram1", "sram2", "sram3", "sram4" ]
 notifications = ["socket"]
 features = ["net", "vlan"]
 
@@ -1090,8 +1104,27 @@ cs = [{port = "K", pin = 1}] # SPI_SP_TO_FPGA_CS_CONFIG_L
 mux = "port_jk"
 cs = [{port = "J", pin = 6}] # SPI_SP_TO_FPGA_CS_USER_L
 
-[config.net]
-vlan = { start = 0x301, count = 2 }
+# VLAN configuration
+[config.net.vlans.tech_port_1]
+vid = 0x12C
+trusted = false
+port = 1
+
+[config.net.vlans.tech_port_2]
+vid = 0x12D
+trusted = false
+port = 1
+
+[config.net.vlans.local_sidecar]
+vid = 0x130
+trusted = true
+port = 1
+
+[config.net.vlans.peer_sidecar]
+vid = 0x302
+trusted = true
+port = 2
+
 # UDP ports in sockets below are assigned in oxidecomputer/oana
 
 [config.net.sockets.echo]
@@ -1107,6 +1140,7 @@ owner = {name = "udpbroadcast", notification = "socket"}
 port = 997
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
+allow-untrusted = true # for low-level discovery
 
 [config.net.sockets.control_plane_agent]
 kind = "udp"
@@ -1114,6 +1148,7 @@ owner = {name = "control_plane_agent", notification = "socket"}
 port = 11111
 tx = { packets = 3, bytes = 2048 }
 rx = { packets = 3, bytes = 2048 }
+allow-untrusted = true # for MGS-mediated discovery and unlock
 
 [config.net.sockets.dump_agent]
 kind = "udp"

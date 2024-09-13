@@ -10,13 +10,17 @@
 //!
 //! All of the API types in `transceiver_messages` operate on **physical**
 //! ports, i.e. an FPGA paired by a physical port index (or mask).
+//!
+use counters::Count;
+use hubpack::SerializedSize;
+use ringbuf::*;
+use userlib::UnwrapLite;
+
 use crate::{FrontIOStatus, ServerImpl};
 use drv_sidecar_front_io::transceivers::{
     FpgaI2CFailure, LogicalPort, LogicalPortFailureTypes, LogicalPortMask,
-    ModuleResult, ModuleResultNoFailure, ModuleResultSlim, PortI2CStatus,
+    ModuleResult, ModuleResultNoFailure, ModuleResultSlim,
 };
-use hubpack::SerializedSize;
-use ringbuf::*;
 use task_net_api::*;
 use transceiver_messages::{
     mac::MacAddrs,
@@ -24,12 +28,12 @@ use transceiver_messages::{
     mgmt::{ManagementInterface, MemoryRead, MemoryWrite, Page},
     ModuleId,
 };
-use userlib::UnwrapLite;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Count)]
 enum Trace {
+    #[count(skip)]
     None,
     DeserializeError(hubpack::Error),
     DeserializeHeaderError(hubpack::Error),
@@ -63,7 +67,7 @@ enum Trace {
     WriteI2CFailures(LogicalPort, FpgaI2CFailure),
 }
 
-ringbuf!(Trace, 16, Trace::None);
+counted_ringbuf!(Trace, 32, Trace::None);
 
 ////////////////////////////////////////////////////////////////////////////////
 #[derive(Copy, Clone, PartialEq)]
@@ -788,10 +792,10 @@ impl ServerImpl {
                         FpgaI2CFailure::NotInitialized => {
                             HwError::NotInitialized
                         }
-                        FpgaI2CFailure::I2cAddressNack => {
+                        FpgaI2CFailure::I2CAddressNack => {
                             HwError::I2cAddressNack
                         }
-                        FpgaI2CFailure::I2cByteNack => HwError::I2cByteNack,
+                        FpgaI2CFailure::I2CByteNack => HwError::I2cByteNack,
                         // We only mark failures when an error is set, so this
                         // branch should never match.
                         FpgaI2CFailure::NoError => unreachable!(),
@@ -1082,7 +1086,7 @@ impl ServerImpl {
         // We can always write the lower page; upper pages require modifying
         // registers in the transceiver to select it.
         if let Some(page) = page.page() {
-            self.transceivers.set_i2c_write_buffer(&[page]);
+            self.transceivers.set_i2c_write_buffer(&[page], mask);
             result = result.chain(self.transceivers.setup_i2c_write(
                 PAGE_SELECT,
                 1,
@@ -1101,7 +1105,7 @@ impl ServerImpl {
         }
 
         if let Some(bank) = page.bank() {
-            self.transceivers.set_i2c_write_buffer(&[bank]);
+            self.transceivers.set_i2c_write_buffer(&[bank], mask);
             result = result.chain(self.transceivers.setup_i2c_write(
                 BANK_SELECT,
                 1,
@@ -1152,48 +1156,34 @@ impl ServerImpl {
         let mut failure_types = LogicalPortFailureTypes::default();
 
         for port in result.success().to_indices() {
-            // The status register is contiguous with the output buffer, so
-            // we'll read them all in a single pass.  This should normally
-            // terminate with a single read, since I2C is faster than Hubris
-            // IPC.
-            let mut buf = [0u8; 129];
+            let mut buf = [0u8; 128];
             let port_loc = port.get_physical_location();
-            loop {
-                // If we have not encountered any errors, keep pulling full
-                // status + buffer payloads.
-                if self
-                    .transceivers
-                    .get_i2c_status_and_read_buffer(
-                        port_loc,
-                        &mut buf[0..(buf_len + 1)],
-                    )
-                    .is_err()
-                {
+
+            // If we have not encountered any errors, keep pulling full
+            // status + buffer payloads.
+            let status = match self
+                .transceivers
+                .get_i2c_status_and_read_buffer(port_loc, &mut buf[0..buf_len])
+            {
+                Ok(status) => status,
+                Err(_) => {
                     error.set(port);
                     break;
-                };
-
-                let status = PortI2CStatus::new(buf[0]);
-
-                // Use QSFP::PORT0 for constants, since they're all identical
-                if status.done {
-                    // Check error mask
-                    if status.error != FpgaI2CFailure::NoError {
-                        // Record which port the error ocurred at so we can
-                        // give the host a more meaningful error.
-                        failure.set(port);
-                        failure_types.0[port.0 as usize] = status.error
-                    } else {
-                        // Add data to payload
-                        success.set(port);
-                        let end_idx = idx + buf_len;
-                        out[idx..end_idx].copy_from_slice(&buf[1..][..buf_len]);
-                        idx = end_idx;
-                    }
-                    break;
                 }
+            };
 
-                userlib::hl::sleep_for(1);
+            // Check error mask
+            if status.error != FpgaI2CFailure::NoError {
+                // Record which port the error ocurred at so we can
+                // give the host a more meaningful error.
+                failure.set(port);
+                failure_types.0[port.0 as usize] = status.error
+            } else {
+                // Add data to payload
+                success.set(port);
+                let end_idx = idx + buf_len;
+                out[idx..end_idx].copy_from_slice(&buf[..buf_len]);
+                idx = end_idx;
             }
         }
         let mut final_result =
@@ -1222,7 +1212,7 @@ impl ServerImpl {
 
         // Copy data into the FPGA write buffer
         self.transceivers
-            .set_i2c_write_buffer(&data[..mem.len() as usize]);
+            .set_i2c_write_buffer(&data[..mem.len() as usize], modules);
 
         // Trigger a multicast write to all transceivers in the mask
         result = result.chain(self.transceivers.setup_i2c_write(

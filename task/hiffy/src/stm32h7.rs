@@ -101,25 +101,25 @@ pub enum Functions {
     #[cfg(feature = "spi")]
     SpiWrite((Task, u8, usize), drv_spi_api::SpiError),
     #[cfg(feature = "qspi")]
-    QspiReadId((), drv_gimlet_hf_api::HfError),
+    QspiReadId((), drv_hf_api::HfError),
     #[cfg(feature = "qspi")]
-    QspiReadStatus((), drv_gimlet_hf_api::HfError),
+    QspiReadStatus((), drv_hf_api::HfError),
     #[cfg(feature = "qspi")]
-    QspiBulkErase((), drv_gimlet_hf_api::HfError),
+    QspiBulkErase((), drv_hf_api::HfError),
     #[cfg(feature = "qspi")]
-    QspiPageProgram((u32, usize, usize), drv_gimlet_hf_api::HfError),
+    QspiPageProgram((u32, usize, usize), drv_hf_api::HfError),
     #[cfg(feature = "qspi")]
-    QspiPageProgramSector0((u32, usize, usize), drv_gimlet_hf_api::HfError),
+    QspiPageProgramSector0((u32, usize, usize), drv_hf_api::HfError),
     #[cfg(feature = "qspi")]
-    QspiRead((u32, usize), drv_gimlet_hf_api::HfError),
+    QspiRead((u32, usize), drv_hf_api::HfError),
     #[cfg(feature = "qspi")]
-    QspiSectorErase(u32, drv_gimlet_hf_api::HfError),
+    QspiSectorErase(u32, drv_hf_api::HfError),
     #[cfg(feature = "qspi")]
-    QspiSector0Erase((), drv_gimlet_hf_api::HfError),
+    QspiSector0Erase((), drv_hf_api::HfError),
     #[cfg(feature = "qspi")]
-    QspiVerify((u32, usize, usize), drv_gimlet_hf_api::HfError),
+    QspiVerify((u32, usize, usize), drv_hf_api::HfError),
     #[cfg(all(feature = "qspi", feature = "hash"))]
-    QspiHash((u32, u32), drv_gimlet_hf_api::HfError),
+    QspiHash((u32, u32), drv_hf_api::HfError),
     #[cfg(feature = "hash")]
     HashDigest(u32, drv_hash_api::HashError),
     #[cfg(feature = "hash")]
@@ -128,8 +128,6 @@ pub enum Functions {
     HashUpdate(u32, drv_hash_api::HashError),
     #[cfg(feature = "hash")]
     HashFinalize((), drv_hash_api::HashError),
-    #[cfg(feature = "rng")]
-    Rng(usize, drv_rng_api::RngError),
 }
 
 #[cfg(feature = "i2c")]
@@ -578,8 +576,6 @@ pub(crate) static HIFFY_FUNCS: &[Function] = &[
     hash_update,
     #[cfg(feature = "hash")]
     hash_finalize_sha256,
-    #[cfg(feature = "rng")]
-    crate::common::rng_fill,
 ];
 
 //

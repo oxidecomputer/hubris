@@ -126,6 +126,10 @@ Interface(
             doc: "Read N bytes from the user design, starting at the given address",
             args: {
                 "device_index": "u8",
+                "op": (
+                    type: "ReadOp",
+                    recv: FromPrimitive("u8"),
+                ),
                 "addr": "u16",
             },
             leases: {

@@ -258,6 +258,11 @@ mod checked_types {
     pub struct OrderedVecDeque {
         data: VecDeque<u32>,
     }
+    impl Default for OrderedVecDeque {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
     impl OrderedVecDeque {
         pub fn new() -> Self {
             Self {
@@ -267,9 +272,7 @@ mod checked_types {
         pub fn iter(&self) -> impl Iterator<Item = &u32> {
             self.data.iter()
         }
-        pub fn into_iter(
-            self,
-        ) -> impl Iterator<Item = u32> + DoubleEndedIterator {
+        pub fn into_iter(self) -> impl DoubleEndedIterator<Item = u32> {
             self.data.into_iter()
         }
         pub fn front(&self) -> Option<&u32> {
@@ -658,7 +661,7 @@ pub fn package(
         }
 
         if cfg.toml.fwid {
-            write_fwid(&cfg, &image_name, &flash, &archive_name)?;
+            write_fwid(&cfg, image_name, &flash, &archive_name)?;
         }
 
         // Unzip the signed + caboose'd images into our build directory
@@ -678,7 +681,7 @@ pub fn package(
 // generate file with hash of expected flash contents
 fn write_fwid(
     cfg: &PackageConfig,
-    image_name: &String,
+    image_name: &str,
     flash: &Range<u32>,
     archive_name: &PathBuf,
 ) -> Result<()> {
@@ -719,13 +722,13 @@ fn write_fwid(
     let digest = sha.finalize();
 
     // after we've appended a newline fwid is immutable
-    let mut fwid = hex::encode(&digest);
-    writeln!(fwid, "").context("appending newline to FWID")?;
+    let mut fwid = hex::encode(digest);
+    writeln!(fwid).context("appending newline to FWID")?;
     let fwid = fwid;
 
     // the archive already exists so we write the FWID to the same path in
     // the build output and archive to keep the two consistent
-    fs::write(&cfg.img_file("final.fwid", image_name), &fwid)
+    fs::write(cfg.img_file("final.fwid", image_name), &fwid)
         .context("writing FWID to build output")?;
     archive
         .add_file("img/final.fwid", fwid.as_bytes())
@@ -810,7 +813,7 @@ fn build_archive(
     let chip_dir = cfg.app_src_dir.join(cfg.toml.chip.clone());
     let chip_file = chip_dir.join("chip.toml");
     let chip_filename = chip_file.file_name().unwrap();
-    archive.copy(&chip_file, &chip_filename)?;
+    archive.copy(&chip_file, chip_filename)?;
 
     archive
         .text(
@@ -1077,8 +1080,8 @@ fn link_task(
     // Link the static archive
     link(
         cfg,
-        &format!("{}.elf", name),
-        &format!("{}/{}", image_name, name),
+        format!("{}.elf", name),
+        format!("{}/{}", image_name, name),
     )
 }
 
@@ -1114,12 +1117,12 @@ fn link_dummy_task(
     fs::copy("build/task-tlink.x", "target/link.x")?;
 
     // Link the static archive
-    link(cfg, &format!("{}.elf", name), &format!("{}.tmp", name))
+    link(cfg, format!("{}.elf", name), format!("{}.tmp", name))
 }
 
-fn task_size<'a, 'b>(
+fn task_size<'a>(
     cfg: &'a PackageConfig,
-    name: &'b str,
+    name: &str,
 ) -> Result<IndexMap<&'a str, u64>> {
     let task = &cfg.toml.tasks[name];
     let stacksize = task.stacksize.or(cfg.toml.stacksize).unwrap();
@@ -1186,7 +1189,7 @@ fn build_kernel(
         &allocs.kernel,
         cfg.toml.kernel.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
         &cfg.toml.all_regions("flash".to_string())?,
-        &image_name,
+        image_name,
     )?;
 
     fs::copy("build/kernel-link.x", "target/link.x")?;
@@ -1218,16 +1221,16 @@ fn build_kernel(
         all_output_sections,
     )? {
         std::fs::copy(
-            &cfg.dist_file("kernel"),
+            cfg.dist_file("kernel"),
             cfg.img_file("kernel.orig", image_name),
         )?;
         std::fs::copy(
-            &cfg.img_file("kernel.modified", image_name),
+            cfg.img_file("kernel.modified", image_name),
             cfg.img_file("kernel", image_name),
         )?;
     } else {
         std::fs::copy(
-            &cfg.dist_file("kernel"),
+            cfg.dist_file("kernel"),
             cfg.img_file("kernel", image_name),
         )?;
     }
@@ -1289,7 +1292,7 @@ fn update_image_header(
                     version: cfg.toml.version,
                     epoch: cfg.toml.epoch,
                     magic: abi::HEADER_MAGIC,
-                    total_image_len: len as u32,
+                    total_image_len: len,
                     ..Default::default()
                 };
 
@@ -1625,11 +1628,16 @@ fn build(
     // to invoke cargo, and never modify CARGO_TARGET in that environment.
     let cargo_out = Path::new("target").to_path_buf();
 
-    let remap_path_prefix: String = cfg
-        .remap_paths
-        .iter()
-        .map(|r| format!(" --remap-path-prefix={}={}", r.0.display(), r.1))
-        .collect();
+    let remap_path_prefix =
+        cfg.remap_paths.iter().fold(String::new(), |mut output, r| {
+            let _ = write!(
+                output,
+                " --remap-path-prefix={}={}",
+                r.0.display(),
+                r.1
+            );
+            output
+        });
     cmd.env(
         "RUSTFLAGS",
         &format!(
@@ -1703,7 +1711,7 @@ fn build(
             stderr.write_all(&buf[0..num]).unwrap();
             stderr.flush().unwrap();
 
-            out_bytes.extend(buf[0..num].into_iter());
+            out_bytes.extend(buf[0..num].iter());
         }
         out_bytes
     });
@@ -1742,9 +1750,9 @@ fn build(
             BTreeMap::new();
         for c in re.captures_iter(&stderr_bytes) {
             let notification =
-                std::str::from_utf8(&c.get(1).unwrap().as_bytes()).unwrap();
+                std::str::from_utf8(c.get(1).unwrap().as_bytes()).unwrap();
             let task =
-                std::str::from_utf8(&c.get(3).unwrap().as_bytes()).unwrap();
+                std::str::from_utf8(c.get(3).unwrap().as_bytes()).unwrap();
             let task = if let Some(task) = task.strip_prefix("::") {
                 task
             } else {
@@ -1764,7 +1772,7 @@ fn build(
                         n.trim_end_matches("_MASK")
                             .trim_end_matches("_BIT")
                             .to_lowercase()
-                            .replace("_", "-")
+                            .replace('_', "-")
                     })
                     .collect::<Vec<_>>();
                 names.sort();
@@ -2377,7 +2385,7 @@ pub fn make_kconfig(
 
         // Allow specified tasks to use the caboose
         if let Some(caboose) = &toml.caboose {
-            if caboose.tasks.contains(&name) {
+            if caboose.tasks.contains(name) {
                 used_shared_regions.insert("caboose");
                 shared_regions.insert("caboose".to_owned());
             }
@@ -2393,7 +2401,7 @@ pub fn make_kconfig(
             // Look up region for this image
             let mut regions = toml.outputs[out_name]
                 .iter()
-                .filter(|o| &o.name == image_name);
+                .filter(|o| o.name == image_name);
             let out = regions.next().expect("no region for name");
             if regions.next().is_some() {
                 bail!("multiple {out_name} regions for name {image_name}");
@@ -2750,7 +2758,7 @@ fn resolve_task_slots(
 
     let task_toml = &cfg.toml.tasks[task_name];
 
-    let task_bin = cfg.img_file(&task_name, image_name);
+    let task_bin = cfg.img_file(task_name, image_name);
     let in_task_bin = std::fs::read(&task_bin)?;
     let elf = goblin::elf::Elf::parse(&in_task_bin)?;
 
@@ -2808,7 +2816,7 @@ fn resolve_caboose_pos(
 ) -> Result<()> {
     use scroll::Pwrite;
 
-    let task_bin = cfg.img_file(&task_name, image_name);
+    let task_bin = cfg.img_file(task_name, image_name);
     let in_task_bin = std::fs::read(&task_bin)?;
     let elf = goblin::elf::Elf::parse(&in_task_bin)?;
 

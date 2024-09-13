@@ -92,7 +92,12 @@ impl idl::InOrderDumperImpl for ServerImpl {
         let mut nwritten = 0;
         let mut reg = 0;
 
-        let r = humpty::dump::<DumperError, 512, { humpty::DUMPER_EXTERNAL }>(
+        //
+        // Now dump, with a buffer size of 1024.  (1024 is a sweet spot with
+        // respect to overhead of header size vs. loss to orphaned space at
+        // the end of segments.)
+        //
+        let r = humpty::dump::<DumperError, 1024, { humpty::DUMPER_EXTERNAL }>(
             header.address,
             None,
             || {

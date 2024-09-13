@@ -6,10 +6,12 @@ use crate::{
     bsp::{self, Bsp, PowerBitmask},
     Fan, ThermalError, Trace,
 };
-use drv_i2c_api::ResponseCode;
+use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_i2c_devices::{
+    emc2305::Emc2305,
     max31790::{I2cWatchdog, Max31790},
     nvme_bmc::NvmeBmc,
+    pct2075::Pct2075,
     sbtsi::Sbtsi,
     tmp117::Tmp117,
     tmp451::Tmp451,
@@ -39,6 +41,7 @@ pub enum Device {
     Dimm,
     U2,
     M2,
+    LM75,
 }
 
 /// Represents a sensor in the system.
@@ -46,6 +49,7 @@ pub enum Device {
 /// The sensor includes a device type, used to decide how to read it;
 /// a free function that returns the raw `I2cDevice`, so that this can be
 /// `const`); and the sensor ID, to post data to the `sensors` task.
+#[allow(dead_code)] // not all BSPS
 pub struct TemperatureSensor {
     device: Device,
     builder: fn(TaskId) -> drv_i2c_api::I2cDevice,
@@ -53,6 +57,7 @@ pub struct TemperatureSensor {
 }
 
 impl TemperatureSensor {
+    #[allow(dead_code)] // not all BSPS
     pub const fn new(
         device: Device,
         builder: fn(TaskId) -> drv_i2c_api::I2cDevice,
@@ -72,6 +77,7 @@ impl TemperatureSensor {
             Device::Tmp451(t) => Tmp451::new(&dev, *t).read_temperature()?,
             Device::Dimm => Tse2004Av::new(&dev).read_temperature()?,
             Device::U2 | Device::M2 => NvmeBmc::new(&dev).read_temperature()?,
+            Device::LM75 => Pct2075::new(&dev).read_temperature()?,
         };
         Ok(t)
     }
@@ -125,26 +131,35 @@ impl Fans<{ bsp::NUM_FANS }> {
 /// Enum representing any of our fan controller types, bound to one of their
 /// fans.  This lets us handle heterogeneous fan controller ICs generically
 /// (although there's only one at the moment)
+#[allow(dead_code)] // a typical BSP uses only _one_ of these
 pub enum FanControl<'a> {
     Max31790(&'a Max31790, drv_i2c_devices::max31790::Fan),
+    Emc2305(&'a Emc2305, drv_i2c_devices::emc2305::Fan),
 }
 
 impl<'a> FanControl<'a> {
     fn set_pwm(&self, pwm: PWMDuty) -> Result<(), ResponseCode> {
         match self {
             Self::Max31790(m, fan) => m.set_pwm(*fan, pwm),
+            Self::Emc2305(m, fan) => m.set_pwm(*fan, pwm),
         }
     }
 
     pub fn fan_rpm(&self) -> Result<Rpm, ResponseCode> {
         match self {
             Self::Max31790(m, fan) => m.fan_rpm(*fan),
+            Self::Emc2305(m, fan) => m.fan_rpm(*fan),
         }
     }
 
     pub fn set_watchdog(&self, wd: I2cWatchdog) -> Result<(), ResponseCode> {
         match self {
             Self::Max31790(m, _fan) => m.set_watchdog(wd),
+            Self::Emc2305(m, _fan) => {
+                // The EMC2305 doesn't support setting the watchdog time, just
+                // whether it's enabled or disabled
+                m.set_watchdog(!matches!(wd, I2cWatchdog::Disabled))
+            }
         }
     }
 }
@@ -168,6 +183,7 @@ pub(crate) struct InputChannel {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
+#[allow(dead_code)] // a typical BSP uses only a subset of these.
 pub(crate) enum ChannelType {
     /// `MustBePresent` is exactly what it says on the tin
     ///
@@ -207,6 +223,7 @@ pub(crate) enum ChannelType {
 }
 
 impl InputChannel {
+    #[allow(dead_code)] // not all BSPS
     pub const fn new(
         sensor: TemperatureSensor,
         model: ThermalProperties,
@@ -278,6 +295,143 @@ impl ThermalSensorErrors {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+/// Tracks whether a MAX31790 fan controller has been initialized, and
+/// initializes it on demand when accessed, if necessary.
+///
+/// Because initializing the fan controller can fail due to a transient bus
+/// error, we don't panic if an initial attempt to initialize it as soon as the
+/// `thermal` task starts fails. Because the fan controller's I2C watchdog will
+/// simply run the fans at 100% if we aren't able to talk to it right away, the
+/// `thermal` task should keep running, publishing sensor measurements, and
+/// periodically trying to reach the fan controller until we're able to
+/// initialize it successfully. Thus, we wrap it in this struct to track whether
+/// it's been successfully initialized yet.
+pub(crate) struct Max31790State {
+    max31790: Max31790,
+    initialized: bool,
+}
+
+impl Max31790State {
+    #[allow(dead_code)]
+    pub(crate) fn new(dev: &I2cDevice) -> Self {
+        let mut this = Self {
+            max31790: Max31790::new(dev),
+            initialized: false,
+        };
+        retry_init(|| this.initialize().map(|_| ()));
+        this
+    }
+
+    /// Access the fan controller, attempting to initialize it if it has not yet
+    /// been initialized.
+    #[inline]
+    #[allow(dead_code)]
+    pub(crate) fn try_initialize(
+        &mut self,
+    ) -> Result<&mut Max31790, ControllerInitError> {
+        if self.initialized {
+            return Ok(&mut self.max31790);
+        }
+
+        self.initialize()
+    }
+
+    // Slow path that actually performs initialization. This is "outlined" so
+    // that we can avoid pushing a stack frame in the case where we just need to
+    // check a bool and return a pointer.
+    #[inline(never)]
+    fn initialize(&mut self) -> Result<&mut Max31790, ControllerInitError> {
+        self.max31790.initialize().map_err(|e| {
+            ringbuf_entry!(Trace::FanControllerInitError(e));
+            ControllerInitError(e)
+        })?;
+
+        self.initialized = true;
+        ringbuf_entry!(Trace::FanControllerInitialized);
+        Ok(&mut self.max31790)
+    }
+}
+
+/// Tracks whether a EMC2305 fan controller has been initialized, and
+/// initializes it on demand when accessed, if necessary.
+///
+/// This is copy-pasted from [`Max31790`]
+pub(crate) struct Emc2305State {
+    emc2305: Emc2305,
+    fan_count: u8,
+    initialized: bool,
+}
+
+impl Emc2305State {
+    #[allow(dead_code)]
+    pub(crate) fn new(dev: &I2cDevice, fan_count: u8) -> Self {
+        let mut this = Self {
+            emc2305: Emc2305::new(dev),
+            fan_count,
+            initialized: false,
+        };
+        retry_init(|| this.initialize().map(|_| ()));
+        this
+    }
+
+    /// Access the fan controller, attempting to initialize it if it has not yet
+    /// been initialized.
+    #[inline]
+    #[allow(dead_code)]
+    pub(crate) fn try_initialize(
+        &mut self,
+    ) -> Result<&mut Emc2305, ControllerInitError> {
+        if self.initialized {
+            return Ok(&mut self.emc2305);
+        }
+
+        self.initialize()
+    }
+
+    // Slow path that actually performs initialization. This is "outlined" so
+    // that we can avoid pushing a stack frame in the case where we just need to
+    // check a bool and return a pointer.
+    #[inline(never)]
+    fn initialize(&mut self) -> Result<&mut Emc2305, ControllerInitError> {
+        self.emc2305.initialize(self.fan_count).map_err(|e| {
+            ringbuf_entry!(Trace::FanControllerInitError(e));
+            ControllerInitError(e)
+        })?;
+
+        self.initialized = true;
+        ringbuf_entry!(Trace::FanControllerInitialized);
+        Ok(&mut self.emc2305)
+    }
+}
+
+/// Helper function to retry initialization several times, logging errors
+fn retry_init<F: FnMut() -> Result<(), ControllerInitError>>(mut init: F) {
+    // When we first start up, try to initialize the fan controller a few
+    // times, in case there's a transient I2C error.
+    for remaining in (0..3).rev() {
+        if init().is_ok() {
+            break;
+        }
+        ringbuf_entry!(Trace::FanControllerInitRetry { remaining });
+    }
+}
+
+pub(crate) struct ControllerInitError(ResponseCode);
+
+impl From<ControllerInitError> for ThermalError {
+    fn from(_: ControllerInitError) -> Self {
+        ThermalError::FanControllerUninitialized
+    }
+}
+
+impl From<ControllerInitError> for SensorReadError {
+    fn from(ControllerInitError(code): ControllerInitError) -> Self {
+        SensorReadError::I2cError(code)
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 /// The thermal control loop.
 ///
 /// This object uses slices of sensors and fans, which must be owned
@@ -285,7 +439,7 @@ impl ThermalSensorErrors {
 /// `struct Bsp` which is conditionally included based on board name.
 pub(crate) struct ThermalControl<'a> {
     /// Reference to board-specific parameters
-    bsp: &'a Bsp,
+    bsp: &'a mut Bsp,
 
     /// I2C task
     i2c_task: TaskId,
@@ -334,6 +488,9 @@ pub(crate) struct ThermalControl<'a> {
 
     /// Last group PWM control value
     last_pwm: PWMDuty,
+
+    /// Has the fan watchdog been configured yet?
+    fan_watchdog_configured: bool,
 }
 
 /// Represents the state of a temperature sensor, which either has a valid
@@ -529,7 +686,11 @@ impl<'a> ThermalControl<'a> {
     /// # Panics
     /// This function can only be called once, because it claims mutable static
     /// buffers.
-    pub fn new(bsp: &'a Bsp, i2c_task: TaskId, sensor_api: SensorApi) -> Self {
+    pub fn new(
+        bsp: &'a mut Bsp,
+        i2c_task: TaskId,
+        sensor_api: SensorApi,
+    ) -> Self {
         use static_cell::ClaimOnceCell;
 
         let [err_blackbox, prev_err_blackbox] = {
@@ -537,6 +698,7 @@ impl<'a> ThermalControl<'a> {
                 ClaimOnceCell::new([ThermalSensorErrors::new(); 2]);
             BLACKBOXEN.claim()
         };
+        let pid_config = bsp.pid_config;
 
         Self {
             bsp,
@@ -546,7 +708,7 @@ impl<'a> ThermalControl<'a> {
             state: ThermalControlState::Boot {
                 values: [None; TEMPERATURE_ARRAY_SIZE],
             },
-            pid_config: bsp.pid_config,
+            pid_config,
 
             overheat_hysteresis: Celsius(1.0),
             overheat_timeout_ms: 60_000,
@@ -560,6 +722,7 @@ impl<'a> ThermalControl<'a> {
 
             err_blackbox,
             prev_err_blackbox,
+            fan_watchdog_configured: false,
         }
     }
 
@@ -630,6 +793,24 @@ impl<'a> ThermalControl<'a> {
 
     /// Get latest fan presence state
     pub fn update_fan_presence(&mut self) {
+        // Try to configure the fan watchdog, if not yet configured
+        //
+        // With its longest timeout of 30 seconds, this is longer than it takes
+        // to flash on Gimlet -- and right on the edge of how long it takes to
+        // dump. On some platforms and/or under some conditions, "humility dump"
+        // might be able to induce the watchdog to kick, which may induce a
+        // flight-or-fight reaction for whomever is near the fans when they
+        // blast off...
+        if !self.fan_watchdog_configured {
+            match self.set_watchdog(I2cWatchdog::ThirtySeconds) {
+                Ok(()) => {
+                    ringbuf_entry!(Trace::SetFanWatchdogOk);
+                    self.fan_watchdog_configured = true;
+                }
+                Err(e) => ringbuf_entry!(Trace::SetFanWatchdogError(e)),
+            }
+        }
+
         match self.bsp.get_fan_presence() {
             Ok(next) => {
                 for fan in next.as_fans() {
@@ -656,14 +837,19 @@ impl<'a> ThermalControl<'a> {
         // Read fan data and log it to the sensors task
         for (index, sensor_id) in self.fans.enumerate() {
             if let Some(sensor_id) = sensor_id {
-                match self.bsp.fan_control(Fan::from(index)).fan_rpm() {
+                match self
+                    .bsp
+                    .fan_control(Fan::from(index))
+                    .map_err(SensorReadError::from)
+                    .and_then(|ctrl| {
+                        ctrl.fan_rpm().map_err(SensorReadError::I2cError)
+                    }) {
                     Ok(reading) => {
                         self.sensor_api.post_now(*sensor_id, reading.0.into())
                     }
                     Err(e) => {
                         ringbuf_entry!(Trace::FanReadFailed(*sensor_id, e));
-                        self.err_blackbox
-                            .push(*sensor_id, SensorReadError::I2cError(e));
+                        self.err_blackbox.push(*sensor_id, e);
                         self.sensor_api.nodata_now(*sensor_id, e.into())
                     }
                 }
@@ -1014,27 +1200,36 @@ impl<'a> ThermalControl<'a> {
                 Some(_) => pwm,
                 None => PWMDuty(0),
             };
-            if let Err(e) = self.bsp.fan_control(Fan::from(index)).set_pwm(pwm)
+            if let Err(e) = self
+                .bsp
+                .fan_control(Fan::from(index))
+                .map_err(ThermalError::from)
+                .and_then(|fan| {
+                    fan.set_pwm(pwm).map_err(|_| ThermalError::DeviceError)
+                })
             {
                 last_err = Err(e);
             }
         }
-        last_err.map_err(|_| ThermalError::DeviceError)
+        last_err
     }
 
     /// Sets the PWM for a single fan
     ///
     /// If the fan is present, set to `pwm`. if it is not present, set to zero.
     pub fn set_fan_pwm(
-        &self,
+        &mut self,
         fan: Fan,
         pwm: PWMDuty,
-    ) -> Result<(), ResponseCode> {
+    ) -> Result<(), ThermalError> {
         let pwm = match self.fans.is_present(fan) {
             true => pwm,
             false => PWMDuty(0),
         };
-        self.bsp.fan_control(fan).set_pwm(pwm)
+        self.bsp
+            .fan_control(fan)?
+            .set_pwm(pwm)
+            .map_err(|_| ThermalError::DeviceError)
     }
 
     /// Attempts to set the PWM of every fan to whatever the previous value was.
@@ -1055,14 +1250,17 @@ impl<'a> ThermalControl<'a> {
         }
     }
 
-    pub fn set_watchdog(&self, wd: I2cWatchdog) -> Result<(), ResponseCode> {
+    pub fn set_watchdog(
+        &mut self,
+        wd: I2cWatchdog,
+    ) -> Result<(), ThermalError> {
         let mut result = Ok(());
 
         self.bsp.for_each_fctrl(|fctrl| {
-            if let Err(e) = fctrl.set_watchdog(wd) {
-                result = Err(e);
+            if fctrl.set_watchdog(wd).is_err() {
+                result = Err(ThermalError::DeviceError);
             }
-        });
+        })?;
 
         result
     }

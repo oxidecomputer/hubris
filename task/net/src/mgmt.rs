@@ -5,7 +5,10 @@
 use crate::{bsp_support::Ksz8463, miim_bridge::MiimBridge};
 use drv_stm32h7_eth::Ethernet;
 use drv_stm32xx_sys_api::{self as sys_api, OutputType, Pull, Speed, Sys};
-use ksz8463::{Error as KszError, MIBCounterValue, Register as KszRegister};
+use ksz8463::{
+    Error as KszError, KszPhyPort, KszPort, MIBCounterValue,
+    Register as KszRegister,
+};
 use ringbuf::*;
 use task_net_api::{
     ManagementCounters, ManagementLinkStatus, MgmtError, PhyError,
@@ -31,7 +34,7 @@ enum Trace {
     #[count(skip)]
     None,
     Ksz8463Err {
-        port: u8,
+        port: KszPort,
         #[count(children)]
         err: KszError,
     },
@@ -219,15 +222,19 @@ impl Bsp {
         let mut s = ManagementLinkStatus::default();
         let rw = &mut MiimBridge::new(eth);
 
-        for i in 0..2 {
+        for (i, port) in
+            [KszPhyPort::One, KszPhyPort::Two].into_iter().enumerate()
+        {
             // The KSZ8463 numbers its ports starting at 1 (e.g. P1MBSR)
-            let port = i as u8 + 1;
             match self.ksz8463.read(KszRegister::PxMBSR(port)) {
                 Ok(sr) => {
                     s.ksz8463_100base_fx_link_up[i] = (sr & (1 << 2)) != 0
                 }
                 Err(err) => {
-                    ringbuf_entry!(Trace::Ksz8463Err { port, err });
+                    ringbuf_entry!(Trace::Ksz8463Err {
+                        port: port.into(),
+                        err
+                    });
                     return Err(MgmtError::KszError);
                 }
             }
@@ -278,9 +285,11 @@ impl Bsp {
                 | MIBCounterValue::CountOverflow(u) => u,
             })
         };
-        for i in 0..3 {
+        for (i, port) in [KszPort::One, KszPort::Two, KszPort::Three]
+            .into_iter()
+            .enumerate()
+        {
             // The KSZ8463 numbers its ports starting at 1 (e.g. P1MBSR)
-            let port = i as u8 + 1;
             out.ksz8463_tx[i].multicast =
                 decode_mib(port, ksz8463::MIBCounter::TxMulticastPkts)?;
             out.ksz8463_tx[i].broadcast =

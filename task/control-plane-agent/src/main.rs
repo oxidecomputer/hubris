@@ -7,8 +7,8 @@
 
 use drv_sprot_api::SprotError;
 use gateway_messages::{
-    sp_impl, IgnitionCommand, MgsError, PowerState, SpComponent, SpPort,
-    UpdateId,
+    sp_impl::{self, Sender},
+    IgnitionCommand, MgsError, PowerState, SpComponent, UpdateId,
 };
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{
@@ -22,7 +22,7 @@ use task_control_plane_agent_api::{
 };
 use task_net_api::{
     Address, LargePayloadBehavior, Net, RecvError, SendError, SocketName,
-    UdpMetadata,
+    UdpMetadata, VLanId,
 };
 use userlib::{sys_set_timer, task_slot};
 
@@ -46,7 +46,7 @@ task_slot!(NET, net);
 task_slot!(SYS, sys);
 
 #[allow(dead_code)] // Not all cases are used by all variants
-#[derive(Debug, Clone, Copy, PartialEq, ringbuf::Count)]
+#[derive(Clone, Copy, PartialEq, ringbuf::Count)]
 enum Log {
     #[count(skip)]
     Empty,
@@ -85,7 +85,7 @@ enum Log {
 // `Log` enum above (which itself is only used by our ringbuf logs). The MGS
 // protocol is defined in the `gateway-messages` crate (which is shared with
 // MGS proper and other tools like `sp-sim` in the omicron repository).
-#[derive(Debug, Clone, Copy, PartialEq, ringbuf::Count)]
+#[derive(Clone, Copy, PartialEq, ringbuf::Count)]
 enum MgsMessage {
     Discovery,
     IgnitionState {
@@ -165,11 +165,14 @@ enum MgsMessage {
     },
     ReadRotPage,
     VpdLockStatus,
+    VersionedRotBootInfo {
+        version: u8,
+    },
 }
 
 // This enum does not define the actual IPC protocol - it is only used in the
 // `Log` enum above (which itself is only used by our ringbuf logs).
-#[derive(Debug, Clone, Copy, PartialEq, ringbuf::Count)]
+#[derive(Clone, Copy, PartialEq, ringbuf::Count)]
 enum IpcRequest {
     FetchHostPhase2Data,
     GetHostPhase2Data,
@@ -190,15 +193,14 @@ enum IpcRequest {
 
 counted_ringbuf!(Log, 16, Log::Empty);
 
-#[derive(Copy, Clone, Debug, PartialEq, ringbuf::Count)]
+#[derive(Copy, Clone, PartialEq, ringbuf::Count)]
 enum CriticalEvent {
     Empty,
     /// We have received a network request to change power states. This record
     /// logs the sender, in case the request was unexpected, and the target
     /// state.
     SetPowerState {
-        sender: sp_impl::SocketAddrV6,
-        port: SpPort,
+        sender: Sender<VLanId>,
         power_state: PowerState,
         ticks_since_boot: u64,
     },
@@ -559,7 +561,7 @@ impl NetHandler {
         ringbuf_entry!(Log::Rx(meta));
 
         let Address::Ipv6(addr) = meta.addr;
-        let sender = gateway_messages::sp_impl::SocketAddrV6 {
+        let addr = gateway_messages::sp_impl::SocketAddrV6 {
             ip: addr.into(),
             port: meta.port,
         };
@@ -568,9 +570,12 @@ impl NetHandler {
         // `MgsHandler` implementation, and serializing the response we should
         // send into `self.tx_buf`.
         assert!(self.packet_to_send.is_none());
+        let sender = Sender {
+            addr,
+            vid: meta.vid,
+        };
         if let Some(n) = sp_impl::handle_message(
             sender,
-            sp_port_from_udp_metadata(&meta),
             &self.rx_buf[..meta.size as usize],
             mgs_handler,
             self.tx_buf,
@@ -578,29 +583,6 @@ impl NetHandler {
             meta.size = n as u32;
             self.packet_to_send = Some(meta);
         }
-    }
-}
-
-fn sp_port_from_udp_metadata(meta: &UdpMetadata) -> SpPort {
-    use task_net_api::VLAN_RANGE;
-    assert!(VLAN_RANGE.contains(&meta.vid));
-    assert_eq!(VLAN_RANGE.len(), 2);
-
-    match meta.vid - VLAN_RANGE.start {
-        0 => SpPort::One,
-        1 => SpPort::Two,
-        _ => unreachable!(),
-    }
-}
-
-#[allow(dead_code)]
-fn vlan_id_from_sp_port(port: SpPort) -> u16 {
-    use task_net_api::VLAN_RANGE;
-    assert_eq!(VLAN_RANGE.len(), 2);
-
-    match port {
-        SpPort::One => VLAN_RANGE.start,
-        SpPort::Two => VLAN_RANGE.start + 1,
     }
 }
 

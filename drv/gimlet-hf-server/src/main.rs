@@ -28,9 +28,9 @@
 )]
 mod bsp;
 
-use userlib::*;
+use userlib::{hl, task_slot, FromPrimitive, RecvMessage};
 
-use drv_gimlet_hf_api::SECTOR_SIZE_BYTES;
+use drv_hf_api::SECTOR_SIZE_BYTES;
 use drv_stm32h7_qspi::Qspi;
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{
@@ -51,9 +51,9 @@ use stm32h7::stm32h753 as device;
 use drv_hash_api as hash_api;
 use drv_hash_api::SHA256_SZ;
 
-use drv_gimlet_hf_api::{
+use drv_hf_api::{
     HfDevSelect, HfError, HfMuxState, HfPersistentData, HfProtectMode,
-    PAGE_SIZE_BYTES,
+    HfRawPersistentData, HF_PERSISTENT_DATA_STRIDE, PAGE_SIZE_BYTES,
 };
 
 task_slot!(SYS, sys);
@@ -188,84 +188,6 @@ fn main() -> ! {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-/// Represents persistent data that is both stored on the host flash and used to
-/// configure host boot.
-///
-/// We reserve sector 0 (i.e. the lowest 64 KiB) of both host flash ICs for
-/// Hubris data.  On both host flashes, we tile sector 0 with this 40-byte
-/// struct, placed at 128-byte intervals (in case it needs to grow in the
-/// future).
-///
-/// The current value of persistent data is the instance of `RawPersistentData`
-/// with a valid checksum and the highest `monotonic_counter` across both flash
-/// ICs.
-///
-/// When writing new data, we increment the monotonic counter and write to both
-/// ICs, one by one.  This ensures robustness in case of power loss.
-#[derive(Copy, Clone, Eq, PartialEq, AsBytes, FromBytes)]
-#[repr(C)]
-struct RawPersistentData {
-    /// Reserved field, because this is placed at address 0, which PSP firmware
-    /// may look at under certain circumstances.
-    amd_reserved_must_be_all_ones: u64,
-
-    /// Must always be `HF_PERSISTENT_DATA_MAGIC`.
-    oxide_magic: u32,
-
-    /// Must always be `HF_PERSISTENT_DATA_HEADER_VERSION` (for now)
-    header_version: u32,
-
-    /// Monotonically increasing counter
-    monotonic_counter: u64,
-
-    /// Either 0 or 1; directly translatable to `gimlet_hf_api::HfDevSelect`
-    dev_select: u32,
-
-    /// CRC-32 over the rest of the data using the iSCSI polynomial
-    checksum: u32,
-}
-
-impl RawPersistentData {
-    fn new(data: HfPersistentData, monotonic_counter: u64) -> Self {
-        let mut out = Self {
-            amd_reserved_must_be_all_ones: u64::MAX,
-            oxide_magic: HF_PERSISTENT_DATA_MAGIC,
-            header_version: HF_PERSISTENT_DATA_HEADER_VERSION,
-            monotonic_counter,
-            dev_select: data.dev_select as u32,
-            checksum: 0,
-        };
-        out.checksum = out.expected_checksum();
-        assert!(out.is_valid());
-        out
-    }
-
-    fn expected_checksum(&self) -> u32 {
-        let c = crc::Crc::<u32>::new(&crc::CRC_32_ISCSI);
-        let mut c = c.digest();
-        // We do a CRC32 of everything except the checksum, which is positioned
-        // at the end of the struct and is a `u32`
-        let size = core::mem::size_of::<RawPersistentData>()
-            - core::mem::size_of::<u32>();
-        c.update(&self.as_bytes()[..size]);
-        c.finalize()
-    }
-
-    fn is_valid(&self) -> bool {
-        self.amd_reserved_must_be_all_ones == u64::MAX
-            && self.oxide_magic == HF_PERSISTENT_DATA_MAGIC
-            && self.header_version == HF_PERSISTENT_DATA_HEADER_VERSION
-            && self.dev_select <= 1
-            && self.checksum == self.expected_checksum()
-    }
-}
-
-const HF_PERSISTENT_DATA_MAGIC: u32 = 0x1dea_bcde;
-const HF_PERSISTENT_DATA_STRIDE: usize = 128;
-const HF_PERSISTENT_DATA_HEADER_VERSION: u32 = 1;
-
-////////////////////////////////////////////////////////////////////////////////
-
 struct ServerImpl {
     qspi: Qspi,
     block: [u8; 256],
@@ -323,7 +245,7 @@ impl ServerImpl {
 
     fn get_raw_persistent_data(
         &mut self,
-    ) -> Result<RawPersistentData, HfError> {
+    ) -> Result<HfRawPersistentData, HfError> {
         self.check_muxed_to_sp()?;
         let best = if self.dev_select_pin.is_some() {
             let prev_slot = self.dev_state;
@@ -343,13 +265,7 @@ impl ServerImpl {
             let (b, _) = self.persistent_data_scan();
 
             match (a, b) {
-                (Some(a), Some(b)) => {
-                    if a.monotonic_counter > b.monotonic_counter {
-                        Some(a)
-                    } else {
-                        Some(b)
-                    }
-                }
+                (Some(a), Some(b)) => Some(a.max(b)),
                 (Some(_), None) => a,
                 (None, Some(_)) => b,
                 (None, None) => None,
@@ -367,18 +283,16 @@ impl ServerImpl {
     /// Returns a tuple containing
     /// - newest persistent data record
     /// - address of first empty slot
-    fn persistent_data_scan(&self) -> (Option<RawPersistentData>, Option<u32>) {
-        let mut best: Option<RawPersistentData> = None;
+    fn persistent_data_scan(
+        &self,
+    ) -> (Option<HfRawPersistentData>, Option<u32>) {
+        let mut best: Option<HfRawPersistentData> = None;
         let mut empty_slot: Option<u32> = None;
         for i in 0..SECTOR_SIZE_BYTES / HF_PERSISTENT_DATA_STRIDE {
             let addr = (i * HF_PERSISTENT_DATA_STRIDE) as u32;
-            let mut data = RawPersistentData::new_zeroed();
+            let mut data = HfRawPersistentData::new_zeroed();
             self.qspi.read_memory(addr, data.as_bytes_mut());
-            if data.is_valid()
-                && best
-                    .map(|b| b.monotonic_counter < data.monotonic_counter)
-                    .unwrap_or(true)
-            {
+            if data.is_valid() && best.map(|b| data > b).unwrap_or(true) {
                 best = Some(data);
             }
             if empty_slot.is_none()
@@ -420,7 +334,7 @@ impl ServerImpl {
     fn write_raw_persistent_data_to_addr(
         &mut self,
         addr: Option<u32>,
-        raw_data: &RawPersistentData,
+        raw_data: &HfRawPersistentData,
     ) -> Result<(), HfError> {
         // Clippy misfire as of 2024-04
         #[allow(clippy::manual_unwrap_or_default)]
@@ -458,7 +372,7 @@ impl ServerImpl {
 
         match (a_data, b_data) {
             (Some(a), Some(b)) => {
-                match a.monotonic_counter.cmp(&b.monotonic_counter) {
+                match a.cmp(&b) {
                     core::cmp::Ordering::Less => {
                         self.set_dev(!prev_slot).unwrap();
                         let out =
@@ -749,7 +663,8 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             };
 
             // Early exit if the previous persistent data matches
-            let prev_raw = RawPersistentData::new(data, prev_monotonic_counter);
+            let prev_raw =
+                HfRawPersistentData::new(data, prev_monotonic_counter);
             if a_data == b_data && a_data == Some(prev_raw) {
                 return Ok(());
             }
@@ -757,7 +672,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             let monotonic_counter = prev_monotonic_counter
                 .checked_add(1)
                 .ok_or(HfError::MonotonicCounterOverflow)?;
-            let raw = RawPersistentData::new(data, monotonic_counter);
+            let raw = HfRawPersistentData::new(data, monotonic_counter);
 
             // Write the persistent data to the currently inactive flash.
             self.set_dev(!prev_slot).unwrap();
@@ -782,7 +697,8 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             };
 
             // Early exit if the previous persistent data matches
-            let prev_raw = RawPersistentData::new(data, prev_monotonic_counter);
+            let prev_raw =
+                HfRawPersistentData::new(data, prev_monotonic_counter);
             if prev_data == Some(prev_raw) {
                 return Ok(());
             }
@@ -790,7 +706,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             let monotonic_counter = prev_monotonic_counter
                 .checked_add(1)
                 .ok_or(HfError::MonotonicCounterOverflow)?;
-            let raw = RawPersistentData::new(data, monotonic_counter);
+            let raw = HfRawPersistentData::new(data, monotonic_counter);
             self.write_raw_persistent_data_to_addr(next, &raw)?;
         }
         Ok(())

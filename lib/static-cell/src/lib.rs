@@ -28,24 +28,31 @@ impl<T> StaticCell<T> {
         }
     }
 
+    /// Attempts to get mutable access to the contents of `self`.
+    ///
+    /// If a `StaticRef` for `self` still exists anywhere in the program, this
+    /// will return `None`.
+    pub fn try_borrow_mut(&self) -> Option<StaticRef<'_, T>> {
+        let already_borrowed =
+            AtomicBoolExt::swap(&self.borrowed, true, Ordering::Acquire);
+        if already_borrowed {
+            return None;
+        }
+        // Safety: the check above ensures that we are not producing an aliasing
+        // &mut to our contents.
+        let contents = unsafe { &mut *self.cell.get() };
+        Some(StaticRef {
+            contents,
+            borrow: &self.borrowed,
+        })
+    }
+
     /// Gets mutable access to the contents of `self`.
     ///
     /// If a `StaticRef` for `self` still exists anywhere in the program, this
     /// will panic.
     pub fn borrow_mut(&self) -> StaticRef<'_, T> {
-        let already_borrowed =
-            AtomicBoolExt::swap(&self.borrowed, true, Ordering::Acquire);
-        if already_borrowed {
-            panic!();
-        }
-        // Safety: the check above ensures that we are not producing an aliasing
-        // &mut to our contents.
-        unsafe {
-            StaticRef {
-                contents: &mut *self.cell.get(),
-                borrow: &self.borrowed,
-            }
-        }
+        self.try_borrow_mut().unwrap()
     }
 }
 

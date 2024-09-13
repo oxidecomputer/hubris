@@ -45,6 +45,8 @@ mod server;
     all(target_board = "gimletlet-2", feature = "gimletlet-nic"),
     path = "bsp/gimletlet_nic.rs"
 )]
+#[cfg_attr(target_board = "medusa-a", path = "bsp/medusa_a.rs")]
+#[cfg_attr(target_board = "grapefruit", path = "bsp/grapefruit.rs")]
 mod bsp;
 
 #[cfg_attr(feature = "vlan", path = "server_vlan.rs")]
@@ -58,7 +60,7 @@ mod idl {
     use task_net_api::{
         KszError, KszMacTableEntry, LargePayloadBehavior, MacAddress,
         MacAddressBlock, ManagementCounters, ManagementLinkStatus, MgmtError,
-        PhyError, SocketName, UdpMetadata,
+        PhyError, SocketName, UdpMetadata, VLanId,
     };
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
@@ -96,8 +98,8 @@ task_slot!(PACKRAT, packrat);
 ///
 /// This uses a hash of the chip ID and returns a block with starting MAC
 /// address of the form `0e:1d:XX:XX:XX:XX`.  The MAC address block has a stride
-/// of 1 and contains `VLAN_COUNT` MAC addresses (or 1, if we're running without
-/// VLANs enabled).
+/// of 1 and contains `VLanId::LENGTH` MAC addresses (or 1, if we're running
+/// without VLANs enabled).
 fn mac_address_from_uid(sys: &Sys) -> MacAddressBlock {
     let mut buf = [0u8; 6];
     let uid = sys.read_uid();
@@ -121,11 +123,7 @@ fn mac_address_from_uid(sys: &Sys) -> MacAddressBlock {
 
     MacAddressBlock {
         base_mac: buf,
-        #[cfg(feature = "vlan")]
-        count: U16::new(crate::generated::VLAN_COUNT.try_into().unwrap()),
-
-        #[cfg(not(feature = "vlan"))]
-        count: U16::new(1),
+        count: U16::new(crate::generated::PORT_COUNT.try_into().unwrap()),
         stride: 1,
     }
 }
@@ -243,6 +241,14 @@ fn main() -> ! {
             Some(Repeat::AfterWake(wake_interval)),
         );
     }
+
+    // Ensure that sockets are woken at least once at startup, so that anyone
+    // who was waiting to hear back on their TX queue becoming non-full will
+    // snap out of it.
+    //
+    // This only works because we've set waiting_to_send to true for all sockets
+    // above.
+    server.wake_sockets();
 
     // Go!
     loop {

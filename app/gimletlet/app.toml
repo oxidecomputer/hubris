@@ -5,12 +5,12 @@ inherit = "base-gimletlet2.toml"
 features = ["dump"]
 
 [tasks.hiffy]
-features = ["h753", "stm32h7", "i2c", "gpio", "qspi", "rng", "hash", "sprot"]
-task-slots = ["hash_driver", "hf", "i2c_driver", "rng_driver", "sprot", "sys", "update_server", "user_leds"]
+features = ["h753", "stm32h7", "i2c", "gpio", "qspi", "hash", "sprot"]
+task-slots = ["hash_driver", "hf", "i2c_driver", "sprot", "sys", "update_server", "user_leds"]
 
 [tasks.jefe]
 features = ["dump"]
-extern-regions = ["sram2", "sram3", "sram4"]
+extern-regions = ["sram1", "sram2", "sram3", "sram4"]
 
 [tasks.jefe.config.allowed-callers]
 set_state = ["gimlet_seq"]
@@ -89,7 +89,7 @@ max-sizes = {flash = 32768, ram = 16384 }
 start = true
 task-slots = ["sprot", "jefe", "net"]
 stacksize = 2400
-extern-regions = ["sram2", "sram3", "sram4"]
+extern-regions = ["sram1", "sram2", "sram3", "sram4"]
 notifications = ["socket"]
 features = ["net", "vlan"]
 
@@ -109,7 +109,7 @@ priority = 8
 max-sizes = {flash = 65536, ram = 65536}
 stacksize = 4096
 start = true
-task-slots = ["sys", "gimlet_seq", "hf", "control_plane_agent", "net", "packrat"]
+task-slots = ["sys", "gimlet_seq", "hf", "control_plane_agent", "net", "packrat", "sprot"]
 notifications = [
     "jefe-state-change",
      "usart-irq",
@@ -148,8 +148,8 @@ name = "task-net"
 stacksize = 8000
 priority = 3
 features = ["h753", "vlan", "gimletlet-nic", "use-spi-core", "spi4"]
-max-sizes = {flash = 131072, ram = 65536, sram1 = 16384}
-sections = {eth_bulk = "sram1"}
+max-sizes = {flash = 131072, ram = 65536, sram1_mac = 16384}
+sections = {eth_bulk = "sram1_mac"}
 uses = ["eth", "tim16", "spi4"]
 start = true
 task-slots = ["sys", "jefe"]
@@ -190,8 +190,17 @@ task-slots = ["net", "packrat"]
 features = ["vlan"]
 notifications = ["socket"]
 
-[config.net]
-vlan = { start = 0x301, count = 2 }
+# VLAN configuration
+[config.net.vlans.sidecar1]
+vid = 0x301
+trusted = true
+port = 1
+
+[config.net.vlans.sidecar2]
+vid = 0x302
+trusted = true
+port = 2
+
 # UDP ports in sockets below are assigned in oxidecomputer/oana
 
 [config.net.sockets.broadcast]

@@ -12,10 +12,13 @@ mod vcore;
 
 use counters::*;
 use ringbuf::*;
-use userlib::*;
+use userlib::{
+    hl, set_timer_relative, sys_get_timer, sys_recv_notification,
+    sys_set_timer, task_slot, units, RecvMessage, TaskId, UnwrapLite,
+};
 
-use drv_gimlet_hf_api as hf_api;
 use drv_gimlet_seq_api::{PowerState, SeqError};
+use drv_hf_api as hf_api;
 use drv_i2c_api as i2c;
 use drv_ice40_spi_program as ice40;
 use drv_packrat_vpd_loader::{read_vpd_and_load_packrat, Packrat};
@@ -160,7 +163,7 @@ fn main() -> ! {
         Err(_) => {
             // Tell everyone that something's broken, as loudly as possible.
             ringbuf_entry!(Trace::StartFailed(SeqError::I2cFault));
-            sys.gpio_set(FAULT_PIN_L);
+            // Leave FAULT_PIN_L low (which is done at the start of init)
 
             // All these moments will be lost in time, like tears in rain...
             // Time to die.
@@ -730,7 +733,7 @@ impl<S: SpiServer> ServerImpl<S> {
                         .unwrap_lite();
                     ringbuf_entry!(Trace::A1Status(status[0]));
 
-                    if status[0] == Reg::A1SMSTATUS::Encoded::DONE as u8 {
+                    if status[0] == Reg::A1SMSTATUS::A1SmEncoded::Done as u8 {
                         break;
                     }
 
@@ -786,7 +789,8 @@ impl<S: SpiServer> ServerImpl<S> {
                         .unwrap_lite();
                     ringbuf_entry!(Trace::A0Status(status[0]));
 
-                    if status[0] == Reg::A0SMSTATUS::Encoded::GROUPC_PG as u8 {
+                    if status[0] == Reg::A0SMSTATUS::A0SmEncoded::GroupcPg as u8
+                    {
                         break;
                     }
 
@@ -818,7 +822,7 @@ impl<S: SpiServer> ServerImpl<S> {
                         .unwrap_lite();
                     ringbuf_entry!(Trace::A0Power(status[0]));
 
-                    if status[0] == Reg::A0SMSTATUS::Encoded::DONE as u8 {
+                    if status[0] == Reg::A0SMSTATUS::A0SmEncoded::Done as u8 {
                         break;
                     }
 
@@ -1426,3 +1430,4 @@ mod idl {
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
 include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
+include!(concat!(env!("OUT_DIR"), "/gpio_irq_pins.rs"));

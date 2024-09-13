@@ -5,20 +5,17 @@
 use crate::Trace;
 use attest_api::Attest;
 use crc::{Crc, CRC_32_CKSUM};
-use drv_lpc55_update_api::{RotPage, SlotId, Update};
+use drv_lpc55_update_api::{RotComponent, RotPage, SlotId, Update};
 use drv_sprot_api::{
-    AttestReq, AttestRsp, CabooseReq, CabooseRsp, DumpReq, ReqBody, Request,
-    Response, RotIoStats, RotPageRsp, RotState, RotStatus, RspBody,
-    SprocketsError, SprotError, SprotProtocolError, SwdReq, UpdateReq,
-    UpdateRsp, CURRENT_VERSION, MIN_VERSION, REQUEST_BUF_SIZE,
-    RESPONSE_BUF_SIZE,
+    AttestReq, AttestRsp, CabooseReq, CabooseRsp, DumpReq, LifecycleState,
+    ReqBody, Request, Response, RotIoStats, RotPageRsp, RotState, RotStatus,
+    RspBody, SprocketsError, SprotError, SprotProtocolError, StateError,
+    StateReq, StateRsp, SwdReq, UpdateReq, UpdateRsp, CURRENT_VERSION,
+    MIN_VERSION, REQUEST_BUF_SIZE, RESPONSE_BUF_SIZE,
 };
 use lpc55_romapi::bootrom;
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
-use sprockets_rot::RotSprocket;
 use userlib::{task_slot, UnwrapLite};
-
-mod sprockets;
 
 task_slot!(UPDATE_SERVER, update_server);
 
@@ -48,15 +45,36 @@ pub struct StartupState {
 
 /// Marker for data which should be copied after the packet is encoded
 pub enum TrailingData<'a> {
-    Caboose { slot: SlotId, start: u32, size: u32 },
-    AttestCert { index: u32, offset: u32, size: u32 },
-    AttestLog { offset: u32, size: u32 },
-    Attest { nonce: &'a [u8], write_size: u32 },
-    RotPage { page: RotPage },
+    Caboose {
+        slot: SlotId,
+        start: u32,
+        size: u32,
+    },
+    AttestCert {
+        index: u32,
+        offset: u32,
+        size: u32,
+    },
+    AttestLog {
+        offset: u32,
+        size: u32,
+    },
+    Attest {
+        nonce: &'a [u8],
+        write_size: u32,
+    },
+    RotPage {
+        page: RotPage,
+    },
+    ComponentCaboose {
+        component: RotComponent,
+        slot: SlotId,
+        start: u32,
+        size: u32,
+    },
 }
 
 pub struct Handler {
-    sprocket: RotSprocket,
     update: Update,
     startup_state: StartupState,
     attest: Attest,
@@ -68,7 +86,6 @@ pub struct Handler {
 impl<'a> Handler {
     pub fn new() -> Handler {
         Handler {
-            sprocket: crate::handler::sprockets::init(),
             update: Update::from(UPDATE_SERVER.get_task_id()),
             startup_state: StartupState {
                 bootrom_crc32: CRC32.checksum(&bootrom().data[..]),
@@ -117,6 +134,40 @@ impl<'a> Handler {
         // In certain cases, handling the request has left us with trailing data
         // that needs to be packed into the remaining packet space.
         match trailer {
+            Some(TrailingData::ComponentCaboose {
+                component,
+                slot,
+                start,
+                size: blob_size,
+            }) => {
+                let blob_size: usize = blob_size.try_into().unwrap_lite();
+                if blob_size > drv_sprot_api::MAX_BLOB_SIZE {
+                    // If there isn't enough room, then pack an error instead
+                    Response::pack(
+                        &Err(SprotError::Protocol(
+                            SprotProtocolError::BadMessageLength,
+                        )),
+                        tx_buf,
+                    )
+                } else {
+                    let pack_result =
+                        Response::pack_with_cb(&rsp_body, tx_buf, |buf| {
+                            self.update
+                                .component_read_raw_caboose(
+                                    component,
+                                    slot,
+                                    start,
+                                    &mut buf[..blob_size],
+                                )
+                                .map_err(|e| RspBody::Caboose(Err(e)))?;
+                            Ok(blob_size)
+                        });
+                    match pack_result {
+                        Ok(size) => size,
+                        Err(e) => Response::pack(&Ok(e), tx_buf),
+                    }
+                }
+            }
             Some(TrailingData::Caboose {
                 slot,
                 start,
@@ -272,16 +323,10 @@ impl<'a> Handler {
                     Err(SprotProtocolError::BadUpdateStatus)?
                 }
             },
-            ReqBody::Sprockets(req) => Ok((
-                RspBody::Sprockets(
-                    // The only error we can get here is a serialization error,
-                    // which is represented as `BadEncoding`.
-                    self.sprocket
-                        .handle_deserialized(req)
-                        .map_err(|_| SprocketsError::BadEncoding)?,
-                ),
-                None,
-            )),
+            // Sprockets is deprecated
+            ReqBody::Sprockets(_) => {
+                Err(SprotError::Sprockets(SprocketsError::UnsupportedVersion))
+            }
             ReqBody::Dump(DumpReq::V1 { addr }) => {
                 #[cfg(feature = "sp-ctrl")]
                 {
@@ -355,6 +400,33 @@ impl<'a> Handler {
                     Ok((
                         RspBody::Caboose(Ok(CabooseRsp::Read)),
                         Some(TrailingData::Caboose { slot, start, size }),
+                    ))
+                }
+                CabooseReq::ComponentSize { component, slot } => {
+                    let rsp = self
+                        .update
+                        .component_caboose_size(component, slot)
+                        .map(CabooseRsp::ComponentSize);
+                    Ok((RspBody::Caboose(rsp), None))
+                }
+                CabooseReq::ComponentRead {
+                    component,
+                    slot,
+                    start,
+                    size,
+                } => {
+                    // In this case, we're going to be sending back a variable
+                    // amount of data in the trailing section of the packet.  We
+                    // don't know exactly where that data will be placed, so
+                    // we'll return a marker here and copy it later.
+                    Ok((
+                        RspBody::Caboose(Ok(CabooseRsp::ComponentRead)),
+                        Some(TrailingData::ComponentCaboose {
+                            component,
+                            slot,
+                            start,
+                            size,
+                        }),
                     ))
                 }
             },
@@ -477,7 +549,85 @@ impl<'a> Handler {
                 #[cfg(not(feature = "sp-ctrl"))]
                 Err(SprotError::Protocol(SprotProtocolError::BadMessageType))
             }
+            ReqBody::Update(UpdateReq::VersionedBootInfo { version }) => {
+                let versioned_boot_info =
+                    self.update.versioned_rot_boot_info(version)?;
+                Ok((RspBody::Update(versioned_boot_info.into()), None))
+            }
+            ReqBody::Update(UpdateReq::ComponentPrep { component, slot }) => {
+                self.update.component_prep_image_update(component, slot)?;
+                Ok((RspBody::Ok, None))
+            }
+            ReqBody::Update(UpdateReq::ComponentSwitchDefaultImage {
+                component,
+                slot,
+                duration,
+            }) => {
+                self.update.component_switch_default_image(
+                    component, slot, duration,
+                )?;
+                Ok((RspBody::Ok, None))
+            }
+            ReqBody::State(StateReq::LifecycleState) => {
+                let out = self.lifecycle_state();
+
+                Ok((RspBody::State(out.map(StateRsp::LifecycleState)), None))
+            }
         }
+    }
+
+    fn lifecycle_state(&mut self) -> Result<LifecycleState, StateError> {
+        const CMPA_SIZE: usize = 512;
+        let mut buf = [0u8; CMPA_SIZE];
+
+        // If the SHA-256 Digest is zeros, the CMPA is unlocked.  The SHA-256
+        // digest is located in the last 4 words of the CMPA.
+        self.update
+            .read_rot_page(RotPage::Cmpa, &mut buf)
+            .map_err(StateError::ReadCmpa)?;
+        if buf[CMPA_SIZE - 32..].iter().all(|b| *b == 0) {
+            // We use Unprogrammed as a catchall if the CMPA is unlocked
+            return Ok(LifecycleState::Unprogrammed);
+        }
+
+        self.update
+            .read_rot_page(RotPage::CfpaActive, &mut buf)
+            .map_err(StateError::ReadCfpa)?;
+
+        // Look at the ROTKH_REVOKE byte
+        let revoke = buf[24];
+
+        // TODO use the type from dice_mfg_msgs?
+        enum S {
+            Invalid,
+            Enabled,
+            Revoked,
+        }
+        let slots = [0, 1, 2, 3].map(|i| match (revoke >> (i * 2)) & 0b11 {
+            0b00 => S::Invalid,
+            0b01 => S::Enabled,
+            _ => S::Revoked,
+        });
+
+        let state = match slots {
+            [S::Enabled, _, S::Invalid, S::Invalid]
+            | [_, S::Enabled, S::Invalid, S::Invalid] => {
+                LifecycleState::Release
+            }
+            [S::Revoked, S::Revoked, S::Enabled, _]
+            | [S::Revoked, S::Revoked, _, S::Enabled] => {
+                LifecycleState::Development
+            }
+            [S::Revoked, S::Revoked, S::Revoked, S::Revoked] => {
+                // It would be very surprising to get here, because the RoT
+                // shouldn't be able to boot if all four trust anchors are
+                // revoked.  We'll report this seemingly-impossible state to the
+                // caller and let them figure out what to do with it.
+                LifecycleState::EndOfLife
+            }
+            _ => return Err(StateError::BadRevoke { revoke }),
+        };
+        Ok(state)
     }
 }
 

@@ -15,6 +15,8 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         build_net::generate_vlan_consts(&net_config, &mut out)?;
     }
 
+    build_net::generate_port_consts(&net_config, &mut out)?;
     build_net::generate_socket_enum(&net_config, &mut out)?;
+    build_net::generate_vlan_enum(&net_config, &mut out)?;
     Ok(())
 }

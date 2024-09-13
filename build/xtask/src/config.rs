@@ -212,7 +212,7 @@ impl Config {
             .collect();
         scored.sort();
         let mut out = format!("'{}' is not a valid task name.", name);
-        if let Some((_, s)) = scored.get(0) {
+        if let Some((_, s)) = scored.first() {
             out.push_str(&format!(" Did you mean '{}'?", s));
         }
         out
@@ -222,14 +222,14 @@ impl Config {
         &self,
         verbose: bool,
         crate_name: &str,
+        no_default_features: bool,
         features: &[String],
         sysroot: Option<&'a Path>,
     ) -> BuildConfig<'a> {
-        let mut args = vec![
-            "--no-default-features".to_string(),
-            "--target".to_string(),
-            self.target.to_string(),
-        ];
+        let mut args = vec!["--target".to_string(), self.target.to_string()];
+        if no_default_features {
+            args.push("--no-default-features".to_string());
+        }
         if verbose {
             args.push("-v".to_string());
         }
@@ -285,7 +285,7 @@ impl Config {
         let out_path = Path::new("")
             .join(&self.target)
             .join("release")
-            .join(&crate_name);
+            .join(crate_name);
 
         BuildConfig {
             args,
@@ -305,6 +305,7 @@ impl Config {
         let mut out = self.common_build_config(
             verbose,
             &self.kernel.name,
+            self.kernel.no_default_features,
             &self.kernel.features,
             sysroot,
         );
@@ -327,6 +328,7 @@ impl Config {
         let mut out = self.common_build_config(
             verbose,
             &task_toml.name,
+            task_toml.no_default_features,
             &task_toml.features,
             sysroot,
         );
@@ -510,7 +512,7 @@ impl Config {
                     .get(r)
                     .ok_or_else(|| anyhow!("invalid extern region {r}"))?
                     .iter()
-                    .filter(|o| &o.name == image_name);
+                    .filter(|o| o.name == image_name);
                 let out = regions.next().expect("no extern region for name");
                 if regions.next().is_some() {
                     bail!(
@@ -626,6 +628,8 @@ pub struct Kernel {
     pub stacksize: Option<u32>,
     #[serde(default)]
     pub features: Vec<String>,
+    #[serde(default)]
+    pub no_default_features: bool,
 }
 
 fn default_name() -> String {
@@ -697,10 +701,8 @@ impl BuildConfig<'_> {
         let mut nightly_features = vec![];
         // nightly features that we use:
         nightly_features.extend([
-            "array_methods",
             "asm_const",
             "naked_functions",
-            "named-profiles",
             "used_with_arg",
         ]);
         // nightly features that our dependencies use:
@@ -742,7 +744,7 @@ fn read_and_flatten_toml(
              diamond dependencies are not allowed"
         );
     }
-    let cfg_contents = std::fs::read(&cfg)
+    let cfg_contents = std::fs::read(cfg)
         .with_context(|| format!("could not read {}", cfg.display()))?;
 
     // Accumulate the contents into the buildhash here, so that we hash both

@@ -10,6 +10,7 @@
 //! - [`adt7420`]: ADT7420 temperature sensor
 //! - [`at24csw080`]: AT24CSW080 serial EEPROM
 //! - [`ds2482`]: DS2482-100 1-wire initiator
+//! - [`emc2305`]: EMC2305 fan driver
 //! - [`isl68224`]: ISL68224 power controller
 //! - [`ltc4282`]: LTC4282 high current hot swap controller
 //! - [`m24c02`]: M24C02 EEPROM, used in MWOCP68 power shelf
@@ -234,6 +235,7 @@ pub mod adt7420;
 pub mod at24csw080;
 pub mod bmr491;
 pub mod ds2482;
+pub mod emc2305;
 pub mod isl68224;
 pub mod ltc4282;
 pub mod m24c02;

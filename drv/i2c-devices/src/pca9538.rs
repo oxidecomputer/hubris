@@ -6,7 +6,7 @@
 
 use crate::Validate;
 use drv_i2c_api::*;
-use userlib::*;
+use userlib::FromPrimitive;
 
 /// `PinSet` is a bit vector indicating on which pins/ports a given operation is
 /// applied.

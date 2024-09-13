@@ -5,11 +5,20 @@
 #![no_std]
 #![no_main]
 
+use counters::Count;
+use idol_runtime::{NotificationHandler, RequestError};
+use multitimer::{Multitimer, Repeat};
+use ringbuf::*;
+use static_cell::ClaimOnceCell;
+use userlib::{sys_get_timer, task_slot, units::Celsius};
+
 use drv_fpga_api::FpgaError;
 use drv_i2c_devices::pca9956b::Error;
 use drv_sidecar_front_io::{
     leds::{FullErrorSummary, Leds},
-    transceivers::{LogicalPort, LogicalPortMask, Transceivers},
+    transceivers::{
+        FpgaI2CFailure, LogicalPort, LogicalPortMask, Transceivers,
+    },
     Reg,
 };
 use drv_sidecar_seq_api::{SeqError, Sequencer};
@@ -17,16 +26,13 @@ use drv_transceivers_api::{
     ModuleStatus, TransceiversError, NUM_PORTS, TRANSCEIVER_TEMPERATURE_SENSORS,
 };
 use enum_map::Enum;
-use idol_runtime::{NotificationHandler, RequestError};
-use multitimer::{Multitimer, Repeat};
-use ringbuf::*;
-use static_cell::ClaimOnceCell;
 use task_sensor_api::{NoData, Sensor};
+#[allow(unused_imports)]
 use task_thermal_api::{Thermal, ThermalError, ThermalProperties};
 use transceiver_messages::{
     message::LedState, mgmt::ManagementInterface, MAX_PACKET_SIZE,
 };
-use userlib::{sys_get_timer, task_slot, units::Celsius, FromPrimitive};
+
 use zerocopy::{AsBytes, FromBytes};
 
 mod udp; // UDP API is implemented in a separate file
@@ -35,16 +41,19 @@ task_slot!(I2C, i2c_driver);
 task_slot!(FRONT_IO, front_io);
 task_slot!(SEQ, seq);
 task_slot!(NET, net);
-task_slot!(THERMAL, thermal);
 task_slot!(SENSOR, sensor);
+
+#[cfg(feature = "thermal-control")]
+task_slot!(THERMAL, thermal);
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
 #[allow(dead_code)]
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Count)]
 enum Trace {
+    #[count(skip)]
     None,
-    FrontIOBoardReady(bool),
+    FrontIOBoardReady(#[count(children)] bool),
     FrontIOSeqErr(SeqError),
     LEDInit,
     LEDInitComplete,
@@ -55,22 +64,23 @@ enum Trace {
     LEDReadError(Error),
     LEDUpdateError(Error),
     ModulePresenceUpdate(LogicalPortMask),
-    TransceiversError(TransceiversError),
+    TransceiversError(#[count(children)] TransceiversError),
     GotInterface(u8, ManagementInterface),
     UnknownInterface(u8, ManagementInterface),
     UnpluggedModule(usize),
     RemovedDisabledModuleThermalModel(usize),
-    TemperatureReadError(usize, Reg::QSFP::PORT0_STATUS::Encoded),
+    TemperatureReadError(usize, Reg::QSFP::PORT0_STATUS::ErrorEncoded),
     TemperatureReadUnexpectedError(usize, FpgaError),
     ThermalError(usize, ThermalError),
-    GetInterfaceError(usize, Reg::QSFP::PORT0_STATUS::Encoded),
+    GetInterfaceError(usize, Reg::QSFP::PORT0_STATUS::ErrorEncoded),
     GetInterfaceUnexpectedError(usize, FpgaError),
     InvalidPortStatusError(usize, u8),
     DisablingPorts(LogicalPortMask),
     DisableFailed(usize, LogicalPortMask),
     ClearDisabledPorts(LogicalPortMask),
 }
-ringbuf!(Trace, 16, Trace::None);
+
+counted_ringbuf!(Trace, 16, Trace::None);
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -120,6 +130,7 @@ struct ServerImpl {
     consecutive_nacks: [u8; NUM_PORTS as usize],
 
     /// Handle to write thermal models and presence to the `thermal` task
+    #[cfg(feature = "thermal-control")]
     thermal_api: Thermal,
 
     /// Handle to write temperatures to the `sensors` task
@@ -128,13 +139,13 @@ struct ServerImpl {
     /// Thermal models are populated by the host
     thermal_models: [Option<ThermalModel>; NUM_PORTS as usize],
 }
-
 #[derive(Copy, Clone)]
 struct ThermalModel {
     /// What kind of transceiver is this?
     interface: ManagementInterface,
 
     /// What are its thermal properties, e.g. critical temperature?
+    #[allow(dead_code)]
     model: ThermalProperties,
 }
 
@@ -248,28 +259,24 @@ impl ServerImpl {
 
         #[derive(Copy, Clone, FromBytes, AsBytes)]
         #[repr(C)]
-        struct StatusAndTemperature {
-            status: u8,
+        struct Temperature {
             temperature: zerocopy::I16<zerocopy::BigEndian>,
         }
 
-        loop {
-            let mut out = StatusAndTemperature::new_zeroed();
-            self.transceivers
-                .get_i2c_status_and_read_buffer(port, out.as_bytes_mut())?;
-            if out.status & Reg::QSFP::PORT0_STATUS::BUSY == 0 {
-                if out.status & Reg::QSFP::PORT0_STATUS::ERROR != 0 {
-                    return Err(FpgaError::ImplError(out.status));
-                } else {
-                    // "Internally measured free side device temperatures are
-                    // represented as a 16-bit signed twos complement value in
-                    // increments of 1/256 degrees Celsius"
-                    //
-                    // - SFF-8636 rev 2.10a, Section 6.2.4
-                    return Ok(Celsius(out.temperature.get() as f32 / 256.0));
-                }
-            }
-            userlib::hl::sleep_for(1);
+        let mut out = Temperature::new_zeroed();
+        let status = self
+            .transceivers
+            .get_i2c_status_and_read_buffer(port, out.as_bytes_mut())?;
+
+        if status.error == FpgaI2CFailure::NoError {
+            // "Internally measured free side device temperatures are
+            // represented as a 16-bit signed twos complement value in
+            // increments of 1/256 degrees Celsius"
+            //
+            // - SFF-8636 rev 2.10a, Section 6.2.4
+            Ok(Celsius(out.temperature.get() as f32 / 256.0))
+        } else {
+            Err(FpgaError::ImplError(status.error as u8))
         }
     }
 
@@ -282,20 +289,15 @@ impl ServerImpl {
             return Err(FpgaError::CommsError);
         }
 
-        let mut out = [0u8; 2]; // [status, SFF8024Identifier]
+        let mut out = [0u8; 1]; // [SFF8024Identifier]
 
         // Wait for the I2C transaction to complete
-        loop {
-            self.transceivers
-                .get_i2c_status_and_read_buffer(port, &mut out)?;
-            if out[0] & Reg::QSFP::PORT0_STATUS::BUSY == 0 {
-                break;
-            }
-            userlib::hl::sleep_for(1);
-        }
+        let status = self
+            .transceivers
+            .get_i2c_status_and_read_buffer(port, &mut out)?;
 
-        if out[0] & Reg::QSFP::PORT0_STATUS::ERROR == 0 {
-            match out[1] {
+        if status.error == FpgaI2CFailure::NoError {
+            match out[0] {
                 0x1E => Ok(ManagementInterface::Cmis),
                 0x0D | 0x11 => Ok(ManagementInterface::Sff8636),
                 i => Ok(ManagementInterface::Unknown(i)),
@@ -303,7 +305,7 @@ impl ServerImpl {
         } else {
             // TODO: how should we handle this?
             // Right now, we'll retry on the next pass through the loop.
-            Err(FpgaError::ImplError(out[0]))
+            Err(FpgaError::ImplError(status.error as u8))
         }
     }
 
@@ -359,11 +361,12 @@ impl ServerImpl {
                             self.decode_interface(port, interface)
                     }
                     Err(FpgaError::ImplError(e)) => {
-                        match Reg::QSFP::PORT0_STATUS::Encoded::from_u8(e) {
-                            Some(val) => {
+                        match Reg::QSFP::PORT0_STATUS::ErrorEncoded::try_from(e)
+                        {
+                            Ok(val) => {
                                 ringbuf_entry!(Trace::GetInterfaceError(i, val))
                             }
-                            None => {
+                            Err(_) => {
                                 // Error code cannot be decoded
                                 ringbuf_entry!(Trace::InvalidPortStatusError(
                                     i, e
@@ -379,9 +382,12 @@ impl ServerImpl {
                     }
                 }
             } else if !operational && self.thermal_models[i].is_some() {
-                // This transceiver went away; remove it from the thermal loop
-                if let Err(e) = self.thermal_api.remove_dynamic_input(i) {
-                    ringbuf_entry!(Trace::ThermalError(i, e));
+                #[cfg(feature = "thermal-control")]
+                {
+                    // This transceiver went away; remove it from the thermal loop
+                    if let Err(e) = self.thermal_api.remove_dynamic_input(i) {
+                        ringbuf_entry!(Trace::ThermalError(i, e));
+                    }
                 }
 
                 // Tell the `sensor` task that this device is no longer present
@@ -409,14 +415,17 @@ impl ServerImpl {
                 None => continue,
             };
 
-            // *Always* post the thermal model over to the thermal task, so that
-            // the thermal task still has it in case of restart.  This will
-            // return a `NotInAutoMode` error if the thermal loop is in manual
-            // mode; this is harmless and will be ignored (instead of cluttering
-            // up the logs).
-            match self.thermal_api.update_dynamic_input(i, m.model) {
-                Ok(()) | Err(ThermalError::NotInAutoMode) => (),
-                Err(e) => ringbuf_entry!(Trace::ThermalError(i, e)),
+            #[cfg(feature = "thermal-control")]
+            {
+                // *Always* post the thermal model over to the thermal task, so
+                // that the thermal task still has it in case of restart.  This
+                // will return a `NotInAutoMode` error if the thermal loop is in
+                // manual mode; this is harmless and will be ignored (instead of
+                // cluttering up the logs).
+                match self.thermal_api.update_dynamic_input(i, m.model) {
+                    Ok(()) | Err(ThermalError::NotInAutoMode) => (),
+                    Err(e) => ringbuf_entry!(Trace::ThermalError(i, e)),
+                }
             }
 
             let temperature = match m.interface {
@@ -445,13 +454,14 @@ impl ServerImpl {
                 // be transient (and we'll remove the transceiver on the
                 // next pass through this function).
                 Err(FpgaError::ImplError(e)) => {
-                    use Reg::QSFP::PORT0_STATUS::Encoded;
-                    match Encoded::from_u8(e) {
-                        Some(val) => {
-                            got_nack |= matches!(val, Encoded::I2cAddressNack);
+                    use Reg::QSFP::PORT0_STATUS::ErrorEncoded;
+                    match ErrorEncoded::try_from(e) {
+                        Ok(val) => {
+                            got_nack |=
+                                matches!(val, ErrorEncoded::I2CAddressNack);
                             ringbuf_entry!(Trace::TemperatureReadError(i, val))
                         }
-                        None => {
+                        Err(_) => {
                             // Error code cannot be decoded
                             ringbuf_entry!(Trace::InvalidPortStatusError(i, e))
                         }
@@ -609,7 +619,6 @@ fn main() -> ! {
     );
 
     let net = task_net_api::Net::from(NET.get_task_id());
-    let thermal_api = Thermal::from(THERMAL.get_task_id());
     let sensor_api = Sensor::from(SENSOR.get_task_id());
 
     let (tx_data_buf, rx_data_buf) = {
@@ -619,6 +628,9 @@ fn main() -> ! {
         )> = ClaimOnceCell::new(([0; MAX_PACKET_SIZE], [0; MAX_PACKET_SIZE]));
         BUFS.claim()
     };
+
+    #[cfg(feature = "thermal-control")]
+    let thermal_api = Thermal::from(THERMAL.get_task_id());
 
     let mut server = ServerImpl {
         transceivers,
@@ -633,6 +645,7 @@ fn main() -> ! {
         system_led_state: LedState::Off,
         disabled: LogicalPortMask(0),
         consecutive_nacks: [0; NUM_PORTS as usize],
+        #[cfg(feature = "thermal-control")]
         thermal_api,
         sensor_api,
         thermal_models: [None; NUM_PORTS as usize],

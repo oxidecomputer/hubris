@@ -6,7 +6,7 @@ fwid = true
 
 [kernel]
 name = "psc"
-requires = {flash = 32768, ram = 4880}
+requires = {flash = 32868, ram = 5216}
 features = ["dump"]
 
 [caboose]
@@ -23,7 +23,7 @@ start = true
 features = ["dump"]
 stacksize = 1536
 notifications = ["fault", "timer"]
-extern-regions = ["sram2", "sram3", "sram4"]
+extern-regions = ["sram1", "sram2", "sram3", "sram4"]
 
 [tasks.jefe.config.on-state-change]
 net = "jefe-state-change"
@@ -56,6 +56,42 @@ port = "E"
 pin = 3
 owner = {name = "sprot", notification = "rot_irq"}
 
+# Note: present_l IRQs are missing because of a conflict with ROT_IRQ above;
+# these signals are currently polled.
+
+[tasks.sys.config.gpio-irqs.psu_pwr_ok_1]
+port = "J"
+pin = 6
+owner = {name = "sequencer", notification = "psu_pwr_ok_1"}
+
+[tasks.sys.config.gpio-irqs.psu_pwr_ok_2]
+port = "J"
+pin = 7
+owner = {name = "sequencer", notification = "psu_pwr_ok_2"}
+
+[tasks.sys.config.gpio-irqs.psu_pwr_ok_3]
+port = "J"
+pin = 8
+owner = {name = "sequencer", notification = "psu_pwr_ok_3"}
+
+[tasks.sys.config.gpio-irqs.psu_pwr_ok_4]
+port = "J"
+pin = 9
+owner = {name = "sequencer", notification = "psu_pwr_ok_4"}
+
+[tasks.sys.config.gpio-irqs.psu_pwr_ok_5]
+port = "J"
+pin = 10
+owner = {name = "sequencer", notification = "psu_pwr_ok_5"}
+
+[tasks.sys.config.gpio-irqs.psu_pwr_ok_6]
+port = "J"
+pin = 11
+owner = {name = "sequencer", notification = "psu_pwr_ok_6"}
+
+
+
+
 [tasks.i2c_driver]
 name = "drv-stm32xx-i2c-server"
 stacksize = 1048
@@ -86,6 +122,15 @@ priority = 4
 stacksize = 4096
 start = true
 task-slots = ["jefe", "packrat", "i2c_driver", "sys"]
+notifications = [
+    "psu_pwr_ok_1",
+    "psu_pwr_ok_2",
+    "psu_pwr_ok_3",
+    "psu_pwr_ok_4",
+    "psu_pwr_ok_5",
+    "psu_pwr_ok_6",
+    "timer",
+]
 
 [tasks.update_server]
 name = "stm32h7-update-server"
@@ -119,24 +164,34 @@ task-slots = ["i2c_driver"]
 name = "task-net"
 stacksize = 8000
 priority = 4
-features = ["mgmt", "h753", "psc", "vlan", "vpd-mac", "use-spi-core", "spi2"]
-max-sizes = {flash = 131072, ram = 65536, sram1 = 16384}
-sections = {eth_bulk = "sram1"}
-uses = ["eth", "tim16", "spi2"]
+features = ["mgmt", "h753", "psc", "vlan", "vpd-mac", "spi2"]
+max-sizes = {flash = 131072, ram = 65536, sram1_mac = 16384}
+sections = {eth_bulk = "sram1_mac"}
+uses = ["eth", "tim16"]
 start = true
 notifications = [
     "eth-irq",
     "mdio-timer-irq",
     "wake-timer",
-    "spi-irq",
     "jefe-state-change",
 ]
-task-slots = ["sys", "packrat", "jefe"]
+task-slots = ["sys", "packrat", "jefe", {spi_driver = "spi2_driver"}]
 
 [tasks.net.interrupts]
 "eth.irq" = "eth-irq"
 "tim16.irq" = "mdio-timer-irq"
-"spi2.irq" = "spi-irq"
+
+[tasks.spi2_driver]
+name = "drv-stm32h7-spi-server"
+priority = 3
+features = ["spi2", "h753"]
+uses = ["spi2"]
+start = true
+interrupts = {"spi2.irq" = "spi-irq"}
+stacksize = 872
+task-slots = ["sys"]
+notifications = ["spi-irq"]
+
 
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
@@ -249,7 +304,7 @@ max-sizes = {flash = 32768, ram = 16384 }
 start = true
 task-slots = ["sprot", "jefe", "net"]
 stacksize = 2400
-extern-regions = [ "sram2", "sram3", "sram4" ]
+extern-regions = [ "sram1", "sram2", "sram3", "sram4" ]
 notifications = ["socket"]
 features = ["net", "vlan"]
 
@@ -435,8 +490,17 @@ mux = "rot"
 cs = [{port = "E", pin = 4}]
 clock_divider = "DIV256"
 
-[config.net]
-vlan = { start = 0x301, count = 2 }
+# VLAN configuration
+[config.net.vlans.sidecar1]
+vid = 0x301
+trusted = true
+port = 1
+
+[config.net.vlans.sidecar2]
+vid = 0x302
+trusted = true
+port = 2
+
 # UDP ports in sockets below are assigned in oxidecomputer/oana
 
 [config.net.sockets.echo]

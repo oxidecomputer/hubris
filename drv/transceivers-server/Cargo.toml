@@ -5,6 +5,7 @@ authors = ["Aaron Hartwig <aaron@oxide.computer>"]
 edition = "2021"
 
 [dependencies]
+counters = { path = "../../lib/counters" }
 drv-fpga-api = { path = "../fpga-api" }
 drv-i2c-api = { path = "../i2c-api" }
 drv-i2c-devices = { path = "../i2c-devices" }
@@ -32,6 +33,7 @@ zerocopy = { workspace = true }
 
 [features]
 vlan = ["task-net-api/vlan"]
+thermal-control = []
 no-ipc-counters = ["idol/no-counters"]
 
 [build-dependencies]

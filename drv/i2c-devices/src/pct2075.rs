@@ -4,7 +4,7 @@
 
 //! Driver for the PCT2075 temperature sensor
 
-use crate::TempSensor;
+use crate::{TempSensor, Validate};
 use drv_i2c_api::*;
 use userlib::units::*;
 
@@ -59,5 +59,14 @@ impl TempSensor<Error> for Pct2075 {
             Ok(buf) => Ok(convert((buf[0], buf[1]))),
             Err(code) => Err(Error::BadTempRead { code }),
         }
+    }
+}
+
+impl Validate<ResponseCode> for Pct2075 {
+    fn validate(device: &I2cDevice) -> Result<bool, ResponseCode> {
+        let p = Pct2075::new(device);
+        let t = p.read_temperature().map_err(ResponseCode::from)?;
+        // Make sure the temperature reading is reasonable
+        Ok(t.0 > 0.0 && t.0 < 100.0)
     }
 }

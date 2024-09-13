@@ -15,14 +15,16 @@ use dumper_api::DumperError;
 pub use error::{
     AttestOrSprotError, CabooseOrSprotError, DumpOrSprotError,
     RawCabooseOrSprotError, SprocketsError, SprotError, SprotProtocolError,
-    WatchdogError,
+    StateError, StateOrSprotError, WatchdogError,
 };
 
 use crc::{Crc, CRC_16_XMODEM};
 use derive_more::From;
 pub use drv_lpc55_update_api::{
-    HandoffDataLoadError, RawCabooseError, RotBootInfo, RotBootState, RotPage,
-    RotSlot, SlotId, SwitchDuration, UpdateTarget,
+    Fwid, HandoffDataLoadError, ImageError, ImageVersion, RawCabooseError,
+    RotBootInfo, RotBootInfoV2, RotBootState, RotBootStateV2, RotComponent,
+    RotImageDetails, RotPage, RotSlot, SlotId, SwitchDuration, UpdateTarget,
+    VersionedRotBootInfo,
 };
 pub use drv_update_api::UpdateError;
 use hubpack::SerializedSize;
@@ -48,7 +50,7 @@ pub const MIN_VERSION: Version = Version(2);
 /// Code between the `CURRENT_VERSION` and `MIN_VERSION` must remain
 /// compatible. Use the rules described in the comments for [`Msg`] to evolve
 /// the protocol such that this remains true.
-pub const CURRENT_VERSION: Version = Version(5);
+pub const CURRENT_VERSION: Version = Version(6);
 
 /// We allow room in the buffer for message evolution
 pub const REQUEST_BUF_SIZE: usize = 1024;
@@ -347,6 +349,8 @@ pub enum ReqBody {
     RotPage { page: RotPage },
     // Added in sprot protocol version 5
     Swd(SwdReq),
+    // Added in sprot protocol version 6
+    State(StateReq),
 }
 
 // Added in sprot protocol version 5
@@ -363,6 +367,13 @@ pub enum SwdReq {
     /// that there's no debugger attached that would prevent us from talking to
     /// the SP.
     SpSlotWatchdogSupported,
+}
+
+// Added in sprot protocol version 6
+#[derive(Clone, Serialize, Deserialize, SerializedSize)]
+pub enum StateReq {
+    /// Checks the RoT's lifecycle state, per RFD 286
+    LifecycleState,
 }
 
 /// Instruct the RoT to take a dump of the SP via SWD
@@ -390,12 +401,38 @@ pub enum UpdateReq {
     Reset,
     // Added in sprot protocol version 3
     BootInfo,
+    VersionedBootInfo {
+        version: u8,
+    },
+    ComponentPrep {
+        component: RotComponent,
+        slot: SlotId,
+    },
+    ComponentSwitchDefaultImage {
+        component: RotComponent,
+        slot: SlotId,
+        duration: SwitchDuration,
+    },
 }
 
 #[derive(Clone, Serialize, Deserialize, SerializedSize)]
 pub enum CabooseReq {
+    /// Size of the caboose for Hubris slot A or B
     Size { slot: SlotId },
+    /// Read caboose of Hubris slot A or B
     Read { slot: SlotId, start: u32, size: u32 },
+    /// Size of the caboose of a component's slot A or B
+    ComponentSize {
+        component: RotComponent,
+        slot: SlotId,
+    },
+    /// Read caboose of component's slot A or B
+    ComponentRead {
+        component: RotComponent,
+        slot: SlotId,
+        start: u32,
+        size: u32,
+    },
 }
 
 #[derive(Clone, Serialize, Deserialize, SerializedSize)]
@@ -416,6 +453,7 @@ pub enum UpdateRsp {
     BlockSize(u32),
     // Added in sprot protocol version 3
     BootInfo(RotBootInfo),
+    VersionedBootInfo(VersionedRotBootInfo),
 }
 
 /// A response used for caboose requests
@@ -425,6 +463,8 @@ pub enum UpdateRsp {
 pub enum CabooseRsp {
     Size(u32),
     Read,
+    ComponentSize(u32),
+    ComponentRead,
 }
 
 #[derive(Clone, Serialize, Deserialize, SerializedSize)]
@@ -468,12 +508,38 @@ pub enum RspBody {
     Attest(Result<AttestRsp, AttestError>),
 
     Page(Result<RotPageRsp, UpdateError>),
+
+    // Added in sprot protocol version 6
+    State(Result<StateRsp, StateError>),
 }
 
 /// A response for reading a ROT page
 #[derive(Copy, Clone, Serialize, Deserialize, SerializedSize)]
 pub enum RotPageRsp {
     RotPage,
+}
+
+/// Life-cycle state, as defined in RFD 286
+#[derive(Copy, Clone, Serialize, Deserialize, SerializedSize)]
+pub enum LifecycleState {
+    /// Any state in which the CMPA is unlocked counts as unprogrammed
+    Unprogrammed,
+
+    /// At least one of the release trust anchors is valid, and both of the
+    /// development trust anchors are invalid
+    Release,
+
+    /// At least one of the development trust anchors is valid, and both of the
+    /// release trust anchors are revoked
+    Development,
+
+    /// All four trust anchors are revoked
+    EndOfLife,
+}
+
+#[derive(Copy, Clone, Serialize, Deserialize, SerializedSize)]
+pub enum StateRsp {
+    LifecycleState(LifecycleState),
 }
 
 /// A response from the Dumper
@@ -534,6 +600,9 @@ pub enum RotState {
         /// its boot ROM contents and there are known issues with old boot
         /// ROMs.
         bootrom_crc32: u32,
+    },
+    V2 {
+        state: RotBootStateV2,
     },
 }
 
@@ -616,11 +685,12 @@ pub struct SprotIoStats {
 impl SpRot {
     pub fn read_caboose_value(
         &self,
+        component: RotComponent,
         slot_id: SlotId,
         key: [u8; 4],
         buf: &mut [u8],
     ) -> Result<u32, CabooseOrSprotError> {
-        let reader = RotCabooseReader::new(slot_id, self)?;
+        let reader = RotCabooseReader::new(component, slot_id, self)?;
         let len = reader.get(key, buf)?;
         Ok(len)
     }
@@ -630,16 +700,28 @@ impl SpRot {
 struct RotCabooseReader<'a> {
     sprot: &'a SpRot,
     size: u32,
+    component: RotComponent,
     slot: SlotId,
 }
 
 impl<'a> RotCabooseReader<'a> {
     fn new(
+        component: RotComponent,
         slot: SlotId,
         sprot: &'a SpRot,
     ) -> Result<Self, CabooseOrSprotError> {
-        let size = sprot.caboose_size(slot)?;
-        Ok(Self { size, slot, sprot })
+        let size = match component {
+            // Use old API for backward compatibility until
+            // it can be deprecated with anti-rollback/epoch.
+            RotComponent::Hubris => sprot.caboose_size(slot)?,
+            _ => sprot.component_caboose_size(component, slot)?,
+        };
+        Ok(Self {
+            size,
+            component,
+            slot,
+            sprot,
+        })
     }
 
     pub fn get(
@@ -723,9 +805,21 @@ impl tlvc::TlvcRead for &RotCabooseReader<'_> {
         let offset = offset
             .try_into()
             .map_err(|_| tlvc::TlvcReadError::Truncated)?;
-        self.sprot
-            .read_caboose_region(offset, self.slot, dest)
-            .map_err(tlvc::TlvcReadError::User)
+        match self.component {
+            RotComponent::Hubris => self
+                .sprot
+                .read_caboose_region(offset, self.slot, dest)
+                .map_err(tlvc::TlvcReadError::User),
+            _ => self
+                .sprot
+                .component_read_caboose_region(
+                    offset,
+                    self.component,
+                    self.slot,
+                    dest,
+                )
+                .map_err(tlvc::TlvcReadError::User),
+        }
     }
 }
 

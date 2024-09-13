@@ -6,7 +6,7 @@ version = 3
 name = "abi"
 version = "0.1.0"
 dependencies = [
- "bitflags 2.5.0",
+ "bitflags 2.6.0",
  "byteorder",
  "phash",
  "serde",
@@ -113,8 +113,8 @@ dependencies = [
 
 [[package]]
 name = "attest-data"
-version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/dice-util#785ee6db783ecaafd741fcf59e21f2432e27c5ef"
+version = "0.2.0"
+source = "git+https://github.com/oxidecomputer/dice-util#f9498e808dd5643eaf9470fe0ef72b2cf27643de"
 dependencies = [
  "hubpack",
  "salty",
@@ -156,6 +156,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8fe8f5a8a398345e52358e18ff07cc17a568fbca5c6f73873d3a62056309603"
 
 [[package]]
+name = "base16ct"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c7f02d4ea65f2c1853089ffd8d2787bdbc63de2f0d29dedbcf8ccdfa0ccd4cf"
+
+[[package]]
 name = "base64"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -193,9 +199,9 @@ checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
 name = "bitflags"
-version = "2.5.0"
+version = "2.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf4b9d6a944f767f8e5e0db018570623c85f3d925ac718db4e06d0187adb21c1"
+checksum = "b048fb63fd8b5923fc5aa7b340d8e156aec7ec02f0c78fa8a6ddc2613f6f71de"
 
 [[package]]
 name = "bitvec"
@@ -228,6 +234,7 @@ checksum = "bd769563b4ea2953e2825c9e6b7470a5f55f67e0be00030bf3e390a2a6071f64"
 name = "build-fpga-regmap"
 version = "0.1.0"
 dependencies = [
+ "convert_case",
  "serde",
  "serde_json",
 ]
@@ -251,7 +258,7 @@ dependencies = [
 name = "build-kconfig"
 version = "0.1.0"
 dependencies = [
- "bitflags 2.5.0",
+ "bitflags 2.6.0",
  "serde",
 ]
 
@@ -277,6 +284,10 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "build-util",
+ "convert_case",
+ "indexmap 1.9.1",
+ "proc-macro2",
+ "quote",
  "serde",
 ]
 
@@ -338,6 +349,16 @@ checksum = "bdb116a6ef3f6c3698828873ad02c3014b3c85cadb88496095628e3ef1e347f8"
 dependencies = [
  "bzip2-sys",
  "libc",
+]
+
+[[package]]
+name = "bzip2-rs"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "beeb59e7e4c811ab37cc73680c798c7a5da77fc9989c62b09138e31ee740f735"
+dependencies = [
+ "crc32fast",
+ "tinyvec",
 ]
 
 [[package]]
@@ -403,6 +424,16 @@ dependencies = [
  "num-traits",
  "serde",
  "windows-targets 0.52.4",
+]
+
+[[package]]
+name = "cipher"
+version = "0.4.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "773f3b9af64447d2ce9850330c473515014aa235e6a783b02db81ff39e4a3dad"
+dependencies = [
+ "crypto-common",
+ "inout",
 ]
 
 [[package]]
@@ -578,6 +609,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c063cd8cc95f5c377ed0d4b49a4b21f632396ff690e8470c29b3359b346984b"
 dependencies = [
  "cfg-if",
+]
+
+[[package]]
+name = "crypto-bigint"
+version = "0.5.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0dc92fb57ca44df6db8059111ab3af99a63d5d0f8375d9972e319a379c6bab76"
+dependencies = [
+ "generic-array",
+ "rand_core",
+ "subtle",
+ "zeroize",
 ]
 
 [[package]]
@@ -767,7 +810,7 @@ dependencies = [
 [[package]]
 name = "dice-mfg-msgs"
 version = "0.2.1"
-source = "git+https://github.com/oxidecomputer/dice-util#785ee6db783ecaafd741fcf59e21f2432e27c5ef"
+source = "git+https://github.com/oxidecomputer/dice-util#f9498e808dd5643eaf9470fe0ef72b2cf27643de"
 dependencies = [
  "corncobs",
  "hubpack",
@@ -778,9 +821,9 @@ dependencies = [
 
 [[package]]
 name = "digest"
-version = "0.10.6"
+version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8168378f4e5023e7218c89c891c0fd8ecdb5e5e4f18cb78f38cf245dd021e76f"
+checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
 dependencies = [
  "block-buffer",
  "const-oid",
@@ -842,6 +885,27 @@ version = "0.1.0"
 dependencies = [
  "unwrap-lite",
  "volatile-const",
+]
+
+[[package]]
+name = "drv-cosmo-hf"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cortex-m",
+ "counters",
+ "drv-grapefruit-seq-api",
+ "drv-hash-api",
+ "drv-hf-api",
+ "hubpack",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "ringbuf",
+ "serde",
+ "stm32h7",
+ "userlib",
+ "zerocopy 0.6.6",
 ]
 
 [[package]]
@@ -926,30 +990,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "drv-gimlet-hf-api"
-version = "0.1.0"
-dependencies = [
- "counters",
- "derive-idol-err",
- "drv-hash-api",
- "drv-qspi-api",
- "hubpack",
- "idol",
- "idol-runtime",
- "num-traits",
- "serde",
- "userlib",
- "zerocopy 0.6.6",
-]
-
-[[package]]
 name = "drv-gimlet-hf-server"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "crc",
- "drv-gimlet-hf-api",
  "drv-hash-api",
+ "drv-hf-api",
  "drv-stm32h7-qspi",
  "drv-stm32xx-sys-api",
  "hubpack",
@@ -982,14 +1028,15 @@ version = "0.1.0"
 dependencies = [
  "build-fpga-regmap",
  "build-i2c",
+ "build-stm32xx-sys",
  "build-util",
  "byteorder",
  "cfg-if",
  "cortex-m",
  "counters",
- "drv-gimlet-hf-api",
  "drv-gimlet-seq-api",
  "drv-gimlet-state",
+ "drv-hf-api",
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-ice40-spi-program",
@@ -1024,6 +1071,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-grapefruit-seq-api"
+version = "0.1.0"
+dependencies = [
+ "counters",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "userlib",
+ "zerocopy 0.6.6",
+]
+
+[[package]]
+name = "drv-grapefruit-seq-server"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if",
+ "counters",
+ "drv-auxflash-api",
+ "drv-spi-api",
+ "drv-stm32xx-sys-api",
+ "gnarle",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "ringbuf",
+ "sha3",
+ "userlib",
+ "zerocopy 0.6.6",
+]
+
+[[package]]
 name = "drv-hash-api"
 version = "0.1.0"
 dependencies = [
@@ -1032,6 +1111,24 @@ dependencies = [
  "idol",
  "idol-runtime",
  "num-traits",
+ "userlib",
+ "zerocopy 0.6.6",
+]
+
+[[package]]
+name = "drv-hf-api"
+version = "0.1.0"
+dependencies = [
+ "counters",
+ "crc",
+ "derive-idol-err",
+ "drv-hash-api",
+ "drv-qspi-api",
+ "hubpack",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "serde",
  "userlib",
  "zerocopy 0.6.6",
 ]
@@ -1270,8 +1367,6 @@ dependencies = [
  "ringbuf",
  "salty",
  "serde",
- "sprockets-common",
- "sprockets-rot",
  "static-cell",
  "static_assertions",
  "task-jefe-api",
@@ -1368,6 +1463,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-mb85rsxx-fram"
+version = "0.1.0"
+dependencies = [
+ "bitflags 2.6.0",
+ "counters",
+ "drv-spi-api",
+]
+
+[[package]]
 name = "drv-meanwell"
 version = "0.1.0"
 dependencies = [
@@ -1396,15 +1500,60 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-medusa-seq-api"
+version = "0.1.0"
+dependencies = [
+ "counters",
+ "derive-idol-err",
+ "drv-fpga-api",
+ "hubpack",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "serde",
+ "userlib",
+ "zerocopy 0.6.6",
+]
+
+[[package]]
+name = "drv-medusa-seq-server"
+version = "0.1.0"
+dependencies = [
+ "build-i2c",
+ "build-util",
+ "cfg-if",
+ "cortex-m",
+ "drv-fpga-api",
+ "drv-fpga-user-api",
+ "drv-i2c-api",
+ "drv-i2c-devices",
+ "drv-medusa-seq-api",
+ "drv-packrat-vpd-loader",
+ "drv-sidecar-front-io",
+ "drv-sidecar-mainboard-controller",
+ "drv-stm32xx-sys-api",
+ "hubpack",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "ringbuf",
+ "serde",
+ "userlib",
+ "zerocopy 0.6.6",
+]
+
+[[package]]
 name = "drv-mock-gimlet-hf-server"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "drv-gimlet-hf-api",
  "drv-hash-api",
+ "drv-hf-api",
+ "hubpack",
  "idol",
  "idol-runtime",
  "num-traits",
+ "serde",
  "userlib",
  "zerocopy 0.6.6",
 ]
@@ -1494,10 +1643,12 @@ dependencies = [
 name = "drv-psc-seq-server"
 version = "0.1.0"
 dependencies = [
+ "build-util",
  "drv-packrat-vpd-loader",
  "drv-psc-seq-api",
  "drv-stm32xx-sys-api",
  "idol",
+ "ringbuf",
  "task-jefe-api",
  "userlib",
 ]
@@ -1694,6 +1845,7 @@ name = "drv-sprot-api"
 version = "0.1.0"
 dependencies = [
  "attest-api",
+ "attest-data",
  "counters",
  "crc",
  "derive-idol-err",
@@ -1778,6 +1930,7 @@ name = "drv-stm32h7-fmc-demo-server"
 version = "0.1.0"
 dependencies = [
  "build-util",
+ "cfg-if",
  "cortex-m",
  "counters",
  "drv-stm32xx-sys-api",
@@ -1786,7 +1939,9 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "serde",
+ "static-cell",
  "stm32h7",
+ "task-net-api",
  "userlib",
 ]
 
@@ -1905,6 +2060,7 @@ name = "drv-stm32h7-sprot-server"
 version = "0.1.0"
 dependencies = [
  "attest-api",
+ "build-stm32xx-sys",
  "build-util",
  "cfg-if",
  "drv-caboose",
@@ -2016,7 +2172,7 @@ dependencies = [
 name = "drv-stm32xx-sys"
 version = "0.1.0"
 dependencies = [
- "bitflags 2.5.0",
+ "bitflags 2.6.0",
  "build-stm32xx-sys",
  "build-util",
  "cfg-if",
@@ -2039,7 +2195,6 @@ dependencies = [
 name = "drv-stm32xx-sys-api"
 version = "0.1.0"
 dependencies = [
- "build-stm32xx-sys",
  "byteorder",
  "cfg-if",
  "counters",
@@ -2084,6 +2239,7 @@ dependencies = [
  "build-i2c",
  "build-util",
  "cfg-if",
+ "counters",
  "drv-fpga-api",
  "drv-i2c-api",
  "drv-i2c-devices",
@@ -2199,12 +2355,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "453440c271cf5577fd2a40e4942540cb7d0d2f85e27c8d07dd0023c925a67541"
 
 [[package]]
-name = "ed25519"
-version = "2.2.3"
+name = "ecdsa"
+version = "0.16.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "115531babc129696a58c64a4fef0a8bf9e9698629fb97e9e40767d235cfbcd53"
+checksum = "0997c976637b606099b9985693efa3581e84e41f5c11ba5255f88711058ad428"
 dependencies = [
+ "der",
+ "digest",
+ "elliptic-curve",
+ "rfc6979",
  "signature",
+ "spki",
 ]
 
 [[package]]
@@ -2212,6 +2373,25 @@ name = "either"
 version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "90e5c1c8368803113bf0c9584fc495a58b86dc8a29edbf8fe877d21d9507e797"
+
+[[package]]
+name = "elliptic-curve"
+version = "0.13.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b5e6043086bf7973472e0c7dff2142ea0b680d30e18d9cc40f267efbf222bd47"
+dependencies = [
+ "base16ct",
+ "crypto-bigint",
+ "digest",
+ "ff",
+ "generic-array",
+ "group",
+ "pkcs8",
+ "rand_core",
+ "sec1",
+ "subtle",
+ "zeroize",
+]
 
 [[package]]
 name = "embedded-crc-macros"
@@ -2248,22 +2428,22 @@ dependencies = [
 
 [[package]]
 name = "enum-map"
-version = "2.4.1"
+version = "2.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5a56d54c8dd9b3ad34752ed197a4eb2a6601bc010808eb097a04a58ae4c43e1"
+checksum = "6866f3bfdf8207509a033af1a75a7b08abda06bbaaeae6669323fd5a097df2e9"
 dependencies = [
  "enum-map-derive",
 ]
 
 [[package]]
 name = "enum-map-derive"
-version = "0.10.0"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9045e2676cd5af83c3b167d917b0a5c90a4d8e266e2683d6631b235c457fc27"
+checksum = "f282cfdfe92516eb26c2af8589c274c7c17681f5ecc03c18255fe741c6aa64eb"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 1.0.94",
+ "syn 2.0.52",
 ]
 
 [[package]]
@@ -2302,6 +2482,16 @@ checksum = "aa68f1b12764fab894d2755d2518754e71b4fd80ecfb822714a1206c2aab39bf"
 dependencies = [
  "cc",
  "libc",
+]
+
+[[package]]
+name = "ff"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ded41244b729663b1e574f1b4fb731469f69f79c17667b5d776b16cda0479449"
+dependencies = [
+ "rand_core",
+ "subtle",
 ]
 
 [[package]]
@@ -2347,11 +2537,12 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#c6e6eb667b0ee061f77a0e40ec10e5e15f2f54cf"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#1885b52b0601f4215c020cb17516c6a7fa1e2c9d"
 dependencies = [
- "bitflags 2.5.0",
+ "bitflags 2.6.0",
  "hubpack",
  "serde",
+ "serde-big-array 0.5.1",
  "serde_repr",
  "smoltcp",
  "static_assertions",
@@ -2375,12 +2566,13 @@ dependencies = [
 
 [[package]]
 name = "generic-array"
-version = "0.14.6"
+version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bff49e947297f3312447abdca79f45f4738097cc82b06e72054d2223f601f1b9"
+checksum = "85649ca51fd72272d7821adaf274ad91c288277713d9c18820d8499a7ff69e9a"
 dependencies = [
  "typenum",
  "version_check",
+ "zeroize",
 ]
 
 [[package]]
@@ -2443,6 +2635,30 @@ dependencies = [
  "log",
  "plain",
  "scroll",
+]
+
+[[package]]
+name = "grapefruit"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if",
+ "cortex-m",
+ "cortex-m-rt",
+ "drv-stm32h7-startup",
+ "kern",
+ "stm32h7",
+]
+
+[[package]]
+name = "group"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f0f9ef7462f7c099f518d754361858f86d8a07af53ba9af0fe635bbccb151a63"
+dependencies = [
+ "ff",
+ "rand_core",
+ "subtle",
 ]
 
 [[package]]
@@ -2548,7 +2764,7 @@ dependencies = [
 name = "host-sp-messages"
 version = "0.1.0"
 dependencies = [
- "bitflags 2.5.0",
+ "bitflags 2.6.0",
  "counters",
  "drv-i2c-types",
  "fletcher",
@@ -2657,7 +2873,7 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 [[package]]
 name = "idol"
 version = "0.4.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#b529f7b82face38cfc3851a641277fb7dfbedc4b"
+source = "git+https://github.com/oxidecomputer/idolatry.git#52c37586066b793584a18852db77b57ded70fd52"
 dependencies = [
  "indexmap 1.9.1",
  "once_cell",
@@ -2674,7 +2890,7 @@ dependencies = [
 [[package]]
 name = "idol-runtime"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#b529f7b82face38cfc3851a641277fb7dfbedc4b"
+source = "git+https://github.com/oxidecomputer/idolatry.git#52c37586066b793584a18852db77b57ded70fd52"
 dependencies = [
  "counters",
  "userlib",
@@ -2708,6 +2924,15 @@ name = "indoc"
 version = "2.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2c785eefb63ebd0e33416dfcb8d6da0bf27ce752843a45632a67bf10d4d4b5c4"
+
+[[package]]
+name = "inout"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a0c10553d664a4d0bcff9f4215d0aac67a639cc68ef660840afe309b807bc9f5"
+dependencies = [
+ "generic-array",
+]
 
 [[package]]
 name = "io-lifetimes"
@@ -2774,7 +2999,7 @@ dependencies = [
  "abi",
  "anyhow",
  "armv8-m-mpu",
- "bitflags 2.5.0",
+ "bitflags 2.6.0",
  "build-kconfig",
  "build-util",
  "byteorder",
@@ -2939,6 +3164,7 @@ dependencies = [
  "digest",
  "drv-lpc55-flash",
  "hubpack",
+ "kern",
  "lib-dice",
  "lib-lpc55-usart",
  "lpc55-pac",
@@ -2974,9 +3200,11 @@ dependencies = [
  "idol",
  "idol-runtime",
  "lpc55-pac",
+ "mutable-statics",
  "num-traits",
  "ringbuf",
  "serde",
+ "sha3",
  "stage0-handoff",
  "static_assertions",
  "task-jefe-api",
@@ -3058,6 +3286,19 @@ name = "managed"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0ca88d725a0a943b096803bd34e73a4437208b6077654cc4ecb2947a5f91618d"
+
+[[package]]
+name = "medusa"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if",
+ "cortex-m",
+ "cortex-m-rt",
+ "drv-stm32h7-startup",
+ "kern",
+ "stm32h7",
+]
 
 [[package]]
 name = "memchr"
@@ -3287,6 +3528,44 @@ dependencies = [
 ]
 
 [[package]]
+name = "p256"
+version = "0.13.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c9863ad85fa8f4460f9c48cb909d38a0d689dba1f6f6988a5e3e0d31071bcd4b"
+dependencies = [
+ "ecdsa",
+ "elliptic-curve",
+ "primeorder",
+ "sha2",
+]
+
+[[package]]
+name = "p384"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "70786f51bcc69f6a4c0360e063a4cac5419ef7c5cd5b3c99ad70f3be5ba79209"
+dependencies = [
+ "ecdsa",
+ "elliptic-curve",
+ "primeorder",
+ "sha2",
+]
+
+[[package]]
+name = "p521"
+version = "0.13.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0fc9e2161f1f215afdfce23677034ae137bbd45016a880c2eb3ba8eb95f085b2"
+dependencies = [
+ "base16ct",
+ "ecdsa",
+ "elliptic-curve",
+ "primeorder",
+ "rand_core",
+ "sha2",
+]
+
+[[package]]
 name = "packed_struct"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3459,6 +3738,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "primeorder"
+version = "0.13.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "353e1ca18966c16d9deb1c69278edbc5f194139612772bd9537af60ac231e1e6"
+dependencies = [
+ "elliptic-curve",
+]
+
+[[package]]
 name = "proc-macro-error"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3603,6 +3891,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49b3de9ec5dc0a3417da371aab17d729997c15010e7fd24ff707773a33bddb64"
 
 [[package]]
+name = "rfc6979"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f8dd2a808d456c4a54e300a23e9f5a67e122c3024119acbfd73e3bf664491cb2"
+dependencies = [
+ "hmac",
+ "subtle",
+]
+
+[[package]]
 name = "ringbuf"
 version = "0.2.0"
 dependencies = [
@@ -3707,7 +4005,6 @@ version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b947325a585e90733e0e9ec097228f40b637cc346f9bd68f84d5c6297d0fcfef"
 dependencies = [
- "ed25519",
  "subtle",
  "zeroize",
 ]
@@ -3745,6 +4042,20 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.94",
+]
+
+[[package]]
+name = "sec1"
+version = "0.7.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3e97a565f76233a6003f9f5c54be1d9c5bdfa3eccfb189469f11ec4901c47dc"
+dependencies = [
+ "base16ct",
+ "der",
+ "generic-array",
+ "pkcs8",
+ "subtle",
+ "zeroize",
 ]
 
 [[package]]
@@ -3911,9 +4222,9 @@ dependencies = [
 
 [[package]]
 name = "sha2"
-version = "0.10.6"
+version = "0.10.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82e6b795fe2e3b1e845bafcb27aa35405c4d47cdfc92af5fc8d3002f76cebdc0"
+checksum = "793db75ad2bcafc3ffa7c68b215fee268f537982cd901d132f89c6343f3a3dc8"
 dependencies = [
  "cfg-if",
  "cpufeatures",
@@ -4007,9 +4318,9 @@ dependencies = [
 
 [[package]]
 name = "spki"
-version = "0.7.1"
+version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37a5be806ab6f127c3da44b7378837ebf01dadca8510a0e572460216b228bd0e"
+checksum = "d91ed6c858b01f942cd56b37a94b3e0a1798290327d1236e4d9cf4eaca44d29d"
 dependencies = [
  "base64ct",
  "der",
@@ -4022,23 +4333,48 @@ source = "git+https://github.com/oxidecomputer/sprockets.git#3906cf08db604f08053
 dependencies = [
  "derive_more",
  "hubpack",
- "salty",
  "serde",
  "serde-big-array 0.4.1",
 ]
 
 [[package]]
-name = "sprockets-rot"
-version = "0.1.1"
-source = "git+https://github.com/oxidecomputer/sprockets.git#3906cf08db604f0805324bb7aeafe3b96c51b38e"
+name = "ssh-cipher"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "caac132742f0d33c3af65bfcde7f6aa8f62f0e991d80db99149eb9d44708784f"
 dependencies = [
- "corncobs",
- "derive_more",
- "hubpack",
- "salty",
- "serde",
- "sprockets-common",
- "tinyvec",
+ "cipher",
+ "ssh-encoding",
+]
+
+[[package]]
+name = "ssh-encoding"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eb9242b9ef4108a78e8cd1a2c98e193ef372437f8c22be363075233321dd4a15"
+dependencies = [
+ "base64ct",
+ "pem-rfc7468",
+ "sha2",
+]
+
+[[package]]
+name = "ssh-key"
+version = "0.6.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ca9b366a80cf18bb6406f4cf4d10aebfb46140a8c0c33f666a144c5c76ecbafc"
+dependencies = [
+ "p256",
+ "p384",
+ "p521",
+ "rsa",
+ "sec1",
+ "sha2",
+ "signature",
+ "ssh-cipher",
+ "ssh-encoding",
+ "subtle",
+ "zeroize",
 ]
 
 [[package]]
@@ -4270,17 +4606,19 @@ dependencies = [
 name = "task-control-plane-agent"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "build-util",
  "cfg-if",
  "counters",
  "drv-auxflash-api",
  "drv-caboose",
  "drv-caboose-pos",
- "drv-gimlet-hf-api",
  "drv-gimlet-seq-api",
+ "drv-hf-api",
  "drv-ignition-api",
  "drv-lpc55-update-api",
  "drv-monorail-api",
+ "drv-rng-api",
  "drv-sidecar-seq-api",
  "drv-sprot-api",
  "drv-stm32h7-update-api",
@@ -4288,6 +4626,7 @@ dependencies = [
  "drv-transceivers-api",
  "drv-update-api",
  "drv-user-leds-api",
+ "enum-map",
  "gateway-messages",
  "heapless",
  "host-sp-messages",
@@ -4295,8 +4634,11 @@ dependencies = [
  "idol-runtime",
  "lpc55-rom-data",
  "num-traits",
+ "p256",
  "ringbuf",
  "serde",
+ "sha2",
+ "ssh-key",
  "ssmarshal",
  "static-cell",
  "static_assertions",
@@ -4375,6 +4717,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-framulator"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "drv-mb85rsxx-fram",
+ "drv-spi-api",
+ "drv-stm32h7-spi-server",
+ "ringbuf",
+ "userlib",
+]
+
+[[package]]
 name = "task-gimlet-inspector"
 version = "0.1.0"
 dependencies = [
@@ -4400,11 +4754,10 @@ dependencies = [
  "byteorder",
  "cfg-if",
  "cortex-m",
- "drv-gimlet-hf-api",
  "drv-hash-api",
+ "drv-hf-api",
  "drv-i2c-api",
  "drv-lpc55-gpio-api",
- "drv-rng-api",
  "drv-sp-ctrl-api",
  "drv-spi-api",
  "drv-sprot-api",
@@ -4427,18 +4780,20 @@ dependencies = [
 name = "task-host-sp-comms"
 version = "0.1.0"
 dependencies = [
+ "attest-data",
  "build-i2c",
  "build-util",
  "cfg-if",
  "corncobs",
  "cortex-m",
  "counters",
- "drv-gimlet-hf-api",
  "drv-gimlet-seq-api",
+ "drv-hf-api",
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-oxide-vpd",
  "drv-spi-api",
+ "drv-sprot-api",
  "drv-stm32h7-dbgmcu",
  "drv-stm32h7-usart",
  "drv-stm32xx-sys-api",
@@ -4538,6 +4893,7 @@ dependencies = [
  "build-util",
  "cfg-if",
  "counters",
+ "drv-medusa-seq-api",
  "drv-monorail-api",
  "drv-sidecar-front-io",
  "drv-sidecar-mainboard-controller",
@@ -4571,6 +4927,7 @@ dependencies = [
  "cortex-m",
  "counters",
  "drv-gimlet-seq-api",
+ "drv-medusa-seq-api",
  "drv-psc-seq-api",
  "drv-sidecar-seq-api",
  "drv-spi-api",
@@ -4615,6 +4972,7 @@ dependencies = [
  "counters",
  "derive-idol-err",
  "drv-spi-api",
+ "enum-map",
  "hubpack",
  "idol",
  "idol-runtime",
@@ -4631,6 +4989,7 @@ dependencies = [
 name = "task-nucleo-user-button"
 version = "0.1.0"
 dependencies = [
+ "build-stm32xx-sys",
  "build-util",
  "counters",
  "drv-stm32xx-sys-api",
@@ -4857,7 +5216,7 @@ name = "task-thermal"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bitflags 2.5.0",
+ "bitflags 2.6.0",
  "build-i2c",
  "build-util",
  "cortex-m",
@@ -4918,6 +5277,7 @@ dependencies = [
 name = "task-udpbroadcast"
 version = "0.1.0"
 dependencies = [
+ "enum-map",
  "hubpack",
  "idol",
  "num-traits",
@@ -5270,9 +5630,9 @@ dependencies = [
 
 [[package]]
 name = "tinyvec"
-version = "1.6.0"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87cc5ceb3875bb20c2890005a4e226a4651264a5c75edb2421b52861a0a0cb50"
+checksum = "445e881f4f6d382d5f27c034e25eb92edd7c784ceab92a0937db7f2e9471b938"
 
 [[package]]
 name = "tlvc"
@@ -5353,7 +5713,7 @@ name = "transceiver-messages"
 version = "0.1.1"
 source = "git+https://github.com/oxidecomputer/transceiver-control/#0a18f231372069b74b72f1756e2337186e888dc0"
 dependencies = [
- "bitflags 2.5.0",
+ "bitflags 2.6.0",
  "hubpack",
  "serde",
 ]
@@ -5416,9 +5776,9 @@ dependencies = [
 
 [[package]]
 name = "uuid"
-version = "1.8.0"
+version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a183cf7feeba97b4dd1c0d46788634f6221d87fa961b305bed08c851829efcc0"
+checksum = "81dfa00651efa65069b0b6b651f4aaa31ba9e3c3ce0137aaad053604ee7e0314"
 
 [[package]]
 name = "vcell"
@@ -5769,6 +6129,7 @@ dependencies = [
  "atty",
  "build-kconfig",
  "byteorder",
+ "bzip2-rs",
  "cargo_metadata",
  "clap",
  "colored",

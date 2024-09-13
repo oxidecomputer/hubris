@@ -8,8 +8,13 @@
 #[cfg(any(feature = "stm32h743", feature = "stm32h753"))]
 use drv_stm32h7_usart as drv_usart;
 
-use drv_gimlet_hf_api::{HfDevSelect, HfMuxState, HostFlash};
+use attest_data::messages::{
+    HostToRotCommand, RotToHost, SprotError as AttestDataSprotError,
+    MAX_DATA_LEN,
+};
 use drv_gimlet_seq_api::{PowerState, SeqError, Sequencer};
+use drv_hf_api::{HfDevSelect, HfMuxState, HostFlash};
+use drv_sprot_api::SpRot;
 use drv_stm32xx_sys_api as sys_api;
 use drv_usart::Usart;
 use enum_map::Enum;
@@ -60,6 +65,7 @@ task_slot!(HOST_FLASH, hf);
 task_slot!(PACKRAT, packrat);
 task_slot!(NET, net);
 task_slot!(SYS, sys);
+task_slot!(SPROT, sprot);
 
 // TODO: When rebooting the host, we need to wait for the relevant power rails
 // to decay. We ought to do this properly by monitoring the rails, but for now,
@@ -185,6 +191,7 @@ const MAX_DTRACE_CONF_LEN: usize = 4096;
 // data for later read back (either by the host itself or by the control plane
 // via MGS).
 struct HostKeyValueStorage {
+    last_boot_fail_reason: u8,
     last_boot_fail: &'static mut [u8; MAX_HOST_FAIL_MESSAGE_LEN],
     last_panic: &'static mut [u8; MAX_HOST_FAIL_MESSAGE_LEN],
     etc_system: &'static mut [u8; MAX_ETC_SYSTEM_LEN],
@@ -238,6 +245,7 @@ struct ServerImpl {
     net: Net,
     cp_agent: ControlPlaneAgent,
     packrat: Packrat,
+    sprot: SpRot,
     reboot_state: Option<RebootState>,
     host_kv_storage: HostKeyValueStorage,
     hf_mux_state: Option<HfMuxState>,
@@ -296,8 +304,10 @@ impl ServerImpl {
                 CONTROL_PLANE_AGENT.get_task_id(),
             ),
             packrat: Packrat::from(PACKRAT.get_task_id()),
+            sprot: SpRot::from(SPROT.get_task_id()),
             reboot_state: None,
             host_kv_storage: HostKeyValueStorage {
+                last_boot_fail_reason: 0,
                 last_boot_fail,
                 last_panic,
                 etc_system,
@@ -783,11 +793,11 @@ impl ServerImpl {
                 };
                 Some(response)
             }
-            HostToSp::HostBootFailure { .. } => {
+            HostToSp::HostBootFailure { reason } => {
                 // TODO forward to MGS
                 //
                 // For now, copy it into a static var we can pull out via
-                // `humility readvar LAST_HOST_BOOT_FAIL`.
+                // `humility host boot-fail`.
                 let n = usize::min(
                     data.len(),
                     self.host_kv_storage.last_boot_fail.len(),
@@ -797,13 +807,14 @@ impl ServerImpl {
                 for b in &mut self.host_kv_storage.last_boot_fail[n..] {
                     *b = 0;
                 }
+                self.host_kv_storage.last_boot_fail_reason = reason;
                 Some(SpToHost::Ack)
             }
-            HostToSp::HostPanic { .. } => {
+            HostToSp::HostPanic => {
                 // TODO forward to MGS
                 //
                 // For now, copy it into a static var we can pull out via
-                // `humility readvar LAST_HOST_PANIC`.
+                // `humility host last-panic`.
                 let n = usize::min(
                     data.len(),
                     self.host_kv_storage.last_panic.len(),
@@ -840,8 +851,36 @@ impl ServerImpl {
                 Some(SpToHost::Alert { action: 0 })
             }
             HostToSp::RotRequest => {
-                // TODO forward request to RoT
-                Some(SpToHost::RotResponse)
+                match attest_data::messages::parse_message(data) {
+                    Ok((command, data)) => {
+                        let n = usize::min(MAX_DATA_LEN, data.len());
+
+                        let mut data_buf: [u8; MAX_DATA_LEN] =
+                            [0; MAX_DATA_LEN];
+                        if n > 0 {
+                            data_buf[..n].copy_from_slice(&data[..n]);
+                        }
+
+                        self.handle_sprot(header.sequence, command, &data_buf);
+                    }
+                    Err(e) => {
+                        self.tx_buf.try_encode_response(
+                            header.sequence,
+                            &SpToHost::RotResponse,
+                            |buf| {
+                                attest_data::messages::serialize(
+                                    buf,
+                                    &RotToHost::HostToRotError(e),
+                                    |_| 0,
+                                )
+                                .map_err(
+                                    |err| SpToHost::DecodeFailure(err.into()),
+                                )
+                            },
+                        );
+                    }
+                }
+                None
             }
             HostToSp::RotAddHostMeasurements => {
                 // TODO forward request to RoT
@@ -922,6 +961,132 @@ impl ServerImpl {
         self.rx_buf.clear();
 
         Ok(())
+    }
+
+    fn handle_sprot(
+        &mut self,
+        sequence: u64,
+        command: HostToRotCommand,
+        data: &[u8],
+    ) {
+        // All the checks returning CommsBufTooSmall are most likely overkill
+        // but returning an error is much nicer vs a task crash
+        const SPROT_TRANSFER_SIZE: usize = 512;
+        match command {
+            HostToRotCommand::GetCertificates => {
+                let f = |buf: &mut [u8]| {
+                    let mut cnt = 0;
+                    let cert_chain_len = self
+                        .sprot
+                        .cert_chain_len()
+                        .map_err(AttestDataSprotError::from)?;
+                    let mut buf_idx = 0;
+                    for index in 0..cert_chain_len {
+                        let cert_len = self
+                            .sprot
+                            .cert_len(index)
+                            .map_err(AttestDataSprotError::from)?;
+                        for o in (0..cert_len).step_by(SPROT_TRANSFER_SIZE) {
+                            let idx: usize = buf_idx + o as usize;
+                            let end = usize::min(
+                                SPROT_TRANSFER_SIZE,
+                                (cert_len - o) as usize,
+                            );
+                            if idx + end >= buf.len() {
+                                return Err(
+                                    AttestDataSprotError::CommsBufTooSmall
+                                        .into(),
+                                );
+                            }
+                            self.sprot
+                                .cert(index, o, &mut buf[idx..idx + end])
+                                .map_err(AttestDataSprotError::from)?;
+                        }
+                        cnt += cert_len;
+                        buf_idx += cert_len as usize;
+                    }
+                    Ok(cnt as usize)
+                };
+                self.tx_buf.try_encode_response(
+                    sequence,
+                    &SpToHost::RotResponse,
+                    |buf| {
+                        attest_data::messages::try_serialize(
+                            buf,
+                            &RotToHost::RotCertificates,
+                            f,
+                        )
+                        .map_err(|e| SpToHost::DecodeFailure(e.into()))
+                    },
+                );
+            }
+            HostToRotCommand::GetMeasurementLog => {
+                let f = |buf: &mut [u8]| {
+                    let measurement_len = self
+                        .sprot
+                        .log_len()
+                        .map_err(AttestDataSprotError::from)?;
+                    for o in (0..measurement_len).step_by(SPROT_TRANSFER_SIZE) {
+                        let idx: usize = o as usize;
+                        let end = usize::min(
+                            SPROT_TRANSFER_SIZE,
+                            (measurement_len - o) as usize,
+                        );
+                        if idx + end >= buf.len() {
+                            return Err(
+                                AttestDataSprotError::CommsBufTooSmall.into()
+                            );
+                        }
+                        self.sprot
+                            .log(o, &mut buf[idx..idx + end])
+                            .map_err(AttestDataSprotError::from)?;
+                    }
+                    Ok(measurement_len as usize)
+                };
+                self.tx_buf.try_encode_response(
+                    sequence,
+                    &SpToHost::RotResponse,
+                    |buf| {
+                        attest_data::messages::try_serialize(
+                            buf,
+                            &RotToHost::RotMeasurementLog,
+                            f,
+                        )
+                        .map_err(|e| SpToHost::DecodeFailure(e.into()))
+                    },
+                );
+            }
+            HostToRotCommand::Attest => {
+                let f = |buf: &mut [u8]| {
+                    let attest_len: usize = self
+                        .sprot
+                        .attest_len()
+                        .map_err(AttestDataSprotError::from)?
+                        as usize;
+                    if attest_len >= buf.len() {
+                        return Err(
+                            AttestDataSprotError::CommsBufTooSmall.into()
+                        );
+                    }
+                    self.sprot
+                        .attest(data, &mut buf[..attest_len])
+                        .map_err(AttestDataSprotError::from)?;
+                    Ok(attest_len)
+                };
+                self.tx_buf.try_encode_response(
+                    sequence,
+                    &SpToHost::RotResponse,
+                    |buf| {
+                        attest_data::messages::try_serialize(
+                            buf,
+                            &RotToHost::RotAttestation,
+                            f,
+                        )
+                        .map_err(|e| SpToHost::DecodeFailure(e.into()))
+                    },
+                );
+            }
+        };
     }
 
     /// On success, we will have already filled `self.tx_buf` with our response.

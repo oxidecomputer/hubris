@@ -45,7 +45,7 @@ use lpc55_pac as device;
 use drv_lpc55_gpio_api::*;
 use drv_lpc55_syscon_api::*;
 use idol_runtime::{NotificationHandler, RequestError};
-use userlib::*;
+use userlib::{task_slot, RecvMessage};
 
 task_slot!(SYSCON, syscon_driver);
 

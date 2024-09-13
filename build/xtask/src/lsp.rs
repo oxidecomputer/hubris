@@ -237,7 +237,7 @@ fn check_task(
     if dependencies.contains_key(package_name) {
         let build_cfg = app_cfg
             .toml
-            .task_build_config(&task_name, false, None)
+            .task_build_config(task_name, false, None)
             .map_err(|_| {
                 anyhow!("could not get build config for {}", task_name)
             })
@@ -247,7 +247,7 @@ fn check_task(
         let mut target = None;
         while let Some(t) = iter.next() {
             if t == "--target" {
-                target = iter.next().to_owned();
+                iter.next().clone_into(&mut target);
             }
         }
 
@@ -346,13 +346,17 @@ fn inner(file: &PathBuf, clients: &[LspClient]) -> Result<LspConfig> {
         }
     }
 
-    let preferred_apps = [
-        "app/gimlet/rev-c.toml",
-        "app/sidecar/rev-b.toml",
-        "app/psc/rev-b.toml",
-    ];
+    let preferred_apps = if let Ok(toml) = std::env::var("HUBRIS_APP") {
+        vec![toml]
+    } else {
+        vec![
+            "app/gimlet/rev-c.toml".to_string(),
+            "app/sidecar/rev-b.toml".to_string(),
+            "app/psc/rev-b.toml".to_string(),
+        ]
+    };
     for app_name in preferred_apps {
-        let file = root.join(app_name);
+        let file = root.join(&app_name);
         let app_cfg = PackageConfig::new(&file, false, false)
             .context(format!("could not open {file:?}"))?;
 
@@ -365,7 +369,7 @@ fn inner(file: &PathBuf, clients: &[LspClient]) -> Result<LspConfig> {
                 check_task(
                     &package_name,
                     task_name,
-                    app_name,
+                    &app_name,
                     &app_cfg,
                     &packages,
                 )
