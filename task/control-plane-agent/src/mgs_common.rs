@@ -45,8 +45,8 @@ use task_packrat_api::Packrat;
 use task_sensor_api::{Sensor, SensorId};
 use userlib::{kipc, sys_get_timer, task_slot};
 
-task_slot!(PACKRAT, packrat);
 task_slot!(SENSOR, sensor);
+task_slot!(pub PACKRAT, packrat);
 task_slot!(pub SPROT, sprot);
 task_slot!(pub UPDATE_SERVER, update_server);
 

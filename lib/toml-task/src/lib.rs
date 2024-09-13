@@ -58,6 +58,8 @@ pub struct Task<T = ordered_toml::Value> {
     pub sections: IndexMap<String, String>,
     #[serde(default)]
     pub max_sizes: IndexMap<String, u32>,
+    #[serde(default)]
+    pub no_default_features: bool,
 }
 
 impl<T> Task<T> {
