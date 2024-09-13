@@ -1,0 +1,55 @@
+name: build-mf
+on:
+  workflow_call:
+    inputs:
+      os:
+        description: "OS to build for"
+        required: true
+        type: string
+
+jobs:
+  build-mfg:
+    name: build-mfg
+    strategy:
+      matrix:
+        build: [sidecar-b-lab, sidecar-c-lab, sidecar-d-lab, gimlet-c-lab, gimlet-d-lab, gimlet-e-lab, gimlet-f-lab, psc-b-lab, psc-c-lab, oxide-rot-1-dev]
+        include:
+          - build: sidecar-b-lab
+            app_name: sidecar-b-lab
+            app_toml: app/sidecar/rev-b-lab.toml
+            image: default
+          - build: sidecar-c-lab
+            app_name: sidecar-c-lab
+            app_toml: app/sidecar/rev-c-lab.toml
+            image: default
+          - build: sidecar-d-lab
+            app_name: sidecar-d-lab
+            app_toml: app/sidecar/rev-d-lab.toml
+            image: default
+          - build: gimlet-c-lab
+            app_name: gimlet-c-lab
+            app_toml: app/gimlet/rev-c-lab.toml
+            image: default
+          - build: gimlet-d-lab
+            app_name: gimlet-d-lab
+            app_toml: app/gimlet/rev-d-lab.toml
+            image: default
+          - build: gimlet-e-lab
+            app_name: gimlet-e-lab
+            app_toml: app/gimlet/rev-e-lab.toml
+            image: default
+          - build: gimlet-f-lab
+            app_name: gimlet-f-lab
+            app_toml: app/gimlet/rev-f-lab.toml
+            image: default
+          - build: oxide-rot-1-dev
+            app_name: oxide-rot-1-dev
+            app_toml: app/oxide-rot-1/app-dev.toml
+            image: "a, b"
+    uses: ./.github/workflows/build-one.yml
+    with:
+      build: ${{ matrix.build }}
+      app_name: ${{ matrix.app_name }}
+      app_toml: ${{ matrix.app_toml }}
+      image: ${{ matrix.image }}
+      os: ${{ inputs.os }}

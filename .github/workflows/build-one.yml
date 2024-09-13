@@ -86,7 +86,7 @@ jobs:
 
       # upload the output of our build
       - name: Upload build archive
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: inputs.os == 'ubuntu-latest'
         with:
           name: dist-${{ inputs.os }}-${{ inputs.build }}

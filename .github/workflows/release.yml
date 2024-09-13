@@ -2,17 +2,12 @@ name: release
 on:
   workflow_call:
     inputs:
-      board-set:
-        description: "Which set to build"
-        required: true
-        type: string
 
 jobs:
   do-build:
     uses: ./.github/workflows/build-boards.yml
     with:
-       os: ubuntu-latest
-       board-set: ${{ inputs.board-set }}
+       os: oxide-colo-builder-base
 
   release-build:
     needs: do-build
@@ -20,17 +15,24 @@ jobs:
     steps:
     - name: grab binary
       id: grab
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         path: out
+    - name: grab hubedit 
+      uses: actions/checkout@v4
+      with:
+        path: hubtools
+        repository: oxidecomputer/hubtools
+    - name: build hubedit
+      run: |
+        cd hubtools
+        cargo build
     - name: prep
       run: |
-        VERSION=$(cut -d/ -f3- <<< "$GITHUB_REF")
-        VERSION=`echo $VERSION | awk -F- '{print $NF}'`
         OUT=${{ steps.grab.outputs.download-path }}
         for build in `ls $OUT`; do
            for f in `ls $OUT/$build`; do
-              mv $OUT/$build/$f $OUT/`basename $f .zip`-$VERSION.zip
+              hubtools/target/debug/hubedit -a $OUT/$build/$f write-caboose --version 0.0.0-mfg
            done
         done
 
