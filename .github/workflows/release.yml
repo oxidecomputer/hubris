@@ -1,7 +1,6 @@
 name: release
 on:
   workflow_call:
-    inputs:
 
 jobs:
   do-build:
