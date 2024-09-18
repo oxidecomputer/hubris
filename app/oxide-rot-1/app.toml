@@ -137,7 +137,7 @@ task-slots = ["swd"]
 [tasks.attest]
 name = "task-attest"
 priority = 5
-max-sizes = {flash = 33904, ram = 16384}
+max-sizes = {flash = 35400, ram = 16384}
 stacksize = 12304
 start = true
 extern-regions = ["dice_alias", "dice_certs"]
