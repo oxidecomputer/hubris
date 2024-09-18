@@ -246,7 +246,6 @@
         <td class="Bitfield" colspan="2*">Bit<br>2</td>
         <td class="Bitfield" colspan="2*">Bit<br>1</td>
         <td class="Bitfield" colspan="2*">Bit<br>0</td>
-
     </tr>
 
     <tr class="Register">
@@ -259,12 +258,26 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Identification 0</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat0" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">ID0</td>
+    </tr>
+    <tr class="cat0" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat0" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat0" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat0" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -277,7 +290,7 @@
     <tr class="cat0" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">ID0</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="1*">7..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x1</td>
         <td class="FieldDesc" colspan="14">Byte 0 of ID
@@ -293,12 +306,26 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Identification 1</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat1" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">ID1</td>
+    </tr>
+    <tr class="cat1" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat1" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat1" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat1" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -311,7 +338,7 @@
     <tr class="cat1" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">ID1</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="1*">7..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0xde</td>
         <td class="FieldDesc" colspan="14">Byte 1 of ID
@@ -327,12 +354,26 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Identification 2</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat2" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">ID2</td>
+    </tr>
+    <tr class="cat2" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat2" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat2" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat2" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -345,7 +386,7 @@
     <tr class="cat2" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">ID2</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="1*">7..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0xaa</td>
         <td class="FieldDesc" colspan="14">Byte 2 of ID
@@ -361,12 +402,26 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Identification 3</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat3" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">ID3</td>
+    </tr>
+    <tr class="cat3" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat3" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat3" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat3" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -379,7 +434,7 @@
     <tr class="cat3" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">ID3</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="1*">7..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x55</td>
         <td class="FieldDesc" colspan="14">Byte 3 of ID
@@ -395,12 +450,26 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Checksum Scratchpad part 0</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat4" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
+    </tr>
+    <tr class="cat4" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat4" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat4" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat4" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -413,7 +482,7 @@
     <tr class="cat4" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="1*">7..0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">checksum[31..24]
@@ -429,12 +498,26 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Checksum Scratchpad part 1</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat5" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
+    </tr>
+    <tr class="cat5" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat5" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat5" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat5" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -447,7 +530,7 @@
     <tr class="cat5" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="1*">7..0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">checksum[23..16]
@@ -463,12 +546,26 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Checksum Scratchpad part 2</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat6" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
+    </tr>
+    <tr class="cat6" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat6" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat6" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat6" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -481,7 +578,7 @@
     <tr class="cat6" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="1*">7..0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">checksum[15..8]
@@ -497,12 +594,26 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Checksum Scratchpad part 3</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat7" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
+    </tr>
+    <tr class="cat7" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat7" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat7" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat7" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -515,7 +626,7 @@
     <tr class="cat7" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="1*">7..0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">checksum[7..0]
@@ -531,12 +642,26 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp; General Scratchpad</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat8" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">SCRATCHPAD</td>
+    </tr>
+    <tr class="cat8" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat8" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat8" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat8" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -549,7 +674,7 @@
     <tr class="cat8" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">SCRATCHPAD</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="1*">7..0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">Scribble Register for read-write use
@@ -565,13 +690,27 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;QSFP FPGA ID</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat9" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="rsvdspandef" colspan="14*">RSVD</td>
                 <td class="validspandef" colspan="2*">ID</td>
+    </tr>
+    <tr class="cat9" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat9" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat9" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat9" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -600,7 +739,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;LED Controller (PCA9956B) Control Bits</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat10" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -608,6 +746,21 @@
                 <td class="rsvdspandef" colspan="12*">RSVD</td>
                 <td class="validspandef" colspan="2*">OE</td>
                 <td class="validspandef" colspan="2*">RESET</td>
+    </tr>
+    <tr class="cat10" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat10" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat10" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat10" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -645,13 +798,27 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;QSFP Board Version</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat11" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="rsvdspandef" colspan="6*">RSVD</td>
                 <td class="validspandef" colspan="10*">VERSION</td>
+    </tr>
+    <tr class="cat11" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat11" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat11" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat11" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -664,7 +831,7 @@
     <tr class="cat11" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">VERSION</td>
-        <td class="FieldDesc" colspan="1*">4:0</td>
+        <td class="FieldDesc" colspan="1*">4..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">0x0 = Ver A, 0x1 = Ver B or C
@@ -680,7 +847,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Status bits related to VSC8562 (valid on FPGA1 only)</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat12" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -693,6 +859,21 @@
                 <td class="validspandef" colspan="2*">PG_V2P5</td>
                 <td class="validspandef" colspan="2*">PG_V1P0</td>
                 <td class="validspandef" colspan="2*">EN_V1P0</td>
+    </tr>
+    <tr class="cat12" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat12" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat12" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat12" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -784,7 +965,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Control bits related to VSC8562  (valid on FPGA1 only)</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat13" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -795,6 +975,21 @@
                 <td class="validspandef" colspan="2*">CLEAR_POWER_FAULT</td>
                 <td class="validspandef" colspan="2*">COMA_MODE</td>
                 <td class="validspandef" colspan="2*">EN</td>
+    </tr>
+    <tr class="cat13" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat13" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat13" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat13" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -859,7 +1054,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;State bits indicating the PHY oscillator is operating nominal</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat14" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -867,6 +1061,21 @@
                 <td class="rsvdspandef" colspan="12*">RSVD</td>
                 <td class="validspandef" colspan="2*">GOOD</td>
                 <td class="validspandef" colspan="2*">VALID</td>
+    </tr>
+    <tr class="cat14" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat14" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat14" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat14" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -904,7 +1113,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Status bits for the SMI interface to the VSC8562 (valid on FPGA1 only)</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat15" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -912,6 +1120,21 @@
                 <td class="rsvdspandef" colspan="12*">RSVD</td>
                 <td class="validspandef" colspan="2*">MDINT</td>
                 <td class="validspandef" colspan="2*">BUSY</td>
+    </tr>
+    <tr class="cat15" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat15" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat15" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat15" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -949,12 +1172,26 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;SMI Read Data [7:0] (valid on FPGA1 only)</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat16" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
+    </tr>
+    <tr class="cat16" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat16" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat16" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat16" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -967,7 +1204,7 @@
     <tr class="cat16" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="1*">7..0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">Lower byte of read data
@@ -983,12 +1220,26 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;SMI Read Data [15:8] (valid on FPGA1 only)</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat17" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
+    </tr>
+    <tr class="cat17" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat17" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat17" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat17" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -1001,7 +1252,7 @@
     <tr class="cat17" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="1*">7..0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">Upper byte of read data
@@ -1017,12 +1268,26 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;SMI Write Data [7:0] (valid on FPGA1 only)</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat18" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
+    </tr>
+    <tr class="cat18" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat18" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat18" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat18" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -1035,7 +1300,7 @@
     <tr class="cat18" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="1*">7..0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">Lower byte of write data
@@ -1051,12 +1316,26 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;SMI Write Data [15:8] (valid on FPGA1 only)</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat19" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
+    </tr>
+    <tr class="cat19" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat19" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat19" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat19" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -1069,7 +1348,7 @@
     <tr class="cat19" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="1*">7..0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">Upper byte of write data
@@ -1085,13 +1364,27 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;PHY Address (valid on FPGA1 only)</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat20" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="rsvdspandef" colspan="6*">RSVD</td>
                 <td class="validspandef" colspan="10*">ADDR</td>
+    </tr>
+    <tr class="cat20" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat20" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat20" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat20" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -1104,7 +1397,7 @@
     <tr class="cat20" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">ADDR</td>
-        <td class="FieldDesc" colspan="1*">4:0</td>
+        <td class="FieldDesc" colspan="1*">4..0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">Address for which PHY to configure
@@ -1120,13 +1413,27 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Register Address (valid on FPGA1 only)</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat21" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="rsvdspandef" colspan="6*">RSVD</td>
                 <td class="validspandef" colspan="10*">ADDR</td>
+    </tr>
+    <tr class="cat21" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat21" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat21" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat21" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -1139,7 +1446,7 @@
     <tr class="cat21" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">ADDR</td>
-        <td class="FieldDesc" colspan="1*">4:0</td>
+        <td class="FieldDesc" colspan="1*">4..0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">Address for a register
@@ -1155,7 +1462,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;SMI control bits, these are one-shot registers and intended to be written in the same transaction. (valid on FPGA1 only)</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat22" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -1163,6 +1469,21 @@
                 <td class="rsvdspandef" colspan="12*">RSVD</td>
                 <td class="validspandef" colspan="2*">START</td>
                 <td class="validspandef" colspan="2*">RW</td>
+    </tr>
+    <tr class="cat22" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat22" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat22" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat22" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -1200,7 +1521,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;PHY PowerRail state (internal to FPGA)</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat23" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -1209,6 +1529,21 @@
                 <td class="validspandef" colspan="6*">V2P5_STATE</td>
                 <td class="rsvdspandef" colspan="2*">RSVD</td>
                 <td class="validspandef" colspan="6*">V1P0_STATE</td>
+    </tr>
+    <tr class="cat23" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat23" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat23" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat23" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -1221,7 +1556,7 @@
     <tr class="cat23" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">V2P5_STATE</td>
-        <td class="FieldDesc" colspan="1*">6:4</td>
+        <td class="FieldDesc" colspan="1*">6..4</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">0x0 = Disabled, 0x1 = RampingUp, 0x2 = TimedOut, 0x3 = Aborted, 0x4 = Enabled
@@ -1230,7 +1565,7 @@
     <tr class="cat23" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">V1P0_STATE</td>
-        <td class="FieldDesc" colspan="1*">2:0</td>
+        <td class="FieldDesc" colspan="1*">2..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">0x0 = Disabled, 0x1 = RampingUp, 0x2 = TimedOut, 0x3 = Aborted, 0x4 = Enabled
@@ -1246,13 +1581,27 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;QSFP module I2C address</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat24" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="rsvdspandef" colspan="2*">RSVD</td>
                 <td class="validspandef" colspan="14*">ADDR</td>
+    </tr>
+    <tr class="cat24" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat24" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat24" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat24" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -1265,7 +1614,7 @@
     <tr class="cat24" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">ADDR</td>
-        <td class="FieldDesc" colspan="1*">6:0</td>
+        <td class="FieldDesc" colspan="1*">6..0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x50</td>
         <td class="FieldDesc" colspan="14">I2C Address of QSFP module (reset: 7'b1010000)
@@ -1281,12 +1630,26 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;QSFP module register address</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat25" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">ADDR</td>
+    </tr>
+    <tr class="cat25" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat25" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat25" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat25" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -1299,7 +1662,7 @@
     <tr class="cat25" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">ADDR</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="1*">7..0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">QSFP module register address
@@ -1315,12 +1678,26 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;I2C_NUM_BYTES</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat26" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">COUNT</td>
+    </tr>
+    <tr class="cat26" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat26" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat26" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat26" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -1333,7 +1710,7 @@
     <tr class="cat26" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">COUNT</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="1*">7..0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x1</td>
         <td class="FieldDesc" colspan="14">Number of bytes to read/write in the I2C transaction. up to 128 bytes.
@@ -1349,7 +1726,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 Broadcast Control</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat27" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -1362,6 +1738,21 @@
                 <td class="validspandef" colspan="2*">PORT2</td>
                 <td class="validspandef" colspan="2*">PORT1</td>
                 <td class="validspandef" colspan="2*">PORT0</td>
+    </tr>
+    <tr class="cat27" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat27" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat27" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat27" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -1453,7 +1844,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 Broadcast Control</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat28" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -1466,6 +1856,21 @@
                 <td class="validspandef" colspan="2*">PORT10</td>
                 <td class="validspandef" colspan="2*">PORT9</td>
                 <td class="validspandef" colspan="2*">PORT8</td>
+    </tr>
+    <tr class="cat28" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat28" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat28" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat28" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -1557,7 +1962,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Control bits for I2C communication.</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat29" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -1565,6 +1969,21 @@
                 <td class="rsvdspandef" colspan="10*">RSVD</td>
                 <td class="validspandef" colspan="4*">OP</td>
                 <td class="validspandef" colspan="2*">START</td>
+    </tr>
+    <tr class="cat29" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat29" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat29" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat29" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -1577,7 +1996,7 @@
     <tr class="cat29" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">OP</td>
-        <td class="FieldDesc" colspan="1*">2:1</td>
+        <td class="FieldDesc" colspan="1*">2..1</td>
         <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">2'b00 to read, 2'b01 to write, 2'b10 to random-read.
@@ -1602,7 +2021,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 I2C core status. '1' is busy.</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat30" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -1615,6 +2033,21 @@
                 <td class="validspandef" colspan="2*">PORT2</td>
                 <td class="validspandef" colspan="2*">PORT1</td>
                 <td class="validspandef" colspan="2*">PORT0</td>
+    </tr>
+    <tr class="cat30" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat30" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat30" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat30" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -1706,7 +2139,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 I2C core status. '1' is busy.</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat31" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -1719,6 +2151,21 @@
                 <td class="validspandef" colspan="2*">PORT10</td>
                 <td class="validspandef" colspan="2*">PORT9</td>
                 <td class="validspandef" colspan="2*">PORT8</td>
+    </tr>
+    <tr class="cat31" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat31" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat31" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat31" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -1810,16 +2257,30 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;PORT0_STATUS</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat32" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">STRETCHING_SEEN</td>
                 <td class="validspandef" colspan="2*">RDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">WDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">BUSY</td>
                 <td class="validspandef" colspan="8*">ERROR</td>
+    </tr>
+    <tr class="cat32" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat32" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat32" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat32" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -1828,6 +2289,15 @@
         <td class="FieldHeader" colspan="2*">Access</td>
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat32" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">STRETCHING_SEEN</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the module stretched SCL during the last transaction.
+        </td>
     </tr>
     <tr class="cat32" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -1859,7 +2329,7 @@
     <tr class="cat32" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">ERROR</td>
-        <td class="FieldDesc" colspan="1*">3:0</td>
+        <td class="FieldDesc" colspan="1*">3..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">Port I2C error status
@@ -1871,7 +2341,8 @@
             PowerFault = 0x3 <br>
             NotInitialized = 0x4 <br>
             I2cAddressNack = 0x5 <br>
-            I2cByteNack = 0x6 
+            I2cByteNack = 0x6 <br>
+            I2cSclStretchTimeout = 0x7 
         </td>
     </tr>
     <tr class="Register">
@@ -1884,16 +2355,30 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;PORT1_STATUS</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat33" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">STRETCHING_SEEN</td>
                 <td class="validspandef" colspan="2*">RDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">WDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">BUSY</td>
                 <td class="validspandef" colspan="8*">ERROR</td>
+    </tr>
+    <tr class="cat33" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat33" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat33" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat33" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -1902,6 +2387,15 @@
         <td class="FieldHeader" colspan="2*">Access</td>
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat33" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">STRETCHING_SEEN</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the module stretched SCL during the last transaction.
+        </td>
     </tr>
     <tr class="cat33" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -1933,7 +2427,7 @@
     <tr class="cat33" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">ERROR</td>
-        <td class="FieldDesc" colspan="1*">3:0</td>
+        <td class="FieldDesc" colspan="1*">3..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">Port I2C error status
@@ -1945,7 +2439,8 @@
             PowerFault = 0x3 <br>
             NotInitialized = 0x4 <br>
             I2cAddressNack = 0x5 <br>
-            I2cByteNack = 0x6 
+            I2cByteNack = 0x6 <br>
+            I2cSclStretchTimeout = 0x7 
         </td>
     </tr>
     <tr class="Register">
@@ -1958,16 +2453,30 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;PORT2_STATUS</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat34" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">STRETCHING_SEEN</td>
                 <td class="validspandef" colspan="2*">RDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">WDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">BUSY</td>
                 <td class="validspandef" colspan="8*">ERROR</td>
+    </tr>
+    <tr class="cat34" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat34" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat34" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat34" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -1976,6 +2485,15 @@
         <td class="FieldHeader" colspan="2*">Access</td>
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat34" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">STRETCHING_SEEN</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the module stretched SCL during the last transaction.
+        </td>
     </tr>
     <tr class="cat34" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -2007,7 +2525,7 @@
     <tr class="cat34" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">ERROR</td>
-        <td class="FieldDesc" colspan="1*">3:0</td>
+        <td class="FieldDesc" colspan="1*">3..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">Port I2C error status
@@ -2019,7 +2537,8 @@
             PowerFault = 0x3 <br>
             NotInitialized = 0x4 <br>
             I2cAddressNack = 0x5 <br>
-            I2cByteNack = 0x6 
+            I2cByteNack = 0x6 <br>
+            I2cSclStretchTimeout = 0x7 
         </td>
     </tr>
     <tr class="Register">
@@ -2032,16 +2551,30 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;PORT3_STATUS</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat35" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">STRETCHING_SEEN</td>
                 <td class="validspandef" colspan="2*">RDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">WDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">BUSY</td>
                 <td class="validspandef" colspan="8*">ERROR</td>
+    </tr>
+    <tr class="cat35" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat35" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat35" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat35" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -2050,6 +2583,15 @@
         <td class="FieldHeader" colspan="2*">Access</td>
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat35" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">STRETCHING_SEEN</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the module stretched SCL during the last transaction.
+        </td>
     </tr>
     <tr class="cat35" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -2081,7 +2623,7 @@
     <tr class="cat35" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">ERROR</td>
-        <td class="FieldDesc" colspan="1*">3:0</td>
+        <td class="FieldDesc" colspan="1*">3..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">Port I2C error status
@@ -2093,7 +2635,8 @@
             PowerFault = 0x3 <br>
             NotInitialized = 0x4 <br>
             I2cAddressNack = 0x5 <br>
-            I2cByteNack = 0x6 
+            I2cByteNack = 0x6 <br>
+            I2cSclStretchTimeout = 0x7 
         </td>
     </tr>
     <tr class="Register">
@@ -2106,16 +2649,30 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;PORT4_STATUS</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat36" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">STRETCHING_SEEN</td>
                 <td class="validspandef" colspan="2*">RDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">WDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">BUSY</td>
                 <td class="validspandef" colspan="8*">ERROR</td>
+    </tr>
+    <tr class="cat36" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat36" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat36" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat36" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -2124,6 +2681,15 @@
         <td class="FieldHeader" colspan="2*">Access</td>
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat36" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">STRETCHING_SEEN</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the module stretched SCL during the last transaction.
+        </td>
     </tr>
     <tr class="cat36" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -2155,7 +2721,7 @@
     <tr class="cat36" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">ERROR</td>
-        <td class="FieldDesc" colspan="1*">3:0</td>
+        <td class="FieldDesc" colspan="1*">3..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">Port I2C error status
@@ -2167,7 +2733,8 @@
             PowerFault = 0x3 <br>
             NotInitialized = 0x4 <br>
             I2cAddressNack = 0x5 <br>
-            I2cByteNack = 0x6 
+            I2cByteNack = 0x6 <br>
+            I2cSclStretchTimeout = 0x7 
         </td>
     </tr>
     <tr class="Register">
@@ -2180,16 +2747,30 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;PORT5_STATUS</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat37" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">STRETCHING_SEEN</td>
                 <td class="validspandef" colspan="2*">RDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">WDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">BUSY</td>
                 <td class="validspandef" colspan="8*">ERROR</td>
+    </tr>
+    <tr class="cat37" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat37" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat37" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat37" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -2198,6 +2779,15 @@
         <td class="FieldHeader" colspan="2*">Access</td>
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat37" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">STRETCHING_SEEN</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the module stretched SCL during the last transaction.
+        </td>
     </tr>
     <tr class="cat37" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -2229,7 +2819,7 @@
     <tr class="cat37" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">ERROR</td>
-        <td class="FieldDesc" colspan="1*">3:0</td>
+        <td class="FieldDesc" colspan="1*">3..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">Port I2C error status
@@ -2241,7 +2831,8 @@
             PowerFault = 0x3 <br>
             NotInitialized = 0x4 <br>
             I2cAddressNack = 0x5 <br>
-            I2cByteNack = 0x6 
+            I2cByteNack = 0x6 <br>
+            I2cSclStretchTimeout = 0x7 
         </td>
     </tr>
     <tr class="Register">
@@ -2254,16 +2845,30 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;PORT6_STATUS</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat38" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">STRETCHING_SEEN</td>
                 <td class="validspandef" colspan="2*">RDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">WDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">BUSY</td>
                 <td class="validspandef" colspan="8*">ERROR</td>
+    </tr>
+    <tr class="cat38" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat38" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat38" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat38" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -2272,6 +2877,15 @@
         <td class="FieldHeader" colspan="2*">Access</td>
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat38" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">STRETCHING_SEEN</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the module stretched SCL during the last transaction.
+        </td>
     </tr>
     <tr class="cat38" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -2303,7 +2917,7 @@
     <tr class="cat38" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">ERROR</td>
-        <td class="FieldDesc" colspan="1*">3:0</td>
+        <td class="FieldDesc" colspan="1*">3..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">Port I2C error status
@@ -2315,7 +2929,8 @@
             PowerFault = 0x3 <br>
             NotInitialized = 0x4 <br>
             I2cAddressNack = 0x5 <br>
-            I2cByteNack = 0x6 
+            I2cByteNack = 0x6 <br>
+            I2cSclStretchTimeout = 0x7 
         </td>
     </tr>
     <tr class="Register">
@@ -2328,16 +2943,30 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;PORT7_STATUS</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat39" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">STRETCHING_SEEN</td>
                 <td class="validspandef" colspan="2*">RDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">WDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">BUSY</td>
                 <td class="validspandef" colspan="8*">ERROR</td>
+    </tr>
+    <tr class="cat39" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat39" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat39" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat39" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -2346,6 +2975,15 @@
         <td class="FieldHeader" colspan="2*">Access</td>
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat39" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">STRETCHING_SEEN</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the module stretched SCL during the last transaction.
+        </td>
     </tr>
     <tr class="cat39" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -2377,7 +3015,7 @@
     <tr class="cat39" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">ERROR</td>
-        <td class="FieldDesc" colspan="1*">3:0</td>
+        <td class="FieldDesc" colspan="1*">3..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">Port I2C error status
@@ -2389,7 +3027,8 @@
             PowerFault = 0x3 <br>
             NotInitialized = 0x4 <br>
             I2cAddressNack = 0x5 <br>
-            I2cByteNack = 0x6 
+            I2cByteNack = 0x6 <br>
+            I2cSclStretchTimeout = 0x7 
         </td>
     </tr>
     <tr class="Register">
@@ -2402,16 +3041,30 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;PORT8_STATUS</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat40" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">STRETCHING_SEEN</td>
                 <td class="validspandef" colspan="2*">RDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">WDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">BUSY</td>
                 <td class="validspandef" colspan="8*">ERROR</td>
+    </tr>
+    <tr class="cat40" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat40" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat40" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat40" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -2420,6 +3073,15 @@
         <td class="FieldHeader" colspan="2*">Access</td>
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat40" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">STRETCHING_SEEN</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the module stretched SCL during the last transaction.
+        </td>
     </tr>
     <tr class="cat40" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -2451,7 +3113,7 @@
     <tr class="cat40" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">ERROR</td>
-        <td class="FieldDesc" colspan="1*">3:0</td>
+        <td class="FieldDesc" colspan="1*">3..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">Port I2C error status
@@ -2463,7 +3125,8 @@
             PowerFault = 0x3 <br>
             NotInitialized = 0x4 <br>
             I2cAddressNack = 0x5 <br>
-            I2cByteNack = 0x6 
+            I2cByteNack = 0x6 <br>
+            I2cSclStretchTimeout = 0x7 
         </td>
     </tr>
     <tr class="Register">
@@ -2476,16 +3139,30 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;PORT9_STATUS</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat41" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">STRETCHING_SEEN</td>
                 <td class="validspandef" colspan="2*">RDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">WDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">BUSY</td>
                 <td class="validspandef" colspan="8*">ERROR</td>
+    </tr>
+    <tr class="cat41" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat41" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat41" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat41" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -2494,6 +3171,15 @@
         <td class="FieldHeader" colspan="2*">Access</td>
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat41" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">STRETCHING_SEEN</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the module stretched SCL during the last transaction.
+        </td>
     </tr>
     <tr class="cat41" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -2525,7 +3211,7 @@
     <tr class="cat41" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">ERROR</td>
-        <td class="FieldDesc" colspan="1*">3:0</td>
+        <td class="FieldDesc" colspan="1*">3..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">Port I2C error status
@@ -2537,7 +3223,8 @@
             PowerFault = 0x3 <br>
             NotInitialized = 0x4 <br>
             I2cAddressNack = 0x5 <br>
-            I2cByteNack = 0x6 
+            I2cByteNack = 0x6 <br>
+            I2cSclStretchTimeout = 0x7 
         </td>
     </tr>
     <tr class="Register">
@@ -2550,16 +3237,30 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;PORT10_STATUS</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat42" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">STRETCHING_SEEN</td>
                 <td class="validspandef" colspan="2*">RDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">WDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">BUSY</td>
                 <td class="validspandef" colspan="8*">ERROR</td>
+    </tr>
+    <tr class="cat42" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat42" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat42" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat42" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -2568,6 +3269,15 @@
         <td class="FieldHeader" colspan="2*">Access</td>
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat42" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">STRETCHING_SEEN</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the module stretched SCL during the last transaction.
+        </td>
     </tr>
     <tr class="cat42" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -2599,7 +3309,7 @@
     <tr class="cat42" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">ERROR</td>
-        <td class="FieldDesc" colspan="1*">3:0</td>
+        <td class="FieldDesc" colspan="1*">3..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">Port I2C error status
@@ -2611,7 +3321,8 @@
             PowerFault = 0x3 <br>
             NotInitialized = 0x4 <br>
             I2cAddressNack = 0x5 <br>
-            I2cByteNack = 0x6 
+            I2cByteNack = 0x6 <br>
+            I2cSclStretchTimeout = 0x7 
         </td>
     </tr>
     <tr class="Register">
@@ -2624,16 +3335,30 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;PORT11_STATUS</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat43" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">STRETCHING_SEEN</td>
                 <td class="validspandef" colspan="2*">RDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">WDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">BUSY</td>
                 <td class="validspandef" colspan="8*">ERROR</td>
+    </tr>
+    <tr class="cat43" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat43" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat43" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat43" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -2642,6 +3367,15 @@
         <td class="FieldHeader" colspan="2*">Access</td>
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat43" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">STRETCHING_SEEN</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the module stretched SCL during the last transaction.
+        </td>
     </tr>
     <tr class="cat43" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -2673,7 +3407,7 @@
     <tr class="cat43" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">ERROR</td>
-        <td class="FieldDesc" colspan="1*">3:0</td>
+        <td class="FieldDesc" colspan="1*">3..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">Port I2C error status
@@ -2685,7 +3419,8 @@
             PowerFault = 0x3 <br>
             NotInitialized = 0x4 <br>
             I2cAddressNack = 0x5 <br>
-            I2cByteNack = 0x6 
+            I2cByteNack = 0x6 <br>
+            I2cSclStretchTimeout = 0x7 
         </td>
     </tr>
     <tr class="Register">
@@ -2698,16 +3433,30 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;PORT12_STATUS</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat44" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">STRETCHING_SEEN</td>
                 <td class="validspandef" colspan="2*">RDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">WDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">BUSY</td>
                 <td class="validspandef" colspan="8*">ERROR</td>
+    </tr>
+    <tr class="cat44" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat44" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat44" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat44" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -2716,6 +3465,15 @@
         <td class="FieldHeader" colspan="2*">Access</td>
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat44" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">STRETCHING_SEEN</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the module stretched SCL during the last transaction.
+        </td>
     </tr>
     <tr class="cat44" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -2747,7 +3505,7 @@
     <tr class="cat44" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">ERROR</td>
-        <td class="FieldDesc" colspan="1*">3:0</td>
+        <td class="FieldDesc" colspan="1*">3..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">Port I2C error status
@@ -2759,7 +3517,8 @@
             PowerFault = 0x3 <br>
             NotInitialized = 0x4 <br>
             I2cAddressNack = 0x5 <br>
-            I2cByteNack = 0x6 
+            I2cByteNack = 0x6 <br>
+            I2cSclStretchTimeout = 0x7 
         </td>
     </tr>
     <tr class="Register">
@@ -2772,16 +3531,30 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;PORT13_STATUS</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat45" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">STRETCHING_SEEN</td>
                 <td class="validspandef" colspan="2*">RDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">WDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">BUSY</td>
                 <td class="validspandef" colspan="8*">ERROR</td>
+    </tr>
+    <tr class="cat45" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat45" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat45" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat45" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -2790,6 +3563,15 @@
         <td class="FieldHeader" colspan="2*">Access</td>
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat45" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">STRETCHING_SEEN</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the module stretched SCL during the last transaction.
+        </td>
     </tr>
     <tr class="cat45" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -2821,7 +3603,7 @@
     <tr class="cat45" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">ERROR</td>
-        <td class="FieldDesc" colspan="1*">3:0</td>
+        <td class="FieldDesc" colspan="1*">3..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">Port I2C error status
@@ -2833,7 +3615,8 @@
             PowerFault = 0x3 <br>
             NotInitialized = 0x4 <br>
             I2cAddressNack = 0x5 <br>
-            I2cByteNack = 0x6 
+            I2cByteNack = 0x6 <br>
+            I2cSclStretchTimeout = 0x7 
         </td>
     </tr>
     <tr class="Register">
@@ -2846,16 +3629,30 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;PORT14_STATUS</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat46" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">STRETCHING_SEEN</td>
                 <td class="validspandef" colspan="2*">RDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">WDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">BUSY</td>
                 <td class="validspandef" colspan="8*">ERROR</td>
+    </tr>
+    <tr class="cat46" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat46" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat46" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat46" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -2864,6 +3661,15 @@
         <td class="FieldHeader" colspan="2*">Access</td>
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat46" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">STRETCHING_SEEN</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the module stretched SCL during the last transaction.
+        </td>
     </tr>
     <tr class="cat46" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -2895,7 +3701,7 @@
     <tr class="cat46" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">ERROR</td>
-        <td class="FieldDesc" colspan="1*">3:0</td>
+        <td class="FieldDesc" colspan="1*">3..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">Port I2C error status
@@ -2907,7 +3713,8 @@
             PowerFault = 0x3 <br>
             NotInitialized = 0x4 <br>
             I2cAddressNack = 0x5 <br>
-            I2cByteNack = 0x6 
+            I2cByteNack = 0x6 <br>
+            I2cSclStretchTimeout = 0x7 
         </td>
     </tr>
     <tr class="Register">
@@ -2920,16 +3727,30 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;PORT15_STATUS</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat47" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">STRETCHING_SEEN</td>
                 <td class="validspandef" colspan="2*">RDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">WDATA_FIFO_EMPTY</td>
                 <td class="validspandef" colspan="2*">BUSY</td>
                 <td class="validspandef" colspan="8*">ERROR</td>
+    </tr>
+    <tr class="cat47" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat47" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat47" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat47" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -2938,6 +3759,15 @@
         <td class="FieldHeader" colspan="2*">Access</td>
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat47" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">STRETCHING_SEEN</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">'1' if the module stretched SCL during the last transaction.
+        </td>
     </tr>
     <tr class="cat47" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -2969,7 +3799,7 @@
     <tr class="cat47" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">ERROR</td>
-        <td class="FieldDesc" colspan="1*">3:0</td>
+        <td class="FieldDesc" colspan="1*">3..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">Port I2C error status
@@ -2981,7 +3811,8 @@
             PowerFault = 0x3 <br>
             NotInitialized = 0x4 <br>
             I2cAddressNack = 0x5 <br>
-            I2cByteNack = 0x6 
+            I2cByteNack = 0x6 <br>
+            I2cSclStretchTimeout = 0x7 
         </td>
     </tr>
     <tr class="Register">
@@ -2994,7 +3825,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;PORT0_CONTROL</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat48" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -3003,6 +3833,21 @@
                 <td class="validspandef" colspan="2*">RDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">WDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">CLEAR_FAULT</td>
+    </tr>
+    <tr class="cat48" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat48" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat48" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat48" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -3049,7 +3894,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;PORT1_CONTROL</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat49" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -3058,6 +3902,21 @@
                 <td class="validspandef" colspan="2*">RDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">WDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">CLEAR_FAULT</td>
+    </tr>
+    <tr class="cat49" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat49" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat49" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat49" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -3104,7 +3963,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;PORT2_CONTROL</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat50" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -3113,6 +3971,21 @@
                 <td class="validspandef" colspan="2*">RDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">WDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">CLEAR_FAULT</td>
+    </tr>
+    <tr class="cat50" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat50" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat50" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat50" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -3159,7 +4032,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;PORT3_CONTROL</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat51" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -3168,6 +4040,21 @@
                 <td class="validspandef" colspan="2*">RDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">WDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">CLEAR_FAULT</td>
+    </tr>
+    <tr class="cat51" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat51" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat51" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat51" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -3214,7 +4101,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;PORT4_CONTROL</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat52" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -3223,6 +4109,21 @@
                 <td class="validspandef" colspan="2*">RDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">WDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">CLEAR_FAULT</td>
+    </tr>
+    <tr class="cat52" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat52" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat52" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat52" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -3269,7 +4170,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;PORT5_CONTROL</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat53" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -3278,6 +4178,21 @@
                 <td class="validspandef" colspan="2*">RDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">WDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">CLEAR_FAULT</td>
+    </tr>
+    <tr class="cat53" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat53" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat53" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat53" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -3324,7 +4239,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;PORT6_CONTROL</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat54" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -3333,6 +4247,21 @@
                 <td class="validspandef" colspan="2*">RDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">WDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">CLEAR_FAULT</td>
+    </tr>
+    <tr class="cat54" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat54" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat54" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat54" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -3379,7 +4308,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;PORT7_CONTROL</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat55" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -3388,6 +4316,21 @@
                 <td class="validspandef" colspan="2*">RDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">WDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">CLEAR_FAULT</td>
+    </tr>
+    <tr class="cat55" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat55" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat55" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat55" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -3434,7 +4377,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;PORT8_CONTROL</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat56" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -3443,6 +4385,21 @@
                 <td class="validspandef" colspan="2*">RDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">WDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">CLEAR_FAULT</td>
+    </tr>
+    <tr class="cat56" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat56" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat56" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat56" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -3489,7 +4446,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;PORT9_CONTROL</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat57" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -3498,6 +4454,21 @@
                 <td class="validspandef" colspan="2*">RDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">WDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">CLEAR_FAULT</td>
+    </tr>
+    <tr class="cat57" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat57" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat57" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat57" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -3544,7 +4515,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;PORT10_CONTROL</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat58" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -3553,6 +4523,21 @@
                 <td class="validspandef" colspan="2*">RDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">WDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">CLEAR_FAULT</td>
+    </tr>
+    <tr class="cat58" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat58" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat58" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat58" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -3599,7 +4584,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;PORT11_CONTROL</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat59" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -3608,6 +4592,21 @@
                 <td class="validspandef" colspan="2*">RDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">WDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">CLEAR_FAULT</td>
+    </tr>
+    <tr class="cat59" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat59" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat59" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat59" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -3654,7 +4653,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;PORT12_CONTROL</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat60" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -3663,6 +4661,21 @@
                 <td class="validspandef" colspan="2*">RDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">WDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">CLEAR_FAULT</td>
+    </tr>
+    <tr class="cat60" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat60" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat60" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat60" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -3709,7 +4722,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;PORT13_CONTROL</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat61" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -3718,6 +4730,21 @@
                 <td class="validspandef" colspan="2*">RDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">WDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">CLEAR_FAULT</td>
+    </tr>
+    <tr class="cat61" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat61" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat61" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat61" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -3764,7 +4791,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;PORT14_CONTROL</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat62" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -3773,6 +4799,21 @@
                 <td class="validspandef" colspan="2*">RDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">WDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">CLEAR_FAULT</td>
+    </tr>
+    <tr class="cat62" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat62" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat62" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat62" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -3819,7 +4860,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;PORT15_CONTROL</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat63" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -3828,6 +4868,21 @@
                 <td class="validspandef" colspan="2*">RDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">WDATA_FIFO_CLEAR</td>
                 <td class="validspandef" colspan="2*">CLEAR_FAULT</td>
+    </tr>
+    <tr class="cat63" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat63" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat63" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat63" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -3874,7 +4929,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 HSC Enable. Clear bit to remove module power.</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat64" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -3887,6 +4941,21 @@
                 <td class="validspandef" colspan="2*">PORT2</td>
                 <td class="validspandef" colspan="2*">PORT1</td>
                 <td class="validspandef" colspan="2*">PORT0</td>
+    </tr>
+    <tr class="cat64" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat64" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat64" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat64" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -3978,7 +5047,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 HSC Enable. Clear bit to remove module power.</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat65" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -3991,6 +5059,21 @@
                 <td class="validspandef" colspan="2*">PORT10</td>
                 <td class="validspandef" colspan="2*">PORT9</td>
                 <td class="validspandef" colspan="2*">PORT8</td>
+    </tr>
+    <tr class="cat65" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat65" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat65" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat65" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -4082,7 +5165,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 HSC power good</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat66" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -4095,6 +5177,21 @@
                 <td class="validspandef" colspan="2*">PORT2</td>
                 <td class="validspandef" colspan="2*">PORT1</td>
                 <td class="validspandef" colspan="2*">PORT0</td>
+    </tr>
+    <tr class="cat66" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat66" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat66" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat66" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -4186,7 +5283,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 HSC power good</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat67" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -4199,6 +5295,21 @@
                 <td class="validspandef" colspan="2*">PORT10</td>
                 <td class="validspandef" colspan="2*">PORT9</td>
                 <td class="validspandef" colspan="2*">PORT8</td>
+    </tr>
+    <tr class="cat67" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat67" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat67" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat67" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -4290,7 +5401,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 HSC power good not asserted within period after enabled</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat68" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -4303,6 +5413,21 @@
                 <td class="validspandef" colspan="2*">PORT2</td>
                 <td class="validspandef" colspan="2*">PORT1</td>
                 <td class="validspandef" colspan="2*">PORT0</td>
+    </tr>
+    <tr class="cat68" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat68" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat68" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat68" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -4394,7 +5519,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 HSC power good not asserted within period after enabled</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat69" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -4407,6 +5531,21 @@
                 <td class="validspandef" colspan="2*">PORT10</td>
                 <td class="validspandef" colspan="2*">PORT9</td>
                 <td class="validspandef" colspan="2*">PORT8</td>
+    </tr>
+    <tr class="cat69" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat69" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat69" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat69" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -4498,7 +5637,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 HSC power good lost after successful enable</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat70" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -4511,6 +5649,21 @@
                 <td class="validspandef" colspan="2*">PORT2</td>
                 <td class="validspandef" colspan="2*">PORT1</td>
                 <td class="validspandef" colspan="2*">PORT0</td>
+    </tr>
+    <tr class="cat70" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat70" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat70" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat70" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -4602,7 +5755,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 HSC power good lost after successful enable</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat71" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -4615,6 +5767,21 @@
                 <td class="validspandef" colspan="2*">PORT10</td>
                 <td class="validspandef" colspan="2*">PORT9</td>
                 <td class="validspandef" colspan="2*">PORT8</td>
+    </tr>
+    <tr class="cat71" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat71" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat71" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat71" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -4706,7 +5873,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 Module ResetL</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat72" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -4719,6 +5885,21 @@
                 <td class="validspandef" colspan="2*">PORT2</td>
                 <td class="validspandef" colspan="2*">PORT1</td>
                 <td class="validspandef" colspan="2*">PORT0</td>
+    </tr>
+    <tr class="cat72" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat72" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat72" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat72" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -4810,7 +5991,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 Module ResetL</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat73" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -4823,6 +6003,21 @@
                 <td class="validspandef" colspan="2*">PORT10</td>
                 <td class="validspandef" colspan="2*">PORT9</td>
                 <td class="validspandef" colspan="2*">PORT8</td>
+    </tr>
+    <tr class="cat73" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat73" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat73" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat73" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -4914,7 +6109,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 Module LPMode/TxDis</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat74" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -4927,6 +6121,21 @@
                 <td class="validspandef" colspan="2*">PORT2</td>
                 <td class="validspandef" colspan="2*">PORT1</td>
                 <td class="validspandef" colspan="2*">PORT0</td>
+    </tr>
+    <tr class="cat74" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat74" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat74" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat74" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -5018,7 +6227,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 Module LPMode/TxDis</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat75" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -5031,6 +6239,21 @@
                 <td class="validspandef" colspan="2*">PORT10</td>
                 <td class="validspandef" colspan="2*">PORT9</td>
                 <td class="validspandef" colspan="2*">PORT8</td>
+    </tr>
+    <tr class="cat75" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat75" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat75" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat75" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -5122,7 +6345,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 Module ModPrsL</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat76" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -5135,6 +6357,21 @@
                 <td class="validspandef" colspan="2*">PORT2</td>
                 <td class="validspandef" colspan="2*">PORT1</td>
                 <td class="validspandef" colspan="2*">PORT0</td>
+    </tr>
+    <tr class="cat76" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat76" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat76" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat76" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -5226,7 +6463,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 Module ModPrsL</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat77" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -5239,6 +6475,21 @@
                 <td class="validspandef" colspan="2*">PORT10</td>
                 <td class="validspandef" colspan="2*">PORT9</td>
                 <td class="validspandef" colspan="2*">PORT8</td>
+    </tr>
+    <tr class="cat77" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat77" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat77" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat77" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -5330,7 +6581,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 Module IntL/RxLOS</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat78" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -5343,6 +6593,21 @@
                 <td class="validspandef" colspan="2*">PORT2</td>
                 <td class="validspandef" colspan="2*">PORT1</td>
                 <td class="validspandef" colspan="2*">PORT0</td>
+    </tr>
+    <tr class="cat78" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat78" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat78" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat78" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -5434,7 +6699,6 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 Module IntL/RxLOS</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat79" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
@@ -5447,6 +6711,21 @@
                 <td class="validspandef" colspan="2*">PORT10</td>
                 <td class="validspandef" colspan="2*">PORT9</td>
                 <td class="validspandef" colspan="2*">PORT8</td>
+    </tr>
+    <tr class="cat79" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat79" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat79" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat79" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -5538,12 +6817,26 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Port 0 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat80" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
+    </tr>
+    <tr class="cat80" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat80" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat80" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat80" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -5556,7 +6849,7 @@
     <tr class="cat80" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="1*">7..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">None</td>
         <td class="FieldDesc" colspan="14">None
@@ -5572,12 +6865,26 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Port 1 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat81" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
+    </tr>
+    <tr class="cat81" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat81" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat81" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat81" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -5590,7 +6897,7 @@
     <tr class="cat81" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="1*">7..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">None</td>
         <td class="FieldDesc" colspan="14">None
@@ -5606,12 +6913,26 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Port 2 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat82" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
+    </tr>
+    <tr class="cat82" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat82" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat82" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat82" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -5624,7 +6945,7 @@
     <tr class="cat82" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="1*">7..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">None</td>
         <td class="FieldDesc" colspan="14">None
@@ -5640,12 +6961,26 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Port 3 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat83" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
+    </tr>
+    <tr class="cat83" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat83" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat83" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat83" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -5658,7 +6993,7 @@
     <tr class="cat83" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="1*">7..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">None</td>
         <td class="FieldDesc" colspan="14">None
@@ -5674,12 +7009,26 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Port 4 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat84" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
+    </tr>
+    <tr class="cat84" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat84" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat84" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat84" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -5692,7 +7041,7 @@
     <tr class="cat84" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="1*">7..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">None</td>
         <td class="FieldDesc" colspan="14">None
@@ -5708,12 +7057,26 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Port 5 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat85" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
+    </tr>
+    <tr class="cat85" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat85" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat85" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat85" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -5726,7 +7089,7 @@
     <tr class="cat85" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="1*">7..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">None</td>
         <td class="FieldDesc" colspan="14">None
@@ -5742,12 +7105,26 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Port 6 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat86" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
+    </tr>
+    <tr class="cat86" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat86" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat86" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat86" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -5760,7 +7137,7 @@
     <tr class="cat86" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="1*">7..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">None</td>
         <td class="FieldDesc" colspan="14">None
@@ -5776,12 +7153,26 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Port 7 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat87" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
+    </tr>
+    <tr class="cat87" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat87" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat87" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat87" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -5794,7 +7185,7 @@
     <tr class="cat87" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="1*">7..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">None</td>
         <td class="FieldDesc" colspan="14">None
@@ -5810,12 +7201,26 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Port 8 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat88" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
+    </tr>
+    <tr class="cat88" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat88" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat88" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat88" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -5828,7 +7233,7 @@
     <tr class="cat88" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="1*">7..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">None</td>
         <td class="FieldDesc" colspan="14">None
@@ -5844,12 +7249,26 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Port 9 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat89" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
+    </tr>
+    <tr class="cat89" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat89" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat89" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat89" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -5862,7 +7281,7 @@
     <tr class="cat89" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="1*">7..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">None</td>
         <td class="FieldDesc" colspan="14">None
@@ -5878,12 +7297,26 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Port 10 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat90" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
+    </tr>
+    <tr class="cat90" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat90" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat90" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat90" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -5896,7 +7329,7 @@
     <tr class="cat90" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="1*">7..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">None</td>
         <td class="FieldDesc" colspan="14">None
@@ -5912,12 +7345,26 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Port 11 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat91" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
+    </tr>
+    <tr class="cat91" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat91" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat91" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat91" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -5930,7 +7377,7 @@
     <tr class="cat91" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="1*">7..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">None</td>
         <td class="FieldDesc" colspan="14">None
@@ -5946,12 +7393,26 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Port 12 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat92" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
+    </tr>
+    <tr class="cat92" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat92" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat92" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat92" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -5964,7 +7425,7 @@
     <tr class="cat92" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="1*">7..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">None</td>
         <td class="FieldDesc" colspan="14">None
@@ -5980,12 +7441,26 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Port 13 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat93" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
+    </tr>
+    <tr class="cat93" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat93" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat93" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat93" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -5998,7 +7473,7 @@
     <tr class="cat93" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="1*">7..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">None</td>
         <td class="FieldDesc" colspan="14">None
@@ -6014,12 +7489,26 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Port 14 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat94" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
+    </tr>
+    <tr class="cat94" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat94" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat94" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat94" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -6032,7 +7521,7 @@
     <tr class="cat94" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="1*">7..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">None</td>
         <td class="FieldDesc" colspan="14">None
@@ -6048,12 +7537,26 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Port 15 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
-    <!-- Loop over bytes in register !-->
     <tr class="cat95" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
+    </tr>
+    <tr class="cat95" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-1..-8</td>
+    </tr>
+    <tr class="cat95" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-9..-16</td>
+    </tr>
+    <tr class="cat95" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;-17..-24</td>
     </tr>
     <tr class="cat95" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -6066,7 +7569,7 @@
     <tr class="cat95" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
-        <td class="FieldDesc" colspan="1*">7:0</td>
+        <td class="FieldDesc" colspan="1*">7..0</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">None</td>
         <td class="FieldDesc" colspan="14">None

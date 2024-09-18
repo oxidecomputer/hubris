@@ -5713,7 +5713,7 @@ dependencies = [
 [[package]]
 name = "transceiver-messages"
 version = "0.1.1"
-source = "git+https://github.com/oxidecomputer/transceiver-control/#0a18f231372069b74b72f1756e2337186e888dc0"
+source = "git+https://github.com/oxidecomputer/transceiver-control/?branch=aaron/stretch-timeout-error#2b2cbc0529d5ef196830593f578a2306d65653d4"
 dependencies = [
  "bitflags 2.6.0",
  "hubpack",

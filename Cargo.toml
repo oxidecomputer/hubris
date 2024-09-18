@@ -134,7 +134,7 @@ salty = { version = "0.3", default-features = false }
 spd = { git = "https://github.com/oxidecomputer/spd", default-features = false }
 tlvc = { git = "https://github.com/oxidecomputer/tlvc", default-features = false, version = "0.3.1" }
 tlvc-text = { git = "https://github.com/oxidecomputer/tlvc", default-features = false, version = "0.3.0" }
-transceiver-messages = { git = "https://github.com/oxidecomputer/transceiver-control/", default-features = false}
+transceiver-messages = { git = "https://github.com/oxidecomputer/transceiver-control/", default-features = false, branch = "aaron/stretch-timeout-error" }
 vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448", default-features = false }
 
 [workspace.lints.clippy]
