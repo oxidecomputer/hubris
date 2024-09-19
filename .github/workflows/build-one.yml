@@ -75,7 +75,7 @@ jobs:
       # upload the output of our build
       - name: Upload build archive
         uses: actions/upload-artifact@v4
-        if: inputs.os == 'ubuntu-latest'
+        if: inputs.os == 'ubuntu-latest' || inputs.os == 'oxide-colo-builder-hubris'
         with:
           name: dist-${{ inputs.os }}-${{ inputs.build }}
           path: target/${{ inputs.app_name }}/dist/build-${{ inputs.app_name }}-image-*.zip
