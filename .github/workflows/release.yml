@@ -6,7 +6,7 @@ jobs:
   do-build:
     uses: ./.github/workflows/build-mfg.yml
     with:
-       os: oxide-colo-builder-base
+       os: oxide-colo-builder-hubris
 
   release-build:
     needs: do-build
