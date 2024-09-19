@@ -214,6 +214,7 @@ pub fn run(
     handoff: &Handoff<'_>,
     peripherals: &Peripherals,
     flash: &mut Flash<'_>,
+    fwid: &[u8; 32],
 ) {
     // The memory we use to handoff DICE artifacts is already enabled
     // in `main()`;
@@ -244,18 +245,18 @@ pub fn run(
     // trustzone split and need to attest to the nonsecure code we're about to
     // boot.
     //
-    // However, for now, it is moot, and we've agreed to zero it as an
-    // indication of that.
-    let fwid = [0; 32];
+    // Although we are currently signing the bootloader and Hubris with the
+    // same key, and therefore not making improvements over the strength of
+    // those signatures, there is value in including a Hubris measurement.
 
     // create CDI for layer 1 (L1) firmware (the hubris image we're booting)
-    let cdi_l1 = CdiL1::new(&cdi, &fwid);
+    let cdi_l1 = CdiL1::new(&cdi, fwid);
 
     gen_alias_artifacts(
         &cdi_l1,
         &mut mfg_data.cert_serial_number,
         &deviceid_keypair,
-        &fwid,
+        fwid,
         handoff,
     );
 
@@ -263,7 +264,7 @@ pub fn run(
         &cdi_l1,
         &mut mfg_data.cert_serial_number,
         &deviceid_keypair,
-        &fwid,
+        fwid,
         handoff,
     );
 

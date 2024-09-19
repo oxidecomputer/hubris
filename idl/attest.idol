@@ -102,5 +102,67 @@ Interface(
             encoding: Hubpack,
             idempotent: true,
         ),
+        "tq_cert_chain_len": (
+            doc: "Get the number of certs in the tq cert chain",
+            args: {},
+            reply: Result(
+                ok: "u32",
+                err: Complex("AttestError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "tq_cert": (
+            doc: "Get a cert from the TQ cert chain",
+            args: {
+                "index" : "u32",
+                "offset" : "u32",
+            },
+            leases: {
+                "dest": (type: "[u8]", write: true),
+            },
+            reply: Result(
+                ok: "()",
+                err: Complex("AttestError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "tq_cert_len": (
+            doc: "Get length of a cert in the tq cert chain",
+            args: {
+                "index" : "u32",
+            },
+            reply: Result(
+                ok: "u32",
+                err: Complex("AttestError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "tq_sign": (
+            doc: "sign a hash using the tq key",
+            args: {},
+            leases: {
+                "hash": (type: "[u8]", read: true, max_len: Some(32)),
+                "dest": (type: "[u8]", write: true),
+            },
+            reply: Result(
+                ok: "()",
+                err: Complex("AttestError"),
+            ),
+            encoding: Hubpack,
+        ),
+        "tq_sign_len": (
+            doc: "Get the length of a TQ signature",
+            args: {},
+            reply: Result(
+                ok: "u32",
+                err: Complex("AttestError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+
     }
 )

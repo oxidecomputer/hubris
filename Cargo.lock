@@ -99,6 +99,7 @@ dependencies = [
 name = "attest-api"
 version = "0.1.0"
 dependencies = [
+ "attest-data",
  "counters",
  "derive-idol-err",
  "gateway-messages",
@@ -113,14 +114,15 @@ dependencies = [
 
 [[package]]
 name = "attest-data"
-version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/dice-util#f9498e808dd5643eaf9470fe0ef72b2cf27643de"
+version = "0.3.0"
+source = "git+https://github.com/oxidecomputer/dice-util#3cc953c8d0ace2f20cbcf3920b0771d25301960a"
 dependencies = [
  "hubpack",
  "salty",
  "serde",
  "serde_with 3.6.1",
  "sha3",
+ "static_assertions",
 ]
 
 [[package]]
@@ -810,7 +812,7 @@ dependencies = [
 [[package]]
 name = "dice-mfg-msgs"
 version = "0.2.1"
-source = "git+https://github.com/oxidecomputer/dice-util#f9498e808dd5643eaf9470fe0ef72b2cf27643de"
+source = "git+https://github.com/oxidecomputer/dice-util#3cc953c8d0ace2f20cbcf3920b0771d25301960a"
 dependencies = [
  "corncobs",
  "hubpack",

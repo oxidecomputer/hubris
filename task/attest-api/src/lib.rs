@@ -52,4 +52,6 @@ pub enum HashAlgorithm {
 pub const NONCE_MIN_SIZE: usize = 32;
 pub const NONCE_MAX_SIZE: usize = 128;
 
+pub const TQ_HASH_SIZE: usize = attest_data::Sha3_256Digest::LENGTH;
+
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

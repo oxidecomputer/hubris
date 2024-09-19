@@ -1086,6 +1086,70 @@ impl ServerImpl {
                     },
                 );
             }
+            HostToRotCommand::GetTqCertificates => {
+                let f = |buf: &mut [u8]| {
+                    let mut cnt = 0;
+                    let cert_chain_len = self
+                        .sprot
+                        .tq_cert_chain_len()
+                        .map_err(AttestDataSprotError::from)?;
+                    let mut buf_idx = 0;
+                    for index in 0..cert_chain_len {
+                        let cert_len = self
+                            .sprot
+                            .tq_cert_len(index)
+                            .map_err(AttestDataSprotError::from)?;
+                        for o in (0..cert_len).step_by(512) {
+                            let idx: usize = buf_idx + o as usize;
+                            let len = usize::min(512, (cert_len - o) as usize);
+
+                            self.sprot
+                                .tq_cert(index, o, &mut buf[idx..idx + len])
+                                .map_err(AttestDataSprotError::from)?;
+                        }
+                        cnt += cert_len;
+                        buf_idx += cert_len as usize;
+                    }
+                    Ok(cnt as usize)
+                };
+                self.tx_buf.try_encode_response(
+                    sequence,
+                    &SpToHost::RotResponse,
+                    |buf| {
+                        attest_data::messages::try_serialize(
+                            buf,
+                            &RotToHost::RotTqCertificates,
+                            f,
+                        )
+                        .map_err(|e| SpToHost::DecodeFailure(e.into()))
+                    },
+                );
+            }
+            HostToRotCommand::TqSign => {
+                let f = |buf: &mut [u8]| {
+                    let sign_len: usize = self
+                        .sprot
+                        .tq_sign_len()
+                        .map_err(AttestDataSprotError::from)?
+                        as usize;
+                    self.sprot
+                        .tq_sign(data, &mut buf[..sign_len])
+                        .map_err(AttestDataSprotError::from)?;
+                    Ok(sign_len)
+                };
+                self.tx_buf.try_encode_response(
+                    sequence,
+                    &SpToHost::RotResponse,
+                    |buf| {
+                        attest_data::messages::try_serialize(
+                            buf,
+                            &RotToHost::RotTqSign,
+                            f,
+                        )
+                        .map_err(|e| SpToHost::DecodeFailure(e.into()))
+                    },
+                );
+            }
         };
     }
 

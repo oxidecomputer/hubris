@@ -1,5 +1,7 @@
 # The rev D hardware includes `nreset` lines on all I2C muxes and changes the
 # M.2 device type from `m2_hp_only` to `nvme_bmc` (after a hardware fix).
+#
+# This is the production image. We expect `name` to match `board`
 name = "gimlet-d"
 board = "gimlet-d"
 inherit = "base.toml"

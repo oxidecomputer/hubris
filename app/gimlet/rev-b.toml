@@ -1,3 +1,4 @@
+# This is the production image. We expect `name` to match `board`
 name = "gimlet-b"
 board = "gimlet-b"
 inherit = "base.toml"

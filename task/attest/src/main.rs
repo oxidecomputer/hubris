@@ -61,6 +61,11 @@ enum Trace {
 
 ringbuf!(Trace, 16, Trace::None);
 
+enum CertChain {
+    Alias,
+    Tq,
+}
+
 /// Load a type implementing HandoffData (and others) from a config::DataRegion.
 /// Errors will be reported in the ringbuf and will return in None.
 fn load_data_from_region<
@@ -87,6 +92,9 @@ fn load_data_from_region<
 struct AttestServer {
     alias_data: Option<AliasData>,
     alias_keypair: Option<Keypair>,
+    // It's expensive for flash and RAM sizes to duplicate code into another
+    // task to access the TQ keypair. It lives here for now.
+    tq_keypair: Option<Keypair>,
     buf: &'static mut [u8; Log::MAX_SIZE],
     cert_data: Option<CertData>,
     measurements: Log,
@@ -109,10 +117,14 @@ impl AttestServer {
         let alias_keypair = alias_data
             .as_ref()
             .map(|d| Keypair::from(d.alias_seed.as_bytes()));
+        let tq_keypair = alias_data
+            .as_ref()
+            .map(|d| Keypair::from(d.tqdhe_seed.as_bytes()));
 
         Self {
             alias_data,
             alias_keypair,
+            tq_keypair,
             buf,
             cert_data: load_data_from_region(&CERT_DATA),
             measurements: Log::default(),
@@ -122,6 +134,7 @@ impl AttestServer {
     fn get_cert_bytes_from_index(
         &self,
         index: u32,
+        cert_chain: CertChain,
     ) -> Result<&[u8], RequestError<AttestError>> {
         let alias_data =
             self.alias_data.as_ref().ok_or(AttestError::NoCerts)?;
@@ -132,7 +145,11 @@ impl AttestServer {
             // intermediate before the root. We mimic an array with
             // the leaf cert at index 0, and the last intermediate as
             // the chain length - 1.
-            0 => Ok(alias_data.alias_cert.as_bytes()),
+            // Both the TQ and the Alias certs are leafs
+            0 => match cert_chain {
+                CertChain::Alias => Ok(alias_data.alias_cert.as_bytes()),
+                CertChain::Tq => Ok(alias_data.tqdhe_cert.as_bytes()),
+            },
             1 => Ok(cert_data.deviceid_cert.as_bytes()),
             2 => Ok(&cert_data.persistid_cert.0.as_bytes()
                 [0..cert_data.persistid_cert.0.size as usize]),
@@ -177,7 +194,9 @@ impl idl::InOrderAttestImpl for AttestServer {
         _: &userlib::RecvMessage,
         index: u32,
     ) -> Result<u32, RequestError<AttestError>> {
-        let len = self.get_cert_bytes_from_index(index)?.len();
+        let len = self
+            .get_cert_bytes_from_index(index, CertChain::Alias)?
+            .len();
         ringbuf_entry!(Trace::CertLen(len));
 
         let len = u32::try_from(len).map_err(|_| AttestError::CertTooBig)?;
@@ -198,7 +217,7 @@ impl idl::InOrderAttestImpl for AttestServer {
         ringbuf_entry!(Trace::Offset(offset));
         ringbuf_entry!(Trace::BufSize(dest.len()));
 
-        let cert = self.get_cert_bytes_from_index(index)?;
+        let cert = self.get_cert_bytes_from_index(index, CertChain::Alias)?;
         if cert.is_empty() {
             let err = AttestError::InvalidCertIndex;
             ringbuf_entry!(Trace::AttestError(err));
@@ -381,6 +400,147 @@ impl idl::InOrderAttestImpl for AttestServer {
         // this may become inaccurate when additional variants are added to
         // `enum Attestation`
         let len = u32::try_from(Attestation::MAX_SIZE).map_err(|_| {
+            let e = AttestError::SignatureTooBig;
+            ringbuf_entry!(Trace::AttestError(e));
+            e
+        })?;
+
+        Ok(len)
+    }
+
+    /// Get length of cert chain from TqAlias to mfg intermediate
+    fn tq_cert_chain_len(
+        &mut self,
+        _: &userlib::RecvMessage,
+    ) -> Result<u32, RequestError<AttestError>> {
+        let cert_data = self.cert_data.as_ref().ok_or(AttestError::NoCerts)?;
+        // The cert chain will vary in length:
+        // - kernel w/ feature 'dice-self' will have 3 certs in the chain w/
+        // the final cert being a self signed, puf derived identity key
+        // - kernel /w feature 'dice-mfg' will have 4 certs in the chain w/
+        // the final cert being the intermediate that signs the identity
+        // cert
+        let chain_len = if cert_data.intermediate_cert.is_none() {
+            3
+        } else {
+            4
+        };
+
+        ringbuf_entry!(Trace::CertChainLen(chain_len));
+        Ok(chain_len)
+    }
+
+    /// Get length of cert at provided index in TQ cert chain
+    fn tq_cert_len(
+        &mut self,
+        _: &userlib::RecvMessage,
+        index: u32,
+    ) -> Result<u32, RequestError<AttestError>> {
+        let len = self.get_cert_bytes_from_index(index, CertChain::Tq)?.len();
+        ringbuf_entry!(Trace::CertLen(len));
+
+        let len = u32::try_from(len).map_err(|_| AttestError::CertTooBig)?;
+
+        Ok(len)
+    }
+
+    /// Get a cert from the TqAliasCert chain
+    fn tq_cert(
+        &mut self,
+        _: &userlib::RecvMessage,
+        index: u32,
+        offset: u32,
+        dest: Leased<W, [u8]>,
+    ) -> Result<(), RequestError<AttestError>> {
+        ringbuf_entry!(Trace::Cert);
+        ringbuf_entry!(Trace::Index(index));
+        ringbuf_entry!(Trace::Offset(offset));
+        ringbuf_entry!(Trace::BufSize(dest.len()));
+
+        let cert = self.get_cert_bytes_from_index(index, CertChain::Tq)?;
+        if cert.is_empty() {
+            let err = AttestError::InvalidCertIndex;
+            ringbuf_entry!(Trace::AttestError(err));
+            return Err(err.into());
+        }
+
+        let offset = offset as usize;
+        // the offset provided must not exceed the length of the cert & there
+        // must be sufficient data from the offset to the end of the cert to
+        // fill the lease
+        if cert.len() < offset || dest.len() > cert.len() - offset {
+            let err = AttestError::OutOfRange;
+            ringbuf_entry!(Trace::AttestError(err));
+            return Err(err.into());
+        }
+
+        dest.write_range(0..dest.len(), &cert[offset..offset + dest.len()])
+            .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
+
+        Ok(())
+    }
+
+    fn tq_sign(
+        &mut self,
+        _: &userlib::RecvMessage,
+        hash: LenLimit<Leased<R, [u8]>, { Sha3_256Digest::LENGTH }>,
+        dest: Leased<W, [u8]>,
+    ) -> Result<(), RequestError<AttestError>> {
+        // This looks a lot like attest with a few notable changes
+        // - We expect a `Sha3_256Digest::LENGTH` blob instead of a nonce
+        // (these are technically the same for now but it could change)
+        // - measurement log is skipped
+        // - The return value is the raw ed25519 signature and not
+        // a tagged enum
+        if hash.len() != Sha3_256Digest::LENGTH {
+            let err = AttestError::BadLease;
+            ringbuf_entry!(Trace::AttestError(err));
+            return Err(err.into());
+        }
+
+        let len = hash.len();
+        let mut hash_bytes = [0u8; Sha3_256Digest::LENGTH];
+        hash.read_range(0..len, &mut hash_bytes[..len])
+            .map_err(|_| {
+                let e = ClientError::WentAway;
+                ringbuf_entry!(Trace::ClientError(e));
+                RequestError::Fail(e)
+            })?;
+
+        let hash = hash_bytes;
+
+        // get key pair used for tq signatures
+        // NOTE: replace `map_err` w/ `inspect_err` when it's stable
+        let tq_keypair = self
+            .tq_keypair
+            .as_ref()
+            .ok_or(AttestError::NoCerts)
+            .map_err(|e| {
+            ringbuf_entry!(Trace::AttestError(e));
+            e
+        })?;
+
+        let signature = tq_keypair.sign(&hash);
+        if dest.len() != signature.to_bytes().len() {
+            let err = AttestError::BadLease;
+            ringbuf_entry!(Trace::AttestError(err));
+            return Err(err.into());
+        }
+
+        // copy signature from temp buffer to output lease
+        dest.write_range(0..dest.len(), &signature.to_bytes())
+            .map_err(|_| {
+                let e = ClientError::WentAway;
+                ringbuf_entry!(Trace::ClientError(e));
+                RequestError::Fail(e)
+            })
+    }
+
+    fn tq_sign_len(
+        &mut self,
+        _: &userlib::RecvMessage,
+    ) -> Result<u32, RequestError<AttestError>> {
+        let len = u32::try_from(Ed25519Signature::LENGTH).map_err(|_| {
             let e = AttestError::SignatureTooBig;
             ringbuf_entry!(Trace::AttestError(e));
             e

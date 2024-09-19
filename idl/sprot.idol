@@ -380,6 +380,65 @@ Interface(
             reply: Result(
                 ok: "LifecycleState",
                 err: Complex("StateOrSprotError"),
+	    ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "tq_cert_chain_len": (
+            doc: "Return the length of the TQ cert chain",
+            reply: Result(
+                ok: "u32",
+                err: Complex("AttestOrSprotError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "tq_cert_len": (
+            doc: "Get length of a cert in the TQ cert chain",
+            args: {
+                "index": "u32",
+            },
+            reply: Result(
+                ok: "u32",
+                err: Complex("AttestOrSprotError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "tq_cert": (
+            doc: "Get a cert from the alias TQ cert chaing",
+            args: {
+                "index": "u32",
+                "offset": "u32",
+            },
+            leases: {
+                "dest": (type: "[u8]", write: true),
+            },
+            reply: Result(
+                ok: "()",
+                err: Complex("AttestOrSprotError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "tq_sign": (
+            doc: "Sign a hash with the TQ key",
+            args: {},
+            leases: {
+                "tq": (type: "[u8]", read: true, max_len: Some(32)),
+                "dest": (type: "[u8]", write: true),
+            },
+            reply: Result(
+                ok: "()",
+                err: Complex("AttestOrSprotError"),
+            ),
+            encoding: Hubpack,
+        ),
+        "tq_sign_len": (
+            doc: "Get length of a serialized TQ signature",
+            reply: Result(
+                ok: "u32",
+                err: Complex("AttestOrSprotError"),
             ),
             encoding: Hubpack,
             idempotent: true,
