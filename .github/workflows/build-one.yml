@@ -60,7 +60,7 @@ jobs:
         # we need to chmod because all artifacts are marked as non-executable
         if: inputs.os == 'ubuntu-latest' || inputs.os == 'oxide-colo-builder-hubris'
         run: |
-          sudo apt-get update && sudo apt-get install libusb-1.0-0-dev libftdi1-dev
+          sudo apt-get update && sudo apt-get install -y libusb-1.0-0-dev libftdi1-dev
           sudo chmod +x target/release/humility
           for image in `echo ${{ inputs.image }} | tr "," "\n"`; do \
               mv target/${{ inputs.app_name }}/dist/$image/build-${{ inputs.app_name }}-image-$image.zip target/${{ inputs.app_name }}/dist/; \
