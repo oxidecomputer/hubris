@@ -40,18 +40,6 @@ jobs:
           rustup show
           rustup component add clippy
 
-      - name: Cache build output
-        uses: Swatinem/rust-cache@v2
-
-      - name: Cache vcpkg
-        uses: actions/cache@v3
-        with:
-          path: C:\vcpkg\downloads
-          key: ${{ runner.os }}-vcpkg-download-${{ inputs.os }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-vcpkg-download-${{ inputs.os }}-
-            ${{ runner.os }}-vcpkg-download-
-
       # invoke our build
       - name: cargo xtask dist
         env:
