@@ -48,13 +48,12 @@ jobs:
 
       - name: Fetch Humility
         uses: dsaltares/fetch-gh-release-asset@master
-        if: inputs.os == 'ubuntu-latest'
+        if: inputs.os == 'ubuntu-latest' || inputs.os == 'oxide-colo-builder-hubris'
         with:
           repo: "oxidecomputer/humility"
           version: "59047694"
           file: "humility"
           target: "target/release/humility"
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Test Humility manifest
         # we need to chmod because all artifacts are marked as non-executable
