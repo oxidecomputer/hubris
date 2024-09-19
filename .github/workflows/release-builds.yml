@@ -7,8 +7,15 @@ on:
       - "psc-*"
       - "sidecar-*"
       - "devboards-*"
+      - "testing-*"
 
 jobs:
+  release-testing:
+    if: startsWith(github.ref, 'refs/tags/testing')
+    uses: ./.github/workflows/release.yml
+    with:
+      board-set: gimlet
+
   release-rot:
     if: startsWith(github.ref, 'refs/tags/oxide-rot-1')
     uses: ./.github/workflows/release.yml
