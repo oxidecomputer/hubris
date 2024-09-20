@@ -355,31 +355,56 @@ fn inner(file: &PathBuf, clients: &[LspClient]) -> Result<LspConfig> {
             "app/psc/rev-b.toml".to_string(),
         ]
     };
-    for app_name in preferred_apps {
-        let file = root.join(&app_name);
+    let preferred_task = std::env::var("HUBRIS_TASK").ok();
+    for app_name in &preferred_apps {
+        let file = root.join(app_name);
         let app_cfg = PackageConfig::new(&file, false, false)
             .context(format!("could not open {file:?}"))?;
 
         // See if we can find a valid task within this app_cfg
-        if let Some(out) = app_cfg
-            .toml
-            .tasks
-            .keys()
-            .flat_map(|task_name| {
-                check_task(
-                    &package_name,
-                    task_name,
-                    &app_name,
-                    &app_cfg,
-                    &packages,
-                )
-            })
-            .next()
-        {
-            return Ok(out);
+        if let Some(task_name) = &preferred_task {
+            if let Some(lspconfig) = check_task(
+                &package_name,
+                task_name,
+                &app_name,
+                &app_cfg,
+                &packages,
+            ) {
+                return Ok(lspconfig);
+            }
+        } else {
+            if let Some(out) = app_cfg
+                .toml
+                .tasks
+                .keys()
+                .flat_map(|task_name| {
+                    check_task(
+                        &package_name,
+                        task_name,
+                        &app_name,
+                        &app_cfg,
+                        &packages,
+                    )
+                })
+                .next()
+            {
+                return Ok(out);
+            }
         }
     }
-    Err(anyhow!("could not find {package_name} used in any apps"))
+
+    // Try to be specific about the error condition.
+    let apps = preferred_apps.join(", ");
+    if let Some(taskname) = preferred_task {
+        Err(anyhow!(
+            "task {taskname} not found or {package_name} is not used; \
+                checked apps: {apps}"
+        ))
+    } else {
+        Err(anyhow!(
+            "{package_name} is not used in checked apps: {apps}"
+        ))
+    }
 }
 
 pub fn run(file: &PathBuf, clients: &[LspClient]) -> Result<()> {
