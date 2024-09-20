@@ -23,6 +23,15 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         path: out
+    - name: prep
+      run: |
+        OUT=${{ steps.grab.outputs.download-path }}
+        for build in `ls $OUT`; do
+           for f in `ls $OUT/$build`; do
+              mv $OUT/$build/$f $OUT/$f.zip
+           done
+        done
+
 
     - name: cut release
       uses: softprops/action-gh-release@v1
