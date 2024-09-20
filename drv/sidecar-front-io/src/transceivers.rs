@@ -677,6 +677,7 @@ impl core::ops::Index<LogicalPort> for LogicalPortFailureTypes {
 
 #[derive(Copy, Clone)]
 pub struct PortI2CStatus {
+    pub stretching_seen: bool,
     pub rdata_fifo_empty: bool,
     pub wdata_fifo_empty: bool,
     pub done: bool,
@@ -687,6 +688,9 @@ impl PortI2CStatus {
     pub fn new(status: u8) -> Self {
         // Use QSFP::PORT0 for constants, since they're all identical
         Self {
+            stretching_seen: (status
+                & Reg::QSFP::PORT0_STATUS::STRETCHING_SEEN)
+                != 0,
             rdata_fifo_empty: (status
                 & Reg::QSFP::PORT0_STATUS::RDATA_FIFO_EMPTY)
                 != 0,
