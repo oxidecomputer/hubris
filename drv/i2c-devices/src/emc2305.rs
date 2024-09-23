@@ -332,8 +332,8 @@ impl Validate<ResponseCode> for Emc2305 {
         let pid = read_reg8(device, Register::ProductId)?;
         let mfg = read_reg8(device, Register::MfgId)?;
 
-        // XXX The datasheet has ambiguity about whether PID should be 1011_0100
-        // or 0011_0100
-        Ok(pid == 0b0011_0100 && mfg == 0xD5)
+        // The datasheet has ambiguity about whether PID should be 1011_0100
+        // or 0011_0100, but experimentally, it seems to be the latter.
+        Ok(pid == 0b0011_0100 && mfg == 0x5D)
     }
 }
