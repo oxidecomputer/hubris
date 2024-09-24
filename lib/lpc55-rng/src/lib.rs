@@ -7,7 +7,6 @@
 
 use core::{cmp, mem};
 use drv_lpc55_syscon_api::{Peripheral, Syscon};
-use drv_rng_api::RngError;
 use lpc55_pac::{PMC, RNG};
 use rand_core::{impls, Error, RngCore};
 
@@ -53,8 +52,10 @@ impl RngCore for Lpc55Rng {
     fn try_fill_bytes(&mut self, dst: &mut [u8]) -> Result<(), Error> {
         let mut filled = 0;
         while filled < dst.len() {
+            // `new` takes ownership of the PMC & RNG before powering on the
+            // RNG. If it gets turned off between then and now it's a bug.
             if self.pmc.pdruncfg0.read().pden_rng().bits() {
-                return Err(RngError::PoweredOff.into());
+                panic!();
             }
 
             let src = self.rng.random_number.read().bits();

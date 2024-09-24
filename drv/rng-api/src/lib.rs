@@ -17,8 +17,7 @@ use userlib::{sys_send, FromPrimitive};
     Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, counters::Count,
 )]
 pub enum RngError {
-    PoweredOff = 1,
-    NoData,
+    NoData = 1,
     ClockError,
     SeedError,
     UnknownRngError,
