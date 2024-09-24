@@ -8,31 +8,27 @@
 use core::{cmp, mem};
 use drv_lpc55_syscon_api::{Peripheral, Syscon};
 use drv_rng_api::RngError;
-use lpc55_pac::{pmc, rng, PMC, RNG};
+use lpc55_pac::{PMC, RNG};
 use rand_core::{impls, Error, RngCore};
 
 /// The Lpc55Rng is a thin wrapper around the LPC55 hardware random number
 /// generator (HRNG).
 pub struct Lpc55Rng {
-    pub pmc: &'static pmc::RegisterBlock,
-    pub rng: &'static rng::RegisterBlock,
+    pub pmc: PMC,
+    pub rng: RNG,
 }
 
 impl Lpc55Rng {
     /// Create a new Lpc55Rng instance after powering on, enabling the clocks
     /// and reseting the underlying HRNG.
-    pub fn new(syscon: &Syscon) -> Self {
-        let pmc = unsafe { &*PMC::ptr() };
+    pub fn new(pmc: PMC, rng: RNG, syscon: &Syscon) -> Self {
         pmc.pdruncfg0.modify(|_, w| w.pden_rng().poweredon());
 
         syscon.enable_clock(Peripheral::Rng);
         syscon.enter_reset(Peripheral::Rng);
         syscon.leave_reset(Peripheral::Rng);
 
-        Lpc55Rng {
-            pmc,
-            rng: unsafe { &*RNG::ptr() },
-        }
+        Lpc55Rng { pmc, rng }
     }
 }
 

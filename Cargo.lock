@@ -1300,6 +1300,7 @@ dependencies = [
  "indexmap 1.9.1",
  "lib-dice",
  "lib-lpc55-rng",
+ "lpc55-pac",
  "num-traits",
  "rand_chacha",
  "rand_core",

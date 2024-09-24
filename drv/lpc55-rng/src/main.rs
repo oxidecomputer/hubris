@@ -17,6 +17,7 @@ use drv_rng_api::RngError;
 use idol_runtime::{ClientError, NotificationHandler, RequestError};
 use lib_dice::{persistid_cert_tmpl::SUBJECT_CN_LENGTH, RngSeed, SeedBuf};
 use lib_lpc55_rng::Lpc55Rng;
+use lpc55_pac::Peripherals;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{impls, Error, RngCore, SeedableRng};
 use ringbuf::ringbuf;
@@ -303,8 +304,13 @@ pub fn get_seed_personalization() -> Option<[u8; SUBJECT_CN_LENGTH]> {
 fn main() -> ! {
     let seed = get_dice_seed();
     let pid = get_seed_personalization();
+    let peripherals = Peripherals::take().unwrap();
 
-    let rng = Lpc55Rng::new(&Syscon::from(SYSCON.get_task_id()));
+    let rng = Lpc55Rng::new(
+        peripherals.PMC,
+        peripherals.RNG,
+        &Syscon::from(SYSCON.get_task_id()),
+    );
 
     let threshold = 0x100000; // 1 MiB
     let mut rng =
