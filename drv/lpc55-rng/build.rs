@@ -7,11 +7,11 @@ use idol::{server::ServerStyle, CounterSettings};
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "dice-seed")] {
-        mod config {
-            include!("src/config.rs");
+        mod data_region {
+            include!("src/data-region.rs");
         }
         use anyhow::Context;
-        use config::DataRegion;
+        use data_region::DataRegion;
         use indexmap::IndexMap;
         use std::{fs::File, io::Write};
 
@@ -25,13 +25,13 @@ fn extern_region_to_cfg<W: Write>(
     data_regions: &IndexMap<String, DataRegion>,
     name: &str,
 ) -> Result<()> {
-    let region = data_regions
-        .get(name)
-        .ok_or_else(|| anyhow::anyhow!("dice_certs data region not found"))?;
+    let region = data_regions.get(name).ok_or_else(|| {
+        anyhow::anyhow!(format!("external region not found: {}", name))
+    })?;
 
     Ok(writeln!(
         out,
-        r##"pub const {}: DataRegion = DataRegion {{
+        r##"pub const {}_REGION: DataRegion = DataRegion {{
     address: {:#x},
     size: {:#x},
 }};"##,
@@ -53,7 +53,7 @@ fn extern_regions_to_cfg(path: &str) -> Result<()> {
         return Err(anyhow!("no data regions found"));
     }
 
-    writeln!(out, "use crate::config::DataRegion;\n\n")?;
+    writeln!(out, "use crate::data_region::DataRegion;\n\n")?;
 
     extern_region_to_cfg(&mut out, &data_regions, "dice_certs")?;
     extern_region_to_cfg(&mut out, &data_regions, "dice_rng")
