@@ -34,3 +34,6 @@ build-util = { path = "../../build/util" }
 [features]
 h743 = ["build-i2c/h743"]
 h753 = ["build-i2c/h753"]
+
+[lints]
+workspace = true

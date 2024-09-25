@@ -33,3 +33,6 @@ bench = false
 
 [build-dependencies]
 build-util = { path = "../../build/util" }
+
+[lints]
+workspace = true

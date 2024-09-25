@@ -4,6 +4,7 @@
 
 #![no_std]
 #![no_main]
+#![forbid(clippy::wildcard_imports)]
 
 use idol_runtime::{NotificationHandler, RequestError};
 use test_idol_api::{FancyTestType, IdolTestError, SocketName, UdpMetadata};

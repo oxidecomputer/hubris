@@ -13,3 +13,6 @@ unwrap-lite = { path = "../unwrap-lite" }
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

@@ -81,3 +81,6 @@ name = "task-net"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

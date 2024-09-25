@@ -85,3 +85,6 @@ has-af8-thru-af15 = []
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

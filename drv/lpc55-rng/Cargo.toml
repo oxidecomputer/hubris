@@ -29,3 +29,6 @@ name = "drv-lpc55-rng"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

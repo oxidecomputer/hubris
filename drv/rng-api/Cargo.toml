@@ -28,3 +28,6 @@ name = "drv_rng_api"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

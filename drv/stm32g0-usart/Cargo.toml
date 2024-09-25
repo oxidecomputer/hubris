@@ -30,3 +30,6 @@ name = "drv-stm32g0-usart"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

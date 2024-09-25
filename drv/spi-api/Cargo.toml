@@ -30,3 +30,6 @@ anyhow.workspace = true
 idol.workspace = true
 build-spi.path = "../../build/spi"
 build-util.path = "../../build/util"
+
+[lints]
+workspace = true

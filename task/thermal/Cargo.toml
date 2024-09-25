@@ -50,3 +50,6 @@ name = "task-thermal"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true
