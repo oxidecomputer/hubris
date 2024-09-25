@@ -687,17 +687,12 @@ pub struct PortI2CStatus {
 impl PortI2CStatus {
     pub fn new(status: u8) -> Self {
         // Use QSFP::PORT0 for constants, since they're all identical
+        use Reg::QSFP::PORT0_STATUS;
         Self {
-            stretching_seen: (status
-                & Reg::QSFP::PORT0_STATUS::STRETCHING_SEEN)
-                != 0,
-            rdata_fifo_empty: (status
-                & Reg::QSFP::PORT0_STATUS::RDATA_FIFO_EMPTY)
-                != 0,
-            wdata_fifo_empty: (status
-                & Reg::QSFP::PORT0_STATUS::WDATA_FIFO_EMPTY)
-                != 0,
-            done: (status & Reg::QSFP::PORT0_STATUS::BUSY) == 0,
+            stretching_seen: (status & PORT0_STATUS::STRETCHING_SEEN) != 0,
+            rdata_fifo_empty: (status & PORT0_STATUS::RDATA_FIFO_EMPTY) != 0,
+            wdata_fifo_empty: (status & PORT0_STATUS::WDATA_FIFO_EMPTY) != 0,
+            done: (status & PORT0_STATUS::BUSY) == 0,
             error: FpgaI2CFailure::try_from(status).unwrap_lite(),
         }
     }

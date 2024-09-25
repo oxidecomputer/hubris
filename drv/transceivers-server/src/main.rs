@@ -88,8 +88,8 @@ counted_ringbuf!(Trace, 16, Trace::None);
 ///
 /// This should be **very rare**: it requires a transceiver to correctly report
 /// its type (SFF vs CMIS) over I2C when it's first plugged in, but then begin
-/// NACKing or timing out while still physically present
-/// (according to the `modprsl` pin).
+/// NACKing or timing out while still physically present (according to the
+/// `modprsl` pin).
 ///
 /// Despite the weirdness of these pre-requisites, we've seen this happen once
 /// already; without handling it, the thermal loop will eventually shut down the
