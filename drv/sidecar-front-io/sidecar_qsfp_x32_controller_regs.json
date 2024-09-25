@@ -1195,6 +1195,10 @@
                                 {
                                     "name": "I2cByteNack",
                                     "value": 6
+                                },
+                                {
+                                    "name": "I2cSclStretchTimeout",
+                                    "value": 7
                                 }
                             ]
                         },
@@ -1230,6 +1234,17 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the I2C read data buffer is empty."
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "STRETCHING_SEEN",
+                            "lsb": 7,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "'1' if the module stretched SCL during the last transaction."
                         }
                     ]
                 },
@@ -1278,6 +1293,10 @@
                                 {
                                     "name": "I2cByteNack",
                                     "value": 6
+                                },
+                                {
+                                    "name": "I2cSclStretchTimeout",
+                                    "value": 7
                                 }
                             ]
                         },
@@ -1313,6 +1332,17 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the I2C read data buffer is empty."
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "STRETCHING_SEEN",
+                            "lsb": 7,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "'1' if the module stretched SCL during the last transaction."
                         }
                     ]
                 },
@@ -1361,6 +1391,10 @@
                                 {
                                     "name": "I2cByteNack",
                                     "value": 6
+                                },
+                                {
+                                    "name": "I2cSclStretchTimeout",
+                                    "value": 7
                                 }
                             ]
                         },
@@ -1396,6 +1430,17 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the I2C read data buffer is empty."
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "STRETCHING_SEEN",
+                            "lsb": 7,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "'1' if the module stretched SCL during the last transaction."
                         }
                     ]
                 },
@@ -1444,6 +1489,10 @@
                                 {
                                     "name": "I2cByteNack",
                                     "value": 6
+                                },
+                                {
+                                    "name": "I2cSclStretchTimeout",
+                                    "value": 7
                                 }
                             ]
                         },
@@ -1479,6 +1528,17 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the I2C read data buffer is empty."
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "STRETCHING_SEEN",
+                            "lsb": 7,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "'1' if the module stretched SCL during the last transaction."
                         }
                     ]
                 },
@@ -1527,6 +1587,10 @@
                                 {
                                     "name": "I2cByteNack",
                                     "value": 6
+                                },
+                                {
+                                    "name": "I2cSclStretchTimeout",
+                                    "value": 7
                                 }
                             ]
                         },
@@ -1562,6 +1626,17 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the I2C read data buffer is empty."
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "STRETCHING_SEEN",
+                            "lsb": 7,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "'1' if the module stretched SCL during the last transaction."
                         }
                     ]
                 },
@@ -1610,6 +1685,10 @@
                                 {
                                     "name": "I2cByteNack",
                                     "value": 6
+                                },
+                                {
+                                    "name": "I2cSclStretchTimeout",
+                                    "value": 7
                                 }
                             ]
                         },
@@ -1645,6 +1724,17 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the I2C read data buffer is empty."
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "STRETCHING_SEEN",
+                            "lsb": 7,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "'1' if the module stretched SCL during the last transaction."
                         }
                     ]
                 },
@@ -1693,6 +1783,10 @@
                                 {
                                     "name": "I2cByteNack",
                                     "value": 6
+                                },
+                                {
+                                    "name": "I2cSclStretchTimeout",
+                                    "value": 7
                                 }
                             ]
                         },
@@ -1728,6 +1822,17 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the I2C read data buffer is empty."
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "STRETCHING_SEEN",
+                            "lsb": 7,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "'1' if the module stretched SCL during the last transaction."
                         }
                     ]
                 },
@@ -1776,6 +1881,10 @@
                                 {
                                     "name": "I2cByteNack",
                                     "value": 6
+                                },
+                                {
+                                    "name": "I2cSclStretchTimeout",
+                                    "value": 7
                                 }
                             ]
                         },
@@ -1811,6 +1920,17 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the I2C read data buffer is empty."
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "STRETCHING_SEEN",
+                            "lsb": 7,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "'1' if the module stretched SCL during the last transaction."
                         }
                     ]
                 },
@@ -1859,6 +1979,10 @@
                                 {
                                     "name": "I2cByteNack",
                                     "value": 6
+                                },
+                                {
+                                    "name": "I2cSclStretchTimeout",
+                                    "value": 7
                                 }
                             ]
                         },
@@ -1894,6 +2018,17 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the I2C read data buffer is empty."
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "STRETCHING_SEEN",
+                            "lsb": 7,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "'1' if the module stretched SCL during the last transaction."
                         }
                     ]
                 },
@@ -1942,6 +2077,10 @@
                                 {
                                     "name": "I2cByteNack",
                                     "value": 6
+                                },
+                                {
+                                    "name": "I2cSclStretchTimeout",
+                                    "value": 7
                                 }
                             ]
                         },
@@ -1977,6 +2116,17 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the I2C read data buffer is empty."
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "STRETCHING_SEEN",
+                            "lsb": 7,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "'1' if the module stretched SCL during the last transaction."
                         }
                     ]
                 },
@@ -2025,6 +2175,10 @@
                                 {
                                     "name": "I2cByteNack",
                                     "value": 6
+                                },
+                                {
+                                    "name": "I2cSclStretchTimeout",
+                                    "value": 7
                                 }
                             ]
                         },
@@ -2060,6 +2214,17 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the I2C read data buffer is empty."
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "STRETCHING_SEEN",
+                            "lsb": 7,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "'1' if the module stretched SCL during the last transaction."
                         }
                     ]
                 },
@@ -2108,6 +2273,10 @@
                                 {
                                     "name": "I2cByteNack",
                                     "value": 6
+                                },
+                                {
+                                    "name": "I2cSclStretchTimeout",
+                                    "value": 7
                                 }
                             ]
                         },
@@ -2143,6 +2312,17 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the I2C read data buffer is empty."
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "STRETCHING_SEEN",
+                            "lsb": 7,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "'1' if the module stretched SCL during the last transaction."
                         }
                     ]
                 },
@@ -2191,6 +2371,10 @@
                                 {
                                     "name": "I2cByteNack",
                                     "value": 6
+                                },
+                                {
+                                    "name": "I2cSclStretchTimeout",
+                                    "value": 7
                                 }
                             ]
                         },
@@ -2226,6 +2410,17 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the I2C read data buffer is empty."
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "STRETCHING_SEEN",
+                            "lsb": 7,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "'1' if the module stretched SCL during the last transaction."
                         }
                     ]
                 },
@@ -2274,6 +2469,10 @@
                                 {
                                     "name": "I2cByteNack",
                                     "value": 6
+                                },
+                                {
+                                    "name": "I2cSclStretchTimeout",
+                                    "value": 7
                                 }
                             ]
                         },
@@ -2309,6 +2508,17 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the I2C read data buffer is empty."
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "STRETCHING_SEEN",
+                            "lsb": 7,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "'1' if the module stretched SCL during the last transaction."
                         }
                     ]
                 },
@@ -2357,6 +2567,10 @@
                                 {
                                     "name": "I2cByteNack",
                                     "value": 6
+                                },
+                                {
+                                    "name": "I2cSclStretchTimeout",
+                                    "value": 7
                                 }
                             ]
                         },
@@ -2392,6 +2606,17 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the I2C read data buffer is empty."
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "STRETCHING_SEEN",
+                            "lsb": 7,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "'1' if the module stretched SCL during the last transaction."
                         }
                     ]
                 },
@@ -2440,6 +2665,10 @@
                                 {
                                     "name": "I2cByteNack",
                                     "value": 6
+                                },
+                                {
+                                    "name": "I2cSclStretchTimeout",
+                                    "value": 7
                                 }
                             ]
                         },
@@ -2475,6 +2704,17 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": "'1' if the I2C read data buffer is empty."
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "STRETCHING_SEEN",
+                            "lsb": 7,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "'1' if the module stretched SCL during the last transaction."
                         }
                     ]
                 },

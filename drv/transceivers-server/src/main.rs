@@ -84,16 +84,17 @@ counted_ringbuf!(Trace, 16, Trace::None);
 
 ////////////////////////////////////////////////////////////////////////////////
 
-/// After seeing this many NACKs, we disable the port by policy.
+/// After seeing this many NACKs or timeouts, we disable the port by policy.
 ///
 /// This should be **very rare**: it requires a transceiver to correctly report
 /// its type (SFF vs CMIS) over I2C when it's first plugged in, but then begin
-/// NACKing while still physically present (according to the `modprsl` pin).
+/// NACKing or timing out while still physically present (according to the
+/// `modprsl` pin).
 ///
 /// Despite the weirdness of these pre-requisites, we've seen this happen once
 /// already; without handling it, the thermal loop will eventually shut down the
 /// whole system (because the transceiver stops reporting its temperature).
-const MAX_CONSECUTIVE_NACKS: u8 = 3;
+const MAX_CONSECUTIVE_ERRORS: u8 = 3;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -127,7 +128,7 @@ struct ServerImpl {
     disabled: LogicalPortMask,
 
     /// Number of consecutive NACKS seen on a given port
-    consecutive_nacks: [u8; NUM_PORTS as usize],
+    consecutive_errors: [u8; NUM_PORTS as usize],
 
     /// Handle to write thermal models and presence to the `thermal` task
     #[cfg(feature = "thermal-control")]
@@ -440,7 +441,7 @@ impl ServerImpl {
                     continue;
                 }
             };
-            let mut got_nack = false;
+            let mut got_error = false;
             match temperature {
                 Ok(t) => {
                     // We got a temperature! Send it over to the thermal task
@@ -457,8 +458,11 @@ impl ServerImpl {
                     use Reg::QSFP::PORT0_STATUS::ErrorEncoded;
                     match ErrorEncoded::try_from(e) {
                         Ok(val) => {
-                            got_nack |=
-                                matches!(val, ErrorEncoded::I2CAddressNack);
+                            got_error |= matches!(
+                                val,
+                                ErrorEncoded::I2CAddressNack
+                                    | ErrorEncoded::I2CSclStretchTimeout
+                            );
                             ringbuf_entry!(Trace::TemperatureReadError(i, val))
                         }
                         Err(_) => {
@@ -472,13 +476,13 @@ impl ServerImpl {
                 }
             }
 
-            self.consecutive_nacks[i] = if got_nack {
-                self.consecutive_nacks[i].saturating_add(1)
+            self.consecutive_errors[i] = if got_error {
+                self.consecutive_errors[i].saturating_add(1)
             } else {
                 0
             };
 
-            if self.consecutive_nacks[i] >= MAX_CONSECUTIVE_NACKS {
+            if self.consecutive_errors[i] >= MAX_CONSECUTIVE_ERRORS {
                 to_disable.set(port);
             }
         }
@@ -644,7 +648,7 @@ fn main() -> ! {
         blink_on: false,
         system_led_state: LedState::Off,
         disabled: LogicalPortMask(0),
-        consecutive_nacks: [0; NUM_PORTS as usize],
+        consecutive_errors: [0; NUM_PORTS as usize],
         #[cfg(feature = "thermal-control")]
         thermal_api,
         sensor_api,
