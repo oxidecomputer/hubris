@@ -15,3 +15,6 @@ armv6m-atomic-hack = { path = "../armv6m-atomic-hack" }
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

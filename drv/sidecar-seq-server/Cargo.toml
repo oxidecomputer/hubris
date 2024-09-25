@@ -41,3 +41,6 @@ name = "drv-sidecar-seq-server"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

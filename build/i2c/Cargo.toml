@@ -19,3 +19,6 @@ h743 = []
 h753 = []
 g031 = []
 g030 = []
+
+[lints]
+workspace = true

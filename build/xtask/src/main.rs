@@ -2,6 +2,11 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+// siiiiigh this was supposed to be on globally, but missed
+// applying to xtask itself -- so we have a lot of elided
+// lifetimes. TODO turn this back on!
+#![allow(elided_lifetimes_in_paths)]
+
 use std::path::PathBuf;
 
 use anyhow::{bail, Context, Result};

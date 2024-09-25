@@ -5,6 +5,7 @@
 //! Kernel ABI definitions, shared between kernel and applications.
 
 #![no_std]
+#![forbid(clippy::wildcard_imports)]
 
 use serde::{Deserialize, Serialize};
 use zerocopy::{AsBytes, FromBytes};

@@ -26,3 +26,6 @@ build-util = {path = "../../build/util"}
 name = "gimlet"
 test = false
 bench = false
+
+[lints]
+workspace = true

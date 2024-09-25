@@ -7,3 +7,6 @@ edition = "2021"
 convert_case.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+
+[lints]
+workspace = true

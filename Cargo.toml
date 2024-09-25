@@ -137,5 +137,21 @@ tlvc-text = { git = "https://github.com/oxidecomputer/tlvc", default-features = 
 transceiver-messages = { git = "https://github.com/oxidecomputer/transceiver-control/", default-features = false }
 vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448", default-features = false }
 
+[workspace.lints.rust]
+elided_lifetimes_in_paths = "warn"
+
 [workspace.lints.clippy]
-wildcard_imports = "deny"
+# TODO: turn this back on once we've fixed them :/
+#wildcard_imports = "deny"
+
+# TODO: should clean up the comments eventually and switch these back to warn.
+too_long_first_doc_paragraph = "allow"
+doc_lazy_continuation = "allow"
+
+# TODO: these are currently allowed because it would be a giant pain to fix
+# them, but we should make them warn in the future!
+too_many_arguments = "allow"
+identity_op = "allow"
+missing_safety_doc = "allow"
+manual_inspect = "allow"
+single_match = "allow"

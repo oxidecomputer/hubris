@@ -30,3 +30,6 @@ name = "task-udpbroadcast"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

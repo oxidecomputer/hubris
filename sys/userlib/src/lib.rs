@@ -27,6 +27,7 @@
 #![no_std]
 #![feature(asm_const)]
 #![feature(naked_functions)]
+#![forbid(clippy::wildcard_imports)]
 
 #[macro_use]
 pub mod macros;

@@ -50,3 +50,6 @@ name = "task-power"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

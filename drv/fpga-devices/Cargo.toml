@@ -23,3 +23,6 @@ drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

@@ -27,3 +27,6 @@ name = "drv-lpc55-syscon"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

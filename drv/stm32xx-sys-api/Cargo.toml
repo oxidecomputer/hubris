@@ -36,3 +36,6 @@ g0b1 = ["family-stm32g0", "drv-stm32xx-gpio-common/model-stm32g0b1"]
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

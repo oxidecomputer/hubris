@@ -6,6 +6,7 @@
 
 #![no_std]
 #![no_main]
+#![forbid(clippy::wildcard_imports)]
 
 use core::arch::asm;
 use hubris_num_tasks::NUM_TASKS;
