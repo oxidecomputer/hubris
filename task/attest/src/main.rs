@@ -353,15 +353,11 @@ impl idl::InOrderAttestImpl for AttestServer {
         digest.update(&nonce[..len]);
 
         // get key pair used to generate signatures / attestations
-        // NOTE: replace `map_err` w/ `inspect_err` when it's stable
         let alias_keypair = self
             .alias_keypair
             .as_ref()
             .ok_or(AttestError::NoCerts)
-            .map_err(|e| {
-                ringbuf_entry!(Trace::AttestError(e));
-                e
-            })?;
+            .inspect_err(|e| ringbuf_entry!(Trace::AttestError(*e)))?;
 
         // generate attestation:
         // sign(alias_priv, sha3_256(hubpack(measurement_log) | nonce)
@@ -510,15 +506,11 @@ impl idl::InOrderAttestImpl for AttestServer {
         let hash = hash_bytes;
 
         // get key pair used for tq signatures
-        // NOTE: replace `map_err` w/ `inspect_err` when it's stable
-        let tq_keypair = self
-            .tq_keypair
-            .as_ref()
-            .ok_or(AttestError::NoCerts)
-            .map_err(|e| {
-            ringbuf_entry!(Trace::AttestError(e));
-            e
-        })?;
+        let tq_keypair =
+            self.tq_keypair
+                .as_ref()
+                .ok_or(AttestError::NoCerts)
+                .inspect_err(|e| ringbuf_entry!(Trace::AttestError(*e)))?;
 
         let signature = tq_keypair.sign(&hash);
         if dest.len() != signature.to_bytes().len() {
