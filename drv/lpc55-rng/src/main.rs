@@ -163,22 +163,17 @@ where
     }
 }
 
-struct Lpc55RngServer(ReseedingRng<ChaCha20Rng, Lpc55Rng, Sha3_256>);
+struct Lpc55RngServer<T: SeedableRng, R: RngCore, H: Digest>(
+    ReseedingRng<T, R, H>,
+);
 
-impl Lpc55RngServer {
-    fn new(
-        seed: Option<&RngSeed>,
-        reseeder: Lpc55Rng,
-        pid: Option<&[u8; SUBJECT_CN_LENGTH]>,
-        threshold: usize,
-    ) -> Result<Self, Error> {
-        Ok(Lpc55RngServer(ReseedingRng::new(
-            seed, reseeder, pid, threshold,
-        )?))
-    }
-}
-
-impl idl::InOrderRngImpl for Lpc55RngServer {
+impl<T, R, H> idl::InOrderRngImpl for Lpc55RngServer<T, R, H>
+where
+    T: SeedableRng<Seed = [u8; 32]> + RngCore,
+    R: RngCore,
+    H: FixedOutputReset + Default + Digest,
+    [u8; 32]: From<GenericArray<u8, <H as OutputSizeUser>::OutputSize>>,
+{
     fn fill(
         &mut self,
         _: &userlib::RecvMessage,
@@ -202,7 +197,13 @@ impl idl::InOrderRngImpl for Lpc55RngServer {
     }
 }
 
-impl NotificationHandler for Lpc55RngServer {
+impl<T, R, H> NotificationHandler for Lpc55RngServer<T, R, H>
+where
+    T: SeedableRng<Seed = [u8; 32]> + RngCore,
+    R: RngCore,
+    H: FixedOutputReset + Default + Digest,
+    [u8; 32]: From<GenericArray<u8, <H as OutputSizeUser>::OutputSize>>,
+{
     fn current_notification_mask(&self) -> u32 {
         // We don't use notifications, don't listen for any.
         0
@@ -282,16 +283,20 @@ fn main() -> ! {
         )
     };
 
-    let seed = get_dice_seed();
-    let pid = get_seed_personalization();
-    let threshold = 0x100000; // 1 MiB
-    let mut rng =
-        Lpc55RngServer::new(seed.as_ref(), rng, pid.as_ref(), threshold)
-            .expect("Failed to create Lpc55RngServer");
+    let reseeding_rng: ReseedingRng<ChaCha20Rng, Lpc55Rng, Sha3_256> = {
+        let seed = get_dice_seed();
+        let pid = get_seed_personalization();
+        let threshold = 0x100000; // 1 MiB
+
+        ReseedingRng::new(seed.as_ref(), rng, pid.as_ref(), threshold)
+            .unwrap_lite()
+    };
+
+    let mut server = Lpc55RngServer(reseeding_rng);
     let mut buffer = [0u8; idl::INCOMING_SIZE];
 
     loop {
-        idol_runtime::dispatch(&mut buffer, &mut rng);
+        idol_runtime::dispatch(&mut buffer, &mut server);
     }
 }
 
