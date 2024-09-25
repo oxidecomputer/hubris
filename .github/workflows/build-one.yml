@@ -44,7 +44,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Cache vcpkg
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: C:\vcpkg\downloads
           key: ${{ runner.os }}-vcpkg-download-${{ inputs.os }}-${{ github.sha }}
@@ -86,8 +86,8 @@ jobs:
 
       # upload the output of our build
       - name: Upload build archive
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: inputs.os == 'ubuntu-latest'
         with:
-          name: dist-${{ inputs.os }}-${{ inputs.build }}
+          name: dist-${{ inputs.os }}-${{ inputs.app_name }}
           path: target/${{ inputs.app_name }}/dist/build-${{ inputs.app_name }}-image-*.zip
