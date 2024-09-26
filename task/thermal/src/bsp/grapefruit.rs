@@ -31,7 +31,7 @@ pub const NUM_TEMPERATURE_INPUTS: usize = 1;
 pub const NUM_DYNAMIC_TEMPERATURE_INPUTS: usize = 0;
 
 // Number of individual fans
-pub const NUM_FANS: usize = 5;
+pub const NUM_FANS: usize = 4;
 
 // Run the PID loop on startup
 pub const USE_CONTROLLER: bool = true;
