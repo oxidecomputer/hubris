@@ -216,6 +216,7 @@ fn write_reg16(
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     ZeroTach(Fan),
+    GotTach(u32),
     TachOverflow(u32),
     BadFanCount(u8),
     None,
@@ -297,6 +298,8 @@ impl Emc2305 {
 
         // If the fan isn't spinning or is disconnected, we see all 1s
         const TACH_POR_VALUE: u32 = (1 << 13) - 1;
+
+        ringbuf_entry!(Trace::GotTach(count));
 
         if count == 0 {
             ringbuf_entry!(Trace::ZeroTach(fan));
