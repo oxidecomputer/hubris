@@ -272,16 +272,18 @@ pub fn get_seed_personalization() -> Option<[u8; SUBJECT_CN_LENGTH]> {
 
 #[export_name = "main"]
 fn main() -> ! {
+    let rng = {
+        let peripherals = Peripherals::take().unwrap();
+
+        Lpc55Rng::new(
+            peripherals.PMC,
+            peripherals.RNG,
+            &Syscon::from(SYSCON.get_task_id()),
+        )
+    };
+
     let seed = get_dice_seed();
     let pid = get_seed_personalization();
-    let peripherals = Peripherals::take().unwrap();
-
-    let rng = Lpc55Rng::new(
-        peripherals.PMC,
-        peripherals.RNG,
-        &Syscon::from(SYSCON.get_task_id()),
-    );
-
     let threshold = 0x100000; // 1 MiB
     let mut rng =
         Lpc55RngServer::new(seed.as_ref(), rng, pid.as_ref(), threshold)
