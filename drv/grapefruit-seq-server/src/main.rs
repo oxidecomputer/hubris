@@ -32,6 +32,7 @@ enum SeqError {
     AuxReadError(#[count(children)] drv_auxflash_api::AuxFlashError),
     AuxChecksumMismatch,
     SpiWrite(#[count(children)] drv_spi_api::SpiError),
+    DoneTimeout,
 }
 
 counted_ringbuf!(Trace, 128, Trace::None);
@@ -228,9 +229,16 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
         }
 
         // Wait for the FPGA to pull DONE high
+        const DELAY_MS: u64 = 2;
+        const TIMEOUT_MS: u64 = 250;
+        let mut wait_time_ms = 0;
         while sys.gpio_read(FPGA_CONFIG_DONE) == 0 {
             ringbuf_entry!(Trace::WaitForDone);
-            hl::sleep_for(2);
+            hl::sleep_for(DELAY_MS);
+            wait_time_ms += DELAY_MS;
+            if wait_time_ms > TIMEOUT_MS {
+                return Err(SeqError::DoneTimeout);
+            }
         }
 
         // Send 64 bonus clocks to complete the startup sequence (see "Clocking
