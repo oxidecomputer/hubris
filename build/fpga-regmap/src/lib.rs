@@ -166,67 +166,64 @@ fn write_reg_fields(
             .unwrap();
 
             // Deal with optional encoded Enums on this field
-            match encode {
-                Some(x) => {
-                    let name_camel = inst_name.to_case(Case::UpperCamel);
-                    let encode_name = format!("{name_camel}Encoded");
-                    writeln!(
-                        output,
-                        "
+            if let Some(x) = encode {
+                let name_camel = inst_name.to_case(Case::UpperCamel);
+                let encode_name = format!("{name_camel}Encoded");
+                writeln!(
+                    output,
+                    "
 {prefix}        #[derive(Copy, Clone, Eq, PartialEq)]
 {prefix}        #[allow(dead_code)]
 {prefix}        pub enum {encode_name} {{"
-                    )
-                    .unwrap();
+                )
+                .unwrap();
 
-                    // unpack all of the enum variant -> u8 information
-                    for item in x {
-                        writeln!(
-                            output,
-                            "{prefix}            {0} = {1:#04x},",
-                            item.name.to_case(Case::UpperCamel),
-                            item.value
-                        )
-                        .unwrap();
-                    }
-
-                    writeln!(output, "{prefix}        }}").unwrap();
-
-                    // We want to implement TryFrom<u8> rather than From<u8>
-                    // because the u8 -> enum conversion can fail if the value
-                    // is not a valid enum variant. Additionally, we mask off
-                    // the supplied u8 with the mask of the field so encoded
-                    // fields could be colocated in a register with other fields
+                // unpack all of the enum variant -> u8 information
+                for item in x {
                     writeln!(
                         output,
-                        "
+                        "{prefix}            {0} = {1:#04x},",
+                        item.name.to_case(Case::UpperCamel),
+                        item.value
+                    )
+                    .unwrap();
+                }
+
+                writeln!(output, "{prefix}        }}").unwrap();
+
+                // We want to implement TryFrom<u8> rather than From<u8>
+                // because the u8 -> enum conversion can fail if the value
+                // is not a valid enum variant. Additionally, we mask off
+                // the supplied u8 with the mask of the field so encoded
+                // fields could be colocated in a register with other fields
+                writeln!(
+                    output,
+                    "
 {prefix}        impl TryFrom<u8> for {encode_name} {{
 {prefix}            type Error = ();
 {prefix}            fn try_from(x: u8) -> Result<Self, Self::Error> {{
 {prefix}                use crate::{parent_chain}::{encode_name}::*;
 {prefix}                let x_masked = x & {inst_name};
 {prefix}                match x_masked {{"
-                    )
-                    .unwrap();
-                    for item in x {
-                        writeln!(
-                            output,
-                            "{prefix}                    {1:#04x} => Ok({0}),",
-                            item.name.to_case(Case::UpperCamel),
-                            item.value
-                        )
-                        .unwrap();
-                    }
+                )
+                .unwrap();
+                for item in x {
                     writeln!(
                         output,
-                        "{prefix}                    _ => Err(()),
-{prefix}                }}
-{prefix}            }}
-{prefix}        }}\n"
+                        "{prefix}                    {1:#04x} => Ok({0}),",
+                        item.name.to_case(Case::UpperCamel),
+                        item.value
                     )
                     .unwrap();
                 }
-                None => {}
+                writeln!(
+                    output,
+                    "{prefix}                    _ => Err(()),
+{prefix}                }}
+{prefix}            }}
+{prefix}        }}\n"
+                )
+                .unwrap();
             }
         } else {
             panic!("unexpected non-Field: {child:?}");
