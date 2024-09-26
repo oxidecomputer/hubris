@@ -232,6 +232,11 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
             ringbuf_entry!(Trace::WaitForDone);
             hl::sleep_for(2);
         }
+
+        // Send 64 bonus clocks to complete the startup sequence (see "Clocking
+        // to End of Startup" in UG470).
+        seq.write(&[0u8; 8]).map_err(SeqError::SpiWrite)?;
+
         ringbuf_entry!(Trace::Programmed);
 
         let server = Self {
