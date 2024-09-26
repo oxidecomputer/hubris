@@ -295,14 +295,16 @@ impl Emc2305 {
         // TACHOMETER READING LOW BYTE REGISTER in the datasheet).
         let count = ((val[0] as u32) << 5) | (val[1] >> 3) as u32;
 
+        // If the fan isn't spinning or is disconnected, we see all 1s
+        const TACH_POR_VALUE: u32 = (1 << 12) - 1;
+
         if count == 0 {
-            // What happens if the fan is idle / stalled / unplugged?
-            //
-            // On the MAX31790, it returns all ones for the tach reading, but
-            // it's not clear whether that's also the case for this chip.
             ringbuf_entry!(Trace::ZeroTach(fan));
             return Err(ResponseCode::BadDeviceState);
+        } else if count == TACH_POR_VALUE {
+            return Ok(Rpm(0));
         }
+
         let rpm = 7_680_000 / count;
         let Ok(rpm) = rpm.try_into() else {
             ringbuf_entry!(Trace::TachOverflow(count));
