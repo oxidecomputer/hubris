@@ -16,6 +16,7 @@ use idol_runtime::{ClientError, NotificationHandler, RequestError};
 use lib_dice::{persistid_cert_tmpl::SUBJECT_CN_LENGTH, RngSeed, SeedBuf};
 use lib_lpc55_rng::Lpc55Rng;
 use lpc55_pac::Peripherals;
+use mutable_statics::mutable_statics;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{impls, Error, RngCore, SeedableRng};
 use ringbuf::ringbuf;
@@ -53,12 +54,12 @@ enum Trace {
 ringbuf!(Trace, 16, Trace::None);
 
 // low-budget rand::rngs::adapter::ReseedingRng w/o fork stuff
-struct ReseedingRng<T: SeedableRng, R: RngCore, H: Digest> {
+struct ReseedingRng<T: SeedableRng, R: RngCore, H: Digest + 'static> {
     inner: T,
     reseeder: R,
     threshold: usize,
     bytes_until_reseed: usize,
-    mixer: H,
+    mixer: &'static mut H,
 }
 
 impl<T, R, H> ReseedingRng<T, R, H>
@@ -73,6 +74,7 @@ where
         mut reseeder: R,
         pid: Option<&[u8; SUBJECT_CN_LENGTH]>,
         threshold: usize,
+        mixer: &'static mut H,
     ) -> Result<Self, Error> {
         let threshold = if threshold == 0 {
             usize::MAX
@@ -80,21 +82,20 @@ where
             threshold
         };
 
-        let mut mixer = H::default();
         if let Some(seed) = seed {
             // mix platform unique seed derived by measured boot
-            Digest::update(&mut mixer, seed.as_bytes());
+            Digest::update(mixer, seed.as_bytes());
         }
 
         if let Some(pid) = pid {
             // mix in unique platform id
-            Digest::update(&mut mixer, pid);
+            Digest::update(mixer, pid);
         }
 
         // w/ 32 bytes from HRNG
         let mut buf = Zeroizing::new(T::Seed::default());
         reseeder.try_fill_bytes(buf.as_mut())?;
-        Digest::update(&mut mixer, buf.as_ref());
+        Digest::update(mixer, buf.as_ref());
 
         // create initial instance of the SeedableRng from the seed
         let inner = T::from_seed(mixer.finalize_fixed_reset().into());
@@ -144,11 +145,11 @@ where
 
                 // mix 32 bytes from current PRNG instance
                 self.inner.try_fill_bytes(buf.as_mut())?;
-                Digest::update(&mut self.mixer, buf.as_mut());
+                Digest::update(self.mixer, buf.as_mut());
 
                 // w/ 32 bytes from HRNG
                 self.reseeder.try_fill_bytes(buf.as_mut())?;
-                Digest::update(&mut self.mixer, buf.as_mut());
+                Digest::update(self.mixer, buf.as_mut());
 
                 // seed new RNG instance & reset mixer
                 self.inner =
@@ -163,7 +164,7 @@ where
     }
 }
 
-struct Lpc55RngServer<T: SeedableRng, R: RngCore, H: Digest>(
+struct Lpc55RngServer<T: SeedableRng, R: RngCore, H: Digest + 'static>(
     ReseedingRng<T, R, H>,
 );
 
@@ -283,13 +284,22 @@ fn main() -> ! {
         )
     };
 
+    let mixer = mutable_statics! {
+        static mut MIXER: [Sha3_256; 1] = [Sha3_256::new; _];
+    };
+
     let reseeding_rng: ReseedingRng<ChaCha20Rng, Lpc55Rng, Sha3_256> = {
         let seed = get_dice_seed();
         let pid = get_seed_personalization();
         let threshold = 0x100000; // 1 MiB
-
-        ReseedingRng::new(seed.as_ref(), rng, pid.as_ref(), threshold)
-            .unwrap_lite()
+        ReseedingRng::new(
+            seed.as_ref(),
+            rng,
+            pid.as_ref(),
+            threshold,
+            &mut mixer[0],
+        )
+        .unwrap_lite()
     };
 
     let mut server = Lpc55RngServer(reseeding_rng);

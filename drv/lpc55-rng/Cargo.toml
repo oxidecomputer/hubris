@@ -20,6 +20,7 @@ drv-lpc55-syscon-api = { path = "../lpc55-syscon-api" }
 drv-rng-api = { path = "../rng-api" }
 lib-dice.path = "../../lib/dice"
 lib-lpc55-rng.path = "../../lib/lpc55-rng"
+mutable-statics.path = "../../lib/mutable-statics"
 ringbuf.path = "../../lib/ringbuf"
 stage0-handoff = { path = "../../lib/stage0-handoff", optional = true }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }

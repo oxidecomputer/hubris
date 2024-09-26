@@ -1301,6 +1301,7 @@ dependencies = [
  "lib-dice",
  "lib-lpc55-rng",
  "lpc55-pac",
+ "mutable-statics",
  "num-traits",
  "rand_chacha",
  "rand_core",
