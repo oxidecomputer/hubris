@@ -32,6 +32,7 @@ impl HandoffDataRegion {
 
     /// Load a type implementing HandoffData (and others) from a config::DataRegion.
     /// Errors will be reported in the ringbuf and will return None.
+    #[inline(always)]
     pub fn load_data<
         T: for<'a> Deserialize<'a> + HandoffData + SerializedSize,
     >(

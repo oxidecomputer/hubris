@@ -115,7 +115,7 @@ name = "drv-lpc55-rng"
 priority = 3
 uses = ["rng", "pmc"]
 start = true
-stacksize = 4200
+stacksize = 4000
 task-slots = ["syscon_driver"]
 extern-regions = ["dice_certs", "dice_rng"]
 
