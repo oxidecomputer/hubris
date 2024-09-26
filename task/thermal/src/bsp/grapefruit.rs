@@ -85,7 +85,11 @@ impl Bsp {
     }
 
     pub fn get_fan_presence(&self) -> Result<Fans<{ NUM_FANS }>, SeqError> {
-        Ok(Fans::new())
+        let mut fans = Fans::new();
+        for i in 0..fans.len() {
+            fans[i] = Some(sensors::EMC2305_SPEED_SENSORS[i]);
+        }
+        Ok(fans)
     }
 
     pub fn new(i2c_task: TaskId) -> Self {
