@@ -93,10 +93,8 @@ impl Bsp {
     }
 
     pub fn new(i2c_task: TaskId) -> Self {
-        let fctrl = Emc2305State::new(
-            &devices::emc2305_temp(i2c_task)[0],
-            NUM_FANS as u8,
-        );
+        let fctrl =
+            Emc2305State::new(&devices::emc2305(i2c_task)[0], NUM_FANS as u8);
 
         Self {
             // TODO: this is all made up, copied from tuned Gimlet values
