@@ -205,6 +205,7 @@ fn write_reg8(
     device.write(&[register as u8, val])
 }
 
+#[allow(unused)]
 fn write_reg16(
     device: &I2cDevice,
     register: Register,
@@ -317,8 +318,8 @@ impl Emc2305 {
     pub fn set_pwm(&self, fan: Fan, pwm: PWMDuty) -> Result<(), ResponseCode> {
         let perc = core::cmp::min(pwm.0, 100) as f32;
 
-        let val = ((perc / 100.0) * 0b1_1111_1111 as f32) as u16;
-        write_reg16(&self.device, fan.pwm_target(), val << 7)
+        let val = ((perc / 100.0) * 255.0) as u8;
+        write_reg8(&self.device, fan.pwm_target(), val)
     }
 
     pub fn set_watchdog(&self, enabled: bool) -> Result<(), ResponseCode> {
