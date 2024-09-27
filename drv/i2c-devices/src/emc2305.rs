@@ -296,7 +296,8 @@ impl Emc2305 {
         // TACHOMETER READING LOW BYTE REGISTER in the datasheet).
         let count = ((val[0] as u32) << 5) | (val[1] >> 3) as u32;
 
-        // If the fan isn't spinning or is disconnected, we see all 1s
+        // If the fan isn't spinning or is disconnected, this is the default
+        // value (dunno why the lowest bit is 0 instead of 1).
         const TACH_POR_VALUE: u32 = 0x1ffe;
 
         if count == 0 {
