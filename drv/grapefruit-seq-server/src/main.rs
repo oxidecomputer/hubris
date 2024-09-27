@@ -161,21 +161,8 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
             hl::sleep_for(2);
         }
 
-        // Do we have to send the synchronization word ourself, or is it built
-        // into the bitstream?
-        // Same with device ID check
-        // Load bitstream
-        //
-        // SP_TO_FPGA_CFG_CLK / SP_TO_FPGA_CFG_DAT
-        // This is on SPI2, port B
-        //
-        // Wait for DONE (FPGA_TO_SP_CONFIG_DONE)
-
         // Bind to the sequencer device on our SPI port
         let seq = spi.device(drv_spi_api::devices::FPGA);
-
-        // TODO do we need to send the bus width / synchronization word / device
-        // ID ourselves, or are they built into the image?
 
         let blob = aux
             .get_blob_by_tag(*b"FPGA")
