@@ -1291,17 +1291,29 @@ dependencies = [
 name = "drv-lpc55-rng"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "build-util",
  "cfg-if",
  "drv-lpc55-syscon-api",
  "drv-rng-api",
+ "hubpack",
  "idol",
  "idol-runtime",
+ "indexmap 1.9.1",
+ "lib-dice",
+ "lib-lpc55-rng",
  "lpc55-pac",
+ "mutable-statics",
  "num-traits",
  "rand_chacha",
  "rand_core",
+ "ringbuf",
+ "serde",
+ "sha3",
+ "stage0-handoff",
  "userlib",
  "zerocopy 0.6.6",
+ "zeroize",
 ]
 
 [[package]]
@@ -3069,6 +3081,16 @@ dependencies = [
  "vcell",
  "zerocopy 0.6.6",
  "zeroize",
+]
+
+[[package]]
+name = "lib-lpc55-rng"
+version = "0.1.0"
+dependencies = [
+ "drv-lpc55-syscon-api",
+ "drv-rng-api",
+ "lpc55-pac",
+ "rand_core",
 ]
 
 [[package]]

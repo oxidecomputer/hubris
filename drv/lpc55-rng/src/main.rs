@@ -9,119 +9,113 @@
 #![no_std]
 #![no_main]
 
-use core::mem::size_of;
-use drv_lpc55_syscon_api::{Peripheral, Syscon};
+use core::{cmp, usize};
+use drv_lpc55_syscon_api::Syscon;
 use drv_rng_api::RngError;
 use idol_runtime::{ClientError, NotificationHandler, RequestError};
+use lib_dice::{persistid_cert_tmpl::SUBJECT_CN_LENGTH, RngSeed, SeedBuf};
+use lib_lpc55_rng::Lpc55Rng;
+use lpc55_pac::Peripherals;
+use mutable_statics::mutable_statics;
 use rand_chacha::ChaCha20Rng;
-use rand_core::block::{BlockRng, BlockRngCore};
 use rand_core::{impls, Error, RngCore, SeedableRng};
+use ringbuf::ringbuf;
+use sha3::{
+    digest::crypto_common::{generic_array::GenericArray, OutputSizeUser},
+    digest::FixedOutputReset,
+    Digest, Sha3_256,
+};
 use userlib::task_slot;
+use zeroize::Zeroizing;
 
-use lpc55_pac as device;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "dice-seed")] {
+        mod config;
+        #[path="data-region.rs"]
+        mod data_region;
+
+        use ringbuf::ringbuf_entry;
+        use stage0_handoff::HandoffDataLoadError;
+        use userlib::UnwrapLite;
+    }
+}
 
 task_slot!(SYSCON, syscon_driver);
 
-struct Lpc55Core {
-    pmc: &'static lpc55_pac::pmc::RegisterBlock,
-    rng: &'static lpc55_pac::rng::RegisterBlock,
-    syscon: Syscon,
+#[derive(Copy, Clone, PartialEq)]
+enum Trace {
+    None,
+    #[cfg(feature = "dice-seed")]
+    NoDiceSeed(HandoffDataLoadError),
+    #[cfg(feature = "dice-seed")]
+    NoSeedPersonalization(HandoffDataLoadError),
 }
 
-impl Lpc55Core {
-    fn new() -> Self {
-        let syscon = SYSCON.get_task_id();
-        Lpc55Core {
-            pmc: unsafe { &*device::PMC::ptr() },
-            rng: unsafe { &*device::RNG::ptr() },
-            syscon: Syscon::from(syscon),
-        }
-    }
-}
-
-impl BlockRngCore for Lpc55Core {
-    type Item = u32;
-    type Results = [u32; 1];
-
-    fn generate(&mut self, results: &mut Self::Results) {
-        results[0] = self.rng.random_number.read().bits();
-    }
-}
-
-struct Lpc55Rng(BlockRng<Lpc55Core>);
-
-impl Lpc55Rng {
-    fn new() -> Self {
-        Lpc55Rng(BlockRng::new(Lpc55Core::new()))
-    }
-
-    fn init(&self) {
-        self.0
-            .core
-            .pmc
-            .pdruncfg0
-            .modify(|_, w| w.pden_rng().poweredon());
-
-        self.0.core.syscon.enable_clock(Peripheral::Rng);
-
-        self.0.core.syscon.enter_reset(Peripheral::Rng);
-        self.0.core.syscon.leave_reset(Peripheral::Rng);
-    }
-}
-
-impl RngCore for Lpc55Rng {
-    fn next_u32(&mut self) -> u32 {
-        self.0.next_u32()
-    }
-    fn next_u64(&mut self) -> u64 {
-        self.0.next_u64()
-    }
-    fn fill_bytes(&mut self, bytes: &mut [u8]) {
-        self.0.fill_bytes(bytes)
-    }
-    fn try_fill_bytes(&mut self, bytes: &mut [u8]) -> Result<(), Error> {
-        if self.0.core.pmc.pdruncfg0.read().pden_rng().bits() {
-            return Err(RngError::PoweredOff.into());
-        }
-
-        self.0.try_fill_bytes(bytes)
-    }
-}
+ringbuf!(Trace, 16, Trace::None);
 
 // low-budget rand::rngs::adapter::ReseedingRng w/o fork stuff
-struct ReseedingRng<T: SeedableRng> {
+struct ReseedingRng<T: SeedableRng, R: RngCore, H: Digest + 'static> {
     inner: T,
-    reseeder: Lpc55Rng,
+    reseeder: R,
     threshold: usize,
     bytes_until_reseed: usize,
+    mixer: &'static mut H,
 }
 
-impl<T> ReseedingRng<T>
+impl<T, R, H> ReseedingRng<T, R, H>
 where
-    T: SeedableRng,
+    T: SeedableRng<Seed = [u8; 32]> + RngCore,
+    R: RngCore,
+    H: FixedOutputReset + Default + Digest,
+    [u8; 32]: From<GenericArray<u8, <H as OutputSizeUser>::OutputSize>>,
 {
-    fn new(mut reseeder: Lpc55Rng, threshold: usize) -> Result<Self, Error> {
-        use ::core::usize::MAX;
-
-        let threshold = if threshold == 0 { MAX } else { threshold };
-
-        // try_trait_v2 is still experimental
-        let inner = match T::from_rng(&mut reseeder) {
-            Ok(rng) => rng,
-            Err(err) => return Err(err),
+    fn new(
+        seed: Option<&RngSeed>,
+        mut reseeder: R,
+        pid: Option<&[u8; SUBJECT_CN_LENGTH]>,
+        threshold: usize,
+        mixer: &'static mut H,
+    ) -> Result<Self, Error> {
+        let threshold = if threshold == 0 {
+            usize::MAX
+        } else {
+            threshold
         };
+
+        if let Some(seed) = seed {
+            // mix platform unique seed derived by measured boot
+            Digest::update(mixer, seed.as_bytes());
+        }
+
+        if let Some(pid) = pid {
+            // mix in unique platform id
+            Digest::update(mixer, pid);
+        }
+
+        // w/ 32 bytes from HRNG
+        let mut buf = Zeroizing::new(T::Seed::default());
+        reseeder.try_fill_bytes(buf.as_mut())?;
+        Digest::update(mixer, buf.as_ref());
+
+        // create initial instance of the SeedableRng from the seed
+        let inner = T::from_seed(mixer.finalize_fixed_reset().into());
+
         Ok(ReseedingRng {
             inner,
             reseeder,
             threshold,
             bytes_until_reseed: threshold,
+            mixer,
         })
     }
 }
 
-impl<T> RngCore for ReseedingRng<T>
+impl<T, R, H> RngCore for ReseedingRng<T, R, H>
 where
-    T: SeedableRng + RngCore,
+    T: SeedableRng<Seed = [u8; 32]> + RngCore,
+    R: RngCore,
+    H: FixedOutputReset + Default + Digest,
+    [u8; 32]: From<GenericArray<u8, <H as OutputSizeUser>::OutputSize>>,
 {
     fn next_u32(&mut self) -> u32 {
         impls::next_u32_via_fill(self)
@@ -134,59 +128,83 @@ where
             .expect("Failed to get entropy from RNG.")
     }
     fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), Error> {
-        let num_bytes = dest.len();
-        if num_bytes >= self.bytes_until_reseed || num_bytes >= self.threshold {
-            // try_trait_v2 is still experimental
-            self.inner = match T::from_rng(&mut self.reseeder) {
-                Ok(rng) => rng,
-                Err(e) => return Err(e),
-            };
-            self.bytes_until_reseed = self.threshold;
-        } else {
-            self.bytes_until_reseed -= num_bytes;
+        let mut filled = 0;
+
+        while filled < dest.len() {
+            if self.bytes_until_reseed > 0 {
+                // fill dest as much as we can
+                let len =
+                    cmp::min(dest.len() - filled, self.bytes_until_reseed);
+                self.inner.try_fill_bytes(&mut dest[filled..filled + len])?;
+
+                filled += len;
+                self.bytes_until_reseed -= len;
+            } else {
+                // create seed for next PRNG & reset mixer
+                let mut buf = Zeroizing::new(T::Seed::default());
+
+                // mix 32 bytes from current PRNG instance
+                self.inner.try_fill_bytes(buf.as_mut())?;
+                Digest::update(self.mixer, buf.as_mut());
+
+                // w/ 32 bytes from HRNG
+                self.reseeder.try_fill_bytes(buf.as_mut())?;
+                Digest::update(self.mixer, buf.as_mut());
+
+                // seed new RNG instance & reset mixer
+                self.inner =
+                    T::from_seed(self.mixer.finalize_fixed_reset().into());
+
+                // reset reseed countdown
+                self.bytes_until_reseed = self.threshold;
+            }
         }
-        self.inner.try_fill_bytes(dest)
+
+        Ok(())
     }
 }
 
-struct Lpc55RngServer(ReseedingRng<ChaCha20Rng>);
+struct Lpc55RngServer<T: SeedableRng, R: RngCore, H: Digest + 'static>(
+    ReseedingRng<T, R, H>,
+);
 
-impl Lpc55RngServer {
-    fn new(reseeder: Lpc55Rng, threshold: usize) -> Result<Self, Error> {
-        Ok(Lpc55RngServer(ReseedingRng::new(reseeder, threshold)?))
-    }
-}
-
-impl idl::InOrderRngImpl for Lpc55RngServer {
+impl<T, R, H> idl::InOrderRngImpl for Lpc55RngServer<T, R, H>
+where
+    T: SeedableRng<Seed = [u8; 32]> + RngCore,
+    R: RngCore,
+    H: FixedOutputReset + Default + Digest,
+    [u8; 32]: From<GenericArray<u8, <H as OutputSizeUser>::OutputSize>>,
+{
     fn fill(
         &mut self,
         _: &userlib::RecvMessage,
         dest: idol_runtime::Leased<idol_runtime::W, [u8]>,
     ) -> Result<usize, RequestError<RngError>> {
         let mut cnt = 0;
-        const STEP: usize = size_of::<u32>();
-        let mut buf = [0u8; STEP];
-        // fill in multiples of STEP / RNG register size
-        for _ in 0..(dest.len() / STEP) {
-            self.0.try_fill_bytes(&mut buf).map_err(RngError::from)?;
-            dest.write_range(cnt..cnt + STEP, &buf)
+        let mut buf = [0u8; 32];
+        while cnt < dest.len() {
+            let len = cmp::min(buf.len(), dest.len() - cnt);
+
+            self.0
+                .try_fill_bytes(&mut buf[..len])
+                .map_err(RngError::from)?;
+            dest.write_range(cnt..cnt + len, &buf[..len])
                 .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
-            cnt += STEP;
+
+            cnt += len;
         }
-        // fill in remaining
-        let remain = dest.len() - cnt;
-        assert!(remain < STEP);
-        if remain > 0 {
-            self.0.try_fill_bytes(&mut buf).map_err(RngError::from)?;
-            dest.write_range(dest.len() - remain..dest.len(), &buf)
-                .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
-            cnt += remain;
-        }
+
         Ok(cnt)
     }
 }
 
-impl NotificationHandler for Lpc55RngServer {
+impl<T, R, H> NotificationHandler for Lpc55RngServer<T, R, H>
+where
+    T: SeedableRng<Seed = [u8; 32]> + RngCore,
+    R: RngCore,
+    H: FixedOutputReset + Default + Digest,
+    [u8; 32]: From<GenericArray<u8, <H as OutputSizeUser>::OutputSize>>,
+{
     fn current_notification_mask(&self) -> u32 {
         // We don't use notifications, don't listen for any.
         0
@@ -197,18 +215,98 @@ impl NotificationHandler for Lpc55RngServer {
     }
 }
 
+/// Get the seed derived by the lpc55-rot-startup and passed to us through
+/// the stage0-handoff memory region.
+///
+/// If use of DICE seed in seeding the PRNG is not enabled then this function
+/// will just return None. Otherwise it will attempt to get the seed from the
+/// dice-rng region of the stage0-handoff memory. If it's not able to get
+/// the seed it will put an entry in the ringbuf and panic.
+pub fn get_dice_seed() -> Option<RngSeed> {
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "dice-seed")] {
+            use config::DICE_RNG;
+            use lib_dice::RngData;
+
+            match DICE_RNG.load_data::<RngData>() {
+                Ok(rng_data) => Some(rng_data.seed),
+                Err(e) => {
+                    ringbuf_entry!(Trace::NoDiceSeed(e));
+                    panic!();
+                },
+            }
+        } else {
+            None
+        }
+    }
+}
+
+/// Get the platform identifier / barcode string from the platform identity
+/// cert passed to hubris by the lpc55-rot-startup through the stage0-handoff
+/// memory region.
+///
+/// If use of the platform identifier string is not enabled then this function
+/// will return `None`. Otherwise it will try to get the platform identity
+/// string from the stage0-handoff region. If it's unable to get this data it
+/// will put an entry into the ringbuf and panic.
+pub fn get_seed_personalization() -> Option<[u8; SUBJECT_CN_LENGTH]> {
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "dice-seed")] {
+            use config::DICE_CERTS;
+            use lib_dice::{persistid_cert_tmpl::SUBJECT_CN_RANGE, CertData};
+
+            match DICE_CERTS.load_data::<CertData>() {
+                Ok(cert_data) => Some(
+                    cert_data.persistid_cert.0.as_bytes()[SUBJECT_CN_RANGE]
+                        .try_into()
+                        .unwrap_lite(),
+                ),
+                Err(e) => {
+                    ringbuf_entry!(Trace::NoSeedPersonalization(e));
+                    panic!();
+                },
+            }
+        } else {
+            None
+        }
+    }
+}
+
 #[export_name = "main"]
 fn main() -> ! {
-    let rng = Lpc55Rng::new();
-    rng.init();
+    let rng = {
+        let peripherals = Peripherals::take().unwrap();
 
-    let threshold = 0x100000; // 1 MiB
-    let mut rng = Lpc55RngServer::new(rng, threshold)
-        .expect("Failed to create Lpc55RngServer");
+        Lpc55Rng::new(
+            peripherals.PMC,
+            peripherals.RNG,
+            &Syscon::from(SYSCON.get_task_id()),
+        )
+    };
+
+    let mixer = mutable_statics! {
+        static mut MIXER: [Sha3_256; 1] = [Sha3_256::new; _];
+    };
+
+    let reseeding_rng: ReseedingRng<ChaCha20Rng, Lpc55Rng, Sha3_256> = {
+        let seed = get_dice_seed();
+        let pid = get_seed_personalization();
+        let threshold = 0x100000; // 1 MiB
+        ReseedingRng::new(
+            seed.as_ref(),
+            rng,
+            pid.as_ref(),
+            threshold,
+            &mut mixer[0],
+        )
+        .unwrap_lite()
+    };
+
+    let mut server = Lpc55RngServer(reseeding_rng);
     let mut buffer = [0u8; idl::INCOMING_SIZE];
 
     loop {
-        idol_runtime::dispatch(&mut buffer, &mut rng);
+        idol_runtime::dispatch(&mut buffer, &mut server);
     }
 }
 
