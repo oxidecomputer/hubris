@@ -31,7 +31,7 @@ pub const NUM_TEMPERATURE_INPUTS: usize = 1;
 pub const NUM_DYNAMIC_TEMPERATURE_INPUTS: usize = 0;
 
 // Number of individual fans
-pub const NUM_FANS: usize = 5;
+pub const NUM_FANS: usize = 4;
 
 // Run the PID loop on startup
 pub const USE_CONTROLLER: bool = true;
@@ -85,14 +85,16 @@ impl Bsp {
     }
 
     pub fn get_fan_presence(&self) -> Result<Fans<{ NUM_FANS }>, SeqError> {
-        Ok(Fans::new())
+        let mut fans = Fans::new();
+        for i in 0..fans.len() {
+            fans[i] = Some(sensors::EMC2305_SPEED_SENSORS[i]);
+        }
+        Ok(fans)
     }
 
     pub fn new(i2c_task: TaskId) -> Self {
-        let fctrl = Emc2305State::new(
-            &devices::emc2305_temp(i2c_task)[0],
-            NUM_FANS as u8,
-        );
+        let fctrl =
+            Emc2305State::new(&devices::emc2305(i2c_task)[0], NUM_FANS as u8);
 
         Self {
             // TODO: this is all made up, copied from tuned Gimlet values

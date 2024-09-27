@@ -371,6 +371,7 @@ mux = 1
 segment = 1
 address = 0b100_1101
 device = "emc2305"
+sensors = { speed = 4, names = [ "fan1", "fan2", "fan3", "fan4" ] }
 description = "fan controller"
 
 [[config.i2c.devices]]
