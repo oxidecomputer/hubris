@@ -51,3 +51,6 @@ name = "drv-stm32h7-sprot-server"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

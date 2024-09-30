@@ -22,3 +22,6 @@ name = "drv-stm32fx-rcc"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

@@ -47,3 +47,6 @@ name = "drv-fpga-server"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

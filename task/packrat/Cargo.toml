@@ -36,3 +36,6 @@ name = "task-packrat"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

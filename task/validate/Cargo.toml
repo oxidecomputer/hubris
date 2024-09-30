@@ -32,7 +32,6 @@ build-util = { path = "../../build/util" }
 [features]
 h743 = ["build-i2c/h743"]
 h753 = ["build-i2c/h753"]
-h7b3 = ["build-i2c/h7b3"]
 g031 = ["build-i2c/g031", "ringbuf/disabled"]
 no-ipc-counters = ["idol/no-counters"]
 
@@ -43,3 +42,6 @@ name = "task-validate"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

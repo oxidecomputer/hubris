@@ -26,3 +26,6 @@ name = "drv-lpc55-gpio"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

@@ -27,3 +27,6 @@ name = "oxide-rot-1"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

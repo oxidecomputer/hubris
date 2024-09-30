@@ -17,6 +17,8 @@ rangemap.workspace = true
 [features]
 h743 = []
 h753 = []
-h7b3 = []
 g031 = []
 g030 = []
+
+[lints]
+workspace = true

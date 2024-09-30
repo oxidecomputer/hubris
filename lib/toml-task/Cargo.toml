@@ -10,3 +10,6 @@ anyhow.workspace = true
 indexmap.workspace = true
 ordered-toml.workspace = true
 serde.workspace = true
+
+[lints]
+workspace = true

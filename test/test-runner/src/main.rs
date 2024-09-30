@@ -47,6 +47,7 @@
 
 #![no_std]
 #![no_main]
+#![forbid(clippy::wildcard_imports)]
 
 use ringbuf::{ringbuf, ringbuf_entry};
 use test_api::{RunnerOp, TestResult};

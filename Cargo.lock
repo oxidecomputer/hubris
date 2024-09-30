@@ -1049,7 +1049,7 @@ dependencies = [
  "gnarle",
  "idol",
  "idol-runtime",
- "num-derive",
+ "num-derive 0.4.2",
  "num-traits",
  "ringbuf",
  "serde",
@@ -1153,7 +1153,7 @@ dependencies = [
  "derive-idol-err",
  "drv-i2c-api",
  "drv-onewire",
- "num-derive",
+ "num-derive 0.4.2",
  "num-traits",
  "pmbus",
  "ringbuf",
@@ -1171,7 +1171,7 @@ dependencies = [
  "derive-idol-err",
  "enum-kinds",
  "hubpack",
- "num-derive",
+ "num-derive 0.4.2",
  "num-traits",
  "serde",
 ]
@@ -1199,7 +1199,7 @@ dependencies = [
  "drv-fpga-api",
  "idol",
  "idol-runtime",
- "num-derive",
+ "num-derive 0.4.2",
  "num-traits",
  "serde",
  "static_assertions",
@@ -1723,7 +1723,7 @@ dependencies = [
  "drv-transceivers-api",
  "gnarle",
  "idol",
- "num-derive",
+ "num-derive 0.4.2",
  "num-traits",
  "ringbuf",
  "transceiver-messages",
@@ -1748,7 +1748,7 @@ dependencies = [
  "drv-ignition-api",
  "gnarle",
  "idol",
- "num-derive",
+ "num-derive 0.4.2",
  "num-traits",
  "serde",
  "serde_json",
@@ -2772,7 +2772,7 @@ dependencies = [
  "fletcher",
  "gateway-messages",
  "hubpack",
- "num-derive",
+ "num-derive 0.4.2",
  "num-traits",
  "oxide-barcode",
  "serde",
@@ -3144,7 +3144,7 @@ name = "lpc55-puf"
 version = "0.1.0"
 dependencies = [
  "lpc55-pac",
- "num-derive",
+ "num-derive 0.4.2",
  "num-traits",
  "unwrap-lite",
 ]
@@ -3232,7 +3232,7 @@ dependencies = [
  "cfg-if",
  "lpc55-pac",
  "lpc55-rom-data",
- "num-derive",
+ "num-derive 0.4.2",
  "num-traits",
 ]
 
@@ -3420,6 +3420,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "num-derive"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ed3955f1a9c7c0c15e092f9c887db08b1fc683305fdf6eb6684f22555355e202"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.52",
+]
+
+[[package]]
 name = "num-integer"
 version = "0.1.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3453,9 +3464,9 @@ dependencies = [
 
 [[package]]
 name = "num-traits"
-version = "0.2.15"
+version = "0.2.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "578ede34cf02f8924ab9447f50c28075b4d3e5b269972345e7e0372b38c6cdcd"
+checksum = "071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841"
 dependencies = [
  "autocfg",
  "libm",
@@ -3693,7 +3704,7 @@ dependencies = [
  "anyhow",
  "convert_case",
  "libm",
- "num-derive",
+ "num-derive 0.3.3",
  "num-traits",
  "ron",
  "serde",
@@ -4299,7 +4310,7 @@ name = "spd"
 version = "0.1.0"
 source = "git+https://github.com/oxidecomputer/spd#e37e79f6d7d4805b8a6a8c4d37699c4bd60222ea"
 dependencies = [
- "num-derive",
+ "num-derive 0.3.3",
  "num-traits",
 ]
 
@@ -4531,18 +4542,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
-]
-
-[[package]]
-name = "synstructure"
-version = "0.12.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f36bdaa60a83aca3921b5259d5400cbf5e90fc51931376a9bd4a0eb79aa7210f"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.94",
- "unicode-xid",
 ]
 
 [[package]]
@@ -5143,7 +5142,7 @@ dependencies = [
  "hubpack",
  "idol",
  "idol-runtime",
- "num-derive",
+ "num-derive 0.4.2",
  "num-traits",
  "serde",
  "userlib",
@@ -5766,7 +5765,7 @@ dependencies = [
  "cfg-if",
  "cortex-m",
  "critical-section",
- "num-derive",
+ "num-derive 0.4.2",
  "num-traits",
  "paste",
  "serde",
@@ -6222,14 +6221,13 @@ dependencies = [
 
 [[package]]
 name = "zeroize_derive"
-version = "1.3.2"
+version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f8f187641dad4f680d25c4bfc4225b418165984179f26ca76ec4fb6441d3a17"
+checksum = "ce36e65b0d2999d2aafac989fb249189a141aee1f53c612c1f37d72631959f69"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 1.0.94",
- "synstructure",
+ "syn 2.0.52",
 ]
 
 [[package]]

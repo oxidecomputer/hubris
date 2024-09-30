@@ -25,6 +25,7 @@
 
 #![no_std]
 #![no_main]
+#![forbid(clippy::wildcard_imports)]
 
 #[cfg(feature = "dump")]
 mod dump;

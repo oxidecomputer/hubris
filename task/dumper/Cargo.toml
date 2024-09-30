@@ -31,3 +31,6 @@ name = "task-dumper"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

@@ -110,9 +110,7 @@ fn system_init() {
     let rev = p.GPIOG.idr.read().bits() & 0b111;
 
     cfg_if::cfg_if! {
-        if #[cfg(target_board = "gimlet-a")] {
-            compile_error!("gimlet-a is deprecated and no image for it exists");
-        } else if #[cfg(target_board = "gimlet-b")] {
+        if #[cfg(target_board = "gimlet-b")] {
             let expected_rev = 0b001;
         } else if #[cfg(target_board = "gimlet-c")] {
             let expected_rev = 0b010;

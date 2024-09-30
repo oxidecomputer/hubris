@@ -10,5 +10,6 @@
 //! field" to all tasks in the system, outside the kernel.
 
 #![no_std]
+#![forbid(clippy::wildcard_imports)]
 
 include!(concat!(env!("OUT_DIR"), "/tasks.rs"));

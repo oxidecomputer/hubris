@@ -76,7 +76,7 @@ memoffset = { version = "0.6.5", default-features = false }
 multimap = { version = "0.8.3", default-features = false }
 nb = { version = "1", default-features = false }
 num = { version = "0.4", default-features = false }
-num-derive = { version = "0.3.3", default-features = false, features = ["full-syntax"] }
+num-derive = { version = "0.4", default-features = false }
 num-traits = { version = "0.2.12", default-features = false }
 p256 = { version = "0.13.2", default-features = false, features = ["ecdsa"] }
 panic-halt = { version = "0.2.0", default-features = false }
@@ -137,5 +137,21 @@ tlvc-text = { git = "https://github.com/oxidecomputer/tlvc", default-features = 
 transceiver-messages = { git = "https://github.com/oxidecomputer/transceiver-control/", default-features = false }
 vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448", default-features = false }
 
+[workspace.lints.rust]
+elided_lifetimes_in_paths = "warn"
+
 [workspace.lints.clippy]
-wildcard_imports = "deny"
+# TODO: turn this back on once we've fixed them :/
+#wildcard_imports = "deny"
+
+# TODO: should clean up the comments eventually and switch these back to warn.
+too_long_first_doc_paragraph = "allow"
+doc_lazy_continuation = "allow"
+
+# TODO: these are currently allowed because it would be a giant pain to fix
+# them, but we should make them warn in the future!
+too_many_arguments = "allow"
+identity_op = "allow"
+missing_safety_doc = "allow"
+manual_inspect = "allow"
+single_match = "allow"

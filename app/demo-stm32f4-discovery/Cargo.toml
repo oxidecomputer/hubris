@@ -21,3 +21,6 @@ name = "demo-stm32f4-discovery"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true
