@@ -294,13 +294,20 @@ pub fn reinitialize(task: &mut task::Task) {
     // Ok. Generate a uslice for the task's starting stack frame.
     let mut frame_uslice: USlice<ExtendedExceptionFrame> =
         USlice::from_raw(initial_stack - frame_size, 1).unwrap_lite();
-    // Before we set our frame, find the region that contains our initial stack
-    // pointer, and zap the region from the base to the stack pointer with a
-    // distinct (and storied) pattern.
+
+    // Before we set our frame, find the region that contains the top word of
+    // the stack -- one word below the initial stack pointer -- and zap the
+    // region from the base to the stack pointer with a distinct (and storied)
+    // pattern.
+    //
+    // Note that if the initial stack pointer is zero, we use saturating
+    // arithmetic and get zero for the top word, which is outside any region and
+    // causes this to be skipped. (Not that we expect zero, but we're the kernel
+    // and we don't trust tasks.)
     if let Some(region) = task
         .region_table()
         .iter()
-        .find(|region| region.contains(initial_stack))
+        .find(|region| region.contains(initial_stack.saturating_sub(4)))
     {
         let mut uslice: USlice<u32> = USlice::from_raw(
             region.base as usize,
