@@ -125,6 +125,13 @@ impl PackageConfig {
             file_data.hash(&mut extra_hash);
         }
 
+        // We require a board file in the `boards` directory
+        let board_path =
+            Path::new("boards").join(format!("{}.toml", toml.board));
+        if !board_path.exists() {
+            bail!("Failed to find {:?}", board_path);
+        }
+
         Ok(Self {
             app_src_dir: app_src_dir.to_path_buf(),
             toml,

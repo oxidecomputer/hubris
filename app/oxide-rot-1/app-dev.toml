@@ -1,6 +1,10 @@
-name = "oxide-rot-1-dev"
+# This is a different board than `oxide-rot-1` because `oxide-rot-1`
+# expects an image that has gone through the full manufacturing provisioning
+# flow. It's technically not completely new hardware but for all practical
+# purposes it might as well be electrically incompatible.
+name = "oxide-rot-1-selfsigned"
 target = "thumbv8m.main-none-eabihf"
-board = "oxide-rot-1"
+board = "oxide-rot-1-selfsigned"
 chip = "../../chips/lpc55"
 stacksize = 1024
 image-names = ["a", "b"]
