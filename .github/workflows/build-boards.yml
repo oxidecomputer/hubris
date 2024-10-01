@@ -99,14 +99,14 @@ jobs:
     name: build-rot
     strategy:
       matrix:
-        build: [oxide-rot-1, oxide-rot-1-dev]
+        build: [oxide-rot-1, oxide-rot-1-selfsigned]
         include:
           - build: oxide-rot-1
             app_name: oxide-rot-1
             app_toml: app/oxide-rot-1/app.toml
             image: "a, b"
-          - build: oxide-rot-1-dev
-            app_name: oxide-rot-1-dev
+          - build: oxide-rot-1-selfsigned
+            app_name: oxide-rot-1-selfsigned
             app_toml: app/oxide-rot-1/app-dev.toml
             image: "a, b"
     uses: ./.github/workflows/build-one.yml
