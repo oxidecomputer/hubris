@@ -361,14 +361,10 @@ impl FlashDriver {
     }
 
     fn set_flash_mux_state(&self, ms: drv_hf_api::HfMuxState) {
-        match ms {
-            drv_hf_api::HfMuxState::SP => {
-                self.modify_reg(reg::SPICR, |v| v & !reg::spicr::SP5_OWNS_FLASH)
-            }
-            drv_hf_api::HfMuxState::HostCPU => {
-                self.modify_reg(reg::SPICR, |v| v | reg::spicr::SP5_OWNS_FLASH)
-            }
-        }
+        self.modify_reg(reg::SPICR, |v| match ms {
+            drv_hf_api::HfMuxState::SP => v & !reg::spicr::SP5_OWNS_FLASH,
+            drv_hf_api::HfMuxState::HostCPU => v | reg::spicr::SP5_OWNS_FLASH,
+        });
     }
 
     fn set_espi_addr_offset(&self, v: u32) {
