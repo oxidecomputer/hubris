@@ -197,7 +197,8 @@ notifications = ["spi-irq"]
 name = "task-control-plane-agent"
 priority = 5
 max-sizes = {flash = 131072, ram = 32768}
-stacksize = 4096
+# This is probably a bit overkill and can be tuned later
+stacksize = 6000
 start = true
 uses = []
 task-slots = [
