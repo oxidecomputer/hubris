@@ -25,3 +25,6 @@ name = "tests-stm32h7"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

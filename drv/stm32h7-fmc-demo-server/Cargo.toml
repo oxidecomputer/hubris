@@ -32,3 +32,6 @@ name = "drv-stm32h7-fmc-demo-server"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

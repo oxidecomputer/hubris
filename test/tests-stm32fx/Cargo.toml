@@ -21,3 +21,6 @@ name = "tests-stm32fx"
 path = "../../app/demo-stm32f4-discovery/src/main.rs"
 test = false
 bench = false
+
+[lints]
+workspace = true

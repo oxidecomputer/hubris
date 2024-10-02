@@ -31,3 +31,6 @@ name = "stm32h7-update-server"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

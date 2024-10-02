@@ -25,3 +25,6 @@ name = "drv-lpc55-i2c"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

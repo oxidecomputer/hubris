@@ -57,3 +57,6 @@ name = "drv-stm32xx-sys"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

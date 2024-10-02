@@ -26,3 +26,6 @@ name = "lpc55xpresso"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

@@ -24,3 +24,6 @@ name = "task-caboose-reader"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

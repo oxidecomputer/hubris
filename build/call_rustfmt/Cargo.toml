@@ -5,3 +5,6 @@ edition = "2021"
 
 [dependencies]
 anyhow = { workspace = true }
+
+[lints]
+workspace = true

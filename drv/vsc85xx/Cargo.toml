@@ -17,3 +17,6 @@ vsc-err = { path = "../vsc-err" }
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

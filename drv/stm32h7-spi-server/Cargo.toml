@@ -39,3 +39,6 @@ name = "drv-stm32h7-spi-server"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

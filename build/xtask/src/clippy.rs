@@ -107,16 +107,6 @@ pub fn run(
         let mut cmd = build_config.cmd("clippy");
 
         cmd.arg("--");
-        cmd.arg("-W");
-        cmd.arg("clippy::all");
-        cmd.arg("-A");
-        cmd.arg("clippy::missing_safety_doc");
-        cmd.arg("-A");
-        cmd.arg("clippy::identity_op");
-        cmd.arg("-A");
-        cmd.arg("clippy::too_many_arguments");
-        cmd.arg("-W");
-        cmd.arg("elided_lifetimes_in_paths");
 
         for opt in options {
             cmd.arg(opt);

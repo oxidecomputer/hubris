@@ -166,8 +166,8 @@ impl HfRawPersistentData {
     }
 
     fn expected_checksum(&self) -> u32 {
-        let c = crc::Crc::<u32>::new(&crc::CRC_32_ISCSI);
-        let mut c = c.digest();
+        static CRC: crc::Crc<u32> = crc::Crc::<u32>::new(&crc::CRC_32_ISCSI);
+        let mut c = CRC.digest();
         // We do a CRC32 of everything except the checksum, which is positioned
         // at the end of the struct and is a `u32`
         let size = core::mem::size_of::<HfRawPersistentData>()

@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #![no_std]
+#![forbid(clippy::wildcard_imports)]
 
 use userlib::FromPrimitive;
 

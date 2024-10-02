@@ -30,6 +30,7 @@
 //! used alongside `Multitimer`.
 
 #![cfg_attr(target_os = "none", no_std)]
+#![forbid(clippy::wildcard_imports)]
 
 use enum_map::{EnumArray, EnumMap};
 

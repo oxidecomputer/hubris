@@ -15,3 +15,6 @@ userlib = { path = "../../sys/userlib" }
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

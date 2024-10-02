@@ -37,3 +37,6 @@ name = "drv-user-leds"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

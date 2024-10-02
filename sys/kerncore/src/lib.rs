@@ -7,6 +7,7 @@
 // things with test set. This means it's easy to introduce code incompatible
 // with no_std without your editor hassling you about it. Beware.
 #![cfg_attr(not(test), no_std)]
+#![forbid(clippy::wildcard_imports)]
 
 /// Describes types that act as "slices" (in the very abstract sense) referenced
 /// by tasks in syscalls.

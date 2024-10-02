@@ -66,3 +66,6 @@ name = "task-host-sp-comms"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

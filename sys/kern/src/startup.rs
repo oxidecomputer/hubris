@@ -101,11 +101,8 @@ pub(crate) fn with_task_table<R>(body: impl FnOnce(&mut [Task]) -> R) -> R {
     if TASK_TABLE_IN_USE.swap_polyfill(true, Ordering::Acquire) {
         panic!(); // recursive use of with_task_table
     }
-    // Safety: tbh it's never been clear to me why addr_of_mut is unsafe when it
-    // produces a raw pointer, but, see the Safety justification on the
-    // derefrence below for the full argument on why we can do this.
     let task_table: *mut MaybeUninit<[Task; HUBRIS_TASK_COUNT]> =
-        unsafe { core::ptr::addr_of_mut!(HUBRIS_TASK_TABLE_SPACE) };
+        core::ptr::addr_of_mut!(HUBRIS_TASK_TABLE_SPACE);
     // Pointer cast valid as MaybeUninit<[T; N]> and [MaybeUninit<T>; N] have
     // same in-memory representation. At the time of this writing
     // MaybeUninit::transpose is not yet stable.

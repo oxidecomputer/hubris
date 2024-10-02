@@ -14,3 +14,6 @@ build-util = { path = "../../build/util" }
 
 [lib]
 proc-macro = true
+
+[lints]
+workspace = true

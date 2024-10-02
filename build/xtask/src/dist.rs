@@ -167,7 +167,7 @@ impl PackageConfig {
             remap_paths.insert(cargo_git, "/git");
 
             // This hash is canonical-ish: Cargo tries hard not to change it
-            // https://github.com/rust-lang/cargo/blob/master/src/cargo/core/source/source_id.rs#L607-L630
+            // https://github.com/rust-lang/cargo/blob/5dfdd59/src/cargo/core/source_id.rs#L755-L794
             //
             // It depends on system architecture, so this won't work on (for example)
             // a Raspberry Pi, but the only downside is that panic messages will
@@ -177,6 +177,15 @@ impl PackageConfig {
                 .join("src")
                 .join("github.com-1ecc6299db9ec823");
             remap_paths.insert(cargo_registry, "/crates.io");
+            // If Cargo uses the sparse registry (stabilized since ~1.72) it caches fetched crates
+            // in a slightly different path. Remap that one as well.
+            //
+            // This path has the same canonical-ish properties as above.
+            let cargo_sparse_registry = cargo_home
+                .join("registry")
+                .join("src")
+                .join("index.crates.io-6f17d22bba15001f");
+            remap_paths.insert(cargo_sparse_registry, "/crates.io");
         }
 
         if let Ok(dir) = std::env::var("CARGO_MANIFEST_DIR") {

@@ -36,3 +36,6 @@ name = "drv-lpc55-swd"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

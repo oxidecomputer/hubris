@@ -13,3 +13,6 @@ enum-kinds.workspace = true
 
 derive-idol-err.path = "../../lib/derive-idol-err"
 counters = { path = "../../lib/counters" }
+
+[lints]
+workspace = true

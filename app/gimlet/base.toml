@@ -261,7 +261,8 @@ notifications = ["socket"]
 name = "task-control-plane-agent"
 priority = 6
 max-sizes = {flash = 131072, ram = 32768}
-stacksize = 4096
+# This can probably overkill and can be tuned later
+stacksize = 6000
 start = true
 uses = ["usart1"]
 task-slots = [

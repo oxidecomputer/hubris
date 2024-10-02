@@ -42,3 +42,6 @@ sink_test = []
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

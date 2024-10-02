@@ -11,3 +11,6 @@ volatile-const.path = "../../lib/volatile-const"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

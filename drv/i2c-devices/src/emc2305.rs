@@ -205,6 +205,7 @@ fn write_reg8(
     device.write(&[register as u8, val])
 }
 
+#[allow(unused)]
 fn write_reg16(
     device: &I2cDevice,
     register: Register,
@@ -295,14 +296,17 @@ impl Emc2305 {
         // TACHOMETER READING LOW BYTE REGISTER in the datasheet).
         let count = ((val[0] as u32) << 5) | (val[1] >> 3) as u32;
 
+        // If the fan isn't spinning or is disconnected, this is the default
+        // value (dunno why the lowest bit is 0 instead of 1).
+        const TACH_POR_VALUE: u32 = 0x1ffe;
+
         if count == 0 {
-            // What happens if the fan is idle / stalled / unplugged?
-            //
-            // On the MAX31790, it returns all ones for the tach reading, but
-            // it's not clear whether that's also the case for this chip.
             ringbuf_entry!(Trace::ZeroTach(fan));
             return Err(ResponseCode::BadDeviceState);
+        } else if count == TACH_POR_VALUE {
+            return Ok(Rpm(0));
         }
+
         let rpm = 7_680_000 / count;
         let Ok(rpm) = rpm.try_into() else {
             ringbuf_entry!(Trace::TachOverflow(count));
@@ -315,8 +319,8 @@ impl Emc2305 {
     pub fn set_pwm(&self, fan: Fan, pwm: PWMDuty) -> Result<(), ResponseCode> {
         let perc = core::cmp::min(pwm.0, 100) as f32;
 
-        let val = ((perc / 100.0) * 0b1_1111_1111 as f32) as u16;
-        write_reg16(&self.device, fan.pwm_target(), val << 7)
+        let val = ((perc / 100.0) * 255.0) as u8;
+        write_reg8(&self.device, fan.pwm_target(), val)
     }
 
     pub fn set_watchdog(&self, enabled: bool) -> Result<(), ResponseCode> {
@@ -332,8 +336,8 @@ impl Validate<ResponseCode> for Emc2305 {
         let pid = read_reg8(device, Register::ProductId)?;
         let mfg = read_reg8(device, Register::MfgId)?;
 
-        // XXX The datasheet has ambiguity about whether PID should be 1011_0100
-        // or 0011_0100
-        Ok(pid == 0b0011_0100 && mfg == 0xD5)
+        // The datasheet has ambiguity about whether PID should be 1011_0100
+        // or 0011_0100, but experimentally, it seems to be the latter.
+        Ok(pid == 0b0011_0100 && mfg == 0x5D)
     }
 }

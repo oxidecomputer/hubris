@@ -19,3 +19,6 @@ lpc55-rom-data.path = "../lpc55-rom-data"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

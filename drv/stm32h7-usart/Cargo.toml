@@ -17,3 +17,6 @@ h753 = ["stm32h7/stm32h753", "drv-stm32xx-sys-api/h753"]
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

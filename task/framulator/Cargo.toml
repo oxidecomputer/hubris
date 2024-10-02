@@ -21,3 +21,6 @@ name = "task-framulator"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

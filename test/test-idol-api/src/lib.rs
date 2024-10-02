@@ -5,6 +5,7 @@
 //! Client API for the User LEDs driver.
 
 #![no_std]
+#![forbid(clippy::wildcard_imports)]
 
 use derive_idol_err::IdolError;
 use serde::{Deserialize, Serialize};

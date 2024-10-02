@@ -55,3 +55,6 @@ name = "task-monorail-server"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

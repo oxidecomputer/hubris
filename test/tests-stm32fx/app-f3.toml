@@ -1,4 +1,4 @@
-name = "tests-stm32fx"
+name = "tests-stm32fx-f3"
 target = "thumbv7em-none-eabihf"
 board = "stm32f3-discovery"
 chip = "../../chips/stm32f3"

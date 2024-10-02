@@ -32,3 +32,6 @@ name = "drv-mock-gimlet-hf-server"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

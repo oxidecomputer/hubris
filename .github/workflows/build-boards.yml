@@ -263,7 +263,7 @@ jobs:
             app_toml: test/tests-stm32g0/app-g070.toml
             image: default
           - build: stm32f3
-            app_name: tests-stm32fx
+            app_name: tests-stm32fx-f3
             app_toml: test/tests-stm32fx/app-f3.toml
             image: default
           - build: stm32f4

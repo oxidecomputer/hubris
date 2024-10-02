@@ -154,7 +154,7 @@ fn i2c_args(
 
     let port = match stack[1] {
         Some(port) => {
-            if port > core::u8::MAX.into() {
+            if port > u8::MAX.into() {
                 return Err(Failure::Fault(Fault::BadParameter(1)));
             }
 

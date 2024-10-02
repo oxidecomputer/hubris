@@ -49,3 +49,6 @@ name = "drv-lpc55-sprot-server"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

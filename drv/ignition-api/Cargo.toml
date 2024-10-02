@@ -31,3 +31,6 @@ idol = { workspace = true }
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

@@ -5,3 +5,6 @@ edition = "2021"
 
 [features]
 std = []
+
+[lints]
+workspace = true

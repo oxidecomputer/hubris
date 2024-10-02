@@ -32,3 +32,6 @@ name = "drv-ignition-server"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

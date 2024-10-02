@@ -29,3 +29,6 @@ name = "task-sp-measure"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

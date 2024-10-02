@@ -27,3 +27,6 @@ name = "demo-stm32h7-nucleo"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

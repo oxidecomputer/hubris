@@ -101,9 +101,11 @@ where
     T: SeedableRng,
 {
     fn new(mut reseeder: Lpc55Rng, threshold: usize) -> Result<Self, Error> {
-        use ::core::usize::MAX;
-
-        let threshold = if threshold == 0 { MAX } else { threshold };
+        let threshold = if threshold == 0 {
+            usize::MAX
+        } else {
+            threshold
+        };
 
         // try_trait_v2 is still experimental
         let inner = match T::from_rng(&mut reseeder) {

@@ -29,3 +29,6 @@ name = "drv-stm32h7-hash-server"
 test = false
 doctest = false
 bench = false
+
+[lints]
+workspace = true

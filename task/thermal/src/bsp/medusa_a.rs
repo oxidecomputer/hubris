@@ -86,6 +86,8 @@ impl Bsp {
                 gain_p: 0.,
                 gain_i: 0.,
                 gain_d: 0.,
+                min_output: 0.,
+                max_output: 100.,
             },
 
             inputs: &INPUTS,

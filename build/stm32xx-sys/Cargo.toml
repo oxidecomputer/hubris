@@ -15,3 +15,6 @@ serde = { workspace = true }
 syn = { workspace = true }
 
 build-util = { path = "../util" }
+
+[lints]
+workspace = true

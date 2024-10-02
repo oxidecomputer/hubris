@@ -21,6 +21,7 @@
 #![feature(used_with_arg)]
 #![no_std]
 #![no_main]
+#![forbid(clippy::wildcard_imports)]
 
 use hubris_num_tasks::NUM_TASKS;
 use ringbuf::{ringbuf, ringbuf_entry};

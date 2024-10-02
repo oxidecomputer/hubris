@@ -5,3 +5,6 @@ edition = "2021"
 
 [dependencies]
 spin = { workspace = true }
+
+[lints]
+workspace = true

@@ -15,3 +15,6 @@ quote.workspace = true
 serde.workspace = true
 
 build-util.path = "../util"
+
+[lints]
+workspace = true

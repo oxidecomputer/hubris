@@ -353,7 +353,7 @@ PORT0_STATUS
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7] |  | - | Reserved
+|[7] | r | STRETCHING_SEEN | '1' if the module stretched SCL during the last transaction.
 |[6] | r | RDATA_FIFO_EMPTY | '1' if the I2C read data buffer is empty.
 |[5] | r | WDATA_FIFO_EMPTY | '1' if the I2C write data buffer is empty.
 |[4] | r | BUSY | '1' if the I2C bus is busy.
@@ -366,7 +366,7 @@ PORT1_STATUS
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7] |  | - | Reserved
+|[7] | r | STRETCHING_SEEN | '1' if the module stretched SCL during the last transaction.
 |[6] | r | RDATA_FIFO_EMPTY | '1' if the I2C read data buffer is empty.
 |[5] | r | WDATA_FIFO_EMPTY | '1' if the I2C write data buffer is empty.
 |[4] | r | BUSY | '1' if the I2C bus is busy.
@@ -379,7 +379,7 @@ PORT2_STATUS
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7] |  | - | Reserved
+|[7] | r | STRETCHING_SEEN | '1' if the module stretched SCL during the last transaction.
 |[6] | r | RDATA_FIFO_EMPTY | '1' if the I2C read data buffer is empty.
 |[5] | r | WDATA_FIFO_EMPTY | '1' if the I2C write data buffer is empty.
 |[4] | r | BUSY | '1' if the I2C bus is busy.
@@ -392,7 +392,7 @@ PORT3_STATUS
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7] |  | - | Reserved
+|[7] | r | STRETCHING_SEEN | '1' if the module stretched SCL during the last transaction.
 |[6] | r | RDATA_FIFO_EMPTY | '1' if the I2C read data buffer is empty.
 |[5] | r | WDATA_FIFO_EMPTY | '1' if the I2C write data buffer is empty.
 |[4] | r | BUSY | '1' if the I2C bus is busy.
@@ -405,7 +405,7 @@ PORT4_STATUS
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7] |  | - | Reserved
+|[7] | r | STRETCHING_SEEN | '1' if the module stretched SCL during the last transaction.
 |[6] | r | RDATA_FIFO_EMPTY | '1' if the I2C read data buffer is empty.
 |[5] | r | WDATA_FIFO_EMPTY | '1' if the I2C write data buffer is empty.
 |[4] | r | BUSY | '1' if the I2C bus is busy.
@@ -418,7 +418,7 @@ PORT5_STATUS
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7] |  | - | Reserved
+|[7] | r | STRETCHING_SEEN | '1' if the module stretched SCL during the last transaction.
 |[6] | r | RDATA_FIFO_EMPTY | '1' if the I2C read data buffer is empty.
 |[5] | r | WDATA_FIFO_EMPTY | '1' if the I2C write data buffer is empty.
 |[4] | r | BUSY | '1' if the I2C bus is busy.
@@ -431,7 +431,7 @@ PORT6_STATUS
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7] |  | - | Reserved
+|[7] | r | STRETCHING_SEEN | '1' if the module stretched SCL during the last transaction.
 |[6] | r | RDATA_FIFO_EMPTY | '1' if the I2C read data buffer is empty.
 |[5] | r | WDATA_FIFO_EMPTY | '1' if the I2C write data buffer is empty.
 |[4] | r | BUSY | '1' if the I2C bus is busy.
@@ -444,7 +444,7 @@ PORT7_STATUS
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7] |  | - | Reserved
+|[7] | r | STRETCHING_SEEN | '1' if the module stretched SCL during the last transaction.
 |[6] | r | RDATA_FIFO_EMPTY | '1' if the I2C read data buffer is empty.
 |[5] | r | WDATA_FIFO_EMPTY | '1' if the I2C write data buffer is empty.
 |[4] | r | BUSY | '1' if the I2C bus is busy.
@@ -457,7 +457,7 @@ PORT8_STATUS
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7] |  | - | Reserved
+|[7] | r | STRETCHING_SEEN | '1' if the module stretched SCL during the last transaction.
 |[6] | r | RDATA_FIFO_EMPTY | '1' if the I2C read data buffer is empty.
 |[5] | r | WDATA_FIFO_EMPTY | '1' if the I2C write data buffer is empty.
 |[4] | r | BUSY | '1' if the I2C bus is busy.
@@ -470,7 +470,7 @@ PORT9_STATUS
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7] |  | - | Reserved
+|[7] | r | STRETCHING_SEEN | '1' if the module stretched SCL during the last transaction.
 |[6] | r | RDATA_FIFO_EMPTY | '1' if the I2C read data buffer is empty.
 |[5] | r | WDATA_FIFO_EMPTY | '1' if the I2C write data buffer is empty.
 |[4] | r | BUSY | '1' if the I2C bus is busy.
@@ -483,7 +483,7 @@ PORT10_STATUS
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7] |  | - | Reserved
+|[7] | r | STRETCHING_SEEN | '1' if the module stretched SCL during the last transaction.
 |[6] | r | RDATA_FIFO_EMPTY | '1' if the I2C read data buffer is empty.
 |[5] | r | WDATA_FIFO_EMPTY | '1' if the I2C write data buffer is empty.
 |[4] | r | BUSY | '1' if the I2C bus is busy.
@@ -496,7 +496,7 @@ PORT11_STATUS
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7] |  | - | Reserved
+|[7] | r | STRETCHING_SEEN | '1' if the module stretched SCL during the last transaction.
 |[6] | r | RDATA_FIFO_EMPTY | '1' if the I2C read data buffer is empty.
 |[5] | r | WDATA_FIFO_EMPTY | '1' if the I2C write data buffer is empty.
 |[4] | r | BUSY | '1' if the I2C bus is busy.
@@ -509,7 +509,7 @@ PORT12_STATUS
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7] |  | - | Reserved
+|[7] | r | STRETCHING_SEEN | '1' if the module stretched SCL during the last transaction.
 |[6] | r | RDATA_FIFO_EMPTY | '1' if the I2C read data buffer is empty.
 |[5] | r | WDATA_FIFO_EMPTY | '1' if the I2C write data buffer is empty.
 |[4] | r | BUSY | '1' if the I2C bus is busy.
@@ -522,7 +522,7 @@ PORT13_STATUS
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7] |  | - | Reserved
+|[7] | r | STRETCHING_SEEN | '1' if the module stretched SCL during the last transaction.
 |[6] | r | RDATA_FIFO_EMPTY | '1' if the I2C read data buffer is empty.
 |[5] | r | WDATA_FIFO_EMPTY | '1' if the I2C write data buffer is empty.
 |[4] | r | BUSY | '1' if the I2C bus is busy.
@@ -535,7 +535,7 @@ PORT14_STATUS
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7] |  | - | Reserved
+|[7] | r | STRETCHING_SEEN | '1' if the module stretched SCL during the last transaction.
 |[6] | r | RDATA_FIFO_EMPTY | '1' if the I2C read data buffer is empty.
 |[5] | r | WDATA_FIFO_EMPTY | '1' if the I2C write data buffer is empty.
 |[4] | r | BUSY | '1' if the I2C bus is busy.
@@ -548,7 +548,7 @@ PORT15_STATUS
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
-|[7] |  | - | Reserved
+|[7] | r | STRETCHING_SEEN | '1' if the module stretched SCL during the last transaction.
 |[6] | r | RDATA_FIFO_EMPTY | '1' if the I2C read data buffer is empty.
 |[5] | r | WDATA_FIFO_EMPTY | '1' if the I2C write data buffer is empty.
 |[4] | r | BUSY | '1' if the I2C bus is busy.

@@ -1001,6 +1001,1161 @@ This should be the last register written to during setup
         <td class="FieldDesc" colspan="14">Address added to raw eSPI transactions to generate physical flash address
         </td>
     </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="13">espi_flags</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x200
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Flags Register</td>
+    </tr>
+    <tr class="cat13" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;31..24</td>
+                <td class="rsvdspandef" colspan="16*">RSVD</td>
+    </tr>
+    <tr class="cat13" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;23..16</td>
+                <td class="rsvdspandef" colspan="16*">RSVD</td>
+    </tr>
+    <tr class="cat13" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;15..8</td>
+                <td class="rsvdspandef" colspan="16*">RSVD</td>
+    </tr>
+    <tr class="cat13" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="rsvdspandef" colspan="14*">RSVD</td>
+                <td class="validspandef" colspan="2*">alert</td>
+    </tr>
+    <tr class="cat13" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat13" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">alert</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Sticky bit for alert, set to 1 when alert is needed, cleared by writing 1
+        </td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="14">espi_control</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x204
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Control Register</td>
+    </tr>
+    <tr class="cat14" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;31..24</td>
+                <td class="rsvdspandef" colspan="16*">RSVD</td>
+    </tr>
+    <tr class="cat14" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;23..16</td>
+                <td class="rsvdspandef" colspan="16*">RSVD</td>
+    </tr>
+    <tr class="cat14" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;15..8</td>
+                <td class="rsvdspandef" colspan="16*">RSVD</td>
+    </tr>
+    <tr class="cat14" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="rsvdspandef" colspan="8*">RSVD</td>
+                <td class="validspandef" colspan="2*">cmd_fifo_reset</td>
+                <td class="validspandef" colspan="2*">cmd_size_fifo_reset</td>
+                <td class="validspandef" colspan="2*">resp_fifo_reset</td>
+                <td class="validspandef" colspan="2*">dbg_mode_en</td>
+    </tr>
+    <tr class="cat14" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat14" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">cmd_fifo_reset</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Set to one to reset the command FIFO. Cleared by hardware after reset.
+        </td>
+    </tr>
+    <tr class="cat14" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">cmd_size_fifo_reset</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Set to one to reset the command size FIFO. Cleared by hardware after reset.
+        </td>
+    </tr>
+    <tr class="cat14" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">resp_fifo_reset</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Set to one to reset response FIFO. Cleared by hardware after reset.
+        </td>
+    </tr>
+    <tr class="cat14" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">dbg_mode_en</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Set to one mux in the debug FIFOs and ignore the real eSPI interface
+        </td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="15">espi_status</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x208
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Status Register</td>
+    </tr>
+    <tr class="cat15" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;31..24</td>
+                <td class="rsvdspandef" colspan="16*">RSVD</td>
+    </tr>
+    <tr class="cat15" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;23..16</td>
+                <td class="rsvdspandef" colspan="16*">RSVD</td>
+    </tr>
+    <tr class="cat15" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;15..8</td>
+                <td class="rsvdspandef" colspan="16*">RSVD</td>
+    </tr>
+    <tr class="cat15" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="rsvdspandef" colspan="14*">RSVD</td>
+                <td class="validspandef" colspan="2*">busy</td>
+    </tr>
+    <tr class="cat15" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat15" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">busy</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Set to one to 1 when hw is running the spi transaction, no new transactions
+may be issued until it is finished. Technically represents cs_n being low.
+        </td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="16">espi_fifo_status</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x20c
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Fifo Status Register</td>
+    </tr>
+    <tr class="cat16" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;31..24</td>
+                <td class="validspandef" colspan="16*">cmd_used_wds</td>
+    </tr>
+    <tr class="cat16" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;23..16</td>
+                <td class="validspandef" colspan="16*">cmd_used_wds</td>
+    </tr>
+    <tr class="cat16" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;15..8</td>
+                <td class="validspandef" colspan="16*">resp_used_wds</td>
+    </tr>
+    <tr class="cat16" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">resp_used_wds</td>
+    </tr>
+    <tr class="cat16" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat16" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">cmd_used_wds</td>
+        <td class="FieldDesc" colspan="1*">31..16</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Show used words in command FIFO (word = 32bits/4 bytes),
+1024 words so 4kB
+        </td>
+    </tr>
+    <tr class="cat16" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">resp_used_wds</td>
+        <td class="FieldDesc" colspan="1*">15..0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Show used FIFO words in response FIFO (word = 32bits/4 bytes),
+1024 words so 4kB
+        </td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="17">espi_cmd_fifo_wdata</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x210
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Command FIFO Write Data Register</td>
+    </tr>
+    <tr class="cat17" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;31..24</td>
+                <td class="validspandef" colspan="16*">fifo_data</td>
+    </tr>
+    <tr class="cat17" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;23..16</td>
+                <td class="validspandef" colspan="16*">fifo_data</td>
+    </tr>
+    <tr class="cat17" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;15..8</td>
+                <td class="validspandef" colspan="16*">fifo_data</td>
+    </tr>
+    <tr class="cat17" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">fifo_data</td>
+    </tr>
+    <tr class="cat17" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat17" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">fifo_data</td>
+        <td class="FieldDesc" colspan="1*">31..0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Writing stores data in fifo
+        </td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="18">espi_resp_fifo_rdata</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x214
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Response FIFO Read Data Register</td>
+    </tr>
+    <tr class="cat18" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;31..24</td>
+                <td class="validspandef" colspan="16*">fifo_data</td>
+    </tr>
+    <tr class="cat18" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;23..16</td>
+                <td class="validspandef" colspan="16*">fifo_data</td>
+    </tr>
+    <tr class="cat18" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;15..8</td>
+                <td class="validspandef" colspan="16*">fifo_data</td>
+    </tr>
+    <tr class="cat18" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">fifo_data</td>
+    </tr>
+    <tr class="cat18" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat18" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">fifo_data</td>
+        <td class="FieldDesc" colspan="1*">31..0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Note: Reading side-effects the data by popping the fifo
+        </td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="19">espi_cmd_size_fifo_wdata</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x218
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Command FIFO Byte Count FIFO</td>
+    </tr>
+    <tr class="cat19" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;31..24</td>
+                <td class="rsvdspandef" colspan="16*">RSVD</td>
+    </tr>
+    <tr class="cat19" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;23..16</td>
+                <td class="rsvdspandef" colspan="16*">RSVD</td>
+    </tr>
+    <tr class="cat19" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;15..8</td>
+                <td class="rsvdspandef" colspan="16*">RSVD</td>
+    </tr>
+    <tr class="cat19" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="16*">fifo_data</td>
+    </tr>
+    <tr class="cat19" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat19" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">fifo_data</td>
+        <td class="FieldDesc" colspan="1*">7..0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">store command byte size in fifo. Beacause we are sending 4bytes at a time into the fifo, but only reading
+1 byte at a time, we need to store the number of cmd bytes in the fifo. This allows queueing up multiple commands
+if desired. left over data bytes are discarded if this fifo is empty and there are <4 bytes left in cmd_fifo
+        </td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="20">sgpio_OUT0</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x300
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;CH0 Outputs</td>
+    </tr>
+    <tr class="cat20" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;31..24</td>
+                <td class="rsvdspandef" colspan="16*">RSVD</td>
+    </tr>
+    <tr class="cat20" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;23..16</td>
+                <td class="rsvdspandef" colspan="16*">RSVD</td>
+    </tr>
+    <tr class="cat20" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;15..8</td>
+                <td class="validspandef" colspan="2*">hbt</td>
+                <td class="validspandef" colspan="2*">stb_rdy</td>
+                <td class="validspandef" colspan="4*">unused</td>
+                <td class="validspandef" colspan="2*">y3</td>
+                <td class="validspandef" colspan="2*">a5</td>
+                <td class="validspandef" colspan="2*">a4</td>
+                <td class="validspandef" colspan="2*">v7</td>
+    </tr>
+    <tr class="cat20" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="2*">v6</td>
+                <td class="validspandef" colspan="2*">v5</td>
+                <td class="validspandef" colspan="2*">v3</td>
+                <td class="validspandef" colspan="2*">n7</td>
+                <td class="validspandef" colspan="2*">l5</td>
+                <td class="validspandef" colspan="2*">l4</td>
+                <td class="validspandef" colspan="2*">h3</td>
+                <td class="validspandef" colspan="2*">h0</td>
+    </tr>
+    <tr class="cat20" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat20" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">hbt</td>
+        <td class="FieldDesc" colspan="1*">15</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HAWAII_HEARTBEAT
+        </td>
+    </tr>
+    <tr class="cat20" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">stb_rdy</td>
+        <td class="FieldDesc" colspan="1*">14</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">MB_SCM_HPM_STBY_RDY
+        </td>
+    </tr>
+    <tr class="cat20" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">unused</td>
+        <td class="FieldDesc" colspan="1*">13..12</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">UNUSED_OUTS
+        </td>
+    </tr>
+    <tr class="cat20" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">y3</td>
+        <td class="FieldDesc" colspan="1*">11</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOY3-??
+        </td>
+    </tr>
+    <tr class="cat20" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">a5</td>
+        <td class="FieldDesc" colspan="1*">10</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x1</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOA5-MGMT_SMBUS_DATA
+        </td>
+    </tr>
+    <tr class="cat20" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">a4</td>
+        <td class="FieldDesc" colspan="1*">9</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x1</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOA4-MGMT_SMBUS_CLK
+        </td>
+    </tr>
+    <tr class="cat20" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">v7</td>
+        <td class="FieldDesc" colspan="1*">8</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOV7-GPIO_OUTPUT_9
+        </td>
+    </tr>
+    <tr class="cat20" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">v6</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOV6-GPIO_OUTPUT_8
+        </td>
+    </tr>
+    <tr class="cat20" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">v5</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOV5-GPIO_OUTPUT_7
+        </td>
+    </tr>
+    <tr class="cat20" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">v3</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOV3-GPIO_OUTPUT_6
+        </td>
+    </tr>
+    <tr class="cat20" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">n7</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x1</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPION7-BMC_READY
+        </td>
+    </tr>
+    <tr class="cat20" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">l5</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x1</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOL5-??
+        </td>
+    </tr>
+    <tr class="cat20" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">l4</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOL4-??
+        </td>
+    </tr>
+    <tr class="cat20" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">h3</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOH3-??
+        </td>
+    </tr>
+    <tr class="cat20" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">h0</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOH0-MGMT_ASSERT_LOCAL_LOCK
+        </td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="21">sgpio_IN0</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x304
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;CH0 Inputs</td>
+    </tr>
+    <tr class="cat21" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;31..24</td>
+                <td class="rsvdspandef" colspan="16*">RSVD</td>
+    </tr>
+    <tr class="cat21" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;23..16</td>
+                <td class="rsvdspandef" colspan="16*">RSVD</td>
+    </tr>
+    <tr class="cat21" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;15..8</td>
+                <td class="validspandef" colspan="2*">g7</td>
+                <td class="validspandef" colspan="2*">p6</td>
+                <td class="validspandef" colspan="2*">p4</td>
+                <td class="validspandef" colspan="2*">p2</td>
+                <td class="validspandef" colspan="2*">p0</td>
+                <td class="validspandef" colspan="2*">n6</td>
+                <td class="validspandef" colspan="2*">n5</td>
+                <td class="validspandef" colspan="2*">n4</td>
+    </tr>
+    <tr class="cat21" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="2*">n3</td>
+                <td class="validspandef" colspan="2*">n2</td>
+                <td class="validspandef" colspan="2*">n1</td>
+                <td class="validspandef" colspan="2*">n0</td>
+                <td class="validspandef" colspan="2*">i6</td>
+                <td class="validspandef" colspan="2*">b7</td>
+                <td class="validspandef" colspan="2*">b5</td>
+                <td class="validspandef" colspan="2*">b4</td>
+    </tr>
+    <tr class="cat21" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat21" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">g7</td>
+        <td class="FieldDesc" colspan="1*">15</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOG7-BMC_SCM_FPGA_UART_RX
+        </td>
+    </tr>
+    <tr class="cat21" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">p6</td>
+        <td class="FieldDesc" colspan="1*">14</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOP6-MGMT_SYS_MON_PWR_GOOD
+        </td>
+    </tr>
+    <tr class="cat21" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">p4</td>
+        <td class="FieldDesc" colspan="1*">13</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOP4-MGMT_SYS_MON_NMI_BTN_L
+        </td>
+    </tr>
+    <tr class="cat21" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">p2</td>
+        <td class="FieldDesc" colspan="1*">12</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOP2-MGMT_SYS_MON_PWR_BTN_L
+        </td>
+    </tr>
+    <tr class="cat21" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">p0</td>
+        <td class="FieldDesc" colspan="1*">11</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOP0-MGMT_SYS_MON_RST_BTN_L
+        </td>
+    </tr>
+    <tr class="cat21" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">n6</td>
+        <td class="FieldDesc" colspan="1*">10</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPION6-DEBUG_INPUT1
+        </td>
+    </tr>
+    <tr class="cat21" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">n5</td>
+        <td class="FieldDesc" colspan="1*">9</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPION5-MGMT_AC_LOSS_L
+        </td>
+    </tr>
+    <tr class="cat21" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">n4</td>
+        <td class="FieldDesc" colspan="1*">8</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPION4-MGMT_SYS_MON_ATX_PWR_OK
+        </td>
+    </tr>
+    <tr class="cat21" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">n3</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPION3-MGMT_SYS_MON_P1_THERMTRIP_L
+        </td>
+    </tr>
+    <tr class="cat21" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">n2</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPION2-MGMT_SYS_MON_P0_THERMTRIP_L
+        </td>
+    </tr>
+    <tr class="cat21" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">n1</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPION1-MGMT_SYS_MON_P1_PROCHOT_L
+        </td>
+    </tr>
+    <tr class="cat21" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">n0</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPION0-MGMT_SYS_MON_P0_PROCHOT_L
+        </td>
+    </tr>
+    <tr class="cat21" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">i6</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOI6-MGMT_SYS_MON_RESET_L
+        </td>
+    </tr>
+    <tr class="cat21" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">b7</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOB7-P1_PRESENT_L
+        </td>
+    </tr>
+    <tr class="cat21" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">b5</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOB5-P0_PRESENT_L
+        </td>
+    </tr>
+    <tr class="cat21" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">b4</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOB4-MGMT_SYS_MON_POST_COMPLETE
+        </td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="22">sgpio_OUT1</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x308
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;CH1 Outputs</td>
+    </tr>
+    <tr class="cat22" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;31..24</td>
+                <td class="rsvdspandef" colspan="16*">RSVD</td>
+    </tr>
+    <tr class="cat22" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;23..16</td>
+                <td class="rsvdspandef" colspan="16*">RSVD</td>
+    </tr>
+    <tr class="cat22" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;15..8</td>
+                <td class="rsvdspandef" colspan="2*">RSVD</td>
+                <td class="validspandef" colspan="2*">g6</td>
+                <td class="validspandef" colspan="2*">p5</td>
+                <td class="validspandef" colspan="2*">p3</td>
+                <td class="validspandef" colspan="2*">p1</td>
+                <td class="validspandef" colspan="2*">o5</td>
+                <td class="validspandef" colspan="2*">o4</td>
+                <td class="validspandef" colspan="2*">o3</td>
+    </tr>
+    <tr class="cat22" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="2*">o2</td>
+                <td class="validspandef" colspan="2*">o1</td>
+                <td class="validspandef" colspan="2*">o0</td>
+                <td class="validspandef" colspan="2*">m2</td>
+                <td class="validspandef" colspan="2*">m1</td>
+                <td class="validspandef" colspan="2*">m0</td>
+                <td class="validspandef" colspan="2*">h2</td>
+                <td class="validspandef" colspan="2*">h1</td>
+    </tr>
+    <tr class="cat22" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat22" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">g6</td>
+        <td class="FieldDesc" colspan="1*">14</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x1</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOG6-BMC_SCM_FPGA_UART_TX
+        </td>
+    </tr>
+    <tr class="cat22" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">p5</td>
+        <td class="FieldDesc" colspan="1*">13</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x1</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOP5-MGMT_ASSERT_NMI_BTN_L
+        </td>
+    </tr>
+    <tr class="cat22" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">p3</td>
+        <td class="FieldDesc" colspan="1*">12</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x1</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOP3-MGMT_ASSERT_PWR_BTN_L
+        </td>
+    </tr>
+    <tr class="cat22" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">p1</td>
+        <td class="FieldDesc" colspan="1*">11</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x1</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOP1-MGMT_ASSERT_RST_BTN_L
+        </td>
+    </tr>
+    <tr class="cat22" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">o5</td>
+        <td class="FieldDesc" colspan="1*">10</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x1</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOO5-JTAG_TRST_N
+        </td>
+    </tr>
+    <tr class="cat22" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">o4</td>
+        <td class="FieldDesc" colspan="1*">9</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOO4-GPIO_OUTPUT_5
+        </td>
+    </tr>
+    <tr class="cat22" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">o3</td>
+        <td class="FieldDesc" colspan="1*">8</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOO3-GPIO_OUTPUT_4
+        </td>
+    </tr>
+    <tr class="cat22" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">o2</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOO2-GPIO_OUTPUT_3
+        </td>
+    </tr>
+    <tr class="cat22" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">o1</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOO1-GPIO_OUTPUT_2
+        </td>
+    </tr>
+    <tr class="cat22" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">o0</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HHPM_BMC_GPIOO0-GPIO_OUTPUT_1
+        </td>
+    </tr>
+    <tr class="cat22" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">m2</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOM2-MGMT_ASSERT_CLR_CMOS
+        </td>
+    </tr>
+    <tr class="cat22" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">m1</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOM1-MGMT_ASSERT_P1_PROCHOT
+        </td>
+    </tr>
+    <tr class="cat22" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">m0</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOM0-MGMT_ASSERT_P0_PROCHOT
+        </td>
+    </tr>
+    <tr class="cat22" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">h2</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x1</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOH2-MGMT_SOC_RESET_L
+        </td>
+    </tr>
+    <tr class="cat22" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">h1</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x1</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOH1-MGMT_ASERT_WARM_RST_BTN_L
+        </td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="23">sgpio_IN1</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x30c
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;CH1 Inputs</td>
+    </tr>
+    <tr class="cat23" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;31..24</td>
+                <td class="rsvdspandef" colspan="16*">RSVD</td>
+    </tr>
+    <tr class="cat23" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;23..16</td>
+                <td class="rsvdspandef" colspan="16*">RSVD</td>
+    </tr>
+    <tr class="cat23" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;15..8</td>
+                <td class="validspandef" colspan="2*">uu1</td>
+                <td class="validspandef" colspan="2*">i7</td>
+                <td class="validspandef" colspan="2*">espi_sel</td>
+                <td class="validspandef" colspan="8*">uu</td>
+                <td class="validspandef" colspan="2*">s7</td>
+    </tr>
+    <tr class="cat23" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="2*">s6</td>
+                <td class="validspandef" colspan="2*">s5</td>
+                <td class="validspandef" colspan="2*">s4</td>
+                <td class="validspandef" colspan="2*">q4</td>
+                <td class="validspandef" colspan="2*">q3</td>
+                <td class="validspandef" colspan="2*">m5</td>
+                <td class="validspandef" colspan="2*">m4</td>
+                <td class="validspandef" colspan="2*">m3</td>
+    </tr>
+    <tr class="cat23" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat23" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">uu1</td>
+        <td class="FieldDesc" colspan="1*">15</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">MGMT_SMBUS_ALERT_L
+        </td>
+    </tr>
+    <tr class="cat23" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">i7</td>
+        <td class="FieldDesc" colspan="1*">14</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOI7-??
+        </td>
+    </tr>
+    <tr class="cat23" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">espi_sel</td>
+        <td class="FieldDesc" colspan="1*">13</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">ESPI_BOOT_SEL
+        </td>
+    </tr>
+    <tr class="cat23" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">uu</td>
+        <td class="FieldDesc" colspan="1*">12..9</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">I2C_BMC_MB_ALERT_s
+        </td>
+    </tr>
+    <tr class="cat23" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">s7</td>
+        <td class="FieldDesc" colspan="1*">8</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOS7-GPIO_INPUT_6
+        </td>
+    </tr>
+    <tr class="cat23" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">s6</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOS6-GPIO_INPUT_5
+        </td>
+    </tr>
+    <tr class="cat23" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">s5</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOS5-GPIO_INPUT_4
+        </td>
+    </tr>
+    <tr class="cat23" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">s4</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOS4-GPIO_INPUT_3
+        </td>
+    </tr>
+    <tr class="cat23" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">q4</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOQ4-GPIO_INPUT_2
+        </td>
+    </tr>
+    <tr class="cat23" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">q3</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOQ3-GPIO_INPUT_1
+        </td>
+    </tr>
+    <tr class="cat23" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">m5</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOM5-??
+        </td>
+    </tr>
+    <tr class="cat23" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">m4</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOM4-??
+        </td>
+    </tr>
+    <tr class="cat23" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">m3</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">HPM_BMC_GPIOM3-??
+        </td>
+    </tr>
     </table>
     </body>
 </html>
