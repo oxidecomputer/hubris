@@ -478,7 +478,7 @@ pub fn package(
         let mut possible_stack_overflow = vec![];
         for task_name in cfg.toml.tasks.keys() {
             if tasks_to_build.contains(task_name.as_str()) {
-                if task_can_overflow(&cfg, task_name)? {
+                if task_can_overflow(&cfg, task_name, verbose)? {
                     possible_stack_overflow.push(task_name);
                 }
 
@@ -1080,7 +1080,11 @@ fn build_task(cfg: &PackageConfig, name: &str) -> Result<()> {
         .context(format!("failed to build {}", name))
 }
 
-fn task_can_overflow(cfg: &PackageConfig, task_name: &str) -> Result<bool> {
+fn task_can_overflow(
+    cfg: &PackageConfig,
+    task_name: &str,
+    verbose: bool,
+) -> Result<bool> {
     // Open the statically-linked ELF file
     let f = cfg.dist_file(format!("{task_name}.tmp"));
     let data = std::fs::read(f).context("could not open ELF file")?;
@@ -1105,8 +1109,9 @@ fn task_can_overflow(cfg: &PackageConfig, task_name: &str) -> Result<bool> {
     #[derive(Debug)]
     struct FunctionData {
         name: String,
+        short_name: String,
         frame_size: Option<u64>,
-        calls: Vec<u32>,
+        calls: BTreeSet<u32>,
     }
 
     let mut text_regions = BTreeMap::new();
@@ -1189,7 +1194,7 @@ fn task_can_overflow(cfg: &PackageConfig, task_name: &str) -> Result<bool> {
             chunks.push(c);
         }
 
-        let mut calls = vec![];
+        let mut calls = BTreeSet::new();
         for (addr, chunk) in chunks {
             let instrs = cs
                 .disasm_all(&chunk, addr.into())
@@ -1211,17 +1216,38 @@ fn task_can_overflow(cfg: &PackageConfig, task_name: &str) -> Result<bool> {
                         panic!("bad operand type: {op:?}");
                     };
                     // We can't resolve indirect calls, alas
-                    if let arm::ArmOperandType::Imm(a) = op.op_type {
-                        calls.push(a.try_into().unwrap());
+                    let arm::ArmOperandType::Imm(target) = op.op_type else {
+                        continue;
+                    };
+                    let target = u32::try_from(target).unwrap();
+
+                    // Avoid recursive calls into the same function (or midway
+                    // into the function, which is a thing we've seen before!
+                    // it's weird!)
+                    if !(base_addr..base_addr + sym.st_size as u32)
+                        .contains(&target)
+                    {
+                        calls.insert(target);
                     }
                 }
             }
         }
 
+        let name = rustc_demangle::demangle(name).to_string();
+
+        // Strip the trailing hash from the name for ease of printing
+        let short_name = if let Some(i) = name.rfind("::") {
+            &name[..i]
+        } else {
+            &name
+        }
+        .to_owned();
+
         fns.insert(
             base_addr,
             FunctionData {
-                name: rustc_demangle::demangle(name).to_string(),
+                name,
+                short_name,
                 frame_size: addr_to_frame_size.get(&base_addr).map(|i| *i),
                 calls,
             },
@@ -1240,12 +1266,23 @@ fn task_can_overflow(cfg: &PackageConfig, task_name: &str) -> Result<bool> {
         mut stack_depth: u64,
         fns: &BTreeMap<u32, FunctionData>,
         deepest: &mut Option<(u64, Vec<u32>)>,
+        verbose: bool,
     ) {
         let addr = *call_stack.last().unwrap();
         let Some(f) = fns.get(&addr) else {
-            panic!("found jump to unknown function");
+            panic!("found jump to unknown function at {call_stack:08x?}");
         };
-        stack_depth += f.frame_size.unwrap_or(0);
+        let frame_size = f.frame_size.unwrap_or(0);
+        stack_depth += frame_size;
+        if verbose {
+            let indent = recurse_depth * 2;
+            println!(
+                "  {:indent$}{addr:08x}: {} [+{frame_size} => {stack_depth}]",
+                "",
+                f.short_name,
+                indent = indent
+            );
+        }
 
         if deepest
             .as_ref()
@@ -1266,39 +1303,44 @@ fn task_can_overflow(cfg: &PackageConfig, task_name: &str) -> Result<bool> {
                     stack_depth,
                     fns,
                     deepest,
+                    verbose,
                 );
                 call_stack.pop();
             }
         }
     }
     let mut deepest = None;
-    recurse(&mut vec![start_addr], 0, 0, &fns, &mut deepest);
+    if verbose {
+        println!("finding stack sizes for {task_name}");
+    }
+    recurse(&mut vec![start_addr], 0, 0, &fns, &mut deepest, verbose);
     let Some((max_depth, max_stack)) = deepest else {
         unreachable!("must have at least one call stack");
     };
     let task_stack_size = cfg.toml.tasks[task_name]
         .stacksize
         .unwrap_or_else(|| cfg.toml.stacksize.unwrap());
-    if max_depth >= task_stack_size as u64 {
-        println!(
-            "deepest stack for {task_name} exceeds task stack size:\
-             {max_depth} >= {task_stack_size}"
-        );
+    let can_overflow = max_depth >= task_stack_size as u64;
+    if verbose || can_overflow {
+        let extra = if can_overflow {
+            format!(
+                " exceeds task stack size: {max_depth} >= {task_stack_size}"
+            )
+        } else {
+            format!(
+                ": {max_depth} bytes \
+                (< task stack size of {task_stack_size} bytes)"
+            )
+        };
+        println!("deepest stack for {task_name}{extra}");
         for m in max_stack {
             let f = fns.get(&m).unwrap();
-            let name = &f.name;
+            let name = &f.short_name;
 
             let s = format!("[+{}]", f.frame_size.unwrap_or(0));
-            println!(
-                "  {s:>7} {}",
-                if let Some(i) = name.rfind("::") {
-                    &name[..i]
-                } else {
-                    &name
-                }
-            );
+            println!("  {s:>7} {name}");
         }
-        Ok(true) // uh oh
+        Ok(can_overflow)
     } else {
         Ok(false)
     }
