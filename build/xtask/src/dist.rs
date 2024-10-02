@@ -1081,11 +1081,6 @@ fn build_task(cfg: &PackageConfig, name: &str) -> Result<()> {
 }
 
 fn task_can_overflow(cfg: &PackageConfig, task_name: &str) -> Result<bool> {
-    if !cfg.toml.target.starts_with("thumbv7") {
-        // TODO yaxpeax doesn't support ARMv8 thumb decoding
-        return Ok(false);
-    }
-
     // Open the statically-linked ELF file
     let f = cfg.dist_file(format!("{task_name}.tmp"));
     let data = std::fs::read(f).context("could not open ELF file")?;
