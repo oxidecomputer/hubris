@@ -46,6 +46,7 @@ impl ServerImpl {
         out.ensure_persistent_data_is_redundant();
         if let Ok(p) = out.get_persistent_data() {
             out.dev = p.dev_select;
+            out.drv.set_espi_addr_offset(out.flash_base());
         }
         out
     }
