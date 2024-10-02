@@ -870,10 +870,6 @@ fn build_archive(
     }
 
     let debug_dir = PathBuf::from("debug");
-    archive.copy(
-        cfg.img_file("script.gdb", image_name),
-        debug_dir.join("script.gdb"),
-    )?;
 
     if let Some(auxflash) = cfg.toml.auxflash.as_ref() {
         let file = cfg.dist_file("auxi.tlvc");
