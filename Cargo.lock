@@ -3162,6 +3162,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "leb128"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "884e2677b40cc8c339eaefcb701c32ef1fd2493d71118dc0ca4b6a736c93bd67"
+
+[[package]]
 name = "lib-dice"
 version = "0.1.0"
 dependencies = [
@@ -4103,6 +4109,12 @@ dependencies = [
  "subtle",
  "zeroize",
 ]
+
+[[package]]
+name = "rustc-demangle"
+version = "0.1.24"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "719b953e2095829ee67db738b3bfa9fa368c94900df327b3f07fe6e794d2fe1f"
 
 [[package]]
 name = "rustc_version"
@@ -6404,6 +6416,7 @@ dependencies = [
  "hex",
  "hubtools",
  "indexmap 1.9.1",
+ "leb128",
  "lpc55-rom-data",
  "lpc55_sign",
  "memchr",
@@ -6413,6 +6426,7 @@ dependencies = [
  "rangemap",
  "regex",
  "ron",
+ "rustc-demangle",
  "scroll",
  "serde",
  "serde_json",
@@ -6425,8 +6439,29 @@ dependencies = [
  "toml-task",
  "toml_edit",
  "walkdir",
+ "yaxpeax-arch",
+ "yaxpeax-arm",
  "zerocopy 0.6.6",
  "zip",
+]
+
+[[package]]
+name = "yaxpeax-arch"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "36274fcc5403da2a7636ffda4d02eca12a1b2b8267b9d2e04447bd2ccfc72082"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
+name = "yaxpeax-arm"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1c6a2af41f88546a08df3bc77aadf7263884d6dffdac5b32dea7dc2df23f241"
+dependencies = [
+ "bitvec",
+ "yaxpeax-arch",
 ]
 
 [[package]]

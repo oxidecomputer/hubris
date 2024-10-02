@@ -474,11 +474,22 @@ pub fn package(
             })
             .collect::<Result<_, _>>()?;
 
-        // Resolve task slots in our linked files
+        // Check stack sizes and resolve task slots in our linked files
+        let mut possible_stack_overflow = vec![];
         for task_name in cfg.toml.tasks.keys() {
             if tasks_to_build.contains(task_name.as_str()) {
+                if task_can_overflow(&cfg, task_name)? {
+                    possible_stack_overflow.push(task_name);
+                }
+
                 resolve_task_slots(&cfg, task_name, image_name)?;
             }
+        }
+        if !possible_stack_overflow.is_empty() {
+            bail!(
+                "tasks may overflow: {possible_stack_overflow:?}; \
+                 see logs above"
+            );
         }
 
         // Add an empty output section for the caboose
@@ -1067,6 +1078,196 @@ fn build_task(cfg: &PackageConfig, name: &str) -> Result<()> {
         .unwrap();
     build(cfg, name, build_config, true)
         .context(format!("failed to build {}", name))
+}
+
+fn task_can_overflow(cfg: &PackageConfig, task_name: &str) -> Result<bool> {
+    if !cfg.toml.target.starts_with("thumbv7") {
+        // TODO yaxpeax doesn't support ARMv8 thumb decoding
+        return Ok(false);
+    }
+
+    // Open the statically-linked ELF file
+    let f = cfg.dist_file(format!("{task_name}.tmp"));
+    let data = std::fs::read(f).context("could not open ELF file")?;
+    let elf = goblin::elf::Elf::parse(&data)?;
+
+    let sizes = crate::elf::get_section_by_name(&elf, ".stack_sizes")
+        .context("could not get .stack_sizes")?;
+    let mut sizes = &data[sizes.sh_offset as usize..][..sizes.sh_size as usize];
+    let mut addr_to_frame_size = BTreeMap::new();
+    while !sizes.is_empty() {
+        let (addr, rest) = sizes.split_at(4);
+        let addr = u32::from_le_bytes(addr.try_into().unwrap());
+        sizes = rest;
+        let size = leb128::read::unsigned(&mut sizes)?;
+        addr_to_frame_size.insert(addr, size);
+    }
+
+    let text = crate::elf::get_section_by_name(&elf, ".text")
+        .context("could not get .text")?;
+
+    pub fn get_calls(data: &[u8]) -> Vec<i32> {
+        use yaxpeax_arch::{AddressDisplay, Decoder, Reader, U8Reader};
+        use yaxpeax_arm::armv7::{DecodeError, InstDecoder, Opcode, Operand};
+
+        let mut reader = U8Reader::new(data);
+        let mut address: u32 =
+            <U8Reader as Reader<u32, u8>>::total_offset(&mut reader);
+
+        let decoder = InstDecoder::default_thumb();
+        let mut decode_res = decoder.decode(&mut reader);
+        let mut targets = vec![];
+        loop {
+            match decode_res {
+                Ok(ref inst) => {
+                    match (inst.opcode, inst.operands[0]) {
+                        (Opcode::BL, Operand::BranchThumbOffset(i)) => {
+                            targets.push(address as i32 + i * 2)
+                        }
+                        (Opcode::BL, v) => println!("cannot decode {v:?}"),
+                        _ => (),
+                    }
+
+                    decode_res = decoder.decode(&mut reader);
+                    address = <U8Reader as Reader<u32, u8>>::total_offset(
+                        &mut reader,
+                    );
+                }
+                Err(DecodeError::ExhaustedInput | DecodeError::Incomplete) => {
+                    break;
+                }
+                Err(e) => {
+                    println!("{}: decode error: {}", address.show(), e);
+                    break;
+                }
+            }
+        }
+        targets
+    }
+
+    // Pack everything into a single data structure
+    #[derive(Debug)]
+    struct FunctionData {
+        name: String,
+        frame_size: Option<u64>,
+        calls: Vec<u32>,
+    }
+
+    let mut fns = BTreeMap::new();
+    for sym in elf.syms.iter() {
+        if sym.st_name == 0 {
+            continue;
+        }
+        if !sym.is_function() || sym.st_size == 0 {
+            continue;
+        }
+
+        let name = match elf.strtab.get_at(sym.st_name) {
+            Some(n) => n,
+            None => {
+                bail!("bad symbol in {task_name}: {}", sym.st_name);
+            }
+        };
+
+        // Clear the lowest bit, which indicates that the function contains
+        // thumb instructions (always true for our systems!)
+        let val = sym.st_value & !1;
+        let addr = val as u32;
+
+        // Get the text region for this function
+        let offset = (val - text.sh_addr + text.sh_offset) as usize;
+        let text = &data[offset..][..sym.st_size as usize];
+
+        let calls = get_calls(text)
+            .into_iter()
+            .map(|j| addr.checked_add_signed(j).unwrap())
+            .collect::<Vec<_>>();
+
+        fns.insert(
+            addr,
+            FunctionData {
+                name: rustc_demangle::demangle(name).to_string(),
+                frame_size: addr_to_frame_size.get(&addr).map(|i| *i),
+                calls,
+            },
+        );
+    }
+
+    let start_addr = fns
+        .iter()
+        .find(|(_addr, v)| v.name.as_str() == "_start")
+        .map(|(addr, _v)| *addr)
+        .ok_or_else(|| anyhow!("could not find _start"))?;
+
+    fn recurse(
+        call_stack: &mut Vec<u32>,
+        recurse_depth: usize,
+        mut stack_depth: u64,
+        fns: &BTreeMap<u32, FunctionData>,
+        deepest: &mut Option<(u64, Vec<u32>)>,
+    ) {
+        let addr = *call_stack.last().unwrap();
+        let Some(f) = fns.get(&addr) else {
+            // XXX This is possible if the disassembler happened to disassemble
+            // the data section at the end of a function as text
+            return;
+        };
+        stack_depth += f.frame_size.unwrap_or(0);
+        if deepest
+            .as_ref()
+            .map(|(max_depth, _)| stack_depth > *max_depth)
+            .unwrap_or(true)
+        {
+            *deepest = Some((stack_depth, call_stack.to_owned()));
+        }
+        for j in &f.calls {
+            if call_stack.contains(j) {
+                // Skip recurse calls, because we can't resolve them
+                continue;
+            } else {
+                call_stack.push(*j);
+                recurse(
+                    call_stack,
+                    recurse_depth + 1,
+                    stack_depth,
+                    fns,
+                    deepest,
+                );
+                call_stack.pop();
+            }
+        }
+    }
+    let mut deepest = None;
+    recurse(&mut vec![start_addr], 0, 0, &fns, &mut deepest);
+    let Some((max_depth, max_stack)) = deepest else {
+        unreachable!("must have at least one call stack");
+    };
+    let task_stack_size = cfg.toml.tasks[task_name]
+        .stacksize
+        .unwrap_or_else(|| cfg.toml.stacksize.unwrap());
+    if max_depth >= task_stack_size as u64 {
+        println!(
+            "deepest stack for {task_name} exceeds task stack size:\
+             {max_depth} >= {task_stack_size}"
+        );
+        for m in max_stack {
+            let f = fns.get(&m).unwrap();
+            let name = &f.name;
+
+            let s = format!("[+{}]", f.frame_size.unwrap_or(0));
+            println!(
+                "  {s:>7} {}",
+                if let Some(i) = name.rfind("::") {
+                    &name[..i]
+                } else {
+                    &name
+                }
+            );
+        }
+        Ok(true) // uh oh
+    } else {
+        Ok(false)
+    }
 }
 
 /// Link a specific task
@@ -1661,6 +1862,7 @@ fn build(
             "-C link-arg=-z -C link-arg=common-page-size=0x20 \
              -C link-arg=-z -C link-arg=max-page-size=0x20 \
              -C llvm-args=--enable-machine-outliner=never \
+             -Z emit-stack-sizes \
              -C overflow-checks=y \
              -C metadata={} \
              {}

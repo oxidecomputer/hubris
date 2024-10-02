@@ -70,6 +70,7 @@ hubpack = { version = "0.1.2", default-features = false }
 indexmap = { version = "1.4.0", default-features = false, features = ["serde-1"] }
 indoc = { version = "2.0.3", default-features = false }
 itertools = { version = "0.10.5", default-features = false }
+leb128 = { version = "0.2.5", default-features = false }
 lpc55-pac = { version = "0.4", default-features = false }
 memchr = { version = "2.4", default-features = false }
 memoffset = { version = "0.6.5", default-features = false }
@@ -90,6 +91,7 @@ rand_core = { version = "0.6", default-features = false }
 rangemap = { version = "1.3", default-features = false }
 regex = { version = "1", default-features = false, features = ["std", "perf", "unicode-perl"] }
 ron = { version = "0.8", default-features = false }
+rustc-demangle = { version = "0.1.24", default-features = false }
 scroll = { version = "0.10", default-features = false }
 serde = { version = "1.0.114", default-features = false, features = ["derive"] }
 serde-big-array = { version = "0.4", default-features = false }
@@ -113,6 +115,8 @@ toml = { version = "0.7", default-features = false, features = ["parse", "displa
 toml_edit = { version = "0.19", default-features = false }
 vcell = { version = "0.1.2", default-features = false }
 walkdir = { version = "2.0.0", default-features = false }
+yaxpeax-arm = { version = "0.3.0", default-features = false }
+yaxpeax-arch = { version = "0.3.2", default-features = false }
 zerocopy = { version = "0.6.1", default-features = false }
 zeroize = { version = "1.5.7", default-features = false, features = ["zeroize_derive"] }
 zip = { version = "0.6", default-features = false, features = ["bzip2"] }

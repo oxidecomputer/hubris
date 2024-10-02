@@ -702,6 +702,7 @@ impl BuildConfig<'_> {
         // nightly features that we use:
         nightly_features.extend([
             "asm_const",
+            "emit_stack_sizes",
             "naked_functions",
             "used_with_arg",
         ]);
