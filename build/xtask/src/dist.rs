@@ -1090,6 +1090,8 @@ fn task_can_overflow(
     let data = std::fs::read(f).context("could not open ELF file")?;
     let elf = goblin::elf::Elf::parse(&data)?;
 
+    // Read the .stack_sizes section, which is an array of
+    // `(address: u32, stack size: unsigned leb128)` tuples
     let sizes = crate::elf::get_section_by_name(&elf, ".stack_sizes")
         .context("could not get .stack_sizes")?;
     let mut sizes = &data[sizes.sh_offset as usize..][..sizes.sh_size as usize];
@@ -1102,18 +1104,9 @@ fn task_can_overflow(
         addr_to_frame_size.insert(addr, size);
     }
 
-    let text = crate::elf::get_section_by_name(&elf, ".text")
-        .context("could not get .text")?;
-
-    // Pack everything into a single data structure
-    #[derive(Debug)]
-    struct FunctionData {
-        name: String,
-        short_name: String,
-        frame_size: Option<u64>,
-        calls: BTreeSet<u32>,
-    }
-
+    // There are `$t` and `$d` symbols which indicate the beginning of text
+    // versus data in the `.text` region.  We collect them into a `BTreeMap`
+    // here so that we can avoid trying to decode inline data words.
     let mut text_regions = BTreeMap::new();
     for sym in elf.syms.iter() {
         if sym.st_name == 0
@@ -1123,11 +1116,7 @@ fn task_can_overflow(
             continue;
         }
 
-        // Clear the lowest bit, which indicates that the function contains
-        // thumb instructions (always true for our systems!)
-        let val = sym.st_value;
-        let addr = val as u32;
-
+        let addr = sym.st_value as u32;
         let is_text = match elf.strtab.get_at(sym.st_name) {
             Some("$t") => true,
             Some("$d") => false,
@@ -1138,6 +1127,22 @@ fn task_can_overflow(
         };
         text_regions.insert(addr, is_text);
     }
+    let is_code = |addr| {
+        let mut iter = text_regions.range(..=addr);
+        *iter.next_back().unwrap().1
+    };
+
+    // We'll be packing everything into this data structure
+    #[derive(Debug)]
+    struct FunctionData {
+        name: String,
+        short_name: String,
+        frame_size: Option<u64>,
+        calls: BTreeSet<u32>,
+    }
+
+    let text = crate::elf::get_section_by_name(&elf, ".text")
+        .context("could not get .text")?;
 
     use capstone::{
         arch::{arm, ArchOperand, BuildsCapstone, BuildsCapstoneExtraMode},
@@ -1151,17 +1156,16 @@ fn task_can_overflow(
         .build()
         .map_err(|e| anyhow!("failed to initialize disassembler: {e:?}"))?;
 
+    // Disassemble each function, building a map of its call sites
     let mut fns = BTreeMap::new();
     for sym in elf.syms.iter() {
+        // We only care about named function symbols here
         if sym.st_name == 0 || !sym.is_function() || sym.st_size == 0 {
             continue;
         }
 
-        let name = match elf.strtab.get_at(sym.st_name) {
-            Some(n) => n,
-            None => {
-                bail!("bad symbol in {task_name}: {}", sym.st_name);
-            }
+        let Some(name) = elf.strtab.get_at(sym.st_name) else {
+            bail!("bad symbol in {task_name}: {}", sym.st_name);
         };
 
         // Clear the lowest bit, which indicates that the function contains
@@ -1178,21 +1182,13 @@ fn task_can_overflow(
         let mut chunk = None;
         for (i, b) in text.iter().enumerate() {
             let addr = base_addr + i as u32;
-            let mut iter = text_regions.range(..=addr);
-            // Check if this is a code or data byte
-            if *iter.next_back().unwrap().1 {
-                if chunk.is_none() {
-                    chunk = Some((addr, vec![]));
-                }
-                chunk.as_mut().unwrap().1.push(*b);
-            } else if let Some(c) = chunk.take() {
-                chunks.push(c);
+            if is_code(addr) {
+                chunk.get_or_insert((addr, vec![])).1.push(*b);
+            } else {
+                chunks.extend(chunk.take());
             }
         }
-        // Process data in the trailing chunk
-        if let Some(c) = chunk {
-            chunks.push(c);
-        }
+        chunks.extend(chunk); // don't forget the trailing chunk!
 
         let mut calls = BTreeSet::new();
         for (addr, chunk) in chunks {
@@ -1254,12 +1250,6 @@ fn task_can_overflow(
         );
     }
 
-    let start_addr = fns
-        .iter()
-        .find(|(_addr, v)| v.name.as_str() == "_start")
-        .map(|(addr, _v)| *addr)
-        .ok_or_else(|| anyhow!("could not find _start"))?;
-
     fn recurse(
         call_stack: &mut Vec<u32>,
         recurse_depth: usize,
@@ -1293,7 +1283,8 @@ fn task_can_overflow(
         }
         for j in &f.calls {
             if call_stack.contains(j) {
-                // Skip recurse calls, because we can't resolve them
+                // Skip recursive / mutually recursive calls, because we can't
+                // reason about them.
                 continue;
             } else {
                 call_stack.push(*j);
@@ -1309,11 +1300,20 @@ fn task_can_overflow(
             }
         }
     }
-    let mut deepest = None;
+
+    // Find stack sizes by traversing the graph
     if verbose {
         println!("finding stack sizes for {task_name}");
     }
+    let start_addr = fns
+        .iter()
+        .find(|(_addr, v)| v.name.as_str() == "_start")
+        .map(|(addr, _v)| *addr)
+        .ok_or_else(|| anyhow!("could not find _start"))?;
+    let mut deepest = None;
     recurse(&mut vec![start_addr], 0, 0, &fns, &mut deepest, verbose);
+
+    // Check against our configured task stack size
     let Some((max_depth, max_stack)) = deepest else {
         unreachable!("must have at least one call stack");
     };
