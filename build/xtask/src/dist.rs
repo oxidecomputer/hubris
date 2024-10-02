@@ -1081,9 +1081,6 @@ fn build_task(cfg: &PackageConfig, name: &str) -> Result<()> {
 }
 
 fn task_can_overflow(cfg: &PackageConfig, task_name: &str) -> Result<bool> {
-    use yaxpeax_arch::{AddressDisplay, Decoder, ReadError, Reader, U8Reader};
-    use yaxpeax_arm::armv7::{DecodeError, InstDecoder, Opcode, Operand};
-
     // Open the statically-linked ELF file
     let f = cfg.dist_file(format!("{task_name}.tmp"));
     let data = std::fs::read(f).context("could not open ELF file")?;
@@ -1137,6 +1134,18 @@ fn task_can_overflow(cfg: &PackageConfig, task_name: &str) -> Result<bool> {
         text_regions.insert(addr, is_text);
     }
 
+    use capstone::{
+        arch::{arm, ArchOperand, BuildsCapstone, BuildsCapstoneExtraMode},
+        Capstone, InsnGroupId, InsnGroupType,
+    };
+    let cs = Capstone::new()
+        .arm()
+        .mode(arm::ArchMode::Thumb)
+        .extra_mode(std::iter::once(arm::ArchExtraMode::MClass))
+        .detail(true)
+        .build()
+        .map_err(|e| anyhow!("failed to initialize disassembler: {e:?}"))?;
+
     let mut fns = BTreeMap::new();
     for sym in elf.syms.iter() {
         if sym.st_name == 0 || !sym.is_function() || sym.st_size == 0 {
@@ -1159,55 +1168,52 @@ fn task_can_overflow(cfg: &PackageConfig, task_name: &str) -> Result<bool> {
         let offset = (val - text.sh_addr + text.sh_offset) as usize;
         let text = &data[offset..][..sym.st_size as usize];
 
-        // Disassemble, looking for BL operations
-        let mut reader = U8Reader::new(text);
-
-        let decoder = InstDecoder::default_thumb();
-        let mut calls = vec![];
-        loop {
-            // Before reading, check to see if we're in a data section and skip
-            // over bytes if that's the case.
-            let addr = base_addr
-                + <U8Reader as Reader<u32, u8>>::total_offset(&mut reader);
+        // Split the text region into instruction-only chunks
+        let mut chunks = vec![];
+        let mut chunk = None;
+        for (i, b) in text.iter().enumerate() {
+            let addr = base_addr + i as u32;
             let mut iter = text_regions.range(..=addr);
-            if !iter.next_back().unwrap().1 {
-                match <U8Reader as Reader<u32, u8>>::next(&mut reader) {
-                    Err(ReadError::ExhaustedInput) => break,
-                    Err(e) => bail!("got read error: {e:?}"),
-                    Ok(_) => continue,
+            // Check if this is a code or data byte
+            if *iter.next_back().unwrap().1 {
+                if chunk.is_none() {
+                    chunk = Some((addr, vec![]));
                 }
+                chunk.as_mut().unwrap().1.push(*b);
+            } else if let Some(c) = chunk.take() {
+                chunks.push(c);
             }
+        }
+        // Process data in the trailing chunk
+        if let Some(c) = chunk {
+            chunks.push(c);
+        }
 
-            // Decode the instruction and get the post-instruction address
-            // (used for pc-relative jumps)
-            let decode_res = decoder.decode(&mut reader);
-            let addr = base_addr
-                + <U8Reader as Reader<u32, u8>>::total_offset(&mut reader);
+        let mut calls = vec![];
+        for (addr, chunk) in chunks {
+            let instrs = cs
+                .disasm_all(&chunk, addr.into())
+                .map_err(|e| anyhow!("disassembly failed: {e:?}"))?;
+            for instr in instrs.iter() {
+                let detail = cs.insn_detail(instr).map_err(|e| {
+                    anyhow!("could not get instruction details: {e}")
+                })?;
+                if detail.groups().iter().any(|g| {
+                    g == &InsnGroupId(InsnGroupType::CS_GRP_CALL as u8)
+                }) {
+                    let arch = detail.arch_detail();
+                    let ops = arch.operands();
+                    let op = ops.last().unwrap_or_else(|| {
+                        panic!("missing operand!");
+                    });
 
-            match decode_res {
-                Ok(ref inst) => match (inst.opcode, inst.operands[0]) {
-                    (Opcode::BL, Operand::BranchThumbOffset(i)) => {
-                        let target = addr.checked_add_signed(i * 2).unwrap();
-                        calls.push(target)
+                    let ArchOperand::ArmOperand(op) = op else {
+                        panic!("bad operand type: {op:?}");
+                    };
+                    // We can't resolve indirect calls, alas
+                    if let arm::ArmOperandType::Imm(a) = op.op_type {
+                        calls.push(a.try_into().unwrap());
                     }
-                    (Opcode::BL, v) => {
-                        println!(
-                            "{}: cannot find call target with offset {v:?}",
-                            addr.show()
-                        )
-                    }
-                    _ => (),
-                },
-                Err(DecodeError::Incomplete) => {
-                    // yaxpeax is not complete, alas
-                    continue;
-                }
-                Err(DecodeError::ExhaustedInput) => {
-                    break;
-                }
-                Err(e) => {
-                    println!("  {}: decode error in {name}: {e}", addr.show());
-                    break;
                 }
             }
         }
