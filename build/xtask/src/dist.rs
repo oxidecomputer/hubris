@@ -1081,7 +1081,7 @@ fn build_task(cfg: &PackageConfig, name: &str) -> Result<()> {
 }
 
 fn task_can_overflow(cfg: &PackageConfig, task_name: &str) -> Result<bool> {
-    use yaxpeax_arch::{AddressDisplay, Decoder, Reader, U8Reader};
+    use yaxpeax_arch::{AddressDisplay, Decoder, ReadError, Reader, U8Reader};
     use yaxpeax_arm::armv7::{DecodeError, InstDecoder, Opcode, Operand};
 
     // Open the statically-linked ELF file
@@ -1112,12 +1112,34 @@ fn task_can_overflow(cfg: &PackageConfig, task_name: &str) -> Result<bool> {
         calls: Vec<u32>,
     }
 
-    let mut fns = BTreeMap::new();
+    let mut text_regions = BTreeMap::new();
     for sym in elf.syms.iter() {
-        if sym.st_name == 0 {
+        if sym.st_name == 0
+            || sym.st_size != 0
+            || sym.st_type() != goblin::elf::sym::STT_NOTYPE
+        {
             continue;
         }
-        if !sym.is_function() || sym.st_size == 0 {
+
+        // Clear the lowest bit, which indicates that the function contains
+        // thumb instructions (always true for our systems!)
+        let val = sym.st_value;
+        let addr = val as u32;
+
+        let is_text = match elf.strtab.get_at(sym.st_name) {
+            Some("$t") => true,
+            Some("$d") => false,
+            Some(_) => continue,
+            None => {
+                bail!("bad symbol in {task_name}: {}", sym.st_name);
+            }
+        };
+        text_regions.insert(addr, is_text);
+    }
+
+    let mut fns = BTreeMap::new();
+    for sym in elf.syms.iter() {
+        if sym.st_name == 0 || !sym.is_function() || sym.st_size == 0 {
             continue;
         }
 
@@ -1131,7 +1153,7 @@ fn task_can_overflow(cfg: &PackageConfig, task_name: &str) -> Result<bool> {
         // Clear the lowest bit, which indicates that the function contains
         // thumb instructions (always true for our systems!)
         let val = sym.st_value & !1;
-        let addr = val as u32;
+        let base_addr = val as u32;
 
         // Get the text region for this function
         let offset = (val - text.sh_addr + text.sh_offset) as usize;
@@ -1143,10 +1165,25 @@ fn task_can_overflow(cfg: &PackageConfig, task_name: &str) -> Result<bool> {
         let decoder = InstDecoder::default_thumb();
         let mut calls = vec![];
         loop {
+            // Before reading, check to see if we're in a data section and skip
+            // over bytes if that's the case.
+            let addr = base_addr
+                + <U8Reader as Reader<u32, u8>>::total_offset(&mut reader);
+            let mut iter = text_regions.range(..=addr);
+            if !iter.next_back().unwrap().1 {
+                match <U8Reader as Reader<u32, u8>>::next(&mut reader) {
+                    Err(ReadError::ExhaustedInput) => break,
+                    Err(e) => bail!("got read error: {e:?}"),
+                    Ok(_) => continue,
+                }
+            }
+
+            // Decode the instruction and get the post-instruction address
+            // (used for pc-relative jumps)
             let decode_res = decoder.decode(&mut reader);
-            let offset =
-                <U8Reader as Reader<u32, u8>>::total_offset(&mut reader);
-            let addr = addr + offset;
+            let addr = base_addr
+                + <U8Reader as Reader<u32, u8>>::total_offset(&mut reader);
+
             match decode_res {
                 Ok(ref inst) => match (inst.opcode, inst.operands[0]) {
                     (Opcode::BL, Operand::BranchThumbOffset(i)) => {
@@ -1161,28 +1198,25 @@ fn task_can_overflow(cfg: &PackageConfig, task_name: &str) -> Result<bool> {
                     }
                     _ => (),
                 },
-
-                // These are errors that we see either at the end of the input,
-                // or when it starts trying to decode data words as instructions
-                Err(
-                    DecodeError::ExhaustedInput
-                    | DecodeError::Incomplete
-                    | DecodeError::Undefined,
-                ) => {
+                Err(DecodeError::Incomplete) => {
+                    // yaxpeax is not complete, alas
+                    continue;
+                }
+                Err(DecodeError::ExhaustedInput) => {
                     break;
                 }
                 Err(e) => {
-                    println!("{}: decode error: {e}", addr.show());
+                    println!("  {}: decode error in {name}: {e}", addr.show());
                     break;
                 }
             }
         }
 
         fns.insert(
-            addr,
+            base_addr,
             FunctionData {
                 name: rustc_demangle::demangle(name).to_string(),
-                frame_size: addr_to_frame_size.get(&addr).map(|i| *i),
+                frame_size: addr_to_frame_size.get(&base_addr).map(|i| *i),
                 calls,
             },
         );
@@ -1203,11 +1237,10 @@ fn task_can_overflow(cfg: &PackageConfig, task_name: &str) -> Result<bool> {
     ) {
         let addr = *call_stack.last().unwrap();
         let Some(f) = fns.get(&addr) else {
-            // XXX This is possible if the disassembler happened to disassemble
-            // the data section at the end of a function as text
-            return;
+            panic!("found jump to unknown function");
         };
         stack_depth += f.frame_size.unwrap_or(0);
+
         if deepest
             .as_ref()
             .map(|(max_depth, _)| stack_depth > *max_depth)
