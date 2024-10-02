@@ -1081,6 +1081,9 @@ fn build_task(cfg: &PackageConfig, name: &str) -> Result<()> {
 }
 
 fn task_can_overflow(cfg: &PackageConfig, task_name: &str) -> Result<bool> {
+    use yaxpeax_arch::{AddressDisplay, Decoder, Reader, U8Reader};
+    use yaxpeax_arm::armv7::{DecodeError, InstDecoder, Opcode, Operand};
+
     // Open the statically-linked ELF file
     let f = cfg.dist_file(format!("{task_name}.tmp"));
     let data = std::fs::read(f).context("could not open ELF file")?;
@@ -1100,45 +1103,6 @@ fn task_can_overflow(cfg: &PackageConfig, task_name: &str) -> Result<bool> {
 
     let text = crate::elf::get_section_by_name(&elf, ".text")
         .context("could not get .text")?;
-
-    pub fn get_calls(data: &[u8]) -> Vec<i32> {
-        use yaxpeax_arch::{AddressDisplay, Decoder, Reader, U8Reader};
-        use yaxpeax_arm::armv7::{DecodeError, InstDecoder, Opcode, Operand};
-
-        let mut reader = U8Reader::new(data);
-        let mut address: u32 =
-            <U8Reader as Reader<u32, u8>>::total_offset(&mut reader);
-
-        let decoder = InstDecoder::default_thumb();
-        let mut decode_res = decoder.decode(&mut reader);
-        let mut targets = vec![];
-        loop {
-            match decode_res {
-                Ok(ref inst) => {
-                    match (inst.opcode, inst.operands[0]) {
-                        (Opcode::BL, Operand::BranchThumbOffset(i)) => {
-                            targets.push(address as i32 + i * 2)
-                        }
-                        (Opcode::BL, v) => println!("cannot decode {v:?}"),
-                        _ => (),
-                    }
-
-                    decode_res = decoder.decode(&mut reader);
-                    address = <U8Reader as Reader<u32, u8>>::total_offset(
-                        &mut reader,
-                    );
-                }
-                Err(DecodeError::ExhaustedInput | DecodeError::Incomplete) => {
-                    break;
-                }
-                Err(e) => {
-                    println!("{}: decode error: {}", address.show(), e);
-                    break;
-                }
-            }
-        }
-        targets
-    }
 
     // Pack everything into a single data structure
     #[derive(Debug)]
@@ -1173,10 +1137,46 @@ fn task_can_overflow(cfg: &PackageConfig, task_name: &str) -> Result<bool> {
         let offset = (val - text.sh_addr + text.sh_offset) as usize;
         let text = &data[offset..][..sym.st_size as usize];
 
-        let calls = get_calls(text)
-            .into_iter()
-            .map(|j| addr.checked_add_signed(j).unwrap())
-            .collect::<Vec<_>>();
+        // Disassemble, looking for BL operations
+        let mut reader = U8Reader::new(text);
+
+        let decoder = InstDecoder::default_thumb();
+        let mut calls = vec![];
+        loop {
+            let decode_res = decoder.decode(&mut reader);
+            let offset =
+                <U8Reader as Reader<u32, u8>>::total_offset(&mut reader);
+            let addr = addr + offset;
+            match decode_res {
+                Ok(ref inst) => match (inst.opcode, inst.operands[0]) {
+                    (Opcode::BL, Operand::BranchThumbOffset(i)) => {
+                        let target = addr.checked_add_signed(i * 2).unwrap();
+                        calls.push(target)
+                    }
+                    (Opcode::BL, v) => {
+                        println!(
+                            "{}: cannot find call target with offset {v:?}",
+                            addr.show()
+                        )
+                    }
+                    _ => (),
+                },
+
+                // These are errors that we see either at the end of the input,
+                // or when it starts trying to decode data words as instructions
+                Err(
+                    DecodeError::ExhaustedInput
+                    | DecodeError::Incomplete
+                    | DecodeError::Undefined,
+                ) => {
+                    break;
+                }
+                Err(e) => {
+                    println!("{}: decode error: {e}", addr.show());
+                    break;
+                }
+            }
+        }
 
         fns.insert(
             addr,
