@@ -33,16 +33,20 @@ pub struct ServerImpl {
 impl ServerImpl {
     /// Construct a new `ServerImpl`, with side effects
     ///
+    /// The SP / host virtual mux is configured to select the SP.
+    ///
     /// Persistent data is loaded from the flash chip and used to select `dev`;
-    /// in addition, it is made reduntant (written to both virtual devices).
+    /// in addition, it is made redundant (written to both virtual devices).
     pub fn new(drv: FlashDriver) -> Self {
         let mut out = Self {
             dev: drv_hf_api::HfDevSelect::Flash0,
             drv,
         };
+        out.drv.set_flash_mux_state(HfMuxState::SP);
         out.ensure_persistent_data_is_redundant();
         if let Ok(p) = out.get_persistent_data() {
             out.dev = p.dev_select;
+            out.drv.set_espi_addr_offset(out.flash_base());
         }
         out
     }
@@ -128,6 +132,8 @@ impl ServerImpl {
     fn get_raw_persistent_data(
         &mut self,
     ) -> Result<HfRawPersistentData, HfError> {
+        self.drv.check_flash_mux_state()?;
+
         // Read the two slots
         let (data0, _) = self.persistent_data_scan(HfDevSelect::Flash0);
         let (data1, _) = self.persistent_data_scan(HfDevSelect::Flash1);
@@ -162,6 +168,10 @@ impl ServerImpl {
 
     /// Ensures that the persistent data is consistent between the virtual devs
     fn ensure_persistent_data_is_redundant(&mut self) {
+        // This should only be called on startup, at which point we're always
+        // muxed to the SP.
+        self.drv.check_flash_mux_state().unwrap_lite();
+
         // Load the current state of persistent data from flash
         let (data0, next0) = self.persistent_data_scan(HfDevSelect::Flash0);
         let (data1, next1) = self.persistent_data_scan(HfDevSelect::Flash1);
@@ -196,6 +206,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<[u8; 20], RequestError<HfError>> {
+        self.drv.check_flash_mux_state()?;
         Ok(self.drv.flash_read_id())
     }
 
@@ -211,6 +222,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<u8, RequestError<HfError>> {
+        self.drv.check_flash_mux_state()?;
         Ok(self.drv.read_flash_status())
     }
 
@@ -223,6 +235,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         if !matches!(protect, HfProtectMode::AllowModificationsToSector0) {
             return Err(HfError::Sector0IsReserved.into());
         }
+        self.drv.check_flash_mux_state()?;
         // Don't use the bulk erase command, because it will erase the entire
         // chip.  Instead, use the sector erase to erase the currently-active
         // virtual device.
@@ -241,6 +254,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         data: LenLimit<Leased<R, [u8]>, PAGE_SIZE_BYTES>,
     ) -> Result<(), RequestError<HfError>> {
         self.check_addr_writable(addr, protect)?;
+        self.drv.check_flash_mux_state()?;
         self.drv
             .flash_write(
                 self.flash_addr(addr),
@@ -256,6 +270,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         addr: u32,
         dest: LenLimit<Leased<W, [u8]>, PAGE_SIZE_BYTES>,
     ) -> Result<(), RequestError<HfError>> {
+        self.drv.check_flash_mux_state()?;
         self.drv
             .flash_read(
                 self.flash_addr(addr),
@@ -276,6 +291,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         addr: u32,
         protect: HfProtectMode,
     ) -> Result<(), RequestError<HfError>> {
+        self.drv.check_flash_mux_state()?;
         self.check_addr_writable(addr, protect)?;
         self.drv.flash_sector_erase(self.flash_addr(addr));
         Ok(())
@@ -285,15 +301,16 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<HfMuxState, RequestError<HfError>> {
-        todo!()
+        Ok(self.drv.get_flash_mux_state())
     }
 
     fn set_mux(
         &mut self,
         _: &RecvMessage,
-        _state: HfMuxState,
+        state: HfMuxState,
     ) -> Result<(), RequestError<HfError>> {
-        todo!()
+        self.drv.set_flash_mux_state(state);
+        Ok(())
     }
 
     fn get_dev(
@@ -308,6 +325,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         _: &RecvMessage,
         dev: HfDevSelect,
     ) -> Result<(), RequestError<HfError>> {
+        self.drv.check_flash_mux_state()?;
         self.dev = dev;
         self.drv.set_espi_addr_offset(self.flash_base());
         Ok(())
@@ -320,6 +338,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         addr: u32,
         len: u32,
     ) -> Result<[u8; SHA256_SZ], RequestError<HfError>> {
+        self.drv.check_flash_mux_state()?;
         let hash_driver = drv_hash_api::Hash::from(HASH.get_task_id());
         if let Err(e) = hash_driver.init_sha256() {
             ringbuf_entry!(Trace::HashInitError(e));
@@ -368,6 +387,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         dev_select: HfDevSelect,
     ) -> Result<(), RequestError<HfError>> {
         let data = HfPersistentData { dev_select };
+        self.drv.check_flash_mux_state()?;
 
         // Scan both slots for persistent data
         let (data0, next0) = self.persistent_data_scan(HfDevSelect::Flash0);
