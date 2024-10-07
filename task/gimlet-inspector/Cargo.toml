@@ -9,7 +9,7 @@ hubpack = { workspace = true }
 gimlet-inspector-protocol = { workspace = true }
 
 task-net-api = { path = "../net-api" }
-drv-gimlet-seq-api = { path = "../../drv/gimlet-seq-api" }
+drv-cpu-seq-api = { path = "../../drv/cpu-seq-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 counters = { path = "../../lib/counters" }
 

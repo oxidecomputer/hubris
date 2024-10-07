@@ -7,13 +7,20 @@
 #![no_std]
 #![no_main]
 
+use drv_cpu_seq_api::PowerState;
 use drv_spi_api::{SpiDevice, SpiServer};
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};
 use sha3::{Digest, Sha3_256};
-use userlib::{hl, sys_recv_notification, task_slot, RecvMessage};
+use task_jefe_api::Jefe;
+use userlib::{
+    hl, sys_recv_notification, task_slot, FromPrimitive, RecvMessage,
+    UnwrapLite,
+};
 
 use ringbuf::{counted_ringbuf, ringbuf_entry, Count};
+
+task_slot!(JEFE, jefe);
 
 #[derive(Copy, Clone, PartialEq, Count)]
 enum Trace {
@@ -79,6 +86,7 @@ fn main() -> ! {
 
 #[allow(unused)]
 struct ServerImpl<S: SpiServer> {
+    jefe: Jefe,
     sys: sys_api::Sys,
     seq: SpiDevice<S>,
 }
@@ -236,6 +244,7 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
 
         let server = Self {
             sys: sys.clone(),
+            jefe: Jefe::from(JEFE.get_task_id()),
             seq,
         };
 
@@ -248,14 +257,61 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
 
         Ok(server)
     }
+
+    fn get_state_impl(&self) -> PowerState {
+        // Only we should be setting the state, and we set it to A2 on startup;
+        // this conversion should never fail.
+        PowerState::from_u32(self.jefe.get_state()).unwrap_lite()
+    }
+
+    fn set_state_impl(&self, state: PowerState) {
+        self.jefe.set_state(state as u32);
+    }
 }
 
-impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
-    fn ping(
+// The `Sequencer` implementation for Grapefruit is copied from
+// `mock-gimlet-seq-server`.  State is set to Jefe, but isn't actually
+// controlled here.
+impl<S: SpiServer + Clone> idl::InOrderSequencerImpl for ServerImpl<S> {
+    fn get_state(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<PowerState, RequestError<core::convert::Infallible>> {
+        Ok(self.get_state_impl())
+    }
+
+    fn set_state(
+        &mut self,
+        _: &RecvMessage,
+        state: PowerState,
+    ) -> Result<(), RequestError<drv_cpu_seq_api::SeqError>> {
+        match (self.get_state_impl(), state) {
+            (PowerState::A2, PowerState::A0)
+            | (PowerState::A0, PowerState::A2)
+            | (PowerState::A0PlusHP, PowerState::A2)
+            | (PowerState::A0Thermtrip, PowerState::A2) => {
+                self.set_state_impl(state);
+                Ok(())
+            }
+
+            _ => Err(RequestError::Runtime(
+                drv_cpu_seq_api::SeqError::IllegalTransition,
+            )),
+        }
+    }
+
+    fn send_hardware_nmi(
         &mut self,
         _: &RecvMessage,
     ) -> Result<(), RequestError<core::convert::Infallible>> {
         Ok(())
+    }
+
+    fn read_fpga_regs(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<[u8; 64], RequestError<core::convert::Infallible>> {
+        Ok([0; 64])
     }
 }
 
@@ -265,11 +321,12 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
     }
 
     fn handle_notification(&mut self, _bits: u32) {
-        panic!()
+        unreachable!()
     }
 }
 
 mod idl {
+    use drv_cpu_seq_api::SeqError;
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
 

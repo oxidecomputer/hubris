@@ -37,6 +37,7 @@ mod update;
 #[cfg_attr(feature = "gimlet", path = "mgs_gimlet.rs")]
 #[cfg_attr(feature = "sidecar", path = "mgs_sidecar.rs")]
 #[cfg_attr(feature = "psc", path = "mgs_psc.rs")]
+#[cfg_attr(feature = "grapefruit", path = "mgs_grapefruit.rs")]
 mod mgs_handler;
 
 use self::mgs_handler::MgsHandler;
@@ -179,15 +180,15 @@ enum IpcRequest {
     GetStartupOptions,
     SetStartupOptions(HostStartupOptions),
     Identity,
-    #[cfg(feature = "gimlet")]
+    #[cfg(any(feature = "gimlet", feature = "grapefruit"))]
     GetInstallinatorImageId,
-    #[cfg(feature = "gimlet")]
+    #[cfg(any(feature = "gimlet", feature = "grapefruit"))]
     GetUartClient,
-    #[cfg(feature = "gimlet")]
+    #[cfg(any(feature = "gimlet", feature = "grapefruit"))]
     SetHumilityUartClient(#[count(children)] UartClient),
-    #[cfg(feature = "gimlet")]
+    #[cfg(any(feature = "gimlet", feature = "grapefruit"))]
     UartRead(usize),
-    #[cfg(feature = "gimlet")]
+    #[cfg(any(feature = "gimlet", feature = "grapefruit"))]
     UartWrite(usize),
 }
 
@@ -326,7 +327,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         Ok(self.mgs_handler.identity())
     }
 
-    #[cfg(feature = "gimlet")]
+    #[cfg(any(feature = "gimlet", feature = "grapefruit"))]
     fn get_installinator_image_id(
         &mut self,
         _msg: &userlib::RecvMessage,
@@ -348,7 +349,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         }
     }
 
-    #[cfg(not(feature = "gimlet"))]
+    #[cfg(not(any(feature = "gimlet", feature = "grapefruit")))]
     fn get_installinator_image_id(
         &mut self,
         _msg: &userlib::RecvMessage,
@@ -364,7 +365,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         Err(RequestError::Fail(ClientError::BadMessageContents))
     }
 
-    #[cfg(feature = "gimlet")]
+    #[cfg(any(feature = "gimlet", feature = "grapefruit"))]
     fn get_uart_client(
         &mut self,
         _msg: &userlib::RecvMessage,
@@ -373,7 +374,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         Ok(self.mgs_handler.uart_client())
     }
 
-    #[cfg(feature = "gimlet")]
+    #[cfg(any(feature = "gimlet", feature = "grapefruit"))]
     fn set_humility_uart_client(
         &mut self,
         _msg: &userlib::RecvMessage,
@@ -390,7 +391,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         Ok(self.mgs_handler.set_uart_client(client)?)
     }
 
-    #[cfg(feature = "gimlet")]
+    #[cfg(any(feature = "gimlet", feature = "grapefruit"))]
     fn uart_read(
         &mut self,
         _msg: &userlib::RecvMessage,
@@ -400,7 +401,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         self.mgs_handler.uart_read(data)
     }
 
-    #[cfg(feature = "gimlet")]
+    #[cfg(any(feature = "gimlet", feature = "grapefruit"))]
     fn uart_write(
         &mut self,
         _msg: &userlib::RecvMessage,
@@ -410,7 +411,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         self.mgs_handler.uart_write(data)
     }
 
-    #[cfg(not(feature = "gimlet"))]
+    #[cfg(not(any(feature = "gimlet", feature = "grapefruit")))]
     fn get_uart_client(
         &mut self,
         _msg: &userlib::RecvMessage,
@@ -420,7 +421,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         Ok(UartClient::Mgs)
     }
 
-    #[cfg(not(feature = "gimlet"))]
+    #[cfg(not(any(feature = "gimlet", feature = "grapefruit")))]
     fn set_humility_uart_client(
         &mut self,
         _msg: &userlib::RecvMessage,
@@ -431,7 +432,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         ))
     }
 
-    #[cfg(not(feature = "gimlet"))]
+    #[cfg(not(any(feature = "gimlet", feature = "grapefruit")))]
     fn uart_read(
         &mut self,
         _msg: &userlib::RecvMessage,
@@ -442,7 +443,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         ))
     }
 
-    #[cfg(not(feature = "gimlet"))]
+    #[cfg(not(any(feature = "gimlet", feature = "grapefruit")))]
     fn uart_write(
         &mut self,
         _msg: &userlib::RecvMessage,

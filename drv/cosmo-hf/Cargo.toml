@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 counters = { path = "../../lib/counters" }
-drv-grapefruit-seq-api = { path = "../grapefruit-seq-api" }
+drv-cpu-seq-api = { path = "../cpu-seq-api" }
 drv-hash-api = { path = "../hash-api" }
 drv-hf-api = { path = "../hf-api" }
 ringbuf = { path = "../../lib/ringbuf" }

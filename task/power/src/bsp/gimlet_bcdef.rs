@@ -58,7 +58,7 @@ pub(crate) static CONTROLLER_CONFIG: [PowerControllerConfig;
 pub(crate) fn get_state() -> PowerState {
     userlib::task_slot!(SEQUENCER, gimlet_seq);
 
-    use drv_gimlet_seq_api as seq_api;
+    use drv_cpu_seq_api as seq_api;
 
     let sequencer = seq_api::Sequencer::from(SEQUENCER.get_task_id());
 

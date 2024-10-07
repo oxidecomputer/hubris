@@ -22,7 +22,7 @@ drv-auxflash-api = { path = "../../drv/auxflash-api", optional = true }
 drv-caboose = { path = "../../drv/caboose" }
 drv-caboose-pos = { path = "../../drv/caboose-pos" }
 drv-hf-api = { path = "../../drv/hf-api", optional = true }
-drv-gimlet-seq-api = { path = "../../drv/gimlet-seq-api", optional = true }
+drv-cpu-seq-api = { path = "../../drv/cpu-seq-api", optional = true }
 drv-ignition-api = { path = "../../drv/ignition-api", optional = true }
 drv-lpc55-update-api = { path = "../../drv/lpc55-update-api" }
 drv-monorail-api = { path = "../../drv/monorail-api", optional = true }
@@ -58,7 +58,8 @@ ssh-key = { workspace = true }
 
 [features]
 no-ipc-counters = ["idol/no-counters"]
-gimlet = ["drv-hf-api", "drv-gimlet-seq-api", "drv-stm32h7-usart", "drv-user-leds-api"]
+gimlet = ["drv-hf-api", "drv-cpu-seq-api", "drv-stm32h7-usart", "drv-user-leds-api"]
+grapefruit = ["drv-hf-api", "drv-cpu-seq-api", "drv-stm32h7-usart", "drv-user-leds-api"]
 sidecar = ["drv-sidecar-seq-api", "drv-monorail-api", "drv-ignition-api", "drv-transceivers-api", "p256", "sha2", "drv-rng-api"]
 psc = ["drv-user-leds-api"]
 vpd = ["task-vpd-api"]

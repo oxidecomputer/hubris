@@ -20,7 +20,7 @@ vsc7448-pac = { workspace = true }
 zerocopy = { workspace = true }
 
 counters = { path = "../../lib/counters" }
-drv-gimlet-seq-api = { path = "../../drv/gimlet-seq-api", optional = true }
+drv-cpu-seq-api = { path = "../../drv/cpu-seq-api", optional = true }
 drv-medusa-seq-api = { path = "../../drv/medusa-seq-api", optional = true }
 drv-psc-seq-api = { path = "../../drv/psc-seq-api", optional = true }
 drv-sidecar-seq-api = { path = "../../drv/sidecar-seq-api", optional = true }
@@ -45,7 +45,7 @@ no-ipc-counters = ["idol/no-counters"]
 use-spi-core = ["drv-stm32h7-spi-server-core"]
 mgmt = ["drv-spi-api", "ksz8463", "drv-user-leds-api", "task-net-api/mgmt"]
 vpd-mac = ["task-packrat-api"]
-gimlet = ["drv-gimlet-seq-api"]
+gimlet = ["drv-cpu-seq-api"]
 sidecar = ["drv-sidecar-seq-api"]
 medusa = ["drv-medusa-seq-api"]
 psc = ["drv-psc-seq-api"]

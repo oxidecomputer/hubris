@@ -11,8 +11,8 @@ use crate::{
     },
     i2c_config::{devices, sensors},
 };
-pub use drv_gimlet_seq_api::SeqError;
-use drv_gimlet_seq_api::{PowerState, Sequencer};
+pub use drv_cpu_seq_api::SeqError;
+use drv_cpu_seq_api::{PowerState, Sequencer};
 use task_sensor_api::SensorId;
 use task_thermal_api::ThermalProperties;
 use userlib::{task_slot, units::Celsius, TaskId, UnwrapLite};

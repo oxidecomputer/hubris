@@ -1,5 +1,5 @@
 [package]
-name = "drv-gimlet-state"
+name = "drv-cpu-power-state"
 version = "0.1.0"
 edition = "2021"
 
