@@ -23,7 +23,7 @@ pmbus = { workspace = true, optional = true }
 counters.path = "../../lib/counters"
 
 drv-hf-api.path= "../../drv/hf-api"
-drv-gimlet-seq-api.path= "../../drv/gimlet-seq-api"
+drv-cpu-seq-api.path= "../../drv/cpu-seq-api"
 drv-oxide-vpd.path= "../../drv/oxide-vpd"
 drv-stm32h7-dbgmcu.path = "../../drv/stm32h7-dbgmcu"
 drv-stm32xx-sys-api.path= "../../drv/stm32xx-sys-api"
@@ -55,11 +55,13 @@ idol.workspace = true
 no-ipc-counters = ["idol/no-counters"]
 stm32h743 = ["drv-stm32h7-usart/h743", "drv-stm32xx-sys-api/h743", "drv-stm32h7-dbgmcu/h743"]
 stm32h753 = ["drv-stm32h7-usart/h753", "drv-stm32xx-sys-api/h753", "drv-stm32h7-dbgmcu/h753"]
+usart6 = []
 uart7 = []
 baud_rate_3M = []
 hardware_flow_control = []
 vlan = ["task-net-api/vlan"]
 gimlet = ["pmbus", "tlvc", "drv-i2c-api", "drv-i2c-devices", "drv-spi-api", "ksz8463", "build-i2c", "task-sensor-api"]
+grapefruit = ["drv-spi-api", "ksz8463"]
 
 [[bin]]
 name = "task-host-sp-comms"

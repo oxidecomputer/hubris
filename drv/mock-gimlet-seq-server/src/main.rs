@@ -7,7 +7,7 @@
 #![no_std]
 #![no_main]
 
-use drv_gimlet_seq_api::{PowerState, SeqError};
+use drv_cpu_seq_api::{PowerState, SeqError};
 use idol_runtime::{NotificationHandler, RequestError};
 use task_jefe_api::Jefe;
 use userlib::{FromPrimitive, RecvMessage, UnwrapLite};
@@ -70,20 +70,6 @@ impl idl::InOrderSequencerImpl for ServerImpl {
 
             _ => Err(RequestError::Runtime(SeqError::IllegalTransition)),
         }
-    }
-
-    fn fans_on(
-        &mut self,
-        _: &RecvMessage,
-    ) -> Result<(), RequestError<core::convert::Infallible>> {
-        Ok(())
-    }
-
-    fn fans_off(
-        &mut self,
-        _: &RecvMessage,
-    ) -> Result<(), RequestError<core::convert::Infallible>> {
-        Ok(())
     }
 
     fn send_hardware_nmi(

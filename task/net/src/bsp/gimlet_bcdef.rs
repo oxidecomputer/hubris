@@ -9,7 +9,7 @@ use crate::{
     bsp_support::{self, Ksz8463},
     mgmt, notifications, pins,
 };
-use drv_gimlet_seq_api::PowerState;
+use drv_cpu_seq_api::PowerState;
 use drv_spi_api::SpiServer;
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{Alternate, Port, Sys};

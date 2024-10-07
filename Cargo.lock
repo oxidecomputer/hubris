@@ -999,7 +999,7 @@ dependencies = [
  "build-util",
  "cortex-m",
  "counters",
- "drv-grapefruit-seq-api",
+ "drv-cpu-seq-api",
  "drv-hash-api",
  "drv-hf-api",
  "hubpack",
@@ -1009,6 +1009,30 @@ dependencies = [
  "ringbuf",
  "serde",
  "stm32h7",
+ "userlib",
+ "zerocopy 0.6.6",
+]
+
+[[package]]
+name = "drv-cpu-power-state"
+version = "0.1.0"
+dependencies = [
+ "counters",
+ "num-traits",
+ "userlib",
+ "zerocopy 0.6.6",
+]
+
+[[package]]
+name = "drv-cpu-seq-api"
+version = "0.1.0"
+dependencies = [
+ "counters",
+ "derive-idol-err",
+ "drv-cpu-power-state",
+ "idol",
+ "idol-runtime",
+ "num-traits",
  "userlib",
  "zerocopy 0.6.6",
 ]
@@ -1114,20 +1138,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "drv-gimlet-seq-api"
-version = "0.1.0"
-dependencies = [
- "counters",
- "derive-idol-err",
- "drv-gimlet-state",
- "idol",
- "idol-runtime",
- "num-traits",
- "userlib",
- "zerocopy 0.6.6",
-]
-
-[[package]]
 name = "drv-gimlet-seq-server"
 version = "0.1.0"
 dependencies = [
@@ -1139,8 +1149,8 @@ dependencies = [
  "cfg-if",
  "cortex-m",
  "counters",
- "drv-gimlet-seq-api",
- "drv-gimlet-state",
+ "drv-cpu-power-state",
+ "drv-cpu-seq-api",
  "drv-hf-api",
  "drv-i2c-api",
  "drv-i2c-devices",
@@ -1166,28 +1176,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "drv-gimlet-state"
-version = "0.1.0"
-dependencies = [
- "counters",
- "num-traits",
- "userlib",
- "zerocopy 0.6.6",
-]
-
-[[package]]
-name = "drv-grapefruit-seq-api"
-version = "0.1.0"
-dependencies = [
- "counters",
- "idol",
- "idol-runtime",
- "num-traits",
- "userlib",
- "zerocopy 0.6.6",
-]
-
-[[package]]
 name = "drv-grapefruit-seq-server"
 version = "0.1.0"
 dependencies = [
@@ -1195,6 +1183,8 @@ dependencies = [
  "cfg-if",
  "counters",
  "drv-auxflash-api",
+ "drv-cpu-power-state",
+ "drv-cpu-seq-api",
  "drv-spi-api",
  "drv-stm32xx-sys-api",
  "gnarle",
@@ -1203,6 +1193,7 @@ dependencies = [
  "num-traits",
  "ringbuf",
  "sha3",
+ "task-jefe-api",
  "userlib",
  "zerocopy 0.6.6",
 ]
@@ -1667,8 +1658,8 @@ dependencies = [
 name = "drv-mock-gimlet-seq-server"
 version = "0.1.0"
 dependencies = [
- "drv-gimlet-seq-api",
- "drv-gimlet-state",
+ "drv-cpu-power-state",
+ "drv-cpu-seq-api",
  "idol",
  "idol-runtime",
  "num-traits",
@@ -4784,7 +4775,7 @@ dependencies = [
  "drv-auxflash-api",
  "drv-caboose",
  "drv-caboose-pos",
- "drv-gimlet-seq-api",
+ "drv-cpu-seq-api",
  "drv-hf-api",
  "drv-ignition-api",
  "drv-lpc55-update-api",
@@ -4905,7 +4896,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "counters",
- "drv-gimlet-seq-api",
+ "drv-cpu-seq-api",
  "gimlet-inspector-protocol",
  "hubpack",
  "idol",
@@ -4958,7 +4949,7 @@ dependencies = [
  "corncobs",
  "cortex-m",
  "counters",
- "drv-gimlet-seq-api",
+ "drv-cpu-seq-api",
  "drv-hf-api",
  "drv-i2c-api",
  "drv-i2c-devices",
@@ -5097,7 +5088,7 @@ dependencies = [
  "cfg-if",
  "cortex-m",
  "counters",
- "drv-gimlet-seq-api",
+ "drv-cpu-seq-api",
  "drv-medusa-seq-api",
  "drv-psc-seq-api",
  "drv-sidecar-seq-api",
@@ -5177,7 +5168,7 @@ dependencies = [
  "anyhow",
  "build-util",
  "cfg-if",
- "drv-gimlet-seq-api",
+ "drv-cpu-seq-api",
  "idol",
  "idol-runtime",
  "mutable-statics",
@@ -5237,7 +5228,7 @@ dependencies = [
  "build-util",
  "cfg-if",
  "cortex-m",
- "drv-gimlet-seq-api",
+ "drv-cpu-seq-api",
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-sidecar-seq-api",
@@ -5360,8 +5351,7 @@ dependencies = [
  "build-util",
  "cfg-if",
  "cortex-m",
- "drv-gimlet-seq-api",
- "drv-gimlet-state",
+ "drv-cpu-seq-api",
  "drv-i2c-api",
  "drv-stm32xx-i2c",
  "drv-stm32xx-sys-api",
@@ -5392,7 +5382,7 @@ dependencies = [
  "build-util",
  "cortex-m",
  "counters",
- "drv-gimlet-seq-api",
+ "drv-cpu-seq-api",
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-onewire",

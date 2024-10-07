@@ -17,7 +17,7 @@ use userlib::{
     sys_set_timer, task_slot, units, RecvMessage, TaskId, UnwrapLite,
 };
 
-use drv_gimlet_seq_api::{PowerState, SeqError};
+use drv_cpu_seq_api::{PowerState, SeqError};
 use drv_hf_api as hf_api;
 use drv_i2c_api as i2c;
 use drv_ice40_spi_program as ice40;
@@ -1036,28 +1036,6 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
         self.set_state_internal(state).map_err(RequestError::from)
     }
 
-    fn fans_on(
-        &mut self,
-        _: &RecvMessage,
-    ) -> Result<(), RequestError<core::convert::Infallible>> {
-        let on = Reg::EARLY_POWER_CTRL::FANPWREN;
-        self.seq
-            .set_bytes(Addr::EARLY_POWER_CTRL, &[on])
-            .unwrap_lite();
-        Ok(())
-    }
-
-    fn fans_off(
-        &mut self,
-        _: &RecvMessage,
-    ) -> Result<(), RequestError<core::convert::Infallible>> {
-        let off = Reg::EARLY_POWER_CTRL::FANPWREN;
-        self.seq
-            .clear_bytes(Addr::EARLY_POWER_CTRL, &[off])
-            .unwrap_lite();
-        Ok(())
-    }
-
     fn send_hardware_nmi(
         &mut self,
         _: &RecvMessage,
@@ -1098,7 +1076,7 @@ fn read_spd_data_and_load_packrat(
     packrat: &Packrat,
     i2c_task: TaskId,
 ) -> Result<(), i2c::ResponseCode> {
-    use drv_gimlet_seq_api::NUM_SPD_BANKS;
+    use drv_cpu_seq_api::NUM_SPD_BANKS;
     use drv_i2c_api::{Controller, I2cDevice, Mux, PortIndex, Segment};
 
     type SpdBank = (Controller, PortIndex, Option<(Mux, Segment)>);

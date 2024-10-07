@@ -12,7 +12,7 @@ serde.workspace = true
 hubpack.workspace = true
 zerocopy.workspace = true
 
-drv-gimlet-seq-api = { path = "../../drv/gimlet-seq-api", optional = true }
+drv-cpu-seq-api = { path = "../../drv/cpu-seq-api", optional = true }
 drv-sidecar-seq-api = { path = "../../drv/sidecar-seq-api", optional = true }
 drv-transceivers-api = { path = "../../drv/transceivers-api", optional = true }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
@@ -35,7 +35,7 @@ build-i2c = { path = "../../build/i2c" }
 build-util = { path = "../../build/util" }
 
 [features]
-gimlet = ["drv-gimlet-seq-api", "h753"]
+gimlet = ["drv-cpu-seq-api", "h753"]
 sidecar = ["drv-sidecar-seq-api", "drv-transceivers-api", "h753"]
 medusa = ["h753", "drv-transceivers-api"]
 grapefruit = ["h753"]

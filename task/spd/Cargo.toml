@@ -10,8 +10,7 @@ num-traits = { workspace = true }
 spd = { workspace = true }
 stm32h7 = { workspace = true }
 
-drv-gimlet-seq-api = { path = "../../drv/gimlet-seq-api" }
-drv-gimlet-state = { path = "../../drv/gimlet-state" }
+drv-cpu-seq-api = { path = "../../drv/cpu-seq-api" }
 drv-i2c-api = { path = "../../drv/i2c-api" }
 drv-stm32xx-i2c = { path = "../../drv/stm32xx-i2c", features = ["amd_erratum_1394"] }
 drv-stm32xx-sys-api = { path = "../../drv/stm32xx-sys-api" }

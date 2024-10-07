@@ -1,5 +1,5 @@
 [package]
-name = "drv-grapefruit-seq-api"
+name = "drv-cpu-seq-api"
 version = "0.1.0"
 edition = "2021"
 
@@ -9,6 +9,8 @@ num-traits.workspace = true
 zerocopy.workspace = true
 
 counters = { path = "../../lib/counters", features = ["derive"] }
+derive-idol-err = { path = "../../lib/derive-idol-err"  }
+drv-cpu-power-state = { path = "../cpu-power-state" }
 userlib = { path = "../../sys/userlib" }
 
 [build-dependencies]
