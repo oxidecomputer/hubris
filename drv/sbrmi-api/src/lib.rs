@@ -8,7 +8,7 @@
 
 use derive_idol_err::IdolError;
 use drv_i2c_devices::sbrmi;
-use userlib::*;
+use userlib::{sys_send, FromPrimitive};
 
 #[derive(Copy, Clone, Debug, FromPrimitive, IdolError, counters::Count)]
 pub enum SbrmiError {

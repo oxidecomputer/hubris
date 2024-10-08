@@ -8,7 +8,7 @@ use crate::*;
 use bitfield::bitfield;
 use drv_i2c_api::{ResponseCode, Segment};
 use ringbuf::*;
-use userlib::*;
+use userlib::FromPrimitive;
 
 pub struct Max7358;
 

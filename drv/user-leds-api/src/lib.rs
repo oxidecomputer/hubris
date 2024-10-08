@@ -7,7 +7,7 @@
 #![no_std]
 
 use derive_idol_err::IdolError;
-use userlib::*;
+use userlib::{sys_send, FromPrimitive};
 
 #[derive(Copy, Clone, Debug, FromPrimitive, IdolError, counters::Count)]
 pub enum LedError {

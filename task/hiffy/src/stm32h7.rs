@@ -12,7 +12,7 @@ use hif::*;
 use hubris_num_tasks::Task;
 use ringbuf::*;
 #[cfg(any(feature = "spi", feature = "gpio", feature = "i2c"))]
-use userlib::*;
+use userlib::{task_slot, FromPrimitive};
 
 #[cfg(feature = "i2c")]
 use drv_i2c_api::{

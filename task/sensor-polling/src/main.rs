@@ -10,7 +10,7 @@
 use drv_i2c_devices::mwocp68::{Error as Mwocp68Error, Mwocp68};
 use ringbuf::*;
 use task_sensor_api::{Sensor, SensorId};
-use userlib::*;
+use userlib::{hl, task_slot, TaskId};
 
 task_slot!(I2C, i2c_driver);
 task_slot!(SENSOR, sensor);
