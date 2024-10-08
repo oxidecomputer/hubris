@@ -2664,7 +2664,7 @@ impl Archive {
             tmp_path,
             inner,
             opts: zip::write::FileOptions::default()
-                .compression_method(zip::CompressionMethod::Bzip2),
+                .compression_method(zip::CompressionMethod::Deflated),
         })
     }
 
