@@ -621,8 +621,13 @@ pub fn package(
         if let Some(signing) = &cfg.toml.signing {
             let mut archive = hubtools::RawHubrisArchive::load(&archive_name)
                 .context("loading archive with hubtools")?;
+            let priv_key_rel_path = signing
+                .certs
+                .private_key
+                .clone()
+                .context("missing private key path")?;
             let private_key = lpc55_sign::cert::read_rsa_private_key(
-                &cfg.app_src_dir.join(&signing.certs.private_key),
+                &cfg.app_src_dir.join(priv_key_rel_path),
             )
             .with_context(|| {
                 format!(
