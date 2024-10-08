@@ -124,7 +124,7 @@ gateway-messages = { git = "https://github.com/oxidecomputer/management-gateway-
 gimlet-inspector-protocol = { git = "https://github.com/oxidecomputer/gimlet-inspector-protocol", version = "0.1.0" }
 hif = { git = "https://github.com/oxidecomputer/hif", default-features = false }
 humpty = { git = "https://github.com/oxidecomputer/humpty", default-features = false, version = "0.1.3" }
-hubtools = { git = "https://github.com/oxidecomputer/hubtools", default-features = false, version = "0.4.1" }
+hubtools = { git = "https://github.com/oxidecomputer/hubtools", default-features = false, version = "0.4.6" }
 idol = { git = "https://github.com/oxidecomputer/idolatry.git", default-features = false }
 idol-runtime = { git = "https://github.com/oxidecomputer/idolatry.git", default-features = false }
 lpc55_sign = { git = "https://github.com/oxidecomputer/lpc55_support", default-features = false }
