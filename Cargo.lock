@@ -2663,7 +2663,7 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#1885b52b0601f4215c020cb17516c6a7fa1e2c9d"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=sp5-host-cpu-component#e3fa80e33b1a57c69904afc643e7c82482a38851"
 dependencies = [
  "bitflags 2.6.0",
  "hubpack",

@@ -5,7 +5,7 @@
 use crate::mgs_handler::UpdateBuffer;
 use gateway_messages::{SpError, UpdateId, UpdateStatus};
 
-#[cfg(any(feature = "gimlet", feature = "grapefruit"))]
+#[cfg(feature = "compute-sled")]
 pub(crate) mod host_flash;
 
 mod common;

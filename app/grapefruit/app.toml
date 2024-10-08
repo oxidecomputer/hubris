@@ -240,7 +240,7 @@ task-slots = [
     "user_leds",
 ]
 features = [
-    "grapefruit",
+    "cosmo", # close enough!
     "usart1",
     "vlan",
     "baud_rate_3M",
