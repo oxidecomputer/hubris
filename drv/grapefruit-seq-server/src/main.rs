@@ -247,6 +247,7 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
             jefe: Jefe::from(JEFE.get_task_id()),
             seq,
         };
+        server.set_state_impl(PowerState::A2);
 
         // Clear the external fault now that we're about to start serving
         // messages and fewer things can go wrong.

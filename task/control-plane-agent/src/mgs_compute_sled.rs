@@ -37,7 +37,7 @@ use userlib::{sys_get_timer, sys_irq_control, FromPrimitive, UnwrapLite};
 
 // We're included under a special `path` cfg from main.rs, which confuses rustc
 // about where our submodules live. Pass explicit paths to correct it.
-#[path = "mgs_gimlet/host_phase2.rs"]
+#[path = "mgs_compute_sled/host_phase2.rs"]
 mod host_phase2;
 
 use host_phase2::HostPhase2Requester;

@@ -58,8 +58,9 @@ ssh-key = { workspace = true }
 
 [features]
 no-ipc-counters = ["idol/no-counters"]
-gimlet = ["drv-hf-api", "drv-cpu-seq-api", "drv-stm32h7-usart", "drv-user-leds-api"]
-grapefruit = ["drv-hf-api", "drv-cpu-seq-api", "drv-stm32h7-usart", "drv-user-leds-api"]
+compute-sled = ["drv-hf-api", "drv-cpu-seq-api", "drv-stm32h7-usart", "drv-user-leds-api"]
+gimlet = ["compute-sled"]
+cosmo = ["compute-sled"]
 sidecar = ["drv-sidecar-seq-api", "drv-monorail-api", "drv-ignition-api", "drv-transceivers-api", "p256", "sha2", "drv-rng-api"]
 psc = ["drv-user-leds-api"]
 vpd = ["task-vpd-api"]

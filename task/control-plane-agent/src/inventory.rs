@@ -279,17 +279,29 @@ mod devices_with_static_validation {
             capabilities: DeviceCapabilities::HAS_SERIAL_CONSOLE,
             presence: DevicePresence::Present, // TODO: ok to assume always present?
         },
+        // Same for cosmo / grapefruit
+        #[cfg(feature = "cosmo")]
+        DeviceDescription {
+            component: SpComponent::SP5_HOST_CPU,
+            device: SpComponent::SP5_HOST_CPU.const_as_str(),
+            description: "Cosmo SP5 host cpu",
+            capabilities: DeviceCapabilities::HAS_SERIAL_CONSOLE,
+            presence: DevicePresence::Present, // TODO: ok to assume always present?
+        },
         // If we're building for gimlet, we always claim to have host boot flash.
         //
         // This is a lie on gimletlet (where we still build with the "gimlet"
         // feature), and a less useful one than the host CPU (since trying to
         // access the "host flash" will fail unless we have an adapter providing
         // QSPI flash).
-        #[cfg(feature = "gimlet")]
+        #[cfg(feature = "compute-sled")]
         DeviceDescription {
             component: SpComponent::HOST_CPU_BOOT_FLASH,
             device: SpComponent::HOST_CPU_BOOT_FLASH.const_as_str(),
+            #[cfg(feature = "gimlet")]
             description: "Gimlet host boot flash",
+            #[cfg(feature = "cosmo")]
+            description: "Cosmo host boot flash",
             capabilities: DeviceCapabilities::UPDATEABLE,
             presence: DevicePresence::Present, // TODO: ok to assume always present?
         },
@@ -304,7 +316,12 @@ mod devices_with_static_validation {
             // to MGS messages anyway!
             presence: DevicePresence::Present,
         },
-        #[cfg(any(feature = "gimlet", feature = "psc", feature = "sidecar"))]
+        #[cfg(any(
+            feature = "gimlet",
+            feature = "cosmo",
+            feature = "psc",
+            feature = "sidecar"
+        ))]
         DeviceDescription {
             component: SpComponent::SYSTEM_LED,
             device: SpComponent::SYSTEM_LED.const_as_str(),

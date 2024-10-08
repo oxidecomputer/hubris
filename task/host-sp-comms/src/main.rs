@@ -1543,8 +1543,8 @@ fn configure_uart_device(sys: &sys_api::Sys) -> Usart {
                     }
                 }
             };
-            let usart = unsafe { &*device::UART7::ptr() };
-            let peripheral = Peripheral::Uart7;
+            let usart = unsafe { &*device::USART6::ptr() };
+            let peripheral = Peripheral::Usart6;
             let pins = PINS;
         } else {
             compile_error!("no usartX/uartX feature specified");
