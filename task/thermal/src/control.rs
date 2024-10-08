@@ -540,6 +540,8 @@ pub struct PidConfig {
     pub gain_p: f32,
     pub gain_i: f32,
     pub gain_d: f32,
+    pub min_output: f32,
+    pub max_output: f32,
 }
 
 /// Represents a PID controller that can only push in one direction (i.e. the
@@ -557,7 +559,7 @@ impl OneSidedPidState {
     ///
     /// The error and output are expected to have the same signs, i.e. a large
     /// positive error will produce a large positive output.
-    fn run(&mut self, cfg: &PidConfig, error: f32, output_limit: f32) -> f32 {
+    fn run(&mut self, cfg: &PidConfig, error: f32) -> f32 {
         let p_contribution = cfg.gain_p * error;
 
         // Pre-multiply accumulated integral by gain, to make clamping easier
@@ -575,12 +577,12 @@ impl OneSidedPidState {
         // To prevent integral windup, integral term needs to be clamped to values
         // can effect the output.
         let out_pd = cfg.zero + p_contribution + d_contribution;
-        let (integral_min, integral_max) = if out_pd > output_limit {
+        let (integral_min, integral_max) = if out_pd > cfg.max_output {
             (-out_pd, 0.0)
         } else if out_pd < 0.0 {
-            (0.0, -out_pd + output_limit)
+            (0.0, -out_pd + cfg.max_output)
         } else {
-            (-out_pd, output_limit - out_pd)
+            (-out_pd, cfg.max_output - out_pd)
         };
         // f32::clamp is not inlining well as of 2024-04 so we do it by hand
         // here and below.
@@ -589,7 +591,7 @@ impl OneSidedPidState {
         // Clamp output values to valid range.
         let out = out_pd + self.integral;
         // same issue with f32::clamp (above)
-        out.max(0.0).min(output_limit)
+        out.max(cfg.min_output).min(cfg.max_output)
     }
 }
 
@@ -1045,7 +1047,6 @@ impl<'a> ThermalControl<'a> {
                     let pwm = pid.run(
                         &self.pid_config,
                         self.target_margin.0 - worst_margin,
-                        100.0,
                     );
                     self.state = ThermalControlState::Running {
                         values: values.map(Option::unwrap),
@@ -1104,7 +1105,6 @@ impl<'a> ThermalControl<'a> {
                     let pwm = pid.run(
                         &self.pid_config,
                         self.target_margin.0 - worst_margin,
-                        100.0,
                     );
                     ControlResult::Pwm(PWMDuty(pwm as u8))
                 }
@@ -1139,7 +1139,6 @@ impl<'a> ThermalControl<'a> {
                     let pwm = pid.run(
                         &self.pid_config,
                         self.target_margin.0 - worst_margin,
-                        100.0,
                     );
                     self.state = ThermalControlState::Running {
                         values: *values,

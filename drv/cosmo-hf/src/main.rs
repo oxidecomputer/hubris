@@ -94,7 +94,15 @@ mod reg {
 
     pub const NOR: *mut u32 = BASE.wrapping_add(0x40);
     pub const SPICR: *mut u32 = NOR.wrapping_add(0x0);
+    pub mod spisr {
+        pub const RX_EMPTY_BIT: u32 = 1 << 6;
+    }
     pub const SPISR: *mut u32 = NOR.wrapping_add(0x1);
+    pub mod spicr {
+        pub const SP5_OWNS_FLASH: u32 = 1 << 31;
+        pub const RX_FIFO_RESET: u32 = 1 << 15;
+        pub const TX_FIFO_RESET: u32 = 1 << 7;
+    }
     pub const ADDR: *mut u32 = NOR.wrapping_add(0x2);
     pub const DUMMY_CYCLES: *mut u32 = NOR.wrapping_add(0x3);
     pub const DATA_BYTES: *mut u32 = NOR.wrapping_add(0x4);
@@ -149,6 +157,11 @@ impl FlashDriver {
         unsafe { reg.write_volatile(v) };
     }
 
+    fn modify_reg<F: Fn(u32) -> u32>(&self, reg: *mut u32, f: F) {
+        let prev = self.read_reg(reg);
+        self.write_reg(reg, f(prev));
+    }
+
     /// Wait until the FPGA is idle
     fn wait_fpga_busy(&self) {
         loop {
@@ -165,8 +178,7 @@ impl FlashDriver {
     fn wait_fpga_rx(&self) {
         for i in 0.. {
             let spi_sr = self.read_reg(reg::SPISR);
-            const RX_EMPTY_BIT: u32 = 1 << 6;
-            if spi_sr & RX_EMPTY_BIT == 0 {
+            if spi_sr & reg::spisr::RX_EMPTY_BIT == 0 {
                 break;
             }
             ringbuf_entry!(Trace::FpgaBusy { spi_sr });
@@ -179,7 +191,9 @@ impl FlashDriver {
 
     /// Clears the FPGA's internal FIFOs
     fn clear_fifos(&self) {
-        self.write_reg(reg::SPICR, 0x8080);
+        self.modify_reg(reg::SPICR, |v| {
+            v | reg::spicr::RX_FIFO_RESET | reg::spicr::TX_FIFO_RESET
+        });
     }
 
     /// Wait until the SPI flash is idle
@@ -325,6 +339,32 @@ impl FlashDriver {
         self.write_reg(reg::TX_FIFO, u32::from_le_bytes([v, 0, 0, 0]));
         self.write_reg(reg::INSTR, instr::WRITE_STATUS_2);
         self.wait_fpga_busy();
+    }
+
+    fn get_flash_mux_state(&self) -> drv_hf_api::HfMuxState {
+        let v = self.read_reg(reg::SPICR);
+        if v & reg::spicr::SP5_OWNS_FLASH != 0 {
+            drv_hf_api::HfMuxState::HostCPU
+        } else {
+            drv_hf_api::HfMuxState::SP
+        }
+    }
+
+    /// Returns an error if the flash mux state is not `HfMuxState::SP`
+    fn check_flash_mux_state(&self) -> Result<(), drv_hf_api::HfError> {
+        match self.get_flash_mux_state() {
+            drv_hf_api::HfMuxState::SP => Ok(()),
+            drv_hf_api::HfMuxState::HostCPU => {
+                Err(drv_hf_api::HfError::NotMuxedToSP)
+            }
+        }
+    }
+
+    fn set_flash_mux_state(&self, ms: drv_hf_api::HfMuxState) {
+        self.modify_reg(reg::SPICR, |v| match ms {
+            drv_hf_api::HfMuxState::SP => v & !reg::spicr::SP5_OWNS_FLASH,
+            drv_hf_api::HfMuxState::HostCPU => v | reg::spicr::SP5_OWNS_FLASH,
+        });
     }
 
     fn set_espi_addr_offset(&self, v: u32) {

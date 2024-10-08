@@ -144,8 +144,11 @@ pub fn config(
     chip_dir: &Path,
 ) -> anyhow::Result<Option<FlashConfig>> {
     let mut flash = match board {
-        "lpcxpresso55s69" | "rot-carrier-1" | "rot-carrier-2"
-        | "oxide-rot-1" => {
+        "lpcxpresso55s69"
+        | "rot-carrier-1"
+        | "rot-carrier-2"
+        | "oxide-rot-1"
+        | "oxide-rot-1-selfsigned" => {
             let chip = if board == "rot-carrier-1" {
                 "lpc55s28"
             } else {
@@ -173,8 +176,8 @@ pub fn config(
 
         "stm32f3-discovery" | "stm32f4-discovery" | "nucleo-h743zi2"
         | "nucleo-h753zi" | "gemini-bu-1" | "gimletlet-1" | "gimletlet-2"
-        | "gimlet-b" | "gimlet-c" | "gimlet-d" | "gimlet-e" | "psc-b"
-        | "psc-c" | "sidecar-b" | "sidecar-c" | "sidecar-d"
+        | "gimlet-b" | "gimlet-c" | "gimlet-d" | "gimlet-e" | "gimlet-f"
+        | "psc-b" | "psc-c" | "sidecar-b" | "sidecar-c" | "sidecar-d"
         | "stm32g031-nucleo" | "donglet-g030" | "donglet-g031"
         | "oxcon2023g0" | "stm32g070-nucleo" | "stm32g0b1-nucleo"
         | "medusa-a" | "grapefruit" => {
@@ -205,16 +208,19 @@ pub fn config(
 
 pub fn chip_name(board: &str) -> anyhow::Result<&'static str> {
     let b = match board {
-        "lpcxpresso55s69" | "rot-carrier-2" | "oxide-rot-1" => "LPC55S69JBD100",
+        "lpcxpresso55s69"
+        | "rot-carrier-2"
+        | "oxide-rot-1"
+        | "oxide-rot-1-selfsigned" => "LPC55S69JBD100",
         "rot-carrier-1" => "LPC55S28JBD100",
         "stm32f3-discovery" => "STM32F303VCTx",
         "stm32f4-discovery" => "STM32F407VGTx",
         "nucleo-h743zi2" => "STM32H743ZITx",
         "nucleo-h753zi" => "STM32H753ZITx",
         "gemini-bu-1" | "gimletlet-1" | "gimletlet-2" | "gimlet-b"
-        | "gimlet-c" | "gimlet-d" | "gimlet-e" | "psc-a" | "psc-b"
-        | "psc-c" | "sidecar-b" | "sidecar-c" | "sidecar-d" | "medusa-a"
-        | "grapefruit" => "STM32H753ZITx",
+        | "gimlet-c" | "gimlet-d" | "gimlet-e" | "gimlet-f" | "psc-a"
+        | "psc-b" | "psc-c" | "sidecar-b" | "sidecar-c" | "sidecar-d"
+        | "medusa-a" | "grapefruit" => "STM32H753ZITx",
         "donglet-g030" => "STM32G030F6Px",
         "donglet-g031" => "STM32G031F8Px",
         "stm32g031-nucleo" => "STM32G031Y8Yx",

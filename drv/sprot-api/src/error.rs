@@ -14,7 +14,7 @@ use dumper_api::DumperError;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
 
-use attest_data::messages::SprotError as AttestDataSprotError;
+use attest_data::messages::RecvSprotError as AttestDataSprotError;
 use gateway_messages::{
     RotError, RotWatchdogError as GwRotWatchdogError, SpError,
     SprocketsError as GwSprocketsErr,

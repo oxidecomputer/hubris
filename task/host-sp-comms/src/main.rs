@@ -9,7 +9,7 @@
 use drv_stm32h7_usart as drv_usart;
 
 use attest_data::messages::{
-    HostToRotCommand, RotToHost, SprotError as AttestDataSprotError,
+    HostToRotCommand, RecvSprotError as AttestDataSprotError, RotToHost,
     MAX_DATA_LEN,
 };
 use drv_gimlet_seq_api::{PowerState, SeqError, Sequencer};
