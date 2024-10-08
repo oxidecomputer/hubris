@@ -114,8 +114,8 @@ dependencies = [
 
 [[package]]
 name = "attest-data"
-version = "0.3.0"
-source = "git+https://github.com/oxidecomputer/dice-util#3cc953c8d0ace2f20cbcf3920b0771d25301960a"
+version = "0.4.0"
+source = "git+https://github.com/oxidecomputer/dice-util#a20766967f779a4bad6922d2b62593c21b384a28"
 dependencies = [
  "hubpack",
  "salty",
@@ -812,7 +812,7 @@ dependencies = [
 [[package]]
 name = "dice-mfg-msgs"
 version = "0.2.1"
-source = "git+https://github.com/oxidecomputer/dice-util#3cc953c8d0ace2f20cbcf3920b0771d25301960a"
+source = "git+https://github.com/oxidecomputer/dice-util#a20766967f779a4bad6922d2b62593c21b384a28"
 dependencies = [
  "corncobs",
  "hubpack",
