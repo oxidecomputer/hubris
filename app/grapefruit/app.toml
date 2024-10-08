@@ -227,6 +227,7 @@ stacksize = 6000
 start = true
 uses = ["usart1"]
 task-slots = [
+    "auxflash",
     "jefe",
     "net",
     "update_server",
@@ -240,6 +241,7 @@ task-slots = [
     "user_leds",
 ]
 features = [
+    "auxflash",
     "cosmo", # close enough!
     "usart1",
     "vlan",
