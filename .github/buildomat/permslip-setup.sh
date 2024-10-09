@@ -24,7 +24,7 @@ export PERMSLIP_DIR=/work/permslip
 BART_KEY=`pwd`/support/fake_certs/fake_private_key.pem
 
 mkdir -p $PERMSLIP_DIR
-git clone https://github.com/oxidecomputer/permission-slip.git $PERMSLIP_DIR
+git clone https://github.com/oxidecomputer/permission-slip.git -b ssh_key_fix $PERMSLIP_DIR
 pushd $PERMSLIP_DIR
 cargo build --release
 export POSTGRES_HOST=localhost
