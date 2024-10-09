@@ -65,8 +65,8 @@ stacksize = 256
 name = "task-ping"
 features = ["uart", "no-ipc-counters"]
 priority = 4
-max-sizes = {flash = 8192, ram = 512}
-stacksize = 256
+max-sizes = {flash = 8192, ram = 1024}
+stacksize = 512
 start = true
 task-slots = [{peer = "pong"}, "usart_driver"]
 

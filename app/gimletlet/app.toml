@@ -55,7 +55,7 @@ tasks = ["control_plane_agent", "caboose_reader"]
 name = "task-control-plane-agent"
 priority = 7
 max-sizes = {flash = 131072, ram = 32768}
-stacksize = 4096
+stacksize = 6000
 start = true
 uses = ["usart1"]
 task-slots = [
