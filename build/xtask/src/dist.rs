@@ -478,7 +478,7 @@ pub fn package(
         let mut possible_stack_overflow = vec![];
         for task_name in cfg.toml.tasks.keys() {
             if tasks_to_build.contains(task_name.as_str()) {
-                if task_can_overflow(&cfg, task_name, verbose)? {
+                if task_can_overflow(&cfg.toml, task_name, verbose)? {
                     possible_stack_overflow.push(task_name);
                 }
 
@@ -1081,12 +1081,49 @@ fn build_task(cfg: &PackageConfig, name: &str) -> Result<()> {
 }
 
 fn task_can_overflow(
-    cfg: &PackageConfig,
+    toml: &Config,
     task_name: &str,
     verbose: bool,
 ) -> Result<bool> {
+    let max_stack = get_max_stack(toml, task_name, verbose)?;
+    let max_depth: u64 = max_stack.iter().map(|(d, _)| *d).sum();
+
+    let task_stack_size = toml.tasks[task_name]
+        .stacksize
+        .unwrap_or_else(|| toml.stacksize.unwrap());
+    let can_overflow = max_depth >= task_stack_size as u64;
+    if verbose || can_overflow {
+        let extra = if can_overflow {
+            format!(
+                " exceeds task stack size: {max_depth} >= {task_stack_size}"
+            )
+        } else {
+            format!(
+                ": {max_depth} bytes \
+                (< task stack size of {task_stack_size} bytes)"
+            )
+        };
+        println!("deepest stack for {task_name}{extra}");
+        for (frame_size, name) in max_stack {
+            let s = format!("[+{frame_size}]");
+            println!("  {s:>7} {name}");
+        }
+        Ok(can_overflow)
+    } else {
+        Ok(false)
+    }
+}
+
+pub fn get_max_stack(
+    toml: &Config,
+    task_name: &str,
+    verbose: bool,
+) -> Result<Vec<(u64, String)>> {
     // Open the statically-linked ELF file
-    let f = cfg.dist_file(format!("{task_name}.tmp"));
+    let f = Path::new("target")
+        .join(&toml.name)
+        .join("dist")
+        .join(format!("{task_name}.tmp"));
     let data = std::fs::read(f).context("could not open ELF file")?;
     let elf = goblin::elf::Elf::parse(&data)?;
 
@@ -1314,36 +1351,17 @@ fn task_can_overflow(
     recurse(&mut vec![start_addr], 0, 0, &fns, &mut deepest, verbose);
 
     // Check against our configured task stack size
-    let Some((max_depth, max_stack)) = deepest else {
+    let Some((_max_depth, max_stack)) = deepest else {
         unreachable!("must have at least one call stack");
     };
-    let task_stack_size = cfg.toml.tasks[task_name]
-        .stacksize
-        .unwrap_or_else(|| cfg.toml.stacksize.unwrap());
-    let can_overflow = max_depth >= task_stack_size as u64;
-    if verbose || can_overflow {
-        let extra = if can_overflow {
-            format!(
-                " exceeds task stack size: {max_depth} >= {task_stack_size}"
-            )
-        } else {
-            format!(
-                ": {max_depth} bytes \
-                (< task stack size of {task_stack_size} bytes)"
-            )
-        };
-        println!("deepest stack for {task_name}{extra}");
-        for m in max_stack {
-            let f = fns.get(&m).unwrap();
-            let name = &f.short_name;
 
-            let s = format!("[+{}]", f.frame_size.unwrap_or(0));
-            println!("  {s:>7} {name}");
-        }
-        Ok(can_overflow)
-    } else {
-        Ok(false)
+    let mut out = vec![];
+    for m in max_stack {
+        let f = fns.get(&m).unwrap();
+        let name = &f.short_name;
+        out.push((f.frame_size.unwrap_or(0), name.clone()));
     }
+    Ok(out)
 }
 
 /// Link a specific task

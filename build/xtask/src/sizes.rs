@@ -15,7 +15,9 @@ use indexmap::map::Entry;
 use indexmap::IndexMap;
 
 use crate::{
-    dist::{Allocations, ContiguousRanges, DEFAULT_KERNEL_STACK},
+    dist::{
+        get_max_stack, Allocations, ContiguousRanges, DEFAULT_KERNEL_STACK,
+    },
     Config,
 };
 
@@ -67,6 +69,8 @@ pub fn run(
         print_memory_map(&toml, &map, verbose)?;
         print!("\n\n");
         print_task_table(&toml, &map)?;
+        print!("\n\n");
+        print_task_stacks(&toml)?;
     }
 
     // Because tasks are autosized, the only place where we can improve
@@ -418,6 +422,25 @@ fn print_memory_map(
                     );
                 }
             }
+        }
+    }
+    Ok(())
+}
+
+fn print_task_stacks(toml: &Config) -> Result<()> {
+    for (i, (task_name, task)) in toml.tasks.iter().enumerate() {
+        let task_stack_size =
+            task.stacksize.unwrap_or_else(|| toml.stacksize.unwrap());
+
+        let max_stack = get_max_stack(&toml, task_name, false)?;
+        let total: u64 = max_stack.iter().map(|(n, _)| *n).sum();
+        println!("{task_name}: {total} bytes (limit is {task_stack_size})");
+        for (frame_size, name) in max_stack {
+            let s = format!("[+{frame_size}]");
+            println!("  {s:>7} {name}");
+        }
+        if i + 1 < toml.tasks.len() {
+            println!();
         }
     }
     Ok(())
