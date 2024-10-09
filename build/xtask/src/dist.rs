@@ -1080,6 +1080,11 @@ fn build_task(cfg: &PackageConfig, name: &str) -> Result<()> {
         .context(format!("failed to build {}", name))
 }
 
+/// Checks whether the given task can overflow its stack
+///
+/// False negatives are possible if the deepest posssible stack uses dynamic
+/// dispatch or function pointers; false positives are technically possible but
+/// unlikely if there's a logically unreachable section of the call graph.
 fn task_can_overflow(
     toml: &Config,
     task_name: &str,
@@ -1114,6 +1119,12 @@ fn task_can_overflow(
     }
 }
 
+/// Estimates the maximum stack size for the given task
+///
+/// This does not take dynamic function calls into account, which could cause
+/// underestimation.  Overestimation is less likely, but still may happen if
+/// there are logically impossible call trees (e.g. `A -> B` and `B -> C`, but
+/// `B` never calls `C` if called by `A`).
 pub fn get_max_stack(
     toml: &Config,
     task_name: &str,
