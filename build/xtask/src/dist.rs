@@ -42,7 +42,7 @@ pub const DEFAULT_KERNEL_STACK: u32 = 1024;
 /// that generates the Humility binary necessary for Hubris's CI has run.
 /// Once that binary is in place, you should be able to bump this version
 /// without breaking CI.
-const HUBRIS_ARCHIVE_VERSION: u32 = 8;
+const HUBRIS_ARCHIVE_VERSION: u32 = 9;
 
 /// `PackageConfig` contains a bundle of data that's commonly used when
 /// building a full app image, grouped together to avoid passing a bunch
@@ -872,10 +872,9 @@ fn build_archive(
     // any external configuration files, serialize it, and add it to the
     // archive.
     //
-    if let Some(mut config) =
+    if let Some(config) =
         crate::flash::config(cfg.toml.board.as_str(), &chip_dir)?
     {
-        config.flatten()?;
         archive.text(
             img_dir.join("flash.ron"),
             ron::ser::to_string_pretty(
