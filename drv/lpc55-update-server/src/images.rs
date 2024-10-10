@@ -599,7 +599,7 @@ impl From<&[u8]> for Epoch {
 
 impl Epoch {
     pub fn can_update_to(&self, next: Epoch) -> bool {
-        self.value >= next.value
+        self.value <= next.value
     }
 }
 
@@ -611,8 +611,8 @@ impl Epoch {
 /// so that images can be rejected early, i.e. before any flash has
 /// been altered.
 pub fn check_rollback_policy(
-    next_image: ImageAccess<'_>,
     active_image: ImageAccess<'_>,
+    next_image: ImageAccess<'_>,
     complete: bool,
 ) -> Result<(), UpdateError> {
     let next_epoch = get_image_epoch(&next_image)?;

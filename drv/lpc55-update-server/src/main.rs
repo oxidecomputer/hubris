@@ -202,14 +202,6 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
                 self.header_block = None;
                 return Err(e.into());
             }
-            let active_image =
-                ImageAccess::new_flash(&self.flash, component, slot.other());
-            if let Err(e) =
-                check_rollback_policy(active_image, next_image, false)
-            {
-                self.header_block = None;
-                return Err(e.into());
-            }
         } else {
             // Block order is enforced above. If we're here then we have
             // seen block zero already.
