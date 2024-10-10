@@ -800,3 +800,17 @@ fn read_and_flatten_toml(
     merge_toml_documents(&mut original, doc)?;
     Ok(original)
 }
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+pub struct BoardConfig {
+    /// Info about how to interact with this board using probe-rs.
+    pub probe_rs: Option<ProbeRsBoardConfig>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+pub struct ProbeRsBoardConfig {
+    /// The "chip name" used by probe-rs for flashing.
+    pub chip_name: String,
+}

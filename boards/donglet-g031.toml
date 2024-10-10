@@ -1,0 +1,3 @@
+[probe-rs]
+chip-name = "STM32G031F8Px"
+
