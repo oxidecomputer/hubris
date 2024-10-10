@@ -10,7 +10,7 @@
 #![no_main]
 
 use counters::*;
-use drv_gimlet_seq_api::Sequencer;
+use drv_cpu_seq_api::Sequencer;
 use gimlet_inspector_protocol::{
     QueryV0, Request, SequencerRegistersResponseV0, ANY_RESPONSE_V0_MAX_SIZE,
     REQUEST_TRAILER,

@@ -5,8 +5,8 @@ edition = "2021"
 
 [dependencies]
 drv-hf-api = { path = "../hf-api" }
-drv-gimlet-seq-api = { path = "../gimlet-seq-api" }
-drv-gimlet-state = { path = "../gimlet-state" }
+drv-cpu-seq-api = { path = "../cpu-seq-api" }
+drv-cpu-power-state = { path = "../cpu-power-state" }
 drv-i2c-api = { path = "../i2c-api" }
 drv-i2c-devices = { path = "../i2c-devices" }
 drv-ice40-spi-program = { path = "../ice40-spi-program" }

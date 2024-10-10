@@ -10,7 +10,7 @@ spd.workspace = true
 static_assertions.workspace = true
 zerocopy.workspace = true
 
-drv-gimlet-seq-api = { path = "../../drv/gimlet-seq-api", optional = true }
+drv-cpu-seq-api = { path = "../../drv/cpu-seq-api", optional = true }
 mutable-statics = { path = "../../lib/mutable-statics" }
 ringbuf = { path = "../../lib/ringbuf"  }
 static-cell = { path = "../../lib/static-cell" }
@@ -25,7 +25,7 @@ idol.workspace = true
 build-util = { path = "../../build/util" }
 
 [features]
-gimlet = ["drv-gimlet-seq-api"]
+gimlet = ["drv-cpu-seq-api"]
 boot-kmdb = []
 no-ipc-counters = ["idol/no-counters"]
 

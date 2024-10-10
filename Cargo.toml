@@ -118,7 +118,7 @@ vcell = { version = "0.1.2", default-features = false }
 walkdir = { version = "2.0.0", default-features = false }
 zerocopy = { version = "0.6.1", default-features = false }
 zeroize = { version = "1.5.7", default-features = false, features = ["zeroize_derive"] }
-zip = { version = "0.6", default-features = false, features = ["bzip2"] }
+zip = { version = "0.6", default-features = false, features = ["bzip2", "deflate", "zstd"] }
 
 # Oxide forks and repos
 attest-data = { git = "https://github.com/oxidecomputer/dice-util", default-features = false, version = "0.4.0" }

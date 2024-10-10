@@ -14,6 +14,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "adler2"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "512761e0bb2578dd7380c6baaa0f4ce03e84f95e960231d1dec8bf4d7d6e2627"
+
+[[package]]
 name = "ahash"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -485,6 +491,9 @@ name = "cc"
 version = "1.0.88"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "02f341c093d19155a6e41631ce5971aac4e9a868262212153124c15fa22d1cdc"
+dependencies = [
+ "libc",
+]
 
 [[package]]
 name = "cfg-if"
@@ -715,9 +724,9 @@ checksum = "2d0165d2900ae6778e36e80bbc4da3b5eefccee9ba939761f9c2882a5d9af3ff"
 
 [[package]]
 name = "crc32fast"
-version = "1.3.2"
+version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b540bd8bc810d3885c6ea91e2018302f68baba2129ab3e88f32389ee9370880d"
+checksum = "a97769d94ddab943e4510d138150169a2758b5ef3eb191a9ee688de3e23ef7b3"
 dependencies = [
  "cfg-if",
 ]
@@ -730,12 +739,9 @@ checksum = "7059fff8937831a9ae6f0fe4d658ffabf58f2ca96aa9dec1c889f936f705f216"
 
 [[package]]
 name = "crossbeam-utils"
-version = "0.8.15"
+version = "0.8.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c063cd8cc95f5c377ed0d4b49a4b21f632396ff690e8470c29b3359b346984b"
-dependencies = [
- "cfg-if",
-]
+checksum = "22ec99545bb0ed0ea7bb9b8e1e9122ea386ff8a48c0922e43f36d45ab09e0e80"
 
 [[package]]
 name = "crypto-bigint"
@@ -1019,7 +1025,7 @@ dependencies = [
  "build-util",
  "cortex-m",
  "counters",
- "drv-grapefruit-seq-api",
+ "drv-cpu-seq-api",
  "drv-hash-api",
  "drv-hf-api",
  "hubpack",
@@ -1029,6 +1035,30 @@ dependencies = [
  "ringbuf",
  "serde",
  "stm32h7",
+ "userlib",
+ "zerocopy 0.6.6",
+]
+
+[[package]]
+name = "drv-cpu-power-state"
+version = "0.1.0"
+dependencies = [
+ "counters",
+ "num-traits",
+ "userlib",
+ "zerocopy 0.6.6",
+]
+
+[[package]]
+name = "drv-cpu-seq-api"
+version = "0.1.0"
+dependencies = [
+ "counters",
+ "derive-idol-err",
+ "drv-cpu-power-state",
+ "idol",
+ "idol-runtime",
+ "num-traits",
  "userlib",
  "zerocopy 0.6.6",
 ]
@@ -1134,20 +1164,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "drv-gimlet-seq-api"
-version = "0.1.0"
-dependencies = [
- "counters",
- "derive-idol-err",
- "drv-gimlet-state",
- "idol",
- "idol-runtime",
- "num-traits",
- "userlib",
- "zerocopy 0.6.6",
-]
-
-[[package]]
 name = "drv-gimlet-seq-server"
 version = "0.1.0"
 dependencies = [
@@ -1159,8 +1175,8 @@ dependencies = [
  "cfg-if",
  "cortex-m",
  "counters",
- "drv-gimlet-seq-api",
- "drv-gimlet-state",
+ "drv-cpu-power-state",
+ "drv-cpu-seq-api",
  "drv-hf-api",
  "drv-i2c-api",
  "drv-i2c-devices",
@@ -1186,28 +1202,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "drv-gimlet-state"
-version = "0.1.0"
-dependencies = [
- "counters",
- "num-traits",
- "userlib",
- "zerocopy 0.6.6",
-]
-
-[[package]]
-name = "drv-grapefruit-seq-api"
-version = "0.1.0"
-dependencies = [
- "counters",
- "idol",
- "idol-runtime",
- "num-traits",
- "userlib",
- "zerocopy 0.6.6",
-]
-
-[[package]]
 name = "drv-grapefruit-seq-server"
 version = "0.1.0"
 dependencies = [
@@ -1215,6 +1209,8 @@ dependencies = [
  "cfg-if",
  "counters",
  "drv-auxflash-api",
+ "drv-cpu-power-state",
+ "drv-cpu-seq-api",
  "drv-spi-api",
  "drv-stm32xx-sys-api",
  "gnarle",
@@ -1223,6 +1219,7 @@ dependencies = [
  "num-traits",
  "ringbuf",
  "sha3",
+ "task-jefe-api",
  "userlib",
  "zerocopy 0.6.6",
 ]
@@ -1687,8 +1684,8 @@ dependencies = [
 name = "drv-mock-gimlet-seq-server"
 version = "0.1.0"
 dependencies = [
- "drv-gimlet-seq-api",
- "drv-gimlet-state",
+ "drv-cpu-power-state",
+ "drv-cpu-seq-api",
  "idol",
  "idol-runtime",
  "num-traits",
@@ -2652,6 +2649,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cda653ca797810c02f7ca4b804b40b8b95ae046eb989d356bce17919a8c25499"
 
 [[package]]
+name = "flate2"
+version = "1.0.34"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a1b589b4dc103969ad3cf85c950899926ec64300a1a46d76c03a6072957036f0"
+dependencies = [
+ "crc32fast",
+ "miniz_oxide",
+]
+
+[[package]]
 name = "fletcher"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2672,7 +2679,7 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#1885b52b0601f4215c020cb17516c6a7fa1e2c9d"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#c8abf88bc0aeb3aa411eea276c73abdea405f7ba"
 dependencies = [
  "bitflags 2.6.0",
  "hubpack",
@@ -3458,9 +3465,9 @@ dependencies = [
 
 [[package]]
 name = "memchr"
-version = "2.4.1"
+version = "2.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "308cc39be01b73d0d18f82a0e7b2a3df85245f84af96fdddc5d202d27e47b86a"
+checksum = "78ca9ab1a0babb1e7d5695e3530886289c18cf2f87ec19a575a0abdce112e3a3"
 
 [[package]]
 name = "memoffset"
@@ -3469,6 +3476,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5aa361d4faea93603064a027415f07bd8e1d5c88c9fbf68bf56a285428fd79ce"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "miniz_oxide"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e2d80299ef12ff69b16a84bb182e3b9df68b5a91574d3d4fa6e41b65deec4df1"
+dependencies = [
+ "adler2",
 ]
 
 [[package]]
@@ -4816,7 +4832,7 @@ dependencies = [
  "drv-auxflash-api",
  "drv-caboose",
  "drv-caboose-pos",
- "drv-gimlet-seq-api",
+ "drv-cpu-seq-api",
  "drv-hf-api",
  "drv-ignition-api",
  "drv-lpc55-update-api",
@@ -4937,7 +4953,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "counters",
- "drv-gimlet-seq-api",
+ "drv-cpu-seq-api",
  "gimlet-inspector-protocol",
  "hubpack",
  "idol",
@@ -4990,7 +5006,7 @@ dependencies = [
  "corncobs",
  "cortex-m",
  "counters",
- "drv-gimlet-seq-api",
+ "drv-cpu-seq-api",
  "drv-hf-api",
  "drv-i2c-api",
  "drv-i2c-devices",
@@ -5129,7 +5145,7 @@ dependencies = [
  "cfg-if",
  "cortex-m",
  "counters",
- "drv-gimlet-seq-api",
+ "drv-cpu-seq-api",
  "drv-medusa-seq-api",
  "drv-psc-seq-api",
  "drv-sidecar-seq-api",
@@ -5209,7 +5225,7 @@ dependencies = [
  "anyhow",
  "build-util",
  "cfg-if",
- "drv-gimlet-seq-api",
+ "drv-cpu-seq-api",
  "idol",
  "idol-runtime",
  "mutable-statics",
@@ -5269,7 +5285,7 @@ dependencies = [
  "build-util",
  "cfg-if",
  "cortex-m",
- "drv-gimlet-seq-api",
+ "drv-cpu-seq-api",
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-sidecar-seq-api",
@@ -5392,8 +5408,7 @@ dependencies = [
  "build-util",
  "cfg-if",
  "cortex-m",
- "drv-gimlet-seq-api",
- "drv-gimlet-state",
+ "drv-cpu-seq-api",
  "drv-i2c-api",
  "drv-stm32xx-i2c",
  "drv-stm32xx-sys-api",
@@ -5424,7 +5439,7 @@ dependencies = [
  "build-util",
  "cortex-m",
  "counters",
- "drv-gimlet-seq-api",
+ "drv-cpu-seq-api",
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-onewire",
@@ -5792,22 +5807,22 @@ checksum = "222a222a5bfe1bba4a77b45ec488a741b3cb8872e5e499451fd7d0129c9c7c3d"
 
 [[package]]
 name = "thiserror"
-version = "1.0.30"
+version = "1.0.64"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "854babe52e4df1653706b98fcfc05843010039b406875930a70e4d9644e5c417"
+checksum = "d50af8abc119fb8bb6dbabcfa89656f46f84aa0ac7688088608076ad2b459a84"
 dependencies = [
  "thiserror-impl",
 ]
 
 [[package]]
 name = "thiserror-impl"
-version = "1.0.30"
+version = "1.0.64"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa32fd3f627f367fe16f893e2597ae3c05020f8bba2666a4e6ea73d377e5714b"
+checksum = "08904e7672f5eb876eaaf87e0ce17857500934f4981c4a0ab2b4aa98baac7fc3"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 1.0.94",
+ "syn 2.0.52",
 ]
 
 [[package]]
@@ -6536,4 +6551,35 @@ dependencies = [
  "bzip2",
  "crc32fast",
  "crossbeam-utils",
+ "flate2",
+ "zstd",
+]
+
+[[package]]
+name = "zstd"
+version = "0.11.2+zstd.1.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "20cc960326ece64f010d2d2107537f26dc589a6573a316bd5b1dba685fa5fde4"
+dependencies = [
+ "zstd-safe",
+]
+
+[[package]]
+name = "zstd-safe"
+version = "5.0.2+zstd.1.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d2a5585e04f9eea4b2a3d1eca508c4dee9592a89ef6f450c11719da0726f4db"
+dependencies = [
+ "libc",
+ "zstd-sys",
+]
+
+[[package]]
+name = "zstd-sys"
+version = "2.0.12+zstd.1.5.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0a4e40c320c3cb459d9a9ff6de98cff88f4751ee9275d140e2be94a2b74e4c13"
+dependencies = [
+ "cc",
+ "pkg-config",
 ]

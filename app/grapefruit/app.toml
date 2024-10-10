@@ -14,6 +14,7 @@ requires = {flash = 32768, ram = 8192}
 features = ["dump"]
 
 [caboose]
+tasks = ["control_plane_agent"]
 region = "flash"
 size = 256
 default = true
@@ -30,7 +31,8 @@ extern-regions = ["sram1", "sram2", "sram3", "sram4"]
 
 [tasks.jefe.config.allowed-callers]
 set_reset_reason = ["sys"]
-request_reset = ["hiffy", "udprpc"]
+set_state = ["grapefruit_seq"]
+request_reset = ["hiffy", "udprpc", "control_plane_agent"]
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
@@ -174,7 +176,7 @@ priority = 4
 max-sizes = {flash = 131072, ram = 16384 }
 stacksize = 2600
 start = true
-task-slots = ["sys", {spi = "spi2_driver"}, "auxflash"]
+task-slots = ["sys", {spi = "spi2_driver"}, "auxflash", "jefe"]
 
 [tasks.thermal]
 name = "task-thermal"
@@ -186,12 +188,68 @@ start = true
 task-slots = ["i2c_driver", "sensor", "jefe"]
 notifications = ["timer"]
 
+[tasks.update_server]
+name = "stm32h7-update-server"
+priority = 3
+max-sizes = {flash = 16384, ram = 4096}
+stacksize = 2048
+start = true
+uses = ["flash_controller"]
+extern-regions = ["bank2"]
+interrupts = {"flash_controller.irq" = "flash-irq"}
+notifications = ["flash-irq"]
+
 [tasks.sensor]
 name = "task-sensor"
 priority = 4
 max-sizes = {flash = 16384, ram = 8192 }
 stacksize = 1024
 start = true
+
+[tasks.host_sp_comms]
+name = "task-host-sp-comms"
+features = ["stm32h753", "usart6", "baud_rate_3M", "hardware_flow_control", "vlan", "grapefruit"]
+uses = ["usart6", "dbgmcu"]
+interrupts = {"usart6.irq" = "usart-irq"}
+priority = 7
+max-sizes = {flash = 65536, ram = 65536}
+stacksize = 5080
+start = true
+task-slots = ["sys", "hf", "packrat", "control_plane_agent", "net",  { cpu_seq = "grapefruit_seq" }, { spi_driver = "spi2_driver" }, "sprot"]
+notifications = ["jefe-state-change", "usart-irq", "multitimer", "control-plane-agent"]
+
+[tasks.control_plane_agent]
+name = "task-control-plane-agent"
+priority = 6
+max-sizes = {flash = 131072, ram = 32768}
+# This can probably overkill and can be tuned later
+stacksize = 6000
+start = true
+uses = ["usart1"]
+task-slots = [
+    "auxflash",
+    "jefe",
+    "net",
+    "update_server",
+    "sys",
+    "hf",
+    { cpu_seq = "grapefruit_seq" },
+    "validate",
+    "sensor",
+    "sprot",
+    "packrat",
+    "user_leds",
+]
+features = [
+    "auxflash",
+    "cosmo", # close enough!
+    "usart1",
+    "vlan",
+    "baud_rate_3M",
+]
+notifications = ["usart-irq", "socket", "timer"]
+interrupts = {"usart1.irq" = "usart-irq"}
+
 
 [tasks.auxflash]
 name = "drv-auxflash-server"
@@ -301,6 +359,13 @@ owner = {name = "udprpc", notification = "socket"}
 port = 998
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.control_plane_agent]
+kind = "udp"
+owner = {name = "control_plane_agent", notification = "socket"}
+port = 11111
+tx = { packets = 3, bytes = 2048 }
+rx = { packets = 3, bytes = 2048 }
 
 [config.net.sockets.dump_agent]
 kind = "udp"

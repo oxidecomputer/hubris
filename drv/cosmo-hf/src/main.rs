@@ -60,9 +60,10 @@ pub const SECTOR_SIZE_BYTES: u32 = 65_536;
 
 #[export_name = "main"]
 fn main() -> ! {
-    // Wait for the FPGA to be configured
-    let seq = drv_grapefruit_seq_api::Sequencer::from(SEQ.get_task_id());
-    seq.ping(); // waits until the sequencer has completed configuration
+    // Wait for the FPGA to be configured; the sequencer task only starts its
+    // Idol loop after the FPGA has been brought up.
+    let seq = drv_cpu_seq_api::Sequencer::from(SEQ.get_task_id());
+    let _ = seq.get_state();
 
     let id = unsafe { reg::BASE.read_volatile() };
     if id != 0x1de {
