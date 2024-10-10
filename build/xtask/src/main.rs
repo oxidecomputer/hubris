@@ -9,7 +9,7 @@
 
 use std::path::PathBuf;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
 
 use crate::config::Config;
@@ -273,7 +273,15 @@ fn run(xtask: Xtask) -> Result<()> {
         Xtask::Flash { dirty, mut args } => {
             dist::package(args.verbose, false, &args.cfg, None, dirty)?;
             let toml = Config::from_file(&args.cfg)?;
-            let chip = ["-c", crate::flash::chip_name(&toml.board)?];
+            let chipname =
+                crate::flash::chip_name(&toml.board)?.ok_or_else(|| {
+                    anyhow!(
+                        "can't flash board: chip name missing \
+                         from boards/{}.toml",
+                        toml.board,
+                    )
+                })?;
+            let chip = ["-c", &chipname];
             args.extra_options.push("--force".to_string());
 
             let image_name = if let Some(ref name) = args.image_name {
