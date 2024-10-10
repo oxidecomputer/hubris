@@ -872,9 +872,8 @@ fn build_archive(
     // any external configuration files, serialize it, and add it to the
     // archive.
     //
-    if let Some(config) =
-        crate::flash::config(cfg.toml.board.as_str(), &chip_dir)?
     {
+        let config = crate::flash::config(&cfg.toml.board)?;
         archive.text(
             img_dir.join("flash.ron"),
             ron::ser::to_string_pretty(

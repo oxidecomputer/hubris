@@ -2,8 +2,11 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use anyhow::Context as _;
 use serde::Serialize;
 use std::path::Path;
+
+use crate::config::BoardConfig;
 
 #[derive(Debug, Serialize, Default)]
 pub struct FlashConfig {
@@ -11,53 +14,36 @@ pub struct FlashConfig {
     chip: Option<String>,
 }
 
-impl FlashConfig {
-    //
-    // Set the chip
-    //
-    fn set_chip(&mut self, val: &str) -> &mut Self {
-        self.chip = Some(val.to_string());
-        self
+pub fn config(board: &str) -> anyhow::Result<FlashConfig> {
+    Ok(FlashConfig {
+        chip: chip_name(board)?,
+    })
+}
+
+pub fn chip_name(board: &str) -> anyhow::Result<Option<String>> {
+    let board_config_path = Path::new("boards").join(format!("{board}.toml"));
+
+    let board_config_text = std::fs::read_to_string(&board_config_path)
+        .with_context(|| {
+            format!(
+                "can't access board config at: {}",
+                board_config_path.display()
+            )
+        })?;
+
+    let board_config: BoardConfig = toml::from_str(&board_config_text)
+        .with_context(|| {
+            format!(
+                "can't parse board config at: {}",
+                board_config_path.display()
+            )
+        })?;
+
+    if let Some(probe_rs) = &board_config.probe_rs {
+        Ok(Some(probe_rs.chip_name.clone()))
+    } else {
+        // tolerate the section missing for new chips, but we can't provide a
+        // chip name in this case.
+        Ok(None)
     }
-}
-
-pub fn config(
-    board: &str,
-    _chip_dir: &Path,
-) -> anyhow::Result<Option<FlashConfig>> {
-    let mut flash = FlashConfig::default();
-
-    flash.set_chip(chip_name(board)?);
-
-    Ok(Some(flash))
-}
-
-pub fn chip_name(board: &str) -> anyhow::Result<&'static str> {
-    let b = match board {
-        "lpcxpresso55s69"
-        | "rot-carrier-2"
-        | "oxide-rot-1"
-        | "oxide-rot-1-selfsigned" => "LPC55S69JBD100",
-        "rot-carrier-1" => "LPC55S28JBD100",
-        "stm32f3-discovery" => "STM32F303VCTx",
-        "stm32f4-discovery" => "STM32F407VGTx",
-        "nucleo-h743zi2" => "STM32H743ZITx",
-        "nucleo-h753zi" => "STM32H753ZITx",
-        "gemini-bu-1" | "gimletlet-1" | "gimletlet-2" | "gimlet-b"
-        | "gimlet-c" | "gimlet-d" | "gimlet-e" | "gimlet-f" | "psc-a"
-        | "psc-b" | "psc-c" | "sidecar-b" | "sidecar-c" | "sidecar-d"
-        | "medusa-a" | "grapefruit" => "STM32H753ZITx",
-        "donglet-g030" => "STM32G030F6Px",
-        "donglet-g031" => "STM32G031F8Px",
-        "stm32g031-nucleo" => "STM32G031Y8Yx",
-        "oxcon2023g0" => "STM32G030J6Mx",
-        "stm32g070-nucleo" => "STM32G070KBTx",
-        "stm32g0b1-nucleo" => anyhow::bail!(
-            "This board is not yet supported by probe-rs, \
-            please use OpenOCD directly"
-        ),
-        _ => anyhow::bail!("unrecognized board {}", board),
-    };
-
-    Ok(b)
 }
