@@ -5,12 +5,15 @@ edition = "2021"
 
 [dependencies]
 drv-spi-api = { path = "../spi-api" }
+drv-cpu-seq-api = { path = "../cpu-seq-api" }
+drv-cpu-power-state = { path = "../cpu-power-state" }
 drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
 drv-auxflash-api = { path = "../auxflash-api" }
 counters = { path = "../../lib/counters" }
 gnarle = { path = "../../lib/gnarle" }
 ringbuf = { path = "../../lib/ringbuf" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+task-jefe-api = { path = "../../task/jefe-api" }
 
 cfg-if = { workspace = true }
 idol-runtime.workspace = true

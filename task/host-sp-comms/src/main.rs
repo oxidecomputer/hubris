@@ -12,7 +12,7 @@ use attest_data::messages::{
     HostToRotCommand, RecvSprotError as AttestDataSprotError, RotToHost,
     MAX_DATA_LEN,
 };
-use drv_gimlet_seq_api::{PowerState, SeqError, Sequencer};
+use drv_cpu_seq_api::{PowerState, SeqError, Sequencer};
 use drv_hf_api::{HfDevSelect, HfMuxState, HostFlash};
 use drv_sprot_api::SpRot;
 use drv_stm32xx_sys_api as sys_api;
@@ -54,13 +54,14 @@ use inventory::INVENTORY_API_VERSION;
     path = "bsp/gimlet_bcde.rs"
 )]
 #[cfg_attr(target_board = "gimletlet-2", path = "bsp/gimletlet.rs")]
+#[cfg_attr(target_board = "grapefruit", path = "bsp/grapefruit.rs")]
 mod bsp;
 
 mod tx_buf;
 use tx_buf::TxBuf;
 
 task_slot!(CONTROL_PLANE_AGENT, control_plane_agent);
-task_slot!(GIMLET_SEQ, gimlet_seq);
+task_slot!(CPU_SEQ, cpu_seq);
 task_slot!(HOST_FLASH, hf);
 task_slot!(PACKRAT, packrat);
 task_slot!(NET, net);
@@ -297,7 +298,7 @@ impl ServerImpl {
             tx_buf: tx_buf::TxBuf::new(tx_buf),
             rx_buf,
             status: Status::empty(),
-            sequencer: Sequencer::from(GIMLET_SEQ.get_task_id()),
+            sequencer: Sequencer::from(CPU_SEQ.get_task_id()),
             hf: HostFlash::from(HOST_FLASH.get_task_id()),
             net: Net::from(NET.get_task_id()),
             cp_agent: ControlPlaneAgent::from(
@@ -322,12 +323,12 @@ impl ServerImpl {
     fn set_status_impl(&mut self, status: Status) {
         if status != self.status {
             self.status = status;
-            // SP_TO_SP3_INT_L: `INT_L` is "interrupt low", so we assert the pin
+            // SP_TO_HOST_CPU_INT_L: `INT_L` is "interrupt low", so we assert the pin
             // when we do not have status and deassert it when we do.
             if self.status.is_empty() {
-                self.sys.gpio_set(SP_TO_SP3_INT_L);
+                self.sys.gpio_set(SP_TO_HOST_CPU_INT_L);
             } else {
-                self.sys.gpio_reset(SP_TO_SP3_INT_L);
+                self.sys.gpio_reset(SP_TO_HOST_CPU_INT_L);
             }
         }
     }
@@ -1529,6 +1530,22 @@ fn configure_uart_device(sys: &sys_api::Sys) -> Usart {
             let usart = unsafe { &*device::UART7::ptr() };
             let peripheral = Peripheral::Uart7;
             let pins = PINS;
+        } else if #[cfg(feature = "usart6")] {
+            const PINS: &[(PinSet, Alternate)] = {
+                cfg_if::cfg_if! {
+                    if #[cfg(feature = "hardware_flow_control")] {
+                        &[(
+                            Port::G.pin(8).and_pin(9).and_pin(14).and_pin(15),
+                            Alternate::AF7
+                        )]
+                    } else {
+                        compile_error!("hardware_flow_control should be enabled");
+                    }
+                }
+            };
+            let usart = unsafe { &*device::USART6::ptr() };
+            let peripheral = Peripheral::Usart6;
+            let pins = PINS;
         } else {
             compile_error!("no usartX/uartX feature specified");
         }
@@ -1553,21 +1570,26 @@ cfg_if::cfg_if! {
         target_board = "gimlet-e",
         target_board = "gimlet-f",
     ))] {
-        const SP_TO_SP3_INT_L: sys_api::PinSet = sys_api::Port::I.pin(7);
+        // This net is named SP_TO_SP3_INT_L in the schematic
+        const SP_TO_HOST_CPU_INT_L: sys_api::PinSet = sys_api::Port::I.pin(7);
     } else if #[cfg(target_board = "gimletlet-2")] {
         // gimletlet doesn't have an SP3 to interrupt, but we can wire up an LED
         // to one of the exposed E2-E6 pins to see it visually.
-        const SP_TO_SP3_INT_L: sys_api::PinSet = sys_api::Port::E.pin(2);
+        const SP_TO_HOST_CPU_INT_L: sys_api::PinSet = sys_api::Port::E.pin(2);
+    } else if #[cfg(target_board = "grapefruit")] {
+        // the CPU interrupt is not connected on grapefruit, so pick an
+        // unconnected GPIO
+        const SP_TO_HOST_CPU_INT_L: sys_api::PinSet = sys_api::Port::B.pin(1);
     } else {
         compile_error!("unsupported target board");
     }
 }
 
 fn sp_to_sp3_interrupt_enable(sys: &sys_api::Sys) {
-    sys.gpio_set(SP_TO_SP3_INT_L);
+    sys.gpio_set(SP_TO_HOST_CPU_INT_L);
 
     sys.gpio_configure_output(
-        SP_TO_SP3_INT_L,
+        SP_TO_HOST_CPU_INT_L,
         sys_api::OutputType::OpenDrain,
         sys_api::Speed::Low,
         sys_api::Pull::None,

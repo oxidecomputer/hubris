@@ -34,7 +34,7 @@ mod update;
 // sequence of `cfg_attr`s will trigger an unused_attributes warning.  We build
 // everything with -Dunused_attributes, which will catch any such build system
 // misconfiguration.
-#[cfg_attr(feature = "gimlet", path = "mgs_gimlet.rs")]
+#[cfg_attr(feature = "compute-sled", path = "mgs_compute_sled.rs")]
 #[cfg_attr(feature = "sidecar", path = "mgs_sidecar.rs")]
 #[cfg_attr(feature = "psc", path = "mgs_psc.rs")]
 mod mgs_handler;
@@ -179,15 +179,15 @@ enum IpcRequest {
     GetStartupOptions,
     SetStartupOptions(HostStartupOptions),
     Identity,
-    #[cfg(feature = "gimlet")]
+    #[cfg(feature = "compute-sled")]
     GetInstallinatorImageId,
-    #[cfg(feature = "gimlet")]
+    #[cfg(feature = "compute-sled")]
     GetUartClient,
-    #[cfg(feature = "gimlet")]
+    #[cfg(feature = "compute-sled")]
     SetHumilityUartClient(#[count(children)] UartClient),
-    #[cfg(feature = "gimlet")]
+    #[cfg(feature = "compute-sled")]
     UartRead(usize),
-    #[cfg(feature = "gimlet")]
+    #[cfg(feature = "compute-sled")]
     UartWrite(usize),
 }
 
@@ -326,7 +326,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         Ok(self.mgs_handler.identity())
     }
 
-    #[cfg(feature = "gimlet")]
+    #[cfg(feature = "compute-sled")]
     fn get_installinator_image_id(
         &mut self,
         _msg: &userlib::RecvMessage,
@@ -348,7 +348,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         }
     }
 
-    #[cfg(not(feature = "gimlet"))]
+    #[cfg(not(feature = "compute-sled"))]
     fn get_installinator_image_id(
         &mut self,
         _msg: &userlib::RecvMessage,
@@ -364,7 +364,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         Err(RequestError::Fail(ClientError::BadMessageContents))
     }
 
-    #[cfg(feature = "gimlet")]
+    #[cfg(feature = "compute-sled")]
     fn get_uart_client(
         &mut self,
         _msg: &userlib::RecvMessage,
@@ -373,7 +373,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         Ok(self.mgs_handler.uart_client())
     }
 
-    #[cfg(feature = "gimlet")]
+    #[cfg(feature = "compute-sled")]
     fn set_humility_uart_client(
         &mut self,
         _msg: &userlib::RecvMessage,
@@ -390,7 +390,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         Ok(self.mgs_handler.set_uart_client(client)?)
     }
 
-    #[cfg(feature = "gimlet")]
+    #[cfg(feature = "compute-sled")]
     fn uart_read(
         &mut self,
         _msg: &userlib::RecvMessage,
@@ -400,7 +400,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         self.mgs_handler.uart_read(data)
     }
 
-    #[cfg(feature = "gimlet")]
+    #[cfg(feature = "compute-sled")]
     fn uart_write(
         &mut self,
         _msg: &userlib::RecvMessage,
@@ -410,7 +410,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         self.mgs_handler.uart_write(data)
     }
 
-    #[cfg(not(feature = "gimlet"))]
+    #[cfg(not(feature = "compute-sled"))]
     fn get_uart_client(
         &mut self,
         _msg: &userlib::RecvMessage,
@@ -420,7 +420,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         Ok(UartClient::Mgs)
     }
 
-    #[cfg(not(feature = "gimlet"))]
+    #[cfg(not(feature = "compute-sled"))]
     fn set_humility_uart_client(
         &mut self,
         _msg: &userlib::RecvMessage,
@@ -431,7 +431,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         ))
     }
 
-    #[cfg(not(feature = "gimlet"))]
+    #[cfg(not(feature = "compute-sled"))]
     fn uart_read(
         &mut self,
         _msg: &userlib::RecvMessage,
@@ -442,7 +442,7 @@ impl idl::InOrderControlPlaneAgentImpl for ServerImpl {
         ))
     }
 
-    #[cfg(not(feature = "gimlet"))]
+    #[cfg(not(feature = "compute-sled"))]
     fn uart_write(
         &mut self,
         _msg: &userlib::RecvMessage,

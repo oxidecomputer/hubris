@@ -11,7 +11,7 @@ use derive_idol_err::IdolError;
 use userlib::{sys_send, FromPrimitive};
 
 // Re-export PowerState for client convenience.
-pub use drv_gimlet_state::PowerState;
+pub use drv_cpu_power_state::PowerState;
 
 #[derive(
     Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, Count,

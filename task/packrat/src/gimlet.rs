@@ -6,7 +6,7 @@
 
 use crate::Trace;
 use core::convert::Infallible;
-use drv_gimlet_seq_api::NUM_SPD_BANKS;
+use drv_cpu_seq_api::NUM_SPD_BANKS;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError};
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use task_packrat_api::HostStartupOptions;

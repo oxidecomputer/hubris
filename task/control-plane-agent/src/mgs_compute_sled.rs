@@ -8,7 +8,7 @@ use crate::{
     usize_max, CriticalEvent, Log, MgsMessage, SYS,
 };
 use core::time::Duration;
-use drv_gimlet_seq_api::Sequencer;
+use drv_cpu_seq_api::Sequencer;
 use drv_stm32h7_usart::Usart;
 use drv_user_leds_api::UserLeds;
 use gateway_messages::sp_impl::{
@@ -37,7 +37,7 @@ use userlib::{sys_get_timer, sys_irq_control, FromPrimitive, UnwrapLite};
 
 // We're included under a special `path` cfg from main.rs, which confuses rustc
 // about where our submodules live. Pass explicit paths to correct it.
-#[path = "mgs_gimlet/host_phase2.rs"]
+#[path = "mgs_compute_sled/host_phase2.rs"]
 mod host_phase2;
 
 use host_phase2::HostPhase2Requester;
@@ -87,7 +87,7 @@ static_assertions::const_assert!(
 const SERIAL_CONSOLE_FLUSH_TIMEOUT_MILLIS: u64 = 500;
 
 userlib::task_slot!(HOST_FLASH, hf);
-userlib::task_slot!(GIMLET_SEQ, gimlet_seq);
+userlib::task_slot!(CPU_SEQ, cpu_seq);
 userlib::task_slot!(USER_LEDS, user_leds);
 
 type InstallinatorImageIdBuf = Vec<u8, MAX_INSTALLINATOR_IMAGE_ID_LEN>;
@@ -160,7 +160,7 @@ impl MgsHandler {
             common: MgsCommon::claim_static_resources(base_mac_address),
             host_flash_update: HostFlashUpdate::new(),
             host_phase2: HostPhase2Requester::new(host_phase2_buf),
-            sequencer: Sequencer::from(GIMLET_SEQ.get_task_id()),
+            sequencer: Sequencer::from(CPU_SEQ.get_task_id()),
             user_leds: UserLeds::from(USER_LEDS.get_task_id()),
             usart,
             attached_serial_console_mgs: None,
@@ -437,7 +437,7 @@ impl MgsHandler {
     }
 
     fn power_state_impl(&self) -> Result<PowerState, SpError> {
-        use drv_gimlet_seq_api::PowerState as DrvPowerState;
+        use drv_cpu_seq_api::PowerState as DrvPowerState;
 
         // TODO Do we want to expose the sub-states to the control plane? For
         // now, squish them down.
@@ -708,7 +708,7 @@ impl SpHandler for MgsHandler {
         sender: Sender<VLanId>,
         power_state: PowerState,
     ) -> Result<(), SpError> {
-        use drv_gimlet_seq_api::PowerState as DrvPowerState;
+        use drv_cpu_seq_api::PowerState as DrvPowerState;
         ringbuf_entry_root!(
             CRITICAL,
             CriticalEvent::SetPowerState {
