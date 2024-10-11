@@ -323,12 +323,12 @@ impl ServerImpl {
     fn set_status_impl(&mut self, status: Status) {
         if status != self.status {
             self.status = status;
-            // SP_TO_SP3_INT_L: `INT_L` is "interrupt low", so we assert the pin
+            // SP_TO_HOST_CPU_INT_L: `INT_L` is "interrupt low", so we assert the pin
             // when we do not have status and deassert it when we do.
             if self.status.is_empty() {
-                self.sys.gpio_set(SP_TO_SP3_INT_L);
+                self.sys.gpio_set(SP_TO_HOST_CPU_INT_L);
             } else {
-                self.sys.gpio_reset(SP_TO_SP3_INT_L);
+                self.sys.gpio_reset(SP_TO_HOST_CPU_INT_L);
             }
         }
     }
@@ -1570,25 +1570,26 @@ cfg_if::cfg_if! {
         target_board = "gimlet-e",
         target_board = "gimlet-f",
     ))] {
-        const SP_TO_SP3_INT_L: sys_api::PinSet = sys_api::Port::I.pin(7);
+        // This net is named SP_TO_SP3_INT_L in the schematic
+        const SP_TO_HOST_CPU_INT_L: sys_api::PinSet = sys_api::Port::I.pin(7);
     } else if #[cfg(target_board = "gimletlet-2")] {
         // gimletlet doesn't have an SP3 to interrupt, but we can wire up an LED
         // to one of the exposed E2-E6 pins to see it visually.
-        const SP_TO_SP3_INT_L: sys_api::PinSet = sys_api::Port::E.pin(2);
+        const SP_TO_HOST_CPU_INT_L: sys_api::PinSet = sys_api::Port::E.pin(2);
     } else if #[cfg(target_board = "grapefruit")] {
-        // we don't have an SP3 interrupt pin, so pick an unconnected GPIO
-        // TODO this is specific to SP3; but SP5 is coming!
-        const SP_TO_SP3_INT_L: sys_api::PinSet = sys_api::Port::B.pin(1);
+        // the CPU interrupt is not connected on grapefruit, so pick an
+        // unconnected GPIO
+        const SP_TO_HOST_CPU_INT_L: sys_api::PinSet = sys_api::Port::B.pin(1);
     } else {
         compile_error!("unsupported target board");
     }
 }
 
 fn sp_to_sp3_interrupt_enable(sys: &sys_api::Sys) {
-    sys.gpio_set(SP_TO_SP3_INT_L);
+    sys.gpio_set(SP_TO_HOST_CPU_INT_L);
 
     sys.gpio_configure_output(
-        SP_TO_SP3_INT_L,
+        SP_TO_HOST_CPU_INT_L,
         sys_api::OutputType::OpenDrain,
         sys_api::Speed::Low,
         sys_api::Pull::None,
