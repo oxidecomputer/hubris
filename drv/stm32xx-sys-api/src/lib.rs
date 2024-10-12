@@ -19,7 +19,7 @@ cfg_if::cfg_if! {
 }
 
 use derive_idol_err::IdolError;
-use userlib::*;
+use userlib::{sys_send, FromPrimitive};
 use zerocopy::AsBytes;
 
 pub use drv_stm32xx_gpio_common::{

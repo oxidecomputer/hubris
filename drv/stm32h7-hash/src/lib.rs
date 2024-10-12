@@ -30,7 +30,7 @@ use drv_hash_api::HashError;
 use stm32h7::stm32h753 as device;
 
 use core::mem::size_of;
-use userlib::*;
+use userlib::{hl, sys_irq_control, sys_recv_notification};
 use zerocopy::AsBytes;
 
 enum State {

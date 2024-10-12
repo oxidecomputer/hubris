@@ -9,7 +9,7 @@ use hubpack::SerializedSize;
 use serde::Serialize;
 use task_net_api::*;
 use task_packrat_api::{Packrat, VpdIdentity};
-use userlib::*;
+use userlib::{hl, kipc, task_slot, UnwrapLite};
 
 #[cfg(feature = "vlan")]
 use enum_map::Enum;

@@ -7,7 +7,7 @@
 #![no_std]
 
 use derive_idol_err::IdolError;
-use userlib::*;
+use userlib::{sys_send, FromPrimitive};
 use zerocopy::{AsBytes, FromBytes, LittleEndian, U16};
 
 pub use host_sp_messages::HostStartupOptions;
