@@ -521,8 +521,18 @@ pub struct ImageHeader {
     pub magic: u32,
     pub total_image_len: u32,
     pub _pad: [u32; 16], // previous location of SAU entries
-    pub version: u32,
-    pub epoch: u32,
+    pub _version: u32,
+    pub _epoch: u32,
+}
+
+impl ImageHeader {
+    pub fn new(total_image_len: u32) -> Self {
+        ImageHeader {
+            magic: HEADER_MAGIC,
+            total_image_len,
+            ..Default::default()
+        }
+    }
 }
 
 // Corresponds to the ARM vector table, limited to what we need

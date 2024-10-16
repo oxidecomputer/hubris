@@ -4,8 +4,6 @@ target = "thumbv7em-none-eabihf"
 chip = "../../chips/stm32h7"
 memory = "memory-large.toml"
 stacksize = 896
-epoch = 0
-version = 0
 fwid = true
 
 [kernel]
