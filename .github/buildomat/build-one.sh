@@ -5,8 +5,8 @@ set -o pipefail
 set -o xtrace
 set -o nounset
 
-toml=$1
-name=$2
+name=$1
+toml=$2
 image=$3
 
 cargo xtask dist $toml
