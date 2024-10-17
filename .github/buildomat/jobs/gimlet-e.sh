@@ -1,6 +1,6 @@
 #!/bin/bash
 #:
-#: name = "build gimlet-c"
+#: name = "build gimlet-e"
 #: variety = "basic"
 #: target = "ubuntu-22.04"
 #: rust_toolchain = true
