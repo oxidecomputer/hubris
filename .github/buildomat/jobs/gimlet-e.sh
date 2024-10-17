@@ -12,4 +12,4 @@ set -o errexit
 set -o pipefail
 set -o xtrace
 
-exec .github/buildomat/build-one.sh gimlet-e /app/gimlet/rev-e.toml default
+exec .github/buildomat/build-one.sh gimlet-e app/gimlet/rev-e.toml default
