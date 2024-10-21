@@ -175,10 +175,14 @@ fn system_init() {
         },
     );
 
+    p.FLASH.bank1().keyr.write(|w| unsafe { w.bits(0x4567_0123) });
+    p.FLASH.bank1().keyr.write(|w| unsafe { w.bits(0xCDEF_89AB) });
     p.FLASH.bank1().cr.modify(|r, w| {
         unsafe { w.bits(r.bits() | 0x1FEE_0000) }
     });
 
+    p.FLASH.bank2().keyr.write(|w| unsafe { w.bits(0x4567_0123) });
+    p.FLASH.bank2().keyr.write(|w| unsafe { w.bits(0xCDEF_89AB) });
     p.FLASH.bank2().cr.modify(|r, w| {
         unsafe { w.bits(r.bits() | 0x1FEE_0000) }
     });
