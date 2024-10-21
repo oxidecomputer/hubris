@@ -205,6 +205,7 @@ fn system_init() {
 }
 
 #[naked]
+#[no_mangle]
 #[allow(non_snake_case)]
 pub unsafe extern "C" fn FLASH() {
     core::arch::asm!(
