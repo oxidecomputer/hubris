@@ -4,6 +4,7 @@
 
 #![no_std]
 #![no_main]
+#![feature(naked_functions)]
 
 // We have to do this if we don't otherwise use it to ensure its vector table
 // gets linked in.
@@ -11,6 +12,7 @@ extern crate stm32h7;
 
 use stm32h7::stm32h753 as device;
 
+use core::sync::atomic::{AtomicUsize, Ordering};
 use drv_stm32h7_startup::ClockConfig;
 
 use cortex_m_rt::entry;
@@ -173,6 +175,18 @@ fn system_init() {
         },
     );
 
+    p.FLASH.bank1().cr.modify(|r, w| {
+        unsafe { w.bits(r.bits() | 0x1FEE_0000) }
+    });
+
+    p.FLASH.bank2().cr.modify(|r, w| {
+        unsafe { w.bits(r.bits() | 0x1FEE_0000) }
+    });
+
+    unsafe {
+        cortex_m::peripheral::NVIC::unmask(device::Interrupt::FLASH);
+    }
+
     // Gimlet uses PA0_C instead of PA0. Flip this.
     p.SYSCFG.pmcr.modify(|_, w| {
         w.pa0so()
@@ -185,3 +199,63 @@ fn system_init() {
             .set_bit()
     });
 }
+
+#[naked]
+#[allow(non_snake_case)]
+pub unsafe extern "C" fn FLASH() {
+    core::arch::asm!(
+        "
+        mov r0, lr
+        mrs r1, MSP
+        mrs r2, PSP
+        b actual_flash_isr
+        ",
+        options(noreturn)
+    );
+}
+
+#[no_mangle]
+extern "C" fn actual_flash_isr(lr: u32, msp: u32, psp: u32) {
+    let flash = unsafe { &*device::FLASH::ptr() };
+
+    let sr1 = flash.bank1().sr.read();
+    let sr2 = flash.bank2().sr.read();
+    flash.bank1().ccr.write(|w| unsafe { w.bits(0x1FEE_0000)});
+    flash.bank2().ccr.write(|w| unsafe { w.bits(0x1FEE_0000)});
+    let something_wrong_bank1 = sr1.bits() & 0xFFFE_0000 != 0;
+    let something_wrong_bank2 = sr2.bits() & 0xFFFE_0000 != 0;
+
+    if something_wrong_bank1 || something_wrong_bank2 {
+        let stack_pointer = if lr & (1 << 2) == 0 {
+            // interrupted on main stack
+            msp
+        } else {
+            // interrupted on process stack
+            psp
+        };
+        let stack_pointer = stack_pointer as *const u32;
+        let pc = unsafe { stack_pointer.add(6).read_volatile() };
+        unsafe {
+            FLASH_IRQ = Some(FunThings {
+                pc,
+                lr,
+                bank1_sr: sr1.bits(),
+                bank2_sr: sr2.bits(),
+            });
+        }
+        FLASHY_COUNTER.fetch_add(1, Ordering::Relaxed);
+    }
+}
+
+#[derive(Copy, Clone)]
+struct FunThings {
+    bank1_sr: u32,
+    bank2_sr: u32,
+    pc: u32,
+    lr: u32,
+}
+
+#[no_mangle]
+static mut FLASH_IRQ: Option<FunThings> = None;
+#[no_mangle]
+static FLASHY_COUNTER: AtomicUsize = AtomicUsize::new(0);
