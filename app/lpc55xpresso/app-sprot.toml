@@ -55,7 +55,7 @@ start = true
 [tasks.update_server]
 name = "lpc55-update-server"
 priority = 3
-stacksize = 3000
+stacksize = 3200
 start = true
 sections = {bootstate = "usbsram"}
 uses = ["flash_controller", "hash_crypt"]
@@ -142,7 +142,7 @@ uses = ["flexcomm5", "iocon"]
 start = true
 stacksize = 1000
 task-slots = ["gpio_driver", "syscon_driver"]
-notifications = ["spi-irq"]
+notifications = ["spi-irq", "timer"]
 interrupts = {"flexcomm5.irq" = "spi-irq"}
 
 [tasks.swd.config]
@@ -167,6 +167,8 @@ pins = [
     # SCK
     { pin = { port = 0, pin = 7 }, alt = 3 },
     { name = "SD0_CARD_DET", pin = { port = 0, pin = 17 }, alt = 0, direction = "input" },
+    { name = "SP_TO_ROT_JTAG_DETECT_L", pin = { port = 0, pin = 20 }, alt = 0, direction = "input" },
+    { name = "ROT_TO_SP_RESET_L", pin = { port = 0, pin = 13 }, alt = 0, value = true, direction = "output", opendrain = "opendrain" },
 ]
 spi_num = 5
 
@@ -208,7 +210,7 @@ pins = [
 [tasks.attest]
 name = "task-attest"
 priority = 5
-max-sizes = {flash = 33904, ram = 16384}
+max-sizes = {flash = 34336, ram = 16384}
 stacksize = 12304
 start = true
 extern-regions = ["dice_alias", "dice_certs"]

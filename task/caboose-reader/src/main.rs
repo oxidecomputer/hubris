@@ -7,7 +7,7 @@
 
 use drv_caboose::{CabooseError, CabooseReader};
 use idol_runtime::{ClientError, Leased, NotificationHandler, RequestError, W};
-use userlib::*;
+use userlib::RecvMessage;
 
 #[export_name = "main"]
 fn main() -> ! {

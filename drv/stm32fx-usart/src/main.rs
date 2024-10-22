@@ -19,7 +19,7 @@ use stm32f4::stm32f407 as device;
 #[cfg(feature = "stm32f3")]
 use stm32f3::stm32f303 as device;
 
-use userlib::*;
+use userlib::{hl, sys_irq_control, task_slot, FromPrimitive, LeaseAttributes};
 use zerocopy::AsBytes;
 
 task_slot!(RCC, rcc_driver);

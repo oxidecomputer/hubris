@@ -9,7 +9,7 @@ use drv_lpc55_gpio_api::*;
 use hif::*;
 use hubris_num_tasks::Task;
 use ringbuf::*;
-use userlib::*;
+use userlib::{task_slot, FromPrimitive};
 
 #[cfg(feature = "gpio")]
 task_slot!(GPIO, gpio_driver);

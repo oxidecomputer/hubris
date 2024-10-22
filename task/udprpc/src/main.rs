@@ -6,7 +6,10 @@
 #![no_main]
 
 use task_net_api::*;
-use userlib::*;
+use userlib::{
+    kipc, sys_recv_notification, sys_refresh_task_id, sys_send, task_slot,
+    TaskId, UnwrapLite,
+};
 use zerocopy::{AsBytes, FromBytes, LittleEndian, U16, U64};
 
 task_slot!(NET, net);
