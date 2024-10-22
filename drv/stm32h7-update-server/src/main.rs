@@ -194,14 +194,28 @@ impl<'a> ServerImpl<'a> {
 
         let addresses = (start..start + FLASH_WORD_BYTES).step_by(4);
 
-        self.flash.bank2().cr.write(|w| {
+        self.flash.bank2().cr.modify(|_, w| {
             // SAFETY
             // The `psize().bits(_)` function is marked unsafe in the stm32
             // crate because it allows arbitrary bit patterns. `0b11`
             // corresponds to 64-bit internal parallelism during the write cycle
             // (not to be confused with the actual write accesses below, which
             // are 32-bit).
-            unsafe { w.psize().bits(0b11) }.pg().set_bit()
+            unsafe {
+                w.psize().bits(0b11);
+            }
+            w.pg().set_bit();
+
+            // Reset everything else to reset values, _except_ the interrupt
+            // enables we're not using. This replicates the weird behavior of
+            // the original code which was implicitly zeroing a bunch of stuff.
+            w.eopie().clear_bit();
+            w.wrperrie().clear_bit();
+            w.pgserrie().clear_bit();
+            w.strberrie().clear_bit();
+            w.incerrie().clear_bit();
+            w.operrie().clear_bit();
+            w
         });
 
         for (addr, &word) in addresses.zip(words) {

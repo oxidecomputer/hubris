@@ -178,13 +178,17 @@ fn system_init() {
     p.FLASH.bank1().keyr.write(|w| unsafe { w.bits(0x4567_0123) });
     p.FLASH.bank1().keyr.write(|w| unsafe { w.bits(0xCDEF_89AB) });
     p.FLASH.bank1().cr.modify(|r, w| {
-        unsafe { w.bits(r.bits() | 0x1FEE_0000) }
+        w.rdserrie().set_bit();
+        w.rdperrie().set_bit();
+        w
     });
 
     p.FLASH.bank2().keyr.write(|w| unsafe { w.bits(0x4567_0123) });
     p.FLASH.bank2().keyr.write(|w| unsafe { w.bits(0xCDEF_89AB) });
-    p.FLASH.bank2().cr.modify(|r, w| {
-        unsafe { w.bits(r.bits() | 0x1FEE_0000) }
+    p.FLASH.bank2().cr.modify(|_, w| {
+        w.rdserrie().set_bit();
+        w.rdperrie().set_bit();
+        w
     });
 
     unsafe {
@@ -225,10 +229,18 @@ extern "C" fn actual_flash_isr(lr: u32, msp: u32, psp: u32) {
 
     let sr1 = flash.bank1().sr.read();
     let sr2 = flash.bank2().sr.read();
-    flash.bank1().ccr.write(|w| unsafe { w.bits(0x1FEE_0000)});
-    flash.bank2().ccr.write(|w| unsafe { w.bits(0x1FEE_0000)});
-    let something_wrong_bank1 = sr1.bits() & 0xFFFE_0000 != 0;
-    let something_wrong_bank2 = sr2.bits() & 0xFFFE_0000 != 0;
+    flash.bank1().ccr.write(|w| {
+        w.clr_rdserr().set_bit();
+        w.clr_rdperr().set_bit();
+        w
+    });
+    flash.bank2().ccr.write(|w| {
+        w.clr_rdserr().set_bit();
+        w.clr_rdperr().set_bit();
+        w
+    });
+    let something_wrong_bank1 = sr1.rdperr().bit() || sr1.rdserr().bit();
+    let something_wrong_bank2 = sr2.rdperr().bit() || sr2.rdserr().bit();
 
     if something_wrong_bank1 || something_wrong_bank2 {
         let stack_pointer = if lr & (1 << 2) == 0 {
@@ -249,6 +261,10 @@ extern "C" fn actual_flash_isr(lr: u32, msp: u32, psp: u32) {
             });
         }
         FLASHY_COUNTER.fetch_add(1, Ordering::Relaxed);
+    }
+
+    unsafe {
+        kern::arch::arm_m::DefaultHandler();
     }
 }
 
