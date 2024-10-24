@@ -2,7 +2,7 @@
 #:
 #: name = "try"
 #: variety = "basic"
-#: target = "hubris"
+#: target = "hubris-test"
 #:
 
 set -o errexit
