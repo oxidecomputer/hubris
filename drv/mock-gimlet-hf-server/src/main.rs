@@ -89,12 +89,17 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
         _addr: u32,
-        dest: LenLimit<Leased<W, [u8]>, PAGE_SIZE_BYTES>,
+        dest: Leased<W, [u8]>,
     ) -> Result<(), RequestError<HfError>> {
         let zero = [0; PAGE_SIZE_BYTES];
+        let mut offset = 0;
+        for i in (0..dest.len()).step_by(zero.len()) {
+            let n = (dest.len() - i).min(zero.len());
 
-        dest.write_range(0..dest.len(), &zero[..dest.len()])
-            .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
+            dest.write_range(offset..offset + n, &zero[..n])
+                .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
+            offset += n;
+        }
 
         Ok(())
     }

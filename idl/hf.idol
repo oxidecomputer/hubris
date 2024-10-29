@@ -58,7 +58,7 @@ Interface(
                 "address": "u32",
             },
             leases: {
-                "data": (type: "[u8]", write: true, max_len: Some(256)),
+                "data": (type: "[u8]", write: true),
             },
             reply: Result(
                 ok: "()",
