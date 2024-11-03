@@ -5,7 +5,9 @@
 #[cfg(feature = "spi")]
 use crate::common::{spi_read, spi_write};
 use byteorder::ByteOrder;
-use drv_lpc55_gpio_api::*;
+use drv_lpc55_gpio_api::{
+    AltFn, Digimode, Direction, Invert, Mode, Opendrain, Slew,
+};
 use hif::*;
 use hubris_num_tasks::Task;
 use ringbuf::*;

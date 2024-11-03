@@ -460,7 +460,7 @@ fn gpio_configure(
     _data: &[u8],
     _rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    use drv_stm32xx_sys_api::*;
+    use drv_stm32xx_sys_api::{Alternate, Mode, OutputType, Pull, Speed};
 
     if stack.len() < 7 {
         return Err(Failure::Fault(Fault::MissingParameters));

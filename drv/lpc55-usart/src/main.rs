@@ -17,7 +17,7 @@
 #![no_main]
 
 use core::ops::Deref;
-use drv_lpc55_syscon_api::*;
+use drv_lpc55_syscon_api::{Peripheral, Syscon};
 use lib_lpc55_usart::{Usart, Write};
 use lpc55_pac as device;
 use userlib::*;

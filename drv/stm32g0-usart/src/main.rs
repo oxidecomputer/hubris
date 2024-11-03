@@ -180,7 +180,9 @@ fn turn_on_usart() {
 }
 
 fn configure_pins() {
-    use drv_stm32xx_sys_api::*;
+    use drv_stm32xx_sys_api::{
+        Alternate, OutputType, PinSet, Port, Pull, Speed, Sys,
+    };
 
     let gpio_driver = SYS.get_task_id();
     let gpio_driver = Sys::from(gpio_driver);

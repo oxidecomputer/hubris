@@ -11,7 +11,9 @@ use drv_i2c_api::{
     Controller, Marshal, Mux, Op, PortIndex, ReservedAddress, ResponseCode,
     ResponseCodeU8, Segment,
 };
-use drv_stm32xx_i2c::*;
+use drv_stm32xx_i2c::{
+    I2cControl, I2cControlResult, I2cController, I2cMux, I2cPins, ReadLength,
+};
 use drv_stm32xx_sys_api::{Mode, OutputType, PinSet, Pull, Speed, Sys};
 
 use fixedmap::*;

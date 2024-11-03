@@ -4,7 +4,12 @@
 
 #![no_std]
 
-use drv_fpga_api::*;
+use drv_fpga_api::{
+    await_fpga_ready, DeviceState, Fpga, FpgaError, FpgaUserDesign,
+    FpgaUserDesignIdent,
+};
+#[cfg(feature = "bitstream")]
+use drv_fpga_api::{BitstreamType, WriteOp};
 
 include!(concat!(env!("OUT_DIR"), "/sidecar_mainboard_controller.rs"));
 

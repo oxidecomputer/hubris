@@ -5,7 +5,7 @@
 #![no_std]
 #![no_main]
 
-use drv_sp_ctrl_api::*;
+use drv_sp_ctrl_api::SpCtrl;
 use ringbuf::*;
 use sha3::{Digest, Sha3_256};
 use userlib::*;

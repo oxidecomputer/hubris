@@ -367,7 +367,7 @@ cfg_if::cfg_if! {
 
 #[cfg(feature = "stm32g0")]
 fn enable_led_pins() {
-    use drv_stm32xx_sys_api::*;
+    use drv_stm32xx_sys_api::{OutputType, Pull, Speed, Sys};
 
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
@@ -394,7 +394,7 @@ fn led_info(led: Led) -> (drv_stm32xx_sys_api::PinSet, bool) {
 
 #[cfg(feature = "stm32g0")]
 fn led_on(led: Led) {
-    use drv_stm32xx_sys_api::*;
+    use drv_stm32xx_sys_api::Sys;
 
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
@@ -405,7 +405,7 @@ fn led_on(led: Led) {
 
 #[cfg(feature = "stm32g0")]
 fn led_off(led: Led) {
-    use drv_stm32xx_sys_api::*;
+    use drv_stm32xx_sys_api::Sys;
 
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
@@ -417,7 +417,7 @@ fn led_off(led: Led) {
 
 #[cfg(feature = "stm32g0")]
 fn led_toggle(led: Led) {
-    use drv_stm32xx_sys_api::*;
+    use drv_stm32xx_sys_api::Sys;
 
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
@@ -490,7 +490,7 @@ cfg_if::cfg_if! {
 
 #[cfg(feature = "stm32h7")]
 fn enable_led_pins() {
-    use drv_stm32xx_sys_api::*;
+    use drv_stm32xx_sys_api::{OutputType, Pull, Speed, Sys};
 
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
@@ -543,7 +543,7 @@ fn led_info(led: Led) -> (drv_stm32xx_sys_api::PinSet, bool) {
 
 #[cfg(feature = "stm32h7")]
 fn led_on(led: Led) {
-    use drv_stm32xx_sys_api::*;
+    use drv_stm32xx_sys_api::Sys;
 
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
@@ -554,7 +554,7 @@ fn led_on(led: Led) {
 
 #[cfg(feature = "stm32h7")]
 fn led_off(led: Led) {
-    use drv_stm32xx_sys_api::*;
+    use drv_stm32xx_sys_api::Sys;
 
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
@@ -566,7 +566,7 @@ fn led_off(led: Led) {
 
 #[cfg(feature = "stm32h7")]
 fn led_toggle(led: Led) {
-    use drv_stm32xx_sys_api::*;
+    use drv_stm32xx_sys_api::Sys;
 
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
@@ -614,7 +614,9 @@ const fn led_gpio_num(led: Led) -> drv_lpc55_gpio_api::Pin {
 
 #[cfg(feature = "lpc55")]
 fn enable_led_pins() {
-    use drv_lpc55_gpio_api::*;
+    use drv_lpc55_gpio_api::{
+        AltFn, Digimode, Direction, Invert, Mode, Opendrain, Pins, Slew,
+    };
 
     let gpio_driver = GPIO.get_task_id();
     let gpio_driver = Pins::from(gpio_driver);

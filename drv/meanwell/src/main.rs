@@ -47,7 +47,7 @@ cfg_if::cfg_if! {
 }
 
 fn set(index: usize, val: bool) -> Result<(), RequestError<MeanwellError>> {
-    use drv_stm32xx_sys_api::*;
+    use drv_stm32xx_sys_api::Sys;
 
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
@@ -61,7 +61,7 @@ fn set(index: usize, val: bool) -> Result<(), RequestError<MeanwellError>> {
 }
 
 fn get(index: usize) -> Result<bool, RequestError<MeanwellError>> {
-    use drv_stm32xx_sys_api::*;
+    use drv_stm32xx_sys_api::Sys;
 
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
@@ -147,7 +147,7 @@ fn main() -> ! {
         deadline,
     };
 
-    use drv_stm32xx_sys_api::*;
+    use drv_stm32xx_sys_api::{OutputType, Pull, Speed, Sys};
 
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);

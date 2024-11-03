@@ -50,9 +50,11 @@ fn generate_swd_functions(config: &TaskConfig) -> Result<()> {
 
             #(
             {
-                use drv_lpc55_gpio_api::*;
+                use drv_lpc55_gpio_api::{
+                    AltFn, Digimode, Invert, Mode, Opendrain, Pins, Slew,
+                };
 
-                let (pin, conf) = drv_lpc55_gpio_api::Pins::iocon_conf_val(#out_cfg);
+                let (pin, conf) = Pins::iocon_conf_val(#out_cfg);
                 let base = iocon_base + 4 * pin;
                 unsafe {
                     core::ptr::write_volatile(base as *mut u32, conf);
@@ -65,8 +67,11 @@ fn generate_swd_functions(config: &TaskConfig) -> Result<()> {
 
             #(
             {
-                use drv_lpc55_gpio_api::*;
-                let (pin, conf) = drv_lpc55_gpio_api::Pins::iocon_conf_val(#in_cfg);
+                use drv_lpc55_gpio_api::{
+                    AltFn, Digimode, Invert, Mode, Opendrain, Pins, Slew,
+                };
+
+                let (pin, conf) = Pins::iocon_conf_val(#in_cfg);
                 let base = iocon_base + 4 * pin;
                 unsafe {
                     core::ptr::write_volatile(base as *mut u32, conf);
