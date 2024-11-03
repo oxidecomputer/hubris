@@ -1345,7 +1345,9 @@ impl UsartHandler {
 
 fn configure_usart() -> Usart {
     use drv_stm32h7_usart::device;
-    use drv_stm32h7_usart::drv_stm32xx_sys_api::*;
+    use drv_stm32h7_usart::drv_stm32xx_sys_api::{
+        Alternate, Peripheral, PinSet, Port, Sys,
+    };
 
     // TODO: this module should _not_ know our clock rate. That's a hack.
     const CLOCK_HZ: u32 = 100_000_000;
