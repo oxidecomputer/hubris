@@ -7,7 +7,7 @@
 //! threads cannot exceed a 7-bit quantity in this processor generation).
 
 use crate::Validate;
-use drv_i2c_api::*;
+use drv_i2c_api::{I2cDevice, ResponseCode};
 use ringbuf::*;
 use zerocopy::FromBytes;
 

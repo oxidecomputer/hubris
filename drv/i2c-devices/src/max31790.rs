@@ -6,7 +6,7 @@
 
 use crate::Validate;
 use bitfield::bitfield;
-use drv_i2c_api::*;
+use drv_i2c_api::{I2cDevice, ResponseCode};
 use ringbuf::*;
 use userlib::{
     units::{PWMDuty, Rpm},

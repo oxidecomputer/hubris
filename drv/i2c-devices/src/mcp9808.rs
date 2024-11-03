@@ -5,7 +5,7 @@
 //! Driver for the MCP9808 temperature sensor
 
 use crate::TempSensor;
-use drv_i2c_api::*;
+use drv_i2c_api::{I2cDevice, ResponseCode};
 use userlib::units::*;
 
 pub enum Register {

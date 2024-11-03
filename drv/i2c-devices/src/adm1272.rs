@@ -10,7 +10,7 @@ use crate::{
     pmbus_validate, BadValidation, CurrentSensor, TempSensor, Validate,
     VoltageSensor,
 };
-use drv_i2c_api::*;
+use drv_i2c_api::{I2cDevice, ResponseCode};
 use num_traits::float::FloatCore;
 use pmbus::commands::*;
 use ringbuf::*;

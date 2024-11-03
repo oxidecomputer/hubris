@@ -7,7 +7,10 @@
 #![no_std]
 #![no_main]
 
-use drv_i2c_api::*;
+use drv_i2c_api::{
+    Controller, Marshal, Mux, Op, PortIndex, ReservedAddress, ResponseCode,
+    ResponseCodeU8, Segment,
+};
 use drv_stm32xx_i2c::*;
 use drv_stm32xx_sys_api::{Mode, OutputType, PinSet, Pull, Speed, Sys};
 

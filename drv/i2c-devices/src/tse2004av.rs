@@ -6,7 +6,7 @@
 //! for SPD (serial presence detection) and temperature sensing on DIMMs.
 
 use crate::TempSensor;
-use drv_i2c_api::*;
+use drv_i2c_api::{I2cDevice, ResponseCode};
 use userlib::units::*;
 
 #[allow(dead_code)]

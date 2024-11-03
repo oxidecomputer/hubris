@@ -5,7 +5,7 @@
 //! Driver for the M24C02-WMN6TP EEPROM attached to a MWOCP68 power shelf
 
 use crate::Validate;
-use drv_i2c_api::*;
+use drv_i2c_api::{I2cDevice, ResponseCode};
 
 ////////////////////////////////////////////////////////////////////////////////
 
