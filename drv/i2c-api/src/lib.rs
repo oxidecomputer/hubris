@@ -24,7 +24,10 @@
 
 use zerocopy::{AsBytes, FromBytes};
 
-pub use drv_i2c_types::*;
+pub use drv_i2c_types::{
+    Controller, Mux, Op, PortIndex, ReservedAddress, ResponseCode,
+    ResponseCodeU8, Segment,
+};
 use userlib::{sys_send, FromPrimitive, Lease, TaskId};
 
 ///
