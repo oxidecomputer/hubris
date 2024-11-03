@@ -87,7 +87,7 @@ impl<S: SpiServer> Driver<S> {
     }
 
     pub fn init(&self) -> Result<(), Error> {
-        use sys_api::*;
+        use sys_api::{OutputType, Pull, Speed};
 
         self.config.sys.gpio_set(self.config.spi_mux_select);
         self.config.sys.gpio_configure_output(
