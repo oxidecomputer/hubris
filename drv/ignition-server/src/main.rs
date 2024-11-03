@@ -13,7 +13,9 @@ use drv_ignition_api::{
 };
 use drv_sidecar_mainboard_controller::ignition::*;
 use ringbuf::*;
-use userlib::{hl, sys_get_timer, sys_set_timer, task_slot, UnwrapLite};
+#[cfg(feature = "sequencer")]
+use userlib::hl;
+use userlib::{sys_get_timer, sys_set_timer, task_slot, UnwrapLite};
 
 task_slot!(FPGA, fpga);
 #[cfg(feature = "sequencer")]
