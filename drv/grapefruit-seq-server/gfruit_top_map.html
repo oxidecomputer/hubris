@@ -453,21 +453,20 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="4">spi_nor_SPICR</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="4">base_passthru</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
-                0x100
+                0x10
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;SPI Control Register</td>
+        <td class="Description" colspan="16">&nbsp;Enable SPI Passthru</td>
     </tr>
     <tr class="cat4" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;31..24</td>
-                <td class="validspandef" colspan="2*">sp5_owns_flash</td>
-                <td class="rsvdspandef" colspan="14*">RSVD</td>
+                <td class="rsvdspandef" colspan="16*">RSVD</td>
     </tr>
     <tr class="cat4" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
@@ -479,15 +478,14 @@
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;15..8</td>
-                <td class="validspandef" colspan="2*">rx_fifo_reset</td>
-                <td class="rsvdspandef" colspan="14*">RSVD</td>
+                <td class="rsvdspandef" colspan="16*">RSVD</td>
     </tr>
     <tr class="cat4" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="validspandef" colspan="2*">tx_fifo_reset</td>
                 <td class="rsvdspandef" colspan="14*">RSVD</td>
+                <td class="validspandef" colspan="2*">spi_pass</td>
     </tr>
     <tr class="cat4" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -498,6 +496,60 @@
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
     <tr class="cat4" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">spi_pass</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">Set to make SPI Nor passthru active vs eSPI spi-nor access
+        </td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="5">spi_nor_SPICR</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x100
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;SPI Control Register</td>
+    </tr>
+    <tr class="cat5" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;31..24</td>
+                <td class="validspandef" colspan="2*">sp5_owns_flash</td>
+                <td class="rsvdspandef" colspan="14*">RSVD</td>
+    </tr>
+    <tr class="cat5" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;23..16</td>
+                <td class="rsvdspandef" colspan="16*">RSVD</td>
+    </tr>
+    <tr class="cat5" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;15..8</td>
+                <td class="validspandef" colspan="2*">rx_fifo_reset</td>
+                <td class="rsvdspandef" colspan="14*">RSVD</td>
+    </tr>
+    <tr class="cat5" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="2*">tx_fifo_reset</td>
+                <td class="rsvdspandef" colspan="14*">RSVD</td>
+    </tr>
+    <tr class="cat5" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat5" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">sp5_owns_flash</td>
         <td class="FieldDesc" colspan="1*">31</td>
@@ -508,7 +560,7 @@ not attempt any flash accesses with this bit set. This bit also enforces the
 flash offset in
         </td>
     </tr>
-    <tr class="cat4" style="display: none">
+    <tr class="cat5" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">rx_fifo_reset</td>
         <td class="FieldDesc" colspan="1*">15</td>
@@ -517,7 +569,7 @@ flash offset in
         <td class="FieldDesc" colspan="14">Set to one to reset RX FIFO. Cleared by hardware after reset.
         </td>
     </tr>
-    <tr class="cat4" style="display: none">
+    <tr class="cat5" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">tx_fifo_reset</td>
         <td class="FieldDesc" colspan="1*">7</td>
@@ -527,7 +579,7 @@ flash offset in
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="5">spi_nor_SPISR</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="6">spi_nor_SPISR</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x104
@@ -536,14 +588,14 @@ flash offset in
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;SPI Status Register</td>
     </tr>
-    <tr class="cat5" style="display: none">
+    <tr class="cat6" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;31..24</td>
                 <td class="rsvdspandef" colspan="2*">RSVD</td>
                 <td class="validspandef" colspan="14*">tx_used_wds</td>
     </tr>
-    <tr class="cat5" style="display: none">
+    <tr class="cat6" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;23..16</td>
@@ -551,14 +603,14 @@ flash offset in
                 <td class="validspandef" colspan="2*">tx_empty</td>
                 <td class="rsvdspandef" colspan="12*">RSVD</td>
     </tr>
-    <tr class="cat5" style="display: none">
+    <tr class="cat6" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;15..8</td>
                 <td class="rsvdspandef" colspan="2*">RSVD</td>
                 <td class="validspandef" colspan="14*">rx_used_wds</td>
     </tr>
-    <tr class="cat5" style="display: none">
+    <tr class="cat6" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
@@ -567,7 +619,7 @@ flash offset in
                 <td class="rsvdspandef" colspan="10*">RSVD</td>
                 <td class="validspandef" colspan="2*">busy</td>
     </tr>
-    <tr class="cat5" style="display: none">
+    <tr class="cat6" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -575,7 +627,7 @@ flash offset in
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat5" style="display: none">
+    <tr class="cat6" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">tx_used_wds</td>
         <td class="FieldDesc" colspan="1*">30..24</td>
@@ -585,7 +637,7 @@ flash offset in
 max of 256 bytes, so 64 words
         </td>
     </tr>
-    <tr class="cat5" style="display: none">
+    <tr class="cat6" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">tx_full</td>
         <td class="FieldDesc" colspan="1*">23</td>
@@ -594,7 +646,7 @@ max of 256 bytes, so 64 words
         <td class="FieldDesc" colspan="14">Set to one to 1 when TX FIFO is full
         </td>
     </tr>
-    <tr class="cat5" style="display: none">
+    <tr class="cat6" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">tx_empty</td>
         <td class="FieldDesc" colspan="1*">22</td>
@@ -603,7 +655,7 @@ max of 256 bytes, so 64 words
         <td class="FieldDesc" colspan="14">Set to one to 1 when TX FIFO is empty
         </td>
     </tr>
-    <tr class="cat5" style="display: none">
+    <tr class="cat6" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">rx_used_wds</td>
         <td class="FieldDesc" colspan="1*">14..8</td>
@@ -613,7 +665,7 @@ max of 256 bytes, so 64 words
 max of 256 bytes, so 64 words
         </td>
     </tr>
-    <tr class="cat5" style="display: none">
+    <tr class="cat6" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">rx_full</td>
         <td class="FieldDesc" colspan="1*">7</td>
@@ -622,7 +674,7 @@ max of 256 bytes, so 64 words
         <td class="FieldDesc" colspan="14">Set to one to 1 when RX FIFO is full
         </td>
     </tr>
-    <tr class="cat5" style="display: none">
+    <tr class="cat6" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">rx_empty</td>
         <td class="FieldDesc" colspan="1*">6</td>
@@ -631,7 +683,7 @@ max of 256 bytes, so 64 words
         <td class="FieldDesc" colspan="14">Set to one to 1 when RX FIFO is empty
         </td>
     </tr>
-    <tr class="cat5" style="display: none">
+    <tr class="cat6" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">busy</td>
         <td class="FieldDesc" colspan="1*">0</td>
@@ -642,7 +694,7 @@ may be issued until it is finished. Technically represents cs_n being low.
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="6">spi_nor_Addr</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="7">spi_nor_Addr</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x108
@@ -651,31 +703,31 @@ may be issued until it is finished. Technically represents cs_n being low.
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Target Address Register</td>
     </tr>
-    <tr class="cat6" style="display: none">
+    <tr class="cat7" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;31..24</td>
                 <td class="validspandef" colspan="16*">addr</td>
     </tr>
-    <tr class="cat6" style="display: none">
+    <tr class="cat7" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;23..16</td>
                 <td class="validspandef" colspan="16*">addr</td>
     </tr>
-    <tr class="cat6" style="display: none">
+    <tr class="cat7" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;15..8</td>
                 <td class="validspandef" colspan="16*">addr</td>
     </tr>
-    <tr class="cat6" style="display: none">
+    <tr class="cat7" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">addr</td>
     </tr>
-    <tr class="cat6" style="display: none">
+    <tr class="cat7" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -683,7 +735,7 @@ may be issued until it is finished. Technically represents cs_n being low.
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat6" style="display: none">
+    <tr class="cat7" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">addr</td>
         <td class="FieldDesc" colspan="1*">31..0</td>
@@ -693,7 +745,7 @@ may be issued until it is finished. Technically represents cs_n being low.
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="7">spi_nor_DummyCycles</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="8">spi_nor_DummyCycles</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x10c
@@ -702,31 +754,31 @@ may be issued until it is finished. Technically represents cs_n being low.
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Dummy Cycles Register</td>
     </tr>
-    <tr class="cat7" style="display: none">
+    <tr class="cat8" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;31..24</td>
                 <td class="rsvdspandef" colspan="16*">RSVD</td>
     </tr>
-    <tr class="cat7" style="display: none">
+    <tr class="cat8" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;23..16</td>
                 <td class="rsvdspandef" colspan="16*">RSVD</td>
     </tr>
-    <tr class="cat7" style="display: none">
+    <tr class="cat8" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;15..8</td>
                 <td class="rsvdspandef" colspan="16*">RSVD</td>
     </tr>
-    <tr class="cat7" style="display: none">
+    <tr class="cat8" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">count</td>
     </tr>
-    <tr class="cat7" style="display: none">
+    <tr class="cat8" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -734,7 +786,7 @@ may be issued until it is finished. Technically represents cs_n being low.
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat7" style="display: none">
+    <tr class="cat8" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">count</td>
         <td class="FieldDesc" colspan="1*">7..0</td>
@@ -744,7 +796,7 @@ may be issued until it is finished. Technically represents cs_n being low.
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="8">spi_nor_DataBytes</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="9">spi_nor_DataBytes</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x110
@@ -753,32 +805,32 @@ may be issued until it is finished. Technically represents cs_n being low.
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Data Byte Count Register</td>
     </tr>
-    <tr class="cat8" style="display: none">
+    <tr class="cat9" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;31..24</td>
                 <td class="rsvdspandef" colspan="16*">RSVD</td>
     </tr>
-    <tr class="cat8" style="display: none">
+    <tr class="cat9" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;23..16</td>
                 <td class="rsvdspandef" colspan="16*">RSVD</td>
     </tr>
-    <tr class="cat8" style="display: none">
+    <tr class="cat9" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;15..8</td>
                 <td class="rsvdspandef" colspan="14*">RSVD</td>
                 <td class="validspandef" colspan="2*">count</td>
     </tr>
-    <tr class="cat8" style="display: none">
+    <tr class="cat9" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">count</td>
     </tr>
-    <tr class="cat8" style="display: none">
+    <tr class="cat9" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -786,7 +838,7 @@ may be issued until it is finished. Technically represents cs_n being low.
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat8" style="display: none">
+    <tr class="cat9" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">count</td>
         <td class="FieldDesc" colspan="1*">8..0</td>
@@ -797,7 +849,7 @@ max of 255 here representing 255 + 1 as that's the largest transaction the flash
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="9">spi_nor_Instr</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="10">spi_nor_Instr</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x114
@@ -806,31 +858,31 @@ max of 255 here representing 255 + 1 as that's the largest transaction the flash
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;SPI Instruction Register</td>
     </tr>
-    <tr class="cat9" style="display: none">
+    <tr class="cat10" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;31..24</td>
                 <td class="rsvdspandef" colspan="16*">RSVD</td>
     </tr>
-    <tr class="cat9" style="display: none">
+    <tr class="cat10" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;23..16</td>
                 <td class="rsvdspandef" colspan="16*">RSVD</td>
     </tr>
-    <tr class="cat9" style="display: none">
+    <tr class="cat10" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;15..8</td>
                 <td class="rsvdspandef" colspan="16*">RSVD</td>
     </tr>
-    <tr class="cat9" style="display: none">
+    <tr class="cat10" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">opcode</td>
     </tr>
-    <tr class="cat9" style="display: none">
+    <tr class="cat10" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -838,7 +890,7 @@ max of 255 here representing 255 + 1 as that's the largest transaction the flash
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat9" style="display: none">
+    <tr class="cat10" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">opcode</td>
         <td class="FieldDesc" colspan="1*">7..0</td>
@@ -849,7 +901,7 @@ This should be the last register written to during setup
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="10">spi_nor_tx_fifo_wdata</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="11">spi_nor_tx_fifo_wdata</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x118
@@ -858,31 +910,31 @@ This should be the last register written to during setup
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;TX FIFO Write Data Register</td>
     </tr>
-    <tr class="cat10" style="display: none">
+    <tr class="cat11" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;31..24</td>
                 <td class="validspandef" colspan="16*">fifo_data</td>
     </tr>
-    <tr class="cat10" style="display: none">
+    <tr class="cat11" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;23..16</td>
                 <td class="validspandef" colspan="16*">fifo_data</td>
     </tr>
-    <tr class="cat10" style="display: none">
+    <tr class="cat11" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;15..8</td>
                 <td class="validspandef" colspan="16*">fifo_data</td>
     </tr>
-    <tr class="cat10" style="display: none">
+    <tr class="cat11" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">fifo_data</td>
     </tr>
-    <tr class="cat10" style="display: none">
+    <tr class="cat11" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -890,7 +942,7 @@ This should be the last register written to during setup
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat10" style="display: none">
+    <tr class="cat11" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">fifo_data</td>
         <td class="FieldDesc" colspan="1*">31..0</td>
@@ -900,7 +952,7 @@ This should be the last register written to during setup
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="11">spi_nor_rx_fifo_rdata</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="12">spi_nor_rx_fifo_rdata</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x11c
@@ -909,31 +961,31 @@ This should be the last register written to during setup
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;RX FIFO Read Data Register</td>
     </tr>
-    <tr class="cat11" style="display: none">
+    <tr class="cat12" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;31..24</td>
                 <td class="validspandef" colspan="16*">fifo_data</td>
     </tr>
-    <tr class="cat11" style="display: none">
+    <tr class="cat12" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;23..16</td>
                 <td class="validspandef" colspan="16*">fifo_data</td>
     </tr>
-    <tr class="cat11" style="display: none">
+    <tr class="cat12" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;15..8</td>
                 <td class="validspandef" colspan="16*">fifo_data</td>
     </tr>
-    <tr class="cat11" style="display: none">
+    <tr class="cat12" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">fifo_data</td>
     </tr>
-    <tr class="cat11" style="display: none">
+    <tr class="cat12" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -941,7 +993,7 @@ This should be the last register written to during setup
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat11" style="display: none">
+    <tr class="cat12" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">fifo_data</td>
         <td class="FieldDesc" colspan="1*">31..0</td>
@@ -951,7 +1003,7 @@ This should be the last register written to during setup
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="12">spi_nor_SP5FlashOffset</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="13">spi_nor_SP5FlashOffset</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x120
@@ -960,31 +1012,31 @@ This should be the last register written to during setup
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;SP5 Flash offset address</td>
     </tr>
-    <tr class="cat12" style="display: none">
+    <tr class="cat13" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;31..24</td>
                 <td class="validspandef" colspan="16*">offset</td>
     </tr>
-    <tr class="cat12" style="display: none">
+    <tr class="cat13" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;23..16</td>
                 <td class="validspandef" colspan="16*">offset</td>
     </tr>
-    <tr class="cat12" style="display: none">
+    <tr class="cat13" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;15..8</td>
                 <td class="validspandef" colspan="16*">offset</td>
     </tr>
-    <tr class="cat12" style="display: none">
+    <tr class="cat13" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">offset</td>
     </tr>
-    <tr class="cat12" style="display: none">
+    <tr class="cat13" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -992,17 +1044,17 @@ This should be the last register written to during setup
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat12" style="display: none">
+    <tr class="cat13" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">offset</td>
         <td class="FieldDesc" colspan="1*">31..0</td>
         <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
-        <td class="FieldDesc" colspan="14">Address added to raw eSPI transactions to generate physical flash address
+        <td class="FieldDesc" colspan="14">*Signed* Address added (subtracted for -ve) to raw eSPI transactions to generate physical flash address
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="13">espi_flags</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="14">espi_flags</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x200
@@ -1011,32 +1063,32 @@ This should be the last register written to during setup
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Flags Register</td>
     </tr>
-    <tr class="cat13" style="display: none">
+    <tr class="cat14" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;31..24</td>
                 <td class="rsvdspandef" colspan="16*">RSVD</td>
     </tr>
-    <tr class="cat13" style="display: none">
+    <tr class="cat14" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;23..16</td>
                 <td class="rsvdspandef" colspan="16*">RSVD</td>
     </tr>
-    <tr class="cat13" style="display: none">
+    <tr class="cat14" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;15..8</td>
                 <td class="rsvdspandef" colspan="16*">RSVD</td>
     </tr>
-    <tr class="cat13" style="display: none">
+    <tr class="cat14" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="rsvdspandef" colspan="14*">RSVD</td>
                 <td class="validspandef" colspan="2*">alert</td>
     </tr>
-    <tr class="cat13" style="display: none">
+    <tr class="cat14" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -1044,7 +1096,7 @@ This should be the last register written to during setup
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat13" style="display: none">
+    <tr class="cat14" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">alert</td>
         <td class="FieldDesc" colspan="1*">0</td>
@@ -1054,7 +1106,7 @@ This should be the last register written to during setup
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="14">espi_control</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="15">espi_control</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x204
@@ -1063,25 +1115,25 @@ This should be the last register written to during setup
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Control Register</td>
     </tr>
-    <tr class="cat14" style="display: none">
+    <tr class="cat15" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;31..24</td>
                 <td class="rsvdspandef" colspan="16*">RSVD</td>
     </tr>
-    <tr class="cat14" style="display: none">
+    <tr class="cat15" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;23..16</td>
                 <td class="rsvdspandef" colspan="16*">RSVD</td>
     </tr>
-    <tr class="cat14" style="display: none">
+    <tr class="cat15" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;15..8</td>
                 <td class="rsvdspandef" colspan="16*">RSVD</td>
     </tr>
-    <tr class="cat14" style="display: none">
+    <tr class="cat15" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
@@ -1091,7 +1143,7 @@ This should be the last register written to during setup
                 <td class="validspandef" colspan="2*">resp_fifo_reset</td>
                 <td class="validspandef" colspan="2*">dbg_mode_en</td>
     </tr>
-    <tr class="cat14" style="display: none">
+    <tr class="cat15" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -1099,7 +1151,7 @@ This should be the last register written to during setup
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat14" style="display: none">
+    <tr class="cat15" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">cmd_fifo_reset</td>
         <td class="FieldDesc" colspan="1*">3</td>
@@ -1108,7 +1160,7 @@ This should be the last register written to during setup
         <td class="FieldDesc" colspan="14">Set to one to reset the command FIFO. Cleared by hardware after reset.
         </td>
     </tr>
-    <tr class="cat14" style="display: none">
+    <tr class="cat15" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">cmd_size_fifo_reset</td>
         <td class="FieldDesc" colspan="1*">2</td>
@@ -1117,7 +1169,7 @@ This should be the last register written to during setup
         <td class="FieldDesc" colspan="14">Set to one to reset the command size FIFO. Cleared by hardware after reset.
         </td>
     </tr>
-    <tr class="cat14" style="display: none">
+    <tr class="cat15" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">resp_fifo_reset</td>
         <td class="FieldDesc" colspan="1*">1</td>
@@ -1126,7 +1178,7 @@ This should be the last register written to during setup
         <td class="FieldDesc" colspan="14">Set to one to reset response FIFO. Cleared by hardware after reset.
         </td>
     </tr>
-    <tr class="cat14" style="display: none">
+    <tr class="cat15" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">dbg_mode_en</td>
         <td class="FieldDesc" colspan="1*">0</td>
@@ -1136,7 +1188,7 @@ This should be the last register written to during setup
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="15">espi_status</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="16">espi_status</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x208
@@ -1145,32 +1197,32 @@ This should be the last register written to during setup
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Status Register</td>
     </tr>
-    <tr class="cat15" style="display: none">
+    <tr class="cat16" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;31..24</td>
                 <td class="rsvdspandef" colspan="16*">RSVD</td>
     </tr>
-    <tr class="cat15" style="display: none">
+    <tr class="cat16" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;23..16</td>
                 <td class="rsvdspandef" colspan="16*">RSVD</td>
     </tr>
-    <tr class="cat15" style="display: none">
+    <tr class="cat16" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;15..8</td>
                 <td class="rsvdspandef" colspan="16*">RSVD</td>
     </tr>
-    <tr class="cat15" style="display: none">
+    <tr class="cat16" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="rsvdspandef" colspan="14*">RSVD</td>
                 <td class="validspandef" colspan="2*">busy</td>
     </tr>
-    <tr class="cat15" style="display: none">
+    <tr class="cat16" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -1178,7 +1230,7 @@ This should be the last register written to during setup
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat15" style="display: none">
+    <tr class="cat16" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">busy</td>
         <td class="FieldDesc" colspan="1*">0</td>
@@ -1189,7 +1241,7 @@ may be issued until it is finished. Technically represents cs_n being low.
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="16">espi_fifo_status</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="17">espi_fifo_status</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x20c
@@ -1198,31 +1250,31 @@ may be issued until it is finished. Technically represents cs_n being low.
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Fifo Status Register</td>
     </tr>
-    <tr class="cat16" style="display: none">
+    <tr class="cat17" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;31..24</td>
                 <td class="validspandef" colspan="16*">cmd_used_wds</td>
     </tr>
-    <tr class="cat16" style="display: none">
+    <tr class="cat17" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;23..16</td>
                 <td class="validspandef" colspan="16*">cmd_used_wds</td>
     </tr>
-    <tr class="cat16" style="display: none">
+    <tr class="cat17" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;15..8</td>
                 <td class="validspandef" colspan="16*">resp_used_wds</td>
     </tr>
-    <tr class="cat16" style="display: none">
+    <tr class="cat17" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">resp_used_wds</td>
     </tr>
-    <tr class="cat16" style="display: none">
+    <tr class="cat17" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -1230,7 +1282,7 @@ may be issued until it is finished. Technically represents cs_n being low.
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat16" style="display: none">
+    <tr class="cat17" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">cmd_used_wds</td>
         <td class="FieldDesc" colspan="1*">31..16</td>
@@ -1240,7 +1292,7 @@ may be issued until it is finished. Technically represents cs_n being low.
 1024 words so 4kB
         </td>
     </tr>
-    <tr class="cat16" style="display: none">
+    <tr class="cat17" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">resp_used_wds</td>
         <td class="FieldDesc" colspan="1*">15..0</td>
@@ -1251,7 +1303,7 @@ may be issued until it is finished. Technically represents cs_n being low.
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="17">espi_cmd_fifo_wdata</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="18">espi_cmd_fifo_wdata</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x210
@@ -1260,31 +1312,31 @@ may be issued until it is finished. Technically represents cs_n being low.
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Command FIFO Write Data Register</td>
     </tr>
-    <tr class="cat17" style="display: none">
+    <tr class="cat18" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;31..24</td>
                 <td class="validspandef" colspan="16*">fifo_data</td>
     </tr>
-    <tr class="cat17" style="display: none">
+    <tr class="cat18" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;23..16</td>
                 <td class="validspandef" colspan="16*">fifo_data</td>
     </tr>
-    <tr class="cat17" style="display: none">
+    <tr class="cat18" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;15..8</td>
                 <td class="validspandef" colspan="16*">fifo_data</td>
     </tr>
-    <tr class="cat17" style="display: none">
+    <tr class="cat18" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">fifo_data</td>
     </tr>
-    <tr class="cat17" style="display: none">
+    <tr class="cat18" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -1292,7 +1344,7 @@ may be issued until it is finished. Technically represents cs_n being low.
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat17" style="display: none">
+    <tr class="cat18" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">fifo_data</td>
         <td class="FieldDesc" colspan="1*">31..0</td>
@@ -1302,7 +1354,7 @@ may be issued until it is finished. Technically represents cs_n being low.
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="18">espi_resp_fifo_rdata</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="19">espi_resp_fifo_rdata</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x214
@@ -1311,31 +1363,31 @@ may be issued until it is finished. Technically represents cs_n being low.
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Response FIFO Read Data Register</td>
     </tr>
-    <tr class="cat18" style="display: none">
+    <tr class="cat19" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;31..24</td>
                 <td class="validspandef" colspan="16*">fifo_data</td>
     </tr>
-    <tr class="cat18" style="display: none">
+    <tr class="cat19" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;23..16</td>
                 <td class="validspandef" colspan="16*">fifo_data</td>
     </tr>
-    <tr class="cat18" style="display: none">
+    <tr class="cat19" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;15..8</td>
                 <td class="validspandef" colspan="16*">fifo_data</td>
     </tr>
-    <tr class="cat18" style="display: none">
+    <tr class="cat19" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">fifo_data</td>
     </tr>
-    <tr class="cat18" style="display: none">
+    <tr class="cat19" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -1343,7 +1395,7 @@ may be issued until it is finished. Technically represents cs_n being low.
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat18" style="display: none">
+    <tr class="cat19" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">fifo_data</td>
         <td class="FieldDesc" colspan="1*">31..0</td>
@@ -1353,7 +1405,7 @@ may be issued until it is finished. Technically represents cs_n being low.
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="19">espi_cmd_size_fifo_wdata</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="20">espi_cmd_size_fifo_wdata</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x218
@@ -1362,31 +1414,31 @@ may be issued until it is finished. Technically represents cs_n being low.
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Command FIFO Byte Count FIFO</td>
     </tr>
-    <tr class="cat19" style="display: none">
+    <tr class="cat20" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;31..24</td>
                 <td class="rsvdspandef" colspan="16*">RSVD</td>
     </tr>
-    <tr class="cat19" style="display: none">
+    <tr class="cat20" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;23..16</td>
                 <td class="rsvdspandef" colspan="16*">RSVD</td>
     </tr>
-    <tr class="cat19" style="display: none">
+    <tr class="cat20" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;15..8</td>
                 <td class="rsvdspandef" colspan="16*">RSVD</td>
     </tr>
-    <tr class="cat19" style="display: none">
+    <tr class="cat20" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">fifo_data</td>
     </tr>
-    <tr class="cat19" style="display: none">
+    <tr class="cat20" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -1394,7 +1446,7 @@ may be issued until it is finished. Technically represents cs_n being low.
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat19" style="display: none">
+    <tr class="cat20" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">fifo_data</td>
         <td class="FieldDesc" colspan="1*">7..0</td>
@@ -1406,7 +1458,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="20">sgpio_OUT0</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="21">sgpio_OUT0</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x300
@@ -1415,19 +1467,19 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;CH0 Outputs</td>
     </tr>
-    <tr class="cat20" style="display: none">
+    <tr class="cat21" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;31..24</td>
                 <td class="rsvdspandef" colspan="16*">RSVD</td>
     </tr>
-    <tr class="cat20" style="display: none">
+    <tr class="cat21" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;23..16</td>
                 <td class="rsvdspandef" colspan="16*">RSVD</td>
     </tr>
-    <tr class="cat20" style="display: none">
+    <tr class="cat21" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;15..8</td>
@@ -1439,7 +1491,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
                 <td class="validspandef" colspan="2*">a4</td>
                 <td class="validspandef" colspan="2*">v7</td>
     </tr>
-    <tr class="cat20" style="display: none">
+    <tr class="cat21" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
@@ -1452,7 +1504,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
                 <td class="validspandef" colspan="2*">h3</td>
                 <td class="validspandef" colspan="2*">h0</td>
     </tr>
-    <tr class="cat20" style="display: none">
+    <tr class="cat21" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -1460,7 +1512,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat20" style="display: none">
+    <tr class="cat21" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">hbt</td>
         <td class="FieldDesc" colspan="1*">15</td>
@@ -1469,7 +1521,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HAWAII_HEARTBEAT
         </td>
     </tr>
-    <tr class="cat20" style="display: none">
+    <tr class="cat21" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">stb_rdy</td>
         <td class="FieldDesc" colspan="1*">14</td>
@@ -1478,7 +1530,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">MB_SCM_HPM_STBY_RDY
         </td>
     </tr>
-    <tr class="cat20" style="display: none">
+    <tr class="cat21" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">unused</td>
         <td class="FieldDesc" colspan="1*">13..12</td>
@@ -1487,7 +1539,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">UNUSED_OUTS
         </td>
     </tr>
-    <tr class="cat20" style="display: none">
+    <tr class="cat21" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">y3</td>
         <td class="FieldDesc" colspan="1*">11</td>
@@ -1496,7 +1548,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOY3-??
         </td>
     </tr>
-    <tr class="cat20" style="display: none">
+    <tr class="cat21" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">a5</td>
         <td class="FieldDesc" colspan="1*">10</td>
@@ -1505,7 +1557,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOA5-MGMT_SMBUS_DATA
         </td>
     </tr>
-    <tr class="cat20" style="display: none">
+    <tr class="cat21" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">a4</td>
         <td class="FieldDesc" colspan="1*">9</td>
@@ -1514,7 +1566,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOA4-MGMT_SMBUS_CLK
         </td>
     </tr>
-    <tr class="cat20" style="display: none">
+    <tr class="cat21" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">v7</td>
         <td class="FieldDesc" colspan="1*">8</td>
@@ -1523,7 +1575,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOV7-GPIO_OUTPUT_9
         </td>
     </tr>
-    <tr class="cat20" style="display: none">
+    <tr class="cat21" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">v6</td>
         <td class="FieldDesc" colspan="1*">7</td>
@@ -1532,7 +1584,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOV6-GPIO_OUTPUT_8
         </td>
     </tr>
-    <tr class="cat20" style="display: none">
+    <tr class="cat21" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">v5</td>
         <td class="FieldDesc" colspan="1*">6</td>
@@ -1541,7 +1593,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOV5-GPIO_OUTPUT_7
         </td>
     </tr>
-    <tr class="cat20" style="display: none">
+    <tr class="cat21" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">v3</td>
         <td class="FieldDesc" colspan="1*">5</td>
@@ -1550,7 +1602,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOV3-GPIO_OUTPUT_6
         </td>
     </tr>
-    <tr class="cat20" style="display: none">
+    <tr class="cat21" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">n7</td>
         <td class="FieldDesc" colspan="1*">4</td>
@@ -1559,7 +1611,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPION7-BMC_READY
         </td>
     </tr>
-    <tr class="cat20" style="display: none">
+    <tr class="cat21" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">l5</td>
         <td class="FieldDesc" colspan="1*">3</td>
@@ -1568,7 +1620,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOL5-??
         </td>
     </tr>
-    <tr class="cat20" style="display: none">
+    <tr class="cat21" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">l4</td>
         <td class="FieldDesc" colspan="1*">2</td>
@@ -1577,7 +1629,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOL4-??
         </td>
     </tr>
-    <tr class="cat20" style="display: none">
+    <tr class="cat21" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">h3</td>
         <td class="FieldDesc" colspan="1*">1</td>
@@ -1586,7 +1638,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOH3-??
         </td>
     </tr>
-    <tr class="cat20" style="display: none">
+    <tr class="cat21" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">h0</td>
         <td class="FieldDesc" colspan="1*">0</td>
@@ -1596,7 +1648,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="21">sgpio_IN0</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="22">sgpio_IN0</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x304
@@ -1605,19 +1657,19 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;CH0 Inputs</td>
     </tr>
-    <tr class="cat21" style="display: none">
+    <tr class="cat22" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;31..24</td>
                 <td class="rsvdspandef" colspan="16*">RSVD</td>
     </tr>
-    <tr class="cat21" style="display: none">
+    <tr class="cat22" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;23..16</td>
                 <td class="rsvdspandef" colspan="16*">RSVD</td>
     </tr>
-    <tr class="cat21" style="display: none">
+    <tr class="cat22" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;15..8</td>
@@ -1630,7 +1682,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
                 <td class="validspandef" colspan="2*">n5</td>
                 <td class="validspandef" colspan="2*">n4</td>
     </tr>
-    <tr class="cat21" style="display: none">
+    <tr class="cat22" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
@@ -1643,7 +1695,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
                 <td class="validspandef" colspan="2*">b5</td>
                 <td class="validspandef" colspan="2*">b4</td>
     </tr>
-    <tr class="cat21" style="display: none">
+    <tr class="cat22" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -1651,7 +1703,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat21" style="display: none">
+    <tr class="cat22" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">g7</td>
         <td class="FieldDesc" colspan="1*">15</td>
@@ -1660,7 +1712,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOG7-BMC_SCM_FPGA_UART_RX
         </td>
     </tr>
-    <tr class="cat21" style="display: none">
+    <tr class="cat22" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">p6</td>
         <td class="FieldDesc" colspan="1*">14</td>
@@ -1669,7 +1721,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOP6-MGMT_SYS_MON_PWR_GOOD
         </td>
     </tr>
-    <tr class="cat21" style="display: none">
+    <tr class="cat22" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">p4</td>
         <td class="FieldDesc" colspan="1*">13</td>
@@ -1678,7 +1730,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOP4-MGMT_SYS_MON_NMI_BTN_L
         </td>
     </tr>
-    <tr class="cat21" style="display: none">
+    <tr class="cat22" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">p2</td>
         <td class="FieldDesc" colspan="1*">12</td>
@@ -1687,7 +1739,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOP2-MGMT_SYS_MON_PWR_BTN_L
         </td>
     </tr>
-    <tr class="cat21" style="display: none">
+    <tr class="cat22" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">p0</td>
         <td class="FieldDesc" colspan="1*">11</td>
@@ -1696,7 +1748,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOP0-MGMT_SYS_MON_RST_BTN_L
         </td>
     </tr>
-    <tr class="cat21" style="display: none">
+    <tr class="cat22" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">n6</td>
         <td class="FieldDesc" colspan="1*">10</td>
@@ -1705,7 +1757,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPION6-DEBUG_INPUT1
         </td>
     </tr>
-    <tr class="cat21" style="display: none">
+    <tr class="cat22" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">n5</td>
         <td class="FieldDesc" colspan="1*">9</td>
@@ -1714,7 +1766,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPION5-MGMT_AC_LOSS_L
         </td>
     </tr>
-    <tr class="cat21" style="display: none">
+    <tr class="cat22" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">n4</td>
         <td class="FieldDesc" colspan="1*">8</td>
@@ -1723,7 +1775,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPION4-MGMT_SYS_MON_ATX_PWR_OK
         </td>
     </tr>
-    <tr class="cat21" style="display: none">
+    <tr class="cat22" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">n3</td>
         <td class="FieldDesc" colspan="1*">7</td>
@@ -1732,7 +1784,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPION3-MGMT_SYS_MON_P1_THERMTRIP_L
         </td>
     </tr>
-    <tr class="cat21" style="display: none">
+    <tr class="cat22" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">n2</td>
         <td class="FieldDesc" colspan="1*">6</td>
@@ -1741,7 +1793,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPION2-MGMT_SYS_MON_P0_THERMTRIP_L
         </td>
     </tr>
-    <tr class="cat21" style="display: none">
+    <tr class="cat22" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">n1</td>
         <td class="FieldDesc" colspan="1*">5</td>
@@ -1750,7 +1802,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPION1-MGMT_SYS_MON_P1_PROCHOT_L
         </td>
     </tr>
-    <tr class="cat21" style="display: none">
+    <tr class="cat22" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">n0</td>
         <td class="FieldDesc" colspan="1*">4</td>
@@ -1759,7 +1811,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPION0-MGMT_SYS_MON_P0_PROCHOT_L
         </td>
     </tr>
-    <tr class="cat21" style="display: none">
+    <tr class="cat22" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">i6</td>
         <td class="FieldDesc" colspan="1*">3</td>
@@ -1768,7 +1820,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOI6-MGMT_SYS_MON_RESET_L
         </td>
     </tr>
-    <tr class="cat21" style="display: none">
+    <tr class="cat22" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">b7</td>
         <td class="FieldDesc" colspan="1*">2</td>
@@ -1777,7 +1829,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOB7-P1_PRESENT_L
         </td>
     </tr>
-    <tr class="cat21" style="display: none">
+    <tr class="cat22" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">b5</td>
         <td class="FieldDesc" colspan="1*">1</td>
@@ -1786,7 +1838,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOB5-P0_PRESENT_L
         </td>
     </tr>
-    <tr class="cat21" style="display: none">
+    <tr class="cat22" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">b4</td>
         <td class="FieldDesc" colspan="1*">0</td>
@@ -1796,7 +1848,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="22">sgpio_OUT1</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="23">sgpio_OUT1</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x308
@@ -1805,19 +1857,19 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;CH1 Outputs</td>
     </tr>
-    <tr class="cat22" style="display: none">
+    <tr class="cat23" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;31..24</td>
                 <td class="rsvdspandef" colspan="16*">RSVD</td>
     </tr>
-    <tr class="cat22" style="display: none">
+    <tr class="cat23" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;23..16</td>
                 <td class="rsvdspandef" colspan="16*">RSVD</td>
     </tr>
-    <tr class="cat22" style="display: none">
+    <tr class="cat23" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;15..8</td>
@@ -1830,7 +1882,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
                 <td class="validspandef" colspan="2*">o4</td>
                 <td class="validspandef" colspan="2*">o3</td>
     </tr>
-    <tr class="cat22" style="display: none">
+    <tr class="cat23" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
@@ -1843,7 +1895,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
                 <td class="validspandef" colspan="2*">h2</td>
                 <td class="validspandef" colspan="2*">h1</td>
     </tr>
-    <tr class="cat22" style="display: none">
+    <tr class="cat23" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -1851,7 +1903,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat22" style="display: none">
+    <tr class="cat23" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">g6</td>
         <td class="FieldDesc" colspan="1*">14</td>
@@ -1860,7 +1912,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOG6-BMC_SCM_FPGA_UART_TX
         </td>
     </tr>
-    <tr class="cat22" style="display: none">
+    <tr class="cat23" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">p5</td>
         <td class="FieldDesc" colspan="1*">13</td>
@@ -1869,7 +1921,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOP5-MGMT_ASSERT_NMI_BTN_L
         </td>
     </tr>
-    <tr class="cat22" style="display: none">
+    <tr class="cat23" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">p3</td>
         <td class="FieldDesc" colspan="1*">12</td>
@@ -1878,7 +1930,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOP3-MGMT_ASSERT_PWR_BTN_L
         </td>
     </tr>
-    <tr class="cat22" style="display: none">
+    <tr class="cat23" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">p1</td>
         <td class="FieldDesc" colspan="1*">11</td>
@@ -1887,7 +1939,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOP1-MGMT_ASSERT_RST_BTN_L
         </td>
     </tr>
-    <tr class="cat22" style="display: none">
+    <tr class="cat23" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">o5</td>
         <td class="FieldDesc" colspan="1*">10</td>
@@ -1896,7 +1948,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOO5-JTAG_TRST_N
         </td>
     </tr>
-    <tr class="cat22" style="display: none">
+    <tr class="cat23" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">o4</td>
         <td class="FieldDesc" colspan="1*">9</td>
@@ -1905,7 +1957,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOO4-GPIO_OUTPUT_5
         </td>
     </tr>
-    <tr class="cat22" style="display: none">
+    <tr class="cat23" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">o3</td>
         <td class="FieldDesc" colspan="1*">8</td>
@@ -1914,7 +1966,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOO3-GPIO_OUTPUT_4
         </td>
     </tr>
-    <tr class="cat22" style="display: none">
+    <tr class="cat23" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">o2</td>
         <td class="FieldDesc" colspan="1*">7</td>
@@ -1923,7 +1975,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOO2-GPIO_OUTPUT_3
         </td>
     </tr>
-    <tr class="cat22" style="display: none">
+    <tr class="cat23" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">o1</td>
         <td class="FieldDesc" colspan="1*">6</td>
@@ -1932,7 +1984,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOO1-GPIO_OUTPUT_2
         </td>
     </tr>
-    <tr class="cat22" style="display: none">
+    <tr class="cat23" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">o0</td>
         <td class="FieldDesc" colspan="1*">5</td>
@@ -1941,7 +1993,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HHPM_BMC_GPIOO0-GPIO_OUTPUT_1
         </td>
     </tr>
-    <tr class="cat22" style="display: none">
+    <tr class="cat23" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">m2</td>
         <td class="FieldDesc" colspan="1*">4</td>
@@ -1950,7 +2002,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOM2-MGMT_ASSERT_CLR_CMOS
         </td>
     </tr>
-    <tr class="cat22" style="display: none">
+    <tr class="cat23" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">m1</td>
         <td class="FieldDesc" colspan="1*">3</td>
@@ -1959,7 +2011,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOM1-MGMT_ASSERT_P1_PROCHOT
         </td>
     </tr>
-    <tr class="cat22" style="display: none">
+    <tr class="cat23" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">m0</td>
         <td class="FieldDesc" colspan="1*">2</td>
@@ -1968,7 +2020,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOM0-MGMT_ASSERT_P0_PROCHOT
         </td>
     </tr>
-    <tr class="cat22" style="display: none">
+    <tr class="cat23" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">h2</td>
         <td class="FieldDesc" colspan="1*">1</td>
@@ -1977,7 +2029,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOH2-MGMT_SOC_RESET_L
         </td>
     </tr>
-    <tr class="cat22" style="display: none">
+    <tr class="cat23" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">h1</td>
         <td class="FieldDesc" colspan="1*">0</td>
@@ -1987,7 +2039,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="23">sgpio_IN1</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="24">sgpio_IN1</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x30c
@@ -1996,19 +2048,19 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;CH1 Inputs</td>
     </tr>
-    <tr class="cat23" style="display: none">
+    <tr class="cat24" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;31..24</td>
                 <td class="rsvdspandef" colspan="16*">RSVD</td>
     </tr>
-    <tr class="cat23" style="display: none">
+    <tr class="cat24" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;23..16</td>
                 <td class="rsvdspandef" colspan="16*">RSVD</td>
     </tr>
-    <tr class="cat23" style="display: none">
+    <tr class="cat24" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;15..8</td>
@@ -2018,7 +2070,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
                 <td class="validspandef" colspan="8*">uu</td>
                 <td class="validspandef" colspan="2*">s7</td>
     </tr>
-    <tr class="cat23" style="display: none">
+    <tr class="cat24" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
@@ -2031,7 +2083,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
                 <td class="validspandef" colspan="2*">m4</td>
                 <td class="validspandef" colspan="2*">m3</td>
     </tr>
-    <tr class="cat23" style="display: none">
+    <tr class="cat24" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -2039,7 +2091,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat23" style="display: none">
+    <tr class="cat24" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">uu1</td>
         <td class="FieldDesc" colspan="1*">15</td>
@@ -2048,7 +2100,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">MGMT_SMBUS_ALERT_L
         </td>
     </tr>
-    <tr class="cat23" style="display: none">
+    <tr class="cat24" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">i7</td>
         <td class="FieldDesc" colspan="1*">14</td>
@@ -2057,7 +2109,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOI7-??
         </td>
     </tr>
-    <tr class="cat23" style="display: none">
+    <tr class="cat24" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">espi_sel</td>
         <td class="FieldDesc" colspan="1*">13</td>
@@ -2066,7 +2118,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">ESPI_BOOT_SEL
         </td>
     </tr>
-    <tr class="cat23" style="display: none">
+    <tr class="cat24" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">uu</td>
         <td class="FieldDesc" colspan="1*">12..9</td>
@@ -2075,7 +2127,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">I2C_BMC_MB_ALERT_s
         </td>
     </tr>
-    <tr class="cat23" style="display: none">
+    <tr class="cat24" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">s7</td>
         <td class="FieldDesc" colspan="1*">8</td>
@@ -2084,7 +2136,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOS7-GPIO_INPUT_6
         </td>
     </tr>
-    <tr class="cat23" style="display: none">
+    <tr class="cat24" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">s6</td>
         <td class="FieldDesc" colspan="1*">7</td>
@@ -2093,7 +2145,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOS6-GPIO_INPUT_5
         </td>
     </tr>
-    <tr class="cat23" style="display: none">
+    <tr class="cat24" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">s5</td>
         <td class="FieldDesc" colspan="1*">6</td>
@@ -2102,7 +2154,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOS5-GPIO_INPUT_4
         </td>
     </tr>
-    <tr class="cat23" style="display: none">
+    <tr class="cat24" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">s4</td>
         <td class="FieldDesc" colspan="1*">5</td>
@@ -2111,7 +2163,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOS4-GPIO_INPUT_3
         </td>
     </tr>
-    <tr class="cat23" style="display: none">
+    <tr class="cat24" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">q4</td>
         <td class="FieldDesc" colspan="1*">4</td>
@@ -2120,7 +2172,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOQ4-GPIO_INPUT_2
         </td>
     </tr>
-    <tr class="cat23" style="display: none">
+    <tr class="cat24" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">q3</td>
         <td class="FieldDesc" colspan="1*">3</td>
@@ -2129,7 +2181,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOQ3-GPIO_INPUT_1
         </td>
     </tr>
-    <tr class="cat23" style="display: none">
+    <tr class="cat24" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">m5</td>
         <td class="FieldDesc" colspan="1*">2</td>
@@ -2138,7 +2190,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOM5-??
         </td>
     </tr>
-    <tr class="cat23" style="display: none">
+    <tr class="cat24" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">m4</td>
         <td class="FieldDesc" colspan="1*">1</td>
@@ -2147,7 +2199,7 @@ if desired. left over data bytes are discarded if this fifo is empty and there a
         <td class="FieldDesc" colspan="14">HPM_BMC_GPIOM4-??
         </td>
     </tr>
-    <tr class="cat23" style="display: none">
+    <tr class="cat24" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">m3</td>
         <td class="FieldDesc" colspan="1*">0</td>
