@@ -100,6 +100,7 @@ const NUM_HOST_MAC_ADDRESSES: u16 = 3;
 enum Trace {
     #[count(skip)]
     None,
+    UartRx(u8),
     UartRxOverrun,
     ParseError(#[count(children)] DecodeFailureReason),
     SetState {
@@ -135,7 +136,7 @@ enum Trace {
     },
 }
 
-counted_ringbuf!(Trace, 20, Trace::None);
+counted_ringbuf!(Trace, 50, Trace::None);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum TimerDisposition {
@@ -638,6 +639,7 @@ impl ServerImpl {
 
     fn uart_rx_until_maybe_packet(&mut self) -> bool {
         while let Some(byte) = self.uart.try_rx_pop() {
+            ringbuf_entry!(Trace::UartRx(byte));
             if byte == 0x00 {
                 // COBS terminator; did we get any data?
                 if self.rx_buf.is_empty() {
