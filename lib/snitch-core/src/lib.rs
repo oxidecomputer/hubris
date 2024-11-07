@@ -545,6 +545,19 @@ mod tests {
         r.commit();
     }
 
+    #[track_caller]
+    fn assert_dequeued_nonfinite_loss<const N: usize>(
+        q: &mut Store<N>,
+    ) {
+        let r = q.dequeue_record().expect("should dequeue");
+        if let Record::Lost(n) = r.record() {
+            assert_eq!(*n, None);
+        } else {
+            panic!("expected nonfinite loss, got: {:?}", r.record());
+        }
+        r.commit();
+    }
+
     /// This test case exists mostly to spot over/underflows in index handling
     /// for zero-sized queues.
     #[test]
@@ -734,5 +747,35 @@ mod tests {
         q.enqueue_record_slice(&MESSAGE1).expect("should fit");
         // and get it back out
         assert_dequeued_record(&mut q, &MESSAGE1);
+    }
+
+    /// This tests that the loss count saturates at $VERY_LARGE_NUMBER
+    #[test]
+    fn enqueue_loss_overflow() {
+        const SIZE: usize = 2;
+        let mut q = Store::<SIZE>::DEFAULT;
+
+        // Start losing data.
+        q.enqueue_record_slice(&[0; 100]).expect_err("should not fit");
+
+        // I'm not actually going to write a test that enqueues 2**32 packets,
+        // that would be rude. Instead, I'm going to be sneaky.
+
+        match &mut q.writer_state {
+            WriterState::Writing => panic!("uh...no loss state?"),
+            WriterState::Losing(n) => *n = Some(NonZeroU32::MAX),
+        }
+
+        // Alright, back to testing through the public API.
+        q.enqueue_record_slice(&[0; 100]).expect_err("should not fit");
+        //...mostly
+        assert_eq!(q.writer_state, WriterState::Losing(None));
+
+        q.enqueue_record_slice(&[0; 100]).expect_err("should not fit");
+        q.enqueue_record_slice(&[0; 100]).expect_err("should not fit");
+        q.enqueue_record_slice(&[0; 100]).expect_err("should not fit");
+        q.enqueue_record_slice(&[0; 100]).expect_err("should not fit");
+
+        assert_dequeued_nonfinite_loss(&mut q);
     }
 }
