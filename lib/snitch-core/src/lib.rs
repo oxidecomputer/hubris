@@ -133,7 +133,10 @@ impl<const N: usize> Store<N> {
 
     /// Convenience version of `enqueue_record` for when the data is already
     /// contiguous in RAM.
-    pub fn enqueue_record_slice(&mut self, slice: &[u8]) -> Result<(), StoreError> {
+    pub fn enqueue_record_slice(
+        &mut self,
+        slice: &[u8],
+    ) -> Result<(), StoreError> {
         let mut res = self.enqueue_record(slice.len())?;
 
         let (d0, d1) = res.slices();
@@ -156,7 +159,10 @@ impl<const N: usize> Store<N> {
     ///
     /// If this can't reserve the required space, returns
     /// `StoreError::NotEnoughSpace`.
-    pub fn enqueue_record(&mut self, len: usize) -> Result<WriteReservation<'_, N>, StoreError> {
+    pub fn enqueue_record(
+        &mut self,
+        len: usize,
+    ) -> Result<WriteReservation<'_, N>, StoreError> {
         self.clear_corruption();
 
         let f = self.bytes_free();
@@ -227,7 +233,9 @@ impl<const N: usize> Store<N> {
     /// 2. With `ReadError::InternalCorruption`, which means the underlying byte
     ///    queue was found to be corrupt and will be cleared to resume
     ///    operation. You should attempt to report this condition up-stack.
-    pub fn dequeue_record(&mut self) -> Result<ReadReservation<'_, N>, ReadError> {
+    pub fn dequeue_record(
+        &mut self,
+    ) -> Result<ReadReservation<'_, N>, ReadError> {
         self.clear_corruption();
 
         if self.inner.next_read == self.inner.next_write && !self.inner.full {
@@ -272,13 +280,20 @@ impl<const N: usize> Store<N> {
 }
 
 impl<const N: usize> BasicStore<N> {
-    fn enqueue_record_without_tracking(&mut self, len: usize) -> Result<WriteReservation<'_, N>, StoreError> {
+    fn enqueue_record_without_tracking(
+        &mut self,
+        len: usize,
+    ) -> Result<WriteReservation<'_, N>, StoreError> {
         // See if we have enough room to enqueue this message.
         let required = required_space_for(len);
-        let mut reservation = self.prepare_write(required).ok_or(StoreError::NotEnoughSpace)?;
+        let mut reservation = self
+            .prepare_write(required)
+            .ok_or(StoreError::NotEnoughSpace)?;
 
         // Write the "valid message" header.
-        let [len16lo, len16hi] = u16::try_from(len).map_err(|_| StoreError::NotEnoughSpace)?.to_le_bytes();
+        let [len16lo, len16hi] = u16::try_from(len)
+            .map_err(|_| StoreError::NotEnoughSpace)?
+            .to_le_bytes();
         reservation.push_front(MESSAGE);
         reservation.push_front(len16lo);
         reservation.push_front(len16hi);
@@ -307,7 +322,6 @@ impl<const N: usize> BasicStore<N> {
             next_write: &mut self.next_write,
             next_read: self.next_read,
             full: &mut self.full,
-
         })
     }
 
@@ -327,7 +341,9 @@ impl<const N: usize> BasicStore<N> {
         }
     }
 
-    fn dequeue_record_without_discard(&mut self) -> Result<ReadReservation<'_, N>, ReadError> {
+    fn dequeue_record_without_discard(
+        &mut self,
+    ) -> Result<ReadReservation<'_, N>, ReadError> {
         // we reuse this pattern a few times below:
         fn check(condition: bool) -> Result<(), ReadError> {
             if !condition {
@@ -393,7 +409,6 @@ impl<const N: usize> BasicStore<N> {
             }
         }
     }
-
 }
 
 #[derive(Debug)]
@@ -456,7 +471,6 @@ impl<const N: usize> ReadReservation<'_, N> {
     }
 }
 
-
 fn push_to_slices(slices: &mut (&mut [u8], &mut [u8]), byte: u8) {
     if slices.0.is_empty() {
         slices.1[0] = byte;
@@ -503,7 +517,10 @@ mod tests {
     use super::*;
 
     #[track_caller]
-    fn assert_dequeued_record<const N: usize>(q: &mut Store<N>, contents: &[u8]) {
+    fn assert_dequeued_record<const N: usize>(
+        q: &mut Store<N>,
+        contents: &[u8],
+    ) {
         let r = q.dequeue_record().expect("should dequeue");
         if let Record::Valid(s0, s1) = r.record() {
             assert_eq!(*s0, &contents[..s0.len()]);
@@ -515,7 +532,10 @@ mod tests {
     }
 
     #[track_caller]
-    fn assert_dequeued_finite_loss<const N: usize>(q: &mut Store<N>, expected: u32) {
+    fn assert_dequeued_finite_loss<const N: usize>(
+        q: &mut Store<N>,
+        expected: u32,
+    ) {
         let r = q.dequeue_record().expect("should dequeue");
         if let Record::Lost(n) = r.record() {
             assert_eq!(*n, NonZeroU32::new(expected));
@@ -537,8 +557,11 @@ mod tests {
         // default message header, just in case there's header-related bogus
         // math.
         for len in 0..4 {
-            assert_eq!(q.enqueue_record(len).expect_err("should fail"), StoreError::NotEnoughSpace,
-                "len is {len}");
+            assert_eq!(
+                q.enqueue_record(len).expect_err("should fail"),
+                StoreError::NotEnoughSpace,
+                "len is {len}"
+            );
             assert_eq!(q.bytes_avail(), 0);
         }
     }
@@ -549,7 +572,10 @@ mod tests {
     fn zero_sized_queue_wont_dequeue() {
         let mut q = Store::<0>::DEFAULT;
 
-        assert_eq!(q.dequeue_record().expect_err("should fail"), ReadError::Empty);
+        assert_eq!(
+            q.dequeue_record().expect_err("should fail"),
+            ReadError::Empty
+        );
     }
 
     #[test]
@@ -587,7 +613,7 @@ mod tests {
         q.inner.next_read = 5;
         q.inner.next_write = 5;
         // 35 bytes until wraparound
-        
+
         // 8 byte message => 11 bytes used => 29 bytes free
         const MESSAGE1: &[u8] = b"12345678";
         q.enqueue_record_slice(MESSAGE1).expect("should fit");
@@ -600,7 +626,7 @@ mod tests {
         assert_eq!(q.bytes_free(), 22);
 
         // Message should dequeue in order as valid.
-        assert_dequeued_record(&mut q, &MESSAGE1);
+        assert_dequeued_record(&mut q, MESSAGE1);
 
         // We're back up to 33 bytes free.
 
@@ -611,7 +637,7 @@ mod tests {
         assert_eq!(q.bytes_free(), 5, "{q:?}");
 
         // Test dequeueing around the end of the array.
-        assert_dequeued_record(&mut q, &MESSAGE2);
+        assert_dequeued_record(&mut q, MESSAGE2);
 
         assert_dequeued_record(&mut q, &MESSAGE3);
     }
@@ -638,7 +664,7 @@ mod tests {
         // ...leaving the queue full.
         const MESSAGE2: [u8; 2] = [0; 2];
         q.enqueue_record_slice(&MESSAGE2).expect("should fit");
-        
+
         // Reading things out of the queue preserves the relative ordering of
         // the data loss now.
         assert_dequeued_record(&mut q, &MESSAGE1);
@@ -672,7 +698,7 @@ mod tests {
         // ...leaving the queue full.
         const MESSAGE2: [u8; 2] = [0; 2];
         q.enqueue_record_slice(&MESSAGE2).expect("should fit");
-        
+
         // Reading things out of the queue preserves the relative ordering of
         // the data loss now.
         assert_dequeued_record(&mut q, &MESSAGE1);
