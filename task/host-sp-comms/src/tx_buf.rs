@@ -140,7 +140,8 @@ impl TxBuf {
 
     /// Should we be sending periodic 0 bytes?
     pub(crate) fn should_send_periodic_zero_bytes(&self) -> bool {
-        matches!(self.state, State::Idle)
+        false
+        //matches!(self.state, State::Idle)
     }
 
     /// Encodes `reason` into our outgoing buffer.
