@@ -55,9 +55,15 @@
 //!
 //! As a result, all the queue APIs are _fallible._ They give the caller a way
 //! to cancel enqueue/dequeue before it completes. This makes things a little
-//! more awkward than you might expect.
+//! more awkward than you might expect. Concretely:
+//!
+//! - Both enqueue and dequeue operations return a _reservation_ object.
+//! - Dropping that reservation is a no-op, the enqueue or dequeue does not
+//!   happen.
+//! - To cause the dequeue/enqueue to happen, call `commit()` on the
+//!   reservation.
 
-use std::{convert::Infallible, mem::take, num::NonZeroU32};
+use std::{mem::take, num::NonZeroU32};
 
 use unwrap_lite::UnwrapLite as _;
 
@@ -73,6 +79,17 @@ const LOSS_LEN: usize = 5;
 
 #[derive(Debug)]
 pub struct Store<const N: usize> {
+    inner: BasicStore<N>,
+    /// Tracks whether the writer is losing data.
+    writer_state: WriterState,
+    /// Tracks whether the reader has decided the queue is corrupt; this causes
+    /// the next operation to clear the byte queue (but not the loss count).
+    corrupt: bool,
+}
+
+/// Separating this core queue out makes borrow checkering a lot easier.
+#[derive(Debug)]
+struct BasicStore<const N: usize> {
     /// Backing store.
     contents: [u8; N],
     /// Index within `contents` where the next byte will be written.
@@ -82,8 +99,6 @@ pub struct Store<const N: usize> {
     /// When `next_write == next_read`, this flag distinguishes the full from
     /// empty condition.
     full: bool,
-    /// Tracks whether the writer is losing data.
-    writer_state: WriterState,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -91,7 +106,7 @@ enum WriterState {
     /// All data has been written to the queue. The writer should attempt to
     /// write new data.
     Writing,
-    /// Data has been lost. The writer should attempt to recover but may wind up
+    /// }Data has been lost. The writer should attempt to recover but may wind up
     /// just incrementing this number. If the number is `None` it has overflowed
     /// and is "too many to count."
     Losing(Option<NonZeroU32>),
@@ -99,25 +114,51 @@ enum WriterState {
 
 impl<const N: usize> Store<N> {
     pub const DEFAULT: Self = Self {
-        contents: [0; N],
-        next_write: 0,
-        next_read: 0,
-        full: false,
+        inner: BasicStore {
+            contents: [0; N],
+            next_write: 0,
+            next_read: 0,
+            full: false,
+        },
         writer_state: WriterState::Writing,
+        corrupt: false,
     };
+
+    fn clear_corruption(&mut self) {
+        if take(&mut self.corrupt) {
+            self.inner.next_read = self.inner.next_write;
+            self.inner.full = false;
+        }
+    }
 
     /// Convenience version of `enqueue_record` for when the data is already
     /// contiguous in RAM.
-    pub fn enqueue_record_slice(&mut self, slice: &[u8]) -> Result<(), StoreError<Infallible>> {
-        self.enqueue_record(slice.len(), |d0, d1| {
-            let (s0, s1) = slice.split_at(d0.len());
-            d0.copy_from_slice(s0);
-            d1.copy_from_slice(s1);
-            Ok(())
-        })
+    pub fn enqueue_record_slice(&mut self, slice: &[u8]) -> Result<(), StoreError> {
+        let mut res = self.enqueue_record(slice.len())?;
+
+        let (d0, d1) = res.slices();
+
+        let (s0, s1) = slice.split_at(d0.len());
+        d0.copy_from_slice(s0);
+        d1.copy_from_slice(s1);
+
+        res.commit();
+
+        Ok(())
     }
 
-    pub fn enqueue_record<E>(&mut self, len: usize, copy_in: impl FnOnce(&mut [u8], &mut [u8]) -> Result<(), E>) -> Result<(), StoreError<E>> {
+    /// Prepares to enqueue a record of `len` bytes and returns a reservation.
+    ///
+    /// This writes the record header but does not mark the bytes as used. You
+    /// are expected to fill in the record contents through the reservation, and
+    /// then `commit()` it. If you drop the reservation without committing, the
+    /// written header is disregarded and the bytes can be reused.
+    ///
+    /// If this can't reserve the required space, returns
+    /// `StoreError::NotEnoughSpace`.
+    pub fn enqueue_record(&mut self, len: usize) -> Result<WriteReservation<'_, N>, StoreError> {
+        self.clear_corruption();
+
         let f = self.bytes_free();
 
         if let WriterState::Losing(lost_count) = &mut self.writer_state {
@@ -146,8 +187,8 @@ impl<const N: usize> Store<N> {
             }
         }
 
-        match self.enqueue_record_without_tracking(len, copy_in) {
-            Ok(()) => Ok(()),
+        match self.inner.enqueue_record_without_tracking(len) {
+            Ok(res) => Ok(res),
 
             Err(StoreError::NotEnoughSpace) => {
                 // If we got here, it means we are _newly_ losing data. Enter
@@ -155,31 +196,94 @@ impl<const N: usize> Store<N> {
                 self.writer_state = WriterState::Losing(Some(ONE));
                 Err(StoreError::NotEnoughSpace)
             }
-
-            Err(StoreError::CopyError(e)) => {
-                // This isn't our fault, and we haven't committed the space.
-                // It's not even clear that this represents a lost message. Punt
-                // to the caller.
-                Err(StoreError::CopyError(e))
-            }
         }
     }
 
-    fn enqueue_record_without_tracking<E>(&mut self, len: usize, copy_in: impl FnOnce(&mut [u8], &mut [u8]) -> Result<(), E>) -> Result<(), StoreError<E>> {
+    fn record_loss(&mut self, count: Option<NonZeroU32>) {
+        // We use the special value 0 to represent "overflow."
+        let count = count.map(NonZeroU32::get).unwrap_or(0);
+
+        let mut res = self.inner.prepare_write(LOSS_LEN).unwrap_lite();
+        res.push_front(LOSS);
+        let slices = res.slices();
+        copy2(&count.to_le_bytes(), slices.0, slices.1);
+
+        res.commit();
+    }
+
+    /// Collects information on the next unread record in the queue and, if it
+    /// exists and is valid, returns a reservation for consuming it.
+    ///
+    /// If this succeeds, you are expected to read the record contents out of
+    /// the reservation (if desired!) and then `commit()` it to free the space
+    /// in the queue. If you drop the reservation without committing, the next
+    /// call to `dequeue_record` will yield the same record again.
+    ///
+    /// This can fail in two different ways.
+    ///
+    /// 1. With `ReadError::Empty`, which just means there was nothing in the
+    ///    queue to read.
+    ///
+    /// 2. With `ReadError::InternalCorruption`, which means the underlying byte
+    ///    queue was found to be corrupt and will be cleared to resume
+    ///    operation. You should attempt to report this condition up-stack.
+    pub fn dequeue_record(&mut self) -> Result<ReadReservation<'_, N>, ReadError> {
+        self.clear_corruption();
+
+        if self.inner.next_read == self.inner.next_write && !self.inner.full {
+            // We may have stored losses that we can read out, thereby freeing
+            // the writer to resume.
+            if let WriterState::Losing(n) = self.writer_state {
+                return Ok(ReadReservation {
+                    record: Record::Lost(n),
+                    next_write: self.inner.next_write,
+                    next_next_read: self.inner.next_read, // leave unchanged
+                    next_read: &mut self.inner.next_read,
+                    full: None,
+                    writer_state: Some(&mut self.writer_state),
+                });
+            } else {
+                // There's nothing to dequeue.
+                return Err(ReadError::Empty);
+            }
+        }
+
+        match self.inner.dequeue_record_without_discard() {
+            Ok(res) => Ok(res),
+            Err(ReadError::InternalCorruption) => {
+                // We're going to tell the caller we're corrupt, but we're also
+                // going to clear the condition that caused it so that
+                // operation can resume with limited data loss.
+                self.corrupt = true;
+                Err(ReadError::InternalCorruption)
+            }
+            Err(ReadError::Empty) => Err(ReadError::Empty),
+        }
+    }
+
+    fn bytes_free(&self) -> usize {
+        self.inner.bytes_free()
+    }
+
+    #[cfg(test)]
+    fn bytes_avail(&self) -> usize {
+        self.inner.bytes_avail()
+    }
+}
+
+impl<const N: usize> BasicStore<N> {
+    fn enqueue_record_without_tracking(&mut self, len: usize) -> Result<WriteReservation<'_, N>, StoreError> {
         // See if we have enough room to enqueue this message.
         let required = required_space_for(len);
-        let mut slices = self.prepare_write(required).ok_or(StoreError::NotEnoughSpace)?;
+        let mut reservation = self.prepare_write(required).ok_or(StoreError::NotEnoughSpace)?;
 
         // Write the "valid message" header.
         let [len16lo, len16hi] = u16::try_from(len).map_err(|_| StoreError::NotEnoughSpace)?.to_le_bytes();
-        push_to_slices(&mut slices, MESSAGE);
-        push_to_slices(&mut slices, len16lo);
-        push_to_slices(&mut slices, len16hi);
+        reservation.push_front(MESSAGE);
+        reservation.push_front(len16lo);
+        reservation.push_front(len16hi);
 
-        copy_in(slices.0, slices.1).map_err(StoreError::CopyError)?;
-
-        self.finish_write(required);
-        Ok(())
+        Ok(reservation)
     }
 
     /// Gets the next `n` writable bytes as a pair of slices, the lengths of
@@ -189,7 +293,7 @@ impl<const N: usize> Store<N> {
     ///
     /// Once a message has been copied in using this operation, use
     /// `finish_write` to mark it as used.
-    fn prepare_write(&mut self, n: usize) -> Option<(&mut [u8], &mut [u8])> {
+    fn prepare_write(&mut self, n: usize) -> Option<WriteReservation<'_, N>> {
         if n > self.bytes_free() {
             return None;
         }
@@ -197,60 +301,35 @@ impl<const N: usize> Store<N> {
         let (second, first) = self.contents.split_at_mut(self.next_write);
         let n1 = usize::min(n, first.len());
         let n2 = n.saturating_sub(n1);
-        Some((&mut first[..n1], &mut second[..n2]))
+        Some(WriteReservation {
+            slices: (&mut first[..n1], &mut second[..n2]),
+            original_size: n,
+            next_write: &mut self.next_write,
+            next_read: self.next_read,
+            full: &mut self.full,
+
+        })
     }
 
-    fn finish_write(&mut self, n: usize) {
-        debug_assert!(n <= self.bytes_free());
-        self.next_write = (self.next_write + n) % N;
-        if self.next_write == self.next_read {
-            self.full = true;
+    fn bytes_free(&self) -> usize {
+        N - self.bytes_avail()
+    }
+
+    fn bytes_avail(&self) -> usize {
+        if self.full {
+            N
+        } else if self.next_write == self.next_read {
+            0
+        } else if self.next_write < self.next_read {
+            N - (self.next_read - self.next_write)
+        } else {
+            self.next_write - self.next_read
         }
     }
 
-    fn record_loss(&mut self, count: Option<NonZeroU32>) {
-        // We use the special value 0 to represent "overflow."
-        let count = count.map(NonZeroU32::get).unwrap_or(0);
-
-        let mut slices = self.prepare_write(LOSS_LEN).unwrap_lite();
-        push_to_slices(&mut slices, LOSS);
-        copy2(&count.to_le_bytes(), slices.0, slices.1);
-
-        self.finish_write(LOSS_LEN);
-    }
-
-    pub fn dequeue_record<E>(&mut self, copy_out: impl FnOnce(Record<'_>) -> Result<(), E>) -> Result<(), ReadError<E>> {
-        match self.dequeue_record_without_discard(copy_out) {
-            Ok(()) => Ok(()),
-            Err(ReadError::InternalCorruption) => {
-                // We're going to tell the caller we're corrupt, but we're also
-                // going to clear the condition that caused it so that
-                // operation can resume with limited data loss.
-                self.next_read = self.next_write;
-                self.full = false;
-                Err(ReadError::InternalCorruption)
-            }
-            Err(ReadError::Empty) => Err(ReadError::Empty),
-            Err(ReadError::CopyError(e)) => Err(ReadError::CopyError(e)),
-        }
-    }
-
-    fn dequeue_record_without_discard<E>(&mut self, copy_out: impl FnOnce(Record<'_>) -> Result<(), E>) -> Result<(), ReadError<E>> {
-        if self.next_read == self.next_write && !self.full {
-            // We may have stored losses that we can read out, thereby freeing
-            // the writer to resume.
-            if let WriterState::Losing(n) = self.writer_state {
-                copy_out(Record::Lost(n)).map_err(ReadError::CopyError)?;
-                self.writer_state = WriterState::Writing;
-                return Ok(());
-            } else {
-                // There's nothing to dequeue.
-                return Err(ReadError::Empty);
-            }
-        }
-
+    fn dequeue_record_without_discard(&mut self) -> Result<ReadReservation<'_, N>, ReadError> {
         // we reuse this pattern a few times below:
-        fn check<E>(condition: bool) -> Result<(), ReadError<E>> {
+        fn check(condition: bool) -> Result<(), ReadError> {
             if !condition {
                 Err(ReadError::InternalCorruption)
             } else {
@@ -274,11 +353,14 @@ impl<const N: usize> Store<N> {
                 let len1 = len.saturating_sub(len0);
                 let (slice0, slice1) = (&slice0[..len0], &slice1[..len1]);
 
-                copy_out(Record::Valid(slice0, slice1)).map_err(ReadError::CopyError)?;
-
-                self.next_read = (start + len) % N;
-                self.full = false;
-                Ok(())
+                Ok(ReadReservation {
+                    record: Record::Valid(slice0, slice1),
+                    next_write: self.next_write,
+                    next_read: &mut self.next_read,
+                    next_next_read: (start + len) % N,
+                    full: Some(&mut self.full),
+                    writer_state: None,
+                })
             }
             self::LOSS => {
                 // Inline loss record.
@@ -293,11 +375,14 @@ impl<const N: usize> Store<N> {
                 let lost = u32::from_le_bytes(bytes);
                 let lost = NonZeroU32::try_from(lost).ok(); // zero => None
 
-                copy_out(Record::Lost(lost)).map_err(ReadError::CopyError)?;
-
-                self.next_read = (self.next_read + LOSS_LEN) % N;
-                self.full = false;
-                Ok(())
+                Ok(ReadReservation {
+                    record: Record::Lost(lost),
+                    next_write: self.next_write,
+                    next_next_read: (self.next_read + LOSS_LEN) % N,
+                    next_read: &mut self.next_read,
+                    full: Some(&mut self.full),
+                    writer_state: None,
+                })
             }
             _uhhhh => {
                 // Well, great, the queue is corrupt. We indicate this condition
@@ -309,22 +394,68 @@ impl<const N: usize> Store<N> {
         }
     }
 
-    fn bytes_free(&self) -> usize {
-        N - self.bytes_avail()
+}
+
+#[derive(Debug)]
+pub struct WriteReservation<'a, const N: usize> {
+    original_size: usize,
+    next_write: &'a mut usize,
+    next_read: usize,
+    full: &'a mut bool,
+    slices: (&'a mut [u8], &'a mut [u8]),
+}
+
+impl<const N: usize> WriteReservation<'_, N> {
+    pub fn push_front(&mut self, byte: u8) {
+        push_to_slices(&mut self.slices, byte);
     }
 
-    fn bytes_avail(&self) -> usize {
-        if self.full {
-            N
-        } else if self.next_write == self.next_read {
-            0
-        } else if self.next_write < self.next_read {
-            N - (self.next_read - self.next_write)
-        } else {
-            self.next_write - self.next_read
+    pub fn slices(&mut self) -> (&mut [u8], &mut [u8]) {
+        (self.slices.0, self.slices.1)
+    }
+
+    pub fn len(&self) -> usize {
+        self.slices.0.len() + self.slices.1.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.slices.0.is_empty() && self.slices.1.is_empty()
+    }
+
+    pub fn commit(self) {
+        *self.next_write = (*self.next_write + self.original_size) % N;
+        if *self.next_write == self.next_read {
+            *self.full = true;
         }
     }
 }
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct ReadReservation<'a, const N: usize> {
+    record: Record<'a>,
+    next_write: usize,
+    next_read: &'a mut usize,
+    next_next_read: usize,
+    full: Option<&'a mut bool>,
+    writer_state: Option<&'a mut WriterState>,
+}
+
+impl<const N: usize> ReadReservation<'_, N> {
+    pub fn record(&self) -> &'_ Record<'_> {
+        &self.record
+    }
+
+    pub fn commit(self) {
+        if let Some(full) = self.full {
+            *full = false;
+        }
+        if let Some(writer_state) = self.writer_state {
+            *writer_state = WriterState::Writing;
+        }
+        *self.next_read = self.next_next_read;
+    }
+}
+
 
 fn push_to_slices(slices: &mut (&mut [u8], &mut [u8]), byte: u8) {
     if slices.0.is_empty() {
@@ -339,19 +470,17 @@ fn push_to_slices(slices: &mut (&mut [u8], &mut [u8]), byte: u8) {
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum StoreError<E> {
+pub enum StoreError {
     NotEnoughSpace,
-    CopyError(E),
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum ReadError<E> {
+pub enum ReadError {
     Empty,
     InternalCorruption,
-    CopyError(E),
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Record<'a> {
     Valid(&'a [u8], &'a [u8]),
     Lost(Option<NonZeroU32>),
@@ -373,6 +502,29 @@ fn copy2(src: &[u8], dest0: &mut [u8], dest1: &mut [u8]) {
 mod tests {
     use super::*;
 
+    #[track_caller]
+    fn assert_dequeued_record<const N: usize>(q: &mut Store<N>, contents: &[u8]) {
+        let r = q.dequeue_record().expect("should dequeue");
+        if let Record::Valid(s0, s1) = r.record() {
+            assert_eq!(*s0, &contents[..s0.len()]);
+            assert_eq!(*s1, &contents[s0.len()..]);
+        } else {
+            panic!("expected record, got: {:?}", r.record());
+        }
+        r.commit();
+    }
+
+    #[track_caller]
+    fn assert_dequeued_finite_loss<const N: usize>(q: &mut Store<N>, expected: u32) {
+        let r = q.dequeue_record().expect("should dequeue");
+        if let Record::Lost(n) = r.record() {
+            assert_eq!(*n, NonZeroU32::new(expected));
+        } else {
+            panic!("expected loss of {expected}, got: {:?}", r.record());
+        }
+        r.commit();
+    }
+
     /// This test case exists mostly to spot over/underflows in index handling
     /// for zero-sized queues.
     #[test]
@@ -385,7 +537,7 @@ mod tests {
         // default message header, just in case there's header-related bogus
         // math.
         for len in 0..4 {
-            assert_eq!(q.enqueue_record(len, |_, _| Err(())), Err(StoreError::NotEnoughSpace),
+            assert_eq!(q.enqueue_record(len).expect_err("should fail"), StoreError::NotEnoughSpace,
                 "len is {len}");
             assert_eq!(q.bytes_avail(), 0);
         }
@@ -397,7 +549,7 @@ mod tests {
     fn zero_sized_queue_wont_dequeue() {
         let mut q = Store::<0>::DEFAULT;
 
-        assert_eq!(q.dequeue_record(|_| Err(())), Err(ReadError::Empty));
+        assert_eq!(q.dequeue_record().expect_err("should fail"), ReadError::Empty);
     }
 
     #[test]
@@ -422,13 +574,7 @@ mod tests {
         assert_eq!(q.bytes_avail(), SIZE);
         assert_eq!(q.bytes_free(), 0);
 
-        q.dequeue_record::<()>(|rec| if let Record::Valid(s0, s1) = rec {
-            assert_eq!(s0, &MESSAGE[..s0.len()]);
-            assert_eq!(s1, &MESSAGE[s0.len()..]);
-            Ok(())
-        } else {
-            panic!("expected record, got: {rec:?}");
-        }).expect("should dequeue");
+        assert_dequeued_record(&mut q, MESSAGE);
     }
 
     #[test]
@@ -438,8 +584,8 @@ mod tests {
 
         // Offset the pointers so we're not starting out with things at zero.
         // Zero is the easy case. Wraparound is more interesting.
-        q.next_read = 5;
-        q.next_write = 5;
+        q.inner.next_read = 5;
+        q.inner.next_write = 5;
         // 35 bytes until wraparound
         
         // 8 byte message => 11 bytes used => 29 bytes free
@@ -454,13 +600,7 @@ mod tests {
         assert_eq!(q.bytes_free(), 22);
 
         // Message should dequeue in order as valid.
-        q.dequeue_record(|r| if let Record::Valid(s0, s1) = r {
-            assert_eq!(s0, &MESSAGE1[..s0.len()]);
-            assert_eq!(s1, &MESSAGE1[s0.len()..]);
-            Ok(())
-        } else {
-            Err(())
-        }).expect("should dequeue");
+        assert_dequeued_record(&mut q, &MESSAGE1);
 
         // We're back up to 33 bytes free.
 
@@ -471,20 +611,9 @@ mod tests {
         assert_eq!(q.bytes_free(), 5, "{q:?}");
 
         // Test dequeueing around the end of the array.
-        q.dequeue_record(|r| if let Record::Valid(s0, s1) = r {
-            assert_eq!(s0, &MESSAGE2[..s0.len()]);
-            assert_eq!(s1, &MESSAGE2[s0.len()..]);
-            Ok(())
-        } else {
-            Err(())
-        }).expect("should dequeue");
-        q.dequeue_record(|r| if let Record::Valid(s0, s1) = r {
-            assert_eq!(s0, &MESSAGE3[..s0.len()]);
-            assert_eq!(s1, &MESSAGE3[s0.len()..]);
-            Ok(())
-        } else {
-            Err(())
-        }).expect("should dequeue");
+        assert_dequeued_record(&mut q, &MESSAGE2);
+
+        assert_dequeued_record(&mut q, &MESSAGE3);
     }
 
     /// A _recoverable loss_ is a failure to record some data, but without
@@ -512,26 +641,9 @@ mod tests {
         
         // Reading things out of the queue preserves the relative ordering of
         // the data loss now.
-        q.dequeue_record(|r| if let Record::Valid(s0, s1) = r {
-            assert_eq!(s0, &MESSAGE1[..s0.len()]);
-            assert_eq!(s1, &MESSAGE1[s0.len()..]);
-            Ok(())
-        } else {
-            Err(())
-        }).expect("should dequeue");
-        q.dequeue_record(|r| if let Record::Lost(n) = r {
-            assert_eq!(n, NonZeroU32::new(1));
-            Ok(())
-        } else {
-            Err(())
-        }).expect("should dequeue a loss");
-        q.dequeue_record(|r| if let Record::Valid(s0, s1) = r {
-            assert_eq!(s0, &MESSAGE2[..s0.len()]);
-            assert_eq!(s1, &MESSAGE2[s0.len()..]);
-            Ok(())
-        } else {
-            Err(())
-        }).expect("should dequeue");
+        assert_dequeued_record(&mut q, &MESSAGE1);
+        assert_dequeued_finite_loss(&mut q, 1);
+        assert_dequeued_record(&mut q, &MESSAGE2);
     }
 
     /// We can record `2**32-1` lost messages before saturating, without
@@ -563,26 +675,9 @@ mod tests {
         
         // Reading things out of the queue preserves the relative ordering of
         // the data loss now.
-        q.dequeue_record(|r| if let Record::Valid(s0, s1) = r {
-            assert_eq!(s0, &MESSAGE1[..s0.len()]);
-            assert_eq!(s1, &MESSAGE1[s0.len()..]);
-            Ok(())
-        } else {
-            Err(())
-        }).expect("should dequeue");
-        q.dequeue_record(|r| if let Record::Lost(n) = r {
-            assert_eq!(n, NonZeroU32::new(100));
-            Ok(())
-        } else {
-            Err(())
-        }).expect("should dequeue a loss");
-        q.dequeue_record(|r| if let Record::Valid(s0, s1) = r {
-            assert_eq!(s0, &MESSAGE2[..s0.len()]);
-            assert_eq!(s1, &MESSAGE2[s0.len()..]);
-            Ok(())
-        } else {
-            Err(())
-        }).expect("should dequeue");
+        assert_dequeued_record(&mut q, &MESSAGE1);
+        assert_dequeued_finite_loss(&mut q, 100);
+        assert_dequeued_record(&mut q, &MESSAGE2);
     }
 
     /// The recoverable loss tests demonstrate cases where a writer can free
@@ -606,30 +701,12 @@ mod tests {
         }
 
         // Drain the queue to free the writer.
-        q.dequeue_record(|r| if let Record::Valid(s0, s1) = r {
-            assert_eq!(s0, &MESSAGE1[..s0.len()]);
-            assert_eq!(s1, &MESSAGE1[s0.len()..]);
-            Ok(())
-        } else {
-            Err(())
-        }).expect("should dequeue");
-        q.dequeue_record(|r| if let Record::Lost(n) = r {
-            assert_eq!(n, NonZeroU32::new(100));
-            Ok(())
-        } else {
-            Err(())
-        }).expect("should dequeue a loss");
+        assert_dequeued_record(&mut q, &MESSAGE1);
+        assert_dequeued_finite_loss(&mut q, 100);
 
         // Should be ok to enqueue more now:
         q.enqueue_record_slice(&MESSAGE1).expect("should fit");
         // and get it back out
-        q.dequeue_record(|r| if let Record::Valid(s0, s1) = r {
-            assert_eq!(s0, &MESSAGE1[..s0.len()]);
-            assert_eq!(s1, &MESSAGE1[s0.len()..]);
-            Ok(())
-        } else {
-            Err(())
-        }).expect("should dequeue");
+        assert_dequeued_record(&mut q, &MESSAGE1);
     }
-
 }
