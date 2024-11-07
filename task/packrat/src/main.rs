@@ -209,9 +209,13 @@ impl idl::InOrderPackratImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<HostStartupOptions, RequestError<Infallible>> {
-        Err(RequestError::Fail(
-            idol_runtime::ClientError::BadMessageContents,
-        ))
+        let bits = HostStartupOptions::STARTUP_KMDB.bits()
+            | HostStartupOptions::STARTUP_PROM.bits()
+            | HostStartupOptions::STARTUP_VERBOSE.bits();
+        match HostStartupOptions::from_bits(bits) {
+            Some(options) => Ok(options),
+            None => panic!("must be valid at compile-time"),
+        }
     }
 
     #[cfg(feature = "gimlet")]
