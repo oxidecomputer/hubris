@@ -7,10 +7,6 @@ interrupts = { irq = 38 }
 address = 0x40023800
 size = 1024
 
-[gpioa]
+[gpio]
 address = 0x40020000
-size = 1024
-
-[gpiod]
-address = 0x40020c00
-size = 1024
+size = 16384

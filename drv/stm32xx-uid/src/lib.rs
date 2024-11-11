@@ -15,6 +15,8 @@ cfg_if::cfg_if! {
         const UID_ADDR: u32 = 0x1FFF_7590;
     } else if #[cfg(feature = "family-stm32h7")] {
         const UID_ADDR: u32 = 0x1FF1_E800;
+    } else if #[cfg(feature = "family-stm32f4")] {
+        const UID_ADDR: u32 = 0x1FFF_7A10;
     } else {
         compile_error!("unsupported SoC family");
         const UID_ADDR: u32 = 0; // Prevents a second error below
