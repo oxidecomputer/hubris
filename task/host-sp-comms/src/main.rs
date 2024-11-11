@@ -342,6 +342,7 @@ impl ServerImpl {
         });
     }
 
+    #[cfg(feature = "gimlet")]
     fn set_hf_mux_to_sp(&mut self) {
         if self.hf_mux_state != Some(HfMuxState::SP) {
             // This can only fail if the `hf` task panics, in which case the
@@ -349,6 +350,10 @@ impl ServerImpl {
             let _ = self.hf.set_mux(HfMuxState::SP);
             self.update_hf_mux_state();
         }
+    }
+
+    #[cfg(not(feature = "gimlet"))]
+    fn set_hf_mux_to_sp(&mut self) {
     }
 
     /// Power off the host (i.e., transition to A2).
