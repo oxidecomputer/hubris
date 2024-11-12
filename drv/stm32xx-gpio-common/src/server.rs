@@ -270,7 +270,7 @@ impl_gpio_periph!(gpioa);
 #[cfg(feature = "has-gpiob-type")]
 impl_gpio_periph!(gpiob);
 
-// At least F4 distinguish gpiok from other ports.
+// At least F4 distinguishes gpiok from other ports.
 #[cfg(feature = "has-gpiok-type")]
 impl_gpio_periph!(gpiok);
 
