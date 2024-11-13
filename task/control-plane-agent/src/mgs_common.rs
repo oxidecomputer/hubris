@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
+    dump::DumpState,
     inventory::Inventory,
     update::{rot::RotUpdate, sp::SpUpdate, ComponentUpdater},
     Log, MgsMessage,
@@ -26,9 +27,9 @@ use drv_sprot_api::{
 };
 use drv_stm32h7_update_api::Update;
 use gateway_messages::{
-    CfpaPage, DiscoverResponse, Fwid as GwFwid, ImageError as GwImageError,
-    ImageVersion as GwImageVersion, PowerState, RotBootInfo as GwRotBootInfo,
-    RotBootState as GwRotBootState, RotError,
+    CfpaPage, DiscoverResponse, DumpSegment, DumpTask, Fwid as GwFwid,
+    ImageError as GwImageError, ImageVersion as GwImageVersion, PowerState,
+    RotBootInfo as GwRotBootInfo, RotBootState as GwRotBootState, RotError,
     RotImageDetails as GwRotImageDetails, RotRequest, RotResponse,
     RotSlotId as GwRotSlotId, RotState as GwRotState,
     RotStateV2 as GwRotStateV2, RotStateV3 as GwRotStateV3,
@@ -54,6 +55,7 @@ task_slot!(pub UPDATE_SERVER, update_server);
 pub(crate) struct MgsCommon {
     pub sp_update: SpUpdate,
     pub rot_update: RotUpdate,
+    dump_state: DumpState,
 
     reset_component_requested: Option<SpComponent>,
     inventory: Inventory,
@@ -69,6 +71,7 @@ impl MgsCommon {
         Self {
             sp_update: SpUpdate::new(),
             rot_update: RotUpdate::new(),
+            dump_state: DumpState::new(),
 
             reset_component_requested: None,
             inventory: Inventory::new(),
@@ -616,6 +619,26 @@ impl MgsCommon {
             // New variants that this code doesn't know about yet will
             // result in a deserialization error.
         }
+    }
+
+    pub(crate) fn get_task_dump_count(&mut self) -> Result<u32, GwSpError> {
+        self.dump_state.get_task_dump_count()
+    }
+
+    pub(crate) fn task_dump_read_start(
+        &mut self,
+        index: u32,
+        key: u32,
+    ) -> Result<DumpTask, GwSpError> {
+        self.dump_state.task_dump_read_start(index, key)
+    }
+
+    pub(crate) fn task_dump_read_continue(
+        &mut self,
+        key: u32,
+        buf: &mut [u8],
+    ) -> Result<Option<DumpSegment>, GwSpError> {
+        self.dump_state.task_dump_read_continue(key, buf)
     }
 }
 

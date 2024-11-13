@@ -267,6 +267,7 @@ start = true
 uses = ["usart1"]
 task-slots = [
     "jefe",
+    "dump_agent",
     "net",
     "update_server",
     "sys",

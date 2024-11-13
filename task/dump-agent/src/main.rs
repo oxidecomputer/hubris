@@ -103,9 +103,6 @@ impl ServerImpl {
     ) -> Result<usize, DumpAgentError> {
         let offset = offset as usize;
         let read_size = rval.remaining_size();
-        if offset & (read_size - 1) != 0 {
-            return Err(DumpAgentError::UnalignedOffset);
-        }
 
         let area = self.dump_area(index)?;
 
@@ -249,6 +246,9 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
         offset: u32,
     ) -> Result<[u8; DUMP_READ_SIZE], RequestError<DumpAgentError>> {
         let mut out = [0u8; DUMP_READ_SIZE];
+        if offset & (out.len() as u32 - 1) != 0 {
+            return Err(DumpAgentError::UnalignedOffset.into());
+        }
         self.read_dump(index, offset, out.as_mut_slice())
             .map_err(RequestError::from)?;
         Ok(out)
