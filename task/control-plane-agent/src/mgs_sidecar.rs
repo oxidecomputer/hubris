@@ -16,13 +16,13 @@ use gateway_messages::sp_impl::{
 };
 use gateway_messages::{
     ignition, ComponentAction, ComponentActionResponse, ComponentDetails,
-    ComponentUpdatePrepare, DiscoverResponse, EcdsaSha2Nistp256Challenge,
-    IgnitionCommand, IgnitionState, MgsError, MgsRequest, MgsResponse,
-    MonorailComponentAction, MonorailComponentActionResponse,
-    MonorailError as GwMonorailError, PowerState, RotBootInfo, RotRequest,
-    RotResponse, SensorRequest, SensorResponse, SpComponent, SpError,
-    SpStateV2, SpUpdatePrepare, UnlockChallenge, UnlockResponse, UpdateChunk,
-    UpdateId, UpdateStatus,
+    ComponentUpdatePrepare, DiscoverResponse, DumpSegment, DumpTask,
+    EcdsaSha2Nistp256Challenge, IgnitionCommand, IgnitionState, MgsError,
+    MgsRequest, MgsResponse, MonorailComponentAction,
+    MonorailComponentActionResponse, MonorailError as GwMonorailError,
+    PowerState, RotBootInfo, RotRequest, RotResponse, SensorRequest,
+    SensorResponse, SpComponent, SpError, SpStateV2, SpUpdatePrepare,
+    UnlockChallenge, UnlockResponse, UpdateChunk, UpdateId, UpdateStatus,
 };
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
@@ -1126,6 +1126,26 @@ impl SpHandler for MgsHandler {
         version: u8,
     ) -> Result<RotBootInfo, SpError> {
         self.common.versioned_rot_boot_info(version)
+    }
+
+    fn get_task_dump_count(&mut self) -> Result<u32, SpError> {
+        self.common.get_task_dump_count()
+    }
+
+    fn task_dump_read_start(
+        &mut self,
+        index: u32,
+        key: u32,
+    ) -> Result<DumpTask, SpError> {
+        self.common.task_dump_read_start(index, key)
+    }
+
+    fn task_dump_read_continue(
+        &mut self,
+        key: u32,
+        buf: &mut [u8],
+    ) -> Result<Option<DumpSegment>, SpError> {
+        self.common.task_dump_read_continue(key, buf)
     }
 }
 

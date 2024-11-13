@@ -2700,7 +2700,6 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#c8abf88bc0aeb3aa411eea276c73abdea405f7ba"
 dependencies = [
  "bitflags 2.6.0",
  "hubpack",
@@ -4866,10 +4865,12 @@ dependencies = [
  "drv-transceivers-api",
  "drv-update-api",
  "drv-user-leds-api",
+ "dump-agent-api",
  "enum-map",
  "gateway-messages",
  "heapless",
  "host-sp-messages",
+ "humpty",
  "idol",
  "idol-runtime",
  "lpc55-rom-data",
