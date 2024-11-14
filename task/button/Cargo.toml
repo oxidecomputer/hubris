@@ -1,0 +1,38 @@
+[package]
+name = "task-button"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+drv-lpc55-gpio-api = { path = "../../drv/lpc55-gpio-api"}
+button-api = { path = "../button-api"}
+arrayvec.workspace = true
+hubpack = { workspace = true }
+idol-runtime = { workspace = true }
+num-traits = { workspace = true }
+serde = { workspace = true }
+serde_with = { version = "3.3.0", default-features = false, features = ["macros"] }
+static-cell = { path = "../../lib/static-cell" }
+unwrap-lite = { path = "../../lib/unwrap-lite" }
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+zerocopy = { workspace = true }
+
+[build-dependencies]
+anyhow.workspace = true
+idol.workspace = true
+serde.workspace = true
+quote = { workspace = true }
+build-lpc55pins = { path = "../../build/lpc55pins" }
+build-util = { path = "../../build/util" }
+
+[features]
+no-ipc-counters = ["idol/no-counters"]
+
+[[bin]]
+name = "task-button"
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true

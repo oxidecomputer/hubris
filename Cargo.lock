@@ -408,6 +408,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ea184aa71bb362a1157c896979544cc23974e08fd265f29ea96b59f0b4a555b"
 
 [[package]]
+name = "button-api"
+version = "0.1.0"
+dependencies = [
+ "counters",
+ "derive-idol-err",
+ "hubpack",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "serde",
+ "userlib",
+ "zerocopy 0.6.6",
+]
+
+[[package]]
 name = "byteorder"
 version = "1.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4814,6 +4829,29 @@ dependencies = [
  "serde_with 3.6.1",
  "sha3",
  "stage0-handoff",
+ "static-cell",
+ "unwrap-lite",
+ "userlib",
+ "zerocopy 0.6.6",
+]
+
+[[package]]
+name = "task-button"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "arrayvec",
+ "build-lpc55pins",
+ "build-util",
+ "button-api",
+ "drv-lpc55-gpio-api",
+ "hubpack",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "quote",
+ "serde",
+ "serde_with 3.6.1",
  "static-cell",
  "unwrap-lite",
  "userlib",

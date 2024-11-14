@@ -1,0 +1,43 @@
+// User Button and LED API
+
+Interface(
+    name: "Button",
+    ops: {
+        "press": (
+            reply: Result(
+                ok: "u8",
+                err: CLike("ButtonError"),
+            ),
+            idempotent: true,
+        ),
+        "off": (
+            reply: Result(
+                ok: "()",
+                err: CLike("ButtonError"),
+            ),
+            idempotent: true,
+        ),
+        "set": (
+            args: {
+                "rgb": "u8",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("ButtonError"),
+            ),
+            idempotent: true,
+        ),
+        "blink": (
+            description: "blinks the LED at a fixed speed",
+            args: {
+                "on": "u32",
+                "off": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("ButtonError"),
+            ),
+            idempotent: true,
+        ),
+    },
+)
