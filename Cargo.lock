@@ -2679,7 +2679,7 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#c8abf88bc0aeb3aa411eea276c73abdea405f7ba"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#32d875c31325f6fe1ab389c5564439ba04889b7c"
 dependencies = [
  "bitflags 2.6.0",
  "hubpack",
@@ -2954,7 +2954,7 @@ dependencies = [
 [[package]]
 name = "hubtools"
 version = "0.4.6"
-source = "git+https://github.com/oxidecomputer/hubtools#943c4bbe6b50d1ab635d085d6204895fb4154e79"
+source = "git+https://github.com/oxidecomputer/hubtools#f48e2da029ba6552cff5c07ff8a2fc21cc56aa32"
 dependencies = [
  "hex",
  "lpc55_areas",

@@ -461,7 +461,7 @@ SpRot.status() => Status {
 }
 ```
 
-Update API, retrieve current version.
+Update API, retrieve current version (deprecated)
 This information is redundant with information in the Status structure.
 ```sh
 $ humility hiffy -c SpRot.current_version

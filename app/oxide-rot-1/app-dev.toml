@@ -8,8 +8,6 @@ board = "oxide-rot-1-selfsigned"
 chip = "../../chips/lpc55"
 stacksize = 1024
 image-names = ["a", "b"]
-epoch = 0
-version = 0
 fwid = true
 
 [kernel]
@@ -53,7 +51,7 @@ start = true
 [tasks.update_server]
 name = "lpc55-update-server"
 priority = 3
-max-sizes = {flash = 26080, ram = 17000, usbsram = 4096}
+max-sizes = {flash = 30368, ram = 17344, usbsram = 4096}
 # TODO: Size this appropriately
 stacksize = 8192
 start = true
