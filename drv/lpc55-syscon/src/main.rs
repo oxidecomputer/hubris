@@ -110,7 +110,7 @@
 #![no_std]
 #![no_main]
 
-use drv_lpc55_syscon_api::*;
+use drv_lpc55_syscon_api::{Peripheral, Reg};
 use idol_runtime::{NotificationHandler, RequestError};
 use lpc55_pac as device;
 use task_jefe_api::{Jefe, ResetReason};

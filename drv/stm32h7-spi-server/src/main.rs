@@ -12,7 +12,7 @@
 
 use core::convert::Infallible;
 
-use drv_spi_api::*;
+use drv_spi_api::{CsState, SpiError};
 use idol_runtime::{
     LeaseBufReader, LeaseBufWriter, Leased, LenLimit, NotificationHandler,
     RequestError, R, W,

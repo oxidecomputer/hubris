@@ -5,7 +5,7 @@
 //! Driver for the PCA9956B LED driver
 
 use crate::Validate;
-use drv_i2c_api::*;
+use drv_i2c_api::{I2cDevice, ResponseCode};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 

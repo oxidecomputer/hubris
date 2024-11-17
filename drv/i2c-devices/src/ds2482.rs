@@ -5,7 +5,7 @@
 //! Driver for the DS2482-100 1-wire initiator
 
 use bitfield::bitfield;
-use drv_i2c_api::*;
+use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_onewire::Identifier;
 use ringbuf::*;
 

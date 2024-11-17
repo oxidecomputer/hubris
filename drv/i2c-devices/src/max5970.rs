@@ -5,7 +5,7 @@
 //! Driver for the MAX5970 hot swap controller
 
 use crate::{CurrentSensor, Validate, VoltageSensor};
-use drv_i2c_api::*;
+use drv_i2c_api::{I2cDevice, ResponseCode};
 use num_traits::float::FloatCore;
 use userlib::{
     units::{Amperes, Ohms, Volts},

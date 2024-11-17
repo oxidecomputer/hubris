@@ -5,7 +5,7 @@
 //! Driver for the TMP117 temperature sensor
 
 use crate::{TempSensor, Validate};
-use drv_i2c_api::*;
+use drv_i2c_api::{I2cDevice, ResponseCode};
 use userlib::units::*;
 
 #[allow(dead_code)]

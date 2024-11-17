@@ -7,7 +7,7 @@
 use crate::{CurrentSensor, Validate, VoltageSensor};
 use bitfield::bitfield;
 use core::cell::Cell;
-use drv_i2c_api::*;
+use drv_i2c_api::{I2cDevice, ResponseCode};
 use userlib::{
     units::{Amperes, Ohms, Volts},
     FromPrimitive,

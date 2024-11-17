@@ -13,7 +13,15 @@ use drv_lpc55_update_api::{
     RotBootInfo, RotComponent, RotPage, SlotId, SwitchDuration, UpdateTarget,
 };
 use drv_spi_api::{CsState, SpiDevice, SpiServer};
-use drv_sprot_api::*;
+use drv_sprot_api::{
+    AttestOrSprotError, AttestReq, AttestRsp, CabooseReq, CabooseRsp,
+    DumpOrSprotError, DumpReq, DumpRsp, Header, LifecycleState, PulseStatus,
+    RawCabooseOrSprotError, ReqBody, Request, Response, RotPageRsp, RotState,
+    RspBody, SpIoStats, SpStatus, SprotError, SprotIoStats, SprotProtocolError,
+    SprotStatus, StateOrSprotError, StateReq, StateRsp, SwdReq, UpdateReq,
+    UpdateRsp, VersionedRotBootInfo, CRC_SIZE, CURRENT_VERSION, MAX_BLOB_SIZE,
+    MIN_VERSION, REQUEST_BUF_SIZE, RESPONSE_BUF_SIZE, ROT_FIFO_SIZE,
+};
 use drv_stm32xx_sys_api as sys_api;
 use hubpack::SerializedSize;
 use idol_runtime::{NotificationHandler, RequestError};

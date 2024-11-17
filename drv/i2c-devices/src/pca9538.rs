@@ -5,7 +5,7 @@
 //! Driver for the PCA9538 GPIO expander
 
 use crate::Validate;
-use drv_i2c_api::*;
+use drv_i2c_api::{I2cDevice, ResponseCode};
 use userlib::FromPrimitive;
 
 /// `PinSet` is a bit vector indicating on which pins/ports a given operation is

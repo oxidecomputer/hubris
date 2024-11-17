@@ -10,14 +10,14 @@
 #![no_std]
 #![no_main]
 
-use drv_i2c_devices::adm1272::*;
-use drv_i2c_devices::bmr491::*;
-use drv_i2c_devices::isl68224::*;
-use drv_i2c_devices::ltc4282::*;
-use drv_i2c_devices::max5970::*;
-use drv_i2c_devices::mwocp68::*;
-use drv_i2c_devices::raa229618::*;
-use drv_i2c_devices::tps546b24a::*;
+use drv_i2c_devices::adm1272::Adm1272;
+use drv_i2c_devices::bmr491::Bmr491;
+use drv_i2c_devices::isl68224::Isl68224;
+use drv_i2c_devices::ltc4282::Ltc4282;
+use drv_i2c_devices::max5970::Max5970;
+use drv_i2c_devices::mwocp68::Mwocp68;
+use drv_i2c_devices::raa229618::Raa229618;
+use drv_i2c_devices::tps546b24a::Tps546B24A;
 use pmbus::Phase;
 use ringbuf::*;
 use task_power_api::{

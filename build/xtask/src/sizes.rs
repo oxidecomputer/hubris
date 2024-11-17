@@ -9,7 +9,7 @@ use std::path::Path;
 use std::process;
 
 use anyhow::{bail, Context, Result};
-use colored::*;
+use colored::Colorize;
 use goblin::Object;
 use indexmap::map::Entry;
 use indexmap::IndexMap;

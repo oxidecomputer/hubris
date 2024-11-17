@@ -15,7 +15,7 @@
 #![no_main]
 
 use derive_idol_err::IdolError;
-use drv_i2c_devices::at24csw080::*;
+use drv_i2c_devices::at24csw080::{At24Csw080, Error};
 use idol_runtime::{NotificationHandler, RequestError};
 use userlib::{task_slot, FromPrimitive};
 

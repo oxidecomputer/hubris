@@ -5,7 +5,7 @@
 //! Driver for the ADT7420 temperature sensor
 
 use crate::TempSensor;
-use drv_i2c_api::*;
+use drv_i2c_api::{I2cDevice, ResponseCode};
 use userlib::units::*;
 
 const ADT7420_ID: u8 = 0xcb;

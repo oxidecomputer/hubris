@@ -3,7 +3,10 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{Addr, SIDECAR_IO_BITSTREAM_CHECKSUM};
-use drv_fpga_api::*;
+use drv_fpga_api::{
+    await_fpga_ready, BitstreamType, DeviceState, Fpga, FpgaError,
+    FpgaUserDesign, WriteOp,
+};
 use userlib::UnwrapLite;
 
 pub struct FrontIOController {

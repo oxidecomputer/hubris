@@ -777,7 +777,7 @@ impl ServerImpl {
     }
 
     fn swd_dongle_detected(&self) -> bool {
-        use drv_lpc55_gpio_api::*;
+        use drv_lpc55_gpio_api::{Pins, Value};
 
         let gpio = Pins::from(self.gpio);
         gpio.read_val(SP_TO_ROT_JTAG_DETECT_L) == Value::Zero

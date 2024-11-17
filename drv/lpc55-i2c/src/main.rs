@@ -21,7 +21,9 @@
 #![no_std]
 #![no_main]
 
-use drv_lpc55_gpio_api::*;
+use drv_lpc55_gpio_api::{
+    AltFn, Digimode, Invert, Mode, Opendrain, Pin, Pins, Slew,
+};
 use drv_lpc55_syscon_api::{Peripheral, Syscon};
 use lpc55_pac as device;
 use userlib::{hl, task_slot, FromPrimitive, LeaseAttributes};

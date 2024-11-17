@@ -34,7 +34,7 @@ impl State {
     pub(crate) fn init() -> Self {
         // Before talking to the power shelves, we have to enable an I2C buffer
         userlib::task_slot!(SYS, sys);
-        use drv_stm32xx_sys_api::*;
+        use drv_stm32xx_sys_api::{OutputType, Port, Pull, Speed, Sys};
 
         let sys_task = SYS.get_task_id();
         let sys = Sys::from(sys_task);

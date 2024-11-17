@@ -98,8 +98,8 @@ fn main() -> ! {
             let user_design =
                 spi.device(drv_spi_api::devices::ECP5_FRONT_IO_USER_DESIGN);
 
-            use drv_i2c_devices::pca9538::*;
-            use drv_fpga_devices::ecp5_spi_mux_pca9538::*;
+            use drv_i2c_devices::pca9538::{PinSet, Pca9538};
+            use drv_fpga_devices::ecp5_spi_mux_pca9538::{Driver, DriverConfig, DevicePins};
 
             let gpio = Pca9538::new(
                 i2c_config::devices::pca9538(I2C.get_task_id())[0],

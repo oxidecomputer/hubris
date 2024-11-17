@@ -9,7 +9,7 @@ use crate::{
     InputVoltageSensor, Validate, VoltageSensor,
 };
 use core::cell::Cell;
-use drv_i2c_api::*;
+use drv_i2c_api::{I2cDevice, ResponseCode};
 use pmbus::commands::mwocp68::*;
 use pmbus::commands::CommandCode;
 use pmbus::units::{Celsius, Rpm};

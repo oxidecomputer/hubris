@@ -7,7 +7,7 @@ use crate::{
     PowerState, SensorId,
 };
 
-use drv_i2c_devices::max5970::*;
+use drv_i2c_devices::max5970::{Max5970, Register};
 use ringbuf::*;
 use userlib::units::*;
 

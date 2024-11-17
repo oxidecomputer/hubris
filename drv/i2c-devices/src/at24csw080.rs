@@ -5,7 +5,7 @@
 //! Driver for the AT24CSW080/4 I2C EEPROM
 
 use crate::Validate;
-use drv_i2c_api::*;
+use drv_i2c_api::{I2cDevice, ResponseCode};
 use userlib::{hl::sleep_for, FromPrimitive, ToPrimitive};
 use zerocopy::{AsBytes, FromBytes};
 

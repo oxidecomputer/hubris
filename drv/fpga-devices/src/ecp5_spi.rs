@@ -178,7 +178,7 @@ impl<S: SpiServer> FpgaUserDesign for Ecp5UsingSpi<S> {
 
 impl<S: SpiServer> Ecp5UsingSpi<S> {
     pub fn configure_gpio(&self) {
-        use sys_api::*;
+        use sys_api::{OutputType, Pull, Speed};
 
         self.sys.gpio_set(self.done);
         self.sys.gpio_configure_output(

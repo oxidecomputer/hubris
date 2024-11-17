@@ -143,14 +143,24 @@ pub fn codegen(pins: Vec<PinConfig>) -> Result<()> {
     let mut file = std::fs::File::create(dest_path)?;
 
     let mut buf = BufWriter::new(Vec::new());
-    if pins.iter().any(|p| p.name.is_some()) {
-        writeln!(&mut buf, "use drv_lpc55_gpio_api::Pin;")?;
-    }
     writeln!(
         &mut file,
         "fn setup_pins(task : TaskId) -> Result<(), ()> {{"
     )?;
-    writeln!(&mut file, "use drv_lpc55_gpio_api::*;")?;
+    if pins
+        .iter()
+        .any(|p| p.direction.is_some() || p.name.is_some() || p.value.is_some())
+    {
+        // Each conditional branch in pins loop uses Pin.
+        writeln!(&mut buf, "use drv_lpc55_gpio_api::Pin;")?;
+    }
+    if pins.iter().any(|p| p.value.is_some()) {
+        writeln!(&mut buf, "use drv_lpc55_gpio_api::Value;")?;
+    }
+    writeln!(
+        &mut file,
+        "use drv_lpc55_gpio_api::{{AltFn, Digimode, Invert, Mode, Opendrain, Pin, Pins, Slew}};"
+    )?;
     writeln!(&mut file, "let iocon = Pins::from(task);")?;
     for p in pins {
         writeln!(&mut file, "iocon.iocon_configure(")?;
@@ -177,7 +187,9 @@ pub fn codegen(pins: Vec<PinConfig>) -> Result<()> {
             Some(d) => {
                 writeln!(&mut file, "iocon.set_dir(")?;
                 writeln!(&mut file, "{}", p.pin.to_token_stream())?;
-                writeln!(&mut file, "Direction::{d:?}")?;
+                // Note: GPIO API is used directly to avoid a duplicate import
+                // problem in lpc55-sprot-server.
+                writeln!(&mut file, "drv_lpc55_gpio_api::Direction::{d:?}")?;
                 writeln!(&mut file, ");")?;
             }
         }

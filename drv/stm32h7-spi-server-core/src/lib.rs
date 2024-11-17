@@ -16,7 +16,7 @@
 #![no_std]
 #![no_main]
 
-use drv_spi_api::*;
+use drv_spi_api::{CsState, SpiError, SpiOperation, SpiServer};
 use idol_runtime::{BufReader, BufWriter, ClientError, RequestError};
 use ringbuf::*;
 

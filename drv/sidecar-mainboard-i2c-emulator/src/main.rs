@@ -9,7 +9,7 @@
 #![no_std]
 #![no_main]
 
-use drv_i2c_api::*;
+use drv_i2c_api::{I2cDevice, ResponseCode};
 use ringbuf::*;
 use userlib::*;
 
