@@ -5,7 +5,7 @@
 #![no_std]
 #![no_main]
 
-use userlib::*;
+use userlib::{sys_recv_open, sys_reply, sys_set_timer, task_slot, TaskId};
 
 task_slot!(USER_LEDS, user_leds);
 

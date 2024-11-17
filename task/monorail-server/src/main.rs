@@ -21,7 +21,7 @@ use crate::{bsp::Bsp, server::ServerImpl};
 use drv_spi_api::SpiServer;
 use drv_stm32xx_sys_api::Sys;
 use ringbuf::*;
-use userlib::*;
+use userlib::{sys_get_timer, task_slot};
 use vsc7448::{spi::Vsc7448Spi, Vsc7448, VscError};
 
 cfg_if::cfg_if! {

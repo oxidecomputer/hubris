@@ -11,7 +11,7 @@
 #![no_main]
 
 // use core::convert::TryInto;
-use userlib::*;
+use userlib::{task_slot, RecvMessage};
 
 use drv_stm32h7_hash::Hash;
 use drv_stm32xx_sys_api as sys_api;

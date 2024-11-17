@@ -10,7 +10,7 @@
 use core::convert::Infallible;
 use idol_runtime::{NotificationHandler, RequestError};
 use task_sensor_api::{NoData, Reading, SensorError, SensorId};
-use userlib::*;
+use userlib::RecvMessage;
 
 use task_sensor_api::config::NUM_SENSORS;
 
