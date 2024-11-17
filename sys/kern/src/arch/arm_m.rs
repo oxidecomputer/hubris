@@ -81,6 +81,8 @@ use crate::startup::with_task_table;
 use crate::task;
 use crate::time::Timestamp;
 use crate::umem::USlice;
+#[cfg(all(feature = "isr_counts", any(target_board = "lpcxpresso55s69")))]
+use crate::isr_counts;
 #[cfg(any(armv7m, armv8m))]
 use abi::FaultSource;
 use abi::{FaultInfo, InterruptNum};
@@ -1124,6 +1126,8 @@ pub unsafe extern "C" fn DefaultHandler() {
         x if x >= 16 => {
             // Hardware interrupt
             let irq_num = exception_num - 16;
+            #[cfg(all(feature = "isr_counts", any(target_board = "lpcxpresso55s69")))]
+            isr_counts::IsrCounts::increment(irq_num);
             let owner = crate::startup::HUBRIS_IRQ_TASK_LOOKUP
                 .get(abi::InterruptNum(irq_num))
                 .unwrap_or_else(|| panic!("unhandled IRQ {irq_num}"));

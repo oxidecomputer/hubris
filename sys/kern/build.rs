@@ -15,6 +15,7 @@ use indexmap::IndexMap;
 use proc_macro2::TokenStream;
 
 fn main() -> Result<()> {
+    build_util::expose_target_board();
     build_util::expose_m_profile()?;
 
     let g = process_config()?;

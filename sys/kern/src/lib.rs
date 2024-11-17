@@ -41,6 +41,8 @@ mod descs;
 pub mod err;
 pub mod fail;
 pub mod header;
+#[cfg(all(feature = "isr_counts", any(target_board = "lpcxpresso55s69")))]
+pub mod isr_counts;
 pub mod kipc;
 pub mod profiling;
 pub mod startup;

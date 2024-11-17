@@ -6,7 +6,7 @@ fwid = true
 
 [kernel]
 name = "psc"
-requires = {flash = 32868, ram = 5216}
+requires = {flash = 32868, ram = 5288}
 features = ["dump"]
 
 [caboose]
