@@ -54,6 +54,7 @@ pub struct PinConfig {
     direction: Option<Direction>,
     value: Option<bool>,
     name: Option<String>,
+    pint: Option<usize>,
 }
 
 #[derive(Copy, Clone, Debug, Default, Deserialize)]
@@ -98,6 +99,53 @@ pub enum Opendrain {
     Opendrain,
 }
 
+#[derive(Copy, Clone, Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+#[repr(u32)]
+pub enum PintSlot {
+    None = 8,
+    Slot0 = 0,
+    Slot1 = 1,
+    Slot2 = 2,
+    Slot3 = 3,
+    Slot4 = 4,
+    Slot5 = 5,
+    Slot6 = 6,
+    Slot7 = 7,
+}
+
+impl From<u32> for PintSlot {
+    fn from(slot: u32) -> Self {
+        match slot {
+            0 => PintSlot::Slot0,
+            1 => PintSlot::Slot1,
+            2 => PintSlot::Slot2,
+            3 => PintSlot::Slot3,
+            4 => PintSlot::Slot4,
+            5 => PintSlot::Slot5,
+            6 => PintSlot::Slot6,
+            7 => PintSlot::Slot7,
+            _ => PintSlot::None,
+        }
+    }
+}
+
+impl From<usize> for PintSlot {
+    fn from(slot: usize) -> Self {
+        match slot {
+            0 => PintSlot::Slot0,
+            1 => PintSlot::Slot1,
+            2 => PintSlot::Slot2,
+            3 => PintSlot::Slot3,
+            4 => PintSlot::Slot4,
+            5 => PintSlot::Slot5,
+            6 => PintSlot::Slot6,
+            7 => PintSlot::Slot7,
+            _ => PintSlot::None,
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Direction {
@@ -112,6 +160,25 @@ impl PinConfig {
         }
 
         self.alt
+    }
+
+    fn get_pint_slot(&self, used: &mut u8) -> PintSlot {
+        if let Some(pint_slot) = self.pint {
+            if self.pin.port > 1 || self.pin.pin > 32 {
+                panic!("Invalid gpio pin for interrupt");
+            }
+            if pint_slot > 7 {
+                panic!("Invalid pint setting {} > 7", pint_slot);
+            }
+            let mask = 1 << pint_slot;
+            if (*used & mask) != 0 {
+                panic!("Duplicate interrupt slot assignment: {:?}", self.pin);
+            }
+            *used |= mask;
+            PintSlot::from(pint_slot)
+        } else {
+            PintSlot::None
+        }
     }
 }
 
@@ -140,21 +207,27 @@ impl ToTokens for PinConfig {
 pub fn codegen(pins: Vec<PinConfig>) -> Result<()> {
     let out_dir = build_util::out_dir();
     let dest_path = out_dir.join("pin_config.rs");
-    let mut file = std::fs::File::create(dest_path)?;
-
+    let mut file = std::fs::File::create(&dest_path)?;
     let mut buf = BufWriter::new(Vec::new());
+    let mut used_slots = 0u8;
+
     if pins.iter().any(|p| p.name.is_some()) {
-        writeln!(&mut buf, "use drv_lpc55_gpio_api::Pin;")?;
+        writeln!(&mut file, "use drv_lpc55_gpio_api::Pin;")?;
     }
     writeln!(
         &mut file,
-        "fn setup_pins(task : TaskId) -> Result<(), ()> {{"
+        "fn setup_pins(task : userlib::TaskId) -> Result<(), ()> {{"
     )?;
     writeln!(&mut file, "use drv_lpc55_gpio_api::*;")?;
     writeln!(&mut file, "let iocon = Pins::from(task);")?;
     for p in pins {
         writeln!(&mut file, "iocon.iocon_configure(")?;
         writeln!(&mut file, "{}", p.to_token_stream())?;
+        writeln!(
+            &mut file,
+            "PintSlot::{:?}",
+            p.get_pint_slot(&mut used_slots)
+        )?;
         writeln!(&mut file, ");")?;
 
         // Output pins can specify their value, which is set before configuring
@@ -183,21 +256,38 @@ pub fn codegen(pins: Vec<PinConfig>) -> Result<()> {
         }
         match p.name {
             None => (),
-            Some(name) => {
+            Some(ref name) => {
                 let pin = p.pin.get_port_pin();
                 writeln!(&mut buf, "#[allow(unused)]")?;
                 writeln!(
                     &mut buf,
                     "const {}: Pin = Pin::PIO{}_{};",
-                    name, pin.0, pin.1
+                    &name, pin.0, pin.1
                 )?;
+
+                let mut ignore = 0u8;
+                let slot = p.get_pint_slot(&mut ignore);
+                if slot != PintSlot::None {
+                    writeln!(&mut buf, "#[allow(unused)]")?;
+                    writeln!(
+                        &mut buf,
+                        "pub const {}_PINT_MASK: u32 = 1 << {};",
+                        &name, slot as u32
+                    )?;
+                }
             }
         }
     }
 
     writeln!(&mut file, "Ok(())")?;
     writeln!(&mut file, "}}")?;
-    write!(file, "{}", String::from_utf8(buf.into_inner()?).unwrap())?;
+
+    write!(
+        &mut file,
+        "{}",
+        String::from_utf8(buf.into_inner()?).unwrap()
+    )?;
+    call_rustfmt::rustfmt(&dest_path)?;
 
     Ok(())
 }

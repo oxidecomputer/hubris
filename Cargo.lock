@@ -339,6 +339,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "build-util",
+ "call_rustfmt",
  "cfg-if",
  "convert_case",
  "indexmap 1.9.1",

@@ -200,6 +200,20 @@ pub enum Value {
     One = 1,
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, AsBytes, FromPrimitive)]
+#[repr(u8)]
+pub enum PintSlot {
+    Slot0 = 0,
+    Slot1 = 1,
+    Slot2 = 2,
+    Slot3 = 3,
+    Slot4 = 4,
+    Slot5 = 5,
+    Slot6 = 6,
+    Slot7 = 7,
+    None = 8,
+}
+
 impl Pins {
     // Calling into the GPIO task each time can be slow, this function
     // allows tasks to get the appropriate values to write manually.
@@ -233,11 +247,12 @@ impl Pins {
         invert: Invert,
         digimode: Digimode,
         od: Opendrain,
+        pint_slot: PintSlot,
     ) {
         let (_, conf) =
             Pins::iocon_conf_val(pin, alt, mode, slew, invert, digimode, od);
 
-        self.iocon_configure_raw(pin, conf);
+        self.iocon_configure_raw(pin, conf, pint_slot);
     }
 }
 
