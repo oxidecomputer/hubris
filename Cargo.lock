@@ -184,7 +184,7 @@ dependencies = [
 [[package]]
 name = "attest-data"
 version = "0.4.0"
-source = "git+https://github.com/oxidecomputer/dice-util#a20766967f779a4bad6922d2b62593c21b384a28"
+source = "git+https://github.com/oxidecomputer/dice-util#f1ccb0ef6612e69ca762e454ad54eafd04c15532"
 dependencies = [
  "hubpack",
  "salty",
@@ -954,7 +954,7 @@ dependencies = [
 [[package]]
 name = "dice-mfg-msgs"
 version = "0.2.1"
-source = "git+https://github.com/oxidecomputer/dice-util#a20766967f779a4bad6922d2b62593c21b384a28"
+source = "git+https://github.com/oxidecomputer/dice-util#f1ccb0ef6612e69ca762e454ad54eafd04c15532"
 dependencies = [
  "corncobs",
  "hubpack",
@@ -1521,21 +1521,29 @@ name = "drv-lpc55-swd"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "attest-api",
+ "bitflags 2.6.0",
  "build-lpc55pins",
  "build-util",
+ "call_rustfmt",
  "cfg-if",
  "cortex-m",
  "drv-lpc55-gpio-api",
  "drv-lpc55-spi",
  "drv-lpc55-syscon-api",
  "drv-sp-ctrl-api",
+ "endoscope",
+ "endoscope-abi",
+ "goblin",
  "idol",
  "idol-runtime",
  "lpc55-pac",
  "num-traits",
  "quote",
  "ringbuf",
+ "rustc-demangle",
  "serde",
+ "static_assertions",
  "userlib",
  "zerocopy 0.6.6",
 ]
@@ -2616,6 +2624,27 @@ name = "encode_unicode"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a357d28ed41a50f9c765dbfe56cbc04a64e53e5fc58ba79fbc34c10ef3df831f"
+
+[[package]]
+name = "endoscope"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "cortex-m-rt",
+ "drv-stm32h7-startup",
+ "endoscope-abi",
+ "panic-halt",
+ "sha3",
+ "stm32h7",
+]
+
+[[package]]
+name = "endoscope-abi"
+version = "0.1.0"
+dependencies = [
+ "sha3",
+ "zerocopy 0.6.6",
+]
 
 [[package]]
 name = "enum-kinds"
@@ -3892,6 +3921,12 @@ dependencies = [
  "quote",
  "syn 1.0.94",
 ]
+
+[[package]]
+name = "panic-halt"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "de96540e0ebde571dc55c73d60ef407c653844e6f9a1e2fdbd40c07b9252d812"
 
 [[package]]
 name = "paste"
