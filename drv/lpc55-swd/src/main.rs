@@ -1060,9 +1060,9 @@ impl ServerImpl {
         // Reset the STM32, causing it to reboot into the newly-set slot
         use drv_lpc55_gpio_api::{Pins, Value};
         let gpio = Pins::from(self.gpio);
-        gpio.set_val(ROT_TO_SP_RESET_L, Value::Zero);
+        gpio.set_val(ROT_TO_SP_RESET_L_OUT, Value::Zero);
         hl::sleep_for(10);
-        gpio.set_val(ROT_TO_SP_RESET_L, Value::One);
+        gpio.set_val(ROT_TO_SP_RESET_L_OUT, Value::One);
 
         Ok(())
     }

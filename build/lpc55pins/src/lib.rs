@@ -272,7 +272,7 @@ pub fn codegen(pins: Vec<PinConfig>) -> Result<()> {
         writeln!(&mut top, "    let iocon = Pins::from(task);\n")?;
     }
 
-    // If a task is defines alternate GPIO configurations. Ensure that not more
+    // If a task defines alternate GPIO configurations. Ensure that not more
     // than one of them is called by the setup function.
     let mut conflict = [0usize; Pin::MAX_PINS];
     let conflicts: Vec<String> = pins

@@ -96,12 +96,12 @@ pins = [
 name = "drv-lpc55-swd"
 priority = 4
 max-sizes = {flash = 16384, ram = 4096}
-uses = ["flexcomm5", "iocon"]
+uses = ["flexcomm5", "iocon", "pint"]
 start = true
 stacksize = 1000
 task-slots = ["gpio_driver", "syscon_driver"]
-notifications = ["spi-irq", "timer"]
-interrupts = {"flexcomm5.irq" = "spi-irq"}
+notifications = ["spi-irq", "timer", "sp_reset-irq"]
+interrupts = {"flexcomm5.irq" = "spi-irq", "pint.irq0" = "sp_reset-irq" }
 
 [tasks.swd.config]
 # MOSI = PIO0_8
@@ -122,7 +122,8 @@ pins = [
     # SCK
     { pin = { port = 0, pin = 7 }, alt = 3 },
     { name = "SP_TO_ROT_JTAG_DETECT_L", pin = { port = 0, pin = 20 }, alt = 0, direction = "input" },
-    { name = "ROT_TO_SP_RESET_L", pin = { port = 0, pin = 13 }, alt = 0, value = true, direction = "output", opendrain = "opendrain" },
+    { name = "ROT_TO_SP_RESET_L_OUT", pin = { port = 0, pin = 13 }, alt = 0, value = true, direction = "output", opendrain = "opendrain"},
+    { name = "ROT_TO_SP_RESET_L_IN", pin = { port = 0, pin = 13 }, alt = 0, value = true, direction = "output", pint = 0 },
 ]
 spi_num = 5
 
