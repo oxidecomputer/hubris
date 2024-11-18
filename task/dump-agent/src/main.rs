@@ -113,7 +113,7 @@ impl ServerImpl {
 
         if written > offset {
             let base = area.region.address as *const u8;
-            let base = unsafe { base.add(offset as usize) };
+            let base = unsafe { base.add(offset) };
 
             let read_count = (written - offset).min(read_size);
             for i in 0..read_count {

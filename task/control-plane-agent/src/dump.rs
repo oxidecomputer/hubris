@@ -46,7 +46,7 @@ impl DumpState {
             let data = self
                 .agent
                 .read_dump(index, 0)
-                .map_err(|e| SpError::Dump(DumpError::BadArea))?;
+                .map_err(|_e| SpError::Dump(DumpError::BadArea))?;
             let header = humpty::DumpAreaHeader::read_from(
                 &data[..size_of::<humpty::DumpAreaHeader>()],
             )
@@ -60,7 +60,7 @@ impl DumpState {
                 break;
             }
         }
-        return Ok(count);
+        Ok(count)
     }
 
     pub(crate) fn task_dump_read_start(
@@ -78,7 +78,7 @@ impl DumpState {
             data = self
                 .agent
                 .read_dump(index, 0)
-                .map_err(|e| SpError::Dump(DumpError::BadArea))?;
+                .map_err(|_e| SpError::Dump(DumpError::BadArea))?;
             header = humpty::DumpAreaHeader::read_from(
                 &data[..size_of::<humpty::DumpAreaHeader>()],
             )
