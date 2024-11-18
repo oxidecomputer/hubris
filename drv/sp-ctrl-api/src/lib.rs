@@ -21,6 +21,7 @@ pub enum SpCtrlError {
 
     #[idol(server_death)]
     ServerRestarted,
+    Timeout,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

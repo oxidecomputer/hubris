@@ -2,10 +2,19 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use anyhow::Result;
+use anyhow::{bail, Context, Result};
 use build_lpc55pins::PinConfig;
+use call_rustfmt::rustfmt;
+use endoscope_abi::{LOAD_SYMBOL, SHARED_STRUCT_SYMBOL};
+use goblin::container::Container;
+use goblin::elf::section_header::{SectionHeader, SHF_ALLOC, SHT_PROGBITS};
+use goblin::elf::Elf;
+use rustc_demangle::demangle;
 use serde::Deserialize;
+use std::fs::OpenOptions;
 use std::io::Write;
+use std::io::{Read, Seek, SeekFrom};
+use std::path::PathBuf;
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -88,6 +97,163 @@ fn generate_swd_functions(config: &TaskConfig) -> Result<()> {
     Ok(())
 }
 
+fn prepare_endoscope() -> Result<(), anyhow::Error> {
+    let key = "CARGO_BIN_FILE_ENDOSCOPE";
+    let elf_path = PathBuf::from(
+        std::env::var(key).context(format!("Cannot read env var '{}'", key))?,
+    );
+    let data = std::fs::read(&elf_path).context("could not open ELF file")?;
+    let elf = Elf::parse(&data).context("cannot parse ELF file")?;
+
+    let out_dir = build_util::out_dir();
+    let dest_path = out_dir.join("endoscope.rs");
+    let bin_path = out_dir.join("endoscope.bin");
+    let mut file = std::fs::File::create(&dest_path)
+        .context("Cannot create output file")?;
+
+    writeln!(&mut file, "mod endoscope {{")?;
+
+    // Get entry point
+    if elf.header.container()? != Container::Little
+        || elf.header.e_machine != goblin::elf::header::EM_ARM
+    {
+        bail!("Not a little endian ARM ELF file");
+    }
+
+    let mut interesting = std::collections::BTreeMap::new();
+    for name in [
+        // Load address of image
+        (LOAD_SYMBOL, "LOAD"),
+        // Address of endoscope output struct
+        (SHARED_STRUCT_SYMBOL, "SHARED"),
+    ]
+    .iter()
+    {
+        interesting.insert(name.0, name.1);
+    }
+
+    for sym in elf.syms.iter() {
+        if let Some(str) = elf.strtab.get_at(sym.st_name) {
+            let name = format!("{:#}", demangle(str));
+            if let Some(myname) = interesting.get(name.as_str()) {
+                writeln!(
+                    &mut file,
+                    "pub const {}:u32 = 0x{:x};",
+                    myname, sym.st_value
+                )?;
+            }
+        }
+    }
+    writeln!(&mut file, "}}")?;
+
+    // Extract image bits from the ELF file.
+    let elf_reader = OpenOptions::new().read(true).open(&elf_path).unwrap();
+    let bin = get_elf(elf_reader).context(format!(
+        "cannot extract bin from elf {}",
+        elf_path.display()
+    ))?;
+    std::fs::write(&bin_path, bin).context("cannot write to {&bin_path}")?;
+
+    writeln!(
+        &mut file,
+        "// Bytes extracted from target/{}",
+        elf_path.to_str().unwrap().split("target/").last().unwrap()
+    )?;
+    writeln!(
+        &mut file,
+        "const ENDOSCOPE_BYTES: &[u8] = include_bytes!(r#\"{}\"#);",
+        bin_path.to_str().unwrap()
+    )?;
+    drop(file);
+    rustfmt(&dest_path).context("cannot call_rustfmt")?;
+
+    Ok(())
+}
+
+/// Given a reader on an ELF file return the executable image.
+pub fn get_elf<R>(mut reader: R) -> Result<Vec<u8>, anyhow::Error>
+where
+    R: Read + Seek,
+{
+    let mut data = vec![];
+    let _len = reader
+        .read_to_end(&mut data)
+        .context("cannot read to end")?;
+    let elf = Elf::parse(&data).context("cannot parse data as ELF")?;
+
+    if elf.header.container()? != Container::Little
+        || elf.header.e_machine != goblin::elf::header::EM_ARM
+    {
+        bail!("not a little-endian ARM ELF file");
+    }
+
+    // Extract the bytes to load
+
+    // Find all of the sections that compose our '.bin' file.
+    // These criteria were inferred from the produced artifact
+    // and the result of `arm-none-eabi-objcopy -O binary $INPUT_ELF $OUTPUT_BIN`
+    //
+    // See also:
+    // https://refspecs.linuxfoundation.org/LSB_2.1.0/LSB-Embedded/LSB-Embedded/elftypes.html
+    let sections: Vec<&SectionHeader> = elf
+        .section_headers
+        .iter()
+        .filter(|sh| (sh.sh_type & SHT_PROGBITS == SHT_PROGBITS))
+        .filter(|sh| (sh.sh_flags as u32 & SHF_ALLOC == SHF_ALLOC))
+        .filter(|sh| !sh.vm_range().is_empty())
+        .collect();
+    let bin_size: usize = sections.iter().map(|sh| sh.vm_range().len()).sum();
+
+    // Do a sanity check on the size of the blob based on what we've seen.
+    //
+    // Notes:
+    //
+    // Clippy ignores the profile (or equivalent) when building the
+    // endoscope blob which results in an enormous binary. Since we're not
+    // going to actually build the swd task when running clippy, the large
+    // size can be ignored.
+    //
+    // The artifact-specific profiles do not allow `lto` to be
+    // specified. That would save at least 500 bytes of executable.
+    // In Cargo.toml, see [profile.*.package.endoscope]
+    //
+    // TODO: Add to or create relevant cargo bug(s):
+    // e.g. https://github.com/rust-lang/cargo/issues/11680
+    //
+    #[cfg(not(clippy))]
+    if bin_size > 6 * 1024 {
+        bail!("bin_size of {bin_size} is over 6KiB. Was it built with the wrong profile?");
+    }
+
+    // Test our assumptions that the sections are in order and contiguous.
+    if sections.len() > 1 {
+        for index in 0..(sections.len() - 1) {
+            if sections[index].vm_range().end
+                != sections[index + 1].vm_range().start
+            {
+                bail!("discontiguous sections {} and {}", index, index + 1);
+            }
+        }
+    }
+
+    // We're also assuming that `vm_range`s go from 0 to bin_size.
+    // So, expect a panic if we now try to read outside those limits.
+    let mut bin = vec![0u8; bin_size];
+
+    for section in sections {
+        let file_range = section.file_range().unwrap();
+        let vm_range = section.vm_range();
+        reader.seek(SeekFrom::Start(file_range.start as u64))?;
+        if reader.read(&mut bin[vm_range.start..vm_range.end]).is_err() {
+            bail!(format!(
+                "cannot read elf[{}..] into bin[{}..{}]",
+                file_range.start, vm_range.start, vm_range.end
+            ));
+        }
+    }
+    Ok(bin)
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     idol::Generator::new()
         .with_counters(
@@ -106,6 +272,8 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     generate_swd_functions(&task_config)?;
     build_lpc55pins::codegen(task_config.pins)?;
+
+    prepare_endoscope()?;
 
     Ok(())
 }
