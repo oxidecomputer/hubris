@@ -56,9 +56,7 @@ use drv_sprot_api::{
 };
 use lpc55_pac as device;
 use ringbuf::{ringbuf, ringbuf_entry};
-use userlib::{
-    sys_irq_control, sys_recv_notification, task_slot, TaskId, UnwrapLite,
-};
+use userlib::{sys_irq_control, sys_recv_notification, task_slot, UnwrapLite};
 
 mod handler;
 
