@@ -30,7 +30,6 @@ enum Trace {
     GetDumpArea(u8),
     Base(u32),
     GetDumpAreaFailed(humpty::DumpError<()>),
-    GetDumpAreaFailed2(Result<DumpArea, DumpAgentError>),
     ClaimDumpAreaFailed(humpty::DumpError<()>),
     Claiming,
     Dumping {
@@ -104,7 +103,7 @@ pub fn get_dump_area(base: u32, index: u8) -> Result<DumpArea, DumpAgentError> {
     // SAFETY: we have configured memory so that humpty should only read
     // headers which are properly initialized and which this task is allowed to
     // read.
-    let r = match humpty::get_dump_area(base, index, |addr, buf, _| unsafe {
+    match humpty::get_dump_area(base, index, |addr, buf, _| unsafe {
         humpty::from_mem(addr, buf)
     }) {
         Err(e) => {
@@ -113,9 +112,7 @@ pub fn get_dump_area(base: u32, index: u8) -> Result<DumpArea, DumpAgentError> {
         }
 
         Ok(rval) => Ok(rval),
-    };
-    ringbuf_entry!(Trace::GetDumpAreaFailed2(r));
-    r
+    }
 }
 
 pub fn claim_dump_area(base: u32) -> Result<DumpArea, DumpAgentError> {
