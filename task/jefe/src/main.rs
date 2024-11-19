@@ -96,6 +96,9 @@ struct ServerImpl<'s> {
     dump_areas: u32,
 
     /// Cache of most recently checked dump area
+    ///
+    /// This accelerates our linked-list search in the common case of doing
+    /// sequential reads through dump memory.
     #[cfg(feature = "dump")]
     last_dump_area: Option<DumpArea>,
 }
