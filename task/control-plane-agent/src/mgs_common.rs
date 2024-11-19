@@ -628,17 +628,18 @@ impl MgsCommon {
     pub(crate) fn task_dump_read_start(
         &mut self,
         index: u32,
-        key: u32,
+        key: [u8; 16],
     ) -> Result<DumpTask, GwSpError> {
         self.dump_state.task_dump_read_start(index, key)
     }
 
     pub(crate) fn task_dump_read_continue(
         &mut self,
-        key: u32,
+        key: [u8; 16],
+        seq: u32,
         buf: &mut [u8],
     ) -> Result<Option<DumpSegment>, GwSpError> {
-        self.dump_state.task_dump_read_continue(key, buf)
+        self.dump_state.task_dump_read_continue(key, seq, buf)
     }
 }
 

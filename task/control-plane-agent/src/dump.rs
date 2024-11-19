@@ -4,7 +4,9 @@
 
 use core::mem::size_of;
 use dump_agent_api::DumpAgent;
-use gateway_messages::{DumpError, DumpSegment, DumpTask, SpError};
+use gateway_messages::{
+    DumpCompression, DumpError, DumpSegment, DumpTask, SpError,
+};
 use userlib::{task_slot, UnwrapLite};
 use zerocopy::{AsBytes, FromBytes};
 
@@ -15,10 +17,22 @@ const HEADER_SIZE: u32 = size_of::<humpty::DumpAreaHeader>() as u32;
 const SEGMENT_DATA_SIZE: u32 = size_of::<humpty::DumpSegmentData>() as u32;
 
 #[derive(Copy, Clone)]
-pub struct ClientDumpState {
+struct ClientDumpState {
     /// Key used to distinguish between clients (should be random)
-    key: u32,
+    key: [u8; 16],
 
+    /// Expected sequence number
+    expected_seq: u32,
+
+    /// Current position, associated with `expected_seq`
+    current_pos: Position,
+
+    /// Previous position, associated with `expected_seq - 1`
+    prev_pos: Option<Position>,
+}
+
+#[derive(Copy, Clone)]
+struct Position {
     /// Index of the dump area being read
     area_index: u8,
 
@@ -70,7 +84,7 @@ impl DumpState {
     pub(crate) fn task_dump_read_start(
         &mut self,
         dump_index: u32,
-        key: u32,
+        key: [u8; 16],
     ) -> Result<DumpTask, SpError> {
         // Find the area where this dump starts
         let mut count = 0;
@@ -124,17 +138,22 @@ impl DumpState {
             .unwrap_or(0);
         self.clients[slot] = Some(ClientDumpState {
             key,
-            area_index: index,
-            offset: offset + DUMP_TASK_SIZE,
+            expected_seq: 0,
+            current_pos: Position {
+                area_index: index,
+                offset: offset + DUMP_TASK_SIZE,
+            },
+            prev_pos: None,
         });
 
         Ok(DumpTask {
             task: task.id,
             time: task.time,
+            compression: DumpCompression::Lzss,
         })
     }
 
-    fn clear_client_state(&mut self, key: u32) {
+    fn clear_client_state(&mut self, key: [u8; 16]) {
         self.clients
             .iter_mut()
             .filter(|c| c.map(|c| c.key == key).unwrap_or(false))
@@ -143,7 +162,8 @@ impl DumpState {
 
     pub(crate) fn task_dump_read_continue(
         &mut self,
-        key: u32,
+        key: [u8; 16],
+        seq: u32,
         buf: &mut [u8],
     ) -> Result<Option<DumpSegment>, SpError> {
         let Some(state) =
@@ -152,9 +172,25 @@ impl DumpState {
             return Err(SpError::Dump(DumpError::BadKey));
         };
 
+        // Figure out if we're replaying a previous chunk or not
+        let replay = if seq == state.expected_seq {
+            false
+        } else if state.expected_seq > 0 && seq == state.expected_seq - 1 {
+            true
+        } else {
+            return Err(SpError::Dump(DumpError::BadSequenceNumber));
+        };
+
+        // We'll update this position as we go, then write it back afterwards
+        let mut pos = if replay {
+            state.prev_pos.unwrap_lite()
+        } else {
+            state.current_pos
+        };
+
         let mut header = humpty::DumpAreaHeader::new_zeroed();
         self.agent
-            .read_dump_into(state.area_index, 0, header.as_bytes_mut())
+            .read_dump_into(pos.area_index, 0, header.as_bytes_mut())
             .map_err(|_e| SpError::Dump(DumpError::ReadFailed))?;
 
         // Make sure the header is still valid
@@ -163,7 +199,7 @@ impl DumpState {
         }
 
         // Move along to the next area if we're at the end
-        if state.offset + SEGMENT_DATA_SIZE > header.written {
+        if pos.offset + SEGMENT_DATA_SIZE > header.written {
             if header.next == 0 {
                 // we're done, because there's no more dump areas
                 self.clear_client_state(key);
@@ -171,9 +207,9 @@ impl DumpState {
             }
 
             // Move to the next area and read the header
-            state.area_index += 1;
+            pos.area_index += 1;
             self.agent
-                .read_dump_into(state.area_index, 0, header.as_bytes_mut())
+                .read_dump_into(pos.area_index, 0, header.as_bytes_mut())
                 .map_err(|_e| SpError::Dump(DumpError::ReadFailed))?;
 
             // If the next header is of a different type, then we have no more
@@ -185,15 +221,15 @@ impl DumpState {
                 return Ok(None);
             }
             // Skip the area header
-            state.offset = HEADER_SIZE;
+            pos.offset = HEADER_SIZE;
         }
 
         // Read the dump segment data header
         let mut ds = humpty::DumpSegmentData::new_zeroed();
         self.agent
-            .read_dump_into(state.area_index, state.offset, ds.as_bytes_mut())
+            .read_dump_into(pos.area_index, pos.offset, ds.as_bytes_mut())
             .map_err(|_e| SpError::Dump(DumpError::ReadFailed))?;
-        state.offset += SEGMENT_DATA_SIZE;
+        pos.offset += SEGMENT_DATA_SIZE;
 
         // Read the compressed bytes directly into the tx buffer
         if ds.compressed_length as usize > buf.len() {
@@ -201,22 +237,29 @@ impl DumpState {
         }
         self.agent
             .read_dump_into(
-                state.area_index,
-                state.offset,
+                pos.area_index,
+                pos.offset,
                 &mut buf[..ds.compressed_length as usize],
             )
             .map_err(|_e| SpError::Dump(DumpError::ReadFailed))?;
-        state.offset += ds.compressed_length as u32;
-        while state.offset & 3 != 0 {
+        pos.offset += ds.compressed_length as u32;
+        while pos.offset & 3 != 0 {
             // pad to the nearest u32
             // XXX why is `humpty::DUMP_SEGMENT_MASK` private?
-            state.offset += 1;
+            pos.offset += 1;
+        }
+
+        if !replay {
+            state.prev_pos = Some(state.current_pos);
+            state.current_pos = pos;
+            state.expected_seq += 1;
         }
 
         Ok(Some(DumpSegment {
             address: ds.address,
             compressed_length: ds.compressed_length,
             uncompressed_length: ds.uncompressed_length,
+            seq,
         }))
     }
 }
