@@ -208,15 +208,15 @@ pub fn codegen(pins: Vec<PinConfig>) -> Result<()> {
     let out_dir = build_util::out_dir();
     let dest_path = out_dir.join("pin_config.rs");
     let mut file = std::fs::File::create(&dest_path)?;
-    let mut buf = BufWriter::new(Vec::new());
-    let mut used_slots = 0u8;
 
+    let mut used_slots = 0u8;
+    let mut buf = BufWriter::new(Vec::new());
     if pins.iter().any(|p| p.name.is_some()) {
-        writeln!(&mut file, "use drv_lpc55_gpio_api::Pin;")?;
+        writeln!(&mut buf, "use drv_lpc55_gpio_api::Pin;")?;
     }
     writeln!(
         &mut file,
-        "fn setup_pins(task : userlib::TaskId) -> Result<(), ()> {{"
+        "fn setup_pins(task : TaskId) -> Result<(), ()> {{"
     )?;
     writeln!(&mut file, "use drv_lpc55_gpio_api::*;")?;
     writeln!(&mut file, "let iocon = Pins::from(task);")?;
@@ -281,12 +281,7 @@ pub fn codegen(pins: Vec<PinConfig>) -> Result<()> {
 
     writeln!(&mut file, "Ok(())")?;
     writeln!(&mut file, "}}")?;
-
-    write!(
-        &mut file,
-        "{}",
-        String::from_utf8(buf.into_inner()?).unwrap()
-    )?;
+    write!(file, "{}", String::from_utf8(buf.into_inner()?).unwrap())?;
     call_rustfmt::rustfmt(&dest_path)?;
 
     Ok(())

@@ -167,10 +167,8 @@ impl idl::InOrderPinsImpl for ServerImpl<'_> {
                 let syscon = Syscon::from(SYSCON.get_task_id());
                 syscon.enable_clock(Peripheral::Mux);
                 syscon.leave_reset(Peripheral::Mux);
-                unsafe {
-                    self.inputmux.pintsel[pint_slot as usize]
-                        .write(|w| w.bits(pin as u32));
-                }
+                self.inputmux.pintsel[pint_slot as usize]
+                    .write(|w| unsafe { w.intpin().bits(pin as u8) });
                 syscon.disable_clock(Peripheral::Mux);
 
                 // NOTE: We're only supporting edge-triggered interrupts right now.
