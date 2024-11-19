@@ -2700,7 +2700,7 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=mkeeter/sp-task-dump#f16c06489f89a32aff58b15df020d0003dc68ad4"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=mkeeter/sp-task-dump#9b11d93b6ef05633a4bee6ef7aa3eb8f1148320c"
 dependencies = [
  "bitflags 2.6.0",
  "hubpack",
