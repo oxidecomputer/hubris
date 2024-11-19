@@ -178,7 +178,7 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
                         // Easy case: we've already looked up this area
                         Ok(prev)
                     } else if let Some(offset) = index.checked_sub(prev.index) {
-                        // Slight tricker: the requested area is after our
+                        // Slightly tricker: the requested area is after our
                         // current area. We'll start at our current area, then
                         // do a reduced number of steps (patching the index
                         // afterwards)
