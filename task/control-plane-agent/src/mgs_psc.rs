@@ -649,6 +649,6 @@ impl SpHandler for MgsHandler {
         seq: u32,
         buf: &mut [u8],
     ) -> Result<Option<DumpSegment>, SpError> {
-        self.common.task_dump_read_continue(key, buf)
+        self.common.task_dump_read_continue(key, seq, buf)
     }
 }
