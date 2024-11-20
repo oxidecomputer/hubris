@@ -95,7 +95,9 @@ pub fn expose_target_board() {
         std::path::PathBuf::from(std::env::var("OUT_DIR").unwrap());
     loop {
         let done = out_dir.file_name() == Some(OsStr::new("target"));
-        out_dir.pop();
+        if !out_dir.pop() {
+            panic!("can't find target/ in OUT_DIR");
+        }
         if done {
             break;
         }
