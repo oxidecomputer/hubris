@@ -166,6 +166,19 @@ impl DumpState {
         seq: u32,
         buf: &mut [u8],
     ) -> Result<Option<DumpSegment>, SpError> {
+        let r = self.task_dump_read_continue_inner(key, seq, buf);
+        if matches!(r, Ok(None) | Err(..)) {
+            self.clear_client_state(key);
+        }
+        r
+    }
+
+    pub(crate) fn task_dump_read_continue_inner(
+        &mut self,
+        key: [u8; 16],
+        seq: u32,
+        buf: &mut [u8],
+    ) -> Result<Option<DumpSegment>, SpError> {
         let Some(state) =
             self.clients.iter_mut().flatten().find(|c| c.key == key)
         else {
@@ -202,7 +215,6 @@ impl DumpState {
         if pos.offset + SEGMENT_DATA_SIZE > header.written {
             if header.next == 0 {
                 // we're done, because there's no more dump areas
-                self.clear_client_state(key);
                 return Ok(None);
             }
 
@@ -217,7 +229,6 @@ impl DumpState {
             if header.contents != humpty::DumpContents::SingleTask.into()
                 || header.nsegments != 0
             {
-                self.clear_client_state(key);
                 return Ok(None);
             }
             // Skip the area header
