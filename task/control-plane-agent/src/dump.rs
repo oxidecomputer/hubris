@@ -10,6 +10,10 @@ use zerocopy::{AsBytes, FromBytes};
 
 task_slot!(DUMP_AGENT, dump_agent);
 
+const DUMP_TASK_SIZE: u32 = size_of::<humpty::DumpTask>() as u32;
+const HEADER_SIZE: u32 = size_of::<humpty::DumpAreaHeader>() as u32;
+const SEGMENT_DATA_SIZE: u32 = size_of::<humpty::DumpSegmentData>() as u32;
+
 #[derive(Copy, Clone)]
 pub struct ClientDumpState {
     /// Key used to distinguish between clients (should be random)
@@ -48,7 +52,7 @@ impl DumpState {
                 .read_dump(index, 0)
                 .map_err(|_e| SpError::Dump(DumpError::BadArea))?;
             let header = humpty::DumpAreaHeader::read_from(
-                &data[..size_of::<humpty::DumpAreaHeader>()],
+                &data[..HEADER_SIZE as usize],
             )
             .unwrap_lite();
             if header.contents == humpty::DumpContents::SingleTask.into()
@@ -80,7 +84,7 @@ impl DumpState {
                 .read_dump(index, 0)
                 .map_err(|_e| SpError::Dump(DumpError::BadArea))?;
             header = humpty::DumpAreaHeader::read_from(
-                &data[..size_of::<humpty::DumpAreaHeader>()],
+                &data[..HEADER_SIZE as usize],
             )
             .unwrap_lite();
             if header.contents == humpty::DumpContents::SingleTask.into()
@@ -102,10 +106,9 @@ impl DumpState {
         };
 
         // Here we go!
-        let offset = size_of::<humpty::DumpAreaHeader>()
-            + usize::from(header.nsegments)
-                * size_of::<humpty::DumpSegmentHeader>();
-        let task = humpty::DumpTask::read_from_prefix(&data[offset..])
+        let offset =
+            HEADER_SIZE + u32::from(header.nsegments) * SEGMENT_DATA_SIZE;
+        let task = humpty::DumpTask::read_from_prefix(&data[offset as usize..])
             .ok_or(SpError::Dump(DumpError::NoDumpTaskHeader))?;
         if task.magic != humpty::DUMP_TASK_MAGIC {
             return Err(SpError::Dump(DumpError::CorruptTaskHeader));
@@ -122,7 +125,7 @@ impl DumpState {
         self.clients[slot] = Some(ClientDumpState {
             key,
             area_index: index,
-            offset: (offset + size_of::<humpty::DumpTask>()) as u32,
+            offset: offset + DUMP_TASK_SIZE,
         });
 
         Ok(DumpTask {
@@ -160,9 +163,7 @@ impl DumpState {
         }
 
         // Move along to the next area if we're at the end
-        if state.offset + size_of::<humpty::DumpSegmentData>() as u32
-            > header.written
-        {
+        if state.offset + SEGMENT_DATA_SIZE > header.written {
             if header.next == 0 {
                 // we're done, because there's no more dump areas
                 self.clear_client_state(key);
@@ -184,7 +185,7 @@ impl DumpState {
                 return Ok(None);
             }
             // Skip the area header
-            state.offset = size_of::<humpty::DumpAreaHeader>() as u32;
+            state.offset = HEADER_SIZE;
         }
 
         // Read the dump segment data header
@@ -192,7 +193,7 @@ impl DumpState {
         self.agent
             .read_dump_into(state.area_index, state.offset, ds.as_bytes_mut())
             .map_err(|_e| SpError::Dump(DumpError::ReadFailed))?;
-        state.offset += size_of::<humpty::DumpSegmentData>() as u32;
+        state.offset += SEGMENT_DATA_SIZE;
 
         // Read the compressed bytes directly into the tx buffer
         if ds.compressed_length as usize > buf.len() {
