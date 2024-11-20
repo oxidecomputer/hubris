@@ -307,37 +307,36 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
             // one task to have faulted since we last looked, but it's somewhat
             // unlikely since a fault causes us to immediately preempt. In any
             // case, let's assume we might have to handle multiple tasks.
-            //
-            // TODO: it would be fantastic to have a way of finding this out in
-            // one syscall.
-            for (i, status) in self.task_states.iter_mut().enumerate() {
+            let mut next_task = 1;
+            while let Some(fault_index) = kipc::find_faulted_task(next_task) {
+                let fault_index = usize::from(fault_index);
+                next_task = fault_index + 1;
+
+                let status = &mut self.task_states[fault_index];
+
                 // If we're aware that this task is in a fault state, don't
                 // bother making a syscall to enquire.
                 if status.holding_fault {
                     continue;
                 }
 
-                if let abi::TaskState::Faulted { .. } =
-                    kipc::read_task_status(i)
+                #[cfg(feature = "dump")]
                 {
-                    #[cfg(feature = "dump")]
-                    {
-                        // We'll ignore the result of dumping; it could fail
-                        // if we're out of space, but we don't have a way of
-                        // dealing with that right now.
-                        //
-                        // TODO: some kind of circular buffer?
-                        _ = dump::dump_task(self.dump_areas, i);
-                    }
+                    // We'll ignore the result of dumping; it could fail
+                    // if we're out of space, but we don't have a way of
+                    // dealing with that right now.
+                    //
+                    // TODO: some kind of circular buffer?
+                    _ = dump::dump_task(self.dump_areas, fault_index);
+                }
 
-                    if status.disposition == Disposition::Restart {
-                        // Stand it back up
-                        kipc::restart_task(i, true);
-                    } else {
-                        // Mark this one off so we don't revisit it until
-                        // requested.
-                        status.holding_fault = true;
-                    }
+                if status.disposition == Disposition::Restart {
+                    // Stand it back up
+                    kipc::restart_task(fault_index, true);
+                } else {
+                    // Mark this one off so we don't revisit it until
+                    // requested.
+                    status.holding_fault = true;
                 }
             }
         }
