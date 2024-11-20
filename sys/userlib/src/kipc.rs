@@ -4,6 +4,8 @@
 
 //! Operations implemented by IPC with the kernel task.
 
+use core::num::NonZeroUsize;
+
 use abi::{Kipcnum, TaskId};
 use zerocopy::AsBytes;
 
@@ -22,6 +24,33 @@ pub fn read_task_status(task: usize) -> abi::TaskState {
     );
     assert_eq!(rc, 0);
     ssmarshal::deserialize(&response[..len]).unwrap_lite().0
+}
+
+/// Scans forward from index `task` looking for a task in faulted state.
+///
+/// If no tasks at `task` or greater indices are faulted, this returns `None`.
+///
+/// If a faulted task at index `i` is found, returns `Some(i)`.
+///
+/// `task` may equal the number of tasks in the system (i.e. a one-past-the-end
+/// index). In that case, this returns `None` every time. Larger values will get
+/// you killed.
+///
+/// The return value is a `NonZeroUsize` because this can't ever return zero,
+/// since that would mean the supervisor (presumably the caller of this
+/// function!) is in faulted state.
+pub fn find_faulted_task(task: usize) -> Option<NonZeroUsize> {
+    // Coerce `task` to a known size (Rust doesn't assume that usize == u32)
+    let task = task as u32;
+    let mut response = 0_u32;
+    let (_, _) = sys_send(
+        TaskId::KERNEL,
+        Kipcnum::FindFaultedTask as u16,
+        task.as_bytes(),
+        response.as_bytes_mut(),
+        &[],
+    );
+    NonZeroUsize::new(response as usize)
 }
 
 pub fn get_task_dump_region(
