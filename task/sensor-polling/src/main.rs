@@ -36,6 +36,7 @@ impl From<Error> for task_sensor_api::NoData {
                 | Mwocp68Error::BadValidation { code, .. } => code.into(),
                 Mwocp68Error::BadData { .. }
                 | Mwocp68Error::InvalidData { .. } => Self::DeviceError,
+                _ => Self::DeviceError,
             },
         }
     }

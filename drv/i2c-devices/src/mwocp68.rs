@@ -17,7 +17,8 @@ use pmbus::*;
 use task_power_api::PmbusValue;
 use userlib::units::{Amperes, Volts};
 
-pub type Mwocp68FirmwareRev = [u8; 4];
+#[derive(Copy, Clone, PartialEq)]
+pub struct Mwocp68FirmwareRev(pub [u8; 4]);
 
 pub struct Mwocp68 {
     device: I2cDevice,
@@ -36,6 +37,9 @@ pub enum Error {
     BadData { cmd: u8 },
     BadValidation { cmd: u8, code: ResponseCode },
     InvalidData { err: pmbus::Error },
+    BadFirmwareRevRead { code: ResponseCode },
+    BadFirmwareRev,
+    BadFirmwareRevLength,
 }
 
 impl From<BadValidation> for Error {
@@ -63,6 +67,22 @@ impl From<pmbus::Error> for Error {
         Error::InvalidData { err }
     }
 }
+
+// const MWOCP68_MFR_ID: &str = "Murata-PS";
+// const MWOCP68_MFR_MODEL: &str = "MWOCP68-3600-D-RM";
+// const MWOCP68_BOOT_LOADER_KEY: &str = "InVe";
+// const MWOCP68_PRODUCT_KEY: &str = "M5813-0000000000";
+
+const MWOCP68_REVISION_LEN: usize = 14;
+const MWOCP68_REVISION_FORMAT: &[u8; MWOCP68_REVISION_LEN] = b"XXXX-YYYY-0000";
+
+const MWOCP68_KEY_DELAY: u64 = 3;
+const MWOCP68_BOOT_DELAY: u64 = 1;
+const MWOCP68_RESET_DELAY: u64 = 2;
+const MWOCP68_BLOCK_LENGTH: usize = 32;
+const MWOCP68_BLOCK_DELAY_MS: u8 = 100;
+const MWOCP68_CHECKSUM_DELAY: u64 = 2;
+const MWOCP68_REBOOT_DELAY: u64 = 5;
 
 impl Mwocp68 {
     pub fn new(device: &I2cDevice, index: u8) -> Self {
@@ -356,7 +376,7 @@ impl Mwocp68 {
     pub fn present(&self) -> bool {
         match Mwocp68::validate(&self.device) {
             Ok(valid) => valid,
-            _ => false
+            _ => false,
         }
     }
 
@@ -365,6 +385,40 @@ impl Mwocp68 {
 
         let status = pmbus_read!(self.device, STATUS_WORD)?;
         Ok(status.get_power_good_status() == Some(PowerGoodStatus::PowerGood))
+    }
+
+    pub fn firmware_revision(&self) -> Result<Mwocp68FirmwareRev, Error> {
+        let mut data = [0u8; MWOCP68_REVISION_LEN];
+
+        let len = self
+            .device
+            .read_block(CommandCode::MFR_REVISION as u8, &mut data)
+            .map_err(|code| Error::BadFirmwareRevRead { code })?;
+
+        //
+        // Per ACAN-114, we are expecting this to be of the format:
+        //
+        //    XXXX-YYYY-0000
+        //
+        // Where XXXX is the firmware revision on the primary MCU (AC input
+        // side) and YYYY is the firmware revision on the secondary MCU (DC
+        // output side).
+        //
+        if len != MWOCP68_REVISION_LEN {
+            return Err(Error::BadFirmwareRevLength);
+        }
+
+        /*
+                for ndx in 0..
+                for (ndx, val) in expected.iter() {
+                    if data[ndx] != val {
+                        return Err(Error::BadFirmwareRev);
+                    }
+                }
+
+        */
+
+        Ok(Mwocp68FirmwareRev([data[0], data[1], data[2], data[3]]))
     }
 
     pub fn i2c_device(&self) -> &I2cDevice {

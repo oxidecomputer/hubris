@@ -5,12 +5,16 @@
 #![no_std]
 #![no_main]
 
-use drv_i2c_devices::mwocp68::{Error as Mwocp68Error, Mwocp68};
-use ringbuf::*;
-use userlib::*;
 use drv_i2c_api::*;
+use drv_i2c_devices::mwocp68::{
+    Error as Mwocp68Error, Mwocp68, Mwocp68FirmwareRev,
+};
 use drv_i2c_devices::Validate;
+use ringbuf::*;
 use static_cell::ClaimOnceCell;
+use userlib::*;
+
+use core::ops::Add;
 
 task_slot!(I2C, i2c_driver);
 
@@ -28,29 +32,54 @@ static DEVICES: [fn(TaskId) -> I2cDevice; 6] = [
     devices::mwocp68_psu5mcu,
 ];
 
-static PSU: ClaimOnceCell<[Psu; 6]> = ClaimOnceCell::new([Psu {
-    last_checked: None,
-    present: None,
-    power_good: None,
-    firmware_matches: None,
-    update_started: None,
-    update_failed: None,
-}; 6]);
+static PSU: ClaimOnceCell<[Psu; 6]> = ClaimOnceCell::new(
+    [Psu {
+        last_checked: None,
+        present: None,
+        power_good: None,
+        firmware_matches: None,
+        firmware_revision: None,
+        update_started: None,
+        update_failed: None,
+        update_backoff: None,
+    }; 6],
+);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum Trace {
     None,
     Start,
     PowerGoodFailed(u8, drv_i2c_devices::mwocp68::Error),
+    FirmwareRevFailed(u8, drv_i2c_devices::mwocp68::Error),
     Psu(u8),
+    AttemptingUpdate(u8),
+    BackingOff(u8),
 }
+
+const MWOCP68_FIRMWARE_REV: Mwocp68FirmwareRev = Mwocp68FirmwareRev(*b"0762");
+const MWOCP68_FIRMWARE_PAYLOAD: &'static [u8] =
+    include_bytes!("mwocp68-0762.bin");
 
 ringbuf!(Trace, 32, Trace::None);
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialOrd, PartialEq)]
 struct Ticks(u64);
 
-#[derive(Copy, Clone)]
+impl Ticks {
+    fn now() -> Self {
+        Self(sys_get_timer().now)
+    }
+}
+
+impl Add for Ticks {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        Self(self.0 + other.0)
+    }
+}
+
+#[derive(Copy, Clone, Default)]
 struct Psu {
     /// When did we last check this device?
     last_checked: Option<Ticks>,
@@ -61,7 +90,8 @@ struct Psu {
     /// Is the device on and with POWER_GOOD set?
     power_good: Option<bool>,
 
-//    firmware_rev: Option<Mwocp68FirmwareRev>
+    /// The last firmware revision read
+    firmware_revision: Option<Mwocp68FirmwareRev>,
 
     /// Does the firmware we have match the firmware here?
     firmware_matches: Option<bool>,
@@ -71,6 +101,105 @@ struct Psu {
 
     /// What time did the update last fail, if any?
     update_failed: Option<Ticks>,
+
+    /// How long should the next update backoff, if at all? (In ticks.)
+    update_backoff: Option<Ticks>,
+}
+
+impl Psu {
+    fn update_should_be_attempted(&mut self, dev: &Mwocp68, ndx: u8) -> bool {
+        let now = Ticks::now();
+
+        self.last_checked = Some(now);
+        self.power_good = None;
+        self.firmware_matches = None;
+        self.firmware_revision = None;
+
+        if !dev.present() {
+            self.present = Some(false);
+
+            //
+            // If we are seeing our device as not present, we will clear our
+            // backoff value: if/when a PSU is plugged back in, we want to
+            // attempt to update it immediately if the firmware revision
+            // doesn't match our payload.
+            //
+            self.update_backoff = None;
+            return false;
+        }
+
+        self.present = Some(true);
+
+        match dev.power_good() {
+            Ok(power_good) => {
+                self.power_good = Some(power_good);
+
+                if !power_good {
+                    return false;
+                }
+            }
+            Err(err) => {
+                ringbuf_entry!(Trace::PowerGoodFailed(ndx, err));
+                return false;
+            }
+        }
+
+        match dev.firmware_revision() {
+            Ok(revision) => {
+                self.firmware_revision = Some(revision);
+
+                if revision == MWOCP68_FIRMWARE_REV {
+                    self.firmware_matches = Some(true);
+                    return false;
+                }
+
+                self.firmware_matches = Some(false);
+            }
+            Err(err) => {
+                ringbuf_entry!(Trace::FirmwareRevFailed(ndx, err));
+                return false;
+            }
+        }
+
+        if let (Some(started), Some(backoff)) =
+            (self.update_started, self.update_backoff)
+        {
+            if started + backoff > now {
+                ringbuf_entry!(Trace::BackingOff(ndx));
+                return false;
+            }
+        }
+
+        true
+    }
+
+    fn update_firmware(&mut self, dev: &Mwocp68, ndx: u8) {
+        ringbuf_entry!(Trace::AttemptingUpdate(ndx));
+        self.update_started = Some(Ticks::now());
+
+        self.update_backoff = match self.update_backoff {
+            Some(backoff) => Some(Ticks(backoff.0 * 2)),
+            None => Some(Ticks(20000)),
+        };
+
+        /*
+                //
+                //
+                write_boot_key, false
+                write_product_key
+                boot_into_boot_loader
+
+                indicate_write_start
+
+                fo XC
+
+                    write_block
+
+                checksum()
+                reboot()
+
+        */
+    }
 }
 
 #[export_name = "main"]
@@ -91,34 +220,8 @@ fn main() -> ! {
         for (ndx, psu) in psus.iter_mut().enumerate() {
             let dev = &devs[ndx];
 
-            psu.last_checked = Some(Ticks(sys_get_timer().now));
-
-            //
-            // We're going to check all of these fields.
-            //
-            psu.power_good = None;
-            psu.firmware_matches = None;
-
-            if !dev.present() {
-                psu.present = Some(false);
-                continue;
-            }
-
-            psu.present = Some(true);
-
-            match dev.power_good() {
-                Ok(power_good) => {
-                    psu.power_good = Some(power_good);
-
-                    if !power_good { 
-                        continue;
-                    }
-                }
-
-                Err(err) => {
-                    ringbuf_entry!(Trace::PowerGoodFailed(ndx as u8, err));
-                    continue;
-                }
+            if psu.update_should_be_attempted(dev, ndx as u8) {
+                psu.update_firmware(dev, ndx as u8);
             }
         }
     }
