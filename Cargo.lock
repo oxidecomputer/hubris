@@ -144,6 +144,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "array-init"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3d62b7694a562cdf5a74227903507c56ab2cc8bdd1f781ed5cb4cf9c9f810bfc"
+
+[[package]]
 name = "arrayvec"
 version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1750,6 +1756,20 @@ dependencies = [
  "oxide-barcode",
  "ringbuf",
  "task-packrat-api",
+ "userlib",
+]
+
+[[package]]
+name = "drv-psc-psu-update"
+version = "0.1.0"
+dependencies = [
+ "array-init 2.1.0",
+ "build-i2c",
+ "build-util",
+ "drv-i2c-api",
+ "drv-i2c-devices",
+ "ringbuf",
+ "static-cell",
  "userlib",
 ]
 
@@ -4342,7 +4362,7 @@ version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca37e3e4d1b39afd7ff11ee4e947efae85adfddf4841787bfa47c470e96dc26d"
 dependencies = [
- "array-init",
+ "array-init 0.0.4",
  "serde",
  "smallvec 0.6.14",
 ]

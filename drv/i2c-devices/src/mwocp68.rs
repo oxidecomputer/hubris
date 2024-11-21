@@ -17,6 +17,8 @@ use pmbus::*;
 use task_power_api::PmbusValue;
 use userlib::units::{Amperes, Volts};
 
+pub type Mwocp68FirmwareRev = [u8; 4];
+
 pub struct Mwocp68 {
     device: I2cDevice,
 
@@ -348,6 +350,21 @@ impl Mwocp68 {
         };
 
         Ok(val)
+    }
+
+    /// Will return true if the device is present and valid -- false otherwise
+    pub fn present(&self) -> bool {
+        match Mwocp68::validate(&self.device) {
+            Ok(valid) => valid,
+            _ => false
+        }
+    }
+
+    pub fn power_good(&self) -> Result<bool, Error> {
+        use commands::mwocp68::STATUS_WORD::*;
+
+        let status = pmbus_read!(self.device, STATUS_WORD)?;
+        Ok(status.get_power_good_status() == Some(PowerGoodStatus::PowerGood))
     }
 
     pub fn i2c_device(&self) -> &I2cDevice {
