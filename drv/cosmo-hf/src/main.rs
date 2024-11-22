@@ -241,11 +241,11 @@ impl FlashDriver {
 
     /// Reads data from the given address into a `BufWriter`
     ///
-    /// This function will only return an error if it fails to read from a
+    /// This function will only return an error if it fails to write to a
     /// provided lease; when given a slice, it is infallible.
     fn flash_read(
         &mut self,
-        offset: u32,
+        mut offset: u32,
         dest: &mut dyn idol_runtime::BufWriter<'_>,
     ) -> Result<(), ()> {
         loop {
@@ -269,6 +269,7 @@ impl FlashDriver {
                     }
                 }
             }
+            offset += len as u32;
         }
         Ok(())
     }

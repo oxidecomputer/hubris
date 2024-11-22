@@ -505,14 +505,21 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     fn read(
         &mut self,
         _: &RecvMessage,
-        addr: u32,
-        dest: LenLimit<Leased<W, [u8]>, PAGE_SIZE_BYTES>,
+        mut addr: u32,
+        dest: Leased<W, [u8]>,
     ) -> Result<(), RequestError<HfError>> {
         self.check_muxed_to_sp()?;
-        self.qspi.read_memory(addr, &mut self.block[..dest.len()]);
+        let mut offset = 0;
+        for i in (0..dest.len()).step_by(self.block.len()) {
+            let n = (dest.len() - i).min(self.block.len());
 
-        dest.write_range(0..dest.len(), &self.block[..dest.len()])
-            .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
+            self.qspi.read_memory(addr, &mut self.block[..n]);
+
+            dest.write_range(offset..offset + n, &self.block[..n])
+                .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
+            addr += n as u32;
+            offset += n;
+        }
 
         Ok(())
     }
