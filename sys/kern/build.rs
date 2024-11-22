@@ -17,6 +17,12 @@ use proc_macro2::TokenStream;
 fn main() -> Result<()> {
     build_util::expose_m_profile()?;
 
+    println!("cargo::rustc-check-cfg=cfg(hubris_phantom_svc_mitigation)");
+    if build_util::target().starts_with("thumbv6m") {
+        // Force SVC checks on for v6-M.
+        println!("cargo:rustc-cfg=hubris_phantom_svc_mitigation");
+    }
+
     let g = process_config()?;
     generate_statics(&g)?;
 

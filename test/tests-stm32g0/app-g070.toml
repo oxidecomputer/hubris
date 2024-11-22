@@ -6,7 +6,7 @@ memory = "memory-g070.toml"
 
 [kernel]
 name = "demo-stm32g0-nucleo"
-requires = {flash = 19112, ram = 2828}
+requires = {flash = 19112, ram = 2832}
 features = ["g070"]
 stacksize = 2048
 
