@@ -27,6 +27,9 @@
 //! struct* type to make this easy and safe, e.g. `task.save().as_send_args()`.
 //! See the `task::ArchState` trait for details.
 
+#[cfg(hubris_phantom_svc_mitigation)]
+use core::sync::atomic::{AtomicBool, Ordering};
+
 use abi::{
     FaultInfo, IrqStatus, LeaseAttributes, SchedState, Sysnum, TaskId,
     TaskState, ULease, UsageError,
@@ -39,6 +42,9 @@ use crate::startup::with_task_table;
 use crate::task::{self, current_id, ArchState, NextTask, Task};
 use crate::time::Timestamp;
 use crate::umem::{safe_copy, USlice};
+
+#[cfg(hubris_phantom_svc_mitigation)]
+pub(crate) static EXPECT_PHANTOM_SYSCALL: AtomicBool = AtomicBool::new(false);
 
 /// Entry point accessed by arch-specific syscall entry sequence.
 ///
@@ -69,6 +75,23 @@ pub unsafe extern "C" fn syscall_entry(nr: u32, task: *mut Task) {
     };
 
     with_task_table(|tasks| {
+        // On certain architectures we risk receiving "phantom SVCs" assigned to
+        // tasks that are not, in fact, making system calls. As of this writing,
+        // this can occur on ARMv6-M (we believe we have fixed it on later ARM
+        // profiles).
+        //
+        // The only foolproof way of detecting this situation is to notice that
+        // the task that is _allegedly_ generating a syscall _is already blocked
+        // in a syscall._
+        #[cfg(hubris_phantom_svc_mitigation)]
+        {
+            use crate::atomic::AtomicExt;
+            if EXPECT_PHANTOM_SYSCALL.swap_polyfill(false, Ordering::Relaxed) {
+                // Ignore it. Make no changes to state.
+                return;
+            }
+        }
+
         match safe_syscall_entry(nr, idx, tasks) {
             // If we're returning to the same task, we're done!
             NextTask::Same => (),

@@ -1409,20 +1409,45 @@ unsafe extern "C" fn handle_fault(task: *mut task::Task) {
     // generate a spurious SVC. Even in the best of cases, this breaks the
     // supervisor.
     //
-    // SVCALLPENDED is in the System Handler Control and State Register, bit 15,
-    // and we need to clear its bit. We do this unconditionally because it
-    // doesn't hurt, and it's slightly faster/smaller.
+    // It would be super great if there were, say, a register in the System
+    // Control Block that would tell us that SVC is pended, wouldn't it? Perhaps
+    // it could be called the System Handler Control and State Register. In
+    // fact, if you read the ARMv6-M ARM, you will find a register with such a
+    // name, and might be tempted to use it!
     //
-    // (If you're comparing this to the ARMv7/v8-M equivalent, note that v6-M
-    // lacks the usage/mem/bus faults present in v7/8.)
+    // BEWARE.
     //
-    // Safety: the cortex-m crate makes all these registers blanket-unsafe
-    // without documenting the required preconditions. From the ARMv7-M spec, we
-    // can infer that the main risk here is if SVC were higher priority than
-    // this handler, which it is not.
-    unsafe {
-        let scb = &*cortex_m::peripheral::SCB::PTR;
-        scb.shcsr.modify(|bits| bits & !(1 << 15));
+    // In a _different section_ of that manual, there is a throwaway footnote
+    // that reads:
+    //
+    // > The DWT, BPU, ROM table, DCB, and the SHCSR and DFSR registers are
+    // > accessible through the DAP interface. Access from the processor is
+    // > IMPLEMENTATION DEFINED.
+    //
+    // On the Cortex-M0+, this very attractive register works great from the
+    // debugger but _reads as zero from the kernel._ Ugh.
+    //
+    // Instead, we are using the always-active ICSR register, which lets us
+    // _detect_ the pending SVC _but not clear it._ To clear it, we use the
+    // mitigation mechanism defined over in syscalls.rs.
+    //
+    // The case where an SVC is pending in ICSR uniquely identifies a task
+    // having faulted during SVC, because a hardfault _in the kernel_ during
+    // processing of an SVC would not have made it here (see above).
+    {
+        let scb = unsafe { &*cortex_m::peripheral::SCB::PTR };
+        let icsr = scb.icsr.read();
+        // VECTPENDING is 9 bits, so, why are we casting it to a u8? Because
+        // this code is ARMv6-M specific, and ARMv6-M is architecturally
+        // specified as having no more than 32 interrupts (plus 16 exceptions).
+        let vectpending = (icsr >> 12) as u8;
+
+        // If we're in a hardfault (which we know, because it's the only fault
+        // on ARMv6M and we are in a fault handler) and an SVC is pending...
+        if vectpending == 11 {
+            crate::syscalls::EXPECT_PHANTOM_SYSCALL
+                .store(true, core::sync::atomic::Ordering::Relaxed);
+        }
     }
 
     // ARMv6-M, to reduce complexity, does not distinguish fault causes.
