@@ -301,7 +301,7 @@ task-slots = ["i2c_driver", "sensor"]
 [tasks.psu_update]
 name = "drv-psc-psu-update"
 priority = 4
-max-sizes = {flash = 16384, ram = 8192 }
+max-sizes = {flash = 65536, ram = 8192 }
 start = true
 task-slots = ["i2c_driver"]
 

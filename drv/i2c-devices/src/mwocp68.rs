@@ -14,6 +14,7 @@ use pmbus::commands::mwocp68::*;
 use pmbus::commands::CommandCode;
 use pmbus::units::{Celsius, Rpm};
 use pmbus::*;
+use ringbuf::*;
 use task_power_api::PmbusValue;
 use userlib::units::{Amperes, Volts};
 
@@ -31,19 +32,62 @@ pub struct Mwocp68 {
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(u8)]
+enum BootLoaderCommand {
+    ClearStatus = 0x00,
+    RestartProgramming = 0x01,
+    BootPrimary = 0x12,
+    BootSecondary = 0x02,
+    BootPSUFirmware = 0x03,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Error {
-    BadRead { cmd: u8, code: ResponseCode },
-    BadWrite { cmd: u8, code: ResponseCode },
-    BadData { cmd: u8 },
-    BadValidation { cmd: u8, code: ResponseCode },
-    InvalidData { err: pmbus::Error },
-    BadFirmwareRevRead { code: ResponseCode },
-    BadFirmwareRev { index: u8 },
+    BadRead {
+        cmd: u8,
+        code: ResponseCode,
+    },
+    BadWrite {
+        cmd: u8,
+        code: ResponseCode,
+    },
+    BadData {
+        cmd: u8,
+    },
+    BadValidation {
+        cmd: u8,
+        code: ResponseCode,
+    },
+    InvalidData {
+        err: pmbus::Error,
+    },
+    BadFirmwareRevRead {
+        code: ResponseCode,
+    },
+    BadFirmwareRev {
+        index: u8,
+    },
     BadFirmwareRevLength,
     UpdateInBootLoader,
     UpdateNotInBootLoader,
     UpdateAlreadySuccessful,
+    BadBootLoaderStatus {
+        data: u8,
+    },
+    BadBootLoaderCommand {
+        cmd: BootLoaderCommand,
+        code: ResponseCode,
+    },
+    ChecksumNotSuccessful,
 }
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+enum Trace {
+    None,
+    BootLoaderMode(u8),
+}
+
+ringbuf!(Trace, 32, Trace::None);
 
 impl From<BadValidation> for Error {
     fn from(value: BadValidation) -> Self {
@@ -73,8 +117,6 @@ impl From<pmbus::Error> for Error {
 
 // const MWOCP68_MFR_ID: &str = "Murata-PS";
 // const MWOCP68_MFR_MODEL: &str = "MWOCP68-3600-D-RM";
-const MWOCP68_BOOT_LOADER_KEY: &[u8] = b"InVe";
-const MWOCP68_PRODUCT_KEY: &[u8] = b"M5813-0000000000";
 
 const MWOCP68_REVISION_LEN: usize = 14;
 const MWOCP68_REVISION_FORMAT: &[u8; MWOCP68_REVISION_LEN] = b"XXXX-YYYY-0000";
@@ -449,9 +491,40 @@ impl Mwocp68 {
         Ok(Mwocp68FirmwareRev([data[0], data[1], data[2], data[3]]))
     }
 
+    fn get_boot_loader_status(
+        &self,
+    ) -> Result<BOOT_LOADER_STATUS::CommandData, Error> {
+        use pmbus::commands::mwocp68::CommandCode;
+        let cmd = CommandCode::BOOT_LOADER_STATUS as u8;
+        let mut data = [0u8; 1];
+
+        let len = self
+            .device
+            .read_block(cmd, &mut data)
+            .map_err(|code| Error::BadRead { cmd, code })?;
+
+        ringbuf_entry!(Trace::BootLoaderMode(data[0]));
+
+        match BOOT_LOADER_STATUS::CommandData::from_slice(&data[0..]) {
+            Some(status) => Ok(status),
+            None => Err(Error::BadBootLoaderStatus { data: data[0] }),
+        }
+    }
+
     fn get_boot_loader_mode(&self) -> Result<BOOT_LOADER_STATUS::Mode, Error> {
-        let status = pmbus_read!(self.device, BOOT_LOADER_STATUS)?;
-        Ok(status.get_mode().unwrap())
+        Ok(self.get_boot_loader_status()?.get_mode().unwrap())
+    }
+
+    fn boot_loader_command(&self, cmd: BootLoaderCommand) -> Result<(), Error> {
+        use pmbus::commands::mwocp68::CommandCode;
+
+        let data = [CommandCode::BOOT_LOADER_STATUS as u8, 1, cmd as u8];
+
+        self.device
+            .write(&data)
+            .map_err(|code| Error::BadBootLoaderCommand { cmd, code })?;
+
+        Ok(())
     }
 
     pub fn update(
@@ -459,25 +532,51 @@ impl Mwocp68 {
         state: Option<UpdateState>,
         payload: &[u8],
     ) -> Result<(UpdateState, u64), Error> {
+        use pmbus::commands::mwocp68::CommandCode;
         use BOOT_LOADER_STATUS::Mode;
 
         let write_boot_loader_key = || -> Result<UpdateState, Error> {
+            const MWOCP68_BOOT_LOADER_KEY: &[u8] = b"InVe";
+            let mut data = [0u8; MWOCP68_BOOT_LOADER_KEY.len() + 2];
+
+            data[0] = CommandCode::BOOT_LOADER_KEY as u8;
+            data[1] = MWOCP68_BOOT_LOADER_KEY.len() as u8;
+            data[2..].copy_from_slice(MWOCP68_BOOT_LOADER_KEY);
+
+            self.device
+                .write(&data)
+                .map_err(|code| Error::BadWrite { cmd: data[0], code })?;
+
             Ok(UpdateState::WroteBootLoaderKey)
         };
 
         let write_product_key = || -> Result<UpdateState, Error> {
+            const MWOCP68_PRODUCT_KEY: &[u8] = b"M5813-0000000000";
+            let mut data = [0u8; MWOCP68_PRODUCT_KEY.len() + 1];
+
+            data[0] = CommandCode::BOOT_LOADER_PRODUCT_KEY as u8;
+            data[1..].copy_from_slice(MWOCP68_PRODUCT_KEY);
+
+            self.device
+                .write(&data)
+                .map_err(|code| Error::BadWrite { cmd: data[0], code })?;
+
             Ok(UpdateState::WroteProductKey)
         };
 
         let boot_boot_loader = || -> Result<UpdateState, Error> {
+            self.boot_loader_command(BootLoaderCommand::BootPrimary)?;
             Ok(UpdateState::BootedBootLoader)
         };
 
         let start_programming = || -> Result<UpdateState, Error> {
+            self.boot_loader_command(BootLoaderCommand::RestartProgramming)?;
             Ok(UpdateState::StartedProgramming)
         };
 
         let write_block = || -> Result<UpdateState, Error> {
+            const len: usize = MWOCP68_BLOCK_LENGTH;
+
             let (mut offset, mut checksum) = match state {
                 Some(UpdateState::WroteBlock { offset, checksum }) => {
                     (offset, checksum)
@@ -486,6 +585,15 @@ impl Mwocp68 {
                 _ => panic!(),
             };
 
+            let mut data = [0u8; len + 1];
+            data[0] = CommandCode::BOOT_LOADER_MEMORY_BLOCK as u8;
+            data[1..].copy_from_slice(&payload[offset..offset + len]);
+
+            self.device
+                .write(&data)
+                .map_err(|code| Error::BadWrite { cmd: data[0], code })?;
+
+            checksum = data[1..].iter().fold(checksum, |c, &d| c + d as u64);
             offset += MWOCP68_BLOCK_LENGTH;
 
             if offset >= payload.len() {
@@ -495,15 +603,45 @@ impl Mwocp68 {
             }
         };
 
-        let send_checksum =
-            || -> Result<UpdateState, Error> { Ok(UpdateState::SentChecksum) };
+        let send_checksum = || -> Result<UpdateState, Error> {
+            let mut data = [0u8; 4];
 
-        let verify_checksum = || -> Result<UpdateState, Error> {
-            Ok(UpdateState::VerifiedChecksum)
+            let checksum = match state {
+                Some(UpdateState::WroteLastBlock { checksum }) => checksum,
+                _ => panic!(),
+            };
+
+            data[0] = CommandCode::IMAGE_CHECKSUM as u8;
+            data[1] = 2;
+            data[2] = (checksum & 0xff) as u8;
+            data[3] = ((checksum >> 8) & 0xff) as u8;
+
+            self.device
+                .write(&data)
+                .map_err(|code| Error::BadWrite { cmd: data[0], code })?;
+
+            Ok(UpdateState::SentChecksum)
         };
 
-        let reboot_psu =
-            || -> Result<UpdateState, Error> { Ok(UpdateState::RebootedPSU) };
+        let verify_checksum = || -> Result<UpdateState, Error> {
+            use BOOT_LOADER_STATUS::ChecksumSuccessful;
+
+            let status = self.get_boot_loader_status()?;
+
+            match status.get_checksum_successful() {
+                Some(ChecksumSuccessful::Successful) => {
+                    Ok(UpdateState::VerifiedChecksum)
+                }
+                Some(ChecksumSuccessful::NotSuccessful) | None => {
+                    Err(Error::ChecksumNotSuccessful)
+                }
+            }
+        };
+
+        let reboot_psu = || -> Result<UpdateState, Error> {
+            self.boot_loader_command(BootLoaderCommand::BootPSUFirmware)?;
+            Ok(UpdateState::RebootedPSU)
+        };
 
         let verify_success = || -> Result<UpdateState, Error> {
             Ok(UpdateState::UpdateSuccessful)

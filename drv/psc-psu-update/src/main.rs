@@ -216,12 +216,16 @@ impl Psu {
                 }
 
                 Ok((next, delay)) => {
-                    ringbuf_entry!(match next {
-                        UpdateState::WroteBlock { .. } => Trace::WroteBlock,
-                        _ => Trace::UpdateState(next),
-                    });
+                    match next {
+                        UpdateState::WroteBlock { .. } => {
+                            ringbuf_entry!(Trace::WroteBlock);
+                        }
+                        _ => {
+                            ringbuf_entry!(Trace::UpdateState(next));
+                            ringbuf_entry!(Trace::UpdateDelay(delay));
+                        }
+                    }
 
-                    ringbuf_entry!(Trace::UpdateDelay(delay));
                     hl::sleep_for(delay);
                     state = Some(next);
                 }
