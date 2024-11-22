@@ -7,7 +7,7 @@
 
 use drv_i2c_api::*;
 use drv_i2c_devices::mwocp68::{
-    Error as Mwocp68Error, Mwocp68, Mwocp68FirmwareRev,
+    Error as Mwocp68Error, Mwocp68, Mwocp68FirmwareRev, UpdateState,
 };
 use drv_i2c_devices::Validate;
 use ringbuf::*;
@@ -40,12 +40,13 @@ static PSU: ClaimOnceCell<[Psu; 6]> = ClaimOnceCell::new(
         firmware_matches: None,
         firmware_revision: None,
         update_started: None,
-        update_failed: None,
+        update_succeeded: None,
+        update_failure: None,
         update_backoff: None,
     }; 6],
 );
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 enum Trace {
     None,
     Start,
@@ -54,6 +55,13 @@ enum Trace {
     Psu(u8),
     AttemptingUpdate(u8),
     BackingOff(u8),
+    UpdateFailed,
+    UpdateFailedState(Option<UpdateState>),
+    UpdateFailure(Mwocp68Error),
+    UpdateState(UpdateState),
+    WroteBlock,
+    UpdateSucceeded,
+    UpdateDelay(u64),
 }
 
 const MWOCP68_FIRMWARE_REV: Mwocp68FirmwareRev = Mwocp68FirmwareRev(*b"0762");
@@ -99,8 +107,11 @@ struct Psu {
     /// What time did we start an update?
     update_started: Option<Ticks>,
 
+    /// What time did the update complete?
+    update_succeeded: Option<Ticks>,
+
     /// What time did the update last fail, if any?
-    update_failed: Option<Ticks>,
+    update_failure: Option<(Ticks, Option<UpdateState>, Mwocp68Error)>,
 
     /// How long should the next update backoff, if at all? (In ticks.)
     update_backoff: Option<Ticks>,
@@ -179,26 +190,43 @@ impl Psu {
 
         self.update_backoff = match self.update_backoff {
             Some(backoff) => Some(Ticks(backoff.0 * 2)),
-            None => Some(Ticks(20000)),
+            None => Some(Ticks(60_000)),
         };
 
-        /*
-                //
-                //
-                write_boot_key, false
-                write_product_key
-                boot_into_boot_loader
+        let mut state = None;
 
-                indicate_write_start
+        loop {
+            match dev.update(state, MWOCP68_FIRMWARE_PAYLOAD) {
+                Err(err) => {
+                    //
+                    // We failed.  Record everything we can and leave.
+                    //
+                    ringbuf_entry!(Trace::UpdateFailed);
+                    ringbuf_entry!(Trace::UpdateFailedState(state));
+                    ringbuf_entry!(Trace::UpdateFailure(err));
 
-                fo XC
+                    self.update_failure = Some((Ticks::now(), state, err));
+                    break;
+                }
 
-                    write_block
+                Ok((UpdateState::UpdateSuccessful, _)) => {
+                    ringbuf_entry!(Trace::UpdateSucceeded);
+                    self.update_succeeded = Some(Ticks::now());
+                    break;
+                }
 
-                checksum()
-                reboot()
+                Ok((next, delay)) => {
+                    ringbuf_entry!(match next {
+                        UpdateState::WroteBlock { .. } => Trace::WroteBlock,
+                        _ => Trace::UpdateState(next),
+                    });
 
-        */
+                    ringbuf_entry!(Trace::UpdateDelay(delay));
+                    hl::sleep_for(delay);
+                    state = Some(next);
+                }
+            }
+        }
     }
 }
 

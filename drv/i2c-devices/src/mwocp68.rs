@@ -38,8 +38,11 @@ pub enum Error {
     BadValidation { cmd: u8, code: ResponseCode },
     InvalidData { err: pmbus::Error },
     BadFirmwareRevRead { code: ResponseCode },
-    BadFirmwareRev,
+    BadFirmwareRev { index: u8 },
     BadFirmwareRevLength,
+    UpdateInBootLoader,
+    UpdateNotInBootLoader,
+    UpdateAlreadySuccessful,
 }
 
 impl From<BadValidation> for Error {
@@ -70,19 +73,42 @@ impl From<pmbus::Error> for Error {
 
 // const MWOCP68_MFR_ID: &str = "Murata-PS";
 // const MWOCP68_MFR_MODEL: &str = "MWOCP68-3600-D-RM";
-// const MWOCP68_BOOT_LOADER_KEY: &str = "InVe";
-// const MWOCP68_PRODUCT_KEY: &str = "M5813-0000000000";
+const MWOCP68_BOOT_LOADER_KEY: &[u8] = b"InVe";
+const MWOCP68_PRODUCT_KEY: &[u8] = b"M5813-0000000000";
 
 const MWOCP68_REVISION_LEN: usize = 14;
 const MWOCP68_REVISION_FORMAT: &[u8; MWOCP68_REVISION_LEN] = b"XXXX-YYYY-0000";
 
-const MWOCP68_KEY_DELAY: u64 = 3;
-const MWOCP68_BOOT_DELAY: u64 = 1;
-const MWOCP68_RESET_DELAY: u64 = 2;
 const MWOCP68_BLOCK_LENGTH: usize = 32;
-const MWOCP68_BLOCK_DELAY_MS: u8 = 100;
-const MWOCP68_CHECKSUM_DELAY: u64 = 2;
-const MWOCP68_REBOOT_DELAY: u64 = 5;
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum UpdateState {
+    WroteBootLoaderKey,
+    WroteProductKey,
+    BootedBootLoader,
+    StartedProgramming,
+    WroteBlock { offset: usize, checksum: u64 },
+    WroteLastBlock { checksum: u64 },
+    SentChecksum,
+    VerifiedChecksum,
+    RebootedPSU,
+    UpdateSuccessful,
+}
+
+impl UpdateState {
+    fn delay_ms(&self) -> u64 {
+        match self {
+            Self::WroteBootLoaderKey | Self::WroteProductKey => 3_000,
+            Self::BootedBootLoader => 1_000,
+            Self::StartedProgramming => 2_000,
+            Self::WroteBlock { .. } | Self::WroteLastBlock { .. } => 100,
+            Self::SentChecksum => 2_000,
+            Self::VerifiedChecksum => 4_000,
+            Self::RebootedPSU => 5_000,
+            Self::UpdateSuccessful => 0,
+        }
+    }
+}
 
 impl Mwocp68 {
     pub fn new(device: &I2cDevice, index: u8) -> Self {
@@ -389,6 +415,7 @@ impl Mwocp68 {
 
     pub fn firmware_revision(&self) -> Result<Mwocp68FirmwareRev, Error> {
         let mut data = [0u8; MWOCP68_REVISION_LEN];
+        let expected = MWOCP68_REVISION_FORMAT;
 
         let len = self
             .device
@@ -402,23 +429,133 @@ impl Mwocp68 {
         //
         // Where XXXX is the firmware revision on the primary MCU (AC input
         // side) and YYYY is the firmware revision on the secondary MCU (DC
-        // output side).
+        // output side).  We aren't going to be rigid about the format of
+        // either revision, but we will be rigid about the rest of the format.
         //
         if len != MWOCP68_REVISION_LEN {
             return Err(Error::BadFirmwareRevLength);
         }
 
-        /*
-                for ndx in 0..
-                for (ndx, val) in expected.iter() {
-                    if data[ndx] != val {
-                        return Err(Error::BadFirmwareRev);
-                    }
-                }
+        for index in 0..len {
+            if expected[index] == b'X' || expected[index] == b'Y' {
+                continue;
+            }
 
-        */
+            if data[index] != expected[index] {
+                return Err(Error::BadFirmwareRev { index: index as u8 });
+            }
+        }
 
         Ok(Mwocp68FirmwareRev([data[0], data[1], data[2], data[3]]))
+    }
+
+    fn get_boot_loader_mode(&self) -> Result<BOOT_LOADER_STATUS::Mode, Error> {
+        let status = pmbus_read!(self.device, BOOT_LOADER_STATUS)?;
+        Ok(status.get_mode().unwrap())
+    }
+
+    pub fn update(
+        &self,
+        state: Option<UpdateState>,
+        payload: &[u8],
+    ) -> Result<(UpdateState, u64), Error> {
+        use BOOT_LOADER_STATUS::Mode;
+
+        let write_boot_loader_key = || -> Result<UpdateState, Error> {
+            Ok(UpdateState::WroteBootLoaderKey)
+        };
+
+        let write_product_key = || -> Result<UpdateState, Error> {
+            Ok(UpdateState::WroteProductKey)
+        };
+
+        let boot_boot_loader = || -> Result<UpdateState, Error> {
+            Ok(UpdateState::BootedBootLoader)
+        };
+
+        let start_programming = || -> Result<UpdateState, Error> {
+            Ok(UpdateState::StartedProgramming)
+        };
+
+        let write_block = || -> Result<UpdateState, Error> {
+            let (mut offset, mut checksum) = match state {
+                Some(UpdateState::WroteBlock { offset, checksum }) => {
+                    (offset, checksum)
+                }
+                Some(UpdateState::StartedProgramming) => (0, 0),
+                _ => panic!(),
+            };
+
+            offset += MWOCP68_BLOCK_LENGTH;
+
+            if offset >= payload.len() {
+                Ok(UpdateState::WroteLastBlock { checksum })
+            } else {
+                Ok(UpdateState::WroteBlock { offset, checksum })
+            }
+        };
+
+        let send_checksum =
+            || -> Result<UpdateState, Error> { Ok(UpdateState::SentChecksum) };
+
+        let verify_checksum = || -> Result<UpdateState, Error> {
+            Ok(UpdateState::VerifiedChecksum)
+        };
+
+        let reboot_psu =
+            || -> Result<UpdateState, Error> { Ok(UpdateState::RebootedPSU) };
+
+        let verify_success = || -> Result<UpdateState, Error> {
+            Ok(UpdateState::UpdateSuccessful)
+        };
+
+        //
+        // We want to confirm that our boot loader is in the state that
+        // we think it should be in.  On the one hand, this will fail in
+        // a non-totally-unreasonable fashion if we don't check this -- but
+        // we have an opportunity to assert our in-device state and fail
+        // cleanly if it doesn't match, and it feels like we should take it.
+        //
+        let expected = match state {
+            None
+            | Some(UpdateState::WroteBootLoaderKey)
+            | Some(UpdateState::WroteProductKey)
+            | Some(UpdateState::RebootedPSU) => Mode::NotBootLoader,
+
+            Some(UpdateState::BootedBootLoader)
+            | Some(UpdateState::StartedProgramming)
+            | Some(UpdateState::WroteBlock { .. })
+            | Some(UpdateState::WroteLastBlock { .. })
+            | Some(UpdateState::SentChecksum)
+            | Some(UpdateState::VerifiedChecksum) => Mode::BootLoader,
+
+            Some(UpdateState::UpdateSuccessful) => {
+                return Err(Error::UpdateAlreadySuccessful);
+            }
+        };
+
+        if self.get_boot_loader_mode()? != expected {
+            return Err(match expected {
+                Mode::BootLoader => Error::UpdateNotInBootLoader,
+                Mode::NotBootLoader => Error::UpdateInBootLoader,
+            });
+        }
+
+        let next = match state {
+            None => write_boot_loader_key()?,
+            Some(UpdateState::WroteBootLoaderKey) => write_product_key()?,
+            Some(UpdateState::WroteProductKey) => boot_boot_loader()?,
+            Some(UpdateState::BootedBootLoader) => start_programming()?,
+            Some(UpdateState::StartedProgramming)
+            | Some(UpdateState::WroteBlock { .. }) => write_block()?,
+            Some(UpdateState::WroteLastBlock { .. }) => send_checksum()?,
+            Some(UpdateState::SentChecksum) => verify_checksum()?,
+            Some(UpdateState::VerifiedChecksum) => reboot_psu()?,
+            Some(UpdateState::RebootedPSU) => verify_success()?,
+            Some(UpdateState::UpdateSuccessful) => panic!(),
+        };
+
+        Ok((next, next.delay_ms()))
     }
 
     pub fn i2c_device(&self) -> &I2cDevice {
