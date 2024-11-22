@@ -723,7 +723,7 @@ impl<S: SpiServer> ServerImpl<S> {
                 // failing to sequence.
                 //
                 let a1 = Reg::PWR_CTRL::A1PWREN;
-                self.seq.write_bytes(Addr::PWR_CTRL, &[a1]).unwrap_lite();
+                self.seq.set_bytes(Addr::PWR_CTRL, &[a1]).unwrap_lite();
 
                 loop {
                     let mut status = [0u8];
@@ -779,7 +779,7 @@ impl<S: SpiServer> ServerImpl<S> {
                 // Onward to A0!
                 //
                 let a0 = Reg::PWR_CTRL::A0A_EN;
-                self.seq.write_bytes(Addr::PWR_CTRL, &[a0]).unwrap_lite();
+                self.seq.set_bytes(Addr::PWR_CTRL, &[a0]).unwrap_lite();
 
                 loop {
                     let mut status = [0u8];
