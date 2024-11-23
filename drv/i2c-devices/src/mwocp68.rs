@@ -14,12 +14,8 @@ use pmbus::commands::mwocp68::*;
 use pmbus::commands::CommandCode;
 use pmbus::units::{Celsius, Rpm};
 use pmbus::*;
-use ringbuf::*;
 use task_power_api::PmbusValue;
 use userlib::units::{Amperes, Volts};
-
-#[derive(Copy, Clone, PartialEq)]
-pub struct Mwocp68FirmwareRev(pub [u8; 4]);
 
 pub struct Mwocp68 {
     device: I2cDevice,
@@ -30,6 +26,12 @@ pub struct Mwocp68 {
 
     mode: Cell<Option<pmbus::VOutModeCommandData>>,
 }
+
+#[derive(Copy, Clone, PartialEq)]
+pub struct FirmwareRev(pub [u8; 4]);
+
+#[derive(Copy, Clone, PartialEq, Default)]
+pub struct SerialNumber(pub [u8; 12]);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u8)]
@@ -80,14 +82,6 @@ pub enum Error {
     },
     ChecksumNotSuccessful,
 }
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-enum Trace {
-    None,
-    BootLoaderMode(u8),
-}
-
-ringbuf!(Trace, 32, Trace::None);
 
 impl From<BadValidation> for Error {
     fn from(value: BadValidation) -> Self {
@@ -448,7 +442,7 @@ impl Mwocp68 {
     ///
     /// Returns the firmware revision of the primary MCU (AC input side).
     ///
-    pub fn firmware_revision(&self) -> Result<Mwocp68FirmwareRev, Error> {
+    pub fn firmware_revision(&self) -> Result<FirmwareRev, Error> {
         const REVISION_LEN: usize = 14;
 
         let mut data = [0u8; REVISION_LEN];
@@ -486,7 +480,18 @@ impl Mwocp68 {
         //
         // Return the primary MCU version
         //
-        Ok(Mwocp68FirmwareRev([data[0], data[1], data[2], data[3]]))
+        Ok(FirmwareRev([data[0], data[1], data[2], data[3]]))
+    }
+
+    pub fn serial_number(&self) -> Result<SerialNumber, Error> {
+        let mut serial = SerialNumber::default();
+
+        let _ = self
+            .device
+            .read_block(CommandCode::MFR_SERIAL as u8, &mut serial.0)
+            .map_err(|code| Error::BadFirmwareRevRead { code })?;
+
+        Ok(serial)
     }
 
     fn get_boot_loader_status(
@@ -501,8 +506,6 @@ impl Mwocp68 {
             Ok(len) => Err(Error::BadBootLoaderStatus { data: len as u8 }),
             Err(code) => Err(Error::BadRead { cmd, code }),
         }?;
-
-        ringbuf_entry!(Trace::BootLoaderMode(data[0]));
 
         match BOOT_LOADER_STATUS::CommandData::from_slice(&data[0..]) {
             Some(status) => Ok(status),
@@ -603,16 +606,16 @@ impl Mwocp68 {
         };
 
         let send_checksum = || -> Result<UpdateState, Error> {
-            let mut data = [0u8; 4];
-
             let Some(UpdateState::WroteLastBlock { checksum }) = state else {
                 panic!();
             };
 
-            data[0] = CommandCode::IMAGE_CHECKSUM as u8;
-            data[1] = 2;
-            data[2] = (checksum & 0xff) as u8;
-            data[3] = ((checksum >> 8) & 0xff) as u8;
+            let data = [
+                CommandCode::IMAGE_CHECKSUM as u8,
+                2,
+                (checksum & 0xff) as u8,
+                ((checksum >> 8) & 0xff) as u8,
+            ];
 
             self.device
                 .write(&data)

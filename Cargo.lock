@@ -1766,6 +1766,7 @@ dependencies = [
  "array-init 2.1.0",
  "build-i2c",
  "build-util",
+ "counters",
  "drv-i2c-api",
  "drv-i2c-devices",
  "ringbuf",

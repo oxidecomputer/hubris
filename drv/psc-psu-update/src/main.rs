@@ -7,7 +7,7 @@
 
 use drv_i2c_api::*;
 use drv_i2c_devices::mwocp68::{
-    Error as Mwocp68Error, Mwocp68, Mwocp68FirmwareRev, UpdateState,
+    Error as Mwocp68Error, FirmwareRev, Mwocp68, SerialNumber, UpdateState,
 };
 use ringbuf::*;
 use static_cell::ClaimOnceCell;
@@ -17,7 +17,7 @@ use core::ops::Add;
 
 task_slot!(I2C, i2c_driver);
 
-const TIMER_INTERVAL: u64 = 10000;
+const TIMER_INTERVAL_MS: u64 = 10_000;
 
 use i2c_config::devices;
 
@@ -36,6 +36,7 @@ static PSU: ClaimOnceCell<[Psu; 6]> = ClaimOnceCell::new(
         last_checked: None,
         present: None,
         power_good: None,
+        serial_number: None,
         firmware_matches: None,
         firmware_revision: None,
         update_started: None,
@@ -45,10 +46,9 @@ static PSU: ClaimOnceCell<[Psu; 6]> = ClaimOnceCell::new(
     }; 6],
 );
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, counters::Count)]
 enum Trace {
     None,
-    Start,
     PowerGoodFailed(u8, drv_i2c_devices::mwocp68::Error),
     FirmwareRevFailed(u8, drv_i2c_devices::mwocp68::Error),
     AttemptingUpdate(u8),
@@ -60,12 +60,16 @@ enum Trace {
     WroteBlock,
     UpdateSucceeded,
     UpdateDelay(u64),
+    PSUReplaced(u8),
+    SerialNumberError(u8, drv_i2c_devices::mwocp68::Error),
+    PGError(u8, drv_i2c_devices::mwocp68::Error),
+    PowerNotGood(u8),
 }
 
-const MWOCP68_FIRMWARE_REV: Mwocp68FirmwareRev = Mwocp68FirmwareRev(*b"0762");
+const MWOCP68_FIRMWARE_REV: FirmwareRev = FirmwareRev(*b"0762");
 const MWOCP68_FIRMWARE_PAYLOAD: &[u8] = include_bytes!("mwocp68-0762.bin");
 
-ringbuf!(Trace, 64, Trace::None);
+counted_ringbuf!(Trace, 64, Trace::None);
 
 #[derive(Copy, Clone, PartialOrd, PartialEq)]
 struct Ticks(u64);
@@ -95,8 +99,11 @@ struct Psu {
     /// Is the device on and with POWER_GOOD set?
     power_good: Option<bool>,
 
+    /// The last serial number read
+    serial_number: Option<SerialNumber>,
+
     /// The last firmware revision read
-    firmware_revision: Option<Mwocp68FirmwareRev>,
+    firmware_revision: Option<FirmwareRev>,
 
     /// Does the firmware we have match the firmware here?
     firmware_matches: Option<bool>,
@@ -108,7 +115,7 @@ struct Psu {
     update_succeeded: Option<Ticks>,
 
     /// What time did the update last fail, if any?
-    update_failure: Option<(Ticks, Option<UpdateState>, Mwocp68Error)>,
+    update_failure: Option<(Ticks, Option<UpdateState>, Option<Mwocp68Error>)>,
 
     /// How long should the next update backoff, if at all? (In ticks.)
     update_backoff: Option<Ticks>,
@@ -137,6 +144,29 @@ impl Psu {
         }
 
         self.present = Some(true);
+
+        //
+        // If we can read the serial number, we're going to store it -- and
+        // if we previously stored one and it DOESN'T match, we want to
+        // clear our backoff value so we don't delay at all in potentially
+        // trying to update the firmware of the (replaced) PSU.  (If we can't
+        // read the serial number at all, we want to continue to potentially
+        // update the firmware.)
+        //
+        match (dev.serial_number(), self.serial_number) {
+            (Ok(read), Some(stored)) if read != stored => {
+                ringbuf_entry!(Trace::PSUReplaced(ndx));
+                self.update_backoff = None;
+                self.serial_number = Some(read);
+            }
+            (Ok(_), Some(_)) => {}
+            (Ok(read), None) => {
+                self.serial_number = Some(read);
+            }
+            (Err(code), _) => {
+                ringbuf_entry!(Trace::SerialNumberError(ndx, code));
+            }
+        }
 
         match dev.power_good() {
             Ok(power_good) => {
@@ -189,30 +219,97 @@ impl Psu {
         ringbuf_entry!(Trace::AttemptingUpdate(ndx));
         self.update_started = Some(Ticks::now());
 
+        //
+        // Before we start, update our backoff.  We'll double our backoff, up
+        // to a cap of around a day.
+        //
         self.update_backoff = match self.update_backoff {
-            Some(backoff) => Some(Ticks(backoff.0 * 2)),
+            Some(backoff) if backoff.0 < 86_400_000 => {
+                Some(Ticks(backoff.0 * 2))
+            }
+            Some(backoff) => Some(backoff),
             None => Some(Ticks(60_000)),
         };
 
         let mut state = None;
 
+        let mut update_failed = |state, err| {
+            //
+            // We failed.  Record everything we can!
+            //
+            if let Some(err) = err {
+                ringbuf_entry!(Trace::UpdateFailure(err));
+            }
+
+            ringbuf_entry!(Trace::UpdateFailed);
+            ringbuf_entry!(Trace::UpdateFailedState(state));
+            self.update_failure = Some((Ticks::now(), state, err));
+        };
+
         loop {
             match dev.update(state, MWOCP68_FIRMWARE_PAYLOAD) {
                 Err(err) => {
-                    //
-                    // We failed.  Record everything we can and leave.
-                    //
-                    ringbuf_entry!(Trace::UpdateFailed);
-                    ringbuf_entry!(Trace::UpdateFailedState(state));
-                    ringbuf_entry!(Trace::UpdateFailure(err));
-
-                    self.update_failure = Some((Ticks::now(), state, err));
+                    update_failed(state, Some(err));
                     break;
                 }
 
                 Ok((UpdateState::UpdateSuccessful, _)) => {
+                    let state = Some(UpdateState::UpdateSuccessful);
+
+                    //
+                    // We should be back up!  As a final measure, we are going
+                    // to check that the firmware revision matches the
+                    // revision we think we just wrote.  If it doesn't, there
+                    // is something amiss:  it may be that the image is
+                    // corrupt or that the version doesn't otherwise match.
+                    // Regardless, we consider that to be an update failure.
+                    //
+                    match dev.firmware_revision() {
+                        Ok(revision) if revision != MWOCP68_FIRMWARE_REV => {
+                            update_failed(state, None);
+                            break;
+                        }
+
+                        Err(err) => {
+                            update_failed(state, Some(err));
+                            break;
+                        }
+
+                        Ok(_) => {}
+                    }
+
+                    //
+                    // We're on the new firmware!  And now, a final final
+                    // check: make sure that we are power-good.  It is very
+                    // unclear what to do here if are NOT power-good:  we know
+                    // that we WERE power-good before we started, so it
+                    // certainly seems possible that we have put a firmware
+                    // update on this PSU which has somehow incapacitated it.
+                    // We would rather not put the system in a compromised
+                    // state by continuing to potentially brick PSUs -- but we
+                    // also want to assure that we make progress should this
+                    // ever resolve (e.g., by pulling the bricked PSU). We will
+                    // remain here until we see the updated PSU go power-good;
+                    // if it never does, we will at least not attempt to put
+                    // the (potentially) bad update anywhere else!
+                    //
+                    loop {
+                        match dev.power_good() {
+                            Ok(power_good) if power_good => break,
+                            Ok(_) => {
+                                ringbuf_entry!(Trace::PowerNotGood(ndx));
+                            }
+                            Err(err) => {
+                                ringbuf_entry!(Trace::PGError(ndx, err));
+                            }
+                        }
+
+                        hl::sleep_for(TIMER_INTERVAL_MS);
+                    }
+
                     ringbuf_entry!(Trace::UpdateSucceeded);
                     self.update_succeeded = Some(Ticks::now());
+                    self.update_backoff = None;
                     break;
                 }
 
@@ -239,8 +336,6 @@ impl Psu {
 fn main() -> ! {
     let i2c_task = I2C.get_task_id();
 
-    ringbuf_entry!(Trace::Start);
-
     let psus = PSU.claim();
 
     let devs: [Mwocp68; 6] = array_init::array_init(|ndx: usize| {
@@ -248,7 +343,7 @@ fn main() -> ! {
     });
 
     loop {
-        hl::sleep_for(TIMER_INTERVAL);
+        hl::sleep_for(TIMER_INTERVAL_MS);
 
         for (ndx, psu) in psus.iter_mut().enumerate() {
             let dev = &devs[ndx];
