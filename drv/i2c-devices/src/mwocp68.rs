@@ -435,10 +435,7 @@ impl Mwocp68 {
 
     /// Will return true if the device is present and valid -- false otherwise
     pub fn present(&self) -> bool {
-        match Mwocp68::validate(&self.device) {
-            Ok(valid) => valid,
-            _ => false,
-        }
+        Mwocp68::validate(&self.device).unwrap_or_default()
     }
 
     pub fn power_good(&self) -> Result<bool, Error> {
