@@ -485,7 +485,7 @@ impl Mwocp68 {
                 return Err(Error::BadFirmwareRev { index: index as u8 });
             }
         }
-        
+
         //
         // Return the primary MCU version
         //
@@ -502,7 +502,7 @@ impl Mwocp68 {
         match self.device.read_block(cmd, &mut data) {
             Ok(1) => Ok(()),
             Ok(len) => Err(Error::BadBootLoaderStatus { data: len as u8 }),
-            Err(code) => Err(Error::BadRead { cmd, code })
+            Err(code) => Err(Error::BadRead { cmd, code }),
         }?;
 
         ringbuf_entry!(Trace::BootLoaderMode(data[0]));
