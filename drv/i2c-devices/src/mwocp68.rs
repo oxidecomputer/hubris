@@ -33,7 +33,7 @@ pub struct Mwocp68 {
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u8)]
-enum BootLoaderCommand {
+pub enum BootLoaderCommand {
     ClearStatus = 0x00,
     RestartProgramming = 0x01,
     BootPrimary = 0x12,
@@ -115,14 +115,6 @@ impl From<pmbus::Error> for Error {
     }
 }
 
-// const MWOCP68_MFR_ID: &str = "Murata-PS";
-// const MWOCP68_MFR_MODEL: &str = "MWOCP68-3600-D-RM";
-
-const MWOCP68_REVISION_LEN: usize = 14;
-const MWOCP68_REVISION_FORMAT: &[u8; MWOCP68_REVISION_LEN] = b"XXXX-YYYY-0000";
-
-const MWOCP68_BLOCK_LENGTH: usize = 32;
-
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum UpdateState {
     WroteBootLoaderKey,
@@ -140,7 +132,8 @@ pub enum UpdateState {
 impl UpdateState {
     fn delay_ms(&self) -> u64 {
         match self {
-            Self::WroteBootLoaderKey | Self::WroteProductKey => 3_000,
+            Self::WroteBootLoaderKey => 3_000,
+            Self::WroteProductKey => 3_000,
             Self::BootedBootLoader => 1_000,
             Self::StartedProgramming => 2_000,
             Self::WroteBlock { .. } | Self::WroteLastBlock { .. } => 100,
@@ -455,9 +448,14 @@ impl Mwocp68 {
         Ok(status.get_power_good_status() == Some(PowerGoodStatus::PowerGood))
     }
 
+    ///
+    /// Returns the firmware revision of the primary MCU (AC input side).
+    ///
     pub fn firmware_revision(&self) -> Result<Mwocp68FirmwareRev, Error> {
-        let mut data = [0u8; MWOCP68_REVISION_LEN];
-        let expected = MWOCP68_REVISION_FORMAT;
+        const REVISION_LEN: usize = 14;
+
+        let mut data = [0u8; REVISION_LEN];
+        let expected = b"XXXX-YYYY-0000";
 
         let len = self
             .device
@@ -474,7 +472,7 @@ impl Mwocp68 {
         // output side).  We aren't going to be rigid about the format of
         // either revision, but we will be rigid about the rest of the format.
         //
-        if len != MWOCP68_REVISION_LEN {
+        if len != REVISION_LEN {
             return Err(Error::BadFirmwareRevLength);
         }
 
@@ -487,7 +485,10 @@ impl Mwocp68 {
                 return Err(Error::BadFirmwareRev { index: index as u8 });
             }
         }
-
+        
+        //
+        // Return the primary MCU version
+        //
         Ok(Mwocp68FirmwareRev([data[0], data[1], data[2], data[3]]))
     }
 
@@ -496,12 +497,13 @@ impl Mwocp68 {
     ) -> Result<BOOT_LOADER_STATUS::CommandData, Error> {
         use pmbus::commands::mwocp68::CommandCode;
         let cmd = CommandCode::BOOT_LOADER_STATUS as u8;
-        let mut data = [0u8; 1];
+        let mut data = [0u8];
 
-        let len = self
-            .device
-            .read_block(cmd, &mut data)
-            .map_err(|code| Error::BadRead { cmd, code })?;
+        match self.device.read_block(cmd, &mut data) {
+            Ok(1) => Ok(()),
+            Ok(len) => Err(Error::BadBootLoaderStatus { data: len as u8 }),
+            Err(code) => Err(Error::BadRead { cmd, code })
+        }?;
 
         ringbuf_entry!(Trace::BootLoaderMode(data[0]));
 
@@ -575,7 +577,7 @@ impl Mwocp68 {
         };
 
         let write_block = || -> Result<UpdateState, Error> {
-            const len: usize = MWOCP68_BLOCK_LENGTH;
+            const BLOCK_LEN: usize = 32;
 
             let (mut offset, mut checksum) = match state {
                 Some(UpdateState::WroteBlock { offset, checksum }) => {
@@ -585,16 +587,16 @@ impl Mwocp68 {
                 _ => panic!(),
             };
 
-            let mut data = [0u8; len + 1];
+            let mut data = [0u8; BLOCK_LEN + 1];
             data[0] = CommandCode::BOOT_LOADER_MEMORY_BLOCK as u8;
-            data[1..].copy_from_slice(&payload[offset..offset + len]);
+            data[1..].copy_from_slice(&payload[offset..offset + BLOCK_LEN]);
 
             self.device
                 .write(&data)
                 .map_err(|code| Error::BadWrite { cmd: data[0], code })?;
 
             checksum = data[1..].iter().fold(checksum, |c, &d| c + d as u64);
-            offset += MWOCP68_BLOCK_LENGTH;
+            offset += BLOCK_LEN;
 
             if offset >= payload.len() {
                 Ok(UpdateState::WroteLastBlock { checksum })
@@ -606,9 +608,8 @@ impl Mwocp68 {
         let send_checksum = || -> Result<UpdateState, Error> {
             let mut data = [0u8; 4];
 
-            let checksum = match state {
-                Some(UpdateState::WroteLastBlock { checksum }) => checksum,
-                _ => panic!(),
+            let Some(UpdateState::WroteLastBlock { checksum }) = state else {
+                panic!();
             };
 
             data[0] = CommandCode::IMAGE_CHECKSUM as u8;

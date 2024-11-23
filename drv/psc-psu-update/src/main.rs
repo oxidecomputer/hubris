@@ -9,7 +9,6 @@ use drv_i2c_api::*;
 use drv_i2c_devices::mwocp68::{
     Error as Mwocp68Error, Mwocp68, Mwocp68FirmwareRev, UpdateState,
 };
-use drv_i2c_devices::Validate;
 use ringbuf::*;
 use static_cell::ClaimOnceCell;
 use userlib::*;
@@ -52,7 +51,6 @@ enum Trace {
     Start,
     PowerGoodFailed(u8, drv_i2c_devices::mwocp68::Error),
     FirmwareRevFailed(u8, drv_i2c_devices::mwocp68::Error),
-    Psu(u8),
     AttemptingUpdate(u8),
     BackingOff(u8),
     UpdateFailed,
@@ -65,10 +63,9 @@ enum Trace {
 }
 
 const MWOCP68_FIRMWARE_REV: Mwocp68FirmwareRev = Mwocp68FirmwareRev(*b"0762");
-const MWOCP68_FIRMWARE_PAYLOAD: &'static [u8] =
-    include_bytes!("mwocp68-0762.bin");
+const MWOCP68_FIRMWARE_PAYLOAD: &[u8] = include_bytes!("mwocp68-0762.bin");
 
-ringbuf!(Trace, 32, Trace::None);
+ringbuf!(Trace, 64, Trace::None);
 
 #[derive(Copy, Clone, PartialOrd, PartialEq)]
 struct Ticks(u64);
@@ -176,6 +173,10 @@ impl Psu {
             (self.update_started, self.update_backoff)
         {
             if started + backoff > now {
+                //
+                // Indicate we are backing off, but in a way that won't flood
+                // the ring buffer with the backing off of a single PSU.
+                //
                 ringbuf_entry!(Trace::BackingOff(ndx));
                 return false;
             }
@@ -240,7 +241,7 @@ fn main() -> ! {
 
     ringbuf_entry!(Trace::Start);
 
-    let mut psus = PSU.claim();
+    let psus = PSU.claim();
 
     let devs: [Mwocp68; 6] = array_init::array_init(|ndx: usize| {
         Mwocp68::new(&DEVICES[ndx](i2c_task), 0)
