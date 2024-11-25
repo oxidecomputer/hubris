@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Days since the last Hubris kernel bug</title>
+    <link rel="preload" href="https://oxide.computer/fonts/NeueHaasGrotDisp-Roman.woff2" as="font" type="font/woff2" crossorigin="true">
+    <link rel="stylesheet" href="/style.css">
+<style>
+td {
+    padding: 5px;
+}
+td.delta {
+    color: #7e8385;
+}
+td.bar {
+    position: relative;
+}
+/* Vertical line */
+td.bar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 7%;
+  width: 2px;
+  height: 10px;
+  background-color: #7e8385;
+}
+p#days {
+    font-size: 4.5rem;
+    line-height: 1.05;
+    letter-spacing: 0.02em;
+    font-weight: 300;
+    margin: 0px;
+    color: #F5B944;
+}
+
+hr {
+  border: 1px solid #2D3335;
+}
+</style>
+</head>
+
+<body>
+
+    <p>It has been</p>
+    <p id="days"></p>
+    <p>since the last Hubris kernel bug:</p>
+    <table id="bugs"></table>
+    <hr>
+    <p><a href="/">Back</a></p>
+
+<script>
+const bugs = [
+    ["issues/1928", "2024-11-22T19:25Z", "ARMv6M still attributes faulting SVC to wrong task"],
+    ["issues/1876", "2024-09-20T13:54Z", "Stack scribbling does not work for tasks with pow2 stack"],
+    ["issues/1672", "2024-04-20T18:41Z", "Leases cannot span MPU regions"],
+    ["issues/1193", "2023-03-08T17:41Z", "Hard fault during MPU configuration"],
+    ["issues/1134", "2023-02-08T17:31Z", "Stack overflow on SVC entry performs SVC from the wrong task"],
+    ["issues/1017", "2022-12-22T14:58Z", "Off-by-one in ARMv8 MPU RLAR programming"],
+    ["pull/569/commits/023e4eaa0", "2022-05-25T17:57Z", "Incorrect task pointer in context saving sequence"],
+    ["issues/367", "2022-01-18T12:51Z", "Can't use IRQ #0 on ARMv7M"],
+]
+const prefix = "https://github.com/oxidecomputer/hubris"
+
+let now = new Date();
+let days = document.getElementById("days");
+function update() {
+    const dt = daysBetween(new Date(), new Date(bugs[0][1]));
+    const p = document.getElementById("days");
+    p.innerHTML = `${dt} days`
+    setTimeout(update, 60 * 1000);
+}
+update();
+
+// Function to calculate the difference in days between two dates
+function daysBetween(date1, date2) {
+    const oneDay = 1000 * 60 * 60 * 24;
+    const diffInTime = new Date(date1) - new Date(date2);
+    return Math.round(diffInTime / oneDay);
+}
+
+const bugsContainer = document.getElementById("bugs");
+const barElement = document.createElement("tr");
+barElement.innerHTML = `<td><td class="bar">`
+
+// Loop through the bugs array and add each bug and the days between to the div
+for (let i = 0; i < bugs.length; i++) {
+    const bugLink = bugs[i][0];
+    const bugDate = bugs[i][1];
+    const bugDesc = bugs[i][2];
+    let daysSinceLastBug = "";
+
+    // Calculate days between this bug and the previous one, if applicable
+    if (i > 0) {
+        const deltaElement = document.createElement("tr");
+        const previousBugDate = bugs[i - 1][1];
+        const daysDiff = daysBetween(previousBugDate, bugDate);
+        deltaElement.innerHTML = `<td><td class="delta">${daysDiff} days`;
+
+        bugsContainer.appendChild(barElement.cloneNode(true));
+        bugsContainer.appendChild(deltaElement);
+        bugsContainer.appendChild(barElement.cloneNode(true));
+    }
+
+    const etcElement = document.createElement("tr");
+    etcElement.innerHTML = `<td>${new Date(bugDate).toLocaleDateString()}<td><a href="https://github.com/oxidecomputer/hubris/${bugLink}">${bugDesc}</a>`
+    bugsContainer.appendChild(etcElement);
+}
+
+bugsContainer.appendChild(barElement);
+const bugElement = document.createElement("tr");
+bugElement.innerHTML = `<td><td class="delta">...and so on`;
+bugsContainer.appendChild(bugElement);
+
+</script>
+
+</body>
+</html>
