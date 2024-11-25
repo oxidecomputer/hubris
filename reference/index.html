@@ -677,6 +677,7 @@ pre.rouge .gs {
 <li><a href="#_reset_5">8.1.5. <code>reset</code> (5)</a></li>
 <li><a href="#_get_task_dump_region_6">8.1.6. <code>get_task_dump_region</code> (6)</a></li>
 <li><a href="#_read_task_dump_region_7">8.1.7. <code>read_task_dump_region</code> (7)</a></li>
+<li><a href="#_find_faulted_task_8">8.1.8. <code>find_faulted_task</code> (8)</a></li>
 </ul>
 </li>
 <li><a href="#_receiving_from_the_kernel">8.2. Receiving from the kernel</a></li>
@@ -4290,6 +4291,87 @@ at <code>base</code> and running for <code>size</code> bytes.</p>
 </div>
 </div>
 </div>
+<div class="sect3">
+<h4 id="_find_faulted_task_8">8.1.8. <code>find_faulted_task</code> (8)</h4>
+<div class="paragraph">
+<p>Scans forward from a given task index searching for a faulted task. If a faulted
+task is found, returns its index. Otherwise, returns zero, the index of the
+supervisor task, which is by definition not faulted.</p>
+</div>
+<div class="paragraph">
+<p>To simplify supervisor implementations, the given task index may equal the
+number of tasks in the system. In this case, there are no tasks to search, and
+you always get zero back.</p>
+</div>
+<div class="paragraph">
+<p>We do <em>not</em> permit greater indices than that, because that would strongly
+suggest a bug.</p>
+</div>
+<div class="sect4">
+<h5 id="_request_6">Request</h5>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="rust"><span class="k">struct</span> <span class="n">FindFaultedTaskRequest</span> <span class="p">{</span>
+    <span class="n">starting_index</span><span class="p">:</span> <span class="nb">u32</span><span class="p">,</span>
+<span class="p">}</span></code></pre>
+</div>
+</div>
+</div>
+<div class="sect4">
+<h5 id="_preconditions_6">Preconditions</h5>
+<div class="paragraph">
+<p>The <code>starting_index</code> must be a valid index for this system, or one greater.</p>
+</div>
+</div>
+<div class="sect4">
+<h5 id="_response_6">Response</h5>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="rust"><span class="k">struct</span> <span class="n">FindFaultedTaskResponse</span> <span class="p">{</span>
+    <span class="n">fault_index</span><span class="p">:</span> <span class="nb">u32</span><span class="p">,</span>
+<span class="p">}</span></code></pre>
+</div>
+</div>
+</div>
+<div class="sect4">
+<h5 id="_notes_17">Notes</h5>
+<div class="paragraph">
+<p>This is intended for the common case of a supervisor scanning the task table in
+search of a fault. Compared to doing this manually with <code>read_task_status</code>,
+<code>find_faulted_task</code> has several advantages:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Generates one kipc per failed task, plus one, rather than one kipc per
+potentially failed task.</p>
+</li>
+<li>
+<p>Avoids serializing/transferring/deserializing the relatively complex
+<code>TaskState</code> type, which supervisors rarely make use of in practice.</p>
+</li>
+<li>
+<p>Can be implemented in a way that doesn&#8217;t potentially panic the supervisor.</p>
+</li>
+</ol>
+</div>
+<div class="paragraph">
+<p>The "task ID or zero" return value is represented as an <code>Option&lt;NonZeroUsize&gt;</code>
+in the Rust API, so a typical use of this kipc looks like:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="rust"><span class="k">let</span> <span class="k">mut</span> <span class="n">next_task</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span> <span class="c1">// skip supervisor</span>
+<span class="k">while</span> <span class="k">let</span> <span class="nf">Some</span><span class="p">(</span><span class="n">fault</span><span class="p">)</span> <span class="o">=</span> <span class="nn">kipc</span><span class="p">::</span><span class="nf">find_faulted_task</span><span class="p">(</span><span class="n">next_task</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">let</span> <span class="n">fault</span> <span class="o">=</span> <span class="nn">usize</span><span class="p">::</span><span class="nf">from</span><span class="p">(</span><span class="n">fault</span><span class="p">);</span>
+    <span class="c1">// do things with the faulted task</span>
+
+    <span class="n">next_task</span> <span class="o">=</span> <span class="n">fault</span> <span class="o">+</span> <span class="mi">1</span><span class="p">;</span>
+<span class="p">}</span></code></pre>
+</div>
+</div>
+</div>
+</div>
 </div>
 <div class="sect2">
 <h3 id="_receiving_from_the_kernel">8.2. Receiving from the kernel</h3>
@@ -5632,7 +5714,7 @@ tool to a high-reliability research platform.</em></p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2024-11-25 22:08:44 UTC
+Last updated 2024-11-25 22:56:45 UTC
 </div>
 </div>
 </body>
