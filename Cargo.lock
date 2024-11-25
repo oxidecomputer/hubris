@@ -144,6 +144,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "array-init"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3d62b7694a562cdf5a74227903507c56ab2cc8bdd1f781ed5cb4cf9c9f810bfc"
+
+[[package]]
 name = "arrayvec"
 version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1750,6 +1756,21 @@ dependencies = [
  "oxide-barcode",
  "ringbuf",
  "task-packrat-api",
+ "userlib",
+]
+
+[[package]]
+name = "drv-psc-psu-update"
+version = "0.1.0"
+dependencies = [
+ "array-init 2.1.0",
+ "build-i2c",
+ "build-util",
+ "counters",
+ "drv-i2c-api",
+ "drv-i2c-devices",
+ "ringbuf",
+ "static-cell",
  "userlib",
 ]
 
@@ -3875,8 +3896,8 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 
 [[package]]
 name = "pmbus"
-version = "0.1.1"
-source = "git+https://github.com/oxidecomputer/pmbus#735a70bbc90707a963ec1731c8a0fa427a013f21"
+version = "0.1.4"
+source = "git+https://github.com/oxidecomputer/pmbus#44568ce7eb86fe0b03dd088a75ad76ea0d8529bb"
 dependencies = [
  "anyhow",
  "convert_case",
@@ -4342,7 +4363,7 @@ version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca37e3e4d1b39afd7ff11ee4e947efae85adfddf4841787bfa47c470e96dc26d"
 dependencies = [
- "array-init",
+ "array-init 0.0.4",
  "serde",
  "smallvec 0.6.14",
 ]

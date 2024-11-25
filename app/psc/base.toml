@@ -6,7 +6,7 @@ fwid = true
 
 [kernel]
 name = "psc"
-requires = {flash = 32868, ram = 5216}
+requires = {flash = 32868, ram = 6000}
 features = ["dump"]
 
 [caboose]
@@ -297,6 +297,13 @@ priority = 4
 max-sizes = {flash = 16384, ram = 2048 }
 start = true
 task-slots = ["i2c_driver", "sensor"]
+
+[tasks.psu_update]
+name = "drv-psc-psu-update"
+priority = 4
+max-sizes = {flash = 65536, ram = 8192 }
+start = true
+task-slots = ["i2c_driver"]
 
 [tasks.dump_agent]
 name = "task-dump-agent"
