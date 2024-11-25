@@ -5,27 +5,27 @@
 //! Server for updating all PSUs to the contained binary payload.
 //!
 //! We have the capacity to dynamically update the MWOCP68 power supply units
-//! connected to the PSC.  This update does not involve any interruption of
-//! the PSU while it is being performed, but necessitates a reset of the PSU,
-//! which will result in a drop of its own output.  We want these updates to
-//! be automatic and autonomous; there is little that the control plane can
-//! know that we do not know -- and even less for the operator.
+//! connected to the PSC.  This update does not involve any interruption of the
+//! PSU while it is being performed, but necessitates a reset of the PSU once
+//! completed.  We want these updates to be automatic and autonomous; there is
+//! little that the control plane can know that we do not know -- and even less
+//! for the operator.
 //!
 //! This task contains within it a payload that is the desired firmware image
 //! (`MWOCP68_FIRMWARE_PAYLOAD`), along with the `MFR_REVISION` that that
-//! pyaload represents (``MWOCP68_FIRMWARE_VERSION`).  This task will check
+//! pyaload represents (`MWOCP68_FIRMWARE_VERSION`).  This task will check
 //! every PSU periodically to see if the PSU's firmware revision matches the
-//! payload revision; if it doesn't (or rather, until it does), an attempt
-//! will be made to update the PSU.  Each PSU will be updated sequentially:
-//! while we can expect a properly configured and operating rack to support
-//! the loss of any one PSU, we do not want to induce the loss of more than
-//! one simultaneously due to update.  If an update fails, the update of that
-//! PSU will be exponentially backed off and repeated (up to a backoff of
-//! about once per day).  Note that we will continue to check PSUs that we
-//! have already updated should they be replaced with a PSU with downrev
-//! firmware.  The state of this task can be ascertained by looking at the
-//! `PSU` variable (which contains all of the per-PSU state) as well as the
-//! ring buffer.
+//! revision specified as corresponding to the payload; if they don't match (or
+//! rather, until they do), an attempt will be made to update the PSU.  Each
+//! PSU will be updated sequentially: while we can expect a properly configured
+//! and operating rack to support the loss of any one PSU, we do not want to
+//! induce the loss of more than one simultaneously due to update.  If an
+//! update fails, the update of that PSU will be exponentially backed off and
+//! repeated (up to a backoff of about once per day).  Note that we will
+//! continue to check PSUs that we have already updated should they be replaced
+//! with a PSU with downrev firmware.  The state of this task can be
+//! ascertained by looking at the `PSU` variable (which contains all of the
+//! per-PSU state) as well as the ring buffer.
 //!
 
 #![no_std]
