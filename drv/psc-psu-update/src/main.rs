@@ -74,6 +74,7 @@ static PSU: ClaimOnceCell<[Psu; 6]> = ClaimOnceCell::new(
 
 #[derive(Copy, Clone, Debug, PartialEq, counters::Count)]
 enum Trace {
+    #[count(skip)]
     None,
     PowerGoodFailed(u8, drv_i2c_devices::mwocp68::Error),
     FirmwareRevFailed(u8, drv_i2c_devices::mwocp68::Error),
@@ -84,7 +85,7 @@ enum Trace {
     UpdateFailure(Mwocp68Error),
     UpdateState(UpdateState),
     WroteBlock,
-    UpdateSucceeded,
+    UpdateSucceeded(u8),
     UpdateDelay(u64),
     PSUReplaced(u8),
     SerialNumberError(u8, drv_i2c_devices::mwocp68::Error),
@@ -338,7 +339,7 @@ impl Psu {
                         hl::sleep_for(TIMER_INTERVAL_MS);
                     }
 
-                    ringbuf_entry!(Trace::UpdateSucceeded);
+                    ringbuf_entry!(Trace::UpdateSucceeded(ndx));
                     self.update_succeeded = Some(Ticks::now());
                     self.update_backoff = None;
                     break;

@@ -652,7 +652,9 @@ impl Mwocp68 {
                 .write(&data)
                 .map_err(|code| Error::BadWrite { cmd: data[0], code })?;
 
-            checksum = data[1..].iter().fold(checksum, |c, &d| c + d as u64);
+            checksum = data[1..]
+                .iter()
+                .fold(checksum, |c, &d| c.wrapping_add(d.into()));
             offset += BLOCK_LEN;
 
             if offset >= payload.len() {
