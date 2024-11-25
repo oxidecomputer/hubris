@@ -33,6 +33,14 @@ pub struct FirmwareRev(pub [u8; 4]);
 #[derive(Copy, Clone, PartialEq, Default)]
 pub struct SerialNumber(pub [u8; 12]);
 
+//
+// The boot loader command -- sent via BOOT_LOADER_CMD -- is unfortunately odd
+// in that its command code is overloaded with BOOT_LOADER_STATUS.  (That is,
+// a read to the command code is BOOT_LOADER_STATUS, a write is
+// BOOT_LOADER_CMD.)  This is behavior that the PMBus crate didn't necessarily
+// envision, so it can't necessarily help us out; we define the single-byte
+// payload codes here rather than declaratively in the PMBus crate.
+//
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u8)]
 pub enum BootLoaderCommand {
@@ -109,21 +117,51 @@ impl From<pmbus::Error> for Error {
     }
 }
 
+///
+/// Defines the state of the firmware update.  Once `UpdateSuccessful`
+/// has been returned, the update is complete.
+///
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum UpdateState {
+    /// The boot loader key has been written
     WroteBootLoaderKey,
+
+    /// The product key has been written
     WroteProductKey,
+
+    /// The boot loader has been booted
     BootedBootLoader,
+
+    /// Programming of firmware has been indicated to have started
     StartedProgramming,
+
+    /// A block has been written; the next offset is at [`offset`], and the
+    /// running checksum is in [`checksum`]
     WroteBlock { offset: usize, checksum: u64 },
+
+    /// The last block has been written; the checksum is in [`checksum`]
     WroteLastBlock { checksum: u64 },
+
+    /// The checksum has been sent for verification
     SentChecksum,
+
+    /// The checksum has been verified
     VerifiedChecksum,
+
+    /// The PSU has been rebooted
     RebootedPSU,
+
+    /// The entire update is complete and successful
     UpdateSuccessful,
 }
 
 impl UpdateState {
+    ///
+    /// Return the milliseconds of delay associated with the current state.
+    /// Note that some of these values differ slightly from Murata's "PSU
+    /// Firmware Update Process" document in that they reflect revised
+    /// guidance from Murata.
+    ///
     fn delay_ms(&self) -> u64 {
         match self {
             Self::WroteBootLoaderKey => 3_000,
@@ -483,6 +521,9 @@ impl Mwocp68 {
         Ok(FirmwareRev([data[0], data[1], data[2], data[3]]))
     }
 
+    ///
+    /// Returns the serial number of the PSU.
+    ///
     pub fn serial_number(&self) -> Result<SerialNumber, Error> {
         let mut serial = SerialNumber::default();
 
@@ -514,12 +555,19 @@ impl Mwocp68 {
     }
 
     fn get_boot_loader_mode(&self) -> Result<BOOT_LOADER_STATUS::Mode, Error> {
+        //
+        // This unwrap is safe because the boot loader mode is a single bit.
+        //
         Ok(self.get_boot_loader_status()?.get_mode().unwrap())
     }
 
     fn boot_loader_command(&self, cmd: BootLoaderCommand) -> Result<(), Error> {
         use pmbus::commands::mwocp68::CommandCode;
 
+        //
+        // The great unfortunateness: BOOT_LOADER_STATUS is overloaded to
+        // be BOOT_LOADER_CMD on a write.
+        //
         let data = [CommandCode::BOOT_LOADER_STATUS as u8, 1, cmd as u8];
 
         self.device
@@ -529,6 +577,15 @@ impl Mwocp68 {
         Ok(())
     }
 
+    ///
+    /// Perform a firmware update, implementating the procedure contained
+    /// within Murata's "PSU Firmware Update Process" document.  Note that
+    /// this function must be called initially with a state of `None`; it will
+    /// return either an error, or the next state in the update process,
+    /// along with a specified delay in milliseconds.  It is up to the caller
+    /// to assure that the returned delay has been observed before calling
+    /// back into continue the update.
+    ///
     pub fn update(
         &self,
         state: Option<UpdateState>,
