@@ -310,9 +310,19 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
             let mut next_task = 1;
             while let Some(fault_index) = kipc::find_faulted_task(next_task) {
                 let fault_index = usize::from(fault_index);
-                next_task = fault_index + 1;
+                // This addition cannot overflow in practice, because the number
+                // of tasks in the system is very much smaller than 2**32. So we
+                // use wrapping add, because currently the compiler doesn't
+                // understand this property.
+                next_task = fault_index.wrapping_add(1);
 
-                let status = &mut self.task_states[fault_index];
+                // Safety: `fault_index` is from the kernel, and the kernel will
+                // not give us an out-of-range task index.
+                //
+                // TODO: it might be nice to fold this into a utility function
+                // in kipc or something
+                let status =
+                    unsafe { self.task_states.get_unchecked_mut(fault_index) };
 
                 // If we're aware that this task is in a fault state, don't
                 // bother making a syscall to enquire.

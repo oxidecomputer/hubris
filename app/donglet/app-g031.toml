@@ -15,8 +15,9 @@ name = "task-jefe"
 priority = 0
 max-sizes = {flash = 4096, ram = 512}
 start = true
-stacksize = 368
+stacksize = 192
 notifications = ["fault", "timer"]
+features = ["no-panic", "nano"]
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
