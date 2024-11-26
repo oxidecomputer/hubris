@@ -245,14 +245,7 @@ fn gpio_configure(
     let gpio = drv_lpc55_gpio_api::Pins::from(task);
 
     gpio.iocon_configure(
-        pin,
-        alt,
-        mode,
-        slew,
-        invert,
-        digimode,
-        opendrain,
-        PintSlot::None,
+        pin, alt, mode, slew, invert, digimode, opendrain, None,
     );
 
     Ok(0)

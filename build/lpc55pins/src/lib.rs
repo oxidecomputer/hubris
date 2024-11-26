@@ -103,7 +103,6 @@ pub enum Opendrain {
 #[serde(rename_all = "lowercase")]
 #[repr(u32)]
 pub enum PintSlot {
-    None = 8,
     Slot0 = 0,
     Slot1 = 1,
     Slot2 = 2,
@@ -114,35 +113,30 @@ pub enum PintSlot {
     Slot7 = 7,
 }
 
-impl From<u32> for PintSlot {
-    fn from(slot: u32) -> Self {
-        match slot {
-            0 => PintSlot::Slot0,
-            1 => PintSlot::Slot1,
-            2 => PintSlot::Slot2,
-            3 => PintSlot::Slot3,
-            4 => PintSlot::Slot4,
-            5 => PintSlot::Slot5,
-            6 => PintSlot::Slot6,
-            7 => PintSlot::Slot7,
-            _ => PintSlot::None,
+impl TryFrom<usize> for PintSlot {
+    type Error = ();
+
+    fn try_from(v: usize) -> Result<Self, Self::Error> {
+        match v {
+            0 => Ok(PintSlot::Slot0),
+            1 => Ok(PintSlot::Slot1),
+            2 => Ok(PintSlot::Slot2),
+            3 => Ok(PintSlot::Slot3),
+            4 => Ok(PintSlot::Slot4),
+            5 => Ok(PintSlot::Slot5),
+            6 => Ok(PintSlot::Slot6),
+            7 => Ok(PintSlot::Slot7),
+            _ => Err(()),
         }
     }
 }
 
-impl From<usize> for PintSlot {
-    fn from(slot: usize) -> Self {
-        match slot {
-            0 => PintSlot::Slot0,
-            1 => PintSlot::Slot1,
-            2 => PintSlot::Slot2,
-            3 => PintSlot::Slot3,
-            4 => PintSlot::Slot4,
-            5 => PintSlot::Slot5,
-            6 => PintSlot::Slot6,
-            7 => PintSlot::Slot7,
-            _ => PintSlot::None,
-        }
+impl PintSlot {
+    pub fn index(self) -> usize {
+        self as usize
+    }
+    pub fn mask(self) -> u32 {
+        1u32 << self.index()
     }
 }
 
@@ -162,22 +156,26 @@ impl PinConfig {
         self.alt
     }
 
-    fn get_pint_slot(&self, used: &mut u8) -> PintSlot {
-        if let Some(pint_slot) = self.pint {
+    fn get_pint_slot(&self, used: &mut u32) -> Option<PintSlot> {
+        if let Some(slot_number) = self.pint {
             if self.pin.port > 1 || self.pin.pin > 32 {
                 panic!("Invalid gpio pin for interrupt");
             }
-            if pint_slot > 7 {
-                panic!("Invalid pint setting {} > 7", pint_slot);
+            if let Ok(pint_slot) = PintSlot::try_from(slot_number) {
+                let mask = pint_slot.mask();
+                if (*used & mask) != 0 {
+                    panic!(
+                        "Duplicate interrupt slot assignment: {:?}",
+                        self.pin
+                    );
+                }
+                *used |= mask;
+                Some(pint_slot)
+            } else {
+                panic!("Invalid pint slot number {}", slot_number);
             }
-            let mask = 1 << pint_slot;
-            if (*used & mask) != 0 {
-                panic!("Duplicate interrupt slot assignment: {:?}", self.pin);
-            }
-            *used |= mask;
-            PintSlot::from(pint_slot)
         } else {
-            PintSlot::None
+            None
         }
     }
 }
@@ -209,10 +207,14 @@ pub fn codegen(pins: Vec<PinConfig>) -> Result<()> {
     let dest_path = out_dir.join("pin_config.rs");
     let mut file = std::fs::File::create(&dest_path)?;
 
-    let mut used_slots = 0u8;
+    let mut used_slots = 0u32;
     let mut buf = BufWriter::new(Vec::new());
+
     if pins.iter().any(|p| p.name.is_some()) {
         writeln!(&mut buf, "use drv_lpc55_gpio_api::Pin;")?;
+    }
+    if pins.iter().any(|p| p.pint.is_some()) {
+        writeln!(&mut buf, "use drv_lpc55_gpio_api::PintSlot;")?;
     }
     writeln!(
         &mut file,
@@ -223,11 +225,11 @@ pub fn codegen(pins: Vec<PinConfig>) -> Result<()> {
     for p in pins {
         writeln!(&mut file, "iocon.iocon_configure(")?;
         writeln!(&mut file, "{}", p.to_token_stream())?;
-        writeln!(
-            &mut file,
-            "PintSlot::{:?}",
-            p.get_pint_slot(&mut used_slots)
-        )?;
+        if let Some(slot) = p.get_pint_slot(&mut used_slots) {
+            writeln!(&mut file, "Some(PintSlot::Slot{}),", slot.index())?;
+        } else {
+            writeln!(&mut file, "None")?;
+        }
         writeln!(&mut file, ");")?;
 
         // Output pins can specify their value, which is set before configuring
@@ -265,14 +267,14 @@ pub fn codegen(pins: Vec<PinConfig>) -> Result<()> {
                     &name, pin.0, pin.1
                 )?;
 
-                let mut ignore = 0u8;
-                let slot = p.get_pint_slot(&mut ignore);
-                if slot != PintSlot::None {
+                let mut ignore = 0u32;
+                if let Some(slot) = p.get_pint_slot(&mut ignore) {
                     writeln!(&mut buf, "#[allow(unused)]")?;
                     writeln!(
                         &mut buf,
-                        "pub const {}_PINT_MASK: u32 = 1 << {};",
-                        &name, slot as u32
+                        "pub const {}_PINT_SLOT: PintSlot = PintSlot::Slot{};",
+                        &name,
+                        slot.index(),
                     )?;
                 }
             }

@@ -130,7 +130,7 @@ impl idl::InOrderPinsImpl for ServerImpl<'_> {
         _: &RecvMessage,
         pin: Pin,
         conf: u32,
-        pint_slot: PintSlot,
+        pint_slot: Option<PintSlot>,
     ) -> Result<(), RequestError<core::convert::Infallible>> {
         // The LPC55 IOCON Rust API has individual functions for each pin.
         // This is not easily compatible with our API that involves passing
@@ -153,32 +153,23 @@ impl idl::InOrderPinsImpl for ServerImpl<'_> {
         // the INPUT MUX registers. Once the input multiplexer is configured,
         // disable the clock to the INPUT MUX block in the AHBCLKCTRL register.
         // See: Section 4.5.17 “AHB clock control 0”.
-        match pint_slot {
-            PintSlot::None => {}
-            PintSlot::Slot0
-            | PintSlot::Slot1
-            | PintSlot::Slot2
-            | PintSlot::Slot3
-            | PintSlot::Slot4
-            | PintSlot::Slot5
-            | PintSlot::Slot6
-            | PintSlot::Slot7 => {
-                // The INPUTMUX only needs to be turned on during configuration.
-                let syscon = Syscon::from(SYSCON.get_task_id());
-                syscon.enable_clock(Peripheral::Mux);
-                syscon.leave_reset(Peripheral::Mux);
-                self.inputmux.pintsel[pint_slot as usize]
-                    .write(|w| unsafe { w.intpin().bits(pin as u8) });
-                syscon.disable_clock(Peripheral::Mux);
+        if let Some(pint_slot) = pint_slot {
+            // The INPUTMUX only needs to be turned on during configuration.
+            let syscon = Syscon::from(SYSCON.get_task_id());
+            syscon.enable_clock(Peripheral::Mux);
+            syscon.leave_reset(Peripheral::Mux);
+            self.inputmux.pintsel[pint_slot.index()]
+                .write(|w| unsafe { w.intpin().bits(pin as u8) });
+            syscon.disable_clock(Peripheral::Mux);
 
-                // NOTE: We're only supporting edge-triggered interrupts right now.
-                // We hard-code ISEL.PMODE as edge-triggered:
-                // Edge triggered = 0 << PintSlot
-                // Level triggered = 1 << PintSlot
-                let mask = 1u32 << (pint_slot as usize);
-                unsafe {
-                    self.pint.isel.modify(|r, w| w.bits(r.bits() & !mask));
-                }
+            // NOTE: We're only supporting edge-triggered interrupts right now.
+            // We hard-code ISEL.PMODE as edge-triggered:
+            // Edge triggered = 0 << PintSlot
+            // Level triggered = 1 << PintSlot
+            unsafe {
+                self.pint
+                    .isel
+                    .modify(|r, w| w.bits(r.bits() & !pint_slot.mask()));
             }
         }
 
@@ -188,99 +179,76 @@ impl idl::InOrderPinsImpl for ServerImpl<'_> {
     //
     // Functions for managing GPIO interrupts:
     //
-
-    fn clear_rising(
+    fn pint_op(
         &mut self,
         _: &RecvMessage,
-        pint_mask: u32,
-    ) -> Result<(), idol_runtime::RequestError<core::convert::Infallible>> {
-        self.pint.rise.write(|w| unsafe { w.bits(pint_mask) });
-        Ok(())
-    }
-
-    fn clear_falling(
-        &mut self,
-        _: &RecvMessage,
-        pint_mask: u32,
-    ) -> Result<(), idol_runtime::RequestError<core::convert::Infallible>> {
-        self.pint.fall.write(|w| unsafe { w.bits(pint_mask) });
-        Ok(())
-    }
-
-    fn clear_status(
-        &mut self,
-        _: &RecvMessage,
-        pint_mask: u32,
-    ) -> Result<(), idol_runtime::RequestError<core::convert::Infallible>> {
-        self.pint.ist.write(|w| unsafe { w.bits(pint_mask) });
-        Ok(())
-    }
-
-    fn detected_rising(
-        &mut self,
-        _: &RecvMessage,
-        pint_mask: u32,
-    ) -> Result<u32, idol_runtime::RequestError<core::convert::Infallible>>
-    {
-        let status = self.pint.rise.read().bits() & pint_mask;
-        Ok(status)
-    }
-
-    fn detected_falling(
-        &mut self,
-        _: &RecvMessage,
-        pint_mask: u32,
-    ) -> Result<u32, idol_runtime::RequestError<core::convert::Infallible>>
-    {
-        let status = self.pint.fall.read().bits() & pint_mask;
-        Ok(status)
-    }
-
-    fn disable_falling(
-        &mut self,
-        _: &RecvMessage,
-        pint_mask: u32,
-    ) -> Result<(), idol_runtime::RequestError<core::convert::Infallible>> {
-        self.pint.cienf.write(|w| unsafe { w.bits(pint_mask) });
-        Ok(())
-    }
-
-    fn disable_rising(
-        &mut self,
-        _: &RecvMessage,
-        pint_mask: u32,
-    ) -> Result<(), idol_runtime::RequestError<core::convert::Infallible>> {
-        self.pint.cienr.write(|w| unsafe { w.bits(pint_mask) });
-        Ok(())
-    }
-
-    fn enable_falling(
-        &mut self,
-        _: &RecvMessage,
-        pint_mask: u32,
-    ) -> Result<(), idol_runtime::RequestError<core::convert::Infallible>> {
-        // XXX sanity check pint_mask
-        self.pint.sienf.write(|w| unsafe { w.bits(pint_mask) });
-        Ok(())
-    }
-
-    fn enable_rising(
-        &mut self,
-        _: &RecvMessage,
-        pint_mask: u32,
-    ) -> Result<(), idol_runtime::RequestError<core::convert::Infallible>> {
-        self.pint.sienr.write(|w| unsafe { w.bits(pint_mask) });
-        Ok(())
-    }
-
-    fn read_status(
-        &mut self,
-        _: &RecvMessage,
-        pint_mask: u32,
-    ) -> Result<u32, idol_runtime::RequestError<core::convert::Infallible>>
-    {
-        let status = self.pint.ist.read().bits() & pint_mask;
-        Ok(status)
+        pint_slot: PintSlot,
+        op: PintOp,
+        cond: PintCondition,
+    ) -> Result<Option<bool>, RequestError<core::convert::Infallible>> {
+        let mask = pint_slot.mask();
+        match op {
+            PintOp::Clear => {
+                match cond {
+                    PintCondition::Rising => {
+                        self.pint.rise.write(|w| unsafe { w.bits(mask) })
+                    }
+                    PintCondition::Falling => {
+                        self.pint.fall.write(|w| unsafe { w.bits(mask) })
+                    }
+                    PintCondition::Status => {
+                        self.pint.ist.write(|w| unsafe { w.bits(mask) })
+                    }
+                }
+                Ok(None)
+            }
+            PintOp::Enable => {
+                match cond {
+                    // Enable rising edge detection
+                    PintCondition::Rising => {
+                        self.pint.sienr.write(|w| unsafe { w.bits(mask) })
+                    }
+                    // Enable falling edge detection
+                    PintCondition::Falling => {
+                        self.pint.sienf.write(|w| unsafe { w.bits(mask) })
+                    }
+                    // XXX This could be enable interrupt
+                    PintCondition::Status => (),
+                }
+                Ok(None)
+            }
+            PintOp::Disable => {
+                match cond {
+                    // Disable rising edge detection
+                    PintCondition::Rising => {
+                        self.pint.cienr.write(|w| unsafe { w.bits(mask) })
+                    }
+                    // Disable falling edge detection
+                    PintCondition::Falling => {
+                        self.pint.cienf.write(|w| unsafe { w.bits(mask) })
+                    }
+                    // XXX This could be disable interrupt
+                    PintCondition::Status => (),
+                }
+                Ok(None)
+            }
+            PintOp::Detected => {
+                Ok(Some(
+                    0 != match cond {
+                        PintCondition::Rising => {
+                            self.pint.rise.read().bits() & mask
+                        }
+                        PintCondition::Falling => {
+                            self.pint.fall.read().bits() & mask
+                        }
+                        // XXX This could be any interrupt detected
+                        PintCondition::Status => {
+                            self.pint.ist.read().bits() & pint_slot.mask()
+                        }
+                    },
+                ))
+            }
+        }
     }
 }
 
@@ -343,6 +311,8 @@ fn turn_on_gpio_clocks() {
 }
 
 mod idl {
+    use crate::PintCondition;
+    use crate::PintOp;
     use crate::PintSlot;
     use drv_lpc55_gpio_api::{Direction, Pin, Value};
 
