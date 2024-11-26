@@ -627,7 +627,7 @@ fn enable_led_pins() {
         Invert::Disable,
         Digimode::Digital,
         Opendrain::Normal,
-        PintSlot::None,
+        None,
     );
 
     gpio_driver.iocon_configure(
@@ -638,7 +638,7 @@ fn enable_led_pins() {
         Invert::Disable,
         Digimode::Digital,
         Opendrain::Normal,
-        PintSlot::None,
+        None,
     );
 
     // Both LEDs are active low -- so they will light when we set the

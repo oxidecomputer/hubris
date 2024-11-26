@@ -3,11 +3,12 @@ Interface(
     ops: {
         "iocon_configure_raw": (
             args: {
-                "pin": (type: "Pin", recv: FromPrimitive("u32")),
+                "pin": "Pin",
                 "conf": "u32",
-                "pint_slot": (type: "PintSlot", recv: FromPrimitive("u8")),
+                "pint_slot": "Option<PintSlot>",
             },
             reply: Simple("()"),
+            encoding: Hubpack,
             idempotent: true,
         ),
         "set_dir": (
@@ -42,78 +43,17 @@ Interface(
                 err: ServerDeath,
             )
         ),
-        "clear_falling": (
+        "pint_op": (
             args: {
-                "pint_mask": "u32",
-            },
-            reply: Simple("()"),
-            idempotent: true,
-        ),
-        "clear_rising": (
-            args: {
-                "pint_mask": "u32",
-            },
-            reply: Simple("()"),
-            idempotent: true,
-        ),
-        "clear_status": (
-            args: {
-                "pint_mask": "u32",
-            },
-            reply: Simple("()"),
-            idempotent: true,
-        ),
-        "detected_falling": (
-            args: {
-                "pint_mask": "u32",
+               "pint_slot": "PintSlot",
+                "op": "PintOp",
+                "cond": "PintCondition",
             },
             reply: Result(
-                ok: "u32", err: ServerDeath,
-            )
-        ),
-        "detected_rising": (
-            args: {
-                "pint_mask": "u32",
-            },
-            reply: Result(
-                ok: "u32", err: ServerDeath,
-            )
-        ),
-        "disable_falling": (
-            args: {
-                "pint_mask": "u32",
-            },
-            reply: Simple("()"),
-            idempotent: true,
-        ),
-        "disable_rising": (
-            args: {
-                "pint_mask": "u32",
-            },
-            reply: Simple("()"),
-            idempotent: true,
-        ),
-        "enable_falling": (
-            args: {
-                "pint_mask": "u32",
-            },
-            reply: Simple("()"),
-            idempotent: true,
-        ),
-        "enable_rising": (
-            args: {
-                "pint_mask": "u32",
-            },
-            reply: Simple("()"),
-            idempotent: true,
-        ),
-        "read_status": (
-            args: {
-                "pint_mask": "u32",
-            },
-            reply: Result(
-                ok: "u32", err: ServerDeath,
-            )
+                ok: "Option<bool>",
+                err: ServerDeath,
+            ),
+            encoding: Hubpack,
         ),
     }
 )
