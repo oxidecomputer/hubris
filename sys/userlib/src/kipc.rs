@@ -11,7 +11,7 @@
 //! IPC is defined as able to fail. We have no choice but to trust the kernel,
 //! since it controls everything.
 //!
-//! As a result, asserting on return codes when they can only be zero just
+//! As a result, asserting on return codes and lengths when they can only be zero just
 //! wastes flash space in the supervisor.
 
 use core::num::NonZeroUsize;
