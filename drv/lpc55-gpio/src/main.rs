@@ -64,6 +64,14 @@ impl ServerImpl<'_> {
                 .write(|w| unsafe { w.dirsetp().bits(1 << pin) }),
         }
     }
+
+    fn get_pin_direction(&self, port: usize, pin: usize) -> Direction {
+        if self.gpio.dir[port].read().bits() & (1 << pin) == 0 {
+            Direction::Input
+        } else {
+            Direction::Output
+        }
+    }
 }
 
 impl idl::InOrderPinsImpl for ServerImpl<'_> {
@@ -174,6 +182,15 @@ impl idl::InOrderPinsImpl for ServerImpl<'_> {
         }
 
         Ok(())
+    }
+
+    fn get_dir(
+        &mut self,
+        _: &RecvMessage,
+        pin: Pin,
+    ) -> Result<Direction, RequestError<core::convert::Infallible>> {
+        let (port, pin) = gpio_port_pin_validate(pin);
+        Ok(self.get_pin_direction(port, pin))
     }
 
     //

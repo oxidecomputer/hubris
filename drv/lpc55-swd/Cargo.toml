@@ -10,7 +10,9 @@ idol-runtime = { workspace = true }
 lpc55-pac = { workspace = true }
 num-traits = { workspace = true }
 zerocopy = { workspace = true }
+sha3 = { workspace = true }
 
+attest-api = { path = "../../task/attest-api" }
 drv-lpc55-gpio-api = { path = "../lpc55-gpio-api" }
 drv-lpc55-spi = { path = "../lpc55-spi" }
 drv-lpc55-syscon-api = { path = "../lpc55-syscon-api" }
@@ -28,6 +30,8 @@ serde = { workspace = true }
 
 [features]
 no-ipc-counters = ["idol/no-counters"]
+# TODO: Make measuring the SP a feature flag.
+# measure_sp = []
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

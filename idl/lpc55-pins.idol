@@ -43,6 +43,13 @@ Interface(
                 err: ServerDeath,
             )
         ),
+        "get_dir": (
+            args: {
+                "pin": (type: "Pin", recv: FromPrimitive("u32")),
+            },
+            reply: Simple((type: "Direction", recv: FromPrimitive("u32"))),
+            idempotent: true,
+        ),
         "pint_op": (
             args: {
                "pint_slot": "PintSlot",
