@@ -15,6 +15,7 @@ serde = { workspace = true }
 syn = { workspace = true }
 
 build-util = { path = "../util" }
+call_rustfmt = { path = "../call_rustfmt"}
 
 [lints]
 workspace = true

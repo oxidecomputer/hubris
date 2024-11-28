@@ -159,6 +159,7 @@ fn muck_with_gpios(syscon: &Syscon) {
         Invert::Disable,
         Digimode::Digital,
         Opendrain::Normal,
+        None,
     );
 
     iocon.iocon_configure(
@@ -169,6 +170,7 @@ fn muck_with_gpios(syscon: &Syscon) {
         Invert::Disable,
         Digimode::Digital,
         Opendrain::Normal,
+        None,
     );
 }
 
