@@ -484,6 +484,10 @@ impl From<oxide_barcode::VpdIdentity> for Identity {
         );
 
         let mut new_id = Self::default();
+        // The incoming part number and serial are already nul-padded if they're
+        // shorter than the allocated space in VpdIdentity, so we can merely
+        // copy them into the start of our fields and the result is still
+        // nul-padded.
         new_id.model[..id.part_number.len()].copy_from_slice(&id.part_number);
         new_id.revision = id.revision;
         new_id.serial[..id.serial.len()].copy_from_slice(&id.serial);
