@@ -61,6 +61,7 @@ uses = ["usart1"]
 task-slots = [
     "jefe",
     "net",
+    "dump_agent",
     "update_server",
     "sys",
     "hf",
