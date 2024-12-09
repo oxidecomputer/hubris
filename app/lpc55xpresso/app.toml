@@ -132,7 +132,7 @@ task-slots = ["user_leds"]
 name = "task-dump-agent"
 features = ["no-rot"]
 priority = 5
-max-sizes = {flash = 32768, ram = 2240 }
+max-sizes = {flash = 32768, ram = 2272 }
 start = true
 task-slots = ["jefe"]
 stacksize = 1536

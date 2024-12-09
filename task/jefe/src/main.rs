@@ -71,8 +71,12 @@ fn main() -> ! {
         deadline,
         task_states: &mut task_states,
         reset_reason: ResetReason::Unknown,
+
         #[cfg(feature = "dump")]
         dump_areas: dump::initialize_dump_areas(),
+
+        #[cfg(feature = "dump")]
+        last_dump_area: None,
     };
     let mut buf = [0u8; idl::INCOMING_SIZE];
 
@@ -86,8 +90,17 @@ struct ServerImpl<'s> {
     task_states: &'s mut [TaskStatus; NUM_TASKS],
     deadline: u64,
     reset_reason: ResetReason,
+
+    /// Base address for a linked list of dump areas
     #[cfg(feature = "dump")]
     dump_areas: u32,
+
+    /// Cache of most recently checked dump area
+    ///
+    /// This accelerates our linked-list search in the common case of doing
+    /// sequential reads through dump memory.
+    #[cfg(feature = "dump")]
+    last_dump_area: Option<DumpArea>,
 }
 
 impl idl::InOrderJefeImpl for ServerImpl<'_> {
@@ -161,8 +174,33 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
                 _msg: &userlib::RecvMessage,
                 index: u8,
             ) -> Result<DumpArea, RequestError<DumpAgentError>> {
-                dump::get_dump_area(self.dump_areas, index)
-                    .map_err(|e| e.into())
+                // If we have cached a dump area, then use it to accelerate
+                // lookup by jumping partway through the linked list
+                let d = if let Some(prev) = self.last_dump_area {
+                    if index == prev.index {
+                        // Easy case: we've already looked up this area
+                        Ok(prev)
+                    } else if let Some(offset) = index.checked_sub(prev.index) {
+                        // Slightly tricker: the requested area is after our
+                        // current area. We'll start at our current area, then
+                        // do a reduced number of steps (patching the index
+                        // afterwards)
+                        let mut d =
+                            dump::get_dump_area(prev.region.address, offset);
+                        if let Ok(d) = &mut d {
+                            d.index += prev.index;
+                        }
+                        d
+                    } else {
+                        // Default case: we have to search from the start
+                        dump::get_dump_area(self.dump_areas, index)
+                    }
+                } else {
+                    dump::get_dump_area(self.dump_areas, index)
+                };
+                let d = d.map_err(RequestError::from)?;
+                self.last_dump_area = Some(d);
+                Ok(d)
             }
 
             fn claim_dump_area(

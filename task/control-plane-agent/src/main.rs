@@ -30,6 +30,8 @@ mod inventory;
 mod mgs_common;
 mod update;
 
+pub(crate) mod dump;
+
 // If the build system enables multiple of the gimlet/sidecar/psc features, this
 // sequence of `cfg_attr`s will trigger an unused_attributes warning.  We build
 // everything with -Dunused_attributes, which will catch any such build system
