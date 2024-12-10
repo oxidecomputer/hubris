@@ -60,7 +60,6 @@ impl DumpState {
     pub(crate) fn get_task_dump_count(&mut self) -> Result<u32, SpError> {
         let mut count = 0;
         for index in 0.. {
-            // XXX accidentally quadratic!
             let data = self
                 .agent
                 .read_dump(index, 0)
@@ -92,7 +91,6 @@ impl DumpState {
         let mut data = [0u8; 256];
         let mut header = humpty::DumpAreaHeader::new_zeroed();
         for index in 0.. {
-            // XXX accidentally quadratic!
             data = self
                 .agent
                 .read_dump(index, 0)
@@ -254,9 +252,7 @@ impl DumpState {
             )
             .map_err(|_e| SpError::Dump(DumpError::ReadFailed))?;
         pos.offset += ds.compressed_length as u32;
-        while pos.offset & 3 != 0 {
-            // pad to the nearest u32
-            // XXX why is `humpty::DUMP_SEGMENT_MASK` private?
+        while pos.offset as usize & humpty::DUMP_SEGMENT_MASK != 0 {
             pos.offset += 1;
         }
 
