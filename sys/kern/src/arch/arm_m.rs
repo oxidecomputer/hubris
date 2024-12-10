@@ -309,15 +309,21 @@ pub fn reinitialize(task: &mut task::Task) {
         .iter()
         .find(|region| region.contains(initial_stack.saturating_sub(4)))
     {
-        let mut uslice: USlice<u32> = USlice::from_raw(
+        // If the slice doesn't fit in the region, this will fail. Should this
+        // occur, don't crash the entire system, since this is a diagnostic tool
+        // -- just skip filling the stack.
+        if let Ok(mut uslice) = USlice::<u32>::from_raw(
             region.base as usize,
             (initial_stack - frame_size - region.base as usize) >> 2,
-        )
-        .unwrap_lite();
-
-        let zap = task.try_write(&mut uslice).unwrap_lite();
-        for word in zap.iter_mut() {
-            *word = 0xbaddcafe;
+        ) {
+            // This one, we're unwrapping rather than tolerating failure. This
+            // is because try_write failing would indicate an invalid region
+            // descriptor for the task (read-only stack area) which would bite
+            // us later.
+            let zap = task.try_write(&mut uslice).unwrap_lite();
+            for word in zap.iter_mut() {
+                *word = 0xbaddcafe;
+            }
         }
     }
 
