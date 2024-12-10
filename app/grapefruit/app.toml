@@ -211,7 +211,7 @@ name = "task-host-sp-comms"
 features = ["stm32h753", "usart6", "baud_rate_3M", "hardware_flow_control", "vlan", "grapefruit"]
 uses = ["usart6", "dbgmcu"]
 interrupts = {"usart6.irq" = "usart-irq"}
-priority = 7
+priority = 8
 max-sizes = {flash = 65536, ram = 65536}
 stacksize = 5080
 start = true
@@ -220,7 +220,7 @@ notifications = ["jefe-state-change", "usart-irq", "multitimer", "control-plane-
 
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
-priority = 6
+priority = 7
 max-sizes = {flash = 131072, ram = 32768}
 # This can probably overkill and can be tuned later
 stacksize = 6000
@@ -228,6 +228,7 @@ start = true
 uses = ["usart1"]
 task-slots = [
     "auxflash",
+    "dump_agent",
     "jefe",
     "net",
     "update_server",

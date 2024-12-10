@@ -195,7 +195,7 @@ notifications = ["spi-irq"]
 
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
-priority = 5
+priority = 6
 max-sizes = {flash = 131072, ram = 32768}
 # This is probably a bit overkill and can be tuned later
 stacksize = 6000
@@ -203,6 +203,7 @@ start = true
 uses = []
 task-slots = [
     "jefe",
+    "dump_agent",
     "net",
     "update_server",
     "sys",
@@ -318,7 +319,7 @@ features = ["net", "vlan"]
 
 [tasks.idle]
 name = "task-idle"
-priority = 6
+priority = 7
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true

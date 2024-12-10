@@ -95,38 +95,33 @@ impl ServerImpl {
         .map_err(|_| DumpAgentError::BadSegmentAdd)
     }
 
-    fn read_dump(
+    fn read_dump<'b, B: idol_runtime::BufWriter<'b>>(
         &mut self,
         index: u8,
         offset: u32,
-    ) -> Result<[u8; DUMP_READ_SIZE], DumpAgentError> {
-        let mut rval = [0u8; DUMP_READ_SIZE];
-
-        if offset & ((rval.len() as u32) - 1) != 0 {
-            return Err(DumpAgentError::UnalignedOffset);
-        }
+        mut rval: B,
+    ) -> Result<usize, DumpAgentError> {
+        let offset = offset as usize;
+        let read_size = rval.remaining_size();
 
         let area = self.dump_area(index)?;
 
         let written = unsafe {
             let header = area.region.address as *mut DumpAreaHeader;
             core::ptr::read_volatile(header).written
-        };
+        } as usize;
 
         if written > offset {
-            let to_read = written - offset;
             let base = area.region.address as *const u8;
-            let base = unsafe { base.add(offset as usize) };
+            let base = unsafe { base.add(offset) };
 
-            for (i, entry) in rval
-                .iter_mut()
-                .enumerate()
-                .take(usize::min(to_read as usize, DUMP_READ_SIZE))
-            {
-                *entry = unsafe { core::ptr::read_volatile(base.add(i)) };
+            let read_count = (written - offset).min(read_size);
+            for i in 0..read_count {
+                rval.write(unsafe { core::ptr::read_volatile(base.add(i)) })
+                    .map_err(|_| DumpAgentError::LeaseWriteFailed)?;
             }
 
-            Ok(rval)
+            Ok(read_count)
         } else {
             Err(DumpAgentError::BadOffset)
         }
@@ -250,7 +245,28 @@ impl idl::InOrderDumpAgentImpl for ServerImpl {
         index: u8,
         offset: u32,
     ) -> Result<[u8; DUMP_READ_SIZE], RequestError<DumpAgentError>> {
-        self.read_dump(index, offset).map_err(|e| e.into())
+        let mut out = [0u8; DUMP_READ_SIZE];
+        if offset & (out.len() as u32 - 1) != 0 {
+            return Err(DumpAgentError::UnalignedOffset.into());
+        }
+        self.read_dump(index, offset, out.as_mut_slice())
+            .map_err(RequestError::from)?;
+        Ok(out)
+    }
+
+    fn read_dump_into(
+        &mut self,
+        _msg: &RecvMessage,
+        index: u8,
+        offset: u32,
+        out: idol_runtime::Leased<idol_runtime::W, [u8]>,
+    ) -> Result<usize, RequestError<DumpAgentError>> {
+        self.read_dump(
+            index,
+            offset,
+            idol_runtime::LeaseBufWriter::<_, 16>::from(out),
+        )
+        .map_err(|e| e.into())
     }
 
     fn dump_task(
