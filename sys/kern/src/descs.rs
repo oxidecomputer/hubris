@@ -4,8 +4,6 @@
 
 //! Descriptor types, used to statically define application resources.
 
-use serde::{Deserialize, Serialize};
-
 pub(crate) const REGIONS_PER_TASK: usize = 8;
 
 /// Indicates priority of a task.
@@ -86,7 +84,8 @@ bitflags::bitflags! {
 /// Note that regions can overlap. This can be useful: for example, you can have
 /// two regions pointing to the same area of the address space, but one
 /// read-only and the other read-write.
-#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+#[derive(Copy, Clone, Debug)]
+#[repr(C)]
 pub struct RegionDesc {
     /// Address of start of region. The platform likely has alignment
     /// requirements for this; it must meet them. (For example, on ARMv7-M, it
@@ -98,6 +97,8 @@ pub struct RegionDesc {
     pub size: u32,
     /// Flags describing what can be done with this region.
     pub attributes: RegionAttributes,
+    /// Architecture-specific additional data to make context switch cheaper.
+    pub arch_data: crate::arch::RegionDescExt,
 }
 
 impl RegionDesc {
@@ -150,7 +151,7 @@ impl kerncore::MemoryRegion for RegionDesc {
 // This is defined outside the bitflags! macro so that we can write our own
 // const constructor fn, below.
 #[repr(transparent)]
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug)]
 pub struct RegionAttributes(u32);
 
 bitflags::bitflags! {
