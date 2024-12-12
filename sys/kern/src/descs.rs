@@ -87,6 +87,10 @@ bitflags::bitflags! {
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
 pub struct RegionDesc {
+    /// Architecture-specific additional data to make context switch cheaper.
+    /// Should be first in the struct to improve context switch code generation.
+    pub arch_data: crate::arch::RegionDescExt,
+
     /// Address of start of region. The platform likely has alignment
     /// requirements for this; it must meet them. (For example, on ARMv7-M, it
     /// must be naturally aligned for the size.)
@@ -97,8 +101,6 @@ pub struct RegionDesc {
     pub size: u32,
     /// Flags describing what can be done with this region.
     pub attributes: RegionAttributes,
-    /// Architecture-specific additional data to make context switch cheaper.
-    pub arch_data: crate::arch::RegionDescExt,
 }
 
 impl RegionDesc {
