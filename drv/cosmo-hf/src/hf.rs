@@ -268,13 +268,13 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
         addr: u32,
-        dest: LenLimit<Leased<W, [u8]>, PAGE_SIZE_BYTES>,
+        dest: Leased<W, [u8]>,
     ) -> Result<(), RequestError<HfError>> {
         self.drv.check_flash_mux_state()?;
         self.drv
             .flash_read(
                 self.flash_addr(addr),
-                &mut LeaseBufWriter::<_, 32>::from(dest.into_inner()),
+                &mut LeaseBufWriter::<_, 32>::from(dest),
             )
             .map_err(|_| RequestError::went_away())
     }
@@ -483,7 +483,7 @@ impl idl::InOrderHostFlashImpl for FailServer {
         &mut self,
         _: &RecvMessage,
         _offset: u32,
-        _dest: LenLimit<Leased<W, [u8]>, PAGE_SIZE_BYTES>,
+        _dest: Leased<W, [u8]>,
     ) -> Result<(), RequestError<HfError>> {
         Err(self.err.into())
     }
