@@ -138,7 +138,6 @@ start = true
 features = ["h743"]
 priority = 3
 name = "drv-stm32h7-rng"
-max-sizes = {flash = 8192, ram = 512}
 stacksize = 256
 start = true
 task-slots = ["sys", "user_leds"]
