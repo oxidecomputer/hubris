@@ -469,7 +469,9 @@ Collects information about one entry in a sender's lease table.
 ==== Arguments
 
 - 0: notification bitmask corresponding to the interrupt
-- 1: desired state (0 = disabled, 1 = enabled)
+- 1: desired state
+** bit 0: 0 = disabled, 1 = enabled
+** bit 1: 0 = leave pending, 1 = clear pending
 
 ==== Return values
 
@@ -497,6 +499,13 @@ their notification bits. However, this is quite deliberate, for two reasons:
 
 2. It makes it impossible for a task to mess with other tasks' interrupts,
    since it can only refer to its _own_ mapped interrupts, by construction.
+
+The concept of a "pending" interrupt is inherently specific to a particular
+architecture and interrupt controller. On an architecture without a concept of
+pending interrupts, bit 1 has no effect. However, on architectures with
+level-triggered interrupts from peripherals and a concept of "pending"
+interrupts, clearing the pending status when re-enabling may be important for
+avoiding a duplicate notification.
 
 === `PANIC` (8)
 

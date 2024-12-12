@@ -549,3 +549,15 @@ bitflags::bitflags! {
         const POSTED = 1 << 2;
     }
 }
+
+bitflags::bitflags! {
+    /// Bitflags that can be passed into the `IRQ_CONTROL` syscall.
+    #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+    pub struct IrqControlArg: u32 {
+        /// Enables the interrupt if present, disables if not present.
+        const ENABLED = 1 << 0;
+        /// If present, requests that any pending instance of this interrupt be
+        // cleared.
+        const CLEAR_PENDING = 1 << 1;
+    }
+}
