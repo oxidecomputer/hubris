@@ -188,7 +188,7 @@ pub enum AltFn {
     Alt9 = 9,
 }
 
-#[derive(Copy, Clone, Debug, FromPrimitive, AsBytes)]
+#[derive(Copy, Clone, Debug, FromPrimitive, AsBytes, PartialEq)]
 #[repr(u32)]
 pub enum Direction {
     Input = 0,

@@ -4,7 +4,7 @@
 
 use anyhow::Result;
 use proc_macro2::TokenStream;
-use quote::{format_ident, ToTokens, TokenStreamExt};
+use quote::{format_ident, quote, ToTokens, TokenStreamExt};
 use serde::Deserialize;
 use std::io::{BufWriter, Write};
 
@@ -22,13 +22,19 @@ impl Pin {
 
         (self.port, self.pin)
     }
+
+    const MAX_PINS: usize = (1 << 5) + 31 + 1;
+
+    fn index(&self) -> usize {
+        (self.port << 5) + self.pin
+    }
 }
 
 impl ToTokens for Pin {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let (port, pin) = self.get_port_pin();
         let final_pin = format_ident!("PIO{}_{}", port, pin);
-        tokens.append_all(quote::quote! {
+        tokens.append_all(quote! {
             // Yes we want the trailing comma
             Pin::#final_pin,
         });
@@ -55,6 +61,7 @@ pub struct PinConfig {
     value: Option<bool>,
     name: Option<String>,
     pint: Option<usize>,
+    setup: Option<bool>,
 }
 
 #[derive(Copy, Clone, Debug, Default, Deserialize)]
@@ -178,6 +185,10 @@ impl PinConfig {
             None
         }
     }
+
+    fn call_in_setup(&self) -> bool {
+        self.setup.unwrap_or(true)
+    }
 }
 
 impl ToTokens for PinConfig {
@@ -191,7 +202,7 @@ impl ToTokens for PinConfig {
         let digimode = format_ident!("{}", format!("{:?}", self.digimode));
         let od = format_ident!("{}", format!("{:?}", self.opendrain));
         tokens.append_all(final_pin);
-        tokens.append_all(quote::quote! {
+        tokens.append_all(quote! {
             AltFn::#alt_num,
             Mode::#mode,
             Slew::#slew,
@@ -202,76 +213,153 @@ impl ToTokens for PinConfig {
     }
 }
 
+fn pin_init(
+    buf: &mut BufWriter<Vec<u8>>,
+    p: &PinConfig,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // Output pins can specify their value, which is set before configuring
+    // their output mode (to avoid glitching).
+    let pin_tokens = p.pin.to_token_stream();
+    if let Some(v) = p.value {
+        assert!(
+            matches!(p.direction, Some(Direction::Output)),
+            "P{}_{}: can only set value for output pins",
+            p.pin.port,
+            p.pin.pin
+        );
+        writeln!(
+            buf,
+            "iocon.set_val({} {});",
+            pin_tokens,
+            if v { "Value::One" } else { "Value::Zero" }
+        )?;
+    }
+    if let Some(d) = p.direction {
+        writeln!(buf, "iocon.set_dir({} Direction::{:?});", pin_tokens, d)?;
+    }
+    Ok(())
+}
+
 pub fn codegen(pins: Vec<PinConfig>) -> Result<()> {
     let out_dir = build_util::out_dir();
     let dest_path = out_dir.join("pin_config.rs");
     let mut file = std::fs::File::create(&dest_path)?;
 
     let mut used_slots = 0u32;
-    let mut buf = BufWriter::new(Vec::new());
+    let mut top = BufWriter::new(Vec::new());
+    let mut middle = BufWriter::new(Vec::new());
+    let mut bottom = BufWriter::new(Vec::new());
 
-    if pins.iter().any(|p| p.name.is_some()) {
-        writeln!(&mut buf, "use drv_lpc55_gpio_api::Pin;")?;
-    }
-    if pins.iter().any(|p| p.pint.is_some()) {
-        writeln!(&mut buf, "use drv_lpc55_gpio_api::PintSlot;")?;
-    }
+    // Pins with interrupts need to be named and will have separate config functions
+    // that are called by the main setup function.
+    // The same pin must have different names if it is used with different
+    // configurations. All but one of the conflicting configs should have
+    // "setup = false" in their config specifications.
+    //
+    // The pin configuration source is organized in sections.
+    //   - use statements
+    //   - fn setup_pins()
+    //   - fn setup_$named_pin()
+    //   - constants for named pins
+
+    writeln!(&mut top, "use drv_lpc55_gpio_api::*;\n")?;
     writeln!(
-        &mut file,
+        &mut top,
         "fn setup_pins(task : TaskId) -> Result<(), ()> {{"
     )?;
-    writeln!(&mut file, "use drv_lpc55_gpio_api::*;")?;
-    writeln!(&mut file, "let iocon = Pins::from(task);")?;
-    for p in pins {
-        writeln!(&mut file, "iocon.iocon_configure(")?;
-        writeln!(&mut file, "{}", p.to_token_stream())?;
-        if let Some(slot) = p.get_pint_slot(&mut used_slots) {
-            writeln!(&mut file, "Some(PintSlot::Slot{}),", slot.index())?;
-        } else {
-            writeln!(&mut file, "None")?;
-        }
-        writeln!(&mut file, ");")?;
+    if pins.iter().any(|p| p.name.is_none() && p.call_in_setup()) {
+        // Some pins are initialized inline in setup_pins()
+        writeln!(&mut top, "    let iocon = Pins::from(task);\n")?;
+    }
 
-        // Output pins can specify their value, which is set before configuring
-        // their output mode (to avoid glitching).
-        if let Some(v) = p.value {
-            assert!(
-                matches!(p.direction, Some(Direction::Output)),
-                "can only set value for output pins"
-            );
-            writeln!(&mut file, "iocon.set_val(")?;
-            writeln!(&mut file, "{}", p.pin.to_token_stream())?;
+    // If a task defines alternate GPIO configurations. Ensure that not more
+    // than one of them is called by the setup function.
+    let mut conflict = [0usize; Pin::MAX_PINS];
+    let conflicts: Vec<String> = pins
+        .iter()
+        .filter_map(|p| {
+            if p.call_in_setup() {
+                // Just report the first conflict
+                let clash = conflict[p.pin.index()] == 1;
+                conflict[p.pin.index()] += 1;
+                if clash {
+                    let (pin, port) = p.pin.get_port_pin();
+                    Some(format!("P{}_{}", pin, port))
+                } else {
+                    None
+                }
+            } else {
+                // Configurations not called from setup_pins() are ok.
+                None
+            }
+        })
+        .collect();
+    if !conflicts.is_empty() {
+        panic!(
+            "Conflicting pin configs: {:?}. Delete or use 'name=...' and setup=false'.",
+            conflicts);
+    }
+
+    for p in pins {
+        let pin_tokens = p.to_token_stream();
+        let pint_slot_config =
+            if let Some(slot) = p.get_pint_slot(&mut used_slots) {
+                let si = format_ident!("Slot{}", slot.index());
+                quote!(Some(PintSlot::#si))
+            } else {
+                quote!(None)
+            };
+
+        let setup_pin_fn = if let Some(name) = p.name.as_ref() {
+            let fn_name = format_ident!("setup_{}", name.to_lowercase());
             writeln!(
-                &mut file,
-                "{});",
-                if v { "Value::One" } else { "Value::Zero" }
+                &mut middle,
+                r#"
+                fn {}(task: TaskId) {{
+                    let iocon = Pins::from(task);
+
+                    iocon.iocon_configure({} {});
+                "#,
+                fn_name, pin_tokens, pint_slot_config
             )?;
-        }
-        match p.direction {
-            None => (),
-            Some(d) => {
-                writeln!(&mut file, "iocon.set_dir(")?;
-                writeln!(&mut file, "{}", p.pin.to_token_stream())?;
-                writeln!(&mut file, "Direction::{d:?}")?;
-                writeln!(&mut file, ");")?;
+            let _ = pin_init(&mut middle, &p);
+            writeln!(&mut middle, "}}")?;
+            Some(fn_name)
+        } else {
+            None
+        };
+
+        if p.call_in_setup() {
+            if let Some(fn_name) = setup_pin_fn {
+                writeln!(&mut top, "{}(task);", fn_name)?;
+            } else {
+                writeln!(
+                    &mut top,
+                    "{}",
+                    quote!(
+                        iocon.iocon_configure(#pin_tokens #pint_slot_config);
+                    )
+                )?;
+                let _ = pin_init(&mut top, &p);
             }
         }
+
         match p.name {
             None => (),
             Some(ref name) => {
                 let pin = p.pin.get_port_pin();
-                writeln!(&mut buf, "#[allow(unused)]")?;
+                writeln!(&mut bottom, "#[allow(unused)]")?;
                 writeln!(
-                    &mut buf,
+                    &mut bottom,
                     "const {}: Pin = Pin::PIO{}_{};",
                     &name, pin.0, pin.1
                 )?;
 
                 let mut ignore = 0u32;
                 if let Some(slot) = p.get_pint_slot(&mut ignore) {
-                    writeln!(&mut buf, "#[allow(unused)]")?;
+                    writeln!(&mut bottom, "#[allow(unused)]")?;
                     writeln!(
-                        &mut buf,
+                        &mut bottom,
                         "pub const {}_PINT_SLOT: PintSlot = PintSlot::Slot{};",
                         &name,
                         slot.index(),
@@ -281,9 +369,20 @@ pub fn codegen(pins: Vec<PinConfig>) -> Result<()> {
         }
     }
 
-    writeln!(&mut file, "Ok(())")?;
-    writeln!(&mut file, "}}")?;
-    write!(file, "{}", String::from_utf8(buf.into_inner()?).unwrap())?;
+    writeln!(&mut top, "Ok(())")?;
+    writeln!(&mut top, "}}")?;
+
+    writeln!(file, "{}", String::from_utf8(top.into_inner()?).unwrap())?;
+    writeln!(
+        file,
+        "\n{}",
+        String::from_utf8(middle.into_inner()?).unwrap()
+    )?;
+    writeln!(
+        file,
+        "\n{}",
+        String::from_utf8(bottom.into_inner()?).unwrap()
+    )?;
     call_rustfmt::rustfmt(&dest_path)?;
 
     Ok(())
