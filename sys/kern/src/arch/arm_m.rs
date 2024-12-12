@@ -519,7 +519,7 @@ pub fn apply_memory_protection(task: &task::Task) {
     }
 }
 
-pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
+pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
     // Enable faults and set fault/exception priorities to reasonable settings.
     // Our goal here is to keep the kernel non-preemptive, which means the
     // kernel entry points (SVCall, PendSV, SysTick, interrupt handlers) must be
@@ -654,7 +654,7 @@ pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
         mpu.ctrl.write(ENABLE | PRIVDEFENA);
     }
 
-    CURRENT_TASK_PTR.store(task, Ordering::Relaxed);
+    CURRENT_TASK_PTR.store(task as *const _ as *mut _, Ordering::Relaxed);
 
     extern "C" {
         // Exposed by the linker script.
@@ -901,9 +901,9 @@ cfg_if::cfg_if! {
 /// This records a pointer that aliases `task`. As long as you don't read that
 /// pointer while you have access to `task`, and as long as the `task` being
 /// stored is actually in the task table, you'll be okay.
-pub unsafe fn set_current_task(task: &mut task::Task) {
-    CURRENT_TASK_PTR.store(task, Ordering::Relaxed);
-    crate::profiling::event_context_switch(task as *mut _ as usize);
+pub unsafe fn set_current_task(task: &task::Task) {
+    CURRENT_TASK_PTR.store(task as *const _ as *mut _, Ordering::Relaxed);
+    crate::profiling::event_context_switch(task as *const _ as usize);
 }
 
 /// Reads the tick counter.
@@ -1079,7 +1079,6 @@ unsafe extern "C" fn pendsv_entry() {
 
     with_task_table(|tasks| {
         let next = task::select(current, tasks);
-        let next = &mut tasks[next];
         apply_memory_protection(next);
         // Safety: next comes from the task table and we don't use it again
         // until next kernel entry, so we meet set_current_task's requirements.
@@ -1474,16 +1473,15 @@ unsafe extern "C" fn handle_fault(task: *mut task::Task) {
     // switch to a task to run.
     with_task_table(|tasks| {
         let next = match task::force_fault(tasks, idx, fault) {
-            task::NextTask::Specific(i) => i,
+            task::NextTask::Specific(i) => &tasks[i],
             task::NextTask::Other => task::select(idx, tasks),
-            task::NextTask::Same => idx,
+            task::NextTask::Same => &tasks[idx],
         };
 
-        if next == idx {
+        if core::ptr::eq(next as *const _, task as *const _) {
             panic!("attempt to return to Task #{idx} after fault");
         }
 
-        let next = &mut tasks[next];
         apply_memory_protection(next);
         // Safety: next comes from the task table and we don't use it again
         // until next kernel entry, so we meet set_current_task's requirements.
@@ -1688,16 +1686,15 @@ unsafe extern "C" fn handle_fault(
     // fault!)
     with_task_table(|tasks| {
         let next = match task::force_fault(tasks, idx, fault) {
-            task::NextTask::Specific(i) => i,
+            task::NextTask::Specific(i) => &tasks[i],
             task::NextTask::Other => task::select(idx, tasks),
-            task::NextTask::Same => idx,
+            task::NextTask::Same => &tasks[idx],
         };
 
-        if next == idx {
+        if core::ptr::eq(next as *const _, task as *const _) {
             panic!("attempt to return to Task #{idx} after fault");
         }
 
-        let next = &mut tasks[next];
         apply_memory_protection(next);
         // Safety: this leaks a pointer aliasing next into static scope, but
         // we're not going to read it back until the next kernel entry, so we
