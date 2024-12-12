@@ -31,8 +31,8 @@
 use core::sync::atomic::{AtomicBool, Ordering};
 
 use abi::{
-    FaultInfo, IrqStatus, LeaseAttributes, SchedState, Sysnum, TaskId,
-    TaskState, ULease, UsageError,
+    FaultInfo, IrqControlArg, IrqStatus, LeaseAttributes, SchedState, Sysnum,
+    TaskId, TaskState, ULease, UsageError,
 };
 use unwrap_lite::UnwrapLite;
 
@@ -753,15 +753,19 @@ fn irq_control(
 ) -> Result<NextTask, UserError> {
     let args = tasks[caller].save().as_irq_args();
 
-    let operation = match args.control {
-        0 => crate::arch::disable_irq,
-        1 => crate::arch::enable_irq,
-        _ => {
-            return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
-                UsageError::NoIrq,
-            )))
-        }
+    // TODO: our use of NoIrq here is conventional but is getting increasingly
+    // weird. Arguably it's always been wrong, since it's validating the control
+    // argument.
+    let control = IrqControlArg::from_bits(args.control).ok_or(
+        UserError::Unrecoverable(FaultInfo::SyscallUsage(UsageError::NoIrq)),
+    )?;
+
+    let operation = if control.contains(IrqControlArg::ENABLED) {
+        crate::arch::enable_irq
+    } else {
+        crate::arch::disable_irq
     };
+    let also_clear_pending = control.contains(IrqControlArg::CLEAR_PENDING);
 
     let caller = caller as u32;
 
@@ -774,7 +778,7 @@ fn irq_control(
             UsageError::NoIrq,
         )))?;
     for i in irqs.iter() {
-        operation(i.0);
+        operation(i.0, also_clear_pending);
     }
     Ok(NextTask::Same)
 }
