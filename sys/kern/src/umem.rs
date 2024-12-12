@@ -345,6 +345,12 @@ pub fn safe_copy(
 ) -> Result<usize, InteractFault> {
     let copy_len = USlice::shorten_to_match(&mut from_slice, &mut to_slice);
 
+    if copy_len == 0 {
+        // try_read and try_write both accept _any_ empty slice, which then
+        // results in a zero-byte copy. We can skip some steps.
+        return Ok(0);
+    }
+
     let (from, to) = index2_distinct(tasks, from_index, to_index);
 
     let src = from.try_read(&from_slice);
