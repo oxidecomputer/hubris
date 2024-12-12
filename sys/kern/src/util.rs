@@ -6,18 +6,25 @@
 
 /// Utility routine for getting `&mut` to _two_ elements of a slice, at indexes
 /// `i` and `j`. `i` and `j` must be distinct, or this will panic.
-#[allow(clippy::comparison_chain)]
+#[inline(always)]
 pub fn index2_distinct<T>(
     elements: &mut [T],
     i: usize,
     j: usize,
 ) -> (&mut T, &mut T) {
-    if i < j {
-        let (prefix, suffix) = elements.split_at_mut(i + 1);
-        (&mut prefix[i], &mut suffix[j - (i + 1)])
-    } else if j < i {
-        let (prefix, suffix) = elements.split_at_mut(j + 1);
-        (&mut suffix[i - (j + 1)], &mut prefix[j])
+    if i < elements.len() && j < elements.len() && i != j {
+        let base = elements.as_mut_ptr();
+        // Safety:
+        // - i is a valid offset for elements (checked above), base.add(i) is ok
+        // - j is a valid offset for elements (checked above), base.add(j) is ok
+        // - i and j do not alias (checked above), so we can dereference both
+        // - The &muts are returned with the same lifetime as elements,
+        //   preventing the caller from producing further aliasing.
+        unsafe {
+            let iptr = base.add(i);
+            let jptr = base.add(j);
+            (&mut *iptr, &mut *jptr)
+        }
     } else {
         panic!()
     }
