@@ -2132,11 +2132,13 @@ dependencies = [
 name = "drv-stm32h7-rng"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "drv-rng-api",
  "drv-stm32xx-sys-api",
  "idol",
  "idol-runtime",
  "num-traits",
+ "ringbuf",
  "stm32h7",
  "userlib",
  "zerocopy 0.6.6",
