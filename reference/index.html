@@ -3496,7 +3496,17 @@ sender side.</p>
 <p>0: notification bitmask corresponding to the interrupt</p>
 </li>
 <li>
-<p>1: desired state (0 = disabled, 1 = enabled)</p>
+<p>1: desired state</p>
+<div class="ulist">
+<ul>
+<li>
+<p>bit 0: 0 = disabled, 1 = enabled</p>
+</li>
+<li>
+<p>bit 1: 0 = leave pending, 1 = clear pending</p>
+</li>
+</ul>
+</div>
 </li>
 </ul>
 </div>
@@ -3547,6 +3557,14 @@ configure; that&#8217;s left to the application-level config file.</p>
 since it can only refer to its <em>own</em> mapped interrupts, by construction.</p>
 </li>
 </ol>
+</div>
+<div class="paragraph">
+<p>The concept of a "pending" interrupt is inherently specific to a particular
+architecture and interrupt controller. On an architecture without a concept of
+pending interrupts, bit 1 has no effect. However, on architectures with
+level-triggered interrupts from peripherals and a concept of "pending"
+interrupts, clearing the pending status when re-enabling may be important for
+avoiding a duplicate notification.</p>
 </div>
 </div>
 </div>
@@ -5714,7 +5732,7 @@ tool to a high-reliability research platform.</em></p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2024-12-13 22:18:17 UTC
+Last updated 2024-12-13 22:40:12 UTC
 </div>
 </div>
 </body>
