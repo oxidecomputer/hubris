@@ -378,13 +378,14 @@ fn reply(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
         Ok(x) => x,
     };
 
-    if tasks[callee].state()
-        != &TaskState::Healthy(SchedState::InReply(caller_id))
-    {
-        // Huh. The target task is off doing something else. This can happen if
-        // application-specific supervisory logic unblocks it before we've had a
-        // chance to reply (e.g. to implement timeouts).
-        return Ok(NextTask::Same);
+    match tasks[callee].state() {
+        TaskState::Healthy(SchedState::InReply(x)) if *x == caller_id => (),
+        _ => {
+            // Huh. The target task is off doing something else. This can happen
+            // if application-specific supervisory logic unblocks it before
+            // we've had a chance to reply (e.g. to implement timeouts).
+            return Ok(NextTask::Same);
+        }
     }
 
     // Deliver the reply. Note that we can't use `deliver`, which is
@@ -593,12 +594,13 @@ fn borrow_lease(
     let caller_id = current_id(tasks, caller);
 
     // Check state of lender and range of lease table.
-    if tasks[lender].state()
-        != &TaskState::Healthy(SchedState::InReply(caller_id))
-    {
-        // The alleged lender isn't lending anything at all.
-        // Let's assume this is a defecting lender.
-        return Err(UserError::Recoverable(abi::DEFECT, NextTask::Same));
+    match tasks[lender].state() {
+        TaskState::Healthy(SchedState::InReply(x)) if *x == caller_id => (),
+        _ => {
+            // The alleged lender isn't lending anything at all.
+            // Let's assume this is a defecting lender.
+            return Err(UserError::Recoverable(abi::DEFECT, NextTask::Same));
+        }
     }
 
     let largs = tasks[lender].save().as_send_args();
@@ -869,13 +871,14 @@ fn reply_fault(
         Ok(x) => x,
     };
 
-    if tasks[callee].state()
-        != &TaskState::Healthy(SchedState::InReply(caller_id))
-    {
-        // Huh. The target task is off doing something else. This can happen if
-        // application-specific supervisory logic unblocks it before we've had a
-        // chance to reply (e.g. to implement timeouts).
-        return Ok(NextTask::Same);
+    match tasks[callee].state() {
+        TaskState::Healthy(SchedState::InReply(x)) if *x == caller_id => (),
+        _ => {
+            // Huh. The target task is off doing something else. This can happen
+            // if application-specific supervisory logic unblocks it before
+            // we've had a chance to reply (e.g. to implement timeouts).
+            return Ok(NextTask::Same);
+        }
     }
 
     // Check and deliver the fault. We explicitly discard its scheduling hint,
