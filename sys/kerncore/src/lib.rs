@@ -152,6 +152,8 @@ impl<T: MemoryRegion> MemoryRegion for &T {
 /// that meet the `region_ok` condition.
 ///
 /// `false` otherwise.
+#[must_use]
+#[inline(always)]
 pub fn can_access<S, R>(
     slice: S,
     table: &[R],
