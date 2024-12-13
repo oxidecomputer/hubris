@@ -280,7 +280,7 @@ impl Task {
 
     /// Checks if this task is in a potentially schedulable state.
     pub fn is_runnable(&self) -> bool {
-        self.state == TaskState::Healthy(SchedState::Runnable)
+        matches!(self.state, TaskState::Healthy(SchedState::Runnable))
     }
 
     /// Configures this task's timer.
