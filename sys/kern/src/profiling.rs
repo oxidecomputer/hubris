@@ -20,29 +20,6 @@
 //! monitored and examined by an external logic analyzer. Other implementations
 //! are of course possible, but be careful of probe effect and keep the handler
 //! functions fast.
-//!
-//! # Interpreting task numbers
-//!
-//! To impose minimum overhead on the kernel itself, the kernel gives the
-//! address of the `Task` struct to the `context_switch` hook, rather than
-//! attempting to translate it to an index. In an implementation of the hook,
-//! you have two options:
-//!
-//! 1. Try to translate it into an index, by using `sizeof::<Task>()` and the
-//!    static location of the task table (the `HUBRIS_TASK_TABLE_SPACE` symbol),
-//!    or
-//! 2. Present a part of the address and let the user figure it out.
-//!
-//! Current implementations take the second route. Specifically, they output
-//! `task_addr >> 4`. This produces a number that is unique for up to 8 bits of
-//! output / 256 tasks in the image, but takes some decoding. The basic method
-//! is
-//!
-//! 1. Determine the size of `Task`, using (say) a debugger or dwarfdump tool.
-//!    At the time of this writing it was `0xB0` but that will change.
-//! 2. Determine the base address of the task array (`HUBRIS_TASK_TABLE_SPACE`).
-//! 3. Compute the code corresponding to each task index as
-//!    `(HUBRIS_TASK_TABLE_SPACE + index * size) >> 4 & PINS_EXPOSED`.
 
 use core::sync::atomic::{AtomicPtr, Ordering};
 
@@ -80,8 +57,7 @@ pub struct EventsTable {
     /// Called on exit from the kernel's timer ISR.
     pub timer_isr_exit: fn(),
 
-    /// Called whenever the current task changes, with a pointer to the task's
-    /// control block.
+    /// Called whenever the current task changes, with the index of the task.
     pub context_switch: fn(usize),
 }
 
@@ -169,8 +145,8 @@ pub(crate) fn event_timer_isr_exit() {
     }
 }
 
-pub(crate) fn event_context_switch(tcb: usize) {
+pub(crate) fn event_context_switch(idx: usize) {
     if let Some(t) = table() {
-        (t.context_switch)(tcb)
+        (t.context_switch)(idx)
     }
 }

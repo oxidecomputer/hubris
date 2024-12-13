@@ -1006,7 +1006,7 @@ cfg_if::cfg_if! {
 /// stored is actually in the task table, you'll be okay.
 pub unsafe fn set_current_task(task: &task::Task) {
     CURRENT_TASK_PTR.store(task as *const _ as *mut _, Ordering::Relaxed);
-    crate::profiling::event_context_switch(task as *const _ as usize);
+    crate::profiling::event_context_switch(task.descriptor().index as usize);
 }
 
 /// Reads the tick counter.
