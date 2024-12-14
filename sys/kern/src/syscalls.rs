@@ -419,11 +419,16 @@ fn reply(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
         }
     };
 
+    // Validate that the reply fits in the recipient's buffer. Servers are
+    // expected to get this right, because the reply size is delivered along
+    // with the message: if the client didn't provide enough space, the server
+    // should reply-fault instead of replying. So, we assume any reply that
+    // would be truncated is a server bug.
+    if src_slice.len() > dest_slice.len() {
+        return Err(FaultInfo::SyscallUsage(UsageError::ReplyTooBig));
+    }
+
     // Okay, ready to attempt the copy.
-    // TODO: we want to treat any attempt to copy more than will fit as a fault
-    // in the task that is replying, because it knows how big the target buffer
-    // is and is expected to respect that. This is not currently implemented --
-    // currently you'll get the prefix.
     let amount_copied = safe_copy(tasks, caller, src_slice, callee, dest_slice);
     let amount_copied = match amount_copied {
         Ok(n) => n,
