@@ -309,15 +309,21 @@ pub fn reinitialize(task: &mut task::Task) {
         .iter()
         .find(|region| region.contains(initial_stack.saturating_sub(4)))
     {
-        let mut uslice: USlice<u32> = USlice::from_raw(
+        // If the slice doesn't fit in the region, this will fail. Should this
+        // occur, don't crash the entire system, since this is a diagnostic tool
+        // -- just skip filling the stack.
+        if let Ok(mut uslice) = USlice::<u32>::from_raw(
             region.base as usize,
             (initial_stack - frame_size - region.base as usize) >> 2,
-        )
-        .unwrap_lite();
-
-        let zap = task.try_write(&mut uslice).unwrap_lite();
-        for word in zap.iter_mut() {
-            *word = 0xbaddcafe;
+        ) {
+            // This one, we're unwrapping rather than tolerating failure. This
+            // is because try_write failing would indicate an invalid region
+            // descriptor for the task (read-only stack area) which would bite
+            // us later.
+            let zap = task.try_write(&mut uslice).unwrap_lite();
+            for word in zap.iter_mut() {
+                *word = 0xbaddcafe;
+            }
         }
     }
 
@@ -1125,7 +1131,7 @@ pub unsafe extern "C" fn DefaultHandler() {
                 .unwrap_or_else(|| panic!("unhandled IRQ {irq_num}"));
 
             let switch = with_task_table(|tasks| {
-                disable_irq(irq_num);
+                disable_irq(irq_num, false);
 
                 // Now, post the notification and return the
                 // scheduling hint.
@@ -1142,7 +1148,7 @@ pub unsafe extern "C" fn DefaultHandler() {
     crate::profiling::event_isr_exit();
 }
 
-pub fn disable_irq(n: u32) {
+pub fn disable_irq(n: u32, also_clear_pending: bool) {
     // Disable the interrupt by poking the Interrupt Clear Enable Register.
     let nvic = unsafe { &*cortex_m::peripheral::NVIC::PTR };
     let reg_num = (n / 32) as usize;
@@ -1150,13 +1156,24 @@ pub fn disable_irq(n: u32) {
     unsafe {
         nvic.icer[reg_num].write(bit_mask);
     }
+    if also_clear_pending {
+        unsafe {
+            nvic.icpr[reg_num].write(bit_mask);
+        }
+    }
 }
 
-pub fn enable_irq(n: u32) {
+pub fn enable_irq(n: u32, also_clear_pending: bool) {
     // Enable the interrupt by poking the Interrupt Set Enable Register.
     let nvic = unsafe { &*cortex_m::peripheral::NVIC::PTR };
     let reg_num = (n / 32) as usize;
     let bit_mask = 1 << (n % 32);
+    if also_clear_pending {
+        // Do this _before_ enabling.
+        unsafe {
+            nvic.icpr[reg_num].write(bit_mask);
+        }
+    }
     unsafe {
         nvic.iser[reg_num].write(bit_mask);
     }

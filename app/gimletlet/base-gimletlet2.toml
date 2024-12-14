@@ -105,7 +105,6 @@ start = true
 features = ["h753"]
 name = "drv-stm32h7-rng"
 priority = 6
-max-sizes = {flash = 8192, ram = 512}
 uses = ["rng"]
 start = true
 stacksize = 256

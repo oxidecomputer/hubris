@@ -12,6 +12,8 @@ zerocopy = { workspace = true }
 drv-rng-api = { path = "../rng-api" }
 drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+ringbuf = { path = "../../lib/ringbuf" }
+counters = { version = "0.1.0", path = "../../lib/counters" }
 
 [build-dependencies]
 idol = { workspace = true }
