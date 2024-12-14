@@ -7,7 +7,7 @@
 #![no_std]
 #![no_main]
 
-use drv_cpu_seq_api::PowerState;
+use drv_cpu_seq_api::{PowerState, StateChangeReason};
 use drv_spi_api::{SpiDevice, SpiServer};
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};
@@ -285,6 +285,7 @@ impl<S: SpiServer + Clone> idl::InOrderSequencerImpl for ServerImpl<S> {
         &mut self,
         _: &RecvMessage,
         state: PowerState,
+        _: StateChangeReason,
     ) -> Result<(), RequestError<drv_cpu_seq_api::SeqError>> {
         match (self.get_state_impl(), state) {
             (PowerState::A2, PowerState::A0)
@@ -327,7 +328,7 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
 }
 
 mod idl {
-    use drv_cpu_seq_api::SeqError;
+    use drv_cpu_seq_api::{SeqError, StateChangeReason};
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
 
