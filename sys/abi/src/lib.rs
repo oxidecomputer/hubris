@@ -386,6 +386,10 @@ pub enum UsageError {
     BadKernelMessage,
     BadReplyFaultReason,
     NotSupervisor,
+
+    // A server is attempting to reply with a message that is too large for the
+    // client to handle.
+    ReplyTooBig,
 }
 
 /// Origin of a fault.
