@@ -35,7 +35,7 @@ pub enum SeqError {
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, AsBytes, Count)]
 #[repr(u8)]
 pub enum StateChangeReason {
-    /// TThe system has just received power, so the sequencer has booted the
+    /// The system has just received power, so the sequencer has booted the
     /// host CPU.
     InitialPowerOn = 1,
     /// A power state change was requested by the control plane.
