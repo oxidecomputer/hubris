@@ -17,7 +17,7 @@ use userlib::{
     sys_set_timer, task_slot, units, RecvMessage, TaskId, UnwrapLite,
 };
 
-use drv_cpu_seq_api::{PowerState, SeqError};
+use drv_cpu_seq_api::{PowerState, SeqError, StateChangeReason};
 use drv_hf_api as hf_api;
 use drv_i2c_api as i2c;
 use drv_ice40_spi_program as ice40;
@@ -90,7 +90,12 @@ enum Trace {
     RailsOn,
     UartEnabled,
     A0(u16),
-    SetState(PowerState, PowerState, u64),
+    SetState(
+        PowerState,
+        PowerState,
+        #[count(children)] StateChangeReason,
+        u64,
+    ),
     UpdateState(#[count(children)] PowerState),
     ClockConfigWrite,
     ClockConfigSuccess,
@@ -482,7 +487,10 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
 
         // Power on, unless suppressed by the `stay-in-a2` feature
         if !cfg!(feature = "stay-in-a2") {
-            _ = server.set_state_internal(PowerState::A0);
+            _ = server.set_state_internal(
+                PowerState::A0,
+                StateChangeReason::InitialPowerOn,
+            );
         }
 
         //
@@ -666,11 +674,12 @@ impl<S: SpiServer> ServerImpl<S> {
     fn set_state_internal(
         &mut self,
         state: PowerState,
+        reason: StateChangeReason,
     ) -> Result<(), SeqError> {
         let sys = sys_api::Sys::from(SYS.get_task_id());
 
         let now = sys_get_timer().now;
-        ringbuf_entry!(Trace::SetState(self.state, state, now));
+        ringbuf_entry!(Trace::SetState(self.state, state, reason, now));
 
         ringbuf_entry_v3p3_sys_a0_vout();
 
@@ -1032,8 +1041,10 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
         &mut self,
         _: &RecvMessage,
         state: PowerState,
+        reason: StateChangeReason,
     ) -> Result<(), RequestError<SeqError>> {
-        self.set_state_internal(state).map_err(RequestError::from)
+        self.set_state_internal(state, reason)
+            .map_err(RequestError::from)
     }
 
     fn send_hardware_nmi(
@@ -1403,7 +1414,7 @@ cfg_if::cfg_if! {
 }
 
 mod idl {
-    use super::SeqError;
+    use super::{SeqError, StateChangeReason};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

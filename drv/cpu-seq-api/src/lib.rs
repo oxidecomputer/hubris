@@ -9,6 +9,7 @@
 use counters::Count;
 use derive_idol_err::IdolError;
 use userlib::{sys_send, FromPrimitive};
+use zerocopy::AsBytes;
 
 // Re-export PowerState for client convenience.
 pub use drv_cpu_power_state::PowerState;
@@ -29,6 +30,22 @@ pub enum SeqError {
 
     #[idol(server_death)]
     ServerRestarted,
+}
+
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, AsBytes, Count)]
+#[repr(u8)]
+pub enum StateChangeReason {
+    /// TThe system has just received power, so the sequencer has booted the
+    /// host CPU.
+    InitialPowerOn = 1,
+    /// A power state change was requested by the control plane.
+    ControlPlane,
+    /// The host OS requested that the system power off without rebooting.
+    HostPowerOff,
+    /// The host OS requested that the system reboot.
+    HostReboot,
+    /// The system powered off because a component has overheated.
+    Overheat,
 }
 
 // On Gimlet, we have two banks of up to 8 DIMMs apiece. Export the "two banks"

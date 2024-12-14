@@ -18,7 +18,11 @@ Interface(
                 "state": (
                     type: "drv_cpu_power_state::PowerState",
                     recv: FromPrimitive("u8"),
-                )
+                ),
+                "reason": (
+                    type: "StateChangeReason",
+                    recv: FromPrimitive("u8"),
+                ),
             },
             reply: Result(
                 ok: "()",
