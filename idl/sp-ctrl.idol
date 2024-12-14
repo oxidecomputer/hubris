@@ -104,5 +104,21 @@ Interface(
             reply: Simple("()"),
             idempotent: true,
         ),
+        "db_measure_sp": (
+            doc: "Debuggin: Halt SP, measure, update attestation log",
+            reply: Result(
+                ok: "[u8;32]",
+                err: CLike("SpCtrlError"),
+            ),
+            idempotent: true,
+        ),
+        "db_reset_sp": (
+            doc: "Debugging: Assert SP RESET with specified delay",
+            args: {
+                "delay_ms": "u32",
+            },
+            reply: Simple("()"),
+            idempotent: true,
+        )
     }
 )
