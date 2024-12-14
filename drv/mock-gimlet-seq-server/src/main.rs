@@ -7,7 +7,7 @@
 #![no_std]
 #![no_main]
 
-use drv_cpu_seq_api::{PowerState, SeqError};
+use drv_cpu_seq_api::{PowerState, SeqError, StateChangeReason};
 use idol_runtime::{NotificationHandler, RequestError};
 use task_jefe_api::Jefe;
 use userlib::{FromPrimitive, RecvMessage, UnwrapLite};
@@ -58,6 +58,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
         state: PowerState,
+        _: StateChangeReason,
     ) -> Result<(), RequestError<SeqError>> {
         match (self.get_state_impl(), state) {
             (PowerState::A2, PowerState::A0)
@@ -99,7 +100,7 @@ impl NotificationHandler for ServerImpl {
 }
 
 mod idl {
-    use super::SeqError;
+    use super::{SeqError, StateChangeReason};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
