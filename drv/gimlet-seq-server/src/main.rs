@@ -90,12 +90,13 @@ enum Trace {
     RailsOn,
     UartEnabled,
     A0(u16),
-    SetState(
-        PowerState,
-        PowerState,
-        #[count(children)] StateChangeReason,
-        u64,
-    ),
+    SetState {
+        prev: PowerState,
+        next: PowerState,
+        #[count(children)]
+        why: StateChangeReason,
+        now: u64,
+    },
     UpdateState(#[count(children)] PowerState),
     ClockConfigWrite,
     ClockConfigSuccess,
@@ -674,12 +675,17 @@ impl<S: SpiServer> ServerImpl<S> {
     fn set_state_internal(
         &mut self,
         state: PowerState,
-        reason: StateChangeReason,
+        why: StateChangeReason,
     ) -> Result<(), SeqError> {
         let sys = sys_api::Sys::from(SYS.get_task_id());
 
         let now = sys_get_timer().now;
-        ringbuf_entry!(Trace::SetState(self.state, state, reason, now));
+        ringbuf_entry!(Trace::SetState {
+            prev: self.state,
+            next: state,
+            why,
+            now
+        });
 
         ringbuf_entry_v3p3_sys_a0_vout();
 
