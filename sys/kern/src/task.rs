@@ -49,6 +49,20 @@ pub struct Task {
     /// Pointer to the ROM descriptor used to create this task, so it can be
     /// restarted.
     descriptor: &'static TaskDesc,
+
+    /// Tracks the lowest stack pointer value (e.g. fullest stack) observed on
+    /// any kernel entry for this instance of this task.
+    ///
+    /// Initialized to `u32::MAX` if the task has not yet run.
+    #[cfg(feature = "stack-watermark")]
+    stack_pointer_low: u32,
+
+    /// Tracks the lowest stack pointer value (e.g. fullest stack) observed on
+    /// any kernel entry across *any* instance of this task.
+    ///
+    /// Initialized to `u32::MAX` if the task has not yet run.
+    #[cfg(feature = "stack-watermark")]
+    past_stack_pointer_low: u32,
 }
 
 impl Task {
@@ -69,6 +83,10 @@ impl Task {
             notifications: 0,
             save: crate::arch::SavedState::default(),
             timer: crate::task::TimerState::default(),
+            #[cfg(feature = "stack-watermark")]
+            stack_pointer_low: u32::MAX,
+            #[cfg(feature = "stack-watermark")]
+            past_stack_pointer_low: u32::MAX,
         }
     }
 
@@ -321,7 +339,26 @@ impl Task {
         self.notifications = 0;
         self.state = TaskState::default();
 
+        #[cfg(feature = "stack-watermark")]
+        {
+            self.past_stack_pointer_low =
+                u32::min(self.past_stack_pointer_low, self.stack_pointer_low);
+            self.stack_pointer_low = u32::MAX;
+        }
+
         crate::arch::reinitialize(self);
+    }
+
+    /// Updates the task's stack watermark stats, if enabled.
+    ///
+    /// If not enabled, this does nothing, so it should be safe to call freely
+    /// without checking for the feature.
+    pub fn update_stack_watermark(&mut self) {
+        #[cfg(feature = "stack-watermark")]
+        {
+            self.stack_pointer_low =
+                u32::min(self.stack_pointer_low, self.save().stack_pointer());
+        }
     }
 
     /// Returns a reference to the `TaskDesc` that was used to initially create
