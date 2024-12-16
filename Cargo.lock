@@ -980,6 +980,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if",
+ "counters",
  "drv-auxflash-api",
  "drv-stm32h7-qspi",
  "drv-stm32xx-sys-api",
@@ -2103,6 +2104,7 @@ dependencies = [
 name = "drv-stm32h7-qspi"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "drv-qspi-api",
  "stm32h7",
  "userlib",

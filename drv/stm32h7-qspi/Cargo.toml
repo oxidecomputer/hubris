@@ -11,9 +11,12 @@ zerocopy = { workspace = true }
 drv-qspi-api = { path = "../qspi-api" }
 userlib = { path = "../../sys/userlib" }
 
+counters = { path = "../../lib/counters", optional = true }
+
 [features]
 h743 = ["stm32h7/stm32h743"]
 h753 = ["stm32h7/stm32h753"]
+counters = ["dep:counters"]
 
 [lib]
 test = false

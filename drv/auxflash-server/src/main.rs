@@ -22,6 +22,13 @@ use stm32h7::stm32h753 as device;
 use drv_stm32h7_qspi::Qspi;
 use drv_stm32xx_sys_api as sys_api;
 
+#[derive(Copy, Clone, Debug, counters::Count)]
+enum Event {
+    SlotScanStarted,
+}
+
+counters::counters!(Event);
+
 task_slot!(SYS, sys);
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -434,6 +441,7 @@ impl NotificationHandler for ServerImpl {
 
 fn scan_for_active_slot(qspi: &Qspi) -> Option<u32> {
     for i in 0..SLOT_COUNT {
+        counters::count!(Event::SlotScanStarted);
         if let Ok(chck) = read_slot_checksum(qspi, i) {
             if chck.0 == AUXI_CHECKSUM {
                 return Some(i);

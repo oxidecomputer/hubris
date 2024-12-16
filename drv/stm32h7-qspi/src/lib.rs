@@ -19,6 +19,29 @@ use zerocopy::AsBytes;
 const FIFO_SIZE: usize = 32;
 const FIFO_THRESH: usize = 16;
 
+#[derive(Copy, Clone, Debug, counters::Count)]
+enum Event {
+    Hi,
+    ReadStarted,
+    ReadCompletionWait,
+    ReadReady,
+    ReadComplete,
+}
+
+#[cfg(feature = "counters")]
+counters::counters!(Event);
+
+fn emit(e: Event) {
+    #[cfg(feature = "counters")]
+    {
+        counters::count!(e);
+    }
+    #[cfg(not(feature = "counters"))]
+    {
+        let _ = e;
+    }
+}
+
 /// Wrapper for a reference to the register block.
 pub struct Qspi {
     reg: &'static device::quadspi::RegisterBlock,
@@ -223,6 +246,8 @@ impl Qspi {
     fn read_impl(&self, command: Command, addr: Option<u32>, out: &mut [u8]) {
         assert!(!out.is_empty());
 
+        emit(Event::ReadStarted);
+
         self.set_transfer_length(out.len());
 
         // Routine below expects that we don't have a transfer-complete flag
@@ -276,6 +301,8 @@ impl Qspi {
                     );
                 }
 
+                emit(Event::ReadWait);
+
                 // Unmask our interrupt.
                 sys_irq_control(self.interrupt, true);
                 // And wait for it to arrive.
@@ -287,6 +314,8 @@ impl Qspi {
                 // extra logic.
                 continue;
             }
+
+            emit(Event::ReadReady);
 
             // Okay! We have some data! Let's evacuate it.
 
@@ -311,6 +340,7 @@ impl Qspi {
             .cr
             .modify(|_, w| w.ftie().clear_bit().tcie().set_bit());
         while self.transfer_not_complete() {
+            emit(Event::ReadCompletionWait);
             // Unmask our interrupt.
             sys_irq_control(self.interrupt, true);
             // And wait for it to arrive.
@@ -321,6 +351,7 @@ impl Qspi {
         self.reg
             .cr
             .modify(|_, w| w.ftie().clear_bit().tcie().clear_bit());
+        emit(Event::ReadComplete);
     }
 
     fn set_transfer_length(&self, len: usize) {

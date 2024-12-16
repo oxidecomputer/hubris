@@ -16,6 +16,7 @@ drv-auxflash-api = { path = "../auxflash-api" }
 drv-stm32h7-qspi = { path = "../stm32h7-qspi" }
 drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+counters = { path = "../../lib/counters" }
 
 [build-dependencies]
 build-util = { path = "../../build/util" }
