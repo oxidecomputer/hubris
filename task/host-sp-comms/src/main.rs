@@ -250,11 +250,19 @@ struct ServerImpl {
     reboot_state: Option<RebootState>,
     host_kv_storage: HostKeyValueStorage,
     hf_mux_state: Option<HfMuxState>,
-    /// Set to true when the host OS panics, and unset when the system reboots.
+    /// Set when the host OS fails to boot or panics, and unset when the system
+    /// reboots.
     ///
     /// This is used to determine whether a host-triggered power-off is due to a
-    /// kernel panic or was a normal power-off.
-    host_just_panicked: bool,
+    /// kernel panic, boot failure, or was a normal power-off.
+    last_power_off: Option<PowerOffReason>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PowerOffReason {
+    HostPanic,
+    HostBootFailure,
+    CpuReset,
 }
 
 impl ServerImpl {
@@ -322,7 +330,7 @@ impl ServerImpl {
                 dtrace_conf_len: 0,
             },
             hf_mux_state: None,
-            host_just_panicked: false,
+            last_power_off: None,
         }
     }
 
@@ -380,15 +388,14 @@ impl ServerImpl {
     // basically only ever succeed in our initial set_state() request, so I
     // don't know how we'd test it
     fn power_off_host(&mut self, reboot: bool) {
-        let reason = if self.host_just_panicked {
-            // Clear the panic flag, so that subsequent power state transitions
-            // are not marked as panics unless the host OS once again panics.
-            self.host_just_panicked = false;
-            StateChangeReason::HostPanic
-        } else if reboot {
-            StateChangeReason::HostReboot
-        } else {
-            StateChangeReason::HostPowerOff
+        let reason = match self.last_power_off {
+            None if reboot => StateChangeReason::HostReboot,
+            None => StateChangeReason::HostPowerOff,
+            Some(PowerOffReason::HostPanic) => StateChangeReason::HostPanic,
+            Some(PowerOffReason::HostBootFailure) => {
+                StateChangeReason::HostBootFailure
+            }
+            Some(PowerOffReason::CpuReset) => StateChangeReason::CpuReset,
         };
         loop {
             // Attempt to move to A2; given we only call this function in
@@ -463,6 +470,9 @@ impl ServerImpl {
         // move to A0. Otherwise, ignore this notification.
         match state {
             PowerState::A2 | PowerState::A2PlusFans => {
+                // Clear the last power-off, as we have now reached A2;
+                // subsequent power-offs will set a new reason.
+                self.last_power_off = None;
                 // Were we waiting for a transition to A2? If so, start our
                 // timer for going back to A0.
                 if self.reboot_state == Some(RebootState::WaitingForA2) {
@@ -482,6 +492,7 @@ impl ServerImpl {
                 // we cannot let the SoC simply reset because the true state
                 // of hidden cores is unknown:  explicitly bounce to A2
                 // as if the host had requested it.
+                self.last_power_off = Some(PowerOffReason::CpuReset);
                 self.power_off_host(true);
             }
 
@@ -814,6 +825,9 @@ impl ServerImpl {
                 Some(response)
             }
             HostToSp::HostBootFailure { reason } => {
+                // Indicate that the host boot failed, so that we can then tell
+                // sequencer why we are asking it to power off the system.
+                self.last_power_off = Some(PowerOffReason::HostPanic);
                 // TODO forward to MGS
                 //
                 // For now, copy it into a static var we can pull out via
@@ -832,8 +846,13 @@ impl ServerImpl {
             }
             HostToSp::HostPanic => {
                 // Indicate that a subsequent power-off request will be due to a
-                // panic.
-                self.host_just_panicked = true;
+                // panic.  Since a host panic message is also sent after a host
+                // boot failure, only set the last power-off reason if we
+                // haven't just seen a boot failure.
+                if self.last_power_off != Some(PowerOffReason::HostBootFailure)
+                {
+                    self.last_power_off = Some(PowerOffReason::HostPanic);
+                }
 
                 // TODO forward to MGS
                 //

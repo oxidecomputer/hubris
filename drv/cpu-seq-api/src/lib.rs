@@ -47,10 +47,15 @@ pub enum StateChangeReason {
     InitialPowerOn,
     /// A power state change was requested by the control plane.
     ControlPlane,
-    /// The host OS requested that the system power off without rebooting.
-    HostPowerOff,
+    /// The host CPU reset while in A0, so the system has powered off to clear
+    /// hidden core state.
+    CpuReset,
+    /// The host OS failed to boot, so the system has powered off.
+    HostBootFailure,
     /// The host OS panicked.
     HostPanic,
+    /// The host OS requested that the system power off without rebooting.
+    HostPowerOff,
     /// The host OS requested that the system reboot.
     HostReboot,
     /// The system powered off because a component has overheated.
