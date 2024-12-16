@@ -58,7 +58,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         &mut self,
         msg: &RecvMessage,
         state: PowerState,
-    ) -> Result<(), ReqestError<SeqError>> {
+    ) -> Result<(), RequestError<SeqError>> {
         self.set_state_with_reason(msg, state, StateChangeReason::Other)
     }
 
