@@ -12,7 +12,7 @@ use attest_data::messages::{
     HostToRotCommand, RecvSprotError as AttestDataSprotError, RotToHost,
     MAX_DATA_LEN,
 };
-use drv_cpu_seq_api::{PowerState, SeqError, Sequencer};
+use drv_cpu_seq_api::{PowerState, SeqError, Sequencer, StateChangeReason};
 use drv_hf_api::{HfDevSelect, HfMuxState, HostFlash};
 use drv_sprot_api::SpRot;
 use drv_stm32xx_sys_api as sys_api;
@@ -250,6 +250,11 @@ struct ServerImpl {
     reboot_state: Option<RebootState>,
     host_kv_storage: HostKeyValueStorage,
     hf_mux_state: Option<HfMuxState>,
+    /// Set to true when the host OS panics, and unset when the system reboots.
+    ///
+    /// This is used to determine whether a host-triggered power-off is due to a
+    /// kernel panic or was a normal power-off.
+    host_just_panicked: bool,
 }
 
 impl ServerImpl {
@@ -317,6 +322,7 @@ impl ServerImpl {
                 dtrace_conf_len: 0,
             },
             hf_mux_state: None,
+            host_just_panicked: false,
         }
     }
 
@@ -374,10 +380,15 @@ impl ServerImpl {
     // basically only ever succeed in our initial set_state() request, so I
     // don't know how we'd test it
     fn power_off_host(&mut self, reboot: bool) {
-        let reason = if reboot {
-            drv_cpu_seq_api::StateChangeReason::HostReboot
+        let reason = if self.host_just_panicked {
+            // Clear the panic flag, so that subsequent power state transitions
+            // are not marked as panics unless the host OS once again panics.
+            self.host_just_panicked = false;
+            StateChangeReason::HostPanic
+        } else if reboot {
+            StateChangeReason::HostReboot
         } else {
-            drv_cpu_seq_api::StateChangeReason::HostPowerOff
+            StateChangeReason::HostPowerOff
         };
         loop {
             // Attempt to move to A2; given we only call this function in
@@ -817,6 +828,10 @@ impl ServerImpl {
                 Some(SpToHost::Ack)
             }
             HostToSp::HostPanic => {
+                // Indicate that a subsequent power-off request will be due to a
+                // panic.
+                self.host_just_panicked = true;
+
                 // TODO forward to MGS
                 //
                 // For now, copy it into a static var we can pull out via

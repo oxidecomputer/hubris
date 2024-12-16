@@ -828,6 +828,7 @@ impl<S: SpiServer> ServerImpl<S> {
 
                 //
                 // Now wait for the end of Group C.
+
                 //
                 loop {
                     let mut status = [0u8];
