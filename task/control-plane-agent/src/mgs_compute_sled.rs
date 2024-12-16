@@ -728,7 +728,7 @@ impl SpHandler for MgsHandler {
         };
 
         self.sequencer
-            .set_state(
+            .set_state_with_reason(
                 power_state,
                 drv_cpu_seq_api::StateChangeReason::ControlPlane,
             )

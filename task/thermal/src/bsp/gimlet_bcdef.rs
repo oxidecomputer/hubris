@@ -110,7 +110,7 @@ impl Bsp {
 
     pub fn power_down(&self) -> Result<(), SeqError> {
         self.seq
-            .set_state(PowerState::A2, StateChangeReason::Overheat)
+            .set_state_with_reason(PowerState::A2, StateChangeReason::Overheat)
     }
 
     pub fn power_mode(&self) -> PowerBitmask {

@@ -394,7 +394,10 @@ impl ServerImpl {
             // Attempt to move to A2; given we only call this function in
             // response to a host request, we expect we're currently in A0 and
             // this should work.
-            let err = match self.sequencer.set_state(PowerState::A2, reason) {
+            let err = match self
+                .sequencer
+                .set_state_with_reason(PowerState::A2, reason)
+            {
                 Ok(()) => {
                     ringbuf_entry!(Trace::SetState {
                         now: sys_get_timer().now,
@@ -1440,9 +1443,9 @@ fn handle_reboot_waiting_in_a2_timer(
             now: sys_get_timer().now,
             state: PowerState::A0,
         });
-        _ = sequencer.set_state(
+        _ = sequencer.set_state_with_reason(
             PowerState::A0,
-            drv_cpu_seq_api::StateChangeReason::HostReboot,
+            StateChangeReason::HostReboot,
         );
         *reboot_state = None;
     }

@@ -35,9 +35,16 @@ pub enum SeqError {
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, AsBytes, Count)]
 #[repr(u8)]
 pub enum StateChangeReason {
+    /// No reason was provided.
+    ///
+    /// This indicates a legacy caller of `Sequencer.set_state`, rather than
+    /// `Sequencer.set_state_with_reason`. All Hubris-internal callers should
+    /// use `set_state_with_reason`, so this variant generally indicates that
+    /// the `Sequencer.set_state` IPC is being called via Hiffy.
+    Other = 1,
     /// The system has just received power, so the sequencer has booted the
     /// host CPU.
-    InitialPowerOn = 1,
+    InitialPowerOn,
     /// A power state change was requested by the control plane.
     ControlPlane,
     /// The host OS requested that the system power off without rebooting.

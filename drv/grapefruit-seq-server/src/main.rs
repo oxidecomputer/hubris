@@ -29,6 +29,7 @@ enum Trace {
     ContinueBitstreamLoad(usize),
     WaitForDone,
     Programmed,
+
     #[count(skip)]
     None,
 }
@@ -282,6 +283,14 @@ impl<S: SpiServer + Clone> idl::InOrderSequencerImpl for ServerImpl<S> {
     }
 
     fn set_state(
+        &mut self,
+        msg: &RecvMessage,
+        state: PowerState,
+    ) -> Result<(), RequestError<drv_cpu_seq_api::SeqError>> {
+        self.set_state_with_reason(msg, state, StateChangeReason::Other)
+    }
+
+    fn set_state_with_reason(
         &mut self,
         _: &RecvMessage,
         state: PowerState,
