@@ -19,11 +19,12 @@ use zerocopy::AsBytes;
 const FIFO_SIZE: usize = 32;
 const FIFO_THRESH: usize = 16;
 
-#[derive(Copy, Clone, Debug, counters::Count)]
+#[derive(Copy, Clone, Debug)]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
 enum Event {
-    Hi,
     ReadStarted,
     ReadCompletionWait,
+    ReadWait,
     ReadReady,
     ReadComplete,
 }

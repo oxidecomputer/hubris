@@ -6,6 +6,7 @@
 
 #![no_std]
 
+use counters::{count, counters};
 use derive_idol_err::IdolError;
 use sha3::{Digest, Sha3_256};
 use tlvc::{TlvcRead, TlvcReader};
@@ -52,6 +53,17 @@ pub enum AuxFlashError {
     ServerRestarted,
 }
 
+#[derive(Copy, Clone, Debug, counters::Count)]
+enum Event {
+    ChunkRead,
+    FoundCHCK,
+    FoundAUXI,
+    BlockReadForChecksum,
+    IgnoredChunk,
+}
+
+counters!(Event);
+
 #[derive(Copy, Clone, FromBytes, AsBytes)]
 #[repr(transparent)]
 pub struct AuxFlashId(pub [u8; 20]);
@@ -96,7 +108,9 @@ where
         let mut chck_expected = None;
         let mut chck_actual = None;
         while let Ok(Some(chunk)) = reader.next() {
+            count!(Event::ChunkRead);
             if &chunk.header().tag == b"CHCK" {
+                count!(Event::FoundCHCK);
                 if chck_expected.is_some() {
                     return Err(AuxFlashError::MultipleChck);
                 } else if chunk.len() != 32 {
@@ -108,6 +122,7 @@ where
                     .map_err(|_| AuxFlashError::ChunkReadFail)?;
                 chck_expected = Some(out);
             } else if &chunk.header().tag == b"AUXI" {
+                count!(Event::FoundAUXI);
                 if chck_actual.is_some() {
                     return Err(AuxFlashError::MultipleAuxi);
                 }
@@ -117,6 +132,7 @@ where
                 let mut scratch = [0u8; 256];
                 let mut i: u64 = 0;
                 while i < chunk.len() {
+                    count!(Event::BlockReadForChecksum);
                     let amount = (chunk.len() - i).min(scratch.len() as u64);
                     chunk
                         .read_exact(i, &mut scratch[0..(amount as usize)])
@@ -130,6 +146,8 @@ where
                 let mut out = [0; 32];
                 out.copy_from_slice(sha_out.as_slice());
                 chck_actual = Some(out);
+            } else {
+                count!(Event::IgnoredChunk);
             }
         }
         match (chck_expected, chck_actual) {

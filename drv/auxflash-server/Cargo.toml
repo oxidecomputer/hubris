@@ -13,7 +13,7 @@ tlvc = { workspace = true }
 zerocopy = { workspace = true }
 
 drv-auxflash-api = { path = "../auxflash-api" }
-drv-stm32h7-qspi = { path = "../stm32h7-qspi" }
+drv-stm32h7-qspi = { path = "../stm32h7-qspi", features = ["counters"] }
 drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 counters = { path = "../../lib/counters" }

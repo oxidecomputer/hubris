@@ -25,6 +25,7 @@ use drv_stm32xx_sys_api as sys_api;
 #[derive(Copy, Clone, Debug, counters::Count)]
 enum Event {
     SlotScanStarted,
+    ReadSlotChecksum,
 }
 
 counters::counters!(Event);
@@ -458,6 +459,7 @@ fn read_slot_checksum(
     if slot >= SLOT_COUNT {
         return Err(AuxFlashError::InvalidSlot);
     }
+    counters::count!(Event::ReadSlotChecksum);
     let handle = SlotReader {
         qspi,
         base: slot * SLOT_SIZE as u32,
