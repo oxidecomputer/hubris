@@ -77,7 +77,8 @@ pub struct AuxFlashBlob {
 /// Extension trait to do auxflash operations on anything that
 /// implements `TlvcRead`.
 pub trait TlvcReadAuxFlash {
-    fn read_checksum(self) -> Result<AuxFlashChecksum, AuxFlashError>;
+    fn calculate_checksum(self) -> Result<AuxFlashChecksum, AuxFlashError>;
+    fn read_stored_checksum(self) -> Result<AuxFlashChecksum, AuxFlashError>;
     fn get_blob_by_tag(
         self,
         slot: u32,
@@ -89,29 +90,31 @@ impl<R> TlvcReadAuxFlash for R
 where
     R: TlvcRead,
 {
-    fn read_checksum(self) -> Result<AuxFlashChecksum, AuxFlashError> {
+    fn read_stored_checksum(self) -> Result<AuxFlashChecksum, AuxFlashError> {
         let mut reader = TlvcReader::begin(self)
             .map_err(|_| AuxFlashError::TlvcReaderBeginFailed)?;
 
-        let mut chck_expected = None;
-        let mut chck_actual = None;
         while let Ok(Some(chunk)) = reader.next() {
             if &chunk.header().tag == b"CHCK" {
-                if chck_expected.is_some() {
-                    return Err(AuxFlashError::MultipleChck);
-                } else if chunk.len() != 32 {
+                if chunk.len() != 32 {
                     return Err(AuxFlashError::BadChckSize);
                 }
                 let mut out = [0; 32];
                 chunk
                     .read_exact(0, &mut out)
                     .map_err(|_| AuxFlashError::ChunkReadFail)?;
-                chck_expected = Some(out);
-            } else if &chunk.header().tag == b"AUXI" {
-                if chck_actual.is_some() {
-                    return Err(AuxFlashError::MultipleAuxi);
-                }
+                return Ok(AuxFlashChecksum(out));
+            }
+        }
+        Err(AuxFlashError::MissingChck)
+    }
 
+    fn calculate_checksum(self) -> Result<AuxFlashChecksum, AuxFlashError> {
+        let mut reader = TlvcReader::begin(self)
+            .map_err(|_| AuxFlashError::TlvcReaderBeginFailed)?;
+
+        while let Ok(Some(chunk)) = reader.next() {
+            if &chunk.header().tag == b"AUXI" {
                 // Read data and calculate the checksum using a scratch buffer
                 let mut sha = Sha3_256::new();
                 let mut scratch = [0u8; 256];
@@ -126,23 +129,12 @@ where
                 }
                 let sha_out = sha.finalize();
 
-                // Save the checksum in `chck_actual`
                 let mut out = [0; 32];
                 out.copy_from_slice(sha_out.as_slice());
-                chck_actual = Some(out);
+                return Ok(AuxFlashChecksum(out));
             }
         }
-        match (chck_expected, chck_actual) {
-            (None, _) => Err(AuxFlashError::MissingChck),
-            (_, None) => Err(AuxFlashError::MissingAuxi),
-            (Some(a), Some(b)) => {
-                if a != b {
-                    Err(AuxFlashError::ChckMismatch)
-                } else {
-                    Ok(AuxFlashChecksum(chck_expected.unwrap()))
-                }
-            }
-        }
+        Err(AuxFlashError::MissingAuxi)
     }
 
     fn get_blob_by_tag(
