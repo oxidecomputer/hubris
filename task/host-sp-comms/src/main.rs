@@ -827,7 +827,7 @@ impl ServerImpl {
             HostToSp::HostBootFailure { reason } => {
                 // Indicate that the host boot failed, so that we can then tell
                 // sequencer why we are asking it to power off the system.
-                self.last_power_off = Some(PowerOffReason::HostPanic);
+                self.last_power_off = Some(PowerOffReason::HostBootFailure);
                 // TODO forward to MGS
                 //
                 // For now, copy it into a static var we can pull out via
