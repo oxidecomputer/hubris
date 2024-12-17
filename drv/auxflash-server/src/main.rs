@@ -161,7 +161,7 @@ impl ServerImpl {
         &self,
         slot: u32,
     ) -> Result<AuxFlashChecksum, AuxFlashError> {
-        read_slot_checksum(&self.qspi, slot)
+        read_and_check_slot_checksum(&self.qspi, slot)
     }
 
     /// Checks that the matched slot in this even/odd pair also has valid data.
@@ -434,16 +434,36 @@ impl NotificationHandler for ServerImpl {
 
 fn scan_for_active_slot(qspi: &Qspi) -> Option<u32> {
     for i in 0..SLOT_COUNT {
-        if let Ok(chck) = read_slot_checksum(qspi, i) {
-            if chck.0 == AUXI_CHECKSUM {
-                return Some(i);
-            }
+        let handle = SlotReader {
+            qspi,
+            base: i * SLOT_SIZE as u32,
+        };
+
+        let Ok(chck) = handle.read_stored_checksum() else {
+            // Just skip to the next slot if it's empty or invalid.
+            continue;
+        };
+
+        if chck.0 != AUXI_CHECKSUM {
+            // If it's not the chunk we're interested in, don't bother hashing
+            // it.
+            continue;
+        }
+
+        let Ok(actual) = handle.calculate_checksum() else {
+            // TODO: this ignores I/O errors, but, this is how the code has
+            // always been structured...
+            continue;
+        };
+
+        if chck == actual {
+            return Some(i);
         }
     }
     None
 }
 
-fn read_slot_checksum(
+fn read_and_check_slot_checksum(
     qspi: &Qspi,
     slot: u32,
 ) -> Result<AuxFlashChecksum, AuxFlashError> {
@@ -454,7 +474,13 @@ fn read_slot_checksum(
         qspi,
         base: slot * SLOT_SIZE as u32,
     };
-    handle.read_checksum()
+    let claimed = handle.read_stored_checksum()?;
+    let actual = handle.calculate_checksum()?;
+    if claimed == actual {
+        Ok(actual)
+    } else {
+        Err(AuxFlashError::ChckMismatch)
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
