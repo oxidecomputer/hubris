@@ -1224,11 +1224,10 @@ pub unsafe extern "C" fn DefaultHandler() {
     let current = CURRENT_TASK_PTR.load(Ordering::Relaxed);
     uassert!(!current.is_null()); // irq before kernel started?
 
-    let current_prio = {
+    {
         let t = unsafe { &mut *current };
         t.update_stack_watermark();
-        t.priority()
-    };
+    }
 
     // The first 16 exceptions are architecturally defined; vendor hardware
     // interrupts start at 16.
