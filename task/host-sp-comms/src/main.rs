@@ -470,9 +470,6 @@ impl ServerImpl {
         // move to A0. Otherwise, ignore this notification.
         match state {
             PowerState::A2 | PowerState::A2PlusFans => {
-                // Clear the last power-off, as we have now reached A2;
-                // subsequent power-offs will set a new reason.
-                self.last_power_off = None;
                 // Were we waiting for a transition to A2? If so, start our
                 // timer for going back to A0.
                 if self.reboot_state == Some(RebootState::WaitingForA2) {
@@ -497,6 +494,9 @@ impl ServerImpl {
             }
 
             PowerState::A0 | PowerState::A0PlusHP | PowerState::A0Thermtrip => {
+                // Clear the last power-off, as we have now reached A0;
+                // subsequent power-offs will set a new reason.
+                self.last_power_off = None;
                 // TODO should we clear self.reboot_state here? What if we
                 // transitioned from one A0 state to another? For now, leave it
                 // set, and we'll move back to A0 whenever we transition to
