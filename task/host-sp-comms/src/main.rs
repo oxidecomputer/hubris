@@ -106,6 +106,7 @@ enum Trace {
         now: u64,
         #[count(children)]
         state: PowerState,
+        why: StateChangeReason,
     },
     HfMux {
         now: u64,
@@ -255,14 +256,7 @@ struct ServerImpl {
     ///
     /// This is used to determine whether a host-triggered power-off is due to a
     /// kernel panic, boot failure, or was a normal power-off.
-    last_power_off: Option<PowerOffReason>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum PowerOffReason {
-    HostPanic,
-    HostBootFailure,
-    CpuReset,
+    last_power_off: Option<StateChangeReason>,
 }
 
 impl ServerImpl {
@@ -388,35 +382,31 @@ impl ServerImpl {
     // basically only ever succeed in our initial set_state() request, so I
     // don't know how we'd test it
     fn power_off_host(&mut self, reboot: bool) {
-        let reason = match self.last_power_off {
+        let why = match self.last_power_off {
             None if reboot => StateChangeReason::HostReboot,
             None => StateChangeReason::HostPowerOff,
-            Some(PowerOffReason::HostPanic) => StateChangeReason::HostPanic,
-            Some(PowerOffReason::HostBootFailure) => {
-                StateChangeReason::HostBootFailure
-            }
-            Some(PowerOffReason::CpuReset) => StateChangeReason::CpuReset,
+            Some(reason) => reason,
         };
         loop {
             // Attempt to move to A2; given we only call this function in
             // response to a host request, we expect we're currently in A0 and
             // this should work.
-            let err = match self
-                .sequencer
-                .set_state_with_reason(PowerState::A2, reason)
-            {
-                Ok(()) => {
-                    ringbuf_entry!(Trace::SetState {
-                        now: sys_get_timer().now,
-                        state: PowerState::A2,
-                    });
-                    if reboot {
-                        self.reboot_state = Some(RebootState::WaitingForA2);
+            let err =
+                match self.sequencer.set_state_with_reason(PowerState::A2, why)
+                {
+                    Ok(()) => {
+                        ringbuf_entry!(Trace::SetState {
+                            now: sys_get_timer().now,
+                            why,
+                            state: PowerState::A2,
+                        });
+                        if reboot {
+                            self.reboot_state = Some(RebootState::WaitingForA2);
+                        }
+                        return;
                     }
-                    return;
-                }
-                Err(err) => err,
-            };
+                    Err(err) => err,
+                };
 
             // The only error we should see from `set_state()` is an illegal
             // transition, if we're not currently in A0.
@@ -489,7 +479,7 @@ impl ServerImpl {
                 // we cannot let the SoC simply reset because the true state
                 // of hidden cores is unknown:  explicitly bounce to A2
                 // as if the host had requested it.
-                self.last_power_off = Some(PowerOffReason::CpuReset);
+                self.last_power_off = Some(StateChangeReason::CpuReset);
                 self.power_off_host(true);
             }
 
@@ -827,7 +817,7 @@ impl ServerImpl {
             HostToSp::HostBootFailure { reason } => {
                 // Indicate that the host boot failed, so that we can then tell
                 // sequencer why we are asking it to power off the system.
-                self.last_power_off = Some(PowerOffReason::HostBootFailure);
+                self.last_power_off = Some(StateChangeReason::HostBootFailure);
                 // TODO forward to MGS
                 //
                 // For now, copy it into a static var we can pull out via
@@ -849,9 +839,8 @@ impl ServerImpl {
                 // panic.  Since a host panic message is also sent after a host
                 // boot failure, only set the last power-off reason if we
                 // haven't just seen a boot failure.
-                if self.last_power_off != Some(PowerOffReason::HostBootFailure)
-                {
-                    self.last_power_off = Some(PowerOffReason::HostPanic);
+                if self.last_power_off.is_none() {
+                    self.last_power_off = Some(StateChangeReason::HostPanic);
                 }
 
                 // TODO forward to MGS
@@ -1396,6 +1385,10 @@ impl NotificationHandler for ServerImpl {
                     handle_reboot_waiting_in_a2_timer(
                         &self.sequencer,
                         &mut self.reboot_state,
+                        // If the last power-off did not set a reason, it must
+                        // be a host-requested reboot.
+                        self.last_power_off
+                            .unwrap_or(StateChangeReason::HostReboot),
                     );
                 }
                 Timers::TxPeriodicZeroByte => {
@@ -1449,6 +1442,7 @@ fn parse_received_message(
 fn handle_reboot_waiting_in_a2_timer(
     sequencer: &Sequencer,
     reboot_state: &mut Option<RebootState>,
+    why: StateChangeReason,
 ) {
     // If we're past the deadline for transitioning to A0, attempt to do so.
     if let Some(RebootState::WaitingInA2RebootDelay) = reboot_state {
@@ -1460,12 +1454,10 @@ fn handle_reboot_waiting_in_a2_timer(
         // we've done what we can to reboot, so clear out `reboot_state`.
         ringbuf_entry!(Trace::SetState {
             now: sys_get_timer().now,
+            why,
             state: PowerState::A0,
         });
-        _ = sequencer.set_state_with_reason(
-            PowerState::A0,
-            StateChangeReason::HostReboot,
-        );
+        _ = sequencer.set_state_with_reason(PowerState::A0, why);
         *reboot_state = None;
     }
 }
