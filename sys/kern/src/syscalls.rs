@@ -783,7 +783,9 @@ fn irq_control(
             UsageError::NoIrq,
         )))?;
     for i in irqs.iter() {
-        operation(i.0, also_clear_pending);
+        // Because the IRQ numbers are coming from our own table, any error here
+        // would indicate a kernel bug, _not_ bad syscall arguments.
+        operation(i.0, also_clear_pending).unwrap_lite();
     }
     Ok(NextTask::Same)
 }
@@ -923,9 +925,10 @@ fn irq_status(
         )))?;
 
     // Combine the platform-level status of all the IRQs in the notification set.
-    let mut status = irqs.iter().fold(IrqStatus::empty(), |status, irq| {
-        status | crate::arch::irq_status(irq.0)
-    });
+    let mut status =
+        irqs.iter().try_fold(IrqStatus::empty(), |status, irq| {
+            crate::arch::irq_status(irq.0).map(|n| status | n)
+        })?;
 
     // If any bits in the notification mask are set in the caller's notification
     // set, then a notification has been posted to the task and not yet consumed.
