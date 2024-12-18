@@ -83,7 +83,7 @@ use crate::time::Timestamp;
 use crate::umem::USlice;
 #[cfg(any(armv7m, armv8m))]
 use abi::FaultSource;
-use abi::{FaultInfo, InterruptNum};
+use abi::{FaultInfo, InterruptNum, UsageError};
 #[cfg(armv8m)]
 use armv8_m_mpu::{disable_mpu, enable_mpu};
 use unwrap_lite::UnwrapLite;
@@ -1233,7 +1233,10 @@ pub unsafe extern "C" fn DefaultHandler() {
                 .unwrap_or_else(|| panic!("unhandled IRQ {irq_num}"));
 
             let switch = with_task_table(|tasks| {
-                disable_irq(irq_num, false);
+                // This can only fail if the IRQ number is out of range, which
+                // in this case would mean the hardware is conspiring against
+                // us. So ignore it to ensure we don't generate a bogus check.
+                disable_irq(irq_num, false).ok();
 
                 // Now, post the notification and return the
                 // scheduling hint.
@@ -1250,22 +1253,29 @@ pub unsafe extern "C" fn DefaultHandler() {
     crate::profiling::event_isr_exit();
 }
 
-pub fn disable_irq(n: u32, also_clear_pending: bool) {
+pub fn disable_irq(n: u32, also_clear_pending: bool) -> Result<(), UsageError> {
     // Disable the interrupt by poking the Interrupt Clear Enable Register.
     let nvic = unsafe { &*cortex_m::peripheral::NVIC::PTR };
     let reg_num = (n / 32) as usize;
     let bit_mask = 1 << (n % 32);
     unsafe {
-        nvic.icer[reg_num].write(bit_mask);
+        nvic.icer
+            .get(reg_num)
+            .ok_or(UsageError::NoIrq)?
+            .write(bit_mask);
     }
     if also_clear_pending {
         unsafe {
-            nvic.icpr[reg_num].write(bit_mask);
+            nvic.icpr
+                .get(reg_num)
+                .ok_or(UsageError::NoIrq)?
+                .write(bit_mask);
         }
     }
+    Ok(())
 }
 
-pub fn enable_irq(n: u32, also_clear_pending: bool) {
+pub fn enable_irq(n: u32, also_clear_pending: bool) -> Result<(), UsageError> {
     // Enable the interrupt by poking the Interrupt Set Enable Register.
     let nvic = unsafe { &*cortex_m::peripheral::NVIC::PTR };
     let reg_num = (n / 32) as usize;
@@ -1273,17 +1283,24 @@ pub fn enable_irq(n: u32, also_clear_pending: bool) {
     if also_clear_pending {
         // Do this _before_ enabling.
         unsafe {
-            nvic.icpr[reg_num].write(bit_mask);
+            nvic.icpr
+                .get(reg_num)
+                .ok_or(UsageError::NoIrq)?
+                .write(bit_mask);
         }
     }
     unsafe {
-        nvic.iser[reg_num].write(bit_mask);
+        nvic.iser
+            .get(reg_num)
+            .ok_or(UsageError::NoIrq)?
+            .write(bit_mask);
     }
+    Ok(())
 }
 
 /// Looks up an interrupt in the NVIC and returns a cross-platform
 /// representation of that interrupt's status.
-pub fn irq_status(n: u32) -> abi::IrqStatus {
+pub fn irq_status(n: u32) -> Result<abi::IrqStatus, UsageError> {
     let mut status = abi::IrqStatus::empty();
 
     let nvic = unsafe { &*cortex_m::peripheral::NVIC::PTR };
@@ -1292,7 +1309,8 @@ pub fn irq_status(n: u32) -> abi::IrqStatus {
 
     // See if the interrupt is enabled by checking the bit in the Interrupt Set
     // Enable Register.
-    let enabled = nvic.iser[reg_num].read() & bit_mask == bit_mask;
+    let iser_reg = nvic.iser.get(reg_num).ok_or(UsageError::NoIrq)?;
+    let enabled = iser_reg.read() & bit_mask == bit_mask;
     status.set(abi::IrqStatus::ENABLED, enabled);
 
     // See if the interrupt is pending by checking the bit in the Interrupt
@@ -1300,17 +1318,21 @@ pub fn irq_status(n: u32) -> abi::IrqStatus {
     let pending = nvic.ispr[reg_num].read() & bit_mask == bit_mask;
     status.set(abi::IrqStatus::PENDING, pending);
 
-    status
+    Ok(status)
 }
 
-pub fn pend_software_irq(InterruptNum(n): InterruptNum) {
+pub fn pend_software_irq(
+    InterruptNum(n): InterruptNum,
+) -> Result<(), UsageError> {
     let nvic = unsafe { &*cortex_m::peripheral::NVIC::PTR };
     let reg_num = (n / 32) as usize;
     let bit_mask = 1 << (n % 32);
 
     // Pend the IRQ by poking the corresponding bit in the Interrupt Set Pending
     // Register (ISPR).
-    unsafe { nvic.ispr[reg_num].write(bit_mask) };
+    let ispr_reg = nvic.ispr.get(reg_num).ok_or(UsageError::NoIrq)?;
+    unsafe { ispr_reg.write(bit_mask) };
+    Ok(())
 }
 
 #[repr(u8)]
