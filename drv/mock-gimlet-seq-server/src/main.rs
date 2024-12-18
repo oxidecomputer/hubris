@@ -44,6 +44,17 @@ impl ServerImpl {
     fn set_state_impl(&self, state: PowerState) {
         self.jefe.set_state(state as u32);
     }
+
+    fn validate_state_change(&self, state: PowerState) -> Result<(), SeqError> {
+        match (self.get_state_impl(), state) {
+            (PowerState::A2, PowerState::A0)
+            | (PowerState::A0, PowerState::A2)
+            | (PowerState::A0PlusHP, PowerState::A2)
+            | (PowerState::A0Thermtrip, PowerState::A2) => Ok(()),
+
+            _ => Err(SeqError::IllegalTransition),
+        }
+    }
 }
 
 impl idl::InOrderSequencerImpl for ServerImpl {
@@ -56,10 +67,12 @@ impl idl::InOrderSequencerImpl for ServerImpl {
 
     fn set_state(
         &mut self,
-        msg: &RecvMessage,
+        _: &RecvMessage,
         state: PowerState,
     ) -> Result<(), RequestError<SeqError>> {
-        self.set_state_with_reason(msg, state, StateChangeReason::Other)
+        self.validate_state_change(state)?;
+        self.set_state_impl(state);
+        Ok(())
     }
 
     fn set_state_with_reason(
@@ -68,17 +81,9 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         state: PowerState,
         _: StateChangeReason,
     ) -> Result<(), RequestError<SeqError>> {
-        match (self.get_state_impl(), state) {
-            (PowerState::A2, PowerState::A0)
-            | (PowerState::A0, PowerState::A2)
-            | (PowerState::A0PlusHP, PowerState::A2)
-            | (PowerState::A0Thermtrip, PowerState::A2) => {
-                self.set_state_impl(state);
-                Ok(())
-            }
-
-            _ => Err(RequestError::Runtime(SeqError::IllegalTransition)),
-        }
+        self.validate_state_change(state)?;
+        self.set_state_impl(state);
+        Ok(())
     }
 
     fn send_hardware_nmi(

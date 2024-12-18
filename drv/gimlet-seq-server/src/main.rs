@@ -1046,10 +1046,11 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
 
     fn set_state(
         &mut self,
-        msg: &RecvMessage,
+        _: &RecvMessage,
         state: PowerState,
     ) -> Result<(), RequestError<SeqError>> {
-        self.set_state_with_reason(msg, state, StateChangeReason::Other)
+        self.set_state_internal(state, StateChangeReason::Other)
+            .map_err(RequestError::from)
     }
 
     fn set_state_with_reason(
