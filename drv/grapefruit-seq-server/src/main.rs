@@ -270,14 +270,17 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
         self.jefe.set_state(state as u32);
     }
 
-    fn validate_state_change(&self, state: PowerState) -> Result<(), SeqError> {
+    fn validate_state_change(
+        &self,
+        state: PowerState,
+    ) -> Result<(), drv_cpu_seq_api::SeqError> {
         match (self.get_state_impl(), state) {
             (PowerState::A2, PowerState::A0)
             | (PowerState::A0, PowerState::A2)
             | (PowerState::A0PlusHP, PowerState::A2)
             | (PowerState::A0Thermtrip, PowerState::A2) => Ok(()),
 
-            _ => Err(SeqError::IllegalTransition),
+            _ => Err(drv_cpu_seq_api::SeqError::IllegalTransition),
         }
     }
 }
@@ -295,9 +298,9 @@ impl<S: SpiServer + Clone> idl::InOrderSequencerImpl for ServerImpl<S> {
 
     fn set_state(
         &mut self,
-        msg: &RecvMessage,
+        _: &RecvMessage,
         state: PowerState,
-    ) -> Result<(), RequestError<SeqError>> {
+    ) -> Result<(), RequestError<drv_cpu_seq_api::SeqError>> {
         self.validate_state_change(state)?;
         self.set_state_impl(state);
         Ok(())
@@ -308,7 +311,7 @@ impl<S: SpiServer + Clone> idl::InOrderSequencerImpl for ServerImpl<S> {
         _: &RecvMessage,
         state: PowerState,
         _: StateChangeReason,
-    ) -> Result<(), RequestError<SeqError>> {
+    ) -> Result<(), RequestError<drv_cpu_seq_api::SeqError>> {
         self.validate_state_change(state)?;
         self.set_state_impl(state);
         Ok(())
