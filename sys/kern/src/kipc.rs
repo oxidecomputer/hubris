@@ -5,12 +5,13 @@
 //! Implementation of IPC operations on the virtual kernel task.
 
 use abi::{FaultInfo, Kipcnum, SchedState, TaskState, UsageError};
+use core::mem::size_of;
+use unwrap_lite::UnwrapLite;
 
 use crate::arch;
 use crate::err::UserError;
 use crate::task::{current_id, ArchState, NextTask, Task};
 use crate::umem::USlice;
-use core::mem::size_of;
 
 /// Message dispatcher.
 pub fn handle_kernel_message(
@@ -462,7 +463,9 @@ fn software_irq(
         )))?;
 
     for &irq in irqs.iter() {
-        crate::arch::pend_software_irq(irq);
+        // Any error here would be a problem in our dispatch table, not the
+        // caller, so we panic because we want to hear about it.
+        crate::arch::pend_software_irq(irq).unwrap_lite();
     }
 
     tasks[caller].save_mut().set_send_response_and_length(0, 0);
