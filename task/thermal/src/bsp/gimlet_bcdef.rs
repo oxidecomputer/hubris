@@ -12,7 +12,7 @@ use crate::{
     i2c_config::{devices, sensors},
 };
 pub use drv_cpu_seq_api::SeqError;
-use drv_cpu_seq_api::{PowerState, Sequencer};
+use drv_cpu_seq_api::{PowerState, Sequencer, StateChangeReason};
 use task_sensor_api::SensorId;
 use task_thermal_api::ThermalProperties;
 use userlib::{task_slot, units::Celsius, TaskId, UnwrapLite};
@@ -109,7 +109,8 @@ impl Bsp {
     }
 
     pub fn power_down(&self) -> Result<(), SeqError> {
-        self.seq.set_state(PowerState::A2)
+        self.seq
+            .set_state_with_reason(PowerState::A2, StateChangeReason::Overheat)
     }
 
     pub fn power_mode(&self) -> PowerBitmask {
