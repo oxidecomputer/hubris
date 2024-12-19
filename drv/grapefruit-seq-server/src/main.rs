@@ -7,7 +7,7 @@
 #![no_std]
 #![no_main]
 
-use drv_cpu_seq_api::PowerState;
+use drv_cpu_seq_api::{PowerState, StateChangeReason};
 use drv_spi_api::{SpiDevice, SpiServer};
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};
@@ -29,6 +29,7 @@ enum Trace {
     ContinueBitstreamLoad(usize),
     WaitForDone,
     Programmed,
+
     #[count(skip)]
     None,
 }
@@ -268,6 +269,20 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
     fn set_state_impl(&self, state: PowerState) {
         self.jefe.set_state(state as u32);
     }
+
+    fn validate_state_change(
+        &self,
+        state: PowerState,
+    ) -> Result<(), drv_cpu_seq_api::SeqError> {
+        match (self.get_state_impl(), state) {
+            (PowerState::A2, PowerState::A0)
+            | (PowerState::A0, PowerState::A2)
+            | (PowerState::A0PlusHP, PowerState::A2)
+            | (PowerState::A0Thermtrip, PowerState::A2) => Ok(()),
+
+            _ => Err(drv_cpu_seq_api::SeqError::IllegalTransition),
+        }
+    }
 }
 
 // The `Sequencer` implementation for Grapefruit is copied from
@@ -286,19 +301,20 @@ impl<S: SpiServer + Clone> idl::InOrderSequencerImpl for ServerImpl<S> {
         _: &RecvMessage,
         state: PowerState,
     ) -> Result<(), RequestError<drv_cpu_seq_api::SeqError>> {
-        match (self.get_state_impl(), state) {
-            (PowerState::A2, PowerState::A0)
-            | (PowerState::A0, PowerState::A2)
-            | (PowerState::A0PlusHP, PowerState::A2)
-            | (PowerState::A0Thermtrip, PowerState::A2) => {
-                self.set_state_impl(state);
-                Ok(())
-            }
+        self.validate_state_change(state)?;
+        self.set_state_impl(state);
+        Ok(())
+    }
 
-            _ => Err(RequestError::Runtime(
-                drv_cpu_seq_api::SeqError::IllegalTransition,
-            )),
-        }
+    fn set_state_with_reason(
+        &mut self,
+        _: &RecvMessage,
+        state: PowerState,
+        _: StateChangeReason,
+    ) -> Result<(), RequestError<drv_cpu_seq_api::SeqError>> {
+        self.validate_state_change(state)?;
+        self.set_state_impl(state);
+        Ok(())
     }
 
     fn send_hardware_nmi(
@@ -327,7 +343,7 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
 }
 
 mod idl {
-    use drv_cpu_seq_api::SeqError;
+    use drv_cpu_seq_api::{SeqError, StateChangeReason};
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
 
