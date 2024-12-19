@@ -1016,6 +1016,17 @@ static TICKS: [AtomicU32; 2] = {
 #[no_mangle]
 pub unsafe extern "C" fn SysTick() {
     crate::profiling::event_timer_isr_enter();
+
+    // We don't need the current task pointer in this routine, but we'll access
+    // it briefly to update the stack watermark:
+    {
+        let current = CURRENT_TASK_PTR.load(Ordering::Relaxed);
+        // Safety: `CURRENT_TASK_PTR` is valid once the kernel is started, and
+        // this interrupt is only enabled once the kernel is started.
+        let t = unsafe { &mut *current };
+        t.update_stack_watermark();
+    }
+
     with_task_table(|tasks| {
         // Load the time before this tick event.
         let t0 = TICKS[0].load(Ordering::Relaxed);
@@ -1186,6 +1197,14 @@ pub unsafe extern "C" fn DefaultHandler() {
         );
         ipsr & 0x1FF
     };
+
+    let current = CURRENT_TASK_PTR.load(Ordering::Relaxed);
+    uassert!(!current.is_null()); // irq before kernel started?
+
+    {
+        let t = unsafe { &mut *current };
+        t.update_stack_watermark();
+    }
 
     // The first 16 exceptions are architecturally defined; vendor hardware
     // interrupts start at 16.
@@ -1485,7 +1504,12 @@ unsafe extern "C" fn handle_fault(task: *mut task::Task) {
         // assembly fault handler to pass us a legitimate one. We use it
         // immediately and discard it because otherwise it would alias the task
         // table below.
-        let t = unsafe { &(*task) };
+        let t = unsafe { &mut (*task) };
+        // Take the opportunity to update the stack watermark. This is
+        // technically wasted effort if the fault is in the kernel, but it's
+        // still nice to keep it updated -- and it's critical if the fault is in
+        // the task!
+        t.update_stack_watermark();
         (
             t.save().exc_return & 0b1000 != 0,
             usize::from(t.descriptor().index),
@@ -1612,7 +1636,12 @@ unsafe extern "C" fn handle_fault(
     // of dereferencing it, as it would otherwise alias the task table obtained
     // later.
     let (exc_return, psp, idx) = unsafe {
-        let t = &(*task);
+        let t = &mut (*task);
+        // Take the opportunity to update the stack watermark. This is
+        // technically wasted effort if the fault is in the kernel, but it's
+        // still nice to keep it updated -- and it's critical if the fault is in
+        // the task!
+        t.update_stack_watermark();
         (
             t.save().exc_return,
             t.save().psp,
