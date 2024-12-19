@@ -349,6 +349,104 @@ pub fn reinitialize(task: &mut task::Task) {
     task.save_mut().exc_return = EXC_RETURN_CONST;
 }
 
+/// PMSAv6/7-style precomputed region data.
+///
+/// This struct is `repr(C)` to preserve the order of its fields, which happens
+/// to match the order of registers in the MPU. While we don't bit-copy the
+/// struct directly, this does improve code generation in practice.
+#[cfg(any(armv6m, armv7m))]
+#[derive(Copy, Clone, Debug)]
+#[repr(C)]
+pub struct RegionDescExt {
+    rbar: u32,
+    rasr: u32,
+}
+
+#[cfg(any(armv6m, armv7m))]
+pub const fn compute_region_extension_data(
+    base: u32,
+    size: u32,
+    attributes: RegionAttributes,
+) -> RegionDescExt {
+    // This platform requires 32-byte alignment of all regions.
+    if base & 0x1F != 0 {
+        panic!();
+    }
+
+    let ratts = attributes;
+    let xn = !ratts.contains(RegionAttributes::EXECUTE);
+    // These AP encodings are chosen such that we never deny *privileged*
+    // code (i.e. us) access to the memory.
+    let ap = if ratts.contains(RegionAttributes::WRITE) {
+        0b011
+    } else if ratts.contains(RegionAttributes::READ) {
+        0b010
+    } else {
+        0b001
+    };
+    // Set the TEX/SCB bits to configure memory type, caching policy, and
+    // shareability (with other cores or masters). See table B3-13 in the
+    // ARMv7-M ARM. (Settings are identical on v6-M but the sharability and
+    // TEX bits tend to be ignored.)
+    let (tex, scb) = if ratts.contains(RegionAttributes::DEVICE) {
+        // Device memory.
+        (0b000, 0b001)
+    } else if ratts.contains(RegionAttributes::DMA) {
+        // Conservative settings for normal memory assuming that DMA might
+        // be a problem:
+        // - Outer and inner non-cacheable.
+        // - Shared.
+        (0b001, 0b100)
+    } else {
+        // Aggressive settings for normal memory assume that it is used only
+        // by this processor:
+        // - Outer and inner write-back
+        // - Read and write allocate.
+        // - Not shared.
+        (0b001, 0b011)
+    };
+    // On v6/7-M the MPU expresses size of a region in log2 form _minus
+    // one._ So, the minimum allowed size of 32 bytes is represented as 4,
+    // because `2**(4 + 1) == 32`.
+    //
+    // We store sizes in the region table in an architecture-independent
+    // form (number of bytes) because it simplifies basically everything
+    // else but this routine. Here we must convert between the two -- and
+    // quickly, because this is called on every context switch.
+    //
+    // The image-generation tools check at build time that region sizes are
+    // powers of two. So, we can assume that the size has a single 1 bit. We
+    // can cheaply compute log2 of this by counting trailing zeroes, but
+    // ARMv7-M doesn't have a native instruction for that -- only leading
+    // zeroes. The equivalent using leading zeroes is
+    //
+    //   log2(N) = bits_in_word - 1 - clz(N)
+    //
+    // Because we want log2 _minus one_ we compute it as...
+    //
+    //   log2_m1(N) = bits_in_word - 2 - clz(N)
+    //
+    // If the size is zero or one, this subtraction will underflow. This
+    // should not occur in a valid image, but could occur due to runtime
+    // flash corruption. Any region size under 32 bytes is illegal on
+    // ARMv7-M anyway, so panicking is better than triggering possibly
+    // undefined hardware behavior.
+    //
+    // On ARMv6-M, there is no CLZ instruction either. This winds up
+    // generating decent intrinsic code for `leading_zeros` so we'll live
+    // with it.
+    let l2size = 30 - size.leading_zeros();
+
+    // Region attribute and size register; we enable the region by default
+    // because we load it with the MPU off.
+    let rasr =
+        (xn as u32) << 28 | ap << 24 | tex << 19 | scb << 16 | l2size << 1 | 1;
+
+    // Build the RBAR contents without the VALID bit or region number.
+    let rbar = base;
+    RegionDescExt { rasr, rbar }
+}
+
 #[cfg(any(armv6m, armv7m))]
 pub fn apply_memory_protection(task: &task::Task) {
     // We are manufacturing authority to interact with the MPU here, because we
@@ -360,83 +458,105 @@ pub fn apply_memory_protection(task: &task::Task) {
         &*cortex_m::peripheral::MPU::PTR
     };
 
-    for (i, region) in task.region_table().iter().enumerate() {
-        let ratts = region.attributes;
-        let xn = !ratts.contains(RegionAttributes::EXECUTE);
-        // These AP encodings are chosen such that we never deny *privileged*
-        // code (i.e. us) access to the memory.
-        let ap = if ratts.contains(RegionAttributes::WRITE) {
-            0b011
-        } else if ratts.contains(RegionAttributes::READ) {
-            0b010
-        } else {
-            0b001
-        };
-        // Set the TEX/SCB bits to configure memory type, caching policy, and
-        // shareability (with other cores or masters). See table B3-13 in the
-        // ARMv7-M ARM. (Settings are identical on v6-M but the sharability and
-        // TEX bits tend to be ignored.)
-        let (tex, scb) = if ratts.contains(RegionAttributes::DEVICE) {
-            // Device memory.
-            (0b000, 0b001)
-        } else if ratts.contains(RegionAttributes::DMA) {
-            // Conservative settings for normal memory assuming that DMA might
-            // be a problem:
-            // - Outer and inner non-cacheable.
-            // - Shared.
-            (0b001, 0b100)
-        } else {
-            // Aggressive settings for normal memory assume that it is used only
-            // by this processor:
-            // - Outer and inner write-back
-            // - Read and write allocate.
-            // - Not shared.
-            (0b001, 0b011)
-        };
-        // On v6/7-M the MPU expresses size of a region in log2 form _minus
-        // one._ So, the minimum allowed size of 32 bytes is represented as 4,
-        // because `2**(4 + 1) == 32`.
-        //
-        // We store sizes in the region table in an architecture-independent
-        // form (number of bytes) because it simplifies basically everything
-        // else but this routine. Here we must convert between the two -- and
-        // quickly, because this is called on every context switch.
-        //
-        // The image-generation tools check at build time that region sizes are
-        // powers of two. So, we can assume that the size has a single 1 bit. We
-        // can cheaply compute log2 of this by counting trailing zeroes, but
-        // ARMv7-M doesn't have a native instruction for that -- only leading
-        // zeroes. The equivalent using leading zeroes is
-        //
-        //   log2(N) = bits_in_word - 1 - clz(N)
-        //
-        // Because we want log2 _minus one_ we compute it as...
-        //
-        //   log2_m1(N) = bits_in_word - 2 - clz(N)
-        //
-        // If the size is zero or one, this subtraction will underflow. This
-        // should not occur in a valid image, but could occur due to runtime
-        // flash corruption. Any region size under 32 bytes is illegal on
-        // ARMv7-M anyway, so panicking is better than triggering possibly
-        // undefined hardware behavior.
-        //
-        // On ARMv6-M, there is no CLZ instruction either. This winds up
-        // generating decent intrinsic code for `leading_zeros` so we'll live
-        // with it.
-        let l2size = 30 - region.size.leading_zeros();
+    // Turn off the MPU.
+    //
+    // Safety: this has no actual memory safety implications, except for
+    // potentially exposing the kernel to a NULL dereference that succeeds.
+    unsafe {
+        mpu.ctrl.write(0);
+    }
 
-        // Region attribute and size register; note that enable (bit 0) is not
-        // set here, because it's possible to hard-fault midway through region
-        // configuration if address and size are incompatible while the region
-        // is enabled.
-        let rasr =
-            (xn as u32) << 28 | ap << 24 | tex << 19 | scb << 16 | l2size << 1;
+    for (i, region) in task.region_table().iter().enumerate() {
+        let data = region.arch_data;
+        // With the MPU off, there are no particular constraints on the order in
+        // which we write these fields.
+        //
+        // Safety: we're messing with memory protection, so from the API's point
+        // of view this is very unsafe. But we're loading values generated by
+        // our (trusted) build script, which only affect tasks and not us. So
+        // this should be safe by default.
         unsafe {
-            mpu.rnr.write(i as u32); // Select the region
-            mpu.rasr.write(rasr); // configure, but leave disabled
-            mpu.rbar.write(region.base); // set region address
-            mpu.rasr.write(rasr | 1); // enable the region
+            // Select a region.
+            mpu.rnr.write(i as u32);
+            // Set region base address.
+            mpu.rbar.write(data.rbar);
+            // Configure the region.
+            mpu.rasr.write(data.rasr);
         }
+    }
+
+    // Turn MPU back on.
+    //
+    // Safety: same as above, has no safety implications really.
+    unsafe {
+        mpu.ctrl.write(0b101);
+    }
+}
+
+/// ARMv8-M specific MPU accelerator data.
+#[cfg(armv8m)]
+#[derive(Copy, Clone, Debug)]
+pub struct RegionDescExt {
+    /// This is the contents of the RLAR register, but without the enable bit
+    /// set. We write that first, and then set the enable bit.
+    rlar_disabled: u32,
+
+    rbar: u32,
+    mair: u32,
+}
+
+#[cfg(armv8m)]
+pub const fn compute_region_extension_data(
+    base: u32,
+    size: u32,
+    ratts: RegionAttributes,
+) -> RegionDescExt {
+    // This MPU requires that all regions are 32-byte aligned...in part
+    // because it stuffs extra stuff into the bottom five bits.
+    if base & 0x1F != 0 {
+        panic!();
+    }
+
+    let xn = !ratts.contains(RegionAttributes::EXECUTE);
+    // ARMv8m has less granularity than ARMv7m for privilege
+    // vs non-privilege so there's no way to say that privilege
+    // can be read write but non-privilge can only be read only
+    // This _should_ be okay?
+    let ap = if ratts.contains(RegionAttributes::WRITE) {
+        0b01 // RW by any privilege level
+    } else if ratts.contains(RegionAttributes::READ) {
+        0b11 // Read only by any privilege level
+    } else {
+        0b00 // RW by privilege code only
+    };
+
+    let (mair, sh) = if ratts.contains(RegionAttributes::DEVICE) {
+        // Most restrictive: device memory, outer shared.
+        (0b00000000, 0b10)
+    } else if ratts.contains(RegionAttributes::DMA) {
+        // Outer/inner non-cacheable, outer shared.
+        (0b01000100, 0b10)
+    } else {
+        let rw = (ratts.contains(RegionAttributes::READ) as u32) << 1
+            | (ratts.contains(RegionAttributes::WRITE) as u32);
+        // write-back transient, not shared
+        (0b0100_0100 | rw | rw << 4, 0b00)
+    };
+
+    // RLAR = our upper bound; note that enable (bit 0) is not set, because
+    // it's possible to hard-fault midway through region configuration if
+    // address and size are incompatible while the region is enabled.
+    let rlar_disabled = base + size - 32; // upper bound
+
+    // RBAR = the base
+    let rbar = (xn as u32)
+        | ap << 1
+        | (sh as u32) << 3  // sharability
+        | base;
+    RegionDescExt {
+        rlar_disabled,
+        rbar,
+        mair,
     }
 }
 
@@ -452,65 +572,25 @@ pub fn apply_memory_protection(task: &task::Task) {
     }
 
     for (i, region) in task.region_table().iter().enumerate() {
-        // This MPU requires that all regions are 32-byte aligned...in part
-        // because it stuffs extra stuff into the bottom five bits.
-        debug_assert_eq!(region.base & 0x1F, 0);
-
         let rnr = i as u32;
 
-        let ratts = region.attributes;
-        let xn = !ratts.contains(RegionAttributes::EXECUTE);
-        // ARMv8m has less granularity than ARMv7m for privilege
-        // vs non-privilege so there's no way to say that privilege
-        // can be read write but non-privilge can only be read only
-        // This _should_ be okay?
-        let ap = if ratts.contains(RegionAttributes::WRITE) {
-            0b01 // RW by any privilege level
-        } else if ratts.contains(RegionAttributes::READ) {
-            0b11 // Read only by any privilege level
-        } else {
-            0b00 // RW by privilege code only
-        };
-
-        let (mair, sh) = if ratts.contains(RegionAttributes::DEVICE) {
-            // Most restrictive: device memory, outer shared.
-            (0b00000000, 0b10)
-        } else if ratts.contains(RegionAttributes::DMA) {
-            // Outer/inner non-cacheable, outer shared.
-            (0b01000100, 0b10)
-        } else {
-            let rw = u32::from(ratts.contains(RegionAttributes::READ)) << 1
-                | u32::from(ratts.contains(RegionAttributes::WRITE));
-            // write-back transient, not shared
-            (0b0100_0100 | rw | rw << 4, 0b00)
-        };
-
-        // RLAR = our upper bound; note that enable (bit 0) is not set, because
-        // it's possible to hard-fault midway through region configuration if
-        // address and size are incompatible while the region is enabled.
-        let rlar = (region.base + region.size - 32) // upper bound
-            | (i as u32) << 1; // AttrIndx
-
-        // RBAR = the base
-        let rbar = (xn as u32)
-            | ap << 1
-            | (sh as u32) << 3  // sharability
-            | region.base;
+        let ext = &region.arch_data;
 
         unsafe {
+            let rlar_disabled = ext.rlar_disabled | (i as u32) << 1; // AttrIdx
             mpu.rnr.write(rnr);
-            mpu.rlar.write(rlar); // configure but leave disabled
+            mpu.rlar.write(rlar_disabled); // configure but leave disabled
             if rnr < 4 {
                 let mut mair0 = mpu.mair[0].read();
-                mair0 |= mair << (rnr * 8);
+                mair0 |= ext.mair << (rnr * 8);
                 mpu.mair[0].write(mair0);
             } else {
                 let mut mair1 = mpu.mair[1].read();
-                mair1 |= mair << ((rnr - 4) * 8);
+                mair1 |= ext.mair << ((rnr - 4) * 8);
                 mpu.mair[1].write(mair1);
             }
-            mpu.rbar.write(rbar);
-            mpu.rlar.write(rlar | 1); // enable the region
+            mpu.rbar.write(ext.rbar);
+            mpu.rlar.write(rlar_disabled | 1); // enable the region
         }
     }
 
@@ -519,7 +599,7 @@ pub fn apply_memory_protection(task: &task::Task) {
     }
 }
 
-pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
+pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
     // Enable faults and set fault/exception priorities to reasonable settings.
     // Our goal here is to keep the kernel non-preemptive, which means the
     // kernel entry points (SVCall, PendSV, SysTick, interrupt handlers) must be
@@ -654,7 +734,7 @@ pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
         mpu.ctrl.write(ENABLE | PRIVDEFENA);
     }
 
-    CURRENT_TASK_PTR.store(task, Ordering::Relaxed);
+    CURRENT_TASK_PTR.store(task as *const _ as *mut _, Ordering::Relaxed);
 
     extern "C" {
         // Exposed by the linker script.
@@ -901,9 +981,9 @@ cfg_if::cfg_if! {
 /// This records a pointer that aliases `task`. As long as you don't read that
 /// pointer while you have access to `task`, and as long as the `task` being
 /// stored is actually in the task table, you'll be okay.
-pub unsafe fn set_current_task(task: &mut task::Task) {
-    CURRENT_TASK_PTR.store(task, Ordering::Relaxed);
-    crate::profiling::event_context_switch(task as *mut _ as usize);
+pub unsafe fn set_current_task(task: &task::Task) {
+    CURRENT_TASK_PTR.store(task as *const _ as *mut _, Ordering::Relaxed);
+    crate::profiling::event_context_switch(task as *const _ as usize);
 }
 
 /// Reads the tick counter.
@@ -1079,7 +1159,6 @@ unsafe extern "C" fn pendsv_entry() {
 
     with_task_table(|tasks| {
         let next = task::select(current, tasks);
-        let next = &mut tasks[next];
         apply_memory_protection(next);
         // Safety: next comes from the task table and we don't use it again
         // until next kernel entry, so we meet set_current_task's requirements.
@@ -1474,16 +1553,15 @@ unsafe extern "C" fn handle_fault(task: *mut task::Task) {
     // switch to a task to run.
     with_task_table(|tasks| {
         let next = match task::force_fault(tasks, idx, fault) {
-            task::NextTask::Specific(i) => i,
+            task::NextTask::Specific(i) => &tasks[i],
             task::NextTask::Other => task::select(idx, tasks),
-            task::NextTask::Same => idx,
+            task::NextTask::Same => &tasks[idx],
         };
 
-        if next == idx {
+        if core::ptr::eq(next as *const _, task as *const _) {
             panic!("attempt to return to Task #{idx} after fault");
         }
 
-        let next = &mut tasks[next];
         apply_memory_protection(next);
         // Safety: next comes from the task table and we don't use it again
         // until next kernel entry, so we meet set_current_task's requirements.
@@ -1688,16 +1766,15 @@ unsafe extern "C" fn handle_fault(
     // fault!)
     with_task_table(|tasks| {
         let next = match task::force_fault(tasks, idx, fault) {
-            task::NextTask::Specific(i) => i,
+            task::NextTask::Specific(i) => &tasks[i],
             task::NextTask::Other => task::select(idx, tasks),
-            task::NextTask::Same => idx,
+            task::NextTask::Same => &tasks[idx],
         };
 
-        if next == idx {
+        if core::ptr::eq(next as *const _, task as *const _) {
             panic!("attempt to return to Task #{idx} after fault");
         }
 
-        let next = &mut tasks[next];
         apply_memory_protection(next);
         // Safety: this leaks a pointer aliasing next into static scope, but
         // we're not going to read it back until the next kernel entry, so we
