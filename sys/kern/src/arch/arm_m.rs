@@ -494,15 +494,22 @@ pub fn apply_memory_protection(task: &task::Task) {
 }
 
 /// ARMv8-M specific MPU accelerator data.
+///
+/// This is `repr(C)` only to make the field order match the register order in
+/// the hardware, which improves code generation. We do not actually rely on the
+/// in-memory representation of this struct otherwise.
 #[cfg(armv8m)]
 #[derive(Copy, Clone, Debug)]
+#[repr(C)]
 pub struct RegionDescExt {
-    /// This is the contents of the RLAR register, but without the enable bit
-    /// set. We write that first, and then set the enable bit.
-    rlar_disabled: u32,
-
+    /// Contents of the RBAR register.
     rbar: u32,
-    mair: u32,
+
+    /// Contents of the RLAR register.
+    rlar: u32,
+
+    /// This region's portion of the four-byte MAIR register.
+    mair: u8,
 }
 
 #[cfg(armv8m)]
@@ -537,27 +544,25 @@ pub const fn compute_region_extension_data(
         // Outer/inner non-cacheable, outer shared.
         (0b01000100, 0b10)
     } else {
-        let rw = (ratts.contains(RegionAttributes::READ) as u32) << 1
-            | (ratts.contains(RegionAttributes::WRITE) as u32);
+        let rw = (ratts.contains(RegionAttributes::READ) as u8) << 1
+            | (ratts.contains(RegionAttributes::WRITE) as u8);
         // write-back transient, not shared
         (0b0100_0100 | rw | rw << 4, 0b00)
     };
 
-    // RLAR = our upper bound; note that enable (bit 0) is not set, because
-    // it's possible to hard-fault midway through region configuration if
-    // address and size are incompatible while the region is enabled.
-    let rlar_disabled = base + size - 32; // upper bound
+    // RLAR = our upper bound. We're going ahead and setting the enable bit
+    // because we expect this to be loaded with the MPU _disabled._ Loading this
+    // with the MPU _enabled_ would involve momentary inconsistency between RLAR
+    // and RBAR, since the two cannot be written simultaneously, and that would
+    // be Bad.
+    let rlar = (base + size - 32) | 1; // upper bound | enable bit
 
     // RBAR = the base
     let rbar = (xn as u32)
         | ap << 1
         | (sh as u32) << 3  // sharability
         | base;
-    RegionDescExt {
-        rlar_disabled,
-        rbar,
-        mair,
-    }
+    RegionDescExt { rlar, rbar, mair }
 }
 
 #[cfg(armv8m)]
@@ -567,34 +572,52 @@ pub fn apply_memory_protection(task: &task::Task) {
         // aliasing....
         &*cortex_m::peripheral::MPU::PTR
     };
+
+    // Disable the MPU before making changes. This is critical to correctness of
+    // this function!
+    //
+    // Because regions consist of several registers, there is no order in which
+    // we can update those registers with the MPU _enabled_ that doesn't risk a
+    // race condition. MPU updates that load the RBAR from one region and the
+    // RLAR from another have caused real crashes.
+    //
+    // Disabling and re-enabling the MPU is very inexpensive (single-digit
+    // cycles) so don't sweat it -- do the correct thing.
     unsafe {
         disable_mpu(mpu);
     }
+
+    // We'll collect the MAIR register contents here. Indices 0-3 correspond to
+    // MAIR0's bytes (in LE order); 4-7 are MAIR1.
+    let mut mairs = [0; 8];
 
     for (i, region) in task.region_table().iter().enumerate() {
         let rnr = i as u32;
 
         let ext = &region.arch_data;
 
+        mairs[i] = ext.mair;
+
+        // Set the attridx field of the RLAR to just choose the attributes with
+        // the same index as the region. This lets us treat MAIR as an array
+        // corresponding to the regions.
+        //
+        // We unfortunately can't do this at compile time, because regions can
+        // be shared, and may not be used in the same table position in all
+        // tasks.
+        let rlar = ext.rlar | (i as u32) << 1; // AttrIdx
+
         unsafe {
-            let rlar_disabled = ext.rlar_disabled | (i as u32) << 1; // AttrIdx
             mpu.rnr.write(rnr);
-            mpu.rlar.write(rlar_disabled); // configure but leave disabled
-            if rnr < 4 {
-                let mut mair0 = mpu.mair[0].read();
-                mair0 |= ext.mair << (rnr * 8);
-                mpu.mair[0].write(mair0);
-            } else {
-                let mut mair1 = mpu.mair[1].read();
-                mair1 |= ext.mair << ((rnr - 4) * 8);
-                mpu.mair[1].write(mair1);
-            }
             mpu.rbar.write(ext.rbar);
-            mpu.rlar.write(rlar_disabled | 1); // enable the region
+            mpu.rlar.write(rlar);
         }
     }
 
     unsafe {
+        // Load the MAIR registers.
+        mpu.mair[0].write(u32::from_le_bytes(mairs[..4].try_into().unwrap()));
+        mpu.mair[1].write(u32::from_le_bytes(mairs[4..].try_into().unwrap()));
         enable_mpu(mpu, true);
     }
 }
