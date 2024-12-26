@@ -98,8 +98,8 @@ enum Trace {
 // revision match the revision contained within the payload, lest we will
 // believe that the update has failed when it has in fact succeeded!
 //
-const MWOCP68_FIRMWARE_REV: FirmwareRev = FirmwareRev(*b"0762");
-const MWOCP68_FIRMWARE_PAYLOAD: &[u8] = include_bytes!("mwocp68-0762.bin");
+const MWOCP68_FIRMWARE_REV: FirmwareRev = FirmwareRev(*b"0701");
+const MWOCP68_FIRMWARE_PAYLOAD: &[u8] = include_bytes!("mwocp68-0701.bin");
 
 counted_ringbuf!(Trace, 64, Trace::None);
 
