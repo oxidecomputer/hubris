@@ -290,7 +290,53 @@ returned by a call to `get_task_dump_region` for the specified task.
 A copy of the memory referred to by the specified region, starting
 at `base` and running for `size` bytes.
 
-=== `find_faulted_task` (8)
+=== `software_irq` (8)
+
+For a given task index and a notification mask for that task, this will
+trigger software interrupts for any IRQ(s) mapped to bits in that task's
+notification set.
+
+Any interrupts triggered through this mechanism will be delivered to the
+that task identically to an actual hardware interrupt, as described in
+the <<interrupts-from-a-tasks-perspective,the documentation on interrupts>>.
+
+==== Request
+
+[source,rust]
+----
+type SoftwareIrqRequest = (u32, u32);
+----
+
+==== Preconditions
+
+The task index (`SoftwareIrqRequest.0`) must be a valid task index.
+
+The notification mask (`SoftwareIrqRequest.1`) should be a valid notification
+mask for the specified task, and should have at least one bit set. Any bits
+set in the notification mask should be assigned to hardware interrupts in
+the task's build-time configuration.
+
+The caller *must* be the supervisor (task index 0).
+
+==== Response
+
+[source,rust]
+----
+type SoftwareIrqResponse = ();
+----
+
+==== Notes
+
+This interface is primarily intended for testing interrupt handling, and can
+only be called by a task running as the supervisor. When this KIPC is called,
+an actual machine interrupt is triggered and dispatched by the kernel to the
+subscribed task.
+
+This KIPC is *not* intended for use as a general-purpose inter-task signalling
+mechanism. For that purpose, a <<notifications,notification>> should be used
+instead.
+
+=== `find_faulted_task` (9)
 
 Scans forward from a given task index searching for a faulted task. If a faulted
 task is found, returns its index. Otherwise, returns zero, the index of the
