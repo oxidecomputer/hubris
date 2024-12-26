@@ -220,7 +220,7 @@ pub const fn extract_new_generation(code: u32) -> Option<Generation> {
 pub const DEFECT: u32 = 1;
 
 /// State used to make scheduling decisions.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
+#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
 pub enum TaskState {
     /// Task is healthy and can be scheduled subject to the `SchedState`
     /// requirements.
@@ -252,7 +252,10 @@ impl TaskState {
     /// Checks if a task in this state is trying to deliver a message to
     /// `target`.
     pub fn is_sending_to(&self, target: TaskId) -> bool {
-        self == &TaskState::Healthy(SchedState::InSend(target))
+        match self {
+            TaskState::Healthy(SchedState::InSend(t)) => *t == target,
+            _ => false,
+        }
     }
 
     /// Checks if a task in this state can be unblocked with a notification.
