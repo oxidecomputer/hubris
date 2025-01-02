@@ -13,7 +13,10 @@
 #![no_std]
 #![no_main]
 
-#[cfg(feature = "stm32f4")]
+#[cfg(feature = "f429")]
+use stm32f4::stm32f429 as device;
+
+#[cfg(feature = "f407")]
 use stm32f4::stm32f407 as device;
 
 #[cfg(feature = "stm32f3")]
@@ -74,7 +77,7 @@ fn main() -> ! {
             .write(|w| w.brr().bits((CLOCK_HZ / BAUDRATE) as u16));
     }
 
-    #[cfg(feature = "stm32f4")]
+    #[cfg(any(feature = "f407", feature = "f429"))]
     {
         const CLOCK_HZ: u32 = 16_000_000;
         const CYCLES_PER_BIT: u32 = (CLOCK_HZ + (BAUDRATE / 2)) / BAUDRATE;
@@ -126,7 +129,7 @@ fn main() -> ! {
 
                     #[cfg(feature = "stm32f3")]
                     let txe = usart.isr.read().txe().bit();
-                    #[cfg(feature = "stm32f4")]
+                    #[cfg(any(feature = "f407", feature = "f429"))]
                     let txe = usart.sr.read().txe().bit();
                     if txe {
                         // TX register empty. Do we need to send something?
@@ -208,7 +211,7 @@ fn turn_on_gpioa() {
 
     #[cfg(feature = "stm32f3")]
     let pnum = 17; // see bits in AHBENR
-    #[cfg(feature = "stm32f4")]
+    #[cfg(any(feature = "f407", feature = "f429"))]
     let pnum = 0; // see bits in AHB1ENR
 
     let (code, _) = userlib::sys_send(
@@ -250,7 +253,7 @@ fn step_transmit(
         // Stuff byte into transmitter.
         #[cfg(feature = "stm32f3")]
         usart.tdr.write(|w| w.tdr().bits(u16::from(byte)));
-        #[cfg(feature = "stm32f4")]
+        #[cfg(any(feature = "f407", feature = "f429"))]
         usart.dr.write(|w| w.dr().bits(u16::from(byte)));
 
         txs.pos += 1;
