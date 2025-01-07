@@ -27,6 +27,7 @@
 //! - [`pca9956b`]: PCA9956B LED driver
 //! - [`pct2075`]: PCT2075 temperature sensor
 //! - [`raa229618`]: RAA229618 power controller
+//! - [`raa229620a`]: RAA229620A power controller
 //! - [`sbrmi`]: AMD SB-RMI driver
 //! - [`sbtsi`]: AMD SB-TSI temperature sensor
 //! - [`tmp116`]: TMP116 temperature sensor
@@ -250,6 +251,7 @@ pub mod pca9538;
 pub mod pca9956b;
 pub mod pct2075;
 pub mod raa229618;
+pub mod raa229620a;
 pub mod sbrmi;
 pub mod sbtsi;
 pub mod tmp117;

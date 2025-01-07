@@ -17,6 +17,7 @@ use drv_i2c_devices::ltc4282::*;
 use drv_i2c_devices::max5970::*;
 use drv_i2c_devices::mwocp68::*;
 use drv_i2c_devices::raa229618::*;
+use drv_i2c_devices::raa229620a::*;
 use drv_i2c_devices::tps546b24a::*;
 use pmbus::Phase;
 use ringbuf::*;
@@ -79,6 +80,7 @@ enum DeviceType {
 enum DeviceChip {
     Bmr491,
     Raa229618,
+    Raa229620A,
     Isl68224,
     Tps546B24A,
     Adm1272(Ohms),
@@ -104,6 +106,7 @@ struct PowerControllerConfig {
 enum Device {
     Bmr491(Bmr491),
     Raa229618(Raa229618),
+    Raa229620A(Raa229620A),
     Isl68224(Isl68224),
     Tps546B24A(Tps546B24A),
     Adm1272(Adm1272),
@@ -117,6 +120,7 @@ impl Device {
         let r = match &self {
             Device::Bmr491(dev) => dev.read_temperature()?,
             Device::Raa229618(dev) => dev.read_temperature()?,
+            Device::Raa229620A(dev) => dev.read_temperature()?,
             Device::Isl68224(dev) => dev.read_temperature()?,
             Device::Tps546B24A(dev) => dev.read_temperature()?,
             Device::Adm1272(dev) => dev.read_temperature()?,
@@ -137,6 +141,7 @@ impl Device {
         let r = match &self {
             Device::Bmr491(dev) => dev.read_iout()?,
             Device::Raa229618(dev) => dev.read_iout()?,
+            Device::Raa229620A(dev) => dev.read_iout()?,
             Device::Isl68224(dev) => dev.read_iout()?,
             Device::Tps546B24A(dev) => dev.read_iout()?,
             Device::Adm1272(dev) => dev.read_iout()?,
@@ -151,6 +156,7 @@ impl Device {
         let r = match &self {
             Device::Bmr491(dev) => dev.read_vout()?,
             Device::Raa229618(dev) => dev.read_vout()?,
+            Device::Raa229620A(dev) => dev.read_vout()?,
             Device::Isl68224(dev) => dev.read_vout()?,
             Device::Tps546B24A(dev) => dev.read_vout()?,
             Device::Adm1272(dev) => dev.read_vout()?,
@@ -200,6 +206,7 @@ impl Device {
             Device::Mwocp68(dev) => dev.pmbus_read(op)?,
             Device::Bmr491(_)
             | Device::Raa229618(_)
+            | Device::Raa229620A(_)
             | Device::Isl68224(_)
             | Device::Tps546B24A(_)
             | Device::Adm1272(_)
@@ -216,6 +223,7 @@ impl Device {
             Device::Mwocp68(dev) => dev.read_mode()?,
             Device::Bmr491(dev) => dev.read_mode()?,
             Device::Raa229618(dev) => dev.read_mode()?,
+            Device::Raa229620A(dev) => dev.read_mode()?,
             Device::Isl68224(dev) => dev.read_mode()?,
             Device::Tps546B24A(dev) => dev.read_mode()?,
             Device::Adm1272(..) | Device::Ltc4282(..) | Device::Max5970(..) => {
@@ -230,6 +238,7 @@ impl Device {
             Device::Mwocp68(dev) => dev.i2c_device(),
             Device::Bmr491(dev) => dev.i2c_device(),
             Device::Raa229618(dev) => dev.i2c_device(),
+            Device::Raa229620A(dev) => dev.i2c_device(),
             Device::Isl68224(dev) => dev.i2c_device(),
             Device::Tps546B24A(dev) => dev.i2c_device(),
             Device::Adm1272(dev) => dev.i2c_device(),
@@ -246,6 +255,9 @@ impl PowerControllerConfig {
             DeviceChip::Bmr491 => Device::Bmr491(Bmr491::new(&dev, rail)),
             DeviceChip::Raa229618 => {
                 Device::Raa229618(Raa229618::new(&dev, rail))
+            }
+            DeviceChip::Raa229620A => {
+                Device::Raa229620A(Raa229620A::new(&dev, rail))
             }
             DeviceChip::Isl68224 => Device::Isl68224(Isl68224::new(&dev, rail)),
             DeviceChip::Tps546B24A => {
