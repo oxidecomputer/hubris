@@ -8,28 +8,27 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     build_util::expose_target_board();
 
     let out_dir = build_util::out_dir();
-    let out_file = out_dir.join("spartan7_fpga.rs");
+    let out_file = out_dir.join("cosmo_fpga.rs");
     let mut file = fs::File::create(out_file)?;
 
     // Check that a valid bitstream is available for this board.
-    let board = build_util::target_board().expect("could not get target board");
-    match board.as_str() {
-        "grapefruit" | "cosmo-a" => (),
-        _ => panic!("unknown target board '{board}'"),
+    let board = build_util::env_var("HUBRIS_BOARD")?;
+    if board != "cosmo-a" {
+        panic!("unknown target board");
     }
 
     // Pull the bitstream checksum from an environment variable
     // (injected by `xtask` itself as part of auxiliary flash packing)
     let checksum =
-        build_util::env_var("HUBRIS_AUXFLASH_CHECKSUM_SPA7").unwrap();
+        build_util::env_var("HUBRIS_AUXFLASH_CHECKSUM_ICE4").unwrap();
     writeln!(
         &mut file,
-        "\npub const SPARTAN7_FPGA_BITSTREAM_CHECKSUM: [u8; 32] = {};",
+        "\npub const FRONT_FPGA_BITSTREAM_CHECKSUM: [u8; 32] = {};",
         checksum,
     )?;
 
     idol::Generator::new().build_server_support(
-        "../../idl/spartan7-loader.idol",
+        "../../idl/cpu-seq.idol",
         "server_stub.rs",
         idol::server::ServerStyle::InOrder,
     )?;

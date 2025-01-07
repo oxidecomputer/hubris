@@ -55,6 +55,7 @@ use inventory::INVENTORY_API_VERSION;
 )]
 #[cfg_attr(target_board = "gimletlet-2", path = "bsp/gimletlet.rs")]
 #[cfg_attr(target_board = "grapefruit", path = "bsp/grapefruit.rs")]
+#[cfg_attr(target_board = "cosmo-a", path = "bsp/cosmo_a.rs")]
 mod bsp;
 
 mod tx_buf;
@@ -1627,6 +1628,9 @@ cfg_if::cfg_if! {
         // the CPU interrupt is not connected on grapefruit, so pick an
         // unconnected GPIO
         const SP_TO_HOST_CPU_INT_L: sys_api::PinSet = sys_api::Port::B.pin(1);
+    } else if #[cfg(target_board = "cosmo-a")] {
+        // SP_TO_SP5_CPU_INT_L
+        const SP_TO_HOST_CPU_INT_L: sys_api::PinSet = sys_api::Port::I.pin(7);
     } else {
         compile_error!("unsupported target board");
     }
