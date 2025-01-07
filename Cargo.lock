@@ -689,6 +689,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "cosmo"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if",
+ "cortex-m",
+ "cortex-m-rt",
+ "drv-stm32h7-startup",
+ "kern",
+ "ringbuf",
+ "stm32h7",
+]
+
+[[package]]
 name = "counters"
 version = "0.1.0"
 dependencies = [
@@ -1055,6 +1069,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-cosmo-seq-server"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if",
+ "counters",
+ "drv-auxflash-api",
+ "drv-cpu-power-state",
+ "drv-cpu-seq-api",
+ "drv-ice40-spi-program",
+ "drv-spartan7-loader-api",
+ "drv-spi-api",
+ "drv-stm32xx-sys-api",
+ "gnarle",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "ringbuf",
+ "task-jefe-api",
+ "userlib",
+ "zerocopy 0.6.6",
+]
+
+[[package]]
 name = "drv-cpu-power-state"
 version = "0.1.0"
 dependencies = [
@@ -1315,6 +1353,7 @@ dependencies = [
 name = "drv-ice40-spi-program"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "drv-spi-api",
  "drv-stm32xx-sys-api",
  "userlib",
