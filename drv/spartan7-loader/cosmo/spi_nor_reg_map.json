@@ -1,0 +1,275 @@
+{
+    "type": "addrmap",
+    "inst_name": "nor_flash_regs",
+    "addr_offset": 0,
+    "children": [
+        {
+            "type": "reg",
+            "inst_name": "SPICR",
+            "addr_offset": 0,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "tx_fifo_reset",
+                    "lsb": 7,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Set to one to reset TX FIFO. Cleared by hardware after reset."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "rx_fifo_reset",
+                    "lsb": 15,
+                    "msb": 15,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Set to one to reset RX FIFO. Cleared by hardware after reset."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "sp5_owns_flash",
+                    "lsb": 31,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Set to one to allow eSPI <-> SP5 interface read from flash. Hubris should\nnot attempt any flash accesses with this bit set. This bit also enforces the\nflash offset in"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "SPISR",
+            "addr_offset": 4,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "busy",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Set to one to 1 when hw is running the spi transaction, no new transactions\nmay be issued until it is finished. Technically represents cs_n being low."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "rx_empty",
+                    "lsb": 6,
+                    "msb": 6,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Set to one to 1 when RX FIFO is empty"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "rx_full",
+                    "lsb": 7,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Set to one to 1 when RX FIFO is full"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "rx_used_wds",
+                    "lsb": 8,
+                    "msb": 14,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Show used FIFO words in RX_FIFO (word = 32bits/4 bytes),\nmax of 256 bytes, so 64 words"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "tx_empty",
+                    "lsb": 22,
+                    "msb": 22,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Set to one to 1 when TX FIFO is empty"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "tx_full",
+                    "lsb": 23,
+                    "msb": 23,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Set to one to 1 when TX FIFO is full"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "tx_used_wds",
+                    "lsb": 24,
+                    "msb": 30,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Show used FIFO words in TX_FIFO (word = 32bits/4 bytes),\nmax of 256 bytes, so 64 words"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "Addr",
+            "addr_offset": 8,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "addr",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Address to be used for 24 or 32bit accesses"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "DummyCycles",
+            "addr_offset": 12,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "count",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Specify # of dummy cycles required for this instruction"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "DataBytes",
+            "addr_offset": 16,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "count",
+                    "lsb": 0,
+                    "msb": 8,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Specify # data bytes -1 (not counting instruction, addr or dummy cycles to be transferred),\nmax of 255 here representing 255 + 1 as that's the largest transaction the flash can support"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "Instr",
+            "addr_offset": 20,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "opcode",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "SPI Opcode used in the instruction phase. Write side-effect: starts a new transaction.\nThis should be the last register written to during setup"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "tx_fifo_wdata",
+            "addr_offset": 24,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "fifo_data",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Writing stores data in fifo"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "rx_fifo_rdata",
+            "addr_offset": 28,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "fifo_data",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Note: Reading side-effects the data by popping the fifo"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "SP5FlashOffset",
+            "addr_offset": 32,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "offset",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "*Signed* Address added (ie subtracted for negative) to raw eSPI transactions to generate physical flash address"
+                }
+            ]
+        }
+    ]
+}
