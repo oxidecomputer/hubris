@@ -1,0 +1,40 @@
+[package]
+name = "drv-cosmo-seq-server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+drv-auxflash-api = { path = "../auxflash-api" }
+drv-cpu-power-state = { path = "../cpu-power-state" }
+drv-cpu-seq-api = { path = "../cpu-seq-api" }
+drv-ice40-spi-program = { path = "../ice40-spi-program" }
+drv-spartan7-loader-api = { path = "../spartan7-loader-api" }
+drv-spi-api = { path = "../spi-api" }
+drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
+counters = { path = "../../lib/counters" }
+gnarle = { path = "../../lib/gnarle" }
+ringbuf = { path = "../../lib/ringbuf" }
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+task-jefe-api = { path = "../../task/jefe-api" }
+
+cfg-if = { workspace = true }
+idol-runtime.workspace = true
+num-traits = { workspace = true }
+zerocopy = { workspace = true }
+
+[build-dependencies]
+build-util = { path = "../../build/util" }
+idol = { workspace = true }
+
+[features]
+h753 = ["drv-stm32xx-sys-api/h753"]
+stay-in-a2 = []
+
+[[bin]]
+name = "drv-cosmo-seq-server"
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true
