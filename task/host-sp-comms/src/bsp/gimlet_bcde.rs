@@ -139,7 +139,7 @@ impl ServerImpl {
                     .try_encode_inventory(sequence, b"U12", || Ok(&data));
             }
             41 => {
-                // U431: BRM491
+                // U431: BMR491
                 let (name, f, sensors) = by_refdes!(U431, bmr491);
                 let dev = f(I2C.get_task_id());
                 // To be stack-friendly, we declare our output here,
