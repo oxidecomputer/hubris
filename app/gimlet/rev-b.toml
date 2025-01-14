@@ -20,7 +20,7 @@ scl.pin = 10
 sda.pin = 11
 af = 4
 [[config.i2c.controllers.ports.B.muxes]]
-driver = "pca9548"
+driver = "pca9545"
 address = 0x73
 
 #
@@ -38,15 +38,15 @@ af = 4
 # Shark fin muxes
 #
 [[config.i2c.controllers.ports.F.muxes]]
-driver = "pca9548"
+driver = "pca9545"
 address = 0x70
 
 [[config.i2c.controllers.ports.F.muxes]]
-driver = "pca9548"
+driver = "pca9545"
 address = 0x71
 
 [[config.i2c.controllers.ports.F.muxes]]
-driver = "pca9548"
+driver = "pca9545"
 address = 0x72
 
 [[config.i2c.devices]]
