@@ -616,7 +616,7 @@ pre.rouge .gs {
 <ul class="sectlevel2">
 <li><a href="#_interrupts_vs_exceptions">4.1. Interrupts vs Exceptions</a></li>
 <li><a href="#_the_hubris_interrupt_model">4.2. The Hubris interrupt model</a></li>
-<li><a href="#_interrupts_from_a_tasks_perspective">4.3. Interrupts from a task&#8217;s perspective</a></li>
+<li><a href="#interrupts-from-a-tasks-perspective">4.3. Interrupts from a task&#8217;s perspective</a></li>
 <li><a href="#_routing_interrupts_to_tasks_in_the_kernel">4.4. Routing interrupts to tasks in the kernel</a></li>
 <li><a href="#_kernel_reserved_interrupts">4.5. Kernel reserved interrupts</a></li>
 </ul>
@@ -677,7 +677,8 @@ pre.rouge .gs {
 <li><a href="#_reset_5">8.1.5. <code>reset</code> (5)</a></li>
 <li><a href="#_get_task_dump_region_6">8.1.6. <code>get_task_dump_region</code> (6)</a></li>
 <li><a href="#_read_task_dump_region_7">8.1.7. <code>read_task_dump_region</code> (7)</a></li>
-<li><a href="#_find_faulted_task_8">8.1.8. <code>find_faulted_task</code> (8)</a></li>
+<li><a href="#_software_irq_8">8.1.8. <code>software_irq</code> (8)</a></li>
+<li><a href="#_find_faulted_task_9">8.1.9. <code>find_faulted_task</code> (9)</a></li>
 </ul>
 </li>
 <li><a href="#_receiving_from_the_kernel">8.2. Receiving from the kernel</a></li>
@@ -2216,7 +2217,7 @@ routine. That can occur when&#8230;&#8203;</p>
 </div>
 </div>
 <div class="sect2">
-<h3 id="_interrupts_from_a_tasks_perspective">4.3. Interrupts from a task&#8217;s perspective</h3>
+<h3 id="interrupts-from-a-tasks-perspective">4.3. Interrupts from a task&#8217;s perspective</h3>
 <div class="paragraph">
 <p>The <code>app.toml</code> configuration file can route interrupts to tasks, by binding
 platform interrupt numbers to <em>notification sets.</em> From the task&#8217;s perspective,
@@ -4310,7 +4311,67 @@ at <code>base</code> and running for <code>size</code> bytes.</p>
 </div>
 </div>
 <div class="sect3">
-<h4 id="_find_faulted_task_8">8.1.8. <code>find_faulted_task</code> (8)</h4>
+<h4 id="_software_irq_8">8.1.8. <code>software_irq</code> (8)</h4>
+<div class="paragraph">
+<p>For a given task index and a notification mask for that task, this will
+trigger software interrupts for any IRQ(s) mapped to bits in that task&#8217;s
+notification set.</p>
+</div>
+<div class="paragraph">
+<p>Any interrupts triggered through this mechanism will be delivered to the
+that task identically to an actual hardware interrupt, as described in
+the <a href="#interrupts-from-a-tasks-perspective">the documentation on interrupts</a>.</p>
+</div>
+<div class="sect4">
+<h5 id="_request_6">Request</h5>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="rust"><span class="k">type</span> <span class="n">SoftwareIrqRequest</span> <span class="o">=</span> <span class="p">(</span><span class="nb">u32</span><span class="p">,</span> <span class="nb">u32</span><span class="p">);</span></code></pre>
+</div>
+</div>
+</div>
+<div class="sect4">
+<h5 id="_preconditions_6">Preconditions</h5>
+<div class="paragraph">
+<p>The task index (<code>SoftwareIrqRequest.0</code>) must be a valid task index.</p>
+</div>
+<div class="paragraph">
+<p>The notification mask (<code>SoftwareIrqRequest.1</code>) should be a valid notification
+mask for the specified task, and should have at least one bit set. Any bits
+set in the notification mask should be assigned to hardware interrupts in
+the task&#8217;s build-time configuration.</p>
+</div>
+<div class="paragraph">
+<p>The caller <strong>must</strong> be the supervisor (task index 0).</p>
+</div>
+</div>
+<div class="sect4">
+<h5 id="_response_6">Response</h5>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="rust"><span class="k">type</span> <span class="n">SoftwareIrqResponse</span> <span class="o">=</span> <span class="p">();</span></code></pre>
+</div>
+</div>
+</div>
+<div class="sect4">
+<h5 id="_notes_17">Notes</h5>
+<div class="paragraph">
+<p>This interface is primarily intended for testing interrupt handling, and can
+only be called by a task running as the supervisor. When this KIPC is called,
+an actual machine interrupt is triggered for the relevant hardware interrupt
+source. The kernel then responds to the interrupt using its normal
+interrupt-handling infrastructure, which dispatches a notification to the
+subscribed task.</p>
+</div>
+<div class="paragraph">
+<p>This KIPC is <strong>not</strong> intended for use as a general-purpose inter-task signalling
+mechanism. For that purpose, a <a href="#notifications">notification</a> should be used
+instead.</p>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_find_faulted_task_9">8.1.9. <code>find_faulted_task</code> (9)</h4>
 <div class="paragraph">
 <p>Scans forward from a given task index searching for a faulted task. If a faulted
 task is found, returns its index. Otherwise, returns zero, the index of the
@@ -4326,7 +4387,7 @@ you always get zero back.</p>
 suggest a bug.</p>
 </div>
 <div class="sect4">
-<h5 id="_request_6">Request</h5>
+<h5 id="_request_7">Request</h5>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight"><code data-lang="rust"><span class="k">struct</span> <span class="n">FindFaultedTaskRequest</span> <span class="p">{</span>
@@ -4336,13 +4397,13 @@ suggest a bug.</p>
 </div>
 </div>
 <div class="sect4">
-<h5 id="_preconditions_6">Preconditions</h5>
+<h5 id="_preconditions_7">Preconditions</h5>
 <div class="paragraph">
 <p>The <code>starting_index</code> must be a valid index for this system, or one greater.</p>
 </div>
 </div>
 <div class="sect4">
-<h5 id="_response_6">Response</h5>
+<h5 id="_response_7">Response</h5>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight"><code data-lang="rust"><span class="k">struct</span> <span class="n">FindFaultedTaskResponse</span> <span class="p">{</span>
@@ -4352,7 +4413,7 @@ suggest a bug.</p>
 </div>
 </div>
 <div class="sect4">
-<h5 id="_notes_17">Notes</h5>
+<h5 id="_notes_18">Notes</h5>
 <div class="paragraph">
 <p>This is intended for the common case of a supervisor scanning the task table in
 search of a fault. Compared to doing this manually with <code>read_task_status</code>,
@@ -5732,7 +5793,7 @@ tool to a high-reliability research platform.</em></p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2025-01-15 14:42:21 UTC
+Last updated 2025-01-15 18:57:31 UTC
 </div>
 </div>
 </body>
