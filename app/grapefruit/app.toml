@@ -403,6 +403,11 @@ sda.pin = 11
 scl.pin = 10
 af = 4
 
+[[config.i2c.controllers.ports.B.muxes]]
+driver = "imx3112"
+address = 0x70
+# U6 on AMD Ruby schematic
+
 [config.i2c.controllers.ports.F]
 name = "pcie"
 sda.pin = 0
@@ -527,6 +532,26 @@ name = "lm75_h"
 sensors = { temperature = 1 }
 description = "LM75 (H)"
 refdes = "U104"
+
+[[config.i2c.devices]]
+bus = "apml"
+address = 0x3c
+device = "sbrmi"
+name = "RMI"
+mux = 1
+segment = 1
+description = "CPU via SB-RMI"
+
+[[config.i2c.devices]]
+bus = "apml"
+address = 0x4c
+device = "sbtsi"
+name = "CPU"
+mux = 1
+segment = 1
+description = "CPU temperature sensor"
+sensors = { temperature = 1 }
+
 
 ################################################################################
 

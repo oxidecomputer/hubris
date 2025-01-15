@@ -35,6 +35,7 @@ pub type RegisterBlock = device::i2c1::RegisterBlock;
 ))]
 pub type Isr = device::i2c1::isr::R;
 
+pub mod imx3112;
 pub mod ltc4306;
 pub mod max7358;
 pub mod pca9545;
