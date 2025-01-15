@@ -25,7 +25,7 @@ sda.pin = 11
 af = 4
 
 [[config.i2c.controllers.ports.B.muxes]]
-driver = "pca9548"
+driver = "pca9545"
 address = 0x73
 nreset = { port = "E", pin = 15 } # SP_TO_I2C_SW_M2_A2_V3P3
 
@@ -44,17 +44,17 @@ af = 4
 # Shark fin muxes
 #
 [[config.i2c.controllers.ports.F.muxes]]
-driver = "pca9548"
+driver = "pca9545"
 address = 0x70
 nreset = { port = "E", pin = 12 } # SP_TO_I2C_SW_CEMABCD_A2_V3P3
 
 [[config.i2c.controllers.ports.F.muxes]]
-driver = "pca9548"
+driver = "pca9545"
 address = 0x71
 nreset = { port = "E", pin = 14 } # SP_TO_I2C_SW_CEMEFGH_A2_V3P3
 
 [[config.i2c.controllers.ports.F.muxes]]
-driver = "pca9548"
+driver = "pca9545"
 address = 0x72
 nreset = { port = "E" , pin = 13 } # SP_TO_I2C_SW_CEMIJ_FRU_A2_V3P3
 

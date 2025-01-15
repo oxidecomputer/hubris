@@ -360,7 +360,7 @@ description = "Northeast Corridor 0"
 scl = { gpio_port = "B", pin = 6 }
 sda = { gpio_port = "B", pin = 7 }
 af = 4
-muxes = [ { driver = "pca9548", address = 0x70 } ]
+muxes = [ { driver = "pca9545", address = 0x70 } ]
 
 #
 # I2C_NORTH_EAST1_SCL
@@ -428,7 +428,7 @@ description = "Northwest Corridor 1"
 scl.pin = 7
 sda.pin = 8
 af = 4
-muxes = [ { driver = "pca9548", address = 0x70 } ]
+muxes = [ { driver = "pca9545", address = 0x70 } ]
 
 #
 # I2C4: South bend
