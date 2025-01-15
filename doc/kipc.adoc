@@ -329,7 +329,9 @@ type SoftwareIrqResponse = ();
 
 This interface is primarily intended for testing interrupt handling, and can
 only be called by a task running as the supervisor. When this KIPC is called,
-an actual machine interrupt is triggered and dispatched by the kernel to the
+an actual machine interrupt is triggered for the relevant hardware interrupt
+source. The kernel then responds to the interrupt using its normal
+interrupt-handling infrastructure, which dispatches a notification to the 
 subscribed task.
 
 This KIPC is *not* intended for use as a general-purpose inter-task signalling
