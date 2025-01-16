@@ -3257,7 +3257,7 @@ registers 0 and 1 for future compatibility.</p>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Reply message is longer than recipient requested.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ReplyTooLarge</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ReplyTooBig</code></p></td>
 </tr>
 </tbody>
 </table>
@@ -3275,8 +3275,10 @@ is ignored. Often, the response code is enough.</p>
 </div>
 <div class="paragraph">
 <p><code>RECV</code> delivers the size of the caller&#8217;s response buffer, so your task has
-sufficient information to not overflow it. This is why doing so is a fault: it&#8217;s
-a programming error.</p>
+sufficient information to not overflow it. If the caller&#8217;s response buffer is
+too small, you are expected to instead use <code>REPLY_FAULT</code> with the
+<code>ReplyBufferTooSmall</code> code. If you instead send a reply that won&#8217;t fit, that&#8217;s
+treated as a programming error in your task, and you take a <code>ReplyTooBig</code> fault.</p>
 </div>
 </div>
 </div>
@@ -5793,7 +5795,7 @@ tool to a high-reliability research platform.</em></p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2025-01-15 18:57:31 UTC
+Last updated 2025-01-16 18:48:11 UTC
 </div>
 </div>
 </body>
