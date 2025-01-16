@@ -50,19 +50,12 @@ pub struct Task {
     /// restarted.
     descriptor: &'static TaskDesc,
 
-    /// Tracks the lowest stack pointer value (e.g. fullest stack) observed on
-    /// any kernel entry for this instance of this task.
+    /// Stack watermark tracking support.
     ///
-    /// Initialized to `u32::MAX` if the task has not yet run.
+    /// This field is completely missing if the feature is disabled to make that
+    /// clear to debug tools.
     #[cfg(feature = "stack-watermark")]
-    stack_pointer_low: u32,
-
-    /// Tracks the lowest stack pointer value (e.g. fullest stack) observed on
-    /// any kernel entry across *any* instance of this task.
-    ///
-    /// Initialized to `u32::MAX` if the task has not yet run.
-    #[cfg(feature = "stack-watermark")]
-    past_stack_pointer_low: u32,
+    stack_watermark: StackWatermark,
 }
 
 impl Task {
@@ -84,9 +77,7 @@ impl Task {
             save: crate::arch::SavedState::default(),
             timer: crate::task::TimerState::default(),
             #[cfg(feature = "stack-watermark")]
-            stack_pointer_low: u32::MAX,
-            #[cfg(feature = "stack-watermark")]
-            past_stack_pointer_low: u32::MAX,
+            stack_watermark: StackWatermark::default(),
         }
     }
 
@@ -341,9 +332,11 @@ impl Task {
 
         #[cfg(feature = "stack-watermark")]
         {
-            self.past_stack_pointer_low =
-                u32::min(self.past_stack_pointer_low, self.stack_pointer_low);
-            self.stack_pointer_low = u32::MAX;
+            self.stack_watermark.past_low = u32::min(
+                self.stack_watermark.past_low,
+                self.stack_watermark.current_low,
+            );
+            self.stack_watermark.current_low = u32::MAX;
         }
 
         crate::arch::reinitialize(self);
@@ -356,8 +349,10 @@ impl Task {
     pub fn update_stack_watermark(&mut self) {
         #[cfg(feature = "stack-watermark")]
         {
-            self.stack_pointer_low =
-                u32::min(self.stack_pointer_low, self.save().stack_pointer());
+            self.stack_watermark.current_low = u32::min(
+                self.stack_watermark.current_low,
+                self.save().stack_pointer(),
+            );
         }
     }
 
@@ -415,6 +410,32 @@ impl Task {
     /// Returns a mutable reference to the saved machine state for the task.
     pub fn save_mut(&mut self) -> &mut crate::arch::SavedState {
         &mut self.save
+    }
+}
+
+#[cfg(feature = "stack-watermark")]
+#[derive(Copy, Clone, Debug)]
+struct StackWatermark {
+    /// Tracks the lowest stack pointer value (e.g. fullest stack) observed on
+    /// any kernel entry for this instance of this task.
+    ///
+    /// Initialized to `u32::MAX` if the task has not yet run.
+    current_low: u32,
+
+    /// Tracks the lowest stack pointer value (e.g. fullest stack) observed on
+    /// any kernel entry across *any* instance of this task.
+    ///
+    /// Initialized to `u32::MAX` if the task has not yet run.
+    past_low: u32,
+}
+
+#[cfg(feature = "stack-watermark")]
+impl Default for StackWatermark {
+    fn default() -> Self {
+        Self {
+            current_low: u32::MAX,
+            past_low: u32::MAX,
+        }
     }
 }
 

@@ -1185,10 +1185,14 @@ unsafe extern "C" fn pendsv_entry() {
     crate::profiling::event_secondary_syscall_enter();
 
     let current = CURRENT_TASK_PTR.load(Ordering::Relaxed);
+    // We're being slightly pedantic about this, since it's straightforward (if
+    // weird) for pre-kernel main to trigger a PendSV, and it's not possible to
+    // disable this interrupt source.
     uassert!(!current.is_null()); // irq before kernel started?
 
     // Safety: we're dereferencing the current task pointer, which we're
-    // trusting the rest of this module to maintain correctly.
+    // trusting the rest of this module to maintain correctly (and we've just
+    // checked that the kernel has started).
     let current = usize::from(unsafe { (*current).descriptor().index });
 
     with_task_table(|tasks| {
@@ -1222,10 +1226,19 @@ pub unsafe extern "C" fn DefaultHandler() {
     };
 
     let current = CURRENT_TASK_PTR.load(Ordering::Relaxed);
-    uassert!(!current.is_null()); // irq before kernel started?
 
-    {
-        let t = unsafe { &mut *current };
+    // Because this handler is reachable in response to an NMI, it's possible to
+    // get here before the kernel has started. So before dereferencing the task
+    // pointer, check for NULL (the state at reset). If we manage to get here
+    // before the kernel has started, we'll skip the stack watermark update and
+    // hit a panic below.
+
+    // Safety: this dereferences the pointer only if it isn't NULL. If it
+    // isn't NULL, that means we've initialized it elsewhere in this module
+    // and it's a valid (but aliased) pointer to a task. We can safely
+    // dereference it as long as we throw it away before hitting
+    // `with_task_table` below.
+    if let Some(t) = unsafe { current.as_mut() } {
         t.update_stack_watermark();
     }
 
@@ -1251,6 +1264,8 @@ pub unsafe extern "C" fn DefaultHandler() {
                 .get(abi::InterruptNum(irq_num))
                 .unwrap_or_else(|| panic!("unhandled IRQ {irq_num}"));
 
+            // with_task_table will panic if the kernel has not yet been
+            // started. This is good.
             let switch = with_task_table(|tasks| {
                 disable_irq(irq_num, false);
 
