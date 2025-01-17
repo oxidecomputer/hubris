@@ -1,0 +1,1 @@
+generated from [this commit](https://github.com/oxidecomputer/quartz/commit/74c0082330fb0ce57fd0387685ea47462a9e3f16)
