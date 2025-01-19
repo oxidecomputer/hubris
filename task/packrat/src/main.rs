@@ -211,7 +211,8 @@ impl idl::InOrderPackratImpl for ServerImpl {
     ) -> Result<HostStartupOptions, RequestError<Infallible>> {
         let bits = HostStartupOptions::STARTUP_KMDB.bits()
             | HostStartupOptions::STARTUP_PROM.bits()
-            | HostStartupOptions::STARTUP_VERBOSE.bits();
+            | HostStartupOptions::STARTUP_VERBOSE.bits()
+            | HostStartupOptions::STARTUP_BOOT_RAMDISK.bits();
         match HostStartupOptions::from_bits(bits) {
             Some(options) => Ok(options),
             None => panic!("must be valid at compile-time"),
