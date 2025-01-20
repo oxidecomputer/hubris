@@ -13,6 +13,7 @@
 use drv_i2c_devices::adm1272::*;
 use drv_i2c_devices::bmr491::*;
 use drv_i2c_devices::isl68224::*;
+use drv_i2c_devices::lm5066::*;
 use drv_i2c_devices::ltc4282::*;
 use drv_i2c_devices::max5970::*;
 use drv_i2c_devices::mwocp68::*;
@@ -38,6 +39,9 @@ use drv_i2c_devices::{
 enum Trace {
     GotVersion(u32),
     GotAddr(u32),
+    Temp,
+    Timer,
+    Up,
     None,
 }
 
@@ -72,6 +76,7 @@ enum DeviceType {
     HotSwapIO(Ohms),
     HotSwapQSFP(Ohms),
     PowerShelf,
+    HotSwapCosmo(Ohms, CurrentLimitStrap),
 }
 
 struct PowerControllerConfig {
@@ -95,16 +100,19 @@ enum Device {
     Max5970(Max5970),
     Mwocp68(Mwocp68),
     Ltc4282(Ltc4282),
+    Lm5066(Lm5066),
 }
 
 impl Device {
     fn read_temperature(&self) -> Result<Celsius, ResponseCode> {
+        ringbuf_entry!(Trace::Temp);
         let r = match &self {
             Device::Bmr491(dev) => dev.read_temperature()?,
             Device::Raa229618(dev) => dev.read_temperature()?,
             Device::Isl68224(dev) => dev.read_temperature()?,
             Device::Tps546B24A(dev) => dev.read_temperature()?,
             Device::Adm1272(dev) => dev.read_temperature()?,
+            Device::Lm5066(dev) => dev.read_temperature()?,
             Device::Mwocp68(..) => {
                 // The MWOCP68 actually has three temperature sensors, but they
                 // aren't associated with power rails, so we don't read them
@@ -128,6 +136,7 @@ impl Device {
             Device::Max5970(dev) => dev.read_iout()?,
             Device::Mwocp68(dev) => dev.read_iout()?,
             Device::Ltc4282(dev) => dev.read_iout()?,
+            Device::Lm5066(dev) => dev.read_iout()?,
         };
         Ok(r)
     }
@@ -142,6 +151,7 @@ impl Device {
             Device::Max5970(dev) => dev.read_vout()?,
             Device::Mwocp68(dev) => dev.read_vout()?,
             Device::Ltc4282(dev) => dev.read_vout()?,
+            Device::Lm5066(dev) => dev.read_vout()?,
         };
         Ok(r)
     }
@@ -189,6 +199,7 @@ impl Device {
             | Device::Tps546B24A(_)
             | Device::Adm1272(_)
             | Device::Ltc4282(_)
+            | Device::Lm5066(_)
             | Device::Max5970(_) => {
                 return Err(ResponseCode::OperationNotSupported)
             }
@@ -203,7 +214,10 @@ impl Device {
             Device::Raa229618(dev) => dev.read_mode()?,
             Device::Isl68224(dev) => dev.read_mode()?,
             Device::Tps546B24A(dev) => dev.read_mode()?,
-            Device::Adm1272(..) | Device::Ltc4282(..) | Device::Max5970(..) => {
+            Device::Adm1272(..)
+            | Device::Ltc4282(..)
+            | Device::Max5970(..)
+            | Device::Lm5066(..) => {
                 return Err(ResponseCode::OperationNotSupported)
             }
         };
@@ -220,6 +234,7 @@ impl Device {
             Device::Adm1272(dev) => dev.i2c_device(),
             Device::Ltc4282(dev) => dev.i2c_device(),
             Device::Max5970(dev) => dev.i2c_device(),
+            Device::Lm5066(dev) => dev.i2c_device(),
         }
     }
 }
@@ -245,6 +260,9 @@ impl PowerControllerConfig {
             DeviceType::PowerShelf => Device::Mwocp68(Mwocp68::new(&dev, rail)),
             DeviceType::HotSwapQSFP(sense) => {
                 Device::Ltc4282(Ltc4282::new(&dev, *sense))
+            }
+            DeviceType::HotSwapCosmo(sense, strap) => {
+                Device::Lm5066(Lm5066::new(&dev, *sense, *strap))
             }
         }
     }
@@ -331,6 +349,27 @@ macro_rules! ltc4282_controller {
 }
 
 #[allow(unused_macros)]
+macro_rules! lm5066_controller {
+    ($which:ident, $rail:ident, $state:ident, $rsense:expr, $strap:expr) => {
+        paste::paste! {
+            PowerControllerConfig {
+                state: PowerState::$state,
+                device: DeviceType::$which($rsense, $strap),
+                builder: i2c_config::pmbus::$rail,
+                voltage: sensors::[<LM5066_ $rail:upper _VOLTAGE_SENSOR>],
+                input_voltage: None,
+                current: sensors::[<LM5066_ $rail:upper _CURRENT_SENSOR>],
+                input_current: None,
+                temperature: Some(
+                    sensors::[<LM5066_ $rail:upper _TEMPERATURE_SENSOR>]
+                ),
+                phases: None,
+            }
+        }
+    };
+}
+
+#[allow(unused_macros)]
 macro_rules! max5970_controller {
     ($which:ident, $rail:ident, $state:ident, $rsense:expr) => {
         paste::paste! {
@@ -407,6 +446,8 @@ mod bsp;
 fn main() -> ! {
     let i2c_task = I2C.get_task_id();
 
+    ringbuf_entry!(Trace::Up);
+
     let mut server = ServerImpl {
         i2c_task,
         sensor: sensor_api::Sensor::from(SENSOR.get_task_id()),
@@ -430,6 +471,8 @@ struct ServerImpl {
 
 impl ServerImpl {
     fn handle_timer_fired(&mut self) {
+        ringbuf_entry!(Trace::Timer);
+
         let state = bsp::get_state();
         let sensor = &self.sensor;
 
