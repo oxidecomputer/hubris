@@ -13,6 +13,7 @@ use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};
 use sha3::{Digest, Sha3_256};
 use task_jefe_api::Jefe;
+use task_packrat_api::{CacheSetError, MacAddressBlock, Packrat, VpdIdentity};
 use userlib::{
     hl, sys_recv_notification, task_slot, FromPrimitive, RecvMessage,
     UnwrapLite,
@@ -29,6 +30,8 @@ enum Trace {
     ContinueBitstreamLoad(usize),
     WaitForDone,
     Programmed,
+    MacsAlreadySet(MacAddressBlock),
+    IdentityAlreadySet(VpdIdentity),
 
     #[count(skip)]
     None,
@@ -48,12 +51,38 @@ counted_ringbuf!(Trace, 128, Trace::None);
 task_slot!(SYS, sys);
 task_slot!(SPI, spi);
 task_slot!(AUXFLASH, auxflash);
+task_slot!(PACKRAT, packrat);
 
 #[export_name = "main"]
 fn main() -> ! {
     let sys = sys_api::Sys::from(SYS.get_task_id());
     let spi = drv_spi_api::Spi::from(SPI.get_task_id());
     let aux = drv_auxflash_api::AuxFlash::from(AUXFLASH.get_task_id());
+
+    // Populate packrat with dummy values, because talking to the EEPROM is hard
+    let packrat = Packrat::from(PACKRAT.get_task_id());
+    let macs = MacAddressBlock {
+        base_mac: [0; 6],
+        count: 0.into(),
+        stride: 0,
+    };
+    match packrat.set_mac_address_block(macs) {
+        Ok(()) => (),
+        Err(CacheSetError::ValueAlreadySet) => {
+            ringbuf_entry!(Trace::MacsAlreadySet(macs));
+        }
+    }
+    let identity = VpdIdentity {
+        serial: *b"GRAPEFRUIT ",
+        part_number: *b"913-0000083",
+        revision: 0,
+    };
+    match packrat.set_identity(identity) {
+        Ok(()) => (),
+        Err(CacheSetError::ValueAlreadySet) => {
+            ringbuf_entry!(Trace::IdentityAlreadySet(identity));
+        }
+    }
 
     match ServerImpl::init(&sys, spi, aux) {
         // Set up everything nicely, time to start serving incoming messages.
