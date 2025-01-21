@@ -11,7 +11,6 @@ use drv_cpu_seq_api::{PowerState, StateChangeReason};
 use drv_spi_api::{SpiDevice, SpiServer};
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};
-use sha3::{Digest, Sha3_256};
 use task_jefe_api::Jefe;
 use task_packrat_api::{CacheSetError, MacAddressBlock, Packrat, VpdIdentity};
 use userlib::{
@@ -39,11 +38,16 @@ enum Trace {
 
 #[derive(Copy, Clone, PartialEq, Count)]
 enum SeqError {
-    AuxMissingBlob,
-    AuxReadError(#[count(children)] drv_auxflash_api::AuxFlashError),
+    AuxFlashError(#[count(children)] drv_auxflash_api::AuxFlashError),
     AuxChecksumMismatch,
     SpiWrite(#[count(children)] drv_spi_api::SpiError),
     DoneTimeout,
+}
+
+impl From<drv_auxflash_api::AuxFlashError> for SeqError {
+    fn from(v: drv_auxflash_api::AuxFlashError) -> Self {
+        SeqError::AuxFlashError(v)
+    }
 }
 
 counted_ringbuf!(Trace, 128, Trace::None);
@@ -202,48 +206,15 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
         // Bind to the sequencer device on our SPI port
         let seq = spi.device(drv_spi_api::devices::FPGA);
 
-        let blob = aux
-            .get_blob_by_tag(*b"FPGA")
-            .map_err(|_| SeqError::AuxMissingBlob)?;
-        let mut scratch_buf = [0u8; 128];
-        let mut pos = blob.start;
-        let mut sha = Sha3_256::new();
-        let mut decompressor = gnarle::Decompressor::default();
-        while pos < blob.end {
-            let amount = (blob.end - pos).min(scratch_buf.len() as u32);
-            let chunk = &mut scratch_buf[0..(amount as usize)];
-            aux.read_slot_with_offset(blob.slot, pos, chunk)
-                .map_err(SeqError::AuxReadError)?;
-            sha.update(&chunk);
-            pos += amount;
+        let sha_out = aux.get_compressed_blob_streaming(
+            *b"FPGA",
+            |chunk| -> Result<(), SeqError> {
+                seq.write(chunk).map_err(SeqError::SpiWrite)?;
+                ringbuf_entry!(Trace::ContinueBitstreamLoad(chunk.len()));
+                Ok(())
+            },
+        )?;
 
-            // Reborrow as an immutable chunk, then decompress
-            let mut chunk = &scratch_buf[0..(amount as usize)];
-            let mut decompress_buffer = [0; 512];
-
-            while !chunk.is_empty() {
-                let decompressed_chunk = gnarle::decompress(
-                    &mut decompressor,
-                    &mut chunk,
-                    &mut decompress_buffer,
-                );
-
-                // The compressor may have encountered a partial run at the
-                // end of the `chunk`, in which case `decompressed_chunk`
-                // will be empty since more data is needed before output is
-                // generated.
-                if !decompressed_chunk.is_empty() {
-                    // Write the decompressed bitstream to the FPGA over SPI
-                    seq.write(decompressed_chunk)
-                        .map_err(SeqError::SpiWrite)?;
-                    ringbuf_entry!(Trace::ContinueBitstreamLoad(
-                        decompressed_chunk.len()
-                    ));
-                }
-            }
-        }
-
-        let sha_out: [u8; 32] = sha.finalize().into();
         if sha_out != gen::FPGA_BITSTREAM_CHECKSUM {
             // Reset the FPGA to clear the invalid bitstream
             sys.gpio_reset(FPGA_PROGRAM_L);
