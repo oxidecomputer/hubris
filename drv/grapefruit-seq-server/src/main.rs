@@ -24,7 +24,7 @@ task_slot!(JEFE, jefe);
 
 #[derive(Copy, Clone, PartialEq, Count)]
 enum Trace {
-    FpgaInit(#[count(children)] bool),
+    FpgaInit,
     StartFailed(#[count(children)] SeqError),
     ContinueBitstreamLoad(usize),
     WaitForDone,
@@ -40,13 +40,18 @@ enum Trace {
 enum SeqError {
     AuxFlashError(#[count(children)] drv_auxflash_api::AuxFlashError),
     AuxChecksumMismatch,
-    SpiWrite(#[count(children)] drv_spi_api::SpiError),
-    DoneTimeout,
+    FpgaError(#[count(children)] drv_spartan7_spi_program::Spartan7Error),
 }
 
 impl From<drv_auxflash_api::AuxFlashError> for SeqError {
     fn from(v: drv_auxflash_api::AuxFlashError) -> Self {
         SeqError::AuxFlashError(v)
+    }
+}
+
+impl From<drv_spartan7_spi_program::Spartan7Error> for SeqError {
+    fn from(v: drv_spartan7_spi_program::Spartan7Error) -> Self {
+        SeqError::FpgaError(v)
     }
 }
 
@@ -139,8 +144,8 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
         spi: S,
         aux: drv_auxflash_api::AuxFlash,
     ) -> Result<Self, SeqError> {
-        // Ensure the SP fault pin is configured as an open-drain output, and pull
-        // it low to make the sequencer restart externally visible.
+        // Ensure the SP fault pin is configured as an open-drain output, and
+        // pull it low to make the sequencer restart externally visible.
         sys.gpio_configure_output(
             FAULT_PIN_L,
             sys_api::OutputType::OpenDrain,
@@ -158,58 +163,24 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
             sys_api::Pull::None,
         );
 
-        // Configure the FPGA_INIT_L and FPGA_CONFIG_DONE lines as inputs
-        sys.gpio_configure_input(FPGA_INIT_L, sys_api::Pull::None);
-        sys.gpio_configure_input(FPGA_CONFIG_DONE, sys_api::Pull::None);
-
-        // To allow for the possibility that we are restarting, rather than
-        // starting, we take care during early sequencing to _not turn anything
-        // off,_ only on. This means if it was _already_ on, the outputs should
-        // not glitch.
-
-        // To program the FPGA, we're using "slave serial" mode.
-        //
-        // See "7 Series FPGAs Configuration", UG470 (v1.17) for details,
-        // as well as "Using a Microprocessor to Configure Xilinx 7 Series FPGAs
-        // via Slave Serial or Slave SelectMAP Mode Application Note" (XAPP583)
-
-        // Configure the PROGRAM_B line to the FPGA
-        sys.gpio_set(FPGA_PROGRAM_L);
-        sys.gpio_configure_output(
-            FPGA_PROGRAM_L,
-            sys_api::OutputType::OpenDrain,
-            sys_api::Speed::Low,
-            sys_api::Pull::None,
-        );
-
-        // Pulse PROGRAM_B low for 1 ms to reset the bitstream
-        // (T_PROGRAM is 250 ns min, so this is fine)
-        // https://docs.amd.com/r/en-US/ds189-spartan-7-data-sheet/XADC-Specifications
-        sys.gpio_reset(FPGA_PROGRAM_L);
-        hl::sleep_for(1);
-        sys.gpio_set(FPGA_PROGRAM_L);
-
-        // Wait for INIT_B to rise
-        loop {
-            let init = sys.gpio_read(FPGA_INIT_L) != 0;
-            ringbuf_entry!(Trace::FpgaInit(init));
-            if init {
-                break;
-            }
-
-            // Do _not_ burn CPU constantly polling, it's rude. We could also
-            // set up pin-change interrupts but we only do this once per power
-            // on, so it seems like a lot of work.
-            hl::sleep_for(2);
-        }
-
         // Bind to the sequencer device on our SPI port
         let seq = spi.device(drv_spi_api::devices::FPGA);
+
+        let pin_cfg = drv_spartan7_spi_program::Config {
+            program_l: FPGA_PROGRAM_L,
+            init_l: FPGA_INIT_L,
+            config_done: FPGA_CONFIG_DONE,
+        };
+        ringbuf_entry!(Trace::FpgaInit);
+        let loader =
+            drv_spartan7_spi_program::BitstreamLoader::begin_bitstream_load(
+                sys, &pin_cfg, &seq, true,
+            )?;
 
         let sha_out = aux.get_compressed_blob_streaming(
             *b"FPGA",
             |chunk| -> Result<(), SeqError> {
-                seq.write(chunk).map_err(SeqError::SpiWrite)?;
+                loader.continue_bitstream_load(chunk)?;
                 ringbuf_entry!(Trace::ContinueBitstreamLoad(chunk.len()));
                 Ok(())
             },
@@ -224,22 +195,8 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
             return Err(SeqError::AuxChecksumMismatch);
         }
 
-        // Wait for the FPGA to pull DONE high
-        const DELAY_MS: u64 = 2;
-        const TIMEOUT_MS: u64 = 250;
-        let mut wait_time_ms = 0;
-        while sys.gpio_read(FPGA_CONFIG_DONE) == 0 {
-            ringbuf_entry!(Trace::WaitForDone);
-            hl::sleep_for(DELAY_MS);
-            wait_time_ms += DELAY_MS;
-            if wait_time_ms > TIMEOUT_MS {
-                return Err(SeqError::DoneTimeout);
-            }
-        }
-
-        // Send 64 bonus clocks to complete the startup sequence (see "Clocking
-        // to End of Startup" in UG470).
-        seq.write(&[0u8; 8]).map_err(SeqError::SpiWrite)?;
+        ringbuf_entry!(Trace::WaitForDone);
+        loader.finish_bitstream_load()?;
 
         ringbuf_entry!(Trace::Programmed);
 
