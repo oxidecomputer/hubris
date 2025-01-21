@@ -1226,6 +1226,7 @@ dependencies = [
  "ringbuf",
  "sha3",
  "task-jefe-api",
+ "task-packrat-api",
  "userlib",
  "zerocopy 0.6.6",
 ]
