@@ -157,7 +157,10 @@ impl Lm5066 {
         };
 
         //
-        // From Table 43 of the LM5066 datasheet.
+        // From Table 43 of the LM5066 datasheet.  Note that the datasheet has
+        // an admonishment about adjusting R to keep m to within a signed
+        // 16-bit quantity (that is, no larger than 32767), but we actually
+        // treat m as a 32-bit quantity so there is no need to clamp it here.
         //
         let current = match strap {
             CurrentLimitStrap::GND => pmbus::Coefficients {

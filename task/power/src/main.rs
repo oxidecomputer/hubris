@@ -39,9 +39,6 @@ use drv_i2c_devices::{
 enum Trace {
     GotVersion(u32),
     GotAddr(u32),
-    Temp,
-    Timer,
-    Up,
     None,
 }
 
@@ -76,7 +73,7 @@ enum DeviceType {
     HotSwapIO(Ohms),
     HotSwapQSFP(Ohms),
     PowerShelf,
-    HotSwapCosmo(Ohms, CurrentLimitStrap),
+    HotSwapFans(Ohms, CurrentLimitStrap),
 }
 
 struct PowerControllerConfig {
@@ -105,7 +102,6 @@ enum Device {
 
 impl Device {
     fn read_temperature(&self) -> Result<Celsius, ResponseCode> {
-        ringbuf_entry!(Trace::Temp);
         let r = match &self {
             Device::Bmr491(dev) => dev.read_temperature()?,
             Device::Raa229618(dev) => dev.read_temperature()?,
@@ -261,7 +257,7 @@ impl PowerControllerConfig {
             DeviceType::HotSwapQSFP(sense) => {
                 Device::Ltc4282(Ltc4282::new(&dev, *sense))
             }
-            DeviceType::HotSwapCosmo(sense, strap) => {
+            DeviceType::HotSwapFans(sense, strap) => {
                 Device::Lm5066(Lm5066::new(&dev, *sense, *strap))
             }
         }
@@ -446,8 +442,6 @@ mod bsp;
 fn main() -> ! {
     let i2c_task = I2C.get_task_id();
 
-    ringbuf_entry!(Trace::Up);
-
     let mut server = ServerImpl {
         i2c_task,
         sensor: sensor_api::Sensor::from(SENSOR.get_task_id()),
@@ -471,8 +465,6 @@ struct ServerImpl {
 
 impl ServerImpl {
     fn handle_timer_fired(&mut self) {
-        ringbuf_entry!(Trace::Timer);
-
         let state = bsp::get_state();
         let sensor = &self.sensor;
 
