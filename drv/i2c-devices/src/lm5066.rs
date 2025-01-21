@@ -127,9 +127,10 @@ impl Lm5066 {
 
     //
     // The coefficients for the LM5066 depend on the value of the current
-    // sense resistor and the current limit (CL) strap.  Unfortunately,
-    // DEVICE_SETUP will not tell us the physical sense of this strap; we
-    // rely on this to be set when the device is constructed.
+    // sense resistor and the sense of the current limit (CL) strap.
+    // Unfortunately, DEVICE_SETUP will not tell us the physical sense of this
+    // strap; we rely on this information to be provided when the device is
+    // initialized.
     //
     fn load_coefficients(&self) -> Result<Coefficients, Error> {
         use lm5066::DEVICE_SETUP::*;
@@ -140,7 +141,7 @@ impl Lm5066 {
 
         let device_setup = self.read_device_setup()?;
 
-        let cl = device_setup
+        let setting = device_setup
             .get_current_setting()
             .ok_or(Error::InvalidDeviceSetup)?;
 
@@ -148,9 +149,9 @@ impl Lm5066 {
             .get_current_config()
             .ok_or(Error::InvalidDeviceSetup)?;
 
-        let strap = match config {
+        let cl = match config {
             CurrentConfig::Pin => self.cl,
-            CurrentConfig::SMBus => match cl {
+            CurrentConfig::SMBus => match setting {
                 CurrentSetting::Low => CurrentLimitStrap::VDD,
                 CurrentSetting::High => CurrentLimitStrap::GND,
             },
@@ -161,8 +162,9 @@ impl Lm5066 {
         // an admonishment about adjusting R to keep m to within a signed
         // 16-bit quantity (that is, no larger than 32767), but we actually
         // treat m as a 32-bit quantity so there is no need to clamp it here.
+        // (At the maximum of 200 mΩ, m is well within a 32-bit quantity.)
         //
-        let current = match strap {
+        let current = match cl {
             CurrentLimitStrap::GND => pmbus::Coefficients {
                 m: 5405 * self.rsense,
                 b: -600,
@@ -177,7 +179,7 @@ impl Lm5066 {
 
         ringbuf_entry!(Trace::CurrentCoefficients(current));
 
-        let power = match strap {
+        let power = match cl {
             CurrentLimitStrap::GND => pmbus::Coefficients {
                 m: 605 * self.rsense,
                 b: -8000,
@@ -193,7 +195,6 @@ impl Lm5066 {
         ringbuf_entry!(Trace::PowerCoefficients(power));
 
         self.coefficients.set(Some(Coefficients { current, power }));
-
         Ok(self.coefficients.get().unwrap())
     }
 
