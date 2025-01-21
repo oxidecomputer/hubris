@@ -109,6 +109,7 @@ max-sizes = {flash = 8192, ram = 2048}
 start = true
 # task-slots is explicitly empty: packrat should not send IPCs!
 task-slots = []
+features = ["grapefruit", "boot-kmdb"]
 
 [tasks.hiffy]
 name = "task-hiffy"

@@ -26,6 +26,7 @@ build-util = { path = "../../build/util" }
 
 [features]
 gimlet = ["drv-cpu-seq-api"]
+grapefruit = []
 boot-kmdb = []
 no-ipc-counters = ["idol/no-counters"]
 
