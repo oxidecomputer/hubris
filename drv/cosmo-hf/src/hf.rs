@@ -23,9 +23,9 @@ task_slot!(HASH, hash_driver);
 
 /// We break the 128 MiB flash chip into 2x 32 MiB slots, to match Gimlet
 ///
-/// The upper 64 MiB are unused (which is good, because it's a separate die and
-/// requires special handling).
+/// The upper 64 MiB are used for Bonus Data.
 const SLOT_SIZE_BYTES: u32 = 1024 * 1024 * 32;
+const BONUS_SIZE_BYTES: u32 = 1024 * 1024 * 64;
 
 pub struct ServerImpl {
     pub drv: FlashDriver,
@@ -81,6 +81,21 @@ impl ServerImpl {
             .is_some_and(|a| a < SLOT_SIZE_BYTES)
         {
             Self::flash_addr_for(offset, self.dev)
+        } else {
+            Err(HfError::BadAddress)
+        }
+    }
+
+    /// Converts a relative address to an absolute address in bonus space
+    fn bonus_addr(offset: u32, len: u32) -> Result<FlashAddr, HfError> {
+        if offset
+            .checked_add(len)
+            .is_some_and(|a| a < BONUS_SIZE_BYTES)
+        {
+            let addr = offset
+                .checked_add(2 * SLOT_SIZE_BYTES)
+                .ok_or(HfError::BadAddress)?;
+            Ok(FlashAddr(addr))
         } else {
             Err(HfError::BadAddress)
         }
@@ -324,6 +339,49 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         Ok(())
     }
 
+    /// Writes a page to the bonus region of flash
+    fn bonus_page_program(
+        &mut self,
+        _: &RecvMessage,
+        addr: u32,
+        data: LenLimit<Leased<R, [u8]>, PAGE_SIZE_BYTES>,
+    ) -> Result<(), RequestError<HfError>> {
+        // TODO check mux state?
+        self.drv
+            .flash_write(
+                Self::bonus_addr(addr, data.len() as u32)?,
+                &mut LeaseBufReader::<_, 32>::from(data.into_inner()),
+            )
+            .map_err(|()| RequestError::went_away())
+    }
+
+    /// Reads a page from the bonus region of flash
+    fn bonus_read(
+        &mut self,
+        _: &RecvMessage,
+        addr: u32,
+        dest: LenLimit<Leased<W, [u8]>, PAGE_SIZE_BYTES>,
+    ) -> Result<(), RequestError<HfError>> {
+        // TODO check mux state?
+        self.drv
+            .flash_read(
+                Self::bonus_addr(addr, dest.len() as u32)?,
+                &mut LeaseBufWriter::<_, 32>::from(dest.into_inner()),
+            )
+            .map_err(|_| RequestError::went_away())
+    }
+
+    /// Erases a 64 KiB sector in the bonus flash device
+    fn bonus_sector_erase(
+        &mut self,
+        _: &RecvMessage,
+        addr: u32,
+    ) -> Result<(), RequestError<HfError>> {
+        // TODO check mux state?
+        self.drv.flash_sector_erase(Self::bonus_addr(addr, 0)?);
+        Ok(())
+    }
+
     fn get_mux(
         &mut self,
         _: &RecvMessage,
@@ -521,6 +579,32 @@ impl idl::InOrderHostFlashImpl for FailServer {
         _: &RecvMessage,
         _addr: u32,
         _protect: HfProtectMode,
+    ) -> Result<(), RequestError<HfError>> {
+        Err(self.err.into())
+    }
+
+    fn bonus_page_program(
+        &mut self,
+        _: &RecvMessage,
+        _addr: u32,
+        _data: LenLimit<Leased<R, [u8]>, PAGE_SIZE_BYTES>,
+    ) -> Result<(), RequestError<HfError>> {
+        Err(self.err.into())
+    }
+
+    fn bonus_read(
+        &mut self,
+        _: &RecvMessage,
+        _offset: u32,
+        _dest: LenLimit<Leased<W, [u8]>, PAGE_SIZE_BYTES>,
+    ) -> Result<(), RequestError<HfError>> {
+        Err(self.err.into())
+    }
+
+    fn bonus_sector_erase(
+        &mut self,
+        _: &RecvMessage,
+        _addr: u32,
     ) -> Result<(), RequestError<HfError>> {
         Err(self.err.into())
     }

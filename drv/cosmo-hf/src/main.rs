@@ -4,7 +4,7 @@
 
 //! Minimal driver for FMC-attached NOR flash, implementing the `hf` API
 //!
-//! The NOR flash chip is a W25Q01JVZEIQ, which is a 1 GiB NOR flash.  It is
+//! The NOR flash chip is a W25Q01JVZEIQ, which is a 1 GBit NOR flash.  It is
 //! connected to the FPGA over SPI / QSPI.
 //!
 //! # References
