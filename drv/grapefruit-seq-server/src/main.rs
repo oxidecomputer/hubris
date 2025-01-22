@@ -73,7 +73,7 @@ fn main() -> ! {
         }
     }
     let identity = VpdIdentity {
-        serial: *b"GRAPEFRUIT ",
+        serial: *b"GRAPEFRUIT\0",
         part_number: *b"913-0000083",
         revision: 0,
     };
