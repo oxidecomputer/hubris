@@ -318,7 +318,7 @@ features = ["h753"]
 priority = 4
 start = true
 task-slots = ["sys", "net"]
-uses = ["fmc", "fmc_nor_psram_bank_1"]
+uses = ["fmc_nor_psram_bank_1"]
 notifications = ["socket"]
 
 [tasks.hf]
