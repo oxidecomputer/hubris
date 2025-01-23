@@ -15,7 +15,9 @@ use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use userlib::{task_slot, RecvMessage, UnwrapLite};
 use zerocopy::{AsBytes, FromBytes};
 
-use crate::{FlashDriver, Trace, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES};
+use crate::{
+    FlashAddr, FlashDriver, Trace, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES,
+};
 
 task_slot!(HASH, hash_driver);
 
@@ -67,12 +69,13 @@ impl ServerImpl {
     }
 
     /// Returns the current device's absolute base address
-    fn flash_base(&self) -> u32 {
-        Self::flash_base_for(self.dev)
+    fn flash_base(&self) -> FlashAddr {
+        // This is always valid, so we can unwrap it here
+        FlashAddr::new(Self::flash_base_for(self.dev)).unwrap_lite()
     }
 
     /// Converts a relative address to an absolute address in out current device
-    fn flash_addr(&self, offset: u32, size: u32) -> Result<u32, HfError> {
+    fn flash_addr(&self, offset: u32, size: u32) -> Result<FlashAddr, HfError> {
         if offset
             .checked_add(size)
             .is_some_and(|a| a < SLOT_SIZE_BYTES)
@@ -84,12 +87,17 @@ impl ServerImpl {
     }
 
     /// Converts a relative address to an absolute address in a device slot
-    fn flash_addr_for(offset: u32, dev: HfDevSelect) -> Result<u32, HfError> {
-        offset
+    fn flash_addr_for(
+        offset: u32,
+        dev: HfDevSelect,
+    ) -> Result<FlashAddr, HfError> {
+        let addr = offset
             .checked_add(Self::flash_base_for(dev))
-            .ok_or(HfError::BadAddress)
+            .ok_or(HfError::BadAddress)?;
+        FlashAddr::new(addr).ok_or(HfError::BadAddress)
     }
 
+    /// Return the absolute flash address base for the given virtual device
     fn flash_base_for(dev: HfDevSelect) -> u32 {
         match dev {
             HfDevSelect::Flash0 => 0,
@@ -363,7 +371,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             ringbuf_entry!(Trace::HashInitError(e));
             return Err(HfError::HashError.into());
         }
-        let begin = self.flash_addr(addr, len)? as usize;
+        let begin = self.flash_addr(addr, len)?.get() as usize;
         let end = begin + len as usize;
 
         let mut buf = [0u8; PAGE_SIZE_BYTES];
@@ -373,7 +381,12 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             // a lease (where writing into the lease fails if the client goes
             // away).  Giving it a buffer is infallible.
             self.drv
-                .flash_read(addr as u32, &mut &mut buf[..size])
+                .flash_read(
+                    // This unwrap is safe because we already checked the range
+                    // when building the initial `begin` address
+                    FlashAddr::new(addr as u32).unwrap_lite(),
+                    &mut &mut buf[..size],
+                )
                 .unwrap_lite();
             if let Err(e) = hash_driver.update(size as u32, &buf[..size]) {
                 ringbuf_entry!(Trace::HashUpdateError(e));

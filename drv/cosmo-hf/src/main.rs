@@ -58,6 +58,9 @@ pub const PAGE_SIZE_BYTES: usize = 256;
 /// behavior of the Gimlet host flash driver.
 pub const SECTOR_SIZE_BYTES: u32 = 65_536;
 
+/// Total flash size is 128 MiB
+pub const FLASH_SIZE_BYTES: u32 = 128 * 1024 * 1024;
+
 #[export_name = "main"]
 fn main() -> ! {
     // Wait for the FPGA to be configured; the sequencer task only starts its
@@ -83,6 +86,23 @@ fn main() -> ! {
     let mut buffer = [0; hf::idl::INCOMING_SIZE];
     loop {
         idol_runtime::dispatch(&mut buffer, &mut server);
+    }
+}
+
+/// Absolute memory address
+#[derive(Copy, Clone)]
+struct FlashAddr(u32);
+
+impl FlashAddr {
+    fn new(v: u32) -> Option<Self> {
+        if v < FLASH_SIZE_BYTES {
+            Some(FlashAddr(v))
+        } else {
+            None
+        }
+    }
+    fn get(&self) -> u32 {
+        self.0
     }
 }
 
@@ -227,10 +247,10 @@ impl FlashDriver {
     }
 
     /// Erases the 64KiB flash sector containing the given address
-    fn flash_sector_erase(&mut self, addr: u32) {
+    fn flash_sector_erase(&mut self, addr: FlashAddr) {
         self.flash_write_enable();
         self.write_reg(reg::DATA_BYTES, 0);
-        self.write_reg(reg::ADDR, addr);
+        self.write_reg(reg::ADDR, addr.0);
         self.write_reg(reg::DUMMY_CYCLES, 0);
         self.write_reg(reg::INSTR, instr::BLOCK_ERASE_64KB_4B);
         self.wait_fpga_busy();
@@ -245,7 +265,7 @@ impl FlashDriver {
     /// provided lease; when given a slice, it is infallible.
     fn flash_read(
         &mut self,
-        offset: u32,
+        offset: FlashAddr,
         dest: &mut dyn idol_runtime::BufWriter<'_>,
     ) -> Result<(), ()> {
         loop {
@@ -255,7 +275,7 @@ impl FlashDriver {
             }
             self.clear_fifos();
             self.write_reg(reg::DATA_BYTES, len as u32);
-            self.write_reg(reg::ADDR, offset);
+            self.write_reg(reg::ADDR, offset.0);
             self.write_reg(reg::DUMMY_CYCLES, 8);
             self.write_reg(reg::INSTR, instr::FAST_READ_QUAD_OUTPUT_4B);
             for i in 0..len.div_ceil(4) {
@@ -279,7 +299,7 @@ impl FlashDriver {
     /// provided lease; when given a slice, it is infallible.
     fn flash_write(
         &mut self,
-        addr: u32,
+        addr: FlashAddr,
         data: &mut dyn idol_runtime::BufReader<'_>,
     ) -> Result<(), ()> {
         loop {
@@ -290,7 +310,7 @@ impl FlashDriver {
 
             self.flash_write_enable();
             self.write_reg(reg::DATA_BYTES, len as u32);
-            self.write_reg(reg::ADDR, addr);
+            self.write_reg(reg::ADDR, addr.0);
             self.write_reg(reg::DUMMY_CYCLES, 0);
             for i in 0..len.div_ceil(4) {
                 let mut v = [0u8; 4];
@@ -368,8 +388,8 @@ impl FlashDriver {
         });
     }
 
-    fn set_espi_addr_offset(&self, v: u32) {
-        self.write_reg(reg::SP5_FLASH_OFFSET, v);
+    fn set_espi_addr_offset(&self, v: FlashAddr) {
+        self.write_reg(reg::SP5_FLASH_OFFSET, v.0);
     }
 }
 
