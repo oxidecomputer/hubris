@@ -51,6 +51,7 @@ impl ServerImpl {
         out
     }
 
+    /// Checks whether the given (relative) address is writable
     fn check_addr_writable(
         &self,
         addr: u32,
@@ -65,16 +66,28 @@ impl ServerImpl {
         }
     }
 
+    /// Returns the current device's absolute base address
     fn flash_base(&self) -> u32 {
         Self::flash_base_for(self.dev)
     }
 
-    fn flash_addr(&self, offset: u32) -> u32 {
-        Self::flash_addr_for(offset, self.dev)
+    /// Converts a relative address to an absolute address in out current device
+    fn flash_addr(&self, offset: u32, size: u32) -> Result<u32, HfError> {
+        if offset
+            .checked_add(size)
+            .is_some_and(|a| a < SLOT_SIZE_BYTES)
+        {
+            Self::flash_addr_for(offset, self.dev)
+        } else {
+            Err(HfError::BadAddress)
+        }
     }
 
-    fn flash_addr_for(offset: u32, dev: HfDevSelect) -> u32 {
-        offset + Self::flash_base_for(dev)
+    /// Converts a relative address to an absolute address in a device slot
+    fn flash_addr_for(offset: u32, dev: HfDevSelect) -> Result<u32, HfError> {
+        offset
+            .checked_add(Self::flash_base_for(dev))
+            .ok_or(HfError::BadAddress)
     }
 
     fn flash_base_for(dev: HfDevSelect) -> u32 {
@@ -100,7 +113,7 @@ impl ServerImpl {
             let mut data = HfRawPersistentData::new_zeroed();
             self.drv
                 .flash_read(
-                    Self::flash_addr_for(addr, dev),
+                    Self::flash_addr_for(addr, dev).unwrap_lite(),
                     &mut data.as_bytes_mut(),
                 )
                 .unwrap_lite(); // flash_read is infallible when using a slice
@@ -146,6 +159,9 @@ impl ServerImpl {
     ///
     /// If `addr` is `None`, then we're out of available space; erase all of
     /// sector 0 and write to address 0 upon success.
+    ///
+    /// # Panics
+    /// If `addr` points outside the slot
     fn write_raw_persistent_data_to_addr(
         &mut self,
         addr: Option<u32>,
@@ -153,9 +169,9 @@ impl ServerImpl {
         dev: HfDevSelect,
     ) {
         let addr = match addr {
-            Some(a) => Self::flash_addr_for(a, dev),
+            Some(a) => Self::flash_addr_for(a, dev).unwrap_lite(),
             None => {
-                let addr = Self::flash_addr_for(0, dev);
+                let addr = Self::flash_addr_for(0, dev).unwrap_lite();
                 self.drv.flash_sector_erase(addr);
                 addr
             }
@@ -163,7 +179,7 @@ impl ServerImpl {
         // flash_write is infallible when given a slice
         self.drv
             .flash_write(addr, &mut raw_data.as_bytes())
-            .unwrap_lite()
+            .unwrap_lite();
     }
 
     /// Ensures that the persistent data is consistent between the virtual devs
@@ -240,7 +256,9 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         // chip.  Instead, use the sector erase to erase the currently-active
         // virtual device.
         for offset in (0..SLOT_SIZE_BYTES).step_by(SECTOR_SIZE_BYTES as usize) {
-            self.drv.flash_sector_erase(self.flash_addr(offset));
+            self.drv.flash_sector_erase(
+                self.flash_addr(offset, SECTOR_SIZE_BYTES)?,
+            );
         }
         Ok(())
     }
@@ -255,9 +273,10 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     ) -> Result<(), RequestError<HfError>> {
         self.check_addr_writable(addr, protect)?;
         self.drv.check_flash_mux_state()?;
+        let addr = self.flash_addr(addr, data.len() as u32)?;
         self.drv
             .flash_write(
-                self.flash_addr(addr),
+                addr,
                 &mut LeaseBufReader::<_, 32>::from(data.into_inner()),
             )
             .map_err(|()| RequestError::went_away())
@@ -273,7 +292,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         self.drv.check_flash_mux_state()?;
         self.drv
             .flash_read(
-                self.flash_addr(addr),
+                self.flash_addr(addr, dest.len() as u32)?,
                 &mut LeaseBufWriter::<_, 32>::from(dest.into_inner()),
             )
             .map_err(|_| RequestError::went_away())
@@ -293,7 +312,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     ) -> Result<(), RequestError<HfError>> {
         self.drv.check_flash_mux_state()?;
         self.check_addr_writable(addr, protect)?;
-        self.drv.flash_sector_erase(self.flash_addr(addr));
+        self.drv.flash_sector_erase(self.flash_addr(addr, 0)?);
         Ok(())
     }
 
@@ -344,12 +363,8 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             ringbuf_entry!(Trace::HashInitError(e));
             return Err(HfError::HashError.into());
         }
-        let begin = self.flash_addr(addr) as usize;
-        // TODO: Begin may be an address beyond physical end of
-        // flash part and may wrap around.
-        let end = begin
-            .checked_add(len as usize)
-            .ok_or(HfError::HashBadRange)?;
+        let begin = self.flash_addr(addr, len)? as usize;
+        let end = begin + len as usize;
 
         let mut buf = [0u8; PAGE_SIZE_BYTES];
         for addr in (begin..end).step_by(buf.len()) {
