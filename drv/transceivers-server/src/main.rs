@@ -21,7 +21,7 @@ use drv_sidecar_front_io::{
     },
     Reg,
 };
-use drv_sidecar_seq_api::{SeqError, Sequencer};
+use drv_sidecar_seq_api::{SeqError, Sequencer, TofinoSeqState};
 use drv_transceivers_api::{
     ModuleStatus, TransceiversError, NUM_PORTS, TRANSCEIVER_TEMPERATURE_SENSORS,
 };
@@ -123,6 +123,7 @@ struct ServerImpl {
     led_states: LedStates,
     blink_on: bool,
     system_led_state: LedState,
+    in_a0: bool,
 
     /// Modules that are physically present but disabled by Hubris
     disabled: LogicalPortMask,
@@ -194,20 +195,25 @@ impl ServerImpl {
     }
 
     fn update_leds(&mut self) {
-        // handle port LEDs
         let mut next_state = LogicalPortMask(0);
-        for (i, state) in self.led_states.0.into_iter().enumerate() {
-            let i = LogicalPort(i as u8);
-            match state {
-                LedState::On => next_state.set(i),
-                LedState::Blink => {
-                    if self.blink_on {
-                        next_state.set(i)
+
+        // We only turn transceiver LEDs on when Sidecar is in A0 since that is when there can be
+        // meaningful link activity happening. When outside of A0 we default the LEDs to off.
+        if self.in_a0 {
+            for (i, state) in self.led_states.0.into_iter().enumerate() {
+                let i = LogicalPort(i as u8);
+                match state {
+                    LedState::On => next_state.set(i),
+                    LedState::Blink => {
+                        if self.blink_on {
+                            next_state.set(i)
+                        }
                     }
+                    LedState::Off => (),
                 }
-                LedState::Off => (),
             }
         }
+        
         if let Err(e) = self.leds.update_led_state(next_state) {
             ringbuf_entry!(Trace::LEDUpdateError(e));
         }
@@ -647,6 +653,7 @@ fn main() -> ! {
         led_states: LedStates([LedState::Off; NUM_PORTS as usize]),
         blink_on: false,
         system_led_state: LedState::Off,
+        in_a0: false,
         disabled: LogicalPortMask(0),
         consecutive_errors: [0; NUM_PORTS as usize],
         #[cfg(feature = "thermal-control")]
@@ -714,6 +721,12 @@ fn main() -> ! {
                 };
             }
         }
+
+        server.in_a0 = match seq.tofino_seq_state() {
+            Ok(TofinoSeqState::A0) => true,
+            Ok(_) => false,
+            Err(_) => false,
+        };
 
         multitimer.poll_now();
         for t in multitimer.iter_fired() {
