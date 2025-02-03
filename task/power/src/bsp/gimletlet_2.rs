@@ -10,7 +10,7 @@ use crate::{
 pub(crate) const CONTROLLER_CONFIG_LEN: usize = 1;
 pub(crate) static CONTROLLER_CONFIG: [PowerControllerConfig;
     CONTROLLER_CONFIG_LEN] = [lm5066_controller!(
-    HotSwapFans,
+    HotSwap,
     lm5066_evl_vout,
     A2,
     Ohms(0.003),

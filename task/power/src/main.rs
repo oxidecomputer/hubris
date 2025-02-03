@@ -73,7 +73,6 @@ enum DeviceType {
     HotSwapIO,
     HotSwapQSFP,
     PowerShelf,
-    HotSwapFans(Ohms, CurrentLimitStrap),
 }
 
 /// Chip used to talk to the given device
@@ -87,6 +86,7 @@ enum DeviceChip {
     Max5970(Ohms),
     Mwocp68,
     Ltc4282(Ohms),
+    Lm5066(Ohms, CurrentLimitStrap),
 }
 
 struct PowerControllerConfig {
@@ -272,7 +272,7 @@ impl PowerControllerConfig {
             DeviceChip::Ltc4282(sense) => {
                 Device::Ltc4282(Ltc4282::new(&dev, *sense))
             }
-            DeviceType::HotSwapFans(sense, strap) => {
+            DeviceChip::Lm5066(sense, strap) => {
                 Device::Lm5066(Lm5066::new(&dev, *sense, *strap))
             }
         }
@@ -368,8 +368,9 @@ macro_rules! lm5066_controller {
     ($which:ident, $rail:ident, $state:ident, $rsense:expr, $strap:expr) => {
         paste::paste! {
             PowerControllerConfig {
-                state: PowerState::$state,
-                device: DeviceType::$which($rsense, $strap),
+                state: $crate::PowerState::$state,
+                device: $crate::DeviceType::$which,
+                chip: $crate::DeviceChip::Lm5066($rsense, $strap),
                 builder: i2c_config::pmbus::$rail,
                 voltage: sensors::[<LM5066_ $rail:upper _VOLTAGE_SENSOR>],
                 input_voltage: None,
