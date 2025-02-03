@@ -109,6 +109,7 @@ max-sizes = {flash = 8192, ram = 2048}
 start = true
 # task-slots is explicitly empty: packrat should not send IPCs!
 task-slots = []
+features = ["grapefruit", "boot-kmdb"]
 
 [tasks.hiffy]
 name = "task-hiffy"
@@ -176,7 +177,8 @@ priority = 4
 max-sizes = {flash = 131072, ram = 16384 }
 stacksize = 2600
 start = true
-task-slots = ["sys", {spi = "spi2_driver"}, "auxflash", "jefe"]
+task-slots = ["sys", {spi = "spi2_driver"}, "auxflash", "jefe", "packrat"]
+uses = ["fmc_nor_psram_bank_1"]
 
 [tasks.thermal]
 name = "task-thermal"
@@ -316,7 +318,7 @@ features = ["h753"]
 priority = 4
 start = true
 task-slots = ["sys", "net"]
-uses = ["fmc", "fmc_nor_psram_bank_1"]
+uses = ["fmc_nor_psram_bank_1"]
 notifications = ["socket"]
 
 [tasks.hf]

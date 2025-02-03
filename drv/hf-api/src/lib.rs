@@ -33,6 +33,7 @@ pub enum HfError {
     MonotonicCounterOverflow,
     FpgaNotConfigured,
     BadChipId,
+    BadAddress,
 
     #[idol(server_death)]
     ServerRestarted,

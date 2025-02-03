@@ -139,8 +139,14 @@ impl TxBuf {
     }
 
     /// Should we be sending periodic 0 bytes?
+    #[cfg(feature = "gimlet")]
     pub(crate) fn should_send_periodic_zero_bytes(&self) -> bool {
         matches!(self.state, State::Idle)
+    }
+
+    #[cfg(feature = "grapefruit")]
+    pub(crate) fn should_send_periodic_zero_bytes(&self) -> bool {
+        false
     }
 
     /// Encodes `reason` into our outgoing buffer.

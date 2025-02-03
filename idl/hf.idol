@@ -155,5 +155,41 @@ Interface(
                 err: CLike("HfError"),
             ),
         ),
+        "bonus_page_program": (
+            description: "programs a page into the bonus region of host flash",
+            args: {
+                "address": "u32",
+            },
+            leases: {
+                "data": (type: "[u8]", read: true, max_len: Some(256)),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("HfError"),
+            ),
+        ),
+        "bonus_read": (
+            description: "reads from the bonus region of host flash",
+            args: {
+                "address": "u32",
+            },
+            leases: {
+                "data": (type: "[u8]", write: true, max_len: Some(256)),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("HfError"),
+            ),
+        ),
+        "bonus_sector_erase": (
+            description: "erases a 64 KiB sector from the bonus region of host flash",
+            args: {
+                "address": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("HfError"),
+            ),
+        ),
     },
 )

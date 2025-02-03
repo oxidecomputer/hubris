@@ -976,6 +976,7 @@ dependencies = [
  "counters",
  "derive-idol-err",
  "drv-qspi-api",
+ "gnarle",
  "idol",
  "idol-runtime",
  "num-traits",
@@ -1217,6 +1218,7 @@ dependencies = [
  "drv-auxflash-api",
  "drv-cpu-power-state",
  "drv-cpu-seq-api",
+ "drv-spartan7-spi-program",
  "drv-spi-api",
  "drv-stm32xx-sys-api",
  "gnarle",
@@ -1224,8 +1226,8 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "ringbuf",
- "sha3",
  "task-jefe-api",
+ "task-packrat-api",
  "userlib",
  "zerocopy 0.6.6",
 ]
@@ -1962,6 +1964,16 @@ dependencies = [
  "num-traits",
  "userlib",
  "zerocopy 0.6.6",
+]
+
+[[package]]
+name = "drv-spartan7-spi-program"
+version = "0.1.0"
+dependencies = [
+ "counters",
+ "drv-spi-api",
+ "drv-stm32xx-sys-api",
+ "userlib",
 ]
 
 [[package]]

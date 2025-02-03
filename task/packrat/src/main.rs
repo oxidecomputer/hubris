@@ -42,6 +42,9 @@ use userlib::RecvMessage;
 #[cfg(feature = "gimlet")]
 mod gimlet;
 
+#[cfg(feature = "grapefruit")]
+mod grapefruit;
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[allow(dead_code)] // not all variants are used, depending on cargo features
 enum Trace {
@@ -111,6 +114,8 @@ fn main() -> ! {
         identity,
         #[cfg(feature = "gimlet")]
         gimlet_data: gimlet::GimletData::new(gimlet_bufs),
+        #[cfg(feature = "grapefruit")]
+        grapefruit_data: grapefruit::GrapefruitData::new(),
     };
 
     let mut buffer = [0; idl::INCOMING_SIZE];
@@ -124,6 +129,8 @@ struct ServerImpl {
     identity: &'static mut Option<VpdIdentity>,
     #[cfg(feature = "gimlet")]
     gimlet_data: gimlet::GimletData,
+    #[cfg(feature = "grapefruit")]
+    grapefruit_data: grapefruit::GrapefruitData,
 }
 
 impl ServerImpl {
@@ -204,7 +211,15 @@ impl idl::InOrderPackratImpl for ServerImpl {
         Ok(self.gimlet_data.host_startup_options())
     }
 
-    #[cfg(not(feature = "gimlet"))]
+    #[cfg(feature = "grapefruit")]
+    fn get_next_boot_host_startup_options(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<HostStartupOptions, RequestError<Infallible>> {
+        Ok(self.grapefruit_data.host_startup_options())
+    }
+
+    #[cfg(not(any(feature = "gimlet", feature = "grapefruit")))]
     fn get_next_boot_host_startup_options(
         &mut self,
         _: &RecvMessage,
@@ -228,7 +243,21 @@ impl idl::InOrderPackratImpl for ServerImpl {
         Ok(())
     }
 
-    #[cfg(not(feature = "gimlet"))]
+    #[cfg(feature = "grapefruit")]
+    fn set_next_boot_host_startup_options(
+        &mut self,
+        _: &RecvMessage,
+        host_startup_options: HostStartupOptions,
+    ) -> Result<(), RequestError<Infallible>> {
+        ringbuf_entry!(Trace::SetNextBootHostStartupOptions(
+            host_startup_options
+        ));
+        self.grapefruit_data
+            .set_host_startup_options(host_startup_options);
+        Ok(())
+    }
+
+    #[cfg(not(any(feature = "gimlet", feature = "grapefruit")))]
     fn set_next_boot_host_startup_options(
         &mut self,
         _: &RecvMessage,

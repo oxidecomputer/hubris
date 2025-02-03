@@ -103,7 +103,7 @@ task-slots = ["jefe"]
 
 [tasks.host_sp_comms]
 name = "task-host-sp-comms"
-features = ["stm32h753", "uart7", "baud_rate_3M", "hardware_flow_control", "vlan"]
+features = ["gimlet", "stm32h753", "uart7", "baud_rate_3M", "hardware_flow_control", "vlan"]
 uses = ["uart7", "dbgmcu"]
 interrupts = {"uart7.irq" = "usart-irq"}
 priority = 8

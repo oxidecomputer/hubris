@@ -5,7 +5,7 @@
 //! SP inventory types and implementation
 //!
 //! This reduces clutter in the main `ServerImpl` implementation
-use super::ServerImpl;
+use super::{inventory::by_refdes, ServerImpl};
 
 use drv_i2c_api::I2cDevice;
 use drv_i2c_api::ResponseCode;
@@ -20,31 +20,6 @@ use host_sp_messages::{InventoryData, InventoryDataResult};
 
 userlib::task_slot!(I2C, i2c_driver);
 userlib::task_slot!(SPI, spi_driver);
-
-/// `const` function to convert a `&'static str` to a fixed-size byte array
-///
-/// This must be called a `const` parameter of `s.len()`
-const fn byteify<const N: usize>(s: &'static [u8]) -> [u8; N] {
-    let mut out = [0u8; N];
-    let mut i = 0;
-    while i < s.len() {
-        out[i] = s[i];
-        i += 1;
-    }
-    out
-}
-macro_rules! by_refdes {
-    ($refdes:ident, $dev:ident) => {
-        paste::paste! {{
-            const BYTE_ARRAY: &'static [u8] = stringify!($refdes).as_bytes();
-            (
-                byteify::<{ BYTE_ARRAY.len() }>(BYTE_ARRAY),
-                i2c_config::devices::[<$dev _ $refdes:lower >] as fn(TaskId) -> I2cDevice,
-                i2c_config::sensors::[<$dev:upper _ $refdes:upper _SENSORS>]
-            )
-        }}
-    };
-}
 
 impl ServerImpl {
     /// Number of devices in our inventory

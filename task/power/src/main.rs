@@ -68,17 +68,31 @@ enum DeviceType {
     Mem,
     MemVpp,
     Sys,
-    HotSwap(Ohms),
-    Fan(Ohms),
-    HotSwapIO(Ohms),
-    HotSwapQSFP(Ohms),
+    HotSwap,
+    Fan,
+    HotSwapIO,
+    HotSwapQSFP,
     PowerShelf,
     HotSwapFans(Ohms, CurrentLimitStrap),
+}
+
+/// Chip used to talk to the given device
+#[allow(dead_code)]
+enum DeviceChip {
+    Bmr491,
+    Raa229618,
+    Isl68224,
+    Tps546B24A,
+    Adm1272(Ohms),
+    Max5970(Ohms),
+    Mwocp68,
+    Ltc4282(Ohms),
 }
 
 struct PowerControllerConfig {
     state: PowerState,
     device: DeviceType,
+    chip: DeviceChip,
     builder: fn(TaskId) -> (drv_i2c_api::I2cDevice, u8), // device, rail
     voltage: SensorId,
     input_voltage: Option<SensorId>,
@@ -88,6 +102,7 @@ struct PowerControllerConfig {
     phases: Option<&'static [u8]>,
 }
 
+/// Bound device, which exposes sensor functions
 enum Device {
     Bmr491(Bmr491),
     Raa229618(Raa229618),
@@ -238,23 +253,23 @@ impl Device {
 impl PowerControllerConfig {
     fn get_device(&self, task: TaskId) -> Device {
         let (dev, rail) = (self.builder)(task);
-        match &self.device {
-            DeviceType::IBC => Device::Bmr491(Bmr491::new(&dev, rail)),
-            DeviceType::Core | DeviceType::Mem => {
+        match &self.chip {
+            DeviceChip::Bmr491 => Device::Bmr491(Bmr491::new(&dev, rail)),
+            DeviceChip::Raa229618 => {
                 Device::Raa229618(Raa229618::new(&dev, rail))
             }
-            DeviceType::MemVpp | DeviceType::SerDes => {
-                Device::Isl68224(Isl68224::new(&dev, rail))
+            DeviceChip::Isl68224 => Device::Isl68224(Isl68224::new(&dev, rail)),
+            DeviceChip::Tps546B24A => {
+                Device::Tps546B24A(Tps546B24A::new(&dev, rail))
             }
-            DeviceType::Sys => Device::Tps546B24A(Tps546B24A::new(&dev, rail)),
-            DeviceType::HotSwap(sense) | DeviceType::Fan(sense) => {
+            DeviceChip::Adm1272(sense) => {
                 Device::Adm1272(Adm1272::new(&dev, *sense))
             }
-            DeviceType::HotSwapIO(sense) => {
+            DeviceChip::Max5970(sense) => {
                 Device::Max5970(Max5970::new(&dev, rail, *sense))
             }
-            DeviceType::PowerShelf => Device::Mwocp68(Mwocp68::new(&dev, rail)),
-            DeviceType::HotSwapQSFP(sense) => {
+            DeviceChip::Mwocp68 => Device::Mwocp68(Mwocp68::new(&dev, rail)),
+            DeviceChip::Ltc4282(sense) => {
                 Device::Ltc4282(Ltc4282::new(&dev, *sense))
             }
             DeviceType::HotSwapFans(sense, strap) => {
@@ -269,8 +284,9 @@ macro_rules! rail_controller {
     ($which:ident, $dev:ident, $rail:ident, $state:ident) => {
         paste::paste! {
             PowerControllerConfig {
-                state: PowerState::$state,
-                device: DeviceType::$which,
+                state: $crate::PowerState::$state,
+                device: $crate::DeviceType::$which,
+                chip: $crate::DeviceChip::[< $dev:camel >],
                 builder: i2c_config::pmbus::$rail,
                 voltage: sensors::[<$dev:upper _ $rail:upper _VOLTAGE_SENSOR>],
                 input_voltage: None,
@@ -290,8 +306,9 @@ macro_rules! rail_controller_notemp {
     ($which:ident, $dev:ident, $rail:ident, $state:ident) => {
         paste::paste! {
             PowerControllerConfig {
-                state: PowerState::$state,
-                device: DeviceType::$which,
+                state: $crate::PowerState::$state,
+                device: $crate::DeviceType::$which,
+                chip: $crate::DeviceChip::[< $dev:camel >],
                 builder:i2c_config::pmbus::$rail,
                 voltage: sensors::[<$dev:upper _ $rail:upper _VOLTAGE_SENSOR>],
                 input_voltage: None,
@@ -309,8 +326,9 @@ macro_rules! adm1272_controller {
     ($which:ident, $rail:ident, $state:ident, $rsense:expr) => {
         paste::paste! {
             PowerControllerConfig {
-                state: PowerState::$state,
-                device: DeviceType::$which($rsense),
+                state: $crate::PowerState::$state,
+                device: $crate::DeviceType::$which,
+                chip: $crate::DeviceChip::Adm1272($rsense),
                 builder: i2c_config::pmbus::$rail,
                 voltage: sensors::[<ADM1272_ $rail:upper _VOLTAGE_SENSOR>],
                 input_voltage: None,
@@ -330,8 +348,9 @@ macro_rules! ltc4282_controller {
     ($which:ident, $rail:ident, $state:ident, $rsense:expr) => {
         paste::paste! {
             PowerControllerConfig {
-                state: PowerState::$state,
-                device: DeviceType::$which($rsense),
+                state: $crate::PowerState::$state,
+                device: $crate::DeviceType::$which,
+                chip: $crate::DeviceChip::Ltc4282($rsense),
                 builder: i2c_config::power::$rail,
                 voltage: sensors::[<LTC4282_ $rail:upper _VOLTAGE_SENSOR>],
                 input_voltage: None,
@@ -370,8 +389,9 @@ macro_rules! max5970_controller {
     ($which:ident, $rail:ident, $state:ident, $rsense:expr) => {
         paste::paste! {
             PowerControllerConfig {
-                state: PowerState::$state,
-                device: DeviceType::$which($rsense),
+                state: $crate::PowerState::$state,
+                device: $crate::DeviceType::$which,
+                chip: $crate::DeviceChip::Max5970($rsense),
                 builder: i2c_config::power::$rail,
                 voltage: sensors::[<MAX5970_ $rail:upper _VOLTAGE_SENSOR>],
                 input_voltage: None,
@@ -389,8 +409,9 @@ macro_rules! mwocp68_controller {
     ($which:ident, $rail:ident, $state:ident) => {
         paste::paste! {
             PowerControllerConfig {
-                state: PowerState::$state,
-                device: DeviceType::$which,
+                state: $crate::PowerState::$state,
+                device: $crate::DeviceType::$which,
+                chip: $crate::DeviceChip::Mwocp68,
                 builder: i2c_config::pmbus::$rail,
                 voltage: sensors::[<MWOCP68_ $rail:upper _VOLTAGE_SENSOR>],
                 input_voltage: Some(
