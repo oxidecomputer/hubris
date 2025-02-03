@@ -1,0 +1,14 @@
+// STM32H7 DAC IPC API
+
+Interface(
+    name: "Dac",
+    ops: {
+        "test_pattern": (
+            args: {},
+            reply: Result(
+                ok: "()",
+                err: CLike("DacError"),
+            ),
+        ),
+    },
+)

@@ -1071,6 +1071,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-dac-api"
+version = "0.1.0"
+dependencies = [
+ "counters",
+ "derive-idol-err",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "userlib",
+ "zerocopy 0.6.6",
+]
+
+[[package]]
+name = "drv-dac-server"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if",
+ "cortex-m",
+ "drv-dac-api",
+ "drv-stm32xx-sys-api",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "stm32h7",
+ "userlib",
+ "zerocopy 0.6.6",
+]
+
+[[package]]
 name = "drv-eeprom"
 version = "0.1.0"
 dependencies = [
@@ -3514,6 +3544,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "methpga"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if",
+ "cortex-m",
+ "cortex-m-rt",
+ "drv-stm32h7-startup",
+ "kern",
+ "stm32h7",
+]
+
+[[package]]
 name = "miniz_oxide"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5248,6 +5291,7 @@ dependencies = [
  "build-stm32xx-sys",
  "build-util",
  "counters",
+ "drv-dac-api",
  "drv-stm32xx-sys-api",
  "drv-user-leds-api",
  "ringbuf",

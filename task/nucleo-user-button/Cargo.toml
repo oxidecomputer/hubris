@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 drv-user-leds-api = { path = "../../drv/user-leds-api" }
+drv-dac-api = { path = "../../drv/dac-api" }
 drv-stm32xx-sys-api = { path = "../../drv/stm32xx-sys-api", features = ["family-stm32h7"] }
 
 counters = { path = "../../lib/counters" }

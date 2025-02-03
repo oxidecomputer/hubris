@@ -24,6 +24,7 @@ compile_error!(
 );
 
 task_slot!(USER_LEDS, user_leds);
+task_slot!(DAC, dac);
 task_slot!(SYS, sys);
 
 task_config::optional_task_config! {
@@ -64,6 +65,8 @@ ringbuf::counted_ringbuf!(Trace, 16, Trace::None);
 #[export_name = "main"]
 pub fn main() -> ! {
     let user_leds = drv_user_leds_api::UserLeds::from(USER_LEDS.get_task_id());
+    let dac = drv_dac_api::Dac::from(DAC.get_task_id());
+
     let sys = drv_stm32xx_sys_api::Sys::from(SYS.get_task_id());
 
     let Config { led, edge } = TASK_CONFIG.unwrap_or(Config {
@@ -100,6 +103,7 @@ pub fn main() -> ! {
         if fired {
             ringbuf_entry!(Trace::LedToggle { led });
             user_leds.led_toggle(led).unwrap_lite();
+            dac.test_pattern().unwrap_lite();
         }
 
         // Wait for the user button to be pressed.
