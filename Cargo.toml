@@ -133,7 +133,7 @@ idol = { git = "https://github.com/oxidecomputer/idolatry.git", default-features
 idol-runtime = { git = "https://github.com/oxidecomputer/idolatry.git", default-features = false }
 lpc55_sign = { git = "https://github.com/oxidecomputer/lpc55_support", default-features = false }
 ordered-toml = { git = "https://github.com/oxidecomputer/ordered-toml", default-features = false }
-pmbus = { git = "https://github.com/oxidecomputer/pmbus", default-features = false, branch = "lm5066" }
+pmbus = { git = "https://github.com/oxidecomputer/pmbus", default-features = false }
 salty = { version = "0.3", default-features = false }
 spd = { git = "https://github.com/oxidecomputer/spd", default-features = false }
 tlvc = { git = "https://github.com/oxidecomputer/tlvc", default-features = false, version = "0.3.1" }
