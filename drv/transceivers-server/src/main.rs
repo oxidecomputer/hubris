@@ -78,6 +78,7 @@ enum Trace {
     DisablingPorts(LogicalPortMask),
     DisableFailed(usize, LogicalPortMask),
     ClearDisabledPorts(LogicalPortMask),
+    SeqError(SeqError),
 }
 
 counted_ringbuf!(Trace, 16, Trace::None);
@@ -194,12 +195,12 @@ impl ServerImpl {
         self.system_led_state
     }
 
-    fn update_leds(&mut self) {
+    fn update_leds(&mut self, seq_state: TofinoSeqState) {
         let mut next_state = LogicalPortMask(0);
 
-        // We only turn transceiver LEDs on when Sidecar is in A0 since that is when there can be
-        // meaningful link activity happening. When outside of A0 we default the LEDs to off.
-        if self.in_a0 {
+        // We only turn transceiver LEDs on when Sidecar is in A0, since that is when there can be
+        // meaningful link activity happening. When outside of A0, we default the LEDs to off.
+        if seq_state == TofinoSeqState::A0 {
             for (i, state) in self.led_states.0.into_iter().enumerate() {
                 let i = LogicalPort(i as u8);
                 match state {
@@ -518,9 +519,9 @@ impl ServerImpl {
         // the `sensors` and `thermal` tasks.
     }
 
-    fn handle_i2c_loop(&mut self) {
+    fn handle_i2c_loop(&mut self, seq_state: TofinoSeqState) {
         if self.leds_initialized {
-            self.update_leds();
+            self.update_leds(seq_state);
             let errors = match self.leds.error_summary() {
                 Ok(errs) => errs,
                 Err(e) => {
@@ -722,20 +723,29 @@ fn main() -> ! {
             }
         }
 
-        server.in_a0 = match seq.tofino_seq_state() {
-            Ok(TofinoSeqState::A0) => true,
-            Ok(_) => false,
-            Err(_) => false,
-        };
-
         multitimer.poll_now();
         for t in multitimer.iter_fired() {
             match t {
                 Timers::I2C => {
+                    // Check what power state we are in since that can impact LED state which is
+                    // part of the I2C loop.
+                    let seq_state = match seq.tofino_seq_state() {
+                        Ok(state) => state,
+                        Err(e) => {
+                            // The failure path here is that we cannot get the state from the FPGA.
+                            // If we cannot communicate with the FPGA then something has likely went
+                            // rather wrong and we are probably not in A0, so for handling the error
+                            // we will assume to be in the Init state since that is what the main
+                            // sequencer does as well.
+                            ringbuf_entry!(Trace::SeqError(e));
+                            TofinoSeqState::Init
+                        }
+                    };
+
                     // Handle the Front IO status checking as part of this
                     // loop because the frequency is what we had before and
                     // the server itself has no knowledge of the sequencer.
-                    server.handle_i2c_loop();
+                    server.handle_i2c_loop(seq_state);
                 }
                 Timers::SPI => {
                     if server.front_io_board_present == FrontIOStatus::Ready {
