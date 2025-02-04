@@ -94,7 +94,7 @@ enum Trace {
     None,
 }
 
-ringbuf!(Trace, 32, Trace::None);
+ringbuf!(Trace, 8, Trace::None);
 
 impl Lm5066 {
     pub fn new(
