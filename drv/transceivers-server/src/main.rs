@@ -727,18 +727,16 @@ fn main() -> ! {
                 Timers::I2C => {
                     // Check what power state we are in since that can impact LED state which is
                     // part of the I2C loop.
-                    let seq_state = match seq.tofino_seq_state() {
-                        Ok(state) => state,
-                        Err(e) => {
+                    let seq_state =
+                        seq.tofino_seq_state().unwrap_or_else(|e| {
                             // The failure path here is that we cannot get the state from the FPGA.
                             // If we cannot communicate with the FPGA then something has likely went
-                            // rather wrong and we are probably not in A0, so for handling the error
-                            // we will assume to be in the Init state since that is what the main
+                            // rather wrong, and we are probably not in A0. For handling the error
+                            // we will assume to be in the Init state, since that is what the main
                             // sequencer does as well.
                             ringbuf_entry!(Trace::SeqError(e));
                             TofinoSeqState::Init
-                        }
-                    };
+                        });
 
                     // Handle the Front IO status checking as part of this
                     // loop because the frequency is what we had before and
