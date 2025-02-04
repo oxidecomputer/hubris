@@ -124,7 +124,6 @@ struct ServerImpl {
     led_states: LedStates,
     blink_on: bool,
     system_led_state: LedState,
-    in_a0: bool,
 
     /// Modules that are physically present but disabled by Hubris
     disabled: LogicalPortMask,
@@ -654,7 +653,6 @@ fn main() -> ! {
         led_states: LedStates([LedState::Off; NUM_PORTS as usize]),
         blink_on: false,
         system_led_state: LedState::Off,
-        in_a0: false,
         disabled: LogicalPortMask(0),
         consecutive_errors: [0; NUM_PORTS as usize],
         #[cfg(feature = "thermal-control")]
