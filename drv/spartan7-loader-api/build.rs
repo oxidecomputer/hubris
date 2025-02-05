@@ -3,12 +3,11 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    build_util::expose_target_board();
-    idol::Generator::new().build_server_support(
-        "../../idl/cpu-seq.idol",
-        "server_stub.rs",
-        idol::server::ServerStyle::InOrder,
-    )?;
-
+    idol::Generator::new()
+        .with_counters(idol::CounterSettings::default())
+        .build_client_stub(
+            "../../idl/spartan7-loader.idol",
+            "client_stub.rs",
+        )?;
     Ok(())
 }

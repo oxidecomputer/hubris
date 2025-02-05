@@ -173,12 +173,21 @@ interrupts = {"spi4.irq" = "spi-irq"}
 [tasks.grapefruit_seq]
 name = "drv-grapefruit-seq-server"
 features = ["h753"]
+priority = 5
+max-sizes = {flash = 131072, ram = 16384 }
+stacksize = 2600
+start = true
+task-slots = ["sys", "jefe", "packrat", "spartan7_loader"]
+uses = ["fmc_nor_psram_bank_1"]
+
+[tasks.spartan7_loader]
+name = "drv-spartan7-loader"
+features = ["h753", "grapefruit"]
 priority = 4
 max-sizes = {flash = 131072, ram = 16384 }
 stacksize = 2600
 start = true
-task-slots = ["sys", {spi = "spi2_driver"}, "auxflash", "jefe", "packrat"]
-uses = ["fmc_nor_psram_bank_1"]
+task-slots = ["sys", {spi = "spi2_driver"}, "auxflash"]
 
 [tasks.thermal]
 name = "task-thermal"
@@ -326,7 +335,7 @@ name = "drv-cosmo-hf"
 priority = 5
 start = true
 uses = ["fmc_nor_psram_bank_1"]
-task-slots = ["hash_driver", "grapefruit_seq"]
+task-slots = ["hash_driver", "spartan7_loader"]
 stacksize = 4000
 
 [config.net]
@@ -551,7 +560,7 @@ outputs = [
 ]
 input = {port = "B", pin = 14, af = 5} # not actually used in FPGA config
 
-[config.spi.spi2.devices.fpga]
+[config.spi.spi2.devices.spartan7_fpga]
 mux = "port_b"
 cs = []
 # no CS pin; we're using the SPI peripheral to send synchronized CLK + DATA
@@ -580,4 +589,4 @@ slot-count = 16 # 2 MiB slots
 file = "drv/grapefruit-seq-server/grapefruit.bz2"
 unzip = "bz2"
 compress = true
-tag = "FPGA"
+tag = "SPA7" # used by drv-spartan7-loader

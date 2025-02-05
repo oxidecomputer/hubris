@@ -7,31 +7,21 @@
 #![no_std]
 #![no_main]
 
-use core::num::NonZeroUsize;
 use drv_cpu_seq_api::{PowerState, StateChangeReason};
-use drv_spartan7_spi_program::{BitstreamLoader, Spartan7Error};
-use drv_spi_api::{SpiDevice, SpiServer};
+use drv_spartan7_loader_api::Spartan7Loader;
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};
 use task_jefe_api::Jefe;
 use task_packrat_api::{CacheSetError, MacAddressBlock, Packrat, VpdIdentity};
-use userlib::{
-    hl, sys_recv_notification, task_slot, FromPrimitive, RecvMessage,
-    UnwrapLite,
-};
+use userlib::{hl, task_slot, FromPrimitive, RecvMessage, UnwrapLite};
 
 use ringbuf::{counted_ringbuf, ringbuf_entry, Count};
 
 task_slot!(JEFE, jefe);
+task_slot!(LOADER, spartan7_loader);
 
 #[derive(Copy, Clone, PartialEq, Count)]
 enum Trace {
-    FpgaInit,
-    FpgaInitFailed(#[count(children)] Spartan7Error),
-    StartFailed(#[count(children)] SeqError),
-    ContinueBitstreamLoad(usize),
-    WaitForDone,
-    Programmed,
     MacsAlreadySet(MacAddressBlock),
     IdentityAlreadySet(VpdIdentity),
 
@@ -39,37 +29,14 @@ enum Trace {
     None,
 }
 
-#[derive(Copy, Clone, PartialEq, Count)]
-enum SeqError {
-    AuxFlashError(#[count(children)] drv_auxflash_api::AuxFlashError),
-    AuxChecksumMismatch,
-    FpgaError(#[count(children)] drv_spartan7_spi_program::Spartan7Error),
-}
-
-impl From<drv_auxflash_api::AuxFlashError> for SeqError {
-    fn from(v: drv_auxflash_api::AuxFlashError) -> Self {
-        SeqError::AuxFlashError(v)
-    }
-}
-
-impl From<drv_spartan7_spi_program::Spartan7Error> for SeqError {
-    fn from(v: drv_spartan7_spi_program::Spartan7Error) -> Self {
-        SeqError::FpgaError(v)
-    }
-}
-
 counted_ringbuf!(Trace, 128, Trace::None);
 
 task_slot!(SYS, sys);
-task_slot!(SPI, spi);
-task_slot!(AUXFLASH, auxflash);
 task_slot!(PACKRAT, packrat);
 
 #[export_name = "main"]
 fn main() -> ! {
     let sys = sys_api::Sys::from(SYS.get_task_id());
-    let spi = drv_spi_api::Spi::from(SPI.get_task_id());
-    let aux = drv_auxflash_api::AuxFlash::from(AUXFLASH.get_task_id());
 
     // Populate packrat with dummy values, because talking to the EEPROM is hard
     let packrat = Packrat::from(PACKRAT.get_task_id());
@@ -96,59 +63,23 @@ fn main() -> ! {
         }
     }
 
-    match ServerImpl::init(&sys, spi, aux) {
-        // Set up everything nicely, time to start serving incoming messages.
-        Ok(mut server) => {
-            let mut buffer = [0; idl::INCOMING_SIZE];
-            loop {
-                idol_runtime::dispatch(&mut buffer, &mut server);
-            }
-        }
-
-        // Initializing the sequencer failed.
-        Err(e) => {
-            // Tell everyone that something's broken, as loudly as possible.
-            ringbuf_entry!(Trace::StartFailed(e));
-            // Leave FAULT_PIN_L low (which is done at the start of init)
-
-            // All these moments will be lost in time, like tears in rain...
-            // Time to die.
-            loop {
-                // Sleeping with all bits in the notification mask clear means
-                // we should never be notified --- and if one never wakes up,
-                // the difference between sleeping and dying seems kind of
-                // irrelevant. But, `rustc` doesn't realize that this should
-                // never return, we'll stick it in a `loop` anyway so the main
-                // function can return `!`
-                sys_recv_notification(0);
-            }
-        }
+    let mut server = ServerImpl::init(&sys);
+    let mut buffer = [0; idl::INCOMING_SIZE];
+    loop {
+        idol_runtime::dispatch(&mut buffer, &mut server);
     }
 }
 
 #[allow(unused)]
-struct ServerImpl<S: SpiServer> {
+struct ServerImpl {
     jefe: Jefe,
-    sys: sys_api::Sys,
-    seq: SpiDevice<S>,
 }
 
-const FAULT_PIN_L: sys_api::PinSet = sys_api::Port::A.pin(15);
-
-const FPGA_PROGRAM_L: sys_api::PinSet = sys_api::Port::B.pin(6);
-const FPGA_INIT_L: sys_api::PinSet = sys_api::Port::B.pin(5);
-const FPGA_CONFIG_DONE: sys_api::PinSet = sys_api::Port::B.pin(4);
-
-const FPGA_LOGIC_RESET_L: sys_api::PinSet = sys_api::Port::I.pin(15);
-
-impl<S: SpiServer + Clone> ServerImpl<S> {
-    fn init(
-        sys: &sys_api::Sys,
-        spi: S,
-        aux: drv_auxflash_api::AuxFlash,
-    ) -> Result<Self, SeqError> {
+impl ServerImpl {
+    fn init(sys: &sys_api::Sys) -> Self {
         // Ensure the SP fault pin is configured as an open-drain output, and
         // pull it low to make the sequencer restart externally visible.
+        const FAULT_PIN_L: sys_api::PinSet = sys_api::Port::A.pin(15);
         sys.gpio_configure_output(
             FAULT_PIN_L,
             sys_api::OutputType::OpenDrain,
@@ -157,62 +88,12 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
         );
         sys.gpio_reset(FAULT_PIN_L);
 
-        // Hold the user logic in reset until we've loaded the bitstream
-        sys.gpio_reset(FPGA_LOGIC_RESET_L);
-        sys.gpio_configure_output(
-            FPGA_LOGIC_RESET_L,
-            sys_api::OutputType::PushPull,
-            sys_api::Speed::Low,
-            sys_api::Pull::None,
-        );
-
-        // Bind to the sequencer device on our SPI port
-        let seq = spi.device(drv_spi_api::devices::FPGA);
-
-        let pin_cfg = drv_spartan7_spi_program::Config {
-            program_l: FPGA_PROGRAM_L,
-            init_l: FPGA_INIT_L,
-            config_done: FPGA_CONFIG_DONE,
-        };
-        ringbuf_entry!(Trace::FpgaInit);
-
-        // On initial power up, the FPGA may not be listening right away, so
-        // retry for 500 ms.
-        let loader = Self::retry_spartan7_init(
-            sys,
-            &pin_cfg,
-            &seq,
-            NonZeroUsize::new(10).unwrap_lite(),
-            50,
-        )?;
-
-        let sha_out = aux.get_compressed_blob_streaming(
-            *b"FPGA",
-            |chunk| -> Result<(), SeqError> {
-                loader.continue_bitstream_load(chunk)?;
-                ringbuf_entry!(Trace::ContinueBitstreamLoad(chunk.len()));
-                Ok(())
-            },
-        )?;
-
-        if sha_out != gen::FPGA_BITSTREAM_CHECKSUM {
-            // Reset the FPGA to clear the invalid bitstream
-            sys.gpio_reset(FPGA_PROGRAM_L);
-            hl::sleep_for(1);
-            sys.gpio_set(FPGA_PROGRAM_L);
-
-            return Err(SeqError::AuxChecksumMismatch);
-        }
-
-        ringbuf_entry!(Trace::WaitForDone);
-        loader.finish_bitstream_load()?;
-
-        ringbuf_entry!(Trace::Programmed);
+        // Wait for the FPGA to be loaded
+        let loader = Spartan7Loader::from(LOADER.get_task_id());
+        loader.ping();
 
         let server = Self {
-            sys: sys.clone(),
             jefe: Jefe::from(JEFE.get_task_id()),
-            seq,
         };
         server.set_state_impl(PowerState::A2);
 
@@ -220,32 +101,7 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
         // messages and fewer things can go wrong.
         sys.gpio_set(FAULT_PIN_L);
 
-        // Enable the user design
-        sys.gpio_set(FPGA_LOGIC_RESET_L);
-
-        Ok(server)
-    }
-
-    fn retry_spartan7_init<'a>(
-        sys: &'a sys_api::Sys,
-        pin_cfg: &'a drv_spartan7_spi_program::Config,
-        seq: &'a SpiDevice<S>,
-        count: NonZeroUsize,
-        delay_ms: u64,
-    ) -> Result<BitstreamLoader<'a, S>, Spartan7Error> {
-        let mut last_err = None;
-        for _ in 0..count.get() {
-            match BitstreamLoader::begin_bitstream_load(sys, pin_cfg, seq, true)
-            {
-                Ok(loader) => return Ok(loader),
-                Err(e) => {
-                    ringbuf_entry!(Trace::FpgaInitFailed(e));
-                    last_err = Some(e);
-                    hl::sleep_for(delay_ms);
-                }
-            }
-        }
-        Err(last_err.unwrap_lite())
+        server
     }
 
     fn get_state_impl(&self) -> PowerState {
@@ -276,7 +132,7 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
 // The `Sequencer` implementation for Grapefruit is copied from
 // `mock-gimlet-seq-server`.  State is set to Jefe, but isn't actually
 // controlled here.
-impl<S: SpiServer + Clone> idl::InOrderSequencerImpl for ServerImpl<S> {
+impl idl::InOrderSequencerImpl for ServerImpl {
     fn get_state(
         &mut self,
         _: &RecvMessage,
@@ -331,7 +187,7 @@ impl<S: SpiServer + Clone> idl::InOrderSequencerImpl for ServerImpl<S> {
     }
 }
 
-impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
+impl NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
         0
     }
@@ -425,8 +281,4 @@ mod reg {
 mod idl {
     use drv_cpu_seq_api::{SeqError, StateChangeReason};
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
-}
-
-mod gen {
-    include!(concat!(env!("OUT_DIR"), "/grapefruit_fpga.rs"));
 }
