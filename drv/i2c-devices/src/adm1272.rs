@@ -47,7 +47,9 @@ impl From<Error> for ResponseCode {
             Error::BadRead { code, .. } => code,
             Error::BadWrite { code, .. } => code,
             Error::BadValidation { code, .. } => code,
-            _ => panic!(),
+            Error::BadData { .. }
+            | Error::InvalidData { .. }
+            | Error::InvalidConfig => ResponseCode::BadDeviceState,
         }
     }
 }
