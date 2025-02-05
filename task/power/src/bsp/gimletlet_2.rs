@@ -9,11 +9,13 @@ use crate::{
 
 pub(crate) const CONTROLLER_CONFIG_LEN: usize = 1;
 pub(crate) static CONTROLLER_CONFIG: [PowerControllerConfig;
-    CONTROLLER_CONFIG_LEN] = [
-    // The DC2024 has 10 3mΩ current sense resistors in parallel (5 on each
-    // channel), given a total current sense resistance of 300µΩ
-    ltc4282_controller!(HotSwapQSFP, v12_out_100a, A2, Ohms(0.003 / 10.0)),
-];
+    CONTROLLER_CONFIG_LEN] = [lm5066_controller!(
+    HotSwap,
+    lm5066_evl_vout,
+    A2,
+    Ohms(0.003),
+    drv_i2c_devices::lm5066::CurrentLimitStrap::VDD
+)];
 
 pub(crate) fn get_state() -> PowerState {
     PowerState::A2
