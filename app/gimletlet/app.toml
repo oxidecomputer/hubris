@@ -260,6 +260,13 @@ pins = [
     { name = "DEBUG", pin = { port = "G", pin = 8, af = 0, direction = "output"}}
 ]
 
+#
+# This device definition is only provided as a way to test this driver absent
+# a larger board that has it; unless your Gimletlet is in a basement known
+# to be roamed by a certain board-killing cat, it's unlikely to have this
+# device attached!  (But other than the `power` task reporting it as being
+# absent, there should be no harm to it being missing.)
+#
 [[config.i2c.devices]]
 device = "lm5066"
 controller = 4
@@ -275,5 +282,5 @@ max-sizes = {flash = 65536, ram = 16384 }
 stacksize = 3800
 start = true
 task-slots = ["i2c_driver", "sensor"]
-notifications = ["timer", "external_badness"]
+notifications = ["timer"]
 
