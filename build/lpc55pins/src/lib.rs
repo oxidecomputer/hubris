@@ -166,7 +166,10 @@ impl PinConfig {
     fn get_pint_slot(&self, used: &mut u32) -> Option<PintSlot> {
         if let Some(slot_number) = self.pint {
             if self.pin.port > 1 || self.pin.pin > 32 {
-                panic!("Invalid gpio pin for interrupt");
+                panic!(
+                    "Invalid gpio pin for interrupt: port={}, pin={}",
+                    self.pin.port, self.pin.pin
+                );
             }
             if let Ok(pint_slot) = PintSlot::try_from(slot_number) {
                 let mask = pint_slot.mask();
