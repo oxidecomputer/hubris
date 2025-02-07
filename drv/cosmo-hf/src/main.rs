@@ -36,25 +36,9 @@ enum Trace {
 
 counted_ringbuf!(Trace, 32, Trace::None);
 
-/// Size in bytes of a single page of data (i.e., the max length of slice we
-/// accept for `page_program()` and `read_memory()`).
-///
-/// This value is really a property of the flash we're talking to and not this
-/// driver, but it's correct for all our current parts. If that changes, this
-/// will need to change to something more flexible.
-pub const PAGE_SIZE_BYTES: usize = 256;
-
-/// Size in bytes of a single sector of data (i.e., the size of the data erased
-/// by a call to `sector_erase()`).
-///
-/// This value is really a property of the flash we're talking to and not this
-/// driver, but it's correct for all our current parts. If that changes, this
-/// will need to change to something more flexible.
-///
-/// **Note:** the datasheet refers to a "sector" as a 4K block, but also
-/// supports 64K block erases, so we call the latter a sector to match the
-/// behavior of the Gimlet host flash driver.
-pub const SECTOR_SIZE_BYTES: u32 = 65_536;
+// Re-export constants from the generic host flash API
+pub use drv_hf_api::PAGE_SIZE_BYTES;
+pub const SECTOR_SIZE_BYTES: u32 = drv_hf_api::SECTOR_SIZE_BYTES as u32;
 
 /// Total flash size is 128 MiB
 pub const FLASH_SIZE_BYTES: u32 = 128 * 1024 * 1024;
