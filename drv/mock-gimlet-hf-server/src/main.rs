@@ -239,30 +239,45 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         Err(HfError::HashNotConfigured.into())
     }
 
-    fn bonus_page_program(
+    fn apob_begin(
         &mut self,
         _: &RecvMessage,
-        _addr: u32,
-        _data: LenLimit<Leased<R, [u8]>, PAGE_SIZE_BYTES>,
-    ) -> Result<(), RequestError<HfError>> {
-        Err(HfError::BadAddress.into())
+        _length: u32,
+        _alg: drv_hf_api::ApobHash,
+    ) -> Result<(), RequestError<drv_hf_api::ApobBeginError>> {
+        Err(drv_hf_api::ApobBeginError::NotImplemented.into())
     }
 
-    fn bonus_read(
+    fn apob_write(
         &mut self,
         _: &RecvMessage,
-        _addr: u32,
-        _dest: LenLimit<Leased<W, [u8]>, PAGE_SIZE_BYTES>,
-    ) -> Result<(), RequestError<HfError>> {
-        Err(HfError::BadAddress.into())
+        _offset: u32,
+        _data: Leased<R, [u8]>,
+    ) -> Result<(), RequestError<drv_hf_api::ApobWriteError>> {
+        Err(drv_hf_api::ApobWriteError::NotImplemented.into())
     }
 
-    fn bonus_sector_erase(
+    fn apob_commit(
         &mut self,
         _: &RecvMessage,
-        _addr: u32,
-    ) -> Result<(), RequestError<HfError>> {
-        Err(HfError::BadAddress.into())
+    ) -> Result<(), RequestError<drv_hf_api::ApobCommitError>> {
+        Err(drv_hf_api::ApobCommitError::NotImplemented.into())
+    }
+
+    fn apob_lock(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
+        Ok(())
+    }
+
+    fn apob_read(
+        &mut self,
+        _: &RecvMessage,
+        _offset: u32,
+        _data: Leased<W, [u8]>,
+    ) -> Result<usize, RequestError<drv_hf_api::ApobReadError>> {
+        Err(drv_hf_api::ApobReadError::InvalidState.into())
     }
 }
 
@@ -280,6 +295,10 @@ mod idl {
     use super::{
         HfChipId, HfDevSelect, HfError, HfMuxState, HfPersistentData,
         HfProtectMode,
+    };
+    use drv_hf_api::{
+        ApobBeginError, ApobCommitError, ApobHash, ApobReadError,
+        ApobWriteError,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

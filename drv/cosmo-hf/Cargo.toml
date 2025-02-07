@@ -9,14 +9,19 @@ drv-hash-api = { path = "../hash-api" }
 drv-hf-api = { path = "../hf-api" }
 drv-spartan7-loader-api = { path = "../spartan7-loader-api" }
 ringbuf = { path = "../../lib/ringbuf" }
+static-cell = { path = "../../lib/static-cell" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
+apob = { workspace = true }
 cortex-m = { workspace = true }
+crc = { workspace = true }
+hubpack = { workspace = true }
 idol-runtime = { workspace = true }
 num-traits = { workspace = true }
-stm32h7 = { workspace = true }
 serde = { workspace = true }
-hubpack = { workspace = true }
+sha2 = { workspace = true }
+static_assertions = { workspace = true }
+stm32h7 = { workspace = true }
 zerocopy = { workspace = true }
 zerocopy-derive = { workspace = true }
 

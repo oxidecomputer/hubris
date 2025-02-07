@@ -109,6 +109,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "216261ddc8289130e551ddcd5ce8a064710c0d064a4d2895c67151c92b5443f6"
 
 [[package]]
+name = "apob"
+version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/apob#cc0755a5dc891b27b45a1d6ec6728e49bc1a991b"
+dependencies = [
+ "strum_macros",
+ "zerocopy 0.8.27",
+]
+
+[[package]]
 name = "app-donglet"
 version = "0.1.0"
 dependencies = [
@@ -1054,10 +1063,12 @@ dependencies = [
 name = "drv-cosmo-hf"
 version = "0.1.0"
 dependencies = [
+ "apob",
  "build-fpga-regmap",
  "build-util",
  "cortex-m",
  "counters",
+ "crc",
  "drv-hash-api",
  "drv-hf-api",
  "drv-spartan7-loader-api",
@@ -1067,6 +1078,9 @@ dependencies = [
  "num-traits",
  "ringbuf",
  "serde",
+ "sha2",
+ "static-cell",
+ "static_assertions",
  "stm32h7",
  "userlib",
  "zerocopy 0.8.27",
