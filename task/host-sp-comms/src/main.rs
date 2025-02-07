@@ -145,6 +145,11 @@ enum Trace {
         #[count(children)]
         message: SpToHost,
     },
+    APOBWriteError {
+        offset: u64,
+        #[count(children)]
+        err: APOBError,
+    },
 }
 
 counted_ringbuf!(Trace, 20, Trace::None);
@@ -169,6 +174,31 @@ enum Timers {
     WaitingInA2ToReboot,
     /// Timer set when we want to send periodic 0x00 bytes on the uart.
     TxPeriodicZeroByte,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, counters::Count)]
+enum APOBError {
+    OffsetOverflow {
+        offset: u64,
+    },
+    NotErased {
+        offset: u32,
+    },
+    EraseFailed {
+        offset: u32,
+        #[count(children)]
+        err: drv_hf_api::HfError,
+    },
+    WriteFailed {
+        offset: u32,
+        #[count(children)]
+        err: drv_hf_api::HfError,
+    },
+    ReadFailed {
+        offset: u32,
+        #[count(children)]
+        err: drv_hf_api::HfError,
+    },
 }
 
 #[export_name = "main"]
@@ -993,6 +1023,15 @@ impl ServerImpl {
                     }),
                 }
             }
+            HostToSp::APOB { offset } => {
+                Some(match Self::apob_write(&self.hf, offset, data) {
+                    Ok(()) => SpToHost::APOBResult(0),
+                    Err(err) => {
+                        ringbuf_entry!(Trace::APOBWriteError { offset, err });
+                        SpToHost::APOBResult(1)
+                    }
+                })
+            }
         };
 
         if let Some(response) = response {
@@ -1019,6 +1058,51 @@ impl ServerImpl {
         self.rx_buf.clear();
 
         Ok(())
+    }
+
+    /// Write data to the bonus region of flash
+    ///
+    /// This does not take `&self` because we need to force a split borrow
+    fn apob_write(
+        hf: &HostFlash,
+        mut offset: u64,
+        data: &[u8],
+    ) -> Result<(), APOBError> {
+        for chunk in data.chunks(drv_hf_api::PAGE_SIZE_BYTES) {
+            Self::apob_write_page(
+                hf,
+                offset
+                    .try_into()
+                    .map_err(|_| APOBError::OffsetOverflow { offset })?,
+                chunk,
+            )?;
+            offset += chunk.len() as u64;
+        }
+        Ok(())
+    }
+
+    /// Write a single page of data to the bonus region of flash
+    ///
+    /// This does not take `&self` because we need to force a split borrow
+    fn apob_write_page(
+        hf: &HostFlash,
+        offset: u32,
+        data: &[u8],
+    ) -> Result<(), APOBError> {
+        if offset as usize % drv_hf_api::SECTOR_SIZE_BYTES == 0 {
+            hf.bonus_sector_erase(offset)
+                .map_err(|err| APOBError::EraseFailed { offset, err })?;
+        } else {
+            // Read back the page and confirm that it's all empty
+            let mut scratch = [0u8; drv_hf_api::PAGE_SIZE_BYTES];
+            hf.bonus_read(offset, &mut scratch[..data.len()])
+                .map_err(|err| APOBError::ReadFailed { offset, err })?;
+            if !scratch[..data.len()].iter().all(|b| *b == 0xFF) {
+                return Err(APOBError::NotErased { offset });
+            }
+        }
+        hf.bonus_page_program(offset, data)
+            .map_err(|err| APOBError::WriteFailed { offset, err })
     }
 
     fn handle_sprot(
