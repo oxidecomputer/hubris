@@ -11,13 +11,13 @@ use userlib::sys_send;
 /// Token that indicates that the Spartan-7 is running
 ///
 /// This token can be passed to peripheral constructors.
-pub struct Spartan7Token(core::marker::PhantomData<()>);
+pub struct Spartan7Token(());
 
 impl Spartan7Loader {
     /// Gets a token proving that the Spartan-7 is running
     pub fn get_token(&self) -> Spartan7Token {
         self.ping();
-        Spartan7Token(core::marker::PhantomData)
+        Spartan7Token(())
     }
 }
 
