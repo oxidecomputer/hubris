@@ -49,7 +49,7 @@ pub fn claim_spi(_sys: &sys_api::Sys) -> drv_spi_api::Spi {
 enum Trace {
     FpgaInit,
     FpgaInitFailed(#[count(children)] Spartan7Error),
-    StartFailed(#[count(children)] SeqError),
+    StartFailed(#[count(children)] LoaderError),
     ContinueBitstreamLoad(usize),
     WaitForDone,
     Programmed,
@@ -59,21 +59,21 @@ enum Trace {
 }
 
 #[derive(Copy, Clone, PartialEq, Count)]
-enum SeqError {
+enum LoaderError {
     AuxFlashError(#[count(children)] drv_auxflash_api::AuxFlashError),
     SpartanError(#[count(children)] Spartan7Error),
     AuxChecksumMismatch,
 }
 
-impl From<drv_auxflash_api::AuxFlashError> for SeqError {
+impl From<drv_auxflash_api::AuxFlashError> for LoaderError {
     fn from(v: drv_auxflash_api::AuxFlashError) -> Self {
-        SeqError::AuxFlashError(v)
+        LoaderError::AuxFlashError(v)
     }
 }
 
-impl From<Spartan7Error> for SeqError {
+impl From<Spartan7Error> for LoaderError {
     fn from(v: Spartan7Error) -> Self {
-        SeqError::SpartanError(v)
+        LoaderError::SpartanError(v)
     }
 }
 
@@ -118,7 +118,7 @@ fn main() -> ! {
     }
 }
 
-fn init() -> Result<(), SeqError> {
+fn init() -> Result<(), LoaderError> {
     let sys = sys_api::Sys::from(SYS.get_task_id());
     let dev = claim_spi(&sys).device(drv_spi_api::devices::SPARTAN7_FPGA);
     let aux = drv_auxflash_api::AuxFlash::from(AUXFLASH.get_task_id());
@@ -135,7 +135,7 @@ fn init_spartan7_fpga<S: SpiServer>(
     sys: &sys_api::Sys,
     seq: &SpiDevice<S>,
     aux: &drv_auxflash_api::AuxFlash,
-) -> Result<(), SeqError> {
+) -> Result<(), LoaderError> {
     #[cfg(feature = "grapefruit")]
     let pin_cfg = drv_spartan7_spi_program::Config {
         program_l: sys_api::Port::B.pin(6),
@@ -157,7 +157,7 @@ fn init_spartan7_fpga<S: SpiServer>(
 
     let sha_out = aux.get_compressed_blob_streaming(
         *b"SPA7",
-        |chunk| -> Result<(), SeqError> {
+        |chunk| -> Result<(), LoaderError> {
             loader.continue_bitstream_load(chunk)?;
             ringbuf_entry!(Trace::ContinueBitstreamLoad(chunk.len()));
             Ok(())
@@ -170,7 +170,7 @@ fn init_spartan7_fpga<S: SpiServer>(
         hl::sleep_for(1);
         sys.gpio_set(pin_cfg.program_l);
 
-        return Err(SeqError::AuxChecksumMismatch);
+        return Err(LoaderError::AuxChecksumMismatch);
     }
 
     ringbuf_entry!(Trace::WaitForDone);
