@@ -1980,6 +1980,7 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "ringbuf",
+ "task-config",
  "userlib",
  "zerocopy 0.6.6",
 ]

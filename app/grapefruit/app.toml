@@ -182,12 +182,18 @@ uses = ["fmc_nor_psram_bank_1"]
 
 [tasks.spartan7_loader]
 name = "drv-spartan7-loader"
-features = ["h753", "grapefruit"]
+features = ["h753"]
 priority = 4
 max-sizes = {flash = 131072, ram = 16384 }
 stacksize = 2600
 start = true
 task-slots = ["sys", {spi = "spi2_driver"}, "auxflash"]
+
+[tasks.spartan7_loader.config]
+program_l = "sys_api::Port::B.pin(6)"
+init_l = "sys_api::Port::B.pin(5)"
+config_done = "sys_api::Port::B.pin(4)"
+user_reset_l = "sys_api::Port::I.pin(15)"
 
 [tasks.thermal]
 name = "task-thermal"

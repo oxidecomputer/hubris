@@ -6,11 +6,12 @@ edition = "2021"
 [dependencies]
 drv-auxflash-api = { path = "../auxflash-api" }
 drv-spartan7-spi-program = { path = "../spartan7-spi-program" }
+counters = { path = "../../lib/counters" }
 drv-spi-api = { path = "../spi-api" }
 drv-stm32h7-spi-server-core = { path = "../../drv/stm32h7-spi-server-core", optional = true }
 drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
-counters = { path = "../../lib/counters" }
 ringbuf = { path = "../../lib/ringbuf" }
+task-config = {  path = "../../lib/task-config"  }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 cfg-if = { workspace = true }
@@ -31,9 +32,6 @@ spi3 = ["drv-stm32h7-spi-server-core?/spi3"]
 spi4 = ["drv-stm32h7-spi-server-core?/spi4"]
 spi5 = ["drv-stm32h7-spi-server-core?/spi5"]
 spi6 = ["drv-stm32h7-spi-server-core?/spi6"]
-
-# enable one of these features to select FPGA pins
-grapefruit = [] 
 
 [[bin]]
 name = "drv-spartan7-loader"

@@ -120,17 +120,24 @@ fn main() -> ! {
 
 struct ServerImpl;
 
+task_config::task_config! {
+    program_l: sys_api::PinSet,
+    init_l: sys_api::PinSet,
+    config_done: sys_api::PinSet,
+    user_reset_l: sys_api::PinSet,
+}
+
 fn init() -> Result<(), LoaderError> {
     let sys = sys_api::Sys::from(SYS.get_task_id());
     let dev = claim_spi(&sys).device(drv_spi_api::devices::SPARTAN7_FPGA);
     let aux = drv_auxflash_api::AuxFlash::from(AUXFLASH.get_task_id());
 
-    #[cfg(feature = "grapefruit")]
+    // Translate from our magical task config to our desired type
     let pin_cfg = drv_spartan7_spi_program::Config {
-        program_l: sys_api::Port::B.pin(6),
-        init_l: sys_api::Port::B.pin(5),
-        config_done: sys_api::Port::B.pin(4),
-        user_reset_l: sys_api::Port::I.pin(15),
+        program_l: TASK_CONFIG.program_l,
+        init_l: TASK_CONFIG.init_l,
+        config_done: TASK_CONFIG.config_done,
+        user_reset_l: TASK_CONFIG.user_reset_l,
     };
 
     ringbuf_entry!(Trace::FpgaInit);
