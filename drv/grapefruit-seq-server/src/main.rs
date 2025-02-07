@@ -7,7 +7,9 @@
 #![no_std]
 #![no_main]
 
+use core::num::NonZeroUsize;
 use drv_cpu_seq_api::{PowerState, StateChangeReason};
+use drv_spartan7_spi_program::{BitstreamLoader, Spartan7Error};
 use drv_spi_api::{SpiDevice, SpiServer};
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};
@@ -25,6 +27,7 @@ task_slot!(JEFE, jefe);
 #[derive(Copy, Clone, PartialEq, Count)]
 enum Trace {
     FpgaInit,
+    FpgaInitFailed(#[count(children)] Spartan7Error),
     StartFailed(#[count(children)] SeqError),
     ContinueBitstreamLoad(usize),
     WaitForDone,
@@ -172,10 +175,16 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
             config_done: FPGA_CONFIG_DONE,
         };
         ringbuf_entry!(Trace::FpgaInit);
-        let loader =
-            drv_spartan7_spi_program::BitstreamLoader::begin_bitstream_load(
-                sys, &pin_cfg, &seq, true,
-            )?;
+
+        // On initial power up, the FPGA may not be listening right away, so
+        // retry for 500 ms.
+        let loader = Self::retry_spartan7_init(
+            sys,
+            &pin_cfg,
+            &seq,
+            NonZeroUsize::new(10).unwrap_lite(),
+            50,
+        )?;
 
         let sha_out = aux.get_compressed_blob_streaming(
             *b"FPGA",
@@ -215,6 +224,28 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
         sys.gpio_set(FPGA_LOGIC_RESET_L);
 
         Ok(server)
+    }
+
+    fn retry_spartan7_init<'a>(
+        sys: &'a sys_api::Sys,
+        pin_cfg: &'a drv_spartan7_spi_program::Config,
+        seq: &'a SpiDevice<S>,
+        count: NonZeroUsize,
+        delay_ms: u64,
+    ) -> Result<BitstreamLoader<'a, S>, Spartan7Error> {
+        let mut last_err = None;
+        for _ in 0..count.get() {
+            match BitstreamLoader::begin_bitstream_load(sys, pin_cfg, seq, true)
+            {
+                Ok(loader) => return Ok(loader),
+                Err(e) => {
+                    ringbuf_entry!(Trace::FpgaInitFailed(e));
+                    last_err = Some(e);
+                    hl::sleep_for(delay_ms);
+                }
+            }
+        }
+        Err(last_err.unwrap_lite())
     }
 
     fn get_state_impl(&self) -> PowerState {
