@@ -967,6 +967,12 @@ impl ServerImpl {
                     }),
                 }
             }
+            HostToSp::APOB { offset } => {
+                Some(match Self::apob_write(&self.hf, offset, data) {
+                    Ok(()) => SpToHost::APOBResult(0),
+                    Err(_) => SpToHost::APOBResult(1),
+                })
+            }
         };
 
         if let Some(response) = response {
@@ -993,6 +999,49 @@ impl ServerImpl {
         self.rx_buf.clear();
 
         Ok(())
+    }
+
+    /// Write data to the bonus region of flash
+    ///
+    /// This does not take `&self` because we need to force a split borrow
+    fn apob_write(
+        hf: &HostFlash,
+        mut offset: u64,
+        data: &[u8],
+    ) -> Result<(), drv_hf_api::HfError> {
+        for chunk in data.chunks(drv_hf_api::PAGE_SIZE_BYTES) {
+            Self::apob_write_page(
+                hf,
+                offset
+                    .try_into()
+                    .map_err(|_| drv_hf_api::HfError::BadAddress)?,
+                chunk,
+            )?;
+            offset += chunk.len() as u64;
+        }
+        Ok(())
+    }
+
+    /// Write a single page of data to the bonus region of flash
+    ///
+    /// This does not take `&self` because we need to force a split borrow
+    fn apob_write_page(
+        hf: &HostFlash,
+        offset: u32,
+        data: &[u8],
+    ) -> Result<(), drv_hf_api::HfError> {
+        if offset as usize % drv_hf_api::SECTOR_SIZE_BYTES == 0 {
+            hf.bonus_sector_erase(offset)?;
+        } else {
+            // Read back the page and confirm that it's all empty
+            let mut scratch = [0u8; drv_hf_api::PAGE_SIZE_BYTES];
+            hf.bonus_read(offset, &mut scratch[..data.len()])?;
+            if !scratch[..data.len()].iter().all(|b| *b == 0xFF) {
+                // TODO use a different error here?
+                return Err(drv_hf_api::HfError::BadAddress);
+            }
+        }
+        hf.bonus_page_program(offset, data)
     }
 
     fn handle_sprot(
