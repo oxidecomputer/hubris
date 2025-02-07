@@ -64,8 +64,11 @@ the signal has been handled, the pin can be reverted to an input until
 the next event.
 
 ```toml
+[tasks.example.config]
+pins = [
     { name = "SP_RESET_IN",  pin = { port = 0, pin = 13 }, alt = 0, direction = "input", pint = 0 },
     { name = "SP_RESET_OUT", pin = { port = 0, pin = 13 }, alt = 0, direction = "output", setup = false },
+]
 ```
 
 In the above case, `setup_pins()` will call `setup_reset_in()`
