@@ -12,12 +12,10 @@
 //! connected over SPI. To use this module,
 //!
 //! 1. Create a `Config` struct filled out with your wiring details.
-//! 2. Call `configure_pins`, or arrange to configure the `PROGRAM_L` / `INIT_L`
-//!    / `CONFIG_DONE` pins yourself
-//! 3. Call `begin_bitstream_load` once.
-//! 4. Call `continue_bitstream_load` as many times as you need to, passing
+//! 2. Call `begin_bitstream_load` once.
+//! 3. Call `continue_bitstream_load` as many times as you need to, passing
 //!    chunks of data each time.
-//! 5. Call `finish_bitstream_load` once to complete the process and check the
+//! 4. Call `finish_bitstream_load` once to complete the process and check the
 //!    result.
 //!
 //! If any of the operations fail, the intention is that you restart the process
@@ -38,6 +36,8 @@ pub struct Config {
     pub init_l: sys_api::PinSet,
     /// Pin set where CONFIG_DONE goes -- should only have one bit set.
     pub config_done: sys_api::PinSet,
+    /// Pin set for user logic reset -- should only have one bit set.
+    pub user_reset_l: sys_api::PinSet,
 }
 
 /// Things that we can _notice_ going wrong when programming -- the FPGA doesn't
@@ -74,6 +74,15 @@ impl<'a, S: SpiServer> BitstreamLoader<'a, S> {
             .gpio_configure_input(self.config.init_l, sys_api::Pull::None);
         self.sys
             .gpio_configure_input(self.config.config_done, sys_api::Pull::None);
+
+        // Configure FPGA_LOGIC_RESET_L as an output and make sure it's low
+        self.sys.gpio_reset(self.config.user_reset_l);
+        self.sys.gpio_configure_output(
+            self.config.user_reset_l,
+            sys_api::OutputType::PushPull,
+            sys_api::Speed::Low,
+            sys_api::Pull::None,
+        );
 
         // To allow for the possibility that we are restarting, rather than
         // starting, we take care during early sequencing to _not turn anything
@@ -167,6 +176,9 @@ impl<'a, S: SpiServer> BitstreamLoader<'a, S> {
         self.spi
             .write(&[0u8; 8])
             .map_err(Spartan7Error::SpiBonusClocksFailed)?;
+
+        // Enable the user design
+        self.sys.gpio_set(self.config.user_reset_l);
 
         Ok(())
     }

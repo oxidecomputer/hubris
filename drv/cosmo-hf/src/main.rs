@@ -18,7 +18,7 @@ use userlib::{hl::sleep_for, task_slot};
 
 mod hf; // implementation of `HostFlash` API
 
-task_slot!(SEQ, grapefruit_seq);
+task_slot!(LOADER, spartan7_loader);
 
 #[derive(Debug, Clone, Copy, PartialEq, counters::Count)]
 enum Trace {
@@ -65,8 +65,9 @@ pub const FLASH_SIZE_BYTES: u32 = 128 * 1024 * 1024;
 fn main() -> ! {
     // Wait for the FPGA to be configured; the sequencer task only starts its
     // Idol loop after the FPGA has been brought up.
-    let seq = drv_cpu_seq_api::Sequencer::from(SEQ.get_task_id());
-    let _ = seq.get_state();
+    let seq =
+        drv_spartan7_loader_api::Spartan7Loader::from(LOADER.get_task_id());
+    seq.ping();
 
     let id = unsafe { reg::BASE.read_volatile() };
     if id != 0x1de {
