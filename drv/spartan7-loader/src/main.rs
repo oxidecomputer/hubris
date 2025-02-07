@@ -94,7 +94,7 @@ fn main() -> ! {
             }
         }
 
-        // Initializing the sequencer failed.
+        // Initializing the FPGA failed.
         Err(e) => {
             // Log that something's broken
             //
@@ -118,24 +118,13 @@ fn main() -> ! {
     }
 }
 
+struct ServerImpl;
+
 fn init() -> Result<(), LoaderError> {
     let sys = sys_api::Sys::from(SYS.get_task_id());
     let dev = claim_spi(&sys).device(drv_spi_api::devices::SPARTAN7_FPGA);
     let aux = drv_auxflash_api::AuxFlash::from(AUXFLASH.get_task_id());
 
-    init_spartan7_fpga(&sys, &dev, &aux)?;
-
-    Ok(())
-}
-
-struct ServerImpl;
-
-/// Initialize the Spartan-7 FPGA
-fn init_spartan7_fpga<S: SpiServer>(
-    sys: &sys_api::Sys,
-    seq: &SpiDevice<S>,
-    aux: &drv_auxflash_api::AuxFlash,
-) -> Result<(), LoaderError> {
     #[cfg(feature = "grapefruit")]
     let pin_cfg = drv_spartan7_spi_program::Config {
         program_l: sys_api::Port::B.pin(6),
@@ -148,9 +137,9 @@ fn init_spartan7_fpga<S: SpiServer>(
     // On initial power up, the FPGA may not be listening right away, so
     // retry for 500 ms.
     let loader = retry_spartan7_init(
-        sys,
+        &sys,
         &pin_cfg,
-        seq,
+        &dev,
         NonZeroUsize::new(10).unwrap_lite(),
         50,
     )?;
@@ -184,13 +173,13 @@ fn init_spartan7_fpga<S: SpiServer>(
 fn retry_spartan7_init<'a, S: SpiServer>(
     sys: &'a sys_api::Sys,
     pin_cfg: &'a drv_spartan7_spi_program::Config,
-    seq: &'a SpiDevice<S>,
+    dev: &'a SpiDevice<S>,
     count: NonZeroUsize,
     delay_ms: u64,
 ) -> Result<BitstreamLoader<'a, S>, Spartan7Error> {
     let mut last_err = None;
     for _ in 0..count.get() {
-        match BitstreamLoader::begin_bitstream_load(sys, pin_cfg, seq, true) {
+        match BitstreamLoader::begin_bitstream_load(sys, pin_cfg, dev, true) {
             Ok(loader) => return Ok(loader),
             Err(e) => {
                 ringbuf_entry!(Trace::FpgaInitFailed(e));
