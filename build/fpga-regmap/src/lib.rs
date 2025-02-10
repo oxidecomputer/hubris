@@ -487,7 +487,7 @@ pub fn build_peripheral(
                         pub fn #setter(&self, t: #ty) {
                             let mut d = self.get_raw();
                             d &= !(#mask << #lsb);
-                            d |= ((u32::from(t) & #mask) << #lsb);
+                            d |= (u32::from(t) & #mask) << #lsb;
                             self.set_raw(d);
                         }
                     });
@@ -510,7 +510,8 @@ pub fn build_peripheral(
             + u32::try_from(*periph_offset).unwrap()
             + u32::try_from(*addr_offset).unwrap();
         let struct_def = quote! {
-            struct #struct_name;
+            pub struct #struct_name;
+            #[allow(dead_code)]
             impl #struct_name {
                 const ADDR: *mut u32 = #reg_addr as *mut u32;
                 fn new() -> Self {
@@ -544,6 +545,7 @@ pub fn build_peripheral(
     let periph_name: syn::Ident =
         syn::parse_str(&peripheral.to_upper_camel_case()).unwrap();
     let peripheral_def = quote! {
+        #[allow(dead_code)]
         pub struct #periph_name {
             #(#reg_types),*
         }
