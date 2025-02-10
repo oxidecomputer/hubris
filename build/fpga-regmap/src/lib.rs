@@ -519,7 +519,7 @@ pub fn build_peripheral(
             + u32::try_from(*addr_offset).unwrap();
         let struct_def = quote! {
             pub struct #struct_name;
-            #[allow(dead_code)]
+            #[allow(dead_code, clippy::useless_conversion, clippy::unnecessary_cast)]
             impl #struct_name {
                 const ADDR: *mut u32 = #reg_addr as *mut u32;
                 fn new() -> Self {
@@ -546,7 +546,7 @@ pub fn build_peripheral(
             }
 
             pub struct #handle_name(core::cell::Cell<u32>);
-            #[allow(dead_code)]
+            #[allow(dead_code, clippy::useless_conversion, clippy::unnecessary_cast)]
             impl #handle_name {
                 fn get_raw(&self) -> u32 {
                     self.0.get()
