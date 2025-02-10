@@ -2749,16 +2749,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
-name = "fpga-regmap-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "build-fpga-regmap",
- "clap 3.2.23",
- "parse_int",
-]
-
-[[package]]
 name = "funty"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3869,15 +3859,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.94",
-]
-
-[[package]]
-name = "parse_int"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82db48cac18f0963b10ddad303fa88447b95bbe0e6dbe3385f98402b63d0cc48"
-dependencies = [
- "num-traits",
 ]
 
 [[package]]
