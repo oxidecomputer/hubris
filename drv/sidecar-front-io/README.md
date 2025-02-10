@@ -1,2 +1,2 @@
 `sidecar_qsfp_x32_controller.{bit, json, html, adoc}` are generated at
-[this commit](https://github.com/oxidecomputer/quartz/commit/0bc3093a85d532a94a729b58cc65b9552b3aed93)
+[this commit](https://github.com/oxidecomputer/quartz/commit/9209c858a8c91d7ab4d81e146803dcc4f4b8c280)
