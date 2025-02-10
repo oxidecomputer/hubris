@@ -308,7 +308,6 @@ dependencies = [
  "anyhow",
  "convert_case",
  "heck 0.5.0",
- "parse_int",
  "prettyplease",
  "quote",
  "serde",
@@ -2756,6 +2755,7 @@ dependencies = [
  "anyhow",
  "build-fpga-regmap",
  "clap 3.2.23",
+ "parse_int",
 ]
 
 [[package]]

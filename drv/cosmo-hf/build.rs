@@ -19,17 +19,18 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let mut file = std::fs::File::create(out_file)?;
     let node = Path::new("../spartan7-loader/grapefruit/spi_nor_reg_map.json");
     let top = Path::new("../spartan7-loader/grapefruit/gfruit_top_map.json");
+    let token = "drv_spartan7_loader_api::Spartan7Token";
     write!(
         &mut file,
         "{}",
-        build_fpga_regmap::fpga_peripheral(node, top, 0x60000000)?
+        build_fpga_regmap::fpga_peripheral(node, top, 0x60000000, token)?
     )?;
 
     let node = Path::new("../spartan7-loader/grapefruit/base_reg_map.json");
     write!(
         &mut file,
         "{}",
-        build_fpga_regmap::fpga_peripheral(node, top, 0x60000000)?
+        build_fpga_regmap::fpga_peripheral(node, top, 0x60000000, token)?
     )?;
 
     Ok(())

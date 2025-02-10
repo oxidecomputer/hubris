@@ -7,7 +7,6 @@ edition = "2021"
 anyhow.workspace = true
 convert_case.workspace = true
 heck.workspace = true
-parse_int.workspace = true
 prettyplease.workspace = true
 quote.workspace = true
 serde.workspace = true

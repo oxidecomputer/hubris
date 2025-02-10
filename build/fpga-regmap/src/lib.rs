@@ -386,8 +386,8 @@ pub fn build_peripheral(
     top: &Node,
     peripheral: &str,
     base_addr: u32,
-    output: &mut String,
-) {
+    token: Option<&str>,
+) -> anyhow::Result<String> {
     use heck::{ToSnakeCase, ToUpperCamelCase};
     use quote::quote;
 
@@ -567,24 +567,43 @@ pub fn build_peripheral(
 
     let periph_name: syn::Ident =
         syn::parse_str(&peripheral.to_upper_camel_case()).unwrap();
-    let peripheral_def = quote! {
-        #[allow(dead_code)]
-        pub struct #periph_name {
-            #(#reg_types),*
-        }
-        #[allow(dead_code)]
-        impl #periph_name {
-            pub fn new() -> Self {
-                Self {
-                    #(#reg_decls),*
+    let peripheral_def = if let Some(token) = token {
+        let token_ty: syn::Path = syn::parse_str(token).unwrap();
+        quote! {
+            #[allow(dead_code)]
+            pub struct #periph_name {
+                #(#reg_types),*
+            }
+            #[allow(dead_code)]
+            impl #periph_name {
+                pub fn new(_token: #token_ty) -> Self {
+                    Self {
+                        #(#reg_decls),*
+                    }
                 }
             }
+            #(#reg_definitions)*
         }
-        #(#reg_definitions)*
+    } else {
+        quote! {
+            #[allow(dead_code)]
+            pub struct #periph_name {
+                #(#reg_types),*
+            }
+            #[allow(dead_code)]
+            impl #periph_name {
+                pub fn new() -> Self {
+                    Self {
+                        #(#reg_decls),*
+                    }
+                }
+            }
+            #(#reg_definitions)*
+        }
     };
 
     let f: syn::File = syn::parse2(peripheral_def).unwrap();
-    write!(output, "{}", prettyplease::unparse(&f)).unwrap();
+    Ok(prettyplease::unparse(&f))
 }
 
 /// Read and parse a JSON file containing a `Node`
@@ -601,6 +620,7 @@ pub fn fpga_peripheral(
     node: &std::path::Path,
     top: &std::path::Path,
     base_addr: u32,
+    token: &str,
 ) -> anyhow::Result<String> {
     let node_name = node.file_stem().unwrap().to_str().unwrap();
     let node = read_parse(node)?;
@@ -612,7 +632,5 @@ pub fn fpga_peripheral(
         );
     };
 
-    let mut output = String::new();
-    build_peripheral(&node, &top, peripheral, base_addr, &mut output);
-    Ok(output)
+    build_peripheral(&node, &top, peripheral, base_addr, Some(token))
 }

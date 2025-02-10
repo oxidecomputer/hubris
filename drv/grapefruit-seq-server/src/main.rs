@@ -73,7 +73,7 @@ fn main() -> ! {
 #[allow(unused)]
 struct ServerImpl {
     jefe: Jefe,
-    sgpio: sgpio::Sgpio,
+    sgpio: fmc_periph::Sgpio,
 }
 
 impl ServerImpl {
@@ -91,11 +91,10 @@ impl ServerImpl {
 
         // Wait for the FPGA to be loaded
         let loader = Spartan7Loader::from(LOADER.get_task_id());
-        loader.ping();
 
         let server = Self {
             jefe: Jefe::from(JEFE.get_task_id()),
-            sgpio: sgpio::Sgpio::new(),
+            sgpio: fmc_periph::Sgpio::new(loader.get_token()),
         };
         server.set_state_impl(PowerState::A2);
 
@@ -197,6 +196,6 @@ mod idl {
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
 
-mod sgpio {
+mod fmc_periph {
     include!(concat!(env!("OUT_DIR"), "/fmc_sgpio.rs"));
 }
