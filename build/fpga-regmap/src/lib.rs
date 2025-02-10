@@ -379,6 +379,8 @@ pub fn fpga_regs(
     Ok(output)
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 pub fn build_peripheral(
     node: &Node,
     top: &Node,
@@ -557,4 +559,34 @@ pub fn build_peripheral(
 
     let f: syn::File = syn::parse2(peripheral_def).unwrap();
     write!(output, "{}", prettyplease::unparse(&f)).unwrap();
+}
+
+/// Read and parse a JSON file containing a `Node`
+pub fn read_parse(p: &std::path::Path) -> anyhow::Result<Node> {
+    use std::io::Read;
+    let mut data = vec![];
+    std::fs::File::open(p)?.read_to_end(&mut data)?;
+    let src = std::str::from_utf8(&data)?;
+    let node: Node = serde_json::from_str(src)?;
+    Ok(node)
+}
+
+pub fn fpga_peripheral(
+    node: &std::path::Path,
+    top: &std::path::Path,
+    base_addr: u32,
+) -> anyhow::Result<String> {
+    let node_name = node.file_stem().unwrap().to_str().unwrap();
+    let node = read_parse(node)?;
+    let top = read_parse(top)?;
+    let Some(peripheral) = node_name.strip_suffix("_reg_map") else {
+        anyhow::bail!(
+            "could not get peripheral name from {node_name},
+             expected '_reg_map' suffix"
+        );
+    };
+
+    let mut output = String::new();
+    build_peripheral(&node, &top, peripheral, base_addr, &mut output);
+    Ok(output)
 }

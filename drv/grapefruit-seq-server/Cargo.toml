@@ -21,6 +21,7 @@ num-traits = { workspace = true }
 zerocopy = { workspace = true }
 
 [build-dependencies]
+build-fpga-regmap = { path = "../../build/fpga-regmap" }
 build-util = { path = "../../build/util" }
 idol = { workspace = true }
 

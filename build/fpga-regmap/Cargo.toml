@@ -5,7 +5,6 @@ edition = "2021"
 
 [dependencies]
 anyhow.workspace = true
-clap.workspace = true
 convert_case.workspace = true
 heck.workspace = true
 parse_int.workspace = true

@@ -1,0 +1,12 @@
+[package]
+name = "fpga-regmap-cli"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+build-fpga-regmap.path = "../fpga-regmap"
+
+[lints]
+workspace = true
