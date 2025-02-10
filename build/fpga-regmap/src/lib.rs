@@ -4,8 +4,10 @@
 
 use convert_case::{Case, Casing};
 use serde::Deserialize;
+use serde_with::{serde_as, DefaultOnNull};
 use std::fmt::Write;
 
+#[serde_as]
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum Node {
@@ -26,6 +28,7 @@ pub enum Node {
         msb: usize,
         encode: Option<Vec<EnumEncode>>,
         sw_access: SwAccess,
+        #[serde_as(as = "DefaultOnNull")]
         desc: String,
     },
     Mem {
