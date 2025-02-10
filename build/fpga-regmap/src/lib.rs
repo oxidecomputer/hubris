@@ -388,7 +388,7 @@ pub fn build_peripheral(
     base_addr: u32,
     output: &mut String,
 ) {
-    use heck::{ToLowerCamelCase, ToSnakeCase, ToUpperCamelCase};
+    use heck::{ToSnakeCase, ToUpperCamelCase};
     use quote::quote;
 
     let periph_offset = match top {
@@ -506,6 +506,11 @@ pub fn build_peripheral(
 
         let struct_name: syn::Ident =
             syn::parse_str(&inst_name.to_upper_camel_case()).unwrap();
+        let handle_name: syn::Ident = syn::parse_str(&format!(
+            "{}Handle",
+            inst_name.to_upper_camel_case()
+        ))
+        .unwrap();
         let reg_addr = base_addr
             + u32::try_from(*periph_offset).unwrap()
             + u32::try_from(*addr_offset).unwrap();
@@ -527,13 +532,31 @@ pub fn build_peripheral(
                         Self::ADDR.write_volatile(v)
                     }
                 }
+                pub fn modify<F: Fn(&mut #handle_name)>(&self, f: F) {
+                    let mut v =
+                        #handle_name(core::cell::Cell::new(self.get_raw()));
+                    f(&mut v);
+                    self.set_raw(v.0.get());
+                }
 
+                #(#struct_fns)*
+            }
+
+            pub struct #handle_name(core::cell::Cell<u32>);
+            #[allow(dead_code)]
+            impl #handle_name {
+                fn get_raw(&self) -> u32 {
+                    self.0.get()
+                }
+                fn set_raw(&self, v: u32) {
+                    self.0.set(v)
+                }
                 #(#struct_fns)*
             }
         };
         reg_definitions.push(struct_def);
         let reg_name: syn::Ident =
-            syn::parse_str(&inst_name.to_lower_camel_case()).unwrap();
+            syn::parse_str(&inst_name.to_snake_case()).unwrap();
         reg_types.push(quote! {
             pub #reg_name: #struct_name
         });
@@ -549,6 +572,7 @@ pub fn build_peripheral(
         pub struct #periph_name {
             #(#reg_types),*
         }
+        #[allow(dead_code)]
         impl #periph_name {
             pub fn new() -> Self {
                 Self {

@@ -1036,6 +1036,7 @@ dependencies = [
 name = "drv-cosmo-hf"
 version = "0.1.0"
 dependencies = [
+ "build-fpga-regmap",
  "build-util",
  "cortex-m",
  "counters",
