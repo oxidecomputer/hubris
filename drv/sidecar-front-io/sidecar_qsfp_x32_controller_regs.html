@@ -3960,14 +3960,14 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="64">QSFP_POWER_EN0</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="64">QSFP_SW_POWER_EN0</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x228
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 HSC Enable. Clear bit to remove module power.</td>
+        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 SW control of HSC enable. Clear bit to remove module power.</td>
     </tr>
     <tr class="cat64" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
@@ -3994,7 +3994,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT7</td>
         <td class="FieldDesc" colspan="1*">7</td>
-        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x1</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -4003,7 +4003,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT6</td>
         <td class="FieldDesc" colspan="1*">6</td>
-        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x1</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -4012,7 +4012,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT5</td>
         <td class="FieldDesc" colspan="1*">5</td>
-        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x1</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -4021,7 +4021,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT4</td>
         <td class="FieldDesc" colspan="1*">4</td>
-        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x1</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -4030,7 +4030,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT3</td>
         <td class="FieldDesc" colspan="1*">3</td>
-        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x1</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -4039,7 +4039,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT2</td>
         <td class="FieldDesc" colspan="1*">2</td>
-        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x1</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -4048,7 +4048,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT1</td>
         <td class="FieldDesc" colspan="1*">1</td>
-        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x1</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -4057,20 +4057,20 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT0</td>
         <td class="FieldDesc" colspan="1*">0</td>
-        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x1</td>
         <td class="FieldDesc" colspan="14">None
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="65">QSFP_POWER_EN1</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="65">QSFP_SW_POWER_EN1</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x229
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 HSC Enable. Clear bit to remove module power.</td>
+        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 SW control of HSC enable. Clear bit to remove module power.</td>
     </tr>
     <tr class="cat65" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
@@ -4097,7 +4097,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT15</td>
         <td class="FieldDesc" colspan="1*">7</td>
-        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x1</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -4106,7 +4106,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT14</td>
         <td class="FieldDesc" colspan="1*">6</td>
-        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x1</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -4115,7 +4115,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT13</td>
         <td class="FieldDesc" colspan="1*">5</td>
-        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x1</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -4124,7 +4124,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT12</td>
         <td class="FieldDesc" colspan="1*">4</td>
-        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x1</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -4133,7 +4133,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT11</td>
         <td class="FieldDesc" colspan="1*">3</td>
-        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x1</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -4142,7 +4142,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT10</td>
         <td class="FieldDesc" colspan="1*">2</td>
-        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x1</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -4151,7 +4151,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT9</td>
         <td class="FieldDesc" colspan="1*">1</td>
-        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x1</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -4160,20 +4160,20 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT8</td>
         <td class="FieldDesc" colspan="1*">0</td>
-        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x1</td>
         <td class="FieldDesc" colspan="14">None
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="66">QSFP_POWER_GOOD0</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="66">QSFP_POWER_EN0</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x22a
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 HSC power good</td>
+        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 HSC enable pin state. Enabled when the corresponding SW_POWER_EN0 and MODPRSL0 bits are asserted.</td>
     </tr>
     <tr class="cat66" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
@@ -4201,7 +4201,7 @@
         <td class="FieldDesc" colspan="2*">PORT7</td>
         <td class="FieldDesc" colspan="1*">7</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="2*">0x1</td>
         <td class="FieldDesc" colspan="14">None
         </td>
     </tr>
@@ -4210,7 +4210,7 @@
         <td class="FieldDesc" colspan="2*">PORT6</td>
         <td class="FieldDesc" colspan="1*">6</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="2*">0x1</td>
         <td class="FieldDesc" colspan="14">None
         </td>
     </tr>
@@ -4219,7 +4219,7 @@
         <td class="FieldDesc" colspan="2*">PORT5</td>
         <td class="FieldDesc" colspan="1*">5</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="2*">0x1</td>
         <td class="FieldDesc" colspan="14">None
         </td>
     </tr>
@@ -4228,7 +4228,7 @@
         <td class="FieldDesc" colspan="2*">PORT4</td>
         <td class="FieldDesc" colspan="1*">4</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="2*">0x1</td>
         <td class="FieldDesc" colspan="14">None
         </td>
     </tr>
@@ -4237,7 +4237,7 @@
         <td class="FieldDesc" colspan="2*">PORT3</td>
         <td class="FieldDesc" colspan="1*">3</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="2*">0x1</td>
         <td class="FieldDesc" colspan="14">None
         </td>
     </tr>
@@ -4246,7 +4246,7 @@
         <td class="FieldDesc" colspan="2*">PORT2</td>
         <td class="FieldDesc" colspan="1*">2</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="2*">0x1</td>
         <td class="FieldDesc" colspan="14">None
         </td>
     </tr>
@@ -4255,7 +4255,7 @@
         <td class="FieldDesc" colspan="2*">PORT1</td>
         <td class="FieldDesc" colspan="1*">1</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="2*">0x1</td>
         <td class="FieldDesc" colspan="14">None
         </td>
     </tr>
@@ -4264,19 +4264,19 @@
         <td class="FieldDesc" colspan="2*">PORT0</td>
         <td class="FieldDesc" colspan="1*">0</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="2*">0x1</td>
         <td class="FieldDesc" colspan="14">None
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="67">QSFP_POWER_GOOD1</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="67">QSFP_POWER_EN1</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x22b
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 HSC power good</td>
+        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 HSC enable pin state. Enabled when the corresponding SW_POWER_EN1 and MODPRSL1 bits are asserted.</td>
     </tr>
     <tr class="cat67" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
@@ -4304,7 +4304,7 @@
         <td class="FieldDesc" colspan="2*">PORT15</td>
         <td class="FieldDesc" colspan="1*">7</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="2*">0x1</td>
         <td class="FieldDesc" colspan="14">None
         </td>
     </tr>
@@ -4313,7 +4313,7 @@
         <td class="FieldDesc" colspan="2*">PORT14</td>
         <td class="FieldDesc" colspan="1*">6</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="2*">0x1</td>
         <td class="FieldDesc" colspan="14">None
         </td>
     </tr>
@@ -4322,7 +4322,7 @@
         <td class="FieldDesc" colspan="2*">PORT13</td>
         <td class="FieldDesc" colspan="1*">5</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="2*">0x1</td>
         <td class="FieldDesc" colspan="14">None
         </td>
     </tr>
@@ -4331,7 +4331,7 @@
         <td class="FieldDesc" colspan="2*">PORT12</td>
         <td class="FieldDesc" colspan="1*">4</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="2*">0x1</td>
         <td class="FieldDesc" colspan="14">None
         </td>
     </tr>
@@ -4340,7 +4340,7 @@
         <td class="FieldDesc" colspan="2*">PORT11</td>
         <td class="FieldDesc" colspan="1*">3</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="2*">0x1</td>
         <td class="FieldDesc" colspan="14">None
         </td>
     </tr>
@@ -4349,7 +4349,7 @@
         <td class="FieldDesc" colspan="2*">PORT10</td>
         <td class="FieldDesc" colspan="1*">2</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="2*">0x1</td>
         <td class="FieldDesc" colspan="14">None
         </td>
     </tr>
@@ -4358,7 +4358,7 @@
         <td class="FieldDesc" colspan="2*">PORT9</td>
         <td class="FieldDesc" colspan="1*">1</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="2*">0x1</td>
         <td class="FieldDesc" colspan="14">None
         </td>
     </tr>
@@ -4367,19 +4367,19 @@
         <td class="FieldDesc" colspan="2*">PORT8</td>
         <td class="FieldDesc" colspan="1*">0</td>
         <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="2*">0x1</td>
         <td class="FieldDesc" colspan="14">None
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="68">QSFP_POWER_GOOD_TIMEOUT0</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="68">QSFP_POWER_GOOD0</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x22c
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 HSC power good not asserted within period after enabled</td>
+        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 HSC power good</td>
     </tr>
     <tr class="cat68" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
@@ -4475,14 +4475,14 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="69">QSFP_POWER_GOOD_TIMEOUT1</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="69">QSFP_POWER_GOOD1</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x22d
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 HSC power good not asserted within period after enabled</td>
+        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 HSC power good</td>
     </tr>
     <tr class="cat69" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
@@ -4578,14 +4578,14 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="70">QSFP_POWER_GOOD_LOST0</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="70">QSFP_POWER_GOOD_TIMEOUT0</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x22e
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 HSC power good lost after successful enable</td>
+        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 HSC power good not asserted within period after enabled</td>
     </tr>
     <tr class="cat70" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
@@ -4681,14 +4681,14 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="71">QSFP_POWER_GOOD_LOST1</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="71">QSFP_POWER_GOOD_TIMEOUT1</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x22f
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 HSC power good lost after successful enable</td>
+        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 HSC power good not asserted within period after enabled</td>
     </tr>
     <tr class="cat71" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
@@ -4784,14 +4784,14 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="72">QSFP_MOD_RESETL0</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="72">QSFP_POWER_GOOD_LOST0</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x230
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 Module ResetL</td>
+        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 HSC power good lost after successful enable</td>
     </tr>
     <tr class="cat72" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
@@ -4818,7 +4818,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT7</td>
         <td class="FieldDesc" colspan="1*">7</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -4827,7 +4827,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT6</td>
         <td class="FieldDesc" colspan="1*">6</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -4836,7 +4836,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT5</td>
         <td class="FieldDesc" colspan="1*">5</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -4845,7 +4845,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT4</td>
         <td class="FieldDesc" colspan="1*">4</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -4854,7 +4854,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT3</td>
         <td class="FieldDesc" colspan="1*">3</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -4863,7 +4863,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT2</td>
         <td class="FieldDesc" colspan="1*">2</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -4872,7 +4872,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT1</td>
         <td class="FieldDesc" colspan="1*">1</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -4881,20 +4881,20 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT0</td>
         <td class="FieldDesc" colspan="1*">0</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">None
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="73">QSFP_MOD_RESETL1</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="73">QSFP_POWER_GOOD_LOST1</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x231
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 Module ResetL</td>
+        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 HSC power good lost after successful enable</td>
     </tr>
     <tr class="cat73" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
@@ -4921,7 +4921,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT15</td>
         <td class="FieldDesc" colspan="1*">7</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -4930,7 +4930,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT14</td>
         <td class="FieldDesc" colspan="1*">6</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -4939,7 +4939,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT13</td>
         <td class="FieldDesc" colspan="1*">5</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -4948,7 +4948,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT12</td>
         <td class="FieldDesc" colspan="1*">4</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -4957,7 +4957,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT11</td>
         <td class="FieldDesc" colspan="1*">3</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -4966,7 +4966,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT10</td>
         <td class="FieldDesc" colspan="1*">2</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -4975,7 +4975,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT9</td>
         <td class="FieldDesc" colspan="1*">1</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -4984,20 +4984,20 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT8</td>
         <td class="FieldDesc" colspan="1*">0</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
+        <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">None
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="74">QSFP_MOD_LPMODE0</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="74">QSFP_MOD_RESETL0</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x232
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 Module LPMode/TxDis</td>
+        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 Module ResetL</td>
     </tr>
     <tr class="cat74" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
@@ -5093,14 +5093,14 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="75">QSFP_MOD_LPMODE1</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="75">QSFP_MOD_RESETL1</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x233
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 Module LPMode/TxDis</td>
+        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 Module ResetL</td>
     </tr>
     <tr class="cat75" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
@@ -5196,14 +5196,14 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="76">QSFP_MOD_MODPRSL0</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="76">QSFP_MOD_LPMODE0</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x234
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 Module ModPrsL</td>
+        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 Module LPMode/TxDis</td>
     </tr>
     <tr class="cat76" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
@@ -5230,7 +5230,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT7</td>
         <td class="FieldDesc" colspan="1*">7</td>
-        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -5239,7 +5239,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT6</td>
         <td class="FieldDesc" colspan="1*">6</td>
-        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -5248,7 +5248,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT5</td>
         <td class="FieldDesc" colspan="1*">5</td>
-        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -5257,7 +5257,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT4</td>
         <td class="FieldDesc" colspan="1*">4</td>
-        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -5266,7 +5266,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT3</td>
         <td class="FieldDesc" colspan="1*">3</td>
-        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -5275,7 +5275,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT2</td>
         <td class="FieldDesc" colspan="1*">2</td>
-        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -5284,7 +5284,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT1</td>
         <td class="FieldDesc" colspan="1*">1</td>
-        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -5293,20 +5293,20 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT0</td>
         <td class="FieldDesc" colspan="1*">0</td>
-        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">None
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="77">QSFP_MOD_MODPRSL1</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="77">QSFP_MOD_LPMODE1</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x235
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 Module ModPrsL</td>
+        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 Module LPMode/TxDis</td>
     </tr>
     <tr class="cat77" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
@@ -5333,7 +5333,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT15</td>
         <td class="FieldDesc" colspan="1*">7</td>
-        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -5342,7 +5342,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT14</td>
         <td class="FieldDesc" colspan="1*">6</td>
-        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -5351,7 +5351,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT13</td>
         <td class="FieldDesc" colspan="1*">5</td>
-        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -5360,7 +5360,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT12</td>
         <td class="FieldDesc" colspan="1*">4</td>
-        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -5369,7 +5369,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT11</td>
         <td class="FieldDesc" colspan="1*">3</td>
-        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -5378,7 +5378,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT10</td>
         <td class="FieldDesc" colspan="1*">2</td>
-        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -5387,7 +5387,7 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT9</td>
         <td class="FieldDesc" colspan="1*">1</td>
-        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">None
         </td>
@@ -5396,20 +5396,20 @@
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">PORT8</td>
         <td class="FieldDesc" colspan="1*">0</td>
-        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">rw</td>
         <td class="FieldDesc" colspan="2*">0x0</td>
         <td class="FieldDesc" colspan="14">None
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="78">QSFP_MOD_INTL0</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="78">QSFP_MOD_MODPRSL0</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x236
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 Module IntL/RxLOS</td>
+        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 Module ModPrsL</td>
     </tr>
     <tr class="cat78" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
@@ -5505,14 +5505,14 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="79">QSFP_MOD_INTL1</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="79">QSFP_MOD_MODPRSL1</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x237
             </div>
         </td>
         <td class="Slice" colspan="1*"></td>
-        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 Module IntL/RxLOS</td>
+        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 Module ModPrsL</td>
     </tr>
     <tr class="cat79" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
@@ -5608,7 +5608,213 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="80">QSFP_PORT0_I2C_DATA</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="80">QSFP_MOD_INTL0</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x238
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Ports 0 -> 7 Module IntL/RxLOS</td>
+    </tr>
+    <tr class="cat80" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="2*">PORT7</td>
+                <td class="validspandef" colspan="2*">PORT6</td>
+                <td class="validspandef" colspan="2*">PORT5</td>
+                <td class="validspandef" colspan="2*">PORT4</td>
+                <td class="validspandef" colspan="2*">PORT3</td>
+                <td class="validspandef" colspan="2*">PORT2</td>
+                <td class="validspandef" colspan="2*">PORT1</td>
+                <td class="validspandef" colspan="2*">PORT0</td>
+    </tr>
+    <tr class="cat80" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat80" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT7</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">None
+        </td>
+    </tr>
+    <tr class="cat80" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT6</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">None
+        </td>
+    </tr>
+    <tr class="cat80" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT5</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">None
+        </td>
+    </tr>
+    <tr class="cat80" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT4</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">None
+        </td>
+    </tr>
+    <tr class="cat80" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT3</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">None
+        </td>
+    </tr>
+    <tr class="cat80" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT2</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">None
+        </td>
+    </tr>
+    <tr class="cat80" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT1</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">None
+        </td>
+    </tr>
+    <tr class="cat80" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT0</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">None
+        </td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="81">QSFP_MOD_INTL1</a></td>
+        <td class="Offset" colspan="2*">&nbsp;
+            <div class="offset_tooltip">
+                0x239
+            </div>
+        </td>
+        <td class="Slice" colspan="1*"></td>
+        <td class="Description" colspan="16">&nbsp;Ports 8 -> 15 Module IntL/RxLOS</td>
+    </tr>
+    <tr class="cat81" style="display: none">
+        <td class="RegisterName" colspan="3*"></td>
+        <td class="Offset" colspan="2*"></td>
+        <td class="bitdef" colspan="1*">&nbsp;7..0</td>
+                <td class="validspandef" colspan="2*">PORT15</td>
+                <td class="validspandef" colspan="2*">PORT14</td>
+                <td class="validspandef" colspan="2*">PORT13</td>
+                <td class="validspandef" colspan="2*">PORT12</td>
+                <td class="validspandef" colspan="2*">PORT11</td>
+                <td class="validspandef" colspan="2*">PORT10</td>
+                <td class="validspandef" colspan="2*">PORT9</td>
+                <td class="validspandef" colspan="2*">PORT8</td>
+    </tr>
+    <tr class="cat81" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldHeader" colspan="2*">Name</td>
+        <td class="FieldHeader" colspan="1*">Bit(s)</td>
+        <td class="FieldHeader" colspan="2*">Access</td>
+        <td class="FieldHeader" colspan="2*">Reset</td>
+        <td class="FieldHeader" colspan="14">Description</td>
+    </tr>
+    <tr class="cat81" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT15</td>
+        <td class="FieldDesc" colspan="1*">7</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">None
+        </td>
+    </tr>
+    <tr class="cat81" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT14</td>
+        <td class="FieldDesc" colspan="1*">6</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">None
+        </td>
+    </tr>
+    <tr class="cat81" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT13</td>
+        <td class="FieldDesc" colspan="1*">5</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">None
+        </td>
+    </tr>
+    <tr class="cat81" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT12</td>
+        <td class="FieldDesc" colspan="1*">4</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">None
+        </td>
+    </tr>
+    <tr class="cat81" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT11</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">None
+        </td>
+    </tr>
+    <tr class="cat81" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT10</td>
+        <td class="FieldDesc" colspan="1*">2</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">None
+        </td>
+    </tr>
+    <tr class="cat81" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT9</td>
+        <td class="FieldDesc" colspan="1*">1</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">None
+        </td>
+    </tr>
+    <tr class="cat81" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">PORT8</td>
+        <td class="FieldDesc" colspan="1*">0</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0x0</td>
+        <td class="FieldDesc" colspan="14">None
+        </td>
+    </tr>
+    <tr class="Register">
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="82">QSFP_PORT0_I2C_DATA</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x280
@@ -5617,13 +5823,13 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Port 0 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
-    <tr class="cat80" style="display: none">
+    <tr class="cat82" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
     </tr>
-    <tr class="cat80" style="display: none">
+    <tr class="cat82" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -5631,7 +5837,7 @@
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat80" style="display: none">
+    <tr class="cat82" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
         <td class="FieldDesc" colspan="1*">7..0</td>
@@ -5641,7 +5847,7 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="81">QSFP_PORT1_I2C_DATA</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="83">QSFP_PORT1_I2C_DATA</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x281
@@ -5650,13 +5856,13 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Port 1 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
-    <tr class="cat81" style="display: none">
+    <tr class="cat83" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
     </tr>
-    <tr class="cat81" style="display: none">
+    <tr class="cat83" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -5664,7 +5870,7 @@
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat81" style="display: none">
+    <tr class="cat83" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
         <td class="FieldDesc" colspan="1*">7..0</td>
@@ -5674,7 +5880,7 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="82">QSFP_PORT2_I2C_DATA</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="84">QSFP_PORT2_I2C_DATA</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x282
@@ -5683,13 +5889,13 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Port 2 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
-    <tr class="cat82" style="display: none">
+    <tr class="cat84" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
     </tr>
-    <tr class="cat82" style="display: none">
+    <tr class="cat84" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -5697,7 +5903,7 @@
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat82" style="display: none">
+    <tr class="cat84" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
         <td class="FieldDesc" colspan="1*">7..0</td>
@@ -5707,7 +5913,7 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="83">QSFP_PORT3_I2C_DATA</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="85">QSFP_PORT3_I2C_DATA</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x283
@@ -5716,13 +5922,13 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Port 3 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
-    <tr class="cat83" style="display: none">
+    <tr class="cat85" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
     </tr>
-    <tr class="cat83" style="display: none">
+    <tr class="cat85" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -5730,7 +5936,7 @@
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat83" style="display: none">
+    <tr class="cat85" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
         <td class="FieldDesc" colspan="1*">7..0</td>
@@ -5740,7 +5946,7 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="84">QSFP_PORT4_I2C_DATA</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="86">QSFP_PORT4_I2C_DATA</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x284
@@ -5749,13 +5955,13 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Port 4 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
-    <tr class="cat84" style="display: none">
+    <tr class="cat86" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
     </tr>
-    <tr class="cat84" style="display: none">
+    <tr class="cat86" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -5763,7 +5969,7 @@
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat84" style="display: none">
+    <tr class="cat86" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
         <td class="FieldDesc" colspan="1*">7..0</td>
@@ -5773,7 +5979,7 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="85">QSFP_PORT5_I2C_DATA</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="87">QSFP_PORT5_I2C_DATA</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x285
@@ -5782,13 +5988,13 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Port 5 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
-    <tr class="cat85" style="display: none">
+    <tr class="cat87" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
     </tr>
-    <tr class="cat85" style="display: none">
+    <tr class="cat87" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -5796,7 +6002,7 @@
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat85" style="display: none">
+    <tr class="cat87" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
         <td class="FieldDesc" colspan="1*">7..0</td>
@@ -5806,7 +6012,7 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="86">QSFP_PORT6_I2C_DATA</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="88">QSFP_PORT6_I2C_DATA</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x286
@@ -5815,13 +6021,13 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Port 6 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
-    <tr class="cat86" style="display: none">
+    <tr class="cat88" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
     </tr>
-    <tr class="cat86" style="display: none">
+    <tr class="cat88" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -5829,7 +6035,7 @@
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat86" style="display: none">
+    <tr class="cat88" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
         <td class="FieldDesc" colspan="1*">7..0</td>
@@ -5839,7 +6045,7 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="87">QSFP_PORT7_I2C_DATA</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="89">QSFP_PORT7_I2C_DATA</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x287
@@ -5848,13 +6054,13 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Port 7 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
-    <tr class="cat87" style="display: none">
+    <tr class="cat89" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
     </tr>
-    <tr class="cat87" style="display: none">
+    <tr class="cat89" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -5862,7 +6068,7 @@
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat87" style="display: none">
+    <tr class="cat89" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
         <td class="FieldDesc" colspan="1*">7..0</td>
@@ -5872,7 +6078,7 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="88">QSFP_PORT8_I2C_DATA</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="90">QSFP_PORT8_I2C_DATA</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x288
@@ -5881,13 +6087,13 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Port 8 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
-    <tr class="cat88" style="display: none">
+    <tr class="cat90" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
     </tr>
-    <tr class="cat88" style="display: none">
+    <tr class="cat90" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -5895,7 +6101,7 @@
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat88" style="display: none">
+    <tr class="cat90" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
         <td class="FieldDesc" colspan="1*">7..0</td>
@@ -5905,7 +6111,7 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="89">QSFP_PORT9_I2C_DATA</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="91">QSFP_PORT9_I2C_DATA</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x289
@@ -5914,13 +6120,13 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Port 9 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
-    <tr class="cat89" style="display: none">
+    <tr class="cat91" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
     </tr>
-    <tr class="cat89" style="display: none">
+    <tr class="cat91" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -5928,7 +6134,7 @@
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat89" style="display: none">
+    <tr class="cat91" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
         <td class="FieldDesc" colspan="1*">7..0</td>
@@ -5938,7 +6144,7 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="90">QSFP_PORT10_I2C_DATA</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="92">QSFP_PORT10_I2C_DATA</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x28a
@@ -5947,13 +6153,13 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Port 10 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
-    <tr class="cat90" style="display: none">
+    <tr class="cat92" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
     </tr>
-    <tr class="cat90" style="display: none">
+    <tr class="cat92" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -5961,7 +6167,7 @@
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat90" style="display: none">
+    <tr class="cat92" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
         <td class="FieldDesc" colspan="1*">7..0</td>
@@ -5971,7 +6177,7 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="91">QSFP_PORT11_I2C_DATA</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="93">QSFP_PORT11_I2C_DATA</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x28b
@@ -5980,13 +6186,13 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Port 11 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
-    <tr class="cat91" style="display: none">
+    <tr class="cat93" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
     </tr>
-    <tr class="cat91" style="display: none">
+    <tr class="cat93" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -5994,7 +6200,7 @@
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat91" style="display: none">
+    <tr class="cat93" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
         <td class="FieldDesc" colspan="1*">7..0</td>
@@ -6004,7 +6210,7 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="92">QSFP_PORT12_I2C_DATA</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="94">QSFP_PORT12_I2C_DATA</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x28c
@@ -6013,13 +6219,13 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Port 12 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
-    <tr class="cat92" style="display: none">
+    <tr class="cat94" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
     </tr>
-    <tr class="cat92" style="display: none">
+    <tr class="cat94" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -6027,7 +6233,7 @@
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat92" style="display: none">
+    <tr class="cat94" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
         <td class="FieldDesc" colspan="1*">7..0</td>
@@ -6037,7 +6243,7 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="93">QSFP_PORT13_I2C_DATA</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="95">QSFP_PORT13_I2C_DATA</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x28d
@@ -6046,13 +6252,13 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Port 13 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
-    <tr class="cat93" style="display: none">
+    <tr class="cat95" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
     </tr>
-    <tr class="cat93" style="display: none">
+    <tr class="cat95" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -6060,7 +6266,7 @@
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat93" style="display: none">
+    <tr class="cat95" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
         <td class="FieldDesc" colspan="1*">7..0</td>
@@ -6070,7 +6276,7 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="94">QSFP_PORT14_I2C_DATA</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="96">QSFP_PORT14_I2C_DATA</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x28e
@@ -6079,13 +6285,13 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Port 14 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
-    <tr class="cat94" style="display: none">
+    <tr class="cat96" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
     </tr>
-    <tr class="cat94" style="display: none">
+    <tr class="cat96" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -6093,7 +6299,7 @@
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat94" style="display: none">
+    <tr class="cat96" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
         <td class="FieldDesc" colspan="1*">7..0</td>
@@ -6103,7 +6309,7 @@
         </td>
     </tr>
     <tr class="Register">
-        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="95">QSFP_PORT15_I2C_DATA</a></td>
+        <td class="RegisterName" colspan="3*">&nbsp;<a href="#" class="toggler" data-prod-cat="97">QSFP_PORT15_I2C_DATA</a></td>
         <td class="Offset" colspan="2*">&nbsp;
             <div class="offset_tooltip">
                 0x28f
@@ -6112,13 +6318,13 @@
         <td class="Slice" colspan="1*"></td>
         <td class="Description" colspan="16">&nbsp;Port 15 I2C data FIFOs. Reading this address pulls from the rdata FIFO, writing it pushes to the wdata FIFO.</td>
     </tr>
-    <tr class="cat95" style="display: none">
+    <tr class="cat97" style="display: none">
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="validspandef" colspan="16*">DATA</td>
     </tr>
-    <tr class="cat95" style="display: none">
+    <tr class="cat97" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldHeader" colspan="2*">Name</td>
         <td class="FieldHeader" colspan="1*">Bit(s)</td>
@@ -6126,7 +6332,7 @@
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
     </tr>
-    <tr class="cat95" style="display: none">
+    <tr class="cat97" style="display: none">
         <td class="Blank" colspan="3*"></td>
         <td class="FieldDesc" colspan="2*">DATA</td>
         <td class="FieldDesc" colspan="1*">7..0</td>
