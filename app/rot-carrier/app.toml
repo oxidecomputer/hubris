@@ -67,7 +67,7 @@ task-slots = ["jefe"]
 name = "drv-lpc55-gpio"
 priority = 3
 max-sizes = {flash = 8192, ram = 2048}
-uses = ["gpio", "iocon"]
+uses = ["gpio", "iocon", "pint", "inputmux"]
 start = true
 task-slots = ["syscon_driver"]
 
@@ -75,7 +75,7 @@ task-slots = ["syscon_driver"]
 name = "drv-user-leds"
 features = ["lpc55"]
 priority = 6
-max-sizes = {flash = 8192, ram = 1056}
+max-sizes = {flash = 8192, ram = 1120}
 start = true
 task-slots = ["gpio_driver"]
 notifications = ["timer"]

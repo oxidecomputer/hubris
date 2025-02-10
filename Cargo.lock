@@ -339,6 +339,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "build-util",
+ "call_rustfmt",
  "cfg-if",
  "convert_case",
  "indexmap 1.9.1",
@@ -1377,10 +1378,12 @@ version = "0.1.0"
 dependencies = [
  "drv-lpc55-gpio-api",
  "drv-lpc55-syscon-api",
+ "hubpack",
  "idol",
  "idol-runtime",
  "lpc55-pac",
  "num-traits",
+ "serde",
  "userlib",
  "zerocopy 0.6.6",
 ]
@@ -1393,9 +1396,11 @@ dependencies = [
  "cfg-if",
  "counters",
  "derive-idol-err",
+ "hubpack",
  "idol",
  "idol-runtime",
  "num-traits",
+ "serde",
  "userlib",
  "zerocopy 0.6.6",
 ]

@@ -51,6 +51,19 @@ task_slot!(SYSCON, syscon_driver);
 
 struct ServerImpl<'a> {
     gpio: &'a device::gpio::RegisterBlock,
+    pint: &'a device::pint::RegisterBlock,
+    inputmux: &'a device::inputmux::RegisterBlock,
+}
+
+impl ServerImpl<'_> {
+    fn set_pin_direction(&self, port: usize, pin: usize, dir: Direction) {
+        match dir {
+            Direction::Input => self.gpio.dirclr[port]
+                .write(|w| unsafe { w.dirclrp().bits(1 << pin) }),
+            Direction::Output => self.gpio.dirset[port]
+                .write(|w| unsafe { w.dirsetp().bits(1 << pin) }),
+        }
+    }
 }
 
 impl idl::InOrderPinsImpl for ServerImpl<'_> {
@@ -61,13 +74,7 @@ impl idl::InOrderPinsImpl for ServerImpl<'_> {
         dir: Direction,
     ) -> Result<(), RequestError<core::convert::Infallible>> {
         let (port, pin) = gpio_port_pin_validate(pin);
-
-        match dir {
-            Direction::Input => self.gpio.dirclr[port]
-                .write(|w| unsafe { w.dirclrp().bits(1 << pin) }),
-            Direction::Output => self.gpio.dirset[port]
-                .write(|w| unsafe { w.dirsetp().bits(1 << pin) }),
-        }
+        self.set_pin_direction(port, pin, dir);
         Ok(())
     }
 
@@ -123,6 +130,7 @@ impl idl::InOrderPinsImpl for ServerImpl<'_> {
         _: &RecvMessage,
         pin: Pin,
         conf: u32,
+        pint_slot: Option<PintSlot>,
     ) -> Result<(), RequestError<core::convert::Infallible>> {
         // The LPC55 IOCON Rust API has individual functions for each pin.
         // This is not easily compatible with our API that involves passing
@@ -137,7 +145,110 @@ impl idl::InOrderPinsImpl for ServerImpl<'_> {
             core::ptr::write_volatile(base as *mut u32, conf);
         }
 
+        // If the GPIO pin is configured for interrupts, then
+        // interrupt configuration is done before pin configuration.
+        // INPUTMUX from UM11126:
+        // Once set up, no clocks are required for the input multiplexer to
+        // function. The system clock is needed only to write to or read from
+        // the INPUT MUX registers. Once the input multiplexer is configured,
+        // disable the clock to the INPUT MUX block in the AHBCLKCTRL register.
+        // See: Section 4.5.17 “AHB clock control 0”.
+        if let Some(pint_slot) = pint_slot {
+            // The INPUTMUX only needs to be turned on during configuration.
+            let syscon = Syscon::from(SYSCON.get_task_id());
+            syscon.enable_clock(Peripheral::Mux);
+            syscon.leave_reset(Peripheral::Mux);
+            self.inputmux.pintsel[pint_slot.index()]
+                .write(|w| unsafe { w.intpin().bits(pin as u8) });
+            syscon.disable_clock(Peripheral::Mux);
+
+            // NOTE: We're only supporting edge-triggered interrupts right now.
+            // We hard-code ISEL.PMODE as edge-triggered:
+            // Edge triggered = 0 << PintSlot
+            // Level triggered = 1 << PintSlot
+            unsafe {
+                self.pint
+                    .isel
+                    .modify(|r, w| w.bits(r.bits() & !pint_slot.mask()));
+            }
+        }
+
         Ok(())
+    }
+
+    //
+    // Functions for managing GPIO interrupts:
+    //
+    fn pint_op(
+        &mut self,
+        _: &RecvMessage,
+        pint_slot: PintSlot,
+        op: PintOp,
+        cond: PintCondition,
+    ) -> Result<Option<bool>, RequestError<core::convert::Infallible>> {
+        let mask = pint_slot.mask();
+        match op {
+            PintOp::Clear => {
+                match cond {
+                    PintCondition::Rising => {
+                        self.pint.rise.write(|w| unsafe { w.bits(mask) })
+                    }
+                    PintCondition::Falling => {
+                        self.pint.fall.write(|w| unsafe { w.bits(mask) })
+                    }
+                    PintCondition::Status => {
+                        self.pint.ist.write(|w| unsafe { w.bits(mask) })
+                    }
+                }
+                Ok(None)
+            }
+            PintOp::Enable => {
+                match cond {
+                    // Enable rising edge detection
+                    PintCondition::Rising => {
+                        self.pint.sienr.write(|w| unsafe { w.bits(mask) })
+                    }
+                    // Enable falling edge detection
+                    PintCondition::Falling => {
+                        self.pint.sienf.write(|w| unsafe { w.bits(mask) })
+                    }
+                    // XXX This could be enable interrupt
+                    PintCondition::Status => (),
+                }
+                Ok(None)
+            }
+            PintOp::Disable => {
+                match cond {
+                    // Disable rising edge detection
+                    PintCondition::Rising => {
+                        self.pint.cienr.write(|w| unsafe { w.bits(mask) })
+                    }
+                    // Disable falling edge detection
+                    PintCondition::Falling => {
+                        self.pint.cienf.write(|w| unsafe { w.bits(mask) })
+                    }
+                    // XXX This could be disable interrupt
+                    PintCondition::Status => (),
+                }
+                Ok(None)
+            }
+            PintOp::Detected => {
+                Ok(Some(
+                    0 != match cond {
+                        PintCondition::Rising => {
+                            self.pint.rise.read().bits() & mask
+                        }
+                        PintCondition::Falling => {
+                            self.pint.fall.read().bits() & mask
+                        }
+                        // XXX This could be any interrupt detected
+                        PintCondition::Status => {
+                            self.pint.ist.read().bits() & pint_slot.mask()
+                        }
+                    },
+                ))
+            }
+        }
     }
 }
 
@@ -157,8 +268,14 @@ fn main() -> ! {
     turn_on_gpio_clocks();
 
     let gpio = unsafe { &*device::GPIO::ptr() };
+    let pint = unsafe { &*device::PINT::ptr() };
+    let inputmux = unsafe { &*device::INPUTMUX::ptr() };
 
-    let mut server = ServerImpl { gpio };
+    let mut server = ServerImpl {
+        gpio,
+        pint,
+        inputmux,
+    };
 
     let mut incoming = [0; idl::INCOMING_SIZE];
     loop {
@@ -188,9 +305,15 @@ fn turn_on_gpio_clocks() {
 
     syscon.enable_clock(Peripheral::Gpio1);
     syscon.leave_reset(Peripheral::Gpio1);
+
+    syscon.enable_clock(Peripheral::Pint);
+    syscon.leave_reset(Peripheral::Pint);
 }
 
 mod idl {
+    use crate::PintCondition;
+    use crate::PintOp;
+    use crate::PintSlot;
     use drv_lpc55_gpio_api::{Direction, Pin, Value};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
