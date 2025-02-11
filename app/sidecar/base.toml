@@ -59,7 +59,7 @@ name = "drv-stm32h7-rng"
 priority = 6
 uses = ["rng"]
 start = true
-stacksize = 256
+stacksize = 512
 task-slots = ["sys"]
 
 [tasks.update_server]
