@@ -73,6 +73,7 @@ fn main() -> ! {
 #[allow(unused)]
 struct ServerImpl {
     jefe: Jefe,
+    sgpio: fmc_periph::Sgpio,
 }
 
 impl ServerImpl {
@@ -90,10 +91,10 @@ impl ServerImpl {
 
         // Wait for the FPGA to be loaded
         let loader = Spartan7Loader::from(LOADER.get_task_id());
-        loader.ping();
 
         let server = Self {
             jefe: Jefe::from(JEFE.get_task_id()),
+            sgpio: fmc_periph::Sgpio::new(loader.get_token()),
         };
         server.set_state_impl(PowerState::A2);
 
@@ -165,17 +166,10 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<(), RequestError<core::convert::Infallible>> {
-        let ptr = reg::sgpio::OUT1;
-        // SAFETY: the FPGA must be loaded, and these registers are in our FMC
-        // region, so we can access them.
-        unsafe {
-            let orig = ptr.read_volatile();
-            ptr.write_volatile(
-                (orig & !reg::sgpio::out1::MGMT_ASSERT_NMI_BTN_L) & 0xFFFF,
-            );
-            hl::sleep_for(1000);
-            ptr.write_volatile(orig);
-        }
+        // p5 is MGMT_ASSERT_NMI_BTN_L
+        self.sgpio.out1.set_p5(false);
+        hl::sleep_for(1000);
+        self.sgpio.out1.set_p5(true);
         Ok(())
     }
 
@@ -197,88 +191,11 @@ impl NotificationHandler for ServerImpl {
     }
 }
 
-/// Register map for SGPIO registers
-#[allow(unused)]
-mod reg {
-    pub const BASE: *mut u32 = 0x60000000 as *mut _;
-
-    pub const SGPIO: *mut u32 = BASE.wrapping_add(0xc0);
-    pub mod sgpio {
-        use super::*;
-        pub const OUT0: *mut u32 = SGPIO.wrapping_add(0x0);
-        pub const IN0: *mut u32 = SGPIO.wrapping_add(0x1);
-        pub const OUT1: *mut u32 = SGPIO.wrapping_add(0x2);
-        pub const IN1: *mut u32 = SGPIO.wrapping_add(0x3);
-        pub mod out0 {
-            pub const HAWAII_HEARTBEAT: u32 = 1 << 14;
-            pub const MB_SCM_HPM_STBY_RDY: u32 = 1 << 14;
-            pub const HPM_BMC_GPIOY3: u32 = 1 << 11;
-            pub const MGMT_SMBUS_DATA: u32 = 1 << 10;
-            pub const MGMT_SMBUS_CLK: u32 = 1 << 9;
-            pub const GPIO_OUTPUT_9: u32 = 1 << 8;
-            pub const GPIO_OUTPUT_8: u32 = 1 << 7;
-            pub const GPIO_OUTPUT_7: u32 = 1 << 6;
-            pub const GPIO_OUTPUT_6: u32 = 1 << 5;
-            pub const BMC_READY: u32 = 1 << 4;
-            pub const HPM_BMC_GPIOL5: u32 = 1 << 3;
-            pub const HPM_BMC_GPIOL4: u32 = 1 << 2;
-            pub const HPM_BMC_GPIOH3: u32 = 1 << 1;
-            pub const MGMT_ASSERT_LOCAL_LOCK: u32 = 1 << 0;
-        }
-        pub mod in0 {
-            pub const BMC_SCM_FPGA_UART_RX: u32 = 1 << 15;
-            pub const MGMT_SYS_MON_PWR_GOOD: u32 = 1 << 14;
-            pub const MGMT_SYS_MON_NMI_BTN_L: u32 = 1 << 13;
-            pub const MGMT_SYS_MON_PWR_BTN_L: u32 = 1 << 12;
-            pub const MGMT_SYS_MON_RST_BTN_L: u32 = 1 << 11;
-            pub const DEBUG_INPUT1: u32 = 1 << 10;
-            pub const MGMT_AC_LOSS_L: u32 = 1 << 9;
-            pub const MGMT_SYS_MON_ATX_PWR_OK: u32 = 1 << 8;
-            pub const MGMT_SYS_MON_P1_THERMTRIP_L: u32 = 1 << 7;
-            pub const MGMT_SYS_MON_P0_THERMTRIP_L: u32 = 1 << 6;
-            pub const MGMT_SYS_MON_P1_PROCHOT_L: u32 = 1 << 5;
-            pub const MGMT_SYS_MON_P0_PROCHOT_L: u32 = 1 << 4;
-            pub const MGMT_SYS_MON_RESET_L: u32 = 1 << 3;
-            pub const P1_PRESENT_L: u32 = 1 << 2;
-            pub const P0_PRESENT_L: u32 = 1 << 1;
-            pub const MGMT_SYS_MON_POST_COMPLETE: u32 = 1 << 0;
-        }
-        pub mod out1 {
-            pub const BMC_SCM_FPGA_UART_TX: u32 = 1 << 14;
-            pub const MGMT_ASSERT_NMI_BTN_L: u32 = 1 << 13;
-            pub const MGMT_ASSERT_PWR_BTN_L: u32 = 1 << 12;
-            pub const MGMT_ASSERT_RST_BTN_L: u32 = 1 << 11;
-            pub const JTAG_TRST_N: u32 = 1 << 10;
-            pub const GPIO_OUTPUT_5: u32 = 1 << 9;
-            pub const GPIO_OUTPUT_4: u32 = 1 << 8;
-            pub const GPIO_OUTPUT_3: u32 = 1 << 7;
-            pub const GPIO_OUTPUT_2: u32 = 1 << 6;
-            pub const GPIO_OUTPUT_1: u32 = 1 << 5;
-            pub const MGMT_ASSERT_CLR_CMOS: u32 = 1 << 4;
-            pub const MGMT_ASSERT_P1_PROCHOT: u32 = 1 << 3;
-            pub const MGMT_ASSERT_P0_PROCHOT: u32 = 1 << 2;
-            pub const MGMT_SOC_RESET_L: u32 = 1 << 1;
-            pub const MGMT_ASERT_WARM_RST_BTN_L: u32 = 1 << 0;
-        }
-        pub mod in1 {
-            pub const MGMT_SMBUS_ALERT_L: u32 = 1 << 15;
-            pub const HPM_BMC_GPIOI7: u32 = 1 << 14;
-            pub const ESPI_BOOT_SEL: u32 = 1 << 13;
-            pub const I2C_BMC_MB_ALERT_S: u32 = 1 << 12;
-            pub const GPIO_INPUT_6: u32 = 1 << 8;
-            pub const GPIO_INPUT_5: u32 = 1 << 7;
-            pub const GPIO_INPUT_4: u32 = 1 << 6;
-            pub const GPIO_INPUT_3: u32 = 1 << 5;
-            pub const GPIO_INPUT_2: u32 = 1 << 4;
-            pub const GPIO_INPUT_1: u32 = 1 << 3;
-            pub const HPM_BMC_GPIOM5: u32 = 1 << 2;
-            pub const HPM_BMC_GPIOM4: u32 = 1 << 1;
-            pub const HPM_BMC_GPIOM3: u32 = 1 << 0;
-        }
-    }
-}
-
 mod idl {
     use drv_cpu_seq_api::{SeqError, StateChangeReason};
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
+}
+
+mod fmc_periph {
+    include!(concat!(env!("OUT_DIR"), "/fmc_sgpio.rs"));
 }

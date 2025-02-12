@@ -21,6 +21,7 @@ zerocopy = { workspace = true }
 
 [build-dependencies]
 build-util = { path = "../../build/util" }
+build-fpga-regmap = { path = "../../build/fpga-regmap" }
 idol = { workspace = true }
 
 [[bin]]

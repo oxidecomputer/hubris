@@ -4,11 +4,13 @@
 
 use convert_case::{Case, Casing};
 use serde::Deserialize;
+use serde_with::{serde_as, DefaultOnNull};
 use std::fmt::Write;
 
+#[serde_as]
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
-enum Node {
+pub enum Node {
     Addrmap {
         inst_name: String,
         addr_offset: usize,
@@ -25,6 +27,9 @@ enum Node {
         lsb: usize,
         msb: usize,
         encode: Option<Vec<EnumEncode>>,
+        sw_access: SwAccess,
+        #[serde_as(as = "DefaultOnNull")]
+        desc: String,
     },
     Mem {
         inst_name: String,
@@ -33,9 +38,29 @@ enum Node {
 }
 
 #[derive(Debug, Deserialize)]
-struct EnumEncode {
+pub struct EnumEncode {
     name: String,
     value: u8,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SwAccess {
+    #[serde(alias = "r")]
+    Read,
+    #[serde(alias = "w")]
+    Write,
+    #[serde(alias = "rw")]
+    ReadWrite,
+}
+
+impl SwAccess {
+    fn is_read(&self) -> bool {
+        matches!(self, SwAccess::Read | SwAccess::ReadWrite)
+    }
+    fn is_write(&self) -> bool {
+        matches!(self, SwAccess::Write | SwAccess::ReadWrite)
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -89,7 +114,7 @@ fn recurse_addr_map(
     }
 }
 
-fn build_addr_map(node: &Node, output: &mut String) {
+pub fn build_addr_map(node: &Node, output: &mut String) {
     let children = if let Node::Addrmap { children, .. } = node {
         children
     } else {
@@ -152,6 +177,7 @@ fn write_reg_fields(
             lsb,
             msb,
             encode,
+            ..
         } = child
         {
             let nbits = *msb - *lsb + 1;
@@ -317,7 +343,7 @@ fn recurse_reg_map(
     }
 }
 
-fn build_reg_map(node: &Node, output: &mut String) {
+pub fn build_reg_map(node: &Node, output: &mut String) {
     let children = if let Node::Addrmap { children, .. } = node {
         children
     } else {
@@ -354,4 +380,260 @@ pub fn fpga_regs(
     build_reg_map(&node, &mut output);
 
     Ok(output)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+pub fn build_peripheral(
+    node: &Node,
+    top: &Node,
+    peripheral: &str,
+    base_addr: u32,
+    token: Option<&str>,
+) -> anyhow::Result<String> {
+    use heck::{ToSnakeCase, ToUpperCamelCase};
+    use quote::quote;
+
+    let periph_offset = match top {
+        Node::Addrmap { children, .. } => {
+            let Some(offset) = children.iter().find_map(|c| match c {
+                Node::Addrmap {
+                    inst_name,
+                    addr_offset,
+                    ..
+                } if inst_name == peripheral => Some(addr_offset),
+                _ => None,
+            }) else {
+                panic!("could not find '{peripheral}' in top map");
+            };
+            offset
+        }
+        _ => panic!("top node must be an addrmap"),
+    };
+
+    let Node::Addrmap { children, .. } = node else {
+        panic!("peripheral node must be an addrmap");
+    };
+    let mut reg_definitions = vec![];
+    let mut reg_types = vec![];
+    let mut reg_decls = vec![];
+    for c in children {
+        let Node::Reg {
+            inst_name,
+            addr_offset,
+            regwidth,
+            children,
+        } = c
+        else {
+            panic!("nodes within map must be registers, not {c:?}");
+        };
+        assert_eq!(*regwidth, 32, "only 32-bit registers are supported");
+        let mut struct_fns = vec![];
+        for c in children {
+            let Node::Field {
+                inst_name,
+                lsb,
+                msb,
+                encode,
+                sw_access,
+                desc,
+            } = c
+            else {
+                panic!("nodes within register must be fields, not {c:?}");
+            };
+            let msb = u32::try_from(*msb).unwrap();
+            let lsb = u32::try_from(*lsb).unwrap();
+            assert!(encode.is_none(), "encode must be none, not {encode:?}");
+            let setter: syn::Ident =
+                syn::parse_str(&format!("set_{}", inst_name.to_snake_case()))
+                    .unwrap();
+            let getter: syn::Ident =
+                syn::parse_str(&inst_name.to_snake_case()).unwrap();
+            if lsb == msb {
+                if sw_access.is_write() {
+                    struct_fns.push(quote! {
+                        #[doc = #desc]
+                        pub fn #setter(&self, t: bool) {
+                            let mut d = self.get_raw();
+                            if t {
+                                d |= 1 << #msb;
+                            } else {
+                                d &= !(1 << #msb);
+                            }
+                            self.set_raw(d);
+                        }
+                    });
+                }
+                if sw_access.is_read() {
+                    struct_fns.push(quote! {
+                        #[doc = #desc]
+                        pub fn #getter(&self) -> bool {
+                            let d = self.get_raw();
+                            (d & (1 << #msb)) != 0
+                        }
+                    });
+                }
+            } else {
+                let width = msb - lsb + 1;
+                let mask = u32::try_from((1u64 << width) - 1).unwrap();
+                let ty = match width {
+                    1 => unreachable!(),
+                    2..=8 => "u8",
+                    9..=16 => "u16",
+                    17..=32 => "u32",
+                    _ => panic!("invalid width {width}"),
+                };
+                let ty: syn::Ident = syn::parse_str(ty).unwrap();
+                if sw_access.is_write() {
+                    struct_fns.push(quote! {
+                        #[doc = #desc]
+                        pub fn #setter(&self, t: #ty) {
+                            let mut d = self.get_raw();
+                            d &= !(#mask << #lsb);
+                            d |= (u32::from(t) & #mask) << #lsb;
+                            self.set_raw(d);
+                        }
+                    });
+                }
+                if sw_access.is_read() {
+                    struct_fns.push(quote! {
+                        #[doc = #desc]
+                        pub fn #getter(&self) -> #ty {
+                            let d = self.get_raw();
+                            ((d >> #lsb) & #mask) as #ty
+                        }
+                    });
+                }
+            }
+        }
+
+        let struct_name: syn::Ident =
+            syn::parse_str(&inst_name.to_upper_camel_case()).unwrap();
+        let handle_name: syn::Ident = syn::parse_str(&format!(
+            "{}Handle",
+            inst_name.to_upper_camel_case()
+        ))
+        .unwrap();
+        let reg_addr = base_addr
+            + u32::try_from(*periph_offset).unwrap()
+            + u32::try_from(*addr_offset).unwrap();
+        let struct_def = quote! {
+            pub struct #struct_name;
+            #[allow(dead_code, clippy::useless_conversion, clippy::unnecessary_cast)]
+            impl #struct_name {
+                const ADDR: *mut u32 = #reg_addr as *mut u32;
+                fn new() -> Self {
+                    #struct_name
+                }
+                fn get_raw(&self) -> u32 {
+                    unsafe {
+                        Self::ADDR.read_volatile()
+                    }
+                }
+                fn set_raw(&self, v: u32) {
+                    unsafe {
+                        Self::ADDR.write_volatile(v)
+                    }
+                }
+                pub fn modify<F: Fn(&mut #handle_name)>(&self, f: F) {
+                    let mut v =
+                        #handle_name(core::cell::Cell::new(self.get_raw()));
+                    f(&mut v);
+                    self.set_raw(v.0.get());
+                }
+
+                #(#struct_fns)*
+            }
+
+            pub struct #handle_name(core::cell::Cell<u32>);
+            #[allow(dead_code, clippy::useless_conversion, clippy::unnecessary_cast)]
+            impl #handle_name {
+                fn get_raw(&self) -> u32 {
+                    self.0.get()
+                }
+                fn set_raw(&self, v: u32) {
+                    self.0.set(v)
+                }
+                #(#struct_fns)*
+            }
+        };
+        reg_definitions.push(struct_def);
+        let reg_name: syn::Ident =
+            syn::parse_str(&inst_name.to_snake_case()).unwrap();
+        reg_types.push(quote! {
+            pub #reg_name: #struct_name
+        });
+        reg_decls.push(quote! {
+            #reg_name: #struct_name::new()
+        });
+    }
+
+    let periph_name: syn::Ident =
+        syn::parse_str(&peripheral.to_upper_camel_case()).unwrap();
+    let peripheral_def = if let Some(token) = token {
+        let token_ty: syn::Path = syn::parse_str(token).unwrap();
+        quote! {
+            #[allow(dead_code)]
+            pub struct #periph_name {
+                #(#reg_types),*
+            }
+            #[allow(dead_code)]
+            impl #periph_name {
+                pub fn new(_token: #token_ty) -> Self {
+                    Self {
+                        #(#reg_decls),*
+                    }
+                }
+            }
+            #(#reg_definitions)*
+        }
+    } else {
+        quote! {
+            #[allow(dead_code)]
+            pub struct #periph_name {
+                #(#reg_types),*
+            }
+            #[allow(dead_code)]
+            impl #periph_name {
+                pub fn new() -> Self {
+                    Self {
+                        #(#reg_decls),*
+                    }
+                }
+            }
+            #(#reg_definitions)*
+        }
+    };
+
+    let f: syn::File = syn::parse2(peripheral_def).unwrap();
+    Ok(prettyplease::unparse(&f))
+}
+
+/// Read and parse a JSON file containing a `Node`
+pub fn read_parse(p: &std::path::Path) -> anyhow::Result<Node> {
+    use std::io::Read;
+    let mut data = vec![];
+    std::fs::File::open(p)?.read_to_end(&mut data)?;
+    let src = std::str::from_utf8(&data)?;
+    let node: Node = serde_json::from_str(src)?;
+    Ok(node)
+}
+
+pub fn fpga_peripheral(
+    node: &std::path::Path,
+    top: &std::path::Path,
+    base_addr: u32,
+    token: &str,
+) -> anyhow::Result<String> {
+    let node_name = node.file_stem().unwrap().to_str().unwrap();
+    let node = read_parse(node)?;
+    let top = read_parse(top)?;
+    let Some(peripheral) = node_name.strip_suffix("_reg_map") else {
+        anyhow::bail!(
+            "could not get peripheral name from {node_name},
+             expected '_reg_map' suffix"
+        );
+    };
+
+    build_peripheral(&node, &top, peripheral, base_addr, Some(token))
 }
