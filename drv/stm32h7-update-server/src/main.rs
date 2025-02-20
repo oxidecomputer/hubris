@@ -387,10 +387,10 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
                 .read_range(0..len, flash_bytes)
                 .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
 
-            // If there is a write less than the block size zero out the
-            // trailing bytes
+            // If there is a write less than the block size fill out the
+            // trailing bytes with 0xff.
             if len < BLOCK_SIZE_BYTES {
-                flash_bytes[len..].fill(0);
+                flash_bytes[len..].fill(0xff);
             }
         }
 
