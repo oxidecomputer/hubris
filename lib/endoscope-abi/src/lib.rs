@@ -29,10 +29,7 @@ pub enum State {
 #[derive(FromBytes, AsBytes, Copy, Clone)]
 #[repr(C, packed)]
 pub struct Shared {
-    pub magic: u32,
     pub state: u32,
-    pub start: u32,
-    pub len: u32,
     pub digest: [u8; 256 / 8],
 }
 

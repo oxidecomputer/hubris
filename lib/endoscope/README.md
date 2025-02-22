@@ -45,27 +45,30 @@ invalidate any previous measurements that have been recorded.
 
 ## Size and Performance
 
-The smaller program is currently under 5KiB and takes less than 5.5 seconds to run.
-The larger version took 6.4 seconds to run.
+```bash
+# The program is about 5KiB and takes less than 0.5 seconds to inject and run.
+$ find target/thumbv8m.main-none-eabihf/release/build \
+  -name endoscope.bin -print -exec stat -c '%s' '{}' ';'
+target/thumbv8m.main-none-eabihf/release/build/drv-lpc55-swd-da6462ef675419cb/out/endoscope.bin
+5740
+```
 
 Building as a cargo `bindeps` artifact allows the source to be maintained
 in the Hubris repo and removes any concern that it is out of date with
 respect to the RoT firmware.
 
-The program is built as a `bindeps` artifact. As such, the profile
-that it is built with is not allowed to specify `lto` or `panic`.
-Not being able to use the desired profile costs an extra 462 bytes at
+However, as a `bindeps` artifact, the profile that it is built with is not
+allowed to specify `lto` or `panic`.
+
+Not being able to use the desired profile costs something around an extra 462 bytes at
 the time of writing.
 
-In addition to the normal Rust code golf opportunities for space and time
-include fixing the above, there is the possibility of using an FFI SHA3
-library, if a more compact or faster implementation is found in another language.
+Rust "code golf" opportunities for space and time include:
+  - Fix the build profile `lto` and `panic` prohibition described above,
+  - Use an FFI SHA3 library, if a more compact or faster implementation can be found.
+  - On the RoT side, inject the code more efficiently.
 
-```
-# The current implementation size is 4968 bytes.
-$ stat -c '%s' target/thumbv8m.main-none-eabihf/release/build/drv-lpc55-swd-2e300752b097b62f/out/endoscope.bin
-4968
-
+```bash
 # Building it as a stand-alone bin results in a smaller executable (4660 bytes)
 $ arm-none-eabi-size target/thumbv7em-none-eabihf/release/endoscope
    text	   data	    bss	    dec	    hex	filename
@@ -145,6 +148,8 @@ the ITCM/DTCM memories.
 ### Read the Results
 
 The results are in a `struct Shared`.
+Given that `endoscope` and the `swd` task are compiled together, no structure magic
+number or versioning is required and compile- and link-time constants are trustworthy.
 
 ```rust
 #[repr(u32)]
@@ -157,10 +162,7 @@ pub enum State {
 
 #[repr(C)]
 pub struct Shared {
-    pub magic: u32,
     pub state: State,
-    pub start: *const u8,
-    pub len: usize,
     pub digest: [u8; 32],
 }
 
@@ -187,10 +189,7 @@ Or, as the struct being used:
 
 ```rust
 Shared {
-    magic: Shared::MAGIC,
     state: State::Done,
-    start: 0x0800_0000,
-    len: 0x0010_0000,
     digest: [
         03, 6f, 35, cc, af, ba, 2a, 6e,
         09, d7, 55, db, 33, a5, be, 73,

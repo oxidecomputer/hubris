@@ -6,11 +6,6 @@ use core::cell::UnsafeCell;
 use core::marker::Sync;
 pub use endoscope_abi::{Shared, State};
 
-extern "C" {
-    static FLASH_BASE: [u8; 0];
-    static FLASH_SIZE: [u32; 0];
-}
-
 #[repr(C)]
 pub struct SharedWrapper {
     shared: UnsafeCell<Shared>,
@@ -22,10 +17,7 @@ impl SharedWrapper {
     pub const fn new() -> Self {
         SharedWrapper {
             shared: UnsafeCell::new(Shared {
-                magic: Shared::MAGIC,
                 state: State::Preboot as u32,
-                start: 0,
-                len: 0,
                 digest: [0xff_u8; 32],
             }),
         }
@@ -37,25 +29,9 @@ impl SharedWrapper {
         }
     }
 
-    pub fn get_start(&self) -> *const u8 {
-        unsafe { (*self.shared.get()).start as *const u8 }
-    }
-
-    pub fn get_len(&self) -> usize {
-        unsafe { (*self.shared.get()).len as usize }
-    }
-
     pub fn set_digest(&self, digest: &[u8; 32]) {
         unsafe {
             (*self.shared.get()).digest.copy_from_slice(digest);
-        }
-    }
-
-    // Get around complaints about static initializations from statics.
-    pub fn set_flash_area(&self) {
-        unsafe {
-            (*self.shared.get()).start = FLASH_BASE.as_ptr() as u32;
-            (*self.shared.get()).len = FLASH_SIZE.as_ptr() as u32;
         }
     }
 }

@@ -1407,10 +1407,7 @@ impl ServerImpl {
         };
 
         let mut shared = Shared {
-            magic: 0,
             state: Shared::STATE_PREBOOT,
-            start: 0,
-            len: 0,
             digest: [0u8; 32],
         };
 
