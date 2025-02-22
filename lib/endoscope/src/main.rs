@@ -5,14 +5,6 @@
 #![no_std]
 #![no_main]
 
-// We have to do this if we don't otherwise use it to ensure its vector table
-// gets linked in.
-// extern crate stm32h7;
-//use stm32h7::stm32h753 as device;
-
-// use cortex_m_rt::entry;
-//
-
 // use panic_halt as _;
 use core::arch::{self};
 use core::panic::PanicInfo;
@@ -69,16 +61,26 @@ const CLOCK_CONFIG: ClockConfig = ClockConfig {
 mod shared;
 use shared::{State, SHARED};
 
+extern "C" {
+    static FLASH_BASE: [u8; 0];
+    static FLASH_SIZE: [u32; 0];
+}
+
 #[entry]
 fn main() -> ! {
     // Note: The RoT does not examine results until the SP is halted.
     SHARED.set_state(State::Running);
     let _p = system_init(CLOCK_CONFIG);
-    SHARED.set_flash_area();
     let mut hash = Sha3_256::new();
+
+    // Safety: The bounds of the device's flash area are link-time constants.
     let image = unsafe {
-        core::slice::from_raw_parts(SHARED.get_start(), SHARED.get_len())
+        core::slice::from_raw_parts(
+            FLASH_BASE.as_ptr() as u32 as *const u8,
+            FLASH_SIZE.as_ptr() as u32 as usize,
+        )
     };
+
     hash.update(image[..].as_ref());
     let digest: [u8; 256 / 8] = hash.finalize().into();
     SHARED.set_digest(&digest);
