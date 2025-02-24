@@ -33,8 +33,8 @@ fn main() -> Result<()> {
 
     let out_dir = build_util::out_dir();
     let dest_path = out_dir.join(CFG_SRC);
-    let mut out =
-        File::create(dest_path).context(format!("creating {}", CFG_SRC))?;
+    let mut out = File::create(dest_path)
+        .with_context(|| format!("creating {}", CFG_SRC))?;
 
     let data_regions = build_util::task_extern_regions::<DataRegion>()?;
     if data_regions.is_empty() {
@@ -76,9 +76,9 @@ pub const ALIAS_DATA: DataRegion = DataRegion {{
         )?;
         let tasks = build_util::task_ids();
         for task_name in task_config.permit_log_reset {
-            let id = tasks.get(task_name.as_str()).context(format!(
-                "attest: allow_reset_task '{task_name}' is not present"
-            ))?;
+            let id = tasks.get(task_name.as_str()).with_context(|| {
+                format!("attest: allow_reset_task '{task_name}' is not present")
+            })?;
             writeln!(out, "{id}, // Allow {task_name}")?;
         }
         writeln!(out, "];")?;
