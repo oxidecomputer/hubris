@@ -5,16 +5,26 @@
 use anyhow::{bail, Context, Result};
 use build_lpc55pins::PinConfig;
 use call_rustfmt::rustfmt;
-use endoscope_abi::{LOAD_SYMBOL, SHARED_STRUCT_SYMBOL};
 use goblin::container::Container;
 use goblin::elf::section_header::{SectionHeader, SHF_ALLOC, SHT_PROGBITS};
 use goblin::elf::Elf;
-use rustc_demangle::demangle;
 use serde::Deserialize;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::PathBuf;
+
+// Symbols relied on in the endoscope.elf file.
+// The image load address.
+pub const LOAD_SYMBOL: &str = "__vector_table";
+// An instance of struct Shared is expected at this address
+pub const SHARED_STRUCT_SYMBOL: &str = "SHARED";
+// The reset vector found in the image should match this symbol value.
+pub const RESET_VECTOR_SYMBOL: &str = "Reset";
+// Start of flash area to measure
+pub const FLASH_BASE: &str = "FLASH_BASE";
+// End (not inclusive) of flash area to measure
+pub const FLASH_SIZE: &str = "FLASH_SIZE";
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -100,7 +110,8 @@ fn generate_swd_functions(config: &TaskConfig) -> Result<()> {
 fn prepare_endoscope() -> Result<(), anyhow::Error> {
     let key = "CARGO_BIN_FILE_ENDOSCOPE";
     let elf_path = PathBuf::from(
-        std::env::var(key).context(format!("Cannot read env var '{}'", key))?,
+        std::env::var(key)
+            .with_context(|| format!("Cannot read env var '{}'", key))?,
     );
     let data = std::fs::read(&elf_path).context("could not open ELF file")?;
     let elf = Elf::parse(&data).context("cannot parse ELF file")?;
@@ -120,25 +131,25 @@ fn prepare_endoscope() -> Result<(), anyhow::Error> {
         bail!("Not a little endian ARM ELF file");
     }
 
-    let mut interesting = std::collections::BTreeMap::new();
-    for name in [
+    let interesting = std::collections::BTreeMap::from([
         // Load address of image
         (LOAD_SYMBOL, "LOAD"),
         // Address of endoscope output struct
         (SHARED_STRUCT_SYMBOL, "SHARED"),
-    ]
-    .iter()
-    {
-        interesting.insert(name.0, name.1);
-    }
+        // Base address of flash region to measure
+        (FLASH_BASE, "FLASH_BASE"),
+        // Size of flash region to measure
+        (FLASH_SIZE, "FLASH_SIZE"),
+    ]);
 
     for sym in elf.syms.iter() {
-        if let Some(str) = elf.strtab.get_at(sym.st_name) {
-            let name = format!("{:#}", demangle(str));
-            if let Some(myname) = interesting.get(name.as_str()) {
+        if let Some(name) = elf.strtab.get_at(sym.st_name) {
+            // Note: If we were using Rust instead of linker symbols
+            // we would want to use rustc_demangle::demangle(str)
+            if let Some(myname) = interesting.get(name) {
                 writeln!(
                     &mut file,
-                    "pub const {}:u32 = 0x{:x};",
+                    "pub const {}: u32 = {:#x};",
                     myname, sym.st_value
                 )?;
             }
@@ -148,10 +159,9 @@ fn prepare_endoscope() -> Result<(), anyhow::Error> {
 
     // Extract image bits from the ELF file.
     let elf_reader = OpenOptions::new().read(true).open(&elf_path).unwrap();
-    let bin = get_elf(elf_reader).context(format!(
-        "cannot extract bin from elf {}",
-        elf_path.display()
-    ))?;
+    let bin = get_elf(elf_reader).with_context(|| {
+        format!("cannot extract bin from elf {}", elf_path.display())
+    })?;
     std::fs::write(&bin_path, bin).context("cannot write to {&bin_path}")?;
 
     writeln!(
@@ -244,12 +254,14 @@ where
         let file_range = section.file_range().unwrap();
         let vm_range = section.vm_range();
         reader.seek(SeekFrom::Start(file_range.start as u64))?;
-        if reader.read(&mut bin[vm_range.start..vm_range.end]).is_err() {
-            bail!(format!(
-                "cannot read elf[{}..] into bin[{}..{}]",
-                file_range.start, vm_range.start, vm_range.end
-            ));
-        }
+        reader
+            .read_exact(&mut bin[vm_range.start..vm_range.end])
+            .with_context(|| {
+                format!(
+                    "cannot read elf[{}..] into bin[{}..{}]",
+                    file_range.start, vm_range.start, vm_range.end
+                )
+            })?;
     }
     Ok(bin)
 }

@@ -18,6 +18,7 @@
 
 use zerocopy::*;
 
+#[derive(Copy, Clone)]
 #[repr(u32)]
 pub enum State {
     #[allow(dead_code)]
@@ -34,13 +35,6 @@ pub struct Shared {
 }
 
 impl Shared {
-    pub const MAGIC: u32 = 0x1de2019;
-    pub const STATE_PREBOOT: u32 = 0;
-    /// The program main routine has started.
-    pub const STATE_RUNNING: u32 = 0x1de6060;
-    /// The program main routine finished. Shared::digest is valid.
-    pub const STATE_DONE: u32 = 0x1dec1a0;
-
     pub fn parse(bytes: &[u8]) -> Option<&Self> {
         if let Some((layout, _)) =
             LayoutVerified::<&[u8], Self>::new_from_prefix(bytes)
@@ -52,11 +46,3 @@ impl Shared {
         }
     }
 }
-
-// Symbols relied on in the endoscope.elf file.
-// The image load address.
-pub const LOAD_SYMBOL: &str = "__vector_table";
-// An instance of struct Shared is expected at this address
-pub const SHARED_STRUCT_SYMBOL: &str = "SHARED";
-// The reset vector found in the image should match this symbol value.
-pub const RESET_VECTOR_SYMBOL: &str = "Reset";

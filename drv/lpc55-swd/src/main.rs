@@ -66,7 +66,7 @@ use drv_lpc55_gpio_api::{Direction, Pins, Value};
 use drv_lpc55_spi as spi_core;
 use drv_lpc55_syscon_api::{Peripheral, Syscon};
 use drv_sp_ctrl_api::SpCtrlError;
-use endoscope_abi::Shared;
+use endoscope_abi::{Shared, State};
 #[cfg(not(feature = "enable_ext_sp_reset"))]
 use idol_runtime::ClientError;
 use idol_runtime::{
@@ -145,6 +145,7 @@ enum Trace {
     },
     MeasureFailed,
     Never,
+    SharedState(u32),
     Digest0([u8; 8]),
     Digest1([u8; 8]),
     Digest2([u8; 8]),
@@ -153,6 +154,7 @@ enum Trace {
     PlausibleSpHubris {
         total_image_size: u32,
     },
+    ReadbackFailure,
     ReadX {
         start: u32,
         len: u32,
@@ -933,8 +935,6 @@ impl ServerImpl {
     }
 
     fn swd_read(&mut self, port: Port, reg: RawSwdReg) -> Result<u32, Ack> {
-        // This is too verbose when measuring the SP
-        // ringbuf_entry!(Trace::SwdRead(port, reg));
         loop {
             let result = self.swd_transfer_cmd(port, reg);
 
@@ -1003,8 +1003,6 @@ impl ServerImpl {
         reg: RawSwdReg,
         val: u32,
     ) -> Result<(), Ack> {
-        // This is too verbose when measuring the SP
-        // ringbuf_entry!(Trace::SwdWrite(port, reg, val));
         loop {
             let result = self.swd_transfer_cmd(port, reg);
 
@@ -1111,14 +1109,14 @@ impl ServerImpl {
         // single_read/single_write to write and verify every u32.
         // It is consuming about 0.25 seconds to inject the `endoscope` code.
         let mut addr = addr;
-        if data.len() % 4 != 0 {
+        const U32_SIZE: usize = core::mem::size_of::<u32>();
+        if data.len() % U32_SIZE != 0 {
             ringbuf_entry!(Trace::BadLen);
             return Err(Ack::Fault);
         }
         let mut limit = 37;
-        for slice in data.chunks(4) {
-            let word =
-                u32::from_le_bytes(slice[0..=3].try_into().unwrap_lite());
+        for slice in data.chunks_exact(U32_SIZE) {
+            let word = u32::from_le_bytes(slice.try_into().unwrap_lite());
             self.write_single_target_addr(addr, word)?;
             let readback = self.read_single_target_addr(addr)?;
             if readback != word {
@@ -1130,9 +1128,11 @@ impl ServerImpl {
                 return Err(Ack::Fault);
             } else if limit > 0 {
                 limit -= 1;
-                // ringbuf_entry!(Trace::Data{addr, data: readback, src:word});
+            } else {
+                ringbuf_entry!(Trace::ReadbackFailure);
+                return Err(Ack::Fault);
             }
-            addr += 4;
+            addr += U32_SIZE as u32;
         }
         Ok(())
     }
@@ -1310,13 +1310,11 @@ impl ServerImpl {
     fn sp_reset_enter(&mut self) {
         setup_rot_to_sp_reset_l_out(self.gpio);
         let gpio = Pins::from(self.gpio);
-        // ringbuf_entry!(Trace::EnterSpReset);
         gpio.set_val(ROT_TO_SP_RESET_L_OUT, Value::Zero);
     }
 
     /// Cleanup is true if we don't want to be notified of this reset
     fn sp_reset_leave(&mut self, squelch_notify: bool) {
-        // ringbuf_entry!(Trace::LeaveSpReset(cleanup));
         let gpio = Pins::from(self.gpio);
         setup_rot_to_sp_reset_l_in(self.gpio);
         gpio.set_val(ROT_TO_SP_RESET_L_IN, Value::One); // should be a no-op
@@ -1407,7 +1405,7 @@ impl ServerImpl {
         };
 
         let mut shared = Shared {
-            state: Shared::STATE_PREBOOT,
+            state: State::Preboot as u32,
             digest: [0u8; 32],
         };
 
@@ -1415,6 +1413,7 @@ impl ServerImpl {
             .read_buf_from_addr(endoscope::SHARED, shared.as_bytes_mut())
             .is_ok()
         {
+            ringbuf_entry!(Trace::SharedState(shared.state));
             ringbuf_entry!(Trace::Digest0(
                 shared.digest[0x00..=0x07].try_into().unwrap_lite()
             ));
@@ -1428,8 +1427,9 @@ impl ServerImpl {
             ringbuf_entry!(Trace::Digest3(
                 shared.digest[0x18..=0x1f].try_into().unwrap_lite()
             ));
-
-            return Ok(shared.digest); // XXX
+            if shared.state == (State::Done as u32) {
+                return Ok(shared.digest);
+            }
         }
         Err(())
     }
@@ -1460,7 +1460,6 @@ impl ServerImpl {
                 Err(SpCtrlError::InvalidCoreRegister)
             }
         }?;
-        // ringbuf_entry!(Trace::RegisterWrite(r, value));
 
         self.write_single_target_addr(DCRDR, value)
             .map_err(|_| SpCtrlError::Fault)?;
@@ -1472,8 +1471,6 @@ impl ServerImpl {
         loop {
             match self.dp_read_bitflags::<Dhcsr>() {
                 Ok(dhcsr) => {
-                    // ringbuf_entry!(Trace::Dhcsr(dhcsr));
-
                     if dhcsr.is_regrdy() {
                         // Trace retries used
                         if limit != RETRY_LIMIT {
@@ -1506,18 +1503,18 @@ impl ServerImpl {
         // Sanity check the SP Hubris image
         if self
             .read_buf_from_addr(
-                sp::IMAGE_HEADER_MAGIC_ADDR,
+                endoscope::FLASH_BASE + sp::IMAGE_HEADER_MAGIC_OFFSET,
                 magic.as_bytes_mut(),
             )
             .is_err()
             || magic != userlib::HEADER_MAGIC
             || self
                 .read_buf_from_addr(
-                    sp::IMAGE_HEADER_LENGTH_ADDR,
+                    endoscope::FLASH_BASE + sp::IMAGE_HEADER_LENGTH_OFFSET,
                     total_image_size.as_bytes_mut(),
                 )
                 .is_err()
-            || !(sp::MIN_IMAGE_SIZE..sp::FLASH_SIZE)
+            || !(sp::MIN_IMAGE_SIZE..(endoscope::FLASH_SIZE as usize))
                 .contains(&(total_image_size as usize))
         {
             ringbuf_entry!(Trace::SpHubrisFailsSanityCheck);
@@ -1560,7 +1557,6 @@ impl ServerImpl {
             match self.read_transaction_word() {
                 Ok(r) => {
                     if let Some(w) = r {
-                        // ringbuf_entry!(Trace::MemVal(w));
                         for b in w.to_le_bytes() {
                             buf[i] = b;
                             i += 1;
@@ -1735,7 +1731,6 @@ impl ServerImpl {
         // has several potential failures. Use this `prep` closure
         // and `need_undo` state to keep from indenting too much.
         let mut prep = |undo: &mut Undo| -> Result<(), ()> {
-            // ringbuf_entry!(Trace::AboutToEnterReset);
             self.sp_reset_enter();
             *undo |= Undo::RESET;
 
@@ -1787,7 +1782,6 @@ impl ServerImpl {
 
             // need_undo was set appropriately
             if let Ok(demcr) = self.dp_read_bitflags::<Demcr>() {
-                // ringbuf_entry!(Trace::Demcr(demcr));
                 if demcr & Demcr::VC_CORERESET != Demcr::VC_CORERESET {
                     ringbuf_entry!(Trace::VcCoreReset(false));
                     *undo &= !Undo::VC_CORERESET;

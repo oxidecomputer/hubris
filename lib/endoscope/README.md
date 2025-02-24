@@ -27,10 +27,10 @@ The steps for execution are along these lines:
   - Set VC_CORERESET to trap on the STM32 reset condition.
   - Deassert the SP RESET signal
   - ensure that the STM32 halted due to VC_CORERESET
-  - Inject the program into the STM32's RAM at the address "__vector_table".
+  - Inject the program into the STM32's RAM at the address `__vector_table`.
   - Set The STM32 core register PC/DR to the value in `__vector_table[1]`.
   - Set The STM32 core register MSP to the value in `__vector_table[0]`.
-  - Set The STM32 VTOR to the value of the symbol "__vector_table".
+  - Set The STM32 VTOR to the value of the symbol `__vector_table`.
   - Continue execution
   - Poll DHCSR for S_HALT state or timeout.
   - The attestation log will be reset.
