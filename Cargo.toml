@@ -20,29 +20,20 @@ opt-level = "z" # smaller optimizations
 [profile.dev]
 opt-level = 1 # no optimizations was just too painful in terms of flash size
 
-# Per-package profiles do not currently allow lto, panic, or rpath.
-# This costs us an extra 456 bytes in the endoscope blob that is injected
-# into the SP to measure its active flash bank.
 [profile.release.package.endoscope]
 codegen-units = 1
 debug = 2
-#lto = true
 opt-level = "z"
-#panic = "abort"
 
 [profile.dev.package.endoscope]
 codegen-units = 1
 debug = 2
-#lto = true
 opt-level = "z"
-#panic = "abort"
 
 [profile.bench.package.endoscope]
 codegen-units = 1
 debug = 2
-#lto = true
 opt-level = "z"
-#panic = "abort"
 
 [patch."https://github.com/oxidecomputer/hubris".userlib]
 path = "sys/userlib"

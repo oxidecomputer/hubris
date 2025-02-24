@@ -1114,23 +1114,25 @@ impl ServerImpl {
             ringbuf_entry!(Trace::BadLen);
             return Err(Ack::Fault);
         }
-        let mut limit = 37;
         for slice in data.chunks_exact(U32_SIZE) {
             let word = u32::from_le_bytes(slice.try_into().unwrap_lite());
-            self.write_single_target_addr(addr, word)?;
-            let readback = self.read_single_target_addr(addr)?;
-            if readback != word {
+            let mut limit = 2;
+            loop {
+                self.write_single_target_addr(addr, word)?;
+                let readback = self.read_single_target_addr(addr)?;
+                if readback == word {
+                    break;
+                }
                 ringbuf_entry!(Trace::Data {
                     addr,
                     data: readback,
                     src: word
                 });
-                return Err(Ack::Fault);
-            } else if limit > 0 {
+                if limit == 0 {
+                    ringbuf_entry!(Trace::ReadbackFailure);
+                    return Err(Ack::Fault);
+                }
                 limit -= 1;
-            } else {
-                ringbuf_entry!(Trace::ReadbackFailure);
-                return Err(Ack::Fault);
             }
             addr += U32_SIZE as u32;
         }

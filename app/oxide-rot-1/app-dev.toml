@@ -108,7 +108,6 @@ pins = [
 [tasks.swd]
 name = "drv-lpc55-swd"
 priority = 4
-max-sizes = {flash = 32768, ram = 9120}
 uses = ["flexcomm5", "iocon"]
 start = true
 stacksize = 1280
