@@ -1184,7 +1184,7 @@ impl ServerImpl {
     where
         T: bitflags::Flags<Bits = u32> + DpAddressable,
     {
-        self.read_single_target_addr(T::addr())
+        self.read_single_target_addr(T::ADDRESS)
             .map(|r| T::from_bits_retain(r))
     }
 
@@ -1192,7 +1192,7 @@ impl ServerImpl {
     where
         T: bitflags::Flags<Bits = u32> + DpAddressable,
     {
-        self.write_single_target_addr(T::addr(), val.bits())
+        self.write_single_target_addr(T::ADDRESS, val.bits())
     }
 
     fn write_single_target_addr(

@@ -10,8 +10,8 @@
 use bitflags::bitflags;
 
 pub trait DpAddressable {
-    // Address for accessing a DP Register
-    fn addr() -> u32;
+    /// Address for accessing a DP Register
+    const ADDRESS: u32;
 }
 
 // For keeping track of unwinding debug actions
@@ -63,13 +63,10 @@ impl From<u32> for Dhcsr {
 }
 
 impl DpAddressable for Dhcsr {
-    fn addr() -> u32 {
-        Self::ADDRESS
-    }
+    const ADDRESS: u32 = 0xE000EDF0;
 }
 
 impl Dhcsr {
-    const ADDRESS: u32 = 0xE000EDF0;
     pub fn halt() -> Self {
         Self::DBGKEY | Self::C_HALT | Self::C_DEBUGEN
     }
@@ -85,9 +82,10 @@ impl Dhcsr {
     pub fn is_regrdy(self) -> bool {
         self & Self::S_REGRDY == Self::S_REGRDY
     }
-    pub fn _is_lockup(self) -> bool {
-        self & Self::S_LOCKUP == Self::S_LOCKUP
-    }
+    // Just to document the remaining bit:
+    // pub fn is_lockup(self) -> bool {
+    //     self & Self::S_LOCKUP == Self::S_LOCKUP
+    // }
 }
 
 // Debug Core Register Selector Register
@@ -112,12 +110,6 @@ bitflags! {
 }
 
 impl DpAddressable for Demcr {
-    fn addr() -> u32 {
-        Self::ADDRESS
-    }
-}
-
-impl Demcr {
     const ADDRESS: u32 = 0xE000EDFC;
 }
 
@@ -145,12 +137,10 @@ bitflags! {
 }
 
 impl DpAddressable for Dfsr {
-    fn addr() -> u32 {
-        Self::ADDRESS
-    }
-}
-impl Dfsr {
     const ADDRESS: u32 = 0xE000ED30;
+}
+
+impl Dfsr {
     pub fn _is_faulted(self) -> bool {
         (self
             & (Self::EXTERNAL
