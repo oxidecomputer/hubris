@@ -11,7 +11,7 @@ use drv_cpu_seq_api::{PowerState, StateChangeReason};
 use drv_ice40_spi_program as ice40;
 use drv_spartan7_loader_api::Spartan7Loader;
 use drv_spi_api::{SpiDevice, SpiServer};
-use drv_stm32xx_sys_api as sys_api;
+use drv_stm32xx_sys_api::{self as sys_api, Sys};
 use idol_runtime::{NotificationHandler, RequestError};
 use task_jefe_api::Jefe;
 use userlib::{
@@ -55,15 +55,14 @@ task_slot!(SYS, sys);
 task_slot!(SPI_FRONT, spi_front);
 task_slot!(AUXFLASH, auxflash);
 
+const SP_TO_SP5_NMI_SYNC_FLOOD_L: sys_api::PinSet = sys_api::Port::J.pin(2);
+
 #[export_name = "main"]
 fn main() -> ! {
     // XXX set up fault pin
     match init() {
         // Set up everything nicely, time to start serving incoming messages.
-        Ok(()) => {
-            let mut server = ServerImpl {
-                jefe: Jefe::from(JEFE.get_task_id()),
-            };
+        Ok(mut server) => {
             server.set_state_impl(PowerState::A2);
 
             let mut buffer = [0; idl::INCOMING_SIZE];
@@ -93,7 +92,7 @@ fn main() -> ! {
     }
 }
 
-fn init() -> Result<(), SeqError> {
+fn init() -> Result<ServerImpl, SeqError> {
     // XXX initialize fault pin
 
     let sys = sys_api::Sys::from(SYS.get_task_id());
@@ -114,13 +113,26 @@ fn init() -> Result<(), SeqError> {
     let loader = Spartan7Loader::from(LOADER.get_task_id());
     loader.ping();
 
+    // Bring up the fault / NMI pin
+    sys.gpio_set(SP_TO_SP5_NMI_SYNC_FLOOD_L);
+    sys.gpio_configure_output(
+        SP_TO_SP5_NMI_SYNC_FLOOD_L,
+        sys_api::OutputType::OpenDrain,
+        sys_api::Speed::Low,
+        sys_api::Pull::None,
+    );
+
     // XXX fix fault pin
-    Ok(())
+    Ok(ServerImpl {
+        jefe: Jefe::from(JEFE.get_task_id()),
+        sys,
+    })
 }
 
 #[allow(unused)]
 struct ServerImpl {
     jefe: Jefe,
+    sys: Sys,
 }
 
 /// Initialize the front FPGA, which is an ICE40
@@ -222,7 +234,12 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<(), RequestError<core::convert::Infallible>> {
-        // XXX todo
+        // The required length for an NMI pulse is apparently not documented.
+        //
+        // Let's try 25 ms!
+        self.sys.gpio_reset(SP_TO_SP5_NMI_SYNC_FLOOD_L);
+        hl::sleep_for(25);
+        self.sys.gpio_set(SP_TO_SP5_NMI_SYNC_FLOOD_L);
         Ok(())
     }
 
