@@ -22,7 +22,7 @@ use i2c_config::sensors;
 // Constants!
 
 // Air temperature sensors, which aren't used in the control loop
-const NUM_TEMPERATURE_SENSORS: usize = 0;
+const NUM_TEMPERATURE_SENSORS: usize = 1;
 
 // Temperature inputs (I2C devices), which are used in the control loop.
 pub const NUM_TEMPERATURE_INPUTS: usize = 1;
@@ -135,4 +135,9 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [InputChannel::new(
     ChannelType::MustBePresent,
 )];
 
-const MISC_SENSORS: [TemperatureSensor; NUM_TEMPERATURE_SENSORS] = [];
+const MISC_SENSORS: [TemperatureSensor; NUM_TEMPERATURE_SENSORS] =
+    [TemperatureSensor::new(
+        Device::CPU,
+        devices::sbtsi_cpu,
+        sensors::SBTSI_CPU_TEMPERATURE_SENSOR,
+    )];
