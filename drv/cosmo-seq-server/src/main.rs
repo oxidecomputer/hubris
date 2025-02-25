@@ -56,6 +56,8 @@ task_slot!(SPI_FRONT, spi_front);
 task_slot!(AUXFLASH, auxflash);
 
 const SP_TO_SP5_NMI_SYNC_FLOOD_L: sys_api::PinSet = sys_api::Port::J.pin(2);
+const SP_TO_IGN_TRGT_FPGA_FAULT_L: sys_api::PinSet = sys_api::Port::B.pin(7);
+const SP_CHASSIS_STATUS_LED: sys_api::PinSet = sys_api::Port::C.pin(6);
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -63,7 +65,9 @@ fn main() -> ! {
     match init() {
         // Set up everything nicely, time to start serving incoming messages.
         Ok(mut server) => {
+            // Mark that we've reached A2, and turn on the chassis LED
             server.set_state_impl(PowerState::A2);
+            server.sys.gpio_set(SP_CHASSIS_STATUS_LED);
 
             let mut buffer = [0; idl::INCOMING_SIZE];
             loop {
@@ -93,9 +97,27 @@ fn main() -> ! {
 }
 
 fn init() -> Result<ServerImpl, SeqError> {
-    // XXX initialize fault pin
-
     let sys = sys_api::Sys::from(SYS.get_task_id());
+
+    // Pull the fault line low while we're loading
+    sys.gpio_configure_output(
+        SP_TO_IGN_TRGT_FPGA_FAULT_L,
+        sys_api::OutputType::OpenDrain,
+        sys_api::Speed::Low,
+        sys_api::Pull::None,
+    );
+    sys.gpio_reset(SP_TO_IGN_TRGT_FPGA_FAULT_L);
+
+    // Turn off the chassis LED, in case this is a task restart (and not a
+    // full chip restart, which would leave the GPIO unconfigured).
+    sys.gpio_configure_output(
+        SP_CHASSIS_STATUS_LED,
+        sys_api::OutputType::PushPull,
+        sys_api::Speed::Low,
+        sys_api::Pull::None,
+    );
+    sys.gpio_reset(SP_CHASSIS_STATUS_LED);
+
     let spi_front = drv_spi_api::Spi::from(SPI_FRONT.get_task_id());
     let aux = drv_auxflash_api::AuxFlash::from(AUXFLASH.get_task_id());
 
@@ -113,7 +135,7 @@ fn init() -> Result<ServerImpl, SeqError> {
     let loader = Spartan7Loader::from(LOADER.get_task_id());
     loader.ping();
 
-    // Bring up the fault / NMI pin
+    // Bring up the SP5 NMI pin
     sys.gpio_set(SP_TO_SP5_NMI_SYNC_FLOOD_L);
     sys.gpio_configure_output(
         SP_TO_SP5_NMI_SYNC_FLOOD_L,
@@ -122,7 +144,9 @@ fn init() -> Result<ServerImpl, SeqError> {
         sys_api::Pull::None,
     );
 
-    // XXX fix fault pin
+    // Clear the fault pin
+    sys.gpio_set(SP_TO_IGN_TRGT_FPGA_FAULT_L);
+
     Ok(ServerImpl {
         jefe: Jefe::from(JEFE.get_task_id()),
         sys,
