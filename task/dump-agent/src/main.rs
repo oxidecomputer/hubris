@@ -12,7 +12,7 @@ use idol_runtime::RequestError;
 use ringbuf::*;
 use static_assertions::const_assert;
 use task_jefe_api::Jefe;
-use userlib::*;
+use userlib::{task_slot, RecvMessage};
 
 #[cfg(feature = "net")]
 mod udp;

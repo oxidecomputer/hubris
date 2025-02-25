@@ -26,8 +26,11 @@ use task_power_api::{
     Bmr491Event, PmbusValue, RawPmbusBlock, RenesasBlackbox, MAX_BLOCK_LEN,
 };
 use task_sensor_api as sensor_api;
-use userlib::units::*;
-use userlib::*;
+use userlib::{
+    sys_get_timer, task_slot,
+    units::{Amperes, Celsius, Ohms, Volts},
+    TaskId,
+};
 use zerocopy::AsBytes;
 
 use drv_i2c_api::{I2cDevice, ResponseCode};

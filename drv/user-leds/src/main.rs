@@ -39,7 +39,7 @@
 use drv_user_leds_api::LedError;
 use enum_map::EnumMap;
 use idol_runtime::RequestError;
-use userlib::*;
+use userlib::{set_timer_relative, task_slot, FromPrimitive, RecvMessage};
 
 task_config::optional_task_config! {
     blink_at_start: &'static [Led],
@@ -417,6 +417,8 @@ fn led_off(led: Led) {
 
 #[cfg(feature = "stm32g0")]
 fn led_toggle(led: Led) {
+    use userlib::UnwrapLite;
+
     use drv_stm32xx_sys_api::*;
 
     let sys = SYS.get_task_id();
@@ -567,6 +569,7 @@ fn led_off(led: Led) {
 #[cfg(feature = "stm32h7")]
 fn led_toggle(led: Led) {
     use drv_stm32xx_sys_api::*;
+    use userlib::UnwrapLite;
 
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
@@ -670,6 +673,8 @@ fn led_off(led: Led) {
 
 #[cfg(feature = "lpc55")]
 fn led_toggle(led: Led) {
+    use userlib::UnwrapLite;
+
     let gpio_driver = GPIO.get_task_id();
     let gpio_driver = drv_lpc55_gpio_api::Pins::from(gpio_driver);
 

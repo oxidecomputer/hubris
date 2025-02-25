@@ -6,7 +6,7 @@
 #![no_main]
 
 use task_net_api::*;
-use userlib::*;
+use userlib::{sys_recv_notification, task_slot};
 
 task_slot!(NET, net);
 
