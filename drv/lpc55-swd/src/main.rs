@@ -151,10 +151,8 @@ enum Trace {
     Digest2([u8; 8]),
     Digest3([u8; 8]),
     PinSetupDefaults,
-    PlausibleSpHubris {
-        total_image_size: u32,
-    },
     ReadbackFailure,
+    ReadBufFail,
     ReadX {
         start: u32,
         len: u32,
@@ -164,7 +162,6 @@ enum Trace {
     Resumed,
     ResumeFail,
     SetupSwdOk,
-    SpHubrisFailsSanityCheck,
     SpJtagDetectFired,
     SpResetAsserted,
     SpResetFired,
@@ -237,7 +234,6 @@ const PARK_VAL: u8 = 1 << PARK_BIT;
 
 // Debug Interface from Armv7 Architecture Manual chapter C-1
 mod armv7debug;
-mod sp;
 
 use armv7debug::{
     Demcr, Dfsr, Dhcsr, DpAddressable, Reg, Undo, DCRDR, DCRSR, VTOR,
@@ -1401,7 +1397,11 @@ impl ServerImpl {
         // Allow about twice that time for the measurement to complete.
         // endoscope executes a BKPT instruction on completion.
         // We observe an S_HALT state if all goes well.
-        if self.halt_wait(512).is_err() {
+        // Otherwise, time out due to not halting as expected,
+        // or faulting before setting the proper shared state
+        // result in returning failures.
+
+        if self.wait_for_sp_halt(512).is_err() {
             ringbuf_entry!(Trace::DidNotHalt);
             return Err(());
         };
@@ -1413,27 +1413,31 @@ impl ServerImpl {
 
         if self
             .read_buf_from_addr(endoscope::SHARED, shared.as_bytes_mut())
-            .is_ok()
+            .is_err()
         {
-            ringbuf_entry!(Trace::SharedState(shared.state));
-            ringbuf_entry!(Trace::Digest0(
-                shared.digest[0x00..=0x07].try_into().unwrap_lite()
-            ));
-            ringbuf_entry!(Trace::Digest1(
-                shared.digest[0x08..=0x0f].try_into().unwrap_lite()
-            ));
-
-            ringbuf_entry!(Trace::Digest2(
-                shared.digest[0x10..=0x17].try_into().unwrap_lite()
-            ));
-            ringbuf_entry!(Trace::Digest3(
-                shared.digest[0x18..=0x1f].try_into().unwrap_lite()
-            ));
-            if shared.state == (State::Done as u32) {
-                return Ok(shared.digest);
-            }
+            ringbuf_entry!(Trace::ReadBufFail);
+            return Err(());
         }
-        Err(())
+
+        ringbuf_entry!(Trace::SharedState(shared.state));
+        if shared.state != (State::Done as u32) {
+            return Err(());
+        }
+
+        if let Ok(d) = shared.digest[0x00..=0x07].try_into() {
+            ringbuf_entry!(Trace::Digest0(d));
+        }
+        if let Ok(d) = shared.digest[0x08..=0x0f].try_into() {
+            ringbuf_entry!(Trace::Digest1(d));
+        }
+        if let Ok(d) = shared.digest[0x10..=0x17].try_into() {
+            ringbuf_entry!(Trace::Digest2(d));
+        }
+        if let Ok(d) = shared.digest[0x18..=0x1f].try_into() {
+            ringbuf_entry!(Trace::Digest3(d));
+        }
+
+        Ok(shared.digest)
     }
 
     fn do_write_core_register(
@@ -1498,32 +1502,6 @@ impl ServerImpl {
     fn do_measure_sp(&mut self) -> Result<[u8; 256 / 8], ()> {
         // For Hubris on the STM32H7, The FWID includes 0xff padding to
         // the end of the flash bank.
-
-        let mut magic = 0;
-        let mut total_image_size = 0;
-
-        // Sanity check the SP Hubris image
-        if self
-            .read_buf_from_addr(
-                endoscope::FLASH_BASE + sp::IMAGE_HEADER_MAGIC_OFFSET,
-                magic.as_bytes_mut(),
-            )
-            .is_err()
-            || magic != userlib::HEADER_MAGIC
-            || self
-                .read_buf_from_addr(
-                    endoscope::FLASH_BASE + sp::IMAGE_HEADER_LENGTH_OFFSET,
-                    total_image_size.as_bytes_mut(),
-                )
-                .is_err()
-            || !(sp::MIN_IMAGE_SIZE..(endoscope::FLASH_SIZE as usize))
-                .contains(&(total_image_size as usize))
-        {
-            ringbuf_entry!(Trace::SpHubrisFailsSanityCheck);
-            return Err(());
-        }
-
-        ringbuf_entry!(Trace::PlausibleSpHubris { total_image_size });
 
         // Time the code injection injection, calculation,
         // and readout of the FWID.
@@ -1617,10 +1595,10 @@ impl ServerImpl {
         ringbuf_entry!(Trace::DoHalt);
         self.dp_write_bitflags::<Dhcsr>(Dhcsr::halt())
             .map_err(|_| SpCtrlError::Fault)?;
-        self.halt_wait(5000)
+        self.wait_for_sp_halt(5000)
     }
 
-    fn halt_wait(&mut self, timeout: u64) -> Result<(), SpCtrlError> {
+    fn wait_for_sp_halt(&mut self, timeout: u64) -> Result<(), SpCtrlError> {
         ringbuf_entry!(Trace::HaltWait {
             timeout: timeout as u32
         });
@@ -1760,7 +1738,7 @@ impl ServerImpl {
             *undo &= !Undo::RESET;
 
             // 100ms max wait. Typical wait looks to be 5ms.
-            self.halt_wait(100).map_err(|_| ())?;
+            self.wait_for_sp_halt(100).map_err(|_| ())?;
 
             // Check that RESET was caught
             if let Ok(dfsr) = self.dp_read_bitflags::<Dfsr>() {

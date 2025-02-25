@@ -21,10 +21,6 @@ pub const LOAD_SYMBOL: &str = "__vector_table";
 pub const SHARED_STRUCT_SYMBOL: &str = "SHARED";
 // The reset vector found in the image should match this symbol value.
 pub const RESET_VECTOR_SYMBOL: &str = "Reset";
-// Start of flash area to measure
-pub const FLASH_BASE: &str = "FLASH_BASE";
-// End (not inclusive) of flash area to measure
-pub const FLASH_SIZE: &str = "FLASH_SIZE";
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -136,10 +132,6 @@ fn prepare_endoscope() -> Result<(), anyhow::Error> {
         (LOAD_SYMBOL, "LOAD"),
         // Address of endoscope output struct
         (SHARED_STRUCT_SYMBOL, "SHARED"),
-        // Base address of flash region to measure
-        (FLASH_BASE, "FLASH_BASE"),
-        // Size of flash region to measure
-        (FLASH_SIZE, "FLASH_SIZE"),
     ]);
 
     for sym in elf.syms.iter() {
