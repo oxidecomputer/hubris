@@ -1543,6 +1543,7 @@ dependencies = [
  "ringbuf",
  "rustc-demangle",
  "serde",
+ "static_assertions",
  "userlib",
  "zerocopy 0.6.6",
 ]

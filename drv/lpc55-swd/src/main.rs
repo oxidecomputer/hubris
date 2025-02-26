@@ -75,10 +75,11 @@ use idol_runtime::{
 };
 use lpc55_pac as device;
 use ringbuf::*;
+use static_assertions::const_assert;
 use userlib::{
     hl, set_timer_relative, sys_get_timer, sys_irq_control,
     sys_irq_control_clear_pending, sys_set_timer, task_slot, RecvMessage,
-    TaskId, UnwrapLite,
+    TaskId,
 };
 use zerocopy::AsBytes;
 
@@ -654,13 +655,18 @@ impl NotificationHandler for ServerImpl {
         if (bits & notifications::JTAG_DETECT_IRQ_MASK) != 0 {
             ringbuf_entry!(Trace::SpJtagDetectFired);
             const SLOT: PintSlot = SP_TO_ROT_JTAG_DETECT_L_PINT_SLOT;
-            if gpio
-                .pint_op(SLOT, PintOp::Detected, PintCondition::Falling)
-                .map_or(false, |v| v.unwrap_lite())
+            if let Ok(Some(detected)) =
+                gpio.pint_op(SLOT, PintOp::Detected, PintCondition::Falling)
             {
-                ringbuf_entry!(Trace::InvalidateSpMeasurement);
-                invalidate = true;
-                self.init = false;
+                if detected {
+                    ringbuf_entry!(Trace::InvalidateSpMeasurement);
+                    invalidate = true;
+                    self.init = false;
+                }
+            } else {
+                // The pint_op parameters are for a configured PINT slot for one of
+                // our configured GPIO pins. We're testing a status bit in a register.
+                unreachable!();
             }
             let _ = gpio.pint_op(SLOT, PintOp::Clear, PintCondition::Status);
             sys_irq_control(notifications::JTAG_DETECT_IRQ_MASK, true);
@@ -1111,26 +1117,30 @@ impl ServerImpl {
             return Err(Ack::Fault);
         }
         for slice in data.chunks_exact(U32_SIZE) {
-            let word = u32::from_le_bytes(slice.try_into().unwrap_lite());
-            let mut limit = 2;
-            loop {
-                self.write_single_target_addr(addr, word)?;
-                let readback = self.read_single_target_addr(addr)?;
-                if readback == word {
-                    break;
+            if let Some(word) = slice_to_le_u32(slice) {
+                let mut limit = 2;
+                loop {
+                    self.write_single_target_addr(addr, word)?;
+                    let readback = self.read_single_target_addr(addr)?;
+                    if readback == word {
+                        break;
+                    }
+                    ringbuf_entry!(Trace::Data {
+                        addr,
+                        data: readback,
+                        src: word
+                    });
+                    if limit == 0 {
+                        ringbuf_entry!(Trace::ReadbackFailure);
+                        return Err(Ack::Fault);
+                    }
+                    limit -= 1;
                 }
-                ringbuf_entry!(Trace::Data {
-                    addr,
-                    data: readback,
-                    src: word
-                });
-                if limit == 0 {
-                    ringbuf_entry!(Trace::ReadbackFailure);
-                    return Err(Ack::Fault);
-                }
-                limit -= 1;
+                addr += U32_SIZE as u32;
+            } else {
+                // Using chunks_exact means that the conversion to u32 will succeed.
+                unreachable!();
             }
-            addr += U32_SIZE as u32;
         }
         Ok(())
     }
@@ -1239,7 +1249,9 @@ impl ServerImpl {
     }
 
     fn pin_setup(&mut self) {
-        setup_pins(self.gpio).unwrap_lite();
+        // setup_pins is generated at compile time
+        // and has configuration sanity checks.
+        _ = setup_pins(self.gpio);
     }
 
     /// Swaps the currently-active SP slot
@@ -1339,26 +1351,48 @@ impl ServerImpl {
         // write DHCSR to RUN (MATIC + C_DEBUGEN)
         // poll for S_HALT or timeout
 
+        // Search st.com for document "PM0253". Section 2.4.4 describes
+        // the STM32H753 vector table.
+        //
+        // The `endoscope` image has the vector table at offset 0. When loaded
+        // into the SP, that table will be at `endoscope::LOAD` and the SP's
+        // `VTOR` register will be set to that address prior to the SP being
+        // released from reset. Addresses in the vector table are absolute
+        // runtime values.
+        //
+        // The first u32 in the `endoscope` image is the initial stack pointer
+        // value. The second u32 is the initial program counter, a.k.a. the
+        // reset vector.
+
+        const_assert!(ENDOSCOPE_BYTES.len() > 2 * 1024);
+
         // Set SP's Program Counter
-        let sp_reset_vector =
-            u32::from_le_bytes(ENDOSCOPE_BYTES[4..=7].try_into().unwrap_lite());
-        if self
-            .do_write_core_register(Reg::Dr.into(), sp_reset_vector | 1)
-            .is_err()
+        if let Some(sp_reset_vector) = slice_to_le_u32(&ENDOSCOPE_BYTES[4..=7])
         {
-            ringbuf_entry!(Trace::WrotePcRegisterFail);
-            return Err(());
+            if self
+                .do_write_core_register(Reg::Dr.into(), sp_reset_vector)
+                .is_err()
+            {
+                ringbuf_entry!(Trace::WrotePcRegisterFail);
+                return Err(());
+            }
+        } else {
+            // There are sufficient bytes to read this word out.
+            unreachable!();
         }
 
         // Set SP's Stack Pointer
-        let sp_initial_sp =
-            u32::from_le_bytes(ENDOSCOPE_BYTES[0..=3].try_into().unwrap_lite());
-        if self
-            .do_write_core_register(Reg::Sp.into(), sp_initial_sp)
-            .is_err()
-        {
-            ringbuf_entry!(Trace::WroteSpRegisterFail);
-            return Err(());
+        if let Some(sp_initial_sp) = slice_to_le_u32(&ENDOSCOPE_BYTES[0..=3]) {
+            if self
+                .do_write_core_register(Reg::Sp.into(), sp_initial_sp)
+                .is_err()
+            {
+                ringbuf_entry!(Trace::WroteSpRegisterFail);
+                return Err(());
+            }
+        } else {
+            // There are sufficient bytes to read this word out.
+            unreachable!();
         }
 
         // Set VTOR - Set vector table base address
@@ -1658,16 +1692,21 @@ impl ServerImpl {
         let mut need_undo = Undo::from_bits_retain(0);
 
         // Did SP_RESET transition to Zero?
-        if !gpio
-            .pint_op(SLOT, PintOp::Detected, PintCondition::Falling)
-            .map_or(false, |v| v.unwrap_lite())
+        if let Ok(Some(detected)) =
+            gpio.pint_op(SLOT, PintOp::Detected, PintCondition::Falling)
         {
-            // Use of sys_irq_control_clear_pending(...) should avoid
-            // appearance of a "spurious" intrerrupt.
-            // Otherwise, cases where we assert SP_RESET then clean-up the PINT
-            // condition will have a pending notification.
-            ringbuf_entry!(Trace::SpResetNotAsserted);
-            return true; // no work required.
+            if !detected {
+                // Use of sys_irq_control_clear_pending(...) should avoid
+                // appearance of a "spurious" intrerrupt.
+                // Otherwise, cases where we assert SP_RESET then clean-up the PINT
+                // condition will have a pending notification.
+                ringbuf_entry!(Trace::SpResetNotAsserted);
+                return true; // no work required.
+            }
+        } else {
+            // The pint_op parameters are for a configured PINT slot for one of
+            // our configured GPIO pins. We're testing a status bit in a register.
+            unreachable!();
         }
 
         // Not ok yet: A reset happened. If we don't get a measurement then
@@ -1889,6 +1928,15 @@ impl ServerImpl {
 
         success
     }
+}
+
+fn slice_to_le_u32(slice: &[u8]) -> Option<u32> {
+    if slice.len() == core::mem::size_of::<u32>() {
+        if let Ok(data) = core::convert::TryInto::<[u8; 4]>::try_into(slice) {
+            return Some(u32::from_le_bytes(data));
+        }
+    }
+    None
 }
 
 #[export_name = "main"]
