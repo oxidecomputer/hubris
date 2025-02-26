@@ -1,2 +1,2 @@
-generated from [this commit](https://github.com/oxidecomputer/quartz/commit/e31772323d13f15802554ae3daa5061f9c9290cc)
-([this CI run](https://github.com/oxidecomputer/quartz/actions/runs/13228105732/job/36921564266))
+generated from [this commit](https://github.com/oxidecomputer/quartz/commit/cf9dfbe5d7b4bfd4bf2c0dac4f3ffe852ff8d20e)
+([this CI run](https://github.com/oxidecomputer/quartz/actions/runs/13502683270/job/37724885653))
