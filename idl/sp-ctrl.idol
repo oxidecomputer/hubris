@@ -104,5 +104,13 @@ Interface(
             reply: Simple("()"),
             idempotent: true,
         ),
+        "db_reset_sp": (
+            doc: "Debugging: Assert SP RESET with specified delay",
+            args: {
+                "delay_ms": "u32",
+            },
+            reply: Simple("()"),
+            idempotent: true,
+        )
     }
 )
