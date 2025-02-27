@@ -239,9 +239,13 @@ jobs:
             app_name: donglet-g031
             app_toml: app/donglet/app-g031.toml
             image: default
-          - build: grapefruit
-            app_name: grapefruit
-            app_toml: app/grapefruit/app.toml
+          - build: grapefruit-ruby
+            app_name: grapefruit-ruby
+            app_toml: app/grapefruit/app-ruby.toml
+            image: default
+          - build: grapefruit-standalone
+            app_name: grapefruit-standalone
+            app_toml: app/grapefruit/app-dev.toml
             image: default
     uses: ./.github/workflows/build-one.yml
     with:
