@@ -1,4 +1,3 @@
-name = "grapefruit"
 board = "grapefruit"
 target = "thumbv7em-none-eabihf"
 chip = "../../chips/stm32h7"
@@ -223,11 +222,12 @@ max-sizes = {flash = 16384, ram = 8192 }
 stacksize = 1024
 start = true
 
+# Note that host_sp_comms does not specify a UART!  It must be fully specified
+# with features + uses + interrupts by manifests inheriting from this file.
 [tasks.host_sp_comms]
 name = "task-host-sp-comms"
-features = ["stm32h753", "usart6", "baud_rate_3M", "hardware_flow_control", "vlan", "grapefruit"]
-uses = ["usart6", "dbgmcu"]
-interrupts = {"usart6.irq" = "usart-irq"}
+features = ["stm32h753", "baud_rate_3M", "vlan", "grapefruit"]
+uses = ["dbgmcu"]
 priority = 8
 max-sizes = {flash = 65536, ram = 65536}
 stacksize = 5080

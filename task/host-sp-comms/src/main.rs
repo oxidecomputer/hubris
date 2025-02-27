@@ -1547,8 +1547,7 @@ fn configure_uart_device(sys: &sys_api::Sys) -> Usart {
     #[cfg(feature = "baud_rate_3M")]
     const BAUD_RATE: u32 = 3_000_000;
 
-    #[cfg(feature = "hardware_flow_control")]
-    let hardware_flow_control = true;
+    let hardware_flow_control = cfg!(feature = "hardware_flow_control");
 
     cfg_if::cfg_if! {
         if #[cfg(feature = "uart7")] {
@@ -1582,6 +1581,22 @@ fn configure_uart_device(sys: &sys_api::Sys) -> Usart {
             };
             let usart = unsafe { &*device::USART6::ptr() };
             let peripheral = Peripheral::Usart6;
+            let pins = PINS;
+        } else if #[cfg(feature = "uart8")] {
+            const PINS: &[(PinSet, Alternate)] = {
+                cfg_if::cfg_if! {
+                    if #[cfg(feature = "hardware_flow_control")] {
+                        compile_error!("hardware_flow_control should be disabled");
+                    } else {
+                        &[(
+                            Port::J.pin(8).and_pin(9),
+                            Alternate::AF8
+                        )]
+                    }
+                }
+            };
+            let usart = unsafe { &*device::UART8::ptr() };
+            let peripheral = Peripheral::Uart8;
             let pins = PINS;
         } else {
             compile_error!("no usartX/uartX feature specified");
