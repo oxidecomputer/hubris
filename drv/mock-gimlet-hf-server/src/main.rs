@@ -174,6 +174,32 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     ) -> Result<HfPersistentData, RequestError<HfError>> {
         Err(HfError::HashNotConfigured.into())
     }
+
+    fn bonus_page_program(
+        &mut self,
+        _: &RecvMessage,
+        _addr: u32,
+        _data: LenLimit<Leased<R, [u8]>, PAGE_SIZE_BYTES>,
+    ) -> Result<(), RequestError<HfError>> {
+        Err(HfError::BadAddress.into())
+    }
+
+    fn bonus_read(
+        &mut self,
+        _: &RecvMessage,
+        _addr: u32,
+        _dest: LenLimit<Leased<W, [u8]>, PAGE_SIZE_BYTES>,
+    ) -> Result<(), RequestError<HfError>> {
+        Err(HfError::BadAddress.into())
+    }
+
+    fn bonus_sector_erase(
+        &mut self,
+        _: &RecvMessage,
+        _addr: u32,
+    ) -> Result<(), RequestError<HfError>> {
+        Err(HfError::BadAddress.into())
+    }
 }
 
 impl NotificationHandler for ServerImpl {
