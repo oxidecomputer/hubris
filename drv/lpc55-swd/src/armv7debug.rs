@@ -159,6 +159,19 @@ impl Dfsr {
 #[derive(PartialEq, Copy, Clone)]
 #[repr(u16)]
 pub enum Reg {
+    R0 = 0b0000000,
+    R1 = 0b0000001,
+    R2 = 0b0000010,
+    R3 = 0b0000011,
+    R4 = 0b0000100,
+    R5 = 0b0000101,
+    R6 = 0b0000110,
+    R7 = 0b0000111,
+    R8 = 0b0001000,
+    R9 = 0b0001001,
+    R10 = 0b0001010,
+    R11 = 0b0001011,
+    R12 = 0b0001100,
     Sp = 0b0001101,
     Lr = 0b0001110,
     Dr = 0b0001111, // DebugReturnAddress, see C1-704

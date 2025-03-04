@@ -165,7 +165,6 @@ enum Trace {
     InjectionFailed,
     InvalidatedSpMeasurement,
     InvalidateSpMeasurement,
-    InvalidRegisterWrite(u16, u32),
     LimitRemaining(u32),
     // Lockup(Dhcsr),
     MeasuredSp {
@@ -1428,7 +1427,7 @@ impl ServerImpl {
         if let Some(sp_reset_vector) = slice_to_le_u32(&ENDOSCOPE_BYTES[4..=7])
         {
             if self
-                .do_write_core_register(Reg::Dr.into(), sp_reset_vector)
+                .do_write_core_register(Reg::Dr, sp_reset_vector)
                 .is_err()
             {
                 ringbuf_entry!(Trace::WrotePcRegisterFail);
@@ -1441,10 +1440,7 @@ impl ServerImpl {
 
         // Set SP's Stack Pointer
         if let Some(sp_initial_sp) = slice_to_le_u32(&ENDOSCOPE_BYTES[0..=3]) {
-            if self
-                .do_write_core_register(Reg::Sp.into(), sp_initial_sp)
-                .is_err()
-            {
+            if self.do_write_core_register(Reg::Sp, sp_initial_sp).is_err() {
                 ringbuf_entry!(Trace::WroteSpRegisterFail);
                 return Err(());
             }
@@ -1476,7 +1472,7 @@ impl ServerImpl {
         ringbuf_entry!(Trace::Injected {
             start: endoscope::LOAD,
             length: ENDOSCOPE_BYTES.len(),
-            delta_t: (now - start) as u32
+            delta_t: (now.saturating_sub(start)) as u32
         });
 
         // Resume execution by turning off DHCSR_C_HALT
@@ -1540,36 +1536,15 @@ impl ServerImpl {
         Ok(shared.digest)
     }
 
+    // C1.6 Debug system registers
     fn do_write_core_register(
         &mut self,
-        register: u16,
+        register: Reg,
         value: u32,
     ) -> Result<(), SpCtrlError> {
-        // C1.6 Debug system registers
-        let r = match register {
-            // R0-R12
-            0b0000000..=0b0001100
-
-            // LR - PSP
-            | 0b0001101..=0b0010010
-
-            // CONTROL/FAULTMASK/BASEPRI/PRIMASK
-            | 0b0010100
-
-            // FPCSR
-            | 0b0100001
-
-            // S0-S31
-            | 0b1000000..=0b1011111 => Ok::<u16, SpCtrlError>(register),
-            _ => {
-                ringbuf_entry!(Trace::InvalidRegisterWrite(register, value));
-                Err(SpCtrlError::InvalidCoreRegister)
-            }
-        }?;
-
         self.write_single_target_addr(DCRDR, value)
             .map_err(|_| SpCtrlError::Fault)?;
-        self.write_single_target_addr(DCRSR, r as u32 | (1u32 << 16))
+        self.write_single_target_addr(DCRSR, register as u32 | (1u32 << 16))
             .map_err(|_| SpCtrlError::Fault)?;
 
         const RETRY_LIMIT: u32 = 10;
@@ -1606,15 +1581,14 @@ impl ServerImpl {
         // Time the code injection injection, calculation,
         // and readout of the FWID.
         let start = sys_get_timer().now;
-        let r = self.sp_measure_fast();
-        let now = sys_get_timer().now;
+        let measurement_result = self.sp_measure_fast();
 
         ringbuf_entry!(Trace::MeasuredSp {
-            success: r.is_ok(),
-            delta_t: (now - start) as u32
+            success: measurement_result.is_ok(),
+            delta_t: (sys_get_timer().now.saturating_sub(start)) as u32
         });
 
-        r
+        measurement_result
     }
 
     fn read_buf_from_addr(
@@ -1698,13 +1672,14 @@ impl ServerImpl {
             if let Ok(dhcsr) = self.dp_read_bitflags::<Dhcsr>() {
                 if dhcsr.is_halted() {
                     ringbuf_entry!(Trace::Halted {
-                        delta_t: (sys_get_timer().now - start) as u32
+                        delta_t: (sys_get_timer().now.saturating_sub(start))
+                            as u32
                     });
                     return Ok(());
                 }
             } else {
                 ringbuf_entry!(Trace::HaltFail(
-                    (sys_get_timer().now - start) as u32
+                    (sys_get_timer().now.saturating_sub(start)) as u32
                 ));
                 return Err(SpCtrlError::Fault);
             }
@@ -1983,7 +1958,7 @@ impl ServerImpl {
         let now = sys_get_timer().now;
         ringbuf_entry!(Trace::MeasuredSp {
             success,
-            delta_t: (now - start) as u32
+            delta_t: (now.saturating_sub(start)) as u32
         });
 
         success
