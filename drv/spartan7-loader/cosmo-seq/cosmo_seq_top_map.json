@@ -1,24 +1,30 @@
 {
     "type": "addrmap",
-    "inst_name": "top_level_map",
+    "inst_name": "cosmo_seq_top",
     "addr_offset": 0,
     "children": [
         {
             "type": "addrmap",
-            "inst_name": "base",
+            "inst_name": "info",
             "addr_offset": 0,
             "children": []
         },
         {
             "type": "addrmap",
-            "inst_name": "spi_nor",
+            "inst_name": "sequencer",
             "addr_offset": 256,
             "children": []
         },
         {
             "type": "addrmap",
-            "inst_name": "espi",
+            "inst_name": "spi_nor",
             "addr_offset": 512,
+            "children": []
+        },
+        {
+            "type": "addrmap",
+            "inst_name": "espi",
+            "addr_offset": 768,
             "children": []
         }
     ]
