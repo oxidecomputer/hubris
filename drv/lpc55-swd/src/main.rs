@@ -1784,32 +1784,32 @@ impl ServerImpl {
         // Setting up to inject the measurement program into the SP
         // has several potential failures. Use this `prep` closure
         // and `need_undo` state to keep from indenting too much.
-        let mut prep = |undo: &mut Undo| -> Result<(), ()> {
+        let mut prep = || -> Result<(), ()> {
             self.sp_reset_enter();
-            *undo |= Undo::RESET;
+            need_undo |= Undo::RESET;
 
             // Asserting SP_RESET for >1ms here works.
             hl::sleep_for(1);
 
             if self.dp_write_bitflags::<Dhcsr>(Dhcsr::resume()).is_err() {
                 ringbuf_entry!(Trace::DemcrWriteError);
-                *undo |= Undo::DEBUGEN;
+                need_undo |= Undo::DEBUGEN;
                 return Err(());
             }
-            *undo |= Undo::DEBUGEN;
+            need_undo |= Undo::DEBUGEN;
 
             if self
                 .dp_write_bitflags::<Demcr>(Demcr::VC_CORERESET)
                 .is_err()
             {
                 ringbuf_entry!(Trace::DemcrWriteError);
-                *undo |= Undo::VC_CORERESET;
+                need_undo |= Undo::VC_CORERESET;
                 return Err(());
             }
-            *undo |= Undo::VC_CORERESET;
+            need_undo |= Undo::VC_CORERESET;
 
             self.sp_reset_leave();
-            *undo &= !Undo::RESET;
+            need_undo &= !Undo::RESET;
 
             // 500ms max wait allows for testing using manual reset button.
             // Typical wait looks to be 5ms.
@@ -1839,7 +1839,7 @@ impl ServerImpl {
             if let Ok(demcr) = self.dp_read_bitflags::<Demcr>() {
                 if demcr & Demcr::VC_CORERESET != Demcr::VC_CORERESET {
                     ringbuf_entry!(Trace::VcCoreReset(false));
-                    *undo &= !Undo::VC_CORERESET;
+                    need_undo &= !Undo::VC_CORERESET;
                 } else {
                     ringbuf_entry!(Trace::VcCoreReset(true));
                     return Err(());
@@ -1854,7 +1854,7 @@ impl ServerImpl {
         // To ensures that any cleanup is done and the SP hardware is left
         // running properly, there can only be one return at the end.
 
-        let digest = if prep(&mut need_undo).is_ok() {
+        let digest = if prep().is_ok() {
             self.do_measure_sp()
         } else {
             Err(())
