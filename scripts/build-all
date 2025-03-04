@@ -62,9 +62,7 @@ fi
 declare -A -g SUPPORTED
 if $SKIP_UNSUPPORTED
 then
-  SUPPORTED["app/oxcon2023g0/app.toml"]=false
-  SUPPORTED["app/demo-stm32g0-nucleo/app-g031.toml"]=false
-  SUPPORTED["app/gimletlet/app-mgmt.toml"]=false
+  SUPPORTED["app/lpc55xpresso/app-sprot.toml"]=false
 fi
 
 included() {
@@ -81,6 +79,7 @@ mapfile -t ORDERED < <(
 # Gimletlet and RoT carrier are first as the usual developer testbed.
 echo app/rot-carrier/app.toml
 echo app/gimletlet/app.toml
+echo app/grapefruit/app-dev.toml
 # Next, the images used for the testbeds attached to lurch.
 echo app/oxide-rot-1/app-dev.toml
 echo app/gimlet/rev-c-lab.toml
