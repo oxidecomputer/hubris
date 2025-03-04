@@ -70,6 +70,7 @@ impl Dhcsr {
     pub fn halt() -> Self {
         Self::DBGKEY | Self::C_HALT | Self::C_DEBUGEN
     }
+    /// Clear C_HALT while keeping debug control.
     pub fn resume() -> Self {
         Self::DBGKEY | Self::C_DEBUGEN
     }

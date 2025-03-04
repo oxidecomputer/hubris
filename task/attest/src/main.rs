@@ -255,10 +255,10 @@ impl idl::InOrderAttestImpl for AttestServer {
         }
 
         // The first measurement can only be made by a privileged task.
-        if self.measurements.is_empty() {
-            if !PERMIT_LOG_RESET.iter().any(|x| *x == msg.sender.0) {
-                return Err(ClientError::AccessViolation.fail());
-            }
+        if self.measurements.is_empty()
+            && !PERMIT_LOG_RESET.iter().any(|x| *x == msg.sender.0)
+        {
+            return Err(ClientError::AccessViolation.fail());
         }
 
         let measurement = match algorithm {

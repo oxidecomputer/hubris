@@ -132,7 +132,6 @@ enum Trace {
     WatchdogFired,
     WatchdogSwap(Result<(), Ack>),
     AttestError(AttestError),
-    BadDemcr(Demcr),
     BadLen,
     CannotWriteVtor,
     Data {
@@ -1425,29 +1424,25 @@ impl ServerImpl {
         const_assert!(ENDOSCOPE_BYTES.len() > 2 * 1024);
 
         // Set SP's Program Counter
-        if let Some(sp_reset_vector) = slice_to_le_u32(&ENDOSCOPE_BYTES[4..=7])
+        if slice_to_le_u32(&ENDOSCOPE_BYTES[4..=7])
+            .and_then(|reset_vector| {
+                self.do_write_core_register(Reg::Dr, reset_vector).ok()
+            })
+            .is_none()
         {
-            if self
-                .do_write_core_register(Reg::Dr, sp_reset_vector)
-                .is_err()
-            {
-                ringbuf_entry!(Trace::WrotePcRegisterFail);
-                return Err(());
-            }
-        } else {
-            // There are sufficient bytes to read this word out.
-            unreachable!();
+            ringbuf_entry!(Trace::WrotePcRegisterFail);
+            return Err(());
         }
 
         // Set SP's Stack Pointer
-        if let Some(sp_initial_sp) = slice_to_le_u32(&ENDOSCOPE_BYTES[0..=3]) {
-            if self.do_write_core_register(Reg::Sp, sp_initial_sp).is_err() {
-                ringbuf_entry!(Trace::WroteSpRegisterFail);
-                return Err(());
-            }
-        } else {
-            // There are sufficient bytes to read this word out.
-            unreachable!();
+        if slice_to_le_u32(&ENDOSCOPE_BYTES[0..=3])
+            .and_then(|initial_sp| {
+                self.do_write_core_register(Reg::Sp, initial_sp).ok()
+            })
+            .is_none()
+        {
+            ringbuf_entry!(Trace::WroteSpRegisterFail);
+            return Err(());
         }
 
         // Set VTOR - Set vector table base address
@@ -1791,22 +1786,24 @@ impl ServerImpl {
             // Asserting SP_RESET for >1ms here works.
             hl::sleep_for(1);
 
+            // Try to undo the change in DEBUGEN even if
+            // setting it failed.
+            need_undo |= Undo::DEBUGEN;
             if self.dp_write_bitflags::<Dhcsr>(Dhcsr::resume()).is_err() {
                 ringbuf_entry!(Trace::DemcrWriteError);
-                need_undo |= Undo::DEBUGEN;
                 return Err(());
             }
-            need_undo |= Undo::DEBUGEN;
 
+            // Try to undo the change in VC_CORERESET even if
+            // setting it failed.
+            need_undo |= Undo::VC_CORERESET;
             if self
                 .dp_write_bitflags::<Demcr>(Demcr::VC_CORERESET)
                 .is_err()
             {
                 ringbuf_entry!(Trace::DemcrWriteError);
-                need_undo |= Undo::VC_CORERESET;
                 return Err(());
             }
-            need_undo |= Undo::VC_CORERESET;
 
             self.sp_reset_leave();
             need_undo &= !Undo::RESET;
@@ -1854,11 +1851,7 @@ impl ServerImpl {
         // To ensures that any cleanup is done and the SP hardware is left
         // running properly, there can only be one return at the end.
 
-        let digest = if prep().is_ok() {
-            self.do_measure_sp()
-        } else {
-            Err(())
-        };
+        let digest = prep().and_then(|()| self.do_measure_sp());
 
         // From here on, we're cleaning up and restarting the SP.
 
@@ -1889,19 +1882,6 @@ impl ServerImpl {
             if let Ok(r) = self.dp_read_bitflags::<Dhcsr>() {
                 ringbuf_entry!(Trace::Dhcsr(r));
             }
-        }
-
-        // This read of DHCSR should never be useful given the code above.
-        // Read back to make sure that VC_CORERESET is clear.
-        // XXX remove
-        if let Ok(demcr) = self.dp_read_bitflags::<Demcr>() {
-            if (demcr & Demcr::VC_CORERESET) == Demcr::VC_CORERESET {
-                error = true;
-                need_undo |= Undo::VC_CORERESET;
-                ringbuf_entry!(Trace::BadDemcr(demcr));
-            }
-        } else {
-            ringbuf_entry!(Trace::DemcrReadError);
         }
 
         // Unless `prep` failed, this will always be needed.
