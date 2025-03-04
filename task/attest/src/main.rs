@@ -244,7 +244,7 @@ impl idl::InOrderAttestImpl for AttestServer {
 
     fn record(
         &mut self,
-        _: &userlib::RecvMessage,
+        msg: &userlib::RecvMessage,
         algorithm: HashAlgorithm,
         data: idol_runtime::Leased<idol_runtime::R, [u8]>,
     ) -> Result<(), RequestError<AttestError>> {
@@ -252,6 +252,13 @@ impl idl::InOrderAttestImpl for AttestServer {
 
         if self.measurements.is_full() {
             return Err(AttestError::LogFull.into());
+        }
+
+        // The first measurement can only be made by a privileged task.
+        if self.measurements.is_empty() {
+            if !PERMIT_LOG_RESET.iter().any(|x| *x == msg.sender.0) {
+                return Err(ClientError::AccessViolation.fail());
+            }
         }
 
         let measurement = match algorithm {

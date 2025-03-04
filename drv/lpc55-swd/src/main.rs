@@ -58,6 +58,35 @@
 //   needed. Endianness is one of the hardest problems in programming after
 //   all.
 
+// SWD functions and clients:
+//
+// The `swd` task is currently used for three different purposes.
+//   - Measurement of the active SP flash bank on detection of SP_RESET,
+//   - Update watchdog for the SP Hubris image,
+//   - SP task dump
+//
+// Measurement: SP measurement is relatively atomic with respect to the
+// other work in that it is done entirely within the interrupt notification
+// handler. Note that the SP_RESET handler will change the SP_RESET pin
+// from input to output and back again. By design, there is no code path
+// out of that handler that leaves the SP_RESET pin as an output. If the
+// RoT was to iteself reset, or the swd task to restart, during SP_RESET
+// handling, the `setup_pins` call in main would return SP_RESET to its
+// proper configuration.
+//
+// Watchdog: The watchdog timer is intended to work across SP_RESET.
+// Although it checks that the SWD interface can be used when the timer
+// is first set, it is not until the timer fires that the SP SWD
+// interface is used.
+//
+// Dumper: There is a potential conflict where `dumper` is actively using
+// the `swd` task and the watchdog timer fires, or SP_RESET or JTAG_DETECT
+// interrupts are received. Any of these mean that either the dump information
+// has been erased in the SP or the SP is no longer accessible via SWD. While
+// these scenarios are highly unlikely, all that is needed is to force any
+// non-idempotent API call to initialize the SWD interface before use.
+// The dumper task may fail, but that is appropriate.
+
 #![no_std]
 #![no_main]
 
@@ -117,7 +146,9 @@ enum Trace {
     DfsrReadError,
     Dfsr(Dfsr),
     DhcsrWriteError,
-    DidNotHalt,
+    DidNotHalt {
+        sp_reset_state: Value,
+    },
     DoHalt,
     DoSetup,
     EndOfNotificationHandler,
@@ -125,9 +156,6 @@ enum Trace {
         delta_t: u32,
     },
     HaltFail(u32),
-    HaltWait {
-        timeout: u32,
-    },
     IncompleteUndo(Undo),
     Injected {
         start: u32,
@@ -151,7 +179,6 @@ enum Trace {
     Digest1([u8; 8]),
     Digest2([u8; 8]),
     Digest3([u8; 8]),
-    PinSetupDefaults,
     ReadbackFailure,
     ReadBufFail,
     ReadX {
@@ -169,10 +196,12 @@ enum Trace {
     SpResetNotAsserted,
     SwdSetupFail,
     SwdSetupOk,
-    Timeout,
     TimerHandlerError(SpCtrlError),
     VcCoreReset(bool),
     VcCoreResetNotCaught,
+    WaitingForSpHalt {
+        timeout: u32,
+    },
     WrotePcRegisterFail,
     WroteSpRegisterFail,
 }
@@ -232,6 +261,14 @@ const PARK_BIT: u8 = 0;
 
 const START_VAL: u8 = 1 << START_BIT;
 const PARK_VAL: u8 = 1 << PARK_BIT;
+
+// In most cases, `swd` using the DP to request a halt will complete
+// in under 1ms. When injecting code into the SP and waiting for the
+// SP flash bank measurement to complete (and halt), it will take
+// about 250ms. And lastly, if a measurement is initiated by having a
+// human press a physical reset button, the time to SP_RESET
+// de-assertion is not bounded.
+const WAIT_FOR_HALT_MS: u64 = 500;
 
 // Debug Interface from Armv7 Architecture Manual chapter C-1
 mod armv7debug;
@@ -370,7 +407,7 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
         start: u32,
         end: u32,
     ) -> Result<(), RequestError<SpCtrlError>> {
-        if !self.init {
+        if !self.is_swd_setup() {
             return Err(SpCtrlError::NeedInit.into());
         }
         ringbuf_entry!(Trace::ReadX {
@@ -386,7 +423,7 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
         _: &RecvMessage,
         dest: LenLimit<Leased<W, [u8]>, 4096>,
     ) -> Result<(), RequestError<SpCtrlError>> {
-        if !self.init {
+        if !self.is_swd_setup() {
             return Err(SpCtrlError::NeedInit.into());
         }
 
@@ -422,7 +459,7 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
         dest: LenLimit<Leased<W, [u8]>, 4096>,
     ) -> Result<(), RequestError<SpCtrlError>> {
         ringbuf_entry!(Trace::ReadCmd);
-        if !self.init {
+        if !self.is_swd_setup() {
             return Err(SpCtrlError::NeedInit.into());
         }
         let cnt = dest.len();
@@ -455,7 +492,7 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
         dest: LenLimit<Leased<R, [u8]>, 4096>,
     ) -> Result<(), RequestError<SpCtrlError>> {
         ringbuf_entry!(Trace::WriteCmd);
-        if !self.init {
+        if !self.is_swd_setup() {
             return Err(SpCtrlError::NeedInit.into());
         }
         let cnt = dest.len();
@@ -565,7 +602,7 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
         time_ms: u32,
     ) -> Result<(), RequestError<SpCtrlError>> {
         ringbuf_entry!(Trace::EnabledWatchdog);
-        if !self.init {
+        if !self.is_swd_setup() {
             // The init will fail if there is an active debug dongle on the SP
             // SWD interface.
             // If there was an active dongle, then the SWD interface would not
@@ -617,7 +654,6 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
         let _ = self.dp_write_bitflags::<Dhcsr>(Dhcsr::end_debug());
         self.swd_finish();
         self.sp_reset_leave(false);
-        self.init = false;
         Ok(())
     }
 
@@ -660,8 +696,9 @@ impl NotificationHandler for ServerImpl {
             {
                 if detected {
                     ringbuf_entry!(Trace::InvalidateSpMeasurement);
+                    // Reset the attestation log
                     invalidate = true;
-                    self.init = false;
+                    self.next_use_must_setup_swd();
                 }
             } else {
                 // The pint_op parameters are for a configured PINT slot for one of
@@ -679,12 +716,37 @@ impl NotificationHandler for ServerImpl {
                 Ok(()) => {
                     // Disable the watchdog timer
                     sys_set_timer(None, notifications::TIMER_MASK);
-                    // Attempt to do the swap
-                    let r = self.swap_sp_slot();
-                    ringbuf_entry!(Trace::WatchdogSwap(r));
-
-                    // Force reinitialization
-                    self.init = false;
+                    if let Err(e) = self.do_setup_swd() {
+                        // This is potentially bad if we really need
+                        // to activate the alternate SP flash bank and
+                        // are not able to do that.
+                        //
+                        // It means that that there is:
+                        //   - an SWD logic bug, or
+                        //   - something is wrong with the SWD signals, or
+                        //   - in the time between the WD timer being set and
+                        //     the timer firing, a JTAG dongle has been
+                        //     powered-up or attached.
+                        //
+                        // These problems either should have been caught in
+                        // CI testing, require HW repair, or are because a
+                        // human is messing with the system by holding down the
+                        // SP's physical reset button.
+                        //
+                        // Reporting:
+                        // RFDs 544 and 520 may result in a reporting
+                        // mechanism that can be used here.
+                        // RFD 440 discusses improving robustness.
+                        // Until then, just log in the ringbuf.
+                        ringbuf_entry!(Trace::TimerHandlerError(e));
+                    } else {
+                        // Attempt to do the swap
+                        let r = self.swap_sp_slot();
+                        // r.is_err() is potentiall bad. See comment above.
+                        ringbuf_entry!(Trace::WatchdogSwap(r));
+                        // Force next user to re-initialize the SWD interface.
+                        self.next_use_must_setup_swd();
+                    }
                 }
                 Err(e) => {
                     // This should only fail if JTAG_DETECT or SP_RESET are currently asserted.
@@ -698,9 +760,11 @@ impl NotificationHandler for ServerImpl {
             ringbuf_entry!(Trace::SpResetFired);
             if !invalidate && !self.do_handle_sp_reset() {
                 ringbuf_entry!(Trace::InvalidateSpMeasurement);
+                // Clear the attestation log
                 invalidate = true;
             }
-            // else something something {
+            self.next_use_must_setup_swd();
+
             //  We are not going to try to measure/trust the SP
             //  when there is a glitch on the JTAG_DETECT signal.
             //
@@ -1248,12 +1312,6 @@ impl ServerImpl {
         Ok(())
     }
 
-    fn pin_setup(&mut self) {
-        // setup_pins is generated at compile time
-        // and has configuration sanity checks.
-        _ = setup_pins(self.gpio);
-    }
-
     /// Swaps the currently-active SP slot
     fn swap_sp_slot(&mut self) -> Result<(), Ack> {
         // All registers and constants are within the FLASH peripheral block, so
@@ -1435,8 +1493,16 @@ impl ServerImpl {
         // or faulting before setting the proper shared state
         // result in returning failures.
 
-        if self.wait_for_sp_halt(512).is_err() {
-            ringbuf_entry!(Trace::DidNotHalt);
+        // Note: If you are doing manual testing and initiating a measurement by pushing an "SP
+        // RESET" button, you can induce a failure to measure by holding down the reset button for
+        // longer than this timeout. So, unless that is what you want, release the button before
+        // 0.5 seconds is up.
+        if self.wait_for_sp_halt(WAIT_FOR_HALT_MS).is_err() {
+            // If a human is holding down a physical reset button then
+            // SP_RESET may have never been released.
+            let gpio = Pins::from(self.gpio);
+            let sp_reset_state = gpio.read_val(ROT_TO_SP_RESET_L_IN);
+            ringbuf_entry!(Trace::DidNotHalt { sp_reset_state });
             return Err(());
         };
 
@@ -1587,26 +1653,6 @@ impl ServerImpl {
     fn do_setup_swd(&mut self) -> Result<(), SpCtrlError> {
         ringbuf_entry!(Trace::DoSetup);
 
-        // TODO: clients interferring with each other and SP_RESET handling.
-        //
-        // A client can call into this SWD task using multiple API calls.
-        // While that session is active, inbetween calls, an SP_INTERRUPT
-        // can happen that will change the state of the SWD interface and the
-        // SP itself. If there were multiple external clients (hiffy vs dump),
-        // they could interfere with each other's work.
-        //
-        // The dump client is trying to be non-intrusive and will try to resume
-        // the SP after finishing its work, the last call being `resume` or, if
-        // that fails, `setup` followed by `resume`.
-        if !self.init {
-            ringbuf_entry!(Trace::PinSetupDefaults);
-            // This should be redundant since setup_pins needs to be
-            // called in order for SP_RESET interrupt to be plumbed.
-            // The only exception is if SP_RESET is driven as an output
-            // that that should be a non-interruptable transient state.
-            self.pin_setup();
-        }
-
         if self.swd_dongle_detected() {
             ringbuf_entry!(Trace::DongleDetected);
             return Err(SpCtrlError::DongleDetected);
@@ -1625,15 +1671,25 @@ impl ServerImpl {
         }
     }
 
+    fn next_use_must_setup_swd(&mut self) {
+        self.init = false;
+        // Any in-progress bulk data transfer is cancelled.
+        self.transaction = None;
+    }
+
+    fn is_swd_setup(&self) -> bool {
+        self.init
+    }
+
     fn do_halt(&mut self) -> Result<(), SpCtrlError> {
         ringbuf_entry!(Trace::DoHalt);
         self.dp_write_bitflags::<Dhcsr>(Dhcsr::halt())
             .map_err(|_| SpCtrlError::Fault)?;
-        self.wait_for_sp_halt(5000)
+        self.wait_for_sp_halt(WAIT_FOR_HALT_MS)
     }
 
     fn wait_for_sp_halt(&mut self, timeout: u64) -> Result<(), SpCtrlError> {
-        ringbuf_entry!(Trace::HaltWait {
+        ringbuf_entry!(Trace::WaitingForSpHalt {
             timeout: timeout as u32
         });
         let start = sys_get_timer().now;
@@ -1653,7 +1709,11 @@ impl ServerImpl {
                 return Err(SpCtrlError::Fault);
             }
             if deadline <= sys_get_timer().now {
-                ringbuf_entry!(Trace::Timeout);
+                // If a human is holding down a physical reset button then
+                // SP_RESET may have never been released.
+                let gpio = Pins::from(self.gpio);
+                let sp_reset_state = gpio.read_val(ROT_TO_SP_RESET_L_IN);
+                ringbuf_entry!(Trace::DidNotHalt { sp_reset_state });
                 break Err(SpCtrlError::Timeout);
             }
             hl::sleep_for(1);
@@ -1720,7 +1780,6 @@ impl ServerImpl {
 
         // TODO: confirm that bank-flipping SP update watchdog is working.
 
-        self.init = true; // we don't want GPIO pin reconfiguration.
         if self.do_setup_swd().is_ok() {
             ringbuf_entry!(Trace::SetupSwdOk);
             need_undo |= Undo::SWD;
@@ -1776,8 +1835,9 @@ impl ServerImpl {
             self.sp_reset_leave(true);
             *undo &= !Undo::RESET;
 
-            // 100ms max wait. Typical wait looks to be 5ms.
-            self.wait_for_sp_halt(100).map_err(|_| ())?;
+            // 500ms max wait allows for testing using manual reset button.
+            // Typical wait looks to be 5ms.
+            self.wait_for_sp_halt(WAIT_FOR_HALT_MS).map_err(|_| ())?;
 
             // Check that RESET was caught
             if let Ok(dfsr) = self.dp_read_bitflags::<Dfsr>() {
@@ -1836,8 +1896,8 @@ impl ServerImpl {
         // If anything deviates from the happy-path, we will not record a valid measurement.
 
         if need_undo & Undo::VC_CORERESET == Undo::VC_CORERESET {
-            // This should never happen. Don't believe any measurement we
-            // may have recorded.
+            // This will happen if one holds down a physical reset button.
+            // In any case, don't believe any measurement we may have recorded.
             ringbuf_entry!(Trace::IncompleteUndo(need_undo));
             error = true;
 
@@ -1969,8 +2029,9 @@ fn main() -> ! {
         watchdog_ms: None,
     };
 
-    // Setup GPIO pins so that we can receive interrupts.
-    server.pin_setup();
+    // Setup GPIO pins so that we can receive interrupts
+    // and interact with the SP's SWD interface.
+    let _ = setup_pins(server.gpio);
 
     // Detect SP entering reset
     let _ = Pins::from(server.gpio).pint_op(
