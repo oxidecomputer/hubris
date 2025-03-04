@@ -9,7 +9,7 @@ name=$1
 toml=$2
 image=$3
 
-rustup show active-toolchain || rustup toolchain install
+rustup toolchain install
 cargo xtask dist $toml
 cp target/$name/dist/$image/build-$name-image-$image.zip /work/
 touch /work/this_is_not_signed.txt
