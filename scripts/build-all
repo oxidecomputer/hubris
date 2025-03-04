@@ -1,0 +1,124 @@
+#!/bin/bash
+set -u
+PROG="${0##*/}"
+
+usage() {
+    ec="${1:?Missing exit code}"
+    shift
+    msg="${*:-}"
+    shift
+    if (( ec != 0 ))
+    then
+        exec 1>&2
+    fi
+    [[ -n "$msg" ]] && echo "$msg"
+    echo "Usage: $PROG [options] [args]"
+    echo '  -c # Continue to next app.toml on build errors'
+    echo '  -e # Just build the app.toml files that are essential for testing'
+    echo '  -h # Help (this message)'
+    echo '  -n # No action, just list app.toml files to process.'
+    echo '  -r # Remove previous log files (rebuild everything)'
+    echo '  -u # Attempt to build including unsupported app.toml files'
+    echo 'Run "cargo xtask $args app.toml" for every available app.toml'
+    echo '$args defaults to "dist"'
+    exit "${ec}"
+}
+
+fatal() {
+    msg="${*:-error}"
+    printf "Fatal: %s\n" "${msg}" 1>&2
+    exit 1
+}
+
+[[ "$(head -n1 README.mkdn 2>/dev/null)" == "# Hubris" ]] || usage 1 "Not in a Hubris repo"
+
+STOP_ON_ERROR=true
+NOOP=false
+REMOVE_PREV_LOG=false
+SKIP_UNSUPPORTED=true
+ESSENTIAL=false
+
+while getopts "chenru" opt; do
+    case $opt in
+        c) STOP_ON_ERROR=false;;
+	e) ESSENTIAL=true;;
+        h) usage 0;;
+        n) NOOP=true;;
+        r) REMOVE_PREV_LOG=true;;
+        u) SKIP_UNSUPPORTED=false;;
+        ?) usage 1 "Invalid option";;
+    esac
+done
+shift $((OPTIND-1))
+
+if [[ $# -gt 0 ]]
+then
+  xtask_args=( "$@" )
+else
+  xtask_args=( dist )
+fi
+
+# Wall of shame: App.toml files in our repo that fail.
+declare -A -g SUPPORTED
+if $SKIP_UNSUPPORTED
+then
+  SUPPORTED["app/lpc55xpresso/app-sprot.toml"]=false
+fi
+
+included() {
+  path="${1:?Missing path to app.toml file}"
+  case "${path}" in
+    */base*.toml | */dev.toml | */lab.toml ) false;;
+    *) "${SUPPORTED["${path}"]:-true}";;
+  esac
+}
+
+# Create a list of all the app.toml type files with our preferred files at the front.
+# Don't mind the duplicates, they are weeded out with an associative array later.
+mapfile -t ORDERED < <(
+# Gimletlet and RoT carrier are first as the usual developer testbed.
+echo app/rot-carrier/app.toml
+echo app/gimletlet/app.toml
+echo app/grapefruit/app-dev.toml
+# Next, the images used for the testbeds attached to lurch.
+echo app/oxide-rot-1/app-dev.toml
+echo app/gimlet/rev-c-lab.toml
+echo app/sidecar/rev-b-lab.toml
+echo app/psc/rev-b-dev.toml
+# Everything except 'Cargo.toml'.
+if ! $ESSENTIAL
+then
+  find "app" -name '*.toml' ! -name Cargo.toml | sort
+fi
+)
+
+declare -A -g SEEN
+
+for APP in "${ORDERED[@]}"
+do
+  if [[ -z "${SEEN["${APP}"]:-}" ]]
+  then
+    SEEN["${APP}"]=1
+    included "${APP}" || continue
+    LOG=xtask-"$(basename "$(dirname "${APP}")")_$(basename "${APP}" .toml).log"
+    [[ -f "${LOG}.ok" ]] && ! $REMOVE_PREV_LOG && continue
+
+    printf "Logging %s to %s\n" "${APP}" "${LOG}"
+    $NOOP && continue
+    $REMOVE_PREV_LOG && rm -f "${LOG}.ok" "${LOG}"
+    {
+      # shellcheck disable=SC2086
+      cargo xtask "${xtask_args[@]}" ${APP}
+      echo APP="${APP}"
+    } 2>&1 | tee -i "${LOG}"
+    if ! grep --color=auto -s -w Error "${LOG}"; then
+      # Green
+      printf "\033[42m%s\033[m]\n" "${LOG}.ok"
+      mv "${LOG}" "${LOG}.ok"
+    else
+      # Red
+      printf "\033[41m%s\033[m %s\n" "${LOG}" "${APP}"
+      $STOP_ON_ERROR && break
+    fi
+  fi
+done
