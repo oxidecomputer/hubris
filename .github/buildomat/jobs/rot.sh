@@ -25,6 +25,7 @@ trap _cleanup SIGINT SIGTERM EXIT
 source .github/buildomat/force-git-over-https.sh
 source .github/buildomat/permslip-setup.sh
 
+rustup toolchain install
 
 cargo xtask dist app/oxide-rot-1/app-dev.toml
 $PERMSLIP_DIR/target/release/permslip --url=http://localhost:41340 \
