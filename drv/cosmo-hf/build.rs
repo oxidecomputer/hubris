@@ -22,7 +22,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let board = build_util::target_board().expect("could not get target board");
     let (f, short) = match board.as_str() {
         "grapefruit" => ("grapefruit", "gfruit"),
-        "cosmo-a" => ("cosmo", "cosmo"),
+        "cosmo-a" => ("cosmo-seq", "cosmo_seq"),
         _ => panic!("unknown board '{board}'"),
     };
     let folder = format!("../spartan7-loader/{f}");
@@ -37,7 +37,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         build_fpga_regmap::fpga_peripheral(&node, &top, 0x60000000, token)?
     )?;
 
-    let node = base_path.join("base_reg_map.json");
+    let node = base_path.join("info_regs.json");
     write!(
         &mut file,
         "{}",

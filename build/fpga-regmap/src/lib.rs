@@ -628,7 +628,10 @@ pub fn fpga_peripheral(
     let node_name = node.file_stem().unwrap().to_str().unwrap();
     let node = read_parse(node)?;
     let top = read_parse(top)?;
-    let Some(peripheral) = node_name.strip_suffix("_reg_map") else {
+    let Some(peripheral) = node_name
+        .strip_suffix("_reg_map")
+        .or_else(|| node_name.strip_suffix("_regs"))
+    else {
         anyhow::bail!(
             "could not get peripheral name from {node_name},
              expected '_reg_map' suffix"
