@@ -46,6 +46,7 @@ zip = { workspace = true }
 
 gnarle = { path = "../../lib/gnarle", features = ["std"] }
 abi.path = "../../sys/abi"
+build-fpga-regmap.path = "../../build/fpga-regmap"
 build-kconfig.path = "../kconfig"
 lpc55-rom-data.path = "../../lib/lpc55-rom-data"
 toml-task.path = "../../lib/toml-task"
