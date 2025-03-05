@@ -151,16 +151,18 @@ size = 128 # 96 bytes of actual data, rounding up to a power of two
 address = 0x52004000
 size = 0x1000
 
-# NOTE: this is the correct thing to depend on if you want to use the PSRAM
-# interface as a memory mapped peripheral, like we do with certain FPGAs. This
-# is NOT the right way to use it as RAM! For that you probably want an
-# extern-region instead.
+# NOTE: this defines the chunk of memory used for memory-mapped peripherals,
+# like we do for certain FPGAs.  You should not use it directly; instead, use an
+# `[fmc]` configuration block in your manifest to generate fine-grained memory
+# regions for each memory-mapped peripheral, based on the FPGA's top-level
+# peripheral map.
 #
-# Why, you ask? Because this is a peripheral mapping, and will set up this
-# section of the address space as bypassing the cache, not coalescing stores,
-# and so forth. This is what you want for memory mapped registers; it is _not_
-# what you want for RAM, at least if you want performance to be halfway
-# reasonable.
+# This is also NOT the right way to use FMC-attached devices as RAM! For that
+# you probably want an extern-region instead. Why, you ask? Because this is a
+# peripheral mapping, and will set up this section of the address space as
+# bypassing the cache, not coalescing stores, and so forth. This is what you
+# want for memory mapped registers; it is _not_ what you want for RAM, at least
+# if you want performance to be halfway reasonable.
 [fmc_nor_psram_bank_1]
 address = 0x60000000
 size = 0x10000000
