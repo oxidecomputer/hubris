@@ -66,12 +66,6 @@ fn main() -> ! {
     let seq =
         drv_spartan7_loader_api::Spartan7Loader::from(LOADER.get_task_id());
 
-    let base = fmc_periph::Base::new(seq.get_token());
-    let id = base.id.data();
-    if id != 0x1de {
-        fail(drv_hf_api::HfError::FpgaNotConfigured);
-    }
-
     let drv = FlashDriver {
         drv: fmc_periph::SpiNor::new(seq.get_token()),
     };

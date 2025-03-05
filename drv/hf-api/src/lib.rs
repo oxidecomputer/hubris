@@ -31,7 +31,6 @@ pub enum HfError {
     Sector0IsReserved,
     NoPersistentData,
     MonotonicCounterOverflow,
-    FpgaNotConfigured,
     BadChipId,
     BadAddress,
 
