@@ -9,6 +9,10 @@ name = "cosmo"
 requires = {flash = 32768, ram = 8192}
 features = ["dump"]
 
+[mmio]
+peripheral-region = "fmc_nor_psram_bank_1"
+register-map = "../../drv/spartan7-loader/cosmo-seq/cosmo_seq_top_map.json"
+
 [caboose]
 tasks = ["control_plane_agent"]
 region = "flash"
@@ -1326,13 +1330,13 @@ memory-size = 33_554_432 # 256 Mib / 32 MiB
 slot-count = 16 # 2 MiB slots
 
 [[auxflash.blobs]]
-file = "drv/spartan7-loader/cosmo/cosmo_seq.bz2"
+file = "drv/spartan7-loader/cosmo-seq/cosmo_seq.bz2"
 unzip = "bz2"
 compress = true
 tag = "SPA7"
 
 [[auxflash.blobs]]
-file = "drv/cosmo-seq-server/cosmo_hp.bz2"
+file = "drv/cosmo-seq-server/cosmo-hp/cosmo_hp.bz2"
 unzip = "bz2"
 compress = true
 tag = "ICE4"
