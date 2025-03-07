@@ -1,0 +1,41 @@
+{
+    "type": "addrmap",
+    "addr_span_bytes": 784,
+    "inst_name": "top_level_map",
+    "orig_type_name": "top_level_map",
+    "addr_offset": 0,
+    "children": [
+        {
+            "type": "addrmap",
+            "addr_span_bytes": 20,
+            "inst_name": "base",
+            "orig_type_name": "gfruit_regs",
+            "addr_offset": 0,
+            "children": []
+        },
+        {
+            "type": "addrmap",
+            "addr_span_bytes": 36,
+            "inst_name": "spi_nor",
+            "orig_type_name": "spi_nor_regs",
+            "addr_offset": 256,
+            "children": []
+        },
+        {
+            "type": "addrmap",
+            "addr_span_bytes": 32,
+            "inst_name": "espi",
+            "orig_type_name": "espi_regs",
+            "addr_offset": 512,
+            "children": []
+        },
+        {
+            "type": "addrmap",
+            "addr_span_bytes": 16,
+            "inst_name": "sgpio",
+            "orig_type_name": "gfruit_sgpio_regs",
+            "addr_offset": 768,
+            "children": []
+        }
+    ]
+}
