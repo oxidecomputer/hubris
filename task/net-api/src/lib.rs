@@ -11,7 +11,7 @@ use crate as task_net_api;
 use derive_idol_err::IdolError;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
-use userlib::*;
+use userlib::{sys_send, FromPrimitive};
 use zerocopy::{AsBytes, FromBytes};
 
 pub use task_packrat_api::MacAddressBlock;

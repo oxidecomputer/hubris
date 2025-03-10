@@ -8,7 +8,7 @@
 
 use derive_idol_err::IdolError;
 use drv_i2c_api::ResponseCode;
-use userlib::*;
+use userlib::{sys_send, FromPrimitive};
 use zerocopy::AsBytes;
 
 pub use task_sensor_api::SensorId;

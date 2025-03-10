@@ -6,12 +6,11 @@
 
 #![no_std]
 
-use userlib::*;
+use userlib::{sys_get_timer, sys_send, FromPrimitive};
 
 use derive_idol_err::IdolError;
 use drv_i2c_api::ResponseCode;
 use hubpack::SerializedSize;
-use num_derive::FromPrimitive;
 use serde::{Deserialize, Serialize};
 
 /// A validated sensor ID.

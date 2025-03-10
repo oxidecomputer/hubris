@@ -8,7 +8,7 @@
 
 use derive_idol_err::IdolError;
 use serde::{Deserialize, Serialize};
-use userlib::*;
+use userlib::{sys_send, FromPrimitive};
 
 pub use host_sp_messages::HostStartupOptions;
 pub use oxide_barcode::ParseError as BarcodeParseError;

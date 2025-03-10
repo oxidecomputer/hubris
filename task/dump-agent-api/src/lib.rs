@@ -8,7 +8,7 @@
 
 use derive_idol_err::IdolError;
 use dumper_api::DumperError;
-use userlib::*;
+use userlib::{sys_send, FromPrimitive};
 
 pub use humpty::*;
 

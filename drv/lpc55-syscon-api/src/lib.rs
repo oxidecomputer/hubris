@@ -10,7 +10,7 @@
 
 #![no_std]
 
-use userlib::*;
+use userlib::{sys_send, FromPrimitive};
 use zerocopy::AsBytes;
 
 /// Peripheral numbering.

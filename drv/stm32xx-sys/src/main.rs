@@ -186,7 +186,7 @@
 //! ```rust,no-run
 //! # mod notifications { pub const MY_GPIO_NOTIFICATION_MASK: u32 = 1 << 0; }
 //! use drv_stm32xx_sys_api::{PinSet, Port, Pull};
-//! use userlib::*;
+//! use userlib::task_slot;
 //!
 //! task_slot!(SYS, sys);
 //!
@@ -229,7 +229,7 @@
 //! # fn handle_interrupt() {}
 //! # mod notifications { pub const MY_GPIO_NOTIFICATION_MASK: u32 = 1 << 0; }
 //! use drv_stm32xx_sys_api::{PinSet, Port, Pull, Edge, IrqControl};
-//! use userlib::*;
+//! use userlib::{sys_recv_notification, task_slot};
 //!
 //! task_slot!(SYS, sys);
 //!
@@ -326,7 +326,11 @@ use idol_runtime::{ClientError, NotificationHandler, RequestError};
 #[cfg(not(feature = "test"))]
 use task_jefe_api::{Jefe, ResetReason};
 
-use userlib::*;
+#[cfg(not(feature = "test"))]
+use userlib::task_slot;
+#[cfg(feature = "exti")]
+use userlib::{sys_irq_control, sys_post, sys_refresh_task_id, TaskId};
+use userlib::{FromPrimitive, RecvMessage};
 
 #[cfg(not(feature = "test"))]
 task_slot!(JEFE, jefe);

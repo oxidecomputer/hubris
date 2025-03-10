@@ -41,7 +41,7 @@ pub mod pca9545;
 pub mod pca9548;
 
 use ringbuf::*;
-use userlib::*;
+use userlib::{hl, sys_irq_status, IrqStatus};
 
 use drv_stm32xx_sys_api as sys_api;
 
@@ -886,7 +886,7 @@ impl I2cController<'_> {
 
         #[rustfmt::skip]
         i2c.oar1.modify(|_, w| { w
-            .oa1en().clear_bit()                    // own-address disable 
+            .oa1en().clear_bit()                    // own-address disable
         });
 
         #[rustfmt::skip]
@@ -899,7 +899,7 @@ impl I2cController<'_> {
         i2c.cr1.modify(|_, w| { w
             .gcen().clear_bit()           // disable General Call
             .nostretch().clear_bit()      // enable clock stretching
-            .sbc().clear_bit()            // disable byte control 
+            .sbc().clear_bit()            // disable byte control
             .errie().clear_bit()          // \
             .tcie().clear_bit()           //  |
             .stopie().clear_bit()         //  | disable

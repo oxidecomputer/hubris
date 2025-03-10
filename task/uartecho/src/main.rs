@@ -11,7 +11,7 @@ use drv_stm32h7_usart as drv_usart;
 use drv_usart::Usart;
 use heapless::Deque;
 use ringbuf::*;
-use userlib::*;
+use userlib::{sys_irq_control, sys_recv_notification, task_slot, UnwrapLite};
 
 task_slot!(SYS, sys);
 

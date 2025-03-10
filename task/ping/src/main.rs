@@ -5,7 +5,7 @@
 #![no_std]
 #![no_main]
 
-use userlib::*;
+use userlib::{sys_panic, sys_send, task_slot, Lease};
 
 task_slot!(PEER, peer);
 #[cfg(feature = "uart")]

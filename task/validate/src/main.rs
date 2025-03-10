@@ -10,7 +10,7 @@
 use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::*;
 use task_validate_api::{ValidateError, ValidateOk};
-use userlib::*;
+use userlib::{task_slot, RecvMessage};
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 

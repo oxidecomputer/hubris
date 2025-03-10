@@ -13,7 +13,7 @@
 
 use drv_stm32xx_sys_api::{Edge, IrqControl, Pull};
 use ringbuf::ringbuf_entry;
-use userlib::*;
+use userlib::{sys_recv_notification, task_slot, UnwrapLite};
 
 #[cfg(not(any(
     target_board = "nucleo-h753zi",

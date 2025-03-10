@@ -11,7 +11,7 @@ use drv_i2c_devices::sbrmi::{CpuidResult, Sbrmi};
 use drv_sbrmi_api::SbrmiError;
 use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::*;
-use userlib::*;
+use userlib::{task_slot, RecvMessage};
 use zerocopy::FromBytes;
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
