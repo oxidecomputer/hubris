@@ -26,12 +26,5 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         build_fpga_regmap::fpga_peripheral(node, top, 0x60000000, token)?
     )?;
 
-    let node = Path::new("../spartan7-loader/grapefruit/base_reg_map.json");
-    write!(
-        &mut file,
-        "{}",
-        build_fpga_regmap::fpga_peripheral(node, top, 0x60000000, token)?
-    )?;
-
     Ok(())
 }
