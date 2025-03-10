@@ -356,9 +356,9 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
 
         // Initialize the PHY
         let rw = &mut Vsc7448MiimPhy::new(self.vsc7448, 0);
-        self.vsc8504 = Vsc8504::init(4, rw)?;
+        self.vsc8504 = Vsc8504::init_qsgmii_protocol_xfer(4, rw)?;
         for p in 5..8 {
-            Vsc8504::init(p, rw)?;
+            Vsc8504::init_qsgmii_protocol_xfer(p, rw)?;
         }
 
         // The VSC8504 on the sidecar has its SIGDET GPIOs pulled down,

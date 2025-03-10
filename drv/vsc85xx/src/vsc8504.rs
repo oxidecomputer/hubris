@@ -22,17 +22,34 @@ impl Vsc8504 {
         Self { base_port: 0xFF }
     }
 
-    /// Initializes a VSC8504 PHY using QSGMII, based on the "Configuration"
-    /// guide in the datasheet (section 3.19).  This should be called _after_
-    /// the PHY is reset (i.e. the reset pin is toggled and then the caller
-    /// waits for 120 ms).  The caller is also responsible for handling the
-    /// `COMA_MODE` pin.
+    /// Initializes a VSC8504 PHY in QSGMII MAC-to-Protocol transfer mode, based
+    /// on the "Configuration" guide in the datasheet (section 3.19).  This
+    /// should be called _after_ the PHY is reset (i.e. the reset pin is toggled
+    /// and then the caller waits for 120 ms).  The caller is also responsible
+    /// for handling the `COMA_MODE` pin.
     ///
     /// This must be called on the base port of the PHY, and will configure all
     /// ports using broadcast writes.
-    pub fn init<P: PhyRw>(base_port: u8, rw: &mut P) -> Result<Self, VscError> {
+    pub fn init_qsgmii_protocol_xfer<P: PhyRw>(
+        base_port: u8,
+        rw: &mut P,
+    ) -> Result<Self, VscError> {
         let out = Self { base_port };
-        out.phy(0, rw).init()?;
+        out.phy(0, rw).init_qsgmii_protocol_xfer()?;
+
+        Ok(out)
+    }
+
+    /// Initializes a VSC8504 PHY using QSGMII in MAC-to-Cat5 Link Partner mode
+    ///
+    /// This must be called on the base port of the PHY, and will configure all
+    /// ports using broadcast writes.
+    pub fn init_qsgmii_to_cat5<P: PhyRw>(
+        base_port: u8,
+        rw: &mut P,
+    ) -> Result<Self, VscError> {
+        let out = Self { base_port };
+        out.phy(0, rw).init_qsgmii_to_cat5()?;
 
         Ok(out)
     }
@@ -80,7 +97,7 @@ impl<'a, P: PhyRw> Vsc8504Phy<'a, P> {
     /// Configure the VSC8504 in protocol transfer (QSGMII to SGMII) mode,
     /// based on section 3.3.3 of the datasheet, ENT-AN1175, and
     /// `vtss_phy_pass_through_speed_mode` in the SDK.
-    fn init(&mut self) -> Result<(), VscError> {
+    fn init_qsgmii_protocol_xfer(&mut self) -> Result<(), VscError> {
         ringbuf_entry!(Trace::Vsc8504Init(self.phy.port));
 
         let id = self.phy.read_id()?;
@@ -226,6 +243,142 @@ impl<'a, P: PhyRw> Vsc8504Phy<'a, P> {
         // We are now done with vtss_phy_pass_through_speed_mode.
         // The rest of vtss_phy_conf_set_private doesn't do much (sets up fast
         // link fail enable), so we'll skip it for now.
+
+        // Now, we're done with vtss_phy_soft_reset_port.
+        // We are now roughly at line 980, doing
+        //      phy_reset_private
+        //          port_reset
+        //              vtss_atom_patch_suspend(..., false)
+        // and then returning from port_reset back into phy_reset_private
+        crate::atom::atom_patch_resume(&mut self.phy)?;
+
+        // There are no significant startup scripts for TESLA
+        // (vtss_phy_100BaseT_long_linkup_workaround doesn't seem relevant,
+        // called at line 8499)
+
+        // We're now done with configuration from the SDK!
+
+        // Enable the link state change mask, to detect PHY link flapping
+        self.phy
+            .modify(phy::STANDARD::INTERRUPT_MASK(), |r| r.set_link_mask(1))?;
+        Ok(())
+    }
+
+    /// Configure the VSC8504 in MAC-to-Cat5 mode
+    fn init_qsgmii_to_cat5(&mut self) -> Result<(), VscError> {
+        ringbuf_entry!(Trace::Vsc8504Init(self.phy.port));
+
+        let id = self.phy.read_id()?;
+        if id != VSC8504_ID {
+            return Err(VscError::BadPhyId(id));
+        }
+
+        let rev = self.phy.read(phy::GPIO::EXTENDED_REVISION())?;
+        if rev.tesla_e() != 1 {
+            return Err(VscError::BadPhyRev);
+        }
+
+        let phy_port = self.phy.get_port()?;
+        let is_base_port = phy_port == 0;
+
+        // `vtss_phy_pre_init_seq_tesla`, which calls
+        // `vtss_phy_pre_init_seq_tesla_rev_e` (since we check above for rev E)
+        if is_base_port {
+            crate::tesla::TeslaPhy { phy: &mut self.phy }.patch()?;
+        }
+
+        // This is a TESLA PHY.  Here, we roughly follow the SDK function
+        // `vtss_phy_reset_private`.  Please forgive the overlap with
+        // vsc8562.rs; I'm doing my best to split into PHY-specific functions
+        // instead of having MEGA-FUNCTIONS to handle every single PHY.
+
+        // "-- Step 2: Pre-reset setup of MAC and Media interface --"
+        // (There is no Step 1, apparently)
+        //
+        // We are now entering
+        //      phy_reset_private
+        //          vtss_phy_mac_media_if_tesla_setup
+
+        // "Setup MAC Configuration" (5760)
+        // (this is a global register, so we only need to write to it once, but
+        // the SDK writes to it for each PHY, so we'll do the same)
+        self.phy.modify(phy::GPIO::MAC_MODE_AND_FAST_LINK(), |r| {
+            r.0 = (r.0 & !0x6000) | 0x4000
+        })?;
+
+        // "Configure SerDes macros for QSGMII MAC interface (See TN1080)"
+        // (line 5836)
+        if is_base_port {
+            self.phy.cmd(0x80E0)?;
+        }
+        sleep_for(10); // (line 5928)
+
+        // We are running with copper media, so
+        // "Setup media in micro program" (5931)
+        // "Turn off SerDes for 100Base-FX" (5934)
+        self.phy.cmd(0x80F1 | (0x0100 << phy_port))?;
+        // "Turn off SerDes for 1000Base-FX" (5934)
+        self.phy.cmd(0x80E1 | (0x0100 << phy_port))?;
+        sleep_for(10);
+
+        // "Setup Media interface" (5952)
+        self.phy
+            .modify(phy::STANDARD::EXTENDED_PHY_CONTROL(), |r| {
+                r.set_media_operating_mode(0b0); // Cat5 copper only
+                r.set_ams_preference(1); // Cat5 copper preferred
+            })?;
+
+        // "Set packet mode" (line 5961)
+        // Skipping this for now.
+
+        // Congratulations!
+        // You are now exiting vtss_phy_mac_media_if_tesla_setup and returning
+        // to phy_reset_private:8313
+
+        // "-- Step 3: Reset PHY --" (line 8349)
+        // We are now entering
+        //      phy_reset_private
+        //          port_reset
+        //              vtss_atom_patch_suspend(..., true)
+        crate::atom::atom_patch_suspend(&mut self.phy)?;
+
+        //      phy_reset_private
+        //          port_reset
+        //              vtss_phy_soft_reset_port
+        //
+        // The soft reset for the TESLA PHY is different, for some reason!
+        // "Tesla PHY Only - Writing 0xc040, See Bug_9450" (919)
+        self.phy
+            .write(phy::STANDARD::MODE_CONTROL(), 0xC040.into())?;
+        sleep_for(1); // line 934
+                      // XXX the SDK loops here waiting for a flag to be clear
+
+        // We are now roughly at line 948, doing
+        //      phy_reset_private
+        //          port_reset
+        //              vtss_phy_soft_reset_port
+        //                  vtss_phy_conf_1g_set_private
+        // Nothing to do here (automatic master/slave config is fine)
+
+        //      phy_reset_private
+        //          port_reset
+        //              vtss_phy_soft_reset_port
+        //                  vtss_phy_conf_set_private
+        // Leave auto-MDIX enabled by default (vtss_phy_mdi_setup)
+
+        // We're now at line 8977, "Setup Reg16E3"
+        // (this is copied from VSC8562 bringup, where it is sufficient to
+        // connect to the tech ports; the actual vtss_phy_conf_set_private
+        // includes a bunch more code, but who knows)
+        self.phy
+            .modify(phy::EXTENDED_3::MAC_SERDES_PCS_CONTROL(), |r| {
+                // This should allow link-up if the MAC is not doing auto-neg.
+                // Enable "MAC interface autonegotiation parallel detect",
+                //    else data flow is stopped for the CU ports if PHY has MAC ANEG enabled and the switch is connected to isn't"
+                r.set_mac_if_pd_ena(1);
+            })?;
+        // "Setup Reg23E3" (line 9002)
+        // Nothing to do here, since we're not using the media SERDES?
 
         // Now, we're done with vtss_phy_soft_reset_port.
         // We are now roughly at line 980, doing
