@@ -2,10 +2,11 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use anyhow::{bail, Context};
 use convert_case::{Case, Casing};
 use serde::Deserialize;
 use serde_with::{serde_as, DefaultOnNull};
-use std::fmt::Write;
+use std::{fmt::Write, path::PathBuf};
 
 #[serde_as]
 #[derive(Debug, Deserialize)]
@@ -15,6 +16,8 @@ pub enum Node {
         inst_name: String,
         addr_offset: usize,
         children: Vec<Node>,
+        orig_type_name: Option<String>,
+        addr_span_bytes: Option<usize>,
     },
     Reg {
         inst_name: String,
@@ -89,6 +92,7 @@ fn recurse_addr_map(
                 inst_name,
                 addr_offset,
                 children,
+                ..
             } => {
                 recurse_addr_map(
                     children,
@@ -613,27 +617,49 @@ pub fn build_peripheral(
 pub fn read_parse(p: &std::path::Path) -> anyhow::Result<Node> {
     use std::io::Read;
     let mut data = vec![];
-    std::fs::File::open(p)?.read_to_end(&mut data)?;
+    std::fs::File::open(p)
+        .with_context(|| format!("failed to open {p:?}"))?
+        .read_to_end(&mut data)?;
     let src = std::str::from_utf8(&data)?;
     let node: Node = serde_json::from_str(src)?;
     Ok(node)
 }
 
-pub fn fpga_peripheral(
-    node: &std::path::Path,
-    top: &std::path::Path,
-    base_addr: u32,
-    token: &str,
-) -> anyhow::Result<String> {
-    let node_name = node.file_stem().unwrap().to_str().unwrap();
-    let node = read_parse(node)?;
-    let top = read_parse(top)?;
-    let Some(peripheral) = node_name.strip_suffix("_reg_map") else {
-        anyhow::bail!(
-            "could not get peripheral name from {node_name},
-             expected '_reg_map' suffix"
-        );
+/// Generates an FPGA peripheral for the given node
+///
+/// The register map and base address are loaded from environmental variables,
+/// so this must be called in the context of a Hubris task build.
+pub fn fpga_peripheral(name: &str, token: &str) -> anyhow::Result<String> {
+    let base_addr: u32 = build_util::env_var("HUBRIS_MMIO_BASE_ADDRESS")?
+        .parse()
+        .context("parsing base address")?;
+    let reg_map =
+        PathBuf::from(build_util::env_var("HUBRIS_MMIO_REGISTER_MAP")?);
+
+    let top = read_parse(&reg_map)?;
+
+    let Node::Addrmap { children, .. } = &top else {
+        bail!("expected addrmap for top, got {top:?}");
+    };
+    let Some(orig_type_name) = children.iter().find_map(|c| match c {
+        Node::Addrmap {
+            inst_name,
+            orig_type_name,
+            ..
+        } if inst_name == name => {
+            assert!(orig_type_name.is_some(), "must provide orig_type_name");
+            orig_type_name.as_deref()
+        }
+        _ => None,
+    }) else {
+        bail!("could not find peripheral with `inst_name` of {name}");
     };
 
-    build_peripheral(&node, &top, peripheral, base_addr, Some(token))
+    let node_name = reg_map
+        .parent()
+        .unwrap()
+        .join(format!("{orig_type_name}.json"));
+    let node = read_parse(&node_name)?;
+
+    build_peripheral(&node, &top, name, base_addr, Some(token))
 }

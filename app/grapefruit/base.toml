@@ -9,7 +9,7 @@ fwid = true
 
 [mmio]
 peripheral-region = "fmc_nor_psram_bank_1"
-register-map = "../../drv/spartan7-loader/grapefruit/gfruit_top_map.json"
+register-map = "../../drv/spartan7-loader/grapefruit/gfruit_top.json"
 
 [kernel]
 name = "grapefruit"
