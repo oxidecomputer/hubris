@@ -637,8 +637,9 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
         &mut self,
         _msg: &userlib::RecvMessage,
         _delay: u32,
-    ) -> Result<(), RequestError<core::convert::Infallible>> {
-        Err(ClientError::AccessViolation.fail())
+    ) -> Result<(), RequestError<ClientError>> {
+        // This is a debug feature. Don't reset the client for asking.
+        Err(ClientError::AccessViolation)
     }
 }
 

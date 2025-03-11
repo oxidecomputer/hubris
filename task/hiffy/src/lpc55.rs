@@ -76,7 +76,7 @@ pub enum Functions {
     #[cfg(feature = "spctrl")]
     SpCtrlInit((), drv_sp_ctrl_api::SpCtrlError),
     #[cfg(feature = "spctrl")]
-    MeasureSp((), drv_sp_ctrl_api::SpCtrlError),
+    DbResetSp((), drv_sp_ctrl_api::SpCtrlError),
 }
 
 #[cfg(feature = "spctrl")]

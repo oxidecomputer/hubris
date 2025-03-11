@@ -258,7 +258,10 @@ impl idl::InOrderAttestImpl for AttestServer {
         if self.measurements.is_empty()
             && !PERMIT_LOG_RESET.iter().any(|x| *x == msg.sender.0)
         {
-            return Err(ClientError::AccessViolation.fail());
+            // This is NOT a coding error in the client.
+            // The SP has not been measured yet and the first
+            // slot is reserved for the `swd` task.
+            return Err(AttestError::ReservedLogSlot.into());
         }
 
         let measurement = match algorithm {
@@ -286,6 +289,8 @@ impl idl::InOrderAttestImpl for AttestServer {
         msg: &userlib::RecvMessage,
     ) -> Result<(), RequestError<AttestError>> {
         if !PERMIT_LOG_RESET.iter().any(|x| *x == msg.sender.0) {
+            // This is a coding error in the client.
+            // They should not ask to reset the attestation log.
             return Err(ClientError::AccessViolation.fail());
         }
 
@@ -304,6 +309,8 @@ impl idl::InOrderAttestImpl for AttestServer {
         ringbuf_entry!(Trace::ResetRecord(algorithm));
 
         if !PERMIT_LOG_RESET.iter().any(|x| *x == msg.sender.0) {
+            // This is a coding error in the client.
+            // They should not ask to reset the attestation log.
             return Err(ClientError::AccessViolation.fail());
         }
         ringbuf_entry!(Trace::ResetLog);
