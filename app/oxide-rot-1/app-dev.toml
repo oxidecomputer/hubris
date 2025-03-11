@@ -53,8 +53,6 @@ start = true
 [tasks.update_server]
 name = "lpc55-update-server"
 priority = 3
-max-sizes = {flash = 26080, ram = 17000, usbsram = 4096}
-# TODO: Size this appropriately
 stacksize = 8192
 start = true
 sections = {bootstate = "usbsram"}
@@ -82,7 +80,6 @@ task-slots = ["syscon_driver"]
 [tasks.sprot]
 name = "drv-lpc55-sprot-server"
 priority = 6
-max-sizes = {flash = 54016, ram = 32768}
 uses = ["flexcomm8", "bootrom"]
 features = ["spi0", "sp-ctrl"]
 start = true

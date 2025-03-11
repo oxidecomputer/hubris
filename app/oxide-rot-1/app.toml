@@ -95,7 +95,7 @@ name = "drv-lpc55-swd"
 priority = 4
 uses = ["flexcomm5", "iocon"]
 start = true
-stacksize = 1536
+stacksize = 1280
 task-slots = ["gpio_driver", "syscon_driver", "attest"]
 notifications = ["spi-irq", "timer", "sp_reset-irq", "jtag_detect-irq"]
 interrupts = {"flexcomm5.irq" = "spi-irq", "pint.irq0" = "sp_reset-irq", "pint.irq1" = "jtag_detect-irq" }

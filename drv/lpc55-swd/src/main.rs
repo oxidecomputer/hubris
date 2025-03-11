@@ -96,8 +96,6 @@ use drv_lpc55_spi as spi_core;
 use drv_lpc55_syscon_api::{Peripheral, Syscon};
 use drv_sp_ctrl_api::SpCtrlError;
 use endoscope_abi::{Shared, State};
-#[cfg(not(feature = "enable_ext_sp_reset"))]
-use idol_runtime::ClientError;
 use idol_runtime::{
     LeaseBufReader, LeaseBufWriter, Leased, LenLimit, NotificationHandler,
     RequestError, R, W,
@@ -637,9 +635,10 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
         &mut self,
         _msg: &userlib::RecvMessage,
         _delay: u32,
-    ) -> Result<(), RequestError<ClientError>> {
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
         // This is a debug feature. Don't reset the client for asking.
-        Err(ClientError::AccessViolation)
+        // Silently ignore.
+        Ok(())
     }
 }
 
@@ -1920,12 +1919,7 @@ impl ServerImpl {
 }
 
 fn slice_to_le_u32(slice: &[u8]) -> Option<u32> {
-    if slice.len() == core::mem::size_of::<u32>() {
-        if let Ok(data) = core::convert::TryInto::<[u8; 4]>::try_into(slice) {
-            return Some(u32::from_le_bytes(data));
-        }
-    }
-    None
+    slice.try_into().map(u32::from_le_bytes).ok()
 }
 
 #[export_name = "main"]
