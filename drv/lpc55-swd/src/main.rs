@@ -395,7 +395,6 @@ struct ServerImpl {
     attest: Attest,
     init: bool,
     transaction: Option<MemTransaction>,
-    watchdog_ms: Option<u32>,
 }
 
 impl idl::InOrderSpCtrlImpl for ServerImpl {
@@ -550,12 +549,10 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
         _: &RecvMessage,
         register: u16,
     ) -> Result<u32, RequestError<SpCtrlError>> {
-        Reg::from_u16(register)
-            .ok_or(SpCtrlError::InvalidCoreRegister)
-            .and_then(|r| {
-                self.write_single_target_addr(DCRSR, r as u32)
-                    .map_err(|_| SpCtrlError::Fault)
-            })?;
+        let r =
+            Reg::from_u16(register).ok_or(SpCtrlError::InvalidCoreRegister)?;
+        self.write_single_target_addr(DCRSR, r as u32)
+            .map_err(|_| SpCtrlError::Fault)?;
         loop {
             match self.dp_read_bitflags::<Dhcsr>() {
                 Ok(dhcsr) => {
@@ -604,7 +601,6 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
         // in omicron is 2000ms. With different startup times for the various
         // SP Hubris applications, it is important to test for watchdog failure
         // cases.
-        self.watchdog_ms = Some(time_ms);
         Ok(())
     }
 
@@ -613,7 +609,6 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
     ) -> Result<(), RequestError<core::convert::Infallible>> {
         ringbuf_entry!(Trace::DisabledWatchdog);
-        self.watchdog_ms = None;
         sys_set_timer(None, notifications::TIMER_MASK);
         Ok(())
     }
@@ -733,7 +728,6 @@ impl NotificationHandler for ServerImpl {
                     ringbuf_entry!(Trace::TimerHandlerError(e));
                 }
             }
-            self.watchdog_ms = None;
         }
 
         if (bits & notifications::SP_RESET_IRQ_MASK) != 0 {
@@ -1374,7 +1368,6 @@ impl ServerImpl {
         gpio.set_val(ROT_TO_SP_RESET_L_OUT, Value::Zero);
     }
 
-    /// Cleanup is true if we don't want to be notified of this reset
     fn sp_reset_leave(&mut self) {
         let gpio = Pins::from(self.gpio);
         setup_rot_to_sp_reset_l_in(self.gpio);
@@ -1961,7 +1954,6 @@ fn main() -> ! {
         attest,
         init: false,
         transaction: None,
-        watchdog_ms: None,
     };
 
     // Setup GPIO pins so that we can receive interrupts
