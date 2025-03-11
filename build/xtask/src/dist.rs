@@ -843,9 +843,16 @@ fn build_archive(
     archive.text("app.toml", &cfg.toml.app_config)?;
 
     let chip_dir = cfg.app_src_dir.join(cfg.toml.chip.clone());
-    let chip_file = chip_dir.join("chip.toml");
-    let chip_filename = chip_file.file_name().unwrap();
-    archive.copy(&chip_file, chip_filename)?;
+
+    // Generate a synthetic `chip.toml` by serializing our peripheral map,
+    // because we may have added addition FMC peripherals.
+    archive
+        .text(
+            "chip.toml",
+            toml::to_string(&cfg.toml.peripherals)
+                .context("could not serialize chip.toml")?,
+        )
+        .context("could not write chip.toml")?;
 
     archive
         .text(

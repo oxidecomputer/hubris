@@ -6564,6 +6564,7 @@ dependencies = [
  "abi",
  "anyhow",
  "atty",
+ "build-fpga-regmap",
  "build-kconfig",
  "byteorder",
  "bzip2-rs",
