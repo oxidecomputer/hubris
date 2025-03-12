@@ -1,6 +1,7 @@
 {
     "type": "addrmap",
-    "inst_name": "nor_flash_regs",
+    "addr_span_bytes": 36,
+    "inst_name": "spi_nor_regs",
     "addr_offset": 0,
     "children": [
         {

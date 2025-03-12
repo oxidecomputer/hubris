@@ -14,5 +14,7 @@ serde_json.workspace = true
 serde_with.workspace = true
 syn.workspace = true
 
+build-util.path = "../util"
+
 [lints]
 workspace = true
