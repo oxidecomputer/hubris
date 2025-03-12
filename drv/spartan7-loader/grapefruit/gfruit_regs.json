@@ -1,6 +1,7 @@
 {
     "type": "addrmap",
-    "inst_name": "gfruit_base_regs",
+    "addr_span_bytes": 20,
+    "inst_name": "gfruit_regs",
     "addr_offset": 0,
     "children": [
         {

@@ -306,6 +306,7 @@ name = "build-fpga-regmap"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "build-util",
  "convert_case",
  "heck 0.5.0",
  "prettyplease",
