@@ -1,0 +1,1168 @@
+{
+    "type": "addrmap",
+    "addr_span_bytes": 60,
+    "inst_name": "sequencer_regs",
+    "addr_offset": 0,
+    "children": [
+        {
+            "type": "reg",
+            "inst_name": "IFR",
+            "addr_offset": 0,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "fanfault",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Fan Fault"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "thermtrip",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Thermtrip- Thermal trip indicated from SP5 (sticky since fpga reset or last clear)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "a0mapo",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "A1A0 MAPO- A fault in the A1-A0 domain(s) caused a MAPO (sticky since fpga reset or last clear)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "nicmapo",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Nic MAPO- A fault in the A0 domain caused a MAPO (sticky since fpga reset or last clear)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "amd_pwrok_fedge",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "AMD PWROK falling edge while in >=A0 (sticky since fpga reset or last clear)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "amd_rstn_fedge",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "AMD RESET falling edge while in >=A0 (sticky since fpga reset or last clear)"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "IER",
+            "addr_offset": 4,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "fanfault",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Fan Fault"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "thermtrip",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Thermtrip- Thermal trip indicated from SP5 (sticky since fpga reset or last clear)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "a0mapo",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "A1A0 MAPO- A fault in the A1-A0 domain(s) caused a MAPO (sticky since fpga reset or last clear)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "nicmapo",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Nic MAPO- A fault in the A0 domain caused a MAPO (sticky since fpga reset or last clear)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "amd_pwrok_fedge",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "AMD PWROK falling edge while in >=A0 (sticky since fpga reset or last clear)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "amd_rstn_fedge",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "AMD RESET falling edge while in >=A0 (sticky since fpga reset or last clear)"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "status",
+            "addr_offset": 8,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "fanpwrok",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Fan power OK"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "a0pwrok",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "A0 power OK"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "nicpwrok",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "NIC power OK"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "int_pend",
+                    "lsb": 31,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Interrupt Pending Status (set if any enabled IRQ has its flag set)"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "early_power_ctrl",
+            "addr_offset": 12,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "fan_hsc_east_disable",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Fan East hotswap disable"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "fan_hsc_central_disable",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Fan Central hotswap disable"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "fan_hsc_west_disable",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Fan Central hotswap disable"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "early_power_rdbks",
+            "addr_offset": 16,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "fan_fail",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Fan Fail: inversion of MAX31790ATI FAN_FAIL_N output"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "fan_hsc_east_pg",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback of fan East hotswap PG pin"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "fan_hsc_central_pg",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback of fan Central hotswap PG pin"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "fan_hsc_west_pg",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback of fan West hotswap PG pin"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "fan_hsc_east_disable",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback of fan East hotswap disable pin"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "fan_hsc_central_disable",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback of fan Central hotswap disable pin"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "fan_hsc_west_disable",
+                    "lsb": 6,
+                    "msb": 6,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Readback of fan West hotswap disable pin"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "power_ctrl",
+            "addr_offset": 20,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "a0_en",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "A0 Group power enable (starts state machine). \nNote, no discrete A1 state control, it's a transitory state on the way to A0.\nSet to '1' to start the A2->A0/HP sequence. Set to '0' to disable, power off.\nNote that for fault cases, sw must clear and re-enable this bit as the state\nmachine only enables in response to rising edge changes."
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "seq_api_status",
+            "addr_offset": 24,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "a0_sm",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Sequencer Status",
+                    "encode": [
+                        {
+                            "name": "IDLE",
+                            "value": 0
+                        },
+                        {
+                            "name": "ENABLE_GRP_A",
+                            "value": 1
+                        },
+                        {
+                            "name": "SP5_EARLY_CHECKPOINT",
+                            "value": 2
+                        },
+                        {
+                            "name": "ENABLE_GRP_B",
+                            "value": 3
+                        },
+                        {
+                            "name": "ENABLE_GRP_C",
+                            "value": 4
+                        },
+                        {
+                            "name": "GROUPB2_EN",
+                            "value": 5
+                        },
+                        {
+                            "name": "GROUPB2_PG",
+                            "value": 6
+                        },
+                        {
+                            "name": "GROUPC_PG",
+                            "value": 7
+                        },
+                        {
+                            "name": "SP5_FINAL_CHECKPOINT",
+                            "value": 8
+                        },
+                        {
+                            "name": "DONE",
+                            "value": 9
+                        },
+                        {
+                            "name": "DISABLING",
+                            "value": 10
+                        },
+                        {
+                            "name": "FAULTED",
+                            "value": 11
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "seq_raw_status",
+            "addr_offset": 28,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "hw_sm",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Sequencer Raw Status"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "nic_api_status",
+            "addr_offset": 32,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "nic_sm",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Nic SM Status",
+                    "encode": [
+                        {
+                            "name": "IDLE",
+                            "value": 0
+                        },
+                        {
+                            "name": "ENABLE_POWER",
+                            "value": 1
+                        },
+                        {
+                            "name": "NIC_RESET",
+                            "value": 2
+                        },
+                        {
+                            "name": "DONE",
+                            "value": 3
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "nic_raw_status",
+            "addr_offset": 36,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "hw_sm",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "NIC Sequencer Raw Status"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "amd_reset_fedges",
+            "addr_offset": 40,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "counts",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": "wclr",
+                    "desc": "Falling edge counter of AMD's reset output while in A0/A0HP. Saturates at 255. Cleared by any write or starting a new power up"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "amd_pwrok_fedges",
+            "addr_offset": 44,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "counts",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": "wclr",
+                    "desc": "Falling edge counter of AMD's PowerOK output while in A0/A0HP. Saturates at 255.  Cleared by any write or starting a new power up"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "rail_enables",
+            "addr_offset": 48,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "abcdef_hsc",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DDR ABCDEF Hot Swap 12V controller"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "ghijkl_hsc",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DDR GHIJKL Hot Swap 12V controller"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "v1p5_rtc",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Group A V1p5 RTC 1.5V"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "v3p3_sp5",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Group A rail V3p3 SP5"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "v1p8_sp5",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Group A rail V1p8 SP5"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "v1p1_sp5",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Group B rail V1p1 SP5"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "vddio_sp5",
+                    "lsb": 6,
+                    "msb": 6,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Group C VDDIO SP5"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "vddcr_cpu1",
+                    "lsb": 7,
+                    "msb": 7,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Group C VDDCR CPU1"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "vddcr_cpu0",
+                    "lsb": 8,
+                    "msb": 8,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Group C VDDCR CPU0"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "vddcr_soc",
+                    "lsb": 9,
+                    "msb": 9,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Group C VDDCR SOC"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "nic_hsc_12v",
+                    "lsb": 10,
+                    "msb": 10,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "NIC nic_hsc_12v (discrete pg, shared enable with 5V)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "nic_hsc_5v",
+                    "lsb": 11,
+                    "msb": 11,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "NIC nic_hsc_5v (discrete pg, shared enable with 12V)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "v1p5_nic_a0hp",
+                    "lsb": 12,
+                    "msb": 12,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "NIC v1p5_nic_a0hp (discrete pg, enable cascade from nic 5V)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "v1p2_nic_pcie_a0hp",
+                    "lsb": 13,
+                    "msb": 13,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "NIC v1p2_nic_pcie_a0hp (discrete pg, enable cascade from nic 5V)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "v1p2_nic_enet_a0hp",
+                    "lsb": 14,
+                    "msb": 14,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "NIC v1p2_nic_enet_a0hp (discrete pg, enable cascade from nic 5V)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "v3p3_nic_a0hp",
+                    "lsb": 15,
+                    "msb": 15,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "NIC v3p3_nic_a0hp (discrete pg, enable cascade from nic 5V)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "v1p1_nic_a0hp",
+                    "lsb": 16,
+                    "msb": 16,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "NIC v1p1_nic_a0hp (discrete pg, enable cascade from nic 5V)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "v0p96_nic_vdd_a0hp",
+                    "lsb": 17,
+                    "msb": 17,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "NIC v0p96_nic_vdd_a0hp (discrete pg, enable cascade from nic 5V)"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "rail_pgs",
+            "addr_offset": 52,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "abcdef_hsc",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DDR ABCDEF Hot Swap 12V controller"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "ghijkl_hsc",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DDR GHIJKL Hot Swap 12V controller"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "v1p5_rtc",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Group A V1p5 RTC 1.5V"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "v3p3_sp5",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Group A rail V3p3 SP5"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "v1p8_sp5",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Group A rail V1p8 SP5"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "v1p1_sp5",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Group B rail V1p1 SP5"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "vddio_sp5",
+                    "lsb": 6,
+                    "msb": 6,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Group C VDDIO SP5"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "vddcr_cpu1",
+                    "lsb": 7,
+                    "msb": 7,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Group C VDDCR CPU1"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "vddcr_cpu0",
+                    "lsb": 8,
+                    "msb": 8,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Group C VDDCR CPU0"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "vddcr_soc",
+                    "lsb": 9,
+                    "msb": 9,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Group C VDDCR SOC"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "nic_hsc_12v",
+                    "lsb": 10,
+                    "msb": 10,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "NIC nic_hsc_12v (discrete pg, shared enable with 5V)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "nic_hsc_5v",
+                    "lsb": 11,
+                    "msb": 11,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "NIC nic_hsc_5v (discrete pg, shared enable with 12V)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "v1p5_nic_a0hp",
+                    "lsb": 12,
+                    "msb": 12,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "NIC v1p5_nic_a0hp (discrete pg, enable cascade from nic 5V)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "v1p2_nic_pcie_a0hp",
+                    "lsb": 13,
+                    "msb": 13,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "NIC v1p2_nic_pcie_a0hp (discrete pg, enable cascade from nic 5V)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "v1p2_nic_enet_a0hp",
+                    "lsb": 14,
+                    "msb": 14,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "NIC v1p2_nic_enet_a0hp (discrete pg, enable cascade from nic 5V)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "v3p3_nic_a0hp",
+                    "lsb": 15,
+                    "msb": 15,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "NIC v3p3_nic_a0hp (discrete pg, enable cascade from nic 5V)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "v1p1_nic_a0hp",
+                    "lsb": 16,
+                    "msb": 16,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "NIC v1p1_nic_a0hp (discrete pg, enable cascade from nic 5V)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "v0p96_nic_vdd_a0hp",
+                    "lsb": 17,
+                    "msb": 17,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "NIC v0p96_nic_vdd_a0hp (discrete pg, enable cascade from nic 5V)"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "rail_pgs_max_hold",
+            "addr_offset": 56,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "abcdef_hsc",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DDR ABCDEF Hot Swap 12V controller"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "ghijkl_hsc",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DDR GHIJKL Hot Swap 12V controller"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "v1p5_rtc",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Group A V1p5 RTC 1.5V"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "v3p3_sp5",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Group A rail V3p3 SP5"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "v1p8_sp5",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Group A rail V1p8 SP5"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "v1p1_sp5",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Group B rail V1p1 SP5"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "vddio_sp5",
+                    "lsb": 6,
+                    "msb": 6,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Group C VDDIO SP5"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "vddcr_cpu1",
+                    "lsb": 7,
+                    "msb": 7,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Group C VDDCR CPU1"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "vddcr_cpu0",
+                    "lsb": 8,
+                    "msb": 8,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Group C VDDCR CPU0"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "vddcr_soc",
+                    "lsb": 9,
+                    "msb": 9,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Group C VDDCR SOC"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "nic_hsc_12v",
+                    "lsb": 10,
+                    "msb": 10,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "NIC nic_hsc_12v (discrete pg, shared enable with 5V)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "nic_hsc_5v",
+                    "lsb": 11,
+                    "msb": 11,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "NIC nic_hsc_5v (discrete pg, shared enable with 12V)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "v1p5_nic_a0hp",
+                    "lsb": 12,
+                    "msb": 12,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "NIC v1p5_nic_a0hp (discrete pg, enable cascade from nic 5V)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "v1p2_nic_pcie_a0hp",
+                    "lsb": 13,
+                    "msb": 13,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "NIC v1p2_nic_pcie_a0hp (discrete pg, enable cascade from nic 5V)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "v1p2_nic_enet_a0hp",
+                    "lsb": 14,
+                    "msb": 14,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "NIC v1p2_nic_enet_a0hp (discrete pg, enable cascade from nic 5V)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "v3p3_nic_a0hp",
+                    "lsb": 15,
+                    "msb": 15,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "NIC v3p3_nic_a0hp (discrete pg, enable cascade from nic 5V)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "v1p1_nic_a0hp",
+                    "lsb": 16,
+                    "msb": 16,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "NIC v1p1_nic_a0hp (discrete pg, enable cascade from nic 5V)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "v0p96_nic_vdd_a0hp",
+                    "lsb": 17,
+                    "msb": 17,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "NIC v0p96_nic_vdd_a0hp (discrete pg, enable cascade from nic 5V)"
+                }
+            ]
+        }
+    ]
+}
