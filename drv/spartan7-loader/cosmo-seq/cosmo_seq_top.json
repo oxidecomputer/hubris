@@ -1,0 +1,41 @@
+{
+    "type": "addrmap",
+    "addr_span_bytes": 800,
+    "inst_name": "cosmo_seq_top",
+    "orig_type_name": "cosmo_seq_top",
+    "addr_offset": 0,
+    "children": [
+        {
+            "type": "addrmap",
+            "addr_span_bytes": 24,
+            "inst_name": "info",
+            "orig_type_name": "info_regs",
+            "addr_offset": 0,
+            "children": []
+        },
+        {
+            "type": "addrmap",
+            "addr_span_bytes": 60,
+            "inst_name": "sequencer",
+            "orig_type_name": "sequencer_regs",
+            "addr_offset": 256,
+            "children": []
+        },
+        {
+            "type": "addrmap",
+            "addr_span_bytes": 36,
+            "inst_name": "spi_nor",
+            "orig_type_name": "spi_nor_regs",
+            "addr_offset": 512,
+            "children": []
+        },
+        {
+            "type": "addrmap",
+            "addr_span_bytes": 32,
+            "inst_name": "espi",
+            "orig_type_name": "espi_regs",
+            "addr_offset": 768,
+            "children": []
+        }
+    ]
+}
