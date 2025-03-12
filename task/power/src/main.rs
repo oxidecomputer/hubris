@@ -468,6 +468,7 @@ macro_rules! mwocp68_controller {
     path = "bsp/sidecar_bcd.rs"
 )]
 #[cfg_attr(target_board = "gimletlet-2", path = "bsp/gimletlet_2.rs")]
+#[cfg_attr(target_board = "minibar", path = "bsp/minibar.rs")]
 mod bsp;
 
 ////////////////////////////////////////////////////////////////////////////////
