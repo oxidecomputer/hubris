@@ -1,5 +1,6 @@
 {
     "type": "addrmap",
+    "addr_span_bytes": 24,
     "inst_name": "info_regs",
     "addr_offset": 0,
     "children": [

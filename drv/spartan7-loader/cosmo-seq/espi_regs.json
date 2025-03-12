@@ -1,5 +1,6 @@
 {
     "type": "addrmap",
+    "addr_span_bytes": 32,
     "inst_name": "espi_regs",
     "addr_offset": 0,
     "children": [
@@ -194,7 +195,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "store command byte size in fifo. Beacause we are sending 4bytes at a time into the fifo, but only reading\n1 byte at a time, we need to store the number of cmd bytes in the fifo. This allows queueing up multiple commands\nif desired. left over data bytes are discarded if this fifo is empty and there are <4 bytes left in cmd_fifo"
+                    "desc": "store command byte size in fifo. Because we are sending 4bytes at a time into the fifo, but only reading\n1 byte at a time, we need to store the number of cmd bytes in the fifo. This allows queueing up multiple commands\nif desired. left over data bytes are discarded if this fifo is empty and there are <4 bytes left in cmd_fifo"
                 }
             ]
         },
