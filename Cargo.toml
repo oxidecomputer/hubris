@@ -20,6 +20,21 @@ opt-level = "z" # smaller optimizations
 [profile.dev]
 opt-level = 1 # no optimizations was just too painful in terms of flash size
 
+[profile.release.package.endoscope]
+codegen-units = 1
+debug = 2
+opt-level = "z"
+
+[profile.dev.package.endoscope]
+codegen-units = 1
+debug = 2
+opt-level = "z"
+
+[profile.bench.package.endoscope]
+codegen-units = 1
+debug = 2
+opt-level = "z"
+
 [patch."https://github.com/oxidecomputer/hubris".userlib]
 path = "sys/userlib"
 
