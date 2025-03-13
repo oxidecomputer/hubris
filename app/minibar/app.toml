@@ -17,10 +17,10 @@ max-sizes = {flash = 16384, ram = 2048}
 start = true
 stacksize = 1536
 notifications = ["fault", "timer"]
-extern-regions = ["sram1", "sram2", "sram3", "sram4"]
 
 [tasks.jefe.config.allowed-callers]
 set_reset_reason = ["sys"]
+request_reset = ["hiffy"]
 
 [tasks.packrat]
 name = "task-packrat"
