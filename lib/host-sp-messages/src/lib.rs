@@ -459,6 +459,47 @@ pub enum InventoryData {
 
     /// MAX31790 fan controller
     Max31790 { speed_sensors: [SensorIndex; 6] },
+
+    Raa229620a {
+        /// MFR_ID (PMBus operation 0x99)
+        mfr_id: [u8; 4],
+        /// MFR_MODEL (PMBus operation 0x9A)
+        mfr_model: [u8; 4],
+        /// MFR_REVISION (PMBus operation 0x9B)
+        mfr_revision: [u8; 4],
+        /// MFR_DATE, PMBus operation 0x9D
+        mfr_date: [u8; 4],
+        /// IC_DEVICE_ID, PMBus operation 0xAD
+        ic_device_id: [u8; 4],
+        /// IC_DEVICE_REV, PMBus operation 0xAE
+        ic_device_rev: [u8; 4],
+
+        temp_sensors: [SensorIndex; 2],
+        power_sensors: [SensorIndex; 2],
+        voltage_sensors: [SensorIndex; 2],
+        current_sensors: [SensorIndex; 2],
+    },
+
+    /// LTC4282 hot-swap controller
+    Ltc4282 {
+        voltage_sensor: SensorIndex,
+        current_sensor: SensorIndex,
+    },
+
+    /// LM5066 hot-swap controller
+    Lm5066 {
+        /// MFR_ID (PMBus operation 0x99)
+        mfr_id: [u8; 3],
+        /// MFR_MODEL (PMBus operation 0x9A)
+        mfr_model: [u8; 8],
+        /// MFR_REVISION (PMBus operation 0x9B)
+        mfr_revision: [u8; 2],
+
+        temp_sensor: SensorIndex,
+        power_sensor: SensorIndex,
+        voltage_sensor: SensorIndex,
+        current_sensor: SensorIndex,
+    },
 }
 
 #[derive(
