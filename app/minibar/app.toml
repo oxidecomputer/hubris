@@ -70,7 +70,7 @@ owner = {name = "sprot", notification = "rot_irq"}
 name = "task-monorail-server"
 priority = 6
 max-sizes = {flash = 262144, ram = 16384}
-features = ["minibar", "vlan", "use-spi-core", "h753", "spi2"] # XXX add mgmt
+features = ["minibar", "vlan", "use-spi-core", "h753", "spi2"]
 stacksize = 4096
 start = true
 task-slots = ["sys"]
@@ -248,6 +248,20 @@ input = {port = "I", pin = 2, af = 5} # SPI_VSC7448_SDO_TO_SP_SDI
 [config.spi.spi2.devices.vsc7448]
 mux = "port_i"
 cs = [{port = "I", pin = 0}] # SPI_SP_TO_VSC7448_CS_L
+
+[config.spi.spi3]
+controller = 3
+
+[config.spi.spi3.mux_options.port_c]
+outputs = [
+    # SPI_SP_TO_KSZ8463_SCK, SPI_SP_SDO_TO_KSZ8463_SDI
+    {port = "C", pins = [10, 12], af = 6},
+]
+input = {port = "C", pin = 11, af = 6} # SPI_KSZ8463_SDO_TO_SP_SDI
+
+[config.spi.spi3.devices.ksz8463]
+mux = "port_c"
+cs = [{port = "A", pin = 4}] # SPI_SP_TO_KSZ8463_CS_L
 
 [config.spi.spi4]
 controller = 4
