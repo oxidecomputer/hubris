@@ -1,0 +1,82 @@
+# Minibar with network connectivity
+#
+# NOTE: this requires rework to correct for a board-level issue
+# (see https://github.com/oxidecomputer/hardware-minibar/issues/168)
+
+name = "minibar-net"
+inherit = "app.toml"
+
+[kernel]
+features = ["dump"]
+
+[tasks.jefe]
+features = ["dump"]
+extern-regions = ["sram1", "sram2", "sram3", "sram4"]
+
+[tasks.monorail]
+features = ["mgmt"]
+
+[tasks.net]
+name = "task-net"
+stacksize = 10000
+priority = 5
+features = ["mgmt", "h753", "minibar", "vlan", "vpd-mac", "use-spi-core", "spi3"]
+max-sizes = {flash = 131072, ram = 131072, sram1_mac = 16384}
+sections = {eth_bulk = "sram1_mac"}
+uses = ["eth", "tim16", "spi3"]
+start = true
+notifications = ["eth-irq", "mdio-timer-irq", "spi-irq", "wake-timer"]
+task-slots = ["sys", "packrat", "jefe"]
+
+[tasks.net.interrupts]
+"eth.irq" = "eth-irq"
+"tim16.irq" = "mdio-timer-irq"
+"spi3.irq" = "spi-irq"
+
+[tasks.udpbroadcast]
+name = "task-udpbroadcast"
+priority = 6
+max-sizes = {flash = 16384, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net", "packrat"]
+features = ["vlan"]
+notifications = ["socket"]
+
+[tasks.dump_agent]
+name = "task-dump-agent"
+priority = 6
+max-sizes = {flash = 32768, ram = 16384 }
+start = true
+task-slots = ["sprot", "jefe", "net"]
+stacksize = 2400
+extern-regions = [ "sram1", "sram2", "sram3", "sram4" ]
+notifications = ["socket"]
+features = ["net", "vlan"]
+
+
+# VLAN configuration
+[config.net.vlans.port1]
+vid = 0x301
+trusted = true
+port = 1
+
+[config.net.vlans.port2]
+vid = 0x302
+trusted = true
+port = 2
+
+[config.net.sockets.broadcast]
+kind = "udp"
+owner = {name = "udpbroadcast", notification = "socket"}
+port = 997
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.dump_agent]
+kind = "udp"
+owner = {name = "dump_agent", notification = "socket"}
+port = 11113
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
