@@ -1,0 +1,50 @@
+name = "minibar-net"
+inherit = "app.toml"
+
+[tasks.monorail]
+features = ["mgmt"]
+
+[tasks.net]
+name = "task-net"
+stacksize = 10000
+priority = 5
+features = ["mgmt", "h753", "minibar", "vlan", "vpd-mac", "use-spi-core", "spi3"]
+max-sizes = {flash = 131072, ram = 131072, sram1_mac = 16384}
+sections = {eth_bulk = "sram1_mac"}
+uses = ["eth", "tim16", "spi3"]
+start = true
+notifications = ["eth-irq", "mdio-timer-irq", "spi-irq", "wake-timer"]
+task-slots = ["sys", "packrat", "jefe"]
+
+[tasks.net.interrupts]
+"eth.irq" = "eth-irq"
+"tim16.irq" = "mdio-timer-irq"
+"spi3.irq" = "spi-irq"
+
+[tasks.udpbroadcast]
+name = "task-udpbroadcast"
+priority = 6
+max-sizes = {flash = 16384, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net", "packrat"]
+features = ["vlan"]
+notifications = ["socket"]
+
+# VLAN configuration
+[config.net.vlans.port1]
+vid = 0x301
+trusted = true
+port = 1
+
+[config.net.vlans.port2]
+vid = 0x302
+trusted = true
+port = 2
+
+[config.net.sockets.broadcast]
+kind = "udp"
+owner = {name = "udpbroadcast", notification = "socket"}
+port = 997
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
