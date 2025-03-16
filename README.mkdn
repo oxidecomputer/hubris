@@ -1,3 +1,5 @@
+HI HI
+
 # Hubris
 
 ![dist](https://github.com/oxidecomputer/hubris/actions/workflows/dist.yml/badge.svg)
