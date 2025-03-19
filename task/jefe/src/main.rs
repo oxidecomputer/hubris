@@ -177,14 +177,11 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
                 // If we have cached a dump area, then use it to accelerate
                 // lookup by jumping partway through the linked list
                 let d = if let Some(prev) = self.last_dump_area {
-                    if index == prev.index {
-                        // Easy case: we've already looked up this area
-                        Ok(prev)
-                    } else if let Some(offset) = index.checked_sub(prev.index) {
-                        // Slightly tricker: the requested area is after our
-                        // current area. We'll start at our current area, then
-                        // do a reduced number of steps (patching the index
-                        // afterwards)
+                    // We are after (or exactly at) our previously cached dump
+                    // area.  The start address should be the same, so we don't
+                    // need to walk to it, but we'll reload from from memory in
+                    // case other data in the header has changed.
+                    if let Some(offset) = index.checked_sub(prev.index) {
                         let mut d =
                             dump::get_dump_area(prev.region.address, offset);
                         if let Ok(d) = &mut d {
