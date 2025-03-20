@@ -7,7 +7,7 @@
 #![no_std]
 #![no_main]
 
-use drv_cpu_seq_api::{PowerState, StateChangeReason};
+use drv_cpu_seq_api::{PowerState, SeqError as CpuSeqError, StateChangeReason};
 use drv_ice40_spi_program as ice40;
 use drv_spartan7_loader_api::Spartan7Loader;
 use drv_spi_api::{SpiDevice, SpiServer};
@@ -15,14 +15,21 @@ use drv_stm32xx_sys_api::{self as sys_api, Sys};
 use idol_runtime::{NotificationHandler, RequestError};
 use task_jefe_api::Jefe;
 use userlib::{
-    hl, sys_recv_notification, task_slot, FromPrimitive, RecvMessage,
-    UnwrapLite,
+    hl, sys_get_timer, sys_recv_notification, task_slot, FromPrimitive,
+    RecvMessage, UnwrapLite,
 };
 
+use drv_hf_api::HostFlash;
 use ringbuf::{counted_ringbuf, ringbuf_entry, Count};
 
 task_slot!(JEFE, jefe);
 task_slot!(LOADER, spartan7_loader);
+task_slot!(HF, hf);
+task_slot!(SYS, sys);
+task_slot!(SPI_FRONT, spi_front);
+task_slot!(AUXFLASH, auxflash);
+
+////////////////////////////////////////////////////////////////////////////////
 
 #[derive(Copy, Clone, PartialEq, Count)]
 enum Trace {
@@ -32,9 +39,20 @@ enum Trace {
     WaitForDone,
     Programmed,
 
+    SetState {
+        prev: PowerState,
+        next: PowerState,
+        #[count(children)]
+        why: StateChangeReason,
+        now: u64,
+    },
+
     #[count(skip)]
     None,
 }
+counted_ringbuf!(Trace, 128, Trace::None);
+
+////////////////////////////////////////////////////////////////////////////////
 
 #[derive(Copy, Clone, PartialEq, Count)]
 enum SeqError {
@@ -49,24 +67,20 @@ impl From<drv_auxflash_api::AuxFlashError> for SeqError {
     }
 }
 
-counted_ringbuf!(Trace, 128, Trace::None);
-
-task_slot!(SYS, sys);
-task_slot!(SPI_FRONT, spi_front);
-task_slot!(AUXFLASH, auxflash);
+////////////////////////////////////////////////////////////////////////////////
 
 const SP_TO_SP5_NMI_SYNC_FLOOD_L: sys_api::PinSet = sys_api::Port::J.pin(2);
 const SP_TO_IGN_TRGT_FPGA_FAULT_L: sys_api::PinSet = sys_api::Port::B.pin(7);
 const SP_CHASSIS_STATUS_LED: sys_api::PinSet = sys_api::Port::C.pin(6);
 
+////////////////////////////////////////////////////////////////////////////////
+
 #[export_name = "main"]
 fn main() -> ! {
-    // XXX set up fault pin
     match init() {
         // Set up everything nicely, time to start serving incoming messages.
         Ok(mut server) => {
             // Mark that we've reached A2, and turn on the chassis LED
-            server.set_state_impl(PowerState::A2);
             server.sys.gpio_set(SP_CHASSIS_STATUS_LED);
 
             let mut buffer = [0; idl::INCOMING_SIZE];
@@ -147,16 +161,7 @@ fn init() -> Result<ServerImpl, SeqError> {
     // Clear the fault pin
     sys.gpio_set(SP_TO_IGN_TRGT_FPGA_FAULT_L);
 
-    Ok(ServerImpl {
-        jefe: Jefe::from(JEFE.get_task_id()),
-        sys,
-    })
-}
-
-#[allow(unused)]
-struct ServerImpl {
-    jefe: Jefe,
-    sys: Sys,
+    Ok(ServerImpl::new())
 }
 
 /// Initialize the front FPGA, which is an ICE40
@@ -196,35 +201,71 @@ fn init_front_fpga<S: SpiServer>(
     Ok(())
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
+#[allow(unused)]
+struct ServerImpl {
+    state: PowerState,
+    jefe: Jefe,
+    sys: Sys,
+    hf: HostFlash,
+}
+
 impl ServerImpl {
+    fn new() -> Self {
+        let now = sys_get_timer().now;
+        ringbuf_entry!(Trace::SetState {
+            prev: PowerState::A2, // dummy value
+            next: PowerState::A2,
+            why: StateChangeReason::InitialPowerOn,
+            now,
+        });
+
+        ServerImpl {
+            state: PowerState::A2,
+            jefe: Jefe::from(JEFE.get_task_id()),
+            sys: Sys::from(SYS.get_task_id()),
+            hf: HostFlash::from(HF.get_task_id()),
+        }
+    }
+
     fn get_state_impl(&self) -> PowerState {
         // Only we should be setting the state, and we set it to A2 on startup;
         // this conversion should never fail.
         PowerState::from_u32(self.jefe.get_state()).unwrap_lite()
     }
 
-    fn set_state_impl(&self, state: PowerState) {
-        self.jefe.set_state(state as u32);
-    }
-
-    fn validate_state_change(
+    fn set_state_impl(
         &self,
         state: PowerState,
-    ) -> Result<(), drv_cpu_seq_api::SeqError> {
-        match (self.get_state_impl(), state) {
-            (PowerState::A2, PowerState::A0)
-            | (PowerState::A0, PowerState::A2)
-            | (PowerState::A0PlusHP, PowerState::A2)
-            | (PowerState::A0Thermtrip, PowerState::A2) => Ok(()),
+        why: StateChangeReason,
+    ) -> Result<(), CpuSeqError> {
+        let now = sys_get_timer().now;
+        ringbuf_entry!(Trace::SetState {
+            prev: self.state,
+            next: state,
+            why,
+            now,
+        });
 
-            _ => Err(drv_cpu_seq_api::SeqError::IllegalTransition),
+        match (self.get_state_impl(), state) {
+            (PowerState::A2, PowerState::A0) => {
+                // do some stuff
+            }
+            (PowerState::A0, PowerState::A2)
+            | (PowerState::A0PlusHP, PowerState::A2)
+            | (PowerState::A0Thermtrip, PowerState::A2) => {
+                // do some other stuff
+            }
+
+            _ => return Err(CpuSeqError::IllegalTransition),
         }
+
+        self.jefe.set_state(state as u32);
+        Ok(())
     }
 }
 
-// The `Sequencer` implementation for Grapefruit is copied from
-// `mock-gimlet-seq-server`.  State is set to Jefe, but isn't actually
-// controlled here.
 impl idl::InOrderSequencerImpl for ServerImpl {
     fn get_state(
         &mut self,
@@ -237,9 +278,8 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
         state: PowerState,
-    ) -> Result<(), RequestError<drv_cpu_seq_api::SeqError>> {
-        self.validate_state_change(state)?;
-        self.set_state_impl(state);
+    ) -> Result<(), RequestError<CpuSeqError>> {
+        self.set_state_impl(state, StateChangeReason::Other)?;
         Ok(())
     }
 
@@ -247,10 +287,9 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
         state: PowerState,
-        _: StateChangeReason,
-    ) -> Result<(), RequestError<drv_cpu_seq_api::SeqError>> {
-        self.validate_state_change(state)?;
-        self.set_state_impl(state);
+        reason: StateChangeReason,
+    ) -> Result<(), RequestError<CpuSeqError>> {
+        self.set_state_impl(state, reason)?;
         Ok(())
     }
 
@@ -286,6 +325,8 @@ impl NotificationHandler for ServerImpl {
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 mod idl {
     use drv_cpu_seq_api::{SeqError, StateChangeReason};
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
@@ -293,4 +334,8 @@ mod idl {
 
 mod gen {
     include!(concat!(env!("OUT_DIR"), "/cosmo_fpga.rs"));
+}
+
+mod fmc_periph {
+    include!(concat!(env!("OUT_DIR"), "/fmc_sequencer.rs"));
 }

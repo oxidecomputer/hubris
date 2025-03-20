@@ -1073,12 +1073,14 @@ dependencies = [
 name = "drv-cosmo-seq-server"
 version = "0.1.0"
 dependencies = [
+ "build-fpga-regmap",
  "build-util",
  "cfg-if",
  "counters",
  "drv-auxflash-api",
  "drv-cpu-power-state",
  "drv-cpu-seq-api",
+ "drv-hf-api",
  "drv-ice40-spi-program",
  "drv-spartan7-loader-api",
  "drv-spi-api",
