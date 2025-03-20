@@ -433,6 +433,7 @@ pub fn build_peripheral(
         };
         assert_eq!(*regwidth, 32, "only 32-bit registers are supported");
         let mut struct_fns = vec![];
+        let mut encode_types = vec![];
         for c in children {
             let Node::Field {
                 inst_name,
@@ -447,7 +448,6 @@ pub fn build_peripheral(
             };
             let msb = u32::try_from(*msb).unwrap();
             let lsb = u32::try_from(*lsb).unwrap();
-            assert!(encode.is_none(), "encode must be none, not {encode:?}");
             let setter: syn::Ident =
                 syn::parse_str(&format!("set_{}", inst_name.to_snake_case()))
                     .unwrap();
@@ -474,6 +474,74 @@ pub fn build_peripheral(
                         pub fn #getter(&self) -> bool {
                             let d = self.get_raw();
                             (d & (1 << #msb)) != 0
+                        }
+                    });
+                }
+            } else if let Some(encode) = encode {
+                let ty: syn::Ident =
+                    syn::parse_str(&inst_name.to_upper_camel_case()).unwrap();
+                let width = msb - lsb + 1;
+                let mask = u32::try_from((1u64 << width) - 1).unwrap();
+                let raw_ty = match width {
+                    1 => unreachable!(),
+                    2..=8 => "u8",
+                    9..=16 => "u16",
+                    17..=32 => "u32",
+                    _ => panic!("invalid width {width}"),
+                };
+                assert_eq!(width, 8, "EnumEncode must be 8 bits wide");
+                let quoted = encode
+                    .iter()
+                    .map(|e| {
+                        let v: syn::Ident =
+                            syn::parse_str(&e.name.to_upper_camel_case())
+                                .unwrap();
+                        let i: syn::LitInt =
+                            syn::parse_str(&format!("{}{raw_ty}", e.value))
+                                .unwrap();
+                        (v, i)
+                    })
+                    .collect::<Vec<_>>();
+
+                let variants = quoted.iter().map(|(v, i)| quote! { #v = #i });
+                let matches =
+                    quoted.iter().map(|(v, i)| quote! { #i => Ok(Self::#v), });
+                let raw_ty: syn::Ident = syn::parse_str(raw_ty).unwrap();
+                encode_types.push(quote! {
+                    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+                    #[repr(#raw_ty)]
+                    pub enum #ty {
+                        #(#variants),*
+                    }
+
+                    impl core::convert::TryFrom<#raw_ty> for #ty {
+                        type Error = #raw_ty;
+                        fn try_from(t: #raw_ty) -> Result<Self, Self::Error> {
+                            match t {
+                                #(#matches)*
+                                _ => Err(t),
+                            }
+                        }
+                    }
+                });
+                if sw_access.is_write() {
+                    struct_fns.push(quote! {
+                        #[doc = #desc]
+                        pub fn #setter(&self, t: #ty) {
+                            let mut d = self.get_raw();
+                            d &= !(#mask << #lsb);
+                            d |= (u32::from(t as #raw_ty) & #mask) << #lsb;
+                            self.set_raw(d);
+                        }
+                    });
+                }
+                if sw_access.is_read() {
+                    struct_fns.push(quote! {
+                        #[doc = #desc]
+                        pub fn #getter(&self) -> Result<#ty, #raw_ty> {
+                            let d = self.get_raw();
+                            let t = ((d >> #lsb) & #mask) as #raw_ty;
+                            #ty::try_from(t)
                         }
                     });
                 }
@@ -560,7 +628,10 @@ pub fn build_peripheral(
                 }
                 #(#struct_fns)*
             }
+
+            #(#encode_types)*
         };
+        println!("{struct_def}");
         reg_definitions.push(struct_def);
         let reg_name: syn::Ident =
             syn::parse_str(&inst_name.to_snake_case()).unwrap();
