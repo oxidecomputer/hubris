@@ -1,6 +1,6 @@
 {
     "type": "addrmap",
-    "addr_span_bytes": 800,
+    "addr_span_bytes": 1028,
     "inst_name": "cosmo_seq_top",
     "orig_type_name": "cosmo_seq_top",
     "addr_offset": 0,
@@ -15,18 +15,10 @@
         },
         {
             "type": "addrmap",
-            "addr_span_bytes": 60,
-            "inst_name": "sequencer",
-            "orig_type_name": "sequencer_regs",
-            "addr_offset": 256,
-            "children": []
-        },
-        {
-            "type": "addrmap",
             "addr_span_bytes": 36,
             "inst_name": "spi_nor",
             "orig_type_name": "spi_nor_regs",
-            "addr_offset": 512,
+            "addr_offset": 256,
             "children": []
         },
         {
@@ -34,7 +26,23 @@
             "addr_span_bytes": 32,
             "inst_name": "espi",
             "orig_type_name": "espi_regs",
+            "addr_offset": 512,
+            "children": []
+        },
+        {
+            "type": "addrmap",
+            "addr_span_bytes": 76,
+            "inst_name": "sequencer",
+            "orig_type_name": "sequencer_regs",
             "addr_offset": 768,
+            "children": []
+        },
+        {
+            "type": "addrmap",
+            "addr_span_bytes": 4,
+            "inst_name": "sp_i2c",
+            "orig_type_name": "sp_i2c_regs",
+            "addr_offset": 1024,
             "children": []
         }
     ]
