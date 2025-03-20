@@ -163,7 +163,7 @@ priority = 5
 max-sizes = {flash = 131072, ram = 16384 }
 stacksize = 2600
 start = true
-task-slots = ["sys", "i2c_driver", {spi_front = "spi3_driver"}, "jefe", "packrat", "auxflash", "spartan7_loader"]
+task-slots = ["sys", "i2c_driver", {spi_front = "spi3_driver"}, "jefe", "packrat", "auxflash", "spartan7_loader", "hf"]
 notifications = ["timer", "vcore"]
 
 [tasks.spartan7_loader]

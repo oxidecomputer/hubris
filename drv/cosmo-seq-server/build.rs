@@ -33,5 +33,16 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         idol::server::ServerStyle::InOrder,
     )?;
 
+    let out_file = out_dir.join("fmc_sequencer.rs");
+    let mut file = std::fs::File::create(out_file)?;
+    write!(
+        &mut file,
+        "{}",
+        build_fpga_regmap::fpga_peripheral(
+            "sequencer",
+            "drv_spartan7_loader_api::Spartan7Token"
+        )?
+    )?;
+
     Ok(())
 }
