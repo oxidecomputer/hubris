@@ -1,6 +1,6 @@
 {
     "type": "addrmap",
-    "addr_span_bytes": 60,
+    "addr_span_bytes": 76,
     "inst_name": "sequencer_regs",
     "addr_offset": 0,
     "children": [
@@ -265,7 +265,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Fan Fail: inversion of MAX31790ATI FAN_FAIL_N output"
+                    "desc": "Fan Fail: inversion of MAX31790ATI FAN_FAIL_N output (1=Fail asserted)"
                 },
                 {
                     "type": "field",
@@ -394,16 +394,8 @@
                             "value": 4
                         },
                         {
-                            "name": "GROUPB2_EN",
+                            "name": "POWER_GOOD",
                             "value": 5
-                        },
-                        {
-                            "name": "GROUPB2_PG",
-                            "value": 6
-                        },
-                        {
-                            "name": "GROUPC_PG",
-                            "value": 7
                         },
                         {
                             "name": "SP5_FINAL_CHECKPOINT",
@@ -1161,6 +1153,328 @@
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "NIC v0p96_nic_vdd_a0hp (discrete pg, enable cascade from nic 5V)"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "sp5_readbacks",
+            "addr_offset": 60,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "thermtrip_l",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Thermtrip_l live status, note: only valid when SP5 rails are up (From SP5)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "reset_l",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "reset_l live status, note: only valid when SP5 rails are up (From SP5)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "pwr_ok",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "pwr_ok live status, note: only meaningful when SP5 rails are up (From SP5)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "slp_s3_l",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "slp_s3_l live status, note: only valid when SP5 rails are up (or being sequenced up) (From SP5)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "slp_s5_l",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "slp_s5_l live status, note: only valid when SP5 rails are up (or being sequenced up) (From SP5)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "rsmrst_l",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "rsmrst_l live status, (From FPGA to SP5)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "pwr_btn_l",
+                    "lsb": 6,
+                    "msb": 6,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "pwr_btn_l live status, (From FPGA to SP5)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "pwr_good",
+                    "lsb": 7,
+                    "msb": 7,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "pwr_btn_l live status, (From FPGA to SP5)"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "nic_readbacks",
+            "addr_offset": 64,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "cld_rst_l",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "cld_rst_l live status, (From FPGA to NIC)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "perst_l",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "perst_l live status, (From FPGA to NIC)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "nic_mfg_mode_l",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "nic_mfg_mode_l live status, (From FPGA to NIC)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "eeprom_wp_l",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "eeprom_wp_l live status, note: only valid when SP5 rails are up (From FPGA to eeprom)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "eeprom_wp_buffer_oe_l",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "eeprom_wp_buffer_oe_l live status, note: only valid when SP5 rails are up (From FPGA to buffer)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "flash_wp_l",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "flash_wp_l live status, note: only valid when SP5 rails are up (From FPGA to flash)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "nic_pcie_clk_buff_oe_l",
+                    "lsb": 6,
+                    "msb": 6,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "nic_pcie_clk_buff_oe_l live status, note: only valid when SP5 rails are up (From FPGA to buffer)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "ext_rst_l",
+                    "lsb": 7,
+                    "msb": 7,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "ext_rst_l live status, note: only valid when NIC rails are up (From NIC)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "sp5_mfg_mode_l",
+                    "lsb": 8,
+                    "msb": 8,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "sp5_mfg_mode_l live status, (From SP5 to FPGA)"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "debug_enables",
+            "addr_offset": 68,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "ignore_sp5",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Ignore sp5 allows the sequencer to bypass any SP5-related handshakes\nfor power debugging. Some rails may not completely power up without a load-slammer\nor other feedback device in place."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "nic_override",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Set to mux in the nic_override signals instead of the normal nic control signals"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "nic_overrides",
+            "addr_offset": 72,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "cld_rst_l",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "cld_rst_l live status, (From FPGA to NIC)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "perst_l",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "perst_l live status, (From FPGA to NIC)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "nic_mfg_mode_l",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "nic_mfg_mode_l live status, (From FPGA to NIC)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "eeprom_wp_l",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "eeprom_wp_l live status, note: only valid when SP5 rails are up (From FPGA to eeprom)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "eeprom_wp_buffer_oe_l",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": 1,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "eeprom_wp_buffer_oe_l live status, note: only valid when SP5 rails are up (From FPGA to buffer)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "flash_wp_l",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "flash_wp_l live status, note: only valid when SP5 rails are up (From FPGA to flash)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "nic_pcie_clk_buff_oe_l",
+                    "lsb": 6,
+                    "msb": 6,
+                    "reset": 1,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "nic_pcie_clk_buff_oe_l live status, note: only valid when SP5 rails are up (From FPGA to buffer)"
                 }
             ]
         }
