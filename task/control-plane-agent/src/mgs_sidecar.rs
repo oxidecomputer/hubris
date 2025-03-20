@@ -1069,7 +1069,15 @@ impl SpHandler for MgsHandler {
         &mut self,
         component: SpComponent,
     ) -> Result<(), SpError> {
-        self.common.reset_component_trigger(component)
+        match component {
+            SpComponent::MONORAIL => {
+                self.common.reset_component_trigger_check(component)?;
+                self.monorail
+                    .reinit()
+                    .map_err(|e| SpError::ComponentOperationFailed(e as u32))
+            }
+            _ => self.common.reset_component_trigger(component),
+        }
     }
 
     fn read_sensor(

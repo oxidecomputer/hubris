@@ -265,6 +265,24 @@ impl MgsCommon {
         Ok(())
     }
 
+    /// Checks whether `component` matches our prepared reset component
+    ///
+    /// This is **not idempotent**; the prepared reset component is cleared when
+    /// this function is called
+    pub(crate) fn reset_component_trigger_check(
+        &mut self,
+        component: SpComponent,
+    ) -> Result<(), GwSpError> {
+        // If we are not resetting the SP_ITSELF, then we may come back here
+        // to reset something else or to run another prepare/trigger on
+        // the same component, so remove the requested reset.
+        if self.reset_component_requested.take() == Some(component) {
+            Ok(())
+        } else {
+            Err(GwSpError::ResetComponentTriggerWithoutPrepare)
+        }
+    }
+
     /// ResetComponent is used in the context of the management plane
     /// driving a firmware update.
     ///
@@ -280,13 +298,8 @@ impl MgsCommon {
         &mut self,
         component: SpComponent,
     ) -> Result<(), GwSpError> {
-        if self.reset_component_requested != Some(component) {
-            return Err(GwSpError::ResetComponentTriggerWithoutPrepare);
-        }
-        // If we are not resetting the SP_ITSELF, then we may come back here
-        // to reset something else or to run another prepare/trigger on
-        // the same component.
-        self.reset_component_requested = None;
+        // Make sure our staged component is correct
+        self.reset_component_trigger_check(component)?;
 
         // Resetting the SP through reset_component() is
         // the same as through reset() until transient bank selection is
