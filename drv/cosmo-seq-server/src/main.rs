@@ -15,8 +15,7 @@ use drv_stm32xx_sys_api::{self as sys_api, Sys};
 use idol_runtime::{NotificationHandler, RequestError};
 use task_jefe_api::Jefe;
 use userlib::{
-    hl, sys_get_timer, sys_recv_notification, task_slot, FromPrimitive,
-    RecvMessage, UnwrapLite,
+    hl, sys_get_timer, sys_recv_notification, task_slot, RecvMessage,
 };
 
 use drv_hf_api::HostFlash;
@@ -40,7 +39,7 @@ enum Trace {
     Programmed,
 
     SetState {
-        prev: PowerState,
+        prev: Option<PowerState>,
         next: PowerState,
         #[count(children)]
         why: StateChangeReason,
@@ -82,6 +81,14 @@ fn main() -> ! {
         Ok(mut server) => {
             // Mark that we've reached A2, and turn on the chassis LED
             server.sys.gpio_set(SP_CHASSIS_STATUS_LED);
+
+            // Power on, unless suppressed by the `stay-in-a2` feature
+            if !cfg!(feature = "stay-in-a2") {
+                _ = server.set_state_impl(
+                    PowerState::A0,
+                    StateChangeReason::InitialPowerOn,
+                );
+            }
 
             let mut buffer = [0; idl::INCOMING_SIZE];
             loop {
@@ -215,7 +222,7 @@ impl ServerImpl {
     fn new() -> Self {
         let now = sys_get_timer().now;
         ringbuf_entry!(Trace::SetState {
-            prev: PowerState::A2, // dummy value
+            prev: None, // dummy value
             next: PowerState::A2,
             why: StateChangeReason::InitialPowerOn,
             now,
@@ -230,19 +237,17 @@ impl ServerImpl {
     }
 
     fn get_state_impl(&self) -> PowerState {
-        // Only we should be setting the state, and we set it to A2 on startup;
-        // this conversion should never fail.
-        PowerState::from_u32(self.jefe.get_state()).unwrap_lite()
+        self.state
     }
 
     fn set_state_impl(
-        &self,
+        &mut self,
         state: PowerState,
         why: StateChangeReason,
     ) -> Result<(), CpuSeqError> {
         let now = sys_get_timer().now;
         ringbuf_entry!(Trace::SetState {
-            prev: self.state,
+            prev: Some(self.state),
             next: state,
             why,
             now,
@@ -261,6 +266,7 @@ impl ServerImpl {
             _ => return Err(CpuSeqError::IllegalTransition),
         }
 
+        self.state = state;
         self.jefe.set_state(state as u32);
         Ok(())
     }
