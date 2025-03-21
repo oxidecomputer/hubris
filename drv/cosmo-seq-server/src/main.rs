@@ -38,6 +38,9 @@ enum Trace {
     WaitForDone,
     Programmed,
 
+    Startup {
+        early_power_rdbks: fmc_periph::EarlyPowerRdbksDebug,
+    },
     SetState {
         prev: Option<PowerState>,
         next: PowerState,
@@ -222,6 +225,10 @@ struct ServerImpl {
 impl ServerImpl {
     fn new(token: drv_spartan7_loader_api::Spartan7Token) -> Self {
         let now = sys_get_timer().now;
+        let seq = fmc_periph::Sequencer::new(token);
+        ringbuf_entry!(Trace::Startup {
+            early_power_rdbks: (&seq.early_power_rdbks).into(),
+        });
         ringbuf_entry!(Trace::SetState {
             prev: None, // dummy value
             next: PowerState::A2,
@@ -234,7 +241,7 @@ impl ServerImpl {
             jefe: Jefe::from(JEFE.get_task_id()),
             sys: Sys::from(SYS.get_task_id()),
             hf: HostFlash::from(HF.get_task_id()),
-            seq: fmc_periph::Sequencer::new(token),
+            seq,
         }
     }
 

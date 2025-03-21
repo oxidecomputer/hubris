@@ -433,6 +433,9 @@ pub fn build_peripheral(
         };
         assert_eq!(*regwidth, 32, "only 32-bit registers are supported");
         let mut struct_fns = vec![];
+        let mut debug_values = vec![];
+        let mut debug_names = vec![];
+        let mut debug_types = vec![];
         let mut encode_types = vec![];
         for c in children {
             let Node::Field {
@@ -476,6 +479,11 @@ pub fn build_peripheral(
                             (d & (1 << #msb)) != 0
                         }
                     });
+                    debug_values.push(quote! {
+                        let #getter = (d & (1 << #msb)) != 0;
+                    });
+                    debug_names.push(quote! { #getter });
+                    debug_types.push(quote! { #getter: bool });
                 }
             } else if let Some(encode) = encode {
                 let ty: syn::Ident =
@@ -544,6 +552,12 @@ pub fn build_peripheral(
                             #ty::try_from(t)
                         }
                     });
+                    debug_values.push(quote! {
+                        let t = ((d >> #lsb) & #mask) as #raw_ty;
+                        let #getter = #ty::try_from(t);
+                    });
+                    debug_names.push(quote! { #getter });
+                    debug_types.push(quote! { #getter: Result<#ty, #raw_ty> });
                 }
             } else {
                 let width = msb - lsb + 1;
@@ -575,17 +589,21 @@ pub fn build_peripheral(
                             ((d >> #lsb) & #mask) as #ty
                         }
                     });
+                    debug_values.push(quote! {
+                        let #getter = ((d >> #lsb) & #mask) as #ty;
+                    });
+                    debug_names.push(quote! { #getter });
+                    debug_types.push(quote! { #getter: #ty });
                 }
             }
         }
 
-        let struct_name: syn::Ident =
-            syn::parse_str(&inst_name.to_upper_camel_case()).unwrap();
-        let handle_name: syn::Ident = syn::parse_str(&format!(
-            "{}Handle",
-            inst_name.to_upper_camel_case()
-        ))
-        .unwrap();
+        let inst_name = inst_name.to_upper_camel_case();
+        let struct_name: syn::Ident = syn::parse_str(&inst_name).unwrap();
+        let handle_name: syn::Ident =
+            syn::parse_str(&format!("{}Handle", inst_name)).unwrap();
+        let debug_name: syn::Ident =
+            syn::parse_str(&format!("{}Debug", inst_name)).unwrap();
         let reg_addr = base_addr
             + u32::try_from(*periph_offset).unwrap()
             + u32::try_from(*addr_offset).unwrap();
@@ -627,6 +645,22 @@ pub fn build_peripheral(
                     self.0.set(v)
                 }
                 #(#struct_fns)*
+            }
+
+            #[derive(Copy, Clone, Eq, PartialEq)]
+            #[allow(dead_code, clippy::useless_conversion, clippy::unnecessary_cast)]
+            pub struct #debug_name {
+                #(#debug_types),*
+            }
+            #[allow(dead_code, clippy::useless_conversion, clippy::unnecessary_cast)]
+            impl<'a> From<&'a #struct_name> for #debug_name {
+                fn from(s: &'a #struct_name) -> #debug_name {
+                    let d = s.get_raw();
+                    #(#debug_values)*
+                    #debug_name {
+                        #(#debug_names),*
+                    }
+                }
             }
 
             #(#encode_types)*
