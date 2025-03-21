@@ -130,7 +130,7 @@ features = ["cosmo"]
 [tasks.thermal]
 name = "task-thermal"
 features = ["cosmo"]
-priority = 6
+priority = 8
 max-sizes = {flash = 32768, ram = 8192 }
 stacksize = 6000
 start = true
@@ -140,7 +140,7 @@ notifications = ["timer"]
 [tasks.power]
 name = "task-power"
 features = ["cosmo"]
-priority = 6
+priority = 8
 max-sizes = {flash = 65536, ram = 16384 }
 stacksize = 3800
 start = true
@@ -159,7 +159,7 @@ task-slots = ["sys", "hf", "i2c_driver", "hash_driver", "update_server", "sprot"
 [tasks.cosmo_seq]
 name = "drv-cosmo-seq-server"
 features = ["h753"]
-priority = 5
+priority = 7
 max-sizes = {flash = 131072, ram = 16384 }
 stacksize = 2600
 start = true
@@ -228,7 +228,7 @@ name = "task-host-sp-comms"
 features = ["stm32h753", "uart7", "baud_rate_3M", "hardware_flow_control", "vlan", "cosmo"]
 uses = ["uart7", "dbgmcu"]
 interrupts = {"uart7.irq" = "usart-irq"}
-priority = 8
+priority = 9
 max-sizes = {flash = 65536, ram = 65536}
 stacksize = 5080
 start = true
@@ -257,7 +257,7 @@ notifications = ["socket"]
 
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
-priority = 7
+priority = 8
 max-sizes = {flash = 131072, ram = 32768}
 # This can probably overkill and can be tuned later
 stacksize = 6000
@@ -359,7 +359,7 @@ task-slots = ["sys"]
 
 [tasks.idle]
 name = "task-idle"
-priority = 9
+priority = 15
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true
