@@ -154,7 +154,7 @@ fn init() -> Result<ServerImpl, SeqError> {
 
     // Wait for the Spartan-7 to be loaded, which happens in parallel
     let loader = Spartan7Loader::from(LOADER.get_task_id());
-    loader.ping();
+    let token = loader.get_token();
 
     // Bring up the SP5 NMI pin
     sys.gpio_set(SP_TO_SP5_NMI_SYNC_FLOOD_L);
@@ -168,7 +168,7 @@ fn init() -> Result<ServerImpl, SeqError> {
     // Clear the fault pin
     sys.gpio_set(SP_TO_IGN_TRGT_FPGA_FAULT_L);
 
-    Ok(ServerImpl::new())
+    Ok(ServerImpl::new(token))
 }
 
 /// Initialize the front FPGA, which is an ICE40
@@ -216,10 +216,11 @@ struct ServerImpl {
     jefe: Jefe,
     sys: Sys,
     hf: HostFlash,
+    seq: fmc_periph::Sequencer,
 }
 
 impl ServerImpl {
-    fn new() -> Self {
+    fn new(token: drv_spartan7_loader_api::Spartan7Token) -> Self {
         let now = sys_get_timer().now;
         ringbuf_entry!(Trace::SetState {
             prev: None, // dummy value
@@ -233,6 +234,7 @@ impl ServerImpl {
             jefe: Jefe::from(JEFE.get_task_id()),
             sys: Sys::from(SYS.get_task_id()),
             hf: HostFlash::from(HF.get_task_id()),
+            seq: fmc_periph::Sequencer::new(token),
         }
     }
 
