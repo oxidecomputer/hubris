@@ -115,7 +115,7 @@ fn system_init() {
     assert_eq!(rev, expected_rev);
 
     // Do most of the setup with the common implementation.
-    let p = drv_stm32h7_startup::system_init_custom(
+    drv_stm32h7_startup::system_init_custom(
         cp,
         p,
         ClockConfig {
@@ -159,16 +159,4 @@ fn system_init() {
             flash_write_delay: 2,
         },
     );
-
-    // Gimlet uses PA0_C instead of PA0. Flip this.
-    p.SYSCFG.pmcr.modify(|_, w| {
-        w.pa0so()
-            .clear_bit()
-            .pa1so()
-            .set_bit()
-            .pc2so()
-            .set_bit()
-            .pc3so()
-            .set_bit()
-    });
 }
