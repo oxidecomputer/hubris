@@ -25,10 +25,10 @@ idol.workspace = true
 build-util = { path = "../../build/util" }
 
 [features]
-boot-kmdb = []
 cosmo = ["drv-cpu-seq-api"]
 gimlet = ["drv-cpu-seq-api"]
 grapefruit = []
+boot-kmdb = []
 no-ipc-counters = ["idol/no-counters"]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
