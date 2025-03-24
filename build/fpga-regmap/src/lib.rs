@@ -483,7 +483,7 @@ pub fn build_peripheral(
                         let #getter = (d & (1 << #msb)) != 0;
                     });
                     debug_names.push(quote! { #getter });
-                    debug_types.push(quote! { #getter: bool });
+                    debug_types.push(quote! { pub #getter: bool });
                 }
             } else if let Some(encode) = encode {
                 let ty: syn::Ident =
@@ -557,7 +557,8 @@ pub fn build_peripheral(
                         let #getter = #ty::try_from(t);
                     });
                     debug_names.push(quote! { #getter });
-                    debug_types.push(quote! { #getter: Result<#ty, #raw_ty> });
+                    debug_types
+                        .push(quote! { pub #getter: Result<#ty, #raw_ty> });
                 }
             } else {
                 let width = msb - lsb + 1;
@@ -593,7 +594,7 @@ pub fn build_peripheral(
                         let #getter = ((d >> #lsb) & #mask) as #ty;
                     });
                     debug_names.push(quote! { #getter });
-                    debug_types.push(quote! { #getter: #ty });
+                    debug_types.push(quote! { pub #getter: #ty });
                 }
             }
         }

@@ -41,6 +41,16 @@ enum Trace {
     Startup {
         early_power_rdbks: fmc_periph::EarlyPowerRdbksDebug,
     },
+    RegStateValues {
+        seq_api_status: fmc_periph::SeqApiStatusDebug,
+        seq_raw_status: fmc_periph::SeqRawStatusDebug,
+        nic_api_status: fmc_periph::NicApiStatusDebug,
+        nic_raw_status: fmc_periph::NicRawStatusDebug,
+    },
+    RegPgValues {
+        rail_pgs: fmc_periph::RailPgsDebug,
+        rail_pgs_max_hold: fmc_periph::RailPgsMaxHoldDebug,
+    },
     SetState {
         prev: Option<PowerState>,
         next: PowerState,
@@ -220,6 +230,7 @@ struct ServerImpl {
     sys: Sys,
     hf: HostFlash,
     seq: fmc_periph::Sequencer,
+    deadline: u64,
 }
 
 impl ServerImpl {
@@ -241,12 +252,33 @@ impl ServerImpl {
             jefe: Jefe::from(JEFE.get_task_id()),
             sys: Sys::from(SYS.get_task_id()),
             hf: HostFlash::from(HF.get_task_id()),
+            deadline: 0,
             seq,
         }
     }
 
     fn get_state_impl(&self) -> PowerState {
         self.state
+    }
+
+    /// Logs a set of state registers, returning the `a0_sm` field
+    fn log_state_registers(&self) -> Result<fmc_periph::A0Sm, u8> {
+        let state = (&self.seq.seq_api_status).into();
+        ringbuf_entry!(Trace::RegStateValues {
+            seq_api_status: state,
+            seq_raw_status: (&self.seq.seq_raw_status).into(),
+            nic_api_status: (&self.seq.nic_api_status).into(),
+            nic_raw_status: (&self.seq.nic_raw_status).into(),
+        });
+        state.a0_sm
+    }
+
+    /// Logs a set of power good registers
+    fn log_pg_registers(&self) {
+        ringbuf_entry!(Trace::RegPgValues {
+            rail_pgs: (&self.seq.rail_pgs).into(),
+            rail_pgs_max_hold: (&self.seq.rail_pgs_max_hold).into(),
+        });
     }
 
     fn set_state_impl(
@@ -262,14 +294,64 @@ impl ServerImpl {
             now,
         });
 
+        use fmc_periph::A0Sm;
         match (self.get_state_impl(), state) {
             (PowerState::A2, PowerState::A0) => {
-                // do some stuff
+                self.seq.power_ctrl.modify(|m| m.set_a0_en(true));
+                let mut okay = false;
+                // Wait 2 seconds for power-up
+                for _ in 0..200 {
+                    let state = self.log_state_registers();
+                    match state {
+                        Ok(A0Sm::Done) => {
+                            okay = true;
+                            break;
+                        }
+                        Ok(A0Sm::Faulted) | Err(_) => {
+                            break;
+                        }
+                        _ => (),
+                    }
+                    hl::sleep_for(10);
+                }
+
+                if !okay {
+                    // We'll return to A2, leaving jefe and our local state
+                    // unchanged (since they're set after this block).
+                    self.log_pg_registers();
+                    self.seq.power_ctrl.modify(|m| m.set_a0_en(false));
+
+                    // XXX faulted isn't strictly a timeout, but this is the
+                    // closest available error code
+                    return Err(CpuSeqError::A0Timeout);
+                }
+
+                // TODO flip cosmo_hf mux
             }
             (PowerState::A0, PowerState::A2)
             | (PowerState::A0PlusHP, PowerState::A2)
             | (PowerState::A0Thermtrip, PowerState::A2) => {
-                // do some other stuff
+                self.seq.power_ctrl.modify(|m| m.set_a0_en(false));
+                let mut okay = false;
+                for _ in 0..200 {
+                    let state = self.log_state_registers();
+                    match state {
+                        Ok(A0Sm::Idle) => {
+                            okay = true;
+                            break;
+                        }
+                        Ok(A0Sm::Faulted) | Err(_) => {
+                            break;
+                        }
+                        _ => (),
+                    }
+                    hl::sleep_for(10);
+                }
+                if !okay {
+                    self.log_pg_registers();
+                    // We can't do much else here, since we already cleared the
+                    // a0_en flag to disable the sequencer.
+                }
             }
 
             _ => return Err(CpuSeqError::IllegalTransition),
@@ -277,7 +359,29 @@ impl ServerImpl {
 
         self.state = state;
         self.jefe.set_state(state as u32);
+        self.poke_timer();
         Ok(())
+    }
+
+    /// Returns the current timer interval, in milliseconds
+    ///
+    /// If we are in `A0`, then we are waiting for the NIC to come up; if we are
+    /// in `A0PlusHp`, we're polling for a thermtrip or for someone disabling
+    /// the NIC.  In other states, there's no need to poll.
+    fn poll_interval(&self) -> Option<u64> {
+        match self.state {
+            PowerState::A0 => Some(10),
+            PowerState::A0PlusHP => Some(100),
+            _ => None,
+        }
+    }
+
+    /// Updates the system timer
+    fn poke_timer(&self) {
+        if let Some(interval) = self.poll_interval() {
+            self.deadline += interval;
+            sys_set_timer(Some(self.deadline), notifications::TIMER_MASK);
+        }
     }
 }
 
@@ -332,11 +436,15 @@ impl idl::InOrderSequencerImpl for ServerImpl {
 
 impl NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
-        0
+        notifications::TIMER_MASK
     }
 
     fn handle_notification(&mut self, _bits: u32) {
-        unreachable!()
+        if (bits & notifications::TIMER_MASK) == 0 {
+            return;
+        }
+        // TODO some logging, checking for A0Hp, etc
+        self.poke_timer();
     }
 }
 
