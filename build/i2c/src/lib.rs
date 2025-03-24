@@ -503,7 +503,7 @@ impl ConfigGenerator {
         let i2c = match build_util::config::<Config>() {
             Ok(config) => config.i2c,
             Err(err) => {
-                panic!("malformed config.i2c: {:?}", err,);
+                panic!("malformed config.i2c: {:?}", err);
             }
         };
 
