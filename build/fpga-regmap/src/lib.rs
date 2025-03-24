@@ -666,7 +666,6 @@ pub fn build_peripheral(
 
             #(#encode_types)*
         };
-        println!("{struct_def}");
         reg_definitions.push(struct_def);
         let reg_name: syn::Ident =
             syn::parse_str(&inst_name.to_snake_case()).unwrap();
