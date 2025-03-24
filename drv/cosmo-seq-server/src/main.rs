@@ -15,7 +15,8 @@ use drv_stm32xx_sys_api::{self as sys_api, Sys};
 use idol_runtime::{NotificationHandler, RequestError};
 use task_jefe_api::Jefe;
 use userlib::{
-    hl, sys_get_timer, sys_recv_notification, task_slot, RecvMessage,
+    hl, set_timer_relative, sys_get_timer, sys_recv_notification, task_slot,
+    RecvMessage,
 };
 
 use drv_hf_api::HostFlash;
@@ -58,6 +59,11 @@ enum Trace {
         why: StateChangeReason,
         now: u64,
     },
+    UnexpectedPowerOff {
+        our_state: PowerState,
+        seq_state: Result<fmc_periph::A0Sm, u8>,
+    },
+    PowerDownError(drv_cpu_seq_api::SeqError),
 
     #[count(skip)]
     None,
@@ -86,6 +92,12 @@ const SP_TO_IGN_TRGT_FPGA_FAULT_L: sys_api::PinSet = sys_api::Port::B.pin(7);
 const SP_CHASSIS_STATUS_LED: sys_api::PinSet = sys_api::Port::C.pin(6);
 
 ////////////////////////////////////////////////////////////////////////////////
+
+/// Helper type which includes both sequencer and NIC state machine states
+struct StateMachineStates {
+    seq: Result<fmc_periph::A0Sm, u8>,
+    nic: Result<fmc_periph::NicSm, u8>,
+}
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -230,7 +242,6 @@ struct ServerImpl {
     sys: Sys,
     hf: HostFlash,
     seq: fmc_periph::Sequencer,
-    deadline: u64,
 }
 
 impl ServerImpl {
@@ -252,7 +263,6 @@ impl ServerImpl {
             jefe: Jefe::from(JEFE.get_task_id()),
             sys: Sys::from(SYS.get_task_id()),
             hf: HostFlash::from(HF.get_task_id()),
-            deadline: 0,
             seq,
         }
     }
@@ -261,16 +271,20 @@ impl ServerImpl {
         self.state
     }
 
-    /// Logs a set of state registers, returning the `a0_sm` field
-    fn log_state_registers(&self) -> Result<fmc_periph::A0Sm, u8> {
-        let state = (&self.seq.seq_api_status).into();
+    /// Logs a set of state registers, returning the state machine states
+    fn log_state_registers(&self) -> StateMachineStates {
+        let seq_api_status = (&self.seq.seq_api_status).into();
+        let nic_api_status = (&self.seq.nic_api_status).into();
         ringbuf_entry!(Trace::RegStateValues {
-            seq_api_status: state,
+            seq_api_status,
             seq_raw_status: (&self.seq.seq_raw_status).into(),
-            nic_api_status: (&self.seq.nic_api_status).into(),
+            nic_api_status,
             nic_raw_status: (&self.seq.nic_raw_status).into(),
         });
-        state.a0_sm
+        StateMachineStates {
+            seq: seq_api_status.a0_sm,
+            nic: nic_api_status.nic_sm,
+        }
     }
 
     /// Logs a set of power good registers
@@ -302,7 +316,7 @@ impl ServerImpl {
                 // Wait 2 seconds for power-up
                 for _ in 0..200 {
                     let state = self.log_state_registers();
-                    match state {
+                    match state.seq {
                         Ok(A0Sm::Done) => {
                             okay = true;
                             break;
@@ -326,7 +340,9 @@ impl ServerImpl {
                     return Err(CpuSeqError::A0Timeout);
                 }
 
-                // TODO flip cosmo_hf mux
+                // Flip the host flash mux so the CPU can read from it
+                // (this is secretly infallible on Cosmo, so we can unwrap it)
+                self.hf.set_mux(drv_hf_api::HfMuxState::HostCPU).unwrap();
             }
             (PowerState::A0, PowerState::A2)
             | (PowerState::A0PlusHP, PowerState::A2)
@@ -335,7 +351,7 @@ impl ServerImpl {
                 let mut okay = false;
                 for _ in 0..200 {
                     let state = self.log_state_registers();
-                    match state {
+                    match state.seq {
                         Ok(A0Sm::Idle) => {
                             okay = true;
                             break;
@@ -354,6 +370,9 @@ impl ServerImpl {
                 }
             }
 
+            // This is purely an accounting change
+            (PowerState::A0, PowerState::A0PlusHP) => (),
+
             _ => return Err(CpuSeqError::IllegalTransition),
         }
 
@@ -366,9 +385,9 @@ impl ServerImpl {
     /// Returns the current timer interval, in milliseconds
     ///
     /// If we are in `A0`, then we are waiting for the NIC to come up; if we are
-    /// in `A0PlusHp`, we're polling for a thermtrip or for someone disabling
+    /// in `A0PlusHP`, we're polling for a thermtrip or for someone disabling
     /// the NIC.  In other states, there's no need to poll.
-    fn poll_interval(&self) -> Option<u64> {
+    fn poll_interval(&self) -> Option<u32> {
         match self.state {
             PowerState::A0 => Some(10),
             PowerState::A0PlusHP => Some(100),
@@ -379,8 +398,7 @@ impl ServerImpl {
     /// Updates the system timer
     fn poke_timer(&self) {
         if let Some(interval) = self.poll_interval() {
-            self.deadline += interval;
-            sys_set_timer(Some(self.deadline), notifications::TIMER_MASK);
+            set_timer_relative(interval, notifications::TIMER_MASK);
         }
     }
 }
@@ -439,11 +457,49 @@ impl NotificationHandler for ServerImpl {
         notifications::TIMER_MASK
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
+    fn handle_notification(&mut self, bits: u32) {
         if (bits & notifications::TIMER_MASK) == 0 {
             return;
         }
-        // TODO some logging, checking for A0Hp, etc
+        let state = self.log_state_registers();
+        use fmc_periph::{A0Sm, NicSm};
+
+        // Detect unexpected power-off
+        match (self.state, state.seq) {
+            (PowerState::A0 | PowerState::A0PlusHP, Ok(A0Sm::Done)) => (),
+            (PowerState::A0 | PowerState::A0PlusHP, seq_state) => {
+                ringbuf_entry!(Trace::UnexpectedPowerOff {
+                    our_state: self.state,
+                    seq_state,
+                });
+                self.log_pg_registers();
+
+                // Power down to A2, updating our internal state.  We can't
+                // handle errors here, so log them and continue.
+                if let Err(e) = self
+                    .set_state_impl(PowerState::A2, StateChangeReason::Other)
+                {
+                    ringbuf_entry!(Trace::PowerDownError(e))
+                }
+            }
+            // TODO are there other states that we should check here?
+            _ => (),
+        }
+
+        // Detect when the NIC comes online
+        match (self.state, state.nic) {
+            (PowerState::A0, Ok(NicSm::Done)) => {
+                self.set_state_impl(
+                    PowerState::A0PlusHP,
+                    StateChangeReason::InitialPowerOn,
+                )
+                .unwrap(); // this should be infallible
+            }
+            // TODO: should we handle the NIC powering down while the main CPU
+            // power remains up?
+            _ => (),
+        }
+
         self.poke_timer();
     }
 }
@@ -462,3 +518,5 @@ mod gen {
 mod fmc_periph {
     include!(concat!(env!("OUT_DIR"), "/fmc_sequencer.rs"));
 }
+
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
