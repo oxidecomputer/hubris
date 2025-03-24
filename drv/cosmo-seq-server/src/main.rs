@@ -332,6 +332,7 @@ impl ServerImpl {
                 if !okay {
                     // We'll return to A2, leaving jefe and our local state
                     // unchanged (since they're set after this block).
+                    self.log_state_registers();
                     self.log_pg_registers();
                     self.seq.power_ctrl.modify(|m| m.set_a0_en(false));
 
@@ -364,6 +365,7 @@ impl ServerImpl {
                     hl::sleep_for(10);
                 }
                 if !okay {
+                    self.log_state_registers();
                     self.log_pg_registers();
                     // We can't do much else here, since we already cleared the
                     // a0_en flag to disable the sequencer.
