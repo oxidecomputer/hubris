@@ -1197,7 +1197,7 @@ refdes = "U72"
 # SMBUS_FAN_WEST_HSC_TO_SP_SMDAT_ISO
 [[config.i2c.devices]]
 bus = "rear"
-address = 0x12
+address = 0x13
 device = "lm5066"
 description = "Fan hot swap controller (west)"
 power = { rails = [ "V54P5_FAN_WEST" ] }
