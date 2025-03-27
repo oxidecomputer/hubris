@@ -12,7 +12,7 @@ use drv_i2c_devices::max5970::*;
 use ringbuf::*;
 use userlib::units::*;
 
-pub(crate) const CONTROLLER_CONFIG_LEN: usize = 42;
+pub(crate) const CONTROLLER_CONFIG_LEN: usize = 43;
 const MAX5970_CONFIG_LEN: usize = 22;
 
 pub(crate) static CONTROLLER_CONFIG: [PowerControllerConfig;
@@ -73,6 +73,7 @@ pub(crate) static CONTROLLER_CONFIG: [PowerControllerConfig;
     max5970_controller!(HotSwapIO, v3p3_u2i_a0, A0, Ohms(0.008)),
     max5970_controller!(HotSwapIO, v12_u2j_a0, A0, Ohms(0.005)),
     max5970_controller!(HotSwapIO, v3p3_u2j_a0, A0, Ohms(0.008)),
+    ltc4282_controller!(HotSwapIO, v12_mcio_a0hp, A0, Ohms(0.001)),
     ltc4282_controller!(HotSwapIO, v12_ddr5_abcdef_a0, A0, Ohms(0.001)),
     ltc4282_controller!(HotSwapIO, v12_ddr5_ghijkl_a0, A0, Ohms(0.001)),
     max5970_controller!(HotSwapIO, v12p0_nic_a0hp, A0, Ohms(0.003)),

@@ -1013,7 +1013,15 @@ power = { rails = [ "V3P3_M2A_A0HP", "V3P3_M2B_A0HP" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 refdes = "U15"
 
-# Missing U16 MCIO HSC
+[[config.i2c.devices]]
+bus = "mid"
+address = 0x54
+device = "ltc4282"
+name = "mcio"
+description = "12V MCIO hot plug controller"
+power = { rails = ["V12_MCIO_A0HP"], pmbus = false }
+sensors = { voltage = 1, current = 1 }
+refdes = "U16"
 
 [[config.i2c.devices]]
 bus = "mid"
