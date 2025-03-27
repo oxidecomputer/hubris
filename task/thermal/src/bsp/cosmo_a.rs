@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//! BSP for the Gimlet rev B hardware
+//! BSP for the Cosmo rev A hardware
 
 use crate::{
     control::{
@@ -32,7 +32,7 @@ pub const NUM_TEMPERATURE_INPUTS: usize = sensors::NUM_SBTSI_TEMPERATURE_SENSORS
     + sensors::NUM_TMP451_TEMPERATURE_SENSORS
     + NUM_NVME_BMC_TEMPERATURE_SENSORS;
 
-// Every temperature sensor on Gimlet is owned by this task
+// Every temperature sensor on Cosmo is owned by this task
 pub const NUM_DYNAMIC_TEMPERATURE_INPUTS: usize = 0;
 
 // We've got 6 fans, driven from a single MAX31790 IC
@@ -142,7 +142,7 @@ impl Bsp {
         }
     }
 
-    // We assume Gimlet fan presence cannot change
+    // We assume Cosmo fan presence cannot change
     pub fn get_fan_presence(&self) -> Result<Fans<{ NUM_FANS }>, SeqError> {
         // Awkwardly build the fan array, because there's not a great way to
         // build a fixed-size array from a function
