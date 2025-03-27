@@ -78,7 +78,6 @@ pub(crate) static CONTROLLER_CONFIG: [PowerControllerConfig;
     ltc4282_controller!(HotSwapIO, v12_ddr5_ghijkl_a0, A0, Ohms(0.001)),
     max5970_controller!(HotSwapIO, v12p0_nic_a0hp, A0, Ohms(0.003)),
     max5970_controller!(HotSwapIO, v5p0_nic_a0hp, A0, Ohms(0.003)),
-    // XXX Gimlet doesn't include sharkfin HSCs here.  Why not?
 ];
 
 pub(crate) fn get_state() -> PowerState {
