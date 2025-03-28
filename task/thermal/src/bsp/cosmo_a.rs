@@ -55,9 +55,6 @@ pub(crate) struct Bsp {
     /// Handle to the sequencer task, to query power state
     seq: Sequencer,
 
-    /// Id of the I2C task, to query MAX5970 status
-    i2c_task: TaskId,
-
     /// Tuning for the PID controller
     pub pid_config: PidConfig,
 }
@@ -70,13 +67,6 @@ bitflags::bitflags! {
         const A2 = 0b00000001;
         const A0 = 0b00000010;
         const A0_OR_A2 = Self::A0.bits() | Self::A2.bits();
-
-        // Bonus bits for M.2 power, which is switched separately.  We *cannot*
-        // read the M.2 drives when they are unpowered; otherwise, we risk
-        // locking up the I2C bus (see hardware-gimlet#1804 for the gory
-        // details)
-        const M2A = 0b00000100;
-        const M2B = 0b00001000;
     }
 }
 
@@ -107,35 +97,7 @@ impl Bsp {
             PowerState::A0PlusHP
             | PowerState::A0
             | PowerState::A1
-            | PowerState::A0Reset => {
-                use drv_i2c_devices::max5970;
-                use userlib::units::Ohms;
-
-                // The M.2 devices are enabled separately from A0, so we check
-                // for them by asking their power controller. There's a
-                // potential TOCTOU race here, but we don't expect to power
-                // these down after the server comes up. (Note that we are
-                // passing in the correct value of the current-sense resistor,
-                // but we are in fact not using it here.)
-                let dev = devices::max5970_m2(self.i2c_task);
-                let m = max5970::Max5970::new(&dev, 0, Ohms(0.004));
-                let mut out = PowerBitmask::A0;
-                match m.read_reg(max5970::Register::status3) {
-                    Ok(s) => {
-                        // pg[0]
-                        if s & (1 << 0) != 0 {
-                            out |= PowerBitmask::M2A;
-                        }
-                        // pg[1]
-                        if s & (1 << 1) != 0 {
-                            out |= PowerBitmask::M2B;
-                        }
-                    }
-                    // TODO: error handling here?
-                    Err(_e) => (),
-                }
-                out
-            }
+            | PowerState::A0Reset => PowerBitmask::A0,
             PowerState::A2
             | PowerState::A2PlusFans
             | PowerState::A0Thermtrip => PowerBitmask::A2,
@@ -162,7 +124,6 @@ impl Bsp {
 
         Self {
             seq,
-            i2c_task,
             fctrl,
 
             // Based on experimental tuning!
@@ -232,11 +193,6 @@ const T6_THERMALS: ThermalProperties = ThermalProperties {
 };
 
 const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
-    // The M.2 devices are polled first deliberately: they're only polled if
-    // powered, and we want to minimize the TOCTOU window between asking the
-    // MAX5970 "is it powered?" and actually reading data.
-    //
-    // See hardware-gimlet#1804 for details; this is fixed in later revisions.
     InputChannel::new(
         TemperatureSensor::new(
             Device::M2,
@@ -244,7 +200,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::NVME_BMC_M2_A_TEMPERATURE_SENSOR,
         ),
         M2_THERMALS,
-        PowerBitmask::M2A,
+        PowerBitmask::A0,
         ChannelType::Removable,
     ),
     InputChannel::new(
@@ -254,7 +210,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::NVME_BMC_M2_B_TEMPERATURE_SENSOR,
         ),
         M2_THERMALS,
-        PowerBitmask::M2B,
+        PowerBitmask::A0,
         ChannelType::Removable,
     ),
     InputChannel::new(
