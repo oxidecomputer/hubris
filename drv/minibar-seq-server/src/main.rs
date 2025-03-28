@@ -9,13 +9,14 @@
 
 use drv_auxflash_api::AuxFlash;
 use drv_fpga_api::{
-    await_fpga_ready, BitstreamType, DeviceState, Fpga, FpgaError, FpgaUserDesign, FpgaUserDesignIdent, WriteOp
+    await_fpga_ready, BitstreamType, DeviceState, Fpga, FpgaError,
+    FpgaUserDesign, FpgaUserDesignIdent, WriteOp,
 };
 use drv_packrat_vpd_loader::{read_vpd_and_load_packrat, Packrat};
 
 use idol_runtime::NotificationHandler;
 use ringbuf::{ringbuf, ringbuf_entry};
-use userlib::{task_slot, sys_get_timer, sys_set_timer, TaskId, UnwrapLite};
+use userlib::{sys_get_timer, sys_set_timer, task_slot, TaskId, UnwrapLite};
 
 task_slot!(I2C, i2c_driver);
 task_slot!(FPGA, ecp5);
