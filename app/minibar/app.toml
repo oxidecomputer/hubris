@@ -158,6 +158,43 @@ max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true
 
+[tasks.auxflash]
+name = "drv-auxflash-server"
+priority = 3
+max-sizes = {flash = 32768, ram = 4096}
+features = ["h753"]
+uses = ["quadspi"]
+start = true
+notifications = ["qspi-irq"]
+interrupts = {"quadspi.irq" = "qspi-irq"}
+stacksize = 3504
+task-slots = ["sys"]
+
+[tasks.ecp5]
+name = "drv-fpga-server"
+features = ["use-spi-core", "h753", "spi5"]
+priority = 3
+max-sizes = {flash = 32768, ram = 8192}
+stacksize = 2048
+start = true
+uses = ["spi5"]
+task-slots = ["sys"]
+notifications = ["spi-irq"]
+interrupts = {"spi5.irq" = "spi-irq"}
+
+[tasks.sequencer]
+name = "drv-minibar-seq-server"
+priority = 4
+stacksize = 4096
+start = true
+task-slots = [
+    "sys",
+    "i2c_driver",
+    "auxflash",
+    "packrat",
+    "ecp5",]
+notifications = ["timer"]
+
 [config]
 
 [[config.i2c.controllers]]
@@ -276,3 +313,30 @@ outputs = [
     {port = "E", pins = [2, 6], af = 5},
 ]
 input = {port = "E", pin = 5, af = 5}
+
+[config.spi.spi5]
+controller = 5
+
+[config.spi.spi5.mux_options.port_jk]
+outputs = [
+    {port = "J", pins = [10], af = 5}, # SPI_SP_TO_FPGA_MOSI
+    {port = "K", pins = [0], af = 5},  # SPI_SP_TO_FPGA_SCK
+]
+input = {port = "J", pin = 11, af = 5} # SPI_SP_TO_FPGA_MISO
+
+[config.spi.spi5.devices.ecp5_fpga]
+mux = "port_jk"
+cs = [{port = "K", pin = 1}] # SPI_SP_TO_FPGA_CS_CONFIG_L
+
+[config.spi.spi5.devices.ecp5_user_design]
+mux = "port_jk"
+cs = [{port = "J", pin = 6}] # SPI_SP_TO_FPGA_CS_USER_L
+
+[config.auxflash]
+memory-size = 33_554_432 # 256 Mib / 32 MiB
+slot-count = 16 # 2 MiB slots
+
+[[auxflash.blobs]]
+file = "drv/minibar-seq-server/minibar_controller_hcv_a.bit"
+compress = true
+tag = "ECP5"
