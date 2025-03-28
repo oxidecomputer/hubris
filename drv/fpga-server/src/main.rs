@@ -151,6 +151,25 @@ fn main() -> ! {
             driver.configure_gpio();
 
             let devices = [ecp5::Ecp5::new(driver)];
+        } else if #[cfg(target_board = "minibar")] {
+            let configuration_port =
+                spi.device(drv_spi_api::devices::ECP5_FPGA);
+            let user_design =
+                spi.device(drv_spi_api::devices::ECP5_USER_DESIGN);
+
+            let driver = drv_fpga_devices::ecp5_spi::Ecp5UsingSpi {
+                sys,
+                done: sys_api::Port::J.pin(14),
+                init_n: sys_api::Port::J.pin(12),
+                program_n: sys_api::Port::J.pin(13),
+                configuration_port,
+                user_design,
+                user_design_reset_n: sys_api::Port::J.pin(15),
+                user_design_reset_duration: ecp5::USER_DESIGN_RESET_DURATION,
+            };
+            driver.configure_gpio();
+
+            let devices = [ecp5::Ecp5::new(driver)];
         } else {
             compile_error!("Board is not supported by drv/fpga-server");
         }

@@ -1,0 +1,368 @@
+{
+    "type": "addrmap",
+    "addr_span_bytes": 18,
+    "inst_name": "minibar_controller",
+    "addr_offset": 0,
+    "children": [
+        {
+            "type": "reg",
+            "inst_name": "ID0",
+            "addr_offset": 0,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "ID0",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 1,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Byte 0 of ID"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "ID1",
+            "addr_offset": 1,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "ID1",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 222,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Byte 1 of ID"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "ID2",
+            "addr_offset": 2,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "ID2",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 91,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Byte 2 of ID"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "ID3",
+            "addr_offset": 3,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "ID3",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 174,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Byte 3 of ID"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "CS0",
+            "addr_offset": 4,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "CS0",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "checksum[31..24]"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "CS1",
+            "addr_offset": 5,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "CS1",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "checksum[23..16]"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "CS2",
+            "addr_offset": 6,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "CS2",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "checksum[15..8]"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "CS3",
+            "addr_offset": 7,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "CS3",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "checksum[7..0]"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "VERSION0",
+            "addr_offset": 8,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "version[31..24]"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "VERSION1",
+            "addr_offset": 9,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "version[23..16]"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "VERSION2",
+            "addr_offset": 10,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "version[15..8]"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "VERSION3",
+            "addr_offset": 11,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "version[7..0]"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "SHA0",
+            "addr_offset": 12,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "sha[31..24]"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "SHA1",
+            "addr_offset": 13,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "sha[23..16]"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "SHA2",
+            "addr_offset": 14,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "sha[15..8]"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "SHA3",
+            "addr_offset": 15,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "sha[7..0]"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "HCV",
+            "addr_offset": 16,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "HCV Code"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "SCRATCHPAD",
+            "addr_offset": 17,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "SCRATCHPAD",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Scribble Register for read-write use"
+                }
+            ]
+        }
+    ]
+}

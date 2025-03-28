@@ -1,0 +1,168 @@
+
+Test Output:
+
+Identification 0
+[caption="Address: "]
+.0x0000 - ID0 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | ID0 | Byte 0 of ID
+|===
+
+Identification 1
+[caption="Address: "]
+.0x0001 - ID1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | ID1 | Byte 1 of ID
+|===
+
+Identification 2
+[caption="Address: "]
+.0x0002 - ID2 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | ID2 | Byte 2 of ID
+|===
+
+Identification 3
+[caption="Address: "]
+.0x0003 - ID3 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | ID3 | Byte 3 of ID
+|===
+
+Checksum 0
+[caption="Address: "]
+.0x0004 - CS0 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | rw | CS0 | checksum[31..24]
+|===
+
+Checksum 1
+[caption="Address: "]
+.0x0005 - CS1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | rw | CS1 | checksum[23..16]
+|===
+
+Checksum 2
+[caption="Address: "]
+.0x0006 - CS2 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | rw | CS2 | checksum[15..8]
+|===
+
+Checksum 3
+[caption="Address: "]
+.0x0007 - CS3 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | rw | CS3 | checksum[7..0]
+|===
+
+Version 0
+[caption="Address: "]
+.0x0008 - VERSION0 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | data | version[31..24]
+|===
+
+Version 1
+[caption="Address: "]
+.0x0009 - VERSION1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | data | version[23..16]
+|===
+
+Version 2
+[caption="Address: "]
+.0x000a - VERSION2 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | data | version[15..8]
+|===
+
+Version 3
+[caption="Address: "]
+.0x000b - VERSION3 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | data | version[7..0]
+|===
+
+Short SHA 0
+[caption="Address: "]
+.0x000c - SHA0 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | data | sha[31..24]
+|===
+
+Short SHA 1
+[caption="Address: "]
+.0x000d - SHA1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | data | sha[23..16]
+|===
+
+Short SHA 2
+[caption="Address: "]
+.0x000e - SHA2 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | data | sha[15..8]
+|===
+
+Short SHA 3
+[caption="Address: "]
+.0x000f - SHA3 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | data | sha[7..0]
+|===
+
+Hardware Compatibility Version Code
+[caption="Address: "]
+.0x0010 - HCV Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | data | HCV Code
+|===
+
+Scratchpad
+[caption="Address: "]
+.0x0011 - SCRATCHPAD Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | rw | SCRATCHPAD | Scribble Register for read-write use
+|===
+
+
+
+

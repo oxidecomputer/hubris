@@ -1694,6 +1694,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-minibar-seq-server"
+version = "0.1.0"
+dependencies = [
+ "build-fpga-regmap",
+ "build-i2c",
+ "build-util",
+ "drv-auxflash-api",
+ "drv-fpga-api",
+ "drv-fpga-user-api",
+ "drv-i2c-api",
+ "drv-i2c-devices",
+ "drv-packrat-vpd-loader",
+ "gnarle",
+ "idol-runtime",
+ "ringbuf",
+ "serde",
+ "serde_json",
+ "userlib",
+]
+
+[[package]]
 name = "drv-mock-gimlet-hf-server"
 version = "0.1.0"
 dependencies = [
@@ -3592,6 +3613,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5aa361d4faea93603064a027415f07bd8e1d5c88c9fbf68bf56a285428fd79ce"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "minibar"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if",
+ "cortex-m",
+ "cortex-m-rt",
+ "drv-stm32h7-startup",
+ "kern",
+ "ringbuf",
+ "stm32h7",
 ]
 
 [[package]]
