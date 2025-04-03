@@ -145,22 +145,546 @@ Short SHA 3
 |[7:0] | r | data | sha[7..0]
 |===
 
-Hardware Compatibility Version Code
-[caption="Address: "]
-.0x0010 - HCV Register
-[cols=4,options="header"]
-|===
-| Bits | SW Access | Name | Function
-|[7:0] | r | data | HCV Code
-|===
-
 Scratchpad
 [caption="Address: "]
-.0x0011 - SCRATCHPAD Register
+.0x0010 - SCRATCHPAD Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
 |[7:0] | rw | SCRATCHPAD | Scribble Register for read-write use
+|===
+
+Hardware Compatibility Version Code
+[caption="Address: "]
+.0x0011 - HCV Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2:0] | r | code | HCV Code
+|===
+
+Readbacks attempting to establish presence for an attached sled's EXAMAX connectors.
+[caption="Address: "]
+.0x0012 - SLED_PRESENCE Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2] | rw | pcie_present | Inverted value of pcie_examax_to_fpga_sled_present_l pin
+|[1] | rw | rsw1_present | Inverted value of rsw1_examax_to_fpga_sled_present_l pin
+|[0] | rw | rsw0_present | Inverted value of rsw0_examax_to_fpga_sled_present_l pin
+|===
+
+VBUS_SYS Readbacks
+[caption="Address: "]
+.0x0013 - VBUS_SYS_RDBK Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:1] |  | - | Reserved
+|[0] | r | fault | Inverted value of the vbus_sys_hsc_to_fpga_fault_l pin
+|===
+
+Software power rail control
+[caption="Address: "]
+.0x0014 - POWER_CTRL Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:6] |  | - | Reserved
+|[5] | rw | vbus_sys_restart | fpga_to_vbus_sys_hsc_restart_l pin control (active high, FPGA will invert)
+|[4] | rw | vbus_sled_restart | fpga_to_vbus_sled_hsc_restart_l pin control (active high, FPGA will invert)
+|[3:1] |  | - | Reserved
+|[0] | rw | vbus_sled_en | fpga_to_vbus_sled_hsc_en pin control
+|===
+
+vbus_sled
+[caption="Address: "]
+.0x0015 - vbus_sled Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:5] | r | state | State of the FPGA-internal power rail sequencer
+|[4:3] |  | - | Reserved
+|[2] | r | enable_pin | Status of the enable pin
+|[1] | r | pg_pin | Status of the power good pin
+|[0] | r | fault_pin | Status of the fault pin (normalized to '1'=fault)
+|===
+
+Control for the VSC7448 and VSC8504 reset lines.
+[caption="Address: "]
+.0x0016 - SWITCH_RESET_CTRL Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:2] |  | - | Reserved
+|[1] | rw | vsc7448_reset | fpga_to_vsc7448_reset_l pin control (active high, FPGA will invert)
+|[0] | rw | vsc8504_reset | fpga_to_vsc8504_reset_l_3p3 pin control (active high, FPGA will invert)
+|===
+
+Software PCIe power rail control
+[caption="Address: "]
+.0x0017 - PCIE_POWER_CTRL Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:2] |  | - | Reserved
+|[1] | rw | v12_pcie_en | fpga_to_v12_pcie_efuse_en pin control
+|[0] | rw | v3p3_pcie_en | fpga_to_v3p3_pcie_efuse_en pin control
+|===
+
+v12_pcie
+[caption="Address: "]
+.0x0018 - v12_pcie Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:5] | r | state | State of the FPGA-internal power rail sequencer
+|[4:3] |  | - | Reserved
+|[2] | r | enable_pin | Status of the enable pin
+|[1] | r | pg_pin | Status of the power good pin
+|[0] | r | fault_pin | Status of the fault pin (normalized to '1'=fault)
+|===
+
+v3p3_pcie
+[caption="Address: "]
+.0x0019 - v3p3_pcie Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:5] | r | state | State of the FPGA-internal power rail sequencer
+|[4:3] |  | - | Reserved
+|[2] | r | enable_pin | Status of the enable pin
+|[1] | r | pg_pin | Status of the power good pin
+|[0] | r | fault_pin | Status of the fault pin (normalized to '1'=fault)
+|===
+
+Control for the PI6CB33201 PCIe Reference Clock Buffer
+[caption="Address: "]
+.0x001a - PCIE_REFCLK_CTRL Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:5] |  | - | Reserved
+|[4:3] | rw | bw_sel | fpga_to_pcie_aux_refclk_buffer_bw_sel pin control
+|[2] | rw | pd | fpga_to_pcie_aux_refclk_buffer_pd_l pin control (active high, FPGA will invert)
+|[1] | rw | oe1 | fpga_to_pcie_aux_refclk_buffer_oe1_l pin control (active high, FPGA will invert)
+|[0] | rw | oe0 | fpga_to_pcie_aux_refclk_buffer_oe0_l pin control (active high, FPGA will invert)
+|===
+
+Control for the PCIe interface related signals
+[caption="Address: "]
+.0x001b - PCIE_CTRL Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:4] |  | - | Reserved
+|[3] | rw | sled_pwrflt | control of pcie_aux_fpga_to_sled_pwrflt_l (active high, FPGA will invert)
+|[2] | rw | attached | control of fpga_to_sled_pcie_attached_l (active high, FPGA will invert)
+|[1] | rw | cem_i2c_en | control of fpga_to_pcie_cem_i2c_buffer_en
+|[0] | rw | sled_i2c_en | control of fpga_to_pcie_sled_i2c_buffer_en
+|===
+
+Readbacks for the PCIe signals.
+[caption="Address: "]
+.0x001c - PCIE_RDBK Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:6] |  | - | Reserved
+|[5] | r | cem_prsnt | pcie_aux_fpga_to_cem_prsnt_l pin readback (normalized to active high)
+|[4] | r | cem_perst | pcie_aux_sled_to_fpga_perst_l pin readback (normalized to active high)
+|[3:2] |  | - | Reserved
+|[1] | r | sled_prsnt | pcie_aux_fpga_to_cem_prsnt_l pin readback (normalized to active high)
+|[0] | r | sled_perst | pcie_aux_sled_to_fpga_perst_l pin readback (normalized to active high)
+|===
+
+Ignition Targets Present
+[caption="Address: "]
+.0x001d - IGNITION_TARGETS_PRESENT Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:2] |  | - | Reserved
+|[1] | r | target1_present | Target 1 present
+|[0] | r | target0_present | Target 0 present
+|===
+
+Controller State
+[caption="Address: "]
+.0x0100 - IGNITION_CONTROLLER0_CONTROLLER_STATE Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:2] |  | - | Reserved
+|[1] | rw | ALWAYS_TRANSMIT | Always transmit rather than wait for a Target to be present first
+|[0] | r | TARGET_PRESENT | A Target is present and the TARGET_SYSTEM_TYPE, TARGET_SYSTEM_STATUS and TARGET_REQUEST_STATUS registers are valid
+|===
+
+Controller Link Status
+[caption="Address: "]
+.0x0101 - IGNITION_CONTROLLER0_CONTROLLER_LINK_STATUS Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2] | r | POLARITY_INVERTED | Flag indicating the polarity of the link is inverted
+|[1] | r | RECEIVER_LOCKED | Flag indicating the receiver is receiving valid characters
+|[0] | r | RECEIVER_ALIGNED | Flag indicating the receiver is aligned to the clock
+|===
+
+Target System Type
+[caption="Address: "]
+.0x0102 - IGNITION_CONTROLLER0_TARGET_SYSTEM_TYPE Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | SYSTEM_TYPE | The system type as advertised by the Target
+|===
+
+Target System Status
+[caption="Address: "]
+.0x0103 - IGNITION_CONTROLLER0_TARGET_SYSTEM_STATUS Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:4] |  | - | Reserved
+|[3] | r | SYSTEM_POWER_ABORT | Flag indicating system power was turned off due to power fault
+|[2] | r | SYSTEM_POWER_ENABLED | Flag indicating system power of the Target system is enabled
+|[1] | r | CONTROLLER1_DETECTED | Flag indicating the Target has observed a Controller on link 1
+|[0] | r | CONTROLLER0_DETECTED | Flag indicating the Target has observed a Controller on link 0
+|===
+
+Target System Faults
+[caption="Address: "]
+.0x0104 - IGNITION_CONTROLLER0_TARGET_SYSTEM_FAULTS Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:6] |  | - | Reserved
+|[5] | r | ROT_FAULT | Flag indicating an unrecoverable fault was detected by the RoT
+|[4] | r | SP_FAULT | Flag indicating an unrecoverable fault was detected by the SP
+|[3] | r | RESERVED2 | Reserved fault flag
+|[2] | r | RESERVED1 | Reserved fault flag
+|[1] | r | POWER_FAULT_A2 | Flag indicating a power fault in A2
+|[0] | r | POWER_FAULT_A3 | Flag indicating a power fault in A3
+|===
+
+TARGET_REQUEST_STATUS
+[caption="Address: "]
+.0x0105 - IGNITION_CONTROLLER0_TARGET_REQUEST_STATUS Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2] | r | SYSTEM_RESET_IN_PROGRESS | Flag indicating a system reset request is in progress
+|[1] | r | POWER_ON_IN_PROGRESS | Flag indicating a power on request is in progress
+|[0] | r | POWER_OFF_IN_PROGRESS | Flag indicating a power off request is in progress
+|===
+
+Target Link 0 Status
+[caption="Address: "]
+.0x0106 - IGNITION_CONTROLLER0_TARGET_LINK0_STATUS Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2] | r | POLARITY_INVERTED | Flag indicating the polarity of the link is inverted
+|[1] | r | RECEIVER_LOCKED | Flag indicating the receiver is receiving valid characters
+|[0] | r | RECEIVER_ALIGNED | Flag indicating the receiver is aligned to the clock
+|===
+
+Target Link 1 Status
+[caption="Address: "]
+.0x0107 - IGNITION_CONTROLLER0_TARGET_LINK1_STATUS Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2] | r | POLARITY_INVERTED | Flag indicating the polarity of the link is inverted
+|[1] | r | RECEIVER_LOCKED | Flag indicating the receiver is receiving valid characters
+|[0] | r | RECEIVER_ALIGNED | Flag indicating the receiver is aligned to the clock
+|===
+
+Target Request
+[caption="Address: "]
+.0x0108 - IGNITION_CONTROLLER0_TARGET_REQUEST Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | rw | PENDING | Flag indicating a request is (still) pending
+|[6:2] |  | - | Reserved
+|[1:0] | rw | KIND | Value indicating the kind of request
+|===
+
+Controller Status Received Count
+[caption="Address: "]
+.0x0110 - IGNITION_CONTROLLER0_CONTROLLER_STATUS_RECEIVED_COUNT Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | COUNT | The number of Status messages received by the Controller since last reset
+|===
+
+Controller Hello Sent Count
+[caption="Address: "]
+.0x0111 - IGNITION_CONTROLLER0_CONTROLLER_HELLO_SENT_COUNT Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | COUNT | The number of hello messages sent by the Controller since last reset
+|===
+
+Controller Request Sent Count
+[caption="Address: "]
+.0x0112 - IGNITION_CONTROLLER0_CONTROLLER_REQUEST_SENT_COUNT Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | COUNT | The number of request messages sent by the Controller since last reset
+|===
+
+Controller Message Dropped Count
+[caption="Address: "]
+.0x0113 - IGNITION_CONTROLLER0_CONTROLLER_MESSAGE_DROPPED_COUNT Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | COUNT | The number of messages dropped by the Controller since last reset
+|===
+
+Controller Link Events Summary
+[caption="Address: "]
+.0x0120 - IGNITION_CONTROLLER0_CONTROLLER_LINK_EVENTS_SUMMARY Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:6] |  | - | Reserved
+|[5] | rw | MESSAGE_CHECKSUM_INVALID | Flag indicating a message with invalid checksum was received
+|[4] | rw | MESSAGE_TYPE_INVALID | Flag indicating a message with invalid type was received
+|[3] | rw | MESSAGE_VERSION_INVALID | Flag indicating a message with invalid version was received
+|[2] | rw | ORDERED_SET_INVALID | Flag indicating an invalid ordered set was received
+|[1] | rw | DECODING_ERROR | Flag indicating the receiver encountered an invalid character
+|[0] | rw | ENCODING_ERROR | Flag indicating the transmitter encountered an invalid value
+|===
+
+Target Link 0 Events Summary
+[caption="Address: "]
+.0x0130 - IGNITION_CONTROLLER0_TARGET_LINK0_EVENTS_SUMMARY Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:6] |  | - | Reserved
+|[5] | rw | MESSAGE_CHECKSUM_INVALID | Flag indicating a message with invalid checksum was received
+|[4] | rw | MESSAGE_TYPE_INVALID | Flag indicating a message with invalid type was received
+|[3] | rw | MESSAGE_VERSION_INVALID | Flag indicating a message with invalid version was received
+|[2] | rw | ORDERED_SET_INVALID | Flag indicating an invalid ordered set was received
+|[1] | rw | DECODING_ERROR | Flag indicating the receiver encountered an invalid character
+|[0] | rw | ENCODING_ERROR | Flag indicating the transmitter encountered an invalid value
+|===
+
+Target Link 1 Events Summary
+[caption="Address: "]
+.0x0140 - IGNITION_CONTROLLER0_TARGET_LINK1_EVENTS_SUMMARY Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:6] |  | - | Reserved
+|[5] | rw | MESSAGE_CHECKSUM_INVALID | Flag indicating a message with invalid checksum was received
+|[4] | rw | MESSAGE_TYPE_INVALID | Flag indicating a message with invalid type was received
+|[3] | rw | MESSAGE_VERSION_INVALID | Flag indicating a message with invalid version was received
+|[2] | rw | ORDERED_SET_INVALID | Flag indicating an invalid ordered set was received
+|[1] | rw | DECODING_ERROR | Flag indicating the receiver encountered an invalid character
+|[0] | rw | ENCODING_ERROR | Flag indicating the transmitter encountered an invalid value
+|===
+
+Controller State
+[caption="Address: "]
+.0x0200 - IGNITION_CONTROLLER1_CONTROLLER_STATE Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:2] |  | - | Reserved
+|[1] | rw | ALWAYS_TRANSMIT | Always transmit rather than wait for a Target to be present first
+|[0] | r | TARGET_PRESENT | A Target is present and the TARGET_SYSTEM_TYPE, TARGET_SYSTEM_STATUS and TARGET_REQUEST_STATUS registers are valid
+|===
+
+Controller Link Status
+[caption="Address: "]
+.0x0201 - IGNITION_CONTROLLER1_CONTROLLER_LINK_STATUS Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2] | r | POLARITY_INVERTED | Flag indicating the polarity of the link is inverted
+|[1] | r | RECEIVER_LOCKED | Flag indicating the receiver is receiving valid characters
+|[0] | r | RECEIVER_ALIGNED | Flag indicating the receiver is aligned to the clock
+|===
+
+Target System Type
+[caption="Address: "]
+.0x0202 - IGNITION_CONTROLLER1_TARGET_SYSTEM_TYPE Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | SYSTEM_TYPE | The system type as advertised by the Target
+|===
+
+Target System Status
+[caption="Address: "]
+.0x0203 - IGNITION_CONTROLLER1_TARGET_SYSTEM_STATUS Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:4] |  | - | Reserved
+|[3] | r | SYSTEM_POWER_ABORT | Flag indicating system power was turned off due to power fault
+|[2] | r | SYSTEM_POWER_ENABLED | Flag indicating system power of the Target system is enabled
+|[1] | r | CONTROLLER1_DETECTED | Flag indicating the Target has observed a Controller on link 1
+|[0] | r | CONTROLLER0_DETECTED | Flag indicating the Target has observed a Controller on link 0
+|===
+
+Target System Faults
+[caption="Address: "]
+.0x0204 - IGNITION_CONTROLLER1_TARGET_SYSTEM_FAULTS Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:6] |  | - | Reserved
+|[5] | r | ROT_FAULT | Flag indicating an unrecoverable fault was detected by the RoT
+|[4] | r | SP_FAULT | Flag indicating an unrecoverable fault was detected by the SP
+|[3] | r | RESERVED2 | Reserved fault flag
+|[2] | r | RESERVED1 | Reserved fault flag
+|[1] | r | POWER_FAULT_A2 | Flag indicating a power fault in A2
+|[0] | r | POWER_FAULT_A3 | Flag indicating a power fault in A3
+|===
+
+TARGET_REQUEST_STATUS
+[caption="Address: "]
+.0x0205 - IGNITION_CONTROLLER1_TARGET_REQUEST_STATUS Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2] | r | SYSTEM_RESET_IN_PROGRESS | Flag indicating a system reset request is in progress
+|[1] | r | POWER_ON_IN_PROGRESS | Flag indicating a power on request is in progress
+|[0] | r | POWER_OFF_IN_PROGRESS | Flag indicating a power off request is in progress
+|===
+
+Target Link 0 Status
+[caption="Address: "]
+.0x0206 - IGNITION_CONTROLLER1_TARGET_LINK0_STATUS Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2] | r | POLARITY_INVERTED | Flag indicating the polarity of the link is inverted
+|[1] | r | RECEIVER_LOCKED | Flag indicating the receiver is receiving valid characters
+|[0] | r | RECEIVER_ALIGNED | Flag indicating the receiver is aligned to the clock
+|===
+
+Target Link 1 Status
+[caption="Address: "]
+.0x0207 - IGNITION_CONTROLLER1_TARGET_LINK1_STATUS Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:3] |  | - | Reserved
+|[2] | r | POLARITY_INVERTED | Flag indicating the polarity of the link is inverted
+|[1] | r | RECEIVER_LOCKED | Flag indicating the receiver is receiving valid characters
+|[0] | r | RECEIVER_ALIGNED | Flag indicating the receiver is aligned to the clock
+|===
+
+Target Request
+[caption="Address: "]
+.0x0208 - IGNITION_CONTROLLER1_TARGET_REQUEST Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | rw | PENDING | Flag indicating a request is (still) pending
+|[6:2] |  | - | Reserved
+|[1:0] | rw | KIND | Value indicating the kind of request
+|===
+
+Controller Status Received Count
+[caption="Address: "]
+.0x0210 - IGNITION_CONTROLLER1_CONTROLLER_STATUS_RECEIVED_COUNT Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | COUNT | The number of Status messages received by the Controller since last reset
+|===
+
+Controller Hello Sent Count
+[caption="Address: "]
+.0x0211 - IGNITION_CONTROLLER1_CONTROLLER_HELLO_SENT_COUNT Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | COUNT | The number of hello messages sent by the Controller since last reset
+|===
+
+Controller Request Sent Count
+[caption="Address: "]
+.0x0212 - IGNITION_CONTROLLER1_CONTROLLER_REQUEST_SENT_COUNT Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | COUNT | The number of request messages sent by the Controller since last reset
+|===
+
+Controller Message Dropped Count
+[caption="Address: "]
+.0x0213 - IGNITION_CONTROLLER1_CONTROLLER_MESSAGE_DROPPED_COUNT Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:0] | r | COUNT | The number of messages dropped by the Controller since last reset
+|===
+
+Controller Link Events Summary
+[caption="Address: "]
+.0x0220 - IGNITION_CONTROLLER1_CONTROLLER_LINK_EVENTS_SUMMARY Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:6] |  | - | Reserved
+|[5] | rw | MESSAGE_CHECKSUM_INVALID | Flag indicating a message with invalid checksum was received
+|[4] | rw | MESSAGE_TYPE_INVALID | Flag indicating a message with invalid type was received
+|[3] | rw | MESSAGE_VERSION_INVALID | Flag indicating a message with invalid version was received
+|[2] | rw | ORDERED_SET_INVALID | Flag indicating an invalid ordered set was received
+|[1] | rw | DECODING_ERROR | Flag indicating the receiver encountered an invalid character
+|[0] | rw | ENCODING_ERROR | Flag indicating the transmitter encountered an invalid value
+|===
+
+Target Link 0 Events Summary
+[caption="Address: "]
+.0x0230 - IGNITION_CONTROLLER1_TARGET_LINK0_EVENTS_SUMMARY Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:6] |  | - | Reserved
+|[5] | rw | MESSAGE_CHECKSUM_INVALID | Flag indicating a message with invalid checksum was received
+|[4] | rw | MESSAGE_TYPE_INVALID | Flag indicating a message with invalid type was received
+|[3] | rw | MESSAGE_VERSION_INVALID | Flag indicating a message with invalid version was received
+|[2] | rw | ORDERED_SET_INVALID | Flag indicating an invalid ordered set was received
+|[1] | rw | DECODING_ERROR | Flag indicating the receiver encountered an invalid character
+|[0] | rw | ENCODING_ERROR | Flag indicating the transmitter encountered an invalid value
+|===
+
+Target Link 1 Events Summary
+[caption="Address: "]
+.0x0240 - IGNITION_CONTROLLER1_TARGET_LINK1_EVENTS_SUMMARY Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7:6] |  | - | Reserved
+|[5] | rw | MESSAGE_CHECKSUM_INVALID | Flag indicating a message with invalid checksum was received
+|[4] | rw | MESSAGE_TYPE_INVALID | Flag indicating a message with invalid type was received
+|[3] | rw | MESSAGE_VERSION_INVALID | Flag indicating a message with invalid version was received
+|[2] | rw | ORDERED_SET_INVALID | Flag indicating an invalid ordered set was received
+|[1] | rw | DECODING_ERROR | Flag indicating the receiver encountered an invalid character
+|[0] | rw | ENCODING_ERROR | Flag indicating the transmitter encountered an invalid value
 |===
 
 
