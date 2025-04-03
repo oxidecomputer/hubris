@@ -1,6 +1,6 @@
 {
     "type": "addrmap",
-    "addr_span_bytes": 24,
+    "addr_span_bytes": 20,
     "inst_name": "info_regs",
     "addr_offset": 0,
     "children": [
@@ -46,28 +46,8 @@
         },
         {
             "type": "reg",
-            "inst_name": "version",
-            "addr_offset": 8,
-            "regwidth": 32,
-            "min_accesswidth": 32,
-            "children": [
-                {
-                    "type": "field",
-                    "inst_name": "data",
-                    "lsb": 0,
-                    "msb": 31,
-                    "reset": 478,
-                    "sw_access": "rw",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "Read-only bits showing 0x1de"
-                }
-            ]
-        },
-        {
-            "type": "reg",
             "inst_name": "git_info",
-            "addr_offset": 12,
+            "addr_offset": 8,
             "regwidth": 32,
             "min_accesswidth": 32,
             "children": [
@@ -87,7 +67,7 @@
         {
             "type": "reg",
             "inst_name": "fpga_checksum",
-            "addr_offset": 16,
+            "addr_offset": 12,
             "regwidth": 32,
             "min_accesswidth": 32,
             "children": [
@@ -107,7 +87,7 @@
         {
             "type": "reg",
             "inst_name": "scratchpad",
-            "addr_offset": 20,
+            "addr_offset": 16,
             "regwidth": 32,
             "min_accesswidth": 32,
             "children": [

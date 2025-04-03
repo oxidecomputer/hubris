@@ -7,7 +7,7 @@
     "children": [
         {
             "type": "addrmap",
-            "addr_span_bytes": 24,
+            "addr_span_bytes": 20,
             "inst_name": "info",
             "orig_type_name": "info_regs",
             "addr_offset": 0,
