@@ -201,7 +201,7 @@ notifications = ["hash-irq"]
 name = "drv-cosmo-hf"
 priority = 6
 start = true
-uses = ["fmc_nor_psram_bank_1"]
+uses = ["mmio_spi_nor"]
 task-slots = ["hash_driver", "spartan7_loader"]
 stacksize = 4000
 
