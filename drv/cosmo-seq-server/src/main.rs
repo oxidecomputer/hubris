@@ -88,8 +88,11 @@ impl From<drv_auxflash_api::AuxFlashError> for SeqError {
 ////////////////////////////////////////////////////////////////////////////////
 
 const SP_TO_SP5_NMI_SYNC_FLOOD_L: sys_api::PinSet = sys_api::Port::J.pin(2);
-const SP_TO_IGN_TRGT_FPGA_FAULT_L: sys_api::PinSet = sys_api::Port::B.pin(7);
 const SP_CHASSIS_STATUS_LED: sys_api::PinSet = sys_api::Port::C.pin(6);
+
+// Disabled due to hardware-cosmo#659 (on Cosmo rev A this is PB7, but we need
+// to use that pin for FMC).
+const SP_TO_IGN_TRGT_FPGA_FAULT_L: Option<sys_api::PinSet> = None;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -146,13 +149,15 @@ fn init() -> Result<ServerImpl, SeqError> {
     let sys = sys_api::Sys::from(SYS.get_task_id());
 
     // Pull the fault line low while we're loading
-    sys.gpio_configure_output(
-        SP_TO_IGN_TRGT_FPGA_FAULT_L,
-        sys_api::OutputType::OpenDrain,
-        sys_api::Speed::Low,
-        sys_api::Pull::None,
-    );
-    sys.gpio_reset(SP_TO_IGN_TRGT_FPGA_FAULT_L);
+    if let Some(pin) = SP_TO_IGN_TRGT_FPGA_FAULT_L {
+        sys.gpio_configure_output(
+            pin,
+            sys_api::OutputType::OpenDrain,
+            sys_api::Speed::Low,
+            sys_api::Pull::None,
+        );
+        sys.gpio_reset(pin);
+    }
 
     // Turn off the chassis LED, in case this is a task restart (and not a
     // full chip restart, which would leave the GPIO unconfigured).
@@ -191,7 +196,9 @@ fn init() -> Result<ServerImpl, SeqError> {
     );
 
     // Clear the fault pin
-    sys.gpio_set(SP_TO_IGN_TRGT_FPGA_FAULT_L);
+    if let Some(pin) = SP_TO_IGN_TRGT_FPGA_FAULT_L {
+        sys.gpio_set(pin);
+    }
 
     Ok(ServerImpl::new(token))
 }
