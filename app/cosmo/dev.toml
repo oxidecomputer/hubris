@@ -13,9 +13,25 @@ task-slots = ["net"]
 features = ["vlan"]
 notifications = ["socket"]
 
+[tasks.fmc_demo]
+name = "drv-stm32h7-fmc-demo-server"
+features = ["h753"]
+priority = 6
+start = true
+task-slots = ["sys", "net"]
+uses = ["mmio_info", "mmio_spi_nor", "mmio_espi", "mmio_sequencer", "mmio_sp_i2c"]
+notifications = ["socket"]
+
 [config.net.sockets.rpc]
 kind = "udp"
 owner = {name = "udprpc", notification = "socket"}
 port = 998
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.fmc_test]
+kind = "udp"
+owner = {name = "fmc_demo", notification = "socket"}
+port = 11114
+tx = { packets = 3, bytes = 4096 }
+rx = { packets = 3, bytes = 4096 }
