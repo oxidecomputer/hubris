@@ -105,7 +105,7 @@ fn main() -> ! {
         // Set up everything nicely, time to start serving incoming messages.
         Ok(mut server) => {
             // Mark that we've reached A2, and turn on the chassis LED
-            server.sys.gpio_set(SP_CHASSIS_STATUS_LED);
+            // server.sys.gpio_set(SP_CHASSIS_STATUS_LED);
 
             // Power on, unless suppressed by the `stay-in-a2` feature
             if !cfg!(feature = "stay-in-a2") {
