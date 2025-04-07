@@ -226,9 +226,9 @@ start = true
 
 [tasks.host_sp_comms]
 name = "task-host-sp-comms"
-features = ["stm32h753", "uart7", "baud_rate_3M", "hardware_flow_control", "vlan", "cosmo"]
-uses = ["uart7", "dbgmcu"]
-interrupts = {"uart7.irq" = "usart-irq"}
+features = ["stm32h753", "usart6", "baud_rate_3M", "hardware_flow_control", "vlan", "cosmo"]
+uses = ["usart6", "dbgmcu"]
+interrupts = {"usart6.irq" = "usart-irq"}
 priority = 9
 max-sizes = {flash = 65536, ram = 65536}
 stacksize = 5080
