@@ -180,7 +180,7 @@ task-slots = ["sys", {spi = "spi2_driver"}, "auxflash"]
 program_l = "sys_api::Port::B.pin(6)"
 init_l = "sys_api::Port::B.pin(5)"
 config_done = "sys_api::Port::B.pin(4)"
-user_reset_l = "sys_api::Port::I.pin(15)"
+user_reset_l = "sys_api::Port::A.pin(6)"
 
 [tasks.cosmo_seq.config]
 fpga_image = "cosmo-a.bin"
