@@ -1264,7 +1264,7 @@ input = {port = "C", pin = 11, af = 6}
 
 [config.spi.spi3.devices.mux]
 mux = "port_c"
-cs = [{port = "A", pin = 1}] # SPI_SP_TO_SP_MUX_CS_L
+cs = [{port = "A", pin = 15}] # SPI_SP_TO_SP_MUX_CS_L
 
 ################################################################################
 
