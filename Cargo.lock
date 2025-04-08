@@ -2203,7 +2203,6 @@ dependencies = [
  "cfg-if",
  "cortex-m",
  "counters",
- "drv-stm32xx-sys-api",
  "hubpack",
  "idol",
  "idol-runtime",
