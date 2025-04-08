@@ -733,7 +733,7 @@ removable = true
 [[config.i2c.devices]]
 bus = "front"
 mux = 3
-segment = 1
+segment = 3
 address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin G VPD"
@@ -744,7 +744,7 @@ removable = true
 [[config.i2c.devices]]
 bus = "front"
 mux = 3
-segment = 1
+segment = 3
 address = 0b0111_000
 device = "max5970"
 description = "U.2 Sharkfin G hot swap controller"
@@ -757,7 +757,7 @@ removable = true
 [[config.i2c.devices]]
 bus = "front"
 mux = 3
-segment = 1
+segment = 3
 address = 0b110_1010
 device = "nvme_bmc"
 description = "U.2 G NVMe Basic Management Control"
