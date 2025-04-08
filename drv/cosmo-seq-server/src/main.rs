@@ -108,9 +108,6 @@ fn main() -> ! {
     match init() {
         // Set up everything nicely, time to start serving incoming messages.
         Ok(mut server) => {
-            // Mark that we've reached A2, and turn on the chassis LED
-            // server.sys.gpio_set(SP_CHASSIS_STATUS_LED);
-
             // Power on, unless suppressed by the `stay-in-a2` feature
             if !cfg!(feature = "stay-in-a2") {
                 _ = server.set_state_impl(
@@ -200,6 +197,9 @@ fn init() -> Result<ServerImpl, SeqError> {
     if let Some(pin) = SP_TO_IGN_TRGT_FPGA_FAULT_L {
         sys.gpio_set(pin);
     }
+
+    // Turn on the chassis LED!
+    sys.gpio_set(SP_CHASSIS_STATUS_LED);
 
     Ok(ServerImpl::new(token))
 }
