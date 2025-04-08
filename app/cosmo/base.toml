@@ -397,6 +397,14 @@ address = 0x71
 driver = "pca9545"
 address = 0x72
 
+[[config.i2c.controllers.ports.B.muxes]]
+driver = "pca9545"
+address = 0x73
+
+[[config.i2c.controllers.ports.B.muxes]]
+driver = "pca9545"
+address = 0x74
+
 #
 # I2C2: Main FPGA I2C mux
 #
@@ -604,8 +612,8 @@ removable = true
 # SMBUS_FPGA2_TO_CEMD
 [[config.i2c.devices]]
 bus = "front"
-mux = 1
-segment = 4
+mux = 2
+segment = 1
 address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin D VPD"
@@ -615,8 +623,8 @@ removable = true
 
 [[config.i2c.devices]]
 bus = "front"
-mux = 1
-segment = 4
+mux = 2
+segment = 1
 address = 0b0111_000
 device = "max5970"
 description = "U.2 Sharkfin D hot swap controller"
@@ -628,8 +636,8 @@ removable = true
 
 [[config.i2c.devices]]
 bus = "front"
-mux = 1
-segment = 4
+mux = 2
+segment = 1
 address = 0b110_1010
 device = "nvme_bmc"
 description = "U.2 D NVMe Basic Management Control"
@@ -642,7 +650,7 @@ removable = true
 [[config.i2c.devices]]
 bus = "front"
 mux = 2
-segment = 1
+segment = 2
 address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin E VPD"
@@ -653,7 +661,7 @@ removable = true
 [[config.i2c.devices]]
 bus = "front"
 mux = 2
-segment = 1
+segment = 2
 address = 0b0111_000
 device = "max5970"
 description = "U.2 Sharkfin E hot swap controller"
@@ -666,7 +674,7 @@ removable = true
 [[config.i2c.devices]]
 bus = "front"
 mux = 2
-segment = 1
+segment = 2
 address = 0b110_1010
 device = "nvme_bmc"
 description = "U.2 E NVMe Basic Management Control"
@@ -679,7 +687,7 @@ removable = true
 [[config.i2c.devices]]
 bus = "front"
 mux = 2
-segment = 2
+segment = 3
 address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin F VPD"
@@ -690,7 +698,7 @@ removable = true
 [[config.i2c.devices]]
 bus = "front"
 mux = 2
-segment = 2
+segment = 3
 address = 0b0111_000
 device = "max5970"
 description = "U.2 Sharkfin F hot swap controller"
@@ -703,7 +711,7 @@ removable = true
 [[config.i2c.devices]]
 bus = "front"
 mux = 2
-segment = 2
+segment = 3
 address = 0b110_1010
 device = "nvme_bmc"
 description = "U.2 F NVMe Basic Management Control"
@@ -712,8 +720,6 @@ name = "U2_N5"
 refdes = "J205"
 removable = true
 
-# Note that we skip the remaining two slots on (virtual) mux 2, which are
-# I2C_FPGA2_TO_MCIO1 and I2C_FPGA2_TO_MCIO2
 
 # SMBUS_FPGA2_TO_CEMG
 [[config.i2c.devices]]
@@ -752,11 +758,15 @@ name = "U2_N6"
 refdes = "J206"
 removable = true
 
+# Note that we skip the remaining two slots on (virtual) mux 3, which are
+# I2C_FPGA2_TO_MCIO1 and I2C_FPGA2_TO_MCIO2
+
+
 # SMBUS_FPGA2_TO_CEMH
 [[config.i2c.devices]]
 bus = "front"
-mux = 3
-segment = 2
+mux = 4
+segment = 1
 address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin H VPD"
@@ -766,8 +776,8 @@ removable = true
 
 [[config.i2c.devices]]
 bus = "front"
-mux = 3
-segment = 2
+mux = 4
+segment = 1
 address = 0b0111_000
 device = "max5970"
 description = "U.2 Sharkfin H hot swap controller"
@@ -779,8 +789,8 @@ removable = true
 
 [[config.i2c.devices]]
 bus = "front"
-mux = 3
-segment = 2
+mux = 4
+segment = 1
 address = 0b110_1010
 device = "nvme_bmc"
 description = "U.2 H NVMe Basic Management Control"
@@ -792,8 +802,8 @@ removable = true
 # SMBUS_FPGA2_TO_CEMI
 [[config.i2c.devices]]
 bus = "front"
-mux = 3
-segment = 3
+mux = 4
+segment = 2
 address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin I VPD"
@@ -803,8 +813,8 @@ removable = true
 
 [[config.i2c.devices]]
 bus = "front"
-mux = 3
-segment = 3
+mux = 4
+segment = 2
 address = 0b0111_000
 device = "max5970"
 description = "U.2 Sharkfin I hot swap controller"
@@ -816,8 +826,8 @@ removable = true
 
 [[config.i2c.devices]]
 bus = "front"
-mux = 3
-segment = 3
+mux = 4
+segment = 2
 address = 0b110_1010
 device = "nvme_bmc"
 description = "U.2 I NVMe Basic Management Control"
@@ -829,8 +839,8 @@ removable = true
 # SMBUS_FPGA2_TO_CEMJ
 [[config.i2c.devices]]
 bus = "front"
-mux = 3
-segment = 4
+mux = 4
+segment = 3
 address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin J VPD"
@@ -840,8 +850,8 @@ removable = true
 
 [[config.i2c.devices]]
 bus = "front"
-mux = 3
-segment = 4
+mux = 4
+segment = 3
 address = 0b0111_000
 device = "max5970"
 description = "U.2 Sharkfin J hot swap controller"
@@ -853,8 +863,8 @@ removable = true
 
 [[config.i2c.devices]]
 bus = "front"
-mux = 3
-segment = 4
+mux = 4
+segment = 3
 address = 0b110_1010
 device = "nvme_bmc"
 description = "U.2 J NVMe Basic Management Control"
@@ -867,7 +877,7 @@ removable = true
 # SMBUS_FPGA2_TO_FRONT
 [[config.i2c.devices]]
 bus = "front"
-mux = 4
+mux = 5
 segment = 1
 address = 0x48
 device = "tmp117"
@@ -879,7 +889,7 @@ refdes = "J44"
 
 [[config.i2c.devices]]
 bus = "front"
-mux = 4
+mux = 5
 segment = 1
 address = 0x49
 device = "tmp117"
@@ -891,7 +901,7 @@ refdes = "J45"
 
 [[config.i2c.devices]]
 bus = "front"
-mux = 4
+mux = 5
 segment = 1
 address = 0x4a
 device = "tmp117"
