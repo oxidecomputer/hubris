@@ -494,10 +494,10 @@ cfg_if::cfg_if! {
                 ];
             } else if #[cfg(target_board = "cosmo-a")] {
                 const LEDS: &[(drv_stm32xx_sys_api::PinSet, bool)] = &[
-                    (drv_stm32xx_sys_api::Port::H.pin(6), false), // debug W
-                    (drv_stm32xx_sys_api::Port::H.pin(10), false), // debug R
-                    (drv_stm32xx_sys_api::Port::H.pin(11), false), // debug G
-                    (drv_stm32xx_sys_api::Port::H.pin(12), false), // debug B
+                    (drv_stm32xx_sys_api::Port::H.pin(6), true), // debug W
+                    (drv_stm32xx_sys_api::Port::H.pin(10), true), // debug R
+                    (drv_stm32xx_sys_api::Port::H.pin(11), true), // debug G
+                    (drv_stm32xx_sys_api::Port::H.pin(12), true), // debug B
                 ];
             } else {
                 compile_error!("no LED mapping for unknown board");
