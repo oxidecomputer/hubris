@@ -7,7 +7,7 @@
 #![no_std]
 #![no_main]
 
-use drv_cpu_seq_api::{PowerState, SeqError, StateChangeReason};
+use drv_cpu_seq_api::{PowerState, SeqError as CpuSeqError, StateChangeReason};
 use drv_ice40_spi_program as ice40;
 use drv_spartan7_loader_api::Spartan7Loader;
 use drv_spi_api::{SpiDevice, SpiServer};
@@ -34,7 +34,7 @@ task_slot!(AUXFLASH, auxflash);
 #[derive(Copy, Clone, PartialEq, Count)]
 enum Trace {
     FpgaInit,
-    StartFailed(#[count(children)] CosmoSeqError),
+    StartFailed(#[count(children)] SeqError),
     ContinueBitstreamLoad(usize),
     WaitForDone,
     Programmed,
@@ -73,15 +73,15 @@ counted_ringbuf!(Trace, 128, Trace::None);
 ////////////////////////////////////////////////////////////////////////////////
 
 #[derive(Copy, Clone, PartialEq, Count)]
-enum CosmoSeqError {
+enum SeqError {
     AuxFlashError(#[count(children)] drv_auxflash_api::AuxFlashError),
     AuxChecksumMismatch,
     Ice40(#[count(children)] ice40::Ice40Error),
 }
 
-impl From<drv_auxflash_api::AuxFlashError> for CosmoSeqError {
+impl From<drv_auxflash_api::AuxFlashError> for SeqError {
     fn from(v: drv_auxflash_api::AuxFlashError) -> Self {
-        CosmoSeqError::AuxFlashError(v)
+        SeqError::AuxFlashError(v)
     }
 }
 
@@ -143,7 +143,7 @@ fn main() -> ! {
     }
 }
 
-fn init() -> Result<ServerImpl, CosmoSeqError> {
+fn init() -> Result<ServerImpl, SeqError> {
     let sys = sys_api::Sys::from(SYS.get_task_id());
 
     // Pull the fault line low while we're loading
@@ -233,17 +233,17 @@ fn init_front_fpga<S: SpiServer>(
     dev: &SpiDevice<S>,
     aux: &drv_auxflash_api::AuxFlash,
     config: &ice40::Config,
-) -> Result<(), CosmoSeqError> {
+) -> Result<(), SeqError> {
     ringbuf_entry!(Trace::FpgaInit);
 
     ice40::begin_bitstream_load(dev, sys, config)
-        .map_err(CosmoSeqError::Ice40)?;
+        .map_err(SeqError::Ice40)?;
 
     let r = aux.get_compressed_blob_streaming(
         *b"ICE4",
-        |chunk| -> Result<(), CosmoSeqError> {
+        |chunk| -> Result<(), SeqError> {
             ice40::continue_bitstream_load(dev, chunk)
-                .map_err(|e| CosmoSeqError::Ice40(ice40::Ice40Error::Spi(e)))?;
+                .map_err(|e| SeqError::Ice40(ice40::Ice40Error::Spi(e)))?;
             ringbuf_entry!(Trace::ContinueBitstreamLoad(chunk.len()));
             Ok(())
         },
@@ -262,12 +262,11 @@ fn init_front_fpga<S: SpiServer>(
         hl::sleep_for(1);
         let _ = dev.release();
 
-        return Err(CosmoSeqError::AuxChecksumMismatch);
+        return Err(SeqError::AuxChecksumMismatch);
     }
 
     ringbuf_entry!(Trace::WaitForDone);
-    ice40::finish_bitstream_load(dev, sys, config)
-        .map_err(CosmoSeqError::Ice40)?;
+    ice40::finish_bitstream_load(dev, sys, config).map_err(SeqError::Ice40)?;
     ringbuf_entry!(Trace::Programmed);
 
     // Bring the user design out of reset
@@ -344,7 +343,7 @@ impl ServerImpl {
         &mut self,
         state: PowerState,
         why: StateChangeReason,
-    ) -> Result<(), SeqError> {
+    ) -> Result<(), CpuSeqError> {
         let now = sys_get_timer().now;
         ringbuf_entry!(Trace::SetState {
             prev: Some(self.state),
@@ -383,7 +382,7 @@ impl ServerImpl {
 
                     // XXX faulted isn't strictly a timeout, but this is the
                     // closest available error code
-                    return Err(SeqError::A0Timeout);
+                    return Err(CpuSeqError::A0Timeout);
                 }
 
                 // Flip the host flash mux so the CPU can read from it
@@ -420,7 +419,7 @@ impl ServerImpl {
             // This is purely an accounting change
             (PowerState::A0, PowerState::A0PlusHP) => (),
 
-            _ => return Err(SeqError::IllegalTransition),
+            _ => return Err(CpuSeqError::IllegalTransition),
         }
 
         self.state = state;
@@ -462,7 +461,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
         state: PowerState,
-    ) -> Result<(), RequestError<SeqError>> {
+    ) -> Result<(), RequestError<CpuSeqError>> {
         self.set_state_impl(state, StateChangeReason::Other)?;
         Ok(())
     }
@@ -472,7 +471,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         _: &RecvMessage,
         state: PowerState,
         reason: StateChangeReason,
-    ) -> Result<(), RequestError<SeqError>> {
+    ) -> Result<(), RequestError<CpuSeqError>> {
         self.set_state_impl(state, reason)?;
         Ok(())
     }
@@ -554,7 +553,7 @@ impl NotificationHandler for ServerImpl {
 ////////////////////////////////////////////////////////////////////////////////
 
 mod idl {
-    use drv_cpu_seq_api::{SeqError, StateChangeReason};
+    use drv_cpu_seq_api::StateChangeReason;
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
 
