@@ -89,6 +89,7 @@ impl From<drv_auxflash_api::AuxFlashError> for SeqError {
 
 const SP_TO_SP5_NMI_SYNC_FLOOD_L: sys_api::PinSet = sys_api::Port::J.pin(2);
 const SP_CHASSIS_STATUS_LED: sys_api::PinSet = sys_api::Port::C.pin(6);
+const SP_TO_FPGA2_SYSTEM_RESET_L: sys_api::PinSet = sys_api::Port::A.pin(5);
 
 // Disabled due to hardware-cosmo#659 (on Cosmo rev A this is PB7, but we need
 // to use that pin for FMC).
@@ -211,6 +212,17 @@ fn init_front_fpga<S: SpiServer>(
     config: &ice40::Config,
 ) -> Result<(), SeqError> {
     ringbuf_entry!(Trace::FpgaInit);
+
+    // Make the user reset pin a low output
+    sys.gpio_reset(SP_TO_FPGA2_SYSTEM_RESET_L);
+    sys.gpio_configure_output(
+        config.creset,
+        sys_api::OutputType::PushPull,
+        sys_api::Speed::Low,
+        sys_api::Pull::None,
+    );
+
+    ice40::configure_pins(sys, config);
     ice40::begin_bitstream_load(dev, sys, config).map_err(SeqError::Ice40)?;
 
     let r = aux.get_compressed_blob_streaming(
@@ -242,6 +254,10 @@ fn init_front_fpga<S: SpiServer>(
     ringbuf_entry!(Trace::WaitForDone);
     ice40::finish_bitstream_load(dev, sys, config).map_err(SeqError::Ice40)?;
     ringbuf_entry!(Trace::Programmed);
+
+    // Bring the user design out of reset
+    sys.gpio_set(SP_TO_FPGA2_SYSTEM_RESET_L);
+
     Ok(())
 }
 
@@ -269,10 +285,12 @@ impl ServerImpl {
             why: StateChangeReason::InitialPowerOn,
             now,
         });
+        let jefe = Jefe::from(JEFE.get_task_id());
+        jefe.set_state(PowerState::A2 as u32);
 
         ServerImpl {
             state: PowerState::A2,
-            jefe: Jefe::from(JEFE.get_task_id()),
+            jefe,
             sys: Sys::from(SYS.get_task_id()),
             hf: HostFlash::from(HF.get_task_id()),
             seq,
