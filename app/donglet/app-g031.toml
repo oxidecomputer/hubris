@@ -129,21 +129,3 @@ device = "tmp117"
 description = "TempSense"
 sensors = { temperature = 1 }
 removable = true
-
-[[config.i2c.devices]]
-controller = 1
-mux = 1
-segment = 5
-address = 0b1010_000
-device = "at24csw080"
-description = "Cosmo Sharkfin VPD"
-removable = true
-
-[[config.i2c.devices]]
-controller = 1
-mux = 1
-segment = 6
-address = 0b1010_000
-device = "at24csw080"
-description = "Cosmo Fan VPD"
-removable = true
