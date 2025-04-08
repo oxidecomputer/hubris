@@ -384,7 +384,8 @@ scl.pin = 8
 sda.pin = 9
 af = 4
 
-# The front FPGA has three virtual muxes, which pretend to be PCA9545s.
+# The front FPGA has five virtual muxes, which pretend to be PCA9545s.
+# We only use the lower 3 channels on each mux (which is normally 4-channel)
 [[config.i2c.controllers.ports.B.muxes]]
 driver = "pca9545" 
 address = 0x70
@@ -496,6 +497,13 @@ address = 0x73
 device = "pca9545"
 description = "Front FPGA virtual mux 4"
 refdes = "U31_4"
+
+[[config.i2c.devices]]
+bus = "front"
+address = 0x74
+device = "pca9545"
+description = "Front FPGA virtual mux 5"
+refdes = "U31_5"
 
 # Welcome to the sharkfin zone
 # SMBUS_FPGA2_TO_CEMA
