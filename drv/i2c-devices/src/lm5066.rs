@@ -218,7 +218,7 @@ impl Lm5066 {
 
 impl Validate<Error> for Lm5066 {
     fn validate(device: &I2cDevice) -> Result<bool, Error> {
-        let expected = b"LM5066\0\0";
+        let expected = b"LM5066I\0";
         pmbus_validate(device, CommandCode::MFR_MODEL, expected)
             .map_err(Into::into)
     }
