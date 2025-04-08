@@ -67,4 +67,6 @@ pub enum StateChangeReason {
 // packrat, all of which want to know at compile-time how many banks there are.
 pub const NUM_SPD_BANKS: usize = 2;
 
+use crate as drv_cpu_seq_api;
+
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
