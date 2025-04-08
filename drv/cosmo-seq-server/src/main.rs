@@ -172,6 +172,10 @@ fn init() -> Result<ServerImpl, SeqError> {
     let spi_front = drv_spi_api::Spi::from(SPI_FRONT.get_task_id());
     let aux = drv_auxflash_api::AuxFlash::from(AUXFLASH.get_task_id());
 
+    // Wait for the Spartan-7 to be loaded, which happens in parallel
+    let loader = Spartan7Loader::from(LOADER.get_task_id());
+    let token = loader.get_token();
+
     init_front_fpga(
         &sys,
         &spi_front.device(drv_spi_api::devices::MUX),
@@ -181,10 +185,6 @@ fn init() -> Result<ServerImpl, SeqError> {
             cdone: sys_api::Port::A.pin(3),
         },
     )?;
-
-    // Wait for the Spartan-7 to be loaded, which happens in parallel
-    let loader = Spartan7Loader::from(LOADER.get_task_id());
-    let token = loader.get_token();
 
     // Bring up the SP5 NMI pin
     sys.gpio_set(SP_TO_SP5_NMI_SYNC_FLOOD_L);
@@ -222,8 +222,13 @@ fn init_front_fpga<S: SpiServer>(
             Ok(())
         },
     );
-    let _ = dev.release();
-    let sha_out = r?;
+    let sha_out = match r {
+        Ok(s) => s,
+        Err(e) => {
+            dev.release();
+            return Err(e);
+        }
+    };
 
     if sha_out != gen::FRONT_FPGA_BITSTREAM_CHECKSUM {
         // Drop the device into reset and hold it there
@@ -235,6 +240,7 @@ fn init_front_fpga<S: SpiServer>(
     }
 
     ringbuf_entry!(Trace::WaitForDone);
+    hl::sleep_for(10);
     ice40::finish_bitstream_load(dev, sys, config).map_err(SeqError::Ice40)?;
     ringbuf_entry!(Trace::Programmed);
     Ok(())
