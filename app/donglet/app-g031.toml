@@ -15,7 +15,7 @@ name = "task-jefe"
 priority = 0
 max-sizes = {flash = 4096, ram = 512}
 start = true
-stacksize = 192
+stacksize = 256
 notifications = ["fault", "timer"]
 features = ["no-panic", "nano"]
 
@@ -130,20 +130,20 @@ description = "TempSense"
 sensors = { temperature = 1 }
 removable = true
 
-# [[config.i2c.devices]]
-# controller = 1
-# mux = 1
-# segment = 5
-# address = 0b1010_000
-# device = "at24csw080"
-# description = "Cosmo Sharkfin VPD"
-# removable = true
-# 
-# [[config.i2c.devices]]
-# controller = 1
-# mux = 1
-# segment = 6
-# address = 0b1010_000
-# device = "at24csw080"
-# description = "Cosmo Fan VPD"
-# removable = true
+[[config.i2c.devices]]
+controller = 1
+mux = 1
+segment = 5
+address = 0b1010_000
+device = "at24csw080"
+description = "Cosmo Sharkfin VPD"
+removable = true
+
+[[config.i2c.devices]]
+controller = 1
+mux = 1
+segment = 6
+address = 0b1010_000
+device = "at24csw080"
+description = "Cosmo Fan VPD"
+removable = true
