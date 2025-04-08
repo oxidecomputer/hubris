@@ -10,7 +10,6 @@
 use core::{convert::Infallible, mem::take};
 use counters::{count, Count};
 use static_cell::ClaimOnceCell;
-use sys_api::{Alternate, OutputType, Peripheral, Port, Pull, Speed};
 use task_net_api::{
     LargePayloadBehavior, Net, RecvError, SendError, SocketName,
 };
@@ -26,7 +25,6 @@ cfg_if::cfg_if! {
     }
 }
 
-use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};
 
 task_slot!(SYS, sys);
