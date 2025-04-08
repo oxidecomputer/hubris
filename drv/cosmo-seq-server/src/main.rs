@@ -170,6 +170,13 @@ fn init() -> Result<ServerImpl, CosmoSeqError> {
     let spi_front = drv_spi_api::Spi::from(SPI_FRONT.get_task_id());
     let aux = drv_auxflash_api::AuxFlash::from(AUXFLASH.get_task_id());
 
+    // Hold the ice40 in reset
+    let config = ice40::Config {
+        creset: sys_api::Port::A.pin(4),
+        cdone: sys_api::Port::A.pin(3),
+    };
+    preinit_front_fpga(&sys, &config);
+
     // Wait for the Spartan-7 to be loaded
     let loader = Spartan7Loader::from(LOADER.get_task_id());
     let token = loader.get_token();
@@ -178,10 +185,7 @@ fn init() -> Result<ServerImpl, CosmoSeqError> {
         &sys,
         &spi_front.device(drv_spi_api::devices::MUX),
         &aux,
-        &ice40::Config {
-            creset: sys_api::Port::A.pin(4),
-            cdone: sys_api::Port::A.pin(3),
-        },
+        &config,
     )?;
 
     // Bring up the SP5 NMI pin
@@ -204,15 +208,8 @@ fn init() -> Result<ServerImpl, CosmoSeqError> {
     Ok(ServerImpl::new(token))
 }
 
-/// Initialize the front FPGA, which is an ICE40
-fn init_front_fpga<S: SpiServer>(
-    sys: &sys_api::Sys,
-    dev: &SpiDevice<S>,
-    aux: &drv_auxflash_api::AuxFlash,
-    config: &ice40::Config,
-) -> Result<(), CosmoSeqError> {
-    ringbuf_entry!(Trace::FpgaInit);
-
+/// Configures the front FPGA pins and holds it in reset
+fn preinit_front_fpga(sys: &sys_api::Sys, config: &ice40::Config) {
     // Make the user reset pin a low output
     sys.gpio_reset(SP_TO_FPGA2_SYSTEM_RESET_L);
     sys.gpio_configure_output(
@@ -223,6 +220,22 @@ fn init_front_fpga<S: SpiServer>(
     );
 
     ice40::configure_pins(sys, config);
+
+    // This is also called in `ice40::begin_bitstream_load`, but we're going to
+    // wait for the sequencer to be loaded first, and want this to be in reset
+    // while we're waiting.
+    sys.gpio_reset(config.creset);
+}
+
+/// Initialize the front FPGA, which is an ICE40
+fn init_front_fpga<S: SpiServer>(
+    sys: &sys_api::Sys,
+    dev: &SpiDevice<S>,
+    aux: &drv_auxflash_api::AuxFlash,
+    config: &ice40::Config,
+) -> Result<(), CosmoSeqError> {
+    ringbuf_entry!(Trace::FpgaInit);
+
     ice40::begin_bitstream_load(dev, sys, config)
         .map_err(CosmoSeqError::Ice40)?;
 
