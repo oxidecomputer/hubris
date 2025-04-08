@@ -172,7 +172,7 @@ fn init() -> Result<ServerImpl, SeqError> {
     let spi_front = drv_spi_api::Spi::from(SPI_FRONT.get_task_id());
     let aux = drv_auxflash_api::AuxFlash::from(AUXFLASH.get_task_id());
 
-    // Wait for the Spartan-7 to be loaded, which happens in parallel
+    // Wait for the Spartan-7 to be loaded
     let loader = Spartan7Loader::from(LOADER.get_task_id());
     let token = loader.get_token();
 
@@ -225,7 +225,7 @@ fn init_front_fpga<S: SpiServer>(
     let sha_out = match r {
         Ok(s) => s,
         Err(e) => {
-            dev.release();
+            let _ = dev.release();
             return Err(e);
         }
     };
@@ -240,7 +240,6 @@ fn init_front_fpga<S: SpiServer>(
     }
 
     ringbuf_entry!(Trace::WaitForDone);
-    hl::sleep_for(10);
     ice40::finish_bitstream_load(dev, sys, config).map_err(SeqError::Ice40)?;
     ringbuf_entry!(Trace::Programmed);
     Ok(())
