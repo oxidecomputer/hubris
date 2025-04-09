@@ -236,8 +236,7 @@ fn init_front_fpga<S: SpiServer>(
 ) -> Result<(), SeqError> {
     ringbuf_entry!(Trace::FpgaInit);
 
-    ice40::begin_bitstream_load(dev, sys, config)
-        .map_err(SeqError::Ice40)?;
+    ice40::begin_bitstream_load(dev, sys, config).map_err(SeqError::Ice40)?;
 
     let r = aux.get_compressed_blob_streaming(
         *b"ICE4",
