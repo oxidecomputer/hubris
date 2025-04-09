@@ -119,27 +119,27 @@ static mut HIFFY_RSTACK: [u8; HIFFY_RSTACK_SIZE] = [0; HIFFY_RSTACK_SIZE];
 static HIFFY_SCRATCH: StaticCell<[u8; HIFFY_SCRATCH_SIZE]> =
     StaticCell::new([0; HIFFY_SCRATCH_SIZE]);
 
-#[no_mangle]
+#[used]
 static HIFFY_REQUESTS: AtomicU32 = AtomicU32::new(0);
-#[no_mangle]
+#[used]
 static HIFFY_ERRORS: AtomicU32 = AtomicU32::new(0);
-#[no_mangle]
+#[used]
 static HIFFY_KICK: AtomicU32 = AtomicU32::new(0);
-#[no_mangle]
+#[used]
 static HIFFY_READY: AtomicU32 = AtomicU32::new(0);
 
-#[no_mangle]
+#[used]
 static mut HIFFY_FAILURE: Option<Failure> = None;
 
 ///
 /// We deliberately export the HIF version numbers to allow Humility to
 /// fail cleanly if its HIF version does not match our own.
 ///
-#[no_mangle]
+#[used]
 static HIFFY_VERSION_MAJOR: AtomicU32 = AtomicU32::new(HIF_VERSION_MAJOR);
-#[no_mangle]
+#[used]
 static HIFFY_VERSION_MINOR: AtomicU32 = AtomicU32::new(HIF_VERSION_MINOR);
-#[no_mangle]
+#[used]
 static HIFFY_VERSION_PATCH: AtomicU32 = AtomicU32::new(HIF_VERSION_PATCH);
 
 #[export_name = "main"]
