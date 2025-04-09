@@ -1430,7 +1430,7 @@ cfg_if::cfg_if! {
 }
 
 mod idl {
-    use super::{SeqError, StateChangeReason};
+    use super::StateChangeReason;
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
