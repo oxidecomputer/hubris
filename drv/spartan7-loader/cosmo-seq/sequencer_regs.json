@@ -245,7 +245,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Fan Central hotswap disable"
+                    "desc": "Fan West hotswap disable"
                 }
             ]
         },
