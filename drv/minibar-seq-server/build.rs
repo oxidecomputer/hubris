@@ -34,7 +34,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Pull the bitstream checksum from an environment variable
     // (injected by `xtask` itself as part of auxiliary flash packing)
     let checksum =
-        build_util::env_var("HUBRIS_AUXFLASH_CHECKSUM_ECP5").unwrap();
+        build_util::env_var("HUBRIS_AUXFLASH_CHECKSUM_FPGA").unwrap();
     writeln!(
         &mut file,
         "\npub const MINIBAR_BITSTREAM_CHECKSUM: [u8; 32] = {};",
