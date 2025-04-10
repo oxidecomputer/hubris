@@ -1,0 +1,32 @@
+[package]
+edition = "2021"
+readme = "README.md"
+name = "minibar"
+version = "0.1.0"
+
+[features]
+traptrace = ["ringbuf"]
+dump = ["kern/dump"]
+
+[dependencies]
+cortex-m = { workspace = true }
+cortex-m-rt = { workspace = true }
+cfg-if = { workspace = true }
+stm32h7 = { workspace = true, features = ["rt", "stm32h753"] }
+ringbuf = { path = "../../lib/ringbuf", optional = true }
+
+drv-stm32h7-startup = { path = "../../drv/stm32h7-startup", features = ["h753"] }
+kern = { path = "../../sys/kern" }
+
+[build-dependencies]
+build-util = {path = "../../build/util"}
+
+# this lets you use `cargo fix`!
+[[bin]]
+name = "minibar"
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true
