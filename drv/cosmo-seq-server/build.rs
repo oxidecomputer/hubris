@@ -18,14 +18,21 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         panic!("unknown target board");
     }
 
-    // Pull the bitstream checksum from an environment variable
+    // Pull the bitstream checksums from environment variables
     // (injected by `xtask` itself as part of auxiliary flash packing)
-    let checksum =
+    let ice40_checksum =
         build_util::env_var("HUBRIS_AUXFLASH_CHECKSUM_ICE4").unwrap();
     writeln!(
         &mut file,
         "\npub const FRONT_FPGA_BITSTREAM_CHECKSUM: [u8; 32] = {};",
-        checksum,
+        ice40_checksum,
+    )?;
+    let spartan7_checksum =
+        build_util::env_var("HUBRIS_AUXFLASH_CHECKSUM_SPA7").unwrap();
+    writeln!(
+        &mut file,
+        "\npub const SPARTAN7_FPGA_BITSTREAM_CHECKSUM: [u8; 32] = {};",
+        spartan7_checksum,
     )?;
 
     idol::Generator::new().build_server_support(
@@ -36,14 +43,16 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     let out_file = out_dir.join("fmc_sequencer.rs");
     let mut file = std::fs::File::create(out_file)?;
-    write!(
-        &mut file,
-        "{}",
-        build_fpga_regmap::fpga_peripheral(
-            "sequencer",
-            "drv_spartan7_loader_api::Spartan7Token"
-        )?
-    )?;
+    for periph in ["sequencer", "info"] {
+        write!(
+            &mut file,
+            "{}",
+            build_fpga_regmap::fpga_peripheral(
+                periph,
+                "drv_spartan7_loader_api::Spartan7Token"
+            )?
+        )?;
+    }
 
     Ok(())
 }
