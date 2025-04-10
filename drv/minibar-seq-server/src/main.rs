@@ -34,7 +34,7 @@ enum Trace {
     FpgaInit,
     LoadingFpgaBitstream,
     SettingShortChecksum,
-    FpgaBitstreamError(u32),
+    FpgaBitstreamError(FpgaError),
     SkipLoadingBitstream,
     ControllerId(u32),
     InvalidControllerId(u32),
@@ -169,7 +169,7 @@ fn main() -> ! {
                     server.set_short_bitstream_checksum().unwrap_lite();
                 }
                 Err(e) => {
-                    ringbuf_entry!(Trace::FpgaBitstreamError(u32::from(e)));
+                    ringbuf_entry!(Trace::FpgaBitstreamError(e));
                     // If this is an auxflash error indicating that we can't
                     // find the target blob, then it's possible that data isn't
                     // present (i.e. this is an initial boot at the factory). To
