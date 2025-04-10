@@ -1,6 +1,6 @@
 {
     "type": "addrmap",
-    "addr_span_bytes": 18,
+    "addr_span_bytes": 577,
     "inst_name": "minibar_controller",
     "addr_offset": 0,
     "children": [
@@ -326,28 +326,8 @@
         },
         {
             "type": "reg",
-            "inst_name": "HCV",
-            "addr_offset": 16,
-            "regwidth": 8,
-            "min_accesswidth": 8,
-            "children": [
-                {
-                    "type": "field",
-                    "inst_name": "data",
-                    "lsb": 0,
-                    "msb": 7,
-                    "reset": 0,
-                    "sw_access": "r",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "HCV Code"
-                }
-            ]
-        },
-        {
-            "type": "reg",
             "inst_name": "SCRATCHPAD",
-            "addr_offset": 17,
+            "addr_offset": 16,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -361,6 +341,2003 @@
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "Scribble Register for read-write use"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "HCV",
+            "addr_offset": 17,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "code",
+                    "lsb": 0,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "HCV Code"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "SLED_PRESENCE",
+            "addr_offset": 18,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "rsw0_present",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Inverted value of rsw0_examax_to_fpga_sled_present_l pin"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "rsw1_present",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Inverted value of rsw1_examax_to_fpga_sled_present_l pin"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "pcie_present",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Inverted value of pcie_examax_to_fpga_sled_present_l pin"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "VBUS_SYS_RDBK",
+            "addr_offset": 19,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "fault",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Inverted value of the vbus_sys_hsc_to_fpga_fault_l pin"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "POWER_CTRL",
+            "addr_offset": 20,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "vbus_sled_en",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "fpga_to_vbus_sled_hsc_en pin control"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "vbus_sled_restart",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "fpga_to_vbus_sled_hsc_restart_l pin control (active high, FPGA will invert)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "vbus_sys_restart",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "fpga_to_vbus_sys_hsc_restart_l pin control (active high, FPGA will invert)"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "vbus_sled",
+            "addr_offset": 21,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "fault_pin",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Status of the fault pin (normalized to '1'=fault)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "pg_pin",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Status of the power good pin"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "enable_pin",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Status of the enable pin"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "state",
+                    "lsb": 4,
+                    "msb": 6,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "State of the FPGA-internal power rail sequencer",
+                    "encode": [
+                        {
+                            "name": "Disabled",
+                            "value": 0
+                        },
+                        {
+                            "name": "RampingUp",
+                            "value": 1
+                        },
+                        {
+                            "name": "TimedOut",
+                            "value": 2
+                        },
+                        {
+                            "name": "Aborted",
+                            "value": 3
+                        },
+                        {
+                            "name": "Enabled",
+                            "value": 4
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "SWITCH_RESET_CTRL",
+            "addr_offset": 22,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "vsc8504_reset",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "fpga_to_vsc8504_reset_l_3p3 pin control (active high, FPGA will invert)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "vsc7448_reset",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "fpga_to_vsc7448_reset_l pin control (active high, FPGA will invert)"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "PCIE_POWER_CTRL",
+            "addr_offset": 23,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "v3p3_pcie_en",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 1,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "fpga_to_v3p3_pcie_efuse_en pin control"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "v12_pcie_en",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 1,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "fpga_to_v12_pcie_efuse_en pin control"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "v12_pcie",
+            "addr_offset": 24,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "fault_pin",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Status of the fault pin (normalized to '1'=fault)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "pg_pin",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Status of the power good pin"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "enable_pin",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Status of the enable pin"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "state",
+                    "lsb": 4,
+                    "msb": 6,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "State of the FPGA-internal power rail sequencer",
+                    "encode": [
+                        {
+                            "name": "Disabled",
+                            "value": 0
+                        },
+                        {
+                            "name": "RampingUp",
+                            "value": 1
+                        },
+                        {
+                            "name": "TimedOut",
+                            "value": 2
+                        },
+                        {
+                            "name": "Aborted",
+                            "value": 3
+                        },
+                        {
+                            "name": "Enabled",
+                            "value": 4
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "v3p3_pcie",
+            "addr_offset": 25,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "fault_pin",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Status of the fault pin (normalized to '1'=fault)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "pg_pin",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Status of the power good pin"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "enable_pin",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Status of the enable pin"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "state",
+                    "lsb": 4,
+                    "msb": 6,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "State of the FPGA-internal power rail sequencer",
+                    "encode": [
+                        {
+                            "name": "Disabled",
+                            "value": 0
+                        },
+                        {
+                            "name": "RampingUp",
+                            "value": 1
+                        },
+                        {
+                            "name": "TimedOut",
+                            "value": 2
+                        },
+                        {
+                            "name": "Aborted",
+                            "value": 3
+                        },
+                        {
+                            "name": "Enabled",
+                            "value": 4
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "PCIE_REFCLK_CTRL",
+            "addr_offset": 26,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "oe0",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "fpga_to_pcie_aux_refclk_buffer_oe0_l pin control (active high, FPGA will invert)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "oe1",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "fpga_to_pcie_aux_refclk_buffer_oe1_l pin control (active high, FPGA will invert)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "pd",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "fpga_to_pcie_aux_refclk_buffer_pd_l pin control (active high, FPGA will invert)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "bw_sel",
+                    "lsb": 3,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "fpga_to_pcie_aux_refclk_buffer_bw_sel pin control",
+                    "encode": [
+                        {
+                            "name": "PllLowBw",
+                            "value": 0
+                        },
+                        {
+                            "name": "PllHighBw",
+                            "value": 1
+                        },
+                        {
+                            "name": "PllBypass",
+                            "value": 2
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "PCIE_CTRL",
+            "addr_offset": 27,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "sled_i2c_en",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 1,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "control of fpga_to_pcie_sled_i2c_buffer_en"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "cem_i2c_en",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 1,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "control of fpga_to_pcie_cem_i2c_buffer_en"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "attached",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "control of fpga_to_sled_pcie_attached_l (active high, FPGA will invert)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "sled_pwrflt",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "control of pcie_aux_fpga_to_sled_pwrflt_l (active high, FPGA will invert)"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "PCIE_RDBK",
+            "addr_offset": 28,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "sled_perst",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "pcie_aux_sled_to_fpga_perst_l pin readback (normalized to active high)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "sled_prsnt",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "pcie_aux_fpga_to_cem_prsnt_l pin readback (normalized to active high)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "cem_perst",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "pcie_aux_sled_to_fpga_perst_l pin readback (normalized to active high)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "cem_prsnt",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "pcie_aux_fpga_to_cem_prsnt_l pin readback (normalized to active high)"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "IGNITION_TARGETS_PRESENT",
+            "addr_offset": 29,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "target0_present",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Target 0 present"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "target1_present",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Target 1 present"
+                }
+            ]
+        },
+        {
+            "type": "addrmap",
+            "addr_span_bytes": 65,
+            "inst_name": "IGNITION_CONTROLLER0",
+            "addr_offset": 256,
+            "children": [
+                {
+                    "type": "reg",
+                    "inst_name": "CONTROLLER_STATE",
+                    "addr_offset": 0,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "TARGET_PRESENT",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "A Target is present and the TARGET_SYSTEM_TYPE, TARGET_SYSTEM_STATUS and TARGET_REQUEST_STATUS registers are valid"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "ALWAYS_TRANSMIT",
+                            "lsb": 1,
+                            "msb": 1,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Always transmit rather than wait for a Target to be present first"
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "CONTROLLER_LINK_STATUS",
+                    "addr_offset": 1,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "RECEIVER_ALIGNED",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating the receiver is aligned to the clock"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "RECEIVER_LOCKED",
+                            "lsb": 1,
+                            "msb": 1,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating the receiver is receiving valid characters"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "POLARITY_INVERTED",
+                            "lsb": 2,
+                            "msb": 2,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating the polarity of the link is inverted"
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "TARGET_SYSTEM_TYPE",
+                    "addr_offset": 2,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "SYSTEM_TYPE",
+                            "lsb": 0,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "The system type as advertised by the Target"
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "TARGET_SYSTEM_STATUS",
+                    "addr_offset": 3,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "CONTROLLER0_DETECTED",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating the Target has observed a Controller on link 0"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "CONTROLLER1_DETECTED",
+                            "lsb": 1,
+                            "msb": 1,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating the Target has observed a Controller on link 1"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "SYSTEM_POWER_ENABLED",
+                            "lsb": 2,
+                            "msb": 2,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating system power of the Target system is enabled"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "SYSTEM_POWER_ABORT",
+                            "lsb": 3,
+                            "msb": 3,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating system power was turned off due to power fault"
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "TARGET_SYSTEM_FAULTS",
+                    "addr_offset": 4,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "POWER_FAULT_A3",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating a power fault in A3"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "POWER_FAULT_A2",
+                            "lsb": 1,
+                            "msb": 1,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating a power fault in A2"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "RESERVED1",
+                            "lsb": 2,
+                            "msb": 2,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Reserved fault flag"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "RESERVED2",
+                            "lsb": 3,
+                            "msb": 3,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Reserved fault flag"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "SP_FAULT",
+                            "lsb": 4,
+                            "msb": 4,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating an unrecoverable fault was detected by the SP"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "ROT_FAULT",
+                            "lsb": 5,
+                            "msb": 5,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating an unrecoverable fault was detected by the RoT"
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "TARGET_REQUEST_STATUS",
+                    "addr_offset": 5,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "POWER_OFF_IN_PROGRESS",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating a power off request is in progress"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "POWER_ON_IN_PROGRESS",
+                            "lsb": 1,
+                            "msb": 1,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating a power on request is in progress"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "SYSTEM_RESET_IN_PROGRESS",
+                            "lsb": 2,
+                            "msb": 2,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating a system reset request is in progress"
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "TARGET_LINK0_STATUS",
+                    "addr_offset": 6,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "RECEIVER_ALIGNED",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating the receiver is aligned to the clock"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "RECEIVER_LOCKED",
+                            "lsb": 1,
+                            "msb": 1,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating the receiver is receiving valid characters"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "POLARITY_INVERTED",
+                            "lsb": 2,
+                            "msb": 2,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating the polarity of the link is inverted"
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "TARGET_LINK1_STATUS",
+                    "addr_offset": 7,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "RECEIVER_ALIGNED",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating the receiver is aligned to the clock"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "RECEIVER_LOCKED",
+                            "lsb": 1,
+                            "msb": 1,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating the receiver is receiving valid characters"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "POLARITY_INVERTED",
+                            "lsb": 2,
+                            "msb": 2,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating the polarity of the link is inverted"
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "TARGET_REQUEST",
+                    "addr_offset": 8,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "KIND",
+                            "lsb": 0,
+                            "msb": 1,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Value indicating the kind of request"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PENDING",
+                            "lsb": 7,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating a request is (still) pending"
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "CONTROLLER_STATUS_RECEIVED_COUNT",
+                    "addr_offset": 16,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "COUNT",
+                            "lsb": 0,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": "rclr",
+                            "se_onwrite": null,
+                            "desc": "The number of Status messages received by the Controller since last reset"
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "CONTROLLER_HELLO_SENT_COUNT",
+                    "addr_offset": 17,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "COUNT",
+                            "lsb": 0,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": "rclr",
+                            "se_onwrite": null,
+                            "desc": "The number of hello messages sent by the Controller since last reset"
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "CONTROLLER_REQUEST_SENT_COUNT",
+                    "addr_offset": 18,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "COUNT",
+                            "lsb": 0,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": "rclr",
+                            "se_onwrite": null,
+                            "desc": "The number of request messages sent by the Controller since last reset"
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "CONTROLLER_MESSAGE_DROPPED_COUNT",
+                    "addr_offset": 19,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "COUNT",
+                            "lsb": 0,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": "rclr",
+                            "se_onwrite": null,
+                            "desc": "The number of messages dropped by the Controller since last reset"
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "CONTROLLER_LINK_EVENTS_SUMMARY",
+                    "addr_offset": 32,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "ENCODING_ERROR",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating the transmitter encountered an invalid value"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "DECODING_ERROR",
+                            "lsb": 1,
+                            "msb": 1,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating the receiver encountered an invalid character"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "ORDERED_SET_INVALID",
+                            "lsb": 2,
+                            "msb": 2,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating an invalid ordered set was received"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "MESSAGE_VERSION_INVALID",
+                            "lsb": 3,
+                            "msb": 3,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating a message with invalid version was received"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "MESSAGE_TYPE_INVALID",
+                            "lsb": 4,
+                            "msb": 4,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating a message with invalid type was received"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "MESSAGE_CHECKSUM_INVALID",
+                            "lsb": 5,
+                            "msb": 5,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating a message with invalid checksum was received"
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "TARGET_LINK0_EVENTS_SUMMARY",
+                    "addr_offset": 48,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "ENCODING_ERROR",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating the transmitter encountered an invalid value"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "DECODING_ERROR",
+                            "lsb": 1,
+                            "msb": 1,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating the receiver encountered an invalid character"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "ORDERED_SET_INVALID",
+                            "lsb": 2,
+                            "msb": 2,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating an invalid ordered set was received"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "MESSAGE_VERSION_INVALID",
+                            "lsb": 3,
+                            "msb": 3,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating a message with invalid version was received"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "MESSAGE_TYPE_INVALID",
+                            "lsb": 4,
+                            "msb": 4,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating a message with invalid type was received"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "MESSAGE_CHECKSUM_INVALID",
+                            "lsb": 5,
+                            "msb": 5,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating a message with invalid checksum was received"
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "TARGET_LINK1_EVENTS_SUMMARY",
+                    "addr_offset": 64,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "ENCODING_ERROR",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating the transmitter encountered an invalid value"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "DECODING_ERROR",
+                            "lsb": 1,
+                            "msb": 1,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating the receiver encountered an invalid character"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "ORDERED_SET_INVALID",
+                            "lsb": 2,
+                            "msb": 2,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating an invalid ordered set was received"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "MESSAGE_VERSION_INVALID",
+                            "lsb": 3,
+                            "msb": 3,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating a message with invalid version was received"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "MESSAGE_TYPE_INVALID",
+                            "lsb": 4,
+                            "msb": 4,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating a message with invalid type was received"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "MESSAGE_CHECKSUM_INVALID",
+                            "lsb": 5,
+                            "msb": 5,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating a message with invalid checksum was received"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "addrmap",
+            "addr_span_bytes": 65,
+            "inst_name": "IGNITION_CONTROLLER1",
+            "addr_offset": 512,
+            "children": [
+                {
+                    "type": "reg",
+                    "inst_name": "CONTROLLER_STATE",
+                    "addr_offset": 0,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "TARGET_PRESENT",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "A Target is present and the TARGET_SYSTEM_TYPE, TARGET_SYSTEM_STATUS and TARGET_REQUEST_STATUS registers are valid"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "ALWAYS_TRANSMIT",
+                            "lsb": 1,
+                            "msb": 1,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Always transmit rather than wait for a Target to be present first"
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "CONTROLLER_LINK_STATUS",
+                    "addr_offset": 1,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "RECEIVER_ALIGNED",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating the receiver is aligned to the clock"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "RECEIVER_LOCKED",
+                            "lsb": 1,
+                            "msb": 1,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating the receiver is receiving valid characters"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "POLARITY_INVERTED",
+                            "lsb": 2,
+                            "msb": 2,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating the polarity of the link is inverted"
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "TARGET_SYSTEM_TYPE",
+                    "addr_offset": 2,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "SYSTEM_TYPE",
+                            "lsb": 0,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "The system type as advertised by the Target"
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "TARGET_SYSTEM_STATUS",
+                    "addr_offset": 3,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "CONTROLLER0_DETECTED",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating the Target has observed a Controller on link 0"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "CONTROLLER1_DETECTED",
+                            "lsb": 1,
+                            "msb": 1,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating the Target has observed a Controller on link 1"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "SYSTEM_POWER_ENABLED",
+                            "lsb": 2,
+                            "msb": 2,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating system power of the Target system is enabled"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "SYSTEM_POWER_ABORT",
+                            "lsb": 3,
+                            "msb": 3,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating system power was turned off due to power fault"
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "TARGET_SYSTEM_FAULTS",
+                    "addr_offset": 4,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "POWER_FAULT_A3",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating a power fault in A3"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "POWER_FAULT_A2",
+                            "lsb": 1,
+                            "msb": 1,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating a power fault in A2"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "RESERVED1",
+                            "lsb": 2,
+                            "msb": 2,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Reserved fault flag"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "RESERVED2",
+                            "lsb": 3,
+                            "msb": 3,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Reserved fault flag"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "SP_FAULT",
+                            "lsb": 4,
+                            "msb": 4,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating an unrecoverable fault was detected by the SP"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "ROT_FAULT",
+                            "lsb": 5,
+                            "msb": 5,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating an unrecoverable fault was detected by the RoT"
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "TARGET_REQUEST_STATUS",
+                    "addr_offset": 5,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "POWER_OFF_IN_PROGRESS",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating a power off request is in progress"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "POWER_ON_IN_PROGRESS",
+                            "lsb": 1,
+                            "msb": 1,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating a power on request is in progress"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "SYSTEM_RESET_IN_PROGRESS",
+                            "lsb": 2,
+                            "msb": 2,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating a system reset request is in progress"
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "TARGET_LINK0_STATUS",
+                    "addr_offset": 6,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "RECEIVER_ALIGNED",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating the receiver is aligned to the clock"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "RECEIVER_LOCKED",
+                            "lsb": 1,
+                            "msb": 1,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating the receiver is receiving valid characters"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "POLARITY_INVERTED",
+                            "lsb": 2,
+                            "msb": 2,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating the polarity of the link is inverted"
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "TARGET_LINK1_STATUS",
+                    "addr_offset": 7,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "RECEIVER_ALIGNED",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating the receiver is aligned to the clock"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "RECEIVER_LOCKED",
+                            "lsb": 1,
+                            "msb": 1,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating the receiver is receiving valid characters"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "POLARITY_INVERTED",
+                            "lsb": 2,
+                            "msb": 2,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating the polarity of the link is inverted"
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "TARGET_REQUEST",
+                    "addr_offset": 8,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "KIND",
+                            "lsb": 0,
+                            "msb": 1,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Value indicating the kind of request"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PENDING",
+                            "lsb": 7,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating a request is (still) pending"
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "CONTROLLER_STATUS_RECEIVED_COUNT",
+                    "addr_offset": 16,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "COUNT",
+                            "lsb": 0,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": "rclr",
+                            "se_onwrite": null,
+                            "desc": "The number of Status messages received by the Controller since last reset"
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "CONTROLLER_HELLO_SENT_COUNT",
+                    "addr_offset": 17,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "COUNT",
+                            "lsb": 0,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": "rclr",
+                            "se_onwrite": null,
+                            "desc": "The number of hello messages sent by the Controller since last reset"
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "CONTROLLER_REQUEST_SENT_COUNT",
+                    "addr_offset": 18,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "COUNT",
+                            "lsb": 0,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": "rclr",
+                            "se_onwrite": null,
+                            "desc": "The number of request messages sent by the Controller since last reset"
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "CONTROLLER_MESSAGE_DROPPED_COUNT",
+                    "addr_offset": 19,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "COUNT",
+                            "lsb": 0,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": "rclr",
+                            "se_onwrite": null,
+                            "desc": "The number of messages dropped by the Controller since last reset"
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "CONTROLLER_LINK_EVENTS_SUMMARY",
+                    "addr_offset": 32,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "ENCODING_ERROR",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating the transmitter encountered an invalid value"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "DECODING_ERROR",
+                            "lsb": 1,
+                            "msb": 1,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating the receiver encountered an invalid character"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "ORDERED_SET_INVALID",
+                            "lsb": 2,
+                            "msb": 2,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating an invalid ordered set was received"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "MESSAGE_VERSION_INVALID",
+                            "lsb": 3,
+                            "msb": 3,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating a message with invalid version was received"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "MESSAGE_TYPE_INVALID",
+                            "lsb": 4,
+                            "msb": 4,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating a message with invalid type was received"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "MESSAGE_CHECKSUM_INVALID",
+                            "lsb": 5,
+                            "msb": 5,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating a message with invalid checksum was received"
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "TARGET_LINK0_EVENTS_SUMMARY",
+                    "addr_offset": 48,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "ENCODING_ERROR",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating the transmitter encountered an invalid value"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "DECODING_ERROR",
+                            "lsb": 1,
+                            "msb": 1,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating the receiver encountered an invalid character"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "ORDERED_SET_INVALID",
+                            "lsb": 2,
+                            "msb": 2,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating an invalid ordered set was received"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "MESSAGE_VERSION_INVALID",
+                            "lsb": 3,
+                            "msb": 3,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating a message with invalid version was received"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "MESSAGE_TYPE_INVALID",
+                            "lsb": 4,
+                            "msb": 4,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating a message with invalid type was received"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "MESSAGE_CHECKSUM_INVALID",
+                            "lsb": 5,
+                            "msb": 5,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating a message with invalid checksum was received"
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "TARGET_LINK1_EVENTS_SUMMARY",
+                    "addr_offset": 64,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "ENCODING_ERROR",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating the transmitter encountered an invalid value"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "DECODING_ERROR",
+                            "lsb": 1,
+                            "msb": 1,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating the receiver encountered an invalid character"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "ORDERED_SET_INVALID",
+                            "lsb": 2,
+                            "msb": 2,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating an invalid ordered set was received"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "MESSAGE_VERSION_INVALID",
+                            "lsb": 3,
+                            "msb": 3,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating a message with invalid version was received"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "MESSAGE_TYPE_INVALID",
+                            "lsb": 4,
+                            "msb": 4,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating a message with invalid type was received"
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "MESSAGE_CHECKSUM_INVALID",
+                            "lsb": 5,
+                            "msb": 5,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Flag indicating a message with invalid checksum was received"
+                        }
+                    ]
                 }
             ]
         }
