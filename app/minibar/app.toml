@@ -339,4 +339,4 @@ slot-count = 16 # 2 MiB slots
 [[auxflash.blobs]]
 file = "drv/minibar-seq-server/minibar_controller_hcv_a.bit"
 compress = true
-tag = "ECP5"
+tag = "FPGA"
