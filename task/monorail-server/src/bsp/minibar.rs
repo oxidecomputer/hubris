@@ -61,12 +61,13 @@ mod map {
     const SGMII: Option<PortMode> = Some(Sgmii(Speed100M));
     const QSGMII_1G: Option<PortMode> = Some(Qsgmii(Speed1G));
 
+    // See Figure 8, QSGMII Muxing in the datasheet (VMDS-10498)
     pub const PORT_MAP: PortMap = PortMap::new([
-        None,      // 0
-        SGMII,     // 1  | DEV1G_1   | SERDES1G_2  | Local SP link 0
-        SGMII,     // 2  | DEV1G_2   | SERDES1G_3  | Local SP link 1
-        SGMII,     // 3  | DEV1G_3   | SERDES1G_4  |  Sled SP link 1
-        SGMII,     // 4  | DEV1G_4   | SERDES1G_5  |  Sled SP link 0
+        SGMII,     // 0  | DEV1G_0   | SERDES1G_1  |  Sled SP link 0
+        SGMII,     // 1  | DEV1G_1   | SERDES1G_2  |  Sled SP link 1
+        SGMII,     // 2  | DEV1G_2   | SERDES1G_3  | Local SP link 0
+        SGMII,     // 3  | DEV1G_3   | SERDES1G_4  | Local SP link 1
+        None,      // 4
         None,      // 5
         None,      // 6
         None,      // 7
