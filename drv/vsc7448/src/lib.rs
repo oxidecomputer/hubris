@@ -833,7 +833,13 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
     pub fn configure_vlan_minibar(&self) -> Result<(), VscError> {
         self.configure_vlans(|p| match p {
             minibar::REAR_IO_0 | minibar::REAR_IO_1 | minibar::REAR_IO_2 => {
-                None
+                Some(
+                    (1 << p)
+                        | (1 << minibar::LOCAL_SP_0)
+                        | (1 << minibar::LOCAL_SP_1)
+                        | (1 << minibar::SLED_SP_0)
+                        | (1 << minibar::SLED_SP_1),
+                )
             }
             _ => Some(
                 (1 << p)
@@ -965,6 +971,10 @@ mod sidecar {
 }
 
 mod minibar {
+    pub const LOCAL_SP_0: u8 = 0;
+    pub const LOCAL_SP_1: u8 = 1;
+    pub const SLED_SP_0: u8 = 2;
+    pub const SLED_SP_1: u8 = 3;
     pub const REAR_IO_0: u8 = 40;
     pub const REAR_IO_1: u8 = 41;
     pub const REAR_IO_2: u8 = 42;
