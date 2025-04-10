@@ -177,9 +177,17 @@ fn init() -> Result<ServerImpl, SeqError> {
     };
     preinit_front_fpga(&sys, &config);
 
-    // Wait for the Spartan-7 to be loaded
+    // Wait for the Spartan-7 to be loaded, then update its checksum registers
     let loader = Spartan7Loader::from(LOADER.get_task_id());
+
+    // Set up the checksum registers for the Spartan7 FPGA
     let token = loader.get_token();
+    let info = fmc_periph::Info::new(token);
+    let short_checksum = gen::SPARTAN7_FPGA_BITSTREAM_CHECKSUM[..4]
+        .try_into()
+        .unwrap();
+    info.fpga_checksum
+        .modify(|r| r.set_data(u32::from_be_bytes(short_checksum)));
 
     init_front_fpga(
         &sys,
@@ -205,6 +213,7 @@ fn init() -> Result<ServerImpl, SeqError> {
     // Turn on the chassis LED!
     sys.gpio_set(SP_CHASSIS_STATUS_LED);
 
+    let token = loader.get_token();
     Ok(ServerImpl::new(token))
 }
 
