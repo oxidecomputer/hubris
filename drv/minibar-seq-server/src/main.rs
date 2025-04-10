@@ -245,5 +245,7 @@ fn main() -> ! {
     let deadline = sys_get_timer().now;
     sys_set_timer(Some(deadline), notifications::TIMER_MASK);
 
-    loop {}
+    loop {
+        userlib::hl::sleep_for(1000);
+    }
 }
