@@ -192,7 +192,7 @@ impl NotificationHandler for ServerImpl {
 }
 
 mod idl {
-    use drv_cpu_seq_api::{SeqError, StateChangeReason};
+    use drv_cpu_seq_api::StateChangeReason;
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
 
