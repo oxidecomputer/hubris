@@ -48,8 +48,19 @@ task_config::optional_task_config! {
 const BLINK_INTERVAL: u32 = 500;
 
 cfg_if::cfg_if! {
+    if #[cfg(target_board = "cosmo-a")] {
+        #[derive(enum_map::Enum, Copy, Clone, FromPrimitive)]
+        #[allow(clippy::enum_variant_names)]
+        enum Led {
+            // chassis LED is controlled by cosmo-seq
+            DebugWhite = 0,
+            DebugRed = 1,
+            DebugGreen = 2,
+            DebugBlue = 3,
+        }
+    }
     // Target boards with 4 leds
-    if #[cfg(any(
+    else if #[cfg(any(
             target_board = "gemini-bu-1",
             target_board = "gimletlet-1",
             target_board = "gimletlet-2"
@@ -481,6 +492,13 @@ cfg_if::cfg_if! {
                 const LEDS: &[(drv_stm32xx_sys_api::PinSet, bool)] = &[
                     (drv_stm32xx_sys_api::Port::C.pin(6), false),
                 ];
+            } else if #[cfg(target_board = "cosmo-a")] {
+                const LEDS: &[(drv_stm32xx_sys_api::PinSet, bool)] = &[
+                    (drv_stm32xx_sys_api::Port::H.pin(6), true), // debug W
+                    (drv_stm32xx_sys_api::Port::H.pin(10), true), // debug R
+                    (drv_stm32xx_sys_api::Port::H.pin(11), true), // debug G
+                    (drv_stm32xx_sys_api::Port::H.pin(12), true), // debug B
+                ];
             } else {
                 compile_error!("no LED mapping for unknown board");
             }
@@ -510,35 +528,7 @@ fn enable_led_pins() {
 
 #[cfg(feature = "stm32h7")]
 fn led_info(led: Led) -> (drv_stm32xx_sys_api::PinSet, bool) {
-    match led {
-        Led::Zero => LEDS[0],
-        #[cfg(any(
-            target_board = "gemini-bu-1",
-            target_board = "gimletlet-1",
-            target_board = "gimletlet-2",
-            target_board = "nucleo-h753zi",
-            target_board = "nucleo-h743zi2",
-            target_board = "gemini-bu-1",
-            target_board = "gimletlet-1",
-            target_board = "gimletlet-2",
-            target_board = "grapefruit",
-        ))]
-        Led::One => LEDS[1],
-        #[cfg(any(
-            target_board = "gemini-bu-1",
-            target_board = "gimletlet-1",
-            target_board = "gimletlet-2",
-            target_board = "nucleo-h753zi",
-            target_board = "nucleo-h743zi2"
-        ))]
-        Led::Two => LEDS[2],
-        #[cfg(any(
-            target_board = "gemini-bu-1",
-            target_board = "gimletlet-1",
-            target_board = "gimletlet-2"
-        ))]
-        Led::Three => LEDS[3],
-    }
+    LEDS[led as usize]
 }
 
 #[cfg(feature = "stm32h7")]
