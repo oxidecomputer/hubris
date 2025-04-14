@@ -53,7 +53,7 @@ impl crate::bsp_support::Bsp for BspImpl {
     }
 
     fn preinit() {
-        // Nothing to do here, XXX should we sleep?
+        // Nothing to do here
     }
 
     fn new(eth: &eth::Ethernet, sys: &Sys) -> Self {

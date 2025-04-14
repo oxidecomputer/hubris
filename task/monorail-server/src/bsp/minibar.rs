@@ -121,7 +121,7 @@ mod map {
 pub use map::PORT_MAP;
 
 pub fn preinit() {
-    sleep_for(100); // wait for power to stabilize (XXX is this needed?)
+    sleep_for(100); // wait for power to stabilize; unclear if this is needed
 }
 
 impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
@@ -290,7 +290,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             } else {
                 Some(Speed::Speed100M)
             }
-            // TODO: 10M?
+            // If anyone plugs in a 10M connection, they're on their own
         } else {
             None
         };
