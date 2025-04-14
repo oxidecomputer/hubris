@@ -305,6 +305,21 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             .map_err(|()| RequestError::went_away())
     }
 
+    fn page_program_dev(
+        &mut self,
+        msg: &RecvMessage,
+        dev: HfDevSelect,
+        addr: u32,
+        protect: HfProtectMode,
+        data: LenLimit<Leased<R, [u8]>, PAGE_SIZE_BYTES>,
+    ) -> Result<(), RequestError<HfError>> {
+        let prev = self.dev;
+        self.set_dev(msg, dev)?; // makes subsequent set_dev infallible
+        let r = self.page_program(msg, addr, protect, data);
+        self.set_dev(msg, prev).unwrap_lite(); // this is infallible!
+        r
+    }
+
     /// Reads a page from the currently selected `dev`
     fn read(
         &mut self,
@@ -337,6 +352,20 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         self.check_addr_writable(addr, protect)?;
         self.drv.flash_sector_erase(self.flash_addr(addr, 0)?);
         Ok(())
+    }
+
+    fn sector_erase_dev(
+        &mut self,
+        msg: &RecvMessage,
+        dev: HfDevSelect,
+        addr: u32,
+        protect: HfProtectMode,
+    ) -> Result<(), RequestError<HfError>> {
+        let prev = self.dev;
+        self.set_dev(msg, dev)?; // makes subsequent set_dev infallible
+        let r = self.sector_erase(msg, addr, protect);
+        self.set_dev(msg, prev).unwrap_lite(); // this is infallible!
+        r
     }
 
     /// Writes a page to the bonus region of flash
@@ -413,6 +442,15 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         self.drv.check_flash_mux_state()?;
         self.dev = dev;
         self.drv.set_espi_addr_offset(self.flash_base());
+        Ok(())
+    }
+
+    fn check_dev(
+        &mut self,
+        _: &RecvMessage,
+        _state: HfDevSelect,
+    ) -> Result<(), RequestError<HfError>> {
+        self.drv.check_flash_mux_state()?;
         Ok(())
     }
 
@@ -565,6 +603,17 @@ impl idl::InOrderHostFlashImpl for FailServer {
         Err(self.err.into())
     }
 
+    fn page_program_dev(
+        &mut self,
+        _: &RecvMessage,
+        _: HfDevSelect,
+        _addr: u32,
+        _protect: HfProtectMode,
+        _data: LenLimit<Leased<R, [u8]>, PAGE_SIZE_BYTES>,
+    ) -> Result<(), RequestError<HfError>> {
+        Err(self.err.into())
+    }
+
     fn read(
         &mut self,
         _: &RecvMessage,
@@ -577,6 +626,16 @@ impl idl::InOrderHostFlashImpl for FailServer {
     fn sector_erase(
         &mut self,
         _: &RecvMessage,
+        _addr: u32,
+        _protect: HfProtectMode,
+    ) -> Result<(), RequestError<HfError>> {
+        Err(self.err.into())
+    }
+
+    fn sector_erase_dev(
+        &mut self,
+        _: &RecvMessage,
+        _: HfDevSelect,
         _addr: u32,
         _protect: HfProtectMode,
     ) -> Result<(), RequestError<HfError>> {
@@ -632,6 +691,14 @@ impl idl::InOrderHostFlashImpl for FailServer {
     }
 
     fn set_dev(
+        &mut self,
+        _: &RecvMessage,
+        _state: HfDevSelect,
+    ) -> Result<(), RequestError<HfError>> {
+        Err(self.err.into())
+    }
+
+    fn check_dev(
         &mut self,
         _: &RecvMessage,
         _state: HfDevSelect,

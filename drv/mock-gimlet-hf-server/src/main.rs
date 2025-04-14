@@ -18,7 +18,7 @@ use drv_hf_api::{
 use idol_runtime::{
     ClientError, Leased, LenLimit, NotificationHandler, RequestError, R, W,
 };
-use userlib::RecvMessage;
+use userlib::{RecvMessage, UnwrapLite};
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -85,6 +85,21 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         Ok(())
     }
 
+    fn page_program_dev(
+        &mut self,
+        msg: &RecvMessage,
+        dev: HfDevSelect,
+        addr: u32,
+        protect: HfProtectMode,
+        data: LenLimit<Leased<R, [u8]>, PAGE_SIZE_BYTES>,
+    ) -> Result<(), RequestError<HfError>> {
+        let prev = self.dev_state;
+        self.set_dev(msg, dev)?;
+        let r = self.page_program(msg, addr, protect, data);
+        self.set_dev(msg, prev).unwrap_lite();
+        r
+    }
+
     fn read(
         &mut self,
         _: &RecvMessage,
@@ -106,6 +121,20 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         _protect: HfProtectMode,
     ) -> Result<(), RequestError<HfError>> {
         Ok(())
+    }
+
+    fn sector_erase_dev(
+        &mut self,
+        msg: &RecvMessage,
+        dev: HfDevSelect,
+        addr: u32,
+        protect: HfProtectMode,
+    ) -> Result<(), RequestError<HfError>> {
+        let prev = self.dev_state;
+        self.set_dev(msg, dev)?;
+        let r = self.sector_erase(msg, addr, protect);
+        self.set_dev(msg, prev).unwrap();
+        r
     }
 
     fn get_mux(
@@ -138,6 +167,17 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     ) -> Result<(), RequestError<HfError>> {
         self.dev_state = state;
         Ok(())
+    }
+
+    fn check_dev(
+        &mut self,
+        _: &RecvMessage,
+        _state: HfDevSelect,
+    ) -> Result<(), RequestError<HfError>> {
+        match self.mux_state {
+            HfMuxState::SP => Ok(()),
+            HfMuxState::HostCPU => Err(HfError::NotMuxedToSP.into()),
+        }
     }
 
     #[cfg(feature = "hash")]
