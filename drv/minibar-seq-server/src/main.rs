@@ -16,7 +16,7 @@ use drv_packrat_vpd_loader::{read_vpd_and_load_packrat, Packrat};
 
 use idol_runtime::NotificationHandler;
 use ringbuf::{ringbuf, ringbuf_entry};
-use userlib::{sys_get_timer, sys_set_timer, task_slot, TaskId, UnwrapLite};
+use userlib::{sys_get_timer, sys_set_timer, task_slot, UnwrapLite};
 
 task_slot!(I2C, i2c_driver);
 task_slot!(FPGA, ecp5);
@@ -49,7 +49,6 @@ ringbuf!(Trace, 32, Trace::None);
 const TIMER_INTERVAL: u64 = 1000;
 
 struct ServerImpl {
-    i2c_task: TaskId,
     fpga_config: Fpga,
     fpga_user: FpgaUserDesign,
 }
@@ -146,7 +145,6 @@ fn main() -> ! {
     let auxflash_task = AUXFLASH.get_task_id();
 
     let mut server = ServerImpl {
-        i2c_task,
         fpga_config,
         fpga_user,
     };
