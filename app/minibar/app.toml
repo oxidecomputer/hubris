@@ -1,0 +1,342 @@
+name = "minibar"
+board = "minibar"
+target = "thumbv7em-none-eabihf"
+chip = "../../chips/stm32h7"
+stacksize = 896
+memory = "memory-large.toml"
+fwid = true
+
+[kernel]
+name = "minibar"
+requires = {flash = 26656, ram = 6256}
+
+[tasks.jefe]
+name = "task-jefe"
+priority = 0
+max-sizes = {flash = 16384, ram = 2048}
+start = true
+stacksize = 1536
+notifications = ["fault", "timer"]
+
+[tasks.jefe.config.allowed-callers]
+set_reset_reason = ["sys"]
+request_reset = ["hiffy"]
+
+[tasks.packrat]
+name = "task-packrat"
+priority = 3
+max-sizes = {flash = 8192, ram = 2048}
+start = true
+# task-slots is explicitly empty: packrat should not send IPCs!
+task-slots = []
+
+[tasks.sprot]
+name = "drv-stm32h7-sprot-server"
+priority = 4
+max-sizes = {flash = 65536, ram = 32768}
+stacksize = 16384
+start = true
+task-slots = ["sys"]
+features = ["sink_test", "use-spi-core", "h753", "spi4"]
+uses = ["spi4"]
+notifications = ["spi-irq", "rot-irq", "timer"]
+interrupts = {"spi4.irq" = "spi-irq"}
+
+[tasks.sys]
+name = "drv-stm32xx-sys"
+features = ["h753", "exti", "no-panic"]
+priority = 1
+max-sizes = {flash = 4096, ram = 2048}
+uses = ["rcc", "gpios", "system_flash", "syscfg", "exti"]
+start = true
+task-slots = ["jefe"]
+notifications = ["exti-wildcard-irq"]
+
+[tasks.sys.interrupts]
+"exti.exti0" = "exti-wildcard-irq"
+"exti.exti1" = "exti-wildcard-irq"
+"exti.exti2" = "exti-wildcard-irq"
+"exti.exti3" = "exti-wildcard-irq"
+"exti.exti4" = "exti-wildcard-irq"
+"exti.exti9_5" = "exti-wildcard-irq"
+"exti.exti15_10" = "exti-wildcard-irq"
+
+[tasks.sys.config.gpio-irqs.rot_irq]
+port = "E"
+pin = 3
+owner = {name = "sprot", notification = "rot_irq"}
+
+[tasks.monorail]
+name = "task-monorail-server"
+priority = 6
+max-sizes = {flash = 262144, ram = 16384}
+features = ["minibar", "vlan", "use-spi-core", "h753", "spi2"]
+stacksize = 4096
+start = true
+task-slots = ["sys"]
+uses = ["spi2"]
+notifications = ["spi-irq", "wake-timer"]
+interrupts = {"spi2.irq" = "spi-irq"}
+
+[tasks.i2c_driver]
+name = "drv-stm32xx-i2c-server"
+stacksize = 1048
+features = ["h753"]
+priority = 2
+uses = ["i2c1", "i2c2", "i2c3", "i2c4"]
+notifications = ["i2c1-irq", "i2c2-irq", "i2c3-irq", "i2c4-irq"]
+start = true
+task-slots = ["sys"]
+
+[tasks.i2c_driver.interrupts]
+"i2c1.event" = "i2c1-irq"
+"i2c1.error" = "i2c1-irq"
+"i2c2.event" = "i2c2-irq"
+"i2c2.error" = "i2c2-irq"
+"i2c3.event" = "i2c3-irq"
+"i2c3.error" = "i2c3-irq"
+"i2c4.event" = "i2c4-irq"
+"i2c4.error" = "i2c4-irq"
+
+[tasks.hiffy]
+name = "task-hiffy"
+features = ["h753", "stm32h7", "i2c", "gpio", "sprot"]
+priority = 5
+max-sizes = {flash = 32768, ram = 32768 }
+stacksize = 1200
+start = true
+task-slots = ["sys", "i2c_driver", "sprot"]
+
+[tasks.thermal]
+name = "task-thermal"
+features = ["minibar"]
+priority = 5
+max-sizes = {flash = 32768, ram = 16384 }
+stacksize = 8096
+start = true
+task-slots = ["i2c_driver", "sensor"]
+notifications = ["timer"]
+
+[tasks.power]
+name = "task-power"
+features = ["sidecar"]
+priority = 6
+max-sizes = {flash = 32768, ram = 8192 }
+stacksize = 3800
+start = true
+task-slots = ["i2c_driver", "sensor"]
+notifications = ["timer"]
+
+[tasks.sensor]
+name = "task-sensor"
+features = []
+priority = 4
+max-sizes = {flash = 16384, ram = 8192 }
+stacksize = 1024
+start = true
+
+[tasks.validate]
+name = "task-validate"
+priority = 5
+max-sizes = {flash = 16384, ram = 4096 }
+stacksize = 1000
+start = true
+task-slots = ["i2c_driver"]
+
+[tasks.vpd]
+name = "task-vpd"
+priority = 3
+max-sizes = {flash = 8192, ram = 1024}
+start = true
+task-slots = ["sys", "i2c_driver"]
+stacksize = 800
+
+[tasks.idle]
+name = "task-idle"
+priority = 8
+max-sizes = {flash = 128, ram = 256}
+stacksize = 256
+start = true
+
+[tasks.auxflash]
+name = "drv-auxflash-server"
+priority = 3
+max-sizes = {flash = 32768, ram = 4096}
+features = ["h753"]
+uses = ["quadspi"]
+start = true
+notifications = ["qspi-irq"]
+interrupts = {"quadspi.irq" = "qspi-irq"}
+stacksize = 3504
+task-slots = ["sys"]
+
+[tasks.ecp5]
+name = "drv-fpga-server"
+features = ["use-spi-core", "h753", "spi5"]
+priority = 3
+max-sizes = {flash = 32768, ram = 8192}
+stacksize = 2048
+start = true
+uses = ["spi5"]
+task-slots = ["sys"]
+notifications = ["spi-irq"]
+interrupts = {"spi5.irq" = "spi-irq"}
+
+[tasks.sequencer]
+name = "drv-minibar-seq-server"
+priority = 4
+stacksize = 4096
+start = true
+task-slots = [
+    "sys",
+    "i2c_driver",
+    "auxflash",
+    "packrat",
+    "ecp5",]
+notifications = ["timer"]
+
+[config]
+
+[[config.i2c.controllers]]
+controller = 1
+
+[config.i2c.controllers.ports.B]
+name = "refclk"
+description = "PCIe refclk buffer"
+scl = { gpio_port = "B", pin = 6 } # I2C_SP_TO_PCIE_REFCLK_BUFFER_SCL
+sda = { gpio_port = "B", pin = 7 } # I2C_SP_TO_PCIE_REFCLK_BUFFER_SDA
+af = 4
+# We don't yet have a driver for the PI6CB33201
+
+[[config.i2c.controllers]]
+controller = 2
+
+[config.i2c.controllers.ports.H]
+name = "vpd"
+description = "VPD EEPROM bus"
+scl = { gpio_port = "F", pin = 1 } # I2C_SP_TO_VPD_EEPROM_SCL
+sda = { gpio_port = "F", pin = 0 } # I2C_SP_TO_VPD_EEPROM_SDA
+af = 4
+
+[[config.i2c.controllers]]
+controller = 3
+
+[config.i2c.controllers.ports.H]
+name = "power"
+description = "Power"
+scl = { gpio_port = "H", pin = 7 } # I2C_SP_TO_POWER_SCL
+sda = { gpio_port = "H", pin = 8 } # I2C_SP_TO_POWER_SDA
+af = 4
+
+[[config.i2c.devices]]
+bus = "vpd"
+address = 0b1010_000
+device = "at24csw080"
+name = "local_vpd"
+description = "Local VPD"
+refdes = "U12"
+
+[[config.i2c.devices]]
+bus = "power"
+address = 0b0010_001
+device = "adm1272"
+description = "VBUS_SLED hot swap controller"
+power = { rails = [ "VBUS_SLED" ] }
+sensors = { temperature = 1, voltage = 1, current = 1 }
+refdes = "U1"
+
+[[config.i2c.devices]]
+bus = "power"
+address = 0b0010_000
+device = "adm1272"
+description = "VBUS_SYS hot swap controller"
+power = { rails = [ "VBUS_SYS" ] }
+sensors = { temperature = 1, voltage = 1, current = 1 }
+refdes = "U2"
+
+[[config.i2c.devices]]
+bus = "power"
+address = 0b0011_010
+device = "tps546b24a"
+description = "V3P3_SYS rail"
+power = { rails = [ "V3P3_SYS" ] }
+sensors = { temperature = 1, voltage = 1, current = 1 }
+refdes = "U4"
+
+[[config.i2c.devices]]
+bus = "power"
+address = 0b0011_011
+device = "tps546b24a"
+description = "V1P0_SYS rail"
+power = { rails = [ "V1P0_SYS" ] }
+sensors = { temperature = 1, voltage = 1, current = 1 }
+refdes = "U7"
+
+[config.spi.spi2]
+controller = 2
+
+[config.spi.spi2.mux_options.port_i]
+outputs = [
+    # SPI_SP_TO_VSC7448_SCK, SPI_SP_SDO_TO_VSC7448_SDI
+    {port = "I", pins = [1, 3], af = 5},
+]
+input = {port = "I", pin = 2, af = 5} # SPI_VSC7448_SDO_TO_SP_SDI
+
+[config.spi.spi2.devices.vsc7448]
+mux = "port_i"
+cs = [{port = "I", pin = 0}] # SPI_SP_TO_VSC7448_CS_L
+
+[config.spi.spi3]
+controller = 3
+
+[config.spi.spi3.mux_options.port_c]
+outputs = [
+    # SPI_SP_TO_KSZ8463_SCK, SPI_SP_SDO_TO_KSZ8463_SDI
+    {port = "C", pins = [10, 12], af = 6},
+]
+input = {port = "C", pin = 11, af = 6} # SPI_KSZ8463_SDO_TO_SP_SDI
+
+[config.spi.spi3.devices.ksz8463]
+mux = "port_c"
+cs = [{port = "A", pin = 4}] # SPI_SP_TO_KSZ8463_CS_L
+
+[config.spi.spi4]
+controller = 4
+
+[config.spi.spi4.devices.rot]
+mux = "rot"
+cs = [{port = "E", pin = 4}]
+clock_divider = "DIV256"
+
+[config.spi.spi4.mux_options.rot]
+outputs = [
+    {port = "E", pins = [2, 6], af = 5},
+]
+input = {port = "E", pin = 5, af = 5}
+
+[config.spi.spi5]
+controller = 5
+
+[config.spi.spi5.mux_options.port_jk]
+outputs = [
+    {port = "J", pins = [10], af = 5}, # SPI_SP_TO_FPGA_MOSI
+    {port = "K", pins = [0], af = 5},  # SPI_SP_TO_FPGA_SCK
+]
+input = {port = "J", pin = 11, af = 5} # SPI_SP_TO_FPGA_MISO
+
+[config.spi.spi5.devices.ecp5_fpga]
+mux = "port_jk"
+cs = [{port = "K", pin = 1}] # SPI_SP_TO_FPGA_CS_CONFIG_L
+
+[config.spi.spi5.devices.ecp5_user_design]
+mux = "port_jk"
+cs = [{port = "J", pin = 6}] # SPI_SP_TO_FPGA_CS_USER_L
+
+[config.auxflash]
+memory-size = 33_554_432 # 256 Mib / 32 MiB
+slot-count = 16 # 2 MiB slots
+
+[[auxflash.blobs]]
+file = "drv/minibar-seq-server/minibar_controller_hcv_a.bit"
+compress = true
+tag = "FPGA"

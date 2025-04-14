@@ -130,6 +130,9 @@ pub enum MonorailError {
     /// The given port does not have a PHY associated with it
     NoPhy,
 
+    /// The given operation is not supported
+    NotSupported,
+
     #[idol(server_death)]
     ServerDied,
 }
