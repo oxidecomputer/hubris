@@ -197,7 +197,7 @@ jobs:
     name: build-devboards
     strategy:
       matrix:
-        build: [stm32f3, stm32f4, lpc55, stm32h743, stm32h753, gemini, rot-carrier, gimletlet, donglet-g031]
+        build: [stm32f3, stm32f4, lpc55, stm32h743, stm32h753, gemini, rot-carrier, gimletlet, donglet-g031, minibar]
         include:
           - build: stm32g0
             app_name: demo-stm32g070-nucleo
@@ -246,6 +246,10 @@ jobs:
           - build: grapefruit-standalone
             app_name: grapefruit-standalone
             app_toml: app/grapefruit/app-dev.toml
+            image: default
+          - build: minibar
+            app_name: minibar
+            app_toml: app/minibar/app.toml
             image: default
     uses: ./.github/workflows/build-one.yml
     with:
