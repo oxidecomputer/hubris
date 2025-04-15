@@ -422,6 +422,10 @@ impl ServerImpl {
                     // We can't do much else here, since we already cleared the
                     // a0_en flag to disable the sequencer.
                 }
+
+                // Flip the host flash mux so the SP can read from it
+                // (this is secretly infallible on Cosmo, so we can unwrap it)
+                self.hf.set_mux(drv_hf_api::HfMuxState::SP).unwrap();
             }
 
             // This is purely an accounting change
