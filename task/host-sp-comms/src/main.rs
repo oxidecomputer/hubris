@@ -774,11 +774,6 @@ impl ServerImpl {
                 // flash task? That should only happen if `hf` is unable to
                 // respond to us at all, which makes it seem unlikely that the
                 // host could even be up. We'll default to returning Bsu::A.
-                //
-                // Minor TODO: Attempting to get the BSU on a gimletlet will
-                // hang, because the host-flash task hangs indefinitely. We
-                // could replace gimlet-hf-server with a fake on gimletlet if
-                // that becomes onerous.
                 let bsu = match self.hf.get_dev() {
                     Ok(HfDevSelect::Flash0) | Err(_) => Bsu::A,
                     Ok(HfDevSelect::Flash1) => Bsu::B,

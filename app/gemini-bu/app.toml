@@ -93,7 +93,7 @@ task-slots = ["user_leds"]
 notifications = ["timer"]
 
 [tasks.hf]
-name = "drv-gimlet-hf-server"
+name = "drv-mock-gimlet-hf-server"
 features = ["h753", "hash"]
 priority = 6
 max-sizes = {flash = 16384, ram = 4096 }

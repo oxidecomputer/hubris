@@ -155,7 +155,7 @@ start = true
 task-slots = ["sys", "i2c_driver", "hf", "hash_driver"]
 
 [tasks.hf]
-name = "drv-gimlet-hf-server"
+name = "drv-mock-gimlet-hf-server"
 features = ["h753", "hash"]
 priority = 4
 max-sizes = {flash = 16384, ram = 4096 }
