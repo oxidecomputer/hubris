@@ -26,7 +26,6 @@ pub enum HfError {
     HashBadRange,
     HashError,
     HashNotConfigured,
-    NoDevSelect,
     NotMuxedToSP,
     Sector0IsReserved,
     NoPersistentData,

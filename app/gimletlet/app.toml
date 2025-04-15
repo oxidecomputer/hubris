@@ -119,8 +119,6 @@ notifications = [
 ]
 
 [tasks.hf]
-# This now uses the `drv-mock-gimlet-hf-server` task by default. If you
-# actually want to run with a qspi-let adapter switch to `drv-gimlet-hf-server`
 name = "drv-mock-gimlet-hf-server"
 features = ["h753", "hash"]
 priority = 6

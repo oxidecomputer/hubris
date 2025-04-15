@@ -56,9 +56,6 @@ impl HostFlashUpdate {
         // we don't have control over the host flash.
         match self.task.set_dev(slot) {
             Ok(()) => Ok(()),
-            // If this board does not have multiple devices (indicated by
-            // receiving NoDevSelect), then Flash0 is the only valid option.
-            Err(HfError::NoDevSelect) if slot == HfDevSelect::Flash0 => Ok(()),
 
             // Otherwise, things went wrong; translate if possible:
             Err(HfError::NotMuxedToSP) => Err(SpError::UpdateSlotBusy),
