@@ -348,7 +348,13 @@ impl FlashDriver {
     }
 
     fn set_espi_addr_offset(&self, v: FlashAddr) {
-        self.drv.sp5_flash_offset.set_offset(v.0);
+        // The SP5 does all of its reads from a particular base address (found
+        // by sniffing the SPI bus), so we have to subtract that out when
+        // calculating the flash offset used by the FPGA
+        const SP5_BASE: u32 = 0x3000000;
+        self.drv
+            .sp5_flash_offset
+            .set_offset(v.0.wrapping_sub(SP5_BASE));
     }
 }
 
