@@ -19,7 +19,7 @@ features = ["h753"]
 priority = 6
 start = true
 task-slots = ["sys", "net"]
-uses = ["mmio_info", "mmio_spi_nor", "mmio_espi", "mmio_sequencer", "mmio_sp_i2c"]
+uses = ["fmc_nor_psram_bank_1"] # yolo
 notifications = ["socket"]
 
 [config.net.sockets.rpc]
