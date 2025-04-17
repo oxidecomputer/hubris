@@ -1,6 +1,6 @@
 {
     "type": "addrmap",
-    "addr_span_bytes": 1028,
+    "addr_span_bytes": 1317,
     "inst_name": "cosmo_seq_top",
     "orig_type_name": "cosmo_seq_top",
     "addr_offset": 0,
@@ -23,7 +23,7 @@
         },
         {
             "type": "addrmap",
-            "addr_span_bytes": 32,
+            "addr_span_bytes": 36,
             "inst_name": "espi",
             "orig_type_name": "espi_regs",
             "addr_offset": 512,
@@ -43,6 +43,14 @@
             "inst_name": "sp_i2c",
             "orig_type_name": "sp_i2c_regs",
             "addr_offset": 1024,
+            "children": []
+        },
+        {
+            "type": "addrmap",
+            "addr_span_bytes": 37,
+            "inst_name": "fpga1_hotplug",
+            "orig_type_name": "pca9506_regs",
+            "addr_offset": 1280,
             "children": []
         }
     ]
