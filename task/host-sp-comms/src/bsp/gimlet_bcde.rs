@@ -21,6 +21,12 @@ use host_sp_messages::{InventoryData, InventoryDataResult};
 userlib::task_slot!(I2C, i2c_driver);
 userlib::task_slot!(SPI, spi_driver);
 
+// This net is named SP_TO_SP3_INT_L in the schematic
+pub(crate) const SP_TO_HOST_CPU_INT_L: drv_stm32xx_sys_api::PinSet =
+    drv_stm32xx_sys_api::Port::I.pin(7);
+pub(crate) const SP_TO_HOST_CPU_INT_TYPE: drv_stm32xx_sys_api::OutputType =
+    drv_stm32xx_sys_api::OutputType::OpenDrain;
+
 impl ServerImpl {
     /// Number of devices in our inventory
     pub(crate) const INVENTORY_COUNT: u32 = 72;

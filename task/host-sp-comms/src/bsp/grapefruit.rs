@@ -13,6 +13,13 @@ use host_sp_messages::{InventoryData, InventoryDataResult};
 
 userlib::task_slot!(SPI, spi_driver);
 
+// the CPU interrupt is not connected on grapefruit, so pick an
+// unconnected GPIO
+pub(crate) const SP_TO_HOST_CPU_INT_L: drv_stm32xx_sys_api::PinSet =
+    drv_stm32xx_sys_api::Port::B.pin(1);
+pub(crate) const SP_TO_HOST_CPU_INT_TYPE: drv_stm32xx_sys_api::OutputType =
+    drv_stm32xx_sys_api::OutputType::OpenDrain;
+
 impl ServerImpl {
     /// Number of devices in our inventory
     pub(crate) const INVENTORY_COUNT: u32 = 2;
