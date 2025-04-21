@@ -1,5 +1,6 @@
 {
     "type": "addrmap",
+    "addr_span_bytes": 55,
     "inst_name": "gimlet_seq_fpga",
     "addr_offset": 0,
     "children": [
@@ -2508,6 +2509,26 @@
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "Power good 0 from RA229618 (U350) is configured for\nSP3_VDD_VCORE_A0 (PWR_CONT1_SP3_PG0 net)"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "MISC_CTRL",
+            "addr_offset": 54,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "RSW_PWREN",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Control of the seq_proxy_sp3_to_rsw_pwren_l pin (inverted by FPGA, so a '1' here will drive the pin low)"
                 }
             ]
         }
