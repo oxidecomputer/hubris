@@ -200,7 +200,7 @@ fn init() -> Result<ServerImpl, SeqError> {
     sys.gpio_set(SP_TO_SP5_NMI_SYNC_FLOOD_L);
     sys.gpio_configure_output(
         SP_TO_SP5_NMI_SYNC_FLOOD_L,
-        sys_api::OutputType::OpenDrain,
+        sys_api::OutputType::PushPull,
         sys_api::Speed::Low,
         sys_api::Pull::None,
     );
