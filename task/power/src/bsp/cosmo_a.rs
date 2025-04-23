@@ -129,6 +129,12 @@ const TRACE_DEPTH: usize = 52;
 /// Tooling can then collect this ringbuf periodically and get recent events.
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    /// Configuration of the MAX5970 failed
+    Max5970ConfigFailed {
+        u2_index: usize,
+        err: drv_i2c_api::ResponseCode,
+    },
+
     /// Written before trace records; the `u32` is the number of times the task
     /// has woken up to process its timer. This is not exactly equivalent to
     /// seconds because of the way the timer is maintained, but is approximately
@@ -303,6 +309,36 @@ pub(crate) struct State {
 
 impl State {
     pub(crate) fn init() -> Self {
+        // Tweak the thresholds for the U.2 MAX5970 12V outputs
+        //
+        // Current Sense Range: 50 mV (set by a resistor on the board)
+        // Desired Fast Trip Current: 6A (DAC_CH0: 0x99)
+        // Desired Fast-to-Slow Ratio: 200% (default value)
+        // Resulting Slow Trip Current: 3A
+        let i2c_task = super::I2C.get_task_id();
+
+        for (i, builder) in [
+            i2c_config::pmbus::v12_u2a_a0,
+            i2c_config::pmbus::v12_u2b_a0,
+            i2c_config::pmbus::v12_u2c_a0,
+            i2c_config::pmbus::v12_u2d_a0,
+            i2c_config::pmbus::v12_u2e_a0,
+            i2c_config::pmbus::v12_u2f_a0,
+            i2c_config::pmbus::v12_u2g_a0,
+            i2c_config::pmbus::v12_u2h_a0,
+            i2c_config::pmbus::v12_u2i_a0,
+            i2c_config::pmbus::v12_u2j_a0
+        ].iter().enumerate() {
+            let (dev, rail) = (builder)(i2c_task);
+            let m = Max5970::new(&dev, rail, Ohms(0.005));
+            if let Err(err) = m.set_dac_fast(0x99) {
+                ringbuf_entry!(Trace::Max5970ConfigFailed {
+                    u2_index: i,
+                    err
+                });
+            }
+        }
+
         Self {
             fired: 0,
             peaks: [Max5970Peaks::default(); MAX5970_CONFIG_LEN],

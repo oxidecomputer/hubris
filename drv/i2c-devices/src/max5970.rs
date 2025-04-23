@@ -154,7 +154,8 @@ pub enum Register {
     oithr_chx_lsb_ch2 = 0x2d,
 
     /// Fast-comparator threshold DAC setting
-    dac_chx_fast = 0x2e,
+    dac_ch0_fast = 0x2e,
+    dac_ch1_fast = 0x2f,
 
     /// Current threshold fast-to-slow ratio setting
     ifast2slow = 0x30,
@@ -407,6 +408,15 @@ impl Max5970 {
         self.write_reg(Register::peak_log_rst, rst)?;
         self.write_reg(Register::peak_log_rst, 0)
     }
+
+    pub fn set_dac_fast(&self, v: u8) -> Result<(), ResponseCode> {
+        if self.rail == 0 {
+            self.write_reg(Register::dac_ch0_fast, v)
+        } else {
+            self.write_reg(Register::dac_ch1_fast, v)
+        }
+    }
+
 }
 
 impl Validate<ResponseCode> for Max5970 {
