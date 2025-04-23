@@ -416,7 +416,6 @@ impl Max5970 {
             self.write_reg(Register::dac_ch1_fast, v)
         }
     }
-
 }
 
 impl Validate<ResponseCode> for Max5970 {

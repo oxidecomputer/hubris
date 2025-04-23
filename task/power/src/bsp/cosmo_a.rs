@@ -327,15 +327,15 @@ impl State {
             i2c_config::pmbus::v12_u2g_a0,
             i2c_config::pmbus::v12_u2h_a0,
             i2c_config::pmbus::v12_u2i_a0,
-            i2c_config::pmbus::v12_u2j_a0
-        ].iter().enumerate() {
+            i2c_config::pmbus::v12_u2j_a0,
+        ]
+        .iter()
+        .enumerate()
+        {
             let (dev, rail) = (builder)(i2c_task);
             let m = Max5970::new(&dev, rail, Ohms(0.005));
             if let Err(err) = m.set_dac_fast(0x99) {
-                ringbuf_entry!(Trace::Max5970ConfigFailed {
-                    u2_index: i,
-                    err
-                });
+                ringbuf_entry!(Trace::Max5970ConfigFailed { u2_index: i, err });
             }
         }
 
