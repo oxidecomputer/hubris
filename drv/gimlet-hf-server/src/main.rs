@@ -476,6 +476,21 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         Ok(())
     }
 
+    fn page_program_dev(
+        &mut self,
+        msg: &RecvMessage,
+        dev: HfDevSelect,
+        addr: u32,
+        protect: HfProtectMode,
+        data: LenLimit<Leased<R, [u8]>, PAGE_SIZE_BYTES>,
+    ) -> Result<(), RequestError<HfError>> {
+        let prev = self.dev_state;
+        self.set_dev(dev)?;
+        let r = self.page_program(msg, addr, protect, data);
+        self.set_dev(prev).unwrap(); // infallible if the earlier set_dev worked
+        r
+    }
+
     fn bonus_page_program(
         &mut self,
         _: &RecvMessage,
@@ -516,6 +531,20 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         protect: HfProtectMode,
     ) -> Result<(), RequestError<HfError>> {
         self.sector_erase(addr, protect).map_err(RequestError::from)
+    }
+
+    fn sector_erase_dev(
+        &mut self,
+        _: &RecvMessage,
+        dev: HfDevSelect,
+        addr: u32,
+        protect: HfProtectMode,
+    ) -> Result<(), RequestError<HfError>> {
+        let prev = self.dev_state;
+        self.set_dev(dev)?;
+        let r = self.sector_erase(addr, protect).map_err(RequestError::from);
+        self.set_dev(prev).unwrap(); // infallible if the earlier set_dev worked
+        r
     }
 
     fn bonus_sector_erase(
@@ -562,6 +591,15 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         state: HfDevSelect,
     ) -> Result<(), RequestError<HfError>> {
         self.set_dev(state).map_err(RequestError::from)
+    }
+
+    fn check_dev(
+        &mut self,
+        _: &RecvMessage,
+        _state: HfDevSelect,
+    ) -> Result<(), RequestError<HfError>> {
+        self.check_muxed_to_sp()?;
+        Ok(())
     }
 
     #[cfg(feature = "hash")]
