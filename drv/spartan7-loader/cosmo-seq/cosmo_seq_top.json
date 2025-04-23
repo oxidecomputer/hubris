@@ -1,6 +1,6 @@
 {
     "type": "addrmap",
-    "addr_span_bytes": 1317,
+    "addr_span_bytes": 1428,
     "inst_name": "cosmo_seq_top",
     "orig_type_name": "cosmo_seq_top",
     "addr_offset": 0,
@@ -47,9 +47,9 @@
         },
         {
             "type": "addrmap",
-            "addr_span_bytes": 37,
+            "addr_span_bytes": 148,
             "inst_name": "fpga1_hotplug",
-            "orig_type_name": "pca9506_regs",
+            "orig_type_name": "pca9506_axi_regs",
             "addr_offset": 1280,
             "children": []
         }
