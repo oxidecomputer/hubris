@@ -78,7 +78,7 @@ impl ServerImpl {
     fn flash_addr(&self, offset: u32, size: u32) -> Result<FlashAddr, HfError> {
         if offset
             .checked_add(size)
-            .is_some_and(|a| a < SLOT_SIZE_BYTES)
+            .is_some_and(|a| a <= SLOT_SIZE_BYTES)
         {
             Self::flash_addr_for(offset, self.dev)
         } else {
@@ -90,7 +90,7 @@ impl ServerImpl {
     fn bonus_addr(offset: u32, len: u32) -> Result<FlashAddr, HfError> {
         if offset
             .checked_add(len)
-            .is_some_and(|a| a < BONUS_SIZE_BYTES)
+            .is_some_and(|a| a <= BONUS_SIZE_BYTES)
         {
             let addr = offset
                 .checked_add(2 * SLOT_SIZE_BYTES)
