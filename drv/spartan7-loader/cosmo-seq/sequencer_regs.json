@@ -1389,6 +1389,28 @@
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "Set to mux in the nic_override signals instead of the normal nic control signals"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "force_nic_reset",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Used for manually controlling the nic reset for debugging purposes"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "force_mfg_mode",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Let other logic run but directly force mfg mode_l to be asserted when set"
                 }
             ]
         },
