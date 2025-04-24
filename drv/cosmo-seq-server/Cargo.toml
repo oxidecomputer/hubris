@@ -6,13 +6,14 @@ edition = "2021"
 [dependencies]
 drv-auxflash-api = { path = "../auxflash-api" }
 drv-cpu-power-state = { path = "../cpu-power-state" }
+counters = { path = "../../lib/counters" }
 drv-cpu-seq-api = { path = "../cpu-seq-api" }
 drv-hf-api = { path = "../hf-api" }
 drv-ice40-spi-program = { path = "../ice40-spi-program" }
+drv-packrat-vpd-loader = { path = "../packrat-vpd-loader" }
 drv-spartan7-loader-api = { path = "../spartan7-loader-api" }
 drv-spi-api = { path = "../spi-api" }
 drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
-counters = { path = "../../lib/counters" }
 gnarle = { path = "../../lib/gnarle" }
 ringbuf = { path = "../../lib/ringbuf" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }

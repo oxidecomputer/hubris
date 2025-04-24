@@ -9,6 +9,7 @@
 
 use drv_cpu_seq_api::{PowerState, SeqError as CpuSeqError, StateChangeReason};
 use drv_ice40_spi_program as ice40;
+use drv_packrat_vpd_loader::{read_vpd_and_load_packrat, Packrat};
 use drv_spartan7_loader_api::Spartan7Loader;
 use drv_spi_api::{SpiDevice, SpiServer};
 use drv_stm32xx_sys_api::{self as sys_api, Sys};
@@ -28,6 +29,8 @@ task_slot!(HF, hf);
 task_slot!(SYS, sys);
 task_slot!(SPI_FRONT, spi_front);
 task_slot!(AUXFLASH, auxflash);
+task_slot!(I2C, i2c_driver);
+task_slot!(PACKRAT, packrat);
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -105,6 +108,10 @@ struct StateMachineStates {
 
 #[export_name = "main"]
 fn main() -> ! {
+    // Populate packrat with our mac address and identity.
+    let packrat = Packrat::from(PACKRAT.get_task_id());
+    read_vpd_and_load_packrat(&packrat, I2C.get_task_id());
+
     match init() {
         // Set up everything nicely, time to start serving incoming messages.
         Ok(mut server) => {

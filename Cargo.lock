@@ -1082,6 +1082,7 @@ dependencies = [
  "drv-cpu-seq-api",
  "drv-hf-api",
  "drv-ice40-spi-program",
+ "drv-packrat-vpd-loader",
  "drv-spartan7-loader-api",
  "drv-spi-api",
  "drv-stm32xx-sys-api",
