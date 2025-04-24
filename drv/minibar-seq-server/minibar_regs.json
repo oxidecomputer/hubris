@@ -173,7 +173,7 @@
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "data",
+                    "inst_name": "DATA",
                     "lsb": 0,
                     "msb": 7,
                     "reset": 0,
@@ -193,7 +193,7 @@
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "data",
+                    "inst_name": "DATA",
                     "lsb": 0,
                     "msb": 7,
                     "reset": 0,
@@ -213,7 +213,7 @@
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "data",
+                    "inst_name": "DATA",
                     "lsb": 0,
                     "msb": 7,
                     "reset": 0,
@@ -233,7 +233,7 @@
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "data",
+                    "inst_name": "DATA",
                     "lsb": 0,
                     "msb": 7,
                     "reset": 0,
@@ -253,7 +253,7 @@
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "data",
+                    "inst_name": "DATA",
                     "lsb": 0,
                     "msb": 7,
                     "reset": 0,
@@ -273,7 +273,7 @@
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "data",
+                    "inst_name": "DATA",
                     "lsb": 0,
                     "msb": 7,
                     "reset": 0,
@@ -293,7 +293,7 @@
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "data",
+                    "inst_name": "DATA",
                     "lsb": 0,
                     "msb": 7,
                     "reset": 0,
@@ -313,7 +313,7 @@
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "data",
+                    "inst_name": "DATA",
                     "lsb": 0,
                     "msb": 7,
                     "reset": 0,
@@ -353,7 +353,7 @@
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "code",
+                    "inst_name": "CODE",
                     "lsb": 0,
                     "msb": 2,
                     "reset": 0,
@@ -373,7 +373,7 @@
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "rsw0_present",
+                    "inst_name": "RSW0_PRESENT",
                     "lsb": 0,
                     "msb": 0,
                     "reset": 0,
@@ -384,7 +384,7 @@
                 },
                 {
                     "type": "field",
-                    "inst_name": "rsw1_present",
+                    "inst_name": "RSW1_PRESENT",
                     "lsb": 1,
                     "msb": 1,
                     "reset": 0,
@@ -395,7 +395,7 @@
                 },
                 {
                     "type": "field",
-                    "inst_name": "pcie_present",
+                    "inst_name": "PCIE_PRESENT",
                     "lsb": 2,
                     "msb": 2,
                     "reset": 0,
@@ -415,7 +415,7 @@
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "fault",
+                    "inst_name": "FAULT",
                     "lsb": 0,
                     "msb": 0,
                     "reset": 0,
@@ -435,7 +435,7 @@
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "vbus_sled_en",
+                    "inst_name": "VBUS_SLED_EN",
                     "lsb": 0,
                     "msb": 0,
                     "reset": 0,
@@ -446,7 +446,7 @@
                 },
                 {
                     "type": "field",
-                    "inst_name": "vbus_sled_restart",
+                    "inst_name": "VBUS_SLED_RESTART",
                     "lsb": 4,
                     "msb": 4,
                     "reset": 0,
@@ -457,7 +457,7 @@
                 },
                 {
                     "type": "field",
-                    "inst_name": "vbus_sys_restart",
+                    "inst_name": "VBUS_SYS_RESTART",
                     "lsb": 5,
                     "msb": 5,
                     "reset": 0,
@@ -477,7 +477,7 @@
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "fault_pin",
+                    "inst_name": "FAULT_PIN",
                     "lsb": 0,
                     "msb": 0,
                     "reset": 0,
@@ -488,7 +488,7 @@
                 },
                 {
                     "type": "field",
-                    "inst_name": "pg_pin",
+                    "inst_name": "PG_PIN",
                     "lsb": 1,
                     "msb": 1,
                     "reset": 0,
@@ -499,7 +499,7 @@
                 },
                 {
                     "type": "field",
-                    "inst_name": "enable_pin",
+                    "inst_name": "ENABLE_PIN",
                     "lsb": 2,
                     "msb": 2,
                     "reset": 0,
@@ -510,7 +510,7 @@
                 },
                 {
                     "type": "field",
-                    "inst_name": "state",
+                    "inst_name": "STATE",
                     "lsb": 4,
                     "msb": 6,
                     "reset": 0,
@@ -552,7 +552,7 @@
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "vsc8504_reset",
+                    "inst_name": "VSC8504_RESET",
                     "lsb": 0,
                     "msb": 0,
                     "reset": 0,
@@ -563,7 +563,7 @@
                 },
                 {
                     "type": "field",
-                    "inst_name": "vsc7448_reset",
+                    "inst_name": "VSC7448_RESET",
                     "lsb": 1,
                     "msb": 1,
                     "reset": 0,
@@ -583,7 +583,7 @@
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "v3p3_pcie_en",
+                    "inst_name": "V3P3_PCIE_EN",
                     "lsb": 0,
                     "msb": 0,
                     "reset": 1,
@@ -594,7 +594,7 @@
                 },
                 {
                     "type": "field",
-                    "inst_name": "v12_pcie_en",
+                    "inst_name": "V12_PCIE_EN",
                     "lsb": 1,
                     "msb": 1,
                     "reset": 1,
@@ -614,7 +614,7 @@
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "fault_pin",
+                    "inst_name": "FAULT_PIN",
                     "lsb": 0,
                     "msb": 0,
                     "reset": 0,
@@ -625,7 +625,7 @@
                 },
                 {
                     "type": "field",
-                    "inst_name": "pg_pin",
+                    "inst_name": "PG_PIN",
                     "lsb": 1,
                     "msb": 1,
                     "reset": 0,
@@ -636,7 +636,7 @@
                 },
                 {
                     "type": "field",
-                    "inst_name": "enable_pin",
+                    "inst_name": "ENABLE_PIN",
                     "lsb": 2,
                     "msb": 2,
                     "reset": 0,
@@ -647,7 +647,7 @@
                 },
                 {
                     "type": "field",
-                    "inst_name": "state",
+                    "inst_name": "STATE",
                     "lsb": 4,
                     "msb": 6,
                     "reset": 0,
@@ -689,7 +689,7 @@
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "fault_pin",
+                    "inst_name": "FAULT_PIN",
                     "lsb": 0,
                     "msb": 0,
                     "reset": 0,
@@ -700,7 +700,7 @@
                 },
                 {
                     "type": "field",
-                    "inst_name": "pg_pin",
+                    "inst_name": "PG_PIN",
                     "lsb": 1,
                     "msb": 1,
                     "reset": 0,
@@ -711,7 +711,7 @@
                 },
                 {
                     "type": "field",
-                    "inst_name": "enable_pin",
+                    "inst_name": "ENABLE_PIN",
                     "lsb": 2,
                     "msb": 2,
                     "reset": 0,
@@ -722,7 +722,7 @@
                 },
                 {
                     "type": "field",
-                    "inst_name": "state",
+                    "inst_name": "STATE",
                     "lsb": 4,
                     "msb": 6,
                     "reset": 0,
@@ -764,32 +764,32 @@
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "oe0",
+                    "inst_name": "OE0",
                     "lsb": 0,
                     "msb": 0,
                     "reset": 0,
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "fpga_to_pcie_aux_refclk_buffer_oe0_l pin control (active high, FPGA will invert)"
+                    "desc": "fpga_to_pcie_aux_refclk_buffer_oe0_l pin control (active high, FPGA will invert). Goes to test points."
                 },
                 {
                     "type": "field",
-                    "inst_name": "oe1",
+                    "inst_name": "OE1",
                     "lsb": 1,
                     "msb": 1,
-                    "reset": 0,
+                    "reset": 1,
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "fpga_to_pcie_aux_refclk_buffer_oe1_l pin control (active high, FPGA will invert)"
+                    "desc": "fpga_to_pcie_aux_refclk_buffer_oe1_l pin control (active high, FPGA will invert). Goes to slot."
                 },
                 {
                     "type": "field",
-                    "inst_name": "pd",
+                    "inst_name": "PD",
                     "lsb": 2,
                     "msb": 2,
-                    "reset": 0,
+                    "reset": 1,
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
@@ -797,14 +797,14 @@
                 },
                 {
                     "type": "field",
-                    "inst_name": "bw_sel",
+                    "inst_name": "BW_SEL",
                     "lsb": 3,
                     "msb": 4,
-                    "reset": 0,
+                    "reset": 1,
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "fpga_to_pcie_aux_refclk_buffer_bw_sel pin control",
+                    "desc": "fpga_to_pcie_aux_refclk_buffer_bw_sel pin control. Default to High Bandwidth since sleds will have SSC enabled.",
                     "encode": [
                         {
                             "name": "PllLowBw",
@@ -831,7 +831,7 @@
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "sled_i2c_en",
+                    "inst_name": "SLED_I2C_EN",
                     "lsb": 0,
                     "msb": 0,
                     "reset": 1,
@@ -842,7 +842,7 @@
                 },
                 {
                     "type": "field",
-                    "inst_name": "cem_i2c_en",
+                    "inst_name": "CEM_I2C_EN",
                     "lsb": 1,
                     "msb": 1,
                     "reset": 1,
@@ -853,7 +853,7 @@
                 },
                 {
                     "type": "field",
-                    "inst_name": "attached",
+                    "inst_name": "ATTACHED",
                     "lsb": 2,
                     "msb": 2,
                     "reset": 0,
@@ -864,7 +864,7 @@
                 },
                 {
                     "type": "field",
-                    "inst_name": "sled_pwrflt",
+                    "inst_name": "SLED_PWRFLT",
                     "lsb": 3,
                     "msb": 3,
                     "reset": 0,
@@ -884,7 +884,7 @@
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "sled_perst",
+                    "inst_name": "SLED_PERST",
                     "lsb": 0,
                     "msb": 0,
                     "reset": 0,
@@ -895,36 +895,36 @@
                 },
                 {
                     "type": "field",
-                    "inst_name": "sled_prsnt",
+                    "inst_name": "SLED_PRSNT",
                     "lsb": 1,
                     "msb": 1,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "pcie_aux_fpga_to_cem_prsnt_l pin readback (normalized to active high)"
+                    "desc": "pcie_aux_fpga_to_sled_prsnt_l pin readback (normalized to active high)"
                 },
                 {
                     "type": "field",
-                    "inst_name": "cem_perst",
+                    "inst_name": "CEM_PERST",
                     "lsb": 4,
                     "msb": 4,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "pcie_aux_sled_to_fpga_perst_l pin readback (normalized to active high)"
+                    "desc": "pcie_aux_fpga_to_cem_perst_l pin readback (normalized to active high)"
                 },
                 {
                     "type": "field",
-                    "inst_name": "cem_prsnt",
+                    "inst_name": "CEM_PRSNT",
                     "lsb": 5,
                     "msb": 5,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "pcie_aux_fpga_to_cem_prsnt_l pin readback (normalized to active high)"
+                    "desc": "pcie_aux_cem_to_fpga_prsnt_l pin readback (normalized to active high)"
                 }
             ]
         },
@@ -937,7 +937,7 @@
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "target0_present",
+                    "inst_name": "TARGET0_PRESENT",
                     "lsb": 0,
                     "msb": 0,
                     "reset": 0,
@@ -948,7 +948,7 @@
                 },
                 {
                     "type": "field",
-                    "inst_name": "target1_present",
+                    "inst_name": "TARGET1_PRESENT",
                     "lsb": 1,
                     "msb": 1,
                     "reset": 0,
