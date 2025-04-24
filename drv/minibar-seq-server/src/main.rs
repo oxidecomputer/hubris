@@ -43,6 +43,8 @@ enum Trace {
     ControllerVersion(u32),
     ControllerSha(u32),
     FpgaInitComplete,
+    FpgaWriteError(FpgaError),
+    PcieRefclkPdCleared,
 }
 ringbuf!(Trace, 32, Trace::None);
 
@@ -236,6 +238,17 @@ fn main() -> ! {
     // Populate packrat with our mac address and identity.
     let packrat = Packrat::from(PACKRAT.get_task_id());
     read_vpd_and_load_packrat(&packrat, i2c_task);
+
+    // The FPGA has the default refclk buffer straps set, but will hold the device's power-down pin
+    // low. Let's clear that pin so the device will sample its straps and begin operation.
+    match server.fpga_user.write(
+        WriteOp::BitClear,
+        Addr::PCIE_REFCLK_CTRL,
+        Reg::PCIE_REFCLK_CTRL::PD,
+    ) {
+        Ok(_) => ringbuf_entry!(Trace::PcieRefclkPdCleared),
+        Err(e) => ringbuf_entry!(Trace::FpgaWriteError(e)),
+    };
 
     //
     // This will put our timer in the past, and should immediately kick us.
