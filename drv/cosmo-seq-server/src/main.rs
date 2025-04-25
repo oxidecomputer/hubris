@@ -91,6 +91,7 @@ impl From<drv_auxflash_api::AuxFlashError> for SeqError {
 ////////////////////////////////////////////////////////////////////////////////
 
 const SP_TO_SP5_NMI_SYNC_FLOOD_L: sys_api::PinSet = sys_api::Port::J.pin(2);
+const SP_TO_SP5_PROCHOT_L: sys_api::PinSet = sys_api::Port::H.pin(5);
 const SP_CHASSIS_STATUS_LED: sys_api::PinSet = sys_api::Port::C.pin(6);
 const SP_TO_FPGA2_SYSTEM_RESET_L: sys_api::PinSet = sys_api::Port::A.pin(5);
 
@@ -203,10 +204,17 @@ fn init() -> Result<ServerImpl, SeqError> {
         &config,
     )?;
 
-    // Bring up the SP5 NMI pin
+    // Bring up the SP5 NMI and PROCHOT pins
     sys.gpio_set(SP_TO_SP5_NMI_SYNC_FLOOD_L);
     sys.gpio_configure_output(
         SP_TO_SP5_NMI_SYNC_FLOOD_L,
+        sys_api::OutputType::PushPull,
+        sys_api::Speed::Low,
+        sys_api::Pull::None,
+    );
+    sys.gpio_set(SP_TO_SP5_PROCHOT_L);
+    sys.gpio_configure_output(
+        SP_TO_SP5_PROCHOT_L,
         sys_api::OutputType::PushPull,
         sys_api::Speed::Low,
         sys_api::Pull::None,
