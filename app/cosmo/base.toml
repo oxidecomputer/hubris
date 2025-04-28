@@ -972,7 +972,25 @@ name = "M2_B"
 sensors = { temperature = 1 }
 removable = true
 
-# Mux 2, segment 1 is I2C_SP_TO_SP5_APML
+[[config.i2c.devices]]
+bus = "main"
+mux = 2
+segment = 1
+address = 0x3c
+device = "sbrmi"
+name = "RMI"
+description = "CPU via SB-RMI"
+
+[[config.i2c.devices]]
+bus = "main"
+mux = 2
+segment = 1
+address = 0x4c
+device = "sbtsi"
+name = "CPU"
+description = "CPU temperature sensor"
+sensors = { temperature = 1 }
+
 # Mux 2, segment 2 is SEC_SP5_TO_FPGA1
 
 # I2C_FPGA1_TO_FAN_VPD
@@ -1072,21 +1090,6 @@ description = "DIMM ABCDEF hot plug controller"
 power = { rails = ["V12_DDR5_ABCDEF_A0"], pmbus = false }
 sensors = { voltage = 1, current = 1 }
 refdes = "U127"
-
-[[config.i2c.devices]]
-bus = "mid"
-address = 0x3c
-device = "sbrmi"
-name = "RMI"
-description = "CPU via SB-RMI"
-
-[[config.i2c.devices]]
-bus = "mid"
-address = 0x4c
-device = "sbtsi"
-name = "CPU"
-description = "CPU temperature sensor"
-sensors = { temperature = 1 }
 
 [[config.i2c.devices]]
 bus = "mid"
