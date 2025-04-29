@@ -299,14 +299,13 @@ fn system_init() {
     });
 
     // GPIOE
+    // NOTE: this implementation only brings up a 20-bit address on the FMC bus,
+    // because that's what worked on Grapefruit.  The hardware supports a 24-bit
+    // address!
     p.GPIOE.afrl.modify(|_, w| {
         w.afr0().af12();
         w.afr1().af12();
-        // w.afr2().af12();
         w.afr3().af12();
-        // w.afr4().af12();
-        // w.afr5().af12();
-        // w.afr6().af12();
         w.afr7().af12();
         w
     });
@@ -324,11 +323,7 @@ fn system_init() {
     p.GPIOE.ospeedr.modify(|_, w| {
         w.ospeedr0().very_high_speed();
         w.ospeedr1().very_high_speed();
-        // w.ospeedr2().very_high_speed();
         w.ospeedr3().very_high_speed();
-        // w.ospeedr4().very_high_speed();
-        // w.ospeedr5().very_high_speed();
-        // w.ospeedr6().very_high_speed();
         w.ospeedr7().very_high_speed();
 
         w.ospeedr8().very_high_speed();
@@ -344,11 +339,7 @@ fn system_init() {
     p.GPIOE.moder.modify(|_, w| {
         w.moder0().alternate();
         w.moder1().alternate();
-        // w.moder2().alternate();
         w.moder3().alternate();
-        // w.moder4().alternate();
-        // w.moder5().alternate();
-        // w.moder6().alternate();
         w.moder7().alternate();
 
         w.moder8().alternate();

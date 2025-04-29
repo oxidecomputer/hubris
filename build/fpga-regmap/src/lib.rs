@@ -491,7 +491,7 @@ pub fn build_peripheral(
                 let width = msb - lsb + 1;
                 let mask = u32::try_from((1u64 << width) - 1).unwrap();
                 let raw_ty = match width {
-                    1 => unreachable!(),
+                    1 => unreachable!("1-bit integers should be bools"),
                     2..=8 => "u8",
                     9..=16 => "u16",
                     17..=32 => "u32",
@@ -564,7 +564,7 @@ pub fn build_peripheral(
                 let width = msb - lsb + 1;
                 let mask = u32::try_from((1u64 << width) - 1).unwrap();
                 let ty = match width {
-                    1 => unreachable!(),
+                    1 => unreachable!("1-bit integers should be bools"),
                     2..=8 => "u8",
                     9..=16 => "u16",
                     17..=32 => "u32",

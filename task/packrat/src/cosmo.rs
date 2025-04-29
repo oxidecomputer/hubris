@@ -8,7 +8,6 @@ use task_packrat_api::HostStartupOptions;
 
 pub(crate) struct CosmoData {
     host_startup_options: &'static mut HostStartupOptions,
-    // TODO will Cosmo need to proxy SPD data?
 }
 
 const fn default_host_startup_options() -> HostStartupOptions {

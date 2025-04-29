@@ -520,8 +520,9 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<[u8; 64], RequestError<core::convert::Infallible>> {
-        // XXX todo
-        Ok([0; 64])
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::BadMessageContents,
+        ))
     }
 }
 

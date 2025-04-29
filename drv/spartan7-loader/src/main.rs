@@ -172,7 +172,9 @@ fn init() -> Result<(), LoaderError> {
     ringbuf_entry!(Trace::WaitForDone);
     loader.finish_bitstream_load()?;
 
-    // Load-bearing delay, do not remove
+    // We need to wait for a little while before other tasks can start talking
+    // to FMC-based peripherals implemented in the FPGA.  This specific delay is
+    // probably overkill, but it's known to work!
     hl::sleep_for(100);
     ringbuf_entry!(Trace::Programmed);
 
