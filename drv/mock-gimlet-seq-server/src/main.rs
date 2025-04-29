@@ -113,7 +113,7 @@ impl NotificationHandler for ServerImpl {
 }
 
 mod idl {
-    use super::{SeqError, StateChangeReason};
+    use super::StateChangeReason;
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

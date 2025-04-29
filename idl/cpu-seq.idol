@@ -22,7 +22,7 @@ Interface(
             },
             reply: Result(
                 ok: "()",
-                err: CLike("SeqError"),
+                err: CLike("drv_cpu_seq_api::SeqError"),
             ),
         ),
         "set_state_with_reason": (
@@ -39,7 +39,7 @@ Interface(
             },
             reply: Result(
                 ok: "()",
-                err: CLike("SeqError"),
+                err: CLike("drv_cpu_seq_api::SeqError"),
             ),
         ),
         "send_hardware_nmi": (

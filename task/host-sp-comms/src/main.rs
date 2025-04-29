@@ -55,7 +55,10 @@ use inventory::INVENTORY_API_VERSION;
 )]
 #[cfg_attr(target_board = "gimletlet-2", path = "bsp/gimletlet.rs")]
 #[cfg_attr(target_board = "grapefruit", path = "bsp/grapefruit.rs")]
+#[cfg_attr(target_board = "cosmo-a", path = "bsp/cosmo_a.rs")]
 mod bsp;
+
+use bsp::SP_TO_HOST_CPU_INT_L;
 
 mod tx_buf;
 use tx_buf::TxBuf;
@@ -1609,35 +1612,12 @@ fn configure_uart_device(sys: &sys_api::Sys) -> Usart {
     )
 }
 
-cfg_if::cfg_if! {
-    if #[cfg(any(
-        target_board = "gimlet-b",
-        target_board = "gimlet-c",
-        target_board = "gimlet-d",
-        target_board = "gimlet-e",
-        target_board = "gimlet-f",
-    ))] {
-        // This net is named SP_TO_SP3_INT_L in the schematic
-        const SP_TO_HOST_CPU_INT_L: sys_api::PinSet = sys_api::Port::I.pin(7);
-    } else if #[cfg(target_board = "gimletlet-2")] {
-        // gimletlet doesn't have an SP3 to interrupt, but we can wire up an LED
-        // to one of the exposed E2-E6 pins to see it visually.
-        const SP_TO_HOST_CPU_INT_L: sys_api::PinSet = sys_api::Port::E.pin(2);
-    } else if #[cfg(target_board = "grapefruit")] {
-        // the CPU interrupt is not connected on grapefruit, so pick an
-        // unconnected GPIO
-        const SP_TO_HOST_CPU_INT_L: sys_api::PinSet = sys_api::Port::B.pin(1);
-    } else {
-        compile_error!("unsupported target board");
-    }
-}
-
 fn sp_to_sp3_interrupt_enable(sys: &sys_api::Sys) {
     sys.gpio_set(SP_TO_HOST_CPU_INT_L);
 
     sys.gpio_configure_output(
         SP_TO_HOST_CPU_INT_L,
-        sys_api::OutputType::OpenDrain,
+        bsp::SP_TO_HOST_CPU_INT_TYPE,
         sys_api::Speed::Low,
         sys_api::Pull::None,
     );

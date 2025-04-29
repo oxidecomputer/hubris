@@ -1,0 +1,2 @@
+name = "cosmo-a-dev"
+inherit = ["rev-a.toml", "dev.toml"]

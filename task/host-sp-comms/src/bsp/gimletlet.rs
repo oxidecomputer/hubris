@@ -8,6 +8,13 @@
 use super::ServerImpl;
 use host_sp_messages::{InventoryData, InventoryDataResult};
 
+// gimletlet doesn't have an SP3 to interrupt, but we can wire up an LED
+// to one of the exposed E2-E6 pins to see it visually.
+pub(crate) const SP_TO_HOST_CPU_INT_L: drv_stm32xx_sys_api::PinSet =
+    drv_stm32xx_sys_api::Port::E.pin(2);
+pub(crate) const SP_TO_HOST_CPU_INT_TYPE: drv_stm32xx_sys_api::OutputType =
+    drv_stm32xx_sys_api::OutputType::OpenDrain;
+
 impl ServerImpl {
     /// Number of devices in our inventory
     pub(crate) const INVENTORY_COUNT: u32 = 1;

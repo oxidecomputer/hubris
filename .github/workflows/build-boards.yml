@@ -192,6 +192,33 @@ jobs:
       image: ${{ matrix.image }}
       os: ${{ inputs.os }}
 
+  build-cosmo:
+    if: ${{ inputs.board-set == 'cosmo' || inputs.board-set == 'all' }}
+    name: build-cosmo
+    strategy:
+      matrix:
+        build: [cosmo-a, cosmo-a-lab, cosmo-a-dev]
+        include:
+          - build: cosmo-a
+            app_name: cosmo-a
+            app_toml: app/cosmo/rev-a.toml
+            image: default
+          - build: cosmo-a-lab
+            app_name: cosmo-a-lab
+            app_toml: app/cosmo/rev-a-lab.toml
+            image: default
+          - build: cosmo-a-dev
+            app_name: cosmo-a-dev
+            app_toml: app/cosmo/rev-a-dev.toml
+            image: default
+    uses: ./.github/workflows/build-one.yml
+    with:
+      build: ${{ matrix.build }}
+      app_name: ${{ matrix.app_name }}
+      app_toml: ${{ matrix.app_toml }}
+      image: ${{ matrix.image }}
+      os: ${{ inputs.os }}
+
   build-devboards:
     if: ${{ inputs.board-set == 'devboards' || inputs.board-set == 'all' }}
     name: build-devboards

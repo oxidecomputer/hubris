@@ -1056,7 +1056,9 @@ impl<'a> ThermalControl<'a> {
 
                     ControlResult::Pwm(PWMDuty(pwm as u8))
                 } else {
-                    ControlResult::Pwm(PWMDuty(100))
+                    ControlResult::Pwm(PWMDuty(
+                        self.pid_config.max_output as u8,
+                    ))
                 }
             }
             ThermalControlState::Running { values, pid } => {
@@ -1091,7 +1093,9 @@ impl<'a> ThermalControl<'a> {
                     };
                     ringbuf_entry!(Trace::AutoState(self.get_state()));
 
-                    ControlResult::Pwm(PWMDuty(100))
+                    ControlResult::Pwm(PWMDuty(
+                        self.pid_config.max_output as u8,
+                    ))
                 } else {
                     // We adjust the worst component margin by our target
                     // margin, which must be > 0.  This effectively tells the
@@ -1155,7 +1159,9 @@ impl<'a> ThermalControl<'a> {
 
                     ControlResult::PowerDown
                 } else {
-                    ControlResult::Pwm(PWMDuty(100))
+                    ControlResult::Pwm(PWMDuty(
+                        self.pid_config.max_output as u8,
+                    ))
                 }
             }
             ThermalControlState::Uncontrollable => ControlResult::PowerDown,
