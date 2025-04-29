@@ -95,7 +95,7 @@ dma = true
 
 [[override]]
 name = "a"
-address = 0x3003ffe0
+address = 0x2003ffe0
 size = 32
 read = true
 write = true
