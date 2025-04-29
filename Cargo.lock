@@ -3129,6 +3129,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "hubris-task-names"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+]
+
+[[package]]
 name = "hubtools"
 version = "0.4.6"
 source = "git+https://github.com/oxidecomputer/hubtools#943c4bbe6b50d1ab635d085d6204895fb4154e79"

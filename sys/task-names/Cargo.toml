@@ -1,0 +1,17 @@
+[package]
+name = "hubris-task-names"
+version = "0.1.0"
+edition = "2021"
+
+[build-dependencies]
+build-util = { path = "../../build/util" }
+
+[features]
+
+[lib]
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true
