@@ -11,6 +11,7 @@
 // gets linked in.
 extern crate stm32h7;
 
+use kern::profiling::EventsTable;
 use stm32h7::stm32h753 as device;
 
 use drv_stm32h7_startup::ClockConfig;
@@ -22,6 +23,8 @@ fn main() -> ! {
     system_init();
 
     const CYCLES_PER_MS: u32 = 400_000;
+
+    kern::profiling::configure_events_table(&EVENTS);
 
     unsafe { kern::startup::start_kernel(CYCLES_PER_MS) }
 }
@@ -431,3 +434,15 @@ fn system_init() {
     // Turn on the controller.
     p.FMC.bcr1.modify(|_, w| w.fmcen().set_bit());
 }
+
+static EVENTS: kern::profiling::EventsTable = EventsTable {
+    syscall_enter: |_| (),
+    syscall_exit: ||(),
+    secondary_syscall_enter: ||(),
+    secondary_syscall_exit: ||(),
+    isr_enter: ||(),
+    isr_exit: ||(),
+    timer_isr_enter: ||(),
+    timer_isr_exit: ||(),
+    context_switch: |t|(),
+};
