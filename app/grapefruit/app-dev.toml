@@ -6,3 +6,4 @@ inherit = "base.toml"
 features = ["uart8"]
 uses = ["uart8"]
 interrupts = {"uart8.irq" = "usart-irq"}
+start = false

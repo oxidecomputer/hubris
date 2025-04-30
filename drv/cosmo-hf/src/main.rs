@@ -25,7 +25,9 @@ enum Trace {
     #[count(skip)]
     None,
 
-    FpgaBusy,
+    FpgaBusy1,
+    FpgaBusy2,
+    FpgaBusy3,
     SectorEraseBusy,
     WriteBusy,
 
@@ -149,8 +151,8 @@ impl FlashDriver {
             if !self.drv.spisr.busy() {
                 break;
             }
-            ringbuf_entry!(Trace::FpgaBusy);
-            sleep_for(1);
+            ringbuf_entry!(Trace::FpgaBusy1);
+            //sleep_for(1);
         }
     }
 
@@ -160,10 +162,10 @@ impl FlashDriver {
             if !self.drv.spisr.rx_empty() {
                 break;
             }
-            ringbuf_entry!(Trace::FpgaBusy);
+            ringbuf_entry!(Trace::FpgaBusy2);
             // Initial busy-loop for faster response
             if i >= 32 {
-                sleep_for(1);
+                //sleep_for(1);
             }
         }
     }
@@ -182,7 +184,7 @@ impl FlashDriver {
         // Wait for the busy flag to be unset
         while (self.read_flash_status() & 1) != 0 {
             ringbuf_entry!(t);
-            sleep_for(1);
+            //sleep_for(1);
         }
     }
 

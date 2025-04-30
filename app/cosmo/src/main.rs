@@ -9,6 +9,7 @@
 // gets linked in.
 extern crate stm32h7;
 
+use kern::profiling::EventsTable;
 use stm32h7::stm32h753 as device;
 
 use drv_stm32h7_startup::ClockConfig;
@@ -20,17 +21,32 @@ mod tracing;
 
 #[entry]
 fn main() -> ! {
-    system_init();
+    let p = system_init();
 
     const CYCLES_PER_MS: u32 = 400_000;
 
-    #[cfg(feature = "traptrace")]
-    kern::profiling::configure_events_table(tracing::table());
+    {
+        p.RCC.ahb4enr.modify(|_, w| {
+            w.gpiojen().set_bit();
+            w
+        });
+        cortex_m::asm::dsb();
+        p.GPIOJ.moder.modify(|_, w| {
+            w.moder8().output();
+            w.moder9().output();
+            w.moder10().output();
+            w.moder11().output();
+            w.moder12().output();
+            w.moder13().output();
+            w
+        });
+    }
+    kern::profiling::configure_events_table(&EVENTS);
 
     unsafe { kern::startup::start_kernel(CYCLES_PER_MS) }
 }
 
-fn system_init() {
+fn system_init() -> device::Peripherals {
     let cp = cortex_m::Peripherals::take().unwrap();
     let p = device::Peripherals::take().unwrap();
 
@@ -445,4 +461,68 @@ fn system_init() {
 
     // Turn on the controller.
     p.FMC.bcr1.modify(|_, w| w.fmcen().set_bit());
+    
+    p
+}
+
+static EVENTS: kern::profiling::EventsTable = EventsTable {
+    syscall_enter: |syscall_no| {
+        pin_high(0);
+    },
+    syscall_exit: || {
+        pin_low(0);
+    },
+    secondary_syscall_enter: ||(),
+    secondary_syscall_exit: ||(),
+    isr_enter: ||(),
+    isr_exit: ||(),
+    timer_isr_enter: ||(),
+    timer_isr_exit: ||(),
+    context_switch: |task_index| {
+        let pin = match task_index {
+            21 => {
+                // spi2 driver
+                Some(2)
+            }
+            15 => {
+                // hash driver
+                Some(3)
+            }
+            16 => {
+                // spartan7 loader
+                Some(4)
+            }
+            8 => {
+                // hf
+                Some(5)
+            }
+            12 => None,
+            _ => Some(1),
+        };
+        for i in 0..6 {
+            if pin == Some(i) {
+                pin_high(i);
+            } else {
+                pin_low(i);
+            }
+        }
+    },
+};
+
+fn map_pin(index: u8) -> u8 {
+    match index {
+        0..=1 => index,
+        2..=6 => index + 1,
+        _ => 14,
+    }
+}
+
+fn pin_high(index: u8) {
+    let gpio = unsafe { &*device::GPIOJ::ptr() };
+    gpio.bsrr.write(|w| unsafe { w.bits(1 << map_pin(index)) });
+}
+
+fn pin_low(index: u8) {
+    let gpio = unsafe { &*device::GPIOJ::ptr() };
+    gpio.bsrr.write(|w| unsafe { w.bits(1 << (map_pin(index) + 16)) });
 }
