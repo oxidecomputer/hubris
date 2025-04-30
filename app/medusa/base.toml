@@ -58,6 +58,7 @@ max-sizes = {flash = 32768, ram = 32768}
 stacksize = 2048
 start = true
 task-slots = ["sys", "i2c_driver"]
+features = ["turbo"]
 
 [tasks.i2c_driver]
 name = "drv-stm32xx-i2c-server"
