@@ -32,12 +32,14 @@ fn main() -> ! {
         });
         cortex_m::asm::dsb();
         p.GPIOJ.moder.modify(|_, w| {
-            w.moder8().output();
-            w.moder9().output();
-            w.moder10().output();
-            w.moder11().output();
-            w.moder12().output();
-            w.moder13().output();
+            w.moder0().output();
+            w.moder1().output();
+            w.moder3().output();
+            w.moder4().output();
+            w.moder5().output();
+            w.moder6().output();
+            w.moder7().output();
+            w.moder14().output();
             w
         });
     }
