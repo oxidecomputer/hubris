@@ -145,7 +145,7 @@ notifications = ["flash-irq"]
 
 [tasks.hiffy]
 name = "task-hiffy"
-features = ["h753", "stm32h7", "i2c", "gpio", "sprot"]
+features = ["h753", "stm32h7", "i2c", "gpio", "sprot", "turbo"]
 priority = 5
 max-sizes = {flash = 32768, ram = 16384 }
 stacksize = 1200
