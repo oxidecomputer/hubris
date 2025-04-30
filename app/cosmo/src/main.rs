@@ -482,23 +482,23 @@ static EVENTS: kern::profiling::EventsTable = EventsTable {
     timer_isr_exit: ||(),
     context_switch: |task_index| {
         let pin = match task_index {
-            21 => {
+            3 => {
                 // spi2 driver
                 Some(2)
             }
-            15 => {
+            12 => {
                 // hash driver
                 Some(3)
             }
-            16 => {
+            11 => {
                 // spartan7 loader
                 Some(4)
             }
-            8 => {
+            13 => {
                 // hf
                 Some(5)
             }
-            12 => None,
+            27 => None,
             _ => Some(1),
         };
         for i in 0..6 {
