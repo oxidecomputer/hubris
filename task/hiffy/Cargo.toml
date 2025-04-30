@@ -55,7 +55,7 @@ h753 = ["stm32h7", "drv-stm32xx-i2c/h753", "build-i2c/h753"]
 g031 = ["stm32g0", "drv-stm32xx-i2c/g031", "build-i2c/g031"]
 g030 = ["stm32g0", "drv-stm32xx-i2c/g030", "build-i2c/g030"]
 micro = ["no-ipc-counters"]
-# enables large memory buffer to make data transfers through through hiffy (e.g.
+# enables large memory buffer to make data transfers through hiffy (e.g.
 # `humility qspi` and such) not slow. this conflicts with the "micro" feature,
 # which makes the buffer smaller for memory constrained-targets, and is off by
 # default, because it makes the buffer much larger, and you may not need that if
