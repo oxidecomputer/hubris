@@ -52,6 +52,12 @@ cfg_if::cfg_if! {
     }
 }
 
+#[cfg(all(feature = "turbo", feature = "micro"))]
+compile_error!(
+    "enabling the 'micro' feature takes precedent over the 'turbo' feature,
+     as both control memory buffer size"
+);
+
 cfg_if::cfg_if! {
     //
     // The "micro" feature denotes a minimal RAM footprint.  Note that this
@@ -65,18 +71,10 @@ cfg_if::cfg_if! {
         const HIFFY_DATA_SIZE: usize = 256;
         const HIFFY_TEXT_SIZE: usize = 256;
         const HIFFY_RSTACK_SIZE: usize = 64;
-    } else if #[cfg(any(
-        target_board = "gimlet-b",
-        target_board = "gimlet-c",
-        target_board = "gimlet-d",
-        target_board = "gimlet-e",
-        target_board = "gimlet-f",
-        target_board = "sidecar-b",
-        target_board = "gimletlet-2",
-        target_board = "nucleo-h743zi2",
-        target_board = "nucleo-h753zi",
-        target_board = "grapefruit",
-    ))] {
+    } else if #[cfg(feature = "turbo")] {
+        //
+        // go-faster mode
+        //
         const HIFFY_DATA_SIZE: usize = 20_480;
         const HIFFY_TEXT_SIZE: usize = 2048;
         const HIFFY_RSTACK_SIZE: usize = 2048;

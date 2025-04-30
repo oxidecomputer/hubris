@@ -149,7 +149,7 @@ notifications = ["timer"]
 
 [tasks.hiffy]
 name = "task-hiffy"
-features = ["h753", "stm32h7", "i2c", "gpio", "spi", "qspi", "hash", "sprot"]
+features = ["h753", "stm32h7", "i2c", "gpio", "spi", "qspi", "hash", "sprot", "turbo"]
 priority = 7
 max-sizes = {flash = 32768, ram = 32768 }
 stacksize = 1200
@@ -387,7 +387,7 @@ af = 4
 # The front FPGA has five virtual muxes, which pretend to be PCA9545s.
 # We only use the lower 3 channels on each mux (which is normally 4-channel)
 [[config.i2c.controllers.ports.B.muxes]]
-driver = "pca9545" 
+driver = "pca9545"
 address = 0x70
 
 [[config.i2c.controllers.ports.B.muxes]]
@@ -425,7 +425,7 @@ af = 4
 
 # The main FPGA has two virtual muxes, which pretend to be PCA9545s.
 [[config.i2c.controllers.ports.F.muxes]]
-driver = "pca9545" 
+driver = "pca9545"
 address = 0x70
 
 [[config.i2c.controllers.ports.F.muxes]]
