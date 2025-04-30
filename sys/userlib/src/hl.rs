@@ -9,7 +9,7 @@
 
 use abi::{Generation, TaskId};
 use core::marker::PhantomData;
-use zerocopy::{AsBytes, FromBytes, LayoutVerified};
+use zerocopy::{FromBytes, FromZeros, Immutable, IntoBytes, KnownLayout};
 
 use crate::{
     sys_borrow_info, sys_borrow_read, sys_borrow_write, sys_get_timer,
@@ -223,8 +223,8 @@ impl<'a> Message<'a> {
     /// [`Unaligned`][zerocopy::Unaligned] type.
     pub fn fixed<M, R>(self) -> Option<(&'a M, Caller<R>)>
     where
-        M: FromBytes,
-        R: AsBytes,
+        M: FromBytes + KnownLayout + Immutable,
+        R: IntoBytes,
     {
         let caller = Caller::from(self.sender);
         if self.buffer.len() != core::mem::size_of::<M>()
@@ -232,9 +232,8 @@ impl<'a> Message<'a> {
         {
             None
         } else {
-            let msg = LayoutVerified::<_, M>::new(self.buffer)
-                .expect("buffer has wrong alignment")
-                .into_ref();
+            let msg = M::ref_from_bytes(self.buffer)
+                .expect("buffer has wrong alignment");
             Some((msg, caller))
         }
     }
@@ -247,8 +246,8 @@ impl<'a> Message<'a> {
     /// This will panic under the same circumstances as `fixed`.
     pub fn fixed_with_leases<M, R>(self, n: usize) -> Option<(&'a M, Caller<R>)>
     where
-        M: FromBytes,
-        R: AsBytes,
+        M: FromBytes + KnownLayout + Immutable,
+        R: IntoBytes,
     {
         if self.lease_count != n {
             None
@@ -284,7 +283,7 @@ impl<R> Caller<R> {
     /// Sends a successful reply message of type `R`, consuming the handle.
     pub fn reply(self, message: R)
     where
-        R: AsBytes,
+        R: IntoBytes + Immutable,
     {
         sys_reply(self.id, 0, message.as_bytes())
     }
@@ -372,11 +371,15 @@ impl Borrow<'_> {
     /// requirements is placed on the *client* side.
     pub fn read_at<T>(&self, offset: usize) -> Option<T>
     where
-        T: FromBytes + AsBytes,
+        T: FromZeros + FromBytes + IntoBytes,
     {
         let mut dest = T::new_zeroed();
-        let (rc, n) =
-            sys_borrow_read(self.id, self.index, offset, dest.as_bytes_mut());
+        let (rc, n) = sys_borrow_read(
+            self.id,
+            self.index,
+            offset,
+            &mut dest.as_mut_bytes(),
+        );
         if rc != 0 || n != core::mem::size_of::<T>() {
             None
         } else {
@@ -397,7 +400,7 @@ impl Borrow<'_> {
     /// requirements is placed on the *client* side.
     pub fn write_at<T>(&self, offset: usize, value: T) -> Option<()>
     where
-        T: AsBytes,
+        T: IntoBytes + Immutable,
     {
         let (rc, n) =
             sys_borrow_write(self.id, self.index, offset, value.as_bytes());

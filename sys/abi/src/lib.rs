@@ -8,7 +8,7 @@
 #![forbid(clippy::wildcard_imports)]
 
 use serde::{Deserialize, Serialize};
-use zerocopy::{AsBytes, FromBytes};
+use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 /// Names a particular incarnation of a task.
 ///
@@ -525,7 +525,7 @@ pub const CABOOSE_MAGIC: u32 = 0xCAB0_005E;
 /// TODO: Add hash for integrity check
 /// Later this will also be a signature block
 #[repr(C)]
-#[derive(Default, AsBytes, FromBytes)]
+#[derive(Default, IntoBytes, FromBytes, KnownLayout, Immutable)]
 pub struct ImageHeader {
     pub magic: u32,
     pub total_image_len: u32,
@@ -537,7 +537,7 @@ pub struct ImageHeader {
 // Corresponds to the ARM vector table, limited to what we need
 // see ARMv8m B3.30 and B1.5.3 ARMv7m for the full description
 #[repr(C)]
-#[derive(Default, AsBytes)]
+#[derive(Default, IntoBytes, KnownLayout, Immutable)]
 pub struct ImageVectors {
     pub sp: u32,
     pub entry: u32,
