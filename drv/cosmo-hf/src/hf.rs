@@ -13,7 +13,7 @@ use idol_runtime::{
 };
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use userlib::{task_slot, RecvMessage, UnwrapLite};
-use zerocopy::{AsBytes, FromBytes};
+use zerocopy::{FromBytes, IntoBytes};
 
 use crate::{
     FlashAddr, FlashDriver, Trace, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES,
@@ -137,7 +137,7 @@ impl ServerImpl {
             self.drv
                 .flash_read(
                     Self::flash_addr_for(addr, dev).unwrap_lite(),
-                    &mut data.as_bytes_mut(),
+                    &mut data.as_mut_bytes(),
                 )
                 .unwrap_lite(); // flash_read is infallible when using a slice
             best = best.max(Some(data).filter(|d| d.is_valid()));

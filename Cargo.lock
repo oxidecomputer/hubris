@@ -1228,7 +1228,6 @@ dependencies = [
  "build-i2c",
  "build-stm32xx-sys",
  "build-util",
- "byteorder",
  "cfg-if",
  "cortex-m",
  "counters",
@@ -3151,14 +3150,14 @@ dependencies = [
 [[package]]
 name = "humpty"
 version = "0.1.4"
-source = "git+https://github.com/oxidecomputer/humpty#ca6b7441471146dbf3aa976e029a7828db55b552"
+source = "git+https://github.com/oxidecomputer/humpty?branch=eliza/zerocopy-0.8#9528867a6f575db488b5fae24aa363cc0d89faeb"
 dependencies = [
  "hubpack",
  "lzss",
  "serde",
  "serde-big-array 0.5.1",
  "static_assertions",
- "zerocopy 0.6.6",
+ "zerocopy 0.8.25",
 ]
 
 [[package]]
@@ -3193,7 +3192,6 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 [[package]]
 name = "idol"
 version = "0.4.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#52c37586066b793584a18852db77b57ded70fd52"
 dependencies = [
  "indexmap 1.9.1",
  "once_cell",
@@ -3210,11 +3208,10 @@ dependencies = [
 [[package]]
 name = "idol-runtime"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#52c37586066b793584a18852db77b57ded70fd52"
 dependencies = [
  "counters",
  "userlib",
- "zerocopy 0.6.6",
+ "zerocopy 0.8.25",
 ]
 
 [[package]]

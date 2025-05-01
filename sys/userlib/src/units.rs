@@ -6,10 +6,20 @@
 //! Tuple structs for units that are useful in the real world
 //!
 
-use zerocopy::{FromBytes, IntoBytes};
+use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 /// Degrees Celsius
-#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, FromBytes, IntoBytes)]
+#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    PartialOrd,
+    Debug,
+    FromBytes,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
+)]
 #[repr(C)]
 pub struct Celsius(pub f32);
 

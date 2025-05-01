@@ -11,7 +11,7 @@ use drv_i2c_api::ResponseCode;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
 use userlib::{units::Celsius, *};
-use zerocopy::{AsBytes, FromBytes};
+use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 #[derive(
     Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, counters::Count,
@@ -80,7 +80,7 @@ pub enum ThermalAutoState {
 }
 
 /// Properties for a particular part in the system
-#[derive(Clone, Copy, AsBytes, FromBytes)]
+#[derive(Clone, Copy, IntoBytes, FromBytes, Immutable, KnownLayout)]
 #[repr(C)]
 pub struct ThermalProperties {
     /// Target temperature for this part

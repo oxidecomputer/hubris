@@ -20,7 +20,7 @@ pub use drv_sidecar_mainboard_controller::{
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
 use userlib::*;
-use zerocopy::AsBytes;
+use zerocopy::IntoBytes;
 
 #[derive(
     Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, counters::Count,
@@ -46,7 +46,7 @@ impl From<FpgaError> for SeqError {
     }
 }
 
-#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, AsBytes)]
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IntoBytes)]
 #[repr(u8)]
 pub enum TofinoSequencerPolicy {
     Disabled = 0,

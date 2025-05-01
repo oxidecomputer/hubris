@@ -13,7 +13,7 @@
 use drv_i2c_devices::at24csw080::At24Csw080;
 use drv_oxide_vpd::VpdError;
 use userlib::TaskId;
-use zerocopy::{AsBytes, FromBytes};
+use zerocopy::{FromBytes, IntoBytes};
 
 pub use drv_oxide_vpd::VpdError as LocalVpdError;
 
@@ -35,7 +35,7 @@ pub use drv_oxide_vpd::VpdError as LocalVpdError;
 /// `read_config` should be called with a tag nested under `FRU0` (e.g. `TAG1`
 /// in the example above).  It will deserialize the raw byte array (shown as
 /// `[...]`) into an object of type `V`.
-pub fn read_config<V: AsBytes + FromBytes>(
+pub fn read_config<V: IntoBytes + FromBytes>(
     i2c_task: TaskId,
     tag: [u8; 4],
 ) -> Result<V, VpdError> {

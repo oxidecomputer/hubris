@@ -31,7 +31,7 @@ use stm32h7::stm32h753 as device;
 
 use core::mem::size_of;
 use userlib::*;
-use zerocopy::AsBytes;
+use zerocopy::IntoBytes;
 
 enum State {
     Uninitialized = 1,

@@ -21,7 +21,7 @@ use drv_lpc55_syscon_api::*;
 use lib_lpc55_usart::{Usart, Write};
 use lpc55_pac as device;
 use userlib::*;
-use zerocopy::AsBytes;
+use zerocopy::IntoBytes;
 
 task_slot!(SYSCON, syscon_driver);
 
@@ -162,7 +162,7 @@ fn turn_on_flexcomm() {
 
 fn step_transmit(usart: &mut Usart<'_>, txs: &mut Transmit) -> bool {
     let mut byte = 0u8;
-    let (rc, len) = sys_borrow_read(txs.task, 0, txs.pos, byte.as_bytes_mut());
+    let (rc, len) = sys_borrow_read(txs.task, 0, txs.pos, byte.as_mut_bytes());
     if rc != 0 || len != 1 {
         sys_reply(txs.task, ResponseCode::BadArg as u32, &[]);
         true

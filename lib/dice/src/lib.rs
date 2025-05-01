@@ -12,7 +12,7 @@ use salty::constants::SECRETKEY_SEED_LENGTH;
 use serde::{Deserialize, Serialize};
 use sha3::Sha3_256;
 use vcell::VolatileCell;
-use zerocopy::AsBytes;
+use zerocopy::IntoBytes;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 // re-export useful types from dice-mfg-msgs making them part of our API
@@ -180,7 +180,7 @@ impl DeviceIdOkm {
 // TODO: Start CertSerialNumber from > 0. RFD 5280 4.1.2.2: must be positive
 // integer (does not include 0).
 #[repr(C)]
-#[derive(AsBytes, Default)]
+#[derive(IntoBytes, Default)]
 pub struct CertSerialNumber(u8);
 
 impl CertSerialNumber {

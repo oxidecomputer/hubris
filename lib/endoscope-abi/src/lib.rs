@@ -31,7 +31,9 @@ pub enum State {
     Done = 0x1dec1a0,
 }
 
-#[derive(FromBytes, IntoBytes, Immutable, KnownLayout, Copy, Clone)]
+#[derive(
+    FromBytes, IntoBytes, Immutable, KnownLayout, KnownLayout, Copy, Clone,
+)]
 #[repr(C, packed)]
 pub struct Shared {
     pub state: u32,

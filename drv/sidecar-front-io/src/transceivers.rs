@@ -7,7 +7,7 @@ use drv_fpga_api::{FpgaError, FpgaUserDesign, ReadOp, WriteOp};
 use drv_transceivers_api::{ModuleStatus, TransceiversError, NUM_PORTS};
 use transceiver_messages::ModuleId;
 use userlib::UnwrapLite;
-use zerocopy::{byteorder, AsBytes, FromBytes, Unaligned, U16};
+use zerocopy::{byteorder, FromBytes, IntoBytes, Unaligned, U16};
 
 // The transceiver modules are split across two FPGAs on the QSFP Front IO
 // board, so while we present the modules as a unit, the communication is
@@ -1180,7 +1180,7 @@ impl Transceivers {
         let phys_mask: FpgaPortMasks = mask.into();
         let mut failure_types = LogicalPortFailureTypes::default();
 
-        #[derive(AsBytes, Default, FromBytes)]
+        #[derive(IntoBytes, Default, FromBytes)]
         #[repr(C)]
         struct BusyAndPortStatus {
             busy: u16,
@@ -1243,7 +1243,7 @@ impl Transceivers {
 // The I2C control register looks like:
 // [2..1] - Operation (0 - Read, 1 - Write, 2 - RandomRead)
 // [0] - Start
-#[derive(Copy, Clone, Debug, AsBytes)]
+#[derive(Copy, Clone, Debug, IntoBytes)]
 #[repr(u8)]
 pub enum TransceiverI2COperation {
     Read = 0x01,
@@ -1258,7 +1258,7 @@ impl From<TransceiverI2COperation> for u8 {
     }
 }
 
-#[derive(AsBytes, FromBytes, Unaligned)]
+#[derive(IntoBytes, FromBytes, Unaligned)]
 #[repr(C)]
 pub struct TransceiversI2CRequest {
     reg: u8,

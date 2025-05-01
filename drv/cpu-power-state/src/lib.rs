@@ -8,10 +8,19 @@
 #![no_std]
 
 use userlib::FromPrimitive;
-use zerocopy::AsBytes;
+use zerocopy::{Immutable, IntoBytes, KnownLayout};
 
 #[derive(
-    Copy, Clone, Debug, FromPrimitive, PartialEq, Eq, AsBytes, counters::Count,
+    Copy,
+    Clone,
+    Debug,
+    FromPrimitive,
+    PartialEq,
+    Eq,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
+    counters::Count,
 )]
 #[repr(u8)]
 pub enum PowerState {

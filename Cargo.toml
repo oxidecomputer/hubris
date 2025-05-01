@@ -44,6 +44,11 @@ path = "sys/abi"
 [patch."https://github.com/oxidecomputer/hubris".counters]
 path = "lib/counters"
 
+[patch."https://github.com/oxidecomputer/idolatry".idol]
+path = "/home/eliza/Code/oxide/idolatry"
+[patch."https://github.com/oxidecomputer/idolatry".idol-runtime]
+path = "/home/eliza/Code/oxide/idolatry/runtime"
+
 [workspace.dependencies]
 anyhow = { version = "1.0.31", default-features = false, features = ["std"] }
 array-init = { version = "2.1.0" }
@@ -147,7 +152,7 @@ dice-mfg-msgs = { git = "https://github.com/oxidecomputer/dice-util", default-fe
 gateway-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", rev = "0f3335b3162b5f96ffa1436e017cf0f7b50c4b3c", default-features = false, features = ["smoltcp"] }
 gimlet-inspector-protocol = { git = "https://github.com/oxidecomputer/gimlet-inspector-protocol", version = "0.1.0" }
 hif = { git = "https://github.com/oxidecomputer/hif", default-features = false }
-humpty = { git = "https://github.com/oxidecomputer/humpty", default-features = false, version = "0.1.3" }
+humpty = { git = "https://github.com/oxidecomputer/humpty", branch = "eliza/zerocopy-0.8", default-features = false, version = "0.1.3" }
 hubtools = { git = "https://github.com/oxidecomputer/hubtools", default-features = false, version = "0.4.6" }
 idol = { git = "https://github.com/oxidecomputer/idolatry.git", default-features = false }
 idol-runtime = { git = "https://github.com/oxidecomputer/idolatry.git", default-features = false }

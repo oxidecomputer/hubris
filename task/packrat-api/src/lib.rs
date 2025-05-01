@@ -8,7 +8,9 @@
 
 use derive_idol_err::IdolError;
 use userlib::*;
-use zerocopy::{AsBytes, FromBytes, LittleEndian, U16};
+use zerocopy::{
+    FromBytes, Immutable, IntoBytes, KnownLayout, LittleEndian, U16,
+};
 
 pub use host_sp_messages::HostStartupOptions;
 pub use oxide_barcode::VpdIdentity;
@@ -17,7 +19,18 @@ pub use oxide_barcode::VpdIdentity;
 ///
 /// The SP will claim the first `N` addresses based on VLAN configuration
 /// (typically either 1 or 2).
-#[derive(Copy, Clone, Debug, Eq, PartialEq, FromBytes, AsBytes, Default)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Eq,
+    PartialEq,
+    FromBytes,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
+    Default,
+)]
 #[repr(C)]
 pub struct MacAddressBlock {
     pub base_mac: [u8; 6],

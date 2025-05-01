@@ -33,7 +33,7 @@ use transceiver_messages::{
     message::LedState, mgmt::ManagementInterface, MAX_PACKET_SIZE,
 };
 
-use zerocopy::{AsBytes, FromBytes};
+use zerocopy::{FromBytes, IntoBytes};
 
 mod udp; // UDP API is implemented in a separate file
 
@@ -264,7 +264,7 @@ impl ServerImpl {
             return Err(FpgaError::CommsError);
         }
 
-        #[derive(Copy, Clone, FromBytes, AsBytes)]
+        #[derive(Copy, Clone, FromBytes, IntoBytes)]
         #[repr(C)]
         struct Temperature {
             temperature: zerocopy::I16<zerocopy::BigEndian>,
@@ -273,7 +273,7 @@ impl ServerImpl {
         let mut out = Temperature::new_zeroed();
         let status = self
             .transceivers
-            .get_i2c_status_and_read_buffer(port, out.as_bytes_mut())?;
+            .get_i2c_status_and_read_buffer(port, out.as_mut_bytes())?;
 
         if status.error == FpgaI2CFailure::NoError {
             // "Internally measured free side device temperatures are

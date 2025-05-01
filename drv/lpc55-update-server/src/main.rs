@@ -28,7 +28,7 @@ use stage0_handoff::{
     RotBootStateV2,
 };
 use userlib::*;
-use zerocopy::{AsBytes, FromBytes};
+use zerocopy::{FromBytes, IntoBytes};
 
 mod images;
 use crate::images::*;
@@ -825,7 +825,7 @@ impl ServerImpl<'_> {
         indirect_flash_read(
             &self.flash,
             span.start + LENGTH_OFFSET as u32,
-            buf[..].as_bytes_mut(),
+            buf[..].as_mut_bytes(),
         )?;
         if let Some(len) = round_up_to_flash_page(buf[0]) {
             // The minimum image size should be further constrained
@@ -864,7 +864,7 @@ impl ServerImpl<'_> {
         indirect_flash_read(
             &self.flash,
             span.start,
-            self.fw_cache[0..len / core::mem::size_of::<u32>()].as_bytes_mut(),
+            self.fw_cache[0..len / core::mem::size_of::<u32>()].as_mut_bytes(),
         )?;
         Ok(len)
     }
@@ -1057,7 +1057,7 @@ fn boot_preference_from_flash_word(flash_word: &[u32; 4]) -> SlotId {
 /// This API produces flash words in the form of `[u32; 4]`, because that's how
 /// the hardware produces them. Elements of the array are in ascending address
 /// order when the flash is viewed as bytes. The easiest way to view the
-/// corresponding block of 16 bytes is using `zerocopy::AsBytes` to reinterpret
+/// corresponding block of 16 bytes is using `zerocopy::IntoBytes` to reinterpret
 /// the array in place.
 fn indirect_flash_read_words(
     flash: &drv_lpc55_flash::Flash<'_>,
@@ -1227,7 +1227,7 @@ fn caboose_slice(
     indirect_flash_read(
         flash,
         flash_range.start + HEADER_OFFSET,
-        header.as_bytes_mut(),
+        header.as_mut_bytes(),
     )
     .map_err(|_| RawCabooseError::ReadFailed)?;
     if header.magic != HEADER_MAGIC {
@@ -1251,7 +1251,7 @@ fn caboose_slice(
     indirect_flash_read(
         flash,
         image_end - U32_SIZE,
-        caboose_size.as_bytes_mut(),
+        caboose_size.as_mut_bytes(),
     )
     .map_err(|_| RawCabooseError::ReadFailed)?;
 
@@ -1265,7 +1265,7 @@ fn caboose_slice(
         // Safety: we know this pointer is within the programmed flash region,
         // since it's checked above.
         let mut v = 0u32;
-        indirect_flash_read(flash, caboose_start, v.as_bytes_mut())
+        indirect_flash_read(flash, caboose_start, v.as_mut_bytes())
             .map_err(|_| RawCabooseError::ReadFailed)?;
         if v == CABOOSE_MAGIC {
             caboose_start + U32_SIZE..image_end - U32_SIZE

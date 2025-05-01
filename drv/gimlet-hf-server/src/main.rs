@@ -30,7 +30,7 @@ use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{
     ClientError, Leased, LenLimit, NotificationHandler, RequestError, R, W,
 };
-use zerocopy::{AsBytes, FromBytes};
+use zerocopy::{FromZeros, IntoBytes};
 
 #[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
@@ -270,7 +270,7 @@ impl ServerImpl {
         for i in 0..SECTOR_SIZE_BYTES / HF_PERSISTENT_DATA_STRIDE {
             let addr = (i * HF_PERSISTENT_DATA_STRIDE) as u32;
             let mut data = HfRawPersistentData::new_zeroed();
-            self.qspi.read_memory(addr, data.as_bytes_mut());
+            self.qspi.read_memory(addr, data.as_mut_bytes());
             if data.is_valid() && best.map(|b| data > b).unwrap_or(true) {
                 best = Some(data);
             }

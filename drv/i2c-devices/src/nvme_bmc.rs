@@ -5,7 +5,7 @@
 use crate::Validate;
 use drv_i2c_api::{I2cDevice, ResponseCode};
 use userlib::units::Celsius;
-use zerocopy::{AsBytes, FromBytes};
+use zerocopy::{FromBytes, Immutable, IntoBytes};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Error {
@@ -37,7 +37,7 @@ pub struct NvmeBmc {
 
 /// See Figure 112: Subsystem Management Data Structure in
 /// "NVM Express Management Interface", revision 1.0a, April 8, 2017
-#[derive(Copy, Clone, Debug, FromBytes, AsBytes)]
+#[derive(Copy, Clone, Debug, FromBytes, IntoBytes, Immutable)]
 #[repr(C)]
 pub struct DriveStatus {
     length: u8,

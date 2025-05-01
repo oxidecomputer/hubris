@@ -12,13 +12,13 @@ use salty::constants::{
 use salty::signature::{Keypair, PublicKey};
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
-use zerocopy::AsBytes;
+use zerocopy::IntoBytes;
 
 // TODO: common trait to share with CertBuilder?
 pub trait CsrBuilder {
     fn as_mut_bytes(&mut self) -> &mut [u8];
 
-    fn set_range<T: AsBytes>(mut self, r: Range<usize>, t: &T) -> Self
+    fn set_range<T: IntoBytes>(mut self, r: Range<usize>, t: &T) -> Self
     where
         Self: Sized,
     {

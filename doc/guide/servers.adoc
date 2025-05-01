@@ -157,7 +157,7 @@ the `hl` conveniences.
 #![no_main]
 
 use userlib::{hl, FromPrimitive}; // <1>
-use zerocopy::AsBytes;
+use zerocopy::IntoBytes;
 
 #[derive(FromPrimitive)]
 enum Op { // <2>
@@ -184,7 +184,7 @@ pub fn main() -> ! {
 
     loop {
         hl::recv_without_notification( // <7>
-            argument.as_bytes_mut(), // <8>
+            argument.as_mut_bytes(), // <8>
             |op, msg| -> Result<(), ResponseCode> { // <9>
                 let (msg, caller) = msg.fixed::<u32, u32>() // <10>
                     .ok_or(ResponseCode::BadArg)?; // <11>
@@ -219,7 +219,7 @@ same argument type, `u32`, `hl` lets us use it directly instead of dealing in
 byte arrays.
 <7> `recv_without_notification` wraps up the open receive pattern used by most
 servers.
-<8> We pass the argument buffer in using `zerocopy::AsBytes`.
+<8> We pass the argument buffer in using `zerocopy::IntoBytes`.
 <9> This closure handles messages. The `op` parameter is automatically converted
 to the `Op` enum by `hl`.
 <10> The `fixed` operation requires that the argument exactly match the size of
@@ -279,7 +279,7 @@ want to retry on server restart:
 use abi::TaskId;
 use core::cell::Cell;
 use userlib::sys_send;
-use zerocopy::AsBytes;
+use zerocopy::IntoBytes;
 
 enum Op { // <1>
     Add = 0,
@@ -312,7 +312,7 @@ impl IntServer {
         loop { // <3>
             let target = self.0.get();
             let (code, response_len) = // <4>
-                sys_send(target, op, value.as_bytes(), response.as_bytes_mut());
+                sys_send(target, op, value.as_bytes(), response.as_mut_bytes());
 
             if code == 0 && response_len == 4 {
                 return response; // <5>
@@ -385,4 +385,3 @@ NOTE: Remember that tasks can restart -- any table tracking per-task state
 should be indexed by task _index_ and record the generation. If a new request
 arrives from the same task index but a different generation, the request should
 be halted and replaced.
-

@@ -7,7 +7,7 @@
 
 use task_net_api::*;
 use userlib::*;
-use zerocopy::{AsBytes, FromBytes, LittleEndian, U16, U64};
+use zerocopy::{FromBytes, IntoBytes, LittleEndian, U16, U64};
 
 task_slot!(NET, net);
 

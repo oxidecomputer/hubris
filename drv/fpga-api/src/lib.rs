@@ -10,7 +10,7 @@ use core::ops::Deref;
 
 use drv_spi_api::SpiError;
 use userlib::{FromPrimitive, UnwrapLite};
-use zerocopy::{AsBytes, BigEndian, FromBytes, U32};
+use zerocopy::{BigEndian, FromBytes, Immutable, IntoBytes, KnownLayout, U32};
 
 #[cfg(feature = "auxflash")]
 use drv_auxflash_api::{AuxFlash, AuxFlashBlob};
@@ -101,7 +101,17 @@ impl core::convert::TryFrom<u32> for FpgaError {
     }
 }
 
-#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, AsBytes)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    FromPrimitive,
+    Eq,
+    PartialEq,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
+)]
 #[repr(u8)]
 pub enum DeviceState {
     Unknown = 0,
@@ -111,7 +121,17 @@ pub enum DeviceState {
     Error = 4,
 }
 
-#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, AsBytes)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    FromPrimitive,
+    Eq,
+    PartialEq,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
+)]
 #[repr(u8)]
 pub enum BitstreamType {
     Uncompressed = 0,
@@ -136,7 +156,17 @@ pub enum BitstreamType {
 */
 
 /// This is just writes; for reads, see ReadOp
-#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, AsBytes)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    FromPrimitive,
+    Eq,
+    PartialEq,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
+)]
 #[repr(u8)]
 pub enum WriteOp {
     Write = 0,
@@ -162,7 +192,17 @@ impl From<bool> for WriteOp {
 }
 
 /// This is just reads; for writes, see WriteOp
-#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, AsBytes)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    FromPrimitive,
+    Eq,
+    PartialEq,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
+)]
 #[repr(u8)]
 pub enum ReadOp {
     Read = 1,
@@ -264,7 +304,7 @@ impl Bitstream {
     }
 }
 
-#[derive(Copy, Clone, Debug, FromBytes, AsBytes)]
+#[derive(Copy, Clone, Debug, FromBytes, IntoBytes, Immutable, KnownLayout)]
 #[repr(C, packed)]
 pub struct FpgaUserDesignIdent {
     pub id: U32<BigEndian>,
@@ -302,10 +342,10 @@ impl FpgaUserDesign {
     #[inline]
     pub fn read<T>(&self, addr: impl Into<u16>) -> Result<T, FpgaError>
     where
-        T: AsBytes + FromBytes,
+        T: IntoBytes + FromBytes,
     {
         let mut v = T::new_zeroed();
-        self.read_bytes(ReadOp::Read, addr, v.as_bytes_mut())?;
+        self.read_bytes(ReadOp::Read, addr, v.as_mut_bytes())?;
         Ok(v)
     }
 
@@ -328,7 +368,7 @@ impl FpgaUserDesign {
         value: T,
     ) -> Result<(), FpgaError>
     where
-        T: AsBytes,
+        T: IntoBytes,
     {
         self.write_bytes(op, addr, value.as_bytes())
     }

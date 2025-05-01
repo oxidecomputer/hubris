@@ -15,7 +15,7 @@ use lpc55_pac::SYSCON;
 use salty::{constants::SECRETKEY_SEED_LENGTH, signature::Keypair};
 use sha3::{digest::FixedOutputReset, Digest, Sha3_256};
 use unwrap_lite::UnwrapLite;
-use zerocopy::FromBytes;
+use zerocopy::FromBytes, Immutable, KnownLayout;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 pub enum Error {
@@ -309,7 +309,7 @@ impl DiceMfg for SerialMfg<'_> {
                     /// is no longer 512 bytes, it will not compromise security, but bootleby will
                     /// panic while checking the persistent settings (and with any luck the static
                     /// assertion below will fire before you hit the panic).
-                    #[derive(FromBytes)]
+                    #[derive(FromBytes, Immutable, KnownLayout)]
                     #[repr(C)]
                     struct CfpaPage {
                         // Fields defined by NXP:

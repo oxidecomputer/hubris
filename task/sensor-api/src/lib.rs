@@ -24,7 +24,7 @@ use serde::{Deserialize, Serialize};
 /// implementation) to be less than or equal to the number of sensors in the
 /// build-time configuration ([`config::NUM_SENSORS`]).
 #[derive(
-    zerocopy::AsBytes,
+    zerocopy::IntoBytes,
     Copy,
     Clone,
     Debug,
@@ -131,7 +131,7 @@ impl Reading {
 // being numbered sequentially.
 //
 #[derive(
-    zerocopy::AsBytes,
+    zerocopy::IntoBytes,
     Copy,
     Clone,
     Debug,

@@ -10,7 +10,7 @@ use derive_idol_err::IdolError;
 use drv_fpga_api::FpgaError;
 use task_sensor_api::{config::other_sensors, SensorId};
 use userlib::{sys_send, FromPrimitive};
-use zerocopy::{AsBytes, FromBytes};
+use zerocopy::{FromBytes, IntoBytes};
 
 #[derive(
     Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, counters::Count,
@@ -36,7 +36,7 @@ impl From<FpgaError> for TransceiversError {
 
 /// Each field is a bitmask of the 32 transceivers in big endian order, which
 /// results in Port 31 being bit 31, and so forth.
-#[derive(Copy, Clone, Default, FromBytes, AsBytes)]
+#[derive(Copy, Clone, Default, FromBytes, IntoBytes)]
 #[repr(C)]
 pub struct ModuleStatus {
     pub power_enable: u32,

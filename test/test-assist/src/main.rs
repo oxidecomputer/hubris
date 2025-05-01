@@ -14,7 +14,7 @@ use test_api::AssistOp;
 use userlib::{
     hl, kipc, sys_refresh_task_id, sys_send, Generation, Lease, TaskId,
 };
-use zerocopy::AsBytes;
+use zerocopy::IntoBytes;
 
 #[inline(never)]
 fn badread(arg: u32) {
@@ -199,7 +199,7 @@ fn main() -> ! {
                             task_id,
                             42,
                             &msg.to_le_bytes(),
-                            last_reply.as_bytes_mut(),
+                            last_reply.as_mut_bytes(),
                             &[],
                         );
                         // Ignore the result.
@@ -221,7 +221,7 @@ fn main() -> ! {
                             task_id,
                             42,
                             &msg.to_le_bytes(),
-                            last_reply.as_bytes_mut(),
+                            last_reply.as_mut_bytes(),
                             &[
                                 // Lease 0 is writable.
                                 Lease::from(&mut borrow_buffer[..]),

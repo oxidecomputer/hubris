@@ -12,7 +12,7 @@ use dumper_api::*;
 use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::*;
 use userlib::*;
-use zerocopy::FromBytes;
+use zerocopy::FromBytes, Immutable, KnownLayout;
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {

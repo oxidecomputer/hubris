@@ -11,7 +11,7 @@
 #![no_std]
 
 use userlib::*;
-use zerocopy::AsBytes;
+use zerocopy::{Immutable, IntoBytes, KnownLayout};
 
 /// Peripheral numbering.
 ///
@@ -24,7 +24,17 @@ use zerocopy::AsBytes;
 /// - `PRESETCTRL0[31:0]` are indices 31-0.
 /// - `PRESETCTRL1[31:0]` are indices 63-32.
 /// - `PRESETCTRL2[31:0]` are indices 64-96.
-#[derive(Copy, Clone, Eq, PartialEq, Debug, FromPrimitive, AsBytes)]
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Debug,
+    FromPrimitive,
+    Immutable,
+    KnownLayout,
+    IntoBytes,
+)]
 #[repr(u32)]
 pub enum Peripheral {
     Rom = 1,

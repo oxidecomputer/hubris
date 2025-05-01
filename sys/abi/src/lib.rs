@@ -93,6 +93,8 @@ impl From<u8> for Generation {
     Clone,
     Debug,
     FromBytes,
+    Immutable,
+    KnownLayout,
     Serialize,
     Deserialize,
     Hash,
@@ -124,6 +126,8 @@ impl InterruptNum {
     Clone,
     Debug,
     FromBytes,
+    Immutable,
+    KnownLayout,
     Serialize,
     Deserialize,
     Hash,
@@ -158,7 +162,9 @@ impl InterruptOwner {
 }
 
 /// Description of one interrupt response.
-#[derive(Clone, Debug, FromBytes, Serialize, Deserialize)]
+#[derive(
+    Clone, Debug, FromBytes, Immutable, KnownLayout, Serialize, Deserialize,
+)]
 pub struct Interrupt {
     /// Which interrupt number is being hooked.
     pub irq: InterruptNum,
@@ -170,7 +176,7 @@ pub struct Interrupt {
 ///
 /// At SEND, the task gives us the base and length of a section of memory that
 /// it *claims* contains structs of this type.
-#[derive(Copy, Clone, Debug, FromBytes)]
+#[derive(Copy, Clone, Debug, FromBytes, Immutable, KnownLayout)]
 #[repr(C)]
 pub struct ULease {
     /// Lease attributes.
@@ -183,7 +189,9 @@ pub struct ULease {
     pub length: u32,
 }
 
-#[derive(Copy, Clone, Debug, FromBytes, PartialEq, Eq)]
+#[derive(
+    Copy, Clone, Debug, FromBytes, Immutable, KnownLayout, PartialEq, Eq,
+)]
 #[repr(transparent)]
 pub struct LeaseAttributes(u32);
 

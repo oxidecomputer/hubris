@@ -8,7 +8,7 @@ use ringbuf::*;
 use test_api::*;
 #[allow(unused_imports)]
 use userlib::{sys_send, task_slot};
-use zerocopy::AsBytes;
+use zerocopy::IntoBytes;
 
 task_slot!(TEST_TASK, suite);
 task_slot!(RUNNER, runner);
@@ -54,7 +54,7 @@ pub(crate) fn run_a_test(
             RUNNER.get_task_id(),
             RunnerOp::TestResult as u16,
             &[],
-            result.as_bytes_mut(),
+            result.as_mut_bytes(),
             &[],
         );
 
