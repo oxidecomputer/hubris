@@ -71,8 +71,8 @@ impl idl::InOrderDumperImpl for ServerImpl {
         }
 
         let header = match humpty::DumpAreaHeader::read_from_prefix(&buf[..]) {
-            Some(header) => header,
-            None => {
+            Ok((header, _)) => header,
+            Err(_) => {
                 return Err(DumperError::BadDumpAreaHeader.into());
             }
         };

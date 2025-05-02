@@ -16,7 +16,18 @@ use zerocopy::{Immutable, IntoBytes, KnownLayout};
 // goes 0 - 64
 cfg_if::cfg_if! {
     if #[cfg(any(target_board = "lpcxpresso55s69"))] {
-        #[derive(Copy, Clone, Debug, FromPrimitive, IntoBytes, Immutable, KnownLayout, Deserialize, Serialize, SerializedSize)]
+        #[derive(
+            Copy,
+            Clone,
+            Debug,
+            FromPrimitive,
+            IntoBytes,
+            Immutable,
+            KnownLayout,
+            Deserialize,
+            Serialize,
+            SerializedSize,
+        )]
         #[repr(u32)]
         pub enum Pin {
             PIO0_0 = 0,
@@ -263,7 +274,8 @@ impl PintSlot {
     Eq,
     PartialEq,
     IntoBytes,
-    Immutable, KnownLayout
+    Immutable,
+    KnownLayout,
     FromPrimitive,
     Serialize,
     Deserialize,

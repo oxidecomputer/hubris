@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
 use static_assertions as sa;
 use unwrap_lite::UnwrapLite;
-use zerocopy::{FromBytes, IntoBytes};
+use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 #[derive(Debug)]
 pub enum CertError {
@@ -31,7 +31,7 @@ pub enum CertError {
     NoCn,
 }
 
-pub trait Cert: IntoBytes {
+pub trait Cert: IntoBytes + Immutable {
     fn get_range<'a, T>(&'a self, r: Range<usize>) -> T
     where
         T: TryFrom<&'a [u8]>,
@@ -75,8 +75,9 @@ pub trait FwidCert: Cert {
 }
 
 pub trait CertBuilder: IntoBytes + FromBytes {
-    fn set_range<T: IntoBytes>(mut self, r: Range<usize>, t: &T) -> Self
+    fn set_range<T>(mut self, r: Range<usize>, t: &T) -> Self
     where
+        T: IntoBytes + Immutable,
         Self: Sized,
     {
         self.as_mut_bytes()[r].copy_from_slice(t.as_bytes());
@@ -276,7 +277,15 @@ impl IssuerCnCertBuilder for DeviceIdCertBuilder {
     const ISSUER_CN_RANGE: Range<usize> = deviceid_cert_tmpl::ISSUER_CN_RANGE;
 }
 
-#[derive(IntoBytes, Deserialize, FromBytes, Serialize, SerializedSize)]
+#[derive(
+    IntoBytes,
+    Deserialize,
+    FromBytes,
+    Immutable,
+    KnownLayout,
+    Serialize,
+    SerializedSize,
+)]
 #[repr(C)]
 pub struct DeviceIdCert(
     #[serde(with = "BigArray")] [u8; deviceid_cert_tmpl::SIZE],
@@ -290,7 +299,7 @@ impl Cert for DeviceIdCert {
     const SIGNDATA_RANGE: Range<usize> = deviceid_cert_tmpl::SIGNDATA_RANGE;
 }
 
-#[derive(IntoBytes, FromBytes)]
+#[derive(IntoBytes, FromBytes, Immutable, KnownLayout)]
 #[repr(C)]
 pub struct AliasCertBuilder([u8; alias_cert_tmpl::SIZE]);
 
@@ -329,7 +338,15 @@ impl FwidCertBuilder for AliasCertBuilder {
     const FWID_RANGE: Range<usize> = alias_cert_tmpl::FWID_RANGE;
 }
 
-#[derive(IntoBytes, Deserialize, FromBytes, Serialize, SerializedSize)]
+#[derive(
+    IntoBytes,
+    Immutable,
+    KnownLayout,
+    Deserialize,
+    FromBytes,
+    Serialize,
+    SerializedSize,
+)]
 #[repr(C)]
 pub struct AliasCert(#[serde(with = "BigArray")] [u8; alias_cert_tmpl::SIZE]);
 
@@ -345,7 +362,7 @@ impl FwidCert for AliasCert {
     const FWID_RANGE: Range<usize> = alias_cert_tmpl::FWID_RANGE;
 }
 
-#[derive(IntoBytes, FromBytes)]
+#[derive(IntoBytes, FromBytes, Immutable, KnownLayout)]
 #[repr(C)]
 pub struct SpMeasureCertBuilder([u8; spmeasure_cert_tmpl::SIZE]);
 
@@ -384,7 +401,15 @@ impl FwidCertBuilder for SpMeasureCertBuilder {
     const FWID_RANGE: Range<usize> = spmeasure_cert_tmpl::FWID_RANGE;
 }
 
-#[derive(IntoBytes, Deserialize, FromBytes, Serialize, SerializedSize)]
+#[derive(
+    IntoBytes,
+    Immutable,
+    KnownLayout,
+    Deserialize,
+    FromBytes,
+    Serialize,
+    SerializedSize,
+)]
 #[repr(C)]
 pub struct SpMeasureCert(
     #[serde(with = "BigArray")] [u8; spmeasure_cert_tmpl::SIZE],
@@ -408,7 +433,7 @@ impl FwidCert for SpMeasureCert {
     const FWID_RANGE: Range<usize> = spmeasure_cert_tmpl::FWID_RANGE;
 }
 
-#[derive(IntoBytes, FromBytes)]
+#[derive(IntoBytes, FromBytes, Immutable, KnownLayout)]
 #[repr(C)]
 pub struct TrustQuorumDheCertBuilder([u8; trust_quorum_dhe_cert_tmpl::SIZE]);
 
@@ -447,7 +472,15 @@ impl FwidCertBuilder for TrustQuorumDheCertBuilder {
     const FWID_RANGE: Range<usize> = trust_quorum_dhe_cert_tmpl::FWID_RANGE;
 }
 
-#[derive(IntoBytes, Deserialize, FromBytes, Serialize, SerializedSize)]
+#[derive(
+    IntoBytes,
+    Deserialize,
+    FromBytes,
+    Immutable,
+    KnownLayout,
+    Serialize,
+    SerializedSize,
+)]
 #[repr(C)]
 pub struct TrustQuorumDheCert(
     #[serde(with = "BigArray")] [u8; trust_quorum_dhe_cert_tmpl::SIZE],

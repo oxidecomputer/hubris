@@ -334,7 +334,8 @@ impl DiceMfg for SerialMfg<'_> {
                     let cfpa_ping: &[u8] = unsafe {
                         core::slice::from_raw_parts(0x9_e000 as *const u8, 512)
                     };
-                    let Some(cfpa_ping) = CfpaPage::read_from(cfpa_ping) else {
+                    let Ok(cfpa_ping) = CfpaPage::read_from_bytes(cfpa_ping)
+                    else {
                         let _ = self.send_nak();
                         continue;
                     };
@@ -342,7 +343,8 @@ impl DiceMfg for SerialMfg<'_> {
                     let cfpa_pong: &[u8] = unsafe {
                         core::slice::from_raw_parts(0x9_e200 as *const u8, 512)
                     };
-                    let Some(cfpa_pong) = CfpaPage::read_from(cfpa_pong) else {
+                    let Ok(cfpa_pong) = CfpaPage::read_from_bytes(cfpa_pong)
+                    else {
                         let _ = self.send_nak();
                         continue;
                     };

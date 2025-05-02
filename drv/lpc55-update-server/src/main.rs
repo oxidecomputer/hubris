@@ -28,7 +28,7 @@ use stage0_handoff::{
     RotBootStateV2,
 };
 use userlib::*;
-use zerocopy::{FromBytes, IntoBytes};
+use zerocopy::{FromZeros, IntoBytes};
 
 mod images;
 use crate::images::*;
