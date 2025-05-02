@@ -15,7 +15,7 @@ use lpc55_pac::SYSCON;
 use salty::{constants::SECRETKEY_SEED_LENGTH, signature::Keypair};
 use sha3::{digest::FixedOutputReset, Digest, Sha3_256};
 use unwrap_lite::UnwrapLite;
-use zerocopy::FromBytes, Immutable, KnownLayout;
+use zerocopy::{FromBytes, Immutable, KnownLayout};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 pub enum Error {
