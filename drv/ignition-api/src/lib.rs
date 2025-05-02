@@ -501,7 +501,17 @@ impl From<Request> for u8 {
 /// useful to determine if both the Controller and Target are operating correct.
 /// The counters will saturate when reaching their maximum value.
 #[derive(
-    Copy, Clone, Debug, Default, PartialEq, Eq, IntoBytes, FromBytes, Serialize,
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    IntoBytes,
+    FromBytes,
+    Immutable,
+    KnownLayout,
+    Serialize,
 )]
 #[repr(C)]
 pub struct Counters {
@@ -644,6 +654,8 @@ impl From<TransceiverEvents> for u8 {
     FromPrimitive,
     ToPrimitive,
     IntoBytes,
+    Immutable,
+    KnownLayout,
 )]
 #[repr(u8)]
 pub enum TransceiverSelect {

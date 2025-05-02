@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use zerocopy::{FromBytes, IntoBytes};
+use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 use crate::{Phy, PhyRw, Trace};
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
@@ -992,7 +992,7 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
     }
 }
 
-#[derive(Copy, Clone, IntoBytes, FromBytes)]
+#[derive(Copy, Clone, IntoBytes, FromBytes, Immutable, KnownLayout)]
 #[repr(C)]
 pub struct Sd6gObCfg {
     pub ob_ena1v_mode: u8,
@@ -1021,7 +1021,7 @@ impl Sd6gObCfg {
     }
 }
 
-#[derive(Copy, Clone, IntoBytes, FromBytes)]
+#[derive(Copy, Clone, IntoBytes, FromBytes, Immutable, KnownLayout)]
 #[repr(C)]
 pub struct Sd6gObCfg1 {
     pub ob_ena_cas: u8,

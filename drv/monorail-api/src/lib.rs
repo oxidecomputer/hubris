@@ -251,7 +251,7 @@ pub struct PhyStatus {
     zerocopy::IntoBytes,
     zerocopy::FromBytes,
     zerocopy::Immutable,
-    KnownLayout,
+    zerocopy::KnownLayout,
 )]
 #[repr(C)]
 pub struct MacTableEntry {

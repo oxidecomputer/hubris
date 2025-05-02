@@ -7,7 +7,10 @@ use core::cell::Cell;
 use crate::{Addr, Reg};
 use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
 use vsc85xx::{PhyRw, VscError};
-use zerocopy::{byteorder, FromBytes, IntoBytes, Unaligned, U16};
+use zerocopy::{
+    byteorder::little_endian, FromBytes, Immutable, IntoBytes, KnownLayout,
+    Unaligned,
+};
 
 #[derive(Copy, Clone, Eq, Debug, PartialEq)]
 pub enum PhyOscState {
@@ -159,7 +162,7 @@ impl PhySmi {
         value: u16,
     ) -> Result<(), FpgaError> {
         let request = SmiWriteRequest {
-            wdata: U16::new(value),
+            wdata: little_endian::U16::new(value),
             phy,
             reg,
             ctrl: Reg::VSC8562::PHY_SMI_CTRL::RW
@@ -188,16 +191,16 @@ impl PhyRw for PhySmi {
     }
 }
 
-#[derive(IntoBytes, FromBytes, Unaligned)]
+#[derive(IntoBytes, FromBytes, Unaligned, Immutable, KnownLayout)]
 #[repr(C)]
 struct SmiWriteRequest {
-    wdata: U16<byteorder::LittleEndian>,
+    wdata: little_endian::U16,
     phy: u8,
     reg: u8,
     ctrl: u8,
 }
 
-#[derive(IntoBytes, FromBytes, Unaligned)]
+#[derive(IntoBytes, FromBytes, Unaligned, Immutable, KnownLayout)]
 #[repr(C)]
 struct SmiReadRequest {
     phy: u8,
@@ -205,9 +208,9 @@ struct SmiReadRequest {
     ctrl: u8,
 }
 
-#[derive(IntoBytes, FromBytes, Unaligned, Default)]
+#[derive(IntoBytes, FromBytes, Unaligned, Default, Immutable, KnownLayout)]
 #[repr(C)]
 struct SmiReadData {
     status: u8,
-    rdata: U16<byteorder::LittleEndian>,
+    rdata: little_endian::U16,
 }

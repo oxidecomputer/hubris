@@ -33,7 +33,7 @@ use transceiver_messages::{
     message::LedState, mgmt::ManagementInterface, MAX_PACKET_SIZE,
 };
 
-use zerocopy::{FromBytes, IntoBytes};
+use zerocopy::{FromBytes, FromZeros, IntoBytes};
 
 mod udp; // UDP API is implemented in a separate file
 

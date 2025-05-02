@@ -368,7 +368,7 @@ impl FpgaUserDesign {
         value: T,
     ) -> Result<(), FpgaError>
     where
-        T: IntoBytes,
+        T: IntoBytes + Immutable,
     {
         self.write_bytes(op, addr, value.as_bytes())
     }

@@ -6,7 +6,7 @@ use crate::util::detype;
 use crate::Trace;
 use crate::{Phy, PhyRw};
 
-use zerocopy::{FromBytes, IntoBytes};
+use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use vsc7448_pac::{phy, types::PhyRegisterAddress};
@@ -268,14 +268,14 @@ impl<'a, 'b, P: PhyRw> TeslaPhy<'a, 'b, P> {
     }
 }
 
-#[derive(Copy, Clone, IntoBytes, FromBytes)]
+#[derive(Copy, Clone, IntoBytes, FromBytes, Immutable, KnownLayout)]
 #[repr(C)]
 pub struct TeslaSerdes6gPatch {
     cfg: [u8; 38],
     // There's also a status buf, but we'll skip that for now
 }
 
-#[derive(Copy, Clone, IntoBytes, FromBytes)]
+#[derive(Copy, Clone, IntoBytes, FromBytes, Immutable, KnownLayout)]
 #[repr(C)]
 pub struct TeslaSerdes6gObConfig {
     pub ob_post0: u8,

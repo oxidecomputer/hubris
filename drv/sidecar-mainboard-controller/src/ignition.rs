@@ -5,7 +5,7 @@
 use crate::{Addr as MainboardControllerAddr, MainboardController};
 use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
 use drv_ignition_api::{Addr as IgnitionPageAddr, *};
-use zerocopy::{FromBytes, IntoBytes};
+use zerocopy::{FromBytes, Immutable, IntoBytes};
 
 pub struct IgnitionController {
     fpga: FpgaUserDesign,
@@ -49,7 +49,7 @@ impl IgnitionController {
         value: T,
     ) -> Result<(), FpgaError>
     where
-        T: IntoBytes + FromBytes,
+        T: IntoBytes + FromBytes + Immutable,
     {
         self.fpga
             .write(WriteOp::Write, self.port_addr(port, offset), value)
@@ -64,7 +64,7 @@ impl IgnitionController {
         value: T,
     ) -> Result<(), FpgaError>
     where
-        T: IntoBytes + FromBytes,
+        T: IntoBytes + FromBytes + Immutable,
     {
         self.fpga.write(op, self.port_addr(port, offset), value)
     }

@@ -6,11 +6,21 @@ use crate::{Addr, MainboardController, Reg};
 use bitfield::bitfield;
 use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
 use userlib::FromPrimitive;
-use zerocopy::{FromBytes, IntoBytes};
+use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 use Reg::FAN0_STATE;
 bitfield! {
-    #[derive(Copy, Clone, PartialEq, Eq, FromPrimitive, IntoBytes, FromBytes)]
+    #[derive(
+        Copy,
+        Clone,
+        PartialEq,
+        Eq,
+        FromPrimitive,
+        IntoBytes,
+        FromBytes,
+        Immutable,
+        KnownLayout
+    )]
     #[repr(C)]
     pub struct FanModuleStatus(u8);
     pub enable, set_enable: FAN0_STATE::ENABLE.trailing_zeros() as usize;
@@ -41,7 +51,17 @@ pub enum FanModulePowerState {
 ///
 /// The SP applies control at the individual fan level. Power control and
 /// status, module presence, and module LED control exist at the module level.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IntoBytes)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    FromPrimitive,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
+)]
 #[repr(u8)]
 pub enum FanModuleIndex {
     Zero = 0,
