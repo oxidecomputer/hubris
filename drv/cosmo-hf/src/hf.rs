@@ -13,7 +13,7 @@ use idol_runtime::{
 };
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use userlib::{task_slot, RecvMessage, UnwrapLite};
-use zerocopy::{FromBytes, IntoBytes};
+use zerocopy::{FromZeros, IntoBytes};
 
 use crate::{
     FlashAddr, FlashDriver, Trace, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES,
