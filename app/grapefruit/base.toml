@@ -120,7 +120,7 @@ priority = 7
 max-sizes = {flash = 32768, ram = 32768}
 stacksize = 2048
 start = true
-features = ["h753", "stm32h7", "i2c", "gpio", "sprot", "qspi", "hash"]
+features = ["h753", "stm32h7", "i2c", "gpio", "sprot", "qspi", "hash", "turbo"]
 task-slots = ["i2c_driver", "sys", "user_leds", "sprot", "hf", "hash_driver"]
 
 [tasks.validate]

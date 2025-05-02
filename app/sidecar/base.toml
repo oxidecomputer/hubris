@@ -199,7 +199,7 @@ task-slots = ["sys"]
 
 [tasks.hiffy]
 name = "task-hiffy"
-features = ["h753", "stm32h7", "i2c", "gpio", "sprot"]
+features = ["h753", "stm32h7", "i2c", "gpio", "sprot", "turbo"]
 priority = 5
 max-sizes = {flash = 32768, ram = 32768 }
 stacksize = 1200

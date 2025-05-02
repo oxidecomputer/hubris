@@ -81,6 +81,7 @@ task-slots = ["sys"]
 
 [tasks.hiffy]
 name = "task-hiffy"
+features = ["turbo"]
 priority = 7
 max-sizes = {flash = 32768, ram = 32768}
 stacksize = 2048
