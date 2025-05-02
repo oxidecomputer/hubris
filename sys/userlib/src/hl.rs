@@ -374,12 +374,8 @@ impl Borrow<'_> {
         T: FromZeros + FromBytes + IntoBytes,
     {
         let mut dest = T::new_zeroed();
-        let (rc, n) = sys_borrow_read(
-            self.id,
-            self.index,
-            offset,
-            &mut dest.as_mut_bytes(),
-        );
+        let (rc, n) =
+            sys_borrow_read(self.id, self.index, offset, dest.as_mut_bytes());
         if rc != 0 || n != core::mem::size_of::<T>() {
             None
         } else {
