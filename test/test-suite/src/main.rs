@@ -33,7 +33,7 @@ use userlib::{
 };
 use zerocopy::IntoBytes;
 
-#[derive(Copy, Clone, PartialEq, Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq)]
 enum Trace {
     TestStart,
     TestFinish,
