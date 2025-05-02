@@ -144,7 +144,7 @@ attest-data = { git = "https://github.com/oxidecomputer/dice-util", default-feat
 dice-mfg-msgs = { git = "https://github.com/oxidecomputer/dice-util", default-features = false, version = "0.2.1" }
 # Point back at `main` when merging
 # https://github.com/oxidecomputer/management-gateway-service/pull/384
-gateway-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", rev = "0f3335b3162b5f96ffa1436e017cf0f7b50c4b3c", default-features = false, features = ["smoltcp"] }
+gateway-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false, features = ["smoltcp"] }
 gimlet-inspector-protocol = { git = "https://github.com/oxidecomputer/gimlet-inspector-protocol", version = "0.1.0" }
 hif = { git = "https://github.com/oxidecomputer/hif", default-features = false }
 humpty = { git = "https://github.com/oxidecomputer/humpty", branch = "eliza/zerocopy-0.8", default-features = false, version = "0.1.3" }
