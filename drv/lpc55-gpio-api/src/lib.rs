@@ -4,6 +4,8 @@
 
 #![no_std]
 
+use hubpack::SerializedSize;
+use serde::{Deserialize, Serialize};
 use userlib::{sys_send, FromPrimitive};
 use zerocopy::AsBytes;
 
@@ -14,7 +16,7 @@ use zerocopy::AsBytes;
 // goes 0 - 64
 cfg_if::cfg_if! {
     if #[cfg(any(target_board = "lpcxpresso55s69"))] {
-        #[derive(Copy, Clone, Debug, FromPrimitive, AsBytes)]
+        #[derive(Copy, Clone, Debug, FromPrimitive, AsBytes, Deserialize, Serialize, SerializedSize)]
         #[repr(u32)]
         pub enum Pin {
             PIO0_0 = 0,
@@ -85,7 +87,7 @@ cfg_if::cfg_if! {
         }
 
     } else {
-        #[derive(Copy, Clone, Debug, FromPrimitive, AsBytes)]
+        #[derive(Copy, Clone, Debug, FromPrimitive, AsBytes, Deserialize, Serialize, SerializedSize)]
         #[repr(u32)]
         pub enum Pin {
             PIO0_0 = 0,
@@ -186,7 +188,7 @@ pub enum AltFn {
     Alt9 = 9,
 }
 
-#[derive(Copy, Clone, Debug, FromPrimitive, AsBytes)]
+#[derive(Copy, Clone, Debug, FromPrimitive, AsBytes, PartialEq)]
 #[repr(u32)]
 pub enum Direction {
     Input = 0,
@@ -198,6 +200,84 @@ pub enum Direction {
 pub enum Value {
     Zero = 0,
     One = 1,
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Eq,
+    PartialEq,
+    AsBytes,
+    FromPrimitive,
+    Serialize,
+    Deserialize,
+    SerializedSize,
+)]
+#[repr(u8)]
+pub enum PintSlot {
+    Slot0 = 0,
+    Slot1 = 1,
+    Slot2 = 2,
+    Slot3 = 3,
+    Slot4 = 4,
+    Slot5 = 5,
+    Slot6 = 6,
+    Slot7 = 7,
+}
+
+impl PintSlot {
+    pub fn index(self) -> usize {
+        self as usize
+    }
+    pub fn mask(self) -> u32 {
+        1u32 << self.index()
+    }
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Eq,
+    PartialEq,
+    AsBytes,
+    FromPrimitive,
+    Serialize,
+    Deserialize,
+    SerializedSize,
+)]
+#[repr(u8)]
+pub enum PintOp {
+    Clear,
+    Enable,
+    Disable,
+    Detected,
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Eq,
+    PartialEq,
+    AsBytes,
+    FromPrimitive,
+    Serialize,
+    Deserialize,
+    SerializedSize,
+)]
+#[repr(u8)]
+pub enum PintCondition {
+    /// Interrupt state for this Pin Interrupt
+    Status,
+    /// Rising Edge detection
+    Rising,
+    /// Falling Edge detection
+    Falling,
+    // TODO: Support Level triggered interrupts.
+    // High,
+    // Low,
 }
 
 impl Pins {
@@ -233,11 +313,12 @@ impl Pins {
         invert: Invert,
         digimode: Digimode,
         od: Opendrain,
+        pint_slot: Option<PintSlot>,
     ) {
         let (_, conf) =
             Pins::iocon_conf_val(pin, alt, mode, slew, invert, digimode, od);
 
-        self.iocon_configure_raw(pin, conf);
+        self.iocon_configure_raw(pin, conf, pint_slot);
     }
 }
 

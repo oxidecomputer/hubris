@@ -12,7 +12,7 @@ num-traits = { workspace = true }
 ringbuf = { path = "../../lib/ringbuf" }
 salty.workspace = true
 serde = { workspace = true }
-serde_with = { version = "3.3.0", default-features = false, features = ["macros"] }
+serde_with = { workspace = true }
 stage0-handoff = { path = "../../lib/stage0-handoff" }
 static-cell = { path = "../../lib/static-cell" }
 attest-api = { path = "../attest-api" }

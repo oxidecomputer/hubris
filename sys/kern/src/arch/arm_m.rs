@@ -70,7 +70,7 @@
 //! context switches, and just always do full save/restore, eliminating PendSV.
 //! We'll see.
 
-use core::arch;
+use core::arch::{self, global_asm};
 use core::sync::atomic::{AtomicBool, AtomicPtr, AtomicU32, Ordering};
 
 use zerocopy::FromBytes;
@@ -83,7 +83,7 @@ use crate::time::Timestamp;
 use crate::umem::USlice;
 #[cfg(any(armv7m, armv8m))]
 use abi::FaultSource;
-use abi::{FaultInfo, InterruptNum};
+use abi::{FaultInfo, InterruptNum, UsageError};
 #[cfg(armv8m)]
 use armv8_m_mpu::{disable_mpu, enable_mpu};
 use unwrap_lite::UnwrapLite;
@@ -309,15 +309,21 @@ pub fn reinitialize(task: &mut task::Task) {
         .iter()
         .find(|region| region.contains(initial_stack.saturating_sub(4)))
     {
-        let mut uslice: USlice<u32> = USlice::from_raw(
+        // If the slice doesn't fit in the region, this will fail. Should this
+        // occur, don't crash the entire system, since this is a diagnostic tool
+        // -- just skip filling the stack.
+        if let Ok(mut uslice) = USlice::<u32>::from_raw(
             region.base as usize,
             (initial_stack - frame_size - region.base as usize) >> 2,
-        )
-        .unwrap_lite();
-
-        let zap = task.try_write(&mut uslice).unwrap_lite();
-        for word in zap.iter_mut() {
-            *word = 0xbaddcafe;
+        ) {
+            // This one, we're unwrapping rather than tolerating failure. This
+            // is because try_write failing would indicate an invalid region
+            // descriptor for the task (read-only stack area) which would bite
+            // us later.
+            let zap = task.try_write(&mut uslice).unwrap_lite();
+            for word in zap.iter_mut() {
+                *word = 0xbaddcafe;
+            }
         }
     }
 
@@ -343,6 +349,104 @@ pub fn reinitialize(task: &mut task::Task) {
     task.save_mut().exc_return = EXC_RETURN_CONST;
 }
 
+/// PMSAv6/7-style precomputed region data.
+///
+/// This struct is `repr(C)` to preserve the order of its fields, which happens
+/// to match the order of registers in the MPU. While we don't bit-copy the
+/// struct directly, this does improve code generation in practice.
+#[cfg(any(armv6m, armv7m))]
+#[derive(Copy, Clone, Debug)]
+#[repr(C)]
+pub struct RegionDescExt {
+    rbar: u32,
+    rasr: u32,
+}
+
+#[cfg(any(armv6m, armv7m))]
+pub const fn compute_region_extension_data(
+    base: u32,
+    size: u32,
+    attributes: RegionAttributes,
+) -> RegionDescExt {
+    // This platform requires 32-byte alignment of all regions.
+    if base & 0x1F != 0 {
+        panic!();
+    }
+
+    let ratts = attributes;
+    let xn = !ratts.contains(RegionAttributes::EXECUTE);
+    // These AP encodings are chosen such that we never deny *privileged*
+    // code (i.e. us) access to the memory.
+    let ap = if ratts.contains(RegionAttributes::WRITE) {
+        0b011
+    } else if ratts.contains(RegionAttributes::READ) {
+        0b010
+    } else {
+        0b001
+    };
+    // Set the TEX/SCB bits to configure memory type, caching policy, and
+    // shareability (with other cores or masters). See table B3-13 in the
+    // ARMv7-M ARM. (Settings are identical on v6-M but the sharability and
+    // TEX bits tend to be ignored.)
+    let (tex, scb) = if ratts.contains(RegionAttributes::DEVICE) {
+        // Device memory.
+        (0b000, 0b001)
+    } else if ratts.contains(RegionAttributes::DMA) {
+        // Conservative settings for normal memory assuming that DMA might
+        // be a problem:
+        // - Outer and inner non-cacheable.
+        // - Shared.
+        (0b001, 0b100)
+    } else {
+        // Aggressive settings for normal memory assume that it is used only
+        // by this processor:
+        // - Outer and inner write-back
+        // - Read and write allocate.
+        // - Not shared.
+        (0b001, 0b011)
+    };
+    // On v6/7-M the MPU expresses size of a region in log2 form _minus
+    // one._ So, the minimum allowed size of 32 bytes is represented as 4,
+    // because `2**(4 + 1) == 32`.
+    //
+    // We store sizes in the region table in an architecture-independent
+    // form (number of bytes) because it simplifies basically everything
+    // else but this routine. Here we must convert between the two -- and
+    // quickly, because this is called on every context switch.
+    //
+    // The image-generation tools check at build time that region sizes are
+    // powers of two. So, we can assume that the size has a single 1 bit. We
+    // can cheaply compute log2 of this by counting trailing zeroes, but
+    // ARMv7-M doesn't have a native instruction for that -- only leading
+    // zeroes. The equivalent using leading zeroes is
+    //
+    //   log2(N) = bits_in_word - 1 - clz(N)
+    //
+    // Because we want log2 _minus one_ we compute it as...
+    //
+    //   log2_m1(N) = bits_in_word - 2 - clz(N)
+    //
+    // If the size is zero or one, this subtraction will underflow. This
+    // should not occur in a valid image, but could occur due to runtime
+    // flash corruption. Any region size under 32 bytes is illegal on
+    // ARMv7-M anyway, so panicking is better than triggering possibly
+    // undefined hardware behavior.
+    //
+    // On ARMv6-M, there is no CLZ instruction either. This winds up
+    // generating decent intrinsic code for `leading_zeros` so we'll live
+    // with it.
+    let l2size = 30 - size.leading_zeros();
+
+    // Region attribute and size register; we enable the region by default
+    // because we load it with the MPU off.
+    let rasr =
+        (xn as u32) << 28 | ap << 24 | tex << 19 | scb << 16 | l2size << 1 | 1;
+
+    // Build the RBAR contents without the VALID bit or region number.
+    let rbar = base;
+    RegionDescExt { rasr, rbar }
+}
+
 #[cfg(any(armv6m, armv7m))]
 pub fn apply_memory_protection(task: &task::Task) {
     // We are manufacturing authority to interact with the MPU here, because we
@@ -354,84 +458,111 @@ pub fn apply_memory_protection(task: &task::Task) {
         &*cortex_m::peripheral::MPU::PTR
     };
 
-    for (i, region) in task.region_table().iter().enumerate() {
-        let ratts = region.attributes;
-        let xn = !ratts.contains(RegionAttributes::EXECUTE);
-        // These AP encodings are chosen such that we never deny *privileged*
-        // code (i.e. us) access to the memory.
-        let ap = if ratts.contains(RegionAttributes::WRITE) {
-            0b011
-        } else if ratts.contains(RegionAttributes::READ) {
-            0b010
-        } else {
-            0b001
-        };
-        // Set the TEX/SCB bits to configure memory type, caching policy, and
-        // shareability (with other cores or masters). See table B3-13 in the
-        // ARMv7-M ARM. (Settings are identical on v6-M but the sharability and
-        // TEX bits tend to be ignored.)
-        let (tex, scb) = if ratts.contains(RegionAttributes::DEVICE) {
-            // Device memory.
-            (0b000, 0b001)
-        } else if ratts.contains(RegionAttributes::DMA) {
-            // Conservative settings for normal memory assuming that DMA might
-            // be a problem:
-            // - Outer and inner non-cacheable.
-            // - Shared.
-            (0b001, 0b100)
-        } else {
-            // Aggressive settings for normal memory assume that it is used only
-            // by this processor:
-            // - Outer and inner write-back
-            // - Read and write allocate.
-            // - Not shared.
-            (0b001, 0b011)
-        };
-        // On v6/7-M the MPU expresses size of a region in log2 form _minus
-        // one._ So, the minimum allowed size of 32 bytes is represented as 4,
-        // because `2**(4 + 1) == 32`.
-        //
-        // We store sizes in the region table in an architecture-independent
-        // form (number of bytes) because it simplifies basically everything
-        // else but this routine. Here we must convert between the two -- and
-        // quickly, because this is called on every context switch.
-        //
-        // The image-generation tools check at build time that region sizes are
-        // powers of two. So, we can assume that the size has a single 1 bit. We
-        // can cheaply compute log2 of this by counting trailing zeroes, but
-        // ARMv7-M doesn't have a native instruction for that -- only leading
-        // zeroes. The equivalent using leading zeroes is
-        //
-        //   log2(N) = bits_in_word - 1 - clz(N)
-        //
-        // Because we want log2 _minus one_ we compute it as...
-        //
-        //   log2_m1(N) = bits_in_word - 2 - clz(N)
-        //
-        // If the size is zero or one, this subtraction will underflow. This
-        // should not occur in a valid image, but could occur due to runtime
-        // flash corruption. Any region size under 32 bytes is illegal on
-        // ARMv7-M anyway, so panicking is better than triggering possibly
-        // undefined hardware behavior.
-        //
-        // On ARMv6-M, there is no CLZ instruction either. This winds up
-        // generating decent intrinsic code for `leading_zeros` so we'll live
-        // with it.
-        let l2size = 30 - region.size.leading_zeros();
+    // Turn off the MPU.
+    //
+    // Safety: this has no actual memory safety implications, except for
+    // potentially exposing the kernel to a NULL dereference that succeeds.
+    unsafe {
+        mpu.ctrl.write(0);
+    }
 
-        // Region attribute and size register; note that enable (bit 0) is not
-        // set here, because it's possible to hard-fault midway through region
-        // configuration if address and size are incompatible while the region
-        // is enabled.
-        let rasr =
-            (xn as u32) << 28 | ap << 24 | tex << 19 | scb << 16 | l2size << 1;
+    for (i, region) in task.region_table().iter().enumerate() {
+        let data = region.arch_data;
+        // With the MPU off, there are no particular constraints on the order in
+        // which we write these fields.
+        //
+        // Safety: we're messing with memory protection, so from the API's point
+        // of view this is very unsafe. But we're loading values generated by
+        // our (trusted) build script, which only affect tasks and not us. So
+        // this should be safe by default.
         unsafe {
-            mpu.rnr.write(i as u32); // Select the region
-            mpu.rasr.write(rasr); // configure, but leave disabled
-            mpu.rbar.write(region.base); // set region address
-            mpu.rasr.write(rasr | 1); // enable the region
+            // Select a region.
+            mpu.rnr.write(i as u32);
+            // Set region base address.
+            mpu.rbar.write(data.rbar);
+            // Configure the region.
+            mpu.rasr.write(data.rasr);
         }
     }
+
+    // Turn MPU back on.
+    //
+    // Safety: same as above, has no safety implications really.
+    unsafe {
+        mpu.ctrl.write(0b101);
+    }
+}
+
+/// ARMv8-M specific MPU accelerator data.
+///
+/// This is `repr(C)` only to make the field order match the register order in
+/// the hardware, which improves code generation. We do not actually rely on the
+/// in-memory representation of this struct otherwise.
+#[cfg(armv8m)]
+#[derive(Copy, Clone, Debug)]
+#[repr(C)]
+pub struct RegionDescExt {
+    /// Contents of the RBAR register.
+    rbar: u32,
+
+    /// Contents of the RLAR register.
+    rlar: u32,
+
+    /// This region's portion of the four-byte MAIR register.
+    mair: u8,
+}
+
+#[cfg(armv8m)]
+pub const fn compute_region_extension_data(
+    base: u32,
+    size: u32,
+    ratts: RegionAttributes,
+) -> RegionDescExt {
+    // This MPU requires that all regions are 32-byte aligned...in part
+    // because it stuffs extra stuff into the bottom five bits.
+    if base & 0x1F != 0 {
+        panic!();
+    }
+
+    let xn = !ratts.contains(RegionAttributes::EXECUTE);
+    // ARMv8m has less granularity than ARMv7m for privilege
+    // vs non-privilege so there's no way to say that privilege
+    // can be read write but non-privilge can only be read only
+    // This _should_ be okay?
+    let ap = if ratts.contains(RegionAttributes::WRITE) {
+        0b01 // RW by any privilege level
+    } else if ratts.contains(RegionAttributes::READ) {
+        0b11 // Read only by any privilege level
+    } else {
+        0b00 // RW by privilege code only
+    };
+
+    let (mair, sh) = if ratts.contains(RegionAttributes::DEVICE) {
+        // Most restrictive: device memory, outer shared.
+        (0b00000000, 0b10)
+    } else if ratts.contains(RegionAttributes::DMA) {
+        // Outer/inner non-cacheable, outer shared.
+        (0b01000100, 0b10)
+    } else {
+        let rw = (ratts.contains(RegionAttributes::READ) as u8) << 1
+            | (ratts.contains(RegionAttributes::WRITE) as u8);
+        // write-back transient, not shared
+        (0b0100_0100 | rw | rw << 4, 0b00)
+    };
+
+    // RLAR = our upper bound. We're going ahead and setting the enable bit
+    // because we expect this to be loaded with the MPU _disabled._ Loading this
+    // with the MPU _enabled_ would involve momentary inconsistency between RLAR
+    // and RBAR, since the two cannot be written simultaneously, and that would
+    // be Bad.
+    let rlar = (base + size - 32) | 1; // upper bound | enable bit
+
+    // RBAR = the base
+    let rbar = (xn as u32)
+        | ap << 1
+        | (sh as u32) << 3  // sharability
+        | base;
+    RegionDescExt { rlar, rbar, mair }
 }
 
 #[cfg(armv8m)]
@@ -441,79 +572,57 @@ pub fn apply_memory_protection(task: &task::Task) {
         // aliasing....
         &*cortex_m::peripheral::MPU::PTR
     };
+
+    // Disable the MPU before making changes. This is critical to correctness of
+    // this function!
+    //
+    // Because regions consist of several registers, there is no order in which
+    // we can update those registers with the MPU _enabled_ that doesn't risk a
+    // race condition. MPU updates that load the RBAR from one region and the
+    // RLAR from another have caused real crashes.
+    //
+    // Disabling and re-enabling the MPU is very inexpensive (single-digit
+    // cycles) so don't sweat it -- do the correct thing.
     unsafe {
         disable_mpu(mpu);
     }
 
-    for (i, region) in task.region_table().iter().enumerate() {
-        // This MPU requires that all regions are 32-byte aligned...in part
-        // because it stuffs extra stuff into the bottom five bits.
-        debug_assert_eq!(region.base & 0x1F, 0);
+    // We'll collect the MAIR register contents here. Indices 0-3 correspond to
+    // MAIR0's bytes (in LE order); 4-7 are MAIR1.
+    let mut mairs = [0; 8];
 
+    for (i, region) in task.region_table().iter().enumerate() {
         let rnr = i as u32;
 
-        let ratts = region.attributes;
-        let xn = !ratts.contains(RegionAttributes::EXECUTE);
-        // ARMv8m has less granularity than ARMv7m for privilege
-        // vs non-privilege so there's no way to say that privilege
-        // can be read write but non-privilge can only be read only
-        // This _should_ be okay?
-        let ap = if ratts.contains(RegionAttributes::WRITE) {
-            0b01 // RW by any privilege level
-        } else if ratts.contains(RegionAttributes::READ) {
-            0b11 // Read only by any privilege level
-        } else {
-            0b00 // RW by privilege code only
-        };
+        let ext = &region.arch_data;
 
-        let (mair, sh) = if ratts.contains(RegionAttributes::DEVICE) {
-            // Most restrictive: device memory, outer shared.
-            (0b00000000, 0b10)
-        } else if ratts.contains(RegionAttributes::DMA) {
-            // Outer/inner non-cacheable, outer shared.
-            (0b01000100, 0b10)
-        } else {
-            let rw = u32::from(ratts.contains(RegionAttributes::READ)) << 1
-                | u32::from(ratts.contains(RegionAttributes::WRITE));
-            // write-back transient, not shared
-            (0b0100_0100 | rw | rw << 4, 0b00)
-        };
+        mairs[i] = ext.mair;
 
-        // RLAR = our upper bound; note that enable (bit 0) is not set, because
-        // it's possible to hard-fault midway through region configuration if
-        // address and size are incompatible while the region is enabled.
-        let rlar = (region.base + region.size - 32) // upper bound
-            | (i as u32) << 1; // AttrIndx
-
-        // RBAR = the base
-        let rbar = (xn as u32)
-            | ap << 1
-            | (sh as u32) << 3  // sharability
-            | region.base;
+        // Set the attridx field of the RLAR to just choose the attributes with
+        // the same index as the region. This lets us treat MAIR as an array
+        // corresponding to the regions.
+        //
+        // We unfortunately can't do this at compile time, because regions can
+        // be shared, and may not be used in the same table position in all
+        // tasks.
+        let rlar = ext.rlar | (i as u32) << 1; // AttrIdx
 
         unsafe {
             mpu.rnr.write(rnr);
-            mpu.rlar.write(rlar); // configure but leave disabled
-            if rnr < 4 {
-                let mut mair0 = mpu.mair[0].read();
-                mair0 |= mair << (rnr * 8);
-                mpu.mair[0].write(mair0);
-            } else {
-                let mut mair1 = mpu.mair[1].read();
-                mair1 |= mair << ((rnr - 4) * 8);
-                mpu.mair[1].write(mair1);
-            }
-            mpu.rbar.write(rbar);
-            mpu.rlar.write(rlar | 1); // enable the region
+            mpu.rbar.write(ext.rbar);
+            mpu.rlar.write(rlar);
         }
     }
 
     unsafe {
+        // Load the MAIR registers.
+        mpu.mair[0].write(u32::from_le_bytes(mairs[..4].try_into().unwrap()));
+        mpu.mair[1].write(u32::from_le_bytes(mairs[4..].try_into().unwrap()));
         enable_mpu(mpu, true);
     }
 }
 
-pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
+pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
     // Enable faults and set fault/exception priorities to reasonable settings.
     // Our goal here is to keep the kernel non-preemptive, which means the
     // kernel entry points (SVCall, PendSV, SysTick, interrupt handlers) must be
@@ -648,7 +757,7 @@ pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
         mpu.ctrl.write(ENABLE | PRIVDEFENA);
     }
 
-    CURRENT_TASK_PTR.store(task, Ordering::Relaxed);
+    CURRENT_TASK_PTR.store(task as *const _ as *mut _, Ordering::Relaxed);
 
     extern "C" {
         // Exposed by the linker script.
@@ -723,12 +832,9 @@ pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
     }
 }
 
-/// Handler that gets linked into the vector table for the Supervisor Call (SVC)
-/// instruction. (Name is dictated by the `cortex_m` crate.)
-#[allow(non_snake_case)]
-#[naked]
-#[no_mangle]
-pub unsafe extern "C" fn SVCall() {
+// Handler that gets linked into the vector table for the Supervisor Call (SVC)
+// instruction. (Name is dictated by the `cortex_m` crate.)
+cfg_if::cfg_if! {
     // TODO: could shave several cycles off SVC entry with more careful ordering
     // of instructions below, though the precise details depend on how complex
     // of an M-series processor you're targeting -- so I've punted on this for
@@ -748,144 +854,146 @@ pub unsafe extern "C" fn SVCall() {
     //
     // After that, we repeat the same steps in the opposite order to restore
     // task context (possibly for a different task!).
-    unsafe {
-        cfg_if::cfg_if! {
-            if #[cfg(armv6m)] {
-                arch::asm!("
-                    @ Inspect LR to figure out the caller's mode.
-                    mov r0, lr
-                    ldr r1, =0xFFFFFFF3
-                    bics r0, r0, r1
-                    @ Is the call coming from thread mode + main stack, i.e.
-                    @ from the kernel startup routine?
-                    cmp r0, #0x8
-                    @ If so, this is startup; jump ahead. The common case falls
-                    @ through because branch-not-taken tends to be faster on small
-                    @ cores.
-                    beq 1f
+    if #[cfg(armv6m)] {
+        global_asm!{"
+            .section .text.SVCall
+            .globl SVCall
+            .type SVCall,function
+            SVCall:
+                @ Inspect LR to figure out the caller's mode.
+                mov r0, lr
+                ldr r1, =0xFFFFFFF3
+                bics r0, r0, r1
+                @ Is the call coming from thread mode + main stack, i.e.
+                @ from the kernel startup routine?
+                cmp r0, #0x8
+                @ If so, this is startup; jump ahead. The common case falls
+                @ through because branch-not-taken tends to be faster on small
+                @ cores.
+                beq 1f
 
-                    @ store volatile state.
-                    @ first, get a pointer to the current task.
-                    ldr r0, =CURRENT_TASK_PTR
-                    ldr r1, [r0]
-                    @ now, store volatile registers, plus the PSP, plus LR.
-                    movs r2, r1
-                    stm r2!, {{r4-r7}}
-                    mov r4, r8
-                    mov r5, r9
-                    mov r6, r10
-                    mov r7, r11
-                    stm r2!, {{r4-r7}}
-                    mrs r4, PSP
-                    mov r5, lr
-                    stm r2!, {{r4, r5}}
+                @ store volatile state.
+                @ first, get a pointer to the current task.
+                ldr r0, =CURRENT_TASK_PTR
+                ldr r1, [r0]
+                @ now, store volatile registers, plus the PSP, plus LR.
+                movs r2, r1
+                stm r2!, {{r4-r7}}
+                mov r4, r8
+                mov r5, r9
+                mov r6, r10
+                mov r7, r11
+                stm r2!, {{r4-r7}}
+                mrs r4, PSP
+                mov r5, lr
+                stm r2!, {{r4, r5}}
 
-                    @ syscall number is passed in r11. Move it into r0 to pass
-                    @ it as an argument to the handler, then call the handler.
-                    mov r0, r11
-                    bl syscall_entry
+                @ syscall number is passed in r11. Move it into r0 to pass
+                @ it as an argument to the handler, then call the handler.
+                mov r0, r11
+                bl syscall_entry
 
-                    @ we're returning back to *some* task, maybe not the same one.
-                    ldr r0, =CURRENT_TASK_PTR
-                    ldr r0, [r0]
-                    @ restore volatile registers, plus PSP. We will do this in
-                    @ slightly reversed order for efficiency. First, do the high
-                    @ ones.
-                    movs r1, r0
-                    adds r1, r1, #(4 * 4)
-                    ldm r1!, {{r4-r7}}
-                    mov r11, r7
-                    mov r10, r6
-                    mov r9, r5
-                    mov r8, r4
-                    ldm r1!, {{r4, r5}}
-                    msr PSP, r4
-                    mov lr, r5
+                @ we're returning back to *some* task, maybe not the same one.
+                ldr r0, =CURRENT_TASK_PTR
+                ldr r0, [r0]
+                @ restore volatile registers, plus PSP. We will do this in
+                @ slightly reversed order for efficiency. First, do the high
+                @ ones.
+                movs r1, r0
+                adds r1, r1, #(4 * 4)
+                ldm r1!, {{r4-r7}}
+                mov r11, r7
+                mov r10, r6
+                mov r9, r5
+                mov r8, r4
+                ldm r1!, {{r4, r5}}
+                msr PSP, r4
+                mov lr, r5
 
-                    @ Now that we no longer need r4-r7 as temporary registers,
-                    @ restore them too.
-                    ldm r0!, {{r4-r7}}
+                @ Now that we no longer need r4-r7 as temporary registers,
+                @ restore them too.
+                ldm r0!, {{r4-r7}}
 
-                    @ resume
-                    bx lr
+                @ resume
+                bx lr
 
-                1:  @ starting up the first task.
-                    @ Drop privilege in Thread mode.
-                    movs r0, #1
-                    msr CONTROL, r0
-                    @ note: no barrier here because exc return serves as barrier
+            1:  @ starting up the first task.
+                @ Drop privilege in Thread mode.
+                movs r0, #1
+                msr CONTROL, r0
+                @ note: no barrier here because exc return serves as barrier
 
-                    @ Manufacture a new EXC_RETURN to change the processor mode
-                    @ when we return.
-                    ldr r0, ={exc_return}
-                    mov lr, r0
-                    bx lr                   @ branch into user mode
-                    ",
-                    exc_return = const EXC_RETURN_CONST,
-                    options(noreturn),
-                )
-            } else if #[cfg(any(armv7m, armv8m))] {
-                arch::asm!("
-                    @ Inspect LR to figure out the caller's mode.
-                    mov r0, lr
-                    mov r1, #0xFFFFFFF3
-                    bic r0, r1
-                    @ Is the call coming from thread mode + main stack, i.e.
-                    @ from the kernel startup routine?
-                    cmp r0, #0x8
-                    @ If so, this is startup; jump ahead. The common case falls
-                    @ through because branch-not-taken tends to be faster on small
-                    @ cores.
-                    beq 1f
-
-                    @ store volatile state.
-                    @ first, get a pointer to the current task.
-                    movw r0, #:lower16:CURRENT_TASK_PTR
-                    movt r0, #:upper16:CURRENT_TASK_PTR
-                    ldr r1, [r0]
-                    movs r2, r1
-                    @ fetch the process-mode stack pointer.
-                    @ fetching into r12 means the order in the stm below is right.
-                    mrs r12, PSP
-                    @ now, store volatile registers, plus the PSP in r12, plus LR.
-                    stm r2!, {{r4-r12, lr}}
-                    vstm r2, {{s16-s31}}
-
-                    @ syscall number is passed in r11. Move it into r0 to pass it as
-                    @ an argument to the handler, then call the handler.
-                    movs r0, r11
-                    bl syscall_entry
-
-                    @ we're returning back to *some* task, maybe not the same one.
-                    movw r0, #:lower16:CURRENT_TASK_PTR
-                    movt r0, #:upper16:CURRENT_TASK_PTR
-                    ldr r0, [r0]
-                    @ restore volatile registers, plus load PSP into r12
-                    ldm r0!, {{r4-r12, lr}}
-                    vldm r0, {{s16-s31}}
-                    msr PSP, r12
-
-                    @ resume
-                    bx lr
-
-                1:  @ starting up the first task.
-                    movs r0, #1         @ get bitmask to...
-                    msr CONTROL, r0     @ ...shed privs from thread mode.
-                                        @ note: now barrier here because exc return
-                                        @ serves as barrier
-
-                    mov lr, {exc_return}    @ materialize EXC_RETURN value to
-                                            @ return into thread mode, PSP, FP on
-
-                    bx lr                   @ branch into user mode
-                    ",
-                    exc_return = const EXC_RETURN_CONST,
-                    options(noreturn),
-                )
-            } else {
-                compile_error!("missing SVCall impl for ARM profile.");
-            }
+                @ Manufacture a new EXC_RETURN to change the processor mode
+                @ when we return.
+                ldr r0, ={exc_return}
+                mov lr, r0
+                bx lr                   @ branch into user mode
+        ",
+        exc_return = const EXC_RETURN_CONST,
         }
+    } else if #[cfg(any(armv7m, armv8m))] {
+        global_asm!{"
+            .section .text.SVCall
+            .globl SVCall
+            .type SVCall,function
+            SVCall:
+                @ Inspect LR to figure out the caller's mode.
+                mov r0, lr
+                mov r1, #0xFFFFFFF3
+                bic r0, r1
+                @ Is the call coming from thread mode + main stack, i.e.
+                @ from the kernel startup routine?
+                cmp r0, #0x8
+                @ If so, this is startup; jump ahead. The common case falls
+                @ through because branch-not-taken tends to be faster on small
+                @ cores.
+                beq 1f
+
+                @ store volatile state.
+                @ first, get a pointer to the current task.
+                movw r0, #:lower16:CURRENT_TASK_PTR
+                movt r0, #:upper16:CURRENT_TASK_PTR
+                ldr r1, [r0]
+                movs r2, r1
+                @ fetch the process-mode stack pointer.
+                @ fetching into r12 means the order in the stm below is right.
+                mrs r12, PSP
+                @ now, store volatile registers, plus the PSP in r12, plus LR.
+                stm r2!, {{r4-r12, lr}}
+                vstm r2, {{s16-s31}}
+
+                @ syscall number is passed in r11. Move it into r0 to pass it as
+                @ an argument to the handler, then call the handler.
+                movs r0, r11
+                bl syscall_entry
+
+                @ we're returning back to *some* task, maybe not the same one.
+                movw r0, #:lower16:CURRENT_TASK_PTR
+                movt r0, #:upper16:CURRENT_TASK_PTR
+                ldr r0, [r0]
+                @ restore volatile registers, plus load PSP into r12
+                ldm r0!, {{r4-r12, lr}}
+                vldm r0, {{s16-s31}}
+                msr PSP, r12
+
+                @ resume
+                bx lr
+
+            1:  @ starting up the first task.
+                movs r0, #1         @ get bitmask to...
+                msr CONTROL, r0     @ ...shed privs from thread mode.
+                                    @ note: now barrier here because exc return
+                                    @ serves as barrier
+
+                mov lr, {exc_return}    @ materialize EXC_RETURN value to
+                                        @ return into thread mode, PSP, FP on
+
+                bx lr                   @ branch into user mode
+            ",
+            exc_return = const EXC_RETURN_CONST,
+        }
+    } else {
+        compile_error!("missing SVCall impl for ARM profile.");
     }
 }
 
@@ -896,9 +1004,9 @@ pub unsafe extern "C" fn SVCall() {
 /// This records a pointer that aliases `task`. As long as you don't read that
 /// pointer while you have access to `task`, and as long as the `task` being
 /// stored is actually in the task table, you'll be okay.
-pub unsafe fn set_current_task(task: &mut task::Task) {
-    CURRENT_TASK_PTR.store(task, Ordering::Relaxed);
-    crate::profiling::event_context_switch(task as *mut _ as usize);
+pub unsafe fn set_current_task(task: &task::Task) {
+    CURRENT_TASK_PTR.store(task as *const _ as *mut _, Ordering::Relaxed);
+    crate::profiling::event_context_switch(task as *const _ as usize);
 }
 
 /// Reads the tick counter.
@@ -972,93 +1080,90 @@ fn pend_context_switch_from_isr() {
     cortex_m::peripheral::SCB::set_pendsv();
 }
 
-#[allow(non_snake_case)]
-#[naked]
-#[no_mangle]
-pub unsafe extern "C" fn PendSV() {
-    unsafe {
-        cfg_if::cfg_if! {
-            if #[cfg(armv6m)] {
-                arch::asm!(
-                    "
-                    @ store volatile state.
-                    @ first, get a pointer to the current task.
-                    ldr r0, =CURRENT_TASK_PTR
-                    ldr r1, [r0]
-                    @ now, store volatile registers, plus the PSP, plus LR.
-                    stm r1!, {{r4-r7}}
-                    mov r4, r8
-                    mov r5, r9
-                    mov r6, r10
-                    mov r7, r11
-                    stm r1!, {{r4-r7}}
-                    mrs r4, PSP
-                    mov r5, lr
-                    stm r1!, {{r4, r5}}
+cfg_if::cfg_if! {
+    if #[cfg(armv6m)] {
+        global_asm!{"
+            .section .text.PendSV
+            .globl PendSV
+            .type PendSV,function
+            PendSV:
+                @ store volatile state.
+                @ first, get a pointer to the current task.
+                ldr r0, =CURRENT_TASK_PTR
+                ldr r1, [r0]
+                @ now, store volatile registers, plus the PSP, plus LR.
+                stm r1!, {{r4-r7}}
+                mov r4, r8
+                mov r5, r9
+                mov r6, r10
+                mov r7, r11
+                stm r1!, {{r4-r7}}
+                mrs r4, PSP
+                mov r5, lr
+                stm r1!, {{r4, r5}}
 
-                    bl pendsv_entry
+                bl pendsv_entry
 
-                    @ we're returning back to *some* task, maybe not the same one.
-                    ldr r0, =CURRENT_TASK_PTR
-                    ldr r0, [r0]
-                    @ restore volatile registers, plus PSP. We will do this in
-                    @ slightly reversed order for efficiency. First, do the high
-                    @ ones.
-                    movs r1, r0
-                    adds r1, r1, #(4 * 4)
-                    ldm r1!, {{r4-r7}}
-                    mov r11, r7
-                    mov r10, r6
-                    mov r9, r5
-                    mov r8, r4
-                    ldm r1!, {{r4, r5}}
-                    msr PSP, r4
-                    mov lr, r5
+                @ we're returning back to *some* task, maybe not the same one.
+                ldr r0, =CURRENT_TASK_PTR
+                ldr r0, [r0]
+                @ restore volatile registers, plus PSP. We will do this in
+                @ slightly reversed order for efficiency. First, do the high
+                @ ones.
+                movs r1, r0
+                adds r1, r1, #(4 * 4)
+                ldm r1!, {{r4-r7}}
+                mov r11, r7
+                mov r10, r6
+                mov r9, r5
+                mov r8, r4
+                ldm r1!, {{r4, r5}}
+                msr PSP, r4
+                mov lr, r5
 
-                    @ Now that we no longer need r4-r7 as temporary registers,
-                    @ restore them too.
-                    ldm r0!, {{r4-r7}}
+                @ Now that we no longer need r4-r7 as temporary registers,
+                @ restore them too.
+                ldm r0!, {{r4-r7}}
 
-                    @ resume
-                    bx lr
-                    ",
-                    options(noreturn),
-                );
-            } else if #[cfg(any(armv7m, armv8m))] {
-                arch::asm!(
-                    "
-                    @ store volatile state.
-                    @ first, get a pointer to the current task.
-                    movw r0, #:lower16:CURRENT_TASK_PTR
-                    movt r0, #:upper16:CURRENT_TASK_PTR
-                    ldr r1, [r0]
-                    @ fetch the process-mode stack pointer.
-                    @ fetching into r12 means the order in the stm below is right.
-                    mrs r12, PSP
-                    @ now, store volatile registers, plus the PSP in r12, plus LR.
-                    stm r1!, {{r4-r12, lr}}
-                    vstm r1, {{s16-s31}}
-
-                    bl pendsv_entry
-
-                    @ we're returning back to *some* task, maybe not the same one.
-                    movw r0, #:lower16:CURRENT_TASK_PTR
-                    movt r0, #:upper16:CURRENT_TASK_PTR
-                    ldr r0, [r0]
-                    @ restore volatile registers, plus load PSP into r12
-                    ldm r0!, {{r4-r12, lr}}
-                    vldm r0, {{s16-s31}}
-                    msr PSP, r12
-
-                    @ resume
-                    bx lr
-                    ",
-                    options(noreturn),
-                );
-            } else {
-                compile_error!("missing PendSV impl for ARM profile.");
-            }
+                @ resume
+                bx lr
+            ",
         }
+    } else if #[cfg(any(armv7m, armv8m))] {
+        global_asm!{"
+            .section .text.PendSV
+            .globl PendSV
+            .type PendSV,function
+            PendSV:
+                @ store volatile state.
+                @ first, get a pointer to the current task.
+                movw r0, #:lower16:CURRENT_TASK_PTR
+                movt r0, #:upper16:CURRENT_TASK_PTR
+                ldr r1, [r0]
+                @ fetch the process-mode stack pointer.
+                @ fetching into r12 means the order in the stm below is right.
+                mrs r12, PSP
+                @ now, store volatile registers, plus the PSP in r12, plus LR.
+                stm r1!, {{r4-r12, lr}}
+                vstm r1, {{s16-s31}}
+
+                bl pendsv_entry
+
+                @ we're returning back to *some* task, maybe not the same one.
+                movw r0, #:lower16:CURRENT_TASK_PTR
+                movt r0, #:upper16:CURRENT_TASK_PTR
+                ldr r0, [r0]
+                @ restore volatile registers, plus load PSP into r12
+                ldm r0!, {{r4-r12, lr}}
+                vldm r0, {{s16-s31}}
+                msr PSP, r12
+
+                @ resume
+                bx lr
+            ",
+        }
+    } else {
+        compile_error!("missing PendSV impl for ARM profile.");
     }
 }
 
@@ -1077,7 +1182,6 @@ unsafe extern "C" fn pendsv_entry() {
 
     with_task_table(|tasks| {
         let next = task::select(current, tasks);
-        let next = &mut tasks[next];
         apply_memory_protection(next);
         // Safety: next comes from the task table and we don't use it again
         // until next kernel entry, so we meet set_current_task's requirements.
@@ -1129,7 +1233,10 @@ pub unsafe extern "C" fn DefaultHandler() {
                 .unwrap_or_else(|| panic!("unhandled IRQ {irq_num}"));
 
             let switch = with_task_table(|tasks| {
-                disable_irq(irq_num);
+                // This can only fail if the IRQ number is out of range, which
+                // in this case would mean the hardware is conspiring against
+                // us. So ignore it to ensure we don't generate a bogus check.
+                disable_irq(irq_num, false).ok();
 
                 // Now, post the notification and return the
                 // scheduling hint.
@@ -1146,29 +1253,54 @@ pub unsafe extern "C" fn DefaultHandler() {
     crate::profiling::event_isr_exit();
 }
 
-pub fn disable_irq(n: u32) {
+pub fn disable_irq(n: u32, also_clear_pending: bool) -> Result<(), UsageError> {
     // Disable the interrupt by poking the Interrupt Clear Enable Register.
     let nvic = unsafe { &*cortex_m::peripheral::NVIC::PTR };
     let reg_num = (n / 32) as usize;
     let bit_mask = 1 << (n % 32);
     unsafe {
-        nvic.icer[reg_num].write(bit_mask);
+        nvic.icer
+            .get(reg_num)
+            .ok_or(UsageError::NoIrq)?
+            .write(bit_mask);
     }
+    if also_clear_pending {
+        unsafe {
+            nvic.icpr
+                .get(reg_num)
+                .ok_or(UsageError::NoIrq)?
+                .write(bit_mask);
+        }
+    }
+    Ok(())
 }
 
-pub fn enable_irq(n: u32) {
+pub fn enable_irq(n: u32, also_clear_pending: bool) -> Result<(), UsageError> {
     // Enable the interrupt by poking the Interrupt Set Enable Register.
     let nvic = unsafe { &*cortex_m::peripheral::NVIC::PTR };
     let reg_num = (n / 32) as usize;
     let bit_mask = 1 << (n % 32);
-    unsafe {
-        nvic.iser[reg_num].write(bit_mask);
+    if also_clear_pending {
+        // Do this _before_ enabling.
+        unsafe {
+            nvic.icpr
+                .get(reg_num)
+                .ok_or(UsageError::NoIrq)?
+                .write(bit_mask);
+        }
     }
+    unsafe {
+        nvic.iser
+            .get(reg_num)
+            .ok_or(UsageError::NoIrq)?
+            .write(bit_mask);
+    }
+    Ok(())
 }
 
 /// Looks up an interrupt in the NVIC and returns a cross-platform
 /// representation of that interrupt's status.
-pub fn irq_status(n: u32) -> abi::IrqStatus {
+pub fn irq_status(n: u32) -> Result<abi::IrqStatus, UsageError> {
     let mut status = abi::IrqStatus::empty();
 
     let nvic = unsafe { &*cortex_m::peripheral::NVIC::PTR };
@@ -1177,7 +1309,8 @@ pub fn irq_status(n: u32) -> abi::IrqStatus {
 
     // See if the interrupt is enabled by checking the bit in the Interrupt Set
     // Enable Register.
-    let enabled = nvic.iser[reg_num].read() & bit_mask == bit_mask;
+    let iser_reg = nvic.iser.get(reg_num).ok_or(UsageError::NoIrq)?;
+    let enabled = iser_reg.read() & bit_mask == bit_mask;
     status.set(abi::IrqStatus::ENABLED, enabled);
 
     // See if the interrupt is pending by checking the bit in the Interrupt
@@ -1185,17 +1318,21 @@ pub fn irq_status(n: u32) -> abi::IrqStatus {
     let pending = nvic.ispr[reg_num].read() & bit_mask == bit_mask;
     status.set(abi::IrqStatus::PENDING, pending);
 
-    status
+    Ok(status)
 }
 
-pub fn pend_software_irq(InterruptNum(n): InterruptNum) {
+pub fn pend_software_irq(
+    InterruptNum(n): InterruptNum,
+) -> Result<(), UsageError> {
     let nvic = unsafe { &*cortex_m::peripheral::NVIC::PTR };
     let reg_num = (n / 32) as usize;
     let bit_mask = 1 << (n % 32);
 
     // Pend the IRQ by poking the corresponding bit in the Interrupt Set Pending
     // Register (ISPR).
-    unsafe { nvic.ispr[reg_num].write(bit_mask) };
+    let ispr_reg = nvic.ispr.get(reg_num).ok_or(UsageError::NoIrq)?;
+    unsafe { ispr_reg.write(bit_mask) };
+    Ok(())
 }
 
 #[repr(u8)]
@@ -1207,160 +1344,134 @@ enum FaultType {
     UsageFault = 6,
 }
 
-#[naked]
 #[cfg(any(armv7m, armv8m))]
-unsafe extern "C" fn configurable_fault() {
-    unsafe {
-        arch::asm!(
-            "
-            @ Read the current task pointer.
-            movw r0, #:lower16:CURRENT_TASK_PTR
-            movt r0, #:upper16:CURRENT_TASK_PTR
-            ldr r0, [r0]
-            mrs r12, PSP
+global_asm! {"
+    .section .text.configurable_fault
+    .globl configurable_fault
+    .type configurable_fault,function
+    .cpu cortex-m4  @ least common denominator we support
+    configurable_fault:
+        @ Read the current task pointer.
+        movw r0, #:lower16:CURRENT_TASK_PTR
+        movt r0, #:upper16:CURRENT_TASK_PTR
+        ldr r0, [r0]
+        mrs r12, PSP
 
-            @ Now, to aid those who will debug what induced this fault, save our
-            @ context.  Some of our context (namely, r0-r3, r12, LR, the return
-            @ address and the xPSR) is already on our stack as part of the fault;
-            @ we'll store our remaining registers, plus the PSP (now in r12), plus
-            @ exc_return (now in LR) into the save region in the current task.
-            @ Note that we explicitly refrain from saving the floating point
-            @ registers here:  touching the floating point registers will induce
-            @ a lazy save on the stack, which is clearly bad news if we have
-            @ overflowed our stack!  We do want to ultimately save them to aid
-            @ debuggability, however, so we pass the address to which they should
-            @ be saved to our fault handler, which will take the necessary
-            @ measures to save them safely.  Finally, note that deferring the
-            @ save to later in handle_fault assumes that the floating point
-            @ registers are not in fact touched before determmining the fault type
-            @ and disabling lazy saving accordingly; should that assumption not
-            @ hold, we will need to be (ironically?) less lazy about disabling
-            @ lazy saving...
-            mov r2, r0
-            stm r2!, {{r4-r12, lr}}
+        @ Now, to aid those who will debug what induced this fault, save our
+        @ context.  Some of our context (namely, r0-r3, r12, LR, the return
+        @ address and the xPSR) is already on our stack as part of the fault;
+        @ we'll store our remaining registers, plus the PSP (now in r12), plus
+        @ exc_return (now in LR) into the save region in the current task.
+        @ Note that we explicitly refrain from saving the floating point
+        @ registers here:  touching the floating point registers will induce
+        @ a lazy save on the stack, which is clearly bad news if we have
+        @ overflowed our stack!  We do want to ultimately save them to aid
+        @ debuggability, however, so we pass the address to which they should
+        @ be saved to our fault handler, which will take the necessary
+        @ measures to save them safely.  Finally, note that deferring the
+        @ save to later in handle_fault assumes that the floating point
+        @ registers are not in fact touched before determmining the fault type
+        @ and disabling lazy saving accordingly; should that assumption not
+        @ hold, we will need to be (ironically?) less lazy about disabling
+        @ lazy saving...
+        mov r2, r0
+        stm r2!, {{r4-r12, lr}}
 
-            @ Pull our fault number out of IPSR, allowing for program text to be
-            @ shared across all configurable faults.  (Note that the exception
-            @ number is the bottom 9 bits, but we need only look at the bottom 4
-            @ bits as this handler is only used for exceptions with numbers less
-            @ than 16.)
-            mrs r1, IPSR
-            and r1, r1, #0xf
-            bl handle_fault
+        @ Pull our fault number out of IPSR, allowing for program text to be
+        @ shared across all configurable faults.  (Note that the exception
+        @ number is the bottom 9 bits, but we need only look at the bottom 4
+        @ bits as this handler is only used for exceptions with numbers less
+        @ than 16.)
+        mrs r1, IPSR
+        and r1, r1, #0xf
+        bl handle_fault
 
-            @ Our task has changed; reload it.
-            movw r0, #:lower16:CURRENT_TASK_PTR
-            movt r0, #:upper16:CURRENT_TASK_PTR
-            ldr r0, [r0]
+        @ Our task has changed; reload it.
+        movw r0, #:lower16:CURRENT_TASK_PTR
+        movt r0, #:upper16:CURRENT_TASK_PTR
+        ldr r0, [r0]
 
-            @ Restore volatile registers, plus load PSP into r12
-            ldm r0!, {{r4-r12, lr}}
-            vldm r0, {{s16-s31}}
-            msr PSP, r12
+        @ Restore volatile registers, plus load PSP into r12
+        ldm r0!, {{r4-r12, lr}}
+        vldm r0, {{s16-s31}}
+        msr PSP, r12
 
-            @ resume
-            bx lr
-            ",
-            options(noreturn),
-        );
-    }
+        @ resume
+        bx lr
+
+    .section .text.MemoryManagement
+    .globl MemoryManagement
+    .type MemoryManagement,function
+    MemoryManagement:
+        b configurable_fault
+
+    .section .text.BusFault
+    .globl BusFault
+    .type BusFault,function
+    BusFault:
+        b configurable_fault
+
+    .section .text.UsageFault
+    .globl UsageFault
+    .type UsageFault,function
+    UsageFault:
+        b configurable_fault
+    ",
 }
 
-/// Initial entry point for handling a memory management fault.
-#[allow(non_snake_case)]
-#[no_mangle]
-#[naked]
-#[cfg(any(armv7m, armv8m))]
-pub unsafe extern "C" fn MemoryManagement() {
-    // Safety: this is merely a call (a tailcall, really) to a different handler
-    // -- we're doing it this way simply because the other handler does context
-    // save, so we can't go up into Rust here.
-    unsafe { arch::asm!("b {0}", sym configurable_fault, options(noreturn)) }
-}
-
-/// Initial entry point for handling a bus fault.
-#[allow(non_snake_case)]
-#[no_mangle]
-#[naked]
-#[cfg(any(armv7m, armv8m))]
-pub unsafe extern "C" fn BusFault() {
-    // Safety: this is merely a call (a tailcall, really) to a different handler
-    // -- we're doing it this way simply because the other handler does context
-    // save, so we can't go up into Rust here.
-    unsafe { arch::asm!("b {0}", sym configurable_fault, options(noreturn)) }
-}
-
-/// Initial entry point for handling a usage fault.
-#[allow(non_snake_case)]
-#[no_mangle]
-#[naked]
-#[cfg(any(armv7m, armv8m))]
-pub unsafe extern "C" fn UsageFault() {
-    // Safety: this is merely a call (a tailcall, really) to a different handler
-    // -- we're doing it this way simply because the other handler does context
-    // save, so we can't go up into Rust here.
-    unsafe { arch::asm!("b {0}", sym configurable_fault, options(noreturn)) }
-}
-
-/// Initial entry point for handling a hard fault (ARMv6).
-#[allow(non_snake_case)]
-#[no_mangle]
-#[naked]
 #[cfg(armv6m)]
-pub unsafe extern "C" fn HardFault() {
-    unsafe {
-        arch::asm!(
-            "
-            @ Read the current task pointer.
-            ldr r0, =CURRENT_TASK_PTR
-            ldr r0, [r0]
-            mrs r12, PSP
+global_asm! {"
+    .section .text.HardFault
+    .globl HardFault
+    .type HardFault,function
+    HardFault:
+        @ Read the current task pointer.
+        ldr r0, =CURRENT_TASK_PTR
+        ldr r0, [r0]
+        mrs r12, PSP
 
-            @ Now, to aid those who will debug what induced this fault, save our
-            @ context.  Some of our context (namely, r0-r3, r12, LR, the return
-            @ address and the xPSR) is already on our stack as part of the fault;
-            @ we'll store our remaining registers, plus the PSP, plus exc_return
-            @ (now in LR) into the save region in the current task.
-            mov r2, r0
-            stm r2!, {{r4-r7}}
-            mov r4, r8
-            mov r5, r9
-            mov r6, r10
-            mov r7, r11
-            stm r2!, {{r4-r7}}
-            mrs r4, PSP
-            mov r5, lr
-            stm r2!, {{r4, r5}}
+        @ Now, to aid those who will debug what induced this fault, save our
+        @ context.  Some of our context (namely, r0-r3, r12, LR, the return
+        @ address and the xPSR) is already on our stack as part of the fault;
+        @ we'll store our remaining registers, plus the PSP, plus exc_return
+        @ (now in LR) into the save region in the current task.
+        mov r2, r0
+        stm r2!, {{r4-r7}}
+        mov r4, r8
+        mov r5, r9
+        mov r6, r10
+        mov r7, r11
+        stm r2!, {{r4-r7}}
+        mrs r4, PSP
+        mov r5, lr
+        stm r2!, {{r4, r5}}
 
-            bl handle_fault
+        bl handle_fault
 
-            @ Our task has changed; reload it.
-            ldr r0, =CURRENT_TASK_PTR
-            ldr r0, [r0]
-            @ restore volatile registers, plus PSP. We will do this in
-            @ slightly reversed order for efficiency. First, do the high
-            @ ones.
-            movs r1, r0
-            adds r1, r1, #(4 * 4)
-            ldm r1!, {{r4-r7}}
-            mov r11, r7
-            mov r10, r6
-            mov r9, r5
-            mov r8, r4
-            ldm r1!, {{r4, r5}}
-            msr PSP, r4
-            mov lr, r5
+        @ Our task has changed; reload it.
+        ldr r0, =CURRENT_TASK_PTR
+        ldr r0, [r0]
+        @ restore volatile registers, plus PSP. We will do this in
+        @ slightly reversed order for efficiency. First, do the high
+        @ ones.
+        movs r1, r0
+        adds r1, r1, #(4 * 4)
+        ldm r1!, {{r4-r7}}
+        mov r11, r7
+        mov r10, r6
+        mov r9, r5
+        mov r8, r4
+        ldm r1!, {{r4, r5}}
+        msr PSP, r4
+        mov lr, r5
 
-            @ Now that we no longer need r4-r7 as temporary registers,
-            @ restore them too.
-            ldm r0!, {{r4-r7}}
+        @ Now that we no longer need r4-r7 as temporary registers,
+        @ restore them too.
+        ldm r0!, {{r4-r7}}
 
-            @ resume
-            bx lr
-            ",
-            options(noreturn),
-        );
-    }
+        @ resume
+        bx lr
+    ",
 }
 
 bitflags::bitflags! {
@@ -1439,20 +1550,45 @@ unsafe extern "C" fn handle_fault(task: *mut task::Task) {
     // generate a spurious SVC. Even in the best of cases, this breaks the
     // supervisor.
     //
-    // SVCALLPENDED is in the System Handler Control and State Register, bit 15,
-    // and we need to clear its bit. We do this unconditionally because it
-    // doesn't hurt, and it's slightly faster/smaller.
+    // It would be super great if there were, say, a register in the System
+    // Control Block that would tell us that SVC is pended, wouldn't it? Perhaps
+    // it could be called the System Handler Control and State Register. In
+    // fact, if you read the ARMv6-M ARM, you will find a register with such a
+    // name, and might be tempted to use it!
     //
-    // (If you're comparing this to the ARMv7/v8-M equivalent, note that v6-M
-    // lacks the usage/mem/bus faults present in v7/8.)
+    // BEWARE.
     //
-    // Safety: the cortex-m crate makes all these registers blanket-unsafe
-    // without documenting the required preconditions. From the ARMv7-M spec, we
-    // can infer that the main risk here is if SVC were higher priority than
-    // this handler, which it is not.
-    unsafe {
-        let scb = &*cortex_m::peripheral::SCB::PTR;
-        scb.shcsr.modify(|bits| bits & !(1 << 15));
+    // In a _different section_ of that manual, there is a throwaway footnote
+    // that reads:
+    //
+    // > The DWT, BPU, ROM table, DCB, and the SHCSR and DFSR registers are
+    // > accessible through the DAP interface. Access from the processor is
+    // > IMPLEMENTATION DEFINED.
+    //
+    // On the Cortex-M0+, this very attractive register works great from the
+    // debugger but _reads as zero from the kernel._ Ugh.
+    //
+    // Instead, we are using the always-active ICSR register, which lets us
+    // _detect_ the pending SVC _but not clear it._ To clear it, we use the
+    // mitigation mechanism defined over in syscalls.rs.
+    //
+    // The case where an SVC is pending in ICSR uniquely identifies a task
+    // having faulted during SVC, because a hardfault _in the kernel_ during
+    // processing of an SVC would not have made it here (see above).
+    {
+        let scb = unsafe { &*cortex_m::peripheral::SCB::PTR };
+        let icsr = scb.icsr.read();
+        // VECTPENDING is 9 bits, so, why are we casting it to a u8? Because
+        // this code is ARMv6-M specific, and ARMv6-M is architecturally
+        // specified as having no more than 32 interrupts (plus 16 exceptions).
+        let vectpending = (icsr >> 12) as u8;
+
+        // If we're in a hardfault (which we know, because it's the only fault
+        // on ARMv6M and we are in a fault handler) and an SVC is pending...
+        if vectpending == 11 {
+            crate::syscalls::EXPECT_PHANTOM_SYSCALL
+                .store(true, core::sync::atomic::Ordering::Relaxed);
+        }
     }
 
     // ARMv6-M, to reduce complexity, does not distinguish fault causes.
@@ -1462,16 +1598,15 @@ unsafe extern "C" fn handle_fault(task: *mut task::Task) {
     // switch to a task to run.
     with_task_table(|tasks| {
         let next = match task::force_fault(tasks, idx, fault) {
-            task::NextTask::Specific(i) => i,
+            task::NextTask::Specific(i) => &tasks[i],
             task::NextTask::Other => task::select(idx, tasks),
-            task::NextTask::Same => idx,
+            task::NextTask::Same => &tasks[idx],
         };
 
-        if next == idx {
+        if core::ptr::eq(next as *const _, task as *const _) {
             panic!("attempt to return to Task #{idx} after fault");
         }
 
-        let next = &mut tasks[next];
         apply_memory_protection(next);
         // Safety: next comes from the task table and we don't use it again
         // until next kernel entry, so we meet set_current_task's requirements.
@@ -1676,16 +1811,15 @@ unsafe extern "C" fn handle_fault(
     // fault!)
     with_task_table(|tasks| {
         let next = match task::force_fault(tasks, idx, fault) {
-            task::NextTask::Specific(i) => i,
+            task::NextTask::Specific(i) => &tasks[i],
             task::NextTask::Other => task::select(idx, tasks),
-            task::NextTask::Same => idx,
+            task::NextTask::Same => &tasks[idx],
         };
 
-        if next == idx {
+        if core::ptr::eq(next as *const _, task as *const _) {
             panic!("attempt to return to Task #{idx} after fault");
         }
 
-        let next = &mut tasks[next];
         apply_memory_protection(next);
         // Safety: this leaks a pointer aliasing next into static scope, but
         // we're not going to read it back until the next kernel entry, so we

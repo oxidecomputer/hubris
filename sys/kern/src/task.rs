@@ -280,7 +280,7 @@ impl Task {
 
     /// Checks if this task is in a potentially schedulable state.
     pub fn is_runnable(&self) -> bool {
-        self.state == TaskState::Healthy(SchedState::Runnable)
+        matches!(self.state, TaskState::Healthy(SchedState::Runnable))
     }
 
     /// Configures this task's timer.
@@ -820,47 +820,55 @@ pub fn check_task_id_against_table(
 /// Selects a new task to run after `previous`. Tries to be fair, kind of.
 ///
 /// If no tasks are runnable, the kernel panics.
-pub fn select(previous: usize, tasks: &[Task]) -> usize {
-    priority_scan(previous, tasks, |t| t.is_runnable())
-        .expect("no tasks runnable")
+pub fn select(previous: usize, tasks: &[Task]) -> &Task {
+    match priority_scan(previous, tasks, |t| t.is_runnable()) {
+        Some((_index, task)) => task,
+        None => panic!(),
+    }
 }
 
+/// Scans the task table to find a prioritized candidate.
+///
 /// Scans `tasks` for the next task, after `previous`, that satisfies `pred`. If
 /// more than one task satisfies `pred`, returns the most important one. If
 /// multiple tasks with the same priority satisfy `pred`, prefers the first one
-/// in order after `previous`, mod `tasks.len()`.
+/// in order after `previous`, mod `tasks.len()`. Finally, if no tasks satisfy
+/// `pred`, returns `None`
 ///
 /// Whew.
 ///
 /// This is generally the right way to search a task table, and is used to
 /// implement (among other bits) the scheduler.
 ///
-/// # Panics
-///
-/// If `previous` is not a valid index in `tasks`.
+/// On success, the return value is the task's index in the task table, and a
+/// direct reference to the task.
 pub fn priority_scan(
     previous: usize,
     tasks: &[Task],
     pred: impl Fn(&Task) -> bool,
-) -> Option<usize> {
-    uassert!(previous < tasks.len());
-    let search_order = (previous + 1..tasks.len()).chain(0..previous + 1);
-    let mut choice = None;
-    for i in search_order {
-        if !pred(&tasks[i]) {
+) -> Option<(usize, &Task)> {
+    let mut pos = previous;
+    let mut choice: Option<(usize, &Task)> = None;
+    for _step_no in 0..tasks.len() {
+        pos = pos.wrapping_add(1);
+        if pos >= tasks.len() {
+            pos = 0;
+        }
+        let t = &tasks[pos];
+        if !pred(t) {
             continue;
         }
 
-        if let Some((_, prio)) = choice {
-            if !tasks[i].priority.is_more_important_than(prio) {
+        if let Some((_, best_task)) = choice {
+            if !t.priority.is_more_important_than(best_task.priority) {
                 continue;
             }
         }
 
-        choice = Some((i, tasks[i].priority));
+        choice = Some((pos, t));
     }
 
-    choice.map(|(idx, _)| idx)
+    choice
 }
 
 /// Puts a task into a forced fault condition.

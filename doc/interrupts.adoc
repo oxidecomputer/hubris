@@ -56,6 +56,7 @@ routine. That can occur when...
 - The `pending` bit is set while `enable` was already set.
 - The `enable` bit is set when `pending` was previously set.
 
+[#interrupts-from-a-tasks-perspective]
 == Interrupts from a task's perspective
 
 The `app.toml` configuration file can route interrupts to tasks, by binding

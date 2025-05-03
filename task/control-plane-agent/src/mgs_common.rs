@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
+    dump::DumpState,
     inventory::Inventory,
     update::{rot::RotUpdate, sp::SpUpdate, ComponentUpdater},
     Log, MgsMessage,
@@ -26,9 +27,9 @@ use drv_sprot_api::{
 };
 use drv_stm32h7_update_api::Update;
 use gateway_messages::{
-    CfpaPage, DiscoverResponse, Fwid as GwFwid, ImageError as GwImageError,
-    ImageVersion as GwImageVersion, PowerState, RotBootInfo as GwRotBootInfo,
-    RotBootState as GwRotBootState, RotError,
+    CfpaPage, DiscoverResponse, DumpSegment, DumpTask, Fwid as GwFwid,
+    ImageError as GwImageError, ImageVersion as GwImageVersion, PowerState,
+    RotBootInfo as GwRotBootInfo, RotBootState as GwRotBootState, RotError,
     RotImageDetails as GwRotImageDetails, RotRequest, RotResponse,
     RotSlotId as GwRotSlotId, RotState as GwRotState,
     RotStateV2 as GwRotStateV2, RotStateV3 as GwRotStateV3,
@@ -54,6 +55,7 @@ task_slot!(pub UPDATE_SERVER, update_server);
 pub(crate) struct MgsCommon {
     pub sp_update: SpUpdate,
     pub rot_update: RotUpdate,
+    dump_state: DumpState,
 
     reset_component_requested: Option<SpComponent>,
     inventory: Inventory,
@@ -69,6 +71,7 @@ impl MgsCommon {
         Self {
             sp_update: SpUpdate::new(),
             rot_update: RotUpdate::new(),
+            dump_state: DumpState::new(),
 
             reset_component_requested: None,
             inventory: Inventory::new(),
@@ -262,6 +265,24 @@ impl MgsCommon {
         Ok(())
     }
 
+    /// Checks whether `component` matches our prepared reset component
+    ///
+    /// This is **not idempotent**; the prepared reset component is cleared when
+    /// this function is called
+    pub(crate) fn reset_component_trigger_check(
+        &mut self,
+        component: SpComponent,
+    ) -> Result<(), GwSpError> {
+        // If we are not resetting the SP_ITSELF, then we may come back here
+        // to reset something else or to run another prepare/trigger on
+        // the same component, so remove the requested reset.
+        if self.reset_component_requested.take() == Some(component) {
+            Ok(())
+        } else {
+            Err(GwSpError::ResetComponentTriggerWithoutPrepare)
+        }
+    }
+
     /// ResetComponent is used in the context of the management plane
     /// driving a firmware update.
     ///
@@ -277,13 +298,8 @@ impl MgsCommon {
         &mut self,
         component: SpComponent,
     ) -> Result<(), GwSpError> {
-        if self.reset_component_requested != Some(component) {
-            return Err(GwSpError::ResetComponentTriggerWithoutPrepare);
-        }
-        // If we are not resetting the SP_ITSELF, then we may come back here
-        // to reset something else or to run another prepare/trigger on
-        // the same component.
-        self.reset_component_requested = None;
+        // Make sure our staged component is correct
+        self.reset_component_trigger_check(component)?;
 
         // Resetting the SP through reset_component() is
         // the same as through reset() until transient bank selection is
@@ -616,6 +632,27 @@ impl MgsCommon {
             // New variants that this code doesn't know about yet will
             // result in a deserialization error.
         }
+    }
+
+    pub(crate) fn get_task_dump_count(&mut self) -> Result<u32, GwSpError> {
+        self.dump_state.get_task_dump_count()
+    }
+
+    pub(crate) fn task_dump_read_start(
+        &mut self,
+        index: u32,
+        key: [u8; 16],
+    ) -> Result<DumpTask, GwSpError> {
+        self.dump_state.task_dump_read_start(index, key)
+    }
+
+    pub(crate) fn task_dump_read_continue(
+        &mut self,
+        key: [u8; 16],
+        seq: u32,
+        buf: &mut [u8],
+    ) -> Result<Option<DumpSegment>, GwSpError> {
+        self.dump_state.task_dump_read_continue(key, seq, buf)
     }
 }
 

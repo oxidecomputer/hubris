@@ -14,7 +14,8 @@ struct Config {
 impl Parse for Config {
     fn parse(input: ParseStream<'_>) -> Result<Self> {
         Ok(Self {
-            items: input.parse_terminated(Field::parse_named)?,
+            items: input
+                .parse_terminated(Field::parse_named, syn::Token![,])?,
         })
     }
 }

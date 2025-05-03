@@ -6,7 +6,7 @@ board = "donglet-g031"
 
 [kernel]
 name = "app-donglet"
-requires = {flash = 19168, ram = 1820}
+requires = {flash = 19168, ram = 1824}
 features = ["g031"]
 stacksize = 936
 
@@ -15,8 +15,9 @@ name = "task-jefe"
 priority = 0
 max-sizes = {flash = 4096, ram = 512}
 start = true
-stacksize = 368
+stacksize = 256
 notifications = ["fault", "timer"]
+features = ["no-panic", "nano"]
 
 [tasks.sys]
 name = "drv-stm32xx-sys"

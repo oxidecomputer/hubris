@@ -843,9 +843,16 @@ fn build_archive(
     archive.text("app.toml", &cfg.toml.app_config)?;
 
     let chip_dir = cfg.app_src_dir.join(cfg.toml.chip.clone());
-    let chip_file = chip_dir.join("chip.toml");
-    let chip_filename = chip_file.file_name().unwrap();
-    archive.copy(&chip_file, chip_filename)?;
+
+    // Generate a synthetic `chip.toml` by serializing our peripheral map,
+    // because we may have added addition FMC peripherals.
+    archive
+        .text(
+            "chip.toml",
+            toml::to_string(&cfg.toml.peripherals)
+                .context("could not serialize chip.toml")?,
+        )
+        .context("could not write chip.toml")?;
 
     archive
         .text(
@@ -1236,17 +1243,24 @@ pub fn get_max_stack(
         }
         chunks.extend(chunk); // don't forget the trailing chunk!
 
+        let frame_size = addr_to_frame_size.get(&base_addr).copied();
         let mut calls = BTreeSet::new();
         for (addr, chunk) in chunks {
             let instrs = cs
                 .disasm_all(&chunk, addr.into())
                 .map_err(|e| anyhow!("disassembly failed: {e:?}"))?;
-            for instr in instrs.iter() {
+            for (i, instr) in instrs.iter().enumerate() {
                 let detail = cs.insn_detail(instr).map_err(|e| {
                     anyhow!("could not get instruction details: {e}")
                 })?;
+
+                // Detect tail calls, which are jumps at the final instruction
+                // when the function itself has no stack frame.
+                let can_tail = frame_size == Some(0) && i == instrs.len() - 1;
                 if detail.groups().iter().any(|g| {
                     g == &InsnGroupId(InsnGroupType::CS_GRP_CALL as u8)
+                        || (g == &InsnGroupId(InsnGroupType::CS_GRP_JUMP as u8)
+                            && can_tail)
                 }) {
                     let arch = detail.arch_detail();
                     let ops = arch.operands();
@@ -1290,7 +1304,7 @@ pub fn get_max_stack(
             FunctionData {
                 name,
                 short_name,
-                frame_size: addr_to_frame_size.get(&base_addr).map(|i| *i),
+                frame_size,
                 calls,
             },
         );

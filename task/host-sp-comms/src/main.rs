@@ -12,7 +12,7 @@ use attest_data::messages::{
     HostToRotCommand, RecvSprotError as AttestDataSprotError, RotToHost,
     MAX_DATA_LEN,
 };
-use drv_cpu_seq_api::{PowerState, SeqError, Sequencer};
+use drv_cpu_seq_api::{PowerState, SeqError, Sequencer, StateChangeReason};
 use drv_hf_api::{HfDevSelect, HfMuxState, HostFlash};
 use drv_sprot_api::SpRot;
 use drv_stm32xx_sys_api as sys_api;
@@ -55,7 +55,10 @@ use inventory::INVENTORY_API_VERSION;
 )]
 #[cfg_attr(target_board = "gimletlet-2", path = "bsp/gimletlet.rs")]
 #[cfg_attr(target_board = "grapefruit", path = "bsp/grapefruit.rs")]
+#[cfg_attr(target_board = "cosmo-a", path = "bsp/cosmo_a.rs")]
 mod bsp;
+
+use bsp::SP_TO_HOST_CPU_INT_L;
 
 mod tx_buf;
 use tx_buf::TxBuf;
@@ -106,6 +109,7 @@ enum Trace {
         now: u64,
         #[count(children)]
         state: PowerState,
+        why: StateChangeReason,
     },
     HfMux {
         now: u64,
@@ -250,6 +254,12 @@ struct ServerImpl {
     reboot_state: Option<RebootState>,
     host_kv_storage: HostKeyValueStorage,
     hf_mux_state: Option<HfMuxState>,
+    /// Set when the host OS fails to boot or panics, and unset when the system
+    /// reboots.
+    ///
+    /// This is used to determine whether a host-triggered power-off is due to a
+    /// kernel panic, boot failure, or was a normal power-off.
+    last_power_off: Option<StateChangeReason>,
 }
 
 impl ServerImpl {
@@ -317,6 +327,7 @@ impl ServerImpl {
                 dtrace_conf_len: 0,
             },
             hf_mux_state: None,
+            last_power_off: None,
         }
     }
 
@@ -374,23 +385,31 @@ impl ServerImpl {
     // basically only ever succeed in our initial set_state() request, so I
     // don't know how we'd test it
     fn power_off_host(&mut self, reboot: bool) {
+        let why = match self.last_power_off {
+            None if reboot => StateChangeReason::HostReboot,
+            None => StateChangeReason::HostPowerOff,
+            Some(reason) => reason,
+        };
         loop {
             // Attempt to move to A2; given we only call this function in
             // response to a host request, we expect we're currently in A0 and
             // this should work.
-            let err = match self.sequencer.set_state(PowerState::A2) {
-                Ok(()) => {
-                    ringbuf_entry!(Trace::SetState {
-                        now: sys_get_timer().now,
-                        state: PowerState::A2,
-                    });
-                    if reboot {
-                        self.reboot_state = Some(RebootState::WaitingForA2);
+            let err =
+                match self.sequencer.set_state_with_reason(PowerState::A2, why)
+                {
+                    Ok(()) => {
+                        ringbuf_entry!(Trace::SetState {
+                            now: sys_get_timer().now,
+                            why,
+                            state: PowerState::A2,
+                        });
+                        if reboot {
+                            self.reboot_state = Some(RebootState::WaitingForA2);
+                        }
+                        return;
                     }
-                    return;
-                }
-                Err(err) => err,
-            };
+                    Err(err) => err,
+                };
 
             // The only error we should see from `set_state()` is an illegal
             // transition, if we're not currently in A0.
@@ -463,10 +482,14 @@ impl ServerImpl {
                 // we cannot let the SoC simply reset because the true state
                 // of hidden cores is unknown:  explicitly bounce to A2
                 // as if the host had requested it.
+                self.last_power_off = Some(StateChangeReason::CpuReset);
                 self.power_off_host(true);
             }
 
             PowerState::A0 | PowerState::A0PlusHP | PowerState::A0Thermtrip => {
+                // Clear the last power-off, as we have now reached A0;
+                // subsequent power-offs will set a new reason.
+                self.last_power_off = None;
                 // TODO should we clear self.reboot_state here? What if we
                 // transitioned from one A0 state to another? For now, leave it
                 // set, and we'll move back to A0 whenever we transition to
@@ -754,11 +777,6 @@ impl ServerImpl {
                 // flash task? That should only happen if `hf` is unable to
                 // respond to us at all, which makes it seem unlikely that the
                 // host could even be up. We'll default to returning Bsu::A.
-                //
-                // Minor TODO: Attempting to get the BSU on a gimletlet will
-                // hang, because the host-flash task hangs indefinitely. We
-                // could replace gimlet-hf-server with a fake on gimletlet if
-                // that becomes onerous.
                 let bsu = match self.hf.get_dev() {
                     Ok(HfDevSelect::Flash0) | Err(_) => Bsu::A,
                     Ok(HfDevSelect::Flash1) => Bsu::B,
@@ -795,6 +813,9 @@ impl ServerImpl {
                 Some(response)
             }
             HostToSp::HostBootFailure { reason } => {
+                // Indicate that the host boot failed, so that we can then tell
+                // sequencer why we are asking it to power off the system.
+                self.last_power_off = Some(StateChangeReason::HostBootFailure);
                 // TODO forward to MGS
                 //
                 // For now, copy it into a static var we can pull out via
@@ -812,6 +833,14 @@ impl ServerImpl {
                 Some(SpToHost::Ack)
             }
             HostToSp::HostPanic => {
+                // Indicate that a subsequent power-off request will be due to a
+                // panic.  Since a host panic message is also sent after a host
+                // boot failure, only set the last power-off reason if we
+                // haven't just seen a boot failure.
+                if self.last_power_off.is_none() {
+                    self.last_power_off = Some(StateChangeReason::HostPanic);
+                }
+
                 // TODO forward to MGS
                 //
                 // For now, copy it into a static var we can pull out via
@@ -1354,6 +1383,10 @@ impl NotificationHandler for ServerImpl {
                     handle_reboot_waiting_in_a2_timer(
                         &self.sequencer,
                         &mut self.reboot_state,
+                        // If the last power-off did not set a reason, it must
+                        // be a host-requested reboot.
+                        self.last_power_off
+                            .unwrap_or(StateChangeReason::HostReboot),
                     );
                 }
                 Timers::TxPeriodicZeroByte => {
@@ -1407,6 +1440,7 @@ fn parse_received_message(
 fn handle_reboot_waiting_in_a2_timer(
     sequencer: &Sequencer,
     reboot_state: &mut Option<RebootState>,
+    why: StateChangeReason,
 ) {
     // If we're past the deadline for transitioning to A0, attempt to do so.
     if let Some(RebootState::WaitingInA2RebootDelay) = reboot_state {
@@ -1418,9 +1452,10 @@ fn handle_reboot_waiting_in_a2_timer(
         // we've done what we can to reboot, so clear out `reboot_state`.
         ringbuf_entry!(Trace::SetState {
             now: sys_get_timer().now,
+            why,
             state: PowerState::A0,
         });
-        _ = sequencer.set_state(PowerState::A0);
+        _ = sequencer.set_state_with_reason(PowerState::A0, why);
         *reboot_state = None;
     }
 }
@@ -1510,8 +1545,7 @@ fn configure_uart_device(sys: &sys_api::Sys) -> Usart {
     #[cfg(feature = "baud_rate_3M")]
     const BAUD_RATE: u32 = 3_000_000;
 
-    #[cfg(feature = "hardware_flow_control")]
-    let hardware_flow_control = true;
+    let hardware_flow_control = cfg!(feature = "hardware_flow_control");
 
     cfg_if::cfg_if! {
         if #[cfg(feature = "uart7")] {
@@ -1546,6 +1580,22 @@ fn configure_uart_device(sys: &sys_api::Sys) -> Usart {
             let usart = unsafe { &*device::USART6::ptr() };
             let peripheral = Peripheral::Usart6;
             let pins = PINS;
+        } else if #[cfg(feature = "uart8")] {
+            const PINS: &[(PinSet, Alternate)] = {
+                cfg_if::cfg_if! {
+                    if #[cfg(feature = "hardware_flow_control")] {
+                        compile_error!("hardware_flow_control should be disabled");
+                    } else {
+                        &[(
+                            Port::J.pin(8).and_pin(9),
+                            Alternate::AF8
+                        )]
+                    }
+                }
+            };
+            let usart = unsafe { &*device::UART8::ptr() };
+            let peripheral = Peripheral::Uart8;
+            let pins = PINS;
         } else {
             compile_error!("no usartX/uartX feature specified");
         }
@@ -1562,35 +1612,12 @@ fn configure_uart_device(sys: &sys_api::Sys) -> Usart {
     )
 }
 
-cfg_if::cfg_if! {
-    if #[cfg(any(
-        target_board = "gimlet-b",
-        target_board = "gimlet-c",
-        target_board = "gimlet-d",
-        target_board = "gimlet-e",
-        target_board = "gimlet-f",
-    ))] {
-        // This net is named SP_TO_SP3_INT_L in the schematic
-        const SP_TO_HOST_CPU_INT_L: sys_api::PinSet = sys_api::Port::I.pin(7);
-    } else if #[cfg(target_board = "gimletlet-2")] {
-        // gimletlet doesn't have an SP3 to interrupt, but we can wire up an LED
-        // to one of the exposed E2-E6 pins to see it visually.
-        const SP_TO_HOST_CPU_INT_L: sys_api::PinSet = sys_api::Port::E.pin(2);
-    } else if #[cfg(target_board = "grapefruit")] {
-        // the CPU interrupt is not connected on grapefruit, so pick an
-        // unconnected GPIO
-        const SP_TO_HOST_CPU_INT_L: sys_api::PinSet = sys_api::Port::B.pin(1);
-    } else {
-        compile_error!("unsupported target board");
-    }
-}
-
 fn sp_to_sp3_interrupt_enable(sys: &sys_api::Sys) {
     sys.gpio_set(SP_TO_HOST_CPU_INT_L);
 
     sys.gpio_configure_output(
         SP_TO_HOST_CPU_INT_L,
-        sys_api::OutputType::OpenDrain,
+        bsp::SP_TO_HOST_CPU_INT_TYPE,
         sys_api::Speed::Low,
         sys_api::Pull::None,
     );

@@ -26,6 +26,7 @@ BART_KEY=$(pwd)/support/fake_certs/fake_private_key.pem
 mkdir -p $PERMSLIP_DIR
 git clone https://github.com/oxidecomputer/permission-slip.git -b ssh_key_fix $PERMSLIP_DIR
 pushd $PERMSLIP_DIR
+rustup toolchain install
 cargo build --release
 export POSTGRES_HOST=localhost
 export POSTGRES_PORT=5432

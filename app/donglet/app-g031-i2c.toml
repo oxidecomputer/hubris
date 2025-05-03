@@ -71,7 +71,7 @@ af = 6
 # This presumes that the VPD board is plugged into Donglet
 #
 [[config.i2c.controllers.ports.B.muxes]]
-driver = "pca9548"
+driver = "pca9545"
 address = 0x73
 
 [[config.i2c.devices]]

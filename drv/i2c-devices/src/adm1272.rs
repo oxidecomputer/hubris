@@ -47,7 +47,9 @@ impl From<Error> for ResponseCode {
             Error::BadRead { code, .. } => code,
             Error::BadWrite { code, .. } => code,
             Error::BadValidation { code, .. } => code,
-            _ => panic!(),
+            Error::BadData { .. }
+            | Error::InvalidData { .. }
+            | Error::InvalidConfig => ResponseCode::BadDeviceState,
         }
     }
 }
@@ -85,7 +87,7 @@ enum Trace {
     None,
 }
 
-ringbuf!(Trace, 32, Trace::None);
+ringbuf!(Trace, 8, Trace::None);
 
 impl Adm1272 {
     pub fn new(device: &I2cDevice, rsense: Ohms) -> Self {

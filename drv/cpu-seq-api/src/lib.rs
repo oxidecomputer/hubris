@@ -9,6 +9,7 @@
 use counters::Count;
 use derive_idol_err::IdolError;
 use userlib::{sys_send, FromPrimitive};
+use zerocopy::AsBytes;
 
 // Re-export PowerState for client convenience.
 pub use drv_cpu_power_state::PowerState;
@@ -31,9 +32,41 @@ pub enum SeqError {
     ServerRestarted,
 }
 
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, AsBytes, Count)]
+#[repr(u8)]
+pub enum StateChangeReason {
+    /// No reason was provided.
+    ///
+    /// This indicates a legacy caller of `Sequencer.set_state`, rather than
+    /// `Sequencer.set_state_with_reason`. All Hubris-internal callers should
+    /// use `set_state_with_reason`, so this variant generally indicates that
+    /// the `Sequencer.set_state` IPC is being called via Hiffy.
+    Other = 1,
+    /// The system has just received power, so the sequencer has booted the
+    /// host CPU.
+    InitialPowerOn,
+    /// A power state change was requested by the control plane.
+    ControlPlane,
+    /// The host CPU reset while in A0, so the system has powered off to clear
+    /// hidden core state.
+    CpuReset,
+    /// The host OS failed to boot, so the system has powered off.
+    HostBootFailure,
+    /// The host OS panicked.
+    HostPanic,
+    /// The host OS requested that the system power off without rebooting.
+    HostPowerOff,
+    /// The host OS requested that the system reboot.
+    HostReboot,
+    /// The system powered off because a component has overheated.
+    Overheat,
+}
+
 // On Gimlet, we have two banks of up to 8 DIMMs apiece. Export the "two banks"
 // bit of knowledge here so it can be used by gimlet-seq-server, spd, and
 // packrat, all of which want to know at compile-time how many banks there are.
 pub const NUM_SPD_BANKS: usize = 2;
+
+use crate as drv_cpu_seq_api;
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

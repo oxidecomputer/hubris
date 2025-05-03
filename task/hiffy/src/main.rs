@@ -52,6 +52,12 @@ cfg_if::cfg_if! {
     }
 }
 
+#[cfg(all(feature = "turbo", feature = "micro"))]
+compile_error!(
+    "enabling the 'micro' feature takes precedent over the 'turbo' feature,
+     as both control memory buffer size"
+);
+
 cfg_if::cfg_if! {
     //
     // The "micro" feature denotes a minimal RAM footprint.  Note that this
@@ -65,18 +71,10 @@ cfg_if::cfg_if! {
         const HIFFY_DATA_SIZE: usize = 256;
         const HIFFY_TEXT_SIZE: usize = 256;
         const HIFFY_RSTACK_SIZE: usize = 64;
-    } else if #[cfg(any(
-        target_board = "gimlet-b",
-        target_board = "gimlet-c",
-        target_board = "gimlet-d",
-        target_board = "gimlet-e",
-        target_board = "gimlet-f",
-        target_board = "sidecar-b",
-        target_board = "gimletlet-2",
-        target_board = "nucleo-h743zi2",
-        target_board = "nucleo-h753zi",
-        target_board = "grapefruit",
-    ))] {
+    } else if #[cfg(feature = "turbo")] {
+        //
+        // go-faster mode
+        //
         const HIFFY_DATA_SIZE: usize = 20_480;
         const HIFFY_TEXT_SIZE: usize = 2048;
         const HIFFY_RSTACK_SIZE: usize = 2048;
@@ -119,9 +117,13 @@ static mut HIFFY_RSTACK: [u8; HIFFY_RSTACK_SIZE] = [0; HIFFY_RSTACK_SIZE];
 static HIFFY_SCRATCH: StaticCell<[u8; HIFFY_SCRATCH_SIZE]> =
     StaticCell::new([0; HIFFY_SCRATCH_SIZE]);
 
+#[used]
 static HIFFY_REQUESTS: AtomicU32 = AtomicU32::new(0);
+#[used]
 static HIFFY_ERRORS: AtomicU32 = AtomicU32::new(0);
+#[used]
 static HIFFY_KICK: AtomicU32 = AtomicU32::new(0);
+#[used]
 static HIFFY_READY: AtomicU32 = AtomicU32::new(0);
 
 #[used]
@@ -131,8 +133,11 @@ static mut HIFFY_FAILURE: Option<Failure> = None;
 /// We deliberately export the HIF version numbers to allow Humility to
 /// fail cleanly if its HIF version does not match our own.
 ///
+#[used]
 static HIFFY_VERSION_MAJOR: AtomicU32 = AtomicU32::new(HIF_VERSION_MAJOR);
+#[used]
 static HIFFY_VERSION_MINOR: AtomicU32 = AtomicU32::new(HIF_VERSION_MINOR);
+#[used]
 static HIFFY_VERSION_PATCH: AtomicU32 = AtomicU32::new(HIF_VERSION_PATCH);
 
 #[export_name = "main"]

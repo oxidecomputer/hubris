@@ -4,9 +4,17 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+anyhow.workspace = true
 convert_case.workspace = true
+heck.workspace = true
+prettyplease.workspace = true
+quote.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+serde_with.workspace = true
+syn.workspace = true
+
+build-util.path = "../util"
 
 [lints]
 workspace = true

@@ -6,7 +6,7 @@ fwid = true
 
 [kernel]
 name = "sidecar"
-requires = {flash = 26176, ram = 6256}
+requires = {flash = 26656, ram = 6256}
 features = ["dump"]
 
 [caboose]
@@ -57,10 +57,9 @@ owner = {name = "sprot", notification = "rot_irq"}
 features = ["h753"]
 name = "drv-stm32h7-rng"
 priority = 6
-max-sizes = {flash = 8192, ram = 512}
 uses = ["rng"]
 start = true
-stacksize = 256
+stacksize = 512
 task-slots = ["sys"]
 
 [tasks.update_server]
@@ -113,6 +112,7 @@ start = true
 uses = []
 task-slots = [
     "auxflash",
+    "dump_agent",
     "ignition",
     "jefe",
     "monorail",
@@ -200,7 +200,7 @@ task-slots = ["sys"]
 
 [tasks.hiffy]
 name = "task-hiffy"
-features = ["h753", "stm32h7", "i2c", "gpio", "sprot"]
+features = ["h753", "stm32h7", "i2c", "gpio", "sprot", "turbo"]
 priority = 5
 max-sizes = {flash = 32768, ram = 32768 }
 stacksize = 1200
@@ -360,7 +360,7 @@ description = "Northeast Corridor 0"
 scl = { gpio_port = "B", pin = 6 }
 sda = { gpio_port = "B", pin = 7 }
 af = 4
-muxes = [ { driver = "pca9548", address = 0x70 } ]
+muxes = [ { driver = "pca9545", address = 0x70 } ]
 
 #
 # I2C_NORTH_EAST1_SCL
@@ -428,7 +428,7 @@ description = "Northwest Corridor 1"
 scl.pin = 7
 sda.pin = 8
 af = 4
-muxes = [ { driver = "pca9548", address = 0x70 } ]
+muxes = [ { driver = "pca9545", address = 0x70 } ]
 
 #
 # I2C4: South bend

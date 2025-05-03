@@ -144,6 +144,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "array-init"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3d62b7694a562cdf5a74227903507c56ab2cc8bdd1f781ed5cb4cf9c9f810bfc"
+
+[[package]]
 name = "arrayvec"
 version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -178,7 +184,7 @@ dependencies = [
 [[package]]
 name = "attest-data"
 version = "0.4.0"
-source = "git+https://github.com/oxidecomputer/dice-util#a20766967f779a4bad6922d2b62593c21b384a28"
+source = "git+https://github.com/oxidecomputer/dice-util#a0811d06c75c757a6e12c91ed6ea81fde137ba43"
 dependencies = [
  "hubpack",
  "salty",
@@ -299,9 +305,16 @@ checksum = "bd769563b4ea2953e2825c9e6b7470a5f55f67e0be00030bf3e390a2a6071f64"
 name = "build-fpga-regmap"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "build-util",
  "convert_case",
+ "heck 0.5.0",
+ "prettyplease",
+ "quote",
  "serde",
  "serde_json",
+ "serde_with 3.6.1",
+ "syn 2.0.98",
 ]
 
 [[package]]
@@ -333,6 +346,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "build-util",
+ "call_rustfmt",
  "cfg-if",
  "convert_case",
  "indexmap 1.9.1",
@@ -340,7 +354,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "serde",
- "syn 1.0.94",
+ "syn 2.0.98",
 ]
 
 [[package]]
@@ -364,7 +378,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "serde",
- "syn 1.0.94",
+ "syn 2.0.98",
 ]
 
 [[package]]
@@ -378,7 +392,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "serde",
- "syn 1.0.94",
+ "syn 2.0.98",
 ]
 
 [[package]]
@@ -567,7 +581,7 @@ version = "3.2.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ea0c8bce528c4be4da13ea6fead8965e95b6073585a2f05204bd8f4119f82a65"
 dependencies = [
- "heck",
+ "heck 0.4.1",
  "proc-macro-error",
  "proc-macro2",
  "quote",
@@ -580,10 +594,10 @@ version = "4.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0862016ff20d69b84ef8247369fabf5c008a7417002411897d40ee1f4532b873"
 dependencies = [
- "heck",
+ "heck 0.4.1",
  "proc-macro2",
  "quote",
- "syn 2.0.52",
+ "syn 2.0.98",
 ]
 
 [[package]]
@@ -676,6 +690,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "cosmo"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if",
+ "cortex-m",
+ "cortex-m-rt",
+ "drv-stm32h7-startup",
+ "kern",
+ "ringbuf",
+ "stm32h7",
+]
+
+[[package]]
 name = "counters"
 version = "0.1.0"
 dependencies = [
@@ -689,7 +717,7 @@ version = "0.1.0"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.52",
+ "syn 2.0.98",
 ]
 
 [[package]]
@@ -820,7 +848,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "strsim",
- "syn 2.0.52",
+ "syn 2.0.98",
 ]
 
 [[package]]
@@ -842,7 +870,7 @@ checksum = "836a9bbc7ad63342d6d6e7b815ccab164bc77a2d95d84bc3117a8c0d5c98e2d5"
 dependencies = [
  "darling_core 0.20.3",
  "quote",
- "syn 2.0.52",
+ "syn 2.0.98",
 ]
 
 [[package]]
@@ -902,7 +930,7 @@ checksum = "8034092389675178f570469e6c3b0465d3d30b4505c294a6550db47f3c17ad18"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.52",
+ "syn 2.0.98",
 ]
 
 [[package]]
@@ -922,7 +950,7 @@ dependencies = [
  "abi",
  "proc-macro2",
  "quote",
- "syn 1.0.94",
+ "syn 2.0.98",
 ]
 
 [[package]]
@@ -941,7 +969,7 @@ dependencies = [
 [[package]]
 name = "dice-mfg-msgs"
 version = "0.2.1"
-source = "git+https://github.com/oxidecomputer/dice-util#a20766967f779a4bad6922d2b62593c21b384a28"
+source = "git+https://github.com/oxidecomputer/dice-util#a0811d06c75c757a6e12c91ed6ea81fde137ba43"
 dependencies = [
  "corncobs",
  "hubpack",
@@ -970,6 +998,7 @@ dependencies = [
  "counters",
  "derive-idol-err",
  "drv-qspi-api",
+ "gnarle",
  "idol",
  "idol-runtime",
  "num-traits",
@@ -1022,12 +1051,13 @@ dependencies = [
 name = "drv-cosmo-hf"
 version = "0.1.0"
 dependencies = [
+ "build-fpga-regmap",
  "build-util",
  "cortex-m",
  "counters",
- "drv-cpu-seq-api",
  "drv-hash-api",
  "drv-hf-api",
+ "drv-spartan7-loader-api",
  "hubpack",
  "idol",
  "idol-runtime",
@@ -1035,6 +1065,33 @@ dependencies = [
  "ringbuf",
  "serde",
  "stm32h7",
+ "userlib",
+ "zerocopy 0.6.6",
+]
+
+[[package]]
+name = "drv-cosmo-seq-server"
+version = "0.1.0"
+dependencies = [
+ "build-fpga-regmap",
+ "build-util",
+ "cfg-if",
+ "counters",
+ "drv-auxflash-api",
+ "drv-cpu-power-state",
+ "drv-cpu-seq-api",
+ "drv-hf-api",
+ "drv-ice40-spi-program",
+ "drv-packrat-vpd-loader",
+ "drv-spartan7-loader-api",
+ "drv-spi-api",
+ "drv-stm32xx-sys-api",
+ "gnarle",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "ringbuf",
+ "task-jefe-api",
  "userlib",
  "zerocopy 0.6.6",
 ]
@@ -1205,21 +1262,21 @@ dependencies = [
 name = "drv-grapefruit-seq-server"
 version = "0.1.0"
 dependencies = [
+ "build-fpga-regmap",
  "build-util",
  "cfg-if",
  "counters",
  "drv-auxflash-api",
  "drv-cpu-power-state",
  "drv-cpu-seq-api",
- "drv-spi-api",
+ "drv-spartan7-loader-api",
  "drv-stm32xx-sys-api",
- "gnarle",
  "idol",
  "idol-runtime",
  "num-traits",
  "ringbuf",
- "sha3",
  "task-jefe-api",
+ "task-packrat-api",
  "userlib",
  "zerocopy 0.6.6",
 ]
@@ -1300,6 +1357,7 @@ dependencies = [
 name = "drv-ice40-spi-program"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "drv-spi-api",
  "drv-stm32xx-sys-api",
  "userlib",
@@ -1371,10 +1429,12 @@ version = "0.1.0"
 dependencies = [
  "drv-lpc55-gpio-api",
  "drv-lpc55-syscon-api",
+ "hubpack",
  "idol",
  "idol-runtime",
  "lpc55-pac",
  "num-traits",
+ "serde",
  "userlib",
  "zerocopy 0.6.6",
 ]
@@ -1387,9 +1447,11 @@ dependencies = [
  "cfg-if",
  "counters",
  "derive-idol-err",
+ "hubpack",
  "idol",
  "idol-runtime",
  "num-traits",
+ "serde",
  "userlib",
  "zerocopy 0.6.6",
 ]
@@ -1501,21 +1563,29 @@ name = "drv-lpc55-swd"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "attest-api",
+ "bitflags 2.6.0",
  "build-lpc55pins",
  "build-util",
+ "call_rustfmt",
  "cfg-if",
  "cortex-m",
  "drv-lpc55-gpio-api",
  "drv-lpc55-spi",
  "drv-lpc55-syscon-api",
  "drv-sp-ctrl-api",
+ "endoscope",
+ "endoscope-abi",
+ "goblin",
  "idol",
  "idol-runtime",
  "lpc55-pac",
  "num-traits",
  "quote",
  "ringbuf",
+ "rustc-demangle",
  "serde",
+ "static_assertions",
  "userlib",
  "zerocopy 0.6.6",
 ]
@@ -1665,6 +1735,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-minibar-seq-server"
+version = "0.1.0"
+dependencies = [
+ "build-fpga-regmap",
+ "build-i2c",
+ "build-util",
+ "drv-auxflash-api",
+ "drv-fpga-api",
+ "drv-fpga-user-api",
+ "drv-i2c-api",
+ "drv-i2c-devices",
+ "drv-packrat-vpd-loader",
+ "gnarle",
+ "idol-runtime",
+ "ringbuf",
+ "serde",
+ "serde_json",
+ "userlib",
+]
+
+[[package]]
 name = "drv-mock-gimlet-hf-server"
 version = "0.1.0"
 dependencies = [
@@ -1750,6 +1841,21 @@ dependencies = [
  "oxide-barcode",
  "ringbuf",
  "task-packrat-api",
+ "userlib",
+]
+
+[[package]]
+name = "drv-psc-psu-update"
+version = "0.1.0"
+dependencies = [
+ "array-init 2.1.0",
+ "build-i2c",
+ "build-util",
+ "counters",
+ "drv-i2c-api",
+ "drv-i2c-devices",
+ "ringbuf",
+ "static-cell",
  "userlib",
 ]
 
@@ -1944,6 +2050,49 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-spartan7-loader"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if",
+ "counters",
+ "drv-auxflash-api",
+ "drv-spartan7-spi-program",
+ "drv-spi-api",
+ "drv-stm32h7-spi-server-core",
+ "drv-stm32xx-sys-api",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "ringbuf",
+ "task-config",
+ "userlib",
+ "zerocopy 0.6.6",
+]
+
+[[package]]
+name = "drv-spartan7-loader-api"
+version = "0.1.0"
+dependencies = [
+ "counters",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "userlib",
+ "zerocopy 0.6.6",
+]
+
+[[package]]
+name = "drv-spartan7-spi-program"
+version = "0.1.0"
+dependencies = [
+ "counters",
+ "drv-spi-api",
+ "drv-stm32xx-sys-api",
+ "userlib",
+]
+
+[[package]]
 name = "drv-spi-api"
 version = "0.1.0"
 dependencies = [
@@ -2055,7 +2204,6 @@ dependencies = [
  "cfg-if",
  "cortex-m",
  "counters",
- "drv-stm32xx-sys-api",
  "hubpack",
  "idol",
  "idol-runtime",
@@ -2111,11 +2259,13 @@ dependencies = [
 name = "drv-stm32h7-rng"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "drv-rng-api",
  "drv-stm32xx-sys-api",
  "idol",
  "idol-runtime",
  "num-traits",
+ "ringbuf",
  "stm32h7",
  "userlib",
  "zerocopy 0.6.6",
@@ -2172,7 +2322,7 @@ dependencies = [
  "ringbuf",
  "serde",
  "stm32h7",
- "syn 1.0.94",
+ "syn 2.0.98",
  "userlib",
  "zerocopy 0.6.6",
 ]
@@ -2538,6 +2688,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a357d28ed41a50f9c765dbfe56cbc04a64e53e5fc58ba79fbc34c10ef3df831f"
 
 [[package]]
+name = "endoscope"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "cortex-m-rt",
+ "drv-stm32h7-startup",
+ "endoscope-abi",
+ "panic-halt",
+ "sha3",
+ "stm32h7",
+]
+
+[[package]]
+name = "endoscope-abi"
+version = "0.1.0"
+dependencies = [
+ "sha3",
+ "zerocopy 0.6.6",
+]
+
+[[package]]
 name = "enum-kinds"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2565,7 +2736,7 @@ checksum = "f282cfdfe92516eb26c2af8589c274c7c17681f5ecc03c18255fe741c6aa64eb"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.52",
+ "syn 2.0.98",
 ]
 
 [[package]]
@@ -2679,7 +2850,7 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#c8abf88bc0aeb3aa411eea276c73abdea405f7ba"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#f11406fc1725571a23a9af45add1236b49a2a8d3"
 dependencies = [
  "bitflags 2.6.0",
  "hubpack",
@@ -2854,6 +3025,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "95505c38b4572b2d910cecb0281560f54b440a19336cbbcb27bf6ce6adc6f5a8"
 
 [[package]]
+name = "heck"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
+
+[[package]]
 name = "hermit-abi"
 version = "0.1.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2973,8 +3150,8 @@ dependencies = [
 
 [[package]]
 name = "humpty"
-version = "0.1.3"
-source = "git+https://github.com/oxidecomputer/humpty#f6871f6d8844c3d2ee09c467f50b9f186652cb41"
+version = "0.1.4"
+source = "git+https://github.com/oxidecomputer/humpty#ca6b7441471146dbf3aa976e029a7828db55b552"
 dependencies = [
  "hubpack",
  "lzss",
@@ -3026,7 +3203,7 @@ dependencies = [
  "ron",
  "serde",
  "serde_with 3.6.1",
- "syn 2.0.52",
+ "syn 2.0.98",
  "toml",
 ]
 
@@ -3158,7 +3335,7 @@ dependencies = [
  "ron",
  "serde",
  "ssmarshal",
- "syn 1.0.94",
+ "syn 2.0.98",
  "unwrap-lite",
  "zerocopy 0.6.6",
 ]
@@ -3479,6 +3656,50 @@ dependencies = [
 ]
 
 [[package]]
+name = "minibar"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if",
+ "cortex-m",
+ "cortex-m-rt",
+ "drv-stm32h7-startup",
+ "kern",
+ "ringbuf",
+ "stm32h7",
+]
+
+[[package]]
+name = "minicbor"
+version = "0.25.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c0452a60c1863c1f50b5f77cd295e8d2786849f35883f0b9e18e7e6e1b5691b0"
+dependencies = [
+ "minicbor-derive",
+]
+
+[[package]]
+name = "minicbor-derive"
+version = "0.15.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bd2209fff77f705b00c737016a48e73733d7fbccb8b007194db148f03561fb70"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.98",
+]
+
+[[package]]
+name = "minicbor-serde"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "becf18ac384ecf6f53b2db3b1549eebff664c67ecf259ae99be5912193291686"
+dependencies = [
+ "minicbor",
+ "serde",
+]
+
+[[package]]
 name = "miniz_oxide"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3604,7 +3825,7 @@ checksum = "ed3955f1a9c7c0c15e092f9c887db08b1fc683305fdf6eb6684f22555355e202"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.52",
+ "syn 2.0.98",
 ]
 
 [[package]]
@@ -3778,6 +3999,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "panic-halt"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "de96540e0ebde571dc55c73d60ef407c653844e6f9a1e2fdbd40c07b9252d812"
+
+[[package]]
 name = "paste"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3875,8 +4102,8 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 
 [[package]]
 name = "pmbus"
-version = "0.1.1"
-source = "git+https://github.com/oxidecomputer/pmbus#735a70bbc90707a963ec1731c8a0fa427a013f21"
+version = "0.1.5"
+source = "git+https://github.com/oxidecomputer/pmbus#e1c123745f712174f6e027d7eef491b723e7352f"
 dependencies = [
  "anyhow",
  "convert_case",
@@ -3919,12 +4146,12 @@ checksum = "ed0cfbc8191465bed66e1718596ee0b0b35d5ee1f41c5df2189d0fe8bde535ba"
 
 [[package]]
 name = "prettyplease"
-version = "0.2.16"
+version = "0.2.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a41cf62165e97c7f814d2221421dbb9afcbcdb0a88068e5ea206e19951c2cbb5"
+checksum = "6924ced06e1f7dfe3fa48d57b9f74f55d8915f5036121bef647ef4b204895fac"
 dependencies = [
  "proc-macro2",
- "syn 2.0.52",
+ "syn 2.0.98",
 ]
 
 [[package]]
@@ -3968,9 +4195,9 @@ checksum = "dbf0c48bc1d91375ae5c3cd81e3722dff1abcf81a30960240640d223f59fe0e5"
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.78"
+version = "1.0.93"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2422ad645d89c99f8f3e6b88a9fdeca7fabeac836b1002371c4367c8f984aae"
+checksum = "60946a68e5f9d28b0dc1c21bb8a97ee7d018a8b322fa57838ba31cc878e22d99"
 dependencies = [
  "unicode-ident",
 ]
@@ -4311,9 +4538,9 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.195"
+version = "1.0.210"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "63261df402c67811e9ac6def069e4786148c4563f4b50fd4bf30aa370d626b02"
+checksum = "c8e3592472072e6e22e0a54d5904d9febf8508f65fb8552499a1abc7d1078c3a"
 dependencies = [
  "serde_derive",
 ]
@@ -4342,20 +4569,20 @@ version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca37e3e4d1b39afd7ff11ee4e947efae85adfddf4841787bfa47c470e96dc26d"
 dependencies = [
- "array-init",
+ "array-init 0.0.4",
  "serde",
  "smallvec 0.6.14",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.195"
+version = "1.0.210"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46fe8f8603d81ba86327b23a2e9cdf49e1255fb94a4c5f297f6ee0547178ea2c"
+checksum = "243902eda00fad750862fc144cea25caca5e20d615af0a81bee94ca738f1df1f"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.52",
+ "syn 2.0.98",
 ]
 
 [[package]]
@@ -4439,7 +4666,7 @@ dependencies = [
  "darling 0.20.3",
  "proc-macro2",
  "quote",
- "syn 2.0.52",
+ "syn 2.0.98",
 ]
 
 [[package]]
@@ -4521,6 +4748,16 @@ dependencies = [
  "cfg-if",
  "heapless",
  "managed",
+]
+
+[[package]]
+name = "snitch-core"
+version = "0.1.0"
+dependencies = [
+ "heapless",
+ "minicbor-serde",
+ "serde",
+ "unwrap-lite",
 ]
 
 [[package]]
@@ -4727,11 +4964,11 @@ version = "0.25.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ad8d03b598d3d0fff69bf533ee3ef19b8eeb342729596df84bcc7e1f96ec4059"
 dependencies = [
- "heck",
+ "heck 0.4.1",
  "proc-macro2",
  "quote",
  "rustversion",
- "syn 2.0.52",
+ "syn 2.0.98",
 ]
 
 [[package]]
@@ -4753,9 +4990,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "2.0.52"
+version = "2.0.98"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b699d15b36d1f02c3e7c69f8ffef53de37aefae075d8488d4ba1a7788d574a07"
+checksum = "36147f1a48ae0ec2b5b3bc5b537d267457555a10dc06f3dbc8cb11ba3006d3b1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4817,7 +5054,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "serde",
- "syn 1.0.94",
+ "syn 2.0.98",
  "toml",
 ]
 
@@ -4845,10 +5082,12 @@ dependencies = [
  "drv-transceivers-api",
  "drv-update-api",
  "drv-user-leds-api",
+ "dump-agent-api",
  "enum-map",
  "gateway-messages",
  "heapless",
  "host-sp-messages",
+ "humpty",
  "idol",
  "idol-runtime",
  "lpc55-rom-data",
@@ -5172,7 +5411,7 @@ dependencies = [
  "serde",
  "smoltcp",
  "stm32h7",
- "syn 1.0.94",
+ "syn 2.0.98",
  "task-jefe-api",
  "task-net-api",
  "task-packrat-api",
@@ -5822,7 +6061,7 @@ checksum = "08904e7672f5eb876eaaf87e0ce17857500934f4981c4a0ab2b4aa98baac7fc3"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.52",
+ "syn 2.0.98",
 ]
 
 [[package]]
@@ -6010,9 +6249,9 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "uuid"
-version = "1.10.0"
+version = "1.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81dfa00651efa65069b0b6b651f4aaa31ba9e3c3ce0137aaad053604ee7e0314"
+checksum = "f8c5f0a0af699448548ad1a2fbf920fb4bee257eae39953ba95cb84891a0446a"
 
 [[package]]
 name = "vcell"
@@ -6129,7 +6368,7 @@ dependencies = [
  "once_cell",
  "proc-macro2",
  "quote",
- "syn 2.0.52",
+ "syn 2.0.98",
  "wasm-bindgen-shared",
 ]
 
@@ -6151,7 +6390,7 @@ checksum = "e94f17b526d0a461a191c78ea52bbce64071ed5c04c9ffe424dcb38f74171bb7"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.52",
+ "syn 2.0.98",
  "wasm-bindgen-backend",
  "wasm-bindgen-shared",
 ]
@@ -6436,6 +6675,7 @@ dependencies = [
  "abi",
  "anyhow",
  "atty",
+ "build-fpga-regmap",
  "build-kconfig",
  "byteorder",
  "bzip2-rs",
@@ -6507,7 +6747,7 @@ checksum = "125139de3f6b9d625c39e2efdd73d41bdac468ccd556556440e322be0e1bbd91"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.52",
+ "syn 2.0.98",
 ]
 
 [[package]]
@@ -6518,7 +6758,7 @@ checksum = "9ce1b18ccd8e73a9321186f97e46f9f04b778851177567b1975109d26a08d2a6"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.52",
+ "syn 2.0.98",
 ]
 
 [[package]]
@@ -6538,7 +6778,7 @@ checksum = "ce36e65b0d2999d2aafac989fb249189a141aee1f53c612c1f37d72631959f69"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.52",
+ "syn 2.0.98",
 ]
 
 [[package]]

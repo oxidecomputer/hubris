@@ -36,6 +36,7 @@ build-util = { path = "../../build/util" }
 
 [features]
 gimlet = ["drv-cpu-seq-api", "h753"]
+cosmo = ["drv-cpu-seq-api", "h753"]
 sidecar = ["drv-sidecar-seq-api", "h753"]
 psc = ["drv-stm32xx-sys-api", "h753"]
 dc2024 = ["drv-stm32xx-sys-api", "h753"]

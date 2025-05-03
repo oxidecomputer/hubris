@@ -168,6 +168,21 @@ impl<T> USlice<T> {
             _ => false,
         }
     }
+
+    /// Adjusts `a` and `b` to have the same length, which is the shorter of the
+    /// two.
+    ///
+    /// Returns the new common length.
+    ///
+    /// Shortening `a` and `b` ensures that the slices returned from `try_read`
+    /// / `try_write` have the same length, without the need for further
+    /// slicing.
+    pub fn shorten_to_match(a: &mut Self, b: &mut Self) -> usize {
+        let n = usize::min(a.length, b.length);
+        a.length = n;
+        b.length = n;
+        n
+    }
 }
 
 impl<T> USlice<T>
@@ -324,11 +339,17 @@ impl<T> kerncore::UserSlice for USlice<T> {
 pub fn safe_copy(
     tasks: &mut [Task],
     from_index: usize,
-    from_slice: USlice<u8>,
+    mut from_slice: USlice<u8>,
     to_index: usize,
     mut to_slice: USlice<u8>,
 ) -> Result<usize, InteractFault> {
-    let copy_len = from_slice.len().min(to_slice.len());
+    let copy_len = USlice::shorten_to_match(&mut from_slice, &mut to_slice);
+
+    if copy_len == 0 {
+        // try_read and try_write both accept _any_ empty slice, which then
+        // results in a zero-byte copy. We can skip some steps.
+        return Ok(0);
+    }
 
     let (from, to) = index2_distinct(tasks, from_index, to_index);
 
@@ -349,7 +370,7 @@ pub fn safe_copy(
         (Ok(from), Ok(to)) => {
             // We are now convinced, after querying the tasks, that these RAM
             // areas are legit.
-            to[..copy_len].copy_from_slice(&from[..copy_len]);
+            to.copy_from_slice(from);
             Ok(copy_len)
         }
         (src, dst) => Err(InteractFault {

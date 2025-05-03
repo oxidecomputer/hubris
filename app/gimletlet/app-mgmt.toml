@@ -49,7 +49,7 @@ task-slots = ["sys", "user_leds"]
 
 [tasks.net]
 name = "task-net"
-stacksize = 3000
+stacksize = 3328
 priority = 3
 features = ["mgmt", "h753", "use-spi-core", "spi2"]
 max-sizes = {flash = 131072, ram = 16384, sram1_mac = 16384}

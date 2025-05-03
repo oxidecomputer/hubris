@@ -25,7 +25,9 @@ idol.workspace = true
 build-util = { path = "../../build/util" }
 
 [features]
+cosmo = ["drv-cpu-seq-api"]
 gimlet = ["drv-cpu-seq-api"]
+grapefruit = []
 boot-kmdb = []
 no-ipc-counters = ["idol/no-counters"]
 

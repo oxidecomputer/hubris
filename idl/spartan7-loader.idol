@@ -1,0 +1,13 @@
+// Interface to Spartan-7 FPGA loader.
+
+Interface(
+    name: "Spartan7Loader",
+    ops: {
+        "ping": (
+            doc: "returns once the loader is complete",
+            args: {},
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+    }
+)

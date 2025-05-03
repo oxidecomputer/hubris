@@ -192,12 +192,39 @@ jobs:
       image: ${{ matrix.image }}
       os: ${{ inputs.os }}
 
+  build-cosmo:
+    if: ${{ inputs.board-set == 'cosmo' || inputs.board-set == 'all' }}
+    name: build-cosmo
+    strategy:
+      matrix:
+        build: [cosmo-a, cosmo-a-lab, cosmo-a-dev]
+        include:
+          - build: cosmo-a
+            app_name: cosmo-a
+            app_toml: app/cosmo/rev-a.toml
+            image: default
+          - build: cosmo-a-lab
+            app_name: cosmo-a-lab
+            app_toml: app/cosmo/rev-a-lab.toml
+            image: default
+          - build: cosmo-a-dev
+            app_name: cosmo-a-dev
+            app_toml: app/cosmo/rev-a-dev.toml
+            image: default
+    uses: ./.github/workflows/build-one.yml
+    with:
+      build: ${{ matrix.build }}
+      app_name: ${{ matrix.app_name }}
+      app_toml: ${{ matrix.app_toml }}
+      image: ${{ matrix.image }}
+      os: ${{ inputs.os }}
+
   build-devboards:
     if: ${{ inputs.board-set == 'devboards' || inputs.board-set == 'all' }}
     name: build-devboards
     strategy:
       matrix:
-        build: [stm32f3, stm32f4, lpc55, stm32h743, stm32h753, gemini, rot-carrier, gimletlet, donglet-g031]
+        build: [stm32f3, stm32f4, lpc55, stm32h743, stm32h753, gemini, rot-carrier, gimletlet, donglet-g031, minibar]
         include:
           - build: stm32g0
             app_name: demo-stm32g070-nucleo
@@ -239,9 +266,17 @@ jobs:
             app_name: donglet-g031
             app_toml: app/donglet/app-g031.toml
             image: default
-          - build: grapefruit
-            app_name: grapefruit
-            app_toml: app/grapefruit/app.toml
+          - build: grapefruit-ruby
+            app_name: grapefruit-ruby
+            app_toml: app/grapefruit/app-ruby.toml
+            image: default
+          - build: grapefruit-standalone
+            app_name: grapefruit-standalone
+            app_toml: app/grapefruit/app-dev.toml
+            image: default
+          - build: minibar
+            app_name: minibar
+            app_toml: app/minibar/app.toml
             image: default
     uses: ./.github/workflows/build-one.yml
     with:

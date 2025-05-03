@@ -1,0 +1,37 @@
+[package]
+name = "endoscope"
+version = "0.1.0"
+edition = "2021"
+readme = "README.md"
+resolver = "2"
+
+# Reminder: If profiles are ever enabled for bindeps, then
+# enable the appropriate time and space efficient options.
+
+[dependencies]
+cortex-m = { workspace = true, default-features = false }
+cortex-m-rt = { workspace = true, default-features = false, features = ["device"] }
+panic-halt = { workspace = true, default-features = false }
+sha3 = { workspace = true, default-features = false }
+endoscope-abi = { path = "../endoscope-abi" }
+stm32h7 = { workspace = true }
+drv-stm32h7-startup = { path = "../../drv/stm32h7-startup" }
+
+[[bin]]
+name = "endoscope"
+test = false
+doctest = false
+bench = false
+
+[features]
+# running in SRAM with default clocking takes about 6 seconds
+# running in ITCM/DTCM with tuned clocking takes about 0.5 seconds
+soc_stm32h753 = ["stm32h7/stm32h753", "drv-stm32h7-startup/h753"]
+
+#[build]
+#target = "thumbv7em-none-eabihf"
+#rustflags = [
+#    "-C", "overflow-checks=y",
+#    "-C", "link-arg=-Tendoscope.x",
+#]
+

@@ -5,9 +5,9 @@ edition = "2021"
 
 [dependencies]
 counters = { path = "../../lib/counters" }
-drv-cpu-seq-api = { path = "../cpu-seq-api" }
 drv-hash-api = { path = "../hash-api" }
 drv-hf-api = { path = "../hf-api" }
+drv-spartan7-loader-api = { path = "../spartan7-loader-api" }
 ringbuf = { path = "../../lib/ringbuf" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
@@ -21,6 +21,7 @@ zerocopy = { workspace = true }
 
 [build-dependencies]
 build-util = { path = "../../build/util" }
+build-fpga-regmap = { path = "../../build/fpga-regmap" }
 idol = { workspace = true }
 
 [[bin]]

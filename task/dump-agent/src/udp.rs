@@ -154,7 +154,9 @@ impl ServerImpl {
         let r = match hubpack::deserialize::<Request>(data) {
             Ok((msg, _data)) => match msg {
                 Request::ReadDump { index, offset } => {
-                    self.read_dump(index, offset).map(Response::ReadDump)?
+                    let mut out = [0u8; 256];
+                    self.read_dump(index, offset, out.as_mut_slice())?;
+                    Response::ReadDump(out)
                 }
                 Request::InitializeDump => {
                     self.initialize().map(|()| Response::InitializeDump)?

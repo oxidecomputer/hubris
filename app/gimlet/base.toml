@@ -147,11 +147,11 @@ max-sizes = {flash = 65536, ram = 16384 }
 stacksize = 3800
 start = true
 task-slots = ["i2c_driver", "sensor", "gimlet_seq"]
-notifications = ["timer", "external_badness"]
+notifications = ["timer"]
 
 [tasks.hiffy]
 name = "task-hiffy"
-features = ["h753", "stm32h7", "i2c", "gpio", "spi", "qspi", "hash", "sprot"]
+features = ["h753", "stm32h7", "i2c", "gpio", "spi", "qspi", "hash", "sprot", "turbo"]
 priority = 5
 max-sizes = {flash = 32768, ram = 32768 }
 stacksize = 1200
@@ -230,7 +230,7 @@ name = "task-host-sp-comms"
 features = ["stm32h753", "uart7", "baud_rate_3M", "hardware_flow_control", "vlan", "gimlet"]
 uses = ["uart7", "dbgmcu"]
 interrupts = {"uart7.irq" = "usart-irq"}
-priority = 7
+priority = 8
 max-sizes = {flash = 65536, ram = 65536}
 stacksize = 5080
 start = true
@@ -259,7 +259,7 @@ notifications = ["socket"]
 
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
-priority = 6
+priority = 7
 max-sizes = {flash = 131072, ram = 32768}
 # This can probably overkill and can be tuned later
 stacksize = 6000
@@ -267,6 +267,7 @@ start = true
 uses = ["usart1"]
 task-slots = [
     "jefe",
+    "dump_agent",
     "net",
     "update_server",
     "sys",
@@ -348,7 +349,7 @@ stacksize = 800
 
 [tasks.idle]
 name = "task-idle"
-priority = 8
+priority = 9
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true

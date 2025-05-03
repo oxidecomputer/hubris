@@ -747,9 +747,41 @@ PORT15_CONTROL
 |[0] | rw | CLEAR_FAULT | Setting this bit will clear a fault state. Note that if the power supply is not Aborted or TimedOut, nothing will happen. This bit auto-clears.
 |===
 
-Ports 0 -> 7 HSC Enable. Clear bit to remove module power.
+Ports 0 -> 7 SW control of HSC enable. Clear bit to remove module power.
 [caption="Address: "]
-.0x0228 - QSFP_POWER_EN0 Register
+.0x0228 - QSFP_SW_POWER_EN0 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | rw | PORT7 | None
+|[6] | rw | PORT6 | None
+|[5] | rw | PORT5 | None
+|[4] | rw | PORT4 | None
+|[3] | rw | PORT3 | None
+|[2] | rw | PORT2 | None
+|[1] | rw | PORT1 | None
+|[0] | rw | PORT0 | None
+|===
+
+Ports 8 -> 15 SW control of HSC enable. Clear bit to remove module power.
+[caption="Address: "]
+.0x0229 - QSFP_SW_POWER_EN1 Register
+[cols=4,options="header"]
+|===
+| Bits | SW Access | Name | Function
+|[7] | rw | PORT15 | None
+|[6] | rw | PORT14 | None
+|[5] | rw | PORT13 | None
+|[4] | rw | PORT12 | None
+|[3] | rw | PORT11 | None
+|[2] | rw | PORT10 | None
+|[1] | rw | PORT9 | None
+|[0] | rw | PORT8 | None
+|===
+
+Ports 0 -> 7 HSC enable pin state. Enabled when the corresponding SW_POWER_EN0 and MODPRSL0 bits are asserted.
+[caption="Address: "]
+.0x022a - QSFP_POWER_EN0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -763,9 +795,9 @@ Ports 0 -> 7 HSC Enable. Clear bit to remove module power.
 |[0] | r | PORT0 | None
 |===
 
-Ports 8 -> 15 HSC Enable. Clear bit to remove module power.
+Ports 8 -> 15 HSC enable pin state. Enabled when the corresponding SW_POWER_EN1 and MODPRSL1 bits are asserted.
 [caption="Address: "]
-.0x0229 - QSFP_POWER_EN1 Register
+.0x022b - QSFP_POWER_EN1 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -781,7 +813,7 @@ Ports 8 -> 15 HSC Enable. Clear bit to remove module power.
 
 Ports 0 -> 7 HSC power good
 [caption="Address: "]
-.0x022a - QSFP_POWER_GOOD0 Register
+.0x022c - QSFP_POWER_GOOD0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -797,7 +829,7 @@ Ports 0 -> 7 HSC power good
 
 Ports 8 -> 15 HSC power good
 [caption="Address: "]
-.0x022b - QSFP_POWER_GOOD1 Register
+.0x022d - QSFP_POWER_GOOD1 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -813,7 +845,7 @@ Ports 8 -> 15 HSC power good
 
 Ports 0 -> 7 HSC power good not asserted within period after enabled
 [caption="Address: "]
-.0x022c - QSFP_POWER_GOOD_TIMEOUT0 Register
+.0x022e - QSFP_POWER_GOOD_TIMEOUT0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -829,7 +861,7 @@ Ports 0 -> 7 HSC power good not asserted within period after enabled
 
 Ports 8 -> 15 HSC power good not asserted within period after enabled
 [caption="Address: "]
-.0x022d - QSFP_POWER_GOOD_TIMEOUT1 Register
+.0x022f - QSFP_POWER_GOOD_TIMEOUT1 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -845,7 +877,7 @@ Ports 8 -> 15 HSC power good not asserted within period after enabled
 
 Ports 0 -> 7 HSC power good lost after successful enable
 [caption="Address: "]
-.0x022e - QSFP_POWER_GOOD_LOST0 Register
+.0x0230 - QSFP_POWER_GOOD_LOST0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -861,7 +893,7 @@ Ports 0 -> 7 HSC power good lost after successful enable
 
 Ports 8 -> 15 HSC power good lost after successful enable
 [caption="Address: "]
-.0x022f - QSFP_POWER_GOOD_LOST1 Register
+.0x0231 - QSFP_POWER_GOOD_LOST1 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -877,7 +909,7 @@ Ports 8 -> 15 HSC power good lost after successful enable
 
 Ports 0 -> 7 Module ResetL
 [caption="Address: "]
-.0x0230 - QSFP_MOD_RESETL0 Register
+.0x0232 - QSFP_MOD_RESETL0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -893,7 +925,7 @@ Ports 0 -> 7 Module ResetL
 
 Ports 8 -> 15 Module ResetL
 [caption="Address: "]
-.0x0231 - QSFP_MOD_RESETL1 Register
+.0x0233 - QSFP_MOD_RESETL1 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -909,7 +941,7 @@ Ports 8 -> 15 Module ResetL
 
 Ports 0 -> 7 Module LPMode/TxDis
 [caption="Address: "]
-.0x0232 - QSFP_MOD_LPMODE0 Register
+.0x0234 - QSFP_MOD_LPMODE0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -925,7 +957,7 @@ Ports 0 -> 7 Module LPMode/TxDis
 
 Ports 8 -> 15 Module LPMode/TxDis
 [caption="Address: "]
-.0x0233 - QSFP_MOD_LPMODE1 Register
+.0x0235 - QSFP_MOD_LPMODE1 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -941,7 +973,7 @@ Ports 8 -> 15 Module LPMode/TxDis
 
 Ports 0 -> 7 Module ModPrsL
 [caption="Address: "]
-.0x0234 - QSFP_MOD_MODPRSL0 Register
+.0x0236 - QSFP_MOD_MODPRSL0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -957,7 +989,7 @@ Ports 0 -> 7 Module ModPrsL
 
 Ports 8 -> 15 Module ModPrsL
 [caption="Address: "]
-.0x0235 - QSFP_MOD_MODPRSL1 Register
+.0x0237 - QSFP_MOD_MODPRSL1 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -973,7 +1005,7 @@ Ports 8 -> 15 Module ModPrsL
 
 Ports 0 -> 7 Module IntL/RxLOS
 [caption="Address: "]
-.0x0236 - QSFP_MOD_INTL0 Register
+.0x0238 - QSFP_MOD_INTL0 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function
@@ -989,7 +1021,7 @@ Ports 0 -> 7 Module IntL/RxLOS
 
 Ports 8 -> 15 Module IntL/RxLOS
 [caption="Address: "]
-.0x0237 - QSFP_MOD_INTL1 Register
+.0x0239 - QSFP_MOD_INTL1 Register
 [cols=4,options="header"]
 |===
 | Bits | SW Access | Name | Function

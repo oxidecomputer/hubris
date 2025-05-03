@@ -20,6 +20,21 @@ opt-level = "z" # smaller optimizations
 [profile.dev]
 opt-level = 1 # no optimizations was just too painful in terms of flash size
 
+[profile.release.package.endoscope]
+codegen-units = 1
+debug = 2
+opt-level = "z"
+
+[profile.dev.package.endoscope]
+codegen-units = 1
+debug = 2
+opt-level = "z"
+
+[profile.bench.package.endoscope]
+codegen-units = 1
+debug = 2
+opt-level = "z"
+
 [patch."https://github.com/oxidecomputer/hubris".userlib]
 path = "sys/userlib"
 
@@ -31,6 +46,7 @@ path = "lib/counters"
 
 [workspace.dependencies]
 anyhow = { version = "1.0.31", default-features = false, features = ["std"] }
+array-init = { version = "2.1.0" }
 arrayvec = { version = "0.7.4", default-features = false }
 atty = { version = "0.2", default-features = false }
 bitfield = { version = "0.13", default-features = false }
@@ -65,6 +81,7 @@ fnv = { version = "1.0.7", default-features = false }
 getrandom = { version = "0.2", default-features = false }
 goblin = { version = "0.4.3", default-features = true } # goblin::Object doesn't work without everything enabled
 heapless = { version = "0.7.17", default-features = false }
+heck = { version = "0.5.0", default-features = false }
 hkdf = { version = "0.12", default-features = false }
 hmac = { version = "0.12.1", default-features = false }
 hubpack = { version = "0.1.2", default-features = false }
@@ -84,6 +101,7 @@ p256 = { version = "0.13.2", default-features = false, features = ["ecdsa"] }
 panic-halt = { version = "0.2.0", default-features = false }
 paste = { version = "1", default-features = false }
 path-slash = { version = "0.1.3", default-features = false }
+prettyplease = { version = "0.2.29", default-features = false }
 proc-macro2 = { version = "1", default-features = false }
 quote = { version = "1", default-features = false }
 rand = { version = "0.8", default-features = false }
@@ -98,6 +116,7 @@ serde = { version = "1.0.114", default-features = false, features = ["derive"] }
 serde-big-array = { version = "0.4", default-features = false }
 serde_json = { version = "1.0", default-features = false, features = ["std"] }
 serde_repr = { version = "0.1", default-features = false }
+serde_with = { version = "3.3.0", default-features = false, features = ["macros"] }
 sha2 = { version = "0.10", default-features = false }
 sha3 = { version = "0.10", default-features = false }
 smbus-pec = { version = "1.0.1", default-features = false }
@@ -111,7 +130,7 @@ stm32f4 = { version = "0.13.0", default-features = false }
 stm32h7 = { version = "0.14", default-features = false }
 stm32g0 = { version = "0.15.1", default-features = false }
 strsim = { version = "0.10.0", default-features = false }
-syn = { version = "1", default-features = false, features = ["derive", "parsing", "proc-macro", "extra-traits"] }
+syn = { version = "2", default-features = false, features = ["derive", "parsing", "proc-macro", "extra-traits", "full", "printing"] }
 toml = { version = "0.7", default-features = false, features = ["parse", "display"] }
 toml_edit = { version = "0.19", default-features = false }
 vcell = { version = "0.1.2", default-features = false }

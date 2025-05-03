@@ -758,7 +758,7 @@ impl Transceivers {
     /// success: we were able to write to the FPGA
     /// error: an `FpgaError` occurred
     pub fn enable_power(&self, mask: LogicalPortMask) -> ModuleResultNoFailure {
-        self.masked_port_op(WriteOp::BitSet, mask, Addr::QSFP_POWER_EN0)
+        self.masked_port_op(WriteOp::BitSet, mask, Addr::QSFP_SW_POWER_EN0)
     }
 
     /// Clear power enable bits per the specified `mask`.
@@ -772,7 +772,7 @@ impl Transceivers {
         &self,
         mask: LogicalPortMask,
     ) -> ModuleResultNoFailure {
-        self.masked_port_op(WriteOp::BitClear, mask, Addr::QSFP_POWER_EN0)
+        self.masked_port_op(WriteOp::BitClear, mask, Addr::QSFP_SW_POWER_EN0)
     }
 
     /// Set ResetL bits per the specified `mask`.

@@ -900,6 +900,27 @@ impl ConfigGenerator {
 
         let segment = match (d.mux, d.segment) {
             (Some(mux), Some(segment)) => {
+                let mux_count = self
+                    .controllers
+                    .iter()
+                    .find(|c| c.controller == controller)
+                    .unwrap()
+                    .ports
+                    .values()
+                    .nth(port)
+                    .unwrap()
+                    .muxes
+                    .len();
+                if mux == 0 {
+                    panic!(
+                        "invalid mux value of 0 for {d:?} \
+                        (note that muxes are 1-indexed)"
+                    );
+                } else if usize::from(mux) > mux_count {
+                    panic!(
+                        "invalid mux {mux} for {d:?} (must be <= {mux_count})"
+                    );
+                }
                 format!(
                     "Some((drv_i2c_api::Mux::M{}, drv_i2c_api::Segment::S{}))",
                     mux, segment

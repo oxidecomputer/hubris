@@ -1,0 +1,23 @@
+[package]
+name = "drv-spartan7-loader-api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+idol-runtime = { workspace = true }
+num-traits.workspace = true
+zerocopy.workspace = true
+
+counters = { path = "../../lib/counters", features = ["derive"] }
+userlib = { path = "../../sys/userlib" }
+
+[build-dependencies]
+idol.workspace = true
+
+[lib]
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true

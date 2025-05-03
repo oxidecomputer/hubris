@@ -40,6 +40,7 @@ pub struct Config {
 
 /// Things that we can _notice_ going wrong when programming -- the FPGA doesn't
 /// actually give us a lot of feedback.
+#[derive(Copy, Clone, PartialEq, counters::Count)]
 pub enum Ice40Error {
     /// We attempted to put the chip into programming mode, but its CDONE pin
     /// did not go low to confirm.

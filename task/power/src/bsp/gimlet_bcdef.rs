@@ -3,8 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    i2c_config, i2c_config::sensors, Device, DeviceType, PowerControllerConfig,
-    PowerState, SensorId,
+    i2c_config, i2c_config::sensors, Device, PowerControllerConfig, PowerState,
+    SensorId,
 };
 
 use drv_i2c_devices::max5970::*;

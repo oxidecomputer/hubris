@@ -12,6 +12,7 @@
 //! - [`ds2482`]: DS2482-100 1-wire initiator
 //! - [`emc2305`]: EMC2305 fan driver
 //! - [`isl68224`]: ISL68224 power controller
+//! - [`lm5066`]: LM5066 hot swap controller
 //! - [`ltc4282`]: LTC4282 high current hot swap controller
 //! - [`m24c02`]: M24C02 EEPROM, used in MWOCP68 power shelf
 //! - [`m2_hp_only`]: M.2 drive; identical to `nvme_bmc`, with the limitation
@@ -27,6 +28,7 @@
 //! - [`pca9956b`]: PCA9956B LED driver
 //! - [`pct2075`]: PCT2075 temperature sensor
 //! - [`raa229618`]: RAA229618 power controller
+//! - [`raa229620a`]: RAA229620A power controller
 //! - [`sbrmi`]: AMD SB-RMI driver
 //! - [`sbtsi`]: AMD SB-TSI temperature sensor
 //! - [`tmp116`]: TMP116 temperature sensor
@@ -237,6 +239,7 @@ pub mod bmr491;
 pub mod ds2482;
 pub mod emc2305;
 pub mod isl68224;
+pub mod lm5066;
 pub mod ltc4282;
 pub mod m24c02;
 pub mod m2_hp_only;
@@ -250,6 +253,7 @@ pub mod pca9538;
 pub mod pca9956b;
 pub mod pct2075;
 pub mod raa229618;
+pub mod raa229620a;
 pub mod sbrmi;
 pub mod sbtsi;
 pub mod tmp117;

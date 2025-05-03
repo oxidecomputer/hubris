@@ -6,7 +6,7 @@ fwid = true
 
 [kernel]
 name = "psc"
-requires = {flash = 32868, ram = 5216}
+requires = {flash = 32868, ram = 6000}
 features = ["dump"]
 
 [caboose]
@@ -145,9 +145,9 @@ notifications = ["flash-irq"]
 
 [tasks.hiffy]
 name = "task-hiffy"
-features = ["h753", "stm32h7", "i2c", "gpio", "sprot"]
+features = ["h753", "stm32h7", "i2c", "gpio", "sprot", "turbo"]
 priority = 5
-max-sizes = {flash = 32768, ram = 16384 }
+max-sizes = {flash = 32768}
 stacksize = 1200
 start = true
 task-slots = ["sys", "i2c_driver", "sprot"]
@@ -195,7 +195,7 @@ notifications = ["spi-irq"]
 
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
-priority = 5
+priority = 6
 max-sizes = {flash = 131072, ram = 32768}
 # This is probably a bit overkill and can be tuned later
 stacksize = 6000
@@ -203,6 +203,7 @@ start = true
 uses = []
 task-slots = [
     "jefe",
+    "dump_agent",
     "net",
     "update_server",
     "sys",
@@ -298,6 +299,13 @@ max-sizes = {flash = 16384, ram = 2048 }
 start = true
 task-slots = ["i2c_driver", "sensor"]
 
+[tasks.psu_update]
+name = "drv-psc-psu-update"
+priority = 4
+max-sizes = {flash = 65536, ram = 8192 }
+start = true
+task-slots = ["i2c_driver"]
+
 [tasks.dump_agent]
 name = "task-dump-agent"
 priority = 5
@@ -311,7 +319,7 @@ features = ["net", "vlan"]
 
 [tasks.idle]
 name = "task-idle"
-priority = 6
+priority = 7
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true

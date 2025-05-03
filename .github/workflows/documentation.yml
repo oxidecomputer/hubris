@@ -17,10 +17,15 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Create output directories
-        run: mkdir -p output/reference
+        run: |
+          mkdir -p output/reference
+          mkdir -p output/bugs
 
-      - name: Copy index.html
-        run: cp website/index.html output/index.html
+      - name: Copy static website files
+        run: |
+          cp website/index.html output/index.html
+          cp website/style.css output/style.css
+          cp website/bugs/index.html output/bugs/index.html
 
       - name: Generate reference
         id: adocbuild

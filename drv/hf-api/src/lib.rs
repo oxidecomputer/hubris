@@ -26,13 +26,12 @@ pub enum HfError {
     HashBadRange,
     HashError,
     HashNotConfigured,
-    NoDevSelect,
     NotMuxedToSP,
     Sector0IsReserved,
     NoPersistentData,
     MonotonicCounterOverflow,
-    FpgaNotConfigured,
     BadChipId,
+    BadAddress,
 
     #[idol(server_death)]
     ServerRestarted,

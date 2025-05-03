@@ -8,6 +8,8 @@ idol-runtime = { workspace = true }
 lpc55-pac = { workspace = true }
 num-traits = { workspace = true }
 zerocopy = { workspace = true }
+serde = { workspace = true }
+hubpack = { workspace = true }
 
 drv-lpc55-gpio-api = { path = "../lpc55-gpio-api" }
 drv-lpc55-syscon-api = { path = "../lpc55-syscon-api" }

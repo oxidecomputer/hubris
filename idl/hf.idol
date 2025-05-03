@@ -53,6 +53,27 @@ Interface(
                 err: CLike("HfError"),
             ),
         ),
+        "page_program_dev": (
+            description: "programs a page of flash on the specific dev, restoring the previous dev before returning",
+            args: {
+                "dev": (
+                    type: "HfDevSelect",
+                    recv: FromPrimitive("u8"),
+                ),
+                "address": "u32",
+                "protect": (
+                    type: "HfProtectMode",
+                    recv: FromPrimitive("u8"),
+                ),
+            },
+            leases: {
+                "data": (type: "[u8]", read: true, max_len: Some(256)),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("HfError"),
+            ),
+        ),
         "read": (
             args: {
                 "address": "u32",
@@ -67,6 +88,24 @@ Interface(
         ),
         "sector_erase": (
             args: {
+                "address": "u32",
+                "protect": (
+                    type: "HfProtectMode",
+                    recv: FromPrimitive("u8"),
+                ),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("HfError"),
+            ),
+        ),
+        "sector_erase_dev": (
+            description: "erases a sector of flash on the specific dev, restoring the previous dev before returning",
+            args: {
+                "dev": (
+                    type: "HfDevSelect",
+                    recv: FromPrimitive("u8"),
+                ),
                 "address": "u32",
                 "protect": (
                     type: "HfProtectMode",
@@ -124,6 +163,19 @@ Interface(
                 err: CLike("HfError"),
             ),
         ),
+        "check_dev": (
+            doc: "Check whether the given dev is valid",
+            args: {
+                "dev": (
+                    type: "HfDevSelect",
+                    recv: FromPrimitive("u8"),
+                ),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("HfError"),
+            ),
+        ),
         "hash": (
             args: {
                 "address": "u32",
@@ -149,6 +201,42 @@ Interface(
                     type: "HfDevSelect",
                     recv: FromPrimitive("u8"),
                 ),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("HfError"),
+            ),
+        ),
+        "bonus_page_program": (
+            description: "programs a page into the bonus region of host flash",
+            args: {
+                "address": "u32",
+            },
+            leases: {
+                "data": (type: "[u8]", read: true, max_len: Some(256)),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("HfError"),
+            ),
+        ),
+        "bonus_read": (
+            description: "reads from the bonus region of host flash",
+            args: {
+                "address": "u32",
+            },
+            leases: {
+                "data": (type: "[u8]", write: true, max_len: Some(256)),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("HfError"),
+            ),
+        ),
+        "bonus_sector_erase": (
+            description: "erases a 64 KiB sector from the bonus region of host flash",
+            args: {
+                "address": "u32",
             },
             reply: Result(
                 ok: "()",

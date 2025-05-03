@@ -1,0 +1,9 @@
+name = "grapefruit-ruby"
+inherit = "base.toml"
+
+# Host SP comms goes over a UART to the FPGA, which translates to eSPI messages
+# to the Ruby dev board.
+[tasks.host_sp_comms]
+features = ["usart6", "hardware_flow_control"]
+uses = ["usart6"]
+interrupts = {"usart6.irq" = "usart-irq"}

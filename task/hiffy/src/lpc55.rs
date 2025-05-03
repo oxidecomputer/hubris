@@ -75,6 +75,8 @@ pub enum Functions {
     ReadFromSp((u32, u32), drv_sp_ctrl_api::SpCtrlError),
     #[cfg(feature = "spctrl")]
     SpCtrlInit((), drv_sp_ctrl_api::SpCtrlError),
+    #[cfg(feature = "spctrl")]
+    DbResetSp((), drv_sp_ctrl_api::SpCtrlError),
 }
 
 #[cfg(feature = "spctrl")]
@@ -157,6 +159,30 @@ pub(crate) fn read_from_sp(
         Ok(_) => Ok(len),
         Err(err) => Err(Failure::FunctionError(err.into())),
     }
+}
+
+#[cfg(feature = "spctrl")]
+pub(crate) fn db_reset_sp(
+    stack: &[Option<u32>],
+    _data: &[u8],
+    _rval: &mut [u8],
+) -> Result<usize, Failure> {
+    if stack.is_empty() {
+        return Err(Failure::Fault(Fault::MissingParameters));
+    }
+    let fp = stack.len() - 1;
+    let delay = match stack[fp + 0] {
+        Some(delay) => delay,
+        None => {
+            return Err(Failure::Fault(Fault::EmptyParameter(0)));
+        }
+    };
+
+    let task = SP_CTRL.get_task_id();
+    let sp_ctrl = drv_sp_ctrl_api::SpCtrl::from(task);
+
+    sp_ctrl.db_reset_sp(delay);
+    Ok(0)
 }
 
 #[cfg(feature = "gpio")]
@@ -244,7 +270,9 @@ fn gpio_configure(
     let task = GPIO.get_task_id();
     let gpio = drv_lpc55_gpio_api::Pins::from(task);
 
-    gpio.iocon_configure(pin, alt, mode, slew, invert, digimode, opendrain);
+    gpio.iocon_configure(
+        pin, alt, mode, slew, invert, digimode, opendrain, None,
+    );
 
     Ok(0)
 }
@@ -372,6 +400,8 @@ pub(crate) static HIFFY_FUNCS: &[Function] = &[
     read_from_sp,
     #[cfg(feature = "spctrl")]
     sp_ctrl_init,
+    #[cfg(feature = "spctrl")]
+    db_reset_sp,
 ];
 
 //

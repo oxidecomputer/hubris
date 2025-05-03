@@ -42,6 +42,12 @@ use userlib::RecvMessage;
 #[cfg(feature = "gimlet")]
 mod gimlet;
 
+#[cfg(feature = "grapefruit")]
+mod grapefruit;
+
+#[cfg(feature = "cosmo")]
+mod cosmo;
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[allow(dead_code)] // not all variants are used, depending on cargo features
 enum Trace {
@@ -89,12 +95,16 @@ fn main() -> ! {
         identity: Option<VpdIdentity>,
         #[cfg(feature = "gimlet")]
         gimlet_bufs: gimlet::StaticBufs,
+        #[cfg(feature = "cosmo")]
+        cosmo_bufs: cosmo::StaticBufs,
     }
     let StaticBufs {
         ref mut mac_address_block,
         ref mut identity,
         #[cfg(feature = "gimlet")]
         ref mut gimlet_bufs,
+        #[cfg(feature = "cosmo")]
+        ref mut cosmo_bufs,
     } = {
         static BUFS: ClaimOnceCell<StaticBufs> =
             ClaimOnceCell::new(StaticBufs {
@@ -102,6 +112,8 @@ fn main() -> ! {
                 identity: None,
                 #[cfg(feature = "gimlet")]
                 gimlet_bufs: gimlet::StaticBufs::new(),
+                #[cfg(feature = "cosmo")]
+                cosmo_bufs: cosmo::StaticBufs::new(),
             });
         BUFS.claim()
     };
@@ -111,6 +123,10 @@ fn main() -> ! {
         identity,
         #[cfg(feature = "gimlet")]
         gimlet_data: gimlet::GimletData::new(gimlet_bufs),
+        #[cfg(feature = "grapefruit")]
+        grapefruit_data: grapefruit::GrapefruitData::new(),
+        #[cfg(feature = "cosmo")]
+        cosmo_data: cosmo::CosmoData::new(cosmo_bufs),
     };
 
     let mut buffer = [0; idl::INCOMING_SIZE];
@@ -124,6 +140,10 @@ struct ServerImpl {
     identity: &'static mut Option<VpdIdentity>,
     #[cfg(feature = "gimlet")]
     gimlet_data: gimlet::GimletData,
+    #[cfg(feature = "grapefruit")]
+    grapefruit_data: grapefruit::GrapefruitData,
+    #[cfg(feature = "cosmo")]
+    cosmo_data: cosmo::CosmoData,
 }
 
 impl ServerImpl {
@@ -204,7 +224,27 @@ impl idl::InOrderPackratImpl for ServerImpl {
         Ok(self.gimlet_data.host_startup_options())
     }
 
-    #[cfg(not(feature = "gimlet"))]
+    #[cfg(feature = "grapefruit")]
+    fn get_next_boot_host_startup_options(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<HostStartupOptions, RequestError<Infallible>> {
+        Ok(self.grapefruit_data.host_startup_options())
+    }
+
+    #[cfg(feature = "cosmo")]
+    fn get_next_boot_host_startup_options(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<HostStartupOptions, RequestError<Infallible>> {
+        Ok(self.cosmo_data.host_startup_options())
+    }
+
+    #[cfg(not(any(
+        feature = "gimlet",
+        feature = "grapefruit",
+        feature = "cosmo"
+    )))]
     fn get_next_boot_host_startup_options(
         &mut self,
         _: &RecvMessage,
@@ -228,7 +268,39 @@ impl idl::InOrderPackratImpl for ServerImpl {
         Ok(())
     }
 
-    #[cfg(not(feature = "gimlet"))]
+    #[cfg(feature = "grapefruit")]
+    fn set_next_boot_host_startup_options(
+        &mut self,
+        _: &RecvMessage,
+        host_startup_options: HostStartupOptions,
+    ) -> Result<(), RequestError<Infallible>> {
+        ringbuf_entry!(Trace::SetNextBootHostStartupOptions(
+            host_startup_options
+        ));
+        self.grapefruit_data
+            .set_host_startup_options(host_startup_options);
+        Ok(())
+    }
+
+    #[cfg(feature = "cosmo")]
+    fn set_next_boot_host_startup_options(
+        &mut self,
+        _: &RecvMessage,
+        host_startup_options: HostStartupOptions,
+    ) -> Result<(), RequestError<Infallible>> {
+        ringbuf_entry!(Trace::SetNextBootHostStartupOptions(
+            host_startup_options
+        ));
+        self.cosmo_data
+            .set_host_startup_options(host_startup_options);
+        Ok(())
+    }
+
+    #[cfg(not(any(
+        feature = "gimlet",
+        feature = "cosmo",
+        feature = "grapefruit"
+    )))]
     fn set_next_boot_host_startup_options(
         &mut self,
         _: &RecvMessage,

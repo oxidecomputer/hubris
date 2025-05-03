@@ -71,8 +71,12 @@ fn main() -> ! {
         deadline,
         task_states: &mut task_states,
         reset_reason: ResetReason::Unknown,
+
         #[cfg(feature = "dump")]
         dump_areas: dump::initialize_dump_areas(),
+
+        #[cfg(feature = "dump")]
+        last_dump_area: None,
     };
     let mut buf = [0u8; idl::INCOMING_SIZE];
 
@@ -86,8 +90,17 @@ struct ServerImpl<'s> {
     task_states: &'s mut [TaskStatus; NUM_TASKS],
     deadline: u64,
     reset_reason: ResetReason,
+
+    /// Base address for a linked list of dump areas
     #[cfg(feature = "dump")]
     dump_areas: u32,
+
+    /// Cache of most recently checked dump area
+    ///
+    /// This accelerates our linked-list search in the common case of doing
+    /// sequential reads through dump memory.
+    #[cfg(feature = "dump")]
+    last_dump_area: Option<DumpArea>,
 }
 
 impl idl::InOrderJefeImpl for ServerImpl<'_> {
@@ -161,8 +174,30 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
                 _msg: &userlib::RecvMessage,
                 index: u8,
             ) -> Result<DumpArea, RequestError<DumpAgentError>> {
-                dump::get_dump_area(self.dump_areas, index)
-                    .map_err(|e| e.into())
+                // If we have cached a dump area, then use it to accelerate
+                // lookup by jumping partway through the linked list
+                let d = if let Some(prev) = self.last_dump_area {
+                    // We are after (or exactly at) our previously cached dump
+                    // area.  The start address should be the same, so we don't
+                    // need to walk to it, but we'll reload from from memory in
+                    // case other data in the header has changed.
+                    if let Some(offset) = index.checked_sub(prev.index) {
+                        let mut d =
+                            dump::get_dump_area(prev.region.address, offset);
+                        if let Ok(d) = &mut d {
+                            d.index += prev.index;
+                        }
+                        d
+                    } else {
+                        // Default case: we have to search from the start
+                        dump::get_dump_area(self.dump_areas, index)
+                    }
+                } else {
+                    dump::get_dump_area(self.dump_areas, index)
+                };
+                let d = d.map_err(RequestError::from)?;
+                self.last_dump_area = Some(d);
+                Ok(d)
             }
 
             fn claim_dump_area(
@@ -307,37 +342,46 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
             // one task to have faulted since we last looked, but it's somewhat
             // unlikely since a fault causes us to immediately preempt. In any
             // case, let's assume we might have to handle multiple tasks.
-            //
-            // TODO: it would be fantastic to have a way of finding this out in
-            // one syscall.
-            for (i, status) in self.task_states.iter_mut().enumerate() {
+            let mut next_task = 1;
+            while let Some(fault_index) = kipc::find_faulted_task(next_task) {
+                let fault_index = usize::from(fault_index);
+                // This addition cannot overflow in practice, because the number
+                // of tasks in the system is very much smaller than 2**32. So we
+                // use wrapping add, because currently the compiler doesn't
+                // understand this property.
+                next_task = fault_index.wrapping_add(1);
+
+                // Safety: `fault_index` is from the kernel, and the kernel will
+                // not give us an out-of-range task index.
+                //
+                // TODO: it might be nice to fold this into a utility function
+                // in kipc or something
+                let status =
+                    unsafe { self.task_states.get_unchecked_mut(fault_index) };
+
                 // If we're aware that this task is in a fault state, don't
                 // bother making a syscall to enquire.
                 if status.holding_fault {
                     continue;
                 }
 
-                if let abi::TaskState::Faulted { .. } =
-                    kipc::read_task_status(i)
+                #[cfg(feature = "dump")]
                 {
-                    #[cfg(feature = "dump")]
-                    {
-                        // We'll ignore the result of dumping; it could fail
-                        // if we're out of space, but we don't have a way of
-                        // dealing with that right now.
-                        //
-                        // TODO: some kind of circular buffer?
-                        _ = dump::dump_task(self.dump_areas, i);
-                    }
+                    // We'll ignore the result of dumping; it could fail
+                    // if we're out of space, but we don't have a way of
+                    // dealing with that right now.
+                    //
+                    // TODO: some kind of circular buffer?
+                    _ = dump::dump_task(self.dump_areas, fault_index);
+                }
 
-                    if status.disposition == Disposition::Restart {
-                        // Stand it back up
-                        kipc::restart_task(i, true);
-                    } else {
-                        // Mark this one off so we don't revisit it until
-                        // requested.
-                        status.holding_fault = true;
-                    }
+                if status.disposition == Disposition::Restart {
+                    // Stand it back up
+                    kipc::restart_task(fault_index, true);
+                } else {
+                    // Mark this one off so we don't revisit it until
+                    // requested.
+                    status.holding_fault = true;
                 }
             }
         }

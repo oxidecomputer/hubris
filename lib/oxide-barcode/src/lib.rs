@@ -60,6 +60,8 @@ impl VpdIdentity {
             return Err(ParseError::UnexpectedFields);
         }
 
+        // Note: the fact that this is created _zeroed_ is important for the
+        // variable length field handling below.
         let mut out = VpdIdentity::new_zeroed();
 
         match version {
@@ -75,10 +77,12 @@ impl VpdIdentity {
             }
             // V2 part number includes the hyphen; copy it as-is.
             b"OXV2" | b"0XV2" => {
-                if part_number.len() != out.part_number.len() {
+                if part_number.len() > out.part_number.len() {
                     return Err(ParseError::WrongPartNumberLength);
                 }
-                out.part_number.copy_from_slice(part_number);
+                out.part_number[..part_number.len()]
+                    .copy_from_slice(part_number);
+                // tail is already zeroed due to use of new_zeroed above
             }
             _ => return Err(ParseError::UnknownVersion),
         }
@@ -88,11 +92,11 @@ impl VpdIdentity {
             .and_then(|rev| rev.parse().ok())
             .ok_or(ParseError::BadRevision)?;
 
-        if serial.len() != out.serial.len() {
+        if serial.len() > out.serial.len() {
             return Err(ParseError::WrongSerialLength);
         }
-
-        out.serial.copy_from_slice(serial);
+        out.serial[..serial.len()].copy_from_slice(serial);
+        // tail is already zeroed
 
         Ok(out)
     }
@@ -102,39 +106,82 @@ impl VpdIdentity {
 mod tests {
     use super::*;
 
-    #[test]
-    fn parse_oxv1() {
-        let expected = VpdIdentity {
-            part_number: *b"123-0000456",
-            revision: 23,
-            serial: *b"TST01234567",
-        };
+    #[track_caller]
+    fn check_parse(input: &[u8], expected: VpdIdentity) {
+        assert_eq!(
+            expected,
+            VpdIdentity::parse(input).unwrap(),
+            "parsing string: {}",
+            String::from_utf8_lossy(input),
+        );
+
+        // We accept barcode strings that start with both leading zero and
+        // leading capital-O. Permute our input from one of these to the other
+        // to make sure both forms parse equivalently.
+        let mut copy = input.to_vec();
+        match copy[0] {
+            b'0' => copy[0] = b'O',
+            b'O' => copy[0] = b'0',
+            c => {
+                panic!("unexpected leading character: {}", c as char)
+            }
+        }
 
         assert_eq!(
             expected,
-            VpdIdentity::parse(b"0XV1:1230000456:023:TST01234567").unwrap()
+            VpdIdentity::parse(&copy).unwrap(),
+            "parsing string: {}",
+            String::from_utf8_lossy(&copy),
         );
-        assert_eq!(
-            expected,
-            VpdIdentity::parse(b"OXV1:1230000456:023:TST01234567").unwrap()
+    }
+
+    #[test]
+    fn parse_oxv1() {
+        check_parse(
+            b"0XV1:1230000456:023:TST01234567",
+            VpdIdentity {
+                part_number: *b"123-0000456",
+                revision: 23,
+                serial: *b"TST01234567",
+            },
         );
     }
 
     #[test]
     fn parse_oxv2() {
-        let expected = VpdIdentity {
-            part_number: *b"123-0000456",
-            revision: 23,
-            serial: *b"TST01234567",
-        };
-
-        assert_eq!(
-            expected,
-            VpdIdentity::parse(b"0XV2:123-0000456:023:TST01234567").unwrap()
+        check_parse(
+            b"0XV2:123-0000456:023:TST01234567",
+            VpdIdentity {
+                part_number: *b"123-0000456",
+                revision: 23,
+                serial: *b"TST01234567",
+            },
         );
-        assert_eq!(
-            expected,
-            VpdIdentity::parse(b"OXV2:123-0000456:023:TST01234567").unwrap()
+    }
+
+    #[test]
+    fn parse_oxv2_shorter_serial() {
+        check_parse(
+            b"0XV2:123-0000456:023:TST0123456",
+            VpdIdentity {
+                part_number: *b"123-0000456",
+                revision: 23,
+                // should get padded with NULs to the right:
+                serial: *b"TST0123456\0",
+            },
+        );
+    }
+
+    #[test]
+    fn parse_oxv2_shorter_part() {
+        check_parse(
+            b"0XV2:123-000045:023:TST01234567",
+            VpdIdentity {
+                // should get padded with NULs to the right:
+                part_number: *b"123-000045\0",
+                revision: 23,
+                serial: *b"TST01234567",
+            },
         );
     }
 }

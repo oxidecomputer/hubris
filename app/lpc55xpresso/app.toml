@@ -70,7 +70,7 @@ task-slots = ["jefe"]
 name = "drv-lpc55-gpio"
 priority = 3
 max-sizes = {flash = 8192, ram = 2048}
-uses = ["gpio", "iocon"]
+uses = ["gpio", "iocon", "pint", "inputmux"]
 start = true
 stacksize = 1000
 task-slots = ["syscon_driver"]
@@ -132,7 +132,7 @@ task-slots = ["user_leds"]
 name = "task-dump-agent"
 features = ["no-rot"]
 priority = 5
-max-sizes = {flash = 32768, ram = 2240 }
+max-sizes = {flash = 32768, ram = 2272 }
 start = true
 task-slots = ["jefe"]
 stacksize = 1536

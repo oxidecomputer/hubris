@@ -21,10 +21,19 @@ pub struct Bmr491 {
 
 #[derive(Debug)]
 pub enum Error {
+    /// I2C error on PMBus read from device
     BadRead { cmd: u8, code: ResponseCode },
+
+    /// I2C error on PMBus write to device
     BadWrite { cmd: u8, code: ResponseCode },
+
+    /// Failed to parse PMBus data from device
     BadData { cmd: u8 },
+
+    /// I2C error attempting to validate device
     BadValidation { cmd: u8, code: ResponseCode },
+
+    /// PMBus data returned from device is invalid
     InvalidData { err: pmbus::Error },
 }
 
@@ -49,7 +58,9 @@ impl From<Error> for ResponseCode {
             Error::BadRead { code, .. } => code,
             Error::BadWrite { code, .. } => code,
             Error::BadValidation { code, .. } => code,
-            _ => panic!(),
+            Error::BadData { .. } | Error::InvalidData { .. } => {
+                ResponseCode::BadDeviceState
+            }
         }
     }
 }

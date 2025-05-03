@@ -4,10 +4,17 @@
 
 use anyhow::{Context, Result};
 use idol::{server::ServerStyle, CounterSettings};
+use serde::Deserialize;
 use std::{fs::File, io::Write};
 
 mod config {
     include!("src/config.rs");
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TaskConfig {
+    permit_log_reset: Vec<String>,
 }
 
 use config::DataRegion;
@@ -26,8 +33,8 @@ fn main() -> Result<()> {
 
     let out_dir = build_util::out_dir();
     let dest_path = out_dir.join(CFG_SRC);
-    let mut out =
-        File::create(dest_path).context(format!("creating {}", CFG_SRC))?;
+    let mut out = File::create(dest_path)
+        .with_context(|| format!("creating {}", CFG_SRC))?;
 
     let data_regions = build_util::task_extern_regions::<DataRegion>()?;
     if data_regions.is_empty() {
@@ -59,6 +66,25 @@ pub const ALIAS_DATA: DataRegion = DataRegion {{
 }};"##,
         region.address, region.size
     )?;
+
+    // Get list of those tasks allowed to reset the attestation log
+    if let Ok(task_config) = build_util::task_config::<TaskConfig>() {
+        writeln!(
+            out,
+            "pub const PERMIT_LOG_RESET: [u16; {}] = [",
+            task_config.permit_log_reset.len()
+        )?;
+        let tasks = build_util::task_ids();
+        for task_name in task_config.permit_log_reset {
+            let id = tasks.get(task_name.as_str()).with_context(|| {
+                format!("attest: allow_reset_task '{task_name}' is not present")
+            })?;
+            writeln!(out, "{id}, // Allow {task_name}")?;
+        }
+        writeln!(out, "];")?;
+    } else {
+        writeln!(out, "pub const PERMIT_LOG_RESET: [u16; 0] = [];")?;
+    }
 
     Ok(())
 }

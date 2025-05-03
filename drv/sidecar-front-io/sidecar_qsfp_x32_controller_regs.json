@@ -3392,8 +3392,202 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "POWER_EN0",
+                    "inst_name": "SW_POWER_EN0",
                     "addr_offset": 40,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "PORT0",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 1,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT1",
+                            "lsb": 1,
+                            "msb": 1,
+                            "reset": 1,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT2",
+                            "lsb": 2,
+                            "msb": 2,
+                            "reset": 1,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT3",
+                            "lsb": 3,
+                            "msb": 3,
+                            "reset": 1,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT4",
+                            "lsb": 4,
+                            "msb": 4,
+                            "reset": 1,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT5",
+                            "lsb": 5,
+                            "msb": 5,
+                            "reset": 1,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT6",
+                            "lsb": 6,
+                            "msb": 6,
+                            "reset": 1,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT7",
+                            "lsb": 7,
+                            "msb": 7,
+                            "reset": 1,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "SW_POWER_EN1",
+                    "addr_offset": 41,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "PORT8",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 1,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT9",
+                            "lsb": 1,
+                            "msb": 1,
+                            "reset": 1,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT10",
+                            "lsb": 2,
+                            "msb": 2,
+                            "reset": 1,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT11",
+                            "lsb": 3,
+                            "msb": 3,
+                            "reset": 1,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT12",
+                            "lsb": 4,
+                            "msb": 4,
+                            "reset": 1,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT13",
+                            "lsb": 5,
+                            "msb": 5,
+                            "reset": 1,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT14",
+                            "lsb": 6,
+                            "msb": 6,
+                            "reset": 1,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT15",
+                            "lsb": 7,
+                            "msb": 7,
+                            "reset": 1,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "POWER_EN0",
+                    "addr_offset": 42,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -3490,7 +3684,7 @@
                 {
                     "type": "reg",
                     "inst_name": "POWER_EN1",
-                    "addr_offset": 41,
+                    "addr_offset": 43,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [
@@ -3587,200 +3781,6 @@
                 {
                     "type": "reg",
                     "inst_name": "POWER_GOOD0",
-                    "addr_offset": 42,
-                    "regwidth": 8,
-                    "min_accesswidth": 8,
-                    "children": [
-                        {
-                            "type": "field",
-                            "inst_name": "PORT0",
-                            "lsb": 0,
-                            "msb": 0,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT1",
-                            "lsb": 1,
-                            "msb": 1,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT2",
-                            "lsb": 2,
-                            "msb": 2,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT3",
-                            "lsb": 3,
-                            "msb": 3,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT4",
-                            "lsb": 4,
-                            "msb": 4,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT5",
-                            "lsb": 5,
-                            "msb": 5,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT6",
-                            "lsb": 6,
-                            "msb": 6,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT7",
-                            "lsb": 7,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        }
-                    ]
-                },
-                {
-                    "type": "reg",
-                    "inst_name": "POWER_GOOD1",
-                    "addr_offset": 43,
-                    "regwidth": 8,
-                    "min_accesswidth": 8,
-                    "children": [
-                        {
-                            "type": "field",
-                            "inst_name": "PORT8",
-                            "lsb": 0,
-                            "msb": 0,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT9",
-                            "lsb": 1,
-                            "msb": 1,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT10",
-                            "lsb": 2,
-                            "msb": 2,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT11",
-                            "lsb": 3,
-                            "msb": 3,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT12",
-                            "lsb": 4,
-                            "msb": 4,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT13",
-                            "lsb": 5,
-                            "msb": 5,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT14",
-                            "lsb": 6,
-                            "msb": 6,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        },
-                        {
-                            "type": "field",
-                            "inst_name": "PORT15",
-                            "lsb": 7,
-                            "msb": 7,
-                            "reset": 0,
-                            "sw_access": "r",
-                            "se_onread": null,
-                            "se_onwrite": null,
-                            "desc": null
-                        }
-                    ]
-                },
-                {
-                    "type": "reg",
-                    "inst_name": "POWER_GOOD_TIMEOUT0",
                     "addr_offset": 44,
                     "regwidth": 8,
                     "min_accesswidth": 8,
@@ -3877,7 +3877,7 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "POWER_GOOD_TIMEOUT1",
+                    "inst_name": "POWER_GOOD1",
                     "addr_offset": 45,
                     "regwidth": 8,
                     "min_accesswidth": 8,
@@ -3974,7 +3974,7 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "POWER_GOOD_LOST0",
+                    "inst_name": "POWER_GOOD_TIMEOUT0",
                     "addr_offset": 46,
                     "regwidth": 8,
                     "min_accesswidth": 8,
@@ -4071,7 +4071,7 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "POWER_GOOD_LOST1",
+                    "inst_name": "POWER_GOOD_TIMEOUT1",
                     "addr_offset": 47,
                     "regwidth": 8,
                     "min_accesswidth": 8,
@@ -4168,7 +4168,7 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "MOD_RESETL0",
+                    "inst_name": "POWER_GOOD_LOST0",
                     "addr_offset": 48,
                     "regwidth": 8,
                     "min_accesswidth": 8,
@@ -4179,7 +4179,7 @@
                             "lsb": 0,
                             "msb": 0,
                             "reset": 0,
-                            "sw_access": "rw",
+                            "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
@@ -4190,7 +4190,7 @@
                             "lsb": 1,
                             "msb": 1,
                             "reset": 0,
-                            "sw_access": "rw",
+                            "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
@@ -4201,7 +4201,7 @@
                             "lsb": 2,
                             "msb": 2,
                             "reset": 0,
-                            "sw_access": "rw",
+                            "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
@@ -4212,7 +4212,7 @@
                             "lsb": 3,
                             "msb": 3,
                             "reset": 0,
-                            "sw_access": "rw",
+                            "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
@@ -4223,7 +4223,7 @@
                             "lsb": 4,
                             "msb": 4,
                             "reset": 0,
-                            "sw_access": "rw",
+                            "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
@@ -4234,7 +4234,7 @@
                             "lsb": 5,
                             "msb": 5,
                             "reset": 0,
-                            "sw_access": "rw",
+                            "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
@@ -4245,7 +4245,7 @@
                             "lsb": 6,
                             "msb": 6,
                             "reset": 0,
-                            "sw_access": "rw",
+                            "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
@@ -4256,7 +4256,7 @@
                             "lsb": 7,
                             "msb": 7,
                             "reset": 0,
-                            "sw_access": "rw",
+                            "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
@@ -4265,7 +4265,7 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "MOD_RESETL1",
+                    "inst_name": "POWER_GOOD_LOST1",
                     "addr_offset": 49,
                     "regwidth": 8,
                     "min_accesswidth": 8,
@@ -4276,7 +4276,7 @@
                             "lsb": 0,
                             "msb": 0,
                             "reset": 0,
-                            "sw_access": "rw",
+                            "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
@@ -4287,7 +4287,7 @@
                             "lsb": 1,
                             "msb": 1,
                             "reset": 0,
-                            "sw_access": "rw",
+                            "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
@@ -4298,7 +4298,7 @@
                             "lsb": 2,
                             "msb": 2,
                             "reset": 0,
-                            "sw_access": "rw",
+                            "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
@@ -4309,7 +4309,7 @@
                             "lsb": 3,
                             "msb": 3,
                             "reset": 0,
-                            "sw_access": "rw",
+                            "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
@@ -4320,7 +4320,7 @@
                             "lsb": 4,
                             "msb": 4,
                             "reset": 0,
-                            "sw_access": "rw",
+                            "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
@@ -4331,7 +4331,7 @@
                             "lsb": 5,
                             "msb": 5,
                             "reset": 0,
-                            "sw_access": "rw",
+                            "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
@@ -4342,7 +4342,7 @@
                             "lsb": 6,
                             "msb": 6,
                             "reset": 0,
-                            "sw_access": "rw",
+                            "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
@@ -4353,7 +4353,7 @@
                             "lsb": 7,
                             "msb": 7,
                             "reset": 0,
-                            "sw_access": "rw",
+                            "sw_access": "r",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
@@ -4362,7 +4362,7 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "MOD_LPMODE0",
+                    "inst_name": "MOD_RESETL0",
                     "addr_offset": 50,
                     "regwidth": 8,
                     "min_accesswidth": 8,
@@ -4459,7 +4459,7 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "MOD_LPMODE1",
+                    "inst_name": "MOD_RESETL1",
                     "addr_offset": 51,
                     "regwidth": 8,
                     "min_accesswidth": 8,
@@ -4556,7 +4556,7 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "MOD_MODPRSL0",
+                    "inst_name": "MOD_LPMODE0",
                     "addr_offset": 52,
                     "regwidth": 8,
                     "min_accesswidth": 8,
@@ -4567,7 +4567,7 @@
                             "lsb": 0,
                             "msb": 0,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
@@ -4578,7 +4578,7 @@
                             "lsb": 1,
                             "msb": 1,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
@@ -4589,7 +4589,7 @@
                             "lsb": 2,
                             "msb": 2,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
@@ -4600,7 +4600,7 @@
                             "lsb": 3,
                             "msb": 3,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
@@ -4611,7 +4611,7 @@
                             "lsb": 4,
                             "msb": 4,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
@@ -4622,7 +4622,7 @@
                             "lsb": 5,
                             "msb": 5,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
@@ -4633,7 +4633,7 @@
                             "lsb": 6,
                             "msb": 6,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
@@ -4644,7 +4644,7 @@
                             "lsb": 7,
                             "msb": 7,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
@@ -4653,7 +4653,7 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "MOD_MODPRSL1",
+                    "inst_name": "MOD_LPMODE1",
                     "addr_offset": 53,
                     "regwidth": 8,
                     "min_accesswidth": 8,
@@ -4664,7 +4664,7 @@
                             "lsb": 0,
                             "msb": 0,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
@@ -4675,7 +4675,7 @@
                             "lsb": 1,
                             "msb": 1,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
@@ -4686,7 +4686,7 @@
                             "lsb": 2,
                             "msb": 2,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
@@ -4697,7 +4697,7 @@
                             "lsb": 3,
                             "msb": 3,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
@@ -4708,7 +4708,7 @@
                             "lsb": 4,
                             "msb": 4,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
@@ -4719,7 +4719,7 @@
                             "lsb": 5,
                             "msb": 5,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
@@ -4730,7 +4730,7 @@
                             "lsb": 6,
                             "msb": 6,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
@@ -4741,7 +4741,7 @@
                             "lsb": 7,
                             "msb": 7,
                             "reset": 0,
-                            "sw_access": "r",
+                            "sw_access": "rw",
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
@@ -4750,7 +4750,7 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "MOD_INTL0",
+                    "inst_name": "MOD_MODPRSL0",
                     "addr_offset": 54,
                     "regwidth": 8,
                     "min_accesswidth": 8,
@@ -4847,8 +4847,202 @@
                 },
                 {
                     "type": "reg",
-                    "inst_name": "MOD_INTL1",
+                    "inst_name": "MOD_MODPRSL1",
                     "addr_offset": 55,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "PORT8",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT9",
+                            "lsb": 1,
+                            "msb": 1,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT10",
+                            "lsb": 2,
+                            "msb": 2,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT11",
+                            "lsb": 3,
+                            "msb": 3,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT12",
+                            "lsb": 4,
+                            "msb": 4,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT13",
+                            "lsb": 5,
+                            "msb": 5,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT14",
+                            "lsb": 6,
+                            "msb": 6,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT15",
+                            "lsb": 7,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "MOD_INTL0",
+                    "addr_offset": 56,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "PORT0",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT1",
+                            "lsb": 1,
+                            "msb": 1,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT2",
+                            "lsb": 2,
+                            "msb": 2,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT3",
+                            "lsb": 3,
+                            "msb": 3,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT4",
+                            "lsb": 4,
+                            "msb": 4,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT5",
+                            "lsb": 5,
+                            "msb": 5,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT6",
+                            "lsb": 6,
+                            "msb": 6,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        },
+                        {
+                            "type": "field",
+                            "inst_name": "PORT7",
+                            "lsb": 7,
+                            "msb": 7,
+                            "reset": 0,
+                            "sw_access": "r",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": null
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "MOD_INTL1",
+                    "addr_offset": 57,
                     "regwidth": 8,
                     "min_accesswidth": 8,
                     "children": [

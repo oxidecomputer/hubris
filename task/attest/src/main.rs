@@ -36,7 +36,7 @@ mod build {
     include!(concat!(env!("OUT_DIR"), "/attest-config.rs"));
 }
 
-use build::{ALIAS_DATA, CERT_DATA};
+use build::{ALIAS_DATA, CERT_DATA, PERMIT_LOG_RESET};
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
@@ -49,6 +49,8 @@ enum Trace {
     Index(u32),
     Offset(u32),
     Startup,
+    ResetLog,
+    ResetRecord(HashAlgorithm),
     Record(HashAlgorithm),
     BadLease(usize),
     LogLen(u32),
@@ -242,7 +244,7 @@ impl idl::InOrderAttestImpl for AttestServer {
 
     fn record(
         &mut self,
-        _: &userlib::RecvMessage,
+        msg: &userlib::RecvMessage,
         algorithm: HashAlgorithm,
         data: idol_runtime::Leased<idol_runtime::R, [u8]>,
     ) -> Result<(), RequestError<AttestError>> {
@@ -251,6 +253,68 @@ impl idl::InOrderAttestImpl for AttestServer {
         if self.measurements.is_full() {
             return Err(AttestError::LogFull.into());
         }
+
+        // The first measurement can only be made by a privileged task.
+        if self.measurements.is_empty()
+            && !PERMIT_LOG_RESET.iter().any(|x| *x == msg.sender.0)
+        {
+            // This is NOT a coding error in the client.
+            // The SP has not been measured yet and the first
+            // slot is reserved for the `swd` task.
+            return Err(AttestError::ReservedLogSlot.into());
+        }
+
+        let measurement = match algorithm {
+            HashAlgorithm::Sha3_256 => {
+                if data.len() != Sha3_256Digest::LENGTH {
+                    ringbuf_entry!(Trace::BadLease(data.len()));
+                    return Err(AttestError::BadLease.into());
+                }
+
+                let mut digest = Sha3_256Digest::default();
+                data.read_range(0..digest.0.len(), &mut digest.0)
+                    .map_err(|_| RequestError::went_away())?;
+
+                Measurement::Sha3_256(digest)
+            }
+        };
+
+        self.measurements.push(measurement);
+
+        Ok(())
+    }
+
+    fn reset(
+        &mut self,
+        msg: &userlib::RecvMessage,
+    ) -> Result<(), RequestError<AttestError>> {
+        if !PERMIT_LOG_RESET.iter().any(|x| *x == msg.sender.0) {
+            // This is a coding error in the client.
+            // They should not ask to reset the attestation log.
+            return Err(ClientError::AccessViolation.fail());
+        }
+
+        // Reset the attestation log
+        ringbuf_entry!(Trace::ResetLog);
+        self.measurements = Log::default();
+        Ok(())
+    }
+
+    fn reset_and_record(
+        &mut self,
+        msg: &userlib::RecvMessage,
+        algorithm: HashAlgorithm,
+        data: idol_runtime::Leased<idol_runtime::R, [u8]>,
+    ) -> Result<(), RequestError<AttestError>> {
+        ringbuf_entry!(Trace::ResetRecord(algorithm));
+
+        if !PERMIT_LOG_RESET.iter().any(|x| *x == msg.sender.0) {
+            // This is a coding error in the client.
+            // They should not ask to reset the attestation log.
+            return Err(ClientError::AccessViolation.fail());
+        }
+        ringbuf_entry!(Trace::ResetLog);
+        self.measurements = Log::default();
 
         let measurement = match algorithm {
             HashAlgorithm::Sha3_256 => {

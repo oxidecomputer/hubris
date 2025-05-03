@@ -23,6 +23,7 @@ struct RawConfig {
     target: String,
     board: String,
     chip: String,
+    mmio: Option<MmioConfig>,
     #[serde(default)]
     epoch: u32,
     #[serde(default)]
@@ -44,6 +45,19 @@ struct RawConfig {
     caboose: Option<CabooseConfig>,
 }
 
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+pub struct MmioConfig {
+    pub peripheral_region: String,
+    pub register_map: PathBuf,
+}
+
+#[derive(Clone, Debug)]
+pub struct MmioData {
+    pub base_address: u32,
+    pub register_map: PathBuf,
+}
+
 #[derive(Clone, Debug)]
 pub struct Config {
     pub name: String,
@@ -51,6 +65,7 @@ pub struct Config {
     pub board: String,
     pub chip: String,
     pub epoch: u32,
+    pub mmio: Option<MmioData>,
     pub version: u32,
     pub fwid: bool,
     pub image_names: Vec<String>,
@@ -130,12 +145,69 @@ impl Config {
         // The app.toml must include a `chip` key, which defines the peripheral
         // register map in a separate file.  We load it then accumulate that
         // file in the buildhash.
-        let peripherals = {
+        let mut peripherals: IndexMap<String, Peripheral> = {
             let chip_file =
                 cfg.parent().unwrap().join(&toml.chip).join("chip.toml");
             let chip_contents = std::fs::read(chip_file)?;
             hasher.write(&chip_contents);
             toml::from_str(std::str::from_utf8(&chip_contents)?)?
+        };
+
+        // The manifest may also include a `mmio` key, which defines extra
+        // memory-mapped peripherals attached over a memory bus
+        let mmio = if let Some(mmio) = &toml.mmio {
+            let Some(p) = peripherals.get(&mmio.peripheral_region) else {
+                bail!(
+                    "could not find peripheral region '{}'",
+                    mmio.peripheral_region
+                );
+            };
+            let base_address = p.address;
+            use build_fpga_regmap::Node;
+
+            let mmio_file = cfg.parent().unwrap().join(&mmio.register_map);
+            let mmio_contents = std::fs::read(&mmio_file)?;
+            hasher.write(&mmio_contents);
+
+            let root: Node =
+                serde_json::from_str(std::str::from_utf8(&mmio_contents)?)
+                    .with_context(|| {
+                        format!(
+                            "failed to read MMIO register map at {:?}",
+                            mmio.register_map
+                        )
+                    })?;
+
+            let Node::Addrmap { children, .. } = root else {
+                bail!("top-level node is not addrmap");
+            };
+            for (i, p) in children.iter().enumerate() {
+                let Node::Addrmap {
+                    inst_name,
+                    addr_offset,
+                    ..
+                } = &p
+                else {
+                    bail!("second-level node must be Addrmap");
+                };
+                if *addr_offset != i * 256 {
+                    bail!("mmio peripherals must be spaced at 256 bytes");
+                }
+                peripherals.insert(
+                    format!("mmio_{inst_name}"),
+                    Peripheral {
+                        address: *addr_offset as u32 + base_address,
+                        size: 256,
+                        interrupts: BTreeMap::new(),
+                    },
+                );
+            }
+            Some(MmioData {
+                base_address,
+                register_map: mmio_file.canonicalize()?,
+            })
+        } else {
+            None
         };
 
         let outputs: IndexMap<String, Vec<Output>> = {
@@ -174,6 +246,7 @@ impl Config {
             board: toml.board,
             image_names: img_names,
             chip: toml.chip,
+            mmio,
             epoch: toml.epoch,
             version: toml.version,
             fwid: toml.fwid,
@@ -275,6 +348,17 @@ impl Config {
                     format!("{:?}", checksum),
                 );
             }
+        }
+
+        if let Some(mmio) = &self.mmio {
+            env.insert(
+                "HUBRIS_MMIO_BASE_ADDRESS".to_string(),
+                mmio.base_address.to_string(),
+            );
+            env.insert(
+                "HUBRIS_MMIO_REGISTER_MAP".to_string(),
+                mmio.register_map.to_str().unwrap().to_owned(),
+            );
         }
 
         if let Some(app_config) = &self.config {

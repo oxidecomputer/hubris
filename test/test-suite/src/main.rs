@@ -475,13 +475,13 @@ fn test_panic() {
 
     // Read status back from the kernel and check it.
     let status = kipc::read_task_status(ASSIST.get_task_index().into());
-    assert_eq!(
+    assert!(matches!(
         status,
         TaskState::Faulted {
             fault: FaultInfo::Panic,
             original_state: SchedState::Runnable,
         },
-    );
+    ));
     restart_assistant();
 }
 
@@ -940,13 +940,13 @@ fn test_restart_taskgen() {
 
     // Read status back from the kernel, check it, and bounce the assistant.
     let status = kipc::read_task_status(ASSIST.get_task_index().into());
-    assert_eq!(
+    assert!(matches!(
         status,
         TaskState::Faulted {
             fault: FaultInfo::Panic,
             original_state: SchedState::Runnable,
         },
-    );
+    ));
     restart_assistant();
 
     // Now when we make another call with the old task, this should fail

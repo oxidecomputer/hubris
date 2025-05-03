@@ -13,6 +13,7 @@ zerocopy.workspace = true
 counters = { path = "../../lib/counters" }
 derive-idol-err = { path = "../../lib/derive-idol-err" }
 drv-qspi-api = { path = "../qspi-api" }
+gnarle = { path = "../../lib/gnarle" }
 userlib = { path = "../../sys/userlib" }
 
 [build-dependencies]

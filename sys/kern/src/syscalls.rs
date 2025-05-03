@@ -27,9 +27,12 @@
 //! struct* type to make this easy and safe, e.g. `task.save().as_send_args()`.
 //! See the `task::ArchState` trait for details.
 
+#[cfg(hubris_phantom_svc_mitigation)]
+use core::sync::atomic::{AtomicBool, Ordering};
+
 use abi::{
-    FaultInfo, IrqStatus, LeaseAttributes, SchedState, Sysnum, TaskId,
-    TaskState, ULease, UsageError,
+    FaultInfo, IrqControlArg, IrqStatus, LeaseAttributes, SchedState, Sysnum,
+    TaskId, TaskState, ULease, UsageError,
 };
 use unwrap_lite::UnwrapLite;
 
@@ -39,6 +42,9 @@ use crate::startup::with_task_table;
 use crate::task::{self, current_id, ArchState, NextTask, Task};
 use crate::time::Timestamp;
 use crate::umem::{safe_copy, USlice};
+
+#[cfg(hubris_phantom_svc_mitigation)]
+pub(crate) static EXPECT_PHANTOM_SYSCALL: AtomicBool = AtomicBool::new(false);
 
 /// Entry point accessed by arch-specific syscall entry sequence.
 ///
@@ -69,6 +75,23 @@ pub unsafe extern "C" fn syscall_entry(nr: u32, task: *mut Task) {
     };
 
     with_task_table(|tasks| {
+        // On certain architectures we risk receiving "phantom SVCs" assigned to
+        // tasks that are not, in fact, making system calls. As of this writing,
+        // this can occur on ARMv6-M (we believe we have fixed it on later ARM
+        // profiles).
+        //
+        // The only foolproof way of detecting this situation is to notice that
+        // the task that is _allegedly_ generating a syscall _is already blocked
+        // in a syscall._
+        #[cfg(hubris_phantom_svc_mitigation)]
+        {
+            use crate::atomic::AtomicExt;
+            if EXPECT_PHANTOM_SYSCALL.swap_polyfill(false, Ordering::Relaxed) {
+                // Ignore it. Make no changes to state.
+                return;
+            }
+        }
+
         match safe_syscall_entry(nr, idx, tasks) {
             // If we're returning to the same task, we're done!
             NextTask::Same => (),
@@ -76,14 +99,14 @@ pub unsafe extern "C" fn syscall_entry(nr: u32, task: *mut Task) {
             NextTask::Specific(i) => {
                 // Safety: this is a valid task from the tasks table, meeting
                 // switch_to's requirements.
-                unsafe { switch_to(&mut tasks[i]) }
+                unsafe { switch_to(&tasks[i]) }
             }
 
             NextTask::Other => {
                 let next = task::select(idx, tasks);
                 // Safety: this is a valid task from the tasks table, meeting
                 // switch_to's requirements.
-                unsafe { switch_to(&mut tasks[next]) }
+                unsafe { switch_to(next) }
             }
         }
     });
@@ -299,7 +322,7 @@ fn recv(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
         let mut last = caller; // keep track of scan position.
 
         // Is anyone blocked waiting to send to us?
-        while let Some(sender) = task::priority_scan(last, tasks, |t| {
+        while let Some((sender, _)) = task::priority_scan(last, tasks, |t| {
             t.state().is_sending_to(caller_id)
         }) {
             // Oh hello sender!
@@ -355,13 +378,14 @@ fn reply(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
         Ok(x) => x,
     };
 
-    if tasks[callee].state()
-        != &TaskState::Healthy(SchedState::InReply(caller_id))
-    {
-        // Huh. The target task is off doing something else. This can happen if
-        // application-specific supervisory logic unblocks it before we've had a
-        // chance to reply (e.g. to implement timeouts).
-        return Ok(NextTask::Same);
+    match tasks[callee].state() {
+        TaskState::Healthy(SchedState::InReply(x)) if *x == caller_id => (),
+        _ => {
+            // Huh. The target task is off doing something else. This can happen
+            // if application-specific supervisory logic unblocks it before
+            // we've had a chance to reply (e.g. to implement timeouts).
+            return Ok(NextTask::Same);
+        }
     }
 
     // Deliver the reply. Note that we can't use `deliver`, which is
@@ -396,11 +420,16 @@ fn reply(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
         }
     };
 
+    // Validate that the reply fits in the recipient's buffer. Servers are
+    // expected to get this right, because the reply size is delivered along
+    // with the message: if the client didn't provide enough space, the server
+    // should reply-fault instead of replying. So, we assume any reply that
+    // would be truncated is a server bug.
+    if src_slice.len() > dest_slice.len() {
+        return Err(FaultInfo::SyscallUsage(UsageError::ReplyTooBig));
+    }
+
     // Okay, ready to attempt the copy.
-    // TODO: we want to treat any attempt to copy more than will fit as a fault
-    // in the task that is replying, because it knows how big the target buffer
-    // is and is expected to respect that. This is not currently implemented --
-    // currently you'll get the prefix.
     let amount_copied = safe_copy(tasks, caller, src_slice, callee, dest_slice);
     let amount_copied = match amount_copied {
         Ok(n) => n,
@@ -565,12 +594,13 @@ fn borrow_lease(
     let caller_id = current_id(tasks, caller);
 
     // Check state of lender and range of lease table.
-    if tasks[lender].state()
-        != &TaskState::Healthy(SchedState::InReply(caller_id))
-    {
-        // The alleged lender isn't lending anything at all.
-        // Let's assume this is a defecting lender.
-        return Err(UserError::Recoverable(abi::DEFECT, NextTask::Same));
+    match tasks[lender].state() {
+        TaskState::Healthy(SchedState::InReply(x)) if *x == caller_id => (),
+        _ => {
+            // The alleged lender isn't lending anything at all.
+            // Let's assume this is a defecting lender.
+            return Err(UserError::Recoverable(abi::DEFECT, NextTask::Same));
+        }
     }
 
     let largs = tasks[lender].save().as_send_args();
@@ -644,7 +674,7 @@ fn borrow_lease(
 /// To avoid causing problems, ensure that `task` is a member of the task table,
 /// with memory protection generated by the build system, and that your access
 /// to `task` goes out of scope before next kernel entry.
-unsafe fn switch_to(task: &mut Task) {
+unsafe fn switch_to(task: &Task) {
     arch::apply_memory_protection(task);
     // Safety: our contract above is sufficient to ensure that this is safe.
     unsafe {
@@ -730,15 +760,19 @@ fn irq_control(
 ) -> Result<NextTask, UserError> {
     let args = tasks[caller].save().as_irq_args();
 
-    let operation = match args.control {
-        0 => crate::arch::disable_irq,
-        1 => crate::arch::enable_irq,
-        _ => {
-            return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
-                UsageError::NoIrq,
-            )))
-        }
+    // TODO: our use of NoIrq here is conventional but is getting increasingly
+    // weird. Arguably it's always been wrong, since it's validating the control
+    // argument.
+    let control = IrqControlArg::from_bits(args.control).ok_or(
+        UserError::Unrecoverable(FaultInfo::SyscallUsage(UsageError::NoIrq)),
+    )?;
+
+    let operation = if control.contains(IrqControlArg::ENABLED) {
+        crate::arch::enable_irq
+    } else {
+        crate::arch::disable_irq
     };
+    let also_clear_pending = control.contains(IrqControlArg::CLEAR_PENDING);
 
     let caller = caller as u32;
 
@@ -751,7 +785,9 @@ fn irq_control(
             UsageError::NoIrq,
         )))?;
     for i in irqs.iter() {
-        operation(i.0);
+        // Because the IRQ numbers are coming from our own table, any error here
+        // would indicate a kernel bug, _not_ bad syscall arguments.
+        operation(i.0, also_clear_pending).unwrap_lite();
     }
     Ok(NextTask::Same)
 }
@@ -835,13 +871,14 @@ fn reply_fault(
         Ok(x) => x,
     };
 
-    if tasks[callee].state()
-        != &TaskState::Healthy(SchedState::InReply(caller_id))
-    {
-        // Huh. The target task is off doing something else. This can happen if
-        // application-specific supervisory logic unblocks it before we've had a
-        // chance to reply (e.g. to implement timeouts).
-        return Ok(NextTask::Same);
+    match tasks[callee].state() {
+        TaskState::Healthy(SchedState::InReply(x)) if *x == caller_id => (),
+        _ => {
+            // Huh. The target task is off doing something else. This can happen
+            // if application-specific supervisory logic unblocks it before
+            // we've had a chance to reply (e.g. to implement timeouts).
+            return Ok(NextTask::Same);
+        }
     }
 
     // Check and deliver the fault. We explicitly discard its scheduling hint,
@@ -891,9 +928,10 @@ fn irq_status(
         )))?;
 
     // Combine the platform-level status of all the IRQs in the notification set.
-    let mut status = irqs.iter().fold(IrqStatus::empty(), |status, irq| {
-        status | crate::arch::irq_status(irq.0)
-    });
+    let mut status =
+        irqs.iter().try_fold(IrqStatus::empty(), |status, irq| {
+            crate::arch::irq_status(irq.0).map(|n| status | n)
+        })?;
 
     // If any bits in the notification mask are set in the caller's notification
     // set, then a notification has been posted to the task and not yet consumed.

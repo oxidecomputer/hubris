@@ -14,6 +14,7 @@
     path = "bsp/sidecar_bcd.rs"
 )]
 #[cfg_attr(target_board = "medusa-a", path = "bsp/medusa_a.rs")]
+#[cfg_attr(target_board = "minibar", path = "bsp/minibar.rs")]
 mod bsp;
 mod server;
 

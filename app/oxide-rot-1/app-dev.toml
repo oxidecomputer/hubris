@@ -53,8 +53,6 @@ start = true
 [tasks.update_server]
 name = "lpc55-update-server"
 priority = 3
-max-sizes = {flash = 26080, ram = 17000, usbsram = 4096}
-# TODO: Size this appropriately
 stacksize = 8192
 start = true
 sections = {bootstate = "usbsram"}
@@ -75,14 +73,13 @@ task-slots = ["jefe"]
 name = "drv-lpc55-gpio"
 priority = 3
 max-sizes = {flash = 8192, ram = 2048}
-uses = ["gpio", "iocon"]
+uses = ["gpio", "iocon", "pint", "inputmux"]
 start = true
 task-slots = ["syscon_driver"]
 
 [tasks.sprot]
 name = "drv-lpc55-sprot-server"
 priority = 6
-max-sizes = {flash = 54016, ram = 32768}
 uses = ["flexcomm8", "bootrom"]
 features = ["spi0", "sp-ctrl"]
 start = true
@@ -103,20 +100,18 @@ pins = [
     { name = "CHIP_SELECT", pin = { port = 1, pin = 1}, alt = 5},
     # ROT_IRQ = P0_18 = FUN0
     { name = "ROT_IRQ", pin = { port = 0, pin = 18}, alt = 0, direction = "output"},
-    # SP_RESET = P0_9 = FUN0
-    { name = "SP_RESET", pin = { port = 0, pin = 9}, alt = 0, direction = "input"},
 ]
 
 [tasks.swd]
 name = "drv-lpc55-swd"
 priority = 4
-max-sizes = {flash = 16384, ram = 4096}
 uses = ["flexcomm5", "iocon"]
 start = true
-stacksize = 1000
-task-slots = ["gpio_driver", "syscon_driver"]
-notifications = ["spi-irq", "timer"]
-interrupts = {"flexcomm5.irq" = "spi-irq"}
+stacksize = 1280
+task-slots = ["gpio_driver", "syscon_driver", "attest"]
+notifications = ["spi-irq", "timer", "sp_reset-irq", "jtag_detect-irq"]
+interrupts = {"flexcomm5.irq" = "spi-irq", "pint.irq0" = "sp_reset-irq", "pint.irq1" = "jtag_detect-irq" }
+features = ["enable_ext_sp_reset"]
 
 [tasks.swd.config]
 # MOSI = PIO0_8
@@ -136,8 +131,10 @@ in_cfg = [
 pins = [
     # SCK
     { pin = { port = 0, pin = 7 }, alt = 3 },
-    { name = "SP_TO_ROT_JTAG_DETECT_L", pin = { port = 0, pin = 20 }, alt = 0, direction = "input" },
-    { name = "ROT_TO_SP_RESET_L", pin = { port = 0, pin = 13 }, alt = 0, value = true, direction = "output", opendrain = "opendrain" },
+    { name = "SP_TO_ROT_JTAG_DETECT_L", pin = { port = 0, pin = 20 }, alt = 0, direction = "input", mode = "nopull", pint = 1 },
+    # SP NRST has an internal 30-50k pull-up in SP
+    { name = "ROT_TO_SP_RESET_L_IN", pin = { port = 0, pin = 13 }, alt = 0, direction = "input", mode = "nopull", pint = 0 },
+    { name = "ROT_TO_SP_RESET_L_OUT", pin = { port = 0, pin = 13 }, alt = 0, direction = "output", mode = "nopull", opendrain = "opendrain", setup = false },
 ]
 spi_num = 5
 
@@ -149,25 +146,16 @@ start = true
 stacksize = 2600
 task-slots = ["swd"]
 
-# We intentionally do not start this task to avoid conflicts with the SP
-# debug connection.
-[tasks.sp_measure]
-name = "task-sp-measure"
-priority = 6
-max-sizes = {flash = 131072, ram = 8192}
-task-slots = ["swd"]
-stacksize = 2048
-
-[tasks.sp_measure.config]
-binary_path = "../../target/gimlet-c/dist/default/final.bin"
-
 [tasks.attest]
 name = "task-attest"
-priority = 5
-max-sizes = {flash = 35072, ram = 16384}
+priority = 3
+max-sizes = {flash = 35400, ram = 16384}
 stacksize = 12304
 start = true
 extern-regions = ["dice_alias", "dice_certs"]
+
+[tasks.attest.config]
+permit_log_reset = ["swd", "hiffy"]
 
 [signing.certs]
 signing-certs = ["../../support/fake_certs/fake_certificate.der.crt"]

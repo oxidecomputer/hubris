@@ -77,6 +77,7 @@ impl From<Error> for ResponseCode {
         match err {
             Error::BadRegisterRead { code, .. } => code,
             Error::BadCpuidRead { code } => code,
+            Error::BadRdmsr { code } => code,
             _ => ResponseCode::BadResponse,
         }
     }

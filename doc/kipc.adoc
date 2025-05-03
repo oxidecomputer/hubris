@@ -290,6 +290,117 @@ returned by a call to `get_task_dump_region` for the specified task.
 A copy of the memory referred to by the specified region, starting
 at `base` and running for `size` bytes.
 
+=== `software_irq` (8)
+
+For a given task index and a notification mask for that task, this will
+trigger software interrupts for any IRQ(s) mapped to bits in that task's
+notification set.
+
+Any interrupts triggered through this mechanism will be delivered to the
+that task identically to an actual hardware interrupt, as described in
+the <<interrupts-from-a-tasks-perspective,the documentation on interrupts>>.
+
+==== Request
+
+[source,rust]
+----
+type SoftwareIrqRequest = (u32, u32);
+----
+
+==== Preconditions
+
+The task index (`SoftwareIrqRequest.0`) must be a valid task index.
+
+The notification mask (`SoftwareIrqRequest.1`) should be a valid notification
+mask for the specified task, and should have at least one bit set. Any bits
+set in the notification mask should be assigned to hardware interrupts in
+the task's build-time configuration.
+
+The caller *must* be the supervisor (task index 0).
+
+==== Response
+
+[source,rust]
+----
+type SoftwareIrqResponse = ();
+----
+
+==== Notes
+
+This interface is primarily intended for testing interrupt handling, and can
+only be called by a task running as the supervisor. When this KIPC is called,
+an actual machine interrupt is triggered for the relevant hardware interrupt
+source. The kernel then responds to the interrupt using its normal
+interrupt-handling infrastructure, which dispatches a notification to the 
+subscribed task.
+
+This KIPC is *not* intended for use as a general-purpose inter-task signalling
+mechanism. For that purpose, a <<notifications,notification>> should be used
+instead.
+
+=== `find_faulted_task` (9)
+
+Scans forward from a given task index searching for a faulted task. If a faulted
+task is found, returns its index. Otherwise, returns zero, the index of the
+supervisor task, which is by definition not faulted.
+
+To simplify supervisor implementations, the given task index may equal the
+number of tasks in the system. In this case, there are no tasks to search, and
+you always get zero back.
+
+We do _not_ permit greater indices than that, because that would strongly
+suggest a bug.
+
+==== Request
+
+[source,rust]
+----
+struct FindFaultedTaskRequest {
+    starting_index: u32,
+}
+----
+
+==== Preconditions
+
+The `starting_index` must be a valid index for this system, or one greater.
+
+==== Response
+
+[source,rust]
+----
+struct FindFaultedTaskResponse {
+    fault_index: u32,
+}
+----
+
+==== Notes
+
+This is intended for the common case of a supervisor scanning the task table in
+search of a fault. Compared to doing this manually with `read_task_status`,
+`find_faulted_task` has several advantages:
+
+1. Generates one kipc per failed task, plus one, rather than one kipc per
+   potentially failed task.
+
+2. Avoids serializing/transferring/deserializing the relatively complex
+   `TaskState` type, which supervisors rarely make use of in practice.
+
+3. Can be implemented in a way that doesn't potentially panic the supervisor.
+
+The "task ID or zero" return value is represented as an `Option<NonZeroUsize>`
+in the Rust API, so a typical use of this kipc looks like:
+
+[source,rust]
+----
+let mut next_task = 1; // skip supervisor
+while let Some(fault) = kipc::find_faulted_task(next_task) {
+    let fault = usize::from(fault);
+    // do things with the faulted task
+
+    next_task = fault + 1;
+}
+----
+
 == Receiving from the kernel
 
 The kernel never sends messages to tasks. It's simply not equipped to do so.

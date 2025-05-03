@@ -41,24 +41,36 @@ impl HostFlashUpdate {
         }
     }
 
+    fn slot_to_dev(slot: u16) -> Result<HfDevSelect, SpError> {
+        match slot {
+            0 => Ok(HfDevSelect::Flash0),
+            1 => Ok(HfDevSelect::Flash1),
+            _ => Err(SpError::InvalidSlotForComponent),
+        }
+    }
+
+    fn check_target_slot(&self, slot: u16) -> Result<HfDevSelect, SpError> {
+        let slot = Self::slot_to_dev(slot)?;
+        match self.task.check_dev(slot) {
+            Ok(()) => Ok(slot),
+
+            // Things went wrong; translate if possible:
+            Err(HfError::NotMuxedToSP) => Err(SpError::UpdateSlotBusy),
+            Err(err) => Err(SpError::UpdateFailed(err as u32)),
+        }
+    }
+
     pub(crate) fn set_active_slot(
         &self,
         slot: u16,
         persist: bool,
     ) -> Result<(), SpError> {
-        let slot = match slot {
-            0 => HfDevSelect::Flash0,
-            1 => HfDevSelect::Flash1,
-            _ => return Err(SpError::InvalidSlotForComponent),
-        };
+        let slot = Self::slot_to_dev(slot)?;
 
         // Attempt to swap to the chosen slot, returning a "slot busy" error if
         // we don't have control over the host flash.
         match self.task.set_dev(slot) {
             Ok(()) => Ok(()),
-            // If this board does not have multiple devices (indicated by
-            // receiving NoDevSelect), then Flash0 is the only valid option.
-            Err(HfError::NoDevSelect) if slot == HfDevSelect::Flash0 => Ok(()),
 
             // Otherwise, things went wrong; translate if possible:
             Err(HfError::NotMuxedToSP) => Err(SpError::UpdateSlotBusy),
@@ -114,9 +126,7 @@ impl ComponentUpdater for HostFlashUpdate {
                 SpError::OtherComponentUpdateInProgress(component)
             })?;
 
-        // Update the currently-active slot so we can write to it, but don't
-        // persist those changes to non-volatile memory.
-        self.set_active_slot(update.slot, false)?;
+        let dev = self.check_target_slot(update.slot)?;
 
         // What is the total capacity of the device?
         let capacity = self
@@ -146,6 +156,7 @@ impl ComponentUpdater for HostFlashUpdate {
             update.id,
             update.total_size,
             State::ErasingSectors {
+                dev,
                 buffer,
                 sectors_to_erase: 1..num_sectors,
             },
@@ -172,11 +183,12 @@ impl ComponentUpdater for HostFlashUpdate {
         };
 
         current.update_state(|state| {
-            let (buffer, mut sectors_to_erase) = match state {
+            let (buffer, mut sectors_to_erase, dev) = match state {
                 State::ErasingSectors {
                     buffer,
                     sectors_to_erase,
-                } => (buffer, sectors_to_erase),
+                    dev,
+                } => (buffer, sectors_to_erase, dev),
                 State::AcceptingData { .. }
                 | State::Complete
                 | State::Failed(_)
@@ -191,16 +203,22 @@ impl ComponentUpdater for HostFlashUpdate {
             // During construction of the State::ErasingSectors object, we
             // should have configured it to start at sector 1; using
             // HfProtectMode::ProtectSector0 guards against mistakes.
-            match self.task.sector_erase(addr, HfProtectMode::ProtectSector0) {
+            match self.task.sector_erase_dev(
+                dev,
+                addr,
+                HfProtectMode::ProtectSector0,
+            ) {
                 Ok(()) => {
                     sectors_to_erase.start += 1;
                     if sectors_to_erase.start == sectors_to_erase.end {
                         State::AcceptingData {
+                            dev,
                             buffer,
                             next_write_offset: 0,
                         }
                     } else {
                         State::ErasingSectors {
+                            dev,
                             buffer,
                             sectors_to_erase,
                         }
@@ -230,6 +248,7 @@ impl ComponentUpdater for HostFlashUpdate {
             State::AcceptingData {
                 buffer,
                 next_write_offset,
+                ..
             } => UpdateStatus::InProgress(UpdateInProgressStatus {
                 id: current.id(),
                 bytes_received: next_write_offset + buffer.len() as u32,
@@ -258,11 +277,12 @@ impl ComponentUpdater for HostFlashUpdate {
         let current_id = current.id();
         let total_size = current.total_size();
 
-        let (buffer, next_write_offset) = match current.state_mut() {
+        let (buffer, next_write_offset, dev) = match current.state_mut() {
             State::AcceptingData {
                 buffer,
                 next_write_offset,
-            } => (buffer, next_write_offset),
+                dev,
+            } => (buffer, next_write_offset, dev),
             State::ErasingSectors { .. } | State::Complete | State::Aborted => {
                 return Err(SpError::UpdateNotPrepared)
             }
@@ -312,7 +332,8 @@ impl ComponentUpdater for HostFlashUpdate {
                 }
 
                 if skip_bytes < buffer.len() {
-                    if let Err(err) = self.task.page_program(
+                    if let Err(err) = self.task.page_program_dev(
+                        *dev,
                         *next_write_offset + skip_bytes as u32,
                         HfProtectMode::ProtectSector0,
                         &buffer[skip_bytes..],
@@ -372,10 +393,12 @@ impl ComponentUpdater for HostFlashUpdate {
 
 enum State {
     ErasingSectors {
+        dev: HfDevSelect,
         buffer: BorrowedUpdateBuffer,
         sectors_to_erase: Range<u32>,
     },
     AcceptingData {
+        dev: HfDevSelect,
         buffer: BorrowedUpdateBuffer,
         next_write_offset: u32,
     },

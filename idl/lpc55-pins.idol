@@ -3,10 +3,12 @@ Interface(
     ops: {
         "iocon_configure_raw": (
             args: {
-                "pin": (type: "Pin", recv: FromPrimitive("u32")),
+                "pin": "Pin",
                 "conf": "u32",
+                "pint_slot": "Option<PintSlot>",
             },
             reply: Simple("()"),
+            encoding: Hubpack,
             idempotent: true,
         ),
         "set_dir": (
@@ -40,6 +42,18 @@ Interface(
                 ok: "()",
                 err: ServerDeath,
             )
+        ),
+        "pint_op": (
+            args: {
+               "pint_slot": "PintSlot",
+                "op": "PintOp",
+                "cond": "PintCondition",
+            },
+            reply: Result(
+                ok: "Option<bool>",
+                err: ServerDeath,
+            ),
+            encoding: Hubpack,
         ),
     }
 )

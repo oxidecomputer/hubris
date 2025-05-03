@@ -1,0 +1,1383 @@
+target = "thumbv7em-none-eabihf"
+chip = "../../chips/stm32h7"
+memory = "memory-large.toml"
+stacksize = 896
+fwid = true
+
+[kernel]
+name = "cosmo"
+requires = {flash = 32768, ram = 8192}
+features = ["dump"]
+
+[mmio]
+peripheral-region = "fmc_nor_psram_bank_1"
+register-map = "../../drv/spartan7-loader/cosmo-seq/cosmo_seq_top.json"
+
+[caboose]
+tasks = ["control_plane_agent"]
+region = "flash"
+size = 256
+default = true
+
+[tasks.jefe]
+name = "task-jefe"
+priority = 0
+max-sizes = {flash = 16384, ram = 2048}
+start = true
+features = ["dump"]
+stacksize = 1536
+notifications = ["fault", "timer"]
+extern-regions = ["sram1", "sram2", "sram3", "sram4"]
+
+[tasks.jefe.config.on-state-change]
+net = "jefe-state-change"
+host_sp_comms = "jefe-state-change"
+
+[tasks.jefe.config.allowed-callers]
+set_state = ["cosmo_seq"]
+set_reset_reason = ["sys"]
+request_reset = ["hiffy", "control_plane_agent"]
+
+[tasks.net]
+name = "task-net"
+stacksize = 8000
+priority = 5
+features = ["mgmt", "h753", "cosmo", "vlan", "vpd-mac"]
+max-sizes = {flash = 131072, ram = 65536, sram1_mac = 16384}
+sections = {eth_bulk = "sram1_mac"}
+uses = ["eth", "tim16"]
+start = true
+interrupts = {"eth.irq" = "eth-irq", "tim16.irq" = "mdio-timer-irq"}
+task-slots = ["sys", "packrat", { spi_driver = "spi2_driver" }, "jefe"]
+notifications = ["eth-irq", "mdio-timer-irq", "wake-timer", "jefe-state-change"]
+
+[tasks.sys]
+name = "drv-stm32xx-sys"
+features = ["h753", "exti", "no-panic"]
+priority = 1
+uses = ["rcc", "gpios", "system_flash", "syscfg", "exti"]
+start = true
+task-slots = ["jefe"]
+notifications = ["exti-wildcard-irq"]
+
+[tasks.sys.interrupts]
+"exti.exti0" = "exti-wildcard-irq"
+"exti.exti1" = "exti-wildcard-irq"
+"exti.exti2" = "exti-wildcard-irq"
+"exti.exti3" = "exti-wildcard-irq"
+"exti.exti4" = "exti-wildcard-irq"
+"exti.exti9_5" = "exti-wildcard-irq"
+"exti.exti15_10" = "exti-wildcard-irq"
+
+[tasks.sys.config.gpio-irqs.rot_irq]
+port = "F"
+pin = 2
+owner = {name = "sprot", notification = "rot_irq"}
+
+[tasks.spi2_driver]
+name = "drv-stm32h7-spi-server"
+priority = 3
+max-sizes = {flash = 16384, ram = 4096}
+features = ["spi2", "h753"]
+uses = ["spi2"]
+start = true
+interrupts = {"spi2.irq" = "spi-irq"}
+stacksize = 872
+task-slots = ["sys"]
+notifications = ["spi-irq"]
+
+# XXX this is only used by cosmo_seq; could we merge it?
+[tasks.spi3_driver]
+name = "drv-stm32h7-spi-server"
+priority = 3
+max-sizes = {flash = 16384, ram = 4096}
+features = ["spi3", "h753"]
+uses = ["spi3"]
+start = true
+interrupts = {"spi3.irq" = "spi-irq"}
+stacksize = 872
+task-slots = ["sys"]
+notifications = ["spi-irq"]
+
+[tasks.i2c_driver]
+name = "drv-stm32xx-i2c-server"
+stacksize = 1048
+features = ["h753"]
+priority = 3
+uses = ["i2c1", "i2c2", "i2c3", "i2c4"]
+start = true
+task-slots = ["sys"]
+notifications = ["i2c1-irq", "i2c2-irq", "i2c3-irq", "i2c4-irq"]
+
+[tasks.i2c_driver.interrupts]
+"i2c1.event" = "i2c1-irq"
+"i2c1.error" = "i2c1-irq"
+"i2c2.event" = "i2c2-irq"
+"i2c2.error" = "i2c2-irq"
+"i2c3.event" = "i2c3-irq"
+"i2c3.error" = "i2c3-irq"
+"i2c4.event" = "i2c4-irq"
+"i2c4.error" = "i2c4-irq"
+
+[tasks.packrat]
+name = "task-packrat"
+priority = 1
+start = true
+# task-slots is explicitly empty: packrat should not send IPCs!
+task-slots = []
+features = ["cosmo"]
+
+[tasks.thermal]
+name = "task-thermal"
+features = ["cosmo"]
+priority = 8
+max-sizes = {flash = 32768, ram = 8192 }
+stacksize = 6000
+start = true
+task-slots = ["i2c_driver", "sensor", "cosmo_seq", "jefe"]
+notifications = ["timer"]
+
+[tasks.power]
+name = "task-power"
+features = ["cosmo"]
+priority = 8
+max-sizes = {flash = 65536, ram = 16384 }
+stacksize = 3800
+start = true
+task-slots = ["i2c_driver", "sensor", "cosmo_seq"]
+notifications = ["timer"]
+
+[tasks.hiffy]
+name = "task-hiffy"
+features = ["h753", "stm32h7", "i2c", "gpio", "spi", "qspi", "hash", "sprot", "turbo"]
+priority = 7
+max-sizes = {flash = 32768, ram = 32768 }
+stacksize = 1200
+start = true
+task-slots = ["sys", "hf", "i2c_driver", "hash_driver", "update_server", "sprot"]
+
+[tasks.cosmo_seq]
+name = "drv-cosmo-seq-server"
+features = ["h753"]
+priority = 7
+max-sizes = {flash = 131072, ram = 16384 }
+stacksize = 2600
+start = true
+task-slots = ["sys", "i2c_driver", {spi_front = "spi3_driver"}, "jefe", "packrat", "auxflash", "spartan7_loader", "hf"]
+uses = ["mmio_sequencer", "mmio_info"]
+notifications = ["timer", "vcore"]
+
+[tasks.spartan7_loader]
+name = "drv-spartan7-loader"
+features = ["h753"]
+priority = 4
+max-sizes = {flash = 131072, ram = 16384 }
+stacksize = 2600
+start = true
+task-slots = ["sys", {spi = "spi2_driver"}, "auxflash"]
+
+[tasks.spartan7_loader.config]
+program_l = "sys_api::Port::B.pin(1)"
+init_l = "sys_api::Port::B.pin(6)"
+config_done = "sys_api::Port::B.pin(4)"
+user_reset_l = "sys_api::Port::A.pin(6)"
+
+[tasks.cosmo_seq.config]
+fpga_image = "cosmo-a.bin"
+register_defs = "cosmo-regs-a.json"
+
+[tasks.hash_driver]
+name = "drv-stm32h7-hash-server"
+features = ["h753"]
+priority = 2
+max-sizes = {flash = 16384, ram=4096 }
+stacksize = 2048
+start = true
+uses = ["hash"]
+interrupts = {"hash.irq" = "hash-irq"}
+task-slots = ["sys"]
+notifications = ["hash-irq"]
+
+[tasks.hf]
+name = "drv-cosmo-hf"
+priority = 6
+start = true
+uses = ["mmio_spi_nor"]
+task-slots = ["hash_driver", "spartan7_loader"]
+stacksize = 4000
+
+[tasks.update_server]
+name = "stm32h7-update-server"
+priority = 3
+max-sizes = {flash = 16384, ram = 4096}
+stacksize = 2048
+start = true
+uses = ["flash_controller"]
+extern-regions = ["bank2"]
+interrupts = {"flash_controller.irq" = "flash-irq"}
+notifications = ["flash-irq"]
+
+[tasks.sensor]
+name = "task-sensor"
+priority = 4
+max-sizes = {flash = 16384, ram = 8192 }
+stacksize = 1024
+start = true
+
+[tasks.host_sp_comms]
+name = "task-host-sp-comms"
+features = ["stm32h753", "usart6", "baud_rate_3M", "hardware_flow_control", "vlan", "cosmo"]
+uses = ["usart6", "dbgmcu"]
+interrupts = {"usart6.irq" = "usart-irq"}
+priority = 9
+max-sizes = {flash = 65536, ram = 65536}
+stacksize = 5080
+start = true
+task-slots = ["sys", { cpu_seq = "cosmo_seq" }, "hf", "control_plane_agent", "net", "packrat", "i2c_driver", { spi_driver = "spi2_driver" }, "sprot"]
+notifications = ["jefe-state-change", "usart-irq", "multitimer", "control-plane-agent"]
+
+[tasks.udpecho]
+name = "task-udpecho"
+priority = 6
+max-sizes = {flash = 16384, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net"]
+features = ["vlan"]
+notifications = ["socket"]
+
+[tasks.udpbroadcast]
+name = "task-udpbroadcast"
+priority = 6
+max-sizes = {flash = 16384, ram = 8192}
+stacksize = 2048
+start = true
+task-slots = ["net", "packrat"]
+features = ["vlan"]
+notifications = ["socket"]
+
+[tasks.control_plane_agent]
+name = "task-control-plane-agent"
+priority = 8
+max-sizes = {flash = 131072, ram = 32768}
+# This can probably overkill and can be tuned later
+stacksize = 6000
+start = true
+uses = ["usart1"]
+task-slots = [
+    "jefe",
+    "dump_agent",
+    "net",
+    "update_server",
+    "sys",
+    "hf",
+    { cpu_seq = "cosmo_seq" },
+    "validate",
+    "sensor",
+    "sprot",
+    "i2c_driver",
+    "packrat",
+    "user_leds",
+    "vpd",
+]
+features = [
+    "cosmo",
+    "usart1",
+    "vlan",
+    "baud_rate_3M",
+    "vpd",
+]
+notifications = ["usart-irq", "socket", "timer"]
+interrupts = {"usart1.irq" = "usart-irq"}
+
+[tasks.sprot]
+name = "drv-stm32h7-sprot-server"
+priority = 4
+max-sizes = {flash = 65536, ram = 32768}
+stacksize = 16384
+start = true
+task-slots = ["sys"]
+features = ["sink_test", "use-spi-core", "h753", "spi5"]
+uses = ["spi5"]
+notifications = ["spi-irq", "rot-irq", "timer"]
+interrupts = {"spi5.irq" = "spi-irq"}
+
+[tasks.validate]
+name = "task-validate"
+priority = 5
+max-sizes = {flash = 16384, ram = 4096 }
+stacksize = 1000
+start = true
+task-slots = ["i2c_driver"]
+
+[tasks.vpd]
+name = "task-vpd"
+priority = 4
+max-sizes = {flash = 8192, ram = 1024}
+start = true
+task-slots = ["sys", "i2c_driver"]
+stacksize = 800
+
+[tasks.user_leds]
+name = "drv-user-leds"
+features = ["stm32h7"]
+priority = 2
+max-sizes = {flash = 2048, ram = 1024}
+start = true
+task-slots = ["sys"]
+notifications = ["timer"]
+
+[tasks.dump_agent]
+name = "task-dump-agent"
+priority = 6
+max-sizes = {flash = 32768, ram = 16384 }
+start = true
+task-slots = ["sprot", "jefe", "net"]
+stacksize = 2400
+extern-regions = ["sram1", "sram2", "sram3", "sram4"]
+notifications = ["socket"]
+features = ["net", "vlan"]
+
+[tasks.sbrmi]
+name = "drv-sbrmi"
+priority = 4
+max-sizes = {flash = 8192, ram = 2048 }
+start = true
+task-slots = ["i2c_driver"]
+stacksize = 800
+
+[tasks.auxflash]
+name = "drv-auxflash-server"
+priority = 3
+max-sizes = {flash = 32768, ram = 4096}
+features = ["h753"]
+uses = ["quadspi"]
+start = true
+notifications = ["qspi-irq"]
+interrupts = {"quadspi.irq" = "qspi-irq"}
+stacksize = 3504
+task-slots = ["sys"]
+
+[tasks.idle]
+name = "task-idle"
+priority = 15
+max-sizes = {flash = 128, ram = 256}
+stacksize = 256
+start = true
+
+[config]
+
+#
+# I2C1: Front FPGA I2C mux
+#
+[[config.i2c.controllers]]
+controller = 1
+
+#
+# SMBUS_SP_TO_FPGA2_SMCLK
+# SMBUS_SP_TO_FPGA2_SMDAT
+#
+[config.i2c.controllers.ports.B]
+name = "front"
+description = "Front FPGA mux"
+scl.pin = 8
+sda.pin = 9
+af = 4
+
+# The front FPGA has five virtual muxes, which pretend to be PCA9545s.
+# We only use the lower 3 channels on each mux (which is normally 4-channel)
+[[config.i2c.controllers.ports.B.muxes]]
+driver = "pca9545"
+address = 0x70
+
+[[config.i2c.controllers.ports.B.muxes]]
+driver = "pca9545"
+address = 0x71
+
+[[config.i2c.controllers.ports.B.muxes]]
+driver = "pca9545"
+address = 0x72
+
+[[config.i2c.controllers.ports.B.muxes]]
+driver = "pca9545"
+address = 0x73
+
+[[config.i2c.controllers.ports.B.muxes]]
+driver = "pca9545"
+address = 0x74
+
+#
+# I2C2: Main FPGA I2C mux
+#
+[[config.i2c.controllers]]
+controller = 2
+
+#
+# I2C_SP_TO_FPGA1_SCL
+# I2C_SP_TO_FPGA1_SDA
+#
+[config.i2c.controllers.ports.F]
+name = "main"
+description = "Main FPGA mux"
+scl.pin = 1
+sda.pin = 0
+af = 4
+
+# The main FPGA has two virtual muxes, which pretend to be PCA9545s.
+[[config.i2c.controllers.ports.F.muxes]]
+driver = "pca9545"
+address = 0x70
+
+[[config.i2c.controllers.ports.F.muxes]]
+driver = "pca9545"
+address = 0x71
+
+[[config.i2c.controllers.ports.F.muxes]]
+driver = "pca9545"
+address = 0x72
+
+#
+# I2C3: Mid bus
+#
+[[config.i2c.controllers]]
+controller = 3
+
+#
+# SMBUS_SP_TO_MID_SMCLK_A2
+# SMBUS_SP_TO_MID_SMDAT_A2
+#
+[config.i2c.controllers.ports.H]
+name = "mid"
+description = "Mid bus"
+scl.pin = 7
+sda.pin = 8
+af = 4
+
+#
+# I2C4: Rear bus
+#
+[[config.i2c.controllers]]
+controller = 4
+
+#
+# SMBUS_SP_TO_REAR_SMCLK_A2
+# SMBUS_SP_TO_REAR_SMDAT_A2
+#
+[config.i2c.controllers.ports.F]
+name = "rear"
+description = "Rear bus"
+scl.pin = 14
+sda.pin = 15
+af = 4
+
+################################################################################
+
+# The `front` bus is managed by FPGA2, which impersonates a set of muxes
+# The connection between SP and FPGA is SMBUS_SP_TO_FPGA2
+[[config.i2c.devices]]
+bus = "front"
+address = 0x70
+device = "pca9545"
+description = "Front FPGA virtual mux 1"
+refdes = "U31_1"
+
+[[config.i2c.devices]]
+bus = "front"
+address = 0x71
+device = "pca9545"
+description = "Front FPGA virtual mux 2"
+refdes = "U31_2"
+
+[[config.i2c.devices]]
+bus = "front"
+address = 0x72
+device = "pca9545"
+description = "Front FPGA virtual mux 3"
+refdes = "U31_3"
+
+[[config.i2c.devices]]
+bus = "front"
+address = 0x73
+device = "pca9545"
+description = "Front FPGA virtual mux 4"
+refdes = "U31_4"
+
+[[config.i2c.devices]]
+bus = "front"
+address = 0x74
+device = "pca9545"
+description = "Front FPGA virtual mux 5"
+refdes = "U31_5"
+
+# Welcome to the sharkfin zone
+# SMBUS_FPGA2_TO_CEMA
+[[config.i2c.devices]]
+bus = "front"
+mux = 1
+segment = 1
+address = 0b1010_000
+device = "at24csw080"
+description = "U.2 Sharkfin A VPD"
+name = "sharkfin_a_vpd"
+refdes = "J200"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 1
+segment = 1
+address = 0b0111_000
+device = "max5970"
+description = "U.2 Sharkfin A hot swap controller"
+power = { rails = [ "V12_U2A_A0", "V3P3_U2A_A0" ], pmbus = false }
+sensors = { voltage = 2, current = 2 }
+name = "sharkfin_a_hsc"
+refdes = "J200"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 1
+segment = 1
+address = 0b110_1010
+device = "nvme_bmc"
+description = "U.2 A NVMe Basic Management Command"
+sensors = { temperature = 1 }
+name = "U2_N0"
+refdes = "J200"
+removable = true
+
+# SMBUS_FPGA2_TO_CEMB
+[[config.i2c.devices]]
+bus = "front"
+mux = 1
+segment = 2
+address = 0b1010_000
+device = "at24csw080"
+description = "U.2 Sharkfin B VPD"
+name = "sharkfin_b_vpd"
+refdes = "J201"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 1
+segment = 2
+address = 0b0111_000
+device = "max5970"
+description = "U.2 Sharkfin B hot swap controller"
+power = { rails = [ "V12_U2B_A0", "V3P3_U2B_A0" ], pmbus = false }
+sensors = { voltage = 2, current = 2 }
+name = "sharkfin_b_hsc"
+refdes = "J201"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 1
+segment = 2
+address = 0b110_1010
+device = "nvme_bmc"
+description = "U.2 B NVMe Basic Management Control"
+sensors = { temperature = 1 }
+name = "U2_N1"
+refdes = "J201"
+removable = true
+
+# SMBUS_FPGA2_TO_CEMC
+[[config.i2c.devices]]
+bus = "front"
+mux = 1
+segment = 3
+address = 0b1010_000
+device = "at24csw080"
+description = "U.2 Sharkfin C VPD"
+name = "sharkfin_c_vpd"
+refdes = "J202"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 1
+segment = 3
+address = 0b0111_000
+device = "max5970"
+description = "U.2 Sharkfin C hot swap controller"
+power = { rails = [ "V12_U2C_A0", "V3P3_U2C_A0" ], pmbus = false }
+sensors = { voltage = 2, current = 2 }
+name = "sharkfin_c_hsc"
+refdes = "J202"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 1
+segment = 3
+address = 0b110_1010
+device = "nvme_bmc"
+description = "U.2 C NVMe Basic Management Control"
+sensors = { temperature = 1 }
+name = "U2_N2"
+refdes = "J202"
+removable = true
+
+# SMBUS_FPGA2_TO_CEMD
+[[config.i2c.devices]]
+bus = "front"
+mux = 2
+segment = 1
+address = 0b1010_000
+device = "at24csw080"
+description = "U.2 Sharkfin D VPD"
+name = "sharkfin_d_vpd"
+refdes = "J203"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 2
+segment = 1
+address = 0b0111_000
+device = "max5970"
+description = "U.2 Sharkfin D hot swap controller"
+power = { rails = [ "V12_U2D_A0", "V3P3_U2D_A0" ], pmbus = false }
+sensors = { voltage = 2, current = 2 }
+name = "sharkfin_d_hsc"
+refdes = "J203"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 2
+segment = 1
+address = 0b110_1010
+device = "nvme_bmc"
+description = "U.2 D NVMe Basic Management Control"
+sensors = { temperature = 1 }
+name = "U2_N3"
+refdes = "J203"
+removable = true
+
+# SMBUS_FPGA2_TO_CEME
+[[config.i2c.devices]]
+bus = "front"
+mux = 2
+segment = 2
+address = 0b1010_000
+device = "at24csw080"
+description = "U.2 Sharkfin E VPD"
+name = "sharkfin_e_vpd"
+refdes = "J204"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 2
+segment = 2
+address = 0b0111_000
+device = "max5970"
+description = "U.2 Sharkfin E hot swap controller"
+power = { rails = [ "V12_U2E_A0", "V3P3_U2E_A0" ], pmbus = false }
+sensors = { voltage = 2, current = 2 }
+name = "sharkfin_e_hsc"
+refdes = "J204"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 2
+segment = 2
+address = 0b110_1010
+device = "nvme_bmc"
+description = "U.2 E NVMe Basic Management Control"
+sensors = { temperature = 1 }
+name = "U2_N4"
+refdes = "J204"
+removable = true
+
+# SMBUS_FPGA2_TO_CEMF
+[[config.i2c.devices]]
+bus = "front"
+mux = 2
+segment = 3
+address = 0b1010_000
+device = "at24csw080"
+description = "U.2 Sharkfin F VPD"
+name = "sharkfin_f_vpd"
+refdes = "J205"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 2
+segment = 3
+address = 0b0111_000
+device = "max5970"
+description = "U.2 Sharkfin F hot swap controller"
+power = { rails = [ "V12_U2F_A0", "V3P3_U2F_A0" ], pmbus = false }
+sensors = { voltage = 2, current = 2 }
+name = "sharkfin_f_hsc"
+refdes = "J205"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 2
+segment = 3
+address = 0b110_1010
+device = "nvme_bmc"
+description = "U.2 F NVMe Basic Management Control"
+sensors = { temperature = 1 }
+name = "U2_N5"
+refdes = "J205"
+removable = true
+
+
+# SMBUS_FPGA2_TO_CEMG
+[[config.i2c.devices]]
+bus = "front"
+mux = 3
+segment = 3
+address = 0b1010_000
+device = "at24csw080"
+description = "U.2 Sharkfin G VPD"
+name = "sharkfin_g_vpd"
+refdes = "J206"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 3
+segment = 3
+address = 0b0111_000
+device = "max5970"
+description = "U.2 Sharkfin G hot swap controller"
+power = { rails = [ "V12_U2G_A0", "V3P3_U2G_A0" ], pmbus = false }
+sensors = { voltage = 2, current = 2 }
+name = "sharkfin_g_hsc"
+refdes = "J206"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 3
+segment = 3
+address = 0b110_1010
+device = "nvme_bmc"
+description = "U.2 G NVMe Basic Management Control"
+sensors = { temperature = 1 }
+name = "U2_N6"
+refdes = "J206"
+removable = true
+
+# Note that we skip the remaining two slots on (virtual) mux 3, which are
+# I2C_FPGA2_TO_MCIO1 and I2C_FPGA2_TO_MCIO2
+
+
+# SMBUS_FPGA2_TO_CEMH
+[[config.i2c.devices]]
+bus = "front"
+mux = 4
+segment = 1
+address = 0b1010_000
+device = "at24csw080"
+description = "U.2 Sharkfin H VPD"
+name = "sharkfin_h_vpd"
+refdes = "J207"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 4
+segment = 1
+address = 0b0111_000
+device = "max5970"
+description = "U.2 Sharkfin H hot swap controller"
+power = { rails = [ "V12_U2H_A0", "V3P3_U2H_A0" ], pmbus = false }
+sensors = { voltage = 2, current = 2 }
+name = "sharkfin_h_hsc"
+refdes = "J207"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 4
+segment = 1
+address = 0b110_1010
+device = "nvme_bmc"
+description = "U.2 H NVMe Basic Management Control"
+sensors = { temperature = 1 }
+name = "U2_N7"
+refdes = "J207"
+removable = true
+
+# SMBUS_FPGA2_TO_CEMI
+[[config.i2c.devices]]
+bus = "front"
+mux = 4
+segment = 2
+address = 0b1010_000
+device = "at24csw080"
+description = "U.2 Sharkfin I VPD"
+name = "sharkfin_i_vpd"
+refdes = "J208"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 4
+segment = 2
+address = 0b0111_000
+device = "max5970"
+description = "U.2 Sharkfin I hot swap controller"
+power = { rails = [ "V12_U2I_A0", "V3P3_U2I_A0" ], pmbus = false }
+sensors = { voltage = 2, current = 2 }
+name = "sharkfin_i_hsc"
+refdes = "J208"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 4
+segment = 2
+address = 0b110_1010
+device = "nvme_bmc"
+description = "U.2 I NVMe Basic Management Control"
+sensors = { temperature = 1 }
+name = "U2_N8"
+refdes = "J208"
+removable = true
+
+# SMBUS_FPGA2_TO_CEMJ
+[[config.i2c.devices]]
+bus = "front"
+mux = 4
+segment = 3
+address = 0b1010_000
+device = "at24csw080"
+description = "U.2 Sharkfin J VPD"
+name = "sharkfin_j_vpd"
+refdes = "J209"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 4
+segment = 3
+address = 0b0111_000
+device = "max5970"
+description = "U.2 Sharkfin J hot swap controller"
+power = { rails = [ "V12_U2J_A0", "V3P3_U2J_A0" ], pmbus = false }
+sensors = { voltage = 2, current = 2 }
+name = "sharkfin_j_hsc"
+refdes = "J209"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 4
+segment = 3
+address = 0b110_1010
+device = "nvme_bmc"
+description = "U.2 J NVMe Basic Management Control"
+sensors = { temperature = 1 }
+name = "U2_N9"
+refdes = "J209"
+removable = true
+# you are now leaving the sharkfin zone
+
+# SMBUS_FPGA2_TO_FRONT
+[[config.i2c.devices]]
+bus = "front"
+mux = 5
+segment = 1
+address = 0x48
+device = "tmp117"
+name = "Southwest"
+description = "Southwest temperature sensor"
+sensors = { temperature = 1 }
+removable = true
+refdes = "J44"
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 5
+segment = 1
+address = 0x49
+device = "tmp117"
+name = "South"
+description = "South temperature sensor"
+sensors = { temperature = 1 }
+removable = true
+refdes = "J45"
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 5
+segment = 1
+address = 0x4a
+device = "tmp117"
+name = "Southeast"
+description = "Southeast temperature sensor"
+sensors = { temperature = 1 }
+removable = true
+refdes = "J46"
+
+################################################################################
+
+# The `main` bus is managed by FPGA1, which impersonates a set of muxes
+# The connection between SP and FPGA is I2C_SP_TO_FPGA1
+[[config.i2c.devices]]
+bus = "main"
+address = 0x70
+device = "pca9545"
+description = "Main FPGA virtual mux 1"
+refdes = "U27_1"
+
+[[config.i2c.devices]]
+bus = "main"
+address = 0x71
+device = "pca9545"
+description = "Main FPGA virtual mux 2"
+refdes = "U27_2"
+
+[[config.i2c.devices]]
+bus = "main"
+address = 0x72
+device = "pca9545"
+description = "Main FPGA virtual mux 3"
+refdes = "U27_3"
+
+# SMBUS_FPGA1_TO_M2A
+[[config.i2c.devices]]
+bus = "main"
+mux = 1
+segment = 1
+address = 0b110_1010
+device = "nvme_bmc"
+description = "M.2 A NVMe Basic Management Command"
+name = "M2_A"
+sensors = { temperature = 1 }
+removable = true
+
+# SMBUS_FPGA1_TO_M2B
+[[config.i2c.devices]]
+bus = "main"
+mux = 1
+segment = 2
+address = 0b110_1010
+device = "nvme_bmc"
+description = "M.2 B NVMe Basic Management Command"
+name = "M2_B"
+sensors = { temperature = 1 }
+removable = true
+
+[[config.i2c.devices]]
+bus = "main"
+mux = 2
+segment = 1
+address = 0x3c
+device = "sbrmi"
+name = "RMI"
+description = "CPU via SB-RMI"
+
+[[config.i2c.devices]]
+bus = "main"
+mux = 2
+segment = 1
+address = 0x4c
+device = "sbtsi"
+name = "CPU"
+description = "CPU temperature sensor"
+sensors = { temperature = 1 }
+
+# Mux 2, segment 2 is SEC_SP5_TO_FPGA1
+
+# I2C_FPGA1_TO_FAN_VPD
+[[config.i2c.devices]]
+bus = "main"
+mux = 3
+segment = 1
+address = 0b1010_000
+device = "at24csw080"
+description = "Fan VPD"
+refdes = "J34"
+name = "fan_vpd"
+removable = true
+
+# SMBUS_FPGA1_TO_NIC_THERM
+[[config.i2c.devices]]
+bus = "main"
+mux = 3
+segment = 2
+address = 0x4c
+device = "tmp451"
+name = "t6"
+sensors = { temperature = 1 }
+description = "T6 temperature sensor"
+refdes = "U53"
+
+# XXX DIMM temperature sensors are on this bus, proxied by the FPGA
+
+################################################################################
+# mid bus, on SMBUS_SP_TO_MID_SMCLK_A2 and SMBUS_SP_TO_MID_SMDAT_A2
+[[config.i2c.devices]]
+bus = "mid"
+address = 0x24
+device = "tps546b24a"
+description = "A2 3.3V rail"
+power = { rails = [ "V3P3_SP_A2" ] }
+sensors = { temperature = 1, voltage = 1, current = 1 }
+refdes = "U82"
+name = "v3p3_sp_a2"
+
+[[config.i2c.devices]]
+bus = "mid"
+address = 0x27
+device = "tps546b24a"
+description = "A2 5V rail"
+power = { rails = [ "V5_SYS_A2" ] }
+sensors = { temperature = 1, voltage = 1, current = 1 }
+refdes = "U83"
+name = "v5p0_sys_a2"
+
+[[config.i2c.devices]]
+bus = "mid"
+address = 0x29
+device = "tps546b24a"
+description = "A2 1.8V rail"
+power = { rails = [ "V1P8_SYS_A2" ] }
+sensors = { temperature = 1, voltage = 1, current = 1 }
+refdes = "U81"
+name = "v1p8_sys_a2"
+
+[[config.i2c.devices]]
+bus = "mid"
+address = 0x3a
+device = "max5970"
+name = "m2"
+description = "M.2 hot plug controller"
+power = { rails = [ "V3P3_M2A_A0HP", "V3P3_M2B_A0HP" ], pmbus = false }
+sensors = { voltage = 2, current = 2 }
+refdes = "U15"
+
+[[config.i2c.devices]]
+bus = "mid"
+address = 0x54
+device = "ltc4282"
+name = "mcio"
+description = "12V MCIO hot plug controller"
+power = { rails = ["V12_MCIO_A0HP"], pmbus = false }
+sensors = { voltage = 1, current = 1 }
+refdes = "U16"
+
+[[config.i2c.devices]]
+bus = "mid"
+address = 0x56
+device = "ltc4282"
+name = "dimm_hsc_ghijkl"
+description = "DIMM GHIJKL hot plug controller"
+power = { rails = ["V12_DDR5_GHIJKL_A0"], pmbus = false }
+sensors = { voltage = 1, current = 1 }
+refdes = "U42"
+
+[[config.i2c.devices]]
+bus = "mid"
+address = 0x55
+device = "ltc4282"
+name = "dimm_hsc_abcdef"
+description = "DIMM ABCDEF hot plug controller"
+power = { rails = ["V12_DDR5_ABCDEF_A0"], pmbus = false }
+sensors = { voltage = 1, current = 1 }
+refdes = "U127"
+
+[[config.i2c.devices]]
+bus = "mid"
+address = 0x75
+device = "raa229620a"
+description = "South power controller (Core 0, SOC)"
+power.rails = [ "VDDCR_CPU0_A0", "VDDCR_SOC_A0" ]
+power.phases = [ [ 0, 1, 2, 3, 4, 5, 6, 7 ], [ 8, 9, 10, 11 ] ]
+sensors = { temperature = 2, power = 2, voltage = 2, current = 2 }
+refdes = "U90"
+
+[[config.i2c.devices]]
+bus = "mid"
+address = 0x76
+device = "raa229620a"
+description = "North power controller (Core 1, VDDIO)"
+power.rails = [ "VDDCR_CPU1_A0", "VDDIO_SP5_A0" ]
+power.phases = [ [ 0, 1, 2, 3, 4, 5, 6, 7 ], [ 8, 9, 10, 11 ] ]
+sensors = { temperature = 2, power = 2, voltage = 2, current = 2 }
+refdes = "U103"
+
+[[config.i2c.devices]]
+bus = "mid"
+address = 0x5c
+device = "isl68224"
+description = "SP5 power controller (V1P1, V1P8, V3P3)"
+power.rails = [ "V1P1_SP5_A0", "V1P8_SP5_A1", "V3P3_SP5_A1" ]
+power.phases = [ [ 0, 1, 2 ], [ 3 ], [ 4 ] ]
+sensors = { voltage = 3, current = 3 } # XXX add temperature sensors?
+refdes = "U116"
+
+################################################################################
+
+[[config.i2c.devices]]
+bus = "rear"
+address = 0x39
+device = "max5970"
+description = "NIC hot swap"
+power = { rails = [ "V12P0_NIC_A0HP", "V5P0_NIC_A0HP" ], pmbus = false }
+sensors = { voltage = 2, current = 2 }
+refdes = "U54"
+
+[[config.i2c.devices]]
+bus = "rear"
+address = 0x25
+device = "tps546b24a"
+description = "T6 power controller"
+power = { rails = [ "V0P96_NIC_VDD_A0HP" ] }
+sensors = { temperature = 1, voltage = 1, current = 1 }
+refdes = "U123"
+name = "v0p96_nic"
+
+[[config.i2c.devices]]
+bus = "rear"
+address = 0x48
+device = "tmp117"
+name = "Northwest"
+description = "Northwest temperature sensor"
+sensors = { temperature = 1 }
+removable = true
+refdes = "J47"
+
+[[config.i2c.devices]]
+bus = "rear"
+address = 0x49
+device = "tmp117"
+name = "North"
+description = "North temperature sensor"
+sensors = { temperature = 1 }
+removable = true
+refdes = "J48"
+
+[[config.i2c.devices]]
+bus = "rear"
+address = 0x4a
+device = "tmp117"
+name = "Northeast"
+description = "Northeast temperature sensor"
+sensors = { temperature = 1 }
+removable = true
+refdes = "J49"
+
+[[config.i2c.devices]]
+bus = "rear"
+address = 0x20
+device = "max31790"
+description = "Fan controller"
+sensors = { speed = 6, names = [
+    "Southeast", "Northeast", "South", "North", "Southwest", "Northwest"
+] }
+refdes = "U58"
+
+[[config.i2c.devices]]
+bus = "rear"
+address = 0x67
+device = "bmr491"
+name = "IBC"
+description = "Intermediate bus converter"
+power = { rails = [ "V12_SYS_A2" ] }
+sensors = { temperature = 1, power = 1, voltage = 1, current = 1 }
+refdes = "U80"
+
+[[config.i2c.devices]]
+bus = "rear"
+address = 0b1010_000
+device = "at24csw080"
+name = "local_vpd"
+description = "Cosmo VPD"
+refdes = "U32"
+
+# The `rear` bus also spans the isolation barrier to the 54V zone.  On the other
+# side of the isolation barrier, data is split between a shared SDAI line
+# (SMBUS_SP_TO_REAR_SMDAT_ISO) and per-HSC SDAO lines.
+
+# SMBUS_SP_TO_REAR_SMDAT_ISO
+# SMBUS_FAN_EAST_HSC_TO_SP_SMDAT_ISO
+[[config.i2c.devices]]
+bus = "rear"
+address = 0x11
+device = "lm5066"
+description = "Fan hot swap controller (east)"
+power = { rails = [ "V54P5_FAN_EAST" ] }
+sensors = { temperature = 1, voltage = 1, current = 1 }
+refdes = "U71"
+
+# SMBUS_SP_TO_REAR_SMDAT_ISO
+# SMBUS_FAN_CENTRAL_HSC_TO_SP_SMDAT_ISO
+[[config.i2c.devices]]
+bus = "rear"
+address = 0x12
+device = "lm5066"
+description = "Fan hot swap controller (central)"
+power = { rails = [ "V54P5_FAN_CENTRAL" ] }
+sensors = { temperature = 1, voltage = 1, current = 1 }
+refdes = "U72"
+
+# SMBUS_SP_TO_REAR_SMDAT_ISO
+# SMBUS_FAN_WEST_HSC_TO_SP_SMDAT_ISO
+[[config.i2c.devices]]
+bus = "rear"
+address = 0x13
+device = "lm5066"
+description = "Fan hot swap controller (west)"
+power = { rails = [ "V54P5_FAN_WEST" ] }
+sensors = { temperature = 1, voltage = 1, current = 1 }
+refdes = "U73"
+
+# SMBUS_SP_TO_REAR_SMDAT_ISO
+# SMBUS_MAIN_HSC_TO_SP_SMDAT_ISO
+[[config.i2c.devices]]
+bus = "rear"
+address = 0x14
+device = "adm1272"
+description = "Sled hot swap controller"
+power = { rails = [ "V54P5_IBC_A3" ] }
+sensors = { temperature = 1, voltage = 1, current = 1 }
+refdes = "U79"
+
+################################################################################
+[config.spi.spi2]
+controller = 2
+
+# SP_TO_FPGA1_CFG
+# SP_TO_FPGA1_DAT
+[config.spi.spi2.mux_options.port_b]
+outputs = [
+    {port = "B", pins = [13, 15], af = 5},
+]
+input = {port = "B", pin = 14, af = 5}
+
+[config.spi.spi2.devices.spartan7_fpga]
+mux = "port_b"
+cs = []
+# no CS pin; we're using the SPI peripheral to send synchronized CLK + DATA
+
+# SPI_SP_TO_KSZ8463_SCK
+# SPI_SP_TO_KSZ8463_DAT
+# SPI_KSZ8463_TO_SP_DAT
+[config.spi.spi2.mux_options.port_i]
+outputs = [
+    {port = "I", pins = [1, 3], af = 5},
+]
+input = {port = "I", pin = 2, af = 5}
+
+[config.spi.spi2.devices.ksz8463]
+mux = "port_i"
+cs = [{port = "I", pin = 0}] # SPI_SP_TO_KSZ8463_CS_L
+
+################################################################################
+# SPI3 goes through a mux controlled by the main FPGA (FPGA1), and can talk to
+# either the front FPGA (FPGA2) or the Ignition flash chip
+[config.spi.spi3]
+controller = 3
+
+# SPI_SP_TO_SP_MUX_SCK (PC10)
+# SPI_SP_TO_SP_MUX_DAT (PB5)
+# SPI_SP_MUX_TO_SP_DAT (PC11)
+[config.spi.spi3.mux_options.port_c]
+outputs = [
+    { port = "C", pins = [10], af = 6},
+    { port = "B", pins = [5], af = 7},
+]
+input = {port = "C", pin = 11, af = 6}
+
+[config.spi.spi3.devices.mux]
+mux = "port_c"
+cs = [{port = "A", pin = 15}] # SPI_SP_TO_SP_MUX_CS_L
+
+################################################################################
+
+[config.spi.spi5]
+controller = 5
+
+# SPI_SP_TO_ROT_DAT (PJ10)
+# SPI_ROT_TO_SP_DAT (PJ11)
+# SPI_SP_TO_ROT_SCK (PK0)
+[config.spi.spi5.mux_options.port_j]
+outputs = [
+    {port = "J", pins = [10], af = 5},
+    {port = "K", pins = [0], af = 5},
+]
+input = {port = "J", pin = 11, af = 5}
+
+# SPI_SP_TO_ROT_CL_L (PK1)
+[config.spi.spi5.devices.rot]
+mux = "port_j"
+cs = [{port = "K", pin = 1}]
+clock_divider = "DIV256"
+
+################################################################################
+
+# VLAN configuration
+[config.net.vlans.sidecar1]
+vid = 0x301
+trusted = true
+port = 1
+
+[config.net.vlans.sidecar2]
+vid = 0x302
+trusted = true
+port = 2
+
+# UDP ports in sockets below are assigned in oxidecomputer/oana
+
+[config.net.sockets.echo]
+kind = "udp"
+owner = {name = "udpecho", notification = "socket"}
+port = 7
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.broadcast]
+kind = "udp"
+owner = {name = "udpbroadcast", notification = "socket"}
+port = 997
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.control_plane_agent]
+kind = "udp"
+owner = {name = "control_plane_agent", notification = "socket"}
+port = 11111
+tx = { packets = 3, bytes = 2048 }
+rx = { packets = 3, bytes = 2048 }
+
+[config.net.sockets.dump_agent]
+kind = "udp"
+owner = {name = "dump_agent", notification = "socket"}
+port = 11113
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
+[config.sprot]
+# ROT_IRQ (af=0 for GPIO, af=15 when EXTI is implemneted)
+rot_irq = { port = "F", pin = 2, af = 0} # XXX can we use EXTI now?
+
+[config.auxflash]
+memory-size = 33_554_432 # 256 Mib / 32 MiB
+slot-count = 16 # 2 MiB slots
+
+[[auxflash.blobs]]
+file = "drv/spartan7-loader/cosmo-seq/cosmo_seq.bz2"
+unzip = "bz2"
+compress = true
+tag = "SPA7"
+
+[[auxflash.blobs]]
+file = "drv/cosmo-seq-server/cosmo-hp/cosmo_hp.bz2"
+unzip = "bz2"
+compress = true
+tag = "ICE4"

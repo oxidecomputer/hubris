@@ -5,12 +5,13 @@
 //! Implementation of IPC operations on the virtual kernel task.
 
 use abi::{FaultInfo, Kipcnum, SchedState, TaskState, UsageError};
+use core::mem::size_of;
+use unwrap_lite::UnwrapLite;
 
 use crate::arch;
 use crate::err::UserError;
 use crate::task::{current_id, ArchState, NextTask, Task};
 use crate::umem::USlice;
-use core::mem::size_of;
 
 /// Message dispatcher.
 pub fn handle_kernel_message(
@@ -39,6 +40,9 @@ pub fn handle_kernel_message(
             read_task_dump_region(tasks, caller, args.message?, args.response?)
         }
         Ok(Kipcnum::SoftwareIrq) => software_irq(tasks, caller, args.message?),
+        Ok(Kipcnum::FindFaultedTask) => {
+            find_faulted_task(tasks, caller, args.message?, args.response?)
+        }
 
         _ => {
             // Task has sent an unknown message to the kernel. That's bad.
@@ -459,9 +463,46 @@ fn software_irq(
         )))?;
 
     for &irq in irqs.iter() {
-        crate::arch::pend_software_irq(irq);
+        // Any error here would be a problem in our dispatch table, not the
+        // caller, so we panic because we want to hear about it.
+        crate::arch::pend_software_irq(irq).unwrap_lite();
     }
 
     tasks[caller].save_mut().set_send_response_and_length(0, 0);
+    Ok(NextTask::Same)
+}
+
+fn find_faulted_task(
+    tasks: &mut [Task],
+    caller: usize,
+    message: USlice<u8>,
+    response: USlice<u8>,
+) -> Result<NextTask, UserError> {
+    if caller != 0 {
+        return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
+            UsageError::NotSupervisor,
+        )));
+    }
+
+    let index = deserialize_message::<u32>(&tasks[caller], message)? as usize;
+
+    // Note: we explicitly permit index == tasks.len(), which causes us to wrap
+    // and end the search.
+    if index > tasks.len() {
+        return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
+            UsageError::TaskOutOfRange,
+        )));
+    }
+    let i = tasks[index..]
+        .iter()
+        .position(|task| matches!(task.state(), TaskState::Faulted { .. }))
+        .map(|i| i + index)
+        .unwrap_or(0);
+
+    let response_len =
+        serialize_response(&mut tasks[caller], response, &(i as u32))?;
+    tasks[caller]
+        .save_mut()
+        .set_send_response_and_length(0, response_len);
     Ok(NextTask::Same)
 }

@@ -93,7 +93,7 @@ task-slots = ["user_leds"]
 notifications = ["timer"]
 
 [tasks.hf]
-name = "drv-gimlet-hf-server"
+name = "drv-mock-gimlet-hf-server"
 features = ["h753", "hash"]
 priority = 6
 max-sizes = {flash = 16384, ram = 4096 }
@@ -156,10 +156,9 @@ start = true
 features = ["h753"]
 name = "drv-stm32h7-rng"
 priority = 6
-max-sizes = {flash = 8192, ram = 512}
 uses = ["rng"]
 start = true
-stacksize = 256
+stacksize = 512
 task-slots = ["sys", "user_leds"]
 
 [tasks.update_server]

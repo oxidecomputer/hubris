@@ -82,15 +82,11 @@ pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
 
     // Great! Pick our first task. We'll act like we're scheduling after the
     // last task, which will cause a scan from 0 on.
-    let first_task_index =
-        crate::task::select(task_table.len() - 1, task_table);
+    let first_task = crate::task::select(task_table.len() - 1, task_table);
 
-    crate::arch::apply_memory_protection(&task_table[first_task_index]);
+    crate::arch::apply_memory_protection(first_task);
     TASK_TABLE_IN_USE.store(false, Ordering::Release);
-    crate::arch::start_first_task(
-        tick_divisor,
-        &mut task_table[first_task_index],
-    )
+    crate::arch::start_first_task(tick_divisor, first_task)
 }
 
 /// Runs `body` with a reference to the task table.

@@ -14,6 +14,20 @@ Interface(
                 err: CLike("DumpAgentError"),
             ),
         ),
+        "read_dump_into": (
+            doc: "Fetch bytes from the dump at the specified offset from the specified area",
+            args: {
+                "index": "u8",
+                "offset": "u32",
+            },
+            leases: {
+                "out": (type: "[u8]", write: true),
+            },
+            reply: Result(
+                ok: "usize",
+                err: CLike("DumpAgentError"),
+            ),
+        ),
         "get_dump_area": (
             doc: "Return information associated with the specified dump area.",
             args: {

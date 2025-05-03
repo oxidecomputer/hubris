@@ -120,7 +120,7 @@ notifications = ["socket"]
 
 [tasks.hiffy]
 name = "task-hiffy"
-features = ["h743", "stm32h7", "i2c", "gpio", "spi"]
+features = ["h743", "stm32h7", "i2c", "gpio", "spi", "turbo"]
 priority = 4
 max-sizes = {flash = 32768, ram = 32768 }
 stacksize = 2048
@@ -138,8 +138,7 @@ start = true
 features = ["h743"]
 priority = 3
 name = "drv-stm32h7-rng"
-max-sizes = {flash = 8192, ram = 512}
-stacksize = 256
+stacksize = 512
 start = true
 task-slots = ["sys", "user_leds"]
 uses = ["rng"]

@@ -163,6 +163,28 @@ Interface(
             encoding: Hubpack,
             idempotent: true,
         ),
+        "reset": (
+            doc: "Reset the attestation log",
+            reply: Result(
+                ok: "()",
+                err: Complex("AttestError"),
+            ),
+            encoding: Hubpack,
+        ),
+        "reset_and_record": (
+            doc: "Reset the attestation log and then record a measurment",
+            args: {
+                "algorithm": "HashAlgorithm",
+            },
+            leases: {
+                "data": (type: "[u8]", read: true),
+            },
+            reply: Result(
+                ok: "()",
+                err: Complex("AttestError"),
+            ),
+            encoding: Hubpack,
+        ),
 
     }
 )

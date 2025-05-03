@@ -9,6 +9,8 @@
 #![cfg_attr(not(test), no_std)]
 #![forbid(clippy::wildcard_imports)]
 
+use core::cmp::Ordering;
+
 /// Describes types that act as "slices" (in the very abstract sense) referenced
 /// by tasks in syscalls.
 ///
@@ -84,6 +86,23 @@ pub trait MemoryRegion {
     fn end_addr(&self) -> usize;
 }
 
+/// Compares a memory region to an address for use in binary-searching a region
+/// table.
+///
+/// This will return `Equal` if the address falls within the region, `Greater`
+/// if the address is lower, `Less` if the address is higher. i.e. it returns
+/// the status of the region relative to the address, not vice versa.
+#[inline(always)]
+fn region_compare(region: &impl MemoryRegion, addr: usize) -> Ordering {
+    if addr < region.base_addr() {
+        Ordering::Greater
+    } else if addr >= region.end_addr() {
+        Ordering::Less
+    } else {
+        Ordering::Equal
+    }
+}
+
 impl<T: MemoryRegion> MemoryRegion for &T {
     #[inline(always)]
     fn contains(&self, addr: usize) -> bool {
@@ -133,6 +152,8 @@ impl<T: MemoryRegion> MemoryRegion for &T {
 /// that meet the `region_ok` condition.
 ///
 /// `false` otherwise.
+#[must_use]
+#[inline(always)]
 pub fn can_access<S, R>(
     slice: S,
     table: &[R],
@@ -159,35 +180,53 @@ where
 
     // Per the function's preconditions, the region table is sorted in ascending
     // order of base address, and the regions within it do not overlap. This
-    // lets us use a one-pass algorithm.
+    // lets us use a binary search followed by a short scan
     let mut scan_addr = slice.base_addr();
     let end_addr = slice.end_addr();
 
-    for region in table {
-        if region.contains(scan_addr) {
-            // Make sure it's permissible!
-            if !region_ok(region) {
-                // bail to the fail handling code at the end.
-                break;
-            }
+    let Ok(index) =
+        table.binary_search_by(|reg| region_compare(reg, scan_addr))
+    else {
+        // No region contained the start address.
+        return false;
+    };
 
-            if end_addr <= region.end_addr() {
-                // We've exhausted the slice in this region, we don't have
-                // to continue processing.
-                return true;
-            }
-
-            // Continue scanning at the end of this region.
-            scan_addr = region.end_addr();
-        } else if region.base_addr() > scan_addr {
-            // We've passed our target address without finding regions that
-            // work!
-            break;
-        }
+    // Perform fast checks on the initial region. In practical testing this
+    // provides a ~1% performance improvement over only using the loop below.
+    let first_region = &table[index];
+    if !region_ok(first_region) {
+        return false;
+    }
+    // Advance to the end of the first region
+    scan_addr = first_region.end_addr();
+    if scan_addr >= end_addr {
+        // That was easy
+        return true;
     }
 
-    // We reach this point by exhausting the region table, or finding a
-    // region at a higher address than the slice.
+    // Scan adjacent regions.
+    for region in &table[index + 1..] {
+        if !region.contains(scan_addr) {
+            // We've hit a hole without finishing our scan.
+            break;
+        }
+        // Make sure the region is permissible!
+        if !region_ok(region) {
+            // bail to the fail handling code at the end.
+            break;
+        }
+
+        if end_addr <= region.end_addr() {
+            // This region contains the end of our slice! We made it!
+            return true;
+        }
+
+        // Continue scanning at the end of this region.
+        scan_addr = region.end_addr();
+    }
+
+    // We reach this point by exhausting the region table without reaching the
+    // end of the slice, or hitting a hole.
     false
 }
 

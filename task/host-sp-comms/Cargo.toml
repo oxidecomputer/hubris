@@ -57,11 +57,13 @@ stm32h743 = ["drv-stm32h7-usart/h743", "drv-stm32xx-sys-api/h743", "drv-stm32h7-
 stm32h753 = ["drv-stm32h7-usart/h753", "drv-stm32xx-sys-api/h753", "drv-stm32h7-dbgmcu/h753"]
 usart6 = []
 uart7 = []
+uart8 = []
 baud_rate_3M = []
 hardware_flow_control = []
 vlan = ["task-net-api/vlan"]
 gimlet = ["pmbus", "tlvc", "drv-i2c-api", "drv-i2c-devices", "drv-spi-api", "ksz8463", "build-i2c", "task-sensor-api"]
 grapefruit = ["drv-spi-api", "ksz8463"]
+cosmo = ["pmbus", "tlvc", "drv-i2c-api", "drv-i2c-devices", "drv-spi-api", "ksz8463", "build-i2c", "task-sensor-api"]
 
 [[bin]]
 name = "task-host-sp-comms"

@@ -88,47 +88,29 @@ pub fn derive(input: TokenStream) -> TokenStream {
         for s in v
             .attrs
             .iter()
-            .filter(|s| s.path.segments[0].ident == "idol")
+            .filter(|s| s.path().segments[0].ident == "idol")
         {
-            if s.tokens.is_empty() {
+            let Ok(s) = s.meta.require_list() else {
                 variant_errors.push(compile_error(
                     s.span(),
                     "expected parentheses, e.g. #[idol(..)]",
                 ));
-            }
+                continue;
+            };
             for t in s.tokens.clone() {
-                let g = match &t {
-                    proc_macro2::TokenTree::Group(g) => g,
+                let tag = match &t {
+                    proc_macro2::TokenTree::Ident(tag) => tag,
                     _ => {
                         variant_errors.push(compile_error(
                             t.span(),
                             &format!(
-                                "unexpected token {t:?}; expected #[idol(...)]"
+                                "unexpected token {t:?}; expected an ident"
                             ),
                         ));
                         continue;
                     }
                 };
-                if g.delimiter() != proc_macro2::Delimiter::Parenthesis {
-                    variant_errors.push(compile_error(
-                        t.span(),
-                        "expected parenthesis, e.g. #[idol(...)]",
-                    ));
-                    continue;
-                }
-                let s: syn::Ident = match syn::parse2(g.stream()) {
-                    Ok(s) => s,
-                    _ => {
-                        variant_errors.push(compile_error(
-                            g.span(),
-                            &format!(
-                                "could not parse {g} as a single identifier"
-                            ),
-                        ));
-                        continue;
-                    }
-                };
-                match s.to_string().as_str() {
+                match tag.to_string().as_str() {
                     "server_death" => {
                         if dead_code.is_some() {
                             variant_errors.push(compile_error(

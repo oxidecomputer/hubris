@@ -10,24 +10,34 @@ idol-runtime = { workspace = true }
 lpc55-pac = { workspace = true }
 num-traits = { workspace = true }
 zerocopy = { workspace = true }
+bitflags = { workspace = true }
+static_assertions = { workspace = true }
 
+attest-api = { path = "../../task/attest-api" }
 drv-lpc55-gpio-api = { path = "../lpc55-gpio-api" }
 drv-lpc55-spi = { path = "../lpc55-spi" }
 drv-lpc55-syscon-api = { path = "../lpc55-syscon-api" }
 drv-sp-ctrl-api = { path = "../sp-ctrl-api" }
 ringbuf = { path = "../../lib/ringbuf" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+endoscope-abi = { path = "../../lib/endoscope-abi" }
 
 [build-dependencies]
+anyhow = { workspace = true }
 build-lpc55pins = { path = "../../build/lpc55pins" }
 build-util = { path = "../../build/util" }
-anyhow = { workspace = true }
+call_rustfmt = { path = "../../build/call_rustfmt" }
+endoscope-abi = { path = "../../lib/endoscope-abi" }
+endoscope = { path = "../../lib/endoscope", artifact="bin:endoscope", target = "thumbv7em-none-eabihf", features = ["soc_stm32h753"]}
+goblin = { workspace = true }
 idol = { workspace = true }
 quote = { workspace = true }
+rustc-demangle = { workspace = true }
 serde = { workspace = true }
 
 [features]
 no-ipc-counters = ["idol/no-counters"]
+enable_ext_sp_reset = []
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

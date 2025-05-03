@@ -1,36 +1,26 @@
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
-
-use std::{fs, io::Write};
+use std::io::Write;
 
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     build_util::expose_target_board();
-
-    let out_dir = build_util::out_dir();
-    let out_file = out_dir.join("grapefruit_fpga.rs");
-    let mut file = fs::File::create(out_file)?;
-
-    // Check that a valid bitstream is available for this board.
-    let board = build_util::env_var("HUBRIS_BOARD")?;
-    if board != "grapefruit" {
-        panic!("unknown target board");
-    }
-
-    // Pull the bitstream checksum from an environment variable
-    // (injected by `xtask` itself as part of auxiliary flash packing)
-    let checksum =
-        build_util::env_var("HUBRIS_AUXFLASH_CHECKSUM_FPGA").unwrap();
-    writeln!(
-        &mut file,
-        "\npub const FPGA_BITSTREAM_CHECKSUM: [u8; 32] = {};",
-        checksum,
-    )?;
-
     idol::Generator::new().build_server_support(
         "../../idl/cpu-seq.idol",
         "server_stub.rs",
         idol::server::ServerStyle::InOrder,
+    )?;
+
+    let out_dir = build_util::out_dir();
+    let out_file = out_dir.join("fmc_sgpio.rs");
+    let mut file = std::fs::File::create(out_file)?;
+    write!(
+        &mut file,
+        "{}",
+        build_fpga_regmap::fpga_peripheral(
+            "sgpio",
+            "drv_spartan7_loader_api::Spartan7Token"
+        )?
     )?;
 
     Ok(())

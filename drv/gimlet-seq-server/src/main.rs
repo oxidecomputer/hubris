@@ -17,7 +17,7 @@ use userlib::{
     sys_set_timer, task_slot, units, RecvMessage, TaskId, UnwrapLite,
 };
 
-use drv_cpu_seq_api::{PowerState, SeqError};
+use drv_cpu_seq_api::{PowerState, SeqError, StateChangeReason};
 use drv_hf_api as hf_api;
 use drv_i2c_api as i2c;
 use drv_ice40_spi_program as ice40;
@@ -90,7 +90,13 @@ enum Trace {
     RailsOn,
     UartEnabled,
     A0(u16),
-    SetState(PowerState, PowerState, u64),
+    SetState {
+        prev: PowerState,
+        next: PowerState,
+        #[count(children)]
+        why: StateChangeReason,
+        now: u64,
+    },
     UpdateState(#[count(children)] PowerState),
     ClockConfigWrite,
     ClockConfigSuccess,
@@ -482,7 +488,10 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
 
         // Power on, unless suppressed by the `stay-in-a2` feature
         if !cfg!(feature = "stay-in-a2") {
-            _ = server.set_state_internal(PowerState::A0);
+            _ = server.set_state_internal(
+                PowerState::A0,
+                StateChangeReason::InitialPowerOn,
+            );
         }
 
         //
@@ -666,11 +675,17 @@ impl<S: SpiServer> ServerImpl<S> {
     fn set_state_internal(
         &mut self,
         state: PowerState,
+        why: StateChangeReason,
     ) -> Result<(), SeqError> {
         let sys = sys_api::Sys::from(SYS.get_task_id());
 
         let now = sys_get_timer().now;
-        ringbuf_entry!(Trace::SetState(self.state, state, now));
+        ringbuf_entry!(Trace::SetState {
+            prev: self.state,
+            next: state,
+            why,
+            now
+        });
 
         ringbuf_entry_v3p3_sys_a0_vout();
 
@@ -723,7 +738,7 @@ impl<S: SpiServer> ServerImpl<S> {
                 // failing to sequence.
                 //
                 let a1 = Reg::PWR_CTRL::A1PWREN;
-                self.seq.write_bytes(Addr::PWR_CTRL, &[a1]).unwrap_lite();
+                self.seq.set_bytes(Addr::PWR_CTRL, &[a1]).unwrap_lite();
 
                 loop {
                     let mut status = [0u8];
@@ -779,7 +794,7 @@ impl<S: SpiServer> ServerImpl<S> {
                 // Onward to A0!
                 //
                 let a0 = Reg::PWR_CTRL::A0A_EN;
-                self.seq.write_bytes(Addr::PWR_CTRL, &[a0]).unwrap_lite();
+                self.seq.set_bytes(Addr::PWR_CTRL, &[a0]).unwrap_lite();
 
                 loop {
                     let mut status = [0u8];
@@ -813,6 +828,7 @@ impl<S: SpiServer> ServerImpl<S> {
 
                 //
                 // Now wait for the end of Group C.
+
                 //
                 loop {
                     let mut status = [0u8];
@@ -1033,7 +1049,18 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
         _: &RecvMessage,
         state: PowerState,
     ) -> Result<(), RequestError<SeqError>> {
-        self.set_state_internal(state).map_err(RequestError::from)
+        self.set_state_internal(state, StateChangeReason::Other)
+            .map_err(RequestError::from)
+    }
+
+    fn set_state_with_reason(
+        &mut self,
+        _: &RecvMessage,
+        state: PowerState,
+        reason: StateChangeReason,
+    ) -> Result<(), RequestError<SeqError>> {
+        self.set_state_internal(state, reason)
+            .map_err(RequestError::from)
     }
 
     fn send_hardware_nmi(
@@ -1403,7 +1430,7 @@ cfg_if::cfg_if! {
 }
 
 mod idl {
-    use super::SeqError;
+    use super::StateChangeReason;
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

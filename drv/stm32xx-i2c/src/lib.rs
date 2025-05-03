@@ -37,6 +37,7 @@ pub type Isr = device::i2c1::isr::R;
 
 pub mod ltc4306;
 pub mod max7358;
+pub mod pca9545;
 pub mod pca9548;
 
 use ringbuf::*;

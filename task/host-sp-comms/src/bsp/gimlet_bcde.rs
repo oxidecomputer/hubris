@@ -5,7 +5,7 @@
 //! SP inventory types and implementation
 //!
 //! This reduces clutter in the main `ServerImpl` implementation
-use super::ServerImpl;
+use super::{inventory::by_refdes, ServerImpl};
 
 use drv_i2c_api::I2cDevice;
 use drv_i2c_api::ResponseCode;
@@ -21,30 +21,11 @@ use host_sp_messages::{InventoryData, InventoryDataResult};
 userlib::task_slot!(I2C, i2c_driver);
 userlib::task_slot!(SPI, spi_driver);
 
-/// `const` function to convert a `&'static str` to a fixed-size byte array
-///
-/// This must be called a `const` parameter of `s.len()`
-const fn byteify<const N: usize>(s: &'static [u8]) -> [u8; N] {
-    let mut out = [0u8; N];
-    let mut i = 0;
-    while i < s.len() {
-        out[i] = s[i];
-        i += 1;
-    }
-    out
-}
-macro_rules! by_refdes {
-    ($refdes:ident, $dev:ident) => {
-        paste::paste! {{
-            const BYTE_ARRAY: &'static [u8] = stringify!($refdes).as_bytes();
-            (
-                byteify::<{ BYTE_ARRAY.len() }>(BYTE_ARRAY),
-                i2c_config::devices::[<$dev _ $refdes:lower >] as fn(TaskId) -> I2cDevice,
-                i2c_config::sensors::[<$dev:upper _ $refdes:upper _SENSORS>]
-            )
-        }}
-    };
-}
+// This net is named SP_TO_SP3_INT_L in the schematic
+pub(crate) const SP_TO_HOST_CPU_INT_L: drv_stm32xx_sys_api::PinSet =
+    drv_stm32xx_sys_api::Port::I.pin(7);
+pub(crate) const SP_TO_HOST_CPU_INT_TYPE: drv_stm32xx_sys_api::OutputType =
+    drv_stm32xx_sys_api::OutputType::OpenDrain;
 
 impl ServerImpl {
     /// Number of devices in our inventory
@@ -164,7 +145,7 @@ impl ServerImpl {
                     .try_encode_inventory(sequence, b"U12", || Ok(&data));
             }
             41 => {
-                // U431: BRM491
+                // U431: BMR491
                 let (name, f, sensors) = by_refdes!(U431, bmr491);
                 let dev = f(I2C.get_task_id());
                 // To be stack-friendly, we declare our output here,

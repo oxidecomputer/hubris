@@ -20,12 +20,6 @@
     ),
     path = "bsp/gimlet_bcdef.rs"
 )]
-#[cfg_attr(target_board = "gemini-bu-1", path = "bsp/gemini_bu_1.rs")]
-#[cfg_attr(target_board = "gimletlet-2", path = "bsp/gimletlet_2.rs")]
-#[cfg_attr(
-    any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi"),
-    path = "bsp/nucleo_h7x.rs"
-)]
 mod bsp;
 
 use userlib::{hl, task_slot, FromPrimitive, RecvMessage};
@@ -63,17 +57,14 @@ task_slot!(HASH, hash_driver);
 struct Config {
     pub sp_host_mux_select: sys_api::PinSet,
     pub reset: sys_api::PinSet,
-    pub flash_dev_select: Option<sys_api::PinSet>,
+    pub flash_dev_select: sys_api::PinSet,
     pub clock: u8,
 }
 
 impl Config {
     fn init(&self, sys: &sys_api::Sys) {
         // start with reset, mux select, and dev select all low
-        for &p in [self.reset, self.sp_host_mux_select]
-            .iter()
-            .chain(self.flash_dev_select.as_ref().into_iter())
-        {
+        for p in [self.reset, self.sp_host_mux_select, self.flash_dev_select] {
             sys.gpio_reset(p);
 
             sys.gpio_configure_output(
@@ -166,11 +157,9 @@ fn main() -> ! {
     // If we have persistent data, then use it to decide which flash chip to
     // select initially.
     match server.get_persistent_data() {
-        Ok(data) if server.dev_select_pin.is_some() => {
+        Ok(data) => {
+            // select the flash chip from persistent data
             server.set_dev(data.dev_select).unwrap()
-        }
-        Ok(_data) => {
-            // No chip select pin, so we ignore the persistent data
         }
         Err(HfError::NoPersistentData) => {
             // No persistent data, e.g. initial power-on
@@ -197,12 +186,12 @@ struct ServerImpl {
     mux_state: HfMuxState,
     mux_select_pin: sys_api::PinSet,
 
-    /// Selects between QSPI flash chips 1 and 2 (if present)
+    /// Selects between QSPI flash chips 1 and 2
     ///
     /// On startup, this is loaded from the persistent storage, but it can be
     /// changed by `set_dev` without necessarily being persisted to flash.
     dev_state: HfDevSelect,
-    dev_select_pin: Option<sys_api::PinSet>,
+    dev_select_pin: sys_api::PinSet,
 }
 
 impl ServerImpl {
@@ -228,15 +217,12 @@ impl ServerImpl {
     }
 
     fn set_dev(&mut self, state: HfDevSelect) -> Result<(), HfError> {
-        // Return early if the dev select pin is missing
-        let dev_select_pin = self.dev_select_pin.ok_or(HfError::NoDevSelect)?;
-
         self.check_muxed_to_sp()?;
 
         let sys = sys_api::Sys::from(SYS.get_task_id());
         match state {
-            HfDevSelect::Flash0 => sys.gpio_reset(dev_select_pin),
-            HfDevSelect::Flash1 => sys.gpio_set(dev_select_pin),
+            HfDevSelect::Flash0 => sys.gpio_reset(self.dev_select_pin),
+            HfDevSelect::Flash1 => sys.gpio_set(self.dev_select_pin),
         }
 
         self.dev_state = state;
@@ -247,32 +233,25 @@ impl ServerImpl {
         &mut self,
     ) -> Result<HfRawPersistentData, HfError> {
         self.check_muxed_to_sp()?;
-        let best = if self.dev_select_pin.is_some() {
-            let prev_slot = self.dev_state;
+        let prev_slot = self.dev_state;
 
-            // At this point, all of the ways that `set_dev` could fail have
-            // been checked: we already called both `check_muxed_to_sp` and that
-            // `dev_select_pin` is `Some(...)`, so we can unwrap returns from
-            // `self.set_dev(...)`.
+        // After having called `check_muxed_to_sp`, `self.set_dev(..)` is
+        // infallible and we can unwrap its returns.
 
-            // Look at the inactive slot first
-            self.set_dev(!prev_slot).unwrap();
-            let (a, _) = self.persistent_data_scan();
+        // Look at the inactive slot first
+        self.set_dev(!prev_slot).unwrap();
+        let (a, _) = self.persistent_data_scan();
 
-            // Then switch back to our current slot, so that the resulting state
-            // is unchanged.
-            self.set_dev(prev_slot).unwrap();
-            let (b, _) = self.persistent_data_scan();
+        // Then switch back to our current slot, so that the resulting state
+        // is unchanged.
+        self.set_dev(prev_slot).unwrap();
+        let (b, _) = self.persistent_data_scan();
 
-            match (a, b) {
-                (Some(a), Some(b)) => Some(a.max(b)),
-                (Some(_), None) => a,
-                (None, Some(_)) => b,
-                (None, None) => None,
-            }
-        } else {
-            // The single-chip case is easy:
-            self.persistent_data_scan().0
+        let best = match (a, b) {
+            (Some(a), Some(b)) => Some(a.max(b)),
+            (Some(_), None) => a,
+            (None, Some(_)) => b,
+            (None, None) => None,
         };
 
         best.ok_or(HfError::NoPersistentData)
@@ -356,11 +335,6 @@ impl ServerImpl {
         // This should only be called on startup, at which point we're always
         // muxed to the SP.
         self.check_muxed_to_sp().unwrap();
-
-        // We can't have redundant data if we've only got a single flash
-        if self.dev_select_pin.is_none() {
-            return Ok(());
-        }
 
         // Load the current state of persistent data from flash
         let prev_slot = self.dev_state;
@@ -502,6 +476,30 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         Ok(())
     }
 
+    fn page_program_dev(
+        &mut self,
+        msg: &RecvMessage,
+        dev: HfDevSelect,
+        addr: u32,
+        protect: HfProtectMode,
+        data: LenLimit<Leased<R, [u8]>, PAGE_SIZE_BYTES>,
+    ) -> Result<(), RequestError<HfError>> {
+        let prev = self.dev_state;
+        self.set_dev(dev)?;
+        let r = self.page_program(msg, addr, protect, data);
+        self.set_dev(prev).unwrap(); // infallible if the earlier set_dev worked
+        r
+    }
+
+    fn bonus_page_program(
+        &mut self,
+        _: &RecvMessage,
+        _addr: u32,
+        _data: LenLimit<Leased<R, [u8]>, PAGE_SIZE_BYTES>,
+    ) -> Result<(), RequestError<HfError>> {
+        Err(HfError::BadAddress.into())
+    }
+
     fn read(
         &mut self,
         _: &RecvMessage,
@@ -517,6 +515,15 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         Ok(())
     }
 
+    fn bonus_read(
+        &mut self,
+        _: &RecvMessage,
+        _addr: u32,
+        _dest: LenLimit<Leased<W, [u8]>, PAGE_SIZE_BYTES>,
+    ) -> Result<(), RequestError<HfError>> {
+        Err(HfError::BadAddress.into())
+    }
+
     fn sector_erase(
         &mut self,
         _: &RecvMessage,
@@ -524,6 +531,28 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         protect: HfProtectMode,
     ) -> Result<(), RequestError<HfError>> {
         self.sector_erase(addr, protect).map_err(RequestError::from)
+    }
+
+    fn sector_erase_dev(
+        &mut self,
+        _: &RecvMessage,
+        dev: HfDevSelect,
+        addr: u32,
+        protect: HfProtectMode,
+    ) -> Result<(), RequestError<HfError>> {
+        let prev = self.dev_state;
+        self.set_dev(dev)?;
+        let r = self.sector_erase(addr, protect).map_err(RequestError::from);
+        self.set_dev(prev).unwrap(); // infallible if the earlier set_dev worked
+        r
+    }
+
+    fn bonus_sector_erase(
+        &mut self,
+        _: &RecvMessage,
+        _addr: u32,
+    ) -> Result<(), RequestError<HfError>> {
+        Err(HfError::BadAddress.into())
     }
 
     fn get_mux(
@@ -562,6 +591,15 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         state: HfDevSelect,
     ) -> Result<(), RequestError<HfError>> {
         self.set_dev(state).map_err(RequestError::from)
+    }
+
+    fn check_dev(
+        &mut self,
+        _: &RecvMessage,
+        _state: HfDevSelect,
+    ) -> Result<(), RequestError<HfError>> {
+        self.check_muxed_to_sp()?;
+        Ok(())
     }
 
     #[cfg(feature = "hash")]
@@ -640,75 +678,48 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     ) -> Result<(), RequestError<HfError>> {
         let data = HfPersistentData { dev_select };
         self.check_muxed_to_sp()?;
-        if self.dev_select_pin.is_some() {
-            let prev_slot = self.dev_state;
+        let prev_slot = self.dev_state;
 
-            // At this point, all of the ways that `set_dev` could fail have
-            // been checked: we already called both `check_muxed_to_sp` and that
-            // `dev_select_pin` is `Some(...)`, so we can unwrap returns from
-            // `self.set_dev(...)`.
-            self.set_dev(!prev_slot).unwrap();
-            let (a_data, a_next) = self.persistent_data_scan();
+        // After having called `check_muxed_to_sp`, `self.set_dev(..)` is
+        // infallible and we can unwrap its returns.
+        self.set_dev(!prev_slot).unwrap();
+        let (a_data, a_next) = self.persistent_data_scan();
 
-            self.set_dev(prev_slot).unwrap();
-            let (b_data, b_next) = self.persistent_data_scan();
+        self.set_dev(prev_slot).unwrap();
+        let (b_data, b_next) = self.persistent_data_scan();
 
-            let prev_monotonic_counter = match (a_data, b_data) {
-                (Some(a), Some(b)) => {
-                    a.monotonic_counter.max(b.monotonic_counter)
-                }
-                (Some(a), None) => a.monotonic_counter,
-                (None, Some(b)) => b.monotonic_counter,
-                (None, None) => 0,
-            };
+        let prev_monotonic_counter = match (a_data, b_data) {
+            (Some(a), Some(b)) => a.monotonic_counter.max(b.monotonic_counter),
+            (Some(a), None) => a.monotonic_counter,
+            (None, Some(b)) => b.monotonic_counter,
+            (None, None) => 0,
+        };
 
-            // Early exit if the previous persistent data matches
-            let prev_raw =
-                HfRawPersistentData::new(data, prev_monotonic_counter);
-            if a_data == b_data && a_data == Some(prev_raw) {
-                return Ok(());
-            }
-
-            let monotonic_counter = prev_monotonic_counter
-                .checked_add(1)
-                .ok_or(HfError::MonotonicCounterOverflow)?;
-            let raw = HfRawPersistentData::new(data, monotonic_counter);
-
-            // Write the persistent data to the currently inactive flash.
-            self.set_dev(!prev_slot).unwrap();
-            let out_a = self.write_raw_persistent_data_to_addr(a_next, &raw);
-
-            // Swap back to the currently selected flash
-            self.set_dev(prev_slot).unwrap();
-
-            // Now that we've restored the current active flash, check whether
-            // we should propagate errors.
-            out_a?;
-
-            // Write the persistent data to the currently active flash
-            self.write_raw_persistent_data_to_addr(b_next, &raw)?;
-        } else {
-            // Single-flash case is less complicated, because we don't have to
-            // track and maintain the active device.
-            let (prev_data, next) = self.persistent_data_scan();
-            let prev_monotonic_counter = match prev_data {
-                Some(a) => a.monotonic_counter,
-                None => 0,
-            };
-
-            // Early exit if the previous persistent data matches
-            let prev_raw =
-                HfRawPersistentData::new(data, prev_monotonic_counter);
-            if prev_data == Some(prev_raw) {
-                return Ok(());
-            }
-
-            let monotonic_counter = prev_monotonic_counter
-                .checked_add(1)
-                .ok_or(HfError::MonotonicCounterOverflow)?;
-            let raw = HfRawPersistentData::new(data, monotonic_counter);
-            self.write_raw_persistent_data_to_addr(next, &raw)?;
+        // Early exit if the previous persistent data matches
+        let prev_raw = HfRawPersistentData::new(data, prev_monotonic_counter);
+        if a_data == b_data && a_data == Some(prev_raw) {
+            return Ok(());
         }
+
+        let monotonic_counter = prev_monotonic_counter
+            .checked_add(1)
+            .ok_or(HfError::MonotonicCounterOverflow)?;
+        let raw = HfRawPersistentData::new(data, monotonic_counter);
+
+        // Write the persistent data to the currently inactive flash.
+        self.set_dev(!prev_slot).unwrap();
+        let out_a = self.write_raw_persistent_data_to_addr(a_next, &raw);
+
+        // Swap back to the currently selected flash
+        self.set_dev(prev_slot).unwrap();
+
+        // Now that we've restored the current active flash, check whether
+        // we should propagate errors.
+        out_a?;
+
+        // Write the persistent data to the currently active flash
+        self.write_raw_persistent_data_to_addr(b_next, &raw)?;
+
         Ok(())
     }
 }

@@ -220,7 +220,7 @@ pub const fn extract_new_generation(code: u32) -> Option<Generation> {
 pub const DEFECT: u32 = 1;
 
 /// State used to make scheduling decisions.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
+#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
 pub enum TaskState {
     /// Task is healthy and can be scheduled subject to the `SchedState`
     /// requirements.
@@ -252,7 +252,10 @@ impl TaskState {
     /// Checks if a task in this state is trying to deliver a message to
     /// `target`.
     pub fn is_sending_to(&self, target: TaskId) -> bool {
-        self == &TaskState::Healthy(SchedState::InSend(target))
+        match self {
+            TaskState::Healthy(SchedState::InSend(t)) => *t == target,
+            _ => false,
+        }
     }
 
     /// Checks if a task in this state can be unblocked with a notification.
@@ -386,6 +389,10 @@ pub enum UsageError {
     BadKernelMessage,
     BadReplyFaultReason,
     NotSupervisor,
+
+    /// A server is attempting to reply with a message that is too large for the
+    /// client to handle.
+    ReplyTooBig,
 }
 
 /// Origin of a fault.
@@ -490,6 +497,7 @@ pub enum Kipcnum {
     GetTaskDumpRegion = 6,
     ReadTaskDumpRegion = 7,
     SoftwareIrq = 8,
+    FindFaultedTask = 9,
 }
 
 impl core::convert::TryFrom<u16> for Kipcnum {
@@ -505,6 +513,7 @@ impl core::convert::TryFrom<u16> for Kipcnum {
             6 => Ok(Self::GetTaskDumpRegion),
             7 => Ok(Self::ReadTaskDumpRegion),
             8 => Ok(Self::SoftwareIrq),
+            9 => Ok(Self::FindFaultedTask),
             _ => Err(()),
         }
     }
@@ -545,5 +554,17 @@ bitflags::bitflags! {
         const PENDING = 1 << 1;
         ///If 1, a notification has been posted for this interrupt.
         const POSTED = 1 << 2;
+    }
+}
+
+bitflags::bitflags! {
+    /// Bitflags that can be passed into the `IRQ_CONTROL` syscall.
+    #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+    pub struct IrqControlArg: u32 {
+        /// Enables the interrupt if present, disables if not present.
+        const ENABLED = 1 << 0;
+        /// If present, requests that any pending instance of this interrupt be
+        // cleared.
+        const CLEAR_PENDING = 1 << 1;
     }
 }

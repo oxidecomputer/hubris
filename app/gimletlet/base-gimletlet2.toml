@@ -81,6 +81,7 @@ task-slots = ["sys"]
 
 [tasks.hiffy]
 name = "task-hiffy"
+features = ["turbo"]
 priority = 7
 max-sizes = {flash = 32768, ram = 32768}
 stacksize = 2048
@@ -105,10 +106,9 @@ start = true
 features = ["h753"]
 name = "drv-stm32h7-rng"
 priority = 6
-max-sizes = {flash = 8192, ram = 512}
 uses = ["rng"]
 start = true
-stacksize = 256
+stacksize = 512
 task-slots = ["sys", "user_leds"]
 
 [tasks.update_server]

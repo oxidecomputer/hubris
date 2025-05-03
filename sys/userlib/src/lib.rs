@@ -964,8 +964,30 @@ unsafe extern "C" fn sys_borrow_info_stub(
 
 #[inline(always)]
 pub fn sys_irq_control(mask: u32, enable: bool) {
+    let mut arg = IrqControlArg::empty();
+    if enable {
+        arg |= IrqControlArg::ENABLED;
+    }
+
     unsafe {
-        sys_irq_control_stub(mask, enable as u32);
+        sys_irq_control_stub(mask, arg.bits());
+    }
+}
+
+/// Variation on [`sys_irq_control`] that also clears any pending interrupt.
+///
+/// This sets the interrupt enable status based on `enable`, and also cancels a
+/// pending instance of this interrupt in the interrupt controller, if the
+/// interrupt controller supports such a concept (ARM M-profile NVIC does, for
+/// instance).
+#[inline(always)]
+pub fn sys_irq_control_clear_pending(mask: u32, enable: bool) {
+    let mut arg = IrqControlArg::CLEAR_PENDING;
+    if enable {
+        arg |= IrqControlArg::ENABLED;
+    }
+    unsafe {
+        sys_irq_control_stub(mask, arg.bits());
     }
 }
 

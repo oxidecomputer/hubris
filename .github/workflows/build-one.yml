@@ -40,6 +40,7 @@ jobs:
       # install rust toolchain
       - name: Install Rust toolchain
         run: |
+          rustup show active-toolchain || rustup toolchain install
           rustup show
           rustup component add clippy
 

@@ -4,7 +4,7 @@
 
 use crate::{
     i2c_config::{self, sensors},
-    DeviceType, Ohms, PowerControllerConfig, PowerState,
+    Ohms, PowerControllerConfig, PowerState,
 };
 
 pub(crate) const CONTROLLER_CONFIG_LEN: usize = 16;

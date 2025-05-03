@@ -31,6 +31,7 @@ build-util = { path = "../../build/util" }
 [features]
 dump = []
 nano = [ "ringbuf/disabled" ]
+no-panic = [ "userlib/no-panic" ]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

@@ -61,6 +61,7 @@ uses = ["usart1"]
 task-slots = [
     "jefe",
     "net",
+    "dump_agent",
     "update_server",
     "sys",
     "hf",
@@ -102,7 +103,7 @@ task-slots = ["jefe"]
 
 [tasks.host_sp_comms]
 name = "task-host-sp-comms"
-features = ["stm32h753", "uart7", "baud_rate_3M", "hardware_flow_control", "vlan"]
+features = ["gimlet", "stm32h753", "uart7", "baud_rate_3M", "hardware_flow_control", "vlan"]
 uses = ["uart7", "dbgmcu"]
 interrupts = {"uart7.irq" = "usart-irq"}
 priority = 8
@@ -118,9 +119,7 @@ notifications = [
 ]
 
 [tasks.hf]
-# If you do not have a gimletlet qspi-let adapter but want to test the hf API
-# (e.g., from control-plane-agent / MGS), switch to `drv-mock-gimlet-hf-server`.
-name = "drv-gimlet-hf-server"
+name = "drv-mock-gimlet-hf-server"
 features = ["h753", "hash"]
 priority = 6
 max-sizes = {flash = 16384, ram = 4096}
@@ -258,3 +257,28 @@ pins = [
     # SPI6 CS repurposed for debugging
     { name = "DEBUG", pin = { port = "G", pin = 8, af = 0, direction = "output"}}
 ]
+
+#
+# This device definition is only provided as a way to test this driver absent
+# a larger board that has it; unless your Gimletlet is in a basement known
+# to be roamed by a certain board-killing cat, it's unlikely to have this
+# device attached!  (But other than the `power` task reporting it as being
+# absent, there should be no harm to it being missing.)
+#
+[[config.i2c.devices]]
+device = "lm5066"
+controller = 4
+address = 0x16
+description = "LM5066 evaluation board"
+power = { rails = [ "LM5066_EVL_VOUT" ] }
+sensors = { voltage = 1, current = 1, temperature = 1 }
+
+[tasks.power]
+name = "task-power"
+priority = 6
+max-sizes = {flash = 65536, ram = 16384 }
+stacksize = 3800
+start = true
+task-slots = ["i2c_driver", "sensor"]
+notifications = ["timer"]
+

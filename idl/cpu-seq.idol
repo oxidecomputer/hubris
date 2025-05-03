@@ -13,16 +13,33 @@ Interface(
             idempotent: true,
         ),
         "set_state": (
+            doc: "Set the power state without providing a reason (legacy).",
+            args: {
+                "state": (
+                    type: "drv_cpu_power_state::PowerState",
+                    recv: FromPrimitive("u8"),
+                ),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("drv_cpu_seq_api::SeqError"),
+            ),
+        ),
+        "set_state_with_reason": (
             doc: "Set the power state",
             args: {
                 "state": (
                     type: "drv_cpu_power_state::PowerState",
                     recv: FromPrimitive("u8"),
-                )
+                ),
+                "reason": (
+                    type: "StateChangeReason",
+                    recv: FromPrimitive("u8"),
+                ),
             },
             reply: Result(
                 ok: "()",
-                err: CLike("SeqError"),
+                err: CLike("drv_cpu_seq_api::SeqError"),
             ),
         ),
         "send_hardware_nmi": (
