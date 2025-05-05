@@ -216,6 +216,23 @@ enum Ack {
     Protocol,
 }
 
+impl Into<SpCtrlError> for Ack {
+    fn into(self) -> SpCtrlError {
+        match self {
+            Self::Wait => SpCtrlError::AckWait,
+            Self::Fault => SpCtrlError::AckFault,
+            Self::Protocol => SpCtrlError::AckProtocol,
+        }
+    }
+}
+
+impl Into<RequestError<SpCtrlError>> for Ack {
+    fn into(self) -> RequestError<SpCtrlError> {
+        let e: SpCtrlError = self.into();
+        e.into()
+    }
+}
+
 // ADIv5 11.2.1 describes the CSW bits. Several of those fields (DbgSwEnable,
 // Prot, SPIDEN) are implementation defined. RM0433 60.4.2 gives us the details
 // of the implementation we care about. Note that the "Cacheable" bit (bit 27)
@@ -387,6 +404,13 @@ struct MemTransaction {
     read_cnt: usize,
 }
 
+// Internal to setup
+enum SwdSetupErr {
+    IdCode(Ack),
+    PowerUp(Ack),
+    Idr(Ack),
+}
+
 struct ServerImpl {
     spi: spi_core::Spi,
     gpio: TaskId,
@@ -410,7 +434,7 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
             len: end - start
         });
         self.start_read_transaction(start, ((end - start) as usize) / 4)
-            .map_err(|_| SpCtrlError::Fault.into())
+            .map_err(|e| e.into())
     }
 
     fn read_transaction(
@@ -440,7 +464,7 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
                         }
                     }
                 }
-                Err(_) => return Err(SpCtrlError::Fault.into()),
+                Err(e) => return Err(e.into()),
             }
         }
 
@@ -473,7 +497,7 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
                         }
                     }
                 }
-                Err(_) => return Err(SpCtrlError::Fault.into()),
+                Err(e) => return Err(e.into()),
             }
         }
 
@@ -504,14 +528,11 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
                     None => return Ok(()),
                 };
             }
-            if self
-                .write_single_target_addr(
-                    addr + ((i * 4) as u32),
-                    u32::from_le_bytes(word),
-                )
-                .is_err()
-            {
-                return Err(SpCtrlError::Fault.into());
+            if let Err(e) = self.write_single_target_addr(
+                addr + ((i * 4) as u32),
+                u32::from_le_bytes(word),
+            ) {
+                return Err(e.into());
             }
         }
 
@@ -550,7 +571,10 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
         let r =
             Reg::from_u16(register).ok_or(SpCtrlError::InvalidCoreRegister)?;
         self.write_single_target_addr(DCRSR, r as u32)
-            .map_err(|_| SpCtrlError::Fault)?;
+            .map_err(|e| {
+                let err: SpCtrlError = e.into();
+                err
+            })?;
         loop {
             match self.dp_read_bitflags::<Dhcsr>() {
                 Ok(dhcsr) => {
@@ -560,15 +584,15 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
                         break;
                     }
                 }
-                Err(_) => {
-                    return Err(SpCtrlError::Fault.into());
+                Err(e) => {
+                    return Err(e.into());
                 }
             }
         }
 
         match self.read_dcrdr() {
             Ok(val) => Ok(val),
-            Err(_) => Err(SpCtrlError::Fault.into()),
+            Err(e) => Err(e.into()),
         }
     }
 
@@ -1021,7 +1045,7 @@ impl ServerImpl {
         gpio.read_val(SP_TO_ROT_JTAG_DETECT_L) == Value::Zero
     }
 
-    fn swd_setup(&mut self) -> Result<(), Ack> {
+    fn swd_setup(&mut self) -> Result<(), SwdSetupErr> {
         self.io_out();
         // Section B5.2.2 of ADIv6 specifies this sequence
         self.reset();
@@ -1031,15 +1055,18 @@ impl ServerImpl {
         self.idle_cycles(16);
 
         // Must read DP IDCODE register after reset
-        let result =
-            self.swd_read(Port::DP, RawSwdReg::DpRead(DpRead::IDCode))?;
+        let result = self
+            .swd_read(Port::DP, RawSwdReg::DpRead(DpRead::IDCode))
+            .map_err(|e| SwdSetupErr::IdCode(e))?;
 
         ringbuf_entry!(Trace::Idcode(result));
 
-        self.power_up()?;
+        self.power_up().map_err(|e| SwdSetupErr::PowerUp(e))?;
 
         // Read the IDR as a basic test for reading from the AP
-        let result = self.swd_read_ap_reg(ApAddr(0, ApReg::IDR), false)?;
+        let result = self
+            .swd_read_ap_reg(ApAddr(0, ApReg::IDR), false)
+            .map_err(|e| SwdSetupErr::Idr(e))?;
         ringbuf_entry!(Trace::Idr(result));
 
         Ok(())
@@ -1511,9 +1538,9 @@ impl ServerImpl {
         value: u32,
     ) -> Result<(), SpCtrlError> {
         self.write_single_target_addr(DCRDR, value)
-            .map_err(|_| SpCtrlError::Fault)?;
+            .map_err(|e| e.into())?;
         self.write_single_target_addr(DCRSR, register as u32 | (1u32 << 16))
-            .map_err(|_| SpCtrlError::Fault)?;
+            .map_err(|e| e.into())?;
 
         const RETRY_LIMIT: u32 = 10;
         let mut limit = RETRY_LIMIT;
@@ -1534,7 +1561,7 @@ impl ServerImpl {
                     limit -= 1;
                     hl::sleep_for(1);
                 }
-                Err(_) => return Err(SpCtrlError::Fault),
+                Err(e) => return Err(e.into()),
             }
         }
     }
@@ -1567,7 +1594,7 @@ impl ServerImpl {
         let start = addr;
         let end = addr + buf.len() as u32;
         self.start_read_transaction(start, ((end - start) as usize) / 4)
-            .map_err(|_| SpCtrlError::Fault)?;
+            .map_err(|e| e.into())?;
 
         let cnt = buf.len();
         if cnt % 4 != 0 {
@@ -1585,7 +1612,7 @@ impl ServerImpl {
                         }
                     }
                 }
-                Err(_) => return Err(SpCtrlError::Fault),
+                Err(e) => return Err(e.into()),
             }
         }
 
@@ -1606,9 +1633,34 @@ impl ServerImpl {
                 self.init = true;
                 Ok(())
             }
-            Err(_) => {
+            Err(e) => {
+                // Other parts of the ringbuf are more useful, no need to repeat
                 ringbuf_entry!(Trace::SwdSetupFail);
-                Err(SpCtrlError::Fault)
+                match e {
+                    SwdSetupErr::IdCode(Ack::Fault) => {
+                        Err(SpCtrlError::IdCodeFault)
+                    }
+                    SwdSetupErr::IdCode(Ack::Wait) => {
+                        Err(SpCtrlError::IdCodeWait)
+                    }
+                    SwdSetupErr::IdCode(Ack::Protocol) => {
+                        Err(SpCtrlError::IdCodeProtocol)
+                    }
+                    SwdSetupErr::PowerUp(Ack::Fault) => {
+                        Err(SpCtrlError::PowerUpFault)
+                    }
+                    SwdSetupErr::PowerUp(Ack::Wait) => {
+                        Err(SpCtrlError::PowerUpWait)
+                    }
+                    SwdSetupErr::PowerUp(Ack::Protocol) => {
+                        Err(SpCtrlError::PowerUpProtocol)
+                    }
+                    SwdSetupErr::Idr(Ack::Fault) => Err(SpCtrlError::IdrFault),
+                    SwdSetupErr::Idr(Ack::Wait) => Err(SpCtrlError::IdrWait),
+                    SwdSetupErr::Idr(Ack::Protocol) => {
+                        Err(SpCtrlError::IdrProtocol)
+                    }
+                }
             }
         }
     }
@@ -1626,7 +1678,7 @@ impl ServerImpl {
     fn do_halt(&mut self) -> Result<(), SpCtrlError> {
         ringbuf_entry!(Trace::DoHalt);
         self.dp_write_bitflags::<Dhcsr>(Dhcsr::halt())
-            .map_err(|_| SpCtrlError::Fault)?;
+            .map_err(|e| e.into())?;
         self.wait_for_sp_halt(WAIT_FOR_HALT_MS)
     }
 
@@ -1637,20 +1689,23 @@ impl ServerImpl {
         let start = sys_get_timer().now;
         let deadline = start.wrapping_add(timeout);
         loop {
-            if let Ok(dhcsr) = self.dp_read_bitflags::<Dhcsr>() {
-                if dhcsr.is_halted() {
-                    ringbuf_entry!(Trace::Halted {
-                        delta_t: (sys_get_timer().now.saturating_sub(start))
-                            as u32
-                    });
-                    return Ok(());
+            match self.dp_read_bitflags::<Dhcsr>() {
+                Ok(dhcsr) => {
+                    if dhcsr.is_halted() {
+                        ringbuf_entry!(Trace::Halted {
+                            delta_t: (sys_get_timer().now.saturating_sub(start))
+                                as u32
+                        });
+                        return Ok(());
+                    }
                 }
-            } else {
-                ringbuf_entry!(Trace::HaltFail(
-                    (sys_get_timer().now.saturating_sub(start)) as u32
-                ));
-                return Err(SpCtrlError::Fault);
-            }
+                Err(e) => {
+                    ringbuf_entry!(Trace::HaltFail(
+                        (sys_get_timer().now.saturating_sub(start)) as u32
+                    ));
+                    return Err(e.into());
+                }
+            };
             if deadline <= sys_get_timer().now {
                 // If a human is holding down a physical reset button then
                 // SP_RESET may have never been released.
@@ -1664,12 +1719,12 @@ impl ServerImpl {
     }
 
     fn do_resume(&mut self) -> Result<(), SpCtrlError> {
-        if self.dp_write_bitflags::<Dhcsr>(Dhcsr::resume()).is_ok() {
+        if let Err(e) = self.dp_write_bitflags::<Dhcsr>(Dhcsr::resume()) {
+            ringbuf_entry!(Trace::ResumeFail);
+            Err(e.into())
+        } else {
             ringbuf_entry!(Trace::Resumed);
             Ok(())
-        } else {
-            ringbuf_entry!(Trace::ResumeFail);
-            Err(SpCtrlError::Fault)
         }
     }
 
