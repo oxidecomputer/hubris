@@ -216,19 +216,19 @@ enum Ack {
     Protocol,
 }
 
-impl Into<SpCtrlError> for Ack {
-    fn into(self) -> SpCtrlError {
-        match self {
-            Self::Wait => SpCtrlError::AckWait,
-            Self::Fault => SpCtrlError::AckFault,
-            Self::Protocol => SpCtrlError::AckProtocol,
+impl From<Ack> for SpCtrlError {
+    fn from(val: Ack) -> Self {
+        match val {
+            Ack::Wait => SpCtrlError::AckWait,
+            Ack::Fault => SpCtrlError::AckFault,
+            Ack::Protocol => SpCtrlError::AckProtocol,
         }
     }
 }
 
-impl Into<RequestError<SpCtrlError>> for Ack {
-    fn into(self) -> RequestError<SpCtrlError> {
-        let e: SpCtrlError = self.into();
+impl From<Ack> for RequestError<SpCtrlError> {
+    fn from(val: Ack) -> Self {
+        let e: SpCtrlError = val.into();
         e.into()
     }
 }
@@ -1057,16 +1057,16 @@ impl ServerImpl {
         // Must read DP IDCODE register after reset
         let result = self
             .swd_read(Port::DP, RawSwdReg::DpRead(DpRead::IDCode))
-            .map_err(|e| SwdSetupErr::IdCode(e))?;
+            .map_err(SwdSetupErr::IdCode)?;
 
         ringbuf_entry!(Trace::Idcode(result));
 
-        self.power_up().map_err(|e| SwdSetupErr::PowerUp(e))?;
+        self.power_up().map_err(SwdSetupErr::PowerUp)?;
 
         // Read the IDR as a basic test for reading from the AP
         let result = self
             .swd_read_ap_reg(ApAddr(0, ApReg::IDR), false)
-            .map_err(|e| SwdSetupErr::Idr(e))?;
+            .map_err(SwdSetupErr::Idr)?;
         ringbuf_entry!(Trace::Idr(result));
 
         Ok(())
@@ -1538,9 +1538,9 @@ impl ServerImpl {
         value: u32,
     ) -> Result<(), SpCtrlError> {
         self.write_single_target_addr(DCRDR, value)
-            .map_err(|e| e.into())?;
+            .map_err(SpCtrlError::from)?;
         self.write_single_target_addr(DCRSR, register as u32 | (1u32 << 16))
-            .map_err(|e| e.into())?;
+            .map_err(SpCtrlError::from)?;
 
         const RETRY_LIMIT: u32 = 10;
         let mut limit = RETRY_LIMIT;
@@ -1594,7 +1594,7 @@ impl ServerImpl {
         let start = addr;
         let end = addr + buf.len() as u32;
         self.start_read_transaction(start, ((end - start) as usize) / 4)
-            .map_err(|e| e.into())?;
+            .map_err(SpCtrlError::from)?;
 
         let cnt = buf.len();
         if cnt % 4 != 0 {
@@ -1678,7 +1678,7 @@ impl ServerImpl {
     fn do_halt(&mut self) -> Result<(), SpCtrlError> {
         ringbuf_entry!(Trace::DoHalt);
         self.dp_write_bitflags::<Dhcsr>(Dhcsr::halt())
-            .map_err(|e| e.into())?;
+            .map_err(SpCtrlError::from)?;
         self.wait_for_sp_halt(WAIT_FOR_HALT_MS)
     }
 
