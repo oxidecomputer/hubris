@@ -453,18 +453,13 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
         let mut buf = LeaseBufWriter::<_, 32>::from(dest.into_inner());
 
         for _ in 0..cnt / 4 {
-            match self.read_transaction_word() {
-                Ok(r) => {
-                    if let Some(w) = r {
-                        ringbuf_entry!(Trace::MemVal(w));
-                        for b in w.to_le_bytes() {
-                            if buf.write(b).is_err() {
-                                return Ok(());
-                            }
-                        }
+            if let Some(w) = self.read_transaction_word()? {
+                ringbuf_entry!(Trace::MemVal(w));
+                for b in w.to_le_bytes() {
+                    if buf.write(b).is_err() {
+                        return Ok(());
                     }
                 }
-                Err(e) => return Err(e.into()),
             }
         }
 
@@ -488,16 +483,12 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
         let mut buf = LeaseBufWriter::<_, 32>::from(dest.into_inner());
 
         for i in 0..cnt / 4 {
-            match self.read_single_target_addr(addr + ((i * 4) as u32)) {
-                Ok(r) => {
-                    ringbuf_entry!(Trace::MemVal(r));
-                    for b in r.to_le_bytes() {
-                        if buf.write(b).is_err() {
-                            return Ok(());
-                        }
-                    }
+            let r = self.read_single_target_addr(addr + ((i * 4) as u32))?;
+            ringbuf_entry!(Trace::MemVal(r));
+            for b in r.to_le_bytes() {
+                if buf.write(b).is_err() {
+                    return Ok(());
                 }
-                Err(e) => return Err(e.into()),
             }
         }
 
@@ -528,12 +519,10 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
                     None => return Ok(()),
                 };
             }
-            if let Err(e) = self.write_single_target_addr(
+            self.write_single_target_addr(
                 addr + ((i * 4) as u32),
                 u32::from_le_bytes(word),
-            ) {
-                return Err(e.into());
-            }
+            )?;
         }
 
         Ok(())
@@ -581,10 +570,7 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
             }
         }
 
-        match self.read_dcrdr() {
-            Ok(val) => Ok(val),
-            Err(e) => Err(e.into()),
-        }
+        self.read_dcrdr().map_err(|e| e.into())
     }
 
     fn enable_sp_slot_watchdog(
@@ -1590,16 +1576,11 @@ impl ServerImpl {
 
         let mut i = 0usize;
         for _ in 0..cnt / 4 {
-            match self.read_transaction_word() {
-                Ok(r) => {
-                    if let Some(w) = r {
-                        for b in w.to_le_bytes() {
-                            buf[i] = b;
-                            i += 1;
-                        }
-                    }
+            if let Some(w) = self.read_transaction_word()? {
+                for b in w.to_le_bytes() {
+                    buf[i] = b;
+                    i += 1;
                 }
-                Err(e) => return Err(e.into()),
             }
         }
 
