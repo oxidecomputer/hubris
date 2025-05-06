@@ -571,22 +571,13 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
         let r =
             Reg::from_u16(register).ok_or(SpCtrlError::InvalidCoreRegister)?;
         self.write_single_target_addr(DCRSR, r as u32)
-            .map_err(|e| {
-                let err: SpCtrlError = e.into();
-                err
-            })?;
+            .map_err(SpCtrlError::from)?;
         loop {
-            match self.dp_read_bitflags::<Dhcsr>() {
-                Ok(dhcsr) => {
-                    ringbuf_entry!(Trace::Dhcsr(dhcsr));
+            let dhcsr = self.dp_read_bitflags::<Dhcsr>()?;
+            ringbuf_entry!(Trace::Dhcsr(dhcsr));
 
-                    if dhcsr.is_regrdy() {
-                        break;
-                    }
-                }
-                Err(e) => {
-                    return Err(e.into());
-                }
+            if dhcsr.is_regrdy() {
+                break;
             }
         }
 
@@ -1545,24 +1536,20 @@ impl ServerImpl {
         const RETRY_LIMIT: u32 = 10;
         let mut limit = RETRY_LIMIT;
         loop {
-            match self.dp_read_bitflags::<Dhcsr>() {
-                Ok(dhcsr) => {
-                    if dhcsr.is_regrdy() {
-                        // Trace retries used
-                        if limit != RETRY_LIMIT {
-                            ringbuf_entry!(Trace::LimitRemaining(limit));
-                        }
-                        return Ok(());
-                    }
-                    if limit == 0 {
-                        ringbuf_entry!(Trace::LimitRemaining(limit));
-                        return Err(SpCtrlError::Fault);
-                    }
-                    limit -= 1;
-                    hl::sleep_for(1);
+            let dhcsr = self.dp_read_bitflags::<Dhcsr>()?;
+            if dhcsr.is_regrdy() {
+                // Trace retries used
+                if limit != RETRY_LIMIT {
+                    ringbuf_entry!(Trace::LimitRemaining(limit));
                 }
-                Err(e) => return Err(e.into()),
+                return Ok(());
             }
+            if limit == 0 {
+                ringbuf_entry!(Trace::LimitRemaining(limit));
+                return Err(SpCtrlError::Fault);
+            }
+            limit -= 1;
+            hl::sleep_for(1);
         }
     }
 
