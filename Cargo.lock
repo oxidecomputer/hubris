@@ -3271,7 +3271,7 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 [[package]]
 name = "idol"
 version = "0.5.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git?branch=eliza/zerocopy-0.8#f746beb50cfc704c938dff43b17ca0754d048d7c"
+source = "git+https://github.com/oxidecomputer/idolatry.git#6bc95555bcc8296f050135b5cb5cb2728491a33b"
 dependencies = [
  "indexmap 1.9.1",
  "once_cell",
@@ -3288,7 +3288,7 @@ dependencies = [
 [[package]]
 name = "idol-runtime"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git?branch=eliza/zerocopy-0.8#f746beb50cfc704c938dff43b17ca0754d048d7c"
+source = "git+https://github.com/oxidecomputer/idolatry.git#6bc95555bcc8296f050135b5cb5cb2728491a33b"
 dependencies = [
  "counters",
  "userlib",
