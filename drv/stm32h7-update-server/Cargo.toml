@@ -10,6 +10,7 @@ num-traits = { workspace = true }
 serde = { workspace = true }
 stm32h7 = { workspace = true, features = ["stm32h753"] }
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 
 drv-caboose.path = "../../drv/caboose"
 drv-stm32h7-update-api.path = "../stm32h7-update-api/"

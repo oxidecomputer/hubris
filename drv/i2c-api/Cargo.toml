@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 zerocopy.workspace = true
+zerocopy-derive.workspace = true
 
 counters = { path = "../../lib/counters" }
 drv-i2c-types.path = "../i2c-types"

@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 
 drv-oxide-vpd = { path = "../oxide-vpd" }
 drv-i2c-devices = { path = "../../drv/i2c-devices" }

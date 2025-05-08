@@ -9,6 +9,7 @@ num-traits.workspace = true
 spd.workspace = true
 static_assertions.workspace = true
 zerocopy.workspace = true
+zerocopy-derive.workspace = true
 
 drv-cpu-seq-api = { path = "../../drv/cpu-seq-api", optional = true }
 mutable-statics = { path = "../../lib/mutable-statics" }

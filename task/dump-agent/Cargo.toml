@@ -16,6 +16,7 @@ num-traits.workspace = true
 serde.workspace = true
 static_assertions.workspace = true
 zerocopy.workspace = true
+zerocopy-derive.workspace = true
 
 drv-sprot-api.path = "../../drv/sprot-api"
 dump-agent-api.path = "../dump-agent-api"

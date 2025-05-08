@@ -17,6 +17,7 @@ num-traits = { workspace = true }
 serde = { workspace = true }
 smoltcp = { workspace = true, optional = true }
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 
 counters = { path = "../../lib/counters" }
 derive-idol-err = { path = "../../lib/derive-idol-err"  }

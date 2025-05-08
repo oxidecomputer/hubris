@@ -7,6 +7,7 @@ edition = "2021"
 userlib = { path = "../../sys/userlib" }
 num-traits = { workspace = true }
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 
 [build-dependencies]
 build-util = { path = "../../build/util" }

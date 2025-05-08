@@ -15,7 +15,8 @@ num-traits.workspace = true
 paste.workspace = true
 static_assertions.workspace = true
 zerocopy.workspace = true
-attest-data.workspace = true 
+zerocopy-derive.workspace = true
+attest-data.workspace = true
 
 tlvc = { workspace = true, optional = true }
 pmbus = { workspace = true, optional = true }

@@ -12,6 +12,7 @@ num-traits.workspace = true
 serde.workspace = true
 ssmarshal.workspace = true
 zerocopy.workspace = true
+zerocopy-derive.workspace = true
 
 drv-spi-api = { path = "../../drv/spi-api" }
 drv-sprot-api = { path = "../../drv/sprot-api", features = ["sink_test"] }

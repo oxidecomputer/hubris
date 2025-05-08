@@ -12,6 +12,7 @@ dumper-api = { path = "../dumper-api" }
 idol-runtime.workspace = true
 num-traits.workspace = true
 zerocopy.workspace = true
+zerocopy-derive.workspace = true
 hubpack.workspace = true
 humpty.workspace = true
 serde.workspace = true

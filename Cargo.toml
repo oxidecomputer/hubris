@@ -135,7 +135,8 @@ toml = { version = "0.7", default-features = false, features = ["parse", "displa
 toml_edit = { version = "0.19", default-features = false }
 vcell = { version = "0.1.2", default-features = false }
 walkdir = { version = "2.0.0", default-features = false }
-zerocopy = { version = "0.8.5", default-features = false }
+zerocopy = { version = "0.8.25", default-features = false }
+zerocopy-derive = { version = "0.8.25", default-features = false }
 zeroize = { version = "1.5.7", default-features = false, features = ["zeroize_derive"] }
 zip = { version = "0.6", default-features = false, features = ["bzip2", "deflate", "zstd"] }
 
@@ -145,7 +146,7 @@ dice-mfg-msgs = { git = "https://github.com/oxidecomputer/dice-util", default-fe
 gateway-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false, features = ["smoltcp"] }
 gimlet-inspector-protocol = { git = "https://github.com/oxidecomputer/gimlet-inspector-protocol", version = "0.1.0" }
 hif = { git = "https://github.com/oxidecomputer/hif", default-features = false }
-humpty = { git = "https://github.com/oxidecomputer/humpty", branch = "eliza/zerocopy-0.8", default-features = false, version = "0.1.3" }
+humpty = { git = "https://github.com/oxidecomputer/humpty", default-features = false, version = "0.1.3" }
 hubtools = { git = "https://github.com/oxidecomputer/hubtools", default-features = false, version = "0.4.6" }
 idol = { git = "https://github.com/oxidecomputer/idolatry.git", branch = "eliza/zerocopy-0.8", default-features = false }
 idol-runtime = { git = "https://github.com/oxidecomputer/idolatry.git", branch = "eliza/zerocopy-0.8", default-features = false }

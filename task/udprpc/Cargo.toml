@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 
 task-net-api = { path = "../net-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }

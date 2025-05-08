@@ -11,6 +11,7 @@ num-traits = { workspace = true }
 rand_chacha = { workspace = true }
 rand_core = { workspace = true }
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 
 drv-lpc55-syscon-api = { path = "../lpc55-syscon-api" }
 drv-rng-api = { path = "../rng-api" }

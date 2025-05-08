@@ -15,6 +15,7 @@ serde.workspace = true
 serde_repr.workspace = true
 static_assertions.workspace = true
 zerocopy.workspace = true
+zerocopy-derive.workspace = true
 
 oxide-barcode.path = "../oxide-barcode"
 unwrap-lite.path = "../unwrap-lite"

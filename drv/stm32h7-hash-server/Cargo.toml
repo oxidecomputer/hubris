@@ -10,6 +10,7 @@ idol-runtime = { workspace = true }
 num-traits = { workspace = true }
 stm32h7 = { workspace = true }
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 
 drv-hash-api = { path = "../hash-api" }
 drv-stm32h7-hash = { path = "../stm32h7-hash", optional = true }

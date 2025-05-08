@@ -18,6 +18,7 @@ stm32h7 = { workspace = true }
 serde = { workspace = true }
 hubpack = { workspace = true }
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 
 [build-dependencies]
 build-util = { path = "../../build/util" }

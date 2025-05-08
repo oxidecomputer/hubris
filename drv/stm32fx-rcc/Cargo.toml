@@ -8,6 +8,7 @@ num-traits = { workspace = true }
 stm32f3 = { workspace = true, optional = true }
 stm32f4 = { workspace = true, optional = true }
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
