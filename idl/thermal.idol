@@ -32,16 +32,6 @@ Interface(
             ),
             encoding: Hubpack
         ),
-        "set_fan_pwm": (
-            args: {
-                "index": "u8",
-                "pwm": "u8",
-            },
-            reply: Result(
-                ok: "()",
-                err: CLike("ThermalError"),
-            ),
-        ),
         "disable_watchdog": (
             args: {},
             reply: Result(
