@@ -108,7 +108,7 @@ use userlib::{
     sys_irq_control_clear_pending, sys_set_timer, task_slot, FromPrimitive,
     RecvMessage, TaskId, UnwrapLite,
 };
-use zerocopy::AsBytes;
+use zerocopy::IntoBytes;
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
@@ -1480,7 +1480,7 @@ impl ServerImpl {
         };
 
         if self
-            .read_buf_from_addr(endoscope::SHARED, shared.as_bytes_mut())
+            .read_buf_from_addr(endoscope::SHARED, shared.as_mut_bytes())
             .is_err()
         {
             ringbuf_entry!(Trace::ReadBufFail);

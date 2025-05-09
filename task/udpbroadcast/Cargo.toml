@@ -15,6 +15,7 @@ serde = { workspace = true }
 ssmarshal = { workspace = true }
 static_assertions = { workspace = true }
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 
 task-net-api = { path = "../net-api" }
 task-packrat-api = { path = "../packrat-api" }

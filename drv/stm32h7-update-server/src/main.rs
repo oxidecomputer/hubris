@@ -22,7 +22,7 @@ use idol_runtime::{
 use ringbuf::*;
 use stm32h7::stm32h753 as device;
 use userlib::*;
-use zerocopy::AsBytes;
+use zerocopy::IntoBytes;
 
 // Internally we deal with flash blocks in groups of u32 words.
 const FLASH_WORD_WORDS: usize = FLASH_WORD_BYTES / 4;
@@ -381,7 +381,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
 
         {
             // Write flash_page in terms of bytes:
-            let flash_bytes = flash_page.as_bytes_mut();
+            let flash_bytes = flash_page.as_mut_bytes();
 
             block
                 .read_range(0..len, flash_bytes)

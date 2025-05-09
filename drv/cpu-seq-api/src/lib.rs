@@ -9,7 +9,7 @@
 use counters::Count;
 use derive_idol_err::IdolError;
 use userlib::{sys_send, FromPrimitive};
-use zerocopy::AsBytes;
+use zerocopy::{Immutable, IntoBytes, KnownLayout};
 
 // Re-export PowerState for client convenience.
 pub use drv_cpu_power_state::PowerState;
@@ -32,7 +32,18 @@ pub enum SeqError {
     ServerRestarted,
 }
 
-#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, AsBytes, Count)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    FromPrimitive,
+    Eq,
+    PartialEq,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
+    Count,
+)]
 #[repr(u8)]
 pub enum StateChangeReason {
     /// No reason was provided.

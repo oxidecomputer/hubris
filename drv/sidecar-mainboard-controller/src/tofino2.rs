@@ -8,10 +8,19 @@ use derive_more::{From, Into};
 use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
 use drv_fpga_user_api::power_rail::*;
 use userlib::FromPrimitive;
-use zerocopy::{AsBytes, FromBytes};
+use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 #[derive(
-    Copy, Clone, Debug, Default, Eq, PartialEq, FromPrimitive, AsBytes,
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Eq,
+    PartialEq,
+    FromPrimitive,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
 )]
 #[repr(u8)]
 pub enum TofinoSeqState {
@@ -24,7 +33,16 @@ pub enum TofinoSeqState {
 }
 
 #[derive(
-    Copy, Clone, Debug, Default, Eq, PartialEq, FromPrimitive, AsBytes,
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Eq,
+    PartialEq,
+    FromPrimitive,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
 )]
 #[repr(u8)]
 pub enum TofinoSeqStep {
@@ -46,7 +64,16 @@ pub enum TofinoSeqStep {
 }
 
 #[derive(
-    Copy, Clone, Debug, Default, Eq, PartialEq, FromPrimitive, AsBytes,
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Eq,
+    PartialEq,
+    FromPrimitive,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
 )]
 #[repr(u8)]
 pub enum TofinoSeqError {
@@ -155,7 +182,9 @@ pub struct TofinoPowerRail {
 
 /// VID to voltage mapping. The VID values are specified in TF2-DS2, with the
 /// actual voltage values derived experimentally after load testing the PDN.
-#[derive(Copy, Clone, Eq, PartialEq, FromPrimitive, AsBytes)]
+#[derive(
+    Copy, Clone, Eq, PartialEq, FromPrimitive, IntoBytes, Immutable, KnownLayout,
+)]
 #[repr(u8)]
 pub enum Tofino2Vid {
     V0P922 = 0b1111,
@@ -179,7 +208,9 @@ pub struct Status {
     abort: Option<TofinoSeqAbort>,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, FromPrimitive, AsBytes)]
+#[derive(
+    Copy, Clone, Eq, PartialEq, FromPrimitive, IntoBytes, Immutable, KnownLayout,
+)]
 #[repr(u8)]
 pub enum TofinoPcieReset {
     HostControl,
@@ -187,7 +218,9 @@ pub enum TofinoPcieReset {
     Deasserted,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, FromPrimitive, AsBytes)]
+#[derive(
+    Copy, Clone, Eq, PartialEq, FromPrimitive, IntoBytes, Immutable, KnownLayout,
+)]
 #[repr(u8)]
 pub enum TofinoPciePowerFault {
     SequencerControl,
@@ -402,7 +435,17 @@ impl Sequencer {
 }
 
 bitfield! {
-    #[derive(Copy, Clone, PartialEq, Eq, FromPrimitive, AsBytes, FromBytes)]
+    #[derive(
+        Copy,
+        Clone,
+        PartialEq,
+        Eq,
+        FromPrimitive,
+        IntoBytes,
+        FromBytes,
+        Immutable,
+        KnownLayout,
+    )]
     #[repr(C)]
     pub struct DebugPortState(u8);
     pub send_buffer_empty, set_send_buffer_empty: 0;
@@ -414,7 +457,9 @@ bitfield! {
     pub byte_nack_error, set_byte_nack_error: 6;
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, FromPrimitive, AsBytes)]
+#[derive(
+    Copy, Clone, PartialEq, Eq, FromPrimitive, IntoBytes, Immutable, KnownLayout,
+)]
 #[repr(u8)]
 pub enum DebugRequestOpcode {
     LocalWrite = 0b0000_0000,
@@ -431,7 +476,9 @@ impl From<DebugRequestOpcode> for u8 {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, FromPrimitive, AsBytes)]
+#[derive(
+    Copy, Clone, PartialEq, Eq, FromPrimitive, IntoBytes, Immutable, KnownLayout,
+)]
 #[repr(u32)]
 pub enum DirectBarSegment {
     Bar0 = 0,
@@ -442,7 +489,9 @@ pub enum DirectBarSegment {
 /// A few of the Tofino registers which are used in code below. These are found
 /// in 631384-0001_TF2-Top-Level_Register_Map_05062021.html as provided by
 /// Intel.
-#[derive(Copy, Clone, PartialEq, Eq, FromPrimitive, AsBytes)]
+#[derive(
+    Copy, Clone, PartialEq, Eq, FromPrimitive, IntoBytes, Immutable, KnownLayout,
+)]
 #[repr(u32)]
 pub enum TofinoBar0Registers {
     Scratchpad = 0x0,
@@ -467,7 +516,9 @@ impl From<TofinoBar0Registers> for u32 {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, FromPrimitive, AsBytes)]
+#[derive(
+    Copy, Clone, PartialEq, Eq, FromPrimitive, IntoBytes, Immutable, KnownLayout,
+)]
 #[repr(u32)]
 pub enum TofinoCfgRegisters {
     KGen = 0x0,
@@ -485,7 +536,19 @@ bitfield! {
     /// struct. See the full set in
     /// 631384-0001_TF2-Top-Level_Register_Map_05062021.html if additional ones
     /// are desired.
-    #[derive(Copy, Clone, PartialEq, Eq, From, Into, FromPrimitive, AsBytes, FromBytes)]
+    #[derive(
+        Copy,
+        Clone,
+        PartialEq,
+        Eq,
+        From,
+        Into,
+        FromPrimitive,
+        IntoBytes,
+        FromBytes,
+        Immutable,
+        KnownLayout,
+    )]
     #[repr(C)]
     pub struct SoftwareReset(u32);
     pub pcie_phy, set_pcie_phy: 0;
@@ -494,7 +557,17 @@ bitfield! {
     pub pcie_lanes, set_pcie_lanes: 7, 4;
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, From, FromPrimitive, AsBytes)]
+#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    From,
+    FromPrimitive,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
+)]
 #[repr(u32)]
 // Valid values for some of the fields in the `ResetOption` register defined below. See the
 // description for bits 7:0 of the register in
@@ -523,7 +596,19 @@ bitfield! {
     /// struct. See the full set in
     /// 631384-0001_TF2-Top-Level_Register_Map_05062021.html if additional ones
     /// are desired.
-    #[derive(Copy, Clone, PartialEq, Eq, From, Into, FromPrimitive, AsBytes, FromBytes)]
+    #[derive(
+        Copy,
+        Clone,
+        PartialEq,
+        Eq,
+        From,
+        Into,
+        FromPrimitive,
+        IntoBytes,
+        FromBytes,
+        Immutable,
+        KnownLayout
+    )]
     #[repr(C)]
     pub struct ResetOptions(u32);
     // Reset the entire PHY, including a full load of SPI EEPROM contents.
@@ -538,7 +623,19 @@ bitfield! {
     /// Control registers providing some control over the lane configuration of
     /// the PCIe PHY. Each register contains the controls for two lanes, for a
     /// total of four lanes.
-    #[derive(Copy, Clone, PartialEq, Eq, From, Into, FromPrimitive, AsBytes, FromBytes)]
+    #[derive(
+        Copy,
+        Clone,
+        PartialEq,
+        Eq,
+        From,
+        Into,
+        FromPrimitive,
+        IntoBytes,
+        FromBytes,
+        Immutable,
+        KnownLayout
+    )]
     #[repr(C)]
     pub struct PciePhyLaneControl(u16);
     pub tx_to_rx_serial_loopback, set_tx_to_rx_serial_loopback: 0;
@@ -553,7 +650,19 @@ bitfield! {
 }
 
 bitfield! {
-    #[derive(Copy, Clone, PartialEq, Eq, From, Into, FromPrimitive, AsBytes, FromBytes)]
+    #[derive(
+        Copy,
+        Clone,
+        PartialEq,
+        Eq,
+        From,
+        Into,
+        FromPrimitive,
+        IntoBytes,
+        FromBytes,
+        Immutable,
+        KnownLayout
+    )]
     #[repr(C)]
     pub struct PciePhyLaneControlPair(u32);
     pub u16, into PciePhyLaneControl, lane0, set_lane0: 15, 0;
@@ -563,7 +672,19 @@ bitfield! {
 bitfield! {
     /// Similar to the control registers above a PCIe PHY Lane Status register
     /// allows monitoring some state while the PHY is running.
-    #[derive(Copy, Clone, PartialEq, Eq, From, Into, FromPrimitive, AsBytes, FromBytes)]
+    #[derive(
+        Copy,
+        Clone,
+        PartialEq,
+        Eq,
+        From,
+        Into,
+        FromPrimitive,
+        IntoBytes,
+        FromBytes,
+        Immutable,
+        KnownLayout
+    )]
     #[repr(C)]
     pub struct PciePhyLaneStatus(u16);
     pub elastic_buffer_pointer, _: 7, 0;
@@ -572,8 +693,19 @@ bitfield! {
     pub pipe_max_p_clk, _: 13, 12;
 }
 
-bitfield! {
-    #[derive(Copy, Clone, PartialEq, Eq, From, Into, FromPrimitive, AsBytes, FromBytes)]
+bitfield! {    #[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    From,
+    Into,
+    FromPrimitive,
+    IntoBytes,
+    FromBytes,
+    Immutable,
+    KnownLayout
+)]
     #[repr(C)]
     pub struct PciePhyLaneStatusPair(u32);
     pub u16, into PciePhyLaneStatus, lane0, set_lane0: 15, 0;
@@ -589,7 +721,19 @@ bitfield! {
     /// Note that with the exception of SRIS and the PHY rate selectors
     /// (presumably allowing one to force a lower link speed) modifying these
     /// parameters will break the link.
-    #[derive(Copy, Clone, PartialEq, Eq, From, Into, FromPrimitive, AsBytes, FromBytes)]
+    #[derive(
+        Copy,
+        Clone,
+        PartialEq,
+        Eq,
+        From,
+        Into,
+        FromPrimitive,
+        IntoBytes,
+        FromBytes,
+        Immutable,
+        KnownLayout
+    )]
     #[repr(C)]
     pub struct PcieControllerConfiguration(u32);
     pub pcie_version, _: 3, 0;
@@ -604,7 +748,9 @@ bitfield! {
 
 /// SPI EEPROM instructions, as per for example
 /// https://octopart.com/datasheet/cat25512vi-gt3-onsemi-22302617.
-#[derive(Copy, Clone, PartialEq, Eq, FromPrimitive, AsBytes)]
+#[derive(
+    Copy, Clone, PartialEq, Eq, FromPrimitive, IntoBytes, Immutable, KnownLayout,
+)]
 #[repr(u8)]
 pub enum SpiEepromInstruction {
     // WREN, enable write operations
@@ -708,7 +854,7 @@ impl DebugPort {
         // in the FPGA auto-increments an address pointer. This will be
         // refactored when a non auto-incrementing `read(..)` is implemented.
         let mut v: u32 = 0;
-        for b in v.as_bytes_mut().iter_mut() {
+        for b in v.as_mut_bytes().iter_mut() {
             *b = self.fpga.read(Addr::TOFINO_DEBUG_PORT_BUFFER)?;
         }
 

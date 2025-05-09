@@ -19,6 +19,7 @@ num-traits = { workspace = true }
 stm32g0 = { workspace = true, optional = true }
 stm32h7 = { workspace = true, optional = true }
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 
 [build-dependencies]
 idol = { workspace = true }

@@ -235,7 +235,7 @@ macro_rules! gpio {
 
 #[cfg(any(feature = "stm32f3", feature = "stm32f4"))]
 fn enable_led_pins() {
-    use zerocopy::AsBytes;
+    use zerocopy::IntoBytes;
 
     // This assumes an STM32F4DISCOVERY board, where the LEDs are on D12 and
     // D13 OR an STM32F3DISCOVERY board, where the LEDs are on E8 and E9.

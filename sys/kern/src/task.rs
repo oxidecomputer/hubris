@@ -10,7 +10,7 @@ use abi::{
     FaultInfo, FaultSource, Generation, ReplyFaultReason, SchedState, TaskId,
     TaskState, ULease, UsageError,
 };
-use zerocopy::FromBytes;
+use zerocopy::{FromBytes, Immutable, KnownLayout};
 
 use crate::descs::{
     Priority, RegionAttributes, RegionDesc, TaskDesc, TaskFlags,
@@ -95,7 +95,7 @@ impl Task {
         slice: &'a USlice<T>,
     ) -> Result<&'a [T], FaultInfo>
     where
-        T: FromBytes,
+        T: FromBytes + Immutable + KnownLayout,
     {
         if self.can_read(slice) {
             // Safety: assume_readable requires us to have validated that the
@@ -127,7 +127,7 @@ impl Task {
         slice: &'a USlice<T>,
     ) -> Result<Range<*const T>, FaultInfo>
     where
-        T: FromBytes,
+        T: FromBytes + Immutable + KnownLayout,
     {
         if self.can_access(
             slice,
@@ -169,7 +169,7 @@ impl Task {
         slice: &'a mut USlice<T>,
     ) -> Result<&'a mut [T], FaultInfo>
     where
-        T: FromBytes,
+        T: FromBytes + Immutable + KnownLayout,
     {
         if self.can_write(slice) {
             // Safety: assume_writable requires us to have validated that the

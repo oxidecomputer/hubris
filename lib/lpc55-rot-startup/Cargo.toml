@@ -21,6 +21,7 @@ serde = { workspace = true, optional = false }
 sha3 = { workspace = true, optional = false }
 static_assertions = { workspace = true, optional = true }
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 zeroize = { workspace = true }
 
 abi = { path = "../../sys/abi" }

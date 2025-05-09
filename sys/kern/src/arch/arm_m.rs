@@ -73,7 +73,7 @@
 use core::arch::{self, global_asm};
 use core::sync::atomic::{AtomicBool, AtomicPtr, AtomicU32, Ordering};
 
-use zerocopy::FromBytes;
+use zerocopy::{FromBytes, Immutable, KnownLayout};
 
 use crate::atomic::AtomicExt;
 use crate::descs::RegionAttributes;
@@ -216,7 +216,7 @@ impl task::ArchState for SavedState {
 
 /// Stuff placed on the stack at exception entry whether or not an FPU is
 /// present.
-#[derive(Debug, FromBytes, Default)]
+#[derive(Debug, FromBytes, Immutable, KnownLayout, Default)]
 #[repr(C)]
 pub struct BaseExceptionFrame {
     r0: u32,
@@ -232,7 +232,7 @@ pub struct BaseExceptionFrame {
 cfg_if::cfg_if! {
     if #[cfg(any(armv7m, armv8m))] {
         /// Extended version for FPU.
-        #[derive(Debug, FromBytes, Default)]
+        #[derive(Debug, FromBytes, Immutable, KnownLayout, Default)]
         #[repr(C)]
         pub struct ExtendedExceptionFrame {
             base: BaseExceptionFrame,
@@ -242,7 +242,7 @@ cfg_if::cfg_if! {
         }
     } else if #[cfg(armv6m)] {
         /// Wee version for non-FPU.
-        #[derive(Debug, FromBytes, Default)]
+        #[derive(Debug, FromBytes, Immutable, KnownLayout, Default)]
         #[repr(C)]
         pub struct ExtendedExceptionFrame {
             base: BaseExceptionFrame,

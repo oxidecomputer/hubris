@@ -6,12 +6,12 @@
 //!
 //! This uses external shared SPI and GPIO servers to drive the FPGA.
 
-use zerocopy::{AsBytes, Unaligned, U16};
+use zerocopy::{byteorder::big_endian as be, Immutable, IntoBytes, Unaligned};
 
 use drv_spi_api as spi_api;
 use spi_api::{SpiDevice, SpiServer};
 
-#[derive(AsBytes, Unaligned)]
+#[derive(IntoBytes, Unaligned, Immutable)]
 #[repr(u8)]
 pub enum Cmd {
     Write = 0,
@@ -44,7 +44,7 @@ impl<S: SpiServer> SequencerFpga<S> {
     /// Reads the IDENT0:1 registers as a big-endian 16-bit integer.
     pub fn read_ident(&self) -> Result<u16, spi_api::SpiError> {
         let mut ident = 0;
-        self.read_bytes(Addr::ID0, ident.as_bytes_mut())?;
+        self.read_bytes(Addr::ID0, ident.as_mut_bytes())?;
         Ok(ident)
     }
 
@@ -61,7 +61,7 @@ impl<S: SpiServer> SequencerFpga<S> {
     /// `GIMLET_BITSTREAM_CHECKSUM` if the image is loaded and hasn't changed.
     pub fn read_checksum(&self) -> Result<u32, spi_api::SpiError> {
         let mut checksum = 0;
-        self.read_bytes(Addr::CS0, checksum.as_bytes_mut())?;
+        self.read_bytes(Addr::CS0, checksum.as_mut_bytes())?;
         Ok(checksum)
     }
 
@@ -146,7 +146,7 @@ impl<S: SpiServer> SequencerFpga<S> {
         let mut data = [0u8; RAW_SPI_BUFFER_SIZE];
         let mut rval = [0u8; RAW_SPI_BUFFER_SIZE];
 
-        let addr = U16::new(addr);
+        let addr = be::U16::new(addr);
         let header = CmdHeader { cmd, addr };
         let header = header.as_bytes();
 
@@ -176,7 +176,7 @@ impl<S: SpiServer> SequencerFpga<S> {
         let mut data = [0u8; RAW_SPI_BUFFER_SIZE];
         let mut rval = [0u8; RAW_SPI_BUFFER_SIZE];
 
-        let addr = U16::new(addr);
+        let addr = be::U16::new(addr);
         let header = CmdHeader { cmd, addr };
         let header = header.as_bytes();
 
@@ -194,9 +194,9 @@ impl<S: SpiServer> SequencerFpga<S> {
     }
 }
 
-#[derive(AsBytes, Unaligned)]
+#[derive(IntoBytes, Unaligned, Immutable)]
 #[repr(C)]
 struct CmdHeader {
     cmd: Cmd,
-    addr: U16<byteorder::BigEndian>,
+    addr: be::U16,
 }

@@ -135,7 +135,8 @@ toml = { version = "0.7", default-features = false, features = ["parse", "displa
 toml_edit = { version = "0.19", default-features = false }
 vcell = { version = "0.1.2", default-features = false }
 walkdir = { version = "2.0.0", default-features = false }
-zerocopy = { version = "0.6.1", default-features = false }
+zerocopy = { version = "0.8.25", default-features = false }
+zerocopy-derive = { version = "0.8.25", default-features = false }
 zeroize = { version = "1.5.7", default-features = false, features = ["zeroize_derive"] }
 zip = { version = "0.6", default-features = false, features = ["bzip2", "deflate", "zstd"] }
 

@@ -11,6 +11,7 @@ num-traits = { workspace = true }
 stm32h7 = { workspace = true }
 tlvc = { workspace = true }
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 
 drv-auxflash-api = { path = "../auxflash-api" }
 drv-stm32h7-qspi = { path = "../stm32h7-qspi" }

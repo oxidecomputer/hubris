@@ -19,7 +19,7 @@ use lpc55_rom_data::FLASH_PAGE_SIZE as LPC55_FLASH_PAGE_SIZE;
 use multimap::MultiMap;
 use path_slash::{PathBufExt, PathExt};
 use sha3::{Digest, Sha3_256};
-use zerocopy::AsBytes;
+use zerocopy::IntoBytes;
 
 use crate::{
     caboose_pos,

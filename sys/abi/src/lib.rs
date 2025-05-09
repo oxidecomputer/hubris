@@ -8,7 +8,7 @@
 #![forbid(clippy::wildcard_imports)]
 
 use serde::{Deserialize, Serialize};
-use zerocopy::{AsBytes, FromBytes};
+use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 /// Names a particular incarnation of a task.
 ///
@@ -93,6 +93,8 @@ impl From<u8> for Generation {
     Clone,
     Debug,
     FromBytes,
+    Immutable,
+    KnownLayout,
     Serialize,
     Deserialize,
     Hash,
@@ -124,6 +126,8 @@ impl InterruptNum {
     Clone,
     Debug,
     FromBytes,
+    Immutable,
+    KnownLayout,
     Serialize,
     Deserialize,
     Hash,
@@ -158,7 +162,9 @@ impl InterruptOwner {
 }
 
 /// Description of one interrupt response.
-#[derive(Clone, Debug, FromBytes, Serialize, Deserialize)]
+#[derive(
+    Clone, Debug, FromBytes, Immutable, KnownLayout, Serialize, Deserialize,
+)]
 pub struct Interrupt {
     /// Which interrupt number is being hooked.
     pub irq: InterruptNum,
@@ -170,7 +176,7 @@ pub struct Interrupt {
 ///
 /// At SEND, the task gives us the base and length of a section of memory that
 /// it *claims* contains structs of this type.
-#[derive(Copy, Clone, Debug, FromBytes)]
+#[derive(Copy, Clone, Debug, FromBytes, Immutable, KnownLayout)]
 #[repr(C)]
 pub struct ULease {
     /// Lease attributes.
@@ -183,7 +189,9 @@ pub struct ULease {
     pub length: u32,
 }
 
-#[derive(Copy, Clone, Debug, FromBytes, PartialEq, Eq)]
+#[derive(
+    Copy, Clone, Debug, FromBytes, Immutable, KnownLayout, PartialEq, Eq,
+)]
 #[repr(transparent)]
 pub struct LeaseAttributes(u32);
 
@@ -525,7 +533,7 @@ pub const CABOOSE_MAGIC: u32 = 0xCAB0_005E;
 /// TODO: Add hash for integrity check
 /// Later this will also be a signature block
 #[repr(C)]
-#[derive(Default, AsBytes, FromBytes)]
+#[derive(Default, IntoBytes, FromBytes, KnownLayout, Immutable)]
 pub struct ImageHeader {
     pub magic: u32,
     pub total_image_len: u32,
@@ -537,7 +545,7 @@ pub struct ImageHeader {
 // Corresponds to the ARM vector table, limited to what we need
 // see ARMv8m B3.30 and B1.5.3 ARMv7m for the full description
 #[repr(C)]
-#[derive(Default, AsBytes)]
+#[derive(Default, IntoBytes, KnownLayout, Immutable)]
 pub struct ImageVectors {
     pub sp: u32,
     pub entry: u32,

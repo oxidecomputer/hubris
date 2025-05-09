@@ -10,7 +10,7 @@ use derive_idol_err::IdolError;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
 use userlib::{sys_send, FromPrimitive};
-use zerocopy::{AsBytes, FromBytes};
+use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 pub use drv_qspi_api::{PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES};
 
@@ -38,7 +38,17 @@ pub enum HfError {
 }
 
 /// Controls whether the SP or host CPU has access to flash
-#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, AsBytes)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    FromPrimitive,
+    Eq,
+    PartialEq,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
+)]
 #[repr(u8)]
 pub enum HfMuxState {
     SP = 1,
@@ -54,7 +64,9 @@ pub enum HfMuxState {
     FromPrimitive,
     Eq,
     PartialEq,
-    AsBytes,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
     Serialize,
     Deserialize,
     SerializedSize,
@@ -83,7 +95,9 @@ impl core::ops::Not for HfDevSelect {
     FromPrimitive,
     Eq,
     PartialEq,
-    AsBytes,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
     Serialize,
     Deserialize,
     SerializedSize,
@@ -114,7 +128,9 @@ pub struct HfPersistentData {
 ///
 /// When writing new data, we increment the monotonic counter and write to both
 /// ICs, one by one.  This ensures robustness in case of power loss.
-#[derive(Copy, Clone, Eq, PartialEq, AsBytes, FromBytes)]
+#[derive(
+    Copy, Clone, Eq, PartialEq, IntoBytes, FromBytes, Immutable, KnownLayout,
+)]
 #[repr(C)]
 pub struct HfRawPersistentData {
     /// Reserved field, because this is placed at address 0, which PSP firmware

@@ -57,7 +57,7 @@ use stm32f3::stm32f303 as device;
 use stm32f4::stm32f407 as device;
 
 use userlib::*;
-use zerocopy::AsBytes;
+use zerocopy::IntoBytes;
 
 #[derive(FromPrimitive)]
 enum Op {
@@ -121,7 +121,7 @@ fn main() -> ! {
     let mut buffer = [0u32; 1];
     loop {
         hl::recv_without_notification(
-            buffer.as_bytes_mut(),
+            buffer.as_mut_bytes(),
             |op, msg| -> Result<(), ResponseCode> {
                 // Every incoming message uses the same payload type and
                 // response type: it's always u32 -> (). So we can do the

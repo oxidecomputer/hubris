@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 vsc7448-pac = { workspace = true }
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 
 ringbuf = { path = "../../lib/ringbuf" }
 userlib = { path = "../../sys/userlib" }

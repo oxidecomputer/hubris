@@ -12,7 +12,7 @@ use derive_idol_err::IdolError;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
 use userlib::*;
-use zerocopy::{AsBytes, FromBytes};
+use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 pub use task_packrat_api::MacAddressBlock;
 
@@ -105,7 +105,7 @@ pub enum KszError {
     ServerRestarted,
 }
 
-#[derive(Copy, Clone, Debug, AsBytes, FromBytes)]
+#[derive(Copy, Clone, Debug, IntoBytes, Immutable, KnownLayout, FromBytes)]
 #[repr(C)]
 pub struct KszMacTableEntry {
     pub mac: [u8; 6],
@@ -126,7 +126,7 @@ impl From<ksz8463::KszRawMacTableEntry> for KszMacTableEntry {
     }
 }
 
-#[derive(Copy, Clone, Debug, AsBytes, FromBytes)]
+#[derive(Copy, Clone, Debug, IntoBytes, FromBytes, Immutable, KnownLayout)]
 #[repr(C)]
 pub struct MacAddress(pub [u8; 6]);
 

@@ -10,6 +10,7 @@ derive_more = { workspace = true }
 num-derive = { workspace = true }
 num-traits = { workspace = true }
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 
 drv-auxflash-api = { path = "../auxflash-api", optional = true }
 drv-fpga-api = { path = "../fpga-api" }

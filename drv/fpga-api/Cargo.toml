@@ -14,6 +14,7 @@ num-traits = { workspace = true }
 sha3 = { workspace = true, optional = true }
 tlvc = { workspace = true, optional = true}
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 
 counters = { path = "../../lib/counters" }
 drv-auxflash-api = { path = "../../drv/auxflash-api", optional = true }

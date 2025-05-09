@@ -28,6 +28,7 @@ serde.workspace = true
 static_assertions.workspace = true
 tlvc.workspace = true
 zerocopy.workspace = true
+zerocopy-derive.workspace = true
 
 [build-dependencies]
 build-util = { path = "../../build/util" }

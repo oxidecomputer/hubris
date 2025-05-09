@@ -7,7 +7,10 @@ use drv_fpga_api::{FpgaError, FpgaUserDesign, ReadOp, WriteOp};
 use drv_transceivers_api::{ModuleStatus, TransceiversError, NUM_PORTS};
 use transceiver_messages::ModuleId;
 use userlib::UnwrapLite;
-use zerocopy::{byteorder, AsBytes, FromBytes, Unaligned, U16};
+use zerocopy::{
+    byteorder::little_endian, FromBytes, Immutable, IntoBytes, KnownLayout,
+    Unaligned,
+};
 
 // The transceiver modules are split across two FPGAs on the QSFP Front IO
 // board, so while we present the modules as a unit, the communication is
@@ -732,7 +735,7 @@ impl Transceivers {
             let mask = fpga_masks.get(fpga_index);
             if !mask.is_empty() {
                 let fpga = self.fpga(fpga_index);
-                let wdata: U16<byteorder::LittleEndian> = U16::new(mask.get());
+                let wdata = little_endian::U16::new(mask.get());
                 // mark that an error occurred so we can modify the success mask
                 if fpga.write(op, addr, wdata).is_err() {
                     error |= match fpga_index {
@@ -832,11 +835,11 @@ impl Transceivers {
     /// success: we were able to read from the FPGA
     /// error: an `FpgaError` occurred
     pub fn get_module_status(&self) -> (ModuleStatus, ModuleResultNoFailure) {
-        let ldata: Option<[U16<byteorder::LittleEndian>; 8]> = self
+        let ldata: Option<[little_endian::U16; 8]> = self
             .fpga(FpgaController::Left)
             .read(Addr::QSFP_POWER_EN0)
             .ok();
-        let rdata: Option<[U16<byteorder::LittleEndian>; 8]> = self
+        let rdata: Option<[little_endian::U16; 8]> = self
             .fpga(FpgaController::Right)
             .read(Addr::QSFP_POWER_EN0)
             .ok();
@@ -877,7 +880,8 @@ impl Transceivers {
         let error = !success;
 
         (
-            ModuleStatus::read_from(status_masks.as_bytes()).unwrap_lite(),
+            ModuleStatus::read_from_bytes(status_masks.as_bytes())
+                .unwrap_lite(),
             ModuleResultNoFailure::new(success, error).unwrap_lite(),
         )
     }
@@ -988,7 +992,7 @@ impl Transceivers {
             let request = TransceiversI2CRequest {
                 reg,
                 num_bytes,
-                mask: U16::new(fpga_masks.left.0),
+                mask: little_endian::U16::new(fpga_masks.left.0),
                 op: i2c_op as u8,
             };
 
@@ -1005,7 +1009,7 @@ impl Transceivers {
             let request = TransceiversI2CRequest {
                 reg,
                 num_bytes,
-                mask: U16::new(fpga_masks.right.0),
+                mask: little_endian::U16::new(fpga_masks.right.0),
                 op: i2c_op as u8,
             };
             if self
@@ -1180,7 +1184,7 @@ impl Transceivers {
         let phys_mask: FpgaPortMasks = mask.into();
         let mut failure_types = LogicalPortFailureTypes::default();
 
-        #[derive(AsBytes, Default, FromBytes)]
+        #[derive(IntoBytes, Default, FromBytes)]
         #[repr(C)]
         struct BusyAndPortStatus {
             busy: u16,
@@ -1243,7 +1247,7 @@ impl Transceivers {
 // The I2C control register looks like:
 // [2..1] - Operation (0 - Read, 1 - Write, 2 - RandomRead)
 // [0] - Start
-#[derive(Copy, Clone, Debug, AsBytes)]
+#[derive(Copy, Clone, Debug, IntoBytes, Immutable, KnownLayout)]
 #[repr(u8)]
 pub enum TransceiverI2COperation {
     Read = 0x01,
@@ -1258,11 +1262,11 @@ impl From<TransceiverI2COperation> for u8 {
     }
 }
 
-#[derive(AsBytes, FromBytes, Unaligned)]
+#[derive(IntoBytes, FromBytes, Immutable, KnownLayout, Unaligned)]
 #[repr(C)]
 pub struct TransceiversI2CRequest {
     reg: u8,
     num_bytes: u8,
-    mask: U16<byteorder::LittleEndian>,
+    mask: little_endian::U16,
     op: u8,
 }

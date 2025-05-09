@@ -10,6 +10,7 @@ num-traits = { workspace = true }
 transceiver-messages = { workspace = true }
 vsc7448-pac = { workspace = true, optional = true }
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 
 drv-auxflash-api = { path = "../../drv/auxflash-api" }
 drv-fpga-api = { path = "../../drv/fpga-api", features = ["auxflash"] }

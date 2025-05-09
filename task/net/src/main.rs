@@ -69,7 +69,7 @@ mod idl {
 use enum_map::Enum;
 use multitimer::{Multitimer, Repeat};
 use task_net_api::MacAddressBlock;
-use zerocopy::{AsBytes, U16};
+use zerocopy::{IntoBytes, U16};
 
 #[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;

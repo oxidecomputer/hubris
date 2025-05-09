@@ -14,7 +14,7 @@ use drv_oxide_vpd::VpdError;
 use drv_spi_api::SpiServer;
 use task_sensor_api::SensorId;
 use userlib::TaskId;
-use zerocopy::AsBytes;
+use zerocopy::IntoBytes;
 
 use host_sp_messages::{InventoryData, InventoryDataResult};
 
@@ -357,7 +357,7 @@ impl ServerImpl {
                     )?;
                     dev.read_reg_into(
                         CommandCode::NVM_CHECKSUM as u8,
-                        nvm_checksum.as_bytes_mut(),
+                        nvm_checksum.as_mut_bytes(),
                     )?;
                     Ok(&data)
                 })

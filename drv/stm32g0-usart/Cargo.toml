@@ -8,6 +8,7 @@ cortex-m = { workspace = true }
 num-traits = { workspace = true }
 stm32g0 = { workspace = true }
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 
 drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
 userlib = { path = "../../sys/userlib" }
