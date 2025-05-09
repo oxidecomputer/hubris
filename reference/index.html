@@ -4741,7 +4741,7 @@ the <code>hl</code> conveniences.</p>
 <span class="nd">#![no_main]</span>
 
 <span class="k">use</span> <span class="nn">userlib</span><span class="p">::{</span><span class="n">hl</span><span class="p">,</span> <span class="n">FromPrimitive</span><span class="p">};</span> <i class="conum" data-value="1"></i><b>(1)</b>
-<span class="k">use</span> <span class="nn">zerocopy</span><span class="p">::</span><span class="n">AsBytes</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">zerocopy</span><span class="p">::</span><span class="n">IntoBytes</span><span class="p">;</span>
 
 <span class="nd">#[derive(FromPrimitive)]</span>
 <span class="k">enum</span> <span class="n">Op</span> <span class="p">{</span> <i class="conum" data-value="2"></i><b>(2)</b>
@@ -4768,7 +4768,7 @@ the <code>hl</code> conveniences.</p>
 
     <span class="k">loop</span> <span class="p">{</span>
         <span class="nn">hl</span><span class="p">::</span><span class="nf">recv_without_notification</span><span class="p">(</span> <i class="conum" data-value="7"></i><b>(7)</b>
-            <span class="n">argument</span><span class="nf">.as_bytes_mut</span><span class="p">(),</span> <i class="conum" data-value="8"></i><b>(8)</b>
+            <span class="n">argument</span><span class="nf">.as_mut_bytes</span><span class="p">(),</span> <i class="conum" data-value="8"></i><b>(8)</b>
             <span class="p">|</span><span class="n">op</span><span class="p">,</span> <span class="n">msg</span><span class="p">|</span> <span class="k">-&gt;</span> <span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span> <span class="n">ResponseCode</span><span class="o">&gt;</span> <span class="p">{</span> <i class="conum" data-value="9"></i><b>(9)</b>
                 <span class="k">let</span> <span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">caller</span><span class="p">)</span> <span class="o">=</span> <span class="n">msg</span><span class="py">.fixed</span><span class="p">::</span><span class="o">&lt;</span><span class="nb">u32</span><span class="p">,</span> <span class="nb">u32</span><span class="o">&gt;</span><span class="p">()</span> <i class="conum" data-value="10"></i><b>(10)</b>
                     <span class="nf">.ok_or</span><span class="p">(</span><span class="nn">ResponseCode</span><span class="p">::</span><span class="n">BadArg</span><span class="p">)</span><span class="o">?</span><span class="p">;</span> <i class="conum" data-value="11"></i><b>(11)</b>
@@ -4828,7 +4828,7 @@ servers.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="8"></i><b>8</b></td>
-<td>We pass the argument buffer in using <code>zerocopy::AsBytes</code>.</td>
+<td>We pass the argument buffer in using <code>zerocopy::IntoBytes</code>.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="9"></i><b>9</b></td>
@@ -4926,7 +4926,7 @@ want to retry on server restart:</p>
 <span class="k">use</span> <span class="nn">abi</span><span class="p">::</span><span class="n">TaskId</span><span class="p">;</span>
 <span class="k">use</span> <span class="nn">core</span><span class="p">::</span><span class="nn">cell</span><span class="p">::</span><span class="n">Cell</span><span class="p">;</span>
 <span class="k">use</span> <span class="nn">userlib</span><span class="p">::</span><span class="n">sys_send</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">zerocopy</span><span class="p">::</span><span class="n">AsBytes</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">zerocopy</span><span class="p">::</span><span class="n">IntoBytes</span><span class="p">;</span>
 
 <span class="k">enum</span> <span class="n">Op</span> <span class="p">{</span> <i class="conum" data-value="1"></i><b>(1)</b>
     <span class="nb">Add</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
@@ -4959,7 +4959,7 @@ want to retry on server restart:</p>
         <span class="k">loop</span> <span class="p">{</span> <i class="conum" data-value="3"></i><b>(3)</b>
             <span class="k">let</span> <span class="n">target</span> <span class="o">=</span> <span class="k">self</span><span class="na">.0</span><span class="nf">.get</span><span class="p">();</span>
             <span class="k">let</span> <span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="n">response_len</span><span class="p">)</span> <span class="o">=</span> <i class="conum" data-value="4"></i><b>(4)</b>
-                <span class="nf">sys_send</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">op</span><span class="p">,</span> <span class="n">value</span><span class="nf">.as_bytes</span><span class="p">(),</span> <span class="n">response</span><span class="nf">.as_bytes_mut</span><span class="p">());</span>
+                <span class="nf">sys_send</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">op</span><span class="p">,</span> <span class="n">value</span><span class="nf">.as_bytes</span><span class="p">(),</span> <span class="n">response</span><span class="nf">.as_mut_bytes</span><span class="p">());</span>
 
             <span class="k">if</span> <span class="n">code</span> <span class="o">==</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="n">response_len</span> <span class="o">==</span> <span class="mi">4</span> <span class="p">{</span>
                 <span class="k">return</span> <span class="n">response</span><span class="p">;</span> <i class="conum" data-value="5"></i><b>(5)</b>
@@ -5795,7 +5795,7 @@ tool to a high-reliability research platform.</em></p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2025-05-09 18:33:06 UTC
+Last updated 2025-05-09 18:47:49 UTC
 </div>
 </div>
 </body>
