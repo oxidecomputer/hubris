@@ -167,27 +167,6 @@ impl<'a> idl::InOrderThermalImpl for ServerImpl<'a> {
         Ok(self.control.get_state())
     }
 
-    fn set_fan_pwm(
-        &mut self,
-        _: &RecvMessage,
-        index: u8,
-        pwm: u8,
-    ) -> Result<(), RequestError<ThermalError>> {
-        if self.mode != ThermalMode::Manual {
-            return Err(ThermalError::NotInManualMode.into());
-        }
-        let pwm =
-            PWMDuty::try_from(pwm).map_err(|_| ThermalError::InvalidPWM)?;
-
-        if let Some(fan) = self.control.fan(index) {
-            self.control
-                .set_fan_pwm(fan, pwm)
-                .map_err(|_| ThermalError::DeviceError.into())
-        } else {
-            Err(ThermalError::InvalidFan.into())
-        }
-    }
-
     fn set_mode_manual(
         &mut self,
         _: &RecvMessage,
