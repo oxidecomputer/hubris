@@ -214,6 +214,11 @@ enum Ack {
     Wait,
     Fault,
     Protocol,
+    Fault0,
+    Fault1,
+    Fault2,
+    Fault3,
+    Fault4,
 }
 
 // ADIv5 11.2.1 describes the CSW bits. Several of those fields (DbgSwEnable,
@@ -410,7 +415,7 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
             len: end - start
         });
         self.start_read_transaction(start, ((end - start) as usize) / 4)
-            .map_err(|_| SpCtrlError::Fault.into())
+            .map_err(|_| SpCtrlError::SwdFault0.into())
     }
 
     fn read_transaction(
@@ -440,7 +445,7 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
                         }
                     }
                 }
-                Err(_) => return Err(SpCtrlError::Fault.into()),
+                Err(_) => return Err(SpCtrlError::SwdFault1.into()),
             }
         }
 
@@ -473,7 +478,7 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
                         }
                     }
                 }
-                Err(_) => return Err(SpCtrlError::Fault.into()),
+                Err(_) => return Err(SpCtrlError::SwdFault2.into()),
             }
         }
 
@@ -511,7 +516,7 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
                 )
                 .is_err()
             {
-                return Err(SpCtrlError::Fault.into());
+                return Err(SpCtrlError::SwdFault3.into());
             }
         }
 
@@ -550,7 +555,7 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
         let r =
             Reg::from_u16(register).ok_or(SpCtrlError::InvalidCoreRegister)?;
         self.write_single_target_addr(DCRSR, r as u32)
-            .map_err(|_| SpCtrlError::Fault)?;
+            .map_err(|_| SpCtrlError::SwdFault4)?;
         loop {
             match self.dp_read_bitflags::<Dhcsr>() {
                 Ok(dhcsr) => {
@@ -561,14 +566,14 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
                     }
                 }
                 Err(_) => {
-                    return Err(SpCtrlError::Fault.into());
+                    return Err(SpCtrlError::SwdFault5.into());
                 }
             }
         }
 
         match self.read_dcrdr() {
             Ok(val) => Ok(val),
-            Err(_) => Err(SpCtrlError::Fault.into()),
+            Err(_) => Err(SpCtrlError::SwdFault6.into()),
         }
     }
 
@@ -1136,7 +1141,7 @@ impl ServerImpl {
         const TRANSACTION_LIMIT: usize = 1024;
         // Check against the number of 32-bit words we expect to read
         if word_cnt > TRANSACTION_LIMIT / 4 {
-            return Err(Ack::Fault);
+            return Err(Ack::Fault0);
         }
         self.clear_errors()?;
 
@@ -1165,7 +1170,7 @@ impl ServerImpl {
         const U32_SIZE: usize = core::mem::size_of::<u32>();
         if data.len() % U32_SIZE != 0 {
             ringbuf_entry!(Trace::BadLen);
-            return Err(Ack::Fault);
+            return Err(Ack::Fault1);
         }
         for slice in data.chunks_exact(U32_SIZE) {
             if let Some(word) = slice_to_le_u32(slice) {
@@ -1183,7 +1188,7 @@ impl ServerImpl {
                     });
                     if limit == 0 {
                         ringbuf_entry!(Trace::ReadbackFailure);
-                        return Err(Ack::Fault);
+                        return Err(Ack::Fault2);
                     }
                     limit -= 1;
                 }
@@ -1214,7 +1219,7 @@ impl ServerImpl {
 
     fn read_single_target_addr(&mut self, addr: u32) -> Result<u32, Ack> {
         if self.transaction.is_some() {
-            return Err(Ack::Fault);
+            return Err(Ack::Fault3);
         }
 
         self.clear_errors()?;
@@ -1258,7 +1263,7 @@ impl ServerImpl {
         val: u32,
     ) -> Result<(), Ack> {
         if self.transaction.is_some() {
-            return Err(Ack::Fault);
+            return Err(Ack::Fault4);
         }
 
         self.clear_errors()?;
@@ -1511,9 +1516,9 @@ impl ServerImpl {
         value: u32,
     ) -> Result<(), SpCtrlError> {
         self.write_single_target_addr(DCRDR, value)
-            .map_err(|_| SpCtrlError::Fault)?;
+            .map_err(|_| SpCtrlError::SwdFault7)?;
         self.write_single_target_addr(DCRSR, register as u32 | (1u32 << 16))
-            .map_err(|_| SpCtrlError::Fault)?;
+            .map_err(|_| SpCtrlError::SwdFault8)?;
 
         const RETRY_LIMIT: u32 = 10;
         let mut limit = RETRY_LIMIT;
@@ -1529,12 +1534,12 @@ impl ServerImpl {
                     }
                     if limit == 0 {
                         ringbuf_entry!(Trace::LimitRemaining(limit));
-                        return Err(SpCtrlError::Fault);
+                        return Err(SpCtrlError::SwdFault9);
                     }
                     limit -= 1;
                     hl::sleep_for(1);
                 }
-                Err(_) => return Err(SpCtrlError::Fault),
+                Err(_) => return Err(SpCtrlError::SwdFault10),
             }
         }
     }
@@ -1567,7 +1572,7 @@ impl ServerImpl {
         let start = addr;
         let end = addr + buf.len() as u32;
         self.start_read_transaction(start, ((end - start) as usize) / 4)
-            .map_err(|_| SpCtrlError::Fault)?;
+            .map_err(|_| SpCtrlError::SwdFault11)?;
 
         let cnt = buf.len();
         if cnt % 4 != 0 {
@@ -1585,7 +1590,7 @@ impl ServerImpl {
                         }
                     }
                 }
-                Err(_) => return Err(SpCtrlError::Fault),
+                Err(_) => return Err(SpCtrlError::SwdFault12),
             }
         }
 
@@ -1608,7 +1613,7 @@ impl ServerImpl {
             }
             Err(_) => {
                 ringbuf_entry!(Trace::SwdSetupFail);
-                Err(SpCtrlError::Fault)
+                Err(SpCtrlError::SwdFault13)
             }
         }
     }
@@ -1626,7 +1631,7 @@ impl ServerImpl {
     fn do_halt(&mut self) -> Result<(), SpCtrlError> {
         ringbuf_entry!(Trace::DoHalt);
         self.dp_write_bitflags::<Dhcsr>(Dhcsr::halt())
-            .map_err(|_| SpCtrlError::Fault)?;
+            .map_err(|_| SpCtrlError::SwdFault14)?;
         self.wait_for_sp_halt(WAIT_FOR_HALT_MS)
     }
 
@@ -1649,7 +1654,7 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::HaltFail(
                     (sys_get_timer().now.saturating_sub(start)) as u32
                 ));
-                return Err(SpCtrlError::Fault);
+                return Err(SpCtrlError::SwdFault15);
             }
             if deadline <= sys_get_timer().now {
                 // If a human is holding down a physical reset button then
@@ -1669,7 +1674,7 @@ impl ServerImpl {
             Ok(())
         } else {
             ringbuf_entry!(Trace::ResumeFail);
-            Err(SpCtrlError::Fault)
+            Err(SpCtrlError::SwdFault16)
         }
     }
 

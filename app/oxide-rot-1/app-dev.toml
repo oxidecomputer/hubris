@@ -141,7 +141,6 @@ spi_num = 5
 [tasks.dumper]
 name = "task-dumper"
 priority = 5
-max-sizes = {flash = 16384, ram = 4096}
 start = true
 stacksize = 2600
 task-slots = ["swd"]
