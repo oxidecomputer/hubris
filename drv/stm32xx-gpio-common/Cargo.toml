@@ -8,6 +8,7 @@ cfg-if = { workspace = true }
 num-traits = { workspace = true }
 stm32g0 = { workspace = true, optional = true }
 stm32h7 = { workspace = true, optional = true }
+stm32f4 = { workspace = true, optional = true }
 zerocopy = { workspace = true }
 zerocopy-derive = { workspace = true }
 
@@ -58,12 +59,29 @@ family-stm32h7 = [
 model-stm32h743 = ["family-stm32h7"]
 model-stm32h753 = ["family-stm32h7"]
 
+family-stm32f4 = [
+    "stm32f4",
+    "has-gpioa-type",
+    "has-gpiob-type",
+    "has-gpiok-type",
+    "has-port-gpioe",
+    "has-port-gpiof",
+    "has-port-gpiog",
+    "has-port-gpioh",
+    "has-port-gpioi",
+    "has-port-gpioj",
+    "has-port-gpiok",
+]
+model-stm32f407 = ["family-stm32f4"]
+model-stm32f429 = ["family-stm32f4"]
+
 # The has-gpioX-type features indicates that the PAC for the chosen model calls
 # at least some of the GPIO ports `gpioX`. Note that this has nothing to do
 # with the actual identity of the port; GPIOX is probably called `gpioX` but
 # GPIOZ might be too.
 has-gpioa-type = []
 has-gpiob-type = []
+has-gpiok-type = []
 
 # The has-port-gpioX features indicate that the model or family includes the
 # given GPIO port in the memory map. Numbering here starts at E because it is a
