@@ -7,7 +7,7 @@
 #![no_std]
 #![no_main]
 
-use drv_cpu_seq_api::{PowerState, StateChangeReason, Transition};
+use drv_cpu_seq_api::{PowerState, SeqError, StateChangeReason, Transition};
 use drv_spartan7_loader_api::Spartan7Loader;
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};
@@ -96,7 +96,11 @@ impl ServerImpl {
             jefe: Jefe::from(JEFE.get_task_id()),
             sgpio: fmc_periph::Sgpio::new(loader.get_token()),
         };
-        server.set_state_impl(PowerState::A2);
+
+        // Note that we don't use `Self::set_state_impl` here, as that will
+        // first attempt to get the current power state from `jefe`, and we
+        // haven't set it yet!
+        server.jefe.set_state(PowerState::A2 as u32);
 
         // Clear the external fault now that we're about to start serving
         // messages and fewer things can go wrong.
@@ -111,23 +115,24 @@ impl ServerImpl {
         PowerState::from_u32(self.jefe.get_state()).unwrap_lite()
     }
 
-    fn set_state_impl(&self, state: PowerState) {
-        self.jefe.set_state(state as u32);
-    }
-
-    fn validate_state_change(
+    fn set_state_impl(
         &self,
         state: PowerState,
-    ) -> Result<Transition, drv_cpu_seq_api::SeqError> {
+    ) -> Result<Transition, SeqError> {
         match (self.get_state_impl(), state) {
             (PowerState::A2, PowerState::A0)
             | (PowerState::A0, PowerState::A2)
             | (PowerState::A0PlusHP, PowerState::A2)
-            | (PowerState::A0Thermtrip, PowerState::A2) => Ok(Transition::Done),
+            | (PowerState::A0Thermtrip, PowerState::A2) => {
+                self.jefe.set_state(state as u32);
+                Ok(Transition::Done)
+            }
 
-            (current, next) if current == next => Ok(Transition::NoChange),
+            (current, requested) if current == requested => {
+                Ok(Transition::NoChange)
+            }
 
-            _ => Err(drv_cpu_seq_api::SeqError::IllegalTransition),
+            _ => Err(SeqError::IllegalTransition),
         }
     }
 }
@@ -147,12 +152,8 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
         state: PowerState,
-    ) -> Result<Transition, RequestError<drv_cpu_seq_api::SeqError>> {
-        let transition = self.validate_state_change(state)?;
-        if transition == Transition::Done {
-            self.set_state_impl(state);
-        }
-        Ok(transition)
+    ) -> Result<Transition, RequestError<SeqError>> {
+        Ok(self.set_state_impl(state)?)
     }
 
     fn set_state_with_reason(
@@ -160,12 +161,8 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         _: &RecvMessage,
         state: PowerState,
         _: StateChangeReason,
-    ) -> Result<Transition, RequestError<drv_cpu_seq_api::SeqError>> {
-        let transition = self.validate_state_change(state)?;
-        if transition == Transition::Done {
-            self.set_state_impl(state);
-        }
-        Ok(transition)
+    ) -> Result<Transition, RequestError<SeqError>> {
+        Ok(self.set_state_impl(state)?)
     }
 
     fn send_hardware_nmi(
