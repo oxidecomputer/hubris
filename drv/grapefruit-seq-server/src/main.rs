@@ -7,7 +7,7 @@
 #![no_std]
 #![no_main]
 
-use drv_cpu_seq_api::{PowerState, StateChangeReason};
+use drv_cpu_seq_api::{PowerState, StateChangeReason, Transition};
 use drv_spartan7_loader_api::Spartan7Loader;
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};
@@ -118,12 +118,14 @@ impl ServerImpl {
     fn validate_state_change(
         &self,
         state: PowerState,
-    ) -> Result<(), drv_cpu_seq_api::SeqError> {
+    ) -> Result<Transition, drv_cpu_seq_api::SeqError> {
         match (self.get_state_impl(), state) {
             (PowerState::A2, PowerState::A0)
             | (PowerState::A0, PowerState::A2)
             | (PowerState::A0PlusHP, PowerState::A2)
-            | (PowerState::A0Thermtrip, PowerState::A2) => Ok(()),
+            | (PowerState::A0Thermtrip, PowerState::A2) => Ok(Transition::Done),
+
+            (current, next) if current == next => Ok(Transition::NoChange),
 
             _ => Err(drv_cpu_seq_api::SeqError::IllegalTransition),
         }
@@ -145,10 +147,12 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
         state: PowerState,
-    ) -> Result<(), RequestError<drv_cpu_seq_api::SeqError>> {
-        self.validate_state_change(state)?;
-        self.set_state_impl(state);
-        Ok(())
+    ) -> Result<Transition, RequestError<drv_cpu_seq_api::SeqError>> {
+        let transition = self.validate_state_change(state)?;
+        if transition == Transition::Done {
+            self.set_state_impl(state);
+        }
+        Ok(transition)
     }
 
     fn set_state_with_reason(
@@ -156,10 +160,12 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         _: &RecvMessage,
         state: PowerState,
         _: StateChangeReason,
-    ) -> Result<(), RequestError<drv_cpu_seq_api::SeqError>> {
-        self.validate_state_change(state)?;
-        self.set_state_impl(state);
-        Ok(())
+    ) -> Result<Transition, RequestError<drv_cpu_seq_api::SeqError>> {
+        let transition = self.validate_state_change(state)?;
+        if transition == Transition::Done {
+            self.set_state_impl(state);
+        }
+        Ok(transition)
     }
 
     fn send_hardware_nmi(

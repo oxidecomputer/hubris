@@ -12,7 +12,9 @@ use attest_data::messages::{
     HostToRotCommand, RecvSprotError as AttestDataSprotError, RotToHost,
     MAX_DATA_LEN,
 };
-use drv_cpu_seq_api::{PowerState, SeqError, Sequencer, StateChangeReason};
+use drv_cpu_seq_api::{
+    PowerState, SeqError, Sequencer, StateChangeReason, Transition,
+};
 use drv_hf_api::{HfDevSelect, HfMuxState, HostFlash};
 use drv_sprot_api::SpRot;
 use drv_stm32xx_sys_api as sys_api;
@@ -106,6 +108,12 @@ enum Trace {
     UartRxOverrun,
     ParseError(#[count(children)] DecodeFailureReason),
     SetState {
+        now: u64,
+        #[count(children)]
+        state: PowerState,
+        why: StateChangeReason,
+    },
+    AlreadyInState {
         now: u64,
         #[count(children)]
         state: PowerState,
@@ -394,26 +402,40 @@ impl ServerImpl {
             // Attempt to move to A2; given we only call this function in
             // response to a host request, we expect we're currently in A0 and
             // this should work.
-            let err =
-                match self.sequencer.set_state_with_reason(PowerState::A2, why)
-                {
-                    Ok(()) => {
-                        ringbuf_entry!(Trace::SetState {
-                            now: sys_get_timer().now,
-                            why,
-                            state: PowerState::A2,
-                        });
-                        if reboot {
-                            self.reboot_state = Some(RebootState::WaitingForA2);
-                        }
+            match self.sequencer.set_state_with_reason(PowerState::A2, why) {
+                Ok(Transition::Done) => {
+                    ringbuf_entry!(Trace::SetState {
+                        now: sys_get_timer().now,
+                        why,
+                        state: PowerState::A2,
+                    });
+                    if reboot {
+                        self.reboot_state = Some(RebootState::WaitingForA2);
+                    }
+                    return;
+                }
+                Ok(Transition::NoChange) => {
+                    // We're already in A2.
+                    ringbuf_entry!(Trace::SetState {
+                        now: sys_get_timer().now,
+                        why,
+                        state: PowerState::A2,
+                    });
+
+                    // If we're not trying to reboot, we're done.
+                    //
+                    // TODO(eliza): perhaps we ought to  have a way to indicate
+                    // this to up-stack software...
+                    if !reboot {
                         return;
                     }
-                    Err(err) => err,
-                };
-
-            // The only error we should see from `set_state()` is an illegal
-            // transition, if we're not currently in A0.
-            assert!(matches!(err, SeqError::IllegalTransition));
+                }
+                Err(err) => {
+                    // The only error we should see from `set_state()` is an illegal
+                    // transition, if we're not currently in A0.
+                    assert!(matches!(err, SeqError::IllegalTransition));
+                }
+            };
 
             // If we can't go to A2, what state are we in, keeping in mind that
             // we have a bit of TOCTOU here in that the state might've changed
@@ -1450,12 +1472,29 @@ fn handle_reboot_waiting_in_a2_timer(
         // longer in A2. In either case (we successfully started the
         // transition or we're no longer in A2 due to some external cause),
         // we've done what we can to reboot, so clear out `reboot_state`.
-        ringbuf_entry!(Trace::SetState {
-            now: sys_get_timer().now,
-            why,
-            state: PowerState::A0,
-        });
-        _ = sequencer.set_state_with_reason(PowerState::A0, why);
+        match sequencer.set_state_with_reason(PowerState::A0, why) {
+            Ok(Transition::Done) => {
+                ringbuf_entry!(Trace::SetState {
+                    now: sys_get_timer().now,
+                    why,
+                    state: PowerState::A0,
+                });
+            }
+            Ok(Transition::NoChange) => {
+                ringbuf_entry!(Trace::AlreadyInState {
+                    now: sys_get_timer().now,
+                    why,
+                    state: PowerState::A0,
+                })
+            }
+            Err(_) => {
+                // Yes, ignore this error. It will have been recorded in the
+                // sequencer client ringbuf, and should not fail unless we are
+                // in A1 already (in which case we will see "illegal
+                // transition", but we are already on our way to A0, so it's
+                // fine).
+            }
+        }
         *reboot_state = None;
     }
 }

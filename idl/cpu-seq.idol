@@ -21,7 +21,10 @@ Interface(
                 ),
             },
             reply: Result(
-                ok: "()",
+                ok: (
+                    type: "drv_cpu_seq_api::Transition",
+                    recv: FromPrimitive("u8"),
+                ),
                 err: CLike("drv_cpu_seq_api::SeqError"),
             ),
         ),
@@ -38,7 +41,10 @@ Interface(
                 ),
             },
             reply: Result(
-                ok: "()",
+                ok: (
+                    type: "drv_cpu_seq_api::Transition",
+                    recv: FromPrimitive("u8"),
+                ),
                 err: CLike("drv_cpu_seq_api::SeqError"),
             ),
         ),

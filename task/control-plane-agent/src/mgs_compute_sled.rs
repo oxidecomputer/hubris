@@ -732,7 +732,11 @@ impl SpHandler for MgsHandler {
                 power_state,
                 drv_cpu_seq_api::StateChangeReason::ControlPlane,
             )
-            .map_err(|e| SpError::PowerStateError(e as u32))
+            .map_err(|e| SpError::PowerStateError(e as u32))?;
+        // TODO(eliza): we should eventually indicate to upstack software
+        // whether a power state change occurred or not (requires another
+        // message type in gateway-messages...)
+        Ok(())
     }
 
     fn serial_console_attach(

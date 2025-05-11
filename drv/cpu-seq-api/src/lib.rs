@@ -73,6 +73,28 @@ pub enum StateChangeReason {
     Overheat,
 }
 
+/// Indicates the result of a power state transition.
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    FromPrimitive,
+    Eq,
+    PartialEq,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
+    Count,
+)]
+#[repr(u8)]
+pub enum Transition {
+    /// The sequencer successfully transitioned to the desired state.
+    Done = 1,
+    /// The sequencer believes the system was already in the desired state, and
+    /// did not perform a state transition.
+    NoChange,
+}
+
 // On Gimlet, we have two banks of up to 8 DIMMs apiece. Export the "two banks"
 // bit of knowledge here so it can be used by gimlet-seq-server, spd, and
 // packrat, all of which want to know at compile-time how many banks there are.
