@@ -110,9 +110,6 @@ impl Fans<{ bsp::NUM_FANS }> {
     pub fn new() -> Self {
         Self([None; bsp::NUM_FANS])
     }
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
     pub fn is_present(&self, index: crate::Fan) -> bool {
         self.0[index.0 as usize].is_some()
     }
@@ -1219,40 +1216,12 @@ impl<'a> ThermalControl<'a> {
         last_err
     }
 
-    /// Sets the PWM for a single fan
-    ///
-    /// If the fan is present, set to `pwm`. if it is not present, set to zero.
-    pub fn set_fan_pwm(
-        &mut self,
-        fan: Fan,
-        pwm: PWMDuty,
-    ) -> Result<(), ThermalError> {
-        let pwm = match self.fans.is_present(fan) {
-            true => pwm,
-            false => PWMDuty(0),
-        };
-        self.bsp
-            .fan_control(fan)?
-            .set_pwm(pwm)
-            .map_err(|_| ThermalError::DeviceError)
-    }
-
     /// Attempts to set the PWM of every fan to whatever the previous value was.
     ///
     /// This is used by ThermalMode::Manual to accomodate the removal and
     /// replacement of fan modules.
     pub fn maintain_pwm(&mut self) -> Result<(), ThermalError> {
         self.set_pwm(self.last_pwm)
-    }
-
-    pub fn fan(&self, index: u8) -> Option<Fan> {
-        let f = &self.fans;
-
-        if (index as usize) < f.len() {
-            Some(Fan(index))
-        } else {
-            None
-        }
     }
 
     pub fn set_watchdog(
