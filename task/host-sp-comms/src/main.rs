@@ -403,7 +403,7 @@ impl ServerImpl {
             // response to a host request, we expect we're currently in A0 and
             // this should work.
             match self.sequencer.set_state_with_reason(PowerState::A2, why) {
-                Ok(Transition::Done) => {
+                Ok(Transition::Changed) => {
                     ringbuf_entry!(Trace::SetState {
                         now: sys_get_timer().now,
                         why,
@@ -414,7 +414,7 @@ impl ServerImpl {
                     }
                     return;
                 }
-                Ok(Transition::NoChange) => {
+                Ok(Transition::Unchanged) => {
                     // We're already in A2.
                     ringbuf_entry!(Trace::AlreadyInState {
                         now: sys_get_timer().now,
@@ -1473,14 +1473,14 @@ fn handle_reboot_waiting_in_a2_timer(
         // transition or we're no longer in A2 due to some external cause),
         // we've done what we can to reboot, so clear out `reboot_state`.
         match sequencer.set_state_with_reason(PowerState::A0, why) {
-            Ok(Transition::Done) => {
+            Ok(Transition::Changed) => {
                 ringbuf_entry!(Trace::SetState {
                     now: sys_get_timer().now,
                     why,
                     state: PowerState::A0,
                 });
             }
-            Ok(Transition::NoChange) => {
+            Ok(Transition::Unchanged) => {
                 ringbuf_entry!(Trace::AlreadyInState {
                     now: sys_get_timer().now,
                     why,

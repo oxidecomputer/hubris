@@ -870,7 +870,7 @@ impl<S: SpiServer> ServerImpl<S> {
                 ));
 
                 self.update_state_internal(PowerState::A0);
-                Ok(Transition::Done)
+                Ok(Transition::Changed)
             }
 
             (PowerState::A0, PowerState::A2)
@@ -928,10 +928,10 @@ impl<S: SpiServer> ServerImpl<S> {
                     ringbuf_entry_v3p3_sys_a0_vout();
                 }
 
-                Ok(Transition::Done)
+                Ok(Transition::Changed)
             }
             (current, requested) if current == requested => {
-                Ok(Transition::NoChange)
+                Ok(Transition::Unchanged)
             }
             (_, _) => Err(SeqError::IllegalTransition),
         }

@@ -53,11 +53,11 @@ impl ServerImpl {
             | (PowerState::A0PlusHP, PowerState::A2)
             | (PowerState::A0Thermtrip, PowerState::A2) => {
                 self.jefe.set_state(state as u32);
-                Ok(Transition::Done)
+                Ok(Transition::Changed)
             }
 
             (current, requested) if current == requested => {
-                Ok(Transition::NoChange)
+                Ok(Transition::Unchanged)
             }
 
             _ => Err(SeqError::IllegalTransition),

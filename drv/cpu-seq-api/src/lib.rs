@@ -89,10 +89,10 @@ pub enum StateChangeReason {
 #[repr(u8)]
 pub enum Transition {
     /// The sequencer successfully transitioned to the desired state.
-    Done,
+    Changed,
     /// The sequencer believes the system was already in the desired state, and
     /// did not perform a state transition.
-    NoChange,
+    Unchanged,
 }
 
 // On Gimlet, we have two banks of up to 8 DIMMs apiece. Export the "two banks"

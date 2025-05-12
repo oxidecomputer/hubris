@@ -448,7 +448,7 @@ impl ServerImpl {
             // This is purely an accounting change
             (PowerState::A0, PowerState::A0PlusHP) => (),
             (current, requested) if current == requested => {
-                return Ok(Transition::NoChange)
+                return Ok(Transition::Unchanged)
             }
 
             _ => return Err(CpuSeqError::IllegalTransition),
@@ -457,7 +457,7 @@ impl ServerImpl {
         self.state = state;
         self.jefe.set_state(state as u32);
         self.poke_timer();
-        Ok(Transition::Done)
+        Ok(Transition::Changed)
     }
 
     /// Returns the current timer interval, in milliseconds
