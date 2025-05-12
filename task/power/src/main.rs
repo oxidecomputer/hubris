@@ -28,7 +28,7 @@ use task_power_api::{
 use task_sensor_api as sensor_api;
 use userlib::units::*;
 use userlib::*;
-use zerocopy::AsBytes;
+use zerocopy::IntoBytes;
 
 use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_i2c_devices::{
@@ -621,7 +621,7 @@ impl ServerImpl {
             .ok_or(ResponseCode::NoDevice)
     }
 
-    fn raw_pmbus_read<T: zerocopy::FromBytes + zerocopy::AsBytes>(
+    fn raw_pmbus_read<T: zerocopy::FromBytes + zerocopy::IntoBytes>(
         &mut self,
         index: u32,
         has_rail: bool,
@@ -643,7 +643,7 @@ impl ServerImpl {
         Ok(out)
     }
 
-    fn raw_pmbus_write<T: zerocopy::AsBytes>(
+    fn raw_pmbus_write<T: zerocopy::IntoBytes>(
         &mut self,
         index: u32,
         has_rail: bool,
@@ -664,7 +664,7 @@ impl ServerImpl {
         let args = Args { op, value };
 
         // SAFETY: this is a packed struct and T is constrained to be
-        // AsBytes, so there should be no padding bytes
+        // IntoBytes, so there should be no padding bytes
         let args_slice = unsafe {
             core::slice::from_raw_parts(
                 (&args as *const Args<T>) as *const u8,
@@ -1021,7 +1021,7 @@ impl idl::InOrderPowerImpl for ServerImpl {
 
         // Step 1 - Verify Part Revision
         let mut id = 0u32;
-        dev.read_block(CommandCode::IC_DEVICE_REV as u8, id.as_bytes_mut())?;
+        dev.read_block(CommandCode::IC_DEVICE_REV as u8, id.as_mut_bytes())?;
         ringbuf_entry!(Trace::GotVersion(id));
 
         // Experimentally determined ID

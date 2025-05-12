@@ -20,7 +20,7 @@ cfg_if::cfg_if! {
 
 use derive_idol_err::IdolError;
 use userlib::*;
-use zerocopy::AsBytes;
+use zerocopy::{Immutable, IntoBytes, KnownLayout};
 
 pub use drv_stm32xx_gpio_common::{
     Alternate, Mode, OutputType, PinSet, Port, Pull, Speed,
@@ -35,7 +35,15 @@ pub enum RccError {
 
 /// Configures edge sensitivity for a GPIO interrupt
 #[derive(
-    Copy, Clone, FromPrimitive, PartialEq, Eq, AsBytes, serde::Deserialize,
+    Copy,
+    Clone,
+    FromPrimitive,
+    PartialEq,
+    Eq,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
+    serde::Deserialize,
 )]
 // NOTE: This `repr` attribute is *not* necessary for
 // serialization/deserialization, but it is used to allow casting to `u8` in the
@@ -54,9 +62,17 @@ pub enum Edge {
 
 /// Describes which operation is performed by the [`Sys::gpio_irq_control`] IPC.
 #[derive(
-    Copy, Clone, FromPrimitive, PartialEq, Eq, AsBytes, serde::Deserialize,
+    Copy,
+    Clone,
+    FromPrimitive,
+    PartialEq,
+    Eq,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
+    serde::Deserialize,
 )]
-// repr attribute is required for the derived `AsBytes` implementation
+// repr attribute is required for the derived `IntoBytes` implementation
 #[repr(u8)]
 pub enum IrqControl {
     /// Disable any interrupts mapped to the provided notification mask.

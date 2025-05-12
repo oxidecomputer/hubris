@@ -7,7 +7,7 @@ use drv_lpc55_flash::{Flash, BYTES_PER_FLASH_PAGE};
 use lpc55_pac::SYSCON;
 use sha3::{Digest, Sha3_256};
 use stage0_handoff::ImageError;
-use zerocopy::AsBytes;
+use zerocopy::IntoBytes;
 
 const U32_SIZE: u32 = core::mem::size_of::<u32>() as u32;
 
@@ -15,7 +15,7 @@ const U32_SIZE: u32 = core::mem::size_of::<u32>() as u32;
 // NXP uses reserved vectors for image information.
 // See UM11126 Table 177 for details.
 #[repr(C)]
-#[derive(Default, AsBytes)]
+#[derive(Default, IntoBytes)]
 pub struct ImageVectorsLpc55 {
     pub sp: u32,
     pub entry: u32,

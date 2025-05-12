@@ -7,6 +7,7 @@ edition = "2021"
 stm32h7 = { workspace = true }
 vcell = { workspace = true }
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 
 drv-qspi-api = { path = "../qspi-api" }
 userlib = { path = "../../sys/userlib" }

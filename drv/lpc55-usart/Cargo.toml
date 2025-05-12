@@ -7,6 +7,7 @@ edition = "2021"
 lpc55-pac = { workspace = true }
 nb = { workspace = true }
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 
 drv-lpc55-gpio-api = { path = "../lpc55-gpio-api" }
 drv-lpc55-syscon-api = { path = "../lpc55-syscon-api" }

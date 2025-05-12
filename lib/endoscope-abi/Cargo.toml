@@ -9,7 +9,7 @@ doctest = false
 bench = false
 
 [dependencies]
-zerocopy = { workspace = true }
+zerocopy = { workspace = true, features = ["derive"] }
 sha3 = { workspace = true }
 
 [lints]

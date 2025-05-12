@@ -12,6 +12,7 @@ cortex-m = { workspace = true }
 idol-runtime = { workspace = true }
 num-traits = { workspace = true }
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 
 drv-i2c-api = { path = "../../drv/i2c-api" }
 drv-i2c-devices = { path = "../../drv/i2c-devices" }

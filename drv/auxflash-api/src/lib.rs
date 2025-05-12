@@ -10,7 +10,7 @@ use derive_idol_err::IdolError;
 use sha3::{Digest, Sha3_256};
 use tlvc::{TlvcRead, TlvcReader};
 use userlib::{sys_send, FromPrimitive};
-use zerocopy::{AsBytes, FromBytes};
+use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 pub use drv_qspi_api::{PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES};
 
@@ -52,19 +52,21 @@ pub enum AuxFlashError {
     ServerRestarted,
 }
 
-#[derive(Copy, Clone, FromBytes, AsBytes)]
+#[derive(Copy, Clone, FromBytes, IntoBytes, Immutable, KnownLayout)]
 #[repr(transparent)]
 pub struct AuxFlashId(pub [u8; 20]);
 
-#[derive(Copy, Clone, PartialEq, Eq, FromBytes, AsBytes)]
+#[derive(
+    Copy, Clone, PartialEq, Eq, FromBytes, IntoBytes, Immutable, KnownLayout,
+)]
 #[repr(transparent)]
 pub struct AuxFlashChecksum(pub [u8; 32]);
 
-#[derive(Copy, Clone, FromBytes, AsBytes)]
+#[derive(Copy, Clone, FromBytes, IntoBytes, Immutable, KnownLayout)]
 #[repr(transparent)]
 pub struct AuxFlashTag(pub [u8; 4]);
 
-#[derive(Copy, Clone, FromBytes, AsBytes)]
+#[derive(Copy, Clone, FromBytes, IntoBytes, Immutable, KnownLayout)]
 #[repr(C)]
 pub struct AuxFlashBlob {
     pub slot: u32,

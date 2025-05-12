@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-zerocopy = { workspace = true }
+zerocopy = { workspace = true, features = ["derive"] }
 bitflags = { workspace = true }
 byteorder = { workspace = true }
 serde = { workspace = true }

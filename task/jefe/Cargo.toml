@@ -10,6 +10,7 @@ num-traits = { workspace = true }
 serde = { workspace = true }
 ssmarshal = { workspace = true }
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 hubpack = { workspace = true }
 humpty = { workspace = true }
 cfg-if = { workspace = true }

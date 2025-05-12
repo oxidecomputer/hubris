@@ -8,6 +8,7 @@ cfg-if = { workspace = true }
 cortex-m = { workspace = true }
 num-traits = { workspace = true }
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 
 hubris-num-tasks = { path = "../../sys/num-tasks" }
 task-config = {  path = "../../lib/task-config"  }

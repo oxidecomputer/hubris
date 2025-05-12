@@ -14,6 +14,7 @@ serde.workspace = true
 serde-big-array.workspace = true
 static_assertions.workspace = true
 zerocopy.workspace = true
+zerocopy-derive.workspace = true
 
 counters = { path = "../../lib/counters" }
 drv-i2c-api.path = "../../drv/i2c-api"

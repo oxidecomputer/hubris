@@ -13,6 +13,7 @@ userlib.path = "../../sys/userlib"
 idol-runtime.workspace = true
 num-traits.workspace = true
 zerocopy.workspace = true
+zerocopy-derive.workspace = true
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

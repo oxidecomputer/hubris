@@ -8,7 +8,9 @@
 
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
-use zerocopy::{AsBytes, FromBytes};
+use zerocopy::{
+    FromBytes, FromZeros, Immutable, IntoBytes, KnownLayout, Unaligned,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ParseError {
@@ -31,7 +33,10 @@ pub enum ParseError {
     PartialEq,
     Eq,
     FromBytes,
-    AsBytes,
+    IntoBytes,
+    Unaligned,
+    Immutable,
+    KnownLayout,
     Serialize,
     Deserialize,
     SerializedSize,

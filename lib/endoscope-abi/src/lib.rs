@@ -31,7 +31,7 @@ pub enum State {
     Done = 0x1dec1a0,
 }
 
-#[derive(FromBytes, AsBytes, Copy, Clone)]
+#[derive(FromBytes, IntoBytes, Immutable, KnownLayout, Copy, Clone)]
 #[repr(C, packed)]
 pub struct Shared {
     pub state: u32,
@@ -40,10 +40,7 @@ pub struct Shared {
 
 impl Shared {
     pub fn parse(bytes: &[u8]) -> Option<&Self> {
-        if let Some((layout, _)) =
-            LayoutVerified::<&[u8], Self>::new_from_prefix(bytes)
-        {
-            let shared: &Shared = layout.into_ref();
+        if let Ok((shared, _)) = Self::ref_from_prefix(bytes) {
             Some(shared)
         } else {
             None

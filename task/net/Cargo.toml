@@ -18,6 +18,7 @@ smoltcp = { workspace = true }
 stm32h7 = { workspace = true }
 vsc7448-pac = { workspace = true }
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 
 counters = { path = "../../lib/counters" }
 drv-cpu-seq-api = { path = "../../drv/cpu-seq-api", optional = true }

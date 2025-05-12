@@ -244,7 +244,15 @@ pub struct PhyStatus {
     pub media_link_up: LinkStatus,
 }
 
-#[derive(Copy, Clone, Debug, zerocopy::AsBytes, zerocopy::FromBytes)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    zerocopy::IntoBytes,
+    zerocopy::FromBytes,
+    zerocopy::Immutable,
+    zerocopy::KnownLayout,
+)]
 #[repr(C)]
 pub struct MacTableEntry {
     pub mac: [u8; 6],

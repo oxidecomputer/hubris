@@ -11,6 +11,7 @@ num-traits.workspace = true
 serde.workspace = true
 hubpack.workspace = true
 zerocopy.workspace = true
+zerocopy-derive.workspace = true
 
 drv-cpu-seq-api = { path = "../../drv/cpu-seq-api", optional = true }
 drv-sidecar-seq-api = { path = "../../drv/sidecar-seq-api", optional = true }

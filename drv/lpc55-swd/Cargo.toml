@@ -10,6 +10,7 @@ idol-runtime = { workspace = true }
 lpc55-pac = { workspace = true }
 num-traits = { workspace = true }
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 bitflags = { workspace = true }
 static_assertions = { workspace = true }
 

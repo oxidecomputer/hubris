@@ -16,6 +16,7 @@ num-traits = { workspace = true }
 serde = { workspace = true }
 userlib = {  path = "../../sys/userlib", features = ["panic-messages"]  }
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 attest-data = { workspace = true }
 
 [build-dependencies]

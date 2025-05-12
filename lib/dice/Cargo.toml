@@ -16,6 +16,7 @@ serde-big-array = { workspace = true }
 sha3 = { workspace = true }
 static_assertions = { workspace = true }
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 zeroize = { workspace = true }
 
 lib-lpc55-usart = { path = "../lpc55-usart/" }

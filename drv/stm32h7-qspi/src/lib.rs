@@ -14,7 +14,7 @@ use stm32h7::stm32h753 as device;
 
 use drv_qspi_api::Command;
 use userlib::{sys_irq_control, sys_recv_notification};
-use zerocopy::AsBytes;
+use zerocopy::IntoBytes;
 
 const FIFO_SIZE: usize = 32;
 const FIFO_THRESH: usize = 16;
@@ -78,7 +78,7 @@ impl Qspi {
     /// Reads the Status register.
     pub fn read_status(&self) -> u8 {
         let mut status = 0u8;
-        self.read_impl(Command::ReadStatusReg, None, status.as_bytes_mut());
+        self.read_impl(Command::ReadStatusReg, None, status.as_mut_bytes());
         status
     }
 

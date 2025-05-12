@@ -12,6 +12,7 @@ num-traits.workspace = true
 serde.workspace = true
 ssmarshal.workspace = true
 zerocopy.workspace = true
+zerocopy-derive.workspace = true
 
 derive-idol-err.path = "../../lib/derive-idol-err"
 host-sp-messages.path = "../../lib/host-sp-messages"

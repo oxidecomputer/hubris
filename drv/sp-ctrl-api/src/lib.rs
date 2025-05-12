@@ -18,10 +18,22 @@ pub enum SpCtrlError {
     Fault,
     InvalidCoreRegister,
     DongleDetected,
-
     #[idol(server_death)]
     ServerRestarted,
     Timeout,
+    AckFault,
+    AckProtocol,
+    AckWait,
+    // Setup gets extra special errors
+    IdCodeFault,
+    IdCodeWait,
+    IdCodeProtocol,
+    PowerUpFault,
+    PowerUpWait,
+    PowerUpProtocol,
+    IdrFault,
+    IdrWait,
+    IdrProtocol,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

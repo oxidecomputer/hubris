@@ -8,6 +8,7 @@ cfg-if = { workspace = true }
 proc-macro2 = { workspace = true }
 quote = { workspace = true }
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 
 [build-dependencies]
 build-util = { path = "../../build/util" }

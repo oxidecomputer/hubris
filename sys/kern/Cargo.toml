@@ -11,6 +11,7 @@ cortex-m = { workspace = true }
 serde = { workspace = true }
 ssmarshal = { workspace = true }
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 
 abi = { path = "../abi" }
 armv8-m-mpu = { path = "../../lib/armv8-m-mpu" }

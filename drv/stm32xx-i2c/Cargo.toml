@@ -10,6 +10,7 @@ num-traits = { workspace = true }
 stm32g0 = { workspace = true, optional = true }
 stm32h7 = { workspace = true, optional = true }
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 
 drv-i2c-api = { path = "../i2c-api" }
 drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }

@@ -13,7 +13,7 @@ use serde_big_array::BigArray;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use static_assertions::{const_assert, const_assert_eq};
 use unwrap_lite::UnwrapLite;
-use zerocopy::{AsBytes, FromBytes};
+use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 pub use hubpack::error::Error as HubpackError;
 
@@ -613,7 +613,9 @@ impl From<HubpackError> for DecodeFailureReason {
     Deserialize,
     SerializedSize,
     FromBytes,
-    AsBytes,
+    Immutable,
+    KnownLayout,
+    IntoBytes,
 )]
 #[repr(transparent)]
 pub struct Status(u64);
@@ -628,7 +630,9 @@ pub struct Status(u64);
     Deserialize,
     SerializedSize,
     FromBytes,
-    AsBytes,
+    Immutable,
+    KnownLayout,
+    IntoBytes,
 )]
 #[repr(transparent)]
 pub struct HostStartupOptions(u64);

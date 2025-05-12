@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 userlib = { path = "../../sys/userlib" }
 zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
 num-traits = { workspace = true }
 counters = { path = "../../lib/counters", features = ["derive"] }
 

@@ -15,6 +15,7 @@ serde.workspace = true
 static_assertions.workspace = true
 tlvc.workspace = true
 zerocopy.workspace = true
+zerocopy-derive.workspace = true
 attest-data.workspace = true
 
 attest-api = { path = "../../task/attest-api" }

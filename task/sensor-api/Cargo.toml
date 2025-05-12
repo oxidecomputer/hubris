@@ -10,6 +10,7 @@ num-derive.workspace = true
 num-traits.workspace = true
 serde.workspace = true
 zerocopy.workspace = true
+zerocopy-derive.workspace = true
 
 counters = { path = "../../lib/counters" }
 drv-i2c-api.path = "../../drv/i2c-api"

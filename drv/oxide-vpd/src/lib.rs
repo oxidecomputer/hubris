@@ -15,7 +15,7 @@ use drv_i2c_devices::at24csw080::{
 };
 use ringbuf::*;
 use tlvc::{ChunkHandle, TlvcRead, TlvcReadError, TlvcReader};
-use zerocopy::{AsBytes, FromBytes};
+use zerocopy::{FromBytes, IntoBytes};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum VpdError {
@@ -79,7 +79,7 @@ impl<'a> TlvcRead for EepromReader<'a> {
 /// `read_config_from` should be called with a tag nested under `FRU0` (e.g.
 /// `TAG1` in the example above).  It will deserialize the raw byte array (shown
 /// as `[...]`) into an object of type `V`.
-pub fn read_config_from<V: AsBytes + FromBytes>(
+pub fn read_config_from<V: IntoBytes + FromBytes>(
     eeprom: At24Csw080,
     tag: [u8; 4],
 ) -> Result<V, VpdError> {
@@ -105,12 +105,12 @@ pub fn read_config_from<V: AsBytes + FromBytes>(
 /// To get the second `TAG2`, `&[(*b"TAG1", 0), (*b"TAG2", 1)]`, and so on.
 ///
 /// The `FRU0` root is mandatory, but not included in the `tags` argument.
-pub fn read_config_nested_from<V: AsBytes + FromBytes>(
+pub fn read_config_nested_from<V: IntoBytes + FromBytes>(
     eeprom: At24Csw080,
     tags: &[([u8; 4], usize)],
 ) -> Result<V, VpdError> {
     let mut out = V::new_zeroed();
-    let n = read_config_nested_from_into(eeprom, tags, out.as_bytes_mut())?;
+    let n = read_config_nested_from_into(eeprom, tags, out.as_mut_bytes())?;
 
     // `read_config_nested_from_into(..)` fails if the data is too large for
     // `out`, but will succeed if it's less than out; we want to guarantee it's

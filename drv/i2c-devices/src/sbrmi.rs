@@ -334,7 +334,7 @@ impl Sbrmi {
             return Err(Error::RdmsrFailed { code });
         }
 
-        Ok(<V>::read_from(&result[2..2 + size as usize]).unwrap())
+        Ok(<V>::read_from_bytes(&result[2..2 + size as usize]).unwrap())
     }
 }
 

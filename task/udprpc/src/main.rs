@@ -7,7 +7,7 @@
 
 use task_net_api::*;
 use userlib::*;
-use zerocopy::{AsBytes, FromBytes, LittleEndian, U16, U64};
+use zerocopy::{FromBytes, IntoBytes, LittleEndian, U16, U64};
 
 task_slot!(NET, net);
 
@@ -79,7 +79,7 @@ fn main() -> ! {
                 } else {
                     // We can always read the header, since it's raw data
                     let header =
-                        RpcHeader::read_from(&rx_data_buf[..HEADER_SIZE])
+                        RpcHeader::read_from_bytes(&rx_data_buf[..HEADER_SIZE])
                             .unwrap_lite();
 
                     let nbytes = header.nbytes.get() as usize;

@@ -9,7 +9,7 @@
 
 use ringbuf::*;
 use userlib::{task_slot, RecvMessage, TaskId};
-use zerocopy::{byteorder, AsBytes, Unaligned, U16};
+use zerocopy::{byteorder, Immutable, IntoBytes, KnownLayout, Unaligned, U16};
 
 use drv_fpga_api::{BitstreamType, DeviceState, FpgaError, ReadOp, WriteOp};
 use drv_fpga_devices::{ecp5, Fpga, FpgaBitstream, FpgaUserDesign};
@@ -629,7 +629,7 @@ impl<'a, Device: Fpga<'a> + FpgaUserDesign> idol_runtime::NotificationHandler
     }
 }
 
-#[derive(AsBytes, Unaligned)]
+#[derive(IntoBytes, Immutable, KnownLayout, Unaligned)]
 #[repr(C)]
 struct UserDesignRequestHeader {
     cmd: u8,

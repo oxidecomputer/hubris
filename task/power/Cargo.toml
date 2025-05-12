@@ -14,6 +14,7 @@ pmbus.workspace = true
 serde.workspace = true
 static_assertions.workspace = true
 zerocopy.workspace = true
+zerocopy-derive.workspace = true
 
 drv-cpu-seq-api = { path = "../../drv/cpu-seq-api", optional = true }
 drv-i2c-api = { path = "../../drv/i2c-api" }

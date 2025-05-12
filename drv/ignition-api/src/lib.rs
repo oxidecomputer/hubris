@@ -15,7 +15,7 @@ use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::FromPrimitive;
 use serde::Serialize;
 use static_assertions::const_assert;
-use zerocopy::{AsBytes, FromBytes, Unaligned};
+use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout, Unaligned};
 
 // The `presence_summary` vector (see `drv-ignition-server`) is implicitly
 // capped at 40 bits by (the RTL of) the mainboard controller. This constant is
@@ -240,7 +240,9 @@ impl Iterator for AllLinkEventsIter {
     FromPrimitive,
     From,
     FromBytes,
-    AsBytes,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
 )]
 #[repr(C)]
 pub struct PortState(u64);
@@ -455,9 +457,11 @@ impl From<u8> for SystemFaults {
     Eq,
     From,
     FromBytes,
-    AsBytes,
+    IntoBytes,
     Unaligned,
     Serialize,
+    Immutable,
+    KnownLayout,
 )]
 #[repr(C)]
 pub struct SystemId(pub u8);
@@ -465,7 +469,17 @@ pub struct SystemId(pub u8);
 /// `Request`s are sent by the Controller to change the power state of a system
 /// under control by a Target.
 #[derive(
-    Copy, Clone, Debug, PartialEq, Eq, From, FromPrimitive, ToPrimitive, AsBytes,
+    Copy,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    From,
+    FromPrimitive,
+    ToPrimitive,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
 )]
 #[repr(u8)]
 pub enum Request {
@@ -487,7 +501,17 @@ impl From<Request> for u8 {
 /// useful to determine if both the Controller and Target are operating correct.
 /// The counters will saturate when reaching their maximum value.
 #[derive(
-    Copy, Clone, Debug, Default, PartialEq, Eq, AsBytes, FromBytes, Serialize,
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    IntoBytes,
+    FromBytes,
+    Immutable,
+    KnownLayout,
+    Serialize,
 )]
 #[repr(C)]
 pub struct Counters {
@@ -621,7 +645,17 @@ impl From<TransceiverEvents> for u8 {
 /// both transceivers of the Target. When operating on `TransceiverEvents` this
 /// enum is used to select between the different sets.
 #[derive(
-    Copy, Clone, Debug, PartialEq, Eq, From, FromPrimitive, ToPrimitive, AsBytes,
+    Copy,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    From,
+    FromPrimitive,
+    ToPrimitive,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
 )]
 #[repr(u8)]
 pub enum TransceiverSelect {

@@ -8,7 +8,7 @@ use gateway_messages::{
     DumpCompression, DumpError, DumpSegment, DumpTask, SpError,
 };
 use userlib::{task_slot, UnwrapLite};
-use zerocopy::{AsBytes, FromBytes};
+use zerocopy::{FromBytes, FromZeros, IntoBytes};
 
 task_slot!(DUMP_AGENT, dump_agent);
 
@@ -64,7 +64,7 @@ impl DumpState {
                 .agent
                 .read_dump(index, 0)
                 .map_err(|_e| SpError::Dump(DumpError::BadArea))?;
-            let header = humpty::DumpAreaHeader::read_from(
+            let header = humpty::DumpAreaHeader::read_from_bytes(
                 &data[..HEADER_SIZE as usize],
             )
             .unwrap_lite();
@@ -95,7 +95,7 @@ impl DumpState {
                 .agent
                 .read_dump(index, 0)
                 .map_err(|_e| SpError::Dump(DumpError::BadArea))?;
-            header = humpty::DumpAreaHeader::read_from(
+            header = humpty::DumpAreaHeader::read_from_bytes(
                 &data[..HEADER_SIZE as usize],
             )
             .unwrap_lite();
@@ -120,8 +120,9 @@ impl DumpState {
         // Here we go!
         let offset =
             HEADER_SIZE + u32::from(header.nsegments) * SEGMENT_DATA_SIZE;
-        let task = humpty::DumpTask::read_from_prefix(&data[offset as usize..])
-            .ok_or(SpError::Dump(DumpError::NoDumpTaskHeader))?;
+        let (task, _) =
+            humpty::DumpTask::read_from_prefix(&data[offset as usize..])
+                .map_err(|_| SpError::Dump(DumpError::NoDumpTaskHeader))?;
         if task.magic != humpty::DUMP_TASK_MAGIC {
             return Err(SpError::Dump(DumpError::CorruptTaskHeader));
         }
@@ -201,7 +202,7 @@ impl DumpState {
 
         let mut header = humpty::DumpAreaHeader::new_zeroed();
         self.agent
-            .read_dump_into(pos.area_index, 0, header.as_bytes_mut())
+            .read_dump_into(pos.area_index, 0, header.as_mut_bytes())
             .map_err(|_e| SpError::Dump(DumpError::ReadFailed))?;
 
         // Make sure the header is still valid
@@ -219,7 +220,7 @@ impl DumpState {
             // Move to the next area and read the header
             pos.area_index += 1;
             self.agent
-                .read_dump_into(pos.area_index, 0, header.as_bytes_mut())
+                .read_dump_into(pos.area_index, 0, header.as_mut_bytes())
                 .map_err(|_e| SpError::Dump(DumpError::ReadFailed))?;
 
             // If the next header is of a different type, then we have no more
@@ -236,7 +237,7 @@ impl DumpState {
         // Read the dump segment data header
         let mut ds = humpty::DumpSegmentData::new_zeroed();
         self.agent
-            .read_dump_into(pos.area_index, pos.offset, ds.as_bytes_mut())
+            .read_dump_into(pos.area_index, pos.offset, ds.as_mut_bytes())
             .map_err(|_e| SpError::Dump(DumpError::ReadFailed))?;
         pos.offset += SEGMENT_DATA_SIZE;
 

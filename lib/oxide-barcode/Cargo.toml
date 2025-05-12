@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 hubpack.workspace = true
 serde.workspace = true
-zerocopy.workspace = true
+zerocopy = { workspace = true, features = ["derive"] }
 
 [lints]
 workspace = true
