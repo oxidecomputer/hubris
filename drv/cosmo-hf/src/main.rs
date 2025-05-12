@@ -129,27 +129,12 @@ impl FlashDriver {
 
     /// Wait until the FPGA is idle
     fn wait_fpga_busy(&self) {
-        loop {
-            if !self.drv.spisr.busy() {
-                break;
-            }
-            ringbuf_entry!(Trace::FpgaBusy);
-            sleep_for(1);
-        }
+        self.poll_wait(|this| !this.drv.spisr.busy(), Trace::FpgaBusy)
     }
 
     /// Wait until a word is available in the FPGA's RX buffer
     fn wait_fpga_rx(&self) {
-        for i in 0.. {
-            if !self.drv.spisr.rx_empty() {
-                break;
-            }
-            ringbuf_entry!(Trace::FpgaBusy);
-            // Initial busy-loop for faster response
-            if i >= 32 {
-                sleep_for(1);
-            }
-        }
+        self.poll_wait(|this| !this.drv.spisr.rx_empty(), Trace::FpgaBusy)
     }
 
     /// Clears the FPGA's internal FIFOs
@@ -161,13 +146,48 @@ impl FlashDriver {
         });
     }
 
+    /// Wait for a condition represented by the provided `poll` function.
+    ///
+    /// The driver will wait until the `poll` function returns `true`. Each time
+    /// `poll` returns `false`, the provided `trace` will be recorded in the
+    /// ring buffer.
+    #[inline]
+    fn poll_wait(&self, mut poll: impl FnMut(&Self) -> bool, trace: Trace) {
+        // When polling the FPGA or flash chips, this number of polls are
+        // attempted *without* sleeping between polls. If the FPGA/flash's
+        // status has not changed after this number of polls, the driver will
+        // begin to sleep for a short period between subsequent polls.
+        //
+        // This is intended to improve copy performance for operations where the
+        // desired status transition occurs in less than 1ms, avoiding a 1-2ms
+        // sleep and round-trip through the scheduler. status transitions
+        // quickly.
+        const MAX_BUSY_POLLS: u32 = 32;
+
+        let mut busy_polls = 0;
+        while !poll(self) {
+            ringbuf_entry!(trace);
+
+            if busy_polls > MAX_BUSY_POLLS {
+                // If we've exhausted all of our busy polls, sleep for a bit
+                // before polling again.
+                sleep_for(1);
+            } else {
+                // Only increment the counter while we are busy-polling.
+                // Otherwise, if we incremented it unconditionally, we might
+                // overflow and start busy-polling again. Of course, we won't do
+                // that unless we are stuck waiting for 4,294,967,295ms, which
+                // is a little under 50 days, so things would probably have gone
+                // very wrong if that happened. But, still...
+                busy_polls += 1;
+            }
+        }
+    }
+
     /// Wait until the SPI flash is idle
     fn wait_flash_busy(&self, t: Trace) {
         // Wait for the busy flag to be unset
-        while (self.read_flash_status() & 1) != 0 {
-            ringbuf_entry!(t);
-            sleep_for(1);
-        }
+        self.poll_wait(|this| this.read_flash_status() & 1 == 0, t);
     }
 
     /// Reads the STATUS1 register from flash
