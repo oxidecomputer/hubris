@@ -7,7 +7,9 @@
 #![no_std]
 #![no_main]
 
-use drv_cpu_seq_api::{PowerState, SeqError as CpuSeqError, StateChangeReason};
+use drv_cpu_seq_api::{
+    PowerState, SeqError as CpuSeqError, StateChangeReason, Transition,
+};
 use drv_ice40_spi_program as ice40;
 use drv_packrat_vpd_loader::{read_vpd_and_load_packrat, Packrat};
 use drv_spartan7_loader_api::Spartan7Loader;
@@ -366,7 +368,7 @@ impl ServerImpl {
         &mut self,
         state: PowerState,
         why: StateChangeReason,
-    ) -> Result<(), CpuSeqError> {
+    ) -> Result<Transition, CpuSeqError> {
         let now = sys_get_timer().now;
         ringbuf_entry!(Trace::SetState {
             prev: Some(self.state),
@@ -445,6 +447,9 @@ impl ServerImpl {
 
             // This is purely an accounting change
             (PowerState::A0, PowerState::A0PlusHP) => (),
+            (current, requested) if current == requested => {
+                return Ok(Transition::Unchanged)
+            }
 
             _ => return Err(CpuSeqError::IllegalTransition),
         }
@@ -452,7 +457,7 @@ impl ServerImpl {
         self.state = state;
         self.jefe.set_state(state as u32);
         self.poke_timer();
-        Ok(())
+        Ok(Transition::Changed)
     }
 
     /// Returns the current timer interval, in milliseconds
@@ -488,9 +493,9 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
         state: PowerState,
-    ) -> Result<(), RequestError<CpuSeqError>> {
-        self.set_state_impl(state, StateChangeReason::Other)?;
-        Ok(())
+    ) -> Result<Transition, RequestError<CpuSeqError>> {
+        self.set_state_impl(state, StateChangeReason::Other)
+            .map_err(Into::into)
     }
 
     fn set_state_with_reason(
@@ -498,9 +503,8 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         _: &RecvMessage,
         state: PowerState,
         reason: StateChangeReason,
-    ) -> Result<(), RequestError<CpuSeqError>> {
-        self.set_state_impl(state, reason)?;
-        Ok(())
+    ) -> Result<Transition, RequestError<CpuSeqError>> {
+        self.set_state_impl(state, reason).map_err(Into::into)
     }
 
     fn send_hardware_nmi(

@@ -17,7 +17,7 @@ use userlib::{
     sys_set_timer, task_slot, units, RecvMessage, TaskId, UnwrapLite,
 };
 
-use drv_cpu_seq_api::{PowerState, SeqError, StateChangeReason};
+use drv_cpu_seq_api::{PowerState, SeqError, StateChangeReason, Transition};
 use drv_hf_api as hf_api;
 use drv_i2c_api as i2c;
 use drv_ice40_spi_program as ice40;
@@ -676,7 +676,7 @@ impl<S: SpiServer> ServerImpl<S> {
         &mut self,
         state: PowerState,
         why: StateChangeReason,
-    ) -> Result<(), SeqError> {
+    ) -> Result<Transition, SeqError> {
         let sys = sys_api::Sys::from(SYS.get_task_id());
 
         let now = sys_get_timer().now;
@@ -870,7 +870,7 @@ impl<S: SpiServer> ServerImpl<S> {
                 ));
 
                 self.update_state_internal(PowerState::A0);
-                Ok(())
+                Ok(Transition::Changed)
             }
 
             (PowerState::A0, PowerState::A2)
@@ -928,10 +928,12 @@ impl<S: SpiServer> ServerImpl<S> {
                     ringbuf_entry_v3p3_sys_a0_vout();
                 }
 
-                Ok(())
+                Ok(Transition::Changed)
             }
-
-            _ => Err(SeqError::IllegalTransition),
+            (current, requested) if current == requested => {
+                Ok(Transition::Unchanged)
+            }
+            (_, _) => Err(SeqError::IllegalTransition),
         }
     }
 
@@ -1048,7 +1050,7 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
         &mut self,
         _: &RecvMessage,
         state: PowerState,
-    ) -> Result<(), RequestError<SeqError>> {
+    ) -> Result<Transition, RequestError<SeqError>> {
         self.set_state_internal(state, StateChangeReason::Other)
             .map_err(RequestError::from)
     }
@@ -1058,7 +1060,7 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
         _: &RecvMessage,
         state: PowerState,
         reason: StateChangeReason,
-    ) -> Result<(), RequestError<SeqError>> {
+    ) -> Result<Transition, RequestError<SeqError>> {
         self.set_state_internal(state, reason)
             .map_err(RequestError::from)
     }
