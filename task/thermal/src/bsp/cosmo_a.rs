@@ -112,7 +112,7 @@ impl Bsp {
         // Awkwardly build the fan array, because there's not a great way to
         // build a fixed-size array from a function
         let mut fans = Fans::new();
-        for i in 0..fans.len() {
+        for i in 0..NUM_FANS {
             fans[i] = Some(sensors::MAX31790_SPEED_SENSORS[i]);
         }
         Ok(fans)

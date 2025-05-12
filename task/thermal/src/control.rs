@@ -110,10 +110,6 @@ impl Fans<{ bsp::NUM_FANS }> {
     pub fn new() -> Self {
         Self([None; bsp::NUM_FANS])
     }
-    #[allow(dead_code)]
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
     pub fn is_present(&self, index: crate::Fan) -> bool {
         self.0[index.0 as usize].is_some()
     }
