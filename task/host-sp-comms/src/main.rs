@@ -416,7 +416,7 @@ impl ServerImpl {
                 }
                 Ok(Transition::NoChange) => {
                     // We're already in A2.
-                    ringbuf_entry!(Trace::SetState {
+                    ringbuf_entry!(Trace::AlreadyInState {
                         now: sys_get_timer().now,
                         why,
                         state: PowerState::A2,
