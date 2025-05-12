@@ -167,7 +167,8 @@ impl FlashDriver {
     /// The driver will wait until the `poll` function returns `true`. Each time
     /// `poll` returns `false`, the provided `trace` will be recorded in the
     /// ring buffer.
-    fn poll_wait(&self, poll: fn(&Self) -> bool, trace: Trace) {
+    #[inline]
+    fn poll_wait(&self, mut poll: impl FnMut(&Self) -> bool, trace: Trace) {
         // When polling the FPGA or flash chips, this number of polls are
         // attempted *without* sleeping between polls. If the FPGA/flash's
         // status has not changed after this number of polls, the driver will
