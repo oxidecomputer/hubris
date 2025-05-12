@@ -18,10 +18,10 @@ use gateway_messages::{
     ignition, ComponentAction, ComponentActionResponse, ComponentDetails,
     ComponentUpdatePrepare, DiscoverResponse, DumpSegment, DumpTask, Header,
     IgnitionCommand, IgnitionState, Message, MessageKind, MgsError, MgsRequest,
-    MgsResponse, PowerState, RotBootInfo, RotRequest, RotResponse,
-    SensorRequest, SensorResponse, SpComponent, SpError, SpPort as GwSpPort,
-    SpRequest, SpStateV2, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
-    SERIAL_CONSOLE_IDLE_TIMEOUT,
+    MgsResponse, PowerState, PowerStateTransition, RotBootInfo, RotRequest,
+    RotResponse, SensorRequest, SensorResponse, SpComponent, SpError,
+    SpPort as GwSpPort, SpRequest, SpStateV2, SpUpdatePrepare, UpdateChunk,
+    UpdateId, UpdateStatus, SERIAL_CONSOLE_IDLE_TIMEOUT,
 };
 use heapless::{Deque, Vec};
 use host_sp_messages::HostStartupOptions;
@@ -707,8 +707,10 @@ impl SpHandler for MgsHandler {
         &mut self,
         sender: Sender<VLanId>,
         power_state: PowerState,
-    ) -> Result<(), SpError> {
+    ) -> Result<PowerStateTransition, SpError> {
         use drv_cpu_seq_api::PowerState as DrvPowerState;
+        use drv_cpu_seq_api::Transition;
+
         ringbuf_entry_root!(
             CRITICAL,
             CriticalEvent::SetPowerState {
@@ -727,16 +729,18 @@ impl SpHandler for MgsHandler {
             PowerState::A2 => DrvPowerState::A2,
         };
 
-        self.sequencer
+        let transition = self
+            .sequencer
             .set_state_with_reason(
                 power_state,
                 drv_cpu_seq_api::StateChangeReason::ControlPlane,
             )
             .map_err(|e| SpError::PowerStateError(e as u32))?;
-        // TODO(eliza): we should eventually indicate to upstack software
-        // whether a power state change occurred or not (requires another
-        // message type in gateway-messages...)
-        Ok(())
+
+        Ok(match transition {
+            Transition::Changed => PowerStateTransition::Changed,
+            Transition::Unchanged => PowerStateTransition::Unchanged,
+        })
     }
 
     fn serial_console_attach(
