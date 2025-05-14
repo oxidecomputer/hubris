@@ -818,6 +818,12 @@ impl<'a> ThermalControl<'a> {
                     } else if self.fans.is_present(fan) && !next.is_present(fan)
                     {
                         ringbuf_entry!(Trace::FanRemoved(fan));
+
+                        // Invalidate fan speed readings in the sensors task
+                        self.sensor_api.nodata_now(
+                            self.fans[fan.0 as usize].unwrap(),
+                            task_sensor_api::NoData::DeviceNotPresent,
+                        );
                     }
                 }
                 self.fans = next;
