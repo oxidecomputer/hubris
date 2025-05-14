@@ -1,6 +1,6 @@
 {
     "type": "addrmap",
-    "addr_span_bytes": 76,
+    "addr_span_bytes": 80,
     "inst_name": "sequencer_regs",
     "addr_offset": 0,
     "children": [
@@ -1530,6 +1530,37 @@
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "nic_pcie_clk_buff_oe_l live status, note: only valid when SP5 rails are up (From FPGA to buffer)"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "ignition_control",
+            "addr_offset": 76,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "mux_to_ignition",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Set to 1 to isolate front FPGA and be connected to ignition flash instead"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "ignition_creset",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Ignition reconfigure trigger. This latches on once set since ignition should powercycle the IBC. Setting this bit results in an SP power-cycle"
                 }
             ]
         }
