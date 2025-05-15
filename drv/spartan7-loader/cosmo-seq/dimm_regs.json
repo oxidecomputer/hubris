@@ -1,0 +1,850 @@
+{
+    "type": "addrmap",
+    "addr_span_bytes": 76,
+    "inst_name": "spd_proxy_regs",
+    "addr_offset": 0,
+    "children": [
+        {
+            "type": "reg",
+            "inst_name": "spd_ctrl",
+            "addr_offset": 0,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "start",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Set to initiate a SPD cache read. Cleared by hardware after the read is complete."
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "fifo_ctrl",
+            "addr_offset": 4,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "tx_fifo_auto_inc",
+                    "lsb": 6,
+                    "msb": 6,
+                    "reset": 1,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Set to one put TX FIFO in auto increment mode."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "tx_fifo_reset",
+                    "lsb": 7,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Set to one to reset TX FIFO. Cleared by hardware after FIFO reset."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "rx_fifo_auto_inc",
+                    "lsb": 14,
+                    "msb": 14,
+                    "reset": 1,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Set to one put RX FIFO in auto increment mode."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "rx_fifo_reset",
+                    "lsb": 15,
+                    "msb": 15,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Set to one to reset RX FIFO. Cleared by hardware after FIFO reset."
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "dimm_pcamp",
+            "addr_offset": 8,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "pcamp_a",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DIMM A pcamp pin readback"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "pcamp_b",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DIMM B pcamp pin readback"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "pcamp_c",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DIMM C pcamp pin readback"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "pcamp_d",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DIMM D pcamp pin readback"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "pcamp_e",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DIMM E pcamp pin readback"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "pcamp_f",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DIMM F pcamp pin readback"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "pcamp_g",
+                    "lsb": 8,
+                    "msb": 8,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DIMM G pcamp pin readback"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "pcamp_h",
+                    "lsb": 9,
+                    "msb": 9,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DIMM H pcamp pin readback"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "pcamp_i",
+                    "lsb": 10,
+                    "msb": 10,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DIMM I pcamp pin readback"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "pcamp_j",
+                    "lsb": 11,
+                    "msb": 11,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DIMM J pcamp pin readback"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "pcamp_k",
+                    "lsb": 12,
+                    "msb": 12,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DIMM K pcamp pin readback"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "pcamp_l",
+                    "lsb": 13,
+                    "msb": 13,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DIMM L pcamp pin readback"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "spd_present",
+            "addr_offset": 12,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "bus0_a",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DIMM A present (spd ack'd)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "bus0_b",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DIMM B present (spd ack'd)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "bus0_c",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DIMM C present (spd ack'd)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "bus0_d",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DIMM D present (spd ack'd)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "bus0_e",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DIMM E present (spd ack'd)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "bus0_f",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DIMM F present (spd ack'd)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "bus1_g",
+                    "lsb": 8,
+                    "msb": 8,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DIMM G present (spd ack'd)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "bus1_h",
+                    "lsb": 9,
+                    "msb": 9,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DIMM H present (spd ack'd)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "bus1_i",
+                    "lsb": 10,
+                    "msb": 10,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DIMM I present (spd ack'd)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "bus1_j",
+                    "lsb": 11,
+                    "msb": 11,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DIMM J present (spd ack'd)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "bus1_k",
+                    "lsb": 12,
+                    "msb": 12,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DIMM K present (spd ack'd)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "bus1_l",
+                    "lsb": 13,
+                    "msb": 13,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DIMM L present (spd ack'd)"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "spd_select",
+            "addr_offset": 16,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "bus0_a",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DIMM A selected"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "bus0_b",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DIMM B selected"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "bus0_c",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DIMM C selected"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "bus0_d",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DIMM D selected"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "bus0_e",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DIMM E selected"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "bus0_f",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DIMM F selected"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "bus1_g",
+                    "lsb": 8,
+                    "msb": 8,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DIMM G selected"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "bus1_h",
+                    "lsb": 9,
+                    "msb": 9,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DIMM H selected"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "bus1_i",
+                    "lsb": 10,
+                    "msb": 10,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DIMM I selected"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "bus1_j",
+                    "lsb": 11,
+                    "msb": 11,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DIMM J selected"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "bus1_k",
+                    "lsb": 12,
+                    "msb": 12,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DIMM K selected"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "bus1_l",
+                    "lsb": 13,
+                    "msb": 13,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "DIMM L selected"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "spd_rd_ptr",
+            "addr_offset": 20,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "addr",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "in 32bit words, can write to move around 0-255 for 1024 bytes in 32bit words"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "spd_rdata",
+            "addr_offset": 24,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "in 32bit words"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "bus0_cmd",
+            "addr_offset": 28,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "len",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "length of the payload in bytes"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "reg_addr",
+                    "lsb": 8,
+                    "msb": 15,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Register address"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "bus_addr",
+                    "lsb": 16,
+                    "msb": 22,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "i2c/i3c bus address"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "op",
+                    "lsb": 24,
+                    "msb": 25,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "READ=0b00, WRITE= 0b01, RANDOM=0b10"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "bus0_tx_wdata",
+            "addr_offset": 32,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "w",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Writing stores data in fifo"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "bus0_tx_waddr",
+            "addr_offset": 36,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "addr",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Live pointer in 32bit words to DPR"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "bus0_rx_raddr",
+            "addr_offset": 40,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "addr",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Live pointer in 32bit words to DPR"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "bus0_rx_byte_count",
+            "addr_offset": 44,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Byte count of data in RX FIFO"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "bus0_rx_rdata",
+            "addr_offset": 48,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Note: in auto-inc mode. reading side-effects the data by moving the raddr pointer"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "bus1_cmd",
+            "addr_offset": 52,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "len",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "length of the payload in bytes"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "reg_addr",
+                    "lsb": 8,
+                    "msb": 15,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Register address"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "bus_addr",
+                    "lsb": 16,
+                    "msb": 22,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "i2c/i3c bus address"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "op",
+                    "lsb": 24,
+                    "msb": 25,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "READ=0b00, WRITE= 0b01, RANDOM=0b10"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "bus1_tx_wdata",
+            "addr_offset": 56,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "w",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Writing stores data in fifo"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "bus1_tx_waddr",
+            "addr_offset": 60,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "addr",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Live pointer in 32bit words to DPR"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "bus1_rx_raddr",
+            "addr_offset": 64,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "addr",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Live pointer in 32bit words to DPR"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "bus1_rx_byte_count",
+            "addr_offset": 68,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Byte count of data in RX FIFO"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "bus1_rx_rdata",
+            "addr_offset": 72,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "data",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Note: in auto-inc mode. reading side-effects the data by moving the raddr pointer"
+                }
+            ]
+        }
+    ]
+}
