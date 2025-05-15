@@ -20,9 +20,10 @@ use gateway_messages::{
     EcdsaSha2Nistp256Challenge, IgnitionCommand, IgnitionState, MgsError,
     MgsRequest, MgsResponse, MonorailComponentAction,
     MonorailComponentActionResponse, MonorailError as GwMonorailError,
-    PowerState, RotBootInfo, RotRequest, RotResponse, SensorRequest,
-    SensorResponse, SpComponent, SpError, SpStateV2, SpUpdatePrepare,
-    UnlockChallenge, UnlockResponse, UpdateChunk, UpdateId, UpdateStatus,
+    PowerState, PowerStateTransition, RotBootInfo, RotRequest, RotResponse,
+    SensorRequest, SensorResponse, SpComponent, SpError, SpStateV2,
+    SpUpdatePrepare, UnlockChallenge, UnlockResponse, UpdateChunk, UpdateId,
+    UpdateStatus,
 };
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
@@ -800,7 +801,7 @@ impl SpHandler for MgsHandler {
         &mut self,
         sender: Sender<VLanId>,
         power_state: PowerState,
-    ) -> Result<(), SpError> {
+    ) -> Result<PowerStateTransition, SpError> {
         ringbuf_entry_root!(
             CRITICAL,
             CriticalEvent::SetPowerState {
@@ -832,7 +833,11 @@ impl SpHandler for MgsHandler {
 
         self.sequencer
             .set_tofino_seq_policy(policy)
-            .map_err(|e| SpError::PowerStateError(e as u32))
+            .map_err(|e| SpError::PowerStateError(e as u32))?;
+
+        // TODO(eliza): this should probably also be made idempotent, à la the
+        // compute sled sequencer...
+        Ok(PowerStateTransition::Changed)
     }
 
     fn serial_console_attach(
