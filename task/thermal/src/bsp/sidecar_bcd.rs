@@ -168,6 +168,10 @@ impl Bsp {
         Ok(next)
     }
 
+    pub fn fan_sensor_id(&self, i: usize) -> SensorId {
+        sensors::MAX31790_SPEED_SENSORS[i]
+    }
+
     pub fn new(i2c_task: TaskId) -> Self {
         // Handle for the sequencer task, which we check for power state and
         // fan presence
