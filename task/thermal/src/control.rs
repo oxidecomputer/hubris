@@ -854,7 +854,7 @@ impl<'a> ThermalControl<'a> {
                 }
             } else {
                 // Invalidate fan speed readings in the sensors task
-                let sensor_id = self.bsp.fan_sensor_id(index.into());
+                let sensor_id = self.bsp.fan_sensor_id(index);
                 self.sensor_api.nodata_now(
                     sensor_id,
                     task_sensor_api::NoData::DeviceNotPresent,
