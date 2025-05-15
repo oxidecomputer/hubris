@@ -92,6 +92,10 @@ impl Bsp {
         Ok(fans)
     }
 
+    pub fn fan_sensor_id(&self, i: usize) -> SensorId {
+        sensors::EMC2305_SPEED_SENSORS[i]
+    }
+
     pub fn new(i2c_task: TaskId) -> Self {
         let fctrl =
             Emc2305State::new(&devices::emc2305(i2c_task)[0], NUM_FANS as u8);

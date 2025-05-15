@@ -167,6 +167,10 @@ impl Bsp {
         Ok(fans)
     }
 
+    pub fn fan_sensor_id(&self, i: usize) -> SensorId {
+        sensors::MAX31790_SPEED_SENSORS[i]
+    }
+
     pub fn new(i2c_task: TaskId) -> Self {
         // Initializes and build a handle to the fan controller IC
         let fctrl = Max31790State::new(&devices::max31790(i2c_task)[0]);

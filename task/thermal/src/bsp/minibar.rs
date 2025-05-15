@@ -82,6 +82,10 @@ impl Bsp {
         Ok(Fans::new())
     }
 
+    pub fn fan_sensor_id(&self, _i: usize) -> SensorId {
+        panic!("no fans, this should not be called");
+    }
+
     pub fn new(_i2c_task: TaskId) -> Self {
         Self {
             // PID config doesn't matter since we have no fans.
