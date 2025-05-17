@@ -637,9 +637,7 @@ impl ServerImpl<'_> {
                 None
             };
 
-        // We only support persistent override at this point
-        // We need to read the magic ram value to fill this in.
-        let transient_boot_preference = None;
+        let transient_boot_preference = get_hubris_transient_override();
 
         Ok((
             persistent_boot_preference,
@@ -1361,22 +1359,36 @@ fn set_transient_override(preference: [u8; 32]) {
     }
 }
 
-pub fn set_hubris_transient_override(bank: Option<SlotId>) {
-    // Preference constants are taken from bootleby:src/lib.rs
-    const PREFER_SLOT_A: [u8; 32] = hex!(
-        "edb23f2e9b399c3d57695262f29615910ed10c8d9b261bfc2076b8c16c84f66d"
-    );
-    const PREFER_SLOT_B: [u8; 32] = hex!(
-        "70ed2914e6fdeeebbb02763b96da9faa0160b7fc887425f4d45547071d0ce4ba"
-    );
-    // Bootleby writes all zeros after reading. We write all ones to reset.
-    const PREFER_NOTHING: [u8; 32] = [0xffu8; 32];
+fn get_transient_override() -> [u8; 32] {
+    // Safety: Data is consumed by Bootleby on next boot.
+    // There are no concurrent writers possible.
+    // Bootleby consumes and resets TRANSIENT_OVERRIDE.
+    // The client may be verifying state set during update flows.
+    unsafe { TRANSIENT_OVERRIDE.assume_init() }
+}
 
+// Preference constants are taken from bootleby:src/lib.rs
+const PREFER_SLOT_A: [u8; 32] =
+    hex!("edb23f2e9b399c3d57695262f29615910ed10c8d9b261bfc2076b8c16c84f66d");
+const PREFER_SLOT_B: [u8; 32] =
+    hex!("70ed2914e6fdeeebbb02763b96da9faa0160b7fc887425f4d45547071d0ce4ba");
+// Bootleby writes all zeros after reading. We write all ones to reset.
+const PREFER_NOTHING: [u8; 32] = [0xffu8; 32];
+
+pub fn set_hubris_transient_override(bank: Option<SlotId>) {
     match bank {
         // Do we need a  value that says we were here and cleared?
         None => set_transient_override(PREFER_NOTHING),
         Some(SlotId::A) => set_transient_override(PREFER_SLOT_A),
         Some(SlotId::B) => set_transient_override(PREFER_SLOT_B),
+    }
+}
+
+pub fn get_hubris_transient_override() -> Option<SlotId> {
+    match get_transient_override() {
+        PREFER_SLOT_A => Some(SlotId::A),
+        PREFER_SLOT_B => Some(SlotId::B),
+        _ => None,
     }
 }
 
