@@ -22,10 +22,12 @@
 )]
 mod bsp;
 
-use userlib::{hl, task_slot, FromPrimitive, RecvMessage};
+use userlib::{
+    hl, sys_recv_notification, task_slot, FromPrimitive, RecvMessage,
+};
 
 use drv_hf_api::SECTOR_SIZE_BYTES;
-use drv_stm32h7_qspi::Qspi;
+use drv_stm32h7_qspi::{Qspi, QspiError};
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{
     ClientError, Leased, LenLimit, NotificationHandler, RequestError, R, W,
@@ -54,6 +56,14 @@ struct Config {
     pub reset: sys_api::PinSet,
     pub flash_dev_select: sys_api::PinSet,
     pub clock: u8,
+}
+
+// There isn't a great crate to do `From` implementation so do this manually
+fn qspi_to_hf(val: QspiError) -> HfError {
+    match val {
+        QspiError::Timeout => HfError::QspiTimeout,
+        QspiError::TransferError => HfError::QspiTransferError,
+    }
 }
 
 impl Config {
@@ -103,7 +113,15 @@ fn main() -> ! {
     // trouble. Someday we will need more flexability here.
     let log2_capacity = {
         let mut idbuf = [0; 20];
-        qspi.read_id(&mut idbuf);
+        let result = qspi.read_id(&mut idbuf);
+        if result.is_err() {
+            // If we can't read the id there's a good chance nothing else is going to
+            // work. `panic` would probably just be a crash loop.
+            loop {
+                // We are dead now.
+                sys_recv_notification(0);
+            }
+        }
 
         match idbuf[0] {
             0x00 => None, // Invalid
@@ -206,8 +224,8 @@ impl ServerImpl {
 
     fn page_program_raw(&self, addr: u32, data: &[u8]) -> Result<(), HfError> {
         self.set_and_check_write_enable()?;
-        self.qspi.page_program(addr, data);
-        self.poll_for_write_complete(None);
+        self.qspi.page_program(addr, data).map_err(qspi_to_hf)?;
+        self.poll_for_write_complete(None)?;
         Ok(())
     }
 
@@ -235,12 +253,12 @@ impl ServerImpl {
 
         // Look at the inactive slot first
         self.set_dev(!prev_slot).unwrap();
-        let (a, _) = self.persistent_data_scan();
+        let (a, _) = self.persistent_data_scan()?;
 
         // Then switch back to our current slot, so that the resulting state
         // is unchanged.
         self.set_dev(prev_slot).unwrap();
-        let (b, _) = self.persistent_data_scan();
+        let (b, _) = self.persistent_data_scan()?;
 
         let best = match (a, b) {
             (Some(a), Some(b)) => Some(a.max(b)),
@@ -259,13 +277,15 @@ impl ServerImpl {
     /// - address of first empty slot
     fn persistent_data_scan(
         &self,
-    ) -> (Option<HfRawPersistentData>, Option<u32>) {
+    ) -> Result<(Option<HfRawPersistentData>, Option<u32>), HfError> {
         let mut best: Option<HfRawPersistentData> = None;
         let mut empty_slot: Option<u32> = None;
         for i in 0..SECTOR_SIZE_BYTES / HF_PERSISTENT_DATA_STRIDE {
             let addr = (i * HF_PERSISTENT_DATA_STRIDE) as u32;
             let mut data = HfRawPersistentData::new_zeroed();
-            self.qspi.read_memory(addr, data.as_mut_bytes());
+            self.qspi
+                .read_memory(addr, data.as_mut_bytes())
+                .map_err(qspi_to_hf)?;
             if data.is_valid() && best.map(|b| data > b).unwrap_or(true) {
                 best = Some(data);
             }
@@ -275,7 +295,7 @@ impl ServerImpl {
                 empty_slot = Some(addr);
             }
         }
-        (best, empty_slot)
+        Ok((best, empty_slot))
     }
 
     /// Erases the sector containing the given address
@@ -295,8 +315,8 @@ impl ServerImpl {
         }
         self.check_muxed_to_sp()?;
         self.set_and_check_write_enable()?;
-        self.qspi.sector_erase(addr);
-        self.poll_for_write_complete(Some(1));
+        self.qspi.sector_erase(addr).map_err(qspi_to_hf)?;
+        self.poll_for_write_complete(Some(1))?;
         Ok(())
     }
 
@@ -334,10 +354,10 @@ impl ServerImpl {
         // Load the current state of persistent data from flash
         let prev_slot = self.dev_state;
         self.set_dev(!prev_slot).unwrap();
-        let (a_data, a_next) = self.persistent_data_scan();
+        let (a_data, a_next) = self.persistent_data_scan()?;
 
         self.set_dev(prev_slot).unwrap();
-        let (b_data, b_next) = self.persistent_data_scan();
+        let (b_data, b_next) = self.persistent_data_scan()?;
 
         match (a_data, b_data) {
             (Some(a), Some(b)) => {
@@ -376,8 +396,8 @@ impl ServerImpl {
     }
 
     fn set_and_check_write_enable(&self) -> Result<(), HfError> {
-        self.qspi.write_enable();
-        let status = self.qspi.read_status();
+        self.qspi.write_enable().map_err(qspi_to_hf)?;
+        let status = self.read_qspi_status()?;
 
         if status & 0b10 == 0 {
             // oh oh
@@ -386,12 +406,15 @@ impl ServerImpl {
         Ok(())
     }
 
-    fn poll_for_write_complete(&self, sleep_between_polls: Option<u64>) {
+    fn poll_for_write_complete(
+        &self,
+        sleep_between_polls: Option<u64>,
+    ) -> Result<(), HfError> {
         loop {
-            let status = self.qspi.read_status();
+            let status = self.read_qspi_status()?;
             if status & 1 == 0 {
                 // ooh we're done
-                break;
+                break Ok(());
             }
             if let Some(ticks) = sleep_between_polls {
                 hl::sleep_for(ticks);
@@ -405,6 +428,10 @@ impl ServerImpl {
             dev_select: HfDevSelect::from_u8(out.dev_select as u8).unwrap(),
         })
     }
+
+    fn read_qspi_status(&self) -> Result<u8, HfError> {
+        self.qspi.read_status().map_err(qspi_to_hf)
+    }
 }
 
 impl idl::InOrderHostFlashImpl for ServerImpl {
@@ -415,7 +442,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         self.check_muxed_to_sp()?;
 
         let mut idbuf = [0; 20];
-        self.qspi.read_id(&mut idbuf);
+        self.qspi.read_id(&mut idbuf).map_err(qspi_to_hf)?;
         Ok(idbuf)
     }
 
@@ -431,7 +458,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         _: &RecvMessage,
     ) -> Result<u8, RequestError<HfError>> {
         self.check_muxed_to_sp()?;
-        Ok(self.qspi.read_status())
+        Ok(self.read_qspi_status()?)
     }
 
     fn bulk_erase(
@@ -444,8 +471,8 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         }
         self.check_muxed_to_sp()?;
         self.set_and_check_write_enable()?;
-        self.qspi.bulk_erase();
-        self.poll_for_write_complete(Some(100));
+        self.qspi.bulk_erase().map_err(qspi_to_hf)?;
+        self.poll_for_write_complete(Some(100))?;
         Ok(())
     }
 
@@ -502,7 +529,9 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         dest: LenLimit<Leased<W, [u8]>, PAGE_SIZE_BYTES>,
     ) -> Result<(), RequestError<HfError>> {
         self.check_muxed_to_sp()?;
-        self.qspi.read_memory(addr, &mut self.block[..dest.len()]);
+        self.qspi
+            .read_memory(addr, &mut self.block[..dest.len()])
+            .map_err(qspi_to_hf)?;
 
         dest.write_range(0..dest.len(), &self.block[..dest.len()])
             .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
@@ -633,7 +662,9 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             } else {
                 end - addr
             };
-            self.qspi.read_memory(addr as u32, &mut self.block[..size]);
+            self.qspi
+                .read_memory(addr as u32, &mut self.block[..size])
+                .map_err(qspi_to_hf)?;
             if hash_driver
                 .update(size as u32, &self.block[..size])
                 .is_err()
@@ -667,10 +698,10 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         // After having called `check_muxed_to_sp`, `self.set_dev(..)` is
         // infallible and we can unwrap its returns.
         self.set_dev(!prev_slot).unwrap();
-        let (a_data, a_next) = self.persistent_data_scan();
+        let (a_data, a_next) = self.persistent_data_scan()?;
 
         self.set_dev(prev_slot).unwrap();
-        let (b_data, b_next) = self.persistent_data_scan();
+        let (b_data, b_next) = self.persistent_data_scan()?;
 
         let prev_monotonic_counter = match (a_data, b_data) {
             (Some(a), Some(b)) => a.monotonic_counter.max(b.monotonic_counter),

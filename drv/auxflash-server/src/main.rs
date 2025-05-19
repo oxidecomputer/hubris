@@ -19,7 +19,7 @@ use userlib::{hl, task_slot, RecvMessage, UnwrapLite};
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
 
-use drv_stm32h7_qspi::Qspi;
+use drv_stm32h7_qspi::{Qspi, QspiError};
 use drv_stm32xx_sys_api as sys_api;
 
 task_slot!(SYS, sys);
@@ -34,7 +34,7 @@ struct SlotReader<'a> {
 }
 
 impl<'a> TlvcRead for SlotReader<'a> {
-    type Error = core::convert::Infallible;
+    type Error = AuxFlashError;
 
     fn extent(&self) -> Result<u64, TlvcReadError<Self::Error>> {
         // Hard-coded slot size, on a per-board basis
@@ -46,12 +46,22 @@ impl<'a> TlvcRead for SlotReader<'a> {
         dest: &mut [u8],
     ) -> Result<(), TlvcReadError<Self::Error>> {
         let addr: u32 = self.base + u32::try_from(offset).unwrap_lite();
-        self.qspi.read_memory(addr, dest);
+        self.qspi
+            .read_memory(addr, dest)
+            .map_err(|x| TlvcReadError::User(qspi_to_auxflash(x)))?;
         Ok(())
     }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+
+// There isn't a great crate to do `From` implementation so do this manually
+fn qspi_to_auxflash(val: QspiError) -> AuxFlashError {
+    match val {
+        QspiError::Timeout => AuxFlashError::QspiTimeout,
+        QspiError::TransferError => AuxFlashError::QspiTransferError,
+    }
+}
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -133,9 +143,12 @@ impl ServerImpl {
     ///
     /// Sleep times are in ticks (typically milliseconds) and are somewhat
     /// experimentally determined, see hubris#753 for details.
-    fn poll_for_write_complete(&self, sleep: Option<u64>) {
+    fn poll_for_write_complete(
+        &self,
+        sleep: Option<u64>,
+    ) -> Result<(), AuxFlashError> {
         loop {
-            let status = self.qspi.read_status();
+            let status = self.qspi.read_status().map_err(qspi_to_auxflash)?;
             if status & 1 == 0 {
                 // ooh we're done
                 break;
@@ -144,11 +157,12 @@ impl ServerImpl {
                 hl::sleep_for(sleep);
             }
         }
+        Ok(())
     }
 
     fn set_and_check_write_enable(&self) -> Result<(), AuxFlashError> {
-        self.qspi.write_enable();
-        let status = self.qspi.read_status();
+        self.qspi.write_enable().map_err(qspi_to_auxflash)?;
+        let status = self.qspi.read_status().map_err(qspi_to_auxflash)?;
 
         if status & 0b10 == 0 {
             // oh oh
@@ -197,20 +211,26 @@ impl ServerImpl {
             let amount = (read_end - read_addr).min(buf.len());
 
             // Read from the active slot
-            self.qspi.read_memory(read_addr as u32, &mut buf[..amount]);
+            self.qspi
+                .read_memory(read_addr as u32, &mut buf[..amount])
+                .map_err(qspi_to_auxflash)?;
 
             // If we're at the start of a sector, erase it before we start
             // writing the copy.
             if write_addr % SECTOR_SIZE_BYTES == 0 {
                 self.set_and_check_write_enable()?;
-                self.qspi.sector_erase(write_addr as u32);
-                self.poll_for_write_complete(Some(1));
+                self.qspi
+                    .sector_erase(write_addr as u32)
+                    .map_err(qspi_to_auxflash)?;
+                self.poll_for_write_complete(Some(1))?;
             }
 
             // Write back to the redundant slot
             self.set_and_check_write_enable()?;
-            self.qspi.page_program(write_addr as u32, &buf[..amount]);
-            self.poll_for_write_complete(None);
+            self.qspi
+                .page_program(write_addr as u32, &buf[..amount])
+                .map_err(qspi_to_auxflash)?;
+            self.poll_for_write_complete(None)?;
 
             read_addr += amount;
             write_addr += amount;
@@ -232,7 +252,7 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         _: &RecvMessage,
     ) -> Result<AuxFlashId, RequestError<AuxFlashError>> {
         let mut idbuf = [0; 20];
-        self.qspi.read_id(&mut idbuf);
+        self.qspi.read_id(&mut idbuf).map_err(qspi_to_auxflash)?;
         Ok(AuxFlashId(idbuf))
     }
 
@@ -240,7 +260,7 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<u8, RequestError<AuxFlashError>> {
-        Ok(self.qspi.read_status())
+        Ok(self.qspi.read_status().map_err(qspi_to_auxflash)?)
     }
 
     fn slot_count(
@@ -282,9 +302,11 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         let mut addr = mem_start;
         while addr < mem_end {
             self.set_and_check_write_enable()?;
-            self.qspi.sector_erase(addr as u32);
+            self.qspi
+                .sector_erase(addr as u32)
+                .map_err(qspi_to_auxflash)?;
             addr += SECTOR_SIZE_BYTES;
-            self.poll_for_write_complete(Some(1));
+            self.poll_for_write_complete(Some(1))?;
         }
         Ok(())
     }
@@ -307,8 +329,10 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         }
 
         self.set_and_check_write_enable()?;
-        self.qspi.sector_erase(addr as u32);
-        self.poll_for_write_complete(Some(1));
+        self.qspi
+            .sector_erase(addr as u32)
+            .map_err(qspi_to_auxflash)?;
+        self.poll_for_write_complete(Some(1))?;
         Ok(())
     }
 
@@ -343,8 +367,10 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
                 .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
 
             self.set_and_check_write_enable()?;
-            self.qspi.page_program(addr as u32, &buf[..amount]);
-            self.poll_for_write_complete(None);
+            self.qspi
+                .page_program(addr as u32, &buf[..amount])
+                .map_err(qspi_to_auxflash)?;
+            self.poll_for_write_complete(None)?;
             addr += amount;
             read += amount;
         }
@@ -369,7 +395,9 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         let mut buf = [0u8; 256];
         while addr < end {
             let amount = (end - addr).min(buf.len());
-            self.qspi.read_memory(addr as u32, &mut buf[..amount]);
+            self.qspi
+                .read_memory(addr as u32, &mut buf[..amount])
+                .map_err(qspi_to_auxflash)?;
             dest.write_range(write..(write + amount), &buf[..amount])
                 .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
             write += amount;

@@ -32,6 +32,8 @@ pub enum HfError {
     MonotonicCounterOverflow,
     BadChipId,
     BadAddress,
+    QspiTimeout,
+    QspiTransferError,
 
     #[idol(server_death)]
     ServerRestarted,
