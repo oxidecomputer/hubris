@@ -8,7 +8,7 @@ use crate::{
     SensorId,
 };
 
-use drv_i2c_devices::max5970::*;
+use drv_i2c_devices::{lm5066::*, max5970::*};
 use ringbuf::*;
 use userlib::units::*;
 
@@ -132,6 +132,12 @@ enum Trace {
     /// Configuration of the MAX5970 failed
     Max5970ConfigFailed {
         u2_index: usize,
+        err: drv_i2c_api::ResponseCode,
+    },
+
+    /// Calling `CLEAR_FAULTS` on the LM5066 failed
+    Lm5066ClearFaultsFailed {
+        index: usize,
         err: drv_i2c_api::ResponseCode,
     },
 
@@ -336,6 +342,30 @@ impl State {
             let m = Max5970::new(&dev, rail, Ohms(0.005));
             if let Err(err) = m.set_dac_fast(0x99) {
                 ringbuf_entry!(Trace::Max5970ConfigFailed { u2_index: i, err });
+            }
+        }
+
+        // The LM5066 has an unusual set of fault bits set on startup; we'll
+        // clear them all here and let any genuine flags be re-set
+        for (i, builder) in [
+            i2c_config::pmbus::v54p5_fan_east,
+            i2c_config::pmbus::v54p5_fan_central,
+            i2c_config::pmbus::v54p5_fan_west,
+        ]
+        .iter()
+        .enumerate()
+        {
+            let (dev, _rail) = (builder)(i2c_task);
+            let p = Lm5066::new(
+                &dev,
+                Ohms(0.007),
+                drv_i2c_devices::lm5066::CurrentLimitStrap::VDD,
+            );
+            if let Err(err) = p.clear_faults() {
+                ringbuf_entry!(Trace::Lm5066ClearFaultsFailed {
+                    index: i,
+                    err: err.into(),
+                });
             }
         }
 
