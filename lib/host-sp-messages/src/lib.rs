@@ -486,8 +486,8 @@ pub enum InventoryData {
         current_sensor: SensorIndex,
     },
 
-    /// LM5066 hot-swap controller
-    Lm5066 {
+    /// LM5066I hot-swap controller
+    Lm5066I {
         /// MFR_ID (PMBus operation 0x99)
         mfr_id: [u8; 3],
         /// MFR_MODEL (PMBus operation 0x9A)

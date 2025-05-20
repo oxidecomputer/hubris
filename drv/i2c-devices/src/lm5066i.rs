@@ -2,13 +2,15 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//! Driver for the LM5066 hot-swap controller
+//! Driver for the LM5066I hot-swap controller
+//!
+//! This is very similar to the LM5066, but has different dynamic coefficients
+//! and serial name (for validation).
 
 use core::cell::Cell;
 
 use crate::{
-    pmbus_validate, BadValidation, CurrentSensor, TempSensor, Validate,
-    VoltageSensor,
+    pmbus_validate, CurrentSensor, TempSensor, Validate, VoltageSensor,
 };
 use drv_i2c_api::*;
 use num_traits::float::FloatCore;
@@ -16,71 +18,18 @@ use pmbus::commands::*;
 use ringbuf::*;
 use userlib::units::*;
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum Error {
-    /// I2C error on PMBus read from device
-    BadRead { cmd: u8, code: ResponseCode },
+use crate::lm5066::Coefficients;
+pub use crate::lm5066::{CurrentLimitStrap, Error};
 
-    /// I2C error on PMBus write to device
-    BadWrite { cmd: u8, code: ResponseCode },
-
-    /// Failed to parse PMBus data from device
-    BadData { cmd: u8 },
-
-    /// I2C error attempting to validate device
-    BadValidation { cmd: u8, code: ResponseCode },
-
-    /// PMBus data returned from device is invalid
-    InvalidData { err: pmbus::Error },
-
-    /// Device setup is invalid
-    InvalidDeviceSetup,
+#[derive(Copy, Clone, PartialEq)]
+pub(crate) enum Trace {
+    CurrentCoefficients(pmbus::Coefficients),
+    PowerCoefficients(pmbus::Coefficients),
+    DeviceSetup(lm5066i::DEVICE_SETUP::CommandData),
+    None,
 }
 
-impl From<BadValidation> for Error {
-    fn from(value: BadValidation) -> Self {
-        Self::BadValidation {
-            cmd: value.cmd,
-            code: value.code,
-        }
-    }
-}
-
-impl From<pmbus::Error> for Error {
-    fn from(err: pmbus::Error) -> Self {
-        Error::InvalidData { err }
-    }
-}
-
-impl From<Error> for ResponseCode {
-    fn from(err: Error) -> Self {
-        match err {
-            Error::BadRead { code, .. } => code,
-            Error::BadWrite { code, .. } => code,
-            Error::BadValidation { code, .. } => code,
-            Error::BadData { .. }
-            | Error::InvalidData { .. }
-            | Error::InvalidDeviceSetup => ResponseCode::BadDeviceState,
-        }
-    }
-}
-
-#[derive(Copy, Clone)]
-#[allow(dead_code)]
-pub(crate) struct Coefficients {
-    pub current: pmbus::Coefficients,
-    pub power: pmbus::Coefficients,
-}
-
-#[derive(Copy, Clone)]
-pub enum CurrentLimitStrap {
-    /// CL pin is strapped to VDD, denoting the Low setting
-    VDD,
-    /// CL pin is strapped to GND (or left floating), denoting the high setting
-    GND,
-}
-
-pub struct Lm5066 {
+pub struct Lm5066I {
     /// Underlying I2C device
     device: I2cDevice,
     /// Value of the rsense resistor, in milliohms
@@ -90,26 +39,18 @@ pub struct Lm5066 {
     /// Our (cached) coefficients
     coefficients: Cell<Option<Coefficients>>,
     /// Our (cached) device setup
-    device_setup: Cell<Option<lm5066::DEVICE_SETUP::CommandData>>,
+    device_setup: Cell<Option<lm5066i::DEVICE_SETUP::CommandData>>,
 }
 
-impl core::fmt::Display for Lm5066 {
+impl core::fmt::Display for Lm5066I {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "lm5066: {}", &self.device)
+        write!(f, "lm5066i: {}", &self.device)
     }
-}
-
-#[derive(Copy, Clone, PartialEq)]
-pub enum Trace {
-    CurrentCoefficients(pmbus::Coefficients),
-    PowerCoefficients(pmbus::Coefficients),
-    DeviceSetup(lm5066::DEVICE_SETUP::CommandData),
-    None,
 }
 
 ringbuf!(Trace, 8, Trace::None);
 
-impl Lm5066 {
+impl Lm5066I {
     pub fn new(
         device: &I2cDevice,
         rsense: Ohms,
@@ -126,12 +67,12 @@ impl Lm5066 {
 
     fn read_device_setup(
         &self,
-    ) -> Result<lm5066::DEVICE_SETUP::CommandData, Error> {
+    ) -> Result<lm5066i::DEVICE_SETUP::CommandData, Error> {
         if let Some(ref device_setup) = self.device_setup.get() {
             return Ok(*device_setup);
         }
 
-        let device_setup = pmbus_read!(self.device, lm5066::DEVICE_SETUP)?;
+        let device_setup = pmbus_read!(self.device, lm5066i::DEVICE_SETUP)?;
         ringbuf_entry!(Trace::DeviceSetup(device_setup));
         self.device_setup.set(Some(device_setup));
 
@@ -143,14 +84,14 @@ impl Lm5066 {
     }
 
     ///
-    /// The coefficients for the LM5066 depend on the value of the current
+    /// The coefficients for the LM5066I depend on the value of the current
     /// sense resistor and the sense of the current limit (CL) strap.
     /// Unfortunately, DEVICE_SETUP will not tell us the physical sense of
     /// this strap; we rely on this information to be provided when the
     /// device is initialized.
     ///
     fn load_coefficients(&self) -> Result<Coefficients, Error> {
-        use lm5066::DEVICE_SETUP::*;
+        use lm5066i::DEVICE_SETUP::*;
 
         if let Some(coefficients) = self.coefficients.get() {
             return Ok(coefficients);
@@ -175,7 +116,7 @@ impl Lm5066 {
         };
 
         //
-        // From Table 43 of the LM5066 datasheet.  Note that the datasheet has
+        // From Table 48 of the LM5066I datasheet.  Note that the datasheet has
         // an admonishment about adjusting R to keep m to within a signed
         // 16-bit quantity (that is, no larger than 32767), but we actually
         // treat m as a 32-bit quantity so there is no need to clamp it here.
@@ -183,13 +124,13 @@ impl Lm5066 {
         //
         let current = match cl {
             CurrentLimitStrap::GND => pmbus::Coefficients {
-                m: 5405 * self.rsense,
-                b: -600,
+                m: 7645 * self.rsense,
+                b: 100,
                 R: -2,
             },
             CurrentLimitStrap::VDD => pmbus::Coefficients {
-                m: 10753 * self.rsense,
-                b: -1200,
+                m: 15076 * self.rsense,
+                b: -504,
                 R: -2,
             },
         };
@@ -198,13 +139,13 @@ impl Lm5066 {
 
         let power = match cl {
             CurrentLimitStrap::GND => pmbus::Coefficients {
-                m: 605 * self.rsense,
-                b: -8000,
+                m: 861 * self.rsense,
+                b: -965,
                 R: -3,
             },
             CurrentLimitStrap::VDD => pmbus::Coefficients {
-                m: 1204 * self.rsense,
-                b: -6000,
+                m: 1701 * self.rsense,
+                b: -4000,
                 R: -3,
             },
         };
@@ -220,31 +161,31 @@ impl Lm5066 {
     }
 }
 
-impl Validate<Error> for Lm5066 {
+impl Validate<Error> for Lm5066I {
     fn validate(device: &I2cDevice) -> Result<bool, Error> {
-        let expected = b"LM5066\0\0";
+        let expected = b"LM5066I\0";
         pmbus_validate(device, CommandCode::MFR_MODEL, expected)
             .map_err(Into::into)
     }
 }
 
-impl TempSensor<Error> for Lm5066 {
+impl TempSensor<Error> for Lm5066I {
     fn read_temperature(&self) -> Result<Celsius, Error> {
-        let temp = pmbus_read!(self.device, lm5066::READ_TEMPERATURE_1)?;
+        let temp = pmbus_read!(self.device, lm5066i::READ_TEMPERATURE_1)?;
         Ok(Celsius(temp.get()?.0))
     }
 }
 
-impl CurrentSensor<Error> for Lm5066 {
+impl CurrentSensor<Error> for Lm5066I {
     fn read_iout(&self) -> Result<Amperes, Error> {
-        let iout = pmbus_read!(self.device, lm5066::MFR_READ_IIN)?;
+        let iout = pmbus_read!(self.device, lm5066i::MFR_READ_IIN)?;
         Ok(Amperes(iout.get(&self.load_coefficients()?.current)?.0))
     }
 }
 
-impl VoltageSensor<Error> for Lm5066 {
+impl VoltageSensor<Error> for Lm5066I {
     fn read_vout(&self) -> Result<Volts, Error> {
-        let vout = pmbus_read!(self.device, lm5066::READ_VOUT)?;
+        let vout = pmbus_read!(self.device, lm5066i::READ_VOUT)?;
         Ok(Volts(vout.get()?.0))
     }
 }
