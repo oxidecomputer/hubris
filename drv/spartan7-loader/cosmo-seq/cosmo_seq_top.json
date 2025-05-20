@@ -1,6 +1,6 @@
 {
     "type": "addrmap",
-    "addr_span_bytes": 1428,
+    "addr_span_bytes": 1796,
     "inst_name": "cosmo_seq_top",
     "orig_type_name": "cosmo_seq_top",
     "addr_offset": 0,
@@ -31,7 +31,7 @@
         },
         {
             "type": "addrmap",
-            "addr_span_bytes": 76,
+            "addr_span_bytes": 80,
             "inst_name": "sequencer",
             "orig_type_name": "sequencer_regs",
             "addr_offset": 768,
@@ -51,6 +51,22 @@
             "inst_name": "fpga1_hotplug",
             "orig_type_name": "pca9506_axi_regs",
             "addr_offset": 1280,
+            "children": []
+        },
+        {
+            "type": "addrmap",
+            "addr_span_bytes": 76,
+            "inst_name": "spd_proxy",
+            "orig_type_name": "spd_proxy_regs",
+            "addr_offset": 1536,
+            "children": []
+        },
+        {
+            "type": "addrmap",
+            "addr_span_bytes": 4,
+            "inst_name": "debug_ctrl",
+            "orig_type_name": "debug_regs",
+            "addr_offset": 1792,
             "children": []
         }
     ]
