@@ -1,0 +1,28 @@
+{
+    "type": "addrmap",
+    "addr_span_bytes": 4,
+    "inst_name": "debug_regs",
+    "addr_offset": 0,
+    "children": [
+        {
+            "type": "reg",
+            "inst_name": "uart_control",
+            "addr_offset": 0,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "sp5_to_header",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Set to 1 to send the SP5's console UART out the UART debug header. By default\nthis is muxed to the SP's console UART, setting this takes the data away from the SP and \nsends it out the debug header with flow control."
+                }
+            ]
+        }
+    ]
+}
