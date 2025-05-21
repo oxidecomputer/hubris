@@ -23,10 +23,11 @@
 mod bsp;
 
 use userlib::{
-    hl, sys_recv_notification, task_slot, FromPrimitive, RecvMessage,
+    hl, set_timer_relative, sys_recv_notification, task_slot, FromPrimitive,
+    RecvMessage, UnwrapLite,
 };
 
-use drv_hf_api::SECTOR_SIZE_BYTES;
+use drv_hf_api::{HashData, HashState, SlotHash, SECTOR_SIZE_BYTES};
 use drv_stm32h7_qspi::{Qspi, QspiError};
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{
@@ -40,7 +41,6 @@ use stm32h7::stm32h743 as device;
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
 
-use drv_hash_api as hash_api;
 use drv_hash_api::SHA256_SZ;
 
 use drv_hf_api::{
@@ -64,6 +64,13 @@ fn qspi_to_hf(val: QspiError) -> HfError {
         QspiError::Timeout => HfError::QspiTimeout,
         QspiError::TransferError => HfError::QspiTransferError,
     }
+}
+
+// Takes care of declaring one block size on the stack
+macro_rules! flash_block {
+    ($id:ident) => {
+        let mut $id: [u8; PAGE_SIZE_BYTES] = [0; PAGE_SIZE_BYTES];
+    };
 }
 
 impl Config {
@@ -157,12 +164,12 @@ fn main() -> ! {
     let mut buffer = [0; idl::INCOMING_SIZE];
     let mut server = ServerImpl {
         qspi,
-        block: [0; 256],
         capacity: 1 << log2_capacity,
         mux_state: HfMuxState::SP,
         dev_state: HfDevSelect::Flash0,
         mux_select_pin: cfg.sp_host_mux_select,
         dev_select_pin: cfg.flash_dev_select,
+        hash: HashData::new(HASH.get_task_id()),
     };
 
     server.ensure_persistent_data_is_redundant().unwrap(); // TODO: log this?
@@ -192,7 +199,6 @@ fn main() -> ! {
 
 struct ServerImpl {
     qspi: Qspi,
-    block: [u8; 256],
     capacity: usize,
 
     /// Selects between the SP and SP3 talking to the QSPI flash
@@ -205,7 +211,13 @@ struct ServerImpl {
     /// changed by `set_dev` without necessarily being persisted to flash.
     dev_state: HfDevSelect,
     dev_select_pin: sys_api::PinSet,
+    hash: HashData,
 }
+
+/// This tunes how many bytes we hash in a single async timer notification
+/// call. Making this bigger has a significant impact on hash speed at the
+/// cost of blocking the SP. Sector size has been a reasonable setting.
+const BLOCK_STEP_SIZE: usize = SECTOR_SIZE_BYTES;
 
 impl ServerImpl {
     ///
@@ -222,7 +234,11 @@ impl ServerImpl {
         }
     }
 
-    fn page_program_raw(&self, addr: u32, data: &[u8]) -> Result<(), HfError> {
+    fn page_program_raw(
+        &mut self,
+        addr: u32,
+        data: &[u8],
+    ) -> Result<(), HfError> {
         self.set_and_check_write_enable()?;
         self.qspi.page_program(addr, data).map_err(qspi_to_hf)?;
         self.poll_for_write_complete(None)?;
@@ -395,7 +411,7 @@ impl ServerImpl {
         }
     }
 
-    fn set_and_check_write_enable(&self) -> Result<(), HfError> {
+    fn set_and_check_write_enable(&mut self) -> Result<(), HfError> {
         self.qspi.write_enable().map_err(qspi_to_hf)?;
         let status = self.read_qspi_status()?;
 
@@ -403,6 +419,9 @@ impl ServerImpl {
             // oh oh
             return Err(HfError::WriteEnableFailed);
         }
+        // We're about to modify our flash, stop any hash in progress
+        // and say our old one is invalid.
+        self.invalidate_hash();
         Ok(())
     }
 
@@ -431,6 +450,84 @@ impl ServerImpl {
 
     fn read_qspi_status(&self) -> Result<u8, HfError> {
         self.qspi.read_status().map_err(qspi_to_hf)
+    }
+
+    // This assumes `begin` and `end` have been bounds checked for overflow
+    // and checked against the bounds of the flash chip
+    fn hash_range_update(
+        &mut self,
+        begin: usize,
+        end: usize,
+    ) -> Result<(), HfError> {
+        flash_block!(block);
+        for addr in (begin..end).step_by(block.len()) {
+            let size = block.len().min(end - addr);
+            self.qspi
+                .read_memory(addr as u32, &mut block[..size])
+                .map_err(qspi_to_hf)?;
+            self.hash
+                .task
+                .update(size as u32, &block[..size])
+                .map_err(|_| HfError::HashError)?;
+        }
+        Ok(())
+    }
+
+    fn step_hash(&mut self) {
+        match self.hash.state {
+            HashState::Hashing { dev, addr, end } => {
+                let step_size = BLOCK_STEP_SIZE;
+
+                // the `set_dev` should only fail if we're not muxed to the
+                // SP. We check that we're muxed to the SP when kicking off
+                // the hash and then stop hashing in `set_mux` so there should
+                // be no case where `set_dev` should fail.
+                let prev = self.dev_state;
+                self.set_dev(dev).unwrap_lite();
+                // The only way we should get an error from this is if
+                // we somehow call update before we've initialized or
+                // after we've finished the hash.
+                self.hash_range_update(addr, addr + step_size).unwrap_lite();
+                self.set_dev(prev).unwrap_lite(); // infallible if the earlier set_dev worked
+
+                if addr + step_size >= end {
+                    self.hash.state = HashState::Done;
+                    match self.hash.task.finalize_sha256() {
+                        Ok(v) => match dev {
+                            HfDevSelect::Flash0 => {
+                                self.hash.cached_hash0 = SlotHash::Hash(v);
+                            }
+                            HfDevSelect::Flash1 => {
+                                self.hash.cached_hash1 = SlotHash::Hash(v);
+                            }
+                        },
+                        Err(_) => (),
+                    };
+                } else {
+                    self.hash.state = HashState::Hashing {
+                        dev,
+                        addr: addr + step_size,
+                        end,
+                    };
+                    set_timer_relative(1, notifications::TIMER_MASK);
+                };
+            }
+            // We could potentially end up here if we miss a
+            // timer notification on update
+            _ => (),
+        }
+    }
+
+    fn invalidate_hash(&mut self) {
+        match self.dev_state {
+            HfDevSelect::Flash0 => {
+                self.hash.cached_hash0 = SlotHash::Recalculate;
+            }
+            HfDevSelect::Flash1 => {
+                self.hash.cached_hash1 = SlotHash::Recalculate;
+            }
+        }
+        self.hash.state = HashState::NotRunning;
     }
 }
 
@@ -483,6 +580,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         protect: HfProtectMode,
         data: LenLimit<Leased<R, [u8]>, PAGE_SIZE_BYTES>,
     ) -> Result<(), RequestError<HfError>> {
+        flash_block!(block);
         if addr as usize / SECTOR_SIZE_BYTES == 0
             && !matches!(protect, HfProtectMode::AllowModificationsToSector0)
         {
@@ -490,11 +588,11 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         }
         self.check_muxed_to_sp()?;
         // Read the entire data block into our address space.
-        data.read_range(0..data.len(), &mut self.block[..data.len()])
+        data.read_range(0..data.len(), &mut block[..data.len()])
             .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
 
         // Now we can't fail. (TODO is this comment outdated?)
-        self.page_program_raw(addr, &self.block[..data.len()])?;
+        self.page_program_raw(addr, &block[..data.len()])?;
         Ok(())
     }
 
@@ -528,15 +626,30 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         addr: u32,
         dest: LenLimit<Leased<W, [u8]>, PAGE_SIZE_BYTES>,
     ) -> Result<(), RequestError<HfError>> {
+        flash_block!(block);
         self.check_muxed_to_sp()?;
         self.qspi
-            .read_memory(addr, &mut self.block[..dest.len()])
+            .read_memory(addr, &mut block[..dest.len()])
             .map_err(qspi_to_hf)?;
 
-        dest.write_range(0..dest.len(), &self.block[..dest.len()])
+        dest.write_range(0..dest.len(), &block[..dest.len()])
             .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
 
         Ok(())
+    }
+
+    fn read_dev(
+        &mut self,
+        msg: &RecvMessage,
+        dev: HfDevSelect,
+        addr: u32,
+        dest: LenLimit<Leased<W, [u8]>, PAGE_SIZE_BYTES>,
+    ) -> Result<(), RequestError<HfError>> {
+        let prev = self.dev_state;
+        self.set_dev(dev)?;
+        let r = self.read(msg, addr, dest).map_err(RequestError::from);
+        self.set_dev(prev).unwrap(); // infallible if the earlier set_dev worked
+        r
     }
 
     fn bonus_read(
@@ -599,6 +712,10 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         }
 
         self.mux_state = state;
+        // This is probably slight over kill but caching is best effort
+        // and if we're swapping our mux back the host has probably
+        // gone into A2...
+        self.invalidate_hash();
         Ok(())
     }
 
@@ -633,13 +750,14 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         len: u32,
     ) -> Result<[u8; SHA256_SZ], RequestError<HfError>> {
         self.check_muxed_to_sp()?;
-        let hash_driver = hash_api::Hash::from(HASH.get_task_id());
-        if hash_driver.init_sha256().is_err() {
+        if self.hash.task.init_sha256().is_err() {
             return Err(HfError::HashError.into());
         }
+        match self.hash.state {
+            HashState::Hashing { .. } => return Err(HfError::HashError.into()),
+            _ => (),
+        }
         let begin = addr as usize;
-        // TODO: Begin may be an address beyond physical end of
-        // flash part and may wrap around.
         let end = match begin.checked_add(len as usize) {
             Some(end) => {
                 // Check end > maximum 4-byte address.
@@ -655,26 +773,84 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
                 return Err(HfError::HashBadRange.into());
             }
         };
-        // If we knew the flash part size, we'd check against those limits.
-        for addr in (begin..end).step_by(self.block.len()) {
-            let size = if self.block.len() < (end - addr) {
-                self.block.len()
-            } else {
-                end - addr
-            };
-            self.qspi
-                .read_memory(addr as u32, &mut self.block[..size])
-                .map_err(qspi_to_hf)?;
-            if hash_driver
-                .update(size as u32, &self.block[..size])
-                .is_err()
-            {
-                return Err(HfError::HashError.into());
-            }
+        // Basic checks to catch problems
+        if begin > self.capacity || end > self.capacity {
+            return Err(HfError::HashBadRange.into());
         }
-        match hash_driver.finalize_sha256() {
-            Ok(sum) => Ok(sum),
-            Err(_) => Err(HfError::HashError.into()), // XXX losing info
+        self.hash_range_update(begin, end)?;
+        self.hash
+            .task
+            .finalize_sha256()
+            .map_err(|_| HfError::HashError.into())
+    }
+
+    // This does a sha256 on the entire range _except_ sector0
+    // which is treated as `0xff`. We don't hash sector0 because
+    // that's where we store our persistent information and this
+    // function is used to check against files.
+    fn hash_significant_bits(
+        &mut self,
+        _: &RecvMessage,
+        dev: HfDevSelect,
+    ) -> Result<(), RequestError<HfError>> {
+        self.check_muxed_to_sp()?;
+        if self.hash.task.init_sha256().is_err() {
+            return Err(HfError::HashError.into());
+        }
+
+        match self.hash.state {
+            HashState::Hashing { .. } => return Err(HfError::HashError.into()),
+            _ => (),
+        }
+
+        // If we already have a valid hash for the slot don't bother
+        // starting again
+        match dev {
+            HfDevSelect::Flash0 => match self.hash.cached_hash0 {
+                SlotHash::Hash { .. } => return Ok(()),
+                _ => {
+                    self.hash.cached_hash0 = SlotHash::HashInProgress;
+                }
+            },
+            HfDevSelect::Flash1 => match self.hash.cached_hash1 {
+                SlotHash::Hash { .. } => return Ok(()),
+                _ => {
+                    self.hash.cached_hash1 = SlotHash::HashInProgress;
+                }
+            },
+        }
+
+        flash_block!(block);
+        // Treat sector 0 as all `0xff`
+        block.fill(0xff);
+        for _ in (0..SECTOR_SIZE_BYTES).step_by(block.len()) {
+            self.hash
+                .task
+                .update(block.len() as u32, &block)
+                .map_err(|_| RequestError::Runtime(HfError::HashError))?;
+        }
+
+        self.hash.state = HashState::Hashing {
+            dev,
+            addr: SECTOR_SIZE_BYTES,
+            end: self.capacity,
+        };
+        set_timer_relative(1, notifications::TIMER_MASK);
+        Ok(())
+    }
+
+    fn get_cached_hash(
+        &mut self,
+        _: &RecvMessage,
+        dev: HfDevSelect,
+    ) -> Result<[u8; SHA256_SZ], RequestError<HfError>> {
+        match dev {
+            HfDevSelect::Flash0 => {
+                self.hash.cached_hash0.get_hash().map_err(|e| e.into())
+            }
+            HfDevSelect::Flash1 => {
+                self.hash.cached_hash1.get_hash().map_err(|e| e.into())
+            }
         }
     }
 
@@ -741,12 +917,13 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
 
 impl NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
-        // We don't use notifications, don't listen for any.
-        0
+        notifications::TIMER_MASK
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
-        unreachable!()
+    fn handle_notification(&mut self, bits: u32) {
+        if (bits & notifications::TIMER_MASK) != 0 {
+            self.step_hash();
+        }
     }
 }
 

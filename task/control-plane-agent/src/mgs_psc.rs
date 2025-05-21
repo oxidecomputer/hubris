@@ -651,4 +651,31 @@ impl SpHandler for MgsHandler {
     ) -> Result<Option<DumpSegment>, SpError> {
         self.common.task_dump_read_continue(key, seq, buf)
     }
+
+    fn read_host_flash(
+        &mut self,
+        _slot: u16,
+        _addr: u32,
+        _buf: &mut [u8],
+    ) -> Result<(), SpError> {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::ReadHostFlash {
+            addr: 0
+        }));
+
+        Err(SpError::RequestUnsupportedForSp)
+    }
+
+    fn start_host_flash_hash(&mut self, _slot: u16) -> Result<(), SpError> {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::StartHostFlashHash {
+            slot: 0
+        }));
+        Err(SpError::RequestUnsupportedForSp)
+    }
+
+    fn get_host_flash_hash(&mut self, _slot: u16) -> Result<[u8; 32], SpError> {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::GetHostFlashHash {
+            slot: 0
+        }));
+        Err(SpError::RequestUnsupportedForSp)
+    }
 }

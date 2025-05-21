@@ -1150,6 +1150,32 @@ impl SpHandler for MgsHandler {
     ) -> Result<Option<DumpSegment>, SpError> {
         self.common.task_dump_read_continue(key, seq, buf)
     }
+
+    fn read_host_flash(
+        &mut self,
+        slot: u16,
+        addr: u32,
+        buf: &mut [u8],
+    ) -> Result<(), SpError> {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::ReadHostFlash {
+            addr
+        }));
+        self.host_flash_update.read_page(slot, addr, buf)
+    }
+
+    fn start_host_flash_hash(&mut self, slot: u16) -> Result<(), SpError> {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::StartHostFlashHash {
+            slot
+        }));
+        self.host_flash_update.start_hash(slot)
+    }
+
+    fn get_host_flash_hash(&mut self, slot: u16) -> Result<[u8; 32], SpError> {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::GetHostFlashHash {
+            slot
+        }));
+        self.host_flash_update.get_hash(slot)
+    }
 }
 
 struct UsartHandler {
