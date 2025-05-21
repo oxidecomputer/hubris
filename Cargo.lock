@@ -2074,6 +2074,7 @@ dependencies = [
  "drv-sidecar-front-io",
  "drv-sidecar-mainboard-controller",
  "drv-sidecar-seq-api",
+ "drv-stm32xx-sys-api",
  "hubpack",
  "idol",
  "idol-runtime",
