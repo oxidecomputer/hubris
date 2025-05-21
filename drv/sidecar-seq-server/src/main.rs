@@ -22,6 +22,7 @@ use drv_sidecar_mainboard_controller::MainboardController;
 use drv_sidecar_seq_api::{
     FanModuleIndex, FanModulePresence, SeqError, TofinoSequencerPolicy,
 };
+use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{
     ClientError, Leased, NotificationHandler, RequestError, R, W,
 };
@@ -33,6 +34,7 @@ task_slot!(MAINBOARD, mainboard);
 task_slot!(FRONT_IO, front_io);
 task_slot!(AUXFLASH, auxflash);
 task_slot!(PACKRAT, packrat);
+task_slot!(SYS, sys);
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
@@ -80,6 +82,8 @@ enum Trace {
     ClearingTofinoSequencerFault(TofinoSeqError),
     FrontIOBoardPowerEnable(bool),
     FrontIOBoardPowerFault,
+    FrontIOBoardPowerNotGood,
+    FrontIOBoardPowerGood,
     FrontIOBoardPresent,
     FrontIOBoardNotPresent,
     FrontIOBoardPhyPowerEnable(bool),
@@ -109,6 +113,9 @@ ringbuf!(Trace, 32, Trace::None);
 
 const TIMER_INTERVAL: u64 = 1000;
 
+// QSFP_2_SP_A2_PG
+const POWER_GOOD: sys_api::PinSet = sys_api::Port::F.pin(12);
+
 #[derive(Copy, Clone, PartialEq)]
 enum TofinoStateDetails {
     A0 {
@@ -133,6 +140,7 @@ struct ServerImpl {
     fan_modules: FanModules,
     // a piece of state to allow blinking LEDs to be in phase
     led_blink_on: bool,
+    sys: sys_api::Sys,
 }
 
 impl ServerImpl {
@@ -225,6 +233,14 @@ impl ServerImpl {
             PowerRailStatus::Enabled => false,
         } {
             userlib::hl::sleep_for(25);
+        }
+
+        // Check if the power is good via the PG pin
+        if self.sys.gpio_read(POWER_GOOD) == 0 {
+            ringbuf_entry!(Trace::FrontIOBoardPowerNotGood);
+            return Err(SeqError::FrontIOPowerNotGood);
+        } else {
+            ringbuf_entry!(Trace::FrontIOBoardPowerGood);
         }
 
         // Determine if a front IO board is present.
@@ -812,6 +828,9 @@ fn main() -> ! {
     let front_io_hsc = HotSwapController::new(MAINBOARD.get_task_id());
     let fan_modules = FanModules::new(MAINBOARD.get_task_id());
 
+    let sys = sys_api::Sys::from(SYS.get_task_id());
+    sys.gpio_configure_input(POWER_GOOD, sys_api::Pull::None);
+
     let mut server = ServerImpl {
         mainboard_controller,
         clock_generator,
@@ -820,6 +839,7 @@ fn main() -> ! {
         front_io_board: None,
         fan_modules,
         led_blink_on: false,
+        sys,
     };
 
     ringbuf_entry!(Trace::FpgaInit);
