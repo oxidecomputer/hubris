@@ -8,7 +8,7 @@ use crate::{
     SensorId,
 };
 
-use drv_i2c_devices::{lm5066::*, max5970::*};
+use drv_i2c_devices::{lm5066i::*, max5970::*};
 use ringbuf::*;
 use userlib::units::*;
 
@@ -30,26 +30,26 @@ pub(crate) static CONTROLLER_CONFIG: [PowerControllerConfig;
     rail_controller!(Sys, tps546B24A, v1p8_sys_a2, A2),
     rail_controller!(Sys, tps546B24A, v0p96_nic_vdd_a0hp, A0),
     adm1272_controller!(HotSwap, v54p5_ibc_a3, A2, Ohms(0.000_750)),
-    lm5066_controller!(
+    lm5066i_controller!(
         Fan,
         v54p5_fan_east,
         A2,
         Ohms(0.007),
-        drv_i2c_devices::lm5066::CurrentLimitStrap::VDD
+        CurrentLimitStrap::VDD
     ),
-    lm5066_controller!(
+    lm5066i_controller!(
         Fan,
         v54p5_fan_central,
         A2,
         Ohms(0.007),
-        drv_i2c_devices::lm5066::CurrentLimitStrap::VDD
+        CurrentLimitStrap::VDD
     ),
-    lm5066_controller!(
+    lm5066i_controller!(
         Fan,
         v54p5_fan_west,
         A2,
         Ohms(0.007),
-        drv_i2c_devices::lm5066::CurrentLimitStrap::VDD
+        CurrentLimitStrap::VDD
     ),
     max5970_controller!(HotSwapIO, v3p3_m2a_a0hp, A0, Ohms(0.003)),
     max5970_controller!(HotSwapIO, v3p3_m2b_a0hp, A0, Ohms(0.003)),
@@ -135,8 +135,8 @@ enum Trace {
         err: drv_i2c_api::ResponseCode,
     },
 
-    /// Calling `CLEAR_FAULTS` on the LM5066 failed
-    Lm5066ClearFaultsFailed {
+    /// Calling `CLEAR_FAULTS` on the LM5066I failed
+    Lm5066IClearFaultsFailed {
         index: usize,
         err: drv_i2c_api::ResponseCode,
     },
@@ -345,7 +345,7 @@ impl State {
             }
         }
 
-        // The LM5066 has an unusual set of fault bits set on startup; we'll
+        // The LM5066I has an unusual set of fault bits set on startup; we'll
         // clear them all here and let any genuine flags be re-set
         for (i, builder) in [
             i2c_config::pmbus::v54p5_fan_east,
@@ -356,13 +356,9 @@ impl State {
         .enumerate()
         {
             let (dev, _rail) = (builder)(i2c_task);
-            let p = Lm5066::new(
-                &dev,
-                Ohms(0.007),
-                drv_i2c_devices::lm5066::CurrentLimitStrap::VDD,
-            );
+            let p = Lm5066I::new(&dev, Ohms(0.007), CurrentLimitStrap::VDD);
             if let Err(err) = p.clear_faults() {
-                ringbuf_entry!(Trace::Lm5066ClearFaultsFailed {
+                ringbuf_entry!(Trace::Lm5066IClearFaultsFailed {
                     index: i,
                     err: err.into(),
                 });
