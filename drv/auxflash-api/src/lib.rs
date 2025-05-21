@@ -47,7 +47,10 @@ pub enum AuxFlashError {
     NoSuchBlob,
     /// Writes to the currently-active slot are not allowed
     SlotActive,
-
+    /// QSPI Timed out
+    QspiTimeout,
+    /// QSPI Transfer error
+    QspiTransferError,
     #[idol(server_death)]
     ServerRestarted,
 }
