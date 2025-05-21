@@ -170,6 +170,15 @@ enum MgsMessage {
     VersionedRotBootInfo {
         version: u8,
     },
+    ReadHostFlash {
+        addr: u32,
+    },
+    StartHostFlashHash {
+        slot: u16,
+    },
+    GetHostFlashHash {
+        slot: u16,
+    },
 }
 
 // This enum does not define the actual IPC protocol - it is only used in the
