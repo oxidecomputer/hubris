@@ -498,22 +498,46 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
             UpdateState::Finished | UpdateState::NoUpdate => (),
         }
 
-        self.image = match (component, slot) {
+        let image = match (component, slot) {
             (RotComponent::Hubris, SlotId::A)
-            | (RotComponent::Hubris, SlotId::B)
-            | (RotComponent::Stage0, SlotId::B) => Some((component, slot)),
+            | (RotComponent::Hubris, SlotId::B) => {
+                let active = match bootstate().map_err(|_| UpdateError::MissingHandoffData)?.active {
+                    stage0_handoff::RotSlot::A => SlotId::A,
+                    stage0_handoff::RotSlot::B => SlotId::B,
+                };
+                if active == slot {
+                    return Err(UpdateError::InvalidSlotIdForOperation.into());
+                }
+                // Since we will be enforcing rollback protection at the time when the
+                // boot preference is set, we cannot yet have the alternate image as the
+                // preferred image. The full image needs to be in place in order to
+                // evaluate the policy.
+                let (persistent, pending_persistent, transient) = self.boot_preferences()?;
+                if let Some(pref) = transient {
+                    if active != pref {
+                        return Err(UpdateError::InvalidPreferredSlotId.into());
+                    }
+                }
+                if let Some(pref) = pending_persistent {
+                    if active != pref {
+                        return Err(UpdateError::InvalidPreferredSlotId.into())
+                    }
+                }
+                if active != persistent {
+                        return Err(UpdateError::InvalidPreferredSlotId.into())
+                }
+                Some((component, slot))
+            }
+            (RotComponent::Stage0, SlotId::B) => Some((component, slot)),
             _ => return Err(UpdateError::InvalidSlotIdForOperation.into()),
         };
+
+
+        self.image = image;
         self.state = UpdateState::InProgress;
         ringbuf_entry!(Trace::State(self.state));
         self.next_block = None;
         self.fw_cache.fill(0);
-        // The sequence: [update, set transient preference, update] is legal.
-        // Clear any stale transient preference before update.
-        // Stage0 doesn't support transient override.
-        if component == RotComponent::Hubris {
-            set_hubris_transient_override(None);
-        }
         Ok(())
     }
 
