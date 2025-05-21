@@ -345,6 +345,7 @@ start = true
 uses = ["mmio_base", "mmio_spi_nor"]
 task-slots = ["hash_driver", "spartan7_loader"]
 stacksize = 4000
+notifications = ["timer"]
 
 [config.net]
 # VLAN configuration
