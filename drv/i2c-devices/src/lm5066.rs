@@ -138,6 +138,10 @@ impl Lm5066 {
         Ok(device_setup)
     }
 
+    pub fn clear_faults(&self) -> Result<(), Error> {
+        pmbus_write!(self.device, CLEAR_FAULTS)
+    }
+
     ///
     /// The coefficients for the LM5066 depend on the value of the current
     /// sense resistor and the sense of the current limit (CL) strap.
