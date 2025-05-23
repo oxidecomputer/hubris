@@ -35,6 +35,7 @@ pub enum SeqError {
     SetVddCoreVoutFailed,
     NoFrontIOBoard,
     FrontIOBoardPowerFault,
+    FrontIOPowerNotGood,
 
     #[idol(server_death)]
     ServerRestarted,
