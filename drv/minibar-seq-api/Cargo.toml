@@ -1,0 +1,32 @@
+[package]
+name = "drv-minibar-seq-api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+idol-runtime.workspace = true
+hubpack.workspace = true
+num-traits.workspace = true
+serde.workspace = true
+zerocopy.workspace = true
+zerocopy-derive.workspace = true
+
+counters = { path = "../../lib/counters" }
+derive-idol-err = { path = "../../lib/derive-idol-err" }
+drv-fpga-api = { path = "../fpga-api" }
+drv-fpga-user-api = { path = "../fpga-user-api" }
+userlib = { path = "../../sys/userlib" }
+
+[build-dependencies]
+build-fpga-regmap = { path = "../../build/fpga-regmap" }
+build-util = { path = "../../build/util" }
+idol.workspace = true
+gnarle = { path = "../../lib/gnarle", features=["std"] }
+
+[lib]
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true

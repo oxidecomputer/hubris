@@ -1,0 +1,37 @@
+[package]
+name = "drv-minibar-ignition-server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+cfg-if = { workspace = true }
+idol-runtime = { workspace = true }
+num-traits = { workspace = true }
+zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
+
+drv-fpga-api = { path = "../fpga-api" }
+drv-ignition-api = { path = "../ignition-api" }
+drv-minibar-seq-server = { path = "../minibar-seq-server" }
+drv-minibar-seq-api = { path = "../minibar-seq-api" }
+ringbuf = { path = "../../lib/ringbuf" }
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+
+[features]
+always-transmit = []
+no-ipc-counters = ["idol/no-counters"]
+
+[build-dependencies]
+build-util = {path = "../../build/util"}
+idol = { workspace = true }
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "drv-minibar-ignition-server"
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true
