@@ -172,6 +172,7 @@ impl IgnitionController {
 
     /// Read the request register for the given port.
     #[inline]
+    #[allow(dead_code)]
     pub fn request(&self, port: u8) -> Result<u8, FpgaError> {
         self.read_port_register(port, IgnitionPageAddr::TARGET_REQUEST)
     }

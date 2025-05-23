@@ -11,17 +11,15 @@ serde.workspace = true
 zerocopy.workspace = true
 zerocopy-derive.workspace = true
 
-counters = { path = "../../lib/counters" }
+counters = { path = "../../lib/counters", features = ["derive"] }
 derive-idol-err = { path = "../../lib/derive-idol-err" }
 drv-fpga-api = { path = "../fpga-api" }
-drv-fpga-user-api = { path = "../fpga-user-api" }
 userlib = { path = "../../sys/userlib" }
 
 [build-dependencies]
 build-fpga-regmap = { path = "../../build/fpga-regmap" }
 build-util = { path = "../../build/util" }
 idol.workspace = true
-gnarle = { path = "../../lib/gnarle", features=["std"] }
 
 [lib]
 test = false

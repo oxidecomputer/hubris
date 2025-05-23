@@ -12,13 +12,11 @@ zerocopy-derive = { workspace = true }
 
 drv-fpga-api = { path = "../fpga-api" }
 drv-ignition-api = { path = "../ignition-api" }
-drv-minibar-seq-server = { path = "../minibar-seq-server" }
 drv-minibar-seq-api = { path = "../minibar-seq-api" }
 ringbuf = { path = "../../lib/ringbuf" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 [features]
-always-transmit = []
 no-ipc-counters = ["idol/no-counters"]
 
 [build-dependencies]

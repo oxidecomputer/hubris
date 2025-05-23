@@ -4,12 +4,14 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+
 idol-runtime.workspace = true
 num-traits.workspace = true
 serde.workspace = true
 zerocopy.workspace = true
 zerocopy-derive.workspace = true
 
+counters = { path = "../../lib/counters" }
 drv-auxflash-api = { path = "../auxflash-api" }
 drv-fpga-api = { path = "../fpga-api", features = ["auxflash"] }
 drv-fpga-user-api = { path = "../fpga-user-api" }
@@ -22,7 +24,6 @@ userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 [features]
 h753 = ["build-i2c/h753"]
-no-ipc-counters = ["idol/no-counters"]
 
 [build-dependencies]
 build-util = { path = "../../build/util" }

@@ -31,9 +31,11 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         checksum,
     )?;
 
-    idol::client::build_client_stub(
-        "../../idl/minibar-seq.idol",
-        "client_stub.rs",
-    )?;
+    idol::Generator::new()
+        .with_counters(idol::CounterSettings::default())
+        .build_client_stub(
+            "../../idl/minibar-seq.idol",
+            "client_stub.rs",
+        )?;
     Ok(())
 }
