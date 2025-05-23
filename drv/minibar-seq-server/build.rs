@@ -13,12 +13,11 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         std::process::exit(1);
     }
 
-    idol::Generator::new()
-        .build_server_support(
-            "../../idl/minibar-seq.idol",
-            "server_stub.rs",
-            idol::server::ServerStyle::InOrder,
-        )?;
+    idol::Generator::new().build_server_support(
+        "../../idl/minibar-seq.idol",
+        "server_stub.rs",
+        idol::server::ServerStyle::InOrder,
+    )?;
 
     Ok(())
 }
