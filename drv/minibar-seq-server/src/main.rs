@@ -12,11 +12,16 @@ use drv_fpga_api::{
     await_fpga_ready, BitstreamType, DeviceState, Fpga, FpgaError,
     FpgaUserDesign, FpgaUserDesignIdent, WriteOp,
 };
+use drv_minibar_seq_api::{
+    Addr, MinibarSeqError, Reg, MINIBAR_BITSTREAM_CHECKSUM,
+};
 use drv_packrat_vpd_loader::{read_vpd_and_load_packrat, Packrat};
 
-use idol_runtime::NotificationHandler;
+use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::{ringbuf, ringbuf_entry};
-use userlib::{sys_get_timer, sys_set_timer, task_slot, UnwrapLite};
+use userlib::{
+    sys_get_timer, sys_set_timer, task_slot, RecvMessage, UnwrapLite,
+};
 
 task_slot!(I2C, i2c_driver);
 task_slot!(FPGA, ecp5);
@@ -24,7 +29,6 @@ task_slot!(AUXFLASH, auxflash);
 task_slot!(PACKRAT, packrat);
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
-include!(concat!(env!("OUT_DIR"), "/minibar_regs.rs"));
 include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
 
 #[derive(Copy, Clone, PartialEq)]
@@ -45,6 +49,7 @@ enum Trace {
     FpgaInitComplete,
     FpgaWriteError(FpgaError),
     PcieRefclkPdCleared,
+    DeviceState(DeviceState),
 }
 ringbuf!(Trace, 32, Trace::None);
 
@@ -103,6 +108,23 @@ impl ServerImpl {
         ident: &FpgaUserDesignIdent,
     ) -> bool {
         ident.checksum.get() == ServerImpl::short_bitstream_checksum()
+    }
+}
+
+impl idl::InOrderSequencerImpl for ServerImpl {
+    fn controller_ready(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<bool, RequestError<MinibarSeqError>> {
+        let state = self
+            .fpga_config
+            .state()
+            .map_err(MinibarSeqError::from)
+            .map_err(RequestError::from)?;
+
+        ringbuf_entry!(Trace::DeviceState(state));
+
+        Ok(state == DeviceState::RunningUserDesign)
     }
 }
 
@@ -256,7 +278,15 @@ fn main() -> ! {
     let deadline = sys_get_timer().now;
     sys_set_timer(Some(deadline), notifications::TIMER_MASK);
 
+    let mut buffer = [0; idl::INCOMING_SIZE];
+
     loop {
-        userlib::hl::sleep_for(1000);
+        idol_runtime::dispatch(&mut buffer, &mut server);
     }
+}
+
+mod idl {
+    use super::MinibarSeqError;
+
+    include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
