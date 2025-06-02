@@ -13,6 +13,7 @@
 //! - [`emc2305`]: EMC2305 fan driver
 //! - [`isl68224`]: ISL68224 power controller
 //! - [`lm5066`]: LM5066 hot swap controller
+//! - [`lm5066i`]: LM5066I hot swap controller
 //! - [`ltc4282`]: LTC4282 high current hot swap controller
 //! - [`m24c02`]: M24C02 EEPROM, used in MWOCP68 power shelf
 //! - [`m2_hp_only`]: M.2 drive; identical to `nvme_bmc`, with the limitation
@@ -240,6 +241,7 @@ pub mod ds2482;
 pub mod emc2305;
 pub mod isl68224;
 pub mod lm5066;
+pub mod lm5066i;
 pub mod ltc4282;
 pub mod m24c02;
 pub mod m2_hp_only;

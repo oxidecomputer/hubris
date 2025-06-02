@@ -14,6 +14,7 @@ use drv_i2c_devices::adm1272::*;
 use drv_i2c_devices::bmr491::*;
 use drv_i2c_devices::isl68224::*;
 use drv_i2c_devices::lm5066::*;
+use drv_i2c_devices::lm5066i::*;
 use drv_i2c_devices::ltc4282::*;
 use drv_i2c_devices::max5970::*;
 use drv_i2c_devices::mwocp68::*;
@@ -89,6 +90,7 @@ enum DeviceChip {
     Mwocp68,
     Ltc4282(Ohms),
     Lm5066(Ohms, CurrentLimitStrap),
+    Lm5066I(Ohms, CurrentLimitStrap),
 }
 
 struct PowerControllerConfig {
@@ -116,6 +118,7 @@ enum Device {
     Mwocp68(Mwocp68),
     Ltc4282(Ltc4282),
     Lm5066(Lm5066),
+    Lm5066I(Lm5066I),
 }
 
 impl Device {
@@ -128,6 +131,7 @@ impl Device {
             Device::Tps546B24A(dev) => dev.read_temperature()?,
             Device::Adm1272(dev) => dev.read_temperature()?,
             Device::Lm5066(dev) => dev.read_temperature()?,
+            Device::Lm5066I(dev) => dev.read_temperature()?,
             Device::Mwocp68(..) => {
                 // The MWOCP68 actually has three temperature sensors, but they
                 // aren't associated with power rails, so we don't read them
@@ -153,6 +157,7 @@ impl Device {
             Device::Mwocp68(dev) => dev.read_iout()?,
             Device::Ltc4282(dev) => dev.read_iout()?,
             Device::Lm5066(dev) => dev.read_iout()?,
+            Device::Lm5066I(dev) => dev.read_iout()?,
         };
         Ok(r)
     }
@@ -169,6 +174,7 @@ impl Device {
             Device::Mwocp68(dev) => dev.read_vout()?,
             Device::Ltc4282(dev) => dev.read_vout()?,
             Device::Lm5066(dev) => dev.read_vout()?,
+            Device::Lm5066I(dev) => dev.read_vout()?,
         };
         Ok(r)
     }
@@ -218,6 +224,7 @@ impl Device {
             | Device::Adm1272(_)
             | Device::Ltc4282(_)
             | Device::Lm5066(_)
+            | Device::Lm5066I(_)
             | Device::Max5970(_) => {
                 return Err(ResponseCode::OperationNotSupported)
             }
@@ -236,7 +243,8 @@ impl Device {
             Device::Adm1272(..)
             | Device::Ltc4282(..)
             | Device::Max5970(..)
-            | Device::Lm5066(..) => {
+            | Device::Lm5066(..)
+            | Device::Lm5066I(..) => {
                 return Err(ResponseCode::OperationNotSupported)
             }
         };
@@ -255,6 +263,7 @@ impl Device {
             Device::Ltc4282(dev) => dev.i2c_device(),
             Device::Max5970(dev) => dev.i2c_device(),
             Device::Lm5066(dev) => dev.i2c_device(),
+            Device::Lm5066I(dev) => dev.i2c_device(),
         }
     }
 }
@@ -286,6 +295,9 @@ impl PowerControllerConfig {
             }
             DeviceChip::Lm5066(sense, strap) => {
                 Device::Lm5066(Lm5066::new(&dev, *sense, *strap))
+            }
+            DeviceChip::Lm5066I(sense, strap) => {
+                Device::Lm5066I(Lm5066I::new(&dev, *sense, *strap))
             }
         }
     }
@@ -390,6 +402,28 @@ macro_rules! lm5066_controller {
                 input_current: None,
                 temperature: Some(
                     sensors::[<LM5066_ $rail:upper _TEMPERATURE_SENSOR>]
+                ),
+                phases: None,
+            }
+        }
+    };
+}
+
+#[allow(unused_macros)]
+macro_rules! lm5066i_controller {
+    ($which:ident, $rail:ident, $state:ident, $rsense:expr, $strap:expr) => {
+        paste::paste! {
+            PowerControllerConfig {
+                state: $crate::PowerState::$state,
+                device: $crate::DeviceType::$which,
+                chip: $crate::DeviceChip::Lm5066I($rsense, $strap),
+                builder: i2c_config::pmbus::$rail,
+                voltage: sensors::[<LM5066I_ $rail:upper _VOLTAGE_SENSOR>],
+                input_voltage: None,
+                current: sensors::[<LM5066I_ $rail:upper _CURRENT_SENSOR>],
+                input_current: None,
+                temperature: Some(
+                    sensors::[<LM5066I_ $rail:upper _TEMPERATURE_SENSOR>]
                 ),
                 phases: None,
             }
