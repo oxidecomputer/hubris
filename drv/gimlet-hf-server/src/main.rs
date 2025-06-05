@@ -38,10 +38,6 @@ use stm32h7::stm32h743 as device;
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
 
-// hash_api is optional, but idl files don't have support for optional APIs.
-// So, always include and return a "not implemented" error if the
-// feature is absent.
-#[cfg(feature = "hash")]
 use drv_hash_api as hash_api;
 use drv_hash_api::SHA256_SZ;
 
@@ -51,7 +47,6 @@ use drv_hf_api::{
 };
 
 task_slot!(SYS, sys);
-#[cfg(feature = "hash")]
 task_slot!(HASH, hash_driver);
 
 struct Config {
@@ -602,7 +597,6 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         Ok(())
     }
 
-    #[cfg(feature = "hash")]
     fn hash(
         &mut self,
         _: &RecvMessage,
@@ -651,16 +645,6 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             Ok(sum) => Ok(sum),
             Err(_) => Err(HfError::HashError.into()), // XXX losing info
         }
-    }
-
-    #[cfg(not(feature = "hash"))]
-    fn hash(
-        &mut self,
-        _: &RecvMessage,
-        _addr: u32,
-        _len: u32,
-    ) -> Result<[u8; SHA256_SZ], RequestError<HfError>> {
-        Err(HfError::HashNotConfigured.into())
     }
 
     fn get_persistent_data(
