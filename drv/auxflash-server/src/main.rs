@@ -19,7 +19,7 @@ use userlib::{hl, task_slot, RecvMessage, UnwrapLite};
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
 
-use drv_stm32h7_qspi::{Qspi, QspiError};
+use drv_stm32h7_qspi::{Qspi, QspiError, ReadSetting};
 use drv_stm32xx_sys_api as sys_api;
 
 task_slot!(SYS, sys);
@@ -71,7 +71,8 @@ fn main() -> ! {
     sys.leave_reset(sys_api::Peripheral::QuadSpi);
 
     let reg = unsafe { &*device::QUADSPI::ptr() };
-    let qspi = Qspi::new(reg, notifications::QSPI_IRQ_MASK);
+    let qspi =
+        Qspi::new(reg, notifications::QSPI_IRQ_MASK, ReadSetting::Single);
 
     let clock = 5; // 200MHz kernel / 5 = 40MHz clock
     const MEMORY_SIZE: usize = SLOT_COUNT as usize * SLOT_SIZE;
