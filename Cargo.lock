@@ -1771,24 +1771,65 @@ dependencies = [
 ]
 
 [[package]]
-name = "drv-minibar-seq-server"
+name = "drv-minibar-ignition-server"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if",
+ "drv-fpga-api",
+ "drv-ignition-api",
+ "drv-minibar-seq-api",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "ringbuf",
+ "userlib",
+ "zerocopy 0.8.25",
+ "zerocopy-derive 0.8.25",
+]
+
+[[package]]
+name = "drv-minibar-seq-api"
 version = "0.1.0"
 dependencies = [
  "build-fpga-regmap",
+ "build-util",
+ "counters",
+ "derive-idol-err",
+ "drv-fpga-api",
+ "hubpack",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "serde",
+ "userlib",
+ "zerocopy 0.8.25",
+ "zerocopy-derive 0.8.25",
+]
+
+[[package]]
+name = "drv-minibar-seq-server"
+version = "0.1.0"
+dependencies = [
  "build-i2c",
  "build-util",
+ "counters",
  "drv-auxflash-api",
  "drv-fpga-api",
  "drv-fpga-user-api",
  "drv-i2c-api",
  "drv-i2c-devices",
+ "drv-minibar-seq-api",
  "drv-packrat-vpd-loader",
- "gnarle",
+ "idol",
  "idol-runtime",
+ "num-traits",
  "ringbuf",
  "serde",
  "serde_json",
  "userlib",
+ "zerocopy 0.8.25",
+ "zerocopy-derive 0.8.25",
 ]
 
 [[package]]
@@ -2074,6 +2115,7 @@ dependencies = [
  "drv-sidecar-front-io",
  "drv-sidecar-mainboard-controller",
  "drv-sidecar-seq-api",
+ "drv-stm32xx-sys-api",
  "hubpack",
  "idol",
  "idol-runtime",

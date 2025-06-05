@@ -195,6 +195,15 @@ task-slots = [
     "ecp5",]
 notifications = ["timer"]
 
+[tasks.ignition]
+name = "drv-minibar-ignition-server"
+priority = 5
+max-sizes = {flash = 16384, ram = 8192}
+stacksize = 2048
+start = true
+task-slots = [{fpga = "ecp5"}, "sequencer"]
+notifications = ["timer"]
+
 [config]
 
 [[config.i2c.controllers]]
@@ -337,6 +346,6 @@ memory-size = 33_554_432 # 256 Mib / 32 MiB
 slot-count = 16 # 2 MiB slots
 
 [[auxflash.blobs]]
-file = "drv/minibar-seq-server/minibar_controller_hcv_a.bit"
+file = "drv/minibar-seq-api/minibar_controller_hcv_a.bit"
 compress = true
 tag = "FPGA"
