@@ -38,7 +38,6 @@ use stm32h7::stm32h743 as device;
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
 
-use drv_hash_api as hash_api;
 use drv_hash_api::SHA256_SZ;
 
 use drv_hf_api::{
@@ -47,7 +46,6 @@ use drv_hf_api::{
 };
 
 task_slot!(SYS, sys);
-task_slot!(HASH, hash_driver);
 
 struct Config {
     pub sp_host_mux_select: sys_api::PinSet,
@@ -78,6 +76,11 @@ fn main() -> ! {
 
     sys.enable_clock(sys_api::Peripheral::QuadSpi);
     sys.leave_reset(sys_api::Peripheral::QuadSpi);
+
+    sys.enter_reset(sys_api::Peripheral::Hash);
+    sys.disable_clock(sys_api::Peripheral::Hash);
+    sys.enable_clock(sys_api::Peripheral::Hash);
+    sys.leave_reset(sys_api::Peripheral::Hash);
 
     let reg = unsafe { &*device::QUADSPI::ptr() };
     let qspi = Qspi::new(reg, notifications::QSPI_IRQ_MASK);
@@ -136,6 +139,9 @@ fn main() -> ! {
     };
     qspi.configure(cfg.clock, log2_capacity);
 
+    let reg = unsafe { &*device::HASH::ptr() };
+    let hash = drv_stm32h7_hash::Hash::new(reg, notifications::HASH_IRQ_MASK);
+
     let mut buffer = [0; idl::INCOMING_SIZE];
     let mut server = ServerImpl {
         qspi,
@@ -145,6 +151,7 @@ fn main() -> ! {
         dev_state: HfDevSelect::Flash0,
         mux_select_pin: cfg.sp_host_mux_select,
         dev_select_pin: cfg.flash_dev_select,
+        hash,
     };
 
     server.ensure_persistent_data_is_redundant().unwrap(); // TODO: log this?
@@ -187,6 +194,7 @@ struct ServerImpl {
     /// changed by `set_dev` without necessarily being persisted to flash.
     dev_state: HfDevSelect,
     dev_select_pin: sys_api::PinSet,
+    hash: drv_stm32h7_hash::Hash,
 }
 
 impl ServerImpl {
@@ -604,8 +612,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         len: u32,
     ) -> Result<[u8; SHA256_SZ], RequestError<HfError>> {
         self.check_muxed_to_sp()?;
-        let hash_driver = hash_api::Hash::from(HASH.get_task_id());
-        if hash_driver.init_sha256().is_err() {
+        if self.hash.init_sha256().is_err() {
             return Err(HfError::HashError.into());
         }
         let begin = addr as usize;
@@ -626,6 +633,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
                 return Err(HfError::HashBadRange.into());
             }
         };
+
         // If we knew the flash part size, we'd check against those limits.
         for addr in (begin..end).step_by(self.block.len()) {
             let size = if self.block.len() < (end - addr) {
@@ -634,15 +642,13 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
                 end - addr
             };
             self.qspi.read_memory(addr as u32, &mut self.block[..size]);
-            if hash_driver
-                .update(size as u32, &self.block[..size])
-                .is_err()
-            {
+            if self.hash.update(&self.block[..size]).is_err() {
                 return Err(HfError::HashError.into());
             }
         }
-        match hash_driver.finalize_sha256() {
-            Ok(sum) => Ok(sum),
+        let mut final_block: [u8; SHA256_SZ] = [0; SHA256_SZ];
+        match self.hash.finalize_sha256(&mut final_block) {
+            Ok(_) => Ok(final_block),
             Err(_) => Err(HfError::HashError.into()), // XXX losing info
         }
     }

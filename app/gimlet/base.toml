@@ -151,12 +151,12 @@ notifications = ["timer"]
 
 [tasks.hiffy]
 name = "task-hiffy"
-features = ["h753", "stm32h7", "i2c", "gpio", "spi", "qspi", "hash", "sprot", "turbo"]
+features = ["h753", "stm32h7", "i2c", "gpio", "spi", "qspi", "sprot", "turbo"]
 priority = 5
 max-sizes = {flash = 32768, ram = 32768 }
 stacksize = 1200
 start = true
-task-slots = ["sys", "hf", "i2c_driver", "hash_driver", "update_server", "sprot"]
+task-slots = ["sys", "hf", "i2c_driver", "update_server", "sprot"]
 
 [tasks.gimlet_seq]
 name = "drv-gimlet-seq-server"
@@ -183,18 +183,6 @@ start = true
 task-slots = ["net", {seq = "gimlet_seq"}]
 notifications = ["socket"]
 
-[tasks.hash_driver]
-name = "drv-stm32h7-hash-server"
-features = ["h753"]
-priority = 2
-max-sizes = {flash = 16384, ram=4096 }
-stacksize = 2048
-start = true
-uses = ["hash"]
-interrupts = {"hash.irq" = "hash-irq"}
-task-slots = ["sys"]
-notifications = ["hash-irq"]
-
 [tasks.hf]
 name = "drv-gimlet-hf-server"
 features = ["h753"]
@@ -202,10 +190,10 @@ priority = 3
 max-sizes = {flash = 16384, ram = 4096 }
 stacksize = 3000
 start = true
-uses = ["quadspi"]
-interrupts = {"quadspi.irq" = "qspi-irq"}
-task-slots = ["sys", "hash_driver"]
-notifications = ["qspi-irq"]
+uses = ["quadspi", "hash"]
+interrupts = {"quadspi.irq" = "qspi-irq", "hash.irq" = "hash-irq"}
+task-slots = ["sys"]
+notifications = ["qspi-irq", "hash-irq"]
 
 [tasks.update_server]
 name = "stm32h7-update-server"

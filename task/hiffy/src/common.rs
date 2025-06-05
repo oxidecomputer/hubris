@@ -880,7 +880,7 @@ pub(crate) fn qspi_sector0_erase(
 task_slot!(HASH, hash_driver);
 
 // TODO: port this
-#[cfg(all(feature = "qspi", feature = "hash"))]
+#[cfg(feature = "qspi")]
 pub(crate) fn qspi_hash(
     stack: &[Option<u32>],
     _data: &[u8],

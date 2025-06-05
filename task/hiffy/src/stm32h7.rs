@@ -118,7 +118,7 @@ pub enum Functions {
     QspiSector0Erase((), drv_hf_api::HfError),
     #[cfg(feature = "qspi")]
     QspiVerify((u32, usize, usize), drv_hf_api::HfError),
-    #[cfg(all(feature = "qspi", feature = "hash"))]
+    #[cfg(feature = "qspi")]
     QspiHash((u32, u32), drv_hf_api::HfError),
     #[cfg(feature = "hash")]
     HashDigest(u32, drv_hash_api::HashError),
@@ -566,7 +566,7 @@ pub(crate) static HIFFY_FUNCS: &[Function] = &[
     crate::common::qspi_sector0_erase,
     #[cfg(feature = "qspi")]
     crate::common::qspi_verify,
-    #[cfg(all(feature = "qspi", feature = "hash"))]
+    #[cfg(feature = "qspi")]
     crate::common::qspi_hash,
     #[cfg(feature = "hash")]
     hash_digest_sha256,
