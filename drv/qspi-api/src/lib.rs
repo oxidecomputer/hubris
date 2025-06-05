@@ -36,6 +36,12 @@ pub enum Command {
 
     BulkErase = 0xC7,
     SectorErase = 0xDC,
+    // 4-BYTE QUAD OUTPUT FAST READ
+    QuadRead = 0x6C,
+    // 4-BYTE DTR QUAD INPUT/OUTPUT FAST READ
+    // Does not work at the moment
+    QuadDdrRead = 0xEE,
+    DdrRead = 0x0E,
 }
 
 impl From<Command> for u8 {
