@@ -288,17 +288,25 @@ impl Qspi {
                 continue;
             }
 
-            // Okay! We have some data! Let's evacuate it.
-
-            // Calculate the read size. Note that, if we have more bytes left to
-            // read than FIFO_THRESH, this may be bigger than FIFO_THRESH. We'll
-            // opportunistically take however much remains.
+            // Okay! We have `fl` bytes in the FIFO. We want to read that into
+            // the prefix of `out`, and leave the unwritten portion of `out` for
+            // our next iteration.
             let read_size = fl.min(out.len());
             let (dest, new_out) = out.split_at_mut(read_size);
-            for byte in dest {
+            out = new_out;
+
+            // We need to fill out `dest`. We'll do this in two phases:
+            // transfers of 4 bytes as long as we can, and then transfers of 1
+            // byte to get the stragglers.
+            let dest_word_count = dest.len() / 4; // rounding down
+            let (dest32, dest8) = dest.split_at_mut(dest_word_count * 4);
+
+            for word in dest32.chunks_mut(4) {
+                word.copy_from_slice(&self.recv32());
+            }
+            for byte in dest8 {
                 *byte = self.recv8();
             }
-            out = new_out;
 
             // next!
         }
@@ -332,6 +340,16 @@ impl Qspi {
 
     fn transfer_not_complete(&self) -> bool {
         !self.reg.sr.read().tcf().bit()
+    }
+
+    /// Performs a 32-bit load from the Data Register, popping four bytes from
+    /// the FIFO.
+    ///
+    /// You _really_ want to make sure the FIFO has at least 4 bytes before
+    /// calling this. Otherwise you'll get garbage, not an error.
+    fn recv32(&self) -> [u8; 4] {
+        // The peripheral produces bytes in little-endian order.
+        self.reg.dr.read().bits().to_le_bytes()
     }
 
     /// Performs an 8-bit load from the low byte of the Data Register.
