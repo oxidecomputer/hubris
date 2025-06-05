@@ -8,7 +8,9 @@ use drv_stm32xx_sys_api as sys_api;
 
 #[allow(dead_code)]
 pub(crate) fn init(qspi: &Qspi, sys: &sys_api::Sys) -> Config {
-    let clock = 6; // 200MHz kernel / 6 = 33.333MHz clock
+    // 33.33MHz was too fast to be able to use the full
+    // quad read commands, this seems to work
+    let clock = 7; // 200MHz kernel / 7 = 28.5714MHz clock
     qspi.configure(
         clock, 25, // 2**25 = 32MiB = 256Mib
     );

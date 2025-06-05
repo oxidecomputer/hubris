@@ -19,10 +19,19 @@ use zerocopy::IntoBytes;
 const FIFO_SIZE: usize = 32;
 const FIFO_THRESH: usize = 16;
 
+// In a perfect world we would use quad read everywhere because it is fast.
+// We've seen some inconsistency with the quad read command on some targets
+// so limit its use to targets where we've confirmed.
+pub enum ReadSetting {
+    Single,
+    Quad,
+}
+
 /// Wrapper for a reference to the register block.
 pub struct Qspi {
     reg: &'static device::quadspi::RegisterBlock,
     interrupt: u32,
+    read_command: Command,
 }
 
 pub enum QspiError {
@@ -35,8 +44,16 @@ impl Qspi {
     pub fn new(
         reg: &'static device::quadspi::RegisterBlock,
         interrupt: u32,
+        read: ReadSetting,
     ) -> Self {
-        Self { reg, interrupt }
+        Self {
+            reg,
+            interrupt,
+            read_command: match read {
+                ReadSetting::Single => Command::Read,
+                ReadSetting::Quad => Command::QuadRead,
+            },
+        }
     }
 
     /// Sets up the QSPI controller with some canned settings.
@@ -94,7 +111,7 @@ impl Qspi {
         address: u32,
         data: &mut [u8],
     ) -> Result<(), QspiError> {
-        self.read_impl(Command::Read, Some(address), data)
+        self.read_impl(self.read_command, Some(address), data)
     }
 
     /// Sets the Write Enable Latch on the flash chip, allowing a write/erase
@@ -311,22 +328,32 @@ impl Qspi {
         // hanging around from some previous transfer -- ensure this:
         self.reg.fcr.write(|w| w.ctcf().set_bit());
 
+        let (quad_setting, ddr_setting) = match command {
+            Command::QuadRead => (true, false),
+            Command::QuadDdrRead => (true, true),
+            Command::DdrRead => (false, true),
+            _ => (false, false),
+        };
+
         #[rustfmt::skip]
         #[allow(clippy::bool_to_int_with_if)]
         self.reg.ccr.write(|w| unsafe {
             w
+                // Set DDR mode if quad read
+                .ddrm().bit(ddr_setting)
+                .dhhc().bit(ddr_setting)
                 // Indirect read
                 .fmode().bits(0b01)
-                // Data on single line, or no data
-                .dmode().bits(if out.is_empty() { 0b00 } else { 0b01 })
-                // Dummy cycles = 0 for this
-                .dcyc().bits(0)
+                // Data on single line, 4 lines if quad or no line
+                .dmode().bits(if out.is_empty() { 0b00 } else if quad_setting { 0b11 } else { 0b01 } )
+                // Dummy cycles = 0 for single read, 8 for quad
+                .dcyc().bits(if quad_setting { 8 } else { 0 })
                 // No alternate bytes
                 .abmode().bits(0)
                 // 32-bit address if present.
                 .adsize().bits(if addr.is_some() { 0b11 } else { 0b00 })
-                // ...on one line for now, if present.
-                .admode().bits(if addr.is_some() { 0b01 } else { 0b00 })
+                // ...on one line for now (or 4 for the DDR command), if present.
+                .admode().bits(if addr.is_some() { if ddr_setting { 0b11} else { 0b01 } } else { 0b00 })
                 // Instruction on single line
                 .imode().bits(0b01)
                 // And, the op

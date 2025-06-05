@@ -28,7 +28,7 @@ use userlib::{
 };
 
 use drv_hf_api::{HashData, HashState, SlotHash, SECTOR_SIZE_BYTES};
-use drv_stm32h7_qspi::{Qspi, QspiError};
+use drv_stm32h7_qspi::{Qspi, QspiError, ReadSetting};
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{
     ClientError, Leased, LenLimit, NotificationHandler, RequestError, R, W,
@@ -97,7 +97,7 @@ fn main() -> ! {
     sys.leave_reset(sys_api::Peripheral::QuadSpi);
 
     let reg = unsafe { &*device::QUADSPI::ptr() };
-    let qspi = Qspi::new(reg, notifications::QSPI_IRQ_MASK);
+    let qspi = Qspi::new(reg, notifications::QSPI_IRQ_MASK, ReadSetting::Quad);
 
     // Build a pin struct using a board-specific init function
     let cfg = bsp::init(&qspi, &sys);
