@@ -197,7 +197,7 @@ notifications = ["hash-irq"]
 
 [tasks.hf]
 name = "drv-gimlet-hf-server"
-features = ["h753", "hash"]
+features = ["h753"]
 priority = 3
 max-sizes = {flash = 16384, ram = 4096 }
 stacksize = 3000
