@@ -110,9 +110,7 @@ impl Hash {
         self.block.iter_mut().for_each(|m| *m = 0);
         self.idx = 0;
         if self.is_busy() {
-            while self.is_busy() {
-                hl::sleep_for(1);
-            }
+            while self.is_busy() {}
         }
         unsafe {
             self.reg.cr.modify(|_, w| {
@@ -155,7 +153,6 @@ impl Hash {
             // XXX do i need to check DINIS? || !is_dinis_set() {
             while self.is_busy() {
                 // || !is_dinis_set() {
-                hl::sleep_for(1);
             }
         }
 
@@ -296,9 +293,7 @@ impl Hash {
             .modify(|_, w| w.dcie().set_bit().dinie().clear_bit());
 
         if self.is_busy() {
-            while self.is_busy() {
-                hl::sleep_for(1);
-            }
+            while self.is_busy() {}
         }
         sys_irq_control(self.interrupt, true);
         self.reg.str.modify(|_, w| w.dcal().set_bit());
@@ -306,16 +301,13 @@ impl Hash {
         // wait for calculation to finalize and interrupt
         loop {
             if self.is_busy() {
-                while self.is_busy() {
-                    hl::sleep_for(1);
-                }
+                while self.is_busy() {}
             }
             sys_recv_notification(self.interrupt);
             if self.reg.sr.read().dcis().bit() {
                 break;
             }
             sys_irq_control(self.interrupt, true); // XXX need this again?
-            hl::sleep_for(1);
         }
         // DCAL is supposedly not clearable by SW.
         // self.reg.str.modify(|_, w| w.dcal().clear_bit());
