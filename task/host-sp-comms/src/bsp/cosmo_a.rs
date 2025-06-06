@@ -402,13 +402,13 @@ impl ServerImpl {
             }
             34..=36 => {
                 let (name, f, sensors) = match index - 34 {
-                    0 => by_refdes!(U71, lm5066),
-                    1 => by_refdes!(U72, lm5066),
-                    2 => by_refdes!(U73, lm5066),
+                    0 => by_refdes!(U71, lm5066i),
+                    1 => by_refdes!(U72, lm5066i),
+                    2 => by_refdes!(U73, lm5066i),
                     _ => unreachable!(),
                 };
                 let dev = f(I2C.get_task_id());
-                let mut data = InventoryData::Lm5066 {
+                let mut data = InventoryData::Lm5066I {
                     mfr_id: [0u8; 3],
                     mfr_model: [0u8; 8],
                     mfr_revision: [0u8; 2],
@@ -419,8 +419,8 @@ impl ServerImpl {
                     current_sensor: sensors.current.into(),
                 };
                 self.tx_buf.try_encode_inventory(sequence, &name, || {
-                    use pmbus::commands::lm5066::CommandCode;
-                    let InventoryData::Lm5066 {
+                    use pmbus::commands::lm5066i::CommandCode;
+                    let InventoryData::Lm5066I {
                         mfr_id,
                         mfr_model,
                         mfr_revision,

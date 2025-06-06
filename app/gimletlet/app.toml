@@ -119,7 +119,7 @@ notifications = [
 
 [tasks.hf]
 name = "drv-mock-gimlet-hf-server"
-features = ["h753", "hash"]
+features = ["h753"]
 priority = 6
 max-sizes = {flash = 16384, ram = 4096}
 stacksize = 1920

@@ -1,0 +1,14 @@
+// Minibar Sequencer API
+
+Interface(
+    name: "Sequencer",
+    ops: {
+        "controller_ready": (
+            args: {},
+            reply: Result(
+                ok: "bool",
+                err: CLike("MinibarSeqError"),
+            ),
+        ),
+    },
+)

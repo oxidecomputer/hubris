@@ -22,6 +22,7 @@ drv-packrat-vpd-loader = { path = "../packrat-vpd-loader" }
 drv-sidecar-front-io = { path = "../sidecar-front-io", features = ["controller", "phy_smi"] }
 drv-sidecar-mainboard-controller = { path = "../sidecar-mainboard-controller", features = ["bitstream"] }
 drv-sidecar-seq-api = { path = "../sidecar-seq-api" }
+drv-stm32xx-sys-api = { path = "../stm32xx-sys-api", features = ["family-stm32h7"] }
 ringbuf = { path = "../../lib/ringbuf" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
