@@ -85,7 +85,7 @@ impl Qspi {
     /// Reads from flash storage starting at `address` and continuing for
     /// `data.len()` bytes, depositing the bytes into `data`.
     pub fn read_memory(&self, address: u32, data: &mut [u8]) {
-        self.read_impl(Command::Read, Some(address), data);
+        self.read_impl(Command::QuadRead, Some(address), data);
     }
 
     /// Sets the Write Enable Latch on the flash chip, allowing a write/erase
@@ -229,22 +229,32 @@ impl Qspi {
         // hanging around from some previous transfer -- ensure this:
         self.reg.fcr.write(|w| w.ctcf().set_bit());
 
+        let (quad_setting, ddr_setting) = match command {
+            Command::QuadRead => (true, false),
+            Command::QuadDdrRead => (true, true),
+            Command::DdrRead => (false, true),
+            _ => (false, false),
+        };
+
         #[rustfmt::skip]
         #[allow(clippy::bool_to_int_with_if)]
         self.reg.ccr.write(|w| unsafe {
             w
+                // Set DDR mode if quad read
+                .ddrm().bit(if ddr_setting { true } else { false } )
+                .dhhc().bit(if ddr_setting { true } else { false } )
                 // Indirect read
                 .fmode().bits(0b01)
                 // Data on single line, or no data
-                .dmode().bits(if out.is_empty() { 0b00 } else { 0b01 })
+                .dmode().bits(if out.is_empty() { 0b00 } else { if quad_setting { 0b11 } else { 0b01 } })
                 // Dummy cycles = 0 for this
-                .dcyc().bits(0)
+                .dcyc().bits(if quad_setting { 8 } else { 0 })
                 // No alternate bytes
                 .abmode().bits(0)
                 // 32-bit address if present.
                 .adsize().bits(if addr.is_some() { 0b11 } else { 0b00 })
                 // ...on one line for now, if present.
-                .admode().bits(if addr.is_some() { 0b01 } else { 0b00 })
+                .admode().bits(if addr.is_some() { if ddr_setting { 0b11} else { 0b01 } } else { 0b00 })
                 // Instruction on single line
                 .imode().bits(0b01)
                 // And, the op
