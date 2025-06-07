@@ -111,14 +111,14 @@ impl ServerImpl {
             4..=13 => {
                 let (designator, f): ([u8; 4], _) =
                     Self::get_sharkfin_vpd(index as usize - 4);
-                let mut name = *b"____/U7/ID";
+                let mut name = *b"____/U2/ID";
                 name[0..4].copy_from_slice(&designator);
                 self.read_eeprom_barcode(sequence, &name, f)
             }
             14..=23 => {
                 let (designator, f): ([u8; 4], _) =
                     Self::get_sharkfin_vpd(index as usize - 14);
-                let mut name = *b"____/U7";
+                let mut name = *b"____/U2";
                 name[0..4].copy_from_slice(&designator);
                 let mut data = InventoryData::At24csw08xSerial([0u8; 16]);
                 self.read_at24csw080_id(sequence, &name, f, &mut data)
