@@ -16,6 +16,7 @@ drv-hf-api = { path = "../hf-api" }
 drv-hash-api = { path = "../hash-api" }
 drv-stm32h7-qspi = { path = "../stm32h7-qspi" }
 drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
+drv-stm32h7-hash = { path = "../stm32h7-hash" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 [build-dependencies]
@@ -24,7 +25,7 @@ idol = { workspace = true }
 
 [features]
 h743 = ["stm32h7/stm32h743", "drv-stm32xx-sys-api/h743", "drv-stm32h7-qspi/h743"]
-h753 = ["stm32h7/stm32h753", "drv-stm32xx-sys-api/h753", "drv-stm32h7-qspi/h753"]
+h753 = ["stm32h7/stm32h753", "drv-stm32xx-sys-api/h753", "drv-stm32h7-qspi/h753", "drv-stm32h7-hash/h753"]
 no-ipc-counters = ["idol/no-counters"]
 
 [[bin]]
