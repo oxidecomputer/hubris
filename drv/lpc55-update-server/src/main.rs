@@ -501,18 +501,25 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         let image = match (component, slot) {
             (RotComponent::Hubris, SlotId::A)
             | (RotComponent::Hubris, SlotId::B) => {
-                let active = match bootstate().map_err(|_| UpdateError::MissingHandoffData)?.active {
+                let active = match bootstate()
+                    .map_err(|_| UpdateError::MissingHandoffData)?
+                    .active
+                {
                     stage0_handoff::RotSlot::A => SlotId::A,
                     stage0_handoff::RotSlot::B => SlotId::B,
                 };
                 if active == slot {
                     return Err(UpdateError::InvalidSlotIdForOperation.into());
                 }
-                // Since we will be enforcing rollback protection at the time when the
-                // boot preference is set, we cannot yet have the alternate image as the
-                // preferred image. The full image needs to be in place in order to
-                // evaluate the policy.
-                let (persistent, pending_persistent, transient) = self.boot_preferences()?;
+                // Rollback protection will be implemented by refusing to set
+                // boot preference to an image that has a lower EPOC vale in the
+                // caboose.
+                //
+                // Setting the boot preference before updating would sidestep that
+                // protection. So, we will fail the prepare step if any
+                // preference settings are selecting the update target image.
+                let (persistent, pending_persistent, transient) =
+                    self.boot_preferences()?;
                 if let Some(pref) = transient {
                     if active != pref {
                         return Err(UpdateError::InvalidPreferredSlotId.into());
@@ -520,18 +527,17 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
                 }
                 if let Some(pref) = pending_persistent {
                     if active != pref {
-                        return Err(UpdateError::InvalidPreferredSlotId.into())
+                        return Err(UpdateError::InvalidPreferredSlotId.into());
                     }
                 }
                 if active != persistent {
-                        return Err(UpdateError::InvalidPreferredSlotId.into())
+                    return Err(UpdateError::InvalidPreferredSlotId.into());
                 }
                 Some((component, slot))
             }
             (RotComponent::Stage0, SlotId::B) => Some((component, slot)),
             _ => return Err(UpdateError::InvalidSlotIdForOperation.into()),
         };
-
 
         self.image = image;
         self.state = UpdateState::InProgress;
@@ -938,13 +944,32 @@ impl ServerImpl<'_> {
         slot: SlotId,
         duration: SwitchDuration,
     ) -> Result<(), RequestError<UpdateError>> {
+        // Note: Rollback policy will be checking epoch values before activating.
         match duration {
             SwitchDuration::Once => {
-                // TODO check Rollback policy vs epoch before activating.
-                // TODO: prep-image-update should clear transient selection.
-                //   e.g. update, activate, update, reboot should not have
-                //   transient boot set.
-                set_hubris_transient_override(Some(slot));
+                // Get the currently active slot.
+                let active_slot = match bootstate()
+                    .map_err(|_| UpdateError::MissingHandoffData)?
+                    .active
+                {
+                    stage0_handoff::RotSlot::A => SlotId::A,
+                    stage0_handoff::RotSlot::B => SlotId::B,
+                };
+
+                // If the requested slot is the same as the active slot,
+                // treat this as a request to CLEAR the transient override.
+                //
+                // If we did allow setting the active slot as the transient
+                // preference, then we get this confusing 2-boot scenario when
+                // pending persistent preference is also used:
+                // the next reset returns us to the original image and the 2nd
+                // reset has us running the new/alternate image.
+                if active_slot == slot {
+                    set_hubris_transient_override(None);
+                } else {
+                    // Otherwise, set the preference as requested.
+                    set_hubris_transient_override(Some(slot));
+                }
             }
             SwitchDuration::Forever => {
                 // Locate and return the authoritative CFPA flash word number
@@ -975,6 +1000,19 @@ impl ServerImpl<'_> {
                 // Pong     0x9_E200    0x9E20
                 let (cfpa_word_number, _) =
                     self.cfpa_word_number_and_version(CfpaPage::Active)?;
+
+                // TODO: Hubris issue #2093: If there is a pending update in the
+                // scratch page, it is not being considered.
+                // Consider:
+                //   - A is active
+                //   - persistent switch to B without reset
+                //       - scratch page is updated
+                //       - return Ok(())
+                //   - persistent switch to A without reset
+                //       - A is already active, no work performed
+                //       - return Ok(())
+                //   - reset
+                //   - B is active
 
                 // Read current CFPA contents.
                 let mut cfpa = [[0u32; 4]; 512 / 16];
