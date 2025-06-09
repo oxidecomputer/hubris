@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//! Server for managing the Grapefruit FPGA process.
+//! Server for managing the Ignition flash IC
 
 #![no_std]
 #![no_main]
@@ -26,6 +26,9 @@ struct ServerImpl<'a, S: SpiServer> {
     pong: &'static mut [u8; 512],
     seq: fmc_periph::Sequencer,
     is_selected: bool,
+
+    /// Indicates whether we have come out of deep power-down mode
+    is_powered_up: bool,
 }
 
 #[derive(
@@ -58,6 +61,8 @@ pub enum Command {
 
     BulkErase = 0xC7,
     SectorErase = 0xDC,
+
+    ReleaseFromDeepPowerDown = 0xAB,
 }
 
 #[export_name = "main"]
@@ -84,6 +89,7 @@ fn main() -> ! {
         pong,
         seq,
         is_selected: false,
+        is_powered_up: false,
     };
     let mut buffer = [0; idl::INCOMING_SIZE];
     loop {
@@ -203,8 +209,15 @@ impl<S: SpiServer> ServerImpl<'_, S> {
         }
     }
 
-    fn check_selected(&self) -> Result<(), IgnitionFlashError> {
+    fn check_selected(&mut self) -> Result<(), IgnitionFlashError> {
         if self.is_selected {
+            // Make sure the device is out of deep power-down mode
+            if !self.is_powered_up {
+                // "RELEASE FROM DEEP POWER-DOWN"
+                self.dev.write(&[Command::ReleaseFromDeepPowerDown as u8])?;
+                userlib::hl::sleep_for(1); // 30 µs delay, rounded up
+                self.is_powered_up = true;
+            }
             Ok(())
         } else {
             Err(IgnitionFlashError::NotSelected)
