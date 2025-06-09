@@ -44,9 +44,6 @@ path = "sys/abi"
 [patch."https://github.com/oxidecomputer/hubris".counters]
 path = "lib/counters"
 
-[patch."https://github.com/oxidecomputer/management-gateway-service".gateway-messages]
-path = "/home/stoltz/Oxide/src/management-gateway-service/gateway-messages"
-
 [workspace.dependencies]
 anyhow = { version = "1.0.31", default-features = false, features = ["std"] }
 array-init = { version = "2.1.0" }
