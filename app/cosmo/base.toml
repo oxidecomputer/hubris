@@ -170,7 +170,6 @@ notifications = ["timer", "vcore"]
 [tasks.ignition_flash]
 name = "drv-ignition-flash"
 priority = 7
-max-sizes = {flash = 65536, ram = 8192 }
 stacksize = 1200
 start = true
 task-slots = ["sys", {spi_front = "spi3_driver"}, "spartan7_loader"]
