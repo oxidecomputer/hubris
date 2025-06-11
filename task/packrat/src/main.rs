@@ -48,6 +48,9 @@ mod grapefruit;
 #[cfg(feature = "cosmo")]
 mod cosmo;
 
+mod spd_data;
+use spd_data::SpdData;
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[allow(dead_code)] // not all variants are used, depending on cargo features
 enum Trace {
@@ -181,6 +184,26 @@ impl ServerImpl {
             }
         }
     }
+
+    #[cfg(feature = "gimlet")]
+    fn spd(&self) -> Option<&SpdData> {
+        Some(self.gimlet_data.spd())
+    }
+
+    #[cfg(feature = "gimlet")]
+    fn spd_mut(&mut self) -> Option<&mut SpdData> {
+        Some(self.gimlet_data.spd_mut())
+    }
+
+    #[cfg(feature = "cosmo")]
+    fn spd(&self) -> Option<&SpdData> {
+        Some(self.cosmo_data.spd())
+    }
+
+    #[cfg(feature = "cosmo")]
+    fn spd_mut(&mut self) -> Option<&mut SpdData> {
+        Some(self.cosmo_data.spd_mut())
+    }
 }
 
 impl idl::InOrderPackratImpl for ServerImpl {
@@ -311,7 +334,6 @@ impl idl::InOrderPackratImpl for ServerImpl {
         ))
     }
 
-    #[cfg(feature = "gimlet")]
     fn set_spd_eeprom(
         &mut self,
         _: &RecvMessage,
@@ -320,83 +342,56 @@ impl idl::InOrderPackratImpl for ServerImpl {
         offset: u8,
         data: LenLimit<Leased<idol_runtime::R, [u8]>, 256>,
     ) -> Result<(), RequestError<Infallible>> {
-        self.gimlet_data.set_spd_eeprom(index, page1, offset, data)
+        if let Some(spd) = self.spd_mut() {
+            spd.set_eeprom(index, page1, offset, data)
+        } else {
+            Err(RequestError::Fail(
+                idol_runtime::ClientError::BadMessageContents,
+            ))
+        }
     }
 
-    #[cfg(not(feature = "gimlet"))]
-    fn set_spd_eeprom(
-        &mut self,
-        _: &RecvMessage,
-        _index: u8,
-        _page1: bool,
-        _offset: u8,
-        _data: LenLimit<Leased<idol_runtime::R, [u8]>, 256>,
-    ) -> Result<(), RequestError<Infallible>> {
-        Err(RequestError::Fail(
-            idol_runtime::ClientError::BadMessageContents,
-        ))
-    }
-
-    #[cfg(feature = "gimlet")]
     fn get_spd_present(
         &mut self,
         _: &RecvMessage,
         index: usize,
     ) -> Result<bool, RequestError<Infallible>> {
-        self.gimlet_data.get_spd_present(index)
+        if let Some(spd) = self.spd() {
+            spd.get_present(index)
+        } else {
+            Err(RequestError::Fail(
+                idol_runtime::ClientError::BadMessageContents,
+            ))
+        }
     }
 
-    #[cfg(not(feature = "gimlet"))]
-    fn get_spd_present(
-        &mut self,
-        _: &RecvMessage,
-        _index: usize,
-    ) -> Result<bool, RequestError<Infallible>> {
-        Err(RequestError::Fail(
-            idol_runtime::ClientError::BadMessageContents,
-        ))
-    }
-
-    #[cfg(feature = "gimlet")]
     fn get_spd_data(
         &mut self,
         _: &RecvMessage,
         index: usize,
     ) -> Result<u8, RequestError<Infallible>> {
-        self.gimlet_data.get_spd_data(index)
+        if let Some(spd) = self.spd() {
+            spd.get_data(index)
+        } else {
+            Err(RequestError::Fail(
+                idol_runtime::ClientError::BadMessageContents,
+            ))
+        }
     }
 
-    #[cfg(not(feature = "gimlet"))]
-    fn get_spd_data(
-        &mut self,
-        _: &RecvMessage,
-        _index: usize,
-    ) -> Result<u8, RequestError<Infallible>> {
-        Err(RequestError::Fail(
-            idol_runtime::ClientError::BadMessageContents,
-        ))
-    }
-
-    #[cfg(feature = "gimlet")]
     fn get_full_spd_data(
         &mut self,
         _: &RecvMessage,
         dev: usize,
         out: LenLimit<Leased<idol_runtime::W, [u8]>, 512>,
     ) -> Result<(), RequestError<Infallible>> {
-        self.gimlet_data.get_full_spd_data(dev, out)
-    }
-
-    #[cfg(not(feature = "gimlet"))]
-    fn get_full_spd_data(
-        &mut self,
-        _: &RecvMessage,
-        _dev: usize,
-        _out: LenLimit<Leased<idol_runtime::W, [u8]>, 512>,
-    ) -> Result<(), RequestError<Infallible>> {
-        Err(RequestError::Fail(
-            idol_runtime::ClientError::BadMessageContents,
-        ))
+        if let Some(spd) = self.spd() {
+            spd.get_full_data(dev, out)
+        } else {
+            Err(RequestError::Fail(
+                idol_runtime::ClientError::BadMessageContents,
+            ))
+        }
     }
 }
 
