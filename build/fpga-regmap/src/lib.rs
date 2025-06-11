@@ -656,6 +656,7 @@ pub fn build_peripheral(
             #[allow(dead_code, clippy::useless_conversion, clippy::unnecessary_cast)]
             impl<'a> From<&'a #struct_name> for #debug_name {
                 fn from(s: &'a #struct_name) -> #debug_name {
+                    #[allow(unused_variables)]
                     let d = s.get_raw();
                     #(#debug_values)*
                     #debug_name {
