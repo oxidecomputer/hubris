@@ -11,7 +11,10 @@ use drv_cpu_seq_api::PowerState;
 use idol_runtime::RequestError;
 use ringbuf::{ringbuf, ringbuf_entry};
 use task_jefe_api::Jefe;
-use userlib::{sys_recv_notification, task_slot, FromPrimitive, RecvMessage};
+use userlib::{
+    sys_get_timer, sys_recv_notification, sys_set_timer, task_slot,
+    FromPrimitive, RecvMessage,
+};
 
 task_slot!(JEFE, jefe);
 
@@ -51,7 +54,8 @@ fn main() -> ! {
 
     ringbuf_entry!(Trace::Ready);
 
-    let mut server = ServerImpl;
+    let mut server = ServerImpl { deadline: 0u64 };
+    sys_set_timer(Some(0), notifications::TIMER_MASK);
     let mut buffer = [0; idl::INCOMING_SIZE];
 
     loop {
@@ -59,7 +63,12 @@ fn main() -> ! {
     }
 }
 
-struct ServerImpl;
+// Poll the thermal sensors at roughly 4 Hz
+const TIMER_INTERVAL: u64 = 250;
+
+struct ServerImpl {
+    deadline: u64,
+}
 
 impl idl::InOrderCosmoSpdImpl for ServerImpl {
     fn ping(
@@ -72,12 +81,15 @@ impl idl::InOrderCosmoSpdImpl for ServerImpl {
 
 impl idol_runtime::NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
-        // We don't use notifications, don't listen for any.
-        0
+        notifications::TIMER_MASK
     }
 
     fn handle_notification(&mut self, _bits: u32) {
-        unreachable!()
+        let now = sys_get_timer().now;
+        if now >= self.deadline {
+            self.deadline = now + TIMER_INTERVAL;
+        }
+        sys_set_timer(Some(self.deadline), notifications::TIMER_MASK);
     }
 }
 
