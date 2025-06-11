@@ -8,15 +8,19 @@
 #![no_main]
 
 use drv_cpu_seq_api::PowerState;
+use drv_spartan7_loader_api::Spartan7Loader;
 use idol_runtime::RequestError;
 use ringbuf::{ringbuf, ringbuf_entry};
 use task_jefe_api::Jefe;
+use task_packrat_api::Packrat;
 use userlib::{
-    sys_get_timer, sys_recv_notification, sys_set_timer, task_slot,
-    FromPrimitive, RecvMessage,
+    hl::sleep_for, sys_get_timer, sys_recv_notification, sys_set_timer,
+    task_slot, FromPrimitive, RecvMessage,
 };
 
 task_slot!(JEFE, jefe);
+task_slot!(PACKRAT, packrat);
+task_slot!(LOADER, spartan7_loader);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
@@ -53,6 +57,34 @@ fn main() -> ! {
     }
 
     ringbuf_entry!(Trace::Ready);
+
+    // Time to get the SPD data from the FPGA!
+    let packrat = Packrat::from(PACKRAT.get_task_id());
+    let loader = Spartan7Loader::from(LOADER.get_task_id());
+    let token = loader.get_token();
+    let spd_proxy = fmc_periph::SpdProxy::new(token);
+
+    // Kick off a read then wait for it to complete
+    spd_proxy.spd_ctrl.modify(|s| s.set_start(true));
+    while spd_proxy.spd_ctrl.start() {
+        sleep_for(10);
+    }
+
+    // Set spd_ctrl.start
+    // Poll for spd_ctrl.start to clear
+    // For each dimm in spd_present:
+    //   Set spd_select
+    //   Set spd_rd_ptr to 0x0
+    //   Read 256 words from spd_rdata
+    let bus0_present = spd_proxy.spd_present.bus0();
+    let bus1_present = spd_proxy.spd_present.bus1();
+    for (bus, present) in [bus0_present, bus1_present].iter().enumerate() {
+        for channel in 0..5 {
+            if present & (1 << channel) != 0 {
+                // spd_proxy.spd_select.set_raw(bus * 8 + channel);
+            }
+        }
+    }
 
     let mut server = ServerImpl { deadline: 0u64 };
     sys_set_timer(Some(0), notifications::TIMER_MASK);
