@@ -1,0 +1,14 @@
+// Cosmo SPD task API
+
+Interface(
+    name: "CosmoSpd",
+    ops: {
+        "ping": (
+            doc: "returns the given value",
+            args: {},
+            reply: Simple("u8"),
+            idempotent: true,
+        ),
+    },
+)
+
