@@ -354,10 +354,10 @@ stacksize = 800
 
 [tasks.spd]
 name = "task-cosmo-spd"
-priority = 4
+priority = 7
 max-sizes = {flash = 8192, ram = 2048 }
 start = true
-notifications = ["jefe-state-change"]
+notifications = ["jefe-state-change", "timer"]
 task-slots = ["jefe"]
 
 [tasks.auxflash]
