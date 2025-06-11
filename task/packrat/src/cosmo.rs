@@ -4,10 +4,12 @@
 
 //! Cosmo-specific packrat data.
 
+use crate::SpdData;
 use task_packrat_api::HostStartupOptions;
 
 pub(crate) struct CosmoData {
     host_startup_options: &'static mut HostStartupOptions,
+    spd_data: &'static mut SpdData,
 }
 
 const fn default_host_startup_options() -> HostStartupOptions {
@@ -26,6 +28,7 @@ const fn default_host_startup_options() -> HostStartupOptions {
 }
 
 pub(crate) struct StaticBufs {
+    spd_data: SpdData,
     host_startup_options: HostStartupOptions,
 }
 
@@ -33,6 +36,7 @@ impl StaticBufs {
     pub(crate) const fn new() -> Self {
         Self {
             host_startup_options: default_host_startup_options(),
+            spd_data: SpdData::new(),
         }
     }
 }
@@ -41,10 +45,12 @@ impl CosmoData {
     pub(crate) fn new(
         StaticBufs {
             ref mut host_startup_options,
+            ref mut spd_data,
         }: &'static mut StaticBufs,
     ) -> Self {
         Self {
             host_startup_options,
+            spd_data,
         }
     }
 
@@ -57,5 +63,13 @@ impl CosmoData {
         options: HostStartupOptions,
     ) {
         *self.host_startup_options = options;
+    }
+
+    pub(crate) fn spd(&self) -> &SpdData {
+        self.spd_data
+    }
+
+    pub(crate) fn spd_mut(&mut self) -> &mut SpdData {
+        self.spd_data
     }
 }
