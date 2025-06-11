@@ -49,7 +49,12 @@ mod grapefruit;
 mod cosmo;
 
 mod spd_data;
-use spd_data::SpdData;
+
+#[cfg(feature = "gimlet")]
+use gimlet::SpdData;
+
+#[cfg(feature = "cosmo")]
+use cosmo::SpdData;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[allow(dead_code)] // not all variants are used, depending on cargo features
@@ -60,8 +65,7 @@ enum Trace {
     SetNextBootHostStartupOptions(HostStartupOptions),
     SpdDataUpdate {
         index: u8,
-        page1: bool,
-        offset: u8,
+        offset: usize,
         len: u8,
     },
 }
@@ -338,12 +342,11 @@ impl idl::InOrderPackratImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
         index: u8,
-        page1: bool,
-        offset: u8,
+        offset: usize,
         data: LenLimit<Leased<idol_runtime::R, [u8]>, 256>,
     ) -> Result<(), RequestError<Infallible>> {
         if let Some(spd) = self.spd_mut() {
-            spd.set_eeprom(index, page1, offset, data)
+            spd.set_eeprom(index, offset, data)
         } else {
             Err(RequestError::Fail(
                 idol_runtime::ClientError::BadMessageContents,
@@ -354,7 +357,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
     fn get_spd_present(
         &mut self,
         _: &RecvMessage,
-        index: usize,
+        index: u8,
     ) -> Result<bool, RequestError<Infallible>> {
         if let Some(spd) = self.spd() {
             spd.get_present(index)
@@ -368,10 +371,11 @@ impl idl::InOrderPackratImpl for ServerImpl {
     fn get_spd_data(
         &mut self,
         _: &RecvMessage,
-        index: usize,
+        index: u8,
+        offset: usize,
     ) -> Result<u8, RequestError<Infallible>> {
         if let Some(spd) = self.spd() {
-            spd.get_data(index)
+            spd.get_data(index, offset)
         } else {
             Err(RequestError::Fail(
                 idol_runtime::ClientError::BadMessageContents,
@@ -382,11 +386,11 @@ impl idl::InOrderPackratImpl for ServerImpl {
     fn get_full_spd_data(
         &mut self,
         _: &RecvMessage,
-        dev: usize,
-        out: LenLimit<Leased<idol_runtime::W, [u8]>, 512>,
+        index: u8,
+        out: Leased<idol_runtime::W, [u8]>,
     ) -> Result<(), RequestError<Infallible>> {
         if let Some(spd) = self.spd() {
-            spd.get_full_data(dev, out)
+            spd.get_full_data(index, out)
         } else {
             Err(RequestError::Fail(
                 idol_runtime::ClientError::BadMessageContents,

@@ -1195,7 +1195,7 @@ fn read_spd_data_and_load_packrat(
                 spd.read_into(&mut tmp[1..])
             })?;
 
-            packrat.set_spd_eeprom(ndx, false, 0, &tmp);
+            packrat.set_spd_eeprom(ndx, 0, &tmp);
         }
 
         // Now flip over to the top page.
@@ -1231,7 +1231,7 @@ fn read_spd_data_and_load_packrat(
                 spd.read_into(&mut tmp[chunk..])
             })?;
 
-            packrat.set_spd_eeprom(ndx, true, 0, &tmp);
+            packrat.set_spd_eeprom(ndx, spd::PAGE_SIZE, &tmp);
         }
     }
 
