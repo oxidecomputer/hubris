@@ -1,5 +1,6 @@
 {
     "type": "addrmap",
+    "addr_span_bytes": 672,
     "inst_name": "qsfp_x32_controller",
     "addr_offset": 0,
     "children": [
@@ -256,6 +257,7 @@
         },
         {
             "type": "addrmap",
+            "addr_span_bytes": 12,
             "inst_name": "VSC8562",
             "addr_offset": 256,
             "children": [
@@ -668,6 +670,7 @@
         },
         {
             "type": "addrmap",
+            "addr_span_bytes": 160,
             "inst_name": "QSFP",
             "addr_offset": 512,
             "children": [
@@ -1199,6 +1202,10 @@
                                 {
                                     "name": "I2cSclStretchTimeout",
                                     "value": 7
+                                },
+                                {
+                                    "name": "I2cTransactionTimeout",
+                                    "value": 8
                                 }
                             ]
                         },
@@ -1297,6 +1304,10 @@
                                 {
                                     "name": "I2cSclStretchTimeout",
                                     "value": 7
+                                },
+                                {
+                                    "name": "I2cTransactionTimeout",
+                                    "value": 8
                                 }
                             ]
                         },
@@ -1395,6 +1406,10 @@
                                 {
                                     "name": "I2cSclStretchTimeout",
                                     "value": 7
+                                },
+                                {
+                                    "name": "I2cTransactionTimeout",
+                                    "value": 8
                                 }
                             ]
                         },
@@ -1493,6 +1508,10 @@
                                 {
                                     "name": "I2cSclStretchTimeout",
                                     "value": 7
+                                },
+                                {
+                                    "name": "I2cTransactionTimeout",
+                                    "value": 8
                                 }
                             ]
                         },
@@ -1591,6 +1610,10 @@
                                 {
                                     "name": "I2cSclStretchTimeout",
                                     "value": 7
+                                },
+                                {
+                                    "name": "I2cTransactionTimeout",
+                                    "value": 8
                                 }
                             ]
                         },
@@ -1689,6 +1712,10 @@
                                 {
                                     "name": "I2cSclStretchTimeout",
                                     "value": 7
+                                },
+                                {
+                                    "name": "I2cTransactionTimeout",
+                                    "value": 8
                                 }
                             ]
                         },
@@ -1787,6 +1814,10 @@
                                 {
                                     "name": "I2cSclStretchTimeout",
                                     "value": 7
+                                },
+                                {
+                                    "name": "I2cTransactionTimeout",
+                                    "value": 8
                                 }
                             ]
                         },
@@ -1885,6 +1916,10 @@
                                 {
                                     "name": "I2cSclStretchTimeout",
                                     "value": 7
+                                },
+                                {
+                                    "name": "I2cTransactionTimeout",
+                                    "value": 8
                                 }
                             ]
                         },
@@ -1983,6 +2018,10 @@
                                 {
                                     "name": "I2cSclStretchTimeout",
                                     "value": 7
+                                },
+                                {
+                                    "name": "I2cTransactionTimeout",
+                                    "value": 8
                                 }
                             ]
                         },
@@ -2081,6 +2120,10 @@
                                 {
                                     "name": "I2cSclStretchTimeout",
                                     "value": 7
+                                },
+                                {
+                                    "name": "I2cTransactionTimeout",
+                                    "value": 8
                                 }
                             ]
                         },
@@ -2179,6 +2222,10 @@
                                 {
                                     "name": "I2cSclStretchTimeout",
                                     "value": 7
+                                },
+                                {
+                                    "name": "I2cTransactionTimeout",
+                                    "value": 8
                                 }
                             ]
                         },
@@ -2277,6 +2324,10 @@
                                 {
                                     "name": "I2cSclStretchTimeout",
                                     "value": 7
+                                },
+                                {
+                                    "name": "I2cTransactionTimeout",
+                                    "value": 8
                                 }
                             ]
                         },
@@ -2375,6 +2426,10 @@
                                 {
                                     "name": "I2cSclStretchTimeout",
                                     "value": 7
+                                },
+                                {
+                                    "name": "I2cTransactionTimeout",
+                                    "value": 8
                                 }
                             ]
                         },
@@ -2473,6 +2528,10 @@
                                 {
                                     "name": "I2cSclStretchTimeout",
                                     "value": 7
+                                },
+                                {
+                                    "name": "I2cTransactionTimeout",
+                                    "value": 8
                                 }
                             ]
                         },
@@ -2571,6 +2630,10 @@
                                 {
                                     "name": "I2cSclStretchTimeout",
                                     "value": 7
+                                },
+                                {
+                                    "name": "I2cTransactionTimeout",
+                                    "value": 8
                                 }
                             ]
                         },
@@ -2669,6 +2732,10 @@
                                 {
                                     "name": "I2cSclStretchTimeout",
                                     "value": 7
+                                },
+                                {
+                                    "name": "I2cTransactionTimeout",
+                                    "value": 8
                                 }
                             ]
                         },
@@ -5453,6 +5520,326 @@
                             "se_onread": null,
                             "se_onwrite": null,
                             "desc": null
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "PORT0_DEBUG",
+                    "addr_offset": 144,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "FORCE_I2C_TIMEOUT",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Setting this bit will force an I2C timeout on the current transaction. If one is not in progress, the next one will be aborted. This bit clears itself after a timeout happens."
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "PORT1_DEBUG",
+                    "addr_offset": 145,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "FORCE_I2C_TIMEOUT",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Setting this bit will force an I2C timeout on the current transaction. If one is not in progress, the next one will be aborted. This bit clears itself after a timeout happens."
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "PORT2_DEBUG",
+                    "addr_offset": 146,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "FORCE_I2C_TIMEOUT",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Setting this bit will force an I2C timeout on the current transaction. If one is not in progress, the next one will be aborted. This bit clears itself after a timeout happens."
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "PORT3_DEBUG",
+                    "addr_offset": 147,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "FORCE_I2C_TIMEOUT",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Setting this bit will force an I2C timeout on the current transaction. If one is not in progress, the next one will be aborted. This bit clears itself after a timeout happens."
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "PORT4_DEBUG",
+                    "addr_offset": 148,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "FORCE_I2C_TIMEOUT",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Setting this bit will force an I2C timeout on the current transaction. If one is not in progress, the next one will be aborted. This bit clears itself after a timeout happens."
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "PORT5_DEBUG",
+                    "addr_offset": 149,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "FORCE_I2C_TIMEOUT",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Setting this bit will force an I2C timeout on the current transaction. If one is not in progress, the next one will be aborted. This bit clears itself after a timeout happens."
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "PORT6_DEBUG",
+                    "addr_offset": 150,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "FORCE_I2C_TIMEOUT",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Setting this bit will force an I2C timeout on the current transaction. If one is not in progress, the next one will be aborted. This bit clears itself after a timeout happens."
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "PORT7_DEBUG",
+                    "addr_offset": 151,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "FORCE_I2C_TIMEOUT",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Setting this bit will force an I2C timeout on the current transaction. If one is not in progress, the next one will be aborted. This bit clears itself after a timeout happens."
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "PORT8_DEBUG",
+                    "addr_offset": 152,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "FORCE_I2C_TIMEOUT",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Setting this bit will force an I2C timeout on the current transaction. If one is not in progress, the next one will be aborted. This bit clears itself after a timeout happens."
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "PORT9_DEBUG",
+                    "addr_offset": 153,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "FORCE_I2C_TIMEOUT",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Setting this bit will force an I2C timeout on the current transaction. If one is not in progress, the next one will be aborted. This bit clears itself after a timeout happens."
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "PORT10_DEBUG",
+                    "addr_offset": 154,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "FORCE_I2C_TIMEOUT",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Setting this bit will force an I2C timeout on the current transaction. If one is not in progress, the next one will be aborted. This bit clears itself after a timeout happens."
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "PORT11_DEBUG",
+                    "addr_offset": 155,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "FORCE_I2C_TIMEOUT",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Setting this bit will force an I2C timeout on the current transaction. If one is not in progress, the next one will be aborted. This bit clears itself after a timeout happens."
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "PORT12_DEBUG",
+                    "addr_offset": 156,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "FORCE_I2C_TIMEOUT",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Setting this bit will force an I2C timeout on the current transaction. If one is not in progress, the next one will be aborted. This bit clears itself after a timeout happens."
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "PORT13_DEBUG",
+                    "addr_offset": 157,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "FORCE_I2C_TIMEOUT",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Setting this bit will force an I2C timeout on the current transaction. If one is not in progress, the next one will be aborted. This bit clears itself after a timeout happens."
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "PORT14_DEBUG",
+                    "addr_offset": 158,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "FORCE_I2C_TIMEOUT",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Setting this bit will force an I2C timeout on the current transaction. If one is not in progress, the next one will be aborted. This bit clears itself after a timeout happens."
+                        }
+                    ]
+                },
+                {
+                    "type": "reg",
+                    "inst_name": "PORT15_DEBUG",
+                    "addr_offset": 159,
+                    "regwidth": 8,
+                    "min_accesswidth": 8,
+                    "children": [
+                        {
+                            "type": "field",
+                            "inst_name": "FORCE_I2C_TIMEOUT",
+                            "lsb": 0,
+                            "msb": 0,
+                            "reset": 0,
+                            "sw_access": "rw",
+                            "se_onread": null,
+                            "se_onwrite": null,
+                            "desc": "Setting this bit will force an I2C timeout on the current transaction. If one is not in progress, the next one will be aborted. This bit clears itself after a timeout happens."
                         }
                     ]
                 }

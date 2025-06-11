@@ -6833,7 +6833,7 @@ checksum = "fcc842091f2def52017664b53082ecbbeb5c7731092bad69d2c63050401dfd64"
 [[package]]
 name = "transceiver-messages"
 version = "0.1.1"
-source = "git+https://github.com/oxidecomputer/transceiver-control/#c5564eb96ddc7887a02596cc039662c87e906d0c"
+source = "git+https://github.com/oxidecomputer/transceiver-control/?branch=aaron%2Fhwerror-i2c-timeout#13bdbe400bdc2aa6c820e31f95b824a4210de6e4"
 dependencies = [
  "bitflags 2.9.4",
  "hubpack",
