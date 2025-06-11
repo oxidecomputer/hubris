@@ -5282,6 +5282,7 @@ dependencies = [
  "num-traits",
  "ringbuf",
  "task-jefe-api",
+ "task-packrat-api",
  "userlib",
  "zerocopy 0.8.25",
  "zerocopy-derive 0.8.25",
