@@ -5267,6 +5267,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-cosmo-spd"
+version = "0.1.0"
+dependencies = [
+ "build-fpga-regmap",
+ "build-util",
+ "cfg-if",
+ "cortex-m",
+ "counters",
+ "drv-cpu-seq-api",
+ "drv-spartan7-loader-api",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "ringbuf",
+ "task-jefe-api",
+ "task-packrat-api",
+ "task-sensor-api",
+ "userlib",
+ "zerocopy 0.8.25",
+ "zerocopy-derive 0.8.25",
+]
+
+[[package]]
 name = "task-dump-agent"
 version = "0.1.0"
 dependencies = [

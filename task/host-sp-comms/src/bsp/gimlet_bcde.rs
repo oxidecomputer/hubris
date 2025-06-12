@@ -56,7 +56,7 @@ impl ServerImpl {
         #[forbid(unreachable_patterns)]
         match index {
             0..=15 => {
-                self.dimm_inventory_lookup(sequence, index);
+                self.dimm_inventory_lookup(sequence, index as u8);
             }
             16 => {
                 // U615/ID: SP barcode is available in packrat
@@ -583,15 +583,15 @@ impl ServerImpl {
         (name, f)
     }
 
-    fn dimm_inventory_lookup(&mut self, sequence: u64, index: u32) {
+    fn dimm_inventory_lookup(&mut self, sequence: u64, index: u8) {
         // Build a name of the form `m{index}`, to match the designator
         let mut name = [0; 32];
         name[0] = b'M';
         if index >= 10 {
-            name[1] = b'0' + (index / 10) as u8;
-            name[2] = b'0' + (index % 10) as u8;
+            name[1] = b'0' + (index / 10);
+            name[2] = b'0' + (index % 10);
         } else {
-            name[1] = b'0' + index as u8;
+            name[1] = b'0' + index;
         }
 
         let packrat = &self.packrat; // partial borrow
@@ -603,11 +603,11 @@ impl ServerImpl {
         };
         self.tx_buf.try_encode_inventory(sequence, &name, || {
             // TODO: does packrat index match PCA designator?
-            if packrat.get_spd_present(index as usize) {
+            if packrat.get_spd_present(index) {
                 let InventoryData::DimmSpd { id, .. } = &mut data else {
                     unreachable!();
                 };
-                packrat.get_full_spd_data(index as usize, id);
+                packrat.get_full_spd_data(index, id);
                 Ok(&data)
             } else {
                 Err(InventoryDataResult::DeviceAbsent)

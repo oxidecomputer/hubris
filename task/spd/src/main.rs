@@ -66,7 +66,7 @@ enum Trace {
     Initiate(u8, bool),
     Rx(u8, u8),
     Tx(u8, Option<u8>),
-    MemInitiate(usize),
+    MemInitiate(u8),
     MemSetOffset(usize, u8),
     MuxState(ltc4306::State, ltc4306::State),
     None,
@@ -138,8 +138,8 @@ fn main() -> ! {
                 match func {
                     spd::Function::PageAddress(_) => true,
                     spd::Function::Memory(device) => {
-                        let base = (bank * spd::MAX_DEVICES) as usize;
-                        let ndx = base + device as usize;
+                        let base = bank * spd::MAX_DEVICES;
+                        let ndx = base + device;
                         ringbuf_entry!(Trace::MemInitiate(ndx));
                         packrat.get_spd_present(ndx)
                     }
@@ -220,18 +220,18 @@ fn main() -> ! {
 
             match spd::Function::from_device_code(addr).unwrap() {
                 spd::Function::Memory(device) => {
-                    let base = (bank * spd::MAX_DEVICES) as usize;
-                    let ndx = base + device as usize;
+                    let base = bank * spd::MAX_DEVICES;
+                    let ndx = base + device;
 
                     let mut voffs = voffs.borrow_mut();
-                    let offs = (ndx * spd::MAX_SIZE) + voffs[ndx] as usize;
+                    let offs = voffs[ndx as usize] as usize;
                     let rbyte =
-                        packrat.get_spd_data(offs + page.get().offset());
+                        packrat.get_spd_data(ndx, offs + page.get().offset());
 
                     // It is our intent to overflow the add (that is, when
                     // performing a read at offset 0xff, the next read should
                     // be at offset 0x00).
-                    voffs[ndx] = voffs[ndx].wrapping_add(1);
+                    voffs[ndx as usize] = voffs[ndx as usize].wrapping_add(1);
 
                     Some(rbyte)
                 }
