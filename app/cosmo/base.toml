@@ -355,7 +355,7 @@ stacksize = 800
 [tasks.spd]
 name = "task-cosmo-spd"
 priority = 7
-max-sizes = {flash = 8192, ram = 2048 }
+max-sizes = {flash = 8192, ram = 4096 }
 start = true
 notifications = ["jefe-state-change", "timer"]
 task-slots = ["jefe", "spartan7_loader", "packrat", "sensor"]
