@@ -937,6 +937,7 @@ sensors = { temperature = 1 }
 removable = true
 refdes = "J46"
 
+
 ################################################################################
 
 # The `main` bus is managed by FPGA1, which impersonates a set of muxes
@@ -1261,6 +1262,151 @@ description = "Sled hot swap controller"
 power = { rails = [ "V54P5_IBC_A3" ] }
 sensors = { temperature = 1, voltage = 1, current = 1 }
 refdes = "U79"
+
+[[config.sensor.devices]]
+name = "A_front"
+device = "dimm"
+description = "DIMM A, front sensor"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "A_back"
+device = "dimm"
+description = "DIMM A, back sensor"
+sensors.temperature = 1
+
+
+[[config.sensor.devices]]
+name = "B_front"
+device = "dimm"
+description = "DIMM B, front sensor"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "B_back"
+device = "dimm"
+description = "DIMM B, back sensor"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "C_front"
+device = "dimm"
+description = "DIMM C, front sensor"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "C_back"
+device = "dimm"
+description = "DIMM C, back sensor"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "D_front"
+device = "dimm"
+description = "DIMM D, front sensor"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "D_back"
+device = "dimm"
+description = "DIMM D, back sensor"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "E_front"
+device = "dimm"
+description = "DIMM E, front sensor"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "E_back"
+device = "dimm"
+description = "DIMM E, back sensor"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "F_front"
+device = "dimm"
+description = "DIMM F, front sensor"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "F_back"
+device = "dimm"
+description = "DIMM F, back sensor"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "G_front"
+device = "dimm"
+description = "DIMM G, front sensor"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "G_back"
+device = "dimm"
+description = "DIMM G, back sensor"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "H_front"
+device = "dimm"
+description = "DIMM H, front sensor"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "H_back"
+device = "dimm"
+description = "DIMM H, back sensor"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "I_front"
+device = "dimm"
+description = "DIMM I, front sensor"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "I_back"
+device = "dimm"
+description = "DIMM I, back sensor"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "J_front"
+device = "dimm"
+description = "DIMM J, front sensor"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "J_back"
+device = "dimm"
+description = "DIMM J, back sensor"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "K_front"
+device = "dimm"
+description = "DIMM K, front sensor"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "K_back"
+device = "dimm"
+description = "DIMM K, back sensor"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "L_front"
+device = "dimm"
+description = "DIMM L, front sensor"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "L_back"
+device = "dimm"
+description = "DIMM L, back sensor"
+sensors.temperature = 1
 
 ################################################################################
 [config.spi.spi2]
