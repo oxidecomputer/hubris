@@ -23,8 +23,6 @@ build-util = {path = "../../build/util"}
 idol = { workspace = true }
 
 [features]
-host_access = []
-hash = []
 h743 = ["stm32h7/stm32h743", "drv-stm32xx-sys-api/h743", "drv-stm32h7-qspi/h743"]
 h753 = ["stm32h7/stm32h753", "drv-stm32xx-sys-api/h753", "drv-stm32h7-qspi/h753"]
 no-ipc-counters = ["idol/no-counters"]

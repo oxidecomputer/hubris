@@ -180,7 +180,6 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         }
     }
 
-    #[cfg(feature = "hash")]
     fn hash(
         &mut self,
         _: &RecvMessage,
@@ -188,16 +187,6 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         _len: u32,
     ) -> Result<[u8; SHA256_SZ], RequestError<HfError>> {
         Ok(*b"mockmockmockmockmockmockmockmock")
-    }
-
-    #[cfg(not(feature = "hash"))]
-    fn hash(
-        &mut self,
-        _: &RecvMessage,
-        _addr: u32,
-        _len: u32,
-    ) -> Result<[u8; SHA256_SZ], RequestError<HfError>> {
-        Err(HfError::HashNotConfigured.into())
     }
 
     fn write_persistent_data(

@@ -67,39 +67,8 @@ fn system_init() {
     // Un-gate the clock to GPIO bank G.
     p.RCC.ahb4enr.modify(|_, w| w.gpiogen().set_bit());
     cortex_m::asm::dsb();
-    // PG2:0 are already inputs after reset, but without any pull resistors.
-    #[rustfmt::skip]
-    p.GPIOG.moder.modify(|_, w| w
-        .moder0().input()
-        .moder1().input()
-        .moder2().input());
-    // Enable the pullups.
-    #[rustfmt::skip]
-    p.GPIOG.pupdr.modify(|_, w| w
-        .pupdr0().pull_up()
-        .pupdr1().pull_up()
-        .pupdr2().pull_up());
-    // We are now charging up the board revision traces through the ~40kR
-    // internal pullup resistors. The floating trace is the biggie, since we're
-    // responsible for putting in any charge that we detect. While the
-    // capacitance should be low, it's not zero, and even running at the reset
-    // frequency of 64MHz, we are very much racing the trace charging.
-    //
-    // Assuming 50pF for the trace plus the FPGA's tristated input on the far
-    // end, we get
-    //
-    // RC = 40 kR * 50 pF = 2e-6
-    // Time to reach Vil of 2.31 V (0.7 VDD) = 2.405 us
-    //
-    // Maximum speed of 64MHz oscillator after ST manufacturing calibration, per
-    // the datasheet, is 64.3 MHz.
-    //
-    // 2.405us @ 64.3MHz = 154.64 cycles ~= 155 cycles.
-    //
-    // The cortex_m delay routine is written for single-issue simple cores and
-    // is simply wrong on the M7 (they know this). So, let's conservatively pad
-    // it by a factor of 2.
-    cortex_m::asm::delay(155 * 2);
+    // PG2:0 are already inputs after reset, and they have external pull-up /
+    // down resistors, so we can assume that they are ready to read here.
 
     // Okay! What does the fox^Wpins say?
     let rev = p.GPIOG.idr.read().bits() & 0b111;
