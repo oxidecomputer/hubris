@@ -13,7 +13,7 @@ use idol_runtime::RequestError;
 use ringbuf::{ringbuf, ringbuf_entry};
 use task_jefe_api::Jefe;
 use task_packrat_api::Packrat;
-use task_sensor_api::{config::other_sensors, Sensor, SensorId};
+use task_sensor_api::{config::other_sensors, NoData, Sensor, SensorId};
 use userlib::{
     hl::sleep_for, sys_get_timer, sys_recv_notification, sys_set_timer,
     task_slot, FromPrimitive, RecvMessage,
@@ -264,13 +264,19 @@ impl idol_runtime::NotificationHandler for ServerImpl {
         let now = sys_get_timer().now;
         if now >= self.deadline {
             for index in 0..DIMM_COUNT {
-                if !self.present[index] {
-                    continue;
-                }
                 let bus = index / 6;
                 let dev = index % 6;
 
                 for pos in 0..2 {
+                    // Mark sensors as absent if they're missing
+                    if !self.present[index] {
+                        self.sensor.nodata_now(
+                            DIMM_SENSORS[index][pos],
+                            NoData::DeviceNotPresent,
+                        );
+                        continue;
+                    }
+
                     let addr = (0b0010_000 | (pos << 5) | dev) as u8;
                     let raw_temp = if bus == 0 {
                         dimm_read_temperature!(
@@ -308,7 +314,6 @@ impl idol_runtime::NotificationHandler for ServerImpl {
                     self.sensor.post_now(DIMM_SENSORS[index][pos], temp_c);
                 }
             }
-            // TODO get thermal readings and send them to sensor task
             self.deadline = now + TIMER_INTERVAL;
         }
         sys_set_timer(Some(self.deadline), notifications::TIMER_MASK);
