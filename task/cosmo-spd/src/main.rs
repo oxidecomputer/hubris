@@ -305,7 +305,7 @@ impl idol_runtime::NotificationHandler for ServerImpl {
                         });
                         self.sensor.nodata_now(
                             DIMM_SENSORS[index][pos],
-                            NoData::DeviceNotPresent,
+                            NoData::DeviceTimeout,
                         );
                         continue;
                     };
