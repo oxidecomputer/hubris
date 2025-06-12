@@ -1219,6 +1219,7 @@ dependencies = [
  "build-util",
  "drv-hash-api",
  "drv-hf-api",
+ "drv-stm32h7-hash",
  "drv-stm32h7-qspi",
  "drv-stm32xx-sys-api",
  "hubpack",
