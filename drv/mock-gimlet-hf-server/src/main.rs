@@ -189,6 +189,22 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         Ok(*b"mockmockmockmockmockmockmockmock")
     }
 
+    fn hash_significant_bits(
+        &mut self,
+        _: &RecvMessage,
+        _slot: HfDevSelect,
+    ) -> Result<(), RequestError<HfError>> {
+        Ok(())
+    }
+
+    fn get_cached_hash(
+        &mut self,
+        _: &RecvMessage,
+        _slot: HfDevSelect,
+    ) -> Result<[u8; SHA256_SZ], RequestError<HfError>> {
+        Ok(*b"mockmockmockmockmockmockmockmock")
+    }
+
     fn write_persistent_data(
         &mut self,
         _: &RecvMessage,

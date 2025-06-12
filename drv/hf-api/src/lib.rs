@@ -34,6 +34,9 @@ pub enum HfError {
     BadAddress,
     QspiTimeout,
     QspiTransferError,
+    HashUncalculated,
+    RecalculateHash,
+    HashInProgress,
 
     #[idol(server_death)]
     ServerRestarted,

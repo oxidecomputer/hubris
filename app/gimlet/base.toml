@@ -205,7 +205,7 @@ start = true
 uses = ["quadspi"]
 interrupts = {"quadspi.irq" = "qspi-irq"}
 task-slots = ["sys", "hash_driver"]
-notifications = ["qspi-irq"]
+notifications = ["qspi-irq", "timer"]
 
 [tasks.update_server]
 name = "stm32h7-update-server"
