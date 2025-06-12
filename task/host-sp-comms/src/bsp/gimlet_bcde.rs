@@ -588,10 +588,10 @@ impl ServerImpl {
         let mut name = [0; 32];
         name[0] = b'M';
         if index >= 10 {
-            name[1] = b'0' + (index / 10) as u8;
-            name[2] = b'0' + (index % 10) as u8;
+            name[1] = b'0' + (index / 10);
+            name[2] = b'0' + (index % 10);
         } else {
-            name[1] = b'0' + index as u8;
+            name[1] = b'0' + index;
         }
 
         let packrat = &self.packrat; // partial borrow
@@ -603,7 +603,7 @@ impl ServerImpl {
         };
         self.tx_buf.try_encode_inventory(sequence, &name, || {
             // TODO: does packrat index match PCA designator?
-            if packrat.get_spd_present(index as u8) {
+            if packrat.get_spd_present(index) {
                 let InventoryData::DimmSpd { id, .. } = &mut data else {
                     unreachable!();
                 };

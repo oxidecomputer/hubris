@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 use crate::Trace;
 use core::convert::Infallible;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError};
@@ -8,7 +12,10 @@ pub(crate) struct SpdData<const DIMM_COUNT: usize, const DATA_SIZE: usize> {
     spd_data: [[u8; DATA_SIZE]; DIMM_COUNT],
 }
 
-impl<const DIMM_COUNT: usize, const DATA_SIZE: usize> SpdData<DIMM_COUNT, DATA_SIZE> {
+impl<const DIMM_COUNT: usize, const DATA_SIZE: usize>
+    SpdData<DIMM_COUNT, DATA_SIZE>
+{
+    #[cfg_attr(not(any(feature = "gimlet", feature = "cosmo")), allow(unused))]
     pub const fn new() -> Self {
         Self {
             spd_present: [false; DIMM_COUNT],
@@ -77,10 +84,7 @@ impl<const DIMM_COUNT: usize, const DATA_SIZE: usize> SpdData<DIMM_COUNT, DATA_S
     ) -> Result<(), RequestError<Infallible>> {
         if out.len() != DATA_SIZE {
             Err(RequestError::Fail(idol_runtime::ClientError::BadLease))
-        } else if let Some(s) = self
-            .spd_data
-            .get(usize::from(index))
-        {
+        } else if let Some(s) = self.spd_data.get(usize::from(index)) {
             out.write_range(0..DATA_SIZE, s)
                 .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
             Ok(())
