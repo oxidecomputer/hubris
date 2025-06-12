@@ -17,6 +17,7 @@ use userlib::{
     hl::sleep_for, sys_get_timer, sys_recv_notification, sys_set_timer,
     task_slot, FromPrimitive, RecvMessage,
 };
+use zerocopy::IntoBytes;
 
 task_slot!(JEFE, jefe);
 task_slot!(PACKRAT, packrat);
@@ -70,18 +71,68 @@ fn main() -> ! {
         sleep_for(10);
     }
 
-    // Set spd_ctrl.start
-    // Poll for spd_ctrl.start to clear
-    // For each dimm in spd_present:
-    //   Set spd_select
-    //   Set spd_rd_ptr to 0x0
-    //   Read 256 words from spd_rdata
-    let bus0_present = spd_proxy.spd_present.bus0();
-    let bus1_present = spd_proxy.spd_present.bus1();
-    for (bus, present) in [bus0_present, bus1_present].iter().enumerate() {
-        for channel in 0..5 {
-            if present & (1 << channel) != 0 {
-                // spd_proxy.spd_select.set_raw(bus * 8 + channel);
+    for bus in [0, 1] {
+        for channel in 0..6 {
+            // Check if this channel is present
+            let present = match (bus, channel) {
+                (0, 0) => spd_proxy.spd_present.bus0_a(),
+                (0, 1) => spd_proxy.spd_present.bus0_b(),
+                (0, 2) => spd_proxy.spd_present.bus0_c(),
+                (0, 3) => spd_proxy.spd_present.bus0_d(),
+                (0, 4) => spd_proxy.spd_present.bus0_e(),
+                (0, 5) => spd_proxy.spd_present.bus0_f(),
+                (1, 0) => spd_proxy.spd_present.bus1_g(),
+                (1, 1) => spd_proxy.spd_present.bus1_h(),
+                (1, 2) => spd_proxy.spd_present.bus1_i(),
+                (1, 3) => spd_proxy.spd_present.bus1_j(),
+                (1, 4) => spd_proxy.spd_present.bus1_k(),
+                (1, 5) => spd_proxy.spd_present.bus1_l(),
+                _ => unreachable!(),
+            };
+            if !present {
+                continue;
+            }
+            // Set this channel as selected, clearing other selections
+            spd_proxy.spd_select.modify(|s| {
+                s.set_bus0_a(false);
+                s.set_bus0_b(false);
+                s.set_bus0_c(false);
+                s.set_bus0_d(false);
+                s.set_bus0_e(false);
+                s.set_bus0_f(false);
+                s.set_bus1_g(false);
+                s.set_bus1_h(false);
+                s.set_bus1_i(false);
+                s.set_bus1_j(false);
+                s.set_bus1_k(false);
+                s.set_bus1_l(false);
+                match (bus, channel) {
+                    (0, 0) => s.set_bus0_a(true),
+                    (0, 1) => s.set_bus0_b(true),
+                    (0, 2) => s.set_bus0_c(true),
+                    (0, 3) => s.set_bus0_d(true),
+                    (0, 4) => s.set_bus0_e(true),
+                    (0, 5) => s.set_bus0_f(true),
+                    (1, 0) => s.set_bus1_g(true),
+                    (1, 1) => s.set_bus1_h(true),
+                    (1, 2) => s.set_bus1_i(true),
+                    (1, 3) => s.set_bus1_j(true),
+                    (1, 4) => s.set_bus1_k(true),
+                    (1, 5) => s.set_bus1_l(true),
+                    _ => unreachable!(),
+                }
+            });
+
+            // Read 4x256 bytes from the FPGA's buffer and copy to Packrat
+            spd_proxy.spd_rd_ptr.set_addr(0);
+            let index = bus * 6 + channel;
+            for i in 0..4 {
+                // Limited by max lease size for Packrat
+                let mut buf = [0u32; 64];
+                for b in &mut buf {
+                    *b = spd_proxy.spd_rdata.data();
+                }
+                packrat.set_spd_eeprom(index, i * 256, buf.as_bytes());
             }
         }
     }
