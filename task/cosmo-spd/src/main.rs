@@ -76,9 +76,9 @@ fn main() -> ! {
     }
 
     let mut present = [false; DIMM_COUNT];
-    for index in 0..DIMM_COUNT {
+    for (index, present) in present.iter_mut().enumerate() {
         // Check if this channel is present
-        present[index] = match index {
+        *present = match index {
             0 => dimms.spd_present.bus0_a(),
             1 => dimms.spd_present.bus0_b(),
             2 => dimms.spd_present.bus0_c(),
@@ -93,7 +93,7 @@ fn main() -> ! {
             11 => dimms.spd_present.bus1_l(),
             _ => unreachable!(),
         };
-        if !present[index] {
+        if !*present {
             continue;
         }
         // Set this channel as selected, clearing other selections
@@ -267,13 +267,13 @@ impl idol_runtime::NotificationHandler for ServerImpl {
         }
         let now = sys_get_timer().now;
         if now >= self.deadline {
-            for index in 0..DIMM_COUNT {
+            for (index, present) in self.present.iter().cloned().enumerate() {
                 let bus = index / 6; // FPGA bus (0 or 1)
                 let dev = index % 6; // device index (SDI, 0-6)
 
                 for pos in 0..2 {
                     // Mark sensors as absent if they're missing
-                    if !self.present[index] {
+                    if !present {
                         self.sensor.nodata_now(
                             DIMM_SENSORS[index][pos],
                             NoData::DeviceNotPresent,
@@ -282,6 +282,7 @@ impl idol_runtime::NotificationHandler for ServerImpl {
                     }
 
                     // See JESD302-1A for details on this address
+                    #[allow(clippy::unusual_byte_groupings)]
                     let addr = (0b0010_000 | (pos << 5) | dev) as u8;
                     let raw_temp = if bus == 0 {
                         dimm_read_temperature!(
