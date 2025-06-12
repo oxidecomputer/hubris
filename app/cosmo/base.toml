@@ -358,7 +358,7 @@ priority = 7
 max-sizes = {flash = 8192, ram = 2048 }
 start = true
 notifications = ["jefe-state-change", "timer"]
-task-slots = ["jefe", "spartan7_loader", "packrat"]
+task-slots = ["jefe", "spartan7_loader", "packrat", "sensor"]
 
 [tasks.auxflash]
 name = "drv-auxflash-server"
