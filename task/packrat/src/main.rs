@@ -57,7 +57,7 @@ use gimlet::SpdData;
 use cosmo::SpdData;
 
 #[cfg(not(any(feature = "gimlet", feature = "cosmo")))]
-type SpdData = spd_data::SpdData<10, 512>; // dummy type
+type SpdData = spd_data::SpdData<0, 0>; // dummy type
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[allow(dead_code)] // not all variants are used, depending on cargo features

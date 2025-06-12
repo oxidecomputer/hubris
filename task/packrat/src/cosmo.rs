@@ -5,7 +5,7 @@
 //! Cosmo-specific packrat data.
 
 use task_packrat_api::HostStartupOptions;
-pub(crate) type SpdData = crate::spd_data::SpdData<10, 1024>;
+pub(crate) type SpdData = crate::spd_data::SpdData<12, 1024>;
 
 pub(crate) struct CosmoData {
     host_startup_options: &'static mut HostStartupOptions,

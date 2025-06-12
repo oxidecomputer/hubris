@@ -7,7 +7,7 @@
 use task_packrat_api::HostStartupOptions;
 
 /// SPD data for Gimlet
-pub type SpdData = crate::spd_data::SpdData<10, 512>;
+pub type SpdData = crate::spd_data::SpdData<16, 512>;
 
 pub(crate) struct GimletData {
     host_startup_options: &'static mut HostStartupOptions,
