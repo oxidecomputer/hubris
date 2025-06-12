@@ -65,11 +65,11 @@ fn main() -> ! {
     let packrat = Packrat::from(PACKRAT.get_task_id());
     let loader = Spartan7Loader::from(LOADER.get_task_id());
     let token = loader.get_token();
-    let spd_proxy = fmc_periph::SpdProxy::new(token);
+    let dimms = fmc_periph::Dimms::new(token);
 
     // Kick off a read then wait for it to complete
-    spd_proxy.spd_ctrl.modify(|s| s.set_start(true));
-    while spd_proxy.spd_ctrl.start() {
+    dimms.spd_ctrl.modify(|s| s.set_start(true));
+    while dimms.spd_ctrl.start() {
         sleep_for(10);
     }
 
@@ -77,25 +77,25 @@ fn main() -> ! {
         for channel in 0..6 {
             // Check if this channel is present
             let present = match (bus, channel) {
-                (0, 0) => spd_proxy.spd_present.bus0_a(),
-                (0, 1) => spd_proxy.spd_present.bus0_b(),
-                (0, 2) => spd_proxy.spd_present.bus0_c(),
-                (0, 3) => spd_proxy.spd_present.bus0_d(),
-                (0, 4) => spd_proxy.spd_present.bus0_e(),
-                (0, 5) => spd_proxy.spd_present.bus0_f(),
-                (1, 0) => spd_proxy.spd_present.bus1_g(),
-                (1, 1) => spd_proxy.spd_present.bus1_h(),
-                (1, 2) => spd_proxy.spd_present.bus1_i(),
-                (1, 3) => spd_proxy.spd_present.bus1_j(),
-                (1, 4) => spd_proxy.spd_present.bus1_k(),
-                (1, 5) => spd_proxy.spd_present.bus1_l(),
+                (0, 0) => dimms.spd_present.bus0_a(),
+                (0, 1) => dimms.spd_present.bus0_b(),
+                (0, 2) => dimms.spd_present.bus0_c(),
+                (0, 3) => dimms.spd_present.bus0_d(),
+                (0, 4) => dimms.spd_present.bus0_e(),
+                (0, 5) => dimms.spd_present.bus0_f(),
+                (1, 0) => dimms.spd_present.bus1_g(),
+                (1, 1) => dimms.spd_present.bus1_h(),
+                (1, 2) => dimms.spd_present.bus1_i(),
+                (1, 3) => dimms.spd_present.bus1_j(),
+                (1, 4) => dimms.spd_present.bus1_k(),
+                (1, 5) => dimms.spd_present.bus1_l(),
                 _ => unreachable!(),
             };
             if !present {
                 continue;
             }
             // Set this channel as selected, clearing other selections
-            spd_proxy.spd_select.modify(|s| {
+            dimms.spd_select.modify(|s| {
                 s.set_bus0_a(false);
                 s.set_bus0_b(false);
                 s.set_bus0_c(false);
@@ -126,13 +126,13 @@ fn main() -> ! {
             });
 
             // Read 4x256 bytes from the FPGA's buffer and copy to Packrat
-            spd_proxy.spd_rd_ptr.set_addr(0);
+            dimms.spd_rd_ptr.set_addr(0);
             let index = bus * 6 + channel;
             for i in 0..4 {
                 // Limited by max lease size for Packrat
                 let mut buf = [0u32; 64];
                 for b in &mut buf {
-                    *b = spd_proxy.spd_rdata.data();
+                    *b = dimms.spd_rdata.data();
                 }
                 packrat.set_spd_eeprom(index, i * 256, buf.as_bytes());
             }
@@ -142,7 +142,7 @@ fn main() -> ! {
     let sensor = Sensor::from(SENSOR.get_task_id());
     let mut server = ServerImpl {
         deadline: 0u64,
-        spd_proxy,
+        dimms,
         sensor,
     };
     sys_set_timer(Some(0), notifications::TIMER_MASK);
@@ -158,7 +158,7 @@ const TIMER_INTERVAL: u64 = 250;
 
 struct ServerImpl {
     deadline: u64,
-    spd_proxy: fmc_periph::SpdProxy,
+    dimms: fmc_periph::Dimms,
     sensor: Sensor,
 }
 

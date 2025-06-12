@@ -21,7 +21,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         &mut file,
         "{}",
         build_fpga_regmap::fpga_peripheral(
-            "spd_proxy",
+            "dimms",
             "drv_spartan7_loader_api::Spartan7Token"
         )?
     )?;
