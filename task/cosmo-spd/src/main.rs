@@ -13,6 +13,7 @@ use idol_runtime::RequestError;
 use ringbuf::{ringbuf, ringbuf_entry};
 use task_jefe_api::Jefe;
 use task_packrat_api::Packrat;
+use task_sensor_api::{Sensor, SensorId};
 use userlib::{
     hl::sleep_for, sys_get_timer, sys_recv_notification, sys_set_timer,
     task_slot, FromPrimitive, RecvMessage,
@@ -22,6 +23,7 @@ use zerocopy::IntoBytes;
 task_slot!(JEFE, jefe);
 task_slot!(PACKRAT, packrat);
 task_slot!(LOADER, spartan7_loader);
+task_slot!(SENSOR, sensor);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
@@ -137,7 +139,12 @@ fn main() -> ! {
         }
     }
 
-    let mut server = ServerImpl { deadline: 0u64 };
+    let sensor = Sensor::from(SENSOR.get_task_id());
+    let mut server = ServerImpl {
+        deadline: 0u64,
+        spd_proxy,
+        sensor,
+    };
     sys_set_timer(Some(0), notifications::TIMER_MASK);
     let mut buffer = [0; idl::INCOMING_SIZE];
 
@@ -151,6 +158,8 @@ const TIMER_INTERVAL: u64 = 250;
 
 struct ServerImpl {
     deadline: u64,
+    spd_proxy: fmc_periph::SpdProxy,
+    sensor: Sensor,
 }
 
 impl idl::InOrderCosmoSpdImpl for ServerImpl {
@@ -170,6 +179,7 @@ impl idol_runtime::NotificationHandler for ServerImpl {
     fn handle_notification(&mut self, _bits: u32) {
         let now = sys_get_timer().now;
         if now >= self.deadline {
+            // TODO get thermal readings and send them to sensor task
             self.deadline = now + TIMER_INTERVAL;
         }
         sys_set_timer(Some(self.deadline), notifications::TIMER_MASK);
