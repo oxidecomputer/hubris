@@ -30,6 +30,7 @@ enum Trace {
     None,
     Ready,
     TemperatureReadTimeout { index: usize, pos: usize },
+    LoopCount(usize),
 }
 
 ringbuf!(Trace, 16, Trace::None);
@@ -246,6 +247,9 @@ impl idol_runtime::NotificationHandler for ServerImpl {
                 let mut timed_out = false;
                 for i in 0.. {
                     if self.dimms.$count.data() == 2 {
+                        if i > BUSY_LOOP_COUNT {
+                            ringbuf_entry!(Trace::LoopCount(i));
+                        }
                         break;
                     } else if i == TIMEOUT_COUNT {
                         timed_out = true;
@@ -264,8 +268,8 @@ impl idol_runtime::NotificationHandler for ServerImpl {
         let now = sys_get_timer().now;
         if now >= self.deadline {
             for index in 0..DIMM_COUNT {
-                let bus = index / 6;
-                let dev = index % 6;
+                let bus = index / 6; // FPGA bus (0 or 1)
+                let dev = index % 6; // device index (SDI, 0-6)
 
                 for pos in 0..2 {
                     // Mark sensors as absent if they're missing
@@ -277,6 +281,7 @@ impl idol_runtime::NotificationHandler for ServerImpl {
                         continue;
                     }
 
+                    // See JESD302-1A for details on this address
                     let addr = (0b0010_000 | (pos << 5) | dev) as u8;
                     let raw_temp = if bus == 0 {
                         dimm_read_temperature!(
@@ -298,6 +303,10 @@ impl idol_runtime::NotificationHandler for ServerImpl {
                             index,
                             pos,
                         });
+                        self.sensor.nodata_now(
+                            DIMM_SENSORS[index][pos],
+                            NoData::DeviceNotPresent,
+                        );
                         continue;
                     };
 
@@ -327,6 +336,5 @@ mod fmc_periph {
 }
 
 mod idl {
-    use super::*;
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
