@@ -29,18 +29,17 @@ impl<const DIMM_COUNT: usize, const DATA_SIZE: usize>
         offset: usize,
         data: LenLimit<Leased<idol_runtime::R, [u8]>, 256>,
     ) -> Result<(), RequestError<Infallible>> {
+        ringbuf_entry!(Trace::SpdDataUpdate {
+            index,
+            offset,
+            len: data.len() as u8,
+        });
         if index as usize >= DIMM_COUNT {
             return Err(ClientError::BadMessageContents.fail());
         }
         if offset + data.len() > DATA_SIZE {
             return Err(ClientError::BadMessageContents.fail());
         }
-
-        ringbuf_entry!(Trace::SpdDataUpdate {
-            index,
-            offset,
-            len: data.len() as u8,
-        });
 
         // `index` is implicitly in range due to our check in `addr` above;
         // double-check that the compiler realizes it and ellides this panic
