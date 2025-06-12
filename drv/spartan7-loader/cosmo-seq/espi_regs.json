@@ -1,6 +1,6 @@
 {
     "type": "addrmap",
-    "addr_span_bytes": 36,
+    "addr_span_bytes": 40,
     "inst_name": "espi_regs",
     "addr_offset": 0,
     "children": [
@@ -236,6 +236,26 @@
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "MSB is bit 31"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "post_code_count",
+            "addr_offset": 36,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "count",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": ""
                 }
             ]
         }

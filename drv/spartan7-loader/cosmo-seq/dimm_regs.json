@@ -1,86 +1,13 @@
 {
     "type": "addrmap",
     "addr_span_bytes": 76,
-    "inst_name": "spd_proxy_regs",
+    "inst_name": "dimm_regs",
     "addr_offset": 0,
     "children": [
         {
             "type": "reg",
-            "inst_name": "spd_ctrl",
-            "addr_offset": 0,
-            "regwidth": 32,
-            "min_accesswidth": 32,
-            "children": [
-                {
-                    "type": "field",
-                    "inst_name": "start",
-                    "lsb": 0,
-                    "msb": 0,
-                    "reset": 0,
-                    "sw_access": "rw",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "Set to initiate a SPD cache read. Cleared by hardware after the read is complete."
-                }
-            ]
-        },
-        {
-            "type": "reg",
-            "inst_name": "fifo_ctrl",
-            "addr_offset": 4,
-            "regwidth": 32,
-            "min_accesswidth": 32,
-            "children": [
-                {
-                    "type": "field",
-                    "inst_name": "tx_fifo_auto_inc",
-                    "lsb": 6,
-                    "msb": 6,
-                    "reset": 1,
-                    "sw_access": "rw",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "Set to one put TX FIFO in auto increment mode."
-                },
-                {
-                    "type": "field",
-                    "inst_name": "tx_fifo_reset",
-                    "lsb": 7,
-                    "msb": 7,
-                    "reset": 0,
-                    "sw_access": "rw",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "Set to one to reset TX FIFO. Cleared by hardware after FIFO reset."
-                },
-                {
-                    "type": "field",
-                    "inst_name": "rx_fifo_auto_inc",
-                    "lsb": 14,
-                    "msb": 14,
-                    "reset": 1,
-                    "sw_access": "rw",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "Set to one put RX FIFO in auto increment mode."
-                },
-                {
-                    "type": "field",
-                    "inst_name": "rx_fifo_reset",
-                    "lsb": 15,
-                    "msb": 15,
-                    "reset": 0,
-                    "sw_access": "rw",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "Set to one to reset RX FIFO. Cleared by hardware after FIFO reset."
-                }
-            ]
-        },
-        {
-            "type": "reg",
             "inst_name": "dimm_pcamp",
-            "addr_offset": 8,
+            "addr_offset": 0,
             "regwidth": 32,
             "min_accesswidth": 32,
             "children": [
@@ -221,7 +148,7 @@
         {
             "type": "reg",
             "inst_name": "spd_present",
-            "addr_offset": 12,
+            "addr_offset": 4,
             "regwidth": 32,
             "min_accesswidth": 32,
             "children": [
@@ -362,7 +289,7 @@
         {
             "type": "reg",
             "inst_name": "spd_select",
-            "addr_offset": 16,
+            "addr_offset": 8,
             "regwidth": 32,
             "min_accesswidth": 32,
             "children": [
@@ -502,8 +429,28 @@
         },
         {
             "type": "reg",
+            "inst_name": "spd_ctrl",
+            "addr_offset": 12,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "start",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Set to initiate a SPD cache read. Cleared by hardware after the read is complete."
+                }
+            ]
+        },
+        {
+            "type": "reg",
             "inst_name": "spd_rd_ptr",
-            "addr_offset": 20,
+            "addr_offset": 16,
             "regwidth": 32,
             "min_accesswidth": 32,
             "children": [
@@ -523,7 +470,7 @@
         {
             "type": "reg",
             "inst_name": "spd_rdata",
-            "addr_offset": 24,
+            "addr_offset": 20,
             "regwidth": 32,
             "min_accesswidth": 32,
             "children": [
@@ -537,6 +484,59 @@
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "in 32bit words"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "fifo_ctrl",
+            "addr_offset": 24,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "tx_fifo_auto_inc",
+                    "lsb": 6,
+                    "msb": 6,
+                    "reset": 1,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Set to one put TX FIFO in auto increment mode."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "tx_fifo_reset",
+                    "lsb": 7,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Set to one to reset TX FIFO. Cleared by hardware after FIFO reset."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "rx_fifo_auto_inc",
+                    "lsb": 14,
+                    "msb": 14,
+                    "reset": 1,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Set to one put RX FIFO in auto increment mode."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "rx_fifo_reset",
+                    "lsb": 15,
+                    "msb": 15,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Set to one to reset RX FIFO. Cleared by hardware after FIFO reset."
                 }
             ]
         },

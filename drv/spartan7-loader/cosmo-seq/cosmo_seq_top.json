@@ -23,7 +23,7 @@
         },
         {
             "type": "addrmap",
-            "addr_span_bytes": 36,
+            "addr_span_bytes": 40,
             "inst_name": "espi",
             "orig_type_name": "espi_regs",
             "addr_offset": 512,
@@ -56,8 +56,8 @@
         {
             "type": "addrmap",
             "addr_span_bytes": 76,
-            "inst_name": "spd_proxy",
-            "orig_type_name": "spd_proxy_regs",
+            "inst_name": "dimms",
+            "orig_type_name": "dimm_regs",
             "addr_offset": 1536,
             "children": []
         },
