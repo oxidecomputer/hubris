@@ -56,6 +56,9 @@ use gimlet::SpdData;
 #[cfg(feature = "cosmo")]
 use cosmo::SpdData;
 
+#[cfg(not(any(feature = "gimlet", feature = "cosmo")))]
+type SpdData = spd_data::SpdData<10, 512>; // dummy type
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[allow(dead_code)] // not all variants are used, depending on cargo features
 enum Trace {
@@ -63,11 +66,7 @@ enum Trace {
     MacAddressBlockSet(TraceSet<MacAddressBlock>),
     VpdIdentitySet(TraceSet<VpdIdentity>),
     SetNextBootHostStartupOptions(HostStartupOptions),
-    SpdDataUpdate {
-        index: u8,
-        offset: usize,
-        len: u8,
-    },
+    SpdDataUpdate { index: u8, offset: usize, len: u8 },
 }
 
 impl From<TraceSet<MacAddressBlock>> for Trace {
@@ -188,25 +187,37 @@ impl ServerImpl {
             }
         }
     }
+}
 
-    #[cfg(feature = "gimlet")]
+#[cfg(feature = "gimlet")]
+impl ServerImpl {
     fn spd(&self) -> Option<&SpdData> {
         Some(self.gimlet_data.spd())
     }
 
-    #[cfg(feature = "gimlet")]
     fn spd_mut(&mut self) -> Option<&mut SpdData> {
         Some(self.gimlet_data.spd_mut())
     }
+}
 
-    #[cfg(feature = "cosmo")]
+#[cfg(feature = "cosmo")]
+impl ServerImpl {
     fn spd(&self) -> Option<&SpdData> {
         Some(self.cosmo_data.spd())
     }
 
-    #[cfg(feature = "cosmo")]
     fn spd_mut(&mut self) -> Option<&mut SpdData> {
         Some(self.cosmo_data.spd_mut())
+    }
+}
+
+#[cfg(not(any(feature = "cosmo", feature = "gimlet")))]
+impl ServerImpl {
+    fn spd(&self) -> Option<&SpdData> {
+        None
+    }
+    fn spd_mut(&mut self) -> Option<&mut SpdData> {
+        None
     }
 }
 
