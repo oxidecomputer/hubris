@@ -228,7 +228,7 @@ notifications = ["flash-irq"]
 [tasks.sensor]
 name = "task-sensor"
 priority = 4
-max-sizes = {flash = 16384, ram = 8192 }
+max-sizes = {flash = 16384, ram = 16384 }
 stacksize = 1024
 start = true
 
