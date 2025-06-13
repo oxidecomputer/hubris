@@ -12,7 +12,7 @@ use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::at24csw080::{At24Csw080, Error as EepromError};
 use drv_oxide_vpd::VpdError;
 use drv_spi_api::SpiServer;
-use task_sensor_api::SensorId;
+use task_sensor_api::{config::other_sensors, SensorId};
 use userlib::TaskId;
 use zerocopy::IntoBytes;
 
@@ -29,7 +29,7 @@ pub(crate) const SP_TO_HOST_CPU_INT_TYPE: drv_stm32xx_sys_api::OutputType =
 
 impl ServerImpl {
     /// Number of devices in our inventory
-    pub(crate) const INVENTORY_COUNT: u32 = 59;
+    pub(crate) const INVENTORY_COUNT: u32 = 71;
 
     /// Look up a device in our inventory, by index
     ///
@@ -542,7 +542,10 @@ impl ServerImpl {
                 self.tx_buf
                     .try_encode_inventory(sequence, &name, || Ok(&data))
             }
-            // TODO add DIMMS to inventory here?
+
+            59..=70 => {
+                self.dimm_inventory_lookup(sequence, index as u8 - 59);
+            }
 
             // We need to specify INVENTORY_COUNT individually here to trigger
             // an error if we've overlapped it with a previous range
@@ -572,6 +575,93 @@ impl ServerImpl {
             _ => panic!("bad VPD index"),
         };
         (name, f)
+    }
+
+    fn dimm_inventory_lookup(&mut self, sequence: u64, index: u8) {
+        // Build a name of the form `J{index}`, to match the designator
+        let name = {
+            // The DIMMs are numbered J101-J112
+            let mut name = [0; 32];
+            name[0] = b'J';
+            name[1] = b'1';
+            let i = index + 1;
+            if i >= 10 {
+                name[2] = b'0' + (i / 10);
+                name[3] = b'0' + (i % 10);
+            } else {
+                name[2] = b'0';
+                name[3] = b'0' + i;
+            }
+            name
+        };
+
+        const DIMM_SENSORS: [[SensorId; 2]; 12] = [
+            [
+                other_sensors::DIMM_A_FRONT_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_A_BACK_TEMPERATURE_SENSOR,
+            ],
+            [
+                other_sensors::DIMM_B_FRONT_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_B_BACK_TEMPERATURE_SENSOR,
+            ],
+            [
+                other_sensors::DIMM_C_FRONT_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_C_BACK_TEMPERATURE_SENSOR,
+            ],
+            [
+                other_sensors::DIMM_D_FRONT_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_D_BACK_TEMPERATURE_SENSOR,
+            ],
+            [
+                other_sensors::DIMM_E_FRONT_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_E_BACK_TEMPERATURE_SENSOR,
+            ],
+            [
+                other_sensors::DIMM_F_FRONT_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_F_BACK_TEMPERATURE_SENSOR,
+            ],
+            [
+                other_sensors::DIMM_G_FRONT_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_G_BACK_TEMPERATURE_SENSOR,
+            ],
+            [
+                other_sensors::DIMM_H_FRONT_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_H_BACK_TEMPERATURE_SENSOR,
+            ],
+            [
+                other_sensors::DIMM_I_FRONT_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_I_BACK_TEMPERATURE_SENSOR,
+            ],
+            [
+                other_sensors::DIMM_J_FRONT_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_J_BACK_TEMPERATURE_SENSOR,
+            ],
+            [
+                other_sensors::DIMM_K_FRONT_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_K_BACK_TEMPERATURE_SENSOR,
+            ],
+            [
+                other_sensors::DIMM_L_FRONT_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_L_BACK_TEMPERATURE_SENSOR,
+            ],
+        ];
+
+        let packrat = &self.packrat; // partial borrow
+        let mut data = InventoryData::DimmDdr5Spd {
+            id: [0u8; 1024],
+            temp_sensors: DIMM_SENSORS[usize::from(index)].map(|i| i.into()),
+        };
+        self.tx_buf.try_encode_inventory(sequence, &name, || {
+            if packrat.get_spd_present(index) {
+                let InventoryData::DimmSpd { id, .. } = &mut data else {
+                    unreachable!();
+                };
+                packrat.get_full_spd_data(index, id);
+                Ok(&data)
+            } else {
+                Err(InventoryDataResult::DeviceAbsent)
+            }
+        });
     }
 
     /// Reads the 128-byte unique ID from an AT24CSW080 EEPROM
