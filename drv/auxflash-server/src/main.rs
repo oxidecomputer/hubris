@@ -148,7 +148,7 @@ impl ServerImpl {
         sleep: Option<u64>,
     ) -> Result<(), AuxFlashError> {
         loop {
-            let status = self.read_status()?;
+            let status = self.read_qspi_status()?;
             if status & 1 == 0 {
                 // ooh we're done
                 break;
@@ -162,7 +162,7 @@ impl ServerImpl {
 
     fn set_and_check_write_enable(&self) -> Result<(), AuxFlashError> {
         self.qspi.write_enable().map_err(qspi_to_auxflash)?;
-        let status = self.read_status()?;
+        let status = self.read_qspi_status()?;
 
         if status & 0b10 == 0 {
             // oh oh
@@ -239,6 +239,11 @@ impl ServerImpl {
         }
     }
 
+    /// Reads the Status register.
+    fn read_qspi_status(&self) -> Result<u8, AuxFlashError> {
+        self.qspi.read_status().map_err(qspi_to_auxflash)
+    }
+
     /// Reads from flash storage starting at `address` and continuing for
     /// `data.len()` bytes, depositing the bytes into `data`.
     fn read_qspi_memory(
@@ -282,7 +287,7 @@ impl ServerImpl {
         data: &[u8],
     ) -> Result<(), AuxFlashError> {
         self.qspi
-            .page_program(address as u32, &buf[..amount])
+            .page_program(address as u32, data)
             .map_err(qspi_to_auxflash)
     }
 }
@@ -301,7 +306,7 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<u8, RequestError<AuxFlashError>> {
-        Ok(self.qspi.read_status().map_err(qspi_to_auxflash)?)
+        Ok(self.read_qspi_status()?)
     }
 
     fn slot_count(
@@ -343,7 +348,7 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         let mut addr = mem_start;
         while addr < mem_end {
             self.set_and_check_write_enable()?;
-            self.qspi_sector_erase(write_addr)?;
+            self.qspi_sector_erase(addr)?;
             addr += SECTOR_SIZE_BYTES;
             self.poll_for_write_complete(Some(1))?;
         }
@@ -368,7 +373,7 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         }
 
         self.set_and_check_write_enable()?;
-        self.qspi_sector_erase(write_addr)?;
+        self.qspi_sector_erase(addr)?;
         self.poll_for_write_complete(Some(1))?;
         Ok(())
     }
