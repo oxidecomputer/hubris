@@ -148,7 +148,7 @@ impl ServerImpl {
         sleep: Option<u64>,
     ) -> Result<(), AuxFlashError> {
         loop {
-            let status = self.qspi.read_status().map_err(qspi_to_auxflash)?;
+            let status = self.read_qspi_status()?;
             if status & 1 == 0 {
                 // ooh we're done
                 break;
@@ -162,7 +162,7 @@ impl ServerImpl {
 
     fn set_and_check_write_enable(&self) -> Result<(), AuxFlashError> {
         self.qspi.write_enable().map_err(qspi_to_auxflash)?;
-        let status = self.qspi.read_status().map_err(qspi_to_auxflash)?;
+        let status = self.read_qspi_status()?;
 
         if status & 0b10 == 0 {
             // oh oh
@@ -211,25 +211,19 @@ impl ServerImpl {
             let amount = (read_end - read_addr).min(buf.len());
 
             // Read from the active slot
-            self.qspi
-                .read_memory(read_addr as u32, &mut buf[..amount])
-                .map_err(qspi_to_auxflash)?;
+            self.read_qspi_memory(read_addr, &mut buf[..amount])?;
 
             // If we're at the start of a sector, erase it before we start
             // writing the copy.
             if write_addr % SECTOR_SIZE_BYTES == 0 {
                 self.set_and_check_write_enable()?;
-                self.qspi
-                    .sector_erase(write_addr as u32)
-                    .map_err(qspi_to_auxflash)?;
+                self.qspi_sector_erase(write_addr)?;
                 self.poll_for_write_complete(Some(1))?;
             }
 
             // Write back to the redundant slot
             self.set_and_check_write_enable()?;
-            self.qspi
-                .page_program(write_addr as u32, &buf[..amount])
-                .map_err(qspi_to_auxflash)?;
+            self.qspi_page_program(write_addr, &buf[..amount])?;
             self.poll_for_write_complete(None)?;
 
             read_addr += amount;
@@ -243,6 +237,58 @@ impl ServerImpl {
         } else {
             Err(AuxFlashError::ChckMismatch)
         }
+    }
+
+    /// Reads the Status register.
+    fn read_qspi_status(&self) -> Result<u8, AuxFlashError> {
+        self.qspi.read_status().map_err(qspi_to_auxflash)
+    }
+
+    /// Reads from flash storage starting at `address` and continuing for
+    /// `data.len()` bytes, depositing the bytes into `data`.
+    fn read_qspi_memory(
+        &mut self,
+        address: usize,
+        data: &mut [u8],
+    ) -> Result<(), AuxFlashError> {
+        self.qspi
+            .read_memory(address as u32, data)
+            .map_err(qspi_to_auxflash)
+    }
+
+    /// Erases the 64kiB sector containing `addr`.
+    ///
+    /// This may take a bit of time, on the order of milliseconds. If you are
+    /// erasing the entire chip, you may want `bulk_erase`.
+    ///
+    /// Erasing a sector of a NAND flash chip resets all bits to 1.
+    fn qspi_sector_erase(
+        &mut self,
+        address: usize,
+    ) -> Result<(), AuxFlashError> {
+        self.qspi
+            .sector_erase(address as u32)
+            .map_err(qspi_to_auxflash)
+    }
+
+    /// Writes `data` into flash memory beginning at `addr`.
+    ///
+    /// Any zero bits in `data` will clear the corresponding bits in flash; any
+    /// 1 bits will leave the flash bit unchanged. This is inherent to how NAND
+    /// flash works. If the `data.len()` bytes starting at `addr` have been
+    /// erased, they will contain 1s, and this will deposit a copy of `data`.
+    ///
+    /// It is sometimes (rarely) useful to deliberately overwrite data using
+    /// this routine, to update information without erasing -- but of course it
+    /// can only clear bits.
+    pub fn qspi_page_program(
+        &self,
+        address: usize,
+        data: &[u8],
+    ) -> Result<(), AuxFlashError> {
+        self.qspi
+            .page_program(address as u32, data)
+            .map_err(qspi_to_auxflash)
     }
 }
 
@@ -260,7 +306,7 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<u8, RequestError<AuxFlashError>> {
-        Ok(self.qspi.read_status().map_err(qspi_to_auxflash)?)
+        Ok(self.read_qspi_status()?)
     }
 
     fn slot_count(
@@ -302,9 +348,7 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         let mut addr = mem_start;
         while addr < mem_end {
             self.set_and_check_write_enable()?;
-            self.qspi
-                .sector_erase(addr as u32)
-                .map_err(qspi_to_auxflash)?;
+            self.qspi_sector_erase(addr)?;
             addr += SECTOR_SIZE_BYTES;
             self.poll_for_write_complete(Some(1))?;
         }
@@ -329,9 +373,7 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         }
 
         self.set_and_check_write_enable()?;
-        self.qspi
-            .sector_erase(addr as u32)
-            .map_err(qspi_to_auxflash)?;
+        self.qspi_sector_erase(addr)?;
         self.poll_for_write_complete(Some(1))?;
         Ok(())
     }
@@ -367,9 +409,7 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
                 .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
 
             self.set_and_check_write_enable()?;
-            self.qspi
-                .page_program(addr as u32, &buf[..amount])
-                .map_err(qspi_to_auxflash)?;
+            self.qspi_page_program(addr, &buf[..amount])?;
             self.poll_for_write_complete(None)?;
             addr += amount;
             read += amount;
@@ -395,9 +435,7 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         let mut buf = [0u8; 256];
         while addr < end {
             let amount = (end - addr).min(buf.len());
-            self.qspi
-                .read_memory(addr as u32, &mut buf[..amount])
-                .map_err(qspi_to_auxflash)?;
+            self.read_qspi_memory(addr, &mut buf[..amount])?;
             dest.write_range(write..(write + amount), &buf[..amount])
                 .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
             write += amount;
