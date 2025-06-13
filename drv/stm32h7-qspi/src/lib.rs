@@ -158,9 +158,9 @@ impl Qspi {
         });
     }
 
-    /// Checks for QSPI timeout and transfer bits, and resets the interrupts
-    /// if all is fine.
-    fn check_qspi_errors(&self) -> Result<(), QspiError> {
+    /// Returns the number of valid bytes being held in the FIFO queue if a
+    /// QSPI timeout or transfer error hasn't occurred.
+    fn get_fifo_level(&self) -> Result<usize, QspiError> {
         let sr = self.reg.sr.read();
 
         // Check timeout bit.
@@ -180,7 +180,7 @@ impl Qspi {
         self.reg
             .cr
             .modify(|_, w| w.teie().set_bit().toie().set_bit());
-        Ok(())
+        Ok(usize::from(sr.flevel().bits()))
     }
 
     /// Wait for the Transfer Complete flag to get set.
@@ -260,10 +260,9 @@ impl Qspi {
         let mut data = data;
         while !data.is_empty() {
             // Check for any errors
-            self.check_qspi_errors()?;
+            let fl = self.get_fifo_level()?;
 
             // How much space is in the FIFO?
-            let fl = usize::from(sr.flevel().bits());
             let ffree = FIFO_SIZE - fl;
             if ffree >= FIFO_THRESH.min(data.len()) {
                 // Calculate the write size. Note that this may be bigger than
@@ -366,11 +365,10 @@ impl Qspi {
         // perform transfers.
         let mut out = out;
         while !out.is_empty() {
-            // Check for any errors
-            self.check_qspi_errors()?;
+            // Get the FIFO level if no errors have occurred.
+            let fl = self.get_fifo_level()?;
 
             // Is there enough to read that we want to bother with it?
-            let fl = usize::from(sr.flevel().bits());
             if fl < FIFO_THRESH.min(out.len()) {
                 // Nope! Let's wait for more bytes.
 
