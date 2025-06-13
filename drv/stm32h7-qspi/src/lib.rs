@@ -142,6 +142,9 @@ impl Qspi {
     }
 
     /// Helper for error paths.
+    ///
+    /// Disables FIFO Threshold, Transfer Complete, Transfer Error, and Timeout
+    /// interrupts.
     fn disable_all_interrupts(&self) {
         self.reg.cr.modify(|_, w| {
             w.ftie()
@@ -153,6 +156,49 @@ impl Qspi {
                 .toie()
                 .clear_bit()
         });
+    }
+
+    /// Checks for QSPI timeout and transfer bits, and resets the interrupts
+    /// if all is fine.
+    fn check_qspi_errors(&self) -> Result<(), QspiError> {
+        let sr = self.reg.sr.read();
+
+        // Check timeout bit.
+        if sr.tof().bit_is_set() {
+            // Clear timeout bit and return.
+            self.reg.fcr.modify(|_, w| w.ctof().set_bit());
+            return Err(QspiError::Timeout);
+        }
+        // Check transfer error bit.
+        if sr.tef().bit_is_set() {
+            // Clear transfer error bit and return.
+            self.reg.fcr.modify(|_, w| w.ctef().set_bit());
+            return Err(QspiError::TransferError);
+        }
+        // Re-enable transfer error and timeout interrupts to make sure we
+        // catch any future errors.
+        self.reg
+            .cr
+            .modify(|_, w| w.teie().set_bit().toie().set_bit());
+        Ok(())
+    }
+
+    /// Wait for the Transfer Complete flag to get set.
+    ///
+    /// Note: this function returning does not guarantee that the BUSY flag is
+    /// clear.
+    fn wait_for_transfer_complete(&self) {
+        // Disable FIFO threshold interrupt, and enable transfer complete
+        // interrupts.
+        self.reg
+            .cr
+            .modify(|_, w| w.ftie().clear_bit().tcie().set_bit());
+        while self.transfer_not_complete() {
+            // Unmask our interrupt.
+            sys_irq_control(self.interrupt, true);
+            // And wait for it to arrive.
+            sys_recv_notification(self.interrupt);
+        }
     }
 
     fn write_impl(
@@ -213,21 +259,8 @@ impl Qspi {
         // off the front.
         let mut data = data;
         while !data.is_empty() {
-            let sr = self.reg.sr.read();
-
-            if sr.tof().bit_is_set() {
-                self.reg.fcr.modify(|_, w| w.ctof().set_bit());
-                return Err(QspiError::Timeout);
-            }
-            if sr.tef().bit_is_set() {
-                self.reg.fcr.modify(|_, w| w.ctef().set_bit());
-                return Err(QspiError::TransferError);
-            }
-
-            // Make sure our errors are enabled
-            self.reg
-                .cr
-                .modify(|_, w| w.teie().set_bit().toie().set_bit());
+            // Check for any errors
+            self.check_qspi_errors()?;
 
             // How much space is in the FIFO?
             let fl = usize::from(sr.flevel().bits());
@@ -268,15 +301,8 @@ impl Qspi {
         }
 
         // We're now interested in transfer complete, not FIFO ready.
-        self.reg
-            .cr
-            .modify(|_, w| w.ftie().clear_bit().tcie().set_bit());
-        while self.transfer_not_complete() {
-            // Unmask our interrupt.
-            sys_irq_control(self.interrupt, true);
-            // And wait for it to arrive.
-            sys_recv_notification(self.interrupt);
-        }
+        self.wait_for_transfer_complete();
+
         self.reg.cr.modify(|_, w| {
             w.tcie().clear_bit().teie().clear_bit().toie().clear_bit()
         });
@@ -340,20 +366,9 @@ impl Qspi {
         // perform transfers.
         let mut out = out;
         while !out.is_empty() {
-            let sr = self.reg.sr.read();
+            // Check for any errors
+            self.check_qspi_errors()?;
 
-            if sr.tof().bit_is_set() {
-                self.reg.fcr.modify(|_, w| w.ctof().set_bit());
-                return Err(QspiError::Timeout);
-            }
-            if sr.tef().bit_is_set() {
-                self.reg.fcr.modify(|_, w| w.ctef().set_bit());
-                return Err(QspiError::TransferError);
-            }
-            // Make sure our errors are enabled
-            self.reg
-                .cr
-                .modify(|_, w| w.teie().set_bit().toie().set_bit());
             // Is there enough to read that we want to bother with it?
             let fl = usize::from(sr.flevel().bits());
             if fl < FIFO_THRESH.min(out.len()) {
@@ -403,27 +418,10 @@ impl Qspi {
         // necessarily imply the BUSY flag is clear, but since commands are
         // issued into a FIFO, we can issue the next command even while BUSY is
         // set, it appears.
-        self.reg
-            .cr
-            .modify(|_, w| w.ftie().clear_bit().tcie().set_bit());
-        while self.transfer_not_complete() {
-            // Unmask our interrupt.
-            sys_irq_control(self.interrupt, true);
-            // And wait for it to arrive.
-            sys_recv_notification(self.interrupt);
-        }
+        self.wait_for_transfer_complete();
 
         // Clean up by disabling our interrupt sources.
-        self.reg.cr.modify(|_, w| {
-            w.ftie()
-                .clear_bit()
-                .tcie()
-                .clear_bit()
-                .teie()
-                .clear_bit()
-                .toie()
-                .clear_bit()
-        });
+        self.disable_all_interrupts();
         Ok(())
     }
 
