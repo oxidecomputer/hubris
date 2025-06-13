@@ -283,7 +283,9 @@ impl ServerImpl {
         for i in 0..SECTOR_SIZE_BYTES / HF_PERSISTENT_DATA_STRIDE {
             let addr = (i * HF_PERSISTENT_DATA_STRIDE) as u32;
             let mut data = HfRawPersistentData::new_zeroed();
-            self.read_qspi_memory(addr, data.as_mut_bytes())?;
+            self.qspi
+                .read_memory(addr, data.as_mut_bytes())
+                .map_err(qspi_to_hf)?;
             if data.is_valid() && best.map(|b| data > b).unwrap_or(true) {
                 best = Some(data);
             }
@@ -433,15 +435,18 @@ impl ServerImpl {
     }
 
     /// Reads from flash storage starting at `address` and continuing for
-    /// `data.len()` bytes, depositing the bytes into `data`.
-    fn read_qspi_memory(
+    /// `size` bytes, depositing the bytes into `self.block` and returning the
+    /// read data as a slice.
+    fn read_qspi_memory_to_block(
         &mut self,
         address: usize,
-        data: &mut [u8],
-    ) -> Result<(), AuxFlashError> {
+        size: usize,
+    ) -> Result<&[u8], HfError> {
+        let slice = &mut self.block[..size];
         self.qspi
-            .read_memory(address, data)
-            .map_err(qspi_to_auxflash)
+            .read_memory(address as u32, slice)
+            .map_err(qspi_to_hf)?;
+        Ok(slice)
     }
 }
 
@@ -540,9 +545,9 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         dest: LenLimit<Leased<W, [u8]>, PAGE_SIZE_BYTES>,
     ) -> Result<(), RequestError<HfError>> {
         self.check_muxed_to_sp()?;
-        self.read_qspi_memory(addr as usize, &mut self.block[..dest.len()])?;
+        let data = self.read_qspi_memory_to_block(addr as usize, dest.len())?;
 
-        dest.write_range(0..dest.len(), &self.block[..dest.len()])
+        dest.write_range(0..dest.len(), data)
             .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
 
         Ok(())
@@ -671,11 +676,8 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             } else {
                 end - addr
             };
-            self.read_qspi_memory(addr, &mut self.block[..size])?;
-            if hash_driver
-                .update(size as u32, &self.block[..size])
-                .is_err()
-            {
+            let data = self.read_qspi_memory_to_block(addr, size)?;
+            if hash_driver.update(size as u32, data).is_err() {
                 return Err(HfError::HashError.into());
             }
         }
