@@ -35,14 +35,15 @@ impl ServerImpl {
                 let idc = drv_stm32h7_dbgmcu::read_idc();
                 let dbgmcu_rev_id = (idc >> 16) as u16;
                 let dbgmcu_dev_id = (idc & 4095) as u16;
-                let data = InventoryData::Stm32H7 {
+                *self.scratch = InventoryData::Stm32H7 {
                     uid,
                     dbgmcu_rev_id,
                     dbgmcu_dev_id,
                 };
 
-                self.tx_buf
-                    .try_encode_inventory(sequence, b"U12", || Ok(&data));
+                self.tx_buf.try_encode_inventory(sequence, b"U12", || {
+                    Ok(self.scratch)
+                });
             }
 
             // We need to specify INVENTORY_COUNT individually here to trigger
