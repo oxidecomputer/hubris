@@ -249,11 +249,16 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         Ok(self.drv.flash_read_id())
     }
 
+    /// Returns the capacity of each host flash slot
+    ///
+    /// Note that this **is not** the total flash capacity; it's part of the
+    /// `HostFlash` API, so we're pretending to be two distinct flash chips,
+    /// each with a capacity of 32 MiB.
     fn capacity(
         &mut self,
         _: &RecvMessage,
     ) -> Result<usize, RequestError<HfError>> {
-        Ok(0x8000000) // 1 GBit = 128 MiB
+        Ok(0x2000000) // 32 MiB
     }
 
     /// Reads the STATUS_1 register from the SPI flash
