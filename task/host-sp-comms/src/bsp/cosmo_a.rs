@@ -587,65 +587,66 @@ impl ServerImpl {
             name
         };
 
-        const DIMM_SENSORS: [[SensorId; 2]; 12] = [
+        const DIMM_TEMPERATURE_SENSORS: [[SensorId; 2]; 12] = [
             [
-                other_sensors::DIMM_A_FRONT_TEMPERATURE_SENSOR,
-                other_sensors::DIMM_A_BACK_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_A_TS0_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_A_TS1_TEMPERATURE_SENSOR,
             ],
             [
-                other_sensors::DIMM_B_FRONT_TEMPERATURE_SENSOR,
-                other_sensors::DIMM_B_BACK_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_B_TS0_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_B_TS1_TEMPERATURE_SENSOR,
             ],
             [
-                other_sensors::DIMM_C_FRONT_TEMPERATURE_SENSOR,
-                other_sensors::DIMM_C_BACK_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_C_TS0_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_C_TS1_TEMPERATURE_SENSOR,
             ],
             [
-                other_sensors::DIMM_D_FRONT_TEMPERATURE_SENSOR,
-                other_sensors::DIMM_D_BACK_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_D_TS0_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_D_TS1_TEMPERATURE_SENSOR,
             ],
             [
-                other_sensors::DIMM_E_FRONT_TEMPERATURE_SENSOR,
-                other_sensors::DIMM_E_BACK_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_E_TS0_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_E_TS1_TEMPERATURE_SENSOR,
             ],
             [
-                other_sensors::DIMM_F_FRONT_TEMPERATURE_SENSOR,
-                other_sensors::DIMM_F_BACK_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_F_TS0_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_F_TS1_TEMPERATURE_SENSOR,
             ],
             [
-                other_sensors::DIMM_G_FRONT_TEMPERATURE_SENSOR,
-                other_sensors::DIMM_G_BACK_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_G_TS0_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_G_TS1_TEMPERATURE_SENSOR,
             ],
             [
-                other_sensors::DIMM_H_FRONT_TEMPERATURE_SENSOR,
-                other_sensors::DIMM_H_BACK_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_H_TS0_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_H_TS1_TEMPERATURE_SENSOR,
             ],
             [
-                other_sensors::DIMM_I_FRONT_TEMPERATURE_SENSOR,
-                other_sensors::DIMM_I_BACK_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_I_TS0_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_I_TS1_TEMPERATURE_SENSOR,
             ],
             [
-                other_sensors::DIMM_J_FRONT_TEMPERATURE_SENSOR,
-                other_sensors::DIMM_J_BACK_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_J_TS0_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_J_TS1_TEMPERATURE_SENSOR,
             ],
             [
-                other_sensors::DIMM_K_FRONT_TEMPERATURE_SENSOR,
-                other_sensors::DIMM_K_BACK_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_K_TS0_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_K_TS1_TEMPERATURE_SENSOR,
             ],
             [
-                other_sensors::DIMM_L_FRONT_TEMPERATURE_SENSOR,
-                other_sensors::DIMM_L_BACK_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_L_TS0_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_L_TS1_TEMPERATURE_SENSOR,
             ],
         ];
 
         let packrat = &self.packrat; // partial borrow
         *self.scratch = InventoryData::DimmDdr5Spd {
             id: [0u8; 1024],
-            temp_sensors: DIMM_SENSORS[usize::from(index)].map(|i| i.into()),
+            temp_sensors: DIMM_TEMPERATURE_SENSORS[usize::from(index)]
+                .map(|i| i.into()),
         };
         self.tx_buf.try_encode_inventory(sequence, &name, || {
             if packrat.get_spd_present(index) {
-                let InventoryData::DimmSpd { id, .. } = self.scratch else {
+                let InventoryData::DimmDdr5Spd { id, .. } = self.scratch else {
                     unreachable!();
                 };
                 packrat.get_full_spd_data(index, id);
