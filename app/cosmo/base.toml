@@ -1264,148 +1264,148 @@ sensors = { temperature = 1, voltage = 1, current = 1 }
 refdes = "U79"
 
 [[config.sensor.devices]]
-name = "A_front"
+name = "A_TS0"
 device = "dimm"
-description = "DIMM A, front sensor"
+description = "DIMM A, sensor 0"
 sensors.temperature = 1
 
 [[config.sensor.devices]]
-name = "A_back"
+name = "A_TS1"
 device = "dimm"
-description = "DIMM A, back sensor"
+description = "DIMM A, sensor 1"
 sensors.temperature = 1
 
 
 [[config.sensor.devices]]
-name = "B_front"
+name = "B_TS0"
 device = "dimm"
-description = "DIMM B, front sensor"
+description = "DIMM B, sensor 0"
 sensors.temperature = 1
 
 [[config.sensor.devices]]
-name = "B_back"
+name = "B_TS1"
 device = "dimm"
-description = "DIMM B, back sensor"
+description = "DIMM B, sensor 1"
 sensors.temperature = 1
 
 [[config.sensor.devices]]
-name = "C_front"
+name = "C_TS0"
 device = "dimm"
-description = "DIMM C, front sensor"
+description = "DIMM C, sensor 0"
 sensors.temperature = 1
 
 [[config.sensor.devices]]
-name = "C_back"
+name = "C_TS1"
 device = "dimm"
-description = "DIMM C, back sensor"
+description = "DIMM C, sensor 1"
 sensors.temperature = 1
 
 [[config.sensor.devices]]
-name = "D_front"
+name = "D_TS0"
 device = "dimm"
-description = "DIMM D, front sensor"
+description = "DIMM D, sensor 0"
 sensors.temperature = 1
 
 [[config.sensor.devices]]
-name = "D_back"
+name = "D_TS1"
 device = "dimm"
-description = "DIMM D, back sensor"
+description = "DIMM D, sensor 1"
 sensors.temperature = 1
 
 [[config.sensor.devices]]
-name = "E_front"
+name = "E_TS0"
 device = "dimm"
-description = "DIMM E, front sensor"
+description = "DIMM E, sensor 0"
 sensors.temperature = 1
 
 [[config.sensor.devices]]
-name = "E_back"
+name = "E_TS1"
 device = "dimm"
-description = "DIMM E, back sensor"
+description = "DIMM E, sensor 1"
 sensors.temperature = 1
 
 [[config.sensor.devices]]
-name = "F_front"
+name = "F_TS0"
 device = "dimm"
-description = "DIMM F, front sensor"
+description = "DIMM F, sensor 0"
 sensors.temperature = 1
 
 [[config.sensor.devices]]
-name = "F_back"
+name = "F_TS1"
 device = "dimm"
-description = "DIMM F, back sensor"
+description = "DIMM F, sensor 1"
 sensors.temperature = 1
 
 [[config.sensor.devices]]
-name = "G_front"
+name = "G_TS0"
 device = "dimm"
-description = "DIMM G, front sensor"
+description = "DIMM G, sensor 0"
 sensors.temperature = 1
 
 [[config.sensor.devices]]
-name = "G_back"
+name = "G_TS1"
 device = "dimm"
-description = "DIMM G, back sensor"
+description = "DIMM G, sensor 1"
 sensors.temperature = 1
 
 [[config.sensor.devices]]
-name = "H_front"
+name = "H_TS0"
 device = "dimm"
-description = "DIMM H, front sensor"
+description = "DIMM H, sensor 0"
 sensors.temperature = 1
 
 [[config.sensor.devices]]
-name = "H_back"
+name = "H_TS1"
 device = "dimm"
-description = "DIMM H, back sensor"
+description = "DIMM H, sensor 1"
 sensors.temperature = 1
 
 [[config.sensor.devices]]
-name = "I_front"
+name = "I_TS0"
 device = "dimm"
-description = "DIMM I, front sensor"
+description = "DIMM I, sensor 0"
 sensors.temperature = 1
 
 [[config.sensor.devices]]
-name = "I_back"
+name = "I_TS1"
 device = "dimm"
-description = "DIMM I, back sensor"
+description = "DIMM I, sensor 1"
 sensors.temperature = 1
 
 [[config.sensor.devices]]
-name = "J_front"
+name = "J_TS0"
 device = "dimm"
-description = "DIMM J, front sensor"
+description = "DIMM J, sensor 0"
 sensors.temperature = 1
 
 [[config.sensor.devices]]
-name = "J_back"
+name = "J_TS1"
 device = "dimm"
-description = "DIMM J, back sensor"
+description = "DIMM J, sensor 1"
 sensors.temperature = 1
 
 [[config.sensor.devices]]
-name = "K_front"
+name = "K_TS0"
 device = "dimm"
-description = "DIMM K, front sensor"
+description = "DIMM K, sensor 0"
 sensors.temperature = 1
 
 [[config.sensor.devices]]
-name = "K_back"
+name = "K_TS1"
 device = "dimm"
-description = "DIMM K, back sensor"
+description = "DIMM K, sensor 1"
 sensors.temperature = 1
 
 [[config.sensor.devices]]
-name = "L_front"
+name = "L_TS0"
 device = "dimm"
-description = "DIMM L, front sensor"
+description = "DIMM L, sensor 0"
 sensors.temperature = 1
 
 [[config.sensor.devices]]
-name = "L_back"
+name = "L_TS1"
 device = "dimm"
-description = "DIMM L, back sensor"
+description = "DIMM L, sensor 1"
 sensors.temperature = 1
 
 ################################################################################

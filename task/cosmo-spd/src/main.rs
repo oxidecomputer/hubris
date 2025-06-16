@@ -176,52 +176,52 @@ impl idl::InOrderCosmoSpdImpl for ServerImpl {
 
 const DIMM_SENSORS: [[SensorId; 2]; DIMM_COUNT] = [
     [
-        other_sensors::DIMM_A_FRONT_TEMPERATURE_SENSOR,
-        other_sensors::DIMM_A_BACK_TEMPERATURE_SENSOR,
+        other_sensors::DIMM_A_TS0_TEMPERATURE_SENSOR,
+        other_sensors::DIMM_A_TS1_TEMPERATURE_SENSOR,
     ],
     [
-        other_sensors::DIMM_B_FRONT_TEMPERATURE_SENSOR,
-        other_sensors::DIMM_B_BACK_TEMPERATURE_SENSOR,
+        other_sensors::DIMM_B_TS0_TEMPERATURE_SENSOR,
+        other_sensors::DIMM_B_TS1_TEMPERATURE_SENSOR,
     ],
     [
-        other_sensors::DIMM_C_FRONT_TEMPERATURE_SENSOR,
-        other_sensors::DIMM_C_BACK_TEMPERATURE_SENSOR,
+        other_sensors::DIMM_C_TS0_TEMPERATURE_SENSOR,
+        other_sensors::DIMM_C_TS1_TEMPERATURE_SENSOR,
     ],
     [
-        other_sensors::DIMM_D_FRONT_TEMPERATURE_SENSOR,
-        other_sensors::DIMM_D_BACK_TEMPERATURE_SENSOR,
+        other_sensors::DIMM_D_TS0_TEMPERATURE_SENSOR,
+        other_sensors::DIMM_D_TS1_TEMPERATURE_SENSOR,
     ],
     [
-        other_sensors::DIMM_E_FRONT_TEMPERATURE_SENSOR,
-        other_sensors::DIMM_E_BACK_TEMPERATURE_SENSOR,
+        other_sensors::DIMM_E_TS0_TEMPERATURE_SENSOR,
+        other_sensors::DIMM_E_TS1_TEMPERATURE_SENSOR,
     ],
     [
-        other_sensors::DIMM_F_FRONT_TEMPERATURE_SENSOR,
-        other_sensors::DIMM_F_BACK_TEMPERATURE_SENSOR,
+        other_sensors::DIMM_F_TS0_TEMPERATURE_SENSOR,
+        other_sensors::DIMM_F_TS1_TEMPERATURE_SENSOR,
     ],
     [
-        other_sensors::DIMM_G_FRONT_TEMPERATURE_SENSOR,
-        other_sensors::DIMM_G_BACK_TEMPERATURE_SENSOR,
+        other_sensors::DIMM_G_TS0_TEMPERATURE_SENSOR,
+        other_sensors::DIMM_G_TS1_TEMPERATURE_SENSOR,
     ],
     [
-        other_sensors::DIMM_H_FRONT_TEMPERATURE_SENSOR,
-        other_sensors::DIMM_H_BACK_TEMPERATURE_SENSOR,
+        other_sensors::DIMM_H_TS0_TEMPERATURE_SENSOR,
+        other_sensors::DIMM_H_TS1_TEMPERATURE_SENSOR,
     ],
     [
-        other_sensors::DIMM_I_FRONT_TEMPERATURE_SENSOR,
-        other_sensors::DIMM_I_BACK_TEMPERATURE_SENSOR,
+        other_sensors::DIMM_I_TS0_TEMPERATURE_SENSOR,
+        other_sensors::DIMM_I_TS1_TEMPERATURE_SENSOR,
     ],
     [
-        other_sensors::DIMM_J_FRONT_TEMPERATURE_SENSOR,
-        other_sensors::DIMM_J_BACK_TEMPERATURE_SENSOR,
+        other_sensors::DIMM_J_TS0_TEMPERATURE_SENSOR,
+        other_sensors::DIMM_J_TS1_TEMPERATURE_SENSOR,
     ],
     [
-        other_sensors::DIMM_K_FRONT_TEMPERATURE_SENSOR,
-        other_sensors::DIMM_K_BACK_TEMPERATURE_SENSOR,
+        other_sensors::DIMM_K_TS0_TEMPERATURE_SENSOR,
+        other_sensors::DIMM_K_TS1_TEMPERATURE_SENSOR,
     ],
     [
-        other_sensors::DIMM_L_FRONT_TEMPERATURE_SENSOR,
-        other_sensors::DIMM_L_BACK_TEMPERATURE_SENSOR,
+        other_sensors::DIMM_L_TS0_TEMPERATURE_SENSOR,
+        other_sensors::DIMM_L_TS1_TEMPERATURE_SENSOR,
     ],
 ];
 
