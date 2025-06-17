@@ -37,22 +37,23 @@ ringbuf!(Trace, 16, Trace::None);
 
 #[export_name = "main"]
 fn main() -> ! {
-    // Wait for entry to A2 before we enable our i2c controller.
+    // Wait for entry to A0 before we enable our i2c controller.  Normally,
+    // we'd be able to read SPDs in A2, but there's a hardware errata:
+    // https://github.com/oxidecomputer/hardware-cosmo/issues/689
     let jefe = Jefe::from(JEFE.get_task_id());
     loop {
         // This laborious list is intended to ensure that new power states
         // have to be added explicitly here.
         match PowerState::from_u32(jefe.get_state()) {
+            Some(PowerState::A0) | Some(PowerState::A0PlusHP) => {
+                break;
+            }
             Some(PowerState::A2)
             | Some(PowerState::A2PlusFans)
             | Some(PowerState::A1)
-            | Some(PowerState::A0)
-            | Some(PowerState::A0PlusHP)
             | Some(PowerState::A0Reset)
-            | Some(PowerState::A0Thermtrip) => {
-                break;
-            }
-            None => {
+            | Some(PowerState::A0Thermtrip)
+            | None => {
                 // This happens before we're in a valid power state.
                 //
                 // Only listen to our Jefe notification.
