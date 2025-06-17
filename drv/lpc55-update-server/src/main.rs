@@ -498,39 +498,46 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
             UpdateState::Finished | UpdateState::NoUpdate => (),
         }
 
-        let image = match (component, slot) {
+        self.image = match (component, slot) {
             (RotComponent::Hubris, SlotId::A)
             | (RotComponent::Hubris, SlotId::B) => {
-                let active = match bootstate()
-                    .map_err(|_| UpdateError::MissingHandoffData)?
-                    .active
-                {
-                    stage0_handoff::RotSlot::A => SlotId::A,
-                    stage0_handoff::RotSlot::B => SlotId::B,
-                };
-                if active == slot {
+                // Fail early on attempt to update the running image.
+                if same_image(component, slot) {
                     return Err(UpdateError::InvalidSlotIdForOperation.into());
                 }
+
                 // Rollback protection will be implemented by refusing to set
-                // boot preference to an image that has a lower EPOC vale in the
-                // caboose.
-                //
+                // boot preference to an image that has a lower EPOC value in
+                // its caboose.
                 // Setting the boot preference before updating would sidestep that
                 // protection. So, we will fail the prepare step if any
                 // preference settings are selecting the update target image.
+                //
+                // After the update, the boot image selection will be based on:
+                //   - there being only one properly signed image, or
+                //   - transient boot selection (highest priority), or
+                //   - pending persistent selection (altering the persistent
+                //     selection)
+                //   - persistent preference if neither of the above was used.
+
                 let (persistent, pending_persistent, transient) =
                     self.boot_preferences()?;
+
+                // The transient preference must not select the update target.
                 if let Some(pref) = transient {
-                    if active != pref {
+                    if slot == pref {
                         return Err(UpdateError::InvalidPreferredSlotId.into());
                     }
                 }
+                // If there is a pending persistent preference, it must
+                // not select the update target.
                 if let Some(pref) = pending_persistent {
-                    if active != pref {
+                    if slot == pref {
                         return Err(UpdateError::InvalidPreferredSlotId.into());
                     }
-                }
-                if active != persistent {
+                } else if slot == persistent {
+                    // If there is no pending persistent preference, then the
+                    // persistent preference must select the currently active image.
                     return Err(UpdateError::InvalidPreferredSlotId.into());
                 }
                 Some((component, slot))
@@ -538,8 +545,6 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
             (RotComponent::Stage0, SlotId::B) => Some((component, slot)),
             _ => return Err(UpdateError::InvalidSlotIdForOperation.into()),
         };
-
-        self.image = image;
         self.state = UpdateState::InProgress;
         ringbuf_entry!(Trace::State(self.state));
         self.next_block = None;
@@ -1430,16 +1435,15 @@ fn get_transient_override() -> [u8; 32] {
 }
 
 // Preference constants are taken from bootleby:src/lib.rs
+// Note that Bootleby uses this same array to communicate the boot decision log to Hubris.
 const PREFER_SLOT_A: [u8; 32] =
     hex!("edb23f2e9b399c3d57695262f29615910ed10c8d9b261bfc2076b8c16c84f66d");
 const PREFER_SLOT_B: [u8; 32] =
     hex!("70ed2914e6fdeeebbb02763b96da9faa0160b7fc887425f4d45547071d0ce4ba");
-// Bootleby writes all zeros after reading. We write all ones to reset.
 const PREFER_NOTHING: [u8; 32] = [0xffu8; 32];
 
 pub fn set_hubris_transient_override(bank: Option<SlotId>) {
     match bank {
-        // Do we need a  value that says we were here and cleared?
         None => set_transient_override(PREFER_NOTHING),
         Some(SlotId::A) => set_transient_override(PREFER_SLOT_A),
         Some(SlotId::B) => set_transient_override(PREFER_SLOT_B),
