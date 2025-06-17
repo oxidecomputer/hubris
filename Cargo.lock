@@ -5166,22 +5166,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "task-caboose-reader"
-version = "0.1.0"
-dependencies = [
- "build-util",
- "cfg-if",
- "drv-caboose",
- "drv-caboose-pos",
- "idol",
- "idol-runtime",
- "num-traits",
- "userlib",
- "zerocopy 0.8.25",
- "zerocopy-derive 0.8.25",
-]
-
-[[package]]
 name = "task-config"
 version = "0.1.0"
 dependencies = [

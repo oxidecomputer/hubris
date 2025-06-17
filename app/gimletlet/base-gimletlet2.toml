@@ -127,12 +127,6 @@ region = "flash"
 size = 256
 default = true
 
-[tasks.caboose_reader]
-name = "task-caboose-reader"
-priority = 2
-max-sizes = {flash = 16384, ram = 2048}
-start = true
-
 [config]
 [[config.i2c.controllers]]
 controller = 2

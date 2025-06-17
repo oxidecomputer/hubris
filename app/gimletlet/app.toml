@@ -49,7 +49,7 @@ start = true
 task-slots = []
 
 [caboose]
-tasks = ["control_plane_agent", "caboose_reader"]
+tasks = ["control_plane_agent"]
 
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
