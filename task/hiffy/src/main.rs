@@ -71,6 +71,7 @@ cfg_if::cfg_if! {
         const HIFFY_DATA_SIZE: usize = 256;
         const HIFFY_TEXT_SIZE: usize = 256;
         const HIFFY_RSTACK_SIZE: usize = 64;
+        const HIFFY_SCRATCH_SIZE: usize = 512;
     } else if #[cfg(feature = "turbo")] {
         //
         // go-faster mode
@@ -78,21 +79,23 @@ cfg_if::cfg_if! {
         const HIFFY_DATA_SIZE: usize = 20_480;
         const HIFFY_TEXT_SIZE: usize = 2048;
         const HIFFY_RSTACK_SIZE: usize = 2048;
+
+        /// Number of "scratch" bytes available to Hiffy programs. Humility uses this
+        /// to deliver data used by some operations. This number can be increased at
+        /// the cost of RAM.
+        const HIFFY_SCRATCH_SIZE: usize = 1024;
     } else if #[cfg(any(target_board = "donglet-g031", target_board = "oxcon2023g0"))] {
         const HIFFY_DATA_SIZE: usize = 256;
         const HIFFY_TEXT_SIZE: usize = 256;
         const HIFFY_RSTACK_SIZE: usize = 2048;
+        const HIFFY_SCRATCH_SIZE: usize = 512;
     } else {
         const HIFFY_DATA_SIZE: usize = 2_048;
         const HIFFY_TEXT_SIZE: usize = 2048;
         const HIFFY_RSTACK_SIZE: usize = 2048;
+        const HIFFY_SCRATCH_SIZE: usize = 512;
     }
 }
-
-/// Number of "scratch" bytes available to Hiffy programs. Humility uses this
-/// to deliver data used by some operations. This number can be increased at
-/// the cost of RAM.
-const HIFFY_SCRATCH_SIZE: usize = 512;
 
 ///
 /// These HIFFY_* global variables constitute the interface with Humility;
