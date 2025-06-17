@@ -83,6 +83,14 @@ impl Lm5066I {
         pmbus_write!(self.device, CLEAR_FAULTS)
     }
 
+    pub fn enable_averaging(&self, log2_count: u8) -> Result<(), Error> {
+        if log2_count > 0xC {
+            return Err(Error::InvalidDeviceSetup);
+        }
+        let count = lm5066i::SAMPLES_FOR_AVG::CommandData(log2_count);
+        pmbus_write!(self.device, lm5066i::SAMPLES_FOR_AVG, count)
+    }
+
     ///
     /// The coefficients for the LM5066I depend on the value of the current
     /// sense resistor and the sense of the current limit (CL) strap.
@@ -178,14 +186,14 @@ impl TempSensor<Error> for Lm5066I {
 
 impl CurrentSensor<Error> for Lm5066I {
     fn read_iout(&self) -> Result<Amperes, Error> {
-        let iout = pmbus_read!(self.device, lm5066i::MFR_READ_IIN)?;
+        let iout = pmbus_read!(self.device, lm5066i::READ_AVG_IIN)?;
         Ok(Amperes(iout.get(&self.load_coefficients()?.current)?.0))
     }
 }
 
 impl VoltageSensor<Error> for Lm5066I {
     fn read_vout(&self) -> Result<Volts, Error> {
-        let vout = pmbus_read!(self.device, lm5066i::READ_VOUT)?;
+        let vout = pmbus_read!(self.device, lm5066i::READ_AVG_VOUT)?;
         Ok(Volts(vout.get()?.0))
     }
 }

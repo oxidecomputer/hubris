@@ -141,6 +141,12 @@ enum Trace {
         err: drv_i2c_api::ResponseCode,
     },
 
+    /// Setting `SAMPLES_FOR_AVG` on the LM5066I failed
+    Lm5066ISetAverageSamplesFailed {
+        index: usize,
+        err: drv_i2c_api::ResponseCode,
+    },
+
     /// Written before trace records; the `u32` is the number of times the task
     /// has woken up to process its timer. This is not exactly equivalent to
     /// seconds because of the way the timer is maintained, but is approximately
@@ -347,6 +353,8 @@ impl State {
 
         // The LM5066I has an unusual set of fault bits set on startup; we'll
         // clear them all here and let any genuine flags be re-set
+        //
+        // We'll also take this opportunity to enable averaging
         for (i, builder) in [
             i2c_config::pmbus::v54p5_fan_east,
             i2c_config::pmbus::v54p5_fan_central,
@@ -359,6 +367,12 @@ impl State {
             let p = Lm5066I::new(&dev, Ohms(0.007), CurrentLimitStrap::VDD);
             if let Err(err) = p.clear_faults() {
                 ringbuf_entry!(Trace::Lm5066IClearFaultsFailed {
+                    index: i,
+                    err: err.into(),
+                });
+            }
+            if let Err(err) = p.enable_averaging(8) {
+                ringbuf_entry!(Trace::Lm5066ISetAverageSamplesFailed {
                     index: i,
                     err: err.into(),
                 });
