@@ -167,6 +167,14 @@ task-slots = ["sys", "i2c_driver", {spi_front = "spi3_driver"}, "jefe", "packrat
 uses = ["mmio_sequencer", "mmio_info"]
 notifications = ["timer", "vcore"]
 
+[tasks.ignition_flash]
+name = "drv-ignition-flash"
+priority = 7
+stacksize = 1200
+start = true
+task-slots = ["sys", {spi_front = "spi3_driver"}, "spartan7_loader"]
+uses = ["mmio_sequencer"] # TODO make the mux a separate peripheral
+
 [tasks.spartan7_loader]
 name = "drv-spartan7-loader"
 features = ["h753"]

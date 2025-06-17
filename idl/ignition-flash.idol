@@ -1,0 +1,71 @@
+// Cosmo Ignition Flash API
+
+Interface(
+    name: "IgnitionFlash",
+    ops: {
+        "read_id": (
+            args: {},
+            reply: Result(
+                ok: "[u8; 20]",
+                err: CLike("IgnitionFlashError"),
+            ),
+        ),
+        "read_status": (
+            args: {},
+            reply: Result(
+                ok: "u8",
+                err: CLike("IgnitionFlashError"),
+            ),
+        ),
+        "bulk_erase": (
+            args: {
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("IgnitionFlashError"),
+            ),
+        ),
+        "page_program": (
+            args: {
+                "address": "u32",
+            },
+            leases: {
+                "data": (type: "[u8]", read: true, max_len: Some(256)),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("IgnitionFlashError"),
+            ),
+        ),
+        "read": (
+            args: {
+                "address": "u32",
+            },
+            leases: {
+                "data": (type: "[u8]", write: true, max_len: Some(256)),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("IgnitionFlashError"),
+            ),
+        ),
+        "sector_erase": (
+            args: {
+                "address": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("IgnitionFlashError"),
+            ),
+        ),
+        "select": (
+            doc: "selects the ignition flash from the mux",
+            reply: Simple("()"),
+        ),
+        "deselect": (
+            doc: "deselects the ignition flash from the mux",
+            reply: Simple("()"),
+        ),
+    },
+)
+

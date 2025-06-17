@@ -1404,6 +1404,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-ignition-flash"
+version = "0.1.0"
+dependencies = [
+ "build-fpga-regmap",
+ "build-util",
+ "counters",
+ "derive-idol-err",
+ "drv-spartan7-loader-api",
+ "drv-spi-api",
+ "idol",
+ "idol-runtime",
+ "mutable-statics",
+ "num-traits",
+ "userlib",
+ "zerocopy 0.8.25",
+ "zerocopy-derive 0.8.25",
+]
+
+[[package]]
 name = "drv-ignition-server"
 version = "0.1.0"
 dependencies = [
