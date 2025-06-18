@@ -32,6 +32,7 @@ extern-regions = ["sram1", "sram2", "sram3", "sram4"]
 [tasks.jefe.config.on-state-change]
 net = "jefe-state-change"
 host_sp_comms = "jefe-state-change"
+spd = "jefe-state-change"
 
 [tasks.jefe.config.allowed-callers]
 set_state = ["cosmo_seq"]
