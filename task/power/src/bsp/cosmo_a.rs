@@ -371,6 +371,9 @@ impl State {
                     err: err.into(),
                 });
             }
+            // AVGN is a log2 value, so this enables 256x averaging, which gives
+            // a 4 Hz sample rate.  The thermal task only reads sensor values at
+            // 1 Hz, so this seems reasonable enough.
             if let Err(err) = p.enable_averaging(8) {
                 ringbuf_entry!(Trace::Lm5066ISetAverageSamplesFailed {
                     index: i,
