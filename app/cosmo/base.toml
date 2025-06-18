@@ -360,6 +360,7 @@ max-sizes = {flash = 8192, ram = 4096 }
 start = true
 notifications = ["jefe-state-change", "timer"]
 task-slots = ["jefe", "spartan7_loader", "packrat", "sensor"]
+uses = ["mmio_dimms"]
 
 [tasks.auxflash]
 name = "drv-auxflash-server"
