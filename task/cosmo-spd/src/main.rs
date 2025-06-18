@@ -31,9 +31,10 @@ enum Trace {
     Ready,
     TemperatureReadTimeout { index: usize, pos: usize },
     LoopCount(usize),
+    Present { index: usize, present: bool },
 }
 
-ringbuf!(Trace, 16, Trace::None);
+ringbuf!(Trace, 32, Trace::None);
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -72,6 +73,7 @@ fn main() -> ! {
 
     // Kick off a read then wait for it to complete
     dimms.spd_ctrl.modify(|s| s.set_start(true));
+    sleep_for(10); // bonus sleep
     while dimms.spd_ctrl.start() {
         sleep_for(10);
     }
@@ -94,6 +96,10 @@ fn main() -> ! {
             11 => dimms.spd_present.bus1_l(),
             _ => unreachable!(),
         };
+        ringbuf_entry!(Trace::Present {
+            index,
+            present: *present
+        });
         if !*present {
             continue;
         }
