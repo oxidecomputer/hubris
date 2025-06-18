@@ -73,7 +73,6 @@ fn main() -> ! {
 
     // Kick off a read then wait for it to complete
     dimms.spd_ctrl.modify(|s| s.set_start(true));
-    sleep_for(10); // bonus sleep
     while dimms.spd_ctrl.start() {
         sleep_for(10);
     }
