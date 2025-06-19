@@ -86,6 +86,23 @@ Interface(
                 err: CLike("HfError"),
             ),
         ),
+        "read_dev": (
+            description: "read from the specific dev, restoring the previous dev before returning",
+            args: {
+                "dev": (
+                    type: "HfDevSelect",
+                    recv: FromPrimitive("u8"),
+                ),
+                "address": "u32",
+            },
+            leases: {
+                "data": (type: "[u8]", write: true, max_len: Some(256)),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("HfError"),
+            ),
+        ),
         "sector_erase": (
             args: {
                 "address": "u32",
@@ -177,10 +194,38 @@ Interface(
             ),
         ),
         "hash": (
+            doc: "sha256 of the specified flash range",
             args: {
                 "address": "u32",
                 "len": "u32",
             },
+            reply: Result(
+                ok: "[u8; drv_hash_api::SHA256_SZ]",
+                err: CLike("HfError"),
+            ),
+        ),
+        "hash_significant_bits": (
+            doc: "async sha256 of the entire flash chip with sector zero replaced by `0xff`",
+            args: {
+	        "dev": (
+                    type: "HfDevSelect",
+                    recv: FromPrimitive("u8"),
+                ),
+
+	    },
+            reply: Result(
+                ok: "()",
+                err: CLike("HfError"),
+            ),
+        ),
+        "get_cached_hash": (
+            doc: "sha256 of the entire flash chip with sector zero replaced by `0xff`",
+            args: {
+	        "dev": (
+                    type: "HfDevSelect",
+                    recv: FromPrimitive("u8"),
+                ),
+	    },
             reply: Result(
                 ok: "[u8; drv_hash_api::SHA256_SZ]",
                 err: CLike("HfError"),

@@ -10,9 +10,9 @@ use drv_hf_api::{
     SECTOR_SIZE_BYTES,
 };
 use gateway_messages::{
-    ComponentUpdatePrepare, SpComponent, SpError, UpdateId,
-    UpdateInProgressStatus, UpdatePreparationProgress, UpdatePreparationStatus,
-    UpdateStatus,
+    ComponentUpdatePrepare, HfError as GwHfError, SpComponent, SpError,
+    UpdateId, UpdateInProgressStatus, UpdatePreparationProgress,
+    UpdatePreparationStatus, UpdateStatus,
 };
 
 userlib::task_slot!(HOST_FLASH, hf);
@@ -22,12 +22,56 @@ pub(crate) struct HostFlashUpdate {
     current: Option<CurrentUpdate<State>>,
 }
 
+fn hf_to_gwhf(e: HfError) -> SpError {
+    match e {
+        HfError::NotMuxedToSP => SpError::Hf(GwHfError::NotMuxedToSp),
+        HfError::BadAddress => SpError::Hf(GwHfError::BadAddress),
+        HfError::QspiTimeout => SpError::Hf(GwHfError::QspiTimeout),
+        HfError::QspiTransferError => SpError::Hf(GwHfError::QspiTransferError),
+        HfError::HashUncalculated => SpError::Hf(GwHfError::HashUncalculated),
+        HfError::RecalculateHash => SpError::Hf(GwHfError::RecalculateHash),
+        HfError::HashInProgress => SpError::Hf(GwHfError::HashInProgress),
+        // We're signficicantly less likely to hit other host flash
+        // errors, add this as a catch all
+        _ => SpError::ComponentOperationFailed(e.into()),
+    }
+}
+
 impl HostFlashUpdate {
     pub(crate) fn new() -> Self {
         Self {
             task: HostFlash::from(HOST_FLASH.get_task_id()),
             current: None,
         }
+    }
+
+    pub(crate) fn start_hash(&self, slot: u16) -> Result<(), SpError> {
+        self.task
+            .hash_significant_bits(Self::slot_to_dev(slot)?)
+            .map_err(hf_to_gwhf)
+    }
+
+    pub(crate) fn get_hash(&self, slot: u16) -> Result<[u8; 32], SpError> {
+        self.task
+            .get_cached_hash(Self::slot_to_dev(slot)?)
+            .map_err(hf_to_gwhf)
+    }
+
+    pub(crate) fn read_page(
+        &self,
+        slot: u16,
+        addr: u32,
+        dest: &mut [u8],
+    ) -> Result<(), SpError> {
+        // It's tempting to disable access if an update is in progress but
+        // this is a debug feature so we need it handy at all times
+        self.task
+            .read_dev(
+                Self::slot_to_dev(slot)?,
+                addr,
+                &mut dest[..PAGE_SIZE_BYTES],
+            )
+            .map_err(hf_to_gwhf)
     }
 
     pub(crate) fn active_slot(&self) -> Result<u16, SpError> {

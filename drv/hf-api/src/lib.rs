@@ -9,7 +9,7 @@
 use derive_idol_err::IdolError;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
-use userlib::{sys_send, FromPrimitive};
+use userlib::{sys_send, FromPrimitive, TaskId};
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 pub use drv_qspi_api::{PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES};
@@ -34,6 +34,9 @@ pub enum HfError {
     BadAddress,
     QspiTimeout,
     QspiTransferError,
+    HashUncalculated,
+    RecalculateHash,
+    HashInProgress,
 
     #[idol(server_death)]
     ServerRestarted,
@@ -205,5 +208,57 @@ impl HfRawPersistentData {
 pub const HF_PERSISTENT_DATA_MAGIC: u32 = 0x1dea_bcde;
 pub const HF_PERSISTENT_DATA_STRIDE: usize = 128;
 pub const HF_PERSISTENT_DATA_HEADER_VERSION: u32 = 1;
+
+pub struct HashData {
+    pub task: drv_hash_api::Hash,
+    pub cached_hash0: SlotHash,
+    pub cached_hash1: SlotHash,
+    pub state: HashState,
+}
+
+impl HashData {
+    pub fn new(hash: TaskId) -> Self {
+        Self {
+            task: drv_hash_api::Hash::from(hash),
+            cached_hash0: SlotHash::Uncalculated,
+            cached_hash1: SlotHash::Uncalculated,
+            state: HashState::NotRunning,
+        }
+    }
+}
+
+/// The state of our async hash
+pub enum HashState {
+    Done,
+    Hashing {
+        dev: HfDevSelect,
+        addr: usize,
+        end: usize,
+    },
+    NotRunning,
+}
+
+/// Hash status for each of the hash banks
+pub enum SlotHash {
+    /// Nothing has requested a hash of this slot yet
+    Uncalculated,
+    /// Something has modified this slot
+    Recalculate,
+    /// In progress calculation
+    HashInProgress,
+    /// A valid hash
+    Hash([u8; drv_hash_api::SHA256_SZ]),
+}
+
+impl SlotHash {
+    pub fn get_hash(&self) -> Result<[u8; drv_hash_api::SHA256_SZ], HfError> {
+        match self {
+            SlotHash::Uncalculated => Err(HfError::HashUncalculated),
+            SlotHash::Recalculate => Err(HfError::RecalculateHash),
+            SlotHash::HashInProgress => Err(HfError::HashInProgress),
+            SlotHash::Hash(h) => Ok(*h),
+        }
+    }
+}
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

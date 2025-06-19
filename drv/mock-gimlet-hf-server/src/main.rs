@@ -114,6 +114,20 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         Ok(())
     }
 
+    fn read_dev(
+        &mut self,
+        msg: &RecvMessage,
+        dev: HfDevSelect,
+        addr: u32,
+        dest: LenLimit<Leased<W, [u8]>, PAGE_SIZE_BYTES>,
+    ) -> Result<(), RequestError<HfError>> {
+        let prev = self.dev_state;
+        self.set_dev(msg, dev)?;
+        let r = self.read(msg, addr, dest);
+        self.set_dev(msg, prev).unwrap_lite();
+        r
+    }
+
     fn sector_erase(
         &mut self,
         _: &RecvMessage,
@@ -185,6 +199,22 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         _: &RecvMessage,
         _addr: u32,
         _len: u32,
+    ) -> Result<[u8; SHA256_SZ], RequestError<HfError>> {
+        Ok(*b"mockmockmockmockmockmockmockmock")
+    }
+
+    fn hash_significant_bits(
+        &mut self,
+        _: &RecvMessage,
+        _slot: HfDevSelect,
+    ) -> Result<(), RequestError<HfError>> {
+        Ok(())
+    }
+
+    fn get_cached_hash(
+        &mut self,
+        _: &RecvMessage,
+        _slot: HfDevSelect,
     ) -> Result<[u8; SHA256_SZ], RequestError<HfError>> {
         Ok(*b"mockmockmockmockmockmockmockmock")
     }
