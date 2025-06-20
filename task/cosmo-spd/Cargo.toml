@@ -17,6 +17,7 @@ drv-spartan7-loader-api = { path = "../../drv/spartan7-loader-api" }
 ringbuf = { path = "../../lib/ringbuf" }
 task-jefe-api = { path = "../jefe-api" }
 task-packrat-api = { path = "../packrat-api" }
+task-sensor-api = { path = "../sensor-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 [build-dependencies]
