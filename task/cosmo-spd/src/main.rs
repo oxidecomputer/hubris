@@ -13,24 +13,20 @@ use idol_runtime::RequestError;
 use ringbuf::{ringbuf, ringbuf_entry};
 use task_jefe_api::Jefe;
 use task_packrat_api::Packrat;
-use task_sensor_api::{config::other_sensors, NoData, Sensor, SensorId};
 use userlib::{
-    hl::sleep_for, sys_get_timer, sys_recv_notification, sys_set_timer,
-    task_slot, FromPrimitive, RecvMessage,
+    hl::sleep_for, sys_recv_notification, sys_set_timer, task_slot,
+    FromPrimitive, RecvMessage,
 };
 use zerocopy::IntoBytes;
 
 task_slot!(JEFE, jefe);
 task_slot!(PACKRAT, packrat);
 task_slot!(LOADER, spartan7_loader);
-task_slot!(SENSOR, sensor);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,
     Ready,
-    TemperatureReadTimeout { index: usize, pos: usize },
-    LoopCount(usize),
     Present { index: usize, present: bool },
 }
 
@@ -145,11 +141,9 @@ fn main() -> ! {
         }
     }
 
-    let sensor = Sensor::from(SENSOR.get_task_id());
     let mut server = ServerImpl {
         deadline: 0u64,
         dimms,
-        sensor,
         present,
     };
     sys_set_timer(Some(0), notifications::TIMER_MASK);
@@ -160,14 +154,12 @@ fn main() -> ! {
     }
 }
 
-// Poll the thermal sensors at roughly 4 Hz
-const TIMER_INTERVAL: u64 = 250;
 const DIMM_COUNT: usize = 12;
 
+#[allow(unused)]
 struct ServerImpl {
     deadline: u64,
     dimms: fmc_periph::Dimms,
-    sensor: Sensor,
     present: [bool; DIMM_COUNT],
 }
 
@@ -180,159 +172,13 @@ impl idl::InOrderCosmoSpdImpl for ServerImpl {
     }
 }
 
-const DIMM_SENSORS: [[SensorId; 2]; DIMM_COUNT] = [
-    [
-        other_sensors::DIMM_A_TS0_TEMPERATURE_SENSOR,
-        other_sensors::DIMM_A_TS1_TEMPERATURE_SENSOR,
-    ],
-    [
-        other_sensors::DIMM_B_TS0_TEMPERATURE_SENSOR,
-        other_sensors::DIMM_B_TS1_TEMPERATURE_SENSOR,
-    ],
-    [
-        other_sensors::DIMM_C_TS0_TEMPERATURE_SENSOR,
-        other_sensors::DIMM_C_TS1_TEMPERATURE_SENSOR,
-    ],
-    [
-        other_sensors::DIMM_D_TS0_TEMPERATURE_SENSOR,
-        other_sensors::DIMM_D_TS1_TEMPERATURE_SENSOR,
-    ],
-    [
-        other_sensors::DIMM_E_TS0_TEMPERATURE_SENSOR,
-        other_sensors::DIMM_E_TS1_TEMPERATURE_SENSOR,
-    ],
-    [
-        other_sensors::DIMM_F_TS0_TEMPERATURE_SENSOR,
-        other_sensors::DIMM_F_TS1_TEMPERATURE_SENSOR,
-    ],
-    [
-        other_sensors::DIMM_G_TS0_TEMPERATURE_SENSOR,
-        other_sensors::DIMM_G_TS1_TEMPERATURE_SENSOR,
-    ],
-    [
-        other_sensors::DIMM_H_TS0_TEMPERATURE_SENSOR,
-        other_sensors::DIMM_H_TS1_TEMPERATURE_SENSOR,
-    ],
-    [
-        other_sensors::DIMM_I_TS0_TEMPERATURE_SENSOR,
-        other_sensors::DIMM_I_TS1_TEMPERATURE_SENSOR,
-    ],
-    [
-        other_sensors::DIMM_J_TS0_TEMPERATURE_SENSOR,
-        other_sensors::DIMM_J_TS1_TEMPERATURE_SENSOR,
-    ],
-    [
-        other_sensors::DIMM_K_TS0_TEMPERATURE_SENSOR,
-        other_sensors::DIMM_K_TS1_TEMPERATURE_SENSOR,
-    ],
-    [
-        other_sensors::DIMM_L_TS0_TEMPERATURE_SENSOR,
-        other_sensors::DIMM_L_TS1_TEMPERATURE_SENSOR,
-    ],
-];
-
 impl idol_runtime::NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
-        notifications::TIMER_MASK
+        0
     }
 
     fn handle_notification(&mut self, _bits: u32) {
-        // The FPGA register generation produces different types for bus0 and
-        // bus1, but they're the same shape, so we'll use a small macro for
-        // codegen.
-        macro_rules! dimm_read_temperature {
-            ($addr:ident, $cmd:ident, $count:ident, $data:ident) => {{
-                self.dimms.$cmd.modify(|b| {
-                    b.set_bus_addr($addr);
-                    b.set_len(2);
-                    b.set_reg_addr(0x31); // current sensed temperature
-                    b.set_op(0); // READ
-                });
-                const BUSY_LOOP_COUNT: usize = 32;
-                const TIMEOUT_COUNT: usize = 64;
-                let mut timed_out = false;
-                for i in 0.. {
-                    if self.dimms.$count.data() == 2 {
-                        if i > BUSY_LOOP_COUNT {
-                            ringbuf_entry!(Trace::LoopCount(i));
-                        }
-                        break;
-                    } else if i == TIMEOUT_COUNT {
-                        timed_out = true;
-                        break;
-                    } else if i > BUSY_LOOP_COUNT {
-                        sleep_for(1);
-                    }
-                }
-                if timed_out {
-                    None
-                } else {
-                    Some(self.dimms.$data.data())
-                }
-            }};
-        }
-        let now = sys_get_timer().now;
-        if now >= self.deadline {
-            for (index, present) in self.present.iter().cloned().enumerate() {
-                let bus = index / 6; // FPGA bus (0 or 1)
-                let dev = index % 6; // device index (SDI, 0-6)
-
-                for pos in 0..2 {
-                    // Mark sensors as absent if they're missing
-                    if !present {
-                        self.sensor.nodata_now(
-                            DIMM_SENSORS[index][pos],
-                            NoData::DeviceNotPresent,
-                        );
-                        continue;
-                    }
-
-                    // See JESD302-1A for details on this address
-                    #[allow(clippy::unusual_byte_groupings)]
-                    let addr = (0b0010_000 | (pos << 5) | dev) as u8;
-                    let raw_temp = if bus == 0 {
-                        dimm_read_temperature!(
-                            addr,
-                            bus0_cmd,
-                            bus0_rx_byte_count,
-                            bus0_rx_rdata
-                        )
-                    } else {
-                        dimm_read_temperature!(
-                            addr,
-                            bus1_cmd,
-                            bus1_rx_byte_count,
-                            bus1_rx_rdata
-                        )
-                    };
-                    let Some(raw_temp) = raw_temp else {
-                        ringbuf_entry!(Trace::TemperatureReadTimeout {
-                            index,
-                            pos,
-                        });
-                        self.sensor.nodata_now(
-                            DIMM_SENSORS[index][pos],
-                            NoData::DeviceTimeout,
-                        );
-                        continue;
-                    };
-
-                    // The actual temperature is a 13-bit two's complement value
-                    // (with two low bits reserved as 0s)
-                    //
-                    // We shift it so that the sign bit is in the right place,
-                    // cast it to an i16 to make it signed, then scale it into a
-                    // float.
-                    let t = (raw_temp << 3) as i16;
-                    let temp_c = f32::from(t) * 0.0078125f32;
-
-                    // Send the value to the sensors task
-                    self.sensor.post_now(DIMM_SENSORS[index][pos], temp_c);
-                }
-            }
-            self.deadline = now + TIMER_INTERVAL;
-        }
-        sys_set_timer(Some(self.deadline), notifications::TIMER_MASK);
+        // Nothing to do here
     }
 }
 
