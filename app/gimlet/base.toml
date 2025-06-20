@@ -170,8 +170,8 @@ notifications = ["timer", "vcore"]
 copy-to-archive = ["register_defs"]
 
 [tasks.gimlet_seq.config]
-fpga_image = "fpga-b.bin"
-register_defs = "gimlet-regs-b.json"
+fpga_image = "fpga.bin"
+register_defs = "gimlet-regs.json"
 
 [tasks.gimlet_inspector]
 name = "task-gimlet-inspector"
