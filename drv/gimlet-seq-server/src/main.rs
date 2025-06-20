@@ -81,14 +81,14 @@ enum Trace {
     A2,
     A0FailureDetails(Addr, u8),
     A0Failed(#[count(children)] SeqError),
-    A1Status(A1SmStatus),
+    A1Status(Result<A1SmStatus) u8>,
     CPUPresent(#[count(children)] bool),
     Coretype {
         coretype: bool,
         sp3r1: bool,
         sp3r2: bool,
     },
-    A0Status(A0SmStatus),
+    A0Status(Result<A0SmStatus, u8>),
     A0Power(u8),
     NICPowerEnableLow(bool),
     RailsOn,
@@ -116,8 +116,8 @@ enum Trace {
         nic: u8,
     },
     SMStatus {
-        a1: A1SmStatus,
-        a0: A0SmStatus,
+        a1: Result<A1SmStatus, u8>,
+        a0: Result<A0SmStatus, u8>,
     },
     NICStatus {
         nic_ctrl: u8,
@@ -702,8 +702,8 @@ impl<S: SpiServer> ServerImpl<S> {
         let a1: u8 = self.seq.read_byte(Addr::A1SMSTATUS).unwrap_lite();
         let a0: u8 = self.seq.read_byte(Addr::A0SMSTATUS).unwrap_lite();
         ringbuf_entry!(Trace::SMStatus {
-            a1: A1SmStatus::try_from(a1).unwrap_lite(),
-            a0: A0SmStatus::try_from(a0).unwrap_lite(),
+            a1: A1SmStatus::try_from(a1),
+            a0: A0SmStatus::try_from(a0),
         });
 
         ringbuf_entry!(Trace::PowerControl(
@@ -753,7 +753,7 @@ impl<S: SpiServer> ServerImpl<S> {
                         .read_bytes(Addr::A1SMSTATUS, &mut status)
                         .unwrap_lite();
 
-                    let a1sm = A1SmStatus::try_from(status[0]).unwrap_lite();
+                    let a1sm = A1SmStatus::try_from(status[0]);
                     ringbuf_entry!(Trace::A1Status(a1sm));
 
                     if a1sm == A1SmStatus::Done {
@@ -811,7 +811,7 @@ impl<S: SpiServer> ServerImpl<S> {
                         .read_bytes(Addr::A0SMSTATUS, &mut status)
                         .unwrap_lite();
 
-                    let a0sm = A0SmStatus::try_from(status[0]).unwrap_lite();
+                    let a0sm = A0SmStatus::try_from(status[0]);
                     ringbuf_entry!(Trace::A0Status(a0sm));
 
                     if a0sm == A0SmStatus::GroupcPg {
