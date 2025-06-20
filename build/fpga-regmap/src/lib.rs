@@ -230,7 +230,7 @@ fn write_reg_fields(
                     output,
                     "
 {prefix}        impl TryFrom<u8> for {encode_name} {{
-{prefix}            type Error = ();
+{prefix}            type Error = u8;
 {prefix}            fn try_from(x: u8) -> Result<Self, Self::Error> {{
 {prefix}                use crate::{parent_chain}::{encode_name}::*;
 {prefix}                let x_masked = x & {inst_name};
@@ -248,7 +248,7 @@ fn write_reg_fields(
                 }
                 writeln!(
                     output,
-                    "{prefix}                    _ => Err(()),
+                    "{prefix}                    _ => Err(x),
 {prefix}                }}
 {prefix}            }}
 {prefix}        }}\n"

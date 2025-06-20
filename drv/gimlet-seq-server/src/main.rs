@@ -81,7 +81,7 @@ enum Trace {
     A2,
     A0FailureDetails(Addr, u8),
     A0Failed(#[count(children)] SeqError),
-    A1Status(Result<A1SmStatus) u8>,
+    A1Status(Result<A1SmStatus, u8>),
     CPUPresent(#[count(children)] bool),
     Coretype {
         coretype: bool,
@@ -756,8 +756,13 @@ impl<S: SpiServer> ServerImpl<S> {
                     let a1sm = A1SmStatus::try_from(status[0]);
                     ringbuf_entry!(Trace::A1Status(a1sm));
 
-                    if a1sm == A1SmStatus::Done {
-                        break;
+                    match a1sm.ok() {
+                        Some(state) => {
+                            if state == A1SmStatus::Done {
+                                break;
+                            }
+                        }
+                        None => (),
                     }
 
                     if sys_get_timer().now > deadline {
@@ -814,8 +819,13 @@ impl<S: SpiServer> ServerImpl<S> {
                     let a0sm = A0SmStatus::try_from(status[0]);
                     ringbuf_entry!(Trace::A0Status(a0sm));
 
-                    if a0sm == A0SmStatus::GroupcPg {
-                        break;
+                    match a0sm.ok() {
+                        Some(state) => {
+                            if state == A0SmStatus::GroupcPg {
+                                break;
+                            }
+                        }
+                        None => (),
                     }
 
                     if sys_get_timer().now > deadline {
