@@ -906,7 +906,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Readback for V1P5_SP_VDD_RTC_A1 rail.\n(SP3_TO_SEQ_RTC_V1P5_EN - a poor net name)"
+                    "desc": "Readback for V1P5_SP_VDD_RTC_A1 rail from U494 (SP3_TO_SEQ_RTC_V1P5_PG net)"
                 },
                 {
                     "type": "field",
@@ -917,7 +917,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Readback for V3P3_SP3_VDD_33_S5_A1 rail \n(SP3_TO_SEQ_V3P3_S5_PG)"
+                    "desc": "Readback for V3P3_SP3_VDD_33_S5_A1 rail from U483 (SP3_TO_SEQ_V3P3_S5_PG net)"
                 },
                 {
                     "type": "field",
@@ -928,7 +928,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Readback for V1P8_SP3_VDD_18_S5_A rail \n(SP3_TO_SEQ_V1P8_S5_PG)"
+                    "desc": "Readback for V1P8_SP3_VDD_18_S5_A rail from U486 (SP3_TO_SEQ_V1P8_S5_PG net)"
                 },
                 {
                     "type": "field",
@@ -939,7 +939,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Readback for V0P9_SP3_VDD_SOC_S5_A1 rail \n(SP3_TO_SEQ_V0P9_VDD_SOC_S5_PG)"
+                    "desc": "Readback for V0P9_SP3_VDD_SOC_S5_A1 rail from U490 (SP3_TO_SEQ_V0P9_VDD_SOC_S5_PG net)"
                 }
             ]
         },
@@ -959,7 +959,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "SP3_TO_SP_SLP_S3 inversion of signal from AMD CPU, Used\nat beginning of GroupB state machine"
+                    "desc": "SP3_TO_SEQ_SLP_S3_L inversion of signal from AMD CPU, Used\nat beginning of GroupB state machine"
                 },
                 {
                     "type": "field",
@@ -970,7 +970,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "SP3_TO_SP_SLP_S5 inversion of signal from AMD CPU, Used \nat beginning of GroupB state machine"
+                    "desc": "SP3_TO_SEQ_SLP_S5_L inversion of signal from AMD CPU, Used \nat beginning of GroupB state machine"
                 },
                 {
                     "type": "field",
@@ -981,7 +981,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Asserted by AMD after PWR_GOOD is asserted by sequencer \nshould be here in: min 15ms, max of 20.4ms(SP3_TO_SEQ_PWROK_V3P3 net)"
+                    "desc": "Asserted by AMD after PWR_GOOD is asserted by sequencer \nshould be here in: min 15ms, max of 20.4ms (SP3_TO_SEQ_PWROK_V3P3 net)"
                 },
                 {
                     "type": "field",
@@ -1012,7 +1012,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Readback from VPP_ABCD_A0 rail (PWR_CONT_DIMM_ABCD_PG0 net)"
+                    "desc": "Readback from VPP_ABCD_A0 rail from UP36. As indicated by PWR_CONT_DIMM_PG0 from U352."
                 },
                 {
                     "type": "field",
@@ -1023,7 +1023,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Readback from VPP_EFGH_A0 rail (PWR_CONT_DIMM_EFGH_PG0 net)"
+                    "desc": "Readback from VPP_EFGH_A0 rail from UP37. As indicated by PWR_CONT_DIMM_PG1 from U352."
                 },
                 {
                     "type": "field",
@@ -1056,7 +1056,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Readback for VTT_ABCD_A0 rail (VTT_ABCD_A0_TO_SEQ_PG_L) inverted"
+                    "desc": "Readback for VTT_AB_A0 and VTT_CD_A0 rails. This is a logical AND of VTT_AB_A0_TO_SEQ_PG (U432) and VTT_CD_A0_TO_SEQ_PG (U563)"
                 },
                 {
                     "type": "field",
@@ -1067,7 +1067,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Readback for VTT_EFGH_A0 rail (VTT_EFGH_A0_TO_SEQ_PG_L) inverted"
+                    "desc": "Readback for VTT_EF_A0 and VTT_GH_A0 rails. This is a logical AND of VTT_EF_A0_TO_SEQ_PG (U445) and VTT_GH_A0_TO_SEQ_PG (U564)"
                 },
                 {
                     "type": "field",
@@ -1078,7 +1078,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Readback for V1P8_SP3_VDD_18_A0 rail (SEQ_V1P8_SP3_VDD_PG_L) inverted"
+                    "desc": "Readback for V1P8_SP3_VDD_18_A0 rail from UP38. As indicated by SEQ_V1P8_SP3_VDD_PG from U352."
                 },
                 {
                     "type": "field",
@@ -1089,7 +1089,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Readback from V3P3_SYS_A0 rail (PWR_CONT_DIMM_ABCD_PG1)\nPG1 from ISL68224 U352, should be configured to represent \nV3P3_SYS_A0 rail status"
+                    "desc": "Readback from V3P3_SYS_A0 rail from U360 (V3P3_SYS_TO_SEQ_PG net)"
                 }
             ]
         },
@@ -1235,7 +1235,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Power good for V0P96_NIC_VDD_A0HP (PWR_CONT_NIC_PG0 net)"
+                    "desc": "Power good for V0P96_NIC_VDD_A0HP from U565 (PWR_CONT_NIC_PG0 net)"
                 },
                 {
                     "type": "field",
@@ -1246,7 +1246,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Power good for V1P1_NIC_ETH_IO_A0HP (inverted NIC_TO_SEQ_V1P1_PG_L net)"
+                    "desc": "Power good for V1P1_NIC_ETH_IO_A0HP from U630 (inverted NIC_TO_SEQ_V1P1_PG_L net)"
                 },
                 {
                     "type": "field",
@@ -1257,7 +1257,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Power good for V1P2_NIC_MDIO_A0HP  (inverted NIC_TO_SEQ_V1P2_PG_L net)"
+                    "desc": "Power good for V1P2_NIC_MDIO_A0HP from U424 (inverted NIC_TO_SEQ_V1P2_PG_L net)"
                 },
                 {
                     "type": "field",
@@ -1268,7 +1268,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Power good for V1P2_NIC_ETH  (inverted NIC_TO_SEQ_V1P2_PG_L net)"
+                    "desc": "Power good for V1P2_NIC_ENET_A0HP from U424 (NIC_TO_SEQ_V1P2_ENET_PG net)"
                 },
                 {
                     "type": "field",
@@ -1279,7 +1279,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Power good for V1P5_NIC_AVDD_A0HP (inverted NIC_TO_SEQ_V1P5A_PG_L net)"
+                    "desc": "Power good for V1P5_NIC_AVDD_A0HP from U360 (NIC_TO_SEQ_V1P5A_PG net)"
                 },
                 {
                     "type": "field",
@@ -1290,7 +1290,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Power good for V1P5_NIC_PCIE_MEM_A0HP (inverted NIC_TO_SEQ_V1P5D_PG_L net)"
+                    "desc": "Power good for V1P5_NIC_PCIE_MEM_A0HP from U360 (NIC_TO_SEQ_V1P5D_PG net)"
                 },
                 {
                     "type": "field",
@@ -2194,7 +2194,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Readback from VPP_ABCD_A0 rail (PWR_CONT_DIMM_ABCD_PG0 net)"
+                    "desc": "Readback from VPP_ABCD_A0 rail from UP36. As indicated by PWR_CONT_DIMM_PG0 from U352."
                 },
                 {
                     "type": "field",
@@ -2205,7 +2205,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Readback from VPP_EFGH_A0 rail (PWR_CONT_DIMM_EFGH_PG0 net)"
+                    "desc": "Readback from VPP_EFGH_A0 rail from UP37. As indicated by PWR_CONT_DIMM_PG1 from U352."
                 },
                 {
                     "type": "field",
@@ -2238,7 +2238,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Readback for VTT_ABCD_A0 rail (VTT_ABCD_A0_TO_SEQ_PG_L) inverted"
+                    "desc": "Readback for VTT_AB_A0 and VTT_CD_A0 rails. This is a logical AND of VTT_AB_A0_TO_SEQ_PG (U432) and VTT_CD_A0_TO_SEQ_PG (U563)"
                 },
                 {
                     "type": "field",
@@ -2249,7 +2249,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Readback for VTT_EFGH_A0 rail (VTT_EFGH_A0_TO_SEQ_PG_L) inverted"
+                    "desc": "Readback for VTT_EF_A0 and VTT_GH_A0 rails. This is a logical AND of VTT_EF_A0_TO_SEQ_PG (U445) and VTT_GH_A0_TO_SEQ_PG (U564)"
                 },
                 {
                     "type": "field",
@@ -2260,7 +2260,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Readback for V1P8_SP3_VDD_18_A0 rail (SEQ_V1P8_SP3_VDD_PG_L) inverted"
+                    "desc": "Readback for V1P8_SP3_VDD_18_A0 rail from UP38. As indicated by SEQ_V1P8_SP3_VDD_PG from U352."
                 },
                 {
                     "type": "field",
@@ -2271,7 +2271,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Readback from V3P3_SYS_A0 rail (PWR_CONT_DIMM_ABCD_PG1)\nPG1 from ISL68224 U352, should be configured to represent \nV3P3_SYS_A0 rail status"
+                    "desc": "Readback from V3P3_SYS_A0 rail from U360 (V3P3_SYS_TO_SEQ_PG net)"
                 }
             ]
         },
@@ -2400,7 +2400,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Readback from VPP_ABCD_A0 rail (PWR_CONT_DIMM_ABCD_PG0 net)"
+                    "desc": "Readback from VPP_ABCD_A0 rail from UP36. As indicated by PWR_CONT_DIMM_PG0 from U352."
                 },
                 {
                     "type": "field",
@@ -2411,7 +2411,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Readback from VPP_EFGH_A0 rail (PWR_CONT_DIMM_EFGH_PG0 net)"
+                    "desc": "Readback from VPP_EFGH_A0 rail from UP37. As indicated by PWR_CONT_DIMM_PG1 from U352."
                 },
                 {
                     "type": "field",
@@ -2444,7 +2444,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Readback for VTT_ABCD_A0 rail (VTT_ABCD_A0_TO_SEQ_PG_L) inverted"
+                    "desc": "Readback for VTT_AB_A0 and VTT_CD_A0 rails. This is a logical AND of VTT_AB_A0_TO_SEQ_PG (U432) and VTT_CD_A0_TO_SEQ_PG (U563)"
                 },
                 {
                     "type": "field",
@@ -2455,7 +2455,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Readback for VTT_EFGH_A0 rail (VTT_EFGH_A0_TO_SEQ_PG_L) inverted"
+                    "desc": "Readback for VTT_EF_A0 and VTT_GH_A0 rails. This is a logical AND of VTT_EF_A0_TO_SEQ_PG (U445) and VTT_GH_A0_TO_SEQ_PG (U564)"
                 },
                 {
                     "type": "field",
@@ -2466,7 +2466,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Readback for V1P8_SP3_VDD_18_A0 rail (SEQ_V1P8_SP3_VDD_PG_L) inverted"
+                    "desc": "Readback for V1P8_SP3_VDD_18_A0 rail from UP38. As indicated by SEQ_V1P8_SP3_VDD_PG from U352."
                 },
                 {
                     "type": "field",
@@ -2477,7 +2477,7 @@
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Readback from V3P3_SYS_A0 rail (PWR_CONT_DIMM_ABCD_PG1)\nPG1 from ISL68224 U352, should be configured to represent \nV3P3_SYS_A0 rail status"
+                    "desc": "Readback from V3P3_SYS_A0 rail from U360 (V3P3_SYS_TO_SEQ_PG net)"
                 }
             ]
         },
