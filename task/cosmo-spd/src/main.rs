@@ -175,8 +175,8 @@ impl idl::InOrderCosmoSpdImpl for ServerImpl {
     fn ping(
         &mut self,
         _mgs: &RecvMessage,
-    ) -> Result<u8, RequestError<core::convert::Infallible>> {
-        Ok(0)
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
+        Ok(())
     }
 }
 

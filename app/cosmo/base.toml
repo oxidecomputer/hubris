@@ -939,7 +939,6 @@ sensors = { temperature = 1 }
 removable = true
 refdes = "J46"
 
-
 ################################################################################
 
 # The `main` bus is managed by FPGA1, which impersonates a set of muxes

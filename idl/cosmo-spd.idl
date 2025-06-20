@@ -1,12 +1,14 @@
 // Cosmo SPD task API
-
+//
+// Right now, this doesn't actually do anything, but it lets us use the idol
+// runtime for notifications / dispatch.
 Interface(
     name: "CosmoSpd",
     ops: {
         "ping": (
-            doc: "returns 0u8",
+            doc: "blocks until the server is running",
             args: {},
-            reply: Simple("u8"),
+            reply: Simple("()"),
             idempotent: true,
         ),
     },
