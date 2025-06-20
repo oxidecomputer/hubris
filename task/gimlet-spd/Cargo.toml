@@ -1,5 +1,5 @@
 [package]
-name = "task-spd"
+name = "task-gimlet-spd"
 version = "0.1.0"
 edition = "2021"
 
@@ -35,7 +35,7 @@ no-ipc-counters = ["idol/no-counters"]
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
 [[bin]]
-name = "task-spd"
+name = "task-gimlet-spd"
 test = false
 doctest = false
 bench = false

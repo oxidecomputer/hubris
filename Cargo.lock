@@ -5270,6 +5270,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-cosmo-spd"
+version = "0.1.0"
+dependencies = [
+ "build-fpga-regmap",
+ "build-util",
+ "cfg-if",
+ "cortex-m",
+ "counters",
+ "drv-cpu-seq-api",
+ "drv-spartan7-loader-api",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "ringbuf",
+ "task-jefe-api",
+ "task-packrat-api",
+ "userlib",
+ "zerocopy 0.8.25",
+ "zerocopy-derive 0.8.25",
+]
+
+[[package]]
 name = "task-dump-agent"
 version = "0.1.0"
 dependencies = [
@@ -5340,6 +5362,29 @@ dependencies = [
  "idol",
  "serde",
  "task-net-api",
+ "userlib",
+]
+
+[[package]]
+name = "task-gimlet-spd"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "build-i2c",
+ "build-util",
+ "cfg-if",
+ "cortex-m",
+ "drv-cpu-seq-api",
+ "drv-i2c-api",
+ "drv-stm32xx-i2c",
+ "drv-stm32xx-sys-api",
+ "idol",
+ "num-traits",
+ "ringbuf",
+ "spd",
+ "stm32h7",
+ "task-jefe-api",
+ "task-packrat-api",
  "userlib",
 ]
 
@@ -5793,29 +5838,6 @@ dependencies = [
  "ringbuf",
  "serde",
  "sha3",
- "userlib",
-]
-
-[[package]]
-name = "task-spd"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "build-i2c",
- "build-util",
- "cfg-if",
- "cortex-m",
- "drv-cpu-seq-api",
- "drv-i2c-api",
- "drv-stm32xx-i2c",
- "drv-stm32xx-sys-api",
- "idol",
- "num-traits",
- "ringbuf",
- "spd",
- "stm32h7",
- "task-jefe-api",
- "task-packrat-api",
  "userlib",
 ]
 

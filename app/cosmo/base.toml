@@ -32,6 +32,7 @@ extern-regions = ["sram1", "sram2", "sram3", "sram4"]
 [tasks.jefe.config.on-state-change]
 net = "jefe-state-change"
 host_sp_comms = "jefe-state-change"
+spd = "jefe-state-change"
 
 [tasks.jefe.config.allowed-callers]
 set_state = ["cosmo_seq"]
@@ -228,7 +229,7 @@ notifications = ["flash-irq"]
 [tasks.sensor]
 name = "task-sensor"
 priority = 4
-max-sizes = {flash = 16384, ram = 8192 }
+max-sizes = {flash = 16384, ram = 16384 }
 stacksize = 1024
 start = true
 
@@ -351,6 +352,15 @@ max-sizes = {flash = 8192, ram = 2048 }
 start = true
 task-slots = ["i2c_driver"]
 stacksize = 800
+
+[tasks.spd]
+name = "task-cosmo-spd"
+priority = 7
+max-sizes = {flash = 8192, ram = 4096 }
+start = true
+notifications = ["jefe-state-change", "timer"]
+task-slots = ["jefe", "spartan7_loader", "packrat", "sensor"]
+uses = ["mmio_dimms"]
 
 [tasks.auxflash]
 name = "drv-auxflash-server"
@@ -1253,6 +1263,151 @@ description = "Sled hot swap controller"
 power = { rails = [ "V54P5_IBC_A3" ] }
 sensors = { temperature = 1, voltage = 1, current = 1 }
 refdes = "U79"
+
+[[config.sensor.devices]]
+name = "A_TS0"
+device = "dimm"
+description = "DIMM A, sensor 0"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "A_TS1"
+device = "dimm"
+description = "DIMM A, sensor 1"
+sensors.temperature = 1
+
+
+[[config.sensor.devices]]
+name = "B_TS0"
+device = "dimm"
+description = "DIMM B, sensor 0"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "B_TS1"
+device = "dimm"
+description = "DIMM B, sensor 1"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "C_TS0"
+device = "dimm"
+description = "DIMM C, sensor 0"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "C_TS1"
+device = "dimm"
+description = "DIMM C, sensor 1"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "D_TS0"
+device = "dimm"
+description = "DIMM D, sensor 0"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "D_TS1"
+device = "dimm"
+description = "DIMM D, sensor 1"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "E_TS0"
+device = "dimm"
+description = "DIMM E, sensor 0"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "E_TS1"
+device = "dimm"
+description = "DIMM E, sensor 1"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "F_TS0"
+device = "dimm"
+description = "DIMM F, sensor 0"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "F_TS1"
+device = "dimm"
+description = "DIMM F, sensor 1"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "G_TS0"
+device = "dimm"
+description = "DIMM G, sensor 0"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "G_TS1"
+device = "dimm"
+description = "DIMM G, sensor 1"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "H_TS0"
+device = "dimm"
+description = "DIMM H, sensor 0"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "H_TS1"
+device = "dimm"
+description = "DIMM H, sensor 1"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "I_TS0"
+device = "dimm"
+description = "DIMM I, sensor 0"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "I_TS1"
+device = "dimm"
+description = "DIMM I, sensor 1"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "J_TS0"
+device = "dimm"
+description = "DIMM J, sensor 0"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "J_TS1"
+device = "dimm"
+description = "DIMM J, sensor 1"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "K_TS0"
+device = "dimm"
+description = "DIMM K, sensor 0"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "K_TS1"
+device = "dimm"
+description = "DIMM K, sensor 1"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "L_TS0"
+device = "dimm"
+description = "DIMM L, sensor 0"
+sensors.temperature = 1
+
+[[config.sensor.devices]]
+name = "L_TS1"
+device = "dimm"
+description = "DIMM L, sensor 1"
+sensors.temperature = 1
 
 ################################################################################
 [config.spi.spi2]
