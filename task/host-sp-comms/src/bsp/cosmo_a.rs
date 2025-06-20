@@ -12,7 +12,7 @@ use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::at24csw080::{At24Csw080, Error as EepromError};
 use drv_oxide_vpd::VpdError;
 use drv_spi_api::SpiServer;
-use task_sensor_api::SensorId;
+use task_sensor_api::{config::other_sensors, SensorId};
 use userlib::TaskId;
 use zerocopy::IntoBytes;
 
@@ -29,7 +29,7 @@ pub(crate) const SP_TO_HOST_CPU_INT_TYPE: drv_stm32xx_sys_api::OutputType =
 
 impl ServerImpl {
     /// Number of devices in our inventory
-    pub(crate) const INVENTORY_COUNT: u32 = 59;
+    pub(crate) const INVENTORY_COUNT: u32 = 71;
 
     /// Look up a device in our inventory, by index
     ///
@@ -43,7 +43,7 @@ impl ServerImpl {
     /// This function should only return an error if the index is invalid;
     /// in that case, our caller is responsible for encoding the error as
     /// ```
-    /// SpToHost::InventoryData{
+    /// SpToHost::InventoryData {
     ///     result: err
     ///     name: [0; u32],
     /// }
@@ -58,29 +58,23 @@ impl ServerImpl {
             0 => {
                 // U32/ID: SP barcode is available in packrat
                 let packrat = &self.packrat;
-                let mut data = InventoryData::VpdIdentity(Default::default());
+                *self.scratch = InventoryData::VpdIdentity(Default::default());
                 self.tx_buf.try_encode_inventory(sequence, b"U32/ID", || {
-                    let InventoryData::VpdIdentity(identity) = &mut data else {
+                    let InventoryData::VpdIdentity(identity) = self.scratch
+                    else {
                         unreachable!();
                     };
                     *identity = packrat
                         .get_identity()
                         .map_err(|_| InventoryDataResult::DeviceAbsent)?
                         .into();
-                    Ok(&data)
+                    Ok(self.scratch)
                 });
             }
             1 => {
                 // U32: Gimlet VPD EEPROM
-                //
-                // Note that for VPD AT24CSW080 identities, we allocate our
-                // InventoryData in the outer frame then pass it in as a
-                // reference; `read_at24csw080_id` typically isn't inlined, and
-                // we're already paying a stack frame for the data in this
-                // function, so it saves us 512 bytes of stack.
                 let (name, f, _sensors) = by_refdes!(U32, at24csw080);
-                let mut data = InventoryData::At24csw08xSerial([0u8; 16]);
-                self.read_at24csw080_id(sequence, &name, f, &mut data)
+                self.read_at24csw080_id(sequence, &name, f)
             }
             2 => {
                 // J34/ID: Fan VPD barcode (not available in packrat)
@@ -92,12 +86,10 @@ impl ServerImpl {
             }
             3 => {
                 // J34: Fan VPD EEPROM (on the daughterboard)
-                let mut data = InventoryData::At24csw08xSerial([0u8; 16]);
                 self.read_at24csw080_id(
                     sequence,
                     b"J34/U1",
                     i2c_config::devices::at24csw080_fan_vpd,
-                    &mut data,
                 )
             }
             // Welcome to The Sharkfin Zone
@@ -120,8 +112,7 @@ impl ServerImpl {
                     Self::get_sharkfin_vpd(index as usize - 14);
                 let mut name = *b"____/U2";
                 name[0..4].copy_from_slice(&designator);
-                let mut data = InventoryData::At24csw08xSerial([0u8; 16]);
-                self.read_at24csw080_id(sequence, &name, f, &mut data)
+                self.read_at24csw080_id(sequence, &name, f)
             }
             24 => {
                 // U20: the service processor itself
@@ -133,13 +124,14 @@ impl ServerImpl {
                 let idc = drv_stm32h7_dbgmcu::read_idc();
                 let dbgmcu_rev_id = (idc >> 16) as u16;
                 let dbgmcu_dev_id = (idc & 4095) as u16;
-                let data = InventoryData::Stm32H7 {
+                *self.scratch = InventoryData::Stm32H7 {
                     uid,
                     dbgmcu_rev_id,
                     dbgmcu_dev_id,
                 };
-                self.tx_buf
-                    .try_encode_inventory(sequence, b"U20", || Ok(&data));
+                self.tx_buf.try_encode_inventory(sequence, b"U20", || {
+                    Ok(self.scratch)
+                });
             }
             25 => {
                 // U80: BMR491
@@ -147,7 +139,7 @@ impl ServerImpl {
                 let dev = f(I2C.get_task_id());
                 // To be stack-friendly, we declare our output here,
                 // then bind references to all the member variables.
-                let mut data = InventoryData::Bmr491 {
+                *self.scratch = InventoryData::Bmr491 {
                     mfr_id: [0u8; 12],
                     mfr_model: [0u8; 20],
                     mfr_revision: [0u8; 12],
@@ -174,7 +166,7 @@ impl ServerImpl {
                         voltage_sensor: _,
                         current_sensor: _,
                         power_sensor: _,
-                    } = &mut data
+                    } = self.scratch
                     else {
                         unreachable!()
                     };
@@ -194,7 +186,7 @@ impl ServerImpl {
                         CommandCode::MFR_FIRMWARE_DATA as u8,
                         mfr_firmware_data,
                     )?;
-                    Ok(&data)
+                    Ok(self.scratch)
                 })
             }
             26 => {
@@ -202,7 +194,7 @@ impl ServerImpl {
                 let dev = f(I2C.get_task_id());
                 // To be stack-friendly, we declare our output here,
                 // then bind references to all the member variables.
-                let mut data = InventoryData::Isl68224 {
+                *self.scratch = InventoryData::Isl68224 {
                     mfr_id: [0u8; 4],
                     mfr_model: [0u8; 4],
                     mfr_revision: [0u8; 4],
@@ -223,7 +215,7 @@ impl ServerImpl {
                         ic_device_rev,
                         voltage_sensors: _,
                         current_sensors: _,
-                    } = &mut data
+                    } = self.scratch
                     else {
                         unreachable!()
                     };
@@ -242,7 +234,7 @@ impl ServerImpl {
                         CommandCode::IC_DEVICE_REV as u8,
                         ic_device_rev,
                     )?;
-                    Ok(&data)
+                    Ok(self.scratch)
                 })
             }
             27..=28 => {
@@ -255,7 +247,7 @@ impl ServerImpl {
 
                 // To be stack-friendly, we declare our output here,
                 // then bind references to all the member variables.
-                let mut data = InventoryData::Raa229620a {
+                *self.scratch = InventoryData::Raa229620a {
                     mfr_id: [0u8; 4],
                     mfr_model: [0u8; 4],
                     mfr_revision: [0u8; 4],
@@ -280,7 +272,7 @@ impl ServerImpl {
                         power_sensors: _,
                         voltage_sensors: _,
                         current_sensors: _,
-                    } = &mut data
+                    } = self.scratch
                     else {
                         unreachable!()
                     };
@@ -299,7 +291,7 @@ impl ServerImpl {
                         CommandCode::IC_DEVICE_REV as u8,
                         ic_device_rev,
                     )?;
-                    Ok(&data)
+                    Ok(self.scratch)
                 })
             }
             29..=32 => {
@@ -311,7 +303,7 @@ impl ServerImpl {
                     _ => unreachable!(),
                 };
                 let dev = f(I2C.get_task_id());
-                let mut data = InventoryData::Tps546b24a {
+                *self.scratch = InventoryData::Tps546b24a {
                     mfr_id: [0u8; 3],
                     mfr_model: [0u8; 3],
                     mfr_revision: [0u8; 3],
@@ -336,7 +328,7 @@ impl ServerImpl {
                         temp_sensor: _,
                         voltage_sensor: _,
                         current_sensor: _,
-                    } = &mut data
+                    } = self.scratch
                     else {
                         unreachable!()
                     };
@@ -359,14 +351,14 @@ impl ServerImpl {
                         CommandCode::NVM_CHECKSUM as u8,
                         nvm_checksum.as_mut_bytes(),
                     )?;
-                    Ok(&data)
+                    Ok(self.scratch)
                 })
             }
             33 => {
                 let (name, f, sensors) = by_refdes!(U79, adm1272);
                 let dev = f(I2C.get_task_id());
 
-                let mut data = InventoryData::Adm1272 {
+                *self.scratch = InventoryData::Adm1272 {
                     mfr_id: [0u8; 3],
                     mfr_model: [0u8; 10],
                     mfr_revision: [0u8; 2],
@@ -386,7 +378,7 @@ impl ServerImpl {
                         temp_sensor: _,
                         voltage_sensor: _,
                         current_sensor: _,
-                    } = &mut data
+                    } = self.scratch
                     else {
                         unreachable!()
                     };
@@ -397,7 +389,7 @@ impl ServerImpl {
                         mfr_revision,
                     )?;
                     dev.read_block(CommandCode::MFR_DATE as u8, mfr_date)?;
-                    Ok(&data)
+                    Ok(self.scratch)
                 })
             }
             34..=36 => {
@@ -408,7 +400,7 @@ impl ServerImpl {
                     _ => unreachable!(),
                 };
                 let dev = f(I2C.get_task_id());
-                let mut data = InventoryData::Lm5066I {
+                *self.scratch = InventoryData::Lm5066I {
                     mfr_id: [0u8; 3],
                     mfr_model: [0u8; 8],
                     mfr_revision: [0u8; 2],
@@ -425,7 +417,7 @@ impl ServerImpl {
                         mfr_model,
                         mfr_revision,
                         ..
-                    } = &mut data
+                    } = self.scratch
                     else {
                         unreachable!()
                     };
@@ -435,7 +427,7 @@ impl ServerImpl {
                         CommandCode::MFR_REVISION as u8,
                         mfr_revision,
                     )?;
-                    Ok(&data)
+                    Ok(self.scratch)
                 })
             }
             37..=42 => {
@@ -457,7 +449,7 @@ impl ServerImpl {
                 // the type in the tuple assignment above.
                 name[..3].copy_from_slice(&connector_name);
 
-                let mut data = InventoryData::Tmp117 {
+                *self.scratch = InventoryData::Tmp117 {
                     id: 0,
                     eeprom1: 0,
                     eeprom2: 0,
@@ -471,7 +463,7 @@ impl ServerImpl {
                         eeprom2,
                         eeprom3,
                         temp_sensor: _,
-                    } = &mut data
+                    } = self.scratch
                     else {
                         unreachable!();
                     };
@@ -479,22 +471,22 @@ impl ServerImpl {
                     *eeprom1 = dev.read_reg(0x05u8)?;
                     *eeprom2 = dev.read_reg(0x06u8)?;
                     *eeprom3 = dev.read_reg(0x08u8)?;
-                    Ok(&data)
+                    Ok(self.scratch)
                 })
             }
             43 => {
                 let spi = drv_spi_api::Spi::from(SPI.get_task_id());
                 let ksz8463_dev = spi.device(drv_spi_api::devices::KSZ8463);
                 let ksz8463 = ksz8463::Ksz8463::new(ksz8463_dev);
-                let mut data = InventoryData::Ksz8463 { cider: 0 };
+                *self.scratch = InventoryData::Ksz8463 { cider: 0 };
                 self.tx_buf.try_encode_inventory(sequence, b"U37", || {
-                    let InventoryData::Ksz8463 { cider } = &mut data else {
+                    let InventoryData::Ksz8463 { cider } = self.scratch else {
                         unreachable!();
                     };
                     *cider = ksz8463
                         .read(ksz8463::Register::CIDER)
                         .map_err(|_| InventoryDataResult::DeviceFailed)?;
-                    Ok(&data)
+                    Ok(self.scratch)
                 });
             }
             44..=55 => {
@@ -514,20 +506,20 @@ impl ServerImpl {
                     11 => by_refdes!(U54, max5970, 4),
                     _ => panic!(),
                 };
-                let data = InventoryData::Max5970 {
+                *self.scratch = InventoryData::Max5970 {
                     voltage_sensors: SensorId::into_u32_array(sensors.voltage),
                     current_sensors: SensorId::into_u32_array(sensors.current),
                 };
                 self.tx_buf
-                    .try_encode_inventory(sequence, &name, || Ok(&data));
+                    .try_encode_inventory(sequence, &name, || Ok(self.scratch));
             }
             56 => {
                 let (name, _f, sensors) = by_refdes!(U58, max31790);
-                let data = InventoryData::Max31790 {
+                *self.scratch = InventoryData::Max31790 {
                     speed_sensors: SensorId::into_u32_array(sensors.speed),
                 };
                 self.tx_buf
-                    .try_encode_inventory(sequence, &name, || Ok(&data));
+                    .try_encode_inventory(sequence, &name, || Ok(self.scratch));
             }
             57..=58 => {
                 let (name, _f, sensors) = match index - 57 {
@@ -535,14 +527,17 @@ impl ServerImpl {
                     1 => by_refdes!(U127, ltc4282),
                     _ => unreachable!(),
                 };
-                let data = InventoryData::Ltc4282 {
+                *self.scratch = InventoryData::Ltc4282 {
                     voltage_sensor: sensors.voltage.into(),
                     current_sensor: sensors.current.into(),
                 };
                 self.tx_buf
-                    .try_encode_inventory(sequence, &name, || Ok(&data))
+                    .try_encode_inventory(sequence, &name, || Ok(self.scratch))
             }
-            // TODO add DIMMS to inventory here?
+
+            59..=70 => {
+                self.dimm_inventory_lookup(sequence, index as u8 - 59);
+            }
 
             // We need to specify INVENTORY_COUNT individually here to trigger
             // an error if we've overlapped it with a previous range
@@ -574,23 +569,105 @@ impl ServerImpl {
         (name, f)
     }
 
-    /// Reads the 128-byte unique ID from an AT24CSW080 EEPROM
-    ///
-    /// `data` is passed in to reduce stack frame size, since we already require
-    /// an allocation for it on the caller's stack frame.
+    fn dimm_inventory_lookup(&mut self, sequence: u64, index: u8) {
+        // Build a name of the form `J{index}`, to match the designator
+        let name = {
+            // The DIMMs are numbered J101-J112
+            let mut name = [0; 32];
+            name[0] = b'J';
+            name[1] = b'1';
+            let i = index + 1;
+            if i >= 10 {
+                name[2] = b'0' + (i / 10);
+                name[3] = b'0' + (i % 10);
+            } else {
+                name[2] = b'0';
+                name[3] = b'0' + i;
+            }
+            name
+        };
+
+        const DIMM_TEMPERATURE_SENSORS: [[SensorId; 2]; 12] = [
+            [
+                other_sensors::DIMM_A_TS0_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_A_TS1_TEMPERATURE_SENSOR,
+            ],
+            [
+                other_sensors::DIMM_B_TS0_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_B_TS1_TEMPERATURE_SENSOR,
+            ],
+            [
+                other_sensors::DIMM_C_TS0_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_C_TS1_TEMPERATURE_SENSOR,
+            ],
+            [
+                other_sensors::DIMM_D_TS0_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_D_TS1_TEMPERATURE_SENSOR,
+            ],
+            [
+                other_sensors::DIMM_E_TS0_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_E_TS1_TEMPERATURE_SENSOR,
+            ],
+            [
+                other_sensors::DIMM_F_TS0_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_F_TS1_TEMPERATURE_SENSOR,
+            ],
+            [
+                other_sensors::DIMM_G_TS0_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_G_TS1_TEMPERATURE_SENSOR,
+            ],
+            [
+                other_sensors::DIMM_H_TS0_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_H_TS1_TEMPERATURE_SENSOR,
+            ],
+            [
+                other_sensors::DIMM_I_TS0_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_I_TS1_TEMPERATURE_SENSOR,
+            ],
+            [
+                other_sensors::DIMM_J_TS0_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_J_TS1_TEMPERATURE_SENSOR,
+            ],
+            [
+                other_sensors::DIMM_K_TS0_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_K_TS1_TEMPERATURE_SENSOR,
+            ],
+            [
+                other_sensors::DIMM_L_TS0_TEMPERATURE_SENSOR,
+                other_sensors::DIMM_L_TS1_TEMPERATURE_SENSOR,
+            ],
+        ];
+
+        let packrat = &self.packrat; // partial borrow
+        *self.scratch = InventoryData::DimmDdr5Spd {
+            id: [0u8; 1024],
+            temp_sensors: DIMM_TEMPERATURE_SENSORS[usize::from(index)]
+                .map(|i| i.into()),
+        };
+        self.tx_buf.try_encode_inventory(sequence, &name, || {
+            if packrat.get_spd_present(index) {
+                let InventoryData::DimmDdr5Spd { id, .. } = self.scratch else {
+                    unreachable!();
+                };
+                packrat.get_full_spd_data(index, id);
+                Ok(self.scratch)
+            } else {
+                Err(InventoryDataResult::DeviceAbsent)
+            }
+        });
+    }
+
+    /// Reads the 128-bit unique ID from an AT24CSW080 EEPROM
     fn read_at24csw080_id(
         &mut self,
         sequence: u64,
         name: &[u8],
         f: fn(userlib::TaskId) -> I2cDevice,
-        data: &mut InventoryData,
     ) {
-        // This should be done by the caller, but let's make it obviously
-        // correct (since we destructure it below).
-        *data = InventoryData::At24csw08xSerial([0u8; 16]);
+        *self.scratch = InventoryData::At24csw08xSerial([0u8; 16]);
         let dev = At24Csw080::new(f(I2C.get_task_id()));
         self.tx_buf.try_encode_inventory(sequence, name, || {
-            let InventoryData::At24csw08xSerial(id) = data else {
+            let InventoryData::At24csw08xSerial(id) = self.scratch else {
                 unreachable!();
             };
             for (i, b) in id.iter_mut().enumerate() {
@@ -603,7 +680,7 @@ impl ServerImpl {
                     }
                 })?;
             }
-            Ok(data)
+            Ok(self.scratch)
         });
     }
 
@@ -619,13 +696,13 @@ impl ServerImpl {
         f: fn(userlib::TaskId) -> I2cDevice,
     ) {
         let dev = f(I2C.get_task_id());
-        let mut data = InventoryData::VpdIdentity(Default::default());
+        *self.scratch = InventoryData::VpdIdentity(Default::default());
         self.tx_buf.try_encode_inventory(sequence, name, || {
-            let InventoryData::VpdIdentity(identity) = &mut data else {
+            let InventoryData::VpdIdentity(identity) = self.scratch else {
                 unreachable!();
             };
             *identity = read_one_barcode(dev, &[(*b"BARC", 0)])?.into();
-            Ok(&data)
+            Ok(self.scratch)
         })
     }
 
@@ -646,7 +723,7 @@ impl ServerImpl {
         f: fn(userlib::TaskId) -> I2cDevice,
     ) {
         let dev = f(I2C.get_task_id());
-        let mut data = InventoryData::FanIdentity {
+        *self.scratch = InventoryData::FanIdentity {
             identity: Default::default(),
             vpd_identity: Default::default(),
             fans: Default::default(),
@@ -656,7 +733,7 @@ impl ServerImpl {
                 identity,
                 vpd_identity,
                 fans: [fan0, fan1, fan2],
-            } = &mut data
+            } = self.scratch
             else {
                 unreachable!();
             };
@@ -669,7 +746,7 @@ impl ServerImpl {
                 read_one_barcode(dev, &[(*b"SASY", 0), (*b"BARC", 2)])?.into();
             *fan2 =
                 read_one_barcode(dev, &[(*b"SASY", 0), (*b"BARC", 3)])?.into();
-            Ok(&data)
+            Ok(self.scratch)
         })
     }
 }

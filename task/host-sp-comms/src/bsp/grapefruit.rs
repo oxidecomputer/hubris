@@ -60,28 +60,29 @@ impl ServerImpl {
                 let idc = drv_stm32h7_dbgmcu::read_idc();
                 let dbgmcu_rev_id = (idc >> 16) as u16;
                 let dbgmcu_dev_id = (idc & 4095) as u16;
-                let data = InventoryData::Stm32H7 {
+                *self.scratch = InventoryData::Stm32H7 {
                     uid,
                     dbgmcu_rev_id,
                     dbgmcu_dev_id,
                 };
-                self.tx_buf
-                    .try_encode_inventory(sequence, b"U12", || Ok(&data));
+                self.tx_buf.try_encode_inventory(sequence, b"U12", || {
+                    Ok(self.scratch)
+                });
             }
 
             1 => {
                 let spi = drv_spi_api::Spi::from(SPI.get_task_id());
                 let ksz8463_dev = spi.device(drv_spi_api::devices::KSZ8463);
                 let ksz8463 = ksz8463::Ksz8463::new(ksz8463_dev);
-                let mut data = InventoryData::Ksz8463 { cider: 0 };
+                *self.scratch = InventoryData::Ksz8463 { cider: 0 };
                 self.tx_buf.try_encode_inventory(sequence, b"U401", || {
-                    let InventoryData::Ksz8463 { cider } = &mut data else {
+                    let InventoryData::Ksz8463 { cider } = self.scratch else {
                         unreachable!();
                     };
                     *cider = ksz8463
                         .read(ksz8463::Register::CIDER)
                         .map_err(|_| InventoryDataResult::DeviceFailed)?;
-                    Ok(&data)
+                    Ok(self.scratch)
                 });
             }
 

@@ -262,6 +262,10 @@ struct ServerImpl {
     reboot_state: Option<RebootState>,
     host_kv_storage: HostKeyValueStorage,
     hf_mux_state: Option<HfMuxState>,
+
+    /// Temporary space for inventory data, which is a large `enum`
+    scratch: &'static mut host_sp_messages::InventoryData,
+
     /// Set when the host OS fails to boot or panics, and unset when the system
     /// reboots.
     ///
@@ -290,6 +294,7 @@ impl ServerImpl {
             last_panic: [u8; MAX_HOST_FAIL_MESSAGE_LEN],
             etc_system: [u8; MAX_ETC_SYSTEM_LEN],
             dtrace_conf: [u8; MAX_DTRACE_CONF_LEN],
+            scratch: host_sp_messages::InventoryData,
         }
         let Bufs {
             ref mut tx_buf,
@@ -298,6 +303,7 @@ impl ServerImpl {
             ref mut last_panic,
             ref mut etc_system,
             ref mut dtrace_conf,
+            ref mut scratch,
         } = {
             static BUFS: ClaimOnceCell<Bufs> = ClaimOnceCell::new(Bufs {
                 tx_buf: tx_buf::StaticBufs::new(),
@@ -306,6 +312,12 @@ impl ServerImpl {
                 last_panic: [0; MAX_HOST_FAIL_MESSAGE_LEN],
                 etc_system: [0; MAX_ETC_SYSTEM_LEN],
                 dtrace_conf: [0; MAX_DTRACE_CONF_LEN],
+
+                // Default value for InventoryData
+                scratch: host_sp_messages::InventoryData::DimmSpd {
+                    id: [0u8; 512],
+                    temp_sensor: 0u32,
+                },
             });
             BUFS.claim()
         };
@@ -336,6 +348,7 @@ impl ServerImpl {
             },
             hf_mux_state: None,
             last_power_off: None,
+            scratch,
         }
     }
 
