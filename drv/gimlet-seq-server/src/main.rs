@@ -50,6 +50,10 @@ include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 )]
 mod payload;
 
+/// Types for more ergonomic access to FPGA generated types
+pub type A1SmStatus = Reg::A1SMSTATUS::A1SmEncoded;
+pub type A0SmStatus = Reg::A0SMSTATUS::A0SmEncoded;
+
 #[derive(Copy, Clone, PartialEq, Count)]
 enum I2cTxn {
     SpdLoad(u8, u8),
@@ -77,14 +81,14 @@ enum Trace {
     A2,
     A0FailureDetails(Addr, u8),
     A0Failed(#[count(children)] SeqError),
-    A1Status(u8),
+    A1Status(A1SmStatus),
     CPUPresent(#[count(children)] bool),
     Coretype {
         coretype: bool,
         sp3r1: bool,
         sp3r2: bool,
     },
-    A0Status(u8),
+    A0Status(A0SmStatus),
     A0Power(u8),
     NICPowerEnableLow(bool),
     RailsOn,
@@ -112,8 +116,8 @@ enum Trace {
         nic: u8,
     },
     SMStatus {
-        a1: u8,
-        a0: u8,
+        a1: A1SmStatus,
+        a0: A0SmStatus,
     },
     NICStatus {
         nic_ctrl: u8,
@@ -695,9 +699,11 @@ impl<S: SpiServer> ServerImpl<S> {
             nic: self.seq.read_byte(Addr::NIC_STATUS).unwrap_lite(),
         });
 
+        let a1: u8 = self.seq.read_byte(Addr::A1SMSTATUS).unwrap_lite();
+        let a0: u8 = self.seq.read_byte(Addr::A0SMSTATUS).unwrap_lite();
         ringbuf_entry!(Trace::SMStatus {
-            a1: self.seq.read_byte(Addr::A1SMSTATUS).unwrap_lite(),
-            a0: self.seq.read_byte(Addr::A0SMSTATUS).unwrap_lite(),
+            a1: A1SmStatus::try_from(a1).unwrap_lite(),
+            a0: A0SmStatus::try_from(a0).unwrap_lite(),
         });
 
         ringbuf_entry!(Trace::PowerControl(
@@ -746,9 +752,11 @@ impl<S: SpiServer> ServerImpl<S> {
                     self.seq
                         .read_bytes(Addr::A1SMSTATUS, &mut status)
                         .unwrap_lite();
-                    ringbuf_entry!(Trace::A1Status(status[0]));
 
-                    if status[0] == Reg::A1SMSTATUS::A1SmEncoded::Done as u8 {
+                    let a1sm = A1SmStatus::try_from(status[0]).unwrap_lite();
+                    ringbuf_entry!(Trace::A1Status(a1sm));
+
+                    if a1sm == A1SmStatus::Done {
                         break;
                     }
 
@@ -802,10 +810,11 @@ impl<S: SpiServer> ServerImpl<S> {
                     self.seq
                         .read_bytes(Addr::A0SMSTATUS, &mut status)
                         .unwrap_lite();
-                    ringbuf_entry!(Trace::A0Status(status[0]));
 
-                    if status[0] == Reg::A0SMSTATUS::A0SmEncoded::GroupcPg as u8
-                    {
+                    let a0sm = A0SmStatus::try_from(status[0]).unwrap_lite();
+                    ringbuf_entry!(Trace::A0Status(a0sm));
+
+                    if a0sm == A0SmStatus::GroupcPg {
                         break;
                     }
 
