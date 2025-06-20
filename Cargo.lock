@@ -5293,6 +5293,7 @@ dependencies = [
  "ringbuf",
  "task-jefe-api",
  "task-packrat-api",
+ "task-sensor-api",
  "userlib",
  "zerocopy 0.8.25",
  "zerocopy-derive 0.8.25",
