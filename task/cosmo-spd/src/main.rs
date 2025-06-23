@@ -15,8 +15,8 @@ use task_jefe_api::Jefe;
 use task_packrat_api::Packrat;
 use task_sensor_api::{config::other_sensors, NoData, Sensor, SensorId};
 use userlib::{
-    hl::sleep_for, sys_get_timer, sys_recv_notification, sys_set_timer,
-    task_slot, FromPrimitive, RecvMessage,
+    hl::sleep_for, set_timer_relative, sys_recv_notification, task_slot,
+    FromPrimitive, RecvMessage,
 };
 use zerocopy::IntoBytes;
 
@@ -146,12 +146,11 @@ fn main() -> ! {
 
     let sensor = Sensor::from(SENSOR.get_task_id());
     let mut server = ServerImpl {
-        deadline: 0u64,
         dimms,
         sensor,
         present,
     };
-    sys_set_timer(Some(0), notifications::TIMER_MASK);
+    set_timer_relative(0, notifications::TIMER_MASK);
     let mut buffer = [0; idl::INCOMING_SIZE];
 
     loop {
@@ -160,11 +159,10 @@ fn main() -> ! {
 }
 
 // Poll the thermal sensors at roughly 4 Hz
-const TIMER_INTERVAL: u64 = 250;
+const TIMER_INTERVAL: u32 = 250;
 const DIMM_COUNT: usize = 12;
 
 struct ServerImpl {
-    deadline: u64,
     dimms: fmc_periph::Dimms,
     sensor: Sensor,
     present: [bool; DIMM_COUNT],
@@ -270,68 +268,65 @@ impl idol_runtime::NotificationHandler for ServerImpl {
                 }
             }};
         }
-        let now = sys_get_timer().now;
-        if now >= self.deadline {
-            for (index, present) in self.present.iter().cloned().enumerate() {
-                let bus = index / 6; // FPGA bus (0 or 1)
-                let dev = index % 6; // device index (SDI, 0-6)
 
-                for pos in 0..2 {
-                    // Mark sensors as absent if they're missing
-                    if !present {
-                        self.sensor.nodata_now(
-                            DIMM_SENSORS[index][pos],
-                            NoData::DeviceNotPresent,
-                        );
-                        continue;
-                    }
+        for (index, present) in self.present.iter().cloned().enumerate() {
+            let bus = index / 6; // FPGA bus (0 or 1)
+            let dev = index % 6; // device index (SDI, 0-6)
 
-                    // See JESD302-1A for details on this address
-                    #[allow(clippy::unusual_byte_groupings)]
-                    let addr = (0b0010_000 | (pos << 5) | dev) as u8;
-                    let raw_temp = if bus == 0 {
-                        dimm_read_temperature!(
-                            addr,
-                            bus0_cmd,
-                            bus0_rx_byte_count,
-                            bus0_rx_rdata
-                        )
-                    } else {
-                        dimm_read_temperature!(
-                            addr,
-                            bus1_cmd,
-                            bus1_rx_byte_count,
-                            bus1_rx_rdata
-                        )
-                    };
-                    let Some(raw_temp) = raw_temp else {
-                        ringbuf_entry!(Trace::TemperatureReadTimeout {
-                            index,
-                            pos,
-                        });
-                        self.sensor.nodata_now(
-                            DIMM_SENSORS[index][pos],
-                            NoData::DeviceTimeout,
-                        );
-                        continue;
-                    };
-
-                    // The actual temperature is a 13-bit two's complement value
-                    // (with two low bits reserved as 0s)
-                    //
-                    // We shift it so that the sign bit is in the right place,
-                    // cast it to an i16 to make it signed, then scale it into a
-                    // float.
-                    let t = (raw_temp << 3) as i16;
-                    let temp_c = f32::from(t) * 0.0078125f32;
-
-                    // Send the value to the sensors task
-                    self.sensor.post_now(DIMM_SENSORS[index][pos], temp_c);
+            for pos in 0..2 {
+                // Mark sensors as absent if they're missing
+                if !present {
+                    self.sensor.nodata_now(
+                        DIMM_SENSORS[index][pos],
+                        NoData::DeviceNotPresent,
+                    );
+                    continue;
                 }
+
+                // See JESD302-1A for details on this address
+                #[allow(clippy::unusual_byte_groupings)]
+                let addr = (0b0010_000 | (pos << 5) | dev) as u8;
+                let raw_temp = if bus == 0 {
+                    dimm_read_temperature!(
+                        addr,
+                        bus0_cmd,
+                        bus0_rx_byte_count,
+                        bus0_rx_rdata
+                    )
+                } else {
+                    dimm_read_temperature!(
+                        addr,
+                        bus1_cmd,
+                        bus1_rx_byte_count,
+                        bus1_rx_rdata
+                    )
+                };
+                let Some(raw_temp) = raw_temp else {
+                    ringbuf_entry!(Trace::TemperatureReadTimeout {
+                        index,
+                        pos,
+                    });
+                    self.sensor.nodata_now(
+                        DIMM_SENSORS[index][pos],
+                        NoData::DeviceTimeout,
+                    );
+                    continue;
+                };
+
+                // The actual temperature is a 13-bit two's complement value
+                // (with two low bits reserved as 0s)
+                //
+                // We shift it so that the sign bit is in the right place,
+                // cast it to an i16 to make it signed, then scale it into a
+                // float.
+                let t = (raw_temp << 3) as i16;
+                let temp_c = f32::from(t) * 0.0078125f32;
+
+                // Send the value to the sensors task
+                self.sensor.post_now(DIMM_SENSORS[index][pos], temp_c);
             }
-            self.deadline = now + TIMER_INTERVAL;
         }
-        sys_set_timer(Some(self.deadline), notifications::TIMER_MASK);
+        set_timer_relative(TIMER_INTERVAL, notifications::TIMER_MASK);
     }
 }
 
