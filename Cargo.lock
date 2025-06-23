@@ -1060,6 +1060,7 @@ dependencies = [
  "counters",
  "drv-hash-api",
  "drv-hf-api",
+ "drv-hf-fail-server",
  "drv-spartan7-loader-api",
  "hubpack",
  "idol",
@@ -1219,6 +1220,7 @@ dependencies = [
  "build-util",
  "drv-hash-api",
  "drv-hf-api",
+ "drv-hf-fail-server",
  "drv-stm32h7-qspi",
  "drv-stm32xx-sys-api",
  "hubpack",
@@ -1317,6 +1319,23 @@ dependencies = [
  "derive-idol-err",
  "drv-hash-api",
  "drv-qspi-api",
+ "hubpack",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "serde",
+ "userlib",
+ "zerocopy 0.8.25",
+ "zerocopy-derive 0.8.25",
+]
+
+[[package]]
+name = "drv-hf-fail-server"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "drv-hash-api",
+ "drv-hf-api",
  "hubpack",
  "idol",
  "idol-runtime",

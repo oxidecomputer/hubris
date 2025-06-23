@@ -37,6 +37,7 @@ pub enum HfError {
     HashUncalculated,
     RecalculateHash,
     HashInProgress,
+    BadCapacity,
 
     #[idol(server_death)]
     ServerRestarted,

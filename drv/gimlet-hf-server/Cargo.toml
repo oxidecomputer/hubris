@@ -13,6 +13,7 @@ zerocopy.workspace = true
 zerocopy-derive.workspace = true
 
 drv-hf-api = { path = "../hf-api" }
+drv-hf-fail-server = { path = "../hf-fail-server" }
 drv-hash-api = { path = "../hash-api" }
 drv-stm32h7-qspi = { path = "../stm32h7-qspi" }
 drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
