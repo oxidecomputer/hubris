@@ -118,10 +118,7 @@ impl Bsp {
 
     pub fn power_mode(&self) -> PowerBitmask {
         match self.seq.get_state() {
-            PowerState::A0PlusHP
-            | PowerState::A0
-            | PowerState::A1
-            | PowerState::A0Reset => {
+            PowerState::A0PlusHP | PowerState::A0 | PowerState::A0Reset => {
                 use drv_i2c_devices::max5970;
                 use userlib::units::Ohms;
 

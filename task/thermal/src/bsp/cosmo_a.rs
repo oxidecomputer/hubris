@@ -97,10 +97,9 @@ impl Bsp {
 
     pub fn power_mode(&self) -> PowerBitmask {
         match self.seq.get_state() {
-            PowerState::A0PlusHP
-            | PowerState::A0
-            | PowerState::A1
-            | PowerState::A0Reset => PowerBitmask::A0,
+            PowerState::A0PlusHP | PowerState::A0 | PowerState::A0Reset => {
+                PowerBitmask::A0
+            }
             PowerState::A2
             | PowerState::A2PlusFans
             | PowerState::A0Thermtrip => PowerBitmask::A2,

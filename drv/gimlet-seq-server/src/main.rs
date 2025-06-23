@@ -618,9 +618,7 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
                     //
                 }
 
-                (PowerState::A2, _)
-                | (PowerState::A2PlusFans, _)
-                | (PowerState::A1, _) => {
+                (PowerState::A2, _) | (PowerState::A2PlusFans, _) => {
                     //
                     // We can only be in this larger block if the state is A0
                     // or A0PlusHP; we must have matched one of the arms above.

@@ -47,7 +47,6 @@ fn main() -> ! {
             }
             Some(PowerState::A2)
             | Some(PowerState::A2PlusFans)
-            | Some(PowerState::A1)
             | Some(PowerState::A0Reset)
             | Some(PowerState::A0Thermtrip)
             | None => {
