@@ -446,7 +446,6 @@ impl MgsHandler {
         // what would we map it to? Maybe easier to leave it exposed.
         let state = match self.sequencer.get_state() {
             DrvPowerState::A2 | DrvPowerState::A2PlusFans => PowerState::A2,
-            DrvPowerState::A1 => PowerState::A1,
             DrvPowerState::A0
             | DrvPowerState::A0PlusHP
             | DrvPowerState::A0Thermtrip
@@ -725,7 +724,12 @@ impl SpHandler for MgsHandler {
 
         let power_state = match power_state {
             PowerState::A0 => DrvPowerState::A0,
-            PowerState::A1 => DrvPowerState::A1,
+            // Nothing should every try to go into A1
+            PowerState::A1 => {
+                return Err(SpError::PowerStateError(
+                    drv_cpu_seq_api::SeqError::IllegalTransition.into(),
+                ))
+            }
             PowerState::A2 => DrvPowerState::A2,
         };
 

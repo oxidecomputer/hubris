@@ -93,7 +93,6 @@ fn main() -> ! {
         match PowerState::from_u32(jefe.get_state()) {
             Some(PowerState::A2)
             | Some(PowerState::A2PlusFans)
-            | Some(PowerState::A1)
             | Some(PowerState::A0)
             | Some(PowerState::A0PlusHP)
             | Some(PowerState::A0Reset)

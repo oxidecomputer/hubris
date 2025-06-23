@@ -39,7 +39,7 @@ use task_host_sp_comms_api::HostSpCommsError;
 use task_net_api::Net;
 use task_packrat_api::Packrat;
 use userlib::{
-    hl, sys_get_timer, sys_irq_control, task_slot, FromPrimitive, UnwrapLite,
+    sys_get_timer, sys_irq_control, task_slot, FromPrimitive, UnwrapLite,
 };
 
 mod inventory;
@@ -467,12 +467,6 @@ impl ServerImpl {
                     }
                     return;
                 }
-
-                // A1 should be transitory; sleep then retry.
-                PowerState::A1 => {
-                    hl::sleep_for(1);
-                    continue;
-                }
             }
         }
     }
@@ -497,7 +491,6 @@ impl ServerImpl {
                         Some(RebootState::WaitingInA2RebootDelay);
                 }
             }
-            PowerState::A1 => (), // do nothing
             PowerState::A0Reset => {
                 // We have spontaneously reset.  We are in A0 (and indeed,
                 // by time we get this, the ABL is presumably running), but
