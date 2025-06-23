@@ -756,13 +756,8 @@ impl<S: SpiServer> ServerImpl<S> {
                     let a1sm = A1SmStatus::try_from(status[0]);
                     ringbuf_entry!(Trace::A1Status(a1sm));
 
-                    match a1sm.ok() {
-                        Some(state) => {
-                            if state == A1SmStatus::Done {
-                                break;
-                            }
-                        }
-                        None => (),
+                    if a1sm == Ok(A1SmStatus::Done) {
+                        break;
                     }
 
                     if sys_get_timer().now > deadline {
@@ -819,13 +814,8 @@ impl<S: SpiServer> ServerImpl<S> {
                     let a0sm = A0SmStatus::try_from(status[0]);
                     ringbuf_entry!(Trace::A0Status(a0sm));
 
-                    match a0sm.ok() {
-                        Some(state) => {
-                            if state == A0SmStatus::GroupcPg {
-                                break;
-                            }
-                        }
-                        None => (),
+                    if a0sm == Ok(A0SmStatus::Done) {
+                        break;
                     }
 
                     if sys_get_timer().now > deadline {
