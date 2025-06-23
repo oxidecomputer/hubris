@@ -108,7 +108,7 @@ notifications = ["i2c2-irq", "i2c3-irq", "i2c4-irq"]
 "i2c4.error" = "i2c4-irq"
 
 [tasks.spd]
-name = "task-spd"
+name = "task-gimlet-spd"
 features = ["h753"]
 priority = 2
 max-sizes = {flash = 16384, ram = 16384}

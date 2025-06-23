@@ -656,6 +656,7 @@ pub fn build_peripheral(
             #[allow(dead_code, clippy::useless_conversion, clippy::unnecessary_cast)]
             impl<'a> From<&'a #struct_name> for #debug_name {
                 fn from(s: &'a #struct_name) -> #debug_name {
+                    #[allow(unused_variables)]
                     let d = s.get_raw();
                     #(#debug_values)*
                     #debug_name {
@@ -725,6 +726,7 @@ pub fn read_parse(p: &std::path::Path) -> anyhow::Result<Node> {
     std::fs::File::open(p)
         .with_context(|| format!("failed to open {p:?}"))?
         .read_to_end(&mut data)?;
+    println!("cargo:rerun-if-changed={:?}", p);
     let src = std::str::from_utf8(&data)?;
     let node: Node = serde_json::from_str(src)?;
     Ok(node)
