@@ -1,6 +1,6 @@
 {
     "type": "addrmap",
-    "addr_span_bytes": 1796,
+    "addr_span_bytes": 1832,
     "inst_name": "cosmo_seq_top",
     "orig_type_name": "cosmo_seq_top",
     "addr_offset": 0,
@@ -63,7 +63,7 @@
         },
         {
             "type": "addrmap",
-            "addr_span_bytes": 4,
+            "addr_span_bytes": 40,
             "inst_name": "debug_ctrl",
             "orig_type_name": "debug_regs",
             "addr_offset": 1792,
