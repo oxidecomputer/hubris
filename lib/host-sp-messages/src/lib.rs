@@ -295,6 +295,7 @@ impl From<drv_i2c_types::ResponseCode> for InventoryDataResult {
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
 )]
+#[allow(clippy::large_enum_variant)]
 pub enum InventoryData {
     /// Raw DIMM data
     DimmSpd {
@@ -499,6 +500,12 @@ pub enum InventoryData {
         power_sensor: SensorIndex,
         voltage_sensor: SensorIndex,
         current_sensor: SensorIndex,
+    },
+    /// Raw DIMM data for a DDR5 part
+    DimmDdr5Spd {
+        #[serde(with = "BigArray")]
+        id: [u8; 1024],
+        temp_sensors: [SensorIndex; 2],
     },
 }
 
@@ -1271,7 +1278,7 @@ mod tests {
             sequence: 456,
         };
         let host_to_sp = HostToSp::HostPanic;
-        let data_blob = (0_u32..)
+        let data_blob = (0..)
             .into_iter()
             .map(|x| x as u8)
             .take(MAX_MESSAGE_SIZE)
