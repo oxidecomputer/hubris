@@ -524,17 +524,13 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
                     self.boot_preferences()?;
 
                 // The transient preference must not select the update target.
-                if let Some(pref) = transient {
-                    if slot == pref {
-                        return Err(UpdateError::InvalidPreferredSlotId.into());
-                    }
+                if transient == Some(slot) {
+                    return Err(UpdateError::InvalidPreferredSlotId.into());
                 }
                 // If there is a pending persistent preference, it must
                 // not select the update target.
-                if let Some(pref) = pending_persistent {
-                    if slot == pref {
-                        return Err(UpdateError::InvalidPreferredSlotId.into());
-                    }
+                if pending_persistent == Some(slot) {
+                    return Err(UpdateError::InvalidPreferredSlotId.into());
                 } else if slot == persistent {
                     // If there is no pending persistent preference, then the
                     // persistent preference must select the currently active image.
