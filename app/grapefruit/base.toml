@@ -117,7 +117,7 @@ features = ["grapefruit", "boot-kmdb"]
 [tasks.hiffy]
 name = "task-hiffy"
 priority = 7
-max-sizes = {flash = 32768, ram = 32768}
+max-sizes = {flash = 32768, ram = 65536}
 stacksize = 2048
 start = true
 features = ["h753", "stm32h7", "i2c", "gpio", "sprot", "qspi", "hash", "turbo"]

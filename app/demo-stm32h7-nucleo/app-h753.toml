@@ -2,6 +2,7 @@ name = "demo-stm32h753-nucleo"
 target = "thumbv7em-none-eabihf"
 board = "nucleo-h753zi"
 chip = "../../chips/stm32h7"
+memory = "memory-large.toml"
 stacksize = 896
 
 [kernel]
@@ -149,7 +150,7 @@ notifications = ["socket"]
 name = "task-hiffy"
 features = ["h753", "stm32h7", "i2c", "gpio", "spi", "qspi", "hash", "turbo"]
 priority = 5
-max-sizes = {flash = 32768, ram = 32768 }
+max-sizes = {flash = 32768, ram = 65536 }
 stacksize = 2048
 start = true
 task-slots = ["sys", "i2c_driver", "hf", "hash_driver"]

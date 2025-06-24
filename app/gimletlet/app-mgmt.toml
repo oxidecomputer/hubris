@@ -42,7 +42,7 @@ notifications = ["timer"]
 name = "task-hiffy"
 features = ["h753", "stm32h7", "gpio", "spi"]
 priority = 3
-max-sizes = {flash = 32768, ram = 16384 }
+max-sizes = {flash = 32768, ram = 65536 }
 stacksize = 2048
 start = true
 task-slots = ["sys", "user_leds"]
