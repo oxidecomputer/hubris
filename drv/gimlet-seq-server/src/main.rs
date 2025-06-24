@@ -82,6 +82,8 @@ enum Trace {
     A0FailureDetails(Addr, u8),
     A0Failed(#[count(children)] SeqError),
     A1Status(Result<A1SmStatus, u8>),
+    A1Readbacks(u8),
+    A1OutStatus(u8),
     CPUPresent(#[count(children)] bool),
     Coretype {
         coretype: bool,
@@ -745,6 +747,20 @@ impl<S: SpiServer> ServerImpl<S> {
                 self.seq.set_bytes(Addr::PWR_CTRL, &[a1]).unwrap_lite();
 
                 loop {
+                    let mut readbacks = [0u8];
+
+                    self.seq
+                        .read_bytes(Addr::A1_READBACKS, &mut readbacks)
+                        .unwrap_lite();
+                    ringbuf_entry!(Trace::A1Readbacks(readbacks[0]));
+
+                    let mut out_status = [0u8];
+
+                    self.seq
+                        .read_bytes(Addr::A1_OUT_STATUS, &mut out_status)
+                        .unwrap_lite();
+                    ringbuf_entry!(Trace::A1OutStatus(out_status[0]));
+
                     let mut status = [0u8];
 
                     self.seq
