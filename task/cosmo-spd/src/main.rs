@@ -243,7 +243,7 @@ impl idol_runtime::NotificationHandler for ServerImpl {
                     b.set_bus_addr($addr);
                     b.set_len(2);
                     b.set_reg_addr(0x31); // current sensed temperature
-                    b.set_op(0); // READ
+                    b.set_op(2); // RANDOM_READ
                 });
                 const BUSY_LOOP_COUNT: usize = 32;
                 const TIMEOUT_COUNT: usize = 64;
