@@ -118,6 +118,10 @@ fn main() -> ! {
     match init() {
         // Set up everything nicely, time to start serving incoming messages.
         Ok(mut server) => {
+            // Enable the backplane PCIe clock if requested
+            if cfg!(feature = "enable-backplane-pcie-clk") {
+                server.seq.pcie_clk_ctrl.modify(|p| p.set_clk_en(true));
+            }
             // Power on, unless suppressed by the `stay-in-a2` feature
             if !cfg!(feature = "stay-in-a2") {
                 _ = server.set_state_impl(
