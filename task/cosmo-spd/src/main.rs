@@ -29,7 +29,6 @@ task_slot!(SENSOR, sensor);
 enum Trace {
     None,
     Ready,
-    LoopCount(usize),
     Present { index: usize, present: bool },
     TemperatureReadTimeout { index: usize, pos: usize },
 }
