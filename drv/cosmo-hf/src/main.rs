@@ -365,7 +365,7 @@ impl FlashDriver {
 /// Failure function, running an Idol response loop that always returns an error
 fn fail(err: drv_hf_api::HfError) {
     let mut buffer = [0; hf::idl::INCOMING_SIZE];
-    let mut server = hf::FailServer { err };
+    let mut server = hf::idl::FailServer::new(err);
     loop {
         idol_runtime::dispatch(&mut buffer, &mut server);
     }
