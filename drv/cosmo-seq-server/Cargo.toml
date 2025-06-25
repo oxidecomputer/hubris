@@ -33,6 +33,7 @@ idol = { workspace = true }
 [features]
 h753 = ["drv-stm32xx-sys-api/h753"]
 stay-in-a2 = []
+enable-backplane-pcie-clk = []
 
 [[bin]]
 name = "drv-cosmo-seq-server"

@@ -1,3 +1,3 @@
 # Configuration fragment for -lab images
-tasks.cosmo_seq.features = ["stay-in-a2"]
+tasks.cosmo_seq.features = ["stay-in-a2", "enable-backplane-pcie-clk"]
 tasks.packrat.features = ["boot-kmdb"]
