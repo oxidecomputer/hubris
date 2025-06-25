@@ -245,21 +245,16 @@ impl idol_runtime::NotificationHandler for ServerImpl {
                     b.set_reg_addr(0x31); // current sensed temperature
                     b.set_op(2); // RANDOM_READ
                 });
-                const BUSY_LOOP_COUNT: usize = 32;
-                const TIMEOUT_COUNT: usize = 64;
+                const TIMEOUT_COUNT: usize = 8;
                 let mut timed_out = false;
                 for i in 0.. {
                     if self.dimms.$count.data() == 2 {
-                        if i > BUSY_LOOP_COUNT {
-                            ringbuf_entry!(Trace::LoopCount(i));
-                        }
                         break;
                     } else if i == TIMEOUT_COUNT {
                         timed_out = true;
                         break;
-                    } else if i > BUSY_LOOP_COUNT {
-                        sleep_for(1);
                     }
+                    sleep_for(1);
                 }
                 if timed_out {
                     None
