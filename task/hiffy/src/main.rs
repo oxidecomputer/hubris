@@ -77,7 +77,7 @@ cfg_if::cfg_if! {
         // go-faster mode
         //
         const HIFFY_DATA_SIZE: usize = 20_480;
-        const HIFFY_TEXT_SIZE: usize = 2048;
+        const HIFFY_TEXT_SIZE: usize = 4096;
         const HIFFY_RSTACK_SIZE: usize = 2048;
 
         /// Number of "scratch" bytes available to Hiffy programs. Humility uses this
