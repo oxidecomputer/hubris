@@ -928,21 +928,26 @@ impl<'a> ThermalControl<'a> {
     /// the array), the iterator will skip that entire tuple.
     fn zip_temperatures<'b, T>(
         values: &'b [T],
-        (static_inputs, dynamic_inputs): (
-            &'b [InputChannel],
-            &'b [Option<DynamicInputChannel>],
-        ),
-    ) -> impl Iterator<Item = (&'b T, ThermalProperties)> {
+        static_inputs: &'b [InputChannel],
+        dynamic_inputs: &'b [Option<DynamicInputChannel>],
+        dynamic_sensors: &'b [SensorId],
+    ) -> impl Iterator<Item = (SensorId, &'b T, ThermalProperties)> {
         assert_eq!(values.len(), static_inputs.len() + dynamic_inputs.len());
+        assert_eq!(dynamic_inputs.len(), dynamic_sensors.len());
         values
             .iter()
             .zip(
                 static_inputs
                     .iter()
-                    .map(|i| Some(i.model))
-                    .chain(dynamic_inputs.iter().map(|i| i.map(|i| i.model))),
+                    .map(|i| Some((i.sensor.sensor_id, i.model)))
+                    .chain(
+                        dynamic_inputs
+                            .iter()
+                            .zip(dynamic_sensors.iter().cloned())
+                            .map(|(i, s)| i.map(|i| (s, i.model))),
+                    ),
             )
-            .filter_map(|(v, model)| model.map(|t| (v, t)))
+            .filter_map(|(v, model)| model.map(|(id, t)| (id, v, t)))
     }
 
     /// An extremely simple thermal control loop.
@@ -1011,22 +1016,23 @@ impl<'a> ThermalControl<'a> {
             }
         }
 
-        // A bit awkward, but we have to borrow these explicitly to work around
-        // the lifetime checker, which won't let us call a &self function when
-        // self.state is mutably borrowed.
-        let inputs = (self.bsp.inputs, self.dynamic_inputs.as_slice());
-
         let control_result = match &mut self.state {
             ThermalControlState::Boot { values } => {
                 let mut all_some = true;
-                let mut any_power_down = false;
+                let mut any_power_down = None;
                 let mut worst_margin = f32::MAX;
-                for (v, model) in Self::zip_temperatures(values, inputs) {
+                for (sensor_id, v, model) in Self::zip_temperatures(
+                    values,
+                    self.bsp.inputs,
+                    &self.dynamic_inputs,
+                    self.bsp.dynamic_inputs,
+                ) {
                     match v {
                         Some(TemperatureReading::Valid(v)) => {
                             let temperature = v.worst_case(now_ms, &model);
-                            any_power_down |=
-                                model.should_power_down(temperature);
+                            if model.should_power_down(temperature) {
+                                any_power_down = Some((sensor_id, temperature));
+                            }
                             worst_margin =
                                 worst_margin.min(model.margin(temperature).0);
                         }
@@ -1039,7 +1045,11 @@ impl<'a> ThermalControl<'a> {
                     }
                 }
 
-                if any_power_down {
+                if let Some((sensor_id, temperature)) = any_power_down {
+                    ringbuf_entry!(Trace::PowerDownDueTo {
+                        sensor_id,
+                        temperature
+                    });
                     self.state = ThermalControlState::Uncontrollable;
                     ringbuf_entry!(Trace::AutoState(self.get_state()));
 
@@ -1066,31 +1076,48 @@ impl<'a> ThermalControl<'a> {
                 }
             }
             ThermalControlState::Running { values, pid } => {
-                let mut any_power_down = false;
-                let mut any_critical = false;
+                let mut any_power_down = None;
+                let mut any_critical = None;
                 let mut worst_margin = f32::MAX;
 
                 // Remember, positive margin means that all parts are happily
                 // below their max temperature; negative means someone is
                 // overheating.  We want to pick the _smallest_ margin, since
                 // that's the part which is most overheated.
-                for (v, model) in Self::zip_temperatures(values, inputs) {
+                for (sensor_id, v, model) in Self::zip_temperatures(
+                    values,
+                    self.bsp.inputs,
+                    &self.dynamic_inputs,
+                    self.bsp.dynamic_inputs,
+                ) {
                     if let TemperatureReading::Valid(v) = v {
                         let temperature = v.worst_case(now_ms, &model);
-                        any_power_down |= model.should_power_down(temperature);
-                        any_critical |= model.is_critical(temperature);
+                        if model.should_power_down(temperature) {
+                            any_power_down = Some((sensor_id, temperature));
+                        }
+                        if model.is_critical(temperature) {
+                            any_critical = Some((sensor_id, temperature));
+                        }
 
                         worst_margin =
                             worst_margin.min(model.margin(temperature).0);
                     }
                 }
 
-                if any_power_down {
+                if let Some((sensor_id, temperature)) = any_power_down {
+                    ringbuf_entry!(Trace::PowerDownDueTo {
+                        sensor_id,
+                        temperature
+                    });
                     self.state = ThermalControlState::Uncontrollable;
                     ringbuf_entry!(Trace::AutoState(self.get_state()));
 
                     ControlResult::PowerDown
-                } else if any_critical {
+                } else if let Some((sensor_id, temperature)) = any_critical {
+                    ringbuf_entry!(Trace::CriticalDueTo {
+                        sensor_id,
+                        temperature
+                    });
                     self.state = ThermalControlState::Overheated {
                         values: *values,
                         start_time: now_ms,
@@ -1119,23 +1146,34 @@ impl<'a> ThermalControl<'a> {
             }
             ThermalControlState::Overheated { values, start_time } => {
                 let mut all_subcritical = true;
-                let mut any_power_down = false;
+                let mut any_power_down = None;
                 let mut worst_margin = f32::MAX;
 
-                for (v, model) in Self::zip_temperatures(values, inputs) {
+                for (sensor_id, v, model) in Self::zip_temperatures(
+                    values,
+                    self.bsp.inputs,
+                    &self.dynamic_inputs,
+                    self.bsp.dynamic_inputs,
+                ) {
                     if let TemperatureReading::Valid(v) = v {
                         let temperature = v.worst_case(now_ms, &model);
                         all_subcritical &= model.is_sub_critical(
                             temperature,
                             self.overheat_hysteresis,
                         );
-                        any_power_down |= model.should_power_down(temperature);
+                        if model.should_power_down(temperature) {
+                            any_power_down = Some((sensor_id, temperature));
+                        }
                         worst_margin =
                             worst_margin.min(model.margin(temperature).0);
                     }
                 }
 
-                if any_power_down {
+                if let Some((sensor_id, temperature)) = any_power_down {
+                    ringbuf_entry!(Trace::PowerDownDueTo {
+                        sensor_id,
+                        temperature
+                    });
                     self.state = ThermalControlState::Uncontrollable;
                     ringbuf_entry!(Trace::AutoState(self.get_state()));
 
