@@ -828,7 +828,7 @@ impl<S: SpiServer> ServerImpl<S> {
                     let a0sm = A0SmStatus::try_from(status[0]);
                     ringbuf_entry!(Trace::A0Status(a0sm));
 
-                    if a0sm == Ok(A0SmStatus::Done) {
+                    if a0sm == Ok(A0SmStatus::GroupcPg) {
                         break;
                     }
 
