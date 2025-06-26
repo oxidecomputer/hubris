@@ -23,8 +23,7 @@
 mod bsp;
 
 use userlib::{
-    hl, set_timer_relative, sys_recv_notification, task_slot, FromPrimitive,
-    RecvMessage, UnwrapLite,
+    hl, set_timer_relative, task_slot, FromPrimitive, RecvMessage, UnwrapLite,
 };
 
 use drv_hf_api::{HashData, HashState, SlotHash, SECTOR_SIZE_BYTES};
@@ -124,10 +123,7 @@ fn main() -> ! {
         if result.is_err() {
             // If we can't read the id there's a good chance nothing else is going to
             // work. `panic` would probably just be a crash loop.
-            loop {
-                // We are dead now.
-                sys_recv_notification(0);
-            }
+            fail(HfError::BadChipId);
         }
 
         match idbuf[0] {
@@ -154,10 +150,7 @@ fn main() -> ! {
     };
 
     let Some(log2_capacity) = log2_capacity else {
-        loop {
-            // We are dead now.
-            hl::sleep_for(1000);
-        }
+        fail(HfError::BadCapacity);
     };
     qspi.configure(cfg.clock, log2_capacity);
 
@@ -924,6 +917,15 @@ impl NotificationHandler for ServerImpl {
         if (bits & notifications::TIMER_MASK) != 0 {
             self.step_hash();
         }
+    }
+}
+
+/// Failure function, running an Idol response loop that always returns an error
+fn fail(err: drv_hf_api::HfError) -> ! {
+    let mut buffer = [0; idl::INCOMING_SIZE];
+    let mut server = idl::FailServer::new(err);
+    loop {
+        idol_runtime::dispatch(&mut buffer, &mut server);
     }
 }
 
