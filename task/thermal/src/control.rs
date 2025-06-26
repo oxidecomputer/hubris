@@ -927,13 +927,13 @@ impl<'a> ThermalControl<'a> {
     /// In cases where dynamic inputs are not present (i.e. they are `None` in
     /// the array), the iterator will skip that entire tuple.
     fn zip_temperatures<'b, T>(
-        values: &'b [T],
-        static_inputs: &'b [InputChannel],
-        dynamic_inputs: &'b [Option<DynamicInputChannel>],
-        dynamic_sensors: &'b [SensorId],
+        values: &'b [T; TEMPERATURE_ARRAY_SIZE],
+        static_inputs: &'b [InputChannel; bsp::NUM_TEMPERATURE_INPUTS],
+        dynamic_inputs: &'b [Option<DynamicInputChannel>;
+                bsp::NUM_DYNAMIC_TEMPERATURE_INPUTS],
+        dynamic_sensors: &'b [SensorId; bsp::NUM_DYNAMIC_TEMPERATURE_INPUTS],
     ) -> impl Iterator<Item = (SensorId, &'b T, ThermalProperties)> {
         assert_eq!(values.len(), static_inputs.len() + dynamic_inputs.len());
-        assert_eq!(dynamic_inputs.len(), dynamic_sensors.len());
         values
             .iter()
             .zip(

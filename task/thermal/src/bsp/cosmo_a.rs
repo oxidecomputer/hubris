@@ -43,11 +43,11 @@ pub const USE_CONTROLLER: bool = true;
 
 pub(crate) struct Bsp {
     /// Controlled sensors
-    pub inputs: &'static [InputChannel],
-    pub dynamic_inputs: &'static [SensorId],
+    pub inputs: &'static [InputChannel; NUM_TEMPERATURE_INPUTS],
+    pub dynamic_inputs: &'static [SensorId; NUM_DYNAMIC_TEMPERATURE_INPUTS],
 
     /// Monitored sensors
-    pub misc_sensors: &'static [TemperatureSensor],
+    pub misc_sensors: &'static [TemperatureSensor; NUM_TEMPERATURE_SENSORS],
 
     /// Fan control IC
     fctrl: Max31790State,
