@@ -26,7 +26,7 @@ use userlib::{
     hl, set_timer_relative, task_slot, FromPrimitive, RecvMessage, UnwrapLite,
 };
 
-use drv_hf_api::{HashData, HashState, SlotHash, SECTOR_SIZE_BYTES};
+use drv_hf_api::{HashData, HashState, HfChipId, SlotHash, SECTOR_SIZE_BYTES};
 use drv_stm32h7_qspi::{Qspi, QspiError, ReadSetting};
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{
@@ -528,12 +528,23 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     fn read_id(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<[u8; 20], RequestError<HfError>> {
+    ) -> Result<HfChipId, RequestError<HfError>> {
         self.check_muxed_to_sp()?;
 
         let mut idbuf = [0; 20];
         self.qspi.read_id(&mut idbuf).map_err(qspi_to_hf)?;
-        Ok(idbuf)
+
+        let mfr_id = idbuf[0];
+        let memory_type = idbuf[1];
+        let capacity = idbuf[2];
+
+        let unique_id: [u8; 17] = idbuf[3..].try_into().unwrap_lite();
+        Ok(HfChipId {
+            mfr_id,
+            memory_type,
+            capacity,
+            unique_id,
+        })
     }
 
     fn capacity(
@@ -931,7 +942,8 @@ fn fail(err: drv_hf_api::HfError) -> ! {
 
 mod idl {
     use super::{
-        HfDevSelect, HfError, HfMuxState, HfPersistentData, HfProtectMode,
+        HfChipId, HfDevSelect, HfError, HfMuxState, HfPersistentData,
+        HfProtectMode,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
