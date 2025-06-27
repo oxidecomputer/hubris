@@ -118,18 +118,6 @@ impl FlashDriver {
         self.flash_read(FlashAddr(0), &mut buf.as_mut_slice())
             .unwrap_lite();
 
-        self.clear_fifos();
-        self.drv.data_bytes.set_count(3);
-        self.drv.addr.set_addr(0);
-        self.drv.dummy_cycles.set_count(0);
-        self.drv.instr.set_opcode(instr::READ_JEDEC_ID);
-        self.wait_fpga_busy();
-        let v = self.drv.rx_fifo_rdata.fifo_data();
-        let bytes = v.to_le_bytes();
-        let mfr_id = bytes[0];
-        let memory_type = bytes[1];
-        let capacity = bytes[2];
-
         // Read the 12-byte unique ID (4 bytes of which are junk)
         self.drv.data_bytes.set_count(12);
         self.drv.addr.set_addr(0);
@@ -145,6 +133,18 @@ impl FlashDriver {
                 unique_id[i * 4 + j] = *byte;
             }
         }
+
+        self.clear_fifos();
+        self.drv.data_bytes.set_count(3);
+        self.drv.addr.set_addr(0);
+        self.drv.dummy_cycles.set_count(0);
+        self.drv.instr.set_opcode(instr::READ_JEDEC_ID);
+        self.wait_fpga_busy();
+        let v = self.drv.rx_fifo_rdata.fifo_data();
+        let bytes = v.to_le_bytes();
+        let mfr_id = bytes[0];
+        let memory_type = bytes[1];
+        let capacity = bytes[2];
 
         drv_hf_api::HfChipId {
             mfr_id,
