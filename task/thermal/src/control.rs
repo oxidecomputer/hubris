@@ -604,6 +604,9 @@ impl Default for OneSidedPidState {
 const TEMPERATURE_ARRAY_SIZE: usize =
     bsp::NUM_TEMPERATURE_INPUTS + bsp::NUM_DYNAMIC_TEMPERATURE_INPUTS;
 
+type DynamicChannelsArray =
+    [Option<DynamicInputChannel>; bsp::NUM_DYNAMIC_TEMPERATURE_INPUTS];
+
 /// This corresponds to states shown in RFD 276
 ///
 /// All of our temperature arrays contain, in order
@@ -932,8 +935,7 @@ impl<'a> ThermalControl<'a> {
     fn zip_temperatures<'b, T>(
         bsp: &'b Bsp,
         values: &'b [T; TEMPERATURE_ARRAY_SIZE],
-        dynamic_channels: &'b [Option<DynamicInputChannel>;
-                bsp::NUM_DYNAMIC_TEMPERATURE_INPUTS],
+        dynamic_channels: &'b DynamicChannelsArray,
     ) -> impl Iterator<Item = (SensorId, &'b T, ThermalProperties)> {
         assert_eq!(values.len(), bsp.inputs.len() + bsp.dynamic_inputs.len());
         assert_eq!(bsp.dynamic_inputs.len(), dynamic_channels.len());
