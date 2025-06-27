@@ -683,7 +683,10 @@ pub(crate) fn qspi_read_id(
 
     let server = drv_hf_api::HostFlash::from(HF.get_task_id());
     let id = func_err(server.read_id())?;
-    rval[..20].copy_from_slice(&id);
+    rval[0] = id.mfr_id;
+    rval[1] = id.memory_type;
+    rval[2] = id.capacity;
+    rval[3..20].copy_from_slice(&id.unique_id);
     Ok(20)
 }
 

@@ -12,8 +12,8 @@
 
 use drv_hash_api::SHA256_SZ;
 use drv_hf_api::{
-    HfDevSelect, HfError, HfMuxState, HfPersistentData, HfProtectMode,
-    PAGE_SIZE_BYTES,
+    HfChipId, HfDevSelect, HfError, HfMuxState, HfPersistentData,
+    HfProtectMode, PAGE_SIZE_BYTES,
 };
 use idol_runtime::{
     ClientError, Leased, LenLimit, NotificationHandler, RequestError, R, W,
@@ -48,8 +48,13 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     fn read_id(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<[u8; 20], RequestError<HfError>> {
-        Ok(*b"mockmockmockmockmock")
+    ) -> Result<HfChipId, RequestError<HfError>> {
+        Ok(HfChipId {
+            mfr_id: 0,
+            memory_type: 1,
+            capacity: 2,
+            unique_id: *b"mockmockmockmock!",
+        })
     }
 
     fn capacity(

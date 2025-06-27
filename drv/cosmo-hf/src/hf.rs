@@ -4,8 +4,9 @@
 
 use drv_hash_api::SHA256_SZ;
 use drv_hf_api::{
-    HashData, HashState, HfDevSelect, HfError, HfMuxState, HfPersistentData,
-    HfProtectMode, HfRawPersistentData, SlotHash, HF_PERSISTENT_DATA_STRIDE,
+    HashData, HashState, HfChipId, HfDevSelect, HfError, HfMuxState,
+    HfPersistentData, HfProtectMode, HfRawPersistentData, SlotHash,
+    HF_PERSISTENT_DATA_STRIDE,
 };
 use idol_runtime::{
     LeaseBufReader, LeaseBufWriter, Leased, LenLimit, NotificationHandler,
@@ -348,7 +349,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     fn read_id(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<[u8; 20], RequestError<HfError>> {
+    ) -> Result<HfChipId, RequestError<HfError>> {
         self.drv.check_flash_mux_state()?;
         Ok(self.drv.flash_read_id())
     }
@@ -737,7 +738,8 @@ impl NotificationHandler for ServerImpl {
 
 pub mod idl {
     use drv_hf_api::{
-        HfDevSelect, HfError, HfMuxState, HfPersistentData, HfProtectMode,
+        HfChipId, HfDevSelect, HfError, HfMuxState, HfPersistentData,
+        HfProtectMode,
     };
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

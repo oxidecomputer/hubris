@@ -6,7 +6,7 @@ Interface(
         "read_id": (
             args: {},
             reply: Result(
-                ok: "[u8; 20]",
+                ok: "HfChipId",
                 err: CLike("HfError"),
             ),
         ),
