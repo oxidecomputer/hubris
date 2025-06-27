@@ -28,6 +28,7 @@ enum Trace {
     FpgaBusy,
     SectorEraseBusy,
     WriteBusy,
+    DummyBytes(u32),
 
     HashInitError(drv_hash_api::HashError),
     HashUpdateError(drv_hash_api::HashError),
@@ -135,7 +136,8 @@ impl FlashDriver {
         self.drv.dummy_cycles.set_count(0);
         self.drv.instr.set_opcode(instr::READ_UNIQUE_ID);
         self.wait_fpga_busy();
-        let _v = self.drv.rx_fifo_rdata.fifo_data(); // dummy bytes
+        let v = self.drv.rx_fifo_rdata.fifo_data(); // dummy bytes
+        ringbuf_entry!(Trace::DummyBytes(v));
         let mut unique_id = [0u8; 17];
         for i in 0..2 {
             let v = self.drv.rx_fifo_rdata.fifo_data();
