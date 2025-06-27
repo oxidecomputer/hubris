@@ -50,9 +50,13 @@ pub enum SeqError {}
 
 #[allow(dead_code)]
 pub(crate) struct Bsp {
-    pub inputs: &'static [InputChannel],
-    pub dynamic_inputs: &'static [SensorId],
-    pub misc_sensors: &'static [TemperatureSensor],
+    /// Controlled sensors
+    pub inputs: &'static [InputChannel; NUM_TEMPERATURE_INPUTS],
+    pub dynamic_inputs: &'static [SensorId; NUM_DYNAMIC_TEMPERATURE_INPUTS],
+
+    /// Monitored sensors
+    pub misc_sensors: &'static [TemperatureSensor; NUM_TEMPERATURE_SENSORS],
+
     pub pid_config: PidConfig,
 
     fctrl: Emc2305State,

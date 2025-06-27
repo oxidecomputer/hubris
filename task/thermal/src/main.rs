@@ -67,13 +67,21 @@ impl From<usize> for Fan {
 task_slot!(I2C, i2c_driver);
 task_slot!(SENSOR, sensor);
 
-#[derive(Copy, Clone, Eq, PartialEq, counters::Count)]
+#[derive(Copy, Clone, PartialEq, counters::Count)]
 enum Trace {
     #[count(skip)]
     None,
     Start,
     ThermalMode(#[count(children)] ThermalMode),
     AutoState(#[count(children)] ThermalAutoState),
+    PowerDownDueTo {
+        sensor_id: SensorId,
+        temperature: units::Celsius,
+    },
+    CriticalDueTo {
+        sensor_id: SensorId,
+        temperature: units::Celsius,
+    },
     FanReadFailed(SensorId, SensorReadError),
     MiscReadFailed(SensorId, SensorReadError),
     SensorReadFailed(SensorId, SensorReadError),
