@@ -236,7 +236,7 @@ priority = 8
 max-sizes = {flash = 65536, ram = 65536}
 stacksize = 5080
 start = true
-task-slots = ["sys", "hf", "packrat", "control_plane_agent", "net",  { cpu_seq = "grapefruit_seq" }, { spi_driver = "spi2_driver" }, "sprot"]
+task-slots = ["sys", "hf", "packrat", "control_plane_agent", "net",  { cpu_seq = "grapefruit_seq" }, { spi_driver = "spi2_driver" }, "sprot", "auxflash"]
 notifications = ["jefe-state-change", "usart-irq", "multitimer", "control-plane-agent"]
 
 [tasks.control_plane_agent]

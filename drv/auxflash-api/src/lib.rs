@@ -56,8 +56,12 @@ pub enum AuxFlashError {
 }
 
 #[derive(Copy, Clone, FromBytes, IntoBytes, Immutable, KnownLayout)]
-#[repr(transparent)]
-pub struct AuxFlashId(pub [u8; 20]);
+pub struct AuxFlashId {
+    pub mfr_id: u8,
+    pub memory_type: u8,
+    pub capacity: u8,
+    pub unique_id: [u8; 8],
+}
 
 #[derive(
     Copy, Clone, PartialEq, Eq, FromBytes, IntoBytes, Immutable, KnownLayout,
@@ -230,9 +234,9 @@ impl AuxFlash {
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
 
+#[allow(unused)]
 mod config {
     include!(concat!(env!("OUT_DIR"), "/auxflash_config.rs"));
 }
 
-pub use self::config::SLOT_COUNT;
-pub const SLOT_SIZE: usize = (self::config::MEMORY_SIZE / SLOT_COUNT) as usize;
+pub use config::{SLOT_COUNT, SLOT_SIZE};

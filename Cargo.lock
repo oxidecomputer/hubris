@@ -5442,6 +5442,7 @@ dependencies = [
  "corncobs",
  "cortex-m",
  "counters",
+ "drv-auxflash-api",
  "drv-cpu-seq-api",
  "drv-hf-api",
  "drv-i2c-api",
