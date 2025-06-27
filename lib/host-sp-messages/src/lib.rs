@@ -515,6 +515,18 @@ pub enum InventoryData {
         capacity: u8,
         unique_id: [u8; 8],
     },
+
+    /// Cosmo host flash
+    W25q01jvzeiq {
+        mfr_id: u8,
+        memory_type: u8,
+        capacity: u8,
+
+        /// 64-bit unique ID for die 0
+        ///
+        /// Note that each 512M-bit die has a separate ID!
+        unique_id: [u8; 8],
+    }
 }
 
 #[derive(
