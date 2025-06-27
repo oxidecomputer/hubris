@@ -101,8 +101,14 @@ impl Qspi {
     ///
     /// This is implemented in terms of the Winbond part; other chips may
     /// require different commands.
-    pub fn read_unique_id(&self, buf: &mut [u8; 12]) -> Result<(), QspiError> {
-        self.read_impl(Command::ReadUniqueId, None, buf)
+    ///
+    /// The leading 4 bytes are dummy values (all zeros); the remaining 8 are
+    /// the unique id.
+    pub fn read_winbond_unique_id(
+        &self,
+        buf: &mut [u8; 12],
+    ) -> Result<(), QspiError> {
+        self.read_impl(Command::WinbondReadUniqueId, None, buf)
     }
 
     /// Reads the Status register.

@@ -264,8 +264,9 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
 
         let mut unique_id = [0; 12];
         self.qspi
-            .read_unique_id(&mut unique_id)
+            .read_winbond_unique_id(&mut unique_id)
             .map_err(qspi_to_auxflash)?;
+        // First 4 bytes are dummy values, so remove them
         let unique_id: [u8; 8] = unique_id[4..].try_into().unwrap_lite();
         Ok(AuxFlashId {
             mfr_id,

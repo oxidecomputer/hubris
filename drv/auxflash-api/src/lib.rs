@@ -234,9 +234,9 @@ impl AuxFlash {
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
 
+#[allow(unused)]
 mod config {
     include!(concat!(env!("OUT_DIR"), "/auxflash_config.rs"));
 }
 
-pub use self::config::SLOT_COUNT;
-pub const SLOT_SIZE: usize = (self::config::MEMORY_SIZE / SLOT_COUNT) as usize;
+pub use config::{SLOT_COUNT, SLOT_SIZE};

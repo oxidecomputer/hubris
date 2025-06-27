@@ -514,7 +514,7 @@ pub enum InventoryData {
         memory_type: u8,
         capacity: u8,
         unique_id: [u8; 8],
-    }
+    },
 }
 
 #[derive(
