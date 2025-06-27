@@ -80,9 +80,9 @@ fn main() -> ! {
     let memory_size_log2 = MEMORY_SIZE.trailing_zeros().try_into().unwrap();
     qspi.configure(clock, memory_size_log2);
 
-    // Sidecar-only for now!
-    //
-    // This is mostly copied from `gimlet-hf-server`, with a few pin adjustments
+    // This driver is compatible with Sidecar, Cosmo, and Grapefruit; Gimlet
+    // uses its QSPI peripheral for host flash, and would have to be handled
+    // differently.
     //
     // SP_QSPI_RESET_L     PF5     GPIO
     // SP_QSPI_CLK         PF10    QUADSPI_CLK
@@ -119,8 +119,12 @@ fn main() -> ! {
 
     // TODO: check the ID and make sure it's what we expect
     //
-    // Gimlet is  MT25QU256ABA8E12
-    // Sidecar is S25FL128SAGMFIR01
+    // Board      | Part number       | Designator | QSPI | Used
+    // -----------|-------------------|------------|------|------
+    // Gimlet     | W25N01GVZEIG      | U557       | No   | No
+    // Sidecar    | W25Q256JVEIQ      | U63        | Yes  | Yes
+    // Cosmo      | W25Q256JVEIQ      | U21        | Yes  | Yes
+    // Grapefruit | W25Q256JVEIQ      | U10        | Yes  | Yes
     let mut buffer = [0; idl::INCOMING_SIZE];
     let active_slot = scan_for_active_slot(&qspi);
     let mut server = ServerImpl { qspi, active_slot };
@@ -254,7 +258,21 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
     ) -> Result<AuxFlashId, RequestError<AuxFlashError>> {
         let mut idbuf = [0; 20];
         self.qspi.read_id(&mut idbuf).map_err(qspi_to_auxflash)?;
-        Ok(AuxFlashId(idbuf))
+        let mfr_id = idbuf[0];
+        let memory_type = idbuf[1];
+        let capacity = idbuf[2];
+
+        let mut unique_id = [0; 12];
+        self.qspi
+            .read_unique_id(&mut unique_id)
+            .map_err(qspi_to_auxflash)?;
+        let unique_id: [u8; 8] = unique_id[4..].try_into().unwrap_lite();
+        Ok(AuxFlashId {
+            mfr_id,
+            memory_type,
+            capacity,
+            unique_id,
+        })
     }
 
     fn read_status(

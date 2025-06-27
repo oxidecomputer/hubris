@@ -56,8 +56,12 @@ pub enum AuxFlashError {
 }
 
 #[derive(Copy, Clone, FromBytes, IntoBytes, Immutable, KnownLayout)]
-#[repr(transparent)]
-pub struct AuxFlashId(pub [u8; 20]);
+pub struct AuxFlashId {
+    pub mfr_id: u8,
+    pub memory_type: u8,
+    pub capacity: u8,
+    pub unique_id: [u8; 8],
+}
 
 #[derive(
     Copy, Clone, PartialEq, Eq, FromBytes, IntoBytes, Immutable, KnownLayout,

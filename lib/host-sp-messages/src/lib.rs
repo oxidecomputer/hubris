@@ -507,6 +507,14 @@ pub enum InventoryData {
         id: [u8; 1024],
         temp_sensors: [SensorIndex; 2],
     },
+
+    /// W25Q256JVEIQ flash chip
+    W25q256jveqi {
+        mfr_id: u8,
+        memory_type: u8,
+        capacity: u8,
+        unique_id: [u8; 8],
+    }
 }
 
 #[derive(

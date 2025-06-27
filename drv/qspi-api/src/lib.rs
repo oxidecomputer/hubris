@@ -34,6 +34,7 @@ pub enum Command {
     // Gemini's does not respond to 0x9E (returns all zeros).
     // TODO: Proper flash chip quirk support.
     ReadId = 0x9F,
+    ReadUniqueId = 0x4B,
 
     BulkErase = 0xC7,
     SectorErase = 0xDC,
