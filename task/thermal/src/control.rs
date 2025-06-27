@@ -918,36 +918,36 @@ impl<'a> ThermalControl<'a> {
         // they are, so someone else has to do that.
     }
 
-    /// Returns an iterator over tuples of `(value, thermal model)`
+    /// Returns an iterator over tuples of `(sensor_id, value, thermal model)`
     ///
-    /// The `values` array must contain `static_inputs.len()` +
-    /// `dynamic_inputs.len()` values, in that order; this function will panic
-    /// otherwise.
+    /// The `values` array contains static and dynamic values (in order);
+    /// this function will panic if sizes are mismatched.
+    ///
+    /// Every dynamic input is represented by an `Option<DynamicInputChannel>`.
+    /// If the input is not present right now, it will be `None`, but will
+    /// continue to take up space to preserve ordering.
     ///
     /// In cases where dynamic inputs are not present (i.e. they are `None` in
     /// the array), the iterator will skip that entire tuple.
     fn zip_temperatures<'b, T>(
+        bsp: &'b Bsp,
         values: &'b [T; TEMPERATURE_ARRAY_SIZE],
-        static_inputs: &'b [InputChannel; bsp::NUM_TEMPERATURE_INPUTS],
-        dynamic_inputs: &'b [Option<DynamicInputChannel>;
+        dynamic_channels: &'b [Option<DynamicInputChannel>;
                 bsp::NUM_DYNAMIC_TEMPERATURE_INPUTS],
-        dynamic_sensors: &'b [SensorId; bsp::NUM_DYNAMIC_TEMPERATURE_INPUTS],
     ) -> impl Iterator<Item = (SensorId, &'b T, ThermalProperties)> {
-        assert_eq!(values.len(), static_inputs.len() + dynamic_inputs.len());
-        values
+        assert_eq!(values.len(), bsp.inputs.len() + bsp.dynamic_inputs.len());
+        assert_eq!(bsp.dynamic_inputs.len(), dynamic_channels.len());
+        bsp.inputs
             .iter()
-            .zip(
-                static_inputs
+            .map(|i| Some((i.sensor.sensor_id, i.model)))
+            .chain(
+                dynamic_channels
                     .iter()
-                    .map(|i| Some((i.sensor.sensor_id, i.model)))
-                    .chain(
-                        dynamic_inputs
-                            .iter()
-                            .zip(dynamic_sensors.iter().cloned())
-                            .map(|(i, s)| i.map(|i| (s, i.model))),
-                    ),
+                    .zip(bsp.dynamic_inputs.iter().cloned())
+                    .map(|(i, s)| i.map(|i| (s, i.model))),
             )
-            .filter_map(|(v, model)| model.map(|(id, t)| (id, v, t)))
+            .zip(values)
+            .filter_map(|(model, v)| model.map(|(id, t)| (id, v, t)))
     }
 
     /// An extremely simple thermal control loop.
@@ -1022,10 +1022,9 @@ impl<'a> ThermalControl<'a> {
                 let mut any_power_down = None;
                 let mut worst_margin = f32::MAX;
                 for (sensor_id, v, model) in Self::zip_temperatures(
+                    self.bsp,
                     values,
-                    self.bsp.inputs,
                     &self.dynamic_inputs,
-                    self.bsp.dynamic_inputs,
                 ) {
                     match v {
                         Some(TemperatureReading::Valid(v)) => {
@@ -1085,10 +1084,9 @@ impl<'a> ThermalControl<'a> {
                 // overheating.  We want to pick the _smallest_ margin, since
                 // that's the part which is most overheated.
                 for (sensor_id, v, model) in Self::zip_temperatures(
+                    self.bsp,
                     values,
-                    self.bsp.inputs,
                     &self.dynamic_inputs,
-                    self.bsp.dynamic_inputs,
                 ) {
                     if let TemperatureReading::Valid(v) = v {
                         let temperature = v.worst_case(now_ms, &model);
@@ -1150,10 +1148,9 @@ impl<'a> ThermalControl<'a> {
                 let mut worst_margin = f32::MAX;
 
                 for (sensor_id, v, model) in Self::zip_temperatures(
+                    self.bsp,
                     values,
-                    self.bsp.inputs,
                     &self.dynamic_inputs,
-                    self.bsp.dynamic_inputs,
                 ) {
                     if let TemperatureReading::Valid(v) = v {
                         let temperature = v.worst_case(now_ms, &model);
