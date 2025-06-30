@@ -55,9 +55,16 @@ fn main() -> ! {
     };
     drv.flash_set_quad_enable();
 
-    // Check the flash chip's ID against Table 7.3.1 in the datasheet
+    // Check the flash chip's ID against Table 7.3.1 in the W25Q01JV datasheet.
     let id = drv.flash_read_id();
-    if id.mfr_id != 0xef || id.memory_type != 0x40 || id.capacity != 0x21 {
+    const WINBOND_MFR_ID: u8 = 0xef;
+    const EXPECTED_TYPE: u8 = 0x40;
+    const EXPECTED_CAPACITY: u8 = 0x21;
+
+    if id.mfr_id != WINBOND_MFR_ID
+        || id.memory_type != EXPECTED_TYPE
+        || id.capacity != EXPECTED_CAPACITY
+    {
         fail(drv_hf_api::HfError::BadChipId);
     }
 
@@ -112,7 +119,8 @@ mod instr {
 
 impl FlashDriver {
     fn flash_read_id(&mut self) -> drv_hf_api::HfChipId {
-        // Make sure die 0 is selected with a dummy read
+        // Make sure die 0 is selected with a dummy read, because the
+        // READ_UNIQUE_ID command is die-specific.
         let mut buf = [0u8; 4];
         self.flash_read(FlashAddr(0), &mut buf.as_mut_slice())
             .unwrap_lite(); // infallible when given a slice
