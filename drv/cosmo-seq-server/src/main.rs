@@ -69,6 +69,16 @@ enum Trace {
         seq_state: Result<fmc_periph::A0Sm, u8>,
     },
     PowerDownError(drv_cpu_seq_api::SeqError),
+    Coretype {
+        coretype0: bool,
+        coretype1: bool,
+        coretype2: bool,
+        sp5r1: bool,
+        sp5r2: bool,
+        sp5r3: bool,
+        sp5r4: bool,
+    },
+    CPUPresent(#[count(children)] bool),
 
     #[count(skip)]
     None,
@@ -100,6 +110,25 @@ const SP_TO_FPGA2_SYSTEM_RESET_L: sys_api::PinSet = sys_api::Port::A.pin(5);
 // Disabled due to hardware-cosmo#659 (on Cosmo rev A this is PB7, but we need
 // to use that pin for FMC).
 const SP_TO_IGN_TRGT_FPGA_FAULT_L: Option<sys_api::PinSet> = None;
+
+const SP5_TO_SP_PRESENT_L: sys_api::PinSet = sys_api::Port::C.pin(13);
+
+const SP5_TO_SP_SP5R1: sys_api::PinSet = sys_api::Port::I.pin(4);
+const SP5_TO_SP_SP5R2: sys_api::PinSet = sys_api::Port::H.pin(15);
+const SP5_TO_SP_SP5R3: sys_api::PinSet = sys_api::Port::F.pin(3);
+const SP5_TO_SP_SP5R4: sys_api::PinSet = sys_api::Port::F.pin(4);
+
+const SP5_TO_SP_CORETYPE0: sys_api::PinSet = sys_api::Port::I.pin(5);
+const SP5_TO_SP_CORETYPE1: sys_api::PinSet = sys_api::Port::I.pin(10);
+const SP5_TO_SP_CORETYPE2: sys_api::PinSet = sys_api::Port::I.pin(11);
+
+// All of these are externally pulled to V3P3_SP5_A1
+const CORETYPE_PULL: sys_api::Pull = sys_api::Pull::None;
+const CPU_PRESENT_L_PULL: sys_api::Pull = sys_api::Pull::None;
+const SP5R1_PULL: sys_api::Pull = sys_api::Pull::None;
+const SP5R2_PULL: sys_api::Pull = sys_api::Pull::None;
+const SP5R3_PULL: sys_api::Pull = sys_api::Pull::None;
+const SP5R4_PULL: sys_api::Pull = sys_api::Pull::None;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -180,6 +209,16 @@ fn init() -> Result<ServerImpl, SeqError> {
         sys_api::Pull::None,
     );
     sys.gpio_reset(SP_CHASSIS_STATUS_LED);
+
+    // Set all of the presence-related pins to be inputs
+    sys.gpio_configure_input(SP5_TO_SP_CORETYPE0, CORETYPE_PULL);
+    sys.gpio_configure_input(SP5_TO_SP_CORETYPE1, CORETYPE_PULL);
+    sys.gpio_configure_input(SP5_TO_SP_CORETYPE2, CORETYPE_PULL);
+    sys.gpio_configure_input(SP5_TO_SP_PRESENT_L, CPU_PRESENT_L_PULL);
+    sys.gpio_configure_input(SP5_TO_SP_SP5R1, SP5R1_PULL);
+    sys.gpio_configure_input(SP5_TO_SP_SP5R2, SP5R2_PULL);
+    sys.gpio_configure_input(SP5_TO_SP_SP5R3, SP5R3_PULL);
+    sys.gpio_configure_input(SP5_TO_SP_SP5R4, SP5R4_PULL);
 
     let spi_front = drv_spi_api::Spi::from(SPI_FRONT.get_task_id());
     let aux = drv_auxflash_api::AuxFlash::from(AUXFLASH.get_task_id());
@@ -397,6 +436,9 @@ impl ServerImpl {
                         Ok(A0Sm::Faulted) | Err(_) => {
                             break;
                         }
+                        // We have an outstanding issue on v1 hardware-cosmo#658
+                        // that prevents us from checking `CPU_PRESENT` at
+                        // `A0Sm::ENABLE_GRP_A` time
                         _ => (),
                     }
                     hl::sleep_for(10);
@@ -413,6 +455,28 @@ impl ServerImpl {
                     // closest available error code
                     return Err(CpuSeqError::A0Timeout);
                 }
+
+                let coretype0 = self.sys.gpio_read(SP5_TO_SP_CORETYPE0) != 0;
+                let coretype1 = self.sys.gpio_read(SP5_TO_SP_CORETYPE1) != 0;
+                let coretype2 = self.sys.gpio_read(SP5_TO_SP_CORETYPE2) != 0;
+                let sp5r1 = self.sys.gpio_read(SP5_TO_SP_SP5R1) != 0;
+                let sp5r2 = self.sys.gpio_read(SP5_TO_SP_SP5R2) != 0;
+                let sp5r3 = self.sys.gpio_read(SP5_TO_SP_SP5R3) != 0;
+                let sp5r4 = self.sys.gpio_read(SP5_TO_SP_SP5R4) != 0;
+
+                ringbuf_entry!(Trace::Coretype {
+                    coretype0,
+                    coretype1,
+                    coretype2,
+                    sp5r1,
+                    sp5r2,
+                    sp5r3,
+                    sp5r4
+                });
+
+                //if !coretype || !sp3r1 || sp3r2 {
+                //    return Err(self.a0_failure(SeqError::UnrecognizedCPU));
+                //}
 
                 // Flip the host flash mux so the CPU can read from it
                 // (this is secretly infallible on Cosmo, so we can unwrap it)
