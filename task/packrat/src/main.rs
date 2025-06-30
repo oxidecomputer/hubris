@@ -30,14 +30,17 @@
 #![no_main]
 
 use core::convert::Infallible;
-use idol_runtime::{Leased, LenLimit, NotificationHandler, RequestError};
+use idol_runtime::{ClientError, Leased, LenLimit, NotificationHandler, RequestError};
+use minicbor::CborLen;
 use ringbuf::{ringbuf, ringbuf_entry};
 use static_cell::ClaimOnceCell;
 use task_packrat_api::{
     CacheGetError, CacheSetError, HostStartupOptions, MacAddressBlock,
     VpdIdentity,
 };
-use userlib::RecvMessage;
+use userlib::{RecvMessage, TaskId};
+use zerocopy::little_endian::{U128, U64};
+use zerocopy::{FromBytes, AsBytes, Unaligned};
 
 #[cfg(feature = "gimlet")]
 mod gimlet;
@@ -94,6 +97,10 @@ enum TraceSet<T> {
 
 ringbuf!(Trace, 16, Trace::None);
 
+/// Number of bytes of RAM dedicated to ereport buffer storage. Each individual
+/// report consumes a small amount of this (currently 12 bytes).
+const EREPORT_BUFFER_SIZE: usize = 4096;
+
 #[export_name = "main"]
 fn main() -> ! {
     struct StaticBufs {
@@ -103,14 +110,21 @@ fn main() -> ! {
         gimlet_bufs: gimlet::StaticBufs,
         #[cfg(feature = "cosmo")]
         cosmo_bufs: cosmo::StaticBufs,
+        ereport_storage: snitch_core::Store<EREPORT_BUFFER_SIZE>,
+        ereport_recv: [u8; 1024],
     }
     let StaticBufs {
         ref mut mac_address_block,
         ref mut identity,
         #[cfg(feature = "gimlet")]
         ref mut gimlet_bufs,
+<<<<<<< Updated upstream
         #[cfg(feature = "cosmo")]
         ref mut cosmo_bufs,
+=======
+        ref mut ereport_storage,
+        ref mut ereport_recv,
+>>>>>>> Stashed changes
     } = {
         static BUFS: ClaimOnceCell<StaticBufs> =
             ClaimOnceCell::new(StaticBufs {
@@ -118,15 +132,26 @@ fn main() -> ! {
                 identity: None,
                 #[cfg(feature = "gimlet")]
                 gimlet_bufs: gimlet::StaticBufs::new(),
+<<<<<<< Updated upstream
                 #[cfg(feature = "cosmo")]
                 cosmo_bufs: cosmo::StaticBufs::new(),
+=======
+                ereport_storage: snitch_core::Store::DEFAULT,
+                ereport_recv: [0; 1024],
+>>>>>>> Stashed changes
             });
         BUFS.claim()
     };
 
+    ereport_storage.initialize(0, 0); // TODO tid timestamp
+
     let mut server = ServerImpl {
         mac_address_block,
         identity,
+        ereport_storage,
+        ereport_recv,
+        restart_nonce: 0xDEAD, // TODO
+        next_ena: 1,
         #[cfg(feature = "gimlet")]
         gimlet_data: gimlet::GimletData::new(gimlet_bufs),
         #[cfg(feature = "grapefruit")]
@@ -144,6 +169,10 @@ fn main() -> ! {
 struct ServerImpl {
     mac_address_block: &'static mut Option<MacAddressBlock>,
     identity: &'static mut Option<VpdIdentity>,
+    ereport_storage: &'static mut snitch_core::Store<EREPORT_BUFFER_SIZE>,
+    ereport_recv: &'static mut [u8; 1024],
+    restart_nonce: u128,
+    next_ena: u64,
     #[cfg(feature = "gimlet")]
     gimlet_data: gimlet::GimletData,
     #[cfg(feature = "grapefruit")]
@@ -408,6 +437,96 @@ impl idl::InOrderPackratImpl for ServerImpl {
             ))
         }
     }
+
+    fn deliver_ereport(
+        &mut self,
+        msg: &RecvMessage,
+        data: LenLimit<Leased<idol_runtime::R, [u8]>, 1024usize>,
+    ) -> Result<(), RequestError<Infallible>> {
+        data.read_range(0..data.len(), self.ereport_recv).map_err(|_| ClientError::WentAway.fail())?;
+        self.ereport_storage.insert(msg.sender.0, 0, &self.ereport_recv[..data.len()]);
+        Ok(())
+    }
+
+    fn read_ereports(
+        &mut self,
+        _msg: &RecvMessage,
+        begin_ena: u64,
+        data: Leased<idol_runtime::W, [u8]>,
+    ) -> Result<usize, RequestError<Infallible>> {
+        // Skip over a header-sized initial chunk, plus space for the 
+        let first_data_byte = size_of::<EreportResponse>();
+
+        let mut position = first_data_byte;
+        let mut first_written_ena = None;
+
+        // Beginning with the first 
+        for r in self.ereport_storage.read_from(begin_ena) {
+            if first_written_ena.is_none() {
+                first_written_ena = Some(r.ena);
+            }
+
+            // TODO start list
+
+            let tid = TaskId(r.tid);
+            let task_name = hubris_task_names::TASK_NAMES.get(tid.index())
+                .copied()
+                .unwrap_or({
+                    // This represents an internal error, where we've recorded
+                    // an out-of-range task ID somehow. We still want to get the
+                    // ereport out, so we'll use a recognizable but illegal task
+                    // name to indicate that it's missing.
+                    "-" // TODO
+                });
+            // TODO write task name
+            let generation = tid.generation();
+            // TODO write generation number
+            r.timestamp; // TODO
+
+            let entry = (
+                task_name,
+                u8::from(generation),
+                r.timestamp,
+                ByteGather(r.slices.0, r.slices.1),
+            );
+            let mut c = minicbor::encode::write::Cursor::new(&mut self.ereport_recv[..]);
+            match minicbor::encode(&entry, &mut c) {
+                Ok(()) => {
+                    let size = c.position();
+                    data.write_range(position..position + size, &self.ereport_recv[..size])
+                        .map_err(|_| ClientError::WentAway.fail())?;
+                    position += size;
+                }
+                Err(_end) => {
+                    // This is an odd one; we've admitted a record into our
+                    // queue that won't fit in our buffer. This can happen
+                    // because of the encoding overhead, in theory, but should
+                    // be prevented.
+                    // TODO
+                }
+            }
+        }
+
+        let first_ena = first_written_ena.unwrap_or(self.next_ena);
+        let header = EreportResponse {
+            version: 0,
+            unused: [0; 3],
+            instance_id: self.restart_nonce.into(),
+            first_ena: first_ena.into(),
+        };
+        data.write_range(0..size_of_val(&header), header.as_bytes())
+            .map_err(|_| ClientError::WentAway.fail())?;
+        Ok(position)
+    }
+
+    fn flush_ereports(
+        &mut self,
+        _msg: &RecvMessage,
+        last_ena: u64,
+    ) -> Result<(), RequestError<Infallible>> {
+        self.ereport_storage.flush_thru(last_ena);
+        Ok(())
+    }
 }
 
 impl NotificationHandler for ServerImpl {
@@ -418,6 +537,37 @@ impl NotificationHandler for ServerImpl {
 
     fn handle_notification(&mut self, _bits: u32) {
         unreachable!()
+    }
+}
+
+#[derive(Copy, Clone, Debug, FromBytes, AsBytes, Unaligned)]
+#[repr(C)]
+struct EreportResponse {
+    version: u8,
+    message_cookie: u8,
+    instance_id: U128,
+    first_ena: U64,
+}
+
+struct ByteGather<'a, 'b>(&'a [u8], &'b [u8]);
+
+impl<C> minicbor::Encode<C> for ByteGather<'_, '_> {
+    fn encode<W: minicbor::encode::Write>(
+        &self,
+        e: &mut minicbor::Encoder<W>,
+        _ctx: &mut C,
+    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        e.bytes_len((self.0.len() + self.1.len()) as u64)?;
+        e.writer_mut().write_all(self.0).map_err(minicbor::encode::Error::write)?;
+        e.writer_mut().write_all(self.1).map_err(minicbor::encode::Error::write)?;
+        Ok(())
+    }
+}
+
+impl<C> CborLen<C> for ByteGather<'_, '_> {
+    fn cbor_len(&self, ctx: &mut C) -> usize {
+        let n = self.0.len() + self.1.len();
+        n.cbor_len(ctx) + n
     }
 }
 
