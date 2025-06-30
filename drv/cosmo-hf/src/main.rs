@@ -28,7 +28,6 @@ enum Trace {
     FpgaBusy,
     SectorEraseBusy,
     WriteBusy,
-    DummyBytes(u32),
 
     HashInitError(drv_hash_api::HashError),
     HashUpdateError(drv_hash_api::HashError),
@@ -118,22 +117,6 @@ impl FlashDriver {
         self.flash_read(FlashAddr(0), &mut buf.as_mut_slice())
             .unwrap_lite();
 
-        // Read the 12-byte unique ID (4 bytes of which are junk)
-        self.drv.data_bytes.set_count(12);
-        self.drv.addr.set_addr(0);
-        self.drv.dummy_cycles.set_count(0);
-        self.drv.instr.set_opcode(instr::READ_UNIQUE_ID);
-        self.wait_fpga_busy();
-        let v = self.drv.rx_fifo_rdata.fifo_data(); // dummy bytes
-        ringbuf_entry!(Trace::DummyBytes(v));
-        let mut unique_id = [0u8; 17];
-        for i in 0..2 {
-            let v = self.drv.rx_fifo_rdata.fifo_data();
-            for (j, byte) in v.to_le_bytes().iter().enumerate() {
-                unique_id[i * 4 + j] = *byte;
-            }
-        }
-
         self.clear_fifos();
         self.drv.data_bytes.set_count(3);
         self.drv.addr.set_addr(0);
@@ -145,6 +128,23 @@ impl FlashDriver {
         let mfr_id = bytes[0];
         let memory_type = bytes[1];
         let capacity = bytes[2];
+
+        // We are running with 3-byte addresses, so we need to skip 4 bytes (32
+        // clocks) of dummy data.  The datasheet indicates that the DO line is
+        // high-Z when this happens, but experimentally, it's just clocking out
+        // parts of the unique ID.
+        self.drv.data_bytes.set_count(8);
+        self.drv.addr.set_addr(0);
+        self.drv.dummy_cycles.set_count(32);
+        self.drv.instr.set_opcode(instr::READ_UNIQUE_ID);
+        self.wait_fpga_busy();
+        let mut unique_id = [0u8; 17];
+        for i in 0..2 {
+            let v = self.drv.rx_fifo_rdata.fifo_data();
+            for (j, byte) in v.to_le_bytes().iter().enumerate() {
+                unique_id[i * 4 + j] = *byte;
+            }
+        }
 
         drv_hf_api::HfChipId {
             mfr_id,
