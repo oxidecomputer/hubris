@@ -278,7 +278,8 @@ impl NotificationHandler for ServerImpl {
 }
 mod idl {
     use super::{
-        HfDevSelect, HfError, HfMuxState, HfPersistentData, HfProtectMode,
+        HfChipId, HfDevSelect, HfError, HfMuxState, HfPersistentData,
+        HfProtectMode,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

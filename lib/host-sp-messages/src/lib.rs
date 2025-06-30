@@ -526,7 +526,7 @@ pub enum InventoryData {
         ///
         /// Note that each 512M-bit die has a separate ID!
         unique_id: [u8; 8],
-    }
+    },
 }
 
 #[derive(
