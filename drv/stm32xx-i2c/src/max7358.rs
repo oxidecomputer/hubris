@@ -74,7 +74,6 @@ fn read_regs(
     mux: &I2cMux<'_>,
     controller: &I2cController<'_>,
     rbuf: &mut [u8],
-    ctrl: &I2cControl,
 ) -> Result<(), ResponseCode> {
     let controller_result = controller.write_read(
         mux.address,
@@ -85,7 +84,6 @@ fn read_regs(
             rbuf[pos] = byte;
             Some(())
         },
-        ctrl,
     );
     match controller_result {
         Err(code) => Err(mux.error_code(code)),
@@ -104,7 +102,6 @@ fn write_reg(
     controller: &I2cController<'_>,
     reg: Register,
     val: u8,
-    ctrl: &I2cControl,
 ) -> Result<(), ResponseCode> {
     let mut wbuf = [0u8; 3];
 
@@ -117,7 +114,7 @@ fn write_reg(
     let index = reg as usize;
 
     if index > 0 {
-        read_regs(mux, controller, &mut wbuf[0..index], ctrl)?;
+        read_regs(mux, controller, &mut wbuf[0..index])?;
     }
 
     ringbuf_entry!(Trace::Write(reg, val));
@@ -130,7 +127,6 @@ fn write_reg(
         |pos| Some(wbuf[pos]),
         ReadLength::Fixed(0),
         |_, _| Some(()),
-        ctrl,
     ) {
         Err(code) => Err(mux.error_code(code)),
         _ => Ok(()),
@@ -143,7 +139,6 @@ impl I2cMuxDriver for Max7358 {
         mux: &I2cMux<'_>,
         controller: &I2cController<'_>,
         gpio: &sys_api::Sys,
-        ctrl: &I2cControl,
     ) -> Result<(), ResponseCode> {
         mux.configure(gpio)?;
 
@@ -175,7 +170,7 @@ impl I2cMuxDriver for Max7358 {
         // controller entirely several times over.
         //
         let mut scratch = [0u8; 1];
-        read_regs(mux, controller, &mut scratch[0..1], ctrl)?;
+        read_regs(mux, controller, &mut scratch[0..1])?;
 
         controller.send_konami_code(
             mux.address,
@@ -185,11 +180,10 @@ impl I2cMuxDriver for Max7358 {
                 I2cKonamiCode::Write,
                 I2cKonamiCode::Read,
             ],
-            ctrl,
         )?;
 
         let reg = SwitchControl(0);
-        write_reg(mux, controller, Register::SwitchControl, reg.0, ctrl)
+        write_reg(mux, controller, Register::SwitchControl, reg.0)
     }
 
     fn enable_segment(
@@ -197,7 +191,6 @@ impl I2cMuxDriver for Max7358 {
         mux: &I2cMux<'_>,
         controller: &I2cController<'_>,
         segment: Option<Segment>,
-        ctrl: &I2cControl,
     ) -> Result<(), ResponseCode> {
         let mut reg = SwitchControl(0);
 
@@ -230,7 +223,7 @@ impl I2cMuxDriver for Max7358 {
             }
         }
 
-        write_reg(mux, controller, Register::SwitchControl, reg.0, ctrl)
+        write_reg(mux, controller, Register::SwitchControl, reg.0)
     }
 
     fn reset(
