@@ -20,6 +20,7 @@ use host_sp_messages::{InventoryData, InventoryDataResult};
 
 userlib::task_slot!(I2C, i2c_driver);
 userlib::task_slot!(SPI, spi_driver);
+userlib::task_slot!(AUXFLASH, auxflash);
 
 // SP_TO_SP5_CPU_INT_L
 pub(crate) const SP_TO_HOST_CPU_INT_L: drv_stm32xx_sys_api::PinSet =
@@ -29,7 +30,7 @@ pub(crate) const SP_TO_HOST_CPU_INT_TYPE: drv_stm32xx_sys_api::OutputType =
 
 impl ServerImpl {
     /// Number of devices in our inventory
-    pub(crate) const INVENTORY_COUNT: u32 = 71;
+    pub(crate) const INVENTORY_COUNT: u32 = 72;
 
     /// Look up a device in our inventory, by index
     ///
@@ -537,6 +538,23 @@ impl ServerImpl {
 
             59..=70 => {
                 self.dimm_inventory_lookup(sequence, index as u8 - 59);
+            }
+
+            71 => {
+                let aux =
+                    drv_auxflash_api::AuxFlash::from(AUXFLASH.get_task_id());
+                self.tx_buf.try_encode_inventory(sequence, b"U21", || {
+                    let id = aux
+                        .read_id()
+                        .map_err(|_| InventoryDataResult::DeviceFailed)?;
+                    *self.scratch = InventoryData::W25q256jveqi {
+                        mfr_id: id.mfr_id,
+                        memory_type: id.memory_type,
+                        capacity: id.capacity,
+                        unique_id: id.unique_id,
+                    };
+                    Ok(self.scratch)
+                });
             }
 
             // We need to specify INVENTORY_COUNT individually here to trigger

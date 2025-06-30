@@ -35,6 +35,9 @@ pub enum Command {
     // TODO: Proper flash chip quirk support.
     ReadId = 0x9F,
 
+    /// Reads a 8-byte unique ID from Winbond parts
+    WinbondReadUniqueId = 0x4B,
+
     BulkErase = 0xC7,
     SectorErase = 0xDC,
     // 4-BYTE QUAD OUTPUT FAST READ

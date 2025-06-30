@@ -23,6 +23,7 @@ pmbus = { workspace = true, optional = true }
 
 counters.path = "../../lib/counters"
 
+drv-auxflash-api.path= "../../drv/auxflash-api"
 drv-hf-api.path= "../../drv/hf-api"
 drv-cpu-seq-api.path= "../../drv/cpu-seq-api"
 drv-oxide-vpd.path= "../../drv/oxide-vpd"

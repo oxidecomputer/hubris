@@ -13,7 +13,7 @@ use stm32h7::stm32h743 as device;
 use stm32h7::stm32h753 as device;
 
 use drv_qspi_api::Command;
-use userlib::{sys_irq_control, sys_recv_notification};
+use userlib::{sys_irq_control, sys_recv_notification, UnwrapLite};
 use zerocopy::IntoBytes;
 
 const FIFO_SIZE: usize = 32;
@@ -95,6 +95,14 @@ impl Qspi {
     /// whether a chip is attached at all.
     pub fn read_id(&self, buf: &mut [u8; 20]) -> Result<(), QspiError> {
         self.read_impl(Command::ReadId, None, buf)
+    }
+
+    /// Reads the Device unique ID buffer for Winbond parts
+    pub fn read_winbond_unique_id(&self) -> Result<[u8; 8], QspiError> {
+        let mut buf = [0u8; 12];
+        self.read_impl(Command::WinbondReadUniqueId, None, &mut buf)?;
+        // First 4 bytes are dummy values (all zeros)
+        Ok(buf[4..].try_into().unwrap_lite())
     }
 
     /// Reads the Status register.

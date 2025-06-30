@@ -12,6 +12,7 @@ use drv_spi_api::SpiServer;
 use host_sp_messages::{InventoryData, InventoryDataResult};
 
 userlib::task_slot!(SPI, spi_driver);
+userlib::task_slot!(AUXFLASH, auxflash);
 
 // the CPU interrupt is not connected on grapefruit, so pick an
 // unconnected GPIO
@@ -22,7 +23,7 @@ pub(crate) const SP_TO_HOST_CPU_INT_TYPE: drv_stm32xx_sys_api::OutputType =
 
 impl ServerImpl {
     /// Number of devices in our inventory
-    pub(crate) const INVENTORY_COUNT: u32 = 2;
+    pub(crate) const INVENTORY_COUNT: u32 = 3;
 
     /// Look up a device in our inventory, by index
     ///
@@ -82,6 +83,23 @@ impl ServerImpl {
                     *cider = ksz8463
                         .read(ksz8463::Register::CIDER)
                         .map_err(|_| InventoryDataResult::DeviceFailed)?;
+                    Ok(self.scratch)
+                });
+            }
+
+            2 => {
+                let aux =
+                    drv_auxflash_api::AuxFlash::from(AUXFLASH.get_task_id());
+                self.tx_buf.try_encode_inventory(sequence, b"U10", || {
+                    let id = aux
+                        .read_id()
+                        .map_err(|_| InventoryDataResult::DeviceFailed)?;
+                    *self.scratch = InventoryData::W25q256jveqi {
+                        mfr_id: id.mfr_id,
+                        memory_type: id.memory_type,
+                        capacity: id.capacity,
+                        unique_id: id.unique_id,
+                    };
                     Ok(self.scratch)
                 });
             }
