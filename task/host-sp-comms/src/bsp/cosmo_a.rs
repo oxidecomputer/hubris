@@ -5,7 +5,7 @@
 //! SP inventory types and implementation
 //!
 //! This reduces clutter in the main `ServerImpl` implementation
-use super::{inventory::by_refdes, ServerImpl};
+use super::{inventory::by_refdes, ServerImpl, HOST_FLASH};
 
 use drv_i2c_api::I2cDevice;
 use drv_i2c_api::ResponseCode;
@@ -13,7 +13,7 @@ use drv_i2c_devices::at24csw080::{At24Csw080, Error as EepromError};
 use drv_oxide_vpd::VpdError;
 use drv_spi_api::SpiServer;
 use task_sensor_api::{config::other_sensors, SensorId};
-use userlib::TaskId;
+use userlib::{TaskId, UnwrapLite};
 use zerocopy::IntoBytes;
 
 use host_sp_messages::{InventoryData, InventoryDataResult};
@@ -30,7 +30,7 @@ pub(crate) const SP_TO_HOST_CPU_INT_TYPE: drv_stm32xx_sys_api::OutputType =
 
 impl ServerImpl {
     /// Number of devices in our inventory
-    pub(crate) const INVENTORY_COUNT: u32 = 72;
+    pub(crate) const INVENTORY_COUNT: u32 = 73;
 
     /// Look up a device in our inventory, by index
     ///
@@ -552,6 +552,22 @@ impl ServerImpl {
                         memory_type: id.memory_type,
                         capacity: id.capacity,
                         unique_id: id.unique_id,
+                    };
+                    Ok(self.scratch)
+                });
+            }
+
+            72 => {
+                let hf = drv_hf_api::HostFlash::from(HOST_FLASH.get_task_id());
+                self.tx_buf.try_encode_inventory(sequence, b"U28", || {
+                    let id = hf
+                        .read_id()
+                        .map_err(|_| InventoryDataResult::DeviceFailed)?;
+                    *self.scratch = InventoryData::W25q01jvzeiq {
+                        mfr_id: id.mfr_id,
+                        memory_type: id.memory_type,
+                        capacity: id.capacity,
+                        unique_id: id.unique_id[0..8].try_into().unwrap_lite(),
                     };
                     Ok(self.scratch)
                 });

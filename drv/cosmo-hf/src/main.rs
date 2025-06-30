@@ -115,7 +115,7 @@ impl FlashDriver {
         // Make sure die 0 is selected with a dummy read
         let mut buf = [0u8; 4];
         self.flash_read(FlashAddr(0), &mut buf.as_mut_slice())
-            .unwrap_lite();
+            .unwrap_lite(); // infallible when given a slice
 
         self.clear_fifos();
         self.drv.data_bytes.set_count(3);
@@ -132,7 +132,7 @@ impl FlashDriver {
         // We are running with 3-byte addresses, so we need to skip 4 bytes (32
         // clocks) of dummy data.  The datasheet indicates that the DO line is
         // high-Z when this happens, but experimentally, it's just clocking out
-        // parts of the unique ID.
+        // parts of the unique ID.  Regardless, we'll skip those bytes.
         self.drv.data_bytes.set_count(8);
         self.drv.addr.set_addr(0);
         self.drv.dummy_cycles.set_count(32);
