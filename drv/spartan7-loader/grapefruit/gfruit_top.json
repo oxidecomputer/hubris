@@ -23,7 +23,7 @@
         },
         {
             "type": "addrmap",
-            "addr_span_bytes": 32,
+            "addr_span_bytes": 40,
             "inst_name": "espi",
             "orig_type_name": "espi_regs",
             "addr_offset": 512,
