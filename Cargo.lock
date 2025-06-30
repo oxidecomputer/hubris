@@ -3686,6 +3686,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "minicbor"
+version = "0.26.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "acb9d59e79ad66121ab441a0d1950890906a41e01ae14145ecf8401aa8894f50"
+
+[[package]]
 name = "minicbor-derive"
 version = "0.15.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3702,7 +3708,7 @@ version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "becf18ac384ecf6f53b2db3b1549eebff664c67ecf259ae99be5912193291686"
 dependencies = [
- "minicbor",
+ "minicbor 0.25.1",
  "serde",
 ]
 
@@ -5472,11 +5478,14 @@ dependencies = [
  "build-util",
  "cfg-if",
  "drv-cpu-seq-api",
+ "hubris-task-names",
  "idol",
  "idol-runtime",
+ "minicbor 0.26.4",
  "mutable-statics",
  "num-traits",
  "ringbuf",
+ "snitch-core",
  "spd",
  "static-cell",
  "static_assertions",

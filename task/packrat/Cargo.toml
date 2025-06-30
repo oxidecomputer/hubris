@@ -11,11 +11,14 @@ static_assertions.workspace = true
 zerocopy.workspace = true
 
 drv-cpu-seq-api = { path = "../../drv/cpu-seq-api", optional = true }
+hubris-task-names = { path = "../../sys/task-names" }
 mutable-statics = { path = "../../lib/mutable-statics" }
 ringbuf = { path = "../../lib/ringbuf"  }
 static-cell = { path = "../../lib/static-cell" }
 task-packrat-api = { path = "../packrat-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+snitch-core = { version = "0.1.0", path = "../../lib/snitch-core" }
+minicbor = "0.26.4"
 
 [build-dependencies]
 anyhow.workspace = true

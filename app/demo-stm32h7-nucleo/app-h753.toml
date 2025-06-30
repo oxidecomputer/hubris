@@ -70,7 +70,6 @@ task-slots = ["sys"]
 [tasks.packrat]
 name = "task-packrat"
 priority = 2
-max-sizes = {flash = 8192, ram = 2048}
 start = true
 # task-slots is explicitly empty: packrat should not send IPCs!
 task-slots = []

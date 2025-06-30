@@ -94,6 +94,36 @@ Interface(
             reply: Simple("()"),
             idempotent: true,
         ),
+
+        "deliver_ereport": (
+            doc: "Hand an encoded ereport to packrat for buffering.",
+            args: {
+            },
+            leases: {
+                "data": (type: "[u8]", read: true, max_len: Some(1024)),
+            },
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+        "read_ereports": (
+            doc: "Read ereports starting with a watermark (ENA) value",
+            args: {
+                "first_ena": "u64",
+            },
+            leases: {
+                "data": (type: "[u8]", write: true),
+            },
+            reply: Simple("usize"),
+            idempotent: true,
+        ),
+        "flush_ereports": (
+            doc: "Free storage for all ereports up thru an ENA.",
+            args: {
+                "last_ena": "u64",
+            },
+            reply: Simple("()"),
+            idempotent: true,
+        ),
     },
 )
 
