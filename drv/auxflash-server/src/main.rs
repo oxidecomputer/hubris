@@ -262,12 +262,10 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         let memory_type = idbuf[1];
         let capacity = idbuf[2];
 
-        let mut unique_id = [0; 12];
-        self.qspi
-            .read_winbond_unique_id(&mut unique_id)
+        let unique_id = self
+            .qspi
+            .read_winbond_unique_id()
             .map_err(qspi_to_auxflash)?;
-        // First 4 bytes are dummy values, so remove them
-        let unique_id: [u8; 8] = unique_id[4..].try_into().unwrap_lite();
         Ok(AuxFlashId {
             mfr_id,
             memory_type,

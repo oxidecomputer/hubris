@@ -508,7 +508,7 @@ pub enum InventoryData {
         temp_sensors: [SensorIndex; 2],
     },
 
-    /// W25Q256JVEIQ flash chip
+    /// W25Q256JVEIQ flash chip (auxiliary flash on Cosmo, Grapefruit, Sidecar)
     W25q256jveqi {
         mfr_id: u8,
         memory_type: u8,
