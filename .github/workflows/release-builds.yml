@@ -7,6 +7,7 @@ on:
       - "psc-*"
       - "sidecar-*"
       - "devboards-*"
+      - "compute-sleds-*"
 
 jobs:
   release-rot:
@@ -38,5 +39,11 @@ jobs:
     uses: ./.github/workflows/release.yml
     with:
       board-set: devboards
+
+  release-compute-sleds:
+    if: startsWith(github.ref, 'refs/heads/compute-sleds')
+    uses: ./.github/workflows/release.yml
+    with:
+      board-set: compute-sleds
 
 
