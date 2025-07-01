@@ -5676,6 +5676,7 @@ dependencies = [
  "anyhow",
  "build-util",
  "cfg-if",
+ "counters",
  "drv-cpu-seq-api",
  "drv-rng-api",
  "hubris-task-names",

@@ -97,7 +97,20 @@ enum TraceSet<T> {
     AttemptedSetToNewValue(T),
 }
 
+/// Separate ring buffer for ereport events, as we probably don't care that much
+/// about the sequence of ereport events relative to other packrat API events.
+#[derive(Copy, Clone, counters::Count)]
+enum EreportTrace {
+    #[count(skip)]
+    None,
+    EreportDelivered {
+        src: TaskId,
+        len: u32,
+    },
+}
+
 ringbuf!(Trace, 16, Trace::None);
+counted_ringbuf!(EREPORT_RINGBUF, EreportTrace, 16, EreportTrace::None);
 
 /// Number of bytes of RAM dedicated to ereport buffer storage. Each individual
 /// report consumes a small amount of this (currently 12 bytes).
@@ -458,6 +471,15 @@ impl idl::InOrderPackratImpl for ServerImpl {
             msg.sender.0,
             0,
             &self.ereport_recv[..data.len()],
+        );
+        // TODO(eliza): would maybe be nice to say something if the ereport got
+        // eaten...
+        ringbuf_entry!(
+            EREPORT_RINGBUF,
+            EreportTrace {
+                src: msg.sender,
+                len: data.len() as u32
+            }
         );
         Ok(())
     }

@@ -16,6 +16,7 @@ drv-rng-api = { path = "../../drv/rng-api" }
 hubris-task-names = { path = "../../sys/task-names" }
 mutable-statics = { path = "../../lib/mutable-statics" }
 ringbuf = { path = "../../lib/ringbuf"  }
+counters = { path = "../../lib/counters"  }
 static-cell = { path = "../../lib/static-cell" }
 task-packrat-api = { path = "../packrat-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
