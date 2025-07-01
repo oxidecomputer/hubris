@@ -12,7 +12,7 @@ stm32h7 = { workspace = true }
 
 drv-cpu-seq-api = { path = "../../drv/cpu-seq-api" }
 drv-i2c-api = { path = "../../drv/i2c-api" }
-drv-stm32xx-i2c = { path = "../../drv/stm32xx-i2c", features = ["amd_erratum_1394"] }
+drv-stm32xx-i2c = { path = "../../drv/stm32xx-i2c", features = ["amd_erratum_1394", "enable_target"] }
 drv-stm32xx-sys-api = { path = "../../drv/stm32xx-sys-api" }
 ringbuf = { path = "../../lib/ringbuf" }
 task-jefe-api = { path = "../jefe-api" }

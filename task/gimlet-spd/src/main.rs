@@ -24,6 +24,7 @@
 use core::cell::Cell;
 use core::cell::RefCell;
 use drv_cpu_seq_api::{PowerState, NUM_SPD_BANKS};
+use drv_stm32xx_i2c::target::Target;
 use drv_stm32xx_i2c::{I2cPins, I2cTargetControl};
 use drv_stm32xx_sys_api::{OutputType, Pull, Speed, Sys};
 use ringbuf::{ringbuf, ringbuf_entry};
@@ -76,7 +77,8 @@ include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 #[export_name = "main"]
 fn main() -> ! {
     let packrat = Packrat::from(PACKRAT.get_task_id());
-    let controller = &i2c_config::controllers()[0];
+    let [controller, ..] = i2c_config::controllers();
+    let controller = Target(controller);
     let pins = i2c_config::pins();
 
     // Virtual offset, per virtual DIMM

@@ -24,6 +24,7 @@ h753 = ["stm32h7/stm32h753", "drv-stm32xx-sys-api/h753"]
 g031 = ["stm32g0/stm32g031", "drv-stm32xx-sys-api/g031"]
 g030 = ["stm32g0/stm32g030", "drv-stm32xx-sys-api/g030"]
 amd_erratum_1394 = []
+enable_target = []
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
