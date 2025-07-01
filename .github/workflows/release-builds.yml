@@ -1,4 +1,9 @@
 name: release-builds
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+  attestations: write
 on:
   push:
     tags:
@@ -7,6 +12,8 @@ on:
       - "psc-*"
       - "sidecar-*"
       - "devboards-*"
+      - "cosmo-*"
+      - "all-sp-*"
 
 jobs:
   release-rot:
@@ -38,5 +45,17 @@ jobs:
     uses: ./.github/workflows/release.yml
     with:
       board-set: devboards
+
+  release-cosmo:
+    if: startsWith(github.ref, 'refs/tags/cosmo')
+    uses: ./.github/workflows/release.yml
+    with:
+      board-set: cosmo
+
+  release-all-sp:
+    if: startsWith(github.ref, 'refs/tags/all-sp')
+    uses: ./.github/workflows/release.yml
+    with:
+      board-set: all-sp
 
 
