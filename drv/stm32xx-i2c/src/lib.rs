@@ -237,8 +237,9 @@ impl I2cMux<'_> {
 }
 
 impl I2cController<'_> {
-    pub fn enable(&self, sys: &sys_api::Sys) {
+    pub fn enable_and_reset(&self, sys: &sys_api::Sys) {
         sys.enable_clock(self.peripheral);
+        sys.enter_reset(self.peripheral);
         sys.leave_reset(self.peripheral);
     }
 

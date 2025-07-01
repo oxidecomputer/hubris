@@ -110,7 +110,7 @@ fn main() -> ! {
     // Enable the controller
     let sys = Sys::from(SYS.get_task_id());
 
-    controller.enable(&sys);
+    controller.enable_and_reset(&sys);
 
     // Configure our pins
     configure_pins(&sys, &pins);

@@ -28,8 +28,8 @@ counted_ringbuf!(Trace, 48, Trace::None);
 pub struct Target<'a>(pub I2cController<'a>);
 
 impl Target<'_> {
-    pub fn enable(&self, sys: &sys_api::Sys) {
-        self.0.enable(sys)
+    pub fn enable_and_reset(&self, sys: &sys_api::Sys) {
+        self.0.enable_and_reset(sys)
     }
 
     fn configure_as_target(&self) {

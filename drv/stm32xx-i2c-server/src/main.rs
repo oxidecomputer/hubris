@@ -514,7 +514,7 @@ fn main() -> ! {
 
 fn turn_on_i2c(sys: &Sys, controllers: &[I2cController<'_>]) {
     for controller in controllers {
-        controller.enable(&sys);
+        controller.enable_and_reset(&sys);
     }
 }
 
