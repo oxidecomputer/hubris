@@ -242,6 +242,7 @@ enum Trace {
 ringbuf!(Trace, 160, Trace::None);
 
 fn reset(
+    sys: &Sys,
     controller: &I2cController<'_>,
     port: PortIndex,
     muxes: &[I2cMux<'_>],
@@ -249,9 +250,6 @@ fn reset(
 ) {
     let bus = (controller.controller, port);
     ringbuf_entry!(Trace::Reset(bus));
-
-    let sys = SYS.get_task_id();
-    let sys = Sys::from(sys);
 
     // First, bounce our I2C controller
     controller.reset();
@@ -284,6 +282,7 @@ fn reset_needed(code: ResponseCode) -> bool {
 }
 
 fn reset_if_needed(
+    sys: &Sys,
     code: ResponseCode,
     controller: &I2cController<'_>,
     port: PortIndex,
@@ -291,7 +290,7 @@ fn reset_if_needed(
     muxmap: &mut MuxMap,
 ) {
     if reset_needed(code) {
-        reset(controller, port, muxes, muxmap)
+        reset(sys, controller, port, muxes, muxmap)
     }
 }
 
@@ -300,6 +299,7 @@ fn reset_if_needed(
 /// via [`wiggle_scl`].
 ///
 fn reset_and_wiggle_if_needed(
+    sys: &Sys,
     code: ResponseCode,
     controller: &I2cController<'_>,
     port: PortIndex,
@@ -308,9 +308,6 @@ fn reset_and_wiggle_if_needed(
     pins: &[I2cPins],
 ) {
     if reset_needed(code) {
-        let sys = SYS.get_task_id();
-        let sys = Sys::from(sys);
-
         for pin in pins
             .iter()
             .filter(|p| p.controller == controller.controller)
@@ -333,7 +330,7 @@ fn reset_and_wiggle_if_needed(
             }
         }
 
-        reset(controller, port, muxes, muxmap);
+        reset(sys, controller, port, muxes, muxmap);
     }
 }
 
@@ -369,15 +366,17 @@ fn main() -> ! {
     let mut portmap = PortMap::default();
     let mut muxmap = MuxMap::default();
 
+    let sys = Sys::from(SYS.get_task_id());
+
     // Turn the actual peripheral on so that we can interact with it.
-    turn_on_i2c(&controllers);
-    configure_pins(&controllers, &pins, &mut portmap);
+    turn_on_i2c(&sys, &controllers);
+    configure_pins(&sys, &controllers, &pins, &mut portmap);
     configure_controllers(&controllers);
 
     // Field messages.
     let mut buffer = [0; 4];
 
-    configure_muxes(&muxes, &controllers, &pins, &mut portmap, &mut muxmap);
+    configure_muxes(&sys, &muxes, &controllers, &pins, &mut portmap, &mut muxmap);
 
     loop {
         hl::recv_without_notification(&mut buffer, |op, msg| match op {
@@ -402,7 +401,7 @@ fn main() -> ! {
                 let controller = lookup_controller(&controllers, controller)?;
                 validate_port(&pins, controller.controller, port)?;
 
-                configure_port(&mut portmap, controller, port, &pins);
+                configure_port(&sys, &mut portmap, controller, port, &pins);
 
                 match configure_mux(&mut muxmap, controller, port, mux, &muxes)
                 {
@@ -410,6 +409,7 @@ fn main() -> ! {
                     Err(code) => {
                         ringbuf_entry!(Trace::MuxError(code.into()));
                         reset_if_needed(
+                            &sys,
                             code,
                             controller,
                             port,
@@ -489,6 +489,7 @@ fn main() -> ! {
                             }
 
                             reset_and_wiggle_if_needed(
+                                &sys,
                                 code,
                                 controller,
                                 port,
@@ -511,9 +512,7 @@ fn main() -> ! {
     }
 }
 
-fn turn_on_i2c(controllers: &[I2cController<'_>]) {
-    let sys = Sys::from(SYS.get_task_id());
-
+fn turn_on_i2c(sys: &Sys, controllers: &[I2cController<'_>]) {
     for controller in controllers {
         controller.enable(&sys);
     }
@@ -527,6 +526,7 @@ fn configure_controllers(controllers: &[I2cController<'_>]) {
 }
 
 fn configure_port(
+    sys: &Sys,
     map: &mut PortMap,
     controller: &I2cController<'_>,
     port: PortIndex,
@@ -537,9 +537,6 @@ fn configure_port(
     if current == port {
         return;
     }
-
-    let sys = SYS.get_task_id();
-    let sys = Sys::from(sys);
 
     //
     // We will now iterate over all pins, de-configuring any that match our
@@ -671,13 +668,11 @@ fn wiggle_scl(sys: &Sys, scl: PinSet, sda: PinSet) {
 }
 
 fn configure_pins(
+    sys: &Sys,
     controllers: &[I2cController<'_>],
     pins: &[I2cPins],
     map: &mut PortMap,
 ) {
-    let sys = SYS.get_task_id();
-    let sys = Sys::from(sys);
-
     //
     // Before we configure our pins, wiggle SCL to shake off any old
     // transaction.
@@ -729,19 +724,17 @@ fn configure_pins(
 }
 
 fn configure_muxes(
+    sys: &Sys,
     muxes: &[I2cMux<'_>],
     controllers: &[I2cController<'_>],
     pins: &[I2cPins],
     map: &mut PortMap,
     muxmap: &mut MuxMap,
 ) {
-    let sys = SYS.get_task_id();
-    let sys = Sys::from(sys);
-
     for mux in muxes {
         let controller =
             lookup_controller(controllers, mux.controller).unwrap();
-        configure_port(map, controller, mux.port, pins);
+        configure_port(sys, map, controller, mux.port, pins);
 
         let mut reset_attempted = false;
 
@@ -778,7 +771,7 @@ fn configure_muxes(
                         ringbuf_entry!(Trace::SegmentFailed(code.into()));
 
                         if reset_needed(code) && !reset_attempted {
-                            reset(controller, mux.port, muxes, muxmap);
+                            reset(sys, controller, mux.port, muxes, muxmap);
                             reset_attempted = true;
                             continue;
                         }
@@ -798,7 +791,7 @@ fn configure_muxes(
                 }
                 Err(code) => {
                     ringbuf_entry!(Trace::ConfigureFailed(code.into()));
-                    reset_if_needed(code, controller, mux.port, muxes, muxmap);
+                    reset_if_needed(sys, code, controller, mux.port, muxes, muxmap);
                 }
             }
         }
