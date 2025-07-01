@@ -1195,18 +1195,33 @@ fn wfi_raw(event_mask: u32, timeout: I2cTimeout) -> I2cControlResult {
 
     sys_set_timer(Some(dead), TIMER_NOTIFICATION);
 
-    let received = sys_recv_notification(event_mask | TIMER_NOTIFICATION);
+    loop {
+        let received = sys_recv_notification(event_mask | TIMER_NOTIFICATION);
 
-    // If the event arrived _and_ our timer went off, prioritize the event and
-    // ignore the timeout.
-    if received & event_mask != 0 {
-        // Attempt to clear our timer. Note that this does not protect against
-        // the race where the kernel decided to wake us up, but the timer went
-        // off before we got to this point.
-        sys_set_timer(None, TIMER_NOTIFICATION);
-        I2cControlResult::Interrupted
-    } else {
-        // The event_mask bit was not set, so:
-        I2cControlResult::TimedOut
+        // If the event arrived _and_ our timer went off, prioritize the event and
+        // ignore the timeout.
+        if received & event_mask != 0 {
+            // Attempt to clear our timer. Note that this does not protect against
+            // the race where the kernel decided to wake us up, but the timer went
+            // off before we got to this point.
+            sys_set_timer(None, TIMER_NOTIFICATION);
+            break I2cControlResult::Interrupted;
+        } else {
+            // The timer bit must have been set. Verify that our timer has
+            // actually expired:
+            if sys_get_timer().now >= dead {
+                break I2cControlResult::TimedOut;
+            }
+
+            // Otherwise, one of two things has happened:
+            // 1. Some joker has posted to our timer bit. Ha ha very funny.
+            // 2. The timer bit was _already set_ on entry to this routine, as a
+            //    hangover from a previous run.
+            //
+            // We don't need to re-set our timer here because we sampled
+            // sys_get_timer _after_ receiving notifications, meaning it either
+            // hasn't gone off, or it has gone off but that fact is still stored
+            // in our notification bits.
+        }
     }
 }
