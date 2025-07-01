@@ -13,7 +13,7 @@ on:
 
 jobs:
   build-sidecar:
-    if: ${{ inputs.board-set == 'sidecar' || inputs.board-set == 'all' || inputs.board-set = 'all-sp' }}
+    if: ${{ inputs.board-set == 'sidecar' || inputs.board-set == 'all' || inputs.board-set == 'all-sp' }}
     name: build-sidecar
     strategy:
       matrix:
