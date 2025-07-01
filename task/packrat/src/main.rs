@@ -30,7 +30,9 @@
 #![no_main]
 
 use core::convert::Infallible;
-use idol_runtime::{ClientError, Leased, LenLimit, NotificationHandler, RequestError};
+use idol_runtime::{
+    ClientError, Leased, LenLimit, NotificationHandler, RequestError,
+};
 use minicbor::CborLen;
 use ringbuf::{ringbuf, ringbuf_entry};
 use static_cell::ClaimOnceCell;
@@ -40,7 +42,7 @@ use task_packrat_api::{
 };
 use userlib::{RecvMessage, TaskId};
 use zerocopy::little_endian::{U128, U64};
-use zerocopy::{FromBytes, AsBytes, Unaligned};
+use zerocopy::{AsBytes, FromBytes, Unaligned};
 
 #[cfg(feature = "gimlet")]
 mod gimlet;
@@ -118,13 +120,10 @@ fn main() -> ! {
         ref mut identity,
         #[cfg(feature = "gimlet")]
         ref mut gimlet_bufs,
-<<<<<<< Updated upstream
         #[cfg(feature = "cosmo")]
         ref mut cosmo_bufs,
-=======
         ref mut ereport_storage,
         ref mut ereport_recv,
->>>>>>> Stashed changes
     } = {
         static BUFS: ClaimOnceCell<StaticBufs> =
             ClaimOnceCell::new(StaticBufs {
@@ -132,13 +131,10 @@ fn main() -> ! {
                 identity: None,
                 #[cfg(feature = "gimlet")]
                 gimlet_bufs: gimlet::StaticBufs::new(),
-<<<<<<< Updated upstream
                 #[cfg(feature = "cosmo")]
                 cosmo_bufs: cosmo::StaticBufs::new(),
-=======
                 ereport_storage: snitch_core::Store::DEFAULT,
                 ereport_recv: [0; 1024],
->>>>>>> Stashed changes
             });
         BUFS.claim()
     };
@@ -443,8 +439,13 @@ impl idl::InOrderPackratImpl for ServerImpl {
         msg: &RecvMessage,
         data: LenLimit<Leased<idol_runtime::R, [u8]>, 1024usize>,
     ) -> Result<(), RequestError<Infallible>> {
-        data.read_range(0..data.len(), self.ereport_recv).map_err(|_| ClientError::WentAway.fail())?;
-        self.ereport_storage.insert(msg.sender.0, 0, &self.ereport_recv[..data.len()]);
+        data.read_range(0..data.len(), self.ereport_recv)
+            .map_err(|_| ClientError::WentAway.fail())?;
+        self.ereport_storage.insert(
+            msg.sender.0,
+            0,
+            &self.ereport_recv[..data.len()],
+        );
         Ok(())
     }
 
@@ -454,13 +455,13 @@ impl idl::InOrderPackratImpl for ServerImpl {
         begin_ena: u64,
         data: Leased<idol_runtime::W, [u8]>,
     ) -> Result<usize, RequestError<Infallible>> {
-        // Skip over a header-sized initial chunk, plus space for the 
+        // Skip over a header-sized initial chunk, plus space for the
         let first_data_byte = size_of::<EreportResponse>();
 
         let mut position = first_data_byte;
         let mut first_written_ena = None;
 
-        // Beginning with the first 
+        // Beginning with the first
         for r in self.ereport_storage.read_from(begin_ena) {
             if first_written_ena.is_none() {
                 first_written_ena = Some(r.ena);
@@ -469,7 +470,8 @@ impl idl::InOrderPackratImpl for ServerImpl {
             // TODO start list
 
             let tid = TaskId(r.tid);
-            let task_name = hubris_task_names::TASK_NAMES.get(tid.index())
+            let task_name = hubris_task_names::TASK_NAMES
+                .get(tid.index())
                 .copied()
                 .unwrap_or({
                     // This represents an internal error, where we've recorded
@@ -489,12 +491,17 @@ impl idl::InOrderPackratImpl for ServerImpl {
                 r.timestamp,
                 ByteGather(r.slices.0, r.slices.1),
             );
-            let mut c = minicbor::encode::write::Cursor::new(&mut self.ereport_recv[..]);
+            let mut c = minicbor::encode::write::Cursor::new(
+                &mut self.ereport_recv[..],
+            );
             match minicbor::encode(&entry, &mut c) {
                 Ok(()) => {
                     let size = c.position();
-                    data.write_range(position..position + size, &self.ereport_recv[..size])
-                        .map_err(|_| ClientError::WentAway.fail())?;
+                    data.write_range(
+                        position..position + size,
+                        &self.ereport_recv[..size],
+                    )
+                    .map_err(|_| ClientError::WentAway.fail())?;
                     position += size;
                 }
                 Err(_end) => {
@@ -558,8 +565,12 @@ impl<C> minicbor::Encode<C> for ByteGather<'_, '_> {
         _ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
         e.bytes_len((self.0.len() + self.1.len()) as u64)?;
-        e.writer_mut().write_all(self.0).map_err(minicbor::encode::Error::write)?;
-        e.writer_mut().write_all(self.1).map_err(minicbor::encode::Error::write)?;
+        e.writer_mut()
+            .write_all(self.0)
+            .map_err(minicbor::encode::Error::write)?;
+        e.writer_mut()
+            .write_all(self.1)
+            .map_err(minicbor::encode::Error::write)?;
         Ok(())
     }
 }
