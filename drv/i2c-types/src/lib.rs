@@ -63,51 +63,75 @@ pub enum ResponseCode {
     BadResponse = 1,
     /// Bad argument sent to server
     BadArg,
-    /// Indicated I2C device is invalid
+    /// The device address was NACKed, implying that it is missing, unreachable,
+    /// or not responding.
     NoDevice,
-    /// Indicated I2C controller is invalid
+    /// An I2C controller number sent to the I2C server is not valid.
     BadController,
-    /// Device address is reserved
+    /// The device address sent to the I2C server is reserved per the I2C
+    /// standard.
     ReservedAddress,
-    /// Indicated port is invalid
+    /// The port number sent to the I2C server is invalid.
     BadPort,
-    /// Device does not have indicated register
+    /// A byte written to the device was NACKed, which may indicate an invalid
+    /// parameter, end of received data, etc.
     NoRegister,
-    /// Indicated mux is an invalid mux identifier
+    /// A mux value sent to the I2C server is not valid.
     BadMux,
-    /// Indicated segment is an invalid segment identifier
+    /// Segment identifier sent to the I2C server is not valid.
     BadSegment,
-    /// Indicated mux does not exist on this controller
+    /// A mux value sent to the I2C server is possibly valid for some other
+    /// machine, but not this one. In practice this should probably be handled
+    /// as equivalent to `BadMux`.
     MuxNotFound,
-    /// Indicated segment does not exist on this controller
+    /// A segment value sent to the I2C server is possibly value for some other
+    /// machine, but not this one. In practice this should probably be handled
+    /// as equivalent to `BadSegment`.
     SegmentNotFound,
-    /// Segment disconnected during operation
+    /// A mux refused to connect the segment you've requested because it's being
+    /// held low by a downstream device.
     SegmentDisconnected,
-    /// Mux disconnected during operation
+    /// A mux failed to connect the segment you've requested, but not because it
+    /// was being held low. In practice, this can basically only happen if the
+    /// I2C driver is preempted long enough for a mux's activity timeout to
+    /// fire, _and_ a device failed and started asynchronously holding the line
+    /// low during this time.
     MuxDisconnected,
-    /// No device at address used for mux in-band management
+    /// The mux's address was NACKed, implying that it is missing, unreachable,
+    /// or not responding.
     MuxMissing,
-    /// Register used for mux in-band management is invalid
+    /// A byte written to a mux was NACKed.
     BadMuxRegister,
-    /// I2C bus was spontaneously reset during operation
+    /// We detected "arbitration lost," meaning that SDA was sampled as low at a
+    /// clock edge when we were attempting to leave it high.
     BusReset,
-    /// I2C bus was reset during a mux in-band management operation
+    /// We detected "arbitration lost" during an operation on a mux.
     BusResetMux,
-    /// I2C bus locked up and was reset
+    /// The SMBus timeout hardware fired, implying that a device held the bus
+    /// low for too long, or (perhaps more likely) that our driver got preempted
+    /// while processing events, likely by a crash dump.
     BusLocked,
-    /// I2C bus locked up during in-band management operation and was reset
+    /// A `BusLocked` (timeout) event occurred while attempting to program a mux
+    /// on the way to the device you requested.
     BusLockedMux,
-    /// I2C controller appeared to be busy and was reset
+    /// The I2C controller was unexpectedly indicating "busy" and this condition
+    /// did not clear within the expected (brief) period of time.
     ControllerBusy,
-    /// I2C bus error
+    /// An I2C protocol timing violation has been detected on the bus. In
+    /// practice, this means that (1) we were actively driving the bus, and (2) a start or stop condition was observed unexpectedly, and (3) it did not happen at a 9-bit frame boundary. This usually indicates a glitch, either from us or a device.
     BusError,
-    /// Bad device state of unknown origin
+    /// Unspecified device-specific state error.
     BadDeviceState,
-    /// Requested operation is not supported
+    /// Specific to the `power` task, which reuses this error type for some
+    /// reason: the PMBus operation you have requested is not implemented by the
+    /// target device.
     OperationNotSupported,
-    /// Illegal number of leases
+    /// You have sent the I2C server fewer than 2 leases, or an odd number of
+    /// leases.
     IllegalLeaseCount,
-    /// Too much data -- or not enough buffer
+    /// A block transfer (SMbus or PMbus) tried to move too much data into a
+    /// device, or tried to read a block into a lease that turned out to be too
+    /// small.
     TooMuchData,
 }
 
