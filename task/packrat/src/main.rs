@@ -103,6 +103,8 @@ ringbuf!(Trace, 16, Trace::None);
 /// report consumes a small amount of this (currently 12 bytes).
 const EREPORT_BUFFER_SIZE: usize = 4096;
 
+task_slot!(RNG, rng);
+
 #[export_name = "main"]
 fn main() -> ! {
     struct StaticBufs {
@@ -146,7 +148,7 @@ fn main() -> ! {
         identity,
         ereport_storage,
         ereport_recv,
-        restart_nonce: 0xDEAD, // TODO
+        restart_nonce: get_restart_nonce(),
         next_ena: 1,
         #[cfg(feature = "gimlet")]
         gimlet_data: gimlet::GimletData::new(gimlet_bufs),
@@ -160,6 +162,17 @@ fn main() -> ! {
     loop {
         idol_runtime::dispatch(&mut buffer, &mut server);
     }
+}
+
+// This is a function so that the 16-byte buffer we provide to the RNG IPC
+// doesn't stay on the stack forever (as it might if we did this in `main`?).
+fn get_restart_nonce() -> u128 {
+    let rng = drv_rng_api::Rng::from(RNG.get_task_id());
+    let mut buf = [0u8; 16];
+    // XXX(eliza): if this fails we are TURBO SCREWED...
+    rng.fill(&mut buf).unwrap_lite();
+    // endianness doesn't matter here, they're random bytes lol
+    u128::from_be_bytes(buf)
 }
 
 struct ServerImpl {
@@ -517,7 +530,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
         let first_ena = first_written_ena.unwrap_or(self.next_ena);
         let header = EreportResponse {
             version: 0,
-            unused: [0; 3],
+            message_cookie: todo!(),
             instance_id: self.restart_nonce.into(),
             first_ena: first_ena.into(),
         };

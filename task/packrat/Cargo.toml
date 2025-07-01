@@ -12,6 +12,7 @@ zerocopy.workspace = true
 zerocopy-derive.workspace = true
 
 drv-cpu-seq-api = { path = "../../drv/cpu-seq-api", optional = true }
+drv-rng-api = { path = "../../drv/rng-api" }
 hubris-task-names = { path = "../../sys/task-names" }
 mutable-statics = { path = "../../lib/mutable-statics" }
 ringbuf = { path = "../../lib/ringbuf"  }
