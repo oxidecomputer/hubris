@@ -118,7 +118,7 @@ jobs:
       os: ${{ inputs.os }}
 
   build-gimlet:
-    if: ${{ inputs.board-set == 'gimlet' || inputs.board-set == 'all' }}
+    if: ${{ inputs.board-set == 'gimlet' || inputs.board-set == 'all' || inputs.board-set == 'compute-sleds' }}
     name: build-gimlet
     strategy:
       matrix:
@@ -193,7 +193,7 @@ jobs:
       os: ${{ inputs.os }}
 
   build-cosmo:
-    if: ${{ inputs.board-set == 'cosmo' || inputs.board-set == 'all' }}
+    if: ${{ inputs.board-set == 'cosmo' || inputs.board-set == 'all' || inputs.board-set == 'compute-sleds' }}
     name: build-cosmo
     strategy:
       matrix:

@@ -39,4 +39,10 @@ jobs:
     with:
       board-set: devboards
 
+  release-compute-sleds:
+    if: startsWith(github.ref, 'refs/tags/compute-sleds')
+    uses: ./.github/workflows/release.yml
+    with:
+      board-set: compute-sleds
+
 
