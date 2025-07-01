@@ -39,10 +39,7 @@ task_slot!(JEFE, jefe);
 
 mod ltc4306;
 
-fn configure_pins(pins: &[I2cPins]) {
-    let sys = SYS.get_task_id();
-    let sys = Sys::from(sys);
-
+fn configure_pins(sys: &Sys, pins: &[I2cPins]) {
     for pin in pins {
         for gpio_pin in &[pin.scl, pin.sda] {
             sys.gpio_configure_alternate(
@@ -114,7 +111,7 @@ fn main() -> ! {
     controller.enable(&sys);
 
     // Configure our pins
-    configure_pins(&pins);
+    configure_pins(&sys, &pins);
 
     ringbuf_entry!(Trace::Ready);
 
