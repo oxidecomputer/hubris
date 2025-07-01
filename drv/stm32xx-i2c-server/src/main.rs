@@ -241,7 +241,27 @@ enum Trace {
 
 ringbuf!(Trace, 160, Trace::None);
 
-fn reset(
+/// Cancels any ongoing transaction, disabling the I2C peripheral's protocol
+/// engine.
+///
+/// You can use this to put the I2C controller into a state where it tolerates
+/// having pins changed and stuff. When you're ready to reverse it, use
+/// `resume_activity_and_reset_muxes`.
+fn stop_activity(
+    controller: &I2cController<'_>,
+    port: PortIndex,
+) {
+    let bus = (controller.controller, port);
+    ringbuf_entry!(Trace::Reset(bus));
+
+    controller.stop_peripheral()
+}
+
+/// Turns the I2C peripheral's protocol engine back on and attempts to reset mux
+/// state.
+///
+/// This is intended to be used to reverse `stop_activity`.
+fn resume_activity_and_reset_muxes(
     controller: &I2cController<'_>,
     port: PortIndex,
     muxes: &[I2cMux<'_>],
@@ -254,7 +274,7 @@ fn reset(
     let sys = Sys::from(sys);
 
     // First, bounce our I2C controller
-    controller.reset();
+    controller.restart_peripheral();
 
     // And now reset all muxes on this bus, eating any errors.
     let _ = all_muxes(controller, port, muxes, |mux| {
@@ -266,6 +286,7 @@ fn reset(
         // be up to the next transaction on this bus to properly set the
         // mux state.
         //
+        let bus = (controller.controller, port);
         muxmap.insert(bus, MuxState::Unknown);
         Ok(())
     });
@@ -283,6 +304,13 @@ fn reset_needed(code: ResponseCode) -> bool {
     )
 }
 
+/// Checks if `code` merits a protocol reset (using `reset_needed`), and if so,
+/// reset the protocol engine.
+///
+/// This does not wiggle pins or otherwise attempt an "unstick," and is used
+/// exclusively to deal with errors resulting from muxes. (TODO: Why though)
+///
+/// For device errors, see `reset_and_wiggle_if_needed`.
 fn reset_if_needed(
     code: ResponseCode,
     controller: &I2cController<'_>,
@@ -291,13 +319,17 @@ fn reset_if_needed(
     muxmap: &mut MuxMap,
 ) {
     if reset_needed(code) {
-        reset(controller, port, muxes, muxmap)
+        stop_activity(controller, port);
+        resume_activity_and_reset_muxes(controller, port, muxes, muxmap);
     }
 }
 
 ///
 /// A variant of [`reset_if_needed`] that will also wiggle the SCL lines
-/// via [`wiggle_scl`].
+/// via [`wiggle_scl`]. It does this unconditionally, whether or not it's needed
+/// (i.e. whether or not the lines are stuck). That is, you should parse this
+/// function's name as "(reset+wiggle) if needed," rather than as "reset, and
+/// wiggle if needed."
 ///
 fn reset_and_wiggle_if_needed(
     code: ResponseCode,
@@ -308,8 +340,9 @@ fn reset_and_wiggle_if_needed(
     pins: &[I2cPins],
 ) {
     if reset_needed(code) {
-        let sys = SYS.get_task_id();
-        let sys = Sys::from(sys);
+        let sys = Sys::from(SYS.get_task_id());
+
+        stop_activity(controller, port);
 
         for pin in pins
             .iter()
@@ -333,7 +366,7 @@ fn reset_and_wiggle_if_needed(
             }
         }
 
-        reset(controller, port, muxes, muxmap);
+        resume_activity_and_reset_muxes(controller, port, muxes, muxmap);
     }
 }
 
@@ -778,7 +811,8 @@ fn configure_muxes(
                         ringbuf_entry!(Trace::SegmentFailed(code.into()));
 
                         if reset_needed(code) && !reset_attempted {
-                            reset(controller, mux.port, muxes, muxmap);
+                            stop_activity(controller, mux.port);
+                            resume_activity_and_reset_muxes(controller, mux.port, muxes, muxmap);
                             reset_attempted = true;
                             continue;
                         }
