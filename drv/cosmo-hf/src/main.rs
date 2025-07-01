@@ -55,7 +55,8 @@ fn main() -> ! {
     };
     drv.flash_set_quad_enable();
 
-    // Check the flash chip's ID against Table 7.3.1 in the W25Q01JV datasheet.
+    // Check the flash chip's ID against Table 7.3.1 in the W25Q01JV datasheet
+    // (revision B1, published November 13, 2019)
     let id = drv.flash_read_id();
     const WINBOND_MFR_ID: u8 = 0xef;
     const EXPECTED_TYPE: u8 = 0x40;
@@ -119,12 +120,6 @@ mod instr {
 
 impl FlashDriver {
     fn flash_read_id(&mut self) -> drv_hf_api::HfChipId {
-        // Make sure die 0 is selected with a dummy read, because the
-        // READ_UNIQUE_ID command is die-specific.
-        let mut buf = [0u8; 4];
-        self.flash_read(FlashAddr(0), &mut buf.as_mut_slice())
-            .unwrap_lite(); // infallible when given a slice
-
         self.clear_fifos();
         self.drv.data_bytes.set_count(3);
         self.drv.addr.set_addr(0);
@@ -137,6 +132,35 @@ impl FlashDriver {
         let memory_type = bytes[1];
         let capacity = bytes[2];
 
+        // Make sure die 0 is selected with a dummy read, because the
+        // READ_UNIQUE_ID command is die-specific.
+        let mut buf = [0u8; 4];
+        self.flash_read(FlashAddr(0), &mut buf.as_mut_slice())
+            .unwrap_lite(); // infallible when given a slice
+        let die0_id = self.read_unique_id();
+
+        // Then read the top die's unique ID
+        self.flash_read(FlashAddr(0x04000000), &mut buf.as_mut_slice())
+            .unwrap_lite(); // infallible when given a slice
+        let die1_id = self.read_unique_id();
+
+        let mut unique_id = [0u8; 17];
+        unique_id[0..8].copy_from_slice(&die0_id);
+        unique_id[8..16].copy_from_slice(&die1_id);
+
+        drv_hf_api::HfChipId {
+            mfr_id,
+            memory_type,
+            capacity,
+            unique_id,
+        }
+    }
+
+    /// Reads the unique id (`READ_UNIQUE_ID`, `4Bh`) from the selected die
+    ///
+    /// The selected die depends on previous commands; see "W25Q01JV SpiFlash
+    /// Stacked Die Usage" for details (available in Drive).
+    fn read_unique_id(&mut self) -> [u8; 8] {
         // We are running with 3-byte addresses, so we need to skip 4 bytes (32
         // clocks) of dummy data.  The datasheet indicates that the DO line is
         // high-Z when this happens, but experimentally, it's just clocking out
@@ -146,20 +170,14 @@ impl FlashDriver {
         self.drv.dummy_cycles.set_count(32);
         self.drv.instr.set_opcode(instr::READ_UNIQUE_ID);
         self.wait_fpga_busy();
-        let mut unique_id = [0u8; 17];
+        let mut out = [0u8; 8];
         for i in 0..2 {
             let v = self.drv.rx_fifo_rdata.fifo_data();
             for (j, byte) in v.to_le_bytes().iter().enumerate() {
-                unique_id[i * 4 + j] = *byte;
+                out[i * 4 + j] = *byte;
             }
         }
-
-        drv_hf_api::HfChipId {
-            mfr_id,
-            memory_type,
-            capacity,
-            unique_id,
-        }
+        out
     }
 
     /// Wait until the FPGA is idle

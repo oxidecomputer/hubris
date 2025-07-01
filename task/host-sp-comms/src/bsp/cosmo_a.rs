@@ -548,9 +548,6 @@ impl ServerImpl {
                         .read_id()
                         .map_err(|_| InventoryDataResult::DeviceFailed)?;
                     *self.scratch = InventoryData::W25q256jveqi {
-                        mfr_id: id.mfr_id,
-                        memory_type: id.memory_type,
-                        capacity: id.capacity,
                         unique_id: id.unique_id,
                     };
                     Ok(self.scratch)
@@ -564,10 +561,12 @@ impl ServerImpl {
                         .read_id()
                         .map_err(|_| InventoryDataResult::DeviceFailed)?;
                     *self.scratch = InventoryData::W25q01jvzeiq {
-                        mfr_id: id.mfr_id,
-                        memory_type: id.memory_type,
-                        capacity: id.capacity,
-                        unique_id: id.unique_id[0..8].try_into().unwrap_lite(),
+                        die0_unique_id: id.unique_id[0..8]
+                            .try_into()
+                            .unwrap_lite(),
+                        die1_unique_id: id.unique_id[8..16]
+                            .try_into()
+                            .unwrap_lite(),
                     };
                     Ok(self.scratch)
                 });
