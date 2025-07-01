@@ -370,7 +370,7 @@ impl I2cController<'_> {
         let i2c = self.registers;
 
         // Disable PE
-        i2c.cr1.write(|w| w.pe().clear_bit());
+        self.stop_peripheral();
 
         self.configure_timing(i2c);
         self.configure_timeouts(i2c);
@@ -388,12 +388,12 @@ impl I2cController<'_> {
             .txie().set_bit()           // enable TX interrupt
         });
 
-        i2c.cr1.modify(|_, w| w.pe().set_bit());
+        self.restart_peripheral();
     }
 
-    /// Reset the controller, as per the datasheet: clear PE, wait for it
-    /// to become 0, and set it.
-    pub fn reset(&self) {
+    /// Shut off the controller, as per the datasheet: clear PE, wait for it
+    /// to become 0.
+    pub fn stop_peripheral(&self) {
         let i2c = self.registers;
 
         // We must keep PE low for 3 APB cycles (e.g., 30 ns on h743).  To
@@ -409,11 +409,23 @@ impl I2cController<'_> {
                 break;
             }
         }
+    }
 
-        // And then finally set it
-        i2c.cr1.modify(|_, w| w.pe().set_bit());
+    /// Reverse the effect of `stop_peripheral`.
+    pub fn restart_peripheral(&self) {
+        self.registers.cr1.modify(|_, w| w.pe().set_bit());
 
-        ringbuf_entry!(Trace::Reset(Register::CR2, i2c.cr2.read().bits()));
+        ringbuf_entry!(Trace::Reset(Register::CR2, self.registers.cr2.read().bits()));
+    }
+
+    /// Restart the controller, as per the datasheet: clear PE, wait for it
+    /// to become 0, and set it.
+    ///
+    /// Note that this does not reset the controller's configuration state. To
+    /// do that, you'll need to reset it through the Sys task.
+    pub fn stop_and_restart_peripheral(&self) {
+        self.stop_peripheral();
+        self.restart_peripheral();
     }
 
     ///
