@@ -30,19 +30,19 @@
 #![no_main]
 
 use core::convert::Infallible;
+use gateway_ereport_messages as ereport_messages;
 use idol_runtime::{
     ClientError, Leased, LenLimit, NotificationHandler, RequestError,
 };
 use minicbor::CborLen;
-use ringbuf::{ringbuf, ringbuf_entry};
+use ringbuf::{counted_ringbuf, ringbuf, ringbuf_entry};
 use static_cell::ClaimOnceCell;
 use task_packrat_api::{
     CacheGetError, CacheSetError, HostStartupOptions, MacAddressBlock,
     VpdIdentity,
 };
-use userlib::{RecvMessage, TaskId};
-use zerocopy::little_endian::{U128, U64};
-use zerocopy::{AsBytes, FromBytes, Unaligned};
+use userlib::{RecvMessage, TaskId, UnwrapLite};
+use zerocopy::IntoBytes;
 
 #[cfg(feature = "gimlet")]
 mod gimlet;
@@ -99,7 +99,7 @@ enum TraceSet<T> {
 
 /// Separate ring buffer for ereport events, as we probably don't care that much
 /// about the sequence of ereport events relative to other packrat API events.
-#[derive(Copy, Clone, counters::Count)]
+#[derive(Copy, Clone, PartialEq, Eq, counters::Count)]
 enum EreportTrace {
     #[count(skip)]
     None,
@@ -116,7 +116,7 @@ counted_ringbuf!(EREPORT_RINGBUF, EreportTrace, 16, EreportTrace::None);
 /// report consumes a small amount of this (currently 12 bytes).
 const EREPORT_BUFFER_SIZE: usize = 4096;
 
-task_slot!(RNG, rng);
+userlib::task_slot!(RNG, rng);
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -161,7 +161,7 @@ fn main() -> ! {
         identity,
         ereport_storage,
         ereport_recv,
-        restart_nonce: get_restart_nonce(),
+        restart_id: get_restart_id(),
         next_ena: 1,
         #[cfg(feature = "gimlet")]
         gimlet_data: gimlet::GimletData::new(gimlet_bufs),
@@ -179,13 +179,12 @@ fn main() -> ! {
 
 // This is a function so that the 16-byte buffer we provide to the RNG IPC
 // doesn't stay on the stack forever (as it might if we did this in `main`?).
-fn get_restart_nonce() -> u128 {
+fn get_restart_id() -> ereport_messages::RestartId {
     let rng = drv_rng_api::Rng::from(RNG.get_task_id());
     let mut buf = [0u8; 16];
     // XXX(eliza): if this fails we are TURBO SCREWED...
     rng.fill(&mut buf).unwrap_lite();
-    // endianness doesn't matter here, they're random bytes lol
-    u128::from_be_bytes(buf)
+    u128::from_le_bytes(buf).into()
 }
 
 struct ServerImpl {
@@ -193,7 +192,7 @@ struct ServerImpl {
     identity: &'static mut Option<VpdIdentity>,
     ereport_storage: &'static mut snitch_core::Store<EREPORT_BUFFER_SIZE>,
     ereport_recv: &'static mut [u8; 1024],
-    restart_nonce: u128,
+    restart_id: gateway_ereport_messages::RestartId,
     next_ena: u64,
     #[cfg(feature = "gimlet")]
     gimlet_data: gimlet::GimletData,
@@ -476,7 +475,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
         // eaten...
         ringbuf_entry!(
             EREPORT_RINGBUF,
-            EreportTrace {
+            EreportTrace::EreportDelivered {
                 src: msg.sender,
                 len: data.len() as u32
             }
@@ -487,17 +486,28 @@ impl idl::InOrderPackratImpl for ServerImpl {
     fn read_ereports(
         &mut self,
         _msg: &RecvMessage,
-        begin_ena: u64,
+        request_id: ereport_messages::RequestIdV0,
+        restart_id: ereport_messages::RestartId,
+        begin_ena: ereport_messages::Ena,
         data: Leased<idol_runtime::W, [u8]>,
     ) -> Result<usize, RequestError<Infallible>> {
-        // Skip over a header-sized initial chunk, plus space for the
-        let first_data_byte = size_of::<EreportResponse>();
+        // Skip over a header-sized initial chunk.
+        let first_data_byte = size_of::<ereport_messages::ResponseHeader>();
 
         let mut position = first_data_byte;
         let mut first_written_ena = None;
 
+        // If the requested restart ID matches the current restart ID, then read
+        // from the requested ENA. If not, start at ENA 0.
+        let begin_ena = if restart_id == self.restart_id {
+            begin_ena.into()
+        } else {
+            // TODO(eliza): encode metadata if restart ID doesn't match!
+            0
+        };
+
         // Beginning with the first
-        for r in self.ereport_storage.read_from(begin_ena) {
+        for r in self.ereport_storage.read_from(begin_ena.into()) {
             if first_written_ena.is_none() {
                 first_written_ena = Some(r.ena);
                 // Start CBOR list
@@ -562,12 +572,13 @@ impl idl::InOrderPackratImpl for ServerImpl {
         }
 
         let first_ena = first_written_ena.unwrap_or(self.next_ena);
-        let header = EreportResponse {
-            version: 0,
-            message_cookie: todo!(),
-            instance_id: self.restart_nonce.into(),
-            first_ena: first_ena.into(),
-        };
+        let header = ereport_messages::ResponseHeader::V0(
+            ereport_messages::ResponseHeaderV0 {
+                request_id,
+                restart_id: self.restart_id,
+                start_ena: first_ena.into(),
+            },
+        );
         data.write_range(0..size_of_val(&header), header.as_bytes())
             .map_err(|_| ClientError::WentAway.fail())?;
         Ok(position)
@@ -592,15 +603,6 @@ impl NotificationHandler for ServerImpl {
     fn handle_notification(&mut self, _bits: u32) {
         unreachable!()
     }
-}
-
-#[derive(Copy, Clone, Debug, FromBytes, AsBytes, Unaligned)]
-#[repr(C)]
-struct EreportResponse {
-    version: u8,
-    message_cookie: u8,
-    instance_id: U128,
-    first_ena: U64,
 }
 
 struct ByteGather<'a, 'b>(&'a [u8], &'b [u8]);
@@ -631,8 +633,8 @@ impl<C> CborLen<C> for ByteGather<'_, '_> {
 
 mod idl {
     use super::{
-        CacheGetError, CacheSetError, HostStartupOptions, MacAddressBlock,
-        VpdIdentity,
+        ereport_messages, CacheGetError, CacheSetError, HostStartupOptions,
+        MacAddressBlock, VpdIdentity,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

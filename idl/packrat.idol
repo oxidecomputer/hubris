@@ -108,7 +108,9 @@ Interface(
         "read_ereports": (
             doc: "Read ereports starting with a watermark (ENA) value",
             args: {
-                "first_ena": "u64",
+                "request_id": "ereport_messages::RequestIdV0",
+                "restart_id": "ereport_messages::RestartId",
+                "start_ena": "ereport_messages::Ena",
             },
             leases: {
                 "data": (type: "[u8]", write: true),
@@ -126,4 +128,3 @@ Interface(
         ),
     },
 )
-
