@@ -500,9 +500,14 @@ impl idl::InOrderPackratImpl for ServerImpl {
         for r in self.ereport_storage.read_from(begin_ena) {
             if first_written_ena.is_none() {
                 first_written_ena = Some(r.ena);
+                // Start CBOR list
+                // XXX(eliza): in theory it might be nicer to use
+                // `minicbor::data::Token::BeginArray` here, but it's way more
+                // annoying in practice...
+                data.write_at(position, 0x9f)
+                    .map_err(|_| ClientError::WentAway.fail())?;
+                position += 1;
             }
-
-            // TODO start list
 
             let tid = TaskId(r.tid);
             let task_name = hubris_task_names::TASK_NAMES
@@ -547,6 +552,13 @@ impl idl::InOrderPackratImpl for ServerImpl {
                     // TODO
                 }
             }
+        }
+
+        if first_written_ena.is_some() {
+            // End CBOR list, if we wrote anything.
+            data.write_at(position, 0xff)
+                .map_err(|_| ClientError::WentAway.fail())?;
+            position += 1;
         }
 
         let first_ena = first_written_ena.unwrap_or(self.next_ena);
