@@ -13,7 +13,7 @@ on:
 
 jobs:
   build-sidecar:
-    if: ${{ inputs.board-set == 'sidecar' || inputs.board-set == 'all' }}
+    if: ${{ inputs.board-set == 'sidecar' || inputs.board-set == 'all' || inputs.board-set == 'all-sp' }}
     name: build-sidecar
     strategy:
       matrix:
@@ -64,7 +64,7 @@ jobs:
       os: ${{ inputs.os }}
 
   build-psc:
-    if: ${{ inputs.board-set == 'psc' || inputs.board-set == 'all' }}
+    if: ${{ inputs.board-set == 'psc' || inputs.board-set == 'all' || inputs.board-set == 'all-sp' }}
     name: build-psc
     strategy:
       matrix:
@@ -118,7 +118,7 @@ jobs:
       os: ${{ inputs.os }}
 
   build-gimlet:
-    if: ${{ inputs.board-set == 'gimlet' || inputs.board-set == 'all' }}
+    if: ${{ inputs.board-set == 'gimlet' || inputs.board-set == 'all' || inputs.board-set == 'all-sp' }}
     name: build-gimlet
     strategy:
       matrix:
@@ -193,7 +193,7 @@ jobs:
       os: ${{ inputs.os }}
 
   build-cosmo:
-    if: ${{ inputs.board-set == 'cosmo' || inputs.board-set == 'all' }}
+    if: ${{ inputs.board-set == 'cosmo' || inputs.board-set == 'all' || inputs.board-set == 'all-sp' }}
     name: build-cosmo
     strategy:
       matrix:
