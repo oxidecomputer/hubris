@@ -9,7 +9,7 @@ use idol_runtime::{ClientError, Leased, LenLimit, RequestError};
 use minicbor::CborLen;
 use ringbuf::{counted_ringbuf, ringbuf_entry};
 use task_packrat_api::VpdIdentity;
-use userlib::{RecvMessage, TaskId, UnwrapLite};
+use userlib::{sys_get_timer, RecvMessage, TaskId, UnwrapLite};
 use zerocopy::IntoBytes;
 
 pub(crate) struct EreportStore {
@@ -87,8 +87,9 @@ impl EreportStore {
     ) -> Result<(), RequestError<Infallible>> {
         data.read_range(0..data.len(), self.recv)
             .map_err(|_| ClientError::WentAway.fail())?;
+        let timestamp = sys_get_timer().now;
         self.storage
-            .insert(msg.sender.0, 0, &self.recv[..data.len()]);
+            .insert(msg.sender.0, timestamp, &self.recv[..data.len()]);
         // TODO(eliza): would maybe be nice to say something if the ereport got
         // eaten...
         ringbuf_entry!(EreportTrace::EreportDelivered {
