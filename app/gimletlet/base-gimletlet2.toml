@@ -14,9 +14,9 @@ requires = {flash = 32768, ram = 8192}
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
-max-sizes = {flash = 16384, ram = 2048}
+max-sizes = {flash = 16384, ram = 4096}
 start = true
-stacksize = 1536
+stacksize = 2200
 notifications = ["fault", "timer"]
 
 [tasks.jefe.config.allowed-callers]
