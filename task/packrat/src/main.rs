@@ -471,6 +471,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
             begin_ena,
             committed_ena,
             data,
+            self.identity.as_ref(),
         )
     }
 }

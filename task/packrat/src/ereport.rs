@@ -8,6 +8,7 @@ use core::convert::Infallible;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError};
 use minicbor::CborLen;
 use ringbuf::{counted_ringbuf, ringbuf_entry};
+use task_packrat_api::VpdIdentity;
 use userlib::{RecvMessage, TaskId, UnwrapLite};
 use zerocopy::IntoBytes;
 
@@ -104,6 +105,7 @@ impl EreportStore {
         begin_ena: ereport_messages::Ena,
         committed_ena: ereport_messages::Ena,
         data: Leased<idol_runtime::W, [u8]>,
+        vpd: Option<&VpdIdentity>,
     ) -> Result<usize, RequestError<Infallible>> {
         // Skip over a header-sized initial chunk.
         let first_data_byte = size_of::<ereport_messages::ResponseHeader>();
@@ -122,11 +124,42 @@ impl EreportStore {
             }
             begin_ena.into()
         } else {
-            // TODO(eliza): encode metadata if restart ID doesn't match!
             ringbuf_entry!(EreportTrace::RestartIdMismatch {
                 requested: restart_id,
                 current: self.restart_id
             });
+
+            // Encode the metadata map into our buffer.
+            // TODO(eliza): this will panic if the encoded metadata map is
+            // longer than 1024B...currently it should never be that, given that
+            // everything we encode here is fixed-size. But, yuck...
+            let c = minicbor::encode::write::Cursor::new(&mut self.recv[..]);
+            let mut encoder = minicbor::Encoder::new(c);
+            encoder.begin_map().unwrap_lite();
+            if let Some(vpd) = vpd {
+                encoder
+                    .str("baseboard_part_number")
+                    .unwrap_lite()
+                    .bytes(vpd.part_number.as_bytes())
+                    .unwrap_lite()
+                    .str("baseboard_serial_number")
+                    .unwrap_lite()
+                    .bytes(vpd.serial.as_bytes())
+                    .unwrap_lite()
+                    .str("rev")
+                    .unwrap_lite()
+                    .u32(vpd.revision)
+                    .unwrap_lite();
+            }
+            encoder.end().unwrap_lite();
+
+            // Write the encoded metadata map.
+            let size = encoder.into_writer().position();
+            data.write_range(position..position + size, &self.recv[..size])
+                .map_err(|_| ClientError::WentAway.fail())?;
+            position += size;
+
+            // Begin at ENA 0
             0
         };
 
