@@ -25,9 +25,9 @@ default = true
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
-max-sizes = {flash = 16384, ram = 2048}
+max-sizes = {flash = 16384, ram = 4096}
 start = true
-stacksize = 1536
+stacksize = 3000
 notifications = ["fault", "timer"]
 features = ["dump"]
 extern-regions = ["sram1", "sram2", "sram3", "sram4"]
