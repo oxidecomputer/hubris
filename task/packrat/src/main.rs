@@ -31,18 +31,14 @@
 
 use core::convert::Infallible;
 use gateway_ereport_messages as ereport_messages;
-use idol_runtime::{
-    ClientError, Leased, LenLimit, NotificationHandler, RequestError,
-};
-use minicbor::CborLen;
-use ringbuf::{counted_ringbuf, ringbuf, ringbuf_entry};
+use idol_runtime::{Leased, LenLimit, NotificationHandler, RequestError};
+use ringbuf::{ringbuf, ringbuf_entry};
 use static_cell::ClaimOnceCell;
 use task_packrat_api::{
     CacheGetError, CacheSetError, HostStartupOptions, MacAddressBlock,
     VpdIdentity,
 };
-use userlib::{RecvMessage, TaskId, UnwrapLite};
-use zerocopy::IntoBytes;
+use userlib::RecvMessage;
 
 #[cfg(feature = "gimlet")]
 mod gimlet;
@@ -60,6 +56,9 @@ use gimlet::SpdData;
 
 #[cfg(feature = "cosmo")]
 use cosmo::SpdData;
+
+#[cfg(feature = "ereport")]
+mod ereport;
 
 #[cfg(not(any(feature = "gimlet", feature = "cosmo")))]
 type SpdData = spd_data::SpdData<0, 0>; // dummy type
@@ -97,27 +96,7 @@ enum TraceSet<T> {
     AttemptedSetToNewValue(T),
 }
 
-/// Separate ring buffer for ereport events, as we probably don't care that much
-/// about the sequence of ereport events relative to other packrat API events.
-#[derive(Copy, Clone, PartialEq, Eq, counters::Count)]
-enum EreportTrace {
-    #[count(skip)]
-    None,
-    EreportDelivered {
-        src: TaskId,
-        len: u32,
-    },
-}
-
 ringbuf!(Trace, 16, Trace::None);
-counted_ringbuf!(EREPORT_RINGBUF, EreportTrace, 16, EreportTrace::None);
-
-/// Number of bytes of RAM dedicated to ereport buffer storage. Each individual
-/// report consumes a small amount of this (currently 12 bytes).
-const EREPORT_BUFFER_SIZE: usize = 4096;
-
-userlib::task_slot!(RNG, rng_driver);
-
 #[export_name = "main"]
 fn main() -> ! {
     struct StaticBufs {
@@ -127,8 +106,8 @@ fn main() -> ! {
         gimlet_bufs: gimlet::StaticBufs,
         #[cfg(feature = "cosmo")]
         cosmo_bufs: cosmo::StaticBufs,
-        ereport_storage: snitch_core::Store<EREPORT_BUFFER_SIZE>,
-        ereport_recv: [u8; 1024],
+        #[cfg(feature = "ereport")]
+        ereport_bufs: ereport::EreportBufs,
     }
     let StaticBufs {
         ref mut mac_address_block,
@@ -137,8 +116,8 @@ fn main() -> ! {
         ref mut gimlet_bufs,
         #[cfg(feature = "cosmo")]
         ref mut cosmo_bufs,
-        ref mut ereport_storage,
-        ref mut ereport_recv,
+        #[cfg(feature = "ereport")]
+        ref mut ereport_bufs,
     } = {
         static BUFS: ClaimOnceCell<StaticBufs> =
             ClaimOnceCell::new(StaticBufs {
@@ -148,27 +127,23 @@ fn main() -> ! {
                 gimlet_bufs: gimlet::StaticBufs::new(),
                 #[cfg(feature = "cosmo")]
                 cosmo_bufs: cosmo::StaticBufs::new(),
-                ereport_storage: snitch_core::Store::DEFAULT,
-                ereport_recv: [0; 1024],
+                #[cfg(feature = "ereport")]
+                ereport_bufs: ereport::EreportBufs::new(),
             });
         BUFS.claim()
     };
 
-    ereport_storage.initialize(0, 0); // TODO tid timestamp
-
     let mut server = ServerImpl {
         mac_address_block,
         identity,
-        ereport_storage,
-        ereport_recv,
-        restart_id: get_restart_id(),
-        next_ena: 1,
         #[cfg(feature = "gimlet")]
         gimlet_data: gimlet::GimletData::new(gimlet_bufs),
         #[cfg(feature = "grapefruit")]
         grapefruit_data: grapefruit::GrapefruitData::new(),
         #[cfg(feature = "cosmo")]
         cosmo_data: cosmo::CosmoData::new(cosmo_bufs),
+        #[cfg(feature = "ereport")]
+        ereport_store: ereport::EreportStore::new(ereport_bufs),
     };
 
     let mut buffer = [0; idl::INCOMING_SIZE];
@@ -177,29 +152,17 @@ fn main() -> ! {
     }
 }
 
-// This is a function so that the 16-byte buffer we provide to the RNG IPC
-// doesn't stay on the stack forever (as it might if we did this in `main`?).
-fn get_restart_id() -> ereport_messages::RestartId {
-    let rng = drv_rng_api::Rng::from(RNG.get_task_id());
-    let mut buf = [0u8; 16];
-    // XXX(eliza): if this fails we are TURBO SCREWED...
-    rng.fill(&mut buf).unwrap_lite();
-    u128::from_le_bytes(buf).into()
-}
-
 struct ServerImpl {
     mac_address_block: &'static mut Option<MacAddressBlock>,
     identity: &'static mut Option<VpdIdentity>,
-    ereport_storage: &'static mut snitch_core::Store<EREPORT_BUFFER_SIZE>,
-    ereport_recv: &'static mut [u8; 1024],
-    restart_id: gateway_ereport_messages::RestartId,
-    next_ena: u64,
     #[cfg(feature = "gimlet")]
     gimlet_data: gimlet::GimletData,
     #[cfg(feature = "grapefruit")]
     grapefruit_data: grapefruit::GrapefruitData,
     #[cfg(feature = "cosmo")]
     cosmo_data: cosmo::CosmoData,
+    #[cfg(feature = "ereport")]
+    ereport_store: ereport::EreportStore,
 }
 
 impl ServerImpl {
@@ -459,138 +422,56 @@ impl idl::InOrderPackratImpl for ServerImpl {
         }
     }
 
+    #[cfg(not(feature = "ereport"))]
+    fn deliver_ereport(
+        &mut self,
+        _: &RecvMessage,
+        _: LenLimit<Leased<idol_runtime::R, [u8]>, 1024usize>,
+    ) -> Result<(), RequestError<Infallible>> {
+        // go away, we don't know how to do that
+        idol_runtime::ClientError::UnknownOperation.fail()
+    }
+
+    #[cfg(feature = "ereport")]
     fn deliver_ereport(
         &mut self,
         msg: &RecvMessage,
         data: LenLimit<Leased<idol_runtime::R, [u8]>, 1024usize>,
     ) -> Result<(), RequestError<Infallible>> {
-        data.read_range(0..data.len(), self.ereport_recv)
-            .map_err(|_| ClientError::WentAway.fail())?;
-        self.ereport_storage.insert(
-            msg.sender.0,
-            0,
-            &self.ereport_recv[..data.len()],
-        );
-        // TODO(eliza): would maybe be nice to say something if the ereport got
-        // eaten...
-        ringbuf_entry!(
-            EREPORT_RINGBUF,
-            EreportTrace::EreportDelivered {
-                src: msg.sender,
-                len: data.len() as u32
-            }
-        );
-        Ok(())
+        self.ereport_store.deliver_ereport(msg, data)
     }
 
+    #[cfg(not(feature = "ereport"))]
+    fn read_ereports(
+        &mut self,
+        _msg: &RecvMessage,
+        _: ereport_messages::RequestIdV0,
+        _: ereport_messages::RestartId,
+        _: ereport_messages::Ena,
+        _: ereport_messages::Ena,
+        _: Leased<idol_runtime::W, [u8]>,
+    ) -> Result<usize, RequestError<Infallible>> {
+        // go away, we don't know how to do that
+        idol_runtime::ClientError::UnknownOperation.fail()
+    }
+
+    #[cfg(feature = "ereport")]
     fn read_ereports(
         &mut self,
         _msg: &RecvMessage,
         request_id: ereport_messages::RequestIdV0,
         restart_id: ereport_messages::RestartId,
         begin_ena: ereport_messages::Ena,
+        committed_ena: ereport_messages::Ena,
         data: Leased<idol_runtime::W, [u8]>,
     ) -> Result<usize, RequestError<Infallible>> {
-        // Skip over a header-sized initial chunk.
-        let first_data_byte = size_of::<ereport_messages::ResponseHeader>();
-
-        let mut position = first_data_byte;
-        let mut first_written_ena = None;
-
-        // If the requested restart ID matches the current restart ID, then read
-        // from the requested ENA. If not, start at ENA 0.
-        let begin_ena = if restart_id == self.restart_id {
-            begin_ena.into()
-        } else {
-            // TODO(eliza): encode metadata if restart ID doesn't match!
-            0
-        };
-
-        // Beginning with the first
-        for r in self.ereport_storage.read_from(begin_ena.into()) {
-            if first_written_ena.is_none() {
-                first_written_ena = Some(r.ena);
-                // Start CBOR list
-                // XXX(eliza): in theory it might be nicer to use
-                // `minicbor::data::Token::BeginArray` here, but it's way more
-                // annoying in practice...
-                data.write_at(position, 0x9f)
-                    .map_err(|_| ClientError::WentAway.fail())?;
-                position += 1;
-            }
-
-            let tid = TaskId(r.tid);
-            let task_name = hubris_task_names::TASK_NAMES
-                .get(tid.index())
-                .copied()
-                .unwrap_or({
-                    // This represents an internal error, where we've recorded
-                    // an out-of-range task ID somehow. We still want to get the
-                    // ereport out, so we'll use a recognizable but illegal task
-                    // name to indicate that it's missing.
-                    "-" // TODO
-                });
-            // TODO write task name
-            let generation = tid.generation();
-            // TODO write generation number
-            r.timestamp; // TODO
-
-            let entry = (
-                task_name,
-                u8::from(generation),
-                r.timestamp,
-                ByteGather(r.slices.0, r.slices.1),
-            );
-            let mut c = minicbor::encode::write::Cursor::new(
-                &mut self.ereport_recv[..],
-            );
-            match minicbor::encode(&entry, &mut c) {
-                Ok(()) => {
-                    let size = c.position();
-                    data.write_range(
-                        position..position + size,
-                        &self.ereport_recv[..size],
-                    )
-                    .map_err(|_| ClientError::WentAway.fail())?;
-                    position += size;
-                }
-                Err(_end) => {
-                    // This is an odd one; we've admitted a record into our
-                    // queue that won't fit in our buffer. This can happen
-                    // because of the encoding overhead, in theory, but should
-                    // be prevented.
-                    // TODO
-                }
-            }
-        }
-
-        if first_written_ena.is_some() {
-            // End CBOR list, if we wrote anything.
-            data.write_at(position, 0xff)
-                .map_err(|_| ClientError::WentAway.fail())?;
-            position += 1;
-        }
-
-        let first_ena = first_written_ena.unwrap_or(self.next_ena);
-        let header = ereport_messages::ResponseHeader::V0(
-            ereport_messages::ResponseHeaderV0 {
-                request_id,
-                restart_id: self.restart_id,
-                start_ena: first_ena.into(),
-            },
-        );
-        data.write_range(0..size_of_val(&header), header.as_bytes())
-            .map_err(|_| ClientError::WentAway.fail())?;
-        Ok(position)
-    }
-
-    fn flush_ereports(
-        &mut self,
-        _msg: &RecvMessage,
-        last_ena: u64,
-    ) -> Result<(), RequestError<Infallible>> {
-        self.ereport_storage.flush_thru(last_ena);
-        Ok(())
+        self.ereport_store.read_ereports(
+            request_id,
+            restart_id,
+            begin_ena,
+            committed_ena,
+            data,
+        )
     }
 }
 
@@ -602,32 +483,6 @@ impl NotificationHandler for ServerImpl {
 
     fn handle_notification(&mut self, _bits: u32) {
         unreachable!()
-    }
-}
-
-struct ByteGather<'a, 'b>(&'a [u8], &'b [u8]);
-
-impl<C> minicbor::Encode<C> for ByteGather<'_, '_> {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        _ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.bytes_len((self.0.len() + self.1.len()) as u64)?;
-        e.writer_mut()
-            .write_all(self.0)
-            .map_err(minicbor::encode::Error::write)?;
-        e.writer_mut()
-            .write_all(self.1)
-            .map_err(minicbor::encode::Error::write)?;
-        Ok(())
-    }
-}
-
-impl<C> CborLen<C> for ByteGather<'_, '_> {
-    fn cbor_len(&self, ctx: &mut C) -> usize {
-        let n = self.0.len() + self.1.len();
-        n.cbor_len(ctx) + n
     }
 }
 

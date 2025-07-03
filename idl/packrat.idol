@@ -111,19 +111,12 @@ Interface(
                 "request_id": "ereport_messages::RequestIdV0",
                 "restart_id": "ereport_messages::RestartId",
                 "start_ena": "ereport_messages::Ena",
+                "committed_ena": "ereport_messages::Ena",
             },
             leases: {
                 "data": (type: "[u8]", write: true),
             },
             reply: Simple("usize"),
-            idempotent: true,
-        ),
-        "flush_ereports": (
-            doc: "Free storage for all ereports up thru an ENA.",
-            args: {
-                "last_ena": "u64",
-            },
-            reply: Simple("()"),
             idempotent: true,
         ),
     },

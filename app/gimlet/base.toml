@@ -126,7 +126,7 @@ name = "task-packrat"
 priority = 3
 start = true
 task-slots = ["rng_driver"]
-features = ["gimlet"]
+features = ["gimlet", "ereport"]
 
 [tasks.thermal]
 name = "task-thermal"

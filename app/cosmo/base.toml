@@ -134,7 +134,7 @@ name = "task-packrat"
 priority = 3
 start = true
 task-slots = ["rng_driver"]
-features = ["cosmo"]
+features = ["cosmo", "ereport"]
 
 [tasks.thermal]
 name = "task-thermal"

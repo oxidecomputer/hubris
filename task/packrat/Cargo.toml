@@ -13,7 +13,7 @@ zerocopy.workspace = true
 zerocopy-derive.workspace = true
 
 drv-cpu-seq-api = { path = "../../drv/cpu-seq-api", optional = true }
-drv-rng-api = { path = "../../drv/rng-api" }
+drv-rng-api = { path = "../../drv/rng-api", optional = true  }
 hubris-task-names = { path = "../../sys/task-names" }
 mutable-statics = { path = "../../lib/mutable-statics" }
 ringbuf = { path = "../../lib/ringbuf"  }
@@ -21,8 +21,8 @@ counters = { path = "../../lib/counters"  }
 static-cell = { path = "../../lib/static-cell" }
 task-packrat-api = { path = "../packrat-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
-snitch-core = { version = "0.1.0", path = "../../lib/snitch-core" }
-minicbor = "0.26.4"
+snitch-core = { version = "0.1.0", path = "../../lib/snitch-core", optional = true }
+minicbor = { version = "0.26.4", optional = true }
 
 [build-dependencies]
 anyhow.workspace = true
@@ -37,6 +37,7 @@ gimlet = ["drv-cpu-seq-api"]
 grapefruit = []
 boot-kmdb = []
 no-ipc-counters = ["idol/no-counters"]
+ereport = ["dep:drv-rng-api", "dep:snitch-core", "dep:minicbor"]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
