@@ -178,6 +178,7 @@ impl EreportStore {
             .map_err(|_| ClientError::WentAway.fail())?;
         position += 1;
 
+        let mut reports = 0;
         // Beginning with the first
         for r in self.storage.read_from(begin_ena) {
             if first_written_ena.is_none() {
@@ -215,12 +216,17 @@ impl EreportStore {
             match minicbor::encode(&entry, &mut c) {
                 Ok(()) => {
                     let size = c.position();
+                    // If there's no room left for this one in the lease, we're done here.
+                    if position + size >= data.len() {
+                        break;
+                    }
                     data.write_range(
                         position..position + size,
                         &self.recv[..size],
                     )
                     .map_err(|_| ClientError::WentAway.fail())?;
                     position += size;
+                    reports += 1;
                 }
                 Err(_end) => {
                     // This is an odd one; we've admitted a record into our
@@ -232,11 +238,12 @@ impl EreportStore {
             }
         }
 
-        if first_written_ena.is_some() {
+        if let Some(start_ena) = first_written_ena {
             // End CBOR list, if we wrote anything.
             data.write_at(position, 0xff)
                 .map_err(|_| ClientError::WentAway.fail())?;
             position += 1;
+            ringbuf_entry!(EreportTrace::Reported { start_ena, reports });
         }
 
         let first_ena = first_written_ena.unwrap_or(self.next_ena);
