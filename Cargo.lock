@@ -5362,6 +5362,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-ereportulator"
+version = "0.1.0"
+dependencies = [
+ "idol-runtime",
+ "minicbor 0.26.4",
+ "task-packrat-api",
+ "userlib",
+ "zerocopy 0.8.26",
+ "zerocopy-derive 0.8.26",
+]
+
+[[package]]
 name = "task-framulator"
 version = "0.1.0"
 dependencies = [

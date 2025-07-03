@@ -1,0 +1,21 @@
+[package]
+name = "task-ereportulator"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+userlib = { path = "../../sys/userlib" }
+idol-runtime.workspace = true
+zerocopy.workspace = true
+zerocopy-derive.workspace = true
+task-packrat-api = { path = "../packrat-api" }
+minicbor.workspace = true
+
+[[bin]]
+name = "task-ereportulator"
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true

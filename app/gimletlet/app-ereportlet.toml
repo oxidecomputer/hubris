@@ -1,0 +1,17 @@
+name = "gimletlet-ereportlet"
+inherit = "app.toml"
+
+[tasks.jefe.config.allowed-callers]
+request_reset = ["hiffy"]
+
+[tasks.hiffy]
+features = ["h753", "stm32h7", "i2c", "gpio", "spi"]
+task-slots = ["sys", "i2c_driver", "user_leds"]
+
+[tasks.ereportulator]
+name = "task-ereportulator"
+priority = 8
+# start paused so that we can be triggered by humility
+start = false
+task-slots = ["packrat"]
+notifications = []
