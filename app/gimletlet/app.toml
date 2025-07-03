@@ -259,8 +259,9 @@ kind = "udp"
 owner = {name = "snitch", notification = "socket"}
 port = 57005
 tx = { packets = 3, bytes = 1024 }
-# N.B. (eliza): rxbuf could be made smaller...
-rx = { packets = 3, bytes = 512 }
+# v0 ereport requests are always 35B, so just make the buffer exactly
+# that size...
+rx = { packets = 3, bytes = 35 }
 
 [tasks.sprot]
 name = "drv-stm32h7-sprot-server"

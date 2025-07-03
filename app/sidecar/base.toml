@@ -334,6 +334,15 @@ extern-regions = [ "sram1", "sram2", "sram3", "sram4" ]
 notifications = ["socket"]
 features = ["net", "vlan"]
 
+[tasks.snitch]
+name = "task-snitch"
+priority = 6
+stacksize = 1200
+start = true
+task-slots = ["net", "packrat"]
+features = ["vlan"]
+notifications = ["socket"]
+
 [tasks.idle]
 name = "task-idle"
 priority = 8
@@ -1163,6 +1172,15 @@ owner = {name = "transceivers", notification = "socket"}
 port = 11112
 tx = { packets = 3, bytes = 2048 }
 rx = { packets = 3, bytes = 2048 }
+
+[config.net.sockets.ereport]
+kind = "udp"
+owner = {name = "snitch", notification = "socket"}
+port = 57005
+tx = { packets = 3, bytes = 1024 }
+# v0 ereport requests are always 35B, so just make the buffer exactly
+# that size...
+rx = { packets = 3, bytes = 35 }
 
 [config.auxflash]
 memory-size = 33_554_432 # 256 Mib / 32 MiB
