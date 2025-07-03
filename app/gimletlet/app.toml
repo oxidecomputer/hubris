@@ -42,7 +42,7 @@ owner = {name = "sprot", notification = "rot_irq"}
 
 [tasks.packrat]
 name = "task-packrat"
-priority = 7
+priority = 4
 start = true
 task-slots = ["rng_driver"]
 features = ["ereport"]
@@ -189,7 +189,7 @@ notifications = ["socket"]
 
 [tasks.snitch]
 name = "task-snitch"
-priority = 8
+priority = 7
 stacksize = 1200
 start = true
 task-slots = ["net", "packrat"]
