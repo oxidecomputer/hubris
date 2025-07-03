@@ -165,7 +165,7 @@ impl EreportStore {
         };
 
         // Beginning with the first
-        for r in self.storage.read_from(begin_ena.into()) {
+        for r in self.storage.read_from(begin_ena) {
             if first_written_ena.is_none() {
                 first_written_ena = Some(r.ena);
                 // Start CBOR list
