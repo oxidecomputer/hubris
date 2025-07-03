@@ -110,7 +110,7 @@ notifications = ["i2c2-irq", "i2c3-irq", "i2c4-irq"]
 [tasks.spd]
 name = "task-gimlet-spd"
 features = ["h753"]
-priority = 2
+priority = 4
 max-sizes = {flash = 16384, ram = 16384}
 uses = ["i2c1"]
 start = true
@@ -123,10 +123,9 @@ notifications = ["i2c1-irq", "jefe-state-change"]
 
 [tasks.packrat]
 name = "task-packrat"
-priority = 1
+priority = 3
 start = true
-# task-slots is explicitly empty: packrat should not send IPCs!
-task-slots = []
+task-slots = ["rng_driver"]
 features = ["gimlet"]
 
 [tasks.thermal]
@@ -194,6 +193,15 @@ uses = ["hash"]
 interrupts = {"hash.irq" = "hash-irq"}
 task-slots = ["sys"]
 notifications = ["hash-irq"]
+
+[tasks.rng_driver]
+features = ["h753"]
+name = "drv-stm32h7-rng"
+priority = 2
+uses = ["rng"]
+start = true
+stacksize = 512
+task-slots = ["sys"]
 
 [tasks.hf]
 name = "drv-gimlet-hf-server"

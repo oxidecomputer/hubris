@@ -116,7 +116,7 @@ counted_ringbuf!(EREPORT_RINGBUF, EreportTrace, 16, EreportTrace::None);
 /// report consumes a small amount of this (currently 12 bytes).
 const EREPORT_BUFFER_SIZE: usize = 4096;
 
-userlib::task_slot!(RNG, rng);
+userlib::task_slot!(RNG, rng_driver);
 
 #[export_name = "main"]
 fn main() -> ! {

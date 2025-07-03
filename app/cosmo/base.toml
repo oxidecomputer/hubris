@@ -120,12 +120,20 @@ notifications = ["i2c1-irq", "i2c2-irq", "i2c3-irq", "i2c4-irq"]
 "i2c4.event" = "i2c4-irq"
 "i2c4.error" = "i2c4-irq"
 
+[tasks.rng_driver]
+features = ["h753"]
+name = "drv-stm32h7-rng"
+priority = 2
+uses = ["rng"]
+start = true
+stacksize = 512
+task-slots = ["sys"]
+
 [tasks.packrat]
 name = "task-packrat"
-priority = 1
+priority = 3
 start = true
-# task-slots is explicitly empty: packrat should not send IPCs!
-task-slots = []
+task-slots = ["rng_driver"]
 features = ["cosmo"]
 
 [tasks.thermal]

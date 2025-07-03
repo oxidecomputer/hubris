@@ -56,7 +56,7 @@ owner = {name = "sprot", notification = "rot_irq"}
 [tasks.rng_driver]
 features = ["h753"]
 name = "drv-stm32h7-rng"
-priority = 6
+priority = 2
 uses = ["rng"]
 start = true
 stacksize = 512
