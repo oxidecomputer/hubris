@@ -197,6 +197,15 @@ task-slots = ["net", "packrat"]
 features = ["vlan"]
 notifications = ["socket"]
 
+[tasks.snitch]
+name = "task-snitch"
+priority = 6
+stacksize = 1200
+start = true
+task-slots = ["net", "packrat"]
+features = ["vlan"]
+notifications = ["socket"]
+
 # VLAN configuration
 [config.net.vlans.sidecar1]
 vid = 0x301
@@ -244,6 +253,14 @@ owner = {name = "dump_agent", notification = "socket"}
 port = 11113
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.ereport]
+kind = "udp"
+owner = {name = "snitch", notification = "socket"}
+port = 57005
+tx = { packets = 3, bytes = 1024 }
+# N.B. (eliza): rxbuf could be made smaller...
+rx = { packets = 3, bytes = 512 }
 
 [tasks.sprot]
 name = "drv-stm32h7-sprot-server"
