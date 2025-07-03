@@ -187,10 +187,7 @@ impl EreportStore {
                     // name to indicate that it's missing.
                     "-" // TODO
                 });
-            // TODO write task name
             let generation = tid.generation();
-            // TODO write generation number
-            r.timestamp; // TODO
 
             let entry = (
                 task_name,

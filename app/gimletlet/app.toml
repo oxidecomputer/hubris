@@ -40,18 +40,9 @@ port = "D"
 pin = 0
 owner = {name = "sprot", notification = "rot_irq"}
 
-[tasks.rng_driver]
-features = ["h753"]
-name = "drv-stm32h7-rng"
-priority = 2
-uses = ["rng"]
-start = true
-stacksize = 512
-task-slots = ["sys"]
-
 [tasks.packrat]
 name = "task-packrat"
-priority = 3
+priority = 7
 start = true
 task-slots = ["rng_driver"]
 features = ["ereport"]
@@ -198,7 +189,7 @@ notifications = ["socket"]
 
 [tasks.snitch]
 name = "task-snitch"
-priority = 6
+priority = 8
 stacksize = 1200
 start = true
 task-slots = ["net", "packrat"]
