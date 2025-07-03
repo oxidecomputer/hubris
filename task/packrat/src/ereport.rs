@@ -45,11 +45,15 @@ enum EreportTrace {
         len: u32,
     },
     Flushed {
-        committed_ena: ereport_messages::Ena,
+        ena: u64,
     },
     RestartIdMismatch {
-        current: ereport_messages::RestartId,
-        requested: ereport_messages::RestartId,
+        current: u128,
+        requested: u128,
+    },
+    Reported {
+        start_ena: u64,
+        reports: u32,
     },
 }
 counted_ringbuf!(EreportTrace, 16, EreportTrace::None);
@@ -126,13 +130,15 @@ impl EreportStore {
             // `committed_ena`, if there is one.
             if committed_ena != ereport_messages::Ena::NONE {
                 self.storage.flush_thru(committed_ena.into());
-                ringbuf_entry!(EreportTrace::Flushed { committed_ena });
+                ringbuf_entry!(EreportTrace::Flushed {
+                    ena: committed_ena.into()
+                });
             }
             begin_ena.into()
         } else {
             ringbuf_entry!(EreportTrace::RestartIdMismatch {
-                requested: restart_id,
-                current: self.restart_id
+                requested: restart_id.into(),
+                current: self.restart_id.into()
             });
 
             // Encode the metadata map into our buffer.
