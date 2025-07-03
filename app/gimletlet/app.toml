@@ -52,7 +52,6 @@ task-slots = ["sys"]
 [tasks.packrat]
 name = "task-packrat"
 priority = 3
-max-sizes = {flash = 8192, ram = 2048}
 start = true
 task-slots = ["rng_driver"]
 features = ["ereport"]
