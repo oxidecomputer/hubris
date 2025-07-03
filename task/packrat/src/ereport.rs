@@ -114,6 +114,11 @@ impl EreportStore {
         let mut position = first_data_byte;
         let mut first_written_ena = None;
 
+        // Begin metadata map.
+        data.write_at(position, 0xbf)
+            .map_err(|_| ClientError::WentAway.fail())?;
+        position += 1;
+
         // If the requested restart ID matches the current restart ID, then read
         // from the requested ENA. If not, start at ENA 0.
         let begin_ena = if restart_id == self.restart_id {
@@ -136,7 +141,6 @@ impl EreportStore {
             // everything we encode here is fixed-size. But, yuck...
             let c = minicbor::encode::write::Cursor::new(&mut self.recv[..]);
             let mut encoder = minicbor::Encoder::new(c);
-            encoder.begin_map().unwrap_lite();
             if let Some(vpd) = vpd {
                 encoder
                     .str("baseboard_part_number")
@@ -152,7 +156,6 @@ impl EreportStore {
                     .u32(vpd.revision)
                     .unwrap_lite();
             }
-            encoder.end().unwrap_lite();
 
             // Write the encoded metadata map.
             let size = encoder.into_writer().position();
@@ -163,6 +166,11 @@ impl EreportStore {
             // Begin at ENA 0
             0
         };
+
+        // End metadata map.
+        data.write_at(position, 0xff)
+            .map_err(|_| ClientError::WentAway.fail())?;
+        position += 1;
 
         // Beginning with the first
         for r in self.storage.read_from(begin_ena) {
