@@ -14,7 +14,7 @@
 #![no_main]
 
 use ringbuf::{counted_ringbuf, ringbuf_entry};
-use userlib::{hl::sleep_for, task_slot};
+use userlib::{hl::sleep_for, task_slot, UnwrapLite};
 
 mod hf; // implementation of `HostFlash` API
 
@@ -50,14 +50,22 @@ fn main() -> ! {
     let seq =
         drv_spartan7_loader_api::Spartan7Loader::from(LOADER.get_task_id());
 
-    let drv = FlashDriver {
+    let mut drv = FlashDriver {
         drv: fmc_periph::SpiNor::new(seq.get_token()),
     };
     drv.flash_set_quad_enable();
 
-    // Check the flash chip's ID against Table 7.3.1 in the datasheet
+    // Check the flash chip's ID against Table 7.3.1 in the W25Q01JV datasheet
+    // (revision B1, published November 13, 2019)
     let id = drv.flash_read_id();
-    if id[0..3] != [0xef, 0x40, 0x21] {
+    const WINBOND_MFR_ID: u8 = 0xef;
+    const EXPECTED_TYPE: u8 = 0x40;
+    const EXPECTED_CAPACITY: u8 = 0x21;
+
+    if id.mfr_id != WINBOND_MFR_ID
+        || id.memory_type != EXPECTED_TYPE
+        || id.capacity != EXPECTED_CAPACITY
+    {
         fail(drv_hf_api::HfError::BadChipId);
     }
 
@@ -103,6 +111,7 @@ mod instr {
     pub const FAST_READ_QUAD_OUTPUT_4B: u8 = 0x6c;
     pub const SECTOR_ERASE: u8 = 0x20;
     pub const READ_JEDEC_ID: u8 = 0x9f;
+    pub const READ_UNIQUE_ID: u8 = 0x4b;
     pub const BLOCK_ERASE_64KB: u8 = 0xd8;
     pub const BLOCK_ERASE_64KB_4B: u8 = 0xdc;
     pub const QUAD_INPUT_PAGE_PROGRAM: u8 = 0x32;
@@ -110,15 +119,59 @@ mod instr {
 }
 
 impl FlashDriver {
-    fn flash_read_id(&self) -> [u8; 20] {
+    fn flash_read_id(&mut self) -> drv_hf_api::HfChipId {
         self.clear_fifos();
-        self.drv.data_bytes.set_count(20);
+        self.drv.data_bytes.set_count(3);
         self.drv.addr.set_addr(0);
         self.drv.dummy_cycles.set_count(0);
         self.drv.instr.set_opcode(instr::READ_JEDEC_ID);
         self.wait_fpga_busy();
-        let mut out = [0u8; 20];
-        for i in 0..out.len() / 4 {
+        let v = self.drv.rx_fifo_rdata.fifo_data();
+        let bytes = v.to_le_bytes();
+        let mfr_id = bytes[0];
+        let memory_type = bytes[1];
+        let capacity = bytes[2];
+
+        // Make sure die 0 is selected with a dummy read, because the
+        // READ_UNIQUE_ID command is die-specific.
+        let mut buf = [0u8; 4];
+        self.flash_read(FlashAddr(0), &mut buf.as_mut_slice())
+            .unwrap_lite(); // infallible when given a slice
+        let die0_id = self.read_unique_id();
+
+        // Then read the top die's unique ID
+        self.flash_read(FlashAddr(0x04000000), &mut buf.as_mut_slice())
+            .unwrap_lite(); // infallible when given a slice
+        let die1_id = self.read_unique_id();
+
+        let mut unique_id = [0u8; 17];
+        unique_id[0..8].copy_from_slice(&die0_id);
+        unique_id[8..16].copy_from_slice(&die1_id);
+
+        drv_hf_api::HfChipId {
+            mfr_id,
+            memory_type,
+            capacity,
+            unique_id,
+        }
+    }
+
+    /// Reads the unique id (`READ_UNIQUE_ID`, `4Bh`) from the selected die
+    ///
+    /// The selected die depends on previous commands; see "W25Q01JV SpiFlash
+    /// Stacked Die Usage" for details (available in Drive).
+    fn read_unique_id(&mut self) -> [u8; 8] {
+        // We are running with 3-byte addresses, so we need to skip 4 bytes (32
+        // clocks) of dummy data.  The datasheet indicates that the DO line is
+        // high-Z when this happens, but experimentally, it's just clocking out
+        // parts of the unique ID.  Regardless, we'll skip those bytes.
+        self.drv.data_bytes.set_count(8);
+        self.drv.addr.set_addr(0);
+        self.drv.dummy_cycles.set_count(32);
+        self.drv.instr.set_opcode(instr::READ_UNIQUE_ID);
+        self.wait_fpga_busy();
+        let mut out = [0u8; 8];
+        for i in 0..2 {
             let v = self.drv.rx_fifo_rdata.fifo_data();
             for (j, byte) in v.to_le_bytes().iter().enumerate() {
                 out[i * 4 + j] = *byte;

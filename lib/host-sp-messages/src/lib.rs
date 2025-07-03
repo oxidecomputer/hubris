@@ -509,11 +509,15 @@ pub enum InventoryData {
     },
 
     /// W25Q256JVEIQ flash chip (auxiliary flash on Cosmo, Grapefruit, Sidecar)
-    W25q256jveqi {
-        mfr_id: u8,
-        memory_type: u8,
-        capacity: u8,
-        unique_id: [u8; 8],
+    W25q256jveqi { unique_id: [u8; 8] },
+
+    /// Cosmo host flash
+    W25q01jvzeiq {
+        /// 64-bit unique ID for die 0
+        die0_unique_id: [u8; 8],
+
+        /// 64-bit unique ID for die 1
+        die1_unique_id: [u8; 8],
     },
 }
 
