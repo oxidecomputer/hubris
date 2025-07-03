@@ -91,6 +91,14 @@ owner = {name = "sequencer", notification = "psu_pwr_ok_6"}
 
 
 
+[tasks.rng_driver]
+features = ["h753"]
+name = "drv-stm32h7-rng"
+priority = 2
+uses = ["rng"]
+start = true
+stacksize = 512
+task-slots = ["sys"]
 
 [tasks.i2c_driver]
 name = "drv-stm32xx-i2c-server"
@@ -113,8 +121,8 @@ name = "task-packrat"
 priority = 3
 max-sizes = {flash = 8192, ram = 2048}
 start = true
-# task-slots is explicitly empty: packrat should not send IPCs!
-task-slots = []
+task-slots = ["rng_driver"]
+features = ["ereport"]
 
 [tasks.sequencer]
 name = "drv-psc-seq-server"

@@ -54,7 +54,8 @@ name = "task-packrat"
 priority = 3
 max-sizes = {flash = 8192, ram = 2048}
 start = true
-task-slots = ["rng_driver", "ereport"]
+task-slots = ["rng_driver"]
+features = ["ereport"]
 
 [caboose]
 tasks = ["control_plane_agent"]
