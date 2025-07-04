@@ -53,7 +53,8 @@ enum EreportTrace {
     },
     Reported {
         start_ena: u64,
-        reports: u32,
+        reports: u8,
+        limit: u8,
     },
 }
 counted_ringbuf!(EreportTrace, 16, EreportTrace::None);
@@ -108,6 +109,7 @@ impl EreportStore {
         request_id: ereport_messages::RequestIdV0,
         restart_id: ereport_messages::RestartId,
         begin_ena: ereport_messages::Ena,
+        limit: u8,
         committed_ena: ereport_messages::Ena,
         data: Leased<idol_runtime::W, [u8]>,
         vpd: Option<&VpdIdentity>,
@@ -181,6 +183,10 @@ impl EreportStore {
         let mut reports = 0;
         // Beginning with the first
         for r in self.storage.read_from(begin_ena) {
+            if reports >= limit {
+                break;
+            }
+
             if first_written_ena.is_none() {
                 first_written_ena = Some(r.ena);
                 // Start CBOR list
@@ -243,7 +249,12 @@ impl EreportStore {
             data.write_at(position, 0xff)
                 .map_err(|_| ClientError::WentAway.fail())?;
             position += 1;
-            ringbuf_entry!(EreportTrace::Reported { start_ena, reports });
+
+            ringbuf_entry!(EreportTrace::Reported {
+                start_ena,
+                reports,
+                limit
+            });
         }
 
         let first_ena = first_written_ena.unwrap_or(self.next_ena);

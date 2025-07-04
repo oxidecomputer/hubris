@@ -111,6 +111,7 @@ Interface(
                 "request_id": "ereport_messages::RequestIdV0",
                 "restart_id": "ereport_messages::RestartId",
                 "start_ena": "ereport_messages::Ena",
+                "limit": "u8",
                 "committed_ena": "ereport_messages::Ena",
             },
             leases: {

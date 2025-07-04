@@ -88,6 +88,7 @@ fn main() -> ! {
                 req.request_id,
                 req.restart_id,
                 req.start_ena,
+                req.limit,
                 req.committed_ena()
                     .copied()
                     .unwrap_or(gateway_ereport_messages::Ena::NONE),

@@ -448,6 +448,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
         _: ereport_messages::RequestIdV0,
         _: ereport_messages::RestartId,
         _: ereport_messages::Ena,
+        _: u8,
         _: ereport_messages::Ena,
         _: Leased<idol_runtime::W, [u8]>,
     ) -> Result<usize, RequestError<Infallible>> {
@@ -462,6 +463,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
         request_id: ereport_messages::RequestIdV0,
         restart_id: ereport_messages::RestartId,
         begin_ena: ereport_messages::Ena,
+        limit: u8,
         committed_ena: ereport_messages::Ena,
         data: Leased<idol_runtime::W, [u8]>,
     ) -> Result<usize, RequestError<Infallible>> {
@@ -469,6 +471,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
             request_id,
             restart_id,
             begin_ena,
+            limit,
             committed_ena,
             data,
             self.identity.as_ref(),
