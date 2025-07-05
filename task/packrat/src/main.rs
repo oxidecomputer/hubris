@@ -30,6 +30,7 @@
 #![no_main]
 
 use core::convert::Infallible;
+use gateway_ereport_messages as ereport_messages;
 use idol_runtime::{Leased, LenLimit, NotificationHandler, RequestError};
 use ringbuf::{ringbuf, ringbuf_entry};
 use static_cell::ClaimOnceCell;
@@ -55,6 +56,9 @@ use gimlet::SpdData;
 
 #[cfg(feature = "cosmo")]
 use cosmo::SpdData;
+
+#[cfg(feature = "ereport")]
+mod ereport;
 
 #[cfg(not(any(feature = "gimlet", feature = "cosmo")))]
 type SpdData = spd_data::SpdData<0, 0>; // dummy type
@@ -93,7 +97,6 @@ enum TraceSet<T> {
 }
 
 ringbuf!(Trace, 16, Trace::None);
-
 #[export_name = "main"]
 fn main() -> ! {
     struct StaticBufs {
@@ -103,6 +106,8 @@ fn main() -> ! {
         gimlet_bufs: gimlet::StaticBufs,
         #[cfg(feature = "cosmo")]
         cosmo_bufs: cosmo::StaticBufs,
+        #[cfg(feature = "ereport")]
+        ereport_bufs: ereport::EreportBufs,
     }
     let StaticBufs {
         ref mut mac_address_block,
@@ -111,6 +116,8 @@ fn main() -> ! {
         ref mut gimlet_bufs,
         #[cfg(feature = "cosmo")]
         ref mut cosmo_bufs,
+        #[cfg(feature = "ereport")]
+        ref mut ereport_bufs,
     } = {
         static BUFS: ClaimOnceCell<StaticBufs> =
             ClaimOnceCell::new(StaticBufs {
@@ -120,6 +127,8 @@ fn main() -> ! {
                 gimlet_bufs: gimlet::StaticBufs::new(),
                 #[cfg(feature = "cosmo")]
                 cosmo_bufs: cosmo::StaticBufs::new(),
+                #[cfg(feature = "ereport")]
+                ereport_bufs: ereport::EreportBufs::new(),
             });
         BUFS.claim()
     };
@@ -133,6 +142,8 @@ fn main() -> ! {
         grapefruit_data: grapefruit::GrapefruitData::new(),
         #[cfg(feature = "cosmo")]
         cosmo_data: cosmo::CosmoData::new(cosmo_bufs),
+        #[cfg(feature = "ereport")]
+        ereport_store: ereport::EreportStore::new(ereport_bufs),
     };
 
     let mut buffer = [0; idl::INCOMING_SIZE];
@@ -150,6 +161,8 @@ struct ServerImpl {
     grapefruit_data: grapefruit::GrapefruitData,
     #[cfg(feature = "cosmo")]
     cosmo_data: cosmo::CosmoData,
+    #[cfg(feature = "ereport")]
+    ereport_store: ereport::EreportStore,
 }
 
 impl ServerImpl {
@@ -408,6 +421,62 @@ impl idl::InOrderPackratImpl for ServerImpl {
             ))
         }
     }
+
+    #[cfg(not(feature = "ereport"))]
+    fn deliver_ereport(
+        &mut self,
+        _: &RecvMessage,
+        _: LenLimit<Leased<idol_runtime::R, [u8]>, 1024usize>,
+    ) -> Result<(), RequestError<Infallible>> {
+        // go away, we don't know how to do that
+        idol_runtime::ClientError::UnknownOperation.fail()
+    }
+
+    #[cfg(feature = "ereport")]
+    fn deliver_ereport(
+        &mut self,
+        msg: &RecvMessage,
+        data: LenLimit<Leased<idol_runtime::R, [u8]>, 1024usize>,
+    ) -> Result<(), RequestError<Infallible>> {
+        self.ereport_store.deliver_ereport(msg, data)
+    }
+
+    #[cfg(not(feature = "ereport"))]
+    fn read_ereports(
+        &mut self,
+        _msg: &RecvMessage,
+        _: ereport_messages::RequestIdV0,
+        _: ereport_messages::RestartId,
+        _: ereport_messages::Ena,
+        _: u8,
+        _: ereport_messages::Ena,
+        _: Leased<idol_runtime::W, [u8]>,
+    ) -> Result<usize, RequestError<Infallible>> {
+        // go away, we don't know how to do that
+        idol_runtime::ClientError::UnknownOperation.fail()
+    }
+
+    #[cfg(feature = "ereport")]
+    fn read_ereports(
+        &mut self,
+        _msg: &RecvMessage,
+        request_id: ereport_messages::RequestIdV0,
+        restart_id: ereport_messages::RestartId,
+        begin_ena: ereport_messages::Ena,
+        limit: u8,
+        committed_ena: ereport_messages::Ena,
+        data: Leased<idol_runtime::W, [u8]>,
+    ) -> Result<usize, RequestError<Infallible>> {
+        self.ereport_store.read_ereports(
+            request_id,
+            restart_id,
+            begin_ena,
+            limit,
+            committed_ena,
+            data,
+            self.identity.as_ref(),
+        )
+    }
 }
 
 impl NotificationHandler for ServerImpl {
@@ -423,8 +492,8 @@ impl NotificationHandler for ServerImpl {
 
 mod idl {
     use super::{
-        CacheGetError, CacheSetError, HostStartupOptions, MacAddressBlock,
-        VpdIdentity,
+        ereport_messages, CacheGetError, CacheSetError, HostStartupOptions,
+        MacAddressBlock, VpdIdentity,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

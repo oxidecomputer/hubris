@@ -1,0 +1,14 @@
+// Interface to the ereport demo task.
+Interface(
+    name: "Ereportulator",
+    ops: {
+        "fake_ereport": (
+            doc: "Make a fake error report.",
+            args: {
+                "n": "u32",
+            },
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+    }
+)

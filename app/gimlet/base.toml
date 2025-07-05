@@ -110,7 +110,7 @@ notifications = ["i2c2-irq", "i2c3-irq", "i2c4-irq"]
 [tasks.spd]
 name = "task-gimlet-spd"
 features = ["h753"]
-priority = 2
+priority = 4
 max-sizes = {flash = 16384, ram = 16384}
 uses = ["i2c1"]
 start = true
@@ -123,11 +123,10 @@ notifications = ["i2c1-irq", "jefe-state-change"]
 
 [tasks.packrat]
 name = "task-packrat"
-priority = 1
+priority = 3
 start = true
-# task-slots is explicitly empty: packrat should not send IPCs!
-task-slots = []
-features = ["gimlet"]
+task-slots = ["rng_driver"]
+features = ["gimlet", "ereport"]
 
 [tasks.thermal]
 name = "task-thermal"
@@ -194,6 +193,15 @@ uses = ["hash"]
 interrupts = {"hash.irq" = "hash-irq"}
 task-slots = ["sys"]
 notifications = ["hash-irq"]
+
+[tasks.rng_driver]
+features = ["h753"]
+name = "drv-stm32h7-rng"
+priority = 2
+uses = ["rng"]
+start = true
+stacksize = 512
+task-slots = ["sys"]
 
 [tasks.hf]
 name = "drv-gimlet-hf-server"
@@ -336,6 +344,15 @@ stacksize = 2400
 extern-regions = ["sram1", "sram2", "sram3", "sram4"]
 notifications = ["socket"]
 features = ["net", "vlan"]
+
+[tasks.snitch]
+name = "task-snitch"
+priority = 6
+stacksize = 1200
+start = true
+task-slots = ["net", "packrat"]
+features = ["vlan"]
+notifications = ["socket"]
 
 [tasks.sbrmi]
 name = "drv-sbrmi"
@@ -1315,6 +1332,15 @@ owner = {name = "gimlet_inspector", notification = "socket"}
 port = 23547
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 512 }
+
+[config.net.sockets.ereport]
+kind = "udp"
+owner = {name = "snitch", notification = "socket"}
+port = 57005
+tx = { packets = 3, bytes = 1024 }
+# v0 ereport requests are always 35B, so just make the buffer exactly
+# that size...
+rx = { packets = 3, bytes = 35 }
 
 [config.sprot]
 # ROT_IRQ (af=0 for GPIO, af=15 when EXTI is implemneted)

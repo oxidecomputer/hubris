@@ -53,7 +53,7 @@ notifications = ["i2c2-irq", "i2c3-irq", "i2c4-irq"]
 [tasks.user_leds]
 name = "drv-user-leds"
 features = ["stm32h7"]
-priority = 5
+priority = 2
 max-sizes = {flash = 2048, ram = 1024}
 start = true
 task-slots = ["sys"]
@@ -105,7 +105,7 @@ start = true
 [tasks.rng_driver]
 features = ["h753"]
 name = "drv-stm32h7-rng"
-priority = 6
+priority = 3
 uses = ["rng"]
 start = true
 stacksize = 512
