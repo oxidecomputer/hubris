@@ -10,6 +10,18 @@ zerocopy.workspace = true
 zerocopy-derive.workspace = true
 task-packrat-api = { path = "../packrat-api" }
 minicbor.workspace = true
+num-traits.workspace = true
+ringbuf = { path = "../../lib/ringbuf", features = ["counters"] }
+counters = { path = "../../lib/counters" }
+
+[build-dependencies]
+idol.workspace = true
+
+[features]
+# If set, report a fake VPD identity to Packrat before generating ereports, so
+# that we populate the metadata fields. This is useful for Gimletlet and
+# friends, which don't have "real" VPD.
+fake-vpd = []
 
 [[bin]]
 name = "task-ereportulator"

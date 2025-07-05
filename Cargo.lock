@@ -5365,8 +5365,12 @@ dependencies = [
 name = "task-ereportulator"
 version = "0.1.0"
 dependencies = [
+ "counters",
+ "idol",
  "idol-runtime",
  "minicbor 0.26.4",
+ "num-traits",
+ "ringbuf",
  "task-packrat-api",
  "userlib",
  "zerocopy 0.8.26",

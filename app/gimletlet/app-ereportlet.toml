@@ -6,12 +6,12 @@ request_reset = ["hiffy"]
 
 [tasks.hiffy]
 features = ["h753", "stm32h7", "i2c", "gpio", "spi"]
-task-slots = ["sys", "i2c_driver", "user_leds"]
+task-slots = ["sys", "i2c_driver", "user_leds", "ereportulator"]
 
 [tasks.ereportulator]
 name = "task-ereportulator"
-priority = 8
-# start paused so that we can be triggered by humility
-start = false
+priority = 5
+start = true
 task-slots = ["packrat"]
+features = ["fake-vpd"]
 notifications = []
