@@ -25,6 +25,7 @@ bench = false
 
 [build-dependencies]
 idol.workspace = true
+anyhow.workspace = true
 
 [lints]
 workspace = true

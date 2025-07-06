@@ -94,7 +94,17 @@ Interface(
             reply: Simple("()"),
             idempotent: true,
         ),
-
+        "set_ereport_restart_id": (
+            doc: "Set the restart ID for ereports",
+            args: {
+                "restart_id": "u128",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("CacheSetError"),
+            ),
+            idempotent: true,
+        ),
         "deliver_ereport": (
             doc: "Hand an encoded ereport to packrat for buffering.",
             args: {
@@ -117,7 +127,10 @@ Interface(
             leases: {
                 "data": (type: "[u8]", write: true),
             },
-            reply: Simple("usize"),
+            reply: Result(
+                ok: "usize",
+                err: CLike("EreportReadError"),
+            ),
             idempotent: true,
         ),
     },

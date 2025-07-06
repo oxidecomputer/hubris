@@ -53,4 +53,11 @@ pub enum CacheSetError {
     ValueAlreadySet = 1,
 }
 
+#[derive(
+    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, counters::Count,
+)]
+pub enum EreportReadError {
+    RestartIdNotSet = 1,
+}
+
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

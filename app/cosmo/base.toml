@@ -120,22 +120,23 @@ notifications = ["i2c1-irq", "i2c2-irq", "i2c3-irq", "i2c4-irq"]
 "i2c4.event" = "i2c4-irq"
 "i2c4.error" = "i2c4-irq"
 
+[tasks.packrat]
+name = "task-packrat"
+priority = 1
+stacksize = 1024
+start = true
+# task-slots is explicitly empty: packrat should not send IPCs!
+task-slots = []
+features = ["cosmo", "ereport"]
+
 [tasks.rng_driver]
-features = ["h753"]
+features = ["h753", "ereport"]
 name = "drv-stm32h7-rng"
-priority = 2
+priority = 6
 uses = ["rng"]
 start = true
 stacksize = 512
-task-slots = ["sys"]
-
-[tasks.packrat]
-name = "task-packrat"
-priority = 3
-start = true
-stacksize = 954
-task-slots = ["rng_driver"]
-features = ["cosmo", "ereport"]
+task-slots = ["sys", "packrat"]
 
 [tasks.thermal]
 name = "task-thermal"

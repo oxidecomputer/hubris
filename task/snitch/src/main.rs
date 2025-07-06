@@ -21,6 +21,7 @@ task_slot!(PACKRAT, packrat);
 enum Event {
     RecvPacket,
     RequestRejected,
+    ReadError(#[count(children)] task_packrat_api::EreportReadError),
     Respond,
 }
 
@@ -84,7 +85,7 @@ fn main() -> ! {
             };
 
         let size = match request {
-            Request::V0(req) => packrat.read_ereports(
+            Request::V0(req) => match packrat.read_ereports(
                 req.request_id,
                 req.restart_id,
                 req.start_ena,
@@ -93,7 +94,14 @@ fn main() -> ! {
                     .copied()
                     .unwrap_or(gateway_ereport_messages::Ena::NONE),
                 &mut tx_buf[..],
-            ),
+            ) {
+                Ok(size) => size,
+                Err(e) => {
+                    // Packrat's mad. Reject the request.
+                    count!(Event::ReadError(e));
+                    continue;
+                }
+            },
         };
 
         // With the response packet prepared, we may need to attempt

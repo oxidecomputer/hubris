@@ -2388,6 +2388,7 @@ dependencies = [
  "num-traits",
  "ringbuf",
  "stm32h7",
+ "task-packrat-api",
  "userlib",
  "zerocopy 0.8.26",
  "zerocopy-derive 0.8.26",
@@ -5725,6 +5726,7 @@ dependencies = [
 name = "task-packrat-api"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "counters",
  "derive-idol-err",
  "gateway-ereport-messages",

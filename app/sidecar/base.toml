@@ -56,7 +56,7 @@ owner = {name = "sprot", notification = "rot_irq"}
 [tasks.rng_driver]
 features = ["h753"]
 name = "drv-stm32h7-rng"
-priority = 2
+priority = 6
 uses = ["rng"]
 start = true
 stacksize = 512
@@ -257,10 +257,11 @@ notifications = ["socket", "timer"]
 
 [tasks.packrat]
 name = "task-packrat"
-priority = 3
-stacksize = 954
+priority = 1
+stacksize = 1024
 start = true
-task-slots = ["rng_driver"]
+# task-slots is explicitly empty: packrat should not send IPCs!
+task-slots = []
 features = ["ereport"]
 
 [tasks.sequencer]

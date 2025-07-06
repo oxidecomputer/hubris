@@ -18,15 +18,15 @@ use core::convert::Infallible;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError};
 use minicbor::CborLen;
 use ringbuf::{counted_ringbuf, ringbuf_entry};
-use task_packrat_api::VpdIdentity;
-use userlib::{sys_get_timer, RecvMessage, TaskId, UnwrapLite};
+use task_packrat_api::{EreportReadError, VpdIdentity};
+use userlib::{sys_get_timer, RecvMessage, TaskId};
 use zerocopy::IntoBytes;
 
 pub(crate) struct EreportStore {
     storage: &'static mut snitch_core::Store<STORE_SIZE>,
     recv: &'static mut [u8; RECV_BUF_SIZE],
     next_ena: u64,
-    restart_id: ereport_messages::RestartId,
+    pub(super) restart_id: Option<ereport_messages::RestartId>,
 }
 
 pub(crate) struct EreportBufs {
@@ -41,8 +41,6 @@ const STORE_SIZE: usize = 4096;
 /// Number of bytes for the receive buffer. This only needs to fit a single
 /// ereport at a time (and implicitly, limits the maximum size of an ereport).
 pub(crate) const RECV_BUF_SIZE: usize = 1024;
-
-userlib::task_slot!(RNG, rng_driver);
 
 /// Separate ring buffer for ereport events, as we probably don't care that much
 /// about the sequence of ereport events relative to other packrat API events.
@@ -85,20 +83,13 @@ impl EreportStore {
             ref mut recv,
         }: &'static mut EreportBufs,
     ) -> Self {
-        let rng = drv_rng_api::Rng::from(RNG.get_task_id());
-        let mut buf = [0u8; 16];
-        // XXX(eliza): if this fails we are TURBO SCREWED...
-        rng.fill(&mut buf).unwrap_lite();
-        let restart_id =
-            ereport_messages::RestartId::from(u128::from_le_bytes(buf));
-
         storage.initialize(0, 0); // TODO tid timestamp
 
         Self {
             storage,
             recv,
             next_ena: 0,
-            restart_id,
+            restart_id: None,
         }
     }
 }
@@ -132,7 +123,9 @@ impl EreportStore {
         committed_ena: ereport_messages::Ena,
         data: Leased<idol_runtime::W, [u8]>,
         vpd: Option<&VpdIdentity>,
-    ) -> Result<usize, RequestError<Infallible>> {
+    ) -> Result<usize, RequestError<EreportReadError>> {
+        let current_restart_id =
+            self.restart_id.ok_or(EreportReadError::RestartIdNotSet)?;
         // Skip over a header-sized initial chunk.
         let first_data_byte = size_of::<ereport_messages::ResponseHeader>();
 
@@ -146,7 +139,7 @@ impl EreportStore {
 
         // If the requested restart ID matches the current restart ID, then read
         // from the requested ENA. If not, start at ENA 0.
-        let begin_ena = if restart_id == self.restart_id {
+        let begin_ena = if restart_id == current_restart_id {
             // If the restart ID matches, flush previous ereports up to
             // `committed_ena`, if there is one.
             if committed_ena != ereport_messages::Ena::NONE {
@@ -159,7 +152,7 @@ impl EreportStore {
         } else {
             ringbuf_entry!(EreportTrace::RestartIdMismatch {
                 requested: restart_id.into(),
-                current: self.restart_id.into()
+                current: current_restart_id.into()
             });
 
             // Encode the metadata map into our buffer.
@@ -279,7 +272,7 @@ impl EreportStore {
         let header = ereport_messages::ResponseHeader::V0(
             ereport_messages::ResponseHeaderV0 {
                 request_id,
-                restart_id: self.restart_id,
+                restart_id: current_restart_id,
                 start_ena: first_ena.into(),
             },
         );

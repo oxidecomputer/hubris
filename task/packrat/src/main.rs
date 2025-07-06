@@ -35,8 +35,8 @@ use idol_runtime::{Leased, LenLimit, NotificationHandler, RequestError};
 use ringbuf::{ringbuf, ringbuf_entry};
 use static_cell::ClaimOnceCell;
 use task_packrat_api::{
-    CacheGetError, CacheSetError, HostStartupOptions, MacAddressBlock,
-    VpdIdentity,
+    CacheGetError, CacheSetError, EreportReadError, HostStartupOptions,
+    MacAddressBlock, VpdIdentity,
 };
 use userlib::RecvMessage;
 
@@ -70,7 +70,13 @@ enum Trace {
     MacAddressBlockSet(TraceSet<MacAddressBlock>),
     VpdIdentitySet(TraceSet<VpdIdentity>),
     SetNextBootHostStartupOptions(HostStartupOptions),
-    SpdDataUpdate { index: u8, offset: usize, len: u8 },
+    SpdDataUpdate {
+        index: u8,
+        offset: usize,
+        len: u8,
+    },
+    #[cfg(feature = "ereport")]
+    RestartIdSet(TraceSet<u128>),
 }
 
 impl From<TraceSet<MacAddressBlock>> for Trace {
@@ -82,6 +88,21 @@ impl From<TraceSet<MacAddressBlock>> for Trace {
 impl From<TraceSet<VpdIdentity>> for Trace {
     fn from(value: TraceSet<VpdIdentity>) -> Self {
         Self::VpdIdentitySet(value)
+    }
+}
+
+#[cfg(feature = "ereport")]
+impl From<TraceSet<ereport_messages::RestartId>> for Trace {
+    fn from(value: TraceSet<ereport_messages::RestartId>) -> Self {
+        // Turn this into a TraceSet<u128> instead of the newtype so that
+        // Humility formats it in a less ugly way.
+        Self::RestartIdSet(match value {
+            TraceSet::Set(id) => TraceSet::Set(id.into()),
+            TraceSet::SetToSameValue(id) => TraceSet::SetToSameValue(id.into()),
+            TraceSet::AttemptedSetToNewValue(id) => {
+                TraceSet::AttemptedSetToNewValue(id.into())
+            }
+        })
     }
 }
 
@@ -423,6 +444,26 @@ impl idl::InOrderPackratImpl for ServerImpl {
     }
 
     #[cfg(not(feature = "ereport"))]
+    fn set_ereport_restart_id(
+        &mut self,
+        _: &RecvMessage,
+        _: u128,
+    ) -> Result<(), RequestError<CacheSetError>> {
+        Ok(())
+    }
+
+    #[cfg(feature = "ereport")]
+    fn set_ereport_restart_id(
+        &mut self,
+        _: &RecvMessage,
+        value: u128,
+    ) -> Result<(), RequestError<CacheSetError>> {
+        let restart_id = ereport_messages::RestartId::new(value);
+        Self::set_once(&mut self.ereport_store.restart_id, restart_id)
+            .map_err(Into::into)
+    }
+
+    #[cfg(not(feature = "ereport"))]
     fn deliver_ereport(
         &mut self,
         _: &RecvMessage,
@@ -451,7 +492,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
         _: u8,
         _: ereport_messages::Ena,
         _: Leased<idol_runtime::W, [u8]>,
-    ) -> Result<usize, RequestError<Infallible>> {
+    ) -> Result<usize, RequestError<EreportReadError>> {
         // go away, we don't know how to do that
         Err(idol_runtime::ClientError::UnknownOperation.fail())
     }
@@ -466,7 +507,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
         limit: u8,
         committed_ena: ereport_messages::Ena,
         data: Leased<idol_runtime::W, [u8]>,
-    ) -> Result<usize, RequestError<Infallible>> {
+    ) -> Result<usize, RequestError<EreportReadError>> {
         self.ereport_store.read_ereports(
             request_id,
             restart_id,
@@ -492,8 +533,8 @@ impl NotificationHandler for ServerImpl {
 
 mod idl {
     use super::{
-        ereport_messages, CacheGetError, CacheSetError, HostStartupOptions,
-        MacAddressBlock, VpdIdentity,
+        ereport_messages, CacheGetError, CacheSetError, EreportReadError,
+        HostStartupOptions, MacAddressBlock, VpdIdentity,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
