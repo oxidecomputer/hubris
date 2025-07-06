@@ -124,7 +124,7 @@ notifications = ["i2c1-irq", "jefe-state-change"]
 [tasks.packrat]
 name = "task-packrat"
 priority = 3
-stacksize = 1000
+stacksize = 954
 start = true
 task-slots = ["rng_driver"]
 features = ["gimlet", "ereport"]

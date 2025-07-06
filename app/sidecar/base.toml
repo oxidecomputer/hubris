@@ -258,7 +258,7 @@ notifications = ["socket", "timer"]
 [tasks.packrat]
 name = "task-packrat"
 priority = 3
-stacksize = 1000
+stacksize = 954
 start = true
 task-slots = ["rng_driver"]
 features = ["ereport"]

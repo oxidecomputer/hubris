@@ -133,6 +133,7 @@ task-slots = ["sys"]
 name = "task-packrat"
 priority = 3
 start = true
+stacksize = 954
 task-slots = ["rng_driver"]
 features = ["cosmo", "ereport"]
 

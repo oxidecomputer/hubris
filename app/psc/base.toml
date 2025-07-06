@@ -119,7 +119,7 @@ notifications = ["i2c2-irq", "i2c3-irq"]
 [tasks.packrat]
 name = "task-packrat"
 priority = 3
-stacksize = 1000
+stacksize = 954
 start = true
 task-slots = ["rng_driver"]
 features = ["ereport"]
