@@ -429,7 +429,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
         _: LenLimit<Leased<idol_runtime::R, [u8]>, 1024usize>,
     ) -> Result<(), RequestError<Infallible>> {
         // go away, we don't know how to do that
-        idol_runtime::ClientError::UnknownOperation.fail()
+        Err(idol_runtime::ClientError::UnknownOperation.fail())
     }
 
     #[cfg(feature = "ereport")]
@@ -453,7 +453,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
         _: Leased<idol_runtime::W, [u8]>,
     ) -> Result<usize, RequestError<Infallible>> {
         // go away, we don't know how to do that
-        idol_runtime::ClientError::UnknownOperation.fail()
+        Err(idol_runtime::ClientError::UnknownOperation.fail())
     }
 
     #[cfg(feature = "ereport")]
