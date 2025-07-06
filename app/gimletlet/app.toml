@@ -45,6 +45,7 @@ name = "task-packrat"
 priority = 4
 start = true
 task-slots = ["rng_driver"]
+stacksize = 1000
 features = ["ereport"]
 
 [caboose]

@@ -66,7 +66,16 @@ enum EreportTrace {
         reports: u8,
         limit: u8,
     },
+    InternalError(#[count(children)] Error),
 }
+
+#[derive(Copy, Clone, PartialEq, Eq, counters::Count)]
+enum Error {
+    TaskIdOutOfRange,
+    VpdMetadataTooLong,
+    EreportTooLong,
+}
+
 counted_ringbuf!(EreportTrace, 16, EreportTrace::None);
 
 impl EreportStore {
@@ -154,32 +163,25 @@ impl EreportStore {
             });
 
             // Encode the metadata map into our buffer.
-            // TODO(eliza): this will panic if the encoded metadata map is
-            // longer than 1024B...currently it should never be that, given that
-            // everything we encode here is fixed-size. But, yuck...
-            let c = minicbor::encode::write::Cursor::new(&mut self.recv[..]);
-            let mut encoder = minicbor::Encoder::new(c);
             if let Some(vpd) = vpd {
-                encoder
-                    .str("baseboard_part_number")
-                    .unwrap_lite()
-                    .bytes(vpd.part_number.as_bytes())
-                    .unwrap_lite()
-                    .str("baseboard_serial_number")
-                    .unwrap_lite()
-                    .bytes(vpd.serial.as_bytes())
-                    .unwrap_lite()
-                    .str("rev")
-                    .unwrap_lite()
-                    .u32(vpd.revision)
-                    .unwrap_lite();
-            }
+                match self.encode_vpd_metadata(vpd) {
+                    Ok(encoded) => {
+                        data.write_range(
+                            position..position + encoded.len(),
+                            encoded,
+                        )
+                        .map_err(|_| ClientError::WentAway.fail())?;
 
-            // Write the encoded metadata map.
-            let size = encoder.into_writer().position();
-            data.write_range(position..position + size, &self.recv[..size])
-                .map_err(|_| ClientError::WentAway.fail())?;
-            position += size;
+                        position += encoded.len();
+                    }
+                    Err(_end) => {
+                        // Encoded VPD metadata was too long!
+                        ringbuf_entry!(EreportTrace::InternalError(
+                            Error::VpdMetadataTooLong
+                        ));
+                    }
+                }
+            }
 
             // Begin at ENA 0
             0
@@ -212,11 +214,14 @@ impl EreportStore {
             let task_name = hubris_task_names::TASK_NAMES
                 .get(tid.index())
                 .copied()
-                .unwrap_or({
+                .unwrap_or_else(|| {
                     // This represents an internal error, where we've recorded
                     // an out-of-range task ID somehow. We still want to get the
                     // ereport out, so we'll use a recognizable but illegal task
                     // name to indicate that it's missing.
+                    ringbuf_entry!(EreportTrace::InternalError(
+                        Error::TaskIdOutOfRange
+                    ));
                     "-" // TODO
                 });
             let generation = tid.generation();
@@ -250,7 +255,9 @@ impl EreportStore {
                     // queue that won't fit in our buffer. This can happen
                     // because of the encoding overhead, in theory, but should
                     // be prevented.
-                    // TODO
+                    ringbuf_entry!(EreportTrace::InternalError(
+                        Error::EreportTooLong
+                    ));
                 }
             }
         }
@@ -279,6 +286,28 @@ impl EreportStore {
         data.write_range(0..size_of_val(&header), header.as_bytes())
             .map_err(|_| ClientError::WentAway.fail())?;
         Ok(position)
+    }
+
+    fn encode_vpd_metadata(&mut self, vpd: &VpdIdentity) -> Result<&[u8], ()> {
+        let c = minicbor::encode::write::Cursor::new(&mut self.recv[..]);
+        let mut encoder = minicbor::Encoder::new(c);
+        encoder
+            .str("baseboard_part_number")
+            .map_err(|_| ())?
+            .bytes(vpd.part_number.as_bytes())
+            .map_err(|_| ())?;
+        encoder
+            .str("baseboard_serial_number")
+            .map_err(|_| ())?
+            .bytes(vpd.serial.as_bytes())
+            .map_err(|_| ())?;
+        encoder
+            .str("rev")
+            .map_err(|_| ())?
+            .u32(vpd.revision)
+            .map_err(|_| ())?;
+        let size = encoder.into_writer().position();
+        Ok(&self.recv[..size])
     }
 }
 
