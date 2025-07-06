@@ -2,6 +2,16 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//! Packrat ereport aggregation.
+//!
+//! As described in [RFD 545 § 4.3], `packrat`'s role in the ereport subsystem
+//! is to aggregate ereports from other tasks in a circular buffer. Ereports are
+//! submitted to `packrat` via the `deliver_ereport` IPC call. The `snitch` task
+//! requests ereports from `packrat` using the `read_ereports` IPC call, which
+//! also flushes committed ereports from the buffer.
+//!
+//! [RFD 545 § 4.3]: https://rfd.shared.oxide.computer/rfd/0545#_aggregation
+
 use super::ereport_messages;
 
 use core::convert::Infallible;
@@ -222,7 +232,8 @@ impl EreportStore {
             match minicbor::encode(&entry, &mut c) {
                 Ok(()) => {
                     let size = c.position();
-                    // If there's no room left for this one in the lease, we're done here.
+                    // If there's no room left for this one in the lease, we're
+                    // done here.
                     if position + size >= data.len() {
                         break;
                     }
