@@ -81,16 +81,11 @@ fn system_init() {
     }
     assert_eq!(rev, expected_rev);
 
-    match unsafe { measurement_token::check_measurement() } {
-        measurement_token::MeasurementResult::Measured => (),
-        measurement_token::MeasurementResult::NotMeasured(i) => {
-            if i < 5 { // up to 1 second of total delay
-                cortex_m::asm::delay(12860000); // 200 ms
-                cortex_m::peripheral::SCB::sys_reset();
-            } else {
-                unsafe { measurement_token::clear() }
-            }
-        }
+    unsafe {
+        measurement_token::check(5, || {
+            cortex_m::asm::delay(12860000); // 200 ms
+            cortex_m::peripheral::SCB::sys_reset()
+        });
     }
 
     // Do most of the setup with the common implementation.
