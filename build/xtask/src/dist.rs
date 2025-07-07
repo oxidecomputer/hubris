@@ -2309,7 +2309,7 @@ pub fn allocate_all(
     for image_name in &toml.image_names {
         let mut allocs = Allocations::default();
         let mut free = toml.memories(image_name)?;
-        let kernel_requests = &kernel.requires;
+        let mut kernel_requests = kernel.requires.clone();
 
         let mut task_requests: BTreeMap<&str, IndexMap<&str, OrderedVecDeque>> =
             BTreeMap::new();
@@ -2347,17 +2347,21 @@ pub fn allocate_all(
 
         // Okay! Do memory types one by one, fitting kernel first.
         for (region, avail) in &mut free {
-            let mut k_req = kernel_requests.get(region.as_str());
-            let t_reqs = task_requests.get_mut(region.as_str());
-            let mut t_reqs_empty = IndexMap::new();
+            let k_req = kernel_requests.remove(region.as_str());
+            let t_reqs = task_requests.remove(region.as_str());
             allocate_region(
                 region,
                 toml,
-                &mut k_req,
-                t_reqs.unwrap_or(&mut t_reqs_empty),
+                k_req,
+                t_reqs.unwrap_or_default(),
                 avail,
                 &mut allocs,
             )?;
+        }
+        if !kernel_requests.is_empty() {
+            bail!("unfulfilled kernel requests: {kernel_requests:#x?}");
+        } else if !task_requests.is_empty() {
+            bail!("unfulfilled task requests: {task_requests:#x?}");
         }
 
         if let Some(caboose) = caboose {
@@ -2385,13 +2389,13 @@ pub fn allocate_all(
 fn allocate_region(
     region: &str,
     toml: &Config,
-    k_req: &mut Option<&u32>,
-    t_reqs: &mut IndexMap<&str, OrderedVecDeque>,
+    mut k_req: Option<u32>,
+    mut t_reqs: IndexMap<&str, OrderedVecDeque>,
     avail: &mut Range<u32>,
     allocs: &mut Allocations,
 ) -> Result<()> {
     // The kernel gets to go first!
-    if let Some(&sz) = k_req.take() {
+    if let Some(sz) = k_req.take() {
         allocs
             .kernel
             .insert(region.to_string(), allocate_k(region, sz, avail)?);
