@@ -207,12 +207,11 @@ Interface(
         "hash_significant_bits": (
             doc: "async sha256 of the entire flash chip with sector zero replaced by `0xff`",
             args: {
-	        "dev": (
+                "dev": (
                     type: "HfDevSelect",
                     recv: FromPrimitive("u8"),
                 ),
-
-	    },
+            },
             reply: Result(
                 ok: "()",
                 err: CLike("HfError"),
@@ -221,11 +220,11 @@ Interface(
         "get_cached_hash": (
             doc: "sha256 of the entire flash chip with sector zero replaced by `0xff`",
             args: {
-	        "dev": (
+                "dev": (
                     type: "HfDevSelect",
                     recv: FromPrimitive("u8"),
                 ),
-	    },
+            },
             reply: Result(
                 ok: "[u8; drv_hash_api::SHA256_SZ]",
                 err: CLike("HfError"),
