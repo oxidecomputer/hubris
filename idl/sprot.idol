@@ -380,7 +380,7 @@ Interface(
             reply: Result(
                 ok: "LifecycleState",
                 err: Complex("StateOrSprotError"),
-	    ),
+            ),
             encoding: Hubpack,
             idempotent: true,
         ),
