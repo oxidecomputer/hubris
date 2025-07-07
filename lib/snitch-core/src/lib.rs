@@ -86,7 +86,8 @@ impl<const N: usize> Store<N> {
         // If the queue has never been touched, insert our "arbitrary data loss"
         // record into the stream to consume ENA 0.
         if !self.initialized() {
-            self.insert_impl(
+            // Should always succeed...
+            let _ = self.insert_impl(
                 self.our_task_id,
                 timestamp,
                 // This is a canned CBOR message that decodes as...
@@ -135,7 +136,17 @@ impl<const N: usize> Store<N> {
     /// implementation. This maximum size is larger than we expect our backing
     /// buffer to be. Any records larger than the max will be treated as not
     /// fitting. (Currently the max is 64 kiB.)
-    pub fn insert(&mut self, sender: u16, timestamp: u64, data: &[u8]) {
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(())` if the record was successfully inserted.
+    /// - `Err(())` if the record was lost due to insufficient space.
+    pub fn insert(
+        &mut self,
+        sender: u16,
+        timestamp: u64,
+        data: &[u8],
+    ) -> Result<(), ()> {
         debug_assert!(self.initialized());
         self.insert_impl(sender, timestamp, data)
     }
@@ -242,7 +253,17 @@ impl<const N: usize> Store<N> {
     ///
     /// If we are `Collecting` but `data` plus a header won't fit, we enter the
     /// `Losing` state with a count of 1.
-    fn insert_impl(&mut self, sender: u16, timestamp: u64, data: &[u8]) {
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(())` if the record was successfully inserted.
+    /// - `Err(())` if the record was lost due to insufficient space.
+    fn insert_impl(
+        &mut self,
+        sender: u16,
+        timestamp: u64,
+        data: &[u8],
+    ) -> Result<(), ()> {
         // We attempt recovery here so that we can _avoid_ generating a loss
         // record if this next record (`data`) is just going to kick us back
         // into loss state.
@@ -262,15 +283,18 @@ impl<const N: usize> Store<N> {
                     for &byte in data {
                         self.storage.push_back(byte).unwrap_lite();
                     }
+                    Ok(())
                 } else {
                     self.insert_state = InsertState::Losing {
                         count: NonZeroU32::new(1).unwrap_lite(),
                         timestamp,
                     };
+                    Err(())
                 }
             }
             InsertState::Losing { count, .. } => {
                 *count = count.saturating_add(1);
+                Err(())
             }
         }
     }

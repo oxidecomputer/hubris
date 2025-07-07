@@ -51,6 +51,8 @@ enum EreportTrace {
     EreportDelivered {
         src: TaskId,
         len: u32,
+        #[count(children)]
+        inserted: Result<(), ()>,
     },
     Flushed {
         ena: u64,
@@ -103,13 +105,15 @@ impl EreportStore {
         data.read_range(0..data.len(), self.recv)
             .map_err(|_| ClientError::WentAway.fail())?;
         let timestamp = sys_get_timer().now;
-        self.storage
-            .insert(msg.sender.0, timestamp, &self.recv[..data.len()]);
-        // TODO(eliza): would maybe be nice to say something if the ereport got
-        // eaten...
+        let inserted = self.storage.insert(
+            msg.sender.0,
+            timestamp,
+            &self.recv[..data.len()],
+        );
         ringbuf_entry!(EreportTrace::EreportDelivered {
             src: msg.sender,
-            len: data.len() as u32
+            len: data.len() as u32,
+            inserted,
         });
         Ok(())
     }
