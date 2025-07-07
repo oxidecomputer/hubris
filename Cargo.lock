@@ -3098,6 +3098,7 @@ dependencies = [
  "cortex-m-rt",
  "drv-stm32h7-startup",
  "kern",
+ "measurement-token",
  "stm32h7",
 ]
 
@@ -3779,6 +3780,10 @@ name = "maybe-uninit"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "60302e4db3a61da70c0cb7991976248362f30319e88850c487b9b95bbf059e00"
+
+[[package]]
+name = "measurement-token"
+version = "0.1.0"
 
 [[package]]
 name = "medusa"
