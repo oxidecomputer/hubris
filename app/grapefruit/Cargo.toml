@@ -14,6 +14,7 @@ cfg-if = { workspace = true }
 stm32h7 = { workspace = true, features = ["rt", "stm32h753"] }
 
 drv-stm32h7-startup = { path = "../../drv/stm32h7-startup", features = ["h753"] }
+measurement-token.path = "../../lib/measurement-token"
 kern = { path = "../../sys/kern" }
 
 [build-dependencies]
