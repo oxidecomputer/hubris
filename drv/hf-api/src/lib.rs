@@ -262,4 +262,13 @@ impl SlotHash {
     }
 }
 
+#[derive(Copy, Clone, FromBytes, IntoBytes, Immutable, KnownLayout)]
+pub struct HfChipId {
+    pub mfr_id: u8,
+    pub memory_type: u8,
+    pub capacity: u8,
+    /// Varies depending on chip type
+    pub unique_id: [u8; 17],
+}
+
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

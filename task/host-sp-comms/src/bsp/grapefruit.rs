@@ -95,9 +95,6 @@ impl ServerImpl {
                         .read_id()
                         .map_err(|_| InventoryDataResult::DeviceFailed)?;
                     *self.scratch = InventoryData::W25q256jveqi {
-                        mfr_id: id.mfr_id,
-                        memory_type: id.memory_type,
-                        capacity: id.capacity,
                         unique_id: id.unique_id,
                     };
                     Ok(self.scratch)

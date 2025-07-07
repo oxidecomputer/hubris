@@ -67,11 +67,11 @@ use tx_buf::TxBuf;
 
 task_slot!(CONTROL_PLANE_AGENT, control_plane_agent);
 task_slot!(CPU_SEQ, cpu_seq);
-task_slot!(HOST_FLASH, hf);
 task_slot!(PACKRAT, packrat);
 task_slot!(NET, net);
 task_slot!(SYS, sys);
 task_slot!(SPROT, sprot);
+task_slot!(pub HOST_FLASH, hf);
 
 // TODO: When rebooting the host, we need to wait for the relevant power rails
 // to decay. We ought to do this properly by monitoring the rails, but for now,
