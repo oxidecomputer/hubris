@@ -425,7 +425,7 @@ pub fn package(
         // Build each task.
         let mut all_output_sections = BTreeMap::default();
 
-        std::fs::create_dir_all(&cfg.img_dir(image_name))?;
+        std::fs::create_dir_all(cfg.img_dir(image_name))?;
         let (allocs, memories) = allocated
             .get(image_name)
             .ok_or_else(|| anyhow!("failed to get image name"))?;
@@ -1975,7 +1975,7 @@ fn build(
         });
     cmd.env(
         "RUSTFLAGS",
-        &format!(
+        format!(
             "-C link-arg=-z -C link-arg=common-page-size=0x20 \
              -C link-arg=-z -C link-arg=max-page-size=0x20 \
              -C llvm-args=--enable-machine-outliner=never \
