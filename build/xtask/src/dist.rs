@@ -1881,6 +1881,7 @@ fn generate_kernel_linker_script(
     let mut stack_start = None;
     let mut stack_base = None;
 
+    let mut bonus_ranges = vec![];
     writeln!(linkscr, "MEMORY\n{{").unwrap();
     for (name, range) in map {
         let mut start = range.start;
@@ -1918,6 +1919,10 @@ fn generate_kernel_linker_script(
             end - start
         )
         .unwrap();
+
+        if !["RAM", "FLASH"].contains(&name.as_str()) {
+            bonus_ranges.push((name, start, end));
+        }
     }
     writeln!(linkscr, "}}").unwrap();
     writeln!(linkscr, "__eheap = ORIGIN(RAM) + LENGTH(RAM);").unwrap();
@@ -1936,6 +1941,10 @@ fn generate_kernel_linker_script(
         std::mem::size_of::<abi::ImageHeader>()
     )
     .unwrap();
+    for (name, start, end) in bonus_ranges {
+        writeln!(linkscr, "_{name}_REGION_BASE = {start:#x};").unwrap();
+        writeln!(linkscr, "_{name}_REGION_END = {end:#x};").unwrap();
+    }
 
     append_image_names(&mut linkscr, images, image_name)?;
     Ok(())
