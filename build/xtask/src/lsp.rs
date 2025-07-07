@@ -366,30 +366,28 @@ fn inner(file: &PathBuf, clients: &[LspClient]) -> Result<LspConfig> {
             if let Some(lspconfig) = check_task(
                 &package_name,
                 task_name,
-                &app_name,
+                app_name,
                 &app_cfg,
                 &packages,
             ) {
                 return Ok(lspconfig);
             }
-        } else {
-            if let Some(out) = app_cfg
-                .toml
-                .tasks
-                .keys()
-                .flat_map(|task_name| {
-                    check_task(
-                        &package_name,
-                        task_name,
-                        &app_name,
-                        &app_cfg,
-                        &packages,
-                    )
-                })
-                .next()
-            {
-                return Ok(out);
-            }
+        } else if let Some(out) = app_cfg
+            .toml
+            .tasks
+            .keys()
+            .flat_map(|task_name| {
+                check_task(
+                    &package_name,
+                    task_name,
+                    app_name,
+                    &app_cfg,
+                    &packages,
+                )
+            })
+            .next()
+        {
+            return Ok(out);
         }
     }
 
