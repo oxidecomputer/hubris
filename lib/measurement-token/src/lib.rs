@@ -40,8 +40,8 @@ const COUNTER_TAG: u64 = 0x4e423d17176f5b51;
 pub const MEASUREMENT_BASE: usize = 0x2000_0000;
 
 extern "C" {
-    static mut _HANDOFF_REGION_BASE: [u8; 0];
-    static mut _HANDOFF_REGION_END: [u8; 0];
+    static mut __REGION_HANDOFF_BASE: [u8; 0];
+    static mut __REGION_HANDOFF_END: [u8; 0];
 }
 
 /// Check the measurement token, calling `reset_fn` to reset if needed
@@ -52,8 +52,8 @@ extern "C" {
 ///
 /// `delay_and_reset` should include a delay, to give the RoT time to boot.
 pub unsafe fn check(retry_count: u64, delay_and_reset: fn() -> !) -> bool {
-    let ptr: *mut u64 = &raw mut _HANDOFF_REGION_BASE as *mut _;
-    let end: *mut u64 = &raw mut _HANDOFF_REGION_END as *mut _;
+    let ptr: *mut u64 = &raw mut __REGION_HANDOFF_BASE as *mut _;
+    let end: *mut u64 = &raw mut __REGION_HANDOFF_END as *mut _;
     assert!(ptr == MEASUREMENT_BASE as *mut _);
     assert!(end.offset_from(ptr) >= 4 * core::mem::size_of::<u64>() as isize);
 
