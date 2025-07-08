@@ -111,16 +111,7 @@ impl<const N: usize> Store<N> {
     /// Returns the current free space in the queue, in bytes. This is raw;
     /// subtract 12 to get the largest single message that can be enqueued.
     pub fn free_space(&self) -> usize {
-        match self.insert_state {
-            InsertState::Collecting => N - self.storage.len(),
-            InsertState::Losing { .. } => {
-                // Indicate how much space we have after recovery succeeds,
-                // which may be zero if we can't recover yet.
-                (N - self.storage.len())
-                    .saturating_sub(OVERHEAD)
-                    .saturating_sub(DATA_LOSS_LEN)
-            }
-        }
+        N - self.storage.len()
     }
 
     /// Inserts a record, or records it as lost.
@@ -275,7 +266,7 @@ impl<const N: usize> Store<N> {
 
         match &mut self.insert_state {
             InsertState::Collecting => {
-                let room = self.storage.capacity() - self.storage.len();
+                let room = self.free_space();
                 if data_len.is_some_and(|n| room >= OVERHEAD + n as usize) {
                     self.write_header(
                         data_len.unwrap_lite(),
@@ -320,9 +311,17 @@ impl<const N: usize> Store<N> {
     fn recover_if_required(&mut self, space_required: Option<usize>) {
         // We only need to take action if we're in Losing state.
         if let InsertState::Losing { count, timestamp } = self.insert_state {
-            // Note: already includes OVERHEAD/DATA_LOSS_LEN
             let room = self.free_space();
-            let required = space_required.unwrap_or(0);
+
+            // We can recover only if there is room for both the required
+            // amount of space *and* the additional loss record we must
+            // insert in order to recover.
+            let required =
+                // The space we hope to be able to use after recovery
+                space_required.unwrap_or(0)
+                // The length of the loss record itself
+                + DATA_LOSS_LEN + OVERHEAD
+            ;
             if room >= required {
                 // We can recover!
                 self.write_header(
@@ -634,9 +633,9 @@ mod tests {
 
         // Fill half the buffer.
         s.insert(ANOTHER_FAKE_TID, 5, &[0; 32 - OVERHEAD]);
-        // Try to fill the other half of the buffer, *to the brim*. Allowing
-        // this record in will mean that the buffer no longer has space for a
-        // last loss record, so this record should *not* be accepted.
+        // Try to fill the other half of the buffer, *to the brim*. After this
+        // record is accepted, we start losing data, but we cannot yet create a
+        // loss record until something is removed from the buffer.
         s.insert(ANOTHER_FAKE_TID, 6, &[0; 32 - OVERHEAD]);
         // This one definitely gets lost.
         s.insert(ANOTHER_FAKE_TID, 7, &[0; 32 - OVERHEAD]);
@@ -653,12 +652,37 @@ mod tests {
             }
         );
         assert_eq!(
-            snapshot[1].decode_as::<LossRecord>(),
+            snapshot[1],
             Item {
                 ena: 3,
-                tid: OUR_FAKE_TID,
+                tid: ANOTHER_FAKE_TID,
                 timestamp: 6,
-                contents: LossRecord { lost: Some(2) },
+                contents: Vec::from([0; 32 - OVERHEAD])
+            }
+        );
+
+        // Flush a record. We will now record the lost data, as there's now
+        // room for the loss record.
+        s.flush_thru(2);
+
+        let snapshot: Vec<Item<Vec<u8>>> = copy_contents_raw(&mut s);
+        assert_eq!(snapshot.len(), 2, "{snapshot:?}");
+        assert_eq!(
+            snapshot[0],
+            Item {
+                ena: 3,
+                tid: ANOTHER_FAKE_TID,
+                timestamp: 6,
+                contents: Vec::from([0; 32 - OVERHEAD])
+            }
+        );
+        assert_eq!(
+            snapshot[1].decode_as::<LossRecord>(),
+            Item {
+                ena: 4,
+                tid: OUR_FAKE_TID,
+                timestamp: 7,
+                contents: LossRecord { lost: Some(1) },
             }
         );
     }
