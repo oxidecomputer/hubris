@@ -16,8 +16,9 @@
 //! We store 4 `u64` words at the beginning of a "handoff" region, which is
 //! expected to be DTCM (`0x2000_0000`). The words are as follows:
 //!
-//! - Measurement token, which is `MEASUREMENT TOKEN` if the SP has been
-//!   measured, or any other value if not.
+//! - Measurement token, which is `MEASUREMENT_TOKEN_VALID` if the SP has been
+//!   measured, `MEASUREMENT_TOKEN_SKIP` if an external debugger wants us to
+//!   skip these resets, or any other value if not.
 //! - Counter token, which is `COUNTER_TAG` if the subsequent word is expected
 //!   to be a counter value.
 //! - Counter value indicating the number of resets; this starts at 1 and counts
@@ -28,12 +29,15 @@
 
 pub enum MeasurementResult {
     Measured,
+    Skipped,
     NotMeasured(u64),
 }
 
-pub const MEASUREMENT_TOKEN: u64 = 0xc887a12b17ed35f7;
-pub const MEASUREMENT_BASE: usize = 0x2000_0000;
+pub const MEASUREMENT_TOKEN_VALID: u64 = 0xc887a12b17ed35f7;
+pub const MEASUREMENT_TOKEN_SKIP: u64 = 0x9f38bd716106133f;
 const COUNTER_TAG: u64 = 0x4e423d17176f5b51;
+
+pub const MEASUREMENT_BASE: usize = 0x2000_0000;
 
 extern "C" {
     static mut _HANDOFF_REGION_BASE: [u8; 0];
@@ -42,56 +46,48 @@ extern "C" {
 
 /// Check the measurement token, calling `reset_fn` to reset if needed
 ///
-/// Calls `reset_fn` (which diverges) if no measurement is present and we have
-/// not yet exceeded our retry count; otherwise, returns `true` if the
+/// Calls `delay_and_reset` (which diverges) if no measurement is present and we
+/// have not yet exceeded our retry count; otherwise, returns `true` if the
 /// measurement is valid, or `false` if we exceeded `retry_count`.
 ///
-/// `reset_fn` should include a delay, to give the RoT time to boot.
-pub unsafe fn check(retry_count: u64, reset_fn: fn() -> !) -> bool {
+/// `delay_and_reset` should include a delay, to give the RoT time to boot.
+pub unsafe fn check(retry_count: u64, delay_and_reset: fn() -> !) -> bool {
     let ptr: *mut u64 = &raw mut _HANDOFF_REGION_BASE as *mut _;
     let end: *mut u64 = &raw mut _HANDOFF_REGION_END as *mut _;
     assert!(ptr == MEASUREMENT_BASE as *mut _);
     assert!(end.offset_from(ptr) >= 4 * core::mem::size_of::<u64>() as isize);
 
-    match check_measurement(ptr) {
-        MeasurementResult::Measured => true,
-        MeasurementResult::NotMeasured(i) => {
-            if i < retry_count {
-                reset_fn();
-            } else {
-                clear(ptr); // too many retries, exit
-                false
-            }
-        }
-    }
-}
-
-unsafe fn check_measurement(ptr: *mut u64) -> MeasurementResult {
     let token = core::ptr::read_volatile(ptr);
     let tag = core::ptr::read_volatile(ptr.wrapping_add(1));
-    let mut counter = core::ptr::read_volatile(ptr.wrapping_add(2));
+    let counter = core::ptr::read_volatile(ptr.wrapping_add(2));
     let check = core::ptr::read_volatile(ptr.wrapping_add(3));
 
-    if token == MEASUREMENT_TOKEN {
-        clear(ptr);
-        MeasurementResult::Measured
+    let out = if token == MEASUREMENT_TOKEN_VALID {
+        Ok(true) // told that measurement was completed
+    } else if token == MEASUREMENT_TOKEN_SKIP {
+        Ok(false) // told to skip measuring
     } else if tag != COUNTER_TAG || tag ^ counter != check {
-        write_counter(ptr, 1);
-        MeasurementResult::NotMeasured(0)
+        Err(0) // no counter, so initialize it
+    } else if counter >= retry_count {
+        Ok(false) // exceeded retry count, so boot
     } else {
-        counter += 1;
-        write_counter(ptr, counter);
-        MeasurementResult::NotMeasured(counter)
+        Err(counter) // we should reset the processor
+    };
+
+    match out {
+        Ok(v) => {
+            // Destroy the existing token
+            core::ptr::write_volatile(ptr, 0);
+            core::ptr::write_volatile(ptr.wrapping_add(1), 0);
+            v
+        }
+        Err(counter) => {
+            // Increment the counter, then reset
+            let next = counter + 1;
+            core::ptr::write_volatile(ptr.wrapping_add(1), COUNTER_TAG);
+            core::ptr::write_volatile(ptr.wrapping_add(2), next);
+            core::ptr::write_volatile(ptr.wrapping_add(3), next ^ COUNTER_TAG);
+            delay_and_reset();
+        }
     }
-}
-
-unsafe fn clear(ptr: *mut u64) {
-    core::ptr::write_volatile(ptr, 0);
-    core::ptr::write_volatile(ptr.wrapping_add(1), 0);
-}
-
-unsafe fn write_counter(ptr: *mut u64, counter: u64) {
-    core::ptr::write_volatile(ptr.wrapping_add(1), COUNTER_TAG);
-    core::ptr::write_volatile(ptr.wrapping_add(2), counter);
-    core::ptr::write_volatile(ptr.wrapping_add(3), counter ^ COUNTER_TAG);
 }
