@@ -25,7 +25,6 @@ use zerocopy::IntoBytes;
 pub(crate) struct EreportStore {
     storage: &'static mut snitch_core::Store<STORE_SIZE>,
     recv: &'static mut [u8; RECV_BUF_SIZE],
-    next_ena: u64,
     pub(super) restart_id: Option<ereport_messages::RestartId>,
 }
 
@@ -274,7 +273,7 @@ impl EreportStore {
             });
         }
 
-        let first_ena = first_written_ena.unwrap_or(self.next_ena);
+        let first_ena = first_written_ena.unwrap_or(0);
         let header = ereport_messages::ResponseHeader::V0(
             ereport_messages::ResponseHeaderV0 {
                 request_id,
