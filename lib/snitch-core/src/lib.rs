@@ -477,7 +477,7 @@ mod tests {
         consume_initial_loss(&mut s);
 
         // Insert a thing! We don't care if it's valid CBOR.
-        s.insert(ANOTHER_FAKE_TID, 5, b"hello, world!");
+        s.insert(ANOTHER_FAKE_TID, 5, b"hello, world!").unwrap();
 
         let snapshot = copy_contents_raw(&mut s);
         assert_eq!(snapshot.len(), 1);
@@ -499,7 +499,7 @@ mod tests {
         consume_initial_loss(&mut s);
 
         // This message just fits.
-        s.insert(ANOTHER_FAKE_TID, 5, &[0; 64 - OVERHEAD]);
+        s.insert(ANOTHER_FAKE_TID, 5, &[0; 64 - OVERHEAD]).unwrap();
 
         assert_eq!(s.free_space(), 0);
 
@@ -531,7 +531,8 @@ mod tests {
         consume_initial_loss(&mut s);
 
         // This message is juuuuust too long to fit, by one byte.
-        s.insert(ANOTHER_FAKE_TID, 5, &[0; 64 - OVERHEAD + 1]);
+        s.insert(ANOTHER_FAKE_TID, 5, &[0; 64 - OVERHEAD + 1])
+            .unwrap_err();
 
         // Because the queue is otherwise empty, the next read should produce a
         // data loss message.
@@ -557,10 +558,10 @@ mod tests {
         consume_initial_loss(&mut s);
 
         // This message fits.
-        s.insert(ANOTHER_FAKE_TID, 5, &[0; 28]);
+        s.insert(ANOTHER_FAKE_TID, 5, &[0; 28]).unwrap();
         // This message would fit on its own, but there is not enough room for
         // it.
-        s.insert(ANOTHER_FAKE_TID, 10, &[0; 28]);
+        s.insert(ANOTHER_FAKE_TID, 10, &[0; 28]).unwrap_err();
 
         // We should still be able to read out the first message, followed by a
         // one-record loss. There should be enough space available in the queue
@@ -600,11 +601,13 @@ mod tests {
         consume_initial_loss(&mut s);
 
         // This message is juuuuust too long to fit, by one byte.
-        s.insert(ANOTHER_FAKE_TID, 5, &[0; 64 - OVERHEAD + 1]);
+        s.insert(ANOTHER_FAKE_TID, 5, &[0; 64 - OVERHEAD + 1])
+            .unwrap_err();
         // Now that we're in losing state, any message too big to allow recovery
         // just accumulates. Let's do that a few times, shall we?
         for i in 0..10 {
-            s.insert(ANOTHER_FAKE_TID, 5 + i, &[0; 64 - OVERHEAD + 1]);
+            s.insert(ANOTHER_FAKE_TID, 5 + i, &[0; 64 - OVERHEAD + 1])
+                .unwrap_err();
         }
 
         // Because the queue is otherwise empty, the next read should produce a
@@ -632,13 +635,14 @@ mod tests {
         consume_initial_loss(&mut s);
 
         // Fill half the buffer.
-        s.insert(ANOTHER_FAKE_TID, 5, &[0; 32 - OVERHEAD]);
+        s.insert(ANOTHER_FAKE_TID, 5, &[0; 32 - OVERHEAD]).unwrap();
         // Try to fill the other half of the buffer, *to the brim*. After this
         // record is accepted, we start losing data, but we cannot yet create a
         // loss record until something is removed from the buffer.
-        s.insert(ANOTHER_FAKE_TID, 6, &[0; 32 - OVERHEAD]);
+        s.insert(ANOTHER_FAKE_TID, 6, &[0; 32 - OVERHEAD]).unwrap();
         // This one definitely gets lost.
-        s.insert(ANOTHER_FAKE_TID, 7, &[0; 32 - OVERHEAD]);
+        s.insert(ANOTHER_FAKE_TID, 7, &[0; 32 - OVERHEAD])
+            .unwrap_err();
 
         let snapshot: Vec<Item<Vec<u8>>> = copy_contents_raw(&mut s);
         assert_eq!(snapshot.len(), 2, "{snapshot:?}");
@@ -696,12 +700,12 @@ mod tests {
         consume_initial_loss(&mut s);
 
         // Insert a message...
-        s.insert(ANOTHER_FAKE_TID, 5, &[0; 16]);
+        s.insert(ANOTHER_FAKE_TID, 5, &[0; 16]).unwrap();
         assert_eq!(s.free_space(), 100);
         // Drop a message...
-        s.insert(ANOTHER_FAKE_TID, 10, &[0; 100]);
+        s.insert(ANOTHER_FAKE_TID, 10, &[0; 100]).unwrap_err();
         // Insert a message that will fit along with recovery...
-        s.insert(ANOTHER_FAKE_TID, 15, &[0; 16]);
+        s.insert(ANOTHER_FAKE_TID, 15, &[0; 16]).unwrap();
 
         let snapshot = copy_contents_raw(&mut s);
         assert_eq!(snapshot.len(), 3, "{snapshot:?}");
@@ -746,7 +750,7 @@ mod tests {
 
         // Insert a series of five records occupying ENAs 1-5.
         for i in 0..5 {
-            s.insert(ANOTHER_FAKE_TID, 5 + i, &[i as u8]);
+            s.insert(ANOTHER_FAKE_TID, 5 + i, &[i as u8]).unwrap();
         }
 
         {
@@ -799,10 +803,10 @@ mod tests {
         s.initialize(OUR_FAKE_TID, 1);
         consume_initial_loss(&mut s);
 
-        // This record occupies ENA 1
-        s.insert(ANOTHER_FAKE_TID, 5, &[1]);
-        // ENA 2
-        s.insert(ANOTHER_FAKE_TID, 6, &[2]);
+        // This record occupies ENA 2
+        s.insert(ANOTHER_FAKE_TID, 5, &[1]).unwrap();
+        // ENA 3
+        s.insert(ANOTHER_FAKE_TID, 6, &[2]).unwrap();
 
         assert_eq!(s.stored_record_count, 2);
 
@@ -829,10 +833,10 @@ mod tests {
         s.initialize(OUR_FAKE_TID, 1);
         consume_initial_loss(&mut s);
 
-        // This record occupies ENA 1
-        s.insert(ANOTHER_FAKE_TID, 5, &[1]);
-        // ENA 2
-        s.insert(ANOTHER_FAKE_TID, 6, &[2]);
+        // This record occupies ENA 2
+        s.insert(ANOTHER_FAKE_TID, 5, &[1]).unwrap();
+        // ENA 3
+        s.insert(ANOTHER_FAKE_TID, 6, &[2]).unwrap();
 
         assert_eq!(s.stored_record_count, 2);
 
