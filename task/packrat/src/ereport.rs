@@ -19,12 +19,13 @@ use idol_runtime::{ClientError, Leased, LenLimit, RequestError};
 use minicbor::CborLen;
 use ringbuf::{counted_ringbuf, ringbuf_entry};
 use task_packrat_api::{EreportReadError, VpdIdentity};
-use userlib::{sys_get_timer, RecvMessage, TaskId};
+use userlib::{kipc, sys_get_timer, RecvMessage, TaskId};
 use zerocopy::IntoBytes;
 
 pub(crate) struct EreportStore {
     storage: &'static mut snitch_core::Store<STORE_SIZE>,
     recv: &'static mut [u8; RECV_BUF_SIZE],
+    image_id: [u8; 8],
     pub(super) restart_id: Option<ereport_messages::RestartId>,
 }
 
@@ -72,7 +73,8 @@ enum EreportTrace {
 enum Error {
     TaskIdOutOfRange,
     VpdMetadataTooLong,
-    VpdMetadataNotUtf8,
+    PartNumberNotUtf8,
+    SerialNumberNotUtf8,
     EreportTooLong,
 }
 
@@ -87,11 +89,15 @@ impl EreportStore {
     ) -> Self {
         let now = sys_get_timer().now;
         storage.initialize(config::TASK_ID, now);
+        let image_id = {
+            let id = kipc::read_image_id();
+            u64::to_le_bytes(id)
+        };
 
         Self {
             storage,
             recv,
-            next_ena: 0,
+            image_id,
             restart_id: None,
         }
     }
@@ -165,25 +171,22 @@ impl EreportStore {
             });
 
             // Encode the metadata map into our buffer.
-            if let Some(vpd) = vpd {
-                match self.encode_vpd_metadata(vpd) {
-                    Ok(encoded) => {
-                        data.write_range(
-                            position..position + encoded.len(),
-                            encoded,
-                        )
-                        .map_err(|_| ClientError::WentAway.fail())?;
+            match self.encode_metadata(vpd) {
+                Ok(encoded) => {
+                    data.write_range(
+                        position..position + encoded.len(),
+                        encoded,
+                    )
+                    .map_err(|_| ClientError::WentAway.fail())?;
 
-                        position += encoded.len();
-                    }
-                    Err(_end) => {
-                        // Encoded VPD metadata was too long!
-                        ringbuf_entry!(EreportTrace::InternalError(
-                            Error::VpdMetadataTooLong
-                        ));
-                    }
+                    position += encoded.len();
                 }
-            }
+                Err(err) => {
+                    // Encoded VPD metadata was too long, or couldn't be
+                    // represented as a CBOR string.
+                    ringbuf_entry!(EreportTrace::InternalError(err));
+                }
+            };
 
             // Begin at ENA 0
             0
@@ -290,31 +293,51 @@ impl EreportStore {
         Ok(position)
     }
 
-    fn encode_vpd_metadata(
+    fn encode_metadata(
         &mut self,
-        vpd: &VpdIdentity,
-    ) -> Result<&[u8], InternalError> {
+        vpd: Option<&VpdIdentity>,
+    ) -> Result<&[u8], Error> {
         let c = minicbor::encode::write::Cursor::new(&mut self.recv[..]);
         let mut encoder = minicbor::Encoder::new(c);
-        let part_number = core::str::from_utf8(&vpd.part_number[..])
-            .map_err(|_| InternalError::VpdMetadataNotUtf8)?;
-        let serial_number = core::str::from_utf8(&vpd.serial[..])
-            .map_err(|_| InternalError::VpdMetadataNotUtf8)?;
+        // TODO(eliza): presently, this code bails out if the metadata map gets
+        // longer than our buffer. It would be nice to have a way to keep the
+        // encoded metadata up to the last complete key-value pair...
         encoder
-            .str("baseboard_part_number")
-            .map_err(|_| InternalError::VpdMetadataTooLong)?
-            .str(part_number)
-            .map_err(|_| InternalError::VpdMetadataTooLong)?;
-        encoder
-            .str("baseboard_serial_number")
-            .map_err(|_| InternalError::VpdMetadataTooLong)?
-            .str(serial_number)
-            .map_err(|_| InternalError::VpdMetadataTooLong)?;
-        encoder
-            .str("rev")
-            .map_err(|_| InternalError::VpdMetadataTooLong)?
-            .u32(vpd.revision)
-            .map_err(|_| InternalError::VpdMetadataTooLong)?;
+            .str("hubris_archive_id")
+            .map_err(|_| Error::VpdMetadataTooLong)?
+            .bytes(&self.image_id[..])
+            .map_err(|_| Error::VpdMetadataTooLong)?;
+        if let Some(vpd) = vpd {
+            match core::str::from_utf8(&vpd.part_number[..]) {
+                Ok(part_number) => {
+                    encoder
+                        .str("baseboard_part_number")
+                        .map_err(|_| Error::VpdMetadataTooLong)?
+                        .str(part_number)
+                        .map_err(|_| Error::VpdMetadataTooLong)?;
+                }
+                Err(_) => ringbuf_entry!(EreportTrace::InternalError(
+                    Error::PartNumberNotUtf8
+                )),
+            }
+            match core::str::from_utf8(&vpd.serial[..]) {
+                Ok(serial_number) => {
+                    encoder
+                        .str("baseboard_serial_number")
+                        .map_err(|_| Error::VpdMetadataTooLong)?
+                        .str(serial_number)
+                        .map_err(|_| Error::VpdMetadataTooLong)?;
+                }
+                Err(_) => ringbuf_entry!(EreportTrace::InternalError(
+                    Error::SerialNumberNotUtf8
+                )),
+            }
+            encoder
+                .str("rev")
+                .map_err(|_| Error::VpdMetadataTooLong)?
+                .u32(vpd.revision)
+                .map_err(|_| Error::VpdMetadataTooLong)?;
+        }
         let size = encoder.into_writer().position();
         Ok(&self.recv[..size])
     }
