@@ -98,6 +98,8 @@ impl<const N: usize> Store<N> {
                 //   f6  # null / None
                 &[0xA1, 0x64, 0x6C, 0x6F, 0x73, 0x74, 0xF6],
             );
+            // ENAs start at 1.
+            self.earliest_ena = 1;
         }
     }
 
