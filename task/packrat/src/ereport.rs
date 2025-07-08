@@ -73,6 +73,7 @@ enum EreportTrace {
 enum Error {
     TaskIdOutOfRange,
     VpdMetadataTooLong,
+    VpdMetadataNotUtf8
     EreportTooLong,
 }
 
@@ -286,24 +287,31 @@ impl EreportStore {
         Ok(position)
     }
 
-    fn encode_vpd_metadata(&mut self, vpd: &VpdIdentity) -> Result<&[u8], ()> {
+    fn encode_vpd_metadata(
+        &mut self,
+        vpd: &VpdIdentity,
+    ) -> Result<&[u8], InternalError> {
         let c = minicbor::encode::write::Cursor::new(&mut self.recv[..]);
         let mut encoder = minicbor::Encoder::new(c);
+        let part_number = core::str::from_utf8(&vpd.part_number[..])
+            .map_err(|_| InternalError::VpdMetadataNotUtf8)?;
+        let serial_number = core::str::from_utf8(&vpd.serial[..])
+            .map_err(|_| InternalError::VpdMetadataNotUtf8)?;
         encoder
             .str("baseboard_part_number")
-            .map_err(|_| ())?
-            .bytes(vpd.part_number.as_bytes())
-            .map_err(|_| ())?;
+            .map_err(|_| InternalError::VpdMetadataTooLong)?
+            .str(part_number)
+            .map_err(|_| InternalError::VpdMetadataTooLong)?;
         encoder
             .str("baseboard_serial_number")
-            .map_err(|_| ())?
-            .bytes(vpd.serial.as_bytes())
-            .map_err(|_| ())?;
+            .map_err(|_| InternalError::VpdMetadataTooLong)?
+            .str(serial_number)
+            .map_err(|_| InternalError::VpdMetadataTooLong)?;
         encoder
             .str("rev")
-            .map_err(|_| ())?
+            .map_err(|_| InternalError::VpdMetadataTooLong)?
             .u32(vpd.revision)
-            .map_err(|_| ())?;
+            .map_err(|_| InternalError::VpdMetadataTooLong)?;
         let size = encoder.into_writer().position();
         Ok(&self.recv[..size])
     }
