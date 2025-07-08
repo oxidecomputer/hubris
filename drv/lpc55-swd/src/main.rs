@@ -192,6 +192,7 @@ enum Trace {
     },
     WrotePcRegisterFail,
     WroteSpRegisterFail,
+    TokenWriteFail(Ack),
 }
 
 ringbuf!(Trace, 128, Trace::None);
@@ -1731,7 +1732,7 @@ impl ServerImpl {
             return false; // Cannot make the required measurement.
         }
 
-        let out = self.reset_and_measure_sp(start);
+        let out = self.reset_and_measure_sp();
         self.swd_finish();
         out.is_ok()
     }
@@ -1832,7 +1833,7 @@ impl ServerImpl {
     ///
     /// Returns `Ok(())` if the SP was measured, `Err(())` if something went
     /// wrong and existing measurements should be invalidated.
-    fn reset_and_measure_sp(&mut self, start: u64) -> Result<(), ()> {
+    fn reset_and_measure_sp(&mut self) -> Result<(), ()> {
         self.reset_into_debug_halt()?;
         let success = match self.do_measure_sp() {
             Ok(digest) => {
@@ -1855,11 +1856,30 @@ impl ServerImpl {
             }
         };
 
-        // Reset the SP into normal operation
-        self.disable_halting_debug();
-        self.sp_reset_enter();
-        hl::sleep_for(1);
-        self.sp_reset_leave();
+        if success.is_ok() && self.reset_into_debug_halt().is_ok() {
+            // Deposit a payload into memory
+            if let Err(e) = self
+                .write_single_target_addr(
+                    measurement_token::MEASUREMENT_BASE as u32,
+                    measurement_token::MEASUREMENT_TOKEN as u32,
+                )
+                .and_then(|()| {
+                    self.write_single_target_addr(
+                        measurement_token::MEASUREMENT_BASE as u32 + 4,
+                        (measurement_token::MEASUREMENT_TOKEN >> 32) as u32,
+                    )
+                })
+            {
+                ringbuf_entry!(Trace::TokenWriteFail(e));
+            }
+            self.disable_halting_debug();
+        } else {
+            // Reset the SP into normal operation
+            self.disable_halting_debug();
+            self.sp_reset_enter();
+            hl::sleep_for(1);
+            self.sp_reset_leave();
+        }
         success
     }
 }
