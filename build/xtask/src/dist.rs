@@ -42,7 +42,13 @@ pub const DEFAULT_KERNEL_STACK: u32 = 1024;
 /// that generates the Humility binary necessary for Hubris's CI has run.
 /// Once that binary is in place, you should be able to bump this version
 /// without breaking CI.
-const HUBRIS_ARCHIVE_VERSION: u32 = 9;
+///
+/// # Changelog
+/// Version 10 requires Humility to be aware of the `handoff` kernel feature,
+/// which lets the RoT inform the SP when measurements have been taken.  If
+/// Humility is unaware of this feature, the SP will reset itself repeatedly,
+/// which interferes with subsequent programming of auxiliary flash.
+const HUBRIS_ARCHIVE_VERSION: u32 = 10;
 
 /// `PackageConfig` contains a bundle of data that's commonly used when
 /// building a full app image, grouped together to avoid passing a bunch
