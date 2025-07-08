@@ -623,6 +623,46 @@ mod tests {
         );
     }
 
+    /// Tests that the buffer is never allowed to fill so much that it cannot
+    /// fit a loss record. This reproduces a panic where there was insufficient
+    /// space to record a loss record.
+    #[test]
+    fn data_loss_on_full_queue() {
+        let mut s = Store::<64>::DEFAULT;
+        s.initialize(OUR_FAKE_TID, 1);
+        consume_initial_loss(&mut s);
+
+        // Fill half the buffer.
+        s.insert(ANOTHER_FAKE_TID, 5, &[0; 32 - OVERHEAD]);
+        // Try to fill the other half of the buffer, *to the brim*. Allowing
+        // this record in will mean that the buffer no longer has space for a
+        // last loss record, so this record should *not* be accepted.
+        s.insert(ANOTHER_FAKE_TID, 6, &[0; 32 - OVERHEAD]);
+        // This one definitely gets lost.
+        s.insert(ANOTHER_FAKE_TID, 7, &[0; 32 - OVERHEAD]);
+
+        let snapshot: Vec<Item<Vec<u8>>> = copy_contents_raw(&mut s);
+        assert_eq!(snapshot.len(), 2, "{snapshot:?}");
+        assert_eq!(
+            snapshot[0],
+            Item {
+                ena: 2,
+                tid: ANOTHER_FAKE_TID,
+                timestamp: 5,
+                contents: Vec::from([0; 32 - OVERHEAD])
+            }
+        );
+        assert_eq!(
+            snapshot[1].decode_as::<LossRecord>(),
+            Item {
+                ena: 3,
+                tid: OUR_FAKE_TID,
+                timestamp: 6,
+                contents: LossRecord { lost: Some(2) },
+            }
+        );
+    }
+
     /// Arranges for the queue to contain: valid data; a loss record; more valid
     /// data. This helps exercise recovery behavior.
     #[test]
