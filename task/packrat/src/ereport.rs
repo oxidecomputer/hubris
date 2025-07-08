@@ -85,7 +85,8 @@ impl EreportStore {
             ref mut recv,
         }: &'static mut EreportBufs,
     ) -> Self {
-        storage.initialize(0, 0); // TODO tid timestamp
+        let now = sys_get_timer().now;
+        storage.initialize(config::TASK_ID, now);
 
         Self {
             storage,
@@ -341,4 +342,8 @@ impl<C> CborLen<C> for ByteGather<'_, '_> {
         let n = self.0.len() + self.1.len();
         n.cbor_len(ctx) + n
     }
+}
+
+mod config {
+    include!(concat!(env!("OUT_DIR"), "/ereport_config.rs"));
 }

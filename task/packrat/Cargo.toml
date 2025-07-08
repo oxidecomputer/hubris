@@ -28,7 +28,7 @@ minicbor = { workspace = true,  optional = true }
 anyhow.workspace = true
 cfg-if.workspace = true
 idol.workspace = true
-
+quote = { workspace = true, optional = true }
 build-util = { path = "../../build/util" }
 
 [features]
@@ -37,7 +37,7 @@ gimlet = ["drv-cpu-seq-api"]
 grapefruit = []
 boot-kmdb = []
 no-ipc-counters = ["idol/no-counters"]
-ereport = ["dep:drv-rng-api", "dep:snitch-core", "dep:minicbor"]
+ereport = ["dep:drv-rng-api", "dep:snitch-core", "dep:minicbor", "dep:quote"]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

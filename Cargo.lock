@@ -5711,6 +5711,7 @@ dependencies = [
  "minicbor 0.26.4",
  "mutable-statics",
  "num-traits",
+ "quote",
  "ringbuf",
  "snitch-core",
  "spd",
