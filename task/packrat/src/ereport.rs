@@ -129,6 +129,10 @@ impl EreportStore {
         data: Leased<idol_runtime::W, [u8]>,
         vpd: Option<&VpdIdentity>,
     ) -> Result<usize, RequestError<EreportReadError>> {
+        /// Byte indicating the end of an indeterminate-length CBOR array or
+        /// map.
+        const CBOR_BREAK: u8 = 0xff;
+
         let current_restart_id =
             self.restart_id.ok_or(EreportReadError::RestartIdNotSet)?;
         // Skip over a header-sized initial chunk.
@@ -186,7 +190,7 @@ impl EreportStore {
         };
 
         // End metadata map.
-        data.write_at(position, 0xff)
+        data.write_at(position, CBOR_BREAK)
             .map_err(|_| ClientError::WentAway.fail())?;
         position += 1;
 
@@ -262,7 +266,7 @@ impl EreportStore {
 
         if let Some(start_ena) = first_written_ena {
             // End CBOR list, if we wrote anything.
-            data.write_at(position, 0xff)
+            data.write_at(position, CBOR_BREAK)
                 .map_err(|_| ClientError::WentAway.fail())?;
             position += 1;
 
