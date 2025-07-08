@@ -81,14 +81,6 @@ fn system_init() {
     }
     assert_eq!(rev, expected_rev);
 
-    #[cfg(feature = "handoff")]
-    unsafe {
-        measurement_token::check(20, || {
-            cortex_m::asm::delay(12860000); // about 200 ms
-            cortex_m::peripheral::SCB::sys_reset()
-        });
-    }
-
     // Do most of the setup with the common implementation.
     let p = drv_stm32h7_startup::system_init_custom(
         cp,
