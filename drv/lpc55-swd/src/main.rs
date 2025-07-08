@@ -167,10 +167,7 @@ enum Trace {
     },
     MeasureFailed,
     SharedState(u32),
-    Digest0([u8; 8]),
-    Digest1([u8; 8]),
-    Digest2([u8; 8]),
-    Digest3([u8; 8]),
+    Digest(usize, [u8; 8]),
     ReadbackFailure,
     ReadBufFail,
     ReadX {
@@ -1485,17 +1482,9 @@ impl ServerImpl {
             return Err(());
         }
 
-        if let Ok(d) = shared.digest[0x00..=0x07].try_into() {
-            ringbuf_entry!(Trace::Digest0(d));
-        }
-        if let Ok(d) = shared.digest[0x08..=0x0f].try_into() {
-            ringbuf_entry!(Trace::Digest1(d));
-        }
-        if let Ok(d) = shared.digest[0x10..=0x17].try_into() {
-            ringbuf_entry!(Trace::Digest2(d));
-        }
-        if let Ok(d) = shared.digest[0x18..=0x1f].try_into() {
-            ringbuf_entry!(Trace::Digest3(d));
+        for (i, chunk) in shared.digest.chunks_exact(8).enumerate() {
+            let d = chunk.try_into().unwrap_lite();
+            ringbuf_entry!(Trace::Digest(i, d));
         }
 
         Ok(shared.digest)
