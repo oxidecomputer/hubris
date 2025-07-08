@@ -82,8 +82,8 @@ fn system_init() {
     assert_eq!(rev, expected_rev);
 
     unsafe {
-        measurement_token::check(5, || {
-            cortex_m::asm::delay(12860000); // 200 ms
+        measurement_token::check(20, || {
+            cortex_m::asm::delay(12860000); // about 200 ms
             cortex_m::peripheral::SCB::sys_reset()
         });
     }
