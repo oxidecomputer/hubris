@@ -451,6 +451,18 @@ pub fn package(
                 }
             }
         }
+        // Same check for the kernel.  This may be overly conservative, because
+        // the kernel is special, but we can always make it less strict later.
+        for r in &cfg.toml.kernel.extern_regions {
+            if let Some(v) = alloc_regions.get(r) {
+                bail!(
+                    "cannot use region '{r}' as extern region in \
+                    the kernel because it's used as a normal region by \
+                    [{}]",
+                    v.join(", ")
+                );
+            }
+        }
 
         let mut extern_regions = MultiMap::new();
         for (task_name, task) in cfg.toml.tasks.iter() {
@@ -1535,11 +1547,13 @@ fn build_kernel(
     kconfig.hash(&mut image_id);
     allocs.hash(&mut image_id);
 
+    let extern_regions = cfg.toml.kernel_extern_regions(image_name)?;
     generate_kernel_linker_script(
         "memory.x",
         &allocs.kernel,
         cfg.toml.kernel.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
         &cfg.toml.all_regions("flash".to_string())?,
+        &extern_regions,
         image_name,
     )?;
 
@@ -1818,7 +1832,6 @@ fn generate_task_linker_script(
 
 fn append_image_names(
     linkscr: &mut std::fs::File,
-
     images: &IndexMap<String, Range<u32>>,
     image_name: &str,
 ) -> Result<()> {
@@ -1888,6 +1901,7 @@ fn generate_kernel_linker_script(
     map: &BTreeMap<String, Range<u32>>,
     stacksize: u32,
     images: &IndexMap<String, Range<u32>>,
+    extern_regions: &IndexMap<String, Range<u32>>,
     image_name: &str,
 ) -> Result<()> {
     // Put the linker script somewhere the linker can find it
@@ -1897,7 +1911,6 @@ fn generate_kernel_linker_script(
     let mut stack_start = None;
     let mut stack_base = None;
 
-    let mut bonus_ranges = vec![];
     writeln!(linkscr, "MEMORY\n{{").unwrap();
     for (name, range) in map {
         let mut start = range.start;
@@ -1935,10 +1948,6 @@ fn generate_kernel_linker_script(
             end - start
         )
         .unwrap();
-
-        if !["RAM", "FLASH"].contains(&name.as_str()) {
-            bonus_ranges.push((name, start, end));
-        }
     }
     writeln!(linkscr, "}}").unwrap();
     writeln!(linkscr, "__eheap = ORIGIN(RAM) + LENGTH(RAM);").unwrap();
@@ -1957,12 +1966,9 @@ fn generate_kernel_linker_script(
         std::mem::size_of::<abi::ImageHeader>()
     )
     .unwrap();
-    for (name, start, end) in bonus_ranges {
-        writeln!(linkscr, "_{name}_REGION_BASE = {start:#x};").unwrap();
-        writeln!(linkscr, "_{name}_REGION_END = {end:#x};").unwrap();
-    }
 
     append_image_names(&mut linkscr, images, image_name)?;
+    append_extern_regions(&mut linkscr, extern_regions)?;
     Ok(())
 }
 
@@ -2324,7 +2330,7 @@ pub fn allocate_all(
     for image_name in &toml.image_names {
         let mut allocs = Allocations::default();
         let mut free = toml.memories(image_name)?;
-        let mut kernel_requests = kernel.requires.clone();
+        let kernel_requests = &kernel.requires;
 
         let mut task_requests: BTreeMap<&str, IndexMap<&str, OrderedVecDeque>> =
             BTreeMap::new();
@@ -2362,21 +2368,17 @@ pub fn allocate_all(
 
         // Okay! Do memory types one by one, fitting kernel first.
         for (region, avail) in &mut free {
-            let k_req = kernel_requests.remove(region.as_str());
-            let t_reqs = task_requests.remove(region.as_str());
+            let mut k_req = kernel_requests.get(region.as_str());
+            let t_reqs = task_requests.get_mut(region.as_str());
+            let mut t_reqs_empty = IndexMap::new();
             allocate_region(
                 region,
                 toml,
-                k_req,
-                t_reqs.unwrap_or_default(),
+                &mut k_req,
+                t_reqs.unwrap_or(&mut t_reqs_empty),
                 avail,
                 &mut allocs,
             )?;
-        }
-        if !kernel_requests.is_empty() {
-            bail!("unfulfilled kernel requests: {kernel_requests:#x?}");
-        } else if !task_requests.is_empty() {
-            bail!("unfulfilled task requests: {task_requests:#x?}");
         }
 
         if let Some(caboose) = caboose {
@@ -2404,13 +2406,13 @@ pub fn allocate_all(
 fn allocate_region(
     region: &str,
     toml: &Config,
-    mut k_req: Option<u32>,
-    mut t_reqs: IndexMap<&str, OrderedVecDeque>,
+    k_req: &mut Option<&u32>,
+    t_reqs: &mut IndexMap<&str, OrderedVecDeque>,
     avail: &mut Range<u32>,
     allocs: &mut Allocations,
 ) -> Result<()> {
     // The kernel gets to go first!
-    if let Some(sz) = k_req.take() {
+    if let Some(&sz) = k_req.take() {
         allocs
             .kernel
             .insert(region.to_string(), allocate_k(region, sz, avail)?);
