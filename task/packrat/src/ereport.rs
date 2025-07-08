@@ -72,7 +72,7 @@ enum EreportTrace {
 enum Error {
     TaskIdOutOfRange,
     VpdMetadataTooLong,
-    VpdMetadataNotUtf8
+    VpdMetadataNotUtf8,
     EreportTooLong,
 }
 
