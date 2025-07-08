@@ -116,9 +116,7 @@ impl<const N: usize> Store<N> {
             InsertState::Losing { .. } => {
                 // Indicate how much space we have after recovery succeeds,
                 // which may be zero if we can't recover yet.
-                (N - self.storage.len())
-                    .saturating_sub(OVERHEAD)
-                    .saturating_sub(DATA_LOSS_LEN)
+                (N - self.storage.len()).saturating_sub(ONE_LOSS_RECORD_LEN)
             }
         }
     }
@@ -276,7 +274,17 @@ impl<const N: usize> Store<N> {
         match &mut self.insert_state {
             InsertState::Collecting => {
                 let room = self.storage.capacity() - self.storage.len();
-                if data_len.is_some_and(|n| room >= OVERHEAD + n as usize) {
+                if data_len.is_some_and(|n| {
+                    let required =
+                        // Space for the record itself.
+                        OVERHEAD + n as usize
+                        // Always reserve space for an additional loss
+                        // record at the end of the buffer, as we must
+                        // be able to record loss if more records
+                        // come in.
+                        + ONE_LOSS_RECORD_LEN;
+                    room >= required
+                }) {
                     self.write_header(
                         data_len.unwrap_lite(),
                         sender,
@@ -418,6 +426,8 @@ fn take_slice<'a>(
 const DATA_LOSS_LEN: usize = 11;
 const OVERHEAD: usize = 12;
 
+const ONE_LOSS_RECORD_LEN: usize = DATA_LOSS_LEN + OVERHEAD;
+
 #[derive(Copy, Clone, Debug)]
 enum InsertState {
     /// We successfully recorded the last record (which may have been a loss
@@ -490,36 +500,6 @@ mod tests {
         s.flush_thru(snapshot[0].ena);
 
         assert_eq!(copy_contents_raw(&mut s), []);
-    }
-
-    /// Verifies that a message that consumes 100% of the queue can be enqueued.
-    #[test]
-    fn filling_completely() {
-        let mut s = Store::<64>::DEFAULT;
-        s.initialize(OUR_FAKE_TID, 1);
-        consume_initial_loss(&mut s);
-
-        // This message just fits.
-        s.insert(ANOTHER_FAKE_TID, 5, &[0; 64 - OVERHEAD]);
-
-        assert_eq!(s.free_space(), 0);
-
-        // Which means it should be able to come back out.
-        let snapshot = copy_contents_raw(&mut s);
-        assert_eq!(snapshot.len(), 1);
-        assert_eq!(
-            snapshot[0],
-            Item {
-                ena: 2,
-                tid: ANOTHER_FAKE_TID,
-                timestamp: 5,
-                contents: vec![0; 64 - OVERHEAD]
-            }
-        );
-
-        // And be flushed.
-        s.flush_thru(snapshot[0].ena);
-        assert_eq!(s.free_space(), 64);
     }
 
     /// Tests behavior if the queue goes directly from empty to overflow.
