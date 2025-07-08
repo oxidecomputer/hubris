@@ -111,6 +111,7 @@ use userlib::{
 use zerocopy::IntoBytes;
 
 #[derive(Copy, Clone, PartialEq)]
+#[repr(C, u8)]
 enum Trace {
     None,
     Idcode(u32),
@@ -137,8 +138,6 @@ enum Trace {
         data: u32,
         src: u32,
     },
-    DemcrReadError,
-    // Demcr(Demcr),
     DemcrWriteError,
     DfsrReadError,
     Dfsr(Dfsr),
@@ -153,7 +152,6 @@ enum Trace {
         delta_t: u32,
     },
     HaltFail(u32),
-    IncompleteUndo(Undo),
     Injected {
         start: u32,
         length: usize,
@@ -163,13 +161,11 @@ enum Trace {
     InvalidatedSpMeasurement,
     InvalidateSpMeasurement,
     LimitRemaining(u32),
-    // Lockup(Dhcsr),
     MeasuredSp {
         success: bool,
         delta_t: u32,
     },
     MeasureFailed,
-    Never,
     SharedState(u32),
     Digest0([u8; 8]),
     Digest1([u8; 8]),
@@ -193,7 +189,6 @@ enum Trace {
     SwdSetupFail,
     SwdSetupOk,
     TimerHandlerError(SpCtrlError),
-    VcCoreReset(bool),
     VcCoreResetNotCaught,
     WaitingForSpHalt {
         timeout: u32,
@@ -286,9 +281,7 @@ const WAIT_FOR_HALT_MS: u64 = 500;
 // Debug Interface from Armv7 Architecture Manual chapter C-1
 mod armv7debug;
 
-use armv7debug::{
-    Demcr, Dfsr, Dhcsr, DpAddressable, Reg, Undo, DCRDR, DCRSR, VTOR,
-};
+use armv7debug::{Demcr, Dfsr, Dhcsr, DpAddressable, Reg, DCRDR, DCRSR, VTOR};
 
 #[derive(Copy, Clone, PartialEq)]
 enum Port {
@@ -1711,11 +1704,11 @@ impl ServerImpl {
 
     // Return true if necessary work was done.
     // Return false if any current SP measurement should be invalidated.
+    #[must_use]
     fn do_handle_sp_reset(&mut self) -> bool {
         let start = sys_get_timer().now;
         let gpio = Pins::from(self.gpio);
         const SLOT: PintSlot = ROT_TO_SP_RESET_L_IN_PINT_SLOT;
-        let mut need_undo = Undo::from_bits_retain(0);
 
         // Did SP_RESET transition to Zero?
         if let Ok(Some(detected)) =
@@ -1735,10 +1728,6 @@ impl ServerImpl {
             unreachable!();
         }
 
-        // Not ok yet: A reset happened. If we don't get a measurement then
-        // make sure that the old one is invalidated.
-        let mut error = false;
-
         ringbuf_entry!(Trace::SpResetAsserted);
 
         // This notification handler should be compatible with watchdog but
@@ -1748,195 +1737,140 @@ impl ServerImpl {
 
         if self.do_setup_swd().is_ok() {
             ringbuf_entry!(Trace::SetupSwdOk);
-            need_undo |= Undo::SWD;
         } else {
             // We may have interrupted dumper or watchdog activity.
             return false; // Cannot make the required measurement.
         }
 
-        // Armv7-M Arch Ref:
-        // C1.4.1 Entering Debug state on leaving reset state
-        //
-        // To force the processor to enter Debug state as soon as it
-        // comes out of reset, a debugger sets DHCSR.C_DEBUGEN to 1, to
-        // enable Halting debug, and sets DEMCR.VC_CORERESET to 1 to
-        // enable vector catch on the Reset exception. When the
-        // processor comes out of reset it sets DHCSR.C_HALT to 1,
-        // and enters Debug state.
+        let out = self.reset_and_measure_sp(start);
+        self.swd_finish();
+        out.is_ok()
+    }
 
-        // If we are late to the SP_RESET party, we're still not that late.
-        // In any case, keep/force the SP into a reset condition.
-        // Though AIRCR::SYSRESETREQ can be used to effect a local reset.
-        // that does not affect the whole SP SoC.
-        // So, use the SP_RESET GPIO.
-        //
-
-        // Setting up to inject the measurement program into the SP
-        // has several potential failures. Use this `prep` closure
-        // and `need_undo` state to keep from indenting too much.
-        let mut prep = || -> Result<(), ()> {
-            self.sp_reset_enter();
-            need_undo |= Undo::RESET;
-
-            // Asserting SP_RESET for >1ms here works.
-            hl::sleep_for(1);
-
-            // Try to undo the change in DEBUGEN even if
-            // setting it failed.
-            need_undo |= Undo::DEBUGEN;
-            if self.dp_write_bitflags::<Dhcsr>(Dhcsr::resume()).is_err() {
-                ringbuf_entry!(Trace::DemcrWriteError);
-                return Err(());
-            }
-
-            // Try to undo the change in VC_CORERESET even if
-            // setting it failed.
-            need_undo |= Undo::VC_CORERESET;
-            if self
-                .dp_write_bitflags::<Demcr>(Demcr::VC_CORERESET)
-                .is_err()
-            {
-                ringbuf_entry!(Trace::DemcrWriteError);
-                return Err(());
-            }
-
-            self.sp_reset_leave();
-            need_undo &= !Undo::RESET;
-
-            // 500ms max wait allows for testing using manual reset button.
-            // Typical wait looks to be 5ms.
-            self.wait_for_sp_halt(WAIT_FOR_HALT_MS).map_err(|_| ())?;
-
-            // Check that RESET was caught
-            if let Ok(dfsr) = self.dp_read_bitflags::<Dfsr>() {
-                if !dfsr.is_vcatch() {
-                    ringbuf_entry!(Trace::Dfsr(dfsr));
-                    ringbuf_entry!(Trace::VcCoreResetNotCaught);
-                    return Err(());
-                }
-            } else {
-                ringbuf_entry!(Trace::DfsrReadError);
-            }
-
-            // We don't want to catch the next reset.
-            if self
-                .dp_write_bitflags::<Demcr>(Demcr::from_bits_retain(0))
-                .is_err()
-            {
-                ringbuf_entry!(Trace::DemcrWriteError);
-                return Err(());
-            }
-
-            // need_undo was set appropriately
-            if let Ok(demcr) = self.dp_read_bitflags::<Demcr>() {
-                if demcr & Demcr::VC_CORERESET != Demcr::VC_CORERESET {
-                    ringbuf_entry!(Trace::VcCoreReset(false));
-                    need_undo &= !Undo::VC_CORERESET;
-                } else {
-                    ringbuf_entry!(Trace::VcCoreReset(true));
-                    return Err(());
-                }
-            } else {
-                ringbuf_entry!(Trace::DemcrReadError);
-                return Err(());
-            }
-            Ok(())
-        };
-
-        // To ensures that any cleanup is done and the SP hardware is left
-        // running properly, there can only be one return at the end.
-
-        let digest = prep().and_then(|()| self.do_measure_sp());
-
-        // From here on, we're cleaning up and restarting the SP.
-
-        // It is very unlikely that an attached SP debug dongle would go
-        // active just as we are taking a measurement.
-        // If that happened, then JTAG DETECT will have its own notification
-        // and this task will perform an explicit attestation log reset.
-        // If there was any SWD problem for us, we may need to clean up
-        // ore or more of the steps that `prep` performed.
-
-        // If anything deviates from the happy-path, we will not record a valid measurement.
-
-        if need_undo & Undo::VC_CORERESET == Undo::VC_CORERESET {
-            // This will happen if one holds down a physical reset button.
-            // In any case, don't believe any measurement we may have recorded.
-            ringbuf_entry!(Trace::IncompleteUndo(need_undo));
-            error = true;
-
-            if self
-                .dp_write_bitflags::<Demcr>(Demcr::from_bits_retain(0))
-                .is_ok()
-            {
-                need_undo &= !Undo::VC_CORERESET;
-                ringbuf_entry!(Trace::VcCoreReset(false));
-            } else {
-                ringbuf_entry!(Trace::DemcrWriteError);
-            }
-            if let Ok(r) = self.dp_read_bitflags::<Dhcsr>() {
-                ringbuf_entry!(Trace::Dhcsr(r));
-            }
-        }
-
-        // Unless `prep` failed, this will always be needed.
-        if need_undo & Undo::DEBUGEN == Undo::DEBUGEN {
-            if self.dp_write_bitflags::<Dhcsr>(Dhcsr::end_debug()).is_ok() {
-                need_undo &= !Undo::DEBUGEN;
-            } else {
-                ringbuf_entry!(Trace::DhcsrWriteError);
-            }
-        } else {
-            ringbuf_entry!(Trace::Never);
-        }
-
-        // This should always be needed
-        if need_undo & Undo::SWD == Undo::SWD {
-            self.swd_finish();
-            need_undo &= !Undo::SWD;
-        } else {
-            ringbuf_entry!(Trace::Never);
-            error = true;
-        }
-
-        if !need_undo.is_empty() {
-            ringbuf_entry!(Trace::IncompleteUndo(need_undo));
-            error = true;
-        }
-
-        // The SP is still halted.
-        // Get it running again by toggling its RESET pin.
+    /// Resets the SP, forcing it to come up in debug halted state
+    ///
+    /// This is done per C1.4.1 in the ARMv7-M Architectural Reference Manual:
+    /// - `DHCSR.C_DEBUGEN` enables halting debug
+    /// - `DEMCR.VC_CORERESET` enables vector catch on the reset exception
+    ///
+    /// When the reset pin is released, we wait for a hard-coded timeout for
+    /// `DFSR.HALTED` to be set to 1.
+    ///
+    /// If this function returns `Ok(())`, then the SP should be in debug halt;
+    /// `DHCSR.C_DEBUGEN` and `DFSR.HALTED` should be set.
+    ///
+    /// If it returns an error, then the `DHCSR.C_DEBUGEN` bit is cleared, and
+    /// the SP should be assumed to be running.
+    ///
+    /// In all cases, the reset line is not asserted when this function returns.
+    /// Additionally, `DEMCR.VC_CORERESET` is always cleared, so future resets
+    /// will not trigger a vector catch.
+    fn reset_into_debug_halt(&mut self) -> Result<(), ()> {
+        // Asserting SP_RESET for >1ms here works.
         self.sp_reset_enter();
+        hl::sleep_for(1);
 
-        // Record a successful measurement before releasing the SP from reset.
-        let success = if let Ok(digest) = digest {
-            // SP resets the attestation log and record the new measurement.
-            if !error
-                && self
+        // Enable halting debug
+        if self.dp_write_bitflags::<Dhcsr>(Dhcsr::resume()).is_err() {
+            // If the write fails, then attempt to undo it
+            ringbuf_entry!(Trace::DhcsrWriteError);
+            self.disable_halting_debug();
+            return Err(());
+        }
+
+        // Enable vector catch
+        if self
+            .dp_write_bitflags::<Demcr>(Demcr::VC_CORERESET)
+            .is_err()
+        {
+            ringbuf_entry!(Trace::DemcrWriteError);
+            self.disable_halting_debug();
+            self.disable_vector_catch();
+            return Err(());
+        }
+        self.sp_reset_leave();
+
+        // 500ms max wait allows for testing using manual reset button.
+        // Typical wait looks to be 5ms.
+        let halted = self.wait_for_sp_halt(WAIT_FOR_HALT_MS);
+
+        // We always disable vector catch, because we want the next reset to
+        // proceed as usual.
+        self.disable_vector_catch();
+        let out = match halted {
+            Ok(()) => {
+                // Check that RESET was caught; if we halted for some other
+                // reason (or can't read DFSR), then that's a bad sign.
+                if let Ok(dfsr) = self.dp_read_bitflags::<Dfsr>() {
+                    if dfsr.is_vcatch() {
+                        Ok(())
+                    } else {
+                        ringbuf_entry!(Trace::Dfsr(dfsr));
+                        ringbuf_entry!(Trace::VcCoreResetNotCaught);
+                        Err(())
+                    }
+                } else {
+                    ringbuf_entry!(Trace::DfsrReadError);
+                    Err(())
+                }
+            }
+            Err(_) => Err(()),
+        };
+        if out.is_err() {
+            self.disable_halting_debug();
+        }
+        out
+    }
+
+    /// Disables debug halt by clearing `DHCSR.C_DEBUGEN`
+    fn disable_halting_debug(&mut self) {
+        if self.dp_write_bitflags::<Dhcsr>(Dhcsr::end_debug()).is_err() {
+            ringbuf_entry!(Trace::DhcsrWriteError);
+        }
+    }
+
+    /// Disables vector catch by clearing `DEMCR.VC_CORERESET`
+    fn disable_vector_catch(&mut self) {
+        if self
+            .dp_write_bitflags::<Demcr>(Demcr::from_bits_retain(0))
+            .is_err()
+        {
+            ringbuf_entry!(Trace::DemcrWriteError);
+        }
+    }
+
+    /// Resets the SP and obtains a measurement, sending it to packrat
+    ///
+    /// Returns `Ok(())` if the SP was measured, `Err(())` if something went
+    /// wrong and existing measurements should be invalidated.
+    fn reset_and_measure_sp(&mut self, start: u64) -> Result<(), ()> {
+        self.reset_into_debug_halt()?;
+        let success = match self.do_measure_sp() {
+            Ok(digest) => {
+                // SP resets the attestation log and record the new measurement.
+                if self
                     .attest
                     .reset_and_record(HashAlgorithm::Sha3_256, &digest)
                     .is_ok()
-            {
-                ringbuf_entry!(Trace::RecordedMeasurement);
-                true
-            } else {
-                ringbuf_entry!(Trace::RecordMeasurementFailed);
-                false
+                {
+                    ringbuf_entry!(Trace::RecordedMeasurement);
+                    Ok(())
+                } else {
+                    ringbuf_entry!(Trace::RecordMeasurementFailed);
+                    Err(())
+                }
             }
-        } else {
-            ringbuf_entry!(Trace::MeasureFailed);
-            false
+            Err(()) => {
+                ringbuf_entry!(Trace::MeasureFailed);
+                Err(())
+            }
         };
 
+        // Reset the SP into normal operation
+        self.disable_halting_debug();
+        self.sp_reset_enter();
         hl::sleep_for(1);
         self.sp_reset_leave();
-
-        let now = sys_get_timer().now;
-        ringbuf_entry!(Trace::MeasuredSp {
-            success,
-            delta_t: (now.saturating_sub(start)) as u32
-        });
-
         success
     }
 }
