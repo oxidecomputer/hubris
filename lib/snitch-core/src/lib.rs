@@ -459,7 +459,7 @@ mod tests {
         let &[r] = initial_contents.as_slice() else {
             panic!("missing initial loss record");
         };
-        assert_eq!(r.ena, 0);
+        assert_eq!(r.ena, 1);
         assert_eq!(r.tid, OUR_FAKE_TID);
         assert_eq!(r.timestamp, 1);
 
@@ -482,7 +482,7 @@ mod tests {
 
         let snapshot = copy_contents_raw(&mut s);
         assert_eq!(snapshot.len(), 1);
-        assert_eq!(snapshot[0].ena, 1);
+        assert_eq!(snapshot[0].ena, 2);
         assert_eq!(snapshot[0].tid, ANOTHER_FAKE_TID);
         assert_eq!(snapshot[0].timestamp, 5);
         assert_eq!(snapshot[0].contents, b"hello, world!");
@@ -510,7 +510,7 @@ mod tests {
         assert_eq!(
             snapshot[0],
             Item {
-                ena: 1,
+                ena: 2,
                 tid: ANOTHER_FAKE_TID,
                 timestamp: 5,
                 contents: vec![0; 64 - OVERHEAD]
@@ -541,7 +541,7 @@ mod tests {
         assert_eq!(
             snapshot[0],
             Item {
-                ena: 1,
+                ena: 2,
                 tid: OUR_FAKE_TID,
                 timestamp: 5,
                 contents: LossRecord { lost: Some(1) },
@@ -572,7 +572,7 @@ mod tests {
         assert_eq!(
             snapshot[0],
             Item {
-                ena: 1,
+                ena: 2,
                 tid: ANOTHER_FAKE_TID,
                 timestamp: 5,
                 contents: vec![0; 28],
@@ -582,7 +582,7 @@ mod tests {
         assert_eq!(
             snapshot[1].decode_as::<LossRecord>(),
             Item {
-                ena: 2,
+                ena: 3,
                 tid: OUR_FAKE_TID,
                 timestamp: 10, // time when loss began
                 contents: LossRecord { lost: Some(1) },
@@ -615,7 +615,7 @@ mod tests {
         assert_eq!(
             snapshot[0],
             Item {
-                ena: 1,
+                ena: 2,
                 tid: OUR_FAKE_TID,
                 timestamp: 5, // time of _first_ loss
                 contents: LossRecord { lost: Some(11) },
@@ -645,7 +645,7 @@ mod tests {
         assert_eq!(
             snapshot[0],
             Item {
-                ena: 1,
+                ena: 2,
                 tid: ANOTHER_FAKE_TID,
                 timestamp: 5,
                 contents: vec![0; 16],
@@ -655,7 +655,7 @@ mod tests {
         assert_eq!(
             snapshot[1].decode_as::<LossRecord>(),
             Item {
-                ena: 2,
+                ena: 3,
                 tid: OUR_FAKE_TID,
                 timestamp: 10,
                 contents: LossRecord { lost: Some(1) },
@@ -665,7 +665,7 @@ mod tests {
         assert_eq!(
             snapshot[2],
             Item {
-                ena: 3,
+                ena: 4,
                 tid: ANOTHER_FAKE_TID,
                 timestamp: 15,
                 contents: vec![0; 16],
@@ -689,7 +689,7 @@ mod tests {
             let snapshot = copy_contents_raw(&mut s);
             assert_eq!(snapshot.len(), 5);
             for (i, rec) in snapshot.iter().enumerate() {
-                assert_eq!(rec.ena, 1 + i as u64);
+                assert_eq!(rec.ena, 2 + i as u64);
                 assert_eq!(rec.tid, ANOTHER_FAKE_TID);
                 assert_eq!(rec.timestamp, 5 + i as u64);
                 assert_eq!(rec.contents, &[i as u8]);
@@ -704,7 +704,7 @@ mod tests {
             let snapshot = copy_contents_raw(&mut s);
             assert_eq!(snapshot.len(), 4);
             for (i, rec) in snapshot.iter().enumerate() {
-                assert_eq!(rec.ena, 2 + i as u64);
+                assert_eq!(rec.ena, 3 + i as u64);
                 assert_eq!(rec.tid, ANOTHER_FAKE_TID);
                 assert_eq!(rec.timestamp, 6 + i as u64);
                 assert_eq!(rec.contents, &[i as u8 + 1]);
@@ -712,19 +712,19 @@ mod tests {
         }
 
         // Flush all but the last.
-        s.flush_thru(4);
+        s.flush_thru(5);
         {
             let snapshot = copy_contents_raw(&mut s);
             assert_eq!(snapshot.len(), 1);
             for (i, rec) in snapshot.iter().enumerate() {
-                assert_eq!(rec.ena, 5 + i as u64);
+                assert_eq!(rec.ena, 6 + i as u64);
                 assert_eq!(rec.tid, ANOTHER_FAKE_TID);
                 assert_eq!(rec.timestamp, 9 + i as u64);
                 assert_eq!(rec.contents, &[i as u8 + 4]);
             }
         }
         // Finally...
-        s.flush_thru(5);
+        s.flush_thru(6);
         assert_eq!(copy_contents_raw(&mut s), []);
     }
 
@@ -742,16 +742,16 @@ mod tests {
 
         assert_eq!(s.stored_record_count, 2);
 
-        // Flushing ENA 0 should have no effect (we already got rid of it)
-        s.flush_thru(0);
+        // Flushing ENA 1 should have no effect (we already got rid of it)
+        s.flush_thru(1);
         assert_eq!(s.stored_record_count, 2);
 
-        // Flushing ENA 1 should drop one record.
-        s.flush_thru(1);
+        // Flushing ENA 2 should drop one record.
+        s.flush_thru(2);
         assert_eq!(s.stored_record_count, 1);
 
         // 0 and 1 are both no-ops now.
-        for ena in [0, 1] {
+        for ena in [0, 1, 2] {
             s.flush_thru(ena);
             assert_eq!(s.stored_record_count, 1);
         }
@@ -772,8 +772,8 @@ mod tests {
 
         assert_eq!(s.stored_record_count, 2);
 
-        // ENA 3 has not yet been issued, and should not cause any change:
-        s.flush_thru(3);
+        // ENA 4 has not yet been issued, and should not cause any change:
+        s.flush_thru(4);
         assert_eq!(s.stored_record_count, 2);
     }
 
@@ -782,7 +782,7 @@ mod tests {
         let &[r] = initial_contents.as_slice() else {
             panic!("missing initial loss record");
         };
-        assert_eq!(r.ena, 0);
+        assert_eq!(r.ena, 1);
         assert_eq!(r.tid, OUR_FAKE_TID);
         assert_eq!(r.timestamp, 1);
 
