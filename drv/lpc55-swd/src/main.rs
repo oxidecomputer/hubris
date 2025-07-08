@@ -1696,7 +1696,6 @@ impl ServerImpl {
     // Return false if any current SP measurement should be invalidated.
     #[must_use]
     fn do_handle_sp_reset(&mut self) -> bool {
-        let start = sys_get_timer().now;
         let gpio = Pins::from(self.gpio);
         const SLOT: PintSlot = ROT_TO_SP_RESET_L_IN_PINT_SLOT;
 
