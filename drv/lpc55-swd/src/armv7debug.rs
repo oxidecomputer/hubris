@@ -15,21 +15,6 @@ pub trait DpAddressable {
     const ADDRESS: u32;
 }
 
-// For keeping track of unwinding debug actions
-bitflags! {
-    #[derive(PartialEq, Eq, Copy, Clone)]
-    pub struct Undo: u8 {
-        // Need self.swd_finish()
-        const SWD = 1 << 0;
-        // Need self.sp_reset_leave(true)
-        const RESET = 1 << 1;
-        // Need DEMCR = 0
-        const VC_CORERESET = 1 << 2;
-        // Need to clear debug enable.
-        const DEBUGEN = 1 << 3;
-    }
-}
-
 // RW   0x00000000    Debug Halting Control and Status Register
 // Some DHCSR bits have different read vs. write meanings
 // Specifically, the MAGIC value enables writing other control bits
