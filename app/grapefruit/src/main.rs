@@ -81,6 +81,7 @@ fn system_init() {
     }
     assert_eq!(rev, expected_rev);
 
+    #[cfg(feature = "handoff")]
     unsafe {
         measurement_token::check(20, || {
             cortex_m::asm::delay(12860000); // about 200 ms
