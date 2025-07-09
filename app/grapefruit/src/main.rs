@@ -79,6 +79,7 @@ fn system_init() {
             compile_error!("not a recognized grapefruit board")
         }
     }
+
     assert_eq!(rev, expected_rev);
 
     // Do most of the setup with the common implementation.

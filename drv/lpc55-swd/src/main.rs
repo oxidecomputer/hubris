@@ -111,7 +111,6 @@ use userlib::{
 use zerocopy::IntoBytes;
 
 #[derive(Copy, Clone, PartialEq)]
-#[repr(C, u8)]
 enum Trace {
     None,
     Idcode(u32),
@@ -1856,19 +1855,11 @@ impl ServerImpl {
         };
 
         if success.is_ok() && self.reset_into_debug_halt().is_ok() {
-            // Deposit a payload into memory
-            if let Err(e) = self
-                .write_single_target_addr(
-                    measurement_token::MEASUREMENT_BASE as u32,
-                    measurement_token::MEASUREMENT_TOKEN as u32,
-                )
-                .and_then(|()| {
-                    self.write_single_target_addr(
-                        measurement_token::MEASUREMENT_BASE as u32 + 4,
-                        (measurement_token::MEASUREMENT_TOKEN >> 32) as u32,
-                    )
-                })
-            {
+            // Deposit the measurement token into SP memory
+            if let Err(e) = self.write_single_target_addr(
+                measurement_token::MEASUREMENT_BASE as u32,
+                measurement_token::MEASUREMENT_TOKEN_VALID,
+            ) {
                 ringbuf_entry!(Trace::TokenWriteFail(e));
             }
             self.disable_halting_debug();
