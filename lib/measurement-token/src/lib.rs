@@ -13,7 +13,7 @@
 //! deposited in a particular memory location (indicating that it has been
 //! measured).
 //!
-//! We store 4 `u64` words at the beginning of a "handoff" region, which is
+//! We store 4 `u32` words at the beginning of a "handoff" region, which is
 //! expected to be DTCM (`0x2000_0000`). The words are as follows:
 //!
 //! - Measurement token, which is `MEASUREMENT_TOKEN_VALID` if the SP has been
@@ -30,12 +30,15 @@
 pub enum MeasurementResult {
     Measured,
     Skipped,
-    NotMeasured(u64),
+    NotMeasured(u32),
 }
 
-pub const MEASUREMENT_TOKEN_VALID: u64 = 0xc887a12b17ed35f7;
-pub const MEASUREMENT_TOKEN_SKIP: u64 = 0x9f38bd716106133f;
-const COUNTER_TAG: u64 = 0x4e423d17176f5b51;
+// These are all magic numbers created by hashing various sentences.  They have
+// no special significant, just 32 bits that are unlikely to be chosen by
+// accident.
+pub const MEASUREMENT_TOKEN_VALID: u32 = 0xc887a12;
+pub const MEASUREMENT_TOKEN_SKIP: u32 = 0x9f38bd71;
+const COUNTER_TAG: u32 = 0x4e423d17;
 
 pub const MEASUREMENT_BASE: usize = 0x2000_0000;
 
@@ -51,11 +54,11 @@ extern "C" {
 /// measurement is valid, or `false` if we exceeded `retry_count`.
 ///
 /// `delay_and_reset` should include a delay, to give the RoT time to boot.
-pub unsafe fn check(retry_count: u64, delay_and_reset: fn() -> !) -> bool {
-    let ptr: *mut u64 = &raw mut __REGION_HANDOFF_BASE as *mut _;
-    let end: *mut u64 = &raw mut __REGION_HANDOFF_END as *mut _;
+pub unsafe fn check(retry_count: u32, delay_and_reset: fn() -> !) -> bool {
+    let ptr: *mut u32 = &raw mut __REGION_HANDOFF_BASE as *mut _;
+    let end: *mut u32 = &raw mut __REGION_HANDOFF_END as *mut _;
     assert!(ptr == MEASUREMENT_BASE as *mut _);
-    assert!(end.offset_from(ptr) >= 4 * core::mem::size_of::<u64>() as isize);
+    assert!(end.offset_from(ptr) >= 4 * core::mem::size_of::<u32>() as isize);
 
     let token = core::ptr::read_volatile(ptr);
     let tag = core::ptr::read_volatile(ptr.wrapping_add(1));
