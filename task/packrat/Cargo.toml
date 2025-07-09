@@ -21,7 +21,7 @@ counters = { path = "../../lib/counters"  }
 static-cell = { path = "../../lib/static-cell" }
 task-packrat-api = { path = "../packrat-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
-snitch-core = { version = "0.1.0", path = "../../lib/snitch-core", optional = true }
+snitch-core = { version = "0.1.0", path = "../../lib/snitch-core", optional = true, features = ["counters"] }
 minicbor = { workspace = true,  optional = true }
 
 [build-dependencies]

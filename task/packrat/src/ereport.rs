@@ -52,10 +52,11 @@ enum EreportTrace {
         src: TaskId,
         len: u32,
         #[count(children)]
-        inserted: Result<(), ()>,
+        result: snitch_core::InsertResult,
     },
     Flushed {
         ena: u64,
+        flushed: usize,
     },
     RestartIdMismatch {
         current: u128,
@@ -112,7 +113,7 @@ impl EreportStore {
         data.read_range(0..data.len(), self.recv)
             .map_err(|_| ClientError::WentAway.fail())?;
         let timestamp = sys_get_timer().now;
-        let inserted = self.storage.insert(
+        let result = self.storage.insert(
             msg.sender.0,
             timestamp,
             &self.recv[..data.len()],
@@ -120,7 +121,7 @@ impl EreportStore {
         ringbuf_entry!(EreportTrace::EreportDelivered {
             src: msg.sender,
             len: data.len() as u32,
-            inserted,
+            result,
         });
         Ok(())
     }
@@ -158,9 +159,10 @@ impl EreportStore {
             // If the restart ID matches, flush previous ereports up to
             // `committed_ena`, if there is one.
             if committed_ena != ereport_messages::Ena::NONE {
-                self.storage.flush_thru(committed_ena.into());
+                let flushed = self.storage.flush_thru(committed_ena.into());
                 ringbuf_entry!(EreportTrace::Flushed {
-                    ena: committed_ena.into()
+                    ena: committed_ena.into(),
+                    flushed,
                 });
             }
             begin_ena.into()

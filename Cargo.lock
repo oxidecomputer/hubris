@@ -4922,6 +4922,7 @@ dependencies = [
 name = "snitch-core"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "heapless",
  "minicbor-serde",
  "serde",
