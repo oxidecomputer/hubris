@@ -46,7 +46,7 @@ size = 256
 
 [tasks.hiffy]
 name = "task-hiffy"
-priority = 7
+priority = 5
 max-sizes = {flash = 32768, ram = 32768}
 stacksize = 2048
 start = true
@@ -87,22 +87,22 @@ interrupts = {"spi1.irq" = "spi-irq"}
 
 [tasks.monorail]
 name = "task-monorail-server"
-priority = 6
-max-sizes = {flash = 262144, ram = 8192}
-features = ["mgmt", "medusa", "vlan", "use-spi-core", "h753", "spi2"]
+priority = 7
+max-sizes = {flash = 262144, ram = 16384}
+features = ["mgmt", "medusa", "use-spi-core", "h753", "spi2"]
 stacksize = 4096
 start = true
-task-slots = ["ecp5_front_io", "sys", { seq = "sequencer" }]
+task-slots = ["front_io", "net", "sys", { seq = "sequencer" }]
 uses = ["spi2"]
 notifications = ["spi-irq", "wake-timer"]
 interrupts = {"spi2.irq" = "spi-irq"}
 
 [tasks.net]
 name = "task-net"
-stacksize = 6040
-priority = 5
-features = ["mgmt", "h753", "medusa", "vlan", "vpd-mac", "use-spi-core", "spi3"]
-max-sizes = {flash = 131072, ram = 65536, sram1_mac = 16384}
+stacksize = 10000
+priority = 6
+features = ["mgmt", "h753", "medusa", "vpd-mac", "use-spi-core", "spi3"]
+max-sizes = {flash = 131072, ram = 131072, sram1_mac = 16384}
 sections = {eth_bulk = "sram1_mac"}
 uses = ["eth", "tim16", "spi3"]
 start = true
@@ -114,9 +114,22 @@ task-slots = ["sys", "packrat", { seq = "sequencer" }, "jefe"]
 "tim16.irq" = "mdio-timer-irq"
 "spi3.irq" = "spi-irq"
 
+[tasks.front_io]
+name = "drv-front-io-server"
+priority = 4
+max-sizes = {flash = 65536, ram = 16384}
+stacksize = 4096
+start = true
+task-slots = [
+    "sys",
+    "auxflash",
+    "i2c_driver",
+    {front_io = "ecp5_front_io"}]
+notifications = ["timer"]
+
 [tasks.sequencer]
 name = "drv-medusa-seq-server"
-priority = 4
+priority = 5
 stacksize = 4096
 start = true
 task-slots = [
@@ -124,22 +137,20 @@ task-slots = [
     "i2c_driver",
     "auxflash",
     "packrat",
-    {front_io = "ecp5_front_io"}]
+    "front_io",]
 notifications = ["timer"]
 
 [tasks.transceivers]
 name = "drv-transceivers-server"
-features = ["vlan"]
-priority = 6
+priority = 7
 max-sizes = {flash = 65536, ram = 16384}
 stacksize = 4096
 start = true
 task-slots = [
-    "i2c_driver",
     "net",
     "sensor",
     "sys",
-    {front_io = "ecp5_front_io"},
+    "front_io",
     {seq = "sequencer"}]
 notifications = ["socket", "timer"]
 
@@ -196,22 +207,20 @@ task-slots = ["sys"]
 
 [tasks.udpecho]
 name = "task-udpecho"
-priority = 6
+priority = 7
 max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
 task-slots = ["net"]
-features = ["vlan"]
 notifications = ["socket"]
 
 [tasks.udpbroadcast]
 name = "task-udpbroadcast"
-priority = 6
+priority = 7
 max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
 task-slots = ["net", "packrat"]
-features = ["vlan"]
 notifications = ["socket"]
 
 #
@@ -222,17 +231,6 @@ notifications = ["socket"]
 #
 # Net
 #
-
-# VLAN configuration
-[config.net.vlans.sidecar1]
-vid = 0x301
-trusted = true
-port = 1
-
-[config.net.vlans.sidecar2]
-vid = 0x302
-trusted = true
-port = 2
 
 [config.net.sockets.echo]
 kind = "udp"
@@ -247,6 +245,7 @@ owner = {name = "udpbroadcast", notification = "socket"}
 port = 997
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
+allow-untrusted = true # for low-level discovery
 
 [config.net.sockets.transceivers]
 kind = "udp"
@@ -343,33 +342,33 @@ sensors = { voltage = 1, current = 1 }
 refdes = "U16"
 
 #
-# I2C2: Front I/O 0
+# I2C2: Front I/O 0 - Board
 #
 [[config.i2c.controllers]]
 controller = 2
 [config.i2c.controllers.ports.F]
-name = "front_io0"
+name = "front_io"
 description = "Front I/O Board"
 scl.pin = 1 # I2C_FRONT_IO0_SCL
 sda.pin = 0 # I2C_FRONT_IO0_SDA
 af = 4
 
 [[config.i2c.devices]]
-bus = "front_io0"
+bus = "front_io"
 address = 0b1010_000
 device = "at24csw080"
 description = "Front IO board FRUID"
 removable = true
 
 [[config.i2c.devices]]
-bus = "front_io0"
+bus = "front_io"
 address = 0b1110_011
 device = "pca9538"
 description = "Front IO GPIO expander"
 removable = true
 
 [[config.i2c.devices]]
-bus = "front_io0"
+bus = "front_io"
 address = 0b0001_010
 device = "pca9956b"
 name = "front_leds_left"
@@ -378,7 +377,7 @@ removable = true
 refdes = "U5"
 
 [[config.i2c.devices]]
-bus = "front_io0"
+bus = "front_io"
 address = 0b0001_011
 device = "pca9956b"
 name = "front_leds_right"
@@ -387,7 +386,7 @@ removable = true
 refdes = "U6"
 
 [[config.i2c.devices]]
-bus = "front_io0"
+bus = "front_io"
 address = 0b0011_011
 device = "tps546b24a"
 description = "Front IO V3P3_SYS_A2 rail"
@@ -397,7 +396,7 @@ sensors = { temperature = 1, voltage = 1, current = 1 }
 refdes = "J61_U7" # on front IO board
 
 [[config.i2c.devices]]
-bus = "front_io0"
+bus = "front_io"
 address = 0b0011_001
 device = "tps546b24a"
 description = "Front IO V3P3_QSFP0_A0 rail"
@@ -407,7 +406,7 @@ sensors = { temperature = 1, voltage = 1, current = 1 }
 refdes = "J61_U15" # on front IO board
 
 [[config.i2c.devices]]
-bus = "front_io0"
+bus = "front_io"
 address = 0b0011_010
 device = "tps546b24a"
 description = "Front IO V3P3_QSFP1_A0 rail"
@@ -417,12 +416,12 @@ sensors = { temperature = 1, voltage = 1, current = 1 }
 refdes = "J61_U18" # on front IO board
 
 #
-# I2C3: Front I/O 1
+# I2C3: Front I/O 1 - GPS (unused)
 #
 [[config.i2c.controllers]]
 controller = 3
 [config.i2c.controllers.ports.H]
-name = "front_io1"
+name = "frontgps"
 description = "Front I/O Board"
 scl.pin = 7 # I2C_FRONT_IO1_SCL
 sda.pin = 8 # I2C_FRONT_IO1_SDA

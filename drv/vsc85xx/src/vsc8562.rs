@@ -82,6 +82,11 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
         ringbuf_entry!(Trace::Vsc8562InitQsgmii(self.phy.port));
 
         let phy_port = self.phy.get_port()?;
+
+        // VSC8562 can only have an internal phy address of 0, 1, 2, or 3
+        if phy_port > 3 {
+            return Err(VscError::BadPhyPort(phy_port));
+        }
         let is_base_port = phy_port == 0;
 
         // Apply the initial patch (more patches to SerDes happen later)

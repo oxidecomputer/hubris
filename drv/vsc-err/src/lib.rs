@@ -60,6 +60,8 @@ pub enum VscError {
     BadPhyId(u32),
     /// Indicates that the VSC8504 is not Tesla E silicon
     BadPhyRev,
+    /// Indicates an invalid port was determined
+    BadPhyPort(u16),
     /// Indicates that we tried to apply the phy patch to an invalid port;
     /// it can only be applied to port 0 of the PHY
     BadPhyPatchPort(u16),

@@ -644,13 +644,13 @@ impl<'a, R: Vsc7448Rw> PhyRw for GenericPhyRw<'a, R> {
 }
 
 pub struct PhySmi {
-    server: FrontIO,
+    front_io_board: FrontIO,
 }
 
 impl PhySmi {
     pub fn new(front_io_task: userlib::TaskId) -> Self {
         Self {
-            server: FrontIO::from(front_io_task),
+            front_io_board: FrontIO::from(front_io_task),
         }
     }
 }
@@ -658,14 +658,14 @@ impl PhySmi {
 impl PhyRw for PhySmi {
     #[inline(always)]
     fn read_raw(&self, phy: u8, reg: u8) -> Result<u16, VscError> {
-        self.server
+        self.front_io_board
             .phy_read(phy, reg)
             .map_err(|e| VscError::ProxyError(e.into()))
     }
 
     #[inline(always)]
     fn write_raw(&self, phy: u8, reg: u8, value: u16) -> Result<(), VscError> {
-        self.server
+        self.front_io_board
             .phy_write(phy, reg, value)
             .map_err(|e| VscError::ProxyError(e.into()))
     }

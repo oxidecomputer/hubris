@@ -196,6 +196,7 @@ enum Trace {
     AtomPatchResume(bool),
     PatchState { patch_ok: bool, skip_download: bool },
     GotCrc(u16),
+    AaronQsgmiiPhyPort(u16),
 }
 ringbuf!(Trace, 16, Trace::None);
 

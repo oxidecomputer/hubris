@@ -4,7 +4,7 @@
 
 //! BSP for the Medusa model A
 
-#[cfg(not(all(feature = "ksz8463", feature = "mgmt", feature = "vlan")))]
+#[cfg(not(all(feature = "ksz8463", feature = "mgmt")))]
 compile_error!("this BSP requires the ksz8463, mgmt, and vlan features");
 
 use crate::{
@@ -61,8 +61,9 @@ impl bsp_support::Bsp for BspImpl {
         let spi = bsp_support::claim_spi(sys);
         let ksz8463_dev = spi.device(drv_spi_api::devices::KSZ8463);
         let bsp = mgmt::Config {
-            // SP_TO_LDO_PHY2_EN (turns on both P2V5 and P1V0)
-            power_en: Some(Port::I.pin(11)),
+            // SP_TO_LDO_PHY2_EN on pin I.13 (turns on both P2V5 and P1V0) turns on automatically
+            // once V3P3_SYS goes high. We leave manual control of the pin to the sequencer.
+            power_en: None,
             slow_power_en: false,
             power_good: &[], // TODO
 
@@ -70,19 +71,14 @@ impl bsp_support::Bsp for BspImpl {
             // SP_TO_EPE_RESET_L
             ksz8463_nrst: Port::A.pin(0),
             ksz8463_rst_type: mgmt::Ksz8463ResetSpeed::Normal,
-            ksz8463_vlan_mode: ksz8463::VLanMode::Mandatory,
-            // SP_TO_PHY2_COMA_MODE_3V3
+            ksz8463_vlan_mode: ksz8463::VLanMode::Off,
+            // SP_TO_PHY_A_COMA_MODE_3V3
             vsc85x2_coma_mode: Some(Port::I.pin(15)),
-            // SP_TO_PHY2_RESET_3V3_L
+            // SP_TO_PHY_A_RESET_3V3_L
             vsc85x2_nrst: Port::I.pin(14),
             vsc85x2_base_port: 0,
         }
         .build(sys, eth);
-
-        // The VSC8552 on the sidecar has its SIGDET GPIOs pulled down,
-        // for some reason.
-        let rw = &mut MiimBridge::new(eth);
-        bsp.vsc85x2.set_sigdet_polarity(rw, true).unwrap_lite();
 
         Self(bsp)
     }

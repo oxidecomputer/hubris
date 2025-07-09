@@ -15,6 +15,7 @@
     ),
     path = "bsp/sidecar_bcd.rs"
 )]
+#[cfg_attr(target_board = "medusa-a", path = "bsp/medusa_a.rs")]
 mod bsp;
 
 use crate::bsp::Bsp;
@@ -1084,7 +1085,9 @@ fn main() -> ! {
                         // Once there is a board present, configure its FPGAs
                         // and wait for its oscillator to be functional.
                         FrontIOStatus::FpgaInit => {
-                            ringbuf_entry!(Trace::SeqStatus(server.board_status));
+                            ringbuf_entry!(Trace::SeqStatus(
+                                server.board_status
+                            ));
                             match server.fpga_init() {
                                 Ok(done) => {
                                     if done && server.fpga_ready() {
@@ -1092,7 +1095,9 @@ fn main() -> ! {
                                             FrontIOStatus::OscInit;
                                     }
                                 }
-                                Err(e) => ringbuf_entry!(Trace::FpgaInitError(e)),
+                                Err(e) => {
+                                    ringbuf_entry!(Trace::FpgaInitError(e))
+                                }
                             }
                         }
 

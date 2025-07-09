@@ -19,9 +19,10 @@ pub enum RailName {
     V1P0Mgmt,
     V1P2Mgmt,
     V2P5Mgmt,
-    V1P0Phy,
-    V2P5Phy,
-    V12QsfpOut,
+    V1P0FrontPhy,
+    V2P5FrontPhy,
+    V1P0LocalPhy,
+    V2P5LocalPhy,
 }
 
 #[derive(
