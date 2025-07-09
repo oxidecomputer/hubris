@@ -66,6 +66,8 @@ enum Trace {
     TestComplete(TaskId),
     TestResult(TaskId),
     SoftIrq(TaskId, u32),
+    AutoRestart(bool),
+    RestartingTask(usize),
     None,
 }
 
@@ -76,11 +78,13 @@ fn main() -> ! {
     struct MonitorState {
         received_notes: u32,
         test_status: Option<bool>,
+        auto_restart: bool,
     }
 
     let mut state = MonitorState {
         received_notes: 0,
         test_status: None,
+        auto_restart: false,
     };
 
     // N.B. that this must be at least four bytes to recv a u32 notification
@@ -103,6 +107,9 @@ fn main() -> ! {
                         // It was the test.
                         state.test_status = Some(false);
                     }
+                    if state.auto_restart {
+                        restart_faulted_tasks();
+                    }
                 }
             },
             |state, op: RunnerOp, msg| -> Result<(), u32> {
@@ -118,6 +125,14 @@ fn main() -> ! {
                             msg.fixed::<u32, ()>().ok_or(2u32)?;
                         ringbuf_entry!(Trace::SoftIrq(caller.task_id(), mask));
                         kipc::software_irq(caller.task_id().index(), mask);
+                        caller.reply(())
+                    }
+                    RunnerOp::AutoRestart => {
+                        let (&v, caller) =
+                            msg.fixed::<u32, ()>().ok_or(0u32)?;
+                        let auto_restart = v != 0;
+                        ringbuf_entry!(Trace::AutoRestart(auto_restart));
+                        state.auto_restart = auto_restart;
                         caller.reply(())
                     }
                     RunnerOp::TestComplete => {
@@ -164,4 +179,17 @@ fn find_and_report_fault() -> bool {
         }
     }
     tester_faulted
+}
+
+/// Restart faulted tasks (other than the test suite task)
+fn restart_faulted_tasks() {
+    for i in 0..hubris_num_tasks::NUM_TASKS {
+        let s = kipc::read_task_status(i);
+        if let TaskState::Faulted { .. } = s {
+            if i != TEST_TASK {
+                ringbuf_entry!(Trace::RestartingTask(i));
+                kipc::reinit_task(i, true);
+            }
+        }
+    }
 }

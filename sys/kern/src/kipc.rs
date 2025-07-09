@@ -130,6 +130,7 @@ fn reinit_task(
     if start {
         tasks[index].set_healthy_state(SchedState::Runnable);
     }
+    let new_gen = tasks[index].generation();
 
     // Restarting a task can have implications for other tasks. We don't want to
     // leave tasks sitting around waiting for a reply that will never come, for
@@ -154,7 +155,7 @@ fn reinit_task(
                 {
                     // Please accept our sincere condolences on behalf of the
                     // kernel.
-                    let code = abi::dead_response_code(peer.generation());
+                    let code = abi::dead_response_code(new_gen);
 
                     task.save_mut().set_error_response(code);
                     task.set_healthy_state(SchedState::Runnable);
