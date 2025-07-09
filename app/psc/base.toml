@@ -326,7 +326,9 @@ features = ["net", "vlan"]
 
 [tasks.snitch]
 name = "task-snitch"
-priority = 6
+# The snitch should have a priority immediately below that of the net task,
+# to minimize the number of components that can starve it from resources.
+priority = 5
 stacksize = 1200
 start = true
 task-slots = ["net", "packrat"]

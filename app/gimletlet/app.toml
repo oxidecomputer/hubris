@@ -191,7 +191,9 @@ notifications = ["socket"]
 
 [tasks.snitch]
 name = "task-snitch"
-priority = 7
+# The snitch should have a priority immediately below that of the net task,
+# to minimize the number of components that can starve it from resources.
+priority = 4
 stacksize = 1200
 start = true
 task-slots = ["net", "packrat"]

@@ -349,6 +349,8 @@ features = ["net", "vlan"]
 
 [tasks.snitch]
 name = "task-snitch"
+# The snitch should have a priority immediately below that of the net task,
+# to minimize the number of components that can starve it from resources.
 priority = 6
 stacksize = 1200
 start = true
