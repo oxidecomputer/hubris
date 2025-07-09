@@ -69,8 +69,9 @@ impl PowerRail {
     }
 }
 
+/// This struct contains PowerRails for most of the various power rails on Medusa. The exception is
+/// the V12_QSFP_OUT rail which is controlled by the front-io server.
 pub struct PowerControl {
-    pub v12_qsfp_out: PowerRail,
     pub v1p0_mgmt: PowerRail,
     pub v1p2_mgmt: PowerRail,
     pub v2p5_mgmt: PowerRail,
@@ -80,13 +81,6 @@ pub struct PowerControl {
 
 impl PowerControl {
     pub fn new() -> Self {
-        // 12V HSC for the Front IO board
-        let v12_qsfp_out = PowerRail::new(
-            Port::J.pin(2),
-            Port::J.pin(1),
-            RailName::V12QsfpOut,
-        );
-
         // VSC7448 rails
         let v1p0_mgmt =
             PowerRail::new(Port::J.pin(4), Port::J.pin(3), RailName::V1P0Mgmt);
@@ -103,7 +97,6 @@ impl PowerControl {
             PowerRail::new(Port::J.pin(10), Port::J.pin(12), RailName::V2P5Phy);
 
         Self {
-            v12_qsfp_out,
             v1p0_mgmt,
             v1p2_mgmt,
             v2p5_mgmt,
@@ -150,7 +143,6 @@ impl PowerControl {
             V2P5Mgmt => &self.v2p5_mgmt,
             V1P0Phy => &self.v1p0_phy,
             V2P5Phy => &self.v2p5_phy,
-            V12QsfpOut => &self.v12_qsfp_out,
         }
     }
 }

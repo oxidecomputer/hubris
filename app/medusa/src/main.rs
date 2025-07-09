@@ -61,9 +61,9 @@ fn system_init() {
     // - ID1: PC7
     // - ID2: PC13
     // Un-gate the clock to GPIO bank C.
-    p.RCC.ahb4enr.modify(|_, w| w.gpiogen().set_bit());
+    p.RCC.ahb4enr.modify(|_, w| w.gpiocen().set_bit());
     cortex_m::asm::dsb();
-    // PE{13,7,6} are already inputs after reset
+    // PC{13,7,6} are already inputs after reset
     #[rustfmt::skip]
     p.GPIOC.moder.modify(|_, w| w
         .moder6().input()

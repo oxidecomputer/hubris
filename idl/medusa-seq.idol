@@ -3,30 +3,6 @@
 Interface(
     name: "Sequencer",
     ops: {
-        "front_io_board_present": (
-            args: {},
-            reply: Simple("bool"),
-            idempotent: true,
-        ),
-
-        "set_front_io_phy_osc_state": (
-            args: {
-                "good": "bool",
-            },
-            reply: Result(
-                ok: "()",
-                err: CLike("MedusaError"),
-            ),
-        ),
-
-        "reset_front_io_phy": (
-            args: {},
-            reply: Result(
-                ok: "()",
-                err: CLike("MedusaError"),
-            ),
-        ),
-
         "control_mgmt_rails": (
             args: {
                 "enabled": "bool",
@@ -56,5 +32,11 @@ Interface(
             idempotent: true,
             encoding: Hubpack,
         ),
+
+        "vsc7448_in_reset": (
+            args: {},
+            reply: Simple("bool"),
+            idempotent: true,
+        )
     },
 )
