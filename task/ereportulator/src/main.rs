@@ -21,10 +21,15 @@
 //! ```
 //!
 //! In addition, when testing on systems which lack real vital product data
-//! (VPD) EEPROMs, such as on Gimletlet, this task can be configured to send a
-//! made-up VPD identity to packrat upon startup, so that ereports generated in
-//! testing can have realistic-looking VPD metadata. This is enabled by the
-//! "fake-vpd" feature flag.
+//! (VPD) EEPROMs, such as on Gimletlet, this task can be asked to send a
+//! made-up VPD identity to packrat. This way, ereports generated in testing
+//! can have realistic-looking VPD metadata. Fake VPD is requested using the
+//! `Ereportulator.set_fake_vpd` IPC operation:
+//!
+//! ```console
+//! $ humility -t gimletlet hiffy -c Ereportulator.set_fake_vpd
+//! ```
+//!
 //!
 #![no_std]
 #![no_main]
@@ -43,11 +48,8 @@ task_slot!(PACKRAT, packrat);
 enum Trace {
     #[count(skip)]
     None,
-    #[cfg(feature = "fake-vpd")]
-    VpdAlreadySet,
-    #[cfg(feature = "fake-vpd")]
-    SetFakeVpd,
 
+    SetFakeVpd(#[count(children)] Result<(), task_packrat_api::CacheSetError>),
     EreportRequested(u32),
     EreportDelivered {
         encoded_len: usize,
@@ -59,9 +61,6 @@ counted_ringbuf!(Trace, 16, Trace::None);
 #[export_name = "main"]
 fn main() -> ! {
     let packrat = Packrat::from(PACKRAT.get_task_id());
-
-    #[cfg(feature = "fake-vpd")]
-    fake_vpd(&packrat);
 
     let mut server = ServerImpl {
         buf: [0; 256],
@@ -119,6 +118,23 @@ impl idl::InOrderEreportulatorImpl for ServerImpl {
 
         Ok(())
     }
+
+    fn set_fake_vpd(
+        &mut self,
+        _msg: &RecvMessage,
+    ) -> Result<(), RequestError<task_packrat_api::CacheSetError>> {
+        let result = self.packrat.set_identity(task_packrat_api::VpdIdentity {
+            part_number: *b"LOLNO000000",
+            serial: *b"69426661337",
+            revision: 42,
+        });
+
+        ringbuf_entry!(Trace::SetFakeVpd(result));
+
+        result?;
+
+        Ok(())
+    }
 }
 
 impl idol_runtime::NotificationHandler for ServerImpl {
@@ -130,26 +146,6 @@ impl idol_runtime::NotificationHandler for ServerImpl {
     fn handle_notification(&mut self, _bits: u32) {
         unreachable!()
     }
-}
-
-#[cfg(feature = "fake-vpd")]
-fn fake_vpd(packrat: &Packrat) {
-    // If someone else has already set identity, just don't clobber it.
-    if packrat.get_identity().is_ok() {
-        ringbuf_entry!(Trace::VpdAlreadySet);
-        return;
-    }
-
-    // Just make up some nonsense.
-    packrat
-        .set_identity(task_packrat_api::VpdIdentity {
-            part_number: *b"LOLNO000000",
-            serial: *b"69426661337",
-            revision: 42,
-        })
-        .unwrap_lite();
-
-    ringbuf_entry!(Trace::SetFakeVpd);
 }
 
 mod idl {

@@ -28,5 +28,4 @@ name = "task-ereportulator"
 priority = 5
 start = true
 task-slots = ["packrat"]
-features = ["fake-vpd"]
 notifications = []

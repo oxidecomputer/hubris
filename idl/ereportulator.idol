@@ -10,5 +10,15 @@ Interface(
             reply: Simple("()"),
             idempotent: true,
         ),
+        "set_fake_vpd": (
+            doc: "Send fake vital product data (VPD) to Packrat.",
+            args: {
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("task_packrat_api::CacheSetError"),
+            ),
+            idempotent: true,
+        ),
     }
 )

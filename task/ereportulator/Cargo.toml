@@ -17,12 +17,6 @@ counters = { path = "../../lib/counters" }
 [build-dependencies]
 idol.workspace = true
 
-[features]
-# If set, report a fake VPD identity to Packrat before generating ereports, so
-# that we populate the metadata fields. This is useful for Gimletlet and
-# friends, which don't have "real" VPD.
-fake-vpd = []
-
 [[bin]]
 name = "task-ereportulator"
 test = false
