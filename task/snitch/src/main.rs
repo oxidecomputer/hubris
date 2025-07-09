@@ -2,6 +2,37 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//! the snitch: ereport evacuation
+//!
+//! The snitch is the component of the ereport subsystem responsible for
+//! evacuating ereports over the network, as described in [RFD 545 § 4.4]. The
+//! snitch task does not store ereports in its memory; this is `packrat`'s
+//! responsibility. Instead, the snitch's role is to receive requests for
+//! ereports over the management network, read them from packrat, and forward
+//! them to the requesting management gateway.
+//!
+//! This split is necessary because, in order to communicate over the management
+//! network, the snitch must run at a relatively low priority: in particular, it
+//! must be lower than that of the `net` task, of which it is a client. Since we
+//! would like a variety of tasks to be able to *report* errors through the
+//! ereport subsystem, the task responsible for aggregating ereports in memory
+//! must run at a high priority, so that as many other tasks as possible may act
+//! as clients of it. Furthermore, we would like to include the SP's VPD
+//! identity in ereport messages, and this is already stored in packrat.
+//! Therefore, we separate the responsibility for storing ereports from the
+//! responsibility for sending them over the network.
+//!
+//! Due to this separation of responsibilities, the snitch task is fairly
+//! simple. It receives packets sent to the ereport socket, interprets the
+//! request message, and forwards the request to packrat. Any ereports sent back
+//! by packrat are sent in response to the request. The snitch ends up being a
+//! pretty dumb proxy: as the response packet is encoded by packrat; all we end
+//! up doing is taking the bytes received from packrat and stuffing them into
+//! the socket's send queue. The real purpose of this thing is just to serve as
+//! a trampoline between the high priority level of packrat and a priority level
+//! lower than that of the net task.
+//!
+//! [RFD 545 § 4.4]: https://rfd.shared.oxide.computer/rfd/0545#_evacuation
 #![no_std]
 #![no_main]
 
@@ -98,6 +129,9 @@ fn main() -> ! {
                 Ok(size) => size,
                 Err(e) => {
                     // Packrat's mad. Reject the request.
+                    //
+                    // Presently, the only time we'd see an error here is if we
+                    // have yet to generate a restart ID.
                     count!(Event::ReadError(e));
                     continue;
                 }

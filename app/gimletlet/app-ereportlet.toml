@@ -1,3 +1,18 @@
+# Gimletlet Ereport test application
+#
+# This image includes the `ereportulator` task, which may be used to generate
+# fake error reports to test the ereport aggregation and evacuation subsystem.
+#
+# Ereports may be generated using `humility hiffy` to call the
+# `Ereportulator.fake_ereport` IPC operation. This takes one argument, `n`,
+# which is an arbitrary `u32` value included in the ereport data payload. This
+# is intended to be used to differentiate between multiple ereports during
+# testing.
+#
+# For example:
+#
+#   $ humility hiffy -t gimletlet hiffy -c Ereportulator.fake_ereport -a n=42
+#
 name = "gimletlet-ereportlet"
 inherit = "app.toml"
 

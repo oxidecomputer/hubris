@@ -25,7 +25,41 @@
 //!    functions.
 //! 3. packrat never calls into any other task, as calling into a task gives the
 //!    callee opportunity to fault the caller.
-
+//!
+//! ## ereport aggregation
+//!
+//! When the "ereport" feature flag is enabled, packrat is also responsible for
+//! aggregating ereports received from other tasks, as described in [RFD 545].
+//! In addition to enabling packrat's "ereport" feature, the RNG driver task
+//! must have its "ereport" feature flag enabled, so that it can generate a
+//! restart ID and send it to packrat on startup. Otherwise, ereports will never
+//! be reported.
+//!
+//! Other tasks interact with the ereport aggregation subsystem through three
+//! IPC operations:
+//!
+//! - `deliver_ereport`: called by any task which wishes to record an ereport,
+//!   with a read-only lease containing the CBOR-encoded ereport data. Packrat
+//!   will store the ereport in its buffer, provided that space remains for the
+//!   message.
+//!
+//! - `read_ereports`: called by the `snitch` task, this IPC reads ereports
+//!   starting at the requested starting ENA into the provided lease. The
+//!   `committed_ena` parameter indicates that all ereports with ENAs earlier
+//!   than the provided one have been written to persistent storage, and
+//!   packrat may flush them from its buffer, to free memory for new
+//!   ereports.
+//!
+//! - `set_ereport_restart_id`: called by the `rng` task to set the
+//!   128-bit random restart ID that uniquely identifies this system's
+//!   boot/restart. No ereports will be reported until this IPC has been
+//!   called.
+//!
+//! If the "ereport" feature flag is *not* enabled, packrat's `deliver_ereport`
+//! and `read_ereports` IPCs will always fail with
+//! `ClientError::UnknownOperation`.
+//!
+//! [RFD 545]: https://rfd.shared.oxide.computer/rfd/0545
 #![no_std]
 #![no_main]
 

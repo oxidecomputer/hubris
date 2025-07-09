@@ -5,7 +5,26 @@
 //!
 //! # BEHOLD THE EREPORTULATOR!
 //!
-//! stupid ereport demo task
+//! This is a demo/testing task for the ereport subsystem; it is not intended
+//! to be included in production images. The ereportulator is a simple task for
+//! generating fake ereports when requested via Hiffy, for testing purposes.
+//!
+//! Ereports are requested using the `Ereportulator.fake_ereport` IPC operation.
+//! This takes one argument, `n`, which is an arbitrary `u32` value to include
+//! in the ereport --- intended for differentiating between ereports generated
+//! during a test.
+//!
+//! For example:
+//!
+//! ```console
+//! $ humility -t gimletlet hiffy -c Ereportulator.fake_ereport -a n=420
+//! ```
+//!
+//! In addition, when testing on systems which lack real vital product data
+//! (VPD) EEPROMs, such as on Gimletlet, this task can be configured to send a
+//! made-up VPD identity to packrat upon startup, so that ereports generated in
+//! testing can have realistic-looking VPD metadata. This is enabled by the
+//! "fake-vpd" feature flag.
 //!
 #![no_std]
 #![no_main]
@@ -72,12 +91,14 @@ impl idl::InOrderEreportulatorImpl for ServerImpl {
         let encoded_len = {
             let c = minicbor::encode::write::Cursor::new(&mut self.buf[..]);
             let mut encoder = Encoder::new(c);
+
+            // It's bad on purpose to make you click, Cliff!
             encoder
                 .begin_map()
                 .unwrap_lite()
                 .str("k")
                 .unwrap_lite()
-                .str("TEST EREPORT PLS IGNORE")
+                .str("test.ereport.please.ignore")
                 .unwrap_lite()
                 .str("badness")
                 .unwrap_lite()
