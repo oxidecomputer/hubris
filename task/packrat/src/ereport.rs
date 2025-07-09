@@ -45,22 +45,24 @@ pub(crate) const RECV_BUF_SIZE: usize = 1024;
 /// Separate ring buffer for ereport events, as we probably don't care that much
 /// about the sequence of ereport events relative to other packrat API events.
 #[derive(Copy, Clone, PartialEq, Eq, counters::Count)]
-enum EreportTrace {
+enum Trace {
     #[count(skip)]
     None,
-    EreportDelivered {
+    EreportReceived {
         src: TaskId,
         len: u32,
         #[count(children)]
         result: snitch_core::InsertResult,
     },
+    ReadRequest {
+        restart_id: u128,
+    },
     Flushed {
-        ena: u64,
+        committed_ena: u64,
         flushed: usize,
     },
     RestartIdMismatch {
-        current: u128,
-        requested: u128,
+        current_restart_id: u128,
     },
     MetadataError(#[count(children)] MetadataError),
     MetadataEncoded {
@@ -87,7 +89,7 @@ enum EreportError {
     TooLong,
 }
 
-counted_ringbuf!(EreportTrace, 16, EreportTrace::None);
+counted_ringbuf!(Trace, 16, Trace::None);
 
 impl EreportStore {
     pub(crate) fn new(
@@ -126,7 +128,7 @@ impl EreportStore {
             timestamp,
             &self.recv[..data.len()],
         );
-        ringbuf_entry!(EreportTrace::EreportDelivered {
+        ringbuf_entry!(Trace::EreportReceived {
             src: msg.sender,
             len: data.len() as u32,
             result,
@@ -144,6 +146,10 @@ impl EreportStore {
         data: Leased<idol_runtime::W, [u8]>,
         vpd: Option<&VpdIdentity>,
     ) -> Result<usize, RequestError<EreportReadError>> {
+        ringbuf_entry!(Trace::ReadRequest {
+            restart_id: restart_id.into()
+        });
+
         /// Byte indicating the end of an indeterminate-length CBOR array or
         /// map.
         const CBOR_BREAK: u8 = 0xff;
@@ -168,16 +174,15 @@ impl EreportStore {
             // `committed_ena`, if there is one.
             if committed_ena != ereport_messages::Ena::NONE {
                 let flushed = self.storage.flush_thru(committed_ena.into());
-                ringbuf_entry!(EreportTrace::Flushed {
-                    ena: committed_ena.into(),
+                ringbuf_entry!(Trace::Flushed {
+                    committed_ena: committed_ena.into(),
                     flushed,
                 });
             }
             begin_ena.into()
         } else {
-            ringbuf_entry!(EreportTrace::RestartIdMismatch {
-                requested: restart_id.into(),
-                current: current_restart_id.into()
+            ringbuf_entry!(Trace::RestartIdMismatch {
+                current_restart_id: current_restart_id.into()
             });
 
             // If we don't have our VPD identity yet, don't send any metadata.
@@ -198,14 +203,14 @@ impl EreportStore {
 
                         position += encoded.len();
 
-                        ringbuf_entry!(EreportTrace::MetadataEncoded {
+                        ringbuf_entry!(Trace::MetadataEncoded {
                             len: encoded.len() as u32
                         });
                     }
                     Err(err) => {
                         // Encoded VPD metadata was too long, or couldn't be
                         // represented as a CBOR string.
-                        ringbuf_entry!(EreportTrace::MetadataError(err));
+                        ringbuf_entry!(Trace::MetadataError(err));
                     }
                 }
             }
@@ -245,7 +250,7 @@ impl EreportStore {
                     // an out-of-range task ID somehow. We still want to get the
                     // ereport out, so we'll use a recognizable but illegal task
                     // name to indicate that it's missing.
-                    ringbuf_entry!(EreportTrace::EreportError(
+                    ringbuf_entry!(Trace::EreportError(
                         EreportError::TaskIdOutOfRange
                     ));
                     "-" // TODO
@@ -281,9 +286,7 @@ impl EreportStore {
                     // queue that won't fit in our buffer. This can happen
                     // because of the encoding overhead, in theory, but should
                     // be prevented.
-                    ringbuf_entry!(EreportTrace::EreportError(
-                        EreportError::TooLong
-                    ));
+                    ringbuf_entry!(Trace::EreportError(EreportError::TooLong));
                 }
             }
         }
@@ -294,7 +297,7 @@ impl EreportStore {
                 .map_err(|_| ClientError::WentAway.fail())?;
             position += 1;
 
-            ringbuf_entry!(EreportTrace::Reported {
+            ringbuf_entry!(Trace::Reported {
                 start_ena,
                 reports,
                 limit
@@ -336,7 +339,7 @@ impl EreportStore {
                     .str(part_number)
                     .map_err(|_| MetadataError::TooLong)?;
             }
-            Err(_) => ringbuf_entry!(EreportTrace::MetadataError(
+            Err(_) => ringbuf_entry!(Trace::MetadataError(
                 MetadataError::PartNumberNotUtf8
             )),
         }
@@ -348,7 +351,7 @@ impl EreportStore {
                     .str(serial_number)
                     .map_err(|_| MetadataError::TooLong)?;
             }
-            Err(_) => ringbuf_entry!(EreportTrace::MetadataError(
+            Err(_) => ringbuf_entry!(Trace::MetadataError(
                 MetadataError::SerialNumberNotUtf8
             )),
         }
