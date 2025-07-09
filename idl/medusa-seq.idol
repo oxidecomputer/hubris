@@ -56,5 +56,11 @@ Interface(
             idempotent: true,
             encoding: Hubpack,
         ),
+
+        "vsc7448_in_reset": (
+            args: {},
+            reply: Simple("bool"),
+            idempotent: true,
+        )
     },
 )

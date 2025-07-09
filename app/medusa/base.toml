@@ -47,7 +47,7 @@ default = true
 
 [tasks.hiffy]
 name = "task-hiffy"
-priority = 7
+priority = 5
 max-sizes = {flash = 32768, ram = 32768}
 stacksize = 2048
 start = true

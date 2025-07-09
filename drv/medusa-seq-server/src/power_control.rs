@@ -8,6 +8,7 @@ use crate::*;
 use drv_stm32xx_sys_api as sys_api;
 use sys_api::{OutputType, Port, Pull, Speed, Sys};
 
+
 task_slot!(SYS, sys);
 
 pub struct PowerRail {

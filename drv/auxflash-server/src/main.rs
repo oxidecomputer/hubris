@@ -80,7 +80,7 @@ fn main() -> ! {
     let memory_size_log2 = MEMORY_SIZE.trailing_zeros().try_into().unwrap();
     qspi.configure(clock, memory_size_log2);
 
-    // This driver is compatible with Sidecar, Cosmo, and Grapefruit; Gimlet
+    // This driver is compatible with Sidecar, Cosmo, Grapefruit, and Medusa; Gimlet
     // uses its QSPI peripheral for host flash, and would have to be handled
     // differently.
     //
@@ -125,6 +125,7 @@ fn main() -> ! {
     // Sidecar    | W25Q256JVEIQ      | U63        | Yes  | Yes
     // Cosmo      | W25Q256JVEIQ      | U21        | Yes  | Yes
     // Grapefruit | W25Q256JVEIQ      | U10        | Yes  | Yes
+    // Medusa     | W25Q256JVEIQ      | U17        | Yes  | Yes
     let mut buffer = [0; idl::INCOMING_SIZE];
     let active_slot = scan_for_active_slot(&qspi);
     let mut server = ServerImpl { qspi, active_slot };

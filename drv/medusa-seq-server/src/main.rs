@@ -12,14 +12,17 @@ use crate::power_control::PowerControl;
 use core::convert::Infallible;
 use drv_medusa_seq_api::{MedusaError, RailName};
 use drv_sidecar_front_io::phy_smi::PhyOscState;
+use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::{ringbuf, ringbuf_entry};
+use sys_api::{OutputType, Port, Pull, Speed, Sys};
 use userlib::*;
 
 task_slot!(I2C, i2c_driver);
 task_slot!(FRONT_IO, front_io);
 task_slot!(AUXFLASH, auxflash);
 task_slot!(PACKRAT, packrat);
+task_slot!(SYS, sys);
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
@@ -67,6 +70,7 @@ const TIMER_INTERVAL: u64 = 1000;
 struct ServerImpl {
     power_control: PowerControl,
     front_io_board: Option<FrontIOBoard>,
+    vsc7448_reset_l: sys_api::PinSet,
 }
 
 impl ServerImpl {
@@ -275,6 +279,14 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         self.actually_reset_front_io_phy()
             .map_err(RequestError::from)
     }
+
+    fn vsc7448_in_reset(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<bool, RequestError<Infallible>> {
+        let sys = Sys::from(SYS.get_task_id());
+        Ok(sys.gpio_read(self.vsc7448_reset_l) == 0)
+    }
 }
 
 impl NotificationHandler for ServerImpl {
@@ -296,7 +308,24 @@ fn main() -> ! {
     let mut server = ServerImpl {
         power_control: PowerControl::new(),
         front_io_board: None,
+        vsc7448_reset_l: Port::E.pin(11)
     };
+
+    let sys = Sys::from(SYS.get_task_id());
+    // PE11 has an external 1K pull down
+    sys.gpio_configure_output(
+            server.vsc7448_reset_l,
+            OutputType::PushPull,
+            Speed::Low,
+            Pull::None,
+        );
+
+    // Enable VSC7448 (mgmt) and VSC8562 (phy) rails
+    server.power_control.v1p0_mgmt.set_enable(true);
+    server.power_control.v1p2_mgmt.set_enable(true);
+    server.power_control.v2p5_mgmt.set_enable(true);
+    // both phy rails share an enable, so no need to explicitly enable the 2.5V rail
+    server.power_control.v1p0_phy.set_enable(true);
 
     // Enable the front IO hot swap controller and probe for a front IO board.
     match server.front_io_board_preinit() {
@@ -330,10 +359,12 @@ fn main() -> ! {
         Err(_) => unreachable!(),
     }
 
-    // The MGMT and PHY rails are enabled automatically by pullups, so we will
+    // The MGMT and PHY rails were previously enabled, so next we will
     // check their power good signals and take action as appropriate.
     if server.power_control.mgmt_power_check() {
         ringbuf_entry!(Trace::MgmtPowerGood);
+        // power is good, release reset
+        sys.gpio_set_to(server.vsc7448_reset_l, true);
     }
     if server.power_control.phy_power_check() {
         ringbuf_entry!(Trace::PhyPowerGood);
