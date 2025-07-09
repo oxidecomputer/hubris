@@ -18,6 +18,10 @@
 //!
 //! ```console
 //! $ humility -t gimletlet hiffy -c Ereportulator.fake_ereport -a n=420
+//! humility: WARNING: archive on command-line overriding archive in environment file
+//! humility: attached to 0483:3754:000B00154D46501520383832 via ST-Link V3
+//! Ereportulator.fake_ereport() => ()
+//!
 //! ```
 //!
 //! In addition, when testing on systems which lack real vital product data
@@ -28,6 +32,10 @@
 //!
 //! ```console
 //! $ humility -t gimletlet hiffy -c Ereportulator.set_fake_vpd
+//! humility: WARNING: archive on command-line overriding archive in environment file
+//! humility: attached to 0483:3754:000B00154D46501520383832 via ST-Link V3
+//! Ereportulator.set_fake_vpd() => ()
+//!
 //! ```
 //!
 //!
