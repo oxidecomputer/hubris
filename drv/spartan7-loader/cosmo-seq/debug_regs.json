@@ -320,6 +320,10 @@
                         {
                             "name": "sp_ipcc_bus",
                             "value": 10
+                        },
+                        {
+                            "name": "t6_sequencer",
+                            "value": 11
                         }
                     ]
                 },
@@ -377,6 +381,10 @@
                         {
                             "name": "sp_ipcc_bus",
                             "value": 10
+                        },
+                        {
+                            "name": "t6_sequencer",
+                            "value": 11
                         }
                     ]
                 },
@@ -434,6 +442,10 @@
                         {
                             "name": "sp_ipcc_bus",
                             "value": 10
+                        },
+                        {
+                            "name": "t6_sequencer",
+                            "value": 11
                         }
                     ]
                 },
@@ -491,6 +503,10 @@
                         {
                             "name": "sp_ipcc_bus",
                             "value": 10
+                        },
+                        {
+                            "name": "t6_sequencer",
+                            "value": 11
                         }
                     ]
                 }
@@ -524,6 +540,17 @@
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "convenience bit for setting up x4 espi debug out. This uses 1v8 debug header pins 7..0. Hw clears"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "t6_seq_en",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "convenience bit for setting up T6 sequencing debug out. This uses 1v8 debug header pins 7..0. Hw clears"
                 }
             ]
         }
