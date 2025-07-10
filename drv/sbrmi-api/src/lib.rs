@@ -40,9 +40,12 @@ impl From<sbrmi::Error> for SbrmiError {
 
         match err {
             Error::BadRegisterRead { code, .. } => code.into(),
+            Error::BadRegisterWrite { code, .. } => code.into(),
+            Error::BadRegisterBlockWrite { code, .. } => code.into(),
+            Error::BadRegisterBlockRead { code, .. } => code.into(),
             Error::BadCpuidRead { code } => code.into(),
             Error::BadRdmsr { code, .. } => code.into(),
-            Error::BadThreadId => Self::BadThreadId,
+            Error::BadThreadId { .. } => Self::BadThreadId,
             Error::BadCpuidInput => Self::BadCpuidInput,
             Error::BadCpuidLength { .. } => Self::CpuidError,
             Error::CpuidFailed { code } => match code {

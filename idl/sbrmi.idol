@@ -12,14 +12,14 @@ Interface(
         ),
         "enabled": (
             reply: Result(
-                ok: "[u8; 16]",
+                ok: "[u8; 32]",
                 err: CLike("SbrmiError"),
             ),
             idempotent: true,
         ),
         "alert": (
             reply: Result(
-                ok: "[u8; 16]",
+                ok: "[u8; 32]",
                 err: CLike("SbrmiError"),
             ),
             idempotent: true,

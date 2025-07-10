@@ -68,7 +68,7 @@ impl idl::InOrderSbrmiImpl for ServerImpl {
     fn enabled(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<[u8; 16], RequestError<SbrmiError>> {
+    ) -> Result<[u8; 32], RequestError<SbrmiError>> {
         self.sbrmi
             .enabled()
             .map_err(|code| RequestError::from(SbrmiError::from(code)))
@@ -77,7 +77,7 @@ impl idl::InOrderSbrmiImpl for ServerImpl {
     fn alert(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<[u8; 16], RequestError<SbrmiError>> {
+    ) -> Result<[u8; 32], RequestError<SbrmiError>> {
         self.sbrmi
             .alert()
             .map_err(|code| RequestError::from(SbrmiError::from(code)))
