@@ -150,6 +150,15 @@ impl EreportStore {
             restart_id: restart_id.into()
         });
 
+        // XXX(eliza): in theory it might be nicer to use
+        // `minicbor::data::Token::{BeginArray, BeginMap, Break}` for these, but
+        // it's way more annoying in practice, because you need to have an
+        // `Encoder` and can't just put it in the buffer.
+        /// Byte indicating the beginning of an indeterminate-length CBOR
+        /// array.
+        const CBOR_BEGIN_ARRAY: u8 = 0x9f;
+        /// Byte indicating the beginning of an indeterminate-length CBOR map.
+        const CBOR_BEGIN_MAP: u8 = 0xbf;
         /// Byte indicating the end of an indeterminate-length CBOR array or
         /// map.
         const CBOR_BREAK: u8 = 0xff;
@@ -162,8 +171,11 @@ impl EreportStore {
         let mut position = first_data_byte;
         let mut first_written_ena = None;
 
-        // Begin metadata map.
-        data.write_at(position, 0xbf)
+        // Start the metadata map.
+        //
+        // MGS expects us to always include this, and to  just have it be
+        // empty if we didn't send any metadata.
+        data.write_at(position, CBOR_BEGIN_MAP)
             .map_err(|_| ClientError::WentAway.fail())?;
         position += 1;
 
@@ -232,11 +244,8 @@ impl EreportStore {
 
             if first_written_ena.is_none() {
                 first_written_ena = Some(r.ena);
-                // Start CBOR list
-                // XXX(eliza): in theory it might be nicer to use
-                // `minicbor::data::Token::BeginArray` here, but it's way more
-                // annoying in practice...
-                data.write_at(position, 0x9f)
+                // Start the ereport array
+                data.write_at(position, CBOR_BEGIN_ARRAY)
                     .map_err(|_| ClientError::WentAway.fail())?;
                 position += 1;
             }
@@ -294,7 +303,7 @@ impl EreportStore {
         }
 
         if let Some(start_ena) = first_written_ena {
-            // End CBOR list, if we wrote anything.
+            // End CBOR array, if we wrote anything.
             data.write_at(position, CBOR_BREAK)
                 .map_err(|_| ClientError::WentAway.fail())?;
             position += 1;
