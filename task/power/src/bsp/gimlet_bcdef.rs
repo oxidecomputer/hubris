@@ -9,6 +9,8 @@ use crate::{
 
 use drv_i2c_devices::max5970::*;
 use ringbuf::*;
+use serde::Serialize;
+use task_packrat_api::Packrat;
 use userlib::units::*;
 
 pub(crate) const CONTROLLER_CONFIG_LEN: usize = 37;
@@ -145,8 +147,10 @@ ringbuf!(Trace, TRACE_DEPTH, Trace::None);
 /// If any I2C operation fails, this will abort its work and return.
 fn trace_max5970(
     dev: &Max5970,
+    rail: &'static str,
     sensor: SensorId,
     peaks: &mut Max5970Peaks,
+    packrat: &mut Packrat,
     now: u32,
 ) {
     let max_vout = match dev.max_vout() {
@@ -170,9 +174,41 @@ fn trace_max5970(
     };
 
     // TODO: this update should probably happen after all I/O is done.
-    if peaks.iout.bounced(min_iout, max_iout)
-        || peaks.vout.bounced(min_vout, max_vout)
-    {
+    let mut ereport_buf = [0u8; 128];
+    if peaks.iout.bounced(min_iout, max_iout) {
+        let mut s = minicbor_serde::Serializer::new(
+            minicbor::encode::write::Cursor::new(&mut ereport_buf[..]),
+        );
+        let report = IoutCrossbounceEreport {
+            k: "power.crossbounce.iout",
+            rail,
+            sensor_id: sensor.into(),
+            min_iout,
+            max_iout,
+            time: now,
+        };
+        if report.serialize(&mut s).is_ok() {
+            let len = s.into_encoder().into_writer().position();
+            packrat.deliver_ereport(&ereport_buf[..len]);
+        }
+        peaks.last_bounce_detected = Some(now);
+    }
+    if peaks.vout.bounced(min_vout, max_vout) {
+        let mut s = minicbor_serde::Serializer::new(
+            minicbor::encode::write::Cursor::new(&mut ereport_buf[..]),
+        );
+        let report = VoutCrossbounceEreport {
+            k: "power.crossbounce.vout",
+            rail,
+            sensor_id: sensor.into(),
+            min_vout,
+            max_vout,
+            time: now,
+        };
+        if report.serialize(&mut s).is_ok() {
+            let len = s.into_encoder().into_writer().position();
+            packrat.deliver_ereport(&ereport_buf[..len]);
+        }
         peaks.last_bounce_detected = Some(now);
     }
 
@@ -220,6 +256,26 @@ struct Max5970Peak {
     max: f32,
     crossbounce_min: f32,
     crossbounce_max: f32,
+}
+
+#[derive(serde::Serialize)]
+struct IoutCrossbounceEreport {
+    k: &'static str,
+    rail: &'static str,
+    min_iout: f32,
+    max_iout: f32,
+    time: u32,
+    sensor_id: u32,
+}
+
+#[derive(serde::Serialize)]
+struct VoutCrossbounceEreport {
+    k: &'static str,
+    rail: &'static str,
+    min_vout: f32,
+    max_vout: f32,
+    time: u32,
+    sensor_id: u32,
 }
 
 impl Default for Max5970Peak {
@@ -288,6 +344,7 @@ impl State {
         &mut self,
         devices: &[Device],
         state: PowerState,
+        packrat: &mut Packrat,
     ) {
         //
         // Trace the detailed state every ten seconds, provided that we are in A0.
@@ -295,19 +352,19 @@ impl State {
         if state == PowerState::A0 && self.fired % TRACE_SECONDS == 0 {
             ringbuf_entry!(Trace::Now(self.fired));
 
-            for ((dev, sensor), peak) in CONTROLLER_CONFIG
+            for ((dev, rail, sensor), peak) in CONTROLLER_CONFIG
                 .iter()
                 .zip(devices.iter())
                 .filter_map(|(c, dev)| {
                     if let Device::Max5970(dev) = dev {
-                        Some((dev, c.current))
+                        Some((dev, c.rail, c.current))
                     } else {
                         None
                     }
                 })
                 .zip(self.peaks.iter_mut())
             {
-                trace_max5970(dev, sensor, peak, self.fired);
+                trace_max5970(dev, rail, sensor, peak, packrat, self.fired);
             }
         }
 

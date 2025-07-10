@@ -23,6 +23,7 @@ use drv_i2c_devices::raa229620a::*;
 use drv_i2c_devices::tps546b24a::*;
 use pmbus::Phase;
 use ringbuf::*;
+use task_packrat_api::Packrat;
 use task_power_api::{
     Bmr491Event, PmbusValue, RawPmbusBlock, RenesasBlackbox, MAX_BLOCK_LEN,
 };
@@ -57,6 +58,7 @@ enum PowerState {
 const TIMER_INTERVAL: u32 = 1000;
 
 task_slot!(I2C, i2c_driver);
+task_slot!(PACKRAT, packrat);
 task_slot!(SENSOR, sensor);
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
@@ -104,6 +106,7 @@ struct PowerControllerConfig {
     input_current: Option<SensorId>,
     temperature: Option<SensorId>,
     phases: Option<&'static [u8]>,
+    rail: &'static str,
 }
 
 /// Bound device, which exposes sensor functions
@@ -320,6 +323,7 @@ macro_rules! rail_controller {
                     sensors::[<$dev:upper _ $rail:upper _TEMPERATURE_SENSOR>]
                 ),
                 phases: i2c_config::pmbus::[<$dev:upper _ $rail:upper _PHASES>],
+                rail: stringify!($rail:upper),
             }
         }
     };
@@ -340,6 +344,7 @@ macro_rules! rail_controller_notemp {
                 input_current: None,
                 temperature: None,
                 phases: i2c_config::pmbus::[<$dev:upper _ $rail:upper _PHASES>],
+                rail: stringify!($rail:upper),
             }
         }
     };
@@ -362,6 +367,7 @@ macro_rules! adm1272_controller {
                     sensors::[<ADM1272_ $rail:upper _TEMPERATURE_SENSOR>]
                 ),
                 phases: None,
+                rail: stringify!($rail:upper),
             }
         }
     };
@@ -382,6 +388,7 @@ macro_rules! ltc4282_controller {
                 input_current: None,
                 temperature: None,
                 phases: None,
+                rail: stringify!($rail:upper),
             }
         }
     };
@@ -404,6 +411,7 @@ macro_rules! lm5066_controller {
                     sensors::[<LM5066_ $rail:upper _TEMPERATURE_SENSOR>]
                 ),
                 phases: None,
+                rail: stringify!($rail:upper),
             }
         }
     };
@@ -426,6 +434,7 @@ macro_rules! lm5066i_controller {
                     sensors::[<LM5066I_ $rail:upper _TEMPERATURE_SENSOR>]
                 ),
                 phases: None,
+                rail: stringify!($rail:upper),
             }
         }
     };
@@ -449,6 +458,7 @@ macro_rules! max5970_controller {
                 input_current: None,
                 temperature: None,
                 phases: None,
+                rail: stringify!($rail:upper),
             }
         }
     };
@@ -474,6 +484,7 @@ macro_rules! mwocp68_controller {
                 temperature: None, // Temperature sensors are independent of
                                    // power rails and measured separately
                 phases: None,
+                rail: stringify!($rail:upper),
             }
         }
     };
@@ -520,6 +531,7 @@ fn main() -> ! {
         sensor: sensor_api::Sensor::from(SENSOR.get_task_id()),
         devices: claim_devices(i2c_task),
         bsp: bsp::State::init(),
+        packrat: Packrat::from(PACKRAT.get_task_id()),
     };
     let mut buffer = [0; idl::INCOMING_SIZE];
 
@@ -534,6 +546,7 @@ struct ServerImpl {
     sensor: sensor_api::Sensor,
     devices: &'static mut [Device; bsp::CONTROLLER_CONFIG_LEN],
     bsp: bsp::State,
+    packrat: Packrat,
 }
 
 impl ServerImpl {
@@ -608,7 +621,8 @@ impl ServerImpl {
             }
         }
 
-        self.bsp.handle_timer_fired(self.devices, state);
+        self.bsp
+            .handle_timer_fired(self.devices, state, &mut self.packrat);
     }
 
     /// Find the BMR491 and return an `I2cDevice` handle

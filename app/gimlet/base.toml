@@ -146,7 +146,7 @@ priority = 6
 max-sizes = {flash = 65536, ram = 16384 }
 stacksize = 3800
 start = true
-task-slots = ["i2c_driver", "sensor", "gimlet_seq"]
+task-slots = ["i2c_driver", "sensor", "gimlet_seq", "packrat"]
 notifications = ["timer"]
 
 [tasks.hiffy]
