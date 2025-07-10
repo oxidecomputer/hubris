@@ -269,7 +269,9 @@ impl EreportStore {
                 Ok(()) => {
                     let size = c.position();
                     // If there's no room left for this one in the lease, we're
-                    // done here.
+                    // done here. Note that the use of `>=` rather than `>` is
+                    // intentional, as we want to ensure that there's room for
+                    // the final `CBOR_BREAK` byte that ends the CBOR array.
                     if position + size >= data.len() {
                         break;
                     }
@@ -327,17 +329,11 @@ impl EreportStore {
         // longer than our buffer. It would be nice to have a way to keep the
         // encoded metadata up to the last complete key-value pair...
         encoder
-            .str("hubris_archive_id")
-            .map_err(|_| MetadataError::TooLong)?
-            .bytes(&self.image_id[..])
-            .map_err(|_| MetadataError::TooLong)?;
+            .str("hubris_archive_id")?
+            .bytes(&self.image_id[..])?;
         match core::str::from_utf8(&vpd.part_number[..]) {
             Ok(part_number) => {
-                encoder
-                    .str("baseboard_part_number")
-                    .map_err(|_| MetadataError::TooLong)?
-                    .str(part_number)
-                    .map_err(|_| MetadataError::TooLong)?;
+                encoder.str("baseboard_part_number")?.str(part_number)?;
             }
             Err(_) => ringbuf_entry!(Trace::MetadataError(
                 MetadataError::PartNumberNotUtf8
@@ -345,21 +341,13 @@ impl EreportStore {
         }
         match core::str::from_utf8(&vpd.serial[..]) {
             Ok(serial_number) => {
-                encoder
-                    .str("baseboard_serial_number")
-                    .map_err(|_| MetadataError::TooLong)?
-                    .str(serial_number)
-                    .map_err(|_| MetadataError::TooLong)?;
+                encoder.str("baseboard_serial_number")?.str(serial_number)?;
             }
             Err(_) => ringbuf_entry!(Trace::MetadataError(
                 MetadataError::SerialNumberNotUtf8
             )),
         }
-        encoder
-            .str("rev")
-            .map_err(|_| MetadataError::TooLong)?
-            .u32(vpd.revision)
-            .map_err(|_| MetadataError::TooLong)?;
+        encoder.str("rev")?.u32(vpd.revision)?;
         let size = encoder.into_writer().position();
         Ok(&self.recv[..size])
     }
@@ -382,7 +370,7 @@ impl<C> minicbor::Encode<C> for ByteGather<'_, '_> {
         e: &mut minicbor::Encoder<W>,
         _ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        e.bytes_len((self.0.len() + self.1.len()) as u64)?;
+        e.bytes_len((self.0.len().wrapping_add(self.1.len())) as u64)?;
         e.writer_mut()
             .write_all(self.0)
             .map_err(minicbor::encode::Error::write)?;
@@ -395,8 +383,14 @@ impl<C> minicbor::Encode<C> for ByteGather<'_, '_> {
 
 impl<C> CborLen<C> for ByteGather<'_, '_> {
     fn cbor_len(&self, ctx: &mut C) -> usize {
-        let n = self.0.len() + self.1.len();
-        n.cbor_len(ctx) + n
+        let n = self.0.len().wrapping_add(self.1.len());
+        n.cbor_len(ctx).wrapping_add(n)
+    }
+}
+
+impl From<minicbor::encode::write::EndOfSlice> for MetadataError {
+    fn from(_: minicbor::encode::write::EndOfSlice) -> MetadataError {
+        MetadataError::TooLong
     }
 }
 
