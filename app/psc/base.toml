@@ -118,7 +118,7 @@ notifications = ["i2c2-irq", "i2c3-irq"]
 
 [tasks.packrat]
 name = "task-packrat"
-priority = 3
+priority = 1
 stacksize = 1040
 start = true
 # task-slots is explicitly empty: packrat should not send IPCs!

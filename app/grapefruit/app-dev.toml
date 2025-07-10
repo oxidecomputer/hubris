@@ -14,7 +14,7 @@ features = ["ereport"]
 
 [tasks.snitch]
 name = "task-snitch"
-priority = 6
+priority = 4
 stacksize = 1200
 start = true
 task-slots = ["net", "packrat"]
