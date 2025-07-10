@@ -273,6 +273,7 @@ stacksize = 6256
 start = true
 uses = ["usart1"]
 task-slots = [
+    "auxflash",
     "jefe",
     "dump_agent",
     "net",
@@ -294,6 +295,7 @@ features = [
     "vlan",
     "baud_rate_3M",
     "vpd",
+    "auxflash",
 ]
 notifications = ["usart-irq", "socket", "timer"]
 interrupts = {"usart1.irq" = "usart-irq"}
