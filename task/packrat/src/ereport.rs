@@ -388,8 +388,12 @@ impl<C> CborLen<C> for ByteGather<'_, '_> {
     }
 }
 
-impl From<minicbor::encode::write::EndOfSlice> for MetadataError {
-    fn from(_: minicbor::encode::write::EndOfSlice) -> MetadataError {
+impl From<minicbor::encode::Error<minicbor::encode::write::EndOfSlice>>
+    for MetadataError
+{
+    fn from(
+        _: minicbor::encode::Error<minicbor::encode::write::EndOfSlice>,
+    ) -> MetadataError {
         MetadataError::TooLong
     }
 }
