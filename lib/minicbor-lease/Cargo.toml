@@ -1,0 +1,11 @@
+[package]
+name = "minicbor-lease"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+minicbor = { workspace = true }
+idol-runtime = { workspace = true }
+
+[lints]
+workspace = true
