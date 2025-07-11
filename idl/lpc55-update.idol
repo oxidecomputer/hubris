@@ -212,5 +212,19 @@ Interface(
             idempotent: true,
             encoding: Hubpack
         ),
+        "component_switch_cancel_pending": (
+            doc: "Cancal a pending persistent or transient image switch",
+            args: {
+                "component": "RotComponent",
+                "slot": "SlotId",
+                "duration": "SwitchDuration",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("drv_update_api::UpdateError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
     },
 )

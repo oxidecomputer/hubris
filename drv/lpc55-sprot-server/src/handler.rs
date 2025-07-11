@@ -679,6 +679,16 @@ impl<'a> Handler {
 
                 Ok((RspBody::State(out.map(StateRsp::LifecycleState)), None))
             }
+            ReqBody::Update(UpdateReq::ComponentSwitchCancelPending {
+                component,
+                slot,
+                duration,
+            }) => {
+                self.update.component_switch_cancel_pending(
+                    component, slot, duration,
+                )?;
+                Ok((RspBody::Ok, None))
+            }
         }
     }
 

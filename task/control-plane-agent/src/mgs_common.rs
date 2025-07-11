@@ -429,6 +429,52 @@ impl MgsCommon {
         }
     }
 
+    pub(crate) fn component_cancel_pending_active_slot(
+        &mut self,
+        component: SpComponent,
+        slot: u16,
+        persist: bool,
+    ) -> Result<(), GwSpError> {
+        match component {
+            SpComponent::ROT | SpComponent::STAGE0 => {
+                let slot = slot
+                    .try_into()
+                    .map_err(|()| GwSpError::RequestUnsupportedForComponent)?;
+                let duration = if persist {
+                    SwitchDuration::Forever
+                } else {
+                    SwitchDuration::Once
+                };
+                self.sprot.component_switch_cancel_pending(
+                    if component == SpComponent::ROT {
+                        SpRotComponent::Hubris
+                    } else {
+                        SpRotComponent::Stage0
+                    },
+                    slot,
+                    duration,
+                )?;
+                Ok(())
+            }
+
+            SpComponent::SP_ITSELF => {
+                let slot = slot
+                    .try_into()
+                    .map_err(|()| GwSpError::RequestUnsupportedForComponent)?;
+                if !persist {
+                    // We have no mechanism to temporarily swap the banks on the SP
+                    return Err(GwSpError::RequestUnsupportedForComponent);
+                };
+                self.update_sp
+                    .set_pending_boot_slot(slot)
+                    .map_err(|err| GwSpError::UpdateFailed(err as u32))?;
+                Ok(())
+            }
+            // Other components might also be served someday.
+            _ => Err(GwSpError::RequestUnsupportedForComponent),
+        }
+    }
+
     pub(crate) fn read_sensor(
         &mut self,
         req: SensorRequest,

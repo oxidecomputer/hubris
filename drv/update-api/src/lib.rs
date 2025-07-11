@@ -67,6 +67,8 @@ pub enum UpdateError {
     VersionNotSupported,
 
     InvalidPreferredSlotId,
+    // AlreadyPending,
+    // NonePending,
 }
 
 impl From<UpdateError> for GwUpdateError {
@@ -106,6 +108,8 @@ impl From<UpdateError> for GwUpdateError {
             UpdateError::SignatureNotValidated => Self::SignatureNotValidated,
             UpdateError::VersionNotSupported => Self::VersionNotSupported,
             UpdateError::InvalidPreferredSlotId => Self::InvalidPreferredSlotId,
+            // UpdateError::AlreadyPending => Self::AlreadyPending,
+            // UpdateError::NonePending => Self::NonePending,
         }
     }
 }
