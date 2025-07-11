@@ -1,0 +1,32 @@
+[package]
+name = "task-snitch"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+userlib = { path = "../../sys/userlib" }
+counters = { path = "../../lib/counters"  }
+static-cell = { path = "../../lib/static-cell" }
+idol-runtime.workspace = true
+zerocopy.workspace = true
+zerocopy-derive.workspace = true
+
+gateway-ereport-messages.workspace = true
+task-net-api = { path = "../net-api", features = ["use-smoltcp"] }
+task-packrat-api = { path = "../packrat-api" }
+
+[build-dependencies]
+build-util = { path = "../../build/util" }
+anyhow = { workspace = true }
+
+[features]
+vlan = ["task-net-api/vlan"]
+
+[[bin]]
+name = "task-snitch"
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true

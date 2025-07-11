@@ -94,6 +94,44 @@ Interface(
             reply: Simple("()"),
             idempotent: true,
         ),
+        "set_ereport_restart_id": (
+            doc: "Set the restart ID for ereports",
+            args: {
+                "restart_id": "u128",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("CacheSetError"),
+            ),
+            idempotent: true,
+        ),
+        "deliver_ereport": (
+            doc: "Hand an encoded ereport to packrat for buffering.",
+            args: {
+            },
+            leases: {
+                "data": (type: "[u8]", read: true, max_len: Some(1024)),
+            },
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+        "read_ereports": (
+            doc: "Read ereports starting with a watermark (ENA) value",
+            args: {
+                "request_id": "ereport_messages::RequestIdV0",
+                "restart_id": "ereport_messages::RestartId",
+                "start_ena": "ereport_messages::Ena",
+                "limit": "u8",
+                "committed_ena": "ereport_messages::Ena",
+            },
+            leases: {
+                "data": (type: "[u8]", write: true),
+            },
+            reply: Result(
+                ok: "usize",
+                err: CLike("EreportReadError"),
+            ),
+            idempotent: true,
+        ),
     },
 )
-
