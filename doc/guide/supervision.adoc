@@ -48,7 +48,7 @@ Currently, the supervisor needs to scan the set of tasks using the
 `read_task_state` kernel IPC until it finds faults. (If the supervisor sometimes
 lets tasks stay in faulted states, then it will need to keep track of that and
 look for _new_ faults here.) It can then record that fault information somewhere
-(maybe a log) and use the `reinit_task` call to fix the problem.
+(maybe a log) and use the `restart_task` call to fix the problem.
 
 NOTE: Having to scan across the set of tasks is a little lame; if it proves to
 be an issue in practice we'll introduce a more efficient way of pulling the last

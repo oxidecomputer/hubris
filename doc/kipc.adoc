@@ -118,14 +118,14 @@ pub enum SchedState {
 }
 ----
 
-=== `reinit_task` (2)
+=== `restart_task` (2)
 
 Reinitializes a task, chosen by index, and optionally starts it running.
 
 This is valid in any task state, and can be used to interrupt otherwise
 uninterruptible operations like the SEND syscall.
 
-A successful call to `reinit_task` has the following effects:
+A successful call to `restart_task` has the following effects:
 
 1. The targeted task is forced out of whatever state it was in, and left in
 either the `Stopped` (if `start` is `false`) or `Runnable` (if `start` is
@@ -141,7 +141,8 @@ zero otherwise) and the stack erased.
 5. Any _other_ tasks that were blocked in IPC with the targeted task (either
 waiting to deliver a message, waiting for a reply to a delivered message, or
 waiting to receive) are interrupted and given a <<death,dead code>> to indicate
-that the IPC will never complete.
+that the IPC will never complete.  The dead code's generation is the *new*
+generation number for the faulted task.
 
 ==== Request
 
@@ -166,10 +167,10 @@ type ReinitResponse = ();
 
 ==== Notes
 
-If a task asks to reinit _itself,_ the kernel mumbles "`alright, your funeral`"
-and reinits the caller. Given that `reinit_task` is intended to be restricted to
-the supervisor, and the supervisor can't `panic!` to restart without taking out
-the system, this seemingly weird move may actually prove useful.
+If a task asks to restart _itself,_ the kernel mumbles "`alright, your funeral`"
+and restarts the caller. Given that `restart_task` is intended to be restricted
+to the supervisor, and the supervisor can't `panic!` to restart without taking
+out the system, this seemingly weird move may actually prove useful.
 
 Reinitialization _does not_ write over the task's memory except for the stack.
 Tasks are responsible for (say) setting up their data/BSS areas on start. This
@@ -209,7 +210,7 @@ type FaultResponse = ();
 
 ==== Notes
 
-As with `reinit_task`, it is possible for a task to use `fault_task` to fault
+As with `restart_task`, it is possible for a task to use `fault_task` to fault
 _itself._ This is an odd thing to do.
 
 On faults, the kernel tries to save the pre-fault state of the task. However, if
@@ -417,8 +418,8 @@ notification mask, the current task will wait until any matching notification
 arrives.
 
 2. **Halting the current task.** If you really want to stop the current task
-forever (or at least, until the supervisor reinits it), you can receive from the
-kernel with _no_ notification mask bits set.
+forever (or at least, until the supervisor restarts it), you can receive from
+the kernel with _no_ notification mask bits set.
 
 NOTE: We haven't needed that second one in practice, so we might make it an
 error someday. The first one, on the other hand, is useful.
