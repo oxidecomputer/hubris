@@ -1827,7 +1827,7 @@ impl ServerImpl {
         }
     }
 
-    /// Resets the SP and obtains a measurement, sending it to packrat
+    /// Resets the SP and obtains a measurement, sending it to `attest`
     ///
     /// Returns `Ok(())` if the SP was measured, `Err(())` if something went
     /// wrong and existing measurements should be invalidated.
