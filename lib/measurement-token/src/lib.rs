@@ -16,15 +16,20 @@
 //! We store 4 `u32` words at the beginning of a "handoff" region, which is
 //! expected to be DTCM (`0x2000_0000`). The words are as follows:
 //!
-//! - Measurement token, which is `MEASUREMENT_TOKEN_VALID` if the SP has been
-//!   measured, `MEASUREMENT_TOKEN_SKIP` if an external debugger wants us to
-//!   skip these resets, or any other value if not.
+//! - Measurement token, which is `MEASUREMENT_TOKEN_VALID` (written by the RoT)
+//!   if the SP has been measured, `MEASUREMENT_TOKEN_SKIP` (written by a
+//!   debugger) if an external debugger wants us to skip these resets (e.g.
+//!   during programming), or any other value if neither of those conditions
+//!   hold.  If the token is valid, it it destroyed before `check` returns and
+//!   the SP continues booting.
 //! - Counter token, which is `COUNTER_TAG` if the subsequent word is expected
-//!   to be a counter value.
+//!   to be a counter value.  The counter token is only written by the SP, and
+//!   is destroyed in `check` if the decision is made to keep booting.
 //! - Counter value indicating the number of resets; this starts at 1 and counts
-//!   up from there.
+//!   up from there.  The counter value is only written by the SP.
 //! - Counter check word, which is `COUNTER_TAG` xor'd with the counter value.
 //!   If the counter check word is incorrect, then the counter is reset to 0.
+//!   The check word is only written by the SP.
 #![no_std]
 
 pub enum MeasurementResult {
