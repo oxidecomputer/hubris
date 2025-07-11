@@ -10,11 +10,8 @@ use drv_front_io_api::FrontIO;
 use drv_ignition_api::IgnitionError;
 use drv_monorail_api::{Monorail, MonorailError};
 use drv_sidecar_seq_api::Sequencer;
-<<<<<<< HEAD
-use drv_transceivers_api::Transceivers;
+use drv_front_io_api::Transceivers;
 use enum_map::EnumMap;
-=======
->>>>>>> 33426c6b (Add a front-io-server to service the front-io board)
 use gateway_messages::sp_impl::{
     BoundsChecked, DeviceDescription, Sender, SpHandler,
 };
@@ -48,7 +45,6 @@ use ignition_handler::IgnitionController;
 
 userlib::task_slot!(SIDECAR_SEQ, sequencer);
 userlib::task_slot!(MONORAIL, monorail);
-userlib::task_slot!(TRANSCEIVERS, transceivers); // TODO(aaron) resolve this
 userlib::task_slot!(RNG, rng_driver);
 userlib::task_slot!(FRONT_IO, front_io);
 

@@ -117,18 +117,14 @@ task-slots = [
     "monorail",
     "net",
     "packrat",
-<<<<<<< HEAD
     "rng_driver",
     "sensor",
     "sequencer",
     "sprot",
     "sys",
-    "transceivers",
     "update_server",
     "validate",
-=======
     "front_io",
->>>>>>> 33426c6b (Add a front-io-server to service the front-io board)
     "vpd",
 ]
 features = ["sidecar", "vlan", "auxflash", "vpd"]
