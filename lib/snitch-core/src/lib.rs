@@ -220,6 +220,7 @@ impl<const N: usize> Store<N> {
             return 0;
         }
 
+        let mut discarded = 0;
         for _ in 0..=index {
             // Discard the lead record in the queue.
             let mut slices = self.storage.as_slices();
@@ -235,6 +236,7 @@ impl<const N: usize> Store<N> {
 
             self.stored_record_count -= 1;
             self.earliest_ena += 1;
+            discarded += 1;
         }
 
         // You might be curious why we don't do our loss recovery process here,
@@ -243,7 +245,7 @@ impl<const N: usize> Store<N> {
         // full. If we are able to recover here, but do _not_ have enough bytes
         // free for the next incoming record, then we'd just kick back into loss
         // state.... necessitating another loss record. And so forth.
-        index as usize
+        discarded
     }
 
     /// Makes a best effort at inserting a record.
