@@ -7,13 +7,15 @@ use drv_monorail_api::MonorailError;
 use drv_sidecar_front_io::phy_smi::PhySmi;
 use idol_runtime::{ClientError, RequestError};
 use ringbuf::*;
-use userlib::{task_slot, UnwrapLite};
+use task_net_api::Net;
+use userlib::task_slot;
 use vsc7448::{
-    config::Speed, miim_phy::Vsc7448MiimPhy, Vsc7448, Vsc7448Rw, VscError,
+    config::Speed, Vsc7448, Vsc7448Rw, VscError,
 };
-use vsc7448_pac::{DEVCPU_GCB, HSIO, VAUI0, VAUI1};
-use vsc85xx::{vsc8504::Vsc8504, vsc8562::Vsc8562Phy, PhyRw};
+use vsc7448_pac::{HSIO, VAUI0, VAUI1};
+use vsc85xx::{vsc8562::Vsc8562Phy, PhyRw};
 
+task_slot!(NET, net);
 task_slot!(SEQ, seq);
 task_slot!(FRONT_IO, ecp5_front_io);
 
@@ -42,8 +44,8 @@ pub struct Bsp<'a, R> {
     /// Handle for the sequencer task
     seq: Sequencer,
 
-    /// PHY for the on-board PHY ("PHY4")
-    vsc8504: Vsc8504,
+    /// RPC handle for Medusa's local techport PHY
+    net: NetSmi,
 
     /// RPC handle for the front IO board's PHY, which is a VSC8562. This is
     /// used for PHY control via a Rube Goldberg machine of
@@ -147,13 +149,13 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
     /// Constructs and initializes a new BSP handle
     pub fn new(vsc7448: &'a Vsc7448<'a, R>) -> Result<Self, VscError> {
         let seq = Sequencer::from(SEQ.get_task_id());
+        let net = NetSmi::new(NET.get_task_id());
         let has_front_io = seq.front_io_board_present();
         while seq.vsc7448_in_reset() {
             userlib::hl::sleep_for(5);
         };
         let mut out = Bsp {
             vsc7448,
-            vsc8504: Vsc8504::empty(),
             vsc8562: if has_front_io {
                 Some(PhySmi::new(FRONT_IO.get_task_id()))
             } else {
@@ -162,6 +164,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             front_io_speed: [Speed::Speed1G; 2],
             link_down_at: None,
             seq,
+            net,
         };
 
         out.reinit()?;
@@ -207,10 +210,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         self.vsc7448.configure_vlan_none()?;
 
         // Reset internals
-        self.vsc8504 = Vsc8504::empty();
         self.front_io_speed = [Speed::Speed1G; 2];
-
-        self.phy_vsc8504_init()?;
 
         self.vsc7448.configure_ports_from_map(&PORT_MAP)?;
         self.vsc7448.configure_vlan_sidecar_unlocked()?;
@@ -278,46 +278,6 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         )?;
         vsc7448::serdes6g::serdes6g_write(self.vsc7448, FRONT_IO_SERDES6G)?;
 
-        // Same for the on-board QSGMII link to the VSC8504, with different
-        // settings.
-        // h monorail write SERDES6G_OB_CFG 0x26000131
-        // h monorail write SERDES6G_OB_CFG1 0x20
-        const VSC8504_SERDES6G: u8 = 14;
-        vsc7448::serdes6g::serdes6g_read(self.vsc7448, VSC8504_SERDES6G)?;
-        self.vsc7448.modify(
-            HSIO().SERDES6G_ANA_CFG().SERDES6G_OB_CFG(),
-            |r| {
-                // Leave all other values as default
-                r.set_ob_post0(0xc);
-                r.set_ob_sr_h(1); // half-rate mode
-                r.set_ob_sr(3); // medium speed edges (about 105 ps)
-            },
-        )?;
-        self.vsc7448.modify(
-            HSIO().SERDES6G_ANA_CFG().SERDES6G_OB_CFG1(),
-            |r| {
-                r.set_ob_lev(0x20);
-            },
-        )?;
-        vsc7448::serdes6g::serdes6g_write(self.vsc7448, VSC8504_SERDES6G)?;
-
-        // Write to the base port on the VSC8504, patching the SERDES6G
-        // config to improve signal integrity.  This is based on benchtop
-        // scoping of the QSGMII signals going from the VSC8504 to the VSC7448.
-        use vsc85xx::tesla::{TeslaPhy, TeslaSerdes6gObConfig};
-        let rw = &mut Vsc7448MiimPhy::new(self.vsc7448, 0);
-        let mut vsc8504 = self.vsc8504.phy(0, rw);
-        let mut tesla = TeslaPhy {
-            phy: &mut vsc8504.phy,
-        };
-        tesla.tune_serdes6g_ob(TeslaSerdes6gObConfig {
-            ob_post0: 0x6,
-            ob_post1: 0,
-            ob_prec: 0,
-            ob_sr_h: 1, // half rate
-            ob_sr: 0,
-        })?;
-
         // Tune QSGMII link from the front IO board's PHY
         // These values are captured empirically with an oscilloscope
         if let Some(phy) = self.vsc8562.as_mut() {
@@ -338,44 +298,6 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
                 ob_lev: 48,
             })?;
         }
-
-        Ok(())
-    }
-
-    /// Configures the local PHY ("PHY4"), which is an on-board VSC8504
-    fn phy_vsc8504_init(&mut self) -> Result<(), VscError> {
-        // Let's configure the on-board PHY first
-        //
-        // It's always powered on, and COMA_MODE is controlled via the VSC7448
-        // on GPIO_47.
-        const COMA_MODE_GPIO: u32 = 47;
-
-        // The PHY talks on MIIM addresses 0x4-0x7 (configured by resistors
-        // on the board), using the VSC7448 as a MIIM bridge.
-
-        // When the VSC7448 comes out of reset, GPIO_47 is an input and low.
-        // It's pulled up by a resistor on the board, keeping the PHY in
-        // COMA_MODE.  That's fine!
-
-        // Initialize the PHY
-        let rw = &mut Vsc7448MiimPhy::new(self.vsc7448, 0);
-        self.vsc8504 = Vsc8504::init_qsgmii_protocol_xfer(4, rw)?;
-        for p in 5..8 {
-            Vsc8504::init_qsgmii_protocol_xfer(p, rw)?;
-        }
-
-        // The VSC8504 on the sidecar has its SIGDET GPIOs pulled down,
-        // for some reason.
-        self.vsc8504.set_sigdet_polarity(rw, true).unwrap_lite();
-
-        // Switch the GPIO to an output.  Since the output register is low
-        // by default, this pulls COMA_MODE low, bringing the VSC8504 into
-        // mission mode.
-        self.vsc7448.modify(DEVCPU_GCB().GPIO().GPIO_OE1(), |r| {
-            let mut g_oe1 = r.g_oe1();
-            g_oe1 |= 1 << (COMA_MODE_GPIO - 32);
-            r.set_g_oe1(g_oe1);
-        })?;
 
         Ok(())
     }
@@ -479,22 +401,18 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
     ///
     /// Returns `None` if the given port isn't associated with a PHY
     /// (for example, because it's an SGMII link)
-    pub fn phy_fn<T, F: Fn(vsc85xx::Phy<'_, GenericPhyRw<'_, R>>) -> T>(
+    pub fn phy_fn<T, F: Fn(vsc85xx::Phy<'_, GenericPhyRw<'_>>) -> T>(
         &mut self,
         port: u8,
         callback: F,
     ) -> Option<T> {
         let (mut phy_rw, phy_port) = match port {
-            // Ports 40-43 connect to a VSC8504 PHY over QSGMII and represent
-            // ports 4-7 on the PHY.
-            40..=43 => {
-                let phy_rw = GenericPhyRw::Vsc7448(Vsc7448MiimPhy::new(
-                    self.vsc7448.rw,
-                    0,
-                ));
-                let phy_port = port - 40 + 4;
-                (phy_rw, phy_port)
+            // Port 43 connects to a VSC8562 via the SP's SMI interface
+            43 => {
+                let phy_rw = GenericPhyRw::Local(&self.net);
+                (phy_rw, 43)
             }
+            // Ports 44/45 connect to a VSC8562 via the Front I/O interface
             44..=45 => {
                 if let Some(phy_rw) = &self.vsc8562 {
                     (GenericPhyRw::FrontIo(phy_rw), port - 44)
@@ -524,25 +442,51 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
     }
 }
 
-/// Simple enum that contains all possible `PhyRw` handle types
-pub enum GenericPhyRw<'a, R> {
-    Vsc7448(Vsc7448MiimPhy<'a, R>),
-    FrontIo(&'a PhySmi),
+pub struct NetSmi {
+    net: Net,
 }
 
-impl<'a, R: Vsc7448Rw> PhyRw for GenericPhyRw<'a, R> {
+impl NetSmi {
+    pub fn new(net_task: userlib::TaskId) -> Self {
+        Self {
+            net: Net::from(net_task),
+        }
+    }
+}
+
+impl PhyRw for NetSmi {
+    #[inline(always)]
+    fn read_raw(&self, phy: u8, reg: u8) -> Result<u16, VscError> {
+        // Net::smi_read is infallible, so an error means the task died
+        self.net.smi_read(phy, reg).map_err(|_e| VscError::ServerDied)
+    }
+
+    #[inline(always)]
+    fn write_raw(&self, phy: u8, reg: u8, value: u16) -> Result<(), VscError> {
+        // Net::smi_write is infallible, so an error means the task died
+        self.net.smi_write(phy, reg, value).map_err(|_e| VscError::ServerDied)
+    }
+}
+
+/// Simple enum that contains all possible `PhyRw` handle types
+pub enum GenericPhyRw<'a> {
+    FrontIo(&'a PhySmi),
+    Local(&'a NetSmi),
+}
+
+impl<'a> PhyRw for GenericPhyRw<'a> {
     #[inline(always)]
     fn read_raw(&self, port: u8, reg: u8) -> Result<u16, VscError> {
         match self {
-            GenericPhyRw::Vsc7448(n) => n.read_raw(port, reg),
             GenericPhyRw::FrontIo(n) => n.read_raw(port, reg),
+            GenericPhyRw::Local(n) => n.read_raw(port, reg),
         }
     }
     #[inline(always)]
     fn write_raw(&self, port: u8, reg: u8, value: u16) -> Result<(), VscError> {
         match self {
-            GenericPhyRw::Vsc7448(n) => n.write_raw(port, reg, value),
             GenericPhyRw::FrontIo(n) => n.write_raw(port, reg, value),
+            GenericPhyRw::Local(n) => n.write_raw(port, reg, value),
         }
     }
 }

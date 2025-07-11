@@ -93,7 +93,7 @@ max-sizes = {flash = 262144, ram = 8192}
 features = ["mgmt", "medusa", "vlan", "use-spi-core", "h753", "spi2"]
 stacksize = 4096
 start = true
-task-slots = ["ecp5_front_io", "sys", { seq = "sequencer" }]
+task-slots = ["ecp5_front_io", "net", "sys", { seq = "sequencer" }]
 uses = ["spi2"]
 notifications = ["spi-irq", "wake-timer"]
 interrupts = {"spi2.irq" = "spi-irq"}
