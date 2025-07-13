@@ -95,7 +95,6 @@ fn configure_mux(
     port: PortIndex,
     mux: Option<(Mux, Segment)>,
     muxes: &[I2cMux<'_>],
-    ctrl: &I2cControl,
 ) -> Result<(), ResponseCode> {
     let bus = (controller.controller, port);
 
@@ -127,7 +126,7 @@ fn configure_mux(
                 // (errant) address conflict can be pretty brutal.
                 //
                 find_mux(controller, port, muxes, current_id, |mux| {
-                    mux.driver.enable_segment(mux, controller, None, ctrl)
+                    mux.driver.enable_segment(mux, controller, None)
                 })
                 .map_err(|err| {
                     //
@@ -157,7 +156,7 @@ fn configure_mux(
             // mux state as unknown.
             //
             all_muxes(controller, port, muxes, |mux| {
-                match mux.driver.enable_segment(mux, controller, None, ctrl) {
+                match mux.driver.enable_segment(mux, controller, None) {
                     Err(ResponseCode::MuxMissing) => {
                         //
                         // The mux is gone entirely.  We really don't expect
@@ -201,7 +200,7 @@ fn configure_mux(
     if let Some((id, segment)) = mux {
         find_mux(controller, port, muxes, id, |mux| {
             mux.driver
-                .enable_segment(mux, controller, Some(segment), ctrl)
+                .enable_segment(mux, controller, Some(segment))
                 .map_err(|err| {
                     //
                     // We have failed to enable our new mux+segment.
@@ -378,40 +377,7 @@ fn main() -> ! {
     // Field messages.
     let mut buffer = [0; 4];
 
-    let ctrl = I2cControl {
-        enable: |notification| {
-            sys_irq_control(notification, true);
-        },
-        wfi: |notification, timeout| {
-            const TIMER_NOTIFICATION: u32 = 1 << 31;
-
-            // If the driver passes in a timeout that is large enough that it
-            // would overflow the kernel's 64-bit timestamp space... well, we'll
-            // do the best we can without compiling in an unlikely panic.
-            let dead = sys_get_timer().now.saturating_add(timeout.0);
-
-            sys_set_timer(Some(dead), TIMER_NOTIFICATION);
-
-            let notification =
-                sys_recv_notification(notification | TIMER_NOTIFICATION);
-
-            if notification == TIMER_NOTIFICATION {
-                I2cControlResult::TimedOut
-            } else {
-                sys_set_timer(None, TIMER_NOTIFICATION);
-                I2cControlResult::Interrupted
-            }
-        },
-    };
-
-    configure_muxes(
-        &muxes,
-        &controllers,
-        &pins,
-        &mut portmap,
-        &mut muxmap,
-        &ctrl,
-    );
+    configure_muxes(&muxes, &controllers, &pins, &mut portmap, &mut muxmap);
 
     loop {
         hl::recv_without_notification(&mut buffer, |op, msg| match op {
@@ -438,14 +404,8 @@ fn main() -> ! {
 
                 configure_port(&mut portmap, controller, port, &pins);
 
-                match configure_mux(
-                    &mut muxmap,
-                    controller,
-                    port,
-                    mux,
-                    &muxes,
-                    &ctrl,
-                ) {
+                match configure_mux(&mut muxmap, controller, port, mux, &muxes)
+                {
                     Ok(_) => {}
                     Err(code) => {
                         ringbuf_entry!(Trace::MuxError(code.into()));
@@ -511,7 +471,6 @@ fn main() -> ! {
 
                             rbuf.write_at(pos, byte)
                         },
-                        &ctrl,
                     );
                     match controller_result {
                         Err(code) => {
@@ -775,7 +734,6 @@ fn configure_muxes(
     pins: &[I2cPins],
     map: &mut PortMap,
     muxmap: &mut MuxMap,
-    ctrl: &I2cControl,
 ) {
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
@@ -788,7 +746,7 @@ fn configure_muxes(
         let mut reset_attempted = false;
 
         loop {
-            match mux.driver.configure(mux, controller, &sys, ctrl) {
+            match mux.driver.configure(mux, controller, &sys) {
                 Ok(_) => {
                     //
                     // We are going to attempt to disable all segments.  If we
@@ -815,7 +773,7 @@ fn configure_muxes(
                     // deal with the reset).
                     //
                     if let Err(code) =
-                        mux.driver.enable_segment(mux, controller, None, ctrl)
+                        mux.driver.enable_segment(mux, controller, None)
                     {
                         ringbuf_entry!(Trace::SegmentFailed(code.into()));
 
