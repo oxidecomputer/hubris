@@ -32,12 +32,6 @@
 //!   The check word is only written by the SP.
 #![no_std]
 
-pub enum MeasurementResult {
-    Measured,
-    Skipped,
-    NotMeasured(u32),
-}
-
 // These are all magic numbers created by hashing various sentences.  They have
 // no special significant, just 32 bits that are unlikely to be chosen by
 // accident.
