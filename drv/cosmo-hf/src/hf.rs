@@ -620,7 +620,9 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         }
 
         match self.hash.state {
-            HashState::Hashing { .. } => return Err(HfError::HashError.into()),
+            HashState::Hashing { .. } => {
+                return Err(HfError::HashInProgress.into())
+            }
             _ => (),
         }
 
