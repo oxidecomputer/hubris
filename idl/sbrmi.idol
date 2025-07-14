@@ -1,32 +1,32 @@
 // SB-RMI API
 
 Interface(
-    name: "Sbrmi",
+    name: "SbRmi",
     ops: {
         "nthreads": (
             reply: Result(
-                ok: "u8",
+                ok: "u32",
                 err: CLike("SbrmiError"),
             ),
             idempotent: true,
         ),
         "enabled": (
             reply: Result(
-                ok: "[u8; 16]",
+                ok: "[u8; 32]",
                 err: CLike("SbrmiError"),
             ),
             idempotent: true,
         ),
         "alert": (
             reply: Result(
-                ok: "[u8; 16]",
+                ok: "[u8; 32]",
                 err: CLike("SbrmiError"),
             ),
             idempotent: true,
         ),
         "cpuid": (
             args: {
-                "thread": "u8",
+                "thread": "u32",
                 "eax": "u32",
                 "ecx": "u32",
             },
@@ -36,9 +36,20 @@ Interface(
             ),
             idempotent: true,
         ),
+        "mailbox": (
+            args: {
+                "cmd": "drv_i2c_devices::sbrmi::MailboxCmd",
+            },
+            reply: Result(
+                ok: "Option<u32>",
+                err: CLike("SbrmiError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
         "rdmsr8": (
             args: {
-                "thread": "u8",
+                "thread": "u32",
                 "msr": "u32",
             },
             reply: Result(
@@ -49,7 +60,7 @@ Interface(
         ),
         "rdmsr16": (
             args: {
-                "thread": "u8",
+                "thread": "u32",
                 "msr": "u32",
             },
             reply: Result(
@@ -60,7 +71,7 @@ Interface(
         ),
         "rdmsr32": (
             args: {
-                "thread": "u8",
+                "thread": "u32",
                 "msr": "u32",
             },
             reply: Result(
@@ -71,7 +82,7 @@ Interface(
         ),
         "rdmsr64": (
             args: {
-                "thread": "u8",
+                "thread": "u32",
                 "msr": "u32",
             },
             reply: Result(

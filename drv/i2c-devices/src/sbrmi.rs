@@ -340,7 +340,7 @@ impl Sbrmi {
 
 impl Validate<Error> for Sbrmi {
     fn validate(device: &I2cDevice) -> Result<bool, Error> {
-        let sbrmi = Sbrmi::new(device);
+        let sbrmi = SbRmi::new(device);
         let rev = sbrmi.read_reg(Register::Revision)?;
 
         Ok(rev == 0x10)
