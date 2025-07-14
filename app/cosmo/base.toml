@@ -369,14 +369,6 @@ task-slots = ["net", "packrat"]
 features = ["vlan"]
 notifications = ["socket"]
 
-[tasks.sbrmi]
-name = "drv-sbrmi"
-priority = 4
-max-sizes = {flash = 8192, ram = 2048 }
-start = true
-task-slots = ["i2c_driver"]
-stacksize = 800
-
 [tasks.spd]
 name = "task-cosmo-spd"
 priority = 7
