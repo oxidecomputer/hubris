@@ -1867,7 +1867,7 @@ impl ServerImpl {
             // Reset the SP into normal operation
             self.disable_halting_debug();
             self.sp_reset_enter();
-            hl::sleep_for(1);
+            hl::sleep_for(1); // plenty of time, the internal pulse is 20µs
             self.sp_reset_leave();
         }
         success
