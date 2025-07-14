@@ -954,9 +954,9 @@ bus = "main"
 mux = 1
 segment = 4
 address = 0x3c
-device = "sbrmi10"
+device = "sbrmi21"
 name = "RMI"
-description = "CPU via SB-RMI"
+description = "CPU via SB-RMI v2.1"
 refdes = ["U1", "SBRMI"]
 
 [[config.i2c.devices]]
