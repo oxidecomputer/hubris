@@ -348,14 +348,6 @@ extern-regions = ["sram1", "sram2", "sram3", "sram4"]
 notifications = ["socket"]
 features = ["net", "vlan"]
 
-[tasks.sbrmi]
-name = "drv-sbrmi"
-priority = 4
-max-sizes = {flash = 8192, ram = 2048 }
-start = true
-task-slots = ["i2c_driver"]
-stacksize = 800
-
 [tasks.spd]
 name = "task-cosmo-spd"
 priority = 7
