@@ -1,0 +1,10 @@
+[package]
+name = "measurement-handoff"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+measurement-token.workspace = true
+
+[lints]
+workspace = true

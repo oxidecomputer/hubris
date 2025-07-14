@@ -7,12 +7,12 @@ edition = "2021"
 cortex-m = { workspace = true }
 cortex-m-rt = { workspace = true }
 stm32h7 = { workspace = true }
-measurement-token = { path = "../../lib/measurement-token", optional = true }
+measurement-handoff = { path = "../../lib/measurement-handoff", optional = true }
 
 [features]
 h743 = ["stm32h7/stm32h743"]
 h753 = ["stm32h7/stm32h753"]
-measurement-token-handoff = ["measurement-token"]
+measurement-handoff = ["dep:measurement-handoff"]
 
 [lib]
 test = false
