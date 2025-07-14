@@ -1789,17 +1789,17 @@ impl ServerImpl {
             Ok(()) => {
                 // Check that RESET was caught; if we halted for some other
                 // reason (or can't read DFSR), then that's a bad sign.
-                if let Ok(dfsr) = self.dp_read_bitflags::<Dfsr>() {
-                    if dfsr.is_vcatch() {
-                        Ok(())
-                    } else {
+                match self.dp_read_bitflags::<Dfsr>() {
+                    Ok(dsfr) if dfsr.is_vcatch() => Ok(()),
+                    Ok(dsfr) => {
                         ringbuf_entry!(Trace::Dfsr(dfsr));
                         ringbuf_entry!(Trace::VcCoreResetNotCaught);
                         Err(())
                     }
-                } else {
-                    ringbuf_entry!(Trace::DfsrReadError);
-                    Err(())
+                    Err(_) => {
+                        ringbuf_entry!(Trace::DfsrReadError);
+                        Err(())
+                    }
                 }
             }
             Err(_) => Err(()),
