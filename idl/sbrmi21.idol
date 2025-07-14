@@ -1,0 +1,103 @@
+// SB-RMI API
+
+Interface(
+    name: "SbRmi21",
+    ops: {
+        "nthreads": (
+            reply: Result(
+                ok: "u32",
+                err: Complex("SbRmi21Error"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "enabled": (
+            reply: Result(
+                ok: "[u8; 32]",
+                err: Complex("SbRmi21Error"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "alert": (
+            reply: Result(
+                ok: "[u8; 32]",
+                err: Complex("SbRmi21Error"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "cpuid": (
+            args: {
+                "thread": "u32",
+                "eax": "u32",
+                "ecx": "u32",
+            },
+            reply: Result(
+                ok: "[u32; 4]",
+                err: Complex("SbRmi21Error"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "mailbox": (
+            args: {
+                "cmd": "crate::SbRmi21MailboxCmd",
+            },
+            reply: Result(
+                ok: "Option<u32>",
+                err: Complex("SbRmi21Error"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "rdmsr8": (
+            args: {
+                "thread": "u32",
+                "msr": "u32",
+            },
+            reply: Result(
+                ok: "u8",
+                err: Complex("SbRmi21Error"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "rdmsr16": (
+            args: {
+                "thread": "u32",
+                "msr": "u32",
+            },
+            reply: Result(
+                ok: "u16",
+                err: Complex("SbRmi21Error"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "rdmsr32": (
+            args: {
+                "thread": "u32",
+                "msr": "u32",
+            },
+            reply: Result(
+                ok: "u32",
+                err: Complex("SbRmi21Error"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "rdmsr64": (
+            args: {
+                "thread": "u32",
+                "msr": "u32",
+            },
+            reply: Result(
+                ok: "u64",
+                err: Complex("SbRmi21Error"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+    },
+)

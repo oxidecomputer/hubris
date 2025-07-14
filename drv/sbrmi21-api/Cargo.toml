@@ -1,0 +1,33 @@
+[package]
+name = "drv-sbrmi21-api"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+
+
+[dependencies]
+counters = { path = "../../lib/counters" }
+derive-idol-err = { path = "../../lib/derive-idol-err" }
+userlib = { path = "../../sys/userlib" }
+drv-i2c-api = { path = "../../drv/i2c-api" }
+
+apml-rs.workspace = true
+hubpack.workspace = true
+num-traits.workspace = true
+serde.workspace = true
+zerocopy = { workspace = true }
+zerocopy-derive = { workspace = true }
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[lib]
+test = false
+doctest = false
+bench = false
+
+[build-dependencies]
+idol = { workspace = true }
+
+[lints]
+workspace = true
