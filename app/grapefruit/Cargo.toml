@@ -6,7 +6,7 @@ version = "0.1.0"
 
 [features]
 dump = ["kern/dump"]
-handoff = ["drv-stm32h7-startup/measurement-token-handoff"]
+measurement-handoff = ["drv-stm32h7-startup/measurement-handoff"]
 
 [dependencies]
 cortex-m = { workspace = true }

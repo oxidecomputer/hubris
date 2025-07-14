@@ -2486,7 +2486,7 @@ version = "0.1.0"
 dependencies = [
  "cortex-m",
  "cortex-m-rt",
- "measurement-token",
+ "measurement-handoff",
  "stm32h7",
 ]
 
@@ -3783,8 +3783,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "60302e4db3a61da70c0cb7991976248362f30319e88850c487b9b95bbf059e00"
 
 [[package]]
+name = "measurement-handoff"
+version = "0.1.0"
+dependencies = [
+ "measurement-token",
+]
+
+[[package]]
 name = "measurement-token"
 version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/lpc55_support?branch=mkeeter/measurement-token#25e482df8e586fbc4f54e672aee3c091c68b39ca"
 
 [[package]]
 name = "medusa"

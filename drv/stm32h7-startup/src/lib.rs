@@ -98,9 +98,9 @@ pub fn system_init_custom(
     // We are running at 64MHz on the HSI oscillator at voltage scale VOS3.
 
     // Before doing anything else, check for a measurement handoff token
-    #[cfg(feature = "measurement-token-handoff")]
+    #[cfg(feature = "measurement-handoff")]
     unsafe {
-        measurement_token::check(20, || {
+        measurement_handoff::check(20, || {
             cortex_m::asm::delay(12860000); // about 200 ms
             cortex_m::peripheral::SCB::sys_reset()
         });
