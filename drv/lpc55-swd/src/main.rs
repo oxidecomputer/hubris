@@ -1790,8 +1790,8 @@ impl ServerImpl {
                 // Check that RESET was caught; if we halted for some other
                 // reason (or can't read DFSR), then that's a bad sign.
                 match self.dp_read_bitflags::<Dfsr>() {
-                    Ok(dsfr) if dfsr.is_vcatch() => Ok(()),
-                    Ok(dsfr) => {
+                    Ok(dfsr) if dfsr.is_vcatch() => Ok(()),
+                    Ok(dfsr) => {
                         ringbuf_entry!(Trace::Dfsr(dfsr));
                         ringbuf_entry!(Trace::VcCoreResetNotCaught);
                         Err(())
@@ -1857,8 +1857,8 @@ impl ServerImpl {
         if success.is_ok() && self.reset_into_debug_halt().is_ok() {
             // Deposit the measurement token into SP memory
             if let Err(e) = self.write_single_target_addr(
-                measurement_token::MEASUREMENT_BASE as u32,
-                measurement_token::MEASUREMENT_TOKEN_VALID,
+                measurement_token::ADDR as u32,
+                measurement_token::VALID,
             ) {
                 ringbuf_entry!(Trace::TokenWriteFail(e));
             }

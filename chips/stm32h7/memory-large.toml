@@ -14,8 +14,11 @@ read = true
 write = true
 execute = false  # let's assume XN until proven otherwise
 
-# We use DTCM for a handoff region
-[[handoff]]
+# Data tightly-coupled memory
+#
+# This region is used in production images to pass a token from the RoT to the
+# SP indicating that measurement has happened.
+[[dtcm]]
 address = 0x20000000
 size = 131072
 read = true
