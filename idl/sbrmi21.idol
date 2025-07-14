@@ -1,0 +1,112 @@
+// SB-RMI API
+
+Interface(
+    name: "SbRmi21",
+    ops: {
+        "nthreads": (
+            reply: Result(
+                ok: "u32",
+                err: Complex("SbRmi21Error"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "enabled": (
+            reply: Result(
+                ok: "[u8; 32]",
+                err: Complex("SbRmi21Error"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "alert": (
+            reply: Result(
+                ok: "[u8; 32]",
+                err: Complex("SbRmi21Error"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "cpuid": (
+            args: {
+                "thread": "u32",
+                "eax": "u32",
+                "ecx": "u32",
+            },
+            reply: Result(
+                ok: "[u32; 4]",
+                err: Complex("SbRmi21Error"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        // TODO: The `cmd` argument really out to be an instance of the
+        // `SbRmi21MailboxCmd` enum from the apml-rs crate.  However,
+        // plumbing that through from Humility requires a fair bit of
+        // work that hasn't been done yet (in particular, the need to
+        // support arbitrary struct and enum types in the serialization
+        // code on humility.  So for now, we fake it by passing a fixed
+        // size array that is known to be large enough to hold a Hubpack
+        // serialized instance of a variant of that type, that we decode
+        // manually.
+        "mailbox": (
+            args: {
+                "cmd": "[u8; 32]",
+            },
+            reply: Result(
+                ok: "Option<u32>",
+                err: Complex("SbRmi21Error"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "rdmsr8": (
+            args: {
+                "thread": "u32",
+                "msr": "u32",
+            },
+            reply: Result(
+                ok: "u8",
+                err: Complex("SbRmi21Error"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "rdmsr16": (
+            args: {
+                "thread": "u32",
+                "msr": "u32",
+            },
+            reply: Result(
+                ok: "u16",
+                err: Complex("SbRmi21Error"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "rdmsr32": (
+            args: {
+                "thread": "u32",
+                "msr": "u32",
+            },
+            reply: Result(
+                ok: "u32",
+                err: Complex("SbRmi21Error"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "rdmsr64": (
+            args: {
+                "thread": "u32",
+                "msr": "u32",
+            },
+            reply: Result(
+                ok: "u64",
+                err: Complex("SbRmi21Error"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+    },
+)

@@ -257,6 +257,7 @@ pub mod pct2075;
 pub mod raa229618;
 pub mod raa229620a;
 pub mod sbrmi10;
+pub mod sbrmi21;
 pub mod sbtsi;
 pub mod tmp117;
 pub mod tmp451;

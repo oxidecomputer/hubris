@@ -109,6 +109,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "216261ddc8289130e551ddcd5ce8a064710c0d064a4d2895c67151c92b5443f6"
 
 [[package]]
+name = "apml-rs"
+version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/apml-rs#5544c50ca3f1b77d6724c70cda10b0dd28cf9d9f"
+dependencies = [
+ "hubpack",
+ "serde",
+]
+
+[[package]]
 name = "app-donglet"
 version = "0.1.0"
 dependencies = [
@@ -274,6 +283,26 @@ name = "bitflags"
 version = "2.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b8e56985ec62d17e9c1001dc89c88ecd7dc08e47eba5ec7c29c7b5eeecde967"
+
+[[package]]
+name = "bitstruct"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a1b10c3912af09af44ea1dafe307edb5ed374b2a32658eb610e372270c9017b4"
+dependencies = [
+ "bitstruct_derive",
+]
+
+[[package]]
+name = "bitstruct_derive"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "35fd19022c2b750d14eb9724c204d08ab7544570105b3b466d8a9f2f3feded27"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.94",
+]
 
 [[package]]
 name = "bitvec"
@@ -1097,8 +1126,8 @@ dependencies = [
  "gnarle",
  "idol",
  "idol-runtime",
- "minicbor 0.26.4",
- "minicbor-serde 0.4.1",
+ "minicbor 2.1.1",
+ "minicbor-serde 0.6.0",
  "num-traits",
  "pmbus",
  "ringbuf",
@@ -1265,8 +1294,8 @@ dependencies = [
  "gnarle",
  "idol",
  "idol-runtime",
- "minicbor 0.26.4",
- "minicbor-serde 0.4.1",
+ "minicbor 2.1.1",
+ "minicbor-serde 0.6.0",
  "num-derive 0.4.2",
  "num-traits",
  "pmbus",
@@ -1356,14 +1385,19 @@ dependencies = [
 name = "drv-i2c-devices"
 version = "0.1.0"
 dependencies = [
+ "apml-rs",
  "bitfield 0.13.2",
+ "bitstruct",
  "derive-idol-err",
  "drv-i2c-api",
  "drv-onewire",
+ "drv-sbrmi21-api",
+ "hubpack",
  "num-derive 0.4.2",
  "num-traits",
  "pmbus",
  "ringbuf",
+ "serde",
  "smbus-pec",
  "task-power-api",
  "userlib",
@@ -2050,6 +2084,46 @@ dependencies = [
  "drv-i2c-devices",
  "idol",
  "num-traits",
+ "userlib",
+ "zerocopy 0.8.26",
+ "zerocopy-derive 0.8.26",
+]
+
+[[package]]
+name = "drv-sbrmi21"
+version = "0.1.0"
+dependencies = [
+ "apml-rs",
+ "build-i2c",
+ "build-util",
+ "cfg-if",
+ "drv-i2c-api",
+ "drv-i2c-devices",
+ "drv-sbrmi21-api",
+ "drv-stm32xx-sys-api",
+ "hubpack",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "ringbuf",
+ "serde",
+ "userlib",
+ "zerocopy 0.8.26",
+ "zerocopy-derive 0.8.26",
+]
+
+[[package]]
+name = "drv-sbrmi21-api"
+version = "0.1.0"
+dependencies = [
+ "apml-rs",
+ "counters",
+ "derive-idol-err",
+ "drv-i2c-api",
+ "hubpack",
+ "idol",
+ "num-traits",
+ "serde",
  "userlib",
  "zerocopy 0.8.26",
  "zerocopy-derive 0.8.26",
@@ -3910,11 +3984,11 @@ dependencies = [
 
 [[package]]
 name = "minicbor-serde"
-version = "0.4.1"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54e45e8beeefea1b8b6f52fa188a5b6ea3746c2885606af8d4d8bf31cee633fb"
+checksum = "0bbf243b8cc68a7a76473b14328d3546fb002ae3d069227794520e9181003de9"
 dependencies = [
- "minicbor 0.26.4",
+ "minicbor 2.1.1",
  "serde",
 ]
 

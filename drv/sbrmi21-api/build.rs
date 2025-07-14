@@ -4,7 +4,7 @@
 
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     idol::client::build_client_stub(
-        "../../idl/sbrmi10.idol",
+        "../../idl/sbrmi21.idol",
         "client_stub.rs",
     )?;
     Ok(())

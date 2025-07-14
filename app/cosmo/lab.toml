@@ -1,3 +1,11 @@
 # Configuration fragment for -lab images
 tasks.cosmo_seq.features = ["stay-in-a2", "enable-backplane-pcie-clk"]
 tasks.packrat.features = ["boot-kmdb"]
+
+[tasks.sbrmi21]
+name = "drv-sbrmi21"
+priority = 4
+max-sizes = {flash = 16384, ram = 2048 }
+start = true
+task-slots = ["i2c_driver"]
+stacksize = 1024

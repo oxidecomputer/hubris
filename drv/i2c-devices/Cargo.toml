@@ -4,10 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+apml-rs = { workspace = true }
 bitfield = { workspace = true }
+hubpack = { workspace = true }
 num-derive = { workspace = true }
 num-traits = { workspace = true }
 pmbus = { workspace = true }
+serde = { workspace = true }
 smbus-pec = { workspace = true }
 zerocopy = { workspace = true }
 zerocopy-derive = { workspace = true }
@@ -15,9 +18,11 @@ zerocopy-derive = { workspace = true }
 derive-idol-err = { path = "../../lib/derive-idol-err" }
 drv-i2c-api = { path = "../i2c-api" }
 drv-onewire = { path = "../onewire" }
+drv-sbrmi21-api = { path = "../sbrmi21-api" }
 ringbuf = { path = "../../lib/ringbuf" }
 task-power-api = { path = "../../task/power-api" }
 userlib = { path = "../../sys/userlib" }
+bitstruct = "0.1.1"
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
