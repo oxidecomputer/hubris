@@ -63,7 +63,7 @@ impl I2cMuxDriver for Pca9545 {
         // This part has but one register -- any write is to the control
         // register.
         //
-        match controller.write_read(
+        let out =match controller.write_read(
             mux.address,
             1,
             |_| Some(reg.0),
@@ -73,7 +73,9 @@ impl I2cMuxDriver for Pca9545 {
         ) {
             Err(code) => Err(mux.error_code(code)),
             _ => Ok(()),
-        }
+        };
+        userlib::hl::sleep_for(1);
+        out
     }
 
     fn reset(
