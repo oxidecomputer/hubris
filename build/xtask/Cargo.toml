@@ -7,7 +7,7 @@ edition = "2021"
 anyhow = { workspace = true }
 atty = { workspace = true }
 cargo_metadata = { workspace = true }
-clap = { workspace = true }
+clap = { workspace = true, features = ["env"] }
 colored = { workspace = true }
 memchr = { workspace = true }
 ordered-toml = { workspace = true }

@@ -48,6 +48,9 @@ enum Xtask {
         /// rebuilding even if it looks like we need to.
         #[clap(long)]
         dirty: bool,
+        /// Configures the caboose for the generated archive.
+        #[clap(flatten)]
+        caboose_args: CabooseArgs,
     },
 
     /// Builds one or more cross-compiled binary as it would appear in the
@@ -83,6 +86,9 @@ enum Xtask {
         /// rebuilding even if it looks like we need to.
         #[clap(long)]
         dirty: bool,
+        /// Configures the caboose for the generated archive.
+        #[clap(flatten)]
+        caboose_args: CabooseArgs,
     },
 
     /// Runs `xtask dist`, `xtask flash` and then `humility gdb`
@@ -93,6 +99,10 @@ enum Xtask {
 
         #[clap(flatten)]
         args: HumilityArgs,
+
+        /// Configures the caboose for the generated archive.
+        #[clap(flatten)]
+        caboose_args: CabooseArgs,
     },
 
     /// Runs `xtask dist` and reports the sizes of resulting tasks
@@ -114,6 +124,10 @@ enum Xtask {
         /// rebuilding even if it looks like we need to.
         #[clap(long)]
         dirty: bool,
+
+        /// Configures the caboose for the generated archive.
+        #[clap(flatten)]
+        caboose_args: CabooseArgs,
     },
 
     /// Runs `humility`, passing any arguments
@@ -130,6 +144,10 @@ enum Xtask {
 
         #[clap(flatten)]
         args: HumilityArgs,
+
+        /// Configures the caboose for the generated archive.
+        #[clap(flatten)]
+        caboose_args: CabooseArgs,
     },
 
     /// Runs `cargo clippy` on a specified task
@@ -224,6 +242,20 @@ pub struct HumilityArgs {
     extra_options: Vec<String>,
 }
 
+#[derive(Clone, Debug, Parser, Default)]
+struct CabooseArgs {
+    /// Overrides the `VERS` string in the caboose when a default caboose is
+    /// written.
+    ///
+    /// This is intended to be used when an engineering image must be
+    /// flashed in an environment that expects a particular caboose version.
+    ///
+    /// Overriding the default caboose version string is only permitted if
+    /// the app.toml specifies the default caboose.
+    #[clap(env = "HUBRIS_CABOOSE_VERS")]
+    version_override: Option<String>,
+}
+
 fn main() -> Result<()> {
     // Check whether we're running from the right directory
     if let Ok(root_path) = std::env::var("CARGO_MANIFEST_DIR") {
@@ -250,8 +282,10 @@ fn run(xtask: Xtask) -> Result<()> {
             edges,
             cfg,
             dirty,
+            caboose_args,
         } => {
-            let allocs = dist::package(verbose, edges, &cfg, None, dirty)?;
+            let allocs =
+                dist::package(verbose, edges, &cfg, None, dirty, caboose_args)?;
             for (_, (a, _)) in allocs {
                 sizes::run(&cfg, &a, true, false, false, false)?;
             }
@@ -267,11 +301,29 @@ fn run(xtask: Xtask) -> Result<()> {
             if list {
                 dist::list_tasks(&cfg)?;
             } else {
-                dist::package(verbose, edges, &cfg, Some(tasks), dirty)?;
+                dist::package(
+                    verbose,
+                    edges,
+                    &cfg,
+                    Some(tasks),
+                    dirty,
+                    CabooseArgs::default(),
+                )?;
             }
         }
-        Xtask::Flash { dirty, mut args } => {
-            dist::package(args.verbose, false, &args.cfg, None, dirty)?;
+        Xtask::Flash {
+            dirty,
+            mut args,
+            caboose_args,
+        } => {
+            dist::package(
+                args.verbose,
+                false,
+                &args.cfg,
+                None,
+                dirty,
+                caboose_args,
+            )?;
             let toml = Config::from_file(&args.cfg)?;
             let chipname =
                 crate::flash::chip_name(&toml.board)?.ok_or_else(|| {
@@ -301,8 +353,16 @@ fn run(xtask: Xtask) -> Result<()> {
             compare,
             save,
             dirty,
+            caboose_args,
         } => {
-            let allocs = dist::package(verbose >= 2, false, &cfg, None, dirty)?;
+            let allocs = dist::package(
+                verbose >= 2,
+                false,
+                &cfg,
+                None,
+                dirty,
+                caboose_args,
+            )?;
             for (_, (a, _)) in allocs {
                 sizes::run(&cfg, &a, false, compare, save, verbose >= 1)?;
             }
@@ -319,7 +379,11 @@ fn run(xtask: Xtask) -> Result<()> {
             };
             humility::run(&args, &[], None, true, image_name)?;
         }
-        Xtask::Gdb { noflash, mut args } => {
+        Xtask::Gdb {
+            noflash,
+            mut args,
+            caboose_args,
+        } => {
             let toml = Config::from_file(&args.cfg)?;
             let image_name = if let Some(ref name) = args.image_name {
                 if !toml.check_image_name(name) {
@@ -330,14 +394,25 @@ fn run(xtask: Xtask) -> Result<()> {
                 &toml.image_names[0]
             };
             if !noflash {
-                dist::package(args.verbose, false, &args.cfg, None, false)?;
+                dist::package(
+                    args.verbose,
+                    false,
+                    &args.cfg,
+                    None,
+                    false,
+                    caboose_args,
+                )?;
                 // Delegate flashing to `humility gdb`, which also modifies
                 // the GDB startup script slightly (adding `stepi`)
                 args.extra_options.push("--load".to_string());
             }
             humility::run(&args, &[], Some("gdb"), true, image_name)?;
         }
-        Xtask::Test { args, noflash } => {
+        Xtask::Test {
+            args,
+            noflash,
+            caboose_args,
+        } => {
             let toml = Config::from_file(&args.cfg)?;
             let image_name = if let Some(ref name) = args.image_name {
                 if !toml.check_image_name(name) {
@@ -351,6 +426,7 @@ fn run(xtask: Xtask) -> Result<()> {
                 run(Xtask::Flash {
                     args: args.clone(),
                     dirty: false,
+                    caboose_args,
                 })?;
             }
             humility::run(&args, &[], Some("test"), false, image_name)?;
