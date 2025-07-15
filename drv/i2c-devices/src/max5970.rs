@@ -482,12 +482,14 @@ impl Max5970 {
         let mut buf = [0u8; 100];
         self.device.read_reg_into(reg as u8, &mut buf)?;
 
-        let mut sum = 0f32;
+        // 50x 10-bit values can't overflow a u16
+        let mut sum = 0u16;
         for c in buf.chunks_exact(2) {
-            sum += self.convert_current(status, c[0], c[1])?.0;
+            sum += ((c[0] as u16) << 2) | (c[1] as u16);
         }
-        let mean = sum / (buf.len() / 2) as f32;
-        Ok(Amperes(mean))
+        let mean = sum / 50;
+        let [msb, lsb] = mean.to_be_bytes();
+        self.convert_current(status, msb, lsb)
     }
 }
 
