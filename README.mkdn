@@ -21,7 +21,7 @@ The repo is laid out as follows.
 
 - `build/` contains the build system and supporting crates.
 
-- `chip/` contains peripheral definitions and debugging support files for
+- `chips/` contains peripheral definitions and debugging support files for
   individual microcontrollers.
 
 - `doc/` contains developer documentation.
@@ -37,8 +37,6 @@ The repo is laid out as follows.
 - `lib/` contains assorted utility libraries we've written. If you need to make
   a reusable crate that doesn't fit into one of the other directories, it
   probably belongs here.
-
-- `stage0/` is the bootloader/hypovisor, primarily for LPC55.
 
 - `support/` contains some interface and programming support files, like fake
   certificates and programmer firmware images.
@@ -75,17 +73,6 @@ You will need:
 - A `rustup`-based toolchain install. `rustup` will take care of automatically
   installing our pinned toolchain version, and the cross-compilation targets,
   when you first try to build.
-
-- `openocd` (ideally 0.11) or (if using the LPC55) `pyocd` (0.27 or later).
-  Note that the 0.10 release of OpenOCD predates the STLink v3. People are using
-  various post-0.10, pre-0.11 builds provided by system package managers, with
-  some success, but if your system isn't packaging 0.11 yet, pester them. If
-  you're going to use Homebrew on macOS to install OpenOCD, you need to use
-  `brew install --head openocd` to build the tip of the main branch rather than
-  using the latest binary release. If you need to build from source, you can
-  find [OpenOCD v0.11.0 here](https://sourceforge.net/projects/openocd/files/openocd/0.11.0/).
-  When running `./configure`, make sure that you see that the
-  `ST-Link Programmer` is set enabled (which should be the default).
 
 - [libusb](https://libusb.info/), typically found from your system's package
   manager as `libusb-1.0.0` or similar.
@@ -522,19 +509,17 @@ and details.
 
 ## LPCXpresso55S69 board
 
-To use the LPCXpresso55S69, you will need [pyOCD](https://github.com/mbedmicro/pyOCD), version 0.27.0 or later.
-
 The LPCXpresso55S69 is somewhat of a mess because the built-on on-chip
 debugger, LPC-Link2, [does not correctly support SWO/SWV](https://community.nxp.com/t5/LPC-Microcontrollers/SWO-SWV-on-LPC-Link2-with-CMSIS-DAP/m-p/1079442)
 
-If you have the stock LPC-Link2, it will report itself this way via `pyocd list`:
+If you have the stock LPC-Link2, it will report itself this way via 
+[`probe-rs list`](https://probe.rs/docs/tools/probe-rs/) or `humility lsusb`:
 
 
 ```console
-$ pyocd list
-  #   Probe                                           Unique ID
------------------------------------------------------------------
-  0   NXP Semiconductors LPC-LINK2 CMSIS-DAP V5.361   JSAQCQIQ
+$ probe-rs list
+The following debug probes were found:
+[0]: MCU-LINK (r0FF) CMSIS-DAP V3.153 -- 1fc9:0143:U2VLC0GBANWF1 (CMSIS-DAP)
 ```
 
 It's also possible that you have the Segger J-Link firmware -- firmware
@@ -667,13 +652,14 @@ $
 
 10. Unplug and replug the USB cable.
 
-Verify that you are on the new firmware by running `pyocd list`:
+Verify that you are on the new firmware by running `pyocd list` or 
+`probe-rs list`:
 
 ```console
 $ pyocd list
   #   Probe                        Unique ID                                         
 -------------------------------------------------------------------------------------
-  0   LPCXpresso55S69 [lpc55s69]   02360b000d96e4fc00000000000000000000000097969905  
+  0   LPCXpresso55S69 [lpc55s69]   02360b000d96e4fc00000000000000000000000097969905
 ```
 
 ## LPC55S28 on Gemini carrier board
