@@ -6,5 +6,12 @@ edition = "2021"
 [dependencies]
 measurement-token.workspace = true
 
+[build-dependencies]
+anyhow.workspace = true
+ron.workspace = true
+measurement-token.workspace = true
+build-util.path = "../../build/util"
+build-kconfig.path = "../../build/kconfig"
+
 [lints]
 workspace = true

@@ -2880,6 +2880,11 @@ pub fn make_kconfig(
     flat_shared.retain(|name, _v| used_shared_regions.contains(name.as_str()));
 
     Ok(build_kconfig::KernelConfig {
+        features: toml.kernel.features.clone(),
+        extern_regions: toml
+            .kernel_extern_regions(image_name)?
+            .into_iter()
+            .collect(),
         irqs,
         tasks,
         shared_regions: flat_shared,

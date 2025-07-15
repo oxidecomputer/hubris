@@ -3786,7 +3786,11 @@ checksum = "60302e4db3a61da70c0cb7991976248362f30319e88850c487b9b95bbf059e00"
 name = "measurement-handoff"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "build-kconfig",
+ "build-util",
  "measurement-token",
+ "ron",
 ]
 
 [[package]]
