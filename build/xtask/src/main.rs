@@ -124,6 +124,10 @@ enum Xtask {
         /// rebuilding even if it looks like we need to.
         #[clap(long)]
         dirty: bool,
+
+        /// Configures the caboose for the generated archive.
+        #[clap(flatten)]
+        caboose_args: CabooseArgs,
     },
 
     /// Runs `humility`, passing any arguments
@@ -349,6 +353,7 @@ fn run(xtask: Xtask) -> Result<()> {
             compare,
             save,
             dirty,
+            caboose_args,
         } => {
             let allocs = dist::package(
                 verbose >= 2,
@@ -356,7 +361,7 @@ fn run(xtask: Xtask) -> Result<()> {
                 &cfg,
                 None,
                 dirty,
-                CabooseArgs::default(),
+                caboose_args,
             )?;
             for (_, (a, _)) in allocs {
                 sizes::run(&cfg, &a, false, compare, save, verbose >= 1)?;
