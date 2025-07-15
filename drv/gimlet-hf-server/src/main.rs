@@ -758,7 +758,9 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             return Err(HfError::HashError.into());
         }
         match self.hash.state {
-            HashState::Hashing { .. } => return Err(HfError::HashError.into()),
+            HashState::Hashing { .. } => {
+                return Err(HfError::HashInProgress.into())
+            }
             _ => (),
         }
         let begin = addr as usize;
