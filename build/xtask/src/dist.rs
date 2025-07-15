@@ -350,7 +350,6 @@ pub fn package(
              default caboose",
             app_toml.display(),
         );
-        println!("note: asked to override default caboose `VERS` to {vers:?}");
     }
 
     // Verify that our dump configuration is correct (or absent)
@@ -657,6 +656,12 @@ pub fn package(
                 let mut archive =
                     hubtools::RawHubrisArchive::load(&archive_name)
                         .context("loading archive with hubtools")?;
+                if let Some(ref vers) = caboose_args.version_override {
+                    println!(
+                        "note: asked to override default caboose `VERS` to \
+                         {vers:?}"
+                    );
+                }
                 // The Git hash is included in the default caboose under the key
                 // `GITC`, so we don't include it in the pseudo-version.
                 archive
