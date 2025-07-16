@@ -43,7 +43,6 @@ interrupts = {"flash_controller.irq" = "flash-irq"}
 [caboose]
 region = "flash"
 size = 256
-default = true
 
 [tasks.hiffy]
 name = "task-hiffy"

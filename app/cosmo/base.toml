@@ -17,7 +17,6 @@ register-map = "../../drv/spartan7-loader/cosmo-seq/cosmo_seq_top.json"
 tasks = ["control_plane_agent"]
 region = "flash"
 size = 256
-default = true
 
 [tasks.jefe]
 name = "task-jefe"
