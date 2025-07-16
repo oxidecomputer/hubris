@@ -5737,6 +5737,7 @@ dependencies = [
  "idol",
  "idol-runtime",
  "minicbor 0.26.4",
+ "minicbor-lease",
  "mutable-statics",
  "num-traits",
  "quote",
