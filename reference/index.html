@@ -5644,26 +5644,60 @@ read data from the caboose region of flash.  If other tasks attempt to read from
 this memory region, they will experience the typical memory fault.</p>
 </div>
 <div class="paragraph">
-<p>Hubris does not have strong opinions about the contents of the caboose, other
-than reserving two words.  At build time, the caboose is loaded with the
-following data (shown here as <code>u32</code> words):</p>
+<p>The Hubris build system will populate the caboose with start and end words
+(32-bit words) words, and a sequence of
+<a href="https://github.com/oxidecomputer/tlvc">TLV-C</a> key-value pairs containing image
+metadata:</p>
 </div>
 <table class="tableblock frame-all grid-all stretch">
 <colgroup>
-<col style="width: 25%;">
-<col style="width: 75%;">
+<col style="width: 16.6666%;">
+<col style="width: 16.6666%;">
+<col style="width: 66.6668%;">
 </colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Value</th>
+<th class="tableblock halign-left valign-top">Type</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
 <tbody>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><strong>Start</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>u32</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>abi::CABOOSE_MAGIC</code></p></td>
 </tr>
 <tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>GITC</code> tag</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">TLV-C</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The current Git commit hash with an optional trailing "-dirty" if the
+repository contains uncommitted changes.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>BORD</code> tag</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">TLV-C</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The name of the target board, as specified in the image&#8217;s TOML config.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>NAME</code> tag</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">TLV-C</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The name of the image, as specified in the image&#8217;s TOML config.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>VERS</code> tag</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">TLV-C <em>(optional)</em></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The value of the <code>HUBRIS_CABOOSE_VERS</code> environment variable at build time,
+if it was set.</p></td>
+</tr>
+<tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">&#8230;&#8203;</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><em>(filled with <code>0xFFFFFFFF</code>)</em></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>u8</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><em>(filled with <code>0xFF</code>)</em></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><strong>End</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>u32</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Caboose size (little-endian <code>u32</code>)</p></td>
 </tr>
 </tbody>
@@ -5739,27 +5773,12 @@ individual task image at build time. This is implemented in the
 can&#8217;t know the caboose position until all tasks have been built)</p>
 </div>
 <div class="paragraph">
-<p>Other than reserving the two words above, the Hubris build system is
-<em>deliberately agnostic</em> to the contents of the caboose; it is left to a separate
-release engineering process to decide what to store there.  The
+<p>Besides the start and end words and the default metadata described above, the
+Hubris build system is agnostic to any further contents of the caboose. A
+separate release engineering process may decide to store any arbitrary data in
+the remaining space. The
 <a href="https://github.com/oxidecomputer/hubtools"><code>hubtools</code> repository</a> includes a
 library and CLI for modifying the caboose of a Hubris archive.</p>
-</div>
-<div class="paragraph">
-<p>However, for convenience, it&#8217;s possible to enable a default caboose:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight"><code data-lang="toml"><span class="nn">[caboose]</span>
-<span class="py">region</span> <span class="p">=</span> <span class="s">"flash"</span>
-<span class="py">size</span> <span class="p">=</span> <span class="mi">128</span>
-<span class="py">tasks</span> <span class="p">=</span> <span class="p">[</span><span class="s">"caboose_reader"</span><span class="p">]</span>
-<span class="py">default</span> <span class="p">=</span> <span class="kc">true</span></code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>If the <code>default</code> parameter is <code>true</code>, then Hubris will itself use <code>hubtools</code> to
-populate the caboose with default values.</p>
 </div>
 </div>
 </div>
@@ -5795,7 +5814,7 @@ tool to a high-reliability research platform.</em></p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2025-07-16 19:04:42 UTC
+Last updated 2025-07-16 21:00:41 UTC
 </div>
 </div>
 </body>
