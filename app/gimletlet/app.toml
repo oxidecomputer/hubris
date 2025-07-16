@@ -48,9 +48,6 @@ start = true
 # task-slots is explicitly empty: packrat should not send IPCs!
 task-slots = []
 
-[caboose]
-tasks = ["control_plane_agent"]
-
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
 priority = 7
