@@ -37,15 +37,46 @@ mapped as an MPU region. Only tasks declared in `caboose.tasks` are allowed to
 read data from the caboose region of flash.  If other tasks attempt to read from
 this memory region, they will experience the typical memory fault.
 
-Hubris does not have strong opinions about the contents of the caboose, other
-than reserving two words.  At build time, the caboose is loaded with the
-following data (shown here as `u32` words):
+The Hubris build system will populate the caboose with start and end words
+(32-bit words) words, and a sequence of 
+https://github.com/oxidecomputer/tlvc[TLV-C] key-value pairs containing image
+metadata:
 
-[cols="1,3"]
+[%header,cols="1,1,4"]
 |===
-| **Start** | `abi::CABOOSE_MAGIC`
-| ...       | _(filled with `0xFFFFFFFF`)_
-| **End**   | Caboose size (little-endian `u32`)
+| Value
+| Type
+| Description
+
+| **Start** 
+| `u32` 
+| `abi::CABOOSE_MAGIC`
+
+| `GITC` tag 
+| TLV-C 
+| The current Git commit hash with an optional trailing "-dirty" if the
+repository contains uncommitted changes.
+
+| `BORD` tag
+| TLV-C
+| The name of the target board, as specified in the image's TOML config.
+
+| `NAME` tag
+| TLV-C
+| The name of the image, as specified in the image's TOML config.
+
+| `VERS` tag
+| TLV-C _(optional)_
+| The value of the `HUBRIS_CABOOSE_VERS` environment variable at build time,
+if it was set.
+
+| ...
+| `u8`
+| _(filled with `0xFF`)_
+
+| **End**   
+| `u32`
+| Caboose size (little-endian `u32`)
 |===
 
 The caboose's length is included in the `total_image_len` field of
@@ -79,20 +110,9 @@ let caboose: Option<&'static [u8]> = drv_caboose_pos::CABOOSE_POS.as_slice();
 (This functionality requires cooperation with the `xtask` build system, as we
 can't know the caboose position until all tasks have been built)
 
-Other than reserving the two words above, the Hubris build system is
-_deliberately agnostic_ to the contents of the caboose; it is left to a separate
-release engineering process to decide what to store there.  The
+Besides the start and end words and the default metadata described above, the
+Hubris build system is agnostic to any further contents of the caboose. A 
+separate release engineering process may decide to store any arbitrary data in
+the remaining space. The 
 https://github.com/oxidecomputer/hubtools[`hubtools` repository] includes a
 library and CLI for modifying the caboose of a Hubris archive.
-
-However, for convenience, it's possible to enable a default caboose:
-```toml
-[caboose]
-region = "flash"
-size = 128
-tasks = ["caboose_reader"]
-default = true
-```
-
-If the `default` parameter is `true`, then Hubris will itself use `hubtools` to
-populate the caboose with default values.

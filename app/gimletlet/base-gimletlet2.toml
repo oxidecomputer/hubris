@@ -125,7 +125,6 @@ interrupts = {"flash_controller.irq" = "flash-irq"}
 [caboose]
 region = "flash"
 size = 256
-default = true
 
 [config]
 [[config.i2c.controllers]]

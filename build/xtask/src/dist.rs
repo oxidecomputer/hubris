@@ -332,26 +332,6 @@ pub fn package(
 ) -> Result<BTreeMap<String, AllocationMap>> {
     let cfg = PackageConfig::new(app_toml, verbose, edges)?;
 
-    // If an overridden caboose version was given, it will only be used if the
-    // config requests a default caboose.
-    if let Some(ref vers) = caboose_args.version_override {
-        let Some(ref caboose) = &cfg.toml.caboose else {
-            bail!(
-                "an overridden default caboose version was requested \
-                 (HUBRIS_CABOOSE_VERS={vers:?}), but {} does not specify a \
-                 caboose",
-                app_toml.display(),
-            );
-        };
-        anyhow::ensure!(
-            caboose.default,
-            "the default caboose version is overriden \
-             (HUBRIS_CABOOSE_VERS={vers:?}), but {} does not specify a
-             default caboose",
-            app_toml.display(),
-        );
-    }
-
     // Verify that our dump configuration is correct (or absent)
     check_dump_config(&cfg.toml)?;
 
@@ -650,27 +630,28 @@ pub fn package(
         write_gdb_script(&cfg, image_name)?;
         let archive_name = build_archive(&cfg, image_name, raw_image)?;
 
-        // Post-build modifications: populate a default caboose if requested
-        if let Some(ref caboose) = cfg.toml.caboose {
-            if caboose.default {
-                let mut archive =
-                    hubtools::RawHubrisArchive::load(&archive_name)
-                        .context("loading archive with hubtools")?;
-                if let Some(ref vers) = caboose_args.version_override {
-                    println!(
-                        "note: asked to override default caboose `VERS` to \
-                         {vers:?}"
-                    );
-                }
-                // The Git hash is included in the default caboose under the key
-                // `GITC`, so we don't include it in the pseudo-version.
-                archive
-                    .write_default_caboose(
-                        caboose_args.version_override.as_ref(),
-                    )
-                    .context("writing caboose into archive")?;
-                archive.overwrite().context("overwriting archive")?;
+        // Post-build modifications: populate the caboose if requested
+        if cfg.toml.caboose.is_some() {
+            let mut archive = hubtools::RawHubrisArchive::load(&archive_name)
+                .context("loading archive with hubtools")?;
+            if let Some(ref vers) = caboose_args.version_override {
+                println!("note: asked to override caboose `VERS` to {vers:?}");
             }
+            // The Git hash is included in the default caboose under the key
+            // `GITC`, so we don't include it in the pseudo-version.
+            archive
+                .write_default_caboose(caboose_args.version_override.as_ref())
+                .context("writing caboose into archive")?;
+            archive.overwrite().context("overwriting archive")?;
+        } else if let Some(ref vers) = caboose_args.version_override {
+            // If there's no caboose, the version override does nothing --- make
+            // sure the user realizes that.
+            eprintln!(
+                "warning: ignoring overridden caboose version \
+                 (HUBRIS_CABOOSE_VERS={vers:?}) as {} does not have a \
+                 `[caboose]` section!",
+                app_toml.display()
+            );
         }
 
         // Post-build modifications: sign the image if requested

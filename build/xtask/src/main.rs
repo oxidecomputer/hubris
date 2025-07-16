@@ -244,14 +244,13 @@ pub struct HumilityArgs {
 
 #[derive(Clone, Debug, Parser, Default)]
 struct CabooseArgs {
-    /// Overrides the `VERS` string in the caboose when a default caboose is
-    /// written.
+    /// Overrides the `VERS` string in the caboose.
     ///
     /// This is intended to be used when an engineering image must be
     /// flashed in an environment that expects a particular caboose version.
     ///
-    /// Overriding the default caboose version string is only permitted if
-    /// the app.toml specifies the default caboose.
+    /// This environment variable is, naturally, ignored if the app.toml does
+    /// not have a [caboose] section.
     #[clap(env = "HUBRIS_CABOOSE_VERS")]
     version_override: Option<String>,
 }
