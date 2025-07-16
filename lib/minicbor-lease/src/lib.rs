@@ -9,9 +9,10 @@
 
 /// An adapter implementing [`minicbor::encode::write::Write`] for
 /// [`idol_runtime::Leased`] byte buffers.
-pub struct LeasedWriter<A> {
-    lease: idol_runtime::Leased<A, [u8]>,
+pub struct LeasedWriter<'lease, A> {
+    lease: &'lease mut idol_runtime::Leased<A, [u8]>,
     pos: usize,
+    ran_out_of_space: bool,
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -20,7 +21,7 @@ pub enum Error {
     EndOfLease,
 }
 
-impl minicbor::encode::write::Write for LeasedWriter<A>
+impl minicbor::encode::write::Write for LeasedWriter<'_, A>
 where
     A: idol_runtime::AttributeWrite,
 {
@@ -29,7 +30,8 @@ where
     fn write_all(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
         let end = self.pos + buf.len();
         if end >= self.lease.len() {
-            return Error::EndOfLease;
+            self.ran_out_of_space = true;
+            return Err(Error::EndOfLease);
         }
         self.lease
             .write_range(self.pos..end, buf)
@@ -41,12 +43,12 @@ where
     }
 }
 
-impl<A> LeasedWriter<A>
+impl<A> LeasedWriter<'_, A>
 where
     A: idol_runtime::AttributeWrite,
 {
     /// Returns a new `LeasedWriter` starting at byte 0 of the lease.
-    pub fn new(lease: idol_runtime::Leased<A, [u8]>) -> Self {
+    pub fn new(lease: &mut idol_runtime::Leased<A, [u8]>) -> Self {
         Self { lease, pos: 0 }
     }
 
@@ -55,7 +57,7 @@ where
     ///
     /// This is intended for cases where some data has already been written to
     /// the lease.
-    pub fn starting_at(lease: idol_runtime::Leased<A, [u8]>) -> Self {
+    pub fn starting_at(lease: &mut idol_runtime::Leased<A, [u8]>) -> Self {
         Self { lease, pos: 0 }
     }
 
@@ -65,7 +67,25 @@ where
     }
 
     /// Returns the underlying lease, consuming the writer.
-    pub fn into_inner(self) -> idol_runtime::Leased<A, [u8]> {
+    pub fn into_inner(self) -> &mut idol_runtime::Leased<A, [u8]> {
         self.lease
+    }
+
+    /// Returns `true` if the last `write_all` call to return an error failed
+    /// due to running out of space.
+    ///
+    /// This is an unfortunate workaround for a limitation of the `minicbor`
+    /// API: the errors our `Write` implementation can return are wrapped in an
+    /// `encode::Error`, and we can't actually get our errors *out* of that
+    /// wrapper, so there's no way to tell whether the error was becasue we ran
+    /// out of space in the buffer, or because the lease client went away. So,
+    /// we track it here, so that the caller can just ask us if we didn't have
+    /// space to encode something.
+    ///
+    /// Note that this is separate from `pos == lease.len()`, because we don't
+    /// actually write anything (and thus don't advance `pos`) if asked to write
+    /// a chunk of bytes that don't fit.
+    pub fn ran_out_of_space(&self) -> bool {
+        self.ran_out_of_space
     }
 }

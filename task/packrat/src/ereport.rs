@@ -17,6 +17,7 @@ use super::ereport_messages;
 use core::convert::Infallible;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError};
 use minicbor::CborLen;
+use minicbor_lease::LeaseWriter;
 use ringbuf::{counted_ringbuf, ringbuf_entry};
 use task_packrat_api::{EreportReadError, VpdIdentity};
 use userlib::{kipc, sys_get_timer, RecvMessage, TaskId};
@@ -173,8 +174,12 @@ impl EreportStore {
 
         // Start the metadata map.
         //
-        // MGS expects us to always include this, and to  just have it be
+        // MGS expects us to always include this, and to just have it be
         // empty if we didn't send any metadata.
+        let mut e = minicbor::Encoder::new(LeasedWriter::starting_at(
+            position, &mut data,
+        ));
+        e.begin_map().map_err(|_| ClientError::WentAway.fail())?;
         data.write_at(position, CBOR_BEGIN_MAP)
             .map_err(|_| ClientError::WentAway.fail())?;
         position += 1;
