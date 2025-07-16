@@ -21,7 +21,6 @@ features = ["dice-self"]
 tasks = ["sprot"]
 region = "flash"
 size = 256
-default = true
 
 [tasks.jefe]
 name = "task-jefe"

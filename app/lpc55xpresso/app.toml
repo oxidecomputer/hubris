@@ -14,7 +14,6 @@ requires = {flash = 55040, ram = 4096}
 [caboose]
 region = "flash"
 size = 256
-default = true
 
 [tasks.jefe]
 name = "task-jefe"

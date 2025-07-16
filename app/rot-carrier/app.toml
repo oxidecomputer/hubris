@@ -17,7 +17,6 @@ requires = {flash = 54176, ram = 3876}
 tasks = ["sprot"]
 region = "flash"
 size = 256
-default = true
 
 [tasks.jefe]
 name = "task-jefe"

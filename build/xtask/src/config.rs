@@ -112,10 +112,6 @@ pub struct CabooseConfig {
     /// The system reserves two words (8 bytes) for the size and marker, so the
     /// user-accessible space is 8 bytes less than this value.
     pub size: u32,
-
-    /// If `true`, populates the caboose with default values using `hubtools`
-    #[serde(default)]
-    pub default: bool,
 }
 
 impl Config {
