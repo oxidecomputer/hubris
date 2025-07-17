@@ -259,7 +259,7 @@ notifications = ["socket"]
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
 priority = 7
-stacksize = 6256
+stacksize = 7000
 start = true
 uses = ["usart1"]
 task-slots = [
