@@ -3484,6 +3484,7 @@ dependencies = [
  "ron",
  "serde",
  "ssmarshal",
+ "stm32h7",
  "syn 2.0.98",
  "unwrap-lite",
  "zerocopy 0.8.25",

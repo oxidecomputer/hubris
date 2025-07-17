@@ -7,7 +7,7 @@ fwid = true
 [kernel]
 name = "cosmo"
 requires = {flash = 32768, ram = 8192}
-features = ["dump"]
+features = ["dump", "kern-debug-led"]
 
 [mmio]
 peripheral-region = "fmc_nor_psram_bank_1"
