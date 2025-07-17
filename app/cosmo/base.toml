@@ -394,27 +394,10 @@ scl.pin = 8
 sda.pin = 9
 af = 4
 
-# The front FPGA has five virtual muxes, which pretend to be PCA9545s.
-# We only use the lower 3 channels on each mux (which is normally 4-channel)
+# The front FPGA has one sixteen-channel virtual mux
 [[config.i2c.controllers.ports.B.muxes]]
-driver = "pca9545"
+driver = "oximux16"
 address = 0x70
-
-[[config.i2c.controllers.ports.B.muxes]]
-driver = "pca9545"
-address = 0x71
-
-[[config.i2c.controllers.ports.B.muxes]]
-driver = "pca9545"
-address = 0x72
-
-[[config.i2c.controllers.ports.B.muxes]]
-driver = "pca9545"
-address = 0x73
-
-[[config.i2c.controllers.ports.B.muxes]]
-driver = "pca9545"
-address = 0x74
 
 #
 # I2C2: Main FPGA I2C mux
@@ -433,18 +416,13 @@ scl.pin = 1
 sda.pin = 0
 af = 4
 
-# The main FPGA has two virtual muxes, which pretend to be PCA9545s.
+# The main FPGA has one sixteen-channel virtual mux
 [[config.i2c.controllers.ports.F.muxes]]
-driver = "pca9545"
+driver = "oximux16"
 address = 0x70
-
-[[config.i2c.controllers.ports.F.muxes]]
-driver = "pca9545"
-address = 0x71
-
-[[config.i2c.controllers.ports.F.muxes]]
-driver = "pca9545"
-address = 0x72
+# The reset line is FPGA1_TO_SP_MISC_A on rev A and SP_TO_FPGA1_I2C_MUX_RESET on
+# subsequent revisions (but has the same physical pin)
+nreset = { port = "H", pin = 9 }
 
 #
 # I2C3: Mid bus
@@ -487,37 +465,9 @@ af = 4
 [[config.i2c.devices]]
 bus = "front"
 address = 0x70
-device = "pca9545"
-description = "Front FPGA virtual mux 1"
+device = "oximux16"
+description = "Front FPGA virtual mux"
 refdes = "U31_1"
-
-[[config.i2c.devices]]
-bus = "front"
-address = 0x71
-device = "pca9545"
-description = "Front FPGA virtual mux 2"
-refdes = "U31_2"
-
-[[config.i2c.devices]]
-bus = "front"
-address = 0x72
-device = "pca9545"
-description = "Front FPGA virtual mux 3"
-refdes = "U31_3"
-
-[[config.i2c.devices]]
-bus = "front"
-address = 0x73
-device = "pca9545"
-description = "Front FPGA virtual mux 4"
-refdes = "U31_4"
-
-[[config.i2c.devices]]
-bus = "front"
-address = 0x74
-device = "pca9545"
-description = "Front FPGA virtual mux 5"
-refdes = "U31_5"
 
 # Welcome to the sharkfin zone
 # SMBUS_FPGA2_TO_CEMA
@@ -634,8 +584,8 @@ removable = true
 # SMBUS_FPGA2_TO_CEMD
 [[config.i2c.devices]]
 bus = "front"
-mux = 2
-segment = 1
+mux = 1
+segment = 4
 address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin D VPD"
@@ -645,8 +595,8 @@ removable = true
 
 [[config.i2c.devices]]
 bus = "front"
-mux = 2
-segment = 1
+mux = 1
+segment = 4
 address = 0b0111_000
 device = "max5970"
 description = "U.2 Sharkfin D hot swap controller"
@@ -658,8 +608,8 @@ removable = true
 
 [[config.i2c.devices]]
 bus = "front"
-mux = 2
-segment = 1
+mux = 1
+segment = 4
 address = 0b110_1010
 device = "nvme_bmc"
 description = "U.2 D NVMe Basic Management Control"
@@ -671,8 +621,8 @@ removable = true
 # SMBUS_FPGA2_TO_CEME
 [[config.i2c.devices]]
 bus = "front"
-mux = 2
-segment = 2
+mux = 1
+segment = 5
 address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin E VPD"
@@ -682,8 +632,8 @@ removable = true
 
 [[config.i2c.devices]]
 bus = "front"
-mux = 2
-segment = 2
+mux = 1
+segment = 5
 address = 0b0111_000
 device = "max5970"
 description = "U.2 Sharkfin E hot swap controller"
@@ -695,8 +645,8 @@ removable = true
 
 [[config.i2c.devices]]
 bus = "front"
-mux = 2
-segment = 2
+mux = 1
+segment = 5
 address = 0b110_1010
 device = "nvme_bmc"
 description = "U.2 E NVMe Basic Management Control"
@@ -708,8 +658,8 @@ removable = true
 # SMBUS_FPGA2_TO_CEMF
 [[config.i2c.devices]]
 bus = "front"
-mux = 2
-segment = 3
+mux = 1
+segment = 6
 address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin F VPD"
@@ -719,8 +669,8 @@ removable = true
 
 [[config.i2c.devices]]
 bus = "front"
-mux = 2
-segment = 3
+mux = 1
+segment = 6
 address = 0b0111_000
 device = "max5970"
 description = "U.2 Sharkfin F hot swap controller"
@@ -732,8 +682,8 @@ removable = true
 
 [[config.i2c.devices]]
 bus = "front"
-mux = 2
-segment = 3
+mux = 1
+segment = 6
 address = 0b110_1010
 device = "nvme_bmc"
 description = "U.2 F NVMe Basic Management Control"
@@ -742,12 +692,14 @@ name = "U2_N5"
 refdes = "J205"
 removable = true
 
+# Note that we skip segments 7 and 8, which are
+# I2C_FPGA2_TO_MCIO1 and I2C_FPGA2_TO_MCIO2
 
 # SMBUS_FPGA2_TO_CEMG
 [[config.i2c.devices]]
 bus = "front"
-mux = 3
-segment = 3
+mux = 1
+segment = 9
 address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin G VPD"
@@ -757,8 +709,8 @@ removable = true
 
 [[config.i2c.devices]]
 bus = "front"
-mux = 3
-segment = 3
+mux = 1
+segment = 9
 address = 0b0111_000
 device = "max5970"
 description = "U.2 Sharkfin G hot swap controller"
@@ -770,8 +722,8 @@ removable = true
 
 [[config.i2c.devices]]
 bus = "front"
-mux = 3
-segment = 3
+mux = 1
+segment = 9
 address = 0b110_1010
 device = "nvme_bmc"
 description = "U.2 G NVMe Basic Management Control"
@@ -780,15 +732,13 @@ name = "U2_N6"
 refdes = "J206"
 removable = true
 
-# Note that we skip the remaining two slots on (virtual) mux 3, which are
-# I2C_FPGA2_TO_MCIO1 and I2C_FPGA2_TO_MCIO2
 
 
 # SMBUS_FPGA2_TO_CEMH
 [[config.i2c.devices]]
 bus = "front"
-mux = 4
-segment = 1
+mux = 1
+segment = 10
 address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin H VPD"
@@ -798,8 +748,8 @@ removable = true
 
 [[config.i2c.devices]]
 bus = "front"
-mux = 4
-segment = 1
+mux = 1
+segment = 10
 address = 0b0111_000
 device = "max5970"
 description = "U.2 Sharkfin H hot swap controller"
@@ -811,8 +761,8 @@ removable = true
 
 [[config.i2c.devices]]
 bus = "front"
-mux = 4
-segment = 1
+mux = 1
+segment = 10
 address = 0b110_1010
 device = "nvme_bmc"
 description = "U.2 H NVMe Basic Management Control"
@@ -824,8 +774,8 @@ removable = true
 # SMBUS_FPGA2_TO_CEMI
 [[config.i2c.devices]]
 bus = "front"
-mux = 4
-segment = 2
+mux = 1
+segment = 11
 address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin I VPD"
@@ -835,8 +785,8 @@ removable = true
 
 [[config.i2c.devices]]
 bus = "front"
-mux = 4
-segment = 2
+mux = 1
+segment = 11
 address = 0b0111_000
 device = "max5970"
 description = "U.2 Sharkfin I hot swap controller"
@@ -848,8 +798,8 @@ removable = true
 
 [[config.i2c.devices]]
 bus = "front"
-mux = 4
-segment = 2
+mux = 1
+segment = 11
 address = 0b110_1010
 device = "nvme_bmc"
 description = "U.2 I NVMe Basic Management Control"
@@ -861,8 +811,8 @@ removable = true
 # SMBUS_FPGA2_TO_CEMJ
 [[config.i2c.devices]]
 bus = "front"
-mux = 4
-segment = 3
+mux = 1
+segment = 12
 address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin J VPD"
@@ -872,8 +822,8 @@ removable = true
 
 [[config.i2c.devices]]
 bus = "front"
-mux = 4
-segment = 3
+mux = 1
+segment = 12
 address = 0b0111_000
 device = "max5970"
 description = "U.2 Sharkfin J hot swap controller"
@@ -885,8 +835,8 @@ removable = true
 
 [[config.i2c.devices]]
 bus = "front"
-mux = 4
-segment = 3
+mux = 1
+segment = 12
 address = 0b110_1010
 device = "nvme_bmc"
 description = "U.2 J NVMe Basic Management Control"
@@ -899,8 +849,8 @@ removable = true
 # SMBUS_FPGA2_TO_FRONT
 [[config.i2c.devices]]
 bus = "front"
-mux = 5
-segment = 1
+mux = 1
+segment = 13
 address = 0x48
 device = "tmp117"
 name = "Southwest"
@@ -911,8 +861,8 @@ refdes = "J44"
 
 [[config.i2c.devices]]
 bus = "front"
-mux = 5
-segment = 1
+mux = 1
+segment = 13
 address = 0x49
 device = "tmp117"
 name = "South"
@@ -923,8 +873,8 @@ refdes = "J45"
 
 [[config.i2c.devices]]
 bus = "front"
-mux = 5
-segment = 1
+mux = 1
+segment = 13
 address = 0x4a
 device = "tmp117"
 name = "Southeast"
@@ -940,23 +890,9 @@ refdes = "J46"
 [[config.i2c.devices]]
 bus = "main"
 address = 0x70
-device = "pca9545"
-description = "Main FPGA virtual mux 1"
+device = "oximux16"
+description = "Main FPGA virtual mux"
 refdes = "U27_1"
-
-[[config.i2c.devices]]
-bus = "main"
-address = 0x71
-device = "pca9545"
-description = "Main FPGA virtual mux 2"
-refdes = "U27_2"
-
-[[config.i2c.devices]]
-bus = "main"
-address = 0x72
-device = "pca9545"
-description = "Main FPGA virtual mux 3"
-refdes = "U27_3"
 
 # SMBUS_FPGA1_TO_M2A
 [[config.i2c.devices]]
@@ -982,10 +918,12 @@ name = "M2_B"
 sensors = { temperature = 1 }
 removable = true
 
+# Segment 3 is unused
+
 [[config.i2c.devices]]
 bus = "main"
-mux = 2
-segment = 1
+mux = 1
+segment = 4
 address = 0x3c
 device = "sbrmi"
 name = "RMI"
@@ -993,21 +931,22 @@ description = "CPU via SB-RMI"
 
 [[config.i2c.devices]]
 bus = "main"
-mux = 2
-segment = 1
+mux = 1
+segment = 4
 address = 0x4c
 device = "sbtsi"
 name = "CPU"
 description = "CPU temperature sensor"
 sensors = { temperature = 1 }
 
-# Mux 2, segment 2 is SEC_SP5_TO_FPGA1
+# Segment 5 is SEC_SP5_TO_FPGA1
+# Segment 6 is unused
 
 # I2C_FPGA1_TO_FAN_VPD
 [[config.i2c.devices]]
 bus = "main"
-mux = 3
-segment = 1
+mux = 1
+segment = 7
 address = 0b1010_000
 device = "at24csw080"
 description = "Fan VPD"
@@ -1018,8 +957,8 @@ removable = true
 # SMBUS_FPGA1_TO_NIC_THERM
 [[config.i2c.devices]]
 bus = "main"
-mux = 3
-segment = 2
+mux = 1
+segment = 8
 address = 0x4c
 device = "tmp451"
 name = "t6"
