@@ -692,12 +692,14 @@ name = "U2_N5"
 refdes = "J205"
 removable = true
 
+# Note that we skip segments 7 and 8, which are
+# I2C_FPGA2_TO_MCIO1 and I2C_FPGA2_TO_MCIO2
 
 # SMBUS_FPGA2_TO_CEMG
 [[config.i2c.devices]]
 bus = "front"
 mux = 1
-segment = 7
+segment = 9
 address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin G VPD"
@@ -708,7 +710,7 @@ removable = true
 [[config.i2c.devices]]
 bus = "front"
 mux = 1
-segment = 7
+segment = 9
 address = 0b0111_000
 device = "max5970"
 description = "U.2 Sharkfin G hot swap controller"
@@ -721,7 +723,7 @@ removable = true
 [[config.i2c.devices]]
 bus = "front"
 mux = 1
-segment = 7
+segment = 9
 address = 0b110_1010
 device = "nvme_bmc"
 description = "U.2 G NVMe Basic Management Control"
@@ -730,15 +732,13 @@ name = "U2_N6"
 refdes = "J206"
 removable = true
 
-# Note that we skip the remaining two slots on (virtual) mux 3, which are
-# I2C_FPGA2_TO_MCIO1 and I2C_FPGA2_TO_MCIO2 XXX is this still true?
 
 
 # SMBUS_FPGA2_TO_CEMH
 [[config.i2c.devices]]
 bus = "front"
 mux = 1
-segment = 8
+segment = 10
 address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin H VPD"
@@ -749,7 +749,7 @@ removable = true
 [[config.i2c.devices]]
 bus = "front"
 mux = 1
-segment = 8
+segment = 10
 address = 0b0111_000
 device = "max5970"
 description = "U.2 Sharkfin H hot swap controller"
@@ -762,7 +762,7 @@ removable = true
 [[config.i2c.devices]]
 bus = "front"
 mux = 1
-segment = 8
+segment = 10
 address = 0b110_1010
 device = "nvme_bmc"
 description = "U.2 H NVMe Basic Management Control"
@@ -775,7 +775,7 @@ removable = true
 [[config.i2c.devices]]
 bus = "front"
 mux = 1
-segment = 9
+segment = 11
 address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin I VPD"
@@ -786,7 +786,7 @@ removable = true
 [[config.i2c.devices]]
 bus = "front"
 mux = 1
-segment = 9
+segment = 11
 address = 0b0111_000
 device = "max5970"
 description = "U.2 Sharkfin I hot swap controller"
@@ -799,7 +799,7 @@ removable = true
 [[config.i2c.devices]]
 bus = "front"
 mux = 1
-segment = 9
+segment = 11
 address = 0b110_1010
 device = "nvme_bmc"
 description = "U.2 I NVMe Basic Management Control"
@@ -812,7 +812,7 @@ removable = true
 [[config.i2c.devices]]
 bus = "front"
 mux = 1
-segment = 10
+segment = 12
 address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin J VPD"
@@ -823,7 +823,7 @@ removable = true
 [[config.i2c.devices]]
 bus = "front"
 mux = 1
-segment = 10
+segment = 12
 address = 0b0111_000
 device = "max5970"
 description = "U.2 Sharkfin J hot swap controller"
@@ -836,7 +836,7 @@ removable = true
 [[config.i2c.devices]]
 bus = "front"
 mux = 1
-segment = 10
+segment = 12
 address = 0b110_1010
 device = "nvme_bmc"
 description = "U.2 J NVMe Basic Management Control"
@@ -850,7 +850,7 @@ removable = true
 [[config.i2c.devices]]
 bus = "front"
 mux = 1
-segment = 11
+segment = 13
 address = 0x48
 device = "tmp117"
 name = "Southwest"
@@ -862,7 +862,7 @@ refdes = "J44"
 [[config.i2c.devices]]
 bus = "front"
 mux = 1
-segment = 11
+segment = 13
 address = 0x49
 device = "tmp117"
 name = "South"
@@ -874,7 +874,7 @@ refdes = "J45"
 [[config.i2c.devices]]
 bus = "front"
 mux = 1
-segment = 11
+segment = 13
 address = 0x4a
 device = "tmp117"
 name = "Southeast"
@@ -918,10 +918,12 @@ name = "M2_B"
 sensors = { temperature = 1 }
 removable = true
 
+# Segment 3 is unused
+
 [[config.i2c.devices]]
 bus = "main"
 mux = 1
-segment = 3
+segment = 4
 address = 0x3c
 device = "sbrmi"
 name = "RMI"
@@ -930,20 +932,21 @@ description = "CPU via SB-RMI"
 [[config.i2c.devices]]
 bus = "main"
 mux = 1
-segment = 3
+segment = 4
 address = 0x4c
 device = "sbtsi"
 name = "CPU"
 description = "CPU temperature sensor"
 sensors = { temperature = 1 }
 
-# Mux 2, segment 2 is SEC_SP5_TO_FPGA1
+# Segment 5 is SEC_SP5_TO_FPGA1
+# Segment 6 is unused
 
 # I2C_FPGA1_TO_FAN_VPD
 [[config.i2c.devices]]
 bus = "main"
 mux = 1
-segment = 4
+segment = 7
 address = 0b1010_000
 device = "at24csw080"
 description = "Fan VPD"
@@ -955,7 +958,7 @@ removable = true
 [[config.i2c.devices]]
 bus = "main"
 mux = 1
-segment = 5
+segment = 8
 address = 0x4c
 device = "tmp451"
 name = "t6"
