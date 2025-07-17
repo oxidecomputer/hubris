@@ -191,11 +191,10 @@ stacksize = 872
 task-slots = ["sys"]
 notifications = ["spi-irq"]
 
-
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
 priority = 6
-stacksize = 6256
+stacksize = 7000
 start = true
 uses = []
 task-slots = [
