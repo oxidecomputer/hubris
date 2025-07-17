@@ -54,6 +54,12 @@ pub enum Disposition {
 // notification, but can otherwise be arbitrary.
 const TIMER_INTERVAL: u32 = 100;
 
+/// Minimum amount of time a task must run before being restarted
+///
+/// If a task runs for *less* than this amount of time before crashing, its
+/// restart is delayed to hit this value.
+const MIN_RUN_TIME: u64 = 50;
+
 #[export_name = "main"]
 fn main() -> ! {
     let mut task_states = [TaskStatus::default(); hubris_num_tasks::NUM_TASKS];
@@ -70,6 +76,7 @@ fn main() -> ! {
         state: 0,
         deadline,
         task_states: &mut task_states,
+        any_tasks_in_timeout: false,
         reset_reason: ResetReason::Unknown,
 
         #[cfg(feature = "dump")]
@@ -89,6 +96,7 @@ struct ServerImpl<'s> {
     state: u32,
     task_states: &'s mut [TaskStatus; NUM_TASKS],
     deadline: u64,
+    any_tasks_in_timeout: bool,
     reset_reason: ResetReason,
 
     /// Base address for a linked list of dump areas
@@ -315,7 +323,25 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
 #[derive(Copy, Clone, Debug, Default)]
 struct TaskStatus {
     disposition: Disposition,
-    holding_fault: bool,
+    state: TaskState,
+}
+
+#[derive(Copy, Clone, Debug)]
+enum TaskState {
+    Running {
+        /// Time at which the task started
+        started_at: u64,
+    },
+    HoldFault,
+    Timeout {
+        restart_at: u64,
+    },
+}
+
+impl Default for TaskState {
+    fn default() -> Self {
+        TaskState::Running { started_at: 0 }
+    }
 }
 
 impl idol_runtime::NotificationHandler for ServerImpl<'_> {
@@ -324,16 +350,30 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
     }
 
     fn handle_notification(&mut self, bits: u32) {
+        let now = userlib::sys_get_timer().now;
+
         // Handle any external (debugger) requests.
-        external::check(self.task_states);
+        external::check(self.task_states, now);
 
         if bits & notifications::TIMER_MASK != 0 {
             // If our timer went off, we need to reestablish it
-            if userlib::sys_get_timer().now >= self.deadline {
-                self.deadline = userlib::set_timer_relative(
-                    TIMER_INTERVAL,
-                    notifications::TIMER_MASK,
-                );
+            if now >= self.deadline {
+                self.deadline = now.wrapping_add(u64::from(TIMER_INTERVAL));
+            }
+            // Check for tasks in timeout, updating our timer deadline
+            if core::mem::take(&mut self.any_tasks_in_timeout) {
+                for (index, status) in self.task_states.iter_mut().enumerate() {
+                    if let TaskState::Timeout { restart_at } = &status.state {
+                        if *restart_at >= now {
+                            kipc::restart_task(index, true);
+                            status.state =
+                                TaskState::Running { started_at: now };
+                        } else {
+                            self.any_tasks_in_timeout = true;
+                            self.deadline = self.deadline.min(*restart_at);
+                        }
+                    }
+                }
             }
         }
 
@@ -359,11 +399,11 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
                 let status =
                     unsafe { self.task_states.get_unchecked_mut(fault_index) };
 
-                // If we're aware that this task is in a fault state, don't
-                // bother making a syscall to enquire.
-                if status.holding_fault {
+                // If we're aware that this task is in a fault state (or waiting
+                // in timeout), don't bother making a syscall to enquire.
+                let TaskState::Running { started_at } = &status.state else {
                     continue;
-                }
+                };
 
                 #[cfg(feature = "dump")]
                 {
@@ -376,15 +416,27 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
                 }
 
                 if status.disposition == Disposition::Restart {
-                    // Stand it back up
-                    kipc::restart_task(fault_index, true);
+                    let dt = now.wrapping_sub(*started_at).wrapping_add(1);
+                    if let Some(extra_delay) = MIN_RUN_TIME.checked_sub(dt) {
+                        // Put it into timeout to hit our minimum run time
+                        let restart_at = now.wrapping_add(extra_delay);
+                        status.state = TaskState::Timeout { restart_at };
+                        self.deadline = self.deadline.min(restart_at);
+                        self.any_tasks_in_timeout = true;
+                    } else {
+                        // Stand it back up immediately
+                        kipc::restart_task(fault_index, true);
+                        status.state = TaskState::Running { started_at: now };
+                    }
                 } else {
                     // Mark this one off so we don't revisit it until
                     // requested.
-                    status.holding_fault = true;
+                    status.state = TaskState::HoldFault;
                 }
             }
         }
+
+        userlib::sys_set_timer(Some(self.deadline), notifications::TIMER_MASK);
     }
 }
 

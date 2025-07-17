@@ -1044,6 +1044,17 @@ pub unsafe extern "C" fn SysTick() {
         let t0 = TICKS[0].load(Ordering::Relaxed);
         let t1 = TICKS[1].load(Ordering::Relaxed);
 
+        #[cfg(feature = "debug-led-pc6")]
+        if t0 % 500 == 0 {
+            let gpioc = unsafe { &*stm32h7::stm32h753::GPIOC::ptr() };
+            gpioc.moder.modify(|_, w| w.moder6().output());
+            if (t0 / 500) & 1 == 0 {
+                gpioc.odr.modify(|_, w| w.odr6().high());
+            } else {
+                gpioc.odr.modify(|_, w| w.odr6().low());
+            }
+        }
+
         // Advance the kernel's notion of time by adding 1. Laboriously.
         let (t0, t1) = if let Some(t0p) = t0.checked_add(1) {
             // Incrementing t0 did not roll over, no need to update t1.

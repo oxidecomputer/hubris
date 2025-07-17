@@ -10,6 +10,7 @@ cfg-if = { workspace = true }
 cortex-m = { workspace = true }
 serde = { workspace = true }
 ssmarshal = { workspace = true }
+stm32h7 = { workspace = true, optional = true }
 zerocopy = { workspace = true }
 zerocopy-derive = { workspace = true }
 
@@ -37,6 +38,7 @@ phash-gen = { path = "../../build/phash-gen" }
 [features]
 dump = []
 nano = []
+debug-led-pc6 = ["dep:stm32h7"]
 
 [lib]
 test = false

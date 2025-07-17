@@ -6,6 +6,7 @@ version = "0.1.0"
 
 [features]
 dump = ["kern/dump"]
+kern-debug-led = ["kern/debug-led-pc6"]
 
 [dependencies]
 cortex-m = { workspace = true }
