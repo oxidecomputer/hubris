@@ -50,13 +50,12 @@ const BLINK_INTERVAL: u32 = 500;
 cfg_if::cfg_if! {
     if #[cfg(target_board = "cosmo-a")] {
         #[derive(enum_map::Enum, Copy, Clone, FromPrimitive)]
-        #[allow(clippy::enum_variant_names)]
         enum Led {
-            // chassis LED is controlled by cosmo-seq
-            DebugWhite = 0,
-            DebugRed = 1,
-            DebugGreen = 2,
-            DebugBlue = 3,
+            Chassis = 0,
+            DebugWhite = 1,
+            DebugRed = 2,
+            DebugGreen = 3,
+            DebugBlue = 4,
         }
     }
     // Target boards with 4 leds
@@ -494,6 +493,7 @@ cfg_if::cfg_if! {
                 ];
             } else if #[cfg(target_board = "cosmo-a")] {
                 const LEDS: &[(drv_stm32xx_sys_api::PinSet, bool)] = &[
+                    (drv_stm32xx_sys_api::Port::C.pin(6), true), // chassis
                     (drv_stm32xx_sys_api::Port::H.pin(6), true), // debug W
                     (drv_stm32xx_sys_api::Port::H.pin(10), true), // debug R
                     (drv_stm32xx_sys_api::Port::H.pin(11), true), // debug G

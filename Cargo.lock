@@ -1090,6 +1090,7 @@ dependencies = [
  "drv-spartan7-loader-api",
  "drv-spi-api",
  "drv-stm32xx-sys-api",
+ "drv-user-leds-api",
  "gnarle",
  "idol",
  "idol-runtime",
