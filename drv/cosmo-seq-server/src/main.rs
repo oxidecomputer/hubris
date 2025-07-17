@@ -80,6 +80,11 @@ enum Trace {
         sp5r3: bool,
         sp5r4: bool,
     },
+    ResetCounts {
+        rstn: u8,
+        pwrokn: u8,
+    },
+    Thermtrip,
 }
 counted_ringbuf!(Trace, 128, Trace::None);
 
@@ -502,7 +507,8 @@ impl ServerImpl {
             }
             (PowerState::A0, PowerState::A2)
             | (PowerState::A0PlusHP, PowerState::A2)
-            | (PowerState::A0Thermtrip, PowerState::A2) => {
+            | (PowerState::A0Thermtrip, PowerState::A2)
+            | (PowerState::A0Reset, PowerState::A2) => {
                 self.seq.power_ctrl.modify(|m| m.set_a0_en(false));
                 let mut okay = false;
                 for _ in 0..200 {
@@ -540,10 +546,15 @@ impl ServerImpl {
             _ => return Err(CpuSeqError::IllegalTransition),
         }
 
+        self.set_state_internal(state);
+        Ok(Transition::Changed)
+    }
+
+    /// Updates our internal `state` and the global state in `jefe`
+    fn set_state_internal(&mut self, state: PowerState) {
         self.state = state;
         self.jefe.set_state(state as u32);
         self.poke_timer();
-        Ok(Transition::Changed)
     }
 
     /// Returns the current timer interval, in milliseconds
@@ -662,6 +673,35 @@ impl NotificationHandler for ServerImpl {
             // TODO: should we handle the NIC powering down while the main CPU
             // power remains up?
             _ => (),
+        }
+
+        // If we're powered up, detect powering down
+        if matches!(self.state, PowerState::A0 | PowerState::A0PlusHP) {
+            // TODO this reads the register 3x
+            let thermtrip = self.seq.ifr.thermtrip();
+            let pwrok_fedge = self.seq.ifr.amd_pwrok_fedge();
+            let rstn_fedge = self.seq.ifr.amd_rstn_fedge();
+
+            if pwrok_fedge || rstn_fedge {
+                let rstn = self.seq.amd_reset_fedges.counts();
+                let pwrokn = self.seq.amd_pwrok_fedges.counts();
+                ringbuf_entry!(Trace::ResetCounts { rstn, pwrokn });
+                self.seq.ifr.modify(|h| {
+                    h.set_amd_pwrok_fedge(false);
+                    h.set_amd_rstn_fedge(false);
+                });
+                self.seq.amd_reset_fedges.set_counts(0);
+                self.seq.amd_pwrok_fedges.set_counts(0);
+                self.set_state_internal(PowerState::A0Reset);
+                // host_sp_comms detects this change and reboots us
+            }
+
+            if thermtrip {
+                self.seq.ifr.modify(|h| h.set_thermtrip(false));
+                ringbuf_entry!(Trace::Thermtrip);
+                self.set_state_internal(PowerState::A0Thermtrip)
+                // this is a terminal state (for now)
+            }
         }
 
         self.poke_timer();
