@@ -1351,7 +1351,14 @@ global_asm! {"
     .type im_dead,function
     .cpu cortex-m4  @ least common denominator we support
     im_dead:
-        b reset
+        @ lie down try not to cry cry a lot
+        movw r0, #0xed0c
+        movt r0, #0xe000
+        movw r1, #0x0004
+        movt r1, #0x05fa
+        str.w  r1, [r0]
+    1:
+        b 1b
 
 
     .section .text.configurable_fault
@@ -1630,7 +1637,6 @@ unsafe extern "C" fn handle_fault(task: *mut task::Task) {
     });
 }
 
-#[no_mangle]
 pub fn reset() -> ! {
     cortex_m::peripheral::SCB::sys_reset()
 }
