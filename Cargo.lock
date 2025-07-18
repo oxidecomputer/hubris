@@ -1090,6 +1090,7 @@ dependencies = [
  "drv-spartan7-loader-api",
  "drv-spi-api",
  "drv-stm32xx-sys-api",
+ "drv-user-leds-api",
  "gnarle",
  "idol",
  "idol-runtime",
@@ -3098,6 +3099,7 @@ dependencies = [
  "cortex-m-rt",
  "drv-stm32h7-startup",
  "kern",
+ "ringbuf",
  "stm32h7",
 ]
 
@@ -3483,6 +3485,7 @@ dependencies = [
  "ron",
  "serde",
  "ssmarshal",
+ "stm32h7",
  "syn 2.0.98",
  "unwrap-lite",
  "zerocopy 0.8.25",
@@ -5187,6 +5190,25 @@ dependencies = [
  "stage0-handoff",
  "static-cell",
  "unwrap-lite",
+ "userlib",
+ "zerocopy 0.8.25",
+ "zerocopy-derive 0.8.25",
+]
+
+[[package]]
+name = "task-bork"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cortex-m",
+ "counters",
+ "drv-sprot-api",
+ "drv-stm32xx-sys-api",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "ringbuf",
+ "stm32h7",
  "userlib",
  "zerocopy 0.8.25",
  "zerocopy-derive 0.8.25",
