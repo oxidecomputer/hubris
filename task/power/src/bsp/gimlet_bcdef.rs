@@ -180,7 +180,7 @@ fn trace_max5970(
             minicbor::encode::write::Cursor::new(&mut ereport_buf[..]),
         );
         let report = IoutCrossbounceEreport {
-            k: "power.crossbounce.iout",
+            k: "ereport.power.crossbounce.iout",
             rail,
             sensor_id: sensor.into(),
             min_iout,
@@ -198,7 +198,7 @@ fn trace_max5970(
             minicbor::encode::write::Cursor::new(&mut ereport_buf[..]),
         );
         let report = VoutCrossbounceEreport {
-            k: "power.crossbounce.vout",
+            k: "ereport.power.crossbounce.vout",
             rail,
             sensor_id: sensor.into(),
             min_vout,
