@@ -1346,6 +1346,14 @@ enum FaultType {
 
 #[cfg(any(armv7m, armv8m))]
 global_asm! {"
+    .section .text.im_dead
+    .globl im_dead
+    .type im_dead,function
+    .cpu cortex-m4  @ least common denominator we support
+    im_dead:
+        b reset
+
+
     .section .text.configurable_fault
     .globl configurable_fault
     .type configurable_fault,function
@@ -1416,6 +1424,12 @@ global_asm! {"
     .type UsageFault,function
     UsageFault:
         b configurable_fault
+
+    .section .text.HardFault
+    .globl HardFault
+    .type HardFault,function
+    HardFault:
+        b im_dead
     ",
 }
 
@@ -1616,6 +1630,7 @@ unsafe extern "C" fn handle_fault(task: *mut task::Task) {
     });
 }
 
+#[no_mangle]
 pub fn reset() -> ! {
     cortex_m::peripheral::SCB::sys_reset()
 }

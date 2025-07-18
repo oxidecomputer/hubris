@@ -13,7 +13,7 @@ use ringbuf::*;
 use stm32h7::stm32h753 as device;
 use userlib::{set_timer_relative, task_slot, RecvMessage};
 
-const WATCHDOG_INTERVAL: u32 = 5000;
+//const WATCHDOG_INTERVAL: u32 = 5000;
 
 const TIMER_INTERVAL: u32 = 100;
 
@@ -23,13 +23,13 @@ task_slot!(SYS, sys);
 #[derive(Copy, Clone, PartialEq, Count)]
 enum Trace {
     LastId(u32),
-    Dogerr(drv_sprot_api::SprotError),
+    //Dogerr(drv_sprot_api::SprotError),
     None,
 }
 counted_ringbuf!(Trace, 8, Trace::None);
 
 struct ServerImpl {
-    sprot: drv_sprot_api::SpRot,
+    //sprot: drv_sprot_api::SpRot,
 }
 
 impl NotificationHandler for ServerImpl {
@@ -41,16 +41,6 @@ impl NotificationHandler for ServerImpl {
         if (bits & notifications::TIMER_MASK) == 0 {
             return;
         }
-
-        self.sprot.disable_sp_slot_watchdog().unwrap();
-        match self.sprot.enable_sp_slot_watchdog(WATCHDOG_INTERVAL) {
-            Ok(_) => (),
-            Err(e) => {
-                ringbuf_entry!(Trace::Dogerr(e));
-            }
-        };
-
-        set_timer_relative(TIMER_INTERVAL, notifications::TIMER_MASK);
     }
 }
 
@@ -67,7 +57,9 @@ impl idl::InOrderBorkImpl for ServerImpl {
         &mut self,
         _mgs: &RecvMessage,
     ) -> Result<(), RequestError<core::convert::Infallible>> {
-        loop {}
+        loop {
+            cortex_m::asm::nop();
+        }
         Ok(())
     }
 }
@@ -90,7 +82,7 @@ fn main() -> ! {
 
     let mut buffer = [0; idl::INCOMING_SIZE];
     let mut server = ServerImpl {
-        sprot: drv_sprot_api::SpRot::from(SPROT.get_task_id()),
+        //sprot: drv_sprot_api::SpRot::from(SPROT.get_task_id()),
     };
     set_timer_relative(TIMER_INTERVAL, notifications::TIMER_MASK);
     loop {
