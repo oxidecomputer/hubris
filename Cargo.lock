@@ -3858,6 +3858,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "minicbor-lease"
+version = "0.1.0"
+dependencies = [
+ "idol-runtime",
+ "minicbor 0.26.4",
+]
+
+[[package]]
 name = "minicbor-serde"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5710,6 +5718,7 @@ dependencies = [
  "idol",
  "idol-runtime",
  "minicbor 0.26.4",
+ "minicbor-lease",
  "mutable-statics",
  "num-traits",
  "quote",
