@@ -3365,7 +3365,7 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 [[package]]
 name = "idol"
 version = "0.5.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#6c54f3b87c58f329b07d5bf736624cf591b7c8c5"
+source = "git+https://github.com/oxidecomputer/idolatry.git?branch=mkeeter/fix-identity-op#27a462c951f312e40122d7f67878eedb621caae7"
 dependencies = [
  "indexmap 1.9.1",
  "once_cell",

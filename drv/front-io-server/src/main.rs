@@ -276,12 +276,12 @@ impl idl::InOrderFrontIOImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<bool, RequestError<Infallible>> {
-        use FrontIOStatus::*;
-
-        match self.board_status {
-            FpgaInit | OscInit | Ready => Ok(true),
-            Init | NotPresent => Ok(false),
-        }
+        Ok(matches!(
+            self.board_status,
+            FrontIOStatus::FpgaInit
+                | FrontIOStatus::OscInit
+                | FrontIOStatus::Ready
+        ))
     }
 
     /// Returns true if the front IO FPGAs have been initialized
@@ -289,12 +289,10 @@ impl idl::InOrderFrontIOImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<bool, RequestError<Infallible>> {
-        use FrontIOStatus::*;
-
-        match self.board_status {
-            OscInit | Ready => Ok(true),
-            Init | NotPresent | FpgaInit => Ok(false),
-        }
+        Ok(matches!(
+            self.board_status,
+            FrontIOStatus::OscInit | FrontIOStatus::Ready
+        ))
     }
 
     /// Returns if the front IO board has completely sequenced and is ready
