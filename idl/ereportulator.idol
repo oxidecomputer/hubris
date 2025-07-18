@@ -1,0 +1,24 @@
+// Interface to the ereport demo task.
+Interface(
+    name: "Ereportulator",
+    ops: {
+        "fake_ereport": (
+            doc: "Make a fake error report.",
+            args: {
+                "n": "u32",
+            },
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+        "set_fake_vpd": (
+            doc: "Send fake vital product data (VPD) to Packrat.",
+            args: {
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("task_packrat_api::CacheSetError"),
+            ),
+            idempotent: true,
+        ),
+    }
+)

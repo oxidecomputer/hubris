@@ -25,6 +25,9 @@ use userlib::*;
 
 task_slot!(SYS, sys);
 
+#[cfg(feature = "ereport")]
+task_slot!(PACKRAT, packrat);
+
 counted_ringbuf!(Trace, 32, Trace::Blank);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, counters::Count)]
@@ -34,6 +37,8 @@ enum Trace {
     ClockError,
     SeedError,
     Recovered,
+    #[cfg(feature = "ereport")]
+    SetRestartId(Result<(), task_packrat_api::CacheSetError>),
 }
 
 struct Stm32h7Rng {
@@ -228,10 +233,41 @@ impl NotificationHandler for Stm32h7RngServer {
     }
 }
 
+#[cfg(feature = "ereport")]
+fn generate_restart_id(rng: &mut Stm32h7Rng) {
+    use task_packrat_api::Packrat;
+    const BYTES: usize = 16;
+
+    let mut bytes = [0u8; BYTES];
+    for i in 0..(BYTES / 4) {
+        'retry: loop {
+            match rng.read() {
+                Ok(word) => {
+                    let word_bytes = &word.to_ne_bytes();
+                    bytes[i * 4..i * 4 + 4].copy_from_slice(word_bytes);
+                    break 'retry;
+                }
+                Err(_) => {
+                    // XXX(eliza): what do we do if this fails?
+                    let _ = rng.attempt_recovery();
+                }
+            }
+        }
+    }
+
+    let id = u128::from_ne_bytes(bytes);
+    let packrat = Packrat::from(PACKRAT.get_task_id());
+    let result = packrat.set_ereport_restart_id(id);
+    ringbuf_entry!(Trace::SetRestartId(result));
+}
+
 #[export_name = "main"]
 fn main() -> ! {
     let mut rng = Stm32h7Rng::new();
     rng.init();
+
+    #[cfg(feature = "ereport")]
+    generate_restart_id(&mut rng);
 
     let mut srv = Stm32h7RngServer::new(rng);
     let mut buffer = [0u8; idl::INCOMING_SIZE];
