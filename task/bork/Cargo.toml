@@ -1,0 +1,36 @@
+[package]
+name = "task-bork"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# The idle task cannot panic, so we deliberately don't request panic-messages
+# to keep the binary tiny.
+userlib = { path = "../../sys/userlib" }
+cortex-m = { workspace = true }
+drv-sprot-api = { path = "../../drv/sprot-api" }
+drv-stm32xx-sys-api = { path = "../../drv/stm32xx-sys-api" }
+idol-runtime.workspace = true
+zerocopy.workspace = true
+zerocopy-derive.workspace = true
+ringbuf = { path = "../../lib/ringbuf" }
+counters = { path = "../../lib/counters" }
+num-traits.workspace = true
+stm32h7 = { workspace = true, features = ["stm32h753"] }
+
+[features]
+h753 = ["drv-stm32xx-sys-api/h753"]
+
+[build-dependencies]
+build-util = { path = "../../build/util" }
+idol = { workspace = true }
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "task-bork"
+test = false
+bench = false
+
+[lints]
+workspace = true

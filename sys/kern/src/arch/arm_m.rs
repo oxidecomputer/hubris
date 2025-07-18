@@ -1357,6 +1357,21 @@ enum FaultType {
 
 #[cfg(any(armv7m, armv8m))]
 global_asm! {"
+    .section .text.im_dead
+    .globl im_dead
+    .type im_dead,function
+    .cpu cortex-m4  @ least common denominator we support
+    im_dead:
+        @ lie down try not to cry cry a lot
+        movw r0, #0xed0c
+        movt r0, #0xe000
+        movw r1, #0x0004
+        movt r1, #0x05fa
+        str.w  r1, [r0]
+    1:
+        b 1b
+
+
     .section .text.configurable_fault
     .globl configurable_fault
     .type configurable_fault,function
@@ -1427,6 +1442,12 @@ global_asm! {"
     .type UsageFault,function
     UsageFault:
         b configurable_fault
+
+    .section .text.HardFault
+    .globl HardFault
+    .type HardFault,function
+    HardFault:
+        b im_dead
     ",
 }
 

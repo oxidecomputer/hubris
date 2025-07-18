@@ -6,8 +6,8 @@ fwid = true
 
 [kernel]
 name = "cosmo"
-requires = {flash = 32768, ram = 8192}
-features = ["dump", "kern-debug-led"]
+requires = {flash = 32768, ram = 16384}
+features = ["dump", "kern-debug-led", "traptrace"]
 
 [mmio]
 peripheral-region = "fmc_nor_psram_bank_1"
@@ -355,6 +355,16 @@ start = true
 notifications = ["jefe-state-change", "timer"]
 task-slots = ["jefe", "spartan7_loader", "packrat", "sensor"]
 uses = ["mmio_dimms"]
+
+[tasks.bork]
+name = "task-bork"
+priority = 10
+max-sizes = {flash = 16384, ram = 16384 }
+start = true
+notifications = ["timer"]
+task-slots = ["sprot", "sys"]
+features = ["h753"]
+uses = ["rtc"]
 
 [tasks.auxflash]
 name = "drv-auxflash-server"
