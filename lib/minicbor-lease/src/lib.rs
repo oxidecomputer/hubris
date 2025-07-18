@@ -39,14 +39,17 @@ where
     type Error = WriteError;
 
     fn write_all(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
-        let end = self.pos + buf.len();
+        let Some(end) = self.pos.checked_add(buf.len()) else {
+            self.ran_out_of_space = true;
+            return Err(WriteError);
+        };
         if end >= self.lease.len() {
             self.ran_out_of_space = true;
-            return Err(WriteError(()));
+            return Err(WriteError);
         }
         self.lease
             .write_range(self.pos..end, buf)
-            .map_err(|_| WriteError(()))?;
+            .map_err(|_| WriteError)?;
 
         self.pos += buf.len();
 
