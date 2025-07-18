@@ -321,8 +321,7 @@ impl idl::InOrderFrontIOImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<bool, RequestError<FrontIOError>> {
-        self
-            .phy_smi
+        self.phy_smi
             .powered_up_and_ready()
             .map_err(FrontIOError::from)
             .map_err(RequestError::from)
