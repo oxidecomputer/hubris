@@ -12,6 +12,7 @@ drv-hf-api = { path = "../hf-api" }
 drv-ice40-spi-program = { path = "../ice40-spi-program" }
 drv-packrat-vpd-loader = { path = "../packrat-vpd-loader" }
 drv-spartan7-loader-api = { path = "../spartan7-loader-api" }
+drv-user-leds-api = { path = "../user-leds-api" }
 drv-spi-api = { path = "../spi-api" }
 drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
 gnarle = { path = "../../lib/gnarle" }

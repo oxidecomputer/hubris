@@ -28,6 +28,7 @@ use ringbuf::{counted_ringbuf, ringbuf_entry, Count};
 task_slot!(JEFE, jefe);
 task_slot!(LOADER, spartan7_loader);
 task_slot!(HF, hf);
+task_slot!(USER_LEDS, user_leds);
 task_slot!(SYS, sys);
 task_slot!(SPI_FRONT, spi_front);
 task_slot!(AUXFLASH, auxflash);
@@ -102,7 +103,6 @@ impl From<drv_auxflash_api::AuxFlashError> for SeqError {
 
 const SP_TO_SP5_NMI_SYNC_FLOOD_L: sys_api::PinSet = sys_api::Port::J.pin(2);
 const SP_TO_SP5_PROCHOT_L: sys_api::PinSet = sys_api::Port::H.pin(5);
-const SP_CHASSIS_STATUS_LED: sys_api::PinSet = sys_api::Port::C.pin(6);
 const SP_TO_FPGA2_SYSTEM_RESET_L: sys_api::PinSet = sys_api::Port::A.pin(5);
 
 // Disabled due to hardware-cosmo#659 (on Cosmo rev A this is PB7, but we need
@@ -138,6 +138,9 @@ struct StateMachineStates {
 
 #[export_name = "main"]
 fn main() -> ! {
+    let leds = drv_user_leds_api::UserLeds::from(USER_LEDS.get_task_id());
+    leds.led_blink(0).unwrap();
+
     // Populate packrat with our mac address and identity.
     let packrat = Packrat::from(PACKRAT.get_task_id());
     read_vpd_and_load_packrat(&packrat, I2C.get_task_id());
@@ -198,16 +201,6 @@ fn init() -> Result<ServerImpl, SeqError> {
         sys.gpio_reset(pin);
     }
 
-    // Turn off the chassis LED, in case this is a task restart (and not a
-    // full chip restart, which would leave the GPIO unconfigured).
-    sys.gpio_configure_output(
-        SP_CHASSIS_STATUS_LED,
-        sys_api::OutputType::PushPull,
-        sys_api::Speed::Low,
-        sys_api::Pull::None,
-    );
-    sys.gpio_reset(SP_CHASSIS_STATUS_LED);
-
     // Set all of the presence-related pins to be inputs
     sys.gpio_configure_input(SP5_TO_SP_CORETYPE0, CORETYPE_PULL);
     sys.gpio_configure_input(SP5_TO_SP_CORETYPE1, CORETYPE_PULL);
@@ -267,9 +260,6 @@ fn init() -> Result<ServerImpl, SeqError> {
     if let Some(pin) = SP_TO_IGN_TRGT_FPGA_FAULT_L {
         sys.gpio_set(pin);
     }
-
-    // Turn on the chassis LED!
-    sys.gpio_set(SP_CHASSIS_STATUS_LED);
 
     let token = loader.get_token();
     Ok(ServerImpl::new(token))

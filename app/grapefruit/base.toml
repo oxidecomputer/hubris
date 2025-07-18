@@ -14,7 +14,7 @@ register-map = "../../drv/spartan7-loader/grapefruit/gfruit_top.json"
 [kernel]
 name = "grapefruit"
 requires = {flash = 32768, ram = 8192}
-features = ["dump"]
+features = ["dump", "kern-debug-led"]
 
 [caboose]
 tasks = ["control_plane_agent"]
@@ -25,9 +25,9 @@ default = true
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
-max-sizes = {flash = 16384, ram = 2048}
+max-sizes = {flash = 16384, ram = 4096}
 start = true
-stacksize = 1536
+stacksize = 3000
 notifications = ["fault", "timer"]
 features = ["dump"]
 extern-regions = ["sram1", "sram2", "sram3", "sram4"]
