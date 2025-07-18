@@ -31,6 +31,7 @@ unsafe fn system_pre_init() {
     // convert it to a reference. We can have a reference to PWR because it's
     // hardware, and is thus not uninitialized.
     let pwr = &*device::PWR::ptr();
+    pwr.cr1.modify(|_, w| w.dbp().set_bit());
     // Poke CR3 to enable the LDO and prevent further writes.
     pwr.cr3.modify(|_, w| w.ldoen().set_bit());
 
@@ -323,6 +324,10 @@ pub fn system_init_custom(
     while !p.RCC.cfgr.read().sws().is_pll1() {
         // spin
     }
+
+    p.RCC.cfgr.modify(|_, w| w.rtcpre().bits(0b100));
+ 
+    p.RCC.bdcr.modify(|_, w| w.rtcen().set_bit().rtcsel().lse());
 
     // set RNG clock to PLL1 clock
     #[cfg(any(feature = "h743", feature = "h753"))]

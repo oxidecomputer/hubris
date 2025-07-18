@@ -110,6 +110,10 @@ address = 0x52005000
 size = 4096
 interrupts = { irq = 92 }
 
+[rtc]
+address = 0x58004000
+size = 1024
+
 [eth]
 address = 0x40028000
 size = 0x2000
