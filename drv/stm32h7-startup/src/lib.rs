@@ -326,7 +326,7 @@ pub fn system_init_custom(
     }
 
     p.RCC.cfgr.modify(|_, w| w.rtcpre().bits(0b100));
- 
+
     p.RCC.bdcr.modify(|_, w| w.rtcen().set_bit().rtcsel().lse());
 
     // set RNG clock to PLL1 clock

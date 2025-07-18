@@ -95,10 +95,17 @@ pub fn table() -> &'static kern::profiling::EventsTable {
     rtc.wpr.write(|w| w.key().bits(0x53));
 
     // don't erase!
-    rtc.tampcr.modify(|_, w| w.tamp3noerase().set_bit().tamp2noerase().set_bit().tamp1noerase().set_bit());
+    rtc.tampcr.modify(|_, w| {
+        w.tamp3noerase()
+            .set_bit()
+            .tamp2noerase()
+            .set_bit()
+            .tamp1noerase()
+            .set_bit()
+    });
 
     // Save our last state
-    let last =  rtc.bkpr[0].read().bkp().bits();
+    let last = rtc.bkpr[0].read().bkp().bits();
     // And rotate
     rtc.bkpr[1].modify(|_, w| w.bkp().bits(last));
 

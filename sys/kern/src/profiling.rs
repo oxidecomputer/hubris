@@ -170,9 +170,11 @@ pub(crate) fn event_timer_isr_exit() {
 }
 
 pub(crate) fn event_context_switch(tcb: usize) {
-    let base = unsafe { core::ptr::addr_of_mut!(crate::startup::HUBRIS_TASK_TABLE_SPACE) as *mut u32 as u32 as usize};
+    // HACK too hard to figure out the task ID from the base of the TCB
+    let base = core::ptr::addr_of_mut!(crate::startup::HUBRIS_TASK_TABLE_SPACE)
+        as *mut u32 as u32 as usize;
     let size = core::mem::size_of::<crate::task::Task>();
     if let Some(t) = table() {
-        (t.context_switch)((tcb - base)/size)
+        (t.context_switch)((tcb - base) / size)
     }
 }

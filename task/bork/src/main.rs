@@ -8,14 +8,10 @@
 // Make sure we actually link in userlib, despite not using any of it explicitly
 // - we need it for our _start routine.
 
-use userlib::{
-    set_timer_relative, task_slot,
-    RecvMessage,
-};  
 use idol_runtime::{NotificationHandler, RequestError};
-use drv_stm32xx_sys_api as sys_api;
-use stm32h7::stm32h753 as device;
 use ringbuf::*;
+use stm32h7::stm32h753 as device;
+use userlib::{set_timer_relative, task_slot, RecvMessage};
 
 const WATCHDOG_INTERVAL: u32 = 5000;
 
@@ -49,11 +45,12 @@ impl NotificationHandler for ServerImpl {
         self.sprot.disable_sp_slot_watchdog().unwrap();
         match self.sprot.enable_sp_slot_watchdog(WATCHDOG_INTERVAL) {
             Ok(_) => (),
-            Err(e) => { ringbuf_entry!(Trace::Dogerr(e)); }
+            Err(e) => {
+                ringbuf_entry!(Trace::Dogerr(e));
+            }
         };
 
         set_timer_relative(TIMER_INTERVAL, notifications::TIMER_MASK);
-
     }
 }
 
@@ -65,14 +62,14 @@ impl idl::InOrderBorkImpl for ServerImpl {
         Ok(())
     }
 
+    #[allow(unreachable_code)]
     fn wave_bye_bye(
         &mut self,
         _mgs: &RecvMessage,
     ) -> Result<(), RequestError<core::convert::Infallible>> {
-        loop { }
+        loop {}
         Ok(())
     }
-
 }
 
 #[export_name = "main"]
@@ -106,4 +103,3 @@ mod idl {
 }
 
 include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
-
