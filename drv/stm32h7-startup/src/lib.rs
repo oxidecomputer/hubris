@@ -92,6 +92,33 @@ pub fn system_init_custom(
     p: device::Peripherals,
     config: ClockConfig,
 ) -> device::Peripherals {
+    extern "C" {
+        static _stack_base: u32;
+    }
+    unsafe {
+        core::arch::asm!(
+            // Load _stack_base -> r0
+            "ldr r0, ={stack_base}",
+            // Load _stack_start -> r1
+            "mov r1, sp",
+            // Load pattern into r2
+            "ldr r2, ={pattern}",
+
+            "1:",
+            "cmp r0, r1",
+            "bcs 2f",               // if r0 >= r1, exit
+            "str r2, [r0], #4",     // store pattern and increment r0
+            "b 1b",                 // loop
+
+            "2:",
+
+            stack_base = sym _stack_base,
+            pattern = const 0xDEADCAFEu32,
+
+            options(nomem),
+        );
+    }
+
     // Basic RAMs are working, power is stable, and the runtime has initialized
     // static variables.
     //

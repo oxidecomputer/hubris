@@ -7,7 +7,6 @@ fwid = true
 [kernel]
 name = "cosmo"
 requires = {flash = 32768, ram = 8192}
-stacksize = 2000
 features = ["dump"]
 
 [mmio]

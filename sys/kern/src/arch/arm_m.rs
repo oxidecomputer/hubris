@@ -629,14 +629,6 @@ extern "C" {
     static _stack_start: u32;
 }
 
-#[cortex_m_rt::pre_init]
-unsafe fn pre_init() {
-    extern "C" {
-        static __euninit: u32;
-    }
-}
-
-
 pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
     // Enable faults and set fault/exception priorities to reasonable settings.
     // Our goal here is to keep the kernel non-preemptive, which means the

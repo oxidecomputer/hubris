@@ -1284,6 +1284,7 @@ dependencies = [
  "drv-cpu-seq-api",
  "drv-spartan7-loader-api",
  "drv-stm32xx-sys-api",
+ "drv-user-leds-api",
  "idol",
  "idol-runtime",
  "num-traits",
