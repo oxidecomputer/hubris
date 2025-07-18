@@ -331,7 +331,7 @@ impl EreportStore {
         Ok(end)
     }
 
-    fn encode_metadata<'_>(
+    fn encode_metadata(
         &self,
         encoder: &mut minicbor::Encoder<LeasedWriter<'_, idol_runtime::W>>,
         vpd: &VpdIdentity,
