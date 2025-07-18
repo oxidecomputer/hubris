@@ -39,15 +39,20 @@ impl LedStates {
     pub fn get(self, port: LogicalPort) -> LedState {
         self.0[port.0 as usize]
     }
-
-    pub fn into_iter(self) -> impl Iterator<Item = LedState> {
-        self.0.into_iter()
-    }
 }
 
 impl Default for LedStates {
     fn default() -> Self {
         LedStates([LedState::Off; NUM_PORTS as usize])
+    }
+}
+
+impl<'a> IntoIterator for &'a LedStates {
+    type Item = &'a LedState;
+    type IntoIter = core::slice::Iter<'a, LedState>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.as_slice().iter()
     }
 }
 
