@@ -86,7 +86,7 @@ enum DeviceChip {
     Isl68224,
     Tps546B24A,
     Adm1272(Ohms),
-    Max5970(Ohms),
+    Max5970 { sense: Ohms, avg: bool },
     Mwocp68,
     Ltc4282(Ohms),
     Lm5066(Ohms, CurrentLimitStrap),
@@ -286,8 +286,8 @@ impl PowerControllerConfig {
             DeviceChip::Adm1272(sense) => {
                 Device::Adm1272(Adm1272::new(&dev, *sense))
             }
-            DeviceChip::Max5970(sense) => {
-                Device::Max5970(Max5970::new(&dev, rail, *sense))
+            DeviceChip::Max5970 { sense, avg } => {
+                Device::Max5970(Max5970::new(&dev, rail, *sense, *avg))
             }
             DeviceChip::Mwocp68 => Device::Mwocp68(Mwocp68::new(&dev, rail)),
             DeviceChip::Ltc4282(sense) => {
@@ -434,11 +434,14 @@ macro_rules! lm5066i_controller {
 #[allow(unused_macros)]
 macro_rules! max5970_controller {
     ($which:ident, $rail:ident, $state:ident, $rsense:expr) => {
+        max5970_controller!($which, $rail, $state, $rsense, false)
+    };
+    ($which:ident, $rail:ident, $state:ident, $rsense:expr, $avg:expr) => {
         paste::paste! {
             PowerControllerConfig {
                 state: $crate::PowerState::$state,
                 device: $crate::DeviceType::$which,
-                chip: $crate::DeviceChip::Max5970($rsense),
+                chip: $crate::DeviceChip::Max5970 { sense: $rsense, avg: $avg },
                 builder: i2c_config::power::$rail,
                 voltage: sensors::[<MAX5970_ $rail:upper _VOLTAGE_SENSOR>],
                 input_voltage: None,

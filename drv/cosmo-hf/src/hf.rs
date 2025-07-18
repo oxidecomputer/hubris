@@ -615,13 +615,18 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         dev: HfDevSelect,
     ) -> Result<(), RequestError<HfError>> {
         self.drv.check_flash_mux_state()?;
-        if self.hash.task.init_sha256().is_err() {
-            return Err(HfError::HashError.into());
+
+        // Need to check hash state before doing anything else
+        // that might mess up the hash in progress
+        match self.hash.state {
+            HashState::Hashing { .. } => {
+                return Err(HfError::HashInProgress.into())
+            }
+            _ => (),
         }
 
-        match self.hash.state {
-            HashState::Hashing { .. } => return Err(HfError::HashError.into()),
-            _ => (),
+        if self.hash.task.init_sha256().is_err() {
+            return Err(HfError::HashError.into());
         }
 
         // If we already have a valid hash for the slot don't bother

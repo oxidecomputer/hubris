@@ -758,7 +758,9 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             return Err(HfError::HashError.into());
         }
         match self.hash.state {
-            HashState::Hashing { .. } => return Err(HfError::HashError.into()),
+            HashState::Hashing { .. } => {
+                return Err(HfError::HashInProgress.into())
+            }
             _ => (),
         }
         let begin = addr as usize;
@@ -798,13 +800,16 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         dev: HfDevSelect,
     ) -> Result<(), RequestError<HfError>> {
         self.check_muxed_to_sp()?;
-        if self.hash.task.init_sha256().is_err() {
-            return Err(HfError::HashError.into());
-        }
 
+        // Need to check hash state before doing anything else
+        // that might mess up the hash in progress
         match self.hash.state {
             HashState::Hashing { .. } => return Err(HfError::HashError.into()),
             _ => (),
+        }
+
+        if self.hash.task.init_sha256().is_err() {
+            return Err(HfError::HashError.into());
         }
 
         // If we already have a valid hash for the slot don't bother

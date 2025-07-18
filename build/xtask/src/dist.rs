@@ -328,6 +328,7 @@ pub fn package(
     app_toml: &Path,
     tasks_to_build: Option<Vec<String>>,
     dirty_ok: bool,
+    caboose_args: super::CabooseArgs,
 ) -> Result<BTreeMap<String, AllocationMap>> {
     let cfg = PackageConfig::new(app_toml, verbose, edges)?;
 
@@ -629,19 +630,28 @@ pub fn package(
         write_gdb_script(&cfg, image_name)?;
         let archive_name = build_archive(&cfg, image_name, raw_image)?;
 
-        // Post-build modifications: populate a default caboose if requested
-        if let Some(caboose) = &cfg.toml.caboose {
-            if caboose.default {
-                let mut archive =
-                    hubtools::RawHubrisArchive::load(&archive_name)
-                        .context("loading archive with hubtools")?;
-                // The Git hash is included in the default caboose under the key
-                // `GITC`, so we don't include it in the pseudo-version.
-                archive
-                    .write_default_caboose(None)
-                    .context("writing caboose into archive")?;
-                archive.overwrite().context("overwriting archive")?;
+        // Post-build modifications: populate the caboose if requested
+        if cfg.toml.caboose.is_some() {
+            let mut archive = hubtools::RawHubrisArchive::load(&archive_name)
+                .context("loading archive with hubtools")?;
+            if let Some(ref vers) = caboose_args.version_override {
+                println!("note: asked to override caboose `VERS` to {vers:?}");
             }
+            // The Git hash is included in the default caboose under the key
+            // `GITC`, so we don't include it in the pseudo-version.
+            archive
+                .write_default_caboose(caboose_args.version_override.as_ref())
+                .context("writing caboose into archive")?;
+            archive.overwrite().context("overwriting archive")?;
+        } else if let Some(ref vers) = caboose_args.version_override {
+            // If there's no caboose, the version override does nothing --- make
+            // sure the user realizes that.
+            eprintln!(
+                "warning: ignoring overridden caboose version \
+                 (HUBRIS_CABOOSE_VERS={vers:?}) as {} does not have a \
+                 `[caboose]` section!",
+                app_toml.display()
+            );
         }
 
         // Post-build modifications: sign the image if requested

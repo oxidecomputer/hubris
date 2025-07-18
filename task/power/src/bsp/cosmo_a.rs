@@ -53,25 +53,25 @@ pub(crate) static CONTROLLER_CONFIG: [PowerControllerConfig;
     ),
     max5970_controller!(HotSwapIO, v3p3_m2a_a0hp, A0, Ohms(0.003)),
     max5970_controller!(HotSwapIO, v3p3_m2b_a0hp, A0, Ohms(0.003)),
-    max5970_controller!(HotSwapIO, v12_u2a_a0, A0, Ohms(0.005)),
+    max5970_controller!(HotSwapIO, v12_u2a_a0, A0, Ohms(0.005), true),
     max5970_controller!(HotSwapIO, v3p3_u2a_a0, A0, Ohms(0.005)),
-    max5970_controller!(HotSwapIO, v12_u2b_a0, A0, Ohms(0.005)),
+    max5970_controller!(HotSwapIO, v12_u2b_a0, A0, Ohms(0.005), true),
     max5970_controller!(HotSwapIO, v3p3_u2b_a0, A0, Ohms(0.005)),
-    max5970_controller!(HotSwapIO, v12_u2c_a0, A0, Ohms(0.005)),
+    max5970_controller!(HotSwapIO, v12_u2c_a0, A0, Ohms(0.005), true),
     max5970_controller!(HotSwapIO, v3p3_u2c_a0, A0, Ohms(0.005)),
-    max5970_controller!(HotSwapIO, v12_u2d_a0, A0, Ohms(0.005)),
+    max5970_controller!(HotSwapIO, v12_u2d_a0, A0, Ohms(0.005), true),
     max5970_controller!(HotSwapIO, v3p3_u2d_a0, A0, Ohms(0.005)),
-    max5970_controller!(HotSwapIO, v12_u2e_a0, A0, Ohms(0.005)),
+    max5970_controller!(HotSwapIO, v12_u2e_a0, A0, Ohms(0.005), true),
     max5970_controller!(HotSwapIO, v3p3_u2e_a0, A0, Ohms(0.005)),
-    max5970_controller!(HotSwapIO, v12_u2f_a0, A0, Ohms(0.005)),
+    max5970_controller!(HotSwapIO, v12_u2f_a0, A0, Ohms(0.005), true),
     max5970_controller!(HotSwapIO, v3p3_u2f_a0, A0, Ohms(0.005)),
-    max5970_controller!(HotSwapIO, v12_u2g_a0, A0, Ohms(0.005)),
+    max5970_controller!(HotSwapIO, v12_u2g_a0, A0, Ohms(0.005), true),
     max5970_controller!(HotSwapIO, v3p3_u2g_a0, A0, Ohms(0.005)),
-    max5970_controller!(HotSwapIO, v12_u2h_a0, A0, Ohms(0.005)),
+    max5970_controller!(HotSwapIO, v12_u2h_a0, A0, Ohms(0.005), true),
     max5970_controller!(HotSwapIO, v3p3_u2h_a0, A0, Ohms(0.005)),
-    max5970_controller!(HotSwapIO, v12_u2i_a0, A0, Ohms(0.005)),
+    max5970_controller!(HotSwapIO, v12_u2i_a0, A0, Ohms(0.005), true),
     max5970_controller!(HotSwapIO, v3p3_u2i_a0, A0, Ohms(0.005)),
-    max5970_controller!(HotSwapIO, v12_u2j_a0, A0, Ohms(0.005)),
+    max5970_controller!(HotSwapIO, v12_u2j_a0, A0, Ohms(0.005), true),
     max5970_controller!(HotSwapIO, v3p3_u2j_a0, A0, Ohms(0.005)),
     ltc4282_controller!(HotSwapIO, v12_mcio_a0hp, A0, Ohms(0.001)),
     ltc4282_controller!(HotSwapIO, v12_ddr5_abcdef_a0, A0, Ohms(0.001)),
@@ -345,7 +345,7 @@ impl State {
         .enumerate()
         {
             let (dev, rail) = (builder)(i2c_task);
-            let m = Max5970::new(&dev, rail, Ohms(0.005));
+            let m = Max5970::new(&dev, rail, Ohms(0.005), true);
             if let Err(err) = m.set_dac_fast(0x99) {
                 ringbuf_entry!(Trace::Max5970ConfigFailed { u2_index: i, err });
             }

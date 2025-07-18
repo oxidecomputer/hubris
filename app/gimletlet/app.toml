@@ -49,9 +49,6 @@ task-slots = []
 stacksize = 1040
 features = ["ereport"]
 
-[caboose]
-tasks = ["control_plane_agent"]
-
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
 priority = 7
