@@ -30,7 +30,7 @@ pub enum Error {
 /// Errors returned by the [`minicbor::encode::write::Write`] implementation for
 /// [`LeasedWriter`].
 #[derive(Copy, Clone, PartialEq)]
-pub struct WriteError(());
+pub struct WriteError;
 
 impl<A> minicbor::encode::write::Write for LeasedWriter<'_, A>
 where
@@ -104,7 +104,7 @@ where
     /// This is an unfortunate workaround for a limitation of the `minicbor`
     /// API: the errors our `Write` implementation can return are wrapped in an
     /// `encode::Error`, and we can't actually get our errors *out* of that
-    /// wrapper, so there's no way to tell whether the error was becasue we ran
+    /// wrapper, so there's no way to tell whether the error was because we ran
     /// out of space in the buffer, or because the lease client went away. So,
     /// we track it here, so that the caller can just ask us if we didn't have
     /// space to encode something.
