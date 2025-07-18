@@ -119,7 +119,6 @@ notifications = ["timer"]
 
 [tasks.power]
 name = "task-power"
-features = ["sidecar"]
 priority = 6
 max-sizes = {flash = 32768, ram = 8192 }
 stacksize = 3800
