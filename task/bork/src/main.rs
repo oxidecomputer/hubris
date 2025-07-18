@@ -39,7 +39,7 @@ impl NotificationHandler for ServerImpl {
 
     fn handle_notification(&mut self, bits: u32) {
         if (bits & notifications::TIMER_MASK) == 0 {
-            return;
+            cortex_m::asm::nop();
         }
     }
 }
