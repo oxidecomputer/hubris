@@ -203,6 +203,15 @@ impl idol_runtime::NotificationHandler for ServerImpl {
 }
 
 impl idl::InOrderDumpAgentImpl for ServerImpl {
+    fn spin(
+        &mut self,
+        _msg: &RecvMessage,
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
+        loop {
+            cortex_m::asm::nop();
+        }
+        Ok(())
+    }
     fn get_dump_area(
         &mut self,
         _msg: &RecvMessage,

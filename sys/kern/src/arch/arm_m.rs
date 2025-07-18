@@ -622,6 +622,21 @@ pub fn apply_memory_protection(task: &task::Task) {
     }
 }
 
+
+extern "C" {
+    // Exposed by the linker script.
+    static _stack_base: u32;
+    static _stack_start: u32;
+}
+
+#[cortex_m_rt::pre_init]
+unsafe fn pre_init() {
+    extern "C" {
+        static __euninit: u32;
+    }
+}
+
+
 pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
     // Enable faults and set fault/exception priorities to reasonable settings.
     // Our goal here is to keep the kernel non-preemptive, which means the
@@ -758,11 +773,6 @@ pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
     }
 
     CURRENT_TASK_PTR.store(task as *const _ as *mut _, Ordering::Relaxed);
-
-    extern "C" {
-        // Exposed by the linker script.
-        static _stack_base: u32;
-    }
 
     // Safety: this is setting the Main stack pointer (i.e. kernel/interrupt
     // stack pointer) limit register. There are two potential outcomes from
@@ -1419,7 +1429,6 @@ global_asm! {"
     ",
 }
 
-#[cfg(armv6m)]
 global_asm! {"
     .section .text.HardFault
     .globl HardFault

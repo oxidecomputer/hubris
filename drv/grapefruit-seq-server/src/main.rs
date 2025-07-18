@@ -33,6 +33,7 @@ counted_ringbuf!(Trace, 128, Trace::None);
 
 task_slot!(SYS, sys);
 task_slot!(PACKRAT, packrat);
+task_slot!(USER_LEDS, user_leds);
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -78,6 +79,9 @@ struct ServerImpl {
 
 impl ServerImpl {
     fn init(sys: &sys_api::Sys) -> Self {
+        let leds = drv_user_leds_api::UserLeds::from(USER_LEDS.get_task_id());
+        leds.led_blink(0).unwrap();
+
         // Ensure the SP fault pin is configured as an open-drain output, and
         // pull it low to make the sequencer restart externally visible.
         const FAULT_PIN_L: sys_api::PinSet = sys_api::Port::A.pin(15);

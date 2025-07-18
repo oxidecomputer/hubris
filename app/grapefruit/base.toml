@@ -13,7 +13,8 @@ register-map = "../../drv/spartan7-loader/grapefruit/gfruit_top.json"
 
 [kernel]
 name = "grapefruit"
-requires = {flash = 32768, ram = 8192}
+stacksize = 200
+requires = {flash = 32768, ram = 5384}
 features = ["dump"]
 
 [caboose]
@@ -176,11 +177,11 @@ interrupts = {"spi4.irq" = "spi-irq"}
 [tasks.grapefruit_seq]
 name = "drv-grapefruit-seq-server"
 features = ["h753"]
-priority = 5
+priority = 6
 max-sizes = {flash = 131072, ram = 16384 }
 stacksize = 2600
 start = true
-task-slots = ["sys", "jefe", "packrat", "spartan7_loader"]
+task-slots = ["sys", "jefe", "packrat", "spartan7_loader", "user_leds"]
 uses = ["mmio_sgpio"]
 
 [tasks.spartan7_loader]

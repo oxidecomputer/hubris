@@ -10,6 +10,7 @@ drv-cpu-power-state = { path = "../cpu-power-state" }
 drv-cpu-seq-api = { path = "../cpu-seq-api" }
 drv-spartan7-loader-api = { path = "../spartan7-loader-api" }
 drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
+drv-user-leds-api = { path = "../user-leds-api" }
 task-packrat-api = { path = "../../task/packrat-api" }
 ringbuf = { path = "../../lib/ringbuf" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }

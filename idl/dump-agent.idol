@@ -3,6 +3,11 @@
 Interface(
     name: "DumpAgent",
     ops: {
+        "spin": (
+            doc: "loop forever",
+            reply: Simple("()"),
+            idempotent: true,
+        ),
         "read_dump": (
             doc: "Fetch the 256 bytes from the dump at the specified offset from the specified area",
             args: {
