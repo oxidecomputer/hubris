@@ -331,9 +331,9 @@ impl EreportStore {
         Ok(end)
     }
 
-    fn encode_metadata<'lease>(
+    fn encode_metadata<'_>(
         &self,
-        encoder: &mut minicbor::Encoder<LeasedWriter<'lease, idol_runtime::W>>,
+        encoder: &mut minicbor::Encoder<LeasedWriter<'_, idol_runtime::W>>,
         vpd: &VpdIdentity,
     ) -> Result<(), minicbor::encode::Error<minicbor_lease::WriteError>> {
         encoder
