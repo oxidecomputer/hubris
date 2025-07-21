@@ -47,17 +47,17 @@ enum Trace {
     Programmed,
 
     Startup {
-        early_power_rdbks: fmc_periph::EarlyPowerRdbksDebug,
+        early_power_rdbks: fmc_periph::EarlyPowerRdbksView,
     },
     RegStateValues {
-        seq_api_status: fmc_periph::SeqApiStatusDebug,
-        seq_raw_status: fmc_periph::SeqRawStatusDebug,
-        nic_api_status: fmc_periph::NicApiStatusDebug,
-        nic_raw_status: fmc_periph::NicRawStatusDebug,
+        seq_api_status: fmc_periph::SeqApiStatusView,
+        seq_raw_status: fmc_periph::SeqRawStatusView,
+        nic_api_status: fmc_periph::NicApiStatusView,
+        nic_raw_status: fmc_periph::NicRawStatusView,
     },
     RegPgValues {
-        rail_pgs: fmc_periph::RailPgsDebug,
-        rail_pgs_max_hold: fmc_periph::RailPgsMaxHoldDebug,
+        rail_pgs: fmc_periph::RailPgsView,
+        rail_pgs_max_hold: fmc_periph::RailPgsMaxHoldView,
     },
     SetState {
         prev: Option<PowerState>,
@@ -684,17 +684,13 @@ impl NotificationHandler for ServerImpl {
         // If Hubris thinks we're powered up, check that the FPGA has not logged
         // any reset conditions from the CPU.
         if matches!(self.state, PowerState::A0 | PowerState::A0PlusHP) {
-            // TODO this reads the register 3x
-            let thermtrip = self.seq.ifr.thermtrip();
-            let pwrok_fedge = self.seq.ifr.amd_pwrok_fedge();
-            let rstn_fedge = self.seq.ifr.amd_rstn_fedge();
-
-            if thermtrip {
+            let ifr = self.seq.ifr.view();
+            if ifr.thermtrip {
                 self.seq.ifr.modify(|h| h.set_thermtrip(false));
                 ringbuf_entry!(Trace::Thermtrip);
                 self.set_state_internal(PowerState::A0Thermtrip)
                 // this is a terminal state (for now)
-            } else if pwrok_fedge || rstn_fedge {
+            } else if ifr.amd_pwrok_fedge || ifr.amd_rstn_fedge {
                 let rstn = self.seq.amd_reset_fedges.counts();
                 let pwrokn = self.seq.amd_pwrok_fedges.counts();
                 ringbuf_entry!(Trace::ResetCounts { rstn, pwrokn });
