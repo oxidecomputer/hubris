@@ -7,7 +7,7 @@ xtask = "run --package xtask --"
 # version_detect is basically "if nightly { return true; }". This setting gets
 # overridden within xtask for Hubris programs, so this only affects host tools like
 # xtask.
-rustflags = ["-Zallow-features=proc_macro_diagnostic,asm_const,naked_functions,used_with_arg"]
+rustflags = ["-Zallow-features=proc_macro_diagnostic,asm_const,used_with_arg"]
 
 [unstable]
 bindeps = true

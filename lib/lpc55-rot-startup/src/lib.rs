@@ -3,7 +3,6 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #![no_std]
-#![feature(naked_functions)]
 
 #[cfg(any(feature = "dice-mfg", feature = "dice-self"))]
 mod dice;
@@ -286,7 +285,7 @@ pub fn get_clock_speed(peripherals: &lpc55_pac::Peripherals) -> (u32, u8) {
 ///
 /// However, if you're doing something weird with unused stack memory, be very
 /// careful.
-#[naked]
+#[unsafe(naked)]
 extern "C" fn nuke_stack() {
     extern "C" {
         static _stack_base: u32;

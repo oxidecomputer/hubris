@@ -25,7 +25,6 @@
 //! See: https://github.com/rust-lang/rust/issues/73450#issuecomment-650463347
 
 #![no_std]
-#![feature(naked_functions)]
 #![forbid(clippy::wildcard_imports)]
 
 #[macro_use]
@@ -153,7 +152,7 @@ struct SendArgs<'a> {
 /// Core implementation of the SEND syscall.
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
-#[naked]
+#[unsafe(naked)]
 unsafe extern "C" fn sys_send_stub(_args: &mut SendArgs<'_>) -> RcLen {
     cfg_if::cfg_if! {
         if #[cfg(armv6m)] {
@@ -363,7 +362,7 @@ pub struct RecvMessage {
 /// Core implementation of the RECV syscall.
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
-#[naked]
+#[unsafe(naked)]
 #[must_use]
 unsafe extern "C" fn sys_recv_stub(
     _buffer_ptr: *mut u8,
@@ -480,7 +479,7 @@ pub fn sys_reply(peer: TaskId, code: u32, message: &[u8]) {
 /// Core implementation of the REPLY syscall.
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
-#[naked]
+#[unsafe(naked)]
 unsafe extern "C" fn sys_reply_stub(
     _peer: u32,
     _code: u32,
@@ -596,7 +595,7 @@ pub fn set_timer_relative(interval: u32, notifications: u32) -> u64 {
 /// Core implementation of the SET_TIMER syscall.
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
-#[naked]
+#[unsafe(naked)]
 unsafe extern "C" fn sys_set_timer_stub(
     _set_timer: u32,
     _deadline_lo: u32,
@@ -684,7 +683,7 @@ pub fn sys_borrow_read(
 /// Core implementation of the BORROW_READ syscall.
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
-#[naked]
+#[unsafe(naked)]
 unsafe extern "C" fn sys_borrow_read_stub(_args: *mut BorrowReadArgs) -> RcLen {
     cfg_if::cfg_if! {
         if #[cfg(armv6m)] {
@@ -779,7 +778,7 @@ pub fn sys_borrow_write(
 /// Core implementation of the BORROW_WRITE syscall.
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
-#[naked]
+#[unsafe(naked)]
 unsafe extern "C" fn sys_borrow_write_stub(
     _args: *mut BorrowWriteArgs,
 ) -> RcLen {
@@ -896,7 +895,7 @@ pub struct BorrowInfo {
 /// Core implementation of the BORROW_INFO syscall.
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
-#[naked]
+#[unsafe(naked)]
 unsafe extern "C" fn sys_borrow_info_stub(
     _lender: u32,
     _index: usize,
@@ -994,7 +993,7 @@ pub fn sys_irq_control_clear_pending(mask: u32, enable: bool) {
 /// Core implementation of the IRQ_CONTROL syscall.
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
-#[naked]
+#[unsafe(naked)]
 unsafe extern "C" fn sys_irq_control_stub(_mask: u32, _enable: u32) {
     cfg_if::cfg_if! {
         if #[cfg(armv6m)] {
@@ -1061,7 +1060,7 @@ pub fn sys_panic(msg: &[u8]) -> ! {
 /// Core implementation of the PANIC syscall.
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
-#[naked]
+#[unsafe(naked)]
 unsafe extern "C" fn sys_panic_stub(_msg: *const u8, _len: usize) -> ! {
     cfg_if::cfg_if! {
         if #[cfg(armv6m)] {
@@ -1171,7 +1170,7 @@ struct RawTimerState {
 /// Core implementation of the GET_TIMER syscall.
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
-#[naked]
+#[unsafe(naked)]
 unsafe extern "C" fn sys_get_timer_stub(_out: *mut RawTimerState) {
     cfg_if::cfg_if! {
         if #[cfg(armv6m)] {
@@ -1238,7 +1237,7 @@ unsafe extern "C" fn sys_get_timer_stub(_out: *mut RawTimerState) {
 #[doc(hidden)]
 #[no_mangle]
 #[link_section = ".text.start"]
-#[naked]
+#[unsafe(naked)]
 pub unsafe extern "C" fn _start() -> ! {
     // Provided by the user program:
     extern "Rust" {
@@ -1553,7 +1552,7 @@ pub fn sys_refresh_task_id(task_id: TaskId) -> TaskId {
 /// Core implementation of the REFRESH_TASK_ID syscall.
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
-#[naked]
+#[unsafe(naked)]
 unsafe extern "C" fn sys_refresh_task_id_stub(_tid: u32) -> u32 {
     cfg_if::cfg_if! {
         if #[cfg(armv6m)] {
@@ -1622,7 +1621,7 @@ pub fn sys_post(task_id: TaskId, bits: u32) -> u32 {
 /// Core implementation of the POST syscall.
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
-#[naked]
+#[unsafe(naked)]
 unsafe extern "C" fn sys_post_stub(_tid: u32, _mask: u32) -> u32 {
     cfg_if::cfg_if! {
         if #[cfg(armv6m)] {
@@ -1692,7 +1691,7 @@ pub fn sys_reply_fault(task_id: TaskId, reason: ReplyFaultReason) {
 /// Core implementation of the REPLY_FAULT syscall.
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
-#[naked]
+#[unsafe(naked)]
 unsafe extern "C" fn sys_reply_fault_stub(_tid: u32, _reason: u32) {
     cfg_if::cfg_if! {
         if #[cfg(armv6m)] {
@@ -1776,7 +1775,7 @@ pub fn sys_irq_status(mask: u32) -> abi::IrqStatus {
 /// Core implementation of the IRQ_STATUS syscall.
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
-#[naked]
+#[unsafe(naked)]
 unsafe extern "C" fn sys_irq_status_stub(_mask: u32) -> u32 {
     cfg_if::cfg_if! {
         if #[cfg(armv6m)] {

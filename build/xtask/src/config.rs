@@ -783,7 +783,6 @@ impl BuildConfig<'_> {
         nightly_features.extend([
             "asm_const",
             "emit_stack_sizes",
-            "naked_functions",
             "used_with_arg",
         ]);
         // nightly features that our dependencies use:
