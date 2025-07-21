@@ -1857,7 +1857,7 @@ impl ServerImpl {
         if success.is_ok() && self.reset_into_debug_halt().is_ok() {
             // Deposit the measurement token into SP memory
             if let Err(e) = self.write_single_target_addr(
-                measurement_token::ADDR as u32,
+                measurement_token::SP_ADDR as u32,
                 measurement_token::VALID,
             ) {
                 ringbuf_entry!(Trace::TokenWriteFail(e));

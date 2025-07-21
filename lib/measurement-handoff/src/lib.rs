@@ -49,7 +49,7 @@ extern "C" {
 pub unsafe fn check(retry_count: u32, delay_and_reset: fn() -> !) -> bool {
     let ptr: *mut u32 = &raw mut __REGION_DTCM_BASE as *mut _;
     let end: *mut u32 = &raw mut __REGION_DTCM_END as *mut _;
-    assert!(ptr == measurement_token::ADDR);
+    assert!(ptr == measurement_token::SP_ADDR);
     assert!(end.offset_from(ptr) >= 4 * core::mem::size_of::<u32>() as isize);
 
     let token = core::ptr::read_volatile(ptr);

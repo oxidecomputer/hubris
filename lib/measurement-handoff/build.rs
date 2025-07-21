@@ -21,7 +21,7 @@ fn main() -> anyhow::Result<()> {
         .expect("missing `dtcm` in `extern_regions`");
     assert_eq!(
         dtcm_range.start,
-        measurement_token::ADDR as u32,
+        measurement_token::SP_ADDR as u32,
         "invalid address for token"
     );
     assert!(
