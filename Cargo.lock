@@ -3796,7 +3796,7 @@ dependencies = [
 [[package]]
 name = "measurement-token"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/lpc55_support?branch=mkeeter/measurement-token#25e482df8e586fbc4f54e672aee3c091c68b39ca"
+source = "git+https://github.com/oxidecomputer/lpc55_support?branch=mkeeter/measurement-token#a2f0d95c4246abd0dfe0e1e96acc48fb79c55aab"
 
 [[package]]
 name = "medusa"
