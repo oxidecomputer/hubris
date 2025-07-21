@@ -35,8 +35,14 @@ pub struct VLanEthernet<'a> {
 }
 
 impl<'a> smoltcp::phy::Device for VLanEthernet<'a> {
-    type RxToken<'b> = VLanRxToken<'a> where Self: 'b;
-    type TxToken<'b> = VLanTxToken<'a> where Self: 'b;
+    type RxToken<'b>
+        = VLanRxToken<'a>
+    where
+        Self: 'b;
+    type TxToken<'b>
+        = VLanTxToken<'a>
+    where
+        Self: 'b;
 
     fn receive(
         &mut self,
