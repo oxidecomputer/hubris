@@ -227,6 +227,9 @@ impl I2cMuxDriver for Max7358 {
                 Segment::S8 => {
                     reg.set_channel7_selected(true);
                 }
+                _ => {
+                    return Err(ResponseCode::SegmentNotFound);
+                }
             }
         }
 

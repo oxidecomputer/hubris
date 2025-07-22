@@ -324,6 +324,18 @@
                         {
                             "name": "t6_sequencer",
                             "value": 11
+                        },
+                        {
+                            "name": "mux1_sel",
+                            "value": 12
+                        },
+                        {
+                            "name": "mux2_sel",
+                            "value": 13
+                        },
+                        {
+                            "name": "mux3_sel",
+                            "value": 14
                         }
                     ]
                 },
@@ -385,6 +397,18 @@
                         {
                             "name": "t6_sequencer",
                             "value": 11
+                        },
+                        {
+                            "name": "mux1_sel",
+                            "value": 12
+                        },
+                        {
+                            "name": "mux2_sel",
+                            "value": 13
+                        },
+                        {
+                            "name": "mux3_sel",
+                            "value": 14
                         }
                     ]
                 },
@@ -446,6 +470,18 @@
                         {
                             "name": "t6_sequencer",
                             "value": 11
+                        },
+                        {
+                            "name": "mux1_sel",
+                            "value": 12
+                        },
+                        {
+                            "name": "mux2_sel",
+                            "value": 13
+                        },
+                        {
+                            "name": "mux3_sel",
+                            "value": 14
                         }
                     ]
                 },
@@ -507,6 +543,18 @@
                         {
                             "name": "t6_sequencer",
                             "value": 11
+                        },
+                        {
+                            "name": "mux1_sel",
+                            "value": 12
+                        },
+                        {
+                            "name": "mux2_sel",
+                            "value": 13
+                        },
+                        {
+                            "name": "mux3_sel",
+                            "value": 14
                         }
                     ]
                 }

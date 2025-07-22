@@ -1,6 +1,6 @@
 {
     "type": "addrmap",
-    "addr_span_bytes": 84,
+    "addr_span_bytes": 88,
     "inst_name": "sequencer_regs",
     "addr_offset": 0,
     "children": [
@@ -559,8 +559,28 @@
         },
         {
             "type": "reg",
-            "inst_name": "rail_enables",
+            "inst_name": "amd_pwgdout_fedges",
             "addr_offset": 48,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "counts",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": "wclr",
+                    "desc": "Falling edge counter of AMD's PowerGDOUT output while in A0/A0HP. Saturates at 255.  Cleared by any write or starting a new power up"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "rail_enables",
+            "addr_offset": 52,
             "regwidth": 32,
             "min_accesswidth": 32,
             "children": [
@@ -767,7 +787,7 @@
         {
             "type": "reg",
             "inst_name": "rail_pgs",
-            "addr_offset": 52,
+            "addr_offset": 56,
             "regwidth": 32,
             "min_accesswidth": 32,
             "children": [
@@ -974,7 +994,7 @@
         {
             "type": "reg",
             "inst_name": "rail_pgs_max_hold",
-            "addr_offset": 56,
+            "addr_offset": 60,
             "regwidth": 32,
             "min_accesswidth": 32,
             "children": [
@@ -1181,7 +1201,7 @@
         {
             "type": "reg",
             "inst_name": "sp5_readbacks",
-            "addr_offset": 60,
+            "addr_offset": 64,
             "regwidth": 32,
             "min_accesswidth": 32,
             "children": [
@@ -1283,13 +1303,24 @@
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "pwr_btn_l live status, (From FPGA to SP5)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "pwrgd_out",
+                    "lsb": 9,
+                    "msb": 9,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "pwrgd_out live status, (From SP5 to FPGA)"
                 }
             ]
         },
         {
             "type": "reg",
             "inst_name": "nic_readbacks",
-            "addr_offset": 64,
+            "addr_offset": 68,
             "regwidth": 32,
             "min_accesswidth": 32,
             "children": [
@@ -1397,7 +1428,7 @@
         {
             "type": "reg",
             "inst_name": "debug_enables",
-            "addr_offset": 68,
+            "addr_offset": 72,
             "regwidth": 32,
             "min_accesswidth": 32,
             "children": [
@@ -1450,7 +1481,7 @@
         {
             "type": "reg",
             "inst_name": "nic_overrides",
-            "addr_offset": 72,
+            "addr_offset": 76,
             "regwidth": 32,
             "min_accesswidth": 32,
             "children": [
@@ -1536,7 +1567,7 @@
         {
             "type": "reg",
             "inst_name": "ignition_control",
-            "addr_offset": 76,
+            "addr_offset": 80,
             "regwidth": 32,
             "min_accesswidth": 32,
             "children": [
@@ -1567,7 +1598,7 @@
         {
             "type": "reg",
             "inst_name": "pcie_clk_ctrl",
-            "addr_offset": 80,
+            "addr_offset": 84,
             "regwidth": 32,
             "min_accesswidth": 32,
             "children": [
