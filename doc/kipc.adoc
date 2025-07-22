@@ -141,7 +141,8 @@ zero otherwise) and the stack erased.
 5. Any _other_ tasks that were blocked in IPC with the targeted task (either
 waiting to deliver a message, waiting for a reply to a delivered message, or
 waiting to receive) are interrupted and given a <<death,dead code>> to indicate
-that the IPC will never complete.
+that the IPC will never complete.  The dead code's generation is the *new*
+generation number for the faulted task.
 
 ==== Request
 

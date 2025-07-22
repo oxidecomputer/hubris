@@ -158,7 +158,7 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
         &mut self,
         msg: &userlib::RecvMessage,
     ) -> Result<(), RequestError<Infallible>> {
-        kipc::restart_task(msg.sender.index(), true);
+        kipc::reinit_task(msg.sender.index(), true);
 
         // Note: the returned value here won't go anywhere because we just
         // unblocked the caller. So this is doing a small amount of unnecessary
@@ -377,7 +377,7 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
 
                 if status.disposition == Disposition::Restart {
                     // Stand it back up
-                    kipc::restart_task(fault_index, true);
+                    kipc::reinit_task(fault_index, true);
                 } else {
                     // Mark this one off so we don't revisit it until
                     // requested.

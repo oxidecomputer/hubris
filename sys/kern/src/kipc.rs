@@ -25,7 +25,7 @@ pub fn handle_kernel_message(
         Ok(Kipcnum::ReadTaskStatus) => {
             read_task_status(tasks, caller, args.message?, args.response?)
         }
-        Ok(Kipcnum::RestartTask) => restart_task(tasks, caller, args.message?),
+        Ok(Kipcnum::ReinitTask) => reinit_task(tasks, caller, args.message?),
         Ok(Kipcnum::FaultTask) => fault_task(tasks, caller, args.message?),
         Ok(Kipcnum::ReadImageId) => {
             read_image_id(tasks, caller, args.response?)
@@ -112,7 +112,7 @@ fn read_task_status(
     Ok(NextTask::Same)
 }
 
-fn restart_task(
+fn reinit_task(
     tasks: &mut [Task],
     caller: usize,
     message: USlice<u8>,
@@ -130,6 +130,7 @@ fn restart_task(
     if start {
         tasks[index].set_healthy_state(SchedState::Runnable);
     }
+    let new_gen = tasks[index].generation();
 
     // Restarting a task can have implications for other tasks. We don't want to
     // leave tasks sitting around waiting for a reply that will never come, for
@@ -154,7 +155,7 @@ fn restart_task(
                 {
                     // Please accept our sincere condolences on behalf of the
                     // kernel.
-                    let code = abi::dead_response_code(peer.generation());
+                    let code = abi::dead_response_code(new_gen);
 
                     task.save_mut().set_error_response(code);
                     task.set_healthy_state(SchedState::Runnable);

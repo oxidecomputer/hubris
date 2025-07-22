@@ -1,6 +1,7 @@
 target/
 itm.txt
 *.swp
+hubris.testout.*
 
 **/*.rs.bk
 .#*

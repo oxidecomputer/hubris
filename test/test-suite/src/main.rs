@@ -106,6 +106,7 @@ test_cases! {
     test_panic,
     test_restart,
     test_restart_taskgen,
+    test_panic_taskgen,
     test_borrow_info,
     test_borrow_read,
     test_borrow_write,
@@ -921,6 +922,54 @@ fn test_restart() {
     assert_eq!(response, 0);
 }
 
+/// Enables or disables automatic restarting of tasks in the supervisor
+///
+/// Note that the test suite (that's us) is never automatically restarted,
+/// because it panics to indicate test failures.
+fn set_autorestart(autorestart: bool) {
+    let runner = RUNNER.get_task_id();
+    let mut response = 0u32;
+    let op = RunnerOp::AutoRestart as u16;
+    let arg = u32::from(autorestart);
+    let (rc, len) = userlib::sys_send(
+        runner,
+        op,
+        arg.as_bytes(),
+        response.as_mut_bytes(),
+        &[],
+    );
+    assert_eq!(rc, 0);
+    assert_eq!(len, 0);
+}
+
+/// Tests that when our task dies, we get an error code that consists of
+/// the new generation in the lower bits.
+fn test_panic_taskgen() {
+    set_autorestart(true);
+
+    // Ask the assistant to panic.
+    let assist = assist_task_id();
+    let initial_gen = assist.generation();
+    let mut response = 0u32;
+    let (rc, len) = userlib::sys_send(
+        assist,
+        AssistOp::FastPanic as u16,
+        &0u32.to_le_bytes(),
+        response.as_mut_bytes(),
+        &[],
+    );
+
+    // Clean up by disabling auto-restart before making our assertions
+    set_autorestart(false);
+
+    // The returned value should be a dead code indicating the new generation
+    assert_eq!(rc & 0xffff_ff00, 0xffff_ff00);
+    assert_eq!(len, 0);
+    let new_gen = Generation::from((rc & 0xff) as u8);
+    assert_ne!(initial_gen, new_gen);
+    assert_eq!(assist_task_id().generation(), new_gen);
+}
+
 /// Tests that when our task dies, we get an error code that consists of
 /// the new generation in the lower bits.
 fn test_restart_taskgen() {
@@ -1546,7 +1595,7 @@ fn idol_handle() -> test_idol_api::IdolTest {
 
 /// Restarts the assistant task.
 fn restart_assistant() {
-    kipc::restart_task(ASSIST.get_task_index().into(), true);
+    kipc::reinit_task(ASSIST.get_task_index().into(), true);
 }
 
 /// Contacts the runner task to read (and clear) its accumulated set of
@@ -1568,7 +1617,7 @@ fn main() -> ! {
     // Work out the assistant generation. Restart it to ensure it's running
     // before we try talking to it. TODO: this is kind of gross, we need a way
     // to just ask.
-    kipc::restart_task(ASSIST.get_task_index().into(), true);
+    kipc::reinit_task(ASSIST.get_task_index().into(), true);
     loop {
         let assist = assist_task_id();
         let challenge = 0xDEADBEEF_u32;
