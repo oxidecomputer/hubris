@@ -4122,7 +4122,8 @@ zero otherwise) and the stack erased.</p>
 <p>Any <em>other</em> tasks that were blocked in IPC with the targeted task (either
 waiting to deliver a message, waiting for a reply to a delivered message, or
 waiting to receive) are interrupted and given a <a href="#death">dead code</a> to indicate
-that the IPC will never complete.</p>
+that the IPC will never complete.  The dead code&#8217;s generation is the <strong>new</strong>
+generation number for the faulted task.</p>
 </li>
 </ol>
 </div>
@@ -5201,7 +5202,7 @@ crash(es) from the kernel via IPC.
             <span class="nn">abi</span><span class="p">::</span><span class="nn">TaskState</span><span class="p">::</span><span class="n">Faulted</span> <span class="p">{</span> <span class="n">fault</span><span class="p">,</span> <span class="o">..</span> <span class="p">}</span> <span class="k">=&gt;</span> <span class="p">{</span>
                 <span class="c1">// Record any observed faults and restart.</span>
                 <span class="k">log</span><span class="p">(</span><span class="n">fault</span><span class="p">);</span>
-                <span class="nn">kipc</span><span class="p">::</span><span class="nf">restart_task</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="k">true</span><span class="p">);</span>
+                <span class="nn">kipc</span><span class="p">::</span><span class="nf">reinit_task</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="k">true</span><span class="p">);</span>
             <span class="p">}</span>
         <span class="p">}</span>
     <span class="p">}</span>
@@ -5264,7 +5265,7 @@ follows:</p>
                 <span class="nn">abi</span><span class="p">::</span><span class="nn">TaskState</span><span class="p">::</span><span class="n">Faulted</span> <span class="p">{</span> <span class="n">fault</span><span class="p">,</span> <span class="o">..</span> <span class="p">}</span> <span class="k">=&gt;</span> <span class="p">{</span>
                     <span class="c1">// Record any observed faults and restart.</span>
                     <span class="k">log</span><span class="p">(</span><span class="n">fault</span><span class="p">);</span>
-                    <span class="nn">kipc</span><span class="p">::</span><span class="nf">restart_task</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="k">true</span><span class="p">);</span>
+                    <span class="nn">kipc</span><span class="p">::</span><span class="nf">reinit_task</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="k">true</span><span class="p">);</span>
                 <span class="p">}</span>
             <span class="p">}</span>
         <span class="p">}</span>
@@ -5814,7 +5815,7 @@ tool to a high-reliability research platform.</em></p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2025-07-22 19:46:43 UTC
+Last updated 2025-07-22 20:17:08 UTC
 </div>
 </div>
 </body>
