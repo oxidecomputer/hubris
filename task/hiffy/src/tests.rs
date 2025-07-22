@@ -32,7 +32,7 @@ pub(crate) fn run_a_test(
         }
     };
 
-    userlib::kipc::restart_task(TEST_TASK.get_task_index().into(), true);
+    userlib::kipc::reinit_task(TEST_TASK.get_task_index().into(), true);
 
     ringbuf_entry!(Trace::RunTest(id));
     let (rc, _len) = sys_send(

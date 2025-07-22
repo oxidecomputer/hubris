@@ -79,7 +79,7 @@ loop {
             abi::TaskState::Faulted { fault, .. } => {
                 // Record any observed faults and restart.
                 log(fault);
-                kipc::restart_task(i, true);
+                kipc::reinit_task(i, true);
             }
         }
     }
@@ -130,7 +130,7 @@ loop {
                 abi::TaskState::Faulted { fault, .. } => {
                     // Record any observed faults and restart.
                     log(fault);
-                    kipc::restart_task(i, true);
+                    kipc::reinit_task(i, true);
                 }
             }
         }

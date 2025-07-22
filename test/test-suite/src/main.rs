@@ -1546,7 +1546,7 @@ fn idol_handle() -> test_idol_api::IdolTest {
 
 /// Restarts the assistant task.
 fn restart_assistant() {
-    kipc::restart_task(ASSIST.get_task_index().into(), true);
+    kipc::reinit_task(ASSIST.get_task_index().into(), true);
 }
 
 /// Contacts the runner task to read (and clear) its accumulated set of
@@ -1568,7 +1568,7 @@ fn main() -> ! {
     // Work out the assistant generation. Restart it to ensure it's running
     // before we try talking to it. TODO: this is kind of gross, we need a way
     // to just ask.
-    kipc::restart_task(ASSIST.get_task_index().into(), true);
+    kipc::reinit_task(ASSIST.get_task_index().into(), true);
     loop {
         let assist = assist_task_id();
         let challenge = 0xDEADBEEF_u32;

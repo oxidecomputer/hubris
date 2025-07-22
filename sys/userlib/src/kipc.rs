@@ -100,14 +100,14 @@ pub fn read_task_dump_region(
     len
 }
 
-pub fn restart_task(task: usize, start: bool) {
+pub fn reinit_task(task: usize, start: bool) {
     // Coerce `task` to a known size (Rust doesn't assume that usize == u32)
     let msg = (task as u32, start);
     let mut buf = [0; core::mem::size_of::<(u32, bool)>()];
     ssmarshal::serialize(&mut buf, &msg).unwrap_lite();
     let (_rc, _len) = sys_send(
         TaskId::KERNEL,
-        Kipcnum::RestartTask as u16,
+        Kipcnum::ReinitTask as u16,
         &buf,
         &mut [],
         &[],

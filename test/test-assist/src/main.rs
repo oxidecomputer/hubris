@@ -257,7 +257,7 @@ fn main() -> ! {
 
                     AssistOp::RestartTask => {
                         caller.reply(0);
-                        kipc::restart_task(*msg as usize, true);
+                        kipc::reinit_task(*msg as usize, true);
                     }
 
                     AssistOp::RefreshTaskIdOffByOne => {

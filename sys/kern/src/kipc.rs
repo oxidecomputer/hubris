@@ -25,7 +25,7 @@ pub fn handle_kernel_message(
         Ok(Kipcnum::ReadTaskStatus) => {
             read_task_status(tasks, caller, args.message?, args.response?)
         }
-        Ok(Kipcnum::RestartTask) => restart_task(tasks, caller, args.message?),
+        Ok(Kipcnum::ReinitTask) => reinit_task(tasks, caller, args.message?),
         Ok(Kipcnum::FaultTask) => fault_task(tasks, caller, args.message?),
         Ok(Kipcnum::ReadImageId) => {
             read_image_id(tasks, caller, args.response?)
@@ -112,7 +112,7 @@ fn read_task_status(
     Ok(NextTask::Same)
 }
 
-fn restart_task(
+fn reinit_task(
     tasks: &mut [Task],
     caller: usize,
     message: USlice<u8>,
