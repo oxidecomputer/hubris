@@ -280,7 +280,6 @@ macro_rules! ringbuf {
 #[macro_export]
 macro_rules! ringbuf {
     ($name:ident, $t:ty, $n:expr, $init:expr) => {
-        #[used]
         static $name: $crate::StaticCell<$crate::Ringbuf<$t, u16, $n>> =
             $crate::StaticCell::new($crate::Ringbuf {
                 last: None,
@@ -293,7 +292,6 @@ macro_rules! ringbuf {
             });
     };
     ($name:ident, $t:ty, $n:expr, $init:expr, no_dedup) => {
-        #[used]
         static $name: $crate::StaticCell<$crate::Ringbuf<$t, () $n>> =
             $crate::StaticCell::new($crate::Ringbuf {
                 last: None,
@@ -338,7 +336,6 @@ macro_rules! ringbuf {
 #[macro_export]
 macro_rules! counted_ringbuf {
     ($name:ident, $t:ident, $n:expr, $init:expr) => {
-        #[used]
         static $name: $crate::CountedRingbuf<$t, u16, $n> =
             $crate::CountedRingbuf {
                 ringbuf: $crate::StaticCell::new($crate::Ringbuf {
@@ -354,7 +351,6 @@ macro_rules! counted_ringbuf {
             };
     };
     ($name:ident, $t:ident, $n:expr, $init:expr, no_dedup) => {
-        #[used]
         static $name: $crate::CountedRingbuf<$t, (), $n> =
             $crate::CountedRingbuf {
                 ringbuf: $crate::StaticCell::new($crate::Ringbuf {
