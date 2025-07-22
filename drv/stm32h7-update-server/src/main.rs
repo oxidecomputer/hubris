@@ -47,6 +47,7 @@ extern "C" {
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    None,
     EraseStart,
     EraseEnd,
     WriteStart,
@@ -54,7 +55,6 @@ enum Trace {
     FinishStart,
     FinishEnd,
     WriteBlock(usize),
-    None,
 }
 
 enum UpdateState {

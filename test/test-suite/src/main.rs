@@ -35,9 +35,9 @@ use zerocopy::IntoBytes;
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    None,
     TestStart,
     TestFinish,
-    None,
 }
 
 ringbuf!(Trace, 64, Trace::None);

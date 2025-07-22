@@ -216,10 +216,10 @@ fn write_reg16(
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    None,
     ZeroTach(Fan),
     TachOverflow(u32),
     BadFanCount(u8),
-    None,
 }
 
 ringbuf!(Trace, 6, Trace::None);

@@ -23,10 +23,10 @@ pub use crate::lm5066::{CurrentLimitStrap, Error};
 
 #[derive(Copy, Clone, PartialEq)]
 pub(crate) enum Trace {
+    None,
     CurrentCoefficients(pmbus::Coefficients),
     PowerCoefficients(pmbus::Coefficients),
     DeviceSetup(lm5066i::DEVICE_SETUP::CommandData),
-    None,
 }
 
 pub struct Lm5066I {

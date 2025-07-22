@@ -38,6 +38,8 @@ task_slot!(PACKRAT, packrat);
 
 #[derive(Copy, Clone, PartialEq, Count)]
 enum Trace {
+    #[count(skip)]
+    None,
     FpgaInit,
     StartFailed(#[count(children)] SeqError),
     ContinueBitstreamLoad(usize),
@@ -78,8 +80,6 @@ enum Trace {
         sp5r3: bool,
         sp5r4: bool,
     },
-    #[count(skip)]
-    None,
 }
 counted_ringbuf!(Trace, 128, Trace::None);
 

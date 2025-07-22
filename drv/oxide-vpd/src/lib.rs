@@ -36,9 +36,9 @@ struct EepromReader<'a> {
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    None,
     EepromError(drv_i2c_devices::at24csw080::Error),
     Error(VpdError),
-    None,
 }
 
 ringbuf!(Trace, 4, Trace::None);

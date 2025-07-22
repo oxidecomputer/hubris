@@ -112,12 +112,12 @@ use zerocopy::IntoBytes;
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    None,
     Idcode(u32),
     Idr(u32),
     MemVal(u32),
     ReadCmd,
     WriteCmd,
-    None,
     AckErr(Ack),
     DongleDetected,
     Dhcsr(Dhcsr),

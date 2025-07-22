@@ -47,15 +47,14 @@ pub fn claim_spi(_sys: &sys_api::Sys) -> drv_spi_api::Spi {
 
 #[derive(Copy, Clone, PartialEq, Count)]
 enum Trace {
+    #[count(skip)]
+    None,
     FpgaInit,
     FpgaInitFailed(#[count(children)] Spartan7Error),
     StartFailed(#[count(children)] LoaderError),
     ContinueBitstreamLoad(usize),
     WaitForDone,
     Programmed,
-
-    #[count(skip)]
-    None,
 }
 
 #[derive(Copy, Clone, PartialEq, Count)]

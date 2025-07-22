@@ -62,13 +62,13 @@ const TEST_TASK: usize = 1;
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    None,
     Notification,
     TestComplete(TaskId),
     TestResult(TaskId),
     SoftIrq(TaskId, u32),
     AutoRestart(bool),
     RestartingTask(usize),
-    None,
 }
 
 ringbuf!(Trace, 64, Trace::None);
