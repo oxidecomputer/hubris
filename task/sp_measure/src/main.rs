@@ -18,11 +18,11 @@ task_slot!(SP_CTRL, swd);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    None,
     Start(u64),
     End(u64),
     ShaGood,
     ShaBad,
-    None,
 }
 
 ringbuf!(Trace, 16, Trace::None);

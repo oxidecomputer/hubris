@@ -18,9 +18,9 @@ struct ServerImpl;
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    None,
     Validate(usize),
     ValidateFailure(drv_i2c_api::ResponseCode),
-    None,
 }
 
 ringbuf!(Trace, 64, Trace::None);

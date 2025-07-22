@@ -16,6 +16,7 @@ use zerocopy::FromBytes;
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    None,
     DumpInitiated(u32),
     SetupFailed(SpCtrlError),
     DumpHeader([u8; 4]),
@@ -33,7 +34,6 @@ enum Trace {
     ReinitFailed,
     ReinitSucceededButResumeFailed,
     ReinitResumed,
-    None,
 }
 
 task_slot!(SP_CTRL, swd);

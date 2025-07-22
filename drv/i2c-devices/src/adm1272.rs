@@ -81,10 +81,10 @@ impl core::fmt::Display for Adm1272 {
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    None,
     Coefficients(pmbus::Coefficients),
     Config(adm1272::PMON_CONFIG::CommandData),
     WriteConfig(adm1272::PMON_CONFIG::CommandData),
-    None,
 }
 
 ringbuf!(Trace, 8, Trace::None);

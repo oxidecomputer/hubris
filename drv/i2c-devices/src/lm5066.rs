@@ -101,10 +101,10 @@ impl core::fmt::Display for Lm5066 {
 
 #[derive(Copy, Clone, PartialEq)]
 pub enum Trace {
+    None,
     CurrentCoefficients(pmbus::Coefficients),
     PowerCoefficients(pmbus::Coefficients),
     DeviceSetup(lm5066::DEVICE_SETUP::CommandData),
-    None,
 }
 
 ringbuf!(Trace, 8, Trace::None);

@@ -81,11 +81,11 @@ pub(crate) fn run_a_test(
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    None,
     Execute((usize, hif::Op)),
     Failure(Failure),
     Success,
     RunTest(u32),
-    None,
 }
 
 ringbuf!(Trace, 64, Trace::None);

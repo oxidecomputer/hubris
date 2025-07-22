@@ -104,6 +104,7 @@ const TRACE_DEPTH: usize = 52;
 /// Tooling can then collect this ringbuf periodically and get recent events.
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    None,
     /// Written before trace records; the `u32` is the number of times the task
     /// has woken up to process its timer. This is not exactly equivalent to
     /// seconds because of the way the timer is maintained, but is approximately
@@ -134,7 +135,6 @@ enum Trace {
         crossbounce_min_vout: f32,
         crossbounce_max_vout: f32,
     },
-    None,
 }
 
 ringbuf!(Trace, TRACE_DEPTH, Trace::None);

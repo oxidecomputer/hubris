@@ -62,6 +62,7 @@ const LTC4306_ADDRESS: u8 = 0b1001_010;
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    None,
     Ready,
     Initiate(u8, bool),
     Rx(u8, u8),
@@ -69,7 +70,6 @@ enum Trace {
     MemInitiate(u8),
     MemSetOffset(usize, u8),
     MuxState(ltc4306::State, ltc4306::State),
-    None,
 }
 
 ringbuf!(Trace, 16, Trace::None);

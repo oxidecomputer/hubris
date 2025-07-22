@@ -34,9 +34,9 @@ struct ServerImpl {
 #[cfg(not(feature = "no-rot"))]
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    None,
     SpRotDump,
     SpRotDumpResult(Result<(), DumpAgentError>),
-    None,
 }
 
 #[cfg(not(feature = "no-rot"))]

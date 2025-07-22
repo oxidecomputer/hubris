@@ -18,10 +18,10 @@ task_slot!(SP_CTRL, swd);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    None,
     Execute((usize, hif::Op)),
     Failure(Failure),
     Success,
-    None,
 }
 
 ringbuf!(Trace, 64, Trace::None);
