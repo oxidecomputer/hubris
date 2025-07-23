@@ -30,7 +30,7 @@ impl Bsp {
     }
 
     #[inline]
-    pub fn status(&self) -> Result<PowerRailStatus, FpgaError> {
+    fn status(&self) -> Result<PowerRailStatus, FpgaError> {
         PowerRailStatus::try_from(self.raw_state()?)
     }
 
