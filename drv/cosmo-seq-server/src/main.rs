@@ -47,17 +47,17 @@ enum Trace {
     Programmed,
 
     Startup {
-        early_power_rdbks: fmc_periph::EarlyPowerRdbksDebug,
+        early_power_rdbks: fmc_periph::EarlyPowerRdbksView,
     },
     RegStateValues {
-        seq_api_status: fmc_periph::SeqApiStatusDebug,
-        seq_raw_status: fmc_periph::SeqRawStatusDebug,
-        nic_api_status: fmc_periph::NicApiStatusDebug,
-        nic_raw_status: fmc_periph::NicRawStatusDebug,
+        seq_api_status: fmc_periph::SeqApiStatusView,
+        seq_raw_status: fmc_periph::SeqRawStatusView,
+        nic_api_status: fmc_periph::NicApiStatusView,
+        nic_raw_status: fmc_periph::NicRawStatusView,
     },
     RegPgValues {
-        rail_pgs: fmc_periph::RailPgsDebug,
-        rail_pgs_max_hold: fmc_periph::RailPgsMaxHoldDebug,
+        rail_pgs: fmc_periph::RailPgsView,
+        rail_pgs_max_hold: fmc_periph::RailPgsMaxHoldView,
     },
     SetState {
         prev: Option<PowerState>,
@@ -80,6 +80,11 @@ enum Trace {
         sp5r3: bool,
         sp5r4: bool,
     },
+    ResetCounts {
+        rstn: u8,
+        pwrokn: u8,
+    },
+    Thermtrip,
 }
 counted_ringbuf!(Trace, 128, Trace::None);
 
@@ -421,9 +426,21 @@ impl ServerImpl {
         use fmc_periph::A0Sm;
         match (self.get_state_impl(), state) {
             (PowerState::A2, PowerState::A0) => {
+                // Reset edge counters in the sequencer
+                self.seq.amd_reset_fedges.set_counts(0);
+                self.seq.amd_pwrok_fedges.set_counts(0);
+
+                // Reset edge interrupts flags
+                self.seq.ifr.modify(|h| {
+                    h.set_amd_pwrok_fedge(false);
+                    h.set_amd_rstn_fedge(false);
+                });
+
+                // Tell the sequencer to go to A0
                 self.seq.power_ctrl.modify(|m| m.set_a0_en(true));
-                let mut okay = false;
+
                 // Wait 2 seconds for power-up
+                let mut okay = false;
                 for _ in 0..200 {
                     let state = self.log_state_registers();
                     match state.seq {
@@ -502,7 +519,8 @@ impl ServerImpl {
             }
             (PowerState::A0, PowerState::A2)
             | (PowerState::A0PlusHP, PowerState::A2)
-            | (PowerState::A0Thermtrip, PowerState::A2) => {
+            | (PowerState::A0Thermtrip, PowerState::A2)
+            | (PowerState::A0Reset, PowerState::A2) => {
                 self.seq.power_ctrl.modify(|m| m.set_a0_en(false));
                 let mut okay = false;
                 for _ in 0..200 {
@@ -540,10 +558,15 @@ impl ServerImpl {
             _ => return Err(CpuSeqError::IllegalTransition),
         }
 
+        self.set_state_internal(state);
+        Ok(Transition::Changed)
+    }
+
+    /// Updates our internal `state` and the global state in `jefe`
+    fn set_state_internal(&mut self, state: PowerState) {
         self.state = state;
         self.jefe.set_state(state as u32);
         self.poke_timer();
-        Ok(Transition::Changed)
     }
 
     /// Returns the current timer interval, in milliseconds
@@ -628,13 +651,24 @@ impl NotificationHandler for ServerImpl {
         let state = self.log_state_registers();
         use fmc_periph::{A0Sm, NicSm};
 
-        // Detect unexpected power-off
-        match (self.state, state.seq) {
-            (PowerState::A0 | PowerState::A0PlusHP, Ok(A0Sm::Done)) => (),
-            (PowerState::A0 | PowerState::A0PlusHP, seq_state) => {
+        // Detect when the NIC comes online
+        // TODO: should we handle the NIC powering down while the main CPU
+        // power remains up?
+        if self.state == PowerState::A0 && state.nic == Ok(NicSm::Done) {
+            self.set_state_impl(
+                PowerState::A0PlusHP,
+                StateChangeReason::InitialPowerOn,
+            )
+            .unwrap(); // this should be infallible
+        }
+
+        // If Hubris thinks the system is up, do some basic checks
+        if matches!(self.state, PowerState::A0 | PowerState::A0PlusHP) {
+            // Detect the FPGA powering off without us
+            if state.seq != Ok(A0Sm::Done) {
                 ringbuf_entry!(Trace::UnexpectedPowerOff {
                     our_state: self.state,
-                    seq_state,
+                    seq_state: state.seq,
                 });
                 self.log_pg_registers();
 
@@ -645,23 +679,26 @@ impl NotificationHandler for ServerImpl {
                 {
                     ringbuf_entry!(Trace::PowerDownError(e))
                 }
+            } else {
+                // Check that the FPGA has not logged any reset conditions from
+                // the CPU.
+                let ifr = self.seq.ifr.view();
+                if ifr.thermtrip {
+                    self.seq.ifr.modify(|h| h.set_thermtrip(false));
+                    ringbuf_entry!(Trace::Thermtrip);
+                    self.set_state_internal(PowerState::A0Thermtrip)
+                    // this is a terminal state (for now)
+                } else if ifr.amd_pwrok_fedge || ifr.amd_rstn_fedge {
+                    let rstn = self.seq.amd_reset_fedges.counts();
+                    let pwrokn = self.seq.amd_pwrok_fedges.counts();
+                    ringbuf_entry!(Trace::ResetCounts { rstn, pwrokn });
+                    // counters are cleared in the A2 -> A0 transition
+                    self.set_state_internal(PowerState::A0Reset);
+                    // host_sp_comms will be notified of this change and will
+                    // call back into this task to reboot the system (going to
+                    // A2 then back into A0)
+                }
             }
-            // TODO are there other states that we should check here?
-            _ => (),
-        }
-
-        // Detect when the NIC comes online
-        match (self.state, state.nic) {
-            (PowerState::A0, Ok(NicSm::Done)) => {
-                self.set_state_impl(
-                    PowerState::A0PlusHP,
-                    StateChangeReason::InitialPowerOn,
-                )
-                .unwrap(); // this should be infallible
-            }
-            // TODO: should we handle the NIC powering down while the main CPU
-            // power remains up?
-            _ => (),
         }
 
         self.poke_timer();
