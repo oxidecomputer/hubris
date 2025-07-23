@@ -281,7 +281,6 @@ priority = 5
 stacksize = 4096
 start = true
 task-slots = [
-    "sys",
     "i2c_driver",
     "auxflash",
     "packrat",

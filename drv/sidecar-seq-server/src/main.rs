@@ -12,9 +12,7 @@ use crate::tofino::Tofino;
 use core::convert::Infallible;
 use drv_fpga_api::{DeviceState, FpgaError, WriteOp};
 use drv_fpga_user_api::power_rail::{PowerRailStatus, RawPowerRailState};
-use drv_front_io_api::{
-    phy_smi::PhyOscState, FrontIO, FrontIOError, FrontIOStatus,
-};
+use drv_front_io_api::{phy_smi::PhyOscState, FrontIO, FrontIOStatus};
 use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_packrat_vpd_loader::{read_vpd_and_load_packrat, Packrat};
 use drv_sidecar_mainboard_controller::fan_modules::*;
@@ -23,7 +21,6 @@ use drv_sidecar_mainboard_controller::MainboardController;
 use drv_sidecar_seq_api::{
     FanModuleIndex, FanModulePresence, SeqError, TofinoSequencerPolicy,
 };
-use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{
     ClientError, Leased, NotificationHandler, RequestError, R, W,
 };
@@ -35,7 +32,6 @@ task_slot!(MAINBOARD, mainboard);
 task_slot!(FRONT_IO, front_io);
 task_slot!(AUXFLASH, auxflash);
 task_slot!(PACKRAT, packrat);
-task_slot!(SYS, sys);
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
@@ -96,9 +92,6 @@ ringbuf!(Trace, 32, Trace::None);
 
 const TIMER_INTERVAL: u64 = 1000;
 
-// QSFP_2_SP_A2_PG
-const POWER_GOOD: sys_api::PinSet = sys_api::Port::F.pin(12);
-
 #[derive(Copy, Clone, PartialEq)]
 enum TofinoStateDetails {
     A0 {
@@ -122,7 +115,6 @@ struct ServerImpl {
     fan_modules: FanModules,
     // a piece of state to allow blinking LEDs to be in phase
     led_blink_on: bool,
-    sys: sys_api::Sys,
 }
 
 impl ServerImpl {
@@ -199,26 +191,27 @@ impl ServerImpl {
         // Make sure the front IO hot swap controller is enabled and good. The
         // power rail FSM will reach either the GoodTimeout, Aborted or Enabled
         // state or experience an FpgaError, so an open loop is safe.
-        while match self.front_io_board.power_good() {
-            Ok(true) => false, // power is good, stop looping
-            Ok(false) => {
-                self.front_io_board
-                    .set_power_enable(true)
-                    .map_err(SeqError::from)?;
-                ringbuf_entry!(Trace::FrontIOBoardPowerEnable(true));
-                true // Retry HSC status.
-            }
-            Err(FrontIOError::PowerFault) => {
+        while match self.front_io_board.power_rail_status()? {
+            PowerRailStatus::GoodTimeout | PowerRailStatus::Aborted => {
                 return Err(SeqError::FrontIOBoardPowerFault)
             }
-            Err(e) => return Err(SeqError::from(e)),
+            PowerRailStatus::Disabled => {
+                self.front_io_board.set_power_enable(true)?;
+                ringbuf_entry!(Trace::FrontIOBoardPowerEnable(true));
+
+                true // Retry HSC status.
+            }
+            PowerRailStatus::RampingUp => {
+                true // Retry HSC status.
+            }
+            PowerRailStatus::Enabled => false,
         } {
             // The front IO HSC was observed to take as long as 35 ms to assert power good
             userlib::hl::sleep_for(100);
         }
 
         // Check if the power is good via the PG pin
-        if self.sys.gpio_read(POWER_GOOD) == 0 {
+        if self.front_io_board.power_good() {
             ringbuf_entry!(Trace::FrontIOBoardPowerNotGood);
             return Err(SeqError::FrontIOPowerNotGood);
         } else {
@@ -741,9 +734,6 @@ fn main() -> ! {
     let fan_modules = FanModules::new(MAINBOARD.get_task_id());
     let front_io_board = FrontIO::from(FRONT_IO.get_task_id());
 
-    let sys = sys_api::Sys::from(SYS.get_task_id());
-    sys.gpio_configure_input(POWER_GOOD, sys_api::Pull::None);
-
     let mut server = ServerImpl {
         mainboard_controller,
         clock_generator,
@@ -751,7 +741,6 @@ fn main() -> ! {
         front_io_board,
         fan_modules,
         led_blink_on: false,
-        sys,
     };
 
     ringbuf_entry!(Trace::FpgaInit);

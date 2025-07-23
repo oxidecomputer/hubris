@@ -20,6 +20,7 @@ mod bsp;
 use crate::bsp::Bsp;
 use core::convert::Infallible;
 use drv_fpga_api::{DeviceState, FpgaError, WriteOp};
+use drv_fpga_user_api::power_rail::PowerRailStatus;
 use drv_front_io_api::{
     controller::FrontIOController,
     leds::{FullErrorSummary, LedStates, Leds},
@@ -286,8 +287,19 @@ impl idl::InOrderFrontIOImpl for ServerImpl {
     fn power_good(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<bool, RequestError<FrontIOError>> {
-        self.bsp.power_good().map_err(RequestError::from)
+    ) -> Result<bool, RequestError<Infallible>> {
+        Ok(self.bsp.power_good())
+    }
+
+    /// Returns the PowerRailStatus of the front IO power, if available
+    fn power_rail_status(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<PowerRailStatus, RequestError<FrontIOError>> {
+        self.bsp
+            .power_rail_status()
+            .map_err(FrontIOError::from)
+            .map_err(RequestError::from)
     }
 
     /// Blow away server state, resulting in a resequencing
@@ -312,12 +324,9 @@ impl idl::InOrderFrontIOImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<bool, RequestError<Infallible>> {
-        Ok(matches!(
-            self.board_status,
-            FrontIOStatus::FpgaInit
-                | FrontIOStatus::OscInit
-                | FrontIOStatus::Ready
-        ))
+        let fruid =
+            i2c_config::devices::at24csw080_front_io(I2C.get_task_id())[0];
+        Ok(At24Csw080::validate(&fruid).unwrap_or(false))
     }
 
     /// Returns true if the front IO FPGAs have been initialized
@@ -989,7 +998,7 @@ mod idl {
     use super::{
         FrontIOError, FrontIOStatus, LedState, LogicalPort, LogicalPortMask,
         ModuleResult, ModuleResultNoFailure, PhyOscState, PortI2CStatus,
-        TransceiverStatus,
+        PowerRailStatus, TransceiverStatus,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

@@ -15,8 +15,17 @@ Interface(
 
         "power_good": (
             args: {},
+            reply: Simple("bool"),
+            idempotent: true,
+        ),
+
+        "power_rail_status": (
+            args: {},
             reply: Result(
-                ok: "bool",
+                ok: (
+                    type: "PowerRailStatus",
+                    recv: FromPrimitive("u8"),
+                ),
                 err: CLike("FrontIOError"),
             ),
         ),

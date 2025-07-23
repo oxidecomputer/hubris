@@ -10,6 +10,7 @@ use crate::phy_smi::PhyOscState;
 use counters::Count;
 use derive_idol_err::IdolError;
 use drv_fpga_api::FpgaError;
+use drv_fpga_user_api::power_rail::PowerRailStatus;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
 use userlib::*;
