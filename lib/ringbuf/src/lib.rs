@@ -381,7 +381,6 @@ macro_rules! counted_ringbuf {
 #[macro_export]
 macro_rules! counted_ringbuf {
     ($name:ident, $t:ident, $n:expr, $init:expr, no_dedup) => {
-        #[used]
         static $name: $crate::CountedRingbuf<$t, (), $n> =
             $crate::CountedRingbuf {
                 counters: <$t as $crate::Count>::NEW_COUNTERS,
@@ -389,7 +388,6 @@ macro_rules! counted_ringbuf {
             };
     };
     ($name:ident, $t:ident, $n:expr, $init:expr) => {
-        #[used]
         static $name: $crate::CountedRingbuf<$t, u16, $n> =
             $crate::CountedRingbuf {
                 counters: <$t as $crate::Count>::NEW_COUNTERS,
