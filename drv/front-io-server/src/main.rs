@@ -269,6 +269,14 @@ impl ServerImpl {
             ringbuf_entry!(Trace::LEDUninitialized);
         }
     }
+
+    // We don't have a good way to tell if the board is present purely electrically, so instead we
+    // rely on our ability to talk to the board's FRUID as a proxy for presence + power good
+    fn is_board_present_and_powered(&self) -> bool {
+        let fruid =
+            i2c_config::devices::at24csw080_front_io0(I2C.get_task_id())[0];
+        At24Csw080::validate(&fruid).unwrap_or(false)
+    }
 }
 
 impl idl::InOrderFrontIOImpl for ServerImpl {
@@ -324,9 +332,7 @@ impl idl::InOrderFrontIOImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<bool, RequestError<Infallible>> {
-        let fruid =
-            i2c_config::devices::at24csw080_front_io(I2C.get_task_id())[0];
-        Ok(At24Csw080::validate(&fruid).unwrap_or(false))
+        Ok(self.is_board_present())
     }
 
     /// Returns true if the front IO FPGAs have been initialized
@@ -935,11 +941,8 @@ fn main() -> ! {
                             ringbuf_entry!(Trace::SeqStatus(
                                 server.board_status
                             ));
-                            let fruid =
-                                i2c_config::devices::at24csw080_front_io(
-                                    I2C.get_task_id(),
-                                )[0];
-                            if At24Csw080::validate(&fruid).unwrap_or(false) {
+
+                            if server.is_board_present_and_powered() {
                                 server.board_status = FrontIOStatus::FpgaInit;
                             } else {
                                 server.board_status = FrontIOStatus::NotPresent;
