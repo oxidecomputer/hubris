@@ -105,7 +105,7 @@ fn generate_swd_functions(config: &TaskConfig) -> Result<()> {
 
 fn prepare_endoscope() -> Result<(), anyhow::Error> {
     let key = "CARGO_BIN_FILE_ENDOSCOPE";
-    println!("cargo:rerun-if-env-changed={key}");
+    println!("cargo::rerun-if-env-changed={key}");
     let elf_path = PathBuf::from(
         std::env::var(key)
             .with_context(|| format!("Cannot read env var '{key}'"))?,

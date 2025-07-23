@@ -724,7 +724,7 @@ pub fn read_parse(p: &std::path::Path) -> anyhow::Result<Node> {
     std::fs::File::open(p)
         .with_context(|| format!("failed to open {p:?}"))?
         .read_to_end(&mut data)?;
-    println!("cargo:rerun-if-changed={p:?}");
+    println!("cargo::rerun-if-changed={p:?}");
     let src = std::str::from_utf8(&data)?;
     let node: Node = serde_json::from_str(src)?;
     Ok(node)

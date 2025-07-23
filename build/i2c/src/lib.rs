@@ -1189,7 +1189,7 @@ impl ConfigGenerator {
 
         let mut drivers = std::collections::HashSet::new();
 
-        println!("cargo:rerun-if-changed={}", dir.join("src").display());
+        println!("cargo::rerun-if-changed={}", dir.join("src").display());
 
         for entry in std::fs::read_dir(dir.join("src"))? {
             if let Some(f) = entry?.path().file_name() {
