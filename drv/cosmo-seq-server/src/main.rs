@@ -430,6 +430,12 @@ impl ServerImpl {
                 self.seq.amd_reset_fedges.set_counts(0);
                 self.seq.amd_pwrok_fedges.set_counts(0);
 
+                // Reset edge interrupts flags
+                self.seq.ifr.modify(|h| {
+                    h.set_amd_pwrok_fedge(false);
+                    h.set_amd_rstn_fedge(false);
+                });
+
                 // Tell the sequencer to go to A0
                 self.seq.power_ctrl.modify(|m| m.set_a0_en(true));
 
@@ -686,10 +692,6 @@ impl NotificationHandler for ServerImpl {
                     let rstn = self.seq.amd_reset_fedges.counts();
                     let pwrokn = self.seq.amd_pwrok_fedges.counts();
                     ringbuf_entry!(Trace::ResetCounts { rstn, pwrokn });
-                    self.seq.ifr.modify(|h| {
-                        h.set_amd_pwrok_fedge(false);
-                        h.set_amd_rstn_fedge(false);
-                    });
                     // counters are cleared in the A2 -> A0 transition
                     self.set_state_internal(PowerState::A0Reset);
                     // host_sp_comms will be notified of this change and will
