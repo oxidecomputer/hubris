@@ -1670,7 +1670,9 @@ pub fn codegen(disposition: Disposition) -> Result<()> {
                 // controller to be configured as a target; if none have been
                 // specified, the task should be deconfigured.
                 //
-                panic!("found {n} I2C controller(s); expected exactly one");
+                anyhow::bail!(
+                    "found {n} I2C controller(s); expected exactly one"
+                );
             }
 
             g.generate_controllers()?;
