@@ -112,6 +112,7 @@ const ACTIVATION_CODE_SIZE: usize = 1192;
 //   buffers.  Many of these are marked as mut out of extreme caution even
 //   though they shouldn't be modified at all.
 #[repr(C)]
+#[allow(non_snake_case)] // Some argument names taken from official docs.
 struct Version1DriverInterface {
     version: StandardVersion,
     /// flash_init: Set up function that must be called before any other

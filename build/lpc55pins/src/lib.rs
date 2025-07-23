@@ -182,7 +182,7 @@ impl PinConfig {
                 *used |= mask;
                 Some(pint_slot)
             } else {
-                panic!("Invalid pint slot number {}", slot_number);
+                panic!("Invalid pint slot number {slot_number}");
             }
         } else {
             None
@@ -232,13 +232,12 @@ fn pin_init(
         );
         writeln!(
             buf,
-            "iocon.set_val({} {});",
-            pin_tokens,
+            "iocon.set_val({pin_tokens} {});",
             if v { "Value::One" } else { "Value::Zero" }
         )?;
     }
     if let Some(d) = p.direction {
-        writeln!(buf, "iocon.set_dir({} Direction::{:?});", pin_tokens, d)?;
+        writeln!(buf, "iocon.set_dir({pin_tokens} Direction::{d:?});")?;
     }
     Ok(())
 }
@@ -287,7 +286,7 @@ pub fn codegen(pins: Vec<PinConfig>) -> Result<()> {
                 conflict[p.pin.index()] += 1;
                 if clash {
                     let (pin, port) = p.pin.get_port_pin();
-                    Some(format!("P{}_{}", pin, port))
+                    Some(format!("P{pin}_{port}"))
                 } else {
                     None
                 }
@@ -299,8 +298,9 @@ pub fn codegen(pins: Vec<PinConfig>) -> Result<()> {
         .collect();
     if !conflicts.is_empty() {
         panic!(
-            "Conflicting pin configs: {:?}. Delete or use 'name=...' and setup=false'.",
-            conflicts);
+            "Conflicting pin configs: {conflicts:?}. Delete or use \
+             'name=...' and setup=false'.",
+        );
     }
 
     for p in pins {
@@ -318,12 +318,11 @@ pub fn codegen(pins: Vec<PinConfig>) -> Result<()> {
             writeln!(
                 &mut middle,
                 r#"
-                fn {}(task: TaskId) {{
+                fn {fn_name}(task: TaskId) {{
                     let iocon = Pins::from(task);
 
-                    iocon.iocon_configure({} {});
+                    iocon.iocon_configure({pin_tokens} {pint_slot_config});
                 "#,
-                fn_name, pin_tokens, pint_slot_config
             )?;
             let _ = pin_init(&mut middle, &p);
             writeln!(&mut middle, "}}")?;
@@ -334,7 +333,7 @@ pub fn codegen(pins: Vec<PinConfig>) -> Result<()> {
 
         if p.call_in_setup() {
             if let Some(fn_name) = setup_pin_fn {
-                writeln!(&mut top, "{}(task);", fn_name)?;
+                writeln!(&mut top, "{fn_name}(task);")?;
             } else {
                 writeln!(
                     &mut top,
@@ -354,8 +353,8 @@ pub fn codegen(pins: Vec<PinConfig>) -> Result<()> {
                 writeln!(&mut bottom, "#[allow(unused)]")?;
                 writeln!(
                     &mut bottom,
-                    "const {}: Pin = Pin::PIO{}_{};",
-                    &name, pin.0, pin.1
+                    "const {name}: Pin = Pin::PIO{}_{};",
+                    pin.0, pin.1
                 )?;
 
                 let mut ignore = 0u32;
@@ -363,8 +362,7 @@ pub fn codegen(pins: Vec<PinConfig>) -> Result<()> {
                     writeln!(&mut bottom, "#[allow(unused)]")?;
                     writeln!(
                         &mut bottom,
-                        "pub const {}_PINT_SLOT: PintSlot = PintSlot::Slot{};",
-                        &name,
+                        "pub const {name}_PINT_SLOT: PintSlot = PintSlot::Slot{};",
                         slot.index(),
                     )?;
                 }

@@ -396,7 +396,7 @@ impl State {
         //
         // Trace the detailed state every ten seconds, provided that we are in A0.
         //
-        if state == PowerState::A0 && self.fired % TRACE_SECONDS == 0 {
+        if state == PowerState::A0 && self.fired.is_multiple_of(TRACE_SECONDS) {
             ringbuf_entry!(Trace::Now(self.fired));
 
             for ((dev, sensor), peak) in CONTROLLER_CONFIG

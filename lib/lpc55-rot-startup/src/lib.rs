@@ -309,24 +309,22 @@ extern "C" fn nuke_stack() {
     //
     // However, we do not use the stack ourselves, nor do we use the callee-save
     // registers, so we don't save them anywhere.
-    unsafe {
-        core::arch::naked_asm!("
-            ldr r0, ={stack_base}   @ Get limit into r0
-            mov r1, sp              @ Get current sp into r1 for convenience
-            mov r2, #0              @ Get a zero into r2
-            mov r3, #0              @ Also zero r3 for good measure
+    core::arch::naked_asm!("
+        ldr r0, ={stack_base}   @ Get limit into r0
+        mov r1, sp              @ Get current sp into r1 for convenience
+        mov r2, #0              @ Get a zero into r2
+        mov r3, #0              @ Also zero r3 for good measure
 
-        0:  cmp r1, r0              @ are we done?
-            beq 1f                  @ if so, break
+    0:  cmp r1, r0              @ are we done?
+        beq 1f                  @ if so, break
 
-            str r2, [r1, #-4]!      @ Store a zero just below r1 and decrement
-            b 0b                    @ repeat
+        str r2, [r1, #-4]!      @ Store a zero just below r1 and decrement
+        b 0b                    @ repeat
 
-        1:  bx lr                   @ all done
-            ",
-            stack_base = sym _stack_base,
-        )
-    }
+    1:  bx lr                   @ all done
+        ",
+        stack_base = sym _stack_base,
+    )
 }
 
 static USE_ROM: core::sync::atomic::AtomicBool =

@@ -108,7 +108,7 @@ fn prepare_endoscope() -> Result<(), anyhow::Error> {
     println!("cargo:rerun-if-env-changed={key}");
     let elf_path = PathBuf::from(
         std::env::var(key)
-            .with_context(|| format!("Cannot read env var '{}'", key))?,
+            .with_context(|| format!("Cannot read env var '{key}'"))?,
     );
     let data = std::fs::read(&elf_path).context("could not open ELF file")?;
     let elf = Elf::parse(&data).context("cannot parse ELF file")?;
@@ -142,8 +142,8 @@ fn prepare_endoscope() -> Result<(), anyhow::Error> {
             if let Some(myname) = interesting.get(name) {
                 writeln!(
                     &mut file,
-                    "pub const {}: u32 = {:#x};",
-                    myname, sym.st_value
+                    "pub const {myname}: u32 = {:#x};",
+                    sym.st_value
                 )?;
             }
         }
@@ -201,8 +201,8 @@ where
     let sections: Vec<&SectionHeader> = elf
         .section_headers
         .iter()
-        .filter(|sh| (sh.sh_type & SHT_PROGBITS == SHT_PROGBITS))
-        .filter(|sh| (sh.sh_flags as u32 & SHF_ALLOC == SHF_ALLOC))
+        .filter(|sh| sh.sh_type & SHT_PROGBITS == SHT_PROGBITS)
+        .filter(|sh| sh.sh_flags as u32 & SHF_ALLOC == SHF_ALLOC)
         .filter(|sh| !sh.vm_range().is_empty())
         .collect();
     let bin_size: usize = sections.iter().map(|sh| sh.vm_range().len()).sum();

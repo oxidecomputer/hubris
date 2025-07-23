@@ -222,7 +222,7 @@ impl ServerImpl {
 
             // If we're at the start of a sector, erase it before we start
             // writing the copy.
-            if write_addr % SECTOR_SIZE_BYTES == 0 {
+            if write_addr.is_multiple_of(SECTOR_SIZE_BYTES) {
                 self.set_and_check_write_enable()?;
                 self.qspi
                     .sector_erase(write_addr as u32)
@@ -364,7 +364,7 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         if Some(slot) == self.active_slot {
             return Err(AuxFlashError::SlotActive.into());
         }
-        if offset as usize % PAGE_SIZE_BYTES != 0 {
+        if (offset as usize).is_multiple_of(PAGE_SIZE_BYTES) {
             return Err(AuxFlashError::UnalignedAddress.into());
         } else if offset as usize + data.len() > SLOT_SIZE {
             return Err(AuxFlashError::AddressOverflow.into());

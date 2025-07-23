@@ -24,8 +24,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         build_util::env_var("HUBRIS_AUXFLASH_CHECKSUM_SPA7").unwrap();
     writeln!(
         &mut file,
-        "\npub const SPARTAN7_FPGA_BITSTREAM_CHECKSUM: [u8; 32] = {};",
-        checksum,
+        "\npub const SPARTAN7_FPGA_BITSTREAM_CHECKSUM: [u8; 32] = {checksum};",
     )?;
 
     idol::Generator::new().build_server_support(

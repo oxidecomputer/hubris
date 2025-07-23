@@ -422,7 +422,7 @@ fn main() -> ! {
                     .fixed::<[u8; 4], usize>()
                     .ok_or(ResponseCode::BadArg)?;
 
-                if lease_count < 2 || lease_count % 2 != 0 {
+                if lease_count < 2 || !lease_count.is_multiple_of(2) {
                     return Err(ResponseCode::IllegalLeaseCount);
                 }
 

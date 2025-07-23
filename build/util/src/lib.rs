@@ -13,7 +13,7 @@ use std::io::Write;
 ///
 /// This ensures a rebuild if the variable changes
 pub fn env_var(key: &str) -> Result<String> {
-    println!("cargo:rerun-if-env-changed={}", key);
+    println!("cargo:rerun-if-env-changed={key}");
     std::env::var(key).with_context(|| format!("reading env var ${key}"))
 }
 
@@ -135,7 +135,7 @@ pub fn expose_target_board() {
 
     println!("cargo:rustc-check-cfg=cfg(target_board, values({values}))");
     if let Some(board) = target_board() {
-        println!("cargo:rustc-cfg=target_board=\"{}\"", board);
+        println!("cargo:rustc-cfg=target_board=\"{board}\"");
     }
 }
 

@@ -113,7 +113,7 @@ fn recurse_addr_map(
                 )
                 .unwrap();
             }
-            _ => panic!("unexpected child {:?}", child),
+            _ => panic!("unexpected child {child:?}"),
         }
     }
 }
@@ -601,10 +601,8 @@ pub fn build_peripheral(
 
         let inst_name = inst_name.to_upper_camel_case();
         let struct_name: syn::Ident = syn::parse_str(&inst_name).unwrap();
-        let handle_name: syn::Ident =
-            syn::parse_str(&format!("{}Handle", inst_name)).unwrap();
-        let debug_name: syn::Ident =
-            syn::parse_str(&format!("{}Debug", inst_name)).unwrap();
+        let handle_name: syn::Ident = quote::format_ident!("{inst_name}Handle");
+        let debug_name: syn::Ident = quote::format_ident!("{inst_name}Debug");
         let reg_addr = base_addr
             + u32::try_from(*periph_offset).unwrap()
             + u32::try_from(*addr_offset).unwrap();
@@ -726,7 +724,7 @@ pub fn read_parse(p: &std::path::Path) -> anyhow::Result<Node> {
     std::fs::File::open(p)
         .with_context(|| format!("failed to open {p:?}"))?
         .read_to_end(&mut data)?;
-    println!("cargo:rerun-if-changed={:?}", p);
+    println!("cargo:rerun-if-changed={p:?}");
     let src = std::str::from_utf8(&data)?;
     let node: Node = serde_json::from_str(src)?;
     Ok(node)

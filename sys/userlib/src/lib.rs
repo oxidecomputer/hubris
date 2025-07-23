@@ -1486,7 +1486,7 @@ fn panic(info: &core::panic::PanicInfo<'_>) -> ! {
         buf: panic_buffer,
         pos: 0,
     };
-    write!(pw, "{}", info).ok();
+    write!(pw, "{info}").ok();
 
     // Get the written part of the message.
     //
