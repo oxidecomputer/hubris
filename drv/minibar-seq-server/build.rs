@@ -9,7 +9,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let disposition = build_i2c::Disposition::Devices;
 
     if let Err(e) = build_i2c::codegen(disposition) {
-        println!("code generation failed: {}", e);
+        println!("code generation failed: {e}");
         std::process::exit(1);
     }
 
