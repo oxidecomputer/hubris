@@ -90,6 +90,14 @@ owner = {name = "sequencer", notification = "psu_pwr_ok_6"}
 
 
 
+[tasks.rng_driver]
+features = ["h753", "ereport"]
+name = "drv-stm32h7-rng"
+priority = 6
+uses = ["rng"]
+start = true
+stacksize = 512
+task-slots = ["sys", "packrat"]
 
 [tasks.i2c_driver]
 name = "drv-stm32xx-i2c-server"
@@ -109,11 +117,12 @@ notifications = ["i2c2-irq", "i2c3-irq"]
 
 [tasks.packrat]
 name = "task-packrat"
-priority = 3
-max-sizes = {flash = 8192, ram = 2048}
+priority = 1
+stacksize = 1040
 start = true
 # task-slots is explicitly empty: packrat should not send IPCs!
 task-slots = []
+features = ["ereport"]
 
 [tasks.sequencer]
 name = "drv-psc-seq-server"
@@ -312,6 +321,17 @@ stacksize = 2400
 extern-regions = [ "sram1", "sram2", "sram3", "sram4" ]
 notifications = ["socket"]
 features = ["net", "vlan"]
+
+[tasks.snitch]
+name = "task-snitch"
+# The snitch should have a priority immediately below that of the net task,
+# to minimize the number of components that can starve it from resources.
+priority = 5
+stacksize = 1200
+start = true
+task-slots = ["net", "packrat"]
+features = ["vlan"]
+notifications = ["socket"]
 
 [tasks.idle]
 name = "task-idle"
@@ -535,3 +555,12 @@ owner = {name = "dump_agent", notification = "socket"}
 port = 11113
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.ereport]
+kind = "udp"
+owner = {name = "snitch", notification = "socket"}
+port = 57005
+tx = { packets = 3, bytes = 1024 }
+# v0 ereport requests are always 35B, so just make the buffer exactly
+# that size...
+rx = { packets = 3, bytes = 35 }

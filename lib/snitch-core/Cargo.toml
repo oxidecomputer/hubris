@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 heapless.workspace = true
 unwrap-lite = { version = "0.1.0", path = "../unwrap-lite" }
+counters = { path = "../counters", optional = true}
 
 [lints]
 workspace = true

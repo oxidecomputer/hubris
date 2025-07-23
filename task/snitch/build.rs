@@ -3,7 +3,6 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 fn main() -> anyhow::Result<()> {
-    idol::client::build_client_stub("../../idl/packrat.idol", "client_stub.rs")
-        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    build_util::build_notifications()?;
     Ok(())
 }
