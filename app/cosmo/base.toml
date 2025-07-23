@@ -21,7 +21,7 @@ size = 256
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
-max-sizes = {flash = 16384, ram = 4096}
+max-sizes = {flash = 16384, ram = 2048}
 start = true
 features = ["dump"]
 stacksize = 1536
@@ -131,7 +131,7 @@ features = ["cosmo"]
 name = "task-thermal"
 features = ["cosmo"]
 priority = 8
-max-sizes = {flash = 32768, ram = 16384 }
+max-sizes = {flash = 32768, ram = 8192 }
 stacksize = 6000
 start = true
 task-slots = ["i2c_driver", "sensor", "cosmo_seq", "jefe"]
@@ -160,7 +160,7 @@ task-slots = ["sys", "hf", "i2c_driver", "hash_driver", "update_server", "sprot"
 name = "drv-cosmo-seq-server"
 features = ["h753"]
 priority = 7
-max-sizes = {flash = 131072, ram = 32768 }
+max-sizes = {flash = 131072, ram = 16384 }
 stacksize = 2600
 start = true
 task-slots = ["sys", "i2c_driver", {spi_front = "spi3_driver"}, "jefe", "packrat", "auxflash", "spartan7_loader", "hf"]
@@ -239,7 +239,7 @@ features = ["stm32h753", "usart6", "baud_rate_3M", "hardware_flow_control", "vla
 uses = ["usart6", "dbgmcu"]
 interrupts = {"usart6.irq" = "usart-irq"}
 priority = 9
-max-sizes = {flash = 66208, ram = 65536}
+max-sizes = {flash = 65536, ram = 65536}
 stacksize = 5080
 start = true
 task-slots = ["sys", { cpu_seq = "cosmo_seq" }, "hf", "control_plane_agent", "net", "packrat", "i2c_driver", { spi_driver = "spi2_driver" }, "sprot", "auxflash"]
@@ -314,7 +314,7 @@ interrupts = {"spi5.irq" = "spi-irq"}
 [tasks.validate]
 name = "task-validate"
 priority = 5
-max-sizes = {flash = 16384, ram = 16384 }
+max-sizes = {flash = 16384, ram = 4096 }
 stacksize = 1000
 start = true
 task-slots = ["i2c_driver"]
@@ -322,7 +322,7 @@ task-slots = ["i2c_driver"]
 [tasks.vpd]
 name = "task-vpd"
 priority = 4
-max-sizes = {flash = 9504, ram = 8192}
+max-sizes = {flash = 8192, ram = 1024}
 start = true
 task-slots = ["sys", "i2c_driver"]
 stacksize = 800
@@ -339,7 +339,7 @@ notifications = ["timer"]
 [tasks.dump_agent]
 name = "task-dump-agent"
 priority = 6
-max-sizes = {flash = 32768, ram = 32768 }
+max-sizes = {flash = 32768, ram = 16384 }
 start = true
 task-slots = ["sprot", "jefe", "net"]
 stacksize = 2400
@@ -359,7 +359,7 @@ uses = ["mmio_dimms"]
 [tasks.auxflash]
 name = "drv-auxflash-server"
 priority = 3
-max-sizes = {flash = 32768, ram = 8192}
+max-sizes = {flash = 32768, ram = 4096}
 features = ["h753"]
 uses = ["quadspi"]
 start = true
