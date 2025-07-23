@@ -310,7 +310,7 @@ extern "C" fn nuke_stack() {
     // However, we do not use the stack ourselves, nor do we use the callee-save
     // registers, so we don't save them anywhere.
     unsafe {
-        core::arch::asm!("
+        core::arch::naked_asm!("
             ldr r0, ={stack_base}   @ Get limit into r0
             mov r1, sp              @ Get current sp into r1 for convenience
             mov r2, #0              @ Get a zero into r2
@@ -325,7 +325,6 @@ extern "C" fn nuke_stack() {
         1:  bx lr                   @ all done
             ",
             stack_base = sym _stack_base,
-            options(noreturn)
         )
     }
 }
