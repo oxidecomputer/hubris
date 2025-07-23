@@ -1180,11 +1180,11 @@ impl I2cController<'_> {
     }
 }
 
-/// Waits for `notification` or `timeout`, whichever comes first. This is
+/// Waits for `event_mask` or `timeout`, whichever comes first. This is
 /// factored out of `wfi` above for clarity.
 ///
 /// This function, like `userlib::hl`, assumes that notification bit 31 is safe
-/// to use for the timer. If `notification` also has bit 31 set, weird things
+/// to use for the timer. If `event_mask` also has bit 31 set, weird things
 /// will happen, don't do that.
 fn wfi_raw(event_mask: u32, timeout: I2cTimeout) -> I2cControlResult {
     const TIMER_NOTIFICATION: u32 = 1 << 31;
