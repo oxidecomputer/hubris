@@ -171,6 +171,8 @@ enum Register {
 
 #[derive(Copy, Clone, Eq, PartialEq, counters::Count)]
 enum Trace {
+    #[count(skip)]
+    None,
     Wait(Register, u32),
     Write(Register, u32),
     WriteWait(Register, u32),
@@ -205,8 +207,6 @@ enum Trace {
         enabled: bool,
         posted: bool,
     },
-    #[count(skip)]
-    None,
 }
 
 counted_ringbuf!(Trace, 48, Trace::None);

@@ -129,6 +129,7 @@ const TRACE_DEPTH: usize = 52;
 /// Tooling can then collect this ringbuf periodically and get recent events.
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    None,
     /// Configuration of the MAX5970 failed
     Max5970ConfigFailed {
         u2_index: usize,
@@ -177,7 +178,6 @@ enum Trace {
         crossbounce_min_vout: f32,
         crossbounce_max_vout: f32,
     },
-    None,
 }
 
 ringbuf!(Trace, TRACE_DEPTH, Trace::None);

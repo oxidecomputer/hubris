@@ -63,9 +63,9 @@ bitfield! {
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 enum Trace {
+    None,
     Read(Register, u8),
     Write(Register, u8),
-    None,
 }
 
 ringbuf!(Trace, 32, Trace::None);

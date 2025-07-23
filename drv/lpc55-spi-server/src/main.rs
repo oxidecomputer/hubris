@@ -19,10 +19,10 @@ task_slot!(GPIO, gpio_driver);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    None,
     Irq,
     Tx(u8),
     Rx(u8),
-    None,
 }
 
 ringbuf!(Trace, 64, Trace::None);

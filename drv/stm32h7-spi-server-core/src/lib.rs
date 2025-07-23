@@ -64,12 +64,12 @@ pub struct SpiServerCore {
 
 #[derive(Copy, Clone, PartialEq, counters::Count)]
 enum Trace {
+    #[count(skip)]
+    None,
     Start(#[count(children)] SpiOperation, (u16, u16)),
     Tx(u8),
     Rx(u8),
     WaitISR(u32),
-    #[count(skip)]
-    None,
 }
 
 counted_ringbuf!(Trace, 64, Trace::None);

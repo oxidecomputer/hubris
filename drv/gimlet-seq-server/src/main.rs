@@ -67,6 +67,8 @@ enum I2cTxn {
 
 #[derive(Copy, Clone, PartialEq, Count)]
 enum Trace {
+    #[count(skip)]
+    None,
     Ice40Rails(bool, bool),
     IdentValid(#[count(children)] bool),
     ChecksumValid(#[count(children)] bool),
@@ -150,8 +152,6 @@ enum Trace {
         retries_remaining: u8,
     },
     StartFailed(#[count(children)] SeqError),
-    #[count(skip)]
-    None,
 }
 
 counted_ringbuf!(Trace, 128, Trace::None);
