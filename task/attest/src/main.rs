@@ -40,6 +40,7 @@ use build::{ALIAS_DATA, CERT_DATA, PERMIT_LOG_RESET};
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    None,
     Cert,
     CertChainLen(u32),
     CertLen(usize),
@@ -58,7 +59,6 @@ enum Trace {
     ClientError(ClientError),
     StartAttest,
     FinishAttest,
-    None,
 }
 
 ringbuf!(Trace, 16, Trace::None);

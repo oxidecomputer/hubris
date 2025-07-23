@@ -226,6 +226,7 @@ fn configure_mux(
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    None,
     SegmentOnError((Mux, Segment)),
     Error(u8, ResponseCodeU8),
     MuxError(ResponseCodeU8),
@@ -237,7 +238,6 @@ enum Trace {
     SegmentFailed(ResponseCodeU8),
     ConfigureFailed(ResponseCodeU8),
     Wiggles(u8),
-    None,
 }
 
 ringbuf!(Trace, 160, Trace::None);

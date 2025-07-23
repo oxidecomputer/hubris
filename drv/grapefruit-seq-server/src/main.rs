@@ -22,11 +22,11 @@ task_slot!(LOADER, spartan7_loader);
 
 #[derive(Copy, Clone, PartialEq, Count)]
 enum Trace {
-    MacsAlreadySet(MacAddressBlock),
-    IdentityAlreadySet(VpdIdentity),
-
     #[count(skip)]
     None,
+
+    MacsAlreadySet(MacAddressBlock),
+    IdentityAlreadySet(VpdIdentity),
 }
 
 counted_ringbuf!(Trace, 128, Trace::None);

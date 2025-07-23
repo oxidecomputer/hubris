@@ -39,9 +39,9 @@ use drv_i2c_devices::{
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    None,
     GotVersion(u32),
     GotAddr(u32),
-    None,
 }
 
 ringbuf!(Trace, 2, Trace::None);
