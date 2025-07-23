@@ -238,6 +238,8 @@ pub fn generate_socket_enum(
                   serde::Deserialize, \
                   hubpack::SerializedSize)]"
     )?;
+    // The `net` task itself doesn't use this, but its clients do...
+    writeln!(out, "#[allow(dead_code)]")?;
     writeln!(out, "pub enum SocketName {{")?;
     for (i, name) in config.sockets.keys().enumerate() {
         writeln!(out, "    {} = {},", name, i)?;
