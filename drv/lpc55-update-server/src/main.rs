@@ -18,6 +18,7 @@ use drv_lpc55_update_api::{
     SlotId, SwitchDuration, UpdateTarget, VersionedRotBootInfo,
 };
 use drv_update_api::UpdateError;
+use hex_literal::hex;
 use idol_runtime::{
     ClientError, Leased, LenLimit, NotificationHandler, RequestError, R, W,
 };
@@ -39,6 +40,10 @@ const PAGE_SIZE: u32 = BYTES_PER_FLASH_PAGE as u32;
 #[used]
 #[link_section = ".bootstate"]
 static BOOTSTATE: MaybeUninit<[u8; 0x1000]> = MaybeUninit::uninit();
+
+#[used]
+#[link_section = ".transient_override"]
+static mut TRANSIENT_OVERRIDE: MaybeUninit<[u8; 32]> = MaybeUninit::uninit();
 
 #[derive(Copy, Clone, PartialEq)]
 enum UpdateState {
@@ -495,8 +500,45 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
 
         self.image = match (component, slot) {
             (RotComponent::Hubris, SlotId::A)
-            | (RotComponent::Hubris, SlotId::B)
-            | (RotComponent::Stage0, SlotId::B) => Some((component, slot)),
+            | (RotComponent::Hubris, SlotId::B) => {
+                // Fail early on attempt to update the running image.
+                if same_image(component, slot) {
+                    return Err(UpdateError::InvalidSlotIdForOperation.into());
+                }
+
+                // Rollback protection will be implemented by refusing to set
+                // boot preference to an image that has a lower EPOC value in
+                // its caboose.
+                // Setting the boot preference before updating would sidestep that
+                // protection. So, we will fail the prepare step if any
+                // preference settings are selecting the update target image.
+                //
+                // After the update, the boot image selection will be based on:
+                //   - there being only one properly signed image, or
+                //   - transient boot selection (highest priority), or
+                //   - pending persistent selection (altering the persistent
+                //     selection)
+                //   - persistent preference if neither of the above was used.
+
+                let (persistent, pending_persistent, transient) =
+                    self.boot_preferences()?;
+
+                // The transient preference must not select the update target.
+                if transient == Some(slot) {
+                    return Err(UpdateError::InvalidPreferredSlotId.into());
+                }
+                // If there is a pending persistent preference, it must
+                // not select the update target.
+                if pending_persistent == Some(slot) {
+                    return Err(UpdateError::InvalidPreferredSlotId.into());
+                } else if slot == persistent {
+                    // If there is no pending persistent preference, then the
+                    // persistent preference must select the currently active image.
+                    return Err(UpdateError::InvalidPreferredSlotId.into());
+                }
+                Some((component, slot))
+            }
+            (RotComponent::Stage0, SlotId::B) => Some((component, slot)),
             _ => return Err(UpdateError::InvalidSlotIdForOperation.into()),
         };
         self.state = UpdateState::InProgress;
@@ -626,9 +668,7 @@ impl ServerImpl<'_> {
                 None
             };
 
-        // We only support persistent override at this point
-        // We need to read the magic ram value to fill this in.
-        let transient_boot_preference = None;
+        let transient_boot_preference = get_hubris_transient_override();
 
         Ok((
             persistent_boot_preference,
@@ -905,10 +945,32 @@ impl ServerImpl<'_> {
         slot: SlotId,
         duration: SwitchDuration,
     ) -> Result<(), RequestError<UpdateError>> {
+        // Note: Rollback policy will be checking epoch values before activating.
         match duration {
             SwitchDuration::Once => {
-                // TODO deposit command token into buffer
-                return Err(UpdateError::NotImplemented.into());
+                // Get the currently active slot.
+                let active_slot = match bootstate()
+                    .map_err(|_| UpdateError::MissingHandoffData)?
+                    .active
+                {
+                    stage0_handoff::RotSlot::A => SlotId::A,
+                    stage0_handoff::RotSlot::B => SlotId::B,
+                };
+
+                // If the requested slot is the same as the active slot,
+                // treat this as a request to CLEAR the transient override.
+                //
+                // If we did allow setting the active slot as the transient
+                // preference, then we get this confusing 2-boot scenario when
+                // pending persistent preference is also used:
+                // the next reset returns us to the original image and the 2nd
+                // reset has us running the new/alternate image.
+                if active_slot == slot {
+                    set_hubris_transient_override(None);
+                } else {
+                    // Otherwise, set the preference as requested.
+                    set_hubris_transient_override(Some(slot));
+                }
             }
             SwitchDuration::Forever => {
                 // Locate and return the authoritative CFPA flash word number
@@ -939,6 +1001,19 @@ impl ServerImpl<'_> {
                 // Pong     0x9_E200    0x9E20
                 let (cfpa_word_number, _) =
                     self.cfpa_word_number_and_version(CfpaPage::Active)?;
+
+                // TODO: Hubris issue #2093: If there is a pending update in the
+                // scratch page, it is not being considered.
+                // Consider:
+                //   - A is active
+                //   - persistent switch to B without reset
+                //       - scratch page is updated
+                //       - return Ok(())
+                //   - persistent switch to A without reset
+                //       - A is already active, no work performed
+                //       - return Ok(())
+                //   - reset
+                //   - B is active
 
                 // Read current CFPA contents.
                 let mut cfpa = [[0u32; 4]; 512 / 16];
@@ -1335,6 +1410,49 @@ fn bootstate() -> Result<RotBootStateV2, HandoffDataLoadError> {
     // Safety: Data is published by stage0
     let addr = unsafe { BOOTSTATE.assume_init_ref() };
     RotBootStateV2::load_from_addr(addr)
+}
+
+fn set_transient_override(preference: [u8; 32]) {
+    // Safety: Data is consumed by Bootleby on next boot.
+    // There are no concurrent writers possible.
+    // Calling this function multiple times is ok.
+    // Bootleby is careful to vet contents before acting.
+    unsafe {
+        TRANSIENT_OVERRIDE.write(preference);
+    }
+}
+
+fn get_transient_override() -> [u8; 32] {
+    // Safety: Data is consumed by Bootleby on next boot.
+    // There are no concurrent writers possible.
+    // Bootleby consumes and resets TRANSIENT_OVERRIDE.
+    // The client may be verifying state set during update flows.
+    unsafe { TRANSIENT_OVERRIDE.assume_init() }
+}
+
+// Preference constants are taken from bootleby:src/lib.rs
+const PREFER_SLOT_A: [u8; 32] =
+    hex!("edb23f2e9b399c3d57695262f29615910ed10c8d9b261bfc2076b8c16c84f66d");
+const PREFER_SLOT_B: [u8; 32] =
+    hex!("70ed2914e6fdeeebbb02763b96da9faa0160b7fc887425f4d45547071d0ce4ba");
+// Bootleby writes all zeros after reading. We write all ones to reset.
+const PREFER_NOTHING: [u8; 32] = [0xffu8; 32];
+
+pub fn set_hubris_transient_override(bank: Option<SlotId>) {
+    match bank {
+        // Do we need a  value that says we were here and cleared?
+        None => set_transient_override(PREFER_NOTHING),
+        Some(SlotId::A) => set_transient_override(PREFER_SLOT_A),
+        Some(SlotId::B) => set_transient_override(PREFER_SLOT_B),
+    }
+}
+
+pub fn get_hubris_transient_override() -> Option<SlotId> {
+    match get_transient_override() {
+        PREFER_SLOT_A => Some(SlotId::A),
+        PREFER_SLOT_B => Some(SlotId::B),
+        _ => None,
+    }
 }
 
 fn round_up_to_flash_page(offset: u32) -> Option<u32> {
