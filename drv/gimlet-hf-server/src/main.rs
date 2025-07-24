@@ -651,7 +651,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     ) -> Result<(), RequestError<HfError>> {
         let prev = self.dev_state;
         self.set_dev(dev)?;
-        let r = self.read(msg, addr, dest).map_err(RequestError::from);
+        let r = self.read(msg, addr, dest);
         self.set_dev(prev).unwrap(); // infallible if the earlier set_dev worked
         r
     }
