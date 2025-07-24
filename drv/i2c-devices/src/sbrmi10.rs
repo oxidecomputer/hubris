@@ -83,7 +83,7 @@ impl From<Error> for ResponseCode {
     }
 }
 
-pub struct Sbrmi {
+pub struct Sbrmi10 {
     device: I2cDevice,
 }
 
@@ -104,7 +104,7 @@ impl From<u8> for StatusCode {
     }
 }
 
-impl core::fmt::Display for Sbrmi {
+impl core::fmt::Display for Sbrmi10 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "sbrmi: {}", &self.device)
     }
@@ -121,7 +121,7 @@ enum Trace {
 
 ringbuf!(Trace, 12, Trace::None);
 
-impl Sbrmi {
+impl Sbrmi10 {
     pub fn new(device: &I2cDevice) -> Self {
         Self { device: *device }
     }
@@ -338,9 +338,9 @@ impl Sbrmi {
     }
 }
 
-impl Validate<Error> for Sbrmi {
+impl Validate<Error> for Sbrmi10 {
     fn validate(device: &I2cDevice) -> Result<bool, Error> {
-        let sbrmi = Sbrmi::new(device);
+        let sbrmi = Sbrmi10::new(device);
         let rev = sbrmi.read_reg(Register::Revision)?;
 
         Ok(rev == 0x10)

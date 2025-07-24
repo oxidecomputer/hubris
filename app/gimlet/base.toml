@@ -357,8 +357,8 @@ task-slots = ["net", "packrat"]
 features = ["vlan"]
 notifications = ["socket"]
 
-[tasks.sbrmi]
-name = "drv-sbrmi"
+[tasks.sbrmi10]
+name = "drv-sbrmi10"
 priority = 4
 max-sizes = {flash = 8192, ram = 2048 }
 start = true
@@ -940,9 +940,9 @@ refdes = "U275"
 [[config.i2c.devices]]
 bus = "mid"
 address = 0x3c
-device = "sbrmi"
+device = "sbrmi10"
 name = "RMI"
-description = "CPU via SB-RMI"
+description = "CPU via SB-RMI v1.0"
 refdes = ["P0", "SBRMI"]
 
 [[config.i2c.devices]]

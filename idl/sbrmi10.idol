@@ -1,26 +1,26 @@
-// SB-RMI API
+// SB-RMI API, Milan version (1.0)
 
 Interface(
-    name: "Sbrmi",
+    name: "Sbrmi10",
     ops: {
         "nthreads": (
             reply: Result(
                 ok: "u8",
-                err: CLike("SbrmiError"),
+                err: CLike("Sbrmi10Error"),
             ),
             idempotent: true,
         ),
         "enabled": (
             reply: Result(
                 ok: "[u8; 16]",
-                err: CLike("SbrmiError"),
+                err: CLike("Sbrmi10Error"),
             ),
             idempotent: true,
         ),
         "alert": (
             reply: Result(
                 ok: "[u8; 16]",
-                err: CLike("SbrmiError"),
+                err: CLike("Sbrmi10Error"),
             ),
             idempotent: true,
         ),
@@ -32,7 +32,7 @@ Interface(
             },
             reply: Result(
                 ok: "[u32; 4]",
-                err: CLike("SbrmiError"),
+                err: CLike("Sbrmi10Error"),
             ),
             idempotent: true,
         ),
@@ -43,7 +43,7 @@ Interface(
             },
             reply: Result(
                 ok: "u8",
-                err: CLike("SbrmiError"),
+                err: CLike("Sbrmi10Error"),
             ),
             idempotent: true,
         ),
@@ -54,7 +54,7 @@ Interface(
             },
             reply: Result(
                 ok: "u16",
-                err: CLike("SbrmiError"),
+                err: CLike("Sbrmi10Error"),
             ),
             idempotent: true,
         ),
@@ -65,7 +65,7 @@ Interface(
             },
             reply: Result(
                 ok: "u32",
-                err: CLike("SbrmiError"),
+                err: CLike("Sbrmi10Error"),
             ),
             idempotent: true,
         ),
@@ -76,7 +76,7 @@ Interface(
             },
             reply: Result(
                 ok: "u64",
-                err: CLike("SbrmiError"),
+                err: CLike("Sbrmi10Error"),
             ),
             idempotent: true,
         ),

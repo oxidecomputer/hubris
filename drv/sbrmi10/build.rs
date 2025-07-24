@@ -11,7 +11,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             idol::CounterSettings::default().with_server_counters(false),
         )
         .build_server_support(
-            "../../idl/sbrmi.idol",
+            "../../idl/sbrmi10.idol",
             "server_stub.rs",
             idol::server::ServerStyle::InOrder,
         )?;

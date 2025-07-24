@@ -3,6 +3,6 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    idol::client::build_client_stub("../../idl/sbrmi.idol", "client_stub.rs")?;
+    idol::client::build_client_stub("../../idl/sbrmi10.idol", "client_stub.rs")?;
     Ok(())
 }
