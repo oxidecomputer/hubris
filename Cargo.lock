@@ -2006,7 +2006,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "drv-sbrmi"
+name = "drv-sbrmi10"
 version = "0.1.0"
 dependencies = [
  "build-i2c",
@@ -2014,7 +2014,7 @@ dependencies = [
  "cfg-if",
  "drv-i2c-api",
  "drv-i2c-devices",
- "drv-sbrmi-api",
+ "drv-sbrmi10-api",
  "drv-stm32xx-sys-api",
  "idol",
  "idol-runtime",
@@ -2026,7 +2026,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "drv-sbrmi-api"
+name = "drv-sbrmi10-api"
 version = "0.1.0"
 dependencies = [
  "counters",

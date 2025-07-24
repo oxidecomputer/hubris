@@ -7,11 +7,11 @@
 #![no_std]
 
 use derive_idol_err::IdolError;
-use drv_i2c_devices::sbrmi;
+use drv_i2c_devices::sbrmi10;
 use userlib::*;
 
 #[derive(Copy, Clone, Debug, FromPrimitive, IdolError, counters::Count)]
-pub enum SbrmiError {
+pub enum Sbrmi10Error {
     Unavailable = 1,
     Unsupported,
     BusLocked,
@@ -24,7 +24,7 @@ pub enum SbrmiError {
     RdmsrError,
 }
 
-impl From<drv_i2c_api::ResponseCode> for SbrmiError {
+impl From<drv_i2c_api::ResponseCode> for Sbrmi10Error {
     fn from(code: drv_i2c_api::ResponseCode) -> Self {
         match code {
             drv_i2c_api::ResponseCode::NoDevice => Self::Unavailable,
@@ -34,9 +34,9 @@ impl From<drv_i2c_api::ResponseCode> for SbrmiError {
     }
 }
 
-impl From<sbrmi::Error> for SbrmiError {
-    fn from(err: sbrmi::Error) -> Self {
-        use sbrmi::{Error, StatusCode};
+impl From<sbrmi10::Error> for Sbrmi10Error {
+    fn from(err: sbrmi10::Error) -> Self {
+        use sbrmi10::{Error, StatusCode};
 
         match err {
             Error::BadRegisterRead { code, .. } => code.into(),
