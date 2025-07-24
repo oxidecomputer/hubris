@@ -35,6 +35,7 @@ pub enum FrontIOError {
     InvalidPhysicalToLogicalMap,
     InvalidModuleResult,
     LedInitFailure,
+    PowerNotGood,
     PowerFault,
 
     #[idol(server_death)]

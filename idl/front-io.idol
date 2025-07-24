@@ -30,6 +30,14 @@ Interface(
             ),
         ),
 
+        "power_on": (
+            args: {},
+            reply: Result(
+                ok: "()",
+                err: CLike("FrontIOError"),
+            ),
+        ),
+
         "board_reset": (
             args: {},
             reply: Simple("()"),
@@ -49,16 +57,18 @@ Interface(
             idempotent: true,
         ),
 
-        "board_fpgas_initialized": (
+        "board_ready": (
             args: {},
             reply: Simple("bool"),
             idempotent: true,
         ),
 
-        "board_ready": (
+        "phy_reset": (
             args: {},
-            reply: Simple("bool"),
-            idempotent: true,
+            reply: Result(
+                ok: "()",
+                err: CLike("FrontIOError"),
+            ),
         ),
 
         "phy_osc_state": (

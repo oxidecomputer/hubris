@@ -45,7 +45,7 @@ impl Bsp {
     }
 
     pub fn power_good(&self) -> bool {
-        self.sys.gpio_read(self.pg_pin) == 0
+        self.sys.gpio_read(self.pg_pin) != 0
     }
 
     pub fn set_power_enable(&self, enable: bool) -> Result<(), FrontIOError> {

@@ -423,8 +423,8 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             // Request a reset of the PHY. If we had previously marked the PHY
             // oscillator as bad, then this power-cycles the entire front IO
             // board; otherwise, it only power-cycles the PHY.
-            self.seq
-                .reset_front_io_phy()
+            self.front_io
+                .phy_reset()
                 .map_err(|e| VscError::ProxyError(e.into()))?;
 
             for p in 0..2 {

@@ -53,7 +53,12 @@ enum Trace {
     BspInit,
     BspInitComplete,
     BspInitFailed,
+    PowerEnabled(bool),
+    PowerGood,
+    PowerNotGood,
+    PowerFault,
     FpgaInitError(FpgaError),
+    PhyPowerEnabled(bool),
     PhyOscGood,
     PhyOscBad,
     LEDInitComplete,
@@ -61,7 +66,6 @@ enum Trace {
     LEDUpdateError(pca9956b::Error),
     LEDReadError(pca9956b::Error),
     LEDErrorSummary(FullErrorSummary),
-    LEDUninitialized,
     SeqStatus(FrontIOStatus),
     FpgaBitstreamError(u32),
     LoadingFrontIOControllerBitstream {
@@ -265,8 +269,6 @@ impl ServerImpl {
                 self.led_error = errors;
                 ringbuf_entry!(Trace::LEDErrorSummary(errors));
             }
-        } else {
-            ringbuf_entry!(Trace::LEDUninitialized);
         }
     }
 
@@ -274,8 +276,46 @@ impl ServerImpl {
     // rely on our ability to talk to the board's FRUID as a proxy for presence + power good
     fn is_board_present_and_powered(&self) -> bool {
         let fruid =
-            i2c_config::devices::at24csw080_front_io0(I2C.get_task_id())[0];
+            i2c_config::devices::at24csw080_front_io(I2C.get_task_id())[0];
         At24Csw080::validate(&fruid).unwrap_or(false)
+    }
+
+    fn do_server_reset(&mut self) {
+        *self = ServerImpl::default();
+    }
+
+    // Make sure the front IO hot swap controller is enabled and good.
+    fn power_on_check(&self) -> Result<(), FrontIOError> {
+        // power rail FSM will reach either the GoodTimeout, Aborted or Enabled
+        // state or experience an FpgaError, so an open loop is safe.
+        while match self.bsp.power_rail_status()? {
+            PowerRailStatus::GoodTimeout | PowerRailStatus::Aborted => {
+                ringbuf_entry!(Trace::PowerFault);
+                return Err(FrontIOError::PowerFault);
+            }
+            PowerRailStatus::Disabled => {
+                ringbuf_entry!(Trace::PowerEnabled(true));
+                self.bsp.set_power_enable(true)?;
+                true // Retry HSC status.
+            }
+            PowerRailStatus::RampingUp => {
+                true // Retry HSC status.
+            }
+            PowerRailStatus::Enabled => false,
+        } {
+            // The front IO HSC was observed to take as long as 35 ms to assert power good
+            userlib::hl::sleep_for(100);
+        }
+
+        // Check if the power is good via the PG pin
+        if self.bsp.power_good() {
+            ringbuf_entry!(Trace::PowerGood);
+        } else {
+            ringbuf_entry!(Trace::PowerNotGood);
+            return Err(FrontIOError::PowerNotGood);
+        }
+
+        Ok(())
     }
 }
 
@@ -286,12 +326,13 @@ impl idl::InOrderFrontIOImpl for ServerImpl {
         _: &RecvMessage,
         enable: bool,
     ) -> Result<(), RequestError<FrontIOError>> {
+        ringbuf_entry!(Trace::PowerEnabled(enable));
         self.bsp
             .set_power_enable(enable)
             .map_err(RequestError::from)
     }
 
-    /// Returns if front IO power is good
+    /// Returns if front IO power good pin is asserted
     fn power_good(
         &mut self,
         _: &RecvMessage,
@@ -310,12 +351,20 @@ impl idl::InOrderFrontIOImpl for ServerImpl {
             .map_err(RequestError::from)
     }
 
+    /// Combines turning the front IO board power on and checking that it is good
+    fn power_on(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<FrontIOError>> {
+        Ok(self.power_on_check().map_err(RequestError::from)?)
+    }
+
     /// Blow away server state, resulting in a resequencing
     fn board_reset(
         &mut self,
         _: &RecvMessage,
     ) -> Result<(), RequestError<Infallible>> {
-        *self = ServerImpl::default();
+        self.do_server_reset();
         Ok(())
     }
 
@@ -327,23 +376,12 @@ impl idl::InOrderFrontIOImpl for ServerImpl {
         Ok(self.board_status)
     }
 
-    /// Returns true if a front IO board was determined to be present
+    /// Returns true if a front IO board was determined to be present and powered on
     fn board_present(
         &mut self,
         _: &RecvMessage,
     ) -> Result<bool, RequestError<Infallible>> {
-        Ok(self.is_board_present())
-    }
-
-    /// Returns true if the front IO FPGAs have been initialized
-    fn board_fpgas_initialized(
-        &mut self,
-        _: &RecvMessage,
-    ) -> Result<bool, RequestError<Infallible>> {
-        Ok(matches!(
-            self.board_status,
-            FrontIOStatus::OscInit | FrontIOStatus::Ready
-        ))
+        Ok(self.is_board_present_and_powered())
     }
 
     /// Returns if the front IO board has completely sequenced and is ready
@@ -352,6 +390,100 @@ impl idl::InOrderFrontIOImpl for ServerImpl {
         _: &RecvMessage,
     ) -> Result<bool, RequestError<Infallible>> {
         Ok(self.board_status == FrontIOStatus::Ready)
+    }
+
+    fn phy_reset(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<FrontIOError>> {
+        // The board was initialized prior and this function is called
+        // by the monorail task because it is initializing the front IO
+        // PHY. Unfortunately some front IO boards have PHY oscillators
+        // which do not start reliably when their enable pin is used and
+        // the only way to resolve this is by power cycling the front IO
+        // board. But power cycling the board also bounces any QSFP
+        // transceivers which may be running, so this function attempts
+        // to determine what the monorail task wants to do.
+        //
+        // Whether or not the PHY oscillator was found to be operating
+        // nominally is recorded in the front IO board controller. Look
+        // up what this value is to determine if a power reset of the
+        // front IO board is needed.
+        match self
+            .phy_smi
+            .osc_state()
+            .map_err(FrontIOError::from)
+            .map_err(RequestError::from)?
+        {
+            PhyOscState::Bad => {
+                // The PHY was attempted to be initialized but its
+                // oscillator was deemed not functional. Unfortunately
+                // the only course of action is to power cycle the
+                // entire front IO board, so do so now.
+                ringbuf_entry!(Trace::PowerEnabled(false));
+                self.bsp.set_power_enable(false)?;
+                // After removing power to the board we must reset its
+                // server
+                self.do_server_reset();
+
+                // Wait some cool down period to allow caps to bleed off
+                // etc.
+                userlib::hl::sleep_for(1000);
+            }
+            PhyOscState::Good => {
+                // The PHY was initialized properly before and its
+                // oscillator declared operating nominally. Assume this
+                // has not changed and only a reset the PHY itself is
+                // desired.
+                self.phy_smi
+                    .set_phy_power_enabled(false)
+                    .map_err(FrontIOError::from)
+                    .map_err(RequestError::from)?;
+                ringbuf_entry!(Trace::PhyPowerEnabled(false));
+
+                userlib::hl::sleep_for(10);
+            }
+            PhyOscState::Unknown => {
+                // Do nothing (yet) since the oscillator state is
+                // unknown.
+            }
+        }
+
+        // Handle re-enabling power as needed
+        self.power_on_check().map_err(RequestError::from)?;
+
+        if self.is_board_present_and_powered() {
+            // At this point the front IO board has either not yet been
+            // initalized or may have been power cycled and should be
+            // initialized.
+            while !matches!(
+                self.board_status,
+                FrontIOStatus::OscInit | FrontIOStatus::Ready
+            ) {
+                userlib::hl::sleep_for(20);
+            }
+
+            // The PHY is still powered down. Request the sequencer to power up
+            // and wait for it to be ready.
+            self.phy_smi
+                .set_phy_power_enabled(true)
+                .map_err(FrontIOError::from)
+                .map_err(RequestError::from)?;
+            ringbuf_entry!(Trace::PhyPowerEnabled(true));
+
+            while !self
+                .phy_smi
+                .powered_up_and_ready()
+                .map_err(FrontIOError::from)
+                .map_err(RequestError::from)?
+            {
+                userlib::hl::sleep_for(20);
+            }
+
+            Ok(())
+        } else {
+            Err(FrontIOError::NotPresent).map_err(RequestError::from)
+        }
     }
 
     /// Returns the state of the PHY's oscilllator
@@ -951,18 +1083,18 @@ fn main() -> ! {
 
                         // Once there is a board present, configure its FPGAs
                         // and wait for its oscillator to be functional.
-                        FrontIOStatus::FpgaInit => match server.fpga_init() {
-                            Ok(done) => {
-                                ringbuf_entry!(Trace::SeqStatus(
-                                    server.board_status
-                                ));
-                                if done && server.fpga_ready() {
-                                    server.board_status =
-                                        FrontIOStatus::OscInit;
+                        FrontIOStatus::FpgaInit => {
+                            ringbuf_entry!(Trace::SeqStatus(server.board_status));
+                            match server.fpga_init() {
+                                Ok(done) => {
+                                    if done && server.fpga_ready() {
+                                        server.board_status =
+                                            FrontIOStatus::OscInit;
+                                    }
                                 }
+                                Err(e) => ringbuf_entry!(Trace::FpgaInitError(e)),
                             }
-                            Err(e) => ringbuf_entry!(Trace::FpgaInitError(e)),
-                        },
+                        }
 
                         // Wait for the PHY oscillator to be deemed operational.
                         // Currently this server does not control the power to
