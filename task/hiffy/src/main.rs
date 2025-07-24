@@ -22,6 +22,9 @@
 // and needs attention!
 //
 #![allow(static_mut_refs)]
+// This is necessary in order to use the `#[used(compiler)]` attribute on Hiffy
+// statics which are written to by Humility, and must not be optimized out.
+#![feature(used_with_arg)]
 
 // This trait may not be needed, if compiling for a non-armv6m target.
 #[allow(unused_imports)]

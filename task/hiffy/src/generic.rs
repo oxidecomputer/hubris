@@ -17,6 +17,7 @@ pub enum Functions {
 }
 
 #[no_mangle]
+#[used(compiler)]
 static HIFFY_FUNCTIONS: Option<&Functions> = None;
 
 pub(crate) static HIFFY_FUNCS: &[Function] = &[
