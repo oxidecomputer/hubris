@@ -145,10 +145,8 @@ fn generate_buffers(
     let pktcnt = config.packets;
     let bytecnt = config.bytes;
     let upname = name.to_ascii_uppercase();
-    let hdrname: syn::Ident =
-        syn::parse_str(&format!("SOCK_{}_HDR_{}", dir, upname)).unwrap();
-    let bufname: syn::Ident =
-        syn::parse_str(&format!("SOCK_{}_DAT_{}", dir, upname)).unwrap();
+    let hdrname: syn::Ident = quote::format_ident!("SOCK_{dir}_HDR_{upname}");
+    let bufname: syn::Ident = quote::format_ident!("SOCK_{dir}_DAT_{upname}");
     quote::quote! {
         static mut #hdrname: [[udp::PacketMetadata; #pktcnt]; #vlan_count] = [
             [udp::PacketMetadata::EMPTY; #pktcnt]; #vlan_count
@@ -167,14 +165,10 @@ fn generate_state_struct(config: &NetConfig) -> TokenStream {
 fn generate_constructor(config: &NetConfig) -> Result<TokenStream> {
     let name_to_sockets = |name: &String, i: usize| {
         let upname = name.to_ascii_uppercase();
-        let rxhdrs: syn::Ident =
-            syn::parse_str(&format!("SOCK_RX_HDR_{}", upname)).unwrap();
-        let rxbytes: syn::Ident =
-            syn::parse_str(&format!("SOCK_RX_DAT_{}", upname)).unwrap();
-        let txhdrs: syn::Ident =
-            syn::parse_str(&format!("SOCK_TX_HDR_{}", upname)).unwrap();
-        let txbytes: syn::Ident =
-            syn::parse_str(&format!("SOCK_TX_DAT_{}", upname)).unwrap();
+        let rxhdrs: syn::Ident = quote::format_ident!("SOCK_RX_HDR_{upname}");
+        let rxbytes: syn::Ident = quote::format_ident!("SOCK_RX_DAT_{upname}");
+        let txhdrs: syn::Ident = quote::format_ident!("SOCK_TX_HDR_{upname}");
+        let txbytes: syn::Ident = quote::format_ident!("SOCK_TX_DAT_{upname}");
 
         quote::quote! {
             udp::Socket::new(

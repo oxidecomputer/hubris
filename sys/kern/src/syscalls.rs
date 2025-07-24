@@ -119,7 +119,7 @@ pub unsafe extern "C" fn syscall_entry(nr: u32, task: *mut Task) {
 fn safe_syscall_entry(nr: u32, current: usize, tasks: &mut [Task]) -> NextTask {
     let res = match Sysnum::try_from(nr) {
         Ok(Sysnum::Send) => send(tasks, current),
-        Ok(Sysnum::Recv) => recv(tasks, current).map_err(UserError::from),
+        Ok(Sysnum::Recv) => recv(tasks, current),
         Ok(Sysnum::Reply) => reply(tasks, current).map_err(UserError::from),
         Ok(Sysnum::SetTimer) => Ok(set_timer(&mut tasks[current], arch::now())),
         Ok(Sysnum::BorrowRead) => borrow_read(tasks, current),

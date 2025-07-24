@@ -85,8 +85,14 @@ impl<'d> smoltcp::phy::TxToken for OurTxToken<'d> {
 }
 
 impl<'a> smoltcp::phy::Device for Smol<'a> {
-    type RxToken<'b> = OurRxToken<'b> where Self: 'b;
-    type TxToken<'b> = OurTxToken<'b> where Self: 'b;
+    type RxToken<'b>
+        = OurRxToken<'b>
+    where
+        Self: 'b;
+    type TxToken<'b>
+        = OurTxToken<'b>
+    where
+        Self: 'b;
 
     fn receive(
         &mut self,

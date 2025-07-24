@@ -76,7 +76,7 @@ pub fn die(msg: impl Display) -> ! {
 fn die_impl(msg: &dyn Display) -> ! {
     let buf = begin_epitaph();
     let mut writer = Eulogist { dest: buf };
-    write!(writer, "{}", msg).ok();
+    write!(writer, "{msg}").ok();
 
     loop {
         // Platform-independent NOP

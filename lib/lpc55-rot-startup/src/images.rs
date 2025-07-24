@@ -293,7 +293,7 @@ impl Image {
         // So, check ImageHeader carefully.
         if header_required {
             let len = self.get_imageheader_total_image_len()?;
-            if (len % U32_SIZE) != 0 {
+            if !len.is_multiple_of(U32_SIZE) {
                 return Err(ImageError::UnalignedLength);
             }
             match self.span.start.checked_add(len) {

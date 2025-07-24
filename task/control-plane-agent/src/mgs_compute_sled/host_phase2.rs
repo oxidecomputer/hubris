@@ -98,7 +98,7 @@ impl HostPhase2Requester {
     pub(crate) fn wants_to_send_packet(&self) -> bool {
         self.current
             .as_ref()
-            .map_or(false, |c| c.state.wants_to_send_packet())
+            .is_some_and(|c| c.state.wants_to_send_packet())
     }
 
     pub(crate) fn packet_to_mgs(

@@ -515,7 +515,7 @@ pub fn load_task_size<'a>(
     Ok(memory_sizes)
 }
 
-fn create_sizes(toml: &Config) -> Result<TaskSizes> {
+fn create_sizes(toml: &Config) -> Result<TaskSizes<'_>> {
     let mut sizes = IndexMap::new();
 
     let kernel_sizes = load_task_size(

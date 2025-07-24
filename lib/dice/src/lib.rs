@@ -25,7 +25,7 @@ pub use crate::cert::{
     SpMeasureCertBuilder, TrustQuorumDheCert, TrustQuorumDheCertBuilder,
 };
 mod csr;
-pub use crate::csr::PersistIdCsrBuilder;
+pub use crate::csr::{PersistIdCsr, PersistIdCsrBuilder};
 mod alias_cert_tmpl;
 mod deviceid_cert_tmpl;
 mod handoff;

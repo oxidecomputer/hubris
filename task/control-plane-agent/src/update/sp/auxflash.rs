@@ -177,7 +177,9 @@ impl ScanningForChck {
                 // note its index if it's the first even empty slot
                 // we've seen. (We'll use it as our target slot if
                 // we don't find a matching CHCK in another.)
-                if self.index % 2 == 0 && self.first_empty_even_slot.is_none() {
+                if self.index.is_multiple_of(2)
+                    && self.first_empty_even_slot.is_none()
+                {
                     self.first_empty_even_slot = Some(self.index);
                 }
             }

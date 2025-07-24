@@ -1083,7 +1083,7 @@ impl DebugPort {
         data: &mut [u8],
     ) -> Result<(), FpgaError> {
         // Only 4 byte aligned reads/writes are allowed.
-        if offset % 4 != 0 {
+        if !offset.is_multiple_of(4) {
             return Err(FpgaError::InvalidValue);
         }
 
@@ -1103,7 +1103,7 @@ impl DebugPort {
         data: &[u8],
     ) -> Result<(), FpgaError> {
         // Only 4 byte aligned reads/writes are allowed.
-        if offset % 4 != 0 {
+        if !offset.is_multiple_of(4) {
             return Err(FpgaError::InvalidValue);
         }
 

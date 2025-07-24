@@ -179,7 +179,7 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
                 }
             },
             PortMode::Qsgmii(_) => {
-                if p % 4 == 0 {
+                if p.is_multiple_of(4) {
                     self.init_qsgmii(p, cfg)
                 } else {
                     // All QSGMII ports are initialized with the base port

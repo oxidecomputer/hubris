@@ -12,8 +12,8 @@ use static_assertions::const_assert;
 mod rot_update_details;
 
 pub use rot_update_details::{
-    ImageError, ImageVersion, RotBootState, RotBootStateV2, RotImageDetails,
-    RotImageDetailsV2, RotSlot,
+    Fwid, ImageError, ImageVersion, RotBootState, RotBootStateV2,
+    RotImageDetails, RotImageDetailsV2, RotSlot,
 };
 
 // This memory is the USB peripheral SRAM that's 0x4000 bytes long. Changes

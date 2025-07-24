@@ -20,11 +20,11 @@ pub fn rustfmt(path: impl AsRef<Path>) -> Result<()> {
 
     let out_str = std::str::from_utf8(&which_out.stdout)?.trim();
 
-    println!("will invoke: {}", out_str);
+    println!("will invoke: {out_str}");
 
     let fmt_status = Command::new(out_str).arg(path.as_ref()).status()?;
     if !fmt_status.success() {
-        bail!("rustfmt returned status {}", fmt_status);
+        bail!("rustfmt returned status {fmt_status}");
     }
     Ok(())
 }

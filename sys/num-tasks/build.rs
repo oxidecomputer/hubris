@@ -10,9 +10,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut task_enum = vec![];
     if let Ok(task_names) = build_util::env_var("HUBRIS_TASKS") {
-        println!("HUBRIS_TASKS = {}", task_names);
+        println!("HUBRIS_TASKS = {task_names}",);
         for (i, name) in task_names.split(',').enumerate() {
-            task_enum.push(format!("    {} = {},", name, i));
+            task_enum.push(format!("    {name} = {i},"));
         }
     } else {
         panic!("can't build this crate outside of the build system.");
@@ -25,12 +25,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         writeln!(task_file, "#[allow(non_camel_case_types)]").unwrap();
         writeln!(task_file, "pub enum Task {{").unwrap();
         for line in task_enum {
-            writeln!(task_file, "{}", line).unwrap();
+            writeln!(task_file, "{line}").unwrap();
         }
         writeln!(task_file, "}}").unwrap();
     }
-    writeln!(task_file, "pub const NUM_TASKS: usize = {};", task_count)
-        .unwrap();
+    writeln!(task_file, "pub const NUM_TASKS: usize = {task_count};").unwrap();
 
     Ok(())
 }

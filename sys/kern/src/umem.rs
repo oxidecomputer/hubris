@@ -65,7 +65,7 @@ impl<T> USlice<T> {
         uassert!(core::mem::size_of::<T>() != 0);
 
         // Alignment check:
-        if base_address % core::mem::align_of::<T>() != 0 {
+        if !base_address.is_multiple_of(core::mem::align_of::<T>()) {
             return Err(UsageError::InvalidSlice);
         }
         // Check that a slice of `length` `T`s can even exist starting at

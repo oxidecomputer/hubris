@@ -33,17 +33,17 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let out = build_util::out_dir();
     let compressed_path = out.join(fpga_image_path.with_extension("bin.rle"));
     fs::write(&compressed_path, &compressed)?;
-    println!("cargo:rerun-if-changed={}", config.fpga_image);
+    println!("cargo::rerun-if-changed={}", config.fpga_image);
 
     println!(
-        "cargo:rustc-env=GIMLET_FPGA_IMAGE_PATH={}",
+        "cargo::rustc-env=GIMLET_FPGA_IMAGE_PATH={}",
         compressed_path.display()
     );
 
     let disposition = build_i2c::Disposition::Devices;
 
     if let Err(e) = build_i2c::codegen(disposition) {
-        println!("code generation failed: {}", e);
+        println!("cargo::error=code generation failed: {e}");
         std::process::exit(1);
     }
 
