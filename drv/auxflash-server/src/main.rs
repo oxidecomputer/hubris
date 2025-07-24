@@ -364,7 +364,7 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         if Some(slot) == self.active_slot {
             return Err(AuxFlashError::SlotActive.into());
         }
-        if (offset as usize).is_multiple_of(PAGE_SIZE_BYTES) {
+        if !(offset as usize).is_multiple_of(PAGE_SIZE_BYTES) {
             return Err(AuxFlashError::UnalignedAddress.into());
         } else if offset as usize + data.len() > SLOT_SIZE {
             return Err(AuxFlashError::AddressOverflow.into());
