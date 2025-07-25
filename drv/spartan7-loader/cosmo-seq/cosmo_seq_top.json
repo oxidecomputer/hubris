@@ -1,6 +1,6 @@
 {
     "type": "addrmap",
-    "addr_span_bytes": 1840,
+    "addr_span_bytes": 1844,
     "inst_name": "cosmo_seq_top",
     "orig_type_name": "cosmo_seq_top",
     "addr_offset": 0,
@@ -31,7 +31,7 @@
         },
         {
             "type": "addrmap",
-            "addr_span_bytes": 84,
+            "addr_span_bytes": 88,
             "inst_name": "sequencer",
             "orig_type_name": "sequencer_regs",
             "addr_offset": 768,
@@ -63,7 +63,7 @@
         },
         {
             "type": "addrmap",
-            "addr_span_bytes": 48,
+            "addr_span_bytes": 52,
             "inst_name": "debug_ctrl",
             "orig_type_name": "debug_regs",
             "addr_offset": 1792,
