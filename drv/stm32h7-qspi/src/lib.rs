@@ -235,9 +235,8 @@ impl Qspi {
         data: &[u8],
     ) -> Result<(), QspiError> {
         let result = self.write_impl_inner(command, addr, data);
-        if result.is_err() {
-            self.disable_all_interrupts();
-        }
+        // Clean up by disabling our interrupt sources.
+        self.disable_all_interrupts();
         result
     }
 
@@ -329,9 +328,6 @@ impl Qspi {
         // We're now interested in transfer complete, not FIFO ready.
         self.wait_for_transfer_complete();
 
-        // Clean up by disabling our interrupt sources.
-        self.disable_all_interrupts();
-
         Ok(())
     }
 
@@ -342,9 +338,8 @@ impl Qspi {
         out: &mut [u8],
     ) -> Result<(), QspiError> {
         let result = self.read_impl_inner(command, addr, out);
-        if result.is_err() {
-            self.disable_all_interrupts();
-        }
+        // Clean up by disabling our interrupt sources.
+        self.disable_all_interrupts();
         result
     }
 
@@ -454,9 +449,6 @@ impl Qspi {
         // issued into a FIFO, we can issue the next command even while BUSY is
         // set, it appears.
         self.wait_for_transfer_complete();
-
-        // Clean up by disabling our interrupt sources.
-        self.disable_all_interrupts();
 
         Ok(())
     }
