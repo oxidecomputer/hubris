@@ -1626,6 +1626,7 @@ dependencies = [
  "idol",
  "idol-runtime",
  "lpc55-pac",
+ "measurement-token",
  "num-traits",
  "quote",
  "ringbuf",
@@ -2485,6 +2486,7 @@ version = "0.1.0"
 dependencies = [
  "cortex-m",
  "cortex-m-rt",
+ "measurement-handoff",
  "stm32h7",
 ]
 
@@ -3779,6 +3781,22 @@ name = "maybe-uninit"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "60302e4db3a61da70c0cb7991976248362f30319e88850c487b9b95bbf059e00"
+
+[[package]]
+name = "measurement-handoff"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "build-kconfig",
+ "build-util",
+ "measurement-token",
+ "ron",
+]
+
+[[package]]
+name = "measurement-token"
+version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/lpc55_support?branch=mkeeter/measurement-token#a2f0d95c4246abd0dfe0e1e96acc48fb79c55aab"
 
 [[package]]
 name = "medusa"
