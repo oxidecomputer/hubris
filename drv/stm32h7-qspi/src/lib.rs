@@ -289,7 +289,7 @@ impl Qspi {
             let fl = self.get_fifo_level()?;
 
             // How much space is in the FIFO?
-            let ffree = FIFO_SIZE - fl;
+            let ffree = FIFO_SIZE.saturating_sub(fl);
             if ffree >= FIFO_THRESH.min(data.len()) {
                 // Calculate the write size. Note that this may be bigger than
                 // the threshold used above above. We'll opportunistically
