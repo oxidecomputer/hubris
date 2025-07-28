@@ -322,7 +322,17 @@ impl ServerImpl {
         }
     }
 
-    fn invalidate_hash(&mut self) {
+    // Write to flash invalidates the hash of current device
+    fn invalidate_write(&mut self) {
+        match self.hash.state {
+            // Only stop the hash for our current device
+            HashState::Hashing { dev, .. } => {
+                if dev == self.dev {
+                    self.hash.state = HashState::NotRunning;
+                }
+            }
+            _ => (),
+        }
         match self.dev {
             HfDevSelect::Flash0 => {
                 self.hash.cached_hash0 = SlotHash::Recalculate;
@@ -331,7 +341,13 @@ impl ServerImpl {
                 self.hash.cached_hash1 = SlotHash::Recalculate;
             }
         }
+    }
+
+    // We switched our mux, recalculate everything
+    fn invalidate_mux_switch(&mut self) {
         self.hash.state = HashState::NotRunning;
+        self.hash.cached_hash0 = SlotHash::Recalculate;
+        self.hash.cached_hash1 = SlotHash::Recalculate;
     }
 
     fn set_dev(
@@ -385,7 +401,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             return Err(HfError::Sector0IsReserved.into());
         }
         self.drv.check_flash_mux_state()?;
-        self.invalidate_hash();
+        self.invalidate_write();
         // Don't use the bulk erase command, because it will erase the entire
         // chip.  Instead, use the sector erase to erase the currently-active
         // virtual device.
@@ -408,7 +424,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         self.check_addr_writable(addr, protect)?;
         self.drv.check_flash_mux_state()?;
         let addr = self.flash_addr(addr, data.len() as u32)?;
-        self.invalidate_hash();
+        self.invalidate_write();
         self.drv
             .flash_write(
                 addr,
@@ -477,7 +493,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     ) -> Result<(), RequestError<HfError>> {
         self.drv.check_flash_mux_state()?;
         self.check_addr_writable(addr, protect)?;
-        self.invalidate_hash();
+        self.invalidate_write();
         self.drv.flash_sector_erase(self.flash_addr(addr, 0)?);
         Ok(())
     }
@@ -552,7 +568,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         state: HfMuxState,
     ) -> Result<(), RequestError<HfError>> {
         self.drv.set_flash_mux_state(state);
-        self.invalidate_hash();
+        self.invalidate_mux_switch();
         Ok(())
     }
 
@@ -588,6 +604,16 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         len: u32,
     ) -> Result<[u8; SHA256_SZ], RequestError<HfError>> {
         self.drv.check_flash_mux_state()?;
+
+        // Need to check hash state before doing anything else
+        // that might mess up the hash in progress
+        match self.hash.state {
+            HashState::Hashing { .. } => {
+                return Err(HfError::HashInProgress.into())
+            }
+            _ => (),
+        }
+
         if let Err(e) = self.hash.task.init_sha256() {
             ringbuf_entry!(Trace::HashInitError(e));
             return Err(HfError::HashError.into());
