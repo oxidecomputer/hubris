@@ -25,7 +25,6 @@ impl I2cMuxDriver for Pca9545 {
         mux: &I2cMux<'_>,
         _controller: &I2cController<'_>,
         gpio: &sys_api::Sys,
-        _ctrl: &I2cControl,
     ) -> Result<(), drv_i2c_api::ResponseCode> {
         mux.configure(gpio)
     }
@@ -35,7 +34,6 @@ impl I2cMuxDriver for Pca9545 {
         mux: &I2cMux<'_>,
         controller: &I2cController<'_>,
         segment: Option<Segment>,
-        ctrl: &I2cControl,
     ) -> Result<(), ResponseCode> {
         let mut reg = ControlRegister(0);
 
@@ -69,7 +67,6 @@ impl I2cMuxDriver for Pca9545 {
             |_| Some(reg.0),
             ReadLength::Fixed(0),
             |_, _| Some(()),
-            ctrl,
         ) {
             Err(code) => Err(mux.error_code(code)),
             _ => Ok(()),
