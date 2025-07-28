@@ -17,7 +17,9 @@ execute = false  # let's assume XN until proven otherwise
 # Data tightly-coupled memory
 #
 # This region is used in production images to pass a token from the RoT to the
-# SP indicating that measurement has happened.
+# SP indicating that measurement has happened.  Using this region (and specific
+# token values) is hard-coded in the `measurement-token` crate, which is shared
+# between Hubris and Humility.
 [[dtcm]]
 address = 0x20000000
 size = 131072
