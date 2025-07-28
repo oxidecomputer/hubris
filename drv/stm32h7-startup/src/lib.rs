@@ -154,7 +154,7 @@ pub fn system_init_custom(
     // Turn on CPU I/D caches to improve performance at the higher clock speeds
     // we're about to enable.
     cp.SCB.enable_icache();
-    cp.SCB.enable_dcache(&mut cp.CPUID);
+    //cp.SCB.enable_dcache(&mut cp.CPUID);
 
     // The Flash controller comes out of reset configured for 3 wait states.
     // That's approximately correct for 64MHz at VOS3, which is fortunate, since
