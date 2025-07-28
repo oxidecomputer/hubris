@@ -100,7 +100,8 @@ pub fn system_init_custom(
     // Before doing anything else, check for a measurement handoff token
     #[cfg(feature = "measurement-handoff")]
     unsafe {
-        measurement_handoff::check(20, || {
+        const RETRY_COUNT: u32 = 20;
+        measurement_handoff::check(RETRY_COUNT, || {
             cortex_m::asm::delay(12860000); // about 200 ms
             cortex_m::peripheral::SCB::sys_reset()
         });
