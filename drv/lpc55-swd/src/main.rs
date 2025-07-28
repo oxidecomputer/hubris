@@ -1753,6 +1753,7 @@ impl ServerImpl {
     /// In all cases, the reset line is not asserted when this function returns.
     /// Additionally, `DEMCR.VC_CORERESET` is always cleared, so future resets
     /// will not trigger a vector catch.
+    #[allow(clippy::result_unit_err)]
     fn reset_into_debug_halt(&mut self) -> Result<(), ()> {
         // Asserting SP_RESET for >1ms here works.
         self.sp_reset_enter();
