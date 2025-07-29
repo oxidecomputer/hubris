@@ -2,21 +2,32 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use core::cell::Cell;
-
 use crate::{Addr, Reg};
+use core::cell::Cell;
 use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
+use userlib::FromPrimitive;
 use vsc85xx::{PhyRw, VscError};
 use zerocopy::{
     byteorder::little_endian, FromBytes, Immutable, IntoBytes, KnownLayout,
     Unaligned,
 };
 
-#[derive(Copy, Clone, Eq, Debug, PartialEq)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    FromPrimitive,
+    Eq,
+    PartialEq,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
+)]
+#[repr(u8)]
 pub enum PhyOscState {
-    Unknown,
-    Bad,
-    Good,
+    Unknown = 0,
+    Bad = 1,
+    Good = 2,
 }
 
 pub struct PhySmi {
@@ -122,7 +133,7 @@ impl PhySmi {
     }
 
     #[inline(never)]
-    fn read_raw_inner(&self, phy: u8, reg: u8) -> Result<u16, FpgaError> {
+    pub fn read_raw_inner(&self, phy: u8, reg: u8) -> Result<u16, FpgaError> {
         let request = SmiReadRequest {
             phy,
             reg,
@@ -155,7 +166,7 @@ impl PhySmi {
     }
 
     #[inline(never)]
-    fn write_raw_inner(
+    pub fn write_raw_inner(
         &self,
         phy: u8,
         reg: u8,
