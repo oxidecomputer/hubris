@@ -8,6 +8,12 @@ use std::collections::{BTreeMap, BTreeSet};
 /// Application configuration passed into the kernel build.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KernelConfig {
+    /// Features enabled in the kernel
+    pub features: Vec<String>,
+
+    /// External regions used in the kernel
+    pub extern_regions: BTreeMap<String, std::ops::Range<u32>>,
+
     /// Tasks in the app image. The order of tasks is significant.
     pub tasks: Vec<TaskConfig>,
 
