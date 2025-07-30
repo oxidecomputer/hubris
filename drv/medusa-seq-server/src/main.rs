@@ -42,7 +42,8 @@ enum Trace {
     PowerEnable(RailName, bool),
     PowerFault(RailName),
     MgmtPowerGood,
-    PhyPowerGood,
+    FrontPhyPowerGood,
+    LocalPhyPowerGood,
 }
 
 ringbuf!(Trace, 32, Trace::None);
@@ -52,7 +53,9 @@ const TIMER_INTERVAL: u64 = 1000;
 struct ServerImpl {
     power_control: PowerControl,
     front_io_board: FrontIO,
-    vsc7448_reset_l: sys_api::PinSet,
+    vsc7448_ready: bool,
+    local_vsc8562_ready: bool,
+    local_vsc8562_coma_mode_pin: sys_api::PinSet,
 }
 
 impl idl::InOrderSequencerImpl for ServerImpl {
@@ -76,25 +79,6 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         Ok(())
     }
 
-    fn control_phy_rails(
-        &mut self,
-        _: &RecvMessage,
-        enabled: bool,
-    ) -> Result<(), RequestError<MedusaError>> {
-        self.power_control.v1p0_phy.set_enable(enabled);
-        self.power_control.v2p5_phy.set_enable(enabled);
-
-        if enabled {
-            userlib::hl::sleep_for(10);
-            if !self.power_control.phy_power_check() {
-                return Err(RequestError::from(MedusaError::PowerFault));
-            }
-            ringbuf_entry!(Trace::PhyPowerGood);
-        }
-
-        Ok(())
-    }
-
     fn control_rail(
         &mut self,
         _: &RecvMessage,
@@ -106,12 +90,37 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         Ok(())
     }
 
-    fn vsc7448_in_reset(
+    fn rail_good(
+        &mut self,
+        _: &RecvMessage,
+        name: RailName,
+    ) -> Result<bool, RequestError<Infallible>> {
+        let rail = self.power_control.get_rail(name);
+        Ok(rail.power_good())
+    }
+
+    fn vsc7448_ready(
         &mut self,
         _: &RecvMessage,
     ) -> Result<bool, RequestError<Infallible>> {
+        Ok(self.vsc7448_ready)
+    }
+
+    fn local_vsc8562_ready(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<bool, RequestError<Infallible>> {
+        Ok(self.local_vsc8562_ready)
+    }
+
+    fn set_local_phy_coma_mode(
+        &mut self,
+        _: &RecvMessage,
+        asserted: bool,
+    ) -> Result<(), RequestError<Infallible>> {
         let sys = Sys::from(SYS.get_task_id());
-        Ok(sys.gpio_read(self.vsc7448_reset_l) == 0)
+        sys.gpio_set_to(self.local_vsc8562_coma_mode_pin, asserted);
+        Ok(())
     }
 }
 
@@ -134,24 +143,49 @@ fn main() -> ! {
     let mut server = ServerImpl {
         power_control: PowerControl::new(),
         front_io_board: FrontIO::from(FRONT_IO.get_task_id()),
-        vsc7448_reset_l: Port::E.pin(11),
+        vsc7448_ready: false,
+        local_vsc8562_ready: false,
+        local_vsc8562_coma_mode_pin: Port::I.pin(10),
     };
 
     let sys = Sys::from(SYS.get_task_id());
+
     // PE11 has an external 1K pull down
+    let vsc7448_reset_l_pin = Port::E.pin(11);
     sys.gpio_configure_output(
-        server.vsc7448_reset_l,
+        vsc7448_reset_l_pin,
         OutputType::PushPull,
         Speed::Low,
         Pull::None,
     );
+    sys.gpio_set_to(vsc7448_reset_l_pin, false);
+
+    // PI9 has an external 1K pull down
+    let local_phy_reset_l_pin = Port::I.pin(9);
+    sys.gpio_configure_output(
+        local_phy_reset_l_pin,
+        OutputType::PushPull,
+        Speed::Low,
+        Pull::None,
+    );
+    sys.gpio_set_to(local_phy_reset_l_pin, false);
+
+    // PI10 does not have an external strapping on the SP-side of a voltage translator
+    sys.gpio_configure_output(
+        server.local_vsc8562_coma_mode_pin,
+        OutputType::PushPull,
+        Speed::Low,
+        Pull::Up,
+    );
+    sys.gpio_set_to(server.local_vsc8562_coma_mode_pin, true);
 
     // Enable VSC7448 (mgmt) and VSC8562 (phy) rails
     server.power_control.v1p0_mgmt.set_enable(true);
     server.power_control.v1p2_mgmt.set_enable(true);
     server.power_control.v2p5_mgmt.set_enable(true);
-    // both phy rails share an enable, so no need to explicitly enable the 2.5V rail
-    server.power_control.v1p0_phy.set_enable(true);
+    // both sets of phy rails share an enable, so no need to explicitly enable the 2.5V rail
+    server.power_control.v1p0_front_phy.set_enable(true);
+    server.power_control.v1p0_local_phy.set_enable(true);
 
     // Enable the front IO hot swap controller and probe for a front IO board.
     match server.front_io_board.power_on() {
@@ -177,10 +211,22 @@ fn main() -> ! {
     if server.power_control.mgmt_power_check() {
         ringbuf_entry!(Trace::MgmtPowerGood);
         // power is good, release reset
-        sys.gpio_set_to(server.vsc7448_reset_l, true);
+        sys.gpio_set_to(vsc7448_reset_l_pin, true);
+        // the VSC7448 needs at most 50ms to be ready after the reset 
+        userlib::hl::sleep_for(50);
+        server.vsc7448_ready = true;
     }
-    if server.power_control.phy_power_check() {
-        ringbuf_entry!(Trace::PhyPowerGood);
+
+    if server.power_control.front_phy_power_check() {
+        ringbuf_entry!(Trace::FrontPhyPowerGood);
+    }
+    if server.power_control.local_phy_power_check() {
+        ringbuf_entry!(Trace::LocalPhyPowerGood);
+        // power is good, release reset
+        sys.gpio_set_to(local_phy_reset_l_pin, true);
+        // Wait for the chip to come out of reset
+        userlib::hl::sleep_for(120);
+        server.local_vsc8562_ready = true;
     }
 
     // This will put our timer in the past, and should immediately kick us.

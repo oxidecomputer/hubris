@@ -13,16 +13,6 @@ Interface(
             ),
         ),
 
-        "control_phy_rails": (
-            args: {
-                "enabled": "bool",
-            },
-            reply: Result(
-                ok: "()",
-                err: CLike("MedusaError"),
-            ),
-        ),
-
         "control_rail": (
             args: {
                 "name": "RailName",
@@ -33,10 +23,33 @@ Interface(
             encoding: Hubpack,
         ),
 
-        "vsc7448_in_reset": (
+        "rail_good": (
+            args: {
+                "name": "RailName",
+            },
+            reply: Simple("bool"),
+            idempotent: true,
+            encoding: Hubpack,
+        ),
+
+        "vsc7448_ready": (
             args: {},
             reply: Simple("bool"),
             idempotent: true,
-        )
+        ),
+
+        "local_vsc8562_ready": (
+            args: {},
+            reply: Simple("bool"),
+            idempotent: true,
+        ),
+
+        "set_local_phy_coma_mode": (
+            args: {
+                "asserted": "bool",
+            },
+            reply: Simple("()"),
+            idempotent: true,
+        ),
     },
 )

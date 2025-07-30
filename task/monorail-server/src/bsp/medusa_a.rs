@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use drv_front_io_api::{phy_smi::PhySmi, FrontIO};
+use drv_front_io_api::FrontIO;
 use drv_medusa_seq_api::Sequencer;
 use drv_monorail_api::MonorailError;
 use idol_runtime::{ClientError, RequestError};
@@ -42,15 +42,18 @@ pub struct Bsp<'a, R> {
     /// handle for the front-io task
     front_io: FrontIO,
 
-    /// RPC handle for Medusa's local techport PHY
-    net: NetSmi,
+    // handle for Medusa's sequencer task
+    seq: Sequencer,
 
     /// RPC handle for the front IO board's PHY, which is a VSC8562. This is
     /// used for PHY control via a Rube Goldberg machine of
     ///     Hubris RPC -> SPI -> FPGA -> MDIO -> PHY
     ///
     /// This is `None` if the front IO board isn't connected.
-    vsc8562: Option<PhySmi>,
+    vsc8562_front: Option<PhySmi>,
+
+    /// RPC handle for Medusa's local techport PHY
+    vsc8562_local: NetSmi,
 
     /// Configured speed of ports on the front IO board, from the perspective of
     /// the VSC7448.
@@ -121,10 +124,10 @@ mod map {
         None,        // 37
         None,        // 38
         None,        // 39
-        QSGMII_100M, // 40 | Unused
-        QSGMII_100M, // 41 | Unused
-        QSGMII_100M, // 42 | Unused
-        QSGMII_100M, // 43 | DEV1G_19  | SERDES6G_14 | Local Technician
+        QSGMII_1G,   // 40 | DEV1G_16  | SERDES6G_14 | Local Technician 1
+        QSGMII_1G,   // 41 | DEV1G_17  | SERDES6G_14 | Local Technician 2
+        None,        // 42 | Unused (configured in QSGMII mode by port 40)
+        None,        // 43 | Unused (configured in QSGMII mode by port 40)
         QSGMII_1G,   // 44 | DEV1G_20  | SERDES6G_15 | Technician 1
         QSGMII_1G,   // 45 | DEV1G_21  | SERDES6G_15 | Technician 2
         None,        // 46 | Unused (configured in QSGMII mode by port 44)
@@ -146,22 +149,25 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
     /// Constructs and initializes a new BSP handle
     pub fn new(vsc7448: &'a Vsc7448<'a, R>) -> Result<Self, VscError> {
         let seq = Sequencer::from(SEQ.get_task_id());
+        // Medusa's sequencer task handles some sequencing done by an FPGA on other designs
+        while !seq.vsc7448_ready() && !seq.local_vsc8562_ready() {
+            userlib::hl::sleep_for(10);
+        }
+
         let front_io = FrontIO::from(FRONT_IO.get_task_id());
         let has_front_io = front_io.board_present();
-        while seq.vsc7448_in_reset() {
-            userlib::hl::sleep_for(5);
-        }
         let mut out = Bsp {
             vsc7448,
-            vsc8562: if has_front_io {
+            vsc8562_front: if has_front_io {
                 Some(PhySmi::new(FRONT_IO.get_task_id()))
             } else {
                 None
             },
             front_io_speed: [Speed::Speed1G; 2],
             link_down_at: None,
-            net: NetSmi::new(NET.get_task_id()),
+            vsc8562_local: NetSmi::new(NET.get_task_id()),
             front_io,
+            seq,
         };
 
         out.reinit()?;
@@ -219,7 +225,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         // necessary to try and correct the problem.
         let mut osc_good = false;
 
-        while self.vsc8562.is_some() && !osc_good {
+        while self.vsc8562_front.is_some() && !osc_good {
             self.phy_vsc8562_init()?;
 
             osc_good = self.is_front_io_link_good()?;
@@ -236,7 +242,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             }
         }
 
-        if let Some(phy_rw) = &mut self.vsc8562 {
+        if let Some(phy_rw) = &mut self.vsc8562_front {
             // Read the MAC_SERDES_PCS_STATUS register to clear a spurious
             // MAC_CGBAD error that shows up on startup.
             for p in 0..2 {
@@ -246,6 +252,18 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             }
         }
 
+        // Finally, handle configuring the local PHY
+        for p in 0..2 {
+                let mut phy = vsc85xx::Phy::new(p, &mut self.vsc8562_local);
+                let mut v = Vsc8562Phy { phy: &mut phy };
+                v.init_qsgmii()?;
+            }
+        self.seq.set_local_phy_coma_mode(false);
+        for p in 0..2 {
+            use vsc7448_pac::phy;
+            vsc85xx::Phy::new(p, &mut self.vsc8562_local)
+                .read(phy::EXTENDED_3::MAC_SERDES_PCS_STATUS())?;
+        }
         Ok(())
     }
 
@@ -279,7 +297,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
 
         // Tune QSGMII link from the front IO board's PHY
         // These values are captured empirically with an oscilloscope
-        if let Some(phy) = self.vsc8562.as_mut() {
+        if let Some(phy) = self.vsc8562_front.as_mut() {
             use vsc85xx::vsc8562::{Sd6gObCfg, Sd6gObCfg1};
             let mut p = vsc85xx::Phy::new(0, phy); // port 0
             let mut v = Vsc8562Phy { phy: &mut p };
@@ -304,7 +322,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
     }
 
     pub fn phy_vsc8562_init(&mut self) -> Result<(), VscError> {
-        if let Some(phy_rw) = &mut self.vsc8562 {
+        if let Some(phy_rw) = &mut self.vsc8562_front {
             // Request a reset of the PHY. If we had previously marked the PHY
             // oscillator as bad, then this power-cycles the entire front IO
             // board; otherwise, it only power-cycles the PHY.
@@ -325,12 +343,12 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         Ok(())
     }
 
-    fn check_aneg_speed(
+    fn check_aneg_speed_front(
         &mut self,
         switch_port: u8,
         phy_port: u8,
     ) -> Result<(), VscError> {
-        if let Some(phy_rw) = &mut self.vsc8562 {
+        if let Some(phy_rw) = &mut self.vsc8562_front {
             use vsc7448_pac::phy::*;
 
             let phy = vsc85xx::Phy::new(phy_port, phy_rw);
@@ -374,6 +392,54 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         Ok(())
     }
 
+    fn check_aneg_speed_local(
+        &mut self,
+        switch_port: u8,
+        phy_port: u8,
+    ) -> Result<(), VscError> {
+        let phy_rw = &mut self.vsc8562_local;
+        use vsc7448_pac::phy::*;
+
+        let phy = vsc85xx::Phy::new(phy_port, phy_rw);
+        let status = phy.read(STANDARD::MODE_STATUS())?;
+
+        // If autonegotiation is complete, then decide on a speed
+        let target_speed = if status.0 & (1 << 5) != 0 {
+            let status = phy.read(STANDARD::REG_1000BASE_T_STATUS())?;
+            // Check "LP 1000BASE-T FDX capable" bit
+            if status.0 & (1 << 11) != 0 {
+                Some(Speed::Speed1G)
+            } else {
+                Some(Speed::Speed100M)
+            }
+            // TODO: 10M?
+        } else {
+            None
+        };
+        if let Some(target_speed) = target_speed {
+            let current_speed = self.front_io_speed[phy_port as usize];
+            if target_speed != current_speed {
+                ringbuf_entry!(Trace::FrontIoSpeedChange {
+                    port: switch_port,
+                    before: current_speed,
+                    after: target_speed,
+                });
+                let cfg = PORT_MAP.port_config(switch_port).unwrap();
+                self.vsc7448.reinit_sgmii(cfg.dev, target_speed)?;
+                self.front_io_speed[phy_port as usize] = target_speed;
+
+                // Clear a spurious MAC_CGBAD flag that pops up when we
+                // change the link speed here.
+                for p in 0..2 {
+                    use vsc7448_pac::phy;
+                    vsc85xx::Phy::new(p, phy_rw)
+                        .read(phy::EXTENDED_3::MAC_SERDES_PCS_STATUS())?;
+                }
+            }
+        }
+        Ok(())
+    }
+
     fn is_front_io_link_good(&self) -> Result<bool, VscError> {
         // Determine if the link is up which implies the PHY oscillator is good.
         Ok(self
@@ -387,7 +453,14 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         // Check for autonegotiation on the front IO board, then reconfigure
         // on the switch side to change speeds.
         for port in 44..=45 {
-            match self.check_aneg_speed(port, port - 44) {
+            match self.check_aneg_speed_front(port, port - 44) {
+                Ok(()) => (),
+                Err(e) => ringbuf_entry!(Trace::AnegCheckFailed(e)),
+            }
+        }
+
+        for port in 40..=41 {
+            match self.check_aneg_speed_local(port, port - 40) {
                 Ok(()) => (),
                 Err(e) => ringbuf_entry!(Trace::AnegCheckFailed(e)),
             }
@@ -409,13 +482,13 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
     ) -> Option<T> {
         let (mut phy_rw, phy_port) = match port {
             // Port 43 connects to a VSC8562 via the SP's SMI interface
-            43 => {
-                let phy_rw = GenericPhyRw::Local(&self.net);
-                (phy_rw, 43)
+            40..=41 => {
+                let phy_rw = GenericPhyRw::Local(&self.vsc8562_local);
+                (phy_rw, port - 40)
             }
             // Ports 44/45 connect to a VSC8562 via the Front I/O interface
             44..=45 => {
-                if let Some(phy_rw) = &self.vsc8562 {
+                if let Some(phy_rw) = &self.vsc8562_front {
                     (GenericPhyRw::FrontIo(phy_rw), port - 44)
                 } else {
                     return None;
@@ -440,6 +513,34 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
     ) -> Result<(), RequestError<MonorailError>> {
         // Not implemented on Medusa
         Err(RequestError::Fail(ClientError::BadMessageContents))
+    }
+}
+
+pub struct PhySmi {
+    front_io_board: FrontIO,
+}
+
+impl PhySmi {
+    pub fn new(front_io_task: userlib::TaskId) -> Self {
+        Self {
+            front_io_board: FrontIO::from(front_io_task),
+        }
+    }
+}
+
+impl PhyRw for PhySmi {
+    #[inline(always)]
+    fn read_raw(&self, phy: u8, reg: u8) -> Result<u16, VscError> {
+        self.front_io_board
+            .phy_read(phy, reg)
+            .map_err(|e| VscError::ProxyError(e.into()))
+    }
+
+    #[inline(always)]
+    fn write_raw(&self, phy: u8, reg: u8, value: u16) -> Result<(), VscError> {
+        self.front_io_board
+            .phy_write(phy, reg, value)
+            .map_err(|e| VscError::ProxyError(e.into()))
     }
 }
 
