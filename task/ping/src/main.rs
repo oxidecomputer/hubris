@@ -54,7 +54,7 @@ fn main() -> ! {
         let (code, _len) =
             sys_send(peer, PING_OP, b"hello", &mut response, &[]);
 
-        if code % FAULT_EVERY != 0 {
+        if !code.is_multiple_of(FAULT_EVERY) {
             continue;
         }
 

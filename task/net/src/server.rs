@@ -254,7 +254,7 @@ where
         _msg: &userlib::RecvMessage,
     ) -> Result<ManagementLinkStatus, RequestError<MgmtError>> {
         let (eth, bsp) = self.eth_bsp();
-        let out = bsp.management_link_status(eth).map_err(MgmtError::from)?;
+        let out = bsp.management_link_status(eth)?;
         Ok(out)
     }
 
@@ -264,7 +264,7 @@ where
         _msg: &userlib::RecvMessage,
     ) -> Result<ManagementCounters, RequestError<MgmtError>> {
         let (eth, bsp) = self.eth_bsp();
-        let out = bsp.management_counters(eth).map_err(MgmtError::from)?;
+        let out = bsp.management_counters(eth)?;
         Ok(out)
     }
 

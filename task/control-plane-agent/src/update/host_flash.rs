@@ -186,7 +186,7 @@ impl ComponentUpdater for HostFlashUpdate {
         // capacity is an exact multiple of the sector size, which is probably
         // a safe assumption for future parts as well. We'll fail here if that's
         // untrue, which will require reworking how we erase the target slot.
-        if capacity % SECTOR_SIZE_BYTES != 0 {
+        if capacity.is_multiple_of(SECTOR_SIZE_BYTES) {
             // We don't have an error case for "our assumptions are wrong", so
             // we'll fill in an easily-greppable update failure code. In case it
             // shows up in logs in base 10, 0x1de_0001 == 31326209.

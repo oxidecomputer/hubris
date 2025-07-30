@@ -23,8 +23,8 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let version: u32 = build_util::env_var("HUBRIS_BUILD_VERSION")?.parse()?;
     let epoch: u32 = build_util::env_var("HUBRIS_BUILD_EPOCH")?.parse()?;
 
-    writeln!(ver_file, "const HUBRIS_BUILD_VERSION: u32 = {};", version)?;
-    writeln!(ver_file, "const HUBRIS_BUILD_EPOCH: u32 = {};", epoch)?;
+    writeln!(ver_file, "const HUBRIS_BUILD_VERSION: u32 = {version};")?;
+    writeln!(ver_file, "const HUBRIS_BUILD_EPOCH: u32 = {epoch};")?;
 
     Ok(())
 }

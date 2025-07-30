@@ -460,6 +460,7 @@ pub(crate) static HIFFY_FUNCS: &[Function] = &[
 // to be able to know function indices, arguments and return values.
 //
 #[no_mangle]
+#[used(compiler)]
 static HIFFY_FUNCTIONS: Option<&Functions> = None;
 
 pub(crate) fn trace_execute(_offset: usize, _op: hif::Op) {}

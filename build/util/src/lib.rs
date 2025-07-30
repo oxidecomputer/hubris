@@ -13,7 +13,7 @@ use std::io::Write;
 ///
 /// This ensures a rebuild if the variable changes
 pub fn env_var(key: &str) -> Result<String> {
-    println!("cargo:rerun-if-env-changed={}", key);
+    println!("cargo::rerun-if-env-changed={key}");
     std::env::var(key).with_context(|| format!("reading env var ${key}"))
 }
 
@@ -65,17 +65,17 @@ pub fn has_feature(s: &str) -> bool {
 pub fn expose_m_profile() -> Result<()> {
     let target = crate::target();
 
-    println!("cargo:rustc-check-cfg=cfg(armv6m)");
-    println!("cargo:rustc-check-cfg=cfg(armv7m)");
-    println!("cargo:rustc-check-cfg=cfg(armv8m)");
+    println!("cargo::rustc-check-cfg=cfg(armv6m)");
+    println!("cargo::rustc-check-cfg=cfg(armv7m)");
+    println!("cargo::rustc-check-cfg=cfg(armv8m)");
 
     if target.starts_with("thumbv6m") {
-        println!("cargo:rustc-cfg=armv6m");
+        println!("cargo::rustc-cfg=armv6m");
     } else if target.starts_with("thumbv7m") || target.starts_with("thumbv7em")
     {
-        println!("cargo:rustc-cfg=armv7m");
+        println!("cargo::rustc-cfg=armv7m");
     } else if target.starts_with("thumbv8m") {
-        println!("cargo:rustc-cfg=armv8m");
+        println!("cargo::rustc-cfg=armv8m");
     } else {
         bail!("Don't know the target {target}");
     }
@@ -103,7 +103,7 @@ pub fn expose_target_board() {
         }
     }
     out_dir.push("boards");
-    println!("cargo:rerun-if-changed={}", out_dir.display());
+    println!("cargo::rerun-if-changed={}", out_dir.display());
     if let Ok(dir) = std::fs::read_dir(&out_dir) {
         for dirent in dir {
             let Ok(dirent) = dirent else {
@@ -133,9 +133,9 @@ pub fn expose_target_board() {
 
     let values = boards.join(",");
 
-    println!("cargo:rustc-check-cfg=cfg(target_board, values({values}))");
+    println!("cargo::rustc-check-cfg=cfg(target_board, values({values}))");
     if let Some(board) = target_board() {
-        println!("cargo:rustc-cfg=target_board=\"{}\"", board);
+        println!("cargo::rustc-cfg=target_board=\"{board}\"");
     }
 }
 

@@ -22,6 +22,9 @@
 // and needs attention!
 //
 #![allow(static_mut_refs)]
+// This is necessary in order to use the `#[used(compiler)]` attribute on Hiffy
+// statics which are written to by Humility, and must not be optimized out.
+#![feature(used_with_arg)]
 
 // This trait may not be needed, if compiling for a non-armv6m target.
 #[allow(unused_imports)]
@@ -97,22 +100,22 @@ cfg_if::cfg_if! {
     }
 }
 
-///
-/// These HIFFY_* global variables constitute the interface with Humility;
-/// they should not be altered without modifying Humility as well.
-///
-/// - [`HIFFY_TEXT`]       => Program text for HIF operations
-/// - [`HIFFY_DATA`]       => Binary data from the caller
-/// - [`HIFFY_RSTACK`]     => HIF return stack
-/// - [`HIFFY_SCRATCH`]    => Scratch space for hiffy functions
-/// - [`HIFFY_REQUESTS`]   => Count of succesful requests
-/// - [`HIFFY_ERRORS`]     => Count of HIF execution failures
-/// - [`HIFFY_FAILURE`]    => Most recent HIF failure, if any
-/// - [`HIFFY_KICK`]       => Variable that will be written to to indicate that
-///                           [`HIFFY_TEXT`] contains valid program text
-/// - [`HIFFY_READY`]      => Variable that will be non-zero iff the HIF
-///                           execution engine is waiting to be kicked
-///
+//
+// These HIFFY_* global variables constitute the interface with Humility;
+// they should not be altered without modifying Humility as well.
+//
+// - [`HIFFY_TEXT`]       => Program text for HIF operations
+// - [`HIFFY_DATA`]       => Binary data from the caller
+// - [`HIFFY_RSTACK`]     => HIF return stack
+// - [`HIFFY_SCRATCH`]    => Scratch space for hiffy functions
+// - [`HIFFY_REQUESTS`]   => Count of succesful requests
+// - [`HIFFY_ERRORS`]     => Count of HIF execution failures
+// - [`HIFFY_FAILURE`]    => Most recent HIF failure, if any
+// - [`HIFFY_KICK`]       => Variable that will be written to to indicate that
+//                           [`HIFFY_TEXT`] contains valid program text
+// - [`HIFFY_READY`]      => Variable that will be non-zero iff the HIF
+//                           execution engine is waiting to be kicked
+//
 static mut HIFFY_TEXT: [u8; HIFFY_TEXT_SIZE] = [0; HIFFY_TEXT_SIZE];
 static mut HIFFY_DATA: [u8; HIFFY_DATA_SIZE] = [0; HIFFY_DATA_SIZE];
 static mut HIFFY_RSTACK: [u8; HIFFY_RSTACK_SIZE] = [0; HIFFY_RSTACK_SIZE];

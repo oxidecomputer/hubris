@@ -875,7 +875,7 @@ impl ServerImpl<'_> {
         slot: SlotId,
     ) -> Result<(), UpdateError> {
         let clen = self.cache_image_len()?;
-        if clen % BYTES_PER_FLASH_PAGE != 0 {
+        if !clen.is_multiple_of(BYTES_PER_FLASH_PAGE) {
             return Err(UpdateError::BadLength);
         }
         let span = image_range(component, slot).0;
