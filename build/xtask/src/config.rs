@@ -797,20 +797,6 @@ impl BuildConfig<'_> {
             None => PathBuf::from("cargo"),
         });
 
-        let mut nightly_features = vec![];
-        // nightly features that we use:
-        nightly_features.extend(["emit_stack_sizes", "used_with_arg"]);
-        // nightly features that our dependencies use:
-        nightly_features.extend([
-            "backtrace",
-            "error_generic_member_access",
-            "proc_macro_span",
-            "proc_macro_span_shrink",
-            "provide_any",
-        ]);
-
-        cmd.arg(format!("-Zallow-features={}", nightly_features.join(",")));
-
         cmd.arg(subcommand);
         cmd.arg("-p").arg(&self.crate_name);
         for a in &self.args {
