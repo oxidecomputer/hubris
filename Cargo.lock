@@ -1078,6 +1078,7 @@ name = "drv-cosmo-seq-server"
 version = "0.1.0"
 dependencies = [
  "build-fpga-regmap",
+ "build-stm32xx-sys",
  "build-util",
  "cfg-if",
  "counters",

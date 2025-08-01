@@ -7,6 +7,7 @@ use std::{fs, io::Write};
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     build_util::expose_target_board();
     build_util::build_notifications()?;
+    build_stm32xx_sys::build_gpio_irq_pins()?;
 
     let out_dir = build_util::out_dir();
     let out_file = out_dir.join("cosmo_fpga.rs");

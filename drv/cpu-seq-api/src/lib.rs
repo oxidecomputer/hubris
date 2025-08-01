@@ -71,6 +71,10 @@ pub enum StateChangeReason {
     HostReboot,
     /// The system powered off because a component has overheated.
     Overheat,
+    /// A0 MAPO fault from the sequencer
+    A0Mapo,
+    /// System Management Error
+    SmerrAssert,
 }
 
 /// Indicates the result of a power state transition.
