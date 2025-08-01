@@ -28,6 +28,7 @@ zerocopy-derive = { workspace = true }
 [build-dependencies]
 build-fpga-regmap = { path = "../../build/fpga-regmap" }
 build-util = { path = "../../build/util" }
+build-stm32xx-sys = { path = "../../build/stm32xx-sys" }
 idol = { workspace = true }
 
 [features]
