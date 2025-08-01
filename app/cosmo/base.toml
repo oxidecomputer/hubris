@@ -74,6 +74,12 @@ port = "F"
 pin = 2
 owner = {name = "sprot", notification = "rot_irq"}
 
+[tasks.sys.config.gpio-irqs.seq_irq]
+# FPGA1_TO_SP_IRQ1_L
+port = "F"
+pin = 5
+owner = {name = "cosmo_seq", notification = "seq_irq"}
+
 [tasks.spi2_driver]
 name = "drv-stm32h7-spi-server"
 priority = 3
@@ -175,7 +181,7 @@ stacksize = 2600
 start = true
 task-slots = ["sys", "i2c_driver", {spi_front = "spi3_driver"}, "jefe", "packrat", "auxflash", "spartan7_loader", "hf"]
 uses = ["mmio_sequencer", "mmio_info"]
-notifications = ["timer", "vcore"]
+notifications = ["timer", "vcore", "seq-irq"]
 
 [tasks.ignition_flash]
 name = "drv-ignition-flash"
