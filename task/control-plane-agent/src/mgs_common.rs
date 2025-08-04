@@ -13,7 +13,6 @@ use drv_sprot_api::{
     CabooseOrSprotError,
     Fwid as SpFwid,
     ImageError as SpImageError,
-    ImageVersion as SpImageVersion,
     RotBootInfo as SpRotBootInfo,
     RotBootInfoV2 as SpRotBootInfoV2,
     RotComponent as SpRotComponent,
@@ -28,15 +27,12 @@ use drv_sprot_api::{
 use drv_stm32h7_update_api::Update;
 use gateway_messages::{
     CfpaPage, DiscoverResponse, DumpSegment, DumpTask, Fwid as GwFwid,
-    ImageError as GwImageError, ImageVersion as GwImageVersion, PowerState,
-    RotBootInfo as GwRotBootInfo, RotBootState as GwRotBootState, RotError,
-    RotImageDetails as GwRotImageDetails, RotRequest, RotResponse,
-    RotSlotId as GwRotSlotId, RotState as GwRotState,
-    RotStateV2 as GwRotStateV2, RotStateV3 as GwRotStateV3,
-    RotUpdateDetails as GwRotUpdateDetails, SensorReading, SensorRequest,
-    SensorRequestKind, SensorResponse, SpComponent, SpError as GwSpError,
-    SpPort as GwSpPort, SpStateV2 as GwSpStateV2, UpdateStatus,
-    VpdError as GwVpdError, WatchdogError,
+    ImageError as GwImageError, PowerState, RotBootInfo as GwRotBootInfo,
+    RotError, RotRequest, RotResponse, RotSlotId as GwRotSlotId,
+    RotStateV2 as GwRotStateV2, RotStateV3 as GwRotStateV3, SensorReading,
+    SensorRequest, SensorRequestKind, SensorResponse, SpComponent,
+    SpError as GwSpError, SpPort as GwSpPort, SpStateV2 as GwSpStateV2,
+    UpdateStatus, VpdError as GwVpdError, WatchdogError,
 };
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use static_assertions::const_assert;
@@ -620,17 +616,28 @@ impl MgsCommon {
             version
         }));
 
-        match self.sprot.versioned_rot_boot_info(version)? {
-            SpVersionedRotBootInfo::V1(v1) => {
-                Ok(GwRotBootInfo::V1(MgsRotState::from(v1).0))
+        // The SP can be down-rev with respect to the RoT during system updates.
+        // In that situation, the SP cannot deserialize the newer response
+        // variants.
+        // Clamp the version to one known by the SP.
+        // Note that the MGS RotBootInfo versions are 1-based while
+        // RoT versions are zero-based. So, also adjust the index.
+        let rot_version = if version > GwRotBootInfo::HIGHEST_KNOWN_VERSION {
+            GwRotBootInfo::HIGHEST_KNOWN_VERSION
+        } else {
+            version
+        }
+        .saturating_sub(1u8);
+
+        match self.sprot.versioned_rot_boot_info(rot_version)? {
+            // The RoT V1 response corresponds to the MGS V2
+            SpVersionedRotBootInfo::V1(rot_v1) => {
+                Ok(GwRotBootInfo::V2(MgsRotStateV2::from(rot_v1).0))
             }
-            SpVersionedRotBootInfo::V2(v2) => match version {
-                2 => Ok(GwRotBootInfo::V2(MgsRotStateV2::from(v2).0)),
-                // RoT's V2 is MGS V3 and the highest version that we can offer today.
-                _ => Ok(GwRotBootInfo::V3(MgsRotStateV3::from(v2).0)),
-            },
-            // New variants that this code doesn't know about yet will
-            // result in a deserialization error.
+            // The RoT V2 response corresponds to the MGS V3
+            SpVersionedRotBootInfo::V2(rot_v2) => {
+                Ok(GwRotBootInfo::V3(MgsRotStateV3::from(rot_v2).0))
+            }
         }
     }
 
@@ -693,40 +700,6 @@ impl From<SpSlotId> for MgsRotSlotId {
     }
 }
 
-struct MgsRotState(GwRotState);
-
-impl From<SpRotBootInfo> for MgsRotState {
-    fn from(v1: SpRotBootInfo) -> MgsRotState {
-        MgsRotState(GwRotState {
-            rot_updates: GwRotUpdateDetails {
-                boot_state: GwRotBootState {
-                    active: MgsRotSlotId::from(v1.active).0,
-                    slot_a: v1.slot_a_sha3_256_digest.map(|digest| {
-                        GwRotImageDetails {
-                            version: MgsImageVersion::from(SpImageVersion {
-                                version: 0,
-                                epoch: 0,
-                            })
-                            .0,
-                            digest,
-                        }
-                    }),
-                    slot_b: v1.slot_b_sha3_256_digest.map(|digest| {
-                        GwRotImageDetails {
-                            version: MgsImageVersion::from(SpImageVersion {
-                                version: 0,
-                                epoch: 0,
-                            })
-                            .0,
-                            digest,
-                        }
-                    }),
-                },
-            },
-        })
-    }
-}
-
 impl From<SpRotBootInfo> for MgsRotStateV2 {
     fn from(boot_info: SpRotBootInfo) -> MgsRotStateV2 {
         MgsRotStateV2(GwRotStateV2 {
@@ -777,17 +750,6 @@ impl From<SpRotBootInfoV2> for MgsRotStateV2 {
                 }
                 Err(_) => None,
             },
-        })
-    }
-}
-
-struct MgsImageVersion(GwImageVersion);
-
-impl From<SpImageVersion> for MgsImageVersion {
-    fn from(iv: SpImageVersion) -> Self {
-        MgsImageVersion(GwImageVersion {
-            version: iv.version,
-            epoch: iv.epoch,
         })
     }
 }
