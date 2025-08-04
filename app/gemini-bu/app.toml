@@ -315,6 +315,3 @@ mux = "port_e"
 cs = [{port = "E", pin = 4}]
 clock_divider = "DIV256"
 
-[config.sprot]
-# ROT_IRQ (af=0 for GPIO, af=15 when EXTI is implemneted)
-rot_irq = { port = "E", pin = 3, af = 15}

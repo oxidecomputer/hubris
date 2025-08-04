@@ -1315,6 +1315,3 @@ port = 23547
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 512 }
 
-[config.sprot]
-# ROT_IRQ (af=0 for GPIO, af=15 when EXTI is implemneted)
-rot_irq = { port = "E", pin = 3, af = 0}
