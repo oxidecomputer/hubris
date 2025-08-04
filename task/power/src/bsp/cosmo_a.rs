@@ -20,7 +20,7 @@ const MAX5970_CONFIG_LEN: usize = 22;
 
 /// Minimum threshold for MAX970 12V output error reporting. If the output
 /// voltage drops below this threshold, we generate an ereport.
-const V12OUT_EREPORT_MIN: Option<f32> = Some(11.0);
+const V12OUT_EREPORT_MIN: f32 = 11.0;
 
 pub(crate) static CONTROLLER_CONFIG: [PowerControllerConfig;
     CONTROLLER_CONFIG_LEN] = [
@@ -232,13 +232,16 @@ enum Trace {
 
     /// Trace record written for each MAX5970.
     ///
-    /// The `last_bounce_detected` field and those starting with `crossbounce_`
-    /// are copied from running state and may not be updated on every trace
-    /// event. The other fields are read while emitting the trace record and
-    /// should be current.
+    /// The `last_bounce_detected` and `vout_sag_began_at` fields, and those
+    /// starting with `crossbounce_` are copied from running state and may not
+    /// be updated on every trace event. The other fields are read while
+    /// emitting the trace record and should be current.
     Max5970 {
         sensor: SensorId,
         last_bounce_detected: Option<u32>,
+        /// If output voltage dipped below the configured minimum threshold,
+        /// this is the time at which the voltage sag was observed. This value
+        /// is cleared when output voltage rises above the minimum threshold.
         vout_sag_began_at: Option<u32>,
         status0: u8,
         status1: u8,
@@ -299,28 +302,33 @@ fn trace_max5970(
         || peaks.vout.bounced(min_vout, max_vout)
     {
         peaks.last_bounce_detected = Some(now);
-    } else if let Some(threshold) = ctrl.vout_threshold {
-        // If we are tracking a minimum output voltage threshold on this sensor,
-        // check if we're below it, and generate an ereport. Once a sag is
-        // detected, this "latches" until the minimum output voltage rises above
-        // the threshold again.
+        // Presumably we have power-cycled, so clear the current sag detection
+        // so that we detect a new one once we've come back.
+        peaks.vout_sag_began_at = None;
+    } else if peaks.vout_sag_began_at.is_none()
+        && min_vout < ctrl.vout_min_threshold
+    {
+        // If we are tracking a minimum output voltage threshold on this
+        // sensor, check if we're below it, and generate an ereport. Once a
+        // sag is detected, this "latches" until the minimum output voltage
+        // rises above the threshold again.
         //
         // We only do this if a bounce is not detected,as we don't want to
         // report sags that occur due to the system's power state changing
         // intentionally.
-        if peaks.vout_sag_began_at.is_none() && min_vout <= threshold {
-            peaks.vout_sag_began_at = Some(now);
-            ereport = Some(ereports::VoutSag::new(
-                ctrl.rail,
-                now,
-                sensor.into(),
-                min_vout,
-                threshold,
-            ));
-        } else if peaks.vout_sag_began_at.is_some() && min_vout > threshold {
-            peaks.vout_sag_began_at = None;
-        }
-    }
+        peaks.vout_sag_began_at = Some(now);
+        ereport = Some(ereports::VoutSag::new(
+            ctrl.rail,
+            now,
+            sensor.into(),
+            min_vout,
+            ctrl.vout_min_threshold,
+        ));
+    } else if min_vout >= ctrl.vout_min_threshold {
+        // If we have gone back above the threshold, clear the current sag so
+        // that we will report a new one.
+        peaks.vout_sag_began_at = None;
+    };
 
     ringbuf_entry!(Trace::Max5970 {
         sensor,

@@ -111,10 +111,14 @@ struct PowerControllerConfig {
     // May or may not be used, depending on BSP.
     #[allow(dead_code)]
     rail: &'static str,
-    // Threshold for output voltage error report.
-    // May or may not be used, depending on BSP.
+    /// Minimum threshold for MAX5970 output voltage sag error reporting. If
+    /// output voltage drops below this value, an ereport is generated.
+    ///
+    /// Note that `f32::MIN` is equivalent to "don't monitor for voltage sag on this rail".
+    ///
+    /// May or  may not be used, depending on BSP.
     #[allow(dead_code)]
-    vout_threshold: Option<f32>,
+    vout_min_threshold: f32,
 }
 
 /// Bound device, which exposes sensor functions
@@ -332,7 +336,7 @@ macro_rules! rail_controller {
                 ),
                 phases: i2c_config::pmbus::[<$dev:upper _ $rail:upper _PHASES>],
                 rail: stringify!($rail:upper),
-                vout_threshold: None,
+                vout_min_threshold: f32::MAX,
             }
         }
     };
@@ -354,7 +358,7 @@ macro_rules! rail_controller_notemp {
                 temperature: None,
                 phases: i2c_config::pmbus::[<$dev:upper _ $rail:upper _PHASES>],
                 rail: stringify!($rail:upper),
-                vout_threshold: None,
+                vout_min_threshold: f32::MIN,
             }
         }
     };
@@ -378,7 +382,7 @@ macro_rules! adm1272_controller {
                 ),
                 phases: None,
                 rail: stringify!($rail:upper),
-                vout_threshold: None,
+                vout_min_threshold: f32::MIN,
             }
         }
     };
@@ -400,7 +404,7 @@ macro_rules! ltc4282_controller {
                 temperature: None,
                 phases: None,
                 rail: stringify!($rail:upper),
-                vout_threshold: None,
+                vout_min_threshold: f32::MIN,
             }
         }
     };
@@ -424,7 +428,7 @@ macro_rules! lm5066_controller {
                 ),
                 phases: None,
                 rail: stringify!($rail:upper),
-                vout_threshold: None,
+                vout_min_threshold: f32::MIN,
             }
         }
     };
@@ -448,7 +452,7 @@ macro_rules! lm5066i_controller {
                 ),
                 phases: None,
                 rail: stringify!($rail:upper),
-                vout_threshold: None,
+                vout_min_threshold: f32::MIN,
             }
         }
     };
@@ -457,9 +461,9 @@ macro_rules! lm5066i_controller {
 #[allow(unused_macros)]
 macro_rules! max5970_controller {
     ($which:ident, $rail:ident, $state:ident, $rsense:expr) => {
-        max5970_controller!($which, $rail, $state, $rsense, false, None)
+        max5970_controller!($which, $rail, $state, $rsense, false, f32::MIN)
     };
-    ($which:ident, $rail:ident, $state:ident, $rsense:expr, $avg:expr, $vout_threshold:expr) => {
+    ($which:ident, $rail:ident, $state:ident, $rsense:expr, $avg:expr, $vout_min_threshold:expr) => {
         paste::paste! {
             PowerControllerConfig {
                 state: $crate::PowerState::$state,
@@ -473,7 +477,7 @@ macro_rules! max5970_controller {
                 temperature: None,
                 phases: None,
                 rail: stringify!($rail:upper),
-                vout_threshold: $vout_threshold,
+                vout_min_threshold: $vout_min_threshold,
             }
         }
     };
@@ -500,7 +504,7 @@ macro_rules! mwocp68_controller {
                                    // power rails and measured separately
                 phases: None,
                 rail: stringify!($rail:upper),
-                vout_threshold: $vout_threshold,
+                vout_min_threshold: f32::MIN,
             }
         }
     };
