@@ -3,8 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    i2c_config, i2c_config::sensors, Device, PowerControllerConfig, PowerState,
-    SensorId,
+    ereports, i2c_config, i2c_config::sensors, Device, PowerControllerConfig,
+    PowerState, SensorId,
 };
 
 use drv_i2c_devices::max5970::*;
@@ -178,9 +178,9 @@ fn trace_max5970(
     if peaks.iout.bounced(min_iout, max_iout) {
         ereport
             .get_or_insert_with(|| {
-                CrossbounceEreport::new(rail, sensor.into(), now)
+                ereports::Crossbounce::new(rail, now, sensor)
             })
-            .iout = Some(EreportPeaks {
+            .iout = Some(ereports::Peaks {
             min: min_iout,
             max: max_iout,
         });
@@ -189,9 +189,9 @@ fn trace_max5970(
     if peaks.vout.bounced(min_vout, max_vout) {
         ereport
             .get_or_insert_with(|| {
-                CrossbounceEreport::new(rail, sensor.into(), now)
+                ereports::Crossbounce::new(rail, now, sensor)
             })
-            .vout = Some(EreportPeaks {
+            .vout = Some(ereports::Peaks {
             min: min_vout,
             max: max_vout,
         });
@@ -350,32 +350,3 @@ impl State {
 }
 
 pub const HAS_RENDMP_BLACKBOX: bool = true;
-
-#[derive(serde::Serialize)]
-struct CrossbounceEreport {
-    k: &'static str,
-    rail: &'static str,
-    iout: Option<EreportPeaks>,
-    vout: Option<EreportPeaks>,
-    time: u32,
-    sensor_id: u32,
-}
-
-#[derive(serde::Serialize)]
-struct EreportPeaks {
-    min: f32,
-    max: f32,
-}
-
-impl CrossbounceEreport {
-    pub fn new(rail: &'static str, time: u32, sensor_id: u32) -> Self {
-        Self {
-            k: "pwr.xbounce",
-            rail,
-            iout: None,
-            vout: None,
-            time,
-            sensor_id,
-        }
-    }
-}

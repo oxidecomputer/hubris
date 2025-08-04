@@ -38,6 +38,8 @@ use drv_i2c_devices::{
     VoltageSensor,
 };
 
+mod ereports;
+
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     GotVersion(u32),
@@ -106,6 +108,8 @@ struct PowerControllerConfig {
     input_current: Option<SensorId>,
     temperature: Option<SensorId>,
     phases: Option<&'static [u8]>,
+    // May or may not be used, depending on BSP.
+    #[allow(dead_code)]
     rail: &'static str,
 }
 

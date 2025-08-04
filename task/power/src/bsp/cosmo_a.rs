@@ -10,7 +10,11 @@ use crate::{
 
 use drv_i2c_devices::{lm5066i::*, max5970::*};
 use ringbuf::*;
+use serde::Serialize;
+use task_packrat_api::Packrat;
 use userlib::units::*;
+
+use crate::ereports;
 
 pub(crate) const CONTROLLER_CONFIG_LEN: usize = 43;
 const MAX5970_CONFIG_LEN: usize = 22;
@@ -188,8 +192,10 @@ ringbuf!(Trace, TRACE_DEPTH, Trace::None);
 /// If any I2C operation fails, this will abort its work and return.
 fn trace_max5970(
     dev: &Max5970,
+    rail: &'static str,
     sensor: SensorId,
     peaks: &mut Max5970Peaks,
+    packrat: &mut Packrat,
     now: u32,
 ) {
     let max_vout = match dev.max_vout() {
@@ -213,9 +219,27 @@ fn trace_max5970(
     };
 
     // TODO: this update should probably happen after all I/O is done.
-    if peaks.iout.bounced(min_iout, max_iout)
-        || peaks.vout.bounced(min_vout, max_vout)
-    {
+    let mut ereport = None;
+    if peaks.iout.bounced(min_iout, max_iout) {
+        ereport
+            .get_or_insert_with(|| {
+                ereports::Crossbounce::new(rail, now, sensor)
+            })
+            .iout = Some(ereports::Peaks {
+            min: min_iout,
+            max: max_iout,
+        });
+        peaks.last_bounce_detected = Some(now);
+    }
+    if peaks.vout.bounced(min_vout, max_vout) {
+        ereport
+            .get_or_insert_with(|| {
+                ereports::Crossbounce::new(rail, now, sensor)
+            })
+            .vout = Some(ereports::Peaks {
+            min: min_vout,
+            max: max_vout,
+        });
         peaks.last_bounce_detected = Some(now);
     }
 
@@ -255,6 +279,17 @@ fn trace_max5970(
         crossbounce_min_vout: peaks.vout.crossbounce_min,
         crossbounce_max_vout: peaks.vout.crossbounce_max,
     });
+
+    if let Some(report) = ereport {
+        let mut ereport_buf = [0u8; 128];
+        let mut s = minicbor_serde::Serializer::new(
+            minicbor::encode::write::Cursor::new(&mut ereport_buf[..]),
+        );
+        if report.serialize(&mut s).is_ok() {
+            let len = s.into_encoder().into_writer().position();
+            packrat.deliver_ereport(&ereport_buf[..len]);
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -392,6 +427,7 @@ impl State {
         &mut self,
         devices: &[Device],
         state: PowerState,
+        packrat: &mut Packrat,
     ) {
         //
         // Trace the detailed state every ten seconds, provided that we are in A0.
@@ -399,19 +435,19 @@ impl State {
         if state == PowerState::A0 && self.fired % TRACE_SECONDS == 0 {
             ringbuf_entry!(Trace::Now(self.fired));
 
-            for ((dev, sensor), peak) in CONTROLLER_CONFIG
+            for ((dev, rail, sensor), peak) in CONTROLLER_CONFIG
                 .iter()
                 .zip(devices.iter())
                 .filter_map(|(c, dev)| {
                     if let Device::Max5970(dev) = dev {
-                        Some((dev, c.current))
+                        Some((dev, c.rail, c.current))
                     } else {
                         None
                     }
                 })
                 .zip(self.peaks.iter_mut())
             {
-                trace_max5970(dev, sensor, peak, self.fired);
+                trace_max5970(dev, rail, sensor, peak, packrat, self.fired);
             }
         }
 
