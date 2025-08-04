@@ -3703,7 +3703,7 @@ dependencies = [
 [[package]]
 name = "lpc55_areas"
 version = "0.2.5"
-source = "git+https://github.com/oxidecomputer/lpc55_support#17d04af60b3a4fd82c77b1a33ca5370943cd25d9"
+source = "git+https://github.com/oxidecomputer/lpc55_support#f05c063e4b68926069efa0edb1159c8a2dbd9253"
 dependencies = [
  "bitfield 0.14.0",
  "clap 4.4.3",
@@ -3725,7 +3725,7 @@ dependencies = [
 [[package]]
 name = "lpc55_sign"
 version = "0.3.4"
-source = "git+https://github.com/oxidecomputer/lpc55_support#17d04af60b3a4fd82c77b1a33ca5370943cd25d9"
+source = "git+https://github.com/oxidecomputer/lpc55_support#f05c063e4b68926069efa0edb1159c8a2dbd9253"
 dependencies = [
  "byteorder",
  "const-oid",
@@ -3796,7 +3796,7 @@ dependencies = [
 [[package]]
 name = "measurement-token"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/lpc55_support#936f7d55b76d35165816f6f876f9fa9390fd4f5a"
+source = "git+https://github.com/oxidecomputer/lpc55_support#f05c063e4b68926069efa0edb1159c8a2dbd9253"
 
 [[package]]
 name = "medusa"
