@@ -174,41 +174,27 @@ fn trace_max5970(
     };
 
     // TODO: this update should probably happen after all I/O is done.
-    let mut ereport_buf = [0u8; 128];
+    let mut ereport = None;
     if peaks.iout.bounced(min_iout, max_iout) {
-        let mut s = minicbor_serde::Serializer::new(
-            minicbor::encode::write::Cursor::new(&mut ereport_buf[..]),
-        );
-        let report = IoutCrossbounceEreport {
-            k: "ereport.power.crossbounce.iout",
-            rail,
-            sensor_id: sensor.into(),
-            min_iout,
-            max_iout,
-            time: now,
-        };
-        if report.serialize(&mut s).is_ok() {
-            let len = s.into_encoder().into_writer().position();
-            packrat.deliver_ereport(&ereport_buf[..len]);
-        }
+        ereport
+            .get_or_insert_with(|| {
+                CrossbounceEreport::new(rail, sensor.into(), now)
+            })
+            .iout = Some(EreportPeaks {
+            min: min_iout,
+            max: max_iout,
+        });
         peaks.last_bounce_detected = Some(now);
     }
     if peaks.vout.bounced(min_vout, max_vout) {
-        let mut s = minicbor_serde::Serializer::new(
-            minicbor::encode::write::Cursor::new(&mut ereport_buf[..]),
-        );
-        let report = VoutCrossbounceEreport {
-            k: "ereport.power.crossbounce.vout",
-            rail,
-            sensor_id: sensor.into(),
-            min_vout,
-            max_vout,
-            time: now,
-        };
-        if report.serialize(&mut s).is_ok() {
-            let len = s.into_encoder().into_writer().position();
-            packrat.deliver_ereport(&ereport_buf[..len]);
-        }
+        ereport
+            .get_or_insert_with(|| {
+                CrossbounceEreport::new(rail, sensor.into(), now)
+            })
+            .vout = Some(EreportPeaks {
+            min: min_vout,
+            max: max_vout,
+        });
         peaks.last_bounce_detected = Some(now);
     }
 
@@ -248,6 +234,17 @@ fn trace_max5970(
         crossbounce_min_vout: peaks.vout.crossbounce_min,
         crossbounce_max_vout: peaks.vout.crossbounce_max,
     });
+
+    if let Some(report) = ereport {
+        let mut ereport_buf = [0u8; 128];
+        let mut s = minicbor_serde::Serializer::new(
+            minicbor::encode::write::Cursor::new(&mut ereport_buf[..]),
+        );
+        if report.serialize(&mut s).is_ok() {
+            let len = s.into_encoder().into_writer().position();
+            packrat.deliver_ereport(&ereport_buf[..len]);
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -256,26 +253,6 @@ struct Max5970Peak {
     max: f32,
     crossbounce_min: f32,
     crossbounce_max: f32,
-}
-
-#[derive(serde::Serialize)]
-struct IoutCrossbounceEreport {
-    k: &'static str,
-    rail: &'static str,
-    min_iout: f32,
-    max_iout: f32,
-    time: u32,
-    sensor_id: u32,
-}
-
-#[derive(serde::Serialize)]
-struct VoutCrossbounceEreport {
-    k: &'static str,
-    rail: &'static str,
-    min_vout: f32,
-    max_vout: f32,
-    time: u32,
-    sensor_id: u32,
 }
 
 impl Default for Max5970Peak {
@@ -373,3 +350,32 @@ impl State {
 }
 
 pub const HAS_RENDMP_BLACKBOX: bool = true;
+
+#[derive(serde::Serialize)]
+struct CrossbounceEreport {
+    k: &'static str,
+    rail: &'static str,
+    iout: Option<EreportPeaks>,
+    vout: Option<EreportPeaks>,
+    time: u32,
+    sensor_id: u32,
+}
+
+#[derive(serde::Serialize)]
+struct EreportPeaks {
+    min: f32,
+    max: f32,
+}
+
+impl CrossbounceEreport {
+    pub fn new(rail: &'static str, time: u32, sensor_id: u32) -> Self {
+        Self {
+            k: "pwr.xbounce",
+            rail,
+            iout: None,
+            vout: None,
+            time,
+            sensor_id,
+        }
+    }
+}
