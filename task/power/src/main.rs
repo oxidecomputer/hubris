@@ -111,6 +111,10 @@ struct PowerControllerConfig {
     // May or may not be used, depending on BSP.
     #[allow(dead_code)]
     rail: &'static str,
+    // Threshold for output voltage error report.
+    // May or may not be used, depending on BSP.
+    #[allow(dead_code)]
+    vout_threshold: Option<f32>,
 }
 
 /// Bound device, which exposes sensor functions
@@ -328,6 +332,7 @@ macro_rules! rail_controller {
                 ),
                 phases: i2c_config::pmbus::[<$dev:upper _ $rail:upper _PHASES>],
                 rail: stringify!($rail:upper),
+                vout_threshold: None,
             }
         }
     };
@@ -349,6 +354,7 @@ macro_rules! rail_controller_notemp {
                 temperature: None,
                 phases: i2c_config::pmbus::[<$dev:upper _ $rail:upper _PHASES>],
                 rail: stringify!($rail:upper),
+                vout_threshold: None,
             }
         }
     };
@@ -372,6 +378,7 @@ macro_rules! adm1272_controller {
                 ),
                 phases: None,
                 rail: stringify!($rail:upper),
+                vout_threshold: None,
             }
         }
     };
@@ -393,6 +400,7 @@ macro_rules! ltc4282_controller {
                 temperature: None,
                 phases: None,
                 rail: stringify!($rail:upper),
+                vout_threshold: None,
             }
         }
     };
@@ -416,6 +424,7 @@ macro_rules! lm5066_controller {
                 ),
                 phases: None,
                 rail: stringify!($rail:upper),
+                vout_threshold: None,
             }
         }
     };
@@ -439,6 +448,7 @@ macro_rules! lm5066i_controller {
                 ),
                 phases: None,
                 rail: stringify!($rail:upper),
+                vout_threshold: None,
             }
         }
     };
@@ -447,9 +457,9 @@ macro_rules! lm5066i_controller {
 #[allow(unused_macros)]
 macro_rules! max5970_controller {
     ($which:ident, $rail:ident, $state:ident, $rsense:expr) => {
-        max5970_controller!($which, $rail, $state, $rsense, false)
+        max5970_controller!($which, $rail, $state, $rsense, false, None)
     };
-    ($which:ident, $rail:ident, $state:ident, $rsense:expr, $avg:expr) => {
+    ($which:ident, $rail:ident, $state:ident, $rsense:expr, $avg:expr, $vout_threshold:expr) => {
         paste::paste! {
             PowerControllerConfig {
                 state: $crate::PowerState::$state,
@@ -463,6 +473,7 @@ macro_rules! max5970_controller {
                 temperature: None,
                 phases: None,
                 rail: stringify!($rail:upper),
+                vout_threshold: $vout_threshold,
             }
         }
     };
@@ -489,6 +500,7 @@ macro_rules! mwocp68_controller {
                                    // power rails and measured separately
                 phases: None,
                 rail: stringify!($rail:upper),
+                vout_threshold: $vout_threshold,
             }
         }
     };

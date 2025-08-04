@@ -10,34 +10,30 @@
 use crate::sensor_api::SensorId;
 
 #[derive(serde::Serialize)]
-pub(crate) struct Crossbounce {
+pub(crate) struct VoutSag {
     k: &'static str,
-    pub(crate) rail: &'static str,
-    pub(crate) iout: Option<Peaks>,
-    pub(crate) vout: Option<Peaks>,
-    pub(crate) time: u32,
-    pub(crate) sensor_id: u32,
+    rail: &'static str,
+    time: u32,
+    sensor_id: u32,
+    vout_min: f32,
+    threshold: f32,
 }
 
-#[derive(serde::Serialize)]
-pub(crate) struct Peaks {
-    pub(crate) min: f32,
-    pub(crate) max: f32,
-}
-
-impl Crossbounce {
+impl VoutSag {
     pub(crate) fn new(
         rail: &'static str,
         time: u32,
         sensor_id: SensorId,
+        vout_min: f32,
+        threshold: f32,
     ) -> Self {
         Self {
-            k: "pwr.xbounce",
+            k: "pwr.vout_under_threshold",
             rail,
-            iout: None,
-            vout: None,
             time,
             sensor_id: sensor_id.into(),
+            vout_min,
+            threshold,
         }
     }
 }
