@@ -489,7 +489,7 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
             jefe,
             hf,
             deadline: 0,
-            vcore: vcore::VCore::new(sys, &device, rail),
+            vcore: vcore::VCore::new(sys, packrat, &device, rail),
         };
 
         // Power on, unless suppressed by the `stay-in-a2` feature

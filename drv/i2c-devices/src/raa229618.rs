@@ -154,6 +154,10 @@ impl Raa229618 {
     pub fn i2c_device(&self) -> &I2cDevice {
         &self.device
     }
+
+    pub fn rail(&self) -> u8 {
+        self.rail
+    }
 }
 
 impl Validate<Error> for Raa229618 {
