@@ -32,11 +32,13 @@ use drv_i2c_devices::raa229618::Raa229618;
 use drv_stm32xx_sys_api as sys_api;
 use ringbuf::*;
 use sys_api::IrqControl;
+use task_packrat_api as packrat_api;
 use userlib::{sys_get_timer, units};
 
 pub struct VCore {
     device: Raa229618,
     sys: sys_api::Sys,
+    packrat: packrat_api::Packrat,
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -83,10 +85,16 @@ cfg_if::cfg_if! {
 }
 
 impl VCore {
-    pub fn new(sys: &sys_api::Sys, device: &I2cDevice, rail: u8) -> Self {
+    pub fn new(
+        sys: &sys_api::Sys,
+        packrat: packrat_api::Packrat,
+        device: &I2cDevice,
+        rail: u8,
+    ) -> Self {
         Self {
             device: Raa229618::new(device, rail),
             sys: sys.clone(),
+            packrat,
         }
     }
 
@@ -127,6 +135,14 @@ impl VCore {
         if faulted {
             ringbuf_entry!(Trace::Fault);
 
+            // When reporting the fault, we want to report the minimum and maximum voltages observed over the sampling period.
+            let t0 = sys_get_timer().now;
+            let mut min_vin = f32::MAX;
+            let mut max_vin = f32::MIN;
+
+            // Number of good samples for computing the average.
+            let mut sum = 0.0;
+            let mut ngood = 0;
             for _ in 0..VCORE_NSAMPLES {
                 match self.device.read_vin() {
                     Ok(val) => {
@@ -146,12 +162,56 @@ impl VCore {
                             timestamp: sys_get_timer().now,
                             volts: val,
                         });
+
+                        ngood += 1;
+                        let units::Volts(vin) = val;
+                        min_vin = f32::min(min_vin, vin);
+                        max_vin = f32::max(max_vin, vin);
+                        sum += vin;
                     }
                     Err(code) => ringbuf_entry!(Trace::Error(code.into())),
                 }
             }
+
+            // "Houston, we've got a main bus B undervolt..."
+            let ereport = UvEreport {
+                k: "seq.vcore.undervolt",
+                rail: self.device.rail(),
+                min_vin: min_vin,
+                max_vin: max_vin,
+                avg_vin: sum / ngood as f32,
+                time: t0,
+            };
+            deliver_ereport(&self.packrat, &ereport);
         }
 
         let _ = self.sys.gpio_irq_control(self.mask(), IrqControl::Enable);
+    }
+}
+
+#[derive(serde::Serialize)]
+struct UvEreport {
+    k: &'static str,
+    rail: u8,
+    min_vin: f32,
+    max_vin: f32,
+    avg_vin: f32,
+    time: u64,
+}
+
+// This is in its own function so that we only push a stack frame large enough
+// for the ereport buffer if needed.
+#[inline(never)]
+fn deliver_ereport(
+    packrat: &packrat_api::Packrat,
+    report: &impl serde::Serialize,
+) {
+    let mut ereport_buf = [0u8; 128];
+    let mut s = minicbor_serde::Serializer::new(
+        minicbor::encode::write::Cursor::new(&mut ereport_buf[..]),
+    );
+    if report.serialize(&mut s).is_ok() {
+        let len = s.into_encoder().into_writer().position();
+        packrat.deliver_ereport(&ereport_buf[..len]);
     }
 }

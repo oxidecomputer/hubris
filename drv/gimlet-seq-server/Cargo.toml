@@ -18,6 +18,7 @@ counters = { path = "../../lib/counters" }
 gnarle = { path = "../../lib/gnarle" }
 ringbuf = { path = "../../lib/ringbuf" }
 task-jefe-api = { path = "../../task/jefe-api" }
+task-packrat-api = { path = "../../task/packrat-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 cfg-if = { workspace = true }
@@ -29,6 +30,9 @@ zerocopy-derive = { workspace = true }
 num-derive = { workspace = true }
 static_assertions = { workspace = true }
 spd = { workspace = true }
+minicbor = { workspace = true }
+minicbor-serde = { workspace = true }
+serde = { workspace = true }
 
 [build-dependencies]
 build-fpga-regmap = { path = "../../build/fpga-regmap" }
