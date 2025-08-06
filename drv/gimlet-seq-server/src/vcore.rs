@@ -192,7 +192,7 @@ impl VCore {
 
             // "Houston, we've got a main bus B undervolt..."
             let ereport = UvEreport {
-                k: "seq.vcore.undervolt",
+                k: "seq.vcore.vin_undervolt",
                 rail: self.device.rail(),
                 min_vin,
                 max_vin,
