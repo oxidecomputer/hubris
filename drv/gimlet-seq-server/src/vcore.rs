@@ -177,8 +177,8 @@ impl VCore {
             let ereport = UvEreport {
                 k: "seq.vcore.undervolt",
                 rail: self.device.rail(),
-                min_vin: min_vin,
-                max_vin: max_vin,
+                min_vin,
+                max_vin,
                 avg_vin: sum / ngood as f32,
                 time: t0,
             };
