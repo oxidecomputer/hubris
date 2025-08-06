@@ -583,7 +583,6 @@ impl ServerImpl {
     fn poll_interval(&self) -> Option<u32> {
         match self.state {
             PowerState::A0 => Some(10),
-            PowerState::A0PlusHP => None,
             _ => None,
         }
     }

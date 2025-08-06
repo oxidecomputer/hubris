@@ -75,7 +75,7 @@ pin = 2
 owner = {name = "sprot", notification = "rot_irq"}
 
 [tasks.sys.config.gpio-irqs.seq_irq]
-# FPGA1_TO_SP_IRQA1_L
+# FPGA1_TO_SP_IRQ1_L
 port = "F"
 pin = 5
 owner = {name = "cosmo_seq", notification = "seq_irq"}
