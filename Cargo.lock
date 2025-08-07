@@ -1098,6 +1098,7 @@ dependencies = [
  "idol",
  "idol-runtime",
  "num-traits",
+ "pmbus",
  "ringbuf",
  "task-jefe-api",
  "userlib",

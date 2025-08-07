@@ -535,12 +535,6 @@ impl ServerImpl {
                     }
                 };
                 // Turn on the voltage regulator undervolt alerts.
-                self.vcore
-                    .initialize_uv_warning()
-                    // TODO(eliza): this fails if the I2C operations to talk to the
-                    // RAA229620As fail, which...we should probably not panic on. retry
-                    // or something, like on Gimlet.
-                    .unwrap();
                 self.enable_sequencer_interrupts();
 
                 // Flip the host flash mux so the CPU can read from it
@@ -647,6 +641,16 @@ impl ServerImpl {
             notifications::SEQ_IRQ_MASK,
             sys_api::IrqControl::Enable,
         );
+        // Enable the undervoltage warning PMBus alert from the Vcore
+        // regulators.
+        //
+        // Yes, we just ignore the error here --- while that seems a bit
+        // sketchy, but what else can we do? It seems pretty bad to panic and
+        // say "nope, the computer won't turn on" because we weren't able to do
+        // an I2C transaction to turn on an interrupt that we only use for
+        // monitoring for faults. The initialize method will retry internally a
+        // few times, so we should power through any transient I2C messiness.
+        let _ = self.vcore.initialize_uv_warning();
         self.seq.ier.modify(|m| {
             m.set_fanfault(true);
             m.set_thermtrip(true);
@@ -709,30 +713,20 @@ impl ServerImpl {
         let mut action = InternalAction::None;
 
         if ifr.pwr_cont1_to_fpga1_alert || ifr.pwr_cont2_to_fpga1_alert {
-            // We got a PMBus alert from one of the Vcore regulators. In
-            // practice, this presently means its VIN rail went undervolt,
-            // because...well, that's currently the only thing we tell it to
-            // alert us about. So just go measure the voltage droop. If the
-            // undervolt results in anything else breaking (and it probably
-            // will), we'll hear about that soon...
-            let which_rails = vcore::WhichRails {
+            // We got a PMBus alert from one of the Vcore regulators.
+            let which_rails = vcore::Rails {
                 vddcr_cpu0: ifr.pwr_cont1_to_fpga1_alert,
                 vddcr_cpu1: ifr.pwr_cont2_to_fpga1_alert,
             };
-            self.vcore.record_undervolt(which_rails);
+            self.vcore.handle_pmalert(which_rails);
             // The only way to make the pins deassert (and thus, the IRQ go
-            // away) is to tell the guys to clear the fault (I think).
-            // TODO(eliza): GO LOOK AT THE DATASHEET, DUMBASS!
-            self.vcore
-                .clear_faults(which_rails)
-                // TODO(eliza): this fails if the I2C operations to talk to the
-                // RAA229620As fail, which...we should probably not panic on. retry
-                // or something, like on Gimlet.
-                .unwrap();
+            // away) is to tell the guys to clear the fault.
             // N.B.: unlike other FPGA sequencer alerts, we need not clear the
             // IFR bits for these; they are hot as long as the PMALERT pin from
             // the RAA229620As is asserted. Clearing the fault in the regulator
             // clears the IRQ.
+            let _ = self.vcore.clear_faults(which_rails);
+            return;
         }
 
         if ifr.amd_pwrok_fedge || ifr.amd_rstn_fedge {
