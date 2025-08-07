@@ -25,6 +25,11 @@ use userlib::{
 use drv_hf_api::HostFlash;
 use ringbuf::{counted_ringbuf, ringbuf_entry, Count};
 
+include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
+
+mod vcore;
+use vcore::VCore;
+
 task_slot!(JEFE, jefe);
 task_slot!(LOADER, spartan7_loader);
 task_slot!(HF, hf);
@@ -364,6 +369,7 @@ struct ServerImpl {
     sys: Sys,
     hf: HostFlash,
     seq: fmc_periph::Sequencer,
+    vcore: VCore,
 }
 
 impl ServerImpl {
@@ -388,6 +394,7 @@ impl ServerImpl {
             sys: Sys::from(SYS.get_task_id()),
             hf: HostFlash::from(HF.get_task_id()),
             seq,
+            vcore: VCore::new(I2C.get_task_id()),
         }
     }
 
@@ -516,8 +523,9 @@ impl ServerImpl {
                         return Err(CpuSeqError::UnrecognizedCPU);
                     }
                 };
-
+                // Turn on the voltage regulator undervolt alerts.
                 self.enable_sequencer_interrupts();
+
                 // Flip the host flash mux so the CPU can read from it
                 // (this is secretly infallible on Cosmo, so we can unwrap it)
                 self.hf.set_mux(drv_hf_api::HfMuxState::HostCPU).unwrap();
@@ -605,6 +613,16 @@ impl ServerImpl {
     }
 
     fn enable_sequencer_interrupts(&mut self) {
+        // Enable the undervoltage warning PMBus alert from the Vcore
+        // regulators.
+        //
+        // Yes, we just ignore the error here --- while that seems a bit
+        // sketchy, but what else can we do? It seems pretty bad to panic and
+        // say "nope, the computer won't turn on" because we weren't able to do
+        // an I2C transaction to turn on an interrupt that we only use for
+        // monitoring for faults. The initialize method will retry internally a
+        // few times, so we should power through any transient I2C messiness.
+        let _ = self.vcore.initialize_uv_warning();
         self.seq.ier.modify(|m| {
             m.set_fanfault(true);
             m.set_thermtrip(true);
@@ -613,6 +631,9 @@ impl ServerImpl {
             m.set_nicmapo(true);
             m.set_amd_pwrok_fedge(true);
             m.set_amd_rstn_fedge(true);
+            // PMBus alert bits for Renesas RAA229620A PWM controllers.
+            m.set_pwr_cont1_to_fpga1_alert(true);
+            m.set_pwr_cont2_to_fpga1_alert(true);
         });
         let _ = self.sys.gpio_irq_control(
             notifications::SEQ_IRQ_MASK,
@@ -629,6 +650,9 @@ impl ServerImpl {
             m.set_nicmapo(false);
             m.set_amd_pwrok_fedge(false);
             m.set_amd_rstn_fedge(false);
+
+            m.set_pwr_cont1_to_fpga1_alert(false);
+            m.set_pwr_cont2_to_fpga1_alert(false);
         });
         let _ = self.sys.gpio_irq_control(
             notifications::SEQ_IRQ_MASK,
@@ -647,6 +671,7 @@ impl ServerImpl {
         });
 
         enum InternalAction {
+            Nothing,
             Reset,
             ThermTrip,
             Smerr,
@@ -658,6 +683,29 @@ impl ServerImpl {
         // it's important to account for that case;
 
         let mut action = InternalAction::Reset;
+
+        if ifr.pwr_cont1_to_fpga1_alert || ifr.pwr_cont2_to_fpga1_alert {
+            // We got a PMBus alert from one of the Vcore regulators.
+            let which_rails = vcore::Rails {
+                vddcr_cpu0: ifr.pwr_cont1_to_fpga1_alert,
+                vddcr_cpu1: ifr.pwr_cont2_to_fpga1_alert,
+            };
+            self.vcore.handle_pmalert(which_rails);
+            // The only way to make the pins deassert (and thus, the IRQ go
+            // away) is to tell the guys to clear the fault.
+            // N.B.: unlike other FPGA sequencer alerts, we need not clear the
+            // IFR bits for these; they are hot as long as the PMALERT pin from
+            // the RAA229620As is asserted. Clearing the fault in the regulator
+            // clears the IRQ.
+            let _ = self.vcore.clear_faults(which_rails);
+
+            // If *all* we saw was a PMBus alert, don't reset --- perhaps we're
+            // still fine, and we just got a warning from the regulator. If
+            // POWER_GOOD was deasserted, then the FPGA will MAPO us anyway,
+            // even though clearing the fault in the regulator might make
+            // POWER_GOOD come back.
+            action = InternalAction::Nothing;
+        }
 
         if ifr.amd_pwrok_fedge || ifr.amd_rstn_fedge {
             let rstn = self.seq.amd_reset_fedges.counts();
@@ -700,6 +748,9 @@ impl ServerImpl {
         // NIC MAPO is unconnected
 
         match action {
+            InternalAction::Nothing => {
+                // That's right, you guessed it: nothing!
+            }
             InternalAction::Reset => {
                 self.set_state_internal(PowerState::A0Reset);
             }
