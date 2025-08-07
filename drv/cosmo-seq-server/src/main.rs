@@ -671,11 +671,18 @@ impl ServerImpl {
         });
 
         enum InternalAction {
+            Nothing,
             Reset,
             ThermTrip,
             Smerr,
             Mapo,
         }
+
+        // We check these in lowest to highest priority. The expectation is
+        // we probably(?) won't see multiple of these set at a time but
+        // it's important to account for that case;
+
+        let mut action = InternalAction::Reset;
 
         if ifr.pwr_cont1_to_fpga1_alert || ifr.pwr_cont2_to_fpga1_alert {
             // We got a PMBus alert from one of the Vcore regulators.
@@ -691,14 +698,14 @@ impl ServerImpl {
             // the RAA229620As is asserted. Clearing the fault in the regulator
             // clears the IRQ.
             let _ = self.vcore.clear_faults(which_rails);
-            return;
+
+            // If *all* we saw was a PMBus alert, don't reset --- perhaps we're
+            // still fine, and we just got a warning from the regulator. If
+            // POWER_GOOD was deasserted, then the FPGA will MAPO us anyway,
+            // even though clearing the fault in the regulator might make
+            // POWER_GOOD come back.
+            action = InternalAction::Nothing;
         }
-
-        // We check these in lowest to highest priority. The expectation is
-        // we probably(?) won't see multiple of these set at a time but
-        // it's important to account for that case;
-
-        let mut action = InternalAction::Reset;
 
         if ifr.amd_pwrok_fedge || ifr.amd_rstn_fedge {
             let rstn = self.seq.amd_reset_fedges.counts();
@@ -741,6 +748,9 @@ impl ServerImpl {
         // NIC MAPO is unconnected
 
         match action {
+            InternalAction::Nothing => {
+                // That's right, you guessed it: nothing!
+            }
             InternalAction::Reset => {
                 self.set_state_internal(PowerState::A0Reset);
             }
