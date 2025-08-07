@@ -25,7 +25,10 @@ use userlib::{
 use drv_hf_api::HostFlash;
 use ringbuf::{counted_ringbuf, ringbuf_entry, Count};
 
+include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
+
 mod vcore;
+use vcore::VCore;
 
 task_slot!(JEFE, jefe);
 task_slot!(LOADER, spartan7_loader);
@@ -391,7 +394,7 @@ impl ServerImpl {
             sys: Sys::from(SYS.get_task_id()),
             hf: HostFlash::from(HF.get_task_id()),
             seq,
-            vcore: unimplemented!(),
+            vcore: VCore::new(I2C.get_task_id()),
         }
     }
 
@@ -520,8 +523,15 @@ impl ServerImpl {
                         return Err(CpuSeqError::UnrecognizedCPU);
                     }
                 };
-
+                // Turn on the voltage regulator undervolt alerts.
+                self.vcore
+                    .initialize_uv_warning()
+                    // TODO(eliza): this fails if the I2C operations to talk to the
+                    // RAA229620As fail, which...we should probably not panic on. retry
+                    // or something, like on Gimlet.
+                    .unwrap();
                 self.enable_sequencer_interrupts();
+
                 // Flip the host flash mux so the CPU can read from it
                 // (this is secretly infallible on Cosmo, so we can unwrap it)
                 self.hf.set_mux(drv_hf_api::HfMuxState::HostCPU).unwrap();
@@ -625,13 +635,6 @@ impl ServerImpl {
             notifications::SEQ_IRQ_MASK,
             sys_api::IrqControl::Enable,
         );
-        // Turn on the voltage regulator undervolt alerts.
-        self.vcore
-            .initialize_uv_warning()
-            // TODO(eliza): this fails if the I2C operations to talk to the
-            // RAA229620As fail, which...we should probably not panic on. retry
-            // or something, like on Gimlet.
-            .unwrap();
     }
 
     fn disable_sequencer_interrupts(&mut self) {
@@ -670,23 +673,31 @@ impl ServerImpl {
             Mapo,
         }
 
-        if ifr.pwr_cont1_to_fpga1_alert || ifr.pwr_cont2_to_vpga_alert {
+        if ifr.pwr_cont1_to_fpga1_alert || ifr.pwr_cont2_to_fpga1_alert {
             // We got a PMBus alert from one of the Vcore regulators. In
             // practice, this presently means its VIN rail went undervolt,
             // because...well, that's currently the only thing we tell it to
             // alert us about. So just go measure the voltage droop. If the
             // undervolt results in anything else breaking (and it probably
             // will), we'll hear about that soon...
-            self.vcore.record_undervolt();
+            let which_rails = vcore::WhichRails {
+                vddcr_cpu0: ifr.pwr_cont1_to_fpga1_alert,
+                vddcr_cpu1: ifr.pwr_cont2_to_fpga1_alert,
+            };
+            self.vcore.record_undervolt(which_rails);
             // The only way to make the pins deassert (and thus, the IRQ go
             // away) is to tell the guys to clear the fault (I think).
             // TODO(eliza): GO LOOK AT THE DATASHEET, DUMBASS!
             self.vcore
-                .clear_faults()
+                .clear_faults(which_rails)
                 // TODO(eliza): this fails if the I2C operations to talk to the
                 // RAA229620As fail, which...we should probably not panic on. retry
                 // or something, like on Gimlet.
                 .unwrap();
+            // N.B.: unlike other FPGA sequencer alerts, we need not clear the
+            // IFR bits for these; they are hot as long as the PMALERT pin from
+            // the RAA229620As is asserted. Clearing the fault in the regulator
+            // clears the IRQ.
         }
 
         // We check these in lowest to highest priority. The expectation is
