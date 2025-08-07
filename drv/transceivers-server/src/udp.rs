@@ -17,9 +17,12 @@ use ringbuf::*;
 use userlib::UnwrapLite;
 
 use crate::{FrontIOStatus, ServerImpl};
-use drv_sidecar_front_io::transceivers::{
-    FpgaI2CFailure, LogicalPort, LogicalPortFailureTypes, LogicalPortMask,
-    ModuleResult, ModuleResultNoFailure, ModuleResultSlim,
+use drv_front_io_api::{
+    transceivers::{
+        FpgaI2CFailure, LogicalPort, LogicalPortFailureTypes, LogicalPortMask,
+        ModuleResult, ModuleResultNoFailure, ModuleResultSlim,
+    },
+    FrontIOError,
 };
 use task_net_api::*;
 use transceiver_messages::{
@@ -65,6 +68,7 @@ enum Trace {
     PageSelectI2CFailures(LogicalPort, FpgaI2CFailure),
     ReadI2CFailures(LogicalPort, FpgaI2CFailure),
     WriteI2CFailures(LogicalPort, FpgaI2CFailure),
+    FrontIOError(FrontIOError),
 }
 
 counted_ringbuf!(Trace, 32, Trace::None);
@@ -310,9 +314,7 @@ impl ServerImpl {
             HostRequest::Status(modules) => {
                 ringbuf_entry!(Trace::Status(modules));
                 let mask = LogicalPortMask::from(modules);
-                let (data_len, result) = if self.front_io_board_present
-                    == FrontIOStatus::Ready
-                {
+                let (data_len, result) = if self.front_io.board_ready() {
                     self.get_status(mask, out)
                 } else {
                     (
@@ -339,9 +341,7 @@ impl ServerImpl {
             HostRequest::ExtendedStatus(modules) => {
                 ringbuf_entry!(Trace::ExtendedStatus(modules));
                 let mask = LogicalPortMask::from(modules);
-                let (data_len, result) = if self.front_io_board_present
-                    == FrontIOStatus::Ready
-                {
+                let (data_len, result) = if self.front_io.board_ready() {
                     self.get_extended_status(mask, out)
                 } else {
                     (
@@ -389,23 +389,22 @@ impl ServerImpl {
                     );
                 }
 
-                let (data_len, result) =
-                    if self.front_io_board_present == FrontIOStatus::Ready {
-                        let r = self.read(read, mask & !self.disabled, out);
-                        let len = r.success().count() * read.len() as usize;
-                        (len, r)
-                    } else {
-                        (
-                            0,
-                            ModuleResult::new(
-                                LogicalPortMask(0),
-                                LogicalPortMask(0),
-                                mask,
-                                LogicalPortFailureTypes::default(),
-                            )
-                            .unwrap_lite(),
+                let (data_len, result) = if self.front_io.board_ready() {
+                    let r = self.read(read, mask & !self.disabled, out);
+                    let len = r.success().count() * read.len() as usize;
+                    (len, r)
+                } else {
+                    (
+                        0,
+                        ModuleResult::new(
+                            LogicalPortMask(0),
+                            LogicalPortMask(0),
+                            mask,
+                            LogicalPortFailureTypes::default(),
                         )
-                    };
+                        .unwrap_lite(),
+                    )
+                };
 
                 ringbuf_entry!(Trace::OperationResult(result.to_slim()));
                 let success = ModuleId::from(result.success());
@@ -439,18 +438,17 @@ impl ServerImpl {
                 }
 
                 let mask = LogicalPortMask::from(modules);
-                let result =
-                    if self.front_io_board_present == FrontIOStatus::Ready {
-                        self.write(write, mask & !self.disabled, data)
-                    } else {
-                        ModuleResult::new(
-                            LogicalPortMask(0),
-                            LogicalPortMask(0),
-                            mask,
-                            LogicalPortFailureTypes::default(),
-                        )
-                        .unwrap_lite()
-                    };
+                let result = if self.front_io.board_ready() {
+                    self.write(write, mask & !self.disabled, data)
+                } else {
+                    ModuleResult::new(
+                        LogicalPortMask(0),
+                        LogicalPortMask(0),
+                        mask,
+                        LogicalPortFailureTypes::default(),
+                    )
+                    .unwrap_lite()
+                };
 
                 ringbuf_entry!(Trace::OperationResult(result.to_slim()));
                 let success = ModuleId::from(result.success());
@@ -472,13 +470,12 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::AssertReset(modules));
                 let mask = LogicalPortMask::from(modules) & !self.disabled;
 
-                let result =
-                    if self.front_io_board_present == FrontIOStatus::Ready {
-                        self.transceivers.assert_reset(mask)
-                    } else {
-                        ModuleResultNoFailure::new(LogicalPortMask(0), mask)
-                            .unwrap_lite()
-                    };
+                let result = if self.front_io.board_ready() {
+                    self.front_io.transceivers_assert_reset(mask)
+                } else {
+                    ModuleResultNoFailure::new(LogicalPortMask(0), mask)
+                        .unwrap_lite()
+                };
 
                 ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
@@ -497,13 +494,12 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::DeassertReset(modules));
                 let mask = LogicalPortMask::from(modules) & !self.disabled;
 
-                let result =
-                    if self.front_io_board_present == FrontIOStatus::Ready {
-                        self.transceivers.deassert_reset(mask)
-                    } else {
-                        ModuleResultNoFailure::new(LogicalPortMask(0), mask)
-                            .unwrap_lite()
-                    };
+                let result = if self.front_io.board_ready() {
+                    self.front_io.transceivers_deassert_reset(mask)
+                } else {
+                    ModuleResultNoFailure::new(LogicalPortMask(0), mask)
+                        .unwrap_lite()
+                };
 
                 ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
@@ -522,13 +518,12 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::AssertLpMode(modules));
                 let mask = LogicalPortMask::from(modules) & !self.disabled;
 
-                let result =
-                    if self.front_io_board_present == FrontIOStatus::Ready {
-                        self.transceivers.assert_lpmode(mask)
-                    } else {
-                        ModuleResultNoFailure::new(LogicalPortMask(0), mask)
-                            .unwrap_lite()
-                    };
+                let result = if self.front_io.board_ready() {
+                    self.front_io.transceivers_assert_lpmode(mask)
+                } else {
+                    ModuleResultNoFailure::new(LogicalPortMask(0), mask)
+                        .unwrap_lite()
+                };
 
                 ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
@@ -547,13 +542,12 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::DeassertLpMode(modules));
                 let mask = LogicalPortMask::from(modules) & !self.disabled;
 
-                let result =
-                    if self.front_io_board_present == FrontIOStatus::Ready {
-                        self.transceivers.deassert_lpmode(mask)
-                    } else {
-                        ModuleResultNoFailure::new(LogicalPortMask(0), mask)
-                            .unwrap_lite()
-                    };
+                let result = if self.front_io.board_ready() {
+                    self.front_io.transceivers_deassert_lpmode(mask)
+                } else {
+                    ModuleResultNoFailure::new(LogicalPortMask(0), mask)
+                        .unwrap_lite()
+                };
 
                 ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
@@ -572,13 +566,12 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::EnablePower(modules));
                 let mask = LogicalPortMask::from(modules) & !self.disabled;
 
-                let result =
-                    if self.front_io_board_present == FrontIOStatus::Ready {
-                        self.transceivers.enable_power(mask)
-                    } else {
-                        ModuleResultNoFailure::new(LogicalPortMask(0), mask)
-                            .unwrap_lite()
-                    };
+                let result = if self.front_io.board_ready() {
+                    self.front_io.transceivers_enable_power(mask)
+                } else {
+                    ModuleResultNoFailure::new(LogicalPortMask(0), mask)
+                        .unwrap_lite()
+                };
 
                 ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
@@ -597,13 +590,12 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::DisablePower(modules));
                 let mask = LogicalPortMask::from(modules) & !self.disabled;
 
-                let result =
-                    if self.front_io_board_present == FrontIOStatus::Ready {
-                        self.transceivers.disable_power(mask)
-                    } else {
-                        ModuleResultNoFailure::new(LogicalPortMask(0), mask)
-                            .unwrap_lite()
-                    };
+                let result = if self.front_io.board_ready() {
+                    self.front_io.transceivers_disable_power(mask)
+                } else {
+                    ModuleResultNoFailure::new(LogicalPortMask(0), mask)
+                        .unwrap_lite()
+                };
 
                 ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
@@ -648,13 +640,12 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::ClearPowerFault(modules));
                 let mask = LogicalPortMask::from(modules) & !self.disabled;
 
-                let result =
-                    if self.front_io_board_present == FrontIOStatus::Ready {
-                        self.transceivers.clear_power_fault(mask)
-                    } else {
-                        ModuleResultNoFailure::new(LogicalPortMask(0), mask)
-                            .unwrap_lite()
-                    };
+                let result = if self.front_io.board_ready() {
+                    self.front_io.transceivers_clear_power_fault(mask)
+                } else {
+                    ModuleResultNoFailure::new(LogicalPortMask(0), mask)
+                        .unwrap_lite()
+                };
 
                 ringbuf_entry!(Trace::OperationNoFailResult(result));
                 let success = ModuleId::from(result.success());
@@ -672,9 +663,7 @@ impl ServerImpl {
             HostRequest::LedState(modules) => {
                 ringbuf_entry!(Trace::LedState(modules));
                 let mask = LogicalPortMask::from(modules);
-                let (data_len, result) = if self.front_io_board_present
-                    == FrontIOStatus::Ready
-                {
+                let (data_len, result) = if self.front_io.board_ready() {
                     self.get_led_state_response(mask, out)
                 } else {
                     (
@@ -702,15 +691,14 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::SetLedState(modules, state));
                 let mask = LogicalPortMask::from(modules);
 
-                let result =
-                    if self.front_io_board_present == FrontIOStatus::Ready {
-                        self.set_led_state(mask, state);
-                        ModuleResultNoFailure::new(mask, LogicalPortMask(0))
-                            .unwrap_lite()
-                    } else {
-                        ModuleResultNoFailure::new(LogicalPortMask(0), mask)
-                            .unwrap_lite()
-                    };
+                let result = if self.front_io.board_ready() {
+                    self.front_io.led_set_state(mask, state);
+                    ModuleResultNoFailure::new(mask, LogicalPortMask(0))
+                        .unwrap_lite()
+                } else {
+                    ModuleResultNoFailure::new(LogicalPortMask(0), mask)
+                        .unwrap_lite()
+                };
 
                 // This operation just sets internal SP state, so it is always
                 // successful. However, invalid modules may been specified by
@@ -886,12 +874,14 @@ impl ServerImpl {
 
     // shared logic between the various functions which handle errors
     fn resolve_error_type(&self) -> HwError {
-        match self.front_io_board_present {
+        match self.front_io.board_status() {
             // Front IO is present and ready, so the only other error
             // path currently is if we handle an FpgaError.
             FrontIOStatus::Ready => HwError::FpgaError,
             FrontIOStatus::NotPresent => HwError::NoFrontIo,
-            FrontIOStatus::NotReady => HwError::FrontIoNotReady,
+            FrontIOStatus::Init
+            | FrontIOStatus::FpgaInit
+            | FrontIOStatus::OscInit => HwError::FrontIoNotReady,
         }
     }
 
@@ -964,7 +954,9 @@ impl ServerImpl {
     ) -> (usize, ModuleResultNoFailure) {
         // This will get the status of every module, so we will have to only
         // select the data which was requested.
-        let (mod_status, full_result) = self.transceivers.get_module_status();
+        let xcvr_status = self.front_io.transceivers_status();
+        let mod_status = xcvr_status.status;
+        let full_result = xcvr_status.result;
         // adjust the result success mask to be only our requested modules
         let desired_result = ModuleResultNoFailure::new(
             full_result.success() & modules,
@@ -1019,7 +1011,9 @@ impl ServerImpl {
     ) -> (usize, ModuleResultNoFailure) {
         // This will get the status of every module, so we will have to only
         // select the data which was requested.
-        let (mod_status, full_result) = self.transceivers.get_module_status();
+        let xcvr_status = self.front_io.transceivers_status();
+        let mod_status = xcvr_status.status;
+        let full_result = xcvr_status.result;
         // adjust the result success mask to be only our requested modules
         let desired_result = ModuleResultNoFailure::new(
             full_result.success() & modules,
@@ -1089,12 +1083,29 @@ impl ServerImpl {
         // We can always write the lower page; upper pages require modifying
         // registers in the transceiver to select it.
         if let Some(page) = page.page() {
-            self.transceivers.set_i2c_write_buffer(&[page], mask);
-            result = result.chain(self.transceivers.setup_i2c_write(
+            result = match self
+                .front_io
+                .transceivers_set_i2c_write_buffer(mask, &[page])
+            {
+                Ok(r) => result.chain(r),
+                Err(e) => {
+                    ringbuf_entry!(Trace::FrontIOError(e));
+                    result
+                }
+            };
+
+            result = match self.front_io.transceivers_setup_i2c_write(
                 PAGE_SELECT,
                 1,
                 mask,
-            ));
+            ) {
+                Ok(r) => result.chain(r),
+                Err(e) => {
+                    ringbuf_entry!(Trace::FrontIOError(e));
+                    result
+                }
+            };
+
             result = result.chain(self.wait_and_check_i2c(result.success()));
         } else {
             // If the request is to the lower page it is always successful
@@ -1108,12 +1119,29 @@ impl ServerImpl {
         }
 
         if let Some(bank) = page.bank() {
-            self.transceivers.set_i2c_write_buffer(&[bank], mask);
-            result = result.chain(self.transceivers.setup_i2c_write(
+            result = match self
+                .front_io
+                .transceivers_set_i2c_write_buffer(mask, &[bank])
+            {
+                Ok(r) => result.chain(r),
+                Err(e) => {
+                    ringbuf_entry!(Trace::FrontIOError(e));
+                    result
+                }
+            };
+
+            result = match self.front_io.transceivers_setup_i2c_write(
                 BANK_SELECT,
                 1,
                 result.success(),
-            ));
+            ) {
+                Ok(r) => result.chain(r),
+                Err(e) => {
+                    ringbuf_entry!(Trace::FrontIOError(e));
+                    result
+                }
+            };
+
             result = result.chain(self.wait_and_check_i2c(result.success()));
         }
 
@@ -1132,7 +1160,7 @@ impl ServerImpl {
     // failure: The I2C operation failed.
     // error: The SP could not communicate with the FPGA.
     fn wait_and_check_i2c(&mut self, mask: LogicalPortMask) -> ModuleResult {
-        self.transceivers.wait_and_check_i2c(mask)
+        self.front_io.transceivers_wait_and_check_i2c(mask)
     }
 
     fn read(
@@ -1145,11 +1173,17 @@ impl ServerImpl {
         let mut result = self.select_page(*mem.page(), modules);
 
         // Ask the FPGA to start the read
-        result = result.chain(self.transceivers.setup_i2c_read(
+        result = match self.front_io.transceivers_setup_i2c_read(
             mem.offset(),
             mem.len(),
             result.success(),
-        ));
+        ) {
+            Ok(r) => result.chain(r),
+            Err(e) => {
+                ringbuf_entry!(Trace::FrontIOError(e));
+                result
+            }
+        };
 
         let mut success = LogicalPortMask(0);
         let mut failure = LogicalPortMask(0);
@@ -1160,14 +1194,15 @@ impl ServerImpl {
 
         for port in result.success().to_indices() {
             let mut buf = [0u8; 128];
-            let port_loc = port.get_physical_location();
 
             // If we have not encountered any errors, keep pulling full
             // status + buffer payloads.
             let status = match self
-                .transceivers
-                .get_i2c_status_and_read_buffer(port_loc, &mut buf[0..buf_len])
-            {
+                .front_io
+                .transceivers_get_i2c_status_and_read_buffer(
+                    port,
+                    &mut buf[0..buf_len],
+                ) {
                 Ok(status) => status,
                 Err(_) => {
                     error.set(port);
@@ -1214,15 +1249,29 @@ impl ServerImpl {
         let mut result = self.select_page(*mem.page(), modules);
 
         // Copy data into the FPGA write buffer
-        self.transceivers
-            .set_i2c_write_buffer(&data[..mem.len() as usize], modules);
+        result = match self.front_io.transceivers_set_i2c_write_buffer(
+            modules,
+            &data[..mem.len() as usize],
+        ) {
+            Ok(r) => result.chain(r),
+            Err(e) => {
+                ringbuf_entry!(Trace::FrontIOError(e));
+                result
+            }
+        };
 
         // Trigger a multicast write to all transceivers in the mask
-        result = result.chain(self.transceivers.setup_i2c_write(
+        result = match self.front_io.transceivers_setup_i2c_write(
             mem.offset(),
             mem.len(),
             result.success(),
-        ));
+        ) {
+            Ok(r) => result.chain(r),
+            Err(e) => {
+                ringbuf_entry!(Trace::FrontIOError(e));
+                result
+            }
+        };
         result = result.chain(self.wait_and_check_i2c(result.success()));
 
         for port in result.failure().to_indices() {
@@ -1240,7 +1289,9 @@ impl ServerImpl {
         out: &mut [u8],
     ) -> (usize, ModuleResultNoFailure) {
         let mut led_state_len = 0;
-        for led_state in modules.to_indices().map(|m| self.get_led_state(m)) {
+        for led_state in
+            modules.to_indices().map(|m| self.front_io.led_get_state(m))
+        {
             // LedState will serialize to a u8, so we aren't concerned about
             // buffer overflow here
             let led_state_size =

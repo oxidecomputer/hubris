@@ -8,8 +8,9 @@
 
 use derive_idol_err::IdolError;
 use drv_fpga_api::FpgaError;
+use drv_front_io_api::transceivers::NUM_PORTS;
 use task_sensor_api::{config::other_sensors, SensorId};
-use userlib::{sys_send, FromPrimitive};
+use userlib::FromPrimitive;
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 #[derive(
@@ -17,12 +18,8 @@ use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 )]
 pub enum TransceiversError {
     FpgaError = 1,
-    InvalidPortNumber,
-    InvalidNumberOfBytes,
     InvalidPowerState,
-    InvalidModuleResult,
     LedI2cError,
-    InvalidPhysicalToLogicalMap,
 
     #[idol(server_death)]
     ServerRestarted,
@@ -60,10 +57,6 @@ pub struct ModuleStatus {
 /// See SFF-8636 and CMIS specifications for details.
 pub const PAGE_SIZE_BYTES: usize = 128;
 
-/// The only instantiation of Front IO board that exists is one with 32 QSFP
-/// ports.
-pub const NUM_PORTS: u8 = 32;
-
 ////////////////////////////////////////////////////////////////////////////////
 
 pub const TRANSCEIVER_TEMPERATURE_SENSORS: [SensorId; NUM_PORTS as usize] = [
@@ -100,6 +93,3 @@ pub const TRANSCEIVER_TEMPERATURE_SENSORS: [SensorId; NUM_PORTS as usize] = [
     other_sensors::QSFP_XCVR30_TEMPERATURE_SENSOR,
     other_sensors::QSFP_XCVR31_TEMPERATURE_SENSOR,
 ];
-////////////////////////////////////////////////////////////////////////////////
-
-include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

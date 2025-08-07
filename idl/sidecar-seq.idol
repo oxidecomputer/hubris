@@ -151,35 +151,6 @@ Interface(
             ),
         ),
 
-        "front_io_board_present": (
-            args: {},
-            reply: Simple("bool"),
-            idempotent: true,
-        ),
-        "front_io_board_ready": (
-            args: {},
-            reply: Result(
-                ok: "bool",
-                err: CLike("SeqError"),
-            ),
-        ),
-        "reset_front_io_phy": (
-            args: {},
-            reply: Result(
-                ok: "()",
-                err: CLike("SeqError"),
-            ),
-        ),
-        "set_front_io_phy_osc_state": (
-            args: {
-                "good": "bool",
-            },
-            reply: Result(
-                ok: "()",
-                err: CLike("SeqError"),
-            ),
-        ),
-
         "tofino_debug_port_state": (
             doc: "Return the state of the Tofino debug port",
             args: {},

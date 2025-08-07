@@ -1,10 +1,10 @@
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
-use super::transceivers::{LogicalPort, LogicalPortMask};
+use crate::transceivers::{LogicalPort, LogicalPortMask, NUM_PORTS};
 use drv_i2c_api::I2cDevice;
 use drv_i2c_devices::pca9956b::{Error, LedErr, Pca9956B};
-use drv_transceivers_api::NUM_PORTS;
+use transceiver_messages::message::LedState;
 
 /// Leds controllers and brightness state
 pub struct Leds {
@@ -32,6 +32,36 @@ const DEFAULT_LED_CURRENT: u8 = 44;
 
 /// Default written into the PCA9956B PWMx registers.
 const DEFAULT_LED_PWM: u8 = 255;
+
+#[derive(Copy, Clone)]
+pub struct LedStates([LedState; NUM_PORTS as usize]);
+
+impl LedStates {
+    pub fn set(mut self, mask: LogicalPortMask, state: LedState) {
+        for port in mask.to_indices() {
+            self.0[port.0 as usize] = state
+        }
+    }
+
+    pub fn get(self, port: LogicalPort) -> LedState {
+        self.0[port.0 as usize]
+    }
+}
+
+impl Default for LedStates {
+    fn default() -> Self {
+        LedStates([LedState::Off; NUM_PORTS as usize])
+    }
+}
+
+impl<'a> IntoIterator for &'a LedStates {
+    type Item = &'a LedState;
+    type IntoIter = core::slice::Iter<'a, LedState>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.as_slice().iter()
+    }
+}
 
 /// One controller for the LEDs on the left side, one for those on the right
 #[derive(Copy, Clone, PartialEq, Eq)]

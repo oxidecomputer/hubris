@@ -10,8 +10,8 @@
 use crate::front_io::FrontIOBoard;
 use crate::power_control::PowerControl;
 use core::convert::Infallible;
+use drv_front_io_api::phy_smi::PhyOscState;
 use drv_medusa_seq_api::{MedusaError, RailName};
-use drv_sidecar_front_io::phy_smi::PhyOscState;
 use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::{ringbuf, ringbuf_entry};
 use userlib::*;

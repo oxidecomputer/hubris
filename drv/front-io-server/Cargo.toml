@@ -1,12 +1,11 @@
 [package]
-name = "drv-sidecar-seq-server"
+name = "drv-front-io-server"
 version = "0.1.0"
 edition = "2021"
+authors = ["Arjen Roodselaar <arjen@oxide.computer>", "Aaron Hartwig <aaron@oxide.computer>"]
 
 [dependencies]
-byteorder.workspace = true
-cfg-if.workspace = true
-cortex-m.workspace = true
+enum-map.workspace = true
 hubpack.workspace = true
 idol-runtime.workspace = true
 num-traits.workspace = true
@@ -14,21 +13,18 @@ serde.workspace = true
 zerocopy.workspace = true
 zerocopy-derive.workspace = true
 
-drv-fpga-api = { path = "../fpga-api", features = ["auxflash"] }
+drv-auxflash-api = { path = "../../drv/auxflash-api" }
+drv-front-io-api = { path = "../front-io-api" }
+drv-fpga-api = { path = "../fpga-api" }
 drv-fpga-user-api = { path = "../fpga-user-api" }
-drv-front-io-api = {path = "../front-io-api" }
 drv-i2c-api = { path = "../i2c-api" }
 drv-i2c-devices = { path = "../i2c-devices" }
-drv-packrat-vpd-loader = { path = "../packrat-vpd-loader" }
-drv-sidecar-mainboard-controller = { path = "../sidecar-mainboard-controller", features = ["bitstream"] }
-drv-sidecar-seq-api = { path = "../sidecar-seq-api" }
+drv-sidecar-mainboard-controller = { path = "../../drv/sidecar-mainboard-controller" }
+drv-stm32xx-sys-api = { path = "../stm32xx-sys-api", features = ["family-stm32h7"] }
+drv-transceivers-api = { path = "../../drv/transceivers-api" }
+multitimer = { path = "../../lib/multitimer" }
 ringbuf = { path = "../../lib/ringbuf" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
-
-[features]
-h753 = ["build-i2c/h753"]
-stay-in-a2 = []
-no-ipc-counters = ["idol/no-counters"]
 
 [build-dependencies]
 build-util = { path = "../../build/util" }
@@ -38,10 +34,7 @@ idol = { workspace = true }
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
 [[bin]]
-name = "drv-sidecar-seq-server"
+name = "drv-front-io-server"
 test = false
 doctest = false
 bench = false
-
-[lints]
-workspace = true
