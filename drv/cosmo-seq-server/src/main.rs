@@ -726,7 +726,12 @@ impl ServerImpl {
             // the RAA229620As is asserted. Clearing the fault in the regulator
             // clears the IRQ.
             let _ = self.vcore.clear_faults(which_rails);
-            return;
+
+            // If *all* we saw was a PMBus alert, don't reset --- perhaps we're
+            // still fine, and we just got a warning from the regulator. If
+            // POWER_GOOD was deasserted, then the FPGA will MAPO us anyway,
+            // even though clearing the fault in the regulator might make
+            // POWER_GOOD come back.
         }
 
         if ifr.amd_pwrok_fedge || ifr.amd_rstn_fedge {
