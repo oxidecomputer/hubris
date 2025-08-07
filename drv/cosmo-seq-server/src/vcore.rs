@@ -3,35 +3,35 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
 
-///
-/// Cosmo V_core_ monitoring.
-///
-/// This is basically the same as the similarly named module in the Gimlet
-/// sequencer, but we have two RAA22960A regulators driving the `VDDCR_CPU0` and
-/// `VDDCR_CPU1` rails, rather than one RAA229618. Also unlike Gimlet, the PMBus
-/// `PMALERT_L` pins from the power controller go to the FPGA, so rather than
-/// watching those pins directly via EXTI, we handle the FPGA to sequencer
-/// interrupt and call into this module should the PMBus alerts for these
-/// regulators be asserted.
-///
-use drv_i2c_api::{I2cDevice, ResponseCode};
-use drv_i2c_devices::raa229620::Raa229620;
-use drv_stm32xx_sys_api as sys_api;
+//!
+//! Cosmo V_core_ monitoring.
+//!
+//! This is basically the same as the similarly named module in the Gimlet
+//! sequencer, but we have two RAA22960A regulators driving the `VDDCR_CPU0` and
+//! `VDDCR_CPU1` rails, rather than one RAA229618. Also unlike Gimlet, the PMBus
+//! `PMALERT_L` pins from the power controller go to the FPGA, so rather than
+//! watching those pins directly via EXTI, we handle the FPGA to sequencer
+//! interrupt and call into this module should the PMBus alerts for these
+//! regulators be asserted.
+//!
+
+use super::i2c_config;
+use drv_i2c_api::ResponseCode;
+use drv_i2c_devices::raa229620a::Raa229620A;
 use ringbuf::*;
-use sys_api::IrqControl;
-use userlib::{sys_get_timer, units};
+use userlib::{sys_get_timer, units, TaskId};
 
 pub(super) struct VCore {
-    /// This regulator controls `VDDCR_CPU0` and `VDDCR_SOC` rails.
-    pwr_cont1: Raa229620,
-    /// This regulator controls `VDDCR_CPU1` and `VDDIO_SP5` rails.
-    pwr_cont2: Raa229620,
+    /// `PWR_CONT1`: This regulator controls `VDDCR_CPU0` and `VDDCR_SOC` rails.
+    vddcr_cpu0: Raa229620A,
+    /// `PWR_CONT2`: This regulator controls `VDDCR_CPU1` and `VDDIO_SP5` rails.
+    vddcr_cpu1: Raa229620A,
 }
 
 #[derive(Copy, Clone, PartialEq)]
 enum Regulator {
-    PwrCont1,
-    PwrCont2,
+    VddcrCpu0,
+    VddcrCpu1,
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -41,15 +41,22 @@ enum Trace {
     Initialized,
     LimitLoaded(Regulator),
     FaultsCleared(Regulator),
+    Fault(WhichRails),
     Reading {
         timestamp: u64,
-        pwr_cont1_vin: units::Volts,
-        pwr_cont2_vin: units::Volts,
+        vddcr_cpu0_vin: units::Volts,
+        vddcr_cpu1_vin: units::Volts,
     },
     Error(Regulator, ResponseCode),
 }
 
-ringbuf!(Trace, 120, Trace::None);
+#[derive(Copy, Clone, PartialEq)]
+pub struct WhichRails {
+    pub vddcr_cpu0: bool,
+    pub vddcr_cpu1: bool,
+}
+
+ringbuf!(Trace, 60, Trace::None);
 
 ///
 /// We are going to set our input undervoltage warn limit to be 11.75 volts.
@@ -71,17 +78,32 @@ const VCORE_UV_WARN_LIMIT: units::Volts = units::Volts(11.75);
 const VCORE_NSAMPLES: usize = 25;
 
 impl VCore {
+    pub fn new(i2c: TaskId) -> Self {
+        let (device, rail) = i2c_config::pmbus::vddcr_cpu0_a0(i2c);
+        let vddcr_cpu0 = Raa229620A::new(&device, rail);
+
+        let (device, rail) = i2c_config::pmbus::vddcr_cpu1_a0(i2c);
+        let vddcr_cpu1 = Raa229620A::new(&device, rail);
+        Self {
+            vddcr_cpu0,
+            vddcr_cpu1,
+        }
+    }
+
     pub fn initialize_uv_warning(&self) -> Result<(), ResponseCode> {
         ringbuf_entry!(Trace::Initializing);
 
         // Set our warn limit
-        self.pwr_cont1.set_vin_uv_warn_limit(VCORE_UV_WARN_LIMIT)?;
-        ringbuf_entry!(Trace::LimitLoaded(Regulator::PwrCont1));
-        self.pwr_cont2.set_vin_uv_warn_limit(VCORE_UV_WARN_LIMIT)?;
-        ringbuf_entry!(Trace::LimitLoaded(Regulator::PwrCont2));
+        self.vddcr_cpu0.set_vin_uv_warn_limit(VCORE_UV_WARN_LIMIT)?;
+        ringbuf_entry!(Trace::LimitLoaded(Regulator::VddcrCpu0));
+        self.vddcr_cpu1.set_vin_uv_warn_limit(VCORE_UV_WARN_LIMIT)?;
+        ringbuf_entry!(Trace::LimitLoaded(Regulator::VddcrCpu1));
 
         // Clear our faults
-        self.clear_faults()?;
+        self.clear_faults(WhichRails {
+            vddcr_cpu0: true,
+            vddcr_cpu1: true,
+        })?;
 
         // The higher-level sequencer code will unmask the FPGA interrupts for
         // our guys.
@@ -91,28 +113,47 @@ impl VCore {
         Ok(())
     }
 
-    pub fn clear_faults(&self) -> Result<(), ResponseCode> {
-        self.pwr_cont1.clear_faults()?;
-        ringbuf_entry!(Trace::FaultsCleared(Regulator::PwrCont1));
-        self.pwr_cont2.clear_faults()?;
-        ringbuf_entry!(Trace::FaultsCleared(Regulator::PwrCont2));
+    pub fn clear_faults(
+        &self,
+        WhichRails {
+            vddcr_cpu0,
+            vddcr_cpu1,
+        }: WhichRails,
+    ) -> Result<(), ResponseCode> {
+        if vddcr_cpu0 {
+            self.vddcr_cpu0.clear_faults()?;
+            ringbuf_entry!(Trace::FaultsCleared(Regulator::VddcrCpu0));
+        }
+
+        if vddcr_cpu1 {
+            self.vddcr_cpu1.clear_faults()?;
+            ringbuf_entry!(Trace::FaultsCleared(Regulator::VddcrCpu1));
+        }
 
         Ok(())
     }
 
-    pub fn record_undervolt(&self) {
-        ringbuf_entry!(Trace::Fault);
+    pub fn record_undervolt(&self, which_rails: WhichRails) {
+        ringbuf_entry!(Trace::Fault(which_rails));
 
         for _ in 0..VCORE_NSAMPLES {
-            let pwr_cont1_vin = self.pwr_cont1.read_vin().unwrap_or_else(|code| {
-                ringbuf_entry!(Trace::Error(Regulator::PwrCont1, code.into()));
-                units::Volts(f32::NAN)
-            });
+            let vddcr_cpu0_vin =
+                self.vddcr_cpu0.read_vin().unwrap_or_else(|code| {
+                    ringbuf_entry!(Trace::Error(
+                        Regulator::VddcrCpu0,
+                        code.into()
+                    ));
+                    units::Volts(f32::NAN)
+                });
 
-            let pwr_cont2_vin = match self.pwr_cont2.read_vin().unwrap_or_else(|code| {
-                ringbuf_entry!(Trace::Error(Regulator::PwrCont2, code.into()));
-                units::Volts(f32::NAN)
-            });
+            let vddcr_cpu1_vin =
+                self.vddcr_cpu1.read_vin().unwrap_or_else(|code| {
+                    ringbuf_entry!(Trace::Error(
+                        Regulator::VddcrCpu1,
+                        code.into()
+                    ));
+                    units::Volts(f32::NAN)
+                });
 
             //
             // Record our reading, along with a timestamp.  On the
@@ -130,8 +171,8 @@ impl VCore {
             //
             ringbuf_entry!(Trace::Reading {
                 timestamp: sys_get_timer().now,
-                pwr_cont1_vin,
-                pwr_cont2_vin,
+                vddcr_cpu0_vin,
+                vddcr_cpu1_vin,
             });
         }
     }
