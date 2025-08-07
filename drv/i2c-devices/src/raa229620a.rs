@@ -134,6 +134,32 @@ impl Raa229620A {
         Ok(Amperes(iout.get()?.0))
     }
 
+    pub fn status_word(&self) -> Result<STATUS_WORD::CommandData, Error> {
+        pmbus_rail_read!(self.device, self.rail, STATUS_WORD)
+    }
+
+    pub fn status_iout(&self) -> Result<STATUS_IOUT::CommandData, Error> {
+        pmbus_rail_read!(self.device, self.rail, STATUS_IOUT)
+    }
+
+    pub fn status_vout(&self) -> Result<STATUS_VOUT::CommandData, Error> {
+        pmbus_rail_read!(self.device, self.rail, STATUS_VOUT)
+    }
+
+    pub fn status_input(&self) -> Result<STATUS_INPUT::CommandData, Error> {
+        pmbus_rail_read!(self.device, self.rail, STATUS_INPUT)
+    }
+
+    pub fn status_cml(&self) -> Result<STATUS_CML::CommandData, Error> {
+        pmbus_rail_read!(self.device, self.rail, STATUS_CML)
+    }
+
+    pub fn status_temperature(
+        &self,
+    ) -> Result<STATUS_TEMPERATURE::CommandData, Error> {
+        pmbus_rail_read!(self.device, self.rail, STATUS_TEMPERATURE)
+    }
+
     pub fn i2c_device(&self) -> &I2cDevice {
         &self.device
     }
