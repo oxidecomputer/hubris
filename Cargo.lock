@@ -1261,6 +1261,7 @@ dependencies = [
  "minicbor-serde 0.4.1",
  "num-derive 0.4.2",
  "num-traits",
+ "pmbus",
  "ringbuf",
  "serde",
  "serde_json",

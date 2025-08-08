@@ -33,6 +33,7 @@ spd = { workspace = true }
 minicbor = { workspace = true }
 minicbor-serde = { workspace = true }
 serde = { workspace = true }
+pmbus = { workspace = true }
 
 [build-dependencies]
 build-fpga-regmap = { path = "../../build/fpga-regmap" }

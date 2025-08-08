@@ -48,8 +48,15 @@ enum Trace {
     Initialized,
     LimitLoaded,
     FaultsCleared,
-    Notified,
-    Fault,
+    Notified {
+        asserted: bool,
+    },
+    Fault {
+        status_word: u16,
+    },
+    VinFault {
+        status_input: Result<u8, ResponseCode>,
+    },
     Reading {
         timestamp: u64,
         volts: units::Volts,
@@ -136,15 +143,35 @@ impl VCore {
     }
 
     pub fn handle_notification(&self) {
-        let faulted = self.sys.gpio_read(VCORE_TO_SP_ALERT_L) == 0;
+        use pmbus::commands::raa229618::STATUS_WORD::InputFault;
+        let asserted = self.sys.gpio_read(VCORE_TO_SP_ALERT_L) == 0;
 
-        ringbuf_entry!(Trace::Notified);
+        ringbuf_entry!(Trace::Notified { asserted });
 
-        if faulted {
-            ringbuf_entry!(Trace::Fault);
+        if !asserted {
+            return;
+        }
 
-            // When reporting the fault, we want to report the minimum and maximum voltages observed over the sampling period.
-            let t0 = sys_get_timer().now;
+        let t0 = sys_get_timer().now;
+        let Ok(status_word) =
+            super::retry_i2c_txn(super::I2cTxn::VCorePmbusStatus, || {
+                self.device.status_word()
+            })
+        else {
+            return;
+        };
+        ringbuf_entry!(Trace::Fault {
+            status_word: status_word.0
+        });
+        if status_word.get_input_fault() != Some(InputFault::NoFault) {
+            let status_input =
+                super::retry_i2c_txn(super::I2cTxn::VCorePmbusStatus, || {
+                    self.device.status_input()
+                })
+                .map(|data| data.0);
+            ringbuf_entry!(Trace::VinFault { status_input });
+            // When reporting the fault, we want to report the minimum and
+            // maximum voltages observed over the sampling period.
             let mut min_vin = f32::MAX;
             let mut max_vin = f32::MIN;
 
@@ -191,29 +218,32 @@ impl VCore {
             });
 
             // "Houston, we've got a main bus B undervolt..."
-            let ereport = UvEreport {
-                k: "seq.vcore.vin_undervolt",
-                rail: self.device.rail(),
+            let ereport = VinEreport {
+                k: "seq.vcore.vin_fault",
+                rail: "VDD_VCORE",
                 min_vin,
                 max_vin,
                 avg_vin: avg,
                 time: t0,
+                status_word: status_word.0,
+                status_input: status_input.ok(),
             };
             deliver_ereport(&self.packrat, &ereport);
         }
-
         let _ = self.sys.gpio_irq_control(self.mask(), IrqControl::Enable);
     }
 }
 
 #[derive(serde::Serialize)]
-struct UvEreport {
+struct VinEreport {
     k: &'static str,
-    rail: u8,
+    rail: &'static str,
     min_vin: f32,
     max_vin: f32,
     avg_vin: f32,
     time: u64,
+    status_word: u16,
+    status_input: Option<u8>,
 }
 
 // This is in its own function so that we only push a stack frame large enough
