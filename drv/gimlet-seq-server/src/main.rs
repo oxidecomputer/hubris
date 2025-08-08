@@ -61,6 +61,7 @@ enum I2cTxn {
     VCoreOn,
     VCoreOff,
     VCoreUndervoltageInitialize,
+    VCorePmbusStatus,
     SocOn,
     SocOff,
 }
