@@ -356,7 +356,7 @@ impl EreportStore {
                 MetadataError::SerialNumberNotUtf8
             )),
         }
-        encoder.str("rev")?.u32(vpd.revision)?;
+        encoder.str("baseboard_rev")?.u32(vpd.revision)?;
         let size = encoder.into_writer().position();
         Ok(&self.recv[..size])
     }
