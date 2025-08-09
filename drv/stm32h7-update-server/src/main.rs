@@ -10,6 +10,7 @@
 #![no_main]
 
 use core::convert::Infallible;
+use core::ops::Range;
 use drv_caboose::{CabooseError, CabooseReader};
 use drv_stm32h7_update_api::{
     ImageVersion, SlotId, BLOCK_SIZE_BYTES, FLASH_WORDS_PER_BLOCK,
@@ -294,6 +295,140 @@ impl<'a> ServerImpl<'a> {
         ringbuf_entry!(Trace::EraseEnd);
         b
     }
+
+    fn check_for_caboose(
+        &mut self,
+        image_start: u32,
+        image_end: u32,
+    ) -> Option<Range<u32>> {
+        if image_end <= image_start {
+            return None;
+        }
+
+        let caboose_size_addr = match image_end.checked_sub(4) {
+            Some(e) => e,
+            None => return None,
+        };
+
+        let caboose_size: u32 = unsafe {
+            core::ptr::read_volatile(caboose_size_addr as *const u32)
+        };
+
+        let caboose_start = image_end.saturating_sub(caboose_size);
+        if caboose_start < image_start {
+            // This branch will be encountered if there's no caboose, because
+            // then the nominal caboose size will be 0xFFFFFFFF, which will send
+            // us out of the bank2 region.
+            return None;
+        } else {
+            // SAFETY: we know this pointer is within the bank2 flash region,
+            // since it's checked above.
+            let v = unsafe {
+                core::ptr::read_volatile(caboose_start as *const u32)
+            };
+            if v == CABOOSE_MAGIC {
+                return Some(caboose_start + 4..image_end - 4);
+            } else {
+                return None;
+            }
+        };
+    }
+
+    fn find_caboose_range(&mut self) -> Result<Range<u32>, CabooseError> {
+        // This code is very similar to `kipc::read_caboose_pos`, but it
+        // operates on the alternate flash bank rather than on the loaded image.
+        // SAFETY: populated by the linker, so this should be valid
+        let image_start = unsafe { __REGION_BANK2_BASE.as_ptr() } as u32;
+        let region_end = unsafe { __REGION_BANK2_END.as_ptr() } as u32;
+
+        // If all is going according to plan, there will be a valid Hubris image
+        // flashed into the other slot, delimited by `__REGION_BANK2_BASE` and
+        // `__REGION_BASE2_END` (which are symbols injected by the linker).
+        //
+        // We'll first want to read the image header, which is at a fixed
+        // location at the end of the vector table.  The length of the vector
+        // table is fixed in hardware, so this should never change.
+        const HEADER_OFFSET: u32 = 0x298;
+        let header: ImageHeader = unsafe {
+            core::ptr::read_volatile(
+                (image_start + HEADER_OFFSET) as *const ImageHeader,
+            )
+        };
+        if header.magic == 0xa {
+            //return Err(CabooseError::NoImageHeader);
+
+            // Calculate where the image header implies that the image should end
+            //
+            // This is a one-past-the-end value.
+            let image_end = image_start + header.total_image_len;
+
+            // Then, check that value against the BANK2 bounds.
+            if image_end > region_end {
+                return Err(CabooseError::MissingCaboose);
+            } else {
+                return self
+                    .check_for_caboose(image_start, image_end)
+                    .ok_or(CabooseError::MissingCaboose);
+            }
+        }
+
+        // Section 4.3.10 erase size is minimum 128Kbyte. Find the first
+        // fully erased sector (will read as `0xff`, see line about
+        // "If the application software reads back a word that has been erased,
+        // all the bits will be read at 1, without ECC error.")
+        const ERASE_SECTOR_SIZE: usize = 0x2_0000;
+        const SIG_SIZE: u32 = 512;
+        //let mut last: u32 = 0;
+        for region in (image_start..region_end).step_by(ERASE_SECTOR_SIZE) {
+            let s = unsafe {
+                core::slice::from_raw_parts(
+                    region as *const u8,
+                    ERASE_SECTOR_SIZE,
+                )
+            };
+            if s.iter().all(|&x| x == 0xff) {
+                // If the first region is all unprogrammed we don't have an image
+                // and therefore no caboose
+                if region == image_start {
+                    return Err(CabooseError::MissingCaboose);
+                }
+                // We have a candidate! This is the first sector that is
+                // completely unprogrammed. We're going to search backwards from
+                // the end of the _previous_ sector (this sector - sector size)
+                // to find the last programmed word
+                let check_addr = region - (ERASE_SECTOR_SIZE as u32);
+                let sub = unsafe {
+                    core::slice::from_raw_parts(
+                        check_addr as *const u8,
+                        ERASE_SECTOR_SIZE,
+                    )
+                };
+                // A failure here is probably a bug in our algorithm?
+                let (offset, _) = sub
+                    .iter()
+                    .rev()
+                    .enumerate()
+                    .find(|&(_, x)| *x != 0xff)
+                    .ok_or(CabooseError::MissingCaboose)?;
+                let maybe_end =
+                    check_addr + ((ERASE_SECTOR_SIZE - offset) as u32);
+                if let Some(r) = self.check_for_caboose(image_start, maybe_end)
+                {
+                    return Ok(r);
+                }
+                // We might have a 512 byte signature, check for that
+                if let Some(new_end) = maybe_end.checked_sub(SIG_SIZE) {
+                    if let Some(r) =
+                        self.check_for_caboose(image_start, new_end)
+                    {
+                        return Ok(r);
+                    }
+                }
+            }
+        }
+
+        return Err(CabooseError::MissingCaboose);
+    }
 }
 
 impl idl::InOrderUpdateImpl for ServerImpl<'_> {
@@ -443,61 +578,8 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         name: [u8; 4],
         data: Leased<idol_runtime::W, [u8]>,
     ) -> Result<u32, RequestError<CabooseError>> {
-        // This code is very similar to `kipc::read_caboose_pos`, but it
-        // operates on the alternate flash bank rather than on the loaded image.
-        let image_start = unsafe { __REGION_BANK2_BASE.as_ptr() } as u32;
-
-        // If all is going according to plan, there will be a valid Hubris image
-        // flashed into the other slot, delimited by `__REGION_BANK2_BASE` and
-        // `__REGION_BASE2_END` (which are symbols injected by the linker).
-        //
-        // We'll first want to read the image header, which is at a fixed
-        // location at the end of the vector table.  The length of the vector
-        // table is fixed in hardware, so this should never change.
-        const HEADER_OFFSET: u32 = 0x298;
-        let header: ImageHeader = unsafe {
-            core::ptr::read_volatile(
-                (image_start + HEADER_OFFSET) as *const ImageHeader,
-            )
-        };
-        if header.magic != HEADER_MAGIC {
-            return Err(CabooseError::NoImageHeader.into());
-        }
-
-        // Calculate where the image header implies that the image should end
-        //
-        // This is a one-past-the-end value.
-        let image_end = image_start + header.total_image_len;
-
-        // Then, check that value against the BANK2 bounds.
-        //
-        // SAFETY: populated by the linker, so this should be valid
-        if image_end > unsafe { __REGION_BANK2_END.as_ptr() } as u32 {
-            return Err(CabooseError::MissingCaboose.into());
-        }
-
+        let caboose_range = self.find_caboose_range()?;
         // By construction, the last word of the caboose is its size as a `u32`
-        let caboose_size: u32 =
-            unsafe { core::ptr::read_volatile((image_end - 4) as *const u32) };
-
-        let caboose_start = image_end.saturating_sub(caboose_size);
-        let caboose_range = if caboose_start < image_start {
-            // This branch will be encountered if there's no caboose, because
-            // then the nominal caboose size will be 0xFFFFFFFF, which will send
-            // us out of the bank2 region.
-            return Err(CabooseError::MissingCaboose.into());
-        } else {
-            // SAFETY: we know this pointer is within the bank2 flash region,
-            // since it's checked above.
-            let v = unsafe {
-                core::ptr::read_volatile(caboose_start as *const u32)
-            };
-            if v == CABOOSE_MAGIC {
-                caboose_start + 4..image_end - 4
-            } else {
-                return Err(CabooseError::MissingCaboose.into());
-            }
-        };
 
         // SAFETY: this is a slice within the bank2 flash
         let caboose = unsafe {
