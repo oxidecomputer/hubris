@@ -10,10 +10,17 @@ use crate::{
 
 use drv_i2c_devices::{lm5066i::*, max5970::*};
 use ringbuf::*;
+use task_packrat_api::Packrat;
 use userlib::units::*;
+
+use crate::ereports;
 
 pub(crate) const CONTROLLER_CONFIG_LEN: usize = 43;
 const MAX5970_CONFIG_LEN: usize = 22;
+
+/// Minimum threshold for MAX970 12V output error reporting. If the output
+/// voltage drops below this threshold, we generate an ereport.
+const V12OUT_EREPORT_MIN: f32 = 11.0;
 
 pub(crate) static CONTROLLER_CONFIG: [PowerControllerConfig;
     CONTROLLER_CONFIG_LEN] = [
@@ -53,25 +60,95 @@ pub(crate) static CONTROLLER_CONFIG: [PowerControllerConfig;
     ),
     max5970_controller!(HotSwapIO, v3p3_m2a_a0hp, A0, Ohms(0.003)),
     max5970_controller!(HotSwapIO, v3p3_m2b_a0hp, A0, Ohms(0.003)),
-    max5970_controller!(HotSwapIO, v12_u2a_a0, A0, Ohms(0.005), true),
+    max5970_controller!(
+        HotSwapIO,
+        v12_u2a_a0,
+        A0,
+        Ohms(0.005),
+        true,
+        V12OUT_EREPORT_MIN
+    ),
     max5970_controller!(HotSwapIO, v3p3_u2a_a0, A0, Ohms(0.005)),
-    max5970_controller!(HotSwapIO, v12_u2b_a0, A0, Ohms(0.005), true),
+    max5970_controller!(
+        HotSwapIO,
+        v12_u2b_a0,
+        A0,
+        Ohms(0.005),
+        true,
+        V12OUT_EREPORT_MIN
+    ),
     max5970_controller!(HotSwapIO, v3p3_u2b_a0, A0, Ohms(0.005)),
-    max5970_controller!(HotSwapIO, v12_u2c_a0, A0, Ohms(0.005), true),
+    max5970_controller!(
+        HotSwapIO,
+        v12_u2c_a0,
+        A0,
+        Ohms(0.005),
+        true,
+        V12OUT_EREPORT_MIN
+    ),
     max5970_controller!(HotSwapIO, v3p3_u2c_a0, A0, Ohms(0.005)),
-    max5970_controller!(HotSwapIO, v12_u2d_a0, A0, Ohms(0.005), true),
+    max5970_controller!(
+        HotSwapIO,
+        v12_u2d_a0,
+        A0,
+        Ohms(0.005),
+        true,
+        V12OUT_EREPORT_MIN
+    ),
     max5970_controller!(HotSwapIO, v3p3_u2d_a0, A0, Ohms(0.005)),
-    max5970_controller!(HotSwapIO, v12_u2e_a0, A0, Ohms(0.005), true),
+    max5970_controller!(
+        HotSwapIO,
+        v12_u2e_a0,
+        A0,
+        Ohms(0.005),
+        true,
+        V12OUT_EREPORT_MIN
+    ),
     max5970_controller!(HotSwapIO, v3p3_u2e_a0, A0, Ohms(0.005)),
-    max5970_controller!(HotSwapIO, v12_u2f_a0, A0, Ohms(0.005), true),
+    max5970_controller!(
+        HotSwapIO,
+        v12_u2f_a0,
+        A0,
+        Ohms(0.005),
+        true,
+        V12OUT_EREPORT_MIN
+    ),
     max5970_controller!(HotSwapIO, v3p3_u2f_a0, A0, Ohms(0.005)),
-    max5970_controller!(HotSwapIO, v12_u2g_a0, A0, Ohms(0.005), true),
+    max5970_controller!(
+        HotSwapIO,
+        v12_u2g_a0,
+        A0,
+        Ohms(0.005),
+        true,
+        V12OUT_EREPORT_MIN
+    ),
     max5970_controller!(HotSwapIO, v3p3_u2g_a0, A0, Ohms(0.005)),
-    max5970_controller!(HotSwapIO, v12_u2h_a0, A0, Ohms(0.005), true),
+    max5970_controller!(
+        HotSwapIO,
+        v12_u2h_a0,
+        A0,
+        Ohms(0.005),
+        true,
+        V12OUT_EREPORT_MIN
+    ),
     max5970_controller!(HotSwapIO, v3p3_u2h_a0, A0, Ohms(0.005)),
-    max5970_controller!(HotSwapIO, v12_u2i_a0, A0, Ohms(0.005), true),
+    max5970_controller!(
+        HotSwapIO,
+        v12_u2i_a0,
+        A0,
+        Ohms(0.005),
+        true,
+        V12OUT_EREPORT_MIN
+    ),
     max5970_controller!(HotSwapIO, v3p3_u2i_a0, A0, Ohms(0.005)),
-    max5970_controller!(HotSwapIO, v12_u2j_a0, A0, Ohms(0.005), true),
+    max5970_controller!(
+        HotSwapIO,
+        v12_u2j_a0,
+        A0,
+        Ohms(0.005),
+        true,
+        V12OUT_EREPORT_MIN
+    ),
     max5970_controller!(HotSwapIO, v3p3_u2j_a0, A0, Ohms(0.005)),
     ltc4282_controller!(HotSwapIO, v12_mcio_a0hp, A0, Ohms(0.001)),
     ltc4282_controller!(HotSwapIO, v12_ddr5_abcdef_a0, A0, Ohms(0.001)),
@@ -155,13 +232,17 @@ enum Trace {
 
     /// Trace record written for each MAX5970.
     ///
-    /// The `last_bounce_detected` field and those starting with `crossbounce_`
-    /// are copied from running state and may not be updated on every trace
-    /// event. The other fields are read while emitting the trace record and
-    /// should be current.
+    /// The `last_bounce_detected` and `vout_sag_began_at` fields, and those
+    /// starting with `crossbounce_` are copied from running state and may not
+    /// be updated on every trace event. The other fields are read while
+    /// emitting the trace record and should be current.
     Max5970 {
         sensor: SensorId,
         last_bounce_detected: Option<u32>,
+        /// If output voltage dipped below the configured minimum threshold,
+        /// this is the time at which the voltage sag was observed. This value
+        /// is cleared when output voltage rises above the minimum threshold.
+        vout_sag_began_at: Option<u32>,
         status0: u8,
         status1: u8,
         status3: u8,
@@ -188,8 +269,9 @@ ringbuf!(Trace, TRACE_DEPTH, Trace::None);
 /// If any I2C operation fails, this will abort its work and return.
 fn trace_max5970(
     dev: &Max5970,
-    sensor: SensorId,
+    ctrl: &PowerControllerConfig,
     peaks: &mut Max5970Peaks,
+    packrat: &mut Packrat,
     now: u32,
 ) {
     let max_vout = match dev.max_vout() {
@@ -212,16 +294,46 @@ fn trace_max5970(
         _ => return,
     };
 
+    let sensor = ctrl.current;
+
     // TODO: this update should probably happen after all I/O is done.
+    let mut ereport = None;
     if peaks.iout.bounced(min_iout, max_iout)
         || peaks.vout.bounced(min_vout, max_vout)
     {
         peaks.last_bounce_detected = Some(now);
-    }
+        // Presumably we have power-cycled, so clear the current sag detection
+        // so that we detect a new one once we've come back.
+        peaks.vout_sag_began_at = None;
+    } else if peaks.vout_sag_began_at.is_none()
+        && min_vout < ctrl.vout_min_threshold
+    {
+        // If we are tracking a minimum output voltage threshold on this
+        // sensor, check if we're below it, and generate an ereport. Once a
+        // sag is detected, this "latches" until the minimum output voltage
+        // rises above the threshold again.
+        //
+        // We only do this if a bounce is not detected,as we don't want to
+        // report sags that occur due to the system's power state changing
+        // intentionally.
+        peaks.vout_sag_began_at = Some(now);
+        ereport = Some(ereports::VoutSag::new(
+            ctrl.rail,
+            now,
+            sensor.into(),
+            min_vout,
+            ctrl.vout_min_threshold,
+        ));
+    } else if min_vout >= ctrl.vout_min_threshold {
+        // If we have gone back above the threshold, clear the current sag so
+        // that we will report a new one.
+        peaks.vout_sag_began_at = None;
+    };
 
     ringbuf_entry!(Trace::Max5970 {
         sensor,
         last_bounce_detected: peaks.last_bounce_detected,
+        vout_sag_began_at: peaks.vout_sag_began_at,
         status0: match dev.read_reg(Register::status0) {
             Ok(reg) => reg,
             _ => return,
@@ -255,6 +367,24 @@ fn trace_max5970(
         crossbounce_min_vout: peaks.vout.crossbounce_min,
         crossbounce_max_vout: peaks.vout.crossbounce_max,
     });
+
+    if let Some(report) = ereport {
+        deliver_ereport(packrat, &report);
+    }
+}
+
+// This is in its own function so that we only push a stack frame large enough
+// for the ereport buffer if needed.
+#[inline(never)]
+fn deliver_ereport(packrat: &mut Packrat, report: &impl serde::Serialize) {
+    let mut ereport_buf = [0u8; 128];
+    let mut s = minicbor_serde::Serializer::new(
+        minicbor::encode::write::Cursor::new(&mut ereport_buf[..]),
+    );
+    if report.serialize(&mut s).is_ok() {
+        let len = s.into_encoder().into_writer().position();
+        packrat.deliver_ereport(&ereport_buf[..len]);
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -312,6 +442,7 @@ struct Max5970Peaks {
     iout: Max5970Peak,
     vout: Max5970Peak,
     last_bounce_detected: Option<u32>,
+    vout_sag_began_at: Option<u32>,
 }
 
 pub(crate) struct State {
@@ -392,6 +523,7 @@ impl State {
         &mut self,
         devices: &[Device],
         state: PowerState,
+        packrat: &mut Packrat,
     ) {
         //
         // Trace the detailed state every ten seconds, provided that we are in A0.
@@ -399,19 +531,19 @@ impl State {
         if state == PowerState::A0 && self.fired % TRACE_SECONDS == 0 {
             ringbuf_entry!(Trace::Now(self.fired));
 
-            for ((dev, sensor), peak) in CONTROLLER_CONFIG
+            for ((dev, ctrl), peak) in CONTROLLER_CONFIG
                 .iter()
                 .zip(devices.iter())
                 .filter_map(|(c, dev)| {
                     if let Device::Max5970(dev) = dev {
-                        Some((dev, c.current))
+                        Some((dev, c))
                     } else {
                         None
                     }
                 })
                 .zip(self.peaks.iter_mut())
             {
-                trace_max5970(dev, sensor, peak, self.fired);
+                trace_max5970(dev, ctrl, peak, packrat, self.fired);
             }
         }
 

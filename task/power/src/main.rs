@@ -23,6 +23,7 @@ use drv_i2c_devices::raa229620a::*;
 use drv_i2c_devices::tps546b24a::*;
 use pmbus::Phase;
 use ringbuf::*;
+use task_packrat_api::Packrat;
 use task_power_api::{
     Bmr491Event, PmbusValue, RawPmbusBlock, RenesasBlackbox, MAX_BLOCK_LEN,
 };
@@ -36,6 +37,8 @@ use drv_i2c_devices::{
     CurrentSensor, InputCurrentSensor, InputVoltageSensor, TempSensor,
     VoltageSensor,
 };
+
+mod ereports;
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
@@ -57,6 +60,7 @@ enum PowerState {
 const TIMER_INTERVAL: u32 = 1000;
 
 task_slot!(I2C, i2c_driver);
+task_slot!(PACKRAT, packrat);
 task_slot!(SENSOR, sensor);
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
@@ -104,6 +108,17 @@ struct PowerControllerConfig {
     input_current: Option<SensorId>,
     temperature: Option<SensorId>,
     phases: Option<&'static [u8]>,
+    // May or may not be used, depending on BSP.
+    #[allow(dead_code)]
+    rail: &'static str,
+    /// Minimum threshold for MAX5970 output voltage sag error reporting. If
+    /// output voltage drops below this value, an ereport is generated.
+    ///
+    /// Note that `f32::MIN` is equivalent to "don't monitor for voltage sag on this rail".
+    ///
+    /// May or  may not be used, depending on BSP.
+    #[allow(dead_code)]
+    vout_min_threshold: f32,
 }
 
 /// Bound device, which exposes sensor functions
@@ -320,6 +335,8 @@ macro_rules! rail_controller {
                     sensors::[<$dev:upper _ $rail:upper _TEMPERATURE_SENSOR>]
                 ),
                 phases: i2c_config::pmbus::[<$dev:upper _ $rail:upper _PHASES>],
+                rail: stringify!($rail:upper),
+                vout_min_threshold: f32::MAX,
             }
         }
     };
@@ -340,6 +357,8 @@ macro_rules! rail_controller_notemp {
                 input_current: None,
                 temperature: None,
                 phases: i2c_config::pmbus::[<$dev:upper _ $rail:upper _PHASES>],
+                rail: stringify!($rail:upper),
+                vout_min_threshold: f32::MIN,
             }
         }
     };
@@ -362,6 +381,8 @@ macro_rules! adm1272_controller {
                     sensors::[<ADM1272_ $rail:upper _TEMPERATURE_SENSOR>]
                 ),
                 phases: None,
+                rail: stringify!($rail:upper),
+                vout_min_threshold: f32::MIN,
             }
         }
     };
@@ -382,6 +403,8 @@ macro_rules! ltc4282_controller {
                 input_current: None,
                 temperature: None,
                 phases: None,
+                rail: stringify!($rail:upper),
+                vout_min_threshold: f32::MIN,
             }
         }
     };
@@ -404,6 +427,8 @@ macro_rules! lm5066_controller {
                     sensors::[<LM5066_ $rail:upper _TEMPERATURE_SENSOR>]
                 ),
                 phases: None,
+                rail: stringify!($rail:upper),
+                vout_min_threshold: f32::MIN,
             }
         }
     };
@@ -426,6 +451,8 @@ macro_rules! lm5066i_controller {
                     sensors::[<LM5066I_ $rail:upper _TEMPERATURE_SENSOR>]
                 ),
                 phases: None,
+                rail: stringify!($rail:upper),
+                vout_min_threshold: f32::MIN,
             }
         }
     };
@@ -434,9 +461,9 @@ macro_rules! lm5066i_controller {
 #[allow(unused_macros)]
 macro_rules! max5970_controller {
     ($which:ident, $rail:ident, $state:ident, $rsense:expr) => {
-        max5970_controller!($which, $rail, $state, $rsense, false)
+        max5970_controller!($which, $rail, $state, $rsense, false, f32::MIN)
     };
-    ($which:ident, $rail:ident, $state:ident, $rsense:expr, $avg:expr) => {
+    ($which:ident, $rail:ident, $state:ident, $rsense:expr, $avg:expr, $vout_min_threshold:expr) => {
         paste::paste! {
             PowerControllerConfig {
                 state: $crate::PowerState::$state,
@@ -449,6 +476,8 @@ macro_rules! max5970_controller {
                 input_current: None,
                 temperature: None,
                 phases: None,
+                rail: stringify!($rail:upper),
+                vout_min_threshold: $vout_min_threshold,
             }
         }
     };
@@ -474,6 +503,8 @@ macro_rules! mwocp68_controller {
                 temperature: None, // Temperature sensors are independent of
                                    // power rails and measured separately
                 phases: None,
+                rail: stringify!($rail:upper),
+                vout_min_threshold: f32::MIN,
             }
         }
     };
@@ -520,6 +551,7 @@ fn main() -> ! {
         sensor: sensor_api::Sensor::from(SENSOR.get_task_id()),
         devices: claim_devices(i2c_task),
         bsp: bsp::State::init(),
+        packrat: Packrat::from(PACKRAT.get_task_id()),
     };
     let mut buffer = [0; idl::INCOMING_SIZE];
 
@@ -534,6 +566,7 @@ struct ServerImpl {
     sensor: sensor_api::Sensor,
     devices: &'static mut [Device; bsp::CONTROLLER_CONFIG_LEN],
     bsp: bsp::State,
+    packrat: Packrat,
 }
 
 impl ServerImpl {
@@ -608,7 +641,8 @@ impl ServerImpl {
             }
         }
 
-        self.bsp.handle_timer_fired(self.devices, state);
+        self.bsp
+            .handle_timer_fired(self.devices, state, &mut self.packrat);
     }
 
     /// Find the BMR491 and return an `I2cDevice` handle

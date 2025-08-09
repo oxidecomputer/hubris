@@ -55,6 +55,7 @@ impl State {
         &self,
         _devices: &[crate::Device],
         _state: PowerState,
+        _packrat: &mut task_packrat_api::Packrat,
     ) {
     }
 }

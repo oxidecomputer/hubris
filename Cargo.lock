@@ -3868,6 +3868,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "minicbor-serde"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "54e45e8beeefea1b8b6f52fa188a5b6ea3746c2885606af8d4d8bf31cee633fb"
+dependencies = [
+ "minicbor 0.26.4",
+ "serde",
+]
+
+[[package]]
 name = "miniz_oxide"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4924,7 +4934,7 @@ version = "0.1.0"
 dependencies = [
  "counters",
  "heapless",
- "minicbor-serde",
+ "minicbor-serde 0.3.2",
  "serde",
  "unwrap-lite",
 ]
@@ -5781,6 +5791,8 @@ dependencies = [
  "hubpack",
  "idol",
  "idol-runtime",
+ "minicbor 0.26.4",
+ "minicbor-serde 0.4.1",
  "mutable-statics",
  "num-traits",
  "paste",
@@ -5788,6 +5800,7 @@ dependencies = [
  "ringbuf",
  "serde",
  "static_assertions",
+ "task-packrat-api",
  "task-power-api",
  "task-sensor-api",
  "userlib",

@@ -286,7 +286,7 @@ priority = 4
 max-sizes = {flash = 32768, ram = 4096}
 stacksize = 2504
 start = true
-task-slots = ["i2c_driver", "sensor", "sys"]
+task-slots = ["i2c_driver", "sensor", "sys", "packrat"]
 features = ["psc"]
 notifications = ["timer"]
 
