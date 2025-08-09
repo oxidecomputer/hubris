@@ -4,4 +4,5 @@
 
 fn main() {
     build_util::expose_target_board();
+    build_util::expose_m_profile().unwrap();
 }

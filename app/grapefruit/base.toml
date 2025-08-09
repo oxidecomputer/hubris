@@ -14,7 +14,7 @@ register-map = "../../drv/spartan7-loader/grapefruit/gfruit_top.json"
 [kernel]
 name = "grapefruit"
 requires = {flash = 32768, ram = 8192}
-features = ["dump"]
+features = ["dump", "traptrace"]
 
 [caboose]
 tasks = ["control_plane_agent"]
@@ -336,6 +336,16 @@ uses = ["mmio_base", "mmio_spi_nor"]
 task-slots = ["hash_driver", "spartan7_loader"]
 stacksize = 4000
 notifications = ["timer"]
+
+[tasks.bork]
+name = "task-bork"
+priority = 8
+max-sizes = {flash = 16384, ram = 16384 }
+start = true
+notifications = ["timer"]
+task-slots = ["sprot", "sys"]
+features = ["h753"]
+uses = ["rtc"]
 
 [config.net]
 # VLAN configuration
