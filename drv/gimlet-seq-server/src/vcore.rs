@@ -143,6 +143,7 @@ impl VCore {
     }
 
     pub fn handle_notification(&self) {
+        use pmbus::commands::raa229618::STATUS_INPUT;
         use pmbus::commands::raa229618::STATUS_WORD::InputFault;
         let asserted = self.sys.gpio_read(VCORE_TO_SP_ALERT_L) == 0;
 
@@ -167,13 +168,70 @@ impl VCore {
             let status_input =
                 super::retry_i2c_txn(super::I2cTxn::VCorePmbusStatus, || {
                     self.device.status_input()
-                })
-                .map(|data| data.0);
-            ringbuf_entry!(Trace::VinFault { status_input });
+                });
+            ringbuf_entry!(Trace::VinFault {
+                status_input: status_input
+                    .map(|STATUS_INPUT::CommandData(byte)| byte)
+            });
+            let k = match status_input {
+                Ok(s)
+                    if s.get_input_overcurrent_fault()
+                        == Some(STATUS_INPUT::InputOvercurrentFault::Fault) =>
+                {
+                    "vcore.vin.overcurrent.fault"
+                }
+                Ok(s)
+                    if s.get_input_overcurrent_warning()
+                        == Some(
+                            STATUS_INPUT::InputOvercurrentWarning::Warning,
+                        ) =>
+                {
+                    "vcore.vin.overcurrent.warn"
+                }
+                Ok(s)
+                    if s.get_input_overvoltage_fault()
+                        == Some(STATUS_INPUT::InputOvervoltageFault::Fault) =>
+                {
+                    "vcore.vin.overvolt.fault"
+                }
+                Ok(s)
+                    if s.get_input_overvoltage_warning()
+                        == Some(
+                            STATUS_INPUT::InputOvervoltageWarning::Warning,
+                        ) =>
+                {
+                    "vcore.vin.overvolt.warn"
+                }
+                Ok(s)
+                    if s.get_input_undervoltage_fault()
+                        == Some(
+                            STATUS_INPUT::InputUndervoltageFault::Fault,
+                        ) =>
+                {
+                    "vcore.vin.undervolt.fault"
+                }
+                Ok(s)
+                    if s.get_input_undervoltage_warning()
+                        == Some(
+                            STATUS_INPUT::InputUndervoltageWarning::Warning,
+                        ) =>
+                {
+                    "vcore.vin.undervolt.warn"
+                }
+                Ok(s)
+                    if s.get_input_overpower_warning()
+                        == Some(
+                            STATUS_INPUT::InputOverpowerWarning::Warning,
+                        ) =>
+                {
+                    "vcore.vin.overpower.warn"
+                }
+                _ => "vcore.vin.unknown_alert",
+            };
             // When reporting the fault, we want to report the minimum and
             // maximum voltages observed over the sampling period.
-            let mut min_vin = f32::MAX;
-            let mut max_vin = f32::MIN;
+            let mut min = f32::MAX;
+            let mut max = f32::MIN;
 
             // Number of good samples for computing the average.
             let mut sum = 0.0;
@@ -200,8 +258,8 @@ impl VCore {
 
                         ngood += 1;
                         let units::Volts(vin) = val;
-                        min_vin = f32::min(min_vin, vin);
-                        max_vin = f32::max(max_vin, vin);
+                        min = f32::min(min, vin);
+                        max = f32::max(max, vin);
                         sum += vin;
                     }
                     Err(code) => ringbuf_entry!(Trace::Error(code.into())),
@@ -212,21 +270,24 @@ impl VCore {
             // but we may as well put them in the ringbuf, too.
             let avg = sum / ngood as f32;
             ringbuf_entry!(Trace::Summary {
-                max: units::Volts(max_vin),
-                min: units::Volts(min_vin),
+                max: units::Volts(min),
+                min: units::Volts(max),
                 avg: units::Volts(avg),
             });
 
             // "Houston, we've got a main bus B undervolt..."
             let ereport = VinEreport {
-                k: "seq.vcore.vin_fault",
+                k,
                 rail: "VDD_VCORE",
-                min_vin,
-                max_vin,
-                avg_vin: avg,
+                vin: VoltageRange { min, max, avg },
                 time: t0,
-                status_word: status_word.0,
-                status_input: status_input.ok(),
+                status: EreportPmbusStatus {
+                    word: status_word.0,
+                    input: status_input
+                        .map(|STATUS_INPUT::CommandData(byte)| byte)
+                        .ok(),
+                    ..Default::default()
+                },
             };
             deliver_ereport(&self.packrat, &ereport);
         }
@@ -238,12 +299,31 @@ impl VCore {
 struct VinEreport {
     k: &'static str,
     rail: &'static str,
-    min_vin: f32,
-    max_vin: f32,
-    avg_vin: f32,
+    vin: VoltageRange,
     time: u64,
-    status_word: u16,
-    status_input: Option<u8>,
+    status: EreportPmbusStatus,
+}
+
+#[derive(serde::Serialize)]
+struct VoltageRange {
+    min: f32,
+    max: f32,
+    avg: f32,
+}
+
+#[derive(serde::Serialize, Default)]
+struct EreportPmbusStatus {
+    word: u16,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    input: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    iout: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    vout: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    cml: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tmp: Option<u8>,
 }
 
 // This is in its own function so that we only push a stack frame large enough
