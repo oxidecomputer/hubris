@@ -416,7 +416,7 @@ impl I2cSensorsDescription {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Disposition {
     /// controller is an initiator
     Initiator,
@@ -496,10 +496,17 @@ struct ConfigGenerator {
 
     /// hash of controllers to single port indices
     singletons: HashMap<u8, usize>,
+
+    /// if `true`, include refdes string in output
+    include_refdes: bool,
 }
 
 impl ConfigGenerator {
-    fn new(disposition: Disposition) -> Self {
+    fn new(settings: CodegenSettings) -> Self {
+        let CodegenSettings {
+            disposition,
+            include_refdes,
+        } = settings;
         let i2c = match build_util::config::<Config>() {
             Ok(config) => config.i2c,
             Err(err) => {
@@ -579,6 +586,7 @@ impl ConfigGenerator {
             buses,
             ports,
             singletons,
+            include_refdes,
         }
     }
 
@@ -937,6 +945,10 @@ impl ConfigGenerator {
 
         let indent = format!("{:indent$}", "", indent = indent);
 
+        let refdes_part = match (self.include_refdes, d.refdes.as_deref()) {
+            (true, Some(refdes)) => format!(".with_refdes(\"{refdes}\")"),
+            _ => String::new(),
+        };
         format!(
             r##"
 {indent}// {description}
@@ -945,7 +957,7 @@ impl ConfigGenerator {
 {indent}    PortIndex({port}),
 {indent}    {segment},
 {indent}    {address:#x}
-{indent})"##,
+{indent}){refdes_part}"##,
             description = d.description,
             controller = controller,
             port = port,
@@ -1665,18 +1677,34 @@ impl ConfigGenerator {
     }
 }
 
-pub fn codegen(disposition: Disposition) -> Result<()> {
+#[derive(Copy, Clone)]
+pub struct CodegenSettings {
+    pub disposition: Disposition,
+    pub include_refdes: bool,
+}
+
+impl From<Disposition> for CodegenSettings {
+    fn from(disposition: Disposition) -> Self {
+        CodegenSettings {
+            disposition,
+            include_refdes: false,
+        }
+    }
+}
+
+pub fn codegen(settings: impl Into<CodegenSettings>) -> Result<()> {
+    let settings = settings.into();
     use std::io::Write;
 
     let out_dir = build_util::out_dir();
     let dest_path = out_dir.join("i2c_config.rs");
     let mut file = File::create(dest_path)?;
 
-    let mut g = ConfigGenerator::new(disposition);
+    let mut g = ConfigGenerator::new(settings);
 
     g.generate_header()?;
 
-    match disposition {
+    match settings.disposition {
         Disposition::Target => {
             let n = g.ncontrollers();
 
@@ -1737,7 +1765,7 @@ pub struct I2cDeviceDescription {
 /// `validate()` command.
 ///
 pub fn device_descriptions() -> impl Iterator<Item = I2cDeviceDescription> {
-    let g = ConfigGenerator::new(Disposition::Validation);
+    let g = ConfigGenerator::new(Disposition::Validation.into());
     let sensors = g.sensors_description();
 
     assert_eq!(sensors.device_sensors.len(), g.devices.len());

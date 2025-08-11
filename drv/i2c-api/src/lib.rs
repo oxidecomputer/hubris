@@ -38,6 +38,8 @@ pub struct I2cDevice {
     pub port: PortIndex,
     pub segment: Option<(Mux, Segment)>,
     pub address: u8,
+    #[cfg(feature = "refdes")]
+    pub refdes: Option<&'static str>,
 }
 
 type I2cMessage = (u8, Controller, PortIndex, Option<(Mux, Segment)>);
@@ -120,7 +122,22 @@ impl I2cDevice {
             port,
             segment,
             address,
+            #[cfg(feature = "refdes")]
+            refdes: None,
         }
+    }
+
+    #[cfg(feature = "refdes")]
+    pub fn with_refdes(mut self, refdes: &'static str) -> Self {
+        Self {
+            refdes: Some(refdes),
+            ..self
+        }
+    }
+
+    #[cfg(feature = "refdes")]
+    pub fn refdes(&self) -> Option<&'static str> {
+        self.refdes
     }
 }
 
