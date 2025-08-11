@@ -619,7 +619,7 @@ impl MgsCommon {
         // Force update of this code if new variants are introduced
         static_assertions::const_assert_eq!(
             GwRotBootInfo::HIGHEST_KNOWN_VERSION,
-            3
+            3u8
         );
         // Map the MGS RotBootInfo 1-based versions to RoT 0-based versions.
         let rot_version = match version {
