@@ -128,7 +128,7 @@ impl I2cDevice {
     }
 
     #[cfg(feature = "refdes")]
-    pub fn with_refdes(mut self, refdes: &'static str) -> Self {
+    pub fn with_refdes(self, refdes: &'static str) -> Self {
         Self {
             refdes: Some(refdes),
             ..self
