@@ -41,8 +41,10 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     );
 
     let disposition = build_i2c::Disposition::Devices;
-
-    if let Err(e) = build_i2c::codegen(disposition) {
+    if let Err(e) = build_i2c::codegen(build_i2c::CodegenSettings {
+        disposition,
+        include_refdes: true,
+    }) {
         println!("cargo::error=code generation failed: {e}");
         std::process::exit(1);
     }
