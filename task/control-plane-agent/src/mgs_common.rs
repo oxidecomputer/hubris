@@ -616,19 +616,20 @@ impl MgsCommon {
             version
         }));
 
-        // The SP can be down-rev with respect to the RoT during system updates.
-        // In that situation, the SP cannot deserialize the newer response
-        // variants.
-        // Note that the MGS RotBootInfo versions are 1-based while
-        // RoT versions are zero-based. So, also adjust the index.
-        let rot_version = if version == 0 {
-            return Err(GwSpError::RequestUnsupportedForComponent);
-        } else if version > GwRotBootInfo::HIGHEST_KNOWN_VERSION {
-            // Clamp the version to one known by the SP.
-            GwRotBootInfo::HIGHEST_KNOWN_VERSION
-        } else {
-            version
-        } - 1;
+        // Force update of this code if new variants are introduced
+        static_assertions::const_assert_eq!(
+            GwRotBootInfo::HIGHEST_KNOWN_VERSION,
+            3
+        );
+        // Map the MGS RotBootInfo 1-based versions to RoT 0-based versions.
+        let rot_version = match version {
+            0 => return Err(GwSpError::RequestUnsupportedForComponent),
+            1 => 0,
+            2 => 1,
+            3 => 2,
+            // Clamp the version to the highest known by the SP.
+            _ => 2,
+        };
 
         match self.sprot.versioned_rot_boot_info(rot_version)? {
             // The RoT V1 response corresponds to the MGS V2
