@@ -1344,7 +1344,3 @@ tx = { packets = 3, bytes = 1024 }
 # v0 ereport requests are always 35B, so just make the buffer exactly
 # that size...
 rx = { packets = 3, bytes = 35 }
-
-[config.sprot]
-# ROT_IRQ (af=0 for GPIO, af=15 when EXTI is implemneted)
-rot_irq = { port = "E", pin = 3, af = 0}

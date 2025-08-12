@@ -41,6 +41,7 @@ pub struct VCore {
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    None,
     Initializing,
     Initialized,
     LimitLoaded,
@@ -49,7 +50,6 @@ enum Trace {
     Fault,
     Reading { timestamp: u64, volts: units::Volts },
     Error(ResponseCode),
-    None,
 }
 
 ringbuf!(Trace, 120, Trace::None);

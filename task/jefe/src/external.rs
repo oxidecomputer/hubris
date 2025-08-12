@@ -161,7 +161,7 @@ fn check_inner(states: &mut [TaskStatus]) -> Result<bool, Error> {
             // Note that this command does _not_ clear task holds! For that, you
             // must issue Release, below. This means it's useful for starting
             // the task but still catching it on the _next_ fault.
-            kipc::restart_task(ndx, true);
+            kipc::reinit_task(ndx, true);
         }
 
         Request::Release => {
@@ -171,7 +171,7 @@ fn check_inner(states: &mut [TaskStatus]) -> Result<bool, Error> {
             state.disposition = Disposition::Restart;
             if state.holding_fault {
                 state.holding_fault = false;
-                kipc::restart_task(ndx, true);
+                kipc::reinit_task(ndx, true);
             }
         }
 

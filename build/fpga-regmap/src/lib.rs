@@ -433,9 +433,9 @@ pub fn build_peripheral(
         };
         assert_eq!(*regwidth, 32, "only 32-bit registers are supported");
         let mut struct_fns = vec![];
-        let mut debug_values = vec![];
-        let mut debug_names = vec![];
-        let mut debug_types = vec![];
+        let mut view_values = vec![];
+        let mut view_names = vec![];
+        let mut view_types = vec![];
         let mut encode_types = vec![];
         for c in children {
             let Node::Field {
@@ -459,6 +459,7 @@ pub fn build_peripheral(
             if lsb == msb {
                 if sw_access.is_write() {
                     struct_fns.push(quote! {
+                        #[inline]
                         #[doc = #desc]
                         pub fn #setter(&self, t: bool) {
                             let mut d = self.get_raw();
@@ -473,17 +474,18 @@ pub fn build_peripheral(
                 }
                 if sw_access.is_read() {
                     struct_fns.push(quote! {
+                        #[inline]
                         #[doc = #desc]
                         pub fn #getter(&self) -> bool {
                             let d = self.get_raw();
                             (d & (1 << #msb)) != 0
                         }
                     });
-                    debug_values.push(quote! {
+                    view_values.push(quote! {
                         let #getter = (d & (1 << #msb)) != 0;
                     });
-                    debug_names.push(quote! { #getter });
-                    debug_types.push(quote! { pub #getter: bool });
+                    view_names.push(quote! { #getter });
+                    view_types.push(quote! { pub #getter: bool });
                 }
             } else if let Some(encode) = encode {
                 let ty: syn::Ident =
@@ -534,6 +536,7 @@ pub fn build_peripheral(
                 });
                 if sw_access.is_write() {
                     struct_fns.push(quote! {
+                        #[inline]
                         #[doc = #desc]
                         pub fn #setter(&self, t: #ty) {
                             let mut d = self.get_raw();
@@ -545,6 +548,7 @@ pub fn build_peripheral(
                 }
                 if sw_access.is_read() {
                     struct_fns.push(quote! {
+                        #[inline]
                         #[doc = #desc]
                         pub fn #getter(&self) -> Result<#ty, #raw_ty> {
                             let d = self.get_raw();
@@ -552,12 +556,12 @@ pub fn build_peripheral(
                             #ty::try_from(t)
                         }
                     });
-                    debug_values.push(quote! {
+                    view_values.push(quote! {
                         let t = ((d >> #lsb) & #mask) as #raw_ty;
                         let #getter = #ty::try_from(t);
                     });
-                    debug_names.push(quote! { #getter });
-                    debug_types
+                    view_names.push(quote! { #getter });
+                    view_types
                         .push(quote! { pub #getter: Result<#ty, #raw_ty> });
                 }
             } else {
@@ -573,6 +577,7 @@ pub fn build_peripheral(
                 let ty: syn::Ident = syn::parse_str(ty).unwrap();
                 if sw_access.is_write() {
                     struct_fns.push(quote! {
+                        #[inline]
                         #[doc = #desc]
                         pub fn #setter(&self, t: #ty) {
                             let mut d = self.get_raw();
@@ -584,17 +589,18 @@ pub fn build_peripheral(
                 }
                 if sw_access.is_read() {
                     struct_fns.push(quote! {
+                        #[inline]
                         #[doc = #desc]
                         pub fn #getter(&self) -> #ty {
                             let d = self.get_raw();
                             ((d >> #lsb) & #mask) as #ty
                         }
                     });
-                    debug_values.push(quote! {
+                    view_values.push(quote! {
                         let #getter = ((d >> #lsb) & #mask) as #ty;
                     });
-                    debug_names.push(quote! { #getter });
-                    debug_types.push(quote! { pub #getter: #ty });
+                    view_names.push(quote! { #getter });
+                    view_types.push(quote! { pub #getter: #ty });
                 }
             }
         }
@@ -603,8 +609,8 @@ pub fn build_peripheral(
         let struct_name: syn::Ident = syn::parse_str(&inst_name).unwrap();
         let handle_name: syn::Ident =
             syn::parse_str(&format!("{}Handle", inst_name)).unwrap();
-        let debug_name: syn::Ident =
-            syn::parse_str(&format!("{}Debug", inst_name)).unwrap();
+        let view_name: syn::Ident =
+            syn::parse_str(&format!("{}View", inst_name)).unwrap();
         let reg_addr = base_addr
             + u32::try_from(*periph_offset).unwrap()
             + u32::try_from(*addr_offset).unwrap();
@@ -626,11 +632,16 @@ pub fn build_peripheral(
                         Self::ADDR.write_volatile(v)
                     }
                 }
+                #[inline]
                 pub fn modify<F: Fn(&mut #handle_name)>(&self, f: F) {
                     let mut v =
                         #handle_name(core::cell::Cell::new(self.get_raw()));
                     f(&mut v);
                     self.set_raw(v.0.get());
+                }
+                #[inline]
+                pub fn view(&self) -> #view_name {
+                    #view_name::from(self)
                 }
 
                 #(#struct_fns)*
@@ -650,17 +661,18 @@ pub fn build_peripheral(
 
             #[derive(Copy, Clone, Eq, PartialEq)]
             #[allow(dead_code, clippy::useless_conversion, clippy::unnecessary_cast)]
-            pub struct #debug_name {
-                #(#debug_types),*
+            pub struct #view_name {
+                #(#view_types),*
             }
             #[allow(dead_code, clippy::useless_conversion, clippy::unnecessary_cast)]
-            impl<'a> From<&'a #struct_name> for #debug_name {
-                fn from(s: &'a #struct_name) -> #debug_name {
+            impl<'a> From<&'a #struct_name> for #view_name {
+                #[inline]
+                fn from(s: &'a #struct_name) -> #view_name {
                     #[allow(unused_variables)]
                     let d = s.get_raw();
-                    #(#debug_values)*
-                    #debug_name {
-                        #(#debug_names),*
+                    #(#view_values)*
+                    #view_name {
+                        #(#view_names),*
                     }
                 }
             }

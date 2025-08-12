@@ -9,6 +9,7 @@
 
 use dump_agent_api::*;
 use idol_runtime::RequestError;
+#[cfg(not(feature = "no-rot"))]
 use ringbuf::*;
 use static_assertions::const_assert;
 use task_jefe_api::Jefe;
@@ -30,15 +31,15 @@ struct ServerImpl {
     net: task_net_api::Net,
 }
 
+#[cfg(not(feature = "no-rot"))]
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
-    #[cfg(not(feature = "no-rot"))]
-    SpRotDump,
-    #[cfg(not(feature = "no-rot"))]
-    SpRotDumpResult(Result<(), DumpAgentError>),
     None,
+    SpRotDump,
+    SpRotDumpResult(Result<(), DumpAgentError>),
 }
 
+#[cfg(not(feature = "no-rot"))]
 ringbuf!(Trace, 4, Trace::None);
 
 #[cfg(not(feature = "no-rot"))]
