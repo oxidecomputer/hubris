@@ -3790,6 +3790,7 @@ dependencies = [
  "cortex-m-rt",
  "drv-stm32h7-startup",
  "kern",
+ "ringbuf",
  "stm32h7",
 ]
 
