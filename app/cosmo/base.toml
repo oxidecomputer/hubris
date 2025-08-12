@@ -1456,10 +1456,6 @@ port = 11113
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
 
-[config.sprot]
-# ROT_IRQ (af=0 for GPIO, af=15 when EXTI is implemneted)
-rot_irq = { port = "F", pin = 2, af = 0} # XXX can we use EXTI now?
-
 [config.auxflash]
 memory-size = 33_554_432 # 256 Mib / 32 MiB
 slot-count = 16 # 2 MiB slots
