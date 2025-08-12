@@ -414,7 +414,7 @@ impl ServerImpl {
         }
         // We're about to modify our flash, stop any hash in progress
         // and say our old one is invalid.
-        self.invalidate_hash();
+        self.invalidate_write();
         Ok(())
     }
 
@@ -511,7 +511,17 @@ impl ServerImpl {
         }
     }
 
-    fn invalidate_hash(&mut self) {
+    // Write to flash invalidates the hash of the single bank
+    fn invalidate_write(&mut self) {
+        match self.hash.state {
+            // Only stop the hash for our current device
+            HashState::Hashing { dev, .. } => {
+                if dev == self.dev_state {
+                    self.hash.state = HashState::NotRunning;
+                }
+            }
+            _ => (),
+        }
         match self.dev_state {
             HfDevSelect::Flash0 => {
                 self.hash.cached_hash0 = SlotHash::Recalculate;
@@ -520,7 +530,13 @@ impl ServerImpl {
                 self.hash.cached_hash1 = SlotHash::Recalculate;
             }
         }
+    }
+
+    // We switched our mux, recalculate everything
+    fn invalidate_mux_switch(&mut self) {
         self.hash.state = HashState::NotRunning;
+        self.hash.cached_hash0 = SlotHash::Recalculate;
+        self.hash.cached_hash1 = SlotHash::Recalculate;
     }
 }
 
@@ -719,7 +735,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         // This is probably slight over kill but caching is best effort
         // and if we're swapping our mux back the host has probably
         // gone into A2...
-        self.invalidate_hash();
+        self.invalidate_mux_switch();
         Ok(())
     }
 
@@ -754,14 +770,14 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         len: u32,
     ) -> Result<[u8; SHA256_SZ], RequestError<HfError>> {
         self.check_muxed_to_sp()?;
-        if self.hash.task.init_sha256().is_err() {
-            return Err(HfError::HashError.into());
-        }
         match self.hash.state {
             HashState::Hashing { .. } => {
                 return Err(HfError::HashInProgress.into())
             }
             _ => (),
+        }
+        if self.hash.task.init_sha256().is_err() {
+            return Err(HfError::HashError.into());
         }
         let begin = addr as usize;
         let end = match begin.checked_add(len as usize) {
@@ -804,7 +820,9 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         // Need to check hash state before doing anything else
         // that might mess up the hash in progress
         match self.hash.state {
-            HashState::Hashing { .. } => return Err(HfError::HashError.into()),
+            HashState::Hashing { .. } => {
+                return Err(HfError::HashInProgress.into())
+            }
             _ => (),
         }
 

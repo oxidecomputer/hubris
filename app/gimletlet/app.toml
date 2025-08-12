@@ -245,15 +245,6 @@ uses = ["spi3"]
 notifications = ["spi-irq", "rot-irq", "timer"]
 interrupts = {"spi3.irq" = "spi-irq"}
 
-[config.sprot]
-# TODO: This config is inert. Need to implement STM32 build.rs like the LPC55 has.
-pins = [
-    # ROT_IRQ (af=15 for EXTI)
-    { name = "ROT_IRQ", pin = { port = "D", pin = 0, af = 15, direction = "input"}},
-    # SPI6 CS repurposed for debugging
-    { name = "DEBUG", pin = { port = "G", pin = 8, af = 0, direction = "output"}}
-]
-
 #
 # This device definition is only provided as a way to test this driver absent
 # a larger board that has it; unless your Gimletlet is in a basement known
