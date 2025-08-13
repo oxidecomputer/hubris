@@ -12,6 +12,7 @@
 use core::convert::Infallible;
 use core::mem::MaybeUninit;
 use core::ops::Range;
+use core::ptr;
 use drv_lpc55_flash::{BYTES_PER_FLASH_PAGE, BYTES_PER_FLASH_WORD};
 use drv_lpc55_update_api::{
     Fwid, RawCabooseError, RotBootInfo, RotBootInfoV2, RotComponent, RotPage,
@@ -41,6 +42,9 @@ const PAGE_SIZE: u32 = BYTES_PER_FLASH_PAGE as u32;
 #[link_section = ".bootstate"]
 static BOOTSTATE: MaybeUninit<[u8; 0x1000]> = MaybeUninit::uninit();
 
+// The TRANSIENT_OVERRIDE field is always initialized.
+// It contains either the Bootleby BootDecisionLog or one of our
+// settings/clearings of the transient override preference.
 #[used]
 #[link_section = ".transient_override"]
 static mut TRANSIENT_OVERRIDE: MaybeUninit<[u8; 32]> = MaybeUninit::uninit();
@@ -1478,7 +1482,10 @@ fn set_transient_override(preference: [u8; 32]) {
     // Calling this function multiple times is ok.
     // Bootleby is careful to vet contents before acting.
     unsafe {
-        TRANSIENT_OVERRIDE.write(preference);
+        ptr::write_volatile(
+            ptr::addr_of_mut!(TRANSIENT_OVERRIDE),
+            MaybeUninit::new(preference),
+        );
     }
 }
 

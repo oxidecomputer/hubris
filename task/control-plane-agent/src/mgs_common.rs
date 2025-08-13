@@ -708,6 +708,12 @@ impl MgsCommon {
             HIGHEST_KNOWN_ROT_VERSION
         );
 
+        // Force update if the MGS and ROT default mapping is not correct.
+        static_assertions::const_assert_eq!(
+            GwRotBootInfo::HIGHEST_KNOWN_VERSION - 1,
+            SpVersionedRotBootInfo::HIGHEST_KNOWN_VERSION,
+        );
+
         // Map the MGS RotBootInfo 1-based versions to RoT 0-based versions.
         let rot_version = match version {
             // There is no version -1 in the RoT version number scheme.
