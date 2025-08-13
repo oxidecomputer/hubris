@@ -24,15 +24,13 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         build_util::env_var("HUBRIS_AUXFLASH_CHECKSUM_ICE4").unwrap();
     writeln!(
         &mut file,
-        "\npub const FRONT_FPGA_BITSTREAM_CHECKSUM: [u8; 32] = {};",
-        ice40_checksum,
+        "\npub const FRONT_FPGA_BITSTREAM_CHECKSUM: [u8; 32] = {ice40_checksum};",
     )?;
     let spartan7_checksum =
         build_util::env_var("HUBRIS_AUXFLASH_CHECKSUM_SPA7").unwrap();
     writeln!(
         &mut file,
-        "\npub const SPARTAN7_FPGA_BITSTREAM_CHECKSUM: [u8; 32] = {};",
-        spartan7_checksum,
+        "\npub const SPARTAN7_FPGA_BITSTREAM_CHECKSUM: [u8; 32] = {spartan7_checksum};",
     )?;
 
     idol::Generator::new().build_server_support(

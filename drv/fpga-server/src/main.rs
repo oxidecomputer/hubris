@@ -259,7 +259,7 @@ impl<'a, Device: Fpga<'a> + FpgaUserDesign> ServerImpl<'a, Device> {
     ) -> Result<UserDesignLock<'a, Device>, FpgaError> {
         let device = self.check_lock_and_get_device(caller, device_index)?;
 
-        device.user_design_lock().map_err(FpgaError::from)?;
+        device.user_design_lock()?;
         Ok(UserDesignLock(device))
     }
 }
@@ -506,16 +506,12 @@ impl<'a, Device: Fpga<'a> + FpgaUserDesign> idl::InOrderFpgaImpl
         // Released on function exit.
         let lock = self.lock_user_design(msg.sender, device_index)?;
 
-        lock.0
-            .user_design_write(header.as_bytes())
-            .map_err(FpgaError::from)?;
+        lock.0.user_design_write(header.as_bytes())?;
 
         let mut index = 0;
         while index < data.len() {
             let chunk_size = (data.len() - index).min(self.buffer.len());
-            lock.0
-                .user_design_read(&mut self.buffer[..chunk_size])
-                .map_err(FpgaError::from)?;
+            lock.0.user_design_read(&mut self.buffer[..chunk_size])?;
 
             data.write_range(
                 index..(index + chunk_size),
@@ -544,9 +540,7 @@ impl<'a, Device: Fpga<'a> + FpgaUserDesign> idl::InOrderFpgaImpl
         // Released on function exit.
         let lock = self.lock_user_design(msg.sender, device_index)?;
 
-        lock.0
-            .user_design_write(header.as_bytes())
-            .map_err(FpgaError::from)?;
+        lock.0.user_design_write(header.as_bytes())?;
 
         let mut index = 0;
         while index < data.len() {
@@ -556,9 +550,7 @@ impl<'a, Device: Fpga<'a> + FpgaUserDesign> idl::InOrderFpgaImpl
                 &mut self.buffer[..chunk_size],
             )
             .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
-            lock.0
-                .user_design_write(&self.buffer[..chunk_size])
-                .map_err(FpgaError::from)?;
+            lock.0.user_design_write(&self.buffer[..chunk_size])?;
             index += chunk_size;
         }
 
@@ -579,12 +571,8 @@ impl<'a, Device: Fpga<'a> + FpgaUserDesign> idl::InOrderFpgaImpl
         // Released on function exit.
         let lock = self.lock_user_design(msg.sender, device_index)?;
 
-        lock.0
-            .user_design_write(header.as_bytes())
-            .map_err(FpgaError::from)?;
-        lock.0
-            .user_design_read(&mut self.buffer[..1])
-            .map_err(FpgaError::from)?;
+        lock.0.user_design_write(header.as_bytes())?;
+        lock.0.user_design_read(&mut self.buffer[..1])?;
 
         Ok(self.buffer[0])
     }
@@ -605,12 +593,8 @@ impl<'a, Device: Fpga<'a> + FpgaUserDesign> idl::InOrderFpgaImpl
         // Released on function exit.
         let lock = self.lock_user_design(msg.sender, device_index)?;
 
-        lock.0
-            .user_design_write(header.as_bytes())
-            .map_err(FpgaError::from)?;
-        lock.0
-            .user_design_write(value.as_bytes())
-            .map_err(FpgaError::from)?;
+        lock.0.user_design_write(header.as_bytes())?;
+        lock.0.user_design_write(value.as_bytes())?;
 
         Ok(())
     }

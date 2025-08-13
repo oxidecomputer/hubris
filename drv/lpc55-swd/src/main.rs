@@ -437,7 +437,7 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
         }
 
         let cnt = dest.len();
-        if cnt % 4 != 0 {
+        if !cnt.is_multiple_of(4) {
             return Err(SpCtrlError::BadLen.into());
         }
         let mut buf = LeaseBufWriter::<_, 32>::from(dest.into_inner());
@@ -467,7 +467,7 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
             return Err(SpCtrlError::NeedInit.into());
         }
         let cnt = dest.len();
-        if cnt % 4 != 0 {
+        if !cnt.is_multiple_of(4) {
             return Err(SpCtrlError::BadLen.into());
         }
         let mut buf = LeaseBufWriter::<_, 32>::from(dest.into_inner());
@@ -496,7 +496,7 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
             return Err(SpCtrlError::NeedInit.into());
         }
         let cnt = dest.len();
-        if cnt % 4 != 0 {
+        if !cnt.is_multiple_of(4) {
             return Err(SpCtrlError::BadLen.into());
         }
         let mut buf = LeaseBufReader::<_, 32>::from(dest.into_inner());
@@ -903,7 +903,7 @@ impl ServerImpl {
         // for the correct count.
         //
         // Round up here just to be safe
-        let rounded = ((cnt + 7) / 8) * 8;
+        let rounded = cnt.div_ceil(8) * 8;
         for _ in 0..(rounded / 8) {
             self.tx_byte(0x00);
         }
@@ -958,7 +958,7 @@ impl ServerImpl {
     }
 
     fn write_word(&mut self, val: u32) {
-        let parity: u32 = u32::from(val.count_ones() % 2 != 0);
+        let parity: u32 = u32::from(!val.count_ones().is_multiple_of(2));
 
         let rev = val.reverse_bits();
 
@@ -1157,7 +1157,7 @@ impl ServerImpl {
         // It is consuming about 0.25 seconds to inject the `endoscope` code.
         let mut addr = addr;
         const U32_SIZE: usize = core::mem::size_of::<u32>();
-        if data.len() % U32_SIZE != 0 {
+        if !data.len().is_multiple_of(U32_SIZE) {
             ringbuf_entry!(Trace::BadLen);
             return Err(Ack::Fault);
         }
@@ -1552,7 +1552,7 @@ impl ServerImpl {
             .map_err(SpCtrlError::from)?;
 
         let cnt = buf.len();
-        if cnt % 4 != 0 {
+        if !cnt.is_multiple_of(4) {
             return Err(SpCtrlError::BadLen);
         }
 

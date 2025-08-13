@@ -798,16 +798,14 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
         _mgs: &userlib::RecvMessage,
         unlock_until: u64,
     ) -> Result<(), RequestError<MonorailError>> {
-        self.bsp
-            .unlock_vlans_until(unlock_until)
-            .map_err(RequestError::from)
+        self.bsp.unlock_vlans_until(unlock_until)
     }
 
     fn lock_vlans(
         &mut self,
         _mgs: &userlib::RecvMessage,
     ) -> Result<(), RequestError<MonorailError>> {
-        self.bsp.lock_vlans().map_err(RequestError::from)
+        self.bsp.lock_vlans()
     }
 }
 

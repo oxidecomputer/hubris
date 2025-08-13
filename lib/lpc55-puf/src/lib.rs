@@ -44,7 +44,7 @@ pub struct Puf<'a> {
 impl<'a> Puf<'a> {
     /// Given the length of the key return the size of the required PUF keycode.
     pub const fn key_to_keycode_len(key_len: usize) -> usize {
-        if key_len % 8 != 0 {
+        if !key_len.is_multiple_of(8) {
             // TODO: This function should return an Option / None instead of
             // panicking here. We can't however because const_option is still
             // unstable. When https://github.com/rust-lang/rust/issues/67441

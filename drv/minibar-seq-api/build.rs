@@ -27,8 +27,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         build_util::env_var("HUBRIS_AUXFLASH_CHECKSUM_FPGA").unwrap();
     writeln!(
         &mut file,
-        "\npub const MINIBAR_BITSTREAM_CHECKSUM: [u8; 32] = {};",
-        checksum,
+        "\npub const MINIBAR_BITSTREAM_CHECKSUM: [u8; 32] = {checksum};",
     )?;
 
     idol::Generator::new()

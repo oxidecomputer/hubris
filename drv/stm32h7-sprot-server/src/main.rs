@@ -477,7 +477,7 @@ impl<S: SpiServer> ServerImpl<S> {
         //
         // Our buffers must always be large enough to contain our data plus an
         // extra byte. Otherwise, this is a programmer error.
-        if tx_size % 2 != 0 {
+        if !tx_size.is_multiple_of(2) {
             tx_size += 1;
         }
 
