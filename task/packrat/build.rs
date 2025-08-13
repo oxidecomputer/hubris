@@ -1,8 +1,12 @@
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
+use anyhow::{anyhow, Result};
 
-fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+#[cfg(feature = "ereport")]
+use anyhow::Context;
+
+fn main() -> Result<()> {
     idol::Generator::new()
         .with_counters(
             idol::CounterSettings::default().with_server_counters(false),
@@ -11,7 +15,8 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             "../../idl/packrat.idol",
             "server_stub.rs",
             idol::server::ServerStyle::InOrder,
-        )?;
+        )
+        .map_err(|e| anyhow!("{e}"))?;
 
     // Ensure the "gimlet" feature is enabled on gimlet boards.
     #[cfg(not(feature = "gimlet"))]
@@ -38,6 +43,46 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         )),
         _ => (),
     }
+
+    #[cfg(feature = "ereport")]
+    gen_ereport_config().context("failed to generate ereport config")?;
+
+    Ok(())
+}
+
+#[cfg(feature = "ereport")]
+fn gen_ereport_config() -> Result<()> {
+    use std::io::Write;
+
+    let our_name = build_util::task_name();
+    let tasks = build_util::task_ids();
+    let id = tasks.get(&our_name).ok_or_else(|| {
+        anyhow!(
+            "task ID for {our_name:?} not found in task IDs map; this is \
+             probably a bug in the build system",
+        )
+    })?;
+    let id = u16::try_from(id).with_context(|| {
+        format!(
+            "packrat's task ID ({id}) exceeds u16::MAX, this is definitely \
+             a bug"
+        )
+    })?;
+
+    let out_dir = build_util::out_dir();
+    let dest_path = out_dir.join("ereport_config.rs");
+
+    let mut out = std::fs::File::create(&dest_path).with_context(|| {
+        format!("failed to create file {}", dest_path.display())
+    })?;
+    writeln!(
+        out,
+        "{}",
+        quote::quote! {
+            pub(crate) const TASK_ID: u16 = #id;
+        }
+    )
+    .with_context(|| format!("failed to write to {}", dest_path.display()))?;
 
     Ok(())
 }

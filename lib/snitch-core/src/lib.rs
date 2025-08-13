@@ -63,6 +63,13 @@ pub struct Store<const N: usize> {
     stored_record_count: usize,
 }
 
+#[derive(Copy, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "counters", derive(counters::Count))]
+pub enum InsertResult {
+    Inserted,
+    Lost,
+}
+
 impl<const N: usize> Store<N> {
     /// Empty store constant for use in static initializers.
     ///
@@ -86,7 +93,8 @@ impl<const N: usize> Store<N> {
         // If the queue has never been touched, insert our "arbitrary data loss"
         // record into the stream to consume ENA 0.
         if !self.initialized() {
-            self.insert_impl(
+            // Should always succeed...
+            let _ = self.insert_impl(
                 self.our_task_id,
                 timestamp,
                 // This is a canned CBOR message that decodes as...
@@ -97,6 +105,8 @@ impl<const N: usize> Store<N> {
                 //   f6  # null / None
                 &[0xA1, 0x64, 0x6C, 0x6F, 0x73, 0x74, 0xF6],
             );
+            // ENAs start at 1.
+            self.earliest_ena = 1;
         }
     }
 
@@ -108,16 +118,7 @@ impl<const N: usize> Store<N> {
     /// Returns the current free space in the queue, in bytes. This is raw;
     /// subtract 12 to get the largest single message that can be enqueued.
     pub fn free_space(&self) -> usize {
-        match self.insert_state {
-            InsertState::Collecting => N - self.storage.len(),
-            InsertState::Losing { .. } => {
-                // Indicate how much space we have after recovery succeeds,
-                // which may be zero if we can't recover yet.
-                (N - self.storage.len())
-                    .saturating_sub(OVERHEAD)
-                    .saturating_sub(DATA_LOSS_LEN)
-            }
-        }
+        N - self.storage.len()
     }
 
     /// Inserts a record, or records it as lost.
@@ -135,7 +136,18 @@ impl<const N: usize> Store<N> {
     /// implementation. This maximum size is larger than we expect our backing
     /// buffer to be. Any records larger than the max will be treated as not
     /// fitting. (Currently the max is 64 kiB.)
-    pub fn insert(&mut self, sender: u16, timestamp: u64, data: &[u8]) {
+    ///
+    /// # Returns
+    ///
+    /// - [`InsertResult::Inserted`] if the record was successfully inserted.
+    /// - [`InsertResult::Lost`] if the record was lost due to insufficient
+    ///   space.
+    pub fn insert(
+        &mut self,
+        sender: u16,
+        timestamp: u64,
+        data: &[u8],
+    ) -> InsertResult {
         debug_assert!(self.initialized());
         self.insert_impl(sender, timestamp, data)
     }
@@ -189,11 +201,15 @@ impl<const N: usize> Store<N> {
     ///
     /// If the ENA is either lower than any of our stored records, or higher
     /// than what we've vended out, this is a no-op.
-    pub fn flush_thru(&mut self, last_written_ena: u64) {
+    ///
+    /// # Returns
+    ///
+    /// This method returns the number of records that were discarded.
+    pub fn flush_thru(&mut self, last_written_ena: u64) -> usize {
         let Some(index) = last_written_ena.checked_sub(self.earliest_ena)
         else {
             // Cool, we're already aware that record has been written.
-            return;
+            return 0;
         };
         if index >= self.stored_record_count as u64 {
             // Uhhhh. We have not issued this ENA. It could not possibly have
@@ -201,9 +217,10 @@ impl<const N: usize> Store<N> {
             //
             // TODO: is this an opportunity for the queue _itself_ to generate
             // a defect report? For now, we'll just ignore it.
-            return;
+            return 0;
         }
 
+        let mut discarded = 0;
         for _ in 0..=index {
             // Discard the lead record in the queue.
             let mut slices = self.storage.as_slices();
@@ -219,6 +236,7 @@ impl<const N: usize> Store<N> {
 
             self.stored_record_count -= 1;
             self.earliest_ena += 1;
+            discarded += 1;
         }
 
         // You might be curious why we don't do our loss recovery process here,
@@ -227,6 +245,7 @@ impl<const N: usize> Store<N> {
         // full. If we are able to recover here, but do _not_ have enough bytes
         // free for the next incoming record, then we'd just kick back into loss
         // state.... necessitating another loss record. And so forth.
+        discarded
     }
 
     /// Makes a best effort at inserting a record.
@@ -242,7 +261,18 @@ impl<const N: usize> Store<N> {
     ///
     /// If we are `Collecting` but `data` plus a header won't fit, we enter the
     /// `Losing` state with a count of 1.
-    fn insert_impl(&mut self, sender: u16, timestamp: u64, data: &[u8]) {
+    ///
+    /// # Returns
+    ///
+    /// - [`InsertResult::Inserted`] if the record was successfully inserted.
+    /// - [`InsertResult::Lost`] if the record was lost due to insufficient
+    ///   space.
+    fn insert_impl(
+        &mut self,
+        sender: u16,
+        timestamp: u64,
+        data: &[u8],
+    ) -> InsertResult {
         // We attempt recovery here so that we can _avoid_ generating a loss
         // record if this next record (`data`) is just going to kick us back
         // into loss state.
@@ -252,7 +282,7 @@ impl<const N: usize> Store<N> {
 
         match &mut self.insert_state {
             InsertState::Collecting => {
-                let room = self.storage.capacity() - self.storage.len();
+                let room = self.free_space();
                 if data_len.is_some_and(|n| room >= OVERHEAD + n as usize) {
                     self.write_header(
                         data_len.unwrap_lite(),
@@ -262,15 +292,18 @@ impl<const N: usize> Store<N> {
                     for &byte in data {
                         self.storage.push_back(byte).unwrap_lite();
                     }
+                    InsertResult::Inserted
                 } else {
                     self.insert_state = InsertState::Losing {
                         count: NonZeroU32::new(1).unwrap_lite(),
                         timestamp,
                     };
+                    InsertResult::Lost
                 }
             }
             InsertState::Losing { count, .. } => {
                 *count = count.saturating_add(1);
+                InsertResult::Lost
             }
         }
     }
@@ -294,9 +327,17 @@ impl<const N: usize> Store<N> {
     fn recover_if_required(&mut self, space_required: Option<usize>) {
         // We only need to take action if we're in Losing state.
         if let InsertState::Losing { count, timestamp } = self.insert_state {
-            // Note: already includes OVERHEAD/DATA_LOSS_LEN
             let room = self.free_space();
-            let required = space_required.unwrap_or(0);
+
+            // We can recover only if there is room for both the required
+            // amount of space *and* the additional loss record we must
+            // insert in order to recover.
+            let required =
+                // The space we hope to be able to use after recovery
+                space_required.unwrap_or(0)
+                // The length of the loss record itself
+                + DATA_LOSS_LEN + OVERHEAD
+            ;
             if room >= required {
                 // We can recover!
                 self.write_header(
@@ -433,7 +474,7 @@ mod tests {
         let &[r] = initial_contents.as_slice() else {
             panic!("missing initial loss record");
         };
-        assert_eq!(r.ena, 0);
+        assert_eq!(r.ena, 1);
         assert_eq!(r.tid, OUR_FAKE_TID);
         assert_eq!(r.timestamp, 1);
 
@@ -456,7 +497,7 @@ mod tests {
 
         let snapshot = copy_contents_raw(&mut s);
         assert_eq!(snapshot.len(), 1);
-        assert_eq!(snapshot[0].ena, 1);
+        assert_eq!(snapshot[0].ena, 2);
         assert_eq!(snapshot[0].tid, ANOTHER_FAKE_TID);
         assert_eq!(snapshot[0].timestamp, 5);
         assert_eq!(snapshot[0].contents, b"hello, world!");
@@ -484,7 +525,7 @@ mod tests {
         assert_eq!(
             snapshot[0],
             Item {
-                ena: 1,
+                ena: 2,
                 tid: ANOTHER_FAKE_TID,
                 timestamp: 5,
                 contents: vec![0; 64 - OVERHEAD]
@@ -515,7 +556,7 @@ mod tests {
         assert_eq!(
             snapshot[0],
             Item {
-                ena: 1,
+                ena: 2,
                 tid: OUR_FAKE_TID,
                 timestamp: 5,
                 contents: LossRecord { lost: Some(1) },
@@ -546,7 +587,7 @@ mod tests {
         assert_eq!(
             snapshot[0],
             Item {
-                ena: 1,
+                ena: 2,
                 tid: ANOTHER_FAKE_TID,
                 timestamp: 5,
                 contents: vec![0; 28],
@@ -556,7 +597,7 @@ mod tests {
         assert_eq!(
             snapshot[1].decode_as::<LossRecord>(),
             Item {
-                ena: 2,
+                ena: 3,
                 tid: OUR_FAKE_TID,
                 timestamp: 10, // time when loss began
                 contents: LossRecord { lost: Some(1) },
@@ -589,10 +630,75 @@ mod tests {
         assert_eq!(
             snapshot[0],
             Item {
-                ena: 1,
+                ena: 2,
                 tid: OUR_FAKE_TID,
                 timestamp: 5, // time of _first_ loss
                 contents: LossRecord { lost: Some(11) },
+            }
+        );
+    }
+
+    /// Tests that the buffer is never allowed to fill so much that it cannot
+    /// fit a loss record. This reproduces a panic where there was insufficient
+    /// space to record a loss record.
+    #[test]
+    fn data_loss_on_full_queue() {
+        let mut s = Store::<64>::DEFAULT;
+        s.initialize(OUR_FAKE_TID, 1);
+        consume_initial_loss(&mut s);
+
+        // Fill half the buffer.
+        s.insert(ANOTHER_FAKE_TID, 5, &[0; 32 - OVERHEAD]);
+        // Try to fill the other half of the buffer, *to the brim*. After this
+        // record is accepted, we start losing data, but we cannot yet create a
+        // loss record until something is removed from the buffer.
+        s.insert(ANOTHER_FAKE_TID, 6, &[0; 32 - OVERHEAD]);
+        // This one definitely gets lost.
+        s.insert(ANOTHER_FAKE_TID, 7, &[0; 32 - OVERHEAD]);
+
+        let snapshot: Vec<Item<Vec<u8>>> = copy_contents_raw(&mut s);
+        assert_eq!(snapshot.len(), 2, "{snapshot:?}");
+        assert_eq!(
+            snapshot[0],
+            Item {
+                ena: 2,
+                tid: ANOTHER_FAKE_TID,
+                timestamp: 5,
+                contents: Vec::from([0; 32 - OVERHEAD])
+            }
+        );
+        assert_eq!(
+            snapshot[1],
+            Item {
+                ena: 3,
+                tid: ANOTHER_FAKE_TID,
+                timestamp: 6,
+                contents: Vec::from([0; 32 - OVERHEAD])
+            }
+        );
+
+        // Flush a record. We will now record the lost data, as there's now
+        // room for the loss record.
+        s.flush_thru(2);
+
+        let snapshot: Vec<Item<Vec<u8>>> = copy_contents_raw(&mut s);
+        assert_eq!(snapshot.len(), 2, "{snapshot:?}");
+        assert_eq!(
+            snapshot[0],
+            Item {
+                ena: 3,
+                tid: ANOTHER_FAKE_TID,
+                timestamp: 6,
+                contents: Vec::from([0; 32 - OVERHEAD])
+            }
+        );
+        assert_eq!(
+            snapshot[1].decode_as::<LossRecord>(),
+            Item {
+                ena: 4,
+                tid: OUR_FAKE_TID,
+                timestamp: 7,
+                contents: LossRecord { lost: Some(1) },
             }
         );
     }
@@ -619,7 +725,7 @@ mod tests {
         assert_eq!(
             snapshot[0],
             Item {
-                ena: 1,
+                ena: 2,
                 tid: ANOTHER_FAKE_TID,
                 timestamp: 5,
                 contents: vec![0; 16],
@@ -629,7 +735,7 @@ mod tests {
         assert_eq!(
             snapshot[1].decode_as::<LossRecord>(),
             Item {
-                ena: 2,
+                ena: 3,
                 tid: OUR_FAKE_TID,
                 timestamp: 10,
                 contents: LossRecord { lost: Some(1) },
@@ -639,7 +745,7 @@ mod tests {
         assert_eq!(
             snapshot[2],
             Item {
-                ena: 3,
+                ena: 4,
                 tid: ANOTHER_FAKE_TID,
                 timestamp: 15,
                 contents: vec![0; 16],
@@ -663,7 +769,7 @@ mod tests {
             let snapshot = copy_contents_raw(&mut s);
             assert_eq!(snapshot.len(), 5);
             for (i, rec) in snapshot.iter().enumerate() {
-                assert_eq!(rec.ena, 1 + i as u64);
+                assert_eq!(rec.ena, 2 + i as u64);
                 assert_eq!(rec.tid, ANOTHER_FAKE_TID);
                 assert_eq!(rec.timestamp, 5 + i as u64);
                 assert_eq!(rec.contents, &[i as u8]);
@@ -678,7 +784,7 @@ mod tests {
             let snapshot = copy_contents_raw(&mut s);
             assert_eq!(snapshot.len(), 4);
             for (i, rec) in snapshot.iter().enumerate() {
-                assert_eq!(rec.ena, 2 + i as u64);
+                assert_eq!(rec.ena, 3 + i as u64);
                 assert_eq!(rec.tid, ANOTHER_FAKE_TID);
                 assert_eq!(rec.timestamp, 6 + i as u64);
                 assert_eq!(rec.contents, &[i as u8 + 1]);
@@ -686,19 +792,19 @@ mod tests {
         }
 
         // Flush all but the last.
-        s.flush_thru(4);
+        s.flush_thru(5);
         {
             let snapshot = copy_contents_raw(&mut s);
             assert_eq!(snapshot.len(), 1);
             for (i, rec) in snapshot.iter().enumerate() {
-                assert_eq!(rec.ena, 5 + i as u64);
+                assert_eq!(rec.ena, 6 + i as u64);
                 assert_eq!(rec.tid, ANOTHER_FAKE_TID);
                 assert_eq!(rec.timestamp, 9 + i as u64);
                 assert_eq!(rec.contents, &[i as u8 + 4]);
             }
         }
         // Finally...
-        s.flush_thru(5);
+        s.flush_thru(6);
         assert_eq!(copy_contents_raw(&mut s), []);
     }
 
@@ -709,23 +815,23 @@ mod tests {
         s.initialize(OUR_FAKE_TID, 1);
         consume_initial_loss(&mut s);
 
-        // This record occupies ENA 1
+        // This record occupies ENA 2
         s.insert(ANOTHER_FAKE_TID, 5, &[1]);
-        // ENA 2
+        // ENA 3
         s.insert(ANOTHER_FAKE_TID, 6, &[2]);
 
         assert_eq!(s.stored_record_count, 2);
 
-        // Flushing ENA 0 should have no effect (we already got rid of it)
-        s.flush_thru(0);
+        // Flushing ENA 1 should have no effect (we already got rid of it)
+        s.flush_thru(1);
         assert_eq!(s.stored_record_count, 2);
 
-        // Flushing ENA 1 should drop one record.
-        s.flush_thru(1);
+        // Flushing ENA 2 should drop one record.
+        s.flush_thru(2);
         assert_eq!(s.stored_record_count, 1);
 
         // 0 and 1 are both no-ops now.
-        for ena in [0, 1] {
+        for ena in [0, 1, 2] {
             s.flush_thru(ena);
             assert_eq!(s.stored_record_count, 1);
         }
@@ -739,15 +845,15 @@ mod tests {
         s.initialize(OUR_FAKE_TID, 1);
         consume_initial_loss(&mut s);
 
-        // This record occupies ENA 1
+        // This record occupies ENA 2
         s.insert(ANOTHER_FAKE_TID, 5, &[1]);
-        // ENA 2
+        // ENA 3
         s.insert(ANOTHER_FAKE_TID, 6, &[2]);
 
         assert_eq!(s.stored_record_count, 2);
 
-        // ENA 3 has not yet been issued, and should not cause any change:
-        s.flush_thru(3);
+        // ENA 4 has not yet been issued, and should not cause any change:
+        s.flush_thru(4);
         assert_eq!(s.stored_record_count, 2);
     }
 
@@ -756,7 +862,7 @@ mod tests {
         let &[r] = initial_contents.as_slice() else {
             panic!("missing initial loss record");
         };
-        assert_eq!(r.ena, 0);
+        assert_eq!(r.ena, 1);
         assert_eq!(r.tid, OUR_FAKE_TID);
         assert_eq!(r.timestamp, 1);
 

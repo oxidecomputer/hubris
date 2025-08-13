@@ -87,6 +87,12 @@ impl From<u8> for Generation {
     }
 }
 
+impl From<Generation> for u8 {
+    fn from(x: Generation) -> Self {
+        x.0
+    }
+}
+
 /// Newtype wrapper for an interrupt index
 #[derive(
     Copy,

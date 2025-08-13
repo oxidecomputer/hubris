@@ -12,6 +12,7 @@ zerocopy-derive = { workspace = true }
 
 drv-rng-api = { path = "../rng-api" }
 drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
+task-packrat-api = { path = "../../task/packrat-api", optional = true }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 ringbuf = { path = "../../lib/ringbuf" }
 counters = { version = "0.1.0", path = "../../lib/counters" }
@@ -22,6 +23,7 @@ idol = { workspace = true }
 [features]
 h743 = ["stm32h7/stm32h743", "drv-stm32xx-sys-api/h743"]
 h753 = ["stm32h7/stm32h753", "drv-stm32xx-sys-api/h753"]
+ereport = ["task-packrat-api"]
 no-ipc-counters = ["idol/no-counters"]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
