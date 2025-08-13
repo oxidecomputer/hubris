@@ -17,7 +17,7 @@ use super::ereport_messages;
 use core::convert::Infallible;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError};
 use minicbor::CborLen;
-use minicbor_lease::LeaseWriter;
+use minicbor_lease::LeasedWriter;
 use ringbuf::{counted_ringbuf, ringbuf_entry};
 use task_packrat_api::{EreportReadError, VpdIdentity};
 use userlib::{kipc, sys_get_timer, RecvMessage, TaskId};
@@ -79,7 +79,6 @@ enum Trace {
 
 #[derive(Copy, Clone, PartialEq, Eq, counters::Count)]
 enum MetadataError {
-    TooLong,
     PartNumberNotUtf8,
     SerialNumberNotUtf8,
 }
@@ -87,7 +86,6 @@ enum MetadataError {
 #[derive(Copy, Clone, PartialEq, Eq, counters::Count)]
 enum EreportError {
     TaskIdOutOfRange,
-    TooLong,
 }
 
 counted_ringbuf!(Trace, 16, Trace::None);
@@ -144,45 +142,54 @@ impl EreportStore {
         begin_ena: ereport_messages::Ena,
         limit: u8,
         committed_ena: ereport_messages::Ena,
-        data: Leased<idol_runtime::W, [u8]>,
+        mut data: Leased<idol_runtime::W, [u8]>,
         vpd: Option<&VpdIdentity>,
     ) -> Result<usize, RequestError<EreportReadError>> {
         ringbuf_entry!(Trace::ReadRequest {
             restart_id: restart_id.into()
         });
 
-        // XXX(eliza): in theory it might be nicer to use
-        // `minicbor::data::Token::{BeginArray, BeginMap, Break}` for these, but
-        // it's way more annoying in practice, because you need to have an
-        // `Encoder` and can't just put it in the buffer.
-        /// Byte indicating the beginning of an indeterminate-length CBOR
-        /// array.
-        const CBOR_BEGIN_ARRAY: u8 = 0x9f;
-        /// Byte indicating the beginning of an indeterminate-length CBOR map.
-        const CBOR_BEGIN_MAP: u8 = 0xbf;
-        /// Byte indicating the end of an indeterminate-length CBOR array or
-        /// map.
-        const CBOR_BREAK: u8 = 0xff;
-
         let current_restart_id =
             self.restart_id.ok_or(EreportReadError::RestartIdNotSet)?;
         // Skip over a header-sized initial chunk.
         let first_data_byte = size_of::<ereport_messages::ResponseHeader>();
-
-        let mut position = first_data_byte;
         let mut first_written_ena = None;
+
+        let mut encoder = minicbor::Encoder::new(LeasedWriter::starting_at(
+            first_data_byte,
+            &mut data,
+        ));
+
+        fn check_err(
+            encoder: &minicbor::Encoder<LeasedWriter<'_, idol_runtime::W>>,
+            err: minicbor::encode::Error<minicbor_lease::WriteError>,
+        ) -> RequestError<EreportReadError> {
+            match encoder.writer().check_err(err) {
+                minicbor_lease::Error::WentAway => ClientError::WentAway.fail(),
+                minicbor_lease::Error::EndOfLease => {
+                    ClientError::BadLease.fail()
+                }
+            }
+        }
 
         // Start the metadata map.
         //
         // MGS expects us to always include this, and to just have it be
         // empty if we didn't send any metadata.
-        let mut e = minicbor::Encoder::new(LeasedWriter::starting_at(
-            position, &mut data,
-        ));
-        e.begin_map().map_err(|_| ClientError::WentAway.fail())?;
-        data.write_at(position, CBOR_BEGIN_MAP)
-            .map_err(|_| ClientError::WentAway.fail())?;
-        position += 1;
+        encoder
+            .begin_map()
+            // This pattern (which will occur every time we handle an encoder
+            // error in this function) is goofy, but is necessary to placate the
+            // borrow checker: the function passed to `map_err` must borrow the
+            // encoder so that it can check whether the error indicates that we
+            // ran out of space in the lease, or if the client disappeared.
+            // However, because `minicbor::Encoder`'s methods return a mutable
+            // borrow of the encoder, we must drop it first before borrowing it
+            // into the `map_err` closure. Thus, every `map_err` must be
+            // preceded by a `map` with a toilet closure that drops the mutable
+            // borrow. Yuck.
+            .map(|_| ())
+            .map_err(|e| check_err(&encoder, e))?;
 
         // If the requested restart ID matches the current restart ID, then read
         // from the requested ENA. If not, start at ENA 0.
@@ -209,50 +216,33 @@ impl EreportStore {
             // ensures that MGS will continue asking for metadata on subsequent
             // requests.
             if let Some(vpd) = vpd {
-                // Encode the metadata map into our buffer.
-                match self.encode_metadata(vpd) {
-                    Ok(encoded) => {
-                        data.write_range(
-                            position..position + encoded.len(),
-                            encoded,
-                        )
-                        .map_err(|_| ClientError::WentAway.fail())?;
-
-                        position += encoded.len();
-
-                        ringbuf_entry!(Trace::MetadataEncoded {
-                            len: encoded.len() as u32
-                        });
-                    }
-                    Err(err) => {
-                        // Encoded VPD metadata was too long, or couldn't be
-                        // represented as a CBOR string.
-                        ringbuf_entry!(Trace::MetadataError(err));
-                    }
-                }
+                // Encode the metadata map.
+                self.encode_metadata(&mut encoder, vpd)
+                    .map(|_| ())
+                    .map_err(|e| check_err(&encoder, e))?;
+                ringbuf_entry!(Trace::MetadataEncoded {
+                    len: encoder
+                        .writer()
+                        .position()
+                        .saturating_sub(first_data_byte)
+                        as u32,
+                });
             }
             // Begin at ENA 0
             0
         };
 
         // End metadata map.
-        data.write_at(position, CBOR_BREAK)
-            .map_err(|_| ClientError::WentAway.fail())?;
-        position += 1;
+        encoder
+            .end()
+            .map(|_| ())
+            .map_err(|e| check_err(&encoder, e))?;
 
         let mut reports = 0;
         // Beginning with the first
         for r in self.storage.read_from(begin_ena) {
             if reports >= limit {
                 break;
-            }
-
-            if first_written_ena.is_none() {
-                first_written_ena = Some(r.ena);
-                // Start the ereport array
-                data.write_at(position, CBOR_BEGIN_ARRAY)
-                    .map_err(|_| ClientError::WentAway.fail())?;
-                position += 1;
             }
 
             let tid = TaskId(r.tid);
@@ -277,41 +267,47 @@ impl EreportStore {
                 r.timestamp,
                 ByteGather(r.slices.0, r.slices.1),
             );
-            let mut c =
-                minicbor::encode::write::Cursor::new(&mut self.recv[..]);
-            match minicbor::encode(&entry, &mut c) {
-                Ok(()) => {
-                    let size = c.position();
-                    // If there's no room left for this one in the lease, we're
-                    // done here. Note that the use of `>=` rather than `>` is
-                    // intentional, as we want to ensure that there's room for
-                    // the final `CBOR_BREAK` byte that ends the CBOR array.
-                    if position + size >= data.len() {
-                        break;
-                    }
-                    data.write_range(
-                        position..position + size,
-                        &self.recv[..size],
-                    )
-                    .map_err(|_| ClientError::WentAway.fail())?;
-                    position += size;
-                    reports += 1;
-                }
-                Err(_end) => {
-                    // This is an odd one; we've admitted a record into our
-                    // queue that won't fit in our buffer. This can happen
-                    // because of the encoding overhead, in theory, but should
-                    // be prevented.
-                    ringbuf_entry!(Trace::EreportError(EreportError::TooLong));
-                }
+
+            // If there's no room left for this one in the lease, we're
+            // done here. Note that the use of `>=` rather than `>` is
+            // intentional, as we want to ensure that there's room for
+            // the final `CBOR_BREAK` byte that ends the CBOR array.
+            //
+            // N.B.: saturating_add is used to avoid panic sites --- if this
+            // adds up to `u32::MAX` it *definitely* won't fit :)
+            let len_needed = encoder
+                .writer()
+                .position()
+                // Of course, we need enough space for the ereport itself...
+                .saturating_add(minicbor::len(&entry))
+                // In addition, if we haven't yet started the CBOR array of
+                // ereports, we need a byte for that too.
+                .saturating_add(first_written_ena.is_none() as usize);
+            if len_needed >= encoder.writer().lease().len() {
+                break;
             }
+
+            if first_written_ena.is_none() {
+                first_written_ena = Some(r.ena);
+                // Start the ereport array
+                encoder
+                    .begin_array()
+                    .map(|_| ())
+                    .map_err(|e| check_err(&encoder, e))?;
+            }
+            encoder
+                .encode(&entry)
+                .map(|_| ())
+                .map_err(|e| check_err(&encoder, e))?;
+            reports += 1;
         }
 
         if let Some(start_ena) = first_written_ena {
             // End CBOR array, if we wrote anything.
-            data.write_at(position, CBOR_BREAK)
-                .map_err(|_| ClientError::WentAway.fail())?;
-            position += 1;
+            encoder
+                .end()
+                .map(|_| ())
+                .map_err(|e| check_err(&encoder, e))?;
 
             ringbuf_entry!(Trace::Reported {
                 start_ena,
@@ -320,6 +316,8 @@ impl EreportStore {
             });
         }
 
+        // Release the mutable borrow on the lease so we can write the header.
+        let end = encoder.into_writer().position();
         let first_ena = first_written_ena.unwrap_or(0);
         let header = ereport_messages::ResponseHeader::V0(
             ereport_messages::ResponseHeaderV0 {
@@ -330,18 +328,14 @@ impl EreportStore {
         );
         data.write_range(0..size_of_val(&header), header.as_bytes())
             .map_err(|_| ClientError::WentAway.fail())?;
-        Ok(position)
+        Ok(end)
     }
 
-    fn encode_metadata(
-        &mut self,
+    fn encode_metadata<'lease>(
+        &self,
+        encoder: &mut minicbor::Encoder<LeasedWriter<'lease, idol_runtime::W>>,
         vpd: &VpdIdentity,
-    ) -> Result<&[u8], MetadataError> {
-        let c = minicbor::encode::write::Cursor::new(&mut self.recv[..]);
-        let mut encoder = minicbor::Encoder::new(c);
-        // TODO(eliza): presently, this code bails out if the metadata map gets
-        // longer than our buffer. It would be nice to have a way to keep the
-        // encoded metadata up to the last complete key-value pair...
+    ) -> Result<(), minicbor::encode::Error<minicbor_lease::WriteError>> {
         encoder
             .str("hubris_archive_id")?
             .bytes(&self.image_id[..])?;
@@ -362,8 +356,7 @@ impl EreportStore {
             )),
         }
         encoder.str("baseboard_rev")?.u32(vpd.revision)?;
-        let size = encoder.into_writer().position();
-        Ok(&self.recv[..size])
+        Ok(())
     }
 }
 
@@ -399,16 +392,6 @@ impl<C> CborLen<C> for ByteGather<'_, '_> {
     fn cbor_len(&self, ctx: &mut C) -> usize {
         let n = self.0.len().wrapping_add(self.1.len());
         n.cbor_len(ctx).wrapping_add(n)
-    }
-}
-
-impl From<minicbor::encode::Error<minicbor::encode::write::EndOfSlice>>
-    for MetadataError
-{
-    fn from(
-        _: minicbor::encode::Error<minicbor::encode::write::EndOfSlice>,
-    ) -> MetadataError {
-        MetadataError::TooLong
     }
 }
 
