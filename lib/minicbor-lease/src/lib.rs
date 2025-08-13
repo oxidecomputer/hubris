@@ -18,8 +18,9 @@ where
     ran_out_of_space: bool,
 }
 
-/// Errors returned by [`LeasedWriter::check_err`].
-#[derive(Copy, Clone, PartialEq)]
+/// Errors returned by the [`minicbor::encode::write::Write`] implementation for
+/// [`LeasedWriter`].
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub enum Error {
     /// The other side of the lease has gone away.
     WentAway,
@@ -27,29 +28,33 @@ pub enum Error {
     EndOfLease,
 }
 
-/// Errors returned by the [`minicbor::encode::write::Write`] implementation for
-/// [`LeasedWriter`].
-#[derive(Copy, Clone, PartialEq)]
-pub struct WriteError;
+impl core::fmt::Display for Error {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str(match self {
+            Self::WentAway => "lease went away",
+            Self::EndOfLease => "end of lease",
+        })
+    }
+}
 
 impl<A> minicbor::encode::write::Write for LeasedWriter<'_, A>
 where
     A: idol_runtime::AttributeWrite,
 {
-    type Error = WriteError;
+    type Error = Error;
 
     fn write_all(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
         let Some(end) = self.pos.checked_add(buf.len()) else {
             self.ran_out_of_space = true;
-            return Err(WriteError);
+            return Err(Error::EndOfLease);
         };
         if end >= self.lease.len() {
             self.ran_out_of_space = true;
-            return Err(WriteError);
+            return Err(Error::EndOfLease);
         }
         self.lease
             .write_range(self.pos..end, buf)
-            .map_err(|_| WriteError)?;
+            .map_err(|_| Error::WentAway)?;
 
         self.pos += buf.len();
 
@@ -101,48 +106,9 @@ where
         self.lease
     }
 
-    /// Returns `true` if the last `write_all` call to return an error failed
-    /// due to running out of space.
-    ///
-    /// This is an unfortunate workaround for a limitation of the `minicbor`
-    /// API: the errors our `Write` implementation can return are wrapped in an
-    /// `encode::Error`, and we can't actually get our errors *out* of that
-    /// wrapper, so there's no way to tell whether the error was because we ran
-    /// out of space in the buffer, or because the lease client went away. So,
-    /// we track it here, so that the caller can just ask us if we didn't have
-    /// space to encode something.
-    ///
-    /// Note that this is separate from `pos == lease.len()`, because we don't
-    /// actually write anything (and thus don't advance `pos`) if asked to write
-    /// a chunk of bytes that don't fit.
+    /// Returns `true` if the last `w
     pub fn ran_out_of_space(&self) -> bool {
         self.ran_out_of_space
-    }
-
-    /// Determine whether an error returned by the [`minicbor::encode::Write`]
-    /// implementation indicates that there was no space left in the lease, or
-    /// that the client went away.
-    ///
-    /// This is an unfortunate workaround for a limitation of the `minicbor`
-    /// API: the errors our `Write` implementation can return are wrapped in an
-    /// `encode::Error`, and we can't actually get our errors *out* of that
-    /// wrapper, so there's no way to tell whether the error was becasue we ran
-    /// out of space in the buffer, or because the lease client went away. So,
-    /// we track it here, so that the caller can just ask us if we didn't have
-    /// space to encode something.
-    ///
-    pub fn check_err(&self, err: minicbor::encode::Error<WriteError>) -> Error {
-        if err.is_write() {
-            if self.ran_out_of_space {
-                Error::EndOfLease
-            } else {
-                Error::WentAway
-            }
-        } else {
-            // This is an encoder error, which we have no good way to
-            // recover from.
-            panic!()
-        }
     }
 }
 

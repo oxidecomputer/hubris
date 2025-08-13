@@ -20,7 +20,7 @@ use minicbor::CborLen;
 use minicbor_lease::LeasedWriter;
 use ringbuf::{counted_ringbuf, ringbuf_entry};
 use task_packrat_api::{EreportReadError, VpdIdentity};
-use userlib::{kipc, sys_get_timer, RecvMessage, TaskId};
+use userlib::{kipc, sys_get_timer, RecvMessage, TaskId, UnwrapLite};
 use zerocopy::IntoBytes;
 
 pub(crate) struct EreportStore {
@@ -160,11 +160,12 @@ impl EreportStore {
             &mut data,
         ));
 
-        fn check_err(
-            encoder: &minicbor::Encoder<LeasedWriter<'_, idol_runtime::W>>,
-            err: minicbor::encode::Error<minicbor_lease::WriteError>,
+        fn handle_encode_err(
+            err: minicbor::encode::Error<minicbor_lease::Error>,
         ) -> RequestError<EreportReadError> {
-            match encoder.writer().check_err(err) {
+            // These should always be write errors; everything we write should
+            // always encode successfully.
+            match err.into_write().unwrap_lite() {
                 minicbor_lease::Error::WentAway => ClientError::WentAway.fail(),
                 minicbor_lease::Error::EndOfLease => {
                     ClientError::BadLease.fail()
@@ -176,20 +177,7 @@ impl EreportStore {
         //
         // MGS expects us to always include this, and to just have it be
         // empty if we didn't send any metadata.
-        encoder
-            .begin_map()
-            // This pattern (which will occur every time we handle an encoder
-            // error in this function) is goofy, but is necessary to placate the
-            // borrow checker: the function passed to `map_err` must borrow the
-            // encoder so that it can check whether the error indicates that we
-            // ran out of space in the lease, or if the client disappeared.
-            // However, because `minicbor::Encoder`'s methods return a mutable
-            // borrow of the encoder, we must drop it first before borrowing it
-            // into the `map_err` closure. Thus, every `map_err` must be
-            // preceded by a `map` with a toilet closure that drops the mutable
-            // borrow. Yuck.
-            .map(|_| ())
-            .map_err(|e| check_err(&encoder, e))?;
+        encoder.begin_map().map_err(handle_encode_err)?;
 
         // If the requested restart ID matches the current restart ID, then read
         // from the requested ENA. If not, start at ENA 0.
@@ -218,8 +206,7 @@ impl EreportStore {
             if let Some(vpd) = vpd {
                 // Encode the metadata map.
                 self.encode_metadata(&mut encoder, vpd)
-                    .map(|_| ())
-                    .map_err(|e| check_err(&encoder, e))?;
+                    .map_err(handle_encode_err)?;
                 ringbuf_entry!(Trace::MetadataEncoded {
                     len: encoder
                         .writer()
@@ -233,10 +220,7 @@ impl EreportStore {
         };
 
         // End metadata map.
-        encoder
-            .end()
-            .map(|_| ())
-            .map_err(|e| check_err(&encoder, e))?;
+        encoder.end().map_err(handle_encode_err)?;
 
         let mut reports = 0;
         // Beginning with the first
@@ -290,24 +274,15 @@ impl EreportStore {
             if first_written_ena.is_none() {
                 first_written_ena = Some(r.ena);
                 // Start the ereport array
-                encoder
-                    .begin_array()
-                    .map(|_| ())
-                    .map_err(|e| check_err(&encoder, e))?;
+                encoder.begin_array().map_err(handle_encode_err)?;
             }
-            encoder
-                .encode(&entry)
-                .map(|_| ())
-                .map_err(|e| check_err(&encoder, e))?;
+            encoder.encode(&entry).map_err(handle_encode_err)?;
             reports += 1;
         }
 
         if let Some(start_ena) = first_written_ena {
             // End CBOR array, if we wrote anything.
-            encoder
-                .end()
-                .map(|_| ())
-                .map_err(|e| check_err(&encoder, e))?;
+            encoder.end().map_err(handle_encode_err)?;
 
             ringbuf_entry!(Trace::Reported {
                 start_ena,
@@ -335,7 +310,7 @@ impl EreportStore {
         &self,
         encoder: &mut minicbor::Encoder<LeasedWriter<'_, idol_runtime::W>>,
         vpd: &VpdIdentity,
-    ) -> Result<(), minicbor::encode::Error<minicbor_lease::WriteError>> {
+    ) -> Result<(), minicbor::encode::Error<minicbor_lease::Error>> {
         encoder
             .str("hubris_archive_id")?
             .bytes(&self.image_id[..])?;
