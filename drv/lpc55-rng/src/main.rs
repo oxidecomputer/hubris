@@ -107,11 +107,7 @@ where
             threshold
         };
 
-        // try_trait_v2 is still experimental
-        let inner = match T::from_rng(&mut reseeder) {
-            Ok(rng) => rng,
-            Err(err) => return Err(err),
-        };
+        let inner = T::from_rng(&mut reseeder)?;
         Ok(ReseedingRng {
             inner,
             reseeder,
@@ -138,11 +134,7 @@ where
     fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), Error> {
         let num_bytes = dest.len();
         if num_bytes >= self.bytes_until_reseed || num_bytes >= self.threshold {
-            // try_trait_v2 is still experimental
-            self.inner = match T::from_rng(&mut self.reseeder) {
-                Ok(rng) => rng,
-                Err(e) => return Err(e),
-            };
+            self.inner = T::from_rng(&mut self.reseeder)?;
             self.bytes_until_reseed = self.threshold;
         } else {
             self.bytes_until_reseed -= num_bytes;

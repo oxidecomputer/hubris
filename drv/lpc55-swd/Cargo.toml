@@ -13,6 +13,7 @@ zerocopy = { workspace = true }
 zerocopy-derive = { workspace = true }
 bitflags = { workspace = true }
 static_assertions = { workspace = true }
+measurement-token = { workspace = true }
 
 attest-api = { path = "../../task/attest-api" }
 drv-lpc55-gpio-api = { path = "../lpc55-gpio-api" }

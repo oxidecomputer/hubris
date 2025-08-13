@@ -14,7 +14,8 @@ register-map = "../../drv/spartan7-loader/grapefruit/gfruit_top.json"
 [kernel]
 name = "grapefruit"
 requires = {flash = 32768, ram = 8192}
-features = ["dump"]
+features = ["dump", "measurement-handoff"]
+extern-regions = ["dtcm"]
 
 [caboose]
 tasks = ["control_plane_agent"]

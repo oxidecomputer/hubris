@@ -692,7 +692,7 @@ impl ServerImpl {
             .ok_or(ResponseCode::NoDevice)?;
         let (dev, rail) = (cfg.builder)(self.i2c_task);
 
-        #[repr(packed)]
+        #[repr(C, packed)]
         #[allow(dead_code)]
         struct Args<T> {
             op: u8,

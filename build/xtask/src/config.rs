@@ -581,10 +581,27 @@ impl Config {
         task: &str,
         image_name: &str,
     ) -> Result<IndexMap<String, Range<u32>>> {
-        self.tasks
+        let extern_regions = &self
+            .tasks
             .get(task)
             .ok_or_else(|| anyhow!("no such task {task}"))?
-            .extern_regions
+            .extern_regions;
+        self.get_extern_regions(extern_regions, image_name)
+    }
+
+    pub fn kernel_extern_regions(
+        &self,
+        image_name: &str,
+    ) -> Result<IndexMap<String, Range<u32>>> {
+        self.get_extern_regions(&self.kernel.extern_regions, image_name)
+    }
+
+    fn get_extern_regions(
+        &self,
+        extern_regions: &Vec<String>,
+        image_name: &str,
+    ) -> Result<IndexMap<String, Range<u32>>> {
+        extern_regions
             .iter()
             .map(|r| {
                 let mut regions = self
@@ -710,6 +727,8 @@ pub struct Kernel {
     pub features: Vec<String>,
     #[serde(default)]
     pub no_default_features: bool,
+    #[serde(default)]
+    pub extern_regions: Vec<String>,
 }
 
 fn default_name() -> String {
@@ -780,12 +799,7 @@ impl BuildConfig<'_> {
 
         let mut nightly_features = vec![];
         // nightly features that we use:
-        nightly_features.extend([
-            "asm_const",
-            "emit_stack_sizes",
-            "naked_functions",
-            "used_with_arg",
-        ]);
+        nightly_features.extend(["emit_stack_sizes", "used_with_arg"]);
         // nightly features that our dependencies use:
         nightly_features.extend([
             "backtrace",

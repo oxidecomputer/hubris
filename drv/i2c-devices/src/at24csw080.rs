@@ -115,13 +115,11 @@ impl At24Csw080 {
             return Err(Error::InvalidAddress(addr));
         }
         let obj_size = core::mem::size_of::<V>();
-        let end_addr = addr
-            .checked_add(
-                obj_size
-                    .try_into()
-                    .map_err(|_| Error::InvalidObjectSize(obj_size))?,
-            )
-            .unwrap_or(u16::MAX);
+        let end_addr = addr.saturating_add(
+            obj_size
+                .try_into()
+                .map_err(|_| Error::InvalidObjectSize(obj_size))?,
+        );
         if end_addr > EEPROM_SIZE {
             return Err(Error::InvalidEndAddress(end_addr));
         }
@@ -141,7 +139,7 @@ impl At24Csw080 {
         if addr >= EEPROM_SIZE || buf.len() >= u16::MAX as usize {
             return Err(Error::InvalidAddress(addr));
         }
-        let end_addr = addr.checked_add(buf.len() as u16).unwrap_or(u16::MAX);
+        let end_addr = addr.saturating_add(buf.len() as u16);
         if end_addr > EEPROM_SIZE {
             return Err(Error::InvalidEndAddress(end_addr));
         }
@@ -210,13 +208,11 @@ impl At24Csw080 {
         if addr >= EEPROM_SIZE {
             return Err(Error::InvalidAddress(addr));
         }
-        let end_addr = addr
-            .checked_add(
-                buf.len()
-                    .try_into()
-                    .map_err(|_| Error::InvalidObjectSize(buf.len()))?,
-            )
-            .unwrap_or(u16::MAX);
+        let end_addr = addr.saturating_add(
+            buf.len()
+                .try_into()
+                .map_err(|_| Error::InvalidObjectSize(buf.len()))?,
+        );
         if end_addr > EEPROM_SIZE {
             return Err(Error::InvalidEndAddress(end_addr));
         }

@@ -153,6 +153,7 @@ hubtools = { git = "https://github.com/oxidecomputer/hubtools", default-features
 idol = { git = "https://github.com/oxidecomputer/idolatry.git", default-features = false }
 idol-runtime = { git = "https://github.com/oxidecomputer/idolatry.git", default-features = false }
 lpc55_sign = { git = "https://github.com/oxidecomputer/lpc55_support", default-features = false }
+measurement-token = { git = "https://github.com/oxidecomputer/lpc55_support", default-features = false }
 ordered-toml = { git = "https://github.com/oxidecomputer/ordered-toml", default-features = false }
 pmbus = { git = "https://github.com/oxidecomputer/pmbus", default-features = false }
 salty = { version = "0.3", default-features = false }

@@ -11,7 +11,6 @@ use drv_stm32xx_sys_api::{self as sys_api, Sys};
 /// `Ecp5UsingSpi` is the simplest implementation of the Ecp5Impl interface using
 /// the SPI and Sys APIs. It assumes the PROGRAM_N, INIT_N and DONE signals are
 /// directly connected to GPIO pins.
-
 pub struct Ecp5UsingSpi<S: SpiServer> {
     pub sys: Sys,
     pub configuration_port: SpiDevice<S>,

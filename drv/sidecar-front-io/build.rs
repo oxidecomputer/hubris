@@ -32,8 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         build_util::env_var("HUBRIS_AUXFLASH_CHECKSUM_QSFP").unwrap();
     writeln!(
         &mut file,
-        "\npub const SIDECAR_IO_BITSTREAM_CHECKSUM: [u8; 32] = {};",
-        checksum,
+        "\npub const SIDECAR_IO_BITSTREAM_CHECKSUM: [u8; 32] = {checksum};",
     )?;
 
     Ok(())

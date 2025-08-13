@@ -15,6 +15,9 @@ use drv_stm32h7_startup::ClockConfig;
 
 use cortex_m_rt::entry;
 
+#[cfg(feature = "traptrace")]
+mod tracing;
+
 #[entry]
 fn main() -> ! {
     system_init();
