@@ -376,7 +376,7 @@ pub fn package(
     // build changed.
     for name in cfg.toml.tasks.keys() {
         // Magic for lpc55-swd to be able to include endoscope, until artifact
-        // dependencies are available on stable. See build_endoscope's commend for
+        // dependencies are available on stable. See build_endoscope's comment for
         // more.
         if cfg.toml.tasks[name.as_str()].name == "drv-lpc55-swd" {
             build_endoscope()?;
