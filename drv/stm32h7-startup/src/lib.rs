@@ -97,6 +97,16 @@ pub fn system_init_custom(
     //
     // We are running at 64MHz on the HSI oscillator at voltage scale VOS3.
 
+    // Before doing anything else, check for a measurement handoff token
+    #[cfg(feature = "measurement-handoff")]
+    unsafe {
+        const RETRY_COUNT: u32 = 20;
+        measurement_handoff::check(RETRY_COUNT, || {
+            cortex_m::asm::delay(12860000); // about 200 ms
+            cortex_m::peripheral::SCB::sys_reset()
+        });
+    }
+
     #[cfg(any(feature = "h743", feature = "h753"))]
     {
         // Workaround for erratum 2.2.9 "Reading from AXI SRAM may lead to data
