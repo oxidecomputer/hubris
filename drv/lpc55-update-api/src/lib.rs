@@ -161,6 +161,9 @@ pub enum VersionedRotBootInfo {
     V1(RotBootInfo),
     V2(RotBootInfoV2),
 }
+impl VersionedRotBootInfo {
+    pub const HIGHEST_KNOWN_VERSION: u8 = 2;
+}
 
 #[derive(Clone, Copy, Serialize, Deserialize, SerializedSize)]
 pub enum RotPage {
