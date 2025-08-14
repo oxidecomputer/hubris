@@ -10,7 +10,7 @@ name = "gemini-bu"
 requires = {flash = 32768, ram = 8192}
 
 [tasks.jefe]
-name = "task-jefe"
+bin-crate = "task-jefe"
 priority = 0
 max-sizes = {flash = 8192, ram = 2048}
 start = true
@@ -22,7 +22,7 @@ set_reset_reason = ["sys"]
 request_reset = ["hiffy"]
 
 [tasks.sys]
-name = "drv-stm32xx-sys"
+bin-crate = "drv-stm32xx-sys"
 features = ["h753", "exti"]
 priority = 1
 max-sizes = {flash = 4096, ram = 2048}
@@ -46,7 +46,7 @@ pin = 3
 owner = {name = "sprot", notification = "rot_irq"}
 
 [tasks.i2c_driver]
-name = "drv-stm32xx-i2c-server"
+bin-crate = "drv-stm32xx-i2c-server"
 stacksize = 1048
 features = ["h753"]
 priority = 2
@@ -64,7 +64,7 @@ task-slots = ["sys"]
 "i2c4.error" = "i2c4-irq"
 
 [tasks.spi2_driver]
-name = "drv-stm32h7-spi-server"
+bin-crate = "drv-stm32h7-spi-server"
 priority = 2
 max-sizes = {flash = 16384, ram = 4096}
 features = ["h753", "spi2"]
@@ -76,7 +76,7 @@ stacksize = 880
 task-slots = ["sys"]
 
 [tasks.user_leds]
-name = "drv-user-leds"
+bin-crate = "drv-user-leds"
 features = ["stm32h7"]
 priority = 5
 max-sizes = {flash = 2048, ram = 1024}
@@ -85,7 +85,7 @@ task-slots = ["sys"]
 notifications = ["timer"]
 
 [tasks.pong]
-name = "task-pong"
+bin-crate = "task-pong"
 priority = 8
 max-sizes = {flash = 1024, ram = 1024}
 start = true
@@ -93,7 +93,7 @@ task-slots = ["user_leds"]
 notifications = ["timer"]
 
 [tasks.hf]
-name = "drv-mock-gimlet-hf-server"
+bin-crate = "drv-mock-gimlet-hf-server"
 features = ["h753", "hash"]
 priority = 6
 max-sizes = {flash = 16384, ram = 4096 }
@@ -105,7 +105,7 @@ interrupts = {"quadspi.irq" = "qspi-irq"}
 task-slots = ["sys", "hash_driver"]
 
 [tasks.hash_driver]
-name = "drv-stm32h7-hash-server"
+bin-crate = "drv-stm32h7-hash-server"
 features = ["h753"]
 priority = 5
 max-sizes = {flash = 16384, ram=4096 }
@@ -117,7 +117,7 @@ interrupts = {"hash.irq" = "hash-irq"}
 task-slots = ["sys"]
 
 [tasks.hiffy]
-name = "task-hiffy"
+bin-crate = "task-hiffy"
 features = ["h753", "stm32h7", "i2c", "gpio", "spi", "qspi", "hash", "sprot"]
 priority = 7
 max-sizes = {flash = 32768, ram = 16384 }
@@ -126,7 +126,7 @@ start = true
 task-slots = ["sys", "i2c_driver", "hf", "hash_driver", "sprot", "update_server"]
 
 [tasks.sprot]
-name = "drv-stm32h7-sprot-server"
+bin-crate = "drv-stm32h7-sprot-server"
 priority = 5
 max-sizes = {flash = 65536, ram = 32768}
 stacksize = 4096
@@ -138,7 +138,7 @@ notifications = ["spi-irq", "rot-irq", "timer"]
 interrupts = {"spi4.irq" = "spi-irq"}
 
 [tasks.validate]
-name = "task-validate"
+bin-crate = "task-validate"
 priority = 3
 max-sizes = {flash = 8192, ram = 4096 }
 stacksize = 1000 
@@ -146,7 +146,7 @@ start = true
 task-slots = ["i2c_driver"]
 
 [tasks.idle]
-name = "task-idle"
+bin-crate = "task-idle"
 priority = 9
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
@@ -154,7 +154,7 @@ start = true
 
 [tasks.rng_driver]
 features = ["h753"]
-name = "drv-stm32h7-rng"
+bin-crate = "drv-stm32h7-rng"
 priority = 6
 uses = ["rng"]
 start = true
@@ -162,7 +162,7 @@ stacksize = 512
 task-slots = ["sys", "user_leds"]
 
 [tasks.update_server]
-name = "stm32h7-update-server"
+bin-crate = "stm32h7-update-server"
 priority = 3
 max-sizes = {flash = 16384, ram = 4096}
 stacksize = 2048

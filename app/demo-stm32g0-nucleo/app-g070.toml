@@ -12,7 +12,7 @@ features = ["g070"]
 stacksize = 640
 
 [tasks.jefe]
-name = "task-jefe"
+bin-crate = "task-jefe"
 priority = 0
 max-sizes = {flash = 4096, ram = 512}
 start = true
@@ -20,7 +20,7 @@ stacksize = 352
 notifications = ["fault", "timer"]
 
 [tasks.sys]
-name = "drv-stm32xx-sys"
+bin-crate = "drv-stm32xx-sys"
 features = ["g070", "no-ipc-counters"]
 priority = 1
 max-sizes = {flash = 2048, ram = 256}
@@ -30,7 +30,7 @@ stacksize = 256
 task-slots = ["jefe"]
 
 [tasks.usart_driver]
-name = "drv-stm32g0-usart"
+bin-crate = "drv-stm32g0-usart"
 features = ["g070", "no-ipc-counters"]
 priority = 2
 max-sizes = {flash = 4096, ram = 256}
@@ -42,7 +42,7 @@ task-slots = ["sys"]
 stacksize = 256
 
 [tasks.user_leds]
-name = "drv-user-leds"
+bin-crate = "drv-user-leds"
 features = ["stm32g0", "no-ipc-counters"]
 priority = 2
 max-sizes = {flash = 2048, ram = 256}
@@ -52,7 +52,7 @@ stacksize = 256
 notifications = ["timer"]
 
 [tasks.pong]
-name = "task-pong"
+bin-crate = "task-pong"
 features = ["no-ipc-counters"]
 priority = 3
 max-sizes = {flash = 1024, ram = 256}
@@ -62,7 +62,7 @@ notifications = ["timer"]
 stacksize = 256
 
 [tasks.ping]
-name = "task-ping"
+bin-crate = "task-ping"
 features = ["uart", "no-ipc-counters"]
 priority = 4
 max-sizes = {flash = 8192, ram = 1024}
@@ -71,14 +71,14 @@ start = true
 task-slots = [{peer = "pong"}, "usart_driver"]
 
 [tasks.hiffy]
-name = "task-hiffy"
+bin-crate = "task-hiffy"
 features = ["no-ipc-counters"]
 priority = 3
 max-sizes = {flash = 8192, ram = 8192 }
 start = true
 
 [tasks.idle]
-name = "task-idle"
+bin-crate = "task-idle"
 priority = 5
 max-sizes = {flash = 128, ram = 64}
 stacksize = 64

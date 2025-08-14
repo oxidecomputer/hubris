@@ -17,7 +17,7 @@ region = "flash"
 size = 256
 
 [tasks.jefe]
-name = "task-jefe"
+bin-crate = "task-jefe"
 priority = 0
 max-sizes = {flash = 4096, ram = 512}
 start = true
@@ -25,7 +25,7 @@ stacksize = 352
 notifications = ["fault", "timer"]
 
 [tasks.idle]
-name = "task-idle"
+bin-crate = "task-idle"
 priority = 5
 max-sizes = {flash = 128, ram = 64}
 stacksize = 64

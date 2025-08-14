@@ -230,7 +230,7 @@ fn check_task(
 
     // Check to see if our target package is used in this task (resolved based
     // on per-task features)
-    let dependencies = packages.resolve(&task.name, &task.features);
+    let dependencies = packages.resolve(&task.bin_crate, &task.features);
 
     // Congrats, we've found a task in the given image which uses our
     // desired crate.  Let's do some stuff with it.

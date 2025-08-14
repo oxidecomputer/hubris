@@ -58,8 +58,10 @@ pub struct MmioData {
     pub register_map: PathBuf,
 }
 
+/// Data structure of an app's `app.toml` file
 #[derive(Clone, Debug)]
 pub struct Config {
+    /// The name of the app, e.g. oxide-rot-1
     pub name: String,
     pub target: String,
     pub board: String,
@@ -73,6 +75,7 @@ pub struct Config {
     pub stacksize: Option<u32>,
     pub kernel: Kernel,
     pub outputs: IndexMap<String, Vec<Output>>,
+    /// Map of tasks, keyed by task name e.g. jefe
     pub tasks: IndexMap<String, Task>,
     pub peripherals: IndexMap<String, Peripheral>,
     pub extratext: IndexMap<String, Peripheral>,
@@ -407,7 +410,7 @@ impl Config {
             .ok_or_else(|| self.task_name_suggestion(task_name))?;
         let mut out = self.common_build_config(
             verbose,
-            &task_toml.name,
+            &task_toml.bin_crate,
             task_toml.no_default_features,
             &task_toml.features,
             sysroot,

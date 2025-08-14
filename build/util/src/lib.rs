@@ -313,7 +313,7 @@ pub fn build_notifications() -> Result<()> {
              overlapping with `INTERNAL_TIMER_NOTIFICATION`"
         );
     }
-    if full_task_config.name == "task-jefe"
+    if full_task_config.bin_crate == "task-jefe"
         && full_task_config.notifications.first().cloned()
             != Some("fault".to_string())
     {
