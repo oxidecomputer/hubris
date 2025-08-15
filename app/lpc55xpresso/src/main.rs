@@ -16,7 +16,13 @@ fn main() -> ! {
 
     let (cycles_per_ms, _div) = get_clock_speed(&peripherals);
 
+    set_hashcrypt_rom();
+
     startup(&core_peripherals, &peripherals);
+
+    set_hashcrypt_default();
 
     unsafe { kern::startup::start_kernel(cycles_per_ms * 1_000) }
 }
+
+lpc55_hashcrypt::dynamic_hashcrypt!();
