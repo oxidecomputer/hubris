@@ -50,8 +50,16 @@ enum Trace {
     FaultsCleared,
     Notified,
     Fault,
-    Reading { timestamp: u64, volts: units::Volts },
+    Reading {
+        timestamp: u64,
+        volts: units::Volts,
+    },
     Error(ResponseCode),
+    Summary {
+        max: units::Volts,
+        min: units::Volts,
+        avg: units::Volts,
+    },
 }
 
 ringbuf!(Trace, 120, Trace::None);
@@ -173,13 +181,22 @@ impl VCore {
                 }
             }
 
+            // The min/max/average values are intended mainly for the ereport,
+            // but we may as well put them in the ringbuf, too.
+            let avg = sum / ngood as f32;
+            ringbuf_entry!(Trace::Summary {
+                max: units::Volts(max_vin),
+                min: units::Volts(min_vin),
+                avg: units::Volts(avg),
+            });
+
             // "Houston, we've got a main bus B undervolt..."
             let ereport = UvEreport {
                 k: "seq.vcore.undervolt",
                 rail: self.device.rail(),
                 min_vin,
                 max_vin,
-                avg_vin: sum / ngood as f32,
+                avg_vin: avg,
                 time: t0,
             };
             deliver_ereport(&self.packrat, &ereport);
