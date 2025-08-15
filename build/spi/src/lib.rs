@@ -187,7 +187,7 @@ impl ToTokens for SpiMuxOptionConfig {
 
 impl ToTokens for ConfigPort {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        let port: syn::Ident = syn::parse_str(&format!("{:?}", self)).unwrap();
+        let port: syn::Ident = syn::parse_str(&format!("{self:?}")).unwrap();
         tokens.append_all(quote::quote! {
             sys_api::Port::#port
         });

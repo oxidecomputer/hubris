@@ -42,11 +42,12 @@ owner = {name = "sprot", notification = "rot_irq"}
 
 [tasks.packrat]
 name = "task-packrat"
-priority = 3
-max-sizes = {flash = 8192, ram = 2048}
+priority = 1
 start = true
 # task-slots is explicitly empty: packrat should not send IPCs!
 task-slots = []
+stacksize = 1040
+features = ["ereport"]
 
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"
@@ -185,6 +186,21 @@ task-slots = ["net", "packrat"]
 features = ["vlan"]
 notifications = ["socket"]
 
+[tasks.snitch]
+name = "task-snitch"
+# The snitch should have a priority immediately below that of the net task,
+# to minimize the number of components that can starve it from resources.
+priority = 4
+stacksize = 1200
+start = true
+task-slots = ["net", "packrat"]
+features = ["vlan"]
+notifications = ["socket"]
+
+[tasks.rng_driver]
+features = ["h753", "ereport"]
+task-slots = ["sys", "user_leds", "packrat"]
+
 # VLAN configuration
 [config.net.vlans.sidecar1]
 vid = 0x301
@@ -232,6 +248,15 @@ owner = {name = "dump_agent", notification = "socket"}
 port = 11113
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.ereport]
+kind = "udp"
+owner = {name = "snitch", notification = "socket"}
+port = 57005
+tx = { packets = 3, bytes = 1024 }
+# v0 ereport requests are always 35B, so just make the buffer exactly
+# that size...
+rx = { packets = 3, bytes = 35 }
 
 [tasks.sprot]
 name = "drv-stm32h7-sprot-server"

@@ -256,7 +256,7 @@ impl idl::InOrderAttestImpl for AttestServer {
 
         // The first measurement can only be made by a privileged task.
         if self.measurements.is_empty()
-            && !PERMIT_LOG_RESET.iter().any(|x| *x == msg.sender.0)
+            && !PERMIT_LOG_RESET.contains(&msg.sender.0)
         {
             // This is NOT a coding error in the client.
             // The SP has not been measured yet and the first
@@ -288,7 +288,7 @@ impl idl::InOrderAttestImpl for AttestServer {
         &mut self,
         msg: &userlib::RecvMessage,
     ) -> Result<(), RequestError<AttestError>> {
-        if !PERMIT_LOG_RESET.iter().any(|x| *x == msg.sender.0) {
+        if !PERMIT_LOG_RESET.contains(&msg.sender.0) {
             // This is a coding error in the client.
             // They should not ask to reset the attestation log.
             return Err(ClientError::AccessViolation.fail());
@@ -308,7 +308,7 @@ impl idl::InOrderAttestImpl for AttestServer {
     ) -> Result<(), RequestError<AttestError>> {
         ringbuf_entry!(Trace::ResetRecord(algorithm));
 
-        if !PERMIT_LOG_RESET.iter().any(|x| *x == msg.sender.0) {
+        if !PERMIT_LOG_RESET.contains(&msg.sender.0) {
             // This is a coding error in the client.
             // They should not ask to reset the attestation log.
             return Err(ClientError::AccessViolation.fail());

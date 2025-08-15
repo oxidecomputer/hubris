@@ -20,7 +20,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             let out_dir = build_util::out_dir();
             let dest_path = out_dir.join("checksum.rs");
             let mut file = std::fs::File::create(dest_path)?;
-            writeln!(&mut file, "const AUXI_CHECKSUM: [u8; 32] = {};", e)?;
+            writeln!(&mut file, "const AUXI_CHECKSUM: [u8; 32] = {e};")?;
         }
         Err(e) => panic!(
             "Could not find HUBRIS_AUXFLASH_CHECKSUM in environment. \

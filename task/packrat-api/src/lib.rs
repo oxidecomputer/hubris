@@ -12,6 +12,7 @@ use zerocopy::{
     FromBytes, Immutable, IntoBytes, KnownLayout, LittleEndian, U16,
 };
 
+pub use gateway_ereport_messages as ereport_messages;
 pub use host_sp_messages::HostStartupOptions;
 pub use oxide_barcode::VpdIdentity;
 
@@ -50,6 +51,13 @@ pub enum CacheGetError {
 )]
 pub enum CacheSetError {
     ValueAlreadySet = 1,
+}
+
+#[derive(
+    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, counters::Count,
+)]
+pub enum EreportReadError {
+    RestartIdNotSet = 1,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

@@ -108,8 +108,7 @@ notifications = ["timer"]
 
 [tasks.packrat]
 name = "task-packrat"
-priority = 3
-max-sizes = {flash = 8192, ram = 2048}
+priority = 1
 start = true
 # task-slots is explicitly empty: packrat should not send IPCs!
 task-slots = []

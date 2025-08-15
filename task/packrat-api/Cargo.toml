@@ -10,6 +10,7 @@ host-sp-messages.path = "../../lib/host-sp-messages"
 oxide-barcode.path = "../../lib/oxide-barcode"
 userlib.path = "../../sys/userlib"
 
+gateway-ereport-messages.workspace = true
 idol-runtime.workspace = true
 num-traits.workspace = true
 zerocopy.workspace = true
@@ -24,6 +25,7 @@ bench = false
 
 [build-dependencies]
 idol.workspace = true
+anyhow.workspace = true
 
 [lints]
 workspace = true

@@ -36,8 +36,12 @@ sa::const_assert!(
 );
 
 // ensure DICE_FLASH start and end are alligned
-sa::const_assert!(FLASH_DICE_MFG.end as usize % BYTES_PER_FLASH_PAGE == 0);
-sa::const_assert!(FLASH_DICE_MFG.start as usize % BYTES_PER_FLASH_PAGE == 0);
+sa::const_assert!(
+    (FLASH_DICE_MFG.end as usize).is_multiple_of(BYTES_PER_FLASH_PAGE)
+);
+sa::const_assert!(
+    (FLASH_DICE_MFG.start as usize).is_multiple_of(BYTES_PER_FLASH_PAGE)
+);
 
 const VERSION: u32 = 0;
 const MAGIC: [u8; 12] = [
