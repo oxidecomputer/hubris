@@ -862,8 +862,8 @@ cfg_if::cfg_if! {
             SVCall:
                 @ Inspect LR to figure out the caller's mode.
                 mov r0, lr
-                ldr r1, =0xFFFFFFF3
-                bics r0, r0, r1
+                movs r1, #0xC
+                ands r0, r1
                 @ Is the call coming from thread mode + main stack, i.e.
                 @ from the kernel startup routine?
                 cmp r0, #0x8
@@ -939,8 +939,7 @@ cfg_if::cfg_if! {
             SVCall:
                 @ Inspect LR to figure out the caller's mode.
                 mov r0, lr
-                mov r1, #0xFFFFFFF3
-                bic r0, r1
+                and r0, r0, #0xC
                 @ Is the call coming from thread mode + main stack, i.e.
                 @ from the kernel startup routine?
                 cmp r0, #0x8
