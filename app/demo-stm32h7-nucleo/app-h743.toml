@@ -11,7 +11,7 @@ requires = {flash = 24736, ram = 5120}
 features = ["h743", "dump"]
 
 [tasks.jefe]
-name = "task-jefe"
+bin-crate = "task-jefe"
 priority = 0
 max-sizes = {flash = 16384, ram = 2048}
 start = true
@@ -25,7 +25,7 @@ set_reset_reason = ["sys"]
 request_reset = ["hiffy"]
 
 [tasks.sys]
-name = "drv-stm32xx-sys"
+bin-crate = "drv-stm32xx-sys"
 features = ["h743", "exti", "no-panic"]
 priority = 1
 uses = ["rcc", "gpios", "system_flash", "syscfg", "exti"]
@@ -48,7 +48,7 @@ pin = 13
 owner = {name = "user_button", notification = "button"}
 
 [tasks.i2c_driver]
-name = "drv-stm32xx-i2c-server"
+bin-crate = "drv-stm32xx-i2c-server"
 stacksize = 1048
 features = ["h743"]
 priority = 2
@@ -68,7 +68,7 @@ notifications = ["i2c1-irq", "i2c2-irq", "i2c3-irq", "i2c4-irq"]
 "i2c4.error" = "i2c4-irq"
 
 [tasks.spi_driver]
-name = "drv-stm32h7-spi-server"
+bin-crate = "drv-stm32h7-spi-server"
 priority = 2
 max-sizes = {flash = 16384, ram = 4096}
 features = ["spi1", "h743"]
@@ -80,7 +80,7 @@ stacksize = 880
 task-slots = ["sys"]
 
 [tasks.net]
-name = "task-net"
+bin-crate = "task-net"
 stacksize = 4000
 priority = 2
 max-sizes = {flash = 65536, ram = 8192, sram1_mac = 32768}
@@ -93,7 +93,7 @@ interrupts = {"eth.irq" = "eth-irq", "tim16.irq" = "mdio-timer-irq"}
 task-slots = ["sys", "jefe"]
 
 [tasks.user_leds]
-name = "drv-user-leds"
+bin-crate = "drv-user-leds"
 features = ["stm32h7"]
 priority = 2
 max-sizes = {flash = 2048, ram = 1024}
@@ -103,7 +103,7 @@ notifications = ["timer"]
 config = { blink_at_start = [ "Led::Zero" ] }
 
 [tasks.user_button]
-name = "task-nucleo-user-button"
+bin-crate = "task-nucleo-user-button"
 priority = 3
 start = true
 task-slots = ["sys", "user_leds"]
@@ -111,7 +111,7 @@ notifications = ["button"]
 config = { led = 1, edge = "Edge::Rising" }
 
 [tasks.udpecho]
-name = "task-udpecho"
+bin-crate = "task-udpecho"
 priority = 3
 max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
@@ -120,7 +120,7 @@ task-slots = ["net"]
 notifications = ["socket"]
 
 [tasks.hiffy]
-name = "task-hiffy"
+bin-crate = "task-hiffy"
 features = ["h743", "stm32h7", "i2c", "gpio", "spi", "turbo"]
 priority = 4
 max-sizes = {flash = 32768, ram = 65536 }
@@ -129,7 +129,7 @@ start = true
 task-slots = ["sys", "i2c_driver"]
 
 [tasks.idle]
-name = "task-idle"
+bin-crate = "task-idle"
 priority = 6
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
@@ -138,14 +138,14 @@ start = true
 [tasks.rng_driver]
 features = ["h743"]
 priority = 3
-name = "drv-stm32h7-rng"
+bin-crate = "drv-stm32h7-rng"
 stacksize = 512
 start = true
 task-slots = ["sys", "user_leds"]
 uses = ["rng"]
 
 [tasks.dump_agent]
-name = "task-dump-agent"
+bin-crate = "task-dump-agent"
 features = ["no-rot"]
 priority = 4
 max-sizes = {flash = 32768, ram = 2048 }

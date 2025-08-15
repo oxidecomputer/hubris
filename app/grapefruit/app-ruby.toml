@@ -9,7 +9,7 @@ uses = ["usart6"]
 interrupts = {"usart6.irq" = "usart-irq"}
 
 [tasks.thermal]
-name = "task-thermal"
+bin-crate = "task-thermal"
 features = ["grapefruit"]
 priority = 5
 max-sizes = {flash = 32768, ram = 8192 }

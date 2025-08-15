@@ -4,7 +4,7 @@
 request_reset = ["udprpc"]
 
 [tasks.udprpc]
-name = "task-udprpc"
+bin-crate = "task-udprpc"
 priority = 6
 max-sizes = {flash = 32768, ram = 8192}
 stacksize = 4096
@@ -14,7 +14,7 @@ features = ["vlan"]
 notifications = ["socket"]
 
 [tasks.fmc_demo]
-name = "drv-stm32h7-fmc-demo-server"
+bin-crate = "drv-stm32h7-fmc-demo-server"
 features = ["h753"]
 priority = 6
 start = true

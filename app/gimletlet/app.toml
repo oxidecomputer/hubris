@@ -41,7 +41,7 @@ pin = 0
 owner = {name = "sprot", notification = "rot_irq"}
 
 [tasks.packrat]
-name = "task-packrat"
+bin-crate = "task-packrat"
 priority = 1
 start = true
 # task-slots is explicitly empty: packrat should not send IPCs!
@@ -50,7 +50,7 @@ stacksize = 1040
 features = ["ereport"]
 
 [tasks.control_plane_agent]
-name = "task-control-plane-agent"
+bin-crate = "task-control-plane-agent"
 priority = 7
 stacksize = 6256
 start = true
@@ -74,14 +74,14 @@ notifications = ["usart-irq", "socket", "timer"]
 interrupts = {"usart1.irq" = "usart-irq"}
 
 [tasks.sensor]
-name = "task-sensor"
+bin-crate = "task-sensor"
 priority = 5
 max-sizes = {flash = 16384, ram = 2048 }
 stacksize = 1024
 start = true
 
 [tasks.dump_agent]
-name = "task-dump-agent"
+bin-crate = "task-dump-agent"
 priority = 6
 max-sizes = {flash = 32768, ram = 16384 }
 start = true
@@ -92,14 +92,14 @@ notifications = ["socket"]
 features = ["net", "vlan"]
 
 [tasks.gimlet_seq]
-name = "drv-mock-gimlet-seq-server"
+bin-crate = "drv-mock-gimlet-seq-server"
 priority = 2
 max-sizes = {flash = 2048, ram = 2048 }
 start = true
 task-slots = ["jefe"]
 
 [tasks.host_sp_comms]
-name = "task-host-sp-comms"
+bin-crate = "task-host-sp-comms"
 features = ["gimlet", "stm32h753", "uart7", "baud_rate_3M", "hardware_flow_control", "vlan"]
 uses = ["uart7", "dbgmcu"]
 interrupts = {"uart7.irq" = "usart-irq"}
@@ -116,7 +116,7 @@ notifications = [
 ]
 
 [tasks.hf]
-name = "drv-mock-gimlet-hf-server"
+bin-crate = "drv-mock-gimlet-hf-server"
 features = ["h753"]
 priority = 6
 max-sizes = {flash = 16384, ram = 4096}
@@ -128,7 +128,7 @@ task-slots = ["sys", "hash_driver"]
 notifications = ["qspi-irq"]
 
 [tasks.hash_driver]
-name = "drv-stm32h7-hash-server"
+bin-crate = "drv-stm32h7-hash-server"
 features = ["h753"]
 priority = 2
 max-sizes = {flash = 16384, ram=4096 }
@@ -140,7 +140,7 @@ task-slots = ["sys"]
 notifications = ["hash-irq"]
 
 [tasks.net]
-name = "task-net"
+bin-crate = "task-net"
 stacksize = 8000
 priority = 3
 features = ["h753", "vlan", "gimletlet-nic", "use-spi-core", "spi4"]
@@ -157,7 +157,7 @@ notifications = ["eth-irq", "mdio-timer-irq", "spi-irq", "wake-timer"]
 "spi4.irq" = "spi-irq"
 
 [tasks.udprpc]
-name = "task-udprpc"
+bin-crate = "task-udprpc"
 priority = 6
 max-sizes = {flash = 32768, ram = 8192}
 stacksize = 4096
@@ -167,7 +167,7 @@ features = ["vlan"]
 notifications = ["socket"]
 
 [tasks.udpecho]
-name = "task-udpecho"
+bin-crate = "task-udpecho"
 priority = 4
 max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
@@ -177,7 +177,7 @@ features = ["vlan"]
 notifications = ["socket"]
 
 [tasks.udpbroadcast]
-name = "task-udpbroadcast"
+bin-crate = "task-udpbroadcast"
 priority = 6
 max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
@@ -187,7 +187,7 @@ features = ["vlan"]
 notifications = ["socket"]
 
 [tasks.snitch]
-name = "task-snitch"
+bin-crate = "task-snitch"
 # The snitch should have a priority immediately below that of the net task,
 # to minimize the number of components that can starve it from resources.
 priority = 4
@@ -259,7 +259,7 @@ tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 35 }
 
 [tasks.sprot]
-name = "drv-stm32h7-sprot-server"
+bin-crate = "drv-stm32h7-sprot-server"
 priority = 5
 max-sizes = {flash = 65536, ram = 32768}
 stacksize = 16384
@@ -286,7 +286,7 @@ power = { rails = [ "LM5066_EVL_VOUT" ] }
 sensors = { voltage = 1, current = 1, temperature = 1 }
 
 [tasks.power]
-name = "task-power"
+bin-crate = "task-power"
 priority = 6
 max-sizes = {flash = 65536, ram = 16384 }
 stacksize = 3800

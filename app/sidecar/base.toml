@@ -15,7 +15,7 @@ region = "flash"
 size = 256
 
 [tasks.jefe]
-name = "task-jefe"
+bin-crate = "task-jefe"
 priority = 0
 max-sizes = {flash = 16384, ram = 2048}
 start = true
@@ -29,7 +29,7 @@ set_reset_reason = ["sys"]
 request_reset = ["hiffy", "control_plane_agent"]
 
 [tasks.sys]
-name = "drv-stm32xx-sys"
+bin-crate = "drv-stm32xx-sys"
 features = ["h753", "exti", "no-panic"]
 priority = 1
 max-sizes = {flash = 4096, ram = 2048}
@@ -54,7 +54,7 @@ owner = {name = "sprot", notification = "rot_irq"}
 
 [tasks.rng_driver]
 features = ["h753"]
-name = "drv-stm32h7-rng"
+bin-crate = "drv-stm32h7-rng"
 priority = 6
 uses = ["rng"]
 start = true
@@ -62,7 +62,7 @@ stacksize = 512
 task-slots = ["sys"]
 
 [tasks.update_server]
-name = "stm32h7-update-server"
+bin-crate = "stm32h7-update-server"
 priority = 3
 max-sizes = {flash = 16384, ram = 4096}
 stacksize = 2048
@@ -73,7 +73,7 @@ notifications = ["flash-irq"]
 interrupts = {"flash_controller.irq" = "flash-irq"}
 
 [tasks.auxflash]
-name = "drv-auxflash-server"
+bin-crate = "drv-auxflash-server"
 priority = 3
 max-sizes = {flash = 32768, ram = 4096}
 features = ["h753"]
@@ -85,7 +85,7 @@ stacksize = 3504
 task-slots = ["sys"]
 
 [tasks.net]
-name = "task-net"
+bin-crate = "task-net"
 stacksize = 10000
 priority = 5
 features = ["mgmt", "h753", "sidecar", "vlan", "vpd-mac", "use-spi-core", "spi3"]
@@ -102,7 +102,7 @@ task-slots = ["sys", "packrat", { seq = "sequencer" }, "jefe"]
 "spi3.irq" = "spi-irq"
 
 [tasks.control_plane_agent]
-name = "task-control-plane-agent"
+bin-crate = "task-control-plane-agent"
 priority = 7
 # This is a big number -- do we need to tune this?
 stacksize = 12000
@@ -133,7 +133,7 @@ notifications = ["socket", "usart-irq", "timer"]
 authorized-keys = "../../support/support_tokens/authorized_keys"
 
 [tasks.sprot]
-name = "drv-stm32h7-sprot-server"
+bin-crate = "drv-stm32h7-sprot-server"
 priority = 4
 max-sizes = {flash = 65536, ram = 32768}
 stacksize = 16384
@@ -145,7 +145,7 @@ notifications = ["spi-irq", "rot-irq", "timer"]
 interrupts = {"spi4.irq" = "spi-irq"}
 
 [tasks.udpecho]
-name = "task-udpecho"
+bin-crate = "task-udpecho"
 priority = 6
 max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
@@ -155,7 +155,7 @@ features = ["vlan"]
 notifications = ["socket"]
 
 [tasks.udpbroadcast]
-name = "task-udpbroadcast"
+bin-crate = "task-udpbroadcast"
 priority = 6
 max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
@@ -165,7 +165,7 @@ features = ["vlan"]
 notifications = ["socket"]
 
 [tasks.monorail]
-name = "task-monorail-server"
+bin-crate = "task-monorail-server"
 priority = 6
 max-sizes = {flash = 262144, ram = 16384}
 features = ["mgmt", "sidecar", "vlan", "use-spi-core", "h753", "spi2"]
@@ -177,7 +177,7 @@ notifications = ["spi-irq", "wake-timer"]
 interrupts = {"spi2.irq" = "spi-irq"}
 
 [tasks.i2c_driver]
-name = "drv-stm32xx-i2c-server"
+bin-crate = "drv-stm32xx-i2c-server"
 stacksize = 1048
 features = ["h753"]
 priority = 2
@@ -197,7 +197,7 @@ task-slots = ["sys"]
 "i2c4.error" = "i2c4-irq"
 
 [tasks.hiffy]
-name = "task-hiffy"
+bin-crate = "task-hiffy"
 features = ["h753", "stm32h7", "i2c", "gpio", "sprot", "turbo"]
 priority = 5
 max-sizes = {flash = 32768, ram = 32768 }
@@ -206,7 +206,7 @@ start = true
 task-slots = ["sys", "i2c_driver", "sprot"]
 
 [tasks.sensor]
-name = "task-sensor"
+bin-crate = "task-sensor"
 features = []
 priority = 4
 max-sizes = {flash = 16384, ram = 8192 }
@@ -214,7 +214,7 @@ stacksize = 1024
 start = true
 
 [tasks.ecp5_mainboard]
-name = "drv-fpga-server"
+bin-crate = "drv-fpga-server"
 features = ["mainboard", "use-spi-core", "h753", "spi5"]
 priority = 3
 max-sizes = {flash = 32768, ram = 8192}
@@ -226,7 +226,7 @@ notifications = ["spi-irq"]
 interrupts = {"spi5.irq" = "spi-irq"}
 
 [tasks.ecp5_front_io]
-name = "drv-fpga-server"
+bin-crate = "drv-fpga-server"
 features = ["front_io", "use-spi-core", "h753", "spi1"]
 priority = 3
 max-sizes = {flash = 32768, ram = 8192}
@@ -238,7 +238,7 @@ notifications = ["spi-irq"]
 interrupts = {"spi1.irq" = "spi-irq"}
 
 [tasks.transceivers]
-name = "drv-transceivers-server"
+bin-crate = "drv-transceivers-server"
 features = ["vlan", "thermal-control"]
 priority = 6
 max-sizes = {flash = 65536, ram = 16384}
@@ -255,7 +255,7 @@ task-slots = [
 notifications = ["socket", "timer"]
 
 [tasks.packrat]
-name = "task-packrat"
+bin-crate = "task-packrat"
 priority = 1
 stacksize = 1040
 start = true
@@ -264,7 +264,7 @@ task-slots = []
 features = ["ereport"]
 
 [tasks.sequencer]
-name = "drv-sidecar-seq-server"
+bin-crate = "drv-sidecar-seq-server"
 priority = 4
 stacksize = 4096
 start = true
@@ -278,7 +278,7 @@ task-slots = [
 notifications = ["timer"]
 
 [tasks.thermal]
-name = "task-thermal"
+bin-crate = "task-thermal"
 features = ["sidecar"]
 priority = 5
 max-sizes = {flash = 32768, ram = 16384 }
@@ -288,7 +288,7 @@ task-slots = ["i2c_driver", "sensor", "sequencer"]
 notifications = ["timer"]
 
 [tasks.power]
-name = "task-power"
+bin-crate = "task-power"
 features = ["sidecar"]
 priority = 6
 max-sizes = {flash = 32768, ram = 8192 }
@@ -298,7 +298,7 @@ task-slots = ["i2c_driver", "sensor", "sequencer"]
 notifications = ["timer"]
 
 [tasks.validate]
-name = "task-validate"
+bin-crate = "task-validate"
 priority = 5
 max-sizes = {flash = 16384, ram = 4096 }
 stacksize = 1000
@@ -306,7 +306,7 @@ start = true
 task-slots = ["i2c_driver"]
 
 [tasks.ignition]
-name = "drv-ignition-server"
+bin-crate = "drv-ignition-server"
 features = ["sequencer"]
 priority = 5
 max-sizes = {flash = 16384, ram = 8192}
@@ -316,7 +316,7 @@ task-slots = [{fpga = "ecp5_mainboard"}, "sequencer"]
 notifications = ["timer"]
 
 [tasks.vpd]
-name = "task-vpd"
+bin-crate = "task-vpd"
 priority = 3
 max-sizes = {flash = 8192, ram = 1024}
 start = true
@@ -324,7 +324,7 @@ task-slots = ["sys", "i2c_driver"]
 stacksize = 800
 
 [tasks.dump_agent]
-name = "task-dump-agent"
+bin-crate = "task-dump-agent"
 priority = 6
 max-sizes = {flash = 32768, ram = 16384 }
 start = true
@@ -335,7 +335,7 @@ notifications = ["socket"]
 features = ["net", "vlan"]
 
 [tasks.snitch]
-name = "task-snitch"
+bin-crate = "task-snitch"
 # The snitch should have a priority immediately below that of the net task,
 # to minimize the number of components that can starve it from resources.
 priority = 6
@@ -346,7 +346,7 @@ features = ["vlan"]
 notifications = ["socket"]
 
 [tasks.idle]
-name = "task-idle"
+bin-crate = "task-idle"
 priority = 8
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256

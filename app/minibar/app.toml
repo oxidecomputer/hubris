@@ -11,7 +11,7 @@ name = "minibar"
 requires = {flash = 26656, ram = 6256}
 
 [tasks.jefe]
-name = "task-jefe"
+bin-crate = "task-jefe"
 priority = 0
 max-sizes = {flash = 16384, ram = 2048}
 start = true
@@ -23,7 +23,7 @@ set_reset_reason = ["sys"]
 request_reset = ["hiffy"]
 
 [tasks.packrat]
-name = "task-packrat"
+bin-crate = "task-packrat"
 priority = 3
 max-sizes = {flash = 8192, ram = 2048}
 start = true
@@ -31,7 +31,7 @@ start = true
 task-slots = []
 
 [tasks.sprot]
-name = "drv-stm32h7-sprot-server"
+bin-crate = "drv-stm32h7-sprot-server"
 priority = 4
 max-sizes = {flash = 65536, ram = 32768}
 stacksize = 16384
@@ -43,7 +43,7 @@ notifications = ["spi-irq", "rot-irq", "timer"]
 interrupts = {"spi4.irq" = "spi-irq"}
 
 [tasks.sys]
-name = "drv-stm32xx-sys"
+bin-crate = "drv-stm32xx-sys"
 features = ["h753", "exti", "no-panic"]
 priority = 1
 max-sizes = {flash = 4096, ram = 2048}
@@ -67,7 +67,7 @@ pin = 3
 owner = {name = "sprot", notification = "rot_irq"}
 
 [tasks.monorail]
-name = "task-monorail-server"
+bin-crate = "task-monorail-server"
 priority = 6
 max-sizes = {flash = 262144, ram = 16384}
 features = ["minibar", "vlan", "use-spi-core", "h753", "spi2"]
@@ -79,7 +79,7 @@ notifications = ["spi-irq", "wake-timer"]
 interrupts = {"spi2.irq" = "spi-irq"}
 
 [tasks.i2c_driver]
-name = "drv-stm32xx-i2c-server"
+bin-crate = "drv-stm32xx-i2c-server"
 stacksize = 1048
 features = ["h753"]
 priority = 2
@@ -99,7 +99,7 @@ task-slots = ["sys"]
 "i2c4.error" = "i2c4-irq"
 
 [tasks.hiffy]
-name = "task-hiffy"
+bin-crate = "task-hiffy"
 features = ["h753", "stm32h7", "i2c", "gpio", "sprot", "turbo"]
 priority = 5
 max-sizes = {flash = 32768, ram = 32768 }
@@ -108,7 +108,7 @@ start = true
 task-slots = ["sys", "i2c_driver", "sprot"]
 
 [tasks.thermal]
-name = "task-thermal"
+bin-crate = "task-thermal"
 features = ["minibar"]
 priority = 5
 max-sizes = {flash = 32768, ram = 16384 }
@@ -118,7 +118,7 @@ task-slots = ["i2c_driver", "sensor"]
 notifications = ["timer"]
 
 [tasks.power]
-name = "task-power"
+bin-crate = "task-power"
 features = ["sidecar"]
 priority = 6
 max-sizes = {flash = 32768, ram = 8192 }
@@ -128,7 +128,7 @@ task-slots = ["i2c_driver", "sensor"]
 notifications = ["timer"]
 
 [tasks.sensor]
-name = "task-sensor"
+bin-crate = "task-sensor"
 features = []
 priority = 4
 max-sizes = {flash = 16384, ram = 8192 }
@@ -136,7 +136,7 @@ stacksize = 1024
 start = true
 
 [tasks.validate]
-name = "task-validate"
+bin-crate = "task-validate"
 priority = 5
 max-sizes = {flash = 16384, ram = 4096 }
 stacksize = 1000
@@ -144,7 +144,7 @@ start = true
 task-slots = ["i2c_driver"]
 
 [tasks.vpd]
-name = "task-vpd"
+bin-crate = "task-vpd"
 priority = 3
 max-sizes = {flash = 8192, ram = 1024}
 start = true
@@ -152,14 +152,14 @@ task-slots = ["sys", "i2c_driver"]
 stacksize = 800
 
 [tasks.idle]
-name = "task-idle"
+bin-crate = "task-idle"
 priority = 8
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true
 
 [tasks.auxflash]
-name = "drv-auxflash-server"
+bin-crate = "drv-auxflash-server"
 priority = 3
 max-sizes = {flash = 32768, ram = 4096}
 features = ["h753"]
@@ -171,7 +171,7 @@ stacksize = 3504
 task-slots = ["sys"]
 
 [tasks.ecp5]
-name = "drv-fpga-server"
+bin-crate = "drv-fpga-server"
 features = ["use-spi-core", "h753", "spi5"]
 priority = 3
 max-sizes = {flash = 32768, ram = 8192}
@@ -183,7 +183,7 @@ notifications = ["spi-irq"]
 interrupts = {"spi5.irq" = "spi-irq"}
 
 [tasks.sequencer]
-name = "drv-minibar-seq-server"
+bin-crate = "drv-minibar-seq-server"
 priority = 4
 stacksize = 4096
 start = true
@@ -196,7 +196,7 @@ task-slots = [
 notifications = ["timer"]
 
 [tasks.ignition]
-name = "drv-minibar-ignition-server"
+bin-crate = "drv-minibar-ignition-server"
 priority = 5
 max-sizes = {flash = 16384, ram = 8192}
 stacksize = 2048

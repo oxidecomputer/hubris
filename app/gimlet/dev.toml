@@ -4,7 +4,7 @@
 request_reset = ["udprpc"]
 
 [tasks.udprpc]
-name = "task-udprpc"
+bin-crate = "task-udprpc"
 priority = 6
 max-sizes = {flash = 32768, ram = 8192}
 stacksize = 4096
