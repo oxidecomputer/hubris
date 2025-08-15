@@ -23,6 +23,7 @@ task-packrat-api = { path = "../packrat-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 snitch-core = { version = "0.1.0", path = "../../lib/snitch-core", optional = true, features = ["counters"] }
 minicbor = { workspace = true,  optional = true }
+minicbor-lease = { path = "../../lib/minicbor-lease", optional = true }
 
 [build-dependencies]
 anyhow.workspace = true
@@ -37,7 +38,7 @@ gimlet = ["drv-cpu-seq-api"]
 grapefruit = []
 boot-kmdb = []
 no-ipc-counters = ["idol/no-counters"]
-ereport = ["dep:drv-rng-api", "dep:snitch-core", "dep:minicbor", "dep:quote"]
+ereport = ["dep:drv-rng-api", "dep:snitch-core", "dep:minicbor", "dep:minicbor-lease", "dep:quote"]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
