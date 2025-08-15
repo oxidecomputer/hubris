@@ -11,6 +11,10 @@ counters = { path = "../../lib/counters" }
 drv-i2c-types.path = "../i2c-types"
 userlib.path = "../../sys/userlib"
 
+
+[features]
+refdes = [] # adds a `refdes` field to the `I2cDevice`
+
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
 [lib]
