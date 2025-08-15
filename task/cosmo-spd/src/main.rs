@@ -10,7 +10,7 @@
 use drv_cpu_seq_api::PowerState;
 use drv_spartan7_loader_api::Spartan7Loader;
 use idol_runtime::RequestError;
-use ringbuf::{ringbuf, ringbuf_entry};
+use ringbuf::{counted_ringbuf, ringbuf_entry, Count};
 use task_jefe_api::Jefe;
 use task_packrat_api::Packrat;
 use task_sensor_api::{config::other_sensors, NoData, Sensor, SensorId};
@@ -25,15 +25,16 @@ task_slot!(PACKRAT, packrat);
 task_slot!(LOADER, spartan7_loader);
 task_slot!(SENSOR, sensor);
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Count)]
 enum Trace {
     None,
     Ready,
     Present { index: usize, present: bool },
     TemperatureReadTimeout { index: usize, pos: usize },
+    DimmFailure { index: usize },
 }
 
-ringbuf!(Trace, 32, Trace::None);
+counted_ringbuf!(Trace, 32, Trace::None);
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -318,6 +319,25 @@ impl idol_runtime::NotificationHandler for ServerImpl {
 
                 // Send the value to the sensors task
                 self.sensor.post_now(DIMM_SENSORS[index][pos], temp_c);
+
+                let dev = match index {
+                    0 => self.dimms.dimm_pcamp.pcamp_a(),
+                    1 => self.dimms.dimm_pcamp.pcamp_b(),
+                    2 => self.dimms.dimm_pcamp.pcamp_c(),
+                    3 => self.dimms.dimm_pcamp.pcamp_d(),
+                    4 => self.dimms.dimm_pcamp.pcamp_e(),
+                    5 => self.dimms.dimm_pcamp.pcamp_f(),
+                    6 => self.dimms.dimm_pcamp.pcamp_g(),
+                    7 => self.dimms.dimm_pcamp.pcamp_h(),
+                    8 => self.dimms.dimm_pcamp.pcamp_i(),
+                    9 => self.dimms.dimm_pcamp.pcamp_j(),
+                    10 => self.dimms.dimm_pcamp.pcamp_k(),
+                    11 => self.dimms.dimm_pcamp.pcamp_l(),
+                    _ => unreachable!(),
+                };
+                if !dev {
+                    ringbuf_entry!(Trace::DimmFailure { index });
+                }
             }
         }
         set_timer_relative(TIMER_INTERVAL, notifications::TIMER_MASK);
