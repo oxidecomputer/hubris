@@ -30,6 +30,7 @@ use crate::gpio_irq_pins::VCORE_TO_SP_ALERT_L;
 use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_i2c_devices::raa229618::Raa229618;
 use drv_stm32xx_sys_api as sys_api;
+use packrat_api::EreportClass;
 use ringbuf::*;
 use sys_api::IrqControl;
 use task_packrat_api as packrat_api;
@@ -86,6 +87,20 @@ const VCORE_UV_WARN_LIMIT: units::Volts = units::Volts(11.75);
 /// of data.
 ///
 const VCORE_NSAMPLES: usize = 50;
+
+//
+// Class string segments for ereports
+//
+static CLASS_VCORE: &'static str = "vcore";
+static CLASS_PMALERT: &'static str = "pmbus_alert";
+static CLASS_VIN: &'static str = "vin";
+static CLASS_OC: &'static str = "overcurrent";
+static CLASS_OV: &'static str = "overvolt";
+static CLASS_UV: &'static str = "undervolt";
+static CLASS_OP: &'static str = "overpower";
+static CLASS_OTHER: &'static str = "other";
+static CLASS_WARN: &'static str = "warn";
+static CLASS_FAULT: &'static str = "fault";
 
 cfg_if::cfg_if! {
     if #[cfg(not(any(
@@ -173,12 +188,19 @@ impl VCore {
                 status_input: status_input
                     .map(|STATUS_INPUT::CommandData(byte)| byte)
             });
-            let k = match status_input {
+            let class = match status_input {
                 Ok(s)
                     if s.get_input_overcurrent_fault()
                         == Some(STATUS_INPUT::InputOvercurrentFault::Fault) =>
                 {
-                    "vcore.vin.overcurrent.fault"
+                    // vcore.pmbus_alert.vin.overcurrent.fault
+                    EreportClass(&[
+                        CLASS_VCORE,
+                        CLASS_PMALERT,
+                        CLASS_VIN,
+                        CLASS_OC,
+                        CLASS_FAULT,
+                    ])
                 }
                 Ok(s)
                     if s.get_input_overcurrent_warning()
@@ -186,13 +208,27 @@ impl VCore {
                             STATUS_INPUT::InputOvercurrentWarning::Warning,
                         ) =>
                 {
-                    "vcore.vin.overcurrent.warn"
+                    // vcore.pmbus_alert.vin.overcurrent.warn
+                    EreportClass(&[
+                        CLASS_VCORE,
+                        CLASS_PMALERT,
+                        CLASS_VIN,
+                        CLASS_OC,
+                        CLASS_WARN,
+                    ])
                 }
                 Ok(s)
                     if s.get_input_overvoltage_fault()
                         == Some(STATUS_INPUT::InputOvervoltageFault::Fault) =>
                 {
-                    "vcore.vin.overvolt.fault"
+                    // vcore.pmbus_alert.vin.overcurrent.fault
+                    EreportClass(&[
+                        CLASS_VCORE,
+                        CLASS_PMALERT,
+                        CLASS_VIN,
+                        CLASS_OV,
+                        CLASS_FAULT,
+                    ])
                 }
                 Ok(s)
                     if s.get_input_overvoltage_warning()
@@ -200,7 +236,14 @@ impl VCore {
                             STATUS_INPUT::InputOvervoltageWarning::Warning,
                         ) =>
                 {
-                    "vcore.vin.overvolt.warn"
+                    // vcore.pmbus_alert.vin.overcurrent.warn
+                    EreportClass(&[
+                        CLASS_VCORE,
+                        CLASS_PMALERT,
+                        CLASS_VIN,
+                        CLASS_OV,
+                        CLASS_WARN,
+                    ])
                 }
                 Ok(s)
                     if s.get_input_undervoltage_fault()
@@ -208,7 +251,14 @@ impl VCore {
                             STATUS_INPUT::InputUndervoltageFault::Fault,
                         ) =>
                 {
-                    "vcore.vin.undervolt.fault"
+                    // vcore.pmbus_alert.vin.undervolt.fault
+                    EreportClass(&[
+                        CLASS_VCORE,
+                        CLASS_PMALERT,
+                        CLASS_VIN,
+                        CLASS_UV,
+                        CLASS_FAULT,
+                    ])
                 }
                 Ok(s)
                     if s.get_input_undervoltage_warning()
@@ -216,7 +266,14 @@ impl VCore {
                             STATUS_INPUT::InputUndervoltageWarning::Warning,
                         ) =>
                 {
-                    "vcore.vin.undervolt.warn"
+                    // vcore.pmbus_alert.vin.undervolt.warn
+                    EreportClass(&[
+                        CLASS_VCORE,
+                        CLASS_PMALERT,
+                        CLASS_VIN,
+                        CLASS_UV,
+                        CLASS_WARN,
+                    ])
                 }
                 Ok(s)
                     if s.get_input_overpower_warning()
@@ -224,9 +281,25 @@ impl VCore {
                             STATUS_INPUT::InputOverpowerWarning::Warning,
                         ) =>
                 {
-                    "vcore.vin.overpower.warn"
+                    // vcore.pmbus_alert.vin.undervolt.warn
+                    EreportClass(&[
+                        CLASS_VCORE,
+                        CLASS_PMALERT,
+                        CLASS_VIN,
+                        CLASS_OP,
+                        CLASS_WARN,
+                    ])
                 }
-                _ => "vcore.vin.unknown_alert",
+                _ =>
+                // vcore.pmbus_alert.vin.other
+                {
+                    EreportClass(&[
+                        CLASS_VCORE,
+                        CLASS_PMALERT,
+                        CLASS_VIN,
+                        CLASS_OTHER,
+                    ])
+                }
             };
             // When reporting the fault, we want to report the minimum and
             // maximum voltages observed over the sampling period.
@@ -277,7 +350,6 @@ impl VCore {
 
             // "Houston, we've got a main bus B undervolt..."
             let ereport = VinEreport {
-                k,
                 rail: "VDD_VCORE",
                 vin: VoltageRange { min, max, avg },
                 time: t0,
@@ -290,7 +362,7 @@ impl VCore {
                     ..Default::default()
                 },
             };
-            deliver_ereport(&self.packrat, &ereport);
+            deliver_ereport(&self.packrat, &class, &ereport);
         }
         let _ = self.sys.gpio_irq_control(self.mask(), IrqControl::Enable);
     }
@@ -298,7 +370,6 @@ impl VCore {
 
 #[derive(serde::Serialize)]
 struct VinEreport {
-    k: &'static str,
     rail: &'static str,
     vin: VoltageRange,
     time: u64,
@@ -333,14 +404,19 @@ struct EreportPmbusStatus {
 #[inline(never)]
 fn deliver_ereport(
     packrat: &packrat_api::Packrat,
-    report: &impl serde::Serialize,
+    class: &EreportClass<'_>,
+    data: &impl serde::Serialize,
 ) {
     let mut ereport_buf = [0u8; 128];
-    let mut s = minicbor_serde::Serializer::new(
-        minicbor::encode::write::Cursor::new(&mut ereport_buf[..]),
-    );
-    if report.serialize(&mut s).is_ok() {
-        let len = s.into_encoder().into_writer().position();
-        packrat.deliver_ereport(&ereport_buf[..len]);
+    let report = packrat_api::SerdeEreport { class, data };
+    let writer = minicbor::encode::write::Cursor::new(&mut ereport_buf[..]);
+    match report.to_writer(writer) {
+        Ok(writer) => {
+            let len = writer.position();
+            packrat.deliver_ereport(&ereport_buf[..len]);
+        }
+        Err(_) => {
+            // XXX(eliza): ereport didn't fit in buffer...what do
+        }
     }
 }
