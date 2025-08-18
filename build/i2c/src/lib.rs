@@ -279,6 +279,7 @@ struct DeviceNameKey {
 struct DeviceRefdesKey {
     device: String,
     refdes: String,
+    suffix: Option<String>,
     kind: Sensor,
 }
 
@@ -410,6 +411,7 @@ impl I2cSensorsDescription {
                 DeviceRefdesKey {
                     device: d.device.clone(),
                     refdes,
+                    suffix: d.refdes_suffix.clone(),
                     kind,
                 },
                 id,
@@ -1009,10 +1011,15 @@ impl ConfigGenerator {
                 }
             }
             if let Some(refdes) = &d.refdes {
-                if by_refdes.insert((&d.device, refdes), d).is_some() {
+                if by_refdes
+                    .insert((&d.device, refdes, d.refdes_suffix.as_ref()), d)
+                    .is_some()
+                {
                     panic!(
-                        "duplicate refdes {} for device {}",
-                        refdes, d.device
+                        "duplicate refdes {refdes}{}{} for device {}",
+                        if d.refdes_suffix.is_some() { "/" } else { "" },
+                        d.refdes_suffix.as_deref().unwrap_or(""),
+                        d.device
                     )
                 } else if by_name.contains_key(&(&d.device, refdes)) {
                     panic!(
@@ -1161,13 +1168,16 @@ impl ConfigGenerator {
         let mut all: Vec<_> = by_refdes.iter().collect();
         all.sort();
 
-        for ((device, name), d) in &all {
+        for ((device, name, suffix), d) in &all {
+            let name = name.to_lowercase();
+            let suffix_sep = if suffix.is_some() { "_" } else { "" };
+            let suffix =
+                suffix.map(|s| s.to_lowercase()).unwrap_or_else(String::new);
             write!(
                 &mut self.output,
                 r##"
         #[allow(dead_code)]
-        pub fn {device}_{}(task: TaskId) -> I2cDevice {{"##,
-                name.to_lowercase()
+        pub fn {device}_{name}{suffix_sep}{suffix}(task: TaskId) -> I2cDevice {{"##,
             )?;
 
             let out = self.generate_device(d, 16);
@@ -1615,12 +1625,13 @@ impl ConfigGenerator {
                 )?;
             }
             if let Some(refdes) = &d.refdes {
-                self.emit_sensor_struct(
-                    d,
-                    refdes.to_uppercase(),
-                    &struct_name,
-                    s,
-                )?;
+                let refdes = refdes.to_uppercase();
+                let label = if let Some(ref suffix) = d.refdes_suffix {
+                    format!("{refdes}_{}", suffix.to_uppercase())
+                } else {
+                    refdes
+                };
+                self.emit_sensor_struct(d, label, &struct_name, s)?;
             }
         }
 
@@ -1643,7 +1654,14 @@ impl ConfigGenerator {
         by_refdes_sorted.sort();
 
         for (k, ids) in &by_refdes_sorted {
-            let label = format!("{}_{}", k.refdes.to_uppercase(), k.kind);
+            let refdes = k.refdes.to_uppercase();
+            let suffix_sep = if k.suffix.is_some() { "_" } else { "" };
+            let suffix = k
+                .suffix
+                .as_ref()
+                .map(|s| s.to_uppercase())
+                .unwrap_or_else(String::new);
+            let label = format!("{refdes}{suffix_sep}{suffix}_{}", k.kind);
             self.emit_sensor(&k.device, &label, ids)?;
         }
 
