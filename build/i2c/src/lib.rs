@@ -953,10 +953,14 @@ impl ConfigGenerator {
 
         let indent = format!("{:indent$}", "", indent = indent);
 
-        let refdes_part = match (self.include_refdes, d.refdes.as_deref()) {
-            (true, Some(refdes)) => format!(".with_refdes(\"{refdes}\")"),
-            _ => String::new(),
+        let refdes_part = if self.include_refdes {
+            d.device_id()
+                .map(|id| format!(".with_refdes({id:?})"))
+                .unwrap_or(String::new())
+        } else {
+            String::new()
         };
+
         format!(
             r##"
 {indent}// {description}
