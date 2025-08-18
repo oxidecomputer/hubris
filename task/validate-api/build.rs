@@ -36,6 +36,17 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
         devices.len()
     )?;
 
+    //
+    // If a device in the TOML has no refdes, has the same refdes and suffix as
+    // another device, or produces a refdes-and-suffix string that is longer
+    // than the max component ID length, we will generate code that will not
+    // compile, so these errors are all fatal. However, as we loop over devices,
+    // we'll just log them and keep going, so that we can tell the user about
+    // *all* the bad devices in the config file, rather than bailing out at the
+    // first one. At the end, we return an error if there were any bad devices.
+    // This way, you don't have to fix one issue and recompile in order to
+    // discover the next error.
+    //
     let mut missing_ids = 0;
     let mut duplicate_ids = 0;
     let mut ids_too_long = 0;
