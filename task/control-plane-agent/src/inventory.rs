@@ -2,7 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use core::fmt::{self, Write};
 use gateway_messages::measurement::{
     Measurement, MeasurementError, MeasurementKind,
 };
@@ -181,25 +180,6 @@ impl TryFrom<&'_ SpComponent> for Index {
     }
 }
 
-#[derive(Default)]
-struct FmtComponentId {
-    pos: usize,
-    id: [u8; SpComponent::MAX_ID_LENGTH],
-}
-
-impl fmt::Write for FmtComponentId {
-    fn write_str(&mut self, s: &str) -> fmt::Result {
-        let remaining = &mut self.id[self.pos..];
-        if s.len() <= remaining.len() {
-            remaining[..s.len()].copy_from_slice(s.as_bytes());
-            self.pos += s.len();
-            Ok(())
-        } else {
-            Err(fmt::Error)
-        }
-    }
-}
-
 use devices_with_static_validation::OUR_DEVICES;
 // We tag this with module `#[allow(dead_code)]` to prevent warnings about the
 // contents of this module not being used; it contains constants used in static
@@ -210,7 +190,6 @@ mod devices_with_static_validation {
         DeviceCapabilities, DeviceDescription, DevicePresence, SpComponent,
     };
     use task_validate_api::DEVICES_CONST as VALIDATE_DEVICES_CONST;
-    pub(super) use task_validate_api::DEVICE_INDICES_BY_ID;
 
     // List of logical or high-level components that this task is responsible
     // for (or at least responds to in terms of MGS requests for status /
@@ -310,34 +289,6 @@ mod devices_with_static_validation {
 
     pub(super) static OUR_DEVICES: &[DeviceDescription<'static>] =
         OUR_DEVICES_CONST;
-
-    // We use a generic component ID of `{prefix}{index}` for all of
-    // `VALIDATE_DEVICES`; here we statically assert the maximum number of
-    // devices we can use with this scheme. At the time of writing this comment,
-    // our ID width is 16 bytes and the prefix is 4 bytes, allowing up to
-    // 999_999_999_999 devices to be listed.
-
-    // How many bytes are available for digits of a device index in base 10?
-    const DIGITS_AVAILABLE: usize =
-        SpComponent::MAX_ID_LENGTH - SpComponent::GENERIC_DEVICE_PREFIX.len();
-
-    // How many devices can we list given `DIGITS_AVAILABLE`?
-    const MAX_NUM_DEVICES: u64 = const_exp10(DIGITS_AVAILABLE);
-
-    // Statically assert that we have at most that many devices.
-    static_assertions::const_assert!(
-        VALIDATE_DEVICES_CONST.len() as u64 <= MAX_NUM_DEVICES
-    );
-
-    // Helper function: computes 10^n at compile time.
-    const fn const_exp10(mut n: usize) -> u64 {
-        let mut x = 1;
-        while n > 0 {
-            x *= 10;
-            n -= 1;
-        }
-        x
-    }
 
     // We will spread the contents of `DEVICES` out over multiple packets to
     // MGS; however, we do _not_ currently handle the case where a single
