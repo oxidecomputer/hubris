@@ -958,7 +958,7 @@ impl ConfigGenerator {
         let refdes_part = if self.include_refdes {
             d.device_id()
                 .map(|id| format!(".with_refdes({id:?})"))
-                .unwrap_or(String::new())
+                .unwrap_or_default()
         } else {
             String::new()
         };
@@ -1171,8 +1171,7 @@ impl ConfigGenerator {
         for ((device, name, suffix), d) in &all {
             let name = name.to_lowercase();
             let suffix_sep = if suffix.is_some() { "_" } else { "" };
-            let suffix =
-                suffix.map(|s| s.to_lowercase()).unwrap_or_else(String::new);
+            let suffix = suffix.map(|s| s.to_lowercase()).unwrap_or_default();
             write!(
                 &mut self.output,
                 r##"
@@ -1660,7 +1659,7 @@ impl ConfigGenerator {
                 .suffix
                 .as_ref()
                 .map(|s| s.to_uppercase())
-                .unwrap_or_else(String::new);
+                .unwrap_or_default();
             let label = format!("{refdes}{suffix_sep}{suffix}_{}", k.kind);
             self.emit_sensor(&k.device, &label, ids)?;
         }
