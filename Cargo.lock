@@ -6069,6 +6069,7 @@ dependencies = [
 name = "task-validate-api"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "build-i2c",
  "counters",
  "derive-idol-err",

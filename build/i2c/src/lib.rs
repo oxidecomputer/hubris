@@ -1742,6 +1742,8 @@ pub struct I2cDeviceDescription {
     pub device: String,
     pub description: String,
     pub sensors: Vec<DeviceSensor>,
+    pub refdes: Option<String>,
+    pub name: Option<String>,
 }
 
 ///
@@ -1763,6 +1765,8 @@ pub fn device_descriptions() -> impl Iterator<Item = I2cDeviceDescription> {
             device: device.device,
             description: device.description,
             sensors,
+            refdes: device.refdes,
+            name: device.name,
         },
     )
 }
