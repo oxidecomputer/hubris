@@ -111,24 +111,12 @@ impl Inventory {
             }
         };
 
-        // This format string is statically guaranteed to fit in `component`
-        // based on our `max_num_devices` submodule below (which only contains
-        // static assertions that ensure this format string will fit!).
-        let mut component = FmtComponentId::default();
-        write!(
-            &mut component,
-            "{}{}",
-            SpComponent::GENERIC_DEVICE_PREFIX,
-            index
-        )
-        .unwrap_lite();
-
         let mut capabilities = DeviceCapabilities::empty();
         if !device.sensors.is_empty() {
             capabilities |= DeviceCapabilities::HAS_MEASUREMENT_CHANNELS;
         }
         DeviceDescription {
-            component: SpComponent { id: component.id },
+            component: SpComponent { id: device.id },
             device: device.device,
             description: device.description,
             capabilities,
@@ -176,33 +164,20 @@ impl TryFrom<&'_ SpComponent> for Index {
     type Error = SpError;
 
     fn try_from(component: &'_ SpComponent) -> Result<Self, Self::Error> {
-        if component
-            .id
-            .starts_with(SpComponent::GENERIC_DEVICE_PREFIX.as_bytes())
+        if let Ok(entry_idx) = task_validate_api::DEVICE_INDICES_BY_ID
+            .binary_search_by_key(&component.id, |&(id, _)| id)
         {
-            // We know `component` starts with `GENERIC_DEVICE_PREFIX`, so
-            // it's safe to slice into the string at that index.
-            let id = component
-                .as_str()
-                .ok_or(SpError::RequestUnsupportedForComponent)?;
-            let suffix = &id[SpComponent::GENERIC_DEVICE_PREFIX.len()..];
-
-            let index = suffix
-                .parse::<usize>()
-                .map_err(|_| SpError::RequestUnsupportedForComponent)?;
-            if index < VALIDATE_DEVICES.len() {
-                Ok(Self::ValidateDevice(index))
-            } else {
-                Err(SpError::RequestUnsupportedForComponent)
-            }
-        } else {
-            for (i, d) in OUR_DEVICES.iter().enumerate() {
-                if *component == d.component {
-                    return Ok(Self::OurDevice(i));
-                }
-            }
-            Err(SpError::RequestUnsupportedForComponent)
+            let &(_, index) = task_validate_api::DEVICE_INDICES_BY_ID
+                .get(entry_idx)
+                .unwrap_lite();
+            return Ok(Self::ValidateDevice(index));
         }
+        for (i, d) in OUR_DEVICES.iter().enumerate() {
+            if *component == d.component {
+                return Ok(Self::OurDevice(i));
+            }
+        }
+        Err(SpError::RequestUnsupportedForComponent)
     }
 }
 
@@ -235,6 +210,7 @@ mod devices_with_static_validation {
         DeviceCapabilities, DeviceDescription, DevicePresence, SpComponent,
     };
     use task_validate_api::DEVICES_CONST as VALIDATE_DEVICES_CONST;
+    pub(super) use task_validate_api::DEVICE_INDICES_BY_ID;
 
     // List of logical or high-level components that this task is responsible
     // for (or at least responds to in terms of MGS requests for status /

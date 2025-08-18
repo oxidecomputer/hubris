@@ -99,6 +99,9 @@ struct I2cDevice {
     /// reference designator, if any
     refdes: Option<String>,
 
+    /// reference designator suffix, if any
+    refdes_suffix: Option<String>,
+
     /// power information, if any
     power: Option<I2cPower>,
 
@@ -127,6 +130,15 @@ impl I2cDevice {
     fn power_for_kind(&self, kind: Sensor) -> Option<&I2cPower> {
         self.power.as_ref().filter(|power| {
             power.sensors.as_ref().is_none_or(|s| s.contains(&kind))
+        })
+    }
+
+    fn device_id(&self) -> Option<String> {
+        let refdes = self.refdes.as_ref()?;
+        Some(if let Some(ref suffix) = self.refdes_suffix {
+            format!("{refdes}/{suffix}")
+        } else {
+            refdes.clone()
         })
     }
 }
@@ -1742,7 +1754,7 @@ pub struct I2cDeviceDescription {
     pub device: String,
     pub description: String,
     pub sensors: Vec<DeviceSensor>,
-    pub refdes: Option<String>,
+    pub device_id: Option<String>,
     pub name: Option<String>,
 }
 
@@ -1761,12 +1773,15 @@ pub fn device_descriptions() -> impl Iterator<Item = I2cDeviceDescription> {
     // Matches the ordering of the `match` produced by `generate_validation()`
     // above; if we change the order here, it must change there as well.
     g.devices.into_iter().zip(sensors.device_sensors).map(
-        |(device, sensors)| I2cDeviceDescription {
-            device: device.device,
-            description: device.description,
-            sensors,
-            refdes: device.refdes,
-            name: device.name,
+        |(device, sensors)| {
+            let device_id = device.device_id();
+            I2cDeviceDescription {
+                device: device.device,
+                description: device.description,
+                sensors,
+                device_id,
+                name: device.name,
+            }
         },
     )
 }

@@ -15,6 +15,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 }
 
 fn write_pub_device_descriptions() -> anyhow::Result<()> {
+    use gateway_messages::SpComponent;
     let devices = build_i2c::device_descriptions().collect::<Vec<_>>();
 
     let out_dir = std::env::var("OUT_DIR")?;
@@ -25,27 +26,42 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
 
     writeln!(
         file,
+        "pub const MAX_ID_LENGTH: usize = {};",
+        SpComponent::MAX_ID_LENGTH,
+    )?;
+
+    writeln!(
+        file,
         "pub const DEVICES_CONST: [DeviceDescription; {}] = [",
         devices.len()
     )?;
 
     let mut missing_ids = 0;
     let mut duplicate_ids = 0;
+    let mut ids_too_long = 0;
     let mut id2idx = std::collections::BTreeMap::new();
 
     for (idx, dev) in devices.into_iter().enumerate() {
         writeln!(file, "    DeviceDescription {{")?;
         writeln!(file, "        device: {:?},", dev.device)?;
         writeln!(file, "        description: {:?},", dev.description)?;
-        if let Some(id) = dev.refdes.or_else(|| dev.name) {
-            writeln!(file, "        id: {id:?},")?;
-            if id2idx.insert(id.clone(), idx).is_some() {
-                println!("cargo::error=duplicate device id {id:?}",);
-                duplicate_ids += 1;
+        if let Some(id) = dev.device_id {
+            if let Ok(component) = SpComponent::try_from(id.as_ref()) {
+                write!(file, "        id: {:?},", component.id)?;
+                if id2idx.insert(component.id, idx).is_some() {
+                    println!("cargo::error=duplicate device id {id:?}",);
+                    duplicate_ids += 1;
+                }
+            } else {
+                println!(
+                    "cargo::error=device ID {id:?} exceeds max length ({}B)",
+                    SpComponent::MAX_ID_LENGTH,
+                );
+                ids_too_long += 1;
             }
         } else {
             println!(
-                "cargo::error=device {:?} ({:?}) missing both name and refdes",
+                "cargo::error=device {:?} ({:?}) hath no device ID (refdes)",
                 dev.device, dev.description
             );
             missing_ids += 1;
@@ -71,24 +87,32 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
 
     writeln!(
         file,
-        "pub static DEVICE_INDICES_BY_ID: [(&'static str, usize); {}] = [",
+        "pub const DEVICE_INDICES_BY_ID_CONST: [([u8; MAX_ID_LENGTH], usize); {}] = [",
         id2idx.len()
     )?;
     for (id, idx) in id2idx {
-        writeln!(file, "    ({id:?}, {idx}")?;
+        writeln!(file, "    ({id:?}, {idx}),")?;
     }
     writeln!(file, "];")?;
+    writeln!(
+        file,
+        "pub static DEVICE_INDICES_BY_ID: [([u8; MAX_ID_LENGTH], usize); \
+         DEVICE_INDICES_BY_ID_CONST.len()] = DEVICE_INDICES_BY_ID_CONST;"
+    )?;
 
     file.flush()?;
 
-    anyhow::ensure!(
-        missing_ids == 0,
-        "{missing_ids} devices had neither name nor refdes"
-    );
+    anyhow::ensure!(missing_ids == 0, "{missing_ids} devices have no ID!");
 
     anyhow::ensure!(
         duplicate_ids == 0,
         "{duplicate_ids} duplicate device IDs!"
+    );
+
+    anyhow::ensure!(
+        ids_too_long == 0,
+        "{ids_too_long} device IDs exceeded max length ({}B)!",
+        SpComponent::MAX_ID_LENGTH,
     );
 
     Ok(())
