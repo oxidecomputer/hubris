@@ -105,7 +105,7 @@ impl ServerImpl {
                 let (designator, f): ([u8; 7], _) =
                     Self::get_sharkfin_vpd(index as usize - 4);
                 let mut name = *b"____/U2/ID";
-                name[0..4].copy_from_slice(&designator);
+                name[0..4].copy_from_slice(&designator[0..4]);
                 self.read_eeprom_barcode(sequence, &name, f)
             }
             14..=23 => {
