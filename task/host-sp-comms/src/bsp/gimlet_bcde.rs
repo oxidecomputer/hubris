@@ -512,20 +512,25 @@ impl ServerImpl {
             }
             60..=70 => {
                 let i = index - 60;
-                let (name, _f, sensors) = match i {
-                    0 => by_refdes!(J206_U8, max5970, 4),
-                    1 => by_refdes!(J207_U8, max5970, 4),
-                    2 => by_refdes!(J208_U8, max5970, 4),
-                    3 => by_refdes!(J209_U8, max5970, 4),
-                    4 => by_refdes!(J210_U8, max5970, 4),
-                    5 => by_refdes!(J211_U8, max5970, 4),
-                    6 => by_refdes!(J212_U8, max5970, 4),
-                    7 => by_refdes!(J213_U8, max5970, 4),
-                    8 => by_refdes!(J214_U8, max5970, 4),
-                    9 => by_refdes!(J215_U8, max5970, 4),
-                    10 => by_refdes!(U275, max5970),
+                let (mut name, _f, sensors) = match i {
+                    0 => by_refdes!(J206_U8, max5970),
+                    1 => by_refdes!(J207_U8, max5970),
+                    2 => by_refdes!(J208_U8, max5970),
+                    3 => by_refdes!(J209_U8, max5970),
+                    4 => by_refdes!(J210_U8, max5970),
+                    5 => by_refdes!(J211_U8, max5970),
+                    6 => by_refdes!(J212_U8, max5970),
+                    7 => by_refdes!(J213_U8, max5970),
+                    8 => by_refdes!(J214_U8, max5970),
+                    9 => by_refdes!(J215_U8, max5970),
+                    10 => by_refdes!(U275, max5970, 7),
                     _ => panic!(),
                 };
+                // Transform Jxxx_U8 -> `Jxxx/U8`
+                // TOD(eliza): get this from i2c device codegen
+                if name[0] == b'J' {
+                    name[4] = b'/';
+                }
                 *self.scratch = InventoryData::Max5970 {
                     voltage_sensors: SensorId::into_u32_array(sensors.voltage),
                     current_sensors: SensorId::into_u32_array(sensors.current),
