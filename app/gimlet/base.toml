@@ -435,6 +435,7 @@ description = "Southwest temperature sensor"
 sensors = { temperature = 1 }
 removable = true
 refdes = "J194"
+refdes-suffix = "U1"
 
 [[config.i2c.devices]]
 bus = "front"
@@ -445,6 +446,7 @@ description = "South temperature sensor"
 sensors = { temperature = 1 }
 removable = true
 refdes = "J195"
+refdes-suffix = "U1"
 
 [[config.i2c.devices]]
 bus = "front"
@@ -455,6 +457,7 @@ description = "Southeast temperature sensor"
 sensors = { temperature = 1 }
 removable = true
 refdes = "J196"
+refdes-suffix = "U1"
 
 [[config.i2c.devices]]
 bus = "front"
@@ -1070,6 +1073,7 @@ description = "Northeast temperature sensor"
 sensors = { temperature = 1 }
 removable = true
 refdes = "J197"
+refdes-suffix = "U1"
 
 [[config.i2c.devices]]
 bus = "rear"
@@ -1080,6 +1084,7 @@ description = "North temperature sensor"
 sensors = { temperature = 1 }
 removable = true
 refdes = "J198"
+refdes-suffix = "U1"
 
 [[config.i2c.devices]]
 bus = "rear"
@@ -1090,6 +1095,7 @@ description = "Northwest temperature sensor"
 sensors = { temperature = 1 }
 removable = true
 refdes = "J199"
+refdes-suffix = "U1"
 
 [[config.i2c.devices]]
 bus = "rear"
