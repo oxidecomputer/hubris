@@ -124,7 +124,7 @@ device = "at24csw080"
 description = "Sidecar Fan VPD"
 removable = true
 refdes = "J3"
-refdes-suffix = "J5"
+refdes-suffix = "J4"
 
 [[config.i2c.devices]]
 controller = 1
