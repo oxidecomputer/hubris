@@ -141,7 +141,7 @@ interrupts = {"spi4.irq" = "spi-irq"}
 name = "task-validate"
 priority = 3
 max-sizes = {flash = 8192, ram = 4096 }
-stacksize = 1000 
+stacksize = 1000
 start = true
 task-slots = ["i2c_driver"]
 
@@ -227,24 +227,28 @@ device = "max31790"
 bus = "onboard"
 address = 0x20
 description = "Fan controller"
+refdes = "U701"
 
 [[config.i2c.devices]]
 device = "pca9555"
 bus = "onboard"
 address = 0x21
 description = "GPIO expander"
+refdes = "U1501"
 
 [[config.i2c.devices]]
 device = "ina219"
 bus = "onboard"
 address = 0x40
 description = "Current sensor"
+refdes = "U602"
 
 [[config.i2c.devices]]
 device = "ina219"
 bus = "onboard"
 address = 0x41
 description = "Current sensor"
+refdes = "U603"
 
 [[config.i2c.devices]]
 device = "ltc4306"
@@ -252,6 +256,7 @@ controller = 4
 port = "F"
 address = 0x44
 description = "Multiplexer"
+refdes = "U501"
 
 #
 # The following are devices for which Gemini BU has been or can be used as
@@ -266,6 +271,7 @@ segment = 1
 address = 0x10
 description = "ADM1272 evaluation board"
 power = { rails = [ "ADM_EVL_VOUT" ] }
+refdes = "J501"
 
 [[config.i2c.devices]]
 device = "isl68224"
@@ -276,6 +282,7 @@ segment = 3
 address = 0x60
 description = "ISL68224 evaluation board"
 power = { rails = [ "ISL_EVL_VOUT0", "ISL_EVL_VOUT1", "ISL_EVL_VOUT2" ] }
+refdes = "J503"
 
 [[config.i2c.devices]]
 device = "tps546b24a"
@@ -286,6 +293,7 @@ segment = 4
 address = 0x24
 description = "TPS546B24A evaluation board"
 power = { rails = [ "TPS_EVL_VOUT" ] }
+refdes = "J504"
 
 [config.spi.spi2]
 controller = 2
@@ -314,4 +322,3 @@ input = {port = "E", pin = 5, af = 5}
 mux = "port_e"
 cs = [{port = "E", pin = 4}]
 clock_divider = "DIV256"
-
