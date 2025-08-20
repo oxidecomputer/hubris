@@ -70,6 +70,11 @@ enum Trace {
         our_state: PowerState,
         seq_state: Result<fmc_periph::A0Sm, u8>,
     },
+    SequencerInterrupt {
+        our_state: PowerState,
+        seq_state: Result<fmc_periph::A0Sm, u8>,
+        ifr: fmc_periph::IfrView,
+    },
     PowerDownError(drv_cpu_seq_api::SeqError),
     Coretype {
         coretype0: bool,
@@ -85,6 +90,9 @@ enum Trace {
         pwrokn: u8,
     },
     Thermtrip,
+    A0MapoInterrupt,
+    SmerrInterrupt,
+    UnexpectedInterrupt,
 }
 counted_ringbuf!(Trace, 128, Trace::None);
 
@@ -132,6 +140,8 @@ const SP5R1_PULL: sys_api::Pull = sys_api::Pull::None;
 const SP5R2_PULL: sys_api::Pull = sys_api::Pull::None;
 const SP5R3_PULL: sys_api::Pull = sys_api::Pull::None;
 const SP5R4_PULL: sys_api::Pull = sys_api::Pull::None;
+
+use gpio_irq_pins::SEQ_IRQ;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -222,6 +232,10 @@ fn init() -> Result<ServerImpl, SeqError> {
     sys.gpio_configure_input(SP5_TO_SP_SP5R2, SP5R2_PULL);
     sys.gpio_configure_input(SP5_TO_SP_SP5R3, SP5R3_PULL);
     sys.gpio_configure_input(SP5_TO_SP_SP5R4, SP5R4_PULL);
+
+    // Sequencer interrupt
+    sys.gpio_configure_input(SEQ_IRQ, sys_api::Pull::None);
+    sys.gpio_irq_configure(notifications::SEQ_IRQ_MASK, sys_api::Edge::Falling);
 
     let spi_front = drv_spi_api::Spi::from(SPI_FRONT.get_task_id());
     let aux = drv_auxflash_api::AuxFlash::from(AUXFLASH.get_task_id());
@@ -390,6 +404,7 @@ impl ServerImpl {
     fn log_state_registers(&self) -> StateMachineStates {
         let seq_api_status = (&self.seq.seq_api_status).into();
         let nic_api_status = (&self.seq.nic_api_status).into();
+
         ringbuf_entry!(Trace::RegStateValues {
             seq_api_status,
             seq_raw_status: (&self.seq.seq_raw_status).into(),
@@ -513,6 +528,7 @@ impl ServerImpl {
                     }
                 };
 
+                self.enable_sequencer_interrupts();
                 // Flip the host flash mux so the CPU can read from it
                 // (this is secretly infallible on Cosmo, so we can unwrap it)
                 self.hf.set_mux(drv_hf_api::HfMuxState::HostCPU).unwrap();
@@ -521,6 +537,8 @@ impl ServerImpl {
             | (PowerState::A0PlusHP, PowerState::A2)
             | (PowerState::A0Thermtrip, PowerState::A2)
             | (PowerState::A0Reset, PowerState::A2) => {
+                // Disable our interrupts before we shutdown
+                self.disable_sequencer_interrupts();
                 self.seq.power_ctrl.modify(|m| m.set_a0_en(false));
                 let mut okay = false;
                 for _ in 0..200 {
@@ -543,7 +561,6 @@ impl ServerImpl {
                     // We can't do much else here, since we already cleared the
                     // a0_en flag to disable the sequencer.
                 }
-
                 // Flip the host flash mux so the SP can read from it
                 // (this is secretly infallible on Cosmo, so we can unwrap it)
                 self.hf.set_mux(drv_hf_api::HfMuxState::SP).unwrap();
@@ -571,13 +588,14 @@ impl ServerImpl {
 
     /// Returns the current timer interval, in milliseconds
     ///
-    /// If we are in `A0`, then we are waiting for the NIC to come up; if we are
-    /// in `A0PlusHP`, we're polling for a thermtrip or for someone disabling
-    /// the NIC.  In other states, there's no need to poll.
+    /// If we are in `A0`, then we are waiting for the NIC to come up;
+    /// Once we are in `A0PlusHP` we rely on sequencer interrupts for
+    /// all our state transitions. We still want to catch an unexpected
+    /// case of sequencer failure so poll for that case specifically.
     fn poll_interval(&self) -> Option<u32> {
         match self.state {
             PowerState::A0 => Some(10),
-            PowerState::A0PlusHP => Some(100),
+            PowerState::A0PlusHP => Some(1000),
             _ => None,
         }
     }
@@ -587,6 +605,150 @@ impl ServerImpl {
         if let Some(interval) = self.poll_interval() {
             set_timer_relative(interval, notifications::TIMER_MASK);
         }
+    }
+
+    /// Powers down to A2, if that fails for some reason just
+    /// log an error
+    fn emergency_a2(&mut self, reason: StateChangeReason) {
+        // Power down to A2, updating our internal state.  We can't
+        // handle errors here, so log them and continue.
+        if let Err(e) = self.set_state_impl(PowerState::A2, reason) {
+            ringbuf_entry!(Trace::PowerDownError(e))
+        }
+    }
+
+    fn enable_sequencer_interrupts(&mut self) {
+        // Clear `ifr` in case spurious flags accumulated while disabled
+        self.seq.ifr.modify(|m| {
+            m.set_fanfault(false);
+            m.set_thermtrip(false);
+            m.set_smerr_assert(false);
+            m.set_a0mapo(false);
+            m.set_nicmapo(false);
+            m.set_amd_pwrok_fedge(false);
+            m.set_amd_rstn_fedge(false);
+        });
+
+        let _ = self.sys.gpio_irq_control(
+            notifications::SEQ_IRQ_MASK,
+            sys_api::IrqControl::Enable,
+        );
+        self.seq.ier.modify(|m| {
+            m.set_fanfault(true);
+            m.set_thermtrip(true);
+            m.set_smerr_assert(true);
+            m.set_a0mapo(true);
+            m.set_nicmapo(true);
+            m.set_amd_pwrok_fedge(true);
+            m.set_amd_rstn_fedge(true);
+        });
+    }
+
+    fn disable_sequencer_interrupts(&mut self) {
+        self.seq.ier.modify(|m| {
+            m.set_fanfault(false);
+            m.set_thermtrip(false);
+            m.set_smerr_assert(false);
+            m.set_a0mapo(false);
+            m.set_nicmapo(false);
+            m.set_amd_pwrok_fedge(false);
+            m.set_amd_rstn_fedge(false);
+        });
+        let _ = self.sys.gpio_irq_control(
+            notifications::SEQ_IRQ_MASK,
+            sys_api::IrqControl::Disable,
+        );
+    }
+
+    fn handle_sequencer_interrupt(&mut self) {
+        let ifr = self.seq.ifr.view();
+
+        let state = self.log_state_registers();
+        ringbuf_entry!(Trace::SequencerInterrupt {
+            our_state: self.state,
+            seq_state: state.seq,
+            ifr,
+        });
+
+        enum InternalAction {
+            Reset,
+            ThermTrip,
+            Smerr,
+            Mapo,
+            None,
+        }
+
+        // We check these in lowest to highest priority. We start with
+        // reset since we expect the CPU to handle that nicely.
+        // Thermal trip is a terminal state in that we log it but don't
+        // actually make any changes to the sequencer.
+        // SMERR is treated as a higher priority than MAPO arbitrarily.
+        // we probably(?) won't see multiple of these set at a time but
+        // it's important to account for that case;
+
+        let mut action = InternalAction::None;
+
+        if ifr.amd_pwrok_fedge || ifr.amd_rstn_fedge {
+            let rstn = self.seq.amd_reset_fedges.counts();
+            let pwrokn = self.seq.amd_pwrok_fedges.counts();
+
+            // counters and ifr are cleared in the A2 -> A0 transition
+            // host_sp_comms will be notified of this change and will
+            // call back into this task to reboot the system (going to
+            // A2 then back into A0)
+            ringbuf_entry!(Trace::ResetCounts { rstn, pwrokn });
+            action = InternalAction::Reset;
+        }
+
+        if ifr.thermtrip {
+            self.seq.ifr.modify(|h| h.set_thermtrip(false));
+            ringbuf_entry!(Trace::Thermtrip);
+            action = InternalAction::ThermTrip;
+            // Great place for an ereport?
+        }
+
+        if ifr.a0mapo {
+            self.log_pg_registers();
+            self.seq.ifr.modify(|h| h.set_a0mapo(false));
+            ringbuf_entry!(Trace::A0MapoInterrupt);
+            action = InternalAction::Mapo;
+            // Great place for an ereport?
+        }
+
+        if ifr.smerr_assert {
+            self.seq.ifr.modify(|h| h.set_smerr_assert(false));
+            ringbuf_entry!(Trace::SmerrInterrupt);
+            action = InternalAction::Smerr;
+            // Great place for an ereport?
+        }
+        // Fan Fault is unconnected
+        // NIC MAPO is unconnected
+
+        match action {
+            InternalAction::Reset => {
+                // host_sp_comms will be notified of this change and will
+                // call back into this task to reboot the system (going to
+                // A2 then back into A0)
+                self.set_state_internal(PowerState::A0Reset);
+            }
+            InternalAction::ThermTrip => {
+                // This is a terminal state; we set our state to `A0Thermtrip`
+                // but do not expect any other task to take action right now
+                self.set_state_internal(PowerState::A0Thermtrip);
+            }
+            InternalAction::Mapo => {
+                // This is a terminal state (for now)
+                self.emergency_a2(StateChangeReason::A0Mapo);
+            }
+            InternalAction::Smerr => {
+                // This is a terminal state (for now)
+                self.emergency_a2(StateChangeReason::SmerrAssert);
+            }
+            InternalAction::None => {
+                // This is unexpected, logging is the best we can do
+                ringbuf_entry!(Trace::UnexpectedInterrupt);
+            }
+        };
     }
 }
 
@@ -641,10 +803,14 @@ impl idl::InOrderSequencerImpl for ServerImpl {
 
 impl NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
-        notifications::TIMER_MASK
+        notifications::TIMER_MASK | notifications::SEQ_IRQ_MASK
     }
 
     fn handle_notification(&mut self, bits: u32) {
+        if (bits & notifications::SEQ_IRQ_MASK) != 0 {
+            self.handle_sequencer_interrupt();
+        }
+
         if (bits & notifications::TIMER_MASK) == 0 {
             return;
         }
@@ -672,32 +838,7 @@ impl NotificationHandler for ServerImpl {
                 });
                 self.log_pg_registers();
 
-                // Power down to A2, updating our internal state.  We can't
-                // handle errors here, so log them and continue.
-                if let Err(e) = self
-                    .set_state_impl(PowerState::A2, StateChangeReason::Other)
-                {
-                    ringbuf_entry!(Trace::PowerDownError(e))
-                }
-            } else {
-                // Check that the FPGA has not logged any reset conditions from
-                // the CPU.
-                let ifr = self.seq.ifr.view();
-                if ifr.thermtrip {
-                    self.seq.ifr.modify(|h| h.set_thermtrip(false));
-                    ringbuf_entry!(Trace::Thermtrip);
-                    self.set_state_internal(PowerState::A0Thermtrip)
-                    // this is a terminal state (for now)
-                } else if ifr.amd_pwrok_fedge || ifr.amd_rstn_fedge {
-                    let rstn = self.seq.amd_reset_fedges.counts();
-                    let pwrokn = self.seq.amd_pwrok_fedges.counts();
-                    ringbuf_entry!(Trace::ResetCounts { rstn, pwrokn });
-                    // counters are cleared in the A2 -> A0 transition
-                    self.set_state_internal(PowerState::A0Reset);
-                    // host_sp_comms will be notified of this change and will
-                    // call back into this task to reboot the system (going to
-                    // A2 then back into A0)
-                }
+                self.emergency_a2(StateChangeReason::Unknown);
             }
         }
 
@@ -721,3 +862,4 @@ mod fmc_periph {
 }
 
 include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
+include!(concat!(env!("OUT_DIR"), "/gpio_irq_pins.rs"));

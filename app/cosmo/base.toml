@@ -21,10 +21,10 @@ size = 256
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
-max-sizes = {flash = 16384, ram = 2048}
+max-sizes = {flash = 16384, ram = 4096}
 start = true
 features = ["dump"]
-stacksize = 1536
+stacksize = 2304
 notifications = ["fault", "timer"]
 extern-regions = ["sram1", "sram2", "sram3", "sram4"]
 
@@ -73,6 +73,12 @@ notifications = ["exti-wildcard-irq"]
 port = "F"
 pin = 2
 owner = {name = "sprot", notification = "rot_irq"}
+
+[tasks.sys.config.gpio-irqs.seq_irq]
+# FPGA1_TO_SP_IRQ1_L
+port = "F"
+pin = 5
+owner = {name = "cosmo_seq", notification = "seq_irq"}
 
 [tasks.spi2_driver]
 name = "drv-stm32h7-spi-server"
@@ -175,7 +181,7 @@ stacksize = 2600
 start = true
 task-slots = ["sys", "i2c_driver", {spi_front = "spi3_driver"}, "jefe", "packrat", "auxflash", "spartan7_loader", "hf"]
 uses = ["mmio_sequencer", "mmio_info"]
-notifications = ["timer", "vcore"]
+notifications = ["timer", "vcore", "seq-irq"]
 
 [tasks.ignition_flash]
 name = "drv-ignition-flash"
