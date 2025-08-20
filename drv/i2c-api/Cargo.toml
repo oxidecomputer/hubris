@@ -13,7 +13,7 @@ userlib.path = "../../sys/userlib"
 
 
 [features]
-component-id = [] # adds a `component_id` field to the `I2cDevice`
+refdes = [] # adds a `refdes` field to the `I2cDevice`
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

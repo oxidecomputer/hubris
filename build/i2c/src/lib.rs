@@ -133,7 +133,7 @@ impl I2cDevice {
         })
     }
 
-    fn component_id(&self) -> Option<String> {
+    fn device_id(&self) -> Option<String> {
         let refdes = self.refdes.as_ref()?;
         Some(if let Some(ref suffix) = self.refdes_suffix {
             format!("{refdes}/{suffix}")
@@ -510,15 +510,15 @@ struct ConfigGenerator {
     /// hash of controllers to single port indices
     singletons: HashMap<u8, usize>,
 
-    /// if `true`, include refdes-based component ID string in output
-    include_component_ids: bool,
+    /// if `true`, include refdes string in output
+    include_refdes: bool,
 }
 
 impl ConfigGenerator {
     fn new(settings: CodegenSettings) -> Self {
         let CodegenSettings {
             disposition,
-            include_component_ids,
+            include_refdes,
         } = settings;
         let i2c = match build_util::config::<Config>() {
             Ok(config) => config.i2c,
@@ -599,7 +599,7 @@ impl ConfigGenerator {
             buses,
             ports,
             singletons,
-            include_component_ids,
+            include_refdes,
         }
     }
 
@@ -955,22 +955,10 @@ impl ConfigGenerator {
 
         let indent = format!("{:indent$}", "", indent = indent);
 
-        let component_id = if self.include_component_ids {
-            match d.component_id() {
-                Some(id) => {
-                    format!("\n{indent}    component_id: {id:?},")
-                }
-                None => {
-                    // Final compile error will come from the generated code,
-                    // which seems morally right...
-                    println!(
-                        "cargo::error=CodegenSettings asked us to generate \
-                         component IDs, but device {} has no refdes",
-                        d.device
-                    );
-                    String::new()
-                }
-            }
+        let refdes_part = if self.include_refdes {
+            d.device_id()
+                .map(|id| format!(".with_refdes({id:?})"))
+                .unwrap_or_default()
         } else {
             String::new()
         };
@@ -982,10 +970,14 @@ impl ConfigGenerator {
 {indent}    Controller::I2C{controller},
 {indent}    PortIndex({port}),
 {indent}    {segment},
-{indent}    {address:#x}{component_id}
-{indent})"##,
+{indent}    {address:#x}
+{indent}){refdes_part}"##,
             description = d.description,
+            controller = controller,
+            port = port,
+            segment = segment,
             address = d.address,
+            indent = indent,
         )
     }
 
@@ -1705,14 +1697,14 @@ impl ConfigGenerator {
 #[derive(Copy, Clone)]
 pub struct CodegenSettings {
     pub disposition: Disposition,
-    pub include_component_ids: bool,
+    pub include_refdes: bool,
 }
 
 impl From<Disposition> for CodegenSettings {
     fn from(disposition: Disposition) -> Self {
         CodegenSettings {
             disposition,
-            include_component_ids: false,
+            include_refdes: false,
         }
     }
 }
@@ -1803,7 +1795,7 @@ pub fn device_descriptions() -> impl Iterator<Item = I2cDeviceDescription> {
     // above; if we change the order here, it must change there as well.
     g.devices.into_iter().zip(sensors.device_sensors).map(
         |(device, sensors)| {
-            let device_id = device.component_id();
+            let device_id = device.device_id();
             I2cDeviceDescription {
                 device: device.device,
                 description: device.description,
