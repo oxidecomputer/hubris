@@ -1,0 +1,7 @@
+[resets]
+address = 0x4002_0000  # 2.2.4. APB registers
+size = 32
+
+[sio]
+address = 0xd000_0000  # 2.2.6. Core-local peripherals (SIO)
+size = 512
