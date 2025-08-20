@@ -360,6 +360,8 @@ address = 0b1010_000
 device = "at24csw080"
 description = "Front IO board FRUID"
 removable = true
+refdes = "J2" # on front IO board
+refdes-suffix = "U3"
 
 [[config.i2c.devices]]
 bus = "front_io0"
@@ -367,6 +369,8 @@ address = 0b1110_011
 device = "pca9538"
 description = "Front IO GPIO expander"
 removable = true
+refdes = "J2" # on front IO board
+refdes-suffix = "U4"
 
 [[config.i2c.devices]]
 bus = "front_io0"
@@ -375,7 +379,8 @@ device = "pca9956b"
 name = "front_leds_left"
 description = "Front IO LED driver (left)"
 removable = true
-refdes = "U5"
+refdes = "J2" # on front IO board
+refdes-suffix = "U5"
 
 [[config.i2c.devices]]
 bus = "front_io0"
@@ -384,7 +389,8 @@ device = "pca9956b"
 name = "front_leds_right"
 description = "Front IO LED driver (right)"
 removable = true
-refdes = "U6"
+refdes = "J2" # on front IO board
+refdes-suffix = "U6"
 
 [[config.i2c.devices]]
 bus = "front_io0"
@@ -394,7 +400,8 @@ description = "Front IO V3P3_SYS_A2 rail"
 removable = true
 power = {rails = ["V3P3_SYS_A2"] }
 sensors = { temperature = 1, voltage = 1, current = 1 }
-refdes = "J61_U7" # on front IO board
+refdes = "J2" # on front IO board
+refdes-suffix = "U7"
 
 [[config.i2c.devices]]
 bus = "front_io0"
@@ -404,7 +411,8 @@ description = "Front IO V3P3_QSFP0_A0 rail"
 removable = true
 power = {rails = ["V3P3_QSFP0_A0"] }
 sensors = { temperature = 1, voltage = 1, current = 1 }
-refdes = "J61_U15" # on front IO board
+refdes = "J2" # on front IO board
+refdes-suffix = "U15"
 
 [[config.i2c.devices]]
 bus = "front_io0"
@@ -414,7 +422,8 @@ description = "Front IO V3P3_QSFP1_A0 rail"
 removable = true
 power = {rails = ["V3P3_QSFP1_A0"] }
 sensors = { temperature = 1, voltage = 1, current = 1 }
-refdes = "J61_U18" # on front IO board
+refdes = "J2" # on front IO board
+refdes-suffix = "U18"
 
 #
 # I2C3: Front I/O 1
