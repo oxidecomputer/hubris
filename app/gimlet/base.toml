@@ -434,8 +434,7 @@ name = "Southwest"
 description = "Southwest temperature sensor"
 sensors = { temperature = 1 }
 removable = true
-refdes = "J194"
-refdes-suffix = "U1"
+refdes = ["J194", "U1"]
 
 [[config.i2c.devices]]
 bus = "front"
@@ -445,8 +444,7 @@ name = "South"
 description = "South temperature sensor"
 sensors = { temperature = 1 }
 removable = true
-refdes = "J195"
-refdes-suffix = "U1"
+refdes = ["J195", "U1"]
 
 [[config.i2c.devices]]
 bus = "front"
@@ -456,8 +454,7 @@ name = "Southeast"
 description = "Southeast temperature sensor"
 sensors = { temperature = 1 }
 removable = true
-refdes = "J196"
-refdes-suffix = "U1"
+refdes = ["J196", "U1"]
 
 [[config.i2c.devices]]
 bus = "front"
@@ -490,8 +487,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin A VPD"
 name = "sharkfin_a_vpd"
-refdes = "J206"
-refdes-suffix = "U7"
+refdes = ["J206", "U7"]
 removable = true
 
 [[config.i2c.devices]]
@@ -504,8 +500,7 @@ description = "U.2 Sharkfin A hot swap controller"
 power = { rails = [ "V12_U2A_A0", "V3P3_U2A_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_a_hsc"
-refdes = "J206"
-refdes-suffix = "U8"
+refdes = ["J206", "U8"]
 removable = true
 
 [[config.i2c.devices]]
@@ -517,8 +512,7 @@ device = "nvme_bmc"
 description = "U.2 A NVMe Basic Management Command"
 sensors = { temperature = 1 }
 name = "U2_N0"
-refdes = "J206"
-refdes-suffix = "J1"
+refdes = ["J206", "J1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -529,8 +523,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin B VPD"
 name = "sharkfin_b_vpd"
-refdes = "J207"
-refdes-suffix = "U7"
+refdes = ["J207", "U7"]
 removable = true
 
 [[config.i2c.devices]]
@@ -543,8 +536,7 @@ description = "U.2 Sharkfin B hot swap controller"
 power = { rails = [ "V12_U2B_A0", "V3P3_U2B_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_b_hsc"
-refdes = "J207"
-refdes-suffix = "U8"
+refdes = ["J207", "U8"]
 removable = true
 
 [[config.i2c.devices]]
@@ -556,8 +548,7 @@ device = "nvme_bmc"
 description = "U.2 B NVMe Basic Management Control"
 sensors = { temperature = 1 }
 name = "U2_N1"
-refdes = "J207"
-refdes-suffix = "J1"
+refdes = ["J207", "J1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -568,8 +559,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin C VPD"
 name = "sharkfin_c_vpd"
-refdes = "J208"
-refdes-suffix = "U7"
+refdes = ["J208", "U7"]
 removable = true
 
 [[config.i2c.devices]]
@@ -582,8 +572,7 @@ description = "U.2 Sharkfin C hot swap controller"
 power = { rails = [ "V12_U2C_A0", "V3P3_U2C_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_c_hsc"
-refdes = "J208"
-refdes-suffix = "U8"
+refdes = ["J208", "U8"]
 removable = true
 
 [[config.i2c.devices]]
@@ -595,8 +584,7 @@ device = "nvme_bmc"
 description = "U.2 C NVMe Basic Management Control"
 sensors = { temperature = 1 }
 name = "U2_N2"
-refdes = "J208"
-refdes-suffix = "J1"
+refdes = ["J208", "J1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -607,8 +595,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin D VPD"
 name = "sharkfin_d_vpd"
-refdes = "J209"
-refdes-suffix = "U7"
+refdes = ["J209", "U7"]
 removable = true
 
 [[config.i2c.devices]]
@@ -621,8 +608,7 @@ description = "U.2 Sharkfin D hot swap controller"
 power = { rails = [ "V12_U2D_A0", "V3P3_U2D_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_d_hsc"
-refdes = "J209"
-refdes-suffix = "U8"
+refdes = ["J209", "U8"]
 removable = true
 
 [[config.i2c.devices]]
@@ -634,8 +620,7 @@ device = "nvme_bmc"
 description = "U.2 D NVMe Basic Management Control"
 sensors = { temperature = 1 }
 name = "U2_N3"
-refdes = "J209"
-refdes-suffix = "J1"
+refdes = ["J209", "J1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -646,8 +631,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin E VPD"
 name = "sharkfin_e_vpd"
-refdes = "J210"
-refdes-suffix = "U7"
+refdes = ["J210", "U7"]
 removable = true
 
 [[config.i2c.devices]]
@@ -660,8 +644,7 @@ description = "U.2 Sharkfin E hot swap controller"
 power = { rails = [ "V12_U2E_A0", "V3P3_U2E_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_e_hsc"
-refdes = "J210"
-refdes-suffix = "U8"
+refdes = ["J210", "U8"]
 removable = true
 
 [[config.i2c.devices]]
@@ -673,8 +656,7 @@ device = "nvme_bmc"
 description = "U.2 E NVMe Basic Management Control"
 sensors = { temperature = 1 }
 name = "U2_N4"
-refdes = "J210"
-refdes-suffix = "J1"
+refdes = ["J210", "J1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -685,8 +667,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin F VPD"
 name = "sharkfin_f_vpd"
-refdes = "J211"
-refdes-suffix = "U7"
+refdes = ["J211", "U7"]
 removable = true
 
 [[config.i2c.devices]]
@@ -699,8 +680,7 @@ description = "U.2 Sharkfin F hot swap controller"
 power = { rails = [ "V12_U2F_A0", "V3P3_U2F_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_f_hsc"
-refdes = "J211"
-refdes-suffix = "U8"
+refdes = ["J211", "U8"]
 removable = true
 
 [[config.i2c.devices]]
@@ -712,8 +692,7 @@ device = "nvme_bmc"
 description = "U.2 F NVMe Basic Management Control"
 sensors = { temperature = 1 }
 name = "U2_N5"
-refdes = "J211"
-refdes-suffix = "J1"
+refdes = ["J211", "J1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -724,8 +703,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin G VPD"
 name = "sharkfin_g_vpd"
-refdes = "J212"
-refdes-suffix = "U7"
+refdes = ["J212", "U7"]
 removable = true
 
 [[config.i2c.devices]]
@@ -738,8 +716,7 @@ description = "U.2 Sharkfin G hot swap controller"
 power = { rails = [ "V12_U2G_A0", "V3P3_U2G_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_g_hsc"
-refdes = "J212"
-refdes-suffix = "U8"
+refdes = ["J212", "U8"]
 removable = true
 
 [[config.i2c.devices]]
@@ -751,8 +728,7 @@ device = "nvme_bmc"
 description = "U.2 G NVMe Basic Management Control"
 sensors = { temperature = 1 }
 name = "U2_N6"
-refdes = "J212"
-refdes-suffix = "J1"
+refdes = ["J212", "J1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -763,8 +739,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin H VPD"
 name = "sharkfin_h_vpd"
-refdes = "J213"
-refdes-suffix = "U7"
+refdes = ["J213", "U7"]
 removable = true
 
 [[config.i2c.devices]]
@@ -777,8 +752,7 @@ description = "U.2 Sharkfin H hot swap controller"
 power = { rails = [ "V12_U2H_A0", "V3P3_U2H_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_h_hsc"
-refdes = "J213"
-refdes-suffix = "U8"
+refdes = ["J213", "U8"]
 removable = true
 
 [[config.i2c.devices]]
@@ -790,8 +764,7 @@ device = "nvme_bmc"
 description = "U.2 H NVMe Basic Management Control"
 sensors = { temperature = 1 }
 name = "U2_N7"
-refdes = "J213"
-refdes-suffix = "J1"
+refdes = ["J213", "J1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -802,8 +775,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin I VPD"
 name = "sharkfin_i_vpd"
-refdes = "J214"
-refdes-suffix = "U7"
+refdes = ["J214", "U7"]
 removable = true
 
 [[config.i2c.devices]]
@@ -816,8 +788,7 @@ description = "U.2 Sharkfin I hot swap controller"
 power = { rails = [ "V12_U2I_A0", "V3P3_U2I_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_i_hsc"
-refdes = "J214"
-refdes-suffix = "U8"
+refdes = ["J214", "U8"]
 removable = true
 
 [[config.i2c.devices]]
@@ -829,8 +800,7 @@ device = "nvme_bmc"
 description = "U.2 I NVMe Basic Management Control"
 sensors = { temperature = 1 }
 name = "U2_N8"
-refdes = "J214"
-refdes-suffix = "J1"
+refdes = ["J214", "J1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -841,8 +811,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin J VPD"
 name = "sharkfin_j_vpd"
-refdes = "J215"
-refdes-suffix = "U7"
+refdes = ["J215", "U7"]
 removable = true
 
 [[config.i2c.devices]]
@@ -855,8 +824,7 @@ description = "U.2 Sharkfin J hot swap controller"
 power = { rails = [ "V12_U2J_A0", "V3P3_U2J_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_j_hsc"
-refdes = "J215"
-refdes-suffix = "U8"
+refdes = ["J215", "U8"]
 removable = true
 
 [[config.i2c.devices]]
@@ -868,8 +836,7 @@ device = "nvme_bmc"
 description = "U.2 J NVMe Basic Management Control"
 sensors = { temperature = 1 }
 name = "U2_N9"
-refdes = "J215"
-refdes-suffix = "J1"
+refdes = ["J215", "J1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -976,8 +943,7 @@ address = 0x3c
 device = "sbrmi"
 name = "RMI"
 description = "CPU via SB-RMI"
-refdes = "P0"
-refdes-suffix = "SBRMI"
+refdes = ["P0", "SBRMI"]
 
 [[config.i2c.devices]]
 bus = "mid"
@@ -986,8 +952,7 @@ device = "sbtsi"
 name = "CPU"
 description = "CPU temperature sensor"
 sensors = { temperature = 1 }
-refdes = "P0"
-refdes-suffix = "SBTSI"
+refdes = ["P0", "SBTSI"]
 
 [[config.i2c.devices]]
 bus = "mid"
@@ -1072,8 +1037,7 @@ name = "Northeast"
 description = "Northeast temperature sensor"
 sensors = { temperature = 1 }
 removable = true
-refdes = "J197"
-refdes-suffix = "U1"
+refdes = ["J197", "U1"]
 
 [[config.i2c.devices]]
 bus = "rear"
@@ -1083,8 +1047,7 @@ name = "North"
 description = "North temperature sensor"
 sensors = { temperature = 1 }
 removable = true
-refdes = "J198"
-refdes-suffix = "U1"
+refdes = ["J198", "U1"]
 
 [[config.i2c.devices]]
 bus = "rear"
@@ -1094,8 +1057,7 @@ name = "Northwest"
 description = "Northwest temperature sensor"
 sensors = { temperature = 1 }
 removable = true
-refdes = "J199"
-refdes-suffix = "U1"
+refdes = ["J199", "U1"]
 
 [[config.i2c.devices]]
 bus = "rear"

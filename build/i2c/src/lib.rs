@@ -97,10 +97,7 @@ struct I2cDevice {
     description: String,
 
     /// reference designator, if any
-    refdes: Option<String>,
-
-    /// reference designator suffix, if any
-    refdes_suffix: Option<String>,
+    refdes: Option<Refdes>,
 
     /// power information, if any
     power: Option<I2cPower>,
@@ -130,15 +127,6 @@ impl I2cDevice {
     fn power_for_kind(&self, kind: Sensor) -> Option<&I2cPower> {
         self.power.as_ref().filter(|power| {
             power.sensors.as_ref().is_none_or(|s| s.contains(&kind))
-        })
-    }
-
-    fn device_id(&self) -> Option<String> {
-        let refdes = self.refdes.as_ref()?;
-        Some(if let Some(ref suffix) = self.refdes_suffix {
-            format!("{refdes}/{suffix}")
-        } else {
-            refdes.clone()
         })
     }
 }
@@ -234,6 +222,13 @@ struct I2cSensors {
     names: Option<Vec<String>>,
 }
 
+#[derive(Clone, Debug, Deserialize, Hash, PartialOrd, PartialEq, Eq, Ord)]
+#[serde(untagged)]
+enum Refdes {
+    Component(String),
+    Path(Vec<String>),
+}
+
 impl I2cSensors {
     /// Checks whether two sensor sets are compatible
     ///
@@ -278,8 +273,7 @@ struct DeviceNameKey {
 #[derive(Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
 struct DeviceRefdesKey {
     device: String,
-    refdes: String,
-    suffix: Option<String>,
+    refdes: Refdes,
     kind: Sensor,
 }
 
@@ -411,7 +405,6 @@ impl I2cSensorsDescription {
                 DeviceRefdesKey {
                     device: d.device.clone(),
                     refdes,
-                    suffix: d.refdes_suffix.clone(),
                     kind,
                 },
                 id,
@@ -956,8 +949,12 @@ impl ConfigGenerator {
         let indent = format!("{:indent$}", "", indent = indent);
 
         let refdes_part = if self.include_refdes {
-            d.device_id()
-                .map(|id| format!(".with_refdes({id:?})"))
+            d.refdes
+                .as_ref()
+                .map(|refdes| {
+                    let id = refdes.to_component_id();
+                    format!(".with_refdes({id:?})")
+                })
                 .unwrap_or_default()
         } else {
             String::new()
@@ -1011,20 +1008,17 @@ impl ConfigGenerator {
                 }
             }
             if let Some(refdes) = &d.refdes {
-                if by_refdes
-                    .insert((&d.device, refdes, d.refdes_suffix.as_ref()), d)
-                    .is_some()
-                {
+                if by_refdes.insert((&d.device, refdes), d).is_some() {
                     panic!(
-                        "duplicate refdes {refdes}{}{} for device {}",
-                        if d.refdes_suffix.is_some() { "/" } else { "" },
-                        d.refdes_suffix.as_deref().unwrap_or(""),
+                        "duplicate refdes {refdes:?} for device {}",
                         d.device
                     )
-                } else if by_name.contains_key(&(&d.device, refdes)) {
+                } else if by_name
+                    .contains_key(&(&d.device, &refdes.to_upper_ident()))
+                {
                     panic!(
-                        "refdes {} for device {} is also a device name",
-                        refdes, d.device
+                        "refdes {refdes:?} for device {} is also a device name",
+                        d.device
                     )
                 }
             }
@@ -1168,15 +1162,13 @@ impl ConfigGenerator {
         let mut all: Vec<_> = by_refdes.iter().collect();
         all.sort();
 
-        for ((device, name, suffix), d) in &all {
-            let name = name.to_lowercase();
-            let suffix_sep = if suffix.is_some() { "_" } else { "" };
-            let suffix = suffix.map(|s| s.to_lowercase()).unwrap_or_default();
+        for ((device, refdes), d) in &all {
+            let name = refdes.to_lower_ident();
             write!(
                 &mut self.output,
                 r##"
         #[allow(dead_code)]
-        pub fn {device}_{name}{suffix_sep}{suffix}(task: TaskId) -> I2cDevice {{"##,
+        pub fn {device}_{name}(task: TaskId) -> I2cDevice {{"##,
             )?;
 
             let out = self.generate_device(d, 16);
@@ -1624,13 +1616,12 @@ impl ConfigGenerator {
                 )?;
             }
             if let Some(refdes) = &d.refdes {
-                let refdes = refdes.to_uppercase();
-                let label = if let Some(ref suffix) = d.refdes_suffix {
-                    format!("{refdes}_{}", suffix.to_uppercase())
-                } else {
-                    refdes
-                };
-                self.emit_sensor_struct(d, label, &struct_name, s)?;
+                self.emit_sensor_struct(
+                    d,
+                    refdes.to_upper_ident(),
+                    &struct_name,
+                    s,
+                )?;
             }
         }
 
@@ -1653,14 +1644,8 @@ impl ConfigGenerator {
         by_refdes_sorted.sort();
 
         for (k, ids) in &by_refdes_sorted {
-            let refdes = k.refdes.to_uppercase();
-            let suffix_sep = if k.suffix.is_some() { "_" } else { "" };
-            let suffix = k
-                .suffix
-                .as_ref()
-                .map(|s| s.to_uppercase())
-                .unwrap_or_default();
-            let label = format!("{refdes}{suffix_sep}{suffix}_{}", k.kind);
+            let refdes = k.refdes.to_upper_ident();
+            let label = format!("{refdes}_{}", k.kind);
             self.emit_sensor(&k.device, &label, ids)?;
         }
 
@@ -1795,7 +1780,7 @@ pub fn device_descriptions() -> impl Iterator<Item = I2cDeviceDescription> {
     // above; if we change the order here, it must change there as well.
     g.devices.into_iter().zip(sensors.device_sensors).map(
         |(device, sensors)| {
-            let device_id = device.device_id();
+            let device_id = device.refdes.as_ref().map(Refdes::to_component_id);
             I2cDeviceDescription {
                 device: device.device,
                 description: device.description,
@@ -1835,4 +1820,47 @@ where
         )?;
     }
     Ok(())
+}
+
+impl Refdes {
+    fn to_component_id(&self) -> String {
+        self.join_with_case(str::make_ascii_uppercase, "/")
+    }
+
+    fn to_upper_ident(&self) -> String {
+        self.join_with_case(str::make_ascii_uppercase, "_")
+    }
+
+    fn to_lower_ident(&self) -> String {
+        self.join_with_case(str::make_ascii_lowercase, "_")
+    }
+
+    fn join_with_case(
+        &self,
+        change_case: impl Fn(&mut str),
+        sep: &str,
+    ) -> String {
+        match self {
+            Self::Component(s) => {
+                let mut s = s.clone();
+                change_case(&mut s);
+                s
+            }
+            Self::Path(parts) => {
+                let len = parts.iter().map(String::len).sum::<usize>()
+                    + (parts.len() - 1);
+                let mut s = String::with_capacity(len);
+                let mut parts = parts.iter();
+                if let Some(first) = parts.next() {
+                    s.push_str(&first[..]);
+                    for part in parts {
+                        s.push_str(sep);
+                        s.push_str(part);
+                    }
+                }
+                change_case(&mut s);
+                s
+            }
+        }
+    }
 }

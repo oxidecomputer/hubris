@@ -398,8 +398,7 @@ name = "psu0eeprom"
 address = 0b1010_000
 device = "m24c02"
 description = "PSU 0 EEPROM"
-refdes = "PSU0"
-refdes-suffix = "ID"
+refdes = ["PSU0", "ID"]
 
 [[config.i2c.devices]]
 bus = "backplane"
@@ -417,8 +416,7 @@ name = "psu1eeprom"
 address = 0b1010_001
 device = "m24c02"
 description = "PSU 1 EEPROM"
-refdes = "PSU1"
-refdes-suffix = "ID"
+refdes = ["PSU1", "ID"]
 
 [[config.i2c.devices]]
 bus = "backplane"
@@ -436,8 +434,7 @@ name = "psu2eeprom"
 address = 0b1010_010
 device = "m24c02"
 description = "PSU 2 EEPROM"
-refdes = "PSU2"
-refdes-suffix = "ID"
+refdes = ["PSU2", "ID"]
 
 [[config.i2c.devices]]
 bus = "backplane"
@@ -455,8 +452,7 @@ name = "psu3eeprom"
 address = 0b1010_011
 device = "m24c02"
 description = "PSU 3 EEPROM"
-refdes = "PSU3"
-refdes-suffix = "ID"
+refdes = ["PSU3", "ID"]
 
 [[config.i2c.devices]]
 bus = "backplane"
@@ -474,8 +470,7 @@ name = "psu4eeprom"
 address = 0b1010_100
 device = "m24c02"
 description = "PSU 4 EEPROM"
-refdes = "PSU4"
-refdes-suffix = "ID"
+refdes = ["PSU4", "ID"]
 
 [[config.i2c.devices]]
 bus = "backplane"
@@ -493,8 +488,7 @@ name = "psu5eeprom"
 address = 0b1010_101
 device = "m24c02"
 description = "PSU 5 EEPROM"
-refdes = "PSU5"
-refdes-suffix = "ID"
+refdes = ["PSU5", "ID"]
 
 [[config.i2c.devices]]
 bus = "backplane"
