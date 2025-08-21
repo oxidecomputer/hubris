@@ -50,6 +50,7 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
     let mut missing_ids = 0;
     let mut duplicate_ids = 0;
     let mut ids_too_long = 0;
+    // We use a BTreeMap here so that the list is ordered by device ID. When generating the array, we want to ensure it's
     let mut id2idx = std::collections::BTreeMap::new();
 
     for (idx, dev) in devices.into_iter().enumerate() {
@@ -98,18 +99,13 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
 
     writeln!(
         file,
-        "pub const DEVICE_INDICES_BY_ID_CONST: [([u8; MAX_ID_LENGTH], usize); {}] = [",
+        "pub static DEVICE_INDICES_BY_SORTED_ID: [([u8; MAX_ID_LENGTH], usize); {}] = [",
         id2idx.len()
     )?;
     for (id, idx) in id2idx {
         writeln!(file, "    ({id:?}, {idx}),")?;
     }
     writeln!(file, "];")?;
-    writeln!(
-        file,
-        "pub static DEVICE_INDICES_BY_ID: [([u8; MAX_ID_LENGTH], usize); \
-         DEVICE_INDICES_BY_ID_CONST.len()] = DEVICE_INDICES_BY_ID_CONST;"
-    )?;
 
     file.flush()?;
 

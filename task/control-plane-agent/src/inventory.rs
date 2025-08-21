@@ -163,10 +163,10 @@ impl TryFrom<&'_ SpComponent> for Index {
     type Error = SpError;
 
     fn try_from(component: &'_ SpComponent) -> Result<Self, Self::Error> {
-        if let Ok(entry_idx) = task_validate_api::DEVICE_INDICES_BY_ID
+        if let Ok(entry_idx) = task_validate_api::DEVICE_INDICES_BY_SORTED_ID
             .binary_search_by_key(&component.id, |&(id, _)| id)
         {
-            let &(_, index) = task_validate_api::DEVICE_INDICES_BY_ID
+            let &(_, index) = task_validate_api::DEVICE_INDICES_BY_SORTED_ID
                 .get(entry_idx)
                 .unwrap_lite();
             return Ok(Self::ValidateDevice(index));
