@@ -50,7 +50,12 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
     let mut missing_ids = 0;
     let mut duplicate_ids = 0;
     let mut ids_too_long = 0;
-    // We use a BTreeMap here so that the list is ordered by device ID. When generating the array, we want to ensure it's
+    //
+    // The DEVICE_INDICES_BY_SORTED_ID array is used to look up indices by ID
+    // using a binary search, so it must be sorted by ID. This map is used to
+    // generate that array, so we use a BTreeMap here to ensure it's sorted by
+    // key.
+    //
     let mut id2idx = std::collections::BTreeMap::new();
 
     for (idx, dev) in devices.into_iter().enumerate() {
