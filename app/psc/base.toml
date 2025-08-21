@@ -398,6 +398,7 @@ name = "psu0eeprom"
 address = 0b1010_000
 device = "m24c02"
 description = "PSU 0 EEPROM"
+refdes = ["PSU0", "ID"]
 
 [[config.i2c.devices]]
 bus = "backplane"
@@ -407,6 +408,7 @@ device = "mwocp68"
 description = "PSU 0 MCU"
 power = { rails = [ "V54_PSU0", "V12_PSU0" ], sensors = ["voltage", "current", "input-voltage", "input-current"] }
 sensors = { input-voltage = 2, input-current = 2, voltage = 2, current = 2, temperature = 3, speed = 2 }
+refdes = "PSU0"
 
 [[config.i2c.devices]]
 bus = "backplane"
@@ -414,6 +416,7 @@ name = "psu1eeprom"
 address = 0b1010_001
 device = "m24c02"
 description = "PSU 1 EEPROM"
+refdes = ["PSU1", "ID"]
 
 [[config.i2c.devices]]
 bus = "backplane"
@@ -423,6 +426,7 @@ device = "mwocp68"
 description = "PSU 1 MCU"
 power = { rails = [ "V54_PSU1", "V12_PSU1" ], sensors = ["voltage", "current", "input-voltage", "input-current"] }
 sensors = { input-voltage = 2, input-current = 2, voltage = 2, current = 2, temperature = 3, speed = 2 }
+refdes = "PSU1"
 
 [[config.i2c.devices]]
 bus = "backplane"
@@ -430,6 +434,7 @@ name = "psu2eeprom"
 address = 0b1010_010
 device = "m24c02"
 description = "PSU 2 EEPROM"
+refdes = ["PSU2", "ID"]
 
 [[config.i2c.devices]]
 bus = "backplane"
@@ -439,6 +444,7 @@ device = "mwocp68"
 description = "PSU 2 MCU"
 power = { rails = [ "V54_PSU2", "V12_PSU2" ], sensors = ["voltage", "current", "input-voltage", "input-current"] }
 sensors = { input-voltage = 2, input-current = 2, voltage = 2, current = 2, temperature = 3, speed = 2 }
+refdes = "PSU2"
 
 [[config.i2c.devices]]
 bus = "backplane"
@@ -446,6 +452,7 @@ name = "psu3eeprom"
 address = 0b1010_011
 device = "m24c02"
 description = "PSU 3 EEPROM"
+refdes = ["PSU3", "ID"]
 
 [[config.i2c.devices]]
 bus = "backplane"
@@ -455,6 +462,7 @@ device = "mwocp68"
 description = "PSU 3 MCU"
 power = { rails = [ "V54_PSU3", "V12_PSU3" ], sensors = ["voltage", "current", "input-voltage", "input-current"] }
 sensors = { input-voltage = 2, input-current = 2, voltage = 2, current = 2, temperature = 3, speed = 2 }
+refdes = "PSU3"
 
 [[config.i2c.devices]]
 bus = "backplane"
@@ -462,6 +470,7 @@ name = "psu4eeprom"
 address = 0b1010_100
 device = "m24c02"
 description = "PSU 4 EEPROM"
+refdes = ["PSU4", "ID"]
 
 [[config.i2c.devices]]
 bus = "backplane"
@@ -471,6 +480,7 @@ device = "mwocp68"
 description = "PSU 4 MCU"
 power = { rails = [ "V54_PSU4", "V12_PSU4" ], sensors = ["voltage", "current", "input-voltage", "input-current"] }
 sensors = { input-voltage = 2, input-current = 2, voltage = 2, current = 2, temperature = 3, speed = 2 }
+refdes = "PSU4"
 
 [[config.i2c.devices]]
 bus = "backplane"
@@ -478,6 +488,7 @@ name = "psu5eeprom"
 address = 0b1010_101
 device = "m24c02"
 description = "PSU 5 EEPROM"
+refdes = ["PSU5", "ID"]
 
 [[config.i2c.devices]]
 bus = "backplane"
@@ -487,6 +498,7 @@ device = "mwocp68"
 description = "PSU 5 MCU"
 power = { rails = [ "V54_PSU5", "V12_PSU5" ], sensors = ["voltage", "current", "input-voltage", "input-current"] }
 sensors = { input-voltage = 2, input-current = 2, voltage = 2, current = 2, temperature = 3, speed = 2 }
+refdes = "PSU5"
 
 [config.spi.spi2]
 controller = 2

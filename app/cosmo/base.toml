@@ -494,7 +494,7 @@ bus = "front"
 address = 0x70
 device = "oximux16"
 description = "Front FPGA virtual mux"
-refdes = "U31_1"
+refdes = ["U31"]
 
 # Welcome to the sharkfin zone
 # SMBUS_FPGA2_TO_CEMA
@@ -506,7 +506,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin A VPD"
 name = "sharkfin_a_vpd"
-refdes = "J200"
+refdes = ["J200", "U2"]
 removable = true
 
 [[config.i2c.devices]]
@@ -519,7 +519,7 @@ description = "U.2 Sharkfin A hot swap controller"
 power = { rails = [ "V12_U2A_A0", "V3P3_U2A_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_a_hsc"
-refdes = "J200"
+refdes = ["J200", "U1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -531,7 +531,7 @@ device = "nvme_bmc"
 description = "U.2 A NVMe Basic Management Command"
 sensors = { temperature = 1 }
 name = "U2_N0"
-refdes = "J200"
+refdes = ["J200", "J2"]
 removable = true
 
 # SMBUS_FPGA2_TO_CEMB
@@ -543,7 +543,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin B VPD"
 name = "sharkfin_b_vpd"
-refdes = "J201"
+refdes = ["J201", "U2"]
 removable = true
 
 [[config.i2c.devices]]
@@ -556,7 +556,7 @@ description = "U.2 Sharkfin B hot swap controller"
 power = { rails = [ "V12_U2B_A0", "V3P3_U2B_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_b_hsc"
-refdes = "J201"
+refdes = ["J201", "U1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -568,7 +568,7 @@ device = "nvme_bmc"
 description = "U.2 B NVMe Basic Management Control"
 sensors = { temperature = 1 }
 name = "U2_N1"
-refdes = "J201"
+refdes = ["J201", "J2"]
 removable = true
 
 # SMBUS_FPGA2_TO_CEMC
@@ -580,7 +580,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin C VPD"
 name = "sharkfin_c_vpd"
-refdes = "J202"
+refdes = ["J202", "U2"]
 removable = true
 
 [[config.i2c.devices]]
@@ -593,7 +593,7 @@ description = "U.2 Sharkfin C hot swap controller"
 power = { rails = [ "V12_U2C_A0", "V3P3_U2C_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_c_hsc"
-refdes = "J202"
+refdes = ["J202", "U1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -605,7 +605,7 @@ device = "nvme_bmc"
 description = "U.2 C NVMe Basic Management Control"
 sensors = { temperature = 1 }
 name = "U2_N2"
-refdes = "J202"
+refdes = ["J202", "J2"]
 removable = true
 
 # SMBUS_FPGA2_TO_CEMD
@@ -617,7 +617,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin D VPD"
 name = "sharkfin_d_vpd"
-refdes = "J203"
+refdes = ["J203", "U2"]
 removable = true
 
 [[config.i2c.devices]]
@@ -630,7 +630,7 @@ description = "U.2 Sharkfin D hot swap controller"
 power = { rails = [ "V12_U2D_A0", "V3P3_U2D_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_d_hsc"
-refdes = "J203"
+refdes = ["J203", "U1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -642,7 +642,7 @@ device = "nvme_bmc"
 description = "U.2 D NVMe Basic Management Control"
 sensors = { temperature = 1 }
 name = "U2_N3"
-refdes = "J203"
+refdes = ["J203", "J2"]
 removable = true
 
 # SMBUS_FPGA2_TO_CEME
@@ -654,7 +654,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin E VPD"
 name = "sharkfin_e_vpd"
-refdes = "J204"
+refdes = ["J204", "U2"]
 removable = true
 
 [[config.i2c.devices]]
@@ -667,7 +667,7 @@ description = "U.2 Sharkfin E hot swap controller"
 power = { rails = [ "V12_U2E_A0", "V3P3_U2E_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_e_hsc"
-refdes = "J204"
+refdes = ["J204", "U1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -679,7 +679,7 @@ device = "nvme_bmc"
 description = "U.2 E NVMe Basic Management Control"
 sensors = { temperature = 1 }
 name = "U2_N4"
-refdes = "J204"
+refdes = ["J204", "J2"]
 removable = true
 
 # SMBUS_FPGA2_TO_CEMF
@@ -691,7 +691,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin F VPD"
 name = "sharkfin_f_vpd"
-refdes = "J205"
+refdes = ["J205", "U2"]
 removable = true
 
 [[config.i2c.devices]]
@@ -704,7 +704,7 @@ description = "U.2 Sharkfin F hot swap controller"
 power = { rails = [ "V12_U2F_A0", "V3P3_U2F_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_f_hsc"
-refdes = "J205"
+refdes = ["J205", "U1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -716,7 +716,7 @@ device = "nvme_bmc"
 description = "U.2 F NVMe Basic Management Control"
 sensors = { temperature = 1 }
 name = "U2_N5"
-refdes = "J205"
+refdes = ["J205", "J2"]
 removable = true
 
 # Note that we skip segments 7 and 8, which are
@@ -731,7 +731,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin G VPD"
 name = "sharkfin_g_vpd"
-refdes = "J206"
+refdes = ["J206", "U2"]
 removable = true
 
 [[config.i2c.devices]]
@@ -744,7 +744,7 @@ description = "U.2 Sharkfin G hot swap controller"
 power = { rails = [ "V12_U2G_A0", "V3P3_U2G_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_g_hsc"
-refdes = "J206"
+refdes = ["J206", "U1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -756,7 +756,7 @@ device = "nvme_bmc"
 description = "U.2 G NVMe Basic Management Control"
 sensors = { temperature = 1 }
 name = "U2_N6"
-refdes = "J206"
+refdes = ["J206", "J2"]
 removable = true
 
 
@@ -770,7 +770,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin H VPD"
 name = "sharkfin_h_vpd"
-refdes = "J207"
+refdes = ["J207", "U2"]
 removable = true
 
 [[config.i2c.devices]]
@@ -783,7 +783,7 @@ description = "U.2 Sharkfin H hot swap controller"
 power = { rails = [ "V12_U2H_A0", "V3P3_U2H_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_h_hsc"
-refdes = "J207"
+refdes = ["J207", "U1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -795,7 +795,7 @@ device = "nvme_bmc"
 description = "U.2 H NVMe Basic Management Control"
 sensors = { temperature = 1 }
 name = "U2_N7"
-refdes = "J207"
+refdes = ["J207", "J2"]
 removable = true
 
 # SMBUS_FPGA2_TO_CEMI
@@ -807,7 +807,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin I VPD"
 name = "sharkfin_i_vpd"
-refdes = "J208"
+refdes = ["J208", "U2"]
 removable = true
 
 [[config.i2c.devices]]
@@ -820,7 +820,7 @@ description = "U.2 Sharkfin I hot swap controller"
 power = { rails = [ "V12_U2I_A0", "V3P3_U2I_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_i_hsc"
-refdes = "J208"
+refdes = ["J208", "U1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -832,7 +832,7 @@ device = "nvme_bmc"
 description = "U.2 I NVMe Basic Management Control"
 sensors = { temperature = 1 }
 name = "U2_N8"
-refdes = "J208"
+refdes = ["J208", "J2"]
 removable = true
 
 # SMBUS_FPGA2_TO_CEMJ
@@ -844,7 +844,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "U.2 Sharkfin J VPD"
 name = "sharkfin_j_vpd"
-refdes = "J209"
+refdes = ["J209", "U2"]
 removable = true
 
 [[config.i2c.devices]]
@@ -857,7 +857,7 @@ description = "U.2 Sharkfin J hot swap controller"
 power = { rails = [ "V12_U2J_A0", "V3P3_U2J_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_j_hsc"
-refdes = "J209"
+refdes = ["J209", "U1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -869,7 +869,7 @@ device = "nvme_bmc"
 description = "U.2 J NVMe Basic Management Control"
 sensors = { temperature = 1 }
 name = "U2_N9"
-refdes = "J209"
+refdes = ["J209", "J2"]
 removable = true
 # you are now leaving the sharkfin zone
 
@@ -919,7 +919,7 @@ bus = "main"
 address = 0x70
 device = "oximux16"
 description = "Main FPGA virtual mux"
-refdes = "U27_1"
+refdes = ["U27", "MUX"]
 
 # SMBUS_FPGA1_TO_M2A
 [[config.i2c.devices]]
@@ -932,6 +932,7 @@ description = "M.2 A NVMe Basic Management Command"
 name = "M2_A"
 sensors = { temperature = 1 }
 removable = true
+refdes = "J210"
 
 # SMBUS_FPGA1_TO_M2B
 [[config.i2c.devices]]
@@ -944,6 +945,7 @@ description = "M.2 B NVMe Basic Management Command"
 name = "M2_B"
 sensors = { temperature = 1 }
 removable = true
+refdes = "J211"
 
 # Segment 3 is unused
 
@@ -955,6 +957,7 @@ address = 0x3c
 device = "sbrmi"
 name = "RMI"
 description = "CPU via SB-RMI"
+refdes = ["U1", "SBRMI"]
 
 [[config.i2c.devices]]
 bus = "main"
@@ -965,6 +968,7 @@ device = "sbtsi"
 name = "CPU"
 description = "CPU temperature sensor"
 sensors = { temperature = 1 }
+refdes = ["U1", "SBTSI"]
 
 # Segment 5 is SEC_SP5_TO_FPGA1
 # Segment 6 is unused

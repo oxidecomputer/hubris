@@ -6070,10 +6070,12 @@ dependencies = [
 name = "task-validate-api"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "build-i2c",
  "counters",
  "derive-idol-err",
  "drv-i2c-api",
+ "gateway-messages",
  "hubpack",
  "idol",
  "idol-runtime",

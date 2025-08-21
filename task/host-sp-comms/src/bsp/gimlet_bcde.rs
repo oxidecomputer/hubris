@@ -104,18 +104,16 @@ impl ServerImpl {
             //
             // Sharkfin connectors start at J206 and are numbered sequentially
             20..=29 => {
-                let (designator, f): ([u8; 4], _) =
+                let (designator, f): ([u8; 7], _) =
                     Self::get_sharkfin_vpd(index as usize - 20);
-                let mut name = *b"____/U7/ID";
-                name[0..4].copy_from_slice(&designator);
+                let mut name = *b"_______/ID";
+                name[0..7].copy_from_slice(&designator);
                 self.read_eeprom_barcode(sequence, &name, f)
             }
             30..=39 => {
-                let (designator, f): ([u8; 4], _) =
+                let (designator, f): ([u8; 7], _) =
                     Self::get_sharkfin_vpd(index as usize - 30);
-                let mut name = *b"____/U7";
-                name[0..4].copy_from_slice(&designator);
-                self.read_at24csw080_id(sequence, &name, f)
+                self.read_at24csw080_id(sequence, &designator, f)
             }
             40 => {
                 // U12: the service processor itself
@@ -405,24 +403,16 @@ impl ServerImpl {
             }
 
             52..=57 => {
-                let (connector_name, f, sensors): ([u8; 4], _, _) =
-                    match index - 52 {
-                        0 => by_refdes!(J194, tmp117),
-                        1 => by_refdes!(J195, tmp117),
-                        2 => by_refdes!(J196, tmp117),
-                        3 => by_refdes!(J197, tmp117),
-                        4 => by_refdes!(J198, tmp117),
-                        5 => by_refdes!(J199, tmp117),
-                        _ => unreachable!(),
-                    };
+                let (name, f, sensors): ([u8; 4], _, _) = match index - 52 {
+                    0 => by_refdes!(J194, tmp117),
+                    1 => by_refdes!(J195, tmp117),
+                    2 => by_refdes!(J196, tmp117),
+                    3 => by_refdes!(J197, tmp117),
+                    4 => by_refdes!(J198, tmp117),
+                    5 => by_refdes!(J199, tmp117),
+                    _ => unreachable!(),
+                };
                 let dev = f(I2C.get_task_id());
-
-                // Convert the name from Jxxx (in the TOML file) -> Jxxx/U1
-                let mut name = *b"Jxxx/U1";
-                // All connector names should have length 4; that's checked by
-                // the type in the tuple assignment above.
-                name[..4].copy_from_slice(&connector_name);
-
                 *self.scratch = InventoryData::Tmp117 {
                     id: 0,
                     eeprom1: 0,
@@ -516,17 +506,17 @@ impl ServerImpl {
             60..=70 => {
                 let i = index - 60;
                 let (name, _f, sensors) = match i {
-                    0 => by_refdes!(J206, max5970),
-                    1 => by_refdes!(J207, max5970),
-                    2 => by_refdes!(J208, max5970),
-                    3 => by_refdes!(J209, max5970),
-                    4 => by_refdes!(J210, max5970),
-                    5 => by_refdes!(J211, max5970),
-                    6 => by_refdes!(J212, max5970),
-                    7 => by_refdes!(J213, max5970),
-                    8 => by_refdes!(J214, max5970),
-                    9 => by_refdes!(J215, max5970),
-                    10 => by_refdes!(U275, max5970),
+                    0 => by_refdes!(J206_U8, max5970),
+                    1 => by_refdes!(J207_U8, max5970),
+                    2 => by_refdes!(J208_U8, max5970),
+                    3 => by_refdes!(J209_U8, max5970),
+                    4 => by_refdes!(J210_U8, max5970),
+                    5 => by_refdes!(J211_U8, max5970),
+                    6 => by_refdes!(J212_U8, max5970),
+                    7 => by_refdes!(J213_U8, max5970),
+                    8 => by_refdes!(J214_U8, max5970),
+                    9 => by_refdes!(J215_U8, max5970),
+                    10 => by_refdes!(U275, max5970, 7),
                     _ => panic!(),
                 };
                 *self.scratch = InventoryData::Max5970 {
@@ -557,19 +547,19 @@ impl ServerImpl {
 
     /// Looks up a Sharkfin VPD EEPROM by sharkfin index (0-9)
     ///
-    /// Returns a designator (e.g. J206) and constructor function
-    fn get_sharkfin_vpd(i: usize) -> ([u8; 4], fn(TaskId) -> I2cDevice) {
+    /// Returns a designator (e.g. J206_U7) and constructor function
+    fn get_sharkfin_vpd(i: usize) -> ([u8; 7], fn(TaskId) -> I2cDevice) {
         let (name, f, _sensors) = match i {
-            0 => by_refdes!(J206, at24csw080),
-            1 => by_refdes!(J207, at24csw080),
-            2 => by_refdes!(J208, at24csw080),
-            3 => by_refdes!(J209, at24csw080),
-            4 => by_refdes!(J210, at24csw080),
-            5 => by_refdes!(J211, at24csw080),
-            6 => by_refdes!(J212, at24csw080),
-            7 => by_refdes!(J213, at24csw080),
-            8 => by_refdes!(J214, at24csw080),
-            9 => by_refdes!(J215, at24csw080),
+            0 => by_refdes!(J206_U7, at24csw080),
+            1 => by_refdes!(J207_U7, at24csw080),
+            2 => by_refdes!(J208_U7, at24csw080),
+            3 => by_refdes!(J209_U7, at24csw080),
+            4 => by_refdes!(J210_U7, at24csw080),
+            5 => by_refdes!(J211_U7, at24csw080),
+            6 => by_refdes!(J212_U7, at24csw080),
+            7 => by_refdes!(J213_U7, at24csw080),
+            8 => by_refdes!(J214_U7, at24csw080),
+            9 => by_refdes!(J215_U7, at24csw080),
             _ => panic!("bad VPD index"),
         };
         (name, f)

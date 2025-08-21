@@ -284,6 +284,7 @@ address = 0x16
 description = "LM5066 evaluation board"
 power = { rails = [ "LM5066_EVL_VOUT" ] }
 sensors = { voltage = 1, current = 1, temperature = 1 }
+refdes = "LOL"
 
 [tasks.power]
 name = "task-power"

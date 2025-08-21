@@ -97,7 +97,7 @@ struct I2cDevice {
     description: String,
 
     /// reference designator, if any
-    refdes: Option<String>,
+    refdes: Option<Refdes>,
 
     /// power information, if any
     power: Option<I2cPower>,
@@ -222,6 +222,13 @@ struct I2cSensors {
     names: Option<Vec<String>>,
 }
 
+#[derive(Clone, Debug, Deserialize, Hash, PartialOrd, PartialEq, Eq, Ord)]
+#[serde(untagged)]
+enum Refdes {
+    Component(String),
+    Path(Vec<String>),
+}
+
 impl I2cSensors {
     /// Checks whether two sensor sets are compatible
     ///
@@ -266,7 +273,7 @@ struct DeviceNameKey {
 #[derive(Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
 struct DeviceRefdesKey {
     device: String,
-    refdes: String,
+    refdes: Refdes,
     kind: Sensor,
 }
 
@@ -941,10 +948,18 @@ impl ConfigGenerator {
 
         let indent = format!("{:indent$}", "", indent = indent);
 
-        let refdes_part = match (self.include_refdes, d.refdes.as_deref()) {
-            (true, Some(refdes)) => format!(".with_refdes(\"{refdes}\")"),
-            _ => String::new(),
+        let refdes_part = if self.include_refdes {
+            d.refdes
+                .as_ref()
+                .map(|refdes| {
+                    let id = refdes.to_component_id();
+                    format!(".with_refdes({id:?})")
+                })
+                .unwrap_or_default()
+        } else {
+            String::new()
         };
+
         format!(
             r##"
 {indent}// {description}
@@ -995,13 +1010,15 @@ impl ConfigGenerator {
             if let Some(refdes) = &d.refdes {
                 if by_refdes.insert((&d.device, refdes), d).is_some() {
                     panic!(
-                        "duplicate refdes {} for device {}",
-                        refdes, d.device
+                        "duplicate refdes {refdes:?} for device {}",
+                        d.device
                     )
-                } else if by_name.contains_key(&(&d.device, refdes)) {
+                } else if by_name
+                    .contains_key(&(&d.device, &refdes.to_upper_ident()))
+                {
                     panic!(
-                        "refdes {} for device {} is also a device name",
-                        refdes, d.device
+                        "refdes {refdes:?} for device {} is also a device name",
+                        d.device
                     )
                 }
             }
@@ -1145,13 +1162,13 @@ impl ConfigGenerator {
         let mut all: Vec<_> = by_refdes.iter().collect();
         all.sort();
 
-        for ((device, name), d) in &all {
+        for ((device, refdes), d) in &all {
+            let name = refdes.to_lower_ident();
             write!(
                 &mut self.output,
                 r##"
         #[allow(dead_code)]
-        pub fn {device}_{}(task: TaskId) -> I2cDevice {{"##,
-                name.to_lowercase()
+        pub fn {device}_{name}(task: TaskId) -> I2cDevice {{"##,
             )?;
 
             let out = self.generate_device(d, 16);
@@ -1601,7 +1618,7 @@ impl ConfigGenerator {
             if let Some(refdes) = &d.refdes {
                 self.emit_sensor_struct(
                     d,
-                    refdes.to_uppercase(),
+                    refdes.to_upper_ident(),
                     &struct_name,
                     s,
                 )?;
@@ -1627,7 +1644,8 @@ impl ConfigGenerator {
         by_refdes_sorted.sort();
 
         for (k, ids) in &by_refdes_sorted {
-            let label = format!("{}_{}", k.refdes.to_uppercase(), k.kind);
+            let refdes = k.refdes.to_upper_ident();
+            let label = format!("{refdes}_{}", k.kind);
             self.emit_sensor(&k.device, &label, ids)?;
         }
 
@@ -1742,6 +1760,8 @@ pub struct I2cDeviceDescription {
     pub device: String,
     pub description: String,
     pub sensors: Vec<DeviceSensor>,
+    pub device_id: Option<String>,
+    pub name: Option<String>,
 }
 
 ///
@@ -1759,10 +1779,15 @@ pub fn device_descriptions() -> impl Iterator<Item = I2cDeviceDescription> {
     // Matches the ordering of the `match` produced by `generate_validation()`
     // above; if we change the order here, it must change there as well.
     g.devices.into_iter().zip(sensors.device_sensors).map(
-        |(device, sensors)| I2cDeviceDescription {
-            device: device.device,
-            description: device.description,
-            sensors,
+        |(device, sensors)| {
+            let device_id = device.refdes.as_ref().map(Refdes::to_component_id);
+            I2cDeviceDescription {
+                device: device.device,
+                description: device.description,
+                sensors,
+                device_id,
+                name: device.name,
+            }
         },
     )
 }
@@ -1795,4 +1820,47 @@ where
         )?;
     }
     Ok(())
+}
+
+impl Refdes {
+    fn to_component_id(&self) -> String {
+        self.join_with_case(str::make_ascii_uppercase, "/")
+    }
+
+    fn to_upper_ident(&self) -> String {
+        self.join_with_case(str::make_ascii_uppercase, "_")
+    }
+
+    fn to_lower_ident(&self) -> String {
+        self.join_with_case(str::make_ascii_lowercase, "_")
+    }
+
+    fn join_with_case(
+        &self,
+        change_case: impl Fn(&mut str),
+        sep: &str,
+    ) -> String {
+        match self {
+            Self::Component(s) => {
+                let mut s = s.clone();
+                change_case(&mut s);
+                s
+            }
+            Self::Path(parts) => {
+                let len = parts.iter().map(String::len).sum::<usize>()
+                    + (parts.len() - 1) * sep.len();
+                let mut s = String::with_capacity(len);
+                let mut parts = parts.iter();
+                if let Some(first) = parts.next() {
+                    s.push_str(&first[..]);
+                    for part in parts {
+                        s.push_str(sep);
+                        s.push_str(part);
+                    }
+                }
+                change_case(&mut s);
+                s
+            }
+        }
+    }
 }
