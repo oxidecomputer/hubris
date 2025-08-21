@@ -106,14 +106,13 @@ impl ServerImpl {
             20..=29 => {
                 let (designator, f): ([u8; 7], _) =
                     Self::get_sharkfin_vpd(index as usize - 20);
-                let mut name = *b"____/U7/ID";
-                name[0..4].copy_from_slice(&designator[0..4]);
+                let mut name = *b"_______/ID";
+                name[0..7].copy_from_slice(&designator);
                 self.read_eeprom_barcode(sequence, &name, f)
             }
             30..=39 => {
-                let (mut designator, f): ([u8; 7], _) =
+                let (designator, f): ([u8; 7], _) =
                     Self::get_sharkfin_vpd(index as usize - 30);
-                designator[4] = b'/';
                 self.read_at24csw080_id(sequence, &designator, f)
             }
             40 => {
@@ -404,7 +403,7 @@ impl ServerImpl {
             }
 
             52..=57 => {
-                let (mut name, f, sensors): ([u8; 7], _, _) = match index - 52 {
+                let (name, f, sensors): ([u8; 7], _, _) = match index - 52 {
                     0 => by_refdes!(J194_U1, tmp117),
                     1 => by_refdes!(J195_U1, tmp117),
                     2 => by_refdes!(J196_U1, tmp117),
@@ -414,12 +413,6 @@ impl ServerImpl {
                     _ => unreachable!(),
                 };
                 let dev = f(I2C.get_task_id());
-
-                // Convert the name from Jxxx_U1 (in the TOML file) -> Jxxx/U1
-                // TODO(eliza): let's just get this from the include_refdes i2c
-                // codegen...
-                name[4] = b'/';
-
                 *self.scratch = InventoryData::Tmp117 {
                     id: 0,
                     eeprom1: 0,
@@ -512,7 +505,7 @@ impl ServerImpl {
             }
             60..=70 => {
                 let i = index - 60;
-                let (mut name, _f, sensors) = match i {
+                let (name, _f, sensors) = match i {
                     0 => by_refdes!(J206_U8, max5970),
                     1 => by_refdes!(J207_U8, max5970),
                     2 => by_refdes!(J208_U8, max5970),
@@ -526,11 +519,6 @@ impl ServerImpl {
                     10 => by_refdes!(U275, max5970, 7),
                     _ => panic!(),
                 };
-                // Transform Jxxx_U8 -> `Jxxx/U8`
-                // TOD(eliza): get this from i2c device codegen
-                if name[0] == b'J' {
-                    name[4] = b'/';
-                }
                 *self.scratch = InventoryData::Max5970 {
                     voltage_sensors: SensorId::into_u32_array(sensors.voltage),
                     current_sensors: SensorId::into_u32_array(sensors.current),

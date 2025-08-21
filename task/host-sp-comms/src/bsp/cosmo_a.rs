@@ -104,14 +104,13 @@ impl ServerImpl {
             4..=13 => {
                 let (designator, f): ([u8; 7], _) =
                     Self::get_sharkfin_vpd(index as usize - 4);
-                let mut name = *b"____/U2/ID";
-                name[0..4].copy_from_slice(&designator[0..4]);
+                let mut name = *b"_______/ID";
+                name[0..7].copy_from_slice(&designator);
                 self.read_eeprom_barcode(sequence, &name, f)
             }
             14..=23 => {
                 let (mut name, f): ([u8; 7], _) =
                     Self::get_sharkfin_vpd(index as usize - 14);
-                name[4] = b'/';
                 self.read_at24csw080_id(sequence, &name, f)
             }
             24 => {
@@ -442,12 +441,6 @@ impl ServerImpl {
                 };
                 let dev = f(I2C.get_task_id());
 
-                // Convert the name from Jxxx (in the TOML file) -> Jxxx/U1
-                // All connector names should have length 3; that's checked by
-                // the type in the tuple assignment above.
-                // TODO(eliza): get this from codegen...
-                name[4] = b'/';
-
                 *self.scratch = InventoryData::Tmp117 {
                     id: 0,
                     eeprom1: 0,
@@ -505,11 +498,6 @@ impl ServerImpl {
                     11 => by_refdes!(U54, max5970, 8),
                     _ => panic!(),
                 };
-                // Convert `Jxxx_U1` to `Jxxx/U1`.
-                // TODO(eliza): get this from the device...
-                if name[0] == b'J' {
-                    name[4] = b'/';
-                }
                 *self.scratch = InventoryData::Max5970 {
                     voltage_sensors: SensorId::into_u32_array(sensors.voltage),
                     current_sensors: SensorId::into_u32_array(sensors.current),

@@ -18,7 +18,7 @@ pub(crate) const fn byteify<const N: usize>(s: &'static [u8]) -> [u8; N] {
     let mut out = [0u8; N];
     let mut i = 0;
     while i < s.len() {
-        out[i] = s[i];
+        out[i] = if s[i] == b'_' { b'/' } else { s[i] };
         i += 1;
     }
     out
