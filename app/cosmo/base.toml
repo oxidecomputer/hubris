@@ -494,7 +494,7 @@ bus = "front"
 address = 0x70
 device = "oximux16"
 description = "Front FPGA virtual mux"
-refdes = "U31_1"
+refdes = ["U31"]
 
 # Welcome to the sharkfin zone
 # SMBUS_FPGA2_TO_CEMA
@@ -884,7 +884,7 @@ name = "Southwest"
 description = "Southwest temperature sensor"
 sensors = { temperature = 1 }
 removable = true
-refdes = ["J44", "U1"]
+refdes = "J44"
 
 [[config.i2c.devices]]
 bus = "front"
@@ -896,7 +896,7 @@ name = "South"
 description = "South temperature sensor"
 sensors = { temperature = 1 }
 removable = true
-refdes = ["J45", "U1"]
+refdes = "J45"
 
 [[config.i2c.devices]]
 bus = "front"
@@ -908,7 +908,7 @@ name = "Southeast"
 description = "Southeast temperature sensor"
 sensors = { temperature = 1 }
 removable = true
-refdes = ["J46", "U1"]
+refdes = "J46"
 
 ################################################################################
 
@@ -919,7 +919,7 @@ bus = "main"
 address = 0x70
 device = "oximux16"
 description = "Main FPGA virtual mux"
-refdes = "U27_1"
+refdes = ["U27", "MUX"]
 
 # SMBUS_FPGA1_TO_M2A
 [[config.i2c.devices]]
@@ -1130,7 +1130,7 @@ name = "Northwest"
 description = "Northwest temperature sensor"
 sensors = { temperature = 1 }
 removable = true
-refdes = ["J47", "U1"]
+refdes = "J47"
 
 [[config.i2c.devices]]
 bus = "rear"
@@ -1140,7 +1140,7 @@ name = "North"
 description = "North temperature sensor"
 sensors = { temperature = 1 }
 removable = true
-refdes = ["J48", "U1"]
+refdes = "J48"
 
 [[config.i2c.devices]]
 bus = "rear"
@@ -1150,7 +1150,7 @@ name = "Northeast"
 description = "Northeast temperature sensor"
 sensors = { temperature = 1 }
 removable = true
-refdes = ["J49", "U1"]
+refdes = "J49"
 
 [[config.i2c.devices]]
 bus = "rear"
