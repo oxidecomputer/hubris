@@ -1848,7 +1848,7 @@ impl Refdes {
             }
             Self::Path(parts) => {
                 let len = parts.iter().map(String::len).sum::<usize>()
-                    + (parts.len() - 1);
+                    + (parts.len() - 1) * sep.len();
                 let mut s = String::with_capacity(len);
                 let mut parts = parts.iter();
                 if let Some(first) = parts.next() {
