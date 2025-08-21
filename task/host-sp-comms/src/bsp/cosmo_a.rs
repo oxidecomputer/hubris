@@ -109,7 +109,7 @@ impl ServerImpl {
                 self.read_eeprom_barcode(sequence, &name, f)
             }
             14..=23 => {
-                let (mut name, f): ([u8; 7], _) =
+                let (name, f): ([u8; 7], _) =
                     Self::get_sharkfin_vpd(index as usize - 14);
                 self.read_at24csw080_id(sequence, &name, f)
             }
@@ -430,7 +430,7 @@ impl ServerImpl {
                 })
             }
             37..=42 => {
-                let (mut name, f, sensors): ([u8; 6], _, _) = match index - 37 {
+                let (name, f, sensors): ([u8; 6], _, _) = match index - 37 {
                     0 => by_refdes!(J44_U1, tmp117),
                     1 => by_refdes!(J45_U1, tmp117),
                     2 => by_refdes!(J46_U1, tmp117),
@@ -483,7 +483,7 @@ impl ServerImpl {
             }
             44..=55 => {
                 let i = index - 44;
-                let (mut name, _f, sensors) = match i {
+                let (name, _f, sensors) = match i {
                     0 => by_refdes!(J200_U1, max5970),
                     1 => by_refdes!(J201_U1, max5970),
                     2 => by_refdes!(J202_U1, max5970),
