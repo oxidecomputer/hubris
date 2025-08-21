@@ -519,7 +519,7 @@ description = "U.2 Sharkfin A hot swap controller"
 power = { rails = [ "V12_U2A_A0", "V3P3_U2A_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_a_hsc"
-refdes = ["J200", "U1A"]
+refdes = ["J200", "U1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -556,7 +556,7 @@ description = "U.2 Sharkfin B hot swap controller"
 power = { rails = [ "V12_U2B_A0", "V3P3_U2B_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_b_hsc"
-refdes = ["J201", "U1A"]
+refdes = ["J201", "U1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -593,7 +593,7 @@ description = "U.2 Sharkfin C hot swap controller"
 power = { rails = [ "V12_U2C_A0", "V3P3_U2C_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_c_hsc"
-refdes = ["J202", "U1A"]
+refdes = ["J202", "U1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -630,7 +630,7 @@ description = "U.2 Sharkfin D hot swap controller"
 power = { rails = [ "V12_U2D_A0", "V3P3_U2D_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_d_hsc"
-refdes = ["J203", "U1A"]
+refdes = ["J203", "U1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -667,7 +667,7 @@ description = "U.2 Sharkfin E hot swap controller"
 power = { rails = [ "V12_U2E_A0", "V3P3_U2E_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_e_hsc"
-refdes = ["J204", "U1A"]
+refdes = ["J204", "U1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -704,7 +704,7 @@ description = "U.2 Sharkfin F hot swap controller"
 power = { rails = [ "V12_U2F_A0", "V3P3_U2F_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_f_hsc"
-refdes = ["J205", "U1A"]
+refdes = ["J205", "U1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -744,7 +744,7 @@ description = "U.2 Sharkfin G hot swap controller"
 power = { rails = [ "V12_U2G_A0", "V3P3_U2G_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_g_hsc"
-refdes = ["J206", "U1A"]
+refdes = ["J206", "U1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -783,7 +783,7 @@ description = "U.2 Sharkfin H hot swap controller"
 power = { rails = [ "V12_U2H_A0", "V3P3_U2H_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_h_hsc"
-refdes = ["J207", "U1A"]
+refdes = ["J207", "U1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -820,7 +820,7 @@ description = "U.2 Sharkfin I hot swap controller"
 power = { rails = [ "V12_U2I_A0", "V3P3_U2I_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_i_hsc"
-refdes = ["J208", "U1A"]
+refdes = ["J208", "U1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -857,7 +857,7 @@ description = "U.2 Sharkfin J hot swap controller"
 power = { rails = [ "V12_U2J_A0", "V3P3_U2J_A0" ], pmbus = false }
 sensors = { voltage = 2, current = 2 }
 name = "sharkfin_j_hsc"
-refdes = ["J209", "U1A"]
+refdes = ["J209", "U1"]
 removable = true
 
 [[config.i2c.devices]]
@@ -957,7 +957,7 @@ address = 0x3c
 device = "sbrmi"
 name = "RMI"
 description = "CPU via SB-RMI"
-refdes = ["U1U", "SBRMI"]
+refdes = ["U1", "SBRMI"]
 
 [[config.i2c.devices]]
 bus = "main"
@@ -968,7 +968,7 @@ device = "sbtsi"
 name = "CPU"
 description = "CPU temperature sensor"
 sensors = { temperature = 1 }
-refdes = ["U1U", "SBTSI"]
+refdes = ["U1", "SBTSI"]
 
 # Segment 5 is SEC_SP5_TO_FPGA1
 # Segment 6 is unused

@@ -491,21 +491,21 @@ impl ServerImpl {
             44..=55 => {
                 let i = index - 44;
                 let (mut name, _f, sensors) = match i {
-                    0 => by_refdes!(J200_U1A, max5970),
-                    1 => by_refdes!(J201_U1A, max5970),
-                    2 => by_refdes!(J202_U1A, max5970),
-                    3 => by_refdes!(J203_U1A, max5970),
-                    4 => by_refdes!(J204_U1A, max5970),
-                    5 => by_refdes!(J205_U1A, max5970),
-                    6 => by_refdes!(J206_U1A, max5970),
-                    7 => by_refdes!(J207_U1A, max5970),
-                    8 => by_refdes!(J208_U1A, max5970),
-                    9 => by_refdes!(J209_U1A, max5970),
+                    0 => by_refdes!(J200_U1, max5970),
+                    1 => by_refdes!(J201_U1, max5970),
+                    2 => by_refdes!(J202_U1, max5970),
+                    3 => by_refdes!(J203_U1, max5970),
+                    4 => by_refdes!(J204_U1, max5970),
+                    5 => by_refdes!(J205_U1, max5970),
+                    6 => by_refdes!(J206_U1, max5970),
+                    7 => by_refdes!(J207_U1, max5970),
+                    8 => by_refdes!(J208_U1, max5970),
+                    9 => by_refdes!(J209_U1, max5970),
                     10 => by_refdes!(U15, max5970, 8),
                     11 => by_refdes!(U54, max5970, 8),
                     _ => panic!(),
                 };
-                // Convert `Jxxx_U1A` to `Jxxx/U1A`.
+                // Convert `Jxxx_U1` to `Jxxx/U1`.
                 // TODO(eliza): get this from the device...
                 if name[0] == b'J' {
                     name[4] = b'/';

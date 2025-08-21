@@ -101,7 +101,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "Sharkfin VPD"
 removable = true
-refdes = ["J3", "J3"]
+refdes = ["J3", "J3", "U7"]
 
 [[config.i2c.devices]]
 controller = 1
@@ -111,7 +111,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "Gimlet Fan VPD"
 removable = true
-refdes = ["J3", "J5"]
+refdes = ["J3", "J5", "U1"]
 
 [[config.i2c.devices]]
 controller = 1
@@ -121,7 +121,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "Sidecar Fan VPD"
 removable = true
-refdes = ["J3", "J4"]
+refdes = ["J3", "J4", "U1"]
 
 [[config.i2c.devices]]
 controller = 1
