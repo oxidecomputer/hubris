@@ -494,8 +494,8 @@ impl ServerImpl {
                     7 => by_refdes!(J207_U1, max5970),
                     8 => by_refdes!(J208_U1, max5970),
                     9 => by_refdes!(J209_U1, max5970),
-                    10 => by_refdes!(U15, max5970, 8),
-                    11 => by_refdes!(U54, max5970, 8),
+                    10 => by_refdes!(U15, max5970, 7),
+                    11 => by_refdes!(U54, max5970, 7),
                     _ => panic!(),
                 };
                 *self.scratch = InventoryData::Max5970 {
