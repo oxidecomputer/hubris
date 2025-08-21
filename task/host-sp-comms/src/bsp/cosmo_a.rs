@@ -430,13 +430,13 @@ impl ServerImpl {
                 })
             }
             37..=42 => {
-                let (name, f, sensors): ([u8; 6], _, _) = match index - 37 {
-                    0 => by_refdes!(J44_U1, tmp117),
-                    1 => by_refdes!(J45_U1, tmp117),
-                    2 => by_refdes!(J46_U1, tmp117),
-                    3 => by_refdes!(J47_U1, tmp117),
-                    4 => by_refdes!(J48_U1, tmp117),
-                    5 => by_refdes!(J49_U1, tmp117),
+                let (name, f, sensors): ([u8; 3], _, _) = match index - 37 {
+                    0 => by_refdes!(J44, tmp117),
+                    1 => by_refdes!(J45, tmp117),
+                    2 => by_refdes!(J46, tmp117),
+                    3 => by_refdes!(J47, tmp117),
+                    4 => by_refdes!(J48, tmp117),
+                    5 => by_refdes!(J49, tmp117),
                     _ => unreachable!(),
                 };
                 let dev = f(I2C.get_task_id());
