@@ -8,9 +8,6 @@
 use super::{inventory::by_refdes, ServerImpl};
 
 use drv_i2c_api::I2cDevice;
-use drv_i2c_api::ResponseCode;
-use drv_i2c_devices::at24csw080::{At24Csw080, Error as EepromError};
-use drv_oxide_vpd::VpdError;
 use drv_spi_api::SpiServer;
 use task_sensor_api::SensorId;
 use userlib::TaskId;
@@ -77,21 +74,21 @@ impl ServerImpl {
             17 => {
                 // U615: Gimlet VPD EEPROM
                 let (f, _sensors) = by_refdes!(U615, at24csw080);
-                self.read_at24csw080_id(sequence, f)
+                self.read_at24csw080_id(sequence, f(I2C.get_task_id()))
             }
             18 => {
                 // J180/ID: Fan VPD barcode (not available in packrat)
                 self.read_fan_barcodes(
                     sequence,
                     b"J180/ID",
-                    i2c_config::devices::at24csw080_fan_vpd,
+                    i2c_config::devices::at24csw080_fan_vpd(I2C.get_task_id()),
                 )
             }
             19 => {
                 // J180: Fan VPD EEPROM (on the daughterboard)
                 self.read_at24csw080_id(
                     sequence,
-                    i2c_config::devices::at24csw080_fan_vpd,
+                    i2c_config::devices::at24csw080_fan_vpd(I2C.get_task_id()),
                 )
             }
             // Welcome to The Sharkfin Zone
@@ -105,14 +102,14 @@ impl ServerImpl {
             20..=29 => {
                 let f = Self::get_sharkfin_vpd(index as usize - 20);
                 let dev = f(I2C.get_task_id());
+                let dev_id = dev.component_id().as_bytes();
                 let mut name = *b"_______/ID";
-                name[0..7]
-                    .copy_from_slice(&dev.component_id().as_bytes()[0..7]);
+                name[0..7].copy_from_slice(&dev_id[0..7]);
                 self.read_eeprom_barcode(sequence, &name, dev)
             }
             30..=39 => {
-                let f = Self::get_sharkfin_vpd(index as usize - 30);
-                self.read_at24csw080_id(sequence, f)
+                let f = Self::get_sharkfin_vpd(index as usize - 14);
+                self.read_at24csw080_id(sequence, f(I2C.get_task_id()))
             }
             40 => {
                 // U12: the service processor itself
@@ -608,133 +605,6 @@ impl ServerImpl {
                 Err(InventoryDataResult::DeviceAbsent)
             }
         });
-    }
-
-    /// Reads the 128-bit unique ID from an AT24CSW080 EEPROM
-    fn read_at24csw080_id(
-        &mut self,
-        sequence: u64,
-        f: fn(userlib::TaskId) -> I2cDevice,
-    ) {
-        *self.scratch = InventoryData::At24csw08xSerial([0u8; 16]);
-        let dev = f(I2C.get_task_id());
-        let name = dev.component_id().as_bytes();
-        let dev = At24Csw080::new(dev);
-        self.tx_buf.try_encode_inventory(sequence, name, || {
-            let InventoryData::At24csw08xSerial(id) = self.scratch else {
-                unreachable!();
-            };
-            for (i, b) in id.iter_mut().enumerate() {
-                *b = dev.read_security_register_byte(i as u8).map_err(|e| {
-                    match e {
-                        EepromError::I2cError(ResponseCode::NoDevice) => {
-                            InventoryDataResult::DeviceAbsent
-                        }
-                        _ => InventoryDataResult::DeviceFailed,
-                    }
-                })?;
-            }
-            Ok(self.scratch)
-        });
-    }
-
-    /// Reads the "BARC" value from a TLV-C blob in an AT24CSW080 EEPROM
-    ///
-    /// On success, packs the barcode into `self.tx_buf`; on failure, return an
-    /// error (`DeviceAbsent` if we saw `NoDevice`, or `DeviceFailed` on all
-    /// other errors).
-    fn read_eeprom_barcode(
-        &mut self,
-        sequence: u64,
-        name: &[u8],
-        dev: I2cDevice,
-    ) {
-        *self.scratch = InventoryData::VpdIdentity(Default::default());
-        self.tx_buf.try_encode_inventory(sequence, name, || {
-            let InventoryData::VpdIdentity(identity) = self.scratch else {
-                unreachable!();
-            };
-            *identity = read_one_barcode(dev, &[(*b"BARC", 0)])?.into();
-            Ok(self.scratch)
-        })
-    }
-
-    /// Reads the fan EEPROM barcode values
-    ///
-    /// The fan EEPROM includes nested barcodes:
-    /// - The top-level `BARC`, for the assembly
-    /// - A nested value `SASY`, which contains four more `BARC` values for each
-    ///   individual fan
-    ///
-    /// On success, packs the barcode into `self.tx_buf`; on failure, return an
-    /// error (`DeviceAbsent` if we saw `NoDevice`, or `DeviceFailed` on all
-    /// other errors).
-    fn read_fan_barcodes(
-        &mut self,
-        sequence: u64,
-        name: &[u8],
-        f: fn(userlib::TaskId) -> I2cDevice,
-    ) {
-        let dev = f(I2C.get_task_id());
-        *self.scratch = InventoryData::FanIdentity {
-            identity: Default::default(),
-            vpd_identity: Default::default(),
-            fans: Default::default(),
-        };
-        self.tx_buf.try_encode_inventory(sequence, name, || {
-            let InventoryData::FanIdentity {
-                identity,
-                vpd_identity,
-                fans: [fan0, fan1, fan2],
-            } = self.scratch
-            else {
-                unreachable!();
-            };
-            *identity = read_one_barcode(dev, &[(*b"BARC", 0)])?.into();
-            *vpd_identity =
-                read_one_barcode(dev, &[(*b"SASY", 0), (*b"BARC", 0)])?.into();
-            *fan0 =
-                read_one_barcode(dev, &[(*b"SASY", 0), (*b"BARC", 1)])?.into();
-            *fan1 =
-                read_one_barcode(dev, &[(*b"SASY", 0), (*b"BARC", 2)])?.into();
-            *fan2 =
-                read_one_barcode(dev, &[(*b"SASY", 0), (*b"BARC", 3)])?.into();
-            Ok(self.scratch)
-        })
-    }
-}
-
-/// Free function to read a nested barcode, translating errors appropriately
-fn read_one_barcode(
-    dev: I2cDevice,
-    path: &[([u8; 4], usize)],
-) -> Result<oxide_barcode::VpdIdentity, InventoryDataResult> {
-    let eeprom = At24Csw080::new(dev);
-    let mut barcode = [0; 32];
-    match drv_oxide_vpd::read_config_nested_from_into(
-        eeprom,
-        path,
-        &mut barcode,
-    ) {
-        Ok(n) => {
-            // extract barcode!
-            let identity = oxide_barcode::VpdIdentity::parse(&barcode[..n])
-                .map_err(|_| InventoryDataResult::DeviceFailed)?;
-            Ok(identity)
-        }
-        Err(
-            VpdError::ErrorOnBegin(err)
-            | VpdError::ErrorOnRead(err)
-            | VpdError::ErrorOnNext(err)
-            | VpdError::InvalidChecksum(err),
-        ) if err
-            == tlvc::TlvcReadError::User(EepromError::I2cError(
-                ResponseCode::NoDevice,
-            )) =>
-        {
-            Err(InventoryDataResult::DeviceAbsent)
-        }
-        Err(..) => Err(InventoryDataResult::DeviceFailed),
     }
 }
 
