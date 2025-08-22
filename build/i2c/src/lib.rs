@@ -503,15 +503,19 @@ struct ConfigGenerator {
     /// hash of controllers to single port indices
     singletons: HashMap<u8, usize>,
 
-    /// if `true`, include refdes string in output
-    include_refdes: bool,
+    /// if `true`, include component ID string in output.
+    ///
+    /// this requires that the `"drv-i2c-api/component-id"` feature flag is
+    /// enabled. if that feature flag is enabled, then this MUST also be
+    /// enabled.
+    component_ids: bool,
 }
 
 impl ConfigGenerator {
     fn new(settings: CodegenSettings) -> Self {
         let CodegenSettings {
             disposition,
-            include_refdes,
+            component_ids,
         } = settings;
         let i2c = match build_util::config::<Config>() {
             Ok(config) => config.i2c,
@@ -592,7 +596,7 @@ impl ConfigGenerator {
             buses,
             ports,
             singletons,
-            include_refdes,
+            component_ids,
         }
     }
 
@@ -948,14 +952,14 @@ impl ConfigGenerator {
 
         let indent = format!("{:indent$}", "", indent = indent);
 
-        let refdes_part = if self.include_refdes {
-            d.refdes
-                .as_ref()
-                .map(|refdes| {
-                    let id = refdes.to_component_id();
-                    format!(".with_refdes({id:?})")
-                })
-                .unwrap_or_default()
+        let component_id = if self.component_ids {
+            if let Some(ref refdes) = d.refdes {
+                let id = refdes.to_component_id();
+                format!("\n{indent}    {id:?},")
+            } else {
+                println!("cargo::error=device {} has no refdes, but we were asked to generate component IDs", d.device);
+                String::new()
+            }
         } else {
             String::new()
         };
@@ -967,8 +971,8 @@ impl ConfigGenerator {
 {indent}    Controller::I2C{controller},
 {indent}    PortIndex({port}),
 {indent}    {segment},
-{indent}    {address:#x}
-{indent}){refdes_part}"##,
+{indent}    {address:#x},{component_id}
+{indent})"##,
             description = d.description,
             controller = controller,
             port = port,
@@ -1682,14 +1686,14 @@ impl ConfigGenerator {
 #[derive(Copy, Clone)]
 pub struct CodegenSettings {
     pub disposition: Disposition,
-    pub include_refdes: bool,
+    pub component_ids: bool,
 }
 
 impl From<Disposition> for CodegenSettings {
     fn from(disposition: Disposition) -> Self {
         CodegenSettings {
             disposition,
-            include_refdes: false,
+            component_ids: false,
         }
     }
 }
