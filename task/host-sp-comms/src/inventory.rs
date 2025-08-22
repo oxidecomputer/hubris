@@ -15,7 +15,7 @@ macro_rules! by_refdes {
     ($refdes:ident, $dev:ident) => {
         paste::paste! {{
             (
-                i2c_config::devices::[<$dev _ $refdes:lower >] as fn(TaskId) -> I2cDevice,
+                i2c_config::devices::[<$dev _ $refdes:lower >](I2C.get_task_id()),
                 i2c_config::sensors::[<$dev:upper _ $refdes:upper _SENSORS>]
             )
         }}

@@ -10,7 +10,7 @@ use super::{inventory::by_refdes, ServerImpl, HOST_FLASH};
 use drv_i2c_api::I2cDevice;
 use drv_spi_api::SpiServer;
 use task_sensor_api::{config::other_sensors, SensorId};
-use userlib::{TaskId, UnwrapLite};
+use userlib::UnwrapLite;
 use zerocopy::IntoBytes;
 
 use host_sp_messages::{InventoryData, InventoryDataResult};
@@ -71,8 +71,8 @@ impl ServerImpl {
             }
             1 => {
                 // U32: Gimlet VPD EEPROM
-                let (f, _sensors) = by_refdes!(U32, at24csw080);
-                self.read_at24csw080_id(sequence, f(I2C.get_task_id()))
+                let (dev, _sensors) = by_refdes!(U32, at24csw080);
+                self.read_at24csw080_id(sequence, dev)
             }
             2 => {
                 // J34/ID: Fan VPD barcode (not available in packrat)
@@ -98,17 +98,15 @@ impl ServerImpl {
             //
             // Sharkfin connectors start at J200 and are numbered sequentially
             4..=13 => {
-                let f = Self::get_sharkfin_vpd(index as usize - 4);
-                let dev = f(I2C.get_task_id());
+                let dev = Self::get_sharkfin_vpd(index as usize - 4);
                 let dev_id = dev.component_id().as_bytes();
                 let mut name = *b"_______/ID";
-
                 name[0..7].copy_from_slice(&dev_id[0..7]);
                 self.read_eeprom_barcode(sequence, &name, dev)
             }
             14..=23 => {
-                let f = Self::get_sharkfin_vpd(index as usize - 14);
-                self.read_at24csw080_id(sequence, f(I2C.get_task_id()))
+                let dev = Self::get_sharkfin_vpd(index as usize - 14);
+                self.read_at24csw080_id(sequence, dev)
             }
             24 => {
                 // U20: the service processor itself
@@ -131,8 +129,7 @@ impl ServerImpl {
             }
             25 => {
                 // U80: BMR491
-                let (f, sensors) = by_refdes!(U80, bmr491);
-                let dev = f(I2C.get_task_id());
+                let (dev, sensors) = by_refdes!(U80, bmr491);
                 // To be stack-friendly, we declare our output here,
                 // then bind references to all the member variables.
                 *self.scratch = InventoryData::Bmr491 {
@@ -196,8 +193,7 @@ impl ServerImpl {
                 )
             }
             26 => {
-                let (f, sensors) = by_refdes!(U116, isl68224);
-                let dev = f(I2C.get_task_id());
+                let (dev, sensors) = by_refdes!(U116, isl68224);
                 // To be stack-friendly, we declare our output here,
                 // then bind references to all the member variables.
                 *self.scratch = InventoryData::Isl68224 {
@@ -251,12 +247,11 @@ impl ServerImpl {
                 )
             }
             27..=28 => {
-                let (f, sensors) = match index - 27 {
+                let (dev, sensors) = match index - 27 {
                     0 => by_refdes!(U90, raa229620a),
                     1 => by_refdes!(U103, raa229620a),
                     _ => unreachable!(),
                 };
-                let dev = f(I2C.get_task_id());
 
                 // To be stack-friendly, we declare our output here,
                 // then bind references to all the member variables.
@@ -315,14 +310,13 @@ impl ServerImpl {
                 )
             }
             29..=32 => {
-                let (f, sensors) = match index - 29 {
+                let (dev, sensors) = match index - 29 {
                     0 => by_refdes!(U81, tps546b24a),
                     1 => by_refdes!(U82, tps546b24a),
                     2 => by_refdes!(U83, tps546b24a),
                     3 => by_refdes!(U123, tps546b24a),
                     _ => unreachable!(),
                 };
-                let dev = f(I2C.get_task_id());
                 *self.scratch = InventoryData::Tps546b24a {
                     mfr_id: [0u8; 3],
                     mfr_model: [0u8; 3],
@@ -385,8 +379,7 @@ impl ServerImpl {
                 )
             }
             33 => {
-                let (f, sensors) = by_refdes!(U79, adm1272);
-                let dev = f(I2C.get_task_id());
+                let (dev, sensors) = by_refdes!(U79, adm1272);
 
                 *self.scratch = InventoryData::Adm1272 {
                     mfr_id: [0u8; 3],
@@ -430,13 +423,12 @@ impl ServerImpl {
                 )
             }
             34..=36 => {
-                let (f, sensors) = match index - 34 {
+                let (dev, sensors) = match index - 34 {
                     0 => by_refdes!(U71, lm5066i),
                     1 => by_refdes!(U72, lm5066i),
                     2 => by_refdes!(U73, lm5066i),
                     _ => unreachable!(),
                 };
-                let dev = f(I2C.get_task_id());
                 *self.scratch = InventoryData::Lm5066I {
                     mfr_id: [0u8; 3],
                     mfr_model: [0u8; 8],
@@ -475,7 +467,7 @@ impl ServerImpl {
                 )
             }
             37..=42 => {
-                let (f, sensors) = match index - 37 {
+                let (dev, sensors) = match index - 37 {
                     0 => by_refdes!(J44, tmp117),
                     1 => by_refdes!(J45, tmp117),
                     2 => by_refdes!(J46, tmp117),
@@ -484,8 +476,6 @@ impl ServerImpl {
                     5 => by_refdes!(J49, tmp117),
                     _ => unreachable!(),
                 };
-                let dev = f(I2C.get_task_id());
-
                 *self.scratch = InventoryData::Tmp117 {
                     id: 0,
                     eeprom1: 0,
@@ -532,7 +522,7 @@ impl ServerImpl {
             }
             44..=55 => {
                 let i = index - 44;
-                let (f, sensors) = match i {
+                let (dev, sensors) = match i {
                     0 => by_refdes!(J200_U1, max5970),
                     1 => by_refdes!(J201_U1, max5970),
                     2 => by_refdes!(J202_U1, max5970),
@@ -551,7 +541,6 @@ impl ServerImpl {
                     voltage_sensors: SensorId::into_u32_array(sensors.voltage),
                     current_sensors: SensorId::into_u32_array(sensors.current),
                 };
-                let dev = f(I2C.get_task_id());
                 self.tx_buf.try_encode_inventory(
                     sequence,
                     dev.component_id().as_bytes(),
@@ -559,11 +548,10 @@ impl ServerImpl {
                 );
             }
             56 => {
-                let (f, sensors) = by_refdes!(U58, max31790);
+                let (dev, sensors) = by_refdes!(U58, max31790);
                 *self.scratch = InventoryData::Max31790 {
                     speed_sensors: SensorId::into_u32_array(sensors.speed),
                 };
-                let dev = f(I2C.get_task_id());
                 self.tx_buf.try_encode_inventory(
                     sequence,
                     dev.component_id().as_bytes(),
@@ -571,7 +559,7 @@ impl ServerImpl {
                 );
             }
             57..=58 => {
-                let (f, sensors) = match index - 57 {
+                let (dev, sensors) = match index - 57 {
                     0 => by_refdes!(U42, ltc4282),
                     1 => by_refdes!(U127, ltc4282),
                     _ => unreachable!(),
@@ -580,7 +568,6 @@ impl ServerImpl {
                     voltage_sensor: sensors.voltage.into(),
                     current_sensor: sensors.current.into(),
                 };
-                let dev = f(I2C.get_task_id());
                 self.tx_buf.try_encode_inventory(
                     sequence,
                     dev.component_id().as_bytes(),
@@ -636,8 +623,8 @@ impl ServerImpl {
 
     /// Looks up a Sharkfin VPD EEPROM by sharkfin index (0-9)
     ///
-    /// Returns a  constructor function
-    fn get_sharkfin_vpd(i: usize) -> fn(TaskId) -> I2cDevice {
+    /// Returns the EEPROM's `I2cDevice`.
+    fn get_sharkfin_vpd(i: usize) -> I2cDevice {
         let (f, _sensors) = match i {
             0 => by_refdes!(J200_U2, at24csw080),
             1 => by_refdes!(J201_U2, at24csw080),
