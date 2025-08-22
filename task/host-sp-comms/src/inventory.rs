@@ -24,3 +24,13 @@ macro_rules! by_refdes {
 
 #[allow(unused_imports)]
 pub(crate) use by_refdes;
+
+#[cfg(any(
+    target_board = "gimlet-b",
+    target_board = "gimlet-c",
+    target_board = "gimlet-d",
+    target_board = "gimlet-e",
+    target_board = "gimlet-f",
+    target_board = "cosmo-a",
+))]
+pub(crate) mod compute_sled_common;
