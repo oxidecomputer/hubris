@@ -5,6 +5,8 @@
 #![no_std]
 #![no_main]
 
+use core::hint::assert_unchecked;
+
 use drv_auxflash_api::{
     AuxFlashBlob, AuxFlashChecksum, AuxFlashError, AuxFlashId,
     TlvcReadAuxFlash, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES, SLOT_COUNT,
@@ -14,7 +16,7 @@ use idol_runtime::{
     ClientError, Leased, NotificationHandler, RequestError, R, W,
 };
 use tlvc::{TlvcRead, TlvcReadError, TlvcReader};
-use userlib::{hl, task_slot, RecvMessage, UnwrapLite};
+use userlib::{hl, task_slot, RecvMessage};
 
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
@@ -45,7 +47,10 @@ impl<'a> TlvcRead for SlotReader<'a> {
         offset: u64,
         dest: &mut [u8],
     ) -> Result<(), TlvcReadError<Self::Error>> {
-        let addr: u32 = self.base + u32::try_from(offset).unwrap_lite();
+        let addr = u32::try_from(offset)
+            .ok()
+            .and_then(|offset| self.base.checked_add(offset))
+            .ok_or(TlvcReadError::User(AuxFlashError::AddressOverflow))?;
         self.qspi
             .read_memory(addr, dest)
             .map_err(|x| TlvcReadError::User(qspi_to_auxflash(x)))?;
@@ -87,8 +92,14 @@ fn main() -> ! {
         5 // 200MHz kernel / 5 = 40MHz clock
     };
     const MEMORY_SIZE: usize = SLOT_COUNT as usize * SLOT_SIZE;
-    assert!(MEMORY_SIZE.is_power_of_two());
-    let memory_size_log2 = MEMORY_SIZE.trailing_zeros().try_into().unwrap();
+    let memory_size_log2 = const {
+        assert!(MEMORY_SIZE.is_power_of_two());
+        let memory_size_log2 = MEMORY_SIZE.trailing_zeros();
+        if memory_size_log2 > u8::MAX as u32 {
+            panic!();
+        }
+        memory_size_log2 as u8
+    };
     qspi.configure(clock, memory_size_log2);
 
     // This driver is compatible with Sidecar, Cosmo, and Grapefruit; Gimlet
@@ -202,27 +213,48 @@ impl ServerImpl {
             self.active_slot.ok_or(AuxFlashError::NoActiveSlot)?;
 
         let spare_slot = active_slot ^ 1;
+        const {
+            assert!(SLOT_COUNT.checked_mul(SLOT_SIZE as u32).is_some());
+            assert!(SLOT_COUNT > 0 && SLOT_COUNT.is_multiple_of(2));
+        }
+        // SAFETY: active_slot and spare_slot are valid slot numbers. The
+        // active slot is chosen using scan_for_active_slot and never
+        // reassigned, while spare_slot is its dual. Slots are always created
+        // in pairs as per above check, so flipping the 0th bit keeps slot
+        // validity.
+        unsafe {
+            assert_unchecked(active_slot < SLOT_COUNT);
+            assert_unchecked(spare_slot < SLOT_COUNT);
+        }
+        // SAFETY: spare_slot is a valid slot number, as slots are created in
+        // pairs.
         let spare_checksum = self.read_slot_checksum(spare_slot);
         if spare_checksum.map(|c| c.0) == Ok(AUXI_CHECKSUM) {
             return Ok(());
         }
 
+        let active_slot_base = active_slot * SLOT_SIZE as u32;
         // Find the length of data by finding the final TLV-C slot
         let handle = SlotReader {
             qspi: &self.qspi,
-            base: active_slot * SLOT_SIZE as u32,
+            base: active_slot_base,
         };
         let mut reader = TlvcReader::begin(handle)
             .map_err(|_| AuxFlashError::TlvcReaderBeginFailed)?;
         while let Ok(Some(..)) = reader.next() {
             // Nothing to do here
         }
-        let data_size = SLOT_SIZE - reader.remaining() as usize;
+        // SAFETY: this cannot wrap, as our reader's max size is SLOT_SIZE.
+        let data_size =
+            unsafe { SLOT_SIZE.unchecked_sub(reader.remaining() as usize) };
 
         let mut buf = [0u8; PAGE_SIZE_BYTES];
-        let mut read_addr = active_slot as usize * SLOT_SIZE;
+        let mut read_addr = active_slot_base as usize;
+        // Note: this cannot overflow as spare slot was checked above.
         let mut write_addr = spare_slot as usize * SLOT_SIZE;
-        let read_end = read_addr + data_size;
+        // SAFETY: this cannot overflow as data_size is less or equal to
+        // SLOT_SIZE and active_slot is valid for reads up to SLOT_SIZE.
+        let read_end = unsafe { read_addr.unchecked_add(data_size) };
         while read_addr < read_end {
             let amount = (read_end - read_addr).min(buf.len());
 
@@ -248,8 +280,12 @@ impl ServerImpl {
                 .map_err(qspi_to_auxflash)?;
             self.poll_for_write_complete(None)?;
 
-            read_addr += amount;
-            write_addr += amount;
+            // SAFETY: these cannot overflow as amount is at most
+            // 'read_end - read_addr'; we can at most reach read_end here.
+            unsafe {
+                read_addr = read_addr.unchecked_add(amount);
+                write_addr = write_addr.unchecked_add(amount);
+            }
         }
 
         // Confirm that the spare write worked
@@ -322,7 +358,11 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         if slot >= SLOT_COUNT {
             return Err(AuxFlashError::InvalidSlot.into());
         }
-        let mem_start = slot as usize * SLOT_SIZE;
+        const {
+            assert!(SLOT_COUNT.checked_mul(SLOT_SIZE as u32).is_some());
+            assert!(SLOT_COUNT > 0 && SLOT_COUNT.is_multiple_of(2));
+        }
+        let mem_start: usize = slot as usize * SLOT_SIZE;
         let mem_end = mem_start + SLOT_SIZE;
         if mem_end > u32::MAX as usize {
             return Err(AuxFlashError::AddressOverflow.into());
@@ -334,8 +374,15 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
             self.qspi
                 .sector_erase(addr as u32)
                 .map_err(qspi_to_auxflash)?;
-            addr += SECTOR_SIZE_BYTES;
             self.poll_for_write_complete(Some(1))?;
+            if let Some(next) = addr.checked_add(SECTOR_SIZE_BYTES) {
+                addr = next;
+            } else {
+                // Technically it's possible that SECTOR_SIZE_BYTES > SLOT_SIZE,
+                // in which case this overflow. In that case we overflow mem_end
+                // as well and have arrived at the end of the loop.
+                break;
+            }
         }
         Ok(())
     }
@@ -348,10 +395,14 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
     ) -> Result<(), RequestError<AuxFlashError>> {
         if slot >= SLOT_COUNT {
             return Err(AuxFlashError::InvalidSlot.into());
-        }
-        if offset >= SLOT_SIZE as u32 {
+        } else if offset >= SLOT_SIZE as u32 {
             return Err(AuxFlashError::AddressOverflow.into());
         }
+        const {
+            assert!(SLOT_COUNT.checked_mul(SLOT_SIZE as u32).is_some());
+            assert!(SLOT_COUNT > 0 && SLOT_COUNT.is_multiple_of(2));
+        }
+        // Note: these cannot overflow as per above checks.
         let addr = slot as usize * SLOT_SIZE + offset as usize;
         if addr > u32::MAX as usize {
             return Err(AuxFlashError::AddressOverflow.into());
@@ -372,36 +423,53 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         offset: u32,
         data: Leased<R, [u8]>,
     ) -> Result<(), RequestError<AuxFlashError>> {
-        if Some(slot) == self.active_slot {
+        if slot >= SLOT_COUNT {
+            return Err(AuxFlashError::InvalidSlot.into());
+        } else if Some(slot) == self.active_slot {
             return Err(AuxFlashError::SlotActive.into());
-        }
-        if !(offset as usize).is_multiple_of(PAGE_SIZE_BYTES) {
+        } else if !(offset as usize).is_multiple_of(PAGE_SIZE_BYTES) {
             return Err(AuxFlashError::UnalignedAddress.into());
-        } else if offset as usize + data.len() > SLOT_SIZE {
+        } else if (offset as usize)
+            .checked_add(data.len())
+            .is_none_or(|len| len > SLOT_SIZE)
+        {
             return Err(AuxFlashError::AddressOverflow.into());
         }
-        let mem_start = (slot as usize * SLOT_SIZE) + offset as usize;
-        let mem_end = mem_start + data.len();
+        const {
+            assert!(SLOT_COUNT.checked_mul(SLOT_SIZE as u32).is_some());
+            assert!(SLOT_COUNT > 0 && SLOT_COUNT.is_multiple_of(2));
+        }
+        // Note: these cannot overflow as per above checks.
+        let mem_start = slot as usize * SLOT_SIZE + offset as usize;
+        let data_len = data.len();
+        let mem_end = mem_start + data_len;
         if mem_end > u32::MAX as usize {
             return Err(AuxFlashError::AddressOverflow.into());
         }
 
         // The flash chip has a limited write buffer!
-        let mut addr = mem_start;
         let mut buf = [0u8; PAGE_SIZE_BYTES];
-        let mut read = 0;
-        while addr < mem_end {
-            let amount = (mem_end - addr).min(buf.len());
-            data.read_range(read..(read + amount), &mut buf[..amount])
+        let mut mem_offset = 0usize;
+        while mem_offset < data_len {
+            let amount = (data_len - mem_offset).min(buf.len());
+            // SAFETY: amount takes us to data_len in at most buf sized
+            // chunks. The next offset is always at most data_len.
+            let next_mem_offset = unsafe { mem_offset.unchecked_add(amount) };
+            let buf = &mut buf[..amount];
+            data.read_range(mem_offset..next_mem_offset, buf)
                 .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
 
             self.set_and_check_write_enable()?;
+            // SAFETY: mem_offset goes from 0..data_len, while mem_start +
+            // data_len was checked to not overflow. we're thus always within
+            // bounds.
+            let page_addr: usize =
+                unsafe { mem_start.unchecked_add(mem_offset) };
             self.qspi
-                .page_program(addr as u32, &buf[..amount])
+                .page_program(page_addr as u32, buf)
                 .map_err(qspi_to_auxflash)?;
             self.poll_for_write_complete(None)?;
-            addr += amount;
-            read += amount;
+            mem_offset = next_mem_offset;
         }
         Ok(())
     }
@@ -413,24 +481,41 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         offset: u32,
         dest: Leased<W, [u8]>,
     ) -> Result<(), RequestError<AuxFlashError>> {
-        if offset as usize + dest.len() > SLOT_SIZE {
+        if slot >= SLOT_COUNT {
+            return Err(AuxFlashError::InvalidSlot.into());
+        } else if (offset as usize)
+            .checked_add(dest.len())
+            .is_none_or(|len| len > SLOT_SIZE)
+        {
+            // Adding offset to destination length would overflow usize or slot
+            // size.
             return Err(AuxFlashError::AddressOverflow.into());
         }
+        const {
+            assert!(SLOT_COUNT.checked_mul(SLOT_SIZE as u32).is_some());
+            assert!(SLOT_COUNT > 0 && SLOT_COUNT.is_multiple_of(2));
+        }
 
-        let mut addr = (slot as usize * SLOT_SIZE) + offset as usize;
+        let mut addr = slot as usize * SLOT_SIZE + offset as usize;
         let end = addr + dest.len();
 
-        let mut write = 0;
+        let mut write = 0usize;
         let mut buf = [0u8; 256];
         while addr < end {
             let amount = (end - addr).min(buf.len());
+            let buf = &mut buf[..amount];
             self.qspi
-                .read_memory(addr as u32, &mut buf[..amount])
+                .read_memory(addr as u32, buf)
                 .map_err(qspi_to_auxflash)?;
-            dest.write_range(write..(write + amount), &buf[..amount])
+            // SAFETY: amount takes us from addr to end in at most buf.len()
+            // sized chunks. write consequently goes from 0..(end - addr) in
+            // those chunks.
+            let write_end = unsafe { write.unchecked_add(amount) };
+            dest.write_range(write..write_end, buf)
                 .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
-            write += amount;
-            addr += amount;
+            write = write_end;
+            // SAFETY: see above; addr + amount <= end.
+            addr = unsafe { addr.unchecked_add(amount) };
         }
         Ok(())
     }
@@ -468,6 +553,10 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         let active_slot = self
             .active_slot
             .ok_or_else(|| RequestError::from(AuxFlashError::NoActiveSlot))?;
+        // SAFETY: active_slot is a valid slot number chosen using
+        // scan_for_active_slot and never reassigned.
+        unsafe { assert_unchecked(active_slot < SLOT_COUNT) };
+        const { assert!(SLOT_COUNT.checked_mul(SLOT_SIZE as u32).is_some()) };
         let handle = SlotReader {
             qspi: &self.qspi,
             base: active_slot * SLOT_SIZE as u32,
@@ -527,6 +616,7 @@ fn read_and_check_slot_checksum(
     if slot >= SLOT_COUNT {
         return Err(AuxFlashError::InvalidSlot);
     }
+    const { assert!(SLOT_COUNT.checked_mul(SLOT_SIZE as u32).is_some()) };
     let handle = SlotReader {
         qspi,
         base: slot * SLOT_SIZE as u32,

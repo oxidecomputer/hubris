@@ -158,18 +158,19 @@ where
                 let mut inner_reader = outer_chunk.read_as_chunks();
                 while let Ok(Some(inner_chunk)) = inner_reader.next() {
                     if inner_chunk.header().tag == tag {
-                        // At this point, the inner reader is positioned *after*
-                        // our target chunk.  We back off by the full length of
-                        // the chunk (including the header), then offset by the
-                        // header size to get to the beginning of the blob data.
-                        let (_, inner_offset, _) = inner_reader.into_inner();
-                        let pos = inner_offset
-                            - inner_chunk.header().total_len_in_bytes() as u64
-                            + core::mem::size_of::<tlvc::ChunkHeader>() as u64;
+                        let pos = u32::try_from(inner_chunk.body_position())
+                            .map_err(|_| {
+                                AuxFlashError::TlvcReaderBeginFailed
+                            })?;
                         return Ok(AuxFlashBlob {
                             slot,
-                            start: pos as u32,
-                            end: (pos + inner_chunk.len()) as u32,
+                            start: pos,
+                            // SAFETY: chunk length is encoded in a U32 so len
+                            // is always a valid u32, and the body_position +
+                            // body_length are checked to be valid.
+                            end: unsafe {
+                                pos.unchecked_add(inner_chunk.len() as u32)
+                            },
                         });
                     }
                 }
