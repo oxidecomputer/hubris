@@ -503,15 +503,19 @@ struct ConfigGenerator {
     /// hash of controllers to single port indices
     singletons: HashMap<u8, usize>,
 
-    /// if `true`, include refdes string in output
-    include_refdes: bool,
+    /// if `true`, include component ID string in output.
+    ///
+    /// this requires that the `"drv-i2c-api/component-id"` feature flag is
+    /// enabled. if that feature flag is enabled, then this MUST also be
+    /// enabled.
+    component_ids: bool,
 }
 
 impl ConfigGenerator {
     fn new(settings: CodegenSettings) -> Self {
         let CodegenSettings {
             disposition,
-            include_refdes,
+            component_ids,
         } = settings;
         let i2c = match build_util::config::<Config>() {
             Ok(config) => config.i2c,
@@ -592,7 +596,7 @@ impl ConfigGenerator {
             buses,
             ports,
             singletons,
-            include_refdes,
+            component_ids,
         }
     }
 
@@ -948,14 +952,14 @@ impl ConfigGenerator {
 
         let indent = format!("{:indent$}", "", indent = indent);
 
-        let refdes_part = if self.include_refdes {
-            d.refdes
-                .as_ref()
-                .map(|refdes| {
-                    let id = refdes.to_component_id();
-                    format!(".with_refdes({id:?})")
-                })
-                .unwrap_or_default()
+        let component_id = if self.component_ids {
+            if let Some(ref refdes) = d.refdes {
+                let id = refdes.to_component_id();
+                format!("\n{indent}    {id:?},")
+            } else {
+                println!("cargo::error=device {} has no refdes, but we were asked to generate component IDs", d.device);
+                String::new()
+            }
         } else {
             String::new()
         };
@@ -967,8 +971,8 @@ impl ConfigGenerator {
 {indent}    Controller::I2C{controller},
 {indent}    PortIndex({port}),
 {indent}    {segment},
-{indent}    {address:#x}
-{indent}){refdes_part}"##,
+{indent}    {address:#x},{component_id}
+{indent})"##,
             description = d.description,
             controller = controller,
             port = port,
@@ -1162,7 +1166,9 @@ impl ConfigGenerator {
         let mut all: Vec<_> = by_refdes.iter().collect();
         all.sort();
 
+        let mut max_component_id_len = 0;
         for ((device, refdes), d) in &all {
+            max_component_id_len = max_component_id_len.max(refdes.len());
             let name = refdes.to_lower_ident();
             write!(
                 &mut self.output,
@@ -1182,6 +1188,15 @@ impl ConfigGenerator {
         }
 
         writeln!(&mut self.output, "    }}")?;
+
+        if self.component_ids {
+            writeln!(
+                &mut self.output,
+                r##"
+        #[allow(dead_code)]
+        pub const MAX_COMPONENT_ID_LEN: usize = {max_component_id_len};"##,
+            )?;
+        }
 
         self.generate_power(PowerDevices::PMBus)?;
         self.generate_power(PowerDevices::NonPMBus)?;
@@ -1682,14 +1697,14 @@ impl ConfigGenerator {
 #[derive(Copy, Clone)]
 pub struct CodegenSettings {
     pub disposition: Disposition,
-    pub include_refdes: bool,
+    pub component_ids: bool,
 }
 
 impl From<Disposition> for CodegenSettings {
     fn from(disposition: Disposition) -> Self {
         CodegenSettings {
             disposition,
-            include_refdes: false,
+            component_ids: false,
         }
     }
 }
@@ -1833,6 +1848,18 @@ impl Refdes {
 
     fn to_lower_ident(&self) -> String {
         self.join_with_case(str::make_ascii_lowercase, "_")
+    }
+
+    fn len(&self) -> usize {
+        match self {
+            Self::Component(c) => c.len(),
+            Self::Path(p) => {
+                // length of each path component...
+                p.iter().map(|s| s.len()).sum::<usize>()
+                // ...plus separators
+                + (p.len() - 1)
+            }
+        }
     }
 
     fn join_with_case(

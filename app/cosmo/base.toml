@@ -981,7 +981,7 @@ segment = 7
 address = 0b1010_000
 device = "at24csw080"
 description = "Fan VPD"
-refdes = "J34"
+refdes = ["J34", "U1"]
 name = "fan_vpd"
 removable = true
 
