@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 //! Tools to extract the APOB location from an AMD ROM
 //!
 //! For details, see AMD document 57299; tables and sections in this code refer
