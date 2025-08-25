@@ -15,6 +15,8 @@ use zerocopy::IntoBytes;
 
 use host_sp_messages::{InventoryData, InventoryDataResult};
 
+pub(crate) use self::i2c_config::MAX_COMPONENT_ID_LEN;
+
 userlib::task_slot!(I2C, i2c_driver);
 userlib::task_slot!(SPI, spi_driver);
 userlib::task_slot!(AUXFLASH, auxflash);
@@ -76,18 +78,15 @@ impl ServerImpl {
             }
             2 => {
                 // J34/ID: Fan VPD barcode (not available in packrat)
-                self.read_fan_barcodes(
-                    sequence,
-                    b"J34/ID",
-                    i2c_config::devices::at24csw080_fan_vpd(I2C.get_task_id()),
-                )
+                let dev =
+                    i2c_config::devices::at24csw080_fan_vpd(I2C.get_task_id());
+                self.read_fan_barcodes(sequence, dev)
             }
             3 => {
                 // J34: Fan VPD EEPROM (on the daughterboard)
-                self.read_at24csw080_id(
-                    sequence,
-                    i2c_config::devices::at24csw080_fan_vpd(I2C.get_task_id()),
-                )
+                let dev =
+                    i2c_config::devices::at24csw080_fan_vpd(I2C.get_task_id());
+                self.read_at24csw080_id(sequence, dev)
             }
             // Welcome to The Sharkfin Zone
             //
@@ -99,10 +98,7 @@ impl ServerImpl {
             // Sharkfin connectors start at J200 and are numbered sequentially
             4..=13 => {
                 let dev = Self::get_sharkfin_vpd(index as usize - 4);
-                let dev_id = dev.component_id().as_bytes();
-                let mut name = *b"_______/ID";
-                name[0..7].copy_from_slice(&dev_id[0..7]);
-                self.read_eeprom_barcode(sequence, &name, dev)
+                self.read_eeprom_barcode(sequence, dev)
             }
             14..=23 => {
                 let dev = Self::get_sharkfin_vpd(index as usize - 14);
