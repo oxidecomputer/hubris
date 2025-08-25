@@ -1166,7 +1166,9 @@ impl ConfigGenerator {
         let mut all: Vec<_> = by_refdes.iter().collect();
         all.sort();
 
+        let mut max_component_id_len = 0;
         for ((device, refdes), d) in &all {
+            max_component_id_len = max_component_id_len.max(refdes.len());
             let name = refdes.to_lower_ident();
             write!(
                 &mut self.output,
@@ -1186,6 +1188,15 @@ impl ConfigGenerator {
         }
 
         writeln!(&mut self.output, "    }}")?;
+
+        if self.component_ids {
+            writeln!(
+                &mut self.output,
+                r##"
+        #[allow(dead_code)]
+        pub const MAX_COMPONENT_ID_LEN: usize = {max_component_id_len};"##,
+            )?;
+        }
 
         self.generate_power(PowerDevices::PMBus)?;
         self.generate_power(PowerDevices::NonPMBus)?;
@@ -1837,6 +1848,18 @@ impl Refdes {
 
     fn to_lower_ident(&self) -> String {
         self.join_with_case(str::make_ascii_lowercase, "_")
+    }
+
+    fn len(&self) -> usize {
+        match self {
+            Self::Component(c) => c.len(),
+            Self::Path(p) => {
+                // length of each path component...
+                p.iter().map(|s| s.len()).sum::<usize>()
+                // ...plus separators
+                + (p.len() - 1)
+            }
+        }
     }
 
     fn join_with_case(

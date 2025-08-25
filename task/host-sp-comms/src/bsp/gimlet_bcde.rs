@@ -14,6 +14,8 @@ use zerocopy::IntoBytes;
 
 use host_sp_messages::{InventoryData, InventoryDataResult};
 
+pub(crate) use self::i2c_config::MAX_COMPONENT_ID_LEN;
+
 userlib::task_slot!(I2C, i2c_driver);
 userlib::task_slot!(SPI, spi_driver);
 
@@ -79,7 +81,6 @@ impl ServerImpl {
                 // J180/ID: Fan VPD barcode (not available in packrat)
                 self.read_fan_barcodes(
                     sequence,
-                    b"J180/ID",
                     i2c_config::devices::at24csw080_fan_vpd(I2C.get_task_id()),
                 )
             }
@@ -100,10 +101,7 @@ impl ServerImpl {
             // Sharkfin connectors start at J206 and are numbered sequentially
             20..=29 => {
                 let dev = Self::get_sharkfin_vpd(index as usize - 20);
-                let dev_id = dev.component_id().as_bytes();
-                let mut name = *b"_______/ID";
-                name[0..7].copy_from_slice(&dev_id[0..7]);
-                self.read_eeprom_barcode(sequence, &name, dev)
+                self.read_eeprom_barcode(sequence, dev)
             }
             30..=39 => {
                 let dev = Self::get_sharkfin_vpd(index as usize - 14);

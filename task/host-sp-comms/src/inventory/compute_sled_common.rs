@@ -41,9 +41,17 @@ impl crate::ServerImpl {
     pub(crate) fn read_eeprom_barcode(
         &mut self,
         sequence: u64,
-        name: &[u8],
         dev: I2cDevice,
     ) {
+        let mut buf = [0u8; crate::bsp::MAX_COMPONENT_ID_LEN + 3];
+        let name = {
+            // Append "/ID" to the component's refdes path.
+            let dev_id = dev.component_id().as_bytes();
+            buf[0..dev_id.len()].copy_from_slice(dev_id);
+            let spliced_len = dev_id.len() + 3;
+            buf[dev_id.len()..spliced_len].copy_from_slice(b"/ID");
+            &buf[..spliced_len]
+        };
         *self.scratch = InventoryData::VpdIdentity(Default::default());
         self.tx_buf.try_encode_inventory(sequence, name, || {
             let InventoryData::VpdIdentity(identity) = self.scratch else {
@@ -64,12 +72,23 @@ impl crate::ServerImpl {
     /// On success, packs the barcode into `self.tx_buf`; on failure, return an
     /// error (`DeviceAbsent` if we saw `NoDevice`, or `DeviceFailed` on all
     /// other errors).
-    pub(crate) fn read_fan_barcodes(
-        &mut self,
-        sequence: u64,
-        name: &[u8],
-        dev: I2cDevice,
-    ) {
+    pub(crate) fn read_fan_barcodes(&mut self, sequence: u64, dev: I2cDevice) {
+        let mut buf = [0u8; crate::bsp::MAX_COMPONENT_ID_LEN + 3];
+        let name = {
+            let dev_id = dev.component_id().as_bytes();
+            buf[0..dev_id.len()].copy_from_slice(dev_id);
+            // Okay, so this is a bit wacky: the host system expects us these
+            // refdes paths to be in the form `Jxxx/ID` and *not* `Jxxx/Ux/ID`,
+            // so we try and find the last segment in the path and clobber it,
+            // if there is one. Otherwise, we append a `/ID` at the end --- in
+            // practice, that case *shouldn't* ever happen based on the current
+            // Gimlet/Cosmo app.tomls, but let's handle it just in case.
+            let last_part =
+                buf.iter().rposition(|&b| b == b'/').unwrap_or(dev_id.len());
+            buf[last_part..last_part + 3].copy_from_slice(b"/ID");
+            &buf[..last_part + 3]
+        };
+
         *self.scratch = InventoryData::FanIdentity {
             identity: Default::default(),
             vpd_identity: Default::default(),
