@@ -1332,6 +1332,7 @@ dependencies = [
 name = "drv-i2c-api"
 version = "0.1.0"
 dependencies = [
+ "build-i2c",
  "counters",
  "drv-i2c-types",
  "userlib",

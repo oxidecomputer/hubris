@@ -1704,7 +1704,7 @@ impl From<Disposition> for CodegenSettings {
     fn from(disposition: Disposition) -> Self {
         CodegenSettings {
             disposition,
-            component_ids: false,
+            component_ids: cfg!(feature = "component-id"),
         }
     }
 }
