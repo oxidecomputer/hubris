@@ -95,7 +95,7 @@ impl ServerImpl {
     }
 
     /// Converts a relative address to an absolute address in bonus space
-    fn bonus_addr(offset: u32, len: u32) -> Result<FlashAddr, HfError> {
+    pub fn bonus_addr(offset: u32, len: u32) -> Result<FlashAddr, HfError> {
         if offset
             .checked_add(len)
             .is_some_and(|a| a <= BONUS_SIZE_BYTES)
@@ -567,6 +567,21 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         _: &RecvMessage,
         state: HfMuxState,
     ) -> Result<(), RequestError<HfError>> {
+        // Whenever we switch the mux state to the host CPU, we update FPGA
+        // registers for the APOB location (so that the FPGA can remap reads to
+        // the appropriate location).
+        if state == HfMuxState::HostCPU {
+            match self.find_apob() {
+                Ok(a) => {
+                    ringbuf_entry!(Trace::ApobFound(a));
+                    self.drv.set_apob_pos(a);
+                }
+                Err(e) => {
+                    ringbuf_entry!(Trace::ApobError(e));
+                    self.drv.clear_apob_pos();
+                }
+            }
+        }
         self.drv.set_flash_mux_state(state);
         self.invalidate_mux_switch();
         Ok(())
