@@ -30,13 +30,16 @@ use crate::gpio_irq_pins::VCORE_TO_SP_ALERT_L;
 use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_i2c_devices::raa229618::Raa229618;
 use drv_stm32xx_sys_api as sys_api;
+use packrat_api::EreportClass;
 use ringbuf::*;
 use sys_api::IrqControl;
+use task_packrat_api as packrat_api;
 use userlib::{sys_get_timer, units};
 
 pub struct VCore {
     device: Raa229618,
     sys: sys_api::Sys,
+    packrat: packrat_api::Packrat,
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -46,10 +49,25 @@ enum Trace {
     Initialized,
     LimitLoaded,
     FaultsCleared,
-    Notified,
-    Fault,
-    Reading { timestamp: u64, volts: units::Volts },
+    Notified {
+        asserted: bool,
+    },
+    Fault {
+        status_word: u16,
+    },
+    VinFault {
+        status_input: Result<u8, ResponseCode>,
+    },
+    Reading {
+        timestamp: u64,
+        volts: units::Volts,
+    },
     Error(ResponseCode),
+    Summary {
+        max: units::Volts,
+        min: units::Volts,
+        avg: units::Volts,
+    },
 }
 
 ringbuf!(Trace, 120, Trace::None);
@@ -70,6 +88,20 @@ const VCORE_UV_WARN_LIMIT: units::Volts = units::Volts(11.75);
 ///
 const VCORE_NSAMPLES: usize = 50;
 
+//
+// Class string segments for ereports
+//
+static CLASS_VCORE: &'static str = "vcore";
+static CLASS_PMALERT: &'static str = "pmbus_alert";
+static CLASS_VIN: &'static str = "vin";
+static CLASS_OC: &'static str = "overcurrent";
+static CLASS_OV: &'static str = "overvolt";
+static CLASS_UV: &'static str = "undervolt";
+static CLASS_OP: &'static str = "overpower";
+static CLASS_OTHER: &'static str = "other";
+static CLASS_WARN: &'static str = "warn";
+static CLASS_FAULT: &'static str = "fault";
+
 cfg_if::cfg_if! {
     if #[cfg(not(any(
         target_board = "gimlet-b",
@@ -83,10 +115,16 @@ cfg_if::cfg_if! {
 }
 
 impl VCore {
-    pub fn new(sys: &sys_api::Sys, device: &I2cDevice, rail: u8) -> Self {
+    pub fn new(
+        sys: &sys_api::Sys,
+        packrat: packrat_api::Packrat,
+        device: &I2cDevice,
+        rail: u8,
+    ) -> Self {
         Self {
             device: Raa229618::new(device, rail),
             sys: sys.clone(),
+            packrat,
         }
     }
 
@@ -120,13 +158,157 @@ impl VCore {
     }
 
     pub fn handle_notification(&self) {
-        let faulted = self.sys.gpio_read(VCORE_TO_SP_ALERT_L) == 0;
+        use pmbus::commands::raa229618::STATUS_INPUT;
+        use pmbus::commands::raa229618::STATUS_WORD::InputFault;
+        let asserted = self.sys.gpio_read(VCORE_TO_SP_ALERT_L) == 0;
 
-        ringbuf_entry!(Trace::Notified);
+        ringbuf_entry!(Trace::Notified { asserted });
 
-        if faulted {
-            ringbuf_entry!(Trace::Fault);
+        if !asserted {
+            return;
+        }
 
+        let t0 = sys_get_timer().now;
+        let Ok(status_word) =
+            super::retry_i2c_txn(super::I2cTxn::VCorePmbusStatus, || {
+                self.device.status_word()
+            })
+        else {
+            return;
+        };
+        ringbuf_entry!(Trace::Fault {
+            status_word: status_word.0
+        });
+        if status_word.get_input_fault() != Some(InputFault::NoFault) {
+            let status_input =
+                super::retry_i2c_txn(super::I2cTxn::VCorePmbusStatus, || {
+                    self.device.status_input()
+                });
+            ringbuf_entry!(Trace::VinFault {
+                status_input: status_input
+                    .map(|STATUS_INPUT::CommandData(byte)| byte)
+            });
+            let class = match status_input {
+                Ok(s)
+                    if s.get_input_overcurrent_fault()
+                        == Some(STATUS_INPUT::InputOvercurrentFault::Fault) =>
+                {
+                    // vcore.pmbus_alert.vin.overcurrent.fault
+                    EreportClass(&[
+                        CLASS_VCORE,
+                        CLASS_PMALERT,
+                        CLASS_VIN,
+                        CLASS_OC,
+                        CLASS_FAULT,
+                    ])
+                }
+                Ok(s)
+                    if s.get_input_overcurrent_warning()
+                        == Some(
+                            STATUS_INPUT::InputOvercurrentWarning::Warning,
+                        ) =>
+                {
+                    // vcore.pmbus_alert.vin.overcurrent.warn
+                    EreportClass(&[
+                        CLASS_VCORE,
+                        CLASS_PMALERT,
+                        CLASS_VIN,
+                        CLASS_OC,
+                        CLASS_WARN,
+                    ])
+                }
+                Ok(s)
+                    if s.get_input_overvoltage_fault()
+                        == Some(STATUS_INPUT::InputOvervoltageFault::Fault) =>
+                {
+                    // vcore.pmbus_alert.vin.overcurrent.fault
+                    EreportClass(&[
+                        CLASS_VCORE,
+                        CLASS_PMALERT,
+                        CLASS_VIN,
+                        CLASS_OV,
+                        CLASS_FAULT,
+                    ])
+                }
+                Ok(s)
+                    if s.get_input_overvoltage_warning()
+                        == Some(
+                            STATUS_INPUT::InputOvervoltageWarning::Warning,
+                        ) =>
+                {
+                    // vcore.pmbus_alert.vin.overcurrent.warn
+                    EreportClass(&[
+                        CLASS_VCORE,
+                        CLASS_PMALERT,
+                        CLASS_VIN,
+                        CLASS_OV,
+                        CLASS_WARN,
+                    ])
+                }
+                Ok(s)
+                    if s.get_input_undervoltage_fault()
+                        == Some(
+                            STATUS_INPUT::InputUndervoltageFault::Fault,
+                        ) =>
+                {
+                    // vcore.pmbus_alert.vin.undervolt.fault
+                    EreportClass(&[
+                        CLASS_VCORE,
+                        CLASS_PMALERT,
+                        CLASS_VIN,
+                        CLASS_UV,
+                        CLASS_FAULT,
+                    ])
+                }
+                Ok(s)
+                    if s.get_input_undervoltage_warning()
+                        == Some(
+                            STATUS_INPUT::InputUndervoltageWarning::Warning,
+                        ) =>
+                {
+                    // vcore.pmbus_alert.vin.undervolt.warn
+                    EreportClass(&[
+                        CLASS_VCORE,
+                        CLASS_PMALERT,
+                        CLASS_VIN,
+                        CLASS_UV,
+                        CLASS_WARN,
+                    ])
+                }
+                Ok(s)
+                    if s.get_input_overpower_warning()
+                        == Some(
+                            STATUS_INPUT::InputOverpowerWarning::Warning,
+                        ) =>
+                {
+                    // vcore.pmbus_alert.vin.undervolt.warn
+                    EreportClass(&[
+                        CLASS_VCORE,
+                        CLASS_PMALERT,
+                        CLASS_VIN,
+                        CLASS_OP,
+                        CLASS_WARN,
+                    ])
+                }
+                _ =>
+                // vcore.pmbus_alert.vin.other
+                {
+                    EreportClass(&[
+                        CLASS_VCORE,
+                        CLASS_PMALERT,
+                        CLASS_VIN,
+                        CLASS_OTHER,
+                    ])
+                }
+            };
+            // When reporting the fault, we want to report the minimum and
+            // maximum voltages observed over the sampling period.
+            let mut min = f32::MAX;
+            let mut max = f32::MIN;
+
+            // Number of good samples for computing the average.
+            let mut sum = 0.0;
+            let mut ngood = 0;
             for _ in 0..VCORE_NSAMPLES {
                 match self.device.read_vin() {
                     Ok(val) => {
@@ -146,12 +328,95 @@ impl VCore {
                             timestamp: sys_get_timer().now,
                             volts: val,
                         });
+
+                        ngood += 1;
+                        let units::Volts(vin) = val;
+                        min = f32::min(min, vin);
+                        max = f32::max(max, vin);
+                        sum += vin;
                     }
                     Err(code) => ringbuf_entry!(Trace::Error(code.into())),
                 }
             }
-        }
 
+            // The min/max/average values are intended mainly for the ereport,
+            // but we may as well put them in the ringbuf, too.
+            let avg = sum / ngood as f32;
+            ringbuf_entry!(Trace::Summary {
+                max: units::Volts(min),
+                min: units::Volts(max),
+                avg: units::Volts(avg),
+            });
+
+            // "Houston, we've got a main bus B undervolt..."
+            let ereport = VinEreport {
+                rail: "VDD_VCORE",
+                vin: VoltageRange { min, max, avg },
+                time: t0,
+                dev_id: self.device.i2c_device().component_id(),
+                status: EreportPmbusStatus {
+                    word: status_word.0,
+                    input: status_input
+                        .map(|STATUS_INPUT::CommandData(byte)| byte)
+                        .ok(),
+                    ..Default::default()
+                },
+            };
+            deliver_ereport(&self.packrat, &class, &ereport);
+        }
         let _ = self.sys.gpio_irq_control(self.mask(), IrqControl::Enable);
+    }
+}
+
+#[derive(serde::Serialize)]
+struct VinEreport {
+    rail: &'static str,
+    vin: VoltageRange,
+    time: u64,
+    status: EreportPmbusStatus,
+    dev_id: &'static str,
+}
+
+#[derive(serde::Serialize)]
+struct VoltageRange {
+    min: f32,
+    max: f32,
+    avg: f32,
+}
+
+#[derive(serde::Serialize, Default)]
+struct EreportPmbusStatus {
+    word: u16,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    input: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    iout: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    vout: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    cml: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tmp: Option<u8>,
+}
+
+// This is in its own function so that we only push a stack frame large enough
+// for the ereport buffer if needed.
+#[inline(never)]
+fn deliver_ereport(
+    packrat: &packrat_api::Packrat,
+    class: &EreportClass<'_>,
+    data: &impl serde::Serialize,
+) {
+    let mut ereport_buf = [0u8; 128];
+    let report = packrat_api::SerdeEreport { class, data };
+    let writer = minicbor::encode::write::Cursor::new(&mut ereport_buf[..]);
+    match report.to_writer(writer) {
+        Ok(writer) => {
+            let len = writer.position();
+            packrat.deliver_ereport(&ereport_buf[..len]);
+        }
+        Err(_) => {
+            // XXX(eliza): ereport didn't fit in buffer...what do
+        }
     }
 }
