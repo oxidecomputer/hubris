@@ -30,7 +30,11 @@ build-lpc55pins = { path = "../../build/lpc55pins" }
 build-util = { path = "../../build/util" }
 call_rustfmt = { path = "../../build/call_rustfmt" }
 endoscope-abi = { path = "../../lib/endoscope-abi" }
-endoscope = { path = "../../lib/endoscope", artifact="bin:endoscope", target = "thumbv7em-none-eabihf", features = ["soc_stm32h753"]}
+# "artifact dependencies" (i.e. `artifact="bin:endoscope"` et al.) are not supported in stable. As
+# such, building endoscope is done directly by the `dist` xtask when building this crate. See the
+# `build_endoscope` function in `build/xtask/src/dist.rs`.
+# For more, see https://github.com/rust-lang/cargo/issues/9096
+# endoscope = { path = "../../lib/endoscope", artifact="bin:endoscope", target = "thumbv7em-none-eabihf", features = ["soc_stm32h753"]}
 goblin = { workspace = true }
 idol = { workspace = true }
 quote = { workspace = true }
