@@ -434,12 +434,12 @@ impl ServerImpl {
 
             52..=57 => {
                 let (dev, sensors) = match index - 52 {
-                    0 => by_refdes!(J194, tmp117),
-                    1 => by_refdes!(J195, tmp117),
-                    2 => by_refdes!(J196, tmp117),
-                    3 => by_refdes!(J197, tmp117),
-                    4 => by_refdes!(J198, tmp117),
-                    5 => by_refdes!(J199, tmp117),
+                    0 => by_refdes!(J194_U1, tmp117),
+                    1 => by_refdes!(J195_U1, tmp117),
+                    2 => by_refdes!(J196_U1, tmp117),
+                    3 => by_refdes!(J197_U1, tmp117),
+                    4 => by_refdes!(J198_U1, tmp117),
+                    5 => by_refdes!(J199_U1, tmp117),
                     _ => unreachable!(),
                 };
                 *self.scratch = InventoryData::Tmp117 {

@@ -15,7 +15,7 @@
         },
         {
             "type": "addrmap",
-            "addr_span_bytes": 36,
+            "addr_span_bytes": 44,
             "inst_name": "spi_nor",
             "orig_type_name": "spi_nor_regs",
             "addr_offset": 256,
