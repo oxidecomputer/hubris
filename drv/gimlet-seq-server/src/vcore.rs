@@ -353,7 +353,7 @@ impl VCore {
                 rail: "VDD_VCORE",
                 vin: VoltageRange { min, max, avg },
                 time: t0,
-                refdes: self.device.i2c_device().refdes(),
+                dev_id: self.device.i2c_device().component_id(),
                 status: EreportPmbusStatus {
                     word: status_word.0,
                     input: status_input
@@ -374,7 +374,7 @@ struct VinEreport {
     vin: VoltageRange,
     time: u64,
     status: EreportPmbusStatus,
-    refdes: Option<&'static str>,
+    dev_id: &'static str,
 }
 
 #[derive(serde::Serialize)]
