@@ -34,7 +34,7 @@ pub fn run(
             "kernel"
         } else {
             let task_toml = &toml.tasks[name];
-            task_toml.name.as_str()
+            task_toml.bin_crate.as_str()
         };
         if tasks.len() > 1 {
             if i > 0 {

@@ -19,7 +19,7 @@ region = "flash"
 size = 256
 
 [tasks.jefe]
-name = "task-jefe"
+bin-crate = "task-jefe"
 priority = 0
 max-sizes = {flash = 8192, ram = 2048}
 start = true
@@ -30,14 +30,14 @@ notifications = ["fault", "timer"]
 request_reset = ["update_server"]
 
 [tasks.idle]
-name = "task-idle"
+bin-crate = "task-idle"
 priority = 9
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true
 
 [tasks.update_server]
-name = "lpc55-update-server"
+bin-crate = "lpc55-update-server"
 priority = 3
 # TODO size this appropriately
 stacksize = 8192
@@ -49,7 +49,7 @@ interrupts = {"flash_controller.irq" = "flash-irq", "hash_crypt.irq" = "hashcryp
 task-slots = [{"syscon" = "syscon_driver"}, "jefe"]
 
 [tasks.syscon_driver]
-name = "drv-lpc55-syscon"
+bin-crate = "drv-lpc55-syscon"
 priority = 2
 max-sizes = {flash = 8192, ram = 2048}
 uses = ["syscon", "anactrl", "pmc"]
@@ -57,7 +57,7 @@ start = true
 task-slots = ["jefe"]
 
 [tasks.gpio_driver]
-name = "drv-lpc55-gpio"
+bin-crate = "drv-lpc55-gpio"
 priority = 3
 max-sizes = {flash = 8192, ram = 2048}
 uses = ["gpio", "iocon", "pint", "inputmux"]
@@ -65,7 +65,7 @@ start = true
 task-slots = ["syscon_driver"]
 
 [tasks.user_leds]
-name = "drv-user-leds"
+bin-crate = "drv-user-leds"
 features = ["lpc55"]
 priority = 6
 max-sizes = {flash = 8192, ram = 1120}
@@ -74,7 +74,7 @@ task-slots = ["gpio_driver"]
 notifications = ["timer"]
 
 [tasks.usart_driver]
-name = "drv-lpc55-usart"
+bin-crate = "drv-lpc55-usart"
 priority = 5
 max-sizes = {flash = 8192, ram = 2048}
 uses = ["flexcomm0"]
@@ -90,7 +90,7 @@ pins = [
 ]
 
 [tasks.rng_driver]
-name = "drv-lpc55-rng"
+bin-crate = "drv-lpc55-rng"
 priority = 5
 max-sizes = {flash = 16384, ram = 4096}
 uses = ["rng", "pmc"]
@@ -99,7 +99,7 @@ stacksize = 2216
 task-slots = ["syscon_driver"]
 
 [tasks.sprot]
-name = "drv-lpc55-sprot-server"
+bin-crate = "drv-lpc55-sprot-server"
 priority = 6
 max-sizes = {flash = 54000, ram = 32768}
 uses = ["flexcomm8", "bootrom"]
@@ -127,7 +127,7 @@ pins = [
 ]
 
 [tasks.pong]
-name = "task-pong"
+bin-crate = "task-pong"
 priority = 7
 max-sizes = {flash = 8192, ram = 1056}
 start = true
@@ -135,7 +135,7 @@ task-slots = ["user_leds"]
 notifications = ["timer"]
 
 [tasks.hiffy]
-name = "task-hiffy"
+bin-crate = "task-hiffy"
 priority = 6
 features = ["lpc55", "gpio", "spi"]
 max-sizes = {flash = 32768, ram = 16384 }
@@ -144,7 +144,7 @@ start = true
 task-slots = ["gpio_driver", "update_server"]
 
 [tasks.attest]
-name = "task-attest"
+bin-crate = "task-attest"
 priority = 5
 max-sizes = {flash = 35072, ram = 16384}
 stacksize = 12304
