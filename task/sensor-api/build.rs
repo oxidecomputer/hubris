@@ -34,10 +34,7 @@ fn main() -> Result<()> {
     idol::client::build_client_stub("../../idl/sensor.idol", "client_stub.rs")
         .map_err(|e| anyhow!("idol error: {e}"))?;
 
-    build_i2c::codegen(build_i2c::CodegenSettings {
-        disposition: build_i2c::Disposition::Sensors,
-        component_ids: cfg!(feature = "component-id"),
-    })?;
+    build_i2c::codegen(build_i2c::Disposition::Sensors)?;
 
     let config: GlobalConfig = build_util::config()?;
 

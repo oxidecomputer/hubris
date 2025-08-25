@@ -7,7 +7,7 @@ edition = "2021"
 drv-hf-api = { path = "../hf-api" }
 drv-cpu-seq-api = { path = "../cpu-seq-api" }
 drv-cpu-power-state = { path = "../cpu-power-state" }
-drv-i2c-api = { path = "../i2c-api", features = ["refdes"] }
+drv-i2c-api = { path = "../i2c-api", features = ["component-id"] }
 drv-i2c-devices = { path = "../i2c-devices" }
 drv-ice40-spi-program = { path = "../ice40-spi-program" }
 drv-packrat-vpd-loader = { path = "../packrat-vpd-loader" }
