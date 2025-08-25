@@ -19,6 +19,7 @@ h743 = []
 h753 = []
 g031 = []
 g030 = []
+component-id = []
 
 [lints]
 workspace = true
