@@ -104,7 +104,7 @@ impl ServerImpl {
                 self.read_eeprom_barcode(sequence, dev)
             }
             30..=39 => {
-                let dev = Self::get_sharkfin_vpd(index as usize - 14);
+                let dev = Self::get_sharkfin_vpd(index as usize - 30);
                 self.read_at24csw080_id(sequence, dev)
             }
             40 => {
