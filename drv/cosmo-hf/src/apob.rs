@@ -68,7 +68,7 @@ impl ServerImpl {
         Ok(out)
     }
 
-    /// Find the APOB location from the bonus flash region
+    /// Find the APOB location from the currently selected flash device
     pub fn find_apob(&mut self) -> Result<ApobLocation, ApobError> {
         // We expect to find the EFS at offset 0x20000 (§4.1.3)
         let efs: Efs = self.read_value(0x20_000)?;
