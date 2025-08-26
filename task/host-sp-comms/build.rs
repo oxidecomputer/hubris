@@ -7,7 +7,10 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     build_util::build_notifications()?;
 
     #[cfg(any(feature = "gimlet", feature = "cosmo"))]
-    build_i2c::codegen(build_i2c::Disposition::Sensors)?;
+    build_i2c::codegen(build_i2c::CodegenSettings {
+        disposition: build_i2c::Disposition::Sensors,
+        component_ids: true,
+    })?;
 
     idol::Generator::new()
         .with_counters(
