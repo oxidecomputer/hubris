@@ -523,7 +523,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         addr: u32,
         data: LenLimit<Leased<R, [u8]>, PAGE_SIZE_BYTES>,
     ) -> Result<(), RequestError<HfError>> {
-        // TODO check mux state?
+        self.drv.check_flash_mux_state()?;
         self.drv
             .flash_write(
                 Self::bonus_addr(addr, data.len() as u32)?,
@@ -539,7 +539,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         addr: u32,
         dest: LenLimit<Leased<W, [u8]>, PAGE_SIZE_BYTES>,
     ) -> Result<(), RequestError<HfError>> {
-        // TODO check mux state?
+        self.drv.check_flash_mux_state()?;
         self.drv
             .flash_read(
                 Self::bonus_addr(addr, dest.len() as u32)?,
@@ -554,7 +554,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         _: &RecvMessage,
         addr: u32,
     ) -> Result<(), RequestError<HfError>> {
-        // TODO check mux state?
+        self.drv.check_flash_mux_state()?;
         self.drv.flash_sector_erase(Self::bonus_addr(addr, 0)?);
         Ok(())
     }
