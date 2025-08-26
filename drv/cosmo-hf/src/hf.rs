@@ -618,9 +618,15 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             ringbuf_entry!(Trace::HashInitError(e));
             return Err(HfError::HashError.into());
         }
-        let begin = self.flash_addr(addr, len)?.get() as usize;
-        let end = begin + len as usize;
-        self.hash_range_update(self.dev, begin, end)?;
+
+        // Check that the hash range is valid.  We **do not** pass the resulting
+        // value to `hash_range_update`, which expects relative offsets!
+        let _check = self.flash_addr(addr, len)?;
+        self.hash_range_update(
+            self.dev,
+            addr as usize,
+            addr as usize + len as usize,
+        )?;
 
         match self.hash.task.finalize_sha256() {
             Ok(sum) => Ok(sum),

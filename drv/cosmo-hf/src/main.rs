@@ -88,9 +88,6 @@ impl FlashAddr {
             None
         }
     }
-    fn get(&self) -> u32 {
-        self.0
-    }
 }
 
 /// Driver for a QSPI NOR flash controlled by an FPGA over FMC
