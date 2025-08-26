@@ -14,7 +14,8 @@ use zerocopy::{FromBytes, Immutable, IntoBytes};
 
 /// Embedded firmware structure (Table 3)
 ///
-/// Only relevant fields are included here.
+/// Only relevant fields are included here; the EFS extends beyond the size of
+/// this `struct`, but we don't care about any subsequent fields.
 #[derive(FromBytes, Immutable, IntoBytes)]
 #[repr(C)]
 pub struct Efs {
@@ -45,8 +46,7 @@ pub struct BhdDir {
 pub struct DirEntry {
     entry_type: u8,
     region_type: u8,
-    _unused1: u8,
-    _unused2: u8,
+    _unused: [u8; 2], // bitpacked fields
     size: u32,
     src_address: u64, // highest 2 bits are `addr_mode`
     dst_address: u64,
