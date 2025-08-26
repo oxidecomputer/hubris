@@ -53,15 +53,15 @@ pub struct DirEntry {
 }
 
 impl ServerImpl {
-    /// Reads a typed value from bonus flash
-    fn amd_read<T: FromBytes + Immutable + IntoBytes>(
+    /// Reads a typed value from the currently selected flash device
+    fn read_value<T: FromBytes + Immutable + IntoBytes>(
         &mut self,
         addr: u32,
     ) -> Result<T, HfError> {
         let mut out = T::new_zeroed();
         self.drv
             .flash_read(
-                Self::bonus_addr(addr, core::mem::size_of_val(&out) as u32)?,
+                self.flash_addr(addr, core::mem::size_of_val(&out) as u32)?,
                 &mut out.as_mut_bytes(),
             )
             .unwrap_lite(); // flash_read is infallible when using a slice
@@ -71,13 +71,13 @@ impl ServerImpl {
     /// Find the APOB location from the bonus flash region
     pub fn find_apob(&mut self) -> Result<ApobLocation, ApobError> {
         // We expect to find the EFS at offset 0x20000 (§4.1.3)
-        let efs: Efs = self.amd_read(0x20_000)?;
+        let efs: Efs = self.read_value(0x20_000)?;
         if efs.signature != EFS_SIGNATURE {
             return Err(ApobError::BadEfsSignature(efs.signature));
         }
 
         let bios_dir_offset = efs.bios_dir_offset;
-        let bhd: BhdDir = self.amd_read(bios_dir_offset)?;
+        let bhd: BhdDir = self.read_value(bios_dir_offset)?;
         if bhd.cookie != BHD_DIR_COOKIE {
             return Err(ApobError::BadBhdCookie(bhd.cookie));
         }
@@ -85,7 +85,7 @@ impl ServerImpl {
         // Directory entries are right after the `BhdDir` header
         let mut pos = bios_dir_offset + core::mem::size_of_val(&bhd) as u32;
         for _ in 0..bhd.num {
-            let entry: DirEntry = self.amd_read(pos)?;
+            let entry: DirEntry = self.read_value(pos)?;
             if entry.entry_type == APOB_NV_COPY {
                 // Mask two `addr_mode` bits
                 let src_address = entry.src_address & 0x3FFF_FFFF_FFFF_FFFF;

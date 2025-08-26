@@ -83,7 +83,11 @@ impl ServerImpl {
     }
 
     /// Converts a relative address to an absolute address in out current device
-    fn flash_addr(&self, offset: u32, size: u32) -> Result<FlashAddr, HfError> {
+    pub fn flash_addr(
+        &self,
+        offset: u32,
+        size: u32,
+    ) -> Result<FlashAddr, HfError> {
         if offset
             .checked_add(size)
             .is_some_and(|a| a <= SLOT_SIZE_BYTES)
@@ -95,7 +99,7 @@ impl ServerImpl {
     }
 
     /// Converts a relative address to an absolute address in bonus space
-    pub fn bonus_addr(offset: u32, len: u32) -> Result<FlashAddr, HfError> {
+    fn bonus_addr(offset: u32, len: u32) -> Result<FlashAddr, HfError> {
         if offset
             .checked_add(len)
             .is_some_and(|a| a <= BONUS_SIZE_BYTES)
