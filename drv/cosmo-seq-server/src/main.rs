@@ -162,7 +162,7 @@ fn main() -> ! {
     let packrat = Packrat::from(PACKRAT.get_task_id());
     read_vpd_and_load_packrat(&packrat, I2C.get_task_id());
 
-    match init() {
+    match init(packrat) {
         // Set up everything nicely, time to start serving incoming messages.
         Ok(mut server) => {
             // Enable the backplane PCIe clock if requested
@@ -204,7 +204,7 @@ fn main() -> ! {
     }
 }
 
-fn init() -> Result<ServerImpl, SeqError> {
+fn init(packrat: Packrat) -> Result<ServerImpl, SeqError> {
     let sys = sys_api::Sys::from(SYS.get_task_id());
 
     // Pull the fault line low while we're loading
@@ -296,7 +296,7 @@ fn init() -> Result<ServerImpl, SeqError> {
     sys.gpio_set(SP_CHASSIS_STATUS_LED);
 
     let token = loader.get_token();
-    Ok(ServerImpl::new(token))
+    Ok(ServerImpl::new(token, packrat))
 }
 
 /// Configures the front FPGA pins and holds it in reset
@@ -378,7 +378,10 @@ struct ServerImpl {
 }
 
 impl ServerImpl {
-    fn new(token: drv_spartan7_loader_api::Spartan7Token) -> Self {
+    fn new(
+        token: drv_spartan7_loader_api::Spartan7Token,
+        packrat: Packrat,
+    ) -> Self {
         let now = sys_get_timer().now;
         let seq = fmc_periph::Sequencer::new(token);
         ringbuf_entry!(Trace::Startup {
@@ -399,7 +402,7 @@ impl ServerImpl {
             sys: Sys::from(SYS.get_task_id()),
             hf: HostFlash::from(HF.get_task_id()),
             seq,
-            vcore: VCore::new(I2C.get_task_id()),
+            vcore: VCore::new(I2C.get_task_id(), packrat),
         }
     }
 
@@ -719,13 +722,6 @@ impl ServerImpl {
                 vddcr_cpu1: ifr.pwr_cont2_to_fpga1_alert,
             };
             self.vcore.handle_pmalert(which_rails);
-            // The only way to make the pins deassert (and thus, the IRQ go
-            // away) is to tell the guys to clear the fault.
-            // N.B.: unlike other FPGA sequencer alerts, we need not clear the
-            // IFR bits for these; they are hot as long as the PMALERT pin from
-            // the RAA229620As is asserted. Clearing the fault in the regulator
-            // clears the IRQ.
-            let _ = self.vcore.clear_faults(which_rails);
 
             // If *all* we saw was a PMBus alert, don't reset --- perhaps we're
             // still fine, and we just got a warning from the regulator. If

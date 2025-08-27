@@ -63,11 +63,7 @@ enum Trace {
         volts: units::Volts,
     },
     Error(ResponseCode),
-    Summary {
-        max: units::Volts,
-        min: units::Volts,
-        avg: units::Volts,
-    },
+    VinSummary(VoltageRange),
 }
 
 ringbuf!(Trace, 120, Trace::None);
@@ -94,10 +90,10 @@ const VCORE_NSAMPLES: usize = 50;
 static CLASS_VCORE: &'static str = "vcore";
 static CLASS_PMALERT: &'static str = "pmbus_alert";
 static CLASS_VIN: &'static str = "vin";
-static CLASS_OC: &'static str = "overcurrent";
-static CLASS_OV: &'static str = "overvolt";
-static CLASS_UV: &'static str = "undervolt";
-static CLASS_OP: &'static str = "overpower";
+static CLASS_OVERCURRENT: &'static str = "overcurrent";
+static CLASS_OVERVOLT: &'static str = "overvolt";
+static CLASS_UNDERVOLT: &'static str = "undervolt";
+static CLASS_OVERPOWER: &'static str = "overpower";
 static CLASS_OTHER: &'static str = "other";
 static CLASS_WARN: &'static str = "warn";
 static CLASS_FAULT: &'static str = "fault";
@@ -198,7 +194,7 @@ impl VCore {
                         CLASS_VCORE,
                         CLASS_PMALERT,
                         CLASS_VIN,
-                        CLASS_OC,
+                        CLASS_OVERCURRENT,
                         CLASS_FAULT,
                     ])
                 }
@@ -213,7 +209,7 @@ impl VCore {
                         CLASS_VCORE,
                         CLASS_PMALERT,
                         CLASS_VIN,
-                        CLASS_OC,
+                        CLASS_OVERCURRENT,
                         CLASS_WARN,
                     ])
                 }
@@ -226,7 +222,7 @@ impl VCore {
                         CLASS_VCORE,
                         CLASS_PMALERT,
                         CLASS_VIN,
-                        CLASS_OV,
+                        CLASS_OVERVOLT,
                         CLASS_FAULT,
                     ])
                 }
@@ -241,7 +237,7 @@ impl VCore {
                         CLASS_VCORE,
                         CLASS_PMALERT,
                         CLASS_VIN,
-                        CLASS_OV,
+                        CLASS_OVERVOLT,
                         CLASS_WARN,
                     ])
                 }
@@ -256,7 +252,7 @@ impl VCore {
                         CLASS_VCORE,
                         CLASS_PMALERT,
                         CLASS_VIN,
-                        CLASS_UV,
+                        CLASS_UNDERVOLT,
                         CLASS_FAULT,
                     ])
                 }
@@ -271,7 +267,7 @@ impl VCore {
                         CLASS_VCORE,
                         CLASS_PMALERT,
                         CLASS_VIN,
-                        CLASS_UV,
+                        CLASS_UNDERVOLT,
                         CLASS_WARN,
                     ])
                 }
@@ -286,7 +282,7 @@ impl VCore {
                         CLASS_VCORE,
                         CLASS_PMALERT,
                         CLASS_VIN,
-                        CLASS_OP,
+                        CLASS_OVERPOWER,
                         CLASS_WARN,
                     ])
                 }
@@ -307,8 +303,8 @@ impl VCore {
             let mut max = f32::MIN;
 
             // Number of good samples for computing the average.
-            let mut sum = 0.0;
             let mut ngood = 0;
+            let mut sum = 0.0;
             for _ in 0..VCORE_NSAMPLES {
                 match self.device.read_vin() {
                     Ok(val) => {
@@ -342,19 +338,16 @@ impl VCore {
             // The min/max/average values are intended mainly for the ereport,
             // but we may as well put them in the ringbuf, too.
             let avg = sum / ngood as f32;
-            ringbuf_entry!(Trace::Summary {
-                max: units::Volts(min),
-                min: units::Volts(max),
-                avg: units::Volts(avg),
-            });
+            let vin = VoltageRange { min, max, avg };
+            ringbuf_entry!(Trace::VinSummary(vin));
 
             // "Houston, we've got a main bus B undervolt..."
             let ereport = VinEreport {
                 rail: "VDD_VCORE",
-                vin: VoltageRange { min, max, avg },
+                vin,
                 time: t0,
                 dev_id: self.device.i2c_device().component_id(),
-                status: EreportPmbusStatus {
+                status: PmbusStatus {
                     word: status_word.0,
                     input: status_input
                         .map(|STATUS_INPUT::CommandData(byte)| byte)
@@ -373,19 +366,19 @@ struct VinEreport {
     rail: &'static str,
     vin: VoltageRange,
     time: u64,
-    status: EreportPmbusStatus,
+    status: PmbusStatus,
     dev_id: &'static str,
 }
 
-#[derive(serde::Serialize)]
+#[derive(Copy, Clone, Default, PartialEq, serde::Serialize)]
 struct VoltageRange {
     min: f32,
     max: f32,
     avg: f32,
 }
 
-#[derive(serde::Serialize, Default)]
-struct EreportPmbusStatus {
+#[derive(Copy, Clone, Default, serde::Serialize)]
+struct PmbusStatus {
     word: u16,
     #[serde(skip_serializing_if = "Option::is_none")]
     input: Option<u8>,
