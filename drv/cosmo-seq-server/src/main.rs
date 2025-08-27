@@ -25,6 +25,8 @@ use userlib::{
 use drv_hf_api::HostFlash;
 use ringbuf::{counted_ringbuf, ringbuf_entry, Count};
 
+mod vcore;
+
 task_slot!(JEFE, jefe);
 task_slot!(LOADER, spartan7_loader);
 task_slot!(HF, hf);
@@ -369,6 +371,7 @@ struct ServerImpl {
     sys: Sys,
     hf: HostFlash,
     seq: fmc_periph::Sequencer,
+    vcore: VCore,
 }
 
 impl ServerImpl {
@@ -393,6 +396,7 @@ impl ServerImpl {
             sys: Sys::from(SYS.get_task_id()),
             hf: HostFlash::from(HF.get_task_id()),
             seq,
+            vcore: unimplemented!(),
         }
     }
 
@@ -641,7 +645,18 @@ impl ServerImpl {
             m.set_nicmapo(true);
             m.set_amd_pwrok_fedge(true);
             m.set_amd_rstn_fedge(true);
+            // PMBus alert bits for Renesas RAA229620A PWM controllers.
+            m.set_pwr_cont1_to_fpga1_alert(true);
+            m.set_pwr_cont2_to_fpga1_alert(true);
         });
+
+        // Turn on the voltage regulator undervolt alerts.
+        self.vcore
+            .initialize_uv_warning()
+            // TODO(eliza): this fails if the I2C operations to talk to the
+            // RAA229620As fail, which...we should probably not panic on. retry
+            // or something, like on Gimlet.
+            .unwrap();
     }
 
     fn disable_sequencer_interrupts(&mut self) {
@@ -653,6 +668,9 @@ impl ServerImpl {
             m.set_nicmapo(false);
             m.set_amd_pwrok_fedge(false);
             m.set_amd_rstn_fedge(false);
+
+            m.set_pwr_cont1_to_fpga1_alert(false);
+            m.set_pwr_cont2_to_fpga1_alert(false);
         });
         let _ = self.sys.gpio_irq_control(
             notifications::SEQ_IRQ_MASK,
@@ -687,6 +705,25 @@ impl ServerImpl {
         // it's important to account for that case;
 
         let mut action = InternalAction::None;
+
+        if ifr.pwr_cont1_to_fpga1_alert || ifr.pwr_cont2_to_vpga_alert {
+            // We got a PMBus alert from one of the Vcore regulators. In
+            // practice, this presently means its VIN rail went undervolt,
+            // because...well, that's currently the only thing we tell it to
+            // alert us about. So just go measure the voltage droop. If the
+            // undervolt results in anything else breaking (and it probably
+            // will), we'll hear about that soon...
+            self.vcore.record_undervolt();
+            // The only way to make the pins deassert (and thus, the IRQ go
+            // away) is to tell the guys to clear the fault (I think).
+            // TODO(eliza): GO LOOK AT THE DATASHEET, DUMBASS!
+            self.vcore
+                .clear_faults()
+                // TODO(eliza): this fails if the I2C operations to talk to the
+                // RAA229620As fail, which...we should probably not panic on. retry
+                // or something, like on Gimlet.
+                .unwrap();
+        }
 
         if ifr.amd_pwrok_fedge || ifr.amd_rstn_fedge {
             let rstn = self.seq.amd_reset_fedges.counts();
