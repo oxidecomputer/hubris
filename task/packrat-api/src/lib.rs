@@ -104,26 +104,15 @@ pub enum EreportReadError {
 #[derive(Copy, Clone)]
 pub struct EreportClass<'a>(pub &'a [&'a str]);
 
-impl EreportClass<'_> {
-    pub fn len(&self) -> usize {
-        let mut len: usize = 0;
-        for segment in self.0 {
-            if len > 0 {
-                // If we already have a segment, include a `.`.
-                len = len.wrapping_add(1);
-            }
-            len = len.wrapping_add(segment.len())
-        }
-        len
-    }
-}
-
 impl<C> minicbor::Encode<C> for EreportClass<'_> {
     fn encode<W: minicbor::encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
         _ctx: &mut C,
     ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        // TODO(eliza): would prefer to represent this as one big length
+        // prefixed string, since we should be able to calculate that, but need
+        // `minicbor` v2.1.1 for `str_len`...
         let mut wrote_any_segments = false;
         e.begin_str()?;
         for segment in self.0 {
@@ -135,13 +124,6 @@ impl<C> minicbor::Encode<C> for EreportClass<'_> {
         }
         e.end()?;
         Ok(())
-    }
-}
-
-impl<C> minicbor::encode::CborLen<C> for EreportClass<'_> {
-    fn cbor_len(&self, ctx: &mut C) -> usize {
-        let n = self.len();
-        n.cbor_len(ctx).wrapping_add(n)
     }
 }
 
