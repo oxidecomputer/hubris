@@ -127,12 +127,10 @@ impl<C> minicbor::Encode<C> for EreportClass<'_> {
         let mut wrote_any_segments = false;
         e.begin_str()?;
         for segment in self.0 {
-            let w = e.writer_mut();
             if wrote_any_segments {
-                w.write_all(b".").map_err(minicbor::encode::Error::write)?;
+                e.str(".")?;
             }
-            w.write_all(segment.as_bytes())
-                .map_err(minicbor::encode::Error::write)?;
+            e.str(segment)?;
             wrote_any_segments = true;
         }
         e.end()?;

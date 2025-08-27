@@ -76,6 +76,8 @@ enum Trace {
     },
     I2cError(Rail, PmbusCmd, raa229620a::Error),
     VinSummary(Rail, VoltageRange),
+    EreportSent(usize),
+    EreportTooBig,
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -548,16 +550,18 @@ fn deliver_ereport(
     class: &EreportClass<'_>,
     data: &impl serde::Serialize,
 ) {
-    let mut ereport_buf = [0u8; 128];
+    let mut ereport_buf = [0u8; 256];
     let report = task_packrat_api::SerdeEreport { class, data };
     let writer = minicbor::encode::write::Cursor::new(&mut ereport_buf[..]);
     match report.to_writer(writer) {
         Ok(writer) => {
             let len = writer.position();
             packrat.deliver_ereport(&ereport_buf[..len]);
+            ringbuf_entry!(Trace::EreportSent(len));
         }
         Err(_) => {
             // XXX(eliza): ereport didn't fit in buffer...what do
+            ringbuf_entry!(Trace::EreportTooBig)
         }
     }
 }

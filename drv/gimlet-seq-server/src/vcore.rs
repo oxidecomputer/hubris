@@ -64,6 +64,8 @@ enum Trace {
     },
     Error(ResponseCode),
     VinSummary(VoltageRange),
+    EreportSentOff(usize),
+    EreportTooBig,
 }
 
 ringbuf!(Trace, 120, Trace::None);
