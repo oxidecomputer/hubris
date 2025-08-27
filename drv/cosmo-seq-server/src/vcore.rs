@@ -364,6 +364,9 @@ impl VCore {
                 }
             };
 
+            // TODO(eliza): if we saw an IRQ from one VRM, and the other one
+            // also dips while we're sampling,c an we make an ereport for it
+            // too? Figure that out...
             let ranges = vin_ranges.get_or_insert_with(|| self.record_vin());
             let vin = match rail {
                 Rail::VddcrCpu0 => ranges.vddcr_cpu0,
