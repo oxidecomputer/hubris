@@ -402,16 +402,18 @@ fn deliver_ereport(
     class: &EreportClass<'_>,
     data: &impl serde::Serialize,
 ) {
-    let mut ereport_buf = [0u8; 128];
+    let mut ereport_buf = [0u8; 256];
     let report = packrat_api::SerdeEreport { class, data };
     let writer = minicbor::encode::write::Cursor::new(&mut ereport_buf[..]);
     match report.to_writer(writer) {
         Ok(writer) => {
             let len = writer.position();
             packrat.deliver_ereport(&ereport_buf[..len]);
+            ringbuf_entry!(Trace::EreportSentOff(len));
         }
         Err(_) => {
             // XXX(eliza): ereport didn't fit in buffer...what do
+            ringbuf_entry!(Trace::EreportTooBig(len));
         }
     }
 }
