@@ -703,6 +703,7 @@ impl ServerImpl {
             Smerr,
             Mapo,
             None,
+            Unexpected,
         }
 
         // We check these in lowest to highest priority. We start with
@@ -713,7 +714,7 @@ impl ServerImpl {
         // we probably(?) won't see multiple of these set at a time but
         // it's important to account for that case;
 
-        let mut action = InternalAction::None;
+        let mut action = InternalAction::Unexpected;
 
         if ifr.pwr_cont1_to_fpga1_alert || ifr.pwr_cont2_to_fpga1_alert {
             // We got a PMBus alert from one of the Vcore regulators.
@@ -728,6 +729,7 @@ impl ServerImpl {
             // POWER_GOOD was deasserted, then the FPGA will MAPO us anyway,
             // even though clearing the fault in the regulator might make
             // POWER_GOOD come back.
+            action = InternalAction::None;
         }
 
         if ifr.amd_pwrok_fedge || ifr.amd_rstn_fedge {
@@ -787,6 +789,9 @@ impl ServerImpl {
                 self.emergency_a2(StateChangeReason::SmerrAssert);
             }
             InternalAction::None => {
+                // That's right, just do nothing.
+            }
+            InternalAction::Unexpected => {
                 // This is unexpected, logging is the best we can do
                 ringbuf_entry!(Trace::UnexpectedInterrupt);
             }
