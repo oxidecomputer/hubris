@@ -97,6 +97,9 @@ enum Trace {
     Thermtrip,
     A0MapoInterrupt,
     SmerrInterrupt,
+    PmbusAlert {
+        now: u64,
+    },
     UnexpectedInterrupt,
 }
 counted_ringbuf!(Trace, 128, Trace::None);
@@ -718,11 +721,13 @@ impl ServerImpl {
 
         if ifr.pwr_cont1_to_fpga1_alert || ifr.pwr_cont2_to_fpga1_alert {
             // We got a PMBus alert from one of the Vcore regulators.
+            let now = sys_get_timer().now;
+            ringbuf_entry!(Trace::PmbusAlert { now });
             let which_rails = vcore::Rails {
                 vddcr_cpu0: ifr.pwr_cont1_to_fpga1_alert,
                 vddcr_cpu1: ifr.pwr_cont2_to_fpga1_alert,
             };
-            self.vcore.handle_pmalert(which_rails);
+            self.vcore.handle_pmalert(which_rails, now);
 
             // If *all* we saw was a PMBus alert, don't reset --- perhaps we're
             // still fine, and we just got a warning from the regulator. If

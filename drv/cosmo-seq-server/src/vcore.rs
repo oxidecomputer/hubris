@@ -179,7 +179,7 @@ impl VCore {
         Ok(())
     }
 
-    pub fn handle_pmalert(&self, rails: Rails) {
+    pub fn handle_pmalert(&self, rails: Rails, now: u64) {
         //
         // We want to record min/max voltages on *both* rails as close to the
         // fault as possible, rather than spending 45ms recording one regulator,
@@ -193,19 +193,18 @@ impl VCore {
         // the time our IRQ line was pulled. That way, we accurately report when
         // the IRQ happened, regardless of how long it takes us to actually
         // record data etc.
-        //
-        let t0 = sys_get_timer().now;
+
         ringbuf_entry!(Trace::Pmalert {
-            timestamp: t0,
+            timestamp: now,
             faulted: rails
         });
 
         if rails.vddcr_cpu0 {
-            self.record_pmalert_on_rail(t0, Rail::VddcrCpu0, &mut vin_ranges);
+            self.record_pmalert_on_rail(now, Rail::VddcrCpu0, &mut vin_ranges);
         }
 
         if rails.vddcr_cpu1 {
-            self.record_pmalert_on_rail(t0, Rail::VddcrCpu1, &mut vin_ranges);
+            self.record_pmalert_on_rail(now, Rail::VddcrCpu1, &mut vin_ranges);
         }
 
         // The only way to make the pins deassert (and thus, the IRQ go
@@ -219,7 +218,7 @@ impl VCore {
 
     fn record_pmalert_on_rail(
         &self,
-        t0: u64,
+        now: u64,
         rail: Rail,
         vin_ranges: &mut Option<VoltageRanges>,
     ) {
@@ -377,7 +376,7 @@ impl VCore {
             let ereport = VinEreport {
                 rail,
                 vin,
-                time: t0,
+                time: now,
                 dev_id: device.i2c_device().component_id(),
                 status: PmbusStatus {
                     word: status_word.0,
