@@ -89,16 +89,16 @@ const VCORE_NSAMPLES: usize = 50;
 //
 // Class string segments for ereports
 //
-static CLASS_VCORE: &'static str = "vcore";
-static CLASS_PMALERT: &'static str = "pmbus_alert";
-static CLASS_VIN: &'static str = "vin";
-static CLASS_OVERCURRENT: &'static str = "overcurrent";
-static CLASS_OVERVOLT: &'static str = "overvolt";
-static CLASS_UNDERVOLT: &'static str = "undervolt";
-static CLASS_OVERPOWER: &'static str = "overpower";
-static CLASS_OTHER: &'static str = "other";
-static CLASS_WARN: &'static str = "warn";
-static CLASS_FAULT: &'static str = "fault";
+static CLASS_VCORE: &str = "vcore";
+static CLASS_PMALERT: &str = "pmbus_alert";
+static CLASS_VIN: &str = "vin";
+static CLASS_OVERCURRENT: &str = "overcurrent";
+static CLASS_OVERVOLT: &str = "overvolt";
+static CLASS_UNDERVOLT: &str = "undervolt";
+static CLASS_OVERPOWER: &str = "overpower";
+static CLASS_OTHER: &str = "other";
+static CLASS_WARN: &str = "warn";
+static CLASS_FAULT: &str = "fault";
 
 cfg_if::cfg_if! {
     if #[cfg(not(any(
