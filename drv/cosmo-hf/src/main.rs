@@ -16,7 +16,8 @@
 use ringbuf::{counted_ringbuf, ringbuf_entry};
 use userlib::{hl::sleep_for, task_slot, UnwrapLite};
 
-mod hf; // implementation of `HostFlash` API
+mod apob; // Details for APOB structs
+mod hf; // Implementation of `HostFlash` API
 
 task_slot!(LOADER, spartan7_loader);
 
@@ -32,6 +33,9 @@ enum Trace {
     HashInitError(drv_hash_api::HashError),
     HashUpdateError(drv_hash_api::HashError),
     HashFinalizeError(drv_hash_api::HashError),
+
+    ApobFound(apob::ApobLocation),
+    ApobError(apob::ApobError),
 }
 
 counted_ringbuf!(Trace, 32, Trace::None);
@@ -77,7 +81,7 @@ fn main() -> ! {
 }
 
 /// Absolute memory address
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 struct FlashAddr(u32);
 
 impl FlashAddr {
@@ -409,6 +413,16 @@ impl FlashDriver {
         self.drv
             .sp5_flash_offset
             .set_offset(v.0.wrapping_sub(SP5_BASE));
+    }
+
+    pub(crate) fn set_apob_pos(&self, pos: apob::ApobLocation) {
+        self.drv.apob_flash_addr.set_offset(pos.start);
+        self.drv.apob_flash_len.set_offset(pos.size);
+    }
+
+    pub(crate) fn clear_apob_pos(&self) {
+        self.drv.apob_flash_addr.set_offset(0);
+        self.drv.apob_flash_len.set_offset(0);
     }
 }
 
