@@ -66,6 +66,7 @@ address = 0b100_1101
 device = "emc2305"
 sensors = { speed = 4, names = [ "fan1", "fan2", "fan3", "fan4" ] }
 description = "fan controller"
+refdes = "U92"
 
 [[config.i2c.devices]]
 bus = "temp"

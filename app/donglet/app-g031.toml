@@ -15,7 +15,7 @@ name = "task-jefe"
 priority = 0
 max-sizes = {flash = 4096, ram = 512}
 start = true
-stacksize = 256
+stacksize = 384
 notifications = ["fault", "timer"]
 features = ["no-panic", "nano"]
 
@@ -96,11 +96,12 @@ address = 0x73
 [[config.i2c.devices]]
 controller = 1
 mux = 1
-segment = 1 
+segment = 1
 address = 0b1010_000
 device = "at24csw080"
 description = "Sharkfin VPD"
 removable = true
+refdes = ["J3", "J3", "U7"]
 
 [[config.i2c.devices]]
 controller = 1
@@ -110,6 +111,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "Gimlet Fan VPD"
 removable = true
+refdes = ["J3", "J5", "U1"]
 
 [[config.i2c.devices]]
 controller = 1
@@ -119,6 +121,7 @@ address = 0b1010_000
 device = "at24csw080"
 description = "Sidecar Fan VPD"
 removable = true
+refdes = ["J3", "J4", "U1"]
 
 [[config.i2c.devices]]
 controller = 1
@@ -129,3 +132,4 @@ device = "tmp117"
 description = "TempSense"
 sensors = { temperature = 1 }
 removable = true
+refdes = ["J3", "J2"]

@@ -83,7 +83,11 @@ impl ServerImpl {
     }
 
     /// Converts a relative address to an absolute address in out current device
-    fn flash_addr(&self, offset: u32, size: u32) -> Result<FlashAddr, HfError> {
+    pub fn flash_addr(
+        &self,
+        offset: u32,
+        size: u32,
+    ) -> Result<FlashAddr, HfError> {
         if offset
             .checked_add(size)
             .is_some_and(|a| a <= SLOT_SIZE_BYTES)
@@ -519,7 +523,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         addr: u32,
         data: LenLimit<Leased<R, [u8]>, PAGE_SIZE_BYTES>,
     ) -> Result<(), RequestError<HfError>> {
-        // TODO check mux state?
+        self.drv.check_flash_mux_state()?;
         self.drv
             .flash_write(
                 Self::bonus_addr(addr, data.len() as u32)?,
@@ -535,7 +539,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         addr: u32,
         dest: LenLimit<Leased<W, [u8]>, PAGE_SIZE_BYTES>,
     ) -> Result<(), RequestError<HfError>> {
-        // TODO check mux state?
+        self.drv.check_flash_mux_state()?;
         self.drv
             .flash_read(
                 Self::bonus_addr(addr, dest.len() as u32)?,
@@ -550,7 +554,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         _: &RecvMessage,
         addr: u32,
     ) -> Result<(), RequestError<HfError>> {
-        // TODO check mux state?
+        self.drv.check_flash_mux_state()?;
         self.drv.flash_sector_erase(Self::bonus_addr(addr, 0)?);
         Ok(())
     }
@@ -567,6 +571,21 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         _: &RecvMessage,
         state: HfMuxState,
     ) -> Result<(), RequestError<HfError>> {
+        // Whenever we switch the mux state to the host CPU, we update FPGA
+        // registers for the APOB location (so that the FPGA can remap reads to
+        // the appropriate location).
+        if state == HfMuxState::HostCPU {
+            match self.find_apob() {
+                Ok(a) => {
+                    ringbuf_entry!(Trace::ApobFound(a));
+                    self.drv.set_apob_pos(a);
+                }
+                Err(e) => {
+                    ringbuf_entry!(Trace::ApobError(e));
+                    self.drv.clear_apob_pos();
+                }
+            }
+        }
         self.drv.set_flash_mux_state(state);
         self.invalidate_mux_switch();
         Ok(())
@@ -618,9 +637,15 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             ringbuf_entry!(Trace::HashInitError(e));
             return Err(HfError::HashError.into());
         }
-        let begin = self.flash_addr(addr, len)?.get() as usize;
-        let end = begin + len as usize;
-        self.hash_range_update(self.dev, begin, end)?;
+
+        // Check that the hash range is valid.  We **do not** pass the resulting
+        // value to `hash_range_update`, which expects relative offsets!
+        let _check = self.flash_addr(addr, len)?;
+        self.hash_range_update(
+            self.dev,
+            addr as usize,
+            addr as usize + len as usize,
+        )?;
 
         match self.hash.task.finalize_sha256() {
             Ok(sum) => Ok(sum),

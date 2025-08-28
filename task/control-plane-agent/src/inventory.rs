@@ -2,7 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use core::fmt::{self, Write};
 use gateway_messages::measurement::{
     Measurement, MeasurementError, MeasurementKind,
 };
@@ -111,24 +110,12 @@ impl Inventory {
             }
         };
 
-        // This format string is statically guaranteed to fit in `component`
-        // based on our `max_num_devices` submodule below (which only contains
-        // static assertions that ensure this format string will fit!).
-        let mut component = FmtComponentId::default();
-        write!(
-            &mut component,
-            "{}{}",
-            SpComponent::GENERIC_DEVICE_PREFIX,
-            index
-        )
-        .unwrap_lite();
-
         let mut capabilities = DeviceCapabilities::empty();
         if !device.sensors.is_empty() {
             capabilities |= DeviceCapabilities::HAS_MEASUREMENT_CHANNELS;
         }
         DeviceDescription {
-            component: SpComponent { id: component.id },
+            component: SpComponent { id: device.id },
             device: device.device,
             description: device.description,
             capabilities,
@@ -176,52 +163,20 @@ impl TryFrom<&'_ SpComponent> for Index {
     type Error = SpError;
 
     fn try_from(component: &'_ SpComponent) -> Result<Self, Self::Error> {
-        if component
-            .id
-            .starts_with(SpComponent::GENERIC_DEVICE_PREFIX.as_bytes())
+        if let Ok(entry_idx) = task_validate_api::DEVICE_INDICES_BY_SORTED_ID
+            .binary_search_by_key(&component.id, |&(id, _)| id)
         {
-            // We know `component` starts with `GENERIC_DEVICE_PREFIX`, so
-            // it's safe to slice into the string at that index.
-            let id = component
-                .as_str()
-                .ok_or(SpError::RequestUnsupportedForComponent)?;
-            let suffix = &id[SpComponent::GENERIC_DEVICE_PREFIX.len()..];
-
-            let index = suffix
-                .parse::<usize>()
-                .map_err(|_| SpError::RequestUnsupportedForComponent)?;
-            if index < VALIDATE_DEVICES.len() {
-                Ok(Self::ValidateDevice(index))
-            } else {
-                Err(SpError::RequestUnsupportedForComponent)
-            }
-        } else {
-            for (i, d) in OUR_DEVICES.iter().enumerate() {
-                if *component == d.component {
-                    return Ok(Self::OurDevice(i));
-                }
-            }
-            Err(SpError::RequestUnsupportedForComponent)
+            let &(_, index) = task_validate_api::DEVICE_INDICES_BY_SORTED_ID
+                .get(entry_idx)
+                .unwrap_lite();
+            return Ok(Self::ValidateDevice(index));
         }
-    }
-}
-
-#[derive(Default)]
-struct FmtComponentId {
-    pos: usize,
-    id: [u8; SpComponent::MAX_ID_LENGTH],
-}
-
-impl fmt::Write for FmtComponentId {
-    fn write_str(&mut self, s: &str) -> fmt::Result {
-        let remaining = &mut self.id[self.pos..];
-        if s.len() <= remaining.len() {
-            remaining[..s.len()].copy_from_slice(s.as_bytes());
-            self.pos += s.len();
-            Ok(())
-        } else {
-            Err(fmt::Error)
+        for (i, d) in OUR_DEVICES.iter().enumerate() {
+            if *component == d.component {
+                return Ok(Self::OurDevice(i));
+            }
         }
+        Err(SpError::RequestUnsupportedForComponent)
     }
 }
 
@@ -334,34 +289,6 @@ mod devices_with_static_validation {
 
     pub(super) static OUR_DEVICES: &[DeviceDescription<'static>] =
         OUR_DEVICES_CONST;
-
-    // We use a generic component ID of `{prefix}{index}` for all of
-    // `VALIDATE_DEVICES`; here we statically assert the maximum number of
-    // devices we can use with this scheme. At the time of writing this comment,
-    // our ID width is 16 bytes and the prefix is 4 bytes, allowing up to
-    // 999_999_999_999 devices to be listed.
-
-    // How many bytes are available for digits of a device index in base 10?
-    const DIGITS_AVAILABLE: usize =
-        SpComponent::MAX_ID_LENGTH - SpComponent::GENERIC_DEVICE_PREFIX.len();
-
-    // How many devices can we list given `DIGITS_AVAILABLE`?
-    const MAX_NUM_DEVICES: u64 = const_exp10(DIGITS_AVAILABLE);
-
-    // Statically assert that we have at most that many devices.
-    static_assertions::const_assert!(
-        VALIDATE_DEVICES_CONST.len() as u64 <= MAX_NUM_DEVICES
-    );
-
-    // Helper function: computes 10^n at compile time.
-    const fn const_exp10(mut n: usize) -> u64 {
-        let mut x = 1;
-        while n > 0 {
-            x *= 10;
-            n -= 1;
-        }
-        x
-    }
 
     // We will spread the contents of `DEVICES` out over multiple packets to
     // MGS; however, we do _not_ currently handle the case where a single

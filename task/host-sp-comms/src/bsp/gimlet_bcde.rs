@@ -8,15 +8,13 @@
 use super::{inventory::by_refdes, ServerImpl};
 
 use drv_i2c_api::I2cDevice;
-use drv_i2c_api::ResponseCode;
-use drv_i2c_devices::at24csw080::{At24Csw080, Error as EepromError};
-use drv_oxide_vpd::VpdError;
 use drv_spi_api::SpiServer;
 use task_sensor_api::SensorId;
-use userlib::TaskId;
 use zerocopy::IntoBytes;
 
 use host_sp_messages::{InventoryData, InventoryDataResult};
+
+pub(crate) use self::i2c_config::MAX_COMPONENT_ID_LEN;
 
 userlib::task_slot!(I2C, i2c_driver);
 userlib::task_slot!(SPI, spi_driver);
@@ -76,24 +74,20 @@ impl ServerImpl {
             }
             17 => {
                 // U615: Gimlet VPD EEPROM
-                let (name, f, _sensors) = by_refdes!(U615, at24csw080);
-                self.read_at24csw080_id(sequence, &name, f)
+                let (dev, _sensors) = by_refdes!(U615, at24csw080);
+                self.read_at24csw080_id(sequence, dev)
             }
             18 => {
                 // J180/ID: Fan VPD barcode (not available in packrat)
-                self.read_fan_barcodes(
-                    sequence,
-                    b"J180/ID",
-                    i2c_config::devices::at24csw080_fan_vpd,
-                )
+                let dev =
+                    i2c_config::devices::at24csw080_fan_vpd(I2C.get_task_id());
+                self.read_fan_barcodes(sequence, dev)
             }
             19 => {
                 // J180: Fan VPD EEPROM (on the daughterboard)
-                self.read_at24csw080_id(
-                    sequence,
-                    b"J180/U1",
-                    i2c_config::devices::at24csw080_fan_vpd,
-                )
+                let dev =
+                    i2c_config::devices::at24csw080_fan_vpd(I2C.get_task_id());
+                self.read_at24csw080_id(sequence, dev)
             }
             // Welcome to The Sharkfin Zone
             //
@@ -104,18 +98,12 @@ impl ServerImpl {
             //
             // Sharkfin connectors start at J206 and are numbered sequentially
             20..=29 => {
-                let (designator, f): ([u8; 4], _) =
-                    Self::get_sharkfin_vpd(index as usize - 20);
-                let mut name = *b"____/U7/ID";
-                name[0..4].copy_from_slice(&designator);
-                self.read_eeprom_barcode(sequence, &name, f)
+                let dev = Self::get_sharkfin_vpd(index as usize - 20);
+                self.read_eeprom_barcode(sequence, dev)
             }
             30..=39 => {
-                let (designator, f): ([u8; 4], _) =
-                    Self::get_sharkfin_vpd(index as usize - 30);
-                let mut name = *b"____/U7";
-                name[0..4].copy_from_slice(&designator);
-                self.read_at24csw080_id(sequence, &name, f)
+                let dev = Self::get_sharkfin_vpd(index as usize - 30);
+                self.read_at24csw080_id(sequence, dev)
             }
             40 => {
                 // U12: the service processor itself
@@ -138,8 +126,8 @@ impl ServerImpl {
             }
             41 => {
                 // U431: BMR491
-                let (name, f, sensors) = by_refdes!(U431, bmr491);
-                let dev = f(I2C.get_task_id());
+                let (dev, sensors) = by_refdes!(U431, bmr491);
+                let name = dev.component_id().as_bytes();
                 // To be stack-friendly, we declare our output here,
                 // then bind references to all the member variables.
                 *self.scratch = InventoryData::Bmr491 {
@@ -155,7 +143,7 @@ impl ServerImpl {
                     current_sensor: sensors.current.into(),
                     power_sensor: sensors.power.into(),
                 };
-                self.tx_buf.try_encode_inventory(sequence, &name, || {
+                self.tx_buf.try_encode_inventory(sequence, name, || {
                     use pmbus::commands::bmr491::CommandCode;
                     let InventoryData::Bmr491 {
                         mfr_id,
@@ -194,8 +182,8 @@ impl ServerImpl {
             }
 
             42 => {
-                let (name, f, sensors) = by_refdes!(U352, isl68224);
-                let dev = f(I2C.get_task_id());
+                let (dev, sensors) = by_refdes!(U352, isl68224);
+                let name = dev.component_id().as_bytes();
                 // To be stack-friendly, we declare our output here,
                 // then bind references to all the member variables.
                 *self.scratch = InventoryData::Isl68224 {
@@ -208,7 +196,7 @@ impl ServerImpl {
                     voltage_sensors: SensorId::into_u32_array(sensors.voltage),
                     current_sensors: SensorId::into_u32_array(sensors.current),
                 };
-                self.tx_buf.try_encode_inventory(sequence, &name, || {
+                self.tx_buf.try_encode_inventory(sequence, name, || {
                     use pmbus::commands::isl68224::CommandCode;
                     let InventoryData::Isl68224 {
                         mfr_id,
@@ -242,12 +230,12 @@ impl ServerImpl {
                 })
             }
             43 | 44 => {
-                let (name, f, sensors) = match index - 43 {
+                let (dev, sensors) = match index - 43 {
                     0 => by_refdes!(U350, raa229618),
                     1 => by_refdes!(U351, raa229618),
                     _ => unreachable!(),
                 };
-                let dev = f(I2C.get_task_id());
+                let name = dev.component_id().as_bytes();
 
                 // To be stack-friendly, we declare our output here,
                 // then bind references to all the member variables.
@@ -263,7 +251,7 @@ impl ServerImpl {
                     voltage_sensors: SensorId::into_u32_array(sensors.voltage),
                     current_sensors: SensorId::into_u32_array(sensors.current),
                 };
-                self.tx_buf.try_encode_inventory(sequence, &name, || {
+                self.tx_buf.try_encode_inventory(sequence, name, || {
                     use pmbus::commands::raa229618::CommandCode;
                     let InventoryData::Raa229618 {
                         mfr_id,
@@ -300,7 +288,7 @@ impl ServerImpl {
             }
 
             45..=49 => {
-                let (name, f, sensors) = match index - 45 {
+                let (dev, sensors) = match index - 45 {
                     0 => by_refdes!(U522, tps546b24a),
                     1 => by_refdes!(U560, tps546b24a),
                     2 => by_refdes!(U524, tps546b24a),
@@ -308,7 +296,7 @@ impl ServerImpl {
                     4 => by_refdes!(U565, tps546b24a),
                     _ => unreachable!(),
                 };
-                let dev = f(I2C.get_task_id());
+                let name = dev.component_id().as_bytes();
                 *self.scratch = InventoryData::Tps546b24a {
                     mfr_id: [0u8; 3],
                     mfr_model: [0u8; 3],
@@ -321,7 +309,7 @@ impl ServerImpl {
                     voltage_sensor: sensors.voltage.into(),
                     current_sensor: sensors.current.into(),
                 };
-                self.tx_buf.try_encode_inventory(sequence, &name, || {
+                self.tx_buf.try_encode_inventory(sequence, name, || {
                     use pmbus::commands::tps546b24a::CommandCode;
                     let InventoryData::Tps546b24a {
                         mfr_id,
@@ -362,12 +350,12 @@ impl ServerImpl {
             }
             50 | 51 => {
                 // U452 and U419, both ADM1272
-                let (name, f, sensors) = match index - 50 {
+                let (dev, sensors) = match index - 50 {
                     0 => by_refdes!(U419, adm1272),
                     1 => by_refdes!(U452, adm1272),
                     _ => unreachable!(),
                 };
-                let dev = f(I2C.get_task_id());
+                let name = dev.component_id().as_bytes();
 
                 *self.scratch = InventoryData::Adm1272 {
                     mfr_id: [0u8; 3],
@@ -379,7 +367,7 @@ impl ServerImpl {
                     voltage_sensor: sensors.voltage.into(),
                     current_sensor: sensors.current.into(),
                 };
-                self.tx_buf.try_encode_inventory(sequence, &name, || {
+                self.tx_buf.try_encode_inventory(sequence, name, || {
                     use pmbus::commands::tps546b24a::CommandCode;
                     let InventoryData::Adm1272 {
                         mfr_id,
@@ -405,24 +393,16 @@ impl ServerImpl {
             }
 
             52..=57 => {
-                let (connector_name, f, sensors): ([u8; 4], _, _) =
-                    match index - 52 {
-                        0 => by_refdes!(J194, tmp117),
-                        1 => by_refdes!(J195, tmp117),
-                        2 => by_refdes!(J196, tmp117),
-                        3 => by_refdes!(J197, tmp117),
-                        4 => by_refdes!(J198, tmp117),
-                        5 => by_refdes!(J199, tmp117),
-                        _ => unreachable!(),
-                    };
-                let dev = f(I2C.get_task_id());
-
-                // Convert the name from Jxxx (in the TOML file) -> Jxxx/U1
-                let mut name = *b"Jxxx/U1";
-                // All connector names should have length 4; that's checked by
-                // the type in the tuple assignment above.
-                name[..4].copy_from_slice(&connector_name);
-
+                let (dev, sensors) = match index - 52 {
+                    0 => by_refdes!(J194_U1, tmp117),
+                    1 => by_refdes!(J195_U1, tmp117),
+                    2 => by_refdes!(J196_U1, tmp117),
+                    3 => by_refdes!(J197_U1, tmp117),
+                    4 => by_refdes!(J198_U1, tmp117),
+                    5 => by_refdes!(J199_U1, tmp117),
+                    _ => unreachable!(),
+                };
+                let name = dev.component_id().as_bytes();
                 *self.scratch = InventoryData::Tmp117 {
                     id: 0,
                     eeprom1: 0,
@@ -430,7 +410,7 @@ impl ServerImpl {
                     eeprom3: 0,
                     temp_sensor: sensors.temperature.into(),
                 };
-                self.tx_buf.try_encode_inventory(sequence, &name, || {
+                self.tx_buf.try_encode_inventory(sequence, name, || {
                     let InventoryData::Tmp117 {
                         id,
                         eeprom1,
@@ -450,8 +430,8 @@ impl ServerImpl {
             }
 
             58 => {
-                let (name, f, _sensors) = by_refdes!(U446, idt8a34003);
-                let dev = f(I2C.get_task_id());
+                let (dev, _sensors) = by_refdes!(U446, idt8a34003);
+                let name = dev.component_id().as_bytes();
                 *self.scratch = InventoryData::Idt8a34003 {
                     hw_rev: 0,
                     major_rel: 0,
@@ -459,7 +439,7 @@ impl ServerImpl {
                     hotfix_rel: 0,
                     product_id: 0,
                 };
-                self.tx_buf.try_encode_inventory(sequence, &name, || {
+                self.tx_buf.try_encode_inventory(sequence, name, || {
                     let InventoryData::Idt8a34003 {
                         hw_rev,
                         major_rel,
@@ -515,34 +495,39 @@ impl ServerImpl {
             }
             60..=70 => {
                 let i = index - 60;
-                let (name, _f, sensors) = match i {
-                    0 => by_refdes!(J206, max5970),
-                    1 => by_refdes!(J207, max5970),
-                    2 => by_refdes!(J208, max5970),
-                    3 => by_refdes!(J209, max5970),
-                    4 => by_refdes!(J210, max5970),
-                    5 => by_refdes!(J211, max5970),
-                    6 => by_refdes!(J212, max5970),
-                    7 => by_refdes!(J213, max5970),
-                    8 => by_refdes!(J214, max5970),
-                    9 => by_refdes!(J215, max5970),
+                let (dev, sensors) = match i {
+                    0 => by_refdes!(J206_U8, max5970),
+                    1 => by_refdes!(J207_U8, max5970),
+                    2 => by_refdes!(J208_U8, max5970),
+                    3 => by_refdes!(J209_U8, max5970),
+                    4 => by_refdes!(J210_U8, max5970),
+                    5 => by_refdes!(J211_U8, max5970),
+                    6 => by_refdes!(J212_U8, max5970),
+                    7 => by_refdes!(J213_U8, max5970),
+                    8 => by_refdes!(J214_U8, max5970),
+                    9 => by_refdes!(J215_U8, max5970),
                     10 => by_refdes!(U275, max5970),
                     _ => panic!(),
                 };
+                let name = dev.component_id().as_bytes();
                 *self.scratch = InventoryData::Max5970 {
                     voltage_sensors: SensorId::into_u32_array(sensors.voltage),
                     current_sensors: SensorId::into_u32_array(sensors.current),
                 };
                 self.tx_buf
-                    .try_encode_inventory(sequence, &name, || Ok(self.scratch));
+                    .try_encode_inventory(sequence, name, || Ok(self.scratch));
             }
             71 => {
-                let (name, _f, sensors) = by_refdes!(U321, max31790);
+                let (dev, sensors) = by_refdes!(U321, max31790);
+                *self.scratch = InventoryData::Max31790 {
+                    speed_sensors: SensorId::into_u32_array(sensors.speed),
+                };
+                let name = dev.component_id().as_bytes();
                 *self.scratch = InventoryData::Max31790 {
                     speed_sensors: SensorId::into_u32_array(sensors.speed),
                 };
                 self.tx_buf
-                    .try_encode_inventory(sequence, &name, || Ok(self.scratch));
+                    .try_encode_inventory(sequence, name, || Ok(self.scratch));
             }
 
             // We need to specify INVENTORY_COUNT individually here to trigger
@@ -557,22 +542,22 @@ impl ServerImpl {
 
     /// Looks up a Sharkfin VPD EEPROM by sharkfin index (0-9)
     ///
-    /// Returns a designator (e.g. J206) and constructor function
-    fn get_sharkfin_vpd(i: usize) -> ([u8; 4], fn(TaskId) -> I2cDevice) {
-        let (name, f, _sensors) = match i {
-            0 => by_refdes!(J206, at24csw080),
-            1 => by_refdes!(J207, at24csw080),
-            2 => by_refdes!(J208, at24csw080),
-            3 => by_refdes!(J209, at24csw080),
-            4 => by_refdes!(J210, at24csw080),
-            5 => by_refdes!(J211, at24csw080),
-            6 => by_refdes!(J212, at24csw080),
-            7 => by_refdes!(J213, at24csw080),
-            8 => by_refdes!(J214, at24csw080),
-            9 => by_refdes!(J215, at24csw080),
+    /// Returns the sharkfin EEPROM's `I2cDevice`.
+    fn get_sharkfin_vpd(i: usize) -> I2cDevice {
+        let (f, _sensors) = match i {
+            0 => by_refdes!(J206_U7, at24csw080),
+            1 => by_refdes!(J207_U7, at24csw080),
+            2 => by_refdes!(J208_U7, at24csw080),
+            3 => by_refdes!(J209_U7, at24csw080),
+            4 => by_refdes!(J210_U7, at24csw080),
+            5 => by_refdes!(J211_U7, at24csw080),
+            6 => by_refdes!(J212_U7, at24csw080),
+            7 => by_refdes!(J213_U7, at24csw080),
+            8 => by_refdes!(J214_U7, at24csw080),
+            9 => by_refdes!(J215_U7, at24csw080),
             _ => panic!("bad VPD index"),
         };
-        (name, f)
+        f
     }
 
     fn dimm_inventory_lookup(&mut self, sequence: u64, index: u8) {
@@ -605,133 +590,6 @@ impl ServerImpl {
                 Err(InventoryDataResult::DeviceAbsent)
             }
         });
-    }
-
-    /// Reads the 128-bit unique ID from an AT24CSW080 EEPROM
-    fn read_at24csw080_id(
-        &mut self,
-        sequence: u64,
-        name: &[u8],
-        f: fn(userlib::TaskId) -> I2cDevice,
-    ) {
-        *self.scratch = InventoryData::At24csw08xSerial([0u8; 16]);
-        let dev = At24Csw080::new(f(I2C.get_task_id()));
-        self.tx_buf.try_encode_inventory(sequence, name, || {
-            let InventoryData::At24csw08xSerial(id) = self.scratch else {
-                unreachable!();
-            };
-            for (i, b) in id.iter_mut().enumerate() {
-                *b = dev.read_security_register_byte(i as u8).map_err(|e| {
-                    match e {
-                        EepromError::I2cError(ResponseCode::NoDevice) => {
-                            InventoryDataResult::DeviceAbsent
-                        }
-                        _ => InventoryDataResult::DeviceFailed,
-                    }
-                })?;
-            }
-            Ok(self.scratch)
-        });
-    }
-
-    /// Reads the "BARC" value from a TLV-C blob in an AT24CSW080 EEPROM
-    ///
-    /// On success, packs the barcode into `self.tx_buf`; on failure, return an
-    /// error (`DeviceAbsent` if we saw `NoDevice`, or `DeviceFailed` on all
-    /// other errors).
-    fn read_eeprom_barcode(
-        &mut self,
-        sequence: u64,
-        name: &[u8],
-        f: fn(userlib::TaskId) -> I2cDevice,
-    ) {
-        let dev = f(I2C.get_task_id());
-        *self.scratch = InventoryData::VpdIdentity(Default::default());
-        self.tx_buf.try_encode_inventory(sequence, name, || {
-            let InventoryData::VpdIdentity(identity) = self.scratch else {
-                unreachable!();
-            };
-            *identity = read_one_barcode(dev, &[(*b"BARC", 0)])?.into();
-            Ok(self.scratch)
-        })
-    }
-
-    /// Reads the fan EEPROM barcode values
-    ///
-    /// The fan EEPROM includes nested barcodes:
-    /// - The top-level `BARC`, for the assembly
-    /// - A nested value `SASY`, which contains four more `BARC` values for each
-    ///   individual fan
-    ///
-    /// On success, packs the barcode into `self.tx_buf`; on failure, return an
-    /// error (`DeviceAbsent` if we saw `NoDevice`, or `DeviceFailed` on all
-    /// other errors).
-    fn read_fan_barcodes(
-        &mut self,
-        sequence: u64,
-        name: &[u8],
-        f: fn(userlib::TaskId) -> I2cDevice,
-    ) {
-        let dev = f(I2C.get_task_id());
-        *self.scratch = InventoryData::FanIdentity {
-            identity: Default::default(),
-            vpd_identity: Default::default(),
-            fans: Default::default(),
-        };
-        self.tx_buf.try_encode_inventory(sequence, name, || {
-            let InventoryData::FanIdentity {
-                identity,
-                vpd_identity,
-                fans: [fan0, fan1, fan2],
-            } = self.scratch
-            else {
-                unreachable!();
-            };
-            *identity = read_one_barcode(dev, &[(*b"BARC", 0)])?.into();
-            *vpd_identity =
-                read_one_barcode(dev, &[(*b"SASY", 0), (*b"BARC", 0)])?.into();
-            *fan0 =
-                read_one_barcode(dev, &[(*b"SASY", 0), (*b"BARC", 1)])?.into();
-            *fan1 =
-                read_one_barcode(dev, &[(*b"SASY", 0), (*b"BARC", 2)])?.into();
-            *fan2 =
-                read_one_barcode(dev, &[(*b"SASY", 0), (*b"BARC", 3)])?.into();
-            Ok(self.scratch)
-        })
-    }
-}
-
-/// Free function to read a nested barcode, translating errors appropriately
-fn read_one_barcode(
-    dev: I2cDevice,
-    path: &[([u8; 4], usize)],
-) -> Result<oxide_barcode::VpdIdentity, InventoryDataResult> {
-    let eeprom = At24Csw080::new(dev);
-    let mut barcode = [0; 32];
-    match drv_oxide_vpd::read_config_nested_from_into(
-        eeprom,
-        path,
-        &mut barcode,
-    ) {
-        Ok(n) => {
-            // extract barcode!
-            let identity = oxide_barcode::VpdIdentity::parse(&barcode[..n])
-                .map_err(|_| InventoryDataResult::DeviceFailed)?;
-            Ok(identity)
-        }
-        Err(
-            VpdError::ErrorOnBegin(err)
-            | VpdError::ErrorOnRead(err)
-            | VpdError::ErrorOnNext(err)
-            | VpdError::InvalidChecksum(err),
-        ) if err
-            == tlvc::TlvcReadError::User(EepromError::I2cError(
-                ResponseCode::NoDevice,
-            )) =>
-        {
-            Err(InventoryDataResult::DeviceAbsent)
-        }
-        Err(..) => Err(InventoryDataResult::DeviceFailed),
     }
 }
 

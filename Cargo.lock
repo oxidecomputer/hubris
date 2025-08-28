@@ -1078,6 +1078,7 @@ name = "drv-cosmo-seq-server"
 version = "0.1.0"
 dependencies = [
  "build-fpga-regmap",
+ "build-stm32xx-sys",
  "build-util",
  "cfg-if",
  "counters",
@@ -1331,6 +1332,7 @@ dependencies = [
 name = "drv-i2c-api"
 version = "0.1.0"
 dependencies = [
+ "build-i2c",
  "counters",
  "drv-i2c-types",
  "userlib",
@@ -6077,10 +6079,12 @@ dependencies = [
 name = "task-validate-api"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "build-i2c",
  "counters",
  "derive-idol-err",
  "drv-i2c-api",
+ "gateway-messages",
  "hubpack",
  "idol",
  "idol-runtime",

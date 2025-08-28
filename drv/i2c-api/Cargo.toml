@@ -11,6 +11,17 @@ counters = { path = "../../lib/counters" }
 drv-i2c-types.path = "../i2c-types"
 userlib.path = "../../sys/userlib"
 
+[build-dependencies]
+# We don't actually need to depend on build-i2c for *our* build script (since we
+# don't have one --- it's the tasks that depend on `drv-i2c-api` that invoke the
+# code generation). Instead, this dependency is here to allow us to enable the
+# `build-i2c` crate's "component-id" feature flag if our "component-id" feature
+# is enabled, as otherwise, it would generate code that doesn't compile.
+build-i2c = { path = "../../build/i2c", optional = true }
+
+[features]
+component-id = ["build-i2c/component-id"] # adds a `component_id` field to `I2cDevice`
+
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
 [lib]

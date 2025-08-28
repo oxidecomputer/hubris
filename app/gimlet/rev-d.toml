@@ -66,6 +66,7 @@ address = 0b110_1010
 device = "nvme_bmc"
 description = "M.2 A NVMe Basic Management Command"
 name = "M2_A"
+refdes = "P1"
 sensors = { temperature = 1 }
 removable = true
 
@@ -77,5 +78,6 @@ address = 0b110_1010
 device = "nvme_bmc"
 description = "M.2 B NVMe Basic Management Command"
 name = "M2_B"
+refdes = "P2"
 sensors = { temperature = 1 }
 removable = true

@@ -97,7 +97,7 @@ struct I2cDevice {
     description: String,
 
     /// reference designator, if any
-    refdes: Option<String>,
+    refdes: Option<Refdes>,
 
     /// power information, if any
     power: Option<I2cPower>,
@@ -222,6 +222,13 @@ struct I2cSensors {
     names: Option<Vec<String>>,
 }
 
+#[derive(Clone, Debug, Deserialize, Hash, PartialOrd, PartialEq, Eq, Ord)]
+#[serde(untagged)]
+enum Refdes {
+    Component(String),
+    Path(Vec<String>),
+}
+
 impl I2cSensors {
     /// Checks whether two sensor sets are compatible
     ///
@@ -266,7 +273,7 @@ struct DeviceNameKey {
 #[derive(Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
 struct DeviceRefdesKey {
     device: String,
-    refdes: String,
+    refdes: Refdes,
     kind: Sensor,
 }
 
@@ -415,7 +422,7 @@ impl I2cSensorsDescription {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Disposition {
     /// controller is an initiator
     Initiator,
@@ -495,10 +502,21 @@ struct ConfigGenerator {
 
     /// hash of controllers to single port indices
     singletons: HashMap<u8, usize>,
+
+    /// if `true`, include component ID string in output.
+    ///
+    /// this requires that the `"drv-i2c-api/component-id"` feature flag is
+    /// enabled. if that feature flag is enabled, then this MUST also be
+    /// enabled.
+    component_ids: bool,
 }
 
 impl ConfigGenerator {
-    fn new(disposition: Disposition) -> Self {
+    fn new(settings: CodegenSettings) -> Self {
+        let CodegenSettings {
+            disposition,
+            component_ids,
+        } = settings;
         let i2c = match build_util::config::<Config>() {
             Ok(config) => config.i2c,
             Err(err) => {
@@ -578,6 +596,7 @@ impl ConfigGenerator {
             buses,
             ports,
             singletons,
+            component_ids,
         }
     }
 
@@ -933,6 +952,18 @@ impl ConfigGenerator {
 
         let indent = format!("{:indent$}", "", indent = indent);
 
+        let component_id = if self.component_ids {
+            if let Some(ref refdes) = d.refdes {
+                let id = refdes.to_component_id();
+                format!("\n{indent}    {id:?},")
+            } else {
+                println!("cargo::error=device {} has no refdes, but we were asked to generate component IDs", d.device);
+                String::new()
+            }
+        } else {
+            String::new()
+        };
+
         format!(
             r##"
 {indent}// {description}
@@ -940,7 +971,7 @@ impl ConfigGenerator {
 {indent}    Controller::I2C{controller},
 {indent}    PortIndex({port}),
 {indent}    {segment},
-{indent}    {address:#x}
+{indent}    {address:#x},{component_id}
 {indent})"##,
             description = d.description,
             controller = controller,
@@ -983,13 +1014,15 @@ impl ConfigGenerator {
             if let Some(refdes) = &d.refdes {
                 if by_refdes.insert((&d.device, refdes), d).is_some() {
                     panic!(
-                        "duplicate refdes {} for device {}",
-                        refdes, d.device
+                        "duplicate refdes {refdes:?} for device {}",
+                        d.device
                     )
-                } else if by_name.contains_key(&(&d.device, refdes)) {
+                } else if by_name
+                    .contains_key(&(&d.device, &refdes.to_upper_ident()))
+                {
                     panic!(
-                        "refdes {} for device {} is also a device name",
-                        refdes, d.device
+                        "refdes {refdes:?} for device {} is also a device name",
+                        d.device
                     )
                 }
             }
@@ -1133,13 +1166,15 @@ impl ConfigGenerator {
         let mut all: Vec<_> = by_refdes.iter().collect();
         all.sort();
 
-        for ((device, name), d) in &all {
+        let mut max_component_id_len = 0;
+        for ((device, refdes), d) in &all {
+            max_component_id_len = max_component_id_len.max(refdes.len());
+            let name = refdes.to_lower_ident();
             write!(
                 &mut self.output,
                 r##"
         #[allow(dead_code)]
-        pub fn {device}_{}(task: TaskId) -> I2cDevice {{"##,
-                name.to_lowercase()
+        pub fn {device}_{name}(task: TaskId) -> I2cDevice {{"##,
             )?;
 
             let out = self.generate_device(d, 16);
@@ -1153,6 +1188,15 @@ impl ConfigGenerator {
         }
 
         writeln!(&mut self.output, "    }}")?;
+
+        if self.component_ids {
+            writeln!(
+                &mut self.output,
+                r##"
+        #[allow(dead_code)]
+        pub const MAX_COMPONENT_ID_LEN: usize = {max_component_id_len};"##,
+            )?;
+        }
 
         self.generate_power(PowerDevices::PMBus)?;
         self.generate_power(PowerDevices::NonPMBus)?;
@@ -1589,7 +1633,7 @@ impl ConfigGenerator {
             if let Some(refdes) = &d.refdes {
                 self.emit_sensor_struct(
                     d,
-                    refdes.to_uppercase(),
+                    refdes.to_upper_ident(),
                     &struct_name,
                     s,
                 )?;
@@ -1615,7 +1659,8 @@ impl ConfigGenerator {
         by_refdes_sorted.sort();
 
         for (k, ids) in &by_refdes_sorted {
-            let label = format!("{}_{}", k.refdes.to_uppercase(), k.kind);
+            let refdes = k.refdes.to_upper_ident();
+            let label = format!("{refdes}_{}", k.kind);
             self.emit_sensor(&k.device, &label, ids)?;
         }
 
@@ -1649,18 +1694,34 @@ impl ConfigGenerator {
     }
 }
 
-pub fn codegen(disposition: Disposition) -> Result<()> {
+#[derive(Copy, Clone)]
+pub struct CodegenSettings {
+    pub disposition: Disposition,
+    pub component_ids: bool,
+}
+
+impl From<Disposition> for CodegenSettings {
+    fn from(disposition: Disposition) -> Self {
+        CodegenSettings {
+            disposition,
+            component_ids: cfg!(feature = "component-id"),
+        }
+    }
+}
+
+pub fn codegen(settings: impl Into<CodegenSettings>) -> Result<()> {
+    let settings = settings.into();
     use std::io::Write;
 
     let out_dir = build_util::out_dir();
     let dest_path = out_dir.join("i2c_config.rs");
     let mut file = File::create(dest_path)?;
 
-    let mut g = ConfigGenerator::new(disposition);
+    let mut g = ConfigGenerator::new(settings);
 
     g.generate_header()?;
 
-    match disposition {
+    match settings.disposition {
         Disposition::Target => {
             let n = g.ncontrollers();
 
@@ -1714,6 +1775,8 @@ pub struct I2cDeviceDescription {
     pub device: String,
     pub description: String,
     pub sensors: Vec<DeviceSensor>,
+    pub device_id: Option<String>,
+    pub name: Option<String>,
 }
 
 ///
@@ -1723,7 +1786,7 @@ pub struct I2cDeviceDescription {
 /// `validate()` command.
 ///
 pub fn device_descriptions() -> impl Iterator<Item = I2cDeviceDescription> {
-    let g = ConfigGenerator::new(Disposition::Validation);
+    let g = ConfigGenerator::new(Disposition::Validation.into());
     let sensors = g.sensors_description();
 
     assert_eq!(sensors.device_sensors.len(), g.devices.len());
@@ -1731,10 +1794,15 @@ pub fn device_descriptions() -> impl Iterator<Item = I2cDeviceDescription> {
     // Matches the ordering of the `match` produced by `generate_validation()`
     // above; if we change the order here, it must change there as well.
     g.devices.into_iter().zip(sensors.device_sensors).map(
-        |(device, sensors)| I2cDeviceDescription {
-            device: device.device,
-            description: device.description,
-            sensors,
+        |(device, sensors)| {
+            let device_id = device.refdes.as_ref().map(Refdes::to_component_id);
+            I2cDeviceDescription {
+                device: device.device,
+                description: device.description,
+                sensors,
+                device_id,
+                name: device.name,
+            }
         },
     )
 }
@@ -1767,4 +1835,59 @@ where
         )?;
     }
     Ok(())
+}
+
+impl Refdes {
+    fn to_component_id(&self) -> String {
+        self.join_with_case(str::make_ascii_uppercase, "/")
+    }
+
+    fn to_upper_ident(&self) -> String {
+        self.join_with_case(str::make_ascii_uppercase, "_")
+    }
+
+    fn to_lower_ident(&self) -> String {
+        self.join_with_case(str::make_ascii_lowercase, "_")
+    }
+
+    fn len(&self) -> usize {
+        match self {
+            Self::Component(c) => c.len(),
+            Self::Path(p) => {
+                // length of each path component...
+                p.iter().map(|s| s.len()).sum::<usize>()
+                // ...plus separators
+                + (p.len() - 1)
+            }
+        }
+    }
+
+    fn join_with_case(
+        &self,
+        change_case: impl Fn(&mut str),
+        sep: &str,
+    ) -> String {
+        match self {
+            Self::Component(s) => {
+                let mut s = s.clone();
+                change_case(&mut s);
+                s
+            }
+            Self::Path(parts) => {
+                let len = parts.iter().map(String::len).sum::<usize>()
+                    + (parts.len() - 1) * sep.len();
+                let mut s = String::with_capacity(len);
+                let mut parts = parts.iter();
+                if let Some(first) = parts.next() {
+                    s.push_str(&first[..]);
+                    for part in parts {
+                        s.push_str(sep);
+                        s.push_str(part);
+                    }
+                }
+                change_case(&mut s);
+                s
+            }
+        }
+    }
 }

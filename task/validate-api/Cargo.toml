@@ -29,7 +29,9 @@ bench = false
 
 [build-dependencies]
 build-i2c = { path = "../../build/i2c" }
+gateway-messages.workspace = true
 idol.workspace = true
+anyhow.workspace = true
 
 [lints]
 workspace = true
