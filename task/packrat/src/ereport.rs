@@ -20,7 +20,7 @@ use minicbor::CborLen;
 use minicbor_lease::LeasedWriter;
 use ringbuf::{counted_ringbuf, ringbuf_entry};
 use task_packrat_api::{EreportReadError, VpdIdentity};
-use userlib::{kipc, sys_get_timer, RecvMessage, TaskId, UnwrapLite};
+use userlib::{kipc, sys_get_timer, RecvMessage, TaskId};
 use zerocopy::IntoBytes;
 
 pub(crate) struct EreportStore {
@@ -165,11 +165,15 @@ impl EreportStore {
         ) -> RequestError<EreportReadError> {
             // These should always be write errors; everything we write should
             // always encode successfully.
-            match err.into_write().unwrap_lite() {
-                minicbor_lease::Error::WentAway => ClientError::WentAway.fail(),
-                minicbor_lease::Error::EndOfLease => {
-                    ClientError::BadLease.fail()
-                }
+            match err.into_write() {
+                Some(e) => ClientError::from(e).fail(),
+                // This really shouldn't ever happen: an error that didn't come
+                // from the underlying lease writer means that we couldn't
+                // encode the ereport as CBOR. Since the structure of these list
+                // entries is always the same, they really had better always be
+                // well-formed CBOR. But, since Packrat is never supposed to
+                // panic, let's just kill the client instead of us.
+                None => ClientError::BadMessageContents.fail(),
             }
         }
 

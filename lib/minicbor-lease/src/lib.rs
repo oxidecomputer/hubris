@@ -15,7 +15,6 @@ where
 {
     lease: &'lease mut idol_runtime::Leased<A, [u8]>,
     pos: usize,
-    ran_out_of_space: bool,
 }
 
 /// Errors returned by the [`minicbor::encode::write::Write`] implementation for
@@ -45,11 +44,9 @@ where
 
     fn write_all(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
         let Some(end) = self.pos.checked_add(buf.len()) else {
-            self.ran_out_of_space = true;
             return Err(Error::EndOfLease);
         };
         if end >= self.lease.len() {
-            self.ran_out_of_space = true;
             return Err(Error::EndOfLease);
         }
         self.lease
@@ -68,11 +65,7 @@ where
 {
     /// Returns a new `LeasedWriter` starting at byte 0 of the lease.
     pub fn new(lease: &'lease mut idol_runtime::Leased<A, [u8]>) -> Self {
-        Self {
-            lease,
-            pos: 0,
-            ran_out_of_space: false,
-        }
+        Self { lease, pos: 0 }
     }
 
     /// Returns a new `LeasedWriter` starting at the specified byte position in
@@ -87,7 +80,6 @@ where
         Self {
             lease,
             pos: position,
-            ran_out_of_space: false,
         }
     }
 
@@ -104,11 +96,6 @@ where
     /// Returns the underlying lease, consuming the writer.
     pub fn into_inner(self) -> &'lease mut idol_runtime::Leased<A, [u8]> {
         self.lease
-    }
-
-    /// Returns `true` if the last `w
-    pub fn ran_out_of_space(&self) -> bool {
-        self.ran_out_of_space
     }
 }
 
