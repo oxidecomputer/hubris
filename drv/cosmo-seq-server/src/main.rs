@@ -727,7 +727,7 @@ impl ServerImpl {
                 vddcr_cpu0: ifr.pwr_cont1_to_fpga1_alert,
                 vddcr_cpu1: ifr.pwr_cont2_to_fpga1_alert,
             };
-            self.vcore.handle_pmalert(which_rails, now);
+            self.vcore.handle_pmbus_alert(which_rails, now);
 
             // If *all* we saw was a PMBus alert, don't reset --- perhaps we're
             // still fine, and we just got a warning from the regulator. If

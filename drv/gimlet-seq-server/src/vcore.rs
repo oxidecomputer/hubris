@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use super::{retry_i2c_txn, I2cTxn};
 ///
 /// We have seen adventures on the V12_SYS_A2 rail in that it will sag from
 /// 12V to ~8V over a period of about ~4ms, and then rise back 12V over ~7ms.
@@ -30,8 +31,8 @@ use crate::gpio_irq_pins::VCORE_TO_SP_ALERT_L;
 use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_i2c_devices::raa229618::Raa229618;
 use drv_stm32xx_sys_api as sys_api;
-use packrat_api::EreportClass;
 use ringbuf::*;
+use serde::Serialize;
 use sys_api::IrqControl;
 use task_packrat_api as packrat_api;
 use userlib::{sys_get_timer, units};
@@ -49,21 +50,17 @@ enum Trace {
     Initialized,
     LimitLoaded,
     FaultsCleared,
-    Notified {
-        asserted: bool,
-    },
-    Fault {
-        status_word: u16,
-    },
-    VinFault {
-        status_input: Result<u8, ResponseCode>,
-    },
-    Reading {
-        timestamp: u64,
-        volts: units::Volts,
-    },
+    Notified { timestamp: u64, asserted: bool },
+    RegulatorStatus { power_good: bool, faulted: bool },
+    StatusWord(Result<u16, ResponseCode>),
+    StatusInput(Result<u8, ResponseCode>),
+    StatusVout(Result<u8, ResponseCode>),
+    StatusIout(Result<u8, ResponseCode>),
+    StatusTemperature(Result<u8, ResponseCode>),
+    StatusCml(Result<u8, ResponseCode>),
+    StatusMfrSpecific(Result<u8, ResponseCode>),
+    Reading { timestamp: u64, volts: units::Volts },
     Error(ResponseCode),
-    VinSummary(VoltageRange),
     EreportSentOff(usize),
     EreportTooBig,
 }
@@ -85,20 +82,6 @@ const VCORE_UV_WARN_LIMIT: units::Volts = units::Volts(11.75);
 /// of data.
 ///
 const VCORE_NSAMPLES: usize = 50;
-
-//
-// Class string segments for ereports
-//
-static CLASS_VCORE: &str = "vcore";
-static CLASS_PMALERT: &str = "pmbus_alert";
-static CLASS_VIN: &str = "vin";
-static CLASS_OVERCURRENT: &str = "overcurrent";
-static CLASS_OVERVOLT: &str = "overvolt";
-static CLASS_UNDERVOLT: &str = "undervolt";
-static CLASS_OVERPOWER: &str = "overpower";
-static CLASS_OTHER: &str = "other";
-static CLASS_WARN: &str = "warn";
-static CLASS_FAULT: &str = "fault";
 
 cfg_if::cfg_if! {
     if #[cfg(not(any(
@@ -156,157 +139,127 @@ impl VCore {
     }
 
     pub fn handle_notification(&self) {
-        use pmbus::commands::raa229618::STATUS_INPUT;
-        use pmbus::commands::raa229618::STATUS_WORD::InputFault;
+        let now = sys_get_timer().now;
         let asserted = self.sys.gpio_read(VCORE_TO_SP_ALERT_L) == 0;
 
-        ringbuf_entry!(Trace::Notified { asserted });
+        ringbuf_entry!(Trace::Notified {
+            timestamp: now,
+            asserted
+        });
 
-        if !asserted {
-            return;
+        if asserted {
+            self.read_pmbus_status(now);
         }
 
-        let t0 = sys_get_timer().now;
-        let Ok(status_word) =
-            super::retry_i2c_txn(super::I2cTxn::VCorePmbusStatus, || {
-                self.device.status_word()
-            })
-        else {
-            return;
-        };
-        ringbuf_entry!(Trace::Fault {
-            status_word: status_word.0
-        });
-        if status_word.get_input_fault() != Some(InputFault::NoFault) {
-            let status_input =
-                super::retry_i2c_txn(super::I2cTxn::VCorePmbusStatus, || {
-                    self.device.status_input()
-                });
-            ringbuf_entry!(Trace::VinFault {
-                status_input: status_input
-                    .map(|STATUS_INPUT::CommandData(byte)| byte)
-            });
-            let class = match status_input {
-                Ok(s)
-                    if s.get_input_overcurrent_fault()
-                        == Some(STATUS_INPUT::InputOvercurrentFault::Fault) =>
-                {
-                    // vcore.pmbus_alert.vin.overcurrent.fault
-                    EreportClass(&[
-                        CLASS_VCORE,
-                        CLASS_PMALERT,
-                        CLASS_VIN,
-                        CLASS_OVERCURRENT,
-                        CLASS_FAULT,
-                    ])
-                }
-                Ok(s)
-                    if s.get_input_overcurrent_warning()
-                        == Some(
-                            STATUS_INPUT::InputOvercurrentWarning::Warning,
-                        ) =>
-                {
-                    // vcore.pmbus_alert.vin.overcurrent.warn
-                    EreportClass(&[
-                        CLASS_VCORE,
-                        CLASS_PMALERT,
-                        CLASS_VIN,
-                        CLASS_OVERCURRENT,
-                        CLASS_WARN,
-                    ])
-                }
-                Ok(s)
-                    if s.get_input_overvoltage_fault()
-                        == Some(STATUS_INPUT::InputOvervoltageFault::Fault) =>
-                {
-                    // vcore.pmbus_alert.vin.overcurrent.fault
-                    EreportClass(&[
-                        CLASS_VCORE,
-                        CLASS_PMALERT,
-                        CLASS_VIN,
-                        CLASS_OVERVOLT,
-                        CLASS_FAULT,
-                    ])
-                }
-                Ok(s)
-                    if s.get_input_overvoltage_warning()
-                        == Some(
-                            STATUS_INPUT::InputOvervoltageWarning::Warning,
-                        ) =>
-                {
-                    // vcore.pmbus_alert.vin.overcurrent.warn
-                    EreportClass(&[
-                        CLASS_VCORE,
-                        CLASS_PMALERT,
-                        CLASS_VIN,
-                        CLASS_OVERVOLT,
-                        CLASS_WARN,
-                    ])
-                }
-                Ok(s)
-                    if s.get_input_undervoltage_fault()
-                        == Some(
-                            STATUS_INPUT::InputUndervoltageFault::Fault,
-                        ) =>
-                {
-                    // vcore.pmbus_alert.vin.undervolt.fault
-                    EreportClass(&[
-                        CLASS_VCORE,
-                        CLASS_PMALERT,
-                        CLASS_VIN,
-                        CLASS_UNDERVOLT,
-                        CLASS_FAULT,
-                    ])
-                }
-                Ok(s)
-                    if s.get_input_undervoltage_warning()
-                        == Some(
-                            STATUS_INPUT::InputUndervoltageWarning::Warning,
-                        ) =>
-                {
-                    // vcore.pmbus_alert.vin.undervolt.warn
-                    EreportClass(&[
-                        CLASS_VCORE,
-                        CLASS_PMALERT,
-                        CLASS_VIN,
-                        CLASS_UNDERVOLT,
-                        CLASS_WARN,
-                    ])
-                }
-                Ok(s)
-                    if s.get_input_overpower_warning()
-                        == Some(
-                            STATUS_INPUT::InputOverpowerWarning::Warning,
-                        ) =>
-                {
-                    // vcore.pmbus_alert.vin.undervolt.warn
-                    EreportClass(&[
-                        CLASS_VCORE,
-                        CLASS_PMALERT,
-                        CLASS_VIN,
-                        CLASS_OVERPOWER,
-                        CLASS_WARN,
-                    ])
-                }
-                _ =>
-                // vcore.pmbus_alert.vin.other
-                {
-                    EreportClass(&[
-                        CLASS_VCORE,
-                        CLASS_PMALERT,
-                        CLASS_VIN,
-                        CLASS_OTHER,
-                    ])
-                }
-            };
-            // When reporting the fault, we want to report the minimum and
-            // maximum voltages observed over the sampling period.
-            let mut min = f32::MAX;
-            let mut max = f32::MIN;
+        let _ = self.sys.gpio_irq_control(self.mask(), IrqControl::Enable);
+    }
 
-            // Number of good samples for computing the average.
-            let mut ngood = 0;
-            let mut sum = 0.0;
+    fn read_pmbus_status(&self, now: u64) {
+        use pmbus::commands::raa229618::STATUS_WORD;
+
+        // Read PMBus status registers and prepare an ereport.
+        let status_word = retry_i2c_txn(I2cTxn::VCorePmbusStatus, || {
+            self.device.status_word()
+        });
+        ringbuf_entry!(Trace::StatusWord(status_word.map(|s| s.0)));
+
+        let mut input_fault = false;
+        let pwr_good = if let Ok(status) = status_word {
+            // Check if any fault bits are hot.
+            let mut faulted = false;
+            if status.get_input_fault()
+                != Some(STATUS_WORD::InputFault::NoFault)
+            {
+                faulted = true;
+                input_fault = true;
+            }
+            faulted |= status.get_output_voltage_fault()
+                != Some(STATUS_WORD::OutputVoltageFault::NoFault);
+            faulted |= status.get_output_voltage_fault()
+                != Some(STATUS_WORD::OutputVoltageFault::NoFault);
+            faulted |= status.get_other_fault()
+                != Some(STATUS_WORD::OtherFault::NoFault);
+            faulted |= status.get_manufacturer_fault()
+                != Some(STATUS_WORD::ManufacturerFault::NoFault);
+            faulted |=
+                status.get_cml_fault() != Some(STATUS_WORD::CMLFault::NoFault);
+            faulted |= status.get_temperature_fault()
+                != Some(STATUS_WORD::TemperatureFault::NoFault);
+
+            let power_good = status.get_power_good_status()
+                != Some(STATUS_WORD::PowerGoodStatus::PowerGood);
+            ringbuf_entry!(Trace::RegulatorStatus {
+                power_good,
+                faulted
+            });
+            if !faulted && power_good {
+                return;
+            }
+            Some(power_good)
+        } else {
+            None
+        };
+
+        // Read remaining status registers.
+        let status_input = retry_i2c_txn(I2cTxn::VCorePmbusStatus, || {
+            self.device.status_input()
+        })
+        .map(|s| s.0);
+        ringbuf_entry!(Trace::StatusInput(status_input));
+        let status_vout = retry_i2c_txn(I2cTxn::VCorePmbusStatus, || {
+            self.device.status_vout()
+        })
+        .map(|s| s.0);
+        ringbuf_entry!(Trace::StatusVout(status_vout));
+        let status_iout = retry_i2c_txn(I2cTxn::VCorePmbusStatus, || {
+            self.device.status_iout()
+        })
+        .map(|s| s.0);
+        ringbuf_entry!(Trace::StatusIout(status_iout));
+        let status_temperature =
+            retry_i2c_txn(I2cTxn::VCorePmbusStatus, || {
+                self.device.status_temperature()
+            })
+            .map(|s| s.0);
+        ringbuf_entry!(Trace::StatusTemperature(status_temperature));
+        let status_cml = retry_i2c_txn(I2cTxn::VCorePmbusStatus, || {
+            self.device.status_cml()
+        })
+        .map(|s| s.0);
+        ringbuf_entry!(Trace::StatusCml(status_cml));
+        let status_mfr_specific =
+            retry_i2c_txn(I2cTxn::VCorePmbusStatus, || {
+                self.device.status_mfr_specific()
+            })
+            .map(|s| s.0);
+        ringbuf_entry!(Trace::StatusMfrSpecific(status_mfr_specific));
+
+        let status = PmbusStatus {
+            word: status_word.map(|s| s.0).ok(),
+            input: status_input.ok(),
+            vout: status_vout.ok(),
+            iout: status_iout.ok(),
+            temp: status_temperature.ok(),
+            cml: status_cml.ok(),
+            mfr: status_mfr_specific.ok(),
+        };
+        let ereport = Ereport {
+            k: "pmbus.alert",
+            v: 0,
+            dev_id: self.device.i2c_device().component_id(),
+            rail: "VDD_VCORE",
+            time: now,
+            pwr_good,
+            status,
+        };
+        deliver_ereport(&self.packrat, &ereport);
+
+        // If the `INPUT_FAULT` bit in `STATUS_WORD` is set, or any bit is hot
+        // in `STATUS_INPUT`, sample Vin in order to record the voltage dip in
+        // the ringbuf. If we weren't able to read these status registers, let's
+        // also go ahead and record the input voltage, just in case.
+        if input_fault || status_input != Ok(0) {
+            // "Houston, we've got a main bus B undervolt..."
             for _ in 0..VCORE_NSAMPLES {
                 match self.device.read_vin() {
                     Ok(val) => {
@@ -326,90 +279,46 @@ impl VCore {
                             timestamp: sys_get_timer().now,
                             volts: val,
                         });
-
-                        ngood += 1;
-                        let units::Volts(vin) = val;
-                        min = f32::min(min, vin);
-                        max = f32::max(max, vin);
-                        sum += vin;
                     }
                     Err(code) => ringbuf_entry!(Trace::Error(code.into())),
                 }
             }
-
-            // The min/max/average values are intended mainly for the ereport,
-            // but we may as well put them in the ringbuf, too.
-            let avg = sum / ngood as f32;
-            let vin = VoltageRange { min, max, avg };
-            ringbuf_entry!(Trace::VinSummary(vin));
-
-            // "Houston, we've got a main bus B undervolt..."
-            let ereport = VinEreport {
-                v: 0,
-                rail: "VDD_VCORE",
-                vin,
-                time: t0,
-                dev_id: self.device.i2c_device().component_id(),
-                status: PmbusStatus {
-                    word: status_word.0,
-                    input: status_input
-                        .map(|STATUS_INPUT::CommandData(byte)| byte)
-                        .ok(),
-                    ..Default::default()
-                },
-            };
-            deliver_ereport(&self.packrat, &class, &ereport);
         }
-        let _ = self.sys.gpio_irq_control(self.mask(), IrqControl::Enable);
     }
 }
 
-#[derive(serde::Serialize)]
-struct VinEreport {
-    v: usize,
-    rail: &'static str,
-    vin: VoltageRange,
-    time: u64,
-    status: PmbusStatus,
-    dev_id: &'static str,
-}
-
-#[derive(Copy, Clone, Default, PartialEq, serde::Serialize)]
-struct VoltageRange {
-    min: f32,
-    max: f32,
-    avg: f32,
-}
-
-#[derive(Copy, Clone, Default, serde::Serialize)]
+#[derive(Copy, Clone, Default, Serialize)]
 struct PmbusStatus {
-    word: u16,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    word: Option<u16>,
     input: Option<u8>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     iout: Option<u8>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     vout: Option<u8>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    temp: Option<u8>,
     cml: Option<u8>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    tmp: Option<u8>,
+    mfr: Option<u8>,
+}
+
+#[derive(Serialize)]
+struct Ereport {
+    k: &'static str,
+    v: usize,
+    dev_id: &'static str,
+    rail: &'static str,
+    time: u64,
+    pwr_good: Option<bool>,
+    status: PmbusStatus,
 }
 
 // This is in its own function so that we only push a stack frame large enough
 // for the ereport buffer if needed.
 #[inline(never)]
-fn deliver_ereport(
-    packrat: &packrat_api::Packrat,
-    class: &EreportClass<'_>,
-    data: &impl serde::Serialize,
-) {
-    let mut ereport_buf = [0u8; 256];
-    let report = packrat_api::SerdeEreport { class, data };
+fn deliver_ereport(packrat: &packrat_api::Packrat, data: &impl Serialize) {
+    let mut ereport_buf = [0u8; 128];
     let writer = minicbor::encode::write::Cursor::new(&mut ereport_buf[..]);
-    match report.to_writer(writer) {
-        Ok(writer) => {
-            let len = writer.position();
+    let mut s = minicbor_serde::Serializer::new(writer);
+    match data.serialize(&mut s) {
+        Ok(_) => {
+            let len = s.into_encoder().into_writer().position();
             packrat.deliver_ereport(&ereport_buf[..len]);
             ringbuf_entry!(Trace::EreportSentOff(len));
         }

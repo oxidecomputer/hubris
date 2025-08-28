@@ -19,7 +19,8 @@ use super::i2c_config;
 use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::raa229620a::{self, Raa229620A};
 use ringbuf::*;
-use task_packrat_api::{self, EreportClass, Packrat};
+use serde::Serialize;
+use task_packrat_api::{self, Packrat};
 use userlib::{sys_get_timer, units, TaskId};
 
 pub(super) struct VCore {
@@ -30,7 +31,7 @@ pub(super) struct VCore {
     packrat: task_packrat_api::Packrat,
 }
 
-#[derive(Copy, Clone, PartialEq, serde::Serialize)]
+#[derive(Copy, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 enum Rail {
     VddcrCpu0,
@@ -42,12 +43,7 @@ enum PmbusCmd {
     LoadLimit,
     ClearFaults,
     ReadVin,
-    StatusWord,
-    // StatusIout,
-    // StatusVout,
-    StatusInput,
-    // StatusTemperature,
-    // StatusCml,
+    Status,
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -57,27 +53,30 @@ enum Trace {
     Initialized,
     LimitsLoaded,
     FaultsCleared(Rails),
-    Pmalert {
+    PmbusAlert {
         timestamp: u64,
-        faulted: Rails,
-    },
-    Fault {
-        rail: Rail,
-        status_word: u16,
-    },
-    VinFault {
-        rail: Rail,
-        status_input: Result<u8, ResponseCode>,
+        rails: Rails,
     },
     Reading {
         timestamp: u64,
         vddcr_cpu0_vin: units::Volts,
         vddcr_cpu1_vin: units::Volts,
     },
+    RegulatorStatus {
+        rail: Rail,
+        power_good: bool,
+        faulted: bool,
+    },
+    StatusWord(Rail, Result<u16, ResponseCode>),
+    StatusInput(Rail, Result<u8, ResponseCode>),
+    StatusVout(Rail, Result<u8, ResponseCode>),
+    StatusIout(Rail, Result<u8, ResponseCode>),
+    StatusTemperature(Rail, Result<u8, ResponseCode>),
+    StatusCml(Rail, Result<u8, ResponseCode>),
+    StatusMfrSpecific(Rail, Result<u8, ResponseCode>),
     I2cError(Rail, PmbusCmd, raa229620a::Error),
-    VinSummary(Rail, VoltageRange),
-    EreportSent(usize),
-    EreportTooBig,
+    EreportSentOff(Rail, usize),
+    EreportTooBig(Rail),
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -106,20 +105,6 @@ const VCORE_UV_WARN_LIMIT: units::Volts = units::Volts(11.75);
 /// divided it by 2, and copied his comment lol)
 ///
 const VCORE_NSAMPLES: usize = 25;
-
-//
-// Class string segments for ereports
-//
-static CLASS_VCORE: &str = "vcore";
-static CLASS_PMALERT: &str = "pmbus_alert";
-static CLASS_VIN: &str = "vin";
-static CLASS_OVERCURRENT: &str = "overcurrent";
-static CLASS_OVERVOLT: &str = "overvolt";
-static CLASS_UNDERVOLT: &str = "undervolt";
-static CLASS_OVERPOWER: &str = "overpower";
-static CLASS_OTHER: &str = "other";
-static CLASS_WARN: &str = "warn";
-static CLASS_FAULT: &str = "fault";
 
 impl VCore {
     pub fn new(i2c: TaskId, packrat: task_packrat_api::Packrat) -> Self {
@@ -179,32 +164,72 @@ impl VCore {
         Ok(())
     }
 
-    pub fn handle_pmalert(&self, rails: Rails, now: u64) {
-        //
-        // We want to record min/max voltages on *both* rails as close to the
-        // fault as possible, rather than spending 45ms recording one regulator,
-        // and then (if both have faulted) moving on to do the next one. And, we
-        // want to use the peaks from that initial period of sampling for both
-        // ereports. So, stash them in an `Option` so that if we record ereports
-        // for both rails, we'll populate that option for the first one.
-        //
-        let mut vin_ranges = None;
-        // Similarly, we use the same timestamp for both ereports, since it's
-        // the time our IRQ line was pulled. That way, we accurately report when
-        // the IRQ happened, regardless of how long it takes us to actually
-        // record data etc.
-
-        ringbuf_entry!(Trace::Pmalert {
+    pub fn handle_pmbus_alert(&self, mut rails: Rails, now: u64) {
+        ringbuf_entry!(Trace::PmbusAlert {
             timestamp: now,
-            faulted: rails
+            rails,
         });
 
-        if rails.vddcr_cpu0 {
-            self.record_pmalert_on_rail(now, Rail::VddcrCpu0, &mut vin_ranges);
-        }
+        let mut should_sample_vin = false;
+        self.record_pmbus_status(
+            now,
+            Rail::VddcrCpu0,
+            &mut rails.vddcr_cpu0,
+            &mut should_sample_vin,
+        );
 
-        if rails.vddcr_cpu1 {
-            self.record_pmalert_on_rail(now, Rail::VddcrCpu1, &mut vin_ranges);
+        self.record_pmbus_status(
+            now,
+            Rail::VddcrCpu1,
+            &mut rails.vddcr_cpu1,
+            &mut should_sample_vin,
+        );
+
+        if should_sample_vin {
+            for _ in 0..VCORE_NSAMPLES {
+                let vddcr_cpu0_vin =
+                    self.vddcr_cpu0.read_vin().unwrap_or_else(|e| {
+                        // We don't retry I2C errors here, since we're just going
+                        // to take another reading anyway.
+                        ringbuf_entry!(Trace::I2cError(
+                            Rail::VddcrCpu0,
+                            PmbusCmd::ReadVin,
+                            e
+                        ));
+                        units::Volts(f32::NAN)
+                    });
+
+                let vddcr_cpu1_vin =
+                    self.vddcr_cpu1.read_vin().unwrap_or_else(|e| {
+                        // We don't retry I2C errors here, since we're just going
+                        // to take another reading anyway.
+                        ringbuf_entry!(Trace::I2cError(
+                            Rail::VddcrCpu1,
+                            PmbusCmd::ReadVin,
+                            e
+                        ));
+                        units::Volts(f32::NAN)
+                    });
+                //
+                // Record our readings, along with a timestamp.  On the
+                // one hand, it's a little exceesive to record a
+                // timestamp on every reading:  it's in milliseconds,
+                // and because it takes ~900µs per reading, we expect
+                // the timestamp to (basically) be incremented by 2 with
+                // every reading (with a duplicate timestamp occuring
+                // every ~7-9 entries).  But on the other, it's not
+                // impossible to be preempted, and it's valuable to have
+                // as tight a coupling as possible between observed
+                // reading and observed time.
+                //
+                // HI BRYAN I COPIED UR HOMEWORK AGAIN :) :) :)
+                //
+                ringbuf_entry!(Trace::Reading {
+                    timestamp: sys_get_timer().now,
+                    vddcr_cpu0_vin,
+                    vddcr_cpu1_vin,
+                });
+            }
         }
 
         // The only way to make the pins deassert (and thus, the IRQ go
@@ -216,310 +241,141 @@ impl VCore {
         let _ = self.clear_faults(rails);
     }
 
-    fn record_pmalert_on_rail(
+    fn record_pmbus_status(
         &self,
         now: u64,
         rail: Rail,
-        vin_ranges: &mut Option<VoltageRanges>,
+        faulted: &mut bool,
+        sample_vin: &mut bool,
     ) {
-        use pmbus::commands::raa229620a::STATUS_INPUT;
-        use pmbus::commands::raa229620a::STATUS_WORD::InputFault;
+        use pmbus::commands::raa229620a::STATUS_WORD;
+
         let device = match rail {
             Rail::VddcrCpu0 => &self.vddcr_cpu0,
             Rail::VddcrCpu1 => &self.vddcr_cpu1,
         };
-        let Ok(status_word) =
-            retry_i2c_txn(rail, PmbusCmd::StatusWord, || device.status_word())
-        else {
-            return;
+
+        // Read the status word, and figure out what's going on with this VRM.
+        let status_word =
+            retry_i2c_txn(rail, PmbusCmd::Status, || device.status_word());
+
+        ringbuf_entry!(Trace::StatusWord(rail, status_word.map(|s| s.0)));
+
+        let power_good = if let Ok(status) = status_word {
+            // If any fault bits are hot, set this VRM to "faulted", even if it
+            // was not the one whose `PMALERT` assertion actually triggered our
+            // IRQ.
+            if status.get_input_fault()
+                != Some(STATUS_WORD::InputFault::NoFault)
+            {
+                *faulted = true;
+                *sample_vin = true;
+            }
+            *faulted |= status.get_output_voltage_fault()
+                != Some(STATUS_WORD::OutputVoltageFault::NoFault);
+            *faulted |= status.get_output_voltage_fault()
+                != Some(STATUS_WORD::OutputVoltageFault::NoFault);
+            *faulted |= status.get_other_fault()
+                != Some(STATUS_WORD::OtherFault::NoFault);
+            *faulted |= status.get_manufacturer_fault()
+                != Some(STATUS_WORD::ManufacturerFault::NoFault);
+            *faulted |=
+                status.get_cml_fault() != Some(STATUS_WORD::CMLFault::NoFault);
+            *faulted |= status.get_temperature_fault()
+                != Some(STATUS_WORD::TemperatureFault::NoFault);
+
+            let power_good = status.get_power_good_status()
+                != Some(STATUS_WORD::PowerGoodStatus::PowerGood);
+            ringbuf_entry!(Trace::RegulatorStatus {
+                rail,
+                power_good,
+                faulted: *faulted
+            });
+            Some(power_good)
+        } else {
+            None
         };
-        ringbuf_entry!(Trace::Fault {
+
+        if !*faulted && power_good == Some(true) {
+            // Is this regulator okay
+            return;
+        }
+
+        // Read PMBus status registers and prepare an ereport.
+        let status_input =
+            retry_i2c_txn(rail, PmbusCmd::Status, || device.status_input())
+                .map(|s| s.0);
+        ringbuf_entry!(Trace::StatusInput(rail, status_input));
+        if status_input != Ok(0) {
+            *sample_vin = true;
+        }
+
+        let status_vout =
+            retry_i2c_txn(rail, PmbusCmd::Status, || device.status_vout())
+                .map(|s| s.0);
+        ringbuf_entry!(Trace::StatusVout(rail, status_vout));
+        let status_iout =
+            retry_i2c_txn(rail, PmbusCmd::Status, || device.status_iout())
+                .map(|s| s.0);
+        ringbuf_entry!(Trace::StatusIout(rail, status_iout));
+        let status_temperature = retry_i2c_txn(rail, PmbusCmd::Status, || {
+            device.status_temperature()
+        })
+        .map(|s| s.0);
+        ringbuf_entry!(Trace::StatusTemperature(rail, status_temperature));
+        let status_cml =
+            retry_i2c_txn(rail, PmbusCmd::Status, || device.status_cml())
+                .map(|s| s.0);
+        ringbuf_entry!(Trace::StatusCml(rail, status_cml));
+        let status_mfr = retry_i2c_txn(rail, PmbusCmd::Status, || {
+            device.status_mfr_specific()
+        })
+        .map(|s| s.0);
+        ringbuf_entry!(Trace::StatusMfrSpecific(rail, status_mfr));
+
+        let status = PmbusStatus {
+            word: status_word.map(|s| s.0).ok(),
+            input: status_input.ok(),
+            vout: status_vout.ok(),
+            iout: status_iout.ok(),
+            temp: status_temperature.ok(),
+            cml: status_cml.ok(),
+            mfr: status_mfr.ok(),
+        };
+
+        let ereport = Ereport {
+            k: "pmbus.alert",
+            v: 0,
             rail,
-            status_word: status_word.0
-        });
-
-        // TODO(eliza): we ought to handle other faults eventually...
-        if status_word.get_input_fault() != Some(InputFault::NoFault) {
-            let status_input =
-                retry_i2c_txn(rail, PmbusCmd::StatusInput, || {
-                    device.status_input()
-                });
-            ringbuf_entry!(Trace::VinFault {
-                rail,
-                status_input: status_input
-                    .map(|STATUS_INPUT::CommandData(byte)| byte)
-            });
-            let class = match status_input {
-                Ok(s)
-                    if s.get_input_overcurrent_fault()
-                        == Some(STATUS_INPUT::InputOvercurrentFault::Fault) =>
-                {
-                    // vcore.pmbus_alert.vin.overcurrent.fault
-                    EreportClass(&[
-                        CLASS_VCORE,
-                        CLASS_PMALERT,
-                        CLASS_VIN,
-                        CLASS_OVERCURRENT,
-                        CLASS_FAULT,
-                    ])
-                }
-                Ok(s)
-                    if s.get_input_overcurrent_warning()
-                        == Some(
-                            STATUS_INPUT::InputOvercurrentWarning::Warning,
-                        ) =>
-                {
-                    // vcore.pmbus_alert.vin.overcurrent.warn
-                    EreportClass(&[
-                        CLASS_VCORE,
-                        CLASS_PMALERT,
-                        CLASS_VIN,
-                        CLASS_OVERCURRENT,
-                        CLASS_WARN,
-                    ])
-                }
-                Ok(s)
-                    if s.get_input_overvoltage_fault()
-                        == Some(STATUS_INPUT::InputOvervoltageFault::Fault) =>
-                {
-                    // vcore.pmbus_alert.vin.overcurrent.fault
-                    EreportClass(&[
-                        CLASS_VCORE,
-                        CLASS_PMALERT,
-                        CLASS_VIN,
-                        CLASS_OVERVOLT,
-                        CLASS_FAULT,
-                    ])
-                }
-                Ok(s)
-                    if s.get_input_overvoltage_warning()
-                        == Some(
-                            STATUS_INPUT::InputOvervoltageWarning::Warning,
-                        ) =>
-                {
-                    // vcore.pmbus_alert.vin.overcurrent.warn
-                    EreportClass(&[
-                        CLASS_VCORE,
-                        CLASS_PMALERT,
-                        CLASS_VIN,
-                        CLASS_OVERVOLT,
-                        CLASS_WARN,
-                    ])
-                }
-                Ok(s)
-                    if s.get_input_undervoltage_fault()
-                        == Some(
-                            STATUS_INPUT::InputUndervoltageFault::Fault,
-                        ) =>
-                {
-                    // vcore.pmbus_alert.vin.undervolt.fault
-                    EreportClass(&[
-                        CLASS_VCORE,
-                        CLASS_PMALERT,
-                        CLASS_VIN,
-                        CLASS_UNDERVOLT,
-                        CLASS_FAULT,
-                    ])
-                }
-                Ok(s)
-                    if s.get_input_undervoltage_warning()
-                        == Some(
-                            STATUS_INPUT::InputUndervoltageWarning::Warning,
-                        ) =>
-                {
-                    // vcore.pmbus_alert.vin.undervolt.warn
-                    EreportClass(&[
-                        CLASS_VCORE,
-                        CLASS_PMALERT,
-                        CLASS_VIN,
-                        CLASS_UNDERVOLT,
-                        CLASS_WARN,
-                    ])
-                }
-                Ok(s)
-                    if s.get_input_overpower_warning()
-                        == Some(
-                            STATUS_INPUT::InputOverpowerWarning::Warning,
-                        ) =>
-                {
-                    // vcore.pmbus_alert.vin.undervolt.warn
-                    EreportClass(&[
-                        CLASS_VCORE,
-                        CLASS_PMALERT,
-                        CLASS_VIN,
-                        CLASS_OVERPOWER,
-                        CLASS_WARN,
-                    ])
-                }
-                _ =>
-                // vcore.pmbus_alert.vin.other
-                {
-                    EreportClass(&[
-                        CLASS_VCORE,
-                        CLASS_PMALERT,
-                        CLASS_VIN,
-                        CLASS_OTHER,
-                    ])
-                }
-            };
-
-            // TODO(eliza): if we saw an IRQ from one VRM, and the other one
-            // also dips while we're sampling,c an we make an ereport for it
-            // too? Figure that out...
-            let ranges = vin_ranges.get_or_insert_with(|| self.record_vin());
-            let vin = match rail {
-                Rail::VddcrCpu0 => ranges.vddcr_cpu0,
-                Rail::VddcrCpu1 => ranges.vddcr_cpu1,
-            };
-
-            // "Houston, we've got a main bus B undervolt..."
-            let ereport = VinEreport {
-                v: 0,
-                rail,
-                vin,
-                time: now,
-                dev_id: device.i2c_device().component_id(),
-                status: PmbusStatus {
-                    word: status_word.0,
-                    input: status_input
-                        .map(|STATUS_INPUT::CommandData(byte)| byte)
-                        .ok(),
-                    ..Default::default()
-                },
-            };
-            deliver_ereport(&self.packrat, &class, &ereport);
-        }
-    }
-    fn record_vin(&self) -> VoltageRanges {
-        #[derive(Default)]
-        struct Stats {
-            min: f32,
-            max: f32,
-            sum: f32,
-            ngood: u32,
-        }
-        impl Stats {
-            fn record(&mut self, units::Volts(vin): units::Volts) {
-                self.min = f32::min(self.min, vin);
-                self.max = f32::max(self.max, vin);
-                self.sum += vin;
-                self.ngood += 1;
-            }
-
-            fn range(&self) -> VoltageRange {
-                VoltageRange {
-                    min: self.min,
-                    max: self.max,
-                    avg: self.sum / self.ngood as f32,
-                }
-            }
-        }
-        let mut cpu0_stats = Stats::default();
-        let mut cpu1_stats = Stats::default();
-
-        for _ in 0..VCORE_NSAMPLES {
-            let vddcr_cpu0_vin = match self.vddcr_cpu0.read_vin() {
-                Ok(vin) => {
-                    cpu0_stats.record(vin);
-                    vin
-                }
-                Err(e) => {
-                    // We don't retry I2C errors here, since we're just going
-                    // to take another reading anyway.
-                    ringbuf_entry!(Trace::I2cError(
-                        Rail::VddcrCpu0,
-                        PmbusCmd::ReadVin,
-                        e
-                    ));
-                    units::Volts(f32::NAN)
-                }
-            };
-
-            let vddcr_cpu1_vin = match self.vddcr_cpu1.read_vin() {
-                Ok(vin) => {
-                    cpu1_stats.record(vin);
-                    vin
-                }
-                Err(e) => {
-                    // We don't retry I2C errors here, since we're just going
-                    // to take another reading anyway.
-                    ringbuf_entry!(Trace::I2cError(
-                        Rail::VddcrCpu1,
-                        PmbusCmd::ReadVin,
-                        e
-                    ));
-                    units::Volts(f32::NAN)
-                }
-            };
-
-            //
-            // Record our readings, along with a timestamp.  On the
-            // one hand, it's a little exceesive to record a
-            // timestamp on every reading:  it's in milliseconds,
-            // and because it takes ~900µs per reading, we expect
-            // the timestamp to (basically) be incremented by 2 with
-            // every reading (with a duplicate timestamp occuring
-            // every ~7-9 entries).  But on the other, it's not
-            // impossible to be preempted, and it's valuable to have
-            // as tight a coupling as possible between observed
-            // reading and observed time.
-            //
-            // HI BRYAN I COPIED UR HOMEWORK AGAIN :) :) :)
-            //
-            ringbuf_entry!(Trace::Reading {
-                timestamp: sys_get_timer().now,
-                vddcr_cpu0_vin,
-                vddcr_cpu1_vin,
-            });
-        }
-
-        let vddcr_cpu0 = cpu0_stats.range();
-        let vddcr_cpu1 = cpu1_stats.range();
-        ringbuf_entry!(Trace::VinSummary(Rail::VddcrCpu0, vddcr_cpu0));
-        ringbuf_entry!(Trace::VinSummary(Rail::VddcrCpu1, vddcr_cpu1));
-
-        VoltageRanges {
-            vddcr_cpu0,
-            vddcr_cpu1,
-        }
+            dev_id: device.i2c_device().component_id(),
+            time: now,
+            status,
+            pwr_good: power_good,
+        };
+        deliver_ereport(rail, &self.packrat, &ereport);
     }
 }
 
-#[derive(serde::Serialize)]
-struct VinEreport {
+#[derive(Serialize)]
+struct Ereport {
+    k: &'static str,
     v: usize,
-    rail: Rail,
-    vin: VoltageRange,
-    time: u64,
-    status: PmbusStatus,
     dev_id: &'static str,
+    rail: Rail,
+    time: u64,
+    pwr_good: Option<bool>,
+    status: PmbusStatus,
 }
 
-struct VoltageRanges {
-    vddcr_cpu0: VoltageRange,
-    vddcr_cpu1: VoltageRange,
-}
-
-#[derive(Copy, Clone, PartialEq, Default, serde::Serialize)]
-struct VoltageRange {
-    min: f32,
-    max: f32,
-    avg: f32,
-}
-
-#[derive(Copy, Clone, Default, serde::Serialize)]
+#[derive(Copy, Clone, Default, Serialize)]
 struct PmbusStatus {
-    word: u16,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    word: Option<u16>,
     input: Option<u8>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     iout: Option<u8>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     vout: Option<u8>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    temp: Option<u8>,
     cml: Option<u8>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    tmp: Option<u8>,
+    mfr: Option<u8>,
 }
 
 // Mostly stolen from the same thing in gimlet-seq.
@@ -550,22 +406,22 @@ fn retry_i2c_txn<T>(
 // for the ereport buffer if needed.
 #[inline(never)]
 fn deliver_ereport(
+    rail: Rail,
     packrat: &Packrat,
-    class: &EreportClass<'_>,
     data: &impl serde::Serialize,
 ) {
     let mut ereport_buf = [0u8; 256];
-    let report = task_packrat_api::SerdeEreport { class, data };
     let writer = minicbor::encode::write::Cursor::new(&mut ereport_buf[..]);
-    match report.to_writer(writer) {
-        Ok(writer) => {
-            let len = writer.position();
+    let mut s = minicbor_serde::Serializer::new(writer);
+    match data.serialize(&mut s) {
+        Ok(_) => {
+            let len = s.into_encoder().into_writer().position();
             packrat.deliver_ereport(&ereport_buf[..len]);
-            ringbuf_entry!(Trace::EreportSent(len));
+            ringbuf_entry!(Trace::EreportSentOff(rail, len));
         }
         Err(_) => {
             // XXX(eliza): ereport didn't fit in buffer...what do
-            ringbuf_entry!(Trace::EreportTooBig)
+            ringbuf_entry!(Trace::EreportTooBig(rail));
         }
     }
 }

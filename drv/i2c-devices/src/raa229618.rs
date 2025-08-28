@@ -177,6 +177,12 @@ impl Raa229618 {
         pmbus_rail_read!(self.device, self.rail, STATUS_TEMPERATURE)
     }
 
+    pub fn status_mfr_specific(
+        &self,
+    ) -> Result<STATUS_MFR_SPECIFIC::CommandData, Error> {
+        pmbus_rail_read!(self.device, self.rail, STATUS_MFR_SPECIFIC)
+    }
+
     pub fn i2c_device(&self) -> &I2cDevice {
         &self.device
     }
