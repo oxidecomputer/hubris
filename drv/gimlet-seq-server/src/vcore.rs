@@ -413,7 +413,7 @@ fn deliver_ereport(
         }
         Err(_) => {
             // XXX(eliza): ereport didn't fit in buffer...what do
-            ringbuf_entry!(Trace::EreportTooBig(len));
+            ringbuf_entry!(Trace::EreportTooBig);
         }
     }
 }
