@@ -123,8 +123,8 @@ pub enum HostToSp {
         // We use a raw `u8` here for the same reason as in `KeyLookup` above.
         key: u8,
     },
-    // APOB is followed by a binary data blob, which should be written to flash
-    APOB {
+    // ApobWrite is followed by a binary data blob, to be written to flash
+    ApobWrite {
         offset: u64,
     },
 }
@@ -189,7 +189,7 @@ pub enum SpToHost {
         name: [u8; 32],
     },
     KeySetResult(#[count(children)] KeySetResult),
-    APOBResult(u8),
+    ApobResult(u8),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, num_derive::FromPrimitive)]
