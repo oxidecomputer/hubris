@@ -1128,7 +1128,7 @@ impl ServerImpl {
                 Ok(n) => Ok(n),
                 Err(err) => {
                     ringbuf_entry!(Trace::ApobReadError { offset, err });
-                    return Err(SpToHost::ApobResult(1));
+                    Err(SpToHost::ApobResult(1))
                 }
             },
         );
