@@ -163,6 +163,10 @@ tlvc-text = { git = "https://github.com/oxidecomputer/tlvc", default-features = 
 transceiver-messages = { git = "https://github.com/oxidecomputer/transceiver-control/", default-features = false }
 vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448", default-features = false }
 
+[patch.crates-io]
+# See https://gitlab.com/robigalia/ssmarshal/-/merge_requests/2
+ssmarshal = { git = "https://gitlab.com/de-vri-es/ssmarshal", rev = "10e90cbe389c8f07c52815857551a051946881ab" }
+
 [workspace.lints.rust]
 elided_lifetimes_in_paths = "warn"
 

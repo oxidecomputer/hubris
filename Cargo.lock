@@ -5044,8 +5044,7 @@ dependencies = [
 [[package]]
 name = "ssmarshal"
 version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3e6ad23b128192ed337dfa4f1b8099ced0c2bf30d61e551b65fda5916dbb850"
+source = "git+https://gitlab.com/de-vri-es/ssmarshal?rev=10e90cbe389c8f07c52815857551a051946881ab#10e90cbe389c8f07c52815857551a051946881ab"
 dependencies = [
  "encode_unicode",
  "serde",
