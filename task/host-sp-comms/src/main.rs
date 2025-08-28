@@ -1088,8 +1088,8 @@ impl ServerImpl {
         hf: &HostFlash,
         offset: u32,
         data: &[u8],
-        if offset as usize % drv_hf_api::SECTOR_SIZE_BYTES == 0 {
     ) -> Result<(), ApobError> {
+        if (offset as usize).is_multiple_of(drv_hf_api::SECTOR_SIZE_BYTES) {
             hf.bonus_sector_erase(offset)
                 .map_err(|err| ApobError::EraseFailed { offset, err })?;
         } else {
