@@ -145,10 +145,10 @@ enum Trace {
         #[count(children)]
         message: SpToHost,
     },
-    APOBWriteError {
+    ApobWriteError {
         offset: u64,
         #[count(children)]
-        err: APOBError,
+        err: ApobError,
     },
 }
 
@@ -177,7 +177,7 @@ enum Timers {
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, counters::Count)]
-enum APOBError {
+enum ApobError {
     OffsetOverflow {
         offset: u64,
     },
@@ -1023,12 +1023,12 @@ impl ServerImpl {
                     }),
                 }
             }
-            HostToSp::APOB { offset } => {
+            HostToSp::ApobWrite { offset } => {
                 Some(match Self::apob_write(&self.hf, offset, data) {
-                    Ok(()) => SpToHost::APOBResult(0),
+                    Ok(()) => SpToHost::ApobResult(0),
                     Err(err) => {
-                        ringbuf_entry!(Trace::APOBWriteError { offset, err });
-                        SpToHost::APOBResult(1)
+                        ringbuf_entry!(Trace::ApobWriteError { offset, err });
+                        SpToHost::ApobResult(1)
                     }
                 })
             }
@@ -1067,13 +1067,13 @@ impl ServerImpl {
         hf: &HostFlash,
         mut offset: u64,
         data: &[u8],
-    ) -> Result<(), APOBError> {
+    ) -> Result<(), ApobError> {
         for chunk in data.chunks(drv_hf_api::PAGE_SIZE_BYTES) {
             Self::apob_write_page(
                 hf,
                 offset
                     .try_into()
-                    .map_err(|_| APOBError::OffsetOverflow { offset })?,
+                    .map_err(|_| ApobError::OffsetOverflow { offset })?,
                 chunk,
             )?;
             offset += chunk.len() as u64;
@@ -1088,21 +1088,21 @@ impl ServerImpl {
         hf: &HostFlash,
         offset: u32,
         data: &[u8],
-    ) -> Result<(), APOBError> {
         if offset as usize % drv_hf_api::SECTOR_SIZE_BYTES == 0 {
+    ) -> Result<(), ApobError> {
             hf.bonus_sector_erase(offset)
-                .map_err(|err| APOBError::EraseFailed { offset, err })?;
+                .map_err(|err| ApobError::EraseFailed { offset, err })?;
         } else {
             // Read back the page and confirm that it's all empty
             let mut scratch = [0u8; drv_hf_api::PAGE_SIZE_BYTES];
             hf.bonus_read(offset, &mut scratch[..data.len()])
-                .map_err(|err| APOBError::ReadFailed { offset, err })?;
+                .map_err(|err| ApobError::ReadFailed { offset, err })?;
             if !scratch[..data.len()].iter().all(|b| *b == 0xFF) {
-                return Err(APOBError::NotErased { offset });
+                return Err(ApobError::NotErased { offset });
             }
         }
         hf.bonus_page_program(offset, data)
-            .map_err(|err| APOBError::WriteFailed { offset, err })
+            .map_err(|err| ApobError::WriteFailed { offset, err })
     }
 
     fn handle_sprot(
