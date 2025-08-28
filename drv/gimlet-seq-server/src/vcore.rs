@@ -345,6 +345,7 @@ impl VCore {
 
             // "Houston, we've got a main bus B undervolt..."
             let ereport = VinEreport {
+                v: 0,
                 rail: "VDD_VCORE",
                 vin,
                 time: t0,
@@ -365,6 +366,7 @@ impl VCore {
 
 #[derive(serde::Serialize)]
 struct VinEreport {
+    v: usize,
     rail: &'static str,
     vin: VoltageRange,
     time: u64,
