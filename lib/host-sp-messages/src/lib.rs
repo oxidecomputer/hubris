@@ -127,6 +127,11 @@ pub enum HostToSp {
     ApobWrite {
         offset: u64,
     },
+    // ApobRead returns an ApobResult followed by trailing data
+    ApobRead {
+        offset: u64,
+        size: u64,
+    },
 }
 
 /// The order of these cases is critical! We are relying on hubpack's encoding

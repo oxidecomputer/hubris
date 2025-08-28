@@ -150,6 +150,11 @@ enum Trace {
         #[count(children)]
         err: ApobError,
     },
+    ApobReadError {
+        offset: u64,
+        #[count(children)]
+        err: ApobError,
+    },
 }
 
 counted_ringbuf!(Trace, 20, Trace::None);
@@ -180,6 +185,9 @@ enum Timers {
 enum ApobError {
     OffsetOverflow {
         page_offset: u64,
+    },
+    SizeOverflow {
+        size: u64,
     },
     NotErased {
         page_offset: u32,
@@ -1032,6 +1040,11 @@ impl ServerImpl {
                     }
                 })
             }
+            HostToSp::ApobRead { offset, size } => {
+                // apob_read does serialization itself
+                self.apob_read(header.sequence, offset, size);
+                None
+            }
         };
 
         if let Some(response) = response {
@@ -1104,6 +1117,41 @@ impl ServerImpl {
         }
         hf.bonus_page_program(page_offset, data)
             .map_err(|err| ApobError::WriteFailed { page_offset, err })
+    }
+
+    /// Reads and encodes data from the bonus region of flash
+    fn apob_read(&mut self, sequence: u64, offset: u64, size: u64) {
+        self.tx_buf.try_encode_response(
+            sequence,
+            &SpToHost::ApobResult(0),
+            |buf| match Self::apob_read_inner(buf, &self.hf, offset, size) {
+                Ok(n) => Ok(n),
+                Err(err) => {
+                    ringbuf_entry!(Trace::ApobReadError { offset, err });
+                    return Err(SpToHost::ApobResult(1));
+                }
+            },
+        );
+    }
+
+    fn apob_read_inner(
+        buf: &mut [u8],
+        hf: &HostFlash,
+        offset: u64,
+        size: u64,
+    ) -> Result<usize, ApobError> {
+        let size = usize::try_from(size)
+            .map_err(|_| ApobError::SizeOverflow { size })?;
+        for d in (0..size).step_by(drv_hf_api::PAGE_SIZE_BYTES) {
+            let chunk_size = (size - d).min(drv_hf_api::PAGE_SIZE_BYTES);
+            let page_offset = offset + d as u64;
+            let page_offset = u32::try_from(page_offset)
+                .map_err(|_| ApobError::OffsetOverflow { page_offset })?;
+
+            hf.bonus_read(page_offset, &mut buf[d..][..chunk_size])
+                .map_err(|err| ApobError::ReadFailed { page_offset, err })?;
+        }
+        Ok(size)
     }
 
     fn handle_sprot(
