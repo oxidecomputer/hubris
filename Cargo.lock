@@ -3861,9 +3861,9 @@ dependencies = [
 
 [[package]]
 name = "minicbor"
-version = "2.0.0"
+version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e1d2aa21725f9442def0570f427df351961a79439f63fff51b7d022a5ca31304"
+checksum = "4f182275033b808ede9427884caa8e05fa7db930801759524ca7925bd8aa7a82"
 
 [[package]]
 name = "minicbor-derive"
@@ -3881,7 +3881,7 @@ name = "minicbor-lease"
 version = "0.1.0"
 dependencies = [
  "idol-runtime",
- "minicbor 2.0.0",
+ "minicbor 2.1.1",
 ]
 
 [[package]]
@@ -5397,7 +5397,7 @@ dependencies = [
  "counters",
  "idol",
  "idol-runtime",
- "minicbor 2.0.0",
+ "minicbor 2.1.1",
  "num-traits",
  "ringbuf",
  "task-packrat-api",
@@ -5736,7 +5736,7 @@ dependencies = [
  "hubris-task-names",
  "idol",
  "idol-runtime",
- "minicbor 2.0.0",
+ "minicbor 2.1.1",
  "minicbor-lease",
  "mutable-statics",
  "num-traits",
