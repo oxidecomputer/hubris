@@ -655,7 +655,9 @@ impl ServerImpl {
         // say "nope, the computer won't turn on" because we weren't able to do
         // an I2C transaction to turn on an interrupt that we only use for
         // monitoring for faults. The initialize method will retry internally a
-        // few times, so we should power through any transient I2C messiness.
+        // few times, so we should power through any transient I2C messiness,
+        // and any I2C errors that occur get logged in the `vcore` module's
+        // ringbuf.
         let _ = self.vcore.initialize_uv_warning();
         self.seq.ier.modify(|m| {
             m.set_fanfault(true);

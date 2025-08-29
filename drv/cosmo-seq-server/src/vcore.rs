@@ -97,7 +97,7 @@ const VCORE_UV_WARN_LIMIT: units::Volts = units::Volts(11.75);
 /// ~1.8ms for both) to adequately cover any anticipated dip.  We have seen
 /// these have an ~11ms total width in the wild, so we give ourselves plenty
 /// of margin here and get ~45ms of data.
-///(Regulator),
+///
 /// (Read: I just took the number Bryan picked in the Gimlet sequencer,
 /// divided it by 2, and copied his comment lol)
 ///
@@ -167,22 +167,15 @@ impl VCore {
             rails,
         });
 
-        let mut should_sample_vin = false;
-        self.record_pmbus_status(
-            now,
-            Rail::VddcrCpu0,
-            &mut rails.vddcr_cpu0,
-            &mut should_sample_vin,
-        );
+        let cpu0_state =
+            self.record_pmbus_status(now, Rail::VddcrCpu0, rails.vddcr_cpu0);
+        rails.vddcr_cpu0 |= cpu0_state.faulted;
 
-        self.record_pmbus_status(
-            now,
-            Rail::VddcrCpu1,
-            &mut rails.vddcr_cpu1,
-            &mut should_sample_vin,
-        );
+        let cpu1_state =
+            self.record_pmbus_status(now, Rail::VddcrCpu1, rails.vddcr_cpu1);
+        rails.vddcr_cpu1 |= cpu1_state.faulted;
 
-        if should_sample_vin {
+        if cpu0_state.input_fault || cpu1_state.input_fault {
             for _ in 0..VCORE_NSAMPLES {
                 let vddcr_cpu0_vin =
                     self.vddcr_cpu0.read_vin().unwrap_or_else(|e| {
@@ -208,16 +201,15 @@ impl VCore {
                         units::Volts(f32::NAN)
                     });
                 //
-                // Record our readings, along with a timestamp.  On the
-                // one hand, it's a little exceesive to record a
-                // timestamp on every reading:  it's in milliseconds,
-                // and because it takes ~900µs per reading, we expect
-                // the timestamp to (basically) be incremented by 2 with
-                // every reading (with a duplicate timestamp occuring
-                // every ~7-9 entries).  But on the other, it's not
-                // impossible to be preempted, and it's valuable to have
-                // as tight a coupling as possible between observed
-                // reading and observed time.
+                // Record our readings, along with a timestamp. On the one hand,
+                // it's a little exceesive to record a timestamp on every
+                // reading: it's in milliseconds, and because it takes ~900µs
+                // per reading (so ~1800us to read from both regulators), we
+                // expect the timestamp to (basically) be incremented by 2 with
+                // every reading (with a duplicate timestamp occuring every ~7-9
+                // entries). But on the other, it's not impossible to be
+                // preempted, and it's valuable to have as tight a coupling as
+                // possible between observed reading and observed time.
                 //
                 // HI BRYAN I COPIED UR HOMEWORK AGAIN :) :) :)
                 //
@@ -250,9 +242,8 @@ impl VCore {
         &self,
         now: u64,
         rail: Rail,
-        faulted: &mut bool,
-        sample_vin: &mut bool,
-    ) {
+        alerted: bool,
+    ) -> RegulatorState {
         use pmbus::commands::raa229620a::STATUS_WORD;
 
         let device = match rail {
@@ -265,7 +256,8 @@ impl VCore {
             retry_i2c_txn(rail, PmbusCmd::Status, || device.status_word());
 
         ringbuf_entry!(Trace::StatusWord(rail, status_word.map(|s| s.0)));
-
+        let mut faulted = alerted;
+        let mut input_fault = false;
         let power_good = if let Ok(status) = status_word {
             // If any fault bits are hot, set this VRM to "faulted", even if it
             // was not the one whose `PMALERT` assertion actually triggered our
@@ -278,22 +270,22 @@ impl VCore {
             if status.get_input_fault()
                 != Some(STATUS_WORD::InputFault::NoFault)
             {
-                *faulted = true;
+                faulted = true;
                 // If the INPUT_FAULT bit is set, we will also sample input
                 // voltage readings into the ringbuf.
-                *sample_vin = true;
+                input_fault = true;
             }
-            *faulted |= status.get_output_voltage_fault()
+            faulted |= status.get_output_voltage_fault()
                 != Some(STATUS_WORD::OutputVoltageFault::NoFault);
-            *faulted |= status.get_output_voltage_fault()
+            faulted |= status.get_output_voltage_fault()
                 != Some(STATUS_WORD::OutputVoltageFault::NoFault);
-            *faulted |= status.get_other_fault()
+            faulted |= status.get_other_fault()
                 != Some(STATUS_WORD::OtherFault::NoFault);
-            *faulted |= status.get_manufacturer_fault()
+            faulted |= status.get_manufacturer_fault()
                 != Some(STATUS_WORD::ManufacturerFault::NoFault);
-            *faulted |=
+            faulted |=
                 status.get_cml_fault() != Some(STATUS_WORD::CMLFault::NoFault);
-            *faulted |= status.get_temperature_fault()
+            faulted |= status.get_temperature_fault()
                 != Some(STATUS_WORD::TemperatureFault::NoFault);
 
             // If the POWER_GOOD# bit is set, the regulator has deasserted its
@@ -306,7 +298,7 @@ impl VCore {
             ringbuf_entry!(Trace::RegulatorStatus {
                 rail,
                 power_good,
-                faulted: *faulted
+                faulted,
             });
             Some(power_good)
         } else {
@@ -315,8 +307,11 @@ impl VCore {
 
         // If we haven't faulted, and POWER_GOOD is asserted, nothing left
         // to do here.
-        if !*faulted && power_good == Some(true) {
-            return;
+        if !faulted && power_good == Some(true) {
+            return RegulatorState {
+                faulted,
+                input_fault,
+            };
         }
 
         // Read PMBus status registers and prepare an ereport.
@@ -329,7 +324,7 @@ impl VCore {
         // input fault, so we should perform sampling of the input voltage for
         // the ringbuf.
         if status_input != Ok(0) {
-            *sample_vin = true;
+            input_fault = true;
         }
 
         let status_vout =
@@ -375,6 +370,11 @@ impl VCore {
             pwr_good: power_good,
         };
         deliver_ereport(rail, &self.packrat, &ereport);
+
+        RegulatorState {
+            faulted,
+            input_fault,
+        }
     }
 }
 
@@ -398,6 +398,11 @@ struct PmbusStatus {
     temp: Option<u8>,
     cml: Option<u8>,
     mfr: Option<u8>,
+}
+
+struct RegulatorState {
+    faulted: bool,
+    input_fault: bool,
 }
 
 // Mostly stolen from the same thing in gimlet-seq, but with an added `Rail` to
