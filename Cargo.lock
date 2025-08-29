@@ -3863,9 +3863,9 @@ dependencies = [
 
 [[package]]
 name = "minicbor"
-version = "0.26.4"
+version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "acb9d59e79ad66121ab441a0d1950890906a41e01ae14145ecf8401aa8894f50"
+checksum = "4f182275033b808ede9427884caa8e05fa7db930801759524ca7925bd8aa7a82"
 
 [[package]]
 name = "minicbor-derive"
@@ -3876,6 +3876,14 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.98",
+]
+
+[[package]]
+name = "minicbor-lease"
+version = "0.1.0"
+dependencies = [
+ "idol-runtime",
+ "minicbor 2.1.1",
 ]
 
 [[package]]
@@ -5038,8 +5046,7 @@ dependencies = [
 [[package]]
 name = "ssmarshal"
 version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3e6ad23b128192ed337dfa4f1b8099ced0c2bf30d61e551b65fda5916dbb850"
+source = "git+https://gitlab.com/de-vri-es/ssmarshal?rev=10e90cbe389c8f07c52815857551a051946881ab#10e90cbe389c8f07c52815857551a051946881ab"
 dependencies = [
  "encode_unicode",
  "serde",
@@ -5391,7 +5398,7 @@ dependencies = [
  "counters",
  "idol",
  "idol-runtime",
- "minicbor 0.26.4",
+ "minicbor 2.1.1",
  "num-traits",
  "ringbuf",
  "task-packrat-api",
@@ -5730,7 +5737,8 @@ dependencies = [
  "hubris-task-names",
  "idol",
  "idol-runtime",
- "minicbor 0.26.4",
+ "minicbor 2.1.1",
+ "minicbor-lease",
  "mutable-statics",
  "num-traits",
  "quote",
