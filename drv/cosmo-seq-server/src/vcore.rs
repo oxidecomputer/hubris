@@ -12,7 +12,7 @@
 //! regulators be asserted.
 //!
 
-use super::{i2c_config, InterruptAction};
+use super::i2c_config;
 use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::raa229620a::{self, Raa229620A};
 use ringbuf::*;
@@ -161,11 +161,7 @@ impl VCore {
         Ok(())
     }
 
-    pub fn handle_pmbus_alert(
-        &self,
-        mut rails: Rails,
-        now: u64,
-    ) -> InterruptAction {
+    pub fn handle_pmbus_alert(&self, mut rails: Rails, now: u64) {
         ringbuf_entry!(Trace::PmbusAlert {
             timestamp: now,
             rails,
@@ -248,15 +244,6 @@ impl VCore {
         // TODO(eliza): we will want to handle a shut down regulator more
         // intelligently in future...
         let _ = self.clear_faults(rails);
-
-        // We need not instruct the sequencer to reset. PMBus alerts from the
-        // RAA229620As are divided into two categories, "warnings" and "faults",
-        // where "warnings" just pull PMALERT_L and set status bits, and
-        // "faults" also cause the VRM to deassert POWER_GOOD. If POWER_GOOD is
-        // deasserted, the sequencer FPGA will notice that and generate a
-        // subsequent IRQ, which is handled separately. So, all we need to do
-        // here is proceed and handle any other interrupts.
-        InterruptAction::None
     }
 
     fn record_pmbus_status(

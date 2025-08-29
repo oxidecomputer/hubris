@@ -700,6 +700,15 @@ impl ServerImpl {
             ifr,
         });
 
+        enum InternalAction {
+            Reset,
+            ThermTrip,
+            Smerr,
+            Mapo,
+            None,
+            Unexpected,
+        }
+
         // We check these in lowest to highest priority. We start with
         // reset since we expect the CPU to handle that nicely.
         // Thermal trip is a terminal state in that we log it but don't
@@ -708,7 +717,7 @@ impl ServerImpl {
         // we probably(?) won't see multiple of these set at a time but
         // it's important to account for that case;
 
-        let mut action = InterruptAction::Unexpected;
+        let mut action = InternalAction::Unexpected;
 
         if ifr.pwr_cont1_to_fpga1_alert || ifr.pwr_cont2_to_fpga1_alert {
             // We got a PMBus alert from one of the Vcore regulators.
@@ -718,7 +727,16 @@ impl ServerImpl {
                 vddcr_cpu0: ifr.pwr_cont1_to_fpga1_alert,
                 vddcr_cpu1: ifr.pwr_cont2_to_fpga1_alert,
             };
-            action = self.vcore.handle_pmbus_alert(which_rails, now);
+            self.vcore.handle_pmbus_alert(which_rails, now);
+
+            // We need not instruct the sequencer to reset. PMBus alerts from
+            // the RAA229620As are divided into two categories, "warnings" and
+            // "faults", where "warnings" just pull PMALERT_L and set status
+            // bits, and "faults" also cause the VRM to deassert POWER_GOOD. If
+            // POWER_GOOD is deasserted, the sequencer FPGA will notice that and
+            // generate a subsequent IRQ, which is handled separately. So, all
+            // we need to do here is proceed and handle any other interrupts.
+            action = InternalAction::None;
         }
 
         if ifr.amd_pwrok_fedge || ifr.amd_rstn_fedge {
@@ -730,13 +748,13 @@ impl ServerImpl {
             // call back into this task to reboot the system (going to
             // A2 then back into A0)
             ringbuf_entry!(Trace::ResetCounts { rstn, pwrokn });
-            action = InterruptAction::Reset;
+            action = InternalAction::Reset;
         }
 
         if ifr.thermtrip {
             self.seq.ifr.modify(|h| h.set_thermtrip(false));
             ringbuf_entry!(Trace::Thermtrip);
-            action = InterruptAction::ThermTrip;
+            action = InternalAction::ThermTrip;
             // Great place for an ereport?
         }
 
@@ -744,57 +762,48 @@ impl ServerImpl {
             self.log_pg_registers();
             self.seq.ifr.modify(|h| h.set_a0mapo(false));
             ringbuf_entry!(Trace::A0MapoInterrupt);
-            action = InterruptAction::Mapo;
+            action = InternalAction::Mapo;
             // Great place for an ereport?
         }
 
         if ifr.smerr_assert {
             self.seq.ifr.modify(|h| h.set_smerr_assert(false));
             ringbuf_entry!(Trace::SmerrInterrupt);
-            action = InterruptAction::Smerr;
+            action = InternalAction::Smerr;
             // Great place for an ereport?
         }
         // Fan Fault is unconnected
         // NIC MAPO is unconnected
 
         match action {
-            InterruptAction::Reset => {
+            InternalAction::Reset => {
                 // host_sp_comms will be notified of this change and will
                 // call back into this task to reboot the system (going to
                 // A2 then back into A0)
                 self.set_state_internal(PowerState::A0Reset);
             }
-            InterruptAction::ThermTrip => {
+            InternalAction::ThermTrip => {
                 // This is a terminal state; we set our state to `A0Thermtrip`
                 // but do not expect any other task to take action right now
                 self.set_state_internal(PowerState::A0Thermtrip);
             }
-            InterruptAction::Mapo => {
+            InternalAction::Mapo => {
                 // This is a terminal state (for now)
                 self.emergency_a2(StateChangeReason::A0Mapo);
             }
-            InterruptAction::Smerr => {
+            InternalAction::Smerr => {
                 // This is a terminal state (for now)
                 self.emergency_a2(StateChangeReason::SmerrAssert);
             }
-            InterruptAction::None => {
+            InternalAction::None => {
                 // That's right, just do nothing.
             }
-            InterruptAction::Unexpected => {
+            InternalAction::Unexpected => {
                 // This is unexpected, logging is the best we can do
                 ringbuf_entry!(Trace::UnexpectedInterrupt);
             }
         };
     }
-}
-
-enum InterruptAction {
-    Reset,
-    ThermTrip,
-    Smerr,
-    Mapo,
-    None,
-    Unexpected,
 }
 
 impl idl::InOrderSequencerImpl for ServerImpl {
