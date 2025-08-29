@@ -149,6 +149,13 @@ impl VCore {
 
         if asserted {
             self.read_pmbus_status(now);
+            // Clear the fault now so that PMALERT_L is reasserted if a
+            // subsequent fault occurs. Note that if the fault *condition*
+            // continues, the fault bits in the status registers will remain
+            // set, and sending the CLEAR_FAULTS command does *not* cause the
+            // device to power back on if it's off.
+            let _ = self.device.clear_faults();
+            ringbuf_entry!(Trace::FaultsCleared);
         }
 
         let _ = self.sys.gpio_irq_control(self.mask(), IrqControl::Enable);
