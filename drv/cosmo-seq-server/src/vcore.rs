@@ -15,7 +15,7 @@
 //! regulators be asserted.
 //!
 
-use super::{i2c_config, InternalAction};
+use super::{i2c_config, InterruptAction};
 use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::raa229620a::{self, Raa229620A};
 use ringbuf::*;
@@ -255,7 +255,7 @@ impl VCore {
         // deasserted, the sequencer FPGA will notice that and generate a
         // subsequent IRQ, which is handled separately. So, all we need to do
         // here is proceed and handle any other interrupts.
-        InternalAction::None
+        InterruptAction::None
     }
 
     fn record_pmbus_status(

@@ -708,7 +708,7 @@ impl ServerImpl {
         // we probably(?) won't see multiple of these set at a time but
         // it's important to account for that case;
 
-        let mut action = InternalAction::Unexpected;
+        let mut action = InterruptAction::Unexpected;
 
         if ifr.pwr_cont1_to_fpga1_alert || ifr.pwr_cont2_to_fpga1_alert {
             // We got a PMBus alert from one of the Vcore regulators.
@@ -730,13 +730,13 @@ impl ServerImpl {
             // call back into this task to reboot the system (going to
             // A2 then back into A0)
             ringbuf_entry!(Trace::ResetCounts { rstn, pwrokn });
-            action = InternalAction::Reset;
+            action = InterruptAction::Reset;
         }
 
         if ifr.thermtrip {
             self.seq.ifr.modify(|h| h.set_thermtrip(false));
             ringbuf_entry!(Trace::Thermtrip);
-            action = InternalAction::ThermTrip;
+            action = InterruptAction::ThermTrip;
             // Great place for an ereport?
         }
 
@@ -744,43 +744,43 @@ impl ServerImpl {
             self.log_pg_registers();
             self.seq.ifr.modify(|h| h.set_a0mapo(false));
             ringbuf_entry!(Trace::A0MapoInterrupt);
-            action = InternalAction::Mapo;
+            action = InterruptAction::Mapo;
             // Great place for an ereport?
         }
 
         if ifr.smerr_assert {
             self.seq.ifr.modify(|h| h.set_smerr_assert(false));
             ringbuf_entry!(Trace::SmerrInterrupt);
-            action = InternalAction::Smerr;
+            action = InterruptAction::Smerr;
             // Great place for an ereport?
         }
         // Fan Fault is unconnected
         // NIC MAPO is unconnected
 
         match action {
-            InternalAction::Reset => {
+            InterruptAction::Reset => {
                 // host_sp_comms will be notified of this change and will
                 // call back into this task to reboot the system (going to
                 // A2 then back into A0)
                 self.set_state_internal(PowerState::A0Reset);
             }
-            InternalAction::ThermTrip => {
+            InterruptAction::ThermTrip => {
                 // This is a terminal state; we set our state to `A0Thermtrip`
                 // but do not expect any other task to take action right now
                 self.set_state_internal(PowerState::A0Thermtrip);
             }
-            InternalAction::Mapo => {
+            InterruptAction::Mapo => {
                 // This is a terminal state (for now)
                 self.emergency_a2(StateChangeReason::A0Mapo);
             }
-            InternalAction::Smerr => {
+            InterruptAction::Smerr => {
                 // This is a terminal state (for now)
                 self.emergency_a2(StateChangeReason::SmerrAssert);
             }
-            InternalAction::None => {
+            InterruptAction::None => {
                 // That's right, just do nothing.
             }
-            InternalAction::Unexpected => {
+            InterruptAction::Unexpected => {
                 // This is unexpected, logging is the best we can do
                 ringbuf_entry!(Trace::UnexpectedInterrupt);
             }
@@ -788,7 +788,7 @@ impl ServerImpl {
     }
 }
 
-enum InternalAction {
+enum InterruptAction {
     Reset,
     ThermTrip,
     Smerr,
