@@ -231,7 +231,9 @@ impl VCore {
         // clearing the fault in the regulator will deassert PMALERT_L,
         // releasing the IRQ, but the fault bits to be reset if the fault
         // condition still exists. Note that this does *not* cause the device to
-        // restart if it has shut down.
+        // restart if it has shut down. The behavior of "CLEAR_FAULTS" is really
+        // much closer to "ACKNOWLEDGE_PMBUS_ALERT", since it doesn't actually
+        // seem to effect the state of the regulator.
         //
         // TODO(eliza): we will want to handle a shut down regulator more
         // intelligently in future...
