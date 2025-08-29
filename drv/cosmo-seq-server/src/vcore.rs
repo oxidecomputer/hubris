@@ -285,7 +285,8 @@ impl VCore {
                 != Some(STATUS_WORD::TemperatureFault::NoFault);
 
             let power_good = status.get_power_good_status()
-                != Some(STATUS_WORD::PowerGoodStatus::PowerGood);
+                != Some(STATUS_WORD::PowerGoodStatus::NoPowerGood);
+
             ringbuf_entry!(Trace::RegulatorStatus {
                 rail,
                 power_good,
