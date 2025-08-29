@@ -331,8 +331,10 @@ struct Ereport {
     status: PmbusStatus,
 }
 
-// This is in its own function so that we only push a stack frame large enough
-// for the ereport buffer if needed.
+// This is in its own function so that the ereport buffer and `Ereport` struct
+// are only on the stack while we're using it, and not for the entireity of
+// `record_pmbus_status`, which calls into a bunch of other functions. This may
+// reduce our stack depth a bit.
 #[inline(never)]
 fn deliver_ereport(packrat: &packrat_api::Packrat, data: &impl Serialize) {
     let mut ereport_buf = [0u8; 128];
