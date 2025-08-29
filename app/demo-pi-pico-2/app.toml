@@ -2,6 +2,7 @@ name = "demo-pi-pico-2"
 target = "thumbv8m.main-none-eabihf"
 chip = "../../chips/rp235x"
 board = "pi-pico-2"
+memory = "memory-pico-2.toml"
 stacksize = 944
 
 [kernel]
