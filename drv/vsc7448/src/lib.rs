@@ -852,6 +852,30 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         Ok(())
     }
 
+    /// Implements a VLAN scheme for the Medusa test board
+    ///
+    /// Each technician port can talk to Medusa's SP, but not to one another.
+    /// The SP can talk to all technician ports.
+    pub fn configure_vlan_medusa(&self) -> Result<(), VscError> {
+        self.configure_vlans(|p| match p {
+            medusa::LOCAL_SP => {
+                Some(
+                    (1 << p)
+                        | (1 << medusa::LOCAL_TP_0)
+                        | (1 << medusa::LOCAL_TP_1)
+                        | (1 << medusa::FRONT_TP_0)
+                        | (1 << medusa::FRONT_TP_1),
+                )
+            }
+            _ => Some(
+                (1 << p)
+                    | (1 << medusa::LOCAL_SP),
+            ),
+        })?;
+        self.configure_port_tagged(|_| false)?; // all ports are untagged
+        Ok(())
+    }
+
     /// Implements the VLAN scheme described in RFD 492, locked
     ///
     /// To switch between locked and unlocked later, use
@@ -978,4 +1002,12 @@ mod minibar {
     pub const REAR_IO_0: u8 = 40;
     pub const REAR_IO_1: u8 = 41;
     pub const REAR_IO_2: u8 = 42;
+}
+
+mod medusa {
+    pub const LOCAL_TP_0: u8 = 40;
+    pub const LOCAL_TP_1: u8 = 41;
+    pub const FRONT_TP_0: u8 = 44;
+    pub const FRONT_TP_1: u8 = 45;
+    pub const LOCAL_SP: u8 = 48;
 }

@@ -204,7 +204,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         // them!
         //
         // (ports will be added back to VLANs after configuration is done, in
-        // the call to `configure_vlan_sidecar_unlocked` below)
+        // the call to `configure_vlan_medusa` below)
         //
         // The root cause is unknown, but we suspect a hardware race condition
         // in the switch IC; see this issue for detailed discussion:
@@ -215,7 +215,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         self.front_io_speed = [Speed::Speed1G; 2];
 
         self.vsc7448.configure_ports_from_map(&PORT_MAP)?;
-        self.vsc7448.configure_vlan_sidecar_unlocked()?;
+        self.vsc7448.configure_vlan_medusa()?;
         self.vsc7448_postconfig()?;
 
         // Some front IO boards have a faulty oscillator driving the PHY,

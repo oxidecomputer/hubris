@@ -4,7 +4,7 @@
 
 //! BSP for the Medusa model A
 
-#[cfg(not(all(feature = "ksz8463", feature = "mgmt")))]
+#[cfg(not(all(feature = "ksz8463", feature = "mgmt", feature = "vlan")))]
 compile_error!("this BSP requires the ksz8463, mgmt, and vlan features");
 
 use crate::{
@@ -71,7 +71,7 @@ impl bsp_support::Bsp for BspImpl {
             // SP_TO_EPE_RESET_L
             ksz8463_nrst: Port::A.pin(0),
             ksz8463_rst_type: mgmt::Ksz8463ResetSpeed::Normal,
-            ksz8463_vlan_mode: ksz8463::VLanMode::Off,
+            ksz8463_vlan_mode: ksz8463::VLanMode::Mandatory,
             // SP_TO_PHY_A_COMA_MODE_3V3
             vsc85x2_coma_mode: Some(Port::I.pin(15)),
             // SP_TO_PHY_A_RESET_3V3_L

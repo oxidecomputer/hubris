@@ -89,7 +89,7 @@ interrupts = {"spi1.irq" = "spi-irq"}
 name = "task-monorail-server"
 priority = 7
 max-sizes = {flash = 262144, ram = 16384}
-features = ["mgmt", "medusa", "use-spi-core", "h753", "spi2"]
+features = ["mgmt", "medusa", "vlan", "use-spi-core", "h753", "spi2"]
 stacksize = 4096
 start = true
 task-slots = ["front_io", "net", "sys", { seq = "sequencer" }]
@@ -101,7 +101,7 @@ interrupts = {"spi2.irq" = "spi-irq"}
 name = "task-net"
 stacksize = 10000
 priority = 6
-features = ["mgmt", "h753", "medusa", "vpd-mac", "use-spi-core", "spi3"]
+features = ["mgmt", "h753", "medusa", "vlan", "vpd-mac", "use-spi-core", "spi3"]
 max-sizes = {flash = 131072, ram = 131072, sram1_mac = 16384}
 sections = {eth_bulk = "sram1_mac"}
 uses = ["eth", "tim16", "spi3"]
@@ -152,6 +152,7 @@ task-slots = [
     "sys",
     "front_io",
     {seq = "sequencer"}]
+features = ["vlan"]
 notifications = ["socket", "timer"]
 
 [tasks.packrat]
@@ -212,6 +213,7 @@ max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
 task-slots = ["net"]
+features = ["vlan"]
 notifications = ["socket"]
 
 [tasks.udpbroadcast]
@@ -221,6 +223,7 @@ max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
 task-slots = ["net", "packrat"]
+features = ["vlan"]
 notifications = ["socket"]
 
 #
@@ -231,6 +234,17 @@ notifications = ["socket"]
 #
 # Net
 #
+
+# VLAN configuration
+[config.net.vlans.port1]
+vid = 0x301
+trusted = true
+port = 1
+
+[config.net.vlans.port2]
+vid = 0x302
+trusted = true
+port = 2
 
 [config.net.sockets.echo]
 kind = "udp"
