@@ -15,7 +15,7 @@
 //! regulators be asserted.
 //!
 
-use super::i2c_config;
+use super::{i2c_config, InternalAction};
 use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::raa229620a::{self, Raa229620A};
 use ringbuf::*;
@@ -236,9 +236,26 @@ impl VCore {
         // away) is to tell the guys to clear the fault.
         // N.B.: unlike other FPGA sequencer alerts, we need not clear the
         // IFR bits for these; they are hot as long as the PMALERT pin from
-        // the RAA229620As is asserted. Clearing the fault in the regulator
-        // clears the IRQ.
+        // the RAA229620As is asserted.
+        //
+        // Per the RAA229620A datasheet (R16DS0309EU0200 Rev.2.00, page 36),
+        // clearing the fault in the regulator will deassert PMALERT_L,
+        // releasing the IRQ, but the fault bits to be reset if the fault
+        // condition still exists. Note that this does *not* cause the device to
+        // restart if it has shut down.
+        //
+        // TODO(eliza): we will want to handle a shut down regulator more
+        // intelligently in future...
         let _ = self.clear_faults(rails);
+
+        // We need not instruct the sequencer to reset. PMBus alerts from the
+        // RAA229620As are divided into two categories, "warnings" and "faults",
+        // where "warnings" just pull PMALERT_L and set status bits, and
+        // "faults" also cause the VRM to deassert POWER_GOOD. If POWER_GOOD is
+        // deasserted, the sequencer FPGA will notice that and generate a
+        // subsequent IRQ, which is handled separately. So, all we need to do
+        // here is proceed and handle any other interrupts.
+        InternalAction::None
     }
 
     fn record_pmbus_status(
@@ -265,10 +282,17 @@ impl VCore {
             // If any fault bits are hot, set this VRM to "faulted", even if it
             // was not the one whose `PMALERT` assertion actually triggered our
             // IRQ.
+            //
+            // Note: since these are all single bits in the PMBus STATUS_WORD,
+            // the PMBus crate *should* never return `None` for them, as there
+            // are no un-interpretable values possible. Either a bit is set or
+            // it is not.
             if status.get_input_fault()
                 != Some(STATUS_WORD::InputFault::NoFault)
             {
                 *faulted = true;
+                // If the INPUT_FAULT bit is set, we will also sample input
+                // voltage readings into the ringbuf.
                 *sample_vin = true;
             }
             *faulted |= status.get_output_voltage_fault()
@@ -284,8 +308,12 @@ impl VCore {
             *faulted |= status.get_temperature_fault()
                 != Some(STATUS_WORD::TemperatureFault::NoFault);
 
+            // If the POWER_GOOD# bit is set, the regulator has deasserted its
+            // POWER_GOOD pin.
+            //
+            // Again, this *shouldn't* ever be `None`, as it's a single bit.
             let power_good = status.get_power_good_status()
-                != Some(STATUS_WORD::PowerGoodStatus::NoPowerGood);
+                == Some(STATUS_WORD::PowerGoodStatus::PowerGood);
 
             ringbuf_entry!(Trace::RegulatorStatus {
                 rail,
@@ -297,8 +325,9 @@ impl VCore {
             None
         };
 
+        // If we haven't faulted, and POWER_GOOD is asserted, nothing left
+        // to do here.
         if !*faulted && power_good == Some(true) {
-            // Is this regulator okay
             return;
         }
 
@@ -307,6 +336,10 @@ impl VCore {
             retry_i2c_txn(rail, PmbusCmd::Status, || device.status_input())
                 .map(|s| s.0);
         ringbuf_entry!(Trace::StatusInput(rail, status_input));
+
+        // If any bits are set in the STATUS_INPUT register, then this is an
+        // input fault, so we should perform sampling of the input voltage for
+        // the ringbuf.
         if status_input != Ok(0) {
             *sample_vin = true;
         }
@@ -379,7 +412,8 @@ struct PmbusStatus {
     mfr: Option<u8>,
 }
 
-// Mostly stolen from the same thing in gimlet-seq.
+// Mostly stolen from the same thing in gimlet-seq, but with an added `Rail` to
+// indicate which device we're talking to.
 fn retry_i2c_txn<T>(
     rail: Rail,
     which: PmbusCmd,

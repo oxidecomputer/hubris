@@ -165,12 +165,21 @@ impl VCore {
 
         let mut input_fault = false;
         let pwr_good = if let Ok(status) = status_word {
-            // Check if any fault bits are hot.
+            // If any fault bits are hot, set this VRM to "faulted", even if it
+            // was not the one whose `PMALERT` assertion actually triggered our
+            // IRQ.
+            //
+            // Note: since these are all single bits in the PMBus STATUS_WORD,
+            // the PMBus crate *should* never return `None` for them, as there
+            // are no un-interpretable values possible. Either a bit is set or
+            // it is not.
             let mut faulted = false;
             if status.get_input_fault()
                 != Some(STATUS_WORD::InputFault::NoFault)
             {
                 faulted = true;
+                // If the INPUT_FAULT bit is set, we will also sample input
+                // voltage readings into the ringbuf.
                 input_fault = true;
             }
             faulted |= status.get_output_voltage_fault()
@@ -185,13 +194,19 @@ impl VCore {
                 status.get_cml_fault() != Some(STATUS_WORD::CMLFault::NoFault);
             faulted |= status.get_temperature_fault()
                 != Some(STATUS_WORD::TemperatureFault::NoFault);
-
+            // If the POWER_GOOD# bit is set, the regulator has deasserted its
+            // POWER_GOOD pin.
+            //
+            // Again, this *shouldn't* ever be `None`, as it's a single bit.
             let power_good = status.get_power_good_status()
-                != Some(STATUS_WORD::PowerGoodStatus::NoPowerGood);
+                == Some(STATUS_WORD::PowerGoodStatus::PowerGood);
             ringbuf_entry!(Trace::RegulatorStatus {
                 power_good,
                 faulted
             });
+
+            // If we haven't faulted, and POWER_GOOD is asserted, nothing left
+            // to do here.
             if !faulted && power_good {
                 return;
             }

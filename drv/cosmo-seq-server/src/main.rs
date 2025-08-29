@@ -700,15 +700,6 @@ impl ServerImpl {
             ifr,
         });
 
-        enum InternalAction {
-            Reset,
-            ThermTrip,
-            Smerr,
-            Mapo,
-            None,
-            Unexpected,
-        }
-
         // We check these in lowest to highest priority. We start with
         // reset since we expect the CPU to handle that nicely.
         // Thermal trip is a terminal state in that we log it but don't
@@ -727,14 +718,7 @@ impl ServerImpl {
                 vddcr_cpu0: ifr.pwr_cont1_to_fpga1_alert,
                 vddcr_cpu1: ifr.pwr_cont2_to_fpga1_alert,
             };
-            self.vcore.handle_pmbus_alert(which_rails, now);
-
-            // If *all* we saw was a PMBus alert, don't reset --- perhaps we're
-            // still fine, and we just got a warning from the regulator. If
-            // POWER_GOOD was deasserted, then the FPGA will MAPO us anyway,
-            // even though clearing the fault in the regulator might make
-            // POWER_GOOD come back.
-            action = InternalAction::None;
+            action = self.vcore.handle_pmbus_alert(which_rails, now);
         }
 
         if ifr.amd_pwrok_fedge || ifr.amd_rstn_fedge {
@@ -802,6 +786,15 @@ impl ServerImpl {
             }
         };
     }
+}
+
+enum InternalAction {
+    Reset,
+    ThermTrip,
+    Smerr,
+    Mapo,
+    None,
+    Unexpected,
 }
 
 impl idl::InOrderSequencerImpl for ServerImpl {
