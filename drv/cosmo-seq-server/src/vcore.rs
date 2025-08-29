@@ -164,7 +164,11 @@ impl VCore {
         Ok(())
     }
 
-    pub fn handle_pmbus_alert(&self, mut rails: Rails, now: u64) {
+    pub fn handle_pmbus_alert(
+        &self,
+        mut rails: Rails,
+        now: u64,
+    ) -> InterruptAction {
         ringbuf_entry!(Trace::PmbusAlert {
             timestamp: now,
             rails,
