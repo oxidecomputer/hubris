@@ -6297,6 +6297,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "tests-pi-pico-2"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if",
+ "cortex-m",
+ "cortex-m-rt",
+ "kern",
+]
+
+[[package]]
 name = "tests-psc"
 version = "0.1.0"
 

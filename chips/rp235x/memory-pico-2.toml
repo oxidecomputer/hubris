@@ -11,5 +11,5 @@ address = 0x2000_0000  # 4.2. SRAM "SRAM is mapped to system addresses starting 
 size = 0x8_2000        # 4.2. SRAM "There is a total of 520 kB (520 × 1024 bytes) of on-chip SRAM."
 read = true
 write = true
-execute = true         # 4.2. SRAM "you can use any bank to store processor code, data buffers, or a
+execute = false        # 4.2. SRAM "you can use any bank to store processor code, data buffers, or a
                        #            mixture of the two."
