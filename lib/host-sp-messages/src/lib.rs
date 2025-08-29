@@ -123,6 +123,15 @@ pub enum HostToSp {
         // We use a raw `u8` here for the same reason as in `KeyLookup` above.
         key: u8,
     },
+    // ApobWrite is followed by a binary data blob, to be written to flash
+    ApobWrite {
+        offset: u64,
+    },
+    // ApobRead returns an ApobResult followed by trailing data
+    ApobRead {
+        offset: u64,
+        size: u64,
+    },
 }
 
 /// The order of these cases is critical! We are relying on hubpack's encoding
@@ -185,6 +194,7 @@ pub enum SpToHost {
         name: [u8; 32],
     },
     KeySetResult(#[count(children)] KeySetResult),
+    ApobResult(u8),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, num_derive::FromPrimitive)]
