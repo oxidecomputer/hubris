@@ -151,7 +151,7 @@ impl VCore {
         }
 
         if which_rails.vddcr_cpu1 {
-            retry_i2c_txn(Rail::VddcrCpu0, PmbusCmd::ClearFaults, || {
+            retry_i2c_txn(Rail::VddcrCpu1, PmbusCmd::ClearFaults, || {
                 self.vddcr_cpu1.clear_faults()
             })?;
         }
