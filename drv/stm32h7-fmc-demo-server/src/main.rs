@@ -42,6 +42,13 @@ counters::counters!(Event);
 static RX_PACKET: ClaimOnceCell<[u8; 1024]> = ClaimOnceCell::new([0; 1024]);
 static TX_PACKET: ClaimOnceCell<[u8; 1024]> = ClaimOnceCell::new([0; 1024]);
 
+fn translate_addr(addr: usize) -> usize {
+    // Old base address was 0x6000_0000, new is 0xC000_0000
+    // Nobody should be trying to access addresses outside the
+    // FMC region anyway!
+    (addr & 0x0FFF_FFFF) | 0xc000_0000
+}
+
 #[export_name = "main"]
 fn main() -> ! {
     // The FMC must be manually initialized in the kernel startup routine!
@@ -157,7 +164,8 @@ impl idl::InOrderFmcDemoImpl for ServerImpl {
         _msg: &RecvMessage,
         addr: u32,
     ) -> Result<u32, RequestError<Infallible>> {
-        let ptr = addr as *const u32;
+        let addr = translate_addr(addr as usize);
+        let ptr = addr as u32 as *const u32;
         let val = unsafe { ptr.read_volatile() };
         Ok(val)
     }
@@ -189,7 +197,8 @@ impl idl::InOrderFmcDemoImpl for ServerImpl {
         addr: u32,
         value: u32,
     ) -> Result<(), RequestError<Infallible>> {
-        let ptr = addr as *mut u32;
+        let addr = translate_addr(addr as usize);
+        let ptr = addr as u32 as *mut u32;
         unsafe { ptr.write_volatile(value) }
         Ok(())
     }
@@ -306,7 +315,7 @@ fn process_network_packet(
     if version != 0 || operation != 0 {
         return Err(NetworkError::NotUnderstood);
     }
-    let mut address = 0x6000_0000;
+    let mut address = 0xC000_0000;
 
     // Prepare for success
     write_byte(0, &mut response)?;
@@ -316,6 +325,7 @@ fn process_network_packet(
             0 => {
                 // Set Address
                 address = u32::from_le_bytes(read_chunk(&mut packet)?) as usize;
+                address = translate_addr(address);
             }
             1 | 5 => {
                 // Peek8 / Peek8Advance
