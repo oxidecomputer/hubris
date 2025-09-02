@@ -164,5 +164,5 @@ size = 0x1000
 # want for memory mapped registers; it is _not_ what you want for RAM, at least
 # if you want performance to be halfway reasonable.
 [fmc_nor_psram_bank_1]
-address = 0x60000000
+address = 0xC0000000
 size = 0x10000000
