@@ -265,7 +265,7 @@ interrupts = {"usart1.irq" = "usart-irq"}
 name = "drv-auxflash-server"
 priority = 3
 max-sizes = {flash = 32768, ram = 4096}
-features = ["h753"]
+features = ["h753", "gotta-go-fast"]
 uses = ["quadspi"]
 start = true
 notifications = ["qspi-irq"]

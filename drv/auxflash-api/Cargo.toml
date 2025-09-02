@@ -22,6 +22,9 @@ build-util = {path = "../../build/util"}
 idol.workspace = true
 serde.workspace = true
 
+[features]
+gotta-go-fast = []
+
 [lib]
 test = false
 doctest = false
