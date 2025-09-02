@@ -61,6 +61,7 @@ enum I2cTxn {
     VCoreOn,
     VCoreOff,
     VCoreUndervoltageInitialize,
+    VCorePmbusStatus,
     SocOn,
     SocOff,
 }
@@ -489,7 +490,7 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
             jefe,
             hf,
             deadline: 0,
-            vcore: vcore::VCore::new(sys, &device, rail),
+            vcore: vcore::VCore::new(sys, packrat, &device, rail),
         };
 
         // Power on, unless suppressed by the `stay-in-a2` feature
@@ -1172,7 +1173,8 @@ fn read_spd_data_and_load_packrat(
         let addr = spd::Function::PageAddress(spd::Page(0))
             .to_device_code()
             .unwrap_lite();
-        let page = I2cDevice::new(i2c_task, controller, port, None, addr);
+        let page =
+            I2cDevice::new(i2c_task, controller, port, None, addr, "SPD");
 
         if page.write(&[0]).is_err() {
             // If our operation fails, we are going to assume that there
@@ -1183,7 +1185,8 @@ fn read_spd_data_and_load_packrat(
 
         for i in 0..spd::MAX_DEVICES {
             let mem = spd::Function::Memory(i).to_device_code().unwrap_lite();
-            let spd = I2cDevice::new(i2c_task, controller, port, mux, mem);
+            let spd =
+                I2cDevice::new(i2c_task, controller, port, mux, mem, "SPD");
             let ndx = (nbank * spd::MAX_DEVICES) + i;
 
             // Try reading the first byte; if this fails, we will assume
@@ -1225,7 +1228,8 @@ fn read_spd_data_and_load_packrat(
         let addr = spd::Function::PageAddress(spd::Page(1))
             .to_device_code()
             .unwrap_lite();
-        let page = I2cDevice::new(i2c_task, controller, port, None, addr);
+        let page =
+            I2cDevice::new(i2c_task, controller, port, None, addr, "SPD");
 
         // We really don't expect this to fail, and if it does, tossing here
         // seems to be best option:  things are pretty wrong.
@@ -1240,7 +1244,8 @@ fn read_spd_data_and_load_packrat(
             }
 
             let mem = spd::Function::Memory(i).to_device_code().unwrap_lite();
-            let spd = I2cDevice::new(i2c_task, controller, port, mux, mem);
+            let spd =
+                I2cDevice::new(i2c_task, controller, port, mux, mem, "SPD");
 
             let chunk = 128;
 

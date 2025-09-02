@@ -25,6 +25,11 @@ use userlib::{
 use drv_hf_api::HostFlash;
 use ringbuf::{counted_ringbuf, ringbuf_entry, Count};
 
+include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
+
+mod vcore;
+use vcore::VCore;
+
 task_slot!(JEFE, jefe);
 task_slot!(LOADER, spartan7_loader);
 task_slot!(HF, hf);
@@ -92,6 +97,9 @@ enum Trace {
     Thermtrip,
     A0MapoInterrupt,
     SmerrInterrupt,
+    PmbusAlert {
+        now: u64,
+    },
     UnexpectedInterrupt,
 }
 counted_ringbuf!(Trace, 128, Trace::None);
@@ -157,7 +165,7 @@ fn main() -> ! {
     let packrat = Packrat::from(PACKRAT.get_task_id());
     read_vpd_and_load_packrat(&packrat, I2C.get_task_id());
 
-    match init() {
+    match init(packrat) {
         // Set up everything nicely, time to start serving incoming messages.
         Ok(mut server) => {
             // Enable the backplane PCIe clock if requested
@@ -199,7 +207,7 @@ fn main() -> ! {
     }
 }
 
-fn init() -> Result<ServerImpl, SeqError> {
+fn init(packrat: Packrat) -> Result<ServerImpl, SeqError> {
     let sys = sys_api::Sys::from(SYS.get_task_id());
 
     // Pull the fault line low while we're loading
@@ -291,7 +299,7 @@ fn init() -> Result<ServerImpl, SeqError> {
     sys.gpio_set(SP_CHASSIS_STATUS_LED);
 
     let token = loader.get_token();
-    Ok(ServerImpl::new(token))
+    Ok(ServerImpl::new(token, packrat))
 }
 
 /// Configures the front FPGA pins and holds it in reset
@@ -369,10 +377,14 @@ struct ServerImpl {
     sys: Sys,
     hf: HostFlash,
     seq: fmc_periph::Sequencer,
+    vcore: VCore,
 }
 
 impl ServerImpl {
-    fn new(token: drv_spartan7_loader_api::Spartan7Token) -> Self {
+    fn new(
+        token: drv_spartan7_loader_api::Spartan7Token,
+        packrat: Packrat,
+    ) -> Self {
         let now = sys_get_timer().now;
         let seq = fmc_periph::Sequencer::new(token);
         ringbuf_entry!(Trace::Startup {
@@ -393,6 +405,7 @@ impl ServerImpl {
             sys: Sys::from(SYS.get_task_id()),
             hf: HostFlash::from(HF.get_task_id()),
             seq,
+            vcore: VCore::new(I2C.get_task_id(), packrat),
         }
     }
 
@@ -527,8 +540,9 @@ impl ServerImpl {
                         return Err(CpuSeqError::UnrecognizedCPU);
                     }
                 };
-
+                // Turn on the voltage regulator undervolt alerts.
                 self.enable_sequencer_interrupts();
+
                 // Flip the host flash mux so the CPU can read from it
                 // (this is secretly infallible on Cosmo, so we can unwrap it)
                 self.hf.set_mux(drv_hf_api::HfMuxState::HostCPU).unwrap();
@@ -633,6 +647,18 @@ impl ServerImpl {
             notifications::SEQ_IRQ_MASK,
             sys_api::IrqControl::Enable,
         );
+        // Enable the undervoltage warning PMBus alert from the Vcore
+        // regulators.
+        //
+        // Yes, we just ignore the error here --- while that seems a bit
+        // sketchy, but what else can we do? It seems pretty bad to panic and
+        // say "nope, the computer won't turn on" because we weren't able to do
+        // an I2C transaction to turn on an interrupt that we only use for
+        // monitoring for faults. The initialize method will retry internally a
+        // few times, so we should power through any transient I2C messiness,
+        // and any I2C errors that occur get logged in the `vcore` module's
+        // ringbuf.
+        let _ = self.vcore.initialize_uv_warning();
         self.seq.ier.modify(|m| {
             m.set_fanfault(true);
             m.set_thermtrip(true);
@@ -641,6 +667,9 @@ impl ServerImpl {
             m.set_nicmapo(true);
             m.set_amd_pwrok_fedge(true);
             m.set_amd_rstn_fedge(true);
+            // PMBus alert bits for Renesas RAA229620A PWM controllers.
+            m.set_pwr_cont1_to_fpga1_alert(true);
+            m.set_pwr_cont2_to_fpga1_alert(true);
         });
     }
 
@@ -653,6 +682,9 @@ impl ServerImpl {
             m.set_nicmapo(false);
             m.set_amd_pwrok_fedge(false);
             m.set_amd_rstn_fedge(false);
+
+            m.set_pwr_cont1_to_fpga1_alert(false);
+            m.set_pwr_cont2_to_fpga1_alert(false);
         });
         let _ = self.sys.gpio_irq_control(
             notifications::SEQ_IRQ_MASK,
@@ -676,6 +708,7 @@ impl ServerImpl {
             Smerr,
             Mapo,
             None,
+            Unexpected,
         }
 
         // We check these in lowest to highest priority. We start with
@@ -686,7 +719,39 @@ impl ServerImpl {
         // we probably(?) won't see multiple of these set at a time but
         // it's important to account for that case;
 
-        let mut action = InternalAction::None;
+        let mut action = InternalAction::Unexpected;
+
+        if ifr.pwr_cont1_to_fpga1_alert || ifr.pwr_cont2_to_fpga1_alert {
+            // We got a PMBus alert from one of the Vcore regulators.
+            //
+            // Note that --- unlike other IRQs from the FPGA --- we don't clear
+            // the IFR bits for PMALERT interrupts. Unlike the other IRQs, which
+            // are either edge-triggered in the FPGA or generated internally by
+            // the FPGA, the PMALERT IRQs from the FPGA are level-triggered, and
+            // are just passed through from the value of the PMALERT_L pins.
+            // They are cleared not by clearing the IFR bits, but by instructing
+            // the VRM to clear the PMBus alert, which happens in
+            // `self.vcore.handle_pmbus_alert`.
+            //
+            // See also:
+            // https://github.com/oxidecomputer/quartz/blob/bdc5fb31e1905a1b66c19647fe2d156dd1b97b7b/hdl/projects/cosmo_seq/sequencer/sequencer_regs.vhd#L243-L246
+            let now = sys_get_timer().now;
+            ringbuf_entry!(Trace::PmbusAlert { now });
+            let which_rails = vcore::Rails {
+                vddcr_cpu0: ifr.pwr_cont1_to_fpga1_alert,
+                vddcr_cpu1: ifr.pwr_cont2_to_fpga1_alert,
+            };
+            self.vcore.handle_pmbus_alert(which_rails, now);
+
+            // We need not instruct the sequencer to reset. PMBus alerts from
+            // the RAA229620As are divided into two categories, "warnings" and
+            // "faults", where "warnings" just pull PMALERT_L and set status
+            // bits, and "faults" also cause the VRM to deassert POWER_GOOD. If
+            // POWER_GOOD is deasserted, the sequencer FPGA will notice that and
+            // generate a subsequent IRQ, which is handled separately. So, all
+            // we need to do here is proceed and handle any other interrupts.
+            action = InternalAction::None;
+        }
 
         if ifr.amd_pwrok_fedge || ifr.amd_rstn_fedge {
             let rstn = self.seq.amd_reset_fedges.counts();
@@ -745,6 +810,9 @@ impl ServerImpl {
                 self.emergency_a2(StateChangeReason::SmerrAssert);
             }
             InternalAction::None => {
+                // That's right, just do nothing.
+            }
+            InternalAction::Unexpected => {
                 // This is unexpected, logging is the best we can do
                 ringbuf_entry!(Trace::UnexpectedInterrupt);
             }
