@@ -387,7 +387,7 @@ uses = ["mmio_dimms"]
 name = "drv-auxflash-server"
 priority = 3
 max-sizes = {flash = 32768, ram = 4096}
-features = ["h753"]
+features = ["h753", "gotta-go-fast"]
 uses = ["quadspi"]
 start = true
 notifications = ["qspi-irq"]
@@ -1388,6 +1388,7 @@ input = {port = "B", pin = 14, af = 5}
 [config.spi.spi2.devices.spartan7_fpga]
 mux = "port_b"
 cs = []
+clock_divider = "DIV8" # 12.5 MHz
 # no CS pin; we're using the SPI peripheral to send synchronized CLK + DATA
 
 # SPI_SP_TO_KSZ8463_SCK
