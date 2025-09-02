@@ -723,6 +723,18 @@ impl ServerImpl {
 
         if ifr.pwr_cont1_to_fpga1_alert || ifr.pwr_cont2_to_fpga1_alert {
             // We got a PMBus alert from one of the Vcore regulators.
+            //
+            // Note that --- unlike other IRQs from the FPGA --- we don't clear
+            // the IFR bits for PMALERT interrupts. Unlike the other IRQs, which
+            // are either edge-triggered in the FPGA or generated internally by
+            // the FPGA, the PMALERT IRQs from the FPGA are level-triggered, and
+            // are just passed through from the value of the PMALERT_L pins.
+            // They are cleared not by clearing the IFR bits, but by instructing
+            // the VRM to clear the PMBus alert, which happens in
+            // `self.vcore.handle_pmbus_alert`.
+            //
+            // See also:
+            // https://github.com/oxidecomputer/quartz/blob/bdc5fb31e1905a1b66c19647fe2d156dd1b97b7b/hdl/projects/cosmo_seq/sequencer/sequencer_regs.vhd#L243-L246
             let now = sys_get_timer().now;
             ringbuf_entry!(Trace::PmbusAlert { now });
             let which_rails = vcore::Rails {
