@@ -93,7 +93,7 @@ write = true
 execute = false
 dma = true
 
-[[override]]
+[[transient_override]]
 name = "a"
 address = 0x2003ffe0
 size = 32
@@ -101,7 +101,7 @@ read = true
 write = true
 execute = false
 
-[[override]]
+[[transient_override]]
 name = "b"
 address = 0x2003ffe0
 size = 32

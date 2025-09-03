@@ -5289,22 +5289,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "task-caboose-reader"
-version = "0.1.0"
-dependencies = [
- "build-util",
- "cfg-if",
- "drv-caboose",
- "drv-caboose-pos",
- "idol",
- "idol-runtime",
- "num-traits",
- "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
-]
-
-[[package]]
 name = "task-config"
 version = "0.1.0"
 dependencies = [
@@ -6006,29 +5990,6 @@ dependencies = [
  "ringbuf",
  "serde",
  "sha3",
- "userlib",
-]
-
-[[package]]
-name = "task-spd"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "build-i2c",
- "build-util",
- "cfg-if",
- "cortex-m",
- "drv-cpu-seq-api",
- "drv-i2c-api",
- "drv-stm32xx-i2c",
- "drv-stm32xx-sys-api",
- "idol",
- "num-traits",
- "ringbuf",
- "spd",
- "stm32h7",
- "task-jefe-api",
- "task-packrat-api",
  "userlib",
 ]
 

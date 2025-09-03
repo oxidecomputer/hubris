@@ -12,7 +12,6 @@
 use core::convert::Infallible;
 use core::mem::MaybeUninit;
 use core::ops::Range;
-use core::ptr;
 use drv_lpc55_flash::{BYTES_PER_FLASH_PAGE, BYTES_PER_FLASH_WORD};
 use drv_lpc55_update_api::{
     Fwid, RawCabooseError, RotBootInfo, RotBootInfoV2, RotComponent, RotPage,
@@ -1476,25 +1475,33 @@ fn bootstate() -> Result<RotBootStateV2, HandoffDataLoadError> {
     RotBootStateV2::load_from_addr(addr)
 }
 
+extern "C" {
+    // Symbols injected by the linker.
+    //
+    // This requires adding `extern-regions = ["transient_override"]` to the task config.
+    pub static mut __REGION_TRANSIENT_OVERRIDE_BASE: [u32; 0];
+}
+
 fn set_transient_override(preference: [u8; 32]) {
-    // Safety: Data is consumed by Bootleby on next boot.
-    // There are no concurrent writers possible.
-    // Calling this function multiple times is ok.
-    // Bootleby is careful to vet contents before acting.
+    // Safety: populated by the linker, getting the address is fine.
+    // SAFETY: this points to a valid region of RAM that is otherwise unused by Rust, so we can
+    // write to it.
     unsafe {
-        ptr::write_volatile(
-            ptr::addr_of_mut!(TRANSIENT_OVERRIDE),
-            MaybeUninit::new(preference),
-        );
+        let override_addr =
+            core::ptr::addr_of_mut!(__REGION_TRANSIENT_OVERRIDE_BASE)
+                as *mut [u8; 32];
+        core::ptr::write_volatile(override_addr, preference);
     }
 }
 
 fn get_transient_override() -> [u8; 32] {
-    // Safety: Data is consumed by Bootleby on next boot.
-    // There are no concurrent writers possible.
-    // Bootleby consumes and resets TRANSIENT_OVERRIDE.
-    // The client may be verifying state set during update flows.
-    unsafe { TRANSIENT_OVERRIDE.assume_init() }
+    // SAFETY: populated by the linker, getting the address is fine.
+    unsafe {
+        let override_addr =
+            core::ptr::addr_of_mut!(__REGION_TRANSIENT_OVERRIDE_BASE)
+                as *mut [u8; 32];
+        core::ptr::read_volatile(override_addr)
+    }
 }
 
 // Preference constants are taken from bootleby:src/lib.rs

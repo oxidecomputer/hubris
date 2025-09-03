@@ -42,7 +42,8 @@ name = "lpc55-update-server"
 priority = 3
 stacksize = 8192
 start = true
-sections = {bootstate = "usbsram", transient_override = "override"}
+sections = {bootstate = "usbsram"}
+extern-regions = ["transient_override"]
 uses = ["flash_controller", "hash_crypt"]
 notifications = ["flash-irq", "hashcrypt-irq"]
 interrupts = {"flash_controller.irq" = "flash-irq", "hash_crypt.irq" = "hashcrypt-irq"}
