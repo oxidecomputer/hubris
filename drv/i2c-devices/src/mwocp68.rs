@@ -30,7 +30,7 @@ pub struct Mwocp68 {
 #[derive(Copy, Clone, PartialEq)]
 pub struct FirmwareRev(pub [u8; 4]);
 
-#[derive(Copy, Clone, PartialEq, Default)]
+#[derive(Copy, Clone, PartialEq, Eq, Default)]
 pub struct SerialNumber(pub [u8; 12]);
 
 //
