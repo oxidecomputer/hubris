@@ -17,7 +17,10 @@ use drv_spartan7_spi_program::{BitstreamLoader, Spartan7Error};
 use drv_spi_api::{SpiDevice, SpiServer};
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};
-use userlib::{hl, sys_recv_notification, task_slot, RecvMessage, UnwrapLite};
+use userlib::{
+    hl, sys_get_timer, sys_recv_notification, task_slot, RecvMessage,
+    UnwrapLite,
+};
 
 use ringbuf::{counted_ringbuf, ringbuf_entry, Count};
 
@@ -54,7 +57,9 @@ enum Trace {
     StartFailed(#[count(children)] LoaderError),
     ContinueBitstreamLoad(usize),
     WaitForDone,
-    Programmed,
+    Programmed {
+        load_time_ms: u64,
+    },
 }
 
 #[derive(Copy, Clone, PartialEq, Count)]
@@ -130,6 +135,7 @@ fn init() -> Result<(), LoaderError> {
     let sys = sys_api::Sys::from(SYS.get_task_id());
     let dev = claim_spi(&sys).device(drv_spi_api::devices::SPARTAN7_FPGA);
     let aux = drv_auxflash_api::AuxFlash::from(AUXFLASH.get_task_id());
+    let start = sys_get_timer().now;
 
     // Translate from our magical task config to our desired type
     let pin_cfg = drv_spartan7_spi_program::Config {
@@ -175,7 +181,11 @@ fn init() -> Result<(), LoaderError> {
     // to FMC-based peripherals implemented in the FPGA.  This specific delay is
     // probably overkill, but it's known to work!
     hl::sleep_for(100);
-    ringbuf_entry!(Trace::Programmed);
+
+    let now = sys_get_timer().now;
+    ringbuf_entry!(Trace::Programmed {
+        load_time_ms: now - start
+    });
 
     Ok(())
 }

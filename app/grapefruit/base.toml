@@ -265,7 +265,7 @@ interrupts = {"usart1.irq" = "usart-irq"}
 name = "drv-auxflash-server"
 priority = 3
 max-sizes = {flash = 32768, ram = 4096}
-features = ["h753"]
+features = ["h753", "fast-qspi"]
 uses = ["quadspi"]
 start = true
 notifications = ["qspi-irq"]
@@ -428,6 +428,7 @@ input = {port = "B", pin = 14, af = 5} # not actually used in FPGA config
 [config.spi.spi2.devices.spartan7_fpga]
 mux = "port_b"
 cs = []
+clock_divider = "DIV8" # 12.5 MHz
 # no CS pin; we're using the SPI peripheral to send synchronized CLK + DATA
 
 [config.spi.spi4]
