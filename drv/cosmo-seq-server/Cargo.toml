@@ -9,6 +9,8 @@ drv-cpu-power-state = { path = "../cpu-power-state" }
 counters = { path = "../../lib/counters" }
 drv-cpu-seq-api = { path = "../cpu-seq-api" }
 drv-hf-api = { path = "../hf-api" }
+drv-i2c-api = { path = "../i2c-api", features = ["component-id"] }
+drv-i2c-devices = { path = "../i2c-devices" }
 drv-ice40-spi-program = { path = "../ice40-spi-program" }
 drv-packrat-vpd-loader = { path = "../packrat-vpd-loader" }
 drv-spartan7-loader-api = { path = "../spartan7-loader-api" }
@@ -18,15 +20,21 @@ gnarle = { path = "../../lib/gnarle" }
 ringbuf = { path = "../../lib/ringbuf" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 task-jefe-api = { path = "../../task/jefe-api" }
+task-packrat-api = { path = "../../task/packrat-api" }
 
 cfg-if = { workspace = true }
 idol-runtime.workspace = true
 num-traits = { workspace = true }
+minicbor = { workspace = true }
+minicbor-serde = { workspace = true }
+pmbus = { workspace = true }
+serde = { workspace = true }
 zerocopy = { workspace = true }
 zerocopy-derive = { workspace = true }
 
 [build-dependencies]
 build-fpga-regmap = { path = "../../build/fpga-regmap" }
+build-i2c = { path = "../../build/i2c" }
 build-util = { path = "../../build/util" }
 build-stm32xx-sys = { path = "../../build/stm32xx-sys" }
 idol = { workspace = true }

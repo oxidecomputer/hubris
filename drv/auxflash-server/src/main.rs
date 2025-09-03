@@ -71,10 +71,21 @@ fn main() -> ! {
     sys.leave_reset(sys_api::Peripheral::QuadSpi);
 
     let reg = unsafe { &*device::QUADSPI::ptr() };
-    let qspi =
-        Qspi::new(reg, notifications::QSPI_IRQ_MASK, ReadSetting::Single);
+    let qspi = Qspi::new(
+        reg,
+        notifications::QSPI_IRQ_MASK,
+        if cfg!(feature = "fast-qspi") {
+            ReadSetting::Quad
+        } else {
+            ReadSetting::Single
+        },
+    );
 
-    let clock = 5; // 200MHz kernel / 5 = 40MHz clock
+    let clock = if cfg!(feature = "fast-qspi") {
+        3 // 200MHz kernel / 3 = 66MHz clock
+    } else {
+        5 // 200MHz kernel / 5 = 40MHz clock
+    };
     const MEMORY_SIZE: usize = SLOT_COUNT as usize * SLOT_SIZE;
     assert!(MEMORY_SIZE.is_power_of_two());
     let memory_size_log2 = MEMORY_SIZE.trailing_zeros().try_into().unwrap();

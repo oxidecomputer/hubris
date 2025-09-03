@@ -93,6 +93,7 @@ lpc55-pac = { version = "0.4", default-features = false }
 memchr = { version = "2.4", default-features = false }
 memoffset = { version = "0.6.5", default-features = false }
 minicbor = { version = "2.1.1", default-features = false }
+minicbor-serde = { version = "0.6.0", default-features = false }
 multimap = { version = "0.8.3", default-features = false }
 nb = { version = "1", default-features = false }
 num = { version = "0.4", default-features = false }
