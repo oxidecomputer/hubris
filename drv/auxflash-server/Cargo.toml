@@ -25,7 +25,7 @@ idol = { workspace = true }
 [features]
 h753 = ["stm32h7/stm32h753", "drv-stm32xx-sys-api/h753", "drv-stm32h7-qspi/h753"]
 no-ipc-counters = ["idol/no-counters"]
-gotta-go-fast = [] # runs in quad mode + 66 MHz, instead of single + 40 MHz
+fast-qspi = [] # runs in quad mode + 66 MHz, instead of single + 40 MHz
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

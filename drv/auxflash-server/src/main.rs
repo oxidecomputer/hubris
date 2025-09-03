@@ -74,14 +74,14 @@ fn main() -> ! {
     let qspi = Qspi::new(
         reg,
         notifications::QSPI_IRQ_MASK,
-        if cfg!(feature = "gotta-go-fast") {
+        if cfg!(feature = "fast-qspi") {
             ReadSetting::Quad
         } else {
             ReadSetting::Single
         },
     );
 
-    let clock = if cfg!(feature = "gotta-go-fast") {
+    let clock = if cfg!(feature = "fast-qspi") {
         3 // 200MHz kernel / 3 = 66MHz clock
     } else {
         5 // 200MHz kernel / 5 = 40MHz clock

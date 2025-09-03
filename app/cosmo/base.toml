@@ -387,7 +387,7 @@ uses = ["mmio_dimms"]
 name = "drv-auxflash-server"
 priority = 3
 max-sizes = {flash = 32768, ram = 4096}
-features = ["h753", "gotta-go-fast"]
+features = ["h753", "fast-qspi"]
 uses = ["quadspi"]
 start = true
 notifications = ["qspi-irq"]
