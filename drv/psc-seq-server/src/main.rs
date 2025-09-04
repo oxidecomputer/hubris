@@ -99,11 +99,8 @@
 #![no_std]
 #![no_main]
 
-use drv_i2c_api::{self as i2c, I2cDevice};
-use drv_i2c_devices::{
-    m24c02::M24C02,
-    mwocp68::{self, Mwocp68},
-};
+use drv_i2c_api::I2cDevice;
+use drv_i2c_devices::mwocp68::{self, Mwocp68};
 use drv_packrat_vpd_loader::{read_vpd_and_load_packrat, Packrat};
 use drv_psc_seq_api::PowerState;
 use drv_stm32xx_sys_api as sys_api;
@@ -126,13 +123,13 @@ enum Trace {
     /// detect it as "on" due to the pull resistors.)
     FoundEnabled {
         psu: u8,
-        serial: Option<mwocp68::SerialNumber>,
+        serial: Option<[u8; 12]>,
     },
     /// Emitted at task startup when we find that a power supply appears to have
     /// been disabled.
     FoundAlreadyDisabled {
         psu: u8,
-        serial: Option<mwocp68::SerialNumber>,
+        serial: Option<[u8; 12]>,
     },
     /// Emitted when we decide a power supply should be on.
     Enabling {
@@ -147,7 +144,6 @@ enum Trace {
     },
     I2cError {
         psu: u8,
-        txn: I2cTxn,
         err: mwocp68::Error,
     },
     EreportSentOff {
@@ -159,11 +155,6 @@ enum Trace {
         psu: u8,
         class: ereport::Class,
     },
-}
-
-#[derive(Copy, Clone, PartialEq, Eq)]
-enum I2cTxn {
-    ReadSerial,
 }
 
 ringbuf!((u64, Trace), 128, (0, Trace::Empty));
@@ -427,22 +418,17 @@ fn main() -> ! {
             let (dev, rail) = make_dev(i2c);
             Mwocp68::new(&dev, rail)
         };
-        let (state, serial) = if present_l_bits & (1 << PSU_PRESENT_L_PINS[i])
-            == 0
-        {
+        let mut fruid = PsuFruid::default();
+        let state = if present_l_bits & (1 << PSU_PRESENT_L_PINS[i]) == 0 {
             // Hello, who are you?
-            let serial =
-                retry_i2c_txn(start_time, i as u8, I2cTxn::ReadSerial, || {
-                    dev.serial_number()
-                })
-                .ok();
+            fruid.refresh(&dev, i as u8, start_time);
             // ...and how are you doing?
             let state = PsuState::Present(if initial_psu_enabled[i] {
                 ringbuf_entry!((
                     start_time,
                     Trace::FoundEnabled {
                         psu: i as u8,
-                        serial
+                        serial: fruid.serial
                     }
                 ));
                 PresentState::On
@@ -453,22 +439,22 @@ fn main() -> ! {
                     start_time,
                     Trace::FoundAlreadyDisabled {
                         psu: i as u8,
-                        serial
+                        serial: fruid.serial
                     }
                 ));
                 PresentState::Faulted {
                     turn_on_deadline: start_time.saturating_add(FAULT_OFF_MS),
                 }
             });
-            (state, serial)
+            state
         } else {
-            (PsuState::NotPresent, None)
+            PsuState::NotPresent
         };
         Psu {
             slot: i as u8,
             state,
             dev,
-            serial,
+            fruid,
         }
     });
 
@@ -574,8 +560,10 @@ struct Psu {
     slot: u8,
     state: PsuState,
     dev: Mwocp68,
-    serial: Option<mwocp68::SerialNumber>,
-    // eeprom: M24C02,
+    /// Because we would like to include the PSU's FRU ID information in the
+    /// ereports generated when a PSU is *removed*, we must cache it here rather
+    /// than reading it from the device when we generate an ereport for it.
+    fruid: PsuFruid,
 }
 
 impl Psu {
@@ -601,15 +589,16 @@ impl Psu {
             (_, Present::No, _) => {
                 let ereport = ereport::Ereport {
                     class: ereport::Class::Removed,
-                    v: 0,
+                    version: 0,
                     dev_id: self.dev.i2c_device().component_id(),
-                    psu: self.psu_id(),
+                    psu_slot: self.slot,
+                    fruid: self.fruid,
                     pmbus_status: None,
                 };
 
                 self.state = PsuState::NotPresent;
-                // Clear the cached serial only *after* we have put it in the ereport.
-                self.serial = None;
+                // Clear the FRUID serial only *after* we have put it in the ereport.
+                self.fruid = PsuFruid::default();
 
                 Step {
                     action: Some(ActionRequired::DisableMe {
@@ -628,7 +617,7 @@ impl Psu {
                     settle_deadline,
                 });
                 // Hello, who are you?
-                self.update_serial(now);
+                self.fruid.refresh(&self.dev, self.slot, now);
                 // No external action required until our timer elapses.
                 Step::default()
             }
@@ -640,7 +629,8 @@ impl Psu {
                 _,
                 _,
             ) => {
-                self.update_serial(now);
+                // Hello, who are you?
+                self.fruid.refresh(&self.dev, self.slot, now);
                 if settle_deadline <= now {
                     // The PSU is still present (since the Present::No case above
                     // didn't fire) and our deadline has elapsed. Let's treat this
@@ -648,9 +638,10 @@ impl Psu {
                     self.state = PsuState::Present(PresentState::On);
                     let ereport = ereport::Ereport {
                         class: ereport::Class::Inserted,
-                        v: 0,
+                        version: 0,
                         dev_id: self.dev.i2c_device().component_id(),
-                        psu: self.psu_id(),
+                        psu_slot: self.slot,
+                        fruid: self.fruid,
                         pmbus_status: None,
                     };
 
@@ -666,7 +657,9 @@ impl Psu {
 
             // yay!
             (PsuState::Present(PresentState::On), _, Status::Good) => {
-                self.update_serial(now);
+                // Just in case we were previously unable to read any FRUID
+                // values due to I2C weather, try to refresh them
+                self.fruid.refresh(&self.dev, self.slot, now);
 
                 Step::default()
             }
@@ -680,9 +673,10 @@ impl Psu {
                 });
                 let ereport = ereport::Ereport {
                     class: ereport::Class::Fault,
-                    v: 0,
+                    version: 0,
                     dev_id: self.dev.i2c_device().component_id(),
-                    psu: self.psu_id(),
+                    psu_slot: self.slot,
+                    fruid: self.fruid,
                     pmbus_status: None, // TODO(eliza)
                 };
 
@@ -720,15 +714,19 @@ impl Psu {
                 _,
                 _,
             ) => {
+                // Just in case we were previously unable to read any FRUID
+                // values due to I2C weather, try to refresh them
+                self.fruid.refresh(&self.dev, self.slot, now);
                 if deadline <= now {
                     // Take PSU out of probation state and start monitoring its
                     // OK line.
                     self.state = PsuState::Present(PresentState::On);
                     let ereport = ereport::Ereport {
                         class: ereport::Class::FaultCleared,
-                        v: 0,
+                        version: 0,
                         dev_id: self.dev.i2c_device().component_id(),
-                        psu: self.psu_id(),
+                        psu_slot: self.slot,
+                        fruid: self.fruid,
                         pmbus_status: None, // TODO(eliza)
                     };
                     Step {
@@ -742,23 +740,6 @@ impl Psu {
             }
         }
     }
-
-    fn update_serial(&mut self, now: u64) {
-        if self.serial.is_some() {
-            return;
-        }
-        self.serial = retry_i2c_txn(now, self.slot, I2cTxn::ReadSerial, || {
-            self.dev.serial_number()
-        })
-        .ok();
-    }
-
-    fn psu_id(&self) -> ereport::Psu {
-        ereport::Psu {
-            serial: self.serial,
-            slot: self.slot,
-        }
-    }
 }
 
 #[derive(Default)]
@@ -767,10 +748,48 @@ struct Step {
     ereport: Option<ereport::Ereport>,
 }
 
+#[derive(Copy, Clone, serde::Serialize, Default)]
+struct PsuFruid {
+    #[serde(serialize_with = "ereport::serialize_fixed_str")]
+    mfr: Option<[u8; 9]>,
+    #[serde(serialize_with = "ereport::serialize_fixed_str")]
+    mpn: Option<[u8; 17]>,
+    #[serde(serialize_with = "ereport::serialize_fixed_str")]
+    serial: Option<[u8; 12]>,
+    #[serde(serialize_with = "ereport::serialize_fixed_str")]
+    fw_rev: Option<[u8; 4]>,
+}
+
+impl PsuFruid {
+    fn refresh(&mut self, dev: &Mwocp68, psu: u8, now: u64) {
+        if self.mfr.is_none() {
+            self.mfr =
+                retry_i2c_txn(now, psu, || dev.mfr_id()).ok().map(|v| v.0);
+        }
+
+        if self.serial.is_none() {
+            self.serial = retry_i2c_txn(now, psu, || dev.serial_number())
+                .ok()
+                .map(|v| v.0);
+        }
+
+        if self.mpn.is_none() {
+            self.mpn = retry_i2c_txn(now, psu, || dev.model_number())
+                .ok()
+                .map(|v| v.0);
+        }
+
+        if self.fw_rev.is_none() {
+            self.fw_rev = retry_i2c_txn(now, psu, || dev.firmware_revision())
+                .ok()
+                .map(|v| v.0);
+        }
+    }
+}
+
 fn retry_i2c_txn<T>(
     now: u64,
     psu: u8,
-    which: I2cTxn,
     mut txn: impl FnMut() -> Result<T, mwocp68::Error>,
 ) -> Result<T, mwocp68::Error> {
     // Chosen by fair dice roll, seems reasonable-ish?
@@ -779,14 +798,7 @@ fn retry_i2c_txn<T>(
         match txn() {
             Ok(x) => return Ok(x),
             Err(err) => {
-                ringbuf_entry!((
-                    now,
-                    Trace::I2cError {
-                        psu,
-                        txn: which,
-                        err
-                    }
-                ));
+                ringbuf_entry!((now, Trace::I2cError { psu, err }));
 
                 if retries_remaining == 0 {
                     // ringbuf_entry!((now, Trace::I2cFault { psu, txn }));
@@ -829,9 +841,11 @@ mod ereport {
     pub(super) struct Ereport {
         #[serde(rename = "k")]
         pub(super) class: Class,
-        pub(super) v: u32,
+        #[serde(rename = "v")]
+        pub(super) version: u32,
         pub(super) dev_id: &'static str,
-        pub(super) psu: Psu,
+        pub(super) psu_slot: u8,
+        pub(super) fruid: PsuFruid,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub(super) pmbus_status: Option<PmbusStatus>,
     }
@@ -854,7 +868,7 @@ mod ereport {
                     ringbuf_entry!((
                         now,
                         Trace::EreportSentOff {
-                            psu: self.psu.slot,
+                            psu: self.psu_slot,
                             class: self.class,
                             len,
                         }
@@ -865,20 +879,13 @@ mod ereport {
                     ringbuf_entry!((
                         now,
                         Trace::EreportTooBig {
-                            psu: self.psu.slot,
+                            psu: self.psu_slot,
                             class: self.class
                         }
                     ));
                 }
             }
         }
-    }
-
-    #[derive(Copy, Clone, Serialize)]
-    pub(super) struct Psu {
-        pub(super) slot: u8,
-        #[serde(serialize_with = "serialize_serial")]
-        pub(super) serial: Option<mwocp68::SerialNumber>,
     }
 
     #[derive(Copy, Clone, Default, Serialize)]
@@ -892,16 +899,17 @@ mod ereport {
         pub(super) mfr: Option<u8>,
     }
 
-    fn serialize_serial<S>(
-        serial: &Option<mwocp68::SerialNumber>,
+    /// XXX(eliza): A "fixed length byte string" helper would be a nice thing to
+    /// have...
+    pub(super) fn serialize_fixed_str<const LEN: usize, S>(
+        s: &Option<[u8; LEN]>,
         serializer: S,
     ) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
-        serial
-            .as_ref()
-            .and_then(|mwocp68::SerialNumber(s)| str::from_utf8(s).ok())
+        s.as_ref()
+            .and_then(|s| str::from_utf8(&s[..]).ok())
             .serialize(serializer)
     }
 }
