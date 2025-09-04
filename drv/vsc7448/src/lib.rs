@@ -920,34 +920,29 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         &self,
         targets: VlanTargets,
     ) -> Result<(), VscError> {
-        self.configure_vlans(|p| match (p, targets) {
-            (sidecar::UPLINK, _) => None,
-            (sidecar::TECHNICIAN_1, _) => {
+        self.configure_vlans(|p| match (targets, p) {
+            (_, sidecar::UPLINK) => None,
+            (_, sidecar::TECHNICIAN_1) => {
                 // Technician ports are connected to every port, but not to each
                 // other (to prevent spanning tree fun)
                 Some(((1 << 53) - 1) & !(1 << sidecar::TECHNICIAN_2))
             }
-            (sidecar::TECHNICIAN_2, _) => {
+            (_, sidecar::TECHNICIAN_2) => {
                 Some(((1 << 53) - 1) & !(1 << sidecar::TECHNICIAN_1))
             }
             // SPs are connected to the Tofino and technician ports
-            (_, VlanTargets::EverySp) => Some(
-                (1 << p)
-                    | (1 << sidecar::UPLINK)
-                    | (1 << sidecar::TECHNICIAN_1)
-                    | (1 << sidecar::TECHNICIAN_2),
-            ),
-            // Scrimlet SPs are connected to the Tofino and technician ports
-            (
-                sidecar::CUBBY_14 | sidecar::CUBBY_16,
+            (VlanTargets::EverySp, _)
+            | (
                 VlanTargets::ScrimletOnly,
+                sidecar::CUBBY_14 | sidecar::CUBBY_16,
             ) => Some(
                 (1 << p)
                     | (1 << sidecar::UPLINK)
                     | (1 << sidecar::TECHNICIAN_1)
                     | (1 << sidecar::TECHNICIAN_2),
             ),
-            (_, VlanTargets::ScrimletOnly) => {
+            // SPs connected to only the uplink port
+            (VlanTargets::ScrimletOnly, _) => {
                 Some((1 << p) | (1 << sidecar::UPLINK))
             }
         })
