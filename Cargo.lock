@@ -1988,6 +1988,7 @@ version = "0.1.0"
 dependencies = [
  "build-i2c",
  "build-util",
+ "counters",
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-packrat-vpd-loader",

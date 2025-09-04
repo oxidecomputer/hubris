@@ -12,7 +12,8 @@ drv-i2c-devices.path = "../../drv/i2c-devices"
 task-jefe-api.path = "../../task/jefe-api"
 task-packrat-api.path = "../../task/packrat-api"
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
-ringbuf = { path = "../../lib/ringbuf" }
+ringbuf = { path = "../../lib/ringbuf", features = ["counters"] }
+counters = { path = "../../lib/counters" }
 serde.workspace = true
 minicbor.workspace = true
 minicbor-serde.workspace = true
