@@ -2,5 +2,10 @@
 name = "gimlet-c"
 board = "gimlet-c"
 
-# Rev C is mostly identical to Rev B, but with a new name and board
+# Rev C is mostly identical to Rev B, but with a new name and board.  It also
+# supports measurement token handoff between the RoT and SP.
 inherit = "rev-b.toml"
+
+[kernel]
+features = ["measurement-handoff"]
+extern-regions = ["dtcm"]
