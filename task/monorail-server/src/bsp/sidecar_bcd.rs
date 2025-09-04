@@ -48,6 +48,8 @@ enum VLanMode {
     UnlockedUntil(u64),
 }
 
+const VLAN_UNLOCK_TARGETS: vsc7448::VlanTargets = vsc7448::VlanTargets::EverySp;
+
 ////////////////////////////////////////////////////////////////////////////////
 
 pub struct Bsp<'a, R> {
@@ -240,7 +242,8 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             VLanMode::UnlockedUntil(t) => {
                 let now = userlib::sys_get_timer().now;
                 if now < t {
-                    self.vsc7448.configure_vlan_sidecar_unlocked()?;
+                    self.vsc7448
+                        .configure_vlan_sidecar_unlocked(VLAN_UNLOCK_TARGETS)?;
                 } else {
                     ringbuf_entry!(Trace::AutomaticLock);
                     self.vsc7448.configure_vlan_sidecar_locked()?;
@@ -595,10 +598,12 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         unlock_until: u64,
     ) -> Result<(), RequestError<MonorailError>> {
         ringbuf_entry!(Trace::UnlockUntil(unlock_until));
-        self.vsc7448.sidecar_vlan_unlock().map_err(|e| {
-            ringbuf_entry!(Trace::UnlockError(e));
-            MonorailError::from(e)
-        })?;
+        self.vsc7448
+            .sidecar_vlan_unlock(VLAN_UNLOCK_TARGETS)
+            .map_err(|e| {
+                ringbuf_entry!(Trace::UnlockError(e));
+                MonorailError::from(e)
+            })?;
         self.vlan_mode = VLanMode::UnlockedUntil(unlock_until);
         Ok(())
     }
