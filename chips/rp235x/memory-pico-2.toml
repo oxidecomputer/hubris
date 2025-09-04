@@ -1,0 +1,15 @@
+[[flash]]
+address = 0x1000_0000  # 2.2. Address map "XIP 0x10000000"
+# NOTE: RP235x flash is external, so the value here is a property of the Pico 2, not the RP2350
+# itself. Update to suit your actual hardware.
+size = 0x40_0000       # Pico 2 datasheet: "RP2350 microcontroller with 4 MB of flash memory"
+read = true
+execute = true
+
+[[ram]]
+address = 0x2000_0000  # 4.2. SRAM "SRAM is mapped to system addresses starting at 0x20000000."
+size = 0x8_2000        # 4.2. SRAM "There is a total of 520 kB (520 × 1024 bytes) of on-chip SRAM."
+read = true
+write = true
+execute = false        # 4.2. SRAM "you can use any bank to store processor code, data buffers, or a
+                       #            mixture of the two."

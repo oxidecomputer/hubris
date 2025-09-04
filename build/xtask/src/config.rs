@@ -144,7 +144,13 @@ impl Config {
         let mut peripherals: IndexMap<String, Peripheral> = {
             let chip_file =
                 cfg.parent().unwrap().join(&toml.chip).join("chip.toml");
-            let chip_contents = std::fs::read(chip_file)?;
+            let chip_contents =
+                std::fs::read(&chip_file).with_context(|| {
+                    format!(
+                        "could not find chip.toml at {}",
+                        chip_file.display()
+                    )
+                })?;
             hasher.write(&chip_contents);
             toml::from_str(std::str::from_utf8(&chip_contents)?)?
         };

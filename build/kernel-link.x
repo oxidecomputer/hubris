@@ -74,6 +74,17 @@ SECTIONS
     . = . + _HUBRIS_IMAGE_HEADER_SIZE;
   } > FLASH
 
+  /* Optional RP235x IMAGE_DEF block loop (tiny: typically 20 bytes)
+     We put it AFTER the header to preserve the bootloader invariant.
+     If no object defines .image_def, this section has size 0. */
+  .image_def :
+  {
+    __image_def_start = .;
+    . = ALIGN(4);
+    KEEP(*(.image_def));
+    __image_def_end = .;
+  } > FLASH
+
   /* Explicitly place text at vector table + size of header, deliberately ignoring
      section alignment. This is important because the bootloader assumes that the header
      immediately follows the vector table; if something changes to cause that to not
@@ -81,7 +92,10 @@ SECTIONS
      a difficult to understand linker failure, which will hopefully be somewhat improved
      by this comment.
   */
-  PROVIDE(_stext = ADDR(.vector_table) + SIZEOF(.vector_table) + SIZEOF(.header));
+  PROVIDE(_stext = ADDR(.vector_table)
+                    + SIZEOF(.vector_table)
+                    + SIZEOF(.header)
+                    + SIZEOF(.image_def));
 
   /* ### .text */
   .text _stext :
@@ -279,5 +293,26 @@ ASSERT(ADDR(.vector_table) % (1 << LOG2CEIL(SIZEOF(.vector_table))) == 0, "
 Vector table alignment too small for number of exception entires. Increase
 the alignment to the next power of two");
 
+/* --- optional safety checks for RP235x builds --- */
+
+/* IMAGE_DEF must sit within first 4 KiB of the image */
+ASSERT(SIZEOF(.image_def) == 0
+       || (__image_def_end - ADDR(.vector_table)) <= 0x1000,
+"RP235x: IMAGE_DEF must be within the first 4 KiB of the image");
+
+/* Guard against the header growing large enough to push IMAGE_DEF out of the first 4k */
+ASSERT(SIZEOF(.image_def) == 0
+       || (SIZEOF(.vector_table) + SIZEOF(.header) + SIZEOF(.image_def)) <= 0x1000,
+"Vector+header+IMAGE_DEF must fit in first 4 KiB");
+
+/* Ensure it remains the expected n-byte form (adjust if items are added) */
+ASSERT(SIZEOF(.image_def) == 0
+       || SIZEOF(.image_def) == 20,
+"Unexpected IMAGE_DEF size; edit kernel-link.x if this change was expected");
+
+/* Sanity: keep IMAGE_DEF before .text */
+ASSERT(SIZEOF(.image_def) == 0
+       || ADDR(.image_def) < ADDR(.text),
+"IMAGE_DEF must precede .text");
 
 /* Do not exceed this mark in the error messages above                                    | */
