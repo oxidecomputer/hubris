@@ -17,7 +17,7 @@
 //! hard time moving values into registers r6, r7, and r11. Because (for better
 //! or worse) the syscall ABI uses these registers, we have to take extra steps.
 //!
-//! The `stub` function contains the actual `asm!` call sequence. It is `naked`,
+//! The `stub` function contains the actual `naked_asm!` call sequence. It is `naked`,
 //! meaning the compiler will *not* attempt to do any framepointer/basepointer
 //! nonsense, and we can thus reason about the assignment and availability of
 //! all registers.
@@ -1066,7 +1066,8 @@ unsafe extern "C" fn sys_panic_stub(_msg: *const u8, _len: usize) -> ! {
 
                 @ To the kernel!
                 svc #0
-                @ noreturn generates a udf to trap us if it returns.
+                @ if the handler ever returns, trap
+                udf 0xde
                 ",
                 sysnum = const Sysnum::Panic as u32,
             )
@@ -1085,7 +1086,8 @@ unsafe extern "C" fn sys_panic_stub(_msg: *const u8, _len: usize) -> ! {
 
                 @ To the kernel!
                 svc #0
-                @ noreturn generates a udf to trap us if it returns.
+                @ if the handler ever returns, trap
+                udf 0xde
                 ",
                 sysnum = const Sysnum::Panic as u32,
             )
@@ -1268,9 +1270,9 @@ pub unsafe extern "C" fn _start() -> ! {
                 @ a sym operand because it's a Rust func and may be mangled.
                 bl {main}
 
-                @ The noreturn option below will automatically generate an
-                @ undefined instruction trap past this point, should main
+                @ Add an undefined instruction to trap past this point, should main
                 @ return.
+                udf 0xde
                 ",
                 main = sym main,
             )
@@ -1325,9 +1327,9 @@ pub unsafe extern "C" fn _start() -> ! {
                 @ a sym operand because it's a Rust func and may be mangled.
                 bl {main}
 
-                @ The noreturn option below will automatically generate an
-                @ undefined instruction trap past this point, should main
+                @ Add an undefined instruction to trap past this point, should main
                 @ return.
+                udf 0xde
                 ",
                 main = sym main,
             )
