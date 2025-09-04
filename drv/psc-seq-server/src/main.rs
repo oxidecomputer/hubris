@@ -108,52 +108,65 @@ use sys_api::{Edge, IrqControl, OutputType, PinSet, Pull, Speed};
 use task_jefe_api::Jefe;
 use userlib::*;
 
-use ringbuf::{ringbuf, ringbuf_entry};
+use ringbuf::{counted_ringbuf, ringbuf_entry};
 
 task_slot!(SYS, sys);
 task_slot!(I2C, i2c_driver);
 task_slot!(JEFE, jefe);
 task_slot!(PACKRAT, packrat);
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, counters::Count)]
 enum Event {
-    Empty,
+    #[count(skip)]
+    None,
     /// Emitted at task startup when we find that a power supply is probably
     /// already on. (Note that if the power supply is not present, we will still
     /// detect it as "on" due to the pull resistors.)
     FoundEnabled {
-        psu: u8,
+        now: u64,
+        #[count(children)]
+        psu: Slot,
         serial: Option<[u8; 12]>,
     },
     /// Emitted at task startup when we find that a power supply appears to have
     /// been disabled.
     FoundAlreadyDisabled {
-        psu: u8,
+        now: u64,
+        #[count(children)]
+        psu: Slot,
         serial: Option<[u8; 12]>,
     },
     /// Emitted when a previously not present PSU's presence pin is asserted.
     Inserted {
-        psu: u8,
+        now: u64,
+        #[count(children)]
+        psu: Slot,
         serial: Option<[u8; 12]>,
     },
     /// Emitted when a previously present PSU's presence pin is deasserted.
     Removed {
-        psu: u8,
+        now: u64,
+        #[count(children)]
+        psu: Slot,
     },
     /// Emitted when we decide a power supply should be on.
     Enabling {
-        psu: u8,
+        now: u64,
+        #[count(children)]
+        psu: Slot,
     },
     /// Emitted when we decide a power supply should be off; the `present` flag
     /// means the PSU is being turned off despite being present (`true`) or is
     /// being disabled because it's been removed (`false`).
     Disabling {
-        psu: u8,
+        now: u64,
+        #[count(children)]
+        psu: Slot,
         present: bool,
     },
 }
 
-ringbuf!((u64, Event), 128, (0, Event::Empty));
+counted_ringbuf!(Event, 128, Event::None);
 
 /// More verbose debugging data goes in its own ring buffer, so that we can
 /// maintain a longer history of major PSU events while still recording more
@@ -161,75 +174,104 @@ ringbuf!((u64, Event), 128, (0, Event::Empty));
 ///
 /// Each of these entries has a `now` value which can be correlated with the
 /// timestamps in the main ringbuf.
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, counters::Count)]
 enum Trace {
+    #[count(skip)]
     None,
     Faulted {
         now: u64,
-        psu: u8,
+        #[count(children)]
+        psu: Slot,
     },
     FaultCleared {
         now: u64,
-        psu: u8,
+        #[count(children)]
+        psu: Slot,
     },
     StillInFault {
         now: u64,
-        psu: u8,
+        #[count(children)]
+        psu: Slot,
     },
+    #[count(skip)]
     StatusWord {
         now: u64,
-        psu: u8,
+        psu: Slot,
         status_word: Result<u16, mwocp68::Error>,
     },
+    #[count(skip)]
     StatusIout {
         now: u64,
-        psu: u8,
+        psu: Slot,
         status_iout: Result<u8, mwocp68::Error>,
     },
+    #[count(skip)]
     StatusVout {
         now: u64,
-        psu: u8,
+        psu: Slot,
         status_vout: Result<u8, mwocp68::Error>,
     },
+    #[count(skip)]
     StatusInput {
         now: u64,
-        psu: u8,
+        psu: Slot,
         status_input: Result<u8, mwocp68::Error>,
     },
+    #[count(skip)]
     StatusCml {
         now: u64,
-        psu: u8,
+        psu: Slot,
         status_cml: Result<u8, mwocp68::Error>,
     },
+    #[count(skip)]
     StatusTemperature {
         now: u64,
-        psu: u8,
+        psu: Slot,
         status_temperature: Result<u8, mwocp68::Error>,
     },
+    #[count(skip)]
     StatusMfrSpecific {
         now: u64,
-        psu: u8,
+        psu: Slot,
         status_mfr_specific: Result<u8, mwocp68::Error>,
     },
     I2cError {
         now: u64,
-        psu: u8,
+        #[count(children)]
+        psu: Slot,
         err: mwocp68::Error,
     },
     EreportSentOff {
         now: u64,
-        psu: u8,
+        #[count(children)]
+        psu: Slot,
         class: ereport::Class,
         len: usize,
     },
     EreportTooBig {
         now: u64,
-        psu: u8,
+        #[count(children)]
+        psu: Slot,
         class: ereport::Class,
     },
 }
 
-ringbuf!(__TRACE, Trace, 32, Trace::None);
+counted_ringbuf!(__TRACE, Trace, 32, Trace::None);
+
+/// PSU numbers represented as an enum. This is intended for use with
+/// `counted_ringbuf!`, instead of representing PSU numbers as raw u8s, which
+/// cannot derive `counters::Count` (and would have to generate a counter table
+/// with 256 entries rather than just 6).
+#[derive(Copy, Clone, Eq, PartialEq, counters::Count)]
+#[repr(u8)]
+enum Slot {
+    Psu0 = 0,
+    Psu1 = 1,
+    Psu2 = 2,
+    Psu3 = 3,
+    Psu4 = 4,
+    Psu5 = 5,
+}
 
 const STATUS_LED: sys_api::PinSet = sys_api::Port::A.pin(3);
 
@@ -284,6 +326,15 @@ const PSU_PMBUS_DEVS: [fn(TaskId) -> (I2cDevice, u8); PSU_COUNT] = [
     i2c_config::pmbus::v54_psu3 as fn(TaskId) -> (I2cDevice, u8),
     i2c_config::pmbus::v54_psu4 as fn(TaskId) -> (I2cDevice, u8),
     i2c_config::pmbus::v54_psu5 as fn(TaskId) -> (I2cDevice, u8),
+];
+
+const PSU_SLOTS: [Slot; PSU_COUNT] = [
+    Slot::Psu0,
+    Slot::Psu1,
+    Slot::Psu2,
+    Slot::Psu3,
+    Slot::Psu4,
+    Slot::Psu5,
 ];
 
 /// How long to wait after task startup before we start trying to inspect
@@ -498,30 +549,27 @@ fn main() -> ! {
             let (dev, rail) = make_dev(i2c);
             Mwocp68::new(&dev, rail)
         };
+        let slot = PSU_SLOTS[i];
         let mut fruid = PsuFruid::default();
         let state = if present_l_bits & (1 << PSU_PRESENT_L_PINS[i]) == 0 {
             // Hello, who are you?
-            fruid.refresh(&dev, i as u8, start_time);
+            fruid.refresh(&dev, slot, start_time);
             // ...and how are you doing?
             PsuState::Present(if initial_psu_enabled[i] {
-                ringbuf_entry!((
-                    start_time,
-                    Event::FoundEnabled {
-                        psu: i as u8,
-                        serial: fruid.serial
-                    }
-                ));
+                ringbuf_entry!(Event::FoundEnabled {
+                    now: start_time,
+                    psu: slot,
+                    serial: fruid.serial
+                });
                 PresentState::On { was_faulted: false }
             } else {
                 // PSU was forced off by our previous incarnation. Schedule it to
                 // turn back on in the future if things clear up.
-                ringbuf_entry!((
-                    start_time,
-                    Event::FoundAlreadyDisabled {
-                        psu: i as u8,
-                        serial: fruid.serial
-                    }
-                ));
+                ringbuf_entry!(Event::FoundAlreadyDisabled {
+                    now: start_time,
+                    psu: slot,
+                    serial: fruid.serial
+                });
                 PresentState::Faulted {
                     turn_on_deadline: start_time.saturating_add(FAULT_OFF_MS),
                 }
@@ -530,7 +578,7 @@ fn main() -> ! {
             PsuState::NotPresent
         };
         Psu {
-            slot: i as u8,
+            slot,
             state,
             dev,
             fruid,
@@ -572,7 +620,10 @@ fn main() -> ! {
                 None => (),
 
                 Some(ActionRequired::EnableMe) => {
-                    ringbuf_entry!((now, Event::Enabling { psu: i as u8 }));
+                    ringbuf_entry!(Event::Enabling {
+                        now,
+                        psu: PSU_SLOTS[i]
+                    });
                     // Enable the PSU by allowing `ENABLE_L` to float low, by no
                     // longer asserting high.
                     sys.gpio_configure_input(
@@ -584,13 +635,11 @@ fn main() -> ! {
                     if attempt_snapshot {
                         // TODO snapshot goes here
                     }
-                    ringbuf_entry!((
+                    ringbuf_entry!(Event::Disabling {
                         now,
-                        Event::Disabling {
-                            psu: i as u8,
-                            present: attempt_snapshot,
-                        }
-                    ));
+                        psu: PSU_SLOTS[i],
+                        present: attempt_snapshot,
+                    });
 
                     // Pull `ENABLE_L` high to disable the PSU.
                     sys.gpio_configure_output(
@@ -636,7 +685,7 @@ enum Status {
 }
 
 struct Psu {
-    slot: u8,
+    slot: Slot,
     state: PsuState,
     dev: Mwocp68,
     /// Because we would like to include the PSU's FRU ID information in the
@@ -666,7 +715,10 @@ impl Psu {
             // decision is that the "NewlyInserted" settle time starts after the
             // contacts are _done_ scraping, not when they start.
             (_, Present::No, _) => {
-                ringbuf_entry!((now, Event::Removed { psu: self.slot }));
+                ringbuf_entry!(Event::Removed {
+                    now,
+                    psu: self.slot
+                });
                 let ereport = ereport::Ereport {
                     class: ereport::Class::Removed,
                     version: 0,
@@ -699,13 +751,11 @@ impl Psu {
                 // Hello, who are you?
                 self.fruid = PsuFruid::default();
                 self.refresh_fruid(now);
-                ringbuf_entry!((
+                ringbuf_entry!(Event::Inserted {
                     now,
-                    Event::Inserted {
-                        psu: self.slot,
-                        serial: self.fruid.serial
-                    }
-                ));
+                    psu: self.slot,
+                    serial: self.fruid.serial
+                });
                 // No external action required until our timer elapses.
                 Step::default()
             }
@@ -1000,7 +1050,7 @@ struct PsuFruid {
 }
 
 impl PsuFruid {
-    fn refresh(&mut self, dev: &Mwocp68, psu: u8, now: u64) {
+    fn refresh(&mut self, dev: &Mwocp68, psu: Slot, now: u64) {
         if self.mfr.is_none() {
             self.mfr =
                 retry_i2c_txn(now, psu, || dev.mfr_id()).ok().map(|v| v.0);
@@ -1028,7 +1078,7 @@ impl PsuFruid {
 
 fn retry_i2c_txn<T>(
     now: u64,
-    psu: u8,
+    psu: Slot,
     mut txn: impl FnMut() -> Result<T, mwocp68::Error>,
 ) -> Result<T, mwocp68::Error> {
     // Chosen by fair dice roll, seems reasonable-ish?
@@ -1076,7 +1126,8 @@ mod ereport {
         #[serde(rename = "v")]
         pub(super) version: u32,
         pub(super) dev_id: &'static str,
-        pub(super) psu_slot: u8,
+        #[serde(serialize_with = "serialize_psu_slot")]
+        pub(super) psu_slot: Slot,
         pub(super) fruid: PsuFruid,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub(super) pmbus_status: Option<PmbusStatus>,
@@ -1145,5 +1196,15 @@ mod ereport {
         s.as_ref()
             .and_then(|s| str::from_utf8(&s[..]).ok())
             .serialize(serializer)
+    }
+
+    fn serialize_psu_slot<S>(
+        slot: &Slot,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        (*slot as u8).serialize(serializer)
     }
 }
