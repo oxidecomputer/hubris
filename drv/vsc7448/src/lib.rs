@@ -112,6 +112,22 @@ pub struct Vsc7448<'a, R> {
     refclk_2: Option<RefClockFreq>,
 }
 
+/// Selects which SPs should be accessible from tech ports with unlocked VLANs
+#[derive(Copy, Clone, serde::Serialize, serde::Deserialize)]
+pub enum VlanTargets {
+    /// Every SP should be accessible from the tech port
+    ///
+    /// This is the typical unlocked behavior
+    EverySp,
+
+    /// Only Scrimlet SPs should be accessible from the tech port
+    ///
+    /// If cubbies are populated with loopback connections (instead of sleds),
+    /// this behavior prevents network loops; otherwise, packets can enter one
+    /// tech port and exit the other.
+    ScrimletOnly,
+}
+
 impl<R: Vsc7448Rw> Vsc7448Rw for Vsc7448<'_, R> {
     /// Write a register to the VSC7448
     fn write<T>(
@@ -717,9 +733,9 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
     /// The provided function is passed a value from 0-52 and should return a
     /// port mask associated with that VLAN, or `None` if we're not using that
     /// VLAN.
-    fn configure_vlans(
+    fn configure_vlans<F: Fn(u8) -> Option<u64>>(
         &self,
-        f: fn(u8) -> Option<u64>,
+        f: F,
     ) -> Result<(), VscError> {
         for p in 0..=52 {
             if let Some(mask) = f(p) {
@@ -868,8 +884,11 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
     ///
     /// To switch between locked and unlocked later, use
     /// `sidecar_vlan_lock/unlock` (instead of calling this function again)
-    pub fn configure_vlan_sidecar_unlocked(&self) -> Result<(), VscError> {
-        self.sidecar_vlan_unlock()?;
+    pub fn configure_vlan_sidecar_unlocked(
+        &self,
+        targets: VlanTargets,
+    ) -> Result<(), VscError> {
+        self.sidecar_vlan_unlock(targets)?;
         self.configure_port_tagged(|p| {
             p == sidecar::UPLINK || p == sidecar::LOCAL_SP
         })?;
@@ -897,25 +916,39 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
     ///
     /// The technician ports can talk to any SP; SPs may talk to the Tofino or
     /// to the technician ports.
-    pub fn sidecar_vlan_unlock(&self) -> Result<(), VscError> {
-        self.configure_vlans(|p| match p {
-            sidecar::UPLINK => None,
-            sidecar::TECHNICIAN_1 => {
+    pub fn sidecar_vlan_unlock(
+        &self,
+        targets: VlanTargets,
+    ) -> Result<(), VscError> {
+        self.configure_vlans(|p| match (p, targets) {
+            (sidecar::UPLINK, _) => None,
+            (sidecar::TECHNICIAN_1, _) => {
                 // Technician ports are connected to every port, but not to each
                 // other (to prevent spanning tree fun)
                 Some(((1 << 53) - 1) & !(1 << sidecar::TECHNICIAN_2))
             }
-            sidecar::TECHNICIAN_2 => {
+            (sidecar::TECHNICIAN_2, _) => {
                 Some(((1 << 53) - 1) & !(1 << sidecar::TECHNICIAN_1))
             }
-            _ => {
-                // SPs are only connected to the Tofino and technician ports
-                Some(
-                    (1 << p)
-                        | (1 << sidecar::UPLINK)
-                        | (1 << sidecar::TECHNICIAN_1)
-                        | (1 << sidecar::TECHNICIAN_2),
-                )
+            // SPs are connected to the Tofino and technician ports
+            (_, VlanTargets::EverySp) => Some(
+                (1 << p)
+                    | (1 << sidecar::UPLINK)
+                    | (1 << sidecar::TECHNICIAN_1)
+                    | (1 << sidecar::TECHNICIAN_2),
+            ),
+            // Scrimlet SPs are connected to the Tofino and technician ports
+            (
+                sidecar::CUBBY_14 | sidecar::CUBBY_16,
+                VlanTargets::ScrimletOnly,
+            ) => Some(
+                (1 << p)
+                    | (1 << sidecar::UPLINK)
+                    | (1 << sidecar::TECHNICIAN_1)
+                    | (1 << sidecar::TECHNICIAN_2),
+            ),
+            (_, VlanTargets::ScrimletOnly) => {
+                Some((1 << p) | (1 << sidecar::UPLINK))
             }
         })
     }
@@ -968,6 +1001,12 @@ mod sidecar {
 
     /// Technician port 2 (front IO board)
     pub const TECHNICIAN_2: u8 = 45;
+
+    /// Scrimlet 1
+    pub const CUBBY_14: u8 = 8;
+
+    /// Scrimlet 2
+    pub const CUBBY_16: u8 = 4;
 }
 
 mod minibar {
