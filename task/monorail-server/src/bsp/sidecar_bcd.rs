@@ -48,7 +48,11 @@ enum VLanMode {
     UnlockedUntil(u64),
 }
 
-const VLAN_UNLOCK_TARGETS: vsc7448::VlanTargets = vsc7448::VlanTargets::EverySp;
+const VLAN_UNLOCK_TARGETS: vsc7448::VlanTargets = if cfg!(feature = "reverso") {
+    vsc7448::VlanTargets::ScrimletOnly
+} else {
+    vsc7448::VlanTargets::EverySp
+};
 
 ////////////////////////////////////////////////////////////////////////////////
 
