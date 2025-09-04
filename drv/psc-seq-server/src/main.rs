@@ -116,7 +116,7 @@ task_slot!(JEFE, jefe);
 task_slot!(PACKRAT, packrat);
 
 #[derive(Copy, Clone, PartialEq, Eq)]
-enum Trace {
+enum Event {
     Empty,
     /// Emitted at task startup when we find that a power supply is probably
     /// already on. (Note that if the power supply is not present, we will still
@@ -131,6 +131,15 @@ enum Trace {
         psu: u8,
         serial: Option<[u8; 12]>,
     },
+    /// Emitted when a previously not present PSU's presence pin is asserted.
+    Inserted {
+        psu: u8,
+        serial: Option<[u8; 12]>,
+    },
+    /// Emitted when a previously present PSU's presence pin is deasserted.
+    Removed {
+        psu: u8,
+    },
     /// Emitted when we decide a power supply should be on.
     Enabling {
         psu: u8,
@@ -142,22 +151,73 @@ enum Trace {
         psu: u8,
         present: bool,
     },
+}
+
+ringbuf!((u64, Event), 128, (0, Event::Empty));
+
+/// More verbose debugging data goes in its own ring buffer, so that we can
+/// maintain a longer history of major PSU events while still recording more
+/// detailed information about the PSU's status.
+///
+/// Each of these entries has a `now` value which can be correlated with the
+/// timestamps in the main ringbuf.
+#[derive(Copy, Clone, PartialEq, Eq)]
+enum Trace {
+    None,
+    StatusWord {
+        now: u64,
+        psu: u8,
+        status_word: Result<u16, mwocp68::Error>,
+    },
+    StatusIout {
+        now: u64,
+        psu: u8,
+        status_iout: Result<u8, mwocp68::Error>,
+    },
+    StatusVout {
+        now: u64,
+        psu: u8,
+        status_vout: Result<u8, mwocp68::Error>,
+    },
+    StatusInput {
+        now: u64,
+        psu: u8,
+        status_input: Result<u8, mwocp68::Error>,
+    },
+    StatusCml {
+        now: u64,
+        psu: u8,
+        status_cml: Result<u8, mwocp68::Error>,
+    },
+    StatusTemperature {
+        now: u64,
+        psu: u8,
+        status_temperature: Result<u8, mwocp68::Error>,
+    },
+    StatusMfrSpecific {
+        now: u64,
+        psu: u8,
+        status_mfr_specific: Result<u8, mwocp68::Error>,
+    },
     I2cError {
+        now: u64,
         psu: u8,
         err: mwocp68::Error,
     },
     EreportSentOff {
+        now: u64,
         psu: u8,
         class: ereport::Class,
         len: usize,
     },
     EreportTooBig {
+        now: u64,
         psu: u8,
         class: ereport::Class,
     },
 }
 
-ringbuf!((u64, Trace), 128, (0, Trace::Empty));
+ringbuf!(__TRACE, Trace, 32, Trace::None);
 
 const STATUS_LED: sys_api::PinSet = sys_api::Port::A.pin(3);
 
@@ -426,7 +486,7 @@ fn main() -> ! {
             PsuState::Present(if initial_psu_enabled[i] {
                 ringbuf_entry!((
                     start_time,
-                    Trace::FoundEnabled {
+                    Event::FoundEnabled {
                         psu: i as u8,
                         serial: fruid.serial
                     }
@@ -437,7 +497,7 @@ fn main() -> ! {
                 // turn back on in the future if things clear up.
                 ringbuf_entry!((
                     start_time,
-                    Trace::FoundAlreadyDisabled {
+                    Event::FoundAlreadyDisabled {
                         psu: i as u8,
                         serial: fruid.serial
                     }
@@ -492,7 +552,7 @@ fn main() -> ! {
                 None => (),
 
                 Some(ActionRequired::EnableMe) => {
-                    ringbuf_entry!((now, Trace::Enabling { psu: i as u8 }));
+                    ringbuf_entry!((now, Event::Enabling { psu: i as u8 }));
                     // Enable the PSU by allowing `ENABLE_L` to float low, by no
                     // longer asserting high.
                     sys.gpio_configure_input(
@@ -506,7 +566,7 @@ fn main() -> ! {
                     }
                     ringbuf_entry!((
                         now,
-                        Trace::Disabling {
+                        Event::Disabling {
                             psu: i as u8,
                             present: attempt_snapshot,
                         }
@@ -586,6 +646,7 @@ impl Psu {
             // decision is that the "NewlyInserted" settle time starts after the
             // contacts are _done_ scraping, not when they start.
             (_, Present::No, _) => {
+                ringbuf_entry!((now, Event::Removed { psu: self.slot }));
                 let ereport = ereport::Ereport {
                     class: ereport::Class::Removed,
                     version: 0,
@@ -616,7 +677,15 @@ impl Psu {
                     settle_deadline,
                 });
                 // Hello, who are you?
-                self.fruid.refresh(&self.dev, self.slot, now);
+                self.fruid = PsuFruid::default();
+                self.refresh_fruid(now);
+                ringbuf_entry!((
+                    now,
+                    Event::Inserted {
+                        psu: self.slot,
+                        serial: self.fruid.serial
+                    }
+                ));
                 // No external action required until our timer elapses.
                 Step::default()
             }
@@ -629,7 +698,7 @@ impl Psu {
                 _,
             ) => {
                 // Hello, who are you?
-                self.fruid.refresh(&self.dev, self.slot, now);
+                self.refresh_fruid(now);
                 if settle_deadline <= now {
                     // The PSU is still present (since the Present::No case above
                     // didn't fire) and our deadline has elapsed. Let's treat this
@@ -658,7 +727,7 @@ impl Psu {
             (PsuState::Present(PresentState::On), _, Status::Good) => {
                 // Just in case we were previously unable to read any FRUID
                 // values due to I2C weather, try to refresh them
-                self.fruid.refresh(&self.dev, self.slot, now);
+                self.refresh_fruid(now);
 
                 Step::default()
             }
@@ -715,7 +784,7 @@ impl Psu {
             ) => {
                 // Just in case we were previously unable to read any FRUID
                 // values due to I2C weather, try to refresh them
-                self.fruid.refresh(&self.dev, self.slot, now);
+                self.refresh_fruid(now);
                 if deadline <= now {
                     // Take PSU out of probation state and start monitoring its
                     // OK line.
@@ -745,37 +814,97 @@ impl Psu {
     }
 
     fn read_pmbus_status(&mut self, now: u64) -> ereport::PmbusStatus {
-        let word = retry_i2c_txn(now, self.slot, || self.dev.status_word())
-            .map(|data| data.0)
-            .ok();
-        let iout = retry_i2c_txn(now, self.slot, || self.dev.status_iout())
-            .map(|data| data.0)
-            .ok();
-        let vout = retry_i2c_txn(now, self.slot, || self.dev.status_vout())
-            .map(|data| data.0)
-            .ok();
-        let input = retry_i2c_txn(now, self.slot, || self.dev.status_vout())
-            .map(|data| data.0)
-            .ok();
-        let cml = retry_i2c_txn(now, self.slot, || self.dev.status_cml())
-            .map(|data| data.0)
-            .ok();
-        let temp =
+        let status_word =
+            retry_i2c_txn(now, self.slot, || self.dev.status_word())
+                .map(|data| data.0);
+        ringbuf_entry!(
+            __TRACE,
+            Trace::StatusWord {
+                psu: self.slot,
+                now,
+                status_word
+            }
+        );
+
+        let status_iout =
+            retry_i2c_txn(now, self.slot, || self.dev.status_iout())
+                .map(|data| data.0);
+        ringbuf_entry!(
+            __TRACE,
+            Trace::StatusIout {
+                psu: self.slot,
+                now,
+                status_iout
+            }
+        );
+
+        let status_vout =
+            retry_i2c_txn(now, self.slot, || self.dev.status_vout())
+                .map(|data| data.0);
+        ringbuf_entry!(
+            __TRACE,
+            Trace::StatusVout {
+                psu: self.slot,
+                now,
+                status_vout
+            }
+        );
+        let status_input =
+            retry_i2c_txn(now, self.slot, || self.dev.status_vout())
+                .map(|data| data.0);
+        ringbuf_entry!(
+            __TRACE,
+            Trace::StatusInput {
+                psu: self.slot,
+                now,
+                status_input,
+            }
+        );
+
+        let status_cml =
+            retry_i2c_txn(now, self.slot, || self.dev.status_cml())
+                .map(|data| data.0);
+        ringbuf_entry!(
+            __TRACE,
+            Trace::StatusCml {
+                psu: self.slot,
+                now,
+                status_cml
+            }
+        );
+
+        let status_temperature =
             retry_i2c_txn(now, self.slot, || self.dev.status_temperature())
-                .map(|data| data.0)
-                .ok();
-        let mfr =
+                .map(|data| data.0);
+        ringbuf_entry!(
+            __TRACE,
+            Trace::StatusTemperature {
+                psu: self.slot,
+                now,
+                status_temperature
+            }
+        );
+
+        let status_mfr_specific =
             retry_i2c_txn(now, self.slot, || self.dev.status_mfr_specific())
-                .map(|data| data.0)
-                .ok();
+                .map(|data| data.0);
+        ringbuf_entry!(
+            __TRACE,
+            Trace::StatusMfrSpecific {
+                psu: self.slot,
+                now,
+                status_mfr_specific
+            }
+        );
+
         ereport::PmbusStatus {
-            word,
-            iout,
-            vout,
-            input,
-            cml,
-            temp,
-            mfr,
+            word: status_word.ok(),
+            iout: status_iout.ok(),
+            vout: status_vout.ok(),
+            input: status_input.ok(),
+            cml: status_cml.ok(),
+            temp: status_temperature.ok(),
+            mfr: status_mfr_specific.ok(),
         }
     }
 }
@@ -836,18 +965,11 @@ fn retry_i2c_txn<T>(
         match txn() {
             Ok(x) => return Ok(x),
             Err(err) => {
-                ringbuf_entry!((now, Trace::I2cError { psu, err }));
+                ringbuf_entry!(__TRACE, Trace::I2cError { now, psu, err });
 
                 if retries_remaining == 0 {
-                    // ringbuf_entry!((now, Trace::I2cFault { psu, txn }));
                     return Err(err);
                 }
-
-                // ringbuf_entry!(Trace::I2cRetry {
-                //     psu,
-                //     txn,
-                //     retries_remaining
-                // });
 
                 retries_remaining -= 1;
             }
@@ -903,24 +1025,26 @@ mod ereport {
                 Ok(_) => {
                     let len = s.into_encoder().into_writer().position();
                     packrat.deliver_ereport(&ereport_buf[..len]);
-                    ringbuf_entry!((
-                        now,
+                    ringbuf_entry!(
+                        __TRACE,
                         Trace::EreportSentOff {
+                            now,
                             psu: self.psu_slot,
                             class: self.class,
                             len,
                         }
-                    ));
+                    );
                 }
                 Err(_) => {
                     // XXX(eliza): ereport didn't fit in buffer...what do
-                    ringbuf_entry!((
-                        now,
+                    ringbuf_entry!(
+                        __TRACE,
                         Trace::EreportTooBig {
+                            now,
                             psu: self.psu_slot,
                             class: self.class
                         }
-                    ));
+                    );
                 }
             }
         }
