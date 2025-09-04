@@ -1097,8 +1097,8 @@ dependencies = [
  "gnarle",
  "idol",
  "idol-runtime",
- "minicbor 0.26.4",
- "minicbor-serde 0.4.1",
+ "minicbor 2.1.1",
+ "minicbor-serde 0.6.0",
  "num-traits",
  "pmbus",
  "ringbuf",
@@ -1265,8 +1265,8 @@ dependencies = [
  "gnarle",
  "idol",
  "idol-runtime",
- "minicbor 0.26.4",
- "minicbor-serde 0.4.1",
+ "minicbor 2.1.1",
+ "minicbor-serde 0.6.0",
  "num-derive 0.4.2",
  "num-traits",
  "pmbus",
@@ -3910,11 +3910,11 @@ dependencies = [
 
 [[package]]
 name = "minicbor-serde"
-version = "0.4.1"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54e45e8beeefea1b8b6f52fa188a5b6ea3746c2885606af8d4d8bf31cee633fb"
+checksum = "0bbf243b8cc68a7a76473b14328d3546fb002ae3d069227794520e9181003de9"
 dependencies = [
- "minicbor 0.26.4",
+ "minicbor 2.1.1",
  "serde",
 ]
 
