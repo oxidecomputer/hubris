@@ -579,6 +579,41 @@ impl Mwocp68 {
         Ok(id)
     }
 
+    pub fn status_word(&self) -> Result<STATUS_WORD::CommandData, Error> {
+        // Per ACAN-114, this is always on page 0.
+        pmbus_rail_read!(self.device, 0, STATUS_WORD)
+    }
+
+    pub fn status_iout(&self) -> Result<STATUS_IOUT::CommandData, Error> {
+        // Per ACAN-114, this is always on page 0.
+        pmbus_rail_read!(self.device, 0, STATUS_IOUT)
+    }
+
+    pub fn status_vout(&self) -> Result<STATUS_VOUT::CommandData, Error> {
+        // Per ACAN-114, this is always on page 0.
+        pmbus_rail_read!(self.device, 0, STATUS_VOUT)
+    }
+
+    pub fn status_input(&self) -> Result<STATUS_INPUT::CommandData, Error> {
+        pmbus_read!(self.device, STATUS_INPUT)
+    }
+
+    pub fn status_cml(&self) -> Result<STATUS_CML::CommandData, Error> {
+        pmbus_read!(self.device, STATUS_CML)
+    }
+
+    pub fn status_temperature(
+        &self,
+    ) -> Result<STATUS_TEMPERATURE::CommandData, Error> {
+        pmbus_read!(self.device, STATUS_TEMPERATURE)
+    }
+
+    pub fn status_mfr_specific(
+        &self,
+    ) -> Result<STATUS_MFR_SPECIFIC::CommandData, Error> {
+        pmbus_read!(self.device, STATUS_MFR_SPECIFIC)
+    }
+
     fn get_boot_loader_status(
         &self,
     ) -> Result<BOOT_LOADER_STATUS::CommandData, Error> {

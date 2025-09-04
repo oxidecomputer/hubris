@@ -423,7 +423,7 @@ fn main() -> ! {
             // Hello, who are you?
             fruid.refresh(&dev, i as u8, start_time);
             // ...and how are you doing?
-            let state = PsuState::Present(if initial_psu_enabled[i] {
+            PsuState::Present(if initial_psu_enabled[i] {
                 ringbuf_entry!((
                     start_time,
                     Trace::FoundEnabled {
@@ -445,8 +445,7 @@ fn main() -> ! {
                 PresentState::Faulted {
                     turn_on_deadline: start_time.saturating_add(FAULT_OFF_MS),
                 }
-            });
-            state
+            })
         } else {
             PsuState::NotPresent
         };
@@ -677,7 +676,7 @@ impl Psu {
                     dev_id: self.dev.i2c_device().component_id(),
                     psu_slot: self.slot,
                     fruid: self.fruid,
-                    pmbus_status: None, // TODO(eliza)
+                    pmbus_status: Some(self.read_pmbus_status(now)),
                 };
 
                 Step {
@@ -727,7 +726,7 @@ impl Psu {
                         dev_id: self.dev.i2c_device().component_id(),
                         psu_slot: self.slot,
                         fruid: self.fruid,
-                        pmbus_status: None, // TODO(eliza)
+                        pmbus_status: Some(self.read_pmbus_status(now)),
                     };
                     Step {
                         ereport: Some(ereport),
@@ -738,6 +737,45 @@ impl Psu {
                     Step::default()
                 }
             }
+        }
+    }
+
+    fn refresh_fruid(&mut self, now: u64) {
+        self.fruid.refresh(&self.dev, self.slot, now);
+    }
+
+    fn read_pmbus_status(&mut self, now: u64) -> ereport::PmbusStatus {
+        let word = retry_i2c_txn(now, self.slot, || self.dev.status_word())
+            .map(|data| data.0)
+            .ok();
+        let iout = retry_i2c_txn(now, self.slot, || self.dev.status_iout())
+            .map(|data| data.0)
+            .ok();
+        let vout = retry_i2c_txn(now, self.slot, || self.dev.status_vout())
+            .map(|data| data.0)
+            .ok();
+        let input = retry_i2c_txn(now, self.slot, || self.dev.status_vout())
+            .map(|data| data.0)
+            .ok();
+        let cml = retry_i2c_txn(now, self.slot, || self.dev.status_cml())
+            .map(|data| data.0)
+            .ok();
+        let temp =
+            retry_i2c_txn(now, self.slot, || self.dev.status_temperature())
+                .map(|data| data.0)
+                .ok();
+        let mfr =
+            retry_i2c_txn(now, self.slot, || self.dev.status_mfr_specific())
+                .map(|data| data.0)
+                .ok();
+        ereport::PmbusStatus {
+            word,
+            iout,
+            vout,
+            input,
+            cml,
+            temp,
+            mfr,
         }
     }
 }
