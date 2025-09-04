@@ -164,6 +164,18 @@ ringbuf!((u64, Event), 128, (0, Event::Empty));
 #[derive(Copy, Clone, PartialEq, Eq)]
 enum Trace {
     None,
+    Faulted {
+        now: u64,
+        psu: u8,
+    },
+    FaultCleared {
+        now: u64,
+        psu: u8,
+    },
+    StillInFault {
+        now: u64,
+        psu: u8,
+    },
     StatusWord {
         now: u64,
         psu: u8,
@@ -331,7 +343,15 @@ enum PresentState {
     ///
     /// We will exit this state if the OK line is pulled low, or if we detect a
     /// fault.
-    On,
+    On {
+        /// If `true`, the PSU was power-cycled by the PSC in attempt to clear a
+        /// fault. If it reasserts POWER_GOOD, that indicates that the fault has
+        /// cleared; otherwise, the fault is persistent.
+        ///
+        /// If `false`, the PSU was either newly inserted, or a previous fault
+        /// has cleared. A new fault should produce a new fault ereport.
+        was_faulted: bool,
+    },
 
     /// The PSU has just appeared and we're waiting a bit to confirm that it's
     /// stable before turning it on. (Waiting in this state provides some
@@ -491,7 +511,7 @@ fn main() -> ! {
                         serial: fruid.serial
                     }
                 ));
-                PresentState::On
+                PresentState::On { was_faulted: false }
             } else {
                 // PSU was forced off by our previous incarnation. Schedule it to
                 // turn back on in the future if things clear up.
@@ -703,7 +723,9 @@ impl Psu {
                     // The PSU is still present (since the Present::No case above
                     // didn't fire) and our deadline has elapsed. Let's treat this
                     // as valid!
-                    self.state = PsuState::Present(PresentState::On);
+                    self.state = PsuState::Present(PresentState::On {
+                        was_faulted: false,
+                    });
                     let ereport = ereport::Ereport {
                         class: ereport::Class::Inserted,
                         version: 0,
@@ -724,14 +746,53 @@ impl Psu {
             }
 
             // yay!
-            (PsuState::Present(PresentState::On), _, Status::Good) => {
+            (
+                PsuState::Present(PresentState::On { was_faulted }),
+                _,
+                Status::Good,
+            ) => {
                 // Just in case we were previously unable to read any FRUID
                 // values due to I2C weather, try to refresh them
                 self.refresh_fruid(now);
 
-                Step::default()
+                // If we just turned this PSU back on after a fault, reasserting
+                // POWER_GOOD means that the fault has cleared.
+                let ereport = if was_faulted {
+                    // Clear our tracking of the fault. If we fault again, treat
+                    // that as a new fault.
+                    self.state = PsuState::Present(PresentState::On {
+                        was_faulted: false,
+                    });
+                    ringbuf_entry!(
+                        __TRACE,
+                        Trace::FaultCleared {
+                            now,
+                            psu: self.slot,
+                        }
+                    );
+                    // Report that the fault has gone away.
+                    Some(ereport::Ereport {
+                        class: ereport::Class::FaultCleared,
+                        version: 0,
+                        dev_id: self.dev.i2c_device().component_id(),
+                        psu_slot: self.slot,
+                        fruid: self.fruid,
+                        pmbus_status: Some(self.read_pmbus_status(now)),
+                    })
+                } else {
+                    // If we did not just restart after a fault, do nothing.
+                    None
+                };
+                Step {
+                    action: None,
+                    ereport,
+                }
             }
-            (PsuState::Present(PresentState::On), _, Status::NotGood) => {
+            (
+                PsuState::Present(PresentState::On { was_faulted }),
+                _,
+                Status::NotGood,
+            ) => {
                 // The PSU appears to have pulled the OK signal into the "not
                 // OK" state to indicate an internal fault!
 
@@ -739,20 +800,40 @@ impl Psu {
                 self.state = PsuState::Present(PresentState::Faulted {
                     turn_on_deadline,
                 });
-                let ereport = ereport::Ereport {
-                    class: ereport::Class::Fault,
-                    version: 0,
-                    dev_id: self.dev.i2c_device().component_id(),
-                    psu_slot: self.slot,
-                    fruid: self.fruid,
-                    pmbus_status: Some(self.read_pmbus_status(now)),
+                // Did we just restart after a fault? If not, this is a new
+                // fault, which should be reported.
+                let ereport = if !was_faulted {
+                    ringbuf_entry!(
+                        __TRACE,
+                        Trace::Faulted {
+                            now,
+                            psu: self.slot,
+                        }
+                    );
+                    Some(ereport::Ereport {
+                        class: ereport::Class::Fault,
+                        version: 0,
+                        dev_id: self.dev.i2c_device().component_id(),
+                        psu_slot: self.slot,
+                        fruid: self.fruid,
+                        pmbus_status: Some(self.read_pmbus_status(now)),
+                    })
+                } else {
+                    ringbuf_entry!(
+                        __TRACE,
+                        Trace::StillInFault {
+                            now,
+                            psu: self.slot,
+                        }
+                    );
+                    None
                 };
 
                 Step {
                     action: Some(ActionRequired::DisableMe {
                         attempt_snapshot: true,
                     }),
-                    ereport: Some(ereport),
+                    ereport,
                 }
             }
 
@@ -788,19 +869,10 @@ impl Psu {
                 if deadline <= now {
                     // Take PSU out of probation state and start monitoring its
                     // OK line.
-                    self.state = PsuState::Present(PresentState::On);
-                    let ereport = ereport::Ereport {
-                        class: ereport::Class::FaultCleared,
-                        version: 0,
-                        dev_id: self.dev.i2c_device().component_id(),
-                        psu_slot: self.slot,
-                        fruid: self.fruid,
-                        pmbus_status: Some(self.read_pmbus_status(now)),
-                    };
-                    Step {
-                        ereport: Some(ereport),
-                        action: None,
-                    }
+                    self.state = PsuState::Present(PresentState::On {
+                        was_faulted: true,
+                    });
+                    Step::default()
                 } else {
                     // Remain in this state.
                     Step::default()
