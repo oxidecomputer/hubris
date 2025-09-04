@@ -6,6 +6,12 @@ name = "gimlet-d"
 board = "gimlet-d"
 inherit = "base.toml"
 
+# Rev D supports measurement token handoff.  Rev B does not, so we can't put
+# this into `base.toml`; subsequent revisions inherit from `rev-d.toml`
+[kernel]
+features = ["measurement-handoff"]
+extern-regions = ["dtcm"]
+
 ################################################################################
 #
 # I2C2: Front/M.2 bus

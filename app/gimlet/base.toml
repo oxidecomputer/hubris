@@ -7,8 +7,7 @@ fwid = true
 [kernel]
 name = "gimlet"
 requires = {flash = 32768, ram = 8192}
-features = ["dump", "measurement-handoff"]
-extern-regions = ["dtcm"]
+features = ["dump"]
 
 [caboose]
 tasks = ["control_plane_agent"]
