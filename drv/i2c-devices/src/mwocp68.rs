@@ -33,6 +33,20 @@ pub struct FirmwareRev(pub [u8; 4]);
 #[derive(Copy, Clone, PartialEq, Eq, Default)]
 pub struct SerialNumber(pub [u8; 12]);
 
+/// Manufacturer model number.
+///
+/// Per Murata Application Note ACAN-114.A01.D03 "PMBus Communication Protocol",
+/// this is always a 17-byte ASCII string. It should be "MWOCP68-3600-D-RM".
+#[derive(Copy, Clone, PartialEq, Eq, Default)]
+pub struct ModelNumber(pub [u8; 17]);
+
+/// Manufacturer ID.
+///
+/// Per Murata Application Note ACAN-114.A01.D03 "PMBus Communication Protocol",
+/// this is always a 9-byte ASCII string. It should be "Murata-PS".
+#[derive(Copy, Clone, PartialEq, Eq, Default)]
+pub struct MfrId(pub [u8; 9]);
+
 //
 // The boot loader command -- sent via BOOT_LOADER_CMD -- is unfortunately odd
 // in that its command code is overloaded with BOOT_LOADER_STATUS.  (That is,
@@ -89,6 +103,12 @@ pub enum Error {
         code: ResponseCode,
     },
     ChecksumNotSuccessful,
+    BadModelNumberRead {
+        code: ResponseCode,
+    },
+    BadMfrIdRead {
+        code: ResponseCode,
+    },
 }
 
 impl From<BadValidation> for Error {
@@ -533,6 +553,30 @@ impl Mwocp68 {
             .map_err(|code| Error::BadFirmwareRevRead { code })?;
 
         Ok(serial)
+    }
+
+    ///
+    /// Returns the manufacturer model number of the PSU.
+    ///
+    pub fn model_number(&self) -> Result<ModelNumber, Error> {
+        let mut model = ModelNumber::default();
+        let _ = self
+            .device
+            .read_block(CommandCode::MFR_MODEL as u8, &mut model.0)
+            .map_err(|code| Error::BadModelNumberRead { code })?;
+        Ok(model)
+    }
+
+    ///
+    /// Returns the manufacturer ID of the PSU.
+    ///
+    pub fn mfr_id(&self) -> Result<MfrId, Error> {
+        let mut id = MfrId::default();
+        let _ = self
+            .device
+            .read_block(CommandCode::MFR_ID as u8, &mut id.0)
+            .map_err(|code| Error::BadMfrIdRead { code })?;
+        Ok(id)
     }
 
     fn get_boot_loader_status(
