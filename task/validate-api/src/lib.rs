@@ -75,6 +75,12 @@ pub struct DeviceDescription {
     pub description: &'static str,
     pub sensors: &'static [SensorDescription],
     pub id: [u8; MAX_ID_LENGTH],
+    pub vpd: Option<VpdDescription>,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum VpdDescription {
+    VpdTask(u8),
 }
 
 include!(concat!(env!("OUT_DIR"), "/device_descriptions.rs"));

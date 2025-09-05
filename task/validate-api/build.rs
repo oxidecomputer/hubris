@@ -15,6 +15,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 }
 
 fn write_pub_device_descriptions() -> anyhow::Result<()> {
+    use build_i2c::VpdDescription;
     use gateway_messages::SpComponent;
     let devices = build_i2c::device_descriptions().collect::<Vec<_>>();
 
@@ -92,6 +93,29 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
             writeln!(file, "            }},")?;
         }
         writeln!(file, "        ],")?;
+        match dev.vpd {
+            Some(VpdDescription::At24csw080(idx)) => {
+                if idx > u8::MAX as usize {
+                    println!(
+                        "cargo::error=device {:?} ({:?}) VPD task index > {},",
+                        dev.device,
+                        dev.description,
+                        u8::MAX
+                    );
+                }
+                writeln!(
+                    file,
+                    "        vpd: Some(VpdDescription::VpdTask({idx})),"
+                )?;
+            }
+            Some(VpdDescription::Pmbus) => {
+                println!("cargo::warning=eliza has to figure out how to make PMBus FRUID lookups work");
+                writeln!(file, "        vpd: None,")?;
+            }
+            None => {
+                writeln!(file, "        vpd: None,")?;
+            }
+        };
         writeln!(file, "    }},")?;
     }
 
