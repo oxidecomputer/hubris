@@ -44,7 +44,9 @@ impl Inventory {
         match Index::try_from(component)? {
             Index::OurDevice(_) => Ok(0),
             Index::ValidateDevice(i) => {
-                Ok(VALIDATE_DEVICES[i].sensors.len() as u32)
+                let device = VALIDATE_DEVICES[i];
+
+                Ok(device.sensors.len() as u32 + device.vpd.is_some() as u32)
             }
         }
     }
@@ -53,7 +55,7 @@ impl Inventory {
         &self,
         component: &SpComponent,
         component_index: BoundsChecked,
-    ) -> ComponentDetails {
+    ) -> ComponentDetails<&str> {
         // `component_index` is guaranteed to be in the range
         // `0..num_component_details(component)`, and we only return a value
         // greater than 0 from that method for indices in the VALIDATE_DEVICES
@@ -64,20 +66,27 @@ impl Inventory {
             Ok(Index::ValidateDevice(i)) => i,
             Ok(Index::OurDevice(_)) | Err(_) => panic!(),
         };
+        let device = &VALIDATE_DEVICES[val_device_index];
+        if let Some(sensor_description) =
+            device.sensors.get(component_index.0 as usize)
+        {
+            let value = self
+                .sensor_task
+                .get(sensor_description.id)
+                .map_err(|err| SensorErrorConvert(err).into());
 
-        let sensor_description = &VALIDATE_DEVICES[val_device_index].sensors
-            [component_index.0 as usize];
+            return ComponentDetails::Measurement(Measurement {
+                name: sensor_description.name.unwrap_or(""),
+                kind: MeasurementKindConvert(sensor_description.kind).into(),
+                value,
+            });
+        }
 
-        let value = self
-            .sensor_task
-            .get(sensor_description.id)
-            .map_err(|err| SensorErrorConvert(err).into());
-
-        ComponentDetails::Measurement(Measurement {
-            name: sensor_description.name.unwrap_or(""),
-            kind: MeasurementKindConvert(sensor_description.kind).into(),
-            value,
-        })
+        match device.vpd {
+            Some(task_validate_api::VpdDescription::VpdTask(idx)) => todo!(),
+            Some(task_validate_api::VpdDescription::Pmbus) => todo!(),
+            None => panic!(), // details index out of range??
+        }
     }
 
     pub(crate) fn device_description(
