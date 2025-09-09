@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use drv_i2c_devices::at24csw080::At24Csw080;
 use gateway_messages::measurement::{
     Measurement, MeasurementError, MeasurementKind,
 };
@@ -18,54 +19,56 @@ use userlib::UnwrapLite;
 
 userlib::task_slot!(VALIDATE, validate);
 userlib::task_slot!(SENSOR, sensor);
-userlib::task_slot!(I2C, i2c);
+userlib::task_slot!(I2C, i2c_driver);
 
 pub(crate) struct Inventory {
     validate_task: Validate,
     sensor_task: SensorTask,
+    fruid_buf: &'static mut [u8],
 }
 
-pub(crate) struct FixedStr {
-    buf: [u8; 32],
-    len: usize,
-}
+// pub(crate) struct FixedStr {
+//     buf: [u8; 32],
+//     len: usize,
+// }
 
-impl FixedStr {
-    pub fn copy_from_slice(slice: &[u8]) -> Result<Self, core::str::Utf8Error> {
-        core::str::from_utf8(slice)?;
-        let mut buf = [0u8; 32];
-        buf[..slice.len()].copy_from_slice(slice);
-        Ok(Self {
-            buf,
-            len: slice.len(),
-        })
-    }
+// impl FixedStr {
+//     pub fn copy_from_slice(slice: &[u8]) -> Result<Self, core::str::Utf8Error> {
+//         core::str::from_utf8(slice)?;
+//         let mut buf = [0u8; 32];
+//         buf[..slice.len()].copy_from_slice(slice);
+//         Ok(Self {
+//             buf,
+//             len: slice.len(),
+//         })
+//     }
 
-    pub fn from_buf(
-        bytes: [u8; 32],
-        len: usize,
-    ) -> Result<Self, core::str::Utf8Error> {
-        core::str::from_utf8(&bytes[..len])?;
-        Ok(Self { buf: bytes, len })
-    }
-}
+//     pub fn from_buf(
+//         bytes: [u8; 32],
+//         len: usize,
+//     ) -> Result<Self, core::str::Utf8Error> {
+//         core::str::from_utf8(&bytes[..len])?;
+//         Ok(Self { buf: bytes, len })
+//     }
+// }
 
-impl AsRef<str> for FixedStr {
-    fn as_ref(&self) -> &str {
-        unsafe {
-            // SAFETY: This is checked when constructing the FixedStr.
-            core::str::from_utf8_unchecked(&self.buf[..self.len])
-        }
-    }
-}
+// impl AsRef<str> for FixedStr {
+//     fn as_ref(&self) -> &str {
+//         unsafe {
+//             // SAFETY: This is checked when constructing the FixedStr.
+//             core::str::from_utf8_unchecked(&self.buf[..self.len])
+//         }
+//     }
+// }
 
 impl Inventory {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(fruid_buf: &'static mut [u8]) -> Self {
         let () = devices_with_static_validation::ASSERT_EACH_DEVICE_FITS_IN_ONE_PACKET;
 
         Self {
             validate_task: Validate::from(VALIDATE.get_task_id()),
             sensor_task: SensorTask::from(SENSOR.get_task_id()),
+            fruid_buf,
         }
     }
 
@@ -93,11 +96,11 @@ impl Inventory {
         }
     }
 
-    pub(crate) fn component_details(
-        &self,
+    pub(crate) fn component_details<'buf>(
+        &'buf mut self,
         component: &SpComponent,
         component_index: BoundsChecked,
-    ) -> ComponentDetails<FixedStr> {
+    ) -> ComponentDetails<&'buf str> {
         // `component_index` is guaranteed to be in the range
         // `0..num_component_details(component)`, and we only return a value
         // greater than 0 from that method for indices in the VALIDATE_DEVICES
@@ -108,20 +111,38 @@ impl Inventory {
             Ok(Index::ValidateDevice(i)) => i,
             Ok(Index::OurDevice(_)) | Err(_) => panic!(),
         };
+        let device = &VALIDATE_DEVICES[val_device_index];
+        // First, measurement channels...
+        if let Some(sensor_description) =
+            device.sensors.get(component_index.0 as usize)
+        {
+            let value = self
+                .sensor_task
+                .get(sensor_description.id)
+                .map_err(|err| SensorErrorConvert(err).into());
 
-        let sensor_description = &VALIDATE_DEVICES[val_device_index].sensors
-            [component_index.0 as usize];
+            return ComponentDetails::Measurement(Measurement {
+                name: sensor_description.name.unwrap_or(""),
+                kind: MeasurementKindConvert(sensor_description.kind).into(),
+                value,
+            });
+        }
 
-        let value = self
-            .sensor_task
-            .get(sensor_description.id)
-            .map_err(|err| SensorErrorConvert(err).into());
+        // If the index is greater than the maximum number of measurement
+        // channels, it must be a FRUID.
+        let Some(fruid) = device.fruid else {
+            // Index is bounds-checked.
+            unreachable!()
+        };
 
-        ComponentDetails::Measurement(Measurement {
-            name: sensor_description.name.unwrap_or(""),
-            kind: MeasurementKindConvert(sensor_description.kind).into(),
-            value,
-        })
+        match fruid {
+            FruidMode::At24Csw080Barcode(f) => {
+                let dev = f(I2C.get_task_id());
+                todo!()
+            }
+            FruidMode::At24Csw080Nested(_) => todo!(),
+            FruidMode::Tmp117(_) => todo!(),
+        }
     }
 
     pub(crate) fn device_description(

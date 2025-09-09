@@ -57,6 +57,7 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
     let mut missing_ids = 0;
     let mut duplicate_ids = 0;
     let mut ids_too_long = 0;
+    #[cfg(feature = "fruid")]
     let mut bad_fruids = 0;
     //
     // The DEVICE_INDICES_BY_SORTED_ID array is used to look up indices by ID
@@ -179,6 +180,7 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
         SpComponent::MAX_ID_LENGTH,
     );
 
+    #[cfg(feature = "fruid")]
     anyhow::ensure!(
         bad_fruids == 0,
         "{bad_fruids} devices have invalid FRUID configs!"
