@@ -25,6 +25,8 @@ drv-caboose = { path = "../../drv/caboose" }
 drv-caboose-pos = { path = "../../drv/caboose-pos" }
 drv-hf-api = { path = "../../drv/hf-api", optional = true }
 drv-cpu-seq-api = { path = "../../drv/cpu-seq-api", optional = true }
+drv-i2c-api = { path = "../../drv/i2c-api" }
+drv-i2c-devices = { path = "../../drv/i2c-devices" }
 drv-ignition-api = { path = "../../drv/ignition-api", optional = true }
 drv-lpc55-update-api = { path = "../../drv/lpc55-update-api" }
 drv-monorail-api = { path = "../../drv/monorail-api", optional = true }
@@ -47,13 +49,14 @@ task-jefe-api = { path = "../jefe-api" }
 task-net-api = { path = "../net-api", features = ["use-smoltcp"] }
 task-packrat-api = { path = "../packrat-api" }
 task-sensor-api = { path = "../sensor-api" }
-task-validate-api = { path = "../validate-api" }
+task-validate-api = { path = "../validate-api", features = ["fruid"] }
 update-buffer = { path = "../../lib/update-buffer" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 static-cell = { path = "../../lib/static-cell" }
 
 [build-dependencies]
 build-util = { path = "../../build/util" }
+build-i2c = { path = "../../build/i2c" }
 anyhow = { workspace = true }
 idol = { workspace = true }
 serde = { workspace = true }

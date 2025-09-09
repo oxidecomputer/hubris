@@ -913,7 +913,7 @@ impl SpHandler for MgsHandler {
         &mut self,
         component: SpComponent,
         index: BoundsChecked,
-    ) -> ComponentDetails {
+    ) -> ComponentDetails<crate::inventory::FixedStr> {
         self.common.inventory().component_details(&component, index)
     }
 

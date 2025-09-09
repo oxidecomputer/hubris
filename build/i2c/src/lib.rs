@@ -108,6 +108,9 @@ struct I2cDevice {
     /// device is removable
     #[serde(default)]
     removable: bool,
+
+    /// how to read FRUID VPD from the device, if any
+    fruid: Option<FruidMode>,
 }
 
 impl I2cDevice {
@@ -224,9 +227,16 @@ struct I2cSensors {
 
 #[derive(Clone, Debug, Deserialize, Hash, PartialOrd, PartialEq, Eq, Ord)]
 #[serde(untagged)]
-enum Refdes {
+pub enum Refdes {
     Component(String),
     Path(Vec<String>),
+}
+
+#[derive(Clone, Debug, Deserialize, PartialOrd, Ord, Eq, PartialEq)]
+pub enum FruidMode {
+    SingleBarcode,
+    NestedBarcode,
+    Pmbus,
 }
 
 impl I2cSensors {
@@ -1775,8 +1785,9 @@ pub struct I2cDeviceDescription {
     pub device: String,
     pub description: String,
     pub sensors: Vec<DeviceSensor>,
-    pub device_id: Option<String>,
+    pub device_id: Option<Refdes>,
     pub name: Option<String>,
+    pub fruid: Option<FruidMode>,
 }
 
 ///
@@ -1794,15 +1805,13 @@ pub fn device_descriptions() -> impl Iterator<Item = I2cDeviceDescription> {
     // Matches the ordering of the `match` produced by `generate_validation()`
     // above; if we change the order here, it must change there as well.
     g.devices.into_iter().zip(sensors.device_sensors).map(
-        |(device, sensors)| {
-            let device_id = device.refdes.as_ref().map(Refdes::to_component_id);
-            I2cDeviceDescription {
-                device: device.device,
-                description: device.description,
-                sensors,
-                device_id,
-                name: device.name,
-            }
+        |(device, sensors)| I2cDeviceDescription {
+            device: device.device,
+            description: device.description,
+            sensors,
+            device_id: device.refdes.clone(),
+            fruid: device.fruid,
+            name: device.name,
         },
     )
 }
@@ -1838,15 +1847,15 @@ where
 }
 
 impl Refdes {
-    fn to_component_id(&self) -> String {
+    pub fn to_component_id(&self) -> String {
         self.join_with_case(str::make_ascii_uppercase, "/")
     }
 
-    fn to_upper_ident(&self) -> String {
+    pub fn to_upper_ident(&self) -> String {
         self.join_with_case(str::make_ascii_uppercase, "_")
     }
 
-    fn to_lower_ident(&self) -> String {
+    pub fn to_lower_ident(&self) -> String {
         self.join_with_case(str::make_ascii_lowercase, "_")
     }
 

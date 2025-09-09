@@ -11,16 +11,52 @@ use gateway_messages::{
 };
 use task_sensor_api::Sensor as SensorTask;
 use task_sensor_api::SensorError;
+use task_validate_api::FruidMode;
 use task_validate_api::{Sensor, DEVICES as VALIDATE_DEVICES};
 use task_validate_api::{Validate, ValidateError, ValidateOk};
 use userlib::UnwrapLite;
 
 userlib::task_slot!(VALIDATE, validate);
 userlib::task_slot!(SENSOR, sensor);
+userlib::task_slot!(I2C, i2c);
 
 pub(crate) struct Inventory {
     validate_task: Validate,
     sensor_task: SensorTask,
+}
+
+pub(crate) struct FixedStr {
+    buf: [u8; 32],
+    len: usize,
+}
+
+impl FixedStr {
+    pub fn copy_from_slice(slice: &[u8]) -> Result<Self, core::str::Utf8Error> {
+        core::str::from_utf8(slice)?;
+        let mut buf = [0u8; 32];
+        buf[..slice.len()].copy_from_slice(slice);
+        Ok(Self {
+            buf,
+            len: slice.len(),
+        })
+    }
+
+    pub fn from_buf(
+        bytes: [u8; 32],
+        len: usize,
+    ) -> Result<Self, core::str::Utf8Error> {
+        core::str::from_utf8(&bytes[..len])?;
+        Ok(Self { buf: bytes, len })
+    }
+}
+
+impl AsRef<str> for FixedStr {
+    fn as_ref(&self) -> &str {
+        unsafe {
+            // SAFETY: This is checked when constructing the FixedStr.
+            core::str::from_utf8_unchecked(&self.buf[..self.len])
+        }
+    }
 }
 
 impl Inventory {
@@ -44,7 +80,15 @@ impl Inventory {
         match Index::try_from(component)? {
             Index::OurDevice(_) => Ok(0),
             Index::ValidateDevice(i) => {
-                Ok(VALIDATE_DEVICES[i].sensors.len() as u32)
+                let dev = &VALIDATE_DEVICES[i];
+                let nsensors = dev.sensors.len() as u32;
+                let nfruid = match dev.fruid {
+                    Some(FruidMode::At24Csw080Barcode(_)) => 1,
+                    Some(FruidMode::At24Csw080Nested(_)) => 0, // TODO(eliza): implement nested SASY barcodes
+                    Some(FruidMode::Tmp117(_)) => 1,
+                    None => 0,
+                };
+                Ok(nsensors + nfruid)
             }
         }
     }
@@ -53,7 +97,7 @@ impl Inventory {
         &self,
         component: &SpComponent,
         component_index: BoundsChecked,
-    ) -> ComponentDetails {
+    ) -> ComponentDetails<FixedStr> {
         // `component_index` is guaranteed to be in the range
         // `0..num_component_details(component)`, and we only return a value
         // greater than 0 from that method for indices in the VALIDATE_DEVICES
@@ -270,6 +314,7 @@ mod devices_with_static_validation {
             // Fine to assume this is always present; if it isn't, we can't respond
             // to MGS messages anyway!
             presence: DevicePresence::Present,
+            fruid: None,
         },
         #[cfg(any(
             feature = "gimlet",

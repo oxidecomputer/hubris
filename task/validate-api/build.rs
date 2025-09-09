@@ -11,6 +11,13 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         "../../idl/validate.idol",
         "client_stub.rs",
     )?;
+
+    #[cfg(feature = "fruid")]
+    if let Err(e) = build_i2c::codegen(build_i2c::Disposition::Devices) {
+        println!("cargo::error=failed to generate I2C devices: {e}");
+        std::process::exit(1);
+    }
+
     Ok(())
 }
 
@@ -50,6 +57,7 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
     let mut missing_ids = 0;
     let mut duplicate_ids = 0;
     let mut ids_too_long = 0;
+    let mut bad_fruids = 0;
     //
     // The DEVICE_INDICES_BY_SORTED_ID array is used to look up indices by ID
     // using a binary search, so it must be sorted by ID. This map is used to
@@ -62,7 +70,8 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
         writeln!(file, "    DeviceDescription {{")?;
         writeln!(file, "        device: {:?},", dev.device)?;
         writeln!(file, "        description: {:?},", dev.description)?;
-        if let Some(id) = dev.device_id {
+        if let Some(id) = dev.device_id.as_ref() {
+            let id = id.to_component_id();
             if let Ok(component) = SpComponent::try_from(id.as_ref()) {
                 write!(file, "        id: {:?},", component.id)?;
                 if id2idx.insert(component.id, idx).is_some() {
@@ -92,6 +101,49 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
             writeln!(file, "            }},")?;
         }
         writeln!(file, "        ],")?;
+        #[cfg(feature = "fruid")]
+        {
+            let mode = match (dev.fruid, dev.device.as_ref()) {
+                (Some(build_i2c::FruidMode::SingleBarcode), "at24csw080") => {
+                    Some("FruidMode::At24Csw080Barcode")
+                }
+                (Some(build_i2c::FruidMode::NestedBarcode), "at24csw080") => {
+                    Some("FruidMode::At24Csw080NestedBarcode")
+                }
+                (None, "tmp117") => Some("FruidMode::Tmp117"),
+                // TODO(eliza): PMBus
+                (Some(mode), device) => {
+                    println!("cargo::error=FRUID mode {mode:?} not supported for {device}");
+                    bad_fruids += 1;
+                    None
+                }
+                (None, _) => None,
+            };
+            match (mode, dev.device_id.as_ref()) {
+                (Some(mode), Some(id)) => {
+                    let devname = format!(
+                        "i2c_config::devices::{}_{} as fn(_) -> _",
+                        &dev.device,
+                        id.to_lower_ident()
+                    );
+                    writeln!(
+                        file,
+                        "            fruid: Some({mode}({devname})),"
+                    )?;
+                }
+                (None, _) => {
+                    writeln!(file, "            fruid: None,")?;
+                }
+                (Some(mode), None) => {
+                    println!(
+                        "cargo::error=devices with a FRUID mode must have \
+                         refdes, but device {idx} (mode: {mode:?}) does not\
+                        have one",
+                    );
+                    bad_fruids += 1;
+                }
+            }
+        }
         writeln!(file, "    }},")?;
     }
 
@@ -125,6 +177,11 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
         ids_too_long == 0,
         "{ids_too_long} device IDs exceeded max length ({}B)!",
         SpComponent::MAX_ID_LENGTH,
+    );
+
+    anyhow::ensure!(
+        bad_fruids == 0,
+        "{bad_fruids} devices have invalid FRUID configs!"
     );
 
     Ok(())

@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-
+fruid = []
 
 [dependencies]
 idol-runtime.workspace = true
@@ -17,6 +17,7 @@ serde.workspace = true
 counters = { path = "../../lib/counters" }
 derive-idol-err = { path = "../../lib/derive-idol-err"  }
 drv-i2c-api = { path = "../../drv/i2c-api" }
+drv-i2c-devices = { path = "../../drv/i2c-devices", optional = true }
 task-sensor-api = { path = "../sensor-api" }
 userlib = { path = "../../sys/userlib" }
 
