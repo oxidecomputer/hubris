@@ -57,7 +57,7 @@ pub(crate) struct MgsCommon {
     dump_state: DumpState,
 
     reset_component_requested: Option<SpComponent>,
-    inventory: Inventory,
+    pub inventory: Inventory,
     base_mac_address: MacAddress,
     packrat: Packrat,
     sprot: SpRot,
@@ -65,15 +65,22 @@ pub(crate) struct MgsCommon {
     sensor: Sensor,
 }
 
+const FRUID_BUF_SIZE: usize = 256;
+
 impl MgsCommon {
     pub(crate) fn claim_static_resources(base_mac_address: MacAddress) -> Self {
+        use static_cell::ClaimOnceCell;
+        let fruid_buf = {
+            static BUF: ClaimOnceCell<[u8; FRUID_BUF_SIZE]> =
+                ClaimOnceCell::new([0; FRUID_BUF_SIZE]);
+            BUF.claim()
+        };
         Self {
             sp_update: SpUpdate::new(),
             rot_update: RotUpdate::new(),
             dump_state: DumpState::new(),
-
             reset_component_requested: None,
-            inventory: Inventory::new(),
+            inventory: Inventory::new(fruid_buf),
             base_mac_address,
             packrat: Packrat::from(PACKRAT.get_task_id()),
             sprot: SpRot::from(SPROT.get_task_id()),

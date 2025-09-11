@@ -913,8 +913,8 @@ impl SpHandler for MgsHandler {
         &mut self,
         component: SpComponent,
         index: BoundsChecked,
-    ) -> ComponentDetails {
-        self.common.inventory().component_details(&component, index)
+    ) -> ComponentDetails<&str> {
+        self.common.inventory.component_details(&component, index)
     }
 
     fn component_get_active_slot(
