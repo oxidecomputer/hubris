@@ -372,10 +372,14 @@ fn system_init() {
         // still).
         w.mbken().set_bit();
 
+        unsafe {
+            // Swap the device map so that the default memory map uses device
+            // memory to avoid speculation
+            w.bmap().bits(0b01);
+        }
         // The following fields are being deliberately left in their reset
         // states:
         // - FMCEN is being left off
-        // - BMAP default (no remapping) is retained
         // - Write FIFO is being left on (TODO is this correct?)
         // - CPSIZE is being left with no special behavior on page-crossing
         // - ASYNCWAIT is being left off since we're synchronous
