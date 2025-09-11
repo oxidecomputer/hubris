@@ -8,7 +8,7 @@ use gateway_messages::measurement::{
     Measurement, MeasurementError, MeasurementKind,
 };
 use gateway_messages::sp_impl::{BoundsChecked, DeviceDescription};
-use gateway_messages::vpd::{OxideVpd, Vpd};
+use gateway_messages::vpd::{OxideVpd, Tmp117Vpd, Vpd};
 use gateway_messages::{
     ComponentDetails, DeviceCapabilities, DevicePresence, SpComponent, SpError,
     VpdError,
@@ -155,7 +155,7 @@ impl Inventory {
                 }
             }
             FruidMode::At24Csw080Nested(_) => todo!(),
-            FruidMode::Tmp117(dev) => {
+            FruidMode::Tmp117(f) => {
                 let dev = f(I2C.get_task_id());
                 match read_tmp117_fruid(dev) {
                     Ok(vpd) => ComponentDetails::Vpd(Vpd::Tmp117(vpd)),
@@ -305,11 +305,11 @@ fn read_one_barcode(
 }
 
 /// Read FRUID data from a TMP117 temperature sensor.
-fn read_tmp117_fruid(dev: I2cDevice) -> Result<Tmp117Vpd, i2c::Error> {
-    let id = dev.read_reg(0x0Fu8)?;
-    let eeprom1 = dev.read_reg(0x05u8)?;
-    let eeprom2 = dev.read_reg(0x06u8)?;
-    let eeprom3 = dev.read_reg(0x08u8)?;
+fn read_tmp117_fruid(dev: I2cDevice) -> Result<Tmp117Vpd, i2c::ResponseCode> {
+    let id: u16 = dev.read_reg(0x0Fu8)?;
+    let eeprom1: u16 = dev.read_reg(0x05u8)?;
+    let eeprom2: u16 = dev.read_reg(0x06u8)?;
+    let eeprom3: u16 = dev.read_reg(0x08u8)?;
     Ok(Tmp117Vpd {
         id,
         eeprom1,
