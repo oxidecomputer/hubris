@@ -15,8 +15,8 @@ use task_jefe_api::Jefe;
 use task_packrat_api::Packrat;
 use task_sensor_api::{config::other_sensors, NoData, Sensor, SensorId};
 use userlib::{
-    hl::sleep_for, set_timer_relative, sys_recv_notification, task_slot,
-    FromPrimitive, RecvMessage,
+    hl::sleep_for, set_timer_relative, sys_get_timer, task_slot, FromPrimitive,
+    RecvMessage,
 };
 use zerocopy::IntoBytes;
 
@@ -28,7 +28,8 @@ task_slot!(SENSOR, sensor);
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,
-    Ready,
+    Activate { time: u64 },
+    Deactivate { time: u64 },
     Present { index: usize, present: bool },
     TemperatureReadTimeout { index: usize, pos: usize },
 }
@@ -37,121 +38,29 @@ ringbuf!(Trace, 32, Trace::None);
 
 #[export_name = "main"]
 fn main() -> ! {
-    // Wait for entry to A0 before we enable our i2c controller.  Normally,
-    // we'd be able to read SPDs in A2, but there's a hardware errata:
-    // https://github.com/oxidecomputer/hardware-cosmo/issues/689
-    let jefe = Jefe::from(JEFE.get_task_id());
-    loop {
-        // This laborious list is intended to ensure that new power states
-        // have to be added explicitly here.
-        match PowerState::from_u32(jefe.get_state()) {
-            Some(PowerState::A0) | Some(PowerState::A0PlusHP) => {
-                break;
-            }
-            Some(PowerState::A2)
-            | Some(PowerState::A2PlusFans)
-            | Some(PowerState::A0Reset)
-            | Some(PowerState::A0Thermtrip)
-            | None => {
-                // This happens before we're in a valid power state.
-                //
-                // Only listen to our Jefe notification.
-                sys_recv_notification(notifications::JEFE_STATE_CHANGE_MASK);
-            }
-        }
-    }
-
-    ringbuf_entry!(Trace::Ready);
-
-    // Time to get the SPD data from the FPGA!
     let packrat = Packrat::from(PACKRAT.get_task_id());
     let loader = Spartan7Loader::from(LOADER.get_task_id());
     let token = loader.get_token();
     let dimms = fmc_periph::Dimms::new(token);
-
-    // Kick off a read then wait for it to complete
-    dimms.spd_ctrl.modify(|s| s.set_start(true));
-    while dimms.spd_ctrl.start() {
-        sleep_for(10);
-    }
-
-    let mut present = [false; DIMM_COUNT];
-    for (index, present) in present.iter_mut().enumerate() {
-        // Check if this channel is present
-        *present = match index {
-            0 => dimms.spd_present.bus0_a(),
-            1 => dimms.spd_present.bus0_b(),
-            2 => dimms.spd_present.bus0_c(),
-            3 => dimms.spd_present.bus0_d(),
-            4 => dimms.spd_present.bus0_e(),
-            5 => dimms.spd_present.bus0_f(),
-            6 => dimms.spd_present.bus1_g(),
-            7 => dimms.spd_present.bus1_h(),
-            8 => dimms.spd_present.bus1_i(),
-            9 => dimms.spd_present.bus1_j(),
-            10 => dimms.spd_present.bus1_k(),
-            11 => dimms.spd_present.bus1_l(),
-            _ => unreachable!(),
-        };
-        ringbuf_entry!(Trace::Present {
-            index,
-            present: *present
-        });
-        if !*present {
-            continue;
-        }
-        // Set this channel as selected, clearing other selections
-        dimms.spd_select.modify(|s| {
-            s.set_bus0_a(false);
-            s.set_bus0_b(false);
-            s.set_bus0_c(false);
-            s.set_bus0_d(false);
-            s.set_bus0_e(false);
-            s.set_bus0_f(false);
-            s.set_bus1_g(false);
-            s.set_bus1_h(false);
-            s.set_bus1_i(false);
-            s.set_bus1_j(false);
-            s.set_bus1_k(false);
-            s.set_bus1_l(false);
-            match index {
-                0 => s.set_bus0_a(true),
-                1 => s.set_bus0_b(true),
-                2 => s.set_bus0_c(true),
-                3 => s.set_bus0_d(true),
-                4 => s.set_bus0_e(true),
-                5 => s.set_bus0_f(true),
-                6 => s.set_bus1_g(true),
-                7 => s.set_bus1_h(true),
-                8 => s.set_bus1_i(true),
-                9 => s.set_bus1_j(true),
-                10 => s.set_bus1_k(true),
-                11 => s.set_bus1_l(true),
-                _ => unreachable!(),
-            }
-        });
-
-        // Read 4x256 bytes from the FPGA's buffer and copy to Packrat
-        dimms.spd_rd_ptr.set_addr(0);
-        for i in 0..4 {
-            // Limited by max lease size for Packrat
-            let mut buf = [0u32; 64];
-            for b in &mut buf {
-                *b = dimms.spd_rdata.data();
-            }
-            packrat.set_spd_eeprom(index as u8, i * 256, buf.as_bytes());
-        }
-    }
-
     let sensor = Sensor::from(SENSOR.get_task_id());
+    let jefe = Jefe::from(JEFE.get_task_id());
+
     let mut server = ServerImpl {
         dimms,
         sensor,
-        present,
+        present: [false; DIMM_COUNT],
+        jefe,
+        packrat,
+        active: false,
     };
+
+    // Wait for entry to A0 before we enable our i2c controller.  Normally,
+    // we'd be able to read SPDs in A2, but there's a hardware errata:
+    // https://github.com/oxidecomputer/hardware-cosmo/issues/689
+    server.check_active();
+
     set_timer_relative(0, notifications::TIMER_MASK);
     let mut buffer = [0; idl::INCOMING_SIZE];
-
     loop {
         idol_runtime::dispatch(&mut buffer, &mut server);
     }
@@ -164,75 +73,136 @@ const DIMM_COUNT: usize = 12;
 struct ServerImpl {
     dimms: fmc_periph::Dimms,
     sensor: Sensor,
+    jefe: Jefe,
+    packrat: Packrat,
     present: [bool; DIMM_COUNT],
+    active: bool,
 }
 
-impl idl::InOrderCosmoSpdImpl for ServerImpl {
-    fn ping(
-        &mut self,
-        _mgs: &RecvMessage,
-    ) -> Result<(), RequestError<core::convert::Infallible>> {
-        Ok(())
-    }
-}
-
-const DIMM_SENSORS: [[SensorId; 2]; DIMM_COUNT] = [
-    [
-        other_sensors::DIMM_A_TS0_TEMPERATURE_SENSOR,
-        other_sensors::DIMM_A_TS1_TEMPERATURE_SENSOR,
-    ],
-    [
-        other_sensors::DIMM_B_TS0_TEMPERATURE_SENSOR,
-        other_sensors::DIMM_B_TS1_TEMPERATURE_SENSOR,
-    ],
-    [
-        other_sensors::DIMM_C_TS0_TEMPERATURE_SENSOR,
-        other_sensors::DIMM_C_TS1_TEMPERATURE_SENSOR,
-    ],
-    [
-        other_sensors::DIMM_D_TS0_TEMPERATURE_SENSOR,
-        other_sensors::DIMM_D_TS1_TEMPERATURE_SENSOR,
-    ],
-    [
-        other_sensors::DIMM_E_TS0_TEMPERATURE_SENSOR,
-        other_sensors::DIMM_E_TS1_TEMPERATURE_SENSOR,
-    ],
-    [
-        other_sensors::DIMM_F_TS0_TEMPERATURE_SENSOR,
-        other_sensors::DIMM_F_TS1_TEMPERATURE_SENSOR,
-    ],
-    [
-        other_sensors::DIMM_G_TS0_TEMPERATURE_SENSOR,
-        other_sensors::DIMM_G_TS1_TEMPERATURE_SENSOR,
-    ],
-    [
-        other_sensors::DIMM_H_TS0_TEMPERATURE_SENSOR,
-        other_sensors::DIMM_H_TS1_TEMPERATURE_SENSOR,
-    ],
-    [
-        other_sensors::DIMM_I_TS0_TEMPERATURE_SENSOR,
-        other_sensors::DIMM_I_TS1_TEMPERATURE_SENSOR,
-    ],
-    [
-        other_sensors::DIMM_J_TS0_TEMPERATURE_SENSOR,
-        other_sensors::DIMM_J_TS1_TEMPERATURE_SENSOR,
-    ],
-    [
-        other_sensors::DIMM_K_TS0_TEMPERATURE_SENSOR,
-        other_sensors::DIMM_K_TS1_TEMPERATURE_SENSOR,
-    ],
-    [
-        other_sensors::DIMM_L_TS0_TEMPERATURE_SENSOR,
-        other_sensors::DIMM_L_TS1_TEMPERATURE_SENSOR,
-    ],
-];
-
-impl idol_runtime::NotificationHandler for ServerImpl {
-    fn current_notification_mask(&self) -> u32 {
-        notifications::TIMER_MASK
+impl ServerImpl {
+    /// Get our current state from `jefe` and activate / deactivate as needed
+    fn check_active(&mut self) {
+        // This laborious list is intended to ensure that new power states
+        // have to be added explicitly here.
+        match PowerState::from_u32(self.jefe.get_state()) {
+            Some(PowerState::A0) | Some(PowerState::A0PlusHP) => {
+                if !self.active {
+                    self.activate()
+                }
+            }
+            Some(PowerState::A2)
+            | Some(PowerState::A2PlusFans)
+            | Some(PowerState::A0Reset)
+            | Some(PowerState::A0Thermtrip)
+            | None => {
+                if self.active {
+                    self.deactivate()
+                }
+            }
+        }
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
+    fn activate(&mut self) {
+        ringbuf_entry!(Trace::Activate {
+            time: sys_get_timer().now
+        });
+
+        // Kick off a read then wait for it to complete
+        self.dimms.spd_ctrl.modify(|s| s.set_start(true));
+        while self.dimms.spd_ctrl.start() {
+            sleep_for(10);
+        }
+
+        for (index, present) in self.present.iter_mut().enumerate() {
+            // Check if this channel is present
+            *present = match index {
+                0 => self.dimms.spd_present.bus0_a(),
+                1 => self.dimms.spd_present.bus0_b(),
+                2 => self.dimms.spd_present.bus0_c(),
+                3 => self.dimms.spd_present.bus0_d(),
+                4 => self.dimms.spd_present.bus0_e(),
+                5 => self.dimms.spd_present.bus0_f(),
+                6 => self.dimms.spd_present.bus1_g(),
+                7 => self.dimms.spd_present.bus1_h(),
+                8 => self.dimms.spd_present.bus1_i(),
+                9 => self.dimms.spd_present.bus1_j(),
+                10 => self.dimms.spd_present.bus1_k(),
+                11 => self.dimms.spd_present.bus1_l(),
+                DIMM_COUNT.. => unreachable!(),
+            };
+            ringbuf_entry!(Trace::Present {
+                index,
+                present: *present
+            });
+            if !*present {
+                self.packrat.remove_spd(index as u8);
+                continue;
+            }
+            // Set this channel as selected, clearing other selections
+            self.dimms.spd_select.modify(|s| {
+                s.set_bus0_a(false);
+                s.set_bus0_b(false);
+                s.set_bus0_c(false);
+                s.set_bus0_d(false);
+                s.set_bus0_e(false);
+                s.set_bus0_f(false);
+                s.set_bus1_g(false);
+                s.set_bus1_h(false);
+                s.set_bus1_i(false);
+                s.set_bus1_j(false);
+                s.set_bus1_k(false);
+                s.set_bus1_l(false);
+                match index {
+                    0 => s.set_bus0_a(true),
+                    1 => s.set_bus0_b(true),
+                    2 => s.set_bus0_c(true),
+                    3 => s.set_bus0_d(true),
+                    4 => s.set_bus0_e(true),
+                    5 => s.set_bus0_f(true),
+                    6 => s.set_bus1_g(true),
+                    7 => s.set_bus1_h(true),
+                    8 => s.set_bus1_i(true),
+                    9 => s.set_bus1_j(true),
+                    10 => s.set_bus1_k(true),
+                    11 => s.set_bus1_l(true),
+                    DIMM_COUNT.. => unreachable!(),
+                }
+            });
+
+            // Read 4x256 bytes from the FPGA's buffer and copy to Packrat
+            self.dimms.spd_rd_ptr.set_addr(0);
+            for i in 0..4 {
+                // Limited by max lease size for Packrat
+                let mut buf = [0u32; 64];
+                for b in &mut buf {
+                    *b = self.dimms.spd_rdata.data();
+                }
+                self.packrat.set_spd_eeprom(
+                    index as u8,
+                    i * 256,
+                    buf.as_bytes(),
+                );
+            }
+        }
+        self.active = true;
+    }
+
+    fn deactivate(&mut self) {
+        ringbuf_entry!(Trace::Deactivate {
+            time: sys_get_timer().now
+        });
+        self.active = false;
+
+        // Mark all sensors as off
+        for index in 0..DIMM_COUNT {
+            for pos in 0..2 {
+                self.sensor
+                    .nodata_now(DIMM_SENSORS[index][pos], NoData::DeviceOff);
+            }
+        }
+    }
+
+    fn poll_sensors(&mut self) {
         // The FPGA register generation produces different types for bus0 and
         // bus1, but they're the same shape, so we'll use a small macro for
         // codegen.
@@ -320,7 +290,89 @@ impl idol_runtime::NotificationHandler for ServerImpl {
                 self.sensor.post_now(DIMM_SENSORS[index][pos], temp_c);
             }
         }
-        set_timer_relative(TIMER_INTERVAL, notifications::TIMER_MASK);
+    }
+}
+
+impl idl::InOrderCosmoSpdImpl for ServerImpl {
+    fn ping(
+        &mut self,
+        _mgs: &RecvMessage,
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
+        Ok(())
+    }
+}
+
+const DIMM_SENSORS: [[SensorId; 2]; DIMM_COUNT] = [
+    [
+        other_sensors::DIMM_A_TS0_TEMPERATURE_SENSOR,
+        other_sensors::DIMM_A_TS1_TEMPERATURE_SENSOR,
+    ],
+    [
+        other_sensors::DIMM_B_TS0_TEMPERATURE_SENSOR,
+        other_sensors::DIMM_B_TS1_TEMPERATURE_SENSOR,
+    ],
+    [
+        other_sensors::DIMM_C_TS0_TEMPERATURE_SENSOR,
+        other_sensors::DIMM_C_TS1_TEMPERATURE_SENSOR,
+    ],
+    [
+        other_sensors::DIMM_D_TS0_TEMPERATURE_SENSOR,
+        other_sensors::DIMM_D_TS1_TEMPERATURE_SENSOR,
+    ],
+    [
+        other_sensors::DIMM_E_TS0_TEMPERATURE_SENSOR,
+        other_sensors::DIMM_E_TS1_TEMPERATURE_SENSOR,
+    ],
+    [
+        other_sensors::DIMM_F_TS0_TEMPERATURE_SENSOR,
+        other_sensors::DIMM_F_TS1_TEMPERATURE_SENSOR,
+    ],
+    [
+        other_sensors::DIMM_G_TS0_TEMPERATURE_SENSOR,
+        other_sensors::DIMM_G_TS1_TEMPERATURE_SENSOR,
+    ],
+    [
+        other_sensors::DIMM_H_TS0_TEMPERATURE_SENSOR,
+        other_sensors::DIMM_H_TS1_TEMPERATURE_SENSOR,
+    ],
+    [
+        other_sensors::DIMM_I_TS0_TEMPERATURE_SENSOR,
+        other_sensors::DIMM_I_TS1_TEMPERATURE_SENSOR,
+    ],
+    [
+        other_sensors::DIMM_J_TS0_TEMPERATURE_SENSOR,
+        other_sensors::DIMM_J_TS1_TEMPERATURE_SENSOR,
+    ],
+    [
+        other_sensors::DIMM_K_TS0_TEMPERATURE_SENSOR,
+        other_sensors::DIMM_K_TS1_TEMPERATURE_SENSOR,
+    ],
+    [
+        other_sensors::DIMM_L_TS0_TEMPERATURE_SENSOR,
+        other_sensors::DIMM_L_TS1_TEMPERATURE_SENSOR,
+    ],
+];
+
+impl idol_runtime::NotificationHandler for ServerImpl {
+    fn current_notification_mask(&self) -> u32 {
+        if self.active {
+            notifications::TIMER_MASK | notifications::JEFE_STATE_CHANGE_MASK
+        } else {
+            notifications::JEFE_STATE_CHANGE_MASK
+        }
+    }
+
+    fn handle_notification(&mut self, bits: u32) {
+        if (bits & notifications::JEFE_STATE_CHANGE_MASK) != 0 {
+            self.check_active();
+        }
+
+        if self.active {
+            if (bits & notifications::TIMER_MASK) != 0 {
+                self.poll_sensors();
+            }
+            set_timer_relative(TIMER_INTERVAL, notifications::TIMER_MASK);
+        }
     }
 }
 
