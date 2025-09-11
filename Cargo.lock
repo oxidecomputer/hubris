@@ -2001,6 +2001,7 @@ dependencies = [
  "minicbor-serde 0.6.0",
  "ringbuf",
  "serde",
+ "static-cell",
  "task-jefe-api",
  "task-packrat-api",
  "userlib",
