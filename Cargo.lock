@@ -3012,7 +3012,7 @@ dependencies = [
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=eliza%2Fvpd#4f5a721d43610fe8c637c2f45ff58ebbff2235ff"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=eliza%2Fvpd#206fd606bcea437f9b6b243788d2d17677746748"
 dependencies = [
  "bitflags 2.9.4",
  "hubpack",
