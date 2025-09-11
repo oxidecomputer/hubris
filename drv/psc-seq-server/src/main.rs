@@ -166,7 +166,9 @@ enum Event {
     },
 }
 
-counted_ringbuf!(Event, 128, Event::None);
+// Since entries in this ringbuffer contain timestamps, they will never be
+// de-duplicated. Thus, disable it.
+counted_ringbuf!(Event, 128, Event::None, no_dedup);
 
 /// More verbose debugging data goes in its own ring buffer, so that we can
 /// maintain a longer history of major PSU events while still recording more
@@ -174,6 +176,13 @@ counted_ringbuf!(Event, 128, Event::None);
 ///
 /// Each of these entries has a `now` value which can be correlated with the
 /// timestamps in the main ringbuf.
+///
+/// An entry for each of the rectifier's PMBus status registers (e.g.
+/// `STATUS_WORD`, `STATUS_VOUT`, `STATUS_IOUT`, and so on...) is recorded read
+/// whenever a rectifier's `PWR_OK` pin changes state. Since exactly one of each
+/// register entry is recorded for every `Faulted` and `FaultCleared` entry, we
+/// don't really need to spend extra bytes on counting them, so they are marked
+/// as `count(skip)`.
 #[derive(Copy, Clone, PartialEq, Eq, counters::Count)]
 enum Trace {
     #[count(skip)]
@@ -256,7 +265,9 @@ enum Trace {
     },
 }
 
-counted_ringbuf!(__TRACE, Trace, 32, Trace::None);
+// Since entries in this ringbuffer contain timestamps, they will never be
+// de-duplicated. Thus, disable it.
+counted_ringbuf!(__TRACE, Trace, 32, Trace::None, no_dedup);
 
 /// PSU numbers represented as an enum. This is intended for use with
 /// `counted_ringbuf!`, instead of representing PSU numbers as raw u8s, which
@@ -396,7 +407,7 @@ enum PresentState {
     /// fault.
     On {
         /// If `true`, the PSU was power-cycled by the PSC in attempt to clear a
-        /// fault. If it reasserts POWER_GOOD, that indicates that the fault has
+        /// fault. If it reasserts `PWR_OK`, that indicates that the fault has
         /// cleared; otherwise, the fault is persistent.
         ///
         /// If `false`, the PSU was either newly inserted, or a previous fault
@@ -457,6 +468,15 @@ fn main() -> ! {
     // with GPIOs below.
     let packrat = Packrat::from(PACKRAT.get_task_id());
     read_vpd_and_load_packrat(&packrat, I2C.get_task_id());
+
+    // Statically allocate a buffer for ereport CBOR encoding, so that it's not
+    // on the stack.
+    let ereport_buf = {
+        use static_cell::ClaimOnceCell;
+
+        static BUF: ClaimOnceCell<[u8; 256]> = ClaimOnceCell::new([0; 256]);
+        BUF.claim()
+    };
 
     let jefe = Jefe::from(JEFE.get_task_id());
     jefe.set_state(PowerState::A2 as u32);
@@ -651,7 +671,7 @@ fn main() -> ! {
                 }
             }
             if let Some(ereport) = step.ereport {
-                ereport.deliver(&packrat, now);
+                ereport.deliver(&packrat, now, ereport_buf);
             }
         }
 
@@ -1134,20 +1154,21 @@ mod ereport {
     }
 
     impl Ereport {
-        // This is in its own function so that the ereport buffer and `Ereport` struct
-        // are only on the stack while we're using it, and not for the entireity of
-        // `record_pmbus_status`, which calls into a bunch of other functions. This may
-        // reduce our stack depth a bit.
         #[inline(never)]
-        pub(super) fn deliver(&self, packrat: &Packrat, now: u64) {
-            let mut ereport_buf = [0u8; 256];
-            let writer =
-                minicbor::encode::write::Cursor::new(&mut ereport_buf[..]);
+        pub(super) fn deliver(
+            &self,
+            packrat: &Packrat,
+            now: u64,
+            buf: &mut [u8],
+        ) {
+            let writer = minicbor::encode::write::Cursor::new(buf);
             let mut s = minicbor_serde::Serializer::new(writer);
             match self.serialize(&mut s) {
                 Ok(_) => {
-                    let len = s.into_encoder().into_writer().position();
-                    packrat.deliver_ereport(&ereport_buf[..len]);
+                    let writer = s.into_encoder().into_writer();
+                    let len = writer.position();
+                    let buf = writer.into_inner();
+                    packrat.deliver_ereport(&buf[..len]);
                     ringbuf_entry!(
                         __TRACE,
                         Trace::EreportSentOff {
