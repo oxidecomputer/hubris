@@ -127,13 +127,10 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
                         &dev.device,
                         id.to_lower_ident()
                     );
-                    writeln!(
-                        file,
-                        "            fruid: Some({mode}({devname})),"
-                    )?;
+                    writeln!(file, "        fruid: Some({mode}({devname})),")?;
                 }
                 (None, _) => {
-                    writeln!(file, "            fruid: None,")?;
+                    writeln!(file, "        fruid: None,")?;
                 }
                 (Some(mode), None) => {
                     println!(

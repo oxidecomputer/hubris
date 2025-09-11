@@ -2,13 +2,16 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use drv_i2c_api::{self as i2c, I2cDevice};
 use drv_i2c_devices::at24csw080::At24Csw080;
 use gateway_messages::measurement::{
     Measurement, MeasurementError, MeasurementKind,
 };
 use gateway_messages::sp_impl::{BoundsChecked, DeviceDescription};
+use gateway_messages::vpd::{OxideVpd, Vpd};
 use gateway_messages::{
     ComponentDetails, DeviceCapabilities, DevicePresence, SpComponent, SpError,
+    VpdError,
 };
 use task_sensor_api::Sensor as SensorTask;
 use task_sensor_api::SensorError;
@@ -88,7 +91,7 @@ impl Inventory {
                 let nfruid = match dev.fruid {
                     Some(FruidMode::At24Csw080Barcode(_)) => 1,
                     Some(FruidMode::At24Csw080Nested(_)) => 0, // TODO(eliza): implement nested SASY barcodes
-                    Some(FruidMode::Tmp117(_)) => 1,
+                    Some(FruidMode::Tmp117(_)) => 0, // TODO(eliza): implement tmp117 fruid
                     None => 0,
                 };
                 Ok(nsensors + nfruid)
@@ -138,7 +141,18 @@ impl Inventory {
         match fruid {
             FruidMode::At24Csw080Barcode(f) => {
                 let dev = f(I2C.get_task_id());
-                todo!()
+                match read_one_barcode(dev, &[(*b"BARC", 0)]) {
+                    Ok(oxide_barcode::VpdIdentity {
+                        revision,
+                        serial,
+                        part_number,
+                    }) => ComponentDetails::Vpd(Vpd::Oxide(OxideVpd {
+                        rev: revision,
+                        serial,
+                        part_number,
+                    })),
+                    Err(err) => panic!(), // TODO(eliza): figure out this
+                }
             }
             FruidMode::At24Csw080Nested(_) => todo!(),
             FruidMode::Tmp117(_) => todo!(),
@@ -178,6 +192,9 @@ impl Inventory {
         let mut capabilities = DeviceCapabilities::empty();
         if !device.sensors.is_empty() {
             capabilities |= DeviceCapabilities::HAS_MEASUREMENT_CHANNELS;
+        }
+        if device.fruid.is_some() {
+            capabilities |= DeviceCapabilities::HAS_VPD;
         }
         DeviceDescription {
             component: SpComponent { id: device.id },
@@ -242,6 +259,42 @@ impl TryFrom<&'_ SpComponent> for Index {
             }
         }
         Err(SpError::RequestUnsupportedForComponent)
+    }
+}
+
+/// Free function to read a nested barcode, translating errors appropriately
+fn read_one_barcode(
+    dev: I2cDevice,
+    path: &[([u8; 4], usize)],
+) -> Result<oxide_barcode::VpdIdentity, VpdError> {
+    let eeprom = At24Csw080::new(dev);
+    let mut barcode = [0; 32];
+    match drv_oxide_vpd::read_config_nested_from_into(
+        eeprom,
+        path,
+        &mut barcode,
+    ) {
+        Ok(n) => {
+            // extract barcode!
+            let identity = oxide_barcode::VpdIdentity::parse(&barcode[..n])
+                .map_err(|_| VpdError::DeviceError)?;
+            Ok(identity)
+        }
+        Err(
+            drv_oxide_vpd::VpdError::ErrorOnBegin(err)
+            | drv_oxide_vpd::VpdError::ErrorOnRead(err)
+            | drv_oxide_vpd::VpdError::ErrorOnNext(err)
+            | drv_oxide_vpd::VpdError::InvalidChecksum(err),
+        ) if err
+            == tlvc::TlvcReadError::User(
+                drv_i2c_devices::at24csw080::Error::I2cError(
+                    i2c::ResponseCode::NoDevice,
+                ),
+            ) =>
+        {
+            Err(VpdError::NotPresent)
+        }
+        Err(..) => Err(VpdError::DeviceError),
     }
 }
 

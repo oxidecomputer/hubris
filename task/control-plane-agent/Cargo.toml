@@ -14,6 +14,7 @@ num-traits.workspace = true
 serde.workspace = true
 ssmarshal.workspace = true
 static_assertions.workspace = true
+tlvc.workspace = true
 zerocopy.workspace = true
 zerocopy-derive.workspace = true
 
@@ -30,6 +31,7 @@ drv-i2c-devices = { path = "../../drv/i2c-devices" }
 drv-ignition-api = { path = "../../drv/ignition-api", optional = true }
 drv-lpc55-update-api = { path = "../../drv/lpc55-update-api" }
 drv-monorail-api = { path = "../../drv/monorail-api", optional = true }
+drv-oxide-vpd = { path = "../../drv/oxide-vpd" }
 drv-sidecar-seq-api = { path = "../../drv/sidecar-seq-api", optional = true }
 drv-sprot-api = { path = "../../drv/sprot-api" }
 drv-stm32h7-update-api = { path = "../../drv/stm32h7-update-api" }
@@ -42,6 +44,7 @@ dump-agent-api = { path = "../dump-agent-api" }
 task-vpd-api = { path = "../../task/vpd-api", optional = true }
 host-sp-messages = { path = "../../lib/host-sp-messages" }
 lpc55-rom-data = { path = "../../lib/lpc55-rom-data" }
+oxide-barcode = { path = "../../lib/oxide-barcode" }
 ringbuf = { path = "../../lib/ringbuf" }
 counters = { path = "../../lib/counters" }
 task-control-plane-agent-api = { path = "../control-plane-agent-api" }

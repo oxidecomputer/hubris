@@ -233,6 +233,7 @@ pub enum Refdes {
 }
 
 #[derive(Clone, Debug, Deserialize, PartialOrd, Ord, Eq, PartialEq)]
+#[serde(rename_all = "kebab-case")]
 pub enum FruidMode {
     SingleBarcode,
     NestedBarcode,
