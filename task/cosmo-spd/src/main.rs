@@ -10,7 +10,7 @@
 use drv_cpu_seq_api::PowerState;
 use drv_spartan7_loader_api::Spartan7Loader;
 use idol_runtime::RequestError;
-use ringbuf::{ringbuf, ringbuf_entry};
+use ringbuf::{counted_ringbuf, ringbuf_entry};
 use task_jefe_api::Jefe;
 use task_packrat_api::Packrat;
 use task_sensor_api::{config::other_sensors, NoData, Sensor, SensorId};
@@ -25,7 +25,7 @@ task_slot!(PACKRAT, packrat);
 task_slot!(LOADER, spartan7_loader);
 task_slot!(SENSOR, sensor);
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(counters::Count, Copy, Clone, PartialEq)]
 enum Trace {
     None,
     Activate { time: u64 },
@@ -34,7 +34,7 @@ enum Trace {
     TemperatureReadTimeout { index: usize, pos: usize },
 }
 
-ringbuf!(Trace, 32, Trace::None);
+counted_ringbuf!(Trace, 32, Trace::None);
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -57,7 +57,7 @@ fn main() -> ! {
     // Wait for entry to A0 before we enable our i2c controller.  Normally,
     // we'd be able to read SPDs in A2, but there's a hardware errata:
     // https://github.com/oxidecomputer/hardware-cosmo/issues/689
-    server.check_active();
+    server.update_state();
 
     set_timer_relative(0, notifications::TIMER_MASK);
     let mut buffer = [0; idl::INCOMING_SIZE];
@@ -81,7 +81,7 @@ struct ServerImpl {
 
 impl ServerImpl {
     /// Get our current state from `jefe` and activate / deactivate as needed
-    fn check_active(&mut self) {
+    fn update_state(&mut self) {
         // This laborious list is intended to ensure that new power states
         // have to be added explicitly here.
         match PowerState::from_u32(self.jefe.get_state()) {
@@ -194,10 +194,9 @@ impl ServerImpl {
         self.active = false;
 
         // Mark all sensors as off
-        for index in 0..DIMM_COUNT {
-            for pos in 0..2 {
-                self.sensor
-                    .nodata_now(DIMM_SENSORS[index][pos], NoData::DeviceOff);
+        for dimm in &DIMM_SENSORS {
+            for sensor in dimm {
+                self.sensor.nodata_now(*sensor, NoData::DeviceOff);
             }
         }
     }
@@ -364,7 +363,7 @@ impl idol_runtime::NotificationHandler for ServerImpl {
 
     fn handle_notification(&mut self, bits: u32) {
         if (bits & notifications::JEFE_STATE_CHANGE_MASK) != 0 {
-            self.check_active();
+            self.update_state();
         }
 
         if self.active {
