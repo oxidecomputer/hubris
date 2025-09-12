@@ -8,10 +8,9 @@ use gateway_messages::measurement::{
     Measurement, MeasurementError, MeasurementKind,
 };
 use gateway_messages::sp_impl::{BoundsChecked, DeviceDescription};
-use gateway_messages::vpd::{OxideVpd, Tmp117Vpd, Vpd};
+use gateway_messages::vpd::{OxideVpd, Tmp117Vpd, Vpd, VpdReadError};
 use gateway_messages::{
     ComponentDetails, DeviceCapabilities, DevicePresence, SpComponent, SpError,
-    VpdError,
 };
 use task_sensor_api::Sensor as SensorTask;
 use task_sensor_api::SensorError;
@@ -151,7 +150,7 @@ impl Inventory {
                         serial,
                         part_number,
                     })),
-                    Err(err) => panic!(), // TODO(eliza): figure out this
+                    Err(err) => ComponentDetails::Vpd(Vpd::Err(err)),
                 }
             }
             FruidMode::At24Csw080Nested(_) => todo!(),
@@ -159,7 +158,7 @@ impl Inventory {
                 let dev = f(I2C.get_task_id());
                 match read_tmp117_fruid(dev) {
                     Ok(vpd) => ComponentDetails::Vpd(Vpd::Tmp117(vpd)),
-                    Err(err) => panic!(), // TODO(eliza): figure out this
+                    Err(err) => ComponentDetails::Vpd(Vpd::Err(err)),
                 }
             }
         }
@@ -272,7 +271,7 @@ impl TryFrom<&'_ SpComponent> for Index {
 fn read_one_barcode(
     dev: I2cDevice,
     path: &[([u8; 4], usize)],
-) -> Result<oxide_barcode::VpdIdentity, VpdError> {
+) -> Result<oxide_barcode::VpdIdentity, VpdReadError> {
     let eeprom = At24Csw080::new(dev);
     let mut barcode = [0; 32];
     match drv_oxide_vpd::read_config_nested_from_into(
@@ -283,39 +282,52 @@ fn read_one_barcode(
         Ok(n) => {
             // extract barcode!
             let identity = oxide_barcode::VpdIdentity::parse(&barcode[..n])
-                .map_err(|_| VpdError::DeviceError)?;
+                .map_err(|_| VpdReadError::InvalidContents)?;
             Ok(identity)
         }
+        Err(
+            drv_oxide_vpd::VpdError::NoRootChunk
+            | drv_oxide_vpd::VpdError::NoSuchChunk(_)
+            | drv_oxide_vpd::VpdError::InvalidChunkSize,
+        ) => Err(VpdReadError::InvalidContents),
         Err(
             drv_oxide_vpd::VpdError::ErrorOnBegin(err)
             | drv_oxide_vpd::VpdError::ErrorOnRead(err)
             | drv_oxide_vpd::VpdError::ErrorOnNext(err)
             | drv_oxide_vpd::VpdError::InvalidChecksum(err),
-        ) if err
-            == tlvc::TlvcReadError::User(
-                drv_i2c_devices::at24csw080::Error::I2cError(
-                    i2c::ResponseCode::NoDevice,
-                ),
-            ) =>
-        {
-            Err(VpdError::NotPresent)
-        }
-        Err(..) => Err(VpdError::DeviceError),
+        ) => match err {
+            // If the underlying error is an I2C error, indicate that.
+            tlvc::TlvcReadError::User(
+                drv_i2c_devices::at24csw080::Error::I2cError(e),
+            ) => Err(i2c_vpd_error(e)),
+            // Other user errors indicate we tried to read a bad address or
+            // similar.
+            tlvc::TlvcReadError::User(_) => Err(VpdReadError::BadRead),
+            // Otherwise, indicate that the contents are invalid TLV-c.
+            _ => Err(VpdReadError::InvalidContents),
+        },
     }
 }
 
 /// Read FRUID data from a TMP117 temperature sensor.
-fn read_tmp117_fruid(dev: I2cDevice) -> Result<Tmp117Vpd, i2c::ResponseCode> {
-    let id: u16 = dev.read_reg(0x0Fu8)?;
-    let eeprom1: u16 = dev.read_reg(0x05u8)?;
-    let eeprom2: u16 = dev.read_reg(0x06u8)?;
-    let eeprom3: u16 = dev.read_reg(0x08u8)?;
+fn read_tmp117_fruid(dev: I2cDevice) -> Result<Tmp117Vpd, VpdReadError> {
+    let id: u16 = dev.read_reg(0x0Fu8).map_err(i2c_vpd_error)?;
+    let eeprom1: u16 = dev.read_reg(0x05u8).map_err(i2c_vpd_error)?;
+    let eeprom2: u16 = dev.read_reg(0x06u8).map_err(i2c_vpd_error)?;
+    let eeprom3: u16 = dev.read_reg(0x08u8).map_err(i2c_vpd_error)?;
     Ok(Tmp117Vpd {
         id,
         eeprom1,
         eeprom2,
         eeprom3,
     })
+}
+
+fn i2c_vpd_error(e: i2c::ResponseCode) -> VpdReadError {
+    match e {
+        i2c::ResponseCode::NoDevice => VpdReadError::DeviceNotPresent,
+        _ => VpdReadError::I2cError,
+    }
 }
 
 use devices_with_static_validation::OUR_DEVICES;
