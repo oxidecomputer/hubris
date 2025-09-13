@@ -37,6 +37,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 sha3 = { workspace = true }
 rustc-demangle = { workspace = true }
+rustc_version = { workspace = true }
 tlvc = { workspace = true }
 tlvc-text = { workspace = true }
 toml = { workspace = true }

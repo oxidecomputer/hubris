@@ -129,28 +129,16 @@ try to keep things working on Mac and Illumos.
 
 ### What Rust toolchain versions do you support?
 
-Because of our reliance on nightly toolchain features, we support exactly one
-version of the toolchain -- the one listed in our `rust-toolchain.toml` file at
-the top of the repo.
+Hubris can be built using the stable toolchain (see [Cargo.toml](Cargo.toml) for
+the MSRV). This should suffice for development uses and production builds.
 
-### Why does Hubris require the nightly Rust toolchain?
+There is one feature that requires nightly: build-time task [stack overflow
+checking]. Using this check requires [emit-stack-sizes], for which there is
+no stable workaround or equivalent. In order to enable this check, pass the
+flag `+nightly-2025-07-20` to cargo (i.e. `cargo +nightly... xtask ...`).
 
-Mostly because we need some assembly language, and we'd like to write that in
-Rust functions instead of separate files, which means we need the unstable `asm`
-feature. To do context switching, specifically, we need to be able to write a
-function that contains _only_ assembly instructions without additional
-preamble/epilogue code. For this, we need the unstable `naked_fn` feature.
-
-At the time of this writing, portions of `asm` are on track to stabilizing, but
-unfortunately not the portions we use.
-
-Unfortunately, Hubris's use of the nightly toolchain more or less requires any
-applications of Hubris to also use the nightly toolchain.
-
-Just because we're on nightly doesn't mean we can use any unstable feature --
-we're trying hard _not_ to use any additional unstable features, in the hopes of
-eventually being able to use stable.
-
+[stack overflow checking]: https://github.com/oxidecomputer/hubris/pull/1890
+[emit-stack-sizes]: https://doc.rust-lang.org/beta/unstable-book/compiler-flags/emit-stack-sizes.html
 
 ## Hardware support
 
