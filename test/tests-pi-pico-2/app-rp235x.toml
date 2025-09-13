@@ -1,0 +1,67 @@
+name = "tests-rp235x"
+target = "thumbv8m.main-none-eabihf"
+chip = "../../chips/rp235x"
+board = "pi-pico-2"
+memory = "memory-pico-2.toml"
+
+[kernel]
+name = "demo-pi-pico-2"
+requires = {flash = 19112, ram = 3328}
+stacksize = 2048
+
+[tasks.runner]
+name = "test-runner"
+priority = 0
+max-sizes = {flash = 16384, ram = 4096}
+start = true
+stacksize = 1904
+
+[tasks.suite]
+name = "test-suite"
+priority = 2
+max-sizes = {flash = 65536, ram = 4096}
+start = true
+task-slots = ["assist", "idol", "suite", "runner"]
+stacksize = 1504
+# this doesn't actually use SPI; we're just mapping that interrupt to test
+# interrupt handling. chosen completely arbitrarily.
+uses = ["spi0"]
+notifications = ["test-irq"]
+interrupts = {"spi0.irq" = "test-irq"}
+
+# This block is used to test the task_config macro
+[tasks.suite.config]
+foo = '"Hello, world"'
+bar = 42
+baz = [1, 2, 3, 4]
+tup = [[1, true], [2, true], [3, false]]
+
+[tasks.assist]
+name = "test-assist"
+priority = 1
+max-sizes = {flash = 16384, ram = 2048}
+start = true
+stacksize = 1504
+
+[tasks.idol]
+name = "test-idol-server"
+priority = 1
+max-sizes = {flash = 4096, ram = 1024}
+stacksize = 1024
+start = true
+
+[tasks.hiffy]
+name = "task-hiffy"
+priority = 3
+features = ["testsuite"]
+max-sizes = {flash = 32768, ram = 32768 }
+stacksize = 2048
+start = true
+task-slots = ["suite", "runner"]
+
+[tasks.idle]
+name = "task-idle"
+priority = 4
+max-sizes = {flash = 128, ram = 128}
+stacksize = 128
+start = true

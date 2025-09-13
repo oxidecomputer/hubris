@@ -1,0 +1,26 @@
+[package]
+edition = "2021"
+readme = "README.md"
+name = "tests-pi-pico-2"
+version = "0.1.0"
+
+[dependencies]
+cfg-if = { workspace = true }
+cortex-m = { workspace = true }
+cortex-m-rt = { workspace = true }
+
+kern = { path = "../../sys/kern" }
+
+[build-dependencies]
+build-util = { path = "../../build/util" }
+
+# this lets you use `cargo fix`!
+[[bin]]
+name = "tests-rp235x"
+path = "../../app/demo-pi-pico-2/src/main.rs"
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true

@@ -37,8 +37,8 @@ mapped as an MPU region. Only tasks declared in `caboose.tasks` are allowed to
 read data from the caboose region of flash.  If other tasks attempt to read from
 this memory region, they will experience the typical memory fault.
 
-The Hubris build system will populate the caboose with start and end words
-(32-bit words) words, and a sequence of 
+The Hubris build system will populate the caboose with 32-bit start and end
+words, and a sequence of
 https://github.com/oxidecomputer/tlvc[TLV-C] key-value pairs containing image
 metadata:
 
@@ -48,12 +48,12 @@ metadata:
 | Type
 | Description
 
-| **Start** 
-| `u32` 
+| **Start**
+| `u32`
 | `abi::CABOOSE_MAGIC`
 
-| `GITC` tag 
-| TLV-C 
+| `GITC` tag
+| TLV-C
 | The current Git commit hash with an optional trailing "-dirty" if the
 repository contains uncommitted changes.
 
@@ -74,7 +74,7 @@ if it was set.
 | `u8`
 | _(filled with `0xFF`)_
 
-| **End**   
+| **End**
 | `u32`
 | Caboose size (little-endian `u32`)
 |===
@@ -111,8 +111,8 @@ let caboose: Option<&'static [u8]> = drv_caboose_pos::CABOOSE_POS.as_slice();
 can't know the caboose position until all tasks have been built)
 
 Besides the start and end words and the default metadata described above, the
-Hubris build system is agnostic to any further contents of the caboose. A 
+Hubris build system is agnostic to any further contents of the caboose. A
 separate release engineering process may decide to store any arbitrary data in
-the remaining space. The 
+the remaining space. The
 https://github.com/oxidecomputer/hubtools[`hubtools` repository] includes a
 library and CLI for modifying the caboose of a Hubris archive.

@@ -934,7 +934,13 @@ fn build_archive(
         archive.copy(openocd_cfg, debug_dir.join("openocd.cfg"))?;
     }
     archive
-        .copy(chip_dir.join("openocd.gdb"), debug_dir.join("openocd.gdb"))?;
+        .copy(chip_dir.join("openocd.gdb"), debug_dir.join("openocd.gdb"))
+        .with_context(|| {
+            format!(
+                "could not locate openocd.gdb at {}",
+                chip_dir.join("openocd.gdb").display()
+            )
+        })?;
 
     let mut metadata = None;
 
@@ -2009,13 +2015,16 @@ fn build(
         format!(
             "-C link-arg=-z -C link-arg=common-page-size=0x20 \
              -C link-arg=-z -C link-arg=max-page-size=0x20 \
+             -C link-arg=-Map={}/firmware.map \
              -C llvm-args=--enable-machine-outliner=never \
              -Z emit-stack-sizes \
              -C overflow-checks=y \
              -C metadata={} \
              {}
              ",
-            cfg.link_script_hash, remap_path_prefix,
+            cfg.dist_dir.display(),
+            cfg.link_script_hash,
+            remap_path_prefix,
         ),
     );
     cmd.arg("--");
