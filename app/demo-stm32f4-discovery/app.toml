@@ -10,7 +10,7 @@ requires = {flash = 20000, ram = 3072}
 features = ["stm32f4"]
 
 [tasks.jefe]
-name = "task-jefe"
+bin-crate = "task-jefe"
 priority = 0
 max-sizes = {flash = 8192, ram = 4096}
 start = true
@@ -18,7 +18,7 @@ stacksize = 2200
 notifications = ["fault", "timer"]
 
 [tasks.rcc_driver]
-name = "drv-stm32fx-rcc"
+bin-crate = "drv-stm32fx-rcc"
 features = ["f4"]
 priority = 1
 max-sizes = {flash = 8192, ram = 1024}
@@ -26,7 +26,7 @@ uses = ["rcc"]
 start = true
 
 [tasks.usart_driver]
-name = "drv-stm32fx-usart"
+bin-crate = "drv-stm32fx-usart"
 features = ["stm32f4"]
 priority = 2
 max-sizes = {flash = 8192, ram = 1024}
@@ -37,7 +37,7 @@ interrupts = {"usart2.irq" = "usart-irq"}
 task-slots = ["rcc_driver"]
 
 [tasks.user_leds]
-name = "drv-user-leds"
+bin-crate = "drv-user-leds"
 features = ["stm32f4"]
 priority = 2
 max-sizes = {flash = 8192, ram = 1024}
@@ -47,7 +47,7 @@ task-slots = ["rcc_driver"]
 notifications = ["timer"]
 
 [tasks.ping]
-name = "task-ping"
+bin-crate = "task-ping"
 features = ["uart"]
 priority = 4
 max-sizes = {flash = 8192, ram = 1024}
@@ -56,7 +56,7 @@ start = true
 task-slots = [{peer = "pong"}, "usart_driver"]
 
 [tasks.pong]
-name = "task-pong"
+bin-crate = "task-pong"
 priority = 3
 max-sizes = {flash = 8192, ram = 1024}
 start = true
@@ -64,14 +64,14 @@ task-slots = ["user_leds"]
 notifications = ["timer"]
 
 [tasks.hiffy]
-name = "task-hiffy"
+bin-crate = "task-hiffy"
 priority = 3
 max-sizes = {flash = 16384, ram = 16384 }
 stacksize = 2048
 start = true
 
 [tasks.idle]
-name = "task-idle"
+bin-crate = "task-idle"
 priority = 5
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256

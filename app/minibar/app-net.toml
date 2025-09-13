@@ -17,7 +17,7 @@ extern-regions = ["sram1", "sram2", "sram3", "sram4"]
 features = ["mgmt"]
 
 [tasks.net]
-name = "task-net"
+bin-crate = "task-net"
 stacksize = 10000
 priority = 5
 features = ["mgmt", "h753", "minibar", "vlan", "vpd-mac", "use-spi-core", "spi3"]
@@ -34,7 +34,7 @@ task-slots = ["sys", "packrat", "jefe"]
 "spi3.irq" = "spi-irq"
 
 [tasks.udpbroadcast]
-name = "task-udpbroadcast"
+bin-crate = "task-udpbroadcast"
 priority = 6
 max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
@@ -44,7 +44,7 @@ features = ["vlan"]
 notifications = ["socket"]
 
 [tasks.dump_agent]
-name = "task-dump-agent"
+bin-crate = "task-dump-agent"
 priority = 6
 max-sizes = {flash = 32768, ram = 16384 }
 start = true

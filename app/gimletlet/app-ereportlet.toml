@@ -24,7 +24,7 @@ features = ["h753", "stm32h7", "i2c", "gpio", "spi"]
 task-slots = ["sys", "i2c_driver", "user_leds", "ereportulator"]
 
 [tasks.ereportulator]
-name = "task-ereportulator"
+bin-crate = "task-ereportulator"
 priority = 5
 start = true
 task-slots = ["packrat"]
