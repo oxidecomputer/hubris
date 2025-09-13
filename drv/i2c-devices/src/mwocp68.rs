@@ -31,7 +31,10 @@ pub struct Mwocp68 {
 pub struct FirmwareRev(pub [u8; 4]);
 
 #[derive(Copy, Clone, PartialEq, Default)]
-pub struct SerialNumber(pub [u8; 12]);
+pub struct SerialNumber(pub [u8; SERIAL_LEN]);
+
+const SERIAL_LEN: usize = 12;
+const REVISION_LEN: usize = 14;
 
 //
 // The boot loader command -- sent via BOOT_LOADER_CMD -- is unfortunately odd
@@ -481,8 +484,6 @@ impl Mwocp68 {
     /// Returns the firmware revision of the primary MCU (AC input side).
     ///
     pub fn firmware_revision(&self) -> Result<FirmwareRev, Error> {
-        const REVISION_LEN: usize = 14;
-
         let mut data = [0u8; REVISION_LEN];
         let expected = b"XXXX-YYYY-0000";
 

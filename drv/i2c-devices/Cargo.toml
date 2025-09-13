@@ -16,6 +16,7 @@ derive-idol-err = { path = "../../lib/derive-idol-err" }
 drv-i2c-api = { path = "../i2c-api" }
 drv-onewire = { path = "../onewire" }
 ringbuf = { path = "../../lib/ringbuf" }
+counters = { path = "../../lib/counters" }
 task-power-api = { path = "../../task/power-api" }
 userlib = { path = "../../sys/userlib" }
 

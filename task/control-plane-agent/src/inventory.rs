@@ -8,10 +8,11 @@ use gateway_messages::measurement::{
     Measurement, MeasurementError, MeasurementKind,
 };
 use gateway_messages::sp_impl::{BoundsChecked, DeviceDescription};
-use gateway_messages::vpd::{OxideVpd, Tmp117Vpd, Vpd, VpdReadError};
+use gateway_messages::vpd::{MfgVpd, OxideVpd, Tmp117Vpd, Vpd, VpdReadError};
 use gateway_messages::{
     ComponentDetails, DeviceCapabilities, DevicePresence, SpComponent, SpError,
 };
+use ringbuf::ringbuf_entry_root;
 use task_sensor_api::Sensor as SensorTask;
 use task_sensor_api::SensorError;
 use task_validate_api::FruidMode;
@@ -91,6 +92,7 @@ impl Inventory {
                     Some(FruidMode::At24Csw080Barcode(_)) => 1,
                     Some(FruidMode::At24Csw080Nested(_)) => 0, // TODO(eliza): implement nested SASY barcodes
                     Some(FruidMode::Tmp117(_)) => 1,
+                    Some(FruidMode::Pmbus(_)) => 1,
                     None => 0,
                 };
                 Ok(nsensors + nfruid)
@@ -159,6 +161,41 @@ impl Inventory {
                 match read_tmp117_fruid(dev) {
                     Ok(vpd) => ComponentDetails::Vpd(Vpd::Tmp117(vpd)),
                     Err(err) => ComponentDetails::Vpd(Vpd::Err(err)),
+                }
+            }
+            FruidMode::Pmbus(f) => {
+                use drv_i2c_devices::{PmbusVpd, PmbusVpdError};
+                let dev = f(I2C.get_task_id());
+
+                match drv_i2c_devices::PmbusVpd::read_from(&dev, self.fruid_buf)
+                {
+                    Ok(PmbusVpd {
+                        mpn,
+                        mfr,
+                        serial,
+                        rev,
+                    }) => ComponentDetails::Vpd(Vpd::Mfg(MfgVpd {
+                        mpn,
+                        mfg: mfr,
+                        serial,
+                        mfg_rev: rev,
+                    })),
+                    Err(err) => {
+                        ringbuf_entry_root!(crate::Log::PmbusVpdError {
+                            dev: *component,
+                            err,
+                        });
+                        let rsp = match err {
+                            PmbusVpdError::BufferTooSmall { .. } => {
+                                VpdReadError::BadRead
+                            }
+                            PmbusVpdError::InvalidStr { .. } => {
+                                VpdReadError::InvalidContents
+                            }
+                            PmbusVpdError::I2c { .. } => VpdReadError::I2cError,
+                        };
+                        ComponentDetails::Vpd(Vpd::Err(rsp))
+                    }
                 }
             }
         }

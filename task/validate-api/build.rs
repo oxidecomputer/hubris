@@ -112,7 +112,11 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
                     Some("FruidMode::At24Csw080NestedBarcode")
                 }
                 (None, "tmp117") => Some("FruidMode::Tmp117"),
-                // TODO(eliza): PMBus
+                (Some(build_i2c::FruidMode::Pmbus), _) => {
+                    // TODO(elize): this should check that the device is a PMBus
+                    // device and error if it isn't...
+                    Some("FruidMode::Pmbus")
+                }
                 (Some(mode), device) => {
                     println!("cargo::error=FRUID mode {mode:?} not supported for {device}");
                     bad_fruids += 1;

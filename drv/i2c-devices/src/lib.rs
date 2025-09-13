@@ -233,6 +233,107 @@ pub trait Validate<T: core::convert::Into<drv_i2c_api::ResponseCode>> {
     }
 }
 
+#[derive(Copy, Clone, Eq, PartialEq, counters::Count)]
+pub enum PmbusVpdError {
+    I2c {
+        cmd: PmbusVpdCmd,
+        #[count(children)]
+        err: drv_i2c_api::ResponseCode,
+    },
+    InvalidStr {
+        cmd: PmbusVpdCmd,
+    },
+    BufferTooSmall {
+        cmd: PmbusVpdCmd,
+    },
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    zerocopy_derive::IntoBytes,
+    zerocopy_derive::Immutable,
+    counters::Count,
+)]
+#[repr(u8)]
+pub enum PmbusVpdCmd {
+    MfrId = pmbus::CommandCode::MFR_ID as u8,
+    MfrModel = pmbus::CommandCode::MFR_MODEL as u8,
+    MfrRevision = pmbus::CommandCode::MFR_REVISION as u8,
+    MfrSerial = pmbus::CommandCode::MFR_SERIAL as u8,
+}
+
+pub struct PmbusVpd<'buf> {
+    pub mfr: &'buf str,
+    pub mpn: &'buf str,
+    pub rev: &'buf str,
+    pub serial: &'buf str,
+}
+
+impl<'buf> PmbusVpd<'buf> {
+    pub fn read_from(
+        dev: &I2cDevice,
+        buf: &'buf mut [u8],
+    ) -> Result<Self, PmbusVpdError> {
+        use core::ops::Range;
+
+        fn read(
+            dev: &drv_i2c_api::I2cDevice,
+            cmd: PmbusVpdCmd,
+            buf: &mut [u8],
+            off: &mut usize,
+        ) -> Result<Range<usize>, PmbusVpdError> {
+            // if *off + len > buf.len() {
+            //     return Err(PmbusVpdError::BufferTooSmall { cmd });
+            // }
+
+            // PMBus block reads may not be longer than 32 bytes. Clamp this
+            // down as `drv_i2c_api` gets mad if it sees a lease of >255B.
+            let rdlen = core::cmp::min(buf.len(), off + 32);
+            let len = dev
+                .read_block(cmd as u8, &mut buf[*off..rdlen])
+                .map_err(|err| PmbusVpdError::I2c { cmd, err })?;
+            let range = *off..*off + len;
+            *off += len;
+            Ok(range)
+        }
+        let mut off = 0;
+        let mfr_range = read(dev, PmbusVpdCmd::MfrId, buf, &mut off)?;
+        let mpn_range = read(dev, PmbusVpdCmd::MfrModel, buf, &mut off)?;
+        let rev_range = read(dev, PmbusVpdCmd::MfrRevision, buf, &mut off)?;
+        let serial_range = read(dev, PmbusVpdCmd::MfrSerial, buf, &mut off)?;
+        let mfr = core::str::from_utf8(&buf[mfr_range]).map_err(|_| {
+            PmbusVpdError::InvalidStr {
+                cmd: PmbusVpdCmd::MfrId,
+            }
+        })?;
+        let mpn = core::str::from_utf8(&buf[mpn_range]).map_err(|_| {
+            PmbusVpdError::InvalidStr {
+                cmd: PmbusVpdCmd::MfrModel,
+            }
+        })?;
+        let rev = core::str::from_utf8(&buf[rev_range]).map_err(|_| {
+            PmbusVpdError::InvalidStr {
+                cmd: PmbusVpdCmd::MfrRevision,
+            }
+        })?;
+        let serial =
+            core::str::from_utf8(&buf[serial_range]).map_err(|_| {
+                PmbusVpdError::InvalidStr {
+                    cmd: PmbusVpdCmd::MfrSerial,
+                }
+            })?;
+        Ok(Self {
+            mfr,
+            mpn,
+            rev,
+            serial,
+        })
+    }
+}
+
 pub mod adm1272;
 pub mod adt7420;
 pub mod at24csw080;

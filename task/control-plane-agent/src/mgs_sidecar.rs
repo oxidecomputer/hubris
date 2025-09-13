@@ -923,12 +923,12 @@ impl SpHandler for MgsHandler {
         &mut self,
         component: SpComponent,
         index: BoundsChecked,
-    ) -> ComponentDetails {
+    ) -> ComponentDetails<&str> {
         match component {
             SpComponent::MONORAIL => ComponentDetails::PortStatus(
                 monorail_port_status::port_status(&self.monorail, index),
             ),
-            _ => self.common.inventory().component_details(&component, index),
+            _ => self.common.inventory.component_details(&component, index),
         }
     }
 

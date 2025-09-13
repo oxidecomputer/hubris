@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-fruid = []
+fruid = ["drv-i2c-devices"]
 
 [dependencies]
 idol-runtime.workspace = true
