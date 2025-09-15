@@ -3,6 +3,10 @@ name = "task-packrat-api"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+# Enable Serde support for the ereport API.
+serde = ["dep:serde", "dep:minicbor", "dep:minicbor-serde"]
+
 [dependencies]
 counters = { path = "../../lib/counters" }
 derive-idol-err.path = "../../lib/derive-idol-err"
@@ -12,7 +16,10 @@ userlib.path = "../../sys/userlib"
 
 gateway-ereport-messages.workspace = true
 idol-runtime.workspace = true
+minicbor = { workspace = true, optional = true }
+minicbor-serde = { workspace = true, optional = true }
 num-traits.workspace = true
+serde = { workspace = true, optional = true }
 zerocopy.workspace = true
 zerocopy-derive.workspace = true
 
