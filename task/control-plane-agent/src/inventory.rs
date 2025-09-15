@@ -27,8 +27,17 @@ userlib::task_slot!(I2C, i2c_driver);
 pub(crate) struct Inventory {
     validate_task: Validate,
     sensor_task: SensorTask,
-    fruid_buf: &'static mut [u8],
+    fruid_buf: &'static mut [u8; FRUID_BUF_SIZE],
 }
+
+/// At present, this buffer must be large enough to store a complete set of
+/// PMBus FRUID values (`MFR_ID`, `MFR_MODEL`, `MFR_REVISION`, `MFR_SERIAL`).
+/// Each of these four values is a SMBus "block read", which may be up to 32
+/// bytes. So, a 128-byte buffer is sufficient.
+///
+/// If we want to read more FRUID values in the future, this will need to be
+/// embiggened.
+const FRUID_BUF_SIZE: usize = 32 * 4;
 
 // pub(crate) struct FixedStr {
 //     buf: [u8; 32],
@@ -63,10 +72,19 @@ pub(crate) struct Inventory {
 //         }
 //     }
 // }
+//
+//
 
 impl Inventory {
-    pub(crate) fn new(fruid_buf: &'static mut [u8]) -> Self {
+    pub(crate) fn new() -> Self {
         let () = devices_with_static_validation::ASSERT_EACH_DEVICE_FITS_IN_ONE_PACKET;
+
+        let fruid_buf = {
+            use static_cell::ClaimOnceCell;
+            static BUF: ClaimOnceCell<[u8; FRUID_BUF_SIZE]> =
+                ClaimOnceCell::new([0; FRUID_BUF_SIZE]);
+            BUF.claim()
+        };
 
         Self {
             validate_task: Validate::from(VALIDATE.get_task_id()),
