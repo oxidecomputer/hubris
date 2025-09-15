@@ -54,6 +54,18 @@ impl<const DIMM_COUNT: usize, const DATA_SIZE: usize>
         Ok(())
     }
 
+    pub fn remove_eeprom(
+        &mut self,
+        index: u8,
+    ) -> Result<(), RequestError<Infallible>> {
+        ringbuf_entry!(Trace::SpdRemoveEeprom { index });
+        if index as usize >= DIMM_COUNT {
+            return Err(ClientError::BadMessageContents.fail());
+        }
+        self.spd_present[usize::from(index)] = false;
+        Ok(())
+    }
+
     pub fn get_present(
         &self,
         index: u8,
