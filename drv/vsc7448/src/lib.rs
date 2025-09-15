@@ -912,10 +912,7 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         })
     }
 
-    /// Configures the VLANs to the unlocked state, per RFD 492
-    ///
-    /// The technician ports can talk to any SP; SPs may talk to the Tofino or
-    /// to the technician ports.
+    /// Configures the VLANs to an unlocked state, selected by `VlanTargets`
     pub fn sidecar_vlan_unlock(
         &self,
         targets: VlanTargets,
@@ -926,6 +923,10 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         }
     }
 
+    /// Configures the VLANs to the standard unlocked state, per RFD 492
+    ///
+    /// The technician ports can talk to any SP; SPs may talk to the Tofino or
+    /// to the technician ports.
     fn sidecar_vlan_unlock_all(&self) -> Result<(), VscError> {
         self.configure_vlans(|p| match p {
             sidecar::UPLINK => None,
@@ -949,6 +950,13 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         })
     }
 
+    /// Configures the VLANs to an unlocked state with only Scrimlets accessible
+    ///
+    /// This state is useful for racks with the Reverso™ board installed, which
+    /// loops back the two backplane connections within a cubby.  In this
+    /// configuration, we don't want for technician ports to communicate with
+    /// cubbies (other than Scrimlets), because that creates a routing loop
+    /// (packets can enter via one tech port and leave via the other).
     fn sidecar_vlan_unlock_scrimlet(&self) -> Result<(), VscError> {
         self.configure_vlans(|p| match p {
             sidecar::UPLINK => None,
