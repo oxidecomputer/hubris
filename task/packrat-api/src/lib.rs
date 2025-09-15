@@ -60,4 +60,13 @@ pub enum EreportReadError {
     RestartIdNotSet = 1,
 }
 
+#[derive(
+    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, counters::Count,
+)]
+pub enum EreportWriteError {
+    /// Indicates that an ereport was lost because it would not have fit in
+    /// Packrat's ereport buffer.
+    Lost = 1,
+}
+
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
