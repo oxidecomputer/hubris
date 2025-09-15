@@ -7,6 +7,8 @@
 #![no_std]
 
 use derive_idol_err::IdolError;
+#[cfg(feature = "fruid")]
+use drv_i2c_api::I2cDevice;
 use drv_i2c_api::ResponseCode;
 use userlib::*;
 use zerocopy::{Immutable, IntoBytes, KnownLayout};
@@ -69,12 +71,38 @@ pub struct SensorDescription {
     pub id: SensorId,
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug)]
 pub struct DeviceDescription {
     pub device: &'static str,
     pub description: &'static str,
     pub sensors: &'static [SensorDescription],
     pub id: [u8; MAX_ID_LENGTH],
+    #[cfg(feature = "fruid")]
+    pub fruid: Option<FruidMode>,
+}
+
+#[cfg(feature = "fruid")]
+#[derive(Copy, Clone)]
+pub enum FruidMode {
+    At24Csw080Barcode(fn(TaskId) -> I2cDevice),
+    At24Csw080Nested(fn(TaskId) -> I2cDevice),
+    Tmp117(fn(TaskId) -> I2cDevice),
+    Pmbus(fn(TaskId) -> I2cDevice),
+}
+
+#[cfg(feature = "fruid")]
+impl core::fmt::Debug for FruidMode {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            FruidMode::At24Csw080Barcode(_) => write!(f, "At24Csw080Barcode"),
+            FruidMode::At24Csw080Nested(_) => write!(f, "At24Csw080Nested"),
+            FruidMode::Tmp117(_) => write!(f, "Tmp117"),
+            FruidMode::Pmbus(_) => write!(f, "Pmbus"),
+        }
+    }
 }
 
 include!(concat!(env!("OUT_DIR"), "/device_descriptions.rs"));
+
+#[cfg(feature = "fruid")]
+include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));

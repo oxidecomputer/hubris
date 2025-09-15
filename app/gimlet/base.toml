@@ -287,6 +287,7 @@ task-slots = [
     "packrat",
     "user_leds",
     "vpd",
+    "i2c_driver",
 ]
 features = [
     "gimlet",
@@ -489,6 +490,7 @@ description = "U.2 Sharkfin A VPD"
 name = "sharkfin_a_vpd"
 refdes = ["J206", "U7"]
 removable = true
+fruid = "single-barcode"
 
 [[config.i2c.devices]]
 bus = "front"
@@ -525,6 +527,7 @@ description = "U.2 Sharkfin B VPD"
 name = "sharkfin_b_vpd"
 refdes = ["J207", "U7"]
 removable = true
+fruid = "single-barcode"
 
 [[config.i2c.devices]]
 bus = "front"
@@ -561,6 +564,7 @@ description = "U.2 Sharkfin C VPD"
 name = "sharkfin_c_vpd"
 refdes = ["J208", "U7"]
 removable = true
+fruid = "single-barcode"
 
 [[config.i2c.devices]]
 bus = "front"
@@ -597,6 +601,7 @@ description = "U.2 Sharkfin D VPD"
 name = "sharkfin_d_vpd"
 refdes = ["J209", "U7"]
 removable = true
+fruid = "single-barcode"
 
 [[config.i2c.devices]]
 bus = "front"
@@ -633,6 +638,7 @@ description = "U.2 Sharkfin E VPD"
 name = "sharkfin_e_vpd"
 refdes = ["J210", "U7"]
 removable = true
+fruid = "single-barcode"
 
 [[config.i2c.devices]]
 bus = "front"
@@ -669,6 +675,7 @@ description = "U.2 Sharkfin F VPD"
 name = "sharkfin_f_vpd"
 refdes = ["J211", "U7"]
 removable = true
+fruid = "single-barcode"
 
 [[config.i2c.devices]]
 bus = "front"
@@ -705,6 +712,7 @@ description = "U.2 Sharkfin G VPD"
 name = "sharkfin_g_vpd"
 refdes = ["J212", "U7"]
 removable = true
+fruid = "single-barcode"
 
 [[config.i2c.devices]]
 bus = "front"
@@ -741,6 +749,7 @@ description = "U.2 Sharkfin H VPD"
 name = "sharkfin_h_vpd"
 refdes = ["J213", "U7"]
 removable = true
+fruid = "single-barcode"
 
 [[config.i2c.devices]]
 bus = "front"
@@ -777,6 +786,7 @@ description = "U.2 Sharkfin I VPD"
 name = "sharkfin_i_vpd"
 refdes = ["J214", "U7"]
 removable = true
+fruid = "single-barcode"
 
 [[config.i2c.devices]]
 bus = "front"
@@ -813,6 +823,7 @@ description = "U.2 Sharkfin J VPD"
 name = "sharkfin_j_vpd"
 refdes = ["J215", "U7"]
 removable = true
+fruid = "single-barcode"
 
 [[config.i2c.devices]]
 bus = "front"
@@ -848,6 +859,7 @@ device = "at24csw080"
 name = "local_vpd"
 description = "Gimlet VPD"
 refdes = "U615"
+fruid = "single-barcode"
 
 #
 # M.2 NVMe bus mux. Segments:

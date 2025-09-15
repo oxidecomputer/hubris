@@ -57,7 +57,7 @@ pub(crate) struct MgsCommon {
     dump_state: DumpState,
 
     reset_component_requested: Option<SpComponent>,
-    inventory: Inventory,
+    pub inventory: Inventory,
     base_mac_address: MacAddress,
     packrat: Packrat,
     sprot: SpRot,
@@ -71,7 +71,6 @@ impl MgsCommon {
             sp_update: SpUpdate::new(),
             rot_update: RotUpdate::new(),
             dump_state: DumpState::new(),
-
             reset_component_requested: None,
             inventory: Inventory::new(),
             base_mac_address,

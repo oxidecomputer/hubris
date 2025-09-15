@@ -81,6 +81,11 @@ enum Log {
     ReadRotPage,
     IpcRequest(#[count(children)] IpcRequest),
     VpdLockStatus,
+    PmbusVpdError {
+        dev: SpComponent,
+        #[count(children)]
+        err: drv_i2c_devices::PmbusVpdError,
+    },
 }
 
 // This enum does not define the actual MGS protocol - it is only used in the
