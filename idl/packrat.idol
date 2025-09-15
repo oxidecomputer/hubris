@@ -54,6 +54,14 @@ Interface(
             reply: Simple("()"),
             idempotent: true,
         ),
+        "remove_spd": (
+            doc: "Mark an SPD as absent",
+            args: {
+                "index": "u8",
+            },
+            reply: Simple("()"),
+            idempotent: true,
+        ),
         "set_spd_eeprom": (
             doc: "Record SPD EEPROM data",
             args: {

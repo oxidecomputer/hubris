@@ -109,6 +109,9 @@ enum Trace {
         offset: usize,
         len: u8,
     },
+    SpdRemoveEeprom {
+        index: u8,
+    },
     #[cfg(feature = "ereport")]
     RestartIdSet(TraceSet<u128>),
 }
@@ -426,6 +429,20 @@ impl idl::InOrderPackratImpl for ServerImpl {
     ) -> Result<(), RequestError<Infallible>> {
         if let Some(spd) = self.spd_mut() {
             spd.set_eeprom(index, offset, data)
+        } else {
+            Err(RequestError::Fail(
+                idol_runtime::ClientError::BadMessageContents,
+            ))
+        }
+    }
+
+    fn remove_spd(
+        &mut self,
+        _: &RecvMessage,
+        index: u8,
+    ) -> Result<(), RequestError<Infallible>> {
+        if let Some(spd) = self.spd_mut() {
+            spd.remove_eeprom(index)
         } else {
             Err(RequestError::Fail(
                 idol_runtime::ClientError::BadMessageContents,
