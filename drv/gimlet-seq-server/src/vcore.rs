@@ -139,7 +139,7 @@ impl VCore {
         Ok(())
     }
 
-    pub fn handle_notification(&self) {
+    pub fn handle_notification(&self, ereport_buf: &mut [u8]) {
         let now = sys_get_timer().now;
         let asserted = self.sys.gpio_read(VCORE_TO_SP_ALERT_L) == 0;
 
@@ -149,7 +149,7 @@ impl VCore {
         });
 
         if asserted {
-            self.read_pmbus_status(now);
+            self.read_pmbus_status(now, ereport_buf);
             // Clear the fault now so that PMALERT_L is reasserted if a
             // subsequent fault occurs. Note that if the fault *condition*
             // continues, the fault bits in the status registers will remain
@@ -162,7 +162,7 @@ impl VCore {
         let _ = self.sys.gpio_irq_control(self.mask(), IrqControl::Enable);
     }
 
-    fn read_pmbus_status(&self, now: u64) {
+    fn read_pmbus_status(&self, now: u64, ereport_buf: &mut [u8]) {
         use pmbus::commands::raa229618::STATUS_WORD;
 
         // Read PMBus status registers and prepare an ereport.
@@ -275,7 +275,21 @@ impl VCore {
             pwr_good,
             status,
         };
-        deliver_ereport(&self.packrat, &ereport);
+        match self
+            .packrat
+            .serialize_ereport(&ereport, &mut ereport_buf[..])
+        {
+            Ok(len) => ringbuf_entry!(Trace::EreportSent(len)),
+            Err(task_packrat_api::EreportSerializeError::Packrat {
+                len,
+                err,
+            }) => {
+                ringbuf_entry!(Trace::EreportLost(len, err))
+            }
+            Err(task_packrat_api::EreportSerializeError::Serialize(_)) => {
+                ringbuf_entry!(Trace::EreportTooBig)
+            }
+        }
 
         // If the `INPUT_FAULT` bit in `STATUS_WORD` is set, or any bit is hot
         // in `STATUS_INPUT`, sample Vin in order to record the voltage dip in
@@ -330,22 +344,4 @@ struct Ereport {
     time: u64,
     pwr_good: Option<bool>,
     status: PmbusStatus,
-}
-
-// This is in its own function so that the ereport buffer and `Ereport` struct
-// are only on the stack while we're using it, and not for the entireity of
-// `record_pmbus_status`, which calls into a bunch of other functions. This may
-// reduce our stack depth a bit.
-#[inline(never)]
-fn deliver_ereport(packrat: &packrat_api::Packrat, data: &impl Serialize) {
-    let mut ereport_buf = [0u8; 128];
-    match packrat.serialize_ereport(data, &mut ereport_buf[..]) {
-        Ok(len) => ringbuf_entry!(Trace::EreportSent(len)),
-        Err(task_packrat_api::EreportSerializeError::Packrat { len, err }) => {
-            ringbuf_entry!(Trace::EreportLost(len, err))
-        }
-        Err(task_packrat_api::EreportSerializeError::Serialize(_)) => {
-            ringbuf_entry!(Trace::EreportTooBig)
-        }
-    }
 }

@@ -201,9 +201,13 @@ struct ServerImpl<S: SpiServer> {
     hf: hf_api::HostFlash,
     vcore: vcore::VCore,
     deadline: u64,
+    // Buffer for encoding ereports. This is a static so that it's not on the
+    // stack when handling interrupts.
+    ereport_buf: &'static mut [u8; EREPORT_BUF_LEN],
 }
 
 const TIMER_INTERVAL: u32 = 10;
+const EREPORT_BUF_LEN: usize = 128;
 
 impl<S: SpiServer + Clone> ServerImpl<S> {
     fn init(
@@ -483,6 +487,13 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
 
         let (device, rail) = i2c_config::pmbus::vdd_vcore(I2C.get_task_id());
 
+        let ereport_buf = {
+            use static_cell::ClaimOnceCell;
+            static EREPORT_BUF: ClaimOnceCell<[u8; EREPORT_BUF_LEN]> =
+                ClaimOnceCell::new([0; EREPORT_BUF_LEN]);
+            EREPORT_BUF.claim()
+        };
+
         let mut server = Self {
             state: PowerState::A2,
             sys: sys.clone(),
@@ -491,6 +502,7 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
             hf,
             deadline: 0,
             vcore: vcore::VCore::new(sys, packrat, &device, rail),
+            ereport_buf,
         };
 
         // Power on, unless suppressed by the `stay-in-a2` feature
@@ -530,7 +542,7 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
 
     fn handle_notification(&mut self, bits: u32) {
         if (bits & self.vcore.mask()) != 0 {
-            self.vcore.handle_notification();
+            self.vcore.handle_notification(self.ereport_buf);
         }
 
         if (bits & notifications::TIMER_MASK) == 0 {
