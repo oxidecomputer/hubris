@@ -339,12 +339,12 @@ const PSU_PWR_OK_NOTIF: [u32; PSU_COUNT] = [
 
 /// In order to get the PMBus devices by PSU index, we need a little lookup table guy.
 const PSU_PMBUS_DEVS: [fn(TaskId) -> (I2cDevice, u8); PSU_COUNT] = [
-    i2c_config::pmbus::v54_psu0 as fn(TaskId) -> (I2cDevice, u8),
-    i2c_config::pmbus::v54_psu1 as fn(TaskId) -> (I2cDevice, u8),
-    i2c_config::pmbus::v54_psu2 as fn(TaskId) -> (I2cDevice, u8),
-    i2c_config::pmbus::v54_psu3 as fn(TaskId) -> (I2cDevice, u8),
-    i2c_config::pmbus::v54_psu4 as fn(TaskId) -> (I2cDevice, u8),
-    i2c_config::pmbus::v54_psu5 as fn(TaskId) -> (I2cDevice, u8),
+    i2c_config::pmbus::v54_psu0,
+    i2c_config::pmbus::v54_psu1,
+    i2c_config::pmbus::v54_psu2,
+    i2c_config::pmbus::v54_psu3,
+    i2c_config::pmbus::v54_psu4,
+    i2c_config::pmbus::v54_psu5,
 ];
 
 const PSU_SLOTS: [Slot; PSU_COUNT] = [
@@ -860,7 +860,7 @@ impl Psu {
             // yay!
             (
                 PsuState::Present(PresentState::On { was_faulted }),
-                _,
+                Present::Yes,
                 Status::Good,
             ) => {
                 // Just in case we were previously unable to read any FRUID
@@ -902,7 +902,7 @@ impl Psu {
             }
             (
                 PsuState::Present(PresentState::On { was_faulted }),
-                _,
+                Present::Yes,
                 Status::NotGood,
             ) => {
                 // The PSU appears to have pulled the OK signal into the "not
