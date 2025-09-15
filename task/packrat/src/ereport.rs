@@ -14,12 +14,11 @@
 
 use super::ereport_messages;
 
-use core::convert::Infallible;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError};
 use minicbor::CborLen;
 use minicbor_lease::LeasedWriter;
 use ringbuf::{counted_ringbuf, ringbuf_entry};
-use task_packrat_api::{EreportReadError, VpdIdentity};
+use task_packrat_api::{EreportReadError, EreportWriteError, VpdIdentity};
 use userlib::{kipc, sys_get_timer, RecvMessage, TaskId};
 use zerocopy::IntoBytes;
 
@@ -118,7 +117,7 @@ impl EreportStore {
         &mut self,
         msg: &RecvMessage,
         data: LenLimit<Leased<idol_runtime::R, [u8]>, RECV_BUF_SIZE>,
-    ) -> Result<(), RequestError<Infallible>> {
+    ) -> Result<(), RequestError<EreportWriteError>> {
         data.read_range(0..data.len(), self.recv)
             .map_err(|_| ClientError::WentAway.fail())?;
         let timestamp = sys_get_timer().now;
@@ -132,7 +131,12 @@ impl EreportStore {
             len: data.len() as u32,
             result,
         });
-        Ok(())
+        match result {
+            snitch_core::InsertResult::Inserted => Ok(()),
+            snitch_core::InsertResult::Lost => {
+                Err(RequestError::from(EreportWriteError::Lost))
+            }
+        }
     }
 
     pub(crate) fn read_ereports(

@@ -62,6 +62,10 @@ enum Trace {
     EreportDelivered {
         encoded_len: usize,
     },
+    EreportLost {
+        encoded_len: usize,
+        err: task_packrat_api::EreportWriteError,
+    },
 }
 
 counted_ringbuf!(Trace, 16, Trace::None);
@@ -121,8 +125,10 @@ impl idl::InOrderEreportulatorImpl for ServerImpl {
             encoder.into_writer().position()
         };
 
-        self.packrat.deliver_ereport(&self.buf[..encoded_len]);
-        ringbuf_entry!(Trace::EreportDelivered { encoded_len });
+        match self.packrat.deliver_ereport(&self.buf[..encoded_len]) {
+            Ok(_) => ringbuf_entry!(Trace::EreportDelivered { encoded_len }),
+            Err(err) => ringbuf_entry!(Trace::EreportLost { encoded_len, err }),
+        }
 
         Ok(())
     }

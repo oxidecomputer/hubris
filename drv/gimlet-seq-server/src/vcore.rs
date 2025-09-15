@@ -61,7 +61,8 @@ enum Trace {
     StatusMfrSpecific(Result<u8, ResponseCode>),
     Reading { timestamp: u64, volts: units::Volts },
     Error(ResponseCode),
-    EreportSentOff(usize),
+    EreportSent(usize),
+    EreportLost(usize, packrat_api::EreportWriteError),
     EreportTooBig,
 }
 
@@ -343,8 +344,14 @@ fn deliver_ereport(packrat: &packrat_api::Packrat, data: &impl Serialize) {
     match data.serialize(&mut s) {
         Ok(_) => {
             let len = s.into_encoder().into_writer().position();
-            packrat.deliver_ereport(&ereport_buf[..len]);
-            ringbuf_entry!(Trace::EreportSentOff(len));
+            match packrat.deliver_ereport(&ereport_buf[..len]) {
+                Ok(_) => {
+                    ringbuf_entry!(Trace::EreportSent(len));
+                }
+                Err(e) => {
+                    ringbuf_entry!(Trace::EreportLost(len, e));
+                }
+            }
         }
         Err(_) => {
             // XXX(eliza): ereport didn't fit in buffer...what do

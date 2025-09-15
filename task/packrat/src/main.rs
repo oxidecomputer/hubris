@@ -69,8 +69,8 @@ use idol_runtime::{Leased, LenLimit, NotificationHandler, RequestError};
 use ringbuf::{ringbuf, ringbuf_entry};
 use static_cell::ClaimOnceCell;
 use task_packrat_api::{
-    CacheGetError, CacheSetError, EreportReadError, HostStartupOptions,
-    MacAddressBlock, VpdIdentity,
+    CacheGetError, CacheSetError, EreportReadError, EreportWriteError,
+    HostStartupOptions, MacAddressBlock, VpdIdentity,
 };
 use userlib::RecvMessage;
 
@@ -519,7 +519,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
         _: LenLimit<Leased<idol_runtime::R, [u8]>, 1024usize>,
-    ) -> Result<(), RequestError<Infallible>> {
+    ) -> Result<(), RequestError<EreportWriteError>> {
         // go away, we don't know how to do that
         Err(idol_runtime::ClientError::UnknownOperation.fail())
     }
@@ -529,7 +529,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
         &mut self,
         msg: &RecvMessage,
         data: LenLimit<Leased<idol_runtime::R, [u8]>, 1024usize>,
-    ) -> Result<(), RequestError<Infallible>> {
+    ) -> Result<(), RequestError<EreportWriteError>> {
         self.ereport_store.deliver_ereport(msg, data)
     }
 
@@ -585,7 +585,7 @@ impl NotificationHandler for ServerImpl {
 mod idl {
     use super::{
         ereport_messages, CacheGetError, CacheSetError, EreportReadError,
-        HostStartupOptions, MacAddressBlock, VpdIdentity,
+        EreportWriteError, HostStartupOptions, MacAddressBlock, VpdIdentity,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

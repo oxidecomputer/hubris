@@ -72,7 +72,8 @@ enum Trace {
     StatusCml(Rail, Result<u8, ResponseCode>),
     StatusMfrSpecific(Rail, Result<u8, ResponseCode>),
     I2cError(Rail, PmbusCmd, raa229620a::Error),
-    EreportSentOff(Rail, usize),
+    EreportSent(Rail, usize),
+    EreportLost(Rail, usize, packrat::EreportWriteError),
     EreportTooBig(Rail),
 }
 
@@ -448,7 +449,14 @@ fn deliver_ereport(
     match data.serialize(&mut s) {
         Ok(_) => {
             let len = s.into_encoder().into_writer().position();
-            packrat.deliver_ereport(&ereport_buf[..len]);
+            match packrat.deliver_ereport(&ereport_buf[..len]) {
+                Ok(_) => {
+                    ringbuf_entry!(Trace::EreportSent(rail, len));
+                }
+                Err(e) => {
+                    ringbuf_entry!(Trace::EreportLost(rail, len, e));
+                }
+            }
             ringbuf_entry!(Trace::EreportSentOff(rail, len));
         }
         Err(_) => {
