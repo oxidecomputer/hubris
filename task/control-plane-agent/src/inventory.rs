@@ -4,6 +4,7 @@
 
 use drv_i2c_api::{self as i2c, I2cDevice};
 use drv_i2c_devices::at24csw080::At24Csw080;
+use drv_i2c_devices::PmbusVpd;
 use gateway_messages::measurement::{
     Measurement, MeasurementError, MeasurementKind,
 };
@@ -27,53 +28,8 @@ userlib::task_slot!(I2C, i2c_driver);
 pub(crate) struct Inventory {
     validate_task: Validate,
     sensor_task: SensorTask,
-    fruid_buf: &'static mut [u8; FRUID_BUF_SIZE],
+    fruid_buf: &'static mut [u8; PmbusVpd::MAX_LEN],
 }
-
-/// At present, this buffer must be large enough to store a complete set of
-/// PMBus FRUID values (`MFR_ID`, `MFR_MODEL`, `MFR_REVISION`, `MFR_SERIAL`).
-/// Each of these four values is a SMBus "block read", which may be up to 32
-/// bytes. So, a 128-byte buffer is sufficient.
-///
-/// If we want to read more FRUID values in the future, this will need to be
-/// embiggened.
-const FRUID_BUF_SIZE: usize = 32 * 4;
-
-// pub(crate) struct FixedStr {
-//     buf: [u8; 32],
-//     len: usize,
-// }
-
-// impl FixedStr {
-//     pub fn copy_from_slice(slice: &[u8]) -> Result<Self, core::str::Utf8Error> {
-//         core::str::from_utf8(slice)?;
-//         let mut buf = [0u8; 32];
-//         buf[..slice.len()].copy_from_slice(slice);
-//         Ok(Self {
-//             buf,
-//             len: slice.len(),
-//         })
-//     }
-
-//     pub fn from_buf(
-//         bytes: [u8; 32],
-//         len: usize,
-//     ) -> Result<Self, core::str::Utf8Error> {
-//         core::str::from_utf8(&bytes[..len])?;
-//         Ok(Self { buf: bytes, len })
-//     }
-// }
-
-// impl AsRef<str> for FixedStr {
-//     fn as_ref(&self) -> &str {
-//         unsafe {
-//             // SAFETY: This is checked when constructing the FixedStr.
-//             core::str::from_utf8_unchecked(&self.buf[..self.len])
-//         }
-//     }
-// }
-//
-//
 
 impl Inventory {
     pub(crate) fn new() -> Self {
@@ -81,8 +37,8 @@ impl Inventory {
 
         let fruid_buf = {
             use static_cell::ClaimOnceCell;
-            static BUF: ClaimOnceCell<[u8; FRUID_BUF_SIZE]> =
-                ClaimOnceCell::new([0; FRUID_BUF_SIZE]);
+            static BUF: ClaimOnceCell<[u8; PmbusVpd::MAX_LEN]> =
+                ClaimOnceCell::new([0; PmbusVpd::MAX_LEN]);
             BUF.claim()
         };
 

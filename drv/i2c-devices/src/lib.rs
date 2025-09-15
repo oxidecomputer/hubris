@@ -273,6 +273,16 @@ pub struct PmbusVpd<'buf> {
 }
 
 impl<'buf> PmbusVpd<'buf> {
+    /// SMBus block reads may not be longer than 32 bytes.
+    const BLOCK_LEN: usize = 32;
+    /// Maximum length currently required to read a complete set of VPD
+    /// registers from a PMBus device.
+    ///
+    /// Currently, this is 4 32-byte blocks (`MFR_ID`, `MFR_MODEL`,
+    /// `MFR_REVISION`, and `MFR_SERIAL`). If more values are added in the
+    /// future, this will need to be embiggened.
+    pub const MAX_LEN: usize = Self::BLOCK_LEN * 4;
+
     pub fn read_from(
         dev: &I2cDevice,
         buf: &'buf mut [u8],
@@ -283,22 +293,22 @@ impl<'buf> PmbusVpd<'buf> {
             dev: &drv_i2c_api::I2cDevice,
             cmd: PmbusVpdCmd,
             buf: &mut [u8],
-            off: &mut usize,
+            curr_off: &mut usize,
         ) -> Result<Range<usize>, PmbusVpdError> {
-            // if *off + len > buf.len() {
-            //     return Err(PmbusVpdError::BufferTooSmall { cmd });
-            // }
-
+            let off = *curr_off;
             // PMBus block reads may not be longer than 32 bytes. Clamp this
             // down as `drv_i2c_api` gets mad if it sees a lease of >255B.
-            let rdlen = core::cmp::min(buf.len(), off + 32);
+            let Some(block) = buf.get_mut(off..off + PmbusVpd::BLOCK_LEN)
+            else {
+                return Err(PmbusVpdError::BufferTooSmall { cmd });
+            };
             let len = dev
-                .read_block(cmd as u8, &mut buf[*off..rdlen])
+                .read_block(cmd, block)
                 .map_err(|err| PmbusVpdError::I2c { cmd, err })?;
-            let range = *off..*off + len;
-            *off += len;
-            Ok(range)
+            *curr_off += len;
+            Ok(off..*curr_off)
         }
+
         let mut off = 0;
         let mfr_range = read(dev, PmbusVpdCmd::MfrId, buf, &mut off)?;
         let mpn_range = read(dev, PmbusVpdCmd::MfrModel, buf, &mut off)?;
