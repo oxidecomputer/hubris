@@ -11,7 +11,7 @@ cfg-if = { workspace = true }
 convert_case = { workspace = true }
 indexmap = { workspace = true }
 multimap = { workspace = true }
-serde = { workspace = true }
+serde = { workspace = true, features = ["rc"] }
 rangemap.workspace = true
 
 [features]

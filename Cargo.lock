@@ -6,7 +6,7 @@ version = 4
 name = "abi"
 version = "0.1.0"
 dependencies = [
- "bitflags 2.9.1",
+ "bitflags 2.9.4",
  "byteorder",
  "phash",
  "serde",
@@ -271,9 +271,9 @@ checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
 name = "bitflags"
-version = "2.9.1"
+version = "2.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b8e56985ec62d17e9c1001dc89c88ecd7dc08e47eba5ec7c29c7b5eeecde967"
+checksum = "2261d10cca569e4643e526d8dc2e62e433cc8aba21ab764233731f8d369bf394"
 
 [[package]]
 name = "bitvec"
@@ -337,7 +337,7 @@ dependencies = [
 name = "build-kconfig"
 version = "0.1.0"
 dependencies = [
- "bitflags 2.9.1",
+ "bitflags 2.9.4",
  "serde",
 ]
 
@@ -1624,7 +1624,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "attest-api",
- "bitflags 2.9.1",
+ "bitflags 2.9.4",
  "build-lpc55pins",
  "build-util",
  "call_rustfmt",
@@ -1724,7 +1724,7 @@ dependencies = [
 name = "drv-mb85rsxx-fram"
 version = "0.1.0"
 dependencies = [
- "bitflags 2.9.1",
+ "bitflags 2.9.4",
  "counters",
  "drv-spi-api",
 ]
@@ -2598,7 +2598,7 @@ dependencies = [
 name = "drv-stm32xx-sys"
 version = "0.1.0"
 dependencies = [
- "bitflags 2.9.1",
+ "bitflags 2.9.4",
  "build-stm32xx-sys",
  "build-util",
  "cfg-if",
@@ -3013,7 +3013,7 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "gateway-ereport-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#57ffd1c24f3ad1919fb4a605d5a501f2c5deb54c"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#831d4be4d3a851853ee2c62451f63f2fcfb4a30b"
 dependencies = [
  "zerocopy 0.8.26",
 ]
@@ -3021,9 +3021,9 @@ dependencies = [
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#83fe1885c9916cebbee261c47a09d832d75b7df0"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=eliza%2Fvpd#dc297c9a94674d13db3f2faf7536af70a8671e8c"
 dependencies = [
- "bitflags 2.9.1",
+ "bitflags 2.9.4",
  "hubpack",
  "serde",
  "serde-big-array 0.5.1",
@@ -3255,7 +3255,7 @@ dependencies = [
 name = "host-sp-messages"
 version = "0.1.0"
 dependencies = [
- "bitflags 2.9.1",
+ "bitflags 2.9.4",
  "counters",
  "drv-i2c-types",
  "fletcher",
@@ -3501,7 +3501,7 @@ dependencies = [
  "abi",
  "anyhow",
  "armv8-m-mpu",
- "bitflags 2.9.1",
+ "bitflags 2.9.4",
  "build-kconfig",
  "build-util",
  "byteorder",
@@ -5189,20 +5189,19 @@ checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
 
 [[package]]
 name = "strum"
-version = "0.27.1"
+version = "0.27.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f64def088c51c9510a8579e3c5d67c65349dcf755e5479ad3d010aa6454e2c32"
+checksum = "af23d6f6c1a224baef9d3f61e287d2761385a5b88fdab4eb4c6f11aeb54c4bcf"
 
 [[package]]
 name = "strum_macros"
-version = "0.27.1"
+version = "0.27.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c77a8c5abcaf0f9ce05d62342b7d298c346515365c36b673df4ebe3ced01fde8"
+checksum = "7695ce3845ea4b33927c055a39dc438a45b059f7c1b3d91d38d10355fb8cbca7"
 dependencies = [
  "heck 0.5.0",
  "proc-macro2",
  "quote",
- "rustversion",
  "syn 2.0.98",
 ]
 
@@ -5981,7 +5980,7 @@ name = "task-thermal"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bitflags 2.9.1",
+ "bitflags 2.9.4",
  "build-i2c",
  "build-util",
  "cortex-m",
@@ -6504,7 +6503,7 @@ name = "transceiver-messages"
 version = "0.1.1"
 source = "git+https://github.com/oxidecomputer/transceiver-control/#c5564eb96ddc7887a02596cc039662c87e906d0c"
 dependencies = [
- "bitflags 2.9.1",
+ "bitflags 2.9.4",
  "hubpack",
  "serde",
 ]

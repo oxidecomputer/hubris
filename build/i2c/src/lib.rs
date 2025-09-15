@@ -11,6 +11,7 @@ use serde::Deserialize;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Write;
 use std::fs::File;
+use std::rc::Rc;
 
 //
 // Our definition of the `Config` type.  We share this type with all other
@@ -26,7 +27,7 @@ struct Config {
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 struct I2cConfig {
     controllers: Vec<I2cController>,
-    devices: Option<Vec<I2cDevice>>,
+    devices: Option<Vec<Rc<I2cDevice>>>,
 }
 
 //
@@ -67,19 +68,19 @@ struct I2cController {
 #[allow(dead_code)]
 struct I2cDevice {
     /// device part name
-    device: String,
+    device: Rc<String>,
 
     /// device name
-    name: Option<String>,
+    name: Option<Rc<String>>,
 
     /// I2C controller, if bus not named
     controller: Option<u8>,
 
     /// I2C bus name, if controller not specified
-    bus: Option<String>,
+    bus: Option<Rc<String>>,
 
     /// I2C port, if required
-    port: Option<String>,
+    port: Option<Rc<String>>,
 
     /// Disambiguation between sensor configurations
     flavor: Option<String>,
@@ -97,7 +98,7 @@ struct I2cDevice {
     description: String,
 
     /// reference designator, if any
-    refdes: Option<Refdes>,
+    refdes: Option<Rc<Refdes>>,
 
     /// power information, if any
     power: Option<I2cPower>,
@@ -105,9 +106,17 @@ struct I2cDevice {
     /// sensor information, if any
     sensors: Option<I2cSensors>,
 
+    // /// generated VPD implementation, if any
+    // vpd: Option<VpdKind>,
     /// device is removable
     #[serde(default)]
     removable: bool,
+}
+
+#[derive(Copy, Clone, Debug, Deserialize, PartialOrd, Ord, Eq, PartialEq)]
+pub enum VpdDescription {
+    At24csw080(usize),
+    Pmbus,
 }
 
 impl I2cDevice {
@@ -171,7 +180,7 @@ struct I2cMux {
 #[allow(dead_code)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 struct I2cPower {
-    rails: Option<Vec<String>>,
+    rails: Option<Vec<Rc<String>>>,
 
     /// Optional phases, which must be the same length as `rails` if present
     phases: Option<Vec<Vec<u8>>>,
@@ -219,7 +228,7 @@ struct I2cSensors {
     #[serde(default)]
     speed: usize,
 
-    names: Option<Vec<String>>,
+    names: Option<Vec<Rc<String>>>,
 }
 
 #[derive(Clone, Debug, Deserialize, Hash, PartialOrd, PartialEq, Eq, Ord)]
@@ -259,27 +268,27 @@ impl I2cSensors {
 
 #[derive(Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
 struct DeviceKey {
-    device: String,
+    device: Rc<String>,
     kind: Sensor,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
 struct DeviceNameKey {
-    device: String,
-    name: String,
+    device: Rc<String>,
+    name: Rc<String>,
     kind: Sensor,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
 struct DeviceRefdesKey {
-    device: String,
-    refdes: Refdes,
+    device: Rc<String>,
+    refdes: Rc<Refdes>,
     kind: Sensor,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DeviceSensor {
-    pub name: Option<String>,
+    pub name: Option<Rc<String>>,
     pub kind: Sensor,
     pub id: usize,
 }
@@ -304,7 +313,7 @@ struct I2cSensorsDescription {
 }
 
 impl I2cSensorsDescription {
-    fn new(devices: &[I2cDevice]) -> Self {
+    fn new(devices: &[Rc<I2cDevice>]) -> Self {
         let mut desc = Self {
             by_device: MultiMap::with_capacity(devices.len()),
             by_name: MultiMap::new(),
@@ -366,7 +375,7 @@ impl I2cSensorsDescription {
         let id = self.total_sensors;
         self.total_sensors += 1;
 
-        let name: Option<String> = if let Some(power) = d.power_for_kind(kind) {
+        let name = if let Some(power) = d.power_for_kind(kind) {
             if let Some(rails) = &power.rails {
                 if idx < rails.len() {
                     Some(rails[idx].clone())
@@ -492,7 +501,7 @@ struct ConfigGenerator {
     controllers: Vec<I2cController>,
 
     /// all devices
-    devices: Vec<I2cDevice>,
+    devices: Vec<Rc<I2cDevice>>,
 
     /// hash bus name to controller/port index pair
     buses: HashMap<String, (u8, usize)>,
@@ -576,7 +585,7 @@ impl ConfigGenerator {
                             d.device, d.address
                         );
                     }
-                    (_, Some(bus)) if !buses.contains_key(bus) => {
+                    (_, Some(bus)) if !buses.contains_key(bus.as_ref()) => {
                         panic!(
                             "device {} at address {:#x} specifies \
                             unknown bus \"{bus}\"",
@@ -871,7 +880,7 @@ impl ConfigGenerator {
 
     fn lookup_controller_port(&self, d: &I2cDevice) -> (u8, usize) {
         let controller = match &d.bus {
-            Some(bus) => self.buses.get(bus).unwrap().0,
+            Some(bus) => self.buses.get(bus.as_ref()).unwrap().0,
             None => d.controller.unwrap(),
         };
 
@@ -880,7 +889,7 @@ impl ConfigGenerator {
                 panic!("device {} has both port and bus", d.device);
             }
 
-            (Some(bus), None) => match self.buses.get(bus) {
+            (Some(bus), None) => match self.buses.get(bus.as_ref()) {
                 Some((_, port)) => port,
                 None => {
                     panic!("device {} has invalid bus", d.device);
@@ -983,50 +992,7 @@ impl ConfigGenerator {
     }
 
     pub fn generate_devices(&mut self) -> Result<()> {
-        //
-        // Throw all devices into a MultiMap based on device.
-        //
-        let mut by_device = MultiMap::new();
-        let mut by_name = HashMap::new();
-        let mut by_refdes = HashMap::new();
-        let mut by_bus = MultiMap::new();
-
-        let mut by_port = MultiMap::new();
-        let mut by_controller = MultiMap::new();
-
-        for (index, d) in self.devices.iter().enumerate() {
-            by_device.insert(&d.device, d);
-
-            let (controller, port) = self.lookup_controller_port(d);
-
-            by_port.insert(port, index);
-            by_controller.insert(controller, index);
-
-            if let Some(bus) = &d.bus {
-                by_bus.insert((&d.device, bus), d);
-            }
-
-            if let Some(name) = &d.name {
-                if by_name.insert((&d.device, name), d).is_some() {
-                    panic!("duplicate name {} for device {}", name, d.device)
-                }
-            }
-            if let Some(refdes) = &d.refdes {
-                if by_refdes.insert((&d.device, refdes), d).is_some() {
-                    panic!(
-                        "duplicate refdes {refdes:?} for device {}",
-                        d.device
-                    )
-                } else if by_name
-                    .contains_key(&(&d.device, &refdes.to_upper_ident()))
-                {
-                    panic!(
-                        "refdes {refdes:?} for device {} is also a device name",
-                        d.device
-                    )
-                }
-            }
-        }
+        let devices = self.device_table();
 
         write!(
             &mut self.output,
@@ -1048,7 +1014,7 @@ impl ConfigGenerator {
             match index {{"##
         )?;
 
-        let mut all: Vec<_> = by_controller.iter_all().collect();
+        let mut all: Vec<_> = devices.by_controller.iter_all().collect();
         all.sort();
 
         match_arms(&mut self.output, all, |c| {
@@ -1073,7 +1039,7 @@ impl ConfigGenerator {
             match index {{"##
         )?;
 
-        let mut all: Vec<_> = by_port.iter_all().collect();
+        let mut all: Vec<_> = devices.by_port.iter_all().collect();
         all.sort();
 
         match_arms(&mut self.output, all, |p| format!("Some(PortIndex({p}))"))?;
@@ -1087,7 +1053,7 @@ impl ConfigGenerator {
 "##
         )?;
 
-        let mut all: Vec<_> = by_device.iter_all().collect();
+        let mut all: Vec<_> = devices.by_device.iter_all().collect();
         all.sort();
 
         for (device, devices) in all {
@@ -1114,7 +1080,7 @@ impl ConfigGenerator {
             )?;
         }
 
-        let mut all: Vec<_> = by_bus.iter_all().collect();
+        let mut all: Vec<_> = devices.by_bus.iter_all().collect();
         all.sort();
 
         for ((device, bus), devices) in all {
@@ -1141,7 +1107,7 @@ impl ConfigGenerator {
             )?;
         }
 
-        let mut all: Vec<_> = by_name.iter().collect();
+        let mut all: Vec<_> = devices.by_name.iter().collect();
         all.sort();
         for ((device, name), d) in &all {
             write!(
@@ -1163,7 +1129,7 @@ impl ConfigGenerator {
             )?;
         }
 
-        let mut all: Vec<_> = by_refdes.iter().collect();
+        let mut all: Vec<_> = devices.by_refdes.iter().collect();
         all.sort();
 
         let mut max_component_id_len = 0;
@@ -1275,7 +1241,7 @@ impl ConfigGenerator {
         // returned by `device_descriptions()` below: if we change the ordering
         // here, it must be updated there as well.
         for (index, device) in self.devices.iter().enumerate() {
-            if drivers.contains(&device.device) {
+            if drivers.contains(device.device.as_ref()) {
                 let driver = device.device.to_case(Case::UpperCamel);
                 let out = self.generate_device(device, 24);
 
@@ -1590,14 +1556,14 @@ impl ConfigGenerator {
             s.total_sensors
         )?;
 
-        let mut emitted_structs: HashMap<String, Option<I2cSensors>> =
+        let mut emitted_structs: HashMap<Rc<String>, Option<I2cSensors>> =
             HashMap::new();
         for (i, d) in self.devices.clone().iter().enumerate() {
             let mut struct_name = d.device.clone();
             if let Some(suffix) = &d.flavor {
-                struct_name = format!("{struct_name}_{suffix}");
+                struct_name = Rc::new(format!("{struct_name}_{suffix}"));
             }
-            if let Some(prev) = emitted_structs.get(&struct_name) {
+            if let Some(prev) = emitted_structs.get(struct_name.as_ref()) {
                 match (prev, &d.sensors) {
                     (Some(a), Some(b)) => {
                         if !a.is_compatible_with(b) {
@@ -1692,6 +1658,69 @@ impl ConfigGenerator {
         writeln!(&mut self.output, "    }}")?;
         Ok(())
     }
+
+    fn device_table(&self) -> DeviceTable {
+        //
+        // Throw all devices into a MultiMap based on device.
+        //
+        let mut by_device = MultiMap::new();
+        let mut by_name = HashMap::new();
+        let mut by_refdes = HashMap::new();
+        let mut by_bus = MultiMap::new();
+
+        let mut by_port = MultiMap::new();
+        let mut by_controller = MultiMap::new();
+
+        for (index, d) in self.devices.iter().enumerate() {
+            by_device.insert(d.device.clone(), d.clone());
+
+            let (controller, port) = self.lookup_controller_port(d);
+
+            by_port.insert(port, index);
+            by_controller.insert(controller, index);
+
+            if let Some(ref bus) = d.bus {
+                by_bus.insert((d.device.clone(), bus.clone()), d.clone());
+            }
+
+            if let Some(ref name) = d.name {
+                if by_name
+                    .insert((d.device.clone(), name.clone()), d.clone())
+                    .is_some()
+                {
+                    panic!("duplicate name {} for device {}", name, d.device)
+                }
+            }
+            if let Some(ref refdes) = d.refdes {
+                if by_refdes
+                    .insert((d.device.clone(), refdes.clone()), d.clone())
+                    .is_some()
+                {
+                    panic!(
+                        "duplicate refdes {refdes:?} for device {}",
+                        d.device
+                    )
+                } else if by_name.contains_key(&(
+                    d.device.clone(),
+                    Rc::new(refdes.to_upper_ident()),
+                )) {
+                    panic!(
+                        "refdes {refdes:?} for device {} is also a device name",
+                        d.device
+                    )
+                }
+            }
+        }
+
+        DeviceTable {
+            by_name,
+            by_refdes,
+            by_device,
+            by_port,
+            by_controller,
+            by_bus,
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -1771,12 +1800,22 @@ pub fn codegen(settings: impl Into<CodegenSettings>) -> Result<()> {
     Ok(())
 }
 
+struct DeviceTable {
+    by_device: MultiMap<Rc<String>, Rc<I2cDevice>>,
+    by_name: HashMap<(Rc<String>, Rc<String>), Rc<I2cDevice>>,
+    by_refdes: HashMap<(Rc<String>, Rc<Refdes>), Rc<I2cDevice>>,
+    by_bus: MultiMap<(Rc<String>, Rc<String>), Rc<I2cDevice>>,
+    by_port: MultiMap<usize, usize>,
+    by_controller: MultiMap<u8, usize>,
+}
+
 pub struct I2cDeviceDescription {
-    pub device: String,
+    pub device: Rc<String>,
     pub description: String,
     pub sensors: Vec<DeviceSensor>,
     pub device_id: Option<String>,
-    pub name: Option<String>,
+    pub name: Option<Rc<String>>,
+    pub vpd: Option<VpdDescription>,
 }
 
 ///
@@ -1787,6 +1826,20 @@ pub struct I2cDeviceDescription {
 ///
 pub fn device_descriptions() -> impl Iterator<Item = I2cDeviceDescription> {
     let g = ConfigGenerator::new(Disposition::Validation.into());
+    let devicetable = g.device_table();
+    let at24csw080_indices = if let Some(eeproms) =
+        devicetable.by_device.get_vec(&("at24csw080".to_string()))
+    {
+        eeproms
+            .iter()
+            .enumerate()
+            .filter_map(|(index, device)| {
+                Some((device.refdes.as_ref()?.clone(), index))
+            })
+            .collect::<HashMap<_, _>>()
+    } else {
+        HashMap::new()
+    };
     let sensors = g.sensors_description();
 
     assert_eq!(sensors.device_sensors.len(), g.devices.len());
@@ -1794,14 +1847,29 @@ pub fn device_descriptions() -> impl Iterator<Item = I2cDeviceDescription> {
     // Matches the ordering of the `match` produced by `generate_validation()`
     // above; if we change the order here, it must change there as well.
     g.devices.into_iter().zip(sensors.device_sensors).map(
-        |(device, sensors)| {
-            let device_id = device.refdes.as_ref().map(Refdes::to_component_id);
+        move |(device, sensors)| {
+            let vpd = if (&*device.device) == "at24csw080" {
+                let Some(refdes) =  device.refdes.as_deref() else {
+                    panic!("device {device:?} has AT24CSW080 VPD kind, but no refdes")
+                    };
+                let Some(vpd_idx) = at24csw080_indices.get(refdes) else {
+                    panic!("index for {refdes:?} not found in AT24CSW080 indices")
+                };
+                Some(VpdDescription::At24csw080(*vpd_idx))
+            } else if device.power.as_ref().map(|power| power.pmbus).unwrap_or(false) {
+                Some(VpdDescription::Pmbus)
+            } else {
+                None
+            };
+            let device_id =
+                device.refdes.as_deref().map(Refdes::to_component_id);
             I2cDeviceDescription {
-                device: device.device,
-                description: device.description,
+                device: device.device.clone(),
+                description: device.description.clone(),
                 sensors,
                 device_id,
-                name: device.name,
+                name: device.name.clone(),
+                vpd,
             }
         },
     )
