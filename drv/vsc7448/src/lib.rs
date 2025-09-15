@@ -733,9 +733,9 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
     /// The provided function is passed a value from 0-52 and should return a
     /// port mask associated with that VLAN, or `None` if we're not using that
     /// VLAN.
-    fn configure_vlans<F: Fn(u8) -> Option<u64>>(
+    fn configure_vlans(
         &self,
-        f: F,
+        f: fn(u8) -> Option<u64>,
     ) -> Result<(), VscError> {
         for p in 0..=52 {
             if let Some(mask) = f(p) {
