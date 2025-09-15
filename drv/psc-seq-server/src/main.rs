@@ -1034,7 +1034,7 @@ impl Psu {
             }
         );
         let status_input =
-            retry_i2c_txn(now, self.slot, || self.dev.status_vout())
+            retry_i2c_txn(now, self.slot, || self.dev.status_input())
                 .map(|data| data.0);
         ringbuf_entry!(
             __TRACE,
