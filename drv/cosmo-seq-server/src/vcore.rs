@@ -73,7 +73,7 @@ enum Trace {
     StatusMfrSpecific(Rail, Result<u8, ResponseCode>),
     I2cError(Rail, PmbusCmd, raa229620a::Error),
     EreportSent(Rail, usize),
-    EreportLost(Rail, usize, packrat::EreportWriteError),
+    EreportLost(Rail, usize, task_packrat_api::EreportWriteError),
     EreportTooBig(Rail),
 }
 
@@ -444,24 +444,13 @@ fn deliver_ereport(
     data: &impl serde::Serialize,
 ) {
     let mut ereport_buf = [0u8; 256];
-    let writer = minicbor::encode::write::Cursor::new(&mut ereport_buf[..]);
-    let mut s = minicbor_serde::Serializer::new(writer);
-    match data.serialize(&mut s) {
-        Ok(_) => {
-            let len = s.into_encoder().into_writer().position();
-            match packrat.deliver_ereport(&ereport_buf[..len]) {
-                Ok(_) => {
-                    ringbuf_entry!(Trace::EreportSent(rail, len));
-                }
-                Err(e) => {
-                    ringbuf_entry!(Trace::EreportLost(rail, len, e));
-                }
-            }
-            ringbuf_entry!(Trace::EreportSentOff(rail, len));
+    match packrat.serialize_ereport(data, &mut ereport_buf[..]) {
+        Ok(len) => ringbuf_entry!(Trace::EreportSent(rail, len)),
+        Err(task_packrat_api::EreportSerializeError::Packrat { len, err }) => {
+            ringbuf_entry!(Trace::EreportLost(rail, len, err))
         }
-        Err(_) => {
-            // XXX(eliza): ereport didn't fit in buffer...what do
-            ringbuf_entry!(Trace::EreportTooBig(rail));
+        Err(task_packrat_api::EreportSerializeError::Serialize(_)) => {
+            ringbuf_entry!(Trace::EreportTooBig(rail))
         }
     }
 }

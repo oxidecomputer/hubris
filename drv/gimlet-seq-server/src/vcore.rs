@@ -339,23 +339,13 @@ struct Ereport {
 #[inline(never)]
 fn deliver_ereport(packrat: &packrat_api::Packrat, data: &impl Serialize) {
     let mut ereport_buf = [0u8; 128];
-    let writer = minicbor::encode::write::Cursor::new(&mut ereport_buf[..]);
-    let mut s = minicbor_serde::Serializer::new(writer);
-    match data.serialize(&mut s) {
-        Ok(_) => {
-            let len = s.into_encoder().into_writer().position();
-            match packrat.deliver_ereport(&ereport_buf[..len]) {
-                Ok(_) => {
-                    ringbuf_entry!(Trace::EreportSent(len));
-                }
-                Err(e) => {
-                    ringbuf_entry!(Trace::EreportLost(len, e));
-                }
-            }
+    match packrat.serialize_ereport(data, &mut ereport_buf[..]) {
+        Ok(len) => ringbuf_entry!(Trace::EreportSent(len)),
+        Err(task_packrat_api::EreportSerializeError::Packrat { len, err }) => {
+            ringbuf_entry!(Trace::EreportLost(len, err))
         }
-        Err(_) => {
-            // XXX(eliza): ereport didn't fit in buffer...what do
-            ringbuf_entry!(Trace::EreportTooBig);
+        Err(task_packrat_api::EreportSerializeError::Serialize(_)) => {
+            ringbuf_entry!(Trace::EreportTooBig)
         }
     }
 }
