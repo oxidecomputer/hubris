@@ -776,7 +776,7 @@ impl Psu {
             // Other than detecting removal, the main side effect of this
             // decision is that the "NewlyInserted" settle time starts after the
             // contacts are _done_ scraping, not when they start.
-            (_, Present::No, _) => {
+            (PsuState::Present(_), Present::No, _) => {
                 ringbuf_entry!(Event::Removed {
                     now,
                     psu: self.slot
@@ -951,7 +951,7 @@ impl Psu {
 
             (
                 PsuState::Present(PresentState::Faulted { turn_on_deadline }),
-                _,
+                Present::Yes,
                 _,
             ) => {
                 if turn_on_deadline <= now {
@@ -972,7 +972,7 @@ impl Psu {
             }
             (
                 PsuState::Present(PresentState::OnProbation { deadline }),
-                _,
+                Present::Yes,
                 _,
             ) => {
                 // Just in case we were previously unable to read any FRUID
