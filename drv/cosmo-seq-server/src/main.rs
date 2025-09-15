@@ -378,7 +378,12 @@ struct ServerImpl {
     hf: HostFlash,
     seq: fmc_periph::Sequencer,
     vcore: VCore,
+    /// Static buffer for encoding ereports. This is a static so that we don't
+    /// have it on the stack when encoding ereports.
+    ereport_buf: &'static mut [u8; EREPORT_BUF_LEN],
 }
+
+const EREPORT_BUF_LEN: usize = 256;
 
 impl ServerImpl {
     fn new(
@@ -399,6 +404,13 @@ impl ServerImpl {
         let jefe = Jefe::from(JEFE.get_task_id());
         jefe.set_state(PowerState::A2 as u32);
 
+        let ereport_buf = {
+            use static_cell::ClaimOnceCell;
+            static EREPORT_BUF: ClaimOnceCell<[u8; EREPORT_BUF_LEN]> =
+                ClaimOnceCell::new([0; EREPORT_BUF_LEN]);
+            EREPORT_BUF.claim()
+        };
+
         ServerImpl {
             state: PowerState::A2,
             jefe,
@@ -406,6 +418,7 @@ impl ServerImpl {
             hf: HostFlash::from(HF.get_task_id()),
             seq,
             vcore: VCore::new(I2C.get_task_id(), packrat),
+            ereport_buf,
         }
     }
 
@@ -741,7 +754,8 @@ impl ServerImpl {
                 vddcr_cpu0: ifr.pwr_cont1_to_fpga1_alert,
                 vddcr_cpu1: ifr.pwr_cont2_to_fpga1_alert,
             };
-            self.vcore.handle_pmbus_alert(which_rails, now);
+            self.vcore
+                .handle_pmbus_alert(which_rails, now, self.ereport_buf);
 
             // We need not instruct the sequencer to reset. PMBus alerts from
             // the RAA229620As are divided into two categories, "warnings" and

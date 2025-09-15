@@ -20,6 +20,7 @@ ringbuf = { path = "../../lib/ringbuf" }
 task-jefe-api = { path = "../../task/jefe-api" }
 task-packrat-api = { path = "../../task/packrat-api", features = ["serde"] }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+static-cell = { path = "../../lib/static-cell" }
 
 cfg-if = { workspace = true }
 cortex-m = { workspace = true }

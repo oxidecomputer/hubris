@@ -21,6 +21,7 @@ ringbuf = { path = "../../lib/ringbuf" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 task-jefe-api = { path = "../../task/jefe-api" }
 task-packrat-api = { path = "../../task/packrat-api", features = ["serde"] }
+static-cell = { path = "../../lib/static-cell" }
 
 cfg-if = { workspace = true }
 idol-runtime.workspace = true

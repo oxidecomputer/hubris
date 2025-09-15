@@ -17,7 +17,6 @@ use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::raa229620a::{self, Raa229620A};
 use ringbuf::*;
 use serde::Serialize;
-use task_packrat_api::{self, Packrat};
 use userlib::{sys_get_timer, units, TaskId};
 
 pub(super) struct VCore {
@@ -162,18 +161,31 @@ impl VCore {
         Ok(())
     }
 
-    pub fn handle_pmbus_alert(&self, mut rails: Rails, now: u64) {
+    pub fn handle_pmbus_alert(
+        &self,
+        mut rails: Rails,
+        now: u64,
+        ereport_buf: &mut [u8],
+    ) {
         ringbuf_entry!(Trace::PmbusAlert {
             timestamp: now,
             rails,
         });
 
-        let cpu0_state =
-            self.record_pmbus_status(now, Rail::VddcrCpu0, rails.vddcr_cpu0);
+        let cpu0_state = self.record_pmbus_status(
+            now,
+            Rail::VddcrCpu0,
+            rails.vddcr_cpu0,
+            ereport_buf,
+        );
         rails.vddcr_cpu0 |= cpu0_state.faulted;
 
-        let cpu1_state =
-            self.record_pmbus_status(now, Rail::VddcrCpu1, rails.vddcr_cpu1);
+        let cpu1_state = self.record_pmbus_status(
+            now,
+            Rail::VddcrCpu1,
+            rails.vddcr_cpu1,
+            ereport_buf,
+        );
         rails.vddcr_cpu1 |= cpu1_state.faulted;
 
         if cpu0_state.input_fault || cpu1_state.input_fault {
@@ -246,6 +258,7 @@ impl VCore {
         now: u64,
         rail: Rail,
         alerted: bool,
+        ereport_buf: &mut [u8],
     ) -> RegulatorState {
         use pmbus::commands::raa229620a::STATUS_WORD;
 
@@ -372,7 +385,18 @@ impl VCore {
             status,
             pwr_good: power_good,
         };
-        deliver_ereport(rail, &self.packrat, &ereport);
+        match self.packrat.serialize_ereport(&ereport, ereport_buf) {
+            Ok(len) => ringbuf_entry!(Trace::EreportSent(rail, len)),
+            Err(task_packrat_api::EreportSerializeError::Packrat {
+                len,
+                err,
+            }) => {
+                ringbuf_entry!(Trace::EreportLost(rail, len, err))
+            }
+            Err(task_packrat_api::EreportSerializeError::Serialize(_)) => {
+                ringbuf_entry!(Trace::EreportTooBig(rail))
+            }
+        }
 
         RegulatorState {
             faulted,
@@ -429,28 +453,6 @@ fn retry_i2c_txn<T>(
 
                 retries_remaining -= 1;
             }
-        }
-    }
-}
-
-// This is in its own function so that the ereport buffer is only on the stack
-// while we're using it, and not for the entireity of `record_pmbus_status`,
-// which calls into a bunch of other functions. This may reduce our stack depth
-// a bit.
-#[inline(never)]
-fn deliver_ereport(
-    rail: Rail,
-    packrat: &Packrat,
-    data: &impl serde::Serialize,
-) {
-    let mut ereport_buf = [0u8; 256];
-    match packrat.serialize_ereport(data, &mut ereport_buf[..]) {
-        Ok(len) => ringbuf_entry!(Trace::EreportSent(rail, len)),
-        Err(task_packrat_api::EreportSerializeError::Packrat { len, err }) => {
-            ringbuf_entry!(Trace::EreportLost(rail, len, err))
-        }
-        Err(task_packrat_api::EreportSerializeError::Serialize(_)) => {
-            ringbuf_entry!(Trace::EreportTooBig(rail))
         }
     }
 }
