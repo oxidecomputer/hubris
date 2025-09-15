@@ -826,7 +826,7 @@ impl Psu {
                 PsuState::Present(PresentState::NewlyInserted {
                     settle_deadline,
                 }),
-                _,
+                Present::Yes,
                 _,
             ) => {
                 // Hello, who are you?
