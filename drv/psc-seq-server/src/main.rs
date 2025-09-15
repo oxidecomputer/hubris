@@ -250,12 +250,20 @@ enum Trace {
         psu: Slot,
         err: mwocp68::Error,
     },
-    EreportSentOff {
+    EreportSent {
         now: u64,
         #[count(children)]
         psu: Slot,
         class: ereport::Class,
         len: usize,
+    },
+    EreportLost {
+        now: u64,
+        #[count(children)]
+        psu: Slot,
+        class: ereport::Class,
+        len: usize,
+        err: task_packrat_api::EreportWriteError,
     },
     EreportTooBig {
         now: u64,
@@ -671,7 +679,41 @@ fn main() -> ! {
                 }
             }
             if let Some(ereport) = step.ereport {
-                ereport.deliver(&packrat, now, ereport_buf);
+                match packrat.serialize_ereport(&ereport, &mut ereport_buf[..])
+                {
+                    Ok(len) => ringbuf_entry!(
+                        __TRACE,
+                        Trace::EreportSent {
+                            now,
+                            psu: ereport.psu_slot,
+                            len,
+                            class: ereport.class,
+                        }
+                    ),
+                    Err(task_packrat_api::EreportSerializeError::Packrat {
+                        err,
+                        len,
+                    }) => ringbuf_entry!(
+                        __TRACE,
+                        Trace::EreportLost {
+                            now,
+                            psu: ereport.psu_slot,
+                            len,
+                            class: ereport.class,
+                            err,
+                        }
+                    ),
+                    Err(
+                        task_packrat_api::EreportSerializeError::Serialize(_),
+                    ) => ringbuf_entry!(
+                        __TRACE,
+                        Trace::EreportTooBig {
+                            now,
+                            psu: ereport.psu_slot,
+                            class: ereport.class,
+                        }
+                    ),
+                }
             }
         }
 
@@ -1151,47 +1193,6 @@ mod ereport {
         pub(super) fruid: PsuFruid,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub(super) pmbus_status: Option<PmbusStatus>,
-    }
-
-    impl Ereport {
-        #[inline(never)]
-        pub(super) fn deliver(
-            &self,
-            packrat: &Packrat,
-            now: u64,
-            buf: &mut [u8],
-        ) {
-            let writer = minicbor::encode::write::Cursor::new(buf);
-            let mut s = minicbor_serde::Serializer::new(writer);
-            match self.serialize(&mut s) {
-                Ok(_) => {
-                    let writer = s.into_encoder().into_writer();
-                    let len = writer.position();
-                    let buf = writer.into_inner();
-                    packrat.deliver_ereport(&buf[..len]);
-                    ringbuf_entry!(
-                        __TRACE,
-                        Trace::EreportSentOff {
-                            now,
-                            psu: self.psu_slot,
-                            class: self.class,
-                            len,
-                        }
-                    );
-                }
-                Err(_) => {
-                    // XXX(eliza): ereport didn't fit in buffer...what do
-                    ringbuf_entry!(
-                        __TRACE,
-                        Trace::EreportTooBig {
-                            now,
-                            psu: self.psu_slot,
-                            class: self.class
-                        }
-                    );
-                }
-            }
-        }
     }
 
     #[derive(Copy, Clone, Default, Serialize)]
