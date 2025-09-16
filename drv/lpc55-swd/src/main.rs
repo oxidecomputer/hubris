@@ -645,7 +645,7 @@ impl NotificationHandler for ServerImpl {
             ringbuf_entry!(Trace::SpJtagDetectFired);
             const SLOT: PintSlot = SP_TO_ROT_JTAG_DETECT_L_PINT_SLOT;
             if let Ok(detected) = gpio.pint_detect(SLOT, PintFlag::Falling) {
-                if detected != 0 {
+                if detected {
                     ringbuf_entry!(Trace::InvalidateSpMeasurement);
                     // Reset the attestation log
                     self.invalidate_sp_measurement();
@@ -1679,7 +1679,7 @@ impl ServerImpl {
 
         // Did SP_RESET transition to Zero?
         if let Ok(detected) = gpio.pint_detect(SLOT, PintFlag::Falling) {
-            if detected == 0 {
+            if !detected {
                 // Use of sys_irq_control_clear_pending(...) should avoid
                 // appearance of a "spurious" interrupt.
                 //

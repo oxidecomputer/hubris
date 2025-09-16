@@ -82,7 +82,7 @@ Interface(
                 "flag": "PintFlag",
             },
             reply: Result(
-                ok: "u32", // XXX this should be a bool
+                ok: "bool",
                 err: ServerDeath,
             ),
             encoding: Hubpack,

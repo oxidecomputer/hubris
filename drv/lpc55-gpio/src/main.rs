@@ -239,24 +239,20 @@ impl idl::InOrderPinsImpl for ServerImpl<'_> {
         Ok(())
     }
 
-    //
-    // Functions for managing GPIO interrupts:
-    //
+    /// Check whether a pin-change interrupt has been detected
     fn pint_detected(
         &mut self,
         _: &RecvMessage,
         pint_slot: PintSlot,
         flag: PintFlags,
-    ) -> Result<u32, RequestError<core::convert::Infallible>> {
+    ) -> Result<bool, RequestError<core::convert::Infallible>> {
         let mask = pint_slot.mask();
         Ok(match cond {
             PintCondition::Rising => self.pint.rise.read().bits() & mask,
             PintCondition::Falling => self.pint.fall.read().bits() & mask,
             // XXX This could be any interrupt detected
-            PintCondition::Status => {
-                self.pint.ist.read().bits() & pint_slot.mask()
-            }
-        })
+            PintCondition::Status => self.pint.ist.read().bits() & mask,
+        } != 0)
     }
 }
 
