@@ -184,16 +184,14 @@ impl idl::InOrderPinsImpl for ServerImpl<'_> {
         flag: PintFlag,
     ) -> Result<(), RequestError<core::convert::Infallible>> {
         let mask = pint_slot.mask();
-        match cond {
-            PintCondition::Rising => {
+        match flag {
+            PintFlag::Rising => {
                 self.pint.rise.write(|w| unsafe { w.bits(mask) })
             }
-            PintCondition::Falling => {
+            PintFlag::Falling => {
                 self.pint.fall.write(|w| unsafe { w.bits(mask) })
             }
-            PintCondition::Status => {
-                self.pint.ist.write(|w| unsafe { w.bits(mask) })
-            }
+            PintFlag::Both => self.pint.ist.write(|w| unsafe { w.bits(mask) }),
         }
         Ok(())
     }
@@ -222,7 +220,6 @@ impl idl::InOrderPinsImpl for ServerImpl<'_> {
         &mut self,
         _: &RecvMessage,
         pint_slot: PintSlot,
-        op: PintOp,
         cond: PintCondition,
     ) -> Result<(), RequestError<core::convert::Infallible>> {
         let mask = pint_slot.mask();
@@ -240,18 +237,17 @@ impl idl::InOrderPinsImpl for ServerImpl<'_> {
     }
 
     /// Check whether a pin-change interrupt has been detected
-    fn pint_detected(
+    fn pint_detect(
         &mut self,
         _: &RecvMessage,
         pint_slot: PintSlot,
-        flag: PintFlags,
+        flag: PintFlag,
     ) -> Result<bool, RequestError<core::convert::Infallible>> {
         let mask = pint_slot.mask();
-        Ok(match cond {
-            PintCondition::Rising => self.pint.rise.read().bits() & mask,
-            PintCondition::Falling => self.pint.fall.read().bits() & mask,
-            // XXX This could be any interrupt detected
-            PintCondition::Status => self.pint.ist.read().bits() & mask,
+        Ok(match flag {
+            PintFlag::Rising => self.pint.rise.read().bits() & mask,
+            PintFlag::Falling => self.pint.fall.read().bits() & mask,
+            PintFlag::Both => self.pint.ist.read().bits() & mask,
         } != 0)
     }
 }
@@ -317,7 +313,6 @@ fn turn_on_gpio_clocks() {
 mod idl {
     use crate::PintCondition;
     use crate::PintFlag;
-    use crate::PintOp;
     use crate::PintSlot;
     use drv_lpc55_gpio_api::{Direction, Pin, Value};
 
