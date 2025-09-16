@@ -187,17 +187,17 @@ counted_ringbuf!(Event, 128, Event::None, no_dedup);
 enum Trace {
     #[count(skip)]
     None,
-    Faulted {
+    PowerGoodDeasserted {
         now: u64,
         #[count(children)]
         psu: Slot,
     },
-    FaultCleared {
+    PowerGoodAsserted {
         now: u64,
         #[count(children)]
         psu: Slot,
     },
-    StillInFault {
+    PowerStillUngood {
         now: u64,
         #[count(children)]
         psu: Slot,
@@ -685,7 +685,7 @@ fn main() -> ! {
                         __TRACE,
                         Trace::EreportSent {
                             now,
-                            psu: ereport.psu_slot,
+                            psu: ereport.slot,
                             len,
                             class: ereport.class,
                         }
@@ -697,7 +697,7 @@ fn main() -> ! {
                         __TRACE,
                         Trace::EreportLost {
                             now,
-                            psu: ereport.psu_slot,
+                            psu: ereport.slot,
                             len,
                             class: ereport.class,
                             err,
@@ -709,7 +709,7 @@ fn main() -> ! {
                         __TRACE,
                         Trace::EreportTooBig {
                             now,
-                            psu: ereport.psu_slot,
+                            psu: ereport.slot,
                             class: ereport.class,
                         }
                     ),
@@ -784,8 +784,8 @@ impl Psu {
                 let ereport = ereport::Ereport {
                     class: ereport::Class::Removed,
                     version: 0,
-                    dev_id: self.dev.i2c_device().component_id(),
-                    psu_slot: self.slot,
+                    refdes: self.dev.i2c_device().component_id(),
+                    slot: self.slot,
                     fruid: self.fruid,
                     pmbus_status: None,
                 };
@@ -841,8 +841,8 @@ impl Psu {
                     let ereport = ereport::Ereport {
                         class: ereport::Class::Inserted,
                         version: 0,
-                        dev_id: self.dev.i2c_device().component_id(),
-                        psu_slot: self.slot,
+                        refdes: self.dev.i2c_device().component_id(),
+                        slot: self.slot,
                         fruid: self.fruid,
                         pmbus_status: None,
                     };
@@ -877,17 +877,17 @@ impl Psu {
                     });
                     ringbuf_entry!(
                         __TRACE,
-                        Trace::FaultCleared {
+                        Trace::PowerGoodAsserted {
                             now,
                             psu: self.slot,
                         }
                     );
                     // Report that the fault has gone away.
                     Some(ereport::Ereport {
-                        class: ereport::Class::FaultCleared,
+                        class: ereport::Class::PowerGood,
                         version: 0,
-                        dev_id: self.dev.i2c_device().component_id(),
-                        psu_slot: self.slot,
+                        refdes: self.dev.i2c_device().component_id(),
+                        slot: self.slot,
                         fruid: self.fruid,
                         pmbus_status: Some(self.read_pmbus_status(now)),
                     })
@@ -917,23 +917,23 @@ impl Psu {
                 let ereport = if !was_faulted {
                     ringbuf_entry!(
                         __TRACE,
-                        Trace::Faulted {
+                        Trace::PowerGoodDeasserted {
                             now,
                             psu: self.slot,
                         }
                     );
                     Some(ereport::Ereport {
-                        class: ereport::Class::Fault,
+                        class: ereport::Class::PowerUngood,
                         version: 0,
-                        dev_id: self.dev.i2c_device().component_id(),
-                        psu_slot: self.slot,
+                        refdes: self.dev.i2c_device().component_id(),
+                        slot: self.slot,
                         fruid: self.fruid,
                         pmbus_status: Some(self.read_pmbus_status(now)),
                     })
                 } else {
                     ringbuf_entry!(
                         __TRACE,
-                        Trace::StillInFault {
+                        Trace::PowerStillUngood {
                             now,
                             psu: self.slot,
                         }
@@ -1171,14 +1171,14 @@ mod ereport {
 
     #[derive(Copy, Clone, Eq, PartialEq, Serialize)]
     pub(super) enum Class {
-        #[serde(rename = "psu.insert")]
+        #[serde(rename = "hw.insert.psu")]
         Inserted,
-        #[serde(rename = "psu.remove")]
+        #[serde(rename = "hw.remove.psu")]
         Removed,
-        #[serde(rename = "psu.fault")]
-        Fault,
-        #[serde(rename = "psu.fault_cleared")]
-        FaultCleared,
+        #[serde(rename = "hw.pwr_good.bad")]
+        PowerUngood,
+        #[serde(rename = "hw.pwr_good.good")]
+        PowerGood,
     }
 
     #[derive(Copy, Clone, Serialize)]
@@ -1187,9 +1187,9 @@ mod ereport {
         pub(super) class: Class,
         #[serde(rename = "v")]
         pub(super) version: u32,
-        pub(super) dev_id: &'static str,
+        pub(super) refdes: &'static str,
         #[serde(serialize_with = "serialize_psu_slot")]
-        pub(super) psu_slot: Slot,
+        pub(super) slot: Slot,
         pub(super) fruid: PsuFruid,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub(super) pmbus_status: Option<PmbusStatus>,
