@@ -113,6 +113,9 @@ use zerocopy::IntoBytes;
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,
+    Start {
+        is_dongle_connected: bool,
+    },
     Idcode(u32),
     Idr(u32),
     MemVal(u32),
@@ -409,11 +412,11 @@ enum SwdState {
     /// through the JTAG_DETECT line)
     Disconnected,
 
-    /// The SWD GPIOs are configured, but SWD is not setup
-    NotInitialized,
-
-    /// The SWD GPIOs are configured and SWD setup has succeeded
-    Initialized,
+    /// The SWD GPIOs are configured
+    Connected {
+        /// Marks whether SWD has been initialized
+        init: bool,
+    },
 }
 
 struct ServerImpl {
@@ -665,7 +668,7 @@ impl NotificationHandler for ServerImpl {
             && !self.swd_dongle_detected()
         {
             switch_io_connected();
-            self.state = SwdState::NotInitialized;
+            self.state = SwdState::Connected { init: false };
         }
 
         if bits.has_timer_fired(notifications::TIMER_MASK) {
@@ -725,7 +728,7 @@ impl NotificationHandler for ServerImpl {
             ringbuf_entry!(Trace::SpResetFired);
             let can_handle_sp = match self.state {
                 SwdState::Disconnected => false,
-                SwdState::NotInitialized | SwdState::Initialized => true,
+                SwdState::Connected { .. } => true,
             };
             if can_handle_sp && !self.do_handle_sp_reset() {
                 // If handling the SP reset failed, clear the attestation log
@@ -1562,17 +1565,15 @@ impl ServerImpl {
             // Don't change state here; we'll catch it in the pin-change IRQ
             ringbuf_entry!(Trace::DongleDetected);
             return Err(SpCtrlError::DongleDetected);
-        }
-
-        if self.state == SwdState::Disconnected {
+        } else if self.state == SwdState::Disconnected {
             switch_io_connected();
-            self.state = SwdState::NotInitialized;
+            self.state = SwdState::Connected { init: false };
         }
 
         match self.swd_setup() {
             Ok(_) => {
                 ringbuf_entry!(Trace::SwdSetupOk);
-                self.state = SwdState::Initialized;
+                self.state = SwdState::Connected { init: true };
                 Ok(())
             }
             Err(e) => {
@@ -1609,18 +1610,15 @@ impl ServerImpl {
 
     fn next_use_must_setup_swd(&mut self) {
         // Reset SWD state if it is connected
-        self.state = match self.state {
-            SwdState::Disconnected => SwdState::Disconnected,
-            SwdState::NotInitialized | SwdState::Initialized => {
-                SwdState::NotInitialized
-            }
-        };
+        if let SwdState::Connected { init } = &mut self.state {
+            *init = false;
+        }
         // Any in-progress bulk data transfer is cancelled.
         self.transaction = None;
     }
 
     fn is_swd_setup(&self) -> bool {
-        matches!(self.state, SwdState::Initialized)
+        matches!(self.state, SwdState::Connected { init: true })
     }
 
     fn do_halt(&mut self) -> Result<(), SpCtrlError> {
@@ -1900,17 +1898,31 @@ fn main() -> ! {
 
     spi.enable();
 
+    // Setup GPIO pins so that we can receive interrupts
+    // and interact with the SP's SWD interface.
+    let _ = setup_pins(gpio);
+
+    // Check whether the dongle is connected at startup
+    let is_dongle_connected =
+        Pins::from(gpio).read_val(SP_TO_ROT_JTAG_DETECT_L) == Value::Zero;
+    if is_dongle_connected {
+        switch_io_disconnected();
+    }
+    ringbuf_entry!(Trace::Start {
+        is_dongle_connected
+    });
+
     let mut server = ServerImpl {
         spi,
         gpio,
         attest,
-        state: SwdState::NotInitialized, // XXX check JTAG pin?
+        state: if is_dongle_connected {
+            SwdState::Disconnected
+        } else {
+            SwdState::Connected { init: false }
+        },
         transaction: None,
     };
-
-    // Setup GPIO pins so that we can receive interrupts
-    // and interact with the SP's SWD interface.
-    let _ = setup_pins(server.gpio);
 
     // Detect SP entering reset
     let _ = Pins::from(server.gpio).pint_op(
