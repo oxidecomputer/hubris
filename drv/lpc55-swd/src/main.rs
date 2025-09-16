@@ -636,7 +636,6 @@ impl NotificationHandler for ServerImpl {
         //     and don't complicate the behavior here.
         //
 
-        let mut invalidate = false;
         let gpio = Pins::from(self.gpio);
 
         if bits.check_notification_mask(notifications::JTAG_DETECT_IRQ_MASK) {
@@ -648,7 +647,7 @@ impl NotificationHandler for ServerImpl {
                 if detected {
                     ringbuf_entry!(Trace::InvalidateSpMeasurement);
                     // Reset the attestation log
-                    invalidate = true;
+                    let _ = self.invalidate_sp_measurement();
 
                     // Cancel ongoing transactions
                     self.transaction = None;
@@ -662,6 +661,11 @@ impl NotificationHandler for ServerImpl {
             }
             let _ = gpio.pint_op(SLOT, PintOp::Clear, PintCondition::Status);
             sys_irq_control(notifications::JTAG_DETECT_IRQ_MASK, true);
+        } else if matches!(self.state, SwdState::Disconnected)
+            && !self.swd_dongle_detected()
+        {
+            switch_io_connected();
+            self.state = SwdState::NotInitialized;
         }
 
         if bits.has_timer_fired(notifications::TIMER_MASK) {
@@ -719,10 +723,14 @@ impl NotificationHandler for ServerImpl {
             //  de-asserted so that the SP_RESET that also fired could be
             //  handled successfully.
             ringbuf_entry!(Trace::SpResetFired);
-            if !invalidate && !self.do_handle_sp_reset() {
+            let can_handle_sp = match self.state {
+                SwdState::Disconnected => false,
+                SwdState::NotInitialized | SwdState::Initialized => true,
+            };
+            if can_handle_sp && !self.do_handle_sp_reset() {
+                // If handling the SP reset failed, clear the attestation log
                 ringbuf_entry!(Trace::InvalidateSpMeasurement);
-                // Clear the attestation log
-                invalidate = true;
+                let _ = self.invalidate_sp_measurement();
             }
             self.next_use_must_setup_swd();
 
@@ -743,11 +751,6 @@ impl NotificationHandler for ServerImpl {
             );
 
             ringbuf_entry!(Trace::EndOfNotificationHandler);
-        }
-
-        if invalidate {
-            // invalidate_sp_measurement() logs to Ringbuf
-            let _ = self.invalidate_sp_measurement();
         }
     }
 }
