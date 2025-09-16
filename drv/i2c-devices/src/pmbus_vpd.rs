@@ -38,7 +38,8 @@ pub trait PmbusVpd {
     const HAS_MFR_SERIAL: bool;
     const HAS_MFR_LOCATION: bool;
     const HAS_MFR_DATE: bool;
-    /// If `true`, attempt to read the `IC_DEVICE_ID` and `IC_DEVICE_REV` PMBus registers.
+    /// If `true`, attempt to read the `IC_DEVICE_ID` and `IC_DEVICE_REV` PMBus
+    /// registers.
     const HAS_IC_DEVICE_IDENTITY: bool;
 
     fn read_pmbus_vpd<'buf>(
