@@ -532,15 +532,16 @@ pub struct Identity {
     pub serial: [u8; Identity::SERIAL_LEN],
 }
 
-impl From<oxide_barcode::VpdIdentity> for Identity {
-    fn from(id: oxide_barcode::VpdIdentity) -> Self {
+impl From<oxide_barcode::OxideIdentity> for Identity {
+    fn from(id: oxide_barcode::OxideIdentity) -> Self {
         // The Host/SP protocol has larger fields for model/serial than we
         // use currently; statically assert that we haven't outgrown them.
         const_assert!(
-            oxide_barcode::VpdIdentity::PART_NUMBER_LEN <= Identity::MODEL_LEN
+            oxide_barcode::OxideIdentity::PART_NUMBER_LEN
+                <= Identity::MODEL_LEN
         );
         const_assert!(
-            oxide_barcode::VpdIdentity::SERIAL_LEN <= Identity::SERIAL_LEN
+            oxide_barcode::OxideIdentity::SERIAL_LEN <= Identity::SERIAL_LEN
         );
 
         let mut new_id = Self::default();

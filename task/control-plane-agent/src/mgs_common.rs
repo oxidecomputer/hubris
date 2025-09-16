@@ -39,7 +39,7 @@ use gateway_messages::{
 };
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use static_assertions::const_assert;
-use task_control_plane_agent_api::VpdIdentity;
+use task_control_plane_agent_api::OxideIdentity;
 use task_net_api::MacAddress;
 use task_packrat_api::Packrat;
 use task_sensor_api::{Sensor, SensorId};
@@ -100,7 +100,7 @@ impl MgsCommon {
         })
     }
 
-    pub(crate) fn identity(&self) -> VpdIdentity {
+    pub(crate) fn identity(&self) -> OxideIdentity {
         // We don't need to wait for packrat to be loaded: the sequencer task
         // for our board already does, and `net` waits for the sequencer before
         // starting. If we've gotten here, we've received a packet on the
@@ -119,8 +119,8 @@ impl MgsCommon {
         // truncating our values. We'll statically assert that `SpState`'s field
         // length is wider than `VpdIdentity`'s to catch this early.
         const SP_STATE_FIELD_WIDTH: usize = 32;
-        const_assert!(SP_STATE_FIELD_WIDTH >= VpdIdentity::SERIAL_LEN);
-        const_assert!(SP_STATE_FIELD_WIDTH >= VpdIdentity::PART_NUMBER_LEN);
+        const_assert!(SP_STATE_FIELD_WIDTH >= OxideIdentity::SERIAL_LEN);
+        const_assert!(SP_STATE_FIELD_WIDTH >= OxideIdentity::PART_NUMBER_LEN);
 
         ringbuf_entry!(Log::MgsMessage(MgsMessage::SpState));
 

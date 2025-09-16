@@ -137,7 +137,7 @@ impl idl::InOrderEreportulatorImpl for ServerImpl {
         &mut self,
         _msg: &RecvMessage,
     ) -> Result<(), RequestError<task_packrat_api::CacheSetError>> {
-        let result = self.packrat.set_identity(task_packrat_api::VpdIdentity {
+        let result = self.packrat.set_identity(task_packrat_api::OxideIdentity {
             part_number: *b"LOLNO000000",
             serial: *b"69426661337",
             revision: 42,

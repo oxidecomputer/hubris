@@ -8,7 +8,7 @@
 use hubpack::SerializedSize;
 use serde::Serialize;
 use task_net_api::*;
-use task_packrat_api::{Packrat, VpdIdentity};
+use task_packrat_api::{Packrat, OxideIdentity};
 use userlib::*;
 
 #[cfg(feature = "vlan")]
@@ -31,9 +31,9 @@ struct BroadcastData {
     // are populated. If false, we have no VPD or failed to read it, and the
     // following three fields will be all zero.
     identity_valid: bool,
-    part_number: [u8; VpdIdentity::PART_NUMBER_LEN],
+    part_number: [u8; OxideIdentity::PART_NUMBER_LEN],
     revision: u32,
-    serial: [u8; VpdIdentity::SERIAL_LEN],
+    serial: [u8; OxideIdentity::SERIAL_LEN],
 }
 
 impl BroadcastData {

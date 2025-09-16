@@ -12,7 +12,7 @@ use userlib::*;
 
 pub use host_sp_messages::HostStartupOptions;
 pub use oxide_barcode::ParseError as BarcodeParseError;
-pub use oxide_barcode::VpdIdentity;
+pub use oxide_barcode::OxideIdentity;
 
 /// Maximum length (in bytes) allowed for installinator image ID blobs.
 pub const MAX_INSTALLINATOR_IMAGE_ID_LEN: usize = 512;
