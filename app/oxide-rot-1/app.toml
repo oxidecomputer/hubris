@@ -120,7 +120,7 @@ connected_cfg = [
     { pin = { port = 0, pin = 9 }, alt = 0, mode = "pulldown" },
     { pin = { port = 0, pin = 7 }, alt = 3 },
 ]
-# Connected = MOSI off, MISO off, SCK off
+# Disconnected = MOSI off, MISO off, SCK off
 disconnected_cfg = [
     { pin = { port = 0, pin = 8 }, alt = 0, mode = "pulldown" },
     { pin = { port = 0, pin = 9 }, alt = 0, mode = "pulldown" },
