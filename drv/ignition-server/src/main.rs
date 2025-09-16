@@ -421,6 +421,10 @@ impl idol_runtime::NotificationHandler for ServerImpl {
     }
 
     fn handle_notification(&mut self, _bits: u32) {
+        if sys_get_timer().deadline.is_some() {
+            return;
+        }
+
         let start = sys_get_timer().now;
 
         // Only poll the presence summary if the port count seems reasonable. A

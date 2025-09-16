@@ -112,6 +112,10 @@ impl NotificationHandler for ServerImpl {
     }
 
     fn handle_notification(&mut self, _bits: u32) {
+        if userlib::sys_get_timer().deadline.is_some() {
+            return;
+        }
+
         let user_leds =
             drv_user_leds_api::UserLeds::from(USER_LEDS.get_task_id());
 

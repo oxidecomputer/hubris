@@ -893,7 +893,9 @@ impl NotificationHandler for ServerImpl {
             self.handle_sequencer_interrupt();
         }
 
-        if (bits & notifications::TIMER_MASK) == 0 {
+        if (bits & notifications::TIMER_MASK) == 0
+            || sys_get_timer().deadline.is_some()
+        {
             return;
         }
         let state = self.log_state_registers();

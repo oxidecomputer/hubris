@@ -726,8 +726,13 @@ impl idol_runtime::NotificationHandler for ServerImpl {
     }
 
     fn handle_notification(&mut self, _bits: u32) {
-        self.handle_timer_fired();
-        userlib::set_timer_relative(TIMER_INTERVAL, notifications::TIMER_MASK);
+        if sys_get_timer().deadline.is_none() {
+            self.handle_timer_fired();
+            userlib::set_timer_relative(
+                TIMER_INTERVAL,
+                notifications::TIMER_MASK,
+            );
+        }
     }
 }
 

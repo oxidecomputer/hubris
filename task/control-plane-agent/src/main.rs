@@ -266,7 +266,9 @@ impl NotificationHandler for ServerImpl {
             self.mgs_handler.drive_usart();
         }
 
-        if (bits & notifications::TIMER_MASK) != 0 {
+        if (bits & notifications::TIMER_MASK) != 0
+            && userlib::sys_get_timer().deadline.is_none()
+        {
             self.mgs_handler.handle_timer_fired();
         }
 

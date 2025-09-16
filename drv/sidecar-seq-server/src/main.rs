@@ -775,6 +775,10 @@ impl NotificationHandler for ServerImpl {
     }
 
     fn handle_notification(&mut self, _bits: u32) {
+        if sys_get_timer().deadline.is_some() {
+            return;
+        }
+
         let start = sys_get_timer().now;
 
         // Determine if the front IO board has been initialized and no further
