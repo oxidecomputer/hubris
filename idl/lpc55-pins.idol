@@ -43,14 +43,46 @@ Interface(
                 err: ServerDeath,
             )
         ),
-        "pint_op": (
+        "pint_clear": (
             args: {
-               "pint_slot": "PintSlot",
-                "op": "PintOp",
+                "pint_slot": "PintSlot",
+                "flag": "PintFlag",
+            },
+            reply: Result(
+                ok: "()",
+                err: ServerDeath,
+            ),
+            encoding: Hubpack,
+        ),
+        "pint_enable": (
+            args: {
+                "pint_slot": "PintSlot",
                 "cond": "PintCondition",
             },
             reply: Result(
-                ok: "Option<bool>",
+                ok: "()",
+                err: ServerDeath,
+            ),
+            encoding: Hubpack,
+        ),
+        "pint_disable": (
+            args: {
+                "pint_slot": "PintSlot",
+                "cond": "PintCondition",
+            },
+            reply: Result(
+                ok: "()",
+                err: ServerDeath,
+            ),
+            encoding: Hubpack,
+        ),
+        "pint_detect": (
+            args: {
+                "pint_slot": "PintSlot",
+                "flag": "PintFlag",
+            },
+            reply: Result(
+                ok: "u32", // XXX this should be a bool
                 err: ServerDeath,
             ),
             encoding: Hubpack,
