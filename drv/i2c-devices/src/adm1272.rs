@@ -302,3 +302,10 @@ impl VoltageSensor<Error> for Adm1272 {
         Ok(Volts(vout.get(&self.load_coefficients()?.voltage)?.0))
     }
 }
+
+impl crate::PmbusVpd for Adm1282 {
+    const HAS_MFR_DATE: bool = true;
+    const HAS_MFR_LOCATION: bool = false;
+    const HAS_MFR_SERIAL: bool = false;
+    const HAS_IC_DEVICE_IDENTITY: bool = false;
+}

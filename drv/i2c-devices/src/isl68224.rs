@@ -153,3 +153,10 @@ impl CurrentSensor<Error> for Isl68224 {
         Ok(Amperes(iout.get()?.0))
     }
 }
+
+impl crate::PmbusVpd for Isl68224 {
+    const HAS_MFR_DATE: bool = true;
+    const HAS_MFR_LOCATION: bool = false;
+    const HAS_MFR_SERIAL: bool = false;
+    const HAS_IC_DEVICE_IDENTITY: bool = true;
+}

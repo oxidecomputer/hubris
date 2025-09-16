@@ -801,3 +801,10 @@ impl InputCurrentSensor<Error> for Mwocp68 {
         Ok(Amperes(iin.get()?.0))
     }
 }
+
+impl crate::PmbusVpd for Mwocp68 {
+    const HAS_MFR_DATE: bool = true;
+    const HAS_MFR_LOCATION: bool = true;
+    const HAS_MFR_SERIAL: bool = true;
+    const HAS_IC_DEVICE_IDENTITY: bool = true;
+}

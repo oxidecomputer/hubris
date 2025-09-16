@@ -106,3 +106,10 @@ impl VoltageSensor<Error> for Tps546B24A {
         Ok(Volts(vout.get(self.read_mode()?)?.0))
     }
 }
+
+impl crate::PmbusVpd for Tps546B24A {
+    const HAS_MFR_DATE: bool = false;
+    const HAS_MFR_LOCATION: bool = false;
+    const HAS_MFR_SERIAL: bool = true;
+    const HAS_IC_DEVICE_IDENTITY: bool = true;
+}

@@ -39,6 +39,7 @@
 
 #![no_std]
 
+pub use self::pmbus_vpd::{PmbusIdentity, PmbusVpd};
 use drv_i2c_api::{I2cDevice, ResponseCode};
 use pmbus::commands::CommandCode;
 
@@ -233,117 +234,6 @@ pub trait Validate<T: core::convert::Into<drv_i2c_api::ResponseCode>> {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, counters::Count)]
-pub enum PmbusVpdError {
-    I2c {
-        cmd: PmbusVpdCmd,
-        #[count(children)]
-        err: drv_i2c_api::ResponseCode,
-    },
-    InvalidStr {
-        cmd: PmbusVpdCmd,
-    },
-    BufferTooSmall {
-        cmd: PmbusVpdCmd,
-    },
-}
-
-#[derive(
-    Copy,
-    Clone,
-    Eq,
-    PartialEq,
-    zerocopy_derive::IntoBytes,
-    zerocopy_derive::Immutable,
-    counters::Count,
-)]
-#[repr(u8)]
-pub enum PmbusVpdCmd {
-    MfrId = pmbus::CommandCode::MFR_ID as u8,
-    MfrModel = pmbus::CommandCode::MFR_MODEL as u8,
-    MfrRevision = pmbus::CommandCode::MFR_REVISION as u8,
-    MfrSerial = pmbus::CommandCode::MFR_SERIAL as u8,
-}
-
-pub struct PmbusVpd<'buf> {
-    pub mfr: &'buf str,
-    pub mpn: &'buf str,
-    pub rev: &'buf str,
-    pub serial: &'buf str,
-}
-
-impl<'buf> PmbusVpd<'buf> {
-    /// SMBus block reads may not be longer than 32 bytes.
-    const BLOCK_LEN: usize = 32;
-    /// Maximum length currently required to read a complete set of VPD
-    /// registers from a PMBus device.
-    ///
-    /// Currently, this is 4 32-byte blocks (`MFR_ID`, `MFR_MODEL`,
-    /// `MFR_REVISION`, and `MFR_SERIAL`). If more values are added in the
-    /// future, this will need to be embiggened.
-    pub const MAX_LEN: usize = Self::BLOCK_LEN * 4;
-
-    pub fn read_from(
-        dev: &I2cDevice,
-        buf: &'buf mut [u8],
-    ) -> Result<Self, PmbusVpdError> {
-        use core::ops::Range;
-
-        fn read(
-            dev: &drv_i2c_api::I2cDevice,
-            cmd: PmbusVpdCmd,
-            buf: &mut [u8],
-            curr_off: &mut usize,
-        ) -> Result<Range<usize>, PmbusVpdError> {
-            let off = *curr_off;
-            // PMBus block reads may not be longer than 32 bytes. Clamp this
-            // down as `drv_i2c_api` gets mad if it sees a lease of >255B.
-            let Some(block) = buf.get_mut(off..off + PmbusVpd::BLOCK_LEN)
-            else {
-                return Err(PmbusVpdError::BufferTooSmall { cmd });
-            };
-            let len = dev
-                .read_block(cmd, block)
-                .map_err(|err| PmbusVpdError::I2c { cmd, err })?;
-            *curr_off += len;
-            Ok(off..*curr_off)
-        }
-
-        let mut off = 0;
-        let mfr_range = read(dev, PmbusVpdCmd::MfrId, buf, &mut off)?;
-        let mpn_range = read(dev, PmbusVpdCmd::MfrModel, buf, &mut off)?;
-        let rev_range = read(dev, PmbusVpdCmd::MfrRevision, buf, &mut off)?;
-        let serial_range = read(dev, PmbusVpdCmd::MfrSerial, buf, &mut off)?;
-        let mfr = core::str::from_utf8(&buf[mfr_range]).map_err(|_| {
-            PmbusVpdError::InvalidStr {
-                cmd: PmbusVpdCmd::MfrId,
-            }
-        })?;
-        let mpn = core::str::from_utf8(&buf[mpn_range]).map_err(|_| {
-            PmbusVpdError::InvalidStr {
-                cmd: PmbusVpdCmd::MfrModel,
-            }
-        })?;
-        let rev = core::str::from_utf8(&buf[rev_range]).map_err(|_| {
-            PmbusVpdError::InvalidStr {
-                cmd: PmbusVpdCmd::MfrRevision,
-            }
-        })?;
-        let serial =
-            core::str::from_utf8(&buf[serial_range]).map_err(|_| {
-                PmbusVpdError::InvalidStr {
-                    cmd: PmbusVpdCmd::MfrSerial,
-                }
-            })?;
-        Ok(Self {
-            mfr,
-            mpn,
-            rev,
-            serial,
-        })
-    }
-}
-
 pub mod adm1272;
 pub mod adt7420;
 pub mod at24csw080;
@@ -373,3 +263,5 @@ pub mod tmp117;
 pub mod tmp451;
 pub mod tps546b24a;
 pub mod tse2004av;
+
+pub mod pmbus_vpd;

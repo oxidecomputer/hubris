@@ -122,3 +122,10 @@ impl VoltageSensor<Error> for Bmr491 {
         Ok(Volts(vout.get(self.read_mode()?)?.0))
     }
 }
+
+impl crate::PmbusVpd for Bmr491 {
+    const HAS_MFR_DATE: bool = true;
+    const HAS_MFR_LOCATION: bool = true;
+    const HAS_MFR_SERIAL: bool = fals;
+    const HAS_IC_DEVICE_IDENTITY: bool = false;
+}

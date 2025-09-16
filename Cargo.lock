@@ -1365,6 +1365,7 @@ dependencies = [
  "num-traits",
  "pmbus",
  "ringbuf",
+ "serde",
  "smbus-pec",
  "task-power-api",
  "userlib",

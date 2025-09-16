@@ -220,3 +220,10 @@ impl CurrentSensor<Error> for Raa229618 {
         Ok(Amperes(iout.get()?.0))
     }
 }
+
+impl crate::PmbusVpd for Raa229618 {
+    const HAS_MFR_DATE: bool = true;
+    const HAS_MFR_LOCATION: bool = true;
+    const HAS_MFR_SERIAL: bool = false;
+    const HAS_IC_DEVICE_IDENTITY: bool = true;
+}

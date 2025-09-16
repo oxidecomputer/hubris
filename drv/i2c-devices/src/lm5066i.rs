@@ -197,3 +197,10 @@ impl VoltageSensor<Error> for Lm5066I {
         Ok(Volts(vout.get()?.0))
     }
 }
+
+impl crate::PmbusVpd for Lm5066I {
+    const HAS_MFR_DATE: bool = false;
+    const HAS_MFR_LOCATION: bool = false;
+    const HAS_MFR_SERIAL: bool = false;
+    const HAS_IC_DEVICE_IDENTITY: bool = false;
+}

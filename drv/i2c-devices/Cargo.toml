@@ -9,6 +9,7 @@ num-derive = { workspace = true }
 num-traits = { workspace = true }
 pmbus = { workspace = true }
 smbus-pec = { workspace = true }
+serde = { workspace = true, optional = true }
 zerocopy = { workspace = true }
 zerocopy-derive = { workspace = true }
 
