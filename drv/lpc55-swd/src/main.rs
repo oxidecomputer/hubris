@@ -601,36 +601,6 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
         sys_set_timer(None, notifications::TIMER_MASK);
         Ok(())
     }
-
-    /// Remote debugging support.
-    /// Yet another way to reset the SP. This one is known to finish before
-    /// any other code in this task runs.
-    #[cfg(feature = "enable_ext_sp_reset")]
-    fn db_reset_sp(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-        delay: u32,
-    ) -> Result<(), RequestError<core::convert::Infallible>> {
-        self.sp_reset_enter();
-        hl::sleep_for(delay.into());
-        let _ = self.swd_setup();
-        let _ = self.dp_write_bitflags::<Demcr>(Demcr::from_bits_retain(0));
-        let _ = self.dp_write_bitflags::<Dhcsr>(Dhcsr::end_debug());
-        self.swd_finish();
-        self.sp_reset_leave();
-        Ok(())
-    }
-
-    #[cfg(not(feature = "enable_ext_sp_reset"))]
-    fn db_reset_sp(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-        _delay: u32,
-    ) -> Result<(), RequestError<core::convert::Infallible>> {
-        // This is a debug feature. Don't reset the client for asking.
-        // Silently ignore.
-        Ok(())
-    }
 }
 
 impl NotificationHandler for ServerImpl {
