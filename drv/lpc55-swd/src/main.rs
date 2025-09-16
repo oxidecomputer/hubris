@@ -726,11 +726,9 @@ impl NotificationHandler for ServerImpl {
             //  de-asserted so that the SP_RESET that also fired could be
             //  handled successfully.
             ringbuf_entry!(Trace::SpResetFired);
-            let can_handle_sp = match self.state {
-                SwdState::Disconnected => false,
-                SwdState::Connected { .. } => true,
-            };
-            if can_handle_sp && !self.do_handle_sp_reset() {
+            if matches!(self.state, SwdState::Connected { .. })
+                && !self.do_handle_sp_reset()
+            {
                 // If handling the SP reset failed, clear the attestation log
                 ringbuf_entry!(Trace::InvalidateSpMeasurement);
                 let _ = self.invalidate_sp_measurement();
