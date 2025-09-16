@@ -401,11 +401,26 @@ enum SwdSetupErr {
     Idr(Ack),
 }
 
+#[derive(Copy, Clone, Eq, PartialEq)]
+enum SwdState {
+    /// The SWD GPIOs are configured as inputs
+    ///
+    /// This is used when a physical debugger is attached to the SP (detected
+    /// through the JTAG_DETECT line)
+    Disconnected,
+
+    /// The SWD GPIOs are configured, but SWD is not setup
+    NotInitialized,
+
+    /// The SWD GPIOs are configured and SWD setup has succeeded
+    Initialized,
+}
+
 struct ServerImpl {
     spi: spi_core::Spi,
     gpio: TaskId,
     attest: Attest,
-    init: bool,
+    state: SwdState,
     transaction: Option<MemTransaction>,
 }
 
@@ -634,7 +649,11 @@ impl NotificationHandler for ServerImpl {
                     ringbuf_entry!(Trace::InvalidateSpMeasurement);
                     // Reset the attestation log
                     invalidate = true;
-                    self.next_use_must_setup_swd();
+
+                    // Cancel ongoing transactions
+                    self.transaction = None;
+                    self.state = SwdState::Disconnected;
+                    switch_io_disconnected();
                 }
             } else {
                 // The pint_op parameters are for a configured PINT slot for one of
@@ -1537,14 +1556,20 @@ impl ServerImpl {
         ringbuf_entry!(Trace::DoSetup);
 
         if self.swd_dongle_detected() {
+            // Don't change state here; we'll catch it in the pin-change IRQ
             ringbuf_entry!(Trace::DongleDetected);
             return Err(SpCtrlError::DongleDetected);
+        }
+
+        if self.state == SwdState::Disconnected {
+            switch_io_connected();
+            self.state = SwdState::NotInitialized;
         }
 
         match self.swd_setup() {
             Ok(_) => {
                 ringbuf_entry!(Trace::SwdSetupOk);
-                self.init = true;
+                self.state = SwdState::Initialized;
                 Ok(())
             }
             Err(e) => {
@@ -1580,13 +1605,19 @@ impl ServerImpl {
     }
 
     fn next_use_must_setup_swd(&mut self) {
-        self.init = false;
+        // Reset SWD state if it is connected
+        self.state = match self.state {
+            SwdState::Disconnected => SwdState::Disconnected,
+            SwdState::NotInitialized | SwdState::Initialized => {
+                SwdState::NotInitialized
+            }
+        };
         // Any in-progress bulk data transfer is cancelled.
         self.transaction = None;
     }
 
     fn is_swd_setup(&self) -> bool {
-        self.init
+        matches!(self.state, SwdState::Initialized)
     }
 
     fn do_halt(&mut self) -> Result<(), SpCtrlError> {
@@ -1870,7 +1901,7 @@ fn main() -> ! {
         spi,
         gpio,
         attest,
-        init: false,
+        state: SwdState::NotInitialized, // XXX check JTAG pin?
         transaction: None,
     };
 
