@@ -650,7 +650,7 @@ impl NotificationHandler for ServerImpl {
                 if detected {
                     ringbuf_entry!(Trace::InvalidateSpMeasurement);
                     // Reset the attestation log
-                    let _ = self.invalidate_sp_measurement();
+                    self.invalidate_sp_measurement();
 
                     // Cancel ongoing transactions
                     self.transaction = None;
@@ -731,7 +731,7 @@ impl NotificationHandler for ServerImpl {
             {
                 // If handling the SP reset failed, clear the attestation log
                 ringbuf_entry!(Trace::InvalidateSpMeasurement);
-                let _ = self.invalidate_sp_measurement();
+                self.invalidate_sp_measurement();
             }
             self.next_use_must_setup_swd();
 
@@ -1672,16 +1672,11 @@ impl ServerImpl {
         }
     }
 
-    fn invalidate_sp_measurement(&mut self) -> Result<(), AttestError> {
+    /// Invalidates the SP measurement, logging the result
+    fn invalidate_sp_measurement(&mut self) {
         match self.attest.reset() {
-            Ok(()) => {
-                ringbuf_entry!(Trace::InvalidatedSpMeasurement);
-                Ok(())
-            }
-            Err(e) => {
-                ringbuf_entry!(Trace::AttestError(e));
-                Err(e)
-            }
+            Ok(()) => ringbuf_entry!(Trace::InvalidatedSpMeasurement),
+            Err(e) => ringbuf_entry!(Trace::AttestError(e)),
         }
     }
 
