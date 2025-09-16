@@ -267,13 +267,17 @@ impl VCore {
             mfr: status_mfr_specific.ok(),
         };
         let ereport = Ereport {
-            k: "pmbus.alert",
+            k: if !power_good {
+                "hw.pwr_good.bad"
+            } else {
+                "hw.pmbus.alert"
+            },
             v: 0,
-            dev_id: self.device.i2c_device().component_id(),
+            refdes: self.device.i2c_device().component_id(),
             rail: "VDD_VCORE",
             time: now,
             pwr_good,
-            status,
+            pmbus_status: status,
         };
         match self
             .packrat
@@ -339,9 +343,9 @@ struct PmbusStatus {
 struct Ereport {
     k: &'static str,
     v: usize,
-    dev_id: &'static str,
+    refdes: &'static str,
     rail: &'static str,
     time: u64,
     pwr_good: Option<bool>,
-    status: PmbusStatus,
+    pmbus_status: PmbusStatus,
 }
