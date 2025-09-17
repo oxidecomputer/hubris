@@ -281,7 +281,7 @@ counted_ringbuf!(__TRACE, Trace, 32, Trace::None, no_dedup);
 /// `counted_ringbuf!`, instead of representing PSU numbers as raw u8s, which
 /// cannot derive `counters::Count` (and would have to generate a counter table
 /// with 256 entries rather than just 6).
-#[derive(Copy, Clone, Eq, PartialEq, counters::Count)]
+#[derive(Copy, Clone, Eq, PartialEq, counters::Count, serde::Serialize)]
 #[repr(u8)]
 enum Slot {
     Psu0 = 0,
@@ -786,6 +786,7 @@ impl Psu {
                     version: 0,
                     refdes: self.dev.i2c_device().component_id(),
                     slot: self.slot,
+                    rail: self.slot,
                     fruid: self.fruid,
                     pmbus_status: None,
                 };
@@ -843,6 +844,7 @@ impl Psu {
                         version: 0,
                         refdes: self.dev.i2c_device().component_id(),
                         slot: self.slot,
+                        rail: self.slot,
                         fruid: self.fruid,
                         pmbus_status: None,
                     };
@@ -888,6 +890,7 @@ impl Psu {
                         version: 0,
                         refdes: self.dev.i2c_device().component_id(),
                         slot: self.slot,
+                        rail: self.slot,
                         fruid: self.fruid,
                         pmbus_status: Some(self.read_pmbus_status(now)),
                     })
@@ -926,6 +929,7 @@ impl Psu {
                         class: ereport::Class::PowerUngood,
                         version: 0,
                         refdes: self.dev.i2c_device().component_id(),
+                        rail: self.slot,
                         slot: self.slot,
                         fruid: self.fruid,
                         pmbus_status: Some(self.read_pmbus_status(now)),
@@ -1175,9 +1179,9 @@ mod ereport {
         Inserted,
         #[serde(rename = "hw.remove.psu")]
         Removed,
-        #[serde(rename = "hw.pwr_good.bad")]
+        #[serde(rename = "hw.pwr.pwr_good.bad")]
         PowerUngood,
-        #[serde(rename = "hw.pwr_good.good")]
+        #[serde(rename = "hw.pwr.pwr_good.good")]
         PowerGood,
     }
 
@@ -1188,6 +1192,8 @@ mod ereport {
         #[serde(rename = "v")]
         pub(super) version: u32,
         pub(super) refdes: &'static str,
+        #[serde(serialize_with = "serialize_psu_rail")]
+        pub(super) rail: Slot,
         #[serde(serialize_with = "serialize_psu_slot")]
         pub(super) slot: Slot,
         pub(super) fruid: PsuFruid,
@@ -1228,5 +1234,28 @@ mod ereport {
         S: serde::Serializer,
     {
         (*slot as u8).serialize(serializer)
+    }
+
+    fn serialize_psu_rail<S>(
+        slot: &Slot,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        // This is a little silly, but it stops us from having to 6 separate
+        // instances of the string "V54_PSU" in the binary...
+        let mut v54_psu = *b"V54_PSUx";
+        v54_psu[7] = match slot {
+            Slot::Psu0 => b'0',
+            Slot::Psu1 => b'1',
+            Slot::Psu2 => b'2',
+            Slot::Psu3 => b'3',
+            Slot::Psu4 => b'4',
+            Slot::Psu5 => b'5',
+        };
+        core::str::from_utf8(&v54_psu[..])
+            .unwrap_lite()
+            .serialize(serializer)
     }
 }
