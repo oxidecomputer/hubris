@@ -104,7 +104,7 @@ pub fn main() -> ! {
 
         // Wait for the user button to be pressed.
         let notif = sys_recv_notification(notifications::BUTTON_MASK);
-        ringbuf_entry!(Trace::Notification(notif));
+        ringbuf_entry!(Trace::Notification(notif.get_raw_bits()));
     }
 }
 
