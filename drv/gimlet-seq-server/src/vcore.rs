@@ -267,13 +267,13 @@ impl VCore {
             mfr: status_mfr_specific.ok(),
         };
         let ereport = Ereport {
-            k: "pmbus.alert",
+            k: "hw.pwr.pmbus.alert",
             v: 0,
-            dev_id: self.device.i2c_device().component_id(),
+            refdes: self.device.i2c_device().component_id(),
             rail: "VDD_VCORE",
             time: now,
             pwr_good,
-            status,
+            pmbus_status: status,
         };
         match self
             .packrat
@@ -290,6 +290,8 @@ impl VCore {
                 ringbuf_entry!(Trace::EreportTooBig)
             }
         }
+        // TODO(eliza): if POWER_GOOD has been deasserted, we should produce a
+        // subsequent ereport for that.
 
         // If the `INPUT_FAULT` bit in `STATUS_WORD` is set, or any bit is hot
         // in `STATUS_INPUT`, sample Vin in order to record the voltage dip in
@@ -339,9 +341,9 @@ struct PmbusStatus {
 struct Ereport {
     k: &'static str,
     v: usize,
-    dev_id: &'static str,
+    refdes: &'static str,
     rail: &'static str,
     time: u64,
     pwr_good: Option<bool>,
-    status: PmbusStatus,
+    pmbus_status: PmbusStatus,
 }
