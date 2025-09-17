@@ -30,8 +30,22 @@ pub struct Mwocp68 {
 #[derive(Copy, Clone, PartialEq)]
 pub struct FirmwareRev(pub [u8; 4]);
 
-#[derive(Copy, Clone, PartialEq, Default)]
+#[derive(Copy, Clone, PartialEq, Eq, Default)]
 pub struct SerialNumber(pub [u8; 12]);
+
+/// Manufacturer model number.
+///
+/// Per Murata Application Note ACAN-114.A01.D03 "PMBus Communication Protocol",
+/// this is always a 17-byte ASCII string. It should be "MWOCP68-3600-D-RM".
+#[derive(Copy, Clone, PartialEq, Eq, Default)]
+pub struct ModelNumber(pub [u8; 17]);
+
+/// Manufacturer ID.
+///
+/// Per Murata Application Note ACAN-114.A01.D03 "PMBus Communication Protocol",
+/// this is always a 9-byte ASCII string. It should be "Murata-PS".
+#[derive(Copy, Clone, PartialEq, Eq, Default)]
+pub struct MfrId(pub [u8; 9]);
 
 //
 // The boot loader command -- sent via BOOT_LOADER_CMD -- is unfortunately odd
@@ -89,6 +103,12 @@ pub enum Error {
         code: ResponseCode,
     },
     ChecksumNotSuccessful,
+    BadModelNumberRead {
+        code: ResponseCode,
+    },
+    BadMfrIdRead {
+        code: ResponseCode,
+    },
 }
 
 impl From<BadValidation> for Error {
@@ -533,6 +553,65 @@ impl Mwocp68 {
             .map_err(|code| Error::BadFirmwareRevRead { code })?;
 
         Ok(serial)
+    }
+
+    ///
+    /// Returns the manufacturer model number of the PSU.
+    ///
+    pub fn model_number(&self) -> Result<ModelNumber, Error> {
+        let mut model = ModelNumber::default();
+        let _ = self
+            .device
+            .read_block(CommandCode::MFR_MODEL as u8, &mut model.0)
+            .map_err(|code| Error::BadModelNumberRead { code })?;
+        Ok(model)
+    }
+
+    ///
+    /// Returns the manufacturer ID of the PSU.
+    ///
+    pub fn mfr_id(&self) -> Result<MfrId, Error> {
+        let mut id = MfrId::default();
+        let _ = self
+            .device
+            .read_block(CommandCode::MFR_ID as u8, &mut id.0)
+            .map_err(|code| Error::BadMfrIdRead { code })?;
+        Ok(id)
+    }
+
+    pub fn status_word(&self) -> Result<STATUS_WORD::CommandData, Error> {
+        // Per ACAN-114, this is always on page 0.
+        pmbus_rail_read!(self.device, 0, STATUS_WORD)
+    }
+
+    pub fn status_iout(&self) -> Result<STATUS_IOUT::CommandData, Error> {
+        // Per ACAN-114, this is always on page 0.
+        pmbus_rail_read!(self.device, 0, STATUS_IOUT)
+    }
+
+    pub fn status_vout(&self) -> Result<STATUS_VOUT::CommandData, Error> {
+        // Per ACAN-114, this is always on page 0.
+        pmbus_rail_read!(self.device, 0, STATUS_VOUT)
+    }
+
+    pub fn status_input(&self) -> Result<STATUS_INPUT::CommandData, Error> {
+        pmbus_read!(self.device, STATUS_INPUT)
+    }
+
+    pub fn status_cml(&self) -> Result<STATUS_CML::CommandData, Error> {
+        pmbus_read!(self.device, STATUS_CML)
+    }
+
+    pub fn status_temperature(
+        &self,
+    ) -> Result<STATUS_TEMPERATURE::CommandData, Error> {
+        pmbus_read!(self.device, STATUS_TEMPERATURE)
+    }
+
+    pub fn status_mfr_specific(
+        &self,
+    ) -> Result<STATUS_MFR_SPECIFIC::CommandData, Error> {
+        pmbus_read!(self.device, STATUS_MFR_SPECIFIC)
     }
 
     fn get_boot_loader_status(

@@ -1986,13 +1986,20 @@ dependencies = [
 name = "drv-psc-seq-server"
 version = "0.1.0"
 dependencies = [
+ "build-i2c",
  "build-util",
+ "counters",
+ "drv-i2c-api",
+ "drv-i2c-devices",
  "drv-packrat-vpd-loader",
  "drv-psc-seq-api",
  "drv-stm32xx-sys-api",
  "idol",
  "ringbuf",
+ "serde",
+ "static-cell",
  "task-jefe-api",
+ "task-packrat-api",
  "userlib",
 ]
 
