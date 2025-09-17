@@ -399,11 +399,12 @@ impl idol_runtime::NotificationHandler for ServerImpl {
     }
 
     fn handle_notification(&mut self, _bits: u32) {
-        if sys_get_timer().deadline.is_some() {
+        let timer = sys_get_timer();
+        if timer.deadline.is_some() {
             return;
         }
 
-        let start = sys_get_timer().now;
+        let start = timer.now;
 
         // Only poll the presence summary if the port count seems reasonable. A
         // count of 0xff may occur if the FPGA is running an incorrect
