@@ -405,7 +405,7 @@ dependencies = [
  "ordered-toml",
  "serde",
  "serde_json",
- "toml",
+ "toml 0.9.6",
  "toml-task",
 ]
 
@@ -3319,7 +3319,7 @@ dependencies = [
  "thiserror",
  "tlvc",
  "tlvc-text",
- "toml",
+ "toml 0.7.2",
  "x509-cert",
  "zerocopy 0.6.6",
  "zip",
@@ -3382,7 +3382,7 @@ dependencies = [
  "serde",
  "serde_with 3.6.1",
  "syn 2.0.98",
- "toml",
+ "toml 0.7.2",
 ]
 
 [[package]]
@@ -3691,7 +3691,7 @@ dependencies = [
  "sha3",
  "stage0-handoff",
  "static_assertions",
- "toml",
+ "toml 0.9.6",
  "unwrap-lite",
  "zerocopy 0.8.26",
  "zerocopy-derive 0.8.26",
@@ -4852,6 +4852,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_spanned"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2789234a13a53fc4be1b51ea1bab45a3c338bdb884862a257d10e5a74ae009e6"
+dependencies = [
+ "serde_core",
+]
+
+[[package]]
 name = "serde_with"
 version = "1.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5283,7 +5292,7 @@ dependencies = [
  "quote",
  "serde",
  "syn 2.0.98",
- "toml",
+ "toml 0.9.6",
 ]
 
 [[package]]
@@ -6463,9 +6472,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7afcae9e3f0fe2c370fd4657108972cbb2fa9db1b9f84849cefd80741b01cb6"
 dependencies = [
  "serde",
- "serde_spanned",
+ "serde_spanned 0.6.1",
  "toml_datetime 0.6.1",
  "toml_edit 0.19.4",
+]
+
+[[package]]
+name = "toml"
+version = "0.9.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ae2a4cf385da23d1d53bc15cdfa5c2109e93d8d362393c801e87da2f72f0e201"
+dependencies = [
+ "indexmap 2.11.3",
+ "serde_core",
+ "serde_spanned 1.0.1",
+ "toml_datetime 0.7.1",
+ "toml_parser",
+ "toml_writer",
+ "winnow 0.7.13",
 ]
 
 [[package]]
@@ -6513,7 +6537,7 @@ checksum = "9a1eb0622d28f4b9c90adc4ea4b2b46b47663fde9ac5fafcb14a1369d5508825"
 dependencies = [
  "indexmap 1.9.1",
  "serde",
- "serde_spanned",
+ "serde_spanned 0.6.1",
  "toml_datetime 0.6.1",
  "winnow 0.3.0",
 ]
@@ -7092,7 +7116,7 @@ dependencies = [
  "strsim",
  "tlvc",
  "tlvc-text",
- "toml",
+ "toml 0.9.6",
  "toml-patch",
  "toml-task",
  "toml_edit 0.23.5",

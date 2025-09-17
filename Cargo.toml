@@ -133,7 +133,7 @@ stm32h7 = { version = "0.14", default-features = false }
 stm32g0 = { version = "0.15.1", default-features = false }
 strsim = { version = "0.10.0", default-features = false }
 syn = { version = "2", default-features = false, features = ["derive", "parsing", "proc-macro", "extra-traits", "full", "printing"] }
-toml = { version = "0.7", default-features = false, features = ["parse", "display"] }
+toml = { version = "0.9.6", default-features = false, features = ["parse", "display", "serde", "preserve_order"] }
 toml_edit = { version = "0.23.5", default-features = false, features = ["parse", "display"] }
 vcell = { version = "0.1.2", default-features = false }
 walkdir = { version = "2.0.0", default-features = false }
