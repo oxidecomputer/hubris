@@ -719,7 +719,10 @@ fn main() -> ! {
 
         // Wait for a pin change or timer.
         let n = sys_recv_notification(sleep_notifications);
-        if n & notifications::TIMER_MASK != 0 {
+        // If the timer bit is set _and the timer has actually fired_...
+        if n & notifications::TIMER_MASK != 0
+            && sys_get_timer().deadline.is_none()
+        {
             // Reset our timer forward.
             sys_set_timer(
                 Some(now.saturating_add(POLL_MS)),

@@ -545,7 +545,9 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
             self.vcore.handle_notification(self.ereport_buf);
         }
 
-        if (bits & notifications::TIMER_MASK) == 0 {
+        if (bits & notifications::TIMER_MASK) == 0
+            || sys_get_timer().deadline.is_some()
+        {
             return;
         }
 

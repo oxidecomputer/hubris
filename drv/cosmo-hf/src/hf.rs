@@ -786,7 +786,9 @@ impl NotificationHandler for ServerImpl {
     }
 
     fn handle_notification(&mut self, bits: u32) {
-        if (bits & notifications::TIMER_MASK) != 0 {
+        if (bits & notifications::TIMER_MASK) != 0
+            && userlib::sys_get_timer().deadline.is_none()
+        {
             self.step_hash();
         }
     }

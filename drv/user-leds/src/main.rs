@@ -170,7 +170,9 @@ impl idol_runtime::NotificationHandler for ServerImpl {
     }
 
     fn handle_notification(&mut self, bits: u32) {
-        if bits & notifications::TIMER_MASK != 0 {
+        if bits & notifications::TIMER_MASK != 0
+            && userlib::sys_get_timer().deadline.is_none()
+        {
             let mut any_blinking = false;
             for (led, blinking) in &self.blinking {
                 if *blinking {

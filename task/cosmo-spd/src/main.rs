@@ -367,7 +367,9 @@ impl idol_runtime::NotificationHandler for ServerImpl {
         }
 
         if self.active {
-            if (bits & notifications::TIMER_MASK) != 0 {
+            if (bits & notifications::TIMER_MASK) != 0
+                && sys_get_timer().deadline.is_none()
+            {
                 self.poll_sensors();
             }
             set_timer_relative(TIMER_INTERVAL, notifications::TIMER_MASK);

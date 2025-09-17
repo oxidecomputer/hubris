@@ -357,7 +357,9 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
         // Handle any external (debugger) requests.
         external::check(self.task_states, now);
 
-        if bits & notifications::TIMER_MASK != 0 {
+        if bits & notifications::TIMER_MASK != 0
+            && userlib::sys_get_timer().deadline.is_none()
+        {
             // If our timer went off, we need to reestablish it
             if now >= self.deadline {
                 self.deadline = now.wrapping_add(u64::from(TIMER_INTERVAL));
