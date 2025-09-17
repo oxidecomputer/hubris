@@ -366,7 +366,7 @@ impl VCore {
         .map(|s| s.0);
         ringbuf_entry!(Trace::StatusMfrSpecific(rail, status_mfr));
 
-        let status = PmbusStatus {
+        let pmbus_status = PmbusStatus {
             word: status_word.map(|s| s.0).ok(),
             input: status_input.ok(),
             vout: status_vout.ok(),
@@ -377,12 +377,12 @@ impl VCore {
         };
 
         let ereport = Ereport {
-            k: "pmbus.alert",
+            k: "hw.pwr.pmbus.alert",
             v: 0,
             rail,
-            dev_id: device.i2c_device().component_id(),
+            refdes: device.i2c_device().component_id(),
             time: now,
-            status,
+            pmbus_status,
             pwr_good: power_good,
         };
         match self.packrat.serialize_ereport(&ereport, ereport_buf) {
@@ -397,6 +397,8 @@ impl VCore {
                 ringbuf_entry!(Trace::EreportTooBig(rail))
             }
         }
+        // TODO(eliza): if POWER_GOOD has been deasserted, we should produce a
+        // subsequent ereport for that.
 
         RegulatorState {
             faulted,
@@ -409,11 +411,11 @@ impl VCore {
 struct Ereport {
     k: &'static str,
     v: usize,
-    dev_id: &'static str,
+    refdes: &'static str,
     rail: Rail,
     time: u64,
     pwr_good: Option<bool>,
-    status: PmbusStatus,
+    pmbus_status: PmbusStatus,
 }
 
 #[derive(Copy, Clone, Default, Serialize)]

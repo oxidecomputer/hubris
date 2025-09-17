@@ -207,7 +207,7 @@ struct ServerImpl<S: SpiServer> {
 }
 
 const TIMER_INTERVAL: u32 = 10;
-const EREPORT_BUF_LEN: usize = 128;
+const EREPORT_BUF_LEN: usize = 256;
 
 impl<S: SpiServer + Clone> ServerImpl<S> {
     fn init(
