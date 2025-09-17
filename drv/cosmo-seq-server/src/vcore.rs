@@ -377,11 +377,7 @@ impl VCore {
         };
 
         let ereport = Ereport {
-            k: if !power_good {
-                "hw.pwr_good.bad"
-            } else {
-                "hw.pmbus.alert"
-            },
+            k: "hw.pwr.pmbus.alert",
             v: 0,
             rail,
             refdes: device.i2c_device().component_id(),
@@ -401,6 +397,8 @@ impl VCore {
                 ringbuf_entry!(Trace::EreportTooBig(rail))
             }
         }
+        // TODO(eliza): if POWER_GOOD has been deasserted, we should produce a
+        // subsequent ereport for that.
 
         RegulatorState {
             faulted,
