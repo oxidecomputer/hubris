@@ -191,6 +191,11 @@ impl idl::InOrderPinsImpl for ServerImpl<'_> {
             PintFlag::Falling => {
                 self.pint.fall.write(|w| unsafe { w.bits(mask) })
             }
+            // NOTE: if we add support for level-triggered interrupts in the
+            // future, then we should reconsider this code.  For slots
+            // configured with level-triggered interrupts, writing to `IST`
+            // switches the active level, which may not be expected (although it
+            // _would_ clear the flag!).
             PintFlag::Both => self.pint.ist.write(|w| unsafe { w.bits(mask) }),
         }
         Ok(())
