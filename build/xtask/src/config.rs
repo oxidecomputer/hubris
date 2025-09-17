@@ -829,7 +829,7 @@ fn read_and_flatten_toml(
     cfg: &Path,
     hasher: &mut DefaultHasher,
     seen: &mut BTreeSet<PathBuf>,
-) -> Result<toml_edit::Document> {
+) -> Result<toml_edit::DocumentMut> {
     use toml_patch::merge_toml_documents;
 
     // Prevent diamond inheritance
@@ -851,7 +851,7 @@ fn read_and_flatten_toml(
 
     // Additive TOML file inheritance
     let mut doc = cfg_contents
-        .parse::<toml_edit::Document>()
+        .parse::<toml_edit::DocumentMut>()
         .context("failed to parse TOML file")?;
     let Some(inherited_from) = doc.remove("inherit") else {
         // No further inheritance, so return the current document
@@ -868,11 +868,11 @@ fn read_and_flatten_toml(
         }
         // Multiple inheritance, applied sequentially
         Item::Value(Value::Array(a)) => {
-            let mut doc: Option<toml_edit::Document> = None;
+            let mut doc: Option<toml_edit::DocumentMut> = None;
             for a in a.iter() {
                 if let Value::String(s) = a {
                     let file = cfg.parent().unwrap().join(s.value());
-                    let next: toml_edit::Document =
+                    let next: toml_edit::DocumentMut =
                         read_and_flatten_toml(&file, hasher, seen)
                             .with_context(|| {
                                 format!("Could not load {file:?}")
