@@ -420,7 +420,7 @@ impl idol_runtime::NotificationHandler for ServerImpl {
         notifications::TIMER_MASK
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
+    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
         let timer = sys_get_timer();
         if timer.deadline.is_some() {
             return;

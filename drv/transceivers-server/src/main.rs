@@ -609,7 +609,7 @@ impl NotificationHandler for ServerImpl {
         notifications::SOCKET_MASK | notifications::TIMER_MASK
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
+    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
         // Nothing to do here; notifications are just to wake up this task, and
         // all of the actual work is handled in the main loop
     }

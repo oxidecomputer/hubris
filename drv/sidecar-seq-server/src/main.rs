@@ -774,8 +774,8 @@ impl NotificationHandler for ServerImpl {
         notifications::TIMER_MASK
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
-        if sys_get_timer().deadline.is_some() {
+    fn handle_notification(&mut self, bits: userlib::NotificationBits) {
+        if !bits.has_timer_fired(notifications::TIMER_MASK) {
             return;
         }
 

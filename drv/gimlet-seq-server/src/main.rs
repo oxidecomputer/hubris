@@ -540,14 +540,12 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
         notifications::TIMER_MASK | self.vcore.mask()
     }
 
-    fn handle_notification(&mut self, bits: u32) {
-        if (bits & self.vcore.mask()) != 0 {
+    fn handle_notification(&mut self, bits: userlib::NotificationBits) {
+        if bits.check_notification_mask(self.vcore.mask()) {
             self.vcore.handle_notification(self.ereport_buf);
         }
 
-        if (bits & notifications::TIMER_MASK) == 0
-            || sys_get_timer().deadline.is_some()
-        {
+        if !bits.has_timer_fired(notifications::TIMER_MASK) {
             return;
         }
 

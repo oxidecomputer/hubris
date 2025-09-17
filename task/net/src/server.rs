@@ -828,9 +828,9 @@ where
         notifications::ETH_IRQ_MASK | notifications::WAKE_TIMER_MASK
     }
 
-    fn handle_notification(&mut self, bits: u32) {
+    fn handle_notification(&mut self, bits: userlib::NotificationBits) {
         // Interrupt dispatch.
-        if bits & notifications::ETH_IRQ_MASK != 0 {
+        if bits.check_notification_mask(notifications::ETH_IRQ_MASK) {
             self.eth.on_interrupt();
             userlib::sys_irq_control(notifications::ETH_IRQ_MASK, true);
         }
