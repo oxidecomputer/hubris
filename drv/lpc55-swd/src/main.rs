@@ -647,13 +647,7 @@ impl NotificationHandler for ServerImpl {
             if let Ok(detected) = gpio.pint_detect(SLOT, PintFlag::Falling) {
                 if detected {
                     ringbuf_entry!(Trace::InvalidateSpMeasurement);
-                    // Reset the attestation log
-                    self.invalidate_sp_measurement();
-
-                    // Cancel ongoing transactions
-                    self.transaction = None;
-                    self.state = SwdState::Disconnected;
-                    switch_io_disconnected();
+                    self.on_swd_connected();
                 }
                 let _ = gpio.pint_clear(SLOT, PintFlag::Both);
             } else {
@@ -663,8 +657,7 @@ impl NotificationHandler for ServerImpl {
         } else if matches!(self.state, SwdState::Disconnected)
             && !self.swd_dongle_detected()
         {
-            switch_io_connected();
-            self.state = SwdState::Connected { init: false };
+            self.on_swd_disconnected();
         }
 
         if bits.has_timer_fired(notifications::TIMER_MASK) {
@@ -746,6 +739,27 @@ impl NotificationHandler for ServerImpl {
 }
 
 impl ServerImpl {
+    /// Callback to handle when an external programmer is connected
+    ///
+    /// This function invalidates the measurement log, switches our internal
+    /// state, and configures the SPI pins as inputs (to avoid fighting with the
+    /// programmer).
+    fn on_swd_connected(&mut self) {
+        // Reset the attestation log
+        self.invalidate_sp_measurement();
+
+        // Cancel ongoing transactions
+        self.transaction = None;
+        self.state = SwdState::Disconnected;
+        switch_io_disconnected();
+    }
+
+    /// When an external programmer is disconnected, connect to the SP
+    fn on_swd_disconnected(&mut self) {
+        switch_io_connected();
+        self.state = SwdState::Connected { init: false };
+    }
+
     fn io_out(&mut self) {
         self.wait_for_mstidle();
         switch_io_out();
