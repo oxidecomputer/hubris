@@ -42,7 +42,13 @@ fn generate_swd_functions(config: &TaskConfig) -> Result<()> {
     let flexcomm = quote::format_ident!("FLEXCOMM{}", config.spi_num);
     let spi_regs = quote::format_ident!("SPI{}", config.spi_num);
 
-    let gpio_config_fn = |pins: &[PinConfig], name| {
+    let switch_io_fns = [
+        (&config.out_cfg, "switch_io_out"),
+        (&config.in_cfg, "switch_io_in"),
+        (&config.connected_cfg, "switch_io_connected"),
+        (&config.disconnected_cfg, "switch_io_disconnected"),
+    ]
+    .map(|(pins, name)| {
         let name = quote::format_ident!("{name}");
         quote::quote! {
             fn #name() {
@@ -50,7 +56,9 @@ fn generate_swd_functions(config: &TaskConfig) -> Result<()> {
                 let iocon_base = lpc55_pac::IOCON::ptr() as *const u32 as u32;
 
                 #(
-                    let (pin, conf) = drv_lpc55_gpio_api::Pins::iocon_conf_val(#pins);
+                    let (pin, conf) = drv_lpc55_gpio_api::Pins::iocon_conf_val(
+                        #pins
+                    );
                     let base = iocon_base + 4 * pin;
                     // SAFETY: we're relying on the enum value of the pin for
                     // correctness here. The LPC55 IOCON Rust API has individual
@@ -64,14 +72,7 @@ fn generate_swd_functions(config: &TaskConfig) -> Result<()> {
                 )*
             }
         }
-    };
-
-    let switch_io_out = gpio_config_fn(&config.out_cfg, "switch_io_out");
-    let switch_io_in = gpio_config_fn(&config.in_cfg, "switch_io_in");
-    let switch_io_connected =
-        gpio_config_fn(&config.connected_cfg, "switch_io_connected");
-    let switch_io_disconnected =
-        gpio_config_fn(&config.disconnected_cfg, "switch_io_disconnected");
+    });
 
     // The RoT -> SP SWD control requires setting the IO functions at runtime
     // as opposed to just startup.
@@ -86,10 +87,9 @@ fn generate_swd_functions(config: &TaskConfig) -> Result<()> {
 
 
         // Helper functions
-        #switch_io_out
-        #switch_io_in
-        #switch_io_connected
-        #switch_io_disconnected
+        #(
+            #switch_io_fns
+        )*
 
         fn setup_spi(task : TaskId) -> spi_core::Spi {
             let syscon = Syscon::from(task);
