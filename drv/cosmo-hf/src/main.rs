@@ -420,6 +420,10 @@ impl FlashDriver {
         self.drv.apob_flash_len.set_offset(pos.size);
     }
 
+    pub(crate) fn set_apob_offset(&self, addr: FlashAddr) {
+        self.drv.apob_flash_offset.set_offset(addr.0);
+    }
+
     pub(crate) fn clear_apob_pos(&self) {
         self.drv.apob_flash_addr.set_offset(0);
         self.drv.apob_flash_len.set_offset(0);

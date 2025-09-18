@@ -148,12 +148,12 @@ enum Trace {
     ApobWriteError {
         offset: u64,
         #[count(children)]
-        err: ApobError,
+        err: drv_hf_api::ApobWriteResult,
     },
     ApobReadError {
         offset: u64,
         #[count(children)]
-        err: ApobError,
+        err: drv_hf_api::ApobReadResult,
     },
 }
 
@@ -179,34 +179,6 @@ enum Timers {
     WaitingInA2ToReboot,
     /// Timer set when we want to send periodic 0x00 bytes on the uart.
     TxPeriodicZeroByte,
-}
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq, counters::Count)]
-enum ApobError {
-    OffsetOverflow {
-        page_offset: u64,
-    },
-    SizeOverflow {
-        size: u64,
-    },
-    NotErased {
-        page_offset: u32,
-    },
-    EraseFailed {
-        page_offset: u32,
-        #[count(children)]
-        err: drv_hf_api::HfError,
-    },
-    WriteFailed {
-        page_offset: u32,
-        #[count(children)]
-        err: drv_hf_api::HfError,
-    },
-    ReadFailed {
-        page_offset: u32,
-        #[count(children)]
-        err: drv_hf_api::HfError,
-    },
 }
 
 #[export_name = "main"]
@@ -1031,14 +1003,30 @@ impl ServerImpl {
                     }),
                 }
             }
-            HostToSp::ApobWrite { offset } => {
-                Some(match Self::apob_write(&self.hf, offset, data) {
-                    Ok(()) => SpToHost::ApobResult(0),
-                    Err(err) => {
-                        ringbuf_entry!(Trace::ApobWriteError { offset, err });
-                        SpToHost::ApobResult(1)
+            HostToSp::ApobBegin { length, algorithm } => {
+                // Decode into internal types, then call into `hf`
+                match algorithm {
+                    0 => {
+                        if let Some(d) = data.try_into() {
+                            let hash = drv_hf_api::ApobHash::Sha256(d);
+                            self.hf.apob_begin(length, hash)
+                        } else {
+                            Some(SpToHost::ApobBegin(
+                                drf_hf_api::ApobBeginResult::BadHashLength,
+                            ))
+                        }
                     }
-                })
+                    _ => Some(SpToHost::ApobBegin(
+                        drf_hf_api::ApobBeginResult::InvalidAlgorithm,
+                    )),
+                };
+            }
+            HostToSp::ApobCommit => {
+                // Call into `hf` to do the work here
+                Some(self.hf.apob_commit())
+            }
+            HostToSp::ApobData { offset } => {
+                Some(self.apob_write(offset, data))
             }
             HostToSp::ApobRead { offset, size } => {
                 // apob_read does serialization itself
@@ -1080,43 +1068,8 @@ impl ServerImpl {
         hf: &HostFlash,
         mut offset: u64,
         data: &[u8],
-    ) -> Result<(), ApobError> {
-        for chunk in data.chunks(drv_hf_api::PAGE_SIZE_BYTES) {
-            Self::apob_write_page(
-                hf,
-                offset.try_into().map_err(|_| ApobError::OffsetOverflow {
-                    page_offset: offset,
-                })?,
-                chunk,
-            )?;
-            offset += chunk.len() as u64;
-        }
-        Ok(())
-    }
-
-    /// Write a single page of data to the bonus region of flash
-    ///
-    /// This does not take `&self` because we need to force a split borrow
-    fn apob_write_page(
-        hf: &HostFlash,
-        page_offset: u32,
-        data: &[u8],
-    ) -> Result<(), ApobError> {
-        if (page_offset as usize).is_multiple_of(drv_hf_api::SECTOR_SIZE_BYTES)
-        {
-            hf.bonus_sector_erase(page_offset)
-                .map_err(|err| ApobError::EraseFailed { page_offset, err })?;
-        } else {
-            // Read back the page and confirm that it's all empty
-            let mut scratch = [0u8; drv_hf_api::PAGE_SIZE_BYTES];
-            hf.bonus_read(page_offset, &mut scratch[..data.len()])
-                .map_err(|err| ApobError::ReadFailed { page_offset, err })?;
-            if !scratch[..data.len()].iter().all(|b| *b == 0xFF) {
-                return Err(ApobError::NotErased { page_offset });
-            }
-        }
-        hf.bonus_page_program(page_offset, data)
-            .map_err(|err| ApobError::WriteFailed { page_offset, err })
+    ) -> ApobWriteResult {
+        self.hf.apob_write(offset, data)
     }
 
     /// Reads and encodes data from the bonus region of flash
@@ -1124,34 +1077,14 @@ impl ServerImpl {
         self.tx_buf.try_encode_response(
             sequence,
             &SpToHost::ApobResult(0),
-            |buf| match Self::apob_read_inner(buf, &self.hf, offset, size) {
+            |buf| match self.hf.apob_read(buf, offset, size) {
                 Ok(n) => Ok(n),
                 Err(err) => {
                     ringbuf_entry!(Trace::ApobReadError { offset, err });
-                    Err(SpToHost::ApobResult(1))
+                    Err(SpToHost::ApobRead(err))
                 }
             },
         );
-    }
-
-    fn apob_read_inner(
-        buf: &mut [u8],
-        hf: &HostFlash,
-        offset: u64,
-        size: u64,
-    ) -> Result<usize, ApobError> {
-        let size = usize::try_from(size)
-            .map_err(|_| ApobError::SizeOverflow { size })?;
-        for d in (0..size).step_by(drv_hf_api::PAGE_SIZE_BYTES) {
-            let chunk_size = (size - d).min(drv_hf_api::PAGE_SIZE_BYTES);
-            let page_offset = offset + d as u64;
-            let page_offset = u32::try_from(page_offset)
-                .map_err(|_| ApobError::OffsetOverflow { page_offset })?;
-
-            hf.bonus_read(page_offset, &mut buf[d..][..chunk_size])
-                .map_err(|err| ApobError::ReadFailed { page_offset, err })?;
-        }
-        Ok(size)
     }
 
     fn handle_sprot(
