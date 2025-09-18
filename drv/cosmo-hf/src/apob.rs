@@ -7,10 +7,11 @@
 //! For details, see AMD document 57299; tables and sections in this code refer
 //! to Rev. 2.0 February 2025.
 
-use crate::hf::ServerImpl;
-use drv_hf_api::HfError;
+use crate::{hf::ServerImpl, FlashAddr, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES};
+use drv_hf_api::{ApobHash, HfError};
+use ringbuf::{ringbuf, ringbuf_entry};
 use userlib::UnwrapLite;
-use zerocopy::{FromBytes, Immutable, IntoBytes};
+use zerocopy::{FromBytes, FromZeros, Immutable, IntoBytes, KnownLayout};
 
 /// Embedded firmware structure (Table 3)
 ///
@@ -120,5 +121,248 @@ pub enum ApobError {
 impl From<HfError> for ApobError {
     fn from(value: HfError) -> Self {
         Self::Hf(value)
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+pub const APOB_PERSISTENT_DATA_MAGIC: u32 = 0x3ca9_9496; // chosen at random
+pub const APOB_PERSISTENT_DATA_STRIDE: u32 = 128;
+pub const APOB_PERSISTENT_DATA_HEADER_VERSION: u32 = 1;
+
+pub const APOB_META_SIZE: u32 = SECTOR_SIZE_BYTES;
+pub const APOB_SLOT_SIZE: u32 = 2 * 1024 * 1024; // 2 MiB (chosen arbitrarily)
+
+// The layout is [meta0, meta1, slot0, slot1]
+pub const APOB_META0_ADDR: u32 = crate::hf::SLOT_SIZE_BYTES * 2;
+pub const APOB_META1_ADDR: u32 = APOB_META0_ADDR + APOB_META_SIZE;
+pub const APOB_SLOT0_ADDR: u32 = APOB_META1_ADDR + APOB_META_SIZE;
+pub const APOB_SLOT1_ADDR: u32 = APOB_SLOT0_ADDR + APOB_SLOT_SIZE;
+
+#[derive(Copy, Clone, PartialEq)]
+enum Trace {
+    None,
+    ApobSlotErase { slot: ApobSlot },
+    ApobSlotEraseSkip { slot: ApobSlot },
+}
+ringbuf!(Trace, 16, Trace::None);
+
+#[derive(Copy, Clone, PartialEq)]
+pub(crate) enum ApobSlot {
+    Slot0,
+    Slot1,
+}
+
+impl core::ops::Not for ApobSlot {
+    type Output = Self;
+    fn not(self) -> Self::Output {
+        match self {
+            ApobSlot::Slot0 => ApobSlot::Slot1,
+            ApobSlot::Slot1 => ApobSlot::Slot0,
+        }
+    }
+}
+
+impl ApobSlot {
+    pub fn base_addr(&self) -> FlashAddr {
+        match self {
+            ApobSlot::Slot0 => FlashAddr::new(APOB_SLOT0_ADDR).unwrap(),
+            ApobSlot::Slot1 => FlashAddr::new(APOB_SLOT1_ADDR).unwrap(),
+        }
+    }
+
+    pub fn flash_addr(&self, offset: u32) -> Option<FlashAddr> {
+        let base = self.base_addr();
+        if offset >= APOB_SLOT_SIZE {
+            return None;
+        }
+        base.0.checked_add(offset).and_then(FlashAddr::new)
+    }
+}
+
+pub(crate) enum ApobState {
+    /// Waiting for `ApobStart`
+    Waiting,
+    /// Receiving and writing data to host flash
+    Ready {
+        expected_length: u64,
+        expected_hash: ApobHash,
+    },
+    /// We have finished writing data to flash
+    Locked,
+}
+
+/// Persistent data, stored in Bonus Flash to select an APOB slot
+#[derive(
+    Copy, Clone, Eq, PartialEq, IntoBytes, FromBytes, Immutable, KnownLayout,
+)]
+#[repr(C)]
+pub struct ApobRawPersistentData {
+    /// Must always be `APOB_PERSISTENT_DATA_MAGIC`.
+    oxide_magic: u32,
+
+    /// Must always be `APOB_PERSISTENT_DATA_HEADER_VERSION` (for now)
+    header_version: u32,
+
+    /// Monotonically increasing counter
+    pub monotonic_counter: u64,
+
+    /// Either 0 or 1; directly translatable to [`ApobSlot`]
+    pub slot_select: u32,
+
+    /// CRC-32 over the rest of the data using the iSCSI polynomial
+    checksum: u32,
+}
+
+impl core::cmp::PartialOrd for ApobRawPersistentData {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl core::cmp::Ord for ApobRawPersistentData {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        self.monotonic_counter.cmp(&other.monotonic_counter)
+    }
+}
+
+impl ApobRawPersistentData {
+    pub fn new(slot: ApobSlot, monotonic_counter: u64) -> Self {
+        static_assertions::const_assert!(
+            APOB_PERSISTENT_DATA_STRIDE as usize
+                >= core::mem::size_of::<ApobRawPersistentData>(),
+        );
+        let mut out = Self {
+            oxide_magic: APOB_PERSISTENT_DATA_MAGIC,
+            header_version: APOB_PERSISTENT_DATA_HEADER_VERSION,
+            monotonic_counter,
+            slot_select: match slot {
+                ApobSlot::Slot0 => 0,
+                ApobSlot::Slot1 => 1,
+            },
+            checksum: 0, // dummy value
+        };
+        out.checksum = out.expected_checksum();
+        assert!(out.is_valid());
+        out
+    }
+
+    fn expected_checksum(&self) -> u32 {
+        static CRC: crc::Crc<u32> = crc::Crc::<u32>::new(&crc::CRC_32_ISCSI);
+        let mut c = CRC.digest();
+        // We do a CRC32 of everything except the checksum, which is positioned
+        // at the end of the struct and is a `u32`
+        let size = core::mem::size_of::<ApobRawPersistentData>()
+            - core::mem::size_of::<u32>();
+        c.update(&self.as_bytes()[..size]);
+        c.finalize()
+    }
+
+    pub fn is_valid(&self) -> bool {
+        self.oxide_magic == APOB_PERSISTENT_DATA_MAGIC
+            && self.header_version == APOB_PERSISTENT_DATA_HEADER_VERSION
+            && self.slot_select <= 1
+            && self.checksum == self.expected_checksum()
+    }
+}
+
+enum Meta {
+    Meta0,
+    Meta1,
+}
+
+impl Meta {
+    fn base_addr(&self) -> FlashAddr {
+        match self {
+            Meta::Meta0 => FlashAddr::new(APOB_META0_ADDR).unwrap(),
+            Meta::Meta1 => FlashAddr::new(APOB_META1_ADDR).unwrap(),
+        }
+    }
+    fn flash_addr(&self, offset: u32) -> Option<FlashAddr> {
+        let base = self.base_addr();
+        if offset >= APOB_META_SIZE {
+            return None;
+        }
+        base.0.checked_add(offset).and_then(FlashAddr::new)
+    }
+}
+
+impl ServerImpl {
+    /// Finds the currently active APOB slot, erasing any unused slots
+    pub(crate) fn get_apob_slot(&mut self) -> Option<ApobSlot> {
+        let a = self.apob_slot_scan(Meta::Meta0);
+        let b = self.apob_slot_scan(Meta::Meta1);
+
+        let best = match (a, b) {
+            (Some(a), Some(b)) => Some(a.max(b)),
+            (Some(_), None) => a,
+            (None, Some(_)) => b,
+            (None, None) => None,
+        };
+
+        // Erase inactive slot
+        match best.map(|b| b.slot_select) {
+            Some(0) => {
+                self.apob_slot_erase(ApobSlot::Slot1);
+                Some(ApobSlot::Slot0)
+            }
+            Some(1) => {
+                self.apob_slot_erase(ApobSlot::Slot0);
+                Some(ApobSlot::Slot0)
+            }
+            Some(_) => {
+                unreachable!(); // prevented by is_valid check
+            }
+            None => {
+                self.apob_slot_erase(ApobSlot::Slot0);
+                self.apob_slot_erase(ApobSlot::Slot1);
+                None
+            }
+        }
+    }
+
+    /// Erases the given APOB slot
+    fn apob_slot_erase(&mut self, slot: ApobSlot) {
+        let mut dirty = false;
+        let mut buf = [0u8; PAGE_SIZE_BYTES];
+        for offset in 0..APOB_SLOT_SIZE / PAGE_SIZE_BYTES as u32 {
+            self.drv
+                .flash_read(
+                    slot.flash_addr(offset * PAGE_SIZE_BYTES as u32)
+                        .unwrap_lite(),
+                    &mut buf.as_mut_slice(),
+                )
+                .unwrap_lite();
+            if buf.iter().any(|b| *b != 0xFF) {
+                dirty = true;
+                break;
+            }
+        }
+
+        if dirty {
+            ringbuf_entry!(Trace::ApobSlotErase { slot });
+            for offset in 0..APOB_SLOT_SIZE / SECTOR_SIZE_BYTES {
+                self.drv.flash_sector_erase(
+                    slot.flash_addr(offset * SECTOR_SIZE_BYTES).unwrap_lite(),
+                )
+            }
+        } else {
+            ringbuf_entry!(Trace::ApobSlotEraseSkip { slot });
+        }
+    }
+
+    /// Finds a valid APOB slot within the given meta region
+    fn apob_slot_scan(&mut self, meta: Meta) -> Option<ApobRawPersistentData> {
+        let mut best: Option<ApobRawPersistentData> = None;
+        for i in 0..APOB_META_SIZE / APOB_PERSISTENT_DATA_STRIDE {
+            let mut data = ApobRawPersistentData::new_zeroed();
+            let offset = i * APOB_PERSISTENT_DATA_STRIDE;
+            let addr = meta.flash_addr(offset).unwrap_lite();
+            self.drv
+                .flash_read(addr, &mut data.as_mut_bytes())
+                .unwrap_lite(); // infallible when using a slice
+            best = best.max(Some(data).filter(|d| d.is_valid()));
+        }
+        best
     }
 }
