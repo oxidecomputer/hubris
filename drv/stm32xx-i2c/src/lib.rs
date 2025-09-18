@@ -41,6 +41,7 @@ pub mod oximux16;
 pub mod pca9545;
 pub mod pca9548;
 
+use core::ops::ControlFlow;
 use ringbuf::*;
 use userlib::*;
 
@@ -403,43 +404,6 @@ impl I2cController<'_> {
         ringbuf_entry!(Trace::Reset(Register::CR2, i2c.cr2.read().bits()));
     }
 
-    ///
-    /// A common routine to check for errors from the controller.  Note that
-    /// we deliberately return a disjoint error code for each condition.
-    /// Some of these are more recoverable than others -- but all of these
-    /// conditions should generally result in the controller being reset.
-    ///
-    fn check_errors(&self, isr: &Isr) -> Result<(), drv_i2c_api::ResponseCode> {
-        let i2c = self.registers;
-
-        if isr.arlo().is_lost() {
-            i2c.icr.write(|w| w.arlocf().set_bit());
-            return Err(drv_i2c_api::ResponseCode::BusReset);
-        }
-
-        if isr.berr().is_error() {
-            i2c.icr.write(|w| w.berrcf().set_bit());
-            return Err(drv_i2c_api::ResponseCode::BusError);
-        }
-
-        if isr.timeout().is_timeout() {
-            i2c.icr.write(|w| w.timoutcf().set_bit());
-            return Err(drv_i2c_api::ResponseCode::BusLocked);
-        }
-
-        Ok(())
-    }
-
-    ///
-    /// A common routine to wait for any of our interrupt-related notification
-    /// bits. Note that you'll still want to check the actual interrupt status
-    /// bits to distinguish a real interrupt from a stale or mischieviously
-    /// posted notification bit.
-    ///
-    fn wfi(&self) {
-        sys_recv_notification(self.notification);
-    }
-
     fn wait_until_notbusy(&self) -> Result<(), drv_i2c_api::ResponseCode> {
         let i2c = self.registers;
 
@@ -475,7 +439,7 @@ impl I2cController<'_> {
                 return Ok(());
             }
 
-            self.check_errors(&isr)?;
+            check_errors(self.registers, &isr)?;
 
             if lap == BUSY_SLEEP_THRESHOLD {
                 //
@@ -522,7 +486,6 @@ impl I2cController<'_> {
         }
 
         let i2c = self.registers;
-        let notification = self.notification;
 
         self.wait_until_notbusy()?;
 
@@ -541,24 +504,19 @@ impl I2cController<'_> {
             let mut pos = 0;
 
             while pos < wlen {
-                loop {
-                    let isr = i2c.isr.read();
-                    ringbuf_entry!(Trace::Write(Register::ISR, isr.bits()));
-
-                    self.check_errors(&isr)?;
-
-                    if isr.nackf().is_nack() {
-                        i2c.icr.write(|w| w.nackcf().set_bit());
-                        return Err(drv_i2c_api::ResponseCode::NoDevice);
+                self.status_check(
+                    |isrbits| ringbuf_entry!(Trace::Write(Register::ISR, isrbits)),
+                    |isr| {
+                        if isr.nackf().is_nack() {
+                            i2c.icr.write(|w| w.nackcf().set_bit());
+                            ControlFlow::Break(Err(drv_i2c_api::ResponseCode::NoDevice))
+                        } else if isr.txis().is_empty() {
+                            ControlFlow::Break(Ok(()))
+                        } else {
+                            ControlFlow::Continue(())
+                        }
                     }
-
-                    if isr.txis().is_empty() {
-                        break;
-                    }
-
-                    self.wfi();
-                    sys_irq_control(notification, true);
-                }
+                )?;
 
                 // Get a single byte.
                 let byte =
@@ -571,24 +529,19 @@ impl I2cController<'_> {
 
             // All done; now block until our transfer is complete -- or until
             // we've been NACK'd (denoting an illegal register value)
-            loop {
-                let isr = i2c.isr.read();
-                ringbuf_entry!(Trace::WriteWait(Register::ISR, isr.bits()));
-
-                self.check_errors(&isr)?;
-
-                if isr.nackf().is_nack() {
-                    i2c.icr.write(|w| w.nackcf().set_bit());
-                    return Err(drv_i2c_api::ResponseCode::NoRegister);
+            self.status_check(
+                |isrbits| ringbuf_entry!(Trace::WriteWait(Register::ISR, isrbits)),
+                |isr| {
+                    if isr.nackf().is_nack() {
+                        i2c.icr.write(|w| w.nackcf().set_bit());
+                        ControlFlow::Break(Err(drv_i2c_api::ResponseCode::NoRegister))
+                    } else if isr.tc().is_complete() {
+                        ControlFlow::Break(Ok(()))
+                    } else {
+                        ControlFlow::Continue(())
+                    }
                 }
-
-                if isr.tc().is_complete() {
-                    break;
-                }
-
-                self.wfi();
-                sys_irq_control(notification, true);
-            }
+            )?;
         }
 
         let mut overrun = false;
@@ -633,24 +586,19 @@ impl I2cController<'_> {
                     }
                 }
 
-                loop {
-                    self.wfi();
-                    sys_irq_control(notification, true);
-
-                    let isr = i2c.isr.read();
-                    ringbuf_entry!(Trace::Read(Register::ISR, isr.bits()));
-
-                    self.check_errors(&isr)?;
-
-                    if isr.nackf().is_nack() {
-                        i2c.icr.write(|w| w.nackcf().set_bit());
-                        return Err(drv_i2c_api::ResponseCode::NoDevice);
-                    }
-
-                    if !isr.rxne().is_empty() {
-                        break;
-                    }
-                }
+                self.status_check(
+                    |isrbits| ringbuf_entry!(Trace::Read(Register::ISR, isrbits)),
+                    |isr| {
+                        if isr.nackf().is_nack() {
+                            i2c.icr.write(|w| w.nackcf().set_bit());
+                            ControlFlow::Break(Err(drv_i2c_api::ResponseCode::NoDevice))
+                        } else if !isr.rxne().is_empty() {
+                            ControlFlow::Break(Ok(()))
+                        } else {
+                            ControlFlow::Continue(())
+                        }
+                    },
+                )?;
 
                 // Read it!
                 let byte: u8 = i2c.rxdr.read().rxdata().bits();
@@ -679,19 +627,16 @@ impl I2cController<'_> {
             }
 
             // All done; now block until our transfer is complete...
-            loop {
-                let isr = i2c.isr.read();
-                ringbuf_entry!(Trace::ReadWait(Register::ISR, isr.bits()));
-
-                if isr.tc().is_complete() {
-                    break;
-                }
-
-                self.check_errors(&isr)?;
-
-                self.wfi();
-                sys_irq_control(notification, true);
-            }
+            self.status_check(
+                |isrbits| ringbuf_entry!(Trace::ReadWait(Register::ISR, isrbits)),
+                |isr| {
+                    if isr.tc().is_complete() {
+                        ControlFlow::Break(Ok(()))
+                    } else {
+                        ControlFlow::Continue(())
+                    }
+                },
+            )?;
         }
 
         //
@@ -726,7 +671,6 @@ impl I2cController<'_> {
         ops: &[I2cKonamiCode],
     ) -> Result<(), drv_i2c_api::ResponseCode> {
         let i2c = self.registers;
-        let notification = self.notification;
 
         self.wait_until_notbusy()?;
 
@@ -752,24 +696,19 @@ impl I2cController<'_> {
             // All done; now block until our transfer is complete -- or until
             // we've been NACK'd (presumably denoting a device throwing hands
             // at our Konami Code sequence).
-            loop {
-                let isr = i2c.isr.read();
-                ringbuf_entry!(Trace::Konami(Register::ISR, isr.bits()));
-
-                self.check_errors(&isr)?;
-
-                if isr.nackf().is_nack() {
-                    i2c.icr.write(|w| w.nackcf().set_bit());
-                    return Err(drv_i2c_api::ResponseCode::NoRegister);
-                }
-
-                if isr.tc().is_complete() {
-                    break;
-                }
-
-                self.wfi();
-                sys_irq_control(notification, true);
-            }
+            self.status_check(
+                |isrbits| ringbuf_entry!(Trace::Konami(Register::ISR, isrbits)),
+                |isr| {
+                    if isr.nackf().is_nack() {
+                        i2c.icr.write(|w| w.nackcf().set_bit());
+                        ControlFlow::Break(Err(drv_i2c_api::ResponseCode::NoRegister))
+                    } else if isr.tc().is_complete() {
+                        ControlFlow::Break(Ok(()))
+                    } else {
+                        ControlFlow::Continue(())
+                    }
+                },
+            )?;
         }
 
         //
@@ -828,7 +767,6 @@ impl I2cController<'_> {
         self.configure_as_target();
 
         let i2c = self.registers;
-        let notification = self.notification;
 
         'addrloop: loop {
             // Flush our TXDR. TODO: does this ever matter in practice? Are we
@@ -862,8 +800,8 @@ impl I2cController<'_> {
                 // because we don't actually care.
                 i2c.cr1.modify(|_, w| w.addrie().set_bit());
                 ringbuf_entry!(Trace::WaitAddr);
-                (ctrl.enable)(notification);
-                (ctrl.wfi)(notification);
+                (ctrl.enable)(self.notification);
+                (ctrl.wfi)(self.notification);
                 // Turn interrupt sources back off.
                 i2c.cr1.modify(|_, w| w.addrie().clear_bit());
             };
@@ -981,8 +919,8 @@ impl I2cController<'_> {
                     });
 
                     ringbuf_entry!(Trace::WaitRx);
-                    (ctrl.enable)(notification);
-                    (ctrl.wfi)(notification);
+                    (ctrl.enable)(self.notification);
+                    (ctrl.wfi)(self.notification);
 
                     // Turn them back off before we potentially break out of the
                     // loop above.
@@ -1080,8 +1018,8 @@ impl I2cController<'_> {
                         .stopie().set_bit()
                 });
                 ringbuf_entry!(Trace::WaitTx);
-                (ctrl.enable)(notification);
-                (ctrl.wfi)(notification);
+                (ctrl.enable)(self.notification);
+                (ctrl.wfi)(self.notification);
                 // Turn interrupt sources back off.
                 #[rustfmt::skip]
                 i2c.cr1.modify(|_, w| {
@@ -1093,4 +1031,51 @@ impl I2cController<'_> {
             }
         }
     }
+
+    fn status_check(
+        &self,
+        mut trace: impl FnMut(u32),
+        mut body: impl FnMut(Isr) -> ControlFlow<Result<(), drv_i2c_api::ResponseCode>>,
+    ) -> Result<(), drv_i2c_api::ResponseCode> {
+        loop {
+            let isr = self.registers.isr.read();
+            trace(isr.bits());
+
+            check_errors(self.registers, &isr)?;
+
+            match body(isr) {
+                ControlFlow::Break(result) => break result,
+                ControlFlow::Continue(()) => {
+                    sys_irq_control(self.notification, true);
+                    sys_recv_notification(self.notification);
+                }
+            }
+        }
+    }
 }
+
+///
+/// A common routine to check for errors from the controller.  Note that
+/// we deliberately return a disjoint error code for each condition.
+/// Some of these are more recoverable than others -- but all of these
+/// conditions should generally result in the controller being reset.
+///
+fn check_errors(i2c: &RegisterBlock, isr: &Isr) -> Result<(), drv_i2c_api::ResponseCode> {
+    if isr.arlo().is_lost() {
+        i2c.icr.write(|w| w.arlocf().set_bit());
+        return Err(drv_i2c_api::ResponseCode::BusReset);
+    }
+
+    if isr.berr().is_error() {
+        i2c.icr.write(|w| w.berrcf().set_bit());
+        return Err(drv_i2c_api::ResponseCode::BusError);
+    }
+
+    if isr.timeout().is_timeout() {
+        i2c.icr.write(|w| w.timoutcf().set_bit());
+        return Err(drv_i2c_api::ResponseCode::BusLocked);
+    }
+
+    Ok(())
+}
+
