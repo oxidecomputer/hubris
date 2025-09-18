@@ -1,0 +1,12 @@
+[resets]
+address = 0x4002_0000  # 2.2.4. APB registers
+size = 32
+
+[sio]
+address = 0xd000_0000  # 2.2.6. Core-local peripherals (SIO)
+size = 512
+
+[spi0]
+address = 0x4008_0000  # 12.3.5 List of registers
+size = 0x1000
+interrupts = { irq = 31 }  # SPI0_IRQ from 3.2 Interrupts

@@ -669,6 +669,9 @@ fn led_toggle(led: Led) {
     gpio_driver.toggle(pin).unwrap_lite();
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// End board-specific bits
+
 mod idl {
     use super::LedError;
 

@@ -875,6 +875,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "demo-pi-pico-2"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if",
+ "cortex-m",
+ "cortex-m-rt",
+ "kern",
+ "rp235x-pac",
+]
+
+[[package]]
 name = "demo-stm32f4-discovery"
 version = "0.1.0"
 dependencies = [
@@ -4575,6 +4587,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "rp235x-pac"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5ffcb6931deee4242886b5a1df62db5e2555b0eb6ae1e8be101f3ea3e58e65c6"
+dependencies = [
+ "cortex-m",
+ "cortex-m-rt",
+ "vcell",
+]
+
+[[package]]
 name = "rsa"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6309,6 +6332,17 @@ dependencies = [
  "cortex-m-rt",
  "kern",
  "lpc55-pac",
+]
+
+[[package]]
+name = "tests-pi-pico-2"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if",
+ "cortex-m",
+ "cortex-m-rt",
+ "kern",
 ]
 
 [[package]]
