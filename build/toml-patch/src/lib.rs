@@ -17,8 +17,8 @@ use std::collections::BTreeMap;
 use toml_edit::{visit::Visit, visit_mut::VisitMut};
 
 pub fn merge_toml_documents(
-    original: &mut toml_edit::Document,
-    mut patches: toml_edit::Document,
+    original: &mut toml_edit::DocumentMut,
+    mut patches: toml_edit::DocumentMut,
 ) -> Result<()> {
     // Find offsets where we need to insert gaps for incoming patches
     let mut offsets = BTreeMap::new();
@@ -47,7 +47,7 @@ pub fn merge_toml_documents(
 fn compute_offsets(
     original: &toml_edit::Table,
     patches: &toml_edit::Table,
-    offsets: &mut BTreeMap<usize, usize>,
+    offsets: &mut BTreeMap<isize, usize>,
 ) -> Result<()> {
     for (k, v) in patches.iter() {
         if let Some(u) = original.get(k) {
@@ -107,7 +107,7 @@ fn compute_offsets(
 /// Accumulates the full range of table positions
 #[derive(Default)]
 struct TableRangeVisitor {
-    range: Option<std::ops::Range<usize>>,
+    range: Option<std::ops::Range<isize>>,
 }
 
 impl<'doc> Visit<'doc> for TableRangeVisitor {
@@ -148,7 +148,7 @@ struct OffsetVisitor<'a> {
     ///
     /// The offset at position `i` is `self.offsets[j]`, where `j` is the
     /// largest key such that `j <= i`.
-    offsets: &'a BTreeMap<usize, usize>,
+    offsets: &'a BTreeMap<isize, usize>,
 }
 
 impl<'a> VisitMut for OffsetVisitor<'a> {
@@ -162,7 +162,7 @@ impl<'a> VisitMut for OffsetVisitor<'a> {
             let (prev_pos, offset) =
                 self.offsets.range(0..=pos).next_back().unwrap_or((&0, &0));
             assert!(*prev_pos <= pos); // sanity-checking
-            t.set_position(offset + pos);
+            t.set_position(isize::try_from(*offset).unwrap() + pos);
         }
         self.visit_table_like_mut(t);
     }
@@ -191,7 +191,8 @@ fn merge_toml_tables(
                     let v = v.as_value().unwrap();
                     if u.type_name() != v.type_name() {
                         bail!(
-                            "type mismatch for '{k}': {} != {}",
+                            "type mismatch for '{}': {} != {}",
+                            k.to_string(),
                             u.type_name(),
                             v.type_name()
                         );
@@ -251,8 +252,8 @@ fn merge_toml_tables(
 
             let mut visitor = TableRangeVisitor::default();
             visitor.visit_item(v);
-            let start = visitor.range.map(|r| r.start as isize).unwrap_or(0);
-            let offset = last as isize - start;
+            let start = visitor.range.map(|r| r.start).unwrap_or(0);
+            let offset = last - start;
 
             // Apply that offset to the incoming tables
             let mut visitor = TableShiftVisitor { offset };
@@ -271,14 +272,14 @@ mod tests {
     use indoc::indoc;
 
     fn patch_and_compare(a: &str, b: &str, out: &str) {
-        let mut a: toml_edit::Document = a.parse().unwrap();
+        let mut a: toml_edit::DocumentMut = a.parse().unwrap();
         let b = b.parse().unwrap();
         merge_toml_documents(&mut a, b).unwrap();
         if a.to_string() != out {
             eprintln!("patching failed.  Got result:");
-            eprintln!("{}", a.to_string());
+            eprintln!("{a}");
             eprintln!("----------------");
-            eprintln!("{}", out);
+            eprintln!("{out}");
         }
         assert_eq!(a.to_string(), out);
     }
@@ -472,6 +473,46 @@ mod tests {
                 spi1 = "great"
                 [config.pcie]
                 presence = false
+            "#},
+        );
+    }
+
+    #[test]
+    fn heterogenous_tables() {
+        let cfg = indoc! {r#"
+            [tasks.jefe]
+            features = ["hello", "world"]
+            config.do-not-dump = ["chaos"]
+
+            [tasks.jefe.config.allowed-callers]
+            set_reset_reason = ["sys"]
+        "#};
+        patch_and_compare(cfg, "", cfg);
+    }
+
+    #[test]
+    fn merge_heterogenous_tables() {
+        patch_and_compare(
+            indoc! {r#"
+                [tasks.jefe]
+                features = ["hello", "world"]
+
+                [tasks.jefe.config.allowed-callers]
+                set_reset_reason = ["sys"]
+            "#},
+            indoc! {r#"
+                [tasks.jefe]
+                config.do-not-dump = ["chaos"]
+            "#},
+            indoc! {r#"
+                [tasks.jefe]
+                features = ["hello", "world"]
+
+                [tasks.jefe.config]
+                do-not-dump = ["chaos"]
+
+                [tasks.jefe.config.allowed-callers]
+                set_reset_reason = ["sys"]
             "#},
         );
     }
