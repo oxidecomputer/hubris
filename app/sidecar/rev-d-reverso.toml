@@ -1,0 +1,2 @@
+name = "sidecar-d-reverso"
+inherit = ["rev-d-dev.toml", "reverso.toml"]
