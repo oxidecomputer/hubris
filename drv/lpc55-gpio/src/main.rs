@@ -249,11 +249,12 @@ impl idl::InOrderPinsImpl for ServerImpl<'_> {
         flag: PintFlag,
     ) -> Result<bool, RequestError<core::convert::Infallible>> {
         let mask = pint_slot.mask();
-        Ok(match flag {
-            PintFlag::Rising => self.pint.rise.read().bits() & mask,
-            PintFlag::Falling => self.pint.fall.read().bits() & mask,
-            PintFlag::Both => self.pint.ist.read().bits() & mask,
-        } != 0)
+        let bits = match flag {
+            PintFlag::Rising => self.pint.rise.read().bits(),
+            PintFlag::Falling => self.pint.fall.read().bits(),
+            PintFlag::Both => self.pint.ist.read().bits(),
+        };
+        Ok(bits & mask != 0)
     }
 }
 

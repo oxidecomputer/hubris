@@ -48,10 +48,8 @@ Interface(
                 "pint_slot": "PintSlot",
                 "flag": "PintFlag",
             },
-            reply: Result(
-                ok: "()",
-                err: ServerDeath,
-            ),
+            reply: Simple("()"),
+            idempotent: true,
             encoding: Hubpack,
         ),
         "pint_enable": (
@@ -59,10 +57,8 @@ Interface(
                 "pint_slot": "PintSlot",
                 "cond": "PintCondition",
             },
-            reply: Result(
-                ok: "()",
-                err: ServerDeath,
-            ),
+            reply: Simple("()"),
+            idempotent: true,
             encoding: Hubpack,
         ),
         "pint_disable": (
@@ -70,10 +66,8 @@ Interface(
                 "pint_slot": "PintSlot",
                 "cond": "PintCondition",
             },
-            reply: Result(
-                ok: "()",
-                err: ServerDeath,
-            ),
+            reply: Simple("()"),
+            idempotent: true,
             encoding: Hubpack,
         ),
         "pint_detect": (
@@ -81,10 +75,8 @@ Interface(
                 "pint_slot": "PintSlot",
                 "flag": "PintFlag",
             },
-            reply: Result(
-                ok: "bool",
-                err: ServerDeath,
-            ),
+            reply: Simple("bool"),
+            idempotent: true,
             encoding: Hubpack,
         ),
     }
