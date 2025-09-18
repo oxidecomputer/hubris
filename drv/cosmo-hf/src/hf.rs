@@ -17,7 +17,7 @@ use userlib::{set_timer_relative, task_slot, RecvMessage, UnwrapLite};
 use zerocopy::{FromZeros, IntoBytes};
 
 use crate::{
-    FlashAddr, FlashDriver, Trace, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES,
+    apob, FlashAddr, FlashDriver, Trace, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES,
 };
 
 task_slot!(HASH, hash_driver);
@@ -25,13 +25,17 @@ task_slot!(HASH, hash_driver);
 /// We break the 128 MiB flash chip into 2x 32 MiB slots, to match Gimlet
 ///
 /// The upper 64 MiB are used for Bonus Data.
-const SLOT_SIZE_BYTES: u32 = 1024 * 1024 * 32;
-const BONUS_SIZE_BYTES: u32 = 1024 * 1024 * 64;
+pub(crate) const SLOT_SIZE_BYTES: u32 = 1024 * 1024 * 32;
+pub(crate) const BONUS_SIZE_BYTES: u32 = 1024 * 1024 * 64;
 
 pub struct ServerImpl {
     pub drv: FlashDriver,
     pub dev: HfDevSelect,
     hash: HashData,
+
+    apob_state: apob::ApobState,
+    apob_write_slot: apob::ApobSlot,
+    apob_read_slot: Option<apob::ApobSlot>,
 }
 
 /// This tunes how many bytes we hash in a single async timer notification
@@ -51,6 +55,9 @@ impl ServerImpl {
             dev: drv_hf_api::HfDevSelect::Flash0,
             drv,
             hash: HashData::new(HASH.get_task_id()),
+            apob_state: apob::ApobState::Waiting,
+            apob_write_slot: apob::ApobSlot::Slot0,
+            apob_read_slot: None,
         };
         out.drv.set_flash_mux_state(HfMuxState::SP);
         out.ensure_persistent_data_is_redundant();
@@ -58,6 +65,13 @@ impl ServerImpl {
             out.dev = p.dev_select;
         }
         out.drv.set_espi_addr_offset(out.flash_base());
+
+        // Check for APOB data
+        if let Some(s) = out.get_apob_slot() {
+            out.apob_read_slot = Some(s);
+            out.apob_write_slot = !s;
+            out.drv.set_apob_offset(s.base_addr());
+        }
         out
     }
 

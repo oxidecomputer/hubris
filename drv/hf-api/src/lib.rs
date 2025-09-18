@@ -271,4 +271,80 @@ pub struct HfChipId {
     pub unique_id: [u8; 17],
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// APOB types are below!
+
+/// Hash type used when writing an APOB to bonus flash
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, SerializedSize)]
+#[repr(u8)]
+pub enum ApobHash {
+    Sha256([u8; 32]),
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    IdolError,
+    counters::Count,
+)]
+pub enum ApobBeginError {
+    /// APOB is not implemented on this hardware
+    NotImplemented,
+    /// The APOB state machine does not allow a `Begin` message
+    InvalidState,
+    /// The data length will not fit in an APOB slot
+    BadDataLength,
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    IdolError,
+    counters::Count,
+)]
+pub enum ApobDataError {
+    /// APOB is not implemented on this hardware
+    NotImplemented,
+    /// The APOB state machine does not allow a `Data` message
+    InvalidState,
+    /// Offset exceeds the slot size
+    InvalidOffset,
+    /// Write size exceeds the slot size
+    InvalidSize,
+    /// Flash write failed
+    WriteFailed,
+    /// Flash write would change data in an unerased region
+    NotErased,
+}
+
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    counters::Count,
+)]
+pub enum ApobReadError {
+    /// APOB is not implemented on this hardware
+    NotImplemented,
+    /// The state machine is currently expecting a write or commit message
+    InvalidState,
+    /// Offset exceeds the slot size
+    InvalidOffset,
+    /// Write size exceeds the slot size
+    InvalidSize,
+    /// Flash read failed
+    ReadFailed,
+}
+
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
