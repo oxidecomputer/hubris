@@ -19,12 +19,11 @@ pub enum ParseError {
     MissingPartNumber,
     MissingRevision,
     MissingSerial,
-    MissingMfg,
     UnexpectedFields,
     UnknownVersion,
     WrongPartNumberLength,
     WrongSerialLength,
-    WrongMfgLength,
+    WrongMpn1Length,
     BadRevision,
 }
 
@@ -37,16 +36,26 @@ pub enum VpdIdentity {
     Mpn1(Mpn1Identity),
 }
 
+pub trait ParseBarcode: Sized {
+    fn parse_barcode(barcode: &[u8]) -> Result<Self, ParseError>;
+}
+
 impl VpdIdentity {
     pub fn parse(barcode: &[u8]) -> Result<Self, ParseError> {
         let mut fields = barcode.split(|&b| b == b':');
 
         let version = fields.next().ok_or(ParseError::MissingVersion)?;
         match version {
-            b"MPN1" => Mpn1Identity::from_parts(fields).map(VpdIdentity::Mpn1),
+            b"MPN1" => Mpn1Identity::parse(barcode).map(VpdIdentity::Mpn1),
             _ => OxideIdentity::from_parts(version, fields)
                 .map(VpdIdentity::Oxide),
         }
+    }
+}
+
+impl ParseBarcode for VpdIdentity {
+    fn parse_barcode(barcode: &[u8]) -> Result<Self, ParseError> {
+        VpdIdentity::parse(barcode)
     }
 }
 
@@ -78,6 +87,18 @@ impl OxideIdentity {
     pub const SERIAL_LEN: usize = 11;
 }
 
+/// A barcode in the [`MPN1` format].
+///
+/// Unlike the `OXV1` and `OXV2` formats, the part number, revision, and serial
+/// number portions of this format are all variable-length. The only length
+/// limits in this format are that the manufacturer code should be three
+/// characters, and the total length of the barcode cannot exceed 128 bytes.
+/// Therefore, rather than parsing the barcode into a structure where the
+/// individual portions are stored in their own fixed size arrays, as in the
+/// [`OxideIdentity`] struct, we represent MPN1 barcodes as a single 128-byte
+/// array.
+///
+/// [`MPN1` format]: https://rfd.shared.oxide.computer/rfd/308#fmt-mpn
 #[derive(
     Debug,
     Clone,
@@ -96,131 +117,75 @@ impl OxideIdentity {
 #[repr(C, packed)]
 pub struct Mpn1Identity {
     #[serde(with = "BigArray")]
-    buf: [u8; Self::MAX_LEN],
-    mfg: Range,
-    mpn: Range,
-    rev: Range,
-    sn: Range,
+    pub buf: [u8; Self::MAX_LEN],
+    pub len: u8,
 }
 
 impl Mpn1Identity {
-    pub const MAX_LEN: usize =
-        // The MPN1 barcode itself has a maximum length of 128 bytes in the EEPROM.
-        128
-        // subtract 4 bytes for the four colons
-        - 4
-        // subtract another 4 bytes for the string "MPN1"
-        - 4;
+    pub const MAX_LEN: usize = 128;
+
+    pub fn len(&self) -> usize {
+        self.len as usize
+    }
+
+    pub fn bytes(&self) -> &[u8] {
+        &self.buf[..self.len()]
+    }
 
     pub fn mfg(&self) -> Option<&[u8]> {
-        self.index_range(self.mfg)
+        self.nth_part(0)
     }
 
     pub fn mpn(&self) -> Option<&[u8]> {
-        self.index_range(self.mpn)
+        self.nth_part(1)
     }
 
-    pub fn rev(&self) -> Option<&[u8]> {
-        self.index_range(self.rev)
+    pub fn revision(&self) -> Option<&[u8]> {
+        self.nth_part(2)
     }
 
     pub fn serial(&self) -> Option<&[u8]> {
-        self.index_range(self.sn)
+        self.nth_part(3)
     }
 
-    fn index_range(&self, range: Range) -> Option<&[u8]> {
-        if range.is_empty() {
+    fn nth_part(&self, n: usize) -> Option<&[u8]> {
+        let part = self.bytes().split(|b| *b == b':').nth(n)?;
+        if part.is_empty() {
             None
         } else {
-            Some(&self.buf[range.start as usize..range.end as usize])
+            Some(part)
         }
     }
 
-    fn from_parts<'parts>(
-        mut fields: impl Iterator<Item = &'parts [u8]> + 'parts,
-    ) -> Result<Self, ParseError> {
-        let mfg = fields.next().ok_or(ParseError::MissingMfg)?;
-        let part_number = fields.next().ok_or(ParseError::MissingPartNumber)?;
-        let revision = fields.next().ok_or(ParseError::MissingRevision)?;
-        let serial = fields.next().ok_or(ParseError::MissingSerial)?;
+    pub fn parse(bytes: &[u8]) -> Result<Self, ParseError> {
+        let (version, rest) = bytes
+            .split_at_checked(5)
+            .ok_or(ParseError::MissingVersion)?;
+        if version != b"MPN1:" {
+            return Err(ParseError::UnknownVersion);
+        }
+        Self::from_bytes(rest)
+    }
+
+    fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
+        let len = bytes.len();
 
         let mut buf = [0u8; Self::MAX_LEN];
-        let mut len = 0;
-
-        fn append_chunk(
-            buf: &mut [u8],
-            len: &mut usize,
-            chunk: &[u8],
-        ) -> Result<Range, ()> {
-            let start = *len;
-            let end = start + chunk.len();
-            if end > buf.len() {
-                return Err(());
-            }
-
-            buf[start..end].copy_from_slice(chunk);
-            *len += chunk.len();
-            Ok(Range {
-                start: start as u8,
-                end: end as u8,
-            })
-        }
-
-        if mfg.len() != 0 && mfg.len() != 3 {
-            return Err(ParseError::WrongMfgLength);
-        }
-        let mfg = append_chunk(&mut buf, &mut len, mfg)
-            .map_err(|_| ParseError::WrongMfgLength)?;
-
-        let mpn = append_chunk(&mut buf, &mut len, part_number)
-            .map_err(|_| ParseError::WrongPartNumberLength)?;
-
-        let rev = append_chunk(&mut buf, &mut len, revision)
-            .map_err(|_| ParseError::BadRevision)?;
-
-        let sn = append_chunk(&mut buf, &mut len, serial)
-            .map_err(|_| ParseError::WrongSerialLength)?;
-
+        buf.get_mut(..len)
+            .ok_or(ParseError::WrongMpn1Length)?
+            .copy_from_slice(bytes);
         Ok(Self {
             buf,
-            mfg,
-            mpn,
-            rev,
-            sn,
+            // Note: casting to u8 here is fine since the length has just been
+            // checked to be less than 128.
+            len: bytes.len() as u8,
         })
     }
 }
 
-// "Hey Eliza", you ask, "why not use `core::ops::Range` for these?" Well, I
-// wanted to, but we use our won custom range type as `zerocopy` doesn't
-// implement its traits for `core::ops::Range`. Using our own range type has a
-// few other advantages, though: because the maximum buffer size for a MPN1
-// serial is 128 bytes, we can use `u8`s for our range freely and save several
-// bytes versus `usize` ranges.
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    FromBytes,
-    IntoBytes,
-    Unaligned,
-    Immutable,
-    KnownLayout,
-    Serialize,
-    Deserialize,
-    SerializedSize,
-)]
-#[repr(C, packed)]
-pub struct Range {
-    start: u8,
-    end: u8,
-}
-
-impl Range {
-    fn is_empty(&self) -> bool {
-        self.start == self.end
+impl ParseBarcode for Mpn1Identity {
+    fn parse_barcode(barcode: &[u8]) -> Result<Self, ParseError> {
+        Mpn1Identity::parse(barcode)
     }
 }
 
@@ -281,6 +246,12 @@ impl OxideIdentity {
         out.serial[..serial.len()].copy_from_slice(serial);
 
         Ok(out)
+    }
+}
+
+impl ParseBarcode for OxideIdentity {
+    fn parse_barcode(barcode: &[u8]) -> Result<Self, ParseError> {
+        OxideIdentity::parse(barcode)
     }
 }
 
@@ -390,7 +361,7 @@ mod tests {
                     String::from_utf8_lossy(input),
                 );
                 assert_eq!(
-                    id.rev(),
+                    id.revision(),
                     rev,
                     "parsing MPN1 identity {:?} REV",
                     String::from_utf8_lossy(input),

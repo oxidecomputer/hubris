@@ -29,7 +29,7 @@ use idol_runtime::{Leased, RequestError};
 use ringbuf::ringbuf_entry_root;
 use static_cell::ClaimOnceCell;
 use task_control_plane_agent_api::{
-    ControlPlaneAgentError, UartClient, VpdIdentity,
+    ControlPlaneAgentError, OxideIdentity, UartClient,
     MAX_INSTALLINATOR_IMAGE_ID_LEN,
 };
 use task_net_api::{Address, MacAddress, UdpMetadata, VLanId};
@@ -170,7 +170,7 @@ impl MgsHandler {
         }
     }
 
-    pub(crate) fn identity(&self) -> VpdIdentity {
+    pub(crate) fn identity(&self) -> OxideIdentity {
         self.common.identity()
     }
 

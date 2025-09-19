@@ -519,6 +519,19 @@ pub enum InventoryData {
         /// 64-bit unique ID for die 1
         die1_unique_id: [u8; 8],
     },
+
+    /// Fan subassembly identity, version 2.
+    ///
+    /// Unlike `FanIdentity`, this message may contain fan barcodes in either
+    /// the `OXV1`/`OXV2` barcode format *or* the `MPN1` barcode format.
+    FanIdentityV2 {
+        /// Identity of the fan assembly
+        identity: Identity,
+        /// Identity of the VPD board within the subassembly
+        vpd_identity: Identity,
+        /// Identity of the individual fans
+        fans: [FanIdentity; 3],
+    },
 }
 
 #[derive(
@@ -569,6 +582,40 @@ impl Default for Identity {
 impl Identity {
     pub const MODEL_LEN: usize = 51;
     pub const SERIAL_LEN: usize = 51;
+}
+
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+)]
+pub struct Mpn1Identity(#[serde(with = "BigArray")] [u8; Self::LEN]);
+
+impl Mpn1Identity {
+    pub const LEN: usize = 128;
+}
+
+impl From<oxide_barcode::Mpn1Identity> for Mpn1Identity {
+    fn from(
+        oxide_barcode::Mpn1Identity { buf, .. }: oxide_barcode::Mpn1Identity,
+    ) -> Self {
+        Self(buf)
+    }
+}
+
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+)]
+pub enum FanIdentity {
+    Oxide(Identity),
+    Mpn1(Mpn1Identity),
+}
+
+impl From<oxide_barcode::VpdIdentity> for FanIdentity {
+    fn from(id: oxide_barcode::VpdIdentity) -> Self {
+        match id {
+            oxide_barcode::VpdIdentity::Mpn1(id) => Self::Mpn1(id.into()),
+            oxide_barcode::VpdIdentity::Oxide(id) => Self::Oxide(id.into()),
+        }
+    }
 }
 
 // See RFD 316 for values.

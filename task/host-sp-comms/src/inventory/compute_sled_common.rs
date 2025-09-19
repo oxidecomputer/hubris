@@ -6,8 +6,8 @@ use drv_i2c_api::I2cDevice;
 use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::at24csw080::{At24Csw080, Error as EepromError};
 use drv_oxide_vpd::VpdError;
-
 use host_sp_messages::{InventoryData, InventoryDataResult};
+use oxide_barcode::{OxideIdentity, VpdIdentity};
 
 impl crate::ServerImpl {
     /// Reads the 128-bit unique ID from an AT24CSW080 EEPROM
@@ -57,7 +57,9 @@ impl crate::ServerImpl {
             let InventoryData::VpdIdentity(identity) = self.scratch else {
                 unreachable!();
             };
-            *identity = read_one_barcode(dev, &[(*b"BARC", 0)])?.into();
+            *identity =
+                read_one_barcode::<OxideIdentity>(dev, &[(*b"BARC", 0)])?
+                    .into();
             Ok(self.scratch)
         })
     }
@@ -103,25 +105,53 @@ impl crate::ServerImpl {
             else {
                 unreachable!();
             };
-            *identity = read_one_barcode(dev, &[(*b"BARC", 0)])?.into();
-            *vpd_identity =
-                read_one_barcode(dev, &[(*b"SASY", 0), (*b"BARC", 0)])?.into();
-            *fan0 =
-                read_one_barcode(dev, &[(*b"SASY", 0), (*b"BARC", 1)])?.into();
-            *fan1 =
-                read_one_barcode(dev, &[(*b"SASY", 0), (*b"BARC", 2)])?.into();
-            *fan2 =
-                read_one_barcode(dev, &[(*b"SASY", 0), (*b"BARC", 3)])?.into();
+            *identity =
+                read_one_barcode::<OxideIdentity>(dev, &[(*b"BARC", 0)])?
+                    .into();
+            *vpd_identity = read_one_barcode::<OxideIdentity>(
+                dev,
+                &[(*b"SASY", 0), (*b"BARC", 0)],
+            )?
+            .into();
+            *fan0 = read_one_barcode::<VpdIdentity>(
+                dev,
+                &[(*b"SASY", 0), (*b"BARC", 1)],
+            )
+            .map(oxide_barcode_or_default)?;
+            *fan1 = read_one_barcode::<VpdIdentity>(
+                dev,
+                &[(*b"SASY", 0), (*b"BARC", 2)],
+            )
+            .map(oxide_barcode_or_default)?;
+            *fan2 = read_one_barcode::<VpdIdentity>(
+                dev,
+                &[(*b"SASY", 0), (*b"BARC", 3)],
+            )
+            .map(oxide_barcode_or_default)?;
             Ok(self.scratch)
-        })
+        });
+
+        fn oxide_barcode_or_default(
+            barcode: oxide_barcode::VpdIdentity,
+        ) -> host_sp_messages::Identity {
+            match barcode {
+                oxide_barcode::VpdIdentity::Oxide(id) => id.into(),
+                oxide_barcode::VpdIdentity::Mpn1(_) => {
+                    host_sp_messages::Identity::default()
+                }
+            }
+        }
     }
 }
 
 /// Free function to read a nested barcode, translating errors appropriately
-fn read_one_barcode(
+fn read_one_barcode<T>(
     dev: I2cDevice,
     path: &[([u8; 4], usize)],
-) -> Result<oxide_barcode::VpdIdentity, InventoryDataResult> {
+) -> Result<T, InventoryDataResult>
+where
+    T: oxide_barcode::ParseBarcode,
+{
     let eeprom = At24Csw080::new(dev);
     let mut barcode = [0; 32];
     match drv_oxide_vpd::read_config_nested_from_into(
@@ -131,7 +161,7 @@ fn read_one_barcode(
     ) {
         Ok(n) => {
             // extract barcode!
-            let identity = oxide_barcode::VpdIdentity::parse(&barcode[..n])
+            let identity = T::parse_barcode(&barcode[..n])
                 .map_err(|_| InventoryDataResult::DeviceFailed)?;
             Ok(identity)
         }
