@@ -35,8 +35,6 @@ pub struct ServerImpl {
 
     // Used in the `apob` module for implementation
     pub(crate) apob_state: apob::ApobState,
-    pub(crate) apob_write_slot: apob::ApobSlot,
-    pub(crate) apob_read_slot: Option<apob::ApobSlot>,
 }
 
 /// This tunes how many bytes we hash in a single async timer notification
@@ -51,14 +49,13 @@ impl ServerImpl {
     ///
     /// Persistent data is loaded from the flash chip and used to select `dev`;
     /// in addition, it is made redundant (written to both virtual devices).
-    pub fn new(drv: FlashDriver) -> Self {
+    pub fn new(mut drv: FlashDriver) -> Self {
+        let apob_state = apob::ApobState::init(&mut drv);
         let mut out = Self {
             dev: drv_hf_api::HfDevSelect::Flash0,
             drv,
             hash: HashData::new(HASH.get_task_id()),
-            apob_state: apob::ApobState::Waiting,
-            apob_write_slot: apob::ApobSlot::Slot0,
-            apob_read_slot: None,
+            apob_state,
         };
         out.drv.set_flash_mux_state(HfMuxState::SP);
         out.ensure_persistent_data_is_redundant();
@@ -66,13 +63,6 @@ impl ServerImpl {
             out.dev = p.dev_select;
         }
         out.drv.set_espi_addr_offset(out.flash_base());
-
-        // Check for APOB data
-        if let Some(s) = out.get_apob_slot() {
-            out.apob_read_slot = Some(s);
-            out.apob_write_slot = !s;
-            out.drv.set_apob_offset(s.base_addr());
-        }
         out
     }
 
@@ -538,7 +528,8 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         length: u64,
         algorithm: drv_hf_api::ApobHash,
     ) -> Result<(), RequestError<drv_hf_api::ApobBeginError>> {
-        self.apob_begin(length, algorithm)
+        self.apob_state
+            .apob_begin(&mut self.drv, length, algorithm)
             .map_err(RequestError::from)
     }
 
@@ -548,7 +539,9 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         offset: u64,
         data: Leased<R, [u8]>,
     ) -> Result<(), RequestError<drv_hf_api::ApobWriteError>> {
-        self.apob_write(offset, data).map_err(RequestError::from)
+        self.apob_state
+            .apob_write(&mut self.drv, offset, data)
+            .map_err(RequestError::from)
     }
 
     fn apob_commit(
@@ -564,7 +557,9 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         offset: u64,
         data: Leased<W, [u8]>,
     ) -> Result<usize, RequestError<drv_hf_api::ApobReadError>> {
-        self.apob_read(offset, data).map_err(RequestError::from)
+        self.apob_state
+            .apob_read(&mut self.drv, offset, data)
+            .map_err(RequestError::from)
     }
 
     fn get_mux(
