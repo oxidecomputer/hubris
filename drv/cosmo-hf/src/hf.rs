@@ -561,10 +561,10 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     fn apob_read(
         &mut self,
         _: &RecvMessage,
-        _offset: u64,
-        _data: Leased<W, [u8]>,
+        offset: u64,
+        data: Leased<W, [u8]>,
     ) -> Result<usize, RequestError<drv_hf_api::ApobReadError>> {
-        Err(drv_hf_api::ApobReadError::NotImplemented.into())
+        self.apob_read(offset, data).map_err(RequestError::from)
     }
 
     fn get_mux(
