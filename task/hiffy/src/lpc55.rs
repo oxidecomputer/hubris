@@ -161,30 +161,6 @@ pub(crate) fn read_from_sp(
     }
 }
 
-#[cfg(feature = "spctrl")]
-pub(crate) fn db_reset_sp(
-    stack: &[Option<u32>],
-    _data: &[u8],
-    _rval: &mut [u8],
-) -> Result<usize, Failure> {
-    if stack.is_empty() {
-        return Err(Failure::Fault(Fault::MissingParameters));
-    }
-    let fp = stack.len() - 1;
-    let delay = match stack[fp + 0] {
-        Some(delay) => delay,
-        None => {
-            return Err(Failure::Fault(Fault::EmptyParameter(0)));
-        }
-    };
-
-    let task = SP_CTRL.get_task_id();
-    let sp_ctrl = drv_sp_ctrl_api::SpCtrl::from(task);
-
-    sp_ctrl.db_reset_sp(delay);
-    Ok(0)
-}
-
 #[cfg(feature = "gpio")]
 fn gpio_args(
     stack: &[Option<u32>],
@@ -400,8 +376,6 @@ pub(crate) static HIFFY_FUNCS: &[Function] = &[
     read_from_sp,
     #[cfg(feature = "spctrl")]
     sp_ctrl_init,
-    #[cfg(feature = "spctrl")]
-    db_reset_sp,
 ];
 
 //

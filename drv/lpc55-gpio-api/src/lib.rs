@@ -282,11 +282,14 @@ impl PintSlot {
     SerializedSize,
 )]
 #[repr(u8)]
-pub enum PintOp {
-    Clear,
-    Enable,
-    Disable,
-    Detected,
+pub enum PintCondition {
+    /// Rising Edge detection
+    Rising,
+    /// Falling Edge detection
+    Falling,
+    // TODO: Support Level triggered interrupts.
+    // High,
+    // Low,
 }
 
 #[derive(
@@ -304,16 +307,13 @@ pub enum PintOp {
     SerializedSize,
 )]
 #[repr(u8)]
-pub enum PintCondition {
-    /// Interrupt state for this Pin Interrupt
-    Status,
-    /// Rising Edge detection
+pub enum PintFlag {
+    /// Both rising and falling edges
+    Both,
+    /// Rising edge detection
     Rising,
-    /// Falling Edge detection
+    /// Falling edge detection
     Falling,
-    // TODO: Support Level triggered interrupts.
-    // High,
-    // Low,
 }
 
 impl Pins {

@@ -113,6 +113,9 @@ use zerocopy::IntoBytes;
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,
+    Start {
+        is_dongle_connected: bool,
+    },
     Idcode(u32),
     Idr(u32),
     MemVal(u32),
@@ -401,11 +404,27 @@ enum SwdSetupErr {
     Idr(Ack),
 }
 
+#[derive(Copy, Clone, Eq, PartialEq)]
+enum SwdState {
+    /// The SWD GPIOs are configured as inputs
+    ///
+    /// This is used when a physical debugger is attached to the SP (detected
+    /// through the JTAG_DETECT line)
+    Disconnected,
+
+    /// The SWD GPIOs are configured
+    Connected {
+        /// Marks whether SWD has been initialized
+        init: bool,
+    },
+}
+
 struct ServerImpl {
     spi: spi_core::Spi,
-    gpio: TaskId,
+    gpio_task: TaskId,
+    gpio: drv_lpc55_gpio_api::Pins,
     attest: Attest,
-    init: bool,
+    state: SwdState,
     transaction: Option<MemTransaction>,
 }
 
@@ -601,36 +620,6 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
         sys_set_timer(None, notifications::TIMER_MASK);
         Ok(())
     }
-
-    /// Remote debugging support.
-    /// Yet another way to reset the SP. This one is known to finish before
-    /// any other code in this task runs.
-    #[cfg(feature = "enable_ext_sp_reset")]
-    fn db_reset_sp(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-        delay: u32,
-    ) -> Result<(), RequestError<core::convert::Infallible>> {
-        self.sp_reset_enter();
-        hl::sleep_for(delay.into());
-        let _ = self.swd_setup();
-        let _ = self.dp_write_bitflags::<Demcr>(Demcr::from_bits_retain(0));
-        let _ = self.dp_write_bitflags::<Dhcsr>(Dhcsr::end_debug());
-        self.swd_finish();
-        self.sp_reset_leave();
-        Ok(())
-    }
-
-    #[cfg(not(feature = "enable_ext_sp_reset"))]
-    fn db_reset_sp(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-        _delay: u32,
-    ) -> Result<(), RequestError<core::convert::Infallible>> {
-        // This is a debug feature. Don't reset the client for asking.
-        // Silently ignore.
-        Ok(())
-    }
 }
 
 impl NotificationHandler for ServerImpl {
@@ -649,30 +638,22 @@ impl NotificationHandler for ServerImpl {
         //     that the SP dongle is removed or its power is removed, but if
         //     there is a dongle attached to the SP, then let the humans figure it out
         //     and don't complicate the behavior here.
-        //
-
-        let mut invalidate = false;
-        let gpio = Pins::from(self.gpio);
 
         if bits.check_notification_mask(notifications::JTAG_DETECT_IRQ_MASK) {
             ringbuf_entry!(Trace::SpJtagDetectFired);
             const SLOT: PintSlot = SP_TO_ROT_JTAG_DETECT_L_PINT_SLOT;
-            if let Ok(Some(detected)) =
-                gpio.pint_op(SLOT, PintOp::Detected, PintCondition::Falling)
-            {
-                if detected {
-                    ringbuf_entry!(Trace::InvalidateSpMeasurement);
-                    // Reset the attestation log
-                    invalidate = true;
-                    self.next_use_must_setup_swd();
-                }
+            if self.gpio.pint_detect(SLOT, PintFlag::Falling) {
+                ringbuf_entry!(Trace::InvalidateSpMeasurement);
+                self.on_swd_connected();
+                self.gpio.pint_clear(SLOT, PintFlag::Both);
             } else {
-                // The pint_op parameters are for a configured PINT slot for one of
-                // our configured GPIO pins. We're testing a status bit in a register.
-                unreachable!();
+                // Spurious notification, ignore it
             }
-            let _ = gpio.pint_op(SLOT, PintOp::Clear, PintCondition::Status);
             sys_irq_control(notifications::JTAG_DETECT_IRQ_MASK, true);
+        } else if matches!(self.state, SwdState::Disconnected)
+            && !self.swd_dongle_detected()
+        {
+            self.on_swd_disconnected();
         }
 
         if bits.has_timer_fired(notifications::TIMER_MASK) {
@@ -694,10 +675,10 @@ impl NotificationHandler for ServerImpl {
                         //     the timer firing, a JTAG dongle has been
                         //     powered-up or attached.
                         //
-                        // These problems either should have been caught in
-                        // CI testing, require HW repair, or are because a
-                        // human is messing with the system by holding down the
-                        // SP's physical reset button.
+                        // These problems either should have been caught in CI
+                        // testing, require HW repair, or are because a human is
+                        // messing with the system by holding down the SP's
+                        // physical reset button.
                         //
                         // Reporting:
                         // RFDs 544 and 520 may result in a reporting
@@ -715,45 +696,34 @@ impl NotificationHandler for ServerImpl {
                     }
                 }
                 Err(e) => {
-                    // This should only fail if JTAG_DETECT or SP_RESET are currently asserted.
+                    // This should only fail if JTAG_DETECT or SP_RESET are
+                    // currently asserted.
                     ringbuf_entry!(Trace::TimerHandlerError(e));
                 }
             }
         }
 
         if bits.check_notification_mask(notifications::SP_RESET_IRQ_MASK) {
-            ringbuf_entry!(Trace::SpResetFired);
-            if !invalidate && !self.do_handle_sp_reset() {
-                ringbuf_entry!(Trace::InvalidateSpMeasurement);
-                // Clear the attestation log
-                invalidate = true;
-            }
-            self.next_use_must_setup_swd();
-
-            //  We are not going to try to measure/trust the SP
-            //  when there is a glitch on the JTAG_DETECT signal.
+            //  We are not going to try to measure/trust the SP when there is a
+            //  glitch on the JTAG_DETECT signal.
             //
             //  e.g. JTAG_DETECT fired but before the handler was called, it
             //  de-asserted so that the SP_RESET that also fired could be
             //  handled successfully.
-            //}
+            ringbuf_entry!(Trace::SpResetFired);
+            if matches!(self.state, SwdState::Connected { .. })
+                && !self.do_handle_sp_reset()
+            {
+                // If handling the SP reset failed, clear the attestation log
+                ringbuf_entry!(Trace::InvalidateSpMeasurement);
+                self.invalidate_sp_measurement();
+            }
+            self.next_use_must_setup_swd();
 
-            const SLOT: PintSlot = ROT_TO_SP_RESET_L_IN_PINT_SLOT;
-
-            // Squelch the interrupts generated by this handler's
-            // toggling of SP_RESET.
-            let _ = gpio.pint_op(
-                ROT_TO_SP_RESET_L_IN_PINT_SLOT,
-                PintOp::Clear,
-                PintCondition::Rising,
-            );
-            let _ = gpio.pint_op(
-                ROT_TO_SP_RESET_L_IN_PINT_SLOT,
-                PintOp::Clear,
-                PintCondition::Falling,
-            );
-            let _ = gpio.pint_op(SLOT, PintOp::Clear, PintCondition::Status);
-
+            // Squelch the interrupts generated by this handler's toggling of
+            // SP_RESET.
+            self.gpio
+                .pint_clear(ROT_TO_SP_RESET_L_IN_PINT_SLOT, PintFlag::Falling);
             sys_irq_control_clear_pending(
                 notifications::SP_RESET_IRQ_MASK,
                 true,
@@ -761,15 +731,31 @@ impl NotificationHandler for ServerImpl {
 
             ringbuf_entry!(Trace::EndOfNotificationHandler);
         }
-
-        if invalidate {
-            // invalidate_sp_measurement() logs to Ringbuf
-            let _ = self.invalidate_sp_measurement();
-        }
     }
 }
 
 impl ServerImpl {
+    /// Callback to handle when an external programmer is connected
+    ///
+    /// This function invalidates the measurement log, switches our internal
+    /// state, and configures the SPI pins as inputs (to avoid fighting with the
+    /// programmer).
+    fn on_swd_connected(&mut self) {
+        // Reset the attestation log
+        self.invalidate_sp_measurement();
+
+        // Cancel ongoing transactions
+        self.transaction = None;
+        self.state = SwdState::Disconnected;
+        switch_io_disconnected();
+    }
+
+    /// When an external programmer is disconnected, connect to the SP
+    fn on_swd_disconnected(&mut self) {
+        switch_io_connected();
+        self.state = SwdState::Connected { init: false };
+    }
+
     fn io_out(&mut self) {
         self.wait_for_mstidle();
         switch_io_out();
@@ -1008,8 +994,7 @@ impl ServerImpl {
     }
 
     fn swd_dongle_detected(&self) -> bool {
-        let gpio = Pins::from(self.gpio);
-        gpio.read_val(SP_TO_ROT_JTAG_DETECT_L) == Value::Zero
+        self.gpio.read_val(SP_TO_ROT_JTAG_DETECT_L) == Value::Zero
     }
 
     fn swd_setup(&mut self) -> Result<(), SwdSetupErr> {
@@ -1357,15 +1342,13 @@ impl ServerImpl {
     }
 
     fn sp_reset_enter(&mut self) {
-        setup_rot_to_sp_reset_l_out(self.gpio);
-        let gpio = Pins::from(self.gpio);
-        gpio.set_val(ROT_TO_SP_RESET_L_OUT, Value::Zero);
+        setup_rot_to_sp_reset_l_out(self.gpio_task);
+        self.gpio.set_val(ROT_TO_SP_RESET_L_OUT, Value::Zero);
     }
 
     fn sp_reset_leave(&mut self) {
-        let gpio = Pins::from(self.gpio);
-        setup_rot_to_sp_reset_l_in(self.gpio);
-        gpio.set_val(ROT_TO_SP_RESET_L_IN, Value::One); // should be a no-op
+        setup_rot_to_sp_reset_l_in(self.gpio_task);
+        self.gpio.set_val(ROT_TO_SP_RESET_L_IN, Value::One); // should be a no-op
     }
 
     // The SP is halted at its reset vector.
@@ -1458,8 +1441,7 @@ impl ServerImpl {
         if self.wait_for_sp_halt(WAIT_FOR_HALT_MS).is_err() {
             // If a human is holding down a physical reset button then
             // SP_RESET may have never been released.
-            let gpio = Pins::from(self.gpio);
-            let sp_reset_state = gpio.read_val(ROT_TO_SP_RESET_L_IN);
+            let sp_reset_state = self.gpio.read_val(ROT_TO_SP_RESET_L_IN);
             ringbuf_entry!(Trace::DidNotHalt { sp_reset_state });
             return Err(());
         };
@@ -1573,14 +1555,18 @@ impl ServerImpl {
         ringbuf_entry!(Trace::DoSetup);
 
         if self.swd_dongle_detected() {
+            // Don't change state here; we'll catch it in the pin-change IRQ
             ringbuf_entry!(Trace::DongleDetected);
             return Err(SpCtrlError::DongleDetected);
+        } else if self.state == SwdState::Disconnected {
+            switch_io_connected();
+            self.state = SwdState::Connected { init: false };
         }
 
         match self.swd_setup() {
             Ok(_) => {
                 ringbuf_entry!(Trace::SwdSetupOk);
-                self.init = true;
+                self.state = SwdState::Connected { init: true };
                 Ok(())
             }
             Err(e) => {
@@ -1616,13 +1602,16 @@ impl ServerImpl {
     }
 
     fn next_use_must_setup_swd(&mut self) {
-        self.init = false;
+        // Reset SWD state if it is connected
+        if let SwdState::Connected { init } = &mut self.state {
+            *init = false;
+        }
         // Any in-progress bulk data transfer is cancelled.
         self.transaction = None;
     }
 
     fn is_swd_setup(&self) -> bool {
-        self.init
+        matches!(self.state, SwdState::Connected { init: true })
     }
 
     fn do_halt(&mut self) -> Result<(), SpCtrlError> {
@@ -1659,8 +1648,7 @@ impl ServerImpl {
             if deadline <= sys_get_timer().now {
                 // If a human is holding down a physical reset button then
                 // SP_RESET may have never been released.
-                let gpio = Pins::from(self.gpio);
-                let sp_reset_state = gpio.read_val(ROT_TO_SP_RESET_L_IN);
+                let sp_reset_state = self.gpio.read_val(ROT_TO_SP_RESET_L_IN);
                 ringbuf_entry!(Trace::DidNotHalt { sp_reset_state });
                 break Err(SpCtrlError::Timeout);
             }
@@ -1678,16 +1666,11 @@ impl ServerImpl {
         }
     }
 
-    fn invalidate_sp_measurement(&mut self) -> Result<(), AttestError> {
+    /// Invalidates the SP measurement, logging the result
+    fn invalidate_sp_measurement(&mut self) {
         match self.attest.reset() {
-            Ok(()) => {
-                ringbuf_entry!(Trace::InvalidatedSpMeasurement);
-                Ok(())
-            }
-            Err(e) => {
-                ringbuf_entry!(Trace::AttestError(e));
-                Err(e)
-            }
+            Ok(()) => ringbuf_entry!(Trace::InvalidatedSpMeasurement),
+            Err(e) => ringbuf_entry!(Trace::AttestError(e)),
         }
     }
 
@@ -1695,31 +1678,24 @@ impl ServerImpl {
     // Return false if any current SP measurement should be invalidated.
     #[must_use]
     fn do_handle_sp_reset(&mut self) -> bool {
-        let gpio = Pins::from(self.gpio);
-        const SLOT: PintSlot = ROT_TO_SP_RESET_L_IN_PINT_SLOT;
-
         // Did SP_RESET transition to Zero?
-        if let Ok(Some(detected)) =
-            gpio.pint_op(SLOT, PintOp::Detected, PintCondition::Falling)
+        if !self
+            .gpio
+            .pint_detect(ROT_TO_SP_RESET_L_IN_PINT_SLOT, PintFlag::Falling)
         {
-            if !detected {
-                // Use of sys_irq_control_clear_pending(...) should avoid
-                // appearance of a "spurious" interrupt.
-                // Otherwise, cases where we assert SP_RESET then clean-up the PINT
-                // condition will have a pending notification.
-                ringbuf_entry!(Trace::SpResetNotAsserted);
-                return true; // no work required.
-            }
-        } else {
-            // The pint_op parameters are for a configured PINT slot for one of
-            // our configured GPIO pins. We're testing a status bit in a register.
-            unreachable!();
+            // Use of sys_irq_control_clear_pending(...) should avoid appearance
+            // of a "spurious" interrupt.
+            //
+            // Otherwise, cases where we assert SP_RESET then clean-up the PINT
+            // condition will have a pending notification.
+            ringbuf_entry!(Trace::SpResetNotAsserted);
+            return true; // no work required.
         }
 
         ringbuf_entry!(Trace::SpResetAsserted);
 
-        // This notification handler should be compatible with watchdog but
-        // will result in the invalidation of any dumps held in the SP if successful.
+        // This notification handler should be compatible with watchdog but will
+        // result in the invalidation of any dumps held in the SP if successful.
 
         // TODO: confirm that bank-flipping SP update watchdog is working.
 
@@ -1883,7 +1859,7 @@ fn slice_to_le_u32(slice: &[u8]) -> Option<u32> {
 fn main() -> ! {
     let syscon = SYSCON.get_task_id();
 
-    let gpio = GPIO.get_task_id();
+    let gpio_task = GPIO.get_task_id();
     let attest = Attest::from(ATTEST.get_task_id());
 
     let mut spi = setup_spi(syscon);
@@ -1900,35 +1876,43 @@ fn main() -> ! {
 
     spi.enable();
 
-    let mut server = ServerImpl {
-        spi,
-        gpio,
-        attest,
-        init: false,
-        transaction: None,
-    };
-
     // Setup GPIO pins so that we can receive interrupts
     // and interact with the SP's SWD interface.
-    let _ = setup_pins(server.gpio);
+    let _ = setup_pins(gpio_task);
+
+    // Check whether the dongle is connected at startup
+    let gpio = drv_lpc55_gpio_api::Pins::from(gpio_task);
+    let is_dongle_connected =
+        gpio.read_val(SP_TO_ROT_JTAG_DETECT_L) == Value::Zero;
+    if is_dongle_connected {
+        switch_io_disconnected();
+    }
+    ringbuf_entry!(Trace::Start {
+        is_dongle_connected
+    });
 
     // Detect SP entering reset
-    let _ = Pins::from(server.gpio).pint_op(
-        ROT_TO_SP_RESET_L_IN_PINT_SLOT,
-        PintOp::Enable,
-        PintCondition::Falling,
-    );
+    gpio.pint_enable(ROT_TO_SP_RESET_L_IN_PINT_SLOT, PintCondition::Falling);
     sys_irq_control(notifications::SP_RESET_IRQ_MASK, true);
 
     // JTAG active will block SWD operations.
     // We also need to detect JTAG going active so that if we've made a
     // measurement it can be invalidated.
-    let _ = Pins::from(server.gpio).pint_op(
-        SP_TO_ROT_JTAG_DETECT_L_PINT_SLOT,
-        PintOp::Enable,
-        PintCondition::Falling,
-    );
+    gpio.pint_enable(SP_TO_ROT_JTAG_DETECT_L_PINT_SLOT, PintCondition::Falling);
     sys_irq_control(notifications::JTAG_DETECT_IRQ_MASK, true);
+
+    let mut server = ServerImpl {
+        spi,
+        gpio_task,
+        gpio,
+        attest,
+        state: if is_dongle_connected {
+            SwdState::Disconnected
+        } else {
+            SwdState::Connected { init: false }
+        },
+        transaction: None,
+    };
 
     let mut incoming = [0; idl::INCOMING_SIZE];
 
