@@ -9,7 +9,7 @@
 use drv_local_vpd::LocalVpdError;
 use oxide_barcode::ParseError as BarcodeParseError;
 use ringbuf::{ringbuf, ringbuf_entry};
-use task_packrat_api::{CacheSetError, MacAddressBlock, VpdIdentity};
+use task_packrat_api::{CacheSetError, MacAddressBlock, OxideIdentity};
 use userlib::{hl, TaskId};
 
 pub use task_packrat_api::Packrat;
@@ -21,7 +21,7 @@ enum Trace {
     BarcodeLocalVpdError(LocalVpdError),
     BarcodeParseError(BarcodeParseError),
     MacsAlreadySet(MacAddressBlock),
-    IdentityAlreadySet(VpdIdentity),
+    IdentityAlreadySet(OxideIdentity),
 }
 
 ringbuf!(Trace, 16, Trace::None);
@@ -104,14 +104,14 @@ impl From<BarcodeParseError> for VpdIdentityError {
 /// Supports `0XV1` and `0XV2` formats.
 fn read_oxide_barcode(
     i2c_task: TaskId,
-) -> Result<VpdIdentity, VpdIdentityError> {
+) -> Result<OxideIdentity, VpdIdentityError> {
     // 0XV1 barcodes are 31 bytes and 0XV2 barcodes are 32 bytes; those are
     // the only two version we know how to parse today, so we're safe with a
     // 32-byte output buffer.
     let mut barcode = [0; 32];
 
     let n = drv_local_vpd::read_config_into(i2c_task, *b"BARC", &mut barcode)?;
-    let identity = VpdIdentity::parse(&barcode[..n])?;
+    let identity = OxideIdentity::parse(&barcode[..n])?;
 
     Ok(identity)
 }

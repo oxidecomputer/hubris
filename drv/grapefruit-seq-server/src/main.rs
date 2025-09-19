@@ -12,7 +12,9 @@ use drv_spartan7_loader_api::Spartan7Loader;
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};
 use task_jefe_api::Jefe;
-use task_packrat_api::{CacheSetError, MacAddressBlock, Packrat, VpdIdentity};
+use task_packrat_api::{
+    CacheSetError, MacAddressBlock, OxideIdentity, Packrat,
+};
 use userlib::{hl, task_slot, FromPrimitive, RecvMessage, UnwrapLite};
 
 use ringbuf::{counted_ringbuf, ringbuf_entry, Count};
@@ -26,7 +28,7 @@ enum Trace {
     None,
 
     MacsAlreadySet(MacAddressBlock),
-    IdentityAlreadySet(VpdIdentity),
+    IdentityAlreadySet(OxideIdentity),
 }
 
 counted_ringbuf!(Trace, 128, Trace::None);
@@ -51,7 +53,7 @@ fn main() -> ! {
             ringbuf_entry!(Trace::MacsAlreadySet(macs));
         }
     }
-    let identity = VpdIdentity {
+    let identity = OxideIdentity {
         serial: *b"GRAPEFRUIT\0",
         part_number: *b"913-0000083",
         revision: 0,

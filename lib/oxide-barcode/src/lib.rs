@@ -8,6 +8,7 @@
 
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
+use serde_big_array::BigArray;
 use zerocopy::{
     FromBytes, FromZeros, Immutable, IntoBytes, KnownLayout, Unaligned,
 };
@@ -18,11 +19,35 @@ pub enum ParseError {
     MissingPartNumber,
     MissingRevision,
     MissingSerial,
+    MissingMfg,
     UnexpectedFields,
     UnknownVersion,
     WrongPartNumberLength,
     WrongSerialLength,
+    WrongMfgLength,
     BadRevision,
+}
+
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, SerializedSize,
+)]
+#[repr(u8)]
+pub enum VpdIdentity {
+    Oxide(OxideIdentity),
+    Mpn1(Mpn1Identity),
+}
+
+impl VpdIdentity {
+    pub fn parse(barcode: &[u8]) -> Result<Self, ParseError> {
+        let mut fields = barcode.split(|&b| b == b':');
+
+        let version = fields.next().ok_or(ParseError::MissingVersion)?;
+        match version {
+            b"MPN1" => Mpn1Identity::from_parts(fields).map(VpdIdentity::Mpn1),
+            _ => OxideIdentity::from_parts(version, fields)
+                .map(VpdIdentity::Oxide),
+        }
+    }
 }
 
 #[derive(
@@ -42,22 +67,175 @@ pub enum ParseError {
     SerializedSize,
 )]
 #[repr(C, packed)]
-pub struct VpdIdentity {
+pub struct OxideIdentity {
     pub part_number: [u8; Self::PART_NUMBER_LEN],
     pub revision: u32,
     pub serial: [u8; Self::SERIAL_LEN],
 }
 
-impl VpdIdentity {
+impl OxideIdentity {
     pub const PART_NUMBER_LEN: usize = 11;
     pub const SERIAL_LEN: usize = 11;
 }
 
-impl VpdIdentity {
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    FromBytes,
+    IntoBytes,
+    Unaligned,
+    Immutable,
+    KnownLayout,
+    Serialize,
+    Deserialize,
+    SerializedSize,
+)]
+#[repr(C, packed)]
+pub struct Mpn1Identity {
+    #[serde(with = "BigArray")]
+    buf: [u8; Self::MAX_LEN],
+    mfg: Range,
+    mpn: Range,
+    rev: Range,
+    sn: Range,
+}
+
+impl Mpn1Identity {
+    pub const MAX_LEN: usize =
+        // The MPN1 barcode itself has a maximum length of 128 bytes in the EEPROM.
+        128
+        // subtract 4 bytes for the four colons
+        - 4
+        // subtract another 4 bytes for the string "MPN1"
+        - 4;
+
+    pub fn mfg(&self) -> Option<&[u8]> {
+        self.index_range(self.mfg)
+    }
+
+    pub fn mpn(&self) -> Option<&[u8]> {
+        self.index_range(self.mpn)
+    }
+
+    pub fn rev(&self) -> Option<&[u8]> {
+        self.index_range(self.rev)
+    }
+
+    pub fn serial(&self) -> Option<&[u8]> {
+        self.index_range(self.sn)
+    }
+
+    fn index_range(&self, range: Range) -> Option<&[u8]> {
+        if range.is_empty() {
+            None
+        } else {
+            Some(&self.buf[range.start as usize..range.end as usize])
+        }
+    }
+
+    fn from_parts<'parts>(
+        mut fields: impl Iterator<Item = &'parts [u8]> + 'parts,
+    ) -> Result<Self, ParseError> {
+        let mfg = fields.next().ok_or(ParseError::MissingMfg)?;
+        let part_number = fields.next().ok_or(ParseError::MissingPartNumber)?;
+        let revision = fields.next().ok_or(ParseError::MissingRevision)?;
+        let serial = fields.next().ok_or(ParseError::MissingSerial)?;
+
+        let mut buf = [0u8; Self::MAX_LEN];
+        let mut len = 0;
+
+        fn append_chunk(
+            buf: &mut [u8],
+            len: &mut usize,
+            chunk: &[u8],
+        ) -> Result<Range, ()> {
+            let start = *len;
+            let end = start + chunk.len();
+            if end > buf.len() {
+                return Err(());
+            }
+
+            buf[start..end].copy_from_slice(chunk);
+            *len += chunk.len();
+            Ok(Range {
+                start: start as u8,
+                end: end as u8,
+            })
+        }
+
+        if mfg.len() != 0 && mfg.len() != 3 {
+            return Err(ParseError::WrongMfgLength);
+        }
+        let mfg = append_chunk(&mut buf, &mut len, mfg)
+            .map_err(|_| ParseError::WrongMfgLength)?;
+
+        let mpn = append_chunk(&mut buf, &mut len, part_number)
+            .map_err(|_| ParseError::WrongPartNumberLength)?;
+
+        let rev = append_chunk(&mut buf, &mut len, revision)
+            .map_err(|_| ParseError::BadRevision)?;
+
+        let sn = append_chunk(&mut buf, &mut len, serial)
+            .map_err(|_| ParseError::WrongSerialLength)?;
+
+        Ok(Self {
+            buf,
+            mfg,
+            mpn,
+            rev,
+            sn,
+        })
+    }
+}
+
+// "Hey Eliza", you ask, "why not use `core::ops::Range` for these?" Well, I
+// wanted to, but we use our won custom range type as `zerocopy` doesn't
+// implement its traits for `core::ops::Range`. Using our own range type has a
+// few other advantages, though: because the maximum buffer size for a MPN1
+// serial is 128 bytes, we can use `u8`s for our range freely and save several
+// bytes versus `usize` ranges.
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    FromBytes,
+    IntoBytes,
+    Unaligned,
+    Immutable,
+    KnownLayout,
+    Serialize,
+    Deserialize,
+    SerializedSize,
+)]
+#[repr(C, packed)]
+pub struct Range {
+    start: u8,
+    end: u8,
+}
+
+impl Range {
+    fn is_empty(&self) -> bool {
+        self.start == self.end
+    }
+}
+
+impl OxideIdentity {
     pub fn parse(barcode: &[u8]) -> Result<Self, ParseError> {
         let mut fields = barcode.split(|&b| b == b':');
 
         let version = fields.next().ok_or(ParseError::MissingVersion)?;
+        Self::from_parts(version, fields)
+    }
+
+    fn from_parts<'parts>(
+        version: &'parts [u8],
+        mut fields: impl Iterator<Item = &'parts [u8]> + 'parts,
+    ) -> Result<Self, ParseError> {
         let part_number = fields.next().ok_or(ParseError::MissingPartNumber)?;
         let revision = fields.next().ok_or(ParseError::MissingRevision)?;
         let serial = fields.next().ok_or(ParseError::MissingSerial)?;
@@ -67,7 +245,7 @@ impl VpdIdentity {
 
         // Note: the fact that this is created _zeroed_ is important for the
         // variable length field handling below.
-        let mut out = VpdIdentity::new_zeroed();
+        let mut out = OxideIdentity::new_zeroed();
 
         match version {
             // V1 does not include the hyphen in the part number; we need to
@@ -101,7 +279,6 @@ impl VpdIdentity {
             return Err(ParseError::WrongSerialLength);
         }
         out.serial[..serial.len()].copy_from_slice(serial);
-        // tail is already zeroed
 
         Ok(out)
     }
@@ -112,10 +289,10 @@ mod tests {
     use super::*;
 
     #[track_caller]
-    fn check_parse(input: &[u8], expected: VpdIdentity) {
+    fn check_parse_oxide(input: &[u8], expected: OxideIdentity) {
         assert_eq!(
             expected,
-            VpdIdentity::parse(input).unwrap(),
+            OxideIdentity::parse(input).unwrap(),
             "parsing string: {}",
             String::from_utf8_lossy(input),
         );
@@ -134,7 +311,7 @@ mod tests {
 
         assert_eq!(
             expected,
-            VpdIdentity::parse(&copy).unwrap(),
+            OxideIdentity::parse(&copy).unwrap(),
             "parsing string: {}",
             String::from_utf8_lossy(&copy),
         );
@@ -142,9 +319,9 @@ mod tests {
 
     #[test]
     fn parse_oxv1() {
-        check_parse(
+        check_parse_oxide(
             b"0XV1:1230000456:023:TST01234567",
-            VpdIdentity {
+            OxideIdentity {
                 part_number: *b"123-0000456",
                 revision: 23,
                 serial: *b"TST01234567",
@@ -154,9 +331,9 @@ mod tests {
 
     #[test]
     fn parse_oxv2() {
-        check_parse(
+        check_parse_oxide(
             b"0XV2:123-0000456:023:TST01234567",
-            VpdIdentity {
+            OxideIdentity {
                 part_number: *b"123-0000456",
                 revision: 23,
                 serial: *b"TST01234567",
@@ -166,9 +343,9 @@ mod tests {
 
     #[test]
     fn parse_oxv2_shorter_serial() {
-        check_parse(
+        check_parse_oxide(
             b"0XV2:123-0000456:023:TST0123456",
-            VpdIdentity {
+            OxideIdentity {
                 part_number: *b"123-0000456",
                 revision: 23,
                 // should get padded with NULs to the right:
@@ -179,14 +356,112 @@ mod tests {
 
     #[test]
     fn parse_oxv2_shorter_part() {
-        check_parse(
+        check_parse_oxide(
             b"0XV2:123-000045:023:TST01234567",
-            VpdIdentity {
+            OxideIdentity {
                 // should get padded with NULs to the right:
                 part_number: *b"123-000045\0",
                 revision: 23,
                 serial: *b"TST01234567",
             },
         );
+    }
+
+    #[track_caller]
+    fn check_parse_mpn1(
+        input: &[u8],
+        mfg: Option<&[u8]>,
+        mpn: Option<&[u8]>,
+        rev: Option<&[u8]>,
+        serial: Option<&[u8]>,
+    ) {
+        match VpdIdentity::parse(input) {
+            Ok(VpdIdentity::Mpn1(id)) => {
+                assert_eq!(
+                    id.mfg(),
+                    mfg,
+                    "parsing MPN1 identity {:?} MFG",
+                    String::from_utf8_lossy(input),
+                );
+                assert_eq!(
+                    id.mpn(),
+                    mpn,
+                    "parsing MPN1 identity {:?} MPN",
+                    String::from_utf8_lossy(input),
+                );
+                assert_eq!(
+                    id.rev(),
+                    rev,
+                    "parsing MPN1 identity {:?} REV",
+                    String::from_utf8_lossy(input),
+                );
+                assert_eq!(
+                    id.serial(),
+                    serial,
+                    "parsing MPN1 identity {:?} SERIAL",
+                    String::from_utf8_lossy(input),
+                );
+            }
+            Ok(VpdIdentity::Oxide(id)) => {
+                panic!(
+                    "expected MPN1 identity {:?}, but parsed as OXV1/OXV2: {id:?}",
+                    String::from_utf8_lossy(input)
+                );
+            }
+            Err(e) => {
+                panic!(
+                    "parsing MPN1 identity {:?}: {e:?}",
+                    String::from_utf8_lossy(input),
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn parse_mpn1() {
+        let input = b"MPN1:ABC:ASDF-1000:032:123456789";
+        check_parse_mpn1(
+            input,
+            Some(b"ABC"),
+            Some(b"ASDF-1000"),
+            Some(b"032"),
+            Some(b"123456789"),
+        );
+    }
+
+    #[test]
+    fn parse_mpn1_empty() {
+        let input = b"MPN1::::";
+        check_parse_mpn1(input, None, None, None, None);
+    }
+
+    #[test]
+    fn parse_mpn1_no_mpn_rev() {
+        let input = b"MPN1:XYZ:::12345ABCD";
+        check_parse_mpn1(input, Some(b"XYZ"), None, None, Some(b"12345ABCD"));
+    }
+
+    #[test]
+    fn parse_mpn1_no_serial() {
+        let input = b"MPN1:XYZ:1234ABC:420:";
+        check_parse_mpn1(
+            input,
+            Some(b"XYZ"),
+            Some(b"1234ABC"),
+            Some(b"420"),
+            None,
+        );
+    }
+
+    #[test]
+    fn mpn1_serde_roundtrip() {
+        let input = b"MPN1:ABC:ASDF-1000:032:123456789";
+        let vpd = VpdIdentity::parse(input).expect("MPN1 should parse");
+        let mut buf = [0u8; VpdIdentity::MAX_SIZE];
+        let len = dbg!(hubpack::serialize(&mut buf, &vpd))
+            .expect("serialization should succeed");
+        let (vpd2, _) = dbg!(hubpack::deserialize(&buf[..len]))
+            .expect("deserialization should succeed");
+        assert_eq!(vpd, vpd2);
     }
 }

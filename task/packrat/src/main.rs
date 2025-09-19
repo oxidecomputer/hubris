@@ -70,7 +70,7 @@ use ringbuf::{ringbuf, ringbuf_entry};
 use static_cell::ClaimOnceCell;
 use task_packrat_api::{
     CacheGetError, CacheSetError, EreportReadError, EreportWriteError,
-    HostStartupOptions, MacAddressBlock, VpdIdentity,
+    HostStartupOptions, MacAddressBlock, OxideIdentity,
 };
 use userlib::RecvMessage;
 
@@ -102,7 +102,7 @@ type SpdData = spd_data::SpdData<0, 0>; // dummy type
 enum Trace {
     None,
     MacAddressBlockSet(TraceSet<MacAddressBlock>),
-    VpdIdentitySet(TraceSet<VpdIdentity>),
+    VpdIdentitySet(TraceSet<OxideIdentity>),
     SetNextBootHostStartupOptions(HostStartupOptions),
     SpdDataUpdate {
         index: u8,
@@ -122,8 +122,8 @@ impl From<TraceSet<MacAddressBlock>> for Trace {
     }
 }
 
-impl From<TraceSet<VpdIdentity>> for Trace {
-    fn from(value: TraceSet<VpdIdentity>) -> Self {
+impl From<TraceSet<OxideIdentity>> for Trace {
+    fn from(value: TraceSet<OxideIdentity>) -> Self {
         Self::VpdIdentitySet(value)
     }
 }
@@ -159,7 +159,7 @@ ringbuf!(Trace, 16, Trace::None);
 fn main() -> ! {
     struct StaticBufs {
         mac_address_block: Option<MacAddressBlock>,
-        identity: Option<VpdIdentity>,
+        identity: Option<OxideIdentity>,
         #[cfg(feature = "gimlet")]
         gimlet_bufs: gimlet::StaticBufs,
         #[cfg(feature = "cosmo")]
@@ -212,7 +212,7 @@ fn main() -> ! {
 
 struct ServerImpl {
     mac_address_block: &'static mut Option<MacAddressBlock>,
-    identity: &'static mut Option<VpdIdentity>,
+    identity: &'static mut Option<OxideIdentity>,
     #[cfg(feature = "gimlet")]
     gimlet_data: gimlet::GimletData,
     #[cfg(feature = "grapefruit")]
@@ -312,7 +312,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
     fn get_identity(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<VpdIdentity, RequestError<CacheGetError>> {
+    ) -> Result<OxideIdentity, RequestError<CacheGetError>> {
         let addrs = self.identity.ok_or(CacheGetError::ValueNotSet)?;
         Ok(addrs)
     }
@@ -320,7 +320,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
     fn set_identity(
         &mut self,
         _: &RecvMessage,
-        identity: VpdIdentity,
+        identity: OxideIdentity,
     ) -> Result<(), RequestError<CacheSetError>> {
         Self::set_once(self.identity, identity).map_err(Into::into)
     }
@@ -585,7 +585,7 @@ impl NotificationHandler for ServerImpl {
 mod idl {
     use super::{
         ereport_messages, CacheGetError, CacheSetError, EreportReadError,
-        EreportWriteError, HostStartupOptions, MacAddressBlock, VpdIdentity,
+        EreportWriteError, HostStartupOptions, MacAddressBlock, OxideIdentity,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
