@@ -189,12 +189,12 @@ impl ApobSlot {
 pub(crate) enum ApobState {
     /// Waiting for `ApobStart`
     Waiting {
-        apob_write_slot: ApobSlot,
-        apob_read_slot: Option<ApobSlot>,
+        write_slot: ApobSlot,
+        read_slot: Option<ApobSlot>,
     },
     /// Receiving and writing data to host flash
     Ready {
-        apob_write_slot: ApobSlot,
+        write_slot: ApobSlot,
         expected_length: u64,
         expected_hash: ApobHash,
     },
@@ -303,24 +303,24 @@ impl ApobState {
     /// Searches for an active slot in the metadata regions, updating the offset
     /// in the FPGA driver if found, and erases unused or invalid slots.
     pub(crate) fn init(drv: &mut FlashDriver) -> Self {
-        if let Some(s) = Self::get_apob_slot(drv) {
+        if let Some(s) = Self::get_slot(drv) {
             drv.set_apob_offset(s.base_addr());
             ApobState::Waiting {
-                apob_read_slot: Some(s),
-                apob_write_slot: !s,
+                read_slot: Some(s),
+                write_slot: !s,
             }
         } else {
             ApobState::Waiting {
-                apob_read_slot: None,
-                apob_write_slot: ApobSlot::Slot0,
+                read_slot: None,
+                write_slot: ApobSlot::Slot0,
             }
         }
     }
 
     /// Finds the currently active APOB slot, erasing any unused slots
-    fn get_apob_slot(drv: &mut FlashDriver) -> Option<ApobSlot> {
-        let a = Self::apob_slot_scan(drv, Meta::Meta0);
-        let b = Self::apob_slot_scan(drv, Meta::Meta1);
+    fn get_slot(drv: &mut FlashDriver) -> Option<ApobSlot> {
+        let a = Self::slot_scan(drv, Meta::Meta0);
+        let b = Self::slot_scan(drv, Meta::Meta1);
 
         let best = match (a, b) {
             (Some(a), Some(b)) => Some(a.max(b)),
@@ -332,26 +332,26 @@ impl ApobState {
         // Erase inactive slot
         match best.map(|b| b.slot_select) {
             Some(0) => {
-                Self::apob_slot_erase(drv, ApobSlot::Slot1);
+                Self::slot_erase(drv, ApobSlot::Slot1);
                 Some(ApobSlot::Slot0)
             }
             Some(1) => {
-                Self::apob_slot_erase(drv, ApobSlot::Slot0);
+                Self::slot_erase(drv, ApobSlot::Slot0);
                 Some(ApobSlot::Slot0)
             }
             Some(_) => {
                 unreachable!(); // prevented by is_valid check
             }
             None => {
-                Self::apob_slot_erase(drv, ApobSlot::Slot0);
-                Self::apob_slot_erase(drv, ApobSlot::Slot1);
+                Self::slot_erase(drv, ApobSlot::Slot0);
+                Self::slot_erase(drv, ApobSlot::Slot1);
                 None
             }
         }
     }
 
     /// Erases the given APOB slot
-    fn apob_slot_erase(drv: &mut FlashDriver, slot: ApobSlot) {
+    fn slot_erase(drv: &mut FlashDriver, slot: ApobSlot) {
         let mut dirty = false;
         let mut buf = [0u8; PAGE_SIZE_BYTES];
         for offset in 0..APOB_SLOT_SIZE / PAGE_SIZE_BYTES as u32 {
@@ -380,7 +380,7 @@ impl ApobState {
     }
 
     /// Finds a valid APOB slot within the given meta region
-    fn apob_slot_scan(
+    fn slot_scan(
         drv: &mut FlashDriver,
         meta: Meta,
     ) -> Option<ApobRawPersistentData> {
@@ -395,7 +395,7 @@ impl ApobState {
         best
     }
 
-    pub(crate) fn apob_begin(
+    pub(crate) fn begin(
         &mut self,
         drv: &mut FlashDriver,
         length: u64,
@@ -407,11 +407,9 @@ impl ApobState {
             return Err(ApobBeginError::BadDataLength);
         }
         match *self {
-            ApobState::Waiting {
-                apob_write_slot, ..
-            } => {
+            ApobState::Waiting { write_slot, .. } => {
                 *self = ApobState::Ready {
-                    apob_write_slot,
+                    write_slot,
                     expected_length: length,
                     expected_hash: algorithm,
                 };
@@ -434,7 +432,7 @@ impl ApobState {
         }
     }
 
-    pub(crate) fn apob_write(
+    pub(crate) fn write(
         &mut self,
         drv: &mut FlashDriver,
         offset: u64,
@@ -451,7 +449,7 @@ impl ApobState {
 
         // Check that we're in a writable state
         let ApobState::Ready {
-            apob_write_slot,
+            write_slot,
             expected_length,
             ..
         } = *self
@@ -474,7 +472,7 @@ impl ApobState {
             let n = (data.len() - i).min(PAGE_SIZE_BYTES);
             data.read_range(i..(i + n), &mut out_buf[..n])
                 .map_err(|_| ApobWriteError::WriteFailed)?;
-            let addr = apob_write_slot
+            let addr = write_slot
                 .flash_addr(i.try_into().unwrap_lite())
                 .unwrap_lite();
 
@@ -495,7 +493,7 @@ impl ApobState {
         Ok(())
     }
 
-    pub(crate) fn apob_read(
+    pub(crate) fn read(
         &mut self,
         drv: &mut FlashDriver,
         offset: u64,
@@ -511,10 +509,10 @@ impl ApobState {
         }
 
         // Check that we're in a writable state
-        let ApobState::Waiting { apob_read_slot, .. } = *self else {
+        let ApobState::Waiting { read_slot, .. } = *self else {
             return Err(ApobReadError::InvalidState);
         };
-        let Some(apob_read_slot) = apob_read_slot else {
+        let Some(read_slot) = read_slot else {
             // XXX dedicated error type here?
             return Err(ApobReadError::InvalidState);
         };
@@ -531,7 +529,7 @@ impl ApobState {
         for i in (0..data.len()).step_by(PAGE_SIZE_BYTES) {
             // Read data from the lease into local storage
             let n = (data.len() - i).min(PAGE_SIZE_BYTES);
-            let addr = apob_read_slot
+            let addr = read_slot
                 .flash_addr(i.try_into().unwrap_lite())
                 .unwrap_lite();
 

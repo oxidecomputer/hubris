@@ -513,7 +513,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         algorithm: drv_hf_api::ApobHash,
     ) -> Result<(), RequestError<drv_hf_api::ApobBeginError>> {
         self.apob_state
-            .apob_begin(&mut self.drv, length, algorithm)
+            .begin(&mut self.drv, length, algorithm)
             .map_err(RequestError::from)
     }
 
@@ -524,7 +524,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         data: Leased<R, [u8]>,
     ) -> Result<(), RequestError<drv_hf_api::ApobWriteError>> {
         self.apob_state
-            .apob_write(&mut self.drv, offset, data)
+            .write(&mut self.drv, offset, data)
             .map_err(RequestError::from)
     }
 
@@ -542,7 +542,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         data: Leased<W, [u8]>,
     ) -> Result<usize, RequestError<drv_hf_api::ApobReadError>> {
         self.apob_state
-            .apob_read(&mut self.drv, offset, data)
+            .read(&mut self.drv, offset, data)
             .map_err(RequestError::from)
     }
 
