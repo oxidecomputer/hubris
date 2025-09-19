@@ -267,10 +267,10 @@ Interface(
         "apob_write": (
             description: "writes to the current APOB slot",
             args: {
-                "offset": "u32",
+                "offset": "u64",
             },
             leases: {
-                "data": (type: "[u8]", write: false, max_len: Some(256)),
+                "data": (type: "[u8]", read: true),
             },
             reply: Result(
                 ok: "()",
@@ -289,13 +289,13 @@ Interface(
         "apob_read": (
             description: "reads from the current APOB slot",
             args: {
-                "offset": "u32",
+                "offset": "u64",
             },
             leases: {
-                "data": (type: "[u8]", write: true, max_len: Some(256)),
+                "data": (type: "[u8]", write: true),
             },
             reply: Result(
-                ok: "()",
+                ok: "usize",
                 err: CLike("ApobReadError"),
             ),
             idempotent: true,

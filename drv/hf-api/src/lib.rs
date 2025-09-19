@@ -282,17 +282,21 @@ pub enum ApobHash {
 }
 
 #[derive(
+    Debug,
     Copy,
     Clone,
+    Eq,
+    PartialEq,
     Deserialize,
     Serialize,
     SerializedSize,
     IdolError,
+    FromPrimitive,
     counters::Count,
 )]
 pub enum ApobBeginError {
     /// APOB is not implemented on this hardware
-    NotImplemented,
+    NotImplemented = 1,
     /// The APOB state machine does not allow a `Begin` message
     InvalidState,
     /// The data length will not fit in an APOB slot
@@ -300,17 +304,21 @@ pub enum ApobBeginError {
 }
 
 #[derive(
+    Debug,
     Copy,
     Clone,
+    Eq,
+    PartialEq,
     Deserialize,
     Serialize,
     SerializedSize,
     IdolError,
+    FromPrimitive,
     counters::Count,
 )]
-pub enum ApobDataError {
+pub enum ApobWriteError {
     /// APOB is not implemented on this hardware
-    NotImplemented,
+    NotImplemented = 1,
     /// The APOB state machine does not allow a `Data` message
     InvalidState,
     /// Offset exceeds the slot size
@@ -332,11 +340,13 @@ pub enum ApobDataError {
     Deserialize,
     Serialize,
     SerializedSize,
+    FromPrimitive,
+    IdolError,
     counters::Count,
 )]
 pub enum ApobReadError {
     /// APOB is not implemented on this hardware
-    NotImplemented,
+    NotImplemented = 1,
     /// The state machine is currently expecting a write or commit message
     InvalidState,
     /// Offset exceeds the slot size
@@ -345,6 +355,30 @@ pub enum ApobReadError {
     InvalidSize,
     /// Flash read failed
     ReadFailed,
+}
+
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    FromPrimitive,
+    IdolError,
+    counters::Count,
+)]
+pub enum ApobCommitError {
+    /// APOB is not implemented on this hardware
+    NotImplemented = 1,
+    /// The APOB state machine does not allow a `Begin` message
+    InvalidState,
+    /// Validating the APOB failed, e.g. due to invalid data
+    ValidationFailed,
+    /// Committing the APOB failed, e.g. due to a flash write error
+    CommitFailed,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
