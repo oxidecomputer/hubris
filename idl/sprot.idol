@@ -443,5 +443,19 @@ Interface(
             encoding: Hubpack,
             idempotent: true,
         ),
+        "component_switch_cancel_pending": (
+            doc: "Cancal a pending persistent or transient image switch",
+            args: {
+                "component": "RotComponent",
+                "slot": "SlotId",
+                "duration": "SwitchDuration",
+            },
+            reply: Result(
+                ok: "()",
+                err: Complex("SprotError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
     }
 )
