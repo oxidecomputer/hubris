@@ -8,7 +8,8 @@
 //! to Rev. 2.0 February 2025.
 
 use crate::{hf::ServerImpl, FlashAddr, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES};
-use drv_hf_api::{ApobBeginError, ApobHash, HfError};
+use drv_hf_api::{ApobBeginError, ApobHash, ApobWriteError, HfError};
+use idol_runtime::{Leased, R};
 use ringbuf::{ringbuf, ringbuf_entry};
 use userlib::UnwrapLite;
 use zerocopy::{FromBytes, FromZeros, Immutable, IntoBytes, KnownLayout};
@@ -399,5 +400,67 @@ impl ServerImpl {
                 }
             }
         }
+    }
+
+    pub(crate) fn apob_write(
+        &mut self,
+        offset: u64,
+        data: Leased<R, [u8]>,
+    ) -> Result<(), ApobWriteError> {
+        // Check that the flash is muxed to the SP
+        self.drv
+            .check_flash_mux_state()
+            .map_err(|_| ApobWriteError::InvalidState)?;
+
+        // Check that the offset is within the slot
+        if offset > u64::from(APOB_SLOT_SIZE) {
+            return Err(ApobWriteError::InvalidOffset);
+        }
+
+        // Check that we're in a writable state
+        let ApobState::Ready {
+            expected_length, ..
+        } = self.apob_state
+        else {
+            return Err(ApobWriteError::InvalidState);
+        };
+
+        // Check that the end of the data range is within our expected length
+        if offset
+            .checked_add(data.len() as u64)
+            .is_none_or(|d| d > expected_length)
+        {
+            return Err(ApobWriteError::InvalidSize);
+        }
+
+        let mut out_buf = [0u8; PAGE_SIZE_BYTES];
+        let mut scratch_buf = [0u8; PAGE_SIZE_BYTES];
+        for i in (0..data.len()).step_by(PAGE_SIZE_BYTES) {
+            // Read data from the lease into local storage
+            let n = (data.len() - i).min(PAGE_SIZE_BYTES);
+            data.read_range(i..(i + n), &mut out_buf[..n])
+                .map_err(|_| ApobWriteError::WriteFailed)?;
+            let addr = self
+                .apob_write_slot
+                .flash_addr(i.try_into().unwrap_lite())
+                .unwrap_lite();
+
+            // Read back the current data; it must be erased or match (for
+            // idempotency)
+            self.drv
+                .flash_read(addr, &mut &mut scratch_buf[..n])
+                .map_err(|_| ApobWriteError::WriteFailed)?;
+            if scratch_buf[..n]
+                .iter()
+                .zip(out_buf[..n].iter())
+                .any(|(a, b)| *a != *b && *a != 0xFF)
+            {
+                return Err(ApobWriteError::NotErased);
+            }
+            self.drv
+                .flash_write(addr, &mut &out_buf[..n])
+                .map_err(|_| ApobWriteError::WriteFailed)?;
+        }
+        Ok(())
     }
 }
