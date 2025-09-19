@@ -7,7 +7,9 @@
 //! For details, see AMD document 57299; tables and sections in this code refer
 //! to Rev. 2.0 February 2025.
 
-use crate::{hf::ServerImpl, FlashAddr, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES};
+use crate::{
+    hf::ServerImpl, FlashAddr, FlashDriver, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES,
+};
 use drv_hf_api::{
     ApobBeginError, ApobHash, ApobReadError, ApobWriteError, HfError,
 };
@@ -183,11 +185,16 @@ impl ApobSlot {
     }
 }
 
+#[derive(Copy, Clone)]
 pub(crate) enum ApobState {
     /// Waiting for `ApobStart`
-    Waiting,
+    Waiting {
+        apob_write_slot: ApobSlot,
+        apob_read_slot: Option<ApobSlot>,
+    },
     /// Receiving and writing data to host flash
     Ready {
+        apob_write_slot: ApobSlot,
         expected_length: u64,
         expected_hash: ApobHash,
     },
@@ -290,11 +297,30 @@ impl Meta {
     }
 }
 
-impl ServerImpl {
+impl ApobState {
+    /// Initializes the `ApobState`
+    ///
+    /// Searches for an active slot in the metadata regions, updating the offset
+    /// in the FPGA driver if found, and erases unused or invalid slots.
+    pub(crate) fn init(drv: &mut FlashDriver) -> Self {
+        if let Some(s) = Self::get_apob_slot(drv) {
+            drv.set_apob_offset(s.base_addr());
+            ApobState::Waiting {
+                apob_read_slot: Some(s),
+                apob_write_slot: !s,
+            }
+        } else {
+            ApobState::Waiting {
+                apob_read_slot: None,
+                apob_write_slot: ApobSlot::Slot0,
+            }
+        }
+    }
+
     /// Finds the currently active APOB slot, erasing any unused slots
-    pub(crate) fn get_apob_slot(&mut self) -> Option<ApobSlot> {
-        let a = self.apob_slot_scan(Meta::Meta0);
-        let b = self.apob_slot_scan(Meta::Meta1);
+    fn get_apob_slot(drv: &mut FlashDriver) -> Option<ApobSlot> {
+        let a = Self::apob_slot_scan(drv, Meta::Meta0);
+        let b = Self::apob_slot_scan(drv, Meta::Meta1);
 
         let best = match (a, b) {
             (Some(a), Some(b)) => Some(a.max(b)),
@@ -306,36 +332,35 @@ impl ServerImpl {
         // Erase inactive slot
         match best.map(|b| b.slot_select) {
             Some(0) => {
-                self.apob_slot_erase(ApobSlot::Slot1);
+                Self::apob_slot_erase(drv, ApobSlot::Slot1);
                 Some(ApobSlot::Slot0)
             }
             Some(1) => {
-                self.apob_slot_erase(ApobSlot::Slot0);
+                Self::apob_slot_erase(drv, ApobSlot::Slot0);
                 Some(ApobSlot::Slot0)
             }
             Some(_) => {
                 unreachable!(); // prevented by is_valid check
             }
             None => {
-                self.apob_slot_erase(ApobSlot::Slot0);
-                self.apob_slot_erase(ApobSlot::Slot1);
+                Self::apob_slot_erase(drv, ApobSlot::Slot0);
+                Self::apob_slot_erase(drv, ApobSlot::Slot1);
                 None
             }
         }
     }
 
     /// Erases the given APOB slot
-    fn apob_slot_erase(&mut self, slot: ApobSlot) {
+    fn apob_slot_erase(drv: &mut FlashDriver, slot: ApobSlot) {
         let mut dirty = false;
         let mut buf = [0u8; PAGE_SIZE_BYTES];
         for offset in 0..APOB_SLOT_SIZE / PAGE_SIZE_BYTES as u32 {
-            self.drv
-                .flash_read(
-                    slot.flash_addr(offset * PAGE_SIZE_BYTES as u32)
-                        .unwrap_lite(),
-                    &mut buf.as_mut_slice(),
-                )
-                .unwrap_lite();
+            drv.flash_read(
+                slot.flash_addr(offset * PAGE_SIZE_BYTES as u32)
+                    .unwrap_lite(),
+                &mut buf.as_mut_slice(),
+            )
+            .unwrap_lite();
             if buf.iter().any(|b| *b != 0xFF) {
                 dirty = true;
                 break;
@@ -345,7 +370,7 @@ impl ServerImpl {
         if dirty {
             ringbuf_entry!(Trace::ApobSlotErase { slot });
             for offset in 0..APOB_SLOT_SIZE / SECTOR_SIZE_BYTES {
-                self.drv.flash_sector_erase(
+                drv.flash_sector_erase(
                     slot.flash_addr(offset * SECTOR_SIZE_BYTES).unwrap_lite(),
                 )
             }
@@ -355,15 +380,16 @@ impl ServerImpl {
     }
 
     /// Finds a valid APOB slot within the given meta region
-    fn apob_slot_scan(&mut self, meta: Meta) -> Option<ApobRawPersistentData> {
+    fn apob_slot_scan(
+        drv: &mut FlashDriver,
+        meta: Meta,
+    ) -> Option<ApobRawPersistentData> {
         let mut best: Option<ApobRawPersistentData> = None;
         for i in 0..APOB_META_SIZE / APOB_PERSISTENT_DATA_STRIDE {
             let mut data = ApobRawPersistentData::new_zeroed();
             let offset = i * APOB_PERSISTENT_DATA_STRIDE;
             let addr = meta.flash_addr(offset).unwrap_lite();
-            self.drv
-                .flash_read(addr, &mut data.as_mut_bytes())
-                .unwrap_lite(); // infallible when using a slice
+            drv.flash_read(addr, &mut data.as_mut_bytes()).unwrap_lite(); // infallible when using a slice
             best = best.max(Some(data).filter(|d| d.is_valid()));
         }
         best
@@ -371,18 +397,21 @@ impl ServerImpl {
 
     pub(crate) fn apob_begin(
         &mut self,
+        drv: &mut FlashDriver,
         length: u64,
         algorithm: ApobHash,
     ) -> Result<(), ApobBeginError> {
-        self.drv
-            .check_flash_mux_state()
+        drv.check_flash_mux_state()
             .map_err(|_| ApobBeginError::InvalidState)?;
         if length > u64::from(APOB_SLOT_SIZE) {
             return Err(ApobBeginError::BadDataLength);
         }
-        match &self.apob_state {
-            ApobState::Waiting => {
-                self.apob_state = ApobState::Ready {
+        match *self {
+            ApobState::Waiting {
+                apob_write_slot, ..
+            } => {
+                *self = ApobState::Ready {
+                    apob_write_slot,
                     expected_length: length,
                     expected_hash: algorithm,
                 };
@@ -392,9 +421,10 @@ impl ServerImpl {
             ApobState::Ready {
                 expected_length,
                 expected_hash,
+                ..
             } => {
                 // Allow idempotent Begin messages
-                if *expected_length == length && *expected_hash == algorithm {
+                if expected_length == length && expected_hash == algorithm {
                     Ok(())
                 } else {
                     // XXX should this lock the state machine?
@@ -406,12 +436,12 @@ impl ServerImpl {
 
     pub(crate) fn apob_write(
         &mut self,
+        drv: &mut FlashDriver,
         offset: u64,
         data: Leased<R, [u8]>,
     ) -> Result<(), ApobWriteError> {
         // Check that the flash is muxed to the SP
-        self.drv
-            .check_flash_mux_state()
+        drv.check_flash_mux_state()
             .map_err(|_| ApobWriteError::InvalidState)?;
 
         // Check that the offset is within the slot
@@ -421,8 +451,10 @@ impl ServerImpl {
 
         // Check that we're in a writable state
         let ApobState::Ready {
-            expected_length, ..
-        } = self.apob_state
+            apob_write_slot,
+            expected_length,
+            ..
+        } = *self
         else {
             return Err(ApobWriteError::InvalidState);
         };
@@ -442,15 +474,13 @@ impl ServerImpl {
             let n = (data.len() - i).min(PAGE_SIZE_BYTES);
             data.read_range(i..(i + n), &mut out_buf[..n])
                 .map_err(|_| ApobWriteError::WriteFailed)?;
-            let addr = self
-                .apob_write_slot
+            let addr = apob_write_slot
                 .flash_addr(i.try_into().unwrap_lite())
                 .unwrap_lite();
 
             // Read back the current data; it must be erased or match (for
             // idempotency)
-            self.drv
-                .flash_read(addr, &mut &mut scratch_buf[..n])
+            drv.flash_read(addr, &mut &mut scratch_buf[..n])
                 .map_err(|_| ApobWriteError::WriteFailed)?;
             if scratch_buf[..n]
                 .iter()
@@ -459,8 +489,7 @@ impl ServerImpl {
             {
                 return Err(ApobWriteError::NotErased);
             }
-            self.drv
-                .flash_write(addr, &mut &out_buf[..n])
+            drv.flash_write(addr, &mut &out_buf[..n])
                 .map_err(|_| ApobWriteError::WriteFailed)?;
         }
         Ok(())
@@ -468,12 +497,12 @@ impl ServerImpl {
 
     pub(crate) fn apob_read(
         &mut self,
+        drv: &mut FlashDriver,
         offset: u64,
         data: Leased<W, [u8]>,
     ) -> Result<usize, ApobReadError> {
         // Check that the flash is muxed to the SP
-        self.drv
-            .check_flash_mux_state()
+        drv.check_flash_mux_state()
             .map_err(|_| ApobReadError::InvalidState)?;
 
         // Check that the offset is within the slot
@@ -482,7 +511,11 @@ impl ServerImpl {
         }
 
         // Check that we're in a writable state
-        if !matches!(self.apob_state, ApobState::Waiting) {
+        let ApobState::Waiting { apob_read_slot, .. } = *self else {
+            return Err(ApobReadError::InvalidState);
+        };
+        let Some(apob_read_slot) = apob_read_slot else {
+            // XXX dedicated error type here?
             return Err(ApobReadError::InvalidState);
         };
 
@@ -498,15 +531,13 @@ impl ServerImpl {
         for i in (0..data.len()).step_by(PAGE_SIZE_BYTES) {
             // Read data from the lease into local storage
             let n = (data.len() - i).min(PAGE_SIZE_BYTES);
-            let addr = self
-                .apob_write_slot
+            let addr = apob_read_slot
                 .flash_addr(i.try_into().unwrap_lite())
                 .unwrap_lite();
 
             // Read back the current data; it must be erased or match (for
             // idempotency)
-            self.drv
-                .flash_read(addr, &mut &mut out_buf[..n])
+            drv.flash_read(addr, &mut &mut out_buf[..n])
                 .map_err(|_| ApobReadError::ReadFailed)?;
 
             data.write_range(i..(i + n), &out_buf[..n])
