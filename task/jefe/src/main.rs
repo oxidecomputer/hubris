@@ -358,19 +358,26 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
         external::check(self.task_states, now);
 
         if bits.has_timer_fired(notifications::TIMER_MASK) {
-            // If our timer went off, we need to reestablish it
+            // If our timer went off, we need to reestablish it. Compute a
+            // baseline deadline, which will be adjusted _down_ below when
+            // processing tasks, if necessary.
             if now >= self.deadline {
                 self.deadline = now.wrapping_add(u64::from(TIMER_INTERVAL));
             }
+
             // Check for tasks in timeout, updating our timer deadline
             if core::mem::take(&mut self.any_tasks_in_timeout) {
                 for (index, status) in self.task_states.iter_mut().enumerate() {
                     if let TaskState::Timeout { restart_at } = &status.state {
-                        if *restart_at >= now {
+                        if *restart_at <= now {
+                            // This deadline has elapsed, go ahead and stand it
+                            // back up.
                             kipc::reinit_task(index, true);
                             status.state =
                                 TaskState::Running { started_at: now };
                         } else {
+                            // This deadline remains in the future, min it into
+                            // our next wake time.
                             self.any_tasks_in_timeout = true;
                             self.deadline = self.deadline.min(*restart_at);
                         }
