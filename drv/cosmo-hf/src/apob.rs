@@ -8,8 +8,10 @@
 //! to Rev. 2.0 February 2025.
 
 use crate::{hf::ServerImpl, FlashAddr, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES};
-use drv_hf_api::{ApobBeginError, ApobHash, ApobWriteError, HfError};
-use idol_runtime::{Leased, R};
+use drv_hf_api::{
+    ApobBeginError, ApobHash, ApobReadError, ApobWriteError, HfError,
+};
+use idol_runtime::{Leased, R, W};
 use ringbuf::{ringbuf, ringbuf_entry};
 use userlib::UnwrapLite;
 use zerocopy::{FromBytes, FromZeros, Immutable, IntoBytes, KnownLayout};
@@ -462,5 +464,54 @@ impl ServerImpl {
                 .map_err(|_| ApobWriteError::WriteFailed)?;
         }
         Ok(())
+    }
+
+    pub(crate) fn apob_read(
+        &mut self,
+        offset: u64,
+        data: Leased<W, [u8]>,
+    ) -> Result<usize, ApobReadError> {
+        // Check that the flash is muxed to the SP
+        self.drv
+            .check_flash_mux_state()
+            .map_err(|_| ApobReadError::InvalidState)?;
+
+        // Check that the offset is within the slot
+        if offset > u64::from(APOB_SLOT_SIZE) {
+            return Err(ApobReadError::InvalidOffset);
+        }
+
+        // Check that we're in a writable state
+        if !matches!(self.apob_state, ApobState::Waiting) {
+            return Err(ApobReadError::InvalidState);
+        };
+
+        // Check that the end of the data range is within a slot size
+        if offset
+            .checked_add(data.len() as u64)
+            .is_none_or(|d| d > u64::from(APOB_SLOT_SIZE))
+        {
+            return Err(ApobReadError::InvalidSize);
+        }
+
+        let mut out_buf = [0u8; PAGE_SIZE_BYTES];
+        for i in (0..data.len()).step_by(PAGE_SIZE_BYTES) {
+            // Read data from the lease into local storage
+            let n = (data.len() - i).min(PAGE_SIZE_BYTES);
+            let addr = self
+                .apob_write_slot
+                .flash_addr(i.try_into().unwrap_lite())
+                .unwrap_lite();
+
+            // Read back the current data; it must be erased or match (for
+            // idempotency)
+            self.drv
+                .flash_read(addr, &mut &mut out_buf[..n])
+                .map_err(|_| ApobReadError::ReadFailed)?;
+
+            data.write_range(i..(i + n), &out_buf[..n])
+                .map_err(|_| ApobReadError::ReadFailed)?;
+        }
+        Ok(data.len() as usize)
     }
 }
