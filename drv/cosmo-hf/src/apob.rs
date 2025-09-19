@@ -11,7 +11,8 @@ use crate::{
     hf::ServerImpl, FlashAddr, FlashDriver, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES,
 };
 use drv_hf_api::{
-    ApobBeginError, ApobHash, ApobReadError, ApobWriteError, HfError,
+    ApobBeginError, ApobCommitError, ApobHash, ApobReadError, ApobWriteError,
+    HfError,
 };
 use idol_runtime::{Leased, R, W};
 use ringbuf::{ringbuf, ringbuf_entry};
@@ -195,7 +196,7 @@ pub(crate) enum ApobState {
     /// Receiving and writing data to host flash
     Ready {
         write_slot: ApobSlot,
-        expected_length: u64,
+        expected_length: u32,
         expected_hash: ApobHash,
     },
     /// We have finished writing data to flash
@@ -317,17 +318,23 @@ impl ApobState {
         }
     }
 
-    /// Finds the currently active APOB slot, erasing any unused slots
-    fn get_slot(drv: &mut FlashDriver) -> Option<ApobSlot> {
+    fn get_raw_persistent_data(
+        drv: &mut FlashDriver,
+    ) -> Option<ApobRawPersistentData> {
         let a = Self::slot_scan(drv, Meta::Meta0);
         let b = Self::slot_scan(drv, Meta::Meta1);
 
-        let best = match (a, b) {
+        match (a, b) {
             (Some(a), Some(b)) => Some(a.max(b)),
             (Some(_), None) => a,
             (None, Some(_)) => b,
             (None, None) => None,
-        };
+        }
+    }
+
+    /// Finds the currently active APOB slot, erasing any unused slots
+    fn get_slot(drv: &mut FlashDriver) -> Option<ApobSlot> {
+        let best = Self::get_raw_persistent_data(drv);
 
         // Erase inactive slot
         match best.map(|b| b.slot_select) {
@@ -406,11 +413,12 @@ impl ApobState {
         if length > u64::from(APOB_SLOT_SIZE) {
             return Err(ApobBeginError::BadDataLength);
         }
+        let length: u32 = length.try_into().unwrap_lite();
         match *self {
             ApobState::Waiting { write_slot, .. } => {
                 *self = ApobState::Ready {
                     write_slot,
-                    expected_length: length,
+                    expected_length: length.try_into().unwrap_lite(),
                     expected_hash: algorithm,
                 };
                 Ok(())
@@ -460,7 +468,7 @@ impl ApobState {
         // Check that the end of the data range is within our expected length
         if offset
             .checked_add(data.len() as u64)
-            .is_none_or(|d| d > expected_length)
+            .is_none_or(|d| d > u64::from(expected_length))
         {
             return Err(ApobWriteError::InvalidSize);
         }
@@ -542,5 +550,90 @@ impl ApobState {
                 .map_err(|_| ApobReadError::ReadFailed)?;
         }
         Ok(data.len() as usize)
+    }
+
+    pub(crate) fn commit(
+        &mut self,
+        drv: &mut FlashDriver,
+    ) -> Result<(), ApobCommitError> {
+        drv.check_flash_mux_state()
+            .map_err(|_| ApobCommitError::InvalidState)?;
+        let (expected_length, expected_hash, write_slot) = match *self {
+            // Locking without writing anything is fine
+            ApobState::Waiting { .. } => {
+                *self = ApobState::Locked;
+                return Ok(());
+            }
+            // Committing is idempotent (XXX?)
+            ApobState::Locked => return Ok(()),
+            ApobState::Ready {
+                expected_length,
+                expected_hash,
+                write_slot,
+            } => (expected_length, expected_hash, write_slot),
+        };
+
+        // Confirm that the hash of data matches our expectations
+        let mut buf = [0u8; PAGE_SIZE_BYTES];
+        match expected_hash {
+            ApobHash::Sha256(expected_hash) => {
+                let mut hasher = sha2::Sha256::new();
+                use sha2::Digest;
+                for i in (0..expected_length).step_by(PAGE_SIZE_BYTES) {
+                    let n =
+                        ((expected_length - i) as usize).min(PAGE_SIZE_BYTES);
+                    let addr = write_slot.flash_addr(i).unwrap_lite();
+                    drv.flash_read(addr, &mut &mut buf[..n])
+                        .map_err(|_| ApobCommitError::CommitFailed)?;
+                    hasher.update(&buf[..n]);
+                }
+                let out = hasher.finalize();
+                if out != expected_hash.into() {
+                    return Err(ApobCommitError::ValidationFailed);
+                }
+            }
+        }
+
+        // TODO validate the on-flash data to make sure it's APOB-shaped
+
+        // We will write persistent data to flash which selects our new slot
+        let perst = Self::get_raw_persistent_data(drv);
+        let new_counter = perst
+            .map(|p| p.monotonic_counter)
+            .unwrap_or(1)
+            .wrapping_add(1);
+        let new_perst = ApobRawPersistentData::new(write_slot, new_counter);
+
+        for m in [Meta::Meta0, Meta::Meta1] {
+            Self::write_raw_persistent_data(drv, new_perst, m);
+        }
+
+        Ok(())
+    }
+
+    fn write_raw_persistent_data(
+        drv: &mut FlashDriver,
+        perst: ApobRawPersistentData,
+        meta: Meta,
+    ) {
+        let mut found: Option<FlashAddr> = None;
+        let mut buf = [0u8; APOB_PERSISTENT_DATA_STRIDE as usize];
+        for i in 0..APOB_META_SIZE / APOB_PERSISTENT_DATA_STRIDE {
+            let offset = i * APOB_PERSISTENT_DATA_STRIDE;
+            let addr = meta.flash_addr(offset).unwrap_lite();
+            // Infallible when using a slice
+            drv.flash_read(addr, &mut buf.as_mut_slice()).unwrap_lite();
+            if buf.iter().all(|c| *c == 0xFF) {
+                found = Some(addr);
+                break;
+            }
+        }
+        let addr = found.unwrap_or_else(|| {
+            let addr = meta.flash_addr(0).unwrap_lite();
+            drv.flash_sector_erase(addr);
+            addr
+        });
+        // Infallible when using a slice
+        drv.flash_write(addr, &mut perst.as_bytes()).unwrap_lite();
     }
 }
