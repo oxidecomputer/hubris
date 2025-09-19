@@ -330,16 +330,72 @@ pub fn sys_recv(
     }
 }
 
+/// Bitmask representing notifications from the kernel
+///
+/// The raw notification bits are available in [`get_raw_bits`], but
+/// higher-level functions make it harder to misuse notifications.
+#[derive(Copy, Clone)]
+#[repr(transparent)]
+pub struct NotificationBits(u32);
+
+impl NotificationBits {
+    /// Wraps a `u32`
+    #[inline]
+    pub fn new(bits: u32) -> Self {
+        Self(bits)
+    }
+
+    /// Returns the raw notification bitmask
+    #[inline]
+    pub fn get_raw_bits(&self) -> u32 {
+        self.0
+    }
+
+    /// Checks if a condition signaled by notification bits holds
+    ///
+    /// The `cond` function should verify the underlying condition, but as an
+    /// optimization, it will only be called if any bits set in mask are also
+    /// set in `self`. This double-check is important, because notification bits
+    /// can potentially be set even if the underlying condition is not true,
+    /// such as with extra pended interrupts or inter-task use of `sys_post`.
+    ///
+    /// If you find yourself passing `|| true` here, see
+    /// [`check_notification_mask`].
+    #[inline]
+    pub fn check_condition<F: Fn() -> bool>(&self, mask: u32, cond: F) -> bool {
+        self.check_notification_mask(mask) && cond()
+    }
+
+    /// Checks whether the given notification mask is active
+    ///
+    /// Notifications may occur spuriously; it is recommended to use
+    /// `check_condition` instead, if there's a way to verify that the event has
+    /// actually occurred.
+    #[inline]
+    pub fn check_notification_mask(&self, mask: u32) -> bool {
+        (self.0 & mask) != 0
+    }
+
+    /// Checks whether a timer appears to have gone off, because the timer_mask
+    /// bit is set and the kernel timer is no longer set.
+    ///
+    /// `mask` must the notification bitmask for the timer notification
+    #[inline]
+    pub fn has_timer_fired(&self, timer_mask: u32) -> bool {
+        self.check_condition(timer_mask, || sys_get_timer().deadline.is_none())
+    }
+}
+
 /// Convenience wrapper for `sys_recv` for the specific, but common, task of
 /// listening for notifications. In this specific use, it has the advantage of
 /// never panicking and not returning a `Result` that must be checked.
 #[inline(always)]
-pub fn sys_recv_notification(notification_mask: u32) -> u32 {
+pub fn sys_recv_notification(notification_mask: u32) -> NotificationBits {
     match sys_recv(&mut [], notification_mask, Some(TaskId::KERNEL)) {
         Ok(rm) => {
             // The notification bits come back from the kernel in the operation
             // code field.
-            rm.operation
+            NotificationBits(rm.operation)
         }
         Err(_) => {
             // Safety: Because we passed Some(TaskId::KERNEL), this is defined
