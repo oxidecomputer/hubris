@@ -120,12 +120,29 @@ impl<T: GpioPeriph> AnyGpioPeriph for T {
         let mask_4l = lsbs_4l.wrapping_mul(0b1111);
         let mask_4h = lsbs_4h.wrapping_mul(0b1111);
 
-        // MODER contains 16x 2-bit fields.
-        let moder_val = u32::from(atts & 0b11);
-        self.moder().modify(|r, w| unsafe {
-            // See comment re: wrapping_mul above.
-            w.bits((r.bits() & !mask_2) | moder_val.wrapping_mul(lsbs_2))
-        });
+        // Register updates -- we do this carefully in a specific order to try
+        // to minimize glitching. Specifically, we're trying to maintain two
+        // properties:
+        //
+        // 1. The initial configuration of a pin (out of the Analog mode chosen
+        //    at reset) should appear atomic without visible glitches, with the
+        //    exception of enabling a pull up/down resistor, which if requested
+        //    cannot be done atomically.
+        //
+        // 2. _Reconfiguration_ of a pin between (input, output, alternate,
+        //    analog) modes should be atomic as long as the drive type and pull
+        //    mode are not changed.
+        //
+        // We can do this by writing registers in sequence:
+        // - OTYPER (open-drain), OSPEEDR (slew rate) in any order
+        // - PUPDR (activation of pull up/down resistor) at some point
+        // - AFRx (alternate peripheral function select)
+        // - MODER last
+        //
+        // (Because the effect of PUPDR is inherently non-atomic and separately
+        // observable, since the pullups are switched separately from everything
+        // else, the PUPDR change could be moved anywhere in that sequence
+        // without breaking the properties described above.)
 
         // OTYPER contains 16x 1-bit fields.
         let otyper_val = u32::from((atts >> 2) & 1);
@@ -154,6 +171,13 @@ impl<T: GpioPeriph> AnyGpioPeriph for T {
         self.afrh().modify(|r, w| unsafe {
             // See comment re: wrapping_mul above.
             w.bits((r.bits() & !mask_4h) | af_val.wrapping_mul(lsbs_4h))
+        });
+
+        // MODER contains 16x 2-bit fields.
+        let moder_val = u32::from(atts & 0b11);
+        self.moder().modify(|r, w| unsafe {
+            // See comment re: wrapping_mul above.
+            w.bits((r.bits() & !mask_2) | moder_val.wrapping_mul(lsbs_2))
         });
     }
 
