@@ -185,10 +185,8 @@ impl idol_runtime::NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
         notifications::SOCKET_MASK
     }
-    fn handle_notification(&mut self, bits: u32) {
-        if (bits & notifications::SOCKET_MASK) != 0 {
-            // Nothing to do here; we'll handle it in the main loop
-        }
+    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
+        // Nothing to do here; we'll handle it in the main loop
     }
 }
 
@@ -198,7 +196,7 @@ impl idol_runtime::NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
         0
     }
-    fn handle_notification(&mut self, _bits: u32) {
+    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
         unreachable!()
     }
 }

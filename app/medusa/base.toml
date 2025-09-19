@@ -125,7 +125,6 @@ task-slots = [
     "auxflash",
     "packrat",
     {front_io = "ecp5_front_io"}]
-notifications = ["timer"]
 
 [tasks.transceivers]
 name = "drv-transceivers-server"

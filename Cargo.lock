@@ -3371,7 +3371,7 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 [[package]]
 name = "idol"
 version = "0.5.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#c3849dcfa4dabd3254375391c9b38497ccb05514"
+source = "git+https://github.com/oxidecomputer/idolatry.git?branch=mkeeter%2Fnotification-bits#1159ba071562b72d2f6967c99c7d8f6c83ccb6d6"
 dependencies = [
  "indexmap 1.9.1",
  "once_cell",
@@ -3382,13 +3382,12 @@ dependencies = [
  "serde",
  "serde_with 3.6.1",
  "syn 2.0.98",
- "toml 0.7.2",
 ]
 
 [[package]]
 name = "idol-runtime"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#c3849dcfa4dabd3254375391c9b38497ccb05514"
+source = "git+https://github.com/oxidecomputer/idolatry.git?branch=mkeeter%2Fnotification-bits#1159ba071562b72d2f6967c99c7d8f6c83ccb6d6"
 dependencies = [
  "counters",
  "userlib",

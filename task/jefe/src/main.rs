@@ -351,15 +351,13 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
         notifications::FAULT_MASK | notifications::TIMER_MASK
     }
 
-    fn handle_notification(&mut self, bits: u32) {
+    fn handle_notification(&mut self, bits: userlib::NotificationBits) {
         let now = userlib::sys_get_timer().now;
 
         // Handle any external (debugger) requests.
         external::check(self.task_states, now);
 
-        if bits & notifications::TIMER_MASK != 0
-            && userlib::sys_get_timer().deadline.is_none()
-        {
+        if bits.has_timer_fired(notifications::TIMER_MASK) {
             // If our timer went off, we need to reestablish it
             if now >= self.deadline {
                 self.deadline = now.wrapping_add(u64::from(TIMER_INTERVAL));
@@ -381,7 +379,7 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
             }
         }
 
-        if bits & notifications::FAULT_MASK != 0 {
+        if bits.check_notification_mask(notifications::FAULT_MASK) {
             // Work out who faulted. It's theoretically possible for more than
             // one task to have faulted since we last looked, but it's somewhat
             // unlikely since a fault causes us to immediately preempt. In any

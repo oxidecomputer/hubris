@@ -640,7 +640,7 @@ impl NotificationHandler for ServerImpl {
             + notifications::JTAG_DETECT_IRQ_MASK
     }
 
-    fn handle_notification(&mut self, bits: u32) {
+    fn handle_notification(&mut self, bits: userlib::NotificationBits) {
         // If JTAG_DETECT fires:
         //   - invalidate any SP measurement
         //   - if still asserted, then the other handlers will fail on
@@ -654,7 +654,7 @@ impl NotificationHandler for ServerImpl {
         let mut invalidate = false;
         let gpio = Pins::from(self.gpio);
 
-        if (bits & notifications::JTAG_DETECT_IRQ_MASK) != 0 {
+        if bits.check_notification_mask(notifications::JTAG_DETECT_IRQ_MASK) {
             ringbuf_entry!(Trace::SpJtagDetectFired);
             const SLOT: PintSlot = SP_TO_ROT_JTAG_DETECT_L_PINT_SLOT;
             if let Ok(Some(detected)) =
@@ -675,7 +675,7 @@ impl NotificationHandler for ServerImpl {
             sys_irq_control(notifications::JTAG_DETECT_IRQ_MASK, true);
         }
 
-        if (bits & notifications::TIMER_MASK) != 0 {
+        if bits.has_timer_fired(notifications::TIMER_MASK) {
             ringbuf_entry!(Trace::WatchdogFired);
 
             match self.do_setup_swd() {
@@ -721,7 +721,7 @@ impl NotificationHandler for ServerImpl {
             }
         }
 
-        if (bits & notifications::SP_RESET_IRQ_MASK) != 0 {
+        if bits.check_notification_mask(notifications::SP_RESET_IRQ_MASK) {
             ringbuf_entry!(Trace::SpResetFired);
             if !invalidate && !self.do_handle_sp_reset() {
                 ringbuf_entry!(Trace::InvalidateSpMeasurement);
