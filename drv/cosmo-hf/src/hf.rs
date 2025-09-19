@@ -26,7 +26,6 @@ task_slot!(HASH, hash_driver);
 ///
 /// The upper 64 MiB are used for Bonus Data.
 pub(crate) const SLOT_SIZE_BYTES: u32 = 1024 * 1024 * 32;
-pub(crate) const BONUS_SIZE_BYTES: u32 = 1024 * 1024 * 64;
 
 pub struct ServerImpl {
     pub drv: FlashDriver,
@@ -98,21 +97,6 @@ impl ServerImpl {
             .is_some_and(|a| a <= SLOT_SIZE_BYTES)
         {
             Self::flash_addr_for(offset, self.dev)
-        } else {
-            Err(HfError::BadAddress)
-        }
-    }
-
-    /// Converts a relative address to an absolute address in bonus space
-    fn bonus_addr(offset: u32, len: u32) -> Result<FlashAddr, HfError> {
-        if offset
-            .checked_add(len)
-            .is_some_and(|a| a <= BONUS_SIZE_BYTES)
-        {
-            let addr = offset
-                .checked_add(2 * SLOT_SIZE_BYTES)
-                .ok_or(HfError::BadAddress)?;
-            Ok(FlashAddr(addr))
         } else {
             Err(HfError::BadAddress)
         }
