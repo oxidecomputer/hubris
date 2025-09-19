@@ -311,6 +311,9 @@ impl ApobState {
                 write_slot: !s,
             }
         } else {
+            // Pick a slot arbitrarily; it has just been erased and will fail
+            // cryptographic checks in the PSP.
+            drv.set_apob_offset(ApobSlot::Slot1.base_addr());
             ApobState::Waiting {
                 read_slot: None,
                 write_slot: ApobSlot::Slot0,
