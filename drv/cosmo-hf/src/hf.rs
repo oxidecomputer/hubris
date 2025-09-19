@@ -532,7 +532,9 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<(), RequestError<drv_hf_api::ApobCommitError>> {
-        Err(drv_hf_api::ApobCommitError::NotImplemented.into())
+        self.apob_state
+            .commit(&mut self.drv)
+            .map_err(RequestError::from)
     }
 
     fn apob_read(
