@@ -545,10 +545,10 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     fn apob_write(
         &mut self,
         _: &RecvMessage,
-        _offset: u64,
-        _data: Leased<R, [u8]>,
+        offset: u64,
+        data: Leased<R, [u8]>,
     ) -> Result<(), RequestError<drv_hf_api::ApobWriteError>> {
-        Err(drv_hf_api::ApobWriteError::NotImplemented.into())
+        self.apob_write(offset, data).map_err(RequestError::from)
     }
 
     fn apob_commit(
