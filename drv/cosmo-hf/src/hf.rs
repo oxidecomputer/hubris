@@ -574,6 +574,10 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
                     self.drv.clear_apob_pos();
                 }
             }
+            // Reinitialize APOB state to correctly pick the active APOB slot.
+            // This also unlocks the APOB so it can be written (once muxed back
+            // to the SP).
+            self.apob_state = apob::ApobState::init(&mut self.drv);
         }
         self.drv.set_flash_mux_state(state);
         self.invalidate_mux_switch();
