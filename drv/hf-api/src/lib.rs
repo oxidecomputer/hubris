@@ -275,7 +275,9 @@ pub struct HfChipId {
 // APOB types are below!
 
 /// Hash type used when writing an APOB to bonus flash
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, SerializedSize)]
+#[derive(
+    Copy, Clone, Debug, PartialEq, Serialize, Deserialize, SerializedSize,
+)]
 #[repr(u8)]
 pub enum ApobHash {
     Sha256([u8; 32]),

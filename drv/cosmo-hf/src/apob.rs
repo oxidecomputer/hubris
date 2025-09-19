@@ -8,7 +8,7 @@
 //! to Rev. 2.0 February 2025.
 
 use crate::{hf::ServerImpl, FlashAddr, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES};
-use drv_hf_api::{ApobHash, HfError};
+use drv_hf_api::{ApobBeginError, ApobHash, HfError};
 use ringbuf::{ringbuf, ringbuf_entry};
 use userlib::UnwrapLite;
 use zerocopy::{FromBytes, FromZeros, Immutable, IntoBytes, KnownLayout};
@@ -364,5 +364,40 @@ impl ServerImpl {
             best = best.max(Some(data).filter(|d| d.is_valid()));
         }
         best
+    }
+
+    pub(crate) fn apob_begin(
+        &mut self,
+        length: u64,
+        algorithm: ApobHash,
+    ) -> Result<(), ApobBeginError> {
+        self.drv
+            .check_flash_mux_state()
+            .map_err(|_| ApobBeginError::InvalidState)?;
+        if length > u64::from(APOB_SLOT_SIZE) {
+            return Err(ApobBeginError::BadDataLength);
+        }
+        match &self.apob_state {
+            ApobState::Waiting => {
+                self.apob_state = ApobState::Ready {
+                    expected_length: length,
+                    expected_hash: algorithm,
+                };
+                Ok(())
+            }
+            ApobState::Locked => Err(ApobBeginError::InvalidState),
+            ApobState::Ready {
+                expected_length,
+                expected_hash,
+            } => {
+                // Allow idempotent Begin messages
+                if *expected_length == length && *expected_hash == algorithm {
+                    Ok(())
+                } else {
+                    // XXX should this lock the state machine?
+                    Err(ApobBeginError::InvalidState)
+                }
+            }
+        }
     }
 }
