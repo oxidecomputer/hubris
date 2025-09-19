@@ -148,12 +148,12 @@ enum Trace {
     ApobWriteError {
         offset: u64,
         #[count(children)]
-        err: drv_hf_api::ApobWriteResult,
+        err: drv_hf_api::ApobWriteError,
     },
     ApobReadError {
         offset: u64,
         #[count(children)]
-        err: drv_hf_api::ApobReadResult,
+        err: drv_hf_api::ApobReadError,
     },
 }
 
@@ -1005,29 +1005,54 @@ impl ServerImpl {
             }
             HostToSp::ApobBegin { length, algorithm } => {
                 // Decode into internal types, then call into `hf`
-                match algorithm {
+                use drv_hf_api::{ApobBeginError, ApobHash};
+                use host_sp_messages::ApobBeginResult;
+                Some(SpToHost::ApobBegin(match algorithm {
                     0 => {
-                        if let Some(d) = data.try_into() {
-                            let hash = drv_hf_api::ApobHash::Sha256(d);
-                            self.hf.apob_begin(length, hash)
+                        if let Ok(d) = data.try_into() {
+                            let hash = ApobHash::Sha256(d);
+                            match self.hf.apob_begin(length, hash) {
+                                Ok(()) => ApobBeginResult::Ok,
+                                Err(ApobBeginError::NotImplemented) => {
+                                    ApobBeginResult::NotImplemented
+                                }
+                                Err(ApobBeginError::InvalidState) => {
+                                    ApobBeginResult::InvalidState
+                                }
+                                Err(ApobBeginError::BadDataLength) => {
+                                    ApobBeginResult::BadDataLength
+                                }
+                            }
                         } else {
-                            Some(SpToHost::ApobBegin(
-                                drf_hf_api::ApobBeginResult::BadHashLength,
-                            ))
+                            ApobBeginResult::BadHashLength
                         }
                     }
-                    _ => Some(SpToHost::ApobBegin(
-                        drf_hf_api::ApobBeginResult::InvalidAlgorithm,
-                    )),
-                };
+                    _ => ApobBeginResult::InvalidAlgorithm,
+                }))
             }
             HostToSp::ApobCommit => {
                 // Call into `hf` to do the work here
-                Some(self.hf.apob_commit())
+                use drv_hf_api::ApobCommitError;
+                use host_sp_messages::ApobCommitResult;
+                Some(SpToHost::ApobCommit(match self.hf.apob_commit() {
+                    Ok(()) => ApobCommitResult::Ok,
+                    Err(ApobCommitError::NotImplemented) => {
+                        ApobCommitResult::NotImplemented
+                    }
+                    Err(ApobCommitError::InvalidState) => {
+                        ApobCommitResult::InvalidState
+                    }
+                    Err(ApobCommitError::ValidationFailed) => {
+                        ApobCommitResult::ValidationFailed
+                    }
+                    Err(ApobCommitError::CommitFailed) => {
+                        ApobCommitResult::CommitFailed
+                    }
+                }))
             }
-            HostToSp::ApobData { offset } => {
-                Some(self.apob_write(offset, data))
-            }
+            HostToSp::ApobData { offset } => Some(SpToHost::ApobData(
+                Self::apob_write(&self.hf, offset, data),
+            )),
             HostToSp::ApobRead { offset, size } => {
                 // apob_read does serialization itself
                 self.apob_read(header.sequence, offset, size);
@@ -1066,22 +1091,59 @@ impl ServerImpl {
     /// This does not take `&self` because we need to force a split borrow
     fn apob_write(
         hf: &HostFlash,
-        mut offset: u64,
+        offset: u64,
         data: &[u8],
-    ) -> ApobWriteResult {
-        self.hf.apob_write(offset, data)
+    ) -> host_sp_messages::ApobDataResult {
+        use drv_hf_api::ApobWriteError;
+        use host_sp_messages::ApobDataResult;
+        match hf.apob_write(offset, data) {
+            Ok(()) => ApobDataResult::Ok,
+            Err(err) => {
+                ringbuf_entry!(Trace::ApobWriteError { offset, err });
+                match err {
+                    ApobWriteError::NotImplemented => {
+                        ApobDataResult::NotImplemented
+                    }
+                    ApobWriteError::InvalidState => {
+                        ApobDataResult::InvalidState
+                    }
+                    ApobWriteError::InvalidOffset => {
+                        ApobDataResult::InvalidOffset
+                    }
+                    ApobWriteError::InvalidSize => ApobDataResult::InvalidSize,
+                    ApobWriteError::WriteFailed => ApobDataResult::WriteFailed,
+                    ApobWriteError::NotErased => ApobDataResult::NotErased,
+                }
+            }
+        }
     }
 
     /// Reads and encodes data from the bonus region of flash
     fn apob_read(&mut self, sequence: u64, offset: u64, size: u64) {
+        use drv_hf_api::ApobReadError;
+        use host_sp_messages::ApobReadResult;
         self.tx_buf.try_encode_response(
             sequence,
-            &SpToHost::ApobResult(0),
-            |buf| match self.hf.apob_read(buf, offset, size) {
+            &SpToHost::ApobRead(ApobReadResult::Ok),
+            |buf| match self.hf.apob_read(offset, size, buf) {
                 Ok(n) => Ok(n),
                 Err(err) => {
                     ringbuf_entry!(Trace::ApobReadError { offset, err });
-                    Err(SpToHost::ApobRead(err))
+                    Err(SpToHost::ApobRead(match err {
+                        ApobReadError::NotImplemented => {
+                            ApobReadResult::NotImplemented
+                        }
+                        ApobReadError::InvalidState => {
+                            ApobReadResult::InvalidState
+                        }
+                        ApobReadError::InvalidOffset => {
+                            ApobReadResult::InvalidOffset
+                        }
+                        ApobReadError::InvalidSize => {
+                            ApobReadResult::InvalidSize
+                        }
+                        ApobReadError::ReadFailed => ApobReadResult::ReadFailed,
+                    }))
                 }
             },
         );
