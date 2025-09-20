@@ -20,7 +20,7 @@ region = "flash"
 size = 256
 
 [tasks.jefe]
-name = "task-jefe"
+bin-crate = "task-jefe"
 priority = 0
 max-sizes = {flash = 8192, ram = 2048}
 start = true
@@ -31,14 +31,14 @@ notifications = ["fault", "timer"]
 request_reset = ["update_server"]
 
 [tasks.idle]
-name = "task-idle"
+bin-crate = "task-idle"
 priority = 7
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true
 
 [tasks.update_server]
-name = "lpc55-update-server"
+bin-crate = "lpc55-update-server"
 priority = 3
 stacksize = 8192
 start = true
@@ -49,7 +49,7 @@ interrupts = {"flash_controller.irq" = "flash-irq", "hash_crypt.irq" = "hashcryp
 task-slots = [{"syscon" = "syscon_driver"}, "jefe"]
 
 [tasks.syscon_driver]
-name = "drv-lpc55-syscon"
+bin-crate = "drv-lpc55-syscon"
 priority = 2
 max-sizes = {flash = 8192, ram = 2048}
 uses = ["syscon", "anactrl", "pmc"]
@@ -57,7 +57,7 @@ start = true
 task-slots = ["jefe"]
 
 [tasks.gpio_driver]
-name = "drv-lpc55-gpio"
+bin-crate = "drv-lpc55-gpio"
 priority = 3
 max-sizes = {flash = 8192, ram = 2048}
 uses = ["gpio", "iocon", "pint", "inputmux"]
@@ -65,7 +65,7 @@ start = true
 task-slots = ["syscon_driver"]
 
 [tasks.sprot]
-name = "drv-lpc55-sprot-server"
+bin-crate = "drv-lpc55-sprot-server"
 priority = 6
 uses = ["flexcomm8", "bootrom"]
 features = ["spi0", "sp-ctrl"]
@@ -90,7 +90,7 @@ pins = [
 ]
 
 [tasks.swd]
-name = "drv-lpc55-swd"
+bin-crate = "drv-lpc55-swd"
 priority = 4
 uses = ["flexcomm5", "iocon"]
 start = true
@@ -137,7 +137,7 @@ pins = [
 spi_num = 5
 
 [tasks.dumper]
-name = "task-dumper"
+bin-crate = "task-dumper"
 priority = 5
 max-sizes = {flash = 16384, ram = 4096}
 start = true
@@ -145,7 +145,7 @@ stacksize = 2600
 task-slots = ["swd"]
 
 [tasks.attest]
-name = "task-attest"
+bin-crate = "task-attest"
 priority = 3
 max-sizes = {flash = 35400, ram = 16384}
 stacksize = 12304

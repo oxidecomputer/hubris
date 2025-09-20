@@ -10,7 +10,7 @@ name = "gimletlet"
 requires = {flash = 32768, ram = 4096}
 
 [tasks.jefe]
-name = "task-jefe"
+bin-crate = "task-jefe"
 priority = 0
 max-sizes = {flash = 8192, ram = 4096}
 start = true
@@ -22,7 +22,7 @@ set_reset_reason = ["sys"]
 request_reset = ["hiffy"]
 
 [tasks.sys]
-name = "drv-stm32xx-sys"
+bin-crate = "drv-stm32xx-sys"
 features = ["h753"]
 priority = 1
 max-sizes = {flash = 2048, ram = 2048}
@@ -31,7 +31,7 @@ start = true
 task-slots = ["jefe"]
 
 [tasks.user_leds]
-name = "drv-user-leds"
+bin-crate = "drv-user-leds"
 features = ["stm32h7"]
 priority = 2
 start = true
@@ -39,7 +39,7 @@ task-slots = ["sys"]
 notifications = ["timer"]
 
 [tasks.hiffy]
-name = "task-hiffy"
+bin-crate = "task-hiffy"
 features = ["h753", "stm32h7", "gpio", "spi"]
 priority = 3
 max-sizes = {flash = 32768, ram = 65536 }
@@ -48,7 +48,7 @@ start = true
 task-slots = ["sys", "user_leds"]
 
 [tasks.net]
-name = "task-net"
+bin-crate = "task-net"
 stacksize = 3328
 priority = 3
 features = ["mgmt", "h753", "use-spi-core", "spi2"]
@@ -65,7 +65,7 @@ task-slots = ["sys", "user_leds", "jefe"]
 "spi2.irq" = "spi-irq"
 
 [tasks.udpecho]
-name = "task-udpecho"
+bin-crate = "task-udpecho"
 priority = 4
 max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
@@ -74,7 +74,7 @@ task-slots = ["net"]
 notifications = ["socket"]
 
 [tasks.idle]
-name = "task-idle"
+bin-crate = "task-idle"
 priority = 5
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
