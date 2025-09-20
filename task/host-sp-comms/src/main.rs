@@ -1349,7 +1349,6 @@ impl ServerImpl {
                             // space we have for our response, then statically
                             // guarantee we have sufficient space in `buf` for
                             // longest possible DTRACE_CONF blob.
-                            #[allow(dead_code)] // suppress warning in nightly
                             const SP_TO_HOST_FILL_DATA_LEN: usize =
                                 MIN_SP_TO_HOST_FILL_DATA_LEN
                                     + SpToHost::MAX_SIZE
