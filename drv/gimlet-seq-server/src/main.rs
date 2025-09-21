@@ -26,6 +26,7 @@ use drv_spi_api::{SpiDevice, SpiServer};
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};
 use seq_spi::{Addr, Reg};
+use serde::Serialize;
 use static_assertions::const_assert;
 use task_jefe_api::Jefe;
 
@@ -153,6 +154,13 @@ enum Trace {
         retries_remaining: u8,
     },
     StartFailed(#[count(children)] SeqError),
+    EreportSent(#[count(children)] EreportClass, usize),
+    EreportLost(
+        #[count(children)] EreportClass,
+        usize,
+        task_packrat_api::EreportWriteError,
+    ),
+    EreportTooBig(#[count(children)] EreportClass),
 }
 
 counted_ringbuf!(Trace, 128, Trace::None);
@@ -201,6 +209,7 @@ struct ServerImpl<S: SpiServer> {
     hf: hf_api::HostFlash,
     vcore: vcore::VCore,
     deadline: u64,
+    packrat: Packrat,
     // Buffer for encoding ereports. This is a static so that it's not on the
     // stack when handling interrupts.
     ereport_buf: &'static mut [u8; EREPORT_BUF_LEN],
@@ -501,8 +510,9 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
             jefe,
             hf,
             deadline: 0,
-            vcore: vcore::VCore::new(sys, packrat, &device, rail),
+            vcore: vcore::VCore::new(sys, &device, rail),
             ereport_buf,
+            packrat,
         };
 
         // Power on, unless suppressed by the `stay-in-a2` feature
@@ -542,7 +552,8 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
 
     fn handle_notification(&mut self, bits: userlib::NotificationBits) {
         if bits.check_notification_mask(self.vcore.mask()) {
-            self.vcore.handle_notification(self.ereport_buf);
+            self.vcore
+                .handle_notification(&self.packrat, self.ereport_buf);
         }
 
         if !bits.has_timer_fired(notifications::TIMER_MASK) {
@@ -1020,6 +1031,26 @@ impl<S: SpiServer> ServerImpl<S> {
         if ifr & thermtrip != 0 {
             self.seq.clear_bytes(Addr::IFR, &[thermtrip]).unwrap_lite();
             self.update_state_internal(PowerState::A0Thermtrip);
+            let ereport = ThermtripEreport {
+                class: EreportClass::Thermtrip,
+                version: 0,
+                refdes: "P0", // host CPU
+            };
+            deliver_ereport(
+                ereport.class,
+                &ereport,
+                &self.packrat,
+                self.ereport_buf,
+            );
+        }
+
+        #[derive(serde::Serialize)]
+        struct ThermtripEreport {
+            #[serde(rename = "k")]
+            class: EreportClass,
+            #[serde(rename = "v")]
+            version: u32,
+            refdes: &'static str,
         }
     }
 
@@ -1277,6 +1308,31 @@ fn read_spd_data_and_load_packrat(
 
     ringbuf_entry!(Trace::SpdDimmsFound(npresent));
     Ok(())
+}
+
+#[derive(Eq, PartialEq, Copy, Clone, Serialize, Count)]
+pub(crate) enum EreportClass {
+    #[serde(rename = "hw.cpu.thermtrip")]
+    Thermtrip,
+    #[serde(rename = "hw.pwr.pmbus.alert")]
+    PmbusAlert,
+}
+
+pub(crate) fn deliver_ereport(
+    class: EreportClass,
+    ereport: &impl Serialize,
+    packrat: &Packrat,
+    buf: &mut [u8],
+) {
+    match packrat.serialize_ereport(ereport, buf) {
+        Ok(len) => ringbuf_entry!(Trace::EreportSent(class, len)),
+        Err(task_packrat_api::EreportSerializeError::Packrat { len, err }) => {
+            ringbuf_entry!(Trace::EreportLost(class, len, err))
+        }
+        Err(task_packrat_api::EreportSerializeError::Serialize(_)) => {
+            ringbuf_entry!(Trace::EreportTooBig(class))
+        }
+    }
 }
 
 fn reprogram_fpga<S: SpiServer>(
