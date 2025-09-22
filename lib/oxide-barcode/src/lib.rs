@@ -260,19 +260,19 @@ impl Mpn1Identity {
     }
 
     pub fn mfg(&self) -> Option<&[u8]> {
-        self.nth_part(0)
-    }
-
-    pub fn mpn(&self) -> Option<&[u8]> {
         self.nth_part(1)
     }
 
-    pub fn revision(&self) -> Option<&[u8]> {
+    pub fn mpn(&self) -> Option<&[u8]> {
         self.nth_part(2)
     }
 
-    pub fn serial(&self) -> Option<&[u8]> {
+    pub fn revision(&self) -> Option<&[u8]> {
         self.nth_part(3)
+    }
+
+    pub fn serial(&self) -> Option<&[u8]> {
+        self.nth_part(4)
     }
 
     fn nth_part(&self, n: usize) -> Option<&[u8]> {
@@ -285,20 +285,13 @@ impl Mpn1Identity {
     }
 
     pub fn parse(bytes: &[u8]) -> Result<Self, ParseError> {
-        let (version, rest) = bytes
-            .split_at_checked(5)
-            .ok_or(ParseError::MissingVersion)?;
+        let version = bytes.get(..5).ok_or(ParseError::MissingVersion)?;
         if version != b"MPN1:" {
             return Err(ParseError::UnknownVersion);
         }
-        Self::from_bytes(rest)
-    }
-
-    fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
-        let len = bytes.len();
 
         let mut buf = [0u8; Self::MAX_LEN];
-        buf.get_mut(..len)
+        buf.get_mut(..bytes.len())
             .ok_or(ParseError::WrongMpn1Length)?
             .copy_from_slice(bytes);
         Ok(Self {
