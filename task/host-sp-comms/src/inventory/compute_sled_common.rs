@@ -99,7 +99,7 @@ impl crate::ServerImpl {
             let InventoryData::FanIdentity {
                 identity,
                 vpd_identity,
-                fans: [fan0, fan1, fan2],
+                fans,
             } = self.scratch
             else {
                 unreachable!();
@@ -112,34 +112,9 @@ impl crate::ServerImpl {
                 &[(*b"SASY", 0), (*b"BARC", 0)],
             )?
             .into();
-            *fan0 = read_one_barcode::<VpdIdentity>(
-                dev,
-                &[(*b"SASY", 0), (*b"BARC", 1)],
-            )
-            .map(oxide_barcode_or_default)?;
-            *fan1 = read_one_barcode::<VpdIdentity>(
-                dev,
-                &[(*b"SASY", 0), (*b"BARC", 2)],
-            )
-            .map(oxide_barcode_or_default)?;
-            *fan2 = read_one_barcode::<VpdIdentity>(
-                dev,
-                &[(*b"SASY", 0), (*b"BARC", 3)],
-            )
-            .map(oxide_barcode_or_default)?;
+            read_fan_barcodes(dev, fans)?;
             Ok(self.scratch)
         });
-
-        fn oxide_barcode_or_default(
-            barcode: oxide_barcode::VpdIdentity,
-        ) -> host_sp_messages::Identity {
-            match barcode {
-                oxide_barcode::VpdIdentity::Oxide(id) => id.into(),
-                oxide_barcode::VpdIdentity::Mpn1(_) => {
-                    host_sp_messages::Identity::default()
-                }
-            }
-        }
     }
 
     /// Reads the fan EEPROM barcode values into a `FANTRAYv2` IPCC message.
@@ -172,7 +147,7 @@ impl crate::ServerImpl {
             let InventoryData::FanIdentityV2 {
                 identity,
                 vpd_identity,
-                fans: [fan0, fan1, fan2],
+                fans,
             } = self.scratch
             else {
                 unreachable!();
@@ -185,24 +160,31 @@ impl crate::ServerImpl {
                 &[(*b"SASY", 0), (*b"BARC", 0)],
             )?
             .into();
-            *fan0 = read_one_barcode::<VpdIdentity>(
-                dev,
-                &[(*b"SASY", 0), (*b"BARC", 1)],
-            )?
-            .into();
-            *fan1 = read_one_barcode::<VpdIdentity>(
-                dev,
-                &[(*b"SASY", 0), (*b"BARC", 2)],
-            )?
-            .into();
-            *fan2 = read_one_barcode::<VpdIdentity>(
-                dev,
-                &[(*b"SASY", 0), (*b"BARC", 3)],
-            )?
-            .into();
+            read_fan_barcodes(dev, fans)?;
+
             Ok(self.scratch)
         });
     }
+}
+
+fn read_fan_barcodes<T>(
+    dev: I2cDevice,
+    fans: &mut [T; 3],
+) -> Result<(), InventoryDataResult>
+where
+    T: From<oxide_barcode::VpdIdentity>,
+{
+    let [ref mut fan0, ref mut fan1, ref mut fan2] = fans;
+    *fan0 =
+        read_one_barcode::<VpdIdentity>(dev, &[(*b"SASY", 0), (*b"BARC", 1)])?
+            .into();
+    *fan1 =
+        read_one_barcode::<VpdIdentity>(dev, &[(*b"SASY", 0), (*b"BARC", 2)])?
+            .into();
+    *fan2 =
+        read_one_barcode::<VpdIdentity>(dev, &[(*b"SASY", 0), (*b"BARC", 3)])?
+            .into();
+    Ok(())
 }
 
 /// Free function to read a nested barcode, translating errors appropriately

@@ -569,6 +569,23 @@ impl From<oxide_barcode::OxideIdentity> for Identity {
     }
 }
 
+impl From<oxide_barcode::Mpn1Identity> for Identity {
+    fn from(_: oxide_barcode::Mpn1Identity) -> Self {
+        // Oh no! MPN1 barcodes cannot be represented by this message type.
+        // Guess I'll just give up...
+        Self::default()
+    }
+}
+
+impl From<oxide_barcode::VpdIdentity> for Identity {
+    fn from(id: oxide_barcode::VpdIdentity) -> Self {
+        match id {
+            oxide_barcode::VpdIdentity::Mpn1(id) => Self::from(id),
+            oxide_barcode::VpdIdentity::Oxide(id) => Self::from(id),
+        }
+    }
+}
+
 impl Default for Identity {
     fn default() -> Self {
         Self {
