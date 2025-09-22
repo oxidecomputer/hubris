@@ -18,7 +18,7 @@ use ringbuf::{counted_ringbuf, ringbuf_entry};
 use static_cell::ClaimOnceCell;
 use task_control_plane_agent_api::MAX_INSTALLINATOR_IMAGE_ID_LEN;
 use task_control_plane_agent_api::{
-    BarcodeParseError, ControlPlaneAgentError, UartClient, OxideIdentity,
+    BarcodeParseError, ControlPlaneAgentError, OxideIdentity, UartClient,
 };
 use task_net_api::{
     Address, LargePayloadBehavior, Net, RecvError, SendError, SocketName,
@@ -608,7 +608,7 @@ const fn usize_max(a: usize, b: usize) -> usize {
 
 mod idl {
     use task_control_plane_agent_api::{
-        ControlPlaneAgentError, HostStartupOptions, UartClient, OxideIdentity,
+        ControlPlaneAgentError, HostStartupOptions, OxideIdentity, UartClient,
     };
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

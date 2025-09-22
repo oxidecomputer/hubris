@@ -8,7 +8,7 @@
 use hubpack::SerializedSize;
 use serde::Serialize;
 use task_net_api::*;
-use task_packrat_api::{Packrat, OxideIdentity};
+use task_packrat_api::{OxideIdentity, Packrat};
 use userlib::*;
 
 #[cfg(feature = "vlan")]

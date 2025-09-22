@@ -137,11 +137,12 @@ impl idl::InOrderEreportulatorImpl for ServerImpl {
         &mut self,
         _msg: &RecvMessage,
     ) -> Result<(), RequestError<task_packrat_api::CacheSetError>> {
-        let result = self.packrat.set_identity(task_packrat_api::OxideIdentity {
-            part_number: *b"LOLNO000000",
-            serial: *b"69426661337",
-            revision: 42,
-        });
+        let result =
+            self.packrat.set_identity(task_packrat_api::OxideIdentity {
+                part_number: *b"LOLNO000000",
+                serial: *b"69426661337",
+                revision: 42,
+            });
 
         ringbuf_entry!(Trace::SetFakeVpd(result));
 
