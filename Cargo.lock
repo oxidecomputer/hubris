@@ -10,7 +10,7 @@ dependencies = [
  "byteorder",
  "phash",
  "serde",
- "zerocopy 0.8.26",
+ "zerocopy 0.8.27",
 ]
 
 [[package]]
@@ -178,8 +178,8 @@ dependencies = [
  "num-traits",
  "serde",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1007,8 +1007,8 @@ dependencies = [
  "sha3",
  "tlvc",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1026,8 +1026,8 @@ dependencies = [
  "stm32h7",
  "tlvc",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1069,8 +1069,8 @@ dependencies = [
  "serde",
  "stm32h7",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1105,8 +1105,8 @@ dependencies = [
  "task-jefe-api",
  "task-packrat-api",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1116,8 +1116,8 @@ dependencies = [
  "counters",
  "num-traits",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1131,8 +1131,8 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1147,8 +1147,8 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1164,8 +1164,8 @@ dependencies = [
  "sha3",
  "tlvc",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1182,7 +1182,7 @@ dependencies = [
  "num-traits",
  "ringbuf",
  "userlib",
- "zerocopy 0.8.26",
+ "zerocopy 0.8.27",
 ]
 
 [[package]]
@@ -1205,8 +1205,8 @@ dependencies = [
  "num-traits",
  "ringbuf",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1216,8 +1216,8 @@ dependencies = [
  "drv-fpga-api",
  "num-traits",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1236,8 +1236,8 @@ dependencies = [
  "serde",
  "stm32h7",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1277,8 +1277,8 @@ dependencies = [
  "task-jefe-api",
  "task-packrat-api",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1301,8 +1301,8 @@ dependencies = [
  "task-jefe-api",
  "task-packrat-api",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1315,8 +1315,8 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1334,8 +1334,8 @@ dependencies = [
  "num-traits",
  "serde",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1346,8 +1346,8 @@ dependencies = [
  "counters",
  "drv-i2c-types",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1365,8 +1365,8 @@ dependencies = [
  "smbus-pec",
  "task-power-api",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1411,8 +1411,8 @@ dependencies = [
  "serde",
  "static_assertions",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1430,8 +1430,8 @@ dependencies = [
  "mutable-statics",
  "num-traits",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1449,8 +1449,8 @@ dependencies = [
  "num-traits",
  "ringbuf",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1463,8 +1463,8 @@ dependencies = [
  "drv-oxide-vpd",
  "idol",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1487,8 +1487,8 @@ dependencies = [
  "num-traits",
  "serde",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1505,8 +1505,8 @@ dependencies = [
  "num-traits",
  "serde",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1519,8 +1519,8 @@ dependencies = [
  "lpc55-pac",
  "num-traits",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1537,8 +1537,8 @@ dependencies = [
  "rand_chacha",
  "rand_core",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1558,8 +1558,8 @@ dependencies = [
  "lpc55-pac",
  "num-traits",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1577,8 +1577,8 @@ dependencies = [
  "ringbuf",
  "serde",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1612,8 +1612,8 @@ dependencies = [
  "static_assertions",
  "task-jefe-api",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1646,8 +1646,8 @@ dependencies = [
  "serde",
  "static_assertions",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1662,8 +1662,8 @@ dependencies = [
  "num-traits",
  "task-jefe-api",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1675,8 +1675,8 @@ dependencies = [
  "idol",
  "num-traits",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1695,8 +1695,8 @@ dependencies = [
  "serde",
  "stage0-handoff",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1714,8 +1714,8 @@ dependencies = [
  "nb 1.0.0",
  "serde",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1740,8 +1740,8 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1753,8 +1753,8 @@ dependencies = [
  "idol",
  "num-traits",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1770,8 +1770,8 @@ dependencies = [
  "num-traits",
  "serde",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1798,8 +1798,8 @@ dependencies = [
  "ringbuf",
  "serde",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1816,8 +1816,8 @@ dependencies = [
  "num-traits",
  "ringbuf",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1835,8 +1835,8 @@ dependencies = [
  "num-traits",
  "serde",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1860,8 +1860,8 @@ dependencies = [
  "serde",
  "serde_json",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1877,8 +1877,8 @@ dependencies = [
  "num-traits",
  "serde",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1892,8 +1892,8 @@ dependencies = [
  "num-traits",
  "task-jefe-api",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1910,8 +1910,8 @@ dependencies = [
  "userlib",
  "vsc7448",
  "vsc85xx",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1920,8 +1920,8 @@ version = "0.1.0"
 dependencies = [
  "num-traits",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1931,8 +1931,8 @@ dependencies = [
  "drv-onewire",
  "num-traits",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -1944,8 +1944,8 @@ dependencies = [
  "idol",
  "ringbuf",
  "tlvc",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -2021,8 +2021,8 @@ dependencies = [
  "num-traits",
  "rand_core",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -2041,8 +2041,8 @@ dependencies = [
  "num-traits",
  "ringbuf",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -2056,8 +2056,8 @@ dependencies = [
  "idol",
  "num-traits",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -2081,8 +2081,8 @@ dependencies = [
  "userlib",
  "vsc7448-pac",
  "vsc85xx",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -2105,8 +2105,8 @@ dependencies = [
  "serde",
  "serde_json",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -2133,8 +2133,8 @@ dependencies = [
  "num-traits",
  "serde",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -2162,8 +2162,8 @@ dependencies = [
  "ringbuf",
  "serde",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -2176,8 +2176,8 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -2198,8 +2198,8 @@ dependencies = [
  "ringbuf",
  "task-config",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -2211,8 +2211,8 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -2241,8 +2241,8 @@ dependencies = [
  "num-traits",
  "serde",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -2273,8 +2273,8 @@ dependencies = [
  "tlvc",
  "unwrap-lite",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -2285,8 +2285,8 @@ dependencies = [
  "stm32f3",
  "stm32f4",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -2298,8 +2298,8 @@ dependencies = [
  "stm32f3",
  "stm32f4",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -2313,8 +2313,8 @@ dependencies = [
  "num-traits",
  "stm32g0",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -2361,8 +2361,8 @@ dependencies = [
  "stm32h7",
  "userlib",
  "vcell",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -2380,8 +2380,8 @@ dependencies = [
  "num-traits",
  "stm32h7",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -2392,8 +2392,8 @@ dependencies = [
  "stm32h7",
  "userlib",
  "vcell",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -2410,8 +2410,8 @@ dependencies = [
  "stm32h7",
  "task-packrat-api",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -2422,8 +2422,8 @@ dependencies = [
  "ringbuf",
  "stm32h7",
  "vcell",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -2438,8 +2438,8 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -2469,7 +2469,7 @@ dependencies = [
  "stm32h7",
  "syn 2.0.98",
  "userlib",
- "zerocopy 0.8.26",
+ "zerocopy 0.8.27",
 ]
 
 [[package]]
@@ -2496,8 +2496,8 @@ dependencies = [
  "ssmarshal",
  "static-cell",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -2524,8 +2524,8 @@ dependencies = [
  "serde",
  "stage0-handoff",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -2546,8 +2546,8 @@ dependencies = [
  "stm32g0",
  "stm32h7",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -2565,8 +2565,8 @@ dependencies = [
  "stm32g0",
  "stm32h7",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -2610,8 +2610,8 @@ dependencies = [
  "stm32h7",
  "task-jefe-api",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -2628,8 +2628,8 @@ dependencies = [
  "num-traits",
  "serde",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -2653,8 +2653,8 @@ dependencies = [
  "task-sensor-api",
  "transceiver-messages",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -2687,8 +2687,8 @@ dependencies = [
  "task-thermal-api",
  "transceiver-messages",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -2705,8 +2705,8 @@ dependencies = [
  "ringbuf",
  "serde",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -2727,8 +2727,8 @@ dependencies = [
  "stm32f4",
  "task-config",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -2740,8 +2740,8 @@ dependencies = [
  "idol",
  "num-traits",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -2758,8 +2758,8 @@ dependencies = [
  "num-traits",
  "serde",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -2775,8 +2775,8 @@ dependencies = [
  "num-traits",
  "serde",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -2864,7 +2864,7 @@ name = "endoscope-abi"
 version = "0.1.0"
 dependencies = [
  "sha3",
- "zerocopy 0.8.26",
+ "zerocopy 0.8.27",
 ]
 
 [[package]]
@@ -3011,13 +3011,13 @@ name = "gateway-ereport-messages"
 version = "0.1.0"
 source = "git+https://github.com/oxidecomputer/management-gateway-service#831d4be4d3a851853ee2c62451f63f2fcfb4a30b"
 dependencies = [
- "zerocopy 0.8.26",
+ "zerocopy 0.8.27",
 ]
 
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service?rev=ef7ce28f349dca6774b931bb169690e908e3eecd#ef7ce28f349dca6774b931bb169690e908e3eecd"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?rev=50a438ad1e502135036ec8b88b208dd44d7df2c1#50a438ad1e502135036ec8b88b208dd44d7df2c1"
 dependencies = [
  "bitflags 2.9.4",
  "hubpack",
@@ -3029,7 +3029,7 @@ dependencies = [
  "strum",
  "strum_macros",
  "uuid",
- "zerocopy 0.8.26",
+ "zerocopy 0.8.27",
 ]
 
 [[package]]
@@ -3271,8 +3271,8 @@ dependencies = [
  "serde_repr",
  "static_assertions",
  "unwrap-lite",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -3341,8 +3341,8 @@ dependencies = [
  "serde",
  "serde-big-array 0.5.1",
  "static_assertions",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -3397,7 +3397,7 @@ source = "git+https://github.com/oxidecomputer/idolatry.git#f67fffe2bd917479a476
 dependencies = [
  "counters",
  "userlib",
- "zerocopy 0.8.26",
+ "zerocopy 0.8.27",
 ]
 
 [[package]]
@@ -3521,8 +3521,8 @@ dependencies = [
  "ssmarshal",
  "syn 2.0.98",
  "unwrap-lite",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -3576,8 +3576,8 @@ dependencies = [
  "static_assertions",
  "unwrap-lite",
  "vcell",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
  "zeroize",
 ]
 
@@ -3641,8 +3641,8 @@ dependencies = [
  "cfg-if",
  "proc-macro2",
  "quote",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -3698,8 +3698,8 @@ dependencies = [
  "static_assertions",
  "toml 0.9.6",
  "unwrap-lite",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
  "zeroize",
 ]
 
@@ -3731,8 +3731,8 @@ dependencies = [
  "task-jefe-api",
  "tlvc",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -4152,7 +4152,7 @@ version = "0.1.0"
 dependencies = [
  "hubpack",
  "serde",
- "zerocopy 0.8.26",
+ "zerocopy 0.8.27",
 ]
 
 [[package]]
@@ -5199,8 +5199,8 @@ dependencies = [
  "serde",
  "stm32h7",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -5284,8 +5284,8 @@ dependencies = [
  "static-cell",
  "unwrap-lite",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -5351,8 +5351,8 @@ dependencies = [
  "task-vpd-api",
  "update-buffer",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -5369,8 +5369,8 @@ dependencies = [
  "serde",
  "ssmarshal",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -5392,8 +5392,8 @@ dependencies = [
  "task-packrat-api",
  "task-sensor-api",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -5419,8 +5419,8 @@ dependencies = [
  "task-jefe-api",
  "task-net-api",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -5439,8 +5439,8 @@ dependencies = [
  "ringbuf",
  "serde",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -5455,8 +5455,8 @@ dependencies = [
  "ringbuf",
  "task-packrat-api",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -5539,8 +5539,8 @@ dependencies = [
  "static-cell",
  "test-api",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -5587,8 +5587,8 @@ dependencies = [
  "task-sensor-api",
  "tlvc",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -5603,8 +5603,8 @@ dependencies = [
  "num-traits",
  "ssmarshal",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -5636,8 +5636,8 @@ dependencies = [
  "ssmarshal",
  "task-jefe-api",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -5655,8 +5655,8 @@ dependencies = [
  "serde",
  "ssmarshal",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -5686,8 +5686,8 @@ dependencies = [
  "vsc7448",
  "vsc7448-pac",
  "vsc85xx",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -5734,8 +5734,8 @@ dependencies = [
  "userlib",
  "vsc7448-pac",
  "vsc85xx",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -5757,8 +5757,8 @@ dependencies = [
  "smoltcp",
  "task-packrat-api",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -5801,8 +5801,8 @@ dependencies = [
  "static_assertions",
  "task-packrat-api",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -5822,8 +5822,8 @@ dependencies = [
  "oxide-barcode",
  "serde",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -5875,8 +5875,8 @@ dependencies = [
  "task-power-api",
  "task-sensor-api",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -5894,8 +5894,8 @@ dependencies = [
  "static_assertions",
  "task-sensor-api",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -5918,8 +5918,8 @@ dependencies = [
  "serde",
  "task-sensor-api",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -5939,8 +5939,8 @@ dependencies = [
  "num-traits",
  "serde",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -5957,8 +5957,8 @@ dependencies = [
  "ringbuf",
  "task-sensor-api",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -5974,8 +5974,8 @@ dependencies = [
  "task-net-api",
  "task-packrat-api",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -6027,8 +6027,8 @@ dependencies = [
  "task-sensor-api",
  "task-thermal-api",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -6046,8 +6046,8 @@ dependencies = [
  "serde",
  "task-sensor-api",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -6078,8 +6078,8 @@ dependencies = [
  "task-net-api",
  "task-packrat-api",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -6103,8 +6103,8 @@ dependencies = [
  "idol",
  "task-net-api",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -6126,8 +6126,8 @@ dependencies = [
  "serde",
  "task-validate-api",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -6147,8 +6147,8 @@ dependencies = [
  "serde",
  "task-sensor-api",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -6168,8 +6168,8 @@ dependencies = [
  "ringbuf",
  "task-vpd-api",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -6183,8 +6183,8 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -6213,8 +6213,8 @@ dependencies = [
  "build-util",
  "num-traits",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -6227,8 +6227,8 @@ dependencies = [
  "num-traits",
  "test-api",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -6243,8 +6243,8 @@ dependencies = [
  "serde",
  "ssmarshal",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -6259,8 +6259,8 @@ dependencies = [
  "ssmarshal",
  "test-idol-api",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -6276,8 +6276,8 @@ dependencies = [
  "ringbuf",
  "test-api",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -6297,8 +6297,8 @@ dependencies = [
  "test-api",
  "test-idol-api",
  "userlib",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -6638,8 +6638,8 @@ dependencies = [
  "ssmarshal",
  "unwrap-lite",
  "volatile-const",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -6650,9 +6650,9 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "uuid"
-version = "1.16.0"
+version = "1.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "458f7a779bf54acc9f347480ac654f68407d3aab21269a6e3c9f922acd9e2da9"
+checksum = "2f87b8aa10b915a06587d0dec516c282ff295b475d94abf425d62b57710070a2"
 
 [[package]]
 name = "vcell"
@@ -6728,8 +6728,8 @@ dependencies = [
  "userlib",
  "vsc-err",
  "vsc7448-pac",
- "zerocopy 0.8.26",
- "zerocopy-derive 0.8.26",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -7126,7 +7126,7 @@ dependencies = [
  "toml-task",
  "toml_edit 0.23.5",
  "walkdir",
- "zerocopy 0.8.26",
+ "zerocopy 0.8.27",
  "zip",
 ]
 
@@ -7152,11 +7152,11 @@ dependencies = [
 
 [[package]]
 name = "zerocopy"
-version = "0.8.26"
+version = "0.8.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1039dd0d3c310cf05de012d8a39ff557cb0d23087fd44cad61df08fc31907a2f"
+checksum = "0894878a5fa3edfd6da3f88c4805f4c8558e2b996227a3d864f47fe11e38282c"
 dependencies = [
- "zerocopy-derive 0.8.26",
+ "zerocopy-derive 0.8.27",
 ]
 
 [[package]]
@@ -7183,9 +7183,9 @@ dependencies = [
 
 [[package]]
 name = "zerocopy-derive"
-version = "0.8.26"
+version = "0.8.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ecf5b4cc5364572d7f4c329661bcc82724222973f2cab6f050a4e5c22f75181"
+checksum = "88d2b8d9c68ad2b9e4340d7832716a4d21a22a1154777ad56ea55c51a9cf3831"
 dependencies = [
  "proc-macro2",
  "quote",
