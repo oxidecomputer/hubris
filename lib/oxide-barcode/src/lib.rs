@@ -255,6 +255,10 @@ impl Mpn1Identity {
         self.len as usize
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
     pub fn bytes(&self) -> &[u8] {
         &self.buf[..self.len()]
     }
