@@ -101,6 +101,14 @@ enum Trace {
         now: u64,
     },
     UnexpectedInterrupt,
+
+    EreportSent(#[count(children)] EreportClass, usize),
+    EreportLost(
+        #[count(children)] EreportClass,
+        usize,
+        task_packrat_api::EreportWriteError,
+    ),
+    EreportTooBig(#[count(children)] EreportClass),
 }
 counted_ringbuf!(Trace, 128, Trace::None);
 
@@ -783,7 +791,17 @@ impl ServerImpl {
             self.seq.ifr.modify(|h| h.set_thermtrip(false));
             ringbuf_entry!(Trace::Thermtrip);
             action = InternalAction::ThermTrip;
-            // Great place for an ereport?
+            let ereport = Ereport {
+                class: EreportClass::Thermtrip,
+                version: 0,
+                refdes: "P0", // host CPU
+            };
+            deliver_ereport(
+                ereport.class,
+                ereport,
+                self.packrat,
+                self.ereport_buf,
+            );
         }
 
         if ifr.a0mapo {
@@ -791,14 +809,35 @@ impl ServerImpl {
             self.seq.ifr.modify(|h| h.set_a0mapo(false));
             ringbuf_entry!(Trace::A0MapoInterrupt);
             action = InternalAction::Mapo;
-            // Great place for an ereport?
+            let ereport = Ereport {
+                class: EreportClass::A0Mapo,
+                version: 0,
+                refdes: "U27", // sequencer FPGA
+            };
+            deliver_ereport(
+                ereport.class,
+                ereport,
+                self.packrat,
+                self.ereport_buf,
+            );
         }
 
         if ifr.smerr_assert {
             self.seq.ifr.modify(|h| h.set_smerr_assert(false));
             ringbuf_entry!(Trace::SmerrInterrupt);
             action = InternalAction::Smerr;
-            // Great place for an ereport?
+
+            let ereport = Ereport {
+                class: EreportClass::Smerr,
+                version: 0,
+                refdes: "U27", // sequencer FPGA
+            };
+            deliver_ereport(
+                ereport.class,
+                ereport,
+                self.packrat,
+                self.ereport_buf,
+            );
         }
         // Fan Fault is unconnected
         // NIC MAPO is unconnected
@@ -831,6 +870,20 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::UnexpectedInterrupt);
             }
         };
+
+        #[derive(serde::Serialize)]
+        struct Ereport {
+            #[serde(rename = "k")]
+            class: EreportClass,
+            #[serde(rename = "v")]
+            version: u32,
+            refdes: &'static str,
+            // TODO(eliza): eventually, it would be nice to include sequencer
+            // state registers here, however, we would need to modify the
+            // `fpga_regmap` codegen to let us get the raw bits out (since
+            // encoding the `...View` structs as CBOR uses a lot more bytes for
+            // field names and 8-bit `bool`s...) I'll do this eventually...
+        }
     }
 }
 
@@ -928,6 +981,36 @@ impl NotificationHandler for ServerImpl {
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
+#[derive(Eq, PartialEq, Copy, Clone, serde::Serialize)]
+pub(crate) enum EreportClass {
+    #[serde(rename = "hw.cpu.thermtrip")]
+    Thermtrip,
+    #[serde(rename = "hw.seq.smerr")]
+    Smerr,
+    #[serde(rename = "hw.seq.a0_map0")]
+    A0Mapo,
+    #[serde(rename = "hw.pwr.pmbus.alert")]
+    PmbusAlert,
+}
+
+pub(crate) fn deliver_ereport(
+    class: &EreportClass,
+    ereport: &impl serde::Serialize,
+    packrat: &Packrat,
+    buf: &mut [u8],
+) {
+    match packrat.serialize_ereport(ereport, buf) {
+        Ok(len) => ringbuf_entry!(Trace::EreportSent(class, len)),
+        Err(task_packrat_api::EreportSerializeError::Packrat { len, err }) => {
+            ringbuf_entry!(Trace::EreportLost(class, len, err))
+        }
+        Err(task_packrat_api::EreportSerializeError::Serialize(_)) => {
+            ringbuf_entry!(Trace::EreportTooBig(class))
+        }
+    }
+}
 ////////////////////////////////////////////////////////////////////////////////
 
 mod idl {
