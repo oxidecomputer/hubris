@@ -389,7 +389,7 @@ impl<S: SpiServer> Io<S> {
             .unwrap_lite();
 
         // Determine the deadline after which we'll give up, and start the clock.
-        let expected_wake = set_timer_relative(max_sleep, TIMER_MASK);
+        set_timer_relative(max_sleep, TIMER_MASK);
 
         let mut irq_fired = false;
         while self.is_rot_irq_asserted() != desired {
@@ -406,21 +406,21 @@ impl<S: SpiServer> Io<S> {
             // notification bit, because it's possible *both* notifications were
             // posted before we were scheduled again, and if the IRQ did fire,
             // we'd prefer to honor that.
-            irq_fired = notif & ROT_IRQ_MASK != 0
-                && self
-                    .sys
+            irq_fired = notif.check_condition(ROT_IRQ_MASK, || {
+                self.sys
                     // If the IRQ hasn't fired, leave it enabled, otherwise,
                     // if it has fired, don't re-enable the IRQ.
                     .gpio_irq_control(ROT_IRQ_MASK, IrqControl::Check)
                     // Sys task shouldn't panic.
-                    .unwrap_lite();
+                    .unwrap_lite()
+            });
             if irq_fired {
                 break;
             }
 
             // If the timer notification was posted, and the GPIO IRQ
             // notification wasn't, we've waited for the timeout. Too bad!
-            if notif & TIMER_MASK != 0 && sys_get_timer().now >= expected_wake {
+            if notif.has_timer_fired(TIMER_MASK) {
                 // Disable the IRQ, so that we don't get the notification later
                 // while in `recv`.
                 self.sys
@@ -1538,7 +1538,7 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
         0
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
+    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
         unreachable!()
     }
 }

@@ -276,8 +276,8 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<'_, S> {
         0
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
-        // Nothing to do here
+    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
+        unreachable!()
     }
 }
 

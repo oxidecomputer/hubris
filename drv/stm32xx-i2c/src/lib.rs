@@ -66,16 +66,6 @@ pub struct I2cController<'a> {
     pub registers: &'a RegisterBlock,
 }
 
-///
-/// A structure to denote an absolute number of ticks to wait.
-///
-pub struct I2cTimeout(pub u64);
-
-pub enum I2cControlResult {
-    Interrupted,
-    TimedOut,
-}
-
 pub struct I2cTargetControl {
     pub enable: fn(u32),
     pub wfi: fn(u32),
@@ -148,12 +138,7 @@ pub enum ReadLength {
 enum Register {
     CR1,
     CR2,
-    OAR1,
-    OAR2,
-    TIMINGR,
-    TIMEOUTR,
     ISR,
-    PECR,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, counters::Count)]
@@ -184,16 +169,6 @@ enum Trace {
     BusySleep,
     Stop,
     RepeatedStart(#[count(children)] bool),
-    LostInterrupt,
-    #[count(skip)]
-    Panic(Register, u32),
-    #[count(skip)]
-    IrqStatus {
-        notification: u32,
-        pending: bool,
-        enabled: bool,
-        posted: bool,
-    },
 }
 
 counted_ringbuf!(Trace, 48, Trace::None);
@@ -456,73 +431,13 @@ impl I2cController<'_> {
     }
 
     ///
-    /// A routine to panic.  This should not be called merely because something
-    /// has gone wrong with a device (which should rather be indicated by
-    /// returning an error and resetting the controller if/as needed), but with
-    /// the controller itself.
+    /// A common routine to wait for any of our interrupt-related notification
+    /// bits. Note that you'll still want to check the actual interrupt status
+    /// bits to distinguish a real interrupt from a stale or mischieviously
+    /// posted notification bit.
     ///
-    fn panic(&self) -> ! {
-        let i2c = self.registers;
-        let tgr = &i2c.timingr;
-        let tor = &i2c.timeoutr;
-
-        ringbuf_entry!(Trace::Panic(Register::CR1, i2c.cr1.read().bits()));
-        ringbuf_entry!(Trace::Panic(Register::CR2, i2c.cr2.read().bits()));
-        ringbuf_entry!(Trace::Panic(Register::OAR1, i2c.oar1.read().bits()));
-        ringbuf_entry!(Trace::Panic(Register::OAR2, i2c.oar2.read().bits()));
-        ringbuf_entry!(Trace::Panic(Register::TIMINGR, tgr.read().bits()));
-        ringbuf_entry!(Trace::Panic(Register::TIMEOUTR, tor.read().bits()));
-        ringbuf_entry!(Trace::Panic(Register::ISR, i2c.isr.read().bits()));
-        ringbuf_entry!(Trace::Panic(Register::PECR, i2c.pecr.read().bits()));
-
-        let irq_status = sys_irq_status(self.notification);
-        ringbuf_entry!(Trace::IrqStatus {
-            notification: self.notification,
-            // Yes, we *could* just record the `IrqStatus` value here, but
-            // Humility will format it as a hex value rather than knowing about
-            // the bitflags, which is a bit sad...
-            enabled: irq_status.contains(IrqStatus::ENABLED),
-            pending: irq_status.contains(IrqStatus::PENDING),
-            posted: irq_status.contains(IrqStatus::POSTED),
-        });
-
-        panic!();
-    }
-
-    ///
-    /// A common routine to wait for interrupts, panicking the driver if the
-    /// interrupt doesn't arrive in an arbitrarily chosen period of time.
-    ///
-    fn wfi(&self) -> Result<(), drv_i2c_api::ResponseCode> {
-        //
-        // A 100 ms timeout is 4x longer than the I2C timeouts, but much shorter
-        // than potential context switches when dumps are being recorded by a
-        // high priority task.
-        //
-        const TIMEOUT: I2cTimeout = I2cTimeout(100);
-
-        match wfi_raw(self.notification, TIMEOUT) {
-            I2cControlResult::TimedOut => {
-                //
-                // This really shouldn't happen:  it means that not only did
-                // we not get our expected interrupt, but that the configured
-                // timeout in the I2C block also didn't function as expected.
-                // That said, we got our OS timer interrupt (or we wouldn't be
-                // here at all), which gives us at least control.  While we
-                // could conceivably return an error code in this condition,
-                // this condition is so unexpected that we want to instead
-                // make sure we can debug it:  we are going to instead call
-                // our panic routine, which will record some additional data
-                // from the I2C controller and explicitly panic.  This will
-                // result in a dump that will effectively preserve this state,
-                // and will (hopefuflly) allow it to be debugged long after it
-                // happens.
-                //
-                ringbuf_entry!(Trace::LostInterrupt);
-                self.panic();
-            }
-            I2cControlResult::Interrupted => Ok(()),
-        }
+    fn wfi(&self) {
+        sys_recv_notification(self.notification);
     }
 
     fn wait_until_notbusy(&self) -> Result<(), drv_i2c_api::ResponseCode> {
@@ -641,7 +556,7 @@ impl I2cController<'_> {
                         break;
                     }
 
-                    self.wfi()?;
+                    self.wfi();
                     sys_irq_control(notification, true);
                 }
 
@@ -671,7 +586,7 @@ impl I2cController<'_> {
                     break;
                 }
 
-                self.wfi()?;
+                self.wfi();
                 sys_irq_control(notification, true);
             }
         }
@@ -719,7 +634,7 @@ impl I2cController<'_> {
                 }
 
                 loop {
-                    self.wfi()?;
+                    self.wfi();
                     sys_irq_control(notification, true);
 
                     let isr = i2c.isr.read();
@@ -774,7 +689,7 @@ impl I2cController<'_> {
 
                 self.check_errors(&isr)?;
 
-                self.wfi()?;
+                self.wfi();
                 sys_irq_control(notification, true);
             }
         }
@@ -852,7 +767,7 @@ impl I2cController<'_> {
                     break;
                 }
 
-                self.wfi()?;
+                self.wfi();
                 sys_irq_control(notification, true);
             }
         }
@@ -1177,37 +1092,5 @@ impl I2cController<'_> {
                 });
             }
         }
-    }
-}
-
-/// Waits for `event_mask` or `timeout`, whichever comes first. This is
-/// factored out of `wfi` above for clarity.
-///
-/// This function, like `userlib::hl`, assumes that notification bit 31 is safe
-/// to use for the timer. If `event_mask` also has bit 31 set, weird things
-/// will happen, don't do that.
-fn wfi_raw(event_mask: u32, timeout: I2cTimeout) -> I2cControlResult {
-    const TIMER_NOTIFICATION: u32 = 1 << 31;
-
-    // If the driver passes in a timeout that is large enough that it would
-    // overflow the kernel's 64-bit timestamp space... well, we'll do the
-    // best we can without compiling in an unlikely panic.
-    let dead = sys_get_timer().now.saturating_add(timeout.0);
-
-    sys_set_timer(Some(dead), TIMER_NOTIFICATION);
-
-    let received = sys_recv_notification(event_mask | TIMER_NOTIFICATION);
-
-    // If the event arrived _and_ our timer went off, prioritize the event and
-    // ignore the timeout.
-    if received & event_mask != 0 {
-        // Attempt to clear our timer. Note that this does not protect against
-        // the race where the kernel decided to wake us up, but the timer went
-        // off before we got to this point.
-        sys_set_timer(None, TIMER_NOTIFICATION);
-        I2cControlResult::Interrupted
-    } else {
-        // The event_mask bit was not set, so:
-        I2cControlResult::TimedOut
     }
 }

@@ -888,12 +888,12 @@ impl NotificationHandler for ServerImpl {
         notifications::TIMER_MASK | notifications::SEQ_IRQ_MASK
     }
 
-    fn handle_notification(&mut self, bits: u32) {
-        if (bits & notifications::SEQ_IRQ_MASK) != 0 {
+    fn handle_notification(&mut self, bits: userlib::NotificationBits) {
+        if bits.check_notification_mask(notifications::SEQ_IRQ_MASK) {
             self.handle_sequencer_interrupt();
         }
 
-        if (bits & notifications::TIMER_MASK) == 0 {
+        if !bits.has_timer_fired(notifications::TIMER_MASK) {
             return;
         }
         let state = self.log_state_registers();

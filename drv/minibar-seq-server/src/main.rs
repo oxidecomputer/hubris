@@ -133,8 +133,8 @@ impl NotificationHandler for ServerImpl {
         notifications::TIMER_MASK
     }
 
-    fn handle_notification(&mut self, bits: u32) {
-        if (bits & notifications::TIMER_MASK) == 0 {
+    fn handle_notification(&mut self, bits: userlib::NotificationBits) {
+        if !bits.has_timer_fired(notifications::TIMER_MASK) {
             return;
         }
         let start = sys_get_timer().now;

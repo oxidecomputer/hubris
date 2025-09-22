@@ -86,8 +86,8 @@ impl NotificationHandler for ServerImpl {
         notifications::SOCKET_MASK
     }
 
-    fn handle_notification(&mut self, bits: u32) {
-        if bits & notifications::SOCKET_MASK != 0 {
+    fn handle_notification(&mut self, bits: userlib::NotificationBits) {
+        if bits.check_notification_mask(notifications::SOCKET_MASK) {
             const SOCKET: SocketName = SocketName::fmc_test;
             loop {
                 match self.net.recv_packet(

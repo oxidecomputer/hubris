@@ -361,13 +361,13 @@ impl idol_runtime::NotificationHandler for ServerImpl {
         }
     }
 
-    fn handle_notification(&mut self, bits: u32) {
-        if (bits & notifications::JEFE_STATE_CHANGE_MASK) != 0 {
+    fn handle_notification(&mut self, bits: userlib::NotificationBits) {
+        if bits.check_notification_mask(notifications::JEFE_STATE_CHANGE_MASK) {
             self.update_state();
         }
 
         if self.active {
-            if (bits & notifications::TIMER_MASK) != 0 {
+            if bits.has_timer_fired(notifications::TIMER_MASK) {
                 self.poll_sensors();
             }
             set_timer_relative(TIMER_INTERVAL, notifications::TIMER_MASK);

@@ -815,7 +815,7 @@ impl<'a, R> NotificationHandler for ServerImpl<'a, R> {
         notifications::WAKE_TIMER_MASK
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
+    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
         // Nothing to do here: the wake IRQ is handled in the main `net` loop
     }
 }

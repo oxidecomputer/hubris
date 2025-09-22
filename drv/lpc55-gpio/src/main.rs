@@ -176,79 +176,85 @@ impl idl::InOrderPinsImpl for ServerImpl<'_> {
         Ok(())
     }
 
-    //
-    // Functions for managing GPIO interrupts:
-    //
-    fn pint_op(
+    /// Clears PINT flags
+    fn pint_clear(
         &mut self,
         _: &RecvMessage,
         pint_slot: PintSlot,
-        op: PintOp,
-        cond: PintCondition,
-    ) -> Result<Option<bool>, RequestError<core::convert::Infallible>> {
+        flag: PintFlag,
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
         let mask = pint_slot.mask();
-        match op {
-            PintOp::Clear => {
-                match cond {
-                    PintCondition::Rising => {
-                        self.pint.rise.write(|w| unsafe { w.bits(mask) })
-                    }
-                    PintCondition::Falling => {
-                        self.pint.fall.write(|w| unsafe { w.bits(mask) })
-                    }
-                    PintCondition::Status => {
-                        self.pint.ist.write(|w| unsafe { w.bits(mask) })
-                    }
-                }
-                Ok(None)
+        match flag {
+            PintFlag::Rising => {
+                self.pint.rise.write(|w| unsafe { w.bits(mask) })
             }
-            PintOp::Enable => {
-                match cond {
-                    // Enable rising edge detection
-                    PintCondition::Rising => {
-                        self.pint.sienr.write(|w| unsafe { w.bits(mask) })
-                    }
-                    // Enable falling edge detection
-                    PintCondition::Falling => {
-                        self.pint.sienf.write(|w| unsafe { w.bits(mask) })
-                    }
-                    // XXX This could be enable interrupt
-                    PintCondition::Status => (),
-                }
-                Ok(None)
+            PintFlag::Falling => {
+                self.pint.fall.write(|w| unsafe { w.bits(mask) })
             }
-            PintOp::Disable => {
-                match cond {
-                    // Disable rising edge detection
-                    PintCondition::Rising => {
-                        self.pint.cienr.write(|w| unsafe { w.bits(mask) })
-                    }
-                    // Disable falling edge detection
-                    PintCondition::Falling => {
-                        self.pint.cienf.write(|w| unsafe { w.bits(mask) })
-                    }
-                    // XXX This could be disable interrupt
-                    PintCondition::Status => (),
-                }
-                Ok(None)
+            // NOTE: if we add support for level-triggered interrupts in the
+            // future, then we should reconsider this code.  For slots
+            // configured with level-triggered interrupts, writing to `IST`
+            // switches the active level, which may not be expected (although it
+            // _would_ clear the flag!).
+            PintFlag::Both => self.pint.ist.write(|w| unsafe { w.bits(mask) }),
+        }
+        Ok(())
+    }
+
+    fn pint_enable(
+        &mut self,
+        _: &RecvMessage,
+        pint_slot: PintSlot,
+        cond: PintCondition,
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
+        let mask = pint_slot.mask();
+        match cond {
+            // Enable rising edge detection
+            PintCondition::Rising => {
+                self.pint.sienr.write(|w| unsafe { w.bits(mask) })
             }
-            PintOp::Detected => {
-                Ok(Some(
-                    0 != match cond {
-                        PintCondition::Rising => {
-                            self.pint.rise.read().bits() & mask
-                        }
-                        PintCondition::Falling => {
-                            self.pint.fall.read().bits() & mask
-                        }
-                        // XXX This could be any interrupt detected
-                        PintCondition::Status => {
-                            self.pint.ist.read().bits() & pint_slot.mask()
-                        }
-                    },
-                ))
+            // Enable falling edge detection
+            PintCondition::Falling => {
+                self.pint.sienf.write(|w| unsafe { w.bits(mask) })
             }
         }
+        Ok(())
+    }
+
+    fn pint_disable(
+        &mut self,
+        _: &RecvMessage,
+        pint_slot: PintSlot,
+        cond: PintCondition,
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
+        let mask = pint_slot.mask();
+        match cond {
+            // Disable rising edge detection
+            PintCondition::Rising => {
+                self.pint.cienr.write(|w| unsafe { w.bits(mask) })
+            }
+            // Disable falling edge detection
+            PintCondition::Falling => {
+                self.pint.cienf.write(|w| unsafe { w.bits(mask) })
+            }
+        }
+        Ok(())
+    }
+
+    /// Check whether a pin-change interrupt has been detected
+    fn pint_detect(
+        &mut self,
+        _: &RecvMessage,
+        pint_slot: PintSlot,
+        flag: PintFlag,
+    ) -> Result<bool, RequestError<core::convert::Infallible>> {
+        let mask = pint_slot.mask();
+        let bits = match flag {
+            PintFlag::Rising => self.pint.rise.read().bits(),
+            PintFlag::Falling => self.pint.fall.read().bits(),
+            PintFlag::Both => self.pint.ist.read().bits(),
+        };
+        Ok(bits & mask != 0)
     }
 }
 
@@ -258,7 +264,7 @@ impl NotificationHandler for ServerImpl<'_> {
         0
     }
 
-    fn handle_notification(&mut self, _bits: u32) {
+    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
         unreachable!()
     }
 }
@@ -312,7 +318,7 @@ fn turn_on_gpio_clocks() {
 
 mod idl {
     use crate::PintCondition;
-    use crate::PintOp;
+    use crate::PintFlag;
     use crate::PintSlot;
     use drv_lpc55_gpio_api::{Direction, Pin, Value};
 

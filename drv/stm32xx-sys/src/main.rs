@@ -881,10 +881,12 @@ impl NotificationHandler for ServerImpl<'_> {
         }
     }
 
-    fn handle_notification(&mut self, bits: u32) {
+    fn handle_notification(&mut self, bits: userlib::NotificationBits) {
         cfg_if! {
             if #[cfg(feature = "exti")] {
-                if bits & notifications::EXTI_WILDCARD_IRQ_MASK != 0 {
+                if bits.check_notification_mask(
+                    notifications::EXTI_WILDCARD_IRQ_MASK
+                ) {
                     // Some combination of external pin change interrupts have
                     // been triggered! Our first task is to determine which.
                     // Fortunately, that's easy; the peripheral has a "pending"

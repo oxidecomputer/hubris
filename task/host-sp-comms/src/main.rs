@@ -1384,17 +1384,18 @@ impl NotificationHandler for ServerImpl {
             | notifications::CONTROL_PLANE_AGENT_MASK
     }
 
-    fn handle_notification(&mut self, bits: u32) {
-        if bits & notifications::USART_IRQ_MASK != 0 {
+    fn handle_notification(&mut self, bits: userlib::NotificationBits) {
+        if bits.check_notification_mask(notifications::USART_IRQ_MASK) {
             self.handle_usart_notification();
             sys_irq_control(notifications::USART_IRQ_MASK, true);
         }
 
-        if bits & notifications::JEFE_STATE_CHANGE_MASK != 0 {
+        if bits.check_notification_mask(notifications::JEFE_STATE_CHANGE_MASK) {
             self.handle_jefe_notification(self.sequencer.get_state());
         }
 
-        if bits & notifications::CONTROL_PLANE_AGENT_MASK != 0 {
+        if bits.check_notification_mask(notifications::CONTROL_PLANE_AGENT_MASK)
+        {
             self.handle_control_plane_agent_notification();
         }
 
@@ -1403,7 +1404,7 @@ impl NotificationHandler for ServerImpl {
         // We'll record whether or not we want to clear the timer in this
         // variable, then actually clear it (if needed) after the loop over the
         // fired timers.
-        self.timers.handle_notification(bits);
+        self.timers.handle_notification(bits.get_raw_bits());
         let mut tx_timer_disposition = TimerDisposition::LeaveRunning;
         for t in self.timers.iter_fired() {
             match t {

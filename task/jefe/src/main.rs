@@ -351,26 +351,33 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
         notifications::FAULT_MASK | notifications::TIMER_MASK
     }
 
-    fn handle_notification(&mut self, bits: u32) {
+    fn handle_notification(&mut self, bits: userlib::NotificationBits) {
         let now = userlib::sys_get_timer().now;
 
         // Handle any external (debugger) requests.
         external::check(self.task_states, now);
 
-        if bits & notifications::TIMER_MASK != 0 {
-            // If our timer went off, we need to reestablish it
+        if bits.has_timer_fired(notifications::TIMER_MASK) {
+            // If our timer went off, we need to reestablish it. Compute a
+            // baseline deadline, which will be adjusted _down_ below when
+            // processing tasks, if necessary.
             if now >= self.deadline {
                 self.deadline = now.wrapping_add(u64::from(TIMER_INTERVAL));
             }
+
             // Check for tasks in timeout, updating our timer deadline
             if core::mem::take(&mut self.any_tasks_in_timeout) {
                 for (index, status) in self.task_states.iter_mut().enumerate() {
                     if let TaskState::Timeout { restart_at } = &status.state {
-                        if *restart_at >= now {
+                        if *restart_at <= now {
+                            // This deadline has elapsed, go ahead and stand it
+                            // back up.
                             kipc::reinit_task(index, true);
                             status.state =
                                 TaskState::Running { started_at: now };
                         } else {
+                            // This deadline remains in the future, min it into
+                            // our next wake time.
                             self.any_tasks_in_timeout = true;
                             self.deadline = self.deadline.min(*restart_at);
                         }
@@ -379,7 +386,7 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
             }
         }
 
-        if bits & notifications::FAULT_MASK != 0 {
+        if bits.check_notification_mask(notifications::FAULT_MASK) {
             // Work out who faulted. It's theoretically possible for more than
             // one task to have faulted since we last looked, but it's somewhat
             // unlikely since a fault causes us to immediately preempt. In any
