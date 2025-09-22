@@ -27,6 +27,11 @@ pub enum ParseError {
     BadRevision,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EncodeError {
+    BufferTooSmall,
+}
+
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, SerializedSize,
 )]
@@ -85,6 +90,128 @@ pub struct OxideIdentity {
 impl OxideIdentity {
     pub const PART_NUMBER_LEN: usize = 11;
     pub const SERIAL_LEN: usize = 11;
+    const OXV2: &'static [u8] = b"0XV2:";
+    const MAX_LEN: usize =
+        Self::OXV2.len() + Self::PART_NUMBER_LEN + Self::SERIAL_LEN
+        + 3 // revision part
+        + 2 // delimiters
+        ;
+
+    pub fn encode_into(&self, buf: &mut [u8]) -> Result<usize, EncodeError> {
+        fn write_chunk(offset: &mut usize, buf: &mut [u8], data: &[u8]) {
+            // if a serial or part number was shorter than 11 characters, it may
+            // be nul-padded. handle that by chopping off any nuls.
+            let len =
+                data.iter().position(|b| *b == b'\0').unwrap_or(data.len());
+            buf[*offset..*offset + len].copy_from_slice(&data[..len]);
+            *offset += len;
+        }
+
+        if buf.len() < Self::MAX_LEN {
+            return Err(EncodeError::BufferTooSmall);
+        }
+
+        let mut offset = 0;
+        write_chunk(&mut offset, buf, Self::OXV2);
+        write_chunk(&mut offset, buf, &self.part_number[..]);
+        write_chunk(&mut offset, buf, b":");
+        // Encode revision
+        {
+            use core::fmt::Write;
+            // Sadly, `std::io::Cursor` is not in libcore, so we have to
+            // reimplement just enough of it to `fmt::Write` the revision lol
+            // lmao
+            struct WriteThingy<'a> {
+                buf: &'a mut [u8],
+                pos: usize,
+            }
+            impl Write for WriteThingy<'_> {
+                fn write_str(&mut self, s: &str) -> core::fmt::Result {
+                    let bytes = s.as_bytes();
+
+                    if bytes.len() > self.buf.len() - self.pos {
+                        return Err(core::fmt::Error);
+                    }
+                    self.buf[self.pos..self.pos + bytes.len()]
+                        .copy_from_slice(bytes);
+                    self.pos += bytes.len();
+                    Ok(())
+                }
+            }
+            let buf = &mut buf[offset..offset + 4];
+            let rev = self.revision;
+            write!(&mut WriteThingy { buf, pos: 0 }, "{rev:03}:")
+                .map_err(|_| EncodeError::BufferTooSmall)?;
+            offset += 4
+        }
+
+        write_chunk(&mut offset, buf, &self.serial[..]);
+        Ok(offset)
+    }
+
+    pub fn parse(barcode: &[u8]) -> Result<Self, ParseError> {
+        let mut fields = barcode.split(|&b| b == b':');
+
+        let version = fields.next().ok_or(ParseError::MissingVersion)?;
+        Self::from_parts(version, fields)
+    }
+
+    fn from_parts<'parts>(
+        version: &'parts [u8],
+        mut fields: impl Iterator<Item = &'parts [u8]> + 'parts,
+    ) -> Result<Self, ParseError> {
+        let part_number = fields.next().ok_or(ParseError::MissingPartNumber)?;
+        let revision = fields.next().ok_or(ParseError::MissingRevision)?;
+        let serial = fields.next().ok_or(ParseError::MissingSerial)?;
+        if fields.next().is_some() {
+            return Err(ParseError::UnexpectedFields);
+        }
+
+        // Note: the fact that this is created _zeroed_ is important for the
+        // variable length field handling below.
+        let mut out = OxideIdentity::new_zeroed();
+
+        match version {
+            // V1 does not include the hyphen in the part number; we need to
+            // insert it.
+            b"OXV1" | b"0XV1" => {
+                if part_number.len() != out.part_number.len() - 1 {
+                    return Err(ParseError::WrongPartNumberLength);
+                }
+                out.part_number[..3].copy_from_slice(&part_number[..3]);
+                out.part_number[3] = b'-';
+                out.part_number[4..].copy_from_slice(&part_number[3..]);
+            }
+            // V2 part number includes the hyphen; copy it as-is.
+            b"OXV2" | b"0XV2" => {
+                if part_number.len() > out.part_number.len() {
+                    return Err(ParseError::WrongPartNumberLength);
+                }
+                out.part_number[..part_number.len()]
+                    .copy_from_slice(part_number);
+                // tail is already zeroed due to use of new_zeroed above
+            }
+            _ => return Err(ParseError::UnknownVersion),
+        }
+
+        out.revision = core::str::from_utf8(revision)
+            .ok()
+            .and_then(|rev| rev.parse().ok())
+            .ok_or(ParseError::BadRevision)?;
+
+        if serial.len() > out.serial.len() {
+            return Err(ParseError::WrongSerialLength);
+        }
+        out.serial[..serial.len()].copy_from_slice(serial);
+
+        Ok(out)
+    }
+}
+
+impl ParseBarcode for OxideIdentity {
+    fn parse_barcode(barcode: &[u8]) -> Result<Self, ParseError> {
+        OxideIdentity::parse(barcode)
+    }
 }
 
 /// A barcode in the [`MPN1` format].
@@ -189,72 +316,6 @@ impl ParseBarcode for Mpn1Identity {
     }
 }
 
-impl OxideIdentity {
-    pub fn parse(barcode: &[u8]) -> Result<Self, ParseError> {
-        let mut fields = barcode.split(|&b| b == b':');
-
-        let version = fields.next().ok_or(ParseError::MissingVersion)?;
-        Self::from_parts(version, fields)
-    }
-
-    fn from_parts<'parts>(
-        version: &'parts [u8],
-        mut fields: impl Iterator<Item = &'parts [u8]> + 'parts,
-    ) -> Result<Self, ParseError> {
-        let part_number = fields.next().ok_or(ParseError::MissingPartNumber)?;
-        let revision = fields.next().ok_or(ParseError::MissingRevision)?;
-        let serial = fields.next().ok_or(ParseError::MissingSerial)?;
-        if fields.next().is_some() {
-            return Err(ParseError::UnexpectedFields);
-        }
-
-        // Note: the fact that this is created _zeroed_ is important for the
-        // variable length field handling below.
-        let mut out = OxideIdentity::new_zeroed();
-
-        match version {
-            // V1 does not include the hyphen in the part number; we need to
-            // insert it.
-            b"OXV1" | b"0XV1" => {
-                if part_number.len() != out.part_number.len() - 1 {
-                    return Err(ParseError::WrongPartNumberLength);
-                }
-                out.part_number[..3].copy_from_slice(&part_number[..3]);
-                out.part_number[3] = b'-';
-                out.part_number[4..].copy_from_slice(&part_number[3..]);
-            }
-            // V2 part number includes the hyphen; copy it as-is.
-            b"OXV2" | b"0XV2" => {
-                if part_number.len() > out.part_number.len() {
-                    return Err(ParseError::WrongPartNumberLength);
-                }
-                out.part_number[..part_number.len()]
-                    .copy_from_slice(part_number);
-                // tail is already zeroed due to use of new_zeroed above
-            }
-            _ => return Err(ParseError::UnknownVersion),
-        }
-
-        out.revision = core::str::from_utf8(revision)
-            .ok()
-            .and_then(|rev| rev.parse().ok())
-            .ok_or(ParseError::BadRevision)?;
-
-        if serial.len() > out.serial.len() {
-            return Err(ParseError::WrongSerialLength);
-        }
-        out.serial[..serial.len()].copy_from_slice(serial);
-
-        Ok(out)
-    }
-}
-
-impl ParseBarcode for OxideIdentity {
-    fn parse_barcode(barcode: &[u8]) -> Result<Self, ParseError> {
-        OxideIdentity::parse(barcode)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -336,6 +397,52 @@ mod tests {
                 serial: *b"TST01234567",
             },
         );
+    }
+
+    #[track_caller]
+    fn check_reencode_oxide(input: &[u8]) {
+        let parsed = match OxideIdentity::parse(input) {
+            Ok(parsed) => parsed,
+            Err(e) => panic!(
+                "failed to parse {:?}: {e:?}",
+                String::from_utf8_lossy(input),
+            ),
+        };
+
+        let mut expected = [0u8; OxideIdentity::MAX_LEN];
+        expected[..input.len()].copy_from_slice(input);
+
+        let mut reencoded = [0u8; OxideIdentity::MAX_LEN];
+        match parsed.encode_into(&mut reencoded) {
+            Ok(_) => (),
+            Err(e) => panic!(
+                "failed to encode {:?}: {e:?}",
+                String::from_utf8_lossy(input),
+            ),
+        };
+
+        assert_eq!(
+            expected,
+            reencoded,
+            "re-encoded string \"{}\" does not match original \"{}\"",
+            String::from_utf8_lossy(&reencoded),
+            String::from_utf8_lossy(&expected),
+        )
+    }
+
+    #[test]
+    fn reencode_oxv2() {
+        check_reencode_oxide(b"0XV2:123-0000456:023:TST01234567");
+    }
+
+    #[test]
+    fn reencode_oxv2_shorter_serial() {
+        check_reencode_oxide(b"0XV2:123-0000456:023:TST0123456");
+    }
+
+    #[test]
+    fn reencode_xv2_shorter_part() {
+        check_reencode_oxide(b"0XV2:123-000045:023:TST01234567");
     }
 
     #[track_caller]

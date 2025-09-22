@@ -64,7 +64,7 @@ impl crate::ServerImpl {
         })
     }
 
-    /// Reads the fan EEPROM barcode values
+    /// Reads the fan EEPROM barcode values into a `FANTRAYv1` IPCC message.
     ///
     /// The fan EEPROM includes nested barcodes:
     /// - The top-level `BARC`, for the assembly
@@ -74,22 +74,21 @@ impl crate::ServerImpl {
     /// On success, packs the barcode into `self.tx_buf`; on failure, return an
     /// error (`DeviceAbsent` if we saw `NoDevice`, or `DeviceFailed` on all
     /// other errors).
-    pub(crate) fn read_fan_barcodes(&mut self, sequence: u64, dev: I2cDevice) {
+    ///
+    /// The V1 fan identity message represents VPD barcodes as the parsed
+    /// `Identity` struct. This struct can only represent Oxide (OXV1 or OXV2)
+    /// barcodes, and cannot represent MPN1-formatted barcodes. The
+    /// `FanIdentityV2` message supports both barcode formats, but older host
+    /// software may not be able to comprehend it. When encountering
+    /// MPN1-formatted barcodes, this method will return an empty `Identity`
+    /// struct (all zeros).
+    pub(crate) fn read_fan_barcodes_v1(
+        &mut self,
+        sequence: u64,
+        dev: I2cDevice,
+    ) {
         let mut buf = [0u8; crate::bsp::MAX_COMPONENT_ID_LEN + 3];
-        let name = {
-            let dev_id = dev.component_id().as_bytes();
-            buf[0..dev_id.len()].copy_from_slice(dev_id);
-            // Okay, so this is a bit wacky: the host system expects us these
-            // refdes paths to be in the form `Jxxx/ID` and *not* `Jxxx/Ux/ID`,
-            // so we try and find the last segment in the path and clobber it,
-            // if there is one. Otherwise, we append a `/ID` at the end --- in
-            // practice, that case *shouldn't* ever happen based on the current
-            // Gimlet/Cosmo app.tomls, but let's handle it just in case.
-            let last_part =
-                buf.iter().rposition(|&b| b == b'/').unwrap_or(dev_id.len());
-            buf[last_part..last_part + 3].copy_from_slice(b"/ID");
-            &buf[..last_part + 3]
-        };
+        let name = munge_fantray_refdes(dev.component_id(), &mut buf);
 
         *self.scratch = InventoryData::FanIdentity {
             identity: Default::default(),
@@ -142,6 +141,68 @@ impl crate::ServerImpl {
             }
         }
     }
+
+    /// Reads the fan EEPROM barcode values into a `FANTRAYv2` IPCC message.
+    ///
+    /// The fan EEPROM includes nested barcodes:
+    /// - The top-level `BARC`, for the assembly
+    /// - A nested value `SASY`, which contains four more `BARC` values for each
+    ///   individual fan
+    ///
+    /// On success, packs the barcode into `self.tx_buf`; on failure, return an
+    /// error (`DeviceAbsent` if we saw `NoDevice`, or `DeviceFailed` on all
+    /// other errors).
+    ///
+    /// Unlike the `read_fan_barcodes_v1` method, this method supports both
+    /// Oxide (OXV1 or OXV2) and MPN1-formatted barcodes.
+    pub(crate) fn read_fan_barcodes_v2(
+        &mut self,
+        sequence: u64,
+        dev: I2cDevice,
+    ) {
+        let mut buf = [0u8; crate::bsp::MAX_COMPONENT_ID_LEN + 3];
+        let name = munge_fantray_refdes(dev.component_id(), &mut buf);
+
+        *self.scratch = InventoryData::FanIdentityV2 {
+            identity: Default::default(),
+            vpd_identity: Default::default(),
+            fans: Default::default(),
+        };
+        self.tx_buf.try_encode_inventory(sequence, name, || {
+            let InventoryData::FanIdentityV2 {
+                identity,
+                vpd_identity,
+                fans: [fan0, fan1, fan2],
+            } = self.scratch
+            else {
+                unreachable!();
+            };
+            *identity =
+                read_one_barcode::<OxideIdentity>(dev, &[(*b"BARC", 0)])?
+                    .into();
+            *vpd_identity = read_one_barcode::<OxideIdentity>(
+                dev,
+                &[(*b"SASY", 0), (*b"BARC", 0)],
+            )?
+            .into();
+            *fan0 = read_one_barcode::<VpdIdentity>(
+                dev,
+                &[(*b"SASY", 0), (*b"BARC", 1)],
+            )?
+            .into();
+            *fan1 = read_one_barcode::<VpdIdentity>(
+                dev,
+                &[(*b"SASY", 0), (*b"BARC", 2)],
+            )?
+            .into();
+            *fan2 = read_one_barcode::<VpdIdentity>(
+                dev,
+                &[(*b"SASY", 0), (*b"BARC", 3)],
+            )?
+            .into();
+            Ok(self.scratch)
+        });
+    }
 }
 
 /// Free function to read a nested barcode, translating errors appropriately
@@ -179,4 +240,22 @@ where
         }
         Err(..) => Err(InventoryDataResult::DeviceFailed),
     }
+}
+
+fn munge_fantray_refdes<'buf>(
+    dev_id: &str,
+    buf: &'buf mut [u8; crate::bsp::MAX_COMPONENT_ID_LEN + 3],
+) -> &'buf [u8] {
+    let dev_id = dev_id.as_bytes();
+    buf[0..dev_id.len()].copy_from_slice(dev_id);
+    // Okay, so this is a bit wacky: the host system expects us these
+    // refdes paths to be in the form `Jxxx/ID` and *not* `Jxxx/Ux/ID`,
+    // so we try and find the last segment in the path and clobber it,
+    // if there is one. Otherwise, we append a `/ID` at the end --- in
+    // practice, that case *shouldn't* ever happen based on the current
+    // Gimlet/Cosmo app.tomls, but let's handle it just in case.
+    let last_part =
+        buf.iter().rposition(|&b| b == b'/').unwrap_or(dev_id.len());
+    buf[last_part..last_part + 3].copy_from_slice(b"/ID");
+    &buf[..last_part + 3]
 }

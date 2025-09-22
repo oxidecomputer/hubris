@@ -29,7 +29,7 @@ pub(crate) const SP_TO_HOST_CPU_INT_TYPE: drv_stm32xx_sys_api::OutputType =
 
 impl ServerImpl {
     /// Number of devices in our inventory
-    pub(crate) const INVENTORY_COUNT: u32 = 73;
+    pub(crate) const INVENTORY_COUNT: u32 = 74;
 
     /// Look up a device in our inventory, by index
     ///
@@ -80,7 +80,7 @@ impl ServerImpl {
                 // J34/ID: Fan VPD barcode (not available in packrat)
                 let dev =
                     i2c_config::devices::at24csw080_fan_vpd(I2C.get_task_id());
-                self.read_fan_barcodes(sequence, dev)
+                self.read_fan_barcodes_v1(sequence, dev)
             }
             3 => {
                 // J34: Fan VPD EEPROM (on the daughterboard)
@@ -554,6 +554,13 @@ impl ServerImpl {
                     };
                     Ok(self.scratch)
                 });
+            }
+
+            73 => {
+                // J34/ID: Fan VPD barcode (again, but in the V2 format, this time!)
+                let dev =
+                    i2c_config::devices::at24csw080_fan_vpd(I2C.get_task_id());
+                self.read_fan_barcodes_v2(sequence, dev)
             }
 
             // We need to specify INVENTORY_COUNT individually here to trigger

@@ -526,11 +526,11 @@ pub enum InventoryData {
     /// the `OXV1`/`OXV2` barcode format *or* the `MPN1` barcode format.
     FanIdentityV2 {
         /// Identity of the fan assembly
-        identity: Identity,
+        identity: Barcode,
         /// Identity of the VPD board within the subassembly
-        vpd_identity: Identity,
+        vpd_identity: Barcode,
         /// Identity of the individual fans
-        fans: [FanIdentity; 3],
+        fans: [Barcode; 3],
     },
 }
 
@@ -587,13 +587,19 @@ impl Identity {
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
 )]
-pub struct Mpn1Identity(#[serde(with = "BigArray")] [u8; Self::LEN]);
+pub struct Barcode(#[serde(with = "BigArray")] [u8; Self::LEN]);
 
-impl Mpn1Identity {
-    pub const LEN: usize = 128;
+impl Barcode {
+    pub const LEN: usize = oxide_barcode::Mpn1Identity::MAX_LEN;
 }
 
-impl From<oxide_barcode::Mpn1Identity> for Mpn1Identity {
+impl Default for Barcode {
+    fn default() -> Self {
+        Self([0; Self::LEN])
+    }
+}
+
+impl From<oxide_barcode::Mpn1Identity> for Barcode {
     fn from(
         oxide_barcode::Mpn1Identity { buf, .. }: oxide_barcode::Mpn1Identity,
     ) -> Self {
@@ -601,19 +607,21 @@ impl From<oxide_barcode::Mpn1Identity> for Mpn1Identity {
     }
 }
 
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
-)]
-pub enum FanIdentity {
-    Oxide(Identity),
-    Mpn1(Mpn1Identity),
+impl From<oxide_barcode::OxideIdentity> for Barcode {
+    fn from(id: oxide_barcode::OxideIdentity) -> Self {
+        let mut this = Self::default();
+        id.encode_into(&mut this.0[..])
+            // A 128-byte buffer should always fit a 32-byte OXV2 identity...
+            .unwrap_lite();
+        this
+    }
 }
 
-impl From<oxide_barcode::VpdIdentity> for FanIdentity {
+impl From<oxide_barcode::VpdIdentity> for Barcode {
     fn from(id: oxide_barcode::VpdIdentity) -> Self {
         match id {
-            oxide_barcode::VpdIdentity::Mpn1(id) => Self::Mpn1(id.into()),
-            oxide_barcode::VpdIdentity::Oxide(id) => Self::Oxide(id.into()),
+            oxide_barcode::VpdIdentity::Mpn1(id) => Self::from(id),
+            oxide_barcode::VpdIdentity::Oxide(id) => Self::from(id),
         }
     }
 }
