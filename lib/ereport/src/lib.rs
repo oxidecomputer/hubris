@@ -1,0 +1,133 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+//! Hubris ereport traits.
+#![no_std]
+
+use encode::{Encoder, Write};
+pub use ereport_derive::EreportData;
+pub use minicbor::encode::{self, Encode};
+
+pub trait EreportData: Encode<()> {
+    /// The maximum length of the CBOR-encoded representation of this value.
+    ///
+    /// The value is free to encode fewer than this many bytes, but may not
+    /// encode more.
+    const MAX_CBOR_LEN: usize;
+}
+
+pub trait EncodeFields<C> {
+    const MAX_FIELDS_LEN: usize;
+
+    fn encode_fields<W: Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _: &mut C,
+    ) -> Result<(), encode::Error<W::Error>>;
+}
+
+pub struct FixedStr<const LEN: usize> {
+    buf: [u8; LEN],
+    len: usize,
+}
+
+impl<const LEN: usize> FixedStr<LEN> {
+    pub const fn from_str(s: &str) -> Self {
+        todo!()
+    }
+
+    pub fn as_str(&self) -> &str {
+        unsafe { core::str::from_utf8_unchecked(&self.buf[..self.len]) }
+    }
+
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+}
+
+impl<C, const LEN: usize> Encode<C> for FixedStr<LEN> {
+    fn encode<W: Write>(
+        &self,
+        e: &mut Encoder<W>,
+        _: &mut C,
+    ) -> Result<(), encode::Error<W::Error>> {
+        e.str(self.as_str())?;
+        Ok(())
+    }
+}
+
+impl<const LEN: usize> EreportData for FixedStr<LEN> {
+    const MAX_CBOR_LEN: usize = LEN + usize::MAX_CBOR_LEN;
+}
+
+impl EreportData for u8 {
+    // A u8 may require up to 2 bytes, see:
+    // https://docs.rs/minicbor/2.1.1/src/minicbor/encode.rs.html#513
+    const MAX_CBOR_LEN: usize = 2;
+}
+
+impl EreportData for u16 {
+    // A u16 may require up to 3 bytes, see:
+    // https://docs.rs/minicbor/2.1.1/src/minicbor/encode.rs.html#519-523
+    const MAX_CBOR_LEN: usize = 3;
+}
+
+impl EreportData for u32 {
+    // A u32 may require up to 5 bytes, see:
+    // https://docs.rs/minicbor/2.1.1/src/minicbor/encode.rs.html#529-534
+    const MAX_CBOR_LEN: usize = 5;
+}
+
+impl EreportData for u64 {
+    // A u64 may require up to 9 bytes, see:
+    // https://docs.rs/minicbor/2.1.1/src/minicbor/encode.rs.html#539-546
+    const MAX_CBOR_LEN: usize = 9;
+}
+
+impl EreportData for usize {
+    #[cfg(target_pointer_width = "32")]
+    const MAX_CBOR_LEN: usize = u32::MAX_CBOR_LEN;
+
+    #[cfg(not(target_pointer_width = "32"))]
+    const MAX_CBOR_LEN: usize = u64::MAX_CBOR_LEN;
+}
+
+pub const fn str_cbor_len(s: &str) -> usize {
+    usize_cbor_len(s.len()) + s.len()
+}
+
+#[cfg(target_pointer_width = "32")]
+pub const fn usize_cbor_len(u: usize) -> usize {
+    u32_cbor_len(u as u32)
+}
+
+#[cfg(target_pointer_width = "64")]
+pub const fn usize_cbor_len(u: usize) -> usize {
+    u64_cbor_len(u as u64)
+}
+
+pub const fn u32_cbor_len(u: u32) -> usize {
+    // https://docs.rs/minicbor/2.1.1/src/minicbor/encode.rs.html#529-534
+    match u {
+        0..=0x17 => 1,
+        0x18..=0xff => 2,
+        0x100..=0xffff => 3,
+        _ => 5,
+    }
+}
+
+pub const fn u64_cbor_len(u: u64) -> usize {
+    // https://docs.rs/minicbor/2.1.1/src/minicbor/encode.rs.html#539-546
+    match u {
+        0..=0x17 => 1,
+        0x18..=0xff => 2,
+        0x100..=0xffff => 3,
+        0x1_0000..=0xffff_ffff => 5,
+        _ => 9,
+    }
+}
