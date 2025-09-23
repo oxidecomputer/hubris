@@ -1261,7 +1261,6 @@ dependencies = [
  "drv-spi-api",
  "drv-stm32h7-spi",
  "drv-stm32xx-sys-api",
- "ereport",
  "gnarle",
  "idol",
  "idol-runtime",

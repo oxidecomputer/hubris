@@ -8,7 +8,7 @@ use quote::{ToTokens, quote};
 use syn::spanned::Spanned;
 use syn::{
     Attribute, DataEnum, DataStruct, DeriveInput, Generics, Ident, LitStr,
-    Visibility, parse::Parse, parse_macro_input,
+    Visibility, parse_macro_input,
 };
 
 /// Derives an implementation of the `EreportData` trait for the annotated
