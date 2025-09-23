@@ -7,7 +7,7 @@ use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::at24csw080::{At24Csw080, Error as EepromError};
 use drv_oxide_vpd::VpdError;
 use host_sp_messages::{InventoryData, InventoryDataResult};
-use oxide_barcode::{Mpn1Identity, OxideIdentity, VpdIdentity};
+use oxide_barcode::{OxideIdentity, VpdIdentity};
 
 impl crate::ServerImpl {
     /// Reads the 128-bit unique ID from an AT24CSW080 EEPROM
@@ -52,14 +52,19 @@ impl crate::ServerImpl {
             buf[dev_id.len()..spliced_len].copy_from_slice(b"/ID");
             &buf[..spliced_len]
         };
+        let barcode_buf = &mut self.barcode_buf[..];
+
         *self.scratch = InventoryData::VpdIdentity(Default::default());
         self.tx_buf.try_encode_inventory(sequence, name, || {
             let InventoryData::VpdIdentity(identity) = self.scratch else {
                 unreachable!();
             };
-            *identity =
-                read_one_barcode::<OxideIdentity>(dev, &[(*b"BARC", 0)])?
-                    .into();
+            *identity = read_one_barcode::<OxideIdentity>(
+                dev,
+                &[(*b"BARC", 0)],
+                barcode_buf,
+            )?
+            .into();
             Ok(self.scratch)
         })
     }
@@ -89,6 +94,7 @@ impl crate::ServerImpl {
     ) {
         let mut buf = [0u8; crate::bsp::MAX_COMPONENT_ID_LEN + 3];
         let name = munge_fantray_refdes(dev.component_id(), &mut buf);
+        let barcode_buf = &mut self.barcode_buf[..];
 
         *self.scratch = InventoryData::FanIdentity {
             identity: Default::default(),
@@ -104,15 +110,19 @@ impl crate::ServerImpl {
             else {
                 unreachable!();
             };
-            *identity =
-                read_one_barcode::<OxideIdentity>(dev, &[(*b"BARC", 0)])?
-                    .into();
+            *identity = read_one_barcode::<OxideIdentity>(
+                dev,
+                &[(*b"BARC", 0)],
+                barcode_buf,
+            )?
+            .into();
             *vpd_identity = read_one_barcode::<OxideIdentity>(
                 dev,
                 &[(*b"SASY", 0), (*b"BARC", 0)],
+                barcode_buf,
             )?
             .into();
-            read_fan_barcodes(dev, fans)?;
+            read_fan_barcodes(dev, fans, barcode_buf)?;
             Ok(self.scratch)
         });
     }
@@ -137,6 +147,7 @@ impl crate::ServerImpl {
     ) {
         let mut buf = [0u8; crate::bsp::MAX_COMPONENT_ID_LEN + 3];
         let name = munge_fantray_refdes(dev.component_id(), &mut buf);
+        let barcode_buf = &mut self.barcode_buf[..];
 
         *self.scratch = InventoryData::FanIdentityV2 {
             identity: Default::default(),
@@ -152,15 +163,19 @@ impl crate::ServerImpl {
             else {
                 unreachable!();
             };
-            *identity =
-                read_one_barcode::<OxideIdentity>(dev, &[(*b"BARC", 0)])?
-                    .into();
+            *identity = read_one_barcode::<OxideIdentity>(
+                dev,
+                &[(*b"BARC", 0)],
+                barcode_buf,
+            )?
+            .into();
             *vpd_identity = read_one_barcode::<OxideIdentity>(
                 dev,
                 &[(*b"SASY", 0), (*b"BARC", 0)],
+                barcode_buf,
             )?
             .into();
-            read_fan_barcodes(dev, fans)?;
+            read_fan_barcodes(dev, fans, barcode_buf)?;
 
             Ok(self.scratch)
         });
@@ -170,20 +185,30 @@ impl crate::ServerImpl {
 fn read_fan_barcodes<T>(
     dev: I2cDevice,
     fans: &mut [T; 3],
+    barcode_buf: &mut [u8],
 ) -> Result<(), InventoryDataResult>
 where
     T: From<oxide_barcode::VpdIdentity>,
 {
     let [ref mut fan0, ref mut fan1, ref mut fan2] = fans;
-    *fan0 =
-        read_one_barcode::<VpdIdentity>(dev, &[(*b"SASY", 0), (*b"BARC", 1)])?
-            .into();
-    *fan1 =
-        read_one_barcode::<VpdIdentity>(dev, &[(*b"SASY", 0), (*b"BARC", 2)])?
-            .into();
-    *fan2 =
-        read_one_barcode::<VpdIdentity>(dev, &[(*b"SASY", 0), (*b"BARC", 3)])?
-            .into();
+    *fan0 = read_one_barcode::<VpdIdentity>(
+        dev,
+        &[(*b"SASY", 0), (*b"BARC", 1)],
+        barcode_buf,
+    )?
+    .into();
+    *fan1 = read_one_barcode::<VpdIdentity>(
+        dev,
+        &[(*b"SASY", 0), (*b"BARC", 2)],
+        barcode_buf,
+    )?
+    .into();
+    *fan2 = read_one_barcode::<VpdIdentity>(
+        dev,
+        &[(*b"SASY", 0), (*b"BARC", 3)],
+        barcode_buf,
+    )?
+    .into();
     Ok(())
 }
 
@@ -191,20 +216,20 @@ where
 fn read_one_barcode<T>(
     dev: I2cDevice,
     path: &[([u8; 4], usize)],
+    barcode_buf: &mut [u8],
 ) -> Result<T, InventoryDataResult>
 where
     T: oxide_barcode::ParseBarcode,
 {
     let eeprom = At24Csw080::new(dev);
-    let mut barcode = [0; Mpn1Identity::MAX_LEN];
     match drv_oxide_vpd::read_config_nested_from_into(
         eeprom,
         path,
-        &mut barcode,
+        &mut barcode_buf[..],
     ) {
         Ok(n) => {
             // extract barcode!
-            let identity = T::parse_barcode(&barcode[..n])
+            let identity = T::parse_barcode(&barcode_buf[..n])
                 .map_err(|_| InventoryDataResult::DeviceFailed)?;
             Ok(identity)
         }

@@ -46,6 +46,10 @@ pub trait ParseBarcode: Sized {
 }
 
 impl VpdIdentity {
+    // XXX(eliza): i'd like this to be defined programmatically as the max of
+    // all the variants, but it's annoying to do in `const fn`...
+    pub const MAX_LEN: usize = Mpn1Identity::MAX_LEN;
+
     pub fn parse(barcode: &[u8]) -> Result<Self, ParseError> {
         let mut fields = barcode.split(|&b| b == b':');
 
@@ -91,7 +95,7 @@ impl OxideIdentity {
     pub const PART_NUMBER_LEN: usize = 11;
     pub const SERIAL_LEN: usize = 11;
     const OXV2: &'static [u8] = b"0XV2:";
-    const MAX_LEN: usize =
+    pub const MAX_LEN: usize =
         Self::OXV2.len() + Self::PART_NUMBER_LEN + Self::SERIAL_LEN
         + 3 // revision part
         + 2 // delimiters
