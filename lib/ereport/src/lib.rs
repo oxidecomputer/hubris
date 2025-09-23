@@ -60,11 +60,28 @@ pub struct FixedStr<const LEN: usize> {
 
 impl<const LEN: usize> FixedStr<LEN> {
     pub const fn from_str(s: &str) -> Self {
-        todo!()
+        let mut buf = [0; LEN];
+        let bytes = s.as_bytes();
+        let len = bytes.len();
+        if len > LEN {
+            panic!();
+        }
+
+        // do this instead of `copy_from_slice` so we can be a const fn :/
+        let mut idx = 0;
+        while idx < len {
+            buf[idx] = bytes[idx];
+            idx += 1;
+        }
+        Self { buf, len }
     }
 
     pub fn as_str(&self) -> &str {
-        unsafe { core::str::from_utf8_unchecked(&self.buf[..self.len]) }
+        unsafe {
+            // Safety: we know the buffer up to `self.len` contains valid UTF-8
+            // because we only allow this type to be constructed from a `&str`.
+            core::str::from_utf8_unchecked(&self.buf[..self.len])
+        }
     }
 
     pub fn len(&self) -> usize {
