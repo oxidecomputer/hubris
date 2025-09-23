@@ -7,7 +7,7 @@ use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::at24csw080::{At24Csw080, Error as EepromError};
 use drv_oxide_vpd::VpdError;
 use host_sp_messages::{InventoryData, InventoryDataResult};
-use oxide_barcode::{OxideIdentity, VpdIdentity};
+use oxide_barcode::{Mpn1Identity, OxideIdentity, VpdIdentity};
 
 impl crate::ServerImpl {
     /// Reads the 128-bit unique ID from an AT24CSW080 EEPROM
@@ -196,7 +196,7 @@ where
     T: oxide_barcode::ParseBarcode,
 {
     let eeprom = At24Csw080::new(dev);
-    let mut barcode = [0; 32];
+    let mut barcode = [0; Mpn1Identity::MAX_LEN];
     match drv_oxide_vpd::read_config_nested_from_into(
         eeprom,
         path,
