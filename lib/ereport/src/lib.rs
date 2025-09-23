@@ -9,12 +9,38 @@ use encode::{Encoder, Write};
 pub use ereport_derive::EreportData;
 pub use minicbor::encode::{self, Encode};
 
+/// Wrapper type defining common ereport fields.
+#[derive(Clone, EreportData)]
+pub struct Ereport<C, D> {
+    #[ereport(rename = "k")]
+    pub class: C,
+    #[ereport(rename = "v")]
+    pub version: u32,
+    #[ereport(flatten)]
+    pub report: D,
+}
+
 pub trait EreportData: Encode<()> {
     /// The maximum length of the CBOR-encoded representation of this value.
     ///
     /// The value is free to encode fewer than this many bytes, but may not
     /// encode more.
     const MAX_CBOR_LEN: usize;
+}
+
+#[macro_export]
+macro_rules! max_cbor_len_of {
+    ($($T:ty),+) => {
+        {
+            let mut len = 0;
+            $(
+                if <$T as $crate::EreportData>::MAX_CBOR_LEN > len {
+                    len = <$T as $crate::EreportData>::MAX_CBOR_LEN;
+                }
+            )+
+            len
+        }
+    };
 }
 
 pub trait EncodeFields<C> {

@@ -5,7 +5,6 @@ edition = "2024"
 
 [dependencies]
 minicbor.workspace = true
-# static-assertions.workspace = true
 ereport-derive = { path = "../ereport-derive" }
 
 [lints]
