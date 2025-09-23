@@ -65,28 +65,41 @@ impl<const LEN: usize> EreportData for FixedStr<LEN> {
     const MAX_CBOR_LEN: usize = LEN + usize::MAX_CBOR_LEN;
 }
 
-impl EreportData for u8 {
+macro_rules! impl_ereport_data {
+    ($($T:ty = $len:expr),*$(,)?) => {
+        $(
+            impl EreportData for $T {
+                const MAX_CBOR_LEN: usize = $len;
+            }
+        )*
+    };
+}
+
+impl_ereport_data! {
     // A u8 may require up to 2 bytes, see:
     // https://docs.rs/minicbor/2.1.1/src/minicbor/encode.rs.html#513
-    const MAX_CBOR_LEN: usize = 2;
-}
+    u8 = 2,
 
-impl EreportData for u16 {
     // A u16 may require up to 3 bytes, see:
     // https://docs.rs/minicbor/2.1.1/src/minicbor/encode.rs.html#519-523
-    const MAX_CBOR_LEN: usize = 3;
-}
+    u16 = 3,
 
-impl EreportData for u32 {
     // A u32 may require up to 5 bytes, see:
     // https://docs.rs/minicbor/2.1.1/src/minicbor/encode.rs.html#529-534
-    const MAX_CBOR_LEN: usize = 5;
-}
+    u32 = 5,
 
-impl EreportData for u64 {
     // A u64 may require up to 9 bytes, see:
     // https://docs.rs/minicbor/2.1.1/src/minicbor/encode.rs.html#539-546
-    const MAX_CBOR_LEN: usize = 9;
+    u64 = 9,
+
+    // https://docs.rs/minicbor/2.1.1/src/minicbor/encode.rs.html#580
+    f32 = 5,
+
+    // https://docs.rs/minicbor/2.1.1/src/minicbor/encode.rs.html#586
+    f64 = 9,
+
+    //https://docs.rs/minicbor/2.1.1/src/minicbor/encode.rs.html#501
+    bool = 1,
 }
 
 impl EreportData for usize {
@@ -95,6 +108,18 @@ impl EreportData for usize {
 
     #[cfg(not(target_pointer_width = "32"))]
     const MAX_CBOR_LEN: usize = u64::MAX_CBOR_LEN;
+}
+
+impl<T: EreportData> EreportData for Option<T> {
+    const MAX_CBOR_LEN: usize = if T::MAX_CBOR_LEN > 1 {
+        T::MAX_CBOR_LEN + 1
+    } else {
+        1 // always need 1 byte to encode the null, even if T is 0-sized...
+    };
+}
+
+impl<T: EreportData> EreportData for &T {
+    const MAX_CBOR_LEN: usize = T::MAX_CBOR_LEN;
 }
 
 pub const fn str_cbor_len(s: &str) -> usize {
