@@ -256,8 +256,8 @@ features = ["stm32h753", "usart6", "baud_rate_3M", "hardware_flow_control", "vla
 uses = ["usart6", "dbgmcu"]
 interrupts = {"usart6.irq" = "usart-irq"}
 priority = 9
-max-sizes = {flash = 67072, ram = 65536}
-stacksize = 5080
+max-sizes = {flash = 65664, ram = 65536}
+stacksize = 5104
 start = true
 task-slots = ["sys", { cpu_seq = "cosmo_seq" }, "hf", "control_plane_agent", "net", "packrat", "i2c_driver", { spi_driver = "spi2_driver" }, "sprot", "auxflash"]
 notifications = ["jefe-state-change", "usart-irq", "multitimer", "control-plane-agent"]
