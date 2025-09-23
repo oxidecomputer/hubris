@@ -529,6 +529,18 @@ mod tests {
     }
 
     #[test]
+    fn parse_mpn1_from_andy() {
+        let input = b"MPN1:SYD:9CRA0848P8G012:C:WWYY1SSS";
+        check_parse_mpn1(
+            input,
+            Some(b"SYD"),
+            Some(b"9CRA0848P8G012"),
+            Some(b"C"),
+            Some(b"WWYY1SSS"),
+        );
+    }
+
+    #[test]
     fn mpn1_serde_roundtrip() {
         let input = b"MPN1:ABC:ASDF-1000:032:123456789";
         let vpd = VpdIdentity::parse(input).expect("MPN1 should parse");
