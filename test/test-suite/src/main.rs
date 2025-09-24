@@ -18,7 +18,6 @@
 //!
 //! The Idol server, `test-idol-server`, tests Idol-mediated IPC.  It must be
 //! included in the image with the name `idol`, but its ID is immaterial.
-#![feature(used_with_arg)]
 #![no_std]
 #![no_main]
 #![forbid(clippy::wildcard_imports)]
@@ -49,12 +48,12 @@ const BAD_ADDRESS: u32 = 0x0;
 
 /// Helper macro for building a list of functions with their names.
 /// We use the humility debug processing to get the name of each
-/// test case and the total number of tests. The #[used(linker)]
-/// is to ensure that this actually gets emitted as a symbol.
+/// test case and the total number of tests. The #[used] is to ensure
+/// that this actually gets emitted as a symbol.
 macro_rules! test_cases {
     ($($(#[$attr:meta])* $name:path,)*) => {
         #[no_mangle]
-        #[used(linker)]
+        #[used]
         static TESTS: &[(&str, &(dyn Fn() + Send + Sync))] = &[
             $(
                 $(#[$attr])*

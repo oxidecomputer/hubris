@@ -1,13 +1,5 @@
 [alias]
 xtask = "run --package xtask --"
 
-[build]
-# The purpose of this flag is to block crates using version_detect from "detecting"
-# features that are no longer supported by the toolchain, because despite its name,
-# version_detect is basically "if nightly { return true; }". This setting gets
-# overridden within xtask for Hubris programs, so this only affects host tools like
-# xtask.
-rustflags = ["-Zallow-features=proc_macro_diagnostic,used_with_arg"]
-
 [unstable]
 bindeps = true
