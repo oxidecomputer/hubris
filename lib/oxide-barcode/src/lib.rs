@@ -479,9 +479,12 @@ mod tests {
 
     #[test]
     fn reencode_oxv1() {
-        check_reencode_oxide(b"0XV1:1230000456:023:TST01234567", b"0XV2:123-0000456:023:TST01234567",)
+        check_reencode_oxide(
+            b"0XV1:1230000456:023:TST01234567",
+            b"0XV2:123-0000456:023:TST01234567",
+        )
     }
-    
+
     #[test]
     fn reencode_oxv2() {
         check_reencode_oxv2(b"0XV2:123-0000456:023:TST01234567");
