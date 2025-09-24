@@ -53,58 +53,8 @@ pub trait EncodeFields<C> {
     ) -> Result<(), encode::Error<W::Error>>;
 }
 
-pub struct FixedStr<const LEN: usize> {
-    buf: [u8; LEN],
-    len: usize,
-}
-
-impl<const LEN: usize> FixedStr<LEN> {
-    pub const fn from_str(s: &str) -> Self {
-        let mut buf = [0; LEN];
-        let bytes = s.as_bytes();
-        let len = bytes.len();
-        if len > LEN {
-            panic!();
-        }
-
-        // do this instead of `copy_from_slice` so we can be a const fn :/
-        let mut idx = 0;
-        while idx < len {
-            buf[idx] = bytes[idx];
-            idx += 1;
-        }
-        Self { buf, len }
-    }
-
-    pub fn as_str(&self) -> &str {
-        unsafe {
-            // Safety: we know the buffer up to `self.len` contains valid UTF-8
-            // because we only allow this type to be constructed from a `&str`.
-            core::str::from_utf8_unchecked(&self.buf[..self.len])
-        }
-    }
-
-    pub fn len(&self) -> usize {
-        self.len
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.len == 0
-    }
-}
-
-impl<C, const LEN: usize> Encode<C> for FixedStr<LEN> {
-    fn encode<W: Write>(
-        &self,
-        e: &mut Encoder<W>,
-        _: &mut C,
-    ) -> Result<(), encode::Error<W::Error>> {
-        e.str(self.as_str())?;
-        Ok(())
-    }
-}
-
-impl<const LEN: usize> EreportData for FixedStr<LEN> {
+#[cfg(feature = "fixedstr")]
+impl<const LEN: usize> EreportData for fixedstr::FixedStr<LEN> {
     const MAX_CBOR_LEN: usize = LEN + usize::MAX_CBOR_LEN;
 }
 

@@ -2920,6 +2920,7 @@ name = "ereport"
 version = "0.1.0"
 dependencies = [
  "ereport-derive",
+ "fixedstr",
  "minicbor 2.1.1",
 ]
 
@@ -2988,6 +2989,14 @@ dependencies = [
 [[package]]
 name = "fixedmap"
 version = "0.1.0"
+
+[[package]]
+name = "fixedstr"
+version = "0.1.0"
+dependencies = [
+ "minicbor 2.1.1",
+ "serde",
+]
 
 [[package]]
 name = "flagset"
