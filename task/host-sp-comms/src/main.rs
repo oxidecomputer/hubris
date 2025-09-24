@@ -1122,10 +1122,18 @@ impl ServerImpl {
     fn apob_read(&mut self, sequence: u64, offset: u64, size: u64) {
         use drv_hf_api::ApobReadError;
         use host_sp_messages::ApobReadResult;
+        let Ok(size) = usize::try_from(size) else {
+            self.tx_buf.encode_response(
+                sequence,
+                &SpToHost::ApobRead(ApobReadResult::InvalidSize),
+                |_buf| 0,
+            );
+            return;
+        };
         self.tx_buf.try_encode_response(
             sequence,
             &SpToHost::ApobRead(ApobReadResult::Ok),
-            |buf| match self.hf.apob_read(offset, size, buf) {
+            |buf| match self.hf.apob_read(offset, &mut buf[..size]) {
                 Ok(n) => Ok(n),
                 Err(err) => {
                     ringbuf_entry!(Trace::ApobReadError { offset, err });
