@@ -575,7 +575,7 @@ impl ApobState {
             data.write_range(i..(i + n), &out_buf[..n])
                 .map_err(|_| ApobReadError::ReadFailed)?;
         }
-        Ok(data.len() as usize)
+        Ok(data.len())
     }
 
     pub(crate) fn commit(
