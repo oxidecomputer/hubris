@@ -265,10 +265,16 @@ struct ServerImpl {
 
     /// Temporary space for inventory data, which is a large `enum`
     scratch: &'static mut host_sp_messages::InventoryData,
+
     /// Scratch buffer for reading barcodes out of EEPROMs.
     ///
     /// MPN1 barcodes can be up to 128 bytes long, so this is better kept off
     /// the stack.
+    // This is not used on dev board targets.
+    #[cfg(not(any(
+        target_board = "grapefruit",
+        target_board = "gimletlet-2"
+    )))]
     barcode_buf: &'static mut [u8; oxide_barcode::VpdIdentity::MAX_LEN],
 
     /// Set when the host OS fails to boot or panics, and unset when the system
@@ -300,6 +306,10 @@ impl ServerImpl {
             etc_system: [u8; MAX_ETC_SYSTEM_LEN],
             dtrace_conf: [u8; MAX_DTRACE_CONF_LEN],
             scratch: host_sp_messages::InventoryData,
+            #[cfg(not(any(
+                target_board = "grapefruit",
+                target_board = "gimletlet-2"
+            )))]
             barcode_buf: [u8; oxide_barcode::VpdIdentity::MAX_LEN],
         }
         let Bufs {
@@ -310,6 +320,10 @@ impl ServerImpl {
             ref mut etc_system,
             ref mut dtrace_conf,
             ref mut scratch,
+            #[cfg(not(any(
+                target_board = "grapefruit",
+                target_board = "gimletlet-2"
+            )))]
             ref mut barcode_buf,
         } = {
             static BUFS: ClaimOnceCell<Bufs> = ClaimOnceCell::new(Bufs {
@@ -319,6 +333,10 @@ impl ServerImpl {
                 last_panic: [0; MAX_HOST_FAIL_MESSAGE_LEN],
                 etc_system: [0; MAX_ETC_SYSTEM_LEN],
                 dtrace_conf: [0; MAX_DTRACE_CONF_LEN],
+                #[cfg(not(any(
+                    target_board = "grapefruit",
+                    target_board = "gimletlet-2"
+                )))]
                 barcode_buf: [0; oxide_barcode::VpdIdentity::MAX_LEN],
 
                 // Default value for InventoryData
@@ -335,6 +353,10 @@ impl ServerImpl {
             timers,
             tx_buf: tx_buf::TxBuf::new(tx_buf),
             rx_buf,
+            #[cfg(not(any(
+                target_board = "grapefruit",
+                target_board = "gimletlet-2"
+            )))]
             barcode_buf,
             status: Status::empty(),
             sequencer: Sequencer::from(CPU_SEQ.get_task_id()),
