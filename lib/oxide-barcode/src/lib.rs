@@ -463,7 +463,7 @@ mod tests {
         };
 
         let mut expected_padded = [0u8; OxideIdentity::MAX_LEN];
-        expected_padded[..input.len()].copy_from_slice(expected);
+        expected_padded[..expected.len()].copy_from_slice(expected);
 
         let mut reencoded = [0u8; OxideIdentity::MAX_LEN];
         match parsed.encode_oxv2(&mut reencoded) {
@@ -475,11 +475,11 @@ mod tests {
         };
 
         assert_eq!(
-            expected,
+            expected_padded,
             reencoded,
             "re-encoded string \"{}\" does not match original \"{}\"",
             String::from_utf8_lossy(&reencoded),
-            String::from_utf8_lossy(&expected),
+            String::from_utf8_lossy(&expected_padded),
         )
     }
 
@@ -502,7 +502,7 @@ mod tests {
     }
 
     #[test]
-    fn reencode_xv2_shorter_part() {
+    fn reencode_oxv2_shorter_part() {
         check_reencode_oxv2(b"0XV2:123-000045:023:TST01234567");
     }
 
