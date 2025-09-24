@@ -123,12 +123,13 @@ pub struct OxideIdentity {
 impl OxideIdentity {
     pub const PART_NUMBER_LEN: usize = 11;
     pub const SERIAL_LEN: usize = 11;
+    const REV_DIGITS: usize = 3; // Number of digits to encode the revision part.
     const OXV2: &'static [u8] = b"0XV2:";
 
     /// Maximum length in bytes of a barcode string.
     pub const MAX_LEN: usize =
         Self::OXV2.len() + Self::PART_NUMBER_LEN + Self::SERIAL_LEN
-        + 3 // revision part
+        + Self::REV_DIGITS
         + 2 // delimiters
         ;
 
@@ -146,7 +147,7 @@ impl OxideIdentity {
             // be nul-padded. handle that by chopping off any nuls.
             let len =
                 data.iter().position(|b| *b == b'\0').unwrap_or(data.len());
-            buf[*offset..*offset + len].copy_from_slice(&data[..len]);
+            buf[*offset..][..len].copy_from_slice(&data[..len]);
             *offset += len;
         }
 
@@ -159,8 +160,10 @@ impl OxideIdentity {
         write_chunk(&mut offset, buf, &self.part_number[..]);
         write_chunk(&mut offset, buf, b":");
 
-        // Encode revision The revision part is encoded as three zero-padded
-        // digits, as per https://rfd.shared.oxide.computer/rfd/0308#_0xv2
+        // Encode revision.
+        //
+        // The revision part is encoded as three zero-padded digits, as per
+        // https://rfd.shared.oxide.computer/rfd/0308#_0xv2
         {
             use core::fmt::Write;
             // Sadly, `std::io::Cursor` is not in libcore, so we have to
@@ -177,17 +180,20 @@ impl OxideIdentity {
                     if bytes.len() > self.buf.len() - self.pos {
                         return Err(core::fmt::Error);
                     }
-                    self.buf[self.pos..self.pos + bytes.len()]
-                        .copy_from_slice(bytes);
+                    self.buf[self.pos..][..bytes.len()].copy_from_slice(bytes);
                     self.pos += bytes.len();
                     Ok(())
                 }
             }
-            let buf = &mut buf[offset..offset + 4];
+            let buf = &mut buf[offset..][..Self::REV_DIGITS + 1];
             let rev = self.revision;
-            write!(&mut WriteThingy { buf, pos: 0 }, "{rev:03}:")
-                .map_err(|_| EncodeError::BufferTooSmall)?;
-            offset += 4
+            write!(
+                &mut WriteThingy { buf, pos: 0 },
+                "{rev:0digits$}:",
+                digits = Self::REV_DIGITS
+            )
+            .map_err(|_| EncodeError::BufferTooSmall)?;
+            offset += Self::REV_DIGITS + 1;
         }
 
         write_chunk(&mut offset, buf, &self.serial[..]);

@@ -601,6 +601,19 @@ impl Identity {
     pub const SERIAL_LEN: usize = 51;
 }
 
+/// A VPD identity represented as a barcode string.
+///
+/// This message type exists in order to represent VPD identities that may be
+/// Oxide-issued serial numbers (the `0XV1`/`0XV2` barcode formats) *or*
+/// manufacturer-issued serial numbers (the `MPN1` barcode format). The
+/// [`Identity`] message, on the other hand, provides a more structured
+/// representation of an identity, but cannot represent the MPN1 format, as
+/// there are no length limits on individual components of the barcode (so the
+/// model number, serial number, and revision could all be up to 114 bytes in
+/// length).
+///
+/// This message should be used for identities which may be in either format,
+/// such as fan barcodes.
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
 )]
@@ -617,10 +630,8 @@ impl Default for Barcode {
 }
 
 impl From<oxide_barcode::Mpn1Identity> for Barcode {
-    fn from(
-        oxide_barcode::Mpn1Identity { buf, .. }: oxide_barcode::Mpn1Identity,
-    ) -> Self {
-        Self(buf)
+    fn from(id: oxide_barcode::Mpn1Identity) -> Self {
+        Self(id.buf)
     }
 }
 

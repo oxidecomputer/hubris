@@ -250,7 +250,6 @@ max-sizes = {flash = 16384, ram = 16384 }
 stacksize = 1024
 start = true
 
-
 [tasks.host_sp_comms]
 name = "task-host-sp-comms"
 features = ["stm32h753", "usart6", "baud_rate_3M", "hardware_flow_control", "vlan", "cosmo"]
