@@ -133,7 +133,7 @@ impl From<HfError> for ApobError {
 ////////////////////////////////////////////////////////////////////////////////
 
 pub const APOB_PERSISTENT_DATA_MAGIC: u32 = 0x3ca9_9496; // chosen at random
-pub const APOB_PERSISTENT_DATA_STRIDE: u32 = 128;
+pub const APOB_PERSISTENT_DATA_STRIDE: usize = 128;
 pub const APOB_PERSISTENT_DATA_HEADER_VERSION: u32 = 1;
 
 pub const APOB_META_SIZE: u32 = SECTOR_SIZE_BYTES;
@@ -148,8 +148,23 @@ pub const APOB_SLOT1_ADDR: u32 = APOB_SLOT0_ADDR + APOB_SLOT_SIZE;
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,
-    ApobSlotErase { slot: ApobSlot },
-    ApobSlotEraseSkip { slot: ApobSlot },
+    State(ApobState),
+    GotPersistentData {
+        meta: Meta,
+        data: Option<ApobRawPersistentData>,
+    },
+    WrotePersistentData {
+        meta: Meta,
+        data: ApobRawPersistentData,
+    },
+    HashMismatch {
+        expected_hash: [u8; 32],
+        actual_hash: [u8; 32],
+    },
+    ApobSlotSectorErase {
+        slot: ApobSlot,
+        offset: u32,
+    },
 }
 ringbuf!(Trace, 16, Trace::None);
 
@@ -186,7 +201,7 @@ impl ApobSlot {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub(crate) enum ApobState {
     /// Waiting for `ApobStart`
     Waiting {
@@ -240,7 +255,7 @@ impl core::cmp::Ord for ApobRawPersistentData {
 impl ApobRawPersistentData {
     pub fn new(slot: ApobSlot, monotonic_counter: u64) -> Self {
         static_assertions::const_assert!(
-            APOB_PERSISTENT_DATA_STRIDE as usize
+            APOB_PERSISTENT_DATA_STRIDE
                 >= core::mem::size_of::<ApobRawPersistentData>(),
         );
         let mut out = Self {
@@ -277,6 +292,7 @@ impl ApobRawPersistentData {
     }
 }
 
+#[derive(Copy, Clone, PartialEq)]
 enum Meta {
     Meta0,
     Meta1,
@@ -347,7 +363,7 @@ impl ApobState {
             }
             Some(1) => {
                 Self::slot_erase(drv, ApobSlot::Slot0);
-                Some(ApobSlot::Slot0)
+                Some(ApobSlot::Slot1)
             }
             Some(_) => {
                 unreachable!(); // prevented by is_valid check
@@ -362,30 +378,32 @@ impl ApobState {
 
     /// Erases the given APOB slot
     fn slot_erase(drv: &mut FlashDriver, slot: ApobSlot) {
-        let mut dirty = false;
-        let mut buf = [0u8; PAGE_SIZE_BYTES];
-        for offset in 0..APOB_SLOT_SIZE / PAGE_SIZE_BYTES as u32 {
-            drv.flash_read(
-                slot.flash_addr(offset * PAGE_SIZE_BYTES as u32)
-                    .unwrap_lite(),
-                &mut buf.as_mut_slice(),
-            )
-            .unwrap_lite();
-            if buf.iter().any(|b| *b != 0xFF) {
-                dirty = true;
-                break;
-            }
-        }
-
-        if dirty {
-            ringbuf_entry!(Trace::ApobSlotErase { slot });
-            for offset in 0..APOB_SLOT_SIZE / SECTOR_SIZE_BYTES {
-                drv.flash_sector_erase(
-                    slot.flash_addr(offset * SECTOR_SIZE_BYTES).unwrap_lite(),
+        static_assertions::const_assert!(
+            APOB_SLOT_SIZE.is_multiple_of(SECTOR_SIZE_BYTES)
+        );
+        static_assertions::const_assert!(
+            (SECTOR_SIZE_BYTES as usize).is_multiple_of(PAGE_SIZE_BYTES)
+        );
+        // Read back each sector and decide whether to erase it
+        for sector_offset in
+            (0..APOB_SLOT_SIZE).step_by(SECTOR_SIZE_BYTES as usize)
+        {
+            let mut buf = [0u8; PAGE_SIZE_BYTES];
+            for page_offset in (0..SECTOR_SIZE_BYTES).step_by(PAGE_SIZE_BYTES) {
+                let offset = sector_offset + page_offset;
+                drv.flash_read(
+                    slot.flash_addr(offset).unwrap_lite(),
+                    &mut buf.as_mut_slice(),
                 )
+                .unwrap_lite();
+                if buf.iter().any(|b| *b != 0xFF) {
+                    ringbuf_entry!(Trace::ApobSlotSectorErase { slot, offset });
+                    drv.flash_sector_erase(
+                        slot.flash_addr(offset).unwrap_lite(),
+                    );
+                    break;
+                }
             }
-        } else {
-            ringbuf_entry!(Trace::ApobSlotEraseSkip { slot });
         }
     }
 
@@ -395,13 +413,14 @@ impl ApobState {
         meta: Meta,
     ) -> Option<ApobRawPersistentData> {
         let mut best: Option<ApobRawPersistentData> = None;
-        for i in 0..APOB_META_SIZE / APOB_PERSISTENT_DATA_STRIDE {
+        for offset in (0..APOB_META_SIZE).step_by(APOB_PERSISTENT_DATA_STRIDE) {
             let mut data = ApobRawPersistentData::new_zeroed();
-            let offset = i * APOB_PERSISTENT_DATA_STRIDE;
             let addr = meta.flash_addr(offset).unwrap_lite();
-            drv.flash_read(addr, &mut data.as_mut_bytes()).unwrap_lite(); // infallible when using a slice
+            // flash_read is infallible when using a slice
+            drv.flash_read(addr, &mut data.as_mut_bytes()).unwrap_lite();
             best = best.max(Some(data).filter(|d| d.is_valid()));
         }
+        ringbuf_entry!(Trace::GotPersistentData { meta, data: best });
         best
     }
 
@@ -421,9 +440,11 @@ impl ApobState {
             ApobState::Waiting { write_slot, .. } => {
                 *self = ApobState::Ready {
                     write_slot,
-                    expected_length: length.try_into().unwrap_lite(),
+                    expected_length: length,
                     expected_hash: algorithm,
                 };
+                ringbuf_entry!(Trace::State(*self));
+
                 Ok(())
             }
             ApobState::Locked => Err(ApobBeginError::InvalidState),
@@ -475,7 +496,9 @@ impl ApobState {
         {
             return Err(ApobWriteError::InvalidSize);
         }
-
+        let Ok(offset) = u32::try_from(offset) else {
+            return Err(ApobWriteError::InvalidSize);
+        };
         let mut out_buf = [0u8; PAGE_SIZE_BYTES];
         let mut scratch_buf = [0u8; PAGE_SIZE_BYTES];
         for i in (0..data.len()).step_by(PAGE_SIZE_BYTES) {
@@ -484,7 +507,7 @@ impl ApobState {
             data.read_range(i..(i + n), &mut out_buf[..n])
                 .map_err(|_| ApobWriteError::WriteFailed)?;
             let addr = write_slot
-                .flash_addr(i.try_into().unwrap_lite())
+                .flash_addr(offset + u32::try_from(i).unwrap_lite())
                 .unwrap_lite();
 
             // Read back the current data; it must be erased or match (for
@@ -565,6 +588,7 @@ impl ApobState {
             // Locking without writing anything is fine
             ApobState::Waiting { .. } => {
                 *self = ApobState::Locked;
+                ringbuf_entry!(Trace::State(*self));
                 return Ok(());
             }
             // Committing is idempotent (XXX?)
@@ -575,6 +599,11 @@ impl ApobState {
                 write_slot,
             } => (expected_length, expected_hash, write_slot),
         };
+
+        // We always transition to a locked state, whether or not validation
+        // succeeds.
+        *self = ApobState::Locked;
+        ringbuf_entry!(Trace::State(*self));
 
         // Confirm that the hash of data matches our expectations
         let mut buf = [0u8; PAGE_SIZE_BYTES];
@@ -592,6 +621,10 @@ impl ApobState {
                 }
                 let out = hasher.finalize();
                 if out != expected_hash.into() {
+                    ringbuf_entry!(Trace::HashMismatch {
+                        expected_hash,
+                        actual_hash: out.into()
+                    });
                     return Err(ApobCommitError::ValidationFailed);
                 }
             }
@@ -609,6 +642,10 @@ impl ApobState {
 
         for m in [Meta::Meta0, Meta::Meta1] {
             Self::write_raw_persistent_data(drv, new_perst, m);
+            ringbuf_entry!(Trace::WrotePersistentData {
+                data: new_perst,
+                meta: m
+            });
         }
 
         Ok(())
@@ -620,9 +657,8 @@ impl ApobState {
         meta: Meta,
     ) {
         let mut found: Option<FlashAddr> = None;
-        let mut buf = [0u8; APOB_PERSISTENT_DATA_STRIDE as usize];
-        for i in 0..APOB_META_SIZE / APOB_PERSISTENT_DATA_STRIDE {
-            let offset = i * APOB_PERSISTENT_DATA_STRIDE;
+        let mut buf = [0u8; APOB_PERSISTENT_DATA_STRIDE];
+        for offset in (0..APOB_META_SIZE).step_by(APOB_PERSISTENT_DATA_STRIDE) {
             let addr = meta.flash_addr(offset).unwrap_lite();
             // Infallible when using a slice
             drv.flash_read(addr, &mut buf.as_mut_slice()).unwrap_lite();
