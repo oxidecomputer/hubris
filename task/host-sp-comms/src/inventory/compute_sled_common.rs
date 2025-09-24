@@ -96,13 +96,13 @@ impl crate::ServerImpl {
         let name = munge_fantray_refdes(dev.component_id(), &mut buf);
         let barcode_buf = &mut self.barcode_buf[..];
 
-        *self.scratch = InventoryData::FanIdentity {
+        *self.scratch = InventoryData::FanIdentityV1 {
             identity: Default::default(),
             vpd_identity: Default::default(),
             fans: Default::default(),
         };
         self.tx_buf.try_encode_inventory(sequence, name, || {
-            let InventoryData::FanIdentity {
+            let InventoryData::FanIdentityV1 {
                 identity,
                 vpd_identity,
                 fans,

@@ -404,8 +404,15 @@ pub enum InventoryData {
         current_sensor: SensorIndex,
     },
 
-    /// Fan subassembly identity
-    FanIdentity {
+    /// Fan subassembly identity (legacy version).
+    ///
+    /// Unlike [`Self::FanIdentityV2`], this message can only represent the
+    /// identities of fans with barcodes in the `0XV1` and `0XV2` formats; fans
+    /// with `MPN1` barcodes will be left blank. Host software that supports it
+    /// will prefer the [`Self::FanIdentityV2`] message, which can represent all
+    /// possible fan serials, but we must still send this message for
+    /// compatibility with older host software.
+    FanIdentityV1 {
         /// Identity of the fan assembly
         identity: Identity,
         /// Identity of the VPD board within the subassembly
@@ -1265,7 +1272,7 @@ mod tests {
                 0, 0, 0, 0, 0, 0, 0, 0, 0,
             ],
         };
-        let d = InventoryData::FanIdentity {
+        let d = InventoryData::FanIdentityV1 {
             identity: i,
             vpd_identity: i,
             fans: [i; 3],
