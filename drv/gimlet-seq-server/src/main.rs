@@ -209,6 +209,12 @@ struct ServerImpl<S: SpiServer> {
 const TIMER_INTERVAL: u32 = 10;
 const EREPORT_BUF_LEN: usize = 256;
 
+#[derive(EreportData)]
+pub enum EreportClass {
+    #[ereport(rename = "hw.pwr.pmbus.alert")]
+    PmbusAlert,
+}
+
 impl<S: SpiServer + Clone> ServerImpl<S> {
     fn init(
         sys: &sys_api::Sys,

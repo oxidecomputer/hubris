@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 minicbor.workspace = true
 ereport-derive = { path = "../ereport-derive" }
-fixedstr = { path = "../fixedstr", optional = true }
+fixedstr = { path = "../fixedstr", optional = true, features = ["minicbor"] }
 
 [lints]
 workspace = true

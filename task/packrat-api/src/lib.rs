@@ -12,6 +12,8 @@ use zerocopy::{
     FromBytes, Immutable, IntoBytes, KnownLayout, LittleEndian, U16,
 };
 
+#[cfg(feature = "ereport")]
+use ereport::EreportData;
 pub use gateway_ereport_messages as ereport_messages;
 pub use host_sp_messages::HostStartupOptions;
 pub use oxide_barcode::VpdIdentity;
@@ -85,11 +87,23 @@ pub enum EreportSerializeError {
     ),
 }
 
-#[cfg(feature = "serde")]
+/// Wrapper type defining common ereport fields.
+#[cfg(feature = "ereport")]
+#[derive(Clone, EreportData)]
+pub struct Ereport<C, D> {
+    #[ereport(rename = "k")]
+    pub class: C,
+    #[ereport(rename = "v")]
+    pub version: u32,
+    #[ereport(flatten)]
+    pub report: D,
+}
+
 impl Packrat {
     /// Deliver an ereport for a value that implements [`serde::Serialize`]. The
     /// provided `buf` is used to serialize the value before sending it to
     /// Packrat.
+    #[cfg(feature = "serde")]
     pub fn serialize_ereport(
         &self,
         ereport: &impl serde::Serialize,
@@ -114,6 +128,34 @@ impl Packrat {
         // Now, try to send that to Packrat.
         self.deliver_ereport(&buf[..len])
             .map_err(|err| EreportSerializeError::Packrat { len, err })?;
+
+        Ok(len)
+    }
+
+    #[cfg(feature = "ereport")]
+    pub fn deliver_ereport_data<E: EreportData>(
+        &self,
+        ereport: &E,
+    ) -> Result<usize, EreportWriteError> {
+        // XXX(eliza): i don't love that this puts the buffer on the stack; I
+        // wanted to make it take a buffer as an argument `&mut [u8; LEN]` and
+        // then `static_assertions::const_assert!(LEN >= E::MAX_CBOR_LEN)`, but
+        // this doesn't work as the outer const generic parameters for the
+        // buffer length and the ereport max CBOR length cannot be accessed in a
+        // `const` expression inside the function.`
+        let mut buf = [0u8; E::MAX_CBOR_LEN];
+        let c = minicbor::encode::write::Cursor::new(&mut buf[..]);
+        let mut e = minicbor::encode::Encoder::new(c);
+        match ereport.encode(&mut e, &mut ()) {
+            Ok(()) => (),
+            Err(_) => unreachable!(),
+        }
+        let writer = e.into_writer();
+        let len = writer.position();
+        let buf = writer.into_inner();
+
+        // Now, try to send that to Packrat.
+        self.deliver_ereport(&buf[..len])?;
 
         Ok(len)
     }

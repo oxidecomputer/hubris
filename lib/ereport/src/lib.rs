@@ -9,17 +9,6 @@ use encode::{Encoder, Write};
 pub use ereport_derive::EreportData;
 pub use minicbor::encode::{self, Encode};
 
-// /// Wrapper type defining common ereport fields.
-// #[derive(Clone, EreportData)]
-// pub struct Ereport<C, D> {
-//     #[ereport(rename = "k")]
-//     pub class: C,
-//     #[ereport(rename = "v")]
-//     pub version: u32,
-//     #[ereport(flatten)]
-//     pub report: D,
-// }
-
 pub trait EreportData: Encode<()> {
     /// The maximum length of the CBOR-encoded representation of this value.
     ///
