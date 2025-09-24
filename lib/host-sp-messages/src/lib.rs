@@ -627,7 +627,7 @@ impl From<oxide_barcode::Mpn1Identity> for Barcode {
 impl From<oxide_barcode::OxideIdentity> for Barcode {
     fn from(id: oxide_barcode::OxideIdentity) -> Self {
         let mut this = Self::default();
-        id.encode_into(&mut this.0[..])
+        id.encode_oxv2(&mut this.0[..])
             // A 128-byte buffer should always fit a 32-byte OXV2 identity...
             .unwrap_lite();
         this

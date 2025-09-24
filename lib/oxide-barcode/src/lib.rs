@@ -32,15 +32,36 @@ pub enum EncodeError {
     BufferTooSmall,
 }
 
+/// A VPD identity parsed from a barcode string.
+///
+/// This type may represent an identity that was encoded in any of the [`0XV1`],
+/// [`0XV2`], or [`MPN1`] barcode formats.
+///
+/// [`0XV1`]: https://rfd.shared.oxide.computer/rfd/0308#_0xv1
+/// [`0XV2`]: https://rfd.shared.oxide.computer/rfd/0308#_0xv2
+/// [`MPN1`]: https://rfd.shared.oxide.computer/rfd/0308#fmt-mpn
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, SerializedSize,
 )]
 #[repr(u8)]
 pub enum VpdIdentity {
+    /// An Oxide-serialized VPD identity.
+    ///
+    /// This variant represents a barcode formatted in the `0XV1` or `0XV2`
+    /// formats.
     Oxide(OxideIdentity),
+    /// A manufacturer-serialized VPD identity.
+    ///
+    /// This variant represents a barcode formatted in the `MPN1` format.
     Mpn1(Mpn1Identity),
 }
 
+/// Trait for an identity that can be parsed from a barcode.
+///
+/// This is intended to allow the same function to be generic over the
+/// [`OxideIdentity`] type (for `0XV2`/`0XV1`-formatted barcodes), the
+/// [`Mpn1Identity`] type (for `MPN1`-formatted barcodes), and the
+/// [`VpdIdentity`] type (to accept either barcode format.).
 pub trait ParseBarcode: Sized {
     fn parse_barcode(barcode: &[u8]) -> Result<Self, ParseError>;
 }
@@ -50,6 +71,14 @@ impl VpdIdentity {
     // all the variants, but it's annoying to do in `const fn`...
     pub const MAX_LEN: usize = Mpn1Identity::MAX_LEN;
 
+    /// Parse a VPD identity from a barcode.
+    ///
+    /// This method will parse identities from any of the [`0XV1`],
+    /// [`0XV2`], or [`MPN1`] barcode formats.
+    ///
+    /// [`0XV1`]: https://rfd.shared.oxide.computer/rfd/0308#_0xv1
+    /// [`0XV2`]: https://rfd.shared.oxide.computer/rfd/0308#_0xv2
+    /// [`MPN1`]: https://rfd.shared.oxide.computer/rfd/0308#fmt-mpn
     pub fn parse(barcode: &[u8]) -> Result<Self, ParseError> {
         let mut fields = barcode.split(|&b| b == b':');
 
@@ -95,13 +124,23 @@ impl OxideIdentity {
     pub const PART_NUMBER_LEN: usize = 11;
     pub const SERIAL_LEN: usize = 11;
     const OXV2: &'static [u8] = b"0XV2:";
+
+    /// Maximum length in bytes of a barcode string.
     pub const MAX_LEN: usize =
         Self::OXV2.len() + Self::PART_NUMBER_LEN + Self::SERIAL_LEN
         + 3 // revision part
         + 2 // delimiters
         ;
 
-    pub fn encode_into(&self, buf: &mut [u8]) -> Result<usize, EncodeError> {
+    /// Encodes this VPD identity into `buf` in the [`0XV2`] format.
+    ///
+    /// If this identity was parsed from an `0XV1`-formatted barcode string, it
+    /// will be normalized to an `0XV2`-formatted string. If it was originally
+    /// encoded as `0XV2`, the output should be identical to the original
+    /// barcode.
+    ///
+    /// [`0XV2`]: https://rfd.shared.oxide.computer/rfd/0308#_0xv2
+    pub fn encode_oxv2(&self, buf: &mut [u8]) -> Result<usize, EncodeError> {
         fn write_chunk(offset: &mut usize, buf: &mut [u8], data: &[u8]) {
             // if a serial or part number was shorter than 11 characters, it may
             // be nul-padded. handle that by chopping off any nuls.
@@ -119,7 +158,9 @@ impl OxideIdentity {
         write_chunk(&mut offset, buf, Self::OXV2);
         write_chunk(&mut offset, buf, &self.part_number[..]);
         write_chunk(&mut offset, buf, b":");
-        // Encode revision
+
+        // Encode revision The revision part is encoded as three zero-padded
+        // digits, as per https://rfd.shared.oxide.computer/rfd/0308#_0xv2
         {
             use core::fmt::Write;
             // Sadly, `std::io::Cursor` is not in libcore, so we have to
@@ -401,7 +442,12 @@ mod tests {
     }
 
     #[track_caller]
-    fn check_reencode_oxide(input: &[u8]) {
+    fn check_reencode_oxv2(input: &[u8]) {
+        check_reencode_oxide(input, input);
+    }
+
+    #[track_caller]
+    fn check_reencode_oxide(input: &[u8], expected: &[u8]) {
         let parsed = match OxideIdentity::parse(input) {
             Ok(parsed) => parsed,
             Err(e) => panic!(
@@ -410,11 +456,11 @@ mod tests {
             ),
         };
 
-        let mut expected = [0u8; OxideIdentity::MAX_LEN];
-        expected[..input.len()].copy_from_slice(input);
+        let mut expected_padded = [0u8; OxideIdentity::MAX_LEN];
+        expected_padded[..input.len()].copy_from_slice(expected);
 
         let mut reencoded = [0u8; OxideIdentity::MAX_LEN];
-        match parsed.encode_into(&mut reencoded) {
+        match parsed.encode_oxv2(&mut reencoded) {
             Ok(_) => (),
             Err(e) => panic!(
                 "failed to encode {:?}: {e:?}",
@@ -432,18 +478,23 @@ mod tests {
     }
 
     #[test]
+    fn reencode_oxv1() {
+        check_reencode_oxide(b"0XV1:1230000456:023:TST01234567", b"0XV2:123-0000456:023:TST01234567",)
+    }
+    
+    #[test]
     fn reencode_oxv2() {
-        check_reencode_oxide(b"0XV2:123-0000456:023:TST01234567");
+        check_reencode_oxv2(b"0XV2:123-0000456:023:TST01234567");
     }
 
     #[test]
     fn reencode_oxv2_shorter_serial() {
-        check_reencode_oxide(b"0XV2:123-0000456:023:TST0123456");
+        check_reencode_oxv2(b"0XV2:123-0000456:023:TST0123456");
     }
 
     #[test]
     fn reencode_xv2_shorter_part() {
-        check_reencode_oxide(b"0XV2:123-000045:023:TST01234567");
+        check_reencode_oxv2(b"0XV2:123-000045:023:TST01234567");
     }
 
     #[track_caller]
