@@ -569,6 +569,9 @@ impl From<oxide_barcode::OxideIdentity> for Identity {
     }
 }
 
+/// Error indicating that the VPD identity was not an Oxide barcode
+pub struct NotOxideBarcode;
+
 impl From<oxide_barcode::Mpn1Identity> for Identity {
     fn from(_: oxide_barcode::Mpn1Identity) -> Self {
         // Oh no! MPN1 barcodes cannot be represented by this message type.
@@ -577,11 +580,13 @@ impl From<oxide_barcode::Mpn1Identity> for Identity {
     }
 }
 
-impl From<oxide_barcode::VpdIdentity> for Identity {
-    fn from(id: oxide_barcode::VpdIdentity) -> Self {
+impl TryFrom<oxide_barcode::VpdIdentity> for Identity {
+    type Error = NotOxideBarcode;
+
+    fn try_from(id: oxide_barcode::VpdIdentity) -> Result<Self, Self::Error> {
         match id {
-            oxide_barcode::VpdIdentity::Mpn1(id) => Self::from(id),
-            oxide_barcode::VpdIdentity::Oxide(id) => Self::from(id),
+            oxide_barcode::VpdIdentity::Mpn1(_) => Err(NotOxideBarcode),
+            oxide_barcode::VpdIdentity::Oxide(id) => Ok(Self::from(id)),
         }
     }
 }
