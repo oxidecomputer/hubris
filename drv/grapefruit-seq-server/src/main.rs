@@ -193,6 +193,24 @@ impl idl::InOrderSequencerImpl for ServerImpl {
     ) -> Result<u32, RequestError<core::convert::Infallible>> {
         Ok(self.espi.last_post_code.payload())
     }
+
+    fn gpio_edge_count(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u32, RequestError<core::convert::Infallible>> {
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::BadMessageContents,
+        ))
+    }
+
+    fn gpio_cycle_count(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u32, RequestError<core::convert::Infallible>> {
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::BadMessageContents,
+        ))
+    }
 }
 
 impl NotificationHandler for ServerImpl {
