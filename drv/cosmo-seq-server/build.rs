@@ -40,12 +40,12 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         idol::server::ServerStyle::InOrder,
     )?;
 
-    let out_file = out_dir.join("fmc_sequencer.rs");
+    let out_file = out_dir.join("fmc_periph.rs");
     let mut file = std::fs::File::create(out_file)?;
-    for periph in ["sequencer", "info"] {
+    for periph in ["sequencer", "info", "espi"] {
         write!(
             &mut file,
-            "{}",
+            "pub mod {periph} {{\n{}\n}}",
             build_fpga_regmap::fpga_peripheral(
                 periph,
                 "drv_spartan7_loader_api::Spartan7Token"
