@@ -293,7 +293,7 @@ impl From<drv_i2c_types::ResponseCode> for InventoryDataResult {
 /// variants may be added to the end, and existing variants may be extended with
 /// new data (at the end), but no changes should be made to existing bytes.
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+    Debug, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
 )]
 #[allow(clippy::large_enum_variant)]
 pub enum InventoryData {
