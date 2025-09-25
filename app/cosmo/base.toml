@@ -1223,7 +1223,7 @@ refdes = "U73"
 [[config.i2c.devices]]
 bus = "rear"
 address = 0x14
-device = "adm1272"
+device = "adm127x"
 description = "Sled hot swap controller"
 power = { rails = [ "V54P5_IBC_A3" ] }
 sensors = { temperature = 1, voltage = 1, current = 1 }

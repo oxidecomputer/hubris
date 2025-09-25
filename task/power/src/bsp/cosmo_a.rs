@@ -29,7 +29,7 @@ pub(crate) static CONTROLLER_CONFIG: [PowerControllerConfig;
     rail_controller!(Sys, tps546B24A, v5_sys_a2, A2),
     rail_controller!(Sys, tps546B24A, v1p8_sys_a2, A2),
     rail_controller!(Sys, tps546B24A, v0p96_nic_vdd_a0hp, A0),
-    adm1272_controller!(HotSwap, v54p5_ibc_a3, A2, Ohms(0.000_750)),
+    adm127x_controller!(HotSwap, v54p5_ibc_a3, A2, Ohms(0.000_750)),
     lm5066i_controller!(
         Fan,
         v54p5_fan_east,
