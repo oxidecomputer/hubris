@@ -1345,6 +1345,28 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         }
     }
 
+    fn component_switch_cancel_pending(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        component: RotComponent,
+        slot: SlotId,
+        duration: SwitchDuration,
+    ) -> Result<(), idol_runtime::RequestError<SprotError>> {
+        let body = ReqBody::Update(UpdateReq::ComponentSwitchCancelPending {
+            component,
+            slot,
+            duration,
+        });
+        let tx_size = Request::pack(&body, self.tx_buf);
+        let rsp =
+            self.do_send_recv_retries(tx_size, TIMEOUT_LONG, DEFAULT_ATTEMPTS)?;
+        if let RspBody::Ok = rsp.body? {
+            Ok(())
+        } else {
+            Err(SprotProtocolError::UnexpectedResponse)?
+        }
+    }
+
     fn lifecycle_state(
         &mut self,
         _msg: &userlib::RecvMessage,

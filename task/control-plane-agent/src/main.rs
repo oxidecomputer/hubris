@@ -179,6 +179,11 @@ enum MgsMessage {
     GetHostFlashHash {
         slot: u16,
     },
+    ComponentCancelPendingActiveSlot {
+        component: SpComponent,
+        slot: u16,
+        persist: bool,
+    },
 }
 
 // This enum does not define the actual IPC protocol - it is only used in the

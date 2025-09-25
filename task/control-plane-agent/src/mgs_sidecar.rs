@@ -961,6 +961,29 @@ impl SpHandler for MgsHandler {
             .component_set_active_slot(component, slot, persist)
     }
 
+    fn component_cancel_pending_active_slot(
+        &mut self,
+        component: SpComponent,
+        slot: u16,
+        persist: bool,
+    ) -> Result<(), SpError> {
+        ringbuf_entry_root!(Log::MgsMessage(
+            MgsMessage::ComponentCancelPendingActiveSlot {
+                component,
+                slot,
+                persist,
+            }
+        ));
+        match component {
+            SpComponent::HOST_CPU_BOOT_FLASH => {
+                Err(SpError::RequestUnsupportedForComponent)
+            }
+            _ => self
+                .common
+                .component_cancel_pending_active_slot(component, slot, persist),
+        }
+    }
+
     fn component_clear_status(
         &mut self,
         component: SpComponent,

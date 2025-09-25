@@ -413,6 +413,11 @@ pub enum UpdateReq {
         slot: SlotId,
         duration: SwitchDuration,
     },
+    ComponentSwitchCancelPending {
+        component: RotComponent,
+        slot: SlotId,
+        duration: SwitchDuration,
+    },
 }
 
 #[derive(Clone, Serialize, Deserialize, SerializedSize)]
