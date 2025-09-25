@@ -349,15 +349,15 @@ impl ServerImpl {
                 })
             }
             50 | 51 => {
-                // U452 and U419, both ADM1272
+                // U452 and U419, both ADM127x
                 let (dev, sensors) = match index - 50 {
-                    0 => by_refdes!(U419, adm1272),
-                    1 => by_refdes!(U452, adm1272),
+                    0 => by_refdes!(U419, adm127x),
+                    1 => by_refdes!(U452, adm127x),
                     _ => unreachable!(),
                 };
                 let name = dev.component_id().as_bytes();
 
-                *self.scratch = InventoryData::Adm1272 {
+                *self.scratch = InventoryData::Adm127x {
                     mfr_id: [0u8; 3],
                     mfr_model: [0u8; 10],
                     mfr_revision: [0u8; 2],
@@ -369,7 +369,7 @@ impl ServerImpl {
                 };
                 self.tx_buf.try_encode_inventory(sequence, name, || {
                     use pmbus::commands::tps546b24a::CommandCode;
-                    let InventoryData::Adm1272 {
+                    let InventoryData::Adm127x {
                         mfr_id,
                         mfr_model,
                         mfr_revision,
