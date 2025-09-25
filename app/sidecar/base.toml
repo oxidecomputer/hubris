@@ -483,7 +483,7 @@ af = 4
 [[config.i2c.devices]]
 bus = "northeast0"
 address = 0b0010_000
-device = "adm1272"
+device = "adm127x"
 description = "Fan 1 hot swap controller"
 power = { rails = [ "V54_FAN1" ] }
 sensors = { temperature = 1, voltage = 1, current = 1 }
@@ -531,7 +531,7 @@ refdes = "U92"
 [[config.i2c.devices]]
 bus = "northeast1"
 address = 0b0010_011
-device = "adm1272"
+device = "adm127x"
 description = "Fan 0 hot swap controller"
 power = { rails = [ "V54_FAN0" ] }
 sensors = { temperature = 1, voltage = 1, current = 1 }
@@ -559,7 +559,7 @@ removable = true
 [[config.i2c.devices]]
 bus = "northwest0"
 address = 0b0010_110
-device = "adm1272"
+device = "adm127x"
 description = "54V hot swap controller"
 power = { rails = [ "V54_HSC" ] }
 sensors = { temperature = 1, voltage = 1, current = 1 }
@@ -616,7 +616,7 @@ refdes = "U12"
 [[config.i2c.devices]]
 bus = "northwest1"
 address = 0b0010_011
-device = "adm1272"
+device = "adm127x"
 description = "Fan 2 hot swap controller"
 power = { rails = [ "V54_FAN2" ] }
 sensors = { temperature = 1, voltage = 1, current = 1 }
@@ -625,7 +625,7 @@ refdes = "U8"
 [[config.i2c.devices]]
 bus = "northwest1"
 address = 0b0010_000
-device = "adm1272"
+device = "adm127x"
 description = "Fan 3 hot swap controller"
 power = { rails = [ "V54_FAN3" ] }
 sensors = { temperature = 1, voltage = 1, current = 1 }

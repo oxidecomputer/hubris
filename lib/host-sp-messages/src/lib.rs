@@ -421,7 +421,7 @@ pub enum InventoryData {
         fans: [Identity; 3],
     },
 
-    Adm1272 {
+    Adm127x {
         /// MFR_ID (PMBus operation 0x99)
         mfr_id: [u8; 3],
         /// MFR_MODEL (PMBus operation 0x9A)
@@ -1288,7 +1288,7 @@ mod tests {
             b = &b[106..];
         }
 
-        let d = InventoryData::Adm1272 {
+        let d = InventoryData::Adm127x {
             mfr_id: [1, 2, 3],
             mfr_model: [9, 8, 7, 6, 5, 4, 3, 2, 1, 0],
             mfr_revision: [0, 10],
