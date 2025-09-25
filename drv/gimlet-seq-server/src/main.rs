@@ -1135,6 +1135,15 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
 
         Ok(buf)
     }
+
+    fn last_post_code(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u32, RequestError<core::convert::Infallible>> {
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::BadMessageContents,
+        ))
+    }
 }
 
 fn read_spd_data_and_load_packrat(

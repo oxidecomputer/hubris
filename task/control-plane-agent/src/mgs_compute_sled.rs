@@ -17,11 +17,12 @@ use gateway_messages::sp_impl::{
 use gateway_messages::{
     ignition, ComponentAction, ComponentActionResponse, ComponentDetails,
     ComponentUpdatePrepare, DiscoverResponse, DumpSegment, DumpTask, Header,
-    IgnitionCommand, IgnitionState, Message, MessageKind, MgsError, MgsRequest,
-    MgsResponse, PowerState, PowerStateTransition, RotBootInfo, RotRequest,
-    RotResponse, SensorRequest, SensorResponse, SpComponent, SpError,
-    SpPort as GwSpPort, SpRequest, SpStateV2, SpUpdatePrepare, UpdateChunk,
-    UpdateId, UpdateStatus, SERIAL_CONSOLE_IDLE_TIMEOUT,
+    IgnitionCommand, IgnitionState, LastPostCode, Message, MessageKind,
+    MgsError, MgsRequest, MgsResponse, PowerState, PowerStateTransition,
+    RotBootInfo, RotRequest, RotResponse, SensorRequest, SensorResponse,
+    SpComponent, SpError, SpPort as GwSpPort, SpRequest, SpStateV2,
+    SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
+    SERIAL_CONSOLE_IDLE_TIMEOUT,
 };
 use heapless::{Deque, Vec};
 use host_sp_messages::HostStartupOptions;
@@ -914,7 +915,24 @@ impl SpHandler for MgsHandler {
         component: SpComponent,
         index: BoundsChecked,
     ) -> ComponentDetails {
-        self.common.inventory().component_details(&component, index)
+        self.common.inventory().component_details(
+            &component,
+            index,
+            |dev, index| {
+                match dev.component {
+                    SpComponent::SP5_HOST_CPU => {
+                        // Only one component detail for now
+                        assert_eq!(index.0, 0);
+                        ComponentDetails::LastPostCode(LastPostCode(
+                            self.sequencer.last_post_code(),
+                        ))
+                    }
+                    _ => {
+                        panic!("no other devices have component details");
+                    }
+                }
+            },
+        )
     }
 
     fn component_get_active_slot(
