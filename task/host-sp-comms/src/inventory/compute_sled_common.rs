@@ -190,38 +190,18 @@ fn read_fan_barcodes<T>(
 where
     T: TryFrom<oxide_barcode::VpdIdentity>,
 {
-    let [ref mut fan0, ref mut fan1, ref mut fan2] = fans;
-
-    if let Ok(id) = read_one_barcode::<VpdIdentity>(
-        dev,
-        &[(*b"SASY", 0), (*b"BARC", 1)],
-        barcode_buf,
-    )? // If reading from the EEPROM fails, return an error
-    .try_into()
-    // ...but if the identity isn't formatted as something that can be converted
-    // into a `T`, just leave it blank
-    {
-        *fan0 = id;
-    }
-
-    if let Ok(id) = read_one_barcode::<VpdIdentity>(
-        dev,
-        &[(*b"SASY", 0), (*b"BARC", 2)],
-        barcode_buf,
-    )?
-    .try_into()
-    {
-        *fan1 = id;
-    }
-
-    if let Ok(id) = read_one_barcode::<VpdIdentity>(
-        dev,
-        &[(*b"SASY", 0), (*b"BARC", 3)],
-        barcode_buf,
-    )?
-    .try_into()
-    {
-        *fan2 = id;
+    for (n, fan) in fans.iter_mut().enumerate() {
+        if let Ok(id) = read_one_barcode::<VpdIdentity>(
+            dev,
+            &[(*b"SASY", 0), (*b"BARC", n + 1)],
+            barcode_buf,
+        )? // If reading from the EEPROM fails, return an error
+        .try_into()
+        // ...but if the identity isn't formatted as something that can be
+        // converted into a `T`, just leave it blank
+        {
+            *fan = id;
+        }
     }
 
     Ok(())
