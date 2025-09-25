@@ -7,8 +7,7 @@
 use core::cell::Cell;
 
 use crate::{
-    pmbus_validate, BadValidation, CurrentSensor, TempSensor, Validate,
-    VoltageSensor,
+    BadValidation, CurrentSensor, TempSensor, Validate, VoltageSensor,
 };
 use drv_i2c_api::*;
 use num_traits::float::FloatCore;
@@ -274,9 +273,18 @@ impl Adm127X {
 
 impl Validate<Error> for Adm127X {
     fn validate(device: &I2cDevice) -> Result<bool, Error> {
-        let expected = b"ADI";
-        pmbus_validate(device, CommandCode::MFR_ID, expected)
-            .map_err(Into::into)
+        // We don't use the usual `pmbus_validate` here as the ADM127x case is special in that
+        // multiple device models and die revisions may be supported. We read 10 bytes but only
+        // look at the first 7 since the final three are a dash byte and two bytes of die rev.
+        // E.g., ADM1272-2A or ADM1273-1A
+        let cmd = CommandCode::MFR_MODEL as u8;
+        let mut model = [0u8; 10];
+        let allowed = [b"ADM1272", b"ADM1273"];
+        match device.read_block(cmd, &mut model) {
+            Ok(size) => Ok(size == model.len()
+                && allowed.iter().any(|&m| model.starts_with(m))),
+            Err(code) => Err(Error::from(BadValidation { cmd, code })),
+        }
     }
 }
 
