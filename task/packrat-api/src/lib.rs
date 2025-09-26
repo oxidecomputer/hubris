@@ -131,34 +131,6 @@ impl Packrat {
 
         Ok(len)
     }
-
-    #[cfg(feature = "ereport")]
-    pub fn deliver_ereport_data<E: EreportData>(
-        &self,
-        ereport: &E,
-    ) -> Result<usize, EreportWriteError> {
-        // XXX(eliza): i don't love that this puts the buffer on the stack; I
-        // wanted to make it take a buffer as an argument `&mut [u8; LEN]` and
-        // then `static_assertions::const_assert!(LEN >= E::MAX_CBOR_LEN)`, but
-        // this doesn't work as the outer const generic parameters for the
-        // buffer length and the ereport max CBOR length cannot be accessed in a
-        // `const` expression inside the function.`
-        let mut buf = [0u8; E::MAX_CBOR_LEN];
-        let c = minicbor::encode::write::Cursor::new(&mut buf[..]);
-        let mut e = minicbor::encode::Encoder::new(c);
-        match ereport.encode(&mut e, &mut ()) {
-            Ok(()) => (),
-            Err(_) => unreachable!(),
-        }
-        let writer = e.into_writer();
-        let len = writer.position();
-        let buf = writer.into_inner();
-
-        // Now, try to send that to Packrat.
-        self.deliver_ereport(&buf[..len])?;
-
-        Ok(len)
-    }
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

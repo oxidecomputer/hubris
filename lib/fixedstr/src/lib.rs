@@ -138,6 +138,18 @@ where
     }
 }
 
+impl<const MAX: usize> core::fmt::Display for FixedStr<MAX> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        core::fmt::Display::fmt(self.as_str(), f)
+    }
+}
+
+impl<const MAX: usize> core::fmt::Debug for FixedStr<MAX> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        core::fmt::Debug::fmt(self.as_str(), f)
+    }
+}
+
 #[cfg(feature = "minicbor")]
 impl<C, const MAX: usize> minicbor::encode::Encode<C> for FixedStr<MAX> {
     fn encode<W: minicbor::encode::Write>(

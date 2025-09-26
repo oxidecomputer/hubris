@@ -18,7 +18,7 @@ pub trait EreportData: Encode<()> {
 }
 
 #[macro_export]
-macro_rules! max_cbor_len_of {
+macro_rules! max_cbor_len_for {
     ($($T:ty),+) => {
         {
             let mut len = 0;

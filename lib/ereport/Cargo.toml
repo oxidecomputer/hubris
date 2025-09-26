@@ -10,3 +10,7 @@ fixedstr = { path = "../fixedstr", optional = true, features = ["minicbor"] }
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+minicbor = { workspace = true, features = ["alloc", "half"]}
+fixedstr = { path = "../fixedstr", features = ["minicbor"] }
