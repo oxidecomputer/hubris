@@ -161,6 +161,13 @@ enum Trace {
         expected_hash: [u8; 32],
         actual_hash: [u8; 32],
     },
+    ApobSlotErase {
+        slot: ApobSlot,
+    },
+    ApobSlotEraseDone {
+        slot: ApobSlot,
+        time_ms: u64,
+    },
     ApobSlotSectorErase {
         slot: ApobSlot,
         offset: u32,
@@ -400,6 +407,8 @@ impl ApobState {
 
     /// Erases the given APOB slot
     fn slot_erase(drv: &mut FlashDriver, slot: ApobSlot) {
+        let start = userlib::sys_get_timer().now;
+        ringbuf_entry!(Trace::ApobSlotErase { slot });
         static_assertions::const_assert!(
             APOB_SLOT_SIZE.is_multiple_of(SECTOR_SIZE_BYTES)
         );
@@ -427,6 +436,11 @@ impl ApobState {
                 }
             }
         }
+        let end = userlib::sys_get_timer().now;
+        ringbuf_entry!(Trace::ApobSlotEraseDone {
+            slot,
+            time_ms: end - start
+        });
     }
 
     /// Finds a valid APOB slot within the given meta region
@@ -699,8 +713,7 @@ impl ApobState {
                         expected_hash,
                         actual_hash: out.into()
                     });
-                    let commit_result = Err(ApobCommitError::ValidationFailed);
-                    return commit_result;
+                    return Err(ApobCommitError::ValidationFailed);
                 }
             }
         }
