@@ -87,6 +87,20 @@ pub enum EreportSerializeError {
     ),
 }
 
+/// Errors returned by [`Packrat::encode_ereport`].
+#[derive(counters::Count)]
+#[cfg(feature = "ereport")]
+pub enum EreportEncodeError {
+    /// The IPC to deliver the serialized ereport failed.
+    Packrat {
+        len: usize,
+        #[count(children)]
+        err: EreportWriteError,
+    },
+    /// Encoding the ereport failed.
+    Encoder(ereport::encode::Error<ereport::encode::write::EndOfSlice>),
+}
+
 /// Wrapper type defining common ereport fields.
 #[cfg(feature = "ereport")]
 #[derive(Clone, EreportData)]
@@ -129,6 +143,28 @@ impl Packrat {
         self.deliver_ereport(&buf[..len])
             .map_err(|err| EreportSerializeError::Packrat { len, err })?;
 
+        Ok(len)
+    }
+
+    // TODO(eliza): I really want this to be able to statically check that the
+    // buffer is >= E::MAX_CBOR_LEN but unfortunately that isn't currently
+    // possible due to https://github.com/rust-lang/rust/issues/132980...
+    #[cfg(feature = "ereport")]
+    pub fn encode_ereport<E: EreportData>(
+        &self,
+        ereport: &E,
+        buf: &mut [u8],
+    ) -> Result<usize, EreportEncodeError> {
+        let cursor = ereport::encode::write::Cursor::new(buf);
+        let mut encoder = ereport::encode::Encoder::new(cursor);
+        ereport
+            .encode(&mut encoder, &mut ())
+            .map_err(EreportEncodeError::Encoder)?;
+        let cursor = encoder.into_writer();
+        let len = cursor.position();
+        let buf = cursor.into_inner();
+        self.deliver_ereport(&buf[..len])
+            .map_err(|err| EreportEncodeError::Packrat { len, err })?;
         Ok(len)
     }
 }

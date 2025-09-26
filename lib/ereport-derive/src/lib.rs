@@ -123,7 +123,7 @@ fn gen_enum_impl(
                     }
                 });
                 variant_lens.push(quote! {
-                    #[allow(non_camel_case_names)]
+                    #[allow(non_snake_case)]
                     let #variant_name = {
                         let mut len = 2; // map begin and end bytes
                         #(#field_len_exprs;)*
@@ -140,7 +140,7 @@ fn gen_enum_impl(
                 )) = flattened
                 {
                     flattened_lens.push(quote! {
-                        #[allow(non_camel_case_names)]
+                        #[allow(non_snake_case)]
                         let #variant_name = {
                             let mut len = 0; // no map begin and end bytes, as we are flattening
                             #(#field_len_exprs;)*
