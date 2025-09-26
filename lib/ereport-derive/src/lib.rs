@@ -238,6 +238,81 @@ fn gen_enum_impl(
     })
 }
 
+fn gen_struct_impl(
+    _attrs: Vec<Attribute>,
+    _vis: Visibility,
+    ident: Ident,
+    generics: Generics,
+    data: DataStruct,
+) -> Result<impl ToTokens, syn::Error> {
+    let mut field_gen = FieldGenerator::for_struct();
+    // let mut data_where_bounds = Vec::new();
+    for field in &data.fields {
+        field_gen.add_field(field)?;
+    }
+    let (impl_generics, tygenerics, prev_where_clause) =
+        generics.split_for_impl();
+
+    let FieldGenerator {
+        where_bounds,
+        field_encode_exprs,
+        field_len_exprs,
+        ..
+    } = field_gen;
+    Ok(quote! {
+        #[automatically_derived]
+        impl #impl_generics ::ereport::EreportData for #ident #tygenerics
+       #prev_where_clause
+        where #(#where_bounds,)*
+        {
+            const MAX_CBOR_LEN: usize =
+                2 // map begin and end bytes
+                + <Self as ::ereport::EncodeFields<()>>::MAX_FIELDS_LEN;
+        }
+
+        #[automatically_derived]
+        impl #impl_generics ::ereport::encode::Encode<()>
+        for #ident #tygenerics
+        #prev_where_clause
+        where #(#where_bounds,)*
+        {
+            fn encode<W: ::ereport::encode::Write>(
+                &self,
+                e: &mut ::ereport::encode::Encoder<W>,
+                c: &mut (),
+            ) -> Result<(), ::ereport::encode::Error<W::Error>> {
+                e.begin_map()?;
+                <Self as ::ereport::EncodeFields<()>>::encode_fields(self, e, c)?;
+                e.end()?;
+                Ok(())
+            }
+        }
+
+        #[automatically_derived]
+        impl #impl_generics ::ereport::EncodeFields<()>
+        for #ident #tygenerics
+        #prev_where_clause
+        where #(#where_bounds,)*
+        {
+            const MAX_FIELDS_LEN: usize = {
+                let mut len = 0;
+                #(#field_len_exprs;)*
+                len
+            };
+
+            fn encode_fields<W: ::ereport::encode::Write>(
+                &self,
+                e: &mut ::ereport::encode::Encoder<W>,
+                c: &mut (),
+            ) -> Result<(), ::ereport::encode::Error<W::Error>> {
+                #(#field_encode_exprs;)*
+                Ok(())
+            }
+        }
+
+    })
+}
+
 #[derive(Default)]
 struct FieldGenerator<'fields> {
     // XXX(eliza): This really ought to be an `Option`, since there's always
@@ -361,79 +436,4 @@ impl<'fields> FieldGenerator<'fields> {
 
         Ok(())
     }
-}
-
-fn gen_struct_impl(
-    _attrs: Vec<Attribute>,
-    _vis: Visibility,
-    ident: Ident,
-    generics: Generics,
-    data: DataStruct,
-) -> Result<impl ToTokens, syn::Error> {
-    let mut field_gen = FieldGenerator::for_struct();
-    // let mut data_where_bounds = Vec::new();
-    for field in &data.fields {
-        field_gen.add_field(field)?;
-    }
-    let (impl_generics, tygenerics, prev_where_clause) =
-        generics.split_for_impl();
-
-    let FieldGenerator {
-        where_bounds,
-        field_encode_exprs,
-        field_len_exprs,
-        ..
-    } = field_gen;
-    Ok(quote! {
-        #[automatically_derived]
-        impl #impl_generics ::ereport::EreportData for #ident #tygenerics
-       #prev_where_clause
-        where #(#where_bounds,)*
-        {
-            const MAX_CBOR_LEN: usize =
-                2 // map begin and end bytes
-                + <Self as ::ereport::EncodeFields<()>>::MAX_FIELDS_LEN;
-        }
-
-        #[automatically_derived]
-        impl #impl_generics ::ereport::encode::Encode<()>
-        for #ident #tygenerics
-        #prev_where_clause
-        where #(#where_bounds,)*
-        {
-            fn encode<W: ::ereport::encode::Write>(
-                &self,
-                e: &mut ::ereport::encode::Encoder<W>,
-                c: &mut (),
-            ) -> Result<(), ::ereport::encode::Error<W::Error>> {
-                e.begin_map()?;
-                <Self as ::ereport::EncodeFields<()>>::encode_fields(self, e, c)?;
-                e.end()?;
-                Ok(())
-            }
-        }
-
-        #[automatically_derived]
-        impl #impl_generics ::ereport::EncodeFields<()>
-        for #ident #tygenerics
-        #prev_where_clause
-        where #(#where_bounds,)*
-        {
-            const MAX_FIELDS_LEN: usize = {
-                let mut len = 0;
-                #(#field_len_exprs;)*
-                len
-            };
-
-            fn encode_fields<W: ::ereport::encode::Write>(
-                &self,
-                e: &mut ::ereport::encode::Encoder<W>,
-                c: &mut (),
-            ) -> Result<(), ::ereport::encode::Error<W::Error>> {
-                #(#field_encode_exprs;)*
-                Ok(())
-            }
-        }
-
-    })
 }
