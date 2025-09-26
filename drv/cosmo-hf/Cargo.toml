@@ -11,6 +11,7 @@ drv-spartan7-loader-api = { path = "../spartan7-loader-api" }
 ringbuf = { path = "../../lib/ringbuf" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
+apob = { workspace = true }
 cortex-m = { workspace = true }
 crc = { workspace = true }
 hubpack = { workspace = true }
