@@ -1,0 +1,11 @@
+[package]
+name = "fixedstr"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+minicbor = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
+
+[lints]
+workspace = true
