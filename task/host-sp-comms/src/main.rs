@@ -1036,6 +1036,7 @@ impl ServerImpl {
             }
             HostToSp::ApobBegin { length, algorithm } => {
                 // Decode into internal types, then call into `hf`
+                // XXX should bad hash algorithms or lengths lock the APOB?
                 use drv_hf_api::{ApobBeginError, ApobHash};
                 use host_sp_messages::ApobBeginResult;
                 Some(SpToHost::ApobBegin(match algorithm {
@@ -1174,6 +1175,9 @@ impl ServerImpl {
                         }
                         ApobReadError::InvalidState => {
                             ApobReadResult::InvalidState
+                        }
+                        ApobReadError::NoValidApob => {
+                            ApobReadResult::NoValidApob
                         }
                         ApobReadError::InvalidOffset => {
                             ApobReadResult::InvalidOffset

@@ -305,7 +305,7 @@ pub enum ApobCommitResult {
     Ok,
     /// APOB is not implemented on this hardware
     NotImplemented,
-    /// The APOB state machine does not allow a `Begin` message
+    /// Committing APOB state has been disallowed for this boot
     InvalidState,
     /// Validating the APOB failed, e.g. due to invalid data
     ValidationFailed,
@@ -357,6 +357,8 @@ pub enum ApobReadResult {
     NotImplemented,
     /// The state machine is currently expecting a write or commit message
     InvalidState,
+    /// There is no valid APOB available to read
+    NoValidApob,
     /// Offset exceeds the slot size
     InvalidOffset,
     /// Write size exceeds the slot size
