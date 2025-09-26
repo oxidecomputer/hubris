@@ -271,4 +271,118 @@ pub struct HfChipId {
     pub unique_id: [u8; 17],
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// APOB types are below!
+
+/// Hash type used when writing an APOB to bonus flash
+#[derive(
+    Copy, Clone, Debug, PartialEq, Serialize, Deserialize, SerializedSize,
+)]
+#[repr(u8)]
+pub enum ApobHash {
+    Sha256([u8; 32]),
+}
+
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    IdolError,
+    FromPrimitive,
+    counters::Count,
+)]
+pub enum ApobBeginError {
+    /// APOB is not implemented on this hardware
+    NotImplemented = 1,
+    /// The APOB state machine does not allow a `Begin` message
+    InvalidState,
+    /// The data length will not fit in an APOB slot
+    BadDataLength,
+}
+
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    IdolError,
+    FromPrimitive,
+    counters::Count,
+)]
+pub enum ApobWriteError {
+    /// APOB is not implemented on this hardware
+    NotImplemented = 1,
+    /// The APOB state machine does not allow a `Data` message
+    InvalidState,
+    /// Offset exceeds the slot size
+    InvalidOffset,
+    /// Write size exceeds the slot size
+    InvalidSize,
+    /// Flash write failed
+    WriteFailed,
+    /// Flash write would change data in an unerased region
+    NotErased,
+}
+
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    FromPrimitive,
+    IdolError,
+    counters::Count,
+)]
+pub enum ApobReadError {
+    /// APOB is not implemented on this hardware
+    NotImplemented = 1,
+    /// The state machine is currently expecting a write or commit message
+    InvalidState,
+    /// There is no valid APOB available to read
+    NoValidApob,
+    /// Offset exceeds the slot size
+    InvalidOffset,
+    /// Write size exceeds the slot size
+    InvalidSize,
+    /// Flash read failed
+    ReadFailed,
+}
+
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    FromPrimitive,
+    IdolError,
+    counters::Count,
+)]
+pub enum ApobCommitError {
+    /// APOB is not implemented on this hardware
+    NotImplemented = 1,
+    /// Committing APOB state has been disallowed for this boot
+    InvalidState,
+    /// Validating the APOB failed, e.g. due to invalid data
+    ValidationFailed,
+    /// Committing the APOB failed, e.g. due to a flash write error
+    CommitFailed,
+}
+
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
