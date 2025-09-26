@@ -165,6 +165,22 @@ enum Trace {
         slot: ApobSlot,
         offset: u32,
     },
+    BadApobSig {
+        expected: [u8; 4],
+        actual: [u8; 4],
+    },
+    BadApobVersion {
+        expected: u32,
+        actual: u32,
+    },
+    BadApobSize {
+        expected: u32,
+        actual: u32,
+    },
+    BadApobWalk {
+        expected: u32,
+        actual: u32,
+    },
 }
 ringbuf!(Trace, 16, Trace::None);
 
@@ -622,6 +638,44 @@ impl ApobState {
             } => (expected_length, expected_hash, write_slot),
         };
 
+        let r = Self::apob_validate(
+            drv,
+            expected_length,
+            expected_hash,
+            write_slot,
+        );
+        *self = ApobState::Locked { commit_result: r };
+        ringbuf_entry!(Trace::State(*self));
+        if r.is_err() {
+            // XXX erase write slot here?
+            return r;
+        }
+
+        // We will write persistent data to flash which selects our new slot
+        let perst = Self::get_raw_persistent_data(drv);
+        let new_counter = perst
+            .map(|p| p.monotonic_counter)
+            .unwrap_or(1)
+            .wrapping_add(1);
+        let new_perst = ApobRawPersistentData::new(write_slot, new_counter);
+
+        for m in [Meta::Meta0, Meta::Meta1] {
+            Self::write_raw_persistent_data(drv, new_perst, m);
+            ringbuf_entry!(Trace::WrotePersistentData {
+                data: new_perst,
+                meta: m
+            });
+        }
+
+        Ok(())
+    }
+
+    fn apob_validate(
+        drv: &mut FlashDriver,
+        expected_length: u32,
+        expected_hash: ApobHash,
+        write_slot: ApobSlot,
+    ) -> Result<(), ApobCommitError> {
         // Confirm that the hash of data matches our expectations
         let mut buf = [0u8; PAGE_SIZE_BYTES];
         match expected_hash {
@@ -643,34 +697,51 @@ impl ApobState {
                         actual_hash: out.into()
                     });
                     let commit_result = Err(ApobCommitError::ValidationFailed);
-                    *self = ApobState::Locked { commit_result };
-                    ringbuf_entry!(Trace::State(*self));
                     return commit_result;
                 }
             }
         }
 
-        // TODO validate the on-flash data to make sure it's APOB-shaped
-
-        *self = ApobState::Locked {
-            commit_result: Ok(()),
-        };
-        ringbuf_entry!(Trace::State(*self));
-
-        // We will write persistent data to flash which selects our new slot
-        let perst = Self::get_raw_persistent_data(drv);
-        let new_counter = perst
-            .map(|p| p.monotonic_counter)
-            .unwrap_or(1)
-            .wrapping_add(1);
-        let new_perst = ApobRawPersistentData::new(write_slot, new_counter);
-
-        for m in [Meta::Meta0, Meta::Meta1] {
-            Self::write_raw_persistent_data(drv, new_perst, m);
-            ringbuf_entry!(Trace::WrotePersistentData {
-                data: new_perst,
-                meta: m
+        // Check the APOB itself
+        let mut header = apob::ApobHeader::new_zeroed();
+        let addr = write_slot.flash_addr(0).unwrap_lite();
+        drv.flash_read(addr, &mut header.as_mut_bytes())
+            .unwrap_lite();
+        if header.sig != apob::APOB_SIG {
+            ringbuf_entry!(Trace::BadApobSig {
+                expected: apob::APOB_SIG,
+                actual: header.sig
             });
+            return Err(ApobCommitError::ValidationFailed);
+        }
+        if header.version != apob::APOB_VERSION {
+            ringbuf_entry!(Trace::BadApobVersion {
+                expected: apob::APOB_VERSION,
+                actual: header.version,
+            });
+            return Err(ApobCommitError::ValidationFailed);
+        }
+        if header.size != expected_length {
+            ringbuf_entry!(Trace::BadApobSize {
+                expected: expected_length,
+                actual: header.size,
+            });
+            return Err(ApobCommitError::ValidationFailed);
+        }
+        let mut pos = header.offset;
+        while pos < expected_length {
+            let mut entry = apob::ApobEntry::new_zeroed();
+            let addr = write_slot.flash_addr(pos).unwrap_lite();
+            drv.flash_read(addr, &mut entry.as_mut_bytes())
+                .unwrap_lite();
+            pos += entry.size;
+        }
+        if pos != expected_length {
+            ringbuf_entry!(Trace::BadApobWalk {
+                expected: expected_length,
+                actual: pos,
+            });
+            return Err(ApobCommitError::ValidationFailed);
         }
 
         Ok(())
