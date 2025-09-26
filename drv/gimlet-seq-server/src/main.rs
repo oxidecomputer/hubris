@@ -16,6 +16,7 @@ use userlib::{
     hl, set_timer_relative, sys_get_timer, sys_recv_notification,
     sys_set_timer, task_slot, units, RecvMessage, TaskId, UnwrapLite,
 };
+use zerocopy::IntoBytes;
 
 use drv_cpu_seq_api::{PowerState, SeqError, StateChangeReason, Transition};
 use drv_hf_api as hf_api;
@@ -1143,6 +1144,28 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
         Err(RequestError::Fail(
             idol_runtime::ClientError::BadMessageContents,
         ))
+    }
+
+    fn gpio_edge_count(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u32, RequestError<core::convert::Infallible>> {
+        let mut out = zerocopy::byteorder::big_endian::U32::new(0);
+        self.seq
+            .read_bytes(Addr::GPIO_EDGE_CNT_3, out.as_mut_bytes())
+            .unwrap_lite();
+        Ok(out.get())
+    }
+
+    fn gpio_cycle_count(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u32, RequestError<core::convert::Infallible>> {
+        let mut out = zerocopy::byteorder::big_endian::U32::new(0);
+        self.seq
+            .read_bytes(Addr::GPIO_CYCLE_CNT_3, out.as_mut_bytes())
+            .unwrap_lite();
+        Ok(out.get())
     }
 }
 

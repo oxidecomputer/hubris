@@ -46,6 +46,8 @@ impl Inventory {
                 match OUR_DEVICES[d].component {
                     // The SP5 CPU can report a POST code
                     SpComponent::SP5_HOST_CPU => Ok(1),
+                    // The SP3 CPU can report GPIO toggle counts
+                    SpComponent::SP3_HOST_CPU => Ok(1),
                     _ => Ok(0),
                 }
             }

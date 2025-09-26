@@ -68,5 +68,17 @@ Interface(
             reply: Simple("u32"),
             idempotent: true,
         ),
+        "gpio_edge_count": (
+            doc: "Read the GPIO edge count from the sequencer FPGA (Gimlet only)",
+            args: {},
+            reply: Simple("u32"),
+            idempotent: true,
+        ),
+        "gpio_cycle_count": (
+            doc: "Read the GPIO cycle count from the sequencer FPGA (Gimlet only)",
+            args: {},
+            reply: Simple("u32"),
+            idempotent: true,
+        ),
     },
 )

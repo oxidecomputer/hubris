@@ -16,12 +16,12 @@ use gateway_messages::sp_impl::{
 };
 use gateway_messages::{
     ignition, ComponentAction, ComponentActionResponse, ComponentDetails,
-    ComponentUpdatePrepare, DiscoverResponse, DumpSegment, DumpTask, Header,
-    IgnitionCommand, IgnitionState, LastPostCode, Message, MessageKind,
-    MgsError, MgsRequest, MgsResponse, PowerState, PowerStateTransition,
-    RotBootInfo, RotRequest, RotResponse, SensorRequest, SensorResponse,
-    SpComponent, SpError, SpPort as GwSpPort, SpRequest, SpStateV2,
-    SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
+    ComponentUpdatePrepare, DiscoverResponse, DumpSegment, DumpTask,
+    GpioToggleCount, Header, IgnitionCommand, IgnitionState, LastPostCode,
+    Message, MessageKind, MgsError, MgsRequest, MgsResponse, PowerState,
+    PowerStateTransition, RotBootInfo, RotRequest, RotResponse, SensorRequest,
+    SensorResponse, SpComponent, SpError, SpPort as GwSpPort, SpRequest,
+    SpStateV2, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
     SERIAL_CONSOLE_IDLE_TIMEOUT,
 };
 use heapless::{Deque, Vec};
@@ -926,6 +926,16 @@ impl SpHandler for MgsHandler {
                         ComponentDetails::LastPostCode(LastPostCode(
                             self.sequencer.last_post_code(),
                         ))
+                    }
+                    SpComponent::SP3_HOST_CPU => {
+                        // Only one component detail for now
+                        assert_eq!(index.0, 0);
+                        let edge_count = self.sequencer.gpio_edge_count();
+                        let cycle_count = self.sequencer.gpio_cycle_count();
+                        ComponentDetails::GpioToggleCount(GpioToggleCount {
+                            edge_count,
+                            cycle_count,
+                        })
                     }
                     _ => {
                         panic!("no other devices have component details");

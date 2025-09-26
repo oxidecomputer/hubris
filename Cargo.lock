@@ -3017,7 +3017,7 @@ dependencies = [
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=mkeeter%2Flast-post-code#0283047402ba247a7f69149aac8d133fd5af292d"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=mkeeter%2Fgpio-toggle-count#9a616a332b37705e6d8bdf38b3de5baefb397d47"
 dependencies = [
  "bitflags 2.9.4",
  "hubpack",

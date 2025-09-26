@@ -112,6 +112,20 @@ impl idl::InOrderSequencerImpl for ServerImpl {
             idol_runtime::ClientError::BadMessageContents,
         ))
     }
+
+    fn gpio_edge_count(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u32, RequestError<core::convert::Infallible>> {
+        Ok(0)
+    }
+
+    fn gpio_cycle_count(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u32, RequestError<core::convert::Infallible>> {
+        Ok(0)
+    }
 }
 
 impl NotificationHandler for ServerImpl {
