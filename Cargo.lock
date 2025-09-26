@@ -4145,6 +4145,7 @@ version = "0.1.0"
 dependencies = [
  "hubpack",
  "serde",
+ "serde-big-array 0.4.1",
  "zerocopy 0.8.26",
 ]
 
