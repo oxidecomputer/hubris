@@ -928,7 +928,13 @@ impl SpHandler for MgsHandler {
             SpComponent::MONORAIL => ComponentDetails::PortStatus(
                 monorail_port_status::port_status(&self.monorail, index),
             ),
-            _ => self.common.inventory().component_details(&component, index),
+            _ => self.common.inventory().component_details(
+                &component,
+                index,
+                // This should never be called, because num_component_details
+                // never returns > 0 for devices in the OUR_DEVICES array
+                |_, _| panic!("no custom devices"),
+            ),
         }
     }
 

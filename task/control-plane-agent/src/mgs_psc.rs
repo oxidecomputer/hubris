@@ -452,7 +452,13 @@ impl SpHandler for MgsHandler {
         component: SpComponent,
         index: BoundsChecked,
     ) -> ComponentDetails {
-        self.common.inventory().component_details(&component, index)
+        self.common
+            .inventory()
+            .component_details(&component, index, |_, _| {
+                // This should never be called, because num_component_details
+                // never returns > 0 for devices in the OUR_DEVICES array
+                panic!("no custom devices")
+            })
     }
 
     fn component_get_active_slot(

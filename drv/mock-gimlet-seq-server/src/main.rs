@@ -103,6 +103,15 @@ impl idl::InOrderSequencerImpl for ServerImpl {
     ) -> Result<[u8; 64], RequestError<core::convert::Infallible>> {
         Ok([0; 64])
     }
+
+    fn last_post_code(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u32, RequestError<core::convert::Infallible>> {
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::BadMessageContents,
+        ))
+    }
 }
 
 impl NotificationHandler for ServerImpl {
