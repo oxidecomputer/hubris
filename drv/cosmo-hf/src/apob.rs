@@ -213,9 +213,15 @@ pub(crate) enum ApobState {
         write_slot: ApobSlot,
         expected_length: u32,
         expected_hash: ApobHash,
+        any_written: bool,
     },
-    /// We have finished writing data to flash
-    Locked,
+    /// Writing data to flash is no longer allowed
+    Locked {
+        /// We store the first commit result for idempotency, because the host
+        /// is allowed to retry the `ApobCommit` message.  Subsequent commits
+        /// return the same result.
+        commit_result: Result<(), ApobCommitError>,
+    },
 }
 
 /// Persistent data, stored in Bonus Flash to select an APOB slot
@@ -433,6 +439,7 @@ impl ApobState {
         drv.check_flash_mux_state()
             .map_err(|_| ApobBeginError::InvalidState)?;
         if length > u64::from(APOB_SLOT_SIZE) {
+            // XXX should this lock the state machine?
             return Err(ApobBeginError::BadDataLength);
         }
         let length: u32 = length.try_into().unwrap_lite();
@@ -440,6 +447,7 @@ impl ApobState {
             ApobState::Waiting { write_slot, .. } => {
                 *self = ApobState::Ready {
                     write_slot,
+                    any_written: false,
                     expected_length: length,
                     expected_hash: algorithm,
                 };
@@ -447,14 +455,18 @@ impl ApobState {
 
                 Ok(())
             }
-            ApobState::Locked => Err(ApobBeginError::InvalidState),
+            ApobState::Locked { .. } => Err(ApobBeginError::InvalidState),
             ApobState::Ready {
                 expected_length,
                 expected_hash,
+                any_written,
                 ..
             } => {
-                // Allow idempotent Begin messages
-                if expected_length == length && expected_hash == algorithm {
+                // Idempotent begin messages are allowed
+                if !any_written
+                    && expected_length == length
+                    && expected_hash == algorithm
+                {
                     Ok(())
                 } else {
                     // XXX should this lock the state machine?
@@ -479,15 +491,19 @@ impl ApobState {
             return Err(ApobWriteError::InvalidOffset);
         }
 
-        // Check that we're in a writable state
+        // Check that we're in a writable state, and set the "any written" flag
         let ApobState::Ready {
             write_slot,
             expected_length,
+            any_written,
             ..
-        } = *self
+        } = self
         else {
             return Err(ApobWriteError::InvalidState);
         };
+        *any_written = true;
+        let write_slot = *write_slot;
+        let expected_length = *expected_length;
 
         // Check that the end of the data range is within our expected length
         if offset
@@ -514,15 +530,20 @@ impl ApobState {
             // idempotency)
             drv.flash_read(addr, &mut &mut scratch_buf[..n])
                 .map_err(|_| ApobWriteError::WriteFailed)?;
-            if scratch_buf[..n]
-                .iter()
-                .zip(out_buf[..n].iter())
-                .any(|(a, b)| *a != *b && *a != 0xFF)
-            {
-                return Err(ApobWriteError::NotErased);
+
+            let mut all_matches = true;
+            for (a, b) in scratch_buf[..n].iter().zip(out_buf[..n].iter()) {
+                if *a != *b {
+                    all_matches = false;
+                    if *a != 0xFF {
+                        return Err(ApobWriteError::NotErased);
+                    }
+                }
             }
-            drv.flash_write(addr, &mut &out_buf[..n])
-                .map_err(|_| ApobWriteError::WriteFailed)?;
+            if !all_matches {
+                drv.flash_write(addr, &mut &out_buf[..n])
+                    .map_err(|_| ApobWriteError::WriteFailed)?;
+            }
         }
         Ok(())
     }
@@ -547,8 +568,7 @@ impl ApobState {
             return Err(ApobReadError::InvalidState);
         };
         let Some(read_slot) = read_slot else {
-            // XXX dedicated error type here?
-            return Err(ApobReadError::InvalidState);
+            return Err(ApobReadError::NoValidApob);
         };
 
         // Check that the end of the data range is within a slot size
@@ -587,23 +607,20 @@ impl ApobState {
         let (expected_length, expected_hash, write_slot) = match *self {
             // Locking without writing anything is fine
             ApobState::Waiting { .. } => {
-                *self = ApobState::Locked;
+                *self = ApobState::Locked {
+                    commit_result: Ok(()),
+                };
                 ringbuf_entry!(Trace::State(*self));
                 return Ok(());
             }
-            // Committing is idempotent (XXX?)
-            ApobState::Locked => return Ok(()),
+            ApobState::Locked { commit_result } => return commit_result,
             ApobState::Ready {
                 expected_length,
                 expected_hash,
                 write_slot,
+                ..
             } => (expected_length, expected_hash, write_slot),
         };
-
-        // We always transition to a locked state, whether or not validation
-        // succeeds.
-        *self = ApobState::Locked;
-        ringbuf_entry!(Trace::State(*self));
 
         // Confirm that the hash of data matches our expectations
         let mut buf = [0u8; PAGE_SIZE_BYTES];
@@ -625,12 +642,20 @@ impl ApobState {
                         expected_hash,
                         actual_hash: out.into()
                     });
-                    return Err(ApobCommitError::ValidationFailed);
+                    let commit_result = Err(ApobCommitError::ValidationFailed);
+                    *self = ApobState::Locked { commit_result };
+                    ringbuf_entry!(Trace::State(*self));
+                    return commit_result;
                 }
             }
         }
 
         // TODO validate the on-flash data to make sure it's APOB-shaped
+
+        *self = ApobState::Locked {
+            commit_result: Ok(()),
+        };
+        ringbuf_entry!(Trace::State(*self));
 
         // We will write persistent data to flash which selects our new slot
         let perst = Self::get_raw_persistent_data(drv);
