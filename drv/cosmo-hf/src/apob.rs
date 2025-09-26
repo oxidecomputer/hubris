@@ -646,8 +646,11 @@ impl ApobState {
         );
         *self = ApobState::Locked { commit_result: r };
         ringbuf_entry!(Trace::State(*self));
+
+        // If validation failed, then erase the just-written data and return the
+        // error code (without updating the active slot).
         if r.is_err() {
-            // XXX erase write slot here?
+            Self::slot_erase(drv, write_slot);
             return r;
         }
 
