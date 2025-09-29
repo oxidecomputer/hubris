@@ -33,7 +33,6 @@ use drv_i2c_devices::raa229618::Raa229618;
 use drv_stm32xx_sys_api as sys_api;
 use fixedstr::FixedStr;
 use ringbuf::*;
-use serde::Serialize;
 use sys_api::IrqControl;
 use task_packrat_api as packrat_api;
 use userlib::{sys_get_timer, units};
