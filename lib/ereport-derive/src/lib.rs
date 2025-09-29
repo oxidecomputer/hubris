@@ -4,7 +4,7 @@
 
 extern crate proc_macro;
 use proc_macro::TokenStream;
-use quote::{ToTokens, quote};
+use quote::{ToTokens, format_ident, quote};
 use syn::{
     Attribute, DataEnum, DataStruct, DeriveInput, Generics, Ident, LitStr,
     Visibility, parse_macro_input,
@@ -95,26 +95,21 @@ fn gen_enum_impl(
                 });
             }
             syn::Fields::Named(ref fields) => {
-                let mut field_gen = FieldGenerator::for_variant();
+                let mut field_gen =
+                    FieldGenerator::for_variant(FieldType::Named);
                 for field in &fields.named {
                     field_gen.add_field(field)?;
                 }
                 let FieldGenerator {
-                    field_idents,
+                    field_patterns,
                     field_len_exprs,
                     field_encode_exprs,
                     where_bounds,
-                    any_skipped,
                     ..
                 } = field_gen;
                 all_where_bounds.extend(where_bounds);
-                let ignore_pattern = if any_skipped {
-                    vec![quote!(..)]
-                } else {
-                    vec![]
-                };
                 let match_pattern = quote! {
-                    #ident::#variant_name { #(#field_idents,)* #(#ignore_pattern)*}
+                    #ident::#variant_name { #(#field_patterns,)* }
                 };
                 variant_patterns.push(quote! {
                     #match_pattern => {
@@ -160,11 +155,73 @@ fn gen_enum_impl(
                     });
                 }
             }
-            _ => {
-                return Err(syn::Error::new_spanned(
-                    variant,
-                    "`#[derive(EreportData)]` only supports unit and named fields variants for now",
-                ));
+            syn::Fields::Unnamed(fields) => {
+                // If we've encountered a tuple variant, we can no longer
+                // flatten named fields.
+                flattened = None;
+
+                let mut field_gen =
+                    FieldGenerator::for_variant(FieldType::Unnamed);
+                for field in &fields.unnamed {
+                    field_gen.add_field(field)?;
+                }
+                let FieldGenerator {
+                    field_patterns,
+                    field_len_exprs,
+                    field_encode_exprs,
+                    where_bounds,
+                    ..
+                } = field_gen;
+                all_where_bounds.extend(where_bounds);
+                let match_pattern = quote! {
+                    #ident::#variant_name( #(#field_patterns,)* )
+                };
+                // If exactly one field was generated, encode just that field.
+                if let ([len_expr], [encode_expr]) =
+                    (&field_len_exprs[..], &field_encode_exprs[..])
+                {
+                    variant_patterns.push(quote! {
+                        #match_pattern => {
+                            #encode_expr
+                        }
+                    });
+                    variant_lens.push(quote! {
+                        #[allow(non_snake_case)]
+                        let #variant_name = {
+                            // it's a lil goofy that we still do it this way,
+                            // but the len expressions are generated as
+                            // `len += ..`
+                            let mut len = 0;
+                            #len_expr;
+                            len
+                        };
+                        if #variant_name > max {
+                            max = #variant_name;
+                        }
+                    });
+                } else {
+                    // TODO: Since we don't flatten anything into the array
+                    // generated for unnamed fields, we could use the
+                    // determinate length encoding and save a byte...
+                    variant_patterns.push(quote! {
+                        #match_pattern => {
+                            e.begin_array()?;
+                            #(#field_encode_exprs)*
+                            e.end()?;
+                        }
+                    });
+                    variant_lens.push(quote! {
+                        #[allow(non_snake_case)]
+                        let #variant_name = {
+                            let mut len = 2; // array begin and end bytes
+                            #(#field_len_exprs;)*
+                            len
+                        };
+                        if #variant_name > max {
+                            max = #variant_name;
+                        }
+                    });
+                }
             }
         }
     }
@@ -248,7 +305,17 @@ fn gen_struct_impl(
     generics: Generics,
     data: DataStruct,
 ) -> Result<impl ToTokens, syn::Error> {
-    let mut field_gen = FieldGenerator::for_struct();
+    let field_type = match data.fields {
+        syn::Fields::Named(_) => FieldType::Named,
+        syn::Fields::Unnamed(_) => FieldType::Unnamed,
+        syn::Fields::Unit => {
+            return Err(syn::Error::new_spanned(
+                &data.fields,
+                "`#[derive(EreportData)]` is not supported on unit structs",
+            ));
+        }
+    };
+    let mut field_gen = FieldGenerator::for_struct(field_type);
     // let mut data_where_bounds = Vec::new();
     for field in &data.fields {
         field_gen.add_field(field)?;
@@ -260,106 +327,173 @@ fn gen_struct_impl(
         where_bounds,
         field_encode_exprs,
         field_len_exprs,
+        field_patterns,
         ..
     } = field_gen;
-    Ok(quote! {
-        #[automatically_derived]
-        impl #impl_generics ::ereport::EreportData for #ident #tygenerics
-       #prev_where_clause
-        where #(#where_bounds,)*
-        {
-            const MAX_CBOR_LEN: usize =
-                2 // map begin and end bytes
-                + <Self as ::ereport::EncodeFields<()>>::MAX_FIELDS_LEN;
-        }
 
-        #[automatically_derived]
-        impl #impl_generics ::ereport::encode::Encode<()>
-        for #ident #tygenerics
-        #prev_where_clause
-        where #(#where_bounds,)*
-        {
-            fn encode<W: ::ereport::encode::Write>(
-                &self,
-                e: &mut ::ereport::encode::Encoder<W>,
-                c: &mut (),
-            ) -> Result<(), ::ereport::encode::Error<W::Error>> {
-                e.begin_map()?;
-                <Self as ::ereport::EncodeFields<()>>::encode_fields(self, e, c)?;
-                e.end()?;
-                Ok(())
+    match (field_type, &field_encode_exprs[..], &field_len_exprs[..]) {
+        // Structs with named fields are flattenable.
+        (FieldType::Named, encode_exprs, len_exprs) => Ok(quote! {
+            #[automatically_derived]
+            impl #impl_generics ::ereport::EreportData for #ident #tygenerics
+            #prev_where_clause
+            where #(#where_bounds,)*
+            {
+                const MAX_CBOR_LEN: usize =
+                    2 // map begin and end bytes
+                    + <Self as ::ereport::EncodeFields<()>>::MAX_FIELDS_LEN;
             }
-        }
 
-        #[automatically_derived]
-        impl #impl_generics ::ereport::EncodeFields<()>
-        for #ident #tygenerics
-        #prev_where_clause
-        where #(#where_bounds,)*
-        {
-            const MAX_FIELDS_LEN: usize = {
-                let mut len = 0;
-                #(#field_len_exprs;)*
-                len
-            };
-
-            fn encode_fields<W: ::ereport::encode::Write>(
-                &self,
-                e: &mut ::ereport::encode::Encoder<W>,
-                c: &mut (),
-            ) -> Result<(), ::ereport::encode::Error<W::Error>> {
-                #(#field_encode_exprs;)*
-                Ok(())
+            #[automatically_derived]
+            impl #impl_generics ::ereport::encode::Encode<()>
+            for #ident #tygenerics
+            #prev_where_clause
+            where #(#where_bounds,)*
+            {
+                fn encode<W: ::ereport::encode::Write>(
+                    &self,
+                    e: &mut ::ereport::encode::Encoder<W>,
+                    c: &mut (),
+                ) -> Result<(), ::ereport::encode::Error<W::Error>> {
+                    e.begin_map()?;
+                    <Self as ::ereport::EncodeFields<()>>::encode_fields(self, e, c)?;
+                    e.end()?;
+                    Ok(())
+                }
             }
-        }
 
-    })
+            #[automatically_derived]
+            impl #impl_generics ::ereport::EncodeFields<()>
+            for #ident #tygenerics
+            #prev_where_clause
+            where #(#where_bounds,)*
+            {
+                const MAX_FIELDS_LEN: usize = {
+                    let mut len = 0;
+                    #(#len_exprs;)*
+                    len
+                };
+
+                fn encode_fields<W: ::ereport::encode::Write>(
+                    &self,
+                    e: &mut ::ereport::encode::Encoder<W>,
+                    c: &mut (),
+                ) -> Result<(), ::ereport::encode::Error<W::Error>> {
+                    let Self { #(#field_patterns,)* } = self;
+                    #(#encode_exprs)*
+                    Ok(())
+                }
+            }
+        }),
+        // If there's exactly one non-skipped field, encode transparently as a
+        // single value.
+        (FieldType::Unnamed, [encode_expr], [len_expr]) => Ok(quote! {
+            #[automatically_derived]
+            impl #impl_generics ::ereport::EreportData for #ident #tygenerics
+            #prev_where_clause
+            where #(#where_bounds,)*
+            {
+                const MAX_CBOR_LEN: usize = {
+                    let mut len = 0;
+                    #len_expr;
+                    len
+                };
+            }
+
+            #[automatically_derived]
+            impl #impl_generics ::ereport::encode::Encode<()>
+            for #ident #tygenerics
+            #prev_where_clause
+            where #(#where_bounds,)*
+            {
+                fn encode<W: ::ereport::encode::Write>(
+                    &self,
+                    e: &mut ::ereport::encode::Encoder<W>,
+                    c: &mut (),
+                ) -> Result<(), ::ereport::encode::Error<W::Error>> {
+                    let Self( #(#field_patterns,)* ) = self;
+                    #encode_expr
+                    Ok(())
+                }
+            }
+        }),
+        (FieldType::Unnamed, encode_exprs, len_exprs) => Ok(quote! {
+            #[automatically_derived]
+            impl #impl_generics ::ereport::EreportData for #ident #tygenerics
+            #prev_where_clause
+            where #(#where_bounds,)*
+            {
+                const MAX_CBOR_LEN: usize = {
+                    let mut len = 2; // array begin and end bytes
+                    #(#len_exprs;)*
+                    len
+                };
+            }
+
+            #[automatically_derived]
+            impl #impl_generics ::ereport::encode::Encode<()>
+            for #ident #tygenerics
+            #prev_where_clause
+            where #(#where_bounds,)*
+            {
+                fn encode<W: ::ereport::encode::Write>(
+                    &self,
+                    e: &mut ::ereport::encode::Encoder<W>,
+                    c: &mut (),
+                ) -> Result<(), ::ereport::encode::Error<W::Error>> {
+                    let Self( #(#field_patterns,)* ) = self;
+                    // TODO: Since we don't flatten anything into the array
+                    // generated for unnamed fields, we could use the
+                    // determinate length encoding and save a byte...
+                    e.begin_array()?;
+                    #(#encode_exprs)*
+                    e.end()?;
+                    Ok(())
+                }
+            }
+        }),
+    }
 }
 
-#[derive(Default)]
-struct FieldGenerator<'fields> {
-    // XXX(eliza): This really ought to be an `Option`, since there's always
-    // either one token stream, or none. But, `quote!`'s repetition handles
-    // `Vec`s nicer than `Option`s, since we would have to separately create an
-    // `Iterator` over the option for every time the expression is
-    // interpolated.
-    //
-    // Sigh.
-    self_expr: Vec<proc_macro2::TokenStream>,
-    field_idents: Vec<&'fields syn::Ident>,
+struct FieldGenerator {
+    field_patterns: Vec<proc_macro2::TokenStream>,
     field_len_exprs: Vec<proc_macro2::TokenStream>,
     field_encode_exprs: Vec<proc_macro2::TokenStream>,
     where_bounds: Vec<proc_macro2::TokenStream>,
     any_skipped: bool,
+    field_type: FieldType,
 }
 
-impl<'fields> FieldGenerator<'fields> {
-    fn for_struct() -> Self {
+#[derive(PartialEq, Eq, Clone, Copy)]
+enum FieldType {
+    Named,
+    Unnamed,
+}
+
+impl FieldGenerator {
+    fn for_struct(field_type: FieldType) -> Self {
         Self {
-            self_expr: vec![quote! { &self. }],
-            field_idents: Vec::new(),
+            field_patterns: Vec::new(),
             field_len_exprs: Vec::new(),
             field_encode_exprs: Vec::new(),
             where_bounds: Vec::new(),
             any_skipped: false,
+            field_type,
         }
     }
 
-    fn for_variant() -> Self {
+    fn for_variant(field_type: FieldType) -> Self {
         Self {
-            self_expr: vec![],
-            field_idents: Vec::new(),
+            field_patterns: Vec::new(),
             field_len_exprs: Vec::new(),
             field_encode_exprs: Vec::new(),
             where_bounds: Vec::new(),
             any_skipped: false,
+            field_type,
         }
     }
 
-    fn add_field(
-        &mut self,
-        field: &'fields syn::Field,
-    ) -> Result<(), syn::Error> {
+    fn add_field(&mut self, field: &syn::Field) -> Result<(), syn::Error> {
         let mut field_name = None;
         let mut skipped = false;
         let mut flattened = false;
@@ -368,6 +502,12 @@ impl<'fields> FieldGenerator<'fields> {
             if attr.path().is_ident("ereport") {
                 attr.meta.require_list()?.parse_nested_meta(|meta| {
                     if meta.path.is_ident("rename") {
+                        if field.ident.is_none() {
+                            return Err(meta.error(
+                                "`#[ereport(rename = \"...\")]` is only
+                                supported on named fields",
+                            ));
+                        }
                         field_name = Some(meta.value()?.parse::<LitStr>()?);
                         Ok(())
                     } else if meta.path.is_ident("skip") {
@@ -377,6 +517,12 @@ impl<'fields> FieldGenerator<'fields> {
                         skipped_if_nil = true;
                         Ok(())
                     } else if meta.path.is_ident("flatten") {
+                        if self.field_type == FieldType::Unnamed {
+                            return Err(meta.error(
+                                "`#[ereport(flatten)]` is only supported on \
+                                 structs and enum variants with named fields",
+                            ));
+                        }
                         flattened = true;
                         Ok(())
                     } else {
@@ -389,24 +535,53 @@ impl<'fields> FieldGenerator<'fields> {
         }
         if skipped {
             self.any_skipped = true;
-            return Ok(());
         }
 
-        let field_ident = field.ident.as_ref().ok_or_else(|| {
-            syn::Error::new_spanned(
-                field,
-                "#[derive(EreportData)] doesn't support tuple structs yet",
-            )
-        })?;
-        let field_name = field_name.unwrap_or_else(|| {
-            LitStr::new(&field_ident.to_string(), field_ident.span())
-        });
-        self.field_idents.push(field_ident);
+        let (field_ident, encode_name, name_len) =
+            match (self.field_type, skipped) {
+                (FieldType::Unnamed, true) => {
+                    self.field_patterns.push(quote! { _ });
+                    return Ok(());
+                }
+                (FieldType::Named, true) => {
+                    let field_ident = field.ident.as_ref().unwrap();
+                    self.field_patterns.push(quote! { #field_ident: _ });
+                    return Ok(());
+                }
+                (FieldType::Named, false) => {
+                    let field_ident = field.ident.as_ref().expect(
+                        "if we are generating named fields, there should \
+                             be an ident for each field",
+                    );
+                    let field_name = field_name.unwrap_or_else(|| {
+                        LitStr::new(
+                            &field_ident.to_string(),
+                            field_ident.span(),
+                        )
+                    });
+                    self.field_patterns.push(quote! { #field_ident });
+                    let encode_name = quote! {
+                        e.str(#field_name)?;
+                    };
+                    let name_len = quote! {
+                        len += ::ereport::str_cbor_len(#field_name);
+                    };
+                    (field_ident.clone(), encode_name, name_len)
+                }
+                (FieldType::Unnamed, false) => {
+                    let num = self.field_patterns.len();
+                    let field_ident = format_ident!("__field_{num}");
+                    self.field_patterns.push(quote! { #field_ident });
+                    let encode_name = quote! {};
+                    let name_len = quote! {};
+
+                    (field_ident, encode_name, name_len)
+                }
+            };
 
         // TODO(eliza): if we allow more complex ways of encoding fields as
         // different CBOR types, this will have to handle that...
         let field_type = &field.ty;
-        let self_expr = &self.self_expr;
         if flattened {
             self.where_bounds.push(quote! {
                 #field_type: ::ereport::EncodeFields<()>
@@ -415,24 +590,24 @@ impl<'fields> FieldGenerator<'fields> {
                 len += <#field_type as ::ereport::EncodeFields<()>>::MAX_FIELDS_LEN;
             });
             self.field_encode_exprs.push(quote! {
-                ::ereport::EncodeFields::<()>::encode_fields(#(#self_expr)*#field_ident, e, c)?;
+                ::ereport::EncodeFields::<()>::encode_fields(#field_ident, e, c)?;
             });
         } else {
             self.field_len_exprs.push(quote! {
-                len += ::ereport::str_cbor_len(#field_name);
+                #name_len
                 len += <#field_type as ::ereport::EreportData>::MAX_CBOR_LEN;
             });
             self.field_encode_exprs.push(if skipped_if_nil {
                 quote! {
-                    if !::ereport::Encode::<()>::is_nil(#(#self_expr)*#field_ident) {
-                        e.str(#field_name)?;
-                        ::ereport::Encode::<()>::encode(#(#self_expr)*#field_ident, e, c)?;
+                    if !::ereport::Encode::<()>::is_nil(#field_ident) {
+                        #encode_name
+                        ::ereport::Encode::<()>::encode(#field_ident, e, c)?;
                     }
                 }
             } else {
                 quote! {
-                    e.str(#field_name)?;
-                    ::ereport::Encode::<()>::encode(#(#self_expr)*#field_ident, e, c)?;
+                    #encode_name
+                    ::ereport::Encode::<()>::encode(#field_ident, e, c)?;
                 }
             });
             self.where_bounds.push(quote! {

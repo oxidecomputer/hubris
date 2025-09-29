@@ -39,12 +39,29 @@ enum TestEnum2<D> {
     },
 }
 
+#[derive(Debug, EreportData)]
+enum TestEnum3 {
+    Named {
+        field1: u32,
+        tuple_struct: TestTupleStruct1,
+    },
+    Unnamed(u32, TestTupleStruct2),
+    UnnamedSingle(f64),
+}
+
+#[derive(Debug, EreportData)]
+struct TestTupleStruct1(u32, u64);
+
+#[derive(Debug, EreportData)]
+struct TestTupleStruct2(u64);
+
 fn main() {
     const MAX_LEN: usize = ereport::max_cbor_len_for! {
         TestEnum,
         TestStruct2<TestStruct>,
         TestEnum2<TestStruct>,
-        TestStruct2<TestEnum2<TestStruct>>
+        TestStruct2<TestEnum2<TestStruct>>,
+        TestEnum3,
     };
     let mut buf = [0u8; MAX_LEN];
 
@@ -100,6 +117,21 @@ fn main() {
         },
         &mut buf,
     );
+
+    test_one_type(
+        TestEnum3::Named {
+            field1: 69,
+            tuple_struct: TestTupleStruct1(1, 2),
+        },
+        &mut buf,
+    );
+
+    test_one_type(
+        TestEnum3::Unnamed(420, TestTupleStruct2(0xc0ffee)),
+        &mut buf,
+    );
+
+    test_one_type(TestEnum3::UnnamedSingle(42069.0), &mut buf);
 }
 
 fn test_one_type<T: EreportData + std::fmt::Debug>(input: T, buf: &mut [u8]) {
