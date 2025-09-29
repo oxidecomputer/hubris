@@ -25,6 +25,7 @@
 //! string, and the functions that actually push characters to the string are
 //! not `const`.
 //!
+//! [^1]: Because I was too lazy to implement them.
 #![no_std]
 
 use core::ops::Deref;
