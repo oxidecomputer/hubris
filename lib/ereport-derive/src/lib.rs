@@ -59,7 +59,8 @@ fn gen_enum_impl(
     let mut variant_lens = Vec::new();
     let mut flattened = Some((Vec::new(), Vec::new()));
     let mut all_where_bounds = Vec::new();
-    // TODO(eliza): support top-level attribute for using the enum's repr instead of its name
+    // TODO(eliza): support top-level attribute for using the enum's repr
+    // instead of its name
     for variant in data.variants {
         let mut name = None;
         for attr in &variant.attrs {
@@ -142,7 +143,9 @@ fn gen_enum_impl(
                     flattened_lens.push(quote! {
                         #[allow(non_snake_case)]
                         let #variant_name = {
-                            let mut len = 0; // no map begin and end bytes, as we are flattening
+                            // no map begin and end bytes, as we are flattening
+                            // the fields into a higher-level map.
+                            let mut len = 0;
                             #(#field_len_exprs;)*
                             len
                         };
@@ -318,7 +321,9 @@ struct FieldGenerator<'fields> {
     // XXX(eliza): This really ought to be an `Option`, since there's always
     // either one token stream, or none. But, `quote!`'s repetition handles
     // `Vec`s nicer than `Option`s, since we would have to separately create an
-    // `Iterator` over the option for every time the expression is interpolated.
+    // `Iterator` over the option for every time the expression is
+    // interpolated.
+    //
     // Sigh.
     self_expr: Vec<proc_macro2::TokenStream>,
     field_idents: Vec<&'fields syn::Ident>,
@@ -398,7 +403,8 @@ impl<'fields> FieldGenerator<'fields> {
         });
         self.field_idents.push(field_ident);
 
-        // TODO(eliza): if we allow more complex ways of encoding fields as different CBOR types, this will have to handle that...
+        // TODO(eliza): if we allow more complex ways of encoding fields as
+        // different CBOR types, this will have to handle that...
         let field_type = &field.ty;
         let self_expr = &self.self_expr;
         if flattened {
