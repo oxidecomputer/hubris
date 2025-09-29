@@ -3,6 +3,31 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 //! Hubris ereport traits.
+//!
+//! ## Wait, Why Not `#[derive(serde::Serialize)]`?
+//!
+//! TODO ELIZA EXPLAIN
+//!
+//! ## Okay, What About `#[derive(minicbor::Encode)]`?
+//!
+//! `minicbor` also has a first-party derive macro crate, [`minicbor-derive`].
+//! Would that be suitable for our purposes? Unfortunately, no.
+//! `minicbor-derive` takes a very opinionated approach to CBOR encoding, with
+//! the intention of providing forward- and backward-compatibility using a
+//! technique similar to the one used by Protocol Buffers`. When using
+//! `minicbor-derive`, fields must be annotated with index numbers (like those
+//! of protobuf), and fields are serialized with those index numbers as their
+//! keys, rather than their actual Rust identifiers.
+//!
+//! While this scheme is useful in some situations, it doesn't satisfy the goals
+//! of the ereport subsystem. The whole reason we are using CBOR in the first
+//! place is that we would like to allow decoding key-value data without having
+//! to know the structure of the data in advance. `minicbor-derive`'s scheme
+//! requires both sides of the exchange to know what field names those index
+//! numbers map to at *some* version of the protocol, even if newer versions are
+//! backwards compatible. So, it's unsuitable for our purposes.
+//!
+//! [`minicbor-derive`]: https://docs.rs/minicbor-derive
 #![no_std]
 
 use encode::{Encoder, Write};
