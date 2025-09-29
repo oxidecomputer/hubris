@@ -54,9 +54,9 @@ fn system_init() {
     }
 
     // Gimlet, starting at Rev B, has resistors strapping three pins to indicate
-    // the board revision. Rev A left the pins floating, so, we have a
-    // backwards-compatibility scheme where we use our internal pull-up
-    // resistors, causing Rev A to read as 0b111.
+    // the board revision.  These resistors pull the revision pins down to
+    // ground; we also use the iCE40 FPGA's weak pull-up so that revision pins
+    // without resistors are pulled high.
     //
     // We read the board version very early in boot to try and detect the
     // firmware being flashed on the wrong board. In particular, we read the
@@ -68,46 +68,66 @@ fn system_init() {
     // you've flashed the wrong one, only.
     //
     // The revision is on pins PG[2:0], with PG2 as the MSB.
+    //
+    // In earlier firmware, we used the SP's internal pull-up resistors.
+    // However, the combination of both FPGA and SP pull-up resistors was too
+    // strong on certain hardware revisions, leading to marginal voltage
+    // readings.
+    //
+    // Instead, we reset the FPGA, which puts its pins into their default
+    // configuration (with weak pull-ups enabled).  Then, we wait for the pins
+    // to charge before reading the values.
 
-    // Un-gate the clock to GPIO bank G.
+    // Un-gate the clock to GPIO bank G (for revision ID) and D (for FPGA reset)
     p.RCC.ahb4enr.modify(|_, w| w.gpiogen().set_bit());
+    p.RCC.ahb4enr.modify(|_, w| w.gpioden().set_bit());
     cortex_m::asm::dsb();
-    // PG2:0 are already inputs after reset, but without any pull resistors.
+
+    // Make CRESET (PD5) an output (initially high), then toggle it low to reset
+    // the FPGA bitstream.  The minimum CRESET pulse is 200 ns, or 13 cycles,
+    // but there's a 1µF capacitor on that line, so I picked an arbitrary big
+    // number (XXX fix this later).
+    p.GPIOD.bsrr.write(|w| unsafe { w.bits(1 << 5) }); // set high
+    p.GPIOD.moder.modify(|_, w| w.moder5().output());
+    p.GPIOD.bsrr.write(|w| unsafe { w.bits(1 << (5 + 16)) }); // active low
+    cortex_m::asm::delay(100_000);
+    p.GPIOD.bsrr.write(|w| unsafe { w.bits(1 << 5) }); // set high
+
+    // PG2:0 are already inputs after reset, but just in case...
     #[rustfmt::skip]
     p.GPIOG.moder.modify(|_, w| w
         .moder0().input()
         .moder1().input()
         .moder2().input());
-    // Enable the pullups.
-    #[rustfmt::skip]
-    p.GPIOG.pupdr.modify(|_, w| w
-        .pupdr0().pull_up()
-        .pupdr1().pull_up()
-        .pupdr2().pull_up());
-    // We are now charging up the board revision traces through the ~40kR
-    // internal pullup resistors. The floating trace is the biggie, since we're
-    // responsible for putting in any charge that we detect. While the
-    // capacitance should be low, it's not zero, and even running at the reset
-    // frequency of 64MHz, we are very much racing the trace charging.
+
+    // We are now charging up the board revision traces through the iCE40's
+    // pull-up, which delivers between 11 and 128 µA of current. The floating
+    // trace is the biggie, since we're responsible for putting in any charge
+    // that we detect. While the capacitance should be low, it's not zero, and
+    // even running at the reset frequency of 64MHz, we are very much racing the
+    // trace charging.
     //
     // Assuming 50pF for the trace plus the iCE40's tristated input on the far
     // end, we get
     //
-    // RC = 40 kR * 50 pF = 2e-6
-    // Time to reach Vil of 2.31 V (0.7 VDD) = 2.405 us
+    // V(t) = 1 / 50 pF * 10 µA * t
+    // Time to reach Vil of 2.31 V (0.7 VDD) = 11.55 µs
     //
     // Maximum speed of 64MHz oscillator after ST manufacturing calibration, per
     // the datasheet, is 64.3 MHz.
     //
-    // 2.405us @ 64.3MHz = 154.64 cycles ~= 155 cycles.
+    // 11.55 µs @ 64.3MHz ~= 743 cycles
     //
     // The cortex_m delay routine is written for single-issue simple cores and
     // is simply wrong on the M7 (they know this). So, let's conservatively pad
-    // it by a factor of 2.
-    cortex_m::asm::delay(155 * 2);
+    // it by a factor of 10.
+    cortex_m::asm::delay(743 * 10);
 
     // Okay! What does the fox^Wpins say?
     let rev = p.GPIOG.idr.read().bits() & 0b111;
+
+    // It's fine to leave CRESET configured as an output; task code will
+    // configure it again, but is careful not to glitch it.
 
     cfg_if::cfg_if! {
         if #[cfg(target_board = "gimlet-b")] {
