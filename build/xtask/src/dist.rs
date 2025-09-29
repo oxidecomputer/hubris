@@ -197,7 +197,7 @@ impl PackageConfig {
             let cargo_sparse_registry = cargo_home
                 .join("registry")
                 .join("src")
-                .join("index.crates.io-6f17d22bba15001f");
+                .join("index.crates.io-1949cf8c6b5b557f");
             remap_paths.insert(cargo_sparse_registry, "/crates.io");
         }
 

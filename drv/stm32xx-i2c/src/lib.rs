@@ -549,6 +549,8 @@ impl I2cController<'_> {
 
                     if isr.nackf().is_nack() {
                         i2c.icr.write(|w| w.nackcf().set_bit());
+                        // Setting ISR.TXE to 1 flushes anything pending there.
+                        i2c.isr.write(|w| w.txe().set_bit());
                         return Err(drv_i2c_api::ResponseCode::NoDevice);
                     }
 
@@ -579,6 +581,8 @@ impl I2cController<'_> {
 
                 if isr.nackf().is_nack() {
                     i2c.icr.write(|w| w.nackcf().set_bit());
+                    // Setting ISR.TXE to 1 flushes anything pending there.
+                    i2c.isr.write(|w| w.txe().set_bit());
                     return Err(drv_i2c_api::ResponseCode::NoRegister);
                 }
 
@@ -644,6 +648,9 @@ impl I2cController<'_> {
 
                     if isr.nackf().is_nack() {
                         i2c.icr.write(|w| w.nackcf().set_bit());
+                        // Since we're reading, and not transmitting, we don't
+                        // need to do anything special to flush TXDR here --
+                        // unlike the write case.
                         return Err(drv_i2c_api::ResponseCode::NoDevice);
                     }
 
@@ -760,6 +767,9 @@ impl I2cController<'_> {
 
                 if isr.nackf().is_nack() {
                     i2c.icr.write(|w| w.nackcf().set_bit());
+                    // Even when we're writing, the "konami code" sends no data,
+                    // so we haven't loaded TXDR, so we don't need to flush it
+                    // on nack.
                     return Err(drv_i2c_api::ResponseCode::NoRegister);
                 }
 

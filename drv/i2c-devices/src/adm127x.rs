@@ -2,13 +2,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//! Driver for the ADM1272 hot-swap controller
+//! Driver for the ADM1272 and ADM1273 hot-swap controller
 
 use core::cell::Cell;
 
 use crate::{
-    pmbus_validate, BadValidation, CurrentSensor, TempSensor, Validate,
-    VoltageSensor,
+    BadValidation, CurrentSensor, TempSensor, Validate, VoltageSensor,
 };
 use drv_i2c_api::*;
 use num_traits::float::FloatCore;
@@ -62,7 +61,7 @@ struct Coefficients {
     power: pmbus::Coefficients,
 }
 
-pub struct Adm1272 {
+pub struct Adm127X {
     /// Underlying I2C device
     device: I2cDevice,
     /// Value of the rsense resistor, in milliohms
@@ -70,12 +69,12 @@ pub struct Adm1272 {
     /// Our (cached) coefficients
     coefficients: Cell<Option<Coefficients>>,
     /// Our (cached) configuration
-    config: Cell<Option<adm1272::PMON_CONFIG::CommandData>>,
+    config: Cell<Option<adm127x::PMON_CONFIG::CommandData>>,
 }
 
-impl core::fmt::Display for Adm1272 {
+impl core::fmt::Display for Adm127X {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "adm1272: {}", &self.device)
+        write!(f, "adm127x: {}", &self.device)
     }
 }
 
@@ -83,13 +82,13 @@ impl core::fmt::Display for Adm1272 {
 enum Trace {
     None,
     Coefficients(pmbus::Coefficients),
-    Config(adm1272::PMON_CONFIG::CommandData),
-    WriteConfig(adm1272::PMON_CONFIG::CommandData),
+    Config(adm127x::PMON_CONFIG::CommandData),
+    WriteConfig(adm127x::PMON_CONFIG::CommandData),
 }
 
 ringbuf!(Trace, 8, Trace::None);
 
-impl Adm1272 {
+impl Adm127X {
     pub fn new(device: &I2cDevice, rsense: Ohms) -> Self {
         Self {
             device: *device,
@@ -99,12 +98,12 @@ impl Adm1272 {
         }
     }
 
-    fn read_config(&self) -> Result<adm1272::PMON_CONFIG::CommandData, Error> {
+    fn read_config(&self) -> Result<adm127x::PMON_CONFIG::CommandData, Error> {
         if let Some(ref config) = self.config.get() {
             return Ok(*config);
         }
 
-        let config = pmbus_read!(self.device, adm1272::PMON_CONFIG)?;
+        let config = pmbus_read!(self.device, adm127x::PMON_CONFIG)?;
         ringbuf_entry!(Trace::Config(config));
         self.config.set(Some(config));
 
@@ -113,10 +112,10 @@ impl Adm1272 {
 
     fn write_config(
         &self,
-        config: adm1272::PMON_CONFIG::CommandData,
+        config: adm127x::PMON_CONFIG::CommandData,
     ) -> Result<(), Error> {
         ringbuf_entry!(Trace::WriteConfig(config));
-        let out = pmbus_write!(self.device, adm1272::PMON_CONFIG, config);
+        let out = pmbus_write!(self.device, adm127x::PMON_CONFIG, config);
         if out.is_err() {
             // If the write fails, invalidate the cache, since we don't
             // know exactly what state the remote system ended up in.
@@ -127,11 +126,11 @@ impl Adm1272 {
 
     //
     // Unlike many/most PMBus devices that have one set of coefficients, the
-    // coefficients for the ADM1272 depends on the mode of the device.  We
+    // coefficients for the ADM127x depends on the mode of the device.  We
     // therefore determine these dynamically -- but cache the results.
     //
     fn load_coefficients(&self) -> Result<Coefficients, Error> {
-        use adm1272::PMON_CONFIG::*;
+        use adm127x::PMON_CONFIG::*;
 
         if let Some(coefficients) = self.coefficients.get() {
             return Ok(coefficients);
@@ -143,7 +142,7 @@ impl Adm1272 {
         let irange = config.get_i_range().ok_or(Error::InvalidConfig)?;
 
         //
-        // From Table 10 (columns 1 and 2) of the ADM1272 datasheet.
+        // From Table 10 (columns 1 and 2) of the ADM1272 and ADM1273 datasheets.
         //
         let voltage = match vrange {
             VRange::Range100V => pmbus::Coefficients {
@@ -161,7 +160,7 @@ impl Adm1272 {
         ringbuf_entry!(Trace::Coefficients(voltage));
 
         //
-        // From Table 10 (columns 3 and 4) of the ADM1272 datasheet.
+        // From Table 10 (columns 3 and 4) of the ADM1272 and ADM1273 datasheets.
         //
         let current = match irange {
             IRange::Range30mV => pmbus::Coefficients {
@@ -179,7 +178,7 @@ impl Adm1272 {
         ringbuf_entry!(Trace::Coefficients(current));
 
         //
-        // From Table 10 (columns 5 through 8) of the ADM1272 datasheet.
+        // From Table 10 (columns 5 through 8) of the ADM1272 and ADM1273 datasheet.
         //
         let power = match (irange, vrange) {
             (IRange::Range15mV, VRange::Range60V) => pmbus::Coefficients {
@@ -215,7 +214,7 @@ impl Adm1272 {
     }
 
     fn enable_vin_sampling(&self) -> Result<(), Error> {
-        use adm1272::PMON_CONFIG::*;
+        use adm127x::PMON_CONFIG::*;
         let mut config = self.read_config()?;
 
         match config.get_v_in_enable() {
@@ -229,7 +228,7 @@ impl Adm1272 {
     }
 
     fn enable_vout_sampling(&self) -> Result<(), Error> {
-        use adm1272::PMON_CONFIG::*;
+        use adm127x::PMON_CONFIG::*;
         let mut config = self.read_config()?;
 
         match config.get_v_out_enable() {
@@ -243,7 +242,7 @@ impl Adm1272 {
     }
 
     fn enable_temp1_sampling(&self) -> Result<(), Error> {
-        use adm1272::PMON_CONFIG::*;
+        use adm127x::PMON_CONFIG::*;
         let mut config = self.read_config()?;
 
         match config.get_temp_1_enable() {
@@ -258,12 +257,12 @@ impl Adm1272 {
 
     pub fn read_vin(&self) -> Result<Volts, Error> {
         self.enable_vin_sampling()?;
-        let vin = pmbus_read!(self.device, adm1272::READ_VIN)?;
+        let vin = pmbus_read!(self.device, adm127x::READ_VIN)?;
         Ok(Volts(vin.get(&self.load_coefficients()?.voltage)?.0))
     }
 
     pub fn peak_iout(&self) -> Result<Amperes, Error> {
-        let iout = pmbus_read!(self.device, adm1272::PEAK_IOUT)?;
+        let iout = pmbus_read!(self.device, adm127x::PEAK_IOUT)?;
         Ok(Amperes(iout.get(&self.load_coefficients()?.current)?.0))
     }
 
@@ -272,33 +271,42 @@ impl Adm1272 {
     }
 }
 
-impl Validate<Error> for Adm1272 {
+impl Validate<Error> for Adm127X {
     fn validate(device: &I2cDevice) -> Result<bool, Error> {
-        let expected = b"ADM1272-2A";
-        pmbus_validate(device, CommandCode::MFR_MODEL, expected)
-            .map_err(Into::into)
+        // We don't use the usual `pmbus_validate` here as the ADM127x case is special in that
+        // multiple device models and die revisions may be supported. We read 10 bytes but only
+        // look at the first 7 since the final three are a dash byte and two bytes of die rev.
+        // E.g., ADM1272-2A or ADM1273-1A
+        let cmd = CommandCode::MFR_MODEL as u8;
+        let mut model = [0u8; 10];
+        let allowed = [b"ADM1272", b"ADM1273"];
+        match device.read_block(cmd, &mut model) {
+            Ok(size) => Ok(size == model.len()
+                && allowed.iter().any(|&m| model.starts_with(m))),
+            Err(code) => Err(Error::from(BadValidation { cmd, code })),
+        }
     }
 }
 
-impl TempSensor<Error> for Adm1272 {
+impl TempSensor<Error> for Adm127X {
     fn read_temperature(&self) -> Result<Celsius, Error> {
         self.enable_temp1_sampling()?;
-        let temp = pmbus_read!(self.device, adm1272::READ_TEMPERATURE_1)?;
+        let temp = pmbus_read!(self.device, adm127x::READ_TEMPERATURE_1)?;
         Ok(Celsius(temp.get()?.0))
     }
 }
 
-impl CurrentSensor<Error> for Adm1272 {
+impl CurrentSensor<Error> for Adm127X {
     fn read_iout(&self) -> Result<Amperes, Error> {
-        let iout = pmbus_read!(self.device, adm1272::READ_IOUT)?;
+        let iout = pmbus_read!(self.device, adm127x::READ_IOUT)?;
         Ok(Amperes(iout.get(&self.load_coefficients()?.current)?.0))
     }
 }
 
-impl VoltageSensor<Error> for Adm1272 {
+impl VoltageSensor<Error> for Adm127X {
     fn read_vout(&self) -> Result<Volts, Error> {
         self.enable_vout_sampling()?;
-        let vout = pmbus_read!(self.device, adm1272::READ_VOUT)?;
+        let vout = pmbus_read!(self.device, adm127x::READ_VOUT)?;
         Ok(Volts(vout.get(&self.load_coefficients()?.voltage)?.0))
     }
 }

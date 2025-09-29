@@ -6,7 +6,7 @@
 //!
 //! This crate contains (generally) all I2C device drivers, including:
 //!
-//! - [`adm1272`]: ADM1272 hot swap controller
+//! - [`adm127x`]: ADM1272 or ADM1273 hot swap controller
 //! - [`adt7420`]: ADT7420 temperature sensor
 //! - [`at24csw080`]: AT24CSW080 serial EEPROM
 //! - [`ds2482`]: DS2482-100 1-wire initiator
@@ -233,7 +233,7 @@ pub trait Validate<T: core::convert::Into<drv_i2c_api::ResponseCode>> {
     }
 }
 
-pub mod adm1272;
+pub mod adm127x;
 pub mod adt7420;
 pub mod at24csw080;
 pub mod bmr491;

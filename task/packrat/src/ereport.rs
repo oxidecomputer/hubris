@@ -18,7 +18,7 @@ use idol_runtime::{ClientError, Leased, LenLimit, RequestError};
 use minicbor::CborLen;
 use minicbor_lease::LeasedWriter;
 use ringbuf::{counted_ringbuf, ringbuf_entry};
-use task_packrat_api::{EreportReadError, EreportWriteError, VpdIdentity};
+use task_packrat_api::{EreportReadError, EreportWriteError, OxideIdentity};
 use userlib::{kipc, sys_get_timer, RecvMessage, TaskId};
 use zerocopy::IntoBytes;
 
@@ -147,7 +147,7 @@ impl EreportStore {
         limit: u8,
         committed_ena: ereport_messages::Ena,
         mut data: Leased<idol_runtime::W, [u8]>,
-        vpd: Option<&VpdIdentity>,
+        vpd: Option<&OxideIdentity>,
     ) -> Result<usize, RequestError<EreportReadError>> {
         ringbuf_entry!(Trace::ReadRequest {
             restart_id: restart_id.into()
@@ -317,7 +317,7 @@ impl EreportStore {
     fn encode_metadata(
         &self,
         encoder: &mut minicbor::Encoder<LeasedWriter<'_, idol_runtime::W>>,
-        vpd: &VpdIdentity,
+        vpd: &OxideIdentity,
     ) -> Result<(), minicbor::encode::Error<minicbor_lease::Error>> {
         encoder
             .str("hubris_archive_id")?

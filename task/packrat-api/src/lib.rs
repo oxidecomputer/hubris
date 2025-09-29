@@ -16,7 +16,7 @@ use zerocopy::{
 use ereport::EreportData;
 pub use gateway_ereport_messages as ereport_messages;
 pub use host_sp_messages::HostStartupOptions;
-pub use oxide_barcode::VpdIdentity;
+pub use oxide_barcode::OxideIdentity;
 
 /// Represents a range of allocated MAC addresses, per RFD 320
 ///

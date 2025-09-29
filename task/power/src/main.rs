@@ -10,7 +10,7 @@
 #![no_std]
 #![no_main]
 
-use drv_i2c_devices::adm1272::*;
+use drv_i2c_devices::adm127x::*;
 use drv_i2c_devices::bmr491::*;
 use drv_i2c_devices::isl68224::*;
 use drv_i2c_devices::lm5066::*;
@@ -85,7 +85,7 @@ enum DeviceChip {
     Raa229620A,
     Isl68224,
     Tps546B24A,
-    Adm1272(Ohms),
+    Adm127x(Ohms),
     Max5970 { sense: Ohms, avg: bool },
     Mwocp68,
     Ltc4282(Ohms),
@@ -113,7 +113,7 @@ enum Device {
     Raa229620A(Raa229620A),
     Isl68224(Isl68224),
     Tps546B24A(Tps546B24A),
-    Adm1272(Adm1272),
+    Adm127x(Adm127X),
     Max5970(Max5970),
     Mwocp68(Mwocp68),
     Ltc4282(Ltc4282),
@@ -129,7 +129,7 @@ impl Device {
             Device::Raa229620A(dev) => dev.read_temperature()?,
             Device::Isl68224(dev) => dev.read_temperature()?,
             Device::Tps546B24A(dev) => dev.read_temperature()?,
-            Device::Adm1272(dev) => dev.read_temperature()?,
+            Device::Adm127x(dev) => dev.read_temperature()?,
             Device::Lm5066(dev) => dev.read_temperature()?,
             Device::Lm5066I(dev) => dev.read_temperature()?,
             Device::Mwocp68(..) => {
@@ -152,7 +152,7 @@ impl Device {
             Device::Raa229620A(dev) => dev.read_iout()?,
             Device::Isl68224(dev) => dev.read_iout()?,
             Device::Tps546B24A(dev) => dev.read_iout()?,
-            Device::Adm1272(dev) => dev.read_iout()?,
+            Device::Adm127x(dev) => dev.read_iout()?,
             Device::Max5970(dev) => dev.read_iout()?,
             Device::Mwocp68(dev) => dev.read_iout()?,
             Device::Ltc4282(dev) => dev.read_iout()?,
@@ -169,7 +169,7 @@ impl Device {
             Device::Raa229620A(dev) => dev.read_vout()?,
             Device::Isl68224(dev) => dev.read_vout()?,
             Device::Tps546B24A(dev) => dev.read_vout()?,
-            Device::Adm1272(dev) => dev.read_vout()?,
+            Device::Adm127x(dev) => dev.read_vout()?,
             Device::Max5970(dev) => dev.read_vout()?,
             Device::Mwocp68(dev) => dev.read_vout()?,
             Device::Ltc4282(dev) => dev.read_vout()?,
@@ -221,7 +221,7 @@ impl Device {
             | Device::Raa229620A(_)
             | Device::Isl68224(_)
             | Device::Tps546B24A(_)
-            | Device::Adm1272(_)
+            | Device::Adm127x(_)
             | Device::Ltc4282(_)
             | Device::Lm5066(_)
             | Device::Lm5066I(_)
@@ -240,7 +240,7 @@ impl Device {
             Device::Raa229620A(dev) => dev.read_mode()?,
             Device::Isl68224(dev) => dev.read_mode()?,
             Device::Tps546B24A(dev) => dev.read_mode()?,
-            Device::Adm1272(..)
+            Device::Adm127x(..)
             | Device::Ltc4282(..)
             | Device::Max5970(..)
             | Device::Lm5066(..)
@@ -259,7 +259,7 @@ impl Device {
             Device::Raa229620A(dev) => dev.i2c_device(),
             Device::Isl68224(dev) => dev.i2c_device(),
             Device::Tps546B24A(dev) => dev.i2c_device(),
-            Device::Adm1272(dev) => dev.i2c_device(),
+            Device::Adm127x(dev) => dev.i2c_device(),
             Device::Ltc4282(dev) => dev.i2c_device(),
             Device::Max5970(dev) => dev.i2c_device(),
             Device::Lm5066(dev) => dev.i2c_device(),
@@ -283,8 +283,8 @@ impl PowerControllerConfig {
             DeviceChip::Tps546B24A => {
                 Device::Tps546B24A(Tps546B24A::new(&dev, rail))
             }
-            DeviceChip::Adm1272(sense) => {
-                Device::Adm1272(Adm1272::new(&dev, *sense))
+            DeviceChip::Adm127x(sense) => {
+                Device::Adm127x(Adm127X::new(&dev, *sense))
             }
             DeviceChip::Max5970 { sense, avg } => {
                 Device::Max5970(Max5970::new(&dev, rail, *sense, *avg))
@@ -346,20 +346,20 @@ macro_rules! rail_controller_notemp {
 }
 
 #[allow(unused_macros)]
-macro_rules! adm1272_controller {
+macro_rules! adm127x_controller {
     ($which:ident, $rail:ident, $state:ident, $rsense:expr) => {
         paste::paste! {
             PowerControllerConfig {
                 state: $crate::PowerState::$state,
                 device: $crate::DeviceType::$which,
-                chip: $crate::DeviceChip::Adm1272($rsense),
+                chip: $crate::DeviceChip::Adm127x($rsense),
                 builder: i2c_config::pmbus::$rail,
-                voltage: sensors::[<ADM1272_ $rail:upper _VOLTAGE_SENSOR>],
+                voltage: sensors::[<ADM127X_ $rail:upper _VOLTAGE_SENSOR>],
                 input_voltage: None,
-                current: sensors::[<ADM1272_ $rail:upper _CURRENT_SENSOR>],
+                current: sensors::[<ADM127X_ $rail:upper _CURRENT_SENSOR>],
                 input_current: None,
                 temperature: Some(
-                    sensors::[<ADM1272_ $rail:upper _TEMPERATURE_SENSOR>]
+                    sensors::[<ADM127X_ $rail:upper _TEMPERATURE_SENSOR>]
                 ),
                 phases: None,
             }

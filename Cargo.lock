@@ -4204,6 +4204,7 @@ version = "0.1.0"
 dependencies = [
  "hubpack",
  "serde",
+ "serde-big-array 0.4.1",
  "zerocopy 0.8.26",
 ]
 
@@ -4386,7 +4387,7 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 [[package]]
 name = "pmbus"
 version = "0.1.7"
-source = "git+https://github.com/oxidecomputer/pmbus#314a33ddbff77a3a8960864a4ffae42c9fe53bee"
+source = "git+https://github.com/oxidecomputer/pmbus#631358a97cf9775c825a2cf726d51f0f243b91a4"
 dependencies = [
  "anyhow",
  "convert_case",

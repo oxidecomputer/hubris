@@ -21,7 +21,7 @@ use gateway_messages::{
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
 use ringbuf::ringbuf_entry_root;
-use task_control_plane_agent_api::{ControlPlaneAgentError, VpdIdentity};
+use task_control_plane_agent_api::{ControlPlaneAgentError, OxideIdentity};
 use task_net_api::{MacAddress, UdpMetadata, VLanId};
 use userlib::sys_get_timer;
 
@@ -60,7 +60,7 @@ impl MgsHandler {
         }
     }
 
-    pub(crate) fn identity(&self) -> VpdIdentity {
+    pub(crate) fn identity(&self) -> OxideIdentity {
         self.common.identity()
     }
 
