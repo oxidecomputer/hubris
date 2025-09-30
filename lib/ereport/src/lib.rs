@@ -98,6 +98,17 @@ macro_rules! max_cbor_len_for {
     };
 }
 
+/// Encode the named fields of a type into an *existing* CBOR map as name-value
+/// pairs.
+///
+/// This is used when a type is included as a field in a "parent" type that
+/// derives `EreportData`, and the field in the parent type is annotated with
+/// `#[ereport(flatten)]`. When that attribute is present, the fields of the
+/// type are encoded as name-value pairs in the parent type's CBOR map, rather
+/// than creating a new nested map for the new type being encoded.
+///
+/// This type may be derived by struct types with named fields, and by enum
+/// types where all variants have named fields.
 pub trait EncodeFields<C> {
     const MAX_FIELDS_LEN: usize;
 
