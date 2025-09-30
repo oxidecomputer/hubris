@@ -52,6 +52,15 @@ unsafe fn system_pre_init() {
 
     // Okay, yay, we can use some RAMs now.
 
+    #[cfg(any(feature = "h743", feature = "h753"))]
+    {
+        // Workaround for erratum 2.2.9 "Reading from AXI SRAM may lead to data
+        // read corruption" - limits AXI SRAM read concurrency.
+        let axi = &*device::AXI::ptr();
+        axi.targ7_fn_mod
+            .modify(|_, w| w.read_iss_override().set_bit());
+    }
+
     // We'll do the rest in system_init.
 }
 
@@ -96,6 +105,11 @@ pub fn system_init_custom(
     // static variables.
     //
     // We are running at 64MHz on the HSI oscillator at voltage scale VOS3.
+    //
+    // Turn on CPU I/D caches to improve performance. This has a significant
+    // impact on the delay loop a few lines below.
+    cp.SCB.enable_icache();
+    cp.SCB.enable_dcache(&mut cp.CPUID);
 
     // Before doing anything else, check for a measurement handoff token
     #[cfg(feature = "measurement-handoff")]
@@ -105,15 +119,6 @@ pub fn system_init_custom(
             cortex_m::asm::delay(12860000); // about 200 ms
             cortex_m::peripheral::SCB::sys_reset()
         });
-    }
-
-    #[cfg(any(feature = "h743", feature = "h753"))]
-    {
-        // Workaround for erratum 2.2.9 "Reading from AXI SRAM may lead to data
-        // read corruption" - limits AXI SRAM read concurrency.
-        p.AXI
-            .targ7_fn_mod
-            .modify(|_, w| w.read_iss_override().set_bit());
     }
 
     // The H7 -- and perhaps the Cortex-M7 -- has the somewhat annoying
@@ -160,11 +165,6 @@ pub fn system_init_custom(
 
     // Ethernet is on RMII, not MII.
     p.SYSCFG.pmcr.modify(|_, w| unsafe { w.epis().bits(0b100) });
-
-    // Turn on CPU I/D caches to improve performance at the higher clock speeds
-    // we're about to enable.
-    cp.SCB.enable_icache();
-    cp.SCB.enable_dcache(&mut cp.CPUID);
 
     // The Flash controller comes out of reset configured for 3 wait states.
     // That's approximately correct for 64MHz at VOS3, which is fortunate, since
