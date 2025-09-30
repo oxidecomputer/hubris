@@ -86,20 +86,31 @@ fn system_init() {
     cortex_m::asm::dsb();
 
     // Make PC6 (SEQ_REG_TO_SP_V3P3_PG) and PC7 (SEQ_REG_TO_SP_V1P2_PG) inputs,
-    // then wait for both of them to go high
+    // then wait for both of them to go high.  We time out after 1M iterations
+    // (with 100 cycles each), which is roughly 1.5s.
     #[rustfmt::skip]
     p.GPIOC.moder.modify(|_, w| w
         .moder6().input()
         .moder7().input());
     const SEQ_PG: u32 = 0b11 << 6;
-    while p.GPIOC.idr.read().bits() & SEQ_PG != SEQ_PG {
-        cortex_m::asm::nop();
+    let mut seq_pg_okay = false;
+    for _ in 0..1_000_000 {
+        if p.GPIOC.idr.read().bits() & SEQ_PG == SEQ_PG {
+            seq_pg_okay = true;
+            break;
+        } else {
+            cortex_m::asm::delay(100);
+        }
+    }
+    if !seq_pg_okay {
+        panic!("timeout waiting for sequencer PG lines");
     }
 
     // Make CRESET (PD5) an output (initially high), then toggle it low to reset
     // the FPGA bitstream.  The minimum CRESET pulse is 200 ns, or 13 cycles,
-    // but there's a 1µF capacitor on that line, so I picked an arbitrary big
-    // number (XXX fix this later).
+    // but there's a 1µF capacitor on that line.  Let's assume we're discharging
+    // the capacitor at 5 mA from 3V3; in that case, it will take 0.66 ms, or
+    // 42K cycles.  We'll be conservative and pad it to 100K cycles.
     p.GPIOD.bsrr.write(|w| unsafe { w.bits(1 << 5) }); // set high
     p.GPIOD.moder.modify(|_, w| w.moder5().output());
     p.GPIOD.bsrr.write(|w| unsafe { w.bits(1 << (5 + 16)) }); // active low
