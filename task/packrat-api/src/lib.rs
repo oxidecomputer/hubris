@@ -103,13 +103,13 @@ pub enum EreportEncodeError {
 
 /// Wrapper type defining common ereport fields.
 #[cfg(feature = "microcbor")]
-#[derive(Clone, EreportData)]
+#[derive(Clone, microcbor::Encode)]
 pub struct Ereport<C, D> {
-    #[ereport(rename = "k")]
+    #[cbor(rename = "k")]
     pub class: C,
-    #[ereport(rename = "v")]
+    #[cbor(rename = "v")]
     pub version: u32,
-    #[ereport(flatten)]
+    #[cbor(flatten)]
     pub report: D,
 }
 

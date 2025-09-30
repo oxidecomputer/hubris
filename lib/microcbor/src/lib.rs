@@ -34,7 +34,7 @@
 //! [`minicbor-derive`]: https://docs.rs/minicbor-derive
 #![no_std]
 use encode::{Encoder, Write};
-pub use microcbor_derive::EreportData;
+pub use microcbor_derive::Encode;
 pub use minicbor::encode::{self, Encode};
 
 /// A CBOR-encodable value with a statically-known maximum length.
@@ -60,13 +60,13 @@ pub trait StaticCborLen: Encode<()> {
 ///
 /// ```rust
 ///
-/// #[derive(microcbor::EreportData)]
+/// #[derive(microcbor::Encode)]
 /// pub struct MyGreatEreport {
 ///     foo: u32,
 ///     bar: Option<f64>,
 /// }
 ///
-/// #[derive(microcbor::EreportData)]
+/// #[derive(microcbor::Encode)]
 /// pub enum AnotherEreport {
 ///     A { hello: bool, world: f64 },
 ///     B(usize),

@@ -10,10 +10,10 @@ use syn::{
     Visibility, parse_macro_input,
 };
 
-/// Derives an implementation of the `EreportData` trait for the annotated
-/// `struct` or `enum` type.
-#[proc_macro_derive(EreportData, attributes(ereport))]
-pub fn derive_ereport_data(input: TokenStream) -> TokenStream {
+/// Derives an implementation of the `Encode` and `StaticCborLen` traits for the
+/// annotated `struct` or `enum` type.
+#[proc_macro_derive(Encode, attributes(cbor))]
+pub fn derive_encode(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     match gen_ereport_data_impl(input) {
         Ok(tokens) => tokens,
@@ -43,10 +43,12 @@ fn gen_ereport_data_impl(
         .map(|tokens| tokens.to_token_stream().into()),
         _ => Err(syn::Error::new_spanned(
             input,
-            "`EreportData` can only be derived for `struct` and `enum` types",
+            "`StaticCborLen` can only be derived for `struct` and `enum` types",
         )),
     }
 }
+
+const HELPER_ATTR: &str = "cbor";
 
 fn gen_enum_impl(
     _attrs: Vec<Attribute>,
@@ -64,7 +66,7 @@ fn gen_enum_impl(
     for variant in data.variants {
         let mut name = None;
         for attr in &variant.attrs {
-            if attr.path().is_ident("ereport") {
+            if attr.path().is_ident(HELPER_ATTR) {
                 attr.meta.require_list()?.parse_nested_meta(|meta| {
                     if meta.path.is_ident("rename") {
                         name = Some(meta.value()?.parse::<LitStr>()?);
@@ -266,7 +268,7 @@ fn gen_enum_impl(
         #maybe_fields_impl
 
         #[automatically_derived]
-        impl #impl_generics ::microcbor::EreportData
+        impl #impl_generics ::microcbor::StaticCborLen
         for #ident #tygenerics
         #prev_where_clause
         where #(#all_where_bounds,)*
@@ -311,7 +313,7 @@ fn gen_struct_impl(
         syn::Fields::Unit => {
             return Err(syn::Error::new_spanned(
                 &data.fields,
-                "`#[derive(EreportData)]` is not supported on unit structs",
+                "`#[derive(microcbor::Encode)]` is not supported on unit structs",
             ));
         }
     };
@@ -335,7 +337,7 @@ fn gen_struct_impl(
         // Structs with named fields are flattenable.
         (FieldType::Named, encode_exprs, len_exprs) => Ok(quote! {
             #[automatically_derived]
-            impl #impl_generics ::microcbor::EreportData for #ident #tygenerics
+            impl #impl_generics ::microcbor::StaticCborLen for #ident #tygenerics
             #prev_where_clause
             where #(#where_bounds,)*
             {
@@ -389,7 +391,7 @@ fn gen_struct_impl(
         // single value.
         (FieldType::Unnamed, [encode_expr], [len_expr]) => Ok(quote! {
             #[automatically_derived]
-            impl #impl_generics ::microcbor::EreportData for #ident #tygenerics
+            impl #impl_generics ::microcbor::StaticCborLen for #ident #tygenerics
             #prev_where_clause
             where #(#where_bounds,)*
             {
@@ -419,7 +421,7 @@ fn gen_struct_impl(
         }),
         (FieldType::Unnamed, encode_exprs, len_exprs) => Ok(quote! {
             #[automatically_derived]
-            impl #impl_generics ::microcbor::EreportData for #ident #tygenerics
+            impl #impl_generics ::microcbor::StaticCborLen for #ident #tygenerics
             #prev_where_clause
             where #(#where_bounds,)*
             {
@@ -499,7 +501,7 @@ impl FieldGenerator {
         let mut flattened = false;
         let mut skipped_if_nil = false;
         for attr in &field.attrs {
-            if attr.path().is_ident("ereport") {
+            if attr.path().is_ident(HELPER_ATTR) {
                 attr.meta.require_list()?.parse_nested_meta(|meta| {
                     if meta.path.is_ident("rename") {
                         if field.ident.is_none() {
@@ -595,7 +597,7 @@ impl FieldGenerator {
         } else {
             self.field_len_exprs.push(quote! {
                 #name_len
-                len += <#field_type as ::microcbor::EreportData>::MAX_CBOR_LEN;
+                len += <#field_type as ::microcbor::StaticCborLen>::MAX_CBOR_LEN;
             });
             self.field_encode_exprs.push(if skipped_if_nil {
                 quote! {
@@ -611,7 +613,7 @@ impl FieldGenerator {
                 }
             });
             self.where_bounds.push(quote! {
-                #field_type: ::microcbor::EreportData
+                #field_type: ::microcbor::StaticCborLen
             });
         }
 

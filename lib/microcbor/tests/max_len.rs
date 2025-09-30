@@ -2,38 +2,38 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use ereport::EreportData;
+use microcbor::{Encode, StaticCborLen};
 use proptest::test_runner::TestCaseError;
 use proptest_derive::Arbitrary;
 
-#[derive(Debug, EreportData, Arbitrary)]
+#[derive(Debug, Encode, Arbitrary)]
 pub enum TestEnum {
     Variant1,
-    #[ereport(rename = "hw.foo.cool-ereport-class")]
+    #[cbor(rename = "hw.foo.cool-cbor-class")]
     Variant2,
-    #[ereport(rename = "hw.bar.baz.fault.computer_on_fire")]
+    #[cbor(rename = "hw.bar.baz.fault.computer_on_fire")]
     Variant3,
 }
 
-#[derive(Debug, EreportData, Arbitrary)]
+#[derive(Debug, Encode, Arbitrary)]
 struct TestStruct {
-    #[ereport(rename = "a")]
+    #[cbor(rename = "a")]
     field1: u32,
     field2: TestEnum,
 }
 
-#[derive(Debug, EreportData, Arbitrary)]
+#[derive(Debug, Encode, Arbitrary)]
 struct TestStruct2<D> {
-    #[ereport(skip_if_nil)]
+    #[cbor(skip_if_nil)]
     field6: Option<bool>,
-    #[ereport(flatten)]
+    #[cbor(flatten)]
     inner: D,
 }
 
-#[derive(Debug, EreportData, Arbitrary)]
+#[derive(Debug, Encode, Arbitrary)]
 enum TestEnum2<D> {
     Flattened {
-        #[ereport(flatten)]
+        #[cbor(flatten)]
         flattened: D,
         bar: u32,
     },
@@ -43,7 +43,7 @@ enum TestEnum2<D> {
     },
 }
 
-#[derive(Debug, EreportData, Arbitrary)]
+#[derive(Debug, Encode, Arbitrary)]
 enum TestEnum3 {
     Named {
         field1: u32,
@@ -53,13 +53,13 @@ enum TestEnum3 {
     UnnamedSingle(f64),
 }
 
-#[derive(Debug, EreportData, Arbitrary)]
+#[derive(Debug, Encode, Arbitrary)]
 struct TestTupleStruct1(u32, u64);
 
-#[derive(Debug, EreportData, Arbitrary)]
+#[derive(Debug, Encode, Arbitrary)]
 struct TestTupleStruct2(u64);
 
-#[derive(Debug, EreportData, Arbitrary)]
+#[derive(Debug, Encode, Arbitrary)]
 struct TestStructWithArrays {
     bytes: [u8; 10],
     enums: [TestEnum3; 4],
@@ -67,7 +67,7 @@ struct TestStructWithArrays {
 }
 
 #[track_caller]
-fn assert_max_len<T: EreportData + std::fmt::Debug>(
+fn assert_max_len<T: StaticCborLen + std::fmt::Debug>(
     input: &T,
 ) -> Result<(), TestCaseError> {
     let max_size = T::MAX_CBOR_LEN;
