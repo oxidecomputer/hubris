@@ -27,6 +27,10 @@
 //! numbers map to at *some* version of the protocol, even if newer versions are
 //! backwards compatible. So, it's unsuitable for our purposes.
 //!
+//! `minicbor-derive` also lacks a way to determine the maximum needed buffer
+//! length to encode a value at compile time, which is this crate's primary
+//! reason to exist.
+//!
 //! [`minicbor-derive`]: https://docs.rs/minicbor-derive
 #![no_std]
 use encode::{Encoder, Write};
