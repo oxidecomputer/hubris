@@ -78,10 +78,23 @@ fn system_init() {
     // configuration (with weak pull-ups enabled).  Then, we wait for the pins
     // to charge before reading the values.
 
-    // Un-gate the clock to GPIO bank G (for revision ID) and D (for FPGA reset)
+    // Un-gate the clock to GPIO bank G (for revision ID), D (for FPGA reset),
+    // and C (for sequencer PG)
     p.RCC.ahb4enr.modify(|_, w| w.gpiogen().set_bit());
     p.RCC.ahb4enr.modify(|_, w| w.gpioden().set_bit());
+    p.RCC.ahb4enr.modify(|_, w| w.gpiocen().set_bit());
     cortex_m::asm::dsb();
+
+    // Make PC6 (SEQ_REG_TO_SP_V3P3_PG) and PC7 (SEQ_REG_TO_SP_V1P2_PG) inputs,
+    // then wait for both of them to go high
+    #[rustfmt::skip]
+    p.GPIOC.moder.modify(|_, w| w
+        .moder6().input()
+        .moder7().input());
+    const SEQ_PG: u32 = 0b11 << 6;
+    while p.GPIOC.idr.read().bits() & SEQ_PG != SEQ_PG {
+        cortex_m::asm::nop();
+    }
 
     // Make CRESET (PD5) an output (initially high), then toggle it low to reset
     // the FPGA bitstream.  The minimum CRESET pulse is 200 ns, or 13 cycles,
@@ -91,9 +104,7 @@ fn system_init() {
     p.GPIOD.moder.modify(|_, w| w.moder5().output());
     p.GPIOD.bsrr.write(|w| unsafe { w.bits(1 << (5 + 16)) }); // active low
     cortex_m::asm::delay(100_000);
-    p.GPIOD.bsrr.write(|w| unsafe { w.bits(1 << 5) }); // set high
 
-    // PG2:0 are already inputs after reset, but just in case...
     #[rustfmt::skip]
     p.GPIOG.moder.modify(|_, w| w
         .moder0().input()
@@ -126,8 +137,8 @@ fn system_init() {
     // Okay! What does the fox^Wpins say?
     let rev = p.GPIOG.idr.read().bits() & 0b111;
 
-    // It's fine to leave CRESET configured as an output; task code will
-    // configure it again, but is careful not to glitch it.
+    // Pull CRESET high for a clean handoff to user code
+    p.GPIOD.bsrr.write(|w| unsafe { w.bits(1 << 5) });
 
     cfg_if::cfg_if! {
         if #[cfg(target_board = "gimlet-b")] {
