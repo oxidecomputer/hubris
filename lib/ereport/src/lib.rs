@@ -34,6 +34,11 @@ use encode::{Encoder, Write};
 pub use ereport_derive::EreportData;
 pub use minicbor::encode::{self, Encode};
 
+/// A CBOR-encodable value with a statically-known maximum length.
+///
+/// A type implementing this trait must implement the [`Encode`]`<()>` trait. In
+/// addition, it defines a `MAX_CBOR_LEN` constant that specifies the maximum
+/// number of bytes that its [`Encode`] implementation will produce.
 pub trait EreportData: Encode<()> {
     /// The maximum length of the CBOR-encoded representation of this value.
     ///
