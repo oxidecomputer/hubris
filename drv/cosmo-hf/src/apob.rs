@@ -614,14 +614,12 @@ impl ApobState {
             // Read data from the lease into local storage
             let n = (data.len() - i).min(PAGE_SIZE_BYTES);
             let addr = read_slot
-                .flash_addr(i.try_into().unwrap_lite())
+                .flash_addr(u32::try_from(i as u64 + offset).unwrap_lite())
                 .unwrap_lite();
 
-            // Read back the current data; it must be erased or match (for
-            // idempotency)
+            // Read back the current data, then write it to the lease
             drv.flash_read(addr, &mut &mut out_buf[..n])
                 .map_err(|_| ApobReadError::ReadFailed)?;
-
             data.write_range(i..(i + n), &out_buf[..n])
                 .map_err(|_| ApobReadError::ReadFailed)?;
         }
