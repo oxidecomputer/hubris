@@ -48,12 +48,9 @@ mod server;
 #[cfg_attr(target_board = "grapefruit", path = "bsp/grapefruit.rs")]
 #[cfg_attr(target_board = "minibar", path = "bsp/minibar.rs")]
 #[cfg_attr(
-        any(
-            target_board = "cosmo-a",
-            target_board = "cosmo-b",
-        ),
-        path = "bsp/cosmo_a.rs")
-]
+    any(target_board = "cosmo-a", target_board = "cosmo-b",),
+    path = "bsp/cosmo_a.rs"
+)]
 mod bsp;
 
 #[cfg_attr(feature = "vlan", path = "server_vlan.rs")]

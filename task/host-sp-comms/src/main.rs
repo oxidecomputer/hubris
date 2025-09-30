@@ -58,10 +58,7 @@ use inventory::INVENTORY_API_VERSION;
 #[cfg_attr(target_board = "gimletlet-2", path = "bsp/gimletlet.rs")]
 #[cfg_attr(target_board = "grapefruit", path = "bsp/grapefruit.rs")]
 #[cfg_attr(
-    any(
-        target_board = "cosmo-a",
-        target_board = "cosmo-b",
-    ),
+    any(target_board = "cosmo-a", target_board = "cosmo-b",),
     path = "bsp/cosmo_a.rs"
 )]
 mod bsp;

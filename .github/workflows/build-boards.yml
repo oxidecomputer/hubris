@@ -211,6 +211,18 @@ jobs:
             app_name: cosmo-a-dev
             app_toml: app/cosmo/rev-a-dev.toml
             image: default
+          - build: cosmo-b
+            app_name: cosmo-b
+            app_toml: app/cosmo/rev-b.toml
+            image: default
+          - build: cosmo-b-lab
+            app_name: cosmo-b-lab
+            app_toml: app/cosmo/rev-b-lab.toml
+            image: default
+          - build: cosmo-b-dev
+            app_name: cosmo-b-dev
+            app_toml: app/cosmo/rev-b-dev.toml
+            image: default
     uses: ./.github/workflows/build-one.yml
     with:
       build: ${{ matrix.build }}
