@@ -1,0 +1,4 @@
+# This is the production image. We expect `name` to match `board`
+name = "cosmo-b"
+board = "cosmo-b"
+inherit = "base.toml"
