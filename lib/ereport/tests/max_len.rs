@@ -59,6 +59,13 @@ struct TestTupleStruct1(u32, u64);
 #[derive(Debug, EreportData, Arbitrary)]
 struct TestTupleStruct2(u64);
 
+#[derive(Debug, EreportData, Arbitrary)]
+struct TestStructWithArrays {
+    bytes: [u8; 10],
+    enums: [TestEnum3; 4],
+    blargh: usize,
+}
+
 #[track_caller]
 fn assert_max_len<T: EreportData + std::fmt::Debug>(
     input: &T,
@@ -97,6 +104,16 @@ proptest::proptest! {
 
     #[test]
     fn unflattened_struct(input: TestStruct) {
+        assert_max_len(&input)?;
+    }
+
+    #[test]
+    fn array(input: [TestStruct; 10]) {
+        assert_max_len(&input)?;
+    }
+
+    #[test]
+    fn struct_with_arrays(input: TestStructWithArrays) {
         assert_max_len(&input)?;
     }
 }
