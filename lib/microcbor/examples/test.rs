@@ -2,34 +2,34 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use ereport::EreportData;
+use microcbor::{Encode, EncodeFields, StaticCborLen};
 
-#[derive(Debug, EreportData)]
+#[derive(Debug, Encode)]
 pub enum TestEnum {
     Variant1,
-    #[ereport(rename = "hw.foo.cool-ereport-class")]
+    #[cbor(rename = "hw.foo.cool-ereport-class")]
     Variant2,
 }
 
-#[derive(Debug, EreportData)]
+#[derive(Debug, Encode, EncodeFields)]
 struct TestStruct {
-    #[ereport(rename = "a")]
+    #[cbor(rename = "a")]
     field1: u32,
     field2: TestEnum,
 }
 
-#[derive(Debug, EreportData)]
+#[derive(Debug, Encode)]
 struct TestStruct2<D> {
-    #[ereport(skip_if_nil)]
+    #[cbor(skip_if_nil)]
     field6: Option<bool>,
-    #[ereport(flatten)]
+    #[cbor(flatten)]
     inner: D,
 }
 
-#[derive(Debug, EreportData)]
+#[derive(Debug, Encode, EncodeFields)]
 enum TestEnum2<D> {
     Flattened {
-        #[ereport(flatten)]
+        #[cbor(flatten)]
         flattened: D,
         bar: u32,
     },
@@ -39,7 +39,7 @@ enum TestEnum2<D> {
     },
 }
 
-#[derive(Debug, EreportData)]
+#[derive(Debug, Encode)]
 enum TestEnum3 {
     Named {
         field1: u32,
@@ -49,10 +49,10 @@ enum TestEnum3 {
     UnnamedSingle(f64),
 }
 
-#[derive(Debug, EreportData)]
+#[derive(Debug, Encode)]
 struct TestTupleStruct1(u32, u64);
 
-#[derive(Debug, EreportData)]
+#[derive(Debug, Encode)]
 struct TestTupleStruct2(u64);
 
 fn main() {
@@ -134,7 +134,7 @@ fn main() {
     test_one_type(TestEnum3::UnnamedSingle(42069.0), &mut buf);
 }
 
-fn test_one_type<T: EreportData + std::fmt::Debug>(input: T, buf: &mut [u8]) {
+fn test_one_type<T: StaticCborLen + std::fmt::Debug>(input: T, buf: &mut [u8]) {
     println!(
         "{}::MAX_CBOR_LEN = {}",
         std::any::type_name::<T>(),

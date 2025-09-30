@@ -218,7 +218,7 @@ pub enum EreportClass {
     PmbusAlert,
 }
 
-#[derive(microcbor::Encode)]
+#[derive(microcbor::EncodeFields)]
 pub(crate) enum EreportKind {
     PmbusAlert {
         refdes: fixedstr::FixedStr<{ crate::i2c_config::MAX_COMPONENT_ID_LEN }>,

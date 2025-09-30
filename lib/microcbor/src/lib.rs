@@ -34,7 +34,7 @@
 //! [`minicbor-derive`]: https://docs.rs/minicbor-derive
 #![no_std]
 use encode::{Encoder, Write};
-pub use microcbor_derive::Encode;
+pub use microcbor_derive::{Encode, EncodeFields};
 pub use minicbor::encode::{self, Encode};
 
 /// A CBOR-encodable value with a statically-known maximum length.

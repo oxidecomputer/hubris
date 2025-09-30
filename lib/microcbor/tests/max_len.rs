@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use microcbor::{Encode, StaticCborLen};
+use microcbor::{Encode, EncodeFields, StaticCborLen};
 use proptest::test_runner::TestCaseError;
 use proptest_derive::Arbitrary;
 
@@ -15,14 +15,14 @@ pub enum TestEnum {
     Variant3,
 }
 
-#[derive(Debug, Encode, Arbitrary)]
+#[derive(Debug, Encode, EncodeFields, Arbitrary)]
 struct TestStruct {
     #[cbor(rename = "a")]
     field1: u32,
     field2: TestEnum,
 }
 
-#[derive(Debug, Encode, Arbitrary)]
+#[derive(Debug, Encode, EncodeFields, Arbitrary)]
 struct TestStruct2<D> {
     #[cbor(skip_if_nil)]
     field6: Option<bool>,
@@ -30,7 +30,7 @@ struct TestStruct2<D> {
     inner: D,
 }
 
-#[derive(Debug, Encode, Arbitrary)]
+#[derive(Debug, Encode, EncodeFields, Arbitrary)]
 enum TestEnum2<D> {
     Flattened {
         #[cbor(flatten)]

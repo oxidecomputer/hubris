@@ -15,17 +15,38 @@ use syn::{
 #[proc_macro_derive(Encode, attributes(cbor))]
 pub fn derive_encode(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    match gen_ereport_data_impl(input) {
+    match gen_encode_impl(input) {
         Ok(tokens) => tokens,
         Err(err) => err.to_compile_error().into(),
     }
 }
 
-fn gen_ereport_data_impl(
-    input: DeriveInput,
-) -> Result<TokenStream, syn::Error> {
+/// Derives an implementation of the `EncodeFields` trait for the annotated
+/// `struct` or `enum` type.
+///
+/// Deriving `EncodeFields` allows the implementing type to be annotated with
+/// `#[cbor(flatten)]` when nested within another type that derives `Encode` or
+/// `EncodeFields`.
+///
+/// Types that derive `EncodeFields` may only have named fields. If the deriving
+/// type is an `enum`, all variants must have named fields; attempting to derive
+/// `EncodeFields` on an enum that has both named (struct-like) variants and
+/// unnamed (tuple-like) variants will result in a compilation error.
+///
+/// The same type may derive both `Encode` and `EncodeFields` to be able to be
+/// encoded both as its own map and flattened into existing maps.
+#[proc_macro_derive(EncodeFields, attributes(cbor))]
+pub fn derive_encode_fields(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    match gen_encode_fields_impl(input) {
+        Ok(tokens) => tokens,
+        Err(err) => err.to_compile_error().into(),
+    }
+}
+
+fn gen_encode_impl(input: DeriveInput) -> Result<TokenStream, syn::Error> {
     match &input.data {
-        syn::Data::Enum(data) => gen_enum_impl(
+        syn::Data::Enum(data) => gen_enum_encode_impl(
             input.attrs,
             input.vis,
             input.ident,
@@ -33,7 +54,7 @@ fn gen_ereport_data_impl(
             data.clone(),
         )
         .map(|tokens| tokens.to_token_stream().into()),
-        syn::Data::Struct(data) => gen_struct_impl(
+        syn::Data::Struct(data) => gen_encode_struct_impl(
             input.attrs,
             input.vis,
             input.ident,
@@ -50,7 +71,7 @@ fn gen_ereport_data_impl(
 
 const HELPER_ATTR: &str = "cbor";
 
-fn gen_enum_impl(
+fn gen_enum_encode_impl(
     _attrs: Vec<Attribute>,
     _vis: Visibility,
     ident: Ident,
@@ -59,7 +80,6 @@ fn gen_enum_impl(
 ) -> Result<impl ToTokens, syn::Error> {
     let mut variant_patterns = Vec::new();
     let mut variant_lens = Vec::new();
-    let mut flattened = Some((Vec::new(), Vec::new()));
     let mut all_where_bounds = Vec::new();
     // TODO(eliza): support top-level attribute for using the enum's repr
     // instead of its name
@@ -84,9 +104,6 @@ fn gen_enum_impl(
         let variant_name = &variant.ident;
         match variant.fields {
             syn::Fields::Unit => {
-                // If there's a unit variant, we cannot generate an
-                // `EncodeField` impl for flattening this type.
-                flattened = None;
                 variant_patterns.push(quote! {
                     #ident::#variant_name => { e.str(#name)?; }
                 });
@@ -131,37 +148,8 @@ fn gen_enum_impl(
                         max = #variant_name;
                     }
                 });
-                // If we are still able to generate a flattened impl, add to that.
-                if let Some((
-                    ref mut flattened_lens,
-                    ref mut flattened_patterns,
-                )) = flattened
-                {
-                    flattened_lens.push(quote! {
-                        #[allow(non_snake_case)]
-                        let #variant_name = {
-                            // no map begin and end bytes, as we are flattening
-                            // the fields into a higher-level map.
-                            let mut len = 0;
-                            #(#field_len_exprs;)*
-                            len
-                        };
-                        if #variant_name > max {
-                            max = #variant_name;
-                        }
-                    });
-                    flattened_patterns.push(quote! {
-                        #match_pattern => {
-                            #(#field_encode_exprs)*
-                        }
-                    });
-                }
             }
             syn::Fields::Unnamed(fields) => {
-                // If we've encountered a tuple variant, we can no longer
-                // flatten named fields.
-                flattened = None;
-
                 let mut field_gen =
                     FieldGenerator::for_variant(FieldType::Unnamed);
                 for field in &fields.unnamed {
@@ -229,44 +217,7 @@ fn gen_enum_impl(
     }
     let (impl_generics, tygenerics, prev_where_clause) =
         generics.split_for_impl();
-
-    // If all variants of this enum contain multiple named fields (and can
-    // therefore be flattened into an enclosing struct), generate an
-    // `EncodeFields` impl.
-    let maybe_fields_impl =
-        if let Some((flattened_lens, flattened_encode_patterns)) = flattened {
-            quote! {
-                #[automatically_derived]
-                impl #impl_generics ::microcbor::EncodeFields<()>
-                for #ident #tygenerics
-                #prev_where_clause
-                where #(#all_where_bounds,)*
-                {
-                    const MAX_FIELDS_LEN: usize = {
-                        let mut max = 0;
-                        #(#flattened_lens;)*
-                        max
-                    };
-
-                    fn encode_fields<W: ::microcbor::encode::Write>(
-                        &self,
-                        e: &mut ::microcbor::encode::Encoder<W>,
-                        c: &mut (),
-                    ) -> Result<(), ::microcbor::encode::Error<W::Error>> {
-                        match self {
-                            #(#flattened_encode_patterns,)*
-                        }
-                        Ok(())
-                    }
-                }
-            }
-        } else {
-            quote! {}
-        };
-
     Ok(quote! {
-        #maybe_fields_impl
-
         #[automatically_derived]
         impl #impl_generics ::microcbor::StaticCborLen
         for #ident #tygenerics
@@ -300,7 +251,34 @@ fn gen_enum_impl(
     })
 }
 
-fn gen_struct_impl(
+fn gen_encode_fields_impl(
+    input: DeriveInput,
+) -> Result<TokenStream, syn::Error> {
+    match &input.data {
+        syn::Data::Enum(data) => gen_encode_fields_enum_impl(
+            input.attrs,
+            input.vis,
+            input.ident,
+            input.generics,
+            data.clone(),
+        )
+        .map(|tokens| tokens.to_token_stream().into()),
+        syn::Data::Struct(data) => gen_encode_fields_struct_impl(
+            input.attrs,
+            input.vis,
+            input.ident,
+            input.generics,
+            data.clone(),
+        )
+        .map(|tokens| tokens.to_token_stream().into()),
+        _ => Err(syn::Error::new_spanned(
+            input,
+            "`microcbor::EncodeFields` can only be derived for `struct` and `enum` types",
+        )),
+    }
+}
+
+fn gen_encode_struct_impl(
     _attrs: Vec<Attribute>,
     _vis: Visibility,
     ident: Ident,
@@ -318,7 +296,6 @@ fn gen_struct_impl(
         }
     };
     let mut field_gen = FieldGenerator::for_struct(field_type);
-    // let mut data_where_bounds = Vec::new();
     for field in &data.fields {
         field_gen.add_field(field)?;
     }
@@ -334,16 +311,17 @@ fn gen_struct_impl(
     } = field_gen;
 
     match (field_type, &field_encode_exprs[..], &field_len_exprs[..]) {
-        // Structs with named fields are flattenable.
         (FieldType::Named, encode_exprs, len_exprs) => Ok(quote! {
             #[automatically_derived]
             impl #impl_generics ::microcbor::StaticCborLen for #ident #tygenerics
             #prev_where_clause
             where #(#where_bounds,)*
             {
-                const MAX_CBOR_LEN: usize =
-                    2 // map begin and end bytes
-                    + <Self as ::microcbor::EncodeFields<()>>::MAX_FIELDS_LEN;
+                const MAX_CBOR_LEN: usize = {
+                    let mut len = 2;  // map begin and end bytes
+                    #(#len_exprs;)*
+                    len
+                };
             }
 
             #[automatically_derived]
@@ -357,32 +335,11 @@ fn gen_struct_impl(
                     e: &mut ::microcbor::encode::Encoder<W>,
                     c: &mut (),
                 ) -> Result<(), ::microcbor::encode::Error<W::Error>> {
-                    e.begin_map()?;
-                    <Self as ::microcbor::EncodeFields<()>>::encode_fields(self, e, c)?;
-                    e.end()?;
-                    Ok(())
-                }
-            }
 
-            #[automatically_derived]
-            impl #impl_generics ::microcbor::EncodeFields<()>
-            for #ident #tygenerics
-            #prev_where_clause
-            where #(#where_bounds,)*
-            {
-                const MAX_FIELDS_LEN: usize = {
-                    let mut len = 0;
-                    #(#len_exprs;)*
-                    len
-                };
-
-                fn encode_fields<W: ::microcbor::encode::Write>(
-                    &self,
-                    e: &mut ::microcbor::encode::Encoder<W>,
-                    c: &mut (),
-                ) -> Result<(), ::microcbor::encode::Error<W::Error>> {
                     let Self { #(#field_patterns,)* } = self;
+                    e.begin_map()?;
                     #(#encode_exprs)*
+                    e.end()?;
                     Ok(())
                 }
             }
@@ -455,6 +412,145 @@ fn gen_struct_impl(
             }
         }),
     }
+}
+
+fn gen_encode_fields_struct_impl(
+    _attrs: Vec<Attribute>,
+    _vis: Visibility,
+    ident: Ident,
+    generics: Generics,
+    data: DataStruct,
+) -> Result<impl ToTokens, syn::Error> {
+    let syn::Fields::Named(ref fields) = data.fields else {
+        return Err(syn::Error::new_spanned(
+            &data.fields,
+            "`microcbor::EncodeFields` may only be derived for structs with named fields",
+        ));
+    };
+    let mut field_gen = FieldGenerator::for_struct(FieldType::Named);
+    for field in &fields.named {
+        field_gen.add_field(field)?;
+    }
+    let (impl_generics, tygenerics, prev_where_clause) =
+        generics.split_for_impl();
+
+    let FieldGenerator {
+        where_bounds,
+        field_encode_exprs,
+        field_len_exprs,
+        field_patterns,
+        ..
+    } = field_gen;
+
+    Ok(quote! {
+        #[automatically_derived]
+        impl #impl_generics ::microcbor::EncodeFields<()>
+        for #ident #tygenerics
+        #prev_where_clause
+        where #(#where_bounds,)*
+        {
+            const MAX_FIELDS_LEN: usize = {
+                let mut len = 0;
+                #(#field_len_exprs;)*
+                len
+            };
+
+            fn encode_fields<W: ::microcbor::encode::Write>(
+                &self,
+                e: &mut ::microcbor::encode::Encoder<W>,
+                c: &mut (),
+            ) -> Result<(), ::microcbor::encode::Error<W::Error>> {
+                let Self { #(#field_patterns,)* } = self;
+                #(#field_encode_exprs)*
+                Ok(())
+            }
+        }
+    })
+}
+
+fn gen_encode_fields_enum_impl(
+    _attrs: Vec<Attribute>,
+    _vis: Visibility,
+    ident: Ident,
+    generics: Generics,
+    data: DataEnum,
+) -> Result<impl ToTokens, syn::Error> {
+    let mut variant_patterns = Vec::new();
+    let mut variant_lens = Vec::new();
+    let mut all_where_bounds = Vec::new();
+    for variant in data.variants {
+        let variant_name = &variant.ident;
+        let syn::Fields::Named(ref fields) = variant.fields else {
+            // If there's a unit variant, we cannot generate an
+            // `EncodeField` impl for flattening this type.
+            return Err(syn::Error::new_spanned(
+                &variant,
+                "deriving `microcbor::EncodeFields` for an `enum` type requires that all variants have named fields",
+            ));
+        };
+
+        let mut field_gen = FieldGenerator::for_variant(FieldType::Named);
+        for field in &fields.named {
+            field_gen.add_field(field)?;
+        }
+        let FieldGenerator {
+            field_patterns,
+            field_len_exprs,
+            field_encode_exprs,
+            where_bounds,
+            ..
+        } = field_gen;
+        all_where_bounds.extend(where_bounds);
+        let match_pattern = quote! {
+            #ident::#variant_name { #(#field_patterns,)* }
+        };
+        variant_lens.push(quote! {
+            #[allow(non_snake_case)]
+            let #variant_name = {
+                // no map begin and end bytes, as we are flattening
+                // the fields into a higher-level map.
+                let mut len = 0;
+                #(#field_len_exprs;)*
+                len
+            };
+            if #variant_name > max {
+                max = #variant_name;
+            }
+        });
+        variant_patterns.push(quote! {
+            #match_pattern => {
+                #(#field_encode_exprs)*
+            }
+        });
+    }
+    let (impl_generics, tygenerics, prev_where_clause) =
+        generics.split_for_impl();
+
+    Ok(quote! {
+        #[automatically_derived]
+        impl #impl_generics ::microcbor::EncodeFields<()>
+        for #ident #tygenerics
+        #prev_where_clause
+        where #(#all_where_bounds,)*
+        {
+            const MAX_FIELDS_LEN: usize = {
+                let mut max = 0;
+                #(#variant_lens;)*
+                max
+            };
+
+            fn encode_fields<W: ::microcbor::encode::Write>(
+                &self,
+                e: &mut ::microcbor::encode::Encoder<W>,
+                c: &mut (),
+            ) -> Result<(), ::microcbor::encode::Error<W::Error>> {
+                match self {
+                    #(#variant_patterns,)*
+                }
+                Ok(())
+            }
+        }
+    })
 }
 
 struct FieldGenerator {
