@@ -23,7 +23,6 @@ counters = { path = "../../lib/counters" }
 derive-idol-err = { path = "../../lib/derive-idol-err" }
 drv-caboose = { path = "../../drv/caboose" }
 drv-lpc55-update-api = { path = "../../drv/lpc55-update-api" }
-drv-spi-api = { path = "../../drv/spi-api" }
 drv-update-api = { path = "../../drv/update-api" }
 dumper-api = { path = "../../task/dumper-api" }
 ringbuf = { path = "../../lib/ringbuf" }
