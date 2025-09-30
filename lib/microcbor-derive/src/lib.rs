@@ -64,7 +64,8 @@ fn gen_encode_impl(input: DeriveInput) -> Result<TokenStream, syn::Error> {
         .map(|tokens| tokens.to_token_stream().into()),
         _ => Err(syn::Error::new_spanned(
             input,
-            "`StaticCborLen` can only be derived for `struct` and `enum` types",
+            "`StaticCborLen` can only be derived for `struct` and `enum` \
+             types",
         )),
     }
 }
@@ -273,7 +274,8 @@ fn gen_encode_fields_impl(
         .map(|tokens| tokens.to_token_stream().into()),
         _ => Err(syn::Error::new_spanned(
             input,
-            "`microcbor::EncodeFields` can only be derived for `struct` and `enum` types",
+            "`microcbor::EncodeFields` can only be derived for `struct` and \
+             `enum` types",
         )),
     }
 }
@@ -291,7 +293,8 @@ fn gen_encode_struct_impl(
         syn::Fields::Unit => {
             return Err(syn::Error::new_spanned(
                 &data.fields,
-                "`#[derive(microcbor::Encode)]` is not supported on unit structs",
+                "`#[derive(microcbor::Encode)]` is not supported on unit \
+                 structs",
             ));
         }
     };
@@ -424,7 +427,8 @@ fn gen_encode_fields_struct_impl(
     let syn::Fields::Named(ref fields) = data.fields else {
         return Err(syn::Error::new_spanned(
             &data.fields,
-            "`microcbor::EncodeFields` may only be derived for structs with named fields",
+            "`microcbor::EncodeFields` may only be derived for structs with \
+             named fields",
         ));
     };
     let mut field_gen = FieldGenerator::for_struct(FieldType::Named);
@@ -485,7 +489,8 @@ fn gen_encode_fields_enum_impl(
             // `EncodeField` impl for flattening this type.
             return Err(syn::Error::new_spanned(
                 &variant,
-                "deriving `microcbor::EncodeFields` for an `enum` type requires that all variants have named fields",
+                "deriving `microcbor::EncodeFields` for an `enum` type \
+                 requires that all variants have named fields",
             ));
         };
 
@@ -602,7 +607,7 @@ impl FieldGenerator {
                     if meta.path.is_ident("rename") {
                         if field.ident.is_none() {
                             return Err(meta.error(
-                                "`#[ereport(rename = \"...\")]` is only
+                                "`#[cbor(rename = \"...\")]` is only \
                                 supported on named fields",
                             ));
                         }
@@ -617,7 +622,7 @@ impl FieldGenerator {
                     } else if meta.path.is_ident("flatten") {
                         if self.field_type == FieldType::Unnamed {
                             return Err(meta.error(
-                                "`#[ereport(flatten)]` is only supported on \
+                                "`#[cbor(flatten)]` is only supported on \
                                  structs and enum variants with named fields",
                             ));
                         }
@@ -625,7 +630,8 @@ impl FieldGenerator {
                         Ok(())
                     } else {
                         Err(meta.error(
-                            "expected `rename`, `skip`, `skip_if_nil`, or `flatten` attribute",
+                            "expected `rename`, `skip`, `skip_if_nil`, or \
+                             `flatten` attribute",
                         ))
                     }
                 })?;
