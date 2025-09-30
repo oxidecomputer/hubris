@@ -34,10 +34,7 @@
 #[cfg_attr(any(target_board = "grapefruit"), path = "bsp/grapefruit.rs")]
 #[cfg_attr(any(target_board = "minibar"), path = "bsp/minibar.rs")]
 #[cfg_attr(
-    any(
-        target_board = "cosmo-a",
-        target_board = "cosmo-b"
-    ),
+    any(target_board = "cosmo-a", target_board = "cosmo-b"),
     path = "bsp/cosmo_a.rs"
 )]
 mod bsp;
