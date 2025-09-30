@@ -69,8 +69,23 @@ fn system_init() {
     //
     // The revision is on pins PG[2:0], with PG2 as the MSB.
 
-    // Un-gate the clock to GPIO bank G.
+    // Un-gate the clock to GPIO bank G (for revision ID) and C (for sequencer
+    // PG)
     p.RCC.ahb4enr.modify(|_, w| w.gpiogen().set_bit());
+    p.RCC.ahb4enr.modify(|_, w| w.gpiocen().set_bit());
+    cortex_m::asm::dsb();
+
+    // Make PC6 (SEQ_REG_TO_SP_V3P3_PG) and PC7 (SEQ_REG_TO_SP_V1P2_PG) inputs,
+    // then wait for both of them to go high
+    #[rustfmt::skip]
+    p.GPIOC.moder.modify(|_, w| w
+        .moder6().input()
+        .moder7().input());
+    const SEQ_PG: u32 = 0b11 << 6;
+    while p.GPIOC.idr.read().bits() & SEQ_PG != SEQ_PG {
+        cortex_m::asm::nop();
+    }
+
     cortex_m::asm::dsb();
     // PG2:0 are already inputs after reset, but without any pull resistors.
     #[rustfmt::skip]
