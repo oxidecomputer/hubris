@@ -210,15 +210,15 @@ const TIMER_INTERVAL: u32 = 10;
 const EREPORT_BUF_LEN: usize = <task_packrat_api::Ereport<
     EreportClass,
     EreportKind,
-> as ereport::EreportData>::MAX_CBOR_LEN;
+> as microcbor::EreportData>::MAX_CBOR_LEN;
 
-#[derive(ereport::EreportData)]
+#[derive(microcbor::EreportData)]
 pub enum EreportClass {
     #[ereport(rename = "hw.pwr.pmbus.alert")]
     PmbusAlert,
 }
 
-#[derive(ereport::EreportData)]
+#[derive(microcbor::EreportData)]
 pub(crate) enum EreportKind {
     PmbusAlert {
         refdes: fixedstr::FixedStr<{ crate::i2c_config::MAX_COMPONENT_ID_LEN }>,
@@ -229,7 +229,7 @@ pub(crate) enum EreportKind {
     },
 }
 
-#[derive(Copy, Clone, Default, ereport::EreportData)]
+#[derive(Copy, Clone, Default, microcbor::EreportData)]
 pub(crate) struct PmbusStatus {
     word: Option<u16>,
     input: Option<u8>,

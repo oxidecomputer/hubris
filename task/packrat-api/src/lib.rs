@@ -12,10 +12,10 @@ use zerocopy::{
     FromBytes, Immutable, IntoBytes, KnownLayout, LittleEndian, U16,
 };
 
-#[cfg(feature = "ereport")]
-use ereport::EreportData;
 pub use gateway_ereport_messages as ereport_messages;
 pub use host_sp_messages::HostStartupOptions;
+#[cfg(feature = "microcbor")]
+use microcbor::EreportData;
 pub use oxide_barcode::OxideIdentity;
 
 /// Represents a range of allocated MAC addresses, per RFD 320
@@ -89,7 +89,7 @@ pub enum EreportSerializeError {
 
 /// Errors returned by [`Packrat::encode_ereport`].
 #[derive(counters::Count)]
-#[cfg(feature = "ereport")]
+#[cfg(feature = "microcbor")]
 pub enum EreportEncodeError {
     /// The IPC to deliver the serialized ereport failed.
     Packrat {
@@ -98,11 +98,11 @@ pub enum EreportEncodeError {
         err: EreportWriteError,
     },
     /// Encoding the ereport failed.
-    Encoder(ereport::encode::Error<ereport::encode::write::EndOfSlice>),
+    Encoder(microcbor::encode::Error<microcbor::encode::write::EndOfSlice>),
 }
 
 /// Wrapper type defining common ereport fields.
-#[cfg(feature = "ereport")]
+#[cfg(feature = "microcbor")]
 #[derive(Clone, EreportData)]
 pub struct Ereport<C, D> {
     #[ereport(rename = "k")]
@@ -149,14 +149,14 @@ impl Packrat {
     // TODO(eliza): I really want this to be able to statically check that the
     // buffer is >= E::MAX_CBOR_LEN but unfortunately that isn't currently
     // possible due to https://github.com/rust-lang/rust/issues/132980...
-    #[cfg(feature = "ereport")]
+    #[cfg(feature = "microcbor")]
     pub fn encode_ereport<E: EreportData>(
         &self,
         ereport: &E,
         buf: &mut [u8],
     ) -> Result<usize, EreportEncodeError> {
-        let cursor = ereport::encode::write::Cursor::new(buf);
-        let mut encoder = ereport::encode::Encoder::new(cursor);
+        let cursor = microcbor::encode::write::Cursor::new(buf);
+        let mut encoder = microcbor::encode::Encoder::new(cursor);
         ereport
             .encode(&mut encoder, &mut ())
             .map_err(EreportEncodeError::Encoder)?;

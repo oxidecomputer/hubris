@@ -1,11 +1,11 @@
 [package]
-name = "ereport"
+name = "microcbor"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
 minicbor.workspace = true
-ereport-derive = { path = "../ereport-derive" }
+microcbor-derive = { path = "../microcbor-derive" }
 fixedstr = { path = "../fixedstr", optional = true, features = ["minicbor"] }
 
 [lints]

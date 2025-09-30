@@ -6,8 +6,8 @@ edition = "2021"
 [features]
 # Enable Serde support for the ereport API.
 serde = ["dep:serde", "dep:minicbor", "dep:minicbor-serde"]
-ereport = ["dep:ereport", "dep:static_assertions", "dep:minicbor"]
-default = ["ereport"]
+microcbor = ["dep:microcbor", "dep:static_assertions", "dep:minicbor"]
+default = ["microcbor"]
 
 [dependencies]
 counters = { path = "../../lib/counters" }
@@ -15,7 +15,7 @@ derive-idol-err.path = "../../lib/derive-idol-err"
 host-sp-messages.path = "../../lib/host-sp-messages"
 oxide-barcode.path = "../../lib/oxide-barcode"
 userlib.path = "../../sys/userlib"
-ereport = { path = "../../lib/ereport", optional = true }
+microcbor = { path = "../../lib/microcbor", optional = true }
 
 gateway-ereport-messages.workspace = true
 idol-runtime.workspace = true

@@ -89,8 +89,8 @@ fn gen_enum_impl(
                     #ident::#variant_name => { e.str(#name)?; }
                 });
                 variant_lens.push(quote! {
-                    if ::ereport::str_cbor_len(#name) > max {
-                        max = ::ereport::str_cbor_len(#name);
+                    if ::microcbor::str_cbor_len(#name) > max {
+                        max = ::microcbor::str_cbor_len(#name);
                     }
                 });
             }
@@ -235,7 +235,7 @@ fn gen_enum_impl(
         if let Some((flattened_lens, flattened_encode_patterns)) = flattened {
             quote! {
                 #[automatically_derived]
-                impl #impl_generics ::ereport::EncodeFields<()>
+                impl #impl_generics ::microcbor::EncodeFields<()>
                 for #ident #tygenerics
                 #prev_where_clause
                 where #(#all_where_bounds,)*
@@ -246,11 +246,11 @@ fn gen_enum_impl(
                         max
                     };
 
-                    fn encode_fields<W: ::ereport::encode::Write>(
+                    fn encode_fields<W: ::microcbor::encode::Write>(
                         &self,
-                        e: &mut ::ereport::encode::Encoder<W>,
+                        e: &mut ::microcbor::encode::Encoder<W>,
                         c: &mut (),
-                    ) -> Result<(), ::ereport::encode::Error<W::Error>> {
+                    ) -> Result<(), ::microcbor::encode::Error<W::Error>> {
                         match self {
                             #(#flattened_encode_patterns,)*
                         }
@@ -266,7 +266,7 @@ fn gen_enum_impl(
         #maybe_fields_impl
 
         #[automatically_derived]
-        impl #impl_generics ::ereport::EreportData
+        impl #impl_generics ::microcbor::EreportData
         for #ident #tygenerics
         #prev_where_clause
         where #(#all_where_bounds,)*
@@ -279,16 +279,16 @@ fn gen_enum_impl(
         }
 
         #[automatically_derived]
-        impl #impl_generics ::ereport::encode::Encode<()>
+        impl #impl_generics ::microcbor::encode::Encode<()>
         for #ident #tygenerics
         #prev_where_clause
         where #(#all_where_bounds,)*
         {
-            fn encode<W: ::ereport::encode::Write>(
+            fn encode<W: ::microcbor::encode::Write>(
                 &self,
-                e: &mut ::ereport::encode::Encoder<W>,
+                e: &mut ::microcbor::encode::Encoder<W>,
                 c: &mut (),
-            ) -> Result<(), ::ereport::encode::Error<W::Error>> {
+            ) -> Result<(), ::microcbor::encode::Error<W::Error>> {
                 match self {
                     #(#variant_patterns,)*
                 }
@@ -335,35 +335,35 @@ fn gen_struct_impl(
         // Structs with named fields are flattenable.
         (FieldType::Named, encode_exprs, len_exprs) => Ok(quote! {
             #[automatically_derived]
-            impl #impl_generics ::ereport::EreportData for #ident #tygenerics
+            impl #impl_generics ::microcbor::EreportData for #ident #tygenerics
             #prev_where_clause
             where #(#where_bounds,)*
             {
                 const MAX_CBOR_LEN: usize =
                     2 // map begin and end bytes
-                    + <Self as ::ereport::EncodeFields<()>>::MAX_FIELDS_LEN;
+                    + <Self as ::microcbor::EncodeFields<()>>::MAX_FIELDS_LEN;
             }
 
             #[automatically_derived]
-            impl #impl_generics ::ereport::encode::Encode<()>
+            impl #impl_generics ::microcbor::encode::Encode<()>
             for #ident #tygenerics
             #prev_where_clause
             where #(#where_bounds,)*
             {
-                fn encode<W: ::ereport::encode::Write>(
+                fn encode<W: ::microcbor::encode::Write>(
                     &self,
-                    e: &mut ::ereport::encode::Encoder<W>,
+                    e: &mut ::microcbor::encode::Encoder<W>,
                     c: &mut (),
-                ) -> Result<(), ::ereport::encode::Error<W::Error>> {
+                ) -> Result<(), ::microcbor::encode::Error<W::Error>> {
                     e.begin_map()?;
-                    <Self as ::ereport::EncodeFields<()>>::encode_fields(self, e, c)?;
+                    <Self as ::microcbor::EncodeFields<()>>::encode_fields(self, e, c)?;
                     e.end()?;
                     Ok(())
                 }
             }
 
             #[automatically_derived]
-            impl #impl_generics ::ereport::EncodeFields<()>
+            impl #impl_generics ::microcbor::EncodeFields<()>
             for #ident #tygenerics
             #prev_where_clause
             where #(#where_bounds,)*
@@ -374,11 +374,11 @@ fn gen_struct_impl(
                     len
                 };
 
-                fn encode_fields<W: ::ereport::encode::Write>(
+                fn encode_fields<W: ::microcbor::encode::Write>(
                     &self,
-                    e: &mut ::ereport::encode::Encoder<W>,
+                    e: &mut ::microcbor::encode::Encoder<W>,
                     c: &mut (),
-                ) -> Result<(), ::ereport::encode::Error<W::Error>> {
+                ) -> Result<(), ::microcbor::encode::Error<W::Error>> {
                     let Self { #(#field_patterns,)* } = self;
                     #(#encode_exprs)*
                     Ok(())
@@ -389,7 +389,7 @@ fn gen_struct_impl(
         // single value.
         (FieldType::Unnamed, [encode_expr], [len_expr]) => Ok(quote! {
             #[automatically_derived]
-            impl #impl_generics ::ereport::EreportData for #ident #tygenerics
+            impl #impl_generics ::microcbor::EreportData for #ident #tygenerics
             #prev_where_clause
             where #(#where_bounds,)*
             {
@@ -401,16 +401,16 @@ fn gen_struct_impl(
             }
 
             #[automatically_derived]
-            impl #impl_generics ::ereport::encode::Encode<()>
+            impl #impl_generics ::microcbor::encode::Encode<()>
             for #ident #tygenerics
             #prev_where_clause
             where #(#where_bounds,)*
             {
-                fn encode<W: ::ereport::encode::Write>(
+                fn encode<W: ::microcbor::encode::Write>(
                     &self,
-                    e: &mut ::ereport::encode::Encoder<W>,
+                    e: &mut ::microcbor::encode::Encoder<W>,
                     c: &mut (),
-                ) -> Result<(), ::ereport::encode::Error<W::Error>> {
+                ) -> Result<(), ::microcbor::encode::Error<W::Error>> {
                     let Self( #(#field_patterns,)* ) = self;
                     #encode_expr
                     Ok(())
@@ -419,7 +419,7 @@ fn gen_struct_impl(
         }),
         (FieldType::Unnamed, encode_exprs, len_exprs) => Ok(quote! {
             #[automatically_derived]
-            impl #impl_generics ::ereport::EreportData for #ident #tygenerics
+            impl #impl_generics ::microcbor::EreportData for #ident #tygenerics
             #prev_where_clause
             where #(#where_bounds,)*
             {
@@ -431,16 +431,16 @@ fn gen_struct_impl(
             }
 
             #[automatically_derived]
-            impl #impl_generics ::ereport::encode::Encode<()>
+            impl #impl_generics ::microcbor::encode::Encode<()>
             for #ident #tygenerics
             #prev_where_clause
             where #(#where_bounds,)*
             {
-                fn encode<W: ::ereport::encode::Write>(
+                fn encode<W: ::microcbor::encode::Write>(
                     &self,
-                    e: &mut ::ereport::encode::Encoder<W>,
+                    e: &mut ::microcbor::encode::Encoder<W>,
                     c: &mut (),
-                ) -> Result<(), ::ereport::encode::Error<W::Error>> {
+                ) -> Result<(), ::microcbor::encode::Error<W::Error>> {
                     let Self( #(#field_patterns,)* ) = self;
                     // TODO: Since we don't flatten anything into the array
                     // generated for unnamed fields, we could use the
@@ -564,7 +564,7 @@ impl FieldGenerator {
                         e.str(#field_name)?;
                     };
                     let name_len = quote! {
-                        len += ::ereport::str_cbor_len(#field_name);
+                        len += ::microcbor::str_cbor_len(#field_name);
                     };
                     (field_ident.clone(), encode_name, name_len)
                 }
@@ -584,34 +584,34 @@ impl FieldGenerator {
         let field_type = &field.ty;
         if flattened {
             self.where_bounds.push(quote! {
-                #field_type: ::ereport::EncodeFields<()>
+                #field_type: ::microcbor::EncodeFields<()>
             });
             self.field_len_exprs.push(quote! {
-                len += <#field_type as ::ereport::EncodeFields<()>>::MAX_FIELDS_LEN;
+                len += <#field_type as ::microcbor::EncodeFields<()>>::MAX_FIELDS_LEN;
             });
             self.field_encode_exprs.push(quote! {
-                ::ereport::EncodeFields::<()>::encode_fields(#field_ident, e, c)?;
+                ::microcbor::EncodeFields::<()>::encode_fields(#field_ident, e, c)?;
             });
         } else {
             self.field_len_exprs.push(quote! {
                 #name_len
-                len += <#field_type as ::ereport::EreportData>::MAX_CBOR_LEN;
+                len += <#field_type as ::microcbor::EreportData>::MAX_CBOR_LEN;
             });
             self.field_encode_exprs.push(if skipped_if_nil {
                 quote! {
-                    if !::ereport::Encode::<()>::is_nil(#field_ident) {
+                    if !::microcbor::Encode::<()>::is_nil(#field_ident) {
                         #encode_name
-                        ::ereport::Encode::<()>::encode(#field_ident, e, c)?;
+                        ::microcbor::Encode::<()>::encode(#field_ident, e, c)?;
                     }
                 }
             } else {
                 quote! {
                     #encode_name
-                    ::ereport::Encode::<()>::encode(#field_ident, e, c)?;
+                    ::microcbor::Encode::<()>::encode(#field_ident, e, c)?;
                 }
             });
             self.where_bounds.push(quote! {
-                #field_type: ::ereport::EreportData
+                #field_type: ::microcbor::EreportData
             });
         }
 

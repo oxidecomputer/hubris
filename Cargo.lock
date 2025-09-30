@@ -1282,11 +1282,11 @@ dependencies = [
  "drv-spi-api",
  "drv-stm32h7-spi",
  "drv-stm32xx-sys-api",
- "ereport",
  "fixedstr",
  "gnarle",
  "idol",
  "idol-runtime",
+ "microcbor",
  "num-derive 0.4.2",
  "num-traits",
  "pmbus",
@@ -2939,26 +2939,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5443807d6dff69373d433ab9ef5378ad8df50ca6298caf15de6e52e24aaf54d5"
 
 [[package]]
-name = "ereport"
-version = "0.1.0"
-dependencies = [
- "ereport-derive",
- "fixedstr",
- "minicbor 2.1.1",
- "proptest",
- "proptest-derive",
-]
-
-[[package]]
-name = "ereport-derive"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.106",
-]
-
-[[package]]
 name = "errno"
 version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3938,6 +3918,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5aa361d4faea93603064a027415f07bd8e1d5c88c9fbf68bf56a285428fd79ce"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "microcbor"
+version = "0.1.0"
+dependencies = [
+ "fixedstr",
+ "microcbor-derive",
+ "minicbor 2.1.1",
+ "proptest",
+ "proptest-derive",
+]
+
+[[package]]
+name = "microcbor-derive"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.106",
 ]
 
 [[package]]
@@ -6019,11 +6019,11 @@ dependencies = [
  "anyhow",
  "counters",
  "derive-idol-err",
- "ereport",
  "gateway-ereport-messages",
  "host-sp-messages",
  "idol",
  "idol-runtime",
+ "microcbor",
  "minicbor 2.1.1",
  "minicbor-serde 0.6.0",
  "num-traits",

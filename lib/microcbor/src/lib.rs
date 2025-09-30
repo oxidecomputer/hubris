@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//! Hubris ereport traits.
+//! Fixed-length CBOR encoding..
 //!
 //! ## Wait, Why Not `#[derive(serde::Serialize)]`?
 //!
@@ -34,7 +34,7 @@
 //! [`minicbor-derive`]: https://docs.rs/minicbor-derive
 #![no_std]
 use encode::{Encoder, Write};
-pub use ereport_derive::EreportData;
+pub use microcbor_derive::EreportData;
 pub use minicbor::encode::{self, Encode};
 
 /// A CBOR-encodable value with a statically-known maximum length.
@@ -60,19 +60,19 @@ pub trait EreportData: Encode<()> {
 ///
 /// ```rust
 ///
-/// #[derive(ereport::EreportData)]
+/// #[derive(microcbor::EreportData)]
 /// pub struct MyGreatEreport {
 ///     foo: u32,
 ///     bar: Option<f64>,
 /// }
 ///
-/// #[derive(ereport::EreportData)]
+/// #[derive(microcbor::EreportData)]
 /// pub enum AnotherEreport {
 ///     A { hello: bool, world: f64 },
 ///     B(usize),
 /// }
 ///
-/// const EREPORT_BUF_LEN: usize = ereport::max_cbor_len_for![
+/// const EREPORT_BUF_LEN: usize = microcbor::max_cbor_len_for![
 ///     MyGreatEreport,
 ///     AnotherEreport,
 /// ];

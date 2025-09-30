@@ -1,5 +1,5 @@
 [package]
-name = "ereport-derive"
+name = "microcbor-derive"
 version = "0.1.0"
 edition = "2024"
 
