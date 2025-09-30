@@ -2,11 +2,39 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//! Fixed-length CBOR encoding..
+//! CBOR encoding traits with statically known maximum lengths.
+//!
+//! This crate provides traits and derive macros for encoding Rust types as
+//! CBOR, with the maximum encoded length of the CBOR data determined at compile
+//! time. This allows for the maximum buffer size needed to encode the data to
+//! be determined at compile-time, allowing static allocation of encoding
+//! buffers without the possibility of encoding failures due to insufficient
+//! buffer space.
+//!
+//! When encoding ereports in Hubris, the CBOR messages are generally simple and
+//! consist of fixed-size data. However, if buffer sizes for encoding are just
+//! chosen arbitrarily by the programmer, it is possible that subsequent changes
+//! to the ereport messages will increase the encoded size beyond the chosen
+//! buffer size, leading to encoding failures and data loss. Thus, this crate.
+//!
+//! This crate provides the [`StaticCborLen`] trait for types that can be
+//! encoded as CBOR with a known maximum encoded length. In addition, it
+//! provides [`#[derive(Encode)`](macro@Encode) and
+//! [`#[derive(EncodeFields)`](macro@EncodeFields) derive attributes for
+//! deriving implementations of the [`Encode`] and [`StaticCborLen`] traits.
 //!
 //! ## Wait, Why Not `#[derive(serde::Serialize)]`?
 //!
-//! TODO ELIZA EXPLAIN
+//! Well, the obvious one is that there's no way to know how many bytes a given
+//! type's`Serialize` implementation will produce at compile-time.
+//!
+//! Another limitation, though, is that `serde`'s `#[serde(flatten)]` attribute
+//! requires `liballoc`, as the flattened fields are temporarily stored on the
+//! heap while encoding. This means that `#[serde(flatten)]` cannot be used to
+//! compose nested structs in Hubris ereport messages. By introducing a separate
+//! [`EncodeFields`] trait that encodes the fields of a type into a "parent"
+//! struct or struct-like enum variant, we avoid this limitation and allow
+//! composition of ereport messages.
 //!
 //! ## Okay, What About `#[derive(minicbor::Encode)]`?
 //!
@@ -34,6 +62,7 @@
 //! [`minicbor-derive`]: https://docs.rs/minicbor-derive
 #![no_std]
 use encode::{Encoder, Write};
+#[doc(inline)]
 pub use microcbor_derive::{Encode, EncodeFields};
 pub use minicbor::encode::{self, Encode};
 
@@ -50,11 +79,11 @@ pub trait StaticCborLen: Encode<()> {
     const MAX_CBOR_LEN: usize;
 }
 
-/// For a list of types implementing [`EreportData`], returns the maximum length
+/// For a list of types implementing [`StaticCborLen`], returns the maximum length
 /// of their CBOR-encoded representations.
 ///
 /// This macro may be used to calculate the maximum buffer size necessary to
-/// encode any of a set of types implementing [`EreportData`].
+/// encode any of a set of types implementing [`StaticCborLen`].
 ///
 /// For example:
 ///

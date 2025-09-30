@@ -10,8 +10,99 @@ use syn::{
     Visibility, parse_macro_input,
 };
 
-/// Derives an implementation of the `Encode` and `StaticCborLen` traits for the
+/// Derives an implementation of the [`Encode`] and `StaticCborLen` traits for the
 /// annotated `struct` or `enum` type.
+///
+/// All fields of the deriving type must implement the [`Encode`] and
+/// `StaticCborLen` traits, with the following exceptions:
+///
+/// - If the field is annotated with the `#[cbor(skip)]` attribute,
+///   it need not implement any traits, as it is skipped.
+/// - If the field is annotated with the `#[cbor(flatten)]` attribute,
+///   it must instead implement the [`EncodeFields`] trait.
+///
+/// Because fields must implement `StaticCborLen`, the maximum length in bytes
+/// of the encoded representation can be computed at compile-time.
+///
+/// # Encoding
+///
+/// The generated CBOR is encoded as follows:
+///
+/// - Structs with named fields, and struct-like enum variants, are encoded
+///   as CBOR maps of strings to values. The keys in the encoded map are the
+///   string representations of the Rust identifier names of the encoded
+///   fields, unless overridden by the `#[cbor(rename = "..")]` attribute.
+/// - Structs with unnamed fields ("tuple structs") and enum variants with
+///   unnamed fields are encoded as CBOR arrays of the values of those
+///   fields, in declaration order.
+/// - If a tuple struct or tuple-like enum variant has only a single field,
+///   it is encoded "transparently", i.e. as the CBOR value of that field,
+///   rather than as a single-element array.
+/// - Unit enum variants are encoded as strings. By default, the string
+///   representation is the Rust identifier name of the variant, unless
+///   overridden by the `#[cbor(rename = "..")]` attribute.
+///
+///   Someday, I may add a way to encode enum variants as their `repr`
+///   values, but I haven't done that yet.
+///
+/// # Helper Attributes
+///
+/// This derive macro supports a `#[cbor(...)]` attribute, which may be placed
+/// on fields or variants of a deriving type to modify how they are encoded.
+///
+/// ## Field Attributes
+///
+/// The following `#[cbor(..)]` attributes are supported on fields of structs
+/// and enum variants:
+///
+/// - `#[cbor(skip)]`: Completely skip ignoring this field. If a field is
+///   skipped, it will not be included in the encoded CBOR output.
+///
+/// - `#[cbor(skip_if_nil)]`: Skip encoding this field if it would encode a
+///   CBOR `nil` value.
+///
+///   This attribute will cause the generated `Encode` implementation to call
+///   the value's `Encode::is_nil` method to determine if the field would emit
+///   a `nil` value. If it returns `true`, the field will no tbe encoded at
+///   all.
+///
+/// - `#[cbor(flatten)]`: Flatten this field into the CBOR map generated for
+///   the enclosing type, rather than as a nested CBOR map.
+///
+///   This attribute may only be placed on fields which are of types that
+///   implement the [`EncodeFields`] trait. [`EncodeFields`] may be derived
+///   for any struct or enum type which has named fields.
+///
+///   Only structs and enum variants whose fields are named may use the
+///   `#[cbor(flatten)]` attribute on their fields. Using `#[cbor(flatten)]`
+///   on fields of a tuple struct or tuple-like enum variant will result in a
+///   compile error. An enum type which has both struct-like and tuple-like
+///   variants *may* use `#[cbor(flatten)]`, but only within its struct-like
+///  variants.
+///
+/// - `#[cbor(rename = "...")]`: Use a different name for this field when
+///   encoding it as CBOR.
+///
+///   This attribute will cause the field to be encoded with the string
+///   provided in the `rename` attribute as its key, rather than the Rust
+///   field name. This attribute may, of course, only be used on structs
+///   and enum variants with named fields.
+///
+/// ## Variant Attributes
+///
+/// The following `#[cbor(..)]` attributes may be placed on variants of
+/// an enum type:
+///
+/// - `#[cbor(rename = "...")]`: Use a different name for this variant when
+///   encoding it as CBOR.
+///
+///   Enum variants without fields are encoded as strings. By default, the
+///   Rust identifier is used as the encoded representation of a unit
+///   variant. If the variant is annotated with the `#[cbor(rename = "...")]`
+///   attribute, the provided string constant will be used as the encoded
+///   representation of the variant, instead.
+///
+///   This attribute may only be placed on unit variants.
 #[proc_macro_derive(Encode, attributes(cbor))]
 pub fn derive_encode(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -21,7 +112,7 @@ pub fn derive_encode(input: TokenStream) -> TokenStream {
     }
 }
 
-/// Derives an implementation of the `EncodeFields` trait for the annotated
+/// Derives an implementation of the [`EncodeFields`] trait for the annotated
 /// `struct` or `enum` type.
 ///
 /// Deriving `EncodeFields` allows the implementing type to be annotated with
@@ -35,6 +126,12 @@ pub fn derive_encode(input: TokenStream) -> TokenStream {
 ///
 /// The same type may derive both `Encode` and `EncodeFields` to be able to be
 /// encoded both as its own map and flattened into existing maps.
+///
+/// # Helper Attributes
+///
+/// All [the attributes](macro@Encode#helper-attributes) recognized by
+/// `#[derive(Encode)]` may also be placed on the fields of a type that derives
+/// `EncodeFields`.
 #[proc_macro_derive(EncodeFields, attributes(cbor))]
 pub fn derive_encode_fields(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
