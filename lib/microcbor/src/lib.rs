@@ -42,7 +42,7 @@ pub use minicbor::encode::{self, Encode};
 /// A type implementing this trait must implement the [`Encode`]`<()>` trait. In
 /// addition, it defines a `MAX_CBOR_LEN` constant that specifies the maximum
 /// number of bytes that its [`Encode`] implementation will produce.
-pub trait EreportData: Encode<()> {
+pub trait StaticCborLen: Encode<()> {
     /// The maximum length of the CBOR-encoded representation of this value.
     ///
     /// The value is free to encode fewer than this many bytes, but may not
@@ -89,8 +89,8 @@ macro_rules! max_cbor_len_for {
         {
             let mut len = 0;
             $(
-                if <$T as $crate::EreportData>::MAX_CBOR_LEN > len {
-                    len = <$T as $crate::EreportData>::MAX_CBOR_LEN;
+                if <$T as $crate::StaticCborLen>::MAX_CBOR_LEN > len {
+                    len = <$T as $crate::StaticCborLen>::MAX_CBOR_LEN;
                 }
             )+
             len
@@ -120,21 +120,21 @@ pub trait EncodeFields<C> {
 }
 
 #[cfg(feature = "fixedstr")]
-impl<const LEN: usize> EreportData for fixedstr::FixedStr<LEN> {
+impl<const LEN: usize> StaticCborLen for fixedstr::FixedStr<LEN> {
     const MAX_CBOR_LEN: usize = LEN + usize::MAX_CBOR_LEN;
 }
 
-macro_rules! impl_ereport_data {
+macro_rules! impl_static_cbor_len {
     ($($T:ty = $len:expr),*$(,)?) => {
         $(
-            impl EreportData for $T {
+            impl StaticCborLen for $T {
                 const MAX_CBOR_LEN: usize = $len;
             }
         )*
     };
 }
 
-impl_ereport_data! {
+impl_static_cbor_len! {
     // A u8 may require up to 2 bytes, see:
     // https://docs.rs/minicbor/2.1.1/src/minicbor/encode.rs.html#513
     u8 = 2,
@@ -161,7 +161,7 @@ impl_ereport_data! {
     bool = 1,
 }
 
-impl EreportData for usize {
+impl StaticCborLen for usize {
     #[cfg(target_pointer_width = "32")]
     const MAX_CBOR_LEN: usize = u32::MAX_CBOR_LEN;
 
@@ -169,7 +169,7 @@ impl EreportData for usize {
     const MAX_CBOR_LEN: usize = u64::MAX_CBOR_LEN;
 }
 
-impl<T: EreportData> EreportData for Option<T> {
+impl<T: StaticCborLen> StaticCborLen for Option<T> {
     const MAX_CBOR_LEN: usize = if T::MAX_CBOR_LEN > 1 {
         T::MAX_CBOR_LEN + 1
     } else {
@@ -177,11 +177,11 @@ impl<T: EreportData> EreportData for Option<T> {
     };
 }
 
-impl<T: EreportData, const LEN: usize> EreportData for [T; LEN] {
+impl<T: StaticCborLen, const LEN: usize> StaticCborLen for [T; LEN] {
     const MAX_CBOR_LEN: usize = usize_cbor_len(LEN) + (LEN * T::MAX_CBOR_LEN);
 }
 
-impl<T: EreportData> EreportData for &T {
+impl<T: StaticCborLen> StaticCborLen for &T {
     const MAX_CBOR_LEN: usize = T::MAX_CBOR_LEN;
 }
 

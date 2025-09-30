@@ -56,7 +56,7 @@ struct TestTupleStruct1(u32, u64);
 struct TestTupleStruct2(u64);
 
 fn main() {
-    const MAX_LEN: usize = ereport::max_cbor_len_for! {
+    const MAX_LEN: usize = microcbor::max_cbor_len_for! {
         TestEnum,
         TestStruct2<TestStruct>,
         TestEnum2<TestStruct>,

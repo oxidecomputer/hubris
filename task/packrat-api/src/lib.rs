@@ -15,7 +15,7 @@ use zerocopy::{
 pub use gateway_ereport_messages as ereport_messages;
 pub use host_sp_messages::HostStartupOptions;
 #[cfg(feature = "microcbor")]
-use microcbor::EreportData;
+use microcbor::StaticCborLen;
 pub use oxide_barcode::OxideIdentity;
 
 /// Represents a range of allocated MAC addresses, per RFD 320
@@ -150,7 +150,7 @@ impl Packrat {
     // buffer is >= E::MAX_CBOR_LEN but unfortunately that isn't currently
     // possible due to https://github.com/rust-lang/rust/issues/132980...
     #[cfg(feature = "microcbor")]
-    pub fn encode_ereport<E: EreportData>(
+    pub fn encode_ereport<E: StaticCborLen>(
         &self,
         ereport: &E,
         buf: &mut [u8],

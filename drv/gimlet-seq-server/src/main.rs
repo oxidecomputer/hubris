@@ -210,7 +210,7 @@ const TIMER_INTERVAL: u32 = 10;
 const EREPORT_BUF_LEN: usize = <task_packrat_api::Ereport<
     EreportClass,
     EreportKind,
-> as microcbor::EreportData>::MAX_CBOR_LEN;
+> as microcbor::StaticCborLen>::MAX_CBOR_LEN;
 
 #[derive(microcbor::EreportData)]
 pub enum EreportClass {
