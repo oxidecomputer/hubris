@@ -29,7 +29,6 @@
 //!
 //! [`minicbor-derive`]: https://docs.rs/minicbor-derive
 #![no_std]
-
 use encode::{Encoder, Write};
 pub use ereport_derive::EreportData;
 pub use minicbor::encode::{self, Encode};
@@ -47,6 +46,39 @@ pub trait EreportData: Encode<()> {
     const MAX_CBOR_LEN: usize;
 }
 
+/// For a list of types implementing [`EreportData`], returns the maximum length
+/// of their CBOR-encoded representations.
+///
+/// This macro may be used to calculate the maximum buffer size necessary to
+/// encode any of a set of types implementing [`EreportData`].
+///
+/// For example:
+///
+/// ```rust
+///
+/// #[derive(ereport::EreportData)]
+/// pub struct MyGreatEreport {
+///     foo: u32,
+///     bar: Option<f64>,
+/// }
+///
+/// #[derive(ereport::EreportData)]
+/// pub enum AnotherEreport {
+///     A { hello: bool, world: f64 },
+///     B(usize),
+/// }
+///
+/// const EREPORT_BUF_LEN: usize = ereport::max_cbor_len_for![
+///     MyGreatEreport,
+///     AnotherEreport,
+/// ];
+///
+/// fn main() {
+///     let mut ereport_buf = [0; EREPORT_BUF_LEN];
+///     // ...
+///     # drop(ereport_buf);
+/// }
+/// ```
 #[macro_export]
 macro_rules! max_cbor_len_for {
     ($($T:ty),+$(,)?) => {

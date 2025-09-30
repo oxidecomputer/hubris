@@ -14,3 +14,5 @@ workspace = true
 [dev-dependencies]
 minicbor = { workspace = true, features = ["alloc", "half"]}
 fixedstr = { path = "../fixedstr", features = ["minicbor"] }
+proptest = { workspace = true }
+proptest-derive = { workspace = true }
