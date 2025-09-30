@@ -125,6 +125,10 @@ impl<T: EreportData> EreportData for Option<T> {
     };
 }
 
+impl<T: EreportData, const LEN: usize> EreportData for [T; LEN] {
+    const MAX_CBOR_LEN: usize = usize_cbor_len(LEN) + (LEN * T::MAX_CBOR_LEN);
+}
+
 impl<T: EreportData> EreportData for &T {
     const MAX_CBOR_LEN: usize = T::MAX_CBOR_LEN;
 }
