@@ -111,9 +111,9 @@ fn system_init() {
     // but there's a 1µF capacitor on that line.  Let's assume we're discharging
     // the capacitor at 5 mA from 3V3; in that case, it will take 0.66 ms, or
     // 42K cycles.  We'll be conservative and pad it to 100K cycles.
-    p.GPIOD.bsrr.write(|w| unsafe { w.bits(1 << 5) }); // set high
+    p.GPIOD.bsrr.write(|w| w.bs5().set());
     p.GPIOD.moder.modify(|_, w| w.moder5().output());
-    p.GPIOD.bsrr.write(|w| unsafe { w.bits(1 << (5 + 16)) }); // active low
+    p.GPIOD.bsrr.write(|w| w.br5().reset());
     cortex_m::asm::delay(100_000);
 
     #[rustfmt::skip]
@@ -149,7 +149,7 @@ fn system_init() {
     let rev = p.GPIOG.idr.read().bits() & 0b111;
 
     // Pull CRESET high for a clean handoff to user code
-    p.GPIOD.bsrr.write(|w| unsafe { w.bits(1 << 5) });
+    p.GPIOD.bsrr.write(|w| w.bs5().set());
 
     cfg_if::cfg_if! {
         if #[cfg(target_board = "gimlet-b")] {
