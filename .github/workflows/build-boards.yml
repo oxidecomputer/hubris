@@ -1,43 +1,63 @@
-name: build-one
+name: build-boards.yml (reusable)
 on:
   workflow_call:
     inputs:
-      build:
-        description: "Name output for the build"
-        required: true
-        type: string
-      app_name:
-        description: "Application directory name"
-        required: true
-        type: string
-      app_toml:
-        description: "TOML file name (must be app directory)"
-        required: true
-        type: string
-      image:
-        description: "Comma separated string of image names to build"
-        required: true
-        type: string
       os:
-        description: "OS to build for"
+        description: OS to build for
         required: true
         type: string
+      filter-directories:
+        description: Space-separated list of directories to build
+        required: false
+        default: .
+        type: string
+
+# Force permissions to be defined at the job level.
+permissions: {}
 
 jobs:
-  build-one:
-     permissions:
-       id-token: write
-       attestations: write
-     name: "${{ inputs.app_name }}/${{ inputs.app_toml}}"
-     runs-on: ${{ inputs.os }}
-     env:
-       VCPKGRS_DYNAMIC: 1
-     steps:
+  scheduler:
+    name: determine job matrix
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - name: Checkout the source code
+        uses: actions/checkout@v5
 
-      # check out our code
-      - uses: actions/checkout@v4
+      - name: Calculate the CI matrix
+        # The $filter_directories bash variable is intentionally not quoted to allow for multiple
+        # filtered paths to be provided in the same job.
+        run: build/gha-build-boards-matrix.py ${filter_directories} --write-github-output
+        id: matrix
+        env:
+          filter_directories: ${{ inputs.filter_directories }}
 
-      # install rust toolchain
+  build:
+    needs:
+      - scheduler
+    name: "${{ matrix.job_name }}"
+    runs-on: ${{ inputs.os }}
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+
+    # We have *a lot* of boards, declaratively defined in the repository through their app.toml
+    # files. Rather than duplicating the list of them here (inevitably forgetting to add some), we
+    # use a script in the `scheduler` job to dynamically calculate the matrix, and inject it here.
+    strategy:
+      matrix:
+        include: ${{ fromJSON(needs.scheduler.outputs.matrix) }}
+
+    env:
+      VCPKGRS_DYNAMIC: 1
+    steps:
+      - name: Checkout the source code
+        uses: actions/checkout@v4
+
       - name: Install Rust toolchain
         run: |
           rustup show active-toolchain || rustup toolchain install
@@ -56,11 +76,10 @@ jobs:
             ${{ runner.os }}-vcpkg-download-${{ inputs.os }}-
             ${{ runner.os }}-vcpkg-download-
 
-      # invoke our build
       - name: cargo xtask dist
         env:
           RUST_BACKTRACE: 1
-        run: cargo xtask dist ${{ inputs.app_toml}}
+        run: cargo xtask dist ${{ matrix.app_toml }}
 
       - name: Fetch Humility
         uses: dsaltares/fetch-gh-release-asset@master
@@ -77,27 +96,30 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y libusb-1.0-0-dev libftdi1-dev
           sudo chmod +x target/release/humility
-          for image in `echo ${{ inputs.image }} | tr "," "\n"`; do \
-              mv target/${{ inputs.app_name }}/dist/$image/build-${{ inputs.app_name }}-image-$image.zip target/${{ inputs.app_name }}/dist/; \
-              target/release/humility -a target/${{ inputs.app_name }}/dist/build-${{ inputs.app_name }}-image-$image.zip manifest; \
+          for image in ${images}; do
+              mv "target/${name}/dist/${image}/build-${name}-image-${image}.zip" "target/${name}/dist/";
+              target/release/humility -a "target/${name}/dist/build-${name}-image-${image}.zip" manifest;
           done
+        env:
+          name: ${{ matrix.app_name }}
+          images: ${{ matrix.image }}
 
       - name: Clippy
         if: inputs.os == 'ubuntu-latest'
         run: |
-          cargo xtask clippy ${{ inputs.app_toml}} -- --deny warnings
+          cargo xtask clippy ${{ matrix.app_toml }} -- --deny warnings
 
       - name: Attestation
         uses: actions/attest-build-provenance@v1
         # Only attest if we're doing a colo build 
         if: inputs.os == 'oxide-colo-builder-hubris'
         with:
-          subject-path: target/${{ inputs.app_name }}/dist/build-${{ inputs.app_name }}-image-*.zip
+          subject-path: target/${{ matrix.app_name }}-image-*.zip
 
       # upload the output of our build
       - name: Upload build archive
         uses: actions/upload-artifact@v4
         if: inputs.os == 'ubuntu-latest' || inputs.os == 'oxide-colo-builder-hubris'
         with:
-          name: dist-${{ inputs.os }}-${{ inputs.app_name }}
-          path: target/${{ inputs.app_name }}/dist/build-${{ inputs.app_name }}-image-*.zip
+          name: dist-${{ inputs.os }}-${{ matrix.app_name }}
+          path: target/${{ matrix.app_name }}/dist/build-${{ matrix.app_name }}-image-*.zip
