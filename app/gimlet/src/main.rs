@@ -72,26 +72,31 @@ fn system_init() {
     // In earlier firmware, we used the SP's internal pull-up resistors.
     // However, the combination of both FPGA and SP pull-up resistors was too
     // strong on certain hardware revisions, leading to marginal voltage
-    // readings.
+    // readings (see hubris#2255 for the gory details).
     //
     // Instead, we reset the FPGA, which puts its pins into their default
     // configuration (with weak pull-ups enabled).  Then, we wait for the pins
-    // to charge before reading the values.
+    // to charge before reading the values.  We have to reset the FPGA, because
+    // there are images in the wild which configure those pins *without*
+    // pull-ups; doing an update + warm reset from such an image would leave the
+    // FPGA configured at this point in the code, without pull-ups.
 
     // Un-gate the clock to GPIO bank G (for revision ID), D (for FPGA reset),
     // and C (for sequencer PG)
-    p.RCC.ahb4enr.modify(|_, w| w.gpiogen().set_bit());
-    p.RCC.ahb4enr.modify(|_, w| w.gpioden().set_bit());
-    p.RCC.ahb4enr.modify(|_, w| w.gpiocen().set_bit());
+    p.RCC.ahb4enr.modify(|_, w| {
+        w.gpiogen().set_bit();
+        w.gpioden().set_bit();
+        w.gpiocen().set_bit()
+    });
     cortex_m::asm::dsb();
 
     // Make PC6 (SEQ_REG_TO_SP_V3P3_PG) and PC7 (SEQ_REG_TO_SP_V1P2_PG) inputs,
     // then wait for both of them to go high.  We time out after 1M iterations
     // (with 100 cycles each), which is roughly 1.5s.
-    #[rustfmt::skip]
-    p.GPIOC.moder.modify(|_, w| w
-        .moder6().input()
-        .moder7().input());
+    p.GPIOC.moder.modify(|_, w| {
+        w.moder6().input();
+        w.moder7().input()
+    });
     const SEQ_PG: u32 = 0b11 << 6;
     let mut seq_pg_okay = false;
     for _ in 0..1_000_000 {
@@ -116,11 +121,11 @@ fn system_init() {
     p.GPIOD.bsrr.write(|w| w.br5().reset());
     cortex_m::asm::delay(100_000);
 
-    #[rustfmt::skip]
-    p.GPIOG.moder.modify(|_, w| w
-        .moder0().input()
-        .moder1().input()
-        .moder2().input());
+    p.GPIOG.moder.modify(|_, w| {
+        w.moder0().input();
+        w.moder1().input();
+        w.moder2().input()
+    });
 
     // We are now charging up the board revision traces through the iCE40's
     // pull-up, which delivers between 11 and 128 µA of current. The floating
