@@ -10,8 +10,8 @@ use crate::{
 pub(crate) const CONTROLLER_CONFIG_LEN: usize = 4;
 pub(crate) static CONTROLLER_CONFIG: [PowerControllerConfig;
     CONTROLLER_CONFIG_LEN] = [
-    adm1272_controller!(HotSwap, vbus_sled, A2, Ohms(0.001)),
-    adm1272_controller!(Sys, vbus_sys, A2, Ohms(0.001)),
+    adm127x_controller!(HotSwap, vbus_sled, A2, Ohms(0.001)),
+    adm127x_controller!(Sys, vbus_sys, A2, Ohms(0.001)),
     rail_controller!(Sys, tps546B24A, v3p3_sys, A2),
     rail_controller!(Sys, tps546B24A, v1p0_sys, A2),
 ];

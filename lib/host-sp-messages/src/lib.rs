@@ -292,8 +292,13 @@ impl From<drv_i2c_types::ResponseCode> for InventoryDataResult {
 /// These **cannot be reordered**; the host and SP must agree on them.  New
 /// variants may be added to the end, and existing variants may be extended with
 /// new data (at the end), but no changes should be made to existing bytes.
+// Note: this type may ask you to let it derive `Copy`. DO NOT ALLOW THIS! An
+// `InventoryData` is *really big* --- over 512 bytes --- and deriving `Copy`
+// would make it easy to accidentally pass one by value on the stack, increasing
+// stack usage when it isn't necessary to do so. We would like to only allow
+// this type to be bytewise-copied explicitly by calling `.clone()`, instead.
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+    Debug, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
 )]
 #[allow(clippy::large_enum_variant)]
 pub enum InventoryData {
@@ -404,8 +409,15 @@ pub enum InventoryData {
         current_sensor: SensorIndex,
     },
 
-    /// Fan subassembly identity
-    FanIdentity {
+    /// Fan subassembly identity (legacy version).
+    ///
+    /// Unlike [`Self::FanIdentityV2`], this message can only represent the
+    /// identities of fans with barcodes in the `0XV1` and `0XV2` formats; fans
+    /// with `MPN1` barcodes will be left blank. Host software that supports it
+    /// will prefer the [`Self::FanIdentityV2`] message, which can represent all
+    /// possible fan serials, but we must still send this message for
+    /// compatibility with older host software.
+    FanIdentityV1 {
         /// Identity of the fan assembly
         identity: Identity,
         /// Identity of the VPD board within the subassembly
@@ -414,7 +426,7 @@ pub enum InventoryData {
         fans: [Identity; 3],
     },
 
-    Adm1272 {
+    Adm127x {
         /// MFR_ID (PMBus operation 0x99)
         mfr_id: [u8; 3],
         /// MFR_MODEL (PMBus operation 0x9A)
@@ -519,6 +531,19 @@ pub enum InventoryData {
         /// 64-bit unique ID for die 1
         die1_unique_id: [u8; 8],
     },
+
+    /// Fan subassembly identity, version 2.
+    ///
+    /// Unlike `FanIdentity`, this message may contain fan barcodes in either
+    /// the `OXV1`/`OXV2` barcode format *or* the `MPN1` barcode format.
+    FanIdentityV2 {
+        /// Identity of the fan assembly
+        identity: Barcode,
+        /// Identity of the VPD board within the subassembly
+        vpd_identity: Barcode,
+        /// Identity of the individual fans
+        fans: [Barcode; 3],
+    },
 }
 
 #[derive(
@@ -532,15 +557,16 @@ pub struct Identity {
     pub serial: [u8; Identity::SERIAL_LEN],
 }
 
-impl From<oxide_barcode::VpdIdentity> for Identity {
-    fn from(id: oxide_barcode::VpdIdentity) -> Self {
+impl From<oxide_barcode::OxideIdentity> for Identity {
+    fn from(id: oxide_barcode::OxideIdentity) -> Self {
         // The Host/SP protocol has larger fields for model/serial than we
         // use currently; statically assert that we haven't outgrown them.
         const_assert!(
-            oxide_barcode::VpdIdentity::PART_NUMBER_LEN <= Identity::MODEL_LEN
+            oxide_barcode::OxideIdentity::PART_NUMBER_LEN
+                <= Identity::MODEL_LEN
         );
         const_assert!(
-            oxide_barcode::VpdIdentity::SERIAL_LEN <= Identity::SERIAL_LEN
+            oxide_barcode::OxideIdentity::SERIAL_LEN <= Identity::SERIAL_LEN
         );
 
         let mut new_id = Self::default();
@@ -552,6 +578,28 @@ impl From<oxide_barcode::VpdIdentity> for Identity {
         new_id.revision = id.revision;
         new_id.serial[..id.serial.len()].copy_from_slice(&id.serial);
         new_id
+    }
+}
+
+/// Error indicating that the VPD identity was not an Oxide barcode
+pub struct NotOxideBarcode;
+
+impl From<oxide_barcode::Mpn1Identity> for Identity {
+    fn from(_: oxide_barcode::Mpn1Identity) -> Self {
+        // Oh no! MPN1 barcodes cannot be represented by this message type.
+        // Guess I'll just give up...
+        Self::default()
+    }
+}
+
+impl TryFrom<oxide_barcode::VpdIdentity> for Identity {
+    type Error = NotOxideBarcode;
+
+    fn try_from(id: oxide_barcode::VpdIdentity) -> Result<Self, Self::Error> {
+        match id {
+            oxide_barcode::VpdIdentity::Mpn1(_) => Err(NotOxideBarcode),
+            oxide_barcode::VpdIdentity::Oxide(id) => Ok(Self::from(id)),
+        }
     }
 }
 
@@ -568,6 +616,59 @@ impl Default for Identity {
 impl Identity {
     pub const MODEL_LEN: usize = 51;
     pub const SERIAL_LEN: usize = 51;
+}
+
+/// A VPD identity represented as a barcode string.
+///
+/// This message type exists in order to represent VPD identities that may be
+/// Oxide-issued serial numbers (the `0XV1`/`0XV2` barcode formats) *or*
+/// manufacturer-issued serial numbers (the `MPN1` barcode format). The
+/// [`Identity`] message, on the other hand, provides a more structured
+/// representation of an identity, but cannot represent the MPN1 format, as
+/// there are no length limits on individual components of the barcode (so the
+/// model number, serial number, and revision could all be up to 114 bytes in
+/// length).
+///
+/// This message should be used for identities which may be in either format,
+/// such as fan barcodes.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+)]
+pub struct Barcode(#[serde(with = "BigArray")] [u8; Self::LEN]);
+
+impl Barcode {
+    pub const LEN: usize = oxide_barcode::Mpn1Identity::MAX_LEN;
+}
+
+impl Default for Barcode {
+    fn default() -> Self {
+        Self([0; Self::LEN])
+    }
+}
+
+impl From<oxide_barcode::Mpn1Identity> for Barcode {
+    fn from(id: oxide_barcode::Mpn1Identity) -> Self {
+        Self(id.buf)
+    }
+}
+
+impl From<oxide_barcode::OxideIdentity> for Barcode {
+    fn from(id: oxide_barcode::OxideIdentity) -> Self {
+        let mut this = Self::default();
+        id.encode_oxv2(&mut this.0[..])
+            // A 128-byte buffer should always fit a 32-byte OXV2 identity...
+            .unwrap_lite();
+        this
+    }
+}
+
+impl From<oxide_barcode::VpdIdentity> for Barcode {
+    fn from(id: oxide_barcode::VpdIdentity) -> Self {
+        match id {
+            oxide_barcode::VpdIdentity::Mpn1(id) => Self::from(id),
+            oxide_barcode::VpdIdentity::Oxide(id) => Self::from(id),
+        }
+    }
 }
 
 // See RFD 316 for values.
@@ -1176,7 +1277,7 @@ mod tests {
                 0, 0, 0, 0, 0, 0, 0, 0, 0,
             ],
         };
-        let d = InventoryData::FanIdentity {
+        let d = InventoryData::FanIdentityV1 {
             identity: i,
             vpd_identity: i,
             fans: [i; 3],
@@ -1192,7 +1293,7 @@ mod tests {
             b = &b[106..];
         }
 
-        let d = InventoryData::Adm1272 {
+        let d = InventoryData::Adm127x {
             mfr_id: [1, 2, 3],
             mfr_model: [9, 8, 7, 6, 5, 4, 3, 2, 1, 0],
             mfr_revision: [0, 10],

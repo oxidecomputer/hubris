@@ -11,11 +11,11 @@ pub(crate) const CONTROLLER_CONFIG_LEN: usize = 16;
 pub(crate) static CONTROLLER_CONFIG: [PowerControllerConfig;
     CONTROLLER_CONFIG_LEN] = [
     rail_controller!(IBC, bmr491, v12p0_sys, A2),
-    adm1272_controller!(Fan, v54_fan0, A2, Ohms(0.001)),
-    adm1272_controller!(Fan, v54_fan1, A2, Ohms(0.001)),
-    adm1272_controller!(Fan, v54_fan2, A2, Ohms(0.001)),
-    adm1272_controller!(Fan, v54_fan3, A2, Ohms(0.001)),
-    adm1272_controller!(Fan, v54_hsc, A2, Ohms(0.001)),
+    adm127x_controller!(Fan, v54_fan0, A2, Ohms(0.001)),
+    adm127x_controller!(Fan, v54_fan1, A2, Ohms(0.001)),
+    adm127x_controller!(Fan, v54_fan2, A2, Ohms(0.001)),
+    adm127x_controller!(Fan, v54_fan3, A2, Ohms(0.001)),
+    adm127x_controller!(Fan, v54_hsc, A2, Ohms(0.001)),
     rail_controller!(Core, raa229618, v0p8_tf2_vdd_core, A0),
     rail_controller!(Sys, tps546B24A, v3p3_sys, A2),
     rail_controller!(Sys, tps546B24A, v5p0_sys, A2),

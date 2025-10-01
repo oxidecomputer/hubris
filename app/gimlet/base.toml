@@ -240,8 +240,8 @@ features = ["stm32h753", "uart7", "baud_rate_3M", "hardware_flow_control", "vlan
 uses = ["uart7", "dbgmcu"]
 interrupts = {"uart7.irq" = "usart-irq"}
 priority = 8
-max-sizes = {flash = 65536, ram = 65536}
-stacksize = 5080
+max-sizes = {flash = 65952, ram = 65536}
+stacksize = 5376
 start = true
 task-slots = ["sys", { cpu_seq = "gimlet_seq" }, "hf", "control_plane_agent", "net", "packrat", "i2c_driver", { spi_driver = "spi2_driver" }, "sprot"]
 notifications = ["jefe-state-change", "usart-irq", "multitimer", "control-plane-agent"]
@@ -994,7 +994,7 @@ refdes = "U352"
 [[config.i2c.devices]]
 bus = "rear"
 address = 0x10
-device = "adm1272"
+device = "adm127x"
 description = "Fan hot swap controller"
 power = { rails = [ "V54_FAN" ] }
 sensors = { temperature = 1, voltage = 1, current = 1 }
@@ -1003,7 +1003,7 @@ refdes = "U419"
 [[config.i2c.devices]]
 bus = "rear"
 address = 0x14
-device = "adm1272"
+device = "adm127x"
 description = "Sled hot swap controller"
 power = { rails = [ "V54_HS_OUTPUT" ] }
 sensors = { temperature = 1, voltage = 1, current = 1 }

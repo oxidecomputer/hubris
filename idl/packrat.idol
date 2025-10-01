@@ -25,7 +25,7 @@ Interface(
         "get_identity": (
             doc: "Get the cached board identity",
             reply: Result(
-                ok: "VpdIdentity",
+                ok: "OxideIdentity",
                 err: CLike("CacheGetError"),
             ),
             idempotent: true,
@@ -33,7 +33,7 @@ Interface(
         "set_identity": (
             doc: "Set the cached board identity",
             args: {
-                "macs": "VpdIdentity",
+                "macs": "OxideIdentity",
             },
             reply: Result(
                 ok: "()",

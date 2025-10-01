@@ -263,7 +263,7 @@ refdes = "U501"
 # a development or evaluation vehicle
 #
 [[config.i2c.devices]]
-device = "adm1272"
+device = "adm127x"
 controller = 4
 port = "F"
 mux = 1

@@ -216,7 +216,38 @@ struct ServerImpl<S: SpiServer> {
 }
 
 const TIMER_INTERVAL: u32 = 10;
-const EREPORT_BUF_LEN: usize = 256;
+const EREPORT_BUF_LEN: usize = <task_packrat_api::Ereport<
+    EreportClass,
+    EreportKind,
+> as microcbor::StaticCborLen>::MAX_CBOR_LEN;
+
+#[derive(microcbor::Encode)]
+pub enum EreportClass {
+    #[cbor(rename = "hw.pwr.pmbus.alert")]
+    PmbusAlert,
+}
+
+#[derive(microcbor::EncodeFields)]
+pub(crate) enum EreportKind {
+    PmbusAlert {
+        refdes: fixedstr::FixedStr<{ crate::i2c_config::MAX_COMPONENT_ID_LEN }>,
+        rail: &'static fixedstr::FixedStr<10>,
+        time: u64,
+        pwr_good: Option<bool>,
+        pmbus_status: PmbusStatus,
+    },
+}
+
+#[derive(Copy, Clone, Default, microcbor::Encode)]
+pub(crate) struct PmbusStatus {
+    word: Option<u16>,
+    input: Option<u8>,
+    iout: Option<u8>,
+    vout: Option<u8>,
+    temp: Option<u8>,
+    cml: Option<u8>,
+    mfr: Option<u8>,
+}
 
 impl<S: SpiServer + Clone> ServerImpl<S> {
     fn init(

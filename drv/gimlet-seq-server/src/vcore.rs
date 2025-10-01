@@ -31,8 +31,8 @@ use crate::gpio_irq_pins::VCORE_TO_SP_ALERT_L;
 use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_i2c_devices::raa229618::Raa229618;
 use drv_stm32xx_sys_api as sys_api;
+use fixedstr::FixedStr;
 use ringbuf::*;
-use serde::Serialize;
 use sys_api::IrqControl;
 use task_packrat_api as packrat_api;
 use userlib::{sys_get_timer, units};
@@ -132,7 +132,7 @@ impl VCore {
     pub fn handle_notification(
         &self,
         packrat: &packrat_api::Packrat,
-        ereport_buf: &mut [u8],
+        ereport_buf: &mut [u8; crate::EREPORT_BUF_LEN],
     ) {
         let now = sys_get_timer().now;
         let asserted = self.sys.gpio_read(VCORE_TO_SP_ALERT_L) == 0;
@@ -161,6 +161,7 @@ impl VCore {
         now: u64,
         packrat: &packrat_api::Packrat,
         ereport_buf: &mut [u8],
+        ereport_buf: &mut [u8; crate::EREPORT_BUF_LEN],
     ) {
         use pmbus::commands::raa229618::STATUS_WORD;
 
@@ -256,7 +257,7 @@ impl VCore {
             .map(|s| s.0);
         ringbuf_entry!(Trace::StatusMfrSpecific(status_mfr_specific));
 
-        let status = PmbusStatus {
+        let status = super::PmbusStatus {
             word: status_word.map(|s| s.0).ok(),
             input: status_input.ok(),
             vout: status_vout.ok(),
@@ -265,16 +266,22 @@ impl VCore {
             cml: status_cml.ok(),
             mfr: status_mfr_specific.ok(),
         };
-        let ereport = PmbusEreport {
+
+        static RAIL: FixedStr<10> = FixedStr::from_str("VDD_VCORE");
+        let ereport = packrat_api::Ereport {
             class: crate::EreportClass::PmbusAlert,
             version: 0,
-            refdes: self.device.i2c_device().component_id(),
-            rail: "VDD_VCORE",
-            time: now,
-            pwr_good,
-            pmbus_status: status,
+            report: crate::EreportKind::PmbusAlert {
+                refdes: FixedStr::from_str(
+                    self.device.i2c_device().component_id(),
+                ),
+                rail: &RAIL,
+                time: now,
+                pwr_good,
+                pmbus_status: status,
+            },
         };
-        crate::deliver_ereport(ereport.class, &ereport, packrat, ereport_buf);
+
         // TODO(eliza): if POWER_GOOD has been deasserted, we should produce a
         // subsequent ereport for that.
 

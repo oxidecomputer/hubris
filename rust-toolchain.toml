@@ -1,4 +1,8 @@
 [toolchain]
+# If you change the toolchain version, check that the cargo registry hash has
+# not changed (look at `remap_paths` in `xtask/src/dist.rs`).  This remapping
+# strips local paths from panic messages, because they're bad for both
+# reproducibility and binary size.
 channel = "nightly-2025-07-20"
 targets = [ "thumbv6m-none-eabi", "thumbv7em-none-eabihf", "thumbv8m.main-none-eabihf" ]
 profile = "minimal"
