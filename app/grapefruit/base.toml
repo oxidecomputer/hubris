@@ -181,7 +181,7 @@ max-sizes = {flash = 131072, ram = 16384 }
 stacksize = 2600
 start = true
 task-slots = ["sys", "jefe", "packrat", "spartan7_loader"]
-uses = ["mmio_sgpio"]
+uses = ["mmio_sgpio", "mmio_espi"]
 
 [tasks.spartan7_loader]
 name = "drv-spartan7-loader"

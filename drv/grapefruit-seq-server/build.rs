@@ -12,16 +12,18 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     )?;
 
     let out_dir = build_util::out_dir();
-    let out_file = out_dir.join("fmc_sgpio.rs");
+    let out_file = out_dir.join("fmc_periph.rs");
     let mut file = std::fs::File::create(out_file)?;
-    write!(
-        &mut file,
-        "{}",
-        build_fpga_regmap::fpga_peripheral(
-            "sgpio",
-            "drv_spartan7_loader_api::Spartan7Token"
-        )?
-    )?;
+    for p in ["sgpio", "espi"] {
+        write!(
+            &mut file,
+            "pub mod {p} {{\n{}\n}}",
+            build_fpga_regmap::fpga_peripheral(
+                p,
+                "drv_spartan7_loader_api::Spartan7Token"
+            )?
+        )?;
+    }
 
     Ok(())
 }
