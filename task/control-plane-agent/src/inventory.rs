@@ -42,27 +42,41 @@ impl Inventory {
         component: &SpComponent,
     ) -> Result<u32, SpError> {
         match Index::try_from(component)? {
-            Index::OurDevice(_) => Ok(0),
+            Index::OurDevice(d) => {
+                match OUR_DEVICES[d].component {
+                    // The SP5 CPU can report a POST code
+                    SpComponent::SP5_HOST_CPU => Ok(1),
+                    // The SP3 CPU can report GPIO toggle counts
+                    SpComponent::SP3_HOST_CPU => Ok(1),
+                    _ => Ok(0),
+                }
+            }
             Index::ValidateDevice(i) => {
                 Ok(VALIDATE_DEVICES[i].sensors.len() as u32)
             }
         }
     }
 
-    pub(crate) fn component_details(
+    pub(crate) fn component_details<F>(
         &self,
         component: &SpComponent,
         component_index: BoundsChecked,
-    ) -> ComponentDetails {
+        our_device_lookup: F,
+    ) -> ComponentDetails
+    where
+        F: Fn(&DeviceDescription<'static>, BoundsChecked) -> ComponentDetails,
+    {
         // `component_index` is guaranteed to be in the range
-        // `0..num_component_details(component)`, and we only return a value
-        // greater than 0 from that method for indices in the VALIDATE_DEVICES
-        // range. We'll map the component back to an index back here and panic
-        // for the unreachable branches (an out of range index or an index in
-        // the `OurDevice(_)` subrange).
+        // `0..num_component_details(component)`. We'll map the component back
+        // to an index back here, panicking for an out-of-range index; the
+        // `our_device_lookup` closure is also expected to panic if given an
+        // out-of-range index
         let val_device_index = match Index::try_from(component) {
             Ok(Index::ValidateDevice(i)) => i,
-            Ok(Index::OurDevice(_)) | Err(_) => panic!(),
+            Ok(Index::OurDevice(i)) => {
+                return our_device_lookup(&OUR_DEVICES[i], component_index)
+            }
+            Err(_) => panic!(),
         };
 
         let sensor_description = &VALIDATE_DEVICES[val_device_index].sensors
