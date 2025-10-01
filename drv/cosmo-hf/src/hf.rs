@@ -509,7 +509,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     fn apob_begin(
         &mut self,
         _: &RecvMessage,
-        length: u64,
+        length: u32,
         algorithm: drv_hf_api::ApobHash,
     ) -> Result<(), RequestError<drv_hf_api::ApobBeginError>> {
         self.apob_state
@@ -520,7 +520,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     fn apob_write(
         &mut self,
         _: &RecvMessage,
-        offset: u64,
+        offset: u32,
         data: Leased<R, [u8]>,
     ) -> Result<(), RequestError<drv_hf_api::ApobWriteError>> {
         self.apob_state
@@ -540,7 +540,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     fn apob_read(
         &mut self,
         _: &RecvMessage,
-        offset: u64,
+        offset: u32,
         data: Leased<W, [u8]>,
     ) -> Result<usize, RequestError<drv_hf_api::ApobReadError>> {
         self.apob_state
@@ -967,7 +967,7 @@ impl idl::InOrderHostFlashImpl for FailServer {
     fn apob_begin(
         &mut self,
         _: &RecvMessage,
-        _length: u64,
+        _length: u32,
         _alg: drv_hf_api::ApobHash,
     ) -> Result<(), RequestError<drv_hf_api::ApobBeginError>> {
         Err(drv_hf_api::ApobBeginError::InvalidState.into())
@@ -976,7 +976,7 @@ impl idl::InOrderHostFlashImpl for FailServer {
     fn apob_write(
         &mut self,
         _: &RecvMessage,
-        _offset: u64,
+        _offset: u32,
         _data: Leased<R, [u8]>,
     ) -> Result<(), RequestError<drv_hf_api::ApobWriteError>> {
         Err(drv_hf_api::ApobWriteError::InvalidState.into())
@@ -992,7 +992,7 @@ impl idl::InOrderHostFlashImpl for FailServer {
     fn apob_read(
         &mut self,
         _: &RecvMessage,
-        _offset: u64,
+        _offset: u32,
         _data: Leased<W, [u8]>,
     ) -> Result<usize, RequestError<drv_hf_api::ApobReadError>> {
         Err(drv_hf_api::ApobReadError::InvalidState.into())

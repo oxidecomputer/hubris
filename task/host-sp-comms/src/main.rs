@@ -146,12 +146,12 @@ enum Trace {
         message: SpToHost,
     },
     ApobWriteError {
-        offset: u64,
+        offset: u32,
         #[count(children)]
         err: drv_hf_api::ApobWriteError,
     },
     ApobReadError {
-        offset: u64,
+        offset: u32,
         #[count(children)]
         err: drv_hf_api::ApobReadError,
     },
@@ -1035,32 +1035,9 @@ impl ServerImpl {
                 }
             }
             HostToSp::ApobBegin { length, algorithm } => {
-                // Decode into internal types, then call into `hf`
-                // XXX should bad hash algorithms or lengths lock the APOB?
-                use drv_hf_api::{ApobBeginError, ApobHash};
-                use host_sp_messages::ApobBeginResult;
-                Some(SpToHost::ApobBegin(match algorithm {
-                    0 => {
-                        if let Ok(d) = data.try_into() {
-                            let hash = ApobHash::Sha256(d);
-                            match self.hf.apob_begin(length, hash) {
-                                Ok(()) => ApobBeginResult::Ok,
-                                Err(ApobBeginError::NotImplemented) => {
-                                    ApobBeginResult::NotImplemented
-                                }
-                                Err(ApobBeginError::InvalidState) => {
-                                    ApobBeginResult::InvalidState
-                                }
-                                Err(ApobBeginError::BadDataLength) => {
-                                    ApobBeginResult::BadDataLength
-                                }
-                            }
-                        } else {
-                            ApobBeginResult::BadHashLength
-                        }
-                    }
-                    _ => ApobBeginResult::InvalidAlgorithm,
-                }))
+                Some(SpToHost::ApobBegin(Self::apob_begin(
+                    &self.hf, length, algorithm, data,
+                )))
             }
             HostToSp::ApobCommit => {
                 // Call into `hf` to do the work here
@@ -1118,6 +1095,43 @@ impl ServerImpl {
         Ok(())
     }
 
+    fn apob_begin(
+        hf: &HostFlash,
+        length: u64,
+        algorithm: u8,
+        data: &[u8],
+    ) -> host_sp_messages::ApobBeginResult {
+        // Decode into internal types, then call into `hf`
+        // XXX should bad hash algorithms or lengths lock the APOB?
+        use drv_hf_api::{ApobBeginError, ApobHash};
+        use host_sp_messages::ApobBeginResult;
+        let Ok(length) = u32::try_from(length) else {
+            return host_sp_messages::ApobBeginResult::BadDataLength;
+        };
+        match algorithm {
+            0 => {
+                if let Ok(d) = data.try_into() {
+                    let hash = ApobHash::Sha256(d);
+                    match hf.apob_begin(length, hash) {
+                        Ok(()) => ApobBeginResult::Ok,
+                        Err(ApobBeginError::NotImplemented) => {
+                            ApobBeginResult::NotImplemented
+                        }
+                        Err(ApobBeginError::InvalidState) => {
+                            ApobBeginResult::InvalidState
+                        }
+                        Err(ApobBeginError::BadDataLength) => {
+                            ApobBeginResult::BadDataLength
+                        }
+                    }
+                } else {
+                    ApobBeginResult::BadHashLength
+                }
+            }
+            _ => ApobBeginResult::InvalidAlgorithm,
+        }
+    }
+
     /// Write data to the bonus region of flash
     ///
     /// This does not take `&self` because we need to force a split borrow
@@ -1128,6 +1142,9 @@ impl ServerImpl {
     ) -> host_sp_messages::ApobDataResult {
         use drv_hf_api::ApobWriteError;
         use host_sp_messages::ApobDataResult;
+        let Ok(offset) = u32::try_from(offset) else {
+            return ApobDataResult::InvalidOffset;
+        };
         match hf.apob_write(offset, data) {
             Ok(()) => ApobDataResult::Ok,
             Err(err) => {
@@ -1158,6 +1175,14 @@ impl ServerImpl {
             self.tx_buf.encode_response(
                 sequence,
                 &SpToHost::ApobRead(ApobReadResult::InvalidSize),
+                |_buf| 0,
+            );
+            return;
+        };
+        let Ok(offset) = u32::try_from(offset) else {
+            self.tx_buf.encode_response(
+                sequence,
+                &SpToHost::ApobRead(ApobReadResult::InvalidOffset),
                 |_buf| 0,
             );
             return;

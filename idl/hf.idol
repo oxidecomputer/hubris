@@ -254,7 +254,7 @@ Interface(
         "apob_begin": (
             description: "begin writing APOB data to bonus flash",
             args: {
-                "length": "u64",
+                "length": "u32",
                 "algorithm": "ApobHash",
             },
             reply: Result(
@@ -267,7 +267,7 @@ Interface(
         "apob_write": (
             description: "writes to the current APOB slot",
             args: {
-                "offset": "u64",
+                "offset": "u32",
             },
             leases: {
                 "data": (type: "[u8]", read: true),
@@ -289,7 +289,7 @@ Interface(
         "apob_read": (
             description: "reads from the current APOB slot",
             args: {
-                "offset": "u64",
+                "offset": "u32",
             },
             leases: {
                 "data": (type: "[u8]", write: true),

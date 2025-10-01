@@ -242,7 +242,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     fn apob_begin(
         &mut self,
         _: &RecvMessage,
-        _length: u64,
+        _length: u32,
         _alg: drv_hf_api::ApobHash,
     ) -> Result<(), RequestError<drv_hf_api::ApobBeginError>> {
         Err(drv_hf_api::ApobBeginError::NotImplemented.into())
@@ -251,7 +251,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     fn apob_write(
         &mut self,
         _: &RecvMessage,
-        _offset: u64,
+        _offset: u32,
         _data: Leased<R, [u8]>,
     ) -> Result<(), RequestError<drv_hf_api::ApobWriteError>> {
         Err(drv_hf_api::ApobWriteError::NotImplemented.into())
@@ -267,7 +267,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     fn apob_read(
         &mut self,
         _: &RecvMessage,
-        _offset: u64,
+        _offset: u32,
         _data: Leased<W, [u8]>,
     ) -> Result<usize, RequestError<drv_hf_api::ApobReadError>> {
         Err(drv_hf_api::ApobReadError::InvalidState.into())

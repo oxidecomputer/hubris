@@ -463,16 +463,15 @@ impl ApobState {
     pub(crate) fn begin(
         &mut self,
         drv: &mut FlashDriver,
-        length: u64,
+        length: u32,
         algorithm: ApobHash,
     ) -> Result<(), ApobBeginError> {
         drv.check_flash_mux_state()
             .map_err(|_| ApobBeginError::InvalidState)?;
-        if length > u64::from(APOB_SLOT_SIZE) {
+        if length > APOB_SLOT_SIZE {
             // XXX should this lock the state machine?
             return Err(ApobBeginError::BadDataLength);
         }
-        let length: u32 = length.try_into().unwrap_lite();
         match *self {
             ApobState::Waiting { write_slot, .. } => {
                 *self = ApobState::Ready {
@@ -509,7 +508,7 @@ impl ApobState {
     pub(crate) fn write(
         &mut self,
         drv: &mut FlashDriver,
-        offset: u64,
+        offset: u32,
         data: Leased<R, [u8]>,
     ) -> Result<(), ApobWriteError> {
         // Check that the flash is muxed to the SP
@@ -517,7 +516,7 @@ impl ApobState {
             .map_err(|_| ApobWriteError::InvalidState)?;
 
         // Check that the offset is within the slot
-        if offset > u64::from(APOB_SLOT_SIZE) {
+        if offset > APOB_SLOT_SIZE {
             return Err(ApobWriteError::InvalidOffset);
         }
 
@@ -537,14 +536,11 @@ impl ApobState {
 
         // Check that the end of the data range is within our expected length
         if offset
-            .checked_add(data.len() as u64)
-            .is_none_or(|d| d > u64::from(expected_length))
+            .checked_add(data.len() as u32)
+            .is_none_or(|d| d > expected_length)
         {
             return Err(ApobWriteError::InvalidSize);
         }
-        let Ok(offset) = u32::try_from(offset) else {
-            return Err(ApobWriteError::InvalidSize);
-        };
         let mut out_buf = [0u8; PAGE_SIZE_BYTES];
         let mut scratch_buf = [0u8; PAGE_SIZE_BYTES];
         for i in (0..data.len()).step_by(PAGE_SIZE_BYTES) {
@@ -581,7 +577,7 @@ impl ApobState {
     pub(crate) fn read(
         &mut self,
         drv: &mut FlashDriver,
-        offset: u64,
+        offset: u32,
         data: Leased<W, [u8]>,
     ) -> Result<usize, ApobReadError> {
         // Check that the flash is muxed to the SP
@@ -589,7 +585,7 @@ impl ApobState {
             .map_err(|_| ApobReadError::InvalidState)?;
 
         // Check that the offset is within the slot
-        if offset > u64::from(APOB_SLOT_SIZE) {
+        if offset > APOB_SLOT_SIZE {
             return Err(ApobReadError::InvalidOffset);
         }
 
@@ -603,8 +599,8 @@ impl ApobState {
 
         // Check that the end of the data range is within a slot size
         if offset
-            .checked_add(data.len() as u64)
-            .is_none_or(|d| d > u64::from(APOB_SLOT_SIZE))
+            .checked_add(data.len() as u32)
+            .is_none_or(|d| d > APOB_SLOT_SIZE)
         {
             return Err(ApobReadError::InvalidSize);
         }
@@ -614,7 +610,7 @@ impl ApobState {
             // Read data from the lease into local storage
             let n = (data.len() - i).min(PAGE_SIZE_BYTES);
             let addr = read_slot
-                .flash_addr(u32::try_from(i as u64 + offset).unwrap_lite())
+                .flash_addr(u32::try_from(i as u32 + offset).unwrap_lite())
                 .unwrap_lite();
 
             // Read back the current data, then write it to the lease
