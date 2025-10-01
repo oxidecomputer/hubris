@@ -6,13 +6,17 @@ on:
         description: "Which set to build"
         required: true
         type: string
+      filter-directories:
+        description: Space-separated list of directories to build.
+        required: true
+        type: string
 
 jobs:
   do-build:
     uses: ./.github/workflows/build-boards.yml
     with:
-       os: oxide-colo-builder-hubris
-       board-set: ${{ inputs.board-set }}
+      os: oxide-colo-builder-hubris
+      filter-directories: ${{ inputs.filter-directories }}
 
   release-build:
     needs: do-build

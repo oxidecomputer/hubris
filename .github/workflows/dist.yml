@@ -12,5 +12,4 @@ jobs:
         os: [ubuntu-latest, windows-latest]
     uses: ./.github/workflows/build-boards.yml
     with:
-      board-set: all
       os: ${{ matrix.os }}
