@@ -55,14 +55,33 @@ struct TestTupleStruct1(u32, u64);
 #[derive(Debug, Encode)]
 struct TestTupleStruct2(u64);
 
+#[derive(Debug, Encode, EncodeFields)]
+#[cbor(tag = "my_cool_tag")]
+enum TestTaggedEnum {
+    #[cbor(rename = "renamed_fields_variant")]
+    RenamedFieldsVariant {
+        a: u32,
+        b: u64,
+    },
+    FieldsVariant {
+        c: u64,
+        d: bool,
+    },
+    #[cbor(rename = "renamed_unit_variant")]
+    RenamedUnitVariant,
+    UnitVariant,
+}
+
 fn main() {
-    const MAX_LEN: usize = microcbor::max_cbor_len_for! {
+    const MAX_LEN: usize = microcbor::max_cbor_len_for![
         TestEnum,
         TestStruct2<TestStruct>,
         TestEnum2<TestStruct>,
         TestStruct2<TestEnum2<TestStruct>>,
         TestEnum3,
-    };
+        TestTaggedEnum,
+        TestStruct2<TestTaggedEnum>,
+    ];
     let mut buf = [0u8; MAX_LEN];
 
     test_one_type(TestEnum::Variant2, &mut buf);
@@ -132,6 +151,29 @@ fn main() {
     );
 
     test_one_type(TestEnum3::UnnamedSingle(42069.0), &mut buf);
+
+    test_one_type(TestTaggedEnum::RenamedUnitVariant, &mut buf);
+
+    test_one_type(
+        TestTaggedEnum::RenamedFieldsVariant { a: 1, b: 2 },
+        &mut buf,
+    );
+
+    test_one_type(
+        TestStruct2 {
+            field6: None,
+            inner: TestTaggedEnum::RenamedUnitVariant,
+        },
+        &mut buf,
+    );
+
+    test_one_type(
+        TestStruct2 {
+            field6: Some(false),
+            inner: TestTaggedEnum::RenamedFieldsVariant { a: 1, b: 2 },
+        },
+        &mut buf,
+    );
 }
 
 fn test_one_type<T: StaticCborLen + std::fmt::Debug>(input: T, buf: &mut [u8]) {
