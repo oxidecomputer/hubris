@@ -11,6 +11,16 @@ on:
         required: false
         default: .
         type: string
+      attest:
+        description: Whether to attest the built artifacts.
+        required: false
+        default: false
+        type: boolean
+      upload-artifacts:
+        description: Whether to upload built boards to the artifacts.
+        required: false
+        default: false
+        type: boolean
 
 # Force permissions to be defined at the job level.
 permissions: {}
@@ -69,6 +79,7 @@ jobs:
 
       - name: Cache vcpkg
         uses: actions/cache@v4
+        if: runner.os == 'Windows'
         with:
           path: C:\vcpkg\downloads
           key: ${{ runner.os }}-vcpkg-download-${{ inputs.os }}-${{ github.sha }}
@@ -83,7 +94,7 @@ jobs:
 
       - name: Fetch Humility
         uses: dsaltares/fetch-gh-release-asset@master
-        if: inputs.os == 'ubuntu-latest' || inputs.os == 'oxide-colo-builder-hubris'
+        if: runner.os == 'Linux'
         with:
           repo: "oxidecomputer/humility"
           version: "59047694"
@@ -92,7 +103,7 @@ jobs:
 
       - name: Test Humility manifest
         # we need to chmod because all artifacts are marked as non-executable
-        if: inputs.os == 'ubuntu-latest' || inputs.os == 'oxide-colo-builder-hubris'
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update && sudo apt-get install -y libusb-1.0-0-dev libftdi1-dev
           sudo chmod +x target/release/humility
@@ -105,21 +116,19 @@ jobs:
           images: ${{ matrix.image }}
 
       - name: Clippy
-        if: inputs.os == 'ubuntu-latest'
+        if: runner.os == 'Linux'
         run: |
           cargo xtask clippy ${{ matrix.app_toml }} -- --deny warnings
 
       - name: Attestation
         uses: actions/attest-build-provenance@v1
-        # Only attest if we're doing a colo build 
-        if: inputs.os == 'oxide-colo-builder-hubris'
+        if: inputs.attest
         with:
           subject-path: target/${{ matrix.app_name }}-image-*.zip
 
-      # upload the output of our build
       - name: Upload build archive
         uses: actions/upload-artifact@v4
-        if: inputs.os == 'ubuntu-latest' || inputs.os == 'oxide-colo-builder-hubris'
+        if: inputs.upload-artifacts
         with:
           name: dist-${{ inputs.os }}-${{ matrix.app_name }}
           path: target/${{ matrix.app_name }}/dist/build-${{ matrix.app_name }}-image-*.zip
