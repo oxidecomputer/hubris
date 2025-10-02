@@ -42,6 +42,26 @@ pub struct VCore {
     sys: sys_api::Sys,
 }
 
+#[derive(microcbor::EncodeFields)]
+pub(super) struct PmbusEreport {
+    refdes: fixedstr::FixedStr<{ crate::i2c_config::MAX_COMPONENT_ID_LEN }>,
+    rail: &'static fixedstr::FixedStr<10>,
+    time: u64,
+    pwr_good: Option<bool>,
+    pmbus_status: PmbusStatus,
+}
+
+#[derive(Copy, Clone, Default, microcbor::Encode)]
+struct PmbusStatus {
+    word: Option<u16>,
+    input: Option<u8>,
+    iout: Option<u8>,
+    vout: Option<u8>,
+    temp: Option<u8>,
+    cml: Option<u8>,
+    mfr: Option<u8>,
+}
+
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,
