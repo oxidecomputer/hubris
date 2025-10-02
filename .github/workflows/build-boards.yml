@@ -66,7 +66,7 @@ jobs:
       VCPKGRS_DYNAMIC: 1
     steps:
       - name: Checkout the source code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install Rust toolchain
         run: |
