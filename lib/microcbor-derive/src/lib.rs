@@ -40,17 +40,66 @@ use syn::{
 ///   rather than as a single-element array.
 /// - Unit enum variants are encoded as strings. By default, the string
 ///   representation is the Rust identifier name of the variant, unless
-///   overridden by the `#[cbor(rename = "..")]` attribute.
+///   overridden by the `#[cbor(rename = "...")]` attribute.
 ///
 ///   Someday, I may add a way to encode enum variants as their `repr`
 ///   values, but I haven't done that yet.
+///
+/// ## Tagged Enum Encoding
+///
+/// The `#[cbor(tag = "...")]` attribute may be placed on an enum type to encode
+/// its variants with a tag field, similar to [`serde`'s "internally tagged" enum
+/// representations](https://serde.rs/enum-representations.html#internally-tagged).
+///
+/// If the `#[cbor(tag = "tag_field_name")]` attribute is present, any variant
+/// of the enum will additionally encode a key-value pair where the key is the
+/// provided tag field name, and the value is the variant's name (or the value
+/// of a `#[cbor(rename = "...")]` attribute on that variant if one is present).
+///
+/// When the enum derives `#[microcbor::Encode]`, it will be encoded as a map
+/// with the tag key-value pair added (in addition to any other fields defined
+/// by the enum) variant). If the variant has no other fields, the map will
+/// contain only the tag key-value pair.
+///
+/// When the enum derives `#[microcbor::EncodeFields]`, the tag field will be
+/// added to the parent map into which the encoded fields are flattened. If the
+/// enum has no other fields, only one additional key-value pair will be added.
+///
+/// **Note**: The tagged representation is not supported for tuple-like enum
+/// variants with unnamed fields.
+///
+/// For example:
+/// ```rust
+/// #[derive(microcbor::Encode, microcbor::EncodeFields)]
+/// #[cbor(tag = "type")]
+/// enum MyEnum {
+///     // will encode as { "type": "Variant1" }
+///     Variant1,
+///     // will encode as { "type": "Variant2", "a": 1, "b": 2 }
+///     Variant2 { a: u64, b: u64 },
+///     // will encode as { "type": "my_cool_variant", "c": 1, "d": 2 }
+///     #[cbor(rename = "my_cool_variant")]
+///     Variant3 { c: u64, d: u64 },
+///     // will encode as { "type": "my_cool_unit_variant"}
+///     #[cbor(rename = "my_cool_unit_variant")]
+///     Variant4,
+/// }
+/// ```
 ///
 /// # Helper Attributes
 ///
 /// This derive macro supports a `#[cbor(...)]` attribute, which may be placed
 /// on fields or variants of a deriving type to modify how they are encoded.
 ///
-/// ## Type Definition Attributes
+/// ## Enum Type Definition Attributes
+///
+/// The following `#[cbor(...)]` attributes are may be placed on the *definition*
+/// of an enum type:
+///
+/// - `#[cbor(tag = "..")]`: Uses the [tagged enum
+///   representation](#tagged-enum-representation) with the specified tag name
+///   when encoding this enum. Note that this attribute may *not* be used on
+///   enums which have tuple-like (unnamed fields) variants.
 ///
 /// ## Field Attributes
 ///
@@ -213,7 +262,7 @@ fn gen_enum_encode_impl(
                     variant_patterns.push(quote! {
                         #ident::#variant_name => {
                             __microcbor_renamed_encoder
-                                .map(2)?
+                                .map(1)?
                                 .str(#tag_field_name)?
                                 .str(#name)?;
                         }
@@ -221,9 +270,9 @@ fn gen_enum_encode_impl(
                     variant_lens.push(quote! {
                         #[allow(non_snake_case)]
                         let #variant_name = {
-                            // this will encode exactly 2 fields, so we use the
+                            // this will encode exactly 1 field, so we use the
                             // length-prefixed repr to save a byte.
-                            let mut len = ::microcbor::u64_cbor_len(2);
+                            let mut len = ::microcbor::u64_cbor_len(1);
                             len += ::microcbor::str_cbor_len(#tag_field_name);
                             len += ::microcbor::str_cbor_len(#name);
                             len
