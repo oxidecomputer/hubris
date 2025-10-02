@@ -10,6 +10,7 @@
 from dataclasses import dataclass
 from typing import Optional
 
+import sys
 import argparse
 import json
 import os
@@ -52,6 +53,9 @@ def main():
             }
         )
 
+    # Consistency checks to prevent starting an invalid matrix.
+    validate_matrix(matrix)
+
     if args.write_github_output:
         with open(os.environ["GITHUB_OUTPUT"], "a") as f:
             f.write(f"matrix={json.dumps(matrix)}")
@@ -74,6 +78,31 @@ def build_job_name(file, config):
         return "build-sidecar (sidecar-d) / sidecar-d/app/sidecar/rev-d.toml"
 
     return config.name
+
+
+def validate_matrix(matrix):
+    errors = []
+
+    # The app name is included in the name of uploaded artifacts, and if there are two jobs with the
+    # same name there will be duplicate artifacts, which are rejected by GitHub Actions.
+    #
+    # If we don't do a consistency check here GitHub Actions will fail the build, but it will only
+    # say that it cannot upload an artifact with the same name as an existing artifact. Here in the
+    # script we can instead provide a better error message, presenting to the user the paths to both
+    # files containing the duplicate app name.
+    tomls = {}
+    for job in matrix:
+        name = job["app_name"]
+        toml = job["app_toml"]
+        if name in tomls:
+            errors.append(f"app {name} is defined in both {tomls[name]} and {toml}")
+        else:
+            tomls[name] = toml
+
+    if errors:
+        for error in errors:
+            print(f"error: {error}", file=sys.stderr)
+        exit(1)
 
 
 # Load an Hubris app.toml from disk, transparently handling inheritance.
