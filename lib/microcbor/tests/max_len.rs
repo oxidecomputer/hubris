@@ -67,8 +67,8 @@ struct TestStructWithArrays {
 }
 
 #[derive(Debug, Encode, EncodeFields, Arbitrary)]
-#[cbor(tag = "my_cool_tag")]
-enum TestTaggedEnum {
+#[cbor(variant_id = "my_cool_tag")]
+enum TestVariantIdEnum {
     #[cbor(rename = "renamed_fields_variant")]
     RenamedFieldsVariant {
         a: u32,
@@ -135,17 +135,17 @@ proptest::proptest! {
     }
 
     #[test]
-    fn tagged_enum(input: TestTaggedEnum) {
+    fn variant_id_enum(input: TestVariantIdEnum) {
         assert_max_len(&input)?;
     }
 
     #[test]
-    fn tagged_enum_nested_or_flattened(input: TestEnum2<TestTaggedEnum>) {
+    fn variant_id_enum_nested_or_flattened(input: TestEnum2<TestVariantIdEnum>) {
         assert_max_len(&input)?;
     }
 
     #[test]
-    fn tagged_enum_array(input: [TestTaggedEnum; 10]) {
+    fn variant_id_enum_array(input: [TestVariantIdEnum; 10]) {
         assert_max_len(&input)?;
     }
 }

@@ -56,8 +56,8 @@ struct TestTupleStruct1(u32, u64);
 struct TestTupleStruct2(u64);
 
 #[derive(Debug, Encode, EncodeFields)]
-#[cbor(tag = "my_cool_tag")]
-enum TestTaggedEnum {
+#[cbor(variant_id = "my_cool_variant_id")]
+enum TestVariantIdEnum {
     #[cbor(rename = "renamed_fields_variant")]
     RenamedFieldsVariant {
         a: u32,
@@ -79,8 +79,8 @@ fn main() {
         TestEnum2<TestStruct>,
         TestStruct2<TestEnum2<TestStruct>>,
         TestEnum3,
-        TestTaggedEnum,
-        TestStruct2<TestTaggedEnum>,
+        TestVariantIdEnum,
+        TestStruct2<TestVariantIdEnum>,
     ];
     let mut buf = [0u8; MAX_LEN];
 
@@ -152,18 +152,21 @@ fn main() {
 
     test_one_type(TestEnum3::UnnamedSingle(42069.0), &mut buf);
 
-    test_one_type(TestTaggedEnum::RenamedUnitVariant, &mut buf);
+    test_one_type(TestVariantIdEnum::RenamedUnitVariant, &mut buf);
 
     test_one_type(
-        TestTaggedEnum::RenamedFieldsVariant { a: 1, b: 2 },
+        TestVariantIdEnum::RenamedFieldsVariant { a: 1, b: 2 },
         &mut buf,
     );
-    test_one_type(TestTaggedEnum::FieldsVariant { c: 1, d: false }, &mut buf);
-    test_one_type(TestTaggedEnum::UnitVariant, &mut buf);
+    test_one_type(
+        TestVariantIdEnum::FieldsVariant { c: 1, d: false },
+        &mut buf,
+    );
+    test_one_type(TestVariantIdEnum::UnitVariant, &mut buf);
     test_one_type(
         TestStruct2 {
             field6: None,
-            inner: TestTaggedEnum::RenamedUnitVariant,
+            inner: TestVariantIdEnum::RenamedUnitVariant,
         },
         &mut buf,
     );
@@ -171,7 +174,7 @@ fn main() {
     test_one_type(
         TestStruct2 {
             field6: Some(false),
-            inner: TestTaggedEnum::RenamedFieldsVariant { a: 1, b: 2 },
+            inner: TestVariantIdEnum::RenamedFieldsVariant { a: 1, b: 2 },
         },
         &mut buf,
     );
