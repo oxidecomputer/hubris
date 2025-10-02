@@ -199,7 +199,9 @@ fn gen_enum_encode_impl(
             syn::Fields::Unit => match tag_field_name {
                 None => {
                     variant_patterns.push(quote! {
-                        #ident::#variant_name => { e.str(#name)?; }
+                        #ident::#variant_name => {
+                            __microcbor_renamed_encoder.str(#name)?;
+                        }
                     });
                     variant_lens.push(quote! {
                         if ::microcbor::str_cbor_len(#name) > max {
@@ -210,7 +212,10 @@ fn gen_enum_encode_impl(
                 Some(ref tag_field_name) => {
                     variant_patterns.push(quote! {
                         #ident::#variant_name => {
-                            e.map(2)?.str(#tag_field_name)?.str(#name)?;
+                            __microcbor_renamed_encoder
+                                .map(2)?
+                                .str(#tag_field_name)?
+                                .str(#name)?;
                         }
                     });
                     variant_lens.push(quote! {
@@ -252,9 +257,9 @@ fn gen_enum_encode_impl(
                 };
                 variant_patterns.push(quote! {
                     #match_pattern => {
-                        e.begin_map()?;
+                        __microcbor_renamed_encoder.begin_map()?;
                         #(#field_encode_exprs)*
-                        e.end()?;
+                        __microcbor_renamed_encoder.end()?;
                     }
                 });
                 variant_lens.push(quote! {
@@ -318,9 +323,9 @@ fn gen_enum_encode_impl(
                     // determinate length encoding and save a byte...
                     variant_patterns.push(quote! {
                         #match_pattern => {
-                            e.begin_array()?;
+                            __microcbor_renamed_encoder.begin_array()?;
                             #(#field_encode_exprs)*
-                            e.end()?;
+                            __microcbor_renamed_encoder.end()?;
                         }
                     });
                     variant_lens.push(quote! {
@@ -362,8 +367,8 @@ fn gen_enum_encode_impl(
         {
             fn encode<W: ::microcbor::encode::Write>(
                 &self,
-                e: &mut ::microcbor::encode::Encoder<W>,
-                c: &mut (),
+                __microcbor_renamed_encoder: &mut ::microcbor::encode::Encoder<W>,
+                __microcbor_renamed_ctx: &mut (),
             ) -> Result<(), ::microcbor::encode::Error<W::Error>> {
                 match self {
                     #(#variant_patterns,)*
@@ -457,14 +462,14 @@ fn gen_encode_struct_impl(
             {
                 fn encode<W: ::microcbor::encode::Write>(
                     &self,
-                    e: &mut ::microcbor::encode::Encoder<W>,
-                    c: &mut (),
+                    __microcbor_renamed_encoder: &mut ::microcbor::encode::Encoder<W>,
+                    __microcbor_renamed_ctx: &mut (),
                 ) -> Result<(), ::microcbor::encode::Error<W::Error>> {
 
                     let Self { #(#field_patterns,)* } = self;
-                    e.begin_map()?;
+                    __microcbor_renamed_encoder.begin_map()?;
                     #(#encode_exprs)*
-                    e.end()?;
+                    __microcbor_renamed_encoder.end()?;
                     Ok(())
                 }
             }
@@ -492,8 +497,8 @@ fn gen_encode_struct_impl(
             {
                 fn encode<W: ::microcbor::encode::Write>(
                     &self,
-                    e: &mut ::microcbor::encode::Encoder<W>,
-                    c: &mut (),
+                    __microcbor_renamed_encoder: &mut ::microcbor::encode::Encoder<W>,
+                    __microcbor_renamed_ctx: &mut (),
                 ) -> Result<(), ::microcbor::encode::Error<W::Error>> {
                     let Self( #(#field_patterns,)* ) = self;
                     #encode_expr
@@ -522,16 +527,16 @@ fn gen_encode_struct_impl(
             {
                 fn encode<W: ::microcbor::encode::Write>(
                     &self,
-                    e: &mut ::microcbor::encode::Encoder<W>,
-                    c: &mut (),
+                    __microcbor_renamed_encoder: &mut ::microcbor::encode::Encoder<W>,
+                    __microcbor_renamed_ctx: &mut (),
                 ) -> Result<(), ::microcbor::encode::Error<W::Error>> {
                     let Self( #(#field_patterns,)* ) = self;
                     // TODO: Since we don't flatten anything into the array
                     // generated for unnamed fields, we could use the
                     // determinate length encoding and save a byte...
-                    e.begin_array()?;
+                    __microcbor_renamed_encoder.begin_array()?;
                     #(#encode_exprs)*
-                    e.end()?;
+                    __microcbor_renamed_encoder.end()?;
                     Ok(())
                 }
             }
@@ -583,8 +588,8 @@ fn gen_encode_fields_struct_impl(
 
             fn encode_fields<W: ::microcbor::encode::Write>(
                 &self,
-                e: &mut ::microcbor::encode::Encoder<W>,
-                c: &mut (),
+                __microcbor_renamed_encoder: &mut ::microcbor::encode::Encoder<W>,
+                __microcbor_renamed_ctx: &mut (),
             ) -> Result<(), ::microcbor::encode::Error<W::Error>> {
                 let Self { #(#field_patterns,)* } = self;
                 #(#field_encode_exprs)*
@@ -696,8 +701,8 @@ fn gen_encode_fields_enum_impl(
 
             fn encode_fields<W: ::microcbor::encode::Write>(
                 &self,
-                e: &mut ::microcbor::encode::Encoder<W>,
-                c: &mut (),
+                __microcbor_renamed_encoder: &mut ::microcbor::encode::Encoder<W>,
+                __microcbor_renamed_ctx: &mut (),
             ) -> Result<(), ::microcbor::encode::Error<W::Error>> {
                 match self {
                     #(#variant_patterns,)*
@@ -754,7 +759,9 @@ impl FieldGenerator {
             len += ::microcbor::str_cbor_len(#tag)
         });
         self.field_encode_exprs.push(quote! {
-            e.str(#tag_field_name)?.str(#tag)?;
+            __microcbor_renamed_encoder
+                .str(#tag_field_name)?
+                .str(#tag)?;
         });
     }
 
@@ -827,7 +834,7 @@ impl FieldGenerator {
                     });
                     self.field_patterns.push(quote! { #field_ident });
                     let encode_name = quote! {
-                        e.str(#field_name)?;
+                        __microcbor_renamed_encoder.str(#field_name)?;
                     };
                     let name_len = quote! {
                         len += ::microcbor::str_cbor_len(#field_name);
@@ -856,7 +863,11 @@ impl FieldGenerator {
                 len += <#field_type as ::microcbor::EncodeFields<()>>::MAX_FIELDS_LEN;
             });
             self.field_encode_exprs.push(quote! {
-                ::microcbor::EncodeFields::<()>::encode_fields(#field_ident, e, c)?;
+                ::microcbor::EncodeFields::<()>::encode_fields(
+                    #field_ident,
+                    __microcbor_renamed_encoder,
+                    __microcbor_renamed_ctx,
+                )?;
             });
         } else {
             self.field_len_exprs.push(quote! {
@@ -867,13 +878,21 @@ impl FieldGenerator {
                 quote! {
                     if !::microcbor::Encode::<()>::is_nil(#field_ident) {
                         #encode_name
-                        ::microcbor::Encode::<()>::encode(#field_ident, e, c)?;
+                        ::microcbor::Encode::<()>::encode(
+                            #field_ident,
+                            __microcbor_renamed_encoder,
+                            __microcbor_renamed_ctx,
+                        )?;
                     }
                 }
             } else {
                 quote! {
                     #encode_name
-                    ::microcbor::Encode::<()>::encode(#field_ident, e, c)?;
+                    ::microcbor::Encode::<()>::encode(
+                        #field_ident,
+                        __microcbor_renamed_encoder,
+                        __microcbor_renamed_ctx,
+                    )?;
                 }
             });
             self.where_bounds.push(quote! {
