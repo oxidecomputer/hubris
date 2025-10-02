@@ -158,7 +158,8 @@ fn main() {
         TestTaggedEnum::RenamedFieldsVariant { a: 1, b: 2 },
         &mut buf,
     );
-
+    test_one_type(TestTaggedEnum::FieldsVariant { c: 1, d: false }, &mut buf);
+    test_one_type(TestTaggedEnum::UnitVariant, &mut buf);
     test_one_type(
         TestStruct2 {
             field6: None,

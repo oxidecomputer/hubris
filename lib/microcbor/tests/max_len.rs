@@ -66,6 +66,23 @@ struct TestStructWithArrays {
     blargh: usize,
 }
 
+#[derive(Debug, Encode, EncodeFields, Arbitrary)]
+#[cbor(tag = "my_cool_tag")]
+enum TestTaggedEnum {
+    #[cbor(rename = "renamed_fields_variant")]
+    RenamedFieldsVariant {
+        a: u32,
+        b: u64,
+    },
+    FieldsVariant {
+        c: u64,
+        d: bool,
+    },
+    #[cbor(rename = "renamed_unit_variant")]
+    RenamedUnitVariant,
+    UnitVariant,
+}
+
 #[track_caller]
 fn assert_max_len<T: StaticCborLen + std::fmt::Debug>(
     input: &T,
@@ -114,6 +131,21 @@ proptest::proptest! {
 
     #[test]
     fn struct_with_arrays(input: TestStructWithArrays) {
+        assert_max_len(&input)?;
+    }
+
+    #[test]
+    fn tagged_enum(input: TestTaggedEnum) {
+        assert_max_len(&input)?;
+    }
+
+    #[test]
+    fn tagged_enum_nested_or_flattened(input: TestEnum2<TestTaggedEnum>) {
+        assert_max_len(&input)?;
+    }
+
+    #[test]
+    fn tagged_enum_array(input: [TestTaggedEnum; 10]) {
         assert_max_len(&input)?;
     }
 }
