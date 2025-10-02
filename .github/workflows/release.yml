@@ -17,6 +17,8 @@ jobs:
     with:
       os: oxide-colo-builder-hubris
       filter-directories: ${{ inputs.filter-directories }}
+      upload-artifacts: true
+      attest: true
 
   release-build:
     needs: do-build
