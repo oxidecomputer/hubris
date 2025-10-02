@@ -940,6 +940,13 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         Err(drv_hf_api::ApobCommitError::NotImplemented.into())
     }
 
+    fn apob_lock(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
+        Err(RequestError::Fail(ClientError::BadMessageContents))
+    }
+
     fn apob_read(
         &mut self,
         _: &RecvMessage,
@@ -1164,6 +1171,13 @@ impl idl::InOrderHostFlashImpl for FailServer {
         _: &RecvMessage,
     ) -> Result<(), RequestError<drv_hf_api::ApobCommitError>> {
         Err(drv_hf_api::ApobCommitError::NotImplemented.into())
+    }
+
+    fn apob_lock(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
+        Ok(())
     }
 
     fn apob_read(

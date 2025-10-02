@@ -286,6 +286,11 @@ Interface(
             ),
             idempotent: true,
         ),
+        "apob_lock": (
+            description: "locks the APOB state machine",
+            reply: Simple("()"),
+            idempotent: true,
+        ),
         "apob_read": (
             description: "reads from the current APOB slot",
             args: {

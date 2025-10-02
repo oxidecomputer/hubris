@@ -537,6 +537,14 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             .map_err(RequestError::from)
     }
 
+    fn apob_lock(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
+        self.apob_state.lock();
+        Ok(())
+    }
+
     fn apob_read(
         &mut self,
         _: &RecvMessage,
@@ -987,6 +995,14 @@ impl idl::InOrderHostFlashImpl for FailServer {
         _: &RecvMessage,
     ) -> Result<(), RequestError<drv_hf_api::ApobCommitError>> {
         Err(drv_hf_api::ApobCommitError::InvalidState.into())
+    }
+
+    fn apob_lock(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
+        // Locking is tautological if we're running the error server
+        Ok(())
     }
 
     fn apob_read(

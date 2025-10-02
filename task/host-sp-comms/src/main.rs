@@ -822,6 +822,27 @@ impl ServerImpl {
             self.tx_buf.reset();
         }
 
+        // If we receive an out-of-sequence message, then lock the APOB state
+        // machine.  This makes it harder for malicious hosts to exfiltrate
+        // data via the host flash APOB slots.
+        match request {
+            HostToSp::KeyLookup { .. }
+            | HostToSp::GetBootStorageUnit
+            | HostToSp::GetIdentity
+            | HostToSp::GetStatus
+            | HostToSp::AckSpStart
+            | HostToSp::ApobBegin { .. }
+            | HostToSp::ApobData { .. }
+            | HostToSp::ApobRead { .. }
+            | HostToSp::ApobCommit => {
+                // These are explicitly allowed
+            }
+            _ => {
+                // Anything not allowed is prohibited!
+                self.hf.apob_lock();
+            }
+        }
+
         // We defer any actions until after we've serialized our response to
         // avoid borrow checker issues with calling methods on `self`.
         let mut action = None;

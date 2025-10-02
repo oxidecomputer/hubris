@@ -620,6 +620,19 @@ impl ApobState {
         Ok(data.len())
     }
 
+    pub(crate) fn lock(&mut self) {
+        match *self {
+            ApobState::Ready { .. } | ApobState::Waiting { .. } => {
+                *self = ApobState::Locked {
+                    commit_result: Err(ApobCommitError::InvalidState),
+                };
+            }
+            ApobState::Locked { .. } => {
+                // Nothing to do here
+            }
+        }
+    }
+
     pub(crate) fn commit(
         &mut self,
         drv: &mut FlashDriver,

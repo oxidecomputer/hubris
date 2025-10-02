@@ -264,6 +264,13 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         Err(drv_hf_api::ApobCommitError::NotImplemented.into())
     }
 
+    fn apob_lock(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
+        Ok(())
+    }
+
     fn apob_read(
         &mut self,
         _: &RecvMessage,
