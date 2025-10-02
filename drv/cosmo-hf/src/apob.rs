@@ -609,9 +609,7 @@ impl ApobState {
         for i in (0..data.len()).step_by(PAGE_SIZE_BYTES) {
             // Read data from the lease into local storage
             let n = (data.len() - i).min(PAGE_SIZE_BYTES);
-            let addr = read_slot
-                .flash_addr(u32::try_from(i as u32 + offset).unwrap_lite())
-                .unwrap_lite();
+            let addr = read_slot.flash_addr(i as u32 + offset).unwrap_lite();
 
             // Read back the current data, then write it to the lease
             drv.flash_read(addr, &mut &mut out_buf[..n])
