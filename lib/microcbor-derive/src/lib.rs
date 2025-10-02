@@ -75,7 +75,8 @@ use syn::{
 ///
 /// For example:
 /// ```rust
-/// #[derive(microcbor::Encode, microcbor::EncodeFields)]
+/// # use microcbor_derive::*;
+/// #[derive(Encode, EncodeFields)]
 /// #[cbor(variant_id = "type")]
 /// enum MyEnum {
 ///     // will encode as { "type": "Variant1" }
