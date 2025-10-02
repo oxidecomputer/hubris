@@ -1,0 +1,51 @@
+# Tiny Grapefruit image, mostly for testing Humility
+board = "grapefruit"
+name = "grapefruit-mini"
+target = "thumbv7em-none-eabihf"
+chip = "../../chips/stm32h7"
+memory = "memory-large.toml"
+stacksize = 512
+
+[kernel]
+name = "grapefruit"
+requires = {flash = 32768, ram = 2048}
+features = ["measurement-handoff"]
+extern-regions = ["dtcm"]
+
+[tasks.jefe]
+name = "task-jefe"
+priority = 0
+start = true
+notifications = ["fault", "timer"]
+extern-regions = ["sram1", "sram2", "sram3", "sram4"]
+
+[tasks.jefe.config.allowed-callers]
+set_reset_reason = ["sys"]
+
+[tasks.sys]
+name = "drv-stm32xx-sys"
+features = ["h753"]
+priority = 1
+uses = ["rcc", "gpios", "system_flash", "syscfg"]
+start = true
+task-slots = ["jefe"]
+
+[tasks.user_leds]
+name = "drv-user-leds"
+features = ["stm32h7"]
+priority = 5
+start = true
+task-slots = ["sys"]
+notifications = ["timer"]
+
+[tasks.pong]
+name = "task-pong"
+priority = 8
+start = true
+task-slots = ["user_leds"]
+notifications = ["timer"]
+
+[tasks.idle]
+name = "task-idle"
+priority = 9
+start = true
