@@ -251,41 +251,59 @@ Interface(
                 err: CLike("HfError"),
             ),
         ),
-        "bonus_page_program": (
-            description: "programs a page into the bonus region of host flash",
+        "apob_begin": (
+            description: "begin writing APOB data to bonus flash",
             args: {
-                "address": "u32",
+                "length": "u32",
+                "algorithm": "ApobHash",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("ApobBeginError"),
+            ),
+            encoding: Hubpack,
+            idempotent: true,
+        ),
+        "apob_write": (
+            description: "writes to the current APOB slot",
+            args: {
+                "offset": "u32",
             },
             leases: {
-                "data": (type: "[u8]", read: true, max_len: Some(256)),
+                "data": (type: "[u8]", read: true),
             },
             reply: Result(
                 ok: "()",
-                err: CLike("HfError"),
+                err: CLike("ApobWriteError"),
             ),
+            idempotent: true,
         ),
-        "bonus_read": (
-            description: "reads from the bonus region of host flash",
+        "apob_commit": (
+            description: "commits the written APOB slot",
+            reply: Result(
+                ok: "()",
+                err: CLike("ApobCommitError"),
+            ),
+            idempotent: true,
+        ),
+        "apob_lock": (
+            description: "locks the APOB state machine",
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+        "apob_read": (
+            description: "reads from the current APOB slot",
             args: {
-                "address": "u32",
+                "offset": "u32",
             },
             leases: {
-                "data": (type: "[u8]", write: true, max_len: Some(256)),
+                "data": (type: "[u8]", write: true),
             },
             reply: Result(
-                ok: "()",
-                err: CLike("HfError"),
+                ok: "usize",
+                err: CLike("ApobReadError"),
             ),
-        ),
-        "bonus_sector_erase": (
-            description: "erases a 64 KiB sector from the bonus region of host flash",
-            args: {
-                "address": "u32",
-            },
-            reply: Result(
-                ok: "()",
-                err: CLike("HfError"),
-            ),
+            idempotent: true,
         ),
     },
 )
