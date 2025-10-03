@@ -10,7 +10,7 @@
 use drv_ignition_api::*;
 use drv_sidecar_mainboard_controller::ignition::*;
 use ringbuf::*;
-use userlib::{hl, sys_get_timer, sys_set_timer, task_slot, UnwrapLite};
+use userlib::{sys_get_timer, sys_set_timer, task_slot, UnwrapLite};
 
 task_slot!(FPGA, fpga);
 #[cfg(feature = "sequencer")]
@@ -58,7 +58,7 @@ fn main() -> ! {
         // ready.
         ringbuf_entry!(Trace::AwaitingMainboardControllerReady);
         while !sequencer.mainboard_controller_ready().unwrap_or(false) {
-            hl::sleep_for(25);
+            userlib::hl::sleep_for(25);
         }
     }
 
