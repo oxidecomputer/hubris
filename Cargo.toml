@@ -105,6 +105,8 @@ paste = { version = "1", default-features = false }
 path-slash = { version = "0.1.3", default-features = false }
 prettyplease = { version = "0.2.29", default-features = false }
 proc-macro2 = { version = "1", default-features = false }
+proptest = { version = "1.8.0" }
+proptest-derive = { version = "0.6.0" }
 quote = { version = "1", default-features = false }
 rand = { version = "0.8", default-features = false }
 rand_chacha = { version = "0.3", default-features = false }
