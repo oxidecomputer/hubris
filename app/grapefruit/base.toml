@@ -428,7 +428,7 @@ input = {port = "B", pin = 14, af = 5} # not actually used in FPGA config
 [config.spi.spi2.devices.spartan7_fpga]
 mux = "port_b"
 cs = []
-clock_divider = "DIV8" # 12.5 MHz
+clock_divider = "Div8" # 12.5 MHz
 # no CS pin; we're using the SPI peripheral to send synchronized CLK + DATA
 
 [config.spi.spi4]
@@ -443,7 +443,7 @@ input = {port = "E", pin = 5, af = 5}
 [config.spi.spi4.devices.rot]
 mux = "port_e"
 cs = [{port = "E", pin = 4}]
-clock_divider = "DIV256"
+clock_divider = "Div256"
 
 ################################################################################
 

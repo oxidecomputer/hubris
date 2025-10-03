@@ -8,7 +8,6 @@ use attest_api::AttestError;
 use derive_more::From;
 use drv_caboose::CabooseError;
 use drv_lpc55_update_api::RawCabooseError;
-use drv_spi_api::SpiError;
 use drv_update_api::UpdateError;
 use dumper_api::DumperError;
 use hubpack::SerializedSize;
@@ -37,7 +36,6 @@ use idol_runtime::RequestError;
 )]
 pub enum SprotError {
     Protocol(#[count(children)] SprotProtocolError),
-    Spi(#[count(children)] SpiError),
     Update(#[count(children)] UpdateError),
     Sprockets(#[count(children)] SprocketsError),
     Watchdog(#[count(children)] WatchdogError),
@@ -47,7 +45,6 @@ impl From<SprotError> for SpError {
     fn from(value: SprotError) -> Self {
         match value {
             SprotError::Protocol(e) => Self::Sprot(e.into()),
-            SprotError::Spi(e) => Self::Spi(e.into()),
             SprotError::Update(e) => Self::Update(e.into()),
             SprotError::Sprockets(e) => Self::Sprockets(e.into()),
             SprotError::Watchdog(e) => Self::Watchdog(e.into()),
@@ -59,7 +56,6 @@ impl From<SprotError> for RotError {
     fn from(value: SprotError) -> Self {
         match value {
             SprotError::Protocol(e) => Self::Sprot(e.into()),
-            SprotError::Spi(e) => Self::Spi(e.into()),
             SprotError::Update(e) => Self::Update(e.into()),
             SprotError::Sprockets(e) => Self::Sprockets(e.into()),
             SprotError::Watchdog(e) => Self::Watchdog(e.into()),
@@ -344,10 +340,6 @@ impl From<AttestOrSprotError> for AttestDataSprotError {
                     SprotProtocolError::Desynchronized => {
                         Self::ProtocolDesynchronized
                     }
-                },
-                SprotError::Spi(e1) => match e1 {
-                    SpiError::BadTransferSize => Self::SpiBadTransferSize,
-                    SpiError::TaskRestarted => Self::SpiTaskRestarted,
                 },
                 // We should never return these but it's safer to return an
                 // enum just in case these come up
