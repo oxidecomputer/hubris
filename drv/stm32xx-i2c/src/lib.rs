@@ -493,7 +493,7 @@ impl I2cController<'_> {
     /// A common routine to wait for interrupts, panicking the driver if the
     /// interrupt doesn't arrive in an arbitrarily chosen period of time.
     ///
-    fn wfi(&self) -> Result<(), drv_i2c_api::ResponseCode> {
+    fn wfi(&self) {
         //
         // A 100 ms timeout is 4x longer than the I2C timeouts, but much shorter
         // than potential context switches when dumps are being recorded by a
@@ -521,7 +521,7 @@ impl I2cController<'_> {
                 ringbuf_entry!(Trace::LostInterrupt);
                 self.panic();
             }
-            I2cControlResult::Interrupted => Ok(()),
+            I2cControlResult::Interrupted => (),
         }
     }
 
@@ -643,7 +643,7 @@ impl I2cController<'_> {
                         break;
                     }
 
-                    self.wfi()?;
+                    self.wfi();
                     sys_irq_control(notification, true);
                 }
 
@@ -675,7 +675,7 @@ impl I2cController<'_> {
                     break;
                 }
 
-                self.wfi()?;
+                self.wfi();
                 sys_irq_control(notification, true);
             }
         }
@@ -723,7 +723,7 @@ impl I2cController<'_> {
                 }
 
                 loop {
-                    self.wfi()?;
+                    self.wfi();
                     sys_irq_control(notification, true);
 
                     let isr = i2c.isr.read();
@@ -781,7 +781,7 @@ impl I2cController<'_> {
 
                 self.check_errors(&isr)?;
 
-                self.wfi()?;
+                self.wfi();
                 sys_irq_control(notification, true);
             }
         }
@@ -862,7 +862,7 @@ impl I2cController<'_> {
                     break;
                 }
 
-                self.wfi()?;
+                self.wfi();
                 sys_irq_control(notification, true);
             }
         }
@@ -1217,22 +1217,18 @@ fn wfi_raw(event_mask: u32, timeout: I2cTimeout) -> I2cControlResult {
             // off before we got to this point.
             sys_set_timer(None, TIMER_NOTIFICATION);
             break I2cControlResult::Interrupted;
-        } else {
-            // The timer bit must have been set. Verify that our timer has
-            // actually expired:
-            if sys_get_timer().now >= dead {
-                break I2cControlResult::TimedOut;
-            }
-
-            // Otherwise, one of two things has happened:
-            // 1. Some joker has posted to our timer bit. Ha ha very funny.
-            // 2. The timer bit was _already set_ on entry to this routine, as a
-            //    hangover from a previous run.
-            //
-            // We don't need to re-set our timer here because we sampled
-            // sys_get_timer _after_ receiving notifications, meaning it either
-            // hasn't gone off, or it has gone off but that fact is still stored
-            // in our notification bits.
+        } else if received.has_timer_fired(TIMER_NOTIFICATION) {
+            break I2cControlResult::TimedOut;
         }
+
+        // Otherwise, one of two things has happened:
+        // 1. Some joker has posted to our timer bit. Ha ha very funny.
+        // 2. The timer bit was _already set_ on entry to this routine, as a
+        //    hangover from a previous run.
+        //
+        // We don't need to re-set our timer here because we sampled
+        // sys_get_timer _after_ receiving notifications, meaning it either
+        // hasn't gone off, or it has gone off but that fact is still stored
+        // in our notification bits.
     }
 }
