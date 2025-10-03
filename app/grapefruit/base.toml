@@ -24,7 +24,7 @@ size = 256
 default = true
 
 [tasks.jefe]
-name = "task-jefe"
+bin-crate = "task-jefe"
 priority = 0
 max-sizes = {flash = 16384, ram = 4096}
 start = true
@@ -39,7 +39,7 @@ set_state = ["grapefruit_seq"]
 request_reset = ["hiffy", "udprpc", "control_plane_agent"]
 
 [tasks.sys]
-name = "drv-stm32xx-sys"
+bin-crate = "drv-stm32xx-sys"
 # Enable EXTI in the sys task so that we can notify sprot when the RoT
 # raises an IRQ.
 features = ["h753", "exti"]
@@ -65,7 +65,7 @@ pin = 2
 owner = {name = "sprot", notification = "rot_irq"}
 
 [tasks.spi2_driver]
-name = "drv-stm32h7-spi-server"
+bin-crate = "drv-stm32h7-spi-server"
 priority = 2
 max-sizes = {flash = 16384, ram = 4096}
 features = ["spi2", "h753"]
@@ -77,7 +77,7 @@ task-slots = ["sys"]
 notifications = ["spi-irq"]
 
 [tasks.i2c_driver]
-name = "drv-stm32xx-i2c-server"
+bin-crate = "drv-stm32xx-i2c-server"
 stacksize = 1048
 features = ["h753"]
 priority = 2
@@ -98,7 +98,7 @@ notifications = ["i2c1-irq", "i2c2-irq", "i2c3-irq", "i2c4-irq"]
 "i2c4.error" = "i2c4-irq"
 
 [tasks.user_leds]
-name = "drv-user-leds"
+bin-crate = "drv-user-leds"
 features = ["stm32h7"]
 priority = 5
 max-sizes = {flash = 2048, ram = 1024}
@@ -107,7 +107,7 @@ task-slots = ["sys"]
 notifications = ["timer"]
 
 [tasks.packrat]
-name = "task-packrat"
+bin-crate = "task-packrat"
 priority = 1
 start = true
 # task-slots is explicitly empty: packrat should not send IPCs!
@@ -115,7 +115,7 @@ task-slots = []
 features = ["grapefruit", "boot-kmdb"]
 
 [tasks.hiffy]
-name = "task-hiffy"
+bin-crate = "task-hiffy"
 priority = 7
 max-sizes = {flash = 32768, ram = 65536}
 stacksize = 2048
@@ -124,7 +124,7 @@ features = ["h753", "stm32h7", "i2c", "gpio", "sprot", "qspi", "hash", "turbo"]
 task-slots = ["i2c_driver", "sys", "user_leds", "sprot", "hf", "hash_driver"]
 
 [tasks.validate]
-name = "task-validate"
+bin-crate = "task-validate"
 priority = 3
 max-sizes = {flash = 32768, ram = 4096}
 stacksize = 1024
@@ -132,7 +132,7 @@ start = true
 task-slots = ["i2c_driver"]
 
 [tasks.hash_driver]
-name = "drv-stm32h7-hash-server"
+bin-crate = "drv-stm32h7-hash-server"
 features = ["h753"]
 priority = 2
 max-sizes = {flash = 16384, ram=4096 }
@@ -144,14 +144,14 @@ task-slots = ["sys"]
 notifications = ["hash-irq"]
 
 [tasks.idle]
-name = "task-idle"
+bin-crate = "task-idle"
 priority = 9
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true
 
 [tasks.dump_agent]
-name = "task-dump-agent"
+bin-crate = "task-dump-agent"
 priority = 6
 max-sizes = {flash = 32768, ram = 16384 }
 start = true
@@ -162,7 +162,7 @@ notifications = ["socket"]
 features = ["net", "vlan"]
 
 [tasks.sprot]
-name = "drv-stm32h7-sprot-server"
+bin-crate = "drv-stm32h7-sprot-server"
 priority = 5
 max-sizes = {flash = 65536, ram = 32768}
 stacksize = 16384
@@ -174,7 +174,7 @@ notifications = ["spi-irq", "rot-irq", "timer"]
 interrupts = {"spi4.irq" = "spi-irq"}
 
 [tasks.grapefruit_seq]
-name = "drv-grapefruit-seq-server"
+bin-crate = "drv-grapefruit-seq-server"
 features = ["h753"]
 priority = 5
 max-sizes = {flash = 131072, ram = 16384 }
@@ -184,7 +184,7 @@ task-slots = ["sys", "jefe", "packrat", "spartan7_loader"]
 uses = ["mmio_sgpio", "mmio_espi"]
 
 [tasks.spartan7_loader]
-name = "drv-spartan7-loader"
+bin-crate = "drv-spartan7-loader"
 features = ["h753"]
 priority = 4
 max-sizes = {flash = 131072, ram = 16384 }
@@ -199,7 +199,7 @@ config_done = "sys_api::Port::B.pin(4)"
 user_reset_l = "sys_api::Port::I.pin(15)"
 
 [tasks.update_server]
-name = "stm32h7-update-server"
+bin-crate = "stm32h7-update-server"
 priority = 3
 max-sizes = {flash = 16384, ram = 4096}
 stacksize = 2048
@@ -210,7 +210,7 @@ interrupts = {"flash_controller.irq" = "flash-irq"}
 notifications = ["flash-irq"]
 
 [tasks.sensor]
-name = "task-sensor"
+bin-crate = "task-sensor"
 priority = 4
 max-sizes = {flash = 16384, ram = 8192 }
 stacksize = 1024
@@ -219,7 +219,7 @@ start = true
 # Note that host_sp_comms does not specify a UART!  It must be fully specified
 # with features + uses + interrupts by manifests inheriting from this file.
 [tasks.host_sp_comms]
-name = "task-host-sp-comms"
+bin-crate = "task-host-sp-comms"
 features = ["stm32h753", "baud_rate_3M", "vlan", "grapefruit"]
 uses = ["dbgmcu"]
 priority = 8
@@ -230,7 +230,7 @@ task-slots = ["sys", "hf", "packrat", "control_plane_agent", "net",  { cpu_seq =
 notifications = ["jefe-state-change", "usart-irq", "multitimer", "control-plane-agent"]
 
 [tasks.control_plane_agent]
-name = "task-control-plane-agent"
+bin-crate = "task-control-plane-agent"
 priority = 7
 stacksize = 7000
 start = true
@@ -262,7 +262,7 @@ interrupts = {"usart1.irq" = "usart-irq"}
 
 
 [tasks.auxflash]
-name = "drv-auxflash-server"
+bin-crate = "drv-auxflash-server"
 priority = 3
 max-sizes = {flash = 32768, ram = 4096}
 features = ["h753", "fast-qspi"]
@@ -274,7 +274,7 @@ stacksize = 3504
 task-slots = ["sys"]
 
 [tasks.net]
-name = "task-net"
+bin-crate = "task-net"
 stacksize = 8000
 priority = 3
 features = ["h753", "vlan", "grapefruit"]
@@ -290,7 +290,7 @@ notifications = ["eth-irq", "mdio-timer-irq", "spi-irq", "wake-timer"]
 "tim16.irq" = "mdio-timer-irq"
 
 [tasks.udprpc]
-name = "task-udprpc"
+bin-crate = "task-udprpc"
 priority = 6
 max-sizes = {flash = 32768, ram = 8192}
 stacksize = 4096
@@ -300,7 +300,7 @@ features = ["vlan"]
 notifications = ["socket"]
 
 [tasks.udpecho]
-name = "task-udpecho"
+bin-crate = "task-udpecho"
 priority = 4
 max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
@@ -310,7 +310,7 @@ features = ["vlan"]
 notifications = ["socket"]
 
 [tasks.udpbroadcast]
-name = "task-udpbroadcast"
+bin-crate = "task-udpbroadcast"
 priority = 6
 max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
@@ -320,7 +320,7 @@ features = ["vlan"]
 notifications = ["socket"]
 
 [tasks.fmc_demo]
-name = "drv-stm32h7-fmc-demo-server"
+bin-crate = "drv-stm32h7-fmc-demo-server"
 features = ["h753"]
 priority = 4
 start = true
@@ -329,7 +329,7 @@ uses = ["mmio_base", "mmio_spi_nor", "mmio_espi", "mmio_sgpio"]
 notifications = ["socket"]
 
 [tasks.hf]
-name = "drv-cosmo-hf"
+bin-crate = "drv-cosmo-hf"
 priority = 5
 start = true
 uses = ["mmio_base", "mmio_spi_nor"]
