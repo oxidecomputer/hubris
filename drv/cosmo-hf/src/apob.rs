@@ -163,6 +163,7 @@ enum Trace {
     },
     ApobSlotErase {
         slot: ApobSlot,
+        size: u32,
     },
     ApobSlotEraseDone {
         slot: ApobSlot,
@@ -407,18 +408,30 @@ impl ApobState {
 
     /// Erases the given APOB slot
     fn slot_erase(drv: &mut FlashDriver, slot: ApobSlot) {
-        let start = userlib::sys_get_timer().now;
-        ringbuf_entry!(Trace::ApobSlotErase { slot });
         static_assertions::const_assert!(
             APOB_SLOT_SIZE.is_multiple_of(SECTOR_SIZE_BYTES)
         );
+        Self::slot_erase_range(drv, slot, APOB_SLOT_SIZE);
+    }
+
+    /// Erases the first `size` bytes of the given APOB slot (rounding up)
+    ///
+    /// `size` is rounded up to `SECTOR_SIZE_BYTES`.
+    ///
+    /// # Panics
+    /// If `size > APOB_SLOT_SIZE`
+    fn slot_erase_range(drv: &mut FlashDriver, slot: ApobSlot, size: u32) {
+        let start = userlib::sys_get_timer().now;
+        ringbuf_entry!(Trace::ApobSlotErase { slot, size });
         static_assertions::const_assert!(
             (SECTOR_SIZE_BYTES as usize).is_multiple_of(PAGE_SIZE_BYTES)
         );
-        // Read back each sector and decide whether to erase it
-        for sector_offset in
-            (0..APOB_SLOT_SIZE).step_by(SECTOR_SIZE_BYTES as usize)
-        {
+        let size = size.next_multiple_of(SECTOR_SIZE_BYTES);
+        assert!(size <= APOB_SLOT_SIZE);
+
+        // Read back each sector and decide whether to erase it.  We round up
+        // here to the nearest sector
+        for sector_offset in (0..size).step_by(SECTOR_SIZE_BYTES as usize) {
             let mut buf = [0u8; PAGE_SIZE_BYTES];
             for page_offset in (0..SECTOR_SIZE_BYTES).step_by(PAGE_SIZE_BYTES) {
                 let offset = sector_offset + page_offset;
@@ -669,7 +682,7 @@ impl ApobState {
         // If validation failed, then erase the just-written data and return the
         // error code (without updating the active slot).
         if r.is_err() {
-            Self::slot_erase(drv, write_slot);
+            Self::slot_erase_range(drv, write_slot, expected_length);
             return r;
         }
 
