@@ -1,6 +1,6 @@
 {
     "type": "addrmap",
-    "addr_span_bytes": 55,
+    "addr_span_bytes": 63,
     "inst_name": "gimlet_seq_fpga",
     "addr_offset": 0,
     "children": [
@@ -1418,7 +1418,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "inverted FSR_REQ_L net. Maybe used in host reset detection, see RFD138. No defined use in power-up"
+                    "desc": "Inverted FSR_REQ_L net. We do not use this GPIO, so it has been repurposed. See quartz#415."
                 },
                 {
                     "type": "field",
@@ -2529,6 +2529,166 @@
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "Control of the seq_proxy_sp3_to_rsw_pwren_l pin (inverted by FPGA, so a '1' here will drive the pin low)"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "GPIO_EDGE_CNT_3",
+            "addr_offset": 55,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "VAL",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "MSB of the 32-bit gpio edge counter register"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "GPIO_EDGE_CNT_2",
+            "addr_offset": 56,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "VAL",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "MSB-1 of the 32-bit gpio edge counter register"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "GPIO_EDGE_CNT_1",
+            "addr_offset": 57,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "VAL",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "LSB+1 of the 32-bit gpio edge counter register"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "GPIO_EDGE_CNT_0",
+            "addr_offset": 58,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "VAL",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "LSB of the 32-bit gpio edge counter register"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "GPIO_CYCLE_CNT_3",
+            "addr_offset": 59,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "VAL",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "MSB of the 32-bit gpio edge counter register"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "GPIO_CYCLE_CNT_2",
+            "addr_offset": 60,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "VAL",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "MSB-1 of the 32-bit gpio edge counter register"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "GPIO_CYCLE_CNT_1",
+            "addr_offset": 61,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "VAL",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "LSB+1 of the 32-bit gpio edge counter register"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "GPIO_CYCLE_CNT_0",
+            "addr_offset": 62,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "VAL",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "LSB of the 32-bit gpio edge counter register"
                 }
             ]
         }

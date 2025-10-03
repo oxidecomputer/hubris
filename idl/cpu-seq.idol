@@ -57,9 +57,27 @@ Interface(
             ),
         ),
         "read_fpga_regs": (
-            doc: "Raw read of the FPGA registers",
+            doc: "Raw read of the FPGA registers (Gimlet only)",
             args: {},
             reply: Simple("[u8; 64]"),
+            idempotent: true,
+        ),
+        "last_post_code": (
+            doc: "Read the last POST code seen by the sequencer FPGA (Cosmo only)",
+            args: {},
+            reply: Simple("u32"),
+            idempotent: true,
+        ),
+        "gpio_edge_count": (
+            doc: "Read the GPIO edge count from the sequencer FPGA (Gimlet only)",
+            args: {},
+            reply: Simple("u32"),
+            idempotent: true,
+        ),
+        "gpio_cycle_count": (
+            doc: "Read the GPIO cycle count from the sequencer FPGA (Gimlet only)",
+            args: {},
+            reply: Simple("u32"),
             idempotent: true,
         ),
     },
