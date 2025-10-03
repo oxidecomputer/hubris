@@ -148,6 +148,21 @@ pub trait EncodeFields<C> {
     ) -> Result<(), encode::Error<W::Error>>;
 }
 
+impl<T, C> EncodeFields<C> for &T
+where
+    T: EncodeFields<C>,
+{
+    const MAX_FIELDS_LEN: usize = T::MAX_FIELDS_LEN;
+
+    fn encode_fields<W: Write>(
+        &self,
+        e: &mut Encoder<W>,
+        c: &mut C,
+    ) -> Result<(), encode::Error<W::Error>> {
+        T::encode_fields(self, e, c)
+    }
+}
+
 #[cfg(feature = "fixedstr")]
 impl<const LEN: usize> StaticCborLen for fixedstr::FixedStr<LEN> {
     const MAX_CBOR_LEN: usize = LEN + usize::MAX_CBOR_LEN;

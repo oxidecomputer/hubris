@@ -220,8 +220,8 @@ struct ServerImpl<S: SpiServer> {
 const TIMER_INTERVAL: u32 = 10;
 const EREPORT_BUF_LEN: usize = microcbor::max_cbor_len_for![
     Ereport<EreportClass, vcore::PmbusEreport>,
-    Ereport<EreportClass, A0FailureEreport>,
-    Ereport<EreportClass, RefdesDevId>,
+    A0FailureEreport,
+    Ereport<EreportClass, &'static HostCpuRefdes>,
 ];
 
 #[derive(Copy, Clone, Eq, PartialEq, microcbor::Encode, counters::Count)]
@@ -247,10 +247,7 @@ pub enum EreportClass {
 }
 
 // TODO(eliza): can we get this from the `gateway-sp-messages` crate?
-static HOST_CPU_DEV_ID: FixedStr<16> =FixedStr::from_str("sp3-host-cpu");
-static HOST_CPU_REFDES: FixedStr<
-    { crate::i2c_config::MAX_COMPONENT_ID_LEN },
-> = FixedStr::from_str("P0");
+static HOST_CPU_DEV_ID: FixedStr<16> = FixedStr::from_str("sp3-host-cpu");
 
 impl<S: SpiServer + Clone> ServerImpl<S> {
     fn init(
@@ -1055,45 +1052,53 @@ impl<S: SpiServer> ServerImpl<S> {
         let (ereport_class, ereport_details, err) = match err {
             A0Failure::A1Timeout => (
                 EreportClass::A1Timeout,
-                A0FailureDetails::RefdesOnly { refdes: None },
+                A0FailureDetails::A1Timeout { version: 0 },
                 SeqError::A1Timeout,
             ),
             A0Failure::A0Timeout => (
                 EreportClass::A0Timeout,
-                A0FailureDetails::RefdesOnly { refdes: None },
+                A0FailureDetails::A0Timeout { version: 0 },
                 SeqError::A1Timeout,
             ),
             A0Failure::A0TimeoutGroupC => (
                 EreportClass::A0TimeoutGroupC,
-                A0FailureDetails::RefdesOnly { refdes: None },
-                SeqErr::A0TimeoutGroupC,
+                A0FailureDetails::A0TimeoutGroupC,
+                SeqError::A0TimeoutGroupC,
             ),
             A0Failure::UnrecognizedCPU(coretype) => (
                 EreportClass::UnrecognizedCPU,
-                A0FailureDetails::Coretype {
+                A0FailureDetails::UnrecognizedCPU {
+                    version: 0,
                     coretype,
-                    refdes: HOST_CPU_REFDES,
-                    dev_id: &HOST_CPU_DEV_ID,
+                    refdes: HostCpuRefdes::HOST_CPU_REFDES,
                 },
-                SeqErr::UnrecognizedCPU),
+                SeqError::UnrecognizedCPU,
             ),
-            A0Failure::NoCPUPresent => (EreportClass::NoCpuPresent, A0FailureDetails::RefdesDevId { refdes: RefdesDevId {                refdes: HOST_CPU_REFDES,
-                dev_id: &HOST_CPU_DEV_ID,
-                )}, SeqErr::NoCPUPresent),
+            A0Failure::NoCPUPresent => (
+                EreportClass::NoCPUPresent,
+                A0FailureDetails::NoCpuPresent {
+                    version: 0,
+                    refdes: HostCpuRefdes::HOST_CPU_REFDES,
+                },
+                SeqError::NoCPUPresent,
+            ),
             A0Failure::I2cFault { refdes, rail, err } => (
                 EreportClass::I2cFault,
-                A0FailureDetails::I2c { refdes: FixedStr::from_str(refdes), rail: FixedStr::from_str(rail), i2c_err: err.into() },
-                SeqError::I2cFault(err),),
+                A0FailureDetails::I2c {
+                    version: 0,
+                    refdes: FixedStr::from_str(refdes),
+                    rail: FixedStr::try_from_str(rail).ok(),
+                    i2c_err: err.into(),
+                },
+                SeqError::I2cFault(err),
+            ),
         };
 
         deliver_ereport(
-            &Ereport {
-                class: EreportClass,
-                version: 0,
-                data: A0FailureEreport {
-                    details,
-                    seq_status,
-                }
+            ereport_class,
+            &A0FailureEreport {
+                details: ereport_details,
+                seq_status,
             },
             &self.packrat,
             self.ereport_buf,
@@ -1113,18 +1118,13 @@ impl<S: SpiServer> ServerImpl<S> {
         if ifr & thermtrip != 0 {
             self.seq.clear_bytes(Addr::IFR, &[thermtrip]).unwrap_lite();
             self.update_state_internal(PowerState::A0Thermtrip);
-            let ereport = ThermtripEreport {
-                class: EreportClass::Thermtrip,
-                version: 0,
-                refdes: "P0", // host CPU
-            };
             deliver_ereport(
+                EreportClass::Thermtrip,
                 &Ereport {
                     class: EreportClass::Thermtrip,
                     version: 0,
-                    data: EreportCl
-                }
-                &self.packrat,
+                    data: &HostCpuRefdes::HOST_CPU_REFDES,
+                } & self.packrat,
                 self.ereport_buf,
             );
         }
@@ -1434,33 +1434,54 @@ enum A0Failure {
 
 #[derive(microcbor::Encode)]
 struct A0FailureEreport {
-    seq_status: SeqStatus,
     #[cbor(flatten)]
     details: A0FailureDetails,
+    seq_status: SeqStatus,
 }
 
 #[derive(microcbor::EncodeFields)]
+#[cbor(variant_id = "k")]
 enum A0FailureDetails {
-    RefdesOnly {
-        #[cbor(skip_if_nil)]
-        refdes: Option<FixedStr<{ i2c_config::MAX_COMPONENT_ID_LEN }>>,
-    },
-
-    RefdesDevId {
-        #[cbor(skip_if_nil)]
-        refdes: FixedStr<{ i2c_config::MAX_COMPONENT_ID_LEN }>,
-        dev_id: &'static FixedStr<{ 16 }>,
-    },
-    Coretype {
-        refdes: FixedStr<{ i2c_config::MAX_COMPONENT_ID_LEN }>,
-        dev_id: &'static FixedStr<{ 16 }>,
+    #[cbor(rename = "hw.cpu.a0_fail.unknown")]
+    UnrecognizedCPU {
+        #[cbor(rename = "v")]
+        version: u32,
+        #[cbor(flatten)]
+        refdes: &'static HostCpuRefdes,
         #[cbor(flatten)]
         coretype: Coretype,
     },
-    I2c {
-        refdes: FixedStr<{ i2c_config::MAX_COMPONENT_ID_LEN }>,
-        rail: &'static FixedStr<{ 16 }>,
-        i2c_err: u8,
+    #[cbor(rename = "hw.cpu.a0_fail.no_cpu")]
+    NoCPUPresent {
+        #[cbor(rename = "v")]
+        version: u32,
+        #[cbor(flatten)]
+        refdes: &'static HostCpuRefdes,
+    },
+    #[cbor(rename = "hw.a0_fail.timeout.a1")]
+    A1Timeout {
+        #[cbor(rename = "v")]
+        version: u32,
+    },
+    #[cbor(rename = "hw.a0_fail.timeout.a0")]
+    A0Timeout {
+        #[cbor(rename = "v")]
+        version: u32,
+    },
+    #[cbor(rename = "hw.a0_fail.timeout.groupc")]
+    A0TimeoutGroupC {
+        #[cbor(rename = "v")]
+        version: u32,
+    },
+    #[cbor(rename = "hw.pwr.pmbus.a0_fail.i2c_err")]
+    I2cErr {
+        #[cbor(rename = "v")]
+        version: u32,
+        refdes: FixedStr<{ i2c_config::MAX_DEVICE_ID_LEN }>,
+        // TODO(eliza): max rail len...
+        #[cbor(skip_if_nil)]
+        rail: Option<FixedStr<16>>,
+        i2c_err: u32,
     },
 }
 
@@ -1482,18 +1503,32 @@ struct Coretype {
     sp3r2: bool,
 }
 
-pub(crate) fn deliver_ereport<D: microcbor::EncodeFields>(
-    ereport: &Ereport<EreportClass, D>,
+#[derive(microcbor::EncodeFields)]
+struct HostCpuRefdes {
+    refdes: FixedStr<2>,
+    dev_id: FixedStr<16>,
+}
+
+impl HostCpuRefdes {
+    static HOST_CPU_REFDES: HostCpuRefdes = HostCpuRefdes {
+        refdes: FixedStr::from("P0"),
+        dev_id: FixedStr::from("sp3-host-cpu"),
+    };
+}
+
+pub(crate) fn deliver_ereport<E: microcbor::Encode>(
+    class: EreportClass,
+    ereport: &E,
     packrat: &Packrat,
     buf: &mut [u8],
 ) {
     match packrat.serialize_ereport(ereport, buf) {
-        Ok(len) => ringbuf_entry!(Trace::EreportSent(ereport.class, len)),
+        Ok(len) => ringbuf_entry!(Trace::EreportSent(class, len)),
         Err(task_packrat_api::EreportSerializeError::Packrat { len, err }) => {
-            ringbuf_entry!(Trace::EreportLost(ereport.class, len, err))
+            ringbuf_entry!(Trace::EreportLost(class, len, err))
         }
         Err(task_packrat_api::EreportSerializeError::Serialize(_)) => {
-            ringbuf_entry!(Trace::EreportTooBig(ereport.class))
+            ringbuf_entry!(Trace::EreportTooBig(class))
         }
     }
 }
