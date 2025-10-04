@@ -493,7 +493,7 @@ cfg_if::cfg_if! {
                 const LEDS: &[(drv_stm32xx_sys_api::PinSet, bool)] = &[
                     (drv_stm32xx_sys_api::Port::C.pin(6), false),
                 ];
-            } else if #[cfg(target_board = "cosmo-a")] {
+            } else if #[cfg(any(target_board = "cosmo-a", target_board = "cosmo-b"))] {
                 const LEDS: &[(drv_stm32xx_sys_api::PinSet, bool)] = &[
                     (drv_stm32xx_sys_api::Port::H.pin(6), true), // debug W
                     (drv_stm32xx_sys_api::Port::H.pin(10), true), // debug R
