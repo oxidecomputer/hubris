@@ -328,7 +328,7 @@ fn gen_enum_encode_impl(
                     #[allow(non_snake_case)]
                     let #variant_name = {
                         let mut len = 2; // map begin and end bytes
-                        #(#field_len_exprs;)*
+                        #(#field_len_exprs)*
                         len
                     };
                     if #variant_name > max {
@@ -371,7 +371,7 @@ fn gen_enum_encode_impl(
                             // but the len expressions are generated as
                             // `len += ..`
                             let mut len = 0;
-                            #len_expr;
+                            #len_expr
                             len
                         };
                         if #variant_name > max {
@@ -393,7 +393,7 @@ fn gen_enum_encode_impl(
                         #[allow(non_snake_case)]
                         let #variant_name = {
                             let mut len = 2; // array begin and end bytes
-                            #(#field_len_exprs;)*
+                            #(#field_len_exprs)*
                             len
                         };
                         if #variant_name > max {
@@ -480,7 +480,7 @@ fn gen_encode_struct_impl(
             {
                 const MAX_CBOR_LEN: usize = {
                     let mut len = 2;  // map begin and end bytes
-                    #(#len_exprs;)*
+                    #(#len_exprs)*
                     len
                 };
             }
@@ -515,7 +515,7 @@ fn gen_encode_struct_impl(
             {
                 const MAX_CBOR_LEN: usize = {
                     let mut len = 0;
-                    #len_expr;
+                    #len_expr
                     len
                 };
             }
@@ -545,7 +545,7 @@ fn gen_encode_struct_impl(
             {
                 const MAX_CBOR_LEN: usize = {
                     let mut len = 2; // array begin and end bytes
-                    #(#len_exprs;)*
+                    #(#len_exprs)*
                     len
                 };
             }
@@ -636,7 +636,7 @@ fn gen_encode_fields_struct_impl(
         {
             const MAX_FIELDS_LEN: usize = {
                 let mut len = 0;
-                #(#field_len_exprs;)*
+                #(#field_len_exprs)*
                 len
             };
 
@@ -729,7 +729,7 @@ fn gen_encode_fields_enum_impl(
                 // no map begin and end bytes, as we are flattening
                 // the fields into a higher-level map.
                 let mut len = 0;
-                #(#field_len_exprs;)*
+                #(#field_len_exprs)*
                 len
             };
             if #variant_name > max {
@@ -805,10 +805,8 @@ impl FieldGenerator {
         variant_id: &LitStr,
     ) {
         self.field_len_exprs.push(quote! {
-            len += ::microcbor::str_cbor_len(#field_name)
-        });
-        self.field_len_exprs.push(quote! {
-            len += ::microcbor::str_cbor_len(#variant_id)
+            len += ::microcbor::str_cbor_len(#field_name);
+            len += ::microcbor::str_cbor_len(#variant_id);
         });
         self.field_encode_exprs.push(quote! {
             __microcbor_renamed_encoder
