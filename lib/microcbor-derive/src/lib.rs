@@ -75,9 +75,6 @@ use syn::{
 /// added to the parent map into which the encoded fields are flattened. If the
 /// enum has no other fields, only one additional key-value pair will be added.
 ///
-/// **Note**: The variant ID representation is not supported for tuple-like enum
-/// variants with unnamed fields.
-///
 /// For example:
 ///
 /// ```rust
@@ -95,6 +92,77 @@ use syn::{
 ///     // will encode as { "type": "my_cool_unit_variant"}
 ///     #[cbor(rename = "my_cool_unit_variant")]
 ///     Variant4,
+/// }
+///```
+///
+/// #### Usage Notes
+///
+/// **Note**: The variant ID representation is not supported for tuple-like enum
+/// variants with unnamed fields. For example, the following will not compile:
+///
+/// ```rust,compile_fail
+/// # use microcbor_derive::*;
+/// #[derive(Encode, EncodeFields)]
+/// #[cbor(variant_id = "type")]
+/// enum MyEnum {
+///     Variant1,
+///     Variant2 { a: u64, b: u64 },
+///     Variant3 (u64, u8), // <-- this will not compile
+/// }
+/// ```
+///
+/// **Note**: The name of the variant ID field may not be the same as the field
+/// name of a struct-like variant (unless it is renamed using the `#[cbor(rename
+/// = "...")]` attribute). This would generate multiple fields in the encoded
+/// map with the same key.
+///
+/// For example, the following will not compile:
+///
+/// ```rust,compile_fail
+/// # use microcbor_derive::*;
+/// #[derive(Encode, EncodeFields)]
+/// #[cbor(variant_id = "id")]
+/// enum MyEnum {
+///     Variant1,
+///     Variant2 { a: u64, b: u64 },
+///     Variant3 { id: u8 }, // <-- this will not compile
+/// }
+/// ```
+///
+/// Similarly, if a field is renamed using the `#[cbor(rename = "...")]`
+/// attribute, the name it is renamed to cannot collide with the name of the
+/// variant ID field. For example, this also won't compile:
+///
+/// ```rust,compile_fail
+/// # use microcbor_derive::*;
+/// #[derive(Encode, EncodeFields)]
+/// #[cbor(variant_id = "type")]
+/// enum MyEnum {
+///     Variant1,
+///     Variant2 {
+///         #[cbor(rename = "type")] // <-- this will not compile
+///         type_: u8,
+///     },
+///     Variant4 { a: u64, b: u64 },
+/// }
+/// ```
+///
+/// However, if a field's Rust identifier collides with the name of the
+/// variant ID field, the `#[cbor(rename = "...")]` attribute can be used to
+/// prevent the collision by changing the encoded name of the field to
+/// something else. For example:
+///
+/// ```rust
+/// # use microcbor_derive::*;
+/// #[derive(Encode, EncodeFields)]
+/// #[cbor(variant_id = "id")]
+/// enum MyEnum {
+///     Variant1,
+///     Variant2 {
+///         #[cbor(rename = "type_id")] // <-- this prevents the collision
+///         id: u8,
+///     },
+///     Variant4 { a: u64, b: u64 },
 /// }
 /// ```
 ///
@@ -251,61 +319,64 @@ fn gen_enum_encode_impl(
     for variant in data.variants {
         let EnumVariantAttrs { rename } =
             EnumVariantAttrs::parse(&variant.attrs)?;
-        let name = rename.unwrap_or_else(|| {
-            LitStr::new(&variant.ident.to_string(), variant.ident.span())
-        });
 
         let variant_name = &variant.ident;
         match variant.fields {
-            syn::Fields::Unit => match variant_id_field_name {
-                None => {
-                    variant_patterns.push(quote! {
-                        #ident::#variant_name => {
-                            __microcbor_renamed_encoder.str(#name)?;
-                        }
-                    });
-                    variant_lens.push(quote! {
-                        if ::microcbor::str_cbor_len(#name) > max {
-                            max = ::microcbor::str_cbor_len(#name);
-                        }
-                    });
+            syn::Fields::Unit => {
+                let name = rename.unwrap_or_else(|| {
+                    LitStr::new(&variant_name.to_string(), variant_name.span())
+                });
+
+                match variant_id_field_name {
+                    None => {
+                        variant_patterns.push(quote! {
+                            #ident::#variant_name => {
+                                __microcbor_renamed_encoder.str(#name)?;
+                            }
+                        });
+                        variant_lens.push(quote! {
+                            if ::microcbor::str_cbor_len(#name) > max {
+                                max = ::microcbor::str_cbor_len(#name);
+                            }
+                        });
+                    }
+                    Some(ref field_name) => {
+                        // Since there's only ever one field, we can easily use the
+                        // length-prefixed representation and save a byte.
+                        variant_patterns.push(quote! {
+                            #ident::#variant_name => {
+                                __microcbor_renamed_encoder
+                                    .map(1)?
+                                    .str(#field_name)?
+                                    .str(#name)?;
+                            }
+                        });
+                        variant_lens.push(quote! {
+                            #[allow(non_snake_case)]
+                            let #variant_name = {
+                                // Major type map + length 1 is always encoded as
+                                // one byte.
+                                let mut len = 1;
+                                len += ::microcbor::str_cbor_len(#field_name);
+                                len += ::microcbor::str_cbor_len(#name);
+                                len
+                            };
+                            if #variant_name > max {
+                                max = #variant_name;
+                            }
+                        });
+                    }
                 }
-                Some(ref field_name) => {
-                    // Since there's only ever one field, we can easily use the
-                    // length-prefixed representation and save a byte.
-                    variant_patterns.push(quote! {
-                        #ident::#variant_name => {
-                            __microcbor_renamed_encoder
-                                .map(1)?
-                                .str(#field_name)?
-                                .str(#name)?;
-                        }
-                    });
-                    variant_lens.push(quote! {
-                        #[allow(non_snake_case)]
-                        let #variant_name = {
-                            // Major type map + length 1 is always encoded as
-                            // one byte.
-                            let mut len = 1;
-                            len += ::microcbor::str_cbor_len(#field_name);
-                            len += ::microcbor::str_cbor_len(#name);
-                            len
-                        };
-                        if #variant_name > max {
-                            max = #variant_name;
-                        }
-                    });
-                }
-            },
+            }
             syn::Fields::Named(ref fields) => {
                 let mut field_gen = FieldGenerator::new(FieldType::Named);
+                if let Some(ref field_name) = variant_id_field_name {
+                    field_gen.set_variant_id_name(field_name);
+                }
                 for field in &fields.named {
                     field_gen.add_field(field)?;
                 }
-                if let Some(ref field_name) = variant_id_field_name {
-                    field_gen.add_variant_id_field(field_name, &name);
-                }
-
+                field_gen.gen_variant_id_if_needed(variant_name, rename);
                 let FieldGenerator {
                     field_patterns,
                     field_len_exprs,
@@ -338,12 +409,13 @@ fn gen_enum_encode_impl(
             }
             syn::Fields::Unnamed(fields) => {
                 let mut field_gen = FieldGenerator::new(FieldType::Unnamed);
+                if let Some(ref field_name) = variant_id_field_name {
+                    field_gen.set_variant_id_name(field_name);
+                }
                 for field in &fields.unnamed {
                     field_gen.add_field(field)?;
                 }
-                if let Some(ref field_name) = variant_id_field_name {
-                    field_gen.add_variant_id_field(field_name, &name);
-                }
+                field_gen.gen_variant_id_if_needed(variant_name, rename);
                 let FieldGenerator {
                     field_patterns,
                     field_len_exprs,
@@ -671,6 +743,9 @@ fn gen_encode_fields_enum_impl(
             EnumVariantAttrs::parse(&variant.attrs)?;
 
         let mut field_gen = FieldGenerator::new(FieldType::Named);
+        if let Some(ref field_name) = variant_id_field_name {
+            field_gen.set_variant_id_name(field_name);
+        }
         match variant.fields {
             syn::Fields::Named(ref fields) => {
                 for field in &fields.named {
@@ -697,20 +772,7 @@ fn gen_encode_fields_enum_impl(
             }
         };
 
-        if let Some(ref field_name) = variant_id_field_name {
-            match rename {
-                Some(variant_id) => {
-                    field_gen.add_variant_id_field(field_name, &variant_id)
-                }
-                None => {
-                    let variant_id = LitStr::new(
-                        &variant.ident.to_string(),
-                        variant.ident.span(),
-                    );
-                    field_gen.add_variant_id_field(field_name, &variant_id);
-                }
-            };
-        }
+        field_gen.gen_variant_id_if_needed(&variant.ident, rename);
 
         let FieldGenerator {
             field_patterns,
@@ -772,13 +834,14 @@ fn gen_encode_fields_enum_impl(
     })
 }
 
-struct FieldGenerator {
+struct FieldGenerator<'a> {
     field_patterns: Vec<proc_macro2::TokenStream>,
     field_len_exprs: Vec<proc_macro2::TokenStream>,
     field_encode_exprs: Vec<proc_macro2::TokenStream>,
     where_bounds: Vec<proc_macro2::TokenStream>,
     any_skipped: bool,
     field_type: FieldType,
+    variant_id_field: Option<&'a LitStr>,
 }
 
 #[derive(PartialEq, Eq, Clone, Copy)]
@@ -787,7 +850,7 @@ enum FieldType {
     Unnamed,
 }
 
-impl FieldGenerator {
+impl<'v> FieldGenerator<'v> {
     fn new(field_type: FieldType) -> Self {
         Self {
             field_patterns: Vec::new(),
@@ -796,14 +859,26 @@ impl FieldGenerator {
             where_bounds: Vec::new(),
             any_skipped: false,
             field_type,
+            variant_id_field: None,
         }
     }
 
-    fn add_variant_id_field(
+    fn set_variant_id_name(&mut self, variant_id_name: &'v LitStr) {
+        self.variant_id_field = Some(variant_id_name);
+    }
+
+    fn gen_variant_id_if_needed(
         &mut self,
-        field_name: &LitStr,
-        variant_id: &LitStr,
+        variant_name: &Ident,
+        rename: Option<LitStr>,
     ) {
+        let Some(field_name) = self.variant_id_field.as_ref() else {
+            return;
+        };
+        let variant_id = rename.unwrap_or_else(|| {
+            LitStr::new(&variant_name.to_string(), variant_name.span())
+        });
+
         self.field_len_exprs.push(quote! {
             len += ::microcbor::str_cbor_len(#field_name);
             len += ::microcbor::str_cbor_len(#variant_id);
@@ -882,6 +957,18 @@ impl FieldGenerator {
                             field_ident.span(),
                         )
                     });
+                    if let Some(variant_id_name) = self.variant_id_field {
+                        if variant_id_name == &field_name {
+                            return Err(syn::Error::new(
+                                field_name.span(),
+                                format!(
+                                    "variant ID `#[cbor(variant_id = \"{}\")]` \
+                                    collides with the name of a field",
+                                    variant_id_name.value()
+                                ),
+                            ));
+                        }
+                    }
                     self.field_patterns.push(quote! { #field_ident });
                     let encode_name = quote! {
                         __microcbor_renamed_encoder.str(#field_name)?;
