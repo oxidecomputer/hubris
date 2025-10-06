@@ -97,6 +97,7 @@ cfg_if::cfg_if! {
         target_board = "psc-b",
         target_board = "psc-c",
         target_board = "oxcon2023g0",
+        target_board = "grapefruit",
     ))] {
         #[derive(enum_map::Enum, Copy, Clone, FromPrimitive)]
         enum Led {
