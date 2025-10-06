@@ -61,6 +61,11 @@ use syn::{
 /// name (or the value of a `#[cbor(rename = "...")]` attribute on that
 /// variant if one is present).
 ///
+/// Otherwise, struct-like variants are encoded as a map of their field names to
+/// field values, and unit variants are encoded as the variant's name (or the
+/// value of a `#[cbor(rename = "...")]` attribute on that variant if one is
+/// present).
+///
 /// When the enum derives `#[microcbor::Encode]`, it will be encoded as a map
 /// with the variant ID key-value pair added (in addition to any other fields
 /// defined by the enum) variant). If the variant has no other fields, the map
@@ -112,7 +117,7 @@ use syn::{
 /// The following `#[cbor(..)]` attributes are supported on fields of structs
 /// and enum variants:
 ///
-/// - `#[cbor(skip)]`: Completely skip ignoring this field. If a field is
+/// - `#[cbor(skip)]`: Completely skip encoding this field. If a field is
 ///   skipped, it will not be included in the encoded CBOR output.
 ///
 /// - `#[cbor(skip_if_nil)]`: Skip encoding this field if it would encode a
@@ -206,20 +211,15 @@ fn gen_encode_impl(input: DeriveInput) -> Result<TokenStream, syn::Error> {
     match &input.data {
         syn::Data::Enum(data) => gen_enum_encode_impl(
             input.attrs,
-            input.vis,
             input.ident,
             input.generics,
             data.clone(),
         )
         .map(|tokens| tokens.to_token_stream().into()),
-        syn::Data::Struct(data) => gen_encode_struct_impl(
-            input.attrs,
-            input.vis,
-            input.ident,
-            input.generics,
-            data.clone(),
-        )
-        .map(|tokens| tokens.to_token_stream().into()),
+        syn::Data::Struct(data) => {
+            gen_encode_struct_impl(input.ident, input.generics, data.clone())
+                .map(|tokens| tokens.to_token_stream().into())
+        }
         _ => Err(syn::Error::new_spanned(
             input,
             "`StaticCborLen` can only be derived for `struct` and `enum` \
@@ -234,7 +234,6 @@ const VARIANT_ID_ATTR: &str = "variant_id";
 
 fn gen_enum_encode_impl(
     attrs: Vec<Attribute>,
-    _vis: Visibility,
     ident: Ident,
     generics: Generics,
     data: DataEnum,
@@ -271,6 +270,8 @@ fn gen_enum_encode_impl(
                     });
                 }
                 Some(ref field_name) => {
+                    // Since there's only ever one field, we can easily use the
+                    // length-prefixed representation and save a byte.
                     variant_patterns.push(quote! {
                         #ident::#variant_name => {
                             __microcbor_renamed_encoder
@@ -282,9 +283,9 @@ fn gen_enum_encode_impl(
                     variant_lens.push(quote! {
                         #[allow(non_snake_case)]
                         let #variant_name = {
-                            // this will encode exactly 1 field, so we use the
-                            // length-prefixed repr to save a byte.
-                            let mut len = ::microcbor::u64_cbor_len(1);
+                            // Major type map + length 1 is always encoded as
+                            // one byte.
+                            let mut len = 1;
                             len += ::microcbor::str_cbor_len(#field_name);
                             len += ::microcbor::str_cbor_len(#name);
                             len
@@ -296,8 +297,7 @@ fn gen_enum_encode_impl(
                 }
             },
             syn::Fields::Named(ref fields) => {
-                let mut field_gen =
-                    FieldGenerator::for_variant(FieldType::Named);
+                let mut field_gen = FieldGenerator::new(FieldType::Named);
                 for field in &fields.named {
                     field_gen.add_field(field)?;
                 }
@@ -336,8 +336,7 @@ fn gen_enum_encode_impl(
                 });
             }
             syn::Fields::Unnamed(fields) => {
-                let mut field_gen =
-                    FieldGenerator::for_variant(FieldType::Unnamed);
+                let mut field_gen = FieldGenerator::new(FieldType::Unnamed);
                 for field in &fields.unnamed {
                     field_gen.add_field(field)?;
                 }
@@ -440,37 +439,7 @@ fn gen_enum_encode_impl(
     })
 }
 
-fn gen_encode_fields_impl(
-    input: DeriveInput,
-) -> Result<TokenStream, syn::Error> {
-    match &input.data {
-        syn::Data::Enum(data) => gen_encode_fields_enum_impl(
-            input.attrs,
-            input.vis,
-            input.ident,
-            input.generics,
-            data.clone(),
-        )
-        .map(|tokens| tokens.to_token_stream().into()),
-        syn::Data::Struct(data) => gen_encode_fields_struct_impl(
-            input.attrs,
-            input.vis,
-            input.ident,
-            input.generics,
-            data.clone(),
-        )
-        .map(|tokens| tokens.to_token_stream().into()),
-        _ => Err(syn::Error::new_spanned(
-            input,
-            "`microcbor::EncodeFields` can only be derived for `struct` and \
-             `enum` types",
-        )),
-    }
-}
-
 fn gen_encode_struct_impl(
-    _attrs: Vec<Attribute>,
-    _vis: Visibility,
     ident: Ident,
     generics: Generics,
     data: DataStruct,
@@ -486,7 +455,7 @@ fn gen_encode_struct_impl(
             ));
         }
     };
-    let mut field_gen = FieldGenerator::for_struct(field_type);
+    let mut field_gen = FieldGenerator::new(field_type);
     for field in &data.fields {
         field_gen.add_field(field)?;
     }
@@ -605,9 +574,32 @@ fn gen_encode_struct_impl(
     }
 }
 
+fn gen_encode_fields_impl(
+    input: DeriveInput,
+) -> Result<TokenStream, syn::Error> {
+    match &input.data {
+        syn::Data::Enum(data) => gen_encode_fields_enum_impl(
+            input.attrs,
+            input.ident,
+            input.generics,
+            data.clone(),
+        )
+        .map(|tokens| tokens.to_token_stream().into()),
+        syn::Data::Struct(data) => gen_encode_fields_struct_impl(
+            input.ident,
+            input.generics,
+            data.clone(),
+        )
+        .map(|tokens| tokens.to_token_stream().into()),
+        _ => Err(syn::Error::new_spanned(
+            input,
+            "`microcbor::EncodeFields` can only be derived for `struct` and \
+             `enum` types",
+        )),
+    }
+}
+
 fn gen_encode_fields_struct_impl(
-    _attrs: Vec<Attribute>,
-    _vis: Visibility,
     ident: Ident,
     generics: Generics,
     data: DataStruct,
@@ -619,7 +611,7 @@ fn gen_encode_fields_struct_impl(
              named fields",
         ));
     };
-    let mut field_gen = FieldGenerator::for_struct(FieldType::Named);
+    let mut field_gen = FieldGenerator::new(FieldType::Named);
     for field in &fields.named {
         field_gen.add_field(field)?;
     }
@@ -662,7 +654,6 @@ fn gen_encode_fields_struct_impl(
 
 fn gen_encode_fields_enum_impl(
     attrs: Vec<Attribute>,
-    _vis: Visibility,
     ident: Ident,
     generics: Generics,
     data: DataEnum,
@@ -678,7 +669,7 @@ fn gen_encode_fields_enum_impl(
         let EnumVariantAttrs { rename } =
             EnumVariantAttrs::parse(&variant.attrs)?;
 
-        let mut field_gen = FieldGenerator::for_variant(FieldType::Named);
+        let mut field_gen = FieldGenerator::new(FieldType::Named);
         match variant.fields {
             syn::Fields::Named(ref fields) => {
                 for field in &fields.named {
@@ -796,18 +787,7 @@ enum FieldType {
 }
 
 impl FieldGenerator {
-    fn for_struct(field_type: FieldType) -> Self {
-        Self {
-            field_patterns: Vec::new(),
-            field_len_exprs: Vec::new(),
-            field_encode_exprs: Vec::new(),
-            where_bounds: Vec::new(),
-            any_skipped: false,
-            field_type,
-        }
-    }
-
-    fn for_variant(field_type: FieldType) -> Self {
+    fn new(field_type: FieldType) -> Self {
         Self {
             field_patterns: Vec::new(),
             field_len_exprs: Vec::new(),
@@ -941,6 +921,9 @@ impl FieldGenerator {
                 )?;
             });
         } else {
+            self.where_bounds.push(quote! {
+                #field_type: ::microcbor::StaticCborLen
+            });
             self.field_len_exprs.push(quote! {
                 #name_len
                 len += <#field_type as ::microcbor::StaticCborLen>::MAX_CBOR_LEN;
@@ -965,9 +948,6 @@ impl FieldGenerator {
                         __microcbor_renamed_ctx,
                     )?;
                 }
-            });
-            self.where_bounds.push(quote! {
-                #field_type: ::microcbor::StaticCborLen
             });
         }
 
