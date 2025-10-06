@@ -148,11 +148,6 @@ pub trait EncodeFields<C> {
     ) -> Result<(), encode::Error<W::Error>>;
 }
 
-#[cfg(feature = "fixedstr")]
-impl<const LEN: usize> StaticCborLen for fixedstr::FixedStr<LEN> {
-    const MAX_CBOR_LEN: usize = LEN + usize::MAX_CBOR_LEN;
-}
-
 macro_rules! impl_static_cbor_len {
     ($($T:ty = $len:expr),*$(,)?) => {
         $(

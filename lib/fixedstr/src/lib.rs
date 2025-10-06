@@ -151,7 +151,12 @@ impl<const MAX: usize> core::fmt::Debug for FixedStr<MAX> {
     }
 }
 
-#[cfg(feature = "minicbor")]
+#[cfg(feature = "microcbor")]
+impl<const LEN: usize> microcbor::StaticCborLen for FixedStr<LEN> {
+    const MAX_CBOR_LEN: usize = LEN + usize::MAX_CBOR_LEN;
+}
+
+#[cfg(any(feature = "minicbor", feature = "microcbor"))]
 impl<C, const MAX: usize> minicbor::encode::Encode<C> for FixedStr<MAX> {
     fn encode<W: minicbor::encode::Write>(
         &self,
