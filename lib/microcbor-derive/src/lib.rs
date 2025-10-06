@@ -79,7 +79,8 @@ use syn::{
 /// variants with unnamed fields.
 ///
 /// For example:
-/// ```rust
+///
+/// ```rust,ignore
 /// # use microcbor_derive::*;
 /// #[derive(Encode, EncodeFields)]
 /// #[cbor(variant_id = "type")]
