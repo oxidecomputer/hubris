@@ -957,17 +957,17 @@ impl<'v> FieldGenerator<'v> {
                             field_ident.span(),
                         )
                     });
-                    if let Some(variant_id_name) = self.variant_id_field {
-                        if variant_id_name == &field_name {
-                            return Err(syn::Error::new(
-                                field_name.span(),
-                                format!(
-                                    "variant ID `#[cbor(variant_id = \"{}\")]` \
+                    if let Some(variant_id_name) = self.variant_id_field
+                        && variant_id_name == &field_name
+                    {
+                        return Err(syn::Error::new(
+                            field_name.span(),
+                            format!(
+                                "variant ID `#[cbor(variant_id = \"{}\")]` \
                                     collides with the name of a field",
-                                    variant_id_name.value()
-                                ),
-                            ));
-                        }
+                                variant_id_name.value()
+                            ),
+                        ));
                     }
                     self.field_patterns.push(quote! { #field_ident });
                     let encode_name = quote! {
