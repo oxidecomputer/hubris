@@ -120,7 +120,7 @@ use syn::{
 ///
 ///   This attribute will cause the generated `Encode` implementation to call
 ///   the value's `Encode::is_nil` method to determine if the field would emit
-///   a `nil` value. If it returns `true`, the field will no tbe encoded at
+///   a `nil` value. If it returns `true`, the field will not be encoded at
 ///   all.
 ///
 /// - `#[cbor(flatten)]`: Flatten this field into the CBOR map generated for
@@ -135,7 +135,7 @@ use syn::{
 ///   on fields of a tuple struct or tuple-like enum variant will result in a
 ///   compile error. An enum type which has both struct-like and tuple-like
 ///   variants *may* use `#[cbor(flatten)]`, but only within its struct-like
-///  variants.
+///   variants.
 ///
 /// - `#[cbor(rename = "...")]`: Use a different name for this field when
 ///   encoding it as CBOR.
@@ -895,7 +895,7 @@ impl FieldGenerator {
                 (FieldType::Named, false) => {
                     let field_ident = field.ident.as_ref().expect(
                         "if we are generating named fields, there should \
-                             be an ident for each field",
+                         be an ident for each field",
                     );
                     let field_name = field_name.unwrap_or_else(|| {
                         LitStr::new(

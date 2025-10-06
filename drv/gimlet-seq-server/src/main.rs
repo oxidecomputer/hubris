@@ -208,10 +208,9 @@ struct ServerImpl<S: SpiServer> {
 }
 
 const TIMER_INTERVAL: u32 = 10;
-const EREPORT_BUF_LEN: usize = <task_packrat_api::Ereport<
-    EreportClass,
-    EreportKind,
-> as microcbor::StaticCborLen>::MAX_CBOR_LEN;
+const EREPORT_BUF_LEN: usize = microcbor::max_cbor_len_for!(
+    task_packrat_api::Ereport<EreportClass, EreportKind>
+);
 
 #[derive(microcbor::Encode)]
 pub enum EreportClass {
