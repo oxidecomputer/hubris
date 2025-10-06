@@ -7,7 +7,7 @@ use proc_macro::TokenStream;
 use quote::{ToTokens, format_ident, quote};
 use syn::{
     Attribute, DataEnum, DataStruct, DeriveInput, Generics, Ident, LitStr,
-    Visibility, parse_macro_input,
+    parse_macro_input,
 };
 
 /// Derives an implementation of the [`Encode`] and `StaticCborLen` traits for the
