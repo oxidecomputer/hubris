@@ -43,7 +43,7 @@ jobs:
         run: build/gha-build-boards-matrix.py ${filter_directories} --write-github-output
         id: matrix
         env:
-          filter_directories: ${{ inputs.filter_directories }}
+          filter_directories: ${{ inputs.filter-directories }}
 
   build:
     needs:
