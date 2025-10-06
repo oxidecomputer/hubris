@@ -80,7 +80,7 @@ use syn::{
 ///
 /// For example:
 ///
-/// ```rust,ignore
+/// ```rust
 /// # use microcbor_derive::*;
 /// #[derive(Encode, EncodeFields)]
 /// #[cbor(variant_id = "type")]

@@ -11,5 +11,8 @@ proc-macro2 = "1.0.78"
 quote = "1.0.35"
 syn = { version = "2.0.106", features = ["extra-traits", "parsing"] }
 
+[dev-dependencies]
+microcbor = { path = "../microcbor" }
+
 [lints]
 workspace = true
