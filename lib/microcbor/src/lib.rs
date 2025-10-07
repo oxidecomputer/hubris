@@ -138,6 +138,13 @@ macro_rules! max_cbor_len_for {
 ///
 /// This type may be derived by struct types with named fields, and by enum
 /// types where all variants have named fields.
+///
+/// The [implementation of `EncodeFields` for `Option<T>`][option-impl] will
+/// encode the fields of the inner value if it is `Some`, or encode nothing if
+/// it is `None`. This way, `#[cbor(flatten)]` may be used with values which are
+/// not always present.
+///
+/// [option-impl]: #impl-EncodeFields<C>-for-Option<T>
 pub trait EncodeFields<C> {
     const MAX_FIELDS_LEN: usize;
 
@@ -160,6 +167,29 @@ where
         c: &mut C,
     ) -> Result<(), encode::Error<W::Error>> {
         T::encode_fields(self, e, c)
+    }
+}
+
+/// When an `Option<T>` is used as a `#[cbor(flatten)]` field in a type deriving
+/// [`Encode`] or [`EncodeFields`], and `T` implements [`EncodeFields`], the
+/// `Option` will encode the fields of the inner value if it is `Some`, or
+/// encode nothing if it is `None`. This way, `#[cbor(flatten)]` may be used
+/// with values which are not always present.
+impl<T, C> EncodeFields<C> for Option<T>
+where
+    T: EncodeFields<C>,
+{
+    const MAX_FIELDS_LEN: usize = T::MAX_FIELDS_LEN;
+
+    fn encode_fields<W: Write>(
+        &self,
+        e: &mut Encoder<W>,
+        c: &mut C,
+    ) -> Result<(), encode::Error<W::Error>> {
+        match self {
+            Some(value) => value.encode_fields(e, c),
+            None => Ok(()),
+        }
     }
 }
 
