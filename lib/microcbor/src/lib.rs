@@ -110,6 +110,14 @@ pub trait StaticCborLen: Encode<()> {
 ///     let mut ereport_buf = [0; EREPORT_BUF_LEN];
 ///     // ...
 ///     # drop(ereport_buf);
+///
+///     assert_eq!(
+///         ereport_buf.len(),
+///         core::cmp::max(
+///             MyGreatEreport::MAX_CBOR_LEN,
+///             AnotherEreport::MAX_CBOR_LEN,
+///         ),
+///     );
 /// }
 /// ```
 #[macro_export]
@@ -131,13 +139,20 @@ macro_rules! max_cbor_len_for {
 /// pairs.
 ///
 /// This is used when a type is included as a field in a "parent" type that
-/// derives `EreportData`, and the field in the parent type is annotated with
-/// `#[ereport(flatten)]`. When that attribute is present, the fields of the
+/// derives [`Encode`], and the field in the parent type is annotated with
+/// `#[cbor(flatten)]`. When that attribute is present, the fields of the
 /// type are encoded as name-value pairs in the parent type's CBOR map, rather
 /// than creating a new nested map for the new type being encoded.
 ///
 /// This type may be derived by struct types with named fields, and by enum
 /// types where all variants have named fields.
+///
+/// The [implementation of `EncodeFields` for `Option<T>`][option-impl] will
+/// encode the fields of the inner value if it is `Some`, or encode nothing if
+/// it is `None`. This way, `#[cbor(flatten)]` may be used with values which are
+/// not always present.
+///
+/// [option-impl]: #impl-EncodeFields<C>-for-Option<T>
 pub trait EncodeFields<C> {
     const MAX_FIELDS_LEN: usize;
 
@@ -160,6 +175,29 @@ where
         c: &mut C,
     ) -> Result<(), encode::Error<W::Error>> {
         T::encode_fields(self, e, c)
+    }
+}
+
+/// When an `Option<T>` is used as a `#[cbor(flatten)]` field in a type deriving
+/// [`Encode`] or [`EncodeFields`], and `T` implements [`EncodeFields`], the
+/// `Option` will encode the fields of the inner value if it is `Some`, or
+/// encode nothing if it is `None`. This way, `#[cbor(flatten)]` may be used
+/// with values which are not always present.
+impl<T, C> EncodeFields<C> for Option<T>
+where
+    T: EncodeFields<C>,
+{
+    const MAX_FIELDS_LEN: usize = T::MAX_FIELDS_LEN;
+
+    fn encode_fields<W: Write>(
+        &self,
+        e: &mut Encoder<W>,
+        c: &mut C,
+    ) -> Result<(), encode::Error<W::Error>> {
+        match self {
+            Some(value) => value.encode_fields(e, c),
+            None => Ok(()),
+        }
     }
 }
 
@@ -224,20 +262,47 @@ impl<T: StaticCborLen> StaticCborLen for &T {
     const MAX_CBOR_LEN: usize = T::MAX_CBOR_LEN;
 }
 
+/// Returns the CBOR-encoded length (in bytes) of a `&str` value.
+///
+/// Unlike the [`minicbor::CborLen`] implementation for `&str`, this is a `const
+/// fn`, and can therefore be used when the particular `&str` value to be
+/// encoded is known at compile-time. This can be used when a string constant is
+/// used in a type that's encoded as CBOR.
 pub const fn str_cbor_len(s: &str) -> usize {
     usize_cbor_len(s.len()) + s.len()
 }
 
+/// Returns the CBOR-encoded length (in bytes) of a [`usize`] value.
+///
+/// Unlike the [`minicbor::CborLen`] implementation for [`usize`], this is a
+/// `const fn`, and can therefore be used when the particular `usize` value to
+/// be encoded is known at compile-time. For instance, this can be used to
+/// calculate the number of bytes required to encode the maximum length of a
+/// CBOR array, string, or map.
 #[cfg(target_pointer_width = "32")]
 pub const fn usize_cbor_len(u: usize) -> usize {
     u32_cbor_len(u as u32)
 }
 
+/// Returns the CBOR-encoded length (in bytes) of a [`usize`] value.
+///
+/// Unlike the [`minicbor::CborLen`] implementation for [`usize`], this is a
+/// `const fn`, and can therefore be used when the particular `usize` value to
+/// be encoded is known at compile-time. For instance, this can be used to
+/// calculate the number of bytes required to encode the maximum length of a
+/// CBOR array, string, or map.
 #[cfg(target_pointer_width = "64")]
 pub const fn usize_cbor_len(u: usize) -> usize {
     u64_cbor_len(u as u64)
 }
 
+/// Returns the CBOR-encoded length (in bytes) of a [`u32`] value.
+///
+/// Unlike the [`minicbor::CborLen`] implementation for [`u32`], this is a
+/// `const fn`, and can therefore be used when the particular `u32` value to be
+/// encoded is known at compile-time. For instance, this can be used to
+/// calculate the number of bytes required to encode the maximum length of a
+/// CBOR array, string, or map.
 pub const fn u32_cbor_len(u: u32) -> usize {
     // https://docs.rs/minicbor/2.1.1/src/minicbor/encode.rs.html#529-534
     match u {
@@ -248,6 +313,13 @@ pub const fn u32_cbor_len(u: u32) -> usize {
     }
 }
 
+/// Returns the CBOR-encoded length (in bytes) of a [`u64`] value.
+///
+/// Unlike the [`minicbor::CborLen`] implementation for [`u64`], this is a
+/// `const fn`, and can therefore be used when the particular `u64` value to be
+/// encoded is known at compile-time. For instance, this can be used to
+/// calculate the number of bytes required to encode the maximum length of a
+/// CBOR array, string, or map.
 pub const fn u64_cbor_len(u: u64) -> usize {
     // https://docs.rs/minicbor/2.1.1/src/minicbor/encode.rs.html#539-546
     match u {
