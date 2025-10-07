@@ -44,8 +44,8 @@ pub struct VCore {
 
 #[derive(microcbor::EncodeFields)]
 pub(super) struct PmbusEreport {
-    refdes: fixedstr::FixedStr<{ crate::i2c_config::MAX_COMPONENT_ID_LEN }>,
-    rail: &'static fixedstr::FixedStr<10>,
+    refdes: FixedStr<{ crate::i2c_config::MAX_COMPONENT_ID_LEN }>,
+    rail: &'static FixedStr<10>,
     time: u64,
     pwr_good: Option<bool>,
     pmbus_status: PmbusStatus,
@@ -180,7 +180,6 @@ impl VCore {
         &self,
         now: u64,
         packrat: &packrat_api::Packrat,
-        ereport_buf: &mut [u8],
         ereport_buf: &mut [u8; crate::EREPORT_BUF_LEN],
     ) {
         use pmbus::commands::raa229618::STATUS_WORD;
@@ -277,7 +276,7 @@ impl VCore {
             .map(|s| s.0);
         ringbuf_entry!(Trace::StatusMfrSpecific(status_mfr_specific));
 
-        let status = super::PmbusStatus {
+        let status = PmbusStatus {
             word: status_word.map(|s| s.0).ok(),
             input: status_input.ok(),
             vout: status_vout.ok(),
@@ -288,10 +287,10 @@ impl VCore {
         };
 
         static RAIL: FixedStr<10> = FixedStr::from_str("VDD_VCORE");
-        let ereport = packrat_api::Ereport {
+        let ereport = crate::Ereport {
             class: crate::EreportClass::PmbusAlert,
             version: 0,
-            report: crate::EreportKind::PmbusAlert {
+            report: PmbusEreport {
                 refdes: FixedStr::from_str(
                     self.device.i2c_device().component_id(),
                 ),
@@ -301,6 +300,7 @@ impl VCore {
                 pmbus_status: status,
             },
         };
+        crate::deliver_ereport(&ereport, packrat, ereport_buf);
 
         // TODO(eliza): if POWER_GOOD has been deasserted, we should produce a
         // subsequent ereport for that.
@@ -336,28 +336,4 @@ impl VCore {
             }
         }
     }
-}
-
-#[derive(Copy, Clone, Default, Serialize)]
-struct PmbusStatus {
-    word: Option<u16>,
-    input: Option<u8>,
-    iout: Option<u8>,
-    vout: Option<u8>,
-    temp: Option<u8>,
-    cml: Option<u8>,
-    mfr: Option<u8>,
-}
-
-#[derive(Serialize)]
-struct PmbusEreport {
-    #[serde(rename = "k")]
-    class: crate::EreportClass,
-    #[serde(rename = "v")]
-    version: u32,
-    refdes: &'static str,
-    rail: &'static str,
-    time: u64,
-    pwr_good: Option<bool>,
-    pmbus_status: PmbusStatus,
 }
