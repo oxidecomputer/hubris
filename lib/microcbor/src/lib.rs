@@ -26,7 +26,7 @@
 //! ## Wait, Why Not `#[derive(serde::Serialize)]`?
 //!
 //! Well, the obvious one is that there's no way to know how many bytes a given
-//! type's`Serialize` implementation will produce at compile-time.
+//! type's `Serialize` implementation will produce at compile-time.
 //!
 //! Another limitation, though, is that `serde`'s `#[serde(flatten)]` attribute
 //! requires `liballoc`, as the flattened fields are temporarily stored on the
@@ -163,11 +163,6 @@ where
     }
 }
 
-#[cfg(feature = "fixedstr")]
-impl<const LEN: usize> StaticCborLen for fixedstr::FixedStr<LEN> {
-    const MAX_CBOR_LEN: usize = LEN + usize::MAX_CBOR_LEN;
-}
-
 macro_rules! impl_static_cbor_len {
     ($($T:ty = $len:expr),*$(,)?) => {
         $(
@@ -201,7 +196,7 @@ impl_static_cbor_len! {
     // https://docs.rs/minicbor/2.1.1/src/minicbor/encode.rs.html#586
     f64 = 9,
 
-    //https://docs.rs/minicbor/2.1.1/src/minicbor/encode.rs.html#501
+    // https://docs.rs/minicbor/2.1.1/src/minicbor/encode.rs.html#501
     bool = 1,
 }
 

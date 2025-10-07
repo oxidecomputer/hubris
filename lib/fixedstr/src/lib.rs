@@ -77,7 +77,7 @@ impl<const MAX: usize> FixedStr<MAX> {
         };
         match Self::try_from_str(s) {
             Ok(s) => Ok(s),
-            Err(_) => Err(FromUtf8Error::TooLong),
+            Err(StringTooLong) => Err(FromUtf8Error::TooLong),
         }
     }
 
@@ -151,7 +151,12 @@ impl<const MAX: usize> core::fmt::Debug for FixedStr<MAX> {
     }
 }
 
-#[cfg(feature = "minicbor")]
+#[cfg(feature = "microcbor")]
+impl<const LEN: usize> microcbor::StaticCborLen for FixedStr<LEN> {
+    const MAX_CBOR_LEN: usize = LEN + usize::MAX_CBOR_LEN;
+}
+
+#[cfg(any(feature = "minicbor", feature = "microcbor"))]
 impl<C, const MAX: usize> minicbor::encode::Encode<C> for FixedStr<MAX> {
     fn encode<W: minicbor::encode::Write>(
         &self,
@@ -185,11 +190,11 @@ impl<'de, const MAX: usize> serde::Deserialize<'de> for FixedStr<MAX> {
                 &self,
                 f: &mut core::fmt::Formatter<'_>,
             ) -> core::fmt::Result {
-                write!(f, "a string of length {}", self.0)
+                write!(f, "a string of length <= {} bytes", self.0)
             }
         }
         let s = <&'de str>::deserialize(deserializer)?;
-        Self::try_from_str(s).map_err(|_| {
+        Self::try_from_str(s).map_err(|_: StringTooLong| {
             serde::de::Error::invalid_length(s.len(), &ExpectedLen(MAX))
         })
     }

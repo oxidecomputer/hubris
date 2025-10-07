@@ -3005,6 +3005,7 @@ version = "0.1.0"
 name = "fixedstr"
 version = "0.1.0"
 dependencies = [
+ "microcbor",
  "minicbor 2.1.1",
  "serde",
 ]
@@ -3935,6 +3936,7 @@ dependencies = [
 name = "microcbor-derive"
 version = "0.1.0"
 dependencies = [
+ "microcbor",
  "proc-macro2",
  "quote",
  "syn 2.0.106",
