@@ -1035,7 +1035,7 @@ pub(crate) enum EreportClass {
     Thermtrip,
     #[cbor(rename = "hw.seq.smerr")]
     Smerr,
-    #[cbor(rename = "hw.seq.a0_map0")]
+    #[cbor(rename = "hw.seq.a0_mapo")]
     A0Mapo,
     #[cbor(rename = "hw.pwr.pmbus.alert")]
     PmbusAlert,
@@ -1045,8 +1045,8 @@ pub(crate) enum EreportClass {
     //
     #[cbor(rename = "hw.cpu.a0_fail.unknown")]
     UnrecognizedCPU,
-    #[cbor(rename = "hw.cpu.a0_fail.no_cpu")]
-    NoCPUPresent,
+    #[cbor(rename = "hw.a0_fail")]
+    A0Failure,
 }
 
 pub(crate) type Ereport<T> = task_packrat_api::Ereport<EreportClass, T>;
