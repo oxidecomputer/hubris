@@ -110,6 +110,14 @@ pub trait StaticCborLen: Encode<()> {
 ///     let mut ereport_buf = [0; EREPORT_BUF_LEN];
 ///     // ...
 ///     # drop(ereport_buf);
+///
+///     assert_eq!(
+///         ereport_buf.len(),
+///         core::cmp::max(
+///             MyGreatEreport::MAX_CBOR_LEN,
+///             AnotherEreport::MAX_CBOR_LEN,
+///         ),
+///     );
 /// }
 /// ```
 #[macro_export]
@@ -131,8 +139,8 @@ macro_rules! max_cbor_len_for {
 /// pairs.
 ///
 /// This is used when a type is included as a field in a "parent" type that
-/// derives `EreportData`, and the field in the parent type is annotated with
-/// `#[ereport(flatten)]`. When that attribute is present, the fields of the
+/// derives [`Encode`], and the field in the parent type is annotated with
+/// `#[cbor(flatten)]`. When that attribute is present, the fields of the
 /// type are encoded as name-value pairs in the parent type's CBOR map, rather
 /// than creating a new nested map for the new type being encoded.
 ///
