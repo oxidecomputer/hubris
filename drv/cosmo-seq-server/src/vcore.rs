@@ -13,10 +13,11 @@
 //!
 
 use super::i2c_config;
+use super::Ereport;
 use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::raa229620a::{self, Raa229620A};
+use fixedstr::FixedStr;
 use ringbuf::*;
-use serde::Serialize;
 use userlib::{sys_get_timer, units, TaskId};
 
 pub(super) struct VCore {
@@ -24,13 +25,13 @@ pub(super) struct VCore {
     vddcr_cpu0: Raa229620A,
     /// `PWR_CONT2`: This regulator controls `VDDCR_CPU1` and `VDDIO_SP5` rails.
     vddcr_cpu1: Raa229620A,
-    packrat: task_packrat_api::Packrat,
 }
 
-#[derive(Copy, Clone, PartialEq, Serialize)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+#[derive(Copy, Clone, PartialEq, microcbor::Encode)]
 enum Rail {
+    #[cbor(rename = "VDDCR_CPU0")]
     VddcrCpu0,
+    #[cbor(rename = "VDDCR_CPU1")]
     VddcrCpu1,
 }
 
@@ -71,9 +72,6 @@ enum Trace {
     StatusCml(Rail, Result<u8, ResponseCode>),
     StatusMfrSpecific(Rail, Result<u8, ResponseCode>),
     I2cError(Rail, PmbusCmd, raa229620a::Error),
-    EreportSent(Rail, usize),
-    EreportLost(Rail, usize, task_packrat_api::EreportWriteError),
-    EreportTooBig(Rail),
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -104,7 +102,7 @@ const VCORE_UV_WARN_LIMIT: units::Volts = units::Volts(11.75);
 const VCORE_NSAMPLES: usize = 25;
 
 impl VCore {
-    pub fn new(i2c: TaskId, packrat: task_packrat_api::Packrat) -> Self {
+    pub fn new(i2c: TaskId) -> Self {
         let (device, rail) = i2c_config::pmbus::vddcr_cpu0_a0(i2c);
         let vddcr_cpu0 = Raa229620A::new(&device, rail);
 
@@ -113,7 +111,6 @@ impl VCore {
         Self {
             vddcr_cpu0,
             vddcr_cpu1,
-            packrat,
         }
     }
 
@@ -165,6 +162,7 @@ impl VCore {
         &self,
         mut rails: Rails,
         now: u64,
+        packrat: &task_packrat_api::Packrat,
         ereport_buf: &mut [u8],
     ) {
         ringbuf_entry!(Trace::PmbusAlert {
@@ -176,6 +174,7 @@ impl VCore {
             now,
             Rail::VddcrCpu0,
             rails.vddcr_cpu0,
+            packrat,
             ereport_buf,
         );
         rails.vddcr_cpu0 |= cpu0_state.faulted;
@@ -184,6 +183,7 @@ impl VCore {
             now,
             Rail::VddcrCpu1,
             rails.vddcr_cpu1,
+            packrat,
             ereport_buf,
         );
         rails.vddcr_cpu1 |= cpu1_state.faulted;
@@ -258,6 +258,7 @@ impl VCore {
         now: u64,
         rail: Rail,
         alerted: bool,
+        packrat: &task_packrat_api::Packrat,
         ereport_buf: &mut [u8],
     ) -> RegulatorState {
         use pmbus::commands::raa229620a::STATUS_WORD;
@@ -379,19 +380,16 @@ impl VCore {
         let ereport = Ereport {
             class: crate::EreportClass::PmbusAlert,
             version: 0,
-            rail,
-            refdes: device.i2c_device().component_id(),
-            time: now,
-            pmbus_status,
-            pwr_good: power_good,
+            report: PmbusEreport {
+                rail,
+                refdes: FixedStr::from_str(device.i2c_device().component_id()),
+                time: now,
+                pmbus_status,
+                pwr_good: power_good,
+            },
         };
 
-        crate::deliver_ereport(
-            ereport.class,
-            ereport,
-            self.packrat,
-            self.ereport_buf,
-        );
+        crate::deliver_ereport(&ereport, packrat, ereport_buf);
         // TODO(eliza): if POWER_GOOD has been deasserted, we should produce a
         // subsequent ereport for that.
 
@@ -402,20 +400,16 @@ impl VCore {
     }
 }
 
-#[derive(Serialize)]
-struct Ereport {
-    #[serde(rename = "k")]
-    class: crate::EreportClass,
-    #[serde(rename = "v")]
-    version: usize,
-    refdes: &'static str,
+#[derive(microcbor::EncodeFields)]
+pub(crate) struct PmbusEreport {
+    refdes: FixedStr<{ crate::i2c_config::MAX_COMPONENT_ID_LEN }>,
     rail: Rail,
     time: u64,
     pwr_good: Option<bool>,
     pmbus_status: PmbusStatus,
 }
 
-#[derive(Copy, Clone, Default, Serialize)]
+#[derive(Copy, Clone, Default, microcbor::Encode)]
 struct PmbusStatus {
     word: Option<u16>,
     input: Option<u8>,
