@@ -88,6 +88,7 @@ pub trait StaticCborLen: Encode<()> {
 /// For example:
 ///
 /// ```rust
+/// use microcbor::StaticCborLen;
 ///
 /// #[derive(microcbor::Encode)]
 /// pub struct MyGreatEreport {
