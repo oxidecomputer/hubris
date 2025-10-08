@@ -10,20 +10,20 @@
 use drv_cpu_seq_api::{
     PowerState, SeqError as CpuSeqError, StateChangeReason, Transition,
 };
+use drv_hf_api::HostFlash;
 use drv_ice40_spi_program as ice40;
 use drv_packrat_vpd_loader::{read_vpd_and_load_packrat, Packrat};
 use drv_spartan7_loader_api::Spartan7Loader;
 use drv_spi_api::{SpiDevice, SpiServer};
 use drv_stm32xx_sys_api::{self as sys_api, Sys};
+use fixedstr::FixedStr;
 use idol_runtime::{NotificationHandler, RequestError};
+use ringbuf::{counted_ringbuf, ringbuf_entry, Count};
 use task_jefe_api::Jefe;
 use userlib::{
     hl, set_timer_relative, sys_get_timer, sys_recv_notification, task_slot,
     RecvMessage,
 };
-
-use drv_hf_api::HostFlash;
-use ringbuf::{counted_ringbuf, ringbuf_entry, Count};
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
@@ -101,6 +101,14 @@ enum Trace {
         now: u64,
     },
     UnexpectedInterrupt,
+
+    EreportSent(#[count(children)] EreportClass, usize),
+    EreportLost(
+        #[count(children)] EreportClass,
+        usize,
+        task_packrat_api::EreportWriteError,
+    ),
+    EreportTooBig(#[count(children)] EreportClass),
 }
 counted_ringbuf!(Trace, 128, Trace::None);
 
@@ -378,12 +386,18 @@ struct ServerImpl {
     seq: fmc_sequencer::Sequencer,
     espi: fmc_periph::espi::Espi,
     vcore: VCore,
+    packrat: Packrat,
     /// Static buffer for encoding ereports. This is a static so that we don't
     /// have it on the stack when encoding ereports.
     ereport_buf: &'static mut [u8; EREPORT_BUF_LEN],
 }
 
-const EREPORT_BUF_LEN: usize = 256;
+const EREPORT_BUF_LEN: usize = microcbor::max_cbor_len_for![
+    Ereport<vcore::PmbusEreport>,
+    Ereport<UnrecognizedCPU>,
+    // For FPGA MAPO/SMERR ereports
+    Ereport<&'static SeqFpgaRefdes>,
+];
 
 impl ServerImpl {
     fn new(
@@ -421,7 +435,8 @@ impl ServerImpl {
             hf: HostFlash::from(HF.get_task_id()),
             seq,
             espi,
-            vcore: VCore::new(I2C.get_task_id(), packrat),
+            vcore: VCore::new(I2C.get_task_id()),
+            packrat,
             ereport_buf,
         }
     }
@@ -537,26 +552,42 @@ impl ServerImpl {
                 });
 
                 // From sp5-mobo-guide-56870_1.1.pdf table 72
-                match (coretype0, coretype1, coretype2) {
+                let coretype_ok = match (coretype0, coretype1, coretype2) {
                     // These correspond to Type-2 and Type-3
-                    (true, false, true) | (true, false, false) => (),
+                    (true, false, true) | (true, false, false) => true,
                     // Reject all other combos and return to A0
-                    _ => {
-                        self.seq.power_ctrl.modify(|m| m.set_a0_en(false));
-                        return Err(CpuSeqError::UnrecognizedCPU);
-                    }
+                    _ => false,
                 };
 
                 // From sp5-mobo-guide-56870_1.1.pdf table 73
-                match (sp5r1, sp5r2, sp5r3, sp5r4) {
+                let sp5r_ok = match (sp5r1, sp5r2, sp5r3, sp5r4) {
                     // There is only combo we accept here
-                    (true, false, false, false) => (),
+                    (true, false, false, false) => true,
                     // Reject all other combos and return to A0
-                    _ => {
-                        self.seq.power_ctrl.modify(|m| m.set_a0_en(false));
-                        return Err(CpuSeqError::UnrecognizedCPU);
-                    }
+                    _ => false,
                 };
+
+                if !(coretype_ok && sp5r_ok) {
+                    // Looks weird!
+                    self.seq.power_ctrl.modify(|m| m.set_a0_en(false));
+                    let ereport = Ereport {
+                        class: EreportClass::UnrecognizedCPU,
+                        version: 0,
+                        report: UnrecognizedCPU {
+                            refdes: &HOST_CPU_REFDES,
+                            coretype0,
+                            coretype1,
+                            coretype2,
+                            sp5r1,
+                            sp5r2,
+                            sp5r3,
+                            sp5r4,
+                        },
+                    };
+                    deliver_ereport(&ereport, &self.packrat, self.ereport_buf);
+                    return Err(CpuSeqError::UnrecognizedCPU);
+                }
+
                 // Turn on the voltage regulator undervolt alerts.
                 self.enable_sequencer_interrupts();
 
@@ -758,8 +789,12 @@ impl ServerImpl {
                 vddcr_cpu0: ifr.pwr_cont1_to_fpga1_alert,
                 vddcr_cpu1: ifr.pwr_cont2_to_fpga1_alert,
             };
-            self.vcore
-                .handle_pmbus_alert(which_rails, now, self.ereport_buf);
+            self.vcore.handle_pmbus_alert(
+                which_rails,
+                now,
+                &self.packrat,
+                self.ereport_buf,
+            );
 
             // We need not instruct the sequencer to reset. PMBus alerts from
             // the RAA229620As are divided into two categories, "warnings" and
@@ -787,7 +822,17 @@ impl ServerImpl {
             self.seq.ifr.modify(|h| h.set_thermtrip(false));
             ringbuf_entry!(Trace::Thermtrip);
             action = InternalAction::ThermTrip;
-            // Great place for an ereport?
+            let ereport = Ereport {
+                class: EreportClass::Thermtrip,
+                version: 0,
+                report: &HOST_CPU_REFDES,
+                // TODO(eliza): eventually, it would be nice to include sequencer
+                // state registers here, however, we would need to modify the
+                // `fpga_regmap` codegen to let us get the raw bits out (since
+                // encoding the `...View` structs as CBOR uses a lot more bytes for
+                // field names and 8-bit `bool`s...) I'll do this eventually...
+            };
+            deliver_ereport(&ereport, &self.packrat, self.ereport_buf);
         }
 
         if ifr.a0mapo {
@@ -795,14 +840,36 @@ impl ServerImpl {
             self.seq.ifr.modify(|h| h.set_a0mapo(false));
             ringbuf_entry!(Trace::A0MapoInterrupt);
             action = InternalAction::Mapo;
-            // Great place for an ereport?
+
+            let ereport = Ereport {
+                class: EreportClass::A0Mapo,
+                version: 0,
+                report: &SEQ_FPGA_REFDES,
+                // TODO(eliza): eventually, it would be nice to include sequencer
+                // state registers here, however, we would need to modify the
+                // `fpga_regmap` codegen to let us get the raw bits out (since
+                // encoding the `...View` structs as CBOR uses a lot more bytes for
+                // field names and 8-bit `bool`s...) I'll do this eventually...
+            };
+            deliver_ereport(&ereport, &self.packrat, self.ereport_buf);
         }
 
         if ifr.smerr_assert {
             self.seq.ifr.modify(|h| h.set_smerr_assert(false));
             ringbuf_entry!(Trace::SmerrInterrupt);
             action = InternalAction::Smerr;
-            // Great place for an ereport?
+
+            let ereport = Ereport {
+                class: EreportClass::Smerr,
+                version: 0,
+                report: &SEQ_FPGA_REFDES,
+                // TODO(eliza): eventually, it would be nice to include sequencer
+                // state registers here, however, we would need to modify the
+                // `fpga_regmap` codegen to let us get the raw bits out (since
+                // encoding the `...View` structs as CBOR uses a lot more bytes for
+                // field names and 8-bit `bool`s...) I'll do this eventually...
+            };
+            deliver_ereport(&ereport, &self.packrat, self.ereport_buf);
         }
         // Fan Fault is unconnected
         // NIC MAPO is unconnected
@@ -957,6 +1024,80 @@ impl NotificationHandler for ServerImpl {
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
+#[derive(Eq, PartialEq, Copy, Clone, microcbor::Encode, counters::Count)]
+pub(crate) enum EreportClass {
+    //
+    // Interrupts
+    //
+    #[cbor(rename = "hw.cpu.thermtrip")]
+    Thermtrip,
+    #[cbor(rename = "hw.seq.smerr")]
+    Smerr,
+    #[cbor(rename = "hw.seq.a0_mapo")]
+    A0Mapo,
+    #[cbor(rename = "hw.pwr.pmbus.alert")]
+    PmbusAlert,
+
+    //
+    // Initialization failures
+    //
+    #[cbor(rename = "hw.cpu.a0_fail.unknown")]
+    UnrecognizedCPU,
+}
+
+pub(crate) type Ereport<T> = task_packrat_api::Ereport<EreportClass, T>;
+
+#[derive(microcbor::EncodeFields)]
+pub(crate) struct UnrecognizedCPU {
+    #[cbor(flatten)]
+    refdes: &'static HostCpuRefdes,
+    coretype0: bool,
+    coretype1: bool,
+    coretype2: bool,
+    sp5r1: bool,
+    sp5r2: bool,
+    sp5r3: bool,
+    sp5r4: bool,
+}
+
+#[derive(microcbor::EncodeFields)]
+struct HostCpuRefdes {
+    refdes: FixedStr<2>,
+    dev_id: FixedStr<16>,
+}
+
+#[derive(microcbor::EncodeFields)]
+struct SeqFpgaRefdes {
+    refdes: FixedStr<3>,
+}
+
+static SEQ_FPGA_REFDES: SeqFpgaRefdes = SeqFpgaRefdes {
+    refdes: FixedStr::from_str("U27"),
+};
+
+static HOST_CPU_REFDES: HostCpuRefdes = HostCpuRefdes {
+    refdes: FixedStr::from_str("P0"),
+    // TODO(eliza): can we get this from the `gateway-sp-messages` crate?
+    dev_id: FixedStr::from_str("sp5-host-cpu"),
+};
+
+pub(crate) fn deliver_ereport<E: microcbor::EncodeFields<()>>(
+    ereport: &Ereport<E>,
+    packrat: &Packrat,
+    buf: &mut [u8],
+) {
+    match packrat.encode_ereport(ereport, buf) {
+        Ok(len) => ringbuf_entry!(Trace::EreportSent(ereport.class, len)),
+        Err(task_packrat_api::EreportEncodeError::Packrat { len, err }) => {
+            ringbuf_entry!(Trace::EreportLost(ereport.class, len, err))
+        }
+        Err(task_packrat_api::EreportEncodeError::Encoder(_)) => {
+            ringbuf_entry!(Trace::EreportTooBig(ereport.class))
+        }
+    }
+}
 ////////////////////////////////////////////////////////////////////////////////
 
 mod idl {

@@ -163,7 +163,7 @@ name = "drv-gimlet-seq-server"
 features = ["h753"]
 priority = 4
 max-sizes = {flash = 131072, ram = 16384 }
-stacksize = 2600
+stacksize = 2912
 start = true
 task-slots = ["sys", "i2c_driver", {spi_driver = "spi2_driver"}, "hf", "jefe", "packrat"]
 notifications = ["timer", "vcore"]

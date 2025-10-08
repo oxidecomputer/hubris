@@ -40,7 +40,26 @@ use userlib::{sys_get_timer, units};
 pub struct VCore {
     device: Raa229618,
     sys: sys_api::Sys,
-    packrat: packrat_api::Packrat,
+}
+
+#[derive(microcbor::EncodeFields)]
+pub(super) struct PmbusEreport {
+    refdes: FixedStr<{ crate::i2c_config::MAX_COMPONENT_ID_LEN }>,
+    rail: &'static FixedStr<10>,
+    time: u64,
+    pwr_good: Option<bool>,
+    pmbus_status: PmbusStatus,
+}
+
+#[derive(Copy, Clone, Default, microcbor::Encode)]
+struct PmbusStatus {
+    word: Option<u16>,
+    input: Option<u8>,
+    iout: Option<u8>,
+    vout: Option<u8>,
+    temp: Option<u8>,
+    cml: Option<u8>,
+    mfr: Option<u8>,
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -61,9 +80,6 @@ enum Trace {
     StatusMfrSpecific(Result<u8, ResponseCode>),
     Reading { timestamp: u64, volts: units::Volts },
     Error(ResponseCode),
-    EreportSent(usize),
-    EreportLost(usize, packrat_api::EreportWriteError),
-    EreportTooBig,
 }
 
 ringbuf!(Trace, 120, Trace::None);
@@ -97,16 +113,10 @@ cfg_if::cfg_if! {
 }
 
 impl VCore {
-    pub fn new(
-        sys: &sys_api::Sys,
-        packrat: packrat_api::Packrat,
-        device: &I2cDevice,
-        rail: u8,
-    ) -> Self {
+    pub fn new(sys: &sys_api::Sys, device: &I2cDevice, rail: u8) -> Self {
         Self {
             device: Raa229618::new(device, rail),
             sys: sys.clone(),
-            packrat,
         }
     }
 
@@ -141,6 +151,7 @@ impl VCore {
 
     pub fn handle_notification(
         &self,
+        packrat: &packrat_api::Packrat,
         ereport_buf: &mut [u8; crate::EREPORT_BUF_LEN],
     ) {
         let now = sys_get_timer().now;
@@ -152,7 +163,7 @@ impl VCore {
         });
 
         if asserted {
-            self.read_pmbus_status(now, ereport_buf);
+            self.read_pmbus_status(now, packrat, ereport_buf);
             // Clear the fault now so that PMALERT_L is reasserted if a
             // subsequent fault occurs. Note that if the fault *condition*
             // continues, the fault bits in the status registers will remain
@@ -168,6 +179,7 @@ impl VCore {
     fn read_pmbus_status(
         &self,
         now: u64,
+        packrat: &packrat_api::Packrat,
         ereport_buf: &mut [u8; crate::EREPORT_BUF_LEN],
     ) {
         use pmbus::commands::raa229618::STATUS_WORD;
@@ -264,7 +276,7 @@ impl VCore {
             .map(|s| s.0);
         ringbuf_entry!(Trace::StatusMfrSpecific(status_mfr_specific));
 
-        let status = super::PmbusStatus {
+        let status = PmbusStatus {
             word: status_word.map(|s| s.0).ok(),
             input: status_input.ok(),
             vout: status_vout.ok(),
@@ -275,10 +287,10 @@ impl VCore {
         };
 
         static RAIL: FixedStr<10> = FixedStr::from_str("VDD_VCORE");
-        let ereport = packrat_api::Ereport {
+        let ereport = crate::Ereport {
             class: crate::EreportClass::PmbusAlert,
             version: 0,
-            report: crate::EreportKind::PmbusAlert {
+            report: PmbusEreport {
                 refdes: FixedStr::from_str(
                     self.device.i2c_device().component_id(),
                 ),
@@ -288,15 +300,8 @@ impl VCore {
                 pmbus_status: status,
             },
         };
-        match self.packrat.encode_ereport(&ereport, &mut ereport_buf[..]) {
-            Ok(len) => ringbuf_entry!(Trace::EreportSent(len)),
-            Err(task_packrat_api::EreportEncodeError::Packrat { len, err }) => {
-                ringbuf_entry!(Trace::EreportLost(len, err))
-            }
-            Err(task_packrat_api::EreportEncodeError::Encoder(_)) => {
-                ringbuf_entry!(Trace::EreportTooBig)
-            }
-        }
+        crate::deliver_ereport(&ereport, packrat, ereport_buf);
+
         // TODO(eliza): if POWER_GOOD has been deasserted, we should produce a
         // subsequent ereport for that.
 

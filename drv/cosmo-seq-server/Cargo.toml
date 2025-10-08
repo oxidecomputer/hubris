@@ -16,11 +16,13 @@ drv-packrat-vpd-loader = { path = "../packrat-vpd-loader" }
 drv-spartan7-loader-api = { path = "../spartan7-loader-api" }
 drv-spi-api = { path = "../spi-api" }
 drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
+fixedstr = { path = "../../lib/fixedstr", features = ["microcbor"] }
 gnarle = { path = "../../lib/gnarle" }
 ringbuf = { path = "../../lib/ringbuf" }
+microcbor = { path = "../../lib/microcbor" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 task-jefe-api = { path = "../../task/jefe-api" }
-task-packrat-api = { path = "../../task/packrat-api", features = ["serde"] }
+task-packrat-api = { path = "../../task/packrat-api", features = ["microcbor"] }
 static-cell = { path = "../../lib/static-cell" }
 
 cfg-if = { workspace = true }

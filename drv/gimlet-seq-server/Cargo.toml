@@ -33,7 +33,6 @@ zerocopy-derive = { workspace = true }
 num-derive = { workspace = true }
 static_assertions = { workspace = true }
 spd = { workspace = true }
-serde = { workspace = true }
 pmbus = { workspace = true }
 
 [build-dependencies]
