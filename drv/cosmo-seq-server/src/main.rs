@@ -487,6 +487,7 @@ impl ServerImpl {
 
                 // Wait 2 seconds for power-up
                 let mut okay = false;
+                #[allow(unused_mut)]
                 let mut err = CpuSeqError::A0Timeout;
                 for _ in 0..200 {
                     let state = self.log_state_registers();
@@ -501,16 +502,19 @@ impl ServerImpl {
                         Ok(A0Sm::EnableGrpA) => {
                             // hardware-cosmo#658 prevents us from checking `CPU_PRESENT`
                             // at `A0Sm::ENABLE_GRP_A` time on rev-a boards
-                            #[cfg(target_board = "cosmo-b")]
-                            {
-                                let present =
-                                    self.sys.gpio_read(SP5_TO_SP_PRESENT_L)
-                                        == 0;
-                                ringbuf_entry!(Trace::CPUPresent(present));
+                            cfg_if::cfg_if! {
+                                if #[cfg(target_board = "cosmo-a")] {
+                                    ringbuf_entry!(Trace::CPUPresent(true));
+                                } else {
+                                    let present =
+                                        self.sys.gpio_read(SP5_TO_SP_PRESENT_L)
+                                            == 0;
+                                    ringbuf_entry!(Trace::CPUPresent(present));
 
-                                if !present {
-                                    err = CpuSeqError::CPUNotPresent;
-                                    break;
+                                    if !present {
+                                        err = CpuSeqError::CPUNotPresent;
+                                        break;
+                                    }
                                 }
                             }
                         }
