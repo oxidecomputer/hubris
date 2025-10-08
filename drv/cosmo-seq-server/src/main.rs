@@ -1045,8 +1045,6 @@ pub(crate) enum EreportClass {
     //
     #[cbor(rename = "hw.cpu.a0_fail.unknown")]
     UnrecognizedCPU,
-    #[cbor(rename = "hw.a0_fail")]
-    A0Failure,
 }
 
 pub(crate) type Ereport<T> = task_packrat_api::Ereport<EreportClass, T>;
