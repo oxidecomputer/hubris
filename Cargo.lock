@@ -1079,6 +1079,7 @@ dependencies = [
  "ringbuf",
  "serde",
  "sha2",
+ "static-cell",
  "static_assertions",
  "stm32h7",
  "userlib",

@@ -9,6 +9,7 @@ drv-hash-api = { path = "../hash-api" }
 drv-hf-api = { path = "../hf-api" }
 drv-spartan7-loader-api = { path = "../spartan7-loader-api" }
 ringbuf = { path = "../../lib/ringbuf" }
+static-cell = { path = "../../lib/static-cell" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 apob = { workspace = true }

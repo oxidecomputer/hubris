@@ -34,6 +34,7 @@ pub struct ServerImpl {
 
     // Used in the `apob` module for implementation
     pub(crate) apob_state: apob::ApobState,
+    pub(crate) apob_buf: apob::ApobBuf,
 }
 
 /// This tunes how many bytes we hash in a single async timer notification
@@ -49,12 +50,15 @@ impl ServerImpl {
     /// Persistent data is loaded from the flash chip and used to select `dev`;
     /// in addition, it is made redundant (written to both virtual devices).
     pub fn new(mut drv: FlashDriver) -> Self {
-        let apob_state = apob::ApobState::init(&mut drv);
+        let mut apob_buf = apob::claim_statics();
+        let apob_state = apob::ApobState::init(&mut drv, &mut apob_buf);
+
         let mut out = Self {
             dev: drv_hf_api::HfDevSelect::Flash0,
             drv,
             hash: HashData::new(HASH.get_task_id()),
             apob_state,
+            apob_buf,
         };
         out.drv.set_flash_mux_state(HfMuxState::SP);
         out.ensure_persistent_data_is_redundant();
@@ -524,7 +528,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         data: Leased<R, [u8]>,
     ) -> Result<(), RequestError<drv_hf_api::ApobWriteError>> {
         self.apob_state
-            .write(&mut self.drv, offset, data)
+            .write(&mut self.drv, &mut self.apob_buf, offset, data)
             .map_err(RequestError::from)
     }
 
@@ -533,7 +537,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         _: &RecvMessage,
     ) -> Result<(), RequestError<drv_hf_api::ApobCommitError>> {
         self.apob_state
-            .commit(&mut self.drv)
+            .commit(&mut self.drv, &mut self.apob_buf)
             .map_err(RequestError::from)
     }
 
@@ -552,7 +556,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         data: Leased<W, [u8]>,
     ) -> Result<usize, RequestError<drv_hf_api::ApobReadError>> {
         self.apob_state
-            .read(&mut self.drv, offset, data)
+            .read(&mut self.drv, &mut self.apob_buf, offset, data)
             .map_err(RequestError::from)
     }
 
@@ -585,7 +589,8 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             // Reinitialize APOB state to correctly pick the active APOB slot.
             // This also unlocks the APOB so it can be written (once muxed back
             // to the SP).
-            self.apob_state = apob::ApobState::init(&mut self.drv);
+            self.apob_state =
+                apob::ApobState::init(&mut self.drv, &mut self.apob_buf);
         }
         self.drv.set_flash_mux_state(state);
         self.invalidate_mux_switch();
