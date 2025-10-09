@@ -625,16 +625,23 @@ impl ApobState {
             drv.flash_read(addr, &mut &mut buf.scratch[..n])
                 .map_err(|_| ApobWriteError::WriteFailed)?;
 
-            let mut all_matches = true;
+            // This is a little tricky: we allow for bytes to either match our
+            // expected write (for idempotency), _or_ to be `0xFF` (because that
+            // means they're erased).  We have to check every byte to confirm
+            // that they all match, but can bail immediately if we find a
+            // non-matching byte that is *also* not erased.
+            let mut needs_write = false;
             for (a, b) in buf.scratch[..n].iter().zip(buf.page[..n].iter()) {
                 if *a != *b {
-                    all_matches = false;
+                    needs_write = true;
                     if *a != 0xFF {
                         return Err(ApobWriteError::NotErased);
                     }
                 }
             }
-            if !all_matches {
+            // If any byte is not a match, then we have to do a flash write
+            // (otherwise, it's an idempotent write and we can skip it)
+            if needs_write {
                 drv.flash_write(addr, &mut &buf.page[..n])
                     .map_err(|_| ApobWriteError::WriteFailed)?;
             }
