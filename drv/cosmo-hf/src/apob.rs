@@ -15,7 +15,7 @@ use drv_hf_api::{
     HfError,
 };
 use idol_runtime::{Leased, R, W};
-use ringbuf::{ringbuf, ringbuf_entry};
+use ringbuf::{counted_ringbuf, ringbuf_entry};
 use userlib::UnwrapLite;
 use zerocopy::{FromBytes, FromZeros, Immutable, IntoBytes, KnownLayout};
 
@@ -145,15 +145,18 @@ pub const APOB_META1_ADDR: u32 = APOB_META0_ADDR + APOB_META_SIZE;
 pub const APOB_SLOT0_ADDR: u32 = APOB_META1_ADDR + APOB_META_SIZE;
 pub const APOB_SLOT1_ADDR: u32 = APOB_SLOT0_ADDR + APOB_SLOT_SIZE;
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, counters::Count)]
 enum Trace {
+    #[count(skip)]
     None,
-    State(ApobState),
+    State(#[count(children)] ApobState),
     GotPersistentData {
+        #[count(children)]
         meta: Meta,
         data: Option<ApobRawPersistentData>,
     },
     WrotePersistentData {
+        #[count(children)]
         meta: Meta,
         data: ApobRawPersistentData,
     },
@@ -162,14 +165,23 @@ enum Trace {
         actual_hash: [u8; 32],
     },
     ApobSlotErase {
+        #[count(children)]
         slot: ApobSlot,
         size: u32,
     },
     ApobSlotEraseDone {
+        #[count(children)]
+        slot: ApobSlot,
+        time_ms: u64,
+        num_sectors_erased: usize,
+    },
+    ApobSlotEraseSkipped {
+        #[count(children)]
         slot: ApobSlot,
         time_ms: u64,
     },
     ApobSlotSectorErase {
+        #[count(children)]
         slot: ApobSlot,
         offset: u32,
     },
@@ -190,9 +202,9 @@ enum Trace {
         actual: u32,
     },
 }
-ringbuf!(Trace, 16, Trace::None);
+counted_ringbuf!(Trace, 16, Trace::None);
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, counters::Count)]
 pub(crate) enum ApobSlot {
     Slot0,
     Slot1,
@@ -225,7 +237,13 @@ impl ApobSlot {
     }
 }
 
-#[derive(Copy, Clone, PartialEq)]
+/// State machine class, which implements the logic from RFD 593
+///
+/// See rfd.shared.oxide.computer/rfd/593#_production_strength_implementation
+/// for details on the states and transitions.  Note that the diagram in the RFD
+/// includes fine-grained states (e.g. writing), which the actual implementation
+/// never dwells in; these states are not explicit in `ApobState`.
+#[derive(Copy, Clone, PartialEq, counters::Count)]
 pub(crate) enum ApobState {
     /// Waiting for `ApobStart`
     Waiting {
@@ -322,7 +340,7 @@ impl ApobRawPersistentData {
     }
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, counters::Count)]
 enum Meta {
     Meta0,
     Meta1,
@@ -373,12 +391,8 @@ impl ApobState {
         let a = Self::slot_scan(drv, Meta::Meta0);
         let b = Self::slot_scan(drv, Meta::Meta1);
 
-        match (a, b) {
-            (Some(a), Some(b)) => Some(a.max(b)),
-            (Some(_), None) => a,
-            (None, Some(_)) => b,
-            (None, None) => None,
-        }
+        // None is always less than Some(..), so this picks the largest option
+        a.max(b)
     }
 
     /// Finds the currently active APOB slot, erasing any unused slots
@@ -431,6 +445,7 @@ impl ApobState {
 
         // Read back each sector and decide whether to erase it.  We round up
         // here to the nearest sector
+        let mut num_sectors_erased = 0;
         for sector_offset in (0..size).step_by(SECTOR_SIZE_BYTES as usize) {
             let mut buf = [0u8; PAGE_SIZE_BYTES];
             for page_offset in (0..SECTOR_SIZE_BYTES).step_by(PAGE_SIZE_BYTES) {
@@ -442,6 +457,7 @@ impl ApobState {
                 .unwrap_lite();
                 if buf.iter().any(|b| *b != 0xFF) {
                     ringbuf_entry!(Trace::ApobSlotSectorErase { slot, offset });
+                    num_sectors_erased += 1;
                     drv.flash_sector_erase(
                         slot.flash_addr(offset).unwrap_lite(),
                     );
@@ -450,10 +466,18 @@ impl ApobState {
             }
         }
         let end = userlib::sys_get_timer().now;
-        ringbuf_entry!(Trace::ApobSlotEraseDone {
-            slot,
-            time_ms: end - start
-        });
+        if num_sectors_erased > 0 {
+            ringbuf_entry!(Trace::ApobSlotEraseDone {
+                slot,
+                time_ms: end - start,
+                num_sectors_erased,
+            });
+        } else {
+            ringbuf_entry!(Trace::ApobSlotEraseSkipped {
+                slot,
+                time_ms: end - start,
+            });
+        }
     }
 
     /// Finds a valid APOB slot within the given meta region
@@ -467,7 +491,9 @@ impl ApobState {
             let addr = meta.flash_addr(offset).unwrap_lite();
             // flash_read is infallible when using a slice
             drv.flash_read(addr, &mut data.as_mut_bytes()).unwrap_lite();
-            best = best.max(Some(data).filter(|d| d.is_valid()));
+            if data.is_valid() {
+                best = best.max(Some(data));
+            }
         }
         ringbuf_entry!(Trace::GotPersistentData { meta, data: best });
         best
@@ -692,12 +718,12 @@ impl ApobState {
             .map(|p| p.monotonic_counter)
             .unwrap_or(1)
             .wrapping_add(1);
-        let new_perst = ApobRawPersistentData::new(write_slot, new_counter);
+        let meta_data = ApobRawPersistentData::new(write_slot, new_counter);
 
         for m in [Meta::Meta0, Meta::Meta1] {
-            Self::write_raw_persistent_data(drv, new_perst, m);
+            Self::write_raw_persistent_data(drv, meta_data, m);
             ringbuf_entry!(Trace::WrotePersistentData {
-                data: new_perst,
+                data: meta_data,
                 meta: m
             });
         }
