@@ -633,6 +633,10 @@ impl ApobState {
             let mut needs_write = false;
             for (a, b) in buf.scratch[..n].iter().zip(buf.page[..n].iter()) {
                 if *a != *b {
+                    // You may be tempted to insert a `break` here, but that
+                    // would be incorrect: there could be subsequent bytes which
+                    // do not match *and* are not erased, in which case we must
+                    // return `NotErased`.
                     needs_write = true;
                     if *a != 0xFF {
                         return Err(ApobWriteError::NotErased);
