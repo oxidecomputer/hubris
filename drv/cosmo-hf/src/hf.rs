@@ -33,7 +33,7 @@ pub struct ServerImpl {
     hash: HashData,
 
     pub(crate) apob_state: apob::ApobState,
-    pub(crate) apob_buf: apob::ApobBuf,
+    pub(crate) apob_buf: apob::ApobBufs,
 }
 
 /// This tunes how many bytes we hash in a single async timer notification
@@ -49,7 +49,7 @@ impl ServerImpl {
     /// Persistent data is loaded from the flash chip and used to select `dev`;
     /// in addition, it is made redundant (written to both virtual devices).
     pub fn new(mut drv: FlashDriver) -> Self {
-        let mut apob_buf = apob::claim_statics();
+        let mut apob_buf = apob::ApobBufs::claim_statics();
         let apob_state = apob::ApobState::init(&mut drv, &mut apob_buf);
 
         let mut out = Self {
