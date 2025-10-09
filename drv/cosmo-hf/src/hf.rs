@@ -32,7 +32,6 @@ pub struct ServerImpl {
     pub dev: HfDevSelect,
     hash: HashData,
 
-    // Used in the `apob` module for implementation
     pub(crate) apob_state: apob::ApobState,
     pub(crate) apob_buf: apob::ApobBuf,
 }
