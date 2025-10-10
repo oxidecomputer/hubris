@@ -1853,6 +1853,7 @@ dependencies = [
  "drv-i2c-devices",
  "drv-minibar-seq-api",
  "drv-packrat-vpd-loader",
+ "hubpack",
  "idol",
  "idol-runtime",
  "num-traits",

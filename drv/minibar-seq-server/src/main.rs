@@ -48,8 +48,12 @@ enum Trace {
     ControllerSha(u32),
     FpgaInitComplete,
     FpgaWriteError(FpgaError),
+    FpgaReadError(FpgaError),
     PcieRefclkPdCleared,
     DeviceState(DeviceState),
+    SledPowerGoodTimeout,
+    SledPowerGoodLost,
+    SledPowerFault,
 }
 ringbuf!(Trace, 32, Trace::None);
 
@@ -109,6 +113,28 @@ impl ServerImpl {
     ) -> bool {
         ident.checksum.get() == ServerImpl::short_bitstream_checksum()
     }
+
+    pub fn sled_power_control(&self, enable: bool) -> Result<(), FpgaError> {
+        let op = if enable {
+            WriteOp::BitSet
+        } else {
+            WriteOp::BitClear
+        };
+        self.fpga_user.write(
+            op,
+            Addr::POWER_CTRL,
+            Reg::POWER_CTRL::VBUS_SLED_EN,
+        )
+    }
+
+    pub fn get_sled_power_status(
+        &self,
+    ) -> Result<Reg::VBUS_SLED::StateEncoded, FpgaError> {
+        let raw: u8 = self.fpga_user.read(Addr::VBUS_SLED)?;
+
+        Reg::VBUS_SLED::StateEncoded::try_from(raw)
+            .map_err(|_| FpgaError::InvalidValue)
+    }
 }
 
 impl idl::InOrderSequencerImpl for ServerImpl {
@@ -126,6 +152,48 @@ impl idl::InOrderSequencerImpl for ServerImpl {
 
         Ok(state == DeviceState::RunningUserDesign)
     }
+
+    fn sled_power_status(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<Reg::VBUS_SLED::StateEncoded, RequestError<MinibarSeqError>>
+    {
+        self.get_sled_power_status()
+            .map_err(MinibarSeqError::from)
+            .map_err(RequestError::from)
+    }
+
+    fn sled_powered(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<bool, RequestError<MinibarSeqError>> {
+        let state = self
+            .get_sled_power_status()
+            .map_err(MinibarSeqError::from)
+            .map_err(RequestError::from)?;
+
+        Ok(state == Reg::VBUS_SLED::StateEncoded::Enabled)
+    }
+
+    fn sled_power_enable(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<MinibarSeqError>> {
+        self.sled_power_control(true)
+            .map_err(MinibarSeqError::from)
+            .map_err(RequestError::from)?;
+        Ok(())
+    }
+
+    fn sled_power_disable(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<MinibarSeqError>> {
+        self.sled_power_control(false)
+            .map_err(MinibarSeqError::from)
+            .map_err(RequestError::from)?;
+        Ok(())
+    }
 }
 
 impl NotificationHandler for ServerImpl {
@@ -139,6 +207,42 @@ impl NotificationHandler for ServerImpl {
         }
         let start = sys_get_timer().now;
         let finish = sys_get_timer().now;
+
+        // check for sled power problems (e.g., power good lost or a fault)
+        let byte: Result<u8, FpgaError> = self.fpga_user.read(Addr::VBUS_SLED);
+        match byte {
+            Ok(byte) => {
+                let mut power_issue = false;
+                let status =
+                    Reg::VBUS_SLED::StateEncoded::try_from(byte).unwrap();
+
+                use Reg::VBUS_SLED::StateEncoded::*;
+                match status {
+                    TimedOut => {
+                        ringbuf_entry!(Trace::SledPowerGoodTimeout);
+                        power_issue = true;
+                    }
+                    Aborted => {
+                        ringbuf_entry!(Trace::SledPowerGoodLost);
+                        power_issue = true;
+                    }
+                    Disabled | RampingUp | Enabled => (),
+                };
+
+                if byte & Reg::VBUS_SLED::FAULT_PIN != 0 {
+                    ringbuf_entry!(Trace::SledPowerFault);
+                    power_issue = true;
+                }
+
+                // Disable power if there is a problem.
+                if power_issue {
+                    let _ = self
+                        .sled_power_control(false)
+                        .map_err(|e| ringbuf_entry!(Trace::FpgaWriteError(e)));
+                }
+            }
+            Err(e) => ringbuf_entry!(Trace::FpgaReadError(e)),
+        }
 
         // We now know when we were notified and when any work was completed.
         // Note that the assumption here is that `start` < `finish` and that
