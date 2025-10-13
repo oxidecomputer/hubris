@@ -21,41 +21,60 @@ jobs:
     uses: ./.github/workflows/release.yml
     with:
       board-set: rot
+      filter-directories: app/oxide-rot-1/
 
   release-sidecar:
     if: startsWith(github.ref, 'refs/tags/sidecar')
     uses: ./.github/workflows/release.yml
     with:
       board-set: sidecar
+      filter-directories: app/sidecar/
 
   release-gimlet:
     if: startsWith(github.ref, 'refs/tags/gimlet')
     uses: ./.github/workflows/release.yml
     with:
       board-set: gimlet
+      filter-directories: app/gimlet/
 
   release-psc:
     if: startsWith(github.ref, 'refs/tags/psc')
     uses: ./.github/workflows/release.yml
     with:
       board-set: psc
+      filter-directories: app/psc/
 
   release-devboards:
     if: startsWith(github.ref, 'refs/tags/devboards')
     uses: ./.github/workflows/release.yml
     with:
       board-set: devboards
+      filter-directories: |
+        app/demo-stm32f4-discovery/
+        app/demo-stm32g0-nucleo/
+        app/demo-stm32h7-nucleo/
+        app/dongle/
+        app/gemini-bu/
+        app/gimletlet/
+        app/grapefruit/
+        app/lpc55xpresso/
+        app/minibar/
+        app/rot-carrier/
 
   release-cosmo:
     if: startsWith(github.ref, 'refs/tags/cosmo')
     uses: ./.github/workflows/release.yml
     with:
       board-set: cosmo
+      filter-directories: app/cosmo/
 
   release-all-sp:
     if: startsWith(github.ref, 'refs/tags/all-sp')
     uses: ./.github/workflows/release.yml
     with:
       board-set: all-sp
-
-
+      filter-directories: |
+        app/sidecar/
+        app/gimlet/
+        app/psc/
+        app/cosmo/

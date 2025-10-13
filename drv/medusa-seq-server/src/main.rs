@@ -62,8 +62,6 @@ enum Trace {
 
 ringbuf!(Trace, 32, Trace::None);
 
-const TIMER_INTERVAL: u64 = 1000;
-
 struct ServerImpl {
     power_control: PowerControl,
     front_io_board: Option<FrontIOBoard>,
