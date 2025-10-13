@@ -22,6 +22,7 @@ jobs:
     name: Initialize the release
     runs-on: ubuntu-24.04
     outputs:
+      version: ${{ steps.init.outputs.version }}
       tag_name: ${{ steps.init.outputs.tag_name }}
       hubris_app_dirs: ${{ steps.init.outputs.hubris_app_dirs }}
     steps:
@@ -62,6 +63,7 @@ jobs:
       os: oxide-colo-builder-hubris
       filter-directories: ${{ needs.init.outputs.hubris_app_dirs }}
       upload-artifacts: true
+      caboose-version: ${{ needs.init.outputs.version }}
       attest: true
 
   release:
@@ -84,7 +86,7 @@ jobs:
         tag_name: ${{ needs.init.outputs.tag_name }}
         name: "${{ github.event.inputs.group }} release"
         fail_on_unmatched_files: true
-        body: "These are UNVERSIONED hubris artifacts"
+        body: "These are versioned but UNSIGNED hubris ${{ github.event.inputs.group }} artifacts"
         files: |
           ${{ steps.grab.outputs.download-path }}/*.zip
           ${{ steps.grab.outputs.download-path }}/brussels-manifest.json
