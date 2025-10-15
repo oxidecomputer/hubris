@@ -599,6 +599,16 @@ impl ServerImpl {
 
             // This is purely an accounting change
             (PowerState::A0, PowerState::A0PlusHP) => (),
+            // A0PlusHP is a substate of A0; if we are in A0PlusHP and we are
+            // asked to go to A0, return `Unchanged`, because `A0PlusHP` means
+            // we are already in A0.
+            // Similarly, A2PlusFans "counts as" A2 for the purpose of
+            // externally-requested transitions.
+            (PowerState::A0PlusHP, PowerState::A0)
+            | (PowerState::A2PlusFans, PowerState::A2) => {
+                return Ok(Transition::Unchanged)
+            }
+            // If we are already in the requested state, return `Unchanged`.
             (current, requested) if current == requested => {
                 return Ok(Transition::Unchanged)
             }
