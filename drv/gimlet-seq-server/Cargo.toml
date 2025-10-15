@@ -24,6 +24,7 @@ static-cell = { path = "../../lib/static-cell" }
 
 cfg-if = { workspace = true }
 cortex-m = { workspace = true }
+hubpack = { workspace = true }
 idol-runtime.workspace = true
 num-traits = { workspace = true }
 zerocopy = { workspace = true }

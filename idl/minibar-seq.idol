@@ -10,5 +10,38 @@ Interface(
                 err: CLike("MinibarSeqError"),
             ),
         ),
+
+        "sled_power_status": (
+            args: {},
+            reply: Result(
+                ok: "drv_minibar_seq_api::reg_map::Reg::VBUS_SLED::StateEncoded",
+                err: CLike("MinibarSeqError"),
+            ),
+            encoding: Hubpack
+        ),
+
+        "sled_powered": (
+            args: {},
+            reply: Result(
+                ok: "bool",
+                err: CLike("MinibarSeqError"),
+            ),
+        ),
+
+        "sled_power_enable": (
+            args: {},
+            reply: Result(
+                ok: "()",
+                err: CLike("MinibarSeqError"),
+            ),
+        ),
+
+        "sled_power_disable": (
+            args: {},
+            reply: Result(
+                ok: "()",
+                err: CLike("MinibarSeqError"),
+            ),
+        ),
     },
 )
