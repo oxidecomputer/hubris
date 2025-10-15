@@ -54,6 +54,7 @@ enum Trace {
     SledPowerGoodTimeout,
     SledPowerGoodLost,
     SledPowerFault,
+    UnknownPowerStatus(u8),
 }
 ringbuf!(Trace, 32, Trace::None);
 
@@ -169,8 +170,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
     ) -> Result<bool, RequestError<MinibarSeqError>> {
         let state = self
             .get_sled_power_status()
-            .map_err(MinibarSeqError::from)
-            .map_err(RequestError::from)?;
+            .map_err(MinibarSeqError::from)?;
 
         Ok(state == Reg::VBUS_SLED::StateEncoded::Enabled)
     }
@@ -181,8 +181,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
     ) -> Result<(), RequestError<MinibarSeqError>> {
         self.sled_power_control(true)
             .map_err(MinibarSeqError::from)
-            .map_err(RequestError::from)?;
-        Ok(())
+            .map_err(RequestError::from)
     }
 
     fn sled_power_disable(
@@ -191,8 +190,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
     ) -> Result<(), RequestError<MinibarSeqError>> {
         self.sled_power_control(false)
             .map_err(MinibarSeqError::from)
-            .map_err(RequestError::from)?;
-        Ok(())
+            .map_err(RequestError::from)
     }
 }
 
@@ -213,8 +211,15 @@ impl NotificationHandler for ServerImpl {
         match byte {
             Ok(byte) => {
                 let mut power_issue = false;
-                let status =
-                    Reg::VBUS_SLED::StateEncoded::try_from(byte).unwrap();
+                let status = match Reg::VBUS_SLED::StateEncoded::try_from(byte)
+                {
+                    Ok(s) => s,
+                    Err(e) => {
+                        ringbuf_entry!(Trace::UnknownPowerStatus(e));
+                        power_issue = true;
+                        Reg::VBUS_SLED::StateEncoded::Enabled
+                    }
+                };
 
                 use Reg::VBUS_SLED::StateEncoded::*;
                 match status {
