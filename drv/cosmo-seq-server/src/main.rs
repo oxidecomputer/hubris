@@ -487,7 +487,6 @@ impl ServerImpl {
 
                 // Wait 2 seconds for power-up
                 let mut okay = false;
-                #[allow(unused_mut)]
                 let mut err = CpuSeqError::A0Timeout;
                 for _ in 0..200 {
                     let state = self.log_state_registers();
@@ -502,19 +501,17 @@ impl ServerImpl {
                         Ok(A0Sm::EnableGrpA) => {
                             // hardware-cosmo#658 prevents us from checking `CPU_PRESENT`
                             // at `A0Sm::ENABLE_GRP_A` time on rev-a boards
-                            cfg_if::cfg_if! {
-                                if #[cfg(target_board = "cosmo-a")] {
-                                    ringbuf_entry!(Trace::CPUPresent(true));
-                                } else {
-                                    let present =
-                                        self.sys.gpio_read(SP5_TO_SP_PRESENT_L)
-                                            == 0;
-                                    ringbuf_entry!(Trace::CPUPresent(present));
+                            if cfg!(target_board = "cosmo-a") {
+                                ringbuf_entry!(Trace::CPUPresent(true));
+                            } else {
+                                let present =
+                                    self.sys.gpio_read(SP5_TO_SP_PRESENT_L)
+                                        == 0;
+                                ringbuf_entry!(Trace::CPUPresent(present));
 
-                                    if !present {
-                                        err = CpuSeqError::CPUNotPresent;
-                                        break;
-                                    }
+                                if !present {
+                                    err = CpuSeqError::CPUNotPresent;
+                                    break;
                                 }
                             }
                         }
@@ -530,8 +527,6 @@ impl ServerImpl {
                     self.log_pg_registers();
                     self.seq.power_ctrl.modify(|m| m.set_a0_en(false));
 
-                    // XXX faulted isn't strictly a timeout, but this is the
-                    // closest available error code
                     return Err(err);
                 }
 
