@@ -10,6 +10,7 @@ edition = "2021"
 bitfield = { workspace = true }
 cfg-if = { workspace = true }
 derive_more = { workspace = true }
+hubpack = { workspace = true }
 idol-runtime = { workspace = true }
 num-derive = { workspace = true }
 num-traits = { workspace = true }

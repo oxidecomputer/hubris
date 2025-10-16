@@ -10,10 +10,11 @@ use core::{array, iter};
 use derive_idol_err::IdolError;
 use derive_more::From;
 use drv_fpga_api::FpgaError;
+use hubpack::SerializedSize;
 use idol_runtime::ServerDeath;
 use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::FromPrimitive;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use static_assertions::const_assert;
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout, Unaligned};
 
@@ -261,7 +262,7 @@ impl PortState {
     }
 }
 
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize, SerializedSize)]
 pub struct Port {
     /// The port is configured to transmit irrespective of Target presence.
     pub always_transmit: bool,
@@ -293,7 +294,7 @@ impl From<PortState> for Port {
 
 /// `ReceiverStatus` provides high level status bits for the receiver of a link
 /// between Controllers and Targets.
-#[derive(Copy, Clone, Debug, Default, Serialize)]
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize, SerializedSize)]
 pub struct ReceiverStatus {
     /// The receiver has recovered the clock from the transmitter and has
     /// aligned itself with the 8B10B character boundaries in the received data.
@@ -319,7 +320,7 @@ impl From<u8> for ReceiverStatus {
     }
 }
 
-#[derive(Copy, Clone, Debug, Default, Serialize)]
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize, SerializedSize)]
 pub struct Target {
     /// A numeric id identifying a major type of system. This allows
     /// differentiating between different types of compute, network and power
@@ -379,7 +380,7 @@ impl From<PortState> for Target {
 }
 
 /// An enum representing the power state of the system controlled by the Target.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, SerializedSize)]
 pub enum SystemPowerState {
     /// The system is powered down.
     #[default]
@@ -419,7 +420,7 @@ impl From<(u8, u8)> for SystemPowerState {
 }
 
 /// `SystemFaults` are faults in a system which may be observed by the Target.
-#[derive(Copy, Clone, Debug, Default, Serialize)]
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize, SerializedSize)]
 pub struct SystemFaults {
     /// A fault occured with one of the components in the A3 power domain.
     pub power_a3: bool,
@@ -460,6 +461,8 @@ impl From<u8> for SystemFaults {
     IntoBytes,
     Unaligned,
     Serialize,
+    Deserialize,
+    SerializedSize,
     Immutable,
     KnownLayout,
 )]

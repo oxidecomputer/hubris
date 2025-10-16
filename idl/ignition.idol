@@ -19,6 +19,17 @@ Interface(
                 err: CLike("drv_ignition_api::IgnitionError"),
             ),
         ),
+        "port_status": (
+            doc: "Return the Port status for the given controller port",
+            args: {
+                "port": "u8",
+            },
+            reply: Result(
+                ok: "drv_ignition_api::Port",
+                err: CLike("drv_ignition_api::IgnitionError"),
+            ),
+            encoding: Hubpack
+        ),
         "port_state": (
             doc: "Return the state for the given controller port",
             args: {

@@ -254,6 +254,23 @@ impl idl::InOrderIgnitionImpl for ServerImpl {
         Ok(self.last_presence_summary)
     }
 
+    fn port(
+        &mut self,
+        _: &userlib::RecvMessage,
+        port: u8,
+    ) -> Result<Port, RequestError> {
+        if port >= self.port_count {
+            return Err(RequestError::from(IgnitionError::InvalidPort));
+        }
+
+        let state = self.controller
+            .port_state(port)
+            .map_err(IgnitionError::from)
+            .map_err(RequestError::from)?;
+
+        Ok(Port::from(state))
+    }
+
     fn port_state(
         &mut self,
         _: &userlib::RecvMessage,
