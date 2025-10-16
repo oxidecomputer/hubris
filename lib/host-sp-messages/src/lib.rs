@@ -123,6 +123,23 @@ pub enum HostToSp {
         // We use a raw `u8` here for the same reason as in `KeyLookup` above.
         key: u8,
     },
+    // ApobBegin begins an APOB write
+    ApobBegin {
+        length: u64,
+        algorithm: u8,
+        // Followed by a binary blob for the hash, with length depending on
+        // algorithm
+    },
+    ApobCommit,
+    ApobData {
+        offset: u64,
+        // Followed by trailing data, implicitly sized
+    },
+    // ApobRead return `ApobReadResult` followed by trailing data
+    ApobRead {
+        offset: u64,
+        size: u64,
+    },
 }
 
 /// The order of these cases is critical! We are relying on hubpack's encoding
@@ -185,6 +202,10 @@ pub enum SpToHost {
         name: [u8; 32],
     },
     KeySetResult(#[count(children)] KeySetResult),
+    ApobBegin(#[count(children)] ApobBeginResult),
+    ApobCommit(#[count(children)] ApobCommitResult),
+    ApobData(#[count(children)] ApobDataResult),
+    ApobRead(#[count(children)] ApobReadResult),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, num_derive::FromPrimitive)]
@@ -242,6 +263,108 @@ pub enum KeySetResult {
     /// The data in the request is too long for the value associated with the
     /// requested key.
     DataTooLong,
+}
+
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    counters::Count,
+)]
+pub enum ApobBeginResult {
+    Ok,
+    /// APOB is not implemented on this hardware
+    NotImplemented,
+    /// The APOB state machine does not allow a `Begin` message
+    InvalidState,
+    /// The algorithm specified is invalid
+    InvalidAlgorithm,
+    /// The hash length does not match the algorithm
+    BadHashLength,
+    /// The data length will not fit in an APOB slot
+    BadDataLength,
+}
+
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    counters::Count,
+)]
+pub enum ApobCommitResult {
+    Ok,
+    /// APOB is not implemented on this hardware
+    NotImplemented,
+    /// Committing APOB state has been disallowed for this boot
+    InvalidState,
+    /// Validating the APOB failed, e.g. due to invalid data
+    ValidationFailed,
+    /// Committing the APOB failed, e.g. due to a flash write error
+    CommitFailed,
+}
+
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    counters::Count,
+)]
+pub enum ApobDataResult {
+    Ok,
+    /// APOB is not implemented on this hardware
+    NotImplemented,
+    /// The APOB state machine does not allow a `Data` message
+    InvalidState,
+    /// Offset exceeds the slot size
+    InvalidOffset,
+    /// Write size exceeds the slot size
+    InvalidSize,
+    /// Flash write failed
+    WriteFailed,
+    /// Flash write would change data in an unerased region
+    NotErased,
+}
+
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    counters::Count,
+)]
+pub enum ApobReadResult {
+    Ok,
+    /// APOB is not implemented on this hardware
+    NotImplemented,
+    /// The state machine is currently expecting a write or commit message
+    InvalidState,
+    /// There is no valid APOB available to read
+    NoValidApob,
+    /// Offset exceeds the slot size
+    InvalidOffset,
+    /// Write size exceeds the slot size
+    InvalidSize,
+    /// Flash read failed
+    ReadFailed,
 }
 
 /// Results for an inventory data request
