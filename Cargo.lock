@@ -1022,6 +1022,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "drooper"
+version = "0.1.0"
+dependencies = [
+ "build-i2c",
+ "drv-i2c-api",
+ "drv-i2c-devices",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "userlib",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
+]
+
+[[package]]
 name = "drv-auxflash-api"
 version = "0.1.0"
 dependencies = [
