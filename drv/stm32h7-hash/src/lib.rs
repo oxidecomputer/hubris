@@ -318,14 +318,14 @@ impl Hash {
         // The hash is read out as words into little endian ARM world.
         // Since the bit order needs to be maintained, read as B.E.
         let result = [
-            u32::from_be(self.reg.hash_hr0.read().bits()),
-            u32::from_be(self.reg.hash_hr1.read().bits()),
-            u32::from_be(self.reg.hash_hr2.read().bits()),
-            u32::from_be(self.reg.hash_hr3.read().bits()),
-            u32::from_be(self.reg.hash_hr4.read().bits()),
-            u32::from_be(self.reg.hash_hr5.read().bits()),
-            u32::from_be(self.reg.hash_hr6.read().bits()),
-            u32::from_be(self.reg.hash_hr7.read().bits()),
+            u32::from_be(self.reg.hash_hr[0].read().bits()),
+            u32::from_be(self.reg.hash_hr[1].read().bits()),
+            u32::from_be(self.reg.hash_hr[2].read().bits()),
+            u32::from_be(self.reg.hash_hr[3].read().bits()),
+            u32::from_be(self.reg.hash_hr[4].read().bits()),
+            u32::from_be(self.reg.hash_hr[5].read().bits()),
+            u32::from_be(self.reg.hash_hr[6].read().bits()),
+            u32::from_be(self.reg.hash_hr[7].read().bits()),
         ];
         out.clone_from_slice(result.as_bytes());
         Ok(())

@@ -526,7 +526,7 @@ input = {port = "E", pin = 5, af = 5}
 [config.spi.spi4.devices.rot]
 mux = "rot"
 cs = [{port = "E", pin = 4}]
-clock_divider = "DIV256"
+clock_divider = "Div256"
 
 # VLAN configuration
 [config.net.vlans.sidecar1]

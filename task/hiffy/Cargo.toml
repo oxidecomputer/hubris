@@ -10,7 +10,7 @@ drv-hash-api = { path = "../../drv/hash-api", optional = true }
 drv-i2c-api = { path = "../../drv/i2c-api" }
 drv-lpc55-gpio-api = { path = "../../drv/lpc55-gpio-api", optional = true }
 drv-sp-ctrl-api = { path = "../../drv/sp-ctrl-api", optional = true }
-drv-spi-api = { path = "../../drv/spi-api" }
+drv-spi-api = { path = "../../drv/spi-api", optional = true }
 drv-sprot-api = { path = "../../drv/sprot-api", optional = true }
 drv-stm32xx-i2c = { path = "../../drv/stm32xx-i2c", optional = true  }
 drv-stm32xx-sys-api = { path = "../../drv/stm32xx-sys-api", optional = true }
@@ -42,7 +42,7 @@ no-ipc-counters = ["idol/no-counters"]
 testsuite = [ "test-api" ]
 i2c = []
 gpio = []
-spi = []
+spi = ["drv-spi-api"]
 send = []
 send-rw = []
 sprot = ["drv-sprot-api"]

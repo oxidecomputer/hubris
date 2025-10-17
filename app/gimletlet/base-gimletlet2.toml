@@ -176,8 +176,8 @@ input = {port = "C", pin = 11, af = 6}
 [config.spi.spi3.devices.spi3_header]
 mux = "port_c"
 cs = [{port = "A", pin = 15}]
-clock_divider = "DIV256" # 774 kHz, works with LPC55 clock at 48MHz
-# clock_divider = "DIV128" # 1.5 MHz, fails unless LPC55 clock is at 96MHz
+clock_divider = "Div256" # 774 kHz, works with LPC55 clock at 48MHz
+# clock_divider = "Div128" # 1.5 MHz, fails unless LPC55 clock is at 96MHz
 
 [config.spi.spi4]
 controller = 4

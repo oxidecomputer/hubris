@@ -63,7 +63,7 @@ colored = { version = "2.0", default-features = false }
 convert_case = { version = "0.4", default-features = false }
 corncobs = { version = "0.1.1", default-features = false }
 cortex-m = { version = "0.7", default-features = false, features = ["inline-asm"]}
-cortex-m-rt = { version = "0.6.12", default-features = false }
+cortex-m-rt = { version = "0.7.5", default-features = false }
 cortex-m-semihosting = { version = "0.5.0", default-features = false }
 crc = { version = "3.0.0", default-features = false }
 critical-section = { version = "1.1.2" }
@@ -89,7 +89,7 @@ indexmap = { version = "1.4.0", default-features = false, features = ["serde-1"]
 indoc = { version = "2.0.3", default-features = false }
 itertools = { version = "0.10.5", default-features = false }
 leb128 = { version = "0.2.5", default-features = false }
-lpc55-pac = { version = "0.4", default-features = false }
+lpc55-pac = { version = "0.5", default-features = false }
 memchr = { version = "2.4", default-features = false }
 memoffset = { version = "0.6.5", default-features = false }
 minicbor = { version = "2.1.1", default-features = false }
@@ -127,10 +127,10 @@ ssh-key = { version = "0.6.6", default-features = false, features = ["std", "p25
 spin = { version = "0.9.4", default-features = false, features = ["mutex", "spin_mutex"]}
 ssmarshal = { version = "1.0.0", default-features = false }
 static_assertions = { version = "1", default-features = false }
-stm32f3 = { version = "0.13.0", default-features = false }
-stm32f4 = { version = "0.13.0", default-features = false }
-stm32h7 = { version = "0.14", default-features = false }
-stm32g0 = { version = "0.15.1", default-features = false }
+stm32f3 = { version = "0.15", default-features = false }
+stm32f4 = { version = "0.15", default-features = false }
+stm32h7 = { version = "0.15", default-features = false }
+stm32g0 = { version = "0.15", default-features = false }
 strsim = { version = "0.10.0", default-features = false }
 syn = { version = "2", default-features = false, features = ["derive", "parsing", "proc-macro", "extra-traits", "full", "printing"] }
 toml = { version = "0.9.6", default-features = false, features = ["parse", "display", "serde", "preserve_order"] }
