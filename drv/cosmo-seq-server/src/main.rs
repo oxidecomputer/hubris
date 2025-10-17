@@ -101,6 +101,7 @@ enum Trace {
         now: u64,
     },
     UnexpectedInterrupt,
+    CPUPresent(bool),
 }
 counted_ringbuf!(Trace, 128, Trace::None);
 
@@ -486,6 +487,7 @@ impl ServerImpl {
 
                 // Wait 2 seconds for power-up
                 let mut okay = false;
+                let mut err = CpuSeqError::A0Timeout;
                 for _ in 0..200 {
                     let state = self.log_state_registers();
                     match state.seq {
@@ -497,9 +499,21 @@ impl ServerImpl {
                             break;
                         }
                         Ok(A0Sm::EnableGrpA) => {
-                            // We have an outstanding issue on v1 hardware-cosmo#658
-                            // that prevents us from checking `CPU_PRESENT` at
-                            // `A0Sm::ENABLE_GRP_A` time
+                            // hardware-cosmo#658 prevents us from checking `CPU_PRESENT`
+                            // at `A0Sm::ENABLE_GRP_A` time on rev-a boards
+                            if cfg!(target_board = "cosmo-a") {
+                                ringbuf_entry!(Trace::CPUPresent(true));
+                            } else {
+                                let present =
+                                    self.sys.gpio_read(SP5_TO_SP_PRESENT_L)
+                                        == 0;
+                                ringbuf_entry!(Trace::CPUPresent(present));
+
+                                if !present {
+                                    err = CpuSeqError::CPUNotPresent;
+                                    break;
+                                }
+                            }
                         }
                         _ => (),
                     }
@@ -513,9 +527,7 @@ impl ServerImpl {
                     self.log_pg_registers();
                     self.seq.power_ctrl.modify(|m| m.set_a0_en(false));
 
-                    // XXX faulted isn't strictly a timeout, but this is the
-                    // closest available error code
-                    return Err(CpuSeqError::A0Timeout);
+                    return Err(err);
                 }
 
                 let coretype0 = self.sys.gpio_read(SP5_TO_SP_CORETYPE0) != 0;

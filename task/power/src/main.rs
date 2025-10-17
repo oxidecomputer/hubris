@@ -506,7 +506,10 @@ macro_rules! mwocp68_controller {
 )]
 #[cfg_attr(target_board = "gimletlet-2", path = "bsp/gimletlet_2.rs")]
 #[cfg_attr(target_board = "minibar", path = "bsp/minibar.rs")]
-#[cfg_attr(target_board = "cosmo-a", path = "bsp/cosmo_a.rs")]
+#[cfg_attr(
+    any(target_board = "cosmo-a", target_board = "cosmo-b",),
+    path = "bsp/cosmo_ab.rs"
+)]
 mod bsp;
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -83,7 +83,11 @@ fn system_init() {
     cfg_if::cfg_if! {
         if #[cfg(target_board = "cosmo-a")] {
             let expected_rev = 0b000;
-        } else {
+        }
+        else if #[cfg(target_board = "cosmo-b")] {
+            let expected_rev = 0b001;
+        }
+        else {
             compile_error!("not a recognized cosmo board")
         }
     }
