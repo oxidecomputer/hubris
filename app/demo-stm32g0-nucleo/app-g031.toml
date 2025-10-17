@@ -11,7 +11,7 @@ features = ["g031"]
 stacksize = 640
 
 [tasks.jefe]
-name = "task-jefe"
+bin-crate = "task-jefe"
 priority = 0
 max-sizes = {flash = 4096, ram = 512}
 start = true
@@ -19,7 +19,7 @@ stacksize = 368
 notifications = ["fault", "timer"]
 
 [tasks.sys]
-name = "drv-stm32xx-sys"
+bin-crate = "drv-stm32xx-sys"
 priority = 1
 max-sizes = {flash = 2048, ram = 256}
 uses = ["rcc", "gpio", "system_flash"]
@@ -29,7 +29,7 @@ stacksize = 256
 task-slots = ["jefe"]
 
 [tasks.pong]
-name = "task-pong"
+bin-crate = "task-pong"
 features = ["no-ipc-counters"]
 priority = 4
 max-sizes = {flash = 1024, ram = 256}
@@ -39,7 +39,7 @@ stacksize = 256
 notifications = ["timer"]
 
 [tasks.user_leds]
-name = "drv-user-leds"
+bin-crate = "drv-user-leds"
 features = ["stm32g0", "no-ipc-counters"]
 priority = 3
 max-sizes = {flash = 2048, ram = 256}
@@ -49,7 +49,7 @@ stacksize = 256
 notifications = ["timer"]
 
 [tasks.hiffy]
-name = "task-hiffy"
+bin-crate = "task-hiffy"
 priority = 4
 max-sizes = {flash = 8192, ram = 2048}
 start = true
@@ -58,7 +58,7 @@ stacksize = 912
 features = ["stm32g0", "gpio", "micro", "send"]
 
 [tasks.idle]
-name = "task-idle"
+bin-crate = "task-idle"
 priority = 5
 max-sizes = {flash = 128, ram = 64}
 stacksize = 64

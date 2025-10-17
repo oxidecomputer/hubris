@@ -9,7 +9,7 @@ task-slots = ["sys", "user_leds"]
 request_reset = ["hiffy"]
 
 [tasks.meanwell]
-name = "drv-meanwell"
+bin-crate = "drv-meanwell"
 features = ["stm32h7"]
 priority = 6
 max-sizes = {flash = 2048, ram = 1024}
