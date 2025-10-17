@@ -15,6 +15,7 @@ notifications = ["socket"]
 
 [tasks.drooper]
 name = "drooper"
+start = true
 priority = 6
 task-slots = ["i2c_driver"]
 notifications = ["timer"]

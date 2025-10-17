@@ -5,7 +5,6 @@ Interface(
         "droop": (
             doc: "Droop the 12V rails for a given ms time period.",
             args: {
-                "n": "u32",
             },
             reply: Simple("()"),
             idempotent: true,
