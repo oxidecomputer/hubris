@@ -42,12 +42,13 @@ struct ServerImpl {
 }
 
 impl idl::InOrderDrooperImpl for ServerImpl {
-    fn droop(&mut self, msg: &RecvMessage, n: u32) -> Result<(), RequestError<Infallible>> {
+    //fn droop(&mut self, msg: &RecvMessage, n: u32) -> Result<(), RequestError<Infallible>> {
+    fn droop(&mut self, msg: &RecvMessage) -> Result<(), RequestError<Infallible>> {
         let (device, rail) = i2c_config::pmbus::v12_sys_a2(I2C.get_task_id());
         let ibc = Bmr491::new(&device, rail);
         // TODO: the sender's requested time period
         // TODO: error handling
-        let _ = ibc.set_vout(3);
+        let _ = ibc.set_vout(9);
 
         Ok(())
     }
@@ -55,11 +56,11 @@ impl idl::InOrderDrooperImpl for ServerImpl {
 
 impl idol_runtime::NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
-        todo!()
+        // TODO: interval
+        0
     }
 
     fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
-        todo!()
     }
 }
 
