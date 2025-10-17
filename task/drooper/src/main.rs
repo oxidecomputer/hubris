@@ -5,10 +5,19 @@
 //!
 //! drooper: A task to simulate the IBC droop seen in mfg-quality#140
 //! 
+//! drooper.droop -a n=8
+//! TODO: add interval to idl api
 //!
 
 #![no_std]
 #![no_main]
+
+
+use drv_i2c_devices::bmr491::*;
+
+use core::convert::Infallible;
+use idol_runtime::RequestError;
+use userlib::{task_slot, RecvMessage, UnwrapLite};
 
 // NOTE: you will probably want to remove this when you write your actual code;
 // we need to import userlib to get this to compile, but it throws a warning
@@ -21,10 +30,11 @@ task_slot!(I2C, i2c_driver);
 
 #[export_name = "main"]
 fn main() -> ! {
-    loop {
-        // NOTE: you need to put code here before running this! Otherwise LLVM
-        // will turn this into a single undefined instruction.
+    let mut server = ServerImpl {};
+    let mut buffer = [0; idl::INCOMING_SIZE];
 
+    loop {
+        idol_runtime::dispatch(&mut buffer, &mut server);
     }
 }
 
@@ -32,8 +42,30 @@ struct ServerImpl {
 }
 
 impl idl::InOrderDrooperImpl for ServerImpl {
+    fn droop(&mut self, msg: &RecvMessage, n: u32) -> Result<(), RequestError<Infallible>> {
+        let (device, rail) = i2c_config::pmbus::v12_sys_a2(I2C.get_task_id());
+        let ibc = Bmr491::new(&device, rail);
+        // TODO: the sender's requested time period
+        // TODO: error handling
+        let _ = ibc.set_vout(3);
+
+        Ok(())
+    }
+}
+
+impl idol_runtime::NotificationHandler for ServerImpl {
+    fn current_notification_mask(&self) -> u32 {
+        todo!()
+    }
+
+    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
+        todo!()
+    }
 }
 
 mod idl {
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
+
+
+include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
