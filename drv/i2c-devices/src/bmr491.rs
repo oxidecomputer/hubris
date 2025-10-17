@@ -83,6 +83,13 @@ impl Bmr491 {
             Some(mode) => mode,
         })
     }
+    
+    pub fn set_vout(&self, v: u16) -> Result<(), Error> {
+        let volts = bmr491::VOUT_COMMAND::CommandData(v);
+        pmbus_write!(self.device, VOUT_COMMAND, volts)?;
+
+        Ok(())
+    }
 
     pub fn read_vout(&self) -> Result<Volts, Error> {
         let vout = pmbus_read!(self.device, bmr491::READ_VOUT)?;

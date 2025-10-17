@@ -1,6 +1,6 @@
 // Interface to the task to droop the IBC voltage.
 Interface(
-    name: "drooper",
+    name: "Drooper",
     ops: {
         "droop": (
             doc: "Droop the 12V rails for a given ms time period.",

@@ -13,5 +13,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             idol::server::ServerStyle::InOrder,
         )?;
 
+
+    build_i2c::codegen(build_i2c::Disposition::Devices)?;
     Ok(())
 }
