@@ -1,0 +1,17 @@
+[package]
+name = "fixedstr"
+version = "0.1.0"
+edition = "2024"
+
+
+[features]
+microcbor = ["dep:minicbor", "dep:microcbor"]
+minicbor = ["dep:minicbor"]
+
+[dependencies]
+microcbor = { path = "../microcbor", optional = true }
+minicbor = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
+
+[lints]
+workspace = true
