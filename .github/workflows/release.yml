@@ -1,48 +1,92 @@
-name: release
+name: Release
 on:
-  workflow_call:
+  workflow_dispatch:
     inputs:
-      board-set:
-        description: "Which set to build"
+      group:
+        description: Boards group
         required: true
-        type: string
-      filter-directories:
-        description: Space-separated list of directories to build.
-        required: true
+        type: choice
+        options:
+          - all-sp
+          - rot
+      brussels-run-id:
+        description: Download Brussels from a Run ID
         type: string
 
+# Prevent multiple releases for the same group from happening concurrently.
+concurrency:
+  group: release-${{ github.event.inputs.group }}
+
 jobs:
-  do-build:
+  init:
+    name: Initialize the release
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.init.outputs.version }}
+      tag_name: ${{ steps.init.outputs.tag_name }}
+      hubris_app_dirs: ${{ steps.init.outputs.hubris_app_dirs }}
+    steps:
+      - &download-brussels
+        name: Download Brussels
+        run: |
+          if [[ "${BRUSSELS_RUN_ID}" == "" ]]; then
+            gh release download -R oxidecomputer/brussels -p brussels
+          else
+            gh run download "${BRUSSELS_RUN_ID}" -R oxidecomputer/brussels -n prebuilt-binary
+          fi
+          sudo mv brussels /usr/local/bin
+          sudo chmod +x /usr/local/bin/brussels
+        env:
+          GH_TOKEN: ${{ secrets.BRUSSELS_TEMPORARY_TOKEN }}
+          BRUSSELS_RUN_ID: ${{ github.event.inputs.brussels-run-id }}
+
+      - id: init
+        name: Initialize the release
+        run: brussels init $group >> brussels-manifest.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          group: ${{ github.event.inputs.group }}
+
+      - name: Upload the release manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: brussels-manifest
+          path: brussels-manifest.json
+          if-no-files-found: error
+
+  build:
+    name: Build boards
+    needs:
+      - init
     uses: ./.github/workflows/build-boards.yml
     with:
       os: oxide-colo-builder-hubris
-      filter-directories: ${{ inputs.filter-directories }}
+      filter-directories: ${{ needs.init.outputs.hubris_app_dirs }}
       upload-artifacts: true
+      caboose-version: ${{ needs.init.outputs.version }}
       attest: true
 
-  release-build:
-    needs: do-build
+  release:
+    name: Publish the release
+    needs:
+      - init
+      - build
     runs-on: oxide-colo-builder-hubris
     steps:
-    - name: grab binary
+    - name: Download all artifacts to release
       id: grab
       uses: actions/download-artifact@v4
       with:
         path: out
-    - name: prep
-      run: |
-        OUT=${{ steps.grab.outputs.download-path }}
-        for build in `ls $OUT`; do
-           for f in `ls $OUT/$build`; do
-              mv $OUT/$build/$f $OUT/$f
-           done
-        done
+        merge-multiple: true
 
-    - name: cut release
+    - name: Publish the release
       uses: softprops/action-gh-release@v1
       with:
-        name: "${{ inputs.board-set }} release"
+        tag_name: ${{ needs.init.outputs.tag_name }}
+        name: "${{ github.event.inputs.group }} release"
         fail_on_unmatched_files: true
-        body: "These are UNVERSIONED hubris artifacts"
+        body: "These are versioned but UNSIGNED hubris ${{ github.event.inputs.group }} artifacts"
         files: |
           ${{ steps.grab.outputs.download-path }}/*.zip
+          ${{ steps.grab.outputs.download-path }}/brussels-manifest.json

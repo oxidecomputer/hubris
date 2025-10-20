@@ -21,6 +21,11 @@ on:
         required: false
         default: false
         type: boolean
+      caboose-version:
+        description: Version number to insert in the caboose
+        required: false
+        default: ""
+        type: string
 
 # Force permissions to be defined at the job level.
 permissions: {}
@@ -43,7 +48,7 @@ jobs:
         run: build/gha-build-boards-matrix.py ${filter_directories} --write-github-output
         id: matrix
         env:
-          filter_directories: ${{ inputs.filter_directories }}
+          filter_directories: ${{ inputs.filter-directories }}
 
   build:
     needs:
@@ -88,9 +93,17 @@ jobs:
             ${{ runner.os }}-vcpkg-download-
 
       - name: cargo xtask dist
+        run: |
+          # GitHub Actions defaults the environment variable to an empty string when missing.
+          if [[ "${HUBRIS_CABOOSE_VERS}" == "" ]]; then
+            unset HUBRIS_CABOOSE_VERS
+          fi
+          cargo xtask dist "${app_toml}"
+        shell: bash
         env:
+          app_toml: ${{ matrix.app_toml }}
+          HUBRIS_CABOOSE_VERS: ${{ inputs.caboose-version }}
           RUST_BACKTRACE: 1
-        run: cargo xtask dist ${{ matrix.app_toml }}
 
       - name: Fetch Humility
         uses: dsaltares/fetch-gh-release-asset@master
