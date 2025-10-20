@@ -137,7 +137,7 @@ jobs:
         uses: actions/attest-build-provenance@v1
         if: inputs.attest
         with:
-          subject-path: target/${{ matrix.app_name }}-image-*.zip
+          subject-path: target/${{ matrix.app_name }}/dist/build-${{ matrix.app_name }}-image-*.zip
 
       - name: Upload build archive
         uses: actions/upload-artifact@v4
