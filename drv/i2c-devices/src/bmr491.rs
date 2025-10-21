@@ -89,10 +89,6 @@ impl Bmr491 {
         let value = Volts(v as f32);
         vout.set(self.read_mode()?, pmbus::units::Volts(value.0))?;
         pmbus_write!(self.device, VOUT_COMMAND, vout)
-
-        //let volts = bmr491::VOUT_COMMAND::CommandData(v);
-        //pmbus_write!(self.device, VOUT_COMMAND, volts)?;
-        //Ok(())
     }
 
     pub fn read_vout(&self) -> Result<Volts, Error> {
