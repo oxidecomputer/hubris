@@ -42,13 +42,14 @@ struct ServerImpl {
 }
 
 impl idl::InOrderDrooperImpl for ServerImpl {
-    //fn droop(&mut self, msg: &RecvMessage, n: u32) -> Result<(), RequestError<Infallible>> {
-    fn droop(&mut self, msg: &RecvMessage) -> Result<(), RequestError<Infallible>> {
+    fn droop(&mut self, msg: &RecvMessage, time_ms: u32) -> Result<(), RequestError<Infallible>> {
         let (device, rail) = i2c_config::pmbus::v12_sys_a2(I2C.get_task_id());
         let ibc = Bmr491::new(&device, rail);
-        // TODO: the sender's requested time period
-        // TODO: error handling
+
+        // Droop the voltage for the requested time period in ms.
         let _ = ibc.set_vout(9);
+        userlib::hl::sleep_for(time_ms as u64);
+        let _ = ibc.set_vout(12);
 
         Ok(())
     }
