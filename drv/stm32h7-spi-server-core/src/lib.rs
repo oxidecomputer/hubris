@@ -136,13 +136,13 @@ impl SpiServerCore {
 
         // This should correspond to '0' in the standard SPI parlance
         spi.initialize(
-            device::spi1::cfg1::MBR_A::DIV64,
+            device::spi1::cfg1::MBR_A::Div64,
             8,
-            device::spi1::cfg2::COMM_A::FULLDUPLEX,
-            device::spi1::cfg2::LSBFRST_A::MSBFIRST,
-            device::spi1::cfg2::CPHA_A::FIRSTEDGE,
-            device::spi1::cfg2::CPOL_A::IDLELOW,
-            device::spi1::cfg2::SSOM_A::ASSERTED,
+            device::spi1::cfg2::COMM_A::FullDuplex,
+            device::spi1::cfg2::LSBFRST_A::Msbfirst,
+            device::spi1::cfg2::CPHA_A::FirstEdge,
+            device::spi1::cfg2::CPOL_A::IdleLow,
+            device::spi1::cfg2::SSOM_A::Asserted,
         );
 
         // Configure all devices' CS pins to be deasserted (set).

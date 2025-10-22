@@ -4,64 +4,84 @@
 
 #![no_std]
 
-use cortex_m_rt::pre_init;
-
 #[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
 
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
 
-#[cfg(any(feature = "h743", feature = "h753"))]
-#[pre_init]
-unsafe fn system_pre_init() {
-    // Configure the power supply to latch the LDO on and prevent further
-    // reconfiguration.
-    //
-    // Normally we would use Peripherals::take() to safely get a reference to
-    // the PWR block, but that function expects RAM to be initialized and
-    // writable. At this point, RAM is neither -- because the chip requires us
-    // to get the power supply configuration right _before it guarantees that
-    // RAM will work._
-    //
-    // Another case of the cortex_m/stm32 crates being designed with simpler
-    // systems in mind.
+// System pre-init hook for establishing system properties required by Rust.
+//
+// This routine must run before anything touches RAM! The cortex-m-rt crate's
+// Reset handler ensures this. As a result, we have to write this in raw
+// assembly code, to avoid trying to push/pop a stack frame.
+//
+// Be very careful about reordering or removing things from this function.
+core::arch::global_asm! {
+    ".global __pre_init",
+    ".type __pre_init_,%function",
+    ".thumb_func",
+    ".cfi_startproc",
+    "__pre_init:",
 
-    // Synthesize a pointer using a const fn (which won't hit RAM) and then
-    // convert it to a reference. We can have a reference to PWR because it's
-    // hardware, and is thus not uninitialized.
-    let pwr = &*device::PWR::ptr();
-    // Poke CR3 to enable the LDO and prevent further writes.
-    pwr.cr3.modify(|_, w| w.ldoen().set_bit());
+    // PWR.CR3 has a write-once feature on the LDO enable bit. The processor
+    // would like the power configuration to be stable before it guarantees that
+    // writes to RAM will succeed (reference manual 6.4.1 "System supply
+    // startup"). We're actually perfectly happy with the reset supply
+    // configuration, which is VOS3 on the LDO. So, we'll write PWR.CR3 just to
+    // lock it:
+    "    movw r0, :lower16:{PWR_addr}",
+    "    movt r0, :upper16:{PWR_addr}",
+    "    ldr r1, [r0, #{PWR_CR3_offset}]",
+    "    str r1, [r0, #{PWR_CR3_offset}]",
 
-    // Busy-wait until the ACTVOSRDY bit says that we've stabilized at VOS3.
-    while !pwr.csr1.read().actvosrdy().bit() {
-        // spin
-    }
+    // Technically we're supposed to ensure that we're stable at VOS3 before
+    // continuing; this should already be ensured before our code was allowed to
+    // run, but for safety's sake:
+    "1:  ldr r1, [r0, #{PWR_CSR1_offset}]",
+    "    tst r1, #(1 << {PWR_CSR1_ACTVOSRDY_bit})",
+    "    beq 1b",
 
-    // Turn on the internal RAMs.
-    let rcc = &*device::RCC::ptr();
-    rcc.ahb2enr.modify(|_, w| {
-        w.sram1en()
-            .set_bit()
-            .sram2en()
-            .set_bit()
-            .sram3en()
-            .set_bit()
-    });
+    // Turn on all of the smaller non-TCM non-AXI SRAMs, in case the program
+    // puts data there.
+    "    movw r0, :lower16:{RCC_addr}",
+    "    movt r0, :upper16:{RCC_addr}",
+    "    ldr r1, [r0, #{RCC_AHB2ENR_offset}]",
+    "    orrs r1, #((1 << {RCC_AHB2ENR_SRAM1EN_bit}) \
+                  | (1 << {RCC_AHB2ENR_SRAM2EN_bit}) \
+                  | (1 << {RCC_AHB2ENR_SRAM3EN_bit}))",
 
-    // Okay, yay, we can use some RAMs now.
+    // Apply workaround for ST erratum 2.2.9 "Reading from AXI SRAM may lead to
+    // data read corruption" - limits AXI SRAM read concurrency.
+    "    movw r0, :lower16:{AXI_TARG7_FN_MOD_addr}",
+    "    movt r0, :upper16:{AXI_TARG7_FN_MOD_addr}",
+    "    ldr r1, [r0]",
+    "    orrs r1, #(1 << {AXI_TARG7_FN_MOD_READ_ISS_OVERRIDE_bit})",
+    "    str r1, [r0]",
 
-    #[cfg(any(feature = "h743", feature = "h753"))]
-    {
-        // Workaround for erratum 2.2.9 "Reading from AXI SRAM may lead to data
-        // read corruption" - limits AXI SRAM read concurrency.
-        let axi = &*device::AXI::ptr();
-        axi.targ7_fn_mod
-            .modify(|_, w| w.read_iss_override().set_bit());
-    }
+    // Aaaaand we're done.
+    "    bx lr",
+    ".cfi_endproc",
+    ".size __pre_init, . - __pre_init",
 
-    // We'll do the rest in system_init.
+    PWR_addr = const 0x5802_4800, //device::PWR::ptr(),
+    PWR_CSR1_offset = const 0x4, // reference manual 6.8.2
+    PWR_CSR1_ACTVOSRDY_bit = const 13,
+    PWR_CR3_offset = const 0xC, // reference manual 6.8.4
+
+    RCC_addr = const 0x5802_4400, //device::RCC::ptr(),
+    RCC_AHB2ENR_offset = const 0x0DC, // reference manual 8.7.42
+    RCC_AHB2ENR_SRAM1EN_bit = const 29, // reference manual 8.7.42
+    RCC_AHB2ENR_SRAM2EN_bit = const 30, // reference manual 8.7.42
+    RCC_AHB2ENR_SRAM3EN_bit = const 31, // reference manual 8.7.42
+
+
+    // The offset from the AXI block to this register is too large to do the
+    // same base/displacement thing as the other peripherals above, so this
+    // constant is the result of adding the base address from the reference
+    // manual (0x5100_0000) to the offset from table 6.
+    AXI_TARG7_FN_MOD_addr = const 0x5100_8108,
+    AXI_TARG7_FN_MOD_READ_ISS_OVERRIDE_bit = const 0, // same
 }
 
 pub struct ClockConfig {

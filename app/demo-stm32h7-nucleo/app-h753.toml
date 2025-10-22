@@ -233,7 +233,7 @@ input = {port = "A", pin = 6, af = 5}
 [config.spi.spi1.devices.pins]
 mux = "cn7_arduino"
 cs = [{port = "D", pin = 14}]
-clock_divider = "DIV32"
+clock_divider = "Div32"
 
 [config.net]
 # UDP ports in sockets below are assigned in oxidecomputer/oana

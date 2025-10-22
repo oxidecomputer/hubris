@@ -1114,7 +1114,7 @@ controller = 4
 [config.spi.spi4.devices.rot]
 mux = "rot"
 cs = [{port = "E", pin = 4}]
-clock_divider = "DIV256"
+clock_divider = "Div256"
 
 [config.spi.spi4.mux_options.rot]
 outputs = [

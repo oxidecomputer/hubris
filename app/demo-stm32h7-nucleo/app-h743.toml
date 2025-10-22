@@ -185,7 +185,7 @@ input = {port = "A", pin = 6, af = 5} # miso
 [config.spi.spi1.devices.pins]
 mux = "cn7_arduino"
 cs = [{port = "D", pin = 14}]
-clock_divider = "DIV16"
+clock_divider = "Div16"
 
 
 [config.net]

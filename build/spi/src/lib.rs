@@ -85,23 +85,24 @@ pub struct DeviceDescriptorConfig {
     pub cs: Vec<GpioPinConfig>,
 }
 
+// N.B. the names in this enum _must_ match those used in the PAC!
 #[derive(Copy, Clone, Debug, Deserialize)]
 pub enum ClockDivider {
-    DIV2,
-    DIV4,
-    DIV8,
-    DIV16,
-    DIV32,
-    DIV64,
-    DIV128,
-    DIV256,
+    Div2,
+    Div4,
+    Div8,
+    Div16,
+    Div32,
+    Div64,
+    Div128,
+    Div256,
 }
 
 impl Default for ClockDivider {
     fn default() -> ClockDivider {
         // When this config mechanism was introduced, we had everything set at
-        // DIV64 for a ~1.5625 MHz SCK rate.
-        Self::DIV64
+        // Div64 for a ~1.5625 MHz SCK rate.
+        Self::Div64
     }
 }
 
