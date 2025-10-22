@@ -13,7 +13,7 @@ stacksize = 1040
 features = ["ereport"]
 
 [tasks.snitch]
-name = "task-snitch"
+bin-crate = "task-snitch"
 priority = 4
 stacksize = 1200
 start = true
@@ -23,7 +23,7 @@ notifications = ["socket"]
 
 [tasks.rng_driver]
 features = ["h753", "ereport"]
-name = "drv-stm32h7-rng"
+bin-crate = "drv-stm32h7-rng"
 priority = 6
 uses = ["rng"]
 start = true
@@ -32,7 +32,7 @@ task-slots = ["sys", "packrat"]
 
 # Demo/test task for ereports
 [tasks.ereportulator]
-name = "task-ereportulator"
+bin-crate = "task-ereportulator"
 priority = 6
 start = true
 task-slots = ["packrat"]

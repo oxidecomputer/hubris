@@ -12,7 +12,7 @@ name = "gimletlet"
 requires = {flash = 32768, ram = 8192}
 
 [tasks.jefe]
-name = "task-jefe"
+bin-crate = "task-jefe"
 priority = 0
 max-sizes = {flash = 16384, ram = 4096}
 start = true
@@ -23,7 +23,7 @@ notifications = ["fault", "timer"]
 set_reset_reason = ["sys"]
 
 [tasks.sys]
-name = "drv-stm32xx-sys"
+bin-crate = "drv-stm32xx-sys"
 features = ["h753"]
 priority = 1
 max-sizes = {flash = 4096, ram = 2048}
@@ -32,7 +32,7 @@ start = true
 task-slots = ["jefe"]
 
 [tasks.i2c_driver]
-name = "drv-stm32xx-i2c-server"
+bin-crate = "drv-stm32xx-i2c-server"
 stacksize = 1048
 features = ["h753"]
 priority = 2
@@ -51,7 +51,7 @@ notifications = ["i2c2-irq", "i2c3-irq", "i2c4-irq"]
 "i2c4.error" = "i2c4-irq"
 
 [tasks.user_leds]
-name = "drv-user-leds"
+bin-crate = "drv-user-leds"
 features = ["stm32h7"]
 priority = 5
 max-sizes = {flash = 2048, ram = 1024}
@@ -60,7 +60,7 @@ task-slots = ["sys"]
 notifications = ["timer"]
 
 [tasks.pong]
-name = "task-pong"
+bin-crate = "task-pong"
 priority = 8
 max-sizes = {flash = 1024, ram = 1024}
 start = true
@@ -68,7 +68,7 @@ task-slots = ["user_leds"]
 notifications = ["timer"]
 
 [tasks.uartecho]
-name = "task-uartecho"
+bin-crate = "task-uartecho"
 features = ["stm32h753", "usart2", "baud_rate_3M", "hardware_flow_control"]
 uses = ["usart2"]
 notifications = ["usart-irq"]
@@ -80,7 +80,7 @@ start = true
 task-slots = ["sys"]
 
 [tasks.hiffy]
-name = "task-hiffy"
+bin-crate = "task-hiffy"
 features = ["turbo"]
 priority = 7
 max-sizes = {flash = 32768, ram = 65536}
@@ -88,7 +88,7 @@ stacksize = 2048
 start = true
 
 [tasks.validate]
-name = "task-validate"
+bin-crate = "task-validate"
 priority = 3
 max-sizes = {flash = 32768, ram = 4096}
 stacksize = 1024
@@ -96,7 +96,7 @@ start = true
 task-slots = ["i2c_driver"]
 
 [tasks.idle]
-name = "task-idle"
+bin-crate = "task-idle"
 priority = 9
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
@@ -104,7 +104,7 @@ start = true
 
 [tasks.rng_driver]
 features = ["h753"]
-name = "drv-stm32h7-rng"
+bin-crate = "drv-stm32h7-rng"
 priority = 6
 uses = ["rng"]
 start = true
@@ -112,7 +112,7 @@ stacksize = 512
 task-slots = ["sys", "user_leds"]
 
 [tasks.update_server]
-name = "stm32h7-update-server"
+bin-crate = "stm32h7-update-server"
 priority = 3
 max-sizes = {flash = 16384, ram = 4096}
 stacksize = 2048

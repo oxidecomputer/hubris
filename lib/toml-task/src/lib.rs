@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct Task<T = ordered_toml::Value> {
-    pub name: String,
+    pub bin_crate: String,
     pub priority: u8,
     pub stacksize: Option<u32>,
     #[serde(default)]

@@ -224,7 +224,7 @@ pub fn list_tasks(app_toml: &Path) -> Result<()> {
     println!("  {:<pad$}  CRATE", "TASK", pad = pad);
     println!("  {:<pad$}  {}", "kernel", toml.kernel.name, pad = pad);
     for (name, task) in toml.tasks {
-        println!("  {:<pad$}  {}", name, task.name, pad = pad);
+        println!("  {:<pad$}  {}", name, task.bin_crate, pad = pad);
     }
     Ok(())
 }
@@ -980,7 +980,7 @@ fn build_archive(
                         let pkg = metadata
                             .packages
                             .iter()
-                            .find(|p| p.name == task.name)
+                            .find(|p| p.name == task.bin_crate)
                             .unwrap();
 
                         let dir = pkg.manifest_path.parent().unwrap();
@@ -1068,12 +1068,12 @@ fn check_rebuild(toml: &Config) -> Result<()> {
             // Well, consider our supervisor:
             //
             // [tasks.jefe]
-            // name = "task-jefe"
+            // bin_crate = "task-jefe"
             //
             // The "name" in the key is `jefe`, but the package (crate)
-            // name is in `tasks.jefe.name`, and that's what we need to
-            // give to `cargo`.
-            names.push(toml.tasks[name].name.as_str());
+            // name is in `tasks.jefe.bin_crate`, and that's what
+            // we need to give to `cargo`.
+            names.push(toml.tasks[name].bin_crate.as_str());
         }
         cargo_clean(&names, &toml.target)?;
     }
@@ -1519,7 +1519,7 @@ fn load_task_flash(
         if flash > *required as usize {
             bail!(
                 "{} has insufficient flash: specified {} bytes, needs {}",
-                task_toml.name,
+                task_toml.bin_crate,
                 required,
                 flash
             );

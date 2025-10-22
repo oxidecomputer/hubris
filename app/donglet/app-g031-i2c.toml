@@ -11,7 +11,7 @@ features = ["g031"]
 stacksize = 936
 
 [tasks.jefe]
-name = "task-jefe"
+bin-crate = "task-jefe"
 priority = 0
 max-sizes = {flash = 4096, ram = 512}
 start = true
@@ -19,7 +19,7 @@ stacksize = 368
 notifications = ["fault", "timer"]
 
 [tasks.sys]
-name = "drv-stm32xx-sys"
+bin-crate = "drv-stm32xx-sys"
 priority = 1
 max-sizes = {flash = 2048, ram = 256}
 uses = ["rcc", "gpio", "system_flash"]
@@ -29,7 +29,7 @@ stacksize = 256
 task-slots = ["jefe"]
 
 [tasks.i2c_driver]
-name = "drv-stm32xx-i2c-server"
+bin-crate = "drv-stm32xx-i2c-server"
 features = ["g031", "no-ipc-counters"]
 priority = 2
 uses = ["i2c1"]
@@ -42,7 +42,7 @@ notifications = ["i2c1-irq"]
 "i2c1.irq" = "i2c1-irq"
 
 [tasks.hiffy]
-name = "task-hiffy"
+bin-crate = "task-hiffy"
 priority = 4
 max-sizes = {flash = 16384, ram = 4096}
 start = true
@@ -51,7 +51,7 @@ stacksize = 912
 features = ["stm32g0", "g031", "i2c", "gpio", "send", "no-ipc-counters"]
 
 [tasks.idle]
-name = "task-idle"
+bin-crate = "task-idle"
 priority = 5
 max-sizes = {flash = 128, ram = 64}
 stacksize = 64

@@ -9,7 +9,7 @@ features = ["h753", "stm32h7", "i2c", "gpio", "spi"]
 task-slots = ["sys", "i2c_driver", "user_leds"]
 
 [tasks.fpga]
-name = "drv-fpga-server"
+bin-crate = "drv-fpga-server"
 priority = 3
 max-sizes = {flash = 32768, ram = 8192}
 stacksize = 2048
@@ -37,7 +37,7 @@ notifications = ["spi-irq"]
 #task-slots = ["sys", {i2c_driver = "i2c_emulator"}, "fpga", "spi_driver"]
 
 [tasks.ignition]
-name = "drv-ignition-server"
+bin-crate = "drv-ignition-server"
 priority = 5
 max-sizes = {flash = 16384, ram = 4096}
 stacksize = 2048
