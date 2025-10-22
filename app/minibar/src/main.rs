@@ -85,7 +85,7 @@ fn system_init() {
 
     // Build the full ID
     let rev = p.GPIOK.idr.read().bits();
-    let rev = [5, 6, 7]
+    let rev = [7, 6, 5]
         .iter()
         .enumerate()
         .map(|(i, bit)| if (rev & (1 << bit)) != 0 { 1 << i } else { 0 })
@@ -93,7 +93,7 @@ fn system_init() {
 
     cfg_if::cfg_if! {
         if #[cfg(target_board = "minibar")] {
-            let expected_rev = 0b000;
+            let expected_rev = 0b001;
         } else {
             compile_error!("not a recognized minibar board")
         }
