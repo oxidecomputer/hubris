@@ -85,6 +85,7 @@ fn system_init() {
 
     // Build the full ID
     let rev = p.GPIOK.idr.read().bits();
+    // The pins are listed in descending order as that how they got wired up.
     let rev = [7, 6, 5]
         .iter()
         .enumerate()
