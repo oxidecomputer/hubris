@@ -1,5 +1,3 @@
-name = "minibar"
-board = "minibar"
 target = "thumbv7em-none-eabihf"
 chip = "../../chips/stm32h7"
 stacksize = 896
@@ -346,6 +344,6 @@ memory-size = 33_554_432 # 256 Mib / 32 MiB
 slot-count = 16 # 2 MiB slots
 
 [[auxflash.blobs]]
-file = "drv/minibar-seq-api/minibar_controller_hcv_a.bit"
+file = "drv/minibar-seq-api/minibar_controller.bit"
 compress = true
 tag = "FPGA"

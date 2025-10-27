@@ -124,7 +124,8 @@ cfg_if::cfg_if! {
             target_board = "psc-c",
             target_board = "gemini-bu-1",
             target_board = "grapefruit",
-            target_board = "minibar",
+            target_board = "minibar-a",
+            target_board = "minibar-b",
             target_board = "cosmo-a",
             target_board = "cosmo-b",
             ))] {

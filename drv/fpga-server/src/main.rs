@@ -151,7 +151,7 @@ fn main() -> ! {
             driver.configure_gpio();
 
             let devices = [ecp5::Ecp5::new(driver)];
-        } else if #[cfg(target_board = "minibar")] {
+        } else if #[cfg(any(target_board = "minibar-a", target_board = "minibar-b"))] {
             let configuration_port =
                 spi.device(drv_spi_api::devices::ECP5_FPGA);
             let user_design =
