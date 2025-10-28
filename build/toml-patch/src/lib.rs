@@ -132,8 +132,7 @@ struct TableShiftVisitor {
 impl VisitMut for TableShiftVisitor {
     fn visit_table_mut(&mut self, t: &mut toml_edit::Table) {
         if let Some(pos) = t.position() {
-            let pos: isize = pos.try_into().unwrap();
-            t.set_position((pos + self.offset).try_into().unwrap())
+            t.set_position(pos + self.offset)
         }
         // call the default implementation to recurse
         self.visit_table_like_mut(t);
@@ -233,9 +232,8 @@ fn merge_toml_tables(
 
                     let mut visitor = TableRangeVisitor::default();
                     visitor.visit_item(v);
-                    let start =
-                        visitor.range.map(|r| r.start as isize).unwrap();
-                    let offset = last as isize - start;
+                    let start = visitor.range.map(|r| r.start).unwrap();
+                    let offset = last - start;
 
                     // Apply that offset to the incoming tables
                     let mut visitor = TableShiftVisitor { offset };

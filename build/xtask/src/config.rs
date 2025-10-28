@@ -133,7 +133,7 @@ impl Config {
         }
 
         for (name, size) in &toml.kernel.requires {
-            if (size % 4) != 0 {
+            if !size.is_multiple_of(4) {
                 bail!("kernel region '{name}' not a multiple of 4: {size}");
             }
         }
@@ -280,9 +280,9 @@ impl Config {
             })
             .collect();
         scored.sort();
-        let mut out = format!("'{}' is not a valid task name.", name);
+        let mut out = format!("'{name}' is not a valid task name.");
         if let Some((_, s)) = scored.first() {
-            out.push_str(&format!(" Did you mean '{}'?", s));
+            out.push_str(&format!(" Did you mean '{s}'?"));
         }
         out
     }
@@ -340,8 +340,8 @@ impl Config {
             );
             for (name, checksum) in aux.checksums.iter() {
                 env.insert(
-                    format!("HUBRIS_AUXFLASH_CHECKSUM_{}", name),
-                    format!("{:?}", checksum),
+                    format!("HUBRIS_AUXFLASH_CHECKSUM_{name}"),
+                    format!("{checksum:?}"),
                 );
             }
         }
@@ -535,7 +535,7 @@ impl Config {
             "thumbv7em-none-eabihf" | "thumbv6m-none-eabi" => {
                 MpuAlignment::PowerOfTwo
             }
-            t => panic!("Unknown mpu requirements for target '{}'", t),
+            t => panic!("Unknown mpu requirements for target '{t}'"),
         }
     }
 
@@ -558,7 +558,7 @@ impl Config {
         match name {
             "kernel" => {
                 // Nearest chunk of 16
-                [((size + 15) / 16) * 16].into_iter().collect()
+                [size.next_multiple_of(16)].into_iter().collect()
             }
             _ => self
                 .mpu_alignment()
@@ -598,7 +598,7 @@ impl Config {
 
     fn get_extern_regions(
         &self,
-        extern_regions: &Vec<String>,
+        extern_regions: &[String],
         image_name: &str,
     ) -> Result<IndexMap<String, Range<u32>>> {
         extern_regions
@@ -695,7 +695,7 @@ impl MpuAlignment {
                 out
             }
             MpuAlignment::Chunk(c) => {
-                [((size + c - 1) / c) * c].into_iter().collect()
+                [size.next_multiple_of(*c)].into_iter().collect()
             }
         }
     }

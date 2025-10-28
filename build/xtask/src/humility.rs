@@ -49,7 +49,7 @@ pub fn run(
 
     let status = humility
         .status()
-        .with_context(|| format!("failed to run humility ({:?})", humility))?;
+        .with_context(|| format!("failed to run humility ({humility:?})"))?;
 
     if !status.success() {
         anyhow::bail!("humility failed");
