@@ -44,7 +44,7 @@ pub fn run(
     let filename = format!("{}.json", toml.name);
 
     if save {
-        println!("Writing json to {}", filename);
+        println!("Writing json to {filename}");
         fs::write(filename, serde_json::ser::to_string(&sizes.sizes)?)?;
         process::exit(0);
     } else if compare {
@@ -111,9 +111,9 @@ pub fn run(
         writeln!(
             out,
             "  {:<6} {: >5} {}",
-            format!("{}:", mem),
+            format!("{mem}:"),
             suggestion,
-            format!(" (currently {})", size).dimmed()
+            format!(" (currently {size})").dimmed()
         )?;
     }
 
@@ -229,8 +229,8 @@ fn print_task_table(
         .map(|(region, map)| {
             (
                 *region,
-                map.iter()
-                    .map(|(_, chunk)| (chunk.owner, chunk.clone()))
+                map.values()
+                    .map(|chunk| (chunk.owner, chunk.clone()))
                     .collect(),
             )
         })
@@ -259,7 +259,7 @@ fn print_task_table(
                     task = task_pad
                 );
                 printed_name = true;
-                print!("{:<reg$}  ", region, reg = region_pad);
+                print!("{region:<region_pad$}  ");
                 print!(
                     "{:<mem$}  {:<mem$}  ",
                     chunk.used_size,
@@ -268,7 +268,7 @@ fn print_task_table(
                 );
                 match chunk.recommended {
                     None => print!("(auto)"),
-                    Some(Recommended::MaxSize(m)) => print!("{}", m),
+                    Some(Recommended::MaxSize(m)) => print!("{m}"),
                     Some(Recommended::FixedSize) => print!("(fixed)"),
                 }
                 println!();
@@ -298,7 +298,7 @@ fn print_memory_map(
         .max()
         .unwrap_or(0);
     for (mem_name, map) in map {
-        println!("\n{}:", mem_name);
+        println!("\n{mem_name}:");
         if verbose {
             println!(
             "      ADDRESS  | {:^task$} | {:>mem$} | {:>mem$} | {:>mem$} | LIMIT",
@@ -362,7 +362,7 @@ fn print_memory_map(
                 if i == 0 {
                     match chunk.recommended {
                         None => print!("(auto)"),
-                        Some(Recommended::MaxSize(m)) => print!("{}", m),
+                        Some(Recommended::MaxSize(m)) => print!("{m}"),
                         Some(Recommended::FixedSize) => print!("(fixed)"),
                     }
                 }
@@ -460,7 +460,7 @@ pub fn load_task_size<'a>(
             .join("dist")
             .join(match name {
                 "kernel" => name.to_owned(),
-                _ => format!("{}.tmp", name),
+                _ => format!("{name}.tmp"),
             });
     let buffer = std::fs::read(elf_name)?;
     let elf = match Object::parse(&buffer)? {
@@ -557,7 +557,7 @@ fn compare_sizes(
         .collect();
 
     for name in names {
-        println!("Checking for differences in {}", name);
+        println!("Checking for differences in {name}");
 
         let current_size = current_sizes.entry(name);
         let saved_size = saved_sizes.entry(name);
@@ -572,7 +572,7 @@ fn compare_sizes(
                     let diff = value as i64 - saved as i64;
 
                     if diff != 0 {
-                        println!("\t{}: {}", key, diff);
+                        println!("\t{key}: {diff}");
                     }
                 }
             }
@@ -583,7 +583,7 @@ fn compare_sizes(
                 );
                 let saved = saved_entry.get();
                 for (key, value) in saved {
-                    println!("\t{}: {}", key, value);
+                    println!("\t{key}: {value}");
                 }
             }
             // we have removed this entirely
@@ -591,7 +591,7 @@ fn compare_sizes(
                 println!("This task was removed since we last saved size information.");
                 let current = current_entry.get();
                 for (key, value) in current {
-                    println!("\t{}: {}", key, value);
+                    println!("\t{key}: {value}");
                 }
             }
             // this should never happen

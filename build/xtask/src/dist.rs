@@ -728,7 +728,7 @@ pub fn package(
         let archive = hubtools::RawHubrisArchive::load(&archive_name)
             .context("loading archive with hubtools")?;
         for ext in ["elf", "bin"] {
-            let name = format!("final.{}", ext);
+            let name = format!("final.{ext}");
             let file_data = archive
                 .extract_file(&format!("img/{name}"))
                 .context("extracting signed file from archive")?;
@@ -828,7 +828,7 @@ fn write_gdb_script(cfg: &PackageConfig, image_name: &str) -> Result<()> {
         if cfg!(windows) {
             path_str = path_str.replace('\\', "/");
         }
-        writeln!(gdb_script, "set substitute-path {} {}", remap, path_str)?;
+        writeln!(gdb_script, "set substitute-path {remap} {path_str}")?;
     }
     Ok(())
 }
@@ -923,7 +923,7 @@ fn build_archive(
     if let Some(auxflash) = cfg.toml.auxflash.as_ref() {
         let file = cfg.dist_file("auxi.tlvc");
         std::fs::write(&file, &auxflash.data)
-            .context(format!("Failed to write auxi to {:?}", file))?;
+            .context(format!("Failed to write auxi to {file:?}"))?;
         archive.copy(cfg.dist_file("auxi.tlvc"), img_dir.join("auxi.tlvc"))?;
     }
 
@@ -1110,7 +1110,7 @@ fn build_task(cfg: &PackageConfig, name: &str) -> Result<()> {
         .task_build_config(name, cfg.verbose, Some(&cfg.sysroot))
         .unwrap();
     build(cfg, name, build_config, true)
-        .context(format!("failed to build {}", name))
+        .context(format!("failed to build {name}"))
 }
 
 /// Checks whether the given task can overflow its stack
@@ -1422,7 +1422,7 @@ fn link_task(
     image_name: &str,
     allocs: &Allocations,
 ) -> Result<()> {
-    println!("linking task '{}'", name);
+    println!("linking task '{name}'");
     let task_toml = &cfg.toml.tasks[name];
 
     let extern_regions = cfg.toml.extern_regions_for(name, image_name)?;
@@ -1437,15 +1437,11 @@ fn link_task(
         &extern_regions,
         image_name,
     )
-    .context(format!("failed to generate linker script for {}", name))?;
+    .context(format!("failed to generate linker script for {name}"))?;
     fs::copy("build/task-link.x", "target/link.x")?;
 
     // Link the static archive
-    link(
-        cfg,
-        format!("{}.elf", name),
-        format!("{}/{}", image_name, name),
-    )
+    link(cfg, format!("{name}.elf"), format!("{image_name}/{name}"))
 }
 
 /// Link a specific task using a dummy linker script that gives it all possible
@@ -1476,11 +1472,11 @@ fn link_dummy_task(
         &extern_regions,
         &cfg.toml.image_names[0],
     )
-    .context(format!("failed to generate linker script for {}", name))?;
+    .context(format!("failed to generate linker script for {name}"))?;
     fs::copy("build/task-tlink.x", "target/link.x")?;
 
     // Link the static archive
-    link(cfg, format!("{}.elf", name), format!("{}.tmp", name))
+    link(cfg, format!("{name}.elf"), format!("{name}.tmp"))
 }
 
 fn task_size<'a>(
@@ -1572,7 +1568,7 @@ fn build_kernel(
         cfg.verbose,
         &[
             ("HUBRIS_KCONFIG", &kconfig),
-            ("HUBRIS_IMAGE_ID", &format!("{}", image_id)),
+            ("HUBRIS_IMAGE_ID", &format!("{image_id}")),
             ("HUBRIS_FLASH_OUTPUTS", &flash_outputs),
         ],
         Some(&cfg.sysroot),
@@ -1786,13 +1782,12 @@ fn generate_task_linker_script(
     image_name: &str,
 ) -> Result<()> {
     // Put the linker script somewhere the linker can find it
-    let mut linkscr = File::create(Path::new(&format!("target/{}", name)))?;
+    let mut linkscr = File::create(Path::new(&format!("target/{name}")))?;
 
     fn emit(linkscr: &mut File, sec: &str, o: u32, l: u32) -> Result<()> {
         writeln!(
             linkscr,
-            "{} (rwx) : ORIGIN = {:#010x}, LENGTH = {:#010x}",
-            sec, o, l
+            "{sec} (rwx) : ORIGIN = {o:#010x}, LENGTH = {l:#010x}",
         )?;
         Ok(())
     }
@@ -1886,8 +1881,8 @@ fn append_task_sections(
     if let Some(map) = sections {
         writeln!(out, "SECTIONS {{")?;
         for (section, memory) in map {
-            writeln!(out, "  .{} (NOLOAD) : ALIGN(4) {{", section)?;
-            writeln!(out, "    *(.{} .{}.*);", section, section)?;
+            writeln!(out, "  .{section} (NOLOAD) : ALIGN(4) {{")?;
+            writeln!(out, "    *(.{section} .{section}.*);")?;
             writeln!(out, "  }} > {}", memory.to_ascii_uppercase())?;
         }
         writeln!(out, "}} INSERT AFTER .uninit")?;
@@ -1906,7 +1901,7 @@ fn generate_kernel_linker_script(
 ) -> Result<()> {
     // Put the linker script somewhere the linker can find it
     let mut linkscr =
-        File::create(Path::new(&format!("target/{}", name))).unwrap();
+        File::create(Path::new(&format!("target/{name}"))).unwrap();
 
     let mut stack_start = None;
     let mut stack_base = None;
@@ -1929,8 +1924,7 @@ fn generate_kernel_linker_script(
             stack_base = Some(start);
             writeln!(
                 linkscr,
-                "STACK (rw) : ORIGIN = {:#010x}, LENGTH = {:#010x}",
-                start, stacksize,
+                "STACK (rw) : ORIGIN = {start:#010x}, LENGTH = {stacksize:#010x}",
             )?;
             start += stacksize;
             stack_start = Some(start);
@@ -2042,7 +2036,7 @@ fn build(
         );
         let tree_status = tree
             .status()
-            .context(format!("failed to run edge ({:?})", tree))?;
+            .context(format!("failed to run edge ({tree:?})"))?;
         if !tree_status.success() {
             bail!("tree command failed, see output for details");
         }
@@ -2085,7 +2079,7 @@ fn build(
 
     let status = child
         .wait()
-        .context(format!("failed to run rustc ({:?})", cmd))?;
+        .context(format!("failed to run rustc ({cmd:?})"))?;
     let stderr_bytes = reader_thread.join().unwrap();
 
     if !status.success() {
@@ -2157,7 +2151,7 @@ fn build(
     // Destination where it should be copied (using the task name rather than
     // the crate name)
     let dest = cfg.dist_file(if reloc {
-        format!("{}.elf", name)
+        format!("{name}.elf")
     } else {
         name.to_string()
     });
@@ -2192,8 +2186,8 @@ fn link(
     // our working directory here
     let working_dir = &cfg.dist_dir;
     for f in ["link.x", "memory.x"] {
-        std::fs::copy(format!("target/{}", f), working_dir.join(f))
-            .context(format!("Could not copy {} to link dir", f))?;
+        std::fs::copy(format!("target/{f}"), working_dir.join(f))
+            .context(format!("Could not copy {f} to link dir"))?;
     }
     assert!(AsRef::<Path>::as_ref(&src_file).is_relative());
     assert!(AsRef::<Path>::as_ref(&dst_file).is_relative());
@@ -2216,7 +2210,7 @@ fn link(
 
     let status = cmd
         .status()
-        .context(format!("failed to run linker ({:?})", cmd))?;
+        .context(format!("failed to run linker ({cmd:?})"))?;
 
     if !status.success() {
         bail!("command failed, see output for details");
@@ -3096,7 +3090,7 @@ fn get_git_status() -> Result<(String, bool)> {
     cmd.arg("diff-index").arg("--quiet").arg("HEAD").arg("--");
     let status = cmd
         .status()
-        .context(format!("failed to get git status ({:?})", cmd))?;
+        .context(format!("failed to get git status ({cmd:?})"))?;
 
     Ok((rev, !status.success()))
 }
@@ -3104,7 +3098,7 @@ fn get_git_status() -> Result<(String, bool)> {
 fn cargo_clean(names: &[&str], target: &str) -> Result<()> {
     let mut cmd = Command::new("cargo");
     cmd.arg("clean");
-    println!("cleaning {:?}", names);
+    println!("cleaning {names:?}");
     for name in names {
         cmd.arg("-p").arg(name);
     }
@@ -3112,7 +3106,7 @@ fn cargo_clean(names: &[&str], target: &str) -> Result<()> {
 
     let status = cmd
         .status()
-        .context(format!("failed to cargo clean ({:?})", cmd))?;
+        .context(format!("failed to cargo clean ({cmd:?})"))?;
 
     if !status.success() {
         bail!("command failed, see output for details");

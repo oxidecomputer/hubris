@@ -76,8 +76,7 @@ pub fn task_graph(app_toml: &Path, path: &Path) -> Result<()> {
             for name in v {
                 writeln!(
                     dot,
-                    "    {} [ label=\"{}\\n{}\", shape=box ];",
-                    name, name, key
+                    "    {name} [ label=\"{name}\\n{key}\", shape=box ];",
                 )?;
             }
             writeln!(dot, "  }}")?;
@@ -104,14 +103,13 @@ pub fn task_graph(app_toml: &Path, path: &Path) -> Result<()> {
                 first = true;
                 writeln!(
                     dot,
-                    "\n  # Force row ranking by priorities {:?}",
-                    keys
+                    "\n  # Force row ranking by priorities {keys:?}",
                 )?;
             }
-            writeln!(dot, "  # Adding {} -> {}", high, low)?;
+            writeln!(dot, "  # Adding {high} -> {low}")?;
             let high_name = &priorities.get(high).unwrap()[0];
             let low_name = &priorities.get(low).unwrap()[0];
-            writeln!(dot, "  {} -> {} [style=invis];", high_name, low_name)?;
+            writeln!(dot, "  {high_name} -> {low_name} [style=invis];")?;
         }
     }
     writeln!(dot, "}}")?;

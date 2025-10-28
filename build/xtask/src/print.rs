@@ -25,7 +25,7 @@ pub fn run(
             .image_names
             .iter()
             .find(|name| name == &&image_name)
-            .ok_or(Error::msg(format!("cannot find image {}", image_name)))?;
+            .ok_or(Error::msg(format!("cannot find image {image_name}")))?;
 
         let final_path =
             config.img_file(config.toml.archive_name(image_name), image_name);
@@ -34,7 +34,7 @@ pub fn run(
     } else if expanded_config {
         let config = Config::from_file(cfg)
             .context("could not load build configuration")?;
-        println!("{:#?}", config);
+        println!("{config:#?}");
     } else {
         bail!("I'm not sure what to print. Currently supported: --archive");
     }
