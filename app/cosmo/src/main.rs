@@ -67,8 +67,15 @@ fn system_init() {
     // Un-gate the clock to GPIO bank G.
     p.RCC.ahb4enr.modify(|_, w| w.gpiogen().set_bit());
     cortex_m::asm::dsb();
-    // PG2:0 are already inputs after reset, and they have external pull-up /
-    // down resistors, so we can assume that they are ready to read here.
+
+    // PG2:0 are configured as AF by default, so switch them to inputs.  We're
+    // able to read the pins right away, because they have strong (1K)
+    // pull-up/down resistors populated on the board.
+    p.GPIOG.moder.modify(|_, w| {
+        w.moder0().input();
+        w.moder1().input();
+        w.moder2().input()
+    });
 
     // Okay! What does the fox^Wpins say?
     let rev = p.GPIOG.idr.read().bits() & 0b111;
@@ -76,7 +83,11 @@ fn system_init() {
     cfg_if::cfg_if! {
         if #[cfg(target_board = "cosmo-a")] {
             let expected_rev = 0b000;
-        } else {
+        }
+        else if #[cfg(target_board = "cosmo-b")] {
+            let expected_rev = 0b001;
+        }
+        else {
             compile_error!("not a recognized cosmo board")
         }
     }

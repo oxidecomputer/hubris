@@ -442,7 +442,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "fpga_to_vbus_sled_hsc_en pin control"
+                    "desc": "fpga_to_vbus_sled_hsc_en pin software control"
                 },
                 {
                     "type": "field",
@@ -470,7 +470,7 @@
         },
         {
             "type": "reg",
-            "inst_name": "vbus_sled",
+            "inst_name": "VBUS_SLED",
             "addr_offset": 21,
             "regwidth": 8,
             "min_accesswidth": 8,
@@ -607,7 +607,7 @@
         },
         {
             "type": "reg",
-            "inst_name": "v12_pcie",
+            "inst_name": "V12_PCIE",
             "addr_offset": 24,
             "regwidth": 8,
             "min_accesswidth": 8,
@@ -682,7 +682,7 @@
         },
         {
             "type": "reg",
-            "inst_name": "v3p3_pcie",
+            "inst_name": "V3P3_PCIE",
             "addr_offset": 25,
             "regwidth": 8,
             "min_accesswidth": 8,
@@ -834,7 +834,7 @@
                     "inst_name": "SLED_I2C_EN",
                     "lsb": 0,
                     "msb": 0,
-                    "reset": 1,
+                    "reset": 0,
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,

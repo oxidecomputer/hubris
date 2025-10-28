@@ -48,7 +48,7 @@ task_config::optional_task_config! {
 const BLINK_INTERVAL: u32 = 500;
 
 cfg_if::cfg_if! {
-    if #[cfg(target_board = "cosmo-a")] {
+    if #[cfg(any(target_board = "cosmo-a", target_board = "cosmo-b"))] {
         #[derive(enum_map::Enum, Copy, Clone, FromPrimitive)]
         #[allow(clippy::enum_variant_names)]
         enum Led {
@@ -493,7 +493,7 @@ cfg_if::cfg_if! {
                 const LEDS: &[(drv_stm32xx_sys_api::PinSet, bool)] = &[
                     (drv_stm32xx_sys_api::Port::C.pin(6), false),
                 ];
-            } else if #[cfg(target_board = "cosmo-a")] {
+            } else if #[cfg(any(target_board = "cosmo-a", target_board = "cosmo-b"))] {
                 const LEDS: &[(drv_stm32xx_sys_api::PinSet, bool)] = &[
                     (drv_stm32xx_sys_api::Port::H.pin(6), true), // debug W
                     (drv_stm32xx_sys_api::Port::H.pin(10), true), // debug R

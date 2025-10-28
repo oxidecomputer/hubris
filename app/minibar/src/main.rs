@@ -85,15 +85,18 @@ fn system_init() {
 
     // Build the full ID
     let rev = p.GPIOK.idr.read().bits();
-    let rev = [5, 6, 7]
+    // The pins are listed in descending order as that how they got wired up.
+    let rev = [7, 6, 5]
         .iter()
         .enumerate()
         .map(|(i, bit)| if (rev & (1 << bit)) != 0 { 1 << i } else { 0 })
         .fold(0, |acc, v| acc | v);
 
     cfg_if::cfg_if! {
-        if #[cfg(target_board = "minibar")] {
+        if #[cfg(target_board = "minibar-a")] {
             let expected_rev = 0b000;
+        } else if #[cfg(target_board = "minibar-b")] {
+            let expected_rev = 0b001;
         } else {
             compile_error!("not a recognized minibar board")
         }

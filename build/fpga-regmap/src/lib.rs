@@ -202,8 +202,11 @@ fn write_reg_fields(
                 writeln!(
                     output,
                     "
-{prefix}        #[derive(Copy, Clone, Eq, PartialEq)]
+{prefix}        use hubpack::SerializedSize;
+{prefix}        use serde::{{Deserialize, Serialize}};
+
 {prefix}        #[allow(dead_code)]
+{prefix}        #[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, SerializedSize)]
 {prefix}        pub enum {encode_name} {{"
                 )
                 .unwrap();
@@ -233,7 +236,8 @@ fn write_reg_fields(
 {prefix}            type Error = u8;
 {prefix}            fn try_from(x: u8) -> Result<Self, Self::Error> {{
 {prefix}                use crate::{parent_chain}::{encode_name}::*;
-{prefix}                let x_masked = x & {inst_name};
+{prefix}                let position = {inst_name}.trailing_zeros();
+{prefix}                let x_masked = (x & {inst_name}) >> position;
 {prefix}                match x_masked {{"
                 )
                 .unwrap();

@@ -1,2 +1,2 @@
-`minibar_controller_hvc_a.bit` and `minibar_regs.{adoc, json}` are generated at
-[this commit](https://github.com/oxidecomputer/quartz/commit/c649d37c5f9a96c8a7d615c2165bf1344d1c8364)
+`minibar_controller.bit` and `minibar_regs.json` are generated at
+[this commit](https://github.com/oxidecomputer/quartz/commit/1934809db062acea87eff618423865e3e8118fcc)

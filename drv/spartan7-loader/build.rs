@@ -14,7 +14,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Check that a valid bitstream is available for this board.
     let board = build_util::target_board().expect("could not get target board");
     match board.as_str() {
-        "grapefruit" | "cosmo-a" => (),
+        "grapefruit" | "cosmo-a" | "cosmo-b" => (),
         _ => panic!("unknown target board '{board}'"),
     }
 
