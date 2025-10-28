@@ -1,0 +1,73 @@
+{
+    "type": "addrmap",
+    "addr_span_bytes": 49408,
+    "inst_name": "cosmo_seq_top",
+    "orig_type_name": "cosmo_seq_top",
+    "addr_offset": 0,
+    "children": [
+        {
+            "type": "addrmap",
+            "addr_span_bytes": 20,
+            "inst_name": "info",
+            "orig_type_name": "info_regs",
+            "addr_offset": 0,
+            "children": []
+        },
+        {
+            "type": "addrmap",
+            "addr_span_bytes": 48,
+            "inst_name": "spi_nor",
+            "orig_type_name": "spi_nor_regs",
+            "addr_offset": 256,
+            "children": []
+        },
+        {
+            "type": "addrmap",
+            "addr_span_bytes": 88,
+            "inst_name": "sequencer",
+            "orig_type_name": "sequencer_regs",
+            "addr_offset": 512,
+            "children": []
+        },
+        {
+            "type": "addrmap",
+            "addr_span_bytes": 4,
+            "inst_name": "sp_i2c",
+            "orig_type_name": "sp_i2c_regs",
+            "addr_offset": 768,
+            "children": []
+        },
+        {
+            "type": "addrmap",
+            "addr_span_bytes": 148,
+            "inst_name": "fpga1_hotplug",
+            "orig_type_name": "pca9506_axi_regs",
+            "addr_offset": 1024,
+            "children": []
+        },
+        {
+            "type": "addrmap",
+            "addr_span_bytes": 76,
+            "inst_name": "dimms",
+            "orig_type_name": "dimm_regs",
+            "addr_offset": 1280,
+            "children": []
+        },
+        {
+            "type": "addrmap",
+            "addr_span_bytes": 48,
+            "inst_name": "debug_ctrl",
+            "orig_type_name": "debug_regs",
+            "addr_offset": 1536,
+            "children": []
+        },
+        {
+            "type": "addrmap",
+            "addr_span_bytes": 16640,
+            "inst_name": "espi",
+            "orig_type_name": "espi_regs",
+            "addr_offset": 32768,
+            "children": []
+        }
+    ]
+}
