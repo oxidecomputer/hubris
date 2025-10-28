@@ -18,7 +18,7 @@ counters = { path = "../../lib/counters" }
 gnarle = { path = "../../lib/gnarle" }
 ringbuf = { path = "../../lib/ringbuf" }
 task-jefe-api = { path = "../../task/jefe-api" }
-task-packrat-api = { path = "../../task/packrat-api", features = ["serde"] }
+task-packrat-api = { path = "../../task/packrat-api", features = ["microcbor"] }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 static-cell = { path = "../../lib/static-cell" }
 microcbor = { path = "../../lib/microcbor" }

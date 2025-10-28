@@ -7,7 +7,6 @@ edition = "2021"
 # Enable Serde support for the ereport API.
 serde = ["dep:serde", "dep:minicbor", "dep:minicbor-serde"]
 microcbor = ["dep:microcbor", "dep:static_assertions", "dep:minicbor"]
-default = ["microcbor"]
 
 [dependencies]
 counters = { path = "../../lib/counters" }
