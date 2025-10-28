@@ -4,8 +4,30 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
+#
+# The `serde` and `microcbor` feature flags enable the presence of helper
+# APIs for reporting ereports encoded using either `serde` or `microcbor`'s
+# serialization traits.
+#
+# Both of these APIs will ultimately encode the ereport using `minicbor`, but
+# using different derived encoding implementations on top of `minicbor`.
+# The `microcbor`-based API is recommended for use in new code, as it allows
+# the automatic calculation of encoding buffer sizes. See the `microcbor`
+# crate's documentation for more details.
+#
+
 # Enable Serde support for the ereport API.
+#
+# When deriving `serde::Serialize` for ereport message types, they may be
+# delivered to packrat using the `Packrat::serialize_ereport` method, if this
+# `serde` feature flag is enabled.
 serde = ["dep:serde", "dep:minicbor", "dep:minicbor-serde"]
+# Enable microcbor support for the ereport API.
+#
+# When deriving `microcbor::Encode` for ereport message types, they may be
+# delivered to packrat using the `Packrat::encode_ereport` method, if this
+# feature flag is enabled.
+microcbor = ["dep:microcbor", "dep:static_assertions", "dep:minicbor"]
 
 [dependencies]
 counters = { path = "../../lib/counters" }
@@ -13,6 +35,7 @@ derive-idol-err.path = "../../lib/derive-idol-err"
 host-sp-messages.path = "../../lib/host-sp-messages"
 oxide-barcode.path = "../../lib/oxide-barcode"
 userlib.path = "../../sys/userlib"
+microcbor = { path = "../../lib/microcbor", optional = true }
 
 gateway-ereport-messages.workspace = true
 idol-runtime.workspace = true
@@ -22,6 +45,7 @@ num-traits.workspace = true
 serde = { workspace = true, optional = true }
 zerocopy.workspace = true
 zerocopy-derive.workspace = true
+static_assertions = { workspace = true, optional = true }
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

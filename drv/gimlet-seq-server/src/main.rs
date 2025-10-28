@@ -11,6 +11,7 @@ mod seq_spi;
 mod vcore;
 
 use counters::*;
+use fixedstr::FixedStr;
 use ringbuf::*;
 use userlib::{
     hl, set_timer_relative, sys_get_timer, sys_recv_notification,
@@ -208,7 +209,38 @@ struct ServerImpl<S: SpiServer> {
 }
 
 const TIMER_INTERVAL: u32 = 10;
-const EREPORT_BUF_LEN: usize = 256;
+const EREPORT_BUF_LEN: usize = microcbor::max_cbor_len_for!(
+    task_packrat_api::Ereport<EreportClass, EreportKind>
+);
+
+#[derive(microcbor::Encode)]
+pub enum EreportClass {
+    #[cbor(rename = "hw.pwr.pmbus.alert")]
+    PmbusAlert,
+}
+
+#[derive(microcbor::EncodeFields)]
+pub(crate) enum EreportKind {
+    PmbusAlert {
+        refdes: FixedStr<{ crate::i2c_config::MAX_COMPONENT_ID_LEN }>,
+        // 9 is the maximum length rail name used in this module (`VDD_VCORE`)
+        rail: &'static FixedStr<9>,
+        time: u64,
+        pwr_good: Option<bool>,
+        pmbus_status: PmbusStatus,
+    },
+}
+
+#[derive(Copy, Clone, Default, microcbor::Encode)]
+pub(crate) struct PmbusStatus {
+    word: Option<u16>,
+    input: Option<u8>,
+    iout: Option<u8>,
+    vout: Option<u8>,
+    temp: Option<u8>,
+    cml: Option<u8>,
+    mfr: Option<u8>,
+}
 
 impl<S: SpiServer + Clone> ServerImpl<S> {
     fn init(
