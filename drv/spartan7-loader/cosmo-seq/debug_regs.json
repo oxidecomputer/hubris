@@ -336,6 +336,10 @@
                         {
                             "name": "mux3_sel",
                             "value": 14
+                        },
+                        {
+                            "name": "i2c_sp5_sec_bus",
+                            "value": 15
                         }
                     ]
                 },
@@ -409,6 +413,10 @@
                         {
                             "name": "mux3_sel",
                             "value": 14
+                        },
+                        {
+                            "name": "i2c_sp5_sec_bus",
+                            "value": 15
                         }
                     ]
                 },
@@ -482,6 +490,10 @@
                         {
                             "name": "mux3_sel",
                             "value": 14
+                        },
+                        {
+                            "name": "i2c_sp5_sec_bus",
+                            "value": 15
                         }
                     ]
                 },
@@ -555,6 +567,10 @@
                         {
                             "name": "mux3_sel",
                             "value": 14
+                        },
+                        {
+                            "name": "i2c_sp5_sec_bus",
+                            "value": 15
                         }
                     ]
                 }
