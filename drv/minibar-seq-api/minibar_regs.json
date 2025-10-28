@@ -834,7 +834,7 @@
                     "inst_name": "SLED_I2C_EN",
                     "lsb": 0,
                     "msb": 0,
-                    "reset": 1,
+                    "reset": 0,
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,

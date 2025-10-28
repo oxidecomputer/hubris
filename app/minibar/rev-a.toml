@@ -1,0 +1,3 @@
+name = "minibar-a"
+board = "minibar-a"
+inherit = "base.toml"

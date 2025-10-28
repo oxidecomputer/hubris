@@ -1,10 +1,6 @@
-# Minibar with network connectivity
-#
-# NOTE: this requires rework to correct for a board-level issue
-# (see https://github.com/oxidecomputer/hardware-minibar/issues/168)
-
-name = "minibar-net"
-inherit = "app.toml"
+name = "minibar-b"
+board = "minibar-b"
+inherit = "base.toml"
 
 [kernel]
 features = ["dump"]
