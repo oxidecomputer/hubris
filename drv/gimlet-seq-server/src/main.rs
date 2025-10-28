@@ -11,6 +11,7 @@ mod seq_spi;
 mod vcore;
 
 use counters::*;
+use fixedstr::FixedStr;
 use ringbuf::*;
 use userlib::{
     hl, set_timer_relative, sys_get_timer, sys_recv_notification,
@@ -221,8 +222,9 @@ pub enum EreportClass {
 #[derive(microcbor::EncodeFields)]
 pub(crate) enum EreportKind {
     PmbusAlert {
-        refdes: fixedstr::FixedStr<{ crate::i2c_config::MAX_COMPONENT_ID_LEN }>,
-        rail: &'static fixedstr::FixedStr<10>,
+        refdes: FixedStr<{ crate::i2c_config::MAX_COMPONENT_ID_LEN }>,
+        // 9 is the maximum length rail name used in this module (`VDD_VCORE`)
+        rail: &'static FixedStr<9>,
         time: u64,
         pwr_good: Option<bool>,
         pmbus_status: PmbusStatus,

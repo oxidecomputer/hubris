@@ -274,7 +274,7 @@ impl VCore {
             mfr: status_mfr_specific.ok(),
         };
 
-        static RAIL: FixedStr<10> = FixedStr::from_str("VDD_VCORE");
+        static RAIL: FixedStr<9> = FixedStr::from_str("VDD_VCORE");
         let ereport = packrat_api::Ereport {
             class: crate::EreportClass::PmbusAlert,
             version: 0,
