@@ -4,8 +4,29 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
+#
+# The `serde` and `microcbor` feature flags enable the presence of helper
+# APIs for reporting ereports encoded using either `serde` or `microcbor`'s
+# serialization traits.
+#
+# Both of these APIs will ultimately encode the ereport using `minicbor`, but
+# using different derived encoding implementations on top of `minicbor`.
+# The `microcbor`-based API is recommended for use in new code, as it allows
+# the automatic calculation of encoding buffer sizes. See the `microcbor`
+# crate's documentation for more details.
+#
+
 # Enable Serde support for the ereport API.
+#
+# When deriving `serde::Serialize` for ereport message types, they may be
+# delivered to packrat using the `Packrat::serialize_ereport` method, if this
+# `serde` feature flag is enabled.
 serde = ["dep:serde", "dep:minicbor", "dep:minicbor-serde"]
+# Enable microcbor support for the ereport API.
+#
+# When deriving `microcbor::Encode` for ereport message types, they may be
+# delivered to packrat using the `Packrat::encode_ereport` method, if this
+# feature flag is enabled.
 microcbor = ["dep:microcbor", "dep:static_assertions", "dep:minicbor"]
 
 [dependencies]
