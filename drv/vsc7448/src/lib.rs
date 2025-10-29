@@ -826,27 +826,50 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
 
     /// Implements a VLAN scheme for the minibar development board
     ///
-    /// Each port (except the rear IO ports) are on a VLAN shared with the three
-    /// rear IO ports.  This means that any of the rear IO ports can talk to
-    /// either the local SP or the SP on the attached Gimlet; however, packets
-    /// are not switched between rear IO ports.
+    /// Rear I/O 0 can only talk to the sled's SW0 SP interface.
+    /// Rear I/0 1 can only talk to the sled's SW1 SP interface.
+    /// Rear I/0 2 can only talk to the minibar's SP.
+    /// Packets are not switched between rear IO ports.
     pub fn configure_vlan_minibar(&self) -> Result<(), VscError> {
         self.configure_vlans(|p| match p {
-            minibar::REAR_IO_0 | minibar::REAR_IO_1 | minibar::REAR_IO_2 => {
+            minibar::REAR_IO_0 => {
                 Some(
                     (1 << p)
-                        | (1 << minibar::LOCAL_SP_0)
-                        | (1 << minibar::LOCAL_SP_1)
                         | (1 << minibar::SLED_SP_0)
+                )
+            }
+            minibar::REAR_IO_1 => {
+                Some(
+                    (1 << p)
                         | (1 << minibar::SLED_SP_1),
                 )
             }
-            _ => Some(
-                (1 << p)
-                    | (1 << minibar::REAR_IO_0)
-                    | (1 << minibar::REAR_IO_1)
-                    | (1 << minibar::REAR_IO_2),
-            ),
+            minibar::REAR_IO_2 => {
+                Some(
+                    (1 << p)
+                        | (1 << minibar::LOCAL_SP_0)
+                        | (1 << minibar::LOCAL_SP_1),
+                )
+            }
+            minibar::SLED_SP_0 => {
+                Some(
+                    (1 << p)
+                        | (1 << minibar::REAR_IO_0)
+                )
+            }
+            minibar::SLED_SP_1 => {
+                Some(
+                    (1 << p)
+                        | (1 << minibar::REAR_IO_1)
+                )
+            }
+            minibar::LOCAL_SP_0 | minibar::LOCAL_SP_1 => {
+                Some(
+                    (1 << p)
+                        | (1 << minibar::REAR_IO_2)
+                )
+            }
+            _ => None
         })?;
         self.configure_port_tagged(|_| false)?; // all ports are untagged
         Ok(())
