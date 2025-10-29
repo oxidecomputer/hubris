@@ -832,44 +832,19 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
     /// Packets are not switched between rear IO ports.
     pub fn configure_vlan_minibar(&self) -> Result<(), VscError> {
         self.configure_vlans(|p| match p {
-            minibar::REAR_IO_0 => {
-                Some(
-                    (1 << p)
-                        | (1 << minibar::SLED_SP_0)
-                )
-            }
-            minibar::REAR_IO_1 => {
-                Some(
-                    (1 << p)
-                        | (1 << minibar::SLED_SP_1),
-                )
-            }
-            minibar::REAR_IO_2 => {
-                Some(
-                    (1 << p)
-                        | (1 << minibar::LOCAL_SP_0)
-                        | (1 << minibar::LOCAL_SP_1),
-                )
-            }
-            minibar::SLED_SP_0 => {
-                Some(
-                    (1 << p)
-                        | (1 << minibar::REAR_IO_0)
-                )
-            }
-            minibar::SLED_SP_1 => {
-                Some(
-                    (1 << p)
-                        | (1 << minibar::REAR_IO_1)
-                )
-            }
+            minibar::REAR_IO_0 => Some((1 << p) | (1 << minibar::SLED_SP_0)),
+            minibar::REAR_IO_1 => Some((1 << p) | (1 << minibar::SLED_SP_1)),
+            minibar::REAR_IO_2 => Some(
+                (1 << p)
+                    | (1 << minibar::LOCAL_SP_0)
+                    | (1 << minibar::LOCAL_SP_1),
+            ),
+            minibar::SLED_SP_0 => Some((1 << p) | (1 << minibar::REAR_IO_0)),
+            minibar::SLED_SP_1 => Some((1 << p) | (1 << minibar::REAR_IO_1)),
             minibar::LOCAL_SP_0 | minibar::LOCAL_SP_1 => {
-                Some(
-                    (1 << p)
-                        | (1 << minibar::REAR_IO_2)
-                )
+                Some((1 << p) | (1 << minibar::REAR_IO_2))
             }
-            _ => None
+            _ => None,
         })?;
         self.configure_port_tagged(|_| false)?; // all ports are untagged
         Ok(())
