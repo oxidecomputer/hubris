@@ -4,9 +4,9 @@
 
 //!
 //! drooper: A task to simulate the IBC droop seen in mfg-quality#140
-//! 
-//! drooper.droop -a n=8
-//! TODO: add interval to idl api
+//!
+//! For example, to drop the voltage for 30 ms:
+//! $ humility hiffy -c drooper.droop -a time_ms=30
 //!
 
 #![no_std]
@@ -18,12 +18,6 @@ use drv_i2c_devices::bmr491::*;
 use core::convert::Infallible;
 use idol_runtime::RequestError;
 use userlib::{task_slot, RecvMessage, UnwrapLite};
-
-// NOTE: you will probably want to remove this when you write your actual code;
-// we need to import userlib to get this to compile, but it throws a warning
-// because we're not actually using it yet!
-#[allow(unused_imports)]
-use userlib::*;
 
 task_slot!(I2C, i2c_driver);
 
@@ -38,30 +32,23 @@ fn main() -> ! {
     }
 }
 
-struct ServerImpl {
-}
+struct ServerImpl {}
+
 
 impl idl::InOrderDrooperImpl for ServerImpl {
-    fn droop(&mut self, msg: &RecvMessage, time_ms: u32) -> Result<(), RequestError<Infallible>> {
+    fn droop(&mut self, _msg: &RecvMessage, time_ms: u32) -> Result<(), RequestError<Infallible>> {
         let (device, rail) = i2c_config::pmbus::v12_sys_a2(I2C.get_task_id());
         let ibc = Bmr491::new(&device, rail);
 
         // Droop the voltage for the requested time period in ms.
+        // We pick 9V because it's approximately what we see in the field for mfg-quality#140.
         let _ = ibc.set_vout(9);
         userlib::hl::sleep_for(time_ms as u64);
+
+        // Restore to 12V.
         let _ = ibc.set_vout(12);
 
         Ok(())
-    }
-}
-
-impl idol_runtime::NotificationHandler for ServerImpl {
-    fn current_notification_mask(&self) -> u32 {
-        // TODO: interval
-        0
-    }
-
-    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
     }
 }
 
