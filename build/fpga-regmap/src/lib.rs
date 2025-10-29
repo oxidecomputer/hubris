@@ -37,6 +37,8 @@ pub enum Node {
     Mem {
         inst_name: String,
         addr_offset: usize,
+        memwidth: usize,
+        mementries: usize,
     },
 }
 
@@ -426,105 +428,117 @@ pub fn build_peripheral(
     let mut reg_types = vec![];
     let mut reg_decls = vec![];
     for c in children {
-        let Node::Reg {
-            inst_name,
-            addr_offset,
-            regwidth,
-            children,
-        } = c
-        else {
-            panic!("nodes within map must be registers, not {c:?}");
-        };
-        assert_eq!(*regwidth, 32, "only 32-bit registers are supported");
-        let mut struct_fns = vec![];
-        let mut view_values = vec![];
-        let mut view_names = vec![];
-        let mut view_types = vec![];
-        let mut encode_types = vec![];
-        for c in children {
-            let Node::Field {
+        match c {
+            Node::Reg {
                 inst_name,
-                lsb,
-                msb,
-                encode,
-                sw_access,
-                desc,
-            } = c
-            else {
-                panic!("nodes within register must be fields, not {c:?}");
-            };
-            let desc = Some(desc.as_str()).filter(|s| !s.is_empty());
-            let msb = u32::try_from(*msb).unwrap();
-            let lsb = u32::try_from(*lsb).unwrap();
-            let setter: syn::Ident =
-                syn::parse_str(&format!("set_{}", inst_name.to_snake_case()))
+                addr_offset,
+                regwidth,
+                children,
+            } => {
+                assert_eq!(
+                    *regwidth, 32,
+                    "only 32-bit registers are supported"
+                );
+                let mut struct_fns = vec![];
+                let mut view_values = vec![];
+                let mut view_names = vec![];
+                let mut view_types = vec![];
+                let mut encode_types = vec![];
+                for c in children {
+                    let Node::Field {
+                        inst_name,
+                        lsb,
+                        msb,
+                        encode,
+                        sw_access,
+                        desc,
+                    } = c
+                    else {
+                        panic!(
+                            "nodes within register must be fields, not {c:?}"
+                        );
+                    };
+                    let desc = Some(desc.as_str()).filter(|s| !s.is_empty());
+                    let msb = u32::try_from(*msb).unwrap();
+                    let lsb = u32::try_from(*lsb).unwrap();
+                    let setter: syn::Ident = syn::parse_str(&format!(
+                        "set_{}",
+                        inst_name.to_snake_case()
+                    ))
                     .unwrap();
-            let getter: syn::Ident =
-                syn::parse_str(&inst_name.to_snake_case()).unwrap();
-            if lsb == msb {
-                if sw_access.is_write() {
-                    let doc = desc.into_iter();
-                    struct_fns.push(quote! {
-                        #[inline]
-                        #(#[doc = #doc])*
-                        pub fn #setter(&self, t: bool) {
-                            let mut d = self.get_raw();
-                            if t {
-                                d |= 1 << #msb;
-                            } else {
-                                d &= !(1 << #msb);
-                            }
-                            self.set_raw(d);
+                    let getter: syn::Ident =
+                        syn::parse_str(&inst_name.to_snake_case()).unwrap();
+                    if lsb == msb {
+                        if sw_access.is_write() {
+                            let doc = desc.into_iter();
+                            struct_fns.push(quote! {
+                                #[inline]
+                                #(#[doc = #doc])*
+                                pub fn #setter(&self, t: bool) {
+                                    let mut d = self.get_raw();
+                                    if t {
+                                        d |= 1 << #msb;
+                                    } else {
+                                        d &= !(1 << #msb);
+                                    }
+                                    self.set_raw(d);
+                                }
+                            });
                         }
-                    });
-                }
-                if sw_access.is_read() {
-                    let doc = desc.into_iter();
-                    struct_fns.push(quote! {
-                        #[inline]
-                        #(#[doc = #doc])*
-                        pub fn #getter(&self) -> bool {
-                            let d = self.get_raw();
-                            (d & (1 << #msb)) != 0
+                        if sw_access.is_read() {
+                            let doc = desc.into_iter();
+                            struct_fns.push(quote! {
+                                #[inline]
+                                #(#[doc = #doc])*
+                                pub fn #getter(&self) -> bool {
+                                    let d = self.get_raw();
+                                    (d & (1 << #msb)) != 0
+                                }
+                            });
+                            view_values.push(quote! {
+                                let #getter = (d & (1 << #msb)) != 0;
+                            });
+                            view_names.push(quote! { #getter });
+                            view_types.push(quote! { pub #getter: bool });
                         }
-                    });
-                    view_values.push(quote! {
-                        let #getter = (d & (1 << #msb)) != 0;
-                    });
-                    view_names.push(quote! { #getter });
-                    view_types.push(quote! { pub #getter: bool });
-                }
-            } else if let Some(encode) = encode {
-                let ty: syn::Ident =
-                    syn::parse_str(&inst_name.to_upper_camel_case()).unwrap();
-                let width = msb - lsb + 1;
-                let mask = u32::try_from((1u64 << width) - 1).unwrap();
-                let raw_ty = match width {
-                    1 => unreachable!("1-bit integers should be bools"),
-                    2..=8 => "u8",
-                    9..=16 => "u16",
-                    17..=32 => "u32",
-                    _ => panic!("invalid width {width}"),
-                };
-                assert_eq!(width, 8, "EnumEncode must be 8 bits wide");
-                let quoted = encode
-                    .iter()
-                    .map(|e| {
-                        let v: syn::Ident =
-                            syn::parse_str(&e.name.to_upper_camel_case())
+                    } else if let Some(encode) = encode {
+                        let ty: syn::Ident =
+                            syn::parse_str(&inst_name.to_upper_camel_case())
                                 .unwrap();
-                        let i: syn::LitInt =
-                            syn::parse_str(&format!("{}{raw_ty}", e.value))
+                        let width = msb - lsb + 1;
+                        let mask = u32::try_from((1u64 << width) - 1).unwrap();
+                        let raw_ty = match width {
+                            1 => unreachable!("1-bit integers should be bools"),
+                            2..=8 => "u8",
+                            9..=16 => "u16",
+                            17..=32 => "u32",
+                            _ => panic!("invalid width {width}"),
+                        };
+                        assert_eq!(width, 8, "EnumEncode must be 8 bits wide");
+                        let quoted = encode
+                            .iter()
+                            .map(|e| {
+                                let v: syn::Ident = syn::parse_str(
+                                    &e.name.to_upper_camel_case(),
+                                )
                                 .unwrap();
-                        (v, i)
-                    })
-                    .collect::<Vec<_>>();
+                                let i: syn::LitInt = syn::parse_str(&format!(
+                                    "{}{raw_ty}",
+                                    e.value
+                                ))
+                                .unwrap();
+                                (v, i)
+                            })
+                            .collect::<Vec<_>>();
 
-                let variants = quoted.iter().map(|(v, i)| quote! { #v = #i });
-                let matches =
-                    quoted.iter().map(|(v, i)| quote! { #i => Ok(Self::#v), });
-                let raw_ty: syn::Ident = syn::parse_str(raw_ty).unwrap();
-                encode_types.push(quote! {
+                        let variants =
+                            quoted.iter().map(|(v, i)| quote! { #v = #i });
+                        let matches = quoted
+                            .iter()
+                            .map(|(v, i)| quote! { #i => Ok(Self::#v), });
+                        let raw_ty: syn::Ident =
+                            syn::parse_str(raw_ty).unwrap();
+                        encode_types.push(quote! {
                     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
                     #[repr(#raw_ty)]
                     pub enum #ty {
@@ -541,9 +555,9 @@ pub fn build_peripheral(
                         }
                     }
                 });
-                if sw_access.is_write() {
-                    let doc = desc.into_iter();
-                    struct_fns.push(quote! {
+                        if sw_access.is_write() {
+                            let doc = desc.into_iter();
+                            struct_fns.push(quote! {
                         #[inline]
                         #(#[doc = #doc])*
                         pub fn #setter(&self, t: #ty) {
@@ -553,150 +567,219 @@ pub fn build_peripheral(
                             self.set_raw(d);
                         }
                     });
-                }
-                if sw_access.is_read() {
-                    let doc = desc.into_iter();
-                    struct_fns.push(quote! {
-                        #[inline]
-                        #(#[doc = #doc])*
-                        pub fn #getter(&self) -> Result<#ty, #raw_ty> {
-                            let d = self.get_raw();
-                            let t = ((d >> #lsb) & #mask) as #raw_ty;
-                            #ty::try_from(t)
                         }
-                    });
-                    view_values.push(quote! {
-                        let t = ((d >> #lsb) & #mask) as #raw_ty;
-                        let #getter = #ty::try_from(t);
-                    });
-                    view_names.push(quote! { #getter });
-                    view_types
-                        .push(quote! { pub #getter: Result<#ty, #raw_ty> });
+                        if sw_access.is_read() {
+                            let doc = desc.into_iter();
+                            struct_fns.push(quote! {
+                                #[inline]
+                                #(#[doc = #doc])*
+                                pub fn #getter(&self) -> Result<#ty, #raw_ty> {
+                                    let d = self.get_raw();
+                                    let t = ((d >> #lsb) & #mask) as #raw_ty;
+                                    #ty::try_from(t)
+                                }
+                            });
+                            view_values.push(quote! {
+                                let t = ((d >> #lsb) & #mask) as #raw_ty;
+                                let #getter = #ty::try_from(t);
+                            });
+                            view_names.push(quote! { #getter });
+                            view_types.push(
+                                quote! { pub #getter: Result<#ty, #raw_ty> },
+                            );
+                        }
+                    } else {
+                        let width = msb - lsb + 1;
+                        let mask = u32::try_from((1u64 << width) - 1).unwrap();
+                        let ty = match width {
+                            1 => unreachable!("1-bit integers should be bools"),
+                            2..=8 => "u8",
+                            9..=16 => "u16",
+                            17..=32 => "u32",
+                            _ => panic!("invalid width {width}"),
+                        };
+                        let ty: syn::Ident = syn::parse_str(ty).unwrap();
+                        if sw_access.is_write() {
+                            let doc = desc.into_iter();
+                            struct_fns.push(quote! {
+                                #[inline]
+                                #(#[doc = #doc])*
+                                pub fn #setter(&self, t: #ty) {
+                                    let mut d = self.get_raw();
+                                    d &= !(#mask << #lsb);
+                                    d |= (u32::from(t) & #mask) << #lsb;
+                                    self.set_raw(d);
+                                }
+                            });
+                        }
+                        if sw_access.is_read() {
+                            let doc = desc.into_iter();
+                            struct_fns.push(quote! {
+                                #[inline]
+                                #(#[doc = #doc])*
+                                pub fn #getter(&self) -> #ty {
+                                    let d = self.get_raw();
+                                    ((d >> #lsb) & #mask) as #ty
+                                }
+                            });
+                            view_values.push(quote! {
+                                let #getter = ((d >> #lsb) & #mask) as #ty;
+                            });
+                            view_names.push(quote! { #getter });
+                            view_types.push(quote! { pub #getter: #ty });
+                        }
+                    }
                 }
-            } else {
-                let width = msb - lsb + 1;
-                let mask = u32::try_from((1u64 << width) - 1).unwrap();
-                let ty = match width {
-                    1 => unreachable!("1-bit integers should be bools"),
-                    2..=8 => "u8",
-                    9..=16 => "u16",
-                    17..=32 => "u32",
-                    _ => panic!("invalid width {width}"),
+
+                let inst_name = inst_name.to_upper_camel_case();
+                let struct_name: syn::Ident =
+                    syn::parse_str(&inst_name).unwrap();
+                let handle_name: syn::Ident =
+                    quote::format_ident!("{inst_name}Handle");
+                let view_name: syn::Ident =
+                    quote::format_ident!("{inst_name}View");
+                let reg_addr = base_addr
+                    + u32::try_from(*periph_offset).unwrap()
+                    + u32::try_from(*addr_offset).unwrap();
+                let struct_def = quote! {
+                    pub struct #struct_name;
+                    #[allow(
+                        dead_code,
+                        clippy::useless_conversion,
+                        clippy::unnecessary_cast
+                    )]
+                    impl #struct_name {
+                        const ADDR: *mut u32 = #reg_addr as *mut u32;
+                        fn new() -> Self {
+                            #struct_name
+                        }
+                        fn get_raw(&self) -> u32 {
+                            unsafe {
+                                Self::ADDR.read_volatile()
+                            }
+                        }
+                        fn set_raw(&self, v: u32) {
+                            unsafe {
+                                Self::ADDR.write_volatile(v)
+                            }
+                        }
+                        #[inline]
+                        pub fn modify<F: Fn(&mut #handle_name)>(&self, f: F) {
+                            let mut v = #handle_name(
+                                core::cell::Cell::new(self.get_raw())
+                            );
+                            f(&mut v);
+                            self.set_raw(v.0.get());
+                        }
+                        #[inline]
+                        pub fn view(&self) -> #view_name {
+                            #view_name::from(self)
+                        }
+
+                        #(#struct_fns)*
+                    }
+
+                    pub struct #handle_name(core::cell::Cell<u32>);
+                    #[allow(
+                        dead_code,
+                        clippy::useless_conversion,
+                        clippy::unnecessary_cast
+                    )]
+                    impl #handle_name {
+                        fn get_raw(&self) -> u32 {
+                            self.0.get()
+                        }
+                        fn set_raw(&self, v: u32) {
+                            self.0.set(v)
+                        }
+                        #(#struct_fns)*
+                    }
+
+                    #[derive(Copy, Clone, Eq, PartialEq)]
+                    #[allow(
+                        dead_code,
+                        clippy::useless_conversion,
+                        clippy::unnecessary_cast
+                    )]
+                    pub struct #view_name {
+                        #(#view_types),*
+                    }
+                    #[allow(
+                        dead_code,
+                        clippy::useless_conversion,
+                        clippy::unnecessary_cast
+                    )]
+                    impl<'a> From<&'a #struct_name> for #view_name {
+                        #[inline]
+                        fn from(s: &'a #struct_name) -> #view_name {
+                            #[allow(unused_variables)]
+                            let d = s.get_raw();
+                            #(#view_values)*
+                            #view_name {
+                                #(#view_names),*
+                            }
+                        }
+                    }
+
+                    #(#encode_types)*
                 };
-                let ty: syn::Ident = syn::parse_str(ty).unwrap();
-                if sw_access.is_write() {
-                    let doc = desc.into_iter();
-                    struct_fns.push(quote! {
-                        #[inline]
-                        #(#[doc = #doc])*
-                        pub fn #setter(&self, t: #ty) {
-                            let mut d = self.get_raw();
-                            d &= !(#mask << #lsb);
-                            d |= (u32::from(t) & #mask) << #lsb;
-                            self.set_raw(d);
-                        }
-                    });
-                }
-                if sw_access.is_read() {
-                    let doc = desc.into_iter();
-                    struct_fns.push(quote! {
-                        #[inline]
-                        #(#[doc = #doc])*
-                        pub fn #getter(&self) -> #ty {
-                            let d = self.get_raw();
-                            ((d >> #lsb) & #mask) as #ty
-                        }
-                    });
-                    view_values.push(quote! {
-                        let #getter = ((d >> #lsb) & #mask) as #ty;
-                    });
-                    view_names.push(quote! { #getter });
-                    view_types.push(quote! { pub #getter: #ty });
-                }
+                reg_definitions.push(struct_def);
+                let reg_name: syn::Ident =
+                    syn::parse_str(&inst_name.to_snake_case()).unwrap();
+                reg_types.push(quote! {
+                    pub #reg_name: #struct_name
+                });
+                reg_decls.push(quote! {
+                    #reg_name: #struct_name::new()
+                });
             }
+            Node::Mem {
+                inst_name,
+                addr_offset,
+                memwidth,
+                mementries,
+            } => {
+                let inst_name = inst_name.to_upper_camel_case();
+                let struct_name: syn::Ident =
+                    syn::parse_str(&inst_name).unwrap();
+                let reg_addr = base_addr
+                    + u32::try_from(*periph_offset).unwrap()
+                    + u32::try_from(*addr_offset).unwrap();
+                assert_eq!(*memwidth, 32, "only 32-bit memories are supported");
+                let struct_def = quote! {
+                    pub struct #struct_name;
+                    #[allow(
+                        dead_code,
+                        clippy::useless_conversion,
+                        clippy::unnecessary_cast
+                    )]
+                    impl #struct_name {
+                        const ADDR: *mut u32 = #reg_addr as *mut u32;
+                        fn new() -> Self {
+                            #struct_name
+                        }
+                        pub fn get(&self, i: usize) -> u32 {
+                            assert!(i < #mementries);
+                            unsafe {
+                                Self::ADDR.add(i).read_volatile()
+                            }
+                        }
+                    }
+                };
+
+                reg_definitions.push(struct_def);
+                let reg_name: syn::Ident =
+                    syn::parse_str(&inst_name.to_snake_case()).unwrap();
+                reg_types.push(quote! {
+                    pub #reg_name: #struct_name
+                });
+                reg_decls.push(quote! {
+                    #reg_name: #struct_name::new()
+                });
+                // TODO
+            }
+            n => panic!("unsupported node type {n:?}"),
         }
-
-        let inst_name = inst_name.to_upper_camel_case();
-        let struct_name: syn::Ident = syn::parse_str(&inst_name).unwrap();
-        let handle_name: syn::Ident = quote::format_ident!("{inst_name}Handle");
-        let view_name: syn::Ident = quote::format_ident!("{inst_name}View");
-        let reg_addr = base_addr
-            + u32::try_from(*periph_offset).unwrap()
-            + u32::try_from(*addr_offset).unwrap();
-        let struct_def = quote! {
-            pub struct #struct_name;
-            #[allow(dead_code, clippy::useless_conversion, clippy::unnecessary_cast)]
-            impl #struct_name {
-                const ADDR: *mut u32 = #reg_addr as *mut u32;
-                fn new() -> Self {
-                    #struct_name
-                }
-                fn get_raw(&self) -> u32 {
-                    unsafe {
-                        Self::ADDR.read_volatile()
-                    }
-                }
-                fn set_raw(&self, v: u32) {
-                    unsafe {
-                        Self::ADDR.write_volatile(v)
-                    }
-                }
-                #[inline]
-                pub fn modify<F: Fn(&mut #handle_name)>(&self, f: F) {
-                    let mut v =
-                        #handle_name(core::cell::Cell::new(self.get_raw()));
-                    f(&mut v);
-                    self.set_raw(v.0.get());
-                }
-                #[inline]
-                pub fn view(&self) -> #view_name {
-                    #view_name::from(self)
-                }
-
-                #(#struct_fns)*
-            }
-
-            pub struct #handle_name(core::cell::Cell<u32>);
-            #[allow(dead_code, clippy::useless_conversion, clippy::unnecessary_cast)]
-            impl #handle_name {
-                fn get_raw(&self) -> u32 {
-                    self.0.get()
-                }
-                fn set_raw(&self, v: u32) {
-                    self.0.set(v)
-                }
-                #(#struct_fns)*
-            }
-
-            #[derive(Copy, Clone, Eq, PartialEq)]
-            #[allow(dead_code, clippy::useless_conversion, clippy::unnecessary_cast)]
-            pub struct #view_name {
-                #(#view_types),*
-            }
-            #[allow(dead_code, clippy::useless_conversion, clippy::unnecessary_cast)]
-            impl<'a> From<&'a #struct_name> for #view_name {
-                #[inline]
-                fn from(s: &'a #struct_name) -> #view_name {
-                    #[allow(unused_variables)]
-                    let d = s.get_raw();
-                    #(#view_values)*
-                    #view_name {
-                        #(#view_names),*
-                    }
-                }
-            }
-
-            #(#encode_types)*
-        };
-        reg_definitions.push(struct_def);
-        let reg_name: syn::Ident =
-            syn::parse_str(&inst_name.to_snake_case()).unwrap();
-        reg_types.push(quote! {
-            pub #reg_name: #struct_name
-        });
-        reg_decls.push(quote! {
-            #reg_name: #struct_name::new()
-        });
     }
 
     let periph_name: syn::Ident =
