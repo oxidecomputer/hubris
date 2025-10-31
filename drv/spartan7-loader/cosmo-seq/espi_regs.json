@@ -85,6 +85,17 @@
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "Respond back on periph 0 channel vs oob"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "espi_reset",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Issue an espi reset via the debug logic. Cleared by hardware after reset."
                 }
             ]
         },
