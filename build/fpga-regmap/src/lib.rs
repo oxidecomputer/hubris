@@ -539,34 +539,37 @@ pub fn build_peripheral(
                         let raw_ty: syn::Ident =
                             syn::parse_str(raw_ty).unwrap();
                         encode_types.push(quote! {
-                    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-                    #[repr(#raw_ty)]
-                    pub enum #ty {
-                        #(#variants),*
-                    }
-
-                    impl core::convert::TryFrom<#raw_ty> for #ty {
-                        type Error = #raw_ty;
-                        fn try_from(t: #raw_ty) -> Result<Self, Self::Error> {
-                            match t {
-                                #(#matches)*
-                                _ => Err(t),
+                            #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+                            #[repr(#raw_ty)]
+                            pub enum #ty {
+                                #(#variants),*
                             }
-                        }
-                    }
-                });
+
+                            impl core::convert::TryFrom<#raw_ty> for #ty {
+                                type Error = #raw_ty;
+                                fn try_from(t: #raw_ty)
+                                    -> Result<Self, Self::Error>
+                                {
+                                    match t {
+                                        #(#matches)*
+                                        _ => Err(t),
+                                    }
+                                }
+                            }
+                        });
                         if sw_access.is_write() {
                             let doc = desc.into_iter();
                             struct_fns.push(quote! {
-                        #[inline]
-                        #(#[doc = #doc])*
-                        pub fn #setter(&self, t: #ty) {
-                            let mut d = self.get_raw();
-                            d &= !(#mask << #lsb);
-                            d |= (u32::from(t as #raw_ty) & #mask) << #lsb;
-                            self.set_raw(d);
-                        }
-                    });
+                                #[inline]
+                                #(#[doc = #doc])*
+                                pub fn #setter(&self, t: #ty) {
+                                    let mut d = self.get_raw();
+                                    d &= !(#mask << #lsb);
+                                    d |= (u32::from(t as #raw_ty) & #mask)
+                                        << #lsb;
+                                    self.set_raw(d);
+                                }
+                            });
                         }
                         if sw_access.is_read() {
                             let doc = desc.into_iter();
