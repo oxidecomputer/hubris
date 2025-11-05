@@ -1,6 +1,6 @@
 {
     "type": "addrmap",
-    "addr_span_bytes": 1840,
+    "addr_span_bytes": 49408,
     "inst_name": "cosmo_seq_top",
     "orig_type_name": "cosmo_seq_top",
     "addr_offset": 0,
@@ -23,18 +23,10 @@
         },
         {
             "type": "addrmap",
-            "addr_span_bytes": 40,
-            "inst_name": "espi",
-            "orig_type_name": "espi_regs",
-            "addr_offset": 512,
-            "children": []
-        },
-        {
-            "type": "addrmap",
             "addr_span_bytes": 88,
             "inst_name": "sequencer",
             "orig_type_name": "sequencer_regs",
-            "addr_offset": 768,
+            "addr_offset": 512,
             "children": []
         },
         {
@@ -42,7 +34,7 @@
             "addr_span_bytes": 4,
             "inst_name": "sp_i2c",
             "orig_type_name": "sp_i2c_regs",
-            "addr_offset": 1024,
+            "addr_offset": 768,
             "children": []
         },
         {
@@ -50,7 +42,7 @@
             "addr_span_bytes": 148,
             "inst_name": "fpga1_hotplug",
             "orig_type_name": "pca9506_axi_regs",
-            "addr_offset": 1280,
+            "addr_offset": 1024,
             "children": []
         },
         {
@@ -58,7 +50,7 @@
             "addr_span_bytes": 76,
             "inst_name": "dimms",
             "orig_type_name": "dimm_regs",
-            "addr_offset": 1536,
+            "addr_offset": 1280,
             "children": []
         },
         {
@@ -66,7 +58,15 @@
             "addr_span_bytes": 48,
             "inst_name": "debug_ctrl",
             "orig_type_name": "debug_regs",
-            "addr_offset": 1792,
+            "addr_offset": 1536,
+            "children": []
+        },
+        {
+            "type": "addrmap",
+            "addr_span_bytes": 16640,
+            "inst_name": "espi",
+            "orig_type_name": "espi_regs",
+            "addr_offset": 32768,
             "children": []
         }
     ]

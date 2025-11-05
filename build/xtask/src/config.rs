@@ -177,23 +177,40 @@ impl Config {
             let Node::Addrmap { children, .. } = root else {
                 bail!("top-level node is not addrmap");
             };
-            for (i, p) in children.iter().enumerate() {
+            for p in children.iter() {
                 let Node::Addrmap {
                     inst_name,
                     addr_offset,
+                    addr_span_bytes,
                     ..
                 } = &p
                 else {
                     bail!("second-level node must be Addrmap");
                 };
-                if *addr_offset != i * 256 {
-                    bail!("mmio peripherals must be spaced at 256 bytes");
+                let address = *addr_offset as u32 + base_address;
+                let size: u32 = addr_span_bytes
+                    .ok_or_else(|| {
+                        anyhow!(
+                            "mmio peripheral {inst_name} must \
+                             include `addr_span_bytes`"
+                        )
+                    })?
+                    .next_power_of_two()
+                    .try_into()
+                    .unwrap();
+                let size = size.max(32); // min MPU size for STM32H7
+                if !address.is_multiple_of(size) {
+                    bail!(
+                        "address of mmio peripheral `{inst_name}` \
+                         ({address:#x}) is not a multiple of its size \
+                         ({size:#x})"
+                    );
                 }
                 peripherals.insert(
                     format!("mmio_{inst_name}"),
                     Peripheral {
-                        address: *addr_offset as u32 + base_address,
-                        size: 256,
+                        address,
+                        size,
                         interrupts: BTreeMap::new(),
                     },
                 );
