@@ -192,7 +192,7 @@ impl Config {
                     .ok_or_else(|| {
                         anyhow!(
                             "mmio peripheral {inst_name} must \
-                         include `addr_span_bytes`"
+                             include `addr_span_bytes`"
                         )
                     })?
                     .next_power_of_two()
