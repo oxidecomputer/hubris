@@ -572,7 +572,8 @@ where
             spare_macs: MacAddressBlock {
                 base_mac: mac,
                 count: U16::new(
-                    mac_address_block.count.get() - VLanId::LENGTH as u16,
+                    mac_address_block.count.get()
+                        - generated::PORT_COUNT as u16,
                 ),
                 stride: mac_address_block.stride,
             },
