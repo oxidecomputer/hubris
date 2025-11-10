@@ -49,3 +49,9 @@ notifications = ["timer"]
 name = "task-idle"
 priority = 9
 start = true
+
+[caboose]
+tasks = []
+region = "flash"
+size = 256
+default = true
