@@ -141,7 +141,14 @@ jobs:
 
       - name: Upload build archive
         uses: actions/upload-artifact@v4
-        if: inputs.upload-artifacts
+        if: inputs.upload-artifacts && runner.os == 'Linux'
         with:
           name: dist-${{ inputs.os }}-${{ matrix.app_name }}
           path: target/${{ matrix.app_name }}/dist/build-${{ matrix.app_name }}-image-*.zip
+
+      - name: Upload build archive
+        uses: actions/upload-artifact@v4
+        if: inputs.upload-artifacts && runner.os == 'Windows'
+        with:
+          name: dist-${{ inputs.os }}-${{ matrix.app_name }}
+          path: target/${{ matrix.app_name }}/dist/default/build-${{ matrix.app_name }}-image-default.zip
