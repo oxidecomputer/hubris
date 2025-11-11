@@ -139,6 +139,8 @@ where
     }
 }
 
+impl<const MAX: usize> Eq for FixedStr<MAX> {}
+
 impl<const MAX: usize> core::fmt::Display for FixedStr<MAX> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         core::fmt::Display::fmt(self.as_str(), f)

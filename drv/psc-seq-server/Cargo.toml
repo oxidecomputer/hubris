@@ -10,12 +10,13 @@ drv-stm32xx-sys-api = { path = "../../drv/stm32xx-sys-api", features = ["family-
 drv-i2c-api = { path ="../../drv/i2c-api", features = ["component-id"] }
 drv-i2c-devices.path = "../../drv/i2c-devices"
 task-jefe-api.path = "../../task/jefe-api"
-task-packrat-api = { path = "../../task/packrat-api", features = ["serde"] }
+task-packrat-api = { path = "../../task/packrat-api", features = ["microcbor"] }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 ringbuf = { path = "../../lib/ringbuf", features = ["counters"] }
 counters = { path = "../../lib/counters" }
 static-cell = { path = "../../lib/static-cell" }
-serde.workspace = true
+microcbor.path = "../../lib/microcbor"
+fixedstr = { path = "../../lib/fixedstr", features = ["microcbor"] }
 
 [build-dependencies]
 idol.workspace = true
