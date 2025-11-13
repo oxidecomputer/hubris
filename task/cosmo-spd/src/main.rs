@@ -29,8 +29,9 @@ task_slot!(SENSOR, sensor);
 enum Trace {
     None,
     Activate { time: u64 },
+    SpdReadComplete { time: u64 },
+    SpdPresent(fmc_periph::SpdPresentView),
     Deactivate { time: u64 },
-    Present { index: usize, present: bool },
     TemperatureReadTimeout { index: usize, pos: usize },
 }
 
@@ -113,27 +114,30 @@ impl ServerImpl {
             sleep_for(10);
         }
 
+        ringbuf_entry!(Trace::SpdReadComplete {
+            time: sys_get_timer().now
+        });
+
+        let spd_present = self.dimms.spd_present.view();
+        ringbuf_entry!(Trace::SpdPresent(spd_present));
+
         for (index, present) in self.present.iter_mut().enumerate() {
             // Check if this channel is present
             *present = match index {
-                0 => self.dimms.spd_present.bus0_a(),
-                1 => self.dimms.spd_present.bus0_b(),
-                2 => self.dimms.spd_present.bus0_c(),
-                3 => self.dimms.spd_present.bus0_d(),
-                4 => self.dimms.spd_present.bus0_e(),
-                5 => self.dimms.spd_present.bus0_f(),
-                6 => self.dimms.spd_present.bus1_g(),
-                7 => self.dimms.spd_present.bus1_h(),
-                8 => self.dimms.spd_present.bus1_i(),
-                9 => self.dimms.spd_present.bus1_j(),
-                10 => self.dimms.spd_present.bus1_k(),
-                11 => self.dimms.spd_present.bus1_l(),
+                0 => spd_present.bus0_a,
+                1 => spd_present.bus0_b,
+                2 => spd_present.bus0_c,
+                3 => spd_present.bus0_d,
+                4 => spd_present.bus0_e,
+                5 => spd_present.bus0_f,
+                6 => spd_present.bus1_g,
+                7 => spd_present.bus1_h,
+                8 => spd_present.bus1_i,
+                9 => spd_present.bus1_j,
+                10 => spd_present.bus1_k,
+                11 => spd_present.bus1_l,
                 DIMM_COUNT.. => unreachable!(),
             };
-            ringbuf_entry!(Trace::Present {
-                index,
-                present: *present
-            });
             if !*present {
                 self.packrat.remove_spd(index as u8);
                 continue;
