@@ -216,7 +216,11 @@ impl FlashDriver {
         // desired status transition occurs in less than 1ms, avoiding a 1-2ms
         // sleep and round-trip through the scheduler. status transitions
         // quickly.
-        const MAX_BUSY_POLLS: u32 = 32;
+        //
+        // Initial tests show that waiting on the FPGA takes ~50 polls when
+        // page programming. Waiting even 1 tick is still more costly than
+        // just waiting for the poll to finish.
+        const MAX_BUSY_POLLS: u32 = 100;
 
         let mut busy_polls = 0;
         while !poll(self) {
