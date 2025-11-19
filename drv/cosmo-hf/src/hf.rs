@@ -9,7 +9,7 @@ use drv_hf_api::{
     HF_PERSISTENT_DATA_STRIDE,
 };
 use idol_runtime::{
-    LeaseBufReader, LeaseBufWriter, Leased, LenLimit, NotificationHandler,
+    ClientError, LeaseBufWriter, Leased, LenLimit, NotificationHandler,
     RequestError, R, W,
 };
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
@@ -17,7 +17,8 @@ use userlib::{set_timer_relative, task_slot, RecvMessage, UnwrapLite};
 use zerocopy::{FromZeros, IntoBytes};
 
 use crate::{
-    apob, FlashAddr, FlashDriver, Trace, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES,
+    apob, apob::APOB_PERSISTENT_DATA_STRIDE, FlashAddr, FlashDriver, Trace,
+    PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES,
 };
 
 task_slot!(HASH, hash_driver);
@@ -33,7 +34,36 @@ pub struct ServerImpl {
     hash: HashData,
 
     pub(crate) apob_state: apob::ApobState,
-    pub(crate) apob_buf: apob::ApobBufs,
+    pub(crate) buf: HfBufs,
+}
+
+pub(crate) struct HfBufs {
+    pub(crate) apob_persistent_data:
+        &'static mut [u8; APOB_PERSISTENT_DATA_STRIDE],
+    pub(crate) page: &'static mut [u8; PAGE_SIZE_BYTES],
+    pub(crate) scratch: &'static mut [u8; PAGE_SIZE_BYTES],
+}
+
+/// Grabs references to the static buffers.  Can only be called once.
+impl HfBufs {
+    pub fn claim_statics() -> Self {
+        use static_cell::ClaimOnceCell;
+        static BUFS: ClaimOnceCell<(
+            [u8; APOB_PERSISTENT_DATA_STRIDE],
+            [u8; PAGE_SIZE_BYTES],
+            [u8; PAGE_SIZE_BYTES],
+        )> = ClaimOnceCell::new((
+            [0; APOB_PERSISTENT_DATA_STRIDE],
+            [0; PAGE_SIZE_BYTES],
+            [0; PAGE_SIZE_BYTES],
+        ));
+        let (apob_persistent_data, page, scratch) = BUFS.claim();
+        Self {
+            apob_persistent_data,
+            page,
+            scratch,
+        }
+    }
 }
 
 /// This tunes how many bytes we hash in a single async timer notification
@@ -49,15 +79,15 @@ impl ServerImpl {
     /// Persistent data is loaded from the flash chip and used to select `dev`;
     /// in addition, it is made redundant (written to both virtual devices).
     pub fn new(mut drv: FlashDriver) -> Self {
-        let mut apob_buf = apob::ApobBufs::claim_statics();
-        let apob_state = apob::ApobState::init(&mut drv, &mut apob_buf);
+        let mut buf = HfBufs::claim_statics();
+        let apob_state = apob::ApobState::init(&mut drv, &mut buf);
 
         let mut out = Self {
             dev: drv_hf_api::HfDevSelect::Flash0,
             drv,
             hash: HashData::new(HASH.get_task_id()),
             apob_state,
-            apob_buf,
+            buf,
         };
         out.drv.set_flash_mux_state(HfMuxState::SP);
         out.ensure_persistent_data_is_redundant();
@@ -203,10 +233,7 @@ impl ServerImpl {
                 addr
             }
         };
-        // flash_write is infallible when given a slice
-        self.drv
-            .flash_write(addr, &mut raw_data.as_bytes())
-            .unwrap_lite();
+        self.drv.flash_write(addr, raw_data.as_bytes());
     }
 
     /// Ensures that the persistent data is consistent between the virtual devs
@@ -421,12 +448,12 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         self.drv.check_flash_mux_state()?;
         let addr = self.flash_addr(addr, data.len() as u32)?;
         self.invalidate_write();
-        self.drv
-            .flash_write(
-                addr,
-                &mut LeaseBufReader::<_, 32>::from(data.into_inner()),
-            )
-            .map_err(|()| RequestError::went_away())
+        // Read the entire data block into our address space.
+        data.read_range(0..data.len(), &mut self.buf.scratch[..data.len()])
+            .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
+
+        self.drv.flash_write(addr, &self.buf.scratch[..data.len()]);
+        Ok(())
     }
 
     fn page_program_dev(
@@ -527,7 +554,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         data: Leased<R, [u8]>,
     ) -> Result<(), RequestError<drv_hf_api::ApobWriteError>> {
         self.apob_state
-            .write(&mut self.drv, &mut self.apob_buf, offset, data)
+            .write(&mut self.drv, &mut self.buf, offset, data)
             .map_err(RequestError::from)
     }
 
@@ -536,7 +563,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         _: &RecvMessage,
     ) -> Result<(), RequestError<drv_hf_api::ApobCommitError>> {
         self.apob_state
-            .commit(&mut self.drv, &mut self.apob_buf)
+            .commit(&mut self.drv, &mut self.buf)
             .map_err(RequestError::from)
     }
 
@@ -555,7 +582,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         data: Leased<W, [u8]>,
     ) -> Result<usize, RequestError<drv_hf_api::ApobReadError>> {
         self.apob_state
-            .read(&mut self.drv, &mut self.apob_buf, offset, data)
+            .read(&mut self.drv, &mut self.buf, offset, data)
             .map_err(RequestError::from)
     }
 
@@ -589,7 +616,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             // This also unlocks the APOB so it can be written (once muxed back
             // to the SP).
             self.apob_state =
-                apob::ApobState::init(&mut self.drv, &mut self.apob_buf);
+                apob::ApobState::init(&mut self.drv, &mut self.buf);
         }
         self.drv.set_flash_mux_state(state);
         self.invalidate_mux_switch();
