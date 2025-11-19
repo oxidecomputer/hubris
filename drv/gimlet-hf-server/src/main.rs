@@ -944,7 +944,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<(), RequestError<core::convert::Infallible>> {
-        Err(RequestError::Fail(ClientError::BadMessageContents))
+        Ok(()) // tautologically true
     }
 
     fn apob_read(
