@@ -270,6 +270,9 @@ impl FlashDriver {
 
     /// Erases the 64KiB flash sector containing the given address
     fn flash_sector_erase(&mut self, addr: FlashAddr) {
+        if self.flash_is_sector_erased(addr) {
+            return;
+        }
         self.flash_write_enable();
         self.drv.data_bytes.set_count(0);
         self.drv.addr.set_addr(addr.0);
@@ -279,6 +282,37 @@ impl FlashDriver {
 
         // Wait for the busy flag to be unset
         self.wait_flash_busy(Trace::SectorEraseBusy);
+    }
+
+    /// Returns true if the full 64KB sector is erased
+    /// (all bits are set to `1`)
+    fn flash_is_sector_erased(&mut self, addr: FlashAddr) -> bool {
+        let cnt = SECTOR_SIZE_BYTES / (PAGE_SIZE_BYTES as u32);
+        for i in 0..cnt {
+            let addr = addr.0 + i * (PAGE_SIZE_BYTES as u32);
+            self.clear_fifos();
+            self.drv.data_bytes.set_count(PAGE_SIZE_BYTES as u16);
+            self.drv.addr.set_addr(addr);
+            self.drv.dummy_cycles.set_count(8);
+            self.drv.instr.set_opcode(instr::FAST_READ_QUAD_OUTPUT_4B);
+            let mut erased = true;
+            // Technically we could terminate this loop early when
+            // we find the first non-erased byte but we still have
+            // to drain the FIFOs and wait for the FPGA which means
+            // there's no performance gain vs just reading everything
+            // in a loop here.
+            for _ in 0..PAGE_SIZE_BYTES.div_ceil(4) {
+                self.wait_fpga_rx();
+                let v = self.drv.rx_fifo_rdata.fifo_data();
+                if v != u32::MAX {
+                    erased = false;
+                }
+            }
+            if !erased {
+                return false;
+            }
+        }
+        true
     }
 
     /// Reads data from the given address into a `BufWriter`
