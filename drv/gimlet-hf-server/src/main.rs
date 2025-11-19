@@ -944,7 +944,12 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<(), RequestError<core::convert::Infallible>> {
-        Ok(()) // tautologically true
+        // `apob_lock` is called by `host_sp_comms` once it receives *any*
+        // message indicating that we've reached a late phase of booting (e.g.
+        // asking the SP for MAC addresses).  The Gimlet has no APOB, so it's
+        // fine to just return `Ok(())` here; this is cleaner than
+        // special-casing `host_sp_comms` to only call `apob_lock` on Cosmo.
+        Ok(())
     }
 
     fn apob_read(
