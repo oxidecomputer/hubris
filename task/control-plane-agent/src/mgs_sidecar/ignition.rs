@@ -133,8 +133,21 @@ impl IgnitionController {
         target: u8,
         command: IgnitionCommand,
     ) -> Result<(), IgnitionError> {
-        self.task
-            .send_request(target, CommandConvert(command).into())?;
+        match command {
+            // We intercept the AlwaysTransmit command as it is not part of the
+            // Ignition protocol (not something we send to a target), it is
+            // a setting in the controller itself.
+            IgnitionCommand::AlwaysTransmit { enabled } => {
+                self.task.set_always_transmit(target, enabled)?;
+            }
+            IgnitionCommand::PowerOn
+            | IgnitionCommand::PowerOff
+            | IgnitionCommand::PowerReset => {
+                self.task
+                    .send_request(target, CommandConvert(command).into())?;
+            }
+        }
+
         Ok(())
     }
 }
@@ -173,6 +186,8 @@ impl From<CommandConvert> for drv_ignition_api::Request {
             IgnitionCommand::PowerOn => Self::SystemPowerOn,
             IgnitionCommand::PowerOff => Self::SystemPowerOff,
             IgnitionCommand::PowerReset => Self::SystemPowerReset,
+            // prevented by the command function above
+            IgnitionCommand::AlwaysTransmit { .. } => unreachable!(),
         }
     }
 }

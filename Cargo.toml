@@ -148,7 +148,7 @@ zip = { version = "0.6", default-features = false, features = ["bzip2", "deflate
 apob = { git = "https://github.com/oxidecomputer/apob", default-features = false }
 attest-data = { git = "https://github.com/oxidecomputer/dice-util", default-features = false, version = "0.4.0" }
 dice-mfg-msgs = { git = "https://github.com/oxidecomputer/dice-util", default-features = false, version = "0.2.1" }
-gateway-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false, features = ["smoltcp"] }
+gateway-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false, features = ["smoltcp"], branch = "ignition-transmit" }
 gateway-ereport-messages = { git = "https://github.com/oxidecomputer/management-gateway-service", default-features = false }
 gimlet-inspector-protocol = { git = "https://github.com/oxidecomputer/gimlet-inspector-protocol", version = "0.1.0" }
 hif = { git = "https://github.com/oxidecomputer/hif", default-features = false }
