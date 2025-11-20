@@ -252,9 +252,7 @@ impl ServerImpl {
         let mut read_addr = active_slot_base as usize;
         // Note: this cannot overflow as spare slot was checked above.
         let mut write_addr = spare_slot as usize * SLOT_SIZE;
-        // SAFETY: this cannot overflow as data_size is less or equal to
-        // SLOT_SIZE and active_slot is valid for reads up to SLOT_SIZE.
-        let read_end = unsafe { read_addr.unchecked_add(data_size) };
+        let read_end = read_addr + data_size;
         while read_addr < read_end {
             let amount = (read_end - read_addr).min(buf.len());
 
