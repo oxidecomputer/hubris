@@ -43,6 +43,11 @@ enum Trace {
         #[count(children)]
         vid: VLanId,
     },
+    QueueWatchdogFired {
+        #[count(children)]
+        vid: VLanId,
+        socket_index: usize,
+    },
 }
 counted_ringbuf!(Trace, 16, Trace::None);
 
@@ -430,6 +435,10 @@ impl<E: DeviceExt> VLanState<E> {
                 s.close();
                 s.bind(e).unwrap_lite();
                 changed = true;
+                ringbuf_entry!(Trace::QueueWatchdogFired {
+                    vid: self.vid,
+                    socket_index,
+                });
 
                 // Reset the watchdog, so it doesn't fire right away
                 self.queue_watchdog[socket_index] = QueueWatchdog::Nominal;
