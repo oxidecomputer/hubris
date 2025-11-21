@@ -1,0 +1,50 @@
+# Configuration for oxidecomputer/brussels, the SP and Rot release tool. 
+#
+# Each group will publish all boards within it as part of a single tag and GitHub release, creating
+# the tag according to the defined rules. The hubris-app-dirs key defines the list of directores
+# containing the Hubris apps CI will build as part of the release.
+
+version = 1 # Schema version of this file.
+
+[groups.all-sp]
+tag-bump = "patch"
+tag-prefix = "all-sp-v"
+hubris-app-dirs = [
+    "app/sidecar/",
+    "app/gimlet/",
+    "app/psc/",
+    "app/cosmo/",
+]
+
+[groups.all-sp.boards]
+gimlet-b = {}
+gimlet-b-lab = {}
+gimlet-c = {}
+gimlet-c-lab = {}
+gimlet-d = {}
+gimlet-d-lab = {}
+gimlet-e = {}
+gimlet-e-lab = {}
+gimlet-f = {}
+gimlet-f-lab = {}
+psc-b = {}
+psc-c = {}
+sidecar-b = {}
+sidecar-b-lab = {}
+sidecar-c = {}
+sidecar-c-lab = {}
+sidecar-d = {}
+sidecar-d-lab = {}
+cosmo-a = {}
+cosmo-a-lab = {}
+cosmo-b = {}
+cosmo-b-lab = {}
+
+[groups.rot]
+tag-bump = "patch"
+tag-prefix = "oxide-rot-1-v"
+hubris-app-dirs = ["app/oxide-rot-1/"]
+
+[groups.rot.boards]
+oxide-rot-1 = { images = ["a", "b"] }
+oxide-rot-1-selfsigned = { images = ["a", "b"] }
