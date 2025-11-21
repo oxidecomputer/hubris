@@ -83,6 +83,7 @@ jobs:
     - name: Publish the release
       uses: softprops/action-gh-release@v1
       with:
+        target_commitish: ${{ needs.init.outputs.commit_sha1 }}
         tag_name: ${{ needs.init.outputs.tag_name }}
         name: "${{ github.event.inputs.group }} release"
         fail_on_unmatched_files: true
