@@ -85,7 +85,7 @@ impl Tofino {
         self.sequencer.set_enable(true)?;
 
         // Wait for the VID to become valid, retrying as needed.
-        for i in 1..=8 {
+        for i in 0..8 {
             ringbuf_entry!(Trace::TofinoVidAttempt(i));
             // Sleep first since there is a delay between the sequencer
             // receiving the EN bit and the VID being valid.
