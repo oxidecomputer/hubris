@@ -84,11 +84,12 @@ impl Tofino {
         self.abort_reported = false;
         self.sequencer.set_enable(true)?;
 
-        // Wait for the VID to become valid, retrying if needed.
-        for i in 1..4 {
+        // Wait for the VID to become valid, retrying as needed.
+        for i in 0..8 {
+            ringbuf_entry!(Trace::TofinoVidAttempt(i));
             // Sleep first since there is a delay between the sequencer
             // receiving the EN bit and the VID being valid.
-            hl::sleep_for(i * 25);
+            hl::sleep_for(50);
 
             let maybe_vid = self.sequencer.vid().map_err(|e| {
                 if let FpgaError::InvalidValue = e {
@@ -253,6 +254,8 @@ impl Tofino {
                 self.set_pcie_present(true)?;
 
                 return Ok(());
+            } else {
+                ringbuf_entry!(Trace::TofinoNoVid);
             }
         }
 
