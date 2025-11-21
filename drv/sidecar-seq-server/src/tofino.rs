@@ -86,6 +86,7 @@ impl Tofino {
 
         // Wait for the VID to become valid, retrying if needed.
         for i in 1..4 {
+            ringbuf_entry!(Trace::TofinoVidAttempt(i as u8));
             // Sleep first since there is a delay between the sequencer
             // receiving the EN bit and the VID being valid.
             hl::sleep_for(i * 25);
@@ -253,6 +254,8 @@ impl Tofino {
                 self.set_pcie_present(true)?;
 
                 return Ok(());
+            } else {
+                ringbuf_entry!(Trace::TofinoNoVid);
             }
         }
 
