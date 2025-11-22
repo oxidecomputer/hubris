@@ -8,7 +8,8 @@
 //! to Rev. 2.0 February 2025.
 
 use crate::{
-    hf::ServerImpl, FlashAddr, FlashDriver, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES,
+    hf::HfBufs, hf::ServerImpl, FlashAddr, FlashDriver, PAGE_SIZE_BYTES,
+    SECTOR_SIZE_BYTES,
 };
 use drv_hf_api::{
     ApobBeginError, ApobCommitError, ApobHash, ApobReadError, ApobWriteError,
@@ -237,34 +238,6 @@ impl ApobSlot {
     }
 }
 
-pub(crate) struct ApobBufs {
-    persistent_data: &'static mut [u8; APOB_PERSISTENT_DATA_STRIDE],
-    page: &'static mut [u8; PAGE_SIZE_BYTES],
-    scratch: &'static mut [u8; PAGE_SIZE_BYTES],
-}
-
-/// Grabs references to the static buffers.  Can only be called once.
-impl ApobBufs {
-    pub fn claim_statics() -> Self {
-        use static_cell::ClaimOnceCell;
-        static BUFS: ClaimOnceCell<(
-            [u8; APOB_PERSISTENT_DATA_STRIDE],
-            [u8; PAGE_SIZE_BYTES],
-            [u8; PAGE_SIZE_BYTES],
-        )> = ClaimOnceCell::new((
-            [0; APOB_PERSISTENT_DATA_STRIDE],
-            [0; PAGE_SIZE_BYTES],
-            [0; PAGE_SIZE_BYTES],
-        ));
-        let (persistent_data, page, scratch) = BUFS.claim();
-        Self {
-            persistent_data,
-            page,
-            scratch,
-        }
-    }
-}
-
 /// State machine data, which implements the logic from RFD 593
 ///
 /// See rfd.shared.oxide.computer/rfd/593#_production_strength_implementation
@@ -397,7 +370,7 @@ impl ApobState {
     ///
     /// Searches for an active slot in the metadata regions, updating the offset
     /// in the FPGA driver if found, and erases unused or invalid slots.
-    pub(crate) fn init(drv: &mut FlashDriver, buf: &mut ApobBufs) -> Self {
+    pub(crate) fn init(drv: &mut FlashDriver, buf: &mut HfBufs) -> Self {
         // Look up persistent data, which specifies an active slot
         let out = if let Some(s) = Self::get_slot(drv) {
             // Erase the inactive slot, in preparation for writing
@@ -448,7 +421,7 @@ impl ApobState {
     }
 
     /// Erases the given APOB slot
-    fn slot_erase(drv: &mut FlashDriver, buf: &mut ApobBufs, slot: ApobSlot) {
+    fn slot_erase(drv: &mut FlashDriver, buf: &mut HfBufs, slot: ApobSlot) {
         static_assertions::const_assert!(
             APOB_SLOT_SIZE.is_multiple_of(SECTOR_SIZE_BYTES)
         );
@@ -463,7 +436,7 @@ impl ApobState {
     /// If `size > APOB_SLOT_SIZE`
     fn slot_erase_range(
         drv: &mut FlashDriver,
-        buf: &mut ApobBufs,
+        buf: &mut HfBufs,
         slot: ApobSlot,
         size: u32,
     ) {
@@ -578,7 +551,7 @@ impl ApobState {
     pub(crate) fn write(
         &mut self,
         drv: &mut FlashDriver,
-        buf: &mut ApobBufs,
+        buf: &mut HfBufs,
         offset: u32,
         data: Leased<R, [u8]>,
     ) -> Result<(), ApobWriteError> {
@@ -647,8 +620,7 @@ impl ApobState {
             // If any byte is not a match, then we have to do a flash write
             // (otherwise, it's an idempotent write and we can skip it)
             if needs_write {
-                drv.flash_write(addr, &mut &buf.page[..n])
-                    .map_err(|_| ApobWriteError::WriteFailed)?;
+                drv.flash_write(addr, &buf.page[..n]);
             }
         }
         Ok(())
@@ -657,7 +629,7 @@ impl ApobState {
     pub(crate) fn read(
         &mut self,
         drv: &mut FlashDriver,
-        buf: &mut ApobBufs,
+        buf: &mut HfBufs,
         offset: u32,
         data: Leased<W, [u8]>,
     ) -> Result<usize, ApobReadError> {
@@ -716,7 +688,7 @@ impl ApobState {
     pub(crate) fn commit(
         &mut self,
         drv: &mut FlashDriver,
-        buf: &mut ApobBufs,
+        buf: &mut HfBufs,
     ) -> Result<(), ApobCommitError> {
         drv.check_flash_mux_state()
             .map_err(|_| ApobCommitError::InvalidState)?;
@@ -776,7 +748,7 @@ impl ApobState {
 
     fn apob_validate(
         drv: &mut FlashDriver,
-        buf: &mut ApobBufs,
+        buf: &mut HfBufs,
         expected_length: u32,
         expected_hash: ApobHash,
         write_slot: ApobSlot,
@@ -852,7 +824,7 @@ impl ApobState {
 
     fn write_raw_persistent_data(
         drv: &mut FlashDriver,
-        buf: &mut ApobBufs,
+        buf: &mut HfBufs,
         data: ApobRawPersistentData,
         meta: Meta,
     ) {
@@ -860,9 +832,9 @@ impl ApobState {
         for offset in (0..APOB_META_SIZE).step_by(APOB_PERSISTENT_DATA_STRIDE) {
             let addr = meta.flash_addr(offset).unwrap_lite();
             // Infallible when using a slice
-            drv.flash_read(addr, &mut buf.persistent_data.as_mut_slice())
+            drv.flash_read(addr, &mut buf.apob_persistent_data.as_mut_slice())
                 .unwrap_lite();
-            if buf.persistent_data.iter().all(|c| *c == 0xFF) {
+            if buf.apob_persistent_data.iter().all(|c| *c == 0xFF) {
                 found = Some(addr);
                 break;
             }
@@ -872,7 +844,6 @@ impl ApobState {
             drv.flash_sector_erase(addr);
             addr
         });
-        // Infallible when using a slice
-        drv.flash_write(addr, &mut data.as_bytes()).unwrap_lite();
+        drv.flash_write(addr, data.as_bytes());
     }
 }

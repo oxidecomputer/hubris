@@ -30,7 +30,7 @@ jobs:
         name: Download Brussels
         run: |
           if [[ "${BRUSSELS_RUN_ID}" == "" ]]; then
-            gh release download -R oxidecomputer/brussels -p brussels
+            gh release download -R oxidecomputer/brussels -p brussels v0.1.1
           else
             gh run download "${BRUSSELS_RUN_ID}" -R oxidecomputer/brussels -n prebuilt-binary
           fi

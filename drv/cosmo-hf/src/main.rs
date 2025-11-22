@@ -270,6 +270,9 @@ impl FlashDriver {
 
     /// Erases the 64KiB flash sector containing the given address
     fn flash_sector_erase(&mut self, addr: FlashAddr) {
+        if self.flash_is_sector_erased(addr) {
+            return;
+        }
         self.flash_write_enable();
         self.drv.data_bytes.set_count(0);
         self.drv.addr.set_addr(addr.0);
@@ -279,6 +282,37 @@ impl FlashDriver {
 
         // Wait for the busy flag to be unset
         self.wait_flash_busy(Trace::SectorEraseBusy);
+    }
+
+    /// Returns true if the full 64KB sector is erased
+    /// (all bits are set to `1`)
+    fn flash_is_sector_erased(&mut self, addr: FlashAddr) -> bool {
+        let cnt = SECTOR_SIZE_BYTES / (PAGE_SIZE_BYTES as u32);
+        for i in 0..cnt {
+            let addr = addr.0 + i * (PAGE_SIZE_BYTES as u32);
+            self.clear_fifos();
+            self.drv.data_bytes.set_count(PAGE_SIZE_BYTES as u16);
+            self.drv.addr.set_addr(addr);
+            self.drv.dummy_cycles.set_count(8);
+            self.drv.instr.set_opcode(instr::FAST_READ_QUAD_OUTPUT_4B);
+            let mut erased = true;
+            // Technically we could terminate this loop early when
+            // we find the first non-erased byte but we still have
+            // to drain the FIFOs and wait for the FPGA which means
+            // there's no performance gain vs just reading everything
+            // in a loop here.
+            for _ in 0..PAGE_SIZE_BYTES.div_ceil(4) {
+                self.wait_fpga_rx();
+                let v = self.drv.rx_fifo_rdata.fifo_data();
+                if v != u32::MAX {
+                    erased = false;
+                }
+            }
+            if !erased {
+                return false;
+            }
+        }
+        true
     }
 
     /// Reads data from the given address into a `BufWriter`
@@ -314,45 +348,39 @@ impl FlashDriver {
         Ok(())
     }
 
-    /// Writes data from a `BufReader` into the flash
+    /// Writes data from a slice into the flash
     ///
-    /// This function will only return an error if it fails to write to a
-    /// provided lease; when given a slice, it is infallible.
-    fn flash_write(
-        &mut self,
-        addr: FlashAddr,
-        data: &mut dyn idol_runtime::BufReader<'_>,
-    ) -> Result<(), ()> {
-        loop {
-            let len = data.remaining_size().min(PAGE_SIZE_BYTES);
-            if len == 0 {
-                break;
-            }
+    fn flash_write(&mut self, addr: FlashAddr, data: &[u8]) {
+        // Don't bother writing erased pages
+        if data.iter().all(|x| *x == 0xff) {
+            return;
+        }
+
+        let mut addr = addr.0;
+        for page_chunk in data.chunks(PAGE_SIZE_BYTES) {
             self.flash_write_enable();
-            self.drv.data_bytes.set_count(len as u16);
-            self.drv.addr.set_addr(addr.0);
+            self.drv.data_bytes.set_count(page_chunk.len() as u16);
+            self.drv.addr.set_addr(addr);
             self.drv.dummy_cycles.set_count(0);
-            for i in 0..len.div_ceil(4) {
+
+            for chunk in page_chunk.chunks(4) {
+                // Manually construct the u32 instad of just `try_into`
+                // just in case this slice was an odd number of bytes
                 let mut v = [0u8; 4];
-                for (j, byte) in v.iter_mut().enumerate() {
-                    let k = i * 4 + j;
-                    if k < len {
-                        let Some(d) = data.read() else {
-                            return Err(());
-                        };
-                        *byte = d;
-                    }
+                for (b, v_i) in chunk.iter().zip(v.iter_mut()) {
+                    *v_i = *b;
                 }
                 let v = u32::from_le_bytes(v);
                 self.drv.tx_fifo_wdata.set_fifo_data(v);
             }
+
             self.drv.instr.set_opcode(instr::QUAD_INPUT_PAGE_PROGRAM_4B);
             self.wait_fpga_busy();
 
             // Wait for the busy flag to be unset
             self.wait_flash_busy(Trace::WriteBusy);
+            addr += page_chunk.len() as u32;
         }
-        Ok(())
     }
 
     /// Enable the quad enable bit in flash
