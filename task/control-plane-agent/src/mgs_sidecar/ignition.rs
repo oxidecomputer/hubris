@@ -133,8 +133,20 @@ impl IgnitionController {
         target: u8,
         command: IgnitionCommand,
     ) -> Result<(), IgnitionError> {
-        self.task
-            .send_request(target, CommandConvert(command).into())?;
+        use drv_ignition_api::Request;
+        let cmd = match command {
+            // We intercept the AlwaysTransmit command as it is not part of the
+            // Ignition protocol (not something we send to a target), it is
+            // a setting in the controller itself.
+            IgnitionCommand::AlwaysTransmit { enabled } => {
+                return self.task.set_always_transmit(target, enabled);
+            }
+            IgnitionCommand::PowerOn => Request::SystemPowerOn,
+            IgnitionCommand::PowerOff => Request::SystemPowerOff,
+            IgnitionCommand::PowerReset => Request::SystemPowerReset,
+        };
+        self.task.send_request(target, cmd)?;
+
         Ok(())
     }
 }
@@ -162,18 +174,6 @@ impl Iterator for BulkIgnitionLinkEventsIter {
         self.iter
             .next()
             .map(|events| LinkEventsConvert(events).into())
-    }
-}
-
-struct CommandConvert(IgnitionCommand);
-
-impl From<CommandConvert> for drv_ignition_api::Request {
-    fn from(c: CommandConvert) -> Self {
-        match c.0 {
-            IgnitionCommand::PowerOn => Self::SystemPowerOn,
-            IgnitionCommand::PowerOff => Self::SystemPowerOff,
-            IgnitionCommand::PowerReset => Self::SystemPowerReset,
-        }
     }
 }
 
