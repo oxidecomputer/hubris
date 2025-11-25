@@ -30,7 +30,7 @@ jobs:
         name: Download Brussels
         run: |
           if [[ "${BRUSSELS_RUN_ID}" == "" ]]; then
-            gh release download -R oxidecomputer/brussels -p brussels v0.1.1
+            gh release download -R oxidecomputer/brussels -p brussels v0.2.0
           else
             gh run download "${BRUSSELS_RUN_ID}" -R oxidecomputer/brussels -n prebuilt-binary
           fi
@@ -42,7 +42,7 @@ jobs:
 
       - id: init
         name: Initialize the release
-        run: brussels init $group >> brussels-manifest.json
+        run: brussels init "$group" HEAD >brussels-manifest.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           group: ${{ github.event.inputs.group }}
@@ -83,6 +83,7 @@ jobs:
     - name: Publish the release
       uses: softprops/action-gh-release@v1
       with:
+        target_commitish: ${{ needs.init.outputs.commit_sha1 }}
         tag_name: ${{ needs.init.outputs.tag_name }}
         name: "${{ github.event.inputs.group }} release"
         fail_on_unmatched_files: true
