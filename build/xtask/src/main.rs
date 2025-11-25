@@ -21,6 +21,7 @@ mod config;
 mod dist;
 mod elf;
 mod flash;
+mod gha_prepare_artifacts;
 mod graph;
 mod humility;
 mod lsp;
@@ -221,6 +222,14 @@ enum Xtask {
 
         /// Path to a Rust source file
         file: PathBuf,
+    },
+
+    /// Prepare artifacts for upload in CI.
+    GhaPrepareArtifacts {
+        /// Path to the image configuration file, in TOML.
+        cfg: PathBuf,
+        /// Path to the JSONL file containing all of the attestations to upload, if generated.
+        attestation: Option<PathBuf>,
     },
 }
 
@@ -455,6 +464,9 @@ fn run(xtask: Xtask) -> Result<()> {
         }
         Xtask::Lsp { clients, file } => {
             lsp::run(&file, &clients)?;
+        }
+        Xtask::GhaPrepareArtifacts { cfg, attestation } => {
+            gha_prepare_artifacts::run(&cfg, attestation.as_deref())?;
         }
     }
 
