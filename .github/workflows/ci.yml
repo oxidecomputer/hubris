@@ -68,6 +68,54 @@ jobs:
       - name: cargo fmt 
         run: cargo fmt --all --check
 
+  docs-build:
+    name: Build documentation
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout the source code
+        uses: actions/checkout@v6
+
+      - name: Create output directories
+        run: |
+          mkdir -p output/reference
+          mkdir -p output/bugs
+
+      - name: Copy static website files
+        run: |
+          cp website/index.html output/index.html
+          cp website/style.css output/style.css
+          cp website/bugs/index.html output/bugs/index.html
+
+      - name: Generate reference
+        uses: tonynv/asciidoctor-action@master
+        with:
+          program: asciidoctor doc/index.adoc -o output/reference/index.html
+
+      - name: Upload content as an artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: output/
+          retention-days: 90 # We might want to inspect this in a PR.
+
+  docs-deploy:
+    name: Deploy documentation
+    runs-on: ubuntu-slim
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs:
+      - docs-build
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
+        id: deployment
+
   finish:
     name: CI finished
     runs-on: ubuntu-slim
@@ -77,6 +125,8 @@ jobs:
       - license
       - tests
       - format
+      - docs-build
+      - docs-deploy
     if: "${{ !cancelled() }}"
     steps:
       - name: Calculate the correct exit status
