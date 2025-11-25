@@ -1,0 +1,63 @@
+name: CI
+on:
+  pull_request: {}
+  push:
+    branches: [master]
+
+jobs:
+  dist:
+    name: dist
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    uses: ./.github/workflows/build-boards.yml
+    with:
+      os: ${{ matrix.os }}
+      upload-artifacts: ${{ matrix.os == 'ubuntu-latest' }}
+
+  license:
+    name: Check licensing
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the source code
+        uses: actions/checkout@v6
+
+      - name: Check License Header
+        uses: apache/skywalking-eyes/header@501a28d2fb4a9b962661987e50cf0219631b32ff
+
+  tests:
+    name: tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the source code
+        uses: actions/checkout@v6
+
+      - name: Run tests
+        run: cargo test --verbose --workspace
+        env:
+          CARGO_TERM_COLOR: always
+
+  format:
+    name: Check formatting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the source code
+        uses: actions/checkout@v6
+
+      - name: cargo fmt 
+        run: cargo fmt --all --check
+
+  finish:
+    name: CI finished
+    runs-on: ubuntu-slim
+    needs:
+      - dist
+      - license
+      - tests
+      - format
+    if: "${{ !cancelled() }}"
+    steps:
+      - name: Calculate the correct exit status
+        run: echo $needs | jq --exit-status 'all(.result == "success" or .result == "skipped")'
+        env:
+          needs: ${{ toJson(needs) }}
