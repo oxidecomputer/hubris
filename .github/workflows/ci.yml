@@ -4,6 +4,14 @@ on:
   push:
     branches: [master]
 
+# For pull requests only, cancel the previous build when a new commit is pushed. Since unfortunately
+# it's not possible to only apply this to pull requests, for pull request events we use the ref
+# (`refs/pulls/NUMBER/merge`, which gets reused across builds for the same PR), and for pushes we
+# use the commit sha (which should never have two builds in the default branch running at a time).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: true
+
 jobs:
   dist:
     name: dist
