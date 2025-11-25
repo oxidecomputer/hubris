@@ -12,9 +12,16 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
   cancel-in-progress: true
 
+# Define permissions at the job level.
+permissions: {}
+
 jobs:
   dist:
     name: dist
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
@@ -26,6 +33,8 @@ jobs:
   license:
     name: Check licensing
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout the source code
         uses: actions/checkout@v6
@@ -36,6 +45,8 @@ jobs:
   tests:
     name: tests
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout the source code
         uses: actions/checkout@v6
@@ -48,6 +59,8 @@ jobs:
   format:
     name: Check formatting
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout the source code
         uses: actions/checkout@v6
@@ -58,6 +71,7 @@ jobs:
   finish:
     name: CI finished
     runs-on: ubuntu-slim
+    permissions: {}
     needs:
       - dist
       - license
