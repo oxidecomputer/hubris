@@ -139,6 +139,7 @@ jobs:
         if: inputs.attest
         with:
           subject-path: target/${{ matrix.app_name }}/dist/build-${{ matrix.app_name }}-image-*.zip
+          show-summary: false
 
       - name: Upload build archive
         uses: actions/upload-artifact@v4
