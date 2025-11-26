@@ -45,7 +45,7 @@ def main():
 
         matrix.append(
             {
-                "job_name": build_job_name(file, config),
+                "job_name": config.name,
                 "app_name": config.name,
                 "app_toml": file,
                 # This is tab-separated to help bash split it in a for loop.
@@ -61,23 +61,6 @@ def main():
             f.write(f"matrix={json.dumps(matrix)}")
     else:
         print(json.dumps(matrix, indent=4))
-
-
-def build_job_name(file, config):
-    # Temporary hack: some of the jobs are hardcoded in the GitHub branch protection. Until the
-    # branch protection is reworked, report the old job names for these jobs.
-    if file == "app/cosmo/rev-a.toml":
-        return "build-cosmo (cosmo-a) / cosmo-a/app/cosmo/rev-a.toml"
-    elif file == "app/gimlet/rev-f.toml":
-        return "build-gimlet (gimlet-f) / gimlet-f/app/gimlet/rev-f.toml"
-    elif file == "app/psc/rev-c.toml":
-        return "build-psc (psc-c) / psc-c/app/psc/rev-c.toml"
-    elif file == "app/oxide-rot-1/app.toml":
-        return "build-rot (oxide-rot-1) / oxide-rot-1/app/oxide-rot-1/app.toml"
-    elif file == "app/sidecar/rev-d.toml":
-        return "build-sidecar (sidecar-d) / sidecar-d/app/sidecar/rev-d.toml"
-
-    return config.name
 
 
 def validate_matrix(matrix):
