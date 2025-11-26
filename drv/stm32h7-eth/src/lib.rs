@@ -209,6 +209,41 @@ impl Ethernet {
                 .set_bit()
         });
 
+        // Disable potential interrupt sources coming from the MMC (management
+        // counters) block. These sources are not otherwise gated, and are on by
+        // default until masked. Failing to mask these interrupt sources will
+        // start producing interrupts much later, as counters hit their halfway
+        // point (generally about 2**31). The interrupt code below is not
+        // prepared to handle these counter interrupts.
+        mac.mmc_rx_interrupt_mask.write(|w| {
+            // Safety: The stm32h7 0.14 crate doesn't model RXLPITRCIM (bit 27),
+            // but it's defined in the reference manual and required to disable
+            // an interrupt, so, no safety implications.
+            unsafe {
+                w.bits(1 << 27);
+            }
+
+            w.rxcrcerpim().set_bit();
+            w.rxalgnerpim().set_bit();
+            w.rxucgpim().set_bit();
+            w.rxlpiuscim().set_bit();
+            w
+        });
+        mac.mmc_tx_interrupt_mask.write(|w| {
+            // Safety: The stm32h7 0.14 crate doesn't model TXLPITRCIM (bit 27)
+            // but it's defined in the reference manual and required to disable
+            // an interrupt, so, no safety implications.
+            unsafe {
+                w.bits(1 << 27);
+            }
+
+            w.txscolgpim().set_bit();
+            w.txmcolgpim().set_bit();
+            w.txgpktim().set_bit();
+            w.txlpiuscim().set_bit();
+            w
+        });
+
         #[cfg(feature = "vlan")]
         {
             // If we're in VLAN mode, we _only_ support VLAN operation.
