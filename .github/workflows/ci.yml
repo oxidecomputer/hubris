@@ -4,12 +4,31 @@ on:
   push:
     branches: [master]
 
+# For pull requests only, cancel the previous build when a new commit is pushed. Since unfortunately
+# it's not possible to only apply this to pull requests, for pull request events we use the ref
+# (`refs/pulls/NUMBER/merge`, which gets reused across builds for the same PR), and for pushes we
+# use the commit sha (which should never have two builds in the default branch running at a time).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: true
+
+# Define permissions at the job level.
+permissions: {}
+
 jobs:
   dist:
-    name: dist
+    name: ${{ matrix.name }}
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            name: Linux
+          - os: windows-latest
+            name: Windows
     uses: ./.github/workflows/build-boards.yml
     with:
       os: ${{ matrix.os }}
@@ -18,6 +37,8 @@ jobs:
   license:
     name: Check licensing
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout the source code
         uses: actions/checkout@v6
@@ -26,8 +47,10 @@ jobs:
         uses: apache/skywalking-eyes/header@501a28d2fb4a9b962661987e50cf0219631b32ff
 
   tests:
-    name: tests
+    name: Run tests
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout the source code
         uses: actions/checkout@v6
@@ -40,6 +63,8 @@ jobs:
   format:
     name: Check formatting
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout the source code
         uses: actions/checkout@v6
@@ -47,14 +72,65 @@ jobs:
       - name: cargo fmt 
         run: cargo fmt --all --check
 
+  docs-build:
+    name: Build documentation
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout the source code
+        uses: actions/checkout@v6
+
+      - name: Create output directories
+        run: |
+          mkdir -p output/reference
+          mkdir -p output/bugs
+
+      - name: Copy static website files
+        run: |
+          cp website/index.html output/index.html
+          cp website/style.css output/style.css
+          cp website/bugs/index.html output/bugs/index.html
+
+      - name: Generate reference
+        uses: tonynv/asciidoctor-action@master
+        with:
+          program: asciidoctor doc/index.adoc -o output/reference/index.html
+
+      - name: Upload content as an artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: output/
+          retention-days: 90 # We might want to inspect this in a PR.
+
+  docs-deploy:
+    name: Deploy documentation
+    runs-on: ubuntu-slim
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs:
+      - docs-build
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
+        id: deployment
+
   finish:
     name: CI finished
     runs-on: ubuntu-slim
+    permissions: {}
     needs:
       - dist
       - license
       - tests
       - format
+      - docs-build
+      - docs-deploy
     if: "${{ !cancelled() }}"
     steps:
       - name: Calculate the correct exit status

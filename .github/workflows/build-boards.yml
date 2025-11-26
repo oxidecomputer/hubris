@@ -106,20 +106,15 @@ jobs:
           RUST_BACKTRACE: 1
 
       - name: Fetch Humility
-        uses: dsaltares/fetch-gh-release-asset@master
         if: runner.os == 'Linux'
-        with:
-          repo: "oxidecomputer/humility"
-          version: "59047694"
-          file: "humility"
-          target: "target/release/humility"
+        run: |
+          curl -fLo target/release/humility https://github.com/oxidecomputer/humility/releases/download/nightly/humility
+          chmod +x target/release/humility
 
       - name: Test Humility manifest
-        # we need to chmod because all artifacts are marked as non-executable
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update && sudo apt-get install -y libusb-1.0-0-dev libftdi1-dev
-          sudo chmod +x target/release/humility
           for image in ${images}; do
               mv "target/${name}/dist/${image}/build-${name}-image-${image}.zip" "target/${name}/dist/";
               target/release/humility -a "target/${name}/dist/build-${name}-image-${image}.zip" manifest;
