@@ -718,7 +718,7 @@ where
                         return Ok(vlan.device.make_meta(
                             endp.port,
                             body_len,
-                            endp.addr.try_into().map_err(|_| ()).unwrap(),
+                            endp.addr.into(),
                         ));
                     }
                     Err(udp::RecvError::Exhausted) => {
