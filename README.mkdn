@@ -57,10 +57,9 @@ The repo is laid out as follows.
 
 # Developing
 
-We currently support Linux and Windows as first-tier platforms. macOS is also
-used on a daily basis by Oxide employees, but is not tested in CI.  The build
-probably also works on Illumos; if anyone would like to step up to maintain
-support and a continuous build for Illumos or macOS, we'd love the help.
+We currently support Linux, Windows, and macOS as first-tier platforms with continuous integration testing.
+The build probably also works on Illumos; if anyone would like to step up to maintain
+support and a continuous build for Illumos, we'd love the help.
 
 To submit changes for review, push them to a branch in a fork and submit a pull
 request to merge that branch into `master`. For details, see
@@ -92,6 +91,35 @@ You will need:
   verbatim to install Humility, do so from a different directory:
   - `cargo install --git https://github.com/oxidecomputer/humility.git --locked humility-bin`
     - Requires `cargo-readme` as a dependency: `cargo install cargo-readme`
+
+### macOS
+
+Install dependencies using Homebrew:
+
+```console
+$ brew install libusb libftdi
+```
+
+If you will be running GDB, you can install ARM GDB tools:
+
+```console
+$ brew install arm-none-eabi-gdb
+```
+
+Note: The `gcc-arm-embedded` cask may have checksum mismatches. If you encounter issues, `arm-none-eabi-gdb` is a reliable alternative.
+
+To install Humility:
+
+```console
+$ cargo install cargo-readme
+$ cargo install --git https://github.com/oxidecomputer/humility.git --locked humility-bin
+```
+
+Note: When building Hubris, rustup will automatically install the required nightly toolchain. You'll also need to add clippy to that toolchain:
+
+```console
+$ rustup component add clippy
+```
 
 ### Windows
 
