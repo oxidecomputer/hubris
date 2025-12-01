@@ -201,3 +201,8 @@ impl<'de, const MAX: usize> serde::Deserialize<'de> for FixedStr<MAX> {
         })
     }
 }
+
+#[cfg(feature = "hubpack")]
+impl<const MAX: usize> hubpack::SerializedSize for FixedStr<MAX> {
+    const MAX_SIZE: usize = MAX;
+}

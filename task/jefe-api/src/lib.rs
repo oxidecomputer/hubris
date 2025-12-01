@@ -8,6 +8,7 @@
 
 use derive_idol_err::IdolError;
 pub use dump_agent_api::DumpAgentError;
+use fixedstr::FixedStr;
 use serde::{Deserialize, Serialize};
 use userlib::*;
 
@@ -45,6 +46,16 @@ impl Jefe {
         self.restart_me_raw();
         unreachable!()
     }
+}
+
+#[derive(
+    Debug, Clone, PartialEq, Serialize, Deserialize, hubpack::SerializedSize,
+)]
+pub struct FaultReport {
+    pub task_name: FixedStr<{ hubris_task_names::MAX_NAME_LEN }>,
+    pub initial_fault_time: u32,
+    pub count: u32,
+    pub latest_fault_time: Option<u32>,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

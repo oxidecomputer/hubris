@@ -3024,6 +3024,7 @@ version = "0.1.0"
 name = "fixedstr"
 version = "0.1.0"
 dependencies = [
+ "hubpack",
  "microcbor",
  "minicbor 2.1.1",
  "serde",
@@ -5874,7 +5875,9 @@ dependencies = [
  "counters",
  "derive-idol-err",
  "dump-agent-api",
+ "fixedstr",
  "hubpack",
+ "hubris-task-names",
  "humpty",
  "idol",
  "idol-runtime",

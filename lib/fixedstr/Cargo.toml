@@ -12,6 +12,7 @@ minicbor = ["dep:minicbor"]
 microcbor = { path = "../microcbor", optional = true }
 minicbor = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
+hubpack = { workspace = true, optional = true }
 
 [lints]
 workspace = true

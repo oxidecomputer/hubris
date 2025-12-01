@@ -106,5 +106,18 @@ Interface(
             encoding: Hubpack,
             idempotent: true,
         ),
+
+        "read_fault_reports": (
+            description: "reads any fault reports into the provided lease",
+            args: {},
+            leases: {
+                "dest": (type: "FaultReport", write: true, max_size: Some(32)),
+            },
+            reply: Result(
+                ok: "()",
+                err: ServerDeath,
+            ),
+        )
+
     },
 )
