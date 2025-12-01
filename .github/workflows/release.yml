@@ -49,7 +49,7 @@ jobs:
           sudo mv brussels /usr/local/bin
           sudo chmod +x /usr/local/bin/brussels
         env:
-          GH_TOKEN: ${{ steps.brussels-token.outputs.access_token }}
+          GH_TOKEN: ${{ steps.brussels-token.outputs.access-token }}
           BRUSSELS_RUN_ID: ${{ github.event.inputs.brussels-run-id }}
 
       - id: init
