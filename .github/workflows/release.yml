@@ -21,11 +21,23 @@ jobs:
   init:
     name: Initialize the release
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
     outputs:
       version: ${{ steps.init.outputs.version }}
       tag_name: ${{ steps.init.outputs.tag_name }}
       hubris_app_dirs: ${{ steps.init.outputs.hubris_app_dirs }}
     steps:
+      - &brussels-token
+        name: Get a token to fetch Brussels
+        id: brussels-token
+        uses: oxidecomputer/oidcx-action@main
+        with:
+          service: github
+          repositories: oxidecomputer/brussels
+          permissions: contents:read,actions:read
+
       - &download-brussels
         name: Download Brussels
         run: |
@@ -37,7 +49,7 @@ jobs:
           sudo mv brussels /usr/local/bin
           sudo chmod +x /usr/local/bin/brussels
         env:
-          GH_TOKEN: ${{ secrets.BRUSSELS_TEMPORARY_TOKEN }}
+          GH_TOKEN: ${{ steps.brussels-token.outputs.access_token }}
           BRUSSELS_RUN_ID: ${{ github.event.inputs.brussels-run-id }}
 
       - id: init
