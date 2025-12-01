@@ -57,10 +57,12 @@ The repo is laid out as follows.
 
 # Developing
 
-We currently support Linux and Windows as first-tier platforms. macOS is also
-used on a daily basis by Oxide employees, but is not tested in CI.  The build
-probably also works on Illumos; if anyone would like to step up to maintain
-support and a continuous build for Illumos or macOS, we'd love the help.
+We currently support Linux and Windows as first-tier platforms. Because of some
+inconsistency in linker behavior across platforms, images may not match across
+platforms, so we recommend choosing one as your "official" build platform for
+producing blessed images. macOS and Illumos are both used as informal build
+platforms by Oxide employees, though they are not currently tested in CI. (Oxide
+blessed images are produced on Linux.)
 
 To submit changes for review, push them to a branch in a fork and submit a pull
 request to merge that branch into `master`. For details, see
