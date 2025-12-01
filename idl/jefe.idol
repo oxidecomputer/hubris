@@ -107,16 +107,14 @@ Interface(
             idempotent: true,
         ),
 
-        "read_fault_reports": (
-            description: "reads any fault reports into the provided lease",
+        "read_fault_report": (
+            description: "reads the next task fault report, if any exist",
             args: {},
-            leases: {
-                "dest": (type: "FaultReport", write: true, max_size: Some(32)),
-            },
             reply: Result(
-                ok: "()",
+                ok: "Option<FaultReport>",
                 err: ServerDeath,
             ),
+            encoding: Hubpack,
         )
 
     },
