@@ -3375,6 +3375,9 @@ name = "hubris-num-tasks"
 version = "0.1.0"
 dependencies = [
  "build-util",
+ "hubpack",
+ "microcbor",
+ "serde",
 ]
 
 [[package]]
@@ -5853,6 +5856,7 @@ dependencies = [
  "build-util",
  "cfg-if",
  "cortex-m",
+ "heapless",
  "hubpack",
  "hubris-num-tasks",
  "humpty",
@@ -5877,7 +5881,7 @@ dependencies = [
  "dump-agent-api",
  "fixedstr",
  "hubpack",
- "hubris-task-names",
+ "hubris-num-tasks",
  "humpty",
  "idol",
  "idol-runtime",

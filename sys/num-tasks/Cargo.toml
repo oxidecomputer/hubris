@@ -3,6 +3,11 @@ name = "hubris-num-tasks"
 version = "0.1.0"
 edition = "2021"
 
+[dependencies]
+microcbor = { path = "../../lib/microcbor", optional = true }
+hubpack = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
+
 [build-dependencies]
 build-util = { path = "../../build/util" }
 

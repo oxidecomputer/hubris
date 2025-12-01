@@ -9,6 +9,7 @@
 use derive_idol_err::IdolError;
 pub use dump_agent_api::DumpAgentError;
 use fixedstr::FixedStr;
+use hubris_num_tasks::Task;
 use serde::{Deserialize, Serialize};
 use userlib::*;
 
@@ -48,14 +49,13 @@ impl Jefe {
     }
 }
 
-#[derive(
-    Debug, Clone, PartialEq, Serialize, Deserialize, hubpack::SerializedSize,
-)]
+#[derive(Serialize, Deserialize, hubpack::SerializedSize)]
 pub struct FaultReport {
-    pub task_name: FixedStr<{ hubris_task_names::MAX_NAME_LEN }>,
+    pub task: Task,
     pub initial_fault_time: u32,
     pub count: u32,
     pub latest_fault_time: Option<u32>,
+    pub panic_message: Option<FixedStr<128>>,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

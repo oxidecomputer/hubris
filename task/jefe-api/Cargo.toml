@@ -11,12 +11,12 @@ zerocopy = { workspace = true }
 zerocopy-derive = { workspace = true }
 hubpack = { workspace = true }
 humpty = { workspace = true }
-hubris-task-names = { path = "../../sys/task-names" }
+hubris-num-tasks = { path = "../../sys/num-tasks", features = ["task-enum", "serde", "hubpack"] }
 derive-idol-err = { path = "../../lib/derive-idol-err" }
 userlib = { path = "../../sys/userlib" }
 counters = { path = "../../lib/counters" }
 dump-agent-api = { path = "../dump-agent-api" }
-fixedstr = { path = "../../lib/fixedstr" }
+fixedstr = { path = "../../lib/fixedstr", features = ["hubpack", "serde"] }
 idol-runtime = { workspace = true }
 
 [build-dependencies]

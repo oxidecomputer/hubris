@@ -5,6 +5,11 @@
 use std::fs::File;
 use std::io::Write;
 
+const MICROCBOR: &str = "microcbor";
+const SERDE: &str = "serde";
+const HUBPACK: &str = "hubpack";
+const TASK_ENUM: &str = "task-enum";
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let out = build_util::out_dir();
 
@@ -21,14 +26,38 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut task_file = File::create(out.join("tasks.rs")).unwrap();
 
-    if build_util::has_feature("task-enum") {
+    if build_util::has_feature(TASK_ENUM) {
+        // Generate various derives, as requested.
+        if build_util::has_feature(MICROCBOR) {
+            writeln!(task_file, "#[derive(microcbor::Encode)]").unwrap();
+        }
+        if build_util::has_feature(SERDE) {
+            writeln!(
+                task_file,
+                "#[derive(serde::Serialize, serde::Deserialize)]"
+            )
+            .unwrap();
+        }
+        if build_util::has_feature(HUBPACK) {
+            writeln!(task_file, "#[derive(hubpack::SerializedSize)]").unwrap();
+        }
         writeln!(task_file, "#[allow(non_camel_case_types)]").unwrap();
         writeln!(task_file, "pub enum Task {{").unwrap();
         for line in task_enum {
             writeln!(task_file, "{line}").unwrap();
         }
         writeln!(task_file, "}}").unwrap();
+    } else if build_util::has_feature(MICROCBOR)
+        || build_util::has_feature(SERDE)
+        || build_util::has_feature(HUBPACK)
+    {
+        println!(
+            "cargo::warning=the `hubris-num-tasks` feature flags \
+             {MICROCBOR:?}, {SERDE:?} and {HUBPACK:?} do nothing if the \
+             {TASK_ENUM:?} feature is not enabled."
+        );
     }
+
     writeln!(task_file, "pub const NUM_TASKS: usize = {task_count};").unwrap();
 
     Ok(())
