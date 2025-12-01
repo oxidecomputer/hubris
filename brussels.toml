@@ -6,6 +6,11 @@
 
 version = 1 # Schema version of this file.
 
+[sigstore-claims]
+issuer = "https://token.actions.githubusercontent.com"
+workflow-file = ".github/workflows/release.yml"
+runner-environment = "self-hosted"
+
 [groups.all-sp]
 tag-bump = "patch"
 tag-prefix = "all-sp-v"
