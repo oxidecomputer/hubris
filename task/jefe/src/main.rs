@@ -30,6 +30,9 @@
 #[cfg(feature = "dump")]
 mod dump;
 
+#[cfg(feature = "fault-report")]
+mod fault_report;
+
 mod external;
 
 use core::convert::Infallible;
