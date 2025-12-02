@@ -17,7 +17,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Ok(task_names) = build_util::env_var("HUBRIS_TASKS") {
         println!("HUBRIS_TASKS = {task_names}",);
         for (i, name) in task_names.split(',').enumerate() {
-            task_enum.push(format!("    {name} = {i},"));
+            task_enum.push((i, name.to_owned()));
         }
     } else {
         panic!("can't build this crate outside of the build system.");
@@ -43,9 +43,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         writeln!(task_file, "#[allow(non_camel_case_types)]").unwrap();
         writeln!(task_file, "pub enum Task {{").unwrap();
-        for line in task_enum {
-            writeln!(task_file, "{line}").unwrap();
+        for (i, name) in &task_enum {
+            writeln!(task_file, "    {name} = {i},").unwrap();
         }
+        writeln!(task_file, "}}").unwrap();
+        writeln!(task_file).unwrap();
+        writeln!(task_file, "impl TryFrom<usize> for Task {{").unwrap();
+        writeln!(task_file, "    type Error = ();").unwrap();
+        writeln!(
+            task_file,
+            "    fn try_from(u: usize) -> Result<Self, Self::Error> {{"
+        )
+        .unwrap();
+        writeln!(task_file, "        match u {{").unwrap();
+        for (i, name) in &task_enum {
+            writeln!(task_file, "            {i} => Ok(Self::{name}),")
+                .unwrap();
+        }
+        writeln!(task_file, "            _ => Err(()),").unwrap();
+        writeln!(task_file, "        }}").unwrap();
+        writeln!(task_file, "    }}").unwrap();
         writeln!(task_file, "}}").unwrap();
     } else if build_util::has_feature(MICROCBOR)
         || build_util::has_feature(SERDE)

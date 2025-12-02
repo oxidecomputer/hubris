@@ -40,7 +40,7 @@ use core::convert::Infallible;
 use hubris_num_tasks::NUM_TASKS;
 use humpty::DumpArea;
 use idol_runtime::RequestError;
-use task_jefe_api::{DumpAgentError, ResetReason};
+use task_jefe_api::{DumpAgentError, FaultReport, ResetReason};
 use userlib::{kipc, Generation, TaskId};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
@@ -89,6 +89,9 @@ fn main() -> ! {
 
         #[cfg(feature = "dump")]
         last_dump_area: None,
+
+        #[cfg(feature = "fault-report")]
+        fault_reports: fault_report::FaultReports::claim_static_resources(),
     };
     let mut buf = [0u8; idl::INCOMING_SIZE];
 
@@ -114,6 +117,9 @@ struct ServerImpl<'s> {
     /// sequential reads through dump memory.
     #[cfg(feature = "dump")]
     last_dump_area: Option<DumpArea>,
+
+    #[cfg(feature = "fault-report")]
+    fault_reports: fault_report::FaultReports,
 }
 
 impl idl::InOrderJefeImpl for ServerImpl<'_> {
@@ -321,6 +327,22 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
             }
         }
     }
+
+    #[cfg(feature = "fault-report")]
+    fn read_fault_report(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<Option<FaultReport>, RequestError<Infallible>> {
+        Ok(self.fault_reports.next_fault().cloned())
+    }
+
+    #[cfg(not(feature = "fault-report"))]
+    fn read_fault_report(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<Option<FaultReport>, RequestError<Infallible>> {
+        Err(idol_runtime::ClientError::UnknownOperation.fail())
+    }
 }
 
 /// Structure we use for tracking the state of the tasks we supervise. There is
@@ -461,6 +483,6 @@ include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
 
 // And the Idol bits
 mod idl {
-    use task_jefe_api::{DumpAgentError, ResetReason};
+    use task_jefe_api::{DumpAgentError, FaultReport, ResetReason};
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
