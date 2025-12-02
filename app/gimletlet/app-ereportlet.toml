@@ -16,6 +16,9 @@
 name = "gimletlet-ereportlet"
 inherit = "app.toml"
 
+[tasks.jefe]
+features = ["fault-report"]
+
 [tasks.jefe.config.allowed-callers]
 request_reset = ["hiffy"]
 

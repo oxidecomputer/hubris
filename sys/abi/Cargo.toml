@@ -8,6 +8,7 @@ zerocopy = { workspace = true, features = ["derive"] }
 bitflags = { workspace = true }
 byteorder = { workspace = true }
 serde = { workspace = true }
+hubpack = { workspace = true }
 phash = { path = "../../lib/phash" }
 
 [lints]

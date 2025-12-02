@@ -41,6 +41,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if build_util::has_feature(HUBPACK) {
             writeln!(task_file, "#[derive(hubpack::SerializedSize)]").unwrap();
         }
+        writeln!(task_file, "#[derive(Copy, Clone, Eq, PartialEq)]").unwrap();
         writeln!(task_file, "#[allow(non_camel_case_types)]").unwrap();
         writeln!(task_file, "pub enum Task {{").unwrap();
         for (i, name) in &task_enum {

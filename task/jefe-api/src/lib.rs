@@ -49,12 +49,13 @@ impl Jefe {
     }
 }
 
-#[derive(Serialize, Deserialize, hubpack::SerializedSize)]
+#[derive(Clone, Serialize, Deserialize, hubpack::SerializedSize)]
 pub struct FaultReport {
     pub task: Task,
-    pub initial_fault_time: u32,
+    pub initial_fault_time: u64,
     pub count: u32,
-    pub latest_fault_time: Option<u32>,
+    pub latest_fault_time: u64,
+    pub fault: FaultInfo,
     pub panic_message: Option<FixedStr<128>>,
 }
 

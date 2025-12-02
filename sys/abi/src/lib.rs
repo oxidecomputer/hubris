@@ -26,7 +26,16 @@ use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 ///
 /// The task index is in the lower `TaskId::INDEX_BITS` bits, while the
 /// generation is in the remaining top bits.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Eq,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    hubpack::SerializedSize,
+)]
 pub struct TaskId(pub u16);
 
 impl TaskId {
@@ -307,7 +316,16 @@ impl From<SchedState> for TaskState {
 }
 
 /// A record describing a fault taken by a task.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Eq,
+    PartialEq,
+    Deserialize,
+    Serialize,
+    hubpack::SerializedSize,
+)]
 pub enum FaultInfo {
     /// The task has violated memory access rules. This may have come from a
     /// memory protection fault while executing the task (in the case of
@@ -381,7 +399,16 @@ impl From<UsageError> for FaultInfo {
 }
 
 /// A kernel-defined fault, arising from how a user task behaved.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Eq,
+    PartialEq,
+    Deserialize,
+    Serialize,
+    hubpack::SerializedSize,
+)]
 pub enum UsageError {
     /// A program used an undefined syscall number.
     BadSyscallNumber,
@@ -410,7 +437,16 @@ pub enum UsageError {
 }
 
 /// Origin of a fault.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Eq,
+    PartialEq,
+    Deserialize,
+    Serialize,
+    hubpack::SerializedSize,
+)]
 pub enum FaultSource {
     /// User code did something that was intercepted by the processor.
     User,
@@ -419,7 +455,16 @@ pub enum FaultSource {
 }
 
 /// Reasons a server might cite when using the `REPLY_FAULT` syscall.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Eq,
+    PartialEq,
+    Deserialize,
+    Serialize,
+    hubpack::SerializedSize,
+)]
 pub enum ReplyFaultReason {
     /// The message indicated some operation number that is unknown to the
     /// server -- which almost certainly indicates that the client intended the

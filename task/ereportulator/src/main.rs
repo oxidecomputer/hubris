@@ -150,6 +150,13 @@ impl idl::InOrderEreportulatorImpl for ServerImpl {
 
         Ok(())
     }
+
+    fn panic_me(
+        &mut self,
+        _msg: &RecvMessage,
+    ) -> Result<(), RequestError<Infallible>> {
+        panic!("today is a good day to die!");
+    }
 }
 
 impl idol_runtime::NotificationHandler for ServerImpl {

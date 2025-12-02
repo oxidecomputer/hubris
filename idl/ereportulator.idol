@@ -20,5 +20,12 @@ Interface(
             ),
             idempotent: true,
         ),
+        "panic_me": (
+            doc: "Panic the ereportulator.",
+            args: {
+            },
+            reply: Simple("()"),
+            idempotent: true,
+        ),
     }
 )

@@ -6,9 +6,9 @@
 
 use hubris_num_tasks::Task;
 use task_jefe_api::FaultReport;
-use userlib::{abi, kipc};
+use userlib::{self, kipc};
 
-pub const MAX_BUFFERED: usize = 32;
+pub const MAX_BUFFERED: usize = 16;
 
 pub(crate) struct FaultReports {
     buf: &'static mut heapless::Deque<FaultReport, MAX_BUFFERED>,
@@ -20,17 +20,22 @@ impl FaultReports {
         use static_cell::ClaimOnceCell;
 
         static BUF: ClaimOnceCell<heapless::Deque<FaultReport, MAX_BUFFERED>> =
-            ClaimOnceCell::new();
-        let buf = BUF.claim().unwrap();
+            ClaimOnceCell::new(heapless::Deque::new());
+        let buf = BUF.claim();
         Self { buf, lost: None }
     }
 
     pub(crate) fn record_fault(&mut self, task: usize) {
-        if self.buf.is_full() {
-            // Out of space, so just drop it and bail.
-            self.lost.get_or_insert(0).saturating_add(1);
+        let state = kipc::read_task_status(task);
+        let abi::TaskState::Faulted {
+            fault,
+            original_state,
+        } = state
+        else {
+            // Well, this is weird: it should be faulted. I guess let's do
+            // nothing, instead of panicking the supervisor about it...
             return;
-        }
+        };
 
         let Ok(task) = Task::try_from(task) else {
             // Well, that's weird and bad; task indices should always be in
@@ -38,21 +43,28 @@ impl FaultReports {
             return;
         };
 
-        let state = kipc::read_task_status(task);
-        let report = match status {
-            abi::TaskState::Healthy(_) => {
-                // Well, this is weird: it should be faulted. I guess let's do
-                // nothing, instead of panicking the supervisor about it...
+        let now = userlib::sys_get_timer().now;
+        if let Some(last) = self.buf.back_mut() {
+            // TODO(eliza): check panic message once we have those
+            if last.task == task && last.fault == fault {
+                last.count = last.count.saturating_add(1);
+                last.latest_fault_time = now;
                 return;
             }
-            abi::TaskState::Faulted {
-                fault,
-                original_state,
-            } => {
-                todo!()
-            }
+        }
+        let report = FaultReport {
+            task,
+            fault,
+            count: 1,
+            latest_fault_time: now,
+            initial_fault_time: now,
+            panic_message: None, // TODO
         };
-        todo!();
+        if self.buf.push_back(report).is_err() {
+            // Out of space, so just drop it and bail.
+            let lost = self.lost.get_or_insert(0);
+            *lost = lost.saturating_add(1);
+        }
     }
 
     pub(crate) fn next_fault(&self) -> Option<&FaultReport> {
