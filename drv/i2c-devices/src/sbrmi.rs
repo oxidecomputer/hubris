@@ -343,6 +343,7 @@ impl Validate<Error> for Sbrmi {
         let sbrmi = Sbrmi::new(device);
         let rev = sbrmi.read_reg(Register::Revision)?;
 
-        Ok(rev == 0x10)
+        // Support either Gimlet or Cosmo CPUs
+        Ok(rev == 0x10 || rev == 0x21)
     }
 }
