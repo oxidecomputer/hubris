@@ -525,30 +525,34 @@ fn read_panic_message(
         )));
     };
 
-    if let TaskState::Faulted {
+    // Make sure the task is actually panicked.
+    let TaskState::Faulted {
         fault: FaultInfo::Panic,
         ..
-    } = tasks[index].state()
-    {
-        // Okay, good
-    } else {
+    } = task.state()
+    else {
         return Err(UserError::Recoverable(
             abi::ReadPanicMessageError::TaskNotPanicked as u32,
             NextTask::Same,
         ));
-    }
+    };
 
-    let Ok(message) = tasks[index].save().as_panic_args().message else {
-        // XXX(eliza): should we have a whole error code for this, or just
-        // return length 0?
+    let Ok(message) = task.save().as_panic_args().message else {
         return Err(UserError::Recoverable(
             abi::ReadPanicMessageError::BadPanicMessage as u32,
             NextTask::Same,
         ));
     };
 
+    // Note that if the panic was recorded by `userlib`'s panic handler, it will
+    // never exceed 128 bytes in length, and if the caller requested this kipc
+    // using the `userlib::ipc::read_panic_message()` wrapper, then the caller's
+    // buffer will always be exactly 128 bytes long. However, we can't rely on
+    // that here, as either task *could* be an arbitrary binary that wasn't
+    // compiled with the Hubris userlib, so we need to be safe regardless.
     match safe_copy(tasks, index, message, caller, response) {
         Ok(len) => {
+            // Ladies and gentlemen...we got him!
             tasks[caller]
                 .save_mut()
                 .set_send_response_and_length(0, len);
@@ -557,7 +561,10 @@ fn read_panic_message(
         }
         Err(crate::err::InteractFault {
             dst: Some(fault), ..
-        }) => Err(UserError::Unrecoverable(fault)),
+        }) => {
+            // If the caller's buffer was invalid, they take a fault.
+            Err(UserError::Unrecoverable(fault))
+        }
         Err(_) => {
             // Source region was bad, but it's not the caller's fault; give them
             // a recoverable error.

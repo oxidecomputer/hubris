@@ -19,7 +19,7 @@ use core::num::NonZeroUsize;
 use abi::{Kipcnum, ReadPanicMessageError, TaskId};
 use zerocopy::IntoBytes;
 
-use crate::{sys_send, UnwrapLite};
+use crate::{sys_send, UnwrapLite, PANIC_MESSAGE_MAX_LEN};
 
 pub fn read_task_status(task: usize) -> abi::TaskState {
     // Coerce `task` to a known size (Rust doesn't assume that usize == u32)
@@ -166,6 +166,10 @@ pub fn software_irq(task: usize, mask: u32) {
 /// Reads a task's panic message into the provided `buf`, if the task is
 /// panicked.
 ///
+/// Note that Hubris only preserves the first [`PANIC_MESSAGE_MAX_LEN`] bytes of
+/// a task's panic message, and panic messages greater than that length are
+/// truncated. Thus, this function accepts a buffer of that length.
+///
 /// # Returns
 ///
 /// - [`Ok`]`(&[u8])` if the task is panicked. The returned slice is borrowed
@@ -178,7 +182,7 @@ pub fn software_irq(task: usize, mask: u32) {
 ///   panicked but the panic message buffer is invalid to read from.
 pub fn read_panic_message(
     task: usize,
-    buf: &mut [u8; 128],
+    buf: &mut [u8; PANIC_MESSAGE_MAX_LEN],
 ) -> Result<&[u8], ReadPanicMessageError> {
     let task = task as u32;
     let (rc, len) = sys_send(
