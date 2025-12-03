@@ -1581,7 +1581,7 @@ fn test_read_panic_message() {
             .unwrap();
     // it should look kinda like a panic message (but since the line number may
     // change, don't make assertions about the entire contents of the string...
-    assert!(core::str::from_utf8(&msg)
+    assert!(core::str::from_utf8(msg)
         .expect("string shouldn't be corrupted")
         .starts_with("panicked at"));
 }
