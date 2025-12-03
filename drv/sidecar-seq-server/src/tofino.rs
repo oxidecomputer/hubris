@@ -114,13 +114,21 @@ impl Tofino {
                         DirectBarSegment::Bar0,
                         TofinoBar0Registers::SoftwareReset,
                     )?);
+                ringbuf_entry!(Trace::TofinoSoftwareReset(software_reset));
 
                 software_reset.set_pcie_lanes(0xf); // Bit mask to select lanes.
-                self.debug_port.write_direct(
+                let r = self.debug_port.write_direct(
                     DirectBarSegment::Bar0,
                     TofinoBar0Registers::SoftwareReset,
                     software_reset,
-                )?;
+                );
+                if let Err(e) = r {
+                    ringbuf_entry!(Trace::TofinoWriteDirectError(e));
+                }
+                r?;
+
+                ringbuf_entry!(Trace::TofinoSoftwareReset(software_reset));
+
                 ringbuf_entry!(Trace::TofinoBar0RegisterValue(
                     TofinoBar0Registers::SoftwareReset,
                     self.debug_port.read_direct(

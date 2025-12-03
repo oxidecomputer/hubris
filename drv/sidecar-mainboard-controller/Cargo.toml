@@ -16,6 +16,7 @@ drv-auxflash-api = { path = "../auxflash-api", optional = true }
 drv-fpga-api = { path = "../fpga-api" }
 drv-fpga-user-api = { path = "../fpga-user-api" }
 drv-ignition-api = { path = "../ignition-api" }
+ringbuf = { path = "../../lib/ringbuf" }
 userlib = { path = "../../sys/userlib" }
 
 [features]

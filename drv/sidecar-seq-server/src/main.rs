@@ -76,6 +76,8 @@ enum Trace {
     TofinoEepromIdCode(u32),
     TofinoBar0RegisterValue(TofinoBar0Registers, u32),
     TofinoCfgRegisterValue(TofinoCfgRegisters, u32),
+    TofinoSoftwareReset(SoftwareReset),
+    TofinoWriteDirectError(FpgaError),
     TofinoPowerUp,
     TofinoPowerDown,
     SetVddCoreVout(userlib::units::Volts),

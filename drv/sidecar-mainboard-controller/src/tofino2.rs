@@ -7,8 +7,18 @@ use bitfield::bitfield;
 use derive_more::{From, Into};
 use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
 use drv_fpga_user_api::power_rail::*;
+use ringbuf::{ringbuf, ringbuf_entry};
 use userlib::FromPrimitive;
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
+
+#[derive(Copy, Clone, PartialEq)]
+enum Trace {
+    None,
+    StateResult(Result<DebugPortState, FpgaError>),
+    BadState(DebugPortState),
+    Result(Result<(), FpgaError>),
+}
+ringbuf!(Trace, 16, Trace::None);
 
 #[derive(
     Copy,
@@ -814,6 +824,7 @@ impl DebugPort {
 
         let state = self.state()?;
         if !state.send_buffer_empty() || !state.receive_buffer_empty() {
+            ringbuf_entry!(Trace::BadState(state));
             return Err(FpgaError::InvalidState);
         }
 
@@ -821,29 +832,35 @@ impl DebugPort {
         let address = segment as u32 | offset.into();
 
         // Write the opcode.
-        self.fpga.write(
+        let r = self.fpga.write(
             WriteOp::Write,
             Addr::TOFINO_DEBUG_PORT_BUFFER,
             DebugRequestOpcode::DirectRead,
-        )?;
+        );
+        ringbuf_entry!(Trace::Result(r));
+        r?;
 
         // Write the address. This is done in a loop because the SPI peripheral
         // in the FPGA auto-increments an address pointer. This will be
         // refactored when a non auto-incrementing `WriteOp` is implemented.
         for b in address.as_bytes().iter() {
-            self.fpga.write(
+            let r = self.fpga.write(
                 WriteOp::Write,
                 Addr::TOFINO_DEBUG_PORT_BUFFER,
                 *b,
-            )?;
+            );
+            ringbuf_entry!(Trace::Result(r));
+            r?;
         }
 
         // Start the request.
-        self.fpga.write(
+        let r = self.fpga.write(
             WriteOp::Write,
             Addr::TOFINO_DEBUG_PORT_STATE,
             Reg::TOFINO_DEBUG_PORT_STATE::REQUEST_IN_PROGRESS,
-        )?;
+        );
+        ringbuf_entry!(Trace::Result(r));
+        r?;
 
         // Wait for the request to complete.
         while self.state()?.request_in_progress() {
@@ -869,8 +886,11 @@ impl DebugPort {
     ) -> Result<(), FpgaError> {
         assert!(offset.into() < 1 << 28);
 
-        let state = self.state()?;
+        let state = self.state();
+        ringbuf_entry!(Trace::StateResult(state));
+        let state = state?;
         if !state.send_buffer_empty() || !state.receive_buffer_empty() {
+            ringbuf_entry!(Trace::BadState(state));
             return Err(FpgaError::InvalidState);
         }
 
@@ -878,39 +898,47 @@ impl DebugPort {
         let address = segment as u32 | offset.into();
 
         // Write the opcode to the queue.
-        self.fpga.write(
+        let r = self.fpga.write(
             WriteOp::Write,
             Addr::TOFINO_DEBUG_PORT_BUFFER,
             DebugRequestOpcode::DirectWrite,
-        )?;
+        );
+        ringbuf_entry!(Trace::Result(r));
+        r?;
 
         // Write the address to the queue. This is done in a loop because the
         // SPI peripheral in the FPGA auto-increments an address pointer. This
         // will be refactored when a non auto-incrementing `WriteOp` is
         // implemented.
         for b in address.as_bytes().iter() {
-            self.fpga.write(
+            let r = self.fpga.write(
                 WriteOp::Write,
                 Addr::TOFINO_DEBUG_PORT_BUFFER,
                 *b,
-            )?;
+            );
+            ringbuf_entry!(Trace::Result(r));
+            r?;
         }
 
         // Write the value to the queue.
         for b in value.into().as_bytes().iter() {
-            self.fpga.write(
+            let r = self.fpga.write(
                 WriteOp::Write,
                 Addr::TOFINO_DEBUG_PORT_BUFFER,
                 *b,
-            )?;
+            );
+            ringbuf_entry!(Trace::Result(r));
+            r?;
         }
 
         // Start the request.
-        self.fpga.write(
+        let r = self.fpga.write(
             WriteOp::Write,
             Addr::TOFINO_DEBUG_PORT_STATE,
             Reg::TOFINO_DEBUG_PORT_STATE::REQUEST_IN_PROGRESS,
-        )?;
+        );
+        ringbuf_entry!(Trace::Result(r));
+        r?;
 
         // Wait for the request to complete.
         while self.state()?.request_in_progress() {
