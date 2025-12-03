@@ -512,6 +512,7 @@ pub enum Kipcnum {
     ReadTaskDumpRegion = 7,
     SoftwareIrq = 8,
     FindFaultedTask = 9,
+    ReadPanicMessage = 10,
 }
 
 impl core::convert::TryFrom<u16> for Kipcnum {
@@ -528,6 +529,7 @@ impl core::convert::TryFrom<u16> for Kipcnum {
             7 => Ok(Self::ReadTaskDumpRegion),
             8 => Ok(Self::SoftwareIrq),
             9 => Ok(Self::FindFaultedTask),
+            10 => Ok(Self::ReadPanicMessage),
             _ => Err(()),
         }
     }
@@ -580,5 +582,31 @@ bitflags::bitflags! {
         /// If present, requests that any pending instance of this interrupt be
         // cleared.
         const CLEAR_PENDING = 1 << 1;
+    }
+}
+
+/// Errors returned by [`Kipcnum::ReadPanicMessage`].
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[repr(u32)]
+pub enum ReadPanicMessageError {
+    /// The task in question has not panicked.
+    TaskNotPanicked = 1,
+    /// The task has panicked, but its panic message buffer is invalid, so the
+    /// kernel has not let us have it.
+    BadPanicMessage = 2,
+}
+
+/// We're using an explicit `TryFrom` impl for `ReadPanicMessageError` instead of
+/// `FromPrimitive` because the kernel doesn't currently depend on `num-traits`
+/// and this seems okay.
+impl core::convert::TryFrom<u32> for ReadPanicMessageError {
+    type Error = ();
+
+    fn try_from(x: u32) -> Result<Self, Self::Error> {
+        match x {
+            1 => Ok(Self::TaskNotPanicked),
+            2 => Ok(Self::BadPanicMessage),
+            _ => Err(()),
+        }
     }
 }

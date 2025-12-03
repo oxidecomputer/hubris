@@ -134,6 +134,7 @@ test_cases! {
     test_irq_status,
     #[cfg(feature = "fru-id-eeprom")]
     at24csw080::test_at24csw080,
+    test_read_panic_message,
 }
 
 /// Tests that we can send a message to our assistant, and that the assistant
@@ -1551,6 +1552,38 @@ fn test_irq_status() {
     let status = userlib::sys_irq_status(notifications::TEST_IRQ_MASK);
     let expected_status = IrqStatus::PENDING;
     assert_eq!(status, expected_status);
+}
+
+/// Tests that when a task panics, its panic message can be read via the `read_panic_message` kipc.
+fn test_read_panic_message() {
+    set_autorestart(false);
+
+    let mut buf = [0u8; 128];
+
+    match kipc::read_panic_message(ASSIST.get_task_index().into(), &mut buf) {
+        Err(userlib::ReadPanicMessageError::TaskNotPanicked) => {}
+        x => panic!("expected `Err(TaskNotPanicked)`, got: {x:?}"),
+    }
+
+    // Ask the assistant to panic.
+    let assist = assist_task_id();
+    let mut response = 0u32;
+    let (_, _) = userlib::sys_send(
+        assist,
+        AssistOp::Panic as u16,
+        &0u32.to_le_bytes(),
+        response.as_mut_bytes(),
+        &[],
+    );
+
+    let msg =
+        kipc::read_panic_message(ASSIST.get_task_index().into(), &mut buf)
+            .unwrap();
+    // it should look kinda like a panic message (but since the line number may
+    // change, don't make assertions about the entire contents of the string...
+    assert!(core::str::from_utf8(&msg)
+        .expect("string shouldn't be corrupted")
+        .starts_with("panicked at"));
 }
 
 /// Asks the test runner (running as supervisor) to please trigger a software

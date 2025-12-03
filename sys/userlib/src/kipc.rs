@@ -16,7 +16,7 @@
 
 use core::num::NonZeroUsize;
 
-use abi::{Kipcnum, TaskId};
+use abi::{Kipcnum, ReadPanicMessageError, TaskId};
 use zerocopy::IntoBytes;
 
 use crate::{sys_send, UnwrapLite};
@@ -161,4 +161,38 @@ pub fn software_irq(task: usize, mask: u32) {
         &mut [],
         &[],
     );
+}
+
+/// Reads a task's panic message into the provided `buf`, if the task is
+/// panicked.
+///
+/// # Returns
+///
+/// - [`Ok`]`(&[u8])` if the task is panicked. The returned slice is borrowed
+///   from `buf`, and contains the task's panic message as a sequence of
+///   UTF-8 bytes. Note that the slice may be empty, if the task has panicked
+///   but was compiled without panic messages enabled.
+/// - [`Err`]`(`[`ReadPanicMessageError::TaskNotPanicked`]`)` if the task is
+///   not currently faulted due to a panic.
+/// - [`Err`]`(`[`ReadPanicMessageError::BadPanicMessage`]`)` if the task has
+///   panicked but the panic message buffer is invalid to read from.
+pub fn read_panic_message(
+    task: usize,
+    buf: &mut [u8; 128],
+) -> Result<&[u8], ReadPanicMessageError> {
+    let task = task as u32;
+    let (rc, len) = sys_send(
+        TaskId::KERNEL,
+        Kipcnum::ReadPanicMessage as u16,
+        task.as_bytes(),
+        &mut buf[..],
+        &[],
+    );
+
+    if rc == 0 {
+        Ok(&buf[..len])
+    } else {
+        // If the kernel sent us an unknown response code....i dunno, guess i'll die?
+        Err(ReadPanicMessageError::try_from(rc).unwrap_lite())
+    }
 }

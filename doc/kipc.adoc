@@ -402,6 +402,47 @@ while let Some(fault) = kipc::find_faulted_task(next_task) {
 }
 ----
 
+=== `read_panic_message` (10)
+
+If the task with the requested index is in the faulted state due to a panic,
+reads the contents of its panic message into the response buffer.
+
+==== Request
+
+[source,rust]
+----
+struct ReadPanicMessageRequest {
+    task_index: u32,
+}
+----
+
+==== Preconditions
+
+`task_index` must be a valid task index for this system.
+
+==== Response
+
+[source,rust]
+----
+Result<&str, abi::ReadPanicMessageError>
+----
+
+==== Notes
+
+If the requested task is not currently in the faulted state due to a panic,
+this KIPC returns the `abi::ReadPanicMessageError::TaskNotPanicked` response code.
+
+If the requested task has panicked, but the buffer containing its panic
+message is invalid, this KIPC returns the
+`abi::ReadPanicMessageError::BadPanicMessage` response code. If the target task
+uses the panic handler provided by the `userlib` crate, this should not be
+possible. However, it may occur if a task calls the `sys_panic` syscall
+directly with invalid arguments.
+
+The panic message is truncated to the length of the response buffer. Since
+Hubris only stores the first 128 bytes of panic messages, a 128-byte response
+buffer will never result in further truncation.
+
 == Receiving from the kernel
 
 The kernel never sends messages to tasks. It's simply not equipped to do so.

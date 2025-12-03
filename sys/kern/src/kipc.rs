@@ -11,7 +11,7 @@ use unwrap_lite::UnwrapLite;
 use crate::arch;
 use crate::err::UserError;
 use crate::task::{current_id, ArchState, NextTask, Task};
-use crate::umem::USlice;
+use crate::umem::{safe_copy, USlice};
 
 /// Message dispatcher.
 pub fn handle_kernel_message(
@@ -42,6 +42,9 @@ pub fn handle_kernel_message(
         Ok(Kipcnum::SoftwareIrq) => software_irq(tasks, caller, args.message?),
         Ok(Kipcnum::FindFaultedTask) => {
             find_faulted_task(tasks, caller, args.message?, args.response?)
+        }
+        Ok(Kipcnum::ReadPanicMessage) => {
+            read_panic_message(tasks, caller, args.message?, args.response?)
         }
 
         _ => {
@@ -506,4 +509,62 @@ fn find_faulted_task(
         .save_mut()
         .set_send_response_and_length(0, response_len);
     Ok(NextTask::Same)
+}
+
+fn read_panic_message(
+    tasks: &mut [Task],
+    caller: usize,
+    message: USlice<u8>,
+    response: USlice<u8>,
+) -> Result<NextTask, UserError> {
+    let index: u32 = deserialize_message(&tasks[caller], message)?;
+    let index = index as usize;
+    if index >= tasks.len() {
+        return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
+            UsageError::TaskOutOfRange,
+        )));
+    }
+
+    if let TaskState::Faulted {
+        fault: FaultInfo::Panic,
+        ..
+    } = tasks[index].state()
+    {
+        // Okay, good
+    } else {
+        return Err(UserError::Recoverable(
+            abi::ReadPanicMessageError::TaskNotPanicked as u32,
+            NextTask::Same,
+        ));
+    }
+
+    let Ok(message) = tasks[index].save().as_panic_args().message else {
+        // XXX(eliza): should we have a whole error code for this, or just
+        // return length 0?
+        return Err(UserError::Recoverable(
+            abi::ReadPanicMessageError::BadPanicMessage as u32,
+            NextTask::Same,
+        ));
+    };
+
+    match safe_copy(tasks, index, message, caller, response) {
+        Ok(len) => {
+            tasks[caller]
+                .save_mut()
+                .set_send_response_and_length(0, len);
+
+            Ok(NextTask::Same)
+        }
+        Err(crate::err::InteractFault {
+            dst: Some(fault), ..
+        }) => Err(UserError::Unrecoverable(fault)),
+        Err(_) => {
+            // Source region was bad, but it's not the caller's fault; give them
+            // a recoverable error.
+            Err(UserError::Recoverable(
+                abi::ReadPanicMessageError::BadPanicMessage as u32,
+                NextTask::Same,
+            ))
+        }
+    }
 }
