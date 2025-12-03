@@ -519,11 +519,11 @@ fn read_panic_message(
 ) -> Result<NextTask, UserError> {
     let index: u32 = deserialize_message(&tasks[caller], message)?;
     let index = index as usize;
-    if index >= tasks.len() {
+    let Some(task) = tasks.get(index) else {
         return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
             UsageError::TaskOutOfRange,
         )));
-    }
+    };
 
     if let TaskState::Faulted {
         fault: FaultInfo::Panic,
