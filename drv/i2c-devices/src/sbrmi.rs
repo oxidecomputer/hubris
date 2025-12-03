@@ -343,7 +343,8 @@ impl Validate<Error> for Sbrmi {
         let sbrmi = Sbrmi::new(device);
         let rev = sbrmi.read_reg(Register::Revision)?;
 
-        // Support either Gimlet or Cosmo CPUs
+        // Support either Gimlet or Cosmo CPUs, documented in the AMD PPR docs
+        // (e.g. "PPR Vol 5 for AMD Family 1Ah Model 02h C1", which lists 0x21)
         Ok(rev == 0x10 || rev == 0x21)
     }
 }
