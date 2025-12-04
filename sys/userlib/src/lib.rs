@@ -1402,9 +1402,19 @@ compile_error!(
      this check in userlib.)"
 );
 
+/// Maximum length (in bytes) of the panic message string captured when the
+/// `panic-messages` feature is enabled. Panics which format messages longer
+/// than this many bytes are truncated to this length.
+///
+/// There's a tradeoff here between "getting a useful message" and "wasting a
+/// lot of RAM." Somewhat arbitrarily, we choose to collect this many bytes
+/// of panic message (and permanently reserve the same number of bytes of
+/// RAM):
+pub const PANIC_MESSAGE_MAX_LEN: usize = 128;
+
 /// Panic handler for user tasks with the `panic-messages` feature enabled. This
 /// handler will try its best to generate a panic message, up to a maximum
-/// buffer size (configured below).
+/// of [`PANIC_MESSAGE_MAX_LEN`] bytes.
 ///
 /// Including this panic handler permanently reserves a buffer in the RAM of a
 /// task, to ensure that memory is available for the panic message, even if the
@@ -1423,13 +1433,7 @@ fn panic(info: &core::panic::PanicInfo<'_>) -> ! {
     //
     // There is unfortunately no way to have the compiler _check_ that the code
     // does not panic, so we have to work very carefully.
-
-    // There's a tradeoff here between "getting a useful message" and "wasting a
-    // lot of RAM." Somewhat arbitrarily, we choose to collect this many bytes
-    // of panic message (and permanently reserve the same number of bytes of
-    // RAM):
-    const BUFSIZE: usize = 128;
-
+    //
     // Panic messages get constructed using `core::fmt::Write`. If we implement
     // that trait, we can provide our own type that will back the
     // `core::fmt::Formatter` handed into any formatting routines (like those on
@@ -1444,7 +1448,7 @@ fn panic(info: &core::panic::PanicInfo<'_>) -> ! {
         /// Content will be written here. While the content itself will be
         /// UTF-8, it may end in an incomplete UTF-8 character to simplify our
         /// truncation logic.
-        buf: &'static mut [u8; BUFSIZE],
+        buf: &'static mut [u8; PANIC_MESSAGE_MAX_LEN],
         /// Number of bytes of `buf` that are valid.
         ///
         /// Invariant: always in the range `0..buf.len()`.
@@ -1520,7 +1524,8 @@ fn panic(info: &core::panic::PanicInfo<'_>) -> ! {
 
     // We declare a single static panic buffer per task, to ensure the memory is
     // available.
-    static mut PANIC_BUFFER: [u8; BUFSIZE] = [0; BUFSIZE];
+    static mut PANIC_BUFFER: [u8; PANIC_MESSAGE_MAX_LEN] =
+        [0; PANIC_MESSAGE_MAX_LEN];
 
     // Okay. Now we start the actual panicking process.
     //
