@@ -29,6 +29,8 @@ jobs:
             name: Linux
           - os: windows-latest
             name: Windows
+          - os: macos-latest
+            name: macOS
     uses: ./.github/workflows/build-boards.yml
     with:
       os: ${{ matrix.os }}
