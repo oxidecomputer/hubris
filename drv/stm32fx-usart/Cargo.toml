@@ -6,11 +6,15 @@ edition = "2021"
 [dependencies]
 num-traits = { workspace = true }
 stm32f3 = { workspace = true, optional = true, features = ["stm32f303"] }
-stm32f4 = { workspace = true, optional = true, features = ["stm32f407"] }
+stm32f4 = { workspace = true, optional = true }
 zerocopy = { workspace = true }
 zerocopy-derive = { workspace = true }
 
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+
+[features]
+f407 = [ "stm32f4/stm32f407" ]
+f429 = [ "stm32f4/stm32f429" ]
 
 [build-dependencies]
 build-util = { path = "../../build/util" }

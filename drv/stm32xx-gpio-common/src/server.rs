@@ -38,6 +38,17 @@ cfg_if::cfg_if! {
                 compile_error!("unsupported or missing SoC model feature");
             }
         }
+    } else if #[cfg(feature = "family-stm32f4")] {
+        use stm32f4 as pac;
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "model-stm32f407")] {
+                use pac::stm32f407 as device;
+            } else if #[cfg(feature = "model-stm32f429")] {
+                use pac::stm32f429 as device;
+            } else {
+                compile_error!("unsupported or missing SoC model feature");
+            }
+        }
     } else {
         compile_error!("unsupported or missing SoC family feature");
     }
@@ -304,6 +315,10 @@ impl_gpio_periph!(gpioa);
 // At least G0, F4, H7, and L4 distinguish gpiob from other ports.
 #[cfg(feature = "has-gpiob-type")]
 impl_gpio_periph!(gpiob);
+
+// At least F4 distinguishes gpiok from other ports.
+#[cfg(feature = "has-gpiok-type")]
+impl_gpio_periph!(gpiok);
 
 // Add add'l types here as PAC crates invent more - L4 in particular
 // distinguishes gpioc, so if we support that family, gpioc would go here.
