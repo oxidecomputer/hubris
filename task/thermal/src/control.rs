@@ -568,7 +568,7 @@ impl OneSidedPidState {
         self.prev_error = Some(error);
 
         // To prevent integral windup, the integral term needs to be clamped to
-        // values can effect the output.
+        // values can affect the output.
         let out_pd = cfg.zero + p_contribution + d_contribution;
         let (integral_min, integral_max) = if out_pd > cfg.max_output {
             (-out_pd, 0.0)
