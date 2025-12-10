@@ -544,7 +544,7 @@ pub struct PidConfig {
 /// Represents a PID controller that can only push in one direction (i.e. the
 /// output must always be positive).
 struct OneSidedPidState {
-    /// Previous (time, input) tuple, for derivative term
+    /// Previous error (if known), for calculating derivative term
     prev_error: Option<f32>,
 
     /// Accumulated integral term, pre-multiplied by gain
@@ -571,8 +571,8 @@ impl OneSidedPidState {
         };
         self.prev_error = Some(error);
 
-        // To prevent integral windup, integral term needs to be clamped to values
-        // can effect the output.
+        // To prevent integral windup, the integral term needs to be clamped to
+        // values can effect the output.
         let out_pd = cfg.zero + p_contribution + d_contribution;
         let (integral_min, integral_max) = if out_pd > cfg.max_output {
             (-out_pd, 0.0)
