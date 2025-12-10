@@ -454,10 +454,6 @@ pub(crate) struct ThermalControl<'a> {
     /// How long to wait in the `Overheated` state before powering down
     overheat_timeout_ms: u64,
 
-    /// Once we're in `Overheated`, how much does the temperature have to drop
-    /// by before we return to `Normal`
-    overheat_hysteresis: Celsius,
-
     /// Most recent power mode mask
     power_mode: PowerBitmask,
 
@@ -712,7 +708,6 @@ impl<'a> ThermalControl<'a> {
             },
             pid_config,
 
-            overheat_hysteresis: Celsius(1.0),
             overheat_timeout_ms: 60_000,
 
             power_mode: PowerBitmask::empty(), // no sensors active
@@ -1145,7 +1140,7 @@ impl<'a> ThermalControl<'a> {
                 }
             }
             ThermalControlState::Overheated { values, start_time } => {
-                let mut all_subcritical = true;
+                let mut all_nominal = true;
                 let mut any_power_down = None;
                 let mut worst_margin = f32::MAX;
 
@@ -1156,10 +1151,7 @@ impl<'a> ThermalControl<'a> {
                 ) {
                     if let TemperatureReading::Valid(v) = v {
                         let temperature = v.worst_case(now_ms, &model);
-                        all_subcritical &= model.is_sub_critical(
-                            temperature,
-                            self.overheat_hysteresis,
-                        );
+                        all_nominal &= model.is_nominal(temperature);
                         if model.should_power_down(temperature) {
                             any_power_down = Some((sensor_id, temperature));
                         }
@@ -1177,7 +1169,7 @@ impl<'a> ThermalControl<'a> {
                     ringbuf_entry!(Trace::AutoState(self.get_state()));
 
                     ControlResult::PowerDown
-                } else if all_subcritical {
+                } else if all_nominal {
                     // Transition to the Running state and run a single
                     // iteration of the PID control loop.
                     let mut pid = OneSidedPidState::default();
