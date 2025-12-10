@@ -115,10 +115,9 @@ impl ThermalProperties {
         t.0 >= self.critical_temperature.0
     }
 
-    /// Returns whether this part is below its critical temperature, with
-    /// a user-configured hysteresis band.
-    pub fn is_sub_critical(&self, t: Celsius, hysteresis: Celsius) -> bool {
-        t.0 < self.critical_temperature.0 - hysteresis.0
+    /// Returns whether this part is below its target temperature
+    pub fn is_nominal(&self, t: Celsius) -> bool {
+        t.0 <= self.target_temperature.0
     }
 
     /// Returns the margin of this part, given a current temperature reading.
