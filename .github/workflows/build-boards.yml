@@ -77,7 +77,19 @@ jobs:
         run: |
           rustup show active-toolchain || rustup toolchain install
           rustup show
-          rustup component add clippy
+          # Add clippy to the active toolchain
+          TOOLCHAIN=$(rustup show active-toolchain | cut -d' ' -f1)
+          rustup component add --toolchain "$TOOLCHAIN" clippy
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install libusb libftdi
+
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update && sudo apt-get install -y libusb-1.0-0-dev libftdi1-dev 
 
       - name: Cache build output
         uses: Swatinem/rust-cache@v2
@@ -106,15 +118,21 @@ jobs:
           RUST_BACKTRACE: 1
 
       - name: Fetch Humility
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' || runner.os == 'macOS'
         run: |
-          curl -fLo target/release/humility https://github.com/oxidecomputer/humility/releases/download/nightly/humility
-          chmod +x target/release/humility
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            # Build from source on macOS until pre-built binaries are available
+            cargo install --git https://github.com/oxidecomputer/humility.git --locked humility-bin
+            mkdir -p target/release
+            cp ~/.cargo/bin/humility target/release
+          else
+            curl -fLo target/release/humility https://github.com/oxidecomputer/humility/releases/download/nightly/humility
+            chmod +x target/release/humility
+          fi
 
       - name: Test Humility manifest
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' || runner.os == 'macOS'
         run: |
-          sudo apt-get update && sudo apt-get install -y libusb-1.0-0-dev libftdi1-dev
           for image in ${images}; do
               mv "target/${name}/dist/${image}/build-${name}-image-${image}.zip" "target/${name}/dist/";
               target/release/humility -a "target/${name}/dist/build-${name}-image-${image}.zip" manifest;
@@ -124,7 +142,7 @@ jobs:
           images: ${{ matrix.image }}
 
       - name: Clippy
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' || runner.os == 'macOS'
         run: |
           cargo xtask clippy ${{ matrix.app_toml }} -- --deny warnings
 
