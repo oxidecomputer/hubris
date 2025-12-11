@@ -16,7 +16,7 @@ zerocopy-derive.workspace = true
 
 drv-fpga-api = { path = "../fpga-api", features = ["auxflash"] }
 drv-fpga-user-api = { path = "../fpga-user-api" }
-drv-i2c-api = { path = "../i2c-api" }
+drv-i2c-api = { path = "../i2c-api", features = ["component-id"] }
 drv-i2c-devices = { path = "../i2c-devices" }
 drv-packrat-vpd-loader = { path = "../packrat-vpd-loader" }
 drv-sidecar-front-io = { path = "../sidecar-front-io", features = ["controller", "phy_smi"] }
@@ -25,6 +25,10 @@ drv-sidecar-seq-api = { path = "../sidecar-seq-api" }
 drv-stm32xx-sys-api = { path = "../stm32xx-sys-api", features = ["family-stm32h7"] }
 ringbuf = { path = "../../lib/ringbuf" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+task-packrat-api = { path = "../../task/packrat-api", features = ["microcbor"] }
+microcbor = { path = "../../lib/microcbor" }
+static-cell = { path = "../../lib/static-cell" }
+fixedstr = { path = "../../lib/fixedstr", features = ["microcbor"] }
 
 [features]
 h753 = ["build-i2c/h753"]

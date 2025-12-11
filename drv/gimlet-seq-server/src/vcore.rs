@@ -61,9 +61,6 @@ enum Trace {
     StatusMfrSpecific(Result<u8, ResponseCode>),
     Reading { timestamp: u64, volts: units::Volts },
     Error(ResponseCode),
-    EreportSent(usize),
-    EreportLost(usize, packrat_api::EreportWriteError),
-    EreportTooBig,
 }
 
 ringbuf!(Trace, 120, Trace::None);
@@ -275,10 +272,11 @@ impl VCore {
         };
 
         static RAIL: FixedStr<9> = FixedStr::from_str("VDD_VCORE");
-        let ereport = packrat_api::Ereport {
-            class: crate::EreportClass::PmbusAlert,
-            version: 0,
-            report: crate::EreportKind::PmbusAlert {
+        crate::try_send_ereport(
+            &self.packrat,
+            &mut ereport_buf[..],
+            crate::EreportClass::PmbusAlert,
+            crate::EreportKind::PmbusAlert {
                 refdes: FixedStr::from_str(
                     self.device.i2c_device().component_id(),
                 ),
@@ -287,16 +285,7 @@ impl VCore {
                 pwr_good,
                 pmbus_status: status,
             },
-        };
-        match self.packrat.encode_ereport(&ereport, &mut ereport_buf[..]) {
-            Ok(len) => ringbuf_entry!(Trace::EreportSent(len)),
-            Err(task_packrat_api::EreportEncodeError::Packrat { len, err }) => {
-                ringbuf_entry!(Trace::EreportLost(len, err))
-            }
-            Err(task_packrat_api::EreportEncodeError::Encoder(_)) => {
-                ringbuf_entry!(Trace::EreportTooBig)
-            }
-        }
+        );
         // TODO(eliza): if POWER_GOOD has been deasserted, we should produce a
         // subsequent ereport for that.
 

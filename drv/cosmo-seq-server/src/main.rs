@@ -15,6 +15,7 @@ use drv_packrat_vpd_loader::{read_vpd_and_load_packrat, Packrat};
 use drv_spartan7_loader_api::Spartan7Loader;
 use drv_spi_api::{SpiDevice, SpiServer};
 use drv_stm32xx_sys_api::{self as sys_api, Sys};
+use fixedstr::FixedStr;
 use idol_runtime::{NotificationHandler, RequestError};
 use task_jefe_api::Jefe;
 use userlib::{
@@ -102,6 +103,9 @@ enum Trace {
     },
     UnexpectedInterrupt,
     CPUPresent(bool),
+    EreportSent(usize),
+    EreportLost(usize, task_packrat_api::EreportWriteError),
+    EreportTooBig,
 }
 counted_ringbuf!(Trace, 128, Trace::None);
 
@@ -160,13 +164,70 @@ struct StateMachineStates {
     nic: Result<fmc_sequencer::NicSm, u8>,
 }
 
+const EREPORT_BUF_LEN: usize = {
+    let n = microcbor::max_cbor_len_for!(
+        task_packrat_api::Ereport<EreportClass, EreportKind>,
+    );
+    // someday, we will have const max.
+    if n < 256 {
+        256
+    } else {
+        n
+    }
+};
+
 #[export_name = "main"]
 fn main() -> ! {
     // Populate packrat with our mac address and identity.
     let packrat = Packrat::from(PACKRAT.get_task_id());
     read_vpd_and_load_packrat(&packrat, I2C.get_task_id());
 
-    match init(packrat) {
+    let ereport_buf = {
+        use static_cell::ClaimOnceCell;
+        static EREPORT_BUF: ClaimOnceCell<[u8; EREPORT_BUF_LEN]> =
+            ClaimOnceCell::new([0; EREPORT_BUF_LEN]);
+        EREPORT_BUF.claim()
+    };
+
+    //
+    // Apply the configuration mitigation on the BMR491, if required. This
+    // is an external device access and may fail. We'll attempt it thrice
+    // and then allow boot to continue.
+    //
+    {
+        use drv_i2c_devices::bmr491::{Bmr491, ExternalInputVoltageProtection};
+
+        let dev = i2c_config::devices::bmr491_u80(I2C.get_task_id());
+        let driver = Bmr491::new(&dev, 0);
+
+        // Cosmo provides external undervoltage protection that kicks in at a
+        // lower voltage than we'd like to tolerate, so, request additional
+        // protection from the mitigation code.
+        let protection = ExternalInputVoltageProtection::CutoffBelow40V;
+
+        let (failures, last_cause, succeeded) =
+            match driver.apply_mitigation_for_rma2402311(protection) {
+                Ok(r) => (r.failures, r.last_failure, true),
+                Err(e) => (e.retries, Some(e.last_cause), false),
+            };
+
+        if let Some(last_cause) = last_cause {
+            // Report the failure even if we eventually succeeded.
+            try_send_ereport(
+                &packrat,
+                &mut ereport_buf[..],
+                EreportClass::Bmr491MitigationFailure,
+                EreportKind::Bmr491MitigationFailure {
+                    refdes: FixedStr::from_str(dev.component_id()),
+                    failures,
+                    last_cause,
+                    succeeded,
+                },
+            );
+        }
+    }
+
+    match init(packrat, ereport_buf) {
         // Set up everything nicely, time to start serving incoming messages.
         Ok(mut server) => {
             // Enable the backplane PCIe clock if requested
@@ -208,7 +269,10 @@ fn main() -> ! {
     }
 }
 
-fn init(packrat: Packrat) -> Result<ServerImpl, SeqError> {
+fn init(
+    packrat: Packrat,
+    ereport_buf: &'static mut [u8; EREPORT_BUF_LEN],
+) -> Result<ServerImpl, SeqError> {
     let sys = sys_api::Sys::from(SYS.get_task_id());
 
     // Pull the fault line low while we're loading
@@ -299,7 +363,7 @@ fn init(packrat: Packrat) -> Result<ServerImpl, SeqError> {
     // Turn on the chassis LED!
     sys.gpio_set(SP_CHASSIS_STATUS_LED);
 
-    Ok(ServerImpl::new(loader, packrat))
+    Ok(ServerImpl::new(loader, packrat, ereport_buf))
 }
 
 /// Configures the front FPGA pins and holds it in reset
@@ -385,12 +449,27 @@ struct ServerImpl {
     ereport_buf: &'static mut [u8; EREPORT_BUF_LEN],
 }
 
-const EREPORT_BUF_LEN: usize = 256;
+#[derive(microcbor::Encode)]
+pub enum EreportClass {
+    #[cbor(rename = "hw.pwr.bmr491.mitfail")]
+    Bmr491MitigationFailure,
+}
+
+#[derive(microcbor::EncodeFields)]
+pub(crate) enum EreportKind {
+    Bmr491MitigationFailure {
+        refdes: FixedStr<{ crate::i2c_config::MAX_COMPONENT_ID_LEN }>,
+        failures: u32,
+        last_cause: drv_i2c_devices::bmr491::MitigationFailureKind,
+        succeeded: bool,
+    },
+}
 
 impl ServerImpl {
     fn new(
         loader: drv_spartan7_loader_api::Spartan7Loader,
         packrat: Packrat,
+        ereport_buf: &'static mut [u8; EREPORT_BUF_LEN],
     ) -> Self {
         let now = sys_get_timer().now;
 
@@ -409,13 +488,6 @@ impl ServerImpl {
         });
         let jefe = Jefe::from(JEFE.get_task_id());
         jefe.set_state(PowerState::A2 as u32);
-
-        let ereport_buf = {
-            use static_cell::ClaimOnceCell;
-            static EREPORT_BUF: ClaimOnceCell<[u8; EREPORT_BUF_LEN]> =
-                ClaimOnceCell::new([0; EREPORT_BUF_LEN]);
-            EREPORT_BUF.claim()
-        };
 
         ServerImpl {
             state: PowerState::A2,
@@ -975,6 +1047,31 @@ impl NotificationHandler for ServerImpl {
         }
 
         self.poke_timer();
+    }
+}
+
+fn try_send_ereport(
+    packrat: &task_packrat_api::Packrat,
+    ereport_buf: &mut [u8],
+    class: EreportClass,
+    report: EreportKind,
+) {
+    let eresult = packrat.encode_ereport(
+        &task_packrat_api::Ereport {
+            class,
+            version: 0,
+            report,
+        },
+        ereport_buf,
+    );
+    match eresult {
+        Ok(len) => ringbuf_entry!(Trace::EreportSent(len)),
+        Err(task_packrat_api::EreportEncodeError::Packrat { len, err }) => {
+            ringbuf_entry!(Trace::EreportLost(len, err))
+        }
+        Err(task_packrat_api::EreportEncodeError::Encoder(_)) => {
+            ringbuf_entry!(Trace::EreportTooBig)
+        }
     }
 }
 
