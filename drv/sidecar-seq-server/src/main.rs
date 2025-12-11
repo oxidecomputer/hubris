@@ -23,6 +23,7 @@ use drv_sidecar_seq_api::{
     FanModuleIndex, FanModulePresence, SeqError, TofinoSequencerPolicy,
 };
 use drv_stm32xx_sys_api as sys_api;
+use fixedstr::FixedStr;
 use idol_runtime::{
     ClientError, Leased, NotificationHandler, RequestError, R, W,
 };
@@ -112,6 +113,9 @@ enum Trace {
     FanModulePowerFault(FanModuleIndex, FanModuleStatus),
     FanModuleLedUpdate(FanModuleIndex, FanModuleLedState),
     FanModuleEnableUpdate(FanModuleIndex, FanModulePowerState),
+    EreportSent(usize),
+    EreportLost(usize, task_packrat_api::EreportWriteError),
+    EreportTooBig,
 }
 ringbuf!(Trace, 32, Trace::None);
 
@@ -119,6 +123,26 @@ const TIMER_INTERVAL: u64 = 1000;
 
 // QSFP_2_SP_A2_PG
 const POWER_GOOD: sys_api::PinSet = sys_api::Port::F.pin(12);
+
+const EREPORT_BUF_LEN: usize = microcbor::max_cbor_len_for!(
+    task_packrat_api::Ereport<EreportClass, EreportKind>
+);
+
+#[derive(microcbor::Encode)]
+pub enum EreportClass {
+    #[cbor(rename = "hw.pwr.bmr491.mitfail")]
+    Bmr491MitigationFailure,
+}
+
+#[derive(microcbor::EncodeFields)]
+pub(crate) enum EreportKind {
+    Bmr491MitigationFailure {
+        refdes: FixedStr<{ crate::i2c_config::MAX_COMPONENT_ID_LEN }>,
+        failures: u32,
+        last_cause: drv_i2c_devices::bmr491::MitigationFailureKind,
+        succeeded: bool,
+    },
+}
 
 #[derive(Copy, Clone, PartialEq)]
 enum TofinoStateDetails {
@@ -831,6 +855,49 @@ fn main() -> ! {
     let tofino = Tofino::new(i2c_task);
     let front_io_hsc = HotSwapController::new(MAINBOARD.get_task_id());
     let fan_modules = FanModules::new(MAINBOARD.get_task_id());
+    let packrat = Packrat::from(PACKRAT.get_task_id());
+
+    let ereport_buf = {
+        use static_cell::ClaimOnceCell;
+        static EREPORT_BUF: ClaimOnceCell<[u8; EREPORT_BUF_LEN]> =
+            ClaimOnceCell::new([0; EREPORT_BUF_LEN]);
+        EREPORT_BUF.claim()
+    };
+
+    // Apply the configuration mitigation on the BMR491, if required. This is an
+    // external device access and may fail. We'll attempt it thrice and then
+    // allow boot to continue.
+    {
+        use drv_i2c_devices::bmr491::{Bmr491, ExternalInputVoltageProtection};
+
+        let dev = i2c_config::devices::bmr491_u12(I2C.get_task_id());
+        let driver = Bmr491::new(&dev, 0);
+
+        // Sidecar provides external undervoltage protection that is better than
+        // what we'd get from the 491, so we rely on that.
+        let protection = ExternalInputVoltageProtection::CutoffAt40V;
+
+        let (failures, last_cause, succeeded) =
+            match driver.apply_mitigation_for_rma2402311(protection) {
+                Ok(r) => (r.failures, r.last_failure, true),
+                Err(e) => (e.retries, Some(e.last_cause), false),
+            };
+
+        if let Some(last_cause) = last_cause {
+            // Report the failure even if we eventually succeeded.
+            try_send_ereport(
+                &packrat,
+                &mut ereport_buf[..],
+                EreportClass::Bmr491MitigationFailure,
+                EreportKind::Bmr491MitigationFailure {
+                    refdes: FixedStr::from_str(dev.component_id()),
+                    failures,
+                    last_cause,
+                    succeeded,
+                },
+            );
+        }
+    }
 
     let sys = sys_api::Sys::from(SYS.get_task_id());
     sys.gpio_configure_input(POWER_GOOD, sys_api::Pull::None);
@@ -950,7 +1017,6 @@ fn main() -> ! {
     ringbuf_entry!(Trace::FpgaInitComplete);
 
     // Populate packrat with our mac address and identity.
-    let packrat = Packrat::from(PACKRAT.get_task_id());
     read_vpd_and_load_packrat(&packrat, i2c_task);
 
     // The sequencer for the clock generator currently does not have a feedback
@@ -1041,6 +1107,31 @@ fn main() -> ! {
 
     loop {
         idol_runtime::dispatch(&mut buffer, &mut server);
+    }
+}
+
+fn try_send_ereport(
+    packrat: &task_packrat_api::Packrat,
+    ereport_buf: &mut [u8],
+    class: EreportClass,
+    report: EreportKind,
+) {
+    let eresult = packrat.encode_ereport(
+        &task_packrat_api::Ereport {
+            class,
+            version: 0,
+            report,
+        },
+        ereport_buf,
+    );
+    match eresult {
+        Ok(len) => ringbuf_entry!(Trace::EreportSent(len)),
+        Err(task_packrat_api::EreportEncodeError::Packrat { len, err }) => {
+            ringbuf_entry!(Trace::EreportLost(len, err))
+        }
+        Err(task_packrat_api::EreportEncodeError::Encoder(_)) => {
+            ringbuf_entry!(Trace::EreportTooBig)
+        }
     }
 }
 

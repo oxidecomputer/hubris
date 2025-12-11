@@ -18,6 +18,7 @@ drv-onewire = { path = "../onewire" }
 ringbuf = { path = "../../lib/ringbuf" }
 task-power-api = { path = "../../task/power-api" }
 userlib = { path = "../../sys/userlib" }
+microcbor = { path = "../../lib/microcbor" }
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

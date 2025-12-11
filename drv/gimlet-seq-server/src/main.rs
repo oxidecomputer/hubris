@@ -30,6 +30,7 @@ use idol_runtime::{NotificationHandler, RequestError};
 use seq_spi::{Addr, Reg};
 use static_assertions::const_assert;
 use task_jefe_api::Jefe;
+use task_packrat_api as packrat_api;
 
 task_slot!(SYS, sys);
 task_slot!(SPI, spi_driver);
@@ -155,6 +156,9 @@ enum Trace {
         retries_remaining: u8,
     },
     StartFailed(#[count(children)] SeqError),
+    EreportSent(usize),
+    EreportLost(usize, packrat_api::EreportWriteError),
+    EreportTooBig,
 }
 
 counted_ringbuf!(Trace, 128, Trace::None);
@@ -217,6 +221,8 @@ const EREPORT_BUF_LEN: usize = microcbor::max_cbor_len_for!(
 pub enum EreportClass {
     #[cbor(rename = "hw.pwr.pmbus.alert")]
     PmbusAlert,
+    #[cbor(rename = "hw.pwr.bmr491.mitfail")]
+    Bmr491MitigationFailure,
 }
 
 #[derive(microcbor::EncodeFields)]
@@ -228,6 +234,12 @@ pub(crate) enum EreportKind {
         time: u64,
         pwr_good: Option<bool>,
         pmbus_status: PmbusStatus,
+    },
+    Bmr491MitigationFailure {
+        refdes: FixedStr<{ crate::i2c_config::MAX_COMPONENT_ID_LEN }>,
+        failures: u32,
+        last_cause: drv_i2c_devices::bmr491::MitigationFailureKind,
+        succeeded: bool,
     },
 }
 
@@ -477,6 +489,53 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
             hl::sleep_for(1);
         }
 
+        let ereport_buf = {
+            use static_cell::ClaimOnceCell;
+            static EREPORT_BUF: ClaimOnceCell<[u8; EREPORT_BUF_LEN]> =
+                ClaimOnceCell::new([0; EREPORT_BUF_LEN]);
+            EREPORT_BUF.claim()
+        };
+        let packrat = Packrat::from(PACKRAT.get_task_id());
+
+        //
+        // Apply the configuration mitigation on the BMR491, if required. This
+        // is an external device access and may fail. We'll attempt it thrice
+        // and then allow boot to continue.
+        //
+        {
+            use drv_i2c_devices::bmr491::{
+                Bmr491, ExternalInputVoltageProtection,
+            };
+
+            let dev = i2c_config::devices::bmr491_u431(I2C.get_task_id());
+            let driver = Bmr491::new(&dev, 0);
+
+            // Gimlet provides external undervoltage protection that is better
+            // than what we'd get from the 491, so we rely on that.
+            let protection = ExternalInputVoltageProtection::CutoffAt40V;
+
+            let (failures, last_cause, succeeded) =
+                match driver.apply_mitigation_for_rma2402311(protection) {
+                    Ok(r) => (r.failures, r.last_failure, true),
+                    Err(e) => (e.retries, Some(e.last_cause), false),
+                };
+
+            if let Some(last_cause) = last_cause {
+                // Report the failure even if we eventually succeeded.
+                try_send_ereport(
+                    &packrat,
+                    &mut ereport_buf[..],
+                    EreportClass::Bmr491MitigationFailure,
+                    EreportKind::Bmr491MitigationFailure {
+                        refdes: FixedStr::from_str(dev.component_id()),
+                        failures,
+                        last_cause,
+                        succeeded,
+                    },
+                );
+            }
+        }
+
         //
         // If our clock generator is configured to load from external EEPROM,
         // we need to wait for up to 150 ms here (!).
@@ -497,7 +556,6 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
         })?;
 
         // Populate packrat with our mac address and identity.
-        let packrat = Packrat::from(PACKRAT.get_task_id());
         read_vpd_and_load_packrat(&packrat, I2C.get_task_id());
 
         jefe.set_state(PowerState::A2 as u32);
@@ -519,13 +577,6 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
         sys.gpio_set(CHASSIS_LED);
 
         let (device, rail) = i2c_config::pmbus::vdd_vcore(I2C.get_task_id());
-
-        let ereport_buf = {
-            use static_cell::ClaimOnceCell;
-            static EREPORT_BUF: ClaimOnceCell<[u8; EREPORT_BUF_LEN]> =
-                ClaimOnceCell::new([0; EREPORT_BUF_LEN]);
-            EREPORT_BUF.claim()
-        };
 
         let mut server = Self {
             state: PowerState::A2,
@@ -1546,6 +1597,31 @@ cfg_if::cfg_if! {
         }
     } else {
         compile_error!("unsupported target board");
+    }
+}
+
+fn try_send_ereport(
+    packrat: &packrat_api::Packrat,
+    ereport_buf: &mut [u8],
+    class: EreportClass,
+    report: EreportKind,
+) {
+    let eresult = packrat.encode_ereport(
+        &packrat_api::Ereport {
+            class,
+            version: 0,
+            report,
+        },
+        ereport_buf,
+    );
+    match eresult {
+        Ok(len) => ringbuf_entry!(Trace::EreportSent(len)),
+        Err(task_packrat_api::EreportEncodeError::Packrat { len, err }) => {
+            ringbuf_entry!(Trace::EreportLost(len, err))
+        }
+        Err(task_packrat_api::EreportEncodeError::Encoder(_)) => {
+            ringbuf_entry!(Trace::EreportTooBig)
+        }
     }
 }
 
