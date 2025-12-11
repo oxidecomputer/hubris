@@ -93,10 +93,16 @@ impl Bmr491 {
     /// if the device reports an unaffected revision. In either case, it will
     /// leave the settings untouched.
     pub fn apply_mitigation_for_rma2402311(&self) -> Result<(), Error> {
-        use pmbus::commands::bmr491::{CommandCode, VIN_OFF, VOUT_COMMAND, MAX_DUTY, VOUT_UV_FAULT_LIMIT};
+        use pmbus::commands::bmr491::{
+            CommandCode, MAX_DUTY, VIN_OFF, VOUT_COMMAND, VOUT_UV_FAULT_LIMIT,
+        };
         let mut rev = [0u8; 12];
-        self.device.read_block(CommandCode::MFR_REVISION as u8, &mut rev)
-            .map_err(|code| Error::BadRead { cmd: CommandCode::MFR_REVISION as u8, code })?;
+        self.device
+            .read_block(CommandCode::MFR_REVISION as u8, &mut rev)
+            .map_err(|code| Error::BadRead {
+                cmd: CommandCode::MFR_REVISION as u8,
+                code,
+            })?;
 
         // Currently, the defect is known to exist in R1C parts, and may have
         // been present in earlier parts (it's not clear that we have any). It
@@ -117,8 +123,10 @@ impl Bmr491 {
         let current_vin_off = pmbus_read!(self.device, VIN_OFF)?;
         let current_vout_command = pmbus_read!(self.device, VOUT_COMMAND)?;
         let current_max_duty = pmbus_read!(self.device, MAX_DUTY)?;
-        let current_vout_uv_fault_limit = pmbus_read!(self.device, VOUT_UV_FAULT_LIMIT)?;
-        let current_vout_uv_fault_response = pmbus_read!(self.device, VOUT_UV_FAULT_RESPONSE)?;
+        let current_vout_uv_fault_limit =
+            pmbus_read!(self.device, VOUT_UV_FAULT_LIMIT)?;
+        let current_vout_uv_fault_response =
+            pmbus_read!(self.device, VOUT_UV_FAULT_RESPONSE)?;
 
         if current_vin_off.0 == 0
             && current_vout_command.0 == 0x0060
@@ -129,24 +137,35 @@ impl Bmr491 {
             // The device configuration already reflects the mitigation.
             return Ok(());
         }
-        
 
         // Override the VIN_OFF threshold to 0V, so that the IBC's internal
         // controller treats VIN as "always above threshold."
         pmbus_write!(self.device, VIN_OFF, VIN_OFF::CommandData(0))?;
         // Command the power supply to produce 12 V (each LSB in this register
         // is 1/8 V, so 12 * 8 = 96 = 0x60).
-        pmbus_write!(self.device, VOUT_COMMAND, VOUT_COMMAND::CommandData(0x0060))?;
+        pmbus_write!(
+            self.device,
+            VOUT_COMMAND,
+            VOUT_COMMAND::CommandData(0x0060)
+        )?;
         // Override the max duty cycle. The rationale for this is not totally
         // clear, but Flex says to do it.
         pmbus_write!(self.device, MAX_DUTY, MAX_DUTY::CommandData(0xF8EA))?;
         // Adjust the VOUT fault to detect undervoltage on the 12V rail.
-        pmbus_write!(self.device, VOUT_UV_FAULT_LIMIT, VOUT_UV_FAULT_LIMIT::CommandData(0x0058))?;
+        pmbus_write!(
+            self.device,
+            VOUT_UV_FAULT_LIMIT,
+            VOUT_UV_FAULT_LIMIT::CommandData(0x0058)
+        )?;
         // And configure it to shut off the IBC without retry on fault. (The
         // retry options are all wrong for our use case, they can cause it to
         // power itself on and off repeatedly before stopping, or just stop; we
         // choose the latter.)
-        pmbus_write!(self.device, VOUT_UV_FAULT_RESPONSE, VOUT_UV_FAULT_RESPONSE::CommandData(0x80))?;
+        pmbus_write!(
+            self.device,
+            VOUT_UV_FAULT_RESPONSE,
+            VOUT_UV_FAULT_RESPONSE::CommandData(0x80)
+        )?;
 
         pmbus_write!(self.device, STORE_USER_ALL)?;
         Ok(())
