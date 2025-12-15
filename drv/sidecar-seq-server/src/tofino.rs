@@ -85,6 +85,10 @@ impl Tofino {
         self.sequencer.set_enable(true)?;
 
         // Wait for the VID to become valid, retrying as needed.
+        // Note that we don't check that the FPGA is in the correct state here
+        // before looping, which means that we might already be timed out before
+        // even starting this loop if the SP had been paused by the debugger at
+        // an in-opportune moment during bootup.
         for i in 0..8 {
             ringbuf_entry!(Trace::TofinoVidAttempt(i));
             // Sleep first since there is a delay between the sequencer
@@ -105,6 +109,12 @@ impl Tofino {
                 self.apply_vid(vid)?;
                 self.sequencer.ack_vid()?;
                 ringbuf_entry!(Trace::TofinoVidAck);
+
+                // Let's give the Tofino some time to load before playing with
+                // the i2c interface. This is underspecified, but some systems
+                //  need more than 0 time here for the i2c interface to
+                // ACK properly.
+                hl::sleep_for(50);
 
                 // Keep the PCIe PHY lanes in reset and delay PCIE_INIT so
                 // changes to the config can be made after loading parameters
