@@ -799,7 +799,13 @@ impl DebugPort {
     }
 
     pub fn state(&self) -> Result<DebugPortState, FpgaError> {
-        self.fpga.read(Addr::TOFINO_DEBUG_PORT_STATE)
+        let state: DebugPortState =
+            self.fpga.read(Addr::TOFINO_DEBUG_PORT_STATE)?;
+        if state.address_nack_error() {
+            panic!("got address nack error");
+        } else {
+            Ok(state)
+        }
     }
 
     /// Resets debug port state by clearing the send and receive buffers
