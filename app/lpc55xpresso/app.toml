@@ -34,7 +34,7 @@ features = ["lpc55", "gpio"]
 max-sizes = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true
-task-slots = ["gpio_driver", "update_server"]
+task-slots = ["gpio_driver", "update_server", "attest"]
 
 [tasks.idle]
 name = "task-idle"
@@ -138,11 +138,16 @@ extern-regions = ["sram2"]
 
 [tasks.attest]
 name = "task-attest"
-priority = 5
+priority = 3
 max-sizes = {flash = 35072, ram = 16384}
 stacksize = 12304
 start = true
 extern-regions = ["dice_alias", "dice_certs"]
+
+[tasks.attest.config]
+# Allow hiffy to record measurements for testing attestation via humility.
+# In production RoT images, only the swd task has this permission.
+permit_log_reset = ["hiffy"]
 
 [signing.certs]
 signing-certs = ["../../support/fake_certs/fake_certificate.der.crt"]
