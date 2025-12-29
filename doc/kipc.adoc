@@ -443,6 +443,7 @@ The panic message is truncated to the length of the response buffer. Since
 Hubris only stores the first 128 bytes of panic messages, a 128-byte response
 buffer will never result in further truncation.
 
+The panic message is normally UTF-8. However, because of this byte-based truncation, and because the panic message is coming from a failing task in the first place, be careful not to *assume* that the panic message is valid UTF-8. See the `<[u8]>::utf8_chunks` function for one possible method of handling the panic message safely.
 == Receiving from the kernel
 
 The kernel never sends messages to tasks. It's simply not equipped to do so.
