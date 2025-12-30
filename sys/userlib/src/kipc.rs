@@ -166,7 +166,7 @@ pub fn software_irq(task: usize, mask: u32) {
 /// Reads a task's panic message into the provided `buf`, if the task is
 /// panicked.
 ///
-/// Note that Hubris only preserves the first [`PANIC_MESSAGE_MAX_LEN`] bytes of
+/// Note that Hubris normally only preserves the first [`PANIC_MESSAGE_MAX_LEN`] bytes of
 /// a task's panic message, and panic messages greater than that length are
 /// truncated. Thus, this function accepts a buffer of that length.
 ///

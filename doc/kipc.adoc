@@ -424,7 +424,7 @@ struct ReadPanicMessageRequest {
 
 [source,rust]
 ----
-Result<&str, abi::ReadPanicMessageError>
+Result<&[u8], abi::ReadPanicMessageError>
 ----
 
 ==== Notes
