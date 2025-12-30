@@ -1558,7 +1558,7 @@ fn test_irq_status() {
 fn test_read_panic_message() {
     set_autorestart(false);
 
-    let mut buf = [0u8; 128];
+    let mut buf = [0u8; userlib::PANIC_MESSAGE_MAX_LEN];
 
     match kipc::read_panic_message(ASSIST.get_task_index().into(), &mut buf) {
         Err(userlib::ReadPanicMessageError::TaskNotPanicked) => {}
