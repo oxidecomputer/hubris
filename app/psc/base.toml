@@ -2,7 +2,6 @@ target = "thumbv7em-none-eabihf"
 chip = "../../chips/stm32h7"
 memory = "memory-large.toml"
 stacksize = 896
-fwid = true
 
 [kernel]
 name = "psc"

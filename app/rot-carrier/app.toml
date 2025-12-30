@@ -6,7 +6,6 @@ stacksize = 1024
 image-names = ["a", "b"]
 epoch = 0
 version = 0
-fwid = true
 
 [kernel]
 name = "rot-carrier"
