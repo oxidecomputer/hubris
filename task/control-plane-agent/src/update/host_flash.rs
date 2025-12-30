@@ -6,8 +6,8 @@ use super::{common::CurrentUpdate, ComponentUpdater};
 use crate::mgs_handler::{BorrowedUpdateBuffer, UpdateBuffer};
 use core::ops::Range;
 use drv_hf_api::{
-    HfDevSelect, HfError, HfProtectMode, HostFlash, PAGE_SIZE_BYTES,
-    SECTOR_SIZE_BYTES,
+    HfDevSelect, HfError, HfPersistentData, HfProtectMode, HostFlash,
+    PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES,
 };
 use gateway_messages::{
     ComponentUpdatePrepare, HfError as GwHfError, SpComponent, SpError,
@@ -75,13 +75,26 @@ impl HostFlashUpdate {
     }
 
     pub(crate) fn active_slot(&self) -> Result<u16, SpError> {
-        match self
-            .task
+        self.task
             .get_dev()
-            .map_err(|err| SpError::ComponentOperationFailed(err as u32))?
-        {
-            HfDevSelect::Flash0 => Ok(0),
-            HfDevSelect::Flash1 => Ok(1),
+            .map(Self::dev_to_slot)
+            .map_err(|err| SpError::ComponentOperationFailed(err as u32))
+    }
+
+    pub(crate) fn persistent_slot(&self) -> Result<u16, SpError> {
+        match self.task.get_persistent_data() {
+            Ok(HfPersistentData { dev_select }) => {
+                Ok(Self::dev_to_slot(dev_select))
+            }
+            Err(HfError::NoPersistentData) => Ok(0),
+            Err(err) => Err(SpError::ComponentOperationFailed(err as u32)),
+        }
+    }
+
+    fn dev_to_slot(dev: HfDevSelect) -> u16 {
+        match dev {
+            HfDevSelect::Flash0 => 0,
+            HfDevSelect::Flash1 => 1,
         }
     }
 

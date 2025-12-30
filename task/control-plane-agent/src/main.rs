@@ -159,6 +159,9 @@ enum MgsMessage {
         slot: u16,
         persist: bool,
     },
+    ComponentGetPersistentSlot {
+        component: SpComponent,
+    },
     SerialConsoleBreak,
     SendHostNmi,
     SetIpccKeyValue {
