@@ -87,7 +87,7 @@ impl HostFlashUpdate {
                 Ok(Self::dev_to_slot(dev_select))
             }
             Err(HfError::NoPersistentData) => Ok(0),
-            Err(err) => Err(SpError::ComponentOperationFailed(err as u32)),
+            Err(err) => Err(hf_to_gwhf(err)),
         }
     }
 
