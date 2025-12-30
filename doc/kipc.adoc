@@ -437,7 +437,7 @@ message is invalid, this KIPC returns the
 `abi::ReadPanicMessageError::BadPanicMessage` response code. If the target task
 uses the panic handler provided by the `userlib` crate, this should not be
 possible. However, it may occur if a task calls the `sys_panic` syscall
-directly with invalid arguments.
+directly with invalid arguments, such as a slice pointing outside the task's memory.
 
 The panic message is truncated to the length of the response buffer. Since
 Hubris only stores the first 128 bytes of panic messages, a 128-byte response
