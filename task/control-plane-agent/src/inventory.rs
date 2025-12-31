@@ -44,8 +44,8 @@ impl Inventory {
         match Index::try_from(component)? {
             Index::OurDevice(d) => {
                 match OUR_DEVICES[d].component {
-                    // The SP5 CPU can report a POST code
-                    SpComponent::SP5_HOST_CPU => Ok(1),
+                    // The SP5 CPU can report a POST code and GPIO cycle count
+                    SpComponent::SP5_HOST_CPU => Ok(2),
                     // The SP3 CPU can report GPIO toggle counts
                     SpComponent::SP3_HOST_CPU => Ok(1),
                     _ => Ok(0),

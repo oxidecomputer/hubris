@@ -42,7 +42,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     let out_file = out_dir.join("fmc_periph.rs");
     let mut file = std::fs::File::create(out_file)?;
-    for periph in ["sequencer", "info", "espi"] {
+    for periph in ["sequencer", "info", "espi", "debug_ctrl"] {
         write!(
             &mut file,
             "pub mod {periph} {{\n{}\n}}",
