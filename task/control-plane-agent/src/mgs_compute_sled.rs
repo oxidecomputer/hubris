@@ -991,6 +991,22 @@ impl SpHandler for MgsHandler {
         }
     }
 
+    fn component_get_persistent_slot(
+        &mut self,
+        component: SpComponent,
+    ) -> Result<u16, SpError> {
+        ringbuf_entry_root!(Log::MgsMessage(
+            MgsMessage::ComponentGetPersistentSlot { component }
+        ));
+
+        match component {
+            SpComponent::HOST_CPU_BOOT_FLASH => {
+                self.host_flash_update.persistent_slot()
+            }
+            _ => self.common.component_get_persistent_slot(component),
+        }
+    }
+
     fn component_clear_status(
         &mut self,
         component: SpComponent,
