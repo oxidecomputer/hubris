@@ -478,6 +478,15 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
         }
 
         //
+        // Apply the configuration mitigation on the BMR491, if required.
+        //
+        {
+            let dev = i2c_config::devices::bmr491_u431(I2C.get_task_id());
+            let driver = drv_i2c_devices::bmr491::Bmr491::new(&dev, 0);
+            driver.apply_mitigation_for_rma2402311().ok();
+        }
+
+        //
         // If our clock generator is configured to load from external EEPROM,
         // we need to wait for up to 150 ms here (!).
         //
