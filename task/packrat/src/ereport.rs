@@ -429,8 +429,8 @@ impl EreportStore {
             Ok(())
         }
 
-        let cursor = microcbor::encode::write::Cursor::new(&mut self.recv[..]);
-        let mut encoder = microcbor::encode::Encoder::new(cursor);
+        let cursor = minicbor::encode::write::Cursor::new(&mut self.recv[..]);
+        let mut encoder = minicbor::encode::Encoder::new(cursor);
         encoder.begin_map()?;
         // Ereport version.
         encoder.str("v")?.u32(0)?;
@@ -539,7 +539,7 @@ impl EreportStore {
                         "UndefinedOperation"
                     }
                     ReplyFaultReason::BadMessageSize => "BadMessageSize",
-                    ReplyFaultReason::BadMessageContent => "BadMessageContent",
+                    ReplyFaultReason::BadMessageContents => "BadMessageContent",
                     ReplyFaultReason::BadLeases => "BadLeases",
                     ReplyFaultReason::ReplyBufferTooSmall => {
                         "ReplyBufferTooSmall"
