@@ -27,6 +27,9 @@ extern-regions = ["sram1", "sram2", "sram3", "sram4"]
 [tasks.jefe.config.on-state-change]
 net = "jefe-state-change"
 
+[tasks.jefe.config.on-task-fault]
+packrat = "task-faulted"
+
 [tasks.jefe.config.allowed-callers]
 set_reset_reason = ["sys"]
 request_reset = ["hiffy", "control_plane_agent"]
@@ -123,6 +126,7 @@ start = true
 # task-slots is explicitly empty: packrat should not send IPCs!
 task-slots = []
 features = ["ereport"]
+notifications = ["task-faulted"]
 
 [tasks.sequencer]
 name = "drv-psc-seq-server"

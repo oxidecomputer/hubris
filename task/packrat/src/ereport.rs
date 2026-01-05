@@ -22,7 +22,7 @@ use ringbuf::{counted_ringbuf, ringbuf_entry};
 use task_packrat_api::{EreportReadError, EreportWriteError, OxideIdentity};
 use userlib::{
     kipc, sys_get_timer, FaultInfo, FaultSource, ReadPanicMessageError,
-    RecvMessage, TaskId, TaskState,
+    RecvMessage, ReplyFaultReason, TaskId, TaskState, UsageError,
 };
 use zerocopy::IntoBytes;
 
@@ -93,6 +93,7 @@ enum Trace {
         task: TaskId,
         #[count(children)]
         result: snitch_core::InsertResult,
+        len: usize,
     },
     // A fault report was >1024B long! what the heck!
     GiantFaultReport {
@@ -517,7 +518,28 @@ impl EreportStore {
             }
             FaultInfo::SyscallUsage(err) => {
                 encoder.str("k")?.str("hubris.fault.syscall")?;
-                // TODO
+                encoder.str("err")?;
+                // These strings are kind of a lot of characters, but the rest
+                // of the ereport is short and it seems kinda helpfulish to use
+                // the same names as the actual enum variants, so they're
+                // greppable.
+                //
+                // Using `minicbor_serde` just to encode the enums as strings
+                // felt a bit too heavyweight, and required wrapping the encoder
+                // in a serde thingy, so...we're doing it the old fashioned way.
+                encoder.str(match err {
+                    UsageError::BadSyscallNumber => "BadSyscallNumber",
+                    UsageError::InvalidSlice => "InvalidSlice",
+                    UsageError::TaskOutOfRange => "TaskOutOfRange",
+                    UsageError::IllegalTask => "IllegalTask",
+                    UsageError::LeaseOutOfRange => "LeaseOutOfRange",
+                    UsageError::OffsetOutOfRange => "OffsetOutOfRange",
+                    UsageError::NoIrq => "NoIrq",
+                    UsageError::BadKernelMessage => "BadKernelMessage",
+                    UsageError::BadReplyFaultReason => "BadReplyFaultReason",
+                    UsageError::NotSupervisor => "NotSupervisor",
+                    UsageError::ReplyTooBig => "ReplyTooBig",
+                })?;
             }
             FaultInfo::Panic => {
                 encoder.str("k")?.str("hubris.fault.panic")?;
@@ -557,6 +579,27 @@ impl EreportStore {
                 encoder.str("k")?.str("hubris.fault.from_srv")?;
                 encoder.str("srv")?;
                 encode_task(&mut encoder, srv_task)?;
+                encoder.str("err")?;
+                // These strings are kind of a lot of characters, but the rest
+                // of the ereport is short and it seems kinda helpfulish to use
+                // the same names as the actual enum variants, so they're
+                // greppable.
+                //
+                // Using `minicbor_serde` just to encode the enums as strings
+                // felt a bit too heavyweight, and required wrapping the encoder
+                // in a serde thingy, so...we're doing it the old fashioned way.
+                encoder.str(match err {
+                    ReplyFaultReason::UndefinedOperation => {
+                        "UndefinedOperation"
+                    }
+                    ReplyFaultReason::BadMessageSize => "BadMessageSize",
+                    ReplyFaultReason::BadMessageContent => "BadMessageContent",
+                    ReplyFaultReason::BadLeases => "BadLeases",
+                    ReplyFaultReason::ReplyBufferTooSmall => {
+                        "ReplyBufferTooSmall"
+                    }
+                    ReplyFaultReason::AccessViolation => "AccessViolation",
+                })?;
             }
         };
         encoder.end()?;
@@ -566,7 +609,7 @@ impl EreportStore {
         let buf = cursor.into_inner();
 
         let result = self.storage.insert(task.0, now, &buf[..len]);
-        ringbuf_entry!(Trace::FaultRecorded { task, result });
+        ringbuf_entry!(Trace::FaultRecorded { task, result, len });
 
         Ok(())
     }
