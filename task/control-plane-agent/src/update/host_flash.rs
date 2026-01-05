@@ -86,6 +86,8 @@ impl HostFlashUpdate {
             Ok(HfPersistentData { dev_select }) => {
                 Ok(Self::dev_to_slot(dev_select))
             }
+            // All boards today will default to slot 0 if no persistent data,
+            // e.g. on initial power-on.
             Err(HfError::NoPersistentData) => Ok(0),
             Err(err) => Err(hf_to_gwhf(err)),
         }
