@@ -3,7 +3,6 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
-use std::ffi::OsStr;
 use std::fmt::Write as _;
 use std::fs::{self, File};
 use std::hash::{Hash, Hasher};
@@ -15,10 +14,8 @@ use std::process::{Command, Stdio};
 use anyhow::{anyhow, bail, Context, Result};
 use atty::Stream;
 use indexmap::IndexMap;
-use lpc55_rom_data::FLASH_PAGE_SIZE as LPC55_FLASH_PAGE_SIZE;
 use multimap::MultiMap;
 use path_slash::{PathBufExt, PathExt};
-use sha3::{Digest, Sha3_256};
 use zerocopy::IntoBytes;
 
 use crate::{
@@ -720,10 +717,6 @@ pub fn package(
             archive.overwrite()?;
         }
 
-        if cfg.toml.fwid {
-            write_fwid(&cfg, image_name, &flash, &archive_name)?;
-        }
-
         // Unzip the signed + caboose'd images into our build directory
         let archive = hubtools::RawHubrisArchive::load(&archive_name)
             .context("loading archive with hubtools")?;
@@ -736,67 +729,6 @@ pub fn package(
         }
     }
     Ok(allocated)
-}
-
-// generate file with hash of expected flash contents
-fn write_fwid(
-    cfg: &PackageConfig,
-    image_name: &str,
-    flash: &Range<u32>,
-    archive_name: &PathBuf,
-) -> Result<()> {
-    let mut archive = hubtools::RawHubrisArchive::load(archive_name)
-        .context("loading archive with hubtools")?;
-
-    let bin = archive
-        .extract_file("img/final.bin")
-        .context("extracting final.bin after signing & caboosing")?;
-
-    let chip_name = Path::new(&cfg.toml.chip);
-
-    // determine length of padding
-    let pad = match chip_name.file_name().and_then(OsStr::to_str) {
-        Some("lpc55") => {
-            // Flash is programmed in 512 blocks. If the final block is not
-            // filled, it is padded with 0xff's. Unwritten flash pages cannot
-            // be read and are not included in the FWID calculation.
-            LPC55_FLASH_PAGE_SIZE - bin.len() % LPC55_FLASH_PAGE_SIZE
-        }
-        Some("stm32h7") => {
-            // all unprogrammed flash is read as 0xff
-            flash.end as usize - flash.start as usize - bin.len()
-        }
-        Some(c) => {
-            bail!("no FWID algorithm defined for chip: \"{}\"", c)
-        }
-        None => bail!("Failed to get file name of {}", chip_name.display()),
-    };
-
-    let mut sha = Sha3_256::new();
-    sha.update(&bin);
-
-    if pad != 0 {
-        sha.update(vec![0xff_u8; pad])
-    }
-
-    let digest = sha.finalize();
-
-    // after we've appended a newline fwid is immutable
-    let mut fwid = hex::encode(digest);
-    writeln!(fwid).context("appending newline to FWID")?;
-    let fwid = fwid;
-
-    // the archive already exists so we write the FWID to the same path in
-    // the build output and archive to keep the two consistent
-    fs::write(cfg.img_file("final.fwid", image_name), &fwid)
-        .context("writing FWID to build output")?;
-    archive
-        .add_file("img/final.fwid", fwid.as_bytes())
-        .context("writing FWID to archive")?;
-
-    archive.overwrite()?;
-
-    Ok(())
 }
 
 fn write_gdb_script(cfg: &PackageConfig, image_name: &str) -> Result<()> {

@@ -920,13 +920,20 @@ impl SpHandler for MgsHandler {
             index,
             |dev, index| {
                 match dev.component {
-                    SpComponent::SP5_HOST_CPU => {
-                        // Only one component detail for now
-                        assert_eq!(index.0, 0);
-                        ComponentDetails::LastPostCode(LastPostCode(
+                    SpComponent::SP5_HOST_CPU => match index.0 {
+                        0 => ComponentDetails::LastPostCode(LastPostCode(
                             self.sequencer.last_post_code(),
-                        ))
-                    }
+                        )),
+                        1 => {
+                            ComponentDetails::GpioToggleCount(GpioToggleCount {
+                                edge_count: self.sequencer.gpio_edge_count(),
+                                cycles_since_last_edge: self
+                                    .sequencer
+                                    .gpio_cycle_count(),
+                            })
+                        }
+                        _ => panic!("invalid index"),
+                    },
                     SpComponent::SP3_HOST_CPU => {
                         // Only one component detail for now
                         assert_eq!(index.0, 0);

@@ -4,7 +4,6 @@ board = "lpcxpresso55s69"
 chip = "../../chips/lpc55"
 stacksize = 1024
 image-names = ["a", "b"]
-fwid = true
 
 [kernel]
 name = "lpc55xpresso"

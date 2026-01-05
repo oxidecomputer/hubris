@@ -2,7 +2,6 @@ target = "thumbv7em-none-eabihf"
 chip = "../../chips/stm32h7"
 memory = "memory-large.toml"
 stacksize = 896
-fwid = true
 
 [kernel]
 name = "cosmo"
@@ -181,7 +180,7 @@ max-sizes = {flash = 131072, ram = 16384 }
 stacksize = 2600
 start = true
 task-slots = ["sys", "i2c_driver", {spi_front = "spi3_driver"}, "jefe", "packrat", "auxflash", "spartan7_loader", "hf"]
-uses = ["mmio_sequencer", "mmio_info", "mmio_espi"]
+uses = ["mmio_sequencer", "mmio_info", "mmio_espi", "mmio_debug_ctrl"]
 notifications = ["timer", "vcore", "seq-irq"]
 
 [tasks.ignition_flash]
