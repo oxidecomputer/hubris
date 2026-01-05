@@ -571,14 +571,33 @@ impl idl::InOrderPackratImpl for ServerImpl {
     }
 }
 
+// If we are not built with ereport support, we expect no notifications.
+#[cfg(not(feature = "ereport"))]
 impl NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
         // We don't use notifications, don't listen for any.
         0
     }
 
-    fn handle_notification(&mut self, _bits: userlib::NotificationBits) {
+    fn handle_notification(&mut self, bits: userlib::NotificationBits) {
         unreachable!()
+    }
+}
+
+#[cfg(feature = "ereport")]
+impl NotificationHandler for ServerImpl {
+    fn current_notification_mask(&self) -> u32 {
+        notifications::TASK_FAULTED_MASK
+    }
+
+    fn handle_notification(&mut self, bits: userlib::NotificationBits) {
+        let now = userlib::sys_get_timer().now;
+
+        if bits.check_notification_mask(notifications::TASK_FAULTED_MASK) {
+            self.ereport_store.record_faulted_tasks(now);
+        }
+
+        // Otherwise, we've received a spurious notification.
     }
 }
 
@@ -590,3 +609,5 @@ mod idl {
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
+
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
