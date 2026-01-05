@@ -6,8 +6,8 @@ use super::{common::CurrentUpdate, ComponentUpdater};
 use crate::mgs_handler::{BorrowedUpdateBuffer, UpdateBuffer};
 use core::ops::Range;
 use drv_hf_api::{
-    HfDevSelect, HfError, HfPersistentData, HfProtectMode, HostFlash,
-    PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES,
+    HfDevSelect, HfError, HfProtectMode, HostFlash, PAGE_SIZE_BYTES,
+    SECTOR_SIZE_BYTES,
 };
 use gateway_messages::{
     ComponentUpdatePrepare, HfError as GwHfError, SpComponent, SpError,
@@ -82,15 +82,10 @@ impl HostFlashUpdate {
     }
 
     pub(crate) fn persistent_slot(&self) -> Result<u16, SpError> {
-        match self.task.get_persistent_data() {
-            Ok(HfPersistentData { dev_select }) => {
-                Ok(Self::dev_to_slot(dev_select))
-            }
-            // All boards today will default to slot 0 if no persistent data,
-            // e.g. on initial power-on.
-            Err(HfError::NoPersistentData) => Ok(0),
-            Err(err) => Err(hf_to_gwhf(err)),
-        }
+        self.task
+            .get_persistent_data()
+            .map(|data| Self::dev_to_slot(data.dev_select))
+            .map_err(hf_to_gwhf)
     }
 
     fn dev_to_slot(dev: HfDevSelect) -> u16 {
