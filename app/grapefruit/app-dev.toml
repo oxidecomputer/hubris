@@ -11,6 +11,10 @@ interrupts = {"uart8.irq" = "usart-irq"}
 [tasks.packrat]
 stacksize = 1040
 features = ["ereport"]
+notifications = ["task-faulted"]
+
+[tasks.jefe.config.on-task-fault]
+packrat = "task-faulted"
 
 [tasks.snitch]
 name = "task-snitch"
