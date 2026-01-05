@@ -332,7 +332,7 @@ This interface is primarily intended for testing interrupt handling, and can
 only be called by a task running as the supervisor. When this KIPC is called,
 an actual machine interrupt is triggered for the relevant hardware interrupt
 source. The kernel then responds to the interrupt using its normal
-interrupt-handling infrastructure, which dispatches a notification to the 
+interrupt-handling infrastructure, which dispatches a notification to the
 subscribed task.
 
 This KIPC is *not* intended for use as a general-purpose inter-task signalling
@@ -401,6 +401,55 @@ while let Some(fault) = kipc::find_faulted_task(next_task) {
     next_task = fault + 1;
 }
 ----
+
+=== `read_panic_message` (10)
+
+If the task with the requested index is in the faulted state due to a panic,
+reads the contents of its panic message into the response buffer.
+
+==== Request
+
+[source,rust]
+----
+struct ReadPanicMessageRequest {
+    task_index: u32,
+}
+----
+
+==== Preconditions
+
+`task_index` must be a valid task index for this system.
+
+==== Response
+
+[source,rust]
+----
+Result<&[u8], abi::ReadPanicMessageError>
+----
+
+==== Notes
+
+If the requested task is not currently in the faulted state due to a panic,
+this KIPC returns the `abi::ReadPanicMessageError::TaskNotPanicked` response
+code.
+
+If the requested task has panicked, but the buffer containing its panic
+message is invalid, this KIPC returns the
+`abi::ReadPanicMessageError::BadPanicMessage` response code. If the target task
+uses the panic handler provided by the `userlib` crate, this should not be
+possible. However, it may occur if a task calls the `sys_panic` syscall
+directly with invalid arguments, such as a slice pointing outside the task's memory.
+
+The panic message is truncated to the length of the response buffer. Since
+Hubris only stores the first 128 bytes of panic messages, a 128-byte response
+buffer will normally not result in further truncation.
+
+The panic message is normally UTF-8. However, because of this byte-based
+truncation, and because the panic message is coming from a failing task in the
+first place, be careful not to *assume* that the panic message is valid UTF-8.
+See the
+link:++https://doc.rust-lang.org/stable/std/primitive.slice.html#method.utf8_chunks++[`<[u8]>::utf8_chunks`]
+function for one possible method of handling the panic message safely.
 
 == Receiving from the kernel
 

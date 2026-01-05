@@ -15,11 +15,12 @@
 //! wastes flash space in the supervisor.
 
 use core::num::NonZeroUsize;
+use core::str::Utf8Chunks;
 
-use abi::{Kipcnum, TaskId};
+use abi::{Kipcnum, ReadPanicMessageError, TaskId};
 use zerocopy::IntoBytes;
 
-use crate::{sys_send, UnwrapLite};
+use crate::{sys_send, UnwrapLite, PANIC_MESSAGE_MAX_LEN};
 
 pub fn read_task_status(task: usize) -> abi::TaskState {
     // Coerce `task` to a known size (Rust doesn't assume that usize == u32)
@@ -161,4 +162,60 @@ pub fn software_irq(task: usize, mask: u32) {
         &mut [],
         &[],
     );
+}
+
+/// Reads a task's panic message into the provided `buf`, if the task is
+/// panicked.
+///
+/// Note that Hubris normally only preserves the first
+/// [`PANIC_MESSAGE_MAX_LEN`] bytes of a task's panic message, and panic
+/// messages greater than that length are truncated. Thus, this function
+/// accepts a buffer of that length.
+///
+/// # Returns
+///
+/// - [`Ok`]`([`Utf8Chunks`])` if the task is panicked.
+///
+///   The returned [`Utf8Chunks`] is an iterator returning a
+///   [`core::str::Utf8Chunk`] for each contiguous chunk of valid or invalid
+///   UTF-8 bytes in the panicked task's panic message buffer. This is due to
+///   the truncation of panic messages to [`PANIC_MESSAGE_MAX_LEN`] bytes,
+///   which may occur inside of a code point. If the panic message is truncated
+///   within a code point, there will be an invalid byte sequence at the end of
+///   the buffer, and the `Utf8Chunks` iterator allows the caller to select
+///   only the valid Unicode portion of the message. Provided that the panicked
+///   task panicked using the Hubris userlib's panic handler, the iterator will
+///   contain a single valid UTF-8 chunk, which may be followed by up to one
+///   invalid chunk. However, the task may potentially have called the panic
+///   syscall through other means, and therefore, there may be multiple valid
+///   chunks interspersed with invalid bytes.
+///
+///   The total byte length of all chunks in the iterator will be at most
+///   [`PANIC_MESSAGE_MAX_LEN`] bytes. Note that the iterator may contain only
+///   a single zero-length chunk, if the task has panicked but was compiled
+///   without panic messages enabled.
+/// - [`Err`]`(`[`ReadPanicMessageError::TaskNotPanicked`]`)` if the task is
+///   not currently faulted due to a panic.
+/// - [`Err`]`(`[`ReadPanicMessageError::BadPanicMessage`]`)` if the task has
+///   panicked but the panic message buffer is invalid to read from.
+pub fn read_panic_message(
+    task: usize,
+    buf: &mut [u8; PANIC_MESSAGE_MAX_LEN],
+) -> Result<Utf8Chunks<'_>, ReadPanicMessageError> {
+    let task = task as u32;
+    let (rc, len) = sys_send(
+        TaskId::KERNEL,
+        Kipcnum::ReadPanicMessage as u16,
+        task.as_bytes(),
+        &mut buf[..],
+        &[],
+    );
+
+    if rc == 0 {
+        Ok(buf[..len].utf8_chunks())
+    } else {
+        // If the kernel sent us an unknown response code....i dunno, guess
+        // i'll die?
+        Err(ReadPanicMessageError::try_from(rc).unwrap_lite())
+    }
 }

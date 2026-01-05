@@ -11,7 +11,7 @@ use unwrap_lite::UnwrapLite;
 use crate::arch;
 use crate::err::UserError;
 use crate::task::{current_id, ArchState, NextTask, Task};
-use crate::umem::USlice;
+use crate::umem::{safe_copy, USlice};
 
 /// Message dispatcher.
 pub fn handle_kernel_message(
@@ -42,6 +42,9 @@ pub fn handle_kernel_message(
         Ok(Kipcnum::SoftwareIrq) => software_irq(tasks, caller, args.message?),
         Ok(Kipcnum::FindFaultedTask) => {
             find_faulted_task(tasks, caller, args.message?, args.response?)
+        }
+        Ok(Kipcnum::ReadPanicMessage) => {
+            read_panic_message(tasks, caller, args.message?, args.response?)
         }
 
         _ => {
@@ -506,4 +509,76 @@ fn find_faulted_task(
         .save_mut()
         .set_send_response_and_length(0, response_len);
     Ok(NextTask::Same)
+}
+
+fn read_panic_message(
+    tasks: &mut [Task],
+    caller: usize,
+    message: USlice<u8>,
+    response: USlice<u8>,
+) -> Result<NextTask, UserError> {
+    let index: u32 = deserialize_message(&tasks[caller], message)?;
+    let index = index as usize;
+    let Some(task) = tasks.get(index) else {
+        return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
+            UsageError::TaskOutOfRange,
+        )));
+    };
+
+    // Make sure the task is actually panicked.
+    let TaskState::Faulted {
+        fault: FaultInfo::Panic,
+        ..
+    } = task.state()
+    else {
+        return Err(UserError::Recoverable(
+            abi::ReadPanicMessageError::TaskNotPanicked as u32,
+            NextTask::Same,
+        ));
+    };
+
+    let Ok(message) = task.save().as_panic_args().message else {
+        // There's really only one reason that `as_panic_args().message` would
+        // be an error. Because it's just a `USlice<u8>`, it can't be
+        // misaligned, so the only possible invalid slice here is one whose
+        // length exceeds the size of the address space, so that `base + len`
+        // would overflow.
+        //
+        // But, we shouldn't fault the *caller* over that; they didn't do it!
+        return Err(UserError::Recoverable(
+            abi::ReadPanicMessageError::BadPanicBuffer as u32,
+            NextTask::Same,
+        ));
+    };
+
+    // Note that if the panic was recorded by `userlib`'s panic handler, it will
+    // never exceed 128 bytes in length, and if the caller requested this kipc
+    // using the `userlib::ipc::read_panic_message()` wrapper, then the caller's
+    // buffer will always be exactly 128 bytes long. However, we can't rely on
+    // that here, as either task *could* be an arbitrary binary that wasn't
+    // compiled with the Hubris userlib, so we need to be safe regardless.
+    match safe_copy(tasks, index, message, caller, response) {
+        Ok(len) => {
+            // Ladies and gentlemen...we got him!
+            tasks[caller]
+                .save_mut()
+                .set_send_response_and_length(0, len);
+
+            Ok(NextTask::Same)
+        }
+        Err(crate::err::InteractFault {
+            dst: Some(fault), ..
+        }) => {
+            // If the caller's buffer was invalid, they take a fault.
+            Err(UserError::Unrecoverable(fault))
+        }
+        Err(_) => {
+            // Source region was bad, but it's not the caller's fault; give them
+            // a recoverable error.
+            Err(UserError::Recoverable(
+                abi::ReadPanicMessageError::BadPanicBuffer as u32,
+                NextTask::Same,
+            ))
+        }
+    }
 }
