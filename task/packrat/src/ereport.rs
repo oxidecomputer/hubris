@@ -497,11 +497,16 @@ impl EreportStore {
                     Ok(msg_chunks) => {
                         encoder.begin_str()?;
                         for chunk in msg_chunks {
-                            let chunk = chunk.valid();
+                            let valid = chunk.valid();
 
                             // avoid a big pile of 0-length strings
-                            if !chunk.is_empty() {
+                            if !valid.is_empty() {
                                 encoder.str(chunk)?;
+                            }
+
+                            if !chunk.invalid().is_empty() {
+                                // oh, there's also some trash in here!
+                                encoder.str("�")?;
                             }
                         }
                         encoder.end()?;
