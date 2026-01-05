@@ -24,7 +24,6 @@ userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 snitch-core = { version = "0.1.0", path = "../../lib/snitch-core", optional = true, features = ["counters"] }
 minicbor = { workspace = true,  optional = true }
 minicbor-lease = { path = "../../lib/minicbor-lease", optional = true }
-fixedstr = { path = "../../lib/fixedstr" , optional = true, features = ["microcbor"] }
 
 [build-dependencies]
 anyhow.workspace = true
@@ -42,11 +41,9 @@ no-ipc-counters = ["idol/no-counters"]
 ereport = [
     "dep:drv-rng-api",
     "dep:snitch-core",
-    "dep:microcbor",
     "dep:minicbor",
     "dep:minicbor-lease",
     "dep:quote",
-    "dep:fixedstr",
 ]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
