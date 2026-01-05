@@ -1576,14 +1576,16 @@ fn test_read_panic_message() {
         &[],
     );
 
-    let msg =
+    let mut msg_chunks =
         kipc::read_panic_message(ASSIST.get_task_index().into(), &mut buf)
             .unwrap();
     // it should look kinda like a panic message (but since the line number may
     // change, don't make assertions about the entire contents of the string...
-    assert!(core::str::from_utf8(msg)
-        .expect("string shouldn't be corrupted")
-        .starts_with("panicked at"));
+    let msg = msg_chunks
+        .next()
+        .expect("Utf8Chunks always has at least one chunk")
+        .valid();
+    assert!(msg.starts_with("panicked at"));
 }
 
 /// Asks the test runner (running as supervisor) to please trigger a software
