@@ -405,7 +405,7 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
 
                 // If we're aware that this task is in a fault state (or waiting
                 // in timeout), don't bother making a syscall to enquire.
-                let TaskState::Running { started_at } = &status.state else {
+                let TaskState::Running { .. } = &status.state else {
                     continue;
                 };
 
