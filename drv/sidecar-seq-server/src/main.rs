@@ -122,6 +122,7 @@ const POWER_GOOD: sys_api::PinSet = sys_api::Port::F.pin(12);
 enum TofinoStateDetails {
     A0 {
         pcie_link: bool,
+        pcie_dev_info: u32,
     },
     A2 {
         error: TofinoSeqError,

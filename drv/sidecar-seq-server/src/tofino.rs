@@ -13,6 +13,7 @@ pub(crate) struct Tofino {
     pub abort_reported: bool,
     pub ready_for_power_up: bool,
     pub pcie_link_up: bool,
+    pub pcie_dev_info: u32,
 }
 
 impl Tofino {
@@ -27,6 +28,7 @@ impl Tofino {
             abort_reported: false,
             ready_for_power_up: false,
             pcie_link_up: false,
+            pcie_dev_info: 0,
         }
     }
 
@@ -67,14 +69,13 @@ impl Tofino {
     /// host is up. Note that this function should only be called when Tofino is
     /// in A0, otherwise it may cause the debug port in the mainboard controller
     /// to get stuck.
-    pub fn pcie_link_up(&mut self) -> Result<bool, SeqError> {
+    pub fn read_pcie_dev_info(&mut self) -> Result<u32, SeqError> {
         // There is no bit description in the documentation available for this
         // register, so make use of observed magic values.
         Ok(self.debug_port.read_direct(
             DirectBarSegment::Bar0,
             TofinoBar0Registers::PcieDevInfo,
-        )? & 0xf
-            == 0xf)
+        )?)
     }
 
     pub fn power_up(&mut self) -> Result<(), SeqError> {
@@ -335,10 +336,14 @@ impl Tofino {
 
         // Determine the link up/down state of the PCIe link. This is only valid
         // in A0 as otherwise the debug port won't properly respond.
-        self.pcie_link_up = if status.state == TofinoSeqState::A0 {
-            self.pcie_link_up().unwrap_or(false)
+        if status.state == TofinoSeqState::A0 {
+            // The reset value of the PCIe Dev Info register is 0, but we've observed the
+            // bottom four bits are set when the PCIe link is up.
+            self.pcie_dev_info = self.read_pcie_dev_info().unwrap_or(0);
+            self.pcie_link_up = self.pcie_dev_info & 0xf == 0xf
         } else {
-            false
+            self.pcie_dev_info = 0;
+            self.pcie_link_up = false;
         };
 
         match &status.abort {
@@ -351,7 +356,8 @@ impl Tofino {
                     self.policy,
                     match status.state {
                         TofinoSeqState::A0 => TofinoStateDetails::A0 {
-                            pcie_link: self.pcie_link_up
+                            pcie_link: self.pcie_link_up,
+                            pcie_dev_info: self.pcie_dev_info,
                         },
                         TofinoSeqState::A2 => TofinoStateDetails::A2 { error },
                         // Other states are unlikely to be observed due to their
