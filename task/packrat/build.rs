@@ -7,6 +7,8 @@ use anyhow::{anyhow, Result};
 use anyhow::Context;
 
 fn main() -> Result<()> {
+    build_util::build_notifications()?;
+
     idol::Generator::new()
         .with_counters(
             idol::CounterSettings::default().with_server_counters(false),

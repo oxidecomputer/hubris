@@ -26,12 +26,14 @@ use zerocopy::IntoBytes;
 pub(crate) struct EreportStore {
     storage: &'static mut snitch_core::Store<STORE_SIZE>,
     recv: &'static mut [u8; RECV_BUF_SIZE],
+    panic_buf: &'static mut [u8; userlib::PANIC_MESSAGE_MAX_LEN],
     pub(super) restart_id: Option<ereport_messages::RestartId>,
 }
 
 pub(crate) struct EreportBufs {
     storage: snitch_core::Store<STORE_SIZE>,
     recv: [u8; RECV_BUF_SIZE],
+    panic_buf: [u8; userlib::PANIC_MESSAGE_MAX_LEN],
 }
 
 /// Number of bytes of RAM dedicated to ereport storage. Each individual
@@ -83,6 +85,10 @@ enum Trace {
         reports: u8,
         limit: u8,
     },
+    FaultNotified,
+    TaskFaulted {
+        task: u32,
+    },
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, counters::Count)]
@@ -104,6 +110,7 @@ impl EreportStore {
         EreportBufs {
             ref mut storage,
             ref mut recv,
+            ref mut panic_buf,
         }: &'static mut EreportBufs,
     ) -> Self {
         let now = sys_get_timer().now;
@@ -112,6 +119,7 @@ impl EreportStore {
         Self {
             storage,
             recv,
+            panic_buf,
             restart_id: None,
         }
     }
@@ -395,6 +403,23 @@ impl EreportStore {
         }
         Ok(())
     }
+
+    pub(crate) fn record_faulted_tasks(&mut self, now: u64) {
+        ringbuf_entry!(Trace::FaultNotified);
+        let mut next_task = 1;
+        while let Some(fault_index) = kipc::find_faulted_task(next_task) {
+            let fault_index = usize::from(fault_index);
+            // This addition cannot overflow in practice, because the number
+            // of tasks in the system is very much smaller than 2**32. So we
+            // use wrapping add, because currently the compiler doesn't
+            // understand this property.
+            next_task = fault_index.wrapping_add(1);
+
+            ringbuf_entry!(Trace::TaskFaulted {
+                task: fault_index as u32
+            });
+        }
+    }
 }
 
 impl EreportBufs {
@@ -402,6 +427,7 @@ impl EreportBufs {
         Self {
             storage: snitch_core::Store::DEFAULT,
             recv: [0u8; RECV_BUF_SIZE],
+            panic_buf: [0u8; userlib::PANIC_MESSAGE_MAX_LEN],
         }
     }
 }
