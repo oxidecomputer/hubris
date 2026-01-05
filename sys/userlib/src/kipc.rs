@@ -166,9 +166,10 @@ pub fn software_irq(task: usize, mask: u32) {
 /// Reads a task's panic message into the provided `buf`, if the task is
 /// panicked.
 ///
-/// Note that Hubris normally only preserves the first [`PANIC_MESSAGE_MAX_LEN`] bytes of
-/// a task's panic message, and panic messages greater than that length are
-/// truncated. Thus, this function accepts a buffer of that length.
+/// Note that Hubris normally only preserves the first
+/// [`PANIC_MESSAGE_MAX_LEN`] bytes of a task's panic message, and panic
+/// messages greater than that length are truncated. Thus, this function
+/// accepts a buffer of that length.
 ///
 /// # Returns
 ///
@@ -196,7 +197,8 @@ pub fn read_panic_message(
     if rc == 0 {
         Ok(&buf[..len])
     } else {
-        // If the kernel sent us an unknown response code....i dunno, guess i'll die?
+        // If the kernel sent us an unknown response code....i dunno, guess
+        // i'll die?
         Err(ReadPanicMessageError::try_from(rc).unwrap_lite())
     }
 }

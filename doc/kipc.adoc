@@ -332,7 +332,7 @@ This interface is primarily intended for testing interrupt handling, and can
 only be called by a task running as the supervisor. When this KIPC is called,
 an actual machine interrupt is triggered for the relevant hardware interrupt
 source. The kernel then responds to the interrupt using its normal
-interrupt-handling infrastructure, which dispatches a notification to the 
+interrupt-handling infrastructure, which dispatches a notification to the
 subscribed task.
 
 This KIPC is *not* intended for use as a general-purpose inter-task signalling
@@ -430,7 +430,8 @@ Result<&[u8], abi::ReadPanicMessageError>
 ==== Notes
 
 If the requested task is not currently in the faulted state due to a panic,
-this KIPC returns the `abi::ReadPanicMessageError::TaskNotPanicked` response code.
+this KIPC returns the `abi::ReadPanicMessageError::TaskNotPanicked` response
+code.
 
 If the requested task has panicked, but the buffer containing its panic
 message is invalid, this KIPC returns the
@@ -443,7 +444,13 @@ The panic message is truncated to the length of the response buffer. Since
 Hubris only stores the first 128 bytes of panic messages, a 128-byte response
 buffer will normally not result in further truncation.
 
-The panic message is normally UTF-8. However, because of this byte-based truncation, and because the panic message is coming from a failing task in the first place, be careful not to *assume* that the panic message is valid UTF-8. See the `<[u8]>::utf8_chunks` function for one possible method of handling the panic message safely.
+The panic message is normally UTF-8. However, because of this byte-based
+truncation, and because the panic message is coming from a failing task in the
+first place, be careful not to *assume* that the panic message is valid UTF-8.
+See the
+link:++https://doc.rust-lang.org/stable/std/primitive.slice.html#method.utf8_chunks++[`<[u8]>::utf8_chunks`]
+function for one possible method of handling the panic message safely.
+
 == Receiving from the kernel
 
 The kernel never sends messages to tasks. It's simply not equipped to do so.
