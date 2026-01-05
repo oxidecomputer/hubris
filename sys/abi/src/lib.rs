@@ -593,7 +593,13 @@ pub enum ReadPanicMessageError {
     TaskNotPanicked = 1,
     /// The task has panicked, but its panic message buffer is invalid, so the
     /// kernel has not let us have it.
-    BadPanicMessage = 2,
+    ///
+    /// In practice, this is quite unlikely, and would require the task to have
+    /// panicked with a panic message slice of a length that exceeds the end of
+    /// the address space. Panicking via the Hubris userlib will never do this.
+    /// But, since the panicked task could be any arbitrary binary...anything is
+    /// possible.
+    BadPanicBuffer = 2,
 }
 
 /// We're using an explicit `TryFrom` impl for `ReadPanicMessageError` instead of
@@ -605,7 +611,7 @@ impl core::convert::TryFrom<u32> for ReadPanicMessageError {
     fn try_from(x: u32) -> Result<Self, Self::Error> {
         match x {
             1 => Ok(Self::TaskNotPanicked),
-            2 => Ok(Self::BadPanicMessage),
+            2 => Ok(Self::BadPanicBuffer),
             _ => Err(()),
         }
     }

@@ -538,8 +538,15 @@ fn read_panic_message(
     };
 
     let Ok(message) = task.save().as_panic_args().message else {
+        // There's really only one reason that `as_panic_args().message` would
+        // be an error. Because it's just a `USlice<u8>`, it can't be
+        // misaligned, so the only possible invalid slice here is one whose
+        // length exceeds the size of the address space, so that `base + len`
+        // would overflow.
+        //
+        // But, we shouldn't fault the *caller* over that; they didn't do it!
         return Err(UserError::Recoverable(
-            abi::ReadPanicMessageError::BadPanicMessage as u32,
+            abi::ReadPanicMessageError::BadPanicBuffer as u32,
             NextTask::Same,
         ));
     };
@@ -569,7 +576,7 @@ fn read_panic_message(
             // Source region was bad, but it's not the caller's fault; give them
             // a recoverable error.
             Err(UserError::Recoverable(
-                abi::ReadPanicMessageError::BadPanicMessage as u32,
+                abi::ReadPanicMessageError::BadPanicBuffer as u32,
                 NextTask::Same,
             ))
         }
