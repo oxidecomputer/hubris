@@ -621,8 +621,6 @@ impl EreportStore {
             Ok(())
         }
 
-        ringbuf_entry!(Trace::TaskFaulted { task, nfaults });
-
         let cursor = encode::write::Cursor::new(buf);
         let mut encoder = minicbor::Encoder::new(cursor);
         encoder.begin_map()?;
