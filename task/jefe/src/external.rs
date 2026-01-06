@@ -170,7 +170,7 @@ fn check_inner(states: &mut [TaskStatus], now: u64) -> Result<bool, Error> {
             // task to clear a held fault.
             state.disposition = Disposition::Restart;
             if matches!(state.state, TaskState::HoldFault) {
-                state.state = TaskState::Running { started_at: now };
+                state.state = TaskState::Running;
                 kipc::reinit_task(ndx, true);
             }
         }

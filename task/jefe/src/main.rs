@@ -325,19 +325,14 @@ struct TaskStatus {
 
 #[derive(Copy, Clone, Debug)]
 enum TaskState {
-    Running {
-        /// Time at which the task started
-        started_at: u64,
-    },
+    Running,
     HoldFault,
-    Timeout {
-        restart_at: u64,
-    },
+    Timeout { restart_at: u64 },
 }
 
 impl Default for TaskState {
     fn default() -> Self {
-        TaskState::Running { started_at: 0 }
+        TaskState::Running
     }
 }
 
@@ -368,8 +363,7 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
                             // This deadline has elapsed, go ahead and stand it
                             // back up.
                             kipc::reinit_task(index, true);
-                            status.state =
-                                TaskState::Running { started_at: now };
+                            status.state = TaskState::Running;
                         } else {
                             // This deadline remains in the future, min it into
                             // our next wake time.
