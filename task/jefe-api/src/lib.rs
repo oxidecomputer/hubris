@@ -47,6 +47,4 @@ impl Jefe {
     }
 }
 
-pub type TaskFaultCounts = [usize; hubris_num_tasks::NUM_TASKS];
-
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

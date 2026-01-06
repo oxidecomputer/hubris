@@ -77,7 +77,6 @@ fn main() -> ! {
     let mut server = ServerImpl {
         state: 0,
         deadline,
-        fault_counts: [usize; NUM_TASKS],
         task_states: &mut task_states,
         any_tasks_in_timeout: false,
         reset_reason: ResetReason::Unknown,
@@ -98,7 +97,6 @@ fn main() -> ! {
 struct ServerImpl<'s> {
     state: u32,
     task_states: &'s mut [TaskStatus; NUM_TASKS],
-    fault_counts: [usize; NUM_TASKS],
     deadline: u64,
     any_tasks_in_timeout: bool,
     reset_reason: ResetReason,
@@ -172,13 +170,6 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
         // work. This is a compromise because Idol can't easily describe an IPC
         // that won't return at this time.
         Ok(())
-    }
-
-    fn read_fault_counts(
-        &mut self,
-        msg: &userlib::RecvMessage,
-    ) -> Result<task_jefe_api::TaskFaultCounts, RequestError<Infallible>> {
-        Ok(self.fault_counts)
     }
 
     cfg_if::cfg_if! {
@@ -409,17 +400,6 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
                     continue;
                 };
 
-                // Increment this task's fault count.
-                unsafe {
-                    // Safety: again, we trust that the kernel has not given
-                    // us an out-of-range task index.
-                    self.fault_counts.get_unchecked_mut(fault_index)
-                }
-                // This is explicitly wrapping, as we expect that the caller
-                // will detect if new faults have been observed by comparing for
-                // equality.
-                .wrapping_add(1);
-
                 #[cfg(feature = "dump")]
                 {
                     // We'll ignore the result of dumping; it could fail
@@ -467,6 +447,6 @@ include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
 
 // And the Idol bits
 mod idl {
-    use task_jefe_api::{DumpAgentError, ResetReason, TaskFaultCounts};
+    use task_jefe_api::{DumpAgentError, ResetReason};
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

@@ -106,13 +106,5 @@ Interface(
             encoding: Hubpack,
             idempotent: true,
         ),
-
-        "read_fault_counts": (
-            description: "Reads the total number of times each task has faulted since the system started.",
-            args: {},
-            reply: Simple("TaskFaultCounts"),
-            idempotent: true,
-            encoding: Zerocopy,
-        ),
     },
 )
