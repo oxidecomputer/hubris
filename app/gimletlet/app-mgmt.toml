@@ -3,7 +3,6 @@ target = "thumbv7em-none-eabihf"
 board = "gimletlet-1"
 chip = "../../chips/stm32h7"
 stacksize = 1024
-fwid = true
 
 [kernel]
 name = "gimletlet"

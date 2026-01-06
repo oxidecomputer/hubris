@@ -378,6 +378,7 @@ struct ServerImpl {
     hf: HostFlash,
     seq: fmc_sequencer::Sequencer,
     espi: fmc_periph::espi::Espi,
+    debug: fmc_periph::debug_ctrl::DebugCtrl,
     vcore: VCore,
     /// Static buffer for encoding ereports. This is a static so that we don't
     /// have it on the stack when encoding ereports.
@@ -395,6 +396,7 @@ impl ServerImpl {
 
         let seq = fmc_sequencer::Sequencer::new(loader.get_token());
         let espi = fmc_periph::espi::Espi::new(loader.get_token());
+        let debug = fmc_periph::debug_ctrl::DebugCtrl::new(loader.get_token());
 
         ringbuf_entry!(Trace::Startup {
             early_power_rdbks: (&seq.early_power_rdbks).into(),
@@ -422,6 +424,7 @@ impl ServerImpl {
             hf: HostFlash::from(HF.get_task_id()),
             seq,
             espi,
+            debug,
             vcore: VCore::new(I2C.get_task_id(), packrat),
             ereport_buf,
         }
@@ -919,18 +922,14 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<u32, RequestError<core::convert::Infallible>> {
-        Err(RequestError::Fail(
-            idol_runtime::ClientError::BadMessageContents,
-        ))
+        Ok(self.debug.sp5_dbg2_toggle_counter.cnts())
     }
 
     fn gpio_cycle_count(
         &mut self,
         _: &RecvMessage,
     ) -> Result<u32, RequestError<core::convert::Infallible>> {
-        Err(RequestError::Fail(
-            idol_runtime::ClientError::BadMessageContents,
-        ))
+        Ok(self.debug.sp5_dbg2_toggle_timer.cnts())
     }
 }
 
