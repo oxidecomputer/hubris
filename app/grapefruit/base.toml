@@ -17,7 +17,7 @@ features = ["dump", "measurement-handoff"]
 extern-regions = ["dtcm"]
 
 [caboose]
-tasks = ["control_plane_agent"]
+tasks = ["control_plane_agent", "packrat"]
 region = "flash"
 size = 256
 default = true

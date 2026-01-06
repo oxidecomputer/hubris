@@ -6010,6 +6010,8 @@ dependencies = [
  "build-util",
  "cfg-if",
  "counters",
+ "drv-caboose",
+ "drv-caboose-pos",
  "drv-cpu-seq-api",
  "drv-rng-api",
  "gateway-ereport-messages",

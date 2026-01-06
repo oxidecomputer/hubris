@@ -14,7 +14,7 @@ peripheral-region = "fmc_nor_psram_bank_1"
 register-map = "../../drv/spartan7-loader/cosmo-seq/cosmo_seq_top.json"
 
 [caboose]
-tasks = ["control_plane_agent"]
+tasks = ["control_plane_agent", "packrat"]
 region = "flash"
 size = 256
 
@@ -128,7 +128,7 @@ notifications = ["i2c1-irq", "i2c2-irq", "i2c3-irq", "i2c4-irq"]
 [tasks.packrat]
 name = "task-packrat"
 priority = 1
-stacksize = 1040
+stacksize = 1080
 start = true
 # task-slots is explicitly empty: packrat should not send IPCs!
 task-slots = []

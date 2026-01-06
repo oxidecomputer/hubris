@@ -9,7 +9,7 @@ interrupts = {"uart8.irq" = "usart-irq"}
 
 # Ereport stuff
 [tasks.packrat]
-stacksize = 1040
+stacksize = 1080
 features = ["ereport"]
 
 [tasks.snitch]
