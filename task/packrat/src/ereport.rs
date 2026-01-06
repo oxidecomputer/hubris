@@ -704,10 +704,7 @@ impl EreportStore {
                 FaultInfo::Panic => {
                     encoder.str("k")?.str("hubris.fault.panic")?;
                     encoder.str("msg")?;
-                    match kipc::read_panic_message(
-                        usize::from(task.0),
-                        panic_buf,
-                    ) {
+                    match kipc::read_panic_message(task.index(), panic_buf) {
                         Ok(msg_chunks) => {
                             encoder.begin_str()?;
                             for chunk in msg_chunks {
