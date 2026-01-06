@@ -19,13 +19,12 @@ use minicbor::CborLen;
 use minicbor_lease::LeasedWriter;
 use ringbuf::{counted_ringbuf, ringbuf_entry};
 use task_packrat_api::{EreportReadError, EreportWriteError, OxideIdentity};
-use userlib::{kipc, sys_get_timer, RecvMessage, TaskId};
+use userlib::{sys_get_timer, RecvMessage, TaskId};
 use zerocopy::IntoBytes;
 
 pub(crate) struct EreportStore {
     storage: &'static mut snitch_core::Store<STORE_SIZE>,
     recv: &'static mut [u8; RECV_BUF_SIZE],
-    image_id: [u8; 8],
     pub(super) restart_id: Option<ereport_messages::RestartId>,
 }
 
@@ -98,15 +97,10 @@ impl EreportStore {
     ) -> Self {
         let now = sys_get_timer().now;
         storage.initialize(config::TASK_ID, now);
-        let image_id = {
-            let id = kipc::read_image_id();
-            u64::to_le_bytes(id)
-        };
 
         Self {
             storage,
             recv,
-            image_id,
             restart_id: None,
         }
     }
@@ -319,9 +313,6 @@ impl EreportStore {
         encoder: &mut minicbor::Encoder<LeasedWriter<'_, idol_runtime::W>>,
         vpd: &OxideIdentity,
     ) -> Result<(), minicbor::encode::Error<minicbor_lease::Error>> {
-        encoder
-            .str("hubris_archive_id")?
-            .bytes(&self.image_id[..])?;
         match core::str::from_utf8(&vpd.part_number[..]) {
             Ok(part_number) => {
                 encoder.str("baseboard_part_number")?.str(part_number)?;
