@@ -98,29 +98,30 @@ enum Trace {
         reports: u8,
         limit: u8,
     },
+    #[count(skip)]
     HoldingFaults(bool),
     FaultRecorded {
-        task: TaskId,
+        task_index: u16,
         #[count(children)]
         result: snitch_core::InsertResult,
         len: usize,
     },
     TaskFaulted {
-        task: TaskId,
+        task_index: u16,
         nfaults: usize,
     },
     // A fault report was >1024B long! what the heck!
     GiantFaultReport {
-        task: TaskId,
+        task_index: u16,
     },
     MissedPanicMessage {
-        task: TaskId,
+        task_index: u16,
     },
     BadPanicMessage {
-        task: TaskId,
+        task_index: u16,
     },
     TaskAlreadyRecovered {
-        task: TaskId,
+        task_index: u16,
     },
 }
 
@@ -452,6 +453,8 @@ impl EreportStore {
 
         let mut nfaulted: usize = 0;
         let mut nreported: usize = 0;
+
+        // Who faulted?
         for (task_index, state) in self.task_gens.iter_mut().enumerate() {
             let TaskHistory {
                 ref mut last_gen,
@@ -459,10 +462,11 @@ impl EreportStore {
             } = state;
 
             let task = TaskId::for_index_and_gen(
-                task_index as usize,
+                task_index,
                 Generation::from(*last_gen),
             );
             let task = userlib::sys_refresh_task_id(task);
+            let task_index = task_index as u16;
 
             // Check if the generation number has changed to determine whether
             // the task has faulted.
@@ -502,17 +506,20 @@ impl EreportStore {
             // `hubris_num_tasks::NUM_TASKS` tasks that have faulted, but the
             // compiler doesn't know this.
             nfaulted = nfaulted.wrapping_add(1);
-            ringbuf_entry!(Trace::TaskFaulted { task, nfaults });
+            ringbuf_entry!(Trace::TaskFaulted {
+                task_index,
+                nfaults
+            });
 
             if let Ok(ereport) = Self::record_faulted_task(
                 &mut self.recv[..],
                 &mut self.panic_buf,
-                task,
+                task_index,
                 nfaults,
             ) {
                 let result = self.storage.insert(task.0, timestamp, ereport);
                 ringbuf_entry!(Trace::FaultRecorded {
-                    task,
+                    task_index,
                     result,
                     len: ereport.len()
                 });
@@ -542,7 +549,7 @@ impl EreportStore {
                 // upper bound on the size of the fault report, but we
                 // should handle it gracefully rather than panicking
                 // Packrat, if I'm wrong.
-                ringbuf_entry!(Trace::GiantFaultReport { task });
+                ringbuf_entry!(Trace::GiantFaultReport { task_index });
                 // Treat the fault as acked, because if it was >1024B this
                 // time, it will always be >1024B next time.
                 *last_gen = curr_gen;
@@ -569,7 +576,7 @@ impl EreportStore {
     fn record_faulted_task<'buf>(
         buf: &'buf mut [u8],
         panic_buf: &mut [u8; userlib::PANIC_MESSAGE_MAX_LEN],
-        task: TaskId,
+        task_index: u16,
         nfaults: usize,
     ) -> Result<&'buf [u8], encode::Error<encode::write::EndOfSlice>> {
         /// Encode a CBOR object representing another task that was involved in a
@@ -636,7 +643,7 @@ impl EreportStore {
         // If we are able to read the faulted task's status, record a more
         // detailed ereport.
         if let TaskState::Faulted { fault, .. } =
-            kipc::read_task_status(task.index())
+            kipc::read_task_status(task_index as usize)
         {
             match fault {
                 FaultInfo::MemoryAccess { address, source } => {
@@ -702,7 +709,10 @@ impl EreportStore {
                 FaultInfo::Panic => {
                     encoder.str("k")?.str("hubris.fault.panic")?;
                     encoder.str("msg")?;
-                    match kipc::read_panic_message(task.index(), panic_buf) {
+                    match kipc::read_panic_message(
+                        task_index as usize,
+                        panic_buf,
+                    ) {
                         Ok(msg_chunks) => {
                             encoder.begin_str()?;
                             for chunk in msg_chunks {
@@ -721,11 +731,15 @@ impl EreportStore {
                             encoder.end()?;
                         }
                         Err(ReadPanicMessageError::TaskNotPanicked) => {
-                            ringbuf_entry!(Trace::MissedPanicMessage { task });
+                            ringbuf_entry!(Trace::MissedPanicMessage {
+                                task_index
+                            });
                             encoder.null()?;
                         }
                         Err(ReadPanicMessageError::BadPanicBuffer) => {
-                            ringbuf_entry!(Trace::BadPanicMessage { task });
+                            ringbuf_entry!(Trace::BadPanicMessage {
+                                task_index
+                            });
                             encoder.null()?;
                         }
                     }
@@ -777,7 +791,7 @@ impl EreportStore {
             // In this case, we should still generate an ereport indicating
             // that there was a fault, even if we can't say which one it was.
             encoder.str("k")?.str("hubris.fault.unknown")?;
-            ringbuf_entry!(Trace::TaskAlreadyRecovered { task });
+            ringbuf_entry!(Trace::TaskAlreadyRecovered { task_index });
         }
         encoder.end()?;
 
