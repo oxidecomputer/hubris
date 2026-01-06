@@ -257,7 +257,7 @@ notifications = ["socket", "timer"]
 [tasks.packrat]
 name = "task-packrat"
 priority = 1
-stacksize = 1080
+stacksize = 1096
 start = true
 # task-slots is explicitly empty: packrat should not send IPCs!
 task-slots = []

@@ -49,7 +49,7 @@ priority = 1
 start = true
 # task-slots is explicitly empty: packrat should not send IPCs!
 task-slots = []
-stacksize = 1080
+stacksize = 1096
 features = ["ereport"]
 
 [tasks.control_plane_agent]
