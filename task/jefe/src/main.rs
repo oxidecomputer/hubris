@@ -323,17 +323,14 @@ struct TaskStatus {
     state: TaskState,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 enum TaskState {
+    #[default]
     Running,
     HoldFault,
-    Timeout { restart_at: u64 },
-}
-
-impl Default for TaskState {
-    fn default() -> Self {
-        TaskState::Running
-    }
+    Timeout {
+        restart_at: u64,
+    },
 }
 
 impl idol_runtime::NotificationHandler for ServerImpl<'_> {
@@ -345,7 +342,7 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
         let now = userlib::sys_get_timer().now;
 
         // Handle any external (debugger) requests.
-        external::check(self.task_states, now);
+        external::check(self.task_states);
 
         if bits.has_timer_fired(notifications::TIMER_MASK) {
             // If our timer went off, we need to reestablish it. Compute a
@@ -399,7 +396,7 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
 
                 // If we're aware that this task is in a fault state (or waiting
                 // in timeout), don't bother making a syscall to enquire.
-                let TaskState::Running { .. } = &status.state else {
+                let TaskState::Running = &status.state else {
                     continue;
                 };
 
