@@ -120,6 +120,186 @@ jobs:
         uses: actions/deploy-pages@v4
         id: deployment
 
+  # Hubris builds have to be reproducible, and we want to test that in CI. This job does a build of
+  # a few boards with the standard Ubuntu image and no interference, as the baseline to compire to.
+  reproducible-a:
+    name: Reproducibility (A, ${{ matrix.name }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      matrix: &reproducibility-matrix
+        include:
+          - name: cosmo-b
+            image: default
+            app_toml: app/cosmo/rev-b.toml
+
+          - name: oxide-rot-1
+            image: a
+            app_toml: app/oxide-rot-1/app.toml
+    steps:
+      - name: Checkout the source code
+        uses: actions/checkout@v6
+
+      # We check explicitly to ensure the other job has a different one.
+      - name: Check that GCC is the system C toolchain
+        run: cc --version | grep -q "Free Software Foundation"
+
+      - name: Build a Hubris board
+        run: |
+          umask 0007 # We set the umask explicitly here to ensure the other job has a different one.
+          cargo xtask dist "$app_toml"
+        env:
+          app_toml: ${{ matrix.app_toml }}
+
+      - name: Upload the artifact to be later checked
+        uses: actions/upload-artifact@v6
+        with:
+          name: reproducible-${{ matrix.name }}-a
+          path: target/${{ matrix.name }}/dist/${{ matrix.image }}/build-${{ matrix.name }}-image-${{ matrix.image }}.zip
+          if-no-files-found: error
+
+  # Hubris builds have to be reproducible, and we want to test that in CI. This job does a build of
+  # a few boards trying to change the build environment as further as possible from reproducible-a.
+  # Each variability we introduce and its reasoning is documented in comments below.
+  #
+  # While this is not a guarantee that things are reproducible, this should catch most of the usual
+  # sources of nondeterminism within build systems and toolchains.
+  #
+  # More information on common variations are available on the reproducible-builds website:
+  # https://reproducible-builds.org/docs/env-variations/
+  reproducible-b:
+    name: Reproducibility (B, ${{ matrix.name }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      matrix: *reproducibility-matrix
+    env:
+      CUSTOM_ROOT: /very/long/path/we/are/doing/the/build/in/to/check/for/issues/with/long/paths/or/different/paths
+    steps:
+      - name: Install Ubuntu dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y disorderfs clang
+          sudo apt-get remove -y gcc
+          sudo apt-get autoremove -y
+
+      # In the Ubuntu dependencies installation step above we switched from GCC to Clang as the
+      # system C toolchain and linker. We are not using the system linker in the build process
+      # (Hubris uses the LLD copy bundled with Rust), so switching the system toolchain will catch
+      # us accidentally relying on it (and breaking reproducibility depending on which toolchain is
+      # installed on the system attempting to reproduce).
+      - name: Check that clang is the system C toolchain
+        run: |
+          ! command -v gcc >/dev/null
+          cc --version | grep -q clang
+
+      - name: Checkout the source code in the standard GitHub Actions directory
+        uses: actions/checkout@v6
+
+      # We run the Hubris build in a different directory, to ensure that paths are not hardcoded. We
+      # also use a very long path, as a reproducibility issue Emily found in the wild in the past
+      # was a rust-lang/rust test failing when built in a path that was too long.
+      #
+      # We also use disorderfs to randomize the ordering of listing directories, to catch code
+      # assuming directory entries are always returned in the same order.
+      - name: Prepare a custom build root directory with disorderfs
+        run: |
+          sudo mkdir -p $CUSTOM_ROOT
+          sudo disorderfs --multi-user=yes --shuffle-dirents=yes $(pwd) $CUSTOM_ROOT
+
+      # The current time might be included in the built artifacts. To ensure reproducibility, move
+      # the time forward by a day and a few hours. This should be enough to expose differences in
+      # the build without messing with TLS certificate expiration.
+      #
+      # Note that this causes very funny behavior in GitHub Action's workflow UI, as apparently step
+      # duration estimates are based on time reported by the runner???
+      - name: Move forward in time to ensure a different build date 
+        run: |
+          sudo timedatectl set-ntp false
+          sudo timedatectl set-time "$(date -d '1 day ago 11 hours ago' "+%Y-%m-%d %H:%M:%S")"
+          date
+
+      - name: Build a Hubris board
+        run: |
+          # Permissions of files created during the build process might leak into the artifacts.
+          # Changing the umask will let us test with different permissions than archives created in
+          # the reproducible-a job.
+          umask 0077
+
+          cd $CUSTOM_ROOT
+          cargo xtask dist "$app_toml"
+        env:
+          app_toml: ${{ matrix.app_toml }}
+
+      - name: Move back to the right time
+        run: sudo timedatectl set-ntp true
+
+      - name: Upload the artifact to be later checked
+        uses: actions/upload-artifact@v6
+        with:
+          name: reproducible-${{ matrix.name }}-b
+          path: ${{ env.CUSTOM_ROOT }}/target/${{ matrix.name }}/dist/${{ matrix.image }}/build-${{ matrix.name }}-image-${{ matrix.image }}.zip
+          if-no-files-found: error
+
+  reproducible-check:
+    name: Reproducibility check (${{ matrix.name }})
+    runs-on: ubuntu-slim
+    needs:
+      - reproducible-a
+      - reproducible-b
+    strategy:
+      fail-fast: false # We want all reports even if one fails.
+      matrix: *reproducibility-matrix
+    permissions: {}
+    steps:
+      - name: Install uv (Python package manager)
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: false
+          ignore-empty-workdir: true
+
+      - name: Download reproducible artifacts
+        uses: actions/download-artifact@v7
+        with:
+          pattern: reproducible-${{ matrix.name }}-*
+
+      # Diffoscope is a tool built by the reproducible-builds people to do a rich format-aware diff
+      # of two files. For example, it understands both zip archives and ELF objects, so it can point
+      # out the member of archive or the ELF section containing the difference.
+      #
+      # We are pulling diffoscope from PyPI transparently through `uvx`, instead of installing it
+      # from the Ubuntu archives with `apt-get`. We're doing this because due to (mostly sensible)
+      # packaging choice installing the Ubuntu package takes 6+ minutes, compared to the sub-second
+      # installation time `uvx` provides. The fact we get a newer version doesn't hurt either.
+      #
+      # If you are curious, the reason why the Ubuntu package takes so long to install is because
+      # diffoscope can produce better diffs the more CLI tools are installed, and the Ubuntu package
+      # depends on all of those tools. We don't really care about all of them, and the barebones
+      # version installed through PyPI is enough for us.
+      - name: Compare the two reproducible artifacts
+        run: uvx diffoscope --html report.html "reproducible-$name-a/build-$name-image-$image.zip" "reproducible-$name-b/build-$name-image-$image.zip"
+        env:
+          name: ${{ matrix.name }}
+          image: ${{ matrix.image }}
+
+      - name: Upload the diffoscope report
+        if: failure() # Only upload the report if the previous step failed.
+        id: diffoscope-report
+        uses: actions/upload-artifact@v6
+        with:
+          name: reproducible-diffoscope-report-${{ matrix.name }}
+          path: report.html
+          if-no-files-found: error
+
+      - name: Add a job summary to point folks to diffoscope
+        if: failure()
+        run: echo "Non-reproducibility was detected by CI in $name. [Download the diffoscope report]($report_url) to learn more" >> $GITHUB_STEP_SUMMARY
+        env:
+          name: ${{ matrix.name }}
+          report_url: ${{ steps.diffoscope-report.outputs.artifact-url }}
+
   finish:
     name: CI finished
     runs-on: ubuntu-slim
@@ -131,6 +311,7 @@ jobs:
       - format
       - docs-build
       - docs-deploy
+      - reproducible-check
     if: "${{ !cancelled() }}"
     steps:
       - name: Calculate the correct exit status
