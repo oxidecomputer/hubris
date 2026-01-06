@@ -16,7 +16,7 @@ use super::ereport_messages;
 
 use drv_caboose::CabooseReader;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError};
-use minicbor::CborLen;
+use minicbor::{encode, CborLen};
 use minicbor_lease::LeasedWriter;
 use ringbuf::{counted_ringbuf, ringbuf_entry};
 use task_packrat_api::{EreportReadError, EreportWriteError, OxideIdentity};
@@ -355,15 +355,14 @@ impl EreportStore {
         &self,
         encoder: &mut minicbor::Encoder<LeasedWriter<'_, idol_runtime::W>>,
         vpd: &OxideIdentity,
-    ) -> Result<(), minicbor::encode::Error<minicbor_lease::Error>> {
+    ) -> Result<(), encode::Error<minicbor_lease::Error>> {
         /// Attempt to grab a value from the caboose and stuff it into the CBOR
         /// encoder.
         fn caboose_value(
             tag: [u8; 4],
             reader: &mut CabooseReader<'_>,
             encoder: &mut minicbor::Encoder<LeasedWriter<'_, idol_runtime::W>>,
-        ) -> Result<(), minicbor::encode::Error<minicbor_lease::Error>>
-        {
+        ) -> Result<(), encode::Error<minicbor_lease::Error>> {
             let value = match reader.get(tag) {
                 Ok(value) => value,
                 Err(err) => {
@@ -476,8 +475,7 @@ impl EreportStore {
         &mut self,
         now: u64,
         fault_index: usize,
-    ) -> Result<(), minicbor::encode::Error<minicbor::encode::write::EndOfSlice>>
-    {
+    ) -> Result<(), encode::Error<encode::write::EndOfSlice>> {
         /// Encode a CBOR object representing another task that was involved in a
         /// fault; either the injecting task in a `FaultInfo::Injected`, or the
         /// server that responded with a `REPLY_FAULT` in a
@@ -490,10 +488,10 @@ impl EreportStore {
         ///     "gen": 1
         /// }
         /// ```
-        fn encode_task<W: minicbor::encode::Write>(
+        fn encode_task<W: encode::Write>(
             encoder: &mut minicbor::Encoder<W>,
             task: TaskId,
-        ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        ) -> Result<(), encode::Error<W::Error>> {
             encoder.begin_map()?;
             let idx = task.index();
             encoder.str("task")?;
@@ -515,10 +513,10 @@ impl EreportStore {
             Ok(())
         }
 
-        fn encode_fault_src<W: minicbor::encode::Write>(
+        fn encode_fault_src<W: encode::Write>(
             encoder: &mut minicbor::Encoder<W>,
             source: FaultSource,
-        ) -> Result<(), minicbor::encode::Error<W::Error>> {
+        ) -> Result<(), encode::Error<W::Error>> {
             encoder.str("src")?;
             match source {
                 FaultSource::Kernel => encoder.str("kern")?,
@@ -528,8 +526,8 @@ impl EreportStore {
         }
 
         let task = TaskId(fault_index as u16);
-        let cursor = minicbor::encode::write::Cursor::new(&mut self.recv[..]);
-        let mut encoder = minicbor::encode::Encoder::new(cursor);
+        let cursor = encode::write::Cursor::new(&mut self.recv[..]);
+        let mut encoder = minicbor::Encoder::new(cursor);
         encoder.begin_map()?;
         // Ereport version.
         encoder.str("v")?.u32(0)?;
@@ -709,11 +707,11 @@ impl EreportBufs {
 struct ByteGather<'a, 'b>(&'a [u8], &'b [u8]);
 
 impl<C> minicbor::Encode<C> for ByteGather<'_, '_> {
-    fn encode<W: minicbor::encode::Write>(
+    fn encode<W: encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
         _ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+    ) -> Result<(), encode::Error<W::Error>> {
         e.bytes_len((self.0.len().wrapping_add(self.1.len())) as u64)?;
         e.writer_mut()
             .write_all(self.0)
