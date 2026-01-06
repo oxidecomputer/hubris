@@ -19,10 +19,12 @@ use idol_runtime::{ClientError, Leased, LenLimit, RequestError};
 use minicbor::{encode, CborLen};
 use minicbor_lease::LeasedWriter;
 use ringbuf::{counted_ringbuf, ringbuf_entry};
+use task_jefe_api::TaskFaultCounts;
 use task_packrat_api::{EreportReadError, EreportWriteError, OxideIdentity};
 use userlib::{
-    kipc, sys_get_timer, FaultInfo, FaultSource, ReadPanicMessageError,
-    RecvMessage, ReplyFaultReason, TaskId, TaskState, UsageError,
+    kipc, sys_get_timer, task_slot, FaultInfo, FaultSource,
+    ReadPanicMessageError, RecvMessage, ReplyFaultReason, TaskId, TaskState,
+    UsageError,
 };
 use zerocopy::IntoBytes;
 
@@ -30,6 +32,8 @@ pub(crate) struct EreportStore {
     storage: &'static mut snitch_core::Store<STORE_SIZE>,
     recv: &'static mut [u8; RECV_BUF_SIZE],
     panic_buf: &'static mut [u8; userlib::PANIC_MESSAGE_MAX_LEN],
+    fault_counts: &'static mut TaskFaultCounts,
+    jefe: task_jefe_api::Jefe,
     pub(super) restart_id: Option<ereport_messages::RestartId>,
 }
 
@@ -37,7 +41,10 @@ pub(crate) struct EreportBufs {
     storage: snitch_core::Store<STORE_SIZE>,
     recv: [u8; RECV_BUF_SIZE],
     panic_buf: [u8; userlib::PANIC_MESSAGE_MAX_LEN],
+    fault_counts: TaskFaultCounts,
 }
+
+task_slot!(JEFE, jefe);
 
 /// Number of bytes of RAM dedicated to ereport storage. Each individual
 /// report consumes a small amount of this (currently 12 bytes).
@@ -95,8 +102,9 @@ enum Trace {
         result: snitch_core::InsertResult,
         len: usize,
     },
-    FoundFaultedTasks {
-        faulted_tasks: usize,
+    TaskFaulted {
+        task: TaskId,
+        nfaults: usize,
     },
     // A fault report was >1024B long! what the heck!
     GiantFaultReport {
@@ -133,6 +141,7 @@ impl EreportStore {
             ref mut storage,
             ref mut recv,
             ref mut panic_buf,
+            ref mut fault_counts,
         }: &'static mut EreportBufs,
     ) -> Self {
         let now = sys_get_timer().now;
@@ -142,6 +151,8 @@ impl EreportStore {
             storage,
             recv,
             panic_buf,
+            fault_counts,
+            jefe: task_jefe_api::Jefe::new(JEFE.get_task_id()),
             restart_id: None,
         }
     }
@@ -426,7 +437,28 @@ impl EreportStore {
     }
 
     pub(crate) fn record_faulted_tasks(&mut self, now: u64) {
-        ringbuf_entry!(Trace::FaultNotified);
+        use core::cmp::Ordering;
+
+        let new_counts = self.jefe.read_fault_counts();
+        for (task_index, (new, count)) in new_counts
+            .iter()
+            .zip(self.fault_counts.iter_mut())
+            .enumerate()
+        {
+            let nfaults = match new.cmp(*count) {
+                // If new < current, then the counter has wrapped around. The
+                // number of times the task has faulted is the difference
+                // between the current count and `usize::MAX` plus the new value
+                // of the counter.
+                Ordering::Less => (usize::MAX - *count) + new,
+                // Task has not faulted, so just move on to the next one.
+                Ordering::Equal => continue,
+                // The counter has increased, so the number of faults we haven't
+                // seen is just the difference between the new and current
+                // counts.
+                Ordering::Greater => new - *count,
+            };
+        }
         let mut next_task = 1;
         let mut faulted_tasks: usize = 0;
         while let Some(fault_index) = kipc::find_faulted_task(next_task) {
@@ -475,6 +507,7 @@ impl EreportStore {
         &mut self,
         now: u64,
         fault_index: usize,
+        nfaults: usize,
     ) -> Result<(), encode::Error<encode::write::EndOfSlice>> {
         /// Encode a CBOR object representing another task that was involved in a
         /// fault; either the injecting task in a `FaultInfo::Injected`, or the
@@ -526,11 +559,19 @@ impl EreportStore {
         }
 
         let task = TaskId(fault_index as u16);
+        ringbuf_entry!(Trace::TaskFaulted { task, nfaults });
+
         let cursor = encode::write::Cursor::new(&mut self.recv[..]);
         let mut encoder = minicbor::Encoder::new(cursor);
         encoder.begin_map()?;
         // Ereport version.
         encoder.str("v")?.u32(0)?;
+
+        // If the task has faulted multiple times since the last ereport we
+        // generated for it, record the count.
+        if nfaults > 1 {
+            encoder.str("nfaults")?.u32(nfaults);
+        }
 
         // If we are able to read the faulted task's status, record a more
         // detailed ereport.

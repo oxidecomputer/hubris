@@ -17,6 +17,7 @@ drv-caboose = { path = "../../drv/caboose", optional = true }
 drv-caboose-pos = { path = "../../drv/caboose-pos", optional = true }
 drv-rng-api = { path = "../../drv/rng-api", optional = true  }
 hubris-task-names = { path = "../../sys/task-names" }
+hubris-num-tasks = { path = "../../sys/num-tasks", optional = true }
 mutable-statics = { path = "../../lib/mutable-statics" }
 ringbuf = { path = "../../lib/ringbuf"  }
 counters = { path = "../../lib/counters"  }
@@ -43,7 +44,8 @@ no-ipc-counters = ["idol/no-counters"]
 ereport = [
     "dep:drv-caboose",
     "dep:drv-caboose-pos",
-    "dep:drv-rng-api", 
+    "dep:drv-rng-api",
+    "dep:hubris-num-tasks",
     "dep:minicbor",
     "dep:minicbor-lease",
     "dep:quote",
