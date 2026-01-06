@@ -115,7 +115,7 @@ impl Tofino {
                 // the i2c interface. This is underspecified, but some systems
                 //  need more than 0 time here for the i2c interface to
                 // ACK properly.
-                hl::sleep_for(50);
+                hl::sleep_for(200); // TODO: test from aaron
 
                 // Keep the PCIe PHY lanes in reset and delay PCIE_INIT so
                 // changes to the config can be made after loading parameters
