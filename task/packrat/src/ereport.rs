@@ -14,6 +14,7 @@
 
 use super::ereport_messages;
 
+use drv_caboose::CabooseReader;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError};
 use minicbor::CborLen;
 use minicbor_lease::LeasedWriter;
@@ -69,6 +70,15 @@ enum Trace {
         current_restart_id: u128,
     },
     MetadataError(#[count(children)] MetadataError),
+    MetadataSkippedNoVpd,
+    BadCabooseValue {
+        tag: [u8; 4],
+        #[count(children)]
+        err: drv_caboose::CabooseError,
+    },
+    CabooseValueNotUtf8 {
+        tag: [u8; 4],
+    },
     MetadataEncoded {
         len: u32,
     },
@@ -104,6 +114,7 @@ enum Trace {
 enum MetadataError {
     PartNumberNotUtf8,
     SerialNumberNotUtf8,
+    NoCaboose,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, counters::Count)]
@@ -228,7 +239,7 @@ impl EreportStore {
 
             // If we don't have our VPD identity yet, don't send any metadata.
             //
-            // We *could* include the Hubris image ID here even if our VPD
+            // We *could* include the caboose metadata here even if our VPD
             // identity hasn't been set, but sending an empty metadata map
             // ensures that MGS will continue asking for metadata on subsequent
             // requests.
@@ -243,6 +254,8 @@ impl EreportStore {
                         .saturating_sub(first_data_byte)
                         as u32,
                 });
+            } else {
+                ringbuf_entry!(Trace::MetadataSkippedNoVpd);
             }
             // Begin at ENA 0
             0
@@ -340,6 +353,32 @@ impl EreportStore {
         encoder: &mut minicbor::Encoder<LeasedWriter<'_, idol_runtime::W>>,
         vpd: &OxideIdentity,
     ) -> Result<(), minicbor::encode::Error<minicbor_lease::Error>> {
+        /// Attempt to grab a value from the caboose and stuff it into the CBOR
+        /// encoder.
+        fn caboose_value(
+            tag: [u8; 4],
+            reader: &mut CabooseReader<'_>,
+            encoder: &mut minicbor::Encoder<LeasedWriter<'_, idol_runtime::W>>,
+        ) -> Result<(), minicbor::encode::Error<minicbor_lease::Error>>
+        {
+            let value = match reader.get(tag) {
+                Ok(value) => value,
+                Err(err) => {
+                    ringbuf_entry!(Trace::BadCabooseValue { tag, err });
+                    encoder.null()?;
+                    return Ok(());
+                }
+            };
+            match core::str::from_utf8(value) {
+                Ok(value) => encoder.str(value)?,
+                Err(_) => {
+                    ringbuf_entry!(Trace::CabooseValueNotUtf8 { tag });
+                    encoder.null()?
+                }
+            };
+            Ok(())
+        }
+
         match core::str::from_utf8(&vpd.part_number[..]) {
             Ok(part_number) => {
                 encoder.str("baseboard_part_number")?.str(part_number)?;
@@ -357,6 +396,30 @@ impl EreportStore {
             )),
         }
         encoder.str("baseboard_rev")?.u32(vpd.revision)?;
+
+        encoder.str("hubris_caboose")?;
+        match drv_caboose_pos::CABOOSE_POS.as_slice() {
+            Some(caboose) => {
+                let mut caboose = CabooseReader::new(caboose);
+                // "caboose": {
+                //     "board": "gimlet-c",
+                //     "version": "...",
+                //     "commit": "..."
+                // }
+                encoder.begin_map()?;
+                encoder.str("board")?;
+                caboose_value(*b"BORD", &mut caboose, encoder)?;
+                encoder.str("version")?;
+                caboose_value(*b"VERS", &mut caboose, encoder)?;
+                encoder.str("commit")?;
+                caboose_value(*b"GITC", &mut caboose, encoder)?;
+                encoder.end()?;
+            }
+            None => {
+                ringbuf_entry!(Trace::MetadataError(MetadataError::NoCaboose));
+                encoder.null()?;
+            }
+        }
         Ok(())
     }
 
