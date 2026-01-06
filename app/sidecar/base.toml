@@ -10,7 +10,7 @@ features = ["dump", "measurement-handoff"]
 extern-regions = ["dtcm"]
 
 [caboose]
-tasks = ["control_plane_agent"]
+tasks = ["control_plane_agent", "packrat"]
 region = "flash"
 size = 256
 
@@ -257,7 +257,7 @@ notifications = ["socket", "timer"]
 [tasks.packrat]
 name = "task-packrat"
 priority = 1
-stacksize = 1040
+stacksize = 1096
 start = true
 # task-slots is explicitly empty: packrat should not send IPCs!
 task-slots = []

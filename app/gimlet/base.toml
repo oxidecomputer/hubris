@@ -9,7 +9,7 @@ requires = {flash = 32768, ram = 8192}
 features = ["dump"]
 
 [caboose]
-tasks = ["control_plane_agent"]
+tasks = ["control_plane_agent", "packrat"]
 region = "flash"
 size = 256
 
@@ -122,7 +122,7 @@ notifications = ["i2c1-irq", "jefe-state-change"]
 [tasks.packrat]
 name = "task-packrat"
 priority = 1
-stacksize = 1040
+stacksize = 1096
 start = true
 # task-slots is explicitly empty: packrat should not send IPCs!
 task-slots = []
