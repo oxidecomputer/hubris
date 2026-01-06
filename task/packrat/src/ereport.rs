@@ -448,6 +448,15 @@ impl EreportStore {
         }
     }
 
+    /// Record an ereport indicating that a Hubris task has faulted.
+    ///
+    /// Ereports for hardware faults are largely intended to be interpreted by
+    /// the automated fault-management system. The Hubris task ereports we
+    /// generate here, on the other hand, generally represent a firmware bug
+    /// rather than an anticipated hardware failure, and therefore, we expect
+    /// that it is much likelier that the ereport will be read by a human being.
+    /// Thus, we err on the side of human-readability somewhat with their
+    /// contents.
     fn record_faulted_task(
         &mut self,
         now: u64,
@@ -455,6 +464,18 @@ impl EreportStore {
         fault: FaultInfo,
     ) -> Result<(), minicbor::encode::Error<minicbor::encode::write::EndOfSlice>>
     {
+        /// Encode a CBOR object representing another task that was involved in a
+        /// fault; either the injecting task in a `FaultInfo::Injected`, or the
+        /// server that responded with a `REPLY_FAULT` in a
+        /// `FaultInfo::FromServer`.
+        ///
+        /// The encoded CBOR looks like this:
+        /// ```json
+        /// {
+        ///     "task": "task_name",
+        ///     "gen": 1
+        /// }
+        /// ```
         fn encode_task<W: minicbor::encode::Write>(
             encoder: &mut minicbor::Encoder<W>,
             task: TaskId,
@@ -462,6 +483,15 @@ impl EreportStore {
             encoder.begin_map()?;
             let idx = task.index();
             encoder.str("task")?;
+            // Prefer the string task name, provided that the the task isn't out
+            // of range (which would be weird and bad, but we may as well still
+            // report it).
+            //
+            // We could make the ereport more concise by using task indices
+            // rather than the whole string, but we expect fault ereports are
+            // likelier to be read by a human being and making them
+            // interpretable without direct access to the Hubris archive is
+            // useful.
             match hubris_task_names::TASK_NAMES.get(idx) {
                 Some(name) => encoder.str(name)?,
                 None => encoder.encode(idx)?,
@@ -522,7 +552,13 @@ impl EreportStore {
                 // These strings are kind of a lot of characters, but the rest
                 // of the ereport is short and it seems kinda helpfulish to use
                 // the same names as the actual enum variants, so they're
-                // greppable.
+                // greppable in the source code.
+                //
+                // Also, keeping them in CamelCase makes them a few characters
+                // shorter than converting them to snake_case, since there
+                // aren't any underscores. Which...kind of flies in the face of
+                // my previous paragraph saying that we're not trying to make
+                // them shorter to save on bytes of CBOR, but...
                 //
                 // Using `minicbor_serde` just to encode the enums as strings
                 // felt a bit too heavyweight, and required wrapping the encoder
@@ -555,7 +591,7 @@ impl EreportStore {
 
                             // avoid a big pile of 0-length strings
                             if !valid.is_empty() {
-                                encoder.str(chunk)?;
+                                encoder.str(valid)?;
                             }
 
                             if !chunk.invalid().is_empty() {
@@ -588,7 +624,13 @@ impl EreportStore {
                 // These strings are kind of a lot of characters, but the rest
                 // of the ereport is short and it seems kinda helpfulish to use
                 // the same names as the actual enum variants, so they're
-                // greppable.
+                // greppable in the source code.
+                //
+                // Also, keeping them in CamelCase makes them a few characters
+                // shorter than converting them to snake_case, since there
+                // aren't any underscores. Which...kind of flies in the face of
+                // my previous paragraph saying that we're not trying to make
+                // them shorter to save on bytes of CBOR, but...
                 //
                 // Using `minicbor_serde` just to encode the enums as strings
                 // felt a bit too heavyweight, and required wrapping the encoder
