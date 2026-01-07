@@ -111,11 +111,26 @@ impl Tofino {
                 self.sequencer.ack_vid()?;
                 ringbuf_entry!(Trace::TofinoVidAck);
 
-                // Let's give the Tofino some time to load before playing with
-                // the i2c interface. This is underspecified, but some systems
-                //  need more than 0 time here for the i2c interface to
-                // ACK properly.
-                hl::sleep_for(200); // TODO: test from aaron
+                // Wait until the FPGA indicates that it expects the Tofino to be in A0
+                let mut in_a0 = false;
+                while !in_a0 {
+                    match self.sequencer.state() {
+                        Ok(state) => {
+                            in_a0 = state == TofinoSeqState::A0;
+                            if !in_a0 {
+                                ringbuf_entry!(Trace::TofinoNotInA0);
+                                hl::sleep_for(10);
+                            }
+                        }
+                        Err(_) => {
+                            ringbuf_entry!(Trace::TofinoSequencerError(
+                                SeqError::FpgaError
+                            ));
+                            return Err(SeqError::FpgaError);
+                        }
+                    }
+                }
+                ringbuf_entry!(Trace::TofinoInA0);
 
                 // Keep the PCIe PHY lanes in reset and delay PCIE_INIT so
                 // changes to the config can be made after loading parameters
@@ -170,6 +185,10 @@ impl Tofino {
                     )?
                 ));
 
+                ringbuf_entry!(Trace::TofinoDbgRegBeforePerstRelease(
+                    TofinoDebugRegisters::new(&self.debug_port)?
+                ));
+
                 // Release PCIe reset, wait 200ms for the PCIe SerDes parameters
                 // to load and the peripheral to initialize. Log the latched
                 // IDCODE afterwards.
@@ -177,6 +196,10 @@ impl Tofino {
                 hl::sleep_for(200);
                 ringbuf_entry!(Trace::TofinoEepromIdCode(
                     self.debug_port.spi_eeprom_idcode()?
+                ));
+
+                ringbuf_entry!(Trace::TofinoDbgRegAfterPerstRelease(
+                    TofinoDebugRegisters::new(&self.debug_port)?
                 ));
 
                 // The EEPROM contents have loaded, scribble over some of the
@@ -264,6 +287,10 @@ impl Tofino {
                 )?;
                 self.set_pcie_present(true)?;
 
+                ringbuf_entry!(Trace::TofinoDbgRegAfterPerstHandoff(
+                    TofinoDebugRegisters::new(&self.debug_port)?
+                ));
+
                 return Ok(());
             } else {
                 ringbuf_entry!(Trace::TofinoNoVid);
@@ -338,8 +365,13 @@ impl Tofino {
         // in A0 as otherwise the debug port won't properly respond.
         if status.state == TofinoSeqState::A0 {
             // The reset value of the PCIe Dev Info register is 0, but we've observed the
-            // bottom four bits are set when the PCIe link is up.
-            self.pcie_dev_info = self.read_pcie_dev_info().unwrap_or(0);
+            // bottom four bits are set when the PCIe link is up. Additionally, when the
+            // link has been created successfully, bit 21 occassionally is set and then
+            // quickly cleared. We don't know what that is, but it creates a lot of noise
+            // in the ringbuf so we are going to mask it off for now.
+            const CLEAR_FLAPPY_BIT_MASK: u32 = !(1 << 21);
+            self.pcie_dev_info =
+                self.read_pcie_dev_info().unwrap_or(0) & CLEAR_FLAPPY_BIT_MASK;
             self.pcie_link_up = self.pcie_dev_info & 0xf == 0xf
         } else {
             self.pcie_dev_info = 0;

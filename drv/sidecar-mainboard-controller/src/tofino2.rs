@@ -158,6 +158,75 @@ pub struct TofinoSeqAbort {
     pub error: TofinoSeqError,
 }
 
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(C)]
+pub struct TofinoDebugRegisters {
+    pub freerun_cnt: u32,
+    pub pcie_dev_info: u32,
+    pub pcie_bus_dev: u32,
+    pub tl_tx_proterr: u32,
+    pub soft_reset: u32,
+    pub reset_option: u32,
+    pub dbg_rst: u32,
+    pub pcie_phy_lane_ctrl0: u32,
+    pub pcie_phy_lane_ctrl1: u32,
+    pub k_gen: u32,
+}
+
+impl TofinoDebugRegisters {
+    pub fn new(debug_port: &DebugPort) -> Result<Self, FpgaError> {
+        let freerun_cnt = debug_port.read_direct(
+            DirectBarSegment::Bar0,
+            TofinoBar0Registers::FreeRunningCounter,
+        )?;
+        let pcie_dev_info = debug_port.read_direct(
+            DirectBarSegment::Bar0,
+            TofinoBar0Registers::PcieDevInfo,
+        )?;
+        let pcie_bus_dev = debug_port.read_direct(
+            DirectBarSegment::Bar0,
+            TofinoBar0Registers::PcieBusDev,
+        )?;
+        let tl_tx_proterr = debug_port.read_direct(
+            DirectBarSegment::Bar0,
+            TofinoBar0Registers::TxProtocolErr,
+        )?;
+        let soft_reset = debug_port.read_direct(
+            DirectBarSegment::Bar0,
+            TofinoBar0Registers::SoftwareReset,
+        )?;
+        let reset_option = debug_port.read_direct(
+            DirectBarSegment::Bar0,
+            TofinoBar0Registers::ResetOptions,
+        )?;
+        let dbg_rst = debug_port
+            .read_direct(DirectBarSegment::Bar0, TofinoBar0Registers::DbgRst)?;
+        let pcie_phy_lane_ctrl0 = debug_port.read_direct(
+            DirectBarSegment::Bar0,
+            TofinoBar0Registers::PciePhyLaneControl0,
+        )?;
+        let pcie_phy_lane_ctrl1 = debug_port.read_direct(
+            DirectBarSegment::Bar0,
+            TofinoBar0Registers::PciePhyLaneControl1,
+        )?;
+        let k_gen = debug_port
+            .read_direct(DirectBarSegment::Cfg, TofinoCfgRegisters::KGen)?;
+
+        Ok(Self {
+            freerun_cnt,
+            pcie_dev_info,
+            pcie_bus_dev,
+            tl_tx_proterr,
+            soft_reset,
+            reset_option,
+            dbg_rst,
+            pcie_phy_lane_ctrl0,
+            pcie_phy_lane_ctrl1,
+            k_gen,
+        })
+    }
+}
+
 #[derive(Copy, Clone, Debug, Eq, FromPrimitive, PartialEq)]
 #[repr(C)]
 // These id's correspond to the order of status registers in the mainboard
@@ -497,8 +566,11 @@ pub enum TofinoBar0Registers {
     Scratchpad = 0x0,
     FreeRunningCounter = 0x10,
     PcieDevInfo = 0x180,
+    PcieBusDev = 0x1a0,
+    TxProtocolErr = 0x1b4,
     SoftwareReset = (0x80000 | 0x0),
     ResetOptions = (0x80000 | 0x4),
+    DbgRst = (0x80000 | 0xc),
     PciePhyLaneControl0 = (0x80000 | 0x38),
     PciePhyLaneControl1 = (0x80000 | 0x3c),
     PciePhyLaneStatus0 = (0x80000 | 0x40),
