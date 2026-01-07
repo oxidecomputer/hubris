@@ -161,7 +161,7 @@ pub struct TofinoSeqAbort {
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 #[repr(C)]
 pub struct TofinoDebugRegisters {
-    pub freerun_cnt: u32,
+    // pub freerun_cnt: u32,
     pub pcie_dev_info: u32,
     pub pcie_bus_dev: u32,
     pub tl_tx_proterr: u32,
@@ -175,10 +175,10 @@ pub struct TofinoDebugRegisters {
 
 impl TofinoDebugRegisters {
     pub fn new(debug_port: &DebugPort) -> Result<Self, FpgaError> {
-        let freerun_cnt = debug_port.read_direct(
-            DirectBarSegment::Bar0,
-            TofinoBar0Registers::FreeRunningCounter,
-        )?;
+        // let freerun_cnt = debug_port.read_direct(
+        //     DirectBarSegment::Bar0,
+        //     TofinoBar0Registers::FreeRunningCounter,
+        // )?;
         let pcie_dev_info = debug_port.read_direct(
             DirectBarSegment::Bar0,
             TofinoBar0Registers::PcieDevInfo,
@@ -213,7 +213,7 @@ impl TofinoDebugRegisters {
             .read_direct(DirectBarSegment::Cfg, TofinoCfgRegisters::KGen)?;
 
         Ok(Self {
-            freerun_cnt,
+            // freerun_cnt,
             pcie_dev_info,
             pcie_bus_dev,
             tl_tx_proterr,
@@ -266,6 +266,11 @@ pub enum Tofino2Vid {
     V0P759 = 0b1000,
 }
 
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub struct TofinoReset {
+    pub pcie: bool,
+    pub pwron: bool,
+}
 pub struct Sequencer {
     fpga: FpgaUserDesign,
 }
@@ -500,6 +505,21 @@ impl Sequencer {
 
     pub fn pcie_hotplug_status(&self) -> Result<u8, FpgaError> {
         self.fpga.read(Addr::PCIE_HOTPLUG_STATUS)
+    }
+
+    pub fn tofino_reset(&self) -> Result<TofinoReset, FpgaError> {
+        let byte: u8 = self.fpga.read(Addr::TOFINO_RESET)?;
+        Ok(TofinoReset {
+            pcie: byte & Reg::TOFINO_RESET::PCIE != 0,
+            pwron: byte & Reg::TOFINO_RESET::PWRON != 0,
+        })
+    }
+
+    pub fn host_reset(&self) -> Result<bool, FpgaError> {
+        let byte: u8 = self.fpga.read(Addr::PCIE_HOTPLUG_STATUS)?;
+        Ok(
+            byte & Reg::PCIE_HOTPLUG_STATUS::HOST_RESET != 0
+        )
     }
 }
 

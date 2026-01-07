@@ -75,9 +75,6 @@ enum Trace {
     TofinoNoVid,
     TofinoInA0,
     TofinoNotInA0,
-    TofinoDbgRegBeforePerstRelease(TofinoDebugRegisters),
-    TofinoDbgRegAfterPerstRelease(TofinoDebugRegisters),
-    TofinoDbgRegAfterPerstHandoff(TofinoDebugRegisters),
     TofinoEepromIdCode(u32),
     TofinoBar0RegisterValue(TofinoBar0Registers, u32),
     TofinoCfgRegisterValue(TofinoCfgRegisters, u32),
@@ -127,7 +124,9 @@ const POWER_GOOD: sys_api::PinSet = sys_api::Port::F.pin(12);
 enum TofinoStateDetails {
     A0 {
         pcie_link: bool,
-        pcie_dev_info: u32,
+        fpga_perst_out: bool,
+        host_perst_in: bool,
+        dbg_regs: TofinoDebugRegisters,
     },
     A2 {
         error: TofinoSeqError,

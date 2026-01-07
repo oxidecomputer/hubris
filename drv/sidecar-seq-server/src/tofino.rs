@@ -119,7 +119,7 @@ impl Tofino {
                             in_a0 = state == TofinoSeqState::A0;
                             if !in_a0 {
                                 ringbuf_entry!(Trace::TofinoNotInA0);
-                                hl::sleep_for(10);
+                                hl::sleep_for(20);
                             }
                         }
                         Err(_) => {
@@ -185,10 +185,6 @@ impl Tofino {
                     )?
                 ));
 
-                ringbuf_entry!(Trace::TofinoDbgRegBeforePerstRelease(
-                    TofinoDebugRegisters::new(&self.debug_port)?
-                ));
-
                 // Release PCIe reset, wait 200ms for the PCIe SerDes parameters
                 // to load and the peripheral to initialize. Log the latched
                 // IDCODE afterwards.
@@ -196,10 +192,6 @@ impl Tofino {
                 hl::sleep_for(200);
                 ringbuf_entry!(Trace::TofinoEepromIdCode(
                     self.debug_port.spi_eeprom_idcode()?
-                ));
-
-                ringbuf_entry!(Trace::TofinoDbgRegAfterPerstRelease(
-                    TofinoDebugRegisters::new(&self.debug_port)?
                 ));
 
                 // The EEPROM contents have loaded, scribble over some of the
@@ -286,10 +278,6 @@ impl Tofino {
                     TofinoPciePowerFault::SequencerControl,
                 )?;
                 self.set_pcie_present(true)?;
-
-                ringbuf_entry!(Trace::TofinoDbgRegAfterPerstHandoff(
-                    TofinoDebugRegisters::new(&self.debug_port)?
-                ));
 
                 return Ok(());
             } else {
@@ -387,9 +375,14 @@ impl Tofino {
                 ringbuf_entry!(Trace::TofinoSequencerTick(
                     self.policy,
                     match status.state {
-                        TofinoSeqState::A0 => TofinoStateDetails::A0 {
-                            pcie_link: self.pcie_link_up,
-                            pcie_dev_info: self.pcie_dev_info,
+                        TofinoSeqState::A0 => {
+                            
+                            TofinoStateDetails::A0 {
+                                pcie_link: self.pcie_link_up,
+                                fpga_perst_out: self.sequencer.tofino_reset()?.pcie,
+                                host_perst_in: self.sequencer.host_reset()?,
+                                dbg_regs: TofinoDebugRegisters::new(&self.debug_port)?,
+                            }
                         },
                         TofinoSeqState::A2 => TofinoStateDetails::A2 { error },
                         // Other states are unlikely to be observed due to their
