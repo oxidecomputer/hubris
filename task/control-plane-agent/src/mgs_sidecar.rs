@@ -20,10 +20,10 @@ use gateway_messages::{
     EcdsaSha2Nistp256Challenge, IgnitionCommand, IgnitionState, MgsError,
     MgsRequest, MgsResponse, MonorailComponentAction,
     MonorailComponentActionResponse, MonorailError as GwMonorailError,
-    PowerState, PowerStateTransition, RotBootInfo, RotRequest, RotResponse,
-    SensorRequest, SensorResponse, SpComponent, SpError, SpStateV2,
-    SpUpdatePrepare, UnlockChallenge, UnlockResponse, UpdateChunk, UpdateId,
-    UpdateStatus,
+    PcieRegisterRead, PowerState, PowerStateTransition, RotBootInfo,
+    RotRequest, RotResponse, SensorRequest, SensorResponse, SpComponent,
+    SpError, SpStateV2, SpUpdatePrepare, UnlockChallenge, UnlockResponse,
+    UpdateChunk, UpdateId, UpdateStatus,
 };
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
@@ -912,6 +912,9 @@ impl SpHandler for MgsHandler {
 
         match component {
             SpComponent::MONORAIL => Ok(drv_monorail_api::PORT_COUNT as u32),
+            SpComponent::TOFINO => {
+                Ok(drv_sidecar_seq_api::TOFINO_DEBUG_REGS.len() as u32)
+            }
             _ => self.common.inventory().num_component_details(&component),
         }
     }
@@ -931,9 +934,39 @@ impl SpHandler for MgsHandler {
             _ => self.common.inventory().component_details(
                 &component,
                 index,
-                // This should never be called, because num_component_details
-                // never returns > 0 for devices in the OUR_DEVICES array
-                |_, _| panic!("no custom devices"),
+                |dev, index| match dev.component {
+                    SpComponent::TOFINO => {
+                        let bounded = if (index.0 as usize)
+                            > drv_sidecar_seq_api::TOFINO_DEBUG_REGS.len()
+                        {
+                            panic!("index out of bounds");
+                        } else {
+                            index.0 as usize
+                        };
+
+                        let result = self.sequencer.tofino_read_direct(
+                            drv_sidecar_seq_api::TOFINO_DEBUG_REGS[bounded].0,
+                            drv_sidecar_seq_api::TOFINO_DEBUG_REGS[bounded]
+                                .1
+                                .into(),
+                        );
+
+                        ComponentDetails::Pcie(PcieRegisterRead {
+                            bar: drv_sidecar_seq_api::TOFINO_DEBUG_REGS
+                                [bounded]
+                                .0
+                                .into(),
+                            offset: drv_sidecar_seq_api::TOFINO_DEBUG_REGS
+                                [bounded]
+                                .1
+                                .into(),
+                            reg_result: result.map_err(|e| e.into()),
+                        })
+                    }
+                    _ => {
+                        panic!("unknown component");
+                    }
+                },
             ),
         }
     }

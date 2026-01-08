@@ -12,11 +12,12 @@ pub use drv_sidecar_mainboard_controller::{
     fan_modules::{FanModuleStatus, NUM_FAN_MODULES},
     tofino2::{
         DebugPortState, DirectBarSegment, SpiEepromInstruction,
-        TofinoPcieReset, TofinoPowerRail, TofinoSeqError, TofinoSeqState,
-        TofinoSeqStep,
+        TofinoCfgRegisters, TofinoPcieReset, TofinoPowerRail, TofinoSeqError,
+        TofinoSeqState, TofinoSeqStep,
     },
 };
 
+use drv_sidecar_mainboard_controller::tofino2::TofinoBar0Registers;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
 use userlib::*;
@@ -71,5 +72,33 @@ pub enum TofinoSequencerPolicy {
 pub struct FanModulePresence(pub [bool; NUM_FAN_MODULES]);
 
 pub use drv_sidecar_mainboard_controller::fan_modules::FanModuleIndex;
+
+// Wrapper for debugging because it's very messy to go from enum -> u32
+// in a constant array
+#[derive(Copy, Clone)]
+pub enum TofinoPcieRegs {
+    Bar0(TofinoBar0Registers),
+    Cfg(TofinoCfgRegisters),
+}
+
+impl From<TofinoPcieRegs> for u32 {
+    fn from(r: TofinoPcieRegs) -> Self {
+        match r {
+            TofinoPcieRegs::Bar0(b) => b.into(),
+            TofinoPcieRegs::Cfg(c) => c.into(),
+        }
+    }
+}
+
+pub const TOFINO_DEBUG_REGS: [(DirectBarSegment, TofinoPcieRegs); 2] = [
+    (
+        DirectBarSegment::Bar0,
+        TofinoPcieRegs::Bar0(TofinoBar0Registers::PcieDevInfo),
+    ),
+    (
+        DirectBarSegment::Bar0,
+        TofinoPcieRegs::Bar0(TofinoBar0Registers::SoftwareReset),
+    ),
+];
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
