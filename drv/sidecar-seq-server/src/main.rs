@@ -75,6 +75,9 @@ enum Trace {
     TofinoNoVid,
     TofinoInA0,
     TofinoNotInA0,
+    TofinoDbgRegBeforePerstRelease(TofinoDebugRegisters),
+    TofinoDbgRegAfterPerstRelease(TofinoDebugRegisters),
+    TofinoDbgRegAfterPerstHandoff(TofinoDebugRegisters),
     TofinoEepromIdCode(u32),
     TofinoBar0RegisterValue(TofinoBar0Registers, u32),
     TofinoCfgRegisterValue(TofinoCfgRegisters, u32),
@@ -126,6 +129,7 @@ enum TofinoStateDetails {
         pcie_link: bool,
         fpga_perst_out: bool,
         host_perst_in: bool,
+        fpga_present_out: bool,
         dbg_regs: TofinoDebugRegisters,
     },
     A2 {

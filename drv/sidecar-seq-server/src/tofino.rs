@@ -185,11 +185,18 @@ impl Tofino {
                     )?
                 ));
 
+                ringbuf_entry!(Trace::TofinoDbgRegBeforePerstRelease(
+                    TofinoDebugRegisters::new(&self.debug_port)?
+                ));
+
                 // Release PCIe reset, wait 200ms for the PCIe SerDes parameters
                 // to load and the peripheral to initialize. Log the latched
                 // IDCODE afterwards.
                 self.sequencer.set_pcie_reset(TofinoPcieReset::Deasserted)?;
                 hl::sleep_for(200);
+                ringbuf_entry!(Trace::TofinoDbgRegAfterPerstRelease(
+                    TofinoDebugRegisters::new(&self.debug_port)?
+                ));
                 ringbuf_entry!(Trace::TofinoEepromIdCode(
                     self.debug_port.spi_eeprom_idcode()?
                 ));
@@ -274,6 +281,9 @@ impl Tofino {
                 // attachment.
                 self.sequencer
                     .set_pcie_reset(TofinoPcieReset::HostControl)?;
+                ringbuf_entry!(Trace::TofinoDbgRegAfterPerstHandoff(
+                    TofinoDebugRegisters::new(&self.debug_port)?
+                ));
                 self.sequencer.set_pcie_power_fault(
                     TofinoPciePowerFault::SequencerControl,
                 )?;
@@ -353,13 +363,9 @@ impl Tofino {
         // in A0 as otherwise the debug port won't properly respond.
         if status.state == TofinoSeqState::A0 {
             // The reset value of the PCIe Dev Info register is 0, but we've observed the
-            // bottom four bits are set when the PCIe link is up. Additionally, when the
-            // link has been created successfully, bit 21 occassionally is set and then
-            // quickly cleared. We don't know what that is, but it creates a lot of noise
-            // in the ringbuf so we are going to mask it off for now.
-            const CLEAR_FLAPPY_BIT_MASK: u32 = !(1 << 21);
+            // bottom four bits are set when the PCIe link is up.
             self.pcie_dev_info =
-                self.read_pcie_dev_info().unwrap_or(0) & CLEAR_FLAPPY_BIT_MASK;
+                self.read_pcie_dev_info().unwrap_or(0);
             self.pcie_link_up = self.pcie_dev_info & 0xf == 0xf
         } else {
             self.pcie_dev_info = 0;
@@ -381,6 +387,7 @@ impl Tofino {
                                 pcie_link: self.pcie_link_up,
                                 fpga_perst_out: self.sequencer.tofino_reset()?.pcie,
                                 host_perst_in: self.sequencer.host_reset()?,
+                                fpga_present_out: self.sequencer.pcie_presence()?,
                                 dbg_regs: TofinoDebugRegisters::new(&self.debug_port)?,
                             }
                         },

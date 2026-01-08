@@ -179,10 +179,14 @@ impl TofinoDebugRegisters {
         //     DirectBarSegment::Bar0,
         //     TofinoBar0Registers::FreeRunningCounter,
         // )?;
+        // When the link has been created successfully, bit 21 occassionally is set and then
+        // quickly cleared. We don't know what that is, but it creates a lot of noise
+        // in the ringbuf so we are going to mask it off for now.
+        const CLEAR_FLAPPY_BIT_MASK: u32 = !(1 << 21);
         let pcie_dev_info = debug_port.read_direct(
             DirectBarSegment::Bar0,
             TofinoBar0Registers::PcieDevInfo,
-        )?;
+        )? & CLEAR_FLAPPY_BIT_MASK;
         let pcie_bus_dev = debug_port.read_direct(
             DirectBarSegment::Bar0,
             TofinoBar0Registers::PcieBusDev,
@@ -421,6 +425,11 @@ impl Sequencer {
 
     pub fn pcie_hotplug_ctrl(&self) -> Result<u8, FpgaError> {
         self.fpga.read(Addr::PCIE_HOTPLUG_CTRL)
+    }
+
+    pub fn pcie_presence(&self) -> Result<bool, FpgaError> {
+        let byte: u8 = self.fpga.read(Addr::PCIE_HOTPLUG_STATUS)?;
+        Ok(byte & Reg::PCIE_HOTPLUG_STATUS::PRESENT != 0)
     }
 
     pub fn write_pcie_hotplug_ctrl(
@@ -830,7 +839,7 @@ bitfield! {
     pub struct PcieControllerConfiguration(u32);
     pub pcie_version, _: 3, 0;
     pub port_type, _: 7, 4;
-    pub sris, set_sris: 8;
+    pub sris, aset_sris: 8;
     pub rate_2_5g_supported, _: 9;
     pub rate_5g_supported, _: 10;
     pub rate_8g_supported, _: 11;
