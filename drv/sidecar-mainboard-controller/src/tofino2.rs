@@ -486,6 +486,12 @@ pub enum DirectBarSegment {
     Cfg = 2 << 28,
 }
 
+impl From<DirectBarSegment> for u32 {
+    fn from(r: DirectBarSegment) -> Self {
+        r as u32
+    }
+}
+
 /// A few of the Tofino registers which are used in code below. These are found
 /// in 631384-0001_TF2-Top-Level_Register_Map_05062021.html as provided by
 /// Intel.

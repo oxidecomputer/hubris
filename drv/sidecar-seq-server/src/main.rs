@@ -595,12 +595,8 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         _: &RecvMessage,
         segment: DirectBarSegment,
         offset: u32,
-    ) -> Result<u32, RequestError<SeqError>> {
-        Ok(self
-            .tofino
-            .debug_port
-            .read_direct(segment, offset)
-            .map_err(SeqError::from)?)
+    ) -> Result<u32, RequestError<FpgaError>> {
+        Ok(self.tofino.debug_port.read_direct(segment, offset)?)
     }
 
     fn tofino_write_direct(
@@ -1049,7 +1045,7 @@ fn main() -> ! {
 mod idl {
     use super::{
         DebugPortState, DirectBarSegment, FanModuleIndex, FanModulePresence,
-        FanModuleStatus, SeqError, TofinoPcieReset, TofinoSeqError,
+        FanModuleStatus, FpgaError, SeqError, TofinoPcieReset, TofinoSeqError,
         TofinoSeqState, TofinoSeqStep, TofinoSequencerPolicy,
     };
 

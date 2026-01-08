@@ -48,6 +48,7 @@ impl Inventory {
                     SpComponent::SP5_HOST_CPU => Ok(2),
                     // The SP3 CPU can report GPIO toggle counts
                     SpComponent::SP3_HOST_CPU => Ok(1),
+
                     _ => Ok(0),
                 }
             }
@@ -297,6 +298,14 @@ mod devices_with_static_validation {
             description: "System attention LED",
             capabilities: DeviceCapabilities::IS_LED,
             // The LED is soldered to the board
+            presence: DevicePresence::Present,
+        },
+        #[cfg(feature = "sidecar")]
+        DeviceDescription {
+            component: SpComponent::TOFINO,
+            device: SpComponent::TOFINO.const_as_str(),
+            description: "Tofino",
+            capabilities: DeviceCapabilities::empty(),
             presence: DevicePresence::Present,
         },
     ];
