@@ -90,14 +90,56 @@ impl From<TofinoPcieRegs> for u32 {
     }
 }
 
-pub const TOFINO_DEBUG_REGS: [(DirectBarSegment, TofinoPcieRegs); 2] = [
+// Original list from hubris#2346, attempting to list in address order
+// but not a strict requirement
+pub const TOFINO_DEBUG_REGS: [(DirectBarSegment, TofinoPcieRegs); 12] = [
+    (
+        DirectBarSegment::Bar0,
+        TofinoPcieRegs::Bar0(TofinoBar0Registers::FreeRunningCounter),
+    ),
     (
         DirectBarSegment::Bar0,
         TofinoPcieRegs::Bar0(TofinoBar0Registers::PcieDevInfo),
     ),
     (
         DirectBarSegment::Bar0,
+        TofinoPcieRegs::Bar0(TofinoBar0Registers::PcieBusDev),
+    ),
+    (
+        DirectBarSegment::Bar0,
+        TofinoPcieRegs::Bar0(TofinoBar0Registers::TlTxProterr),
+    ),
+    (
+        DirectBarSegment::Bar0,
         TofinoPcieRegs::Bar0(TofinoBar0Registers::SoftwareReset),
+    ),
+    (
+        DirectBarSegment::Bar0,
+        TofinoPcieRegs::Bar0(TofinoBar0Registers::ResetOptions),
+    ),
+    (
+        DirectBarSegment::Bar0,
+        TofinoPcieRegs::Bar0(TofinoBar0Registers::DbgRst),
+    ),
+    (
+        DirectBarSegment::Bar0,
+        TofinoPcieRegs::Bar0(TofinoBar0Registers::PciePhyLaneControl0),
+    ),
+    (
+        DirectBarSegment::Bar0,
+        TofinoPcieRegs::Bar0(TofinoBar0Registers::PciePhyLaneControl1),
+    ),
+    (
+        DirectBarSegment::Bar0,
+        TofinoPcieRegs::Bar0(TofinoBar0Registers::PciePhyLaneStatus0),
+    ),
+    (
+        DirectBarSegment::Bar0,
+        TofinoPcieRegs::Bar0(TofinoBar0Registers::PciePhyLaneStatus1),
+    ),
+    (
+        DirectBarSegment::Cfg,
+        TofinoPcieRegs::Cfg(TofinoCfgRegisters::KGen),
     ),
 ];
 
