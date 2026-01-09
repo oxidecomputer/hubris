@@ -48,7 +48,6 @@ impl Inventory {
                     SpComponent::SP5_HOST_CPU => Ok(2),
                     // The SP3 CPU can report GPIO toggle counts
                     SpComponent::SP3_HOST_CPU => Ok(1),
-
                     _ => Ok(0),
                 }
             }
