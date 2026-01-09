@@ -939,7 +939,9 @@ impl SpHandler for MgsHandler {
                         let bounded = if (index.0 as usize)
                             > drv_sidecar_seq_api::TOFINO_DEBUG_REGS.len()
                         {
-                            panic!("index out bounds; this should be unreachable");
+                            panic!(
+                                "index out bounds; this should be unreachable"
+                            );
                         } else {
                             index.0 as usize
                         };
