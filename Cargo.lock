@@ -3066,7 +3066,7 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "gateway-ereport-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#6bd2660d651332f38949cdfd3d23d751ca54b120"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#97c0fa04867a908b92c13886a208e439c7eb713a"
 dependencies = [
  "zerocopy 0.8.27",
 ]
@@ -3074,7 +3074,7 @@ dependencies = [
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service?rev=f37e58b0dc08ff026c23cc4cbee1138d27578d0b#f37e58b0dc08ff026c23cc4cbee1138d27578d0b"
+source = "git+https://github.com/oxidecomputer/management-gateway-service#97c0fa04867a908b92c13886a208e439c7eb713a"
 dependencies = [
  "bitflags 2.9.4",
  "hubpack",
