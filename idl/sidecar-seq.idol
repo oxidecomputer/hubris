@@ -217,7 +217,7 @@ Interface(
             },
             reply: Result(
                 ok: "u32",
-                err: CLike("SeqError"),
+                err: CLike("FpgaError"),
             ),
         ),
 

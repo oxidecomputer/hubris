@@ -299,6 +299,14 @@ mod devices_with_static_validation {
             // The LED is soldered to the board
             presence: DevicePresence::Present,
         },
+        #[cfg(feature = "sidecar")]
+        DeviceDescription {
+            component: SpComponent::TOFINO,
+            device: SpComponent::TOFINO.const_as_str(),
+            description: "Tofino",
+            capabilities: DeviceCapabilities::empty(),
+            presence: DevicePresence::Present,
+        },
     ];
 
     pub(super) static OUR_DEVICES: &[DeviceDescription<'static>] =
