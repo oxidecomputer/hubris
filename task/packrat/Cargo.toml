@@ -40,7 +40,15 @@ gimlet = ["drv-cpu-seq-api"]
 grapefruit = []
 boot-kmdb = []
 no-ipc-counters = ["idol/no-counters"]
-ereport = ["dep:drv-caboose", "dep:drv-caboose-pos", "dep:drv-rng-api", "dep:snitch-core", "dep:minicbor", "dep:minicbor-lease", "dep:quote"]
+ereport = [
+    "dep:drv-caboose",
+    "dep:drv-caboose-pos",
+    "dep:drv-rng-api", 
+    "dep:minicbor",
+    "dep:minicbor-lease",
+    "dep:quote",
+    "dep:snitch-core",
+]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

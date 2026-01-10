@@ -154,12 +154,7 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
         if self.state != state {
             self.state = state;
 
-            for (task, mask) in generated::MAILING_LIST {
-                let taskid =
-                    TaskId::for_index_and_gen(task as usize, Generation::ZERO);
-                let taskid = userlib::sys_refresh_task_id(taskid);
-                userlib::sys_post(taskid, mask);
-            }
+            notify_tasks(&generated::STATE_CHANGE_MAILING_LIST);
         }
         Ok(())
     }
@@ -328,22 +323,14 @@ struct TaskStatus {
     state: TaskState,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 enum TaskState {
-    Running {
-        /// Time at which the task started
-        started_at: u64,
-    },
+    #[default]
+    Running,
     HoldFault,
     Timeout {
         restart_at: u64,
     },
-}
-
-impl Default for TaskState {
-    fn default() -> Self {
-        TaskState::Running { started_at: 0 }
-    }
 }
 
 impl idol_runtime::NotificationHandler for ServerImpl<'_> {
@@ -355,7 +342,7 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
         let now = userlib::sys_get_timer().now;
 
         // Handle any external (debugger) requests.
-        external::check(self.task_states, now);
+        external::check(self.task_states);
 
         if bits.has_timer_fired(notifications::TIMER_MASK) {
             // If our timer went off, we need to reestablish it. Compute a
@@ -373,8 +360,7 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
                             // This deadline has elapsed, go ahead and stand it
                             // back up.
                             kipc::reinit_task(index, true);
-                            status.state =
-                                TaskState::Running { started_at: now };
+                            status.state = TaskState::Running;
                         } else {
                             // This deadline remains in the future, min it into
                             // our next wake time.
@@ -410,7 +396,7 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
 
                 // If we're aware that this task is in a fault state (or waiting
                 // in timeout), don't bother making a syscall to enquire.
-                let TaskState::Running { started_at } = &status.state else {
+                let TaskState::Running = &status.state else {
                     continue;
                 };
 
@@ -425,27 +411,30 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
                 }
 
                 if status.disposition == Disposition::Restart {
-                    let dt = now.wrapping_sub(*started_at).wrapping_add(1);
-                    if let Some(extra_delay) = MIN_RUN_TIME.checked_sub(dt) {
-                        // Put it into timeout to hit our minimum run time
-                        let restart_at = now.wrapping_add(extra_delay);
-                        status.state = TaskState::Timeout { restart_at };
-                        self.deadline = self.deadline.min(restart_at);
-                        self.any_tasks_in_timeout = true;
-                    } else {
-                        // Stand it back up immediately
-                        kipc::reinit_task(fault_index, true);
-                        status.state = TaskState::Running { started_at: now };
-                    }
+                    // Put it into timeout.
+                    let restart_at = now.wrapping_add(MIN_RUN_TIME);
+                    status.state = TaskState::Timeout { restart_at };
+                    self.deadline = self.deadline.min(restart_at);
+                    self.any_tasks_in_timeout = true;
                 } else {
                     // Mark this one off so we don't revisit it until
                     // requested.
                     status.state = TaskState::HoldFault;
                 }
             }
+
+            notify_tasks(&generated::FAULT_MAILING_LIST);
         }
 
         userlib::sys_set_timer(Some(self.deadline), notifications::TIMER_MASK);
+    }
+}
+
+fn notify_tasks(mailing_list: &[(hubris_num_tasks::Task, u32)]) {
+    for &(task, mask) in mailing_list {
+        let taskid = TaskId::for_index_and_gen(task as usize, Generation::ZERO);
+        let taskid = userlib::sys_refresh_task_id(taskid);
+        userlib::sys_post(taskid, mask);
     }
 }
 

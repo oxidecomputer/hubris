@@ -482,12 +482,6 @@ fn find_faulted_task(
     message: USlice<u8>,
     response: USlice<u8>,
 ) -> Result<NextTask, UserError> {
-    if caller != 0 {
-        return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
-            UsageError::NotSupervisor,
-        )));
-    }
-
     let index = deserialize_message::<u32>(&tasks[caller], message)? as usize;
 
     // Note: we explicitly permit index == tasks.len(), which causes us to wrap

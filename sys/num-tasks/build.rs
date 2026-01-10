@@ -23,6 +23,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if build_util::has_feature("task-enum") {
         writeln!(task_file, "#[allow(non_camel_case_types)]").unwrap();
+        writeln!(task_file, "#[derive(Copy, Clone)]").unwrap();
         writeln!(task_file, "pub enum Task {{").unwrap();
         for line in task_enum {
             writeln!(task_file, "{line}").unwrap();

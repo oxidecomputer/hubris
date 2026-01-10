@@ -16,22 +16,27 @@ use super::ereport_messages;
 
 use drv_caboose::CabooseReader;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError};
-use minicbor::CborLen;
+use minicbor::{encode, CborLen};
 use minicbor_lease::LeasedWriter;
 use ringbuf::{counted_ringbuf, ringbuf_entry};
 use task_packrat_api::{EreportReadError, EreportWriteError, OxideIdentity};
-use userlib::{sys_get_timer, RecvMessage, TaskId};
+use userlib::{
+    kipc, sys_get_timer, FaultInfo, FaultSource, ReadPanicMessageError,
+    RecvMessage, ReplyFaultReason, TaskId, TaskState, UsageError,
+};
 use zerocopy::IntoBytes;
 
 pub(crate) struct EreportStore {
     storage: &'static mut snitch_core::Store<STORE_SIZE>,
     recv: &'static mut [u8; RECV_BUF_SIZE],
+    panic_buf: &'static mut [u8; userlib::PANIC_MESSAGE_MAX_LEN],
     pub(super) restart_id: Option<ereport_messages::RestartId>,
 }
 
 pub(crate) struct EreportBufs {
     storage: snitch_core::Store<STORE_SIZE>,
     recv: [u8; RECV_BUF_SIZE],
+    panic_buf: [u8; userlib::PANIC_MESSAGE_MAX_LEN],
 }
 
 /// Number of bytes of RAM dedicated to ereport storage. Each individual
@@ -83,6 +88,29 @@ enum Trace {
         reports: u8,
         limit: u8,
     },
+    FaultNotified,
+    FaultRecorded {
+        task: TaskId,
+        #[count(children)]
+        result: snitch_core::InsertResult,
+        len: usize,
+    },
+    FoundFaultedTasks {
+        faulted_tasks: usize,
+    },
+    // A fault report was >1024B long! what the heck!
+    GiantFaultReport {
+        task: TaskId,
+    },
+    MissedPanicMessage {
+        task: TaskId,
+    },
+    BadPanicMessage {
+        task: TaskId,
+    },
+    TaskAlreadyRecovered {
+        task: TaskId,
+    },
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, counters::Count)]
@@ -104,6 +132,7 @@ impl EreportStore {
         EreportBufs {
             ref mut storage,
             ref mut recv,
+            ref mut panic_buf,
         }: &'static mut EreportBufs,
     ) -> Self {
         let now = sys_get_timer().now;
@@ -112,6 +141,7 @@ impl EreportStore {
         Self {
             storage,
             recv,
+            panic_buf,
             restart_id: None,
         }
     }
@@ -325,15 +355,14 @@ impl EreportStore {
         &self,
         encoder: &mut minicbor::Encoder<LeasedWriter<'_, idol_runtime::W>>,
         vpd: &OxideIdentity,
-    ) -> Result<(), minicbor::encode::Error<minicbor_lease::Error>> {
+    ) -> Result<(), encode::Error<minicbor_lease::Error>> {
         /// Attempt to grab a value from the caboose and stuff it into the CBOR
         /// encoder.
         fn caboose_value(
             tag: [u8; 4],
             reader: &mut CabooseReader<'_>,
             encoder: &mut minicbor::Encoder<LeasedWriter<'_, idol_runtime::W>>,
-        ) -> Result<(), minicbor::encode::Error<minicbor_lease::Error>>
-        {
+        ) -> Result<(), encode::Error<minicbor_lease::Error>> {
             let value = match reader.get(tag) {
                 Ok(value) => value,
                 Err(err) => {
@@ -395,6 +424,274 @@ impl EreportStore {
         }
         Ok(())
     }
+
+    pub(crate) fn record_faulted_tasks(&mut self, now: u64) {
+        ringbuf_entry!(Trace::FaultNotified);
+        let mut next_task = 1;
+        let mut faulted_tasks: usize = 0;
+        while let Some(fault_index) = kipc::find_faulted_task(next_task) {
+            let fault_index = usize::from(fault_index);
+            // This addition cannot overflow in practice, because the number
+            // of tasks in the system is very much smaller than 2**32. So we
+            // use wrapping add, because currently the compiler doesn't
+            // understand this property.
+            next_task = fault_index.wrapping_add(1);
+            faulted_tasks = faulted_tasks.wrapping_add(1);
+
+            if self.record_faulted_task(now, fault_index).is_err() {
+                ringbuf_entry!(Trace::GiantFaultReport {
+                    task: TaskId(fault_index as u16)
+                });
+            }
+        }
+
+        ringbuf_entry!(Trace::FoundFaultedTasks { faulted_tasks });
+        if faulted_tasks == 0 {
+            // Okay, this is a bit weird. We got a notification saying tasks
+            // have faulted, but by the time we scanned for faulted tasks, we
+            // couldn't find any. This means one of two things:
+            //
+            // 1. The fault notification was spurious (in practice, this
+            //    probably means someone is dorking around with Hiffy and sent
+            //    a fake notification just to mess with us...)
+            // 2. Tasks faulted, but we were not scheduled for at least 50ms
+            //    after the faults occurred, and Jefe has already restarted
+            //    them by the time we were permtited to run.
+            //
+            // We should probably record some kind of ereport about this.
+        }
+    }
+
+    /// Record an ereport indicating that a Hubris task has faulted.
+    ///
+    /// Ereports for hardware faults are largely intended to be interpreted by
+    /// the automated fault-management system. The Hubris task ereports we
+    /// generate here, on the other hand, generally represent a firmware bug
+    /// rather than an anticipated hardware failure, and therefore, we expect
+    /// that it is much likelier that the ereport will be read by a human being.
+    /// Thus, we err on the side of human-readability somewhat with their
+    /// contents.
+    fn record_faulted_task(
+        &mut self,
+        now: u64,
+        fault_index: usize,
+    ) -> Result<(), encode::Error<encode::write::EndOfSlice>> {
+        /// Encode a CBOR object representing another task that was involved in a
+        /// fault; either the injecting task in a `FaultInfo::Injected`, or the
+        /// server that responded with a `REPLY_FAULT` in a
+        /// `FaultInfo::FromServer`.
+        ///
+        /// The encoded CBOR looks like this:
+        /// ```json
+        /// {
+        ///     "task": "task_name",
+        ///     "gen": 1
+        /// }
+        /// ```
+        fn encode_task<W: encode::Write>(
+            encoder: &mut minicbor::Encoder<W>,
+            task: TaskId,
+        ) -> Result<(), encode::Error<W::Error>> {
+            encoder.begin_map()?;
+            let idx = task.index();
+            encoder.str("task")?;
+            // Prefer the string task name, provided that the the task isn't out
+            // of range (which would be weird and bad, but we may as well still
+            // report it).
+            //
+            // We could make the ereport more concise by using task indices
+            // rather than the whole string, but we expect fault ereports are
+            // likelier to be read by a human being and making them
+            // interpretable without direct access to the Hubris archive is
+            // useful.
+            match hubris_task_names::TASK_NAMES.get(idx) {
+                Some(name) => encoder.str(name)?,
+                None => encoder.encode(idx)?,
+            };
+            encoder.str("gen")?.u8(task.generation().into())?;
+            encoder.end()?;
+            Ok(())
+        }
+
+        fn encode_fault_src<W: encode::Write>(
+            encoder: &mut minicbor::Encoder<W>,
+            source: FaultSource,
+        ) -> Result<(), encode::Error<W::Error>> {
+            encoder.str("src")?;
+            match source {
+                FaultSource::Kernel => encoder.str("kern")?,
+                FaultSource::User => encoder.str("usr")?,
+            };
+            Ok(())
+        }
+
+        let task = TaskId(fault_index as u16);
+        let cursor = encode::write::Cursor::new(&mut self.recv[..]);
+        let mut encoder = minicbor::Encoder::new(cursor);
+        encoder.begin_map()?;
+        // Ereport version.
+        encoder.str("v")?.u32(0)?;
+
+        // If we are able to read the faulted task's status, record a more
+        // detailed ereport.
+        if let TaskState::Faulted { fault, .. } =
+            kipc::read_task_status(fault_index)
+        {
+            match fault {
+                FaultInfo::MemoryAccess { address, source } => {
+                    encoder.str("k")?.str("hubris.fault.mem_access")?;
+                    encoder.str("addr")?.encode(address)?;
+                    encode_fault_src(&mut encoder, source)?;
+                }
+                FaultInfo::StackOverflow { address } => {
+                    encoder.str("k")?.str("hubris.fault.stack")?;
+                    encoder.str("addr")?.encode(address)?;
+                }
+                FaultInfo::BusError { address, source } => {
+                    encoder.str("k")?.str("hubris.fault.bus")?;
+                    encoder.str("addr")?.encode(address)?;
+                    encode_fault_src(&mut encoder, source)?;
+                }
+                FaultInfo::DivideByZero => {
+                    encoder.str("k")?.str("hubris.fault.div_0")?;
+                }
+                FaultInfo::IllegalText => {
+                    encoder.str("k")?.str("hubris.fault.illegal_txt")?;
+                }
+                FaultInfo::IllegalInstruction => {
+                    encoder.str("k")?.str("hubris.fault.illegal_inst")?;
+                }
+                FaultInfo::InvalidOperation(code) => {
+                    encoder.str("k")?.str("hubris.fault.invalid_op")?;
+                    encoder.str("code")?.u32(code)?;
+                }
+                FaultInfo::SyscallUsage(err) => {
+                    encoder.str("k")?.str("hubris.fault.syscall")?;
+                    encoder.str("err")?;
+                    // These strings are kind of a lot of characters, but the rest
+                    // of the ereport is short and it seems kinda helpfulish to use
+                    // the same names as the actual enum variants, so they're
+                    // greppable in the source code.
+                    //
+                    // Also, keeping them in CamelCase makes them a few characters
+                    // shorter than converting them to snake_case, since there
+                    // aren't any underscores. Which...kind of flies in the face of
+                    // my previous paragraph saying that we're not trying to make
+                    // them shorter to save on bytes of CBOR, but...
+                    //
+                    // Using `minicbor_serde` just to encode the enums as strings
+                    // felt a bit too heavyweight, and required wrapping the encoder
+                    // in a serde thingy, so...we're doing it the old fashioned way.
+                    encoder.str(match err {
+                        UsageError::BadSyscallNumber => "BadSyscallNumber",
+                        UsageError::InvalidSlice => "InvalidSlice",
+                        UsageError::TaskOutOfRange => "TaskOutOfRange",
+                        UsageError::IllegalTask => "IllegalTask",
+                        UsageError::LeaseOutOfRange => "LeaseOutOfRange",
+                        UsageError::OffsetOutOfRange => "OffsetOutOfRange",
+                        UsageError::NoIrq => "NoIrq",
+                        UsageError::BadKernelMessage => "BadKernelMessage",
+                        UsageError::BadReplyFaultReason => {
+                            "BadReplyFaultReason"
+                        }
+                        UsageError::NotSupervisor => "NotSupervisor",
+                        UsageError::ReplyTooBig => "ReplyTooBig",
+                    })?;
+                }
+                FaultInfo::Panic => {
+                    encoder.str("k")?.str("hubris.fault.panic")?;
+                    encoder.str("msg")?;
+                    match kipc::read_panic_message(
+                        usize::from(task.0),
+                        self.panic_buf,
+                    ) {
+                        Ok(msg_chunks) => {
+                            encoder.begin_str()?;
+                            for chunk in msg_chunks {
+                                let valid = chunk.valid();
+
+                                // avoid a big pile of 0-length strings
+                                if !valid.is_empty() {
+                                    encoder.str(valid)?;
+                                }
+
+                                if !chunk.invalid().is_empty() {
+                                    // oh, there's also some trash in here!
+                                    encoder.str("�")?;
+                                }
+                            }
+                            encoder.end()?;
+                        }
+                        Err(ReadPanicMessageError::TaskNotPanicked) => {
+                            ringbuf_entry!(Trace::MissedPanicMessage { task });
+                            encoder.null()?;
+                        }
+                        Err(ReadPanicMessageError::BadPanicBuffer) => {
+                            ringbuf_entry!(Trace::BadPanicMessage { task });
+                            encoder.null()?;
+                        }
+                    }
+                }
+                FaultInfo::Injected(by_task) => {
+                    encoder.str("k")?.str("hubris.fault.injected")?;
+                    encoder.str("by")?;
+                    encode_task(&mut encoder, by_task)?;
+                }
+                FaultInfo::FromServer(srv_task, err) => {
+                    encoder.str("k")?.str("hubris.fault.from_srv")?;
+                    encoder.str("srv")?;
+                    encode_task(&mut encoder, srv_task)?;
+                    encoder.str("err")?;
+                    // These strings are kind of a lot of characters, but the rest
+                    // of the ereport is short and it seems kinda helpfulish to use
+                    // the same names as the actual enum variants, so they're
+                    // greppable in the source code.
+                    //
+                    // Also, keeping them in CamelCase makes them a few characters
+                    // shorter than converting them to snake_case, since there
+                    // aren't any underscores. Which...kind of flies in the face of
+                    // my previous paragraph saying that we're not trying to make
+                    // them shorter to save on bytes of CBOR, but...
+                    //
+                    // Using `minicbor_serde` just to encode the enums as strings
+                    // felt a bit too heavyweight, and required wrapping the encoder
+                    // in a serde thingy, so...we're doing it the old fashioned way.
+                    encoder.str(match err {
+                        ReplyFaultReason::UndefinedOperation => {
+                            "UndefinedOperation"
+                        }
+                        ReplyFaultReason::BadMessageSize => "BadMessageSize",
+                        ReplyFaultReason::BadMessageContents => {
+                            "BadMessageContent"
+                        }
+                        ReplyFaultReason::BadLeases => "BadLeases",
+                        ReplyFaultReason::ReplyBufferTooSmall => {
+                            "ReplyBufferTooSmall"
+                        }
+                        ReplyFaultReason::AccessViolation => "AccessViolation",
+                    })?;
+                }
+            };
+        } else {
+            // Welp. By the time we managed to read the faulted task's status,
+            // it has already been restarted.
+            //
+            // In this case, we should still generate an ereport indicating
+            // that there was a fault, even if we can't say which one it was.
+            encoder.str("k")?.str("hubris.fault.unknown")?;
+            ringbuf_entry!(Trace::TaskAlreadyRecovered { task });
+        }
+        encoder.end()?;
+
+        let cursor = encoder.into_writer();
+        let len = cursor.position();
+        let buf = cursor.into_inner();
+
+        let result = self.storage.insert(task.0, now, &buf[..len]);
+        ringbuf_entry!(Trace::FaultRecorded { task, result, len });
+
+        Ok(())
+    }
 }
 
 impl EreportBufs {
@@ -402,6 +699,7 @@ impl EreportBufs {
         Self {
             storage: snitch_core::Store::DEFAULT,
             recv: [0u8; RECV_BUF_SIZE],
+            panic_buf: [0u8; userlib::PANIC_MESSAGE_MAX_LEN],
         }
     }
 }
@@ -409,11 +707,11 @@ impl EreportBufs {
 struct ByteGather<'a, 'b>(&'a [u8], &'b [u8]);
 
 impl<C> minicbor::Encode<C> for ByteGather<'_, '_> {
-    fn encode<W: minicbor::encode::Write>(
+    fn encode<W: encode::Write>(
         &self,
         e: &mut minicbor::Encoder<W>,
         _ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
+    ) -> Result<(), encode::Error<W::Error>> {
         e.bytes_len((self.0.len().wrapping_add(self.1.len())) as u64)?;
         e.writer_mut()
             .write_all(self.0)
