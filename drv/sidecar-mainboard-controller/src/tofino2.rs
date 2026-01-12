@@ -169,7 +169,9 @@ pub struct TofinoDebugRegisters {
     pub reset_option: u32,
     pub dbg_rst: u32,
     pub pcie_phy_lane_ctrl0: u32,
+    pub pcie_phy_lane_status0: u32,
     pub pcie_phy_lane_ctrl1: u32,
+    pub pcie_phy_lane_status1: u32,
     pub k_gen: u32,
 }
 
@@ -209,9 +211,17 @@ impl TofinoDebugRegisters {
             DirectBarSegment::Bar0,
             TofinoBar0Registers::PciePhyLaneControl0,
         )?;
+        let pcie_phy_lane_status0 = debug_port.read_direct(
+            DirectBarSegment::Bar0,
+            TofinoBar0Registers::PciePhyLaneStatus0,
+        )?;
         let pcie_phy_lane_ctrl1 = debug_port.read_direct(
             DirectBarSegment::Bar0,
             TofinoBar0Registers::PciePhyLaneControl1,
+        )?;
+        let pcie_phy_lane_status1 = debug_port.read_direct(
+            DirectBarSegment::Bar0,
+            TofinoBar0Registers::PciePhyLaneStatus1,
         )?;
         let k_gen = debug_port
             .read_direct(DirectBarSegment::Cfg, TofinoCfgRegisters::KGen)?;
@@ -225,7 +235,9 @@ impl TofinoDebugRegisters {
             reset_option,
             dbg_rst,
             pcie_phy_lane_ctrl0,
+            pcie_phy_lane_status0,
             pcie_phy_lane_ctrl1,
+            pcie_phy_lane_status1,
             k_gen,
         })
     }

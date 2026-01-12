@@ -266,7 +266,7 @@ features = ["ereport"]
 [tasks.sequencer]
 name = "drv-sidecar-seq-server"
 priority = 4
-stacksize = 4096
+stacksize = 8192
 start = true
 task-slots = [
     "sys",
