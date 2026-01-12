@@ -379,6 +379,14 @@ impl Task {
     pub fn save_mut(&mut self) -> &mut crate::arch::SavedState {
         &mut self.save
     }
+
+    /// Returns the number of times this task has restarted since boot.
+    ///
+    /// This is the full-fat 32-bit restart counter, the low 8 bits of which
+    /// form the [`Generation`] value  returned by [`Task::generation`].
+    pub fn restart_count(&self) -> u32 {
+        self.generation
+    }
 }
 
 /// Interface that must be implemented by the `arch::SavedState` type. This

@@ -458,6 +458,32 @@ fn test_fault_selfinjection() {
     );
 }
 
+fn test_restart_counters() {
+    let assist_idx = ASSIST.get_task_index() as usize;
+    let mut counters = [0; hubris_num_tasks::NUM_TASKS];
+
+    // Grab whatever the current restart count for the test assistant is. This
+    // way, the test need not make assertions that depend on keeping track of
+    // the number of other times the task assistant has restarted in tests that
+    // run before this one.
+    let prior = {
+        kipc::read_task_restart_counts(&mut counters);
+        counters[assist_idx]
+    };
+
+    // Make it fault
+    test_fault(AssistOp::BadExec, BAD_ADDRESS);
+
+    kipc::read_task_restart_counts(&mut counters);
+    assert_eq!(counters[assist_idx], prior + 1);
+
+    // Okay, just restart it.
+    restart_assistant();
+
+    kipc::read_task_restart_counts(&mut counters);
+    assert_eq!(counters[assist_idx], prior + 2);
+}
+
 /// Tests that a `panic!` in a task is recorded as a fault.
 fn test_panic() {
     let assist = assist_task_id();

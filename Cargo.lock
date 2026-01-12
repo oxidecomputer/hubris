@@ -6880,6 +6880,7 @@ dependencies = [
  "cfg-if",
  "cortex-m",
  "critical-section",
+ "hubris-num-tasks",
  "num-derive 0.4.2",
  "num-traits",
  "paste",

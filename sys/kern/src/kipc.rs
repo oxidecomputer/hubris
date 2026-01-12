@@ -46,6 +46,9 @@ pub fn handle_kernel_message(
         Ok(Kipcnum::ReadPanicMessage) => {
             read_panic_message(tasks, caller, args.message?, args.response?)
         }
+        Ok(Kipcnum::ReadTaskRestartCounts) => {
+            read_task_restart_counts(tasks, caller, args.response?)
+        }
 
         _ => {
             // Task has sent an unknown message to the kernel. That's bad.
@@ -581,4 +584,43 @@ fn read_panic_message(
             ))
         }
     }
+}
+
+fn read_task_restart_counts(
+    tasks: &mut [Task],
+    caller: usize,
+    mut response: USlice<u8>,
+) -> Result<NextTask, UserError> {
+    // Is the response buffer big enough to contain a 32-bit integer for every
+    // task in the image? The userlib `kipc::read_task_restart_counts` function
+    // should ensure this, but someone could be calling us manually with a
+    // wrong-sized buffer...
+    let len_bytes = tasks.len() * 4;
+    if response.len() < len_bytes {
+        return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
+            UsageError::ReplyTooBig,
+        )));
+    }
+
+    // XXX(eliza): Yes, the "C-style" for loop over an array is wildly
+    // un-Rust-ular, but in order to call `Task::try_write` in order to safely
+    // write into the response buffer, we must be able to mutably borrow `&mut
+    // tasks[caller]`, and thus cannot borrow the whole tasks array to iterate
+    // over it the way you would normally.
+    //
+    // Whatever.
+    for i in 0..tasks.len() {
+        // Grab the restart count...
+        let count = tasks[i].restart_count();
+        let off = i * 4;
+        // ..and stuff it straight into the caller's memory.
+        tasks[caller].try_write(&mut response)?[off..][..4]
+            .copy_from_slice(&count.to_le_bytes());
+    }
+
+    tasks[caller]
+        .save_mut()
+        .set_send_response_and_length(0, len_bytes);
+
+    Ok(NextTask::Same)
 }

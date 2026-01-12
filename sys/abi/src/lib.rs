@@ -513,6 +513,7 @@ pub enum Kipcnum {
     SoftwareIrq = 8,
     FindFaultedTask = 9,
     ReadPanicMessage = 10,
+    ReadTaskRestartCounts = 11,
 }
 
 impl core::convert::TryFrom<u16> for Kipcnum {
@@ -530,6 +531,7 @@ impl core::convert::TryFrom<u16> for Kipcnum {
             8 => Ok(Self::SoftwareIrq),
             9 => Ok(Self::FindFaultedTask),
             10 => Ok(Self::ReadPanicMessage),
+            11 => Ok(Self::ReadTaskRestartCounts),
             _ => Err(()),
         }
     }

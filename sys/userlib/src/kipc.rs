@@ -219,3 +219,30 @@ pub fn read_panic_message(
         Err(ReadPanicMessageError::try_from(rc).unwrap_lite())
     }
 }
+
+/// Reads the kernel's task restart counters into the provided array.
+///
+/// The kernel internally tracks the number of times each task has restarted as
+/// a 32-bit integer.The lowest 8 bits of these counters are used to form the
+/// task's generation number, which is returned by the
+/// [`sys_refresh_task_id`](crate::sys_refresh_task_id) syscall. This KIPC
+/// allows access to the full-fat 32-bit counter, which is less likely to have
+/// wrapped since the last time it was observed.
+///
+/// These counters are set to 0 at boot time, and are incremented each time the
+/// task restarts. Of course, the 32-bit counter may also wrap, if a task has
+/// restarted more than [`u32::MAX`] times. But, [`u32::MAX`] is a much bigger
+/// number than 255.
+pub fn read_task_restart_counts(counters: &mut TaskRestartCounts) {
+    let (_rc, _len) = sys_send(
+        TaskId::KERNEL,
+        Kipcnum::ReadTaskRestartCounts as u16,
+        task.as_bytes(),
+        counters.as_mut_bytes(),
+        &[],
+    );
+}
+
+/// The array of task restart counts used as an argument to
+/// [`read_task_restart_counts`].
+pub type TaskRestartCounts = [u32; hubris_num_tasks::NUM_TASKS];
