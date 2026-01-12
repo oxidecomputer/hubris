@@ -5861,6 +5861,7 @@ dependencies = [
  "ringbuf",
  "serde",
  "ssmarshal",
+ "static-cell",
  "task-jefe-api",
  "userlib",
  "zerocopy 0.8.27",

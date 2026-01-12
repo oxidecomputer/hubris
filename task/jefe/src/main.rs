@@ -37,12 +37,12 @@ use core::convert::Infallible;
 use hubris_num_tasks::NUM_TASKS;
 use humpty::DumpArea;
 use idol_runtime::RequestError;
+use static_cell::ClaimOnceCell;
 use task_jefe_api::{DumpAgentError, ResetReason};
 use userlib::{kipc, Generation, TaskId};
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Disposition {
-    #[default]
     Restart,
     Hold,
 }
@@ -64,7 +64,11 @@ const MIN_RUN_TIME: u64 = 50;
 
 #[export_name = "main"]
 fn main() -> ! {
-    let mut task_states = [TaskStatus::default(); hubris_num_tasks::NUM_TASKS];
+    let task_states = {
+        static STATES: ClaimOnceCell<[TaskStatus; NUM_TASKS]> =
+            ClaimOnceCell::new([TaskStatus::initial(); NUM_TASKS]);
+        STATES.claim()
+    };
     for held_task in generated::HELD_TASKS {
         task_states[held_task as usize].disposition = Disposition::Hold;
     }
@@ -77,7 +81,7 @@ fn main() -> ! {
     let mut server = ServerImpl {
         state: 0,
         deadline,
-        task_states: &mut task_states,
+        task_states,
         any_tasks_in_timeout: false,
         reset_reason: ResetReason::Unknown,
 
@@ -322,7 +326,7 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
 
 /// Structure we use for tracking the state of the tasks we supervise. There is
 /// one of these per supervised task.
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug)]
 struct TaskStatus {
     disposition: Disposition,
     state: TaskState,
@@ -340,9 +344,17 @@ enum TaskState {
     },
 }
 
-impl Default for TaskState {
-    fn default() -> Self {
-        TaskState::Running { started_at: 0 }
+impl TaskStatus {
+    /// This really ought to be a `Default` implementation, but it's used in a
+    /// `ClaimOnceCell` static initializer and `Default` cannot yet be `const
+    /// fn`.
+    ///
+    /// Whatever...
+    const fn initial() -> Self {
+        Self {
+            disposition: Disposition::Restart,
+            state: TaskState::Running { started_at: 0 },
+        }
     }
 }
 

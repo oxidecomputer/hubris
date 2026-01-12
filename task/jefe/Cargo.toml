@@ -21,6 +21,7 @@ hubris-num-tasks = { path = "../../sys/num-tasks", features = ["task-enum"] }
 ringbuf = { path = "../../lib/ringbuf"  }
 task-jefe-api = { path = "../jefe-api" }
 userlib = { path = "../../sys/userlib" }
+static-cell = { path = "../../lib/static-cell" }
 
 [build-dependencies]
 anyhow = { workspace = true }
