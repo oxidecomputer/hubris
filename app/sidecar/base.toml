@@ -20,7 +20,7 @@ priority = 0
 max-sizes = {flash = 16384, ram = 4096}
 start = true
 features = ["dump", "fault-counters"]
-stacksize = 2296
+stacksize = 2328
 notifications = ["fault", "timer"]
 extern-regions = ["sram1", "sram2", "sram3", "sram4"]
 
