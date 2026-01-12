@@ -74,6 +74,15 @@ fn main() -> ! {
 
     external::set_ready();
 
+    #[cfg(feature = "fault-counters")]
+    let fault_counts = {
+        use static_cell::ClaimOnceCell;
+
+        static COUNTS: ClaimOnceCell<task_jefe_api::TaskFaultCounts> =
+            ClaimOnceCell::new([0usize; NUM_TASKS]);
+        COUNTS.claim()
+    };
+
     let mut server = ServerImpl {
         state: 0,
         deadline,
@@ -88,7 +97,7 @@ fn main() -> ! {
         last_dump_area: None,
 
         #[cfg(feature = "fault-counters")]
-        fault_counts: [0usize; NUM_TASKS],
+        fault_counts,
     };
     let mut buf = [0u8; idl::INCOMING_SIZE];
 
@@ -105,7 +114,7 @@ struct ServerImpl<'s> {
     reset_reason: ResetReason,
 
     #[cfg(feature = "fault-counters")]
-    fault_counts: [usize; NUM_TASKS],
+    fault_counts: &'s mut [usize; NUM_TASKS],
 
     /// Base address for a linked list of dump areas
     #[cfg(feature = "dump")]
@@ -188,7 +197,7 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
         _msg: &userlib::RecvMessage,
     ) -> Result<task_jefe_api::TaskFaultCounts, RequestError<Infallible>> {
         #[cfg(feature = "fault-counters")]
-        return Ok(self.fault_counts);
+        return Ok(*self.fault_counts);
 
         #[cfg(not(feature = "fault-counters"))]
         Err(RequestError::Fail(
