@@ -5875,6 +5875,7 @@ dependencies = [
  "derive-idol-err",
  "dump-agent-api",
  "hubpack",
+ "hubris-num-tasks",
  "humpty",
  "idol",
  "idol-runtime",

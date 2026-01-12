@@ -12,7 +12,8 @@ features = ["h753", "stm32h7", "i2c", "gpio", "qspi", "hash", "sprot"]
 task-slots = ["hash_driver", "hf", "i2c_driver", "sprot", "sys", "update_server", "user_leds"]
 
 [tasks.jefe]
-features = ["dump"]
+stacksize = 2264
+features = ["dump", "fault-counters"]
 extern-regions = ["sram1", "sram2", "sram3", "sram4"]
 
 [tasks.jefe.config.allowed-callers]

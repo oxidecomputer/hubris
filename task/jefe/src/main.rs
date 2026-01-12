@@ -86,6 +86,9 @@ fn main() -> ! {
 
         #[cfg(feature = "dump")]
         last_dump_area: None,
+
+        #[cfg(feature = "fault-counters")]
+        fault_counts: [0usize; NUM_TASKS],
     };
     let mut buf = [0u8; idl::INCOMING_SIZE];
 
@@ -100,6 +103,9 @@ struct ServerImpl<'s> {
     deadline: u64,
     any_tasks_in_timeout: bool,
     reset_reason: ResetReason,
+
+    #[cfg(feature = "fault-counters")]
+    fault_counts: [usize; NUM_TASKS],
 
     /// Base address for a linked list of dump areas
     #[cfg(feature = "dump")]
@@ -175,6 +181,19 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
         // work. This is a compromise because Idol can't easily describe an IPC
         // that won't return at this time.
         Ok(())
+    }
+
+    fn read_fault_counts(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<task_jefe_api::TaskFaultCounts, RequestError<Infallible>> {
+        #[cfg(feature = "fault-counters")]
+        return Ok(self.fault_counts);
+
+        #[cfg(not(feature = "fault-counters"))]
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::UnknownOperation,
+        ))
     }
 
     cfg_if::cfg_if! {
@@ -414,6 +433,20 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
                     continue;
                 };
 
+                #[cfg(feature = "fault-counters")]
+                {
+                    // Increment this task's fault count.
+                    let fault_count = unsafe {
+                        // Safety: again, we trust that the kernel has not
+                        // given us an out-of-range task index.
+                        self.fault_counts.get_unchecked_mut(fault_index)
+                    };
+                    // This is explicitly wrapping, as we expect that the
+                    // caller will detect if new faults have been observed by
+                    // comparing for equality.
+                    *fault_count = fault_count.wrapping_add(1);
+                }
+
                 #[cfg(feature = "dump")]
                 {
                     // We'll ignore the result of dumping; it could fail
@@ -458,6 +491,6 @@ include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
 
 // And the Idol bits
 mod idl {
-    use task_jefe_api::{DumpAgentError, ResetReason};
+    use task_jefe_api::{DumpAgentError, ResetReason, TaskFaultCounts};
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
