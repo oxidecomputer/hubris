@@ -65,7 +65,7 @@ const MIN_RUN_TIME: u64 = 50;
 #[export_name = "main"]
 fn main() -> ! {
     let task_states = {
-        const fn initialize_task_states() -> [TaskStatus; NUM_TASKS] {
+        static STATES: ClaimOnceCell<[TaskStatus; NUM_TASKS]> = {
             const INITIAL_STATE: TaskStatus = TaskStatus {
                 disposition: Disposition::Restart,
                 state: TaskState::Running { started_at: 0 },
@@ -77,11 +77,8 @@ fn main() -> ! {
                 tasks[held_task].disposition = Disposition::Hold;
                 i += 1;
             }
-            tasks
-        }
-
-        static STATES: ClaimOnceCell<[TaskStatus; NUM_TASKS]> =
-            ClaimOnceCell::new(initialize_task_states());
+            ClaimOnceCell::new(tasks)
+        };
         STATES.claim()
     };
 
