@@ -15,7 +15,7 @@ name = "task-jefe"
 priority = 0
 max-sizes = {flash = 4096, ram = 512}
 start = true
-stacksize = 200
+stacksize = 384
 notifications = ["fault", "timer"]
 features = ["no-panic", "nano"]
 
