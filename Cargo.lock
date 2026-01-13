@@ -6031,6 +6031,7 @@ dependencies = [
  "spd",
  "static-cell",
  "static_assertions",
+ "task-jefe-api",
  "task-packrat-api",
  "userlib",
  "zerocopy 0.8.27",

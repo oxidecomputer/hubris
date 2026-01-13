@@ -14,11 +14,14 @@
 
 use super::ereport_messages;
 
+use core::cmp::Ordering;
 use drv_caboose::CabooseReader;
+use hubris_num_tasks::NUM_TASKS;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError};
 use minicbor::{encode, CborLen};
 use minicbor_lease::LeasedWriter;
 use ringbuf::{counted_ringbuf, ringbuf_entry};
+use task_jefe_api::Jefe;
 use task_packrat_api::{EreportReadError, EreportWriteError, OxideIdentity};
 use userlib::{
     kipc, sys_get_timer, FaultInfo, FaultSource, ReadPanicMessageError,
@@ -29,14 +32,38 @@ use zerocopy::IntoBytes;
 pub(crate) struct EreportStore {
     storage: &'static mut snitch_core::Store<STORE_SIZE>,
     recv: &'static mut [u8; RECV_BUF_SIZE],
-    panic_buf: &'static mut [u8; userlib::PANIC_MESSAGE_MAX_LEN],
     pub(super) restart_id: Option<ereport_messages::RestartId>,
+    //
+    // === Stuff for task fault reporting ===
+    //
+    /// Buffer into which we read panic messages when preparing a fault report
+    /// for a panicked task. Thankfully, the userlib tells us the maximum length
+    /// (in bytes) that these will be.
+    panic_buf: &'static mut [u8; userlib::PANIC_MESSAGE_MAX_LEN],
+    jefe: Jefe,
+    /// Tracks the last observed fault count for each task in the image. This is
+    /// used to determine whether a task has faulted when Jefe notifies us of
+    /// task faults.
+    task_fault_states: &'static mut [TaskFaultHistory; NUM_TASKS],
+    /// Set when we are notified of task fault(s) by Jefe, but there is
+    /// insufficient space in the ereport buffer to record a fault ereport.
+    ///
+    /// If this is set, we will attempt to record a (less detailed) ereport for
+    /// the task fault later, when space is freed up.
+    holding_faults: bool,
 }
 
 pub(crate) struct EreportBufs {
     storage: snitch_core::Store<STORE_SIZE>,
     recv: [u8; RECV_BUF_SIZE],
     panic_buf: [u8; userlib::PANIC_MESSAGE_MAX_LEN],
+    task_fault_states: [TaskFaultHistory; NUM_TASKS],
+}
+
+#[derive(Copy, Clone)]
+struct TaskFaultHistory {
+    count: usize,
+    last_fault_time: Option<u64>,
 }
 
 /// Number of bytes of RAM dedicated to ereport storage. Each individual
@@ -95,21 +122,30 @@ enum Trace {
         result: snitch_core::InsertResult,
         len: usize,
     },
-    FoundFaultedTasks {
-        faulted_tasks: usize,
+    #[count(skip)]
+    HoldingFaults(bool),
+    FaultRecorded {
+        task_index: u16,
+        #[count(children)]
+        result: snitch_core::InsertResult,
+        len: usize,
+    },
+    TaskFaulted {
+        task_index: u16,
+        nfaults: usize,
     },
     // A fault report was >1024B long! what the heck!
     GiantFaultReport {
-        task: TaskId,
+        task_index: u16,
     },
     MissedPanicMessage {
-        task: TaskId,
+        task_index: u16,
     },
     BadPanicMessage {
-        task: TaskId,
+        task_index: u16,
     },
     TaskAlreadyRecovered {
-        task: TaskId,
+        task_index: u16,
     },
 }
 
@@ -133,6 +169,7 @@ impl EreportStore {
             ref mut storage,
             ref mut recv,
             ref mut panic_buf,
+            ref mut task_fault_states,
         }: &'static mut EreportBufs,
     ) -> Self {
         let now = sys_get_timer().now;
@@ -142,6 +179,8 @@ impl EreportStore {
             storage,
             recv,
             panic_buf,
+            task_fault_states,
+            holding_faults: false,
             restart_id: None,
         }
     }
@@ -233,6 +272,14 @@ impl EreportStore {
                     committed_ena: committed_ena.into(),
                     flushed,
                 });
+
+                // If we have freed up space in the buffer, and we are aware of
+                // task faults which previously did not fit in the buffer, try
+                // to say something about them.
+                if flushed > 0 && self.holding_faults {
+                    ringbuf_entry!(Trace::HoldingFaults(trtrueue));
+                    self.record_faulted_tasks(userlib::sys_get_timer().now);
+                }
             }
             begin_ena.into()
         } else {
@@ -426,6 +473,92 @@ impl EreportStore {
     }
 
     pub(crate) fn record_faulted_tasks(&mut self, now: u64) {
+        // Either Jefe has sent us a notification of a fault, or we have just
+        // made some more room in our buffer and could potentially record a
+        // previously held fault.
+        //
+        // In either case, begin by asking Jefe for the current task fault
+        // counters.
+        let fault_counts = self.jefe.read_fault_counts();
+        let mut nfaulted: usize = 0;
+        let mut nreported: usize = 0;
+
+        // Who farted^H^H^H^H^H^Hfaulted?
+        for (task_index, (new_count, state)) in self
+            .task_fault_history
+            .iter_mut()
+            .zip(fault_counts)
+            .enumerate()
+        {
+            let TaskFaultHistory {
+                ref mut count,
+                ref mut last_fault_time,
+            } = state;
+
+            // Check if the fault count has changed to determine whether there
+            // are new faults. At the same time, check if we are "holding onto"
+            // previously observed faults for this task. This is also how we
+            // determine the timestamp for the fault report: either it is a
+            // previously held timestamp if the task has unreported faults AND
+            // no new faults have occurred, or it is the "now" time if new
+            // faults have occurred.
+            //
+            // This bit looks a little weird, but it'll make sense if you think
+            // about it...trust me!
+            let (nfaults, timestamp) =
+                match (new_count.cmp(*count), *last_fault_time) {
+                    // If the new fault count is less than the current count, then
+                    // Jefe's counter has wrapped around. The number of times
+                    // the task has faulted is the difference between the prior
+                    // count and `u32::MAX`, plus the new fault count.
+                    //
+                    // This is a bit fudgey if the fault counter has wrapped
+                    // multiple times since the last we saw it, but there's no good
+                    // way to detect that. Also, it seems basically impossible for a
+                    // task to have faulted more than `u32::MAX` times between
+                    // packrat being scheduled, especially considering the 50ms
+                    // restart cooldown between successive faults...
+                    (Ordering::Less, _) => {
+                        let nfaults = usize::MAX
+                            .saturating_sub(count)
+                            .saturating_add(new_count);
+                        (nfaults, now)
+                    }
+                    // Task has not faulted, so just move on to the next one.
+                    //
+                    // N.B. that if the counter has wrapped back to *exactly*
+                    // the same value it was last time we checked, this *could*
+                    // be wrong, but...man, that just seems wildly unlikely. In
+                    // practice, we worry about the counter wrapping *since
+                    // boot* and not *since the last time we looked at it*.
+                    (Ordering::Equal, None) => continue,
+                    // No *new* faults have occurred, but we are holding a
+                    // previously observed fault for this task that was not
+                    // successfully reported.
+                    //
+                    // This case actually *shouldn't happen*, since we only
+                    // update the tracked count if the faults are successfully
+                    // recorded. But handle it gracefully anyway.
+                    (Ordering::Equal, Some(t)) => (1, tfaulted),
+                    // The counter has increased, so the number of faults we haven't
+                    // seen is just the difference between the new and current
+                    // counts.
+                    (Ordering::Greater, _) => {
+                        let nfaults = new_count.saturating_sub(*count);
+                        (nfaults, now)
+                    }
+                };
+
+            // This will never wrap, since there can't be more than
+            // `hubris_num_tasks::NUM_TASKS` tasks that have faulted, but the
+            // compiler doesn't know this.
+            nfaulted = nfaulted.wrapping_add(1);
+            ringbuf_entry!(Trace::TaskFaulted {
+                task_index,
+                nfaults,
+            });
+        }
+
         ringbuf_entry!(Trace::FaultNotified);
         let mut next_task = 1;
         let mut faulted_tasks: usize = 0;
