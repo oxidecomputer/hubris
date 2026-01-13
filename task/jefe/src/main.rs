@@ -65,13 +65,25 @@ const MIN_RUN_TIME: u64 = 50;
 #[export_name = "main"]
 fn main() -> ! {
     let task_states = {
+        const fn initialize_task_states() -> [TaskStatus; NUM_TASKS] {
+            const INITIAL_STATE: TaskStatus = TaskStatus {
+                disposition: Disposition::Restart,
+                state: TaskState::Running { started_at: 0 },
+            };
+            let mut tasks = [INITIAL_STATE; NUM_TASKS];
+            let mut i = 0;
+            while i < generated::HELD_TASKS.len() {
+                let held_task = generated::HELD_TASKS[i] as usize;
+                tasks[held_task].disposition = Disposition::Hold;
+                i += 1;
+            }
+            tasks
+        }
+
         static STATES: ClaimOnceCell<[TaskStatus; NUM_TASKS]> =
-            ClaimOnceCell::new([TaskStatus::initial(); NUM_TASKS]);
+            ClaimOnceCell::new(initialize_task_states());
         STATES.claim()
     };
-    for held_task in generated::HELD_TASKS {
-        task_states[held_task as usize].disposition = Disposition::Hold;
-    }
 
     let deadline =
         userlib::set_timer_relative(TIMER_INTERVAL, notifications::TIMER_MASK);
@@ -342,20 +354,6 @@ enum TaskState {
     Timeout {
         restart_at: u64,
     },
-}
-
-impl TaskStatus {
-    /// This really ought to be a `Default` implementation, but it's used in a
-    /// `ClaimOnceCell` static initializer and `Default` cannot yet be `const
-    /// fn`.
-    ///
-    /// Whatever...
-    const fn initial() -> Self {
-        Self {
-            disposition: Disposition::Restart,
-            state: TaskState::Running { started_at: 0 },
-        }
-    }
 }
 
 impl idol_runtime::NotificationHandler for ServerImpl<'_> {
