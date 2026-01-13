@@ -47,19 +47,4 @@ impl Jefe {
     }
 }
 
-#[derive(
-    Copy,
-    Clone,
-    zerocopy_derive::FromBytes,
-    zerocopy_derive::IntoBytes,
-    zerocopy_derive::Immutable,
-)]
-pub struct TaskFaultCounts(pub [usize; hubris_num_tasks::NUM_TASKS]);
-
-impl TaskFaultCounts {
-    pub fn for_task(&self, task: hubris_num_tasks::Task) -> usize {
-        self.0[task as usize]
-    }
-}
-
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

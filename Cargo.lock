@@ -3466,7 +3466,7 @@ dependencies = [
 [[package]]
 name = "idol-runtime"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#f67fffe2bd917479a476fd2c761f603e422a6b91"
+source = "git+https://github.com/oxidecomputer/idolatry.git?branch=eliza%2Fmake-array-leases-useful#1a00edd63bc8d3246619a9471f5615ec11adeeeb"
 dependencies = [
  "counters",
  "userlib",

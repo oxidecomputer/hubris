@@ -192,14 +192,32 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
         Ok(())
     }
 
+    #[cfg(feature = "fault-counters")]
     fn read_fault_counts(
         &mut self,
         _msg: &userlib::RecvMessage,
-    ) -> Result<task_jefe_api::TaskFaultCounts, RequestError<Infallible>> {
-        #[cfg(feature = "fault-counters")]
-        return Ok(task_jefe_api::TaskFaultCounts(*self.fault_counts));
+        counts: idol_runtime::Leased<
+            idol_runtime::W,
+            [usize; hubris_num_tasks::NUM_TASKS],
+        >,
+    ) -> Result<(), RequestError<Infallible>> {
+        for (i, count) in self.fault_counts.iter().enumerate() {
+            counts
+                .write_at(i, *count)
+                .map_err(|()| RequestError::went_away())?;
+        }
+        Ok(())
+    }
 
-        #[cfg(not(feature = "fault-counters"))]
+    #[cfg(not(feature = "fault-counters"))]
+    fn read_fault_counts(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        _counts: idol_runtime::Leased<
+            idol_runtime::W,
+            [usize; hubris_num_tasks::NUM_TASKS],
+        >,
+    ) -> Result<(), RequestError<Infallible>> {
         Err(RequestError::Fail(
             idol_runtime::ClientError::UnknownOperation,
         ))
@@ -500,6 +518,6 @@ include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
 
 // And the Idol bits
 mod idl {
-    use task_jefe_api::{DumpAgentError, ResetReason, TaskFaultCounts};
+    use task_jefe_api::{DumpAgentError, ResetReason};
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

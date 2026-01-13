@@ -110,9 +110,11 @@ Interface(
         "read_fault_counts": (
             description: "Reads the total number of times each task has faulted since the system started.",
             args: {},
-            reply: Simple("TaskFaultCounts"),
+            leases: {
+                "data": (type: "[usize; hubris_num_tasks::NUM_TASKS]", write: true),
+            },
+            reply: Simple("()"),
             idempotent: true,
-            encoding: Zerocopy,
         ),
     },
 )
