@@ -132,9 +132,13 @@ pub fn run(
         let nonstack_ram = total_ram.saturating_sub(oldlim);
         let newlim = stack.max_estimate + 8;
         let newram = nonstack_ram + newlim;
-        let free_real_estate = total_ram - newram;
 
-        if free_real_estate > 0 {
+        // Only claim that there's free real estate if we could shrink the power
+        // of two memory region by resizing the task's RAM request.
+        let old_pow2 = total_ram.next_power_of_two();
+        let new_pow2 = newram.next_power_of_two();
+        if new_pow2 < old_pow2 {
+            let free_real_estate = old_pow2 - new_pow2;
             maybe_print_header(&mut out)?;
             writeln!(out, "{task_name}:")?;
             writeln!(
@@ -148,7 +152,8 @@ pub fn run(
                 "  {:<6} {newram: >5} {}{}",
                 "ram",
                 format!(" (currently {total_ram})").dimmed(),
-                " <- requires stack size change".dimmed()
+                format!(" !!! {free_real_estate}B of free real estate !!!")
+                    .dimmed()
             )?;
             total_free_real_estate += free_real_estate;
         }
