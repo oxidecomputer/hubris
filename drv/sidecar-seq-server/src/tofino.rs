@@ -131,10 +131,10 @@ impl Tofino {
                                 if tries > MAX_TRIES {
                                     ringbuf_entry_root!(
                                         Trace::TofinoSequencerError(
-                                            SeqError::SequencerTimeout
+                                            SeqError::SequencerTimeoutNotInA0
                                         )
                                     );
-                                    return Err(SeqError::SequencerTimeout);
+                                    return Err(SeqError::SequencerTimeoutNotInA0);
                                 }
                                 tries += 1;
                                 ringbuf_entry!(Trace::TofinoNotInA0);
@@ -305,7 +305,7 @@ impl Tofino {
             }
         }
 
-        Err(SeqError::SequencerTimeout)
+        Err(SeqError::SequencerTimeoutNoTofinoVid)
     }
 
     pub fn power_down(&mut self) -> Result<(), SeqError> {
