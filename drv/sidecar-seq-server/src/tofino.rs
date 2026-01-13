@@ -134,7 +134,9 @@ impl Tofino {
                                             SeqError::SequencerTimeoutNotInA0
                                         )
                                     );
-                                    return Err(SeqError::SequencerTimeoutNotInA0);
+                                    return Err(
+                                        SeqError::SequencerTimeoutNotInA0,
+                                    );
                                 }
                                 tries += 1;
                                 ringbuf_entry!(Trace::TofinoNotInA0);
