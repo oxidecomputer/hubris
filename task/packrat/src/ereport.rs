@@ -20,7 +20,10 @@ use minicbor::CborLen;
 use minicbor_lease::LeasedWriter;
 use ringbuf::{counted_ringbuf, ringbuf_entry};
 use task_packrat_api::{EreportReadError, EreportWriteError, OxideIdentity};
-use userlib::{sys_get_timer, RecvMessage, TaskId};
+use userlib::{
+    kipc, sys_get_timer, FaultInfo, FaultSource, ReadPanicMessageError,
+    RecvMessage, TaskId, TaskState,
+};
 use zerocopy::IntoBytes;
 
 pub(crate) struct EreportStore {
@@ -86,8 +89,23 @@ enum Trace {
         limit: u8,
     },
     FaultNotified,
-    TaskFaulted {
-        task: u32,
+    FaultRecorded {
+        task: TaskId,
+        #[count(children)]
+        result: snitch_core::InsertResult,
+    },
+    // A fault report was >1024B long! what the heck!
+    GiantFaultReport {
+        task: TaskId,
+    },
+    MissedPanicMessage {
+        task: TaskId,
+    },
+    BadPanicMessage {
+        task: TaskId,
+    },
+    TaskAlreadyRecovered {
+        task: TaskId,
     },
 }
 
@@ -414,11 +432,143 @@ impl EreportStore {
             // use wrapping add, because currently the compiler doesn't
             // understand this property.
             next_task = fault_index.wrapping_add(1);
+            let task = TaskId(fault_index as u16);
 
-            ringbuf_entry!(Trace::TaskFaulted {
-                task: fault_index as u32
-            });
+            let TaskState::Faulted { fault, .. } =
+                kipc::read_task_status(fault_index)
+            else {
+                ringbuf_entry!(Trace::TaskAlreadyRecovered { task });
+                continue;
+            };
+
+            if self.record_faulted_task(now, task, fault).is_err() {
+                ringbuf_entry!(Trace::GiantFaultReport { task });
+            }
         }
+    }
+
+    fn record_faulted_task(
+        &mut self,
+        now: u64,
+        task: TaskId,
+        fault: FaultInfo,
+    ) -> Result<(), minicbor::encode::Error<minicbor::encode::write::EndOfSlice>>
+    {
+        fn encode_task<W: minicbor::encode::Write>(
+            encoder: &mut minicbor::Encoder<W>,
+            task: TaskId,
+        ) -> Result<(), minicbor::encode::Error<W::Error>> {
+            encoder.begin_map()?;
+            let idx = task.index();
+            encoder.str("task")?;
+            match hubris_task_names::TASK_NAMES.get(idx) {
+                Some(name) => encoder.str(name)?,
+                None => encoder.encode(idx)?,
+            };
+            encoder.str("gen")?.u8(task.generation().into())?;
+            encoder.end()?;
+            Ok(())
+        }
+
+        fn encode_fault_src<W: minicbor::encode::Write>(
+            encoder: &mut minicbor::Encoder<W>,
+            source: FaultSource,
+        ) -> Result<(), minicbor::encode::Error<W::Error>> {
+            encoder.str("src")?;
+            match source {
+                FaultSource::Kernel => encoder.str("kern")?,
+                FaultSource::User => encoder.str("usr")?,
+            };
+            Ok(())
+        }
+
+        let cursor = microcbor::encode::write::Cursor::new(&mut self.recv[..]);
+        let mut encoder = microcbor::encode::Encoder::new(cursor);
+        encoder.begin_map()?;
+        // Ereport version.
+        encoder.str("v")?.u32(0)?;
+        match fault {
+            FaultInfo::MemoryAccess { address, source } => {
+                encoder.str("k")?.str("hubris.fault.mem_access")?;
+                encoder.str("addr")?.encode(address)?;
+                encode_fault_src(&mut encoder, source)?;
+            }
+            FaultInfo::StackOverflow { address } => {
+                encoder.str("k")?.str("hubris.fault.stack")?;
+                encoder.str("addr")?.encode(address)?;
+            }
+            FaultInfo::BusError { address, source } => {
+                encoder.str("k")?.str("hubris.fault.bus")?;
+                encoder.str("addr")?.encode(address)?;
+                encode_fault_src(&mut encoder, source)?;
+            }
+            FaultInfo::DivideByZero => {
+                encoder.str("k")?.str("hubris.fault.div_0")?;
+            }
+            FaultInfo::IllegalText => {
+                encoder.str("k")?.str("hubris.fault.illegal_txt")?;
+            }
+            FaultInfo::IllegalInstruction => {
+                encoder.str("k")?.str("hubris.fault.illegal_inst")?;
+            }
+            FaultInfo::InvalidOperation(code) => {
+                encoder.str("k")?.str("hubris.fault.invalid_op")?;
+                encoder.str("code")?.u32(code)?;
+            }
+            FaultInfo::SyscallUsage(err) => {
+                encoder.str("k")?.str("hubris.fault.syscall")?;
+                // TODO
+            }
+            FaultInfo::Panic => {
+                encoder.str("k")?.str("hubris.fault.panic")?;
+                encoder.str("msg")?;
+                match kipc::read_panic_message(
+                    usize::from(task.0),
+                    self.panic_buf,
+                ) {
+                    Ok(msg_chunks) => {
+                        encoder.begin_str()?;
+                        for chunk in msg_chunks {
+                            let chunk = chunk.valid();
+
+                            // avoid a big pile of 0-length strings
+                            if !chunk.is_empty() {
+                                encoder.str(chunk)?;
+                            }
+                        }
+                        encoder.end()?;
+                    }
+                    Err(ReadPanicMessageError::TaskNotPanicked) => {
+                        ringbuf_entry!(Trace::MissedPanicMessage { task });
+                        encoder.null()?;
+                    }
+                    Err(ReadPanicMessageError::BadPanicBuffer) => {
+                        ringbuf_entry!(Trace::BadPanicMessage { task });
+                        encoder.null()?;
+                    }
+                }
+            }
+            FaultInfo::Injected(by_task) => {
+                encoder.str("k")?.str("hubris.fault.injected")?;
+                encoder.str("by")?;
+                encode_task(&mut encoder, by_task)?;
+            }
+            FaultInfo::FromServer(srv_task, err) => {
+                encoder.str("k")?.str("hubris.fault.from_srv")?;
+                encoder.str("srv")?;
+                encode_task(&mut encoder, srv_task)?;
+            }
+        };
+        encoder.end()?;
+
+        let cursor = encoder.into_writer();
+        let len = cursor.position();
+        let buf = cursor.into_inner();
+
+        let result = self.storage.insert(task.0, now, &buf[..len]);
+        ringbuf_entry!(Trace::FaultRecorded { task, result });
+
+        Ok(())
     }
 }
 
