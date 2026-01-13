@@ -127,20 +127,35 @@ pub fn run(
     // ... and also stack sizes that are over margin.
     let mut total_free_real_estate = 0;
     for (task_name, stack) in stacks {
-        let total_ram = sizes.sizes[task_name]["ram"];
+        let oldram = sizes.sizes[task_name]["ram"];
         let oldlim = stack.limit;
-        let nonstack_ram = total_ram.saturating_sub(oldlim);
+        let nonstack_ram = oldram.saturating_sub(oldlim);
+        // TODO(eliza): consider also allowing a "bonus stack margin" to be
+        // requested for paranoia purposes?
         let newlim = stack.max_estimate + 8;
         let newram = nonstack_ram + newlim;
 
         // Only claim that there's free real estate if we could shrink the power
-        // of two memory region by resizing the task's RAM request.
-        let old_pow2 = total_ram.next_power_of_two();
-        let new_pow2 = newram.next_power_of_two();
-        if new_pow2 < old_pow2 {
-            let free_real_estate = old_pow2 - new_pow2;
+        // of two memory region by resizing the task's RAM request. If changing
+        // the RAM request does *not* result in a region shrink, then changing
+        // it doesn't actually give us back any memory.
+        let old_regions = toml.suggest_memory_region_size(task_name, oldram, 1);
+        let new_regions = toml.suggest_memory_region_size(task_name, newram, 1);
+        assert_eq!(old_regions.len(), 1);
+        assert_eq!(new_regions.len(), 1);
+        let old_region_size = old_regions[0];
+        let new_region_size = new_regions[0];
+
+        if new_region_size < old_region_size {
+            let free_real_estate = old_region_size - new_region_size;
             maybe_print_header(&mut out)?;
-            writeln!(out, "{task_name}:")?;
+            writeln!(
+                out,
+                "{task_name}: {:>width$}",
+                format!(" !!! {free_real_estate}B of free real estate !!!")
+                    .dimmed(),
+                width = 76 - task_name.len(),
+            )?;
             writeln!(
                 out,
                 "  {:<6} {newlim: >5} {}",
@@ -149,11 +164,9 @@ pub fn run(
             )?;
             writeln!(
                 out,
-                "  {:<6} {newram: >5} {}{}",
+                "  {:<6} {newram: >5} {}",
                 "ram",
-                format!(" (currently {total_ram})").dimmed(),
-                format!(" !!! {free_real_estate}B of free real estate !!!")
-                    .dimmed()
+                format!(" (currently {oldram})").dimmed(),
             )?;
             total_free_real_estate += free_real_estate;
         }
