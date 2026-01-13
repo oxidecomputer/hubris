@@ -6,7 +6,7 @@ board = "oxcon2023g0"
 
 [kernel]
 name = "oxcon2023g0"
-requires = {flash = 11680, ram = 1296}
+requires = {flash = 11744, ram = 1296}
 stacksize = 640
 
 [tasks.jefe]
@@ -15,7 +15,7 @@ priority = 0
 max-sizes = {flash = 4096, ram = 512}
 start = true
 features = ["nano"]
-stacksize = 368
+stacksize = 200
 notifications = ["fault", "timer"]
 
 [tasks.sys]

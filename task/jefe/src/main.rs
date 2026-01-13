@@ -37,12 +37,12 @@ use core::convert::Infallible;
 use hubris_num_tasks::NUM_TASKS;
 use humpty::DumpArea;
 use idol_runtime::RequestError;
+use static_cell::ClaimOnceCell;
 use task_jefe_api::{DumpAgentError, ResetReason};
 use userlib::{kipc, Generation, TaskId};
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Disposition {
-    #[default]
     Restart,
     Hold,
 }
@@ -64,10 +64,23 @@ const MIN_RUN_TIME: u64 = 50;
 
 #[export_name = "main"]
 fn main() -> ! {
-    let mut task_states = [TaskStatus::default(); hubris_num_tasks::NUM_TASKS];
-    for held_task in generated::HELD_TASKS {
-        task_states[held_task as usize].disposition = Disposition::Hold;
-    }
+    let task_states = {
+        static STATES: ClaimOnceCell<[TaskStatus; NUM_TASKS]> = {
+            const INITIAL_STATE: TaskStatus = TaskStatus {
+                disposition: Disposition::Restart,
+                state: TaskState::Running { started_at: 0 },
+            };
+            let mut tasks = [INITIAL_STATE; NUM_TASKS];
+            let mut i = 0;
+            while i < generated::HELD_TASKS.len() {
+                let held_task = generated::HELD_TASKS[i] as usize;
+                tasks[held_task].disposition = Disposition::Hold;
+                i += 1;
+            }
+            ClaimOnceCell::new(tasks)
+        };
+        STATES.claim()
+    };
 
     let deadline =
         userlib::set_timer_relative(TIMER_INTERVAL, notifications::TIMER_MASK);
@@ -77,7 +90,7 @@ fn main() -> ! {
     let mut server = ServerImpl {
         state: 0,
         deadline,
-        task_states: &mut task_states,
+        task_states,
         any_tasks_in_timeout: false,
         reset_reason: ResetReason::Unknown,
 
@@ -322,7 +335,7 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
 
 /// Structure we use for tracking the state of the tasks we supervise. There is
 /// one of these per supervised task.
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug)]
 struct TaskStatus {
     disposition: Disposition,
     state: TaskState,
@@ -338,12 +351,6 @@ enum TaskState {
     Timeout {
         restart_at: u64,
     },
-}
-
-impl Default for TaskState {
-    fn default() -> Self {
-        TaskState::Running { started_at: 0 }
-    }
 }
 
 impl idol_runtime::NotificationHandler for ServerImpl<'_> {
