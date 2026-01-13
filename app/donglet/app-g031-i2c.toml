@@ -15,7 +15,7 @@ name = "task-jefe"
 priority = 0
 max-sizes = {flash = 4096, ram = 512}
 start = true
-stacksize = 368
+stacksize = 200
 notifications = ["fault", "timer"]
 
 [tasks.sys]
@@ -77,7 +77,7 @@ address = 0x73
 [[config.i2c.devices]]
 controller = 1
 mux = 1
-segment = 1 
+segment = 1
 address = 0b1010_000
 device = "at24csw080"
 description = "Sharkfin VPD"

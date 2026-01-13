@@ -78,7 +78,7 @@ fn main() -> ! {
     let fault_counts = {
         use static_cell::ClaimOnceCell;
 
-        static COUNTS: ClaimOnceCell<task_jefe_api::TaskFaultCounts> =
+        static COUNTS: ClaimOnceCell<[usize; NUM_TASKS]> =
             ClaimOnceCell::new([0usize; NUM_TASKS]);
         COUNTS.claim()
     };
@@ -197,7 +197,7 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
         _msg: &userlib::RecvMessage,
     ) -> Result<task_jefe_api::TaskFaultCounts, RequestError<Infallible>> {
         #[cfg(feature = "fault-counters")]
-        return Ok(*self.fault_counts);
+        return Ok(task_jefe_api::TaskFaultCounts(*self.fault_counts));
 
         #[cfg(not(feature = "fault-counters"))]
         Err(RequestError::Fail(

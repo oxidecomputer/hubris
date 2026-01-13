@@ -12,7 +12,7 @@ zerocopy-derive = { workspace = true }
 hubpack = { workspace = true }
 humpty = { workspace = true }
 derive-idol-err = { path = "../../lib/derive-idol-err" }
-hubris-num-tasks = { path = "../../sys/num-tasks" }
+hubris-num-tasks = { path = "../../sys/num-tasks", features = ["task-enum"] }
 userlib = { path = "../../sys/userlib" }
 counters = { path = "../../lib/counters" }
 dump-agent-api = { path = "../dump-agent-api" }
