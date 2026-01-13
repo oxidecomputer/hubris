@@ -70,26 +70,16 @@ pub fn run(
         print!("\n\n");
         print_task_table(&toml, &map)?;
         print!("\n\n");
-        print_task_stacks(&toml)?;
     }
+    // Always do stack size estimation, but only print the stacks if we are in
+    // verbose mode.
+    let stacks = estimate_task_stacks(&toml, !only_suggest)?;
 
     // Because tasks are autosized, the only place where we can improve
-    // memory allocation is in the kernel.
+    // memory allocation is in the kernel...
     let mut printed_header = false;
     let mut printed_name = false;
-    for (mem, &used) in sizes.sizes["kernel"].iter() {
-        if used == 0 {
-            continue;
-        }
-        let size = toml.kernel.requires[&mem.to_string()];
-
-        let suggestion = toml.suggest_memory_region_size("kernel", used, 1);
-        assert_eq!(suggestion.len(), 1, "kernel should not be > 1 region");
-        let suggestion = suggestion[0];
-
-        if suggestion >= size as u64 {
-            continue;
-        }
+    let mut maybe_print_header = |out: &mut dyn Write| -> std::io::Result<()> {
         if !printed_header {
             printed_header = true;
             if only_suggest {
@@ -104,6 +94,23 @@ pub fn run(
                 )?;
             }
         }
+        Ok(())
+    };
+
+    for (mem, &used) in sizes.sizes["kernel"].iter() {
+        if used == 0 {
+            continue;
+        }
+        let size = toml.kernel.requires[&mem.to_string()];
+
+        let suggestion = toml.suggest_memory_region_size("kernel", used, 1);
+        assert_eq!(suggestion.len(), 1, "kernel should not be > 1 region");
+        let suggestion = suggestion[0];
+
+        if suggestion >= size as u64 {
+            continue;
+        }
+        maybe_print_header(&mut out)?;
         if !printed_name {
             printed_name = true;
             writeln!(out, "kernel:")?;
@@ -114,6 +121,45 @@ pub fn run(
             format!("{mem}:"),
             suggestion,
             format!(" (currently {size})").dimmed()
+        )?;
+    }
+
+    // ... and also stack sizes that are over margin.
+    let mut total_free_real_estate = 0;
+    for (task_name, stack) in stacks {
+        let total_ram = sizes.sizes[task_name]["ram"];
+        let oldlim = stack.limit;
+        let nonstack_ram = total_ram.saturating_sub(oldlim);
+        let newlim = stack.max_estimate + 8;
+        let newram = nonstack_ram + newlim;
+        let free_real_estate = total_ram - newram;
+
+        if free_real_estate > 0 {
+            maybe_print_header(&mut out)?;
+            writeln!(out, "{task_name}:")?;
+            writeln!(
+                out,
+                "  {:<6} {newlim: >5} {}",
+                "stack",
+                format!(" (currently {oldlim})").dimmed()
+            )?;
+            writeln!(
+                out,
+                "  {:<6} {newram: >5} {}{}",
+                "ram",
+                format!(" (currently {total_ram})").dimmed(),
+                " <- requires stack size change".dimmed()
+            )?;
+            total_free_real_estate += free_real_estate;
+        }
+    }
+
+    if total_free_real_estate > 0 {
+        writeln!(
+            out,
+            "\nthere may be up to {total_free_real_estate} bytes of free \
+             real estate in this image,\nif you're brave enough to mess with \
+             stack sizes!\n"
         )?;
     }
 
@@ -427,23 +473,41 @@ fn print_memory_map(
     Ok(())
 }
 
-fn print_task_stacks(toml: &Config) -> Result<()> {
+struct Stacks {
+    max_estimate: u64,
+    limit: u64,
+}
+
+fn estimate_task_stacks<'a>(
+    toml: &'a Config,
+    print: bool,
+) -> Result<IndexMap<&'a str, Stacks>> {
+    let mut tasks = IndexMap::with_capacity(toml.tasks.len());
     for (i, (task_name, task)) in toml.tasks.iter().enumerate() {
         let task_stack_size =
             task.stacksize.unwrap_or_else(|| toml.stacksize.unwrap());
 
         let max_stack = get_max_stack(toml, task_name, false)?;
         let total: u64 = max_stack.iter().map(|(n, _)| *n).sum();
-        println!("{task_name}: {total} bytes (limit is {task_stack_size})");
-        for (frame_size, name) in max_stack {
-            let s = format!("[+{frame_size}]");
-            println!("  {s:>7} {name}");
+        if print {
+            println!("{task_name}: {total} bytes (limit is {task_stack_size})");
+            for (frame_size, name) in max_stack {
+                let s = format!("[+{frame_size}]");
+                println!("  {s:>7} {name}");
+            }
         }
         if i + 1 < toml.tasks.len() {
             println!();
         }
+        tasks.insert(
+            task_name.as_ref(),
+            Stacks {
+                max_estimate: total,
+                limit: task_stack_size as u64,
+            },
+        );
     }
-    Ok(())
+    Ok(tasks)
 }
 
 /// Loads the size of the given task (or kernel)
