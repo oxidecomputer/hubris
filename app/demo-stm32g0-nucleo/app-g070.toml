@@ -16,7 +16,7 @@ name = "task-jefe"
 priority = 0
 max-sizes = {flash = 4096, ram = 512}
 start = true
-stacksize = 400
+stacksize = 200
 notifications = ["fault", "timer"]
 
 [tasks.sys]
