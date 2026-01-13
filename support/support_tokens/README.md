@@ -13,5 +13,5 @@ ssh-keygen -i -m PKCS8 -f <(permslip --url=https://signer-us-west.corp.oxide.com
 ssh-keygen -i -m PKCS8 -f <(permslip --url=https://signer-us-east.corp.oxide.computer public-key "Tech Port Unlock Production 2")
 ```
 
-It should *not* be mirrored into Omicron: it will only be used to sign
+They should *not* be mirrored into Omicron: they will only be used to sign
 tech port unlock challenges, never as a direct authentication key.
