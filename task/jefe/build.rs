@@ -67,7 +67,7 @@ const TASK: &str = "hubris_num_tasks::Task";
 ///
 /// The generated mailing list will be a `[(hubris_num_tasks::Task, u32)]` array
 /// named `list_name`.
-fn gen_mailing_list<'a>(
+fn gen_mailing_list(
     list_name: &str,
     list: &BTreeMap<String, String>,
     out: &mut impl std::io::Write,
