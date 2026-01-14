@@ -80,6 +80,32 @@ jobs:
 
   release:
     name: Publish the release
+    if: github.event.inputs.group == 'all-sp'
+    needs:
+      - init
+      - build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write # Publish the release
+      id-token: write # Authenticate with oidcx
+      actions: read # Download artifacts
+    steps:
+      - *brussels-token
+      - *download-brussels
+
+      # TODO: pin this somehow
+      - name: Retrieve the Sigstore trusted roots
+        run: gh attestation trusted-root > trusted-root.jsonl
+
+      - name: Publish the release with Brussels
+        run: brussels publish --trusted-root=trusted-root.jsonl $run_id
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          run_id: ${{ github.run_id }}
+
+  release-legacy:
+    name: Publish the release (legacy)
+    if: github.event.inputs.group == 'rot'
     needs:
       - init
       - build
