@@ -73,6 +73,8 @@ enum Trace {
     TofinoVidAttempt(u8),
     TofinoVidAck,
     TofinoNoVid,
+    TofinoNotInA0,
+    TofinoInA0,
     TofinoEepromIdCode(u32),
     TofinoBar0RegisterValue(TofinoBar0Registers, u32),
     TofinoCfgRegisterValue(TofinoCfgRegisters, u32),
