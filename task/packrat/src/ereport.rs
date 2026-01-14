@@ -482,7 +482,7 @@ impl EreportStore {
         //
         // In either case, begin by asking Jefe for the current task fault
         // counters.
-        self.jefe.read_fault_counts(&mut self.fault_count_buf);
+        self.jefe.read_fault_counts(self.fault_count_buf);
         let mut nfaulted: usize = 0;
         let mut nreported: usize = 0;
 
@@ -564,7 +564,7 @@ impl EreportStore {
 
             if let Ok((ereport, taskid)) = Self::record_faulted_task(
                 &mut self.recv[..],
-                &mut self.panic_buf,
+                self.panic_buf,
                 task_index,
                 nfaults,
             ) {
@@ -613,7 +613,7 @@ impl EreportStore {
 
         // If we successfully recorded an ereport for every task we observed to
         // have faulted, we are no longer "holding" unreported faults.
-        self.holding_faults = !(nreported == nfaulted);
+        self.holding_faults = nreported != nfaulted;
         ringbuf_entry!(Trace::HoldingFaults(self.holding_faults));
     }
 
