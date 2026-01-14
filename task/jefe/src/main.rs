@@ -74,6 +74,15 @@ fn main() -> ! {
 
     external::set_ready();
 
+    #[cfg(feature = "fault-counters")]
+    let fault_counts = {
+        use static_cell::ClaimOnceCell;
+
+        static COUNTS: ClaimOnceCell<[usize; NUM_TASKS]> =
+            ClaimOnceCell::new([0usize; NUM_TASKS]);
+        COUNTS.claim()
+    };
+
     let mut server = ServerImpl {
         state: 0,
         deadline,
@@ -86,6 +95,9 @@ fn main() -> ! {
 
         #[cfg(feature = "dump")]
         last_dump_area: None,
+
+        #[cfg(feature = "fault-counters")]
+        fault_counts,
     };
     let mut buf = [0u8; idl::INCOMING_SIZE];
 
@@ -100,6 +112,9 @@ struct ServerImpl<'s> {
     deadline: u64,
     any_tasks_in_timeout: bool,
     reset_reason: ResetReason,
+
+    #[cfg(feature = "fault-counters")]
+    fault_counts: &'s mut [usize; NUM_TASKS],
 
     /// Base address for a linked list of dump areas
     #[cfg(feature = "dump")]
@@ -175,6 +190,37 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
         // work. This is a compromise because Idol can't easily describe an IPC
         // that won't return at this time.
         Ok(())
+    }
+
+    #[cfg(feature = "fault-counters")]
+    fn read_fault_counts(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        counts: idol_runtime::Leased<
+            idol_runtime::W,
+            [usize; hubris_num_tasks::NUM_TASKS],
+        >,
+    ) -> Result<(), RequestError<Infallible>> {
+        for (i, count) in self.fault_counts.iter().enumerate() {
+            counts
+                .write_at(i, *count)
+                .map_err(|()| RequestError::went_away())?;
+        }
+        Ok(())
+    }
+
+    #[cfg(not(feature = "fault-counters"))]
+    fn read_fault_counts(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        _counts: idol_runtime::Leased<
+            idol_runtime::W,
+            [usize; hubris_num_tasks::NUM_TASKS],
+        >,
+    ) -> Result<(), RequestError<Infallible>> {
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::UnknownOperation,
+        ))
     }
 
     cfg_if::cfg_if! {
@@ -413,6 +459,20 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
                 let TaskState::Running { started_at } = &status.state else {
                     continue;
                 };
+
+                #[cfg(feature = "fault-counters")]
+                {
+                    // Increment this task's fault count.
+                    let fault_count = unsafe {
+                        // Safety: again, we trust that the kernel has not
+                        // given us an out-of-range task index.
+                        self.fault_counts.get_unchecked_mut(fault_index)
+                    };
+                    // This is explicitly wrapping, as we expect that the
+                    // caller will detect if new faults have been observed by
+                    // comparing for equality.
+                    *fault_count = fault_count.wrapping_add(1);
+                }
 
                 #[cfg(feature = "dump")]
                 {
