@@ -6018,6 +6018,7 @@ dependencies = [
  "drv-cpu-seq-api",
  "drv-rng-api",
  "gateway-ereport-messages",
+ "hubris-num-tasks",
  "hubris-task-names",
  "idol",
  "idol-runtime",
