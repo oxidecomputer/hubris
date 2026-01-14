@@ -51,9 +51,8 @@ owner = {name = "sprot", notification = "rot_irq"}
 name = "task-packrat"
 priority = 1
 start = true
-# task-slots is explicitly empty: packrat should not send IPCs!
-task-slots = []
-stacksize = 1096
+task-slots = ["jefe"]
+stacksize = 1336
 features = ["ereport"]
 notifications = ["task-faulted"]
 
