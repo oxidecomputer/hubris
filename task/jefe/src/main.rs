@@ -62,6 +62,23 @@ const TIMER_INTERVAL: u32 = 100;
 /// restarting at 20 Hz.
 const MIN_RUN_TIME: u64 = 50;
 
+/// Minimum amount of time to wait between a task faulting and when it is
+/// restarted, if the list of tasks to notify on faults is non-empty.
+///
+/// If other tasks are to be notified when a task faults, we always apply a
+/// delay of at least this long before restarting the task, even if it has been
+/// running for longer than `MIN_RUN_TIME`.
+///
+/// This is intended to provide time for other tasks (in practice, `packrat`) to
+/// collect diagnostic information about the fault before the task is restarted.
+/// Restarting a task clobbers potentially valuable data, such as the kernel's
+/// description of the fault and its stack trace. We provide Packrat with a 5 ms
+/// opportunity to produce a more detailed ereport before going ahead and
+/// restarting the faulted task. This way, there is a reasonable attempt to
+/// allow detailed fault reporting, but the task(s) responsible for reporting
+/// the fault cannot prevent tasks from being restarted indefinitely.
+const MIN_RESTART_DELAY: u64 = 5;
+
 #[export_name = "main"]
 fn main() -> ! {
     let mut task_states = [TaskStatus::default(); hubris_num_tasks::NUM_TASKS];
@@ -480,11 +497,31 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
                 }
 
                 if status.disposition == Disposition::Restart {
-                    // Put it into timeout.
-                    let restart_at = now.wrapping_add(MIN_RUN_TIME);
-                    status.state = TaskState::Timeout { restart_at };
-                    self.deadline = self.deadline.min(restart_at);
-                    self.any_tasks_in_timeout = true;
+                    // Subtract the task's runtime from the minimum required
+                    // runtime between restarts to determine how long to wait
+                    // before we restart it.
+                    let dt = now.wrapping_sub(*started_at).wrapping_add(1);
+                    let mut extra_delay = MIN_RUN_TIME.checked_sub(dt);
+
+                    // If we are going to notify other tasks of the fault,
+                    // always wait at least `MIN_RESTART_DELAY` before
+                    // restarting the task, even if it has run for longer than
+                    // `MIN_RUN_TIME` since its last restart.
+                    if !generated::FAULT_MAILING_LIST.is_empty() {
+                        extra_delay = extra_delay.max(Some(MIN_RESTART_DELAY));
+                    }
+
+                    if let Some(extra_delay) = extra_delay {
+                        // Put it into timeout to hit our minimum run time
+                        let restart_at = now.wrapping_add(extra_delay);
+                        status.state = TaskState::Timeout { restart_at };
+                        self.deadline = self.deadline.min(restart_at);
+                        self.any_tasks_in_timeout = true;
+                    } else {
+                        // Stand it back up immediately
+                        kipc::reinit_task(fault_index, true);
+                        status.state = TaskState::Running { started_at: now };
+                    }
                 } else {
                     // Mark this one off so we don't revisit it until
                     // requested.
