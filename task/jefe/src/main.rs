@@ -507,6 +507,12 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
                     // always wait at least `MIN_RESTART_DELAY` before
                     // restarting the task, even if it has run for longer than
                     // `MIN_RUN_TIME` since its last restart.
+                    //
+                    // Clippy doesn't like this `if` condition because it
+                    // doesn't know about codegen; this expression *should*
+                    // always evaluate either to true or false depending on
+                    // Jefe's config.
+                    #[allow(clippy::const_is_empty)]
                     if !generated::FAULT_MAILING_LIST.is_empty() {
                         extra_delay = extra_delay.max(Some(MIN_RESTART_DELAY));
                     }
