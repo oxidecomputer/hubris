@@ -54,24 +54,13 @@ pub enum Disposition {
 // notification, but can otherwise be arbitrary.
 const TIMER_INTERVAL: u32 = 100;
 
-/// Delay between when a task faults and when it is restarted.
+/// Minimum amount of time a task must run before being restarted
 ///
-/// This serves two separate purposes:
-///
-/// 1. To prevent a task that reliably crashes from doing so too frequently,
-///    potentially starving other tasks.  As the delay is in system ticks,
-///    which are the same as milliseconds, the current value of `50` limits a
-///    task to restarting at 20 Hz.
-/// 2. To provide time for other tasks (in practice, `packrat`) to collect
-///    diagnostic information about the fault before the task is restarted.
-///    Restarting a task clobbers potentially valuable data, such as the
-///    kernel's description of the fault and its stack trace.  We provide
-///    Packrat with a 50 ms opportunity to produce a more detailed ereport
-///    before going ahead and restarting the faulted task.  This way, there
-///    is a reasonable attempt to allow detailed fault reporting, but the
-///    task(s) responsible for reporting the fault cannot prevent tasks from
-///    being restarted indefinitely.
-const RESTART_DELAY: u64 = 50;
+/// If a task runs for *less* than this amount of time before crashing, its
+/// restart is delayed to hit this value.  This value is in system ticks, which
+/// is the same as milliseconds; the current value of `50` limits a task to
+/// restarting at 20 Hz.
+const MIN_RUN_TIME: u64 = 50;
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -380,14 +369,22 @@ struct TaskStatus {
     state: TaskState,
 }
 
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug)]
 enum TaskState {
-    #[default]
-    Running,
+    Running {
+        /// Time at which the task started
+        started_at: u64,
+    },
     HoldFault,
     Timeout {
         restart_at: u64,
     },
+}
+
+impl Default for TaskState {
+    fn default() -> Self {
+        TaskState::Running { started_at: 0 }
+    }
 }
 
 impl idol_runtime::NotificationHandler for ServerImpl<'_> {
@@ -399,7 +396,7 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
         let now = userlib::sys_get_timer().now;
 
         // Handle any external (debugger) requests.
-        external::check(self.task_states);
+        external::check(self.task_states, now);
 
         if bits.has_timer_fired(notifications::TIMER_MASK) {
             // If our timer went off, we need to reestablish it. Compute a
@@ -417,7 +414,8 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
                             // This deadline has elapsed, go ahead and stand it
                             // back up.
                             kipc::reinit_task(index, true);
-                            status.state = TaskState::Running;
+                            status.state =
+                                TaskState::Running { started_at: now };
                         } else {
                             // This deadline remains in the future, min it into
                             // our next wake time.
@@ -453,9 +451,9 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
 
                 // If we're aware that this task is in a fault state (or waiting
                 // in timeout), don't bother making a syscall to enquire.
-                if status.state != TaskState::Running {
+                let TaskState::Running { started_at } = &status.state else {
                     continue;
-                }
+                };
 
                 #[cfg(feature = "fault-counters")]
                 {
@@ -483,7 +481,7 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
 
                 if status.disposition == Disposition::Restart {
                     // Put it into timeout.
-                    let restart_at = now.wrapping_add(RESTART_DELAY);
+                    let restart_at = now.wrapping_add(MIN_RUN_TIME);
                     status.state = TaskState::Timeout { restart_at };
                     self.deadline = self.deadline.min(restart_at);
                     self.any_tasks_in_timeout = true;
@@ -501,12 +499,6 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
     }
 }
 
-/// Notify a list of tasks.
-///
-/// We (currently) maintain two "mailing lists" of tasks determined in Jefe's
-/// config: a list of tasks to notify when the system state changes, and a list
-/// of tasks to notify when another task faults. This function is used to post
-/// notifications to both lists.
 fn notify_tasks(mailing_list: &[(hubris_num_tasks::Task, u32)]) {
     for &(task, mask) in mailing_list {
         let taskid = TaskId::for_index_and_gen(task as usize, Generation::ZERO);

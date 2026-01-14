@@ -101,10 +101,10 @@ static JEFE_EXTERNAL_ERRORS: AtomicU32 = AtomicU32::new(0);
 /// potentially modifying the passed array.  Returns a boolean to indicate if
 /// a valid external request was received.
 ///
-pub(crate) fn check(states: &mut [TaskStatus]) {
+pub(crate) fn check(states: &mut [TaskStatus], now: u64) {
     // This wrapper is responsible for updating operation counters, and allowing
     // the inner function to use Result for convenience.
-    match check_inner(states) {
+    match check_inner(states, now) {
         Ok(true) => {
             JEFE_EXTERNAL_REQUESTS.fetch_add(1, Ordering::SeqCst);
         }
@@ -119,7 +119,7 @@ pub(crate) fn check(states: &mut [TaskStatus]) {
 }
 
 // Implementation factor of `check` that can use Result.
-fn check_inner(states: &mut [TaskStatus]) -> Result<bool, Error> {
+fn check_inner(states: &mut [TaskStatus], now: u64) -> Result<bool, Error> {
     if JEFE_EXTERNAL_KICK.swap(0, Ordering::SeqCst) == 0 {
         return Ok(false);
     }
@@ -170,7 +170,7 @@ fn check_inner(states: &mut [TaskStatus]) -> Result<bool, Error> {
             // task to clear a held fault.
             state.disposition = Disposition::Restart;
             if matches!(state.state, TaskState::HoldFault) {
-                state.state = TaskState::Running;
+                state.state = TaskState::Running { started_at: now };
                 kipc::reinit_task(ndx, true);
             }
         }
