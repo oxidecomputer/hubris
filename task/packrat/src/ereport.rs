@@ -24,7 +24,7 @@ use ringbuf::{counted_ringbuf, ringbuf_entry};
 use task_jefe_api::Jefe;
 use task_packrat_api::{EreportReadError, EreportWriteError, OxideIdentity};
 use userlib::{
-    kipc, sys_get_timer, task_slot, FaultInfo, FaultSource,
+    kipc, sys_get_timer, task_slot, FaultInfo, FaultSource, Generation,
     ReadPanicMessageError, RecvMessage, ReplyFaultReason, TaskId, TaskState,
     UsageError,
 };
@@ -562,14 +562,13 @@ impl EreportStore {
                 nfaults
             });
 
-            if let Ok(ereport) = Self::record_faulted_task(
+            if let Ok((ereport, taskid)) = Self::record_faulted_task(
                 &mut self.recv[..],
                 &mut self.panic_buf,
                 task_index,
                 nfaults,
             ) {
-                let result =
-                    self.storage.insert(task_index, timestamp, ereport);
+                let result = self.storage.insert(taskid.0, timestamp, ereport);
                 ringbuf_entry!(Trace::FaultRecorded {
                     task_index,
                     result,
@@ -636,7 +635,8 @@ impl EreportStore {
         panic_buf: &mut [u8; userlib::PANIC_MESSAGE_MAX_LEN],
         task_index: u16,
         nfaults: usize,
-    ) -> Result<&'buf [u8], encode::Error<encode::write::EndOfSlice>> {
+    ) -> Result<(&'buf [u8], TaskId), encode::Error<encode::write::EndOfSlice>>
+    {
         /// Encode a CBOR object representing another task that was involved in a
         /// fault; either the injecting task in a `FaultInfo::Injected`, or the
         /// server that responded with a `REPLY_FAULT` in a
@@ -685,6 +685,15 @@ impl EreportStore {
             };
             Ok(())
         }
+
+        // The generation to include in the ereport will depend on whether the
+        // task is currently in the faulted state, or if it has already been
+        // restarted. If it has been restarted, we will record the ereport with
+        // the current generation minus 1, since that was the generation at
+        // which the fault occurred.
+        let taskid =
+            TaskId::for_index_and_gen(task_index as usize, Generation::ZERO);
+        let mut taskid = userlib::sys_refresh_task_id(taskid);
 
         let cursor = encode::write::Cursor::new(buf);
         let mut encoder = minicbor::Encoder::new(cursor);
@@ -850,6 +859,14 @@ impl EreportStore {
             // that there was a fault, even if we can't say which one it was.
             encoder.str("k")?.str("hubris.fault.unknown")?;
             ringbuf_entry!(Trace::TaskAlreadyRecovered { task_index });
+            // If the task has already restarted, we must decrement the reported
+            // generation for the ereport by 1, so that we record the generation
+            // that faulted, rather than the current one.
+            let generation = u8::from(taskid.generation()).wrapping_sub(1);
+            taskid = TaskId::for_index_and_gen(
+                task_index as usize,
+                Generation::from(generation),
+            );
         }
         encoder.end()?;
 
@@ -857,7 +874,7 @@ impl EreportStore {
         let len = cursor.position();
         let buf = cursor.into_inner();
 
-        Ok(&buf[..len])
+        Ok((&buf[..len], taskid))
     }
 }
 
