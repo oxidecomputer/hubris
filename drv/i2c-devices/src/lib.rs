@@ -44,21 +44,19 @@ use pmbus::commands::CommandCode;
 
 macro_rules! pmbus_read {
     ($device:expr, $cmd:ident) => {
-        match $cmd::CommandData::from_slice(&match $device
+        $device
             .read_reg::<u8, [u8; $cmd::CommandData::len()]>(
                 $cmd::CommandData::code(),
-            ) {
-            Ok(rval) => Ok(rval),
-            Err(code) => Err(Error::BadRead {
+            )
+            .map_err(|code| Error::BadRead {
                 cmd: $cmd::CommandData::code(),
                 code,
-            }),
-        }?) {
-            Some(data) => Ok(data),
-            None => Err(Error::BadData {
-                cmd: $cmd::CommandData::code(),
-            }),
-        }
+            })
+            .and_then(|rval| {
+                $cmd::CommandData::from_slice(&rval).ok_or(Error::BadData {
+                    cmd: $cmd::CommandData::code(),
+                })
+            })
     };
 
     ($device:expr, $dev:ident::$cmd:ident) => {{
@@ -68,26 +66,22 @@ macro_rules! pmbus_read {
 }
 
 macro_rules! pmbus_rail_read {
-    ($device:expr, $rail:expr, $cmd:ident) => {{
-        let payload = [PAGE::CommandData::code(), $rail];
-
-        match $cmd::CommandData::from_slice(&match $device
+    ($device:expr, $rail:expr, $cmd:ident) => {
+        $device
             .write_read_reg::<u8, [u8; $cmd::CommandData::len()]>(
                 $cmd::CommandData::code(),
-                &payload,
-            ) {
-            Ok(rval) => Ok(rval),
-            Err(code) => Err(Error::BadRead {
+                &[PAGE::CommandData::code(), $rail],
+            )
+            .map_err(|code| Error::BadRead {
                 cmd: $cmd::CommandData::code(),
                 code,
-            }),
-        }?) {
-            Some(data) => Ok(data),
-            None => Err(Error::BadData {
-                cmd: $cmd::CommandData::code(),
-            }),
-        }
-    }};
+            })
+            .and_then(|rval| {
+                $cmd::CommandData::from_slice(&rval).ok_or(Error::BadData {
+                    cmd: $cmd::CommandData::code(),
+                })
+            })
+    };
 
     ($device:expr, $rail:expr, $dev:ident::$cmd:ident) => {{
         use $dev::{$cmd, PAGE};
@@ -96,28 +90,23 @@ macro_rules! pmbus_rail_read {
 }
 
 macro_rules! pmbus_rail_phase_read {
-    ($device:expr, $rail:expr, $phase:expr, $cmd:ident) => {{
-        let rail_payload = [PAGE::CommandData::code(), $rail];
-        let phase_payload = [PHASE::CommandData::code(), $phase];
-
-        match $cmd::CommandData::from_slice(&match $device
+    ($device:expr, $rail:expr, $phase:expr, $cmd:ident) => {
+        $device
             .write_write_read_reg::<u8, [u8; $cmd::CommandData::len()]>(
                 $cmd::CommandData::code(),
-                &rail_payload,
-                &phase_payload,
-            ) {
-            Ok(rval) => Ok(rval),
-            Err(code) => Err(Error::BadRead {
+                &[PAGE::CommandData::code(), $rail],
+                &[PHASE::CommandData::code(), $phase],
+            )
+            .map_err(|code| Error::BadRead {
                 cmd: $cmd::CommandData::code(),
                 code,
-            }),
-        }?) {
-            Some(data) => Ok(data),
-            None => Err(Error::BadData {
-                cmd: $cmd::CommandData::code(),
-            }),
-        }
-    }};
+            })
+            .and_then(|rval| {
+                $cmd::CommandData::from_slice(&rval).ok_or(Error::BadData {
+                    cmd: $cmd::CommandData::code(),
+                })
+            })
+    };
 }
 
 macro_rules! pmbus_write {
