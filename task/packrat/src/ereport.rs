@@ -610,17 +610,18 @@ impl EreportStore {
             // about it...trust me!
             let (nfaults, timestamp) =
                 match (new_count.cmp(&*count), *last_unrecorded_fault_time) {
-                    // If the new fault count is less than the current count, then
-                    // Jefe's counter has wrapped around. The number of times
-                    // the task has faulted is the difference between the prior
-                    // count and `u32::MAX`, plus the new fault count.
+                    // If the new fault count is less than the current count,
+                    // then Jefe's counter has wrapped around. The number of
+                    // times the task has faulted is the difference between the
+                    // prior count and `u32::MAX`, plus the new fault count.
                     //
                     // This is a bit fudgey if the fault counter has wrapped
-                    // multiple times since the last we saw it, but there's no good
-                    // way to detect that. Also, it seems basically impossible for a
-                    // task to have faulted more than `u32::MAX` times between
-                    // packrat being scheduled, especially considering the 50ms
-                    // restart cooldown between successive faults...
+                    // multiple times since the last we saw it, but there's no
+                    // good way to detect that. Also, it seems basically
+                    // impossible for a task to have faulted more than
+                    // `u32::MAX` times between packrat being scheduled,
+                    // especially considering the 50ms restart cooldown between
+                    // successive faults...
                     (Ordering::Less, _) => {
                         let nfaults = usize::MAX
                             .saturating_sub(*count)
@@ -643,9 +644,9 @@ impl EreportStore {
                     // update the tracked count if the faults are successfully
                     // recorded. But handle it gracefully anyway.
                     (Ordering::Equal, Some(t)) => (1, t),
-                    // The counter has increased, so the number of faults we haven't
-                    // seen is just the difference between the new and current
-                    // counts.
+                    // The counter has increased, so the number of faults we
+                    // haven't seen is just the difference between the new and
+                    // current counts.
                     (Ordering::Greater, _) => {
                         let nfaults = new_count.saturating_sub(*count);
                         (nfaults, now)
@@ -675,8 +676,8 @@ impl EreportStore {
                 });
                 match result {
                     snitch_core::InsertResult::Inserted => {
-                        // We successfully made an ereport for this fault! Update
-                        // our tracked fault count for this task.
+                        // We successfully made an ereport for this fault!
+                        // Update our tracked fault count for this task.
                         *count = new_count;
                         // Again, won't ever actually wrap, but whatever.
                         nreported = nreported.wrapping_add(1);
@@ -684,11 +685,11 @@ impl EreportStore {
                         *last_unrecorded_fault_time = None;
                     }
                     snitch_core::InsertResult::Lost => {
-                        // No ereport was recorded, so *don't* acknowledge the fault
-                        // by updating our tracked fault count. This way we will
-                        // still treat the task as having faulted in the past and
-                        // will attempt to make an ereport for it later, if there's
-                        // space.
+                        // No ereport was recorded, so *don't* acknowledge the
+                        // fault by updating our tracked fault count. This way
+                        // we will still treat the task as having faulted in the
+                        // past and will attempt to make an ereport for it
+                        // later, if there's space.
                         *last_unrecorded_fault_time = Some(timestamp);
                     }
                 }
@@ -722,7 +723,9 @@ impl EreportStore {
     /// the automated fault-management system. The Hubris task ereports we
     /// generate here, on the other hand, generally represent a firmware bug
     /// rather than an anticipated hardware failure, and therefore, we expect
-    /// that it is much likelier that the ereport will be read by a human being.
+    /// that it is much likelier that the ereport will be read by a human
+    /// being.
+    ///
     /// Thus, we err on the side of human-readability somewhat with their
     /// contents.
     //
@@ -736,9 +739,9 @@ impl EreportStore {
         nfaults: usize,
     ) -> Result<(&'buf [u8], TaskId), encode::Error<encode::write::EndOfSlice>>
     {
-        /// Encode a CBOR object representing another task that was involved in a
-        /// fault; either the injecting task in a `FaultInfo::Injected`, or the
-        /// server that responded with a `REPLY_FAULT` in a
+        /// Encode a CBOR object representing another task that was involved in
+        /// a fault; either the injecting task in a `FaultInfo::Injected`, or
+        /// the server that responded with a `REPLY_FAULT` in a
         /// `FaultInfo::FromServer`.
         ///
         /// The encoded CBOR looks like this:
@@ -755,9 +758,9 @@ impl EreportStore {
             encoder.begin_map()?;
             let idx = task.index();
             encoder.str("task")?;
-            // Prefer the string task name, provided that the the task isn't out
-            // of range (which would be weird and bad, but we may as well still
-            // report it).
+            // Prefer the string task name, provided that the the task isn't
+            // out of range (which would be weird and bad, but we may as well
+            // still report it).
             //
             // We could make the ereport more concise by using task indices
             // rather than the whole string, but we expect fault ereports are
@@ -842,20 +845,22 @@ impl EreportStore {
                 FaultInfo::SyscallUsage(err) => {
                     encoder.str("k")?.str("hubris.fault.syscall")?;
                     encoder.str("err")?;
-                    // These strings are kind of a lot of characters, but the rest
-                    // of the ereport is short and it seems kinda helpfulish to use
-                    // the same names as the actual enum variants, so they're
-                    // greppable in the source code.
+                    // These strings are kind of a lot of characters, but the
+                    // rest of the ereport is short and it seems kinda
+                    // helpfulish to use the same names as the actual enum
+                    // variants, so they're greppable in the source code.
                     //
-                    // Also, keeping them in CamelCase makes them a few characters
-                    // shorter than converting them to snake_case, since there
-                    // aren't any underscores. Which...kind of flies in the face of
-                    // my previous paragraph saying that we're not trying to make
-                    // them shorter to save on bytes of CBOR, but...
+                    // Also, keeping them in CamelCase makes them a few
+                    // characters shorter than converting them to snake_case,
+                    // since there aren't any underscores. Which...kind of flies
+                    // in the face of my previous paragraph saying that we're
+                    // not trying to make them shorter to save on bytes of CBOR,
+                    // but...
                     //
-                    // Using `minicbor_serde` just to encode the enums as strings
-                    // felt a bit too heavyweight, and required wrapping the encoder
-                    // in a serde thingy, so...we're doing it the old fashioned way.
+                    // Using `minicbor_serde` just to encode the enums as
+                    // strings felt a bit too heavyweight, and required wrapping
+                    // the encoder in a serde thingy, so...we're doing it the
+                    // old fashioned way.
                     encoder.str(match err {
                         UsageError::BadSyscallNumber => "BadSyscallNumber",
                         UsageError::InvalidSlice => "InvalidSlice",
@@ -920,20 +925,22 @@ impl EreportStore {
                     encoder.str("srv")?;
                     encode_task(&mut encoder, srv_task)?;
                     encoder.str("err")?;
-                    // These strings are kind of a lot of characters, but the rest
-                    // of the ereport is short and it seems kinda helpfulish to use
-                    // the same names as the actual enum variants, so they're
-                    // greppable in the source code.
+                    // These strings are kind of a lot of characters, but the
+                    // rest of the ereport is short and it seems kinda
+                    // helpfulish to use the same names as the actual enum
+                    // variants, so they're greppable in the source code.
                     //
-                    // Also, keeping them in CamelCase makes them a few characters
-                    // shorter than converting them to snake_case, since there
-                    // aren't any underscores. Which...kind of flies in the face of
-                    // my previous paragraph saying that we're not trying to make
-                    // them shorter to save on bytes of CBOR, but...
+                    // Also, keeping them in CamelCase makes them a few
+                    // characters shorter than converting them to snake_case,
+                    // since there aren't any underscores. Which...kind of flies
+                    // in the face of my previous paragraph saying that we're
+                    // not trying to make them shorter to save on bytes of CBOR,
+                    // but...
                     //
-                    // Using `minicbor_serde` just to encode the enums as strings
-                    // felt a bit too heavyweight, and required wrapping the encoder
-                    // in a serde thingy, so...we're doing it the old fashioned way.
+                    // Using `minicbor_serde` just to encode the enums as
+                    // strings felt a bit too heavyweight, and required wrapping
+                    // the encoder in a serde thingy, so...we're doing it the
+                    // old fashioned way.
                     encoder.str(match err {
                         ReplyFaultReason::UndefinedOperation => {
                             "UndefinedOperation"
@@ -958,9 +965,9 @@ impl EreportStore {
             // that there was a fault, even if we can't say which one it was.
             encoder.str("k")?.str("hubris.fault")?;
             ringbuf_entry!(Trace::TaskAlreadyRecovered { task_index });
-            // If the task has already restarted, we must decrement the reported
-            // generation for the ereport by 1, so that we record the generation
-            // that faulted, rather than the current one.
+            // If the task has already restarted, we must decrement the
+            // reported generation for the ereport by 1, so that we record the
+            // generation that faulted, rather than the current one.
             let generation = u8::from(taskid.generation()).wrapping_sub(1);
             taskid = TaskId::for_index_and_gen(
                 task_index as usize,
