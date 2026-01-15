@@ -613,7 +613,7 @@ impl EreportStore {
                     // If the new fault count is less than the current count,
                     // then Jefe's counter has wrapped around. The number of
                     // times the task has faulted is the difference between the
-                    // prior count and `u32::MAX`, plus the new fault count.
+                    // prior count and `usize::MAX`, plus the new fault count.
                     //
                     // This is a bit fudgey if the fault counter has wrapped
                     // multiple times since the last we saw it, but there's no
