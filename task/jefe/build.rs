@@ -5,7 +5,7 @@
 use anyhow::{Context, Result};
 use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
-use std::io::Write;
+use std::io::{self, Write};
 
 fn main() -> Result<()> {
     build_util::expose_m_profile()?;
@@ -35,35 +35,58 @@ fn main() -> Result<()> {
     let mut out =
         std::fs::File::create(dest_path).context("creating jefe_config.rs")?;
 
-    let task = "hubris_num_tasks::Task";
-    {
-        let count = cfg.on_state_change.len();
+    gen_mailing_list(
+        "STATE_CHANGE_MAILING_LIST",
+        &cfg.on_state_change,
+        &mut out,
+    )
+    .context("generating state change mailing list")?;
 
-        writeln!(
-            out,
-            "pub(crate) const MAILING_LIST: [({task}, u32); {count}] = [",
-        )?;
-        for (name, rec) in cfg.on_state_change {
-            writeln!(
-                out,
-                "    ({task}::{name}, crate::notifications::{name}::{}_MASK),",
-                rec.to_ascii_uppercase().replace('-', "_"),
-            )?;
-        }
-        writeln!(out, "];")?;
-    }
+    gen_mailing_list("FAULT_MAILING_LIST", &cfg.on_task_fault, &mut out)
+        .context("generating task fault mailing list")?;
 
     {
         let count = cfg.tasks_to_hold.len();
-        writeln!(out, "pub(crate) const HELD_TASKS: [{task}; {count}] = [",)?;
+        writeln!(out, "pub(crate) const HELD_TASKS: [{TASK}; {count}] = [",)?;
         for name in cfg.tasks_to_hold {
-            writeln!(out, "    {task}::{name},")?;
+            writeln!(out, "    {TASK}::{name},")?;
         }
         writeln!(out, "];")?;
     }
 
     #[cfg(feature = "dump")]
     output_dump_areas(&mut out)?;
+    Ok(())
+}
+
+const TASK: &str = "hubris_num_tasks::Task";
+
+/// Generates a "mailing list" of tasks to notify on a given event (such as a
+/// state change or a task fault), from a `BTreeMap` mapping task names to
+/// notification names.
+///
+/// The generated mailing list will be a `[(hubris_num_tasks::Task, u32)]` array
+/// named `list_name`.
+fn gen_mailing_list(
+    list_name: &str,
+    list: &BTreeMap<String, String>,
+    out: &mut impl std::io::Write,
+) -> io::Result<()> {
+    let count = list.len();
+
+    writeln!(
+        out,
+        "pub(crate) const {list_name}: [({TASK}, u32); {count}] = [",
+    )?;
+    for (name, rec) in list {
+        writeln!(
+            out,
+            "    ({TASK}::{name}, crate::notifications::{name}::{}_MASK),",
+            rec.to_ascii_uppercase().replace('-', "_"),
+        )?;
+    }
+    writeln!(out, "];")?;
+
     Ok(())
 }
 
@@ -75,6 +98,12 @@ struct Config {
     /// notification name (in the target task)
     #[serde(default)]
     on_state_change: BTreeMap<String, String>,
+
+    /// Task requests to be notified when a task faults, as a map from task name to
+    /// notification name (in the target task)
+    #[serde(default)]
+    on_task_fault: BTreeMap<String, String>,
+
     /// Map of operation names to tasks allowed to call them.
     #[serde(default)]
     allowed_callers: BTreeMap<String, Vec<String>>,
