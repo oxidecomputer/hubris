@@ -813,7 +813,7 @@ impl EreportStore {
         {
             match fault {
                 FaultInfo::MemoryAccess { address, source } => {
-                    encoder.str("k")?.str("hubris.fault.mem_access")?;
+                    encoder.str("k")?.str("hubris.fault.mem")?;
                     encoder.str("addr")?.encode(address)?;
                     encode_fault_src(&mut encoder, source)?;
                 }
@@ -827,7 +827,7 @@ impl EreportStore {
                     encode_fault_src(&mut encoder, source)?;
                 }
                 FaultInfo::DivideByZero => {
-                    encoder.str("k")?.str("hubris.fault.div_0")?;
+                    encoder.str("k")?.str("hubris.fault.div0")?;
                 }
                 FaultInfo::IllegalText => {
                     encoder.str("k")?.str("hubris.fault.illegal_txt")?;
@@ -916,7 +916,7 @@ impl EreportStore {
                     encode_task(&mut encoder, by_task)?;
                 }
                 FaultInfo::FromServer(srv_task, err) => {
-                    encoder.str("k")?.str("hubris.fault.from_srv")?;
+                    encoder.str("k")?.str("hubris.fault.reply")?;
                     encoder.str("srv")?;
                     encode_task(&mut encoder, srv_task)?;
                     encoder.str("err")?;
@@ -940,7 +940,7 @@ impl EreportStore {
                         }
                         ReplyFaultReason::BadMessageSize => "BadMessageSize",
                         ReplyFaultReason::BadMessageContents => {
-                            "BadMessageContent"
+                            "BadMessageContents"
                         }
                         ReplyFaultReason::BadLeases => "BadLeases",
                         ReplyFaultReason::ReplyBufferTooSmall => {
@@ -956,7 +956,7 @@ impl EreportStore {
             //
             // In this case, we should still generate an ereport indicating
             // that there was a fault, even if we can't say which one it was.
-            encoder.str("k")?.str("hubris.fault.unknown")?;
+            encoder.str("k")?.str("hubris.fault")?;
             ringbuf_entry!(Trace::TaskAlreadyRecovered { task_index });
             // If the task has already restarted, we must decrement the reported
             // generation for the ereport by 1, so that we record the generation
