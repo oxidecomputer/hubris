@@ -38,13 +38,13 @@
 //! The overall theory of operation for task fault ereports is:
 //!
 //! 1. `jefe` is configured to send the `TASK_FAULTED` notification to `packrat`
-//!     whenever a task has faulted.
+//!    whenever a task has faulted.
 //!
-//!     When the list of tasks to notify on faults is non-empty, `jefe` will
-//!     always wait at least 5 ms before restarting the faulted task,
-//!     regardless of how long it has been running prior to the fault. This
-//!     should be sufficient time for `packrat` to record data about the fault,
-//!     as described above.
+//!    When the list of tasks to notify on faults is non-empty, `jefe` will
+//!    always wait at least 5 ms before restarting the faulted task,
+//!    regardless of how long it has been running prior to the fault. This
+//!    should be sufficient time for `packrat` to record data about the fault,
+//!    as described above.
 //!
 //! 2. When we receive the `TASK_FAULTED` notification from the supervisor,
 //!    `packrat` calls the [`Jefe::read_task_fault_counts`] IPC to ask `jefe`
