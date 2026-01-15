@@ -28,6 +28,9 @@ extern-regions = ["sram1", "sram2", "sram3", "sram4"]
 set_reset_reason = ["sys"]
 request_reset = ["hiffy", "control_plane_agent"]
 
+[tasks.jefe.config.on-task-fault]
+packrat = "task-faulted"
+
 [tasks.sys]
 name = "drv-stm32xx-sys"
 features = ["h753", "exti", "no-panic"]
@@ -257,11 +260,11 @@ notifications = ["socket", "timer"]
 [tasks.packrat]
 name = "task-packrat"
 priority = 1
-stacksize = 1096
+stacksize = 1336
 start = true
-# task-slots is explicitly empty: packrat should not send IPCs!
-task-slots = []
+task-slots = ["jefe"]
 features = ["ereport"]
+notifications = ["task-faulted"]
 
 [tasks.sequencer]
 name = "drv-sidecar-seq-server"

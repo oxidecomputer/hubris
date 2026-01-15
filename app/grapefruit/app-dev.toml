@@ -12,8 +12,13 @@ interrupts = {"uart8.irq" = "usart-irq"}
 
 # Ereport stuff
 [tasks.packrat]
-stacksize = 1096
+stacksize = 1344
+task-slots = ["jefe"]
 features = ["ereport"]
+notifications = ["task-faulted"]
+
+[tasks.jefe.config.on-task-fault]
+packrat = "task-faulted"
 
 [tasks.snitch]
 name = "task-snitch"

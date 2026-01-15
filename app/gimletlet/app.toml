@@ -23,6 +23,9 @@ request_reset = ["hiffy", "control_plane_agent", "udprpc"]
 [tasks.jefe.config.on-state-change]
 host_sp_comms = "jefe-state-change"
 
+[tasks.jefe.config.on-task-fault]
+packrat = "task-faulted"
+
 [tasks.sys]
 # Enable EXTI in the sys task so that we can notify sprot when the RoT
 # raises an IRQ.
@@ -48,10 +51,10 @@ owner = {name = "sprot", notification = "rot_irq"}
 name = "task-packrat"
 priority = 1
 start = true
-# task-slots is explicitly empty: packrat should not send IPCs!
-task-slots = []
-stacksize = 1096
+task-slots = ["jefe"]
+stacksize = 1336
 features = ["ereport"]
+notifications = ["task-faulted"]
 
 [tasks.control_plane_agent]
 name = "task-control-plane-agent"

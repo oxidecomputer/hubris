@@ -28,6 +28,9 @@ net = "jefe-state-change"
 host_sp_comms = "jefe-state-change"
 spd = "jefe-state-change"
 
+[tasks.jefe.config.on-task-fault]
+packrat = "task-faulted"
+
 [tasks.jefe.config.allowed-callers]
 set_state = ["gimlet_seq"]
 set_reset_reason = ["sys"]
@@ -122,11 +125,11 @@ notifications = ["i2c1-irq", "jefe-state-change"]
 [tasks.packrat]
 name = "task-packrat"
 priority = 1
-stacksize = 1096
+stacksize = 1352
 start = true
-# task-slots is explicitly empty: packrat should not send IPCs!
-task-slots = []
+task-slots = ["jefe"]
 features = ["gimlet", "ereport"]
+notifications = ["task-faulted"]
 
 [tasks.thermal]
 name = "task-thermal"

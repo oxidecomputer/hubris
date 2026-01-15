@@ -17,11 +17,13 @@ drv-caboose = { path = "../../drv/caboose", optional = true }
 drv-caboose-pos = { path = "../../drv/caboose-pos", optional = true }
 drv-rng-api = { path = "../../drv/rng-api", optional = true  }
 hubris-task-names = { path = "../../sys/task-names" }
+hubris-num-tasks = { path = "../../sys/num-tasks" }
 mutable-statics = { path = "../../lib/mutable-statics" }
 ringbuf = { path = "../../lib/ringbuf"  }
 counters = { path = "../../lib/counters"  }
 static-cell = { path = "../../lib/static-cell" }
 task-packrat-api = { path = "../packrat-api" }
+task-jefe-api = { path = "../jefe-api", optional = true }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 snitch-core = { version = "0.1.0", path = "../../lib/snitch-core", optional = true, features = ["counters"] }
 minicbor = { workspace = true,  optional = true }
@@ -40,7 +42,16 @@ gimlet = ["drv-cpu-seq-api"]
 grapefruit = []
 boot-kmdb = []
 no-ipc-counters = ["idol/no-counters"]
-ereport = ["dep:drv-caboose", "dep:drv-caboose-pos", "dep:drv-rng-api", "dep:snitch-core", "dep:minicbor", "dep:minicbor-lease", "dep:quote"]
+ereport = [
+    "dep:drv-caboose",
+    "dep:drv-caboose-pos",
+    "dep:drv-rng-api",
+    "dep:minicbor",
+    "dep:minicbor-lease",
+    "dep:quote",
+    "dep:snitch-core",
+    "dep:task-jefe-api",
+]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

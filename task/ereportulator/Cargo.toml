@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-userlib = { path = "../../sys/userlib" }
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 idol-runtime.workspace = true
 zerocopy.workspace = true
 zerocopy-derive.workspace = true
