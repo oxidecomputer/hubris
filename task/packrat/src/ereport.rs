@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//! Packrat ereport aggregation.
+//! # Packrat ereport aggregation.
 //!
 //! As described in [RFD 545 § 4.3], `packrat`'s role in the ereport subsystem
 //! is to aggregate ereports from other tasks in a circular buffer. Ereports are
@@ -11,6 +11,88 @@
 //! also flushes committed ereports from the buffer.
 //!
 //! [RFD 545 § 4.3]: https://rfd.shared.oxide.computer/rfd/0545#_aggregation
+//!
+//! ## Fault Reporting
+//!
+//! In addition to aggregating ereports recorded by other tasks, this module is
+//! also responsible for recording ereports when a task faults. This is
+//! `packrat`'s responsibility, since the faulted task cannot submit an ereport
+//! to `packrat` because, well, you know...it just faulted,[^1] and making it
+//! the supervisor's duty to send ereports to `packrat` feels like putting too
+//! much code in the supervisor.
+//!
+//! To provide the most detailed diagnostic information about the fault, some
+//! data must be read while the task is still in the faulted state, prior to
+//! restarting it. In particular, the [`FaultInfo`] provided by the kernel in
+//! response to [`kipc::read_task_status`] is discarded when the task is
+//! restarted (as its state transitions back to [`TaskState::Running`]), and if
+//! the task has panicked, the panic message is read directly out of its address
+//! space via [`kipc::read_panic_message`], and this is also clobbered when the
+//! task is restarted. However, we do not want a broken `packrat` to be able to
+//! delay restarting faulted tasks indefinitely, so we have only a limited time
+//! window to read this data before the task is restarted. In the event that we
+//! miss our chance to do so, or if the ereport buffer is full at the time of
+//! the fault, we will still attempt to produce a less-detailed ereport
+//! indicating that there has been *some* kind of fault.
+//!
+//! The overall theory of operation for task fault ereports is:
+//!
+//! 1. `jefe` is configured to send the `TASK_FAULTED` notification to `packrat`
+//!     whenever a task has faulted.
+//!
+//!     When the list of tasks to notify on faults is non-empty, `jefe` will
+//!     always wait at least 5 ms before restarting the faulted task,
+//!     regardless of how long it has been running prior to the fault. This
+//!     should be sufficient time for `packrat` to record data about the fault,
+//!     as described above.
+//!
+//! 2. When we receive the `TASK_FAULTED` notification from the supervisor,
+//!    `packrat` calls the [`Jefe::read_task_fault_counts`] IPC to ask `jefe`
+//!    for the total number of times each task has faulted since boot. We
+//!    scan over this array (in [`EreportStore::record_faulted_tasks`]) and
+//!    compare the fault counts from `jefe` to the number of faults we have
+//!    previously observed for each task, to detect any unrecorded faults.
+//!
+//!    We ask `jefe` for faulted tasks, rather than using
+//!    [`kipc::find_faulted_task`], because a faulted task may have already
+//!    been restarted by the time we get around to trying to record it.
+//!    Similarly, we ask `jefe` for the total fault counts since boot, rather
+//!    than just saying "give me the last faulted task", because it is possible
+//!    for multiple tasks to have faulted, or the same task to fault multiple
+//!    times[^2], since the last time we had an opportunity to check for
+//!    faulted tasks.
+//!
+//! 3. If we find a task whose fault count has changed, we call
+//!    [`EreportStore::record_faulted_task`] to produce an ereport for that
+//!    fault. If the task is still in the faulted state (which, again, should be
+//!    the common case due to `packrat`'s relative priority), this will be a more
+//!    detailed ereport than if it has already been restarted, but if the task
+//!    has been restarted, we will still indicate that some sort of fault
+//!    occurred.
+//!
+//! 4. If the ereport produced for a faulted task fits in the ereport buffer,
+//!    we update `packrat`'s tracked fault count to indicate that the fault has
+//!    been recorded. If there is *not* currently space to record the fault, we
+//!    instead track the timestamp at which the fault occurred in the tracked
+//!    fault history for that task, and set a flag indicating that we are
+//!    currently "holding" un-reported faults.
+//!
+//! 5. When ereports are flushed from the buffer, if the "holding faults" flag
+//!    is set, we call [`EreportStore::record_faulted_tasks`] again. This way,
+//!    if any task faults were previously not able to fit in the buffer, we
+//!    attempt to record them again now that there's space. By this point, the
+//!    task will *probably* have been restarted, so the ereport will be less
+//!    detailed, but again, indicating that a fault occurred at all is still
+//!    better than not doing that.
+//!
+//! [^1]: While we could imagine the panic hook producing an ereport *prior* to
+//!       invoking the `sys_panic` syscall, other faults such as stack
+//!       overflows do  not provide similar opportunities for a task to
+//!       report on its own misbehavior.
+//! [^2]: Though the combination of the 50 ms restart delay in `jefe` and the
+//!       fact that `packrat` is usually immediately below the supervisor in
+//!       priority makes it *unlikely* that the same task will have faulted
+//!       a bunch of times before we see it, it's always possible.
 
 use super::ereport_messages;
 
@@ -40,13 +122,16 @@ pub(crate) struct EreportStore {
     // === Stuff for task fault reporting ===
     //
     /// Buffer into which we read panic messages when preparing a fault report
-    /// for a panicked task. Thankfully, the userlib tells us the maximum length
-    /// (in bytes) that these will be.
+    /// for a panicked task. Thankfully, the userlib tells us the maximum
+    /// length (in bytes) that these will be.
     panic_buf: &'static mut [u8; userlib::PANIC_MESSAGE_MAX_LEN],
     jefe: Jefe,
-    /// Tracks the last observed fault count for each task in the image. This is
-    /// used to determine whether a task has faulted when Jefe notifies us of
-    /// task faults.
+    /// Tracks the last observed fault count for each task in the image, and
+    /// the timestamp of the last **unrecorded** fault, if there is one.
+    ///
+    /// This is used to determine whether a task has faulted when Jefe notifies
+    /// us of task faults, and whether there are unrecorded faults when we free
+    /// up buffer space for more ereports.
     task_fault_states: &'static mut [TaskFaultHistory; NUM_TASKS],
     /// ...and this one is the buffer that we mutably lease to Jefe when we ask
     /// it to give us the _latest_ fault counts.
@@ -67,10 +152,24 @@ pub(crate) struct EreportBufs {
     fault_count_buf: [usize; NUM_TASKS],
 }
 
+/// Per-task state for fault reporting.
 #[derive(Copy, Clone)]
 struct TaskFaultHistory {
+    /// The total number of faults since boot *for which we have successfully
+    /// produced an ereport*.
+    ///
+    /// This value is compared with the value returned by
+    /// [`Jefe::read_fault_counts`] to detect un-recorded task faults. It is
+    /// updated to the value returned by `jefe` when a fault ereport is
+    /// successfully inserted into the storage buffer.
     count: usize,
-    last_fault_time: Option<u64>,
+    /// The timestamp of the last time this task faulted but an ereport did
+    /// *not* fit in the ereport buffer. If this is set, it indicates that the
+    /// task one or more has unrecorded faults.
+    ///
+    /// This is used as the timestamp of the fault report for those unreported
+    /// faults when space becomes available.
+    last_unrecorded_fault_time: Option<u64>,
 }
 
 /// Number of bytes of RAM dedicated to ereport storage. Each individual
@@ -486,7 +585,7 @@ impl EreportStore {
         let mut nfaulted: usize = 0;
         let mut nreported: usize = 0;
 
-        // Who farted^H^H^H^H^H^Hfaulted?
+        // Who farted^Wfaulted?
         for (task_index, (state, new_count)) in self
             .task_fault_states
             .iter_mut()
@@ -496,7 +595,7 @@ impl EreportStore {
             let task_index = task_index as u16;
             let TaskFaultHistory {
                 ref mut count,
-                ref mut last_fault_time,
+                ref mut last_unrecorded_fault_time,
             } = state;
 
             // Check if the fault count has changed to determine whether there
@@ -510,7 +609,7 @@ impl EreportStore {
             // This bit looks a little weird, but it'll make sense if you think
             // about it...trust me!
             let (nfaults, timestamp) =
-                match (new_count.cmp(&*count), *last_fault_time) {
+                match (new_count.cmp(&*count), *last_unrecorded_fault_time) {
                     // If the new fault count is less than the current count, then
                     // Jefe's counter has wrapped around. The number of times
                     // the task has faulted is the difference between the prior
@@ -582,7 +681,7 @@ impl EreportStore {
                         // Again, won't ever actually wrap, but whatever.
                         nreported = nreported.wrapping_add(1);
                         // All previously observed faults recorded!
-                        *last_fault_time = None;
+                        *last_unrecorded_fault_time = None;
                     }
                     snitch_core::InsertResult::Lost => {
                         // No ereport was recorded, so *don't* acknowledge the fault
@@ -590,7 +689,7 @@ impl EreportStore {
                         // still treat the task as having faulted in the past and
                         // will attempt to make an ereport for it later, if there's
                         // space.
-                        *last_fault_time = Some(timestamp);
+                        *last_unrecorded_fault_time = Some(timestamp);
                     }
                 }
             } else {
@@ -605,7 +704,7 @@ impl EreportStore {
                 // Treat the fault as acked, because if it was >1024B this
                 // time, it will always be >1024B next time.
                 *count = new_count;
-                *last_fault_time = None;
+                *last_unrecorded_fault_time = None;
                 // Again, won't ever actually wrap, but whatever.
                 nreported = nreported.wrapping_add(1);
             };
@@ -886,7 +985,7 @@ impl EreportBufs {
             panic_buf: [0u8; userlib::PANIC_MESSAGE_MAX_LEN],
             task_fault_states: [TaskFaultHistory {
                 count: 0,
-                last_fault_time: None,
+                last_unrecorded_fault_time: None,
             }; NUM_TASKS],
             fault_count_buf: [0usize; NUM_TASKS],
         }
