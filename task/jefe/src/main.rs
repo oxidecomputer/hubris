@@ -62,6 +62,23 @@ const TIMER_INTERVAL: u32 = 100;
 /// restarting at 20 Hz.
 const MIN_RUN_TIME: u64 = 50;
 
+/// Minimum amount of time to wait between a task faulting and when it is
+/// restarted, if the list of tasks to notify on faults is non-empty.
+///
+/// If other tasks are to be notified when a task faults, we always apply a
+/// delay of at least this long before restarting the task, even if it has been
+/// running for longer than `MIN_RUN_TIME`.
+///
+/// This is intended to provide time for other tasks (in practice, `packrat`) to
+/// collect diagnostic information about the fault before the task is restarted.
+/// Restarting a task clobbers potentially valuable data, such as the kernel's
+/// description of the fault and its stack trace. We provide Packrat with a 5 ms
+/// opportunity to produce a more detailed ereport before going ahead and
+/// restarting the faulted task. This way, there is a reasonable attempt to
+/// allow detailed fault reporting, but the task(s) responsible for reporting
+/// the fault cannot prevent tasks from being restarted indefinitely.
+const MIN_RESTART_DELAY: u64 = 5;
+
 #[export_name = "main"]
 fn main() -> ! {
     let mut task_states = [TaskStatus::default(); hubris_num_tasks::NUM_TASKS];
@@ -73,6 +90,15 @@ fn main() -> ! {
         userlib::set_timer_relative(TIMER_INTERVAL, notifications::TIMER_MASK);
 
     external::set_ready();
+
+    #[cfg(feature = "fault-counters")]
+    let fault_counts = {
+        use static_cell::ClaimOnceCell;
+
+        static COUNTS: ClaimOnceCell<[usize; NUM_TASKS]> =
+            ClaimOnceCell::new([0usize; NUM_TASKS]);
+        COUNTS.claim()
+    };
 
     let mut server = ServerImpl {
         state: 0,
@@ -86,6 +112,9 @@ fn main() -> ! {
 
         #[cfg(feature = "dump")]
         last_dump_area: None,
+
+        #[cfg(feature = "fault-counters")]
+        fault_counts,
     };
     let mut buf = [0u8; idl::INCOMING_SIZE];
 
@@ -100,6 +129,9 @@ struct ServerImpl<'s> {
     deadline: u64,
     any_tasks_in_timeout: bool,
     reset_reason: ResetReason,
+
+    #[cfg(feature = "fault-counters")]
+    fault_counts: &'s mut [usize; NUM_TASKS],
 
     /// Base address for a linked list of dump areas
     #[cfg(feature = "dump")]
@@ -154,12 +186,7 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
         if self.state != state {
             self.state = state;
 
-            for (task, mask) in generated::MAILING_LIST {
-                let taskid =
-                    TaskId::for_index_and_gen(task as usize, Generation::ZERO);
-                let taskid = userlib::sys_refresh_task_id(taskid);
-                userlib::sys_post(taskid, mask);
-            }
+            notify_tasks(&generated::STATE_CHANGE_MAILING_LIST);
         }
         Ok(())
     }
@@ -175,6 +202,37 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
         // work. This is a compromise because Idol can't easily describe an IPC
         // that won't return at this time.
         Ok(())
+    }
+
+    #[cfg(feature = "fault-counters")]
+    fn read_fault_counts(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        counts: idol_runtime::Leased<
+            idol_runtime::W,
+            [usize; hubris_num_tasks::NUM_TASKS],
+        >,
+    ) -> Result<(), RequestError<Infallible>> {
+        for (i, count) in self.fault_counts.iter().enumerate() {
+            counts
+                .write_at(i, *count)
+                .map_err(|()| RequestError::went_away())?;
+        }
+        Ok(())
+    }
+
+    #[cfg(not(feature = "fault-counters"))]
+    fn read_fault_counts(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        _counts: idol_runtime::Leased<
+            idol_runtime::W,
+            [usize; hubris_num_tasks::NUM_TASKS],
+        >,
+    ) -> Result<(), RequestError<Infallible>> {
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::UnknownOperation,
+        ))
     }
 
     cfg_if::cfg_if! {
@@ -414,6 +472,20 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
                     continue;
                 };
 
+                #[cfg(feature = "fault-counters")]
+                {
+                    // Increment this task's fault count.
+                    let fault_count = unsafe {
+                        // Safety: again, we trust that the kernel has not
+                        // given us an out-of-range task index.
+                        self.fault_counts.get_unchecked_mut(fault_index)
+                    };
+                    // This is explicitly wrapping, as we expect that the
+                    // caller will detect if new faults have been observed by
+                    // comparing for equality.
+                    *fault_count = fault_count.wrapping_add(1);
+                }
+
                 #[cfg(feature = "dump")]
                 {
                     // We'll ignore the result of dumping; it could fail
@@ -425,8 +497,27 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
                 }
 
                 if status.disposition == Disposition::Restart {
+                    // Subtract the task's runtime from the minimum required
+                    // runtime between restarts to determine how long to wait
+                    // before we restart it.
                     let dt = now.wrapping_sub(*started_at).wrapping_add(1);
-                    if let Some(extra_delay) = MIN_RUN_TIME.checked_sub(dt) {
+                    let mut extra_delay = MIN_RUN_TIME.checked_sub(dt);
+
+                    // If we are going to notify other tasks of the fault,
+                    // always wait at least `MIN_RESTART_DELAY` before
+                    // restarting the task, even if it has run for longer than
+                    // `MIN_RUN_TIME` since its last restart.
+                    //
+                    // Clippy doesn't like this `if` condition because it
+                    // doesn't know about codegen; this expression *should*
+                    // always evaluate either to true or false depending on
+                    // Jefe's config.
+                    #[allow(clippy::const_is_empty)]
+                    if !generated::FAULT_MAILING_LIST.is_empty() {
+                        extra_delay = extra_delay.max(Some(MIN_RESTART_DELAY));
+                    }
+
+                    if let Some(extra_delay) = extra_delay {
                         // Put it into timeout to hit our minimum run time
                         let restart_at = now.wrapping_add(extra_delay);
                         status.state = TaskState::Timeout { restart_at };
@@ -443,9 +534,19 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
                     status.state = TaskState::HoldFault;
                 }
             }
+
+            notify_tasks(&generated::FAULT_MAILING_LIST);
         }
 
         userlib::sys_set_timer(Some(self.deadline), notifications::TIMER_MASK);
+    }
+}
+
+fn notify_tasks(mailing_list: &[(hubris_num_tasks::Task, u32)]) {
+    for &(task, mask) in mailing_list {
+        let taskid = TaskId::for_index_and_gen(task as usize, Generation::ZERO);
+        let taskid = userlib::sys_refresh_task_id(taskid);
+        userlib::sys_post(taskid, mask);
     }
 }
 

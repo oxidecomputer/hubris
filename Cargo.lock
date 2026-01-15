@@ -21,13 +21,14 @@ checksum = "512761e0bb2578dd7380c6baaa0f4ce03e84f95e960231d1dec8bf4d7d6e2627"
 
 [[package]]
 name = "ahash"
-version = "0.8.3"
+version = "0.8.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c99f64d1e06488f620f932677e24bc6e2897582980441ae90a671415bd7ec2f"
+checksum = "5a15f179cd60c4584b8a8c596927aadc462e27f2ca70c04e0071964a73ba7a75"
 dependencies = [
  "cfg-if",
  "once_cell",
  "version_check",
+ "zerocopy 0.8.27",
 ]
 
 [[package]]
@@ -3450,7 +3451,7 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 [[package]]
 name = "idol"
 version = "0.5.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#f67fffe2bd917479a476fd2c761f603e422a6b91"
+source = "git+https://github.com/oxidecomputer/idolatry.git#f939baf75ea0c16ca61ebf666ca2dc1f8e2b0e76"
 dependencies = [
  "indexmap 1.9.1",
  "once_cell",
@@ -3466,7 +3467,7 @@ dependencies = [
 [[package]]
 name = "idol-runtime"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#f67fffe2bd917479a476fd2c761f603e422a6b91"
+source = "git+https://github.com/oxidecomputer/idolatry.git#f939baf75ea0c16ca61ebf666ca2dc1f8e2b0e76"
 dependencies = [
  "counters",
  "userlib",
@@ -4229,9 +4230,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.17.0"
+version = "1.21.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f61fba1741ea2b3d6a1e3178721804bb716a68a6aeba1149b5d52e3d464ea66"
+checksum = "42f5e15c9953c5e4ccceeb2e7382a716482c34515315f7b03532b8b4e8393d2d"
 
 [[package]]
 name = "ordered-toml"
@@ -5861,6 +5862,7 @@ dependencies = [
  "ringbuf",
  "serde",
  "ssmarshal",
+ "static-cell",
  "task-jefe-api",
  "userlib",
  "zerocopy 0.8.27",
@@ -5875,6 +5877,7 @@ dependencies = [
  "derive-idol-err",
  "dump-agent-api",
  "hubpack",
+ "hubris-num-tasks",
  "humpty",
  "idol",
  "idol-runtime",

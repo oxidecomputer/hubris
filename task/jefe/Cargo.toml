@@ -18,9 +18,10 @@ cfg-if = { workspace = true }
 abi = { path = "../../sys/abi" }
 armv6m-atomic-hack = { path = "../../lib/armv6m-atomic-hack" }
 hubris-num-tasks = { path = "../../sys/num-tasks", features = ["task-enum"] }
-ringbuf = { path = "../../lib/ringbuf"  }
+ringbuf = { path = "../../lib/ringbuf" }
 task-jefe-api = { path = "../jefe-api" }
 userlib = { path = "../../sys/userlib" }
+static-cell = { path = "../../lib/static-cell", optional = true }
 
 [build-dependencies]
 anyhow = { workspace = true }
@@ -33,6 +34,7 @@ build-util = { path = "../../build/util" }
 dump = []
 nano = [ "ringbuf/disabled" ]
 no-panic = [ "userlib/no-panic" ]
+fault-counters = [ "dep:static-cell" ]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
