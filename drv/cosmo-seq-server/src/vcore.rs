@@ -15,8 +15,8 @@
 use super::i2c_config;
 use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::raa229620a::{self, Raa229620A};
+use fixedstr::FixedStr;
 use ringbuf::*;
-use serde::Serialize;
 use userlib::{sys_get_timer, units, TaskId};
 
 pub(super) struct VCore {
@@ -27,10 +27,11 @@ pub(super) struct VCore {
     packrat: task_packrat_api::Packrat,
 }
 
-#[derive(Copy, Clone, PartialEq, Serialize)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-enum Rail {
+#[derive(Copy, Clone, PartialEq, microcbor::Encode)]
+pub(crate) enum Rail {
+    #[cbor(rename = "VDDCR_CPU0")]
     VddcrCpu0,
+    #[cbor(rename = "VDDCR_CPU1")]
     VddcrCpu1,
 }
 
@@ -71,9 +72,6 @@ enum Trace {
     StatusCml(Rail, Result<u8, ResponseCode>),
     StatusMfrSpecific(Rail, Result<u8, ResponseCode>),
     I2cError(Rail, PmbusCmd, raa229620a::Error),
-    EreportSent(Rail, usize),
-    EreportLost(Rail, usize, task_packrat_api::EreportWriteError),
-    EreportTooBig(Rail),
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -366,7 +364,7 @@ impl VCore {
         .map(|s| s.0);
         ringbuf_entry!(Trace::StatusMfrSpecific(rail, status_mfr));
 
-        let pmbus_status = PmbusStatus {
+        let pmbus_status = crate::PmbusStatus {
             word: status_word.map(|s| s.0).ok(),
             input: status_input.ok(),
             vout: status_vout.ok(),
@@ -376,27 +374,19 @@ impl VCore {
             mfr: status_mfr.ok(),
         };
 
-        let ereport = Ereport {
-            k: "hw.pwr.pmbus.alert",
-            v: 0,
+        let ereport = crate::EreportKind::PmbusAlert {
             rail,
-            refdes: device.i2c_device().component_id(),
+            refdes: FixedStr::from_str(device.i2c_device().component_id()),
             time: now,
             pmbus_status,
             pwr_good: power_good,
         };
-        match self.packrat.serialize_ereport(&ereport, ereport_buf) {
-            Ok(len) => ringbuf_entry!(Trace::EreportSent(rail, len)),
-            Err(task_packrat_api::EreportSerializeError::Packrat {
-                len,
-                err,
-            }) => {
-                ringbuf_entry!(Trace::EreportLost(rail, len, err))
-            }
-            Err(task_packrat_api::EreportSerializeError::Serialize(_)) => {
-                ringbuf_entry!(Trace::EreportTooBig(rail))
-            }
-        }
+        crate::try_send_ereport(
+            &self.packrat,
+            ereport_buf,
+            crate::EreportClass::PmbusAlert,
+            ereport,
+        );
         // TODO(eliza): if POWER_GOOD has been deasserted, we should produce a
         // subsequent ereport for that.
 
@@ -405,28 +395,6 @@ impl VCore {
             input_fault,
         }
     }
-}
-
-#[derive(Serialize)]
-struct Ereport {
-    k: &'static str,
-    v: usize,
-    refdes: &'static str,
-    rail: Rail,
-    time: u64,
-    pwr_good: Option<bool>,
-    pmbus_status: PmbusStatus,
-}
-
-#[derive(Copy, Clone, Default, Serialize)]
-struct PmbusStatus {
-    word: Option<u16>,
-    input: Option<u8>,
-    iout: Option<u8>,
-    vout: Option<u8>,
-    temp: Option<u8>,
-    cml: Option<u8>,
-    mfr: Option<u8>,
 }
 
 struct RegulatorState {

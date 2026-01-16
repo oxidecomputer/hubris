@@ -164,17 +164,9 @@ struct StateMachineStates {
     nic: Result<fmc_sequencer::NicSm, u8>,
 }
 
-const EREPORT_BUF_LEN: usize = {
-    let n = microcbor::max_cbor_len_for!(
-        task_packrat_api::Ereport<EreportClass, EreportKind>,
-    );
-    // someday, we will have const max.
-    if n < 256 {
-        256
-    } else {
-        n
-    }
-};
+const EREPORT_BUF_LEN: usize = microcbor::max_cbor_len_for!(
+    task_packrat_api::Ereport<EreportClass, EreportKind>,
+);
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -451,6 +443,8 @@ struct ServerImpl {
 
 #[derive(microcbor::Encode)]
 pub enum EreportClass {
+    #[cbor(rename = "hw.pwr.pmbus.alert")]
+    PmbusAlert,
     #[cbor(rename = "hw.pwr.bmr491.mitfail")]
     Bmr491MitigationFailure,
 }
@@ -463,6 +457,24 @@ pub(crate) enum EreportKind {
         last_cause: drv_i2c_devices::bmr491::MitigationFailureKind,
         succeeded: bool,
     },
+    PmbusAlert {
+        refdes: FixedStr<'static, { crate::i2c_config::MAX_COMPONENT_ID_LEN }>,
+        rail: vcore::Rail,
+        time: u64,
+        pwr_good: Option<bool>,
+        pmbus_status: PmbusStatus,
+    },
+}
+
+#[derive(Copy, Clone, Default, microcbor::Encode)]
+pub(crate) struct PmbusStatus {
+    word: Option<u16>,
+    input: Option<u8>,
+    iout: Option<u8>,
+    vout: Option<u8>,
+    temp: Option<u8>,
+    cml: Option<u8>,
+    mfr: Option<u8>,
 }
 
 impl ServerImpl {
