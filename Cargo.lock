@@ -1138,7 +1138,6 @@ dependencies = [
  "num-traits",
  "pmbus",
  "ringbuf",
- "serde",
  "static-cell",
  "task-jefe-api",
  "task-packrat-api",
