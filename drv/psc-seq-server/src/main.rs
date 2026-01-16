@@ -686,7 +686,9 @@ fn main() -> ! {
             }
             if let Some(ereport) = step.ereport {
                 let psu = PSU_SLOTS[ereport.report.slot as usize];
-                match packrat.encode_ereport(&ereport, &mut ereport_buf[..]) {
+                match packrat
+                    .deliver_microcbor_ereport(&ereport, &mut ereport_buf[..])
+                {
                     Ok(len) => ringbuf_entry!(
                         __TRACE,
                         Trace::EreportSent {

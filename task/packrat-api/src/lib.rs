@@ -114,11 +114,13 @@ pub struct Ereport<C, D> {
 }
 
 impl Packrat {
-    /// Deliver an ereport for a value that implements [`serde::Serialize`]. The
-    /// provided `buf` is used to serialize the value before sending it to
-    /// Packrat.
+    /// Deliver an ereport for a value that implements [`serde::Serialize`].
+    ///
+    /// This method both encodes the ereport as CBOR into the provided `buf`
+    /// (using `minicbor_serde`) and then delivers the encoded ereport to
+    /// `packrat`.
     #[cfg(feature = "serde")]
-    pub fn serialize_ereport(
+    pub fn deliver_serde_ereport(
         &self,
         ereport: &impl serde::Serialize,
         buf: &mut [u8],
@@ -146,11 +148,22 @@ impl Packrat {
         Ok(len)
     }
 
+    /// Deliver an ereport for a value that implements [`microcbor::Encode`] and
+    /// [`microcbor::StaticCborLen`].
+    ///
+    /// This method both encodes the ereport as CBOR into the provided `buf` and
+    /// then delivers the encoded ereport to `packrat`.
+    ///
+    /// `buf` should generally be a buffer constructed using the
+    /// [`microcbor::max_cbor_len_for!`] to determine the maximum length of the
+    /// buffer needed to encode any of a set of ereport types. This ensures that
+    /// it will never be too short to contain the encoded ereport.
+    ///
     // TODO(eliza): I really want this to be able to statically check that the
     // buffer is >= E::MAX_CBOR_LEN but unfortunately that isn't currently
     // possible due to https://github.com/rust-lang/rust/issues/132980...
     #[cfg(feature = "microcbor")]
-    pub fn encode_ereport<E: StaticCborLen>(
+    pub fn deliver_microcbor_ereport<E: StaticCborLen>(
         &self,
         ereport: &E,
         buf: &mut [u8],

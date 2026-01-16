@@ -1116,7 +1116,7 @@ fn try_send_ereport(
     class: EreportClass,
     report: EreportKind,
 ) {
-    let eresult = packrat.encode_ereport(
+    let eresult = packrat.deliver_microcbor_ereport(
         &task_packrat_api::Ereport {
             class,
             version: 0,
