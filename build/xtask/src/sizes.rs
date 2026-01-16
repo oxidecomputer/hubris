@@ -130,6 +130,12 @@ pub fn run(
         let oldram = sizes.sizes[task_name]["ram"];
         let oldlim = stack.limit;
         let nonstack_ram = oldram.saturating_sub(oldlim);
+
+        // The stack limit in the TOML must be *greater* than the maximum
+        // estimated stack depth. Stack sizes must be a multiple of 8 bytes.
+        // Thus, we will increase the stack limit to the maximum estimated depth
+        // plus 8 bytes.
+        //
         // TODO(eliza): consider also allowing a "bonus stack margin" to be
         // requested for paranoia purposes?
         let newlim = stack.max_estimate + 8;
