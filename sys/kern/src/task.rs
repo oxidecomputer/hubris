@@ -49,6 +49,13 @@ pub struct Task {
     /// Pointer to the ROM descriptor used to create this task, so it can be
     /// restarted.
     descriptor: &'static TaskDesc,
+
+    /// Stack watermark tracking support.
+    ///
+    /// This field is completely missing if the feature is disabled to make that
+    /// clear to debug tools.
+    #[cfg(feature = "stack-watermark")]
+    stack_watermark: StackWatermark,
 }
 
 impl Task {
@@ -69,6 +76,8 @@ impl Task {
             notifications: 0,
             save: crate::arch::SavedState::default(),
             timer: crate::task::TimerState::default(),
+            #[cfg(feature = "stack-watermark")]
+            stack_watermark: StackWatermark::default(),
         }
     }
 
@@ -321,7 +330,30 @@ impl Task {
         self.notifications = 0;
         self.state = TaskState::default();
 
+        #[cfg(feature = "stack-watermark")]
+        {
+            self.stack_watermark.past_low = u32::min(
+                self.stack_watermark.past_low,
+                self.stack_watermark.current_low,
+            );
+            self.stack_watermark.current_low = u32::MAX;
+        }
+
         crate::arch::reinitialize(self);
+    }
+
+    /// Updates the task's stack watermark stats, if enabled.
+    ///
+    /// If not enabled, this does nothing, so it should be safe to call freely
+    /// without checking for the feature.
+    pub fn update_stack_watermark(&mut self) {
+        #[cfg(feature = "stack-watermark")]
+        {
+            self.stack_watermark.current_low = u32::min(
+                self.stack_watermark.current_low,
+                self.save().stack_pointer(),
+            );
+        }
     }
 
     /// Returns a reference to the `TaskDesc` that was used to initially create
@@ -378,6 +410,32 @@ impl Task {
     /// Returns a mutable reference to the saved machine state for the task.
     pub fn save_mut(&mut self) -> &mut crate::arch::SavedState {
         &mut self.save
+    }
+}
+
+#[cfg(feature = "stack-watermark")]
+#[derive(Copy, Clone, Debug)]
+struct StackWatermark {
+    /// Tracks the lowest stack pointer value (e.g. fullest stack) observed on
+    /// any kernel entry for this instance of this task.
+    ///
+    /// Initialized to `u32::MAX` if the task has not yet run.
+    current_low: u32,
+
+    /// Tracks the lowest stack pointer value (e.g. fullest stack) observed on
+    /// any kernel entry across *any* instance of this task.
+    ///
+    /// Initialized to `u32::MAX` if the task has not yet run.
+    past_low: u32,
+}
+
+#[cfg(feature = "stack-watermark")]
+impl Default for StackWatermark {
+    fn default() -> Self {
+        Self {
+            current_low: u32::MAX,
+            past_low: u32::MAX,
+        }
     }
 }
 
