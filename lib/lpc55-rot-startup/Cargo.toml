@@ -34,6 +34,7 @@ lpc55_romapi = { path = "../lpc55-romapi" }
 stage0-handoff = { path = "../stage0-handoff"}
 unwrap-lite = { path = "../unwrap-lite" }
 drv-lpc55-flash.path = "../../drv/lpc55-flash"
+lpc55-hashcrypt = { path = "../lpc55-hashcrypt" }
 
 [build-dependencies]
 build-util = { path = "../../build/util" }
