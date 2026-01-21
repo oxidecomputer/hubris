@@ -260,6 +260,25 @@ impl MgsHandler {
         id
     }
 
+    fn get_attached_nonidle_client(
+        &mut self,
+    ) -> &Option<AttachedSerialConsoleMgs> {
+        if let Some(attached) = &self.attached_serial_console_mgs {
+            // Check whether we think this client has disappeared
+            let client_age_ms = sys_get_timer()
+                .now
+                .saturating_sub(attached.last_keepalive_received);
+            if Duration::from_millis(client_age_ms)
+                > SERIAL_CONSOLE_IDLE_TIMEOUT
+            {
+                self.usart.clear_rx_data();
+                self.attached_serial_console_mgs = None;
+            }
+        }
+
+        return &self.attached_serial_console_mgs;
+    }
+
     pub(crate) fn packet_to_mgs(
         &mut self,
         tx_buf: &mut [u8; gateway_messages::MAX_SERIALIZED_SIZE],
@@ -280,21 +299,8 @@ impl MgsHandler {
         }
 
         // Do we have an attached MGS instance that hasn't gone stale?
-        let sender = match &self.attached_serial_console_mgs {
-            Some(attached) => {
-                // Check whether we think this client has disappeared
-                let client_age_ms = sys_get_timer()
-                    .now
-                    .saturating_sub(attached.last_keepalive_received);
-                if Duration::from_millis(client_age_ms)
-                    > SERIAL_CONSOLE_IDLE_TIMEOUT
-                {
-                    self.usart.clear_rx_data();
-                    self.attached_serial_console_mgs = None;
-                    return None;
-                }
-                attached.sender
-            }
+        let sender = match &self.get_attached_nonidle_client() {
+            Some(attached) => attached.sender,
             None => {
                 // Discard any buffered data and reset any usart-related timers.
                 self.usart.clear_rx_data();
@@ -762,7 +768,7 @@ impl SpHandler for MgsHandler {
             return Err(SpError::RequestUnsupportedForComponent);
         }
 
-        if self.attached_serial_console_mgs.is_some() {
+        if self.get_attached_nonidle_client().is_some() {
             return Err(SpError::SerialConsoleAlreadyAttached);
         }
 
