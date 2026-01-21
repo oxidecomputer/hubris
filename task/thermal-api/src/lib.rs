@@ -77,6 +77,7 @@ pub enum ThermalAutoState {
     Running,
     Overheated,
     Uncontrollable,
+    TurboMode,
 }
 
 /// Properties for a particular part in the system
