@@ -236,8 +236,9 @@ that also checks that the types match.
 == API wrapper crates
 
 It's polite to provide a _wrapper crate_ that turns your server's IPC API into a
-Rust API. We write these by hand at the moment, since we don't have any sort of
-IDL. The general pattern is:
+Rust API. There is also experimental support for an IDL generator called
+https://github.com/oxidecomputer/idolatry[Idolatry]. The general pattern for
+writing these by hand is:
 
 - Create a crate ending in `-api`, e.g. for the `fnord` service it would be
   `fnord-api` by convention.
