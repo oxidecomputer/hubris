@@ -917,6 +917,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "demo-stm32f4-nucleo"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if",
+ "cortex-m",
+ "cortex-m-rt",
+ "kern",
+ "stm32f4",
+]
+
+[[package]]
 name = "demo-stm32g0-nucleo"
 version = "0.1.0"
 dependencies = [
@@ -2593,6 +2605,7 @@ version = "0.1.0"
 dependencies = [
  "cfg-if",
  "num-traits",
+ "stm32f4",
  "stm32g0",
  "stm32h7",
  "userlib",
@@ -2656,6 +2669,7 @@ dependencies = [
  "idol",
  "idol-runtime",
  "num-traits",
+ "stm32f4",
  "stm32g0",
  "stm32h7",
  "task-jefe-api",
@@ -2774,7 +2788,6 @@ dependencies = [
  "lpc55-pac",
  "num-traits",
  "stm32f3",
- "stm32f4",
  "task-config",
  "userlib",
  "zerocopy 0.8.27",
@@ -5384,11 +5397,11 @@ dependencies = [
 
 [[package]]
 name = "stm32f4"
-version = "0.13.0"
+version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da3d56009c8f32e4f208dbea17df72484154d1040a8969b75d8c73eb7b18fe8f"
+checksum = "fb94729242cd1aebe6dab42a2ca0131985ae93bc3ab2751b680df724bb35528d"
 dependencies = [
- "bare-metal 0.2.5",
+ "bare-metal 1.0.0",
  "cortex-m",
  "cortex-m-rt",
  "vcell",

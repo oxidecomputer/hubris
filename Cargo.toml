@@ -130,7 +130,7 @@ spin = { version = "0.9.4", default-features = false, features = ["mutex", "spin
 ssmarshal = { version = "1.0.0", default-features = false }
 static_assertions = { version = "1", default-features = false }
 stm32f3 = { version = "0.13.0", default-features = false }
-stm32f4 = { version = "0.13.0", default-features = false }
+stm32f4 = { version = "0.15.1", default-features = false }
 stm32h7 = { version = "0.14", default-features = false }
 stm32g0 = { version = "0.15.1", default-features = false }
 strsim = { version = "0.10.0", default-features = false }

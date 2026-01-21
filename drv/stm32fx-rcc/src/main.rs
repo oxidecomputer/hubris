@@ -53,8 +53,11 @@
 #[cfg(feature = "stm32f3")]
 use stm32f3::stm32f303 as device;
 
-#[cfg(feature = "stm32f4")]
+#[cfg(feature = "f407")]
 use stm32f4::stm32f407 as device;
+
+#[cfg(feature = "f429")]
+use stm32f4::stm32f429 as device;
 
 use userlib::*;
 use zerocopy::IntoBytes;

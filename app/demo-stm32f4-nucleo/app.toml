@@ -1,20 +1,19 @@
-name = "demo-stm32f4-discovery"
+name = "demo-stm32f4-nucleo"
 target = "thumbv7em-none-eabihf"
-board = "stm32f4-discovery"
+board = "stm32f429-nucleo"
 chip = "../../chips/stm32f4"
 stacksize = 896
 
 [kernel]
-name = "demo-stm32f4-discovery"
+name = "demo-stm32f4-nucleo"
 requires = {flash = 20000, ram = 3072}
-features = ["stm32f4"]
 
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
-max-sizes = {flash = 8192, ram = 4096}
+max-sizes = {flash = 8192, ram = 2048}
 start = true
-stacksize = 2200
+stacksize = 1536
 notifications = ["fault", "timer"]
 
 [tasks.sys]
@@ -23,13 +22,13 @@ priority = 1
 max-sizes = {flash = 2048, ram = 256}
 uses = ["rcc", "gpio"]
 start = true
-features = ["f407", "no-ipc-counters"]
+features = ["f429", "no-ipc-counters"]
 stacksize = 256
 task-slots = ["jefe"]
 
 [tasks.rcc_driver]
 name = "drv-stm32fx-rcc"
-features = ["f407"]
+features = ["f429"]
 priority = 1
 max-sizes = {flash = 8192, ram = 1024}
 uses = ["rcc"]
@@ -37,7 +36,7 @@ start = true
 
 [tasks.usart_driver]
 name = "drv-stm32fx-usart"
-features = ["f407"]
+features = ["f429"]
 priority = 2
 max-sizes = {flash = 8192, ram = 1024}
 uses = ["usart2", "gpio"]

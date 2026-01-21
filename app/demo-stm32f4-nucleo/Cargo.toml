@@ -1,0 +1,30 @@
+[package]
+edition = "2021"
+readme = "README.md"
+name = "demo-stm32f4-nucleo"
+version = "0.1.0"
+
+[features]
+f429 = ["stm32f4/stm32f429", "kern/nano"]
+dump = ["kern/dump"]
+
+[dependencies]
+cortex-m = { workspace = true }
+cortex-m-rt = { workspace = true }
+cfg-if = { workspace = true }
+stm32f4 = { workspace = true, features = ["stm32f429", "rt"] }
+
+kern = { path = "../../sys/kern" }
+
+[build-dependencies]
+build-util = {path = "../../build/util"}
+
+# this lets you use `cargo fix`!
+[[bin]]
+name = "demo-stm32f4-nucleo"
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true

@@ -315,6 +315,14 @@ cfg_if! {
         use stm32h7::stm32h743 as device;
         #[cfg(feature = "h753")]
         use stm32h7::stm32h753 as device;
+    } else if #[cfg(feature = "family-stm32f4")] {
+        use stm32f4 as pac;
+
+        #[cfg(feature = "f407")]
+        use stm32f4::stm32f407 as device;
+
+        #[cfg(feature = "f429")]
+        use stm32f4::stm32f429 as device;
     } else {
         compile_error!("unsupported SoC family");
     }
@@ -503,6 +511,23 @@ fn main() -> ! {
                     .set_bit()
                     .gpioken()
                     .set_bit()
+            });
+        } else if #[cfg(feature = "family-stm32f4")] {
+            rcc.ahb1enr.write(|w| {
+                w.gpioaen().set_bit();
+                w.gpioben().set_bit();
+                w.gpiocen().set_bit();
+                w.gpioden().set_bit();
+                w.gpioeen().set_bit();
+                w.gpiofen().set_bit();
+                w.gpiogen().set_bit();
+                w.gpiohen().set_bit();
+                w.gpioien().set_bit();
+                #[cfg(feature = "f429")]
+                w.gpiojen().set_bit();
+                #[cfg(feature = "f429")]
+                w.gpioken().set_bit();
+                w
             });
         }
     }
@@ -1221,6 +1246,71 @@ cfg_if! {
             rcc.rsr.modify(|_, w| w.rmvf().set_bit());
 
             Some(reason)
+        }
+    } else if #[cfg(feature = "family-stm32f4")] {
+        fn enable_clock(
+            rcc: &device::rcc::RegisterBlock,
+            group: Group,
+            bit: u8,
+        ) {
+            match group {
+                Group::Ahb1 => unsafe { rcc.ahb1enr.set_bit(bit) },
+                Group::Ahb2 => unsafe { rcc.ahb2enr.set_bit(bit) },
+                Group::Ahb3 => unsafe { rcc.ahb3enr.set_bit(bit) },
+                Group::Apb1 => unsafe { rcc.apb1enr.set_bit(bit) },
+                Group::Apb2 => unsafe { rcc.apb2enr.set_bit(bit) },
+            }
+        }
+
+        fn disable_clock(
+            rcc: &device::rcc::RegisterBlock,
+            group: Group,
+            bit: u8,
+        ) {
+            match group {
+                Group::Ahb1 => unsafe { rcc.ahb1enr.clear_bit(bit) },
+                Group::Ahb2 => unsafe { rcc.ahb2enr.clear_bit(bit) },
+                Group::Ahb3 => unsafe { rcc.ahb3enr.clear_bit(bit) },
+                Group::Apb1 => unsafe { rcc.apb1enr.clear_bit(bit) },
+                Group::Apb2 => unsafe { rcc.apb2enr.clear_bit(bit) },
+            }
+        }
+
+        fn enter_reset(
+            rcc: &device::rcc::RegisterBlock,
+            group: Group,
+            bit: u8,
+        ) {
+            match group {
+                Group::Ahb1 => unsafe { rcc.ahb1rstr.set_bit(bit) },
+                Group::Ahb2 => unsafe { rcc.ahb2rstr.set_bit(bit) },
+                Group::Ahb3 => unsafe { rcc.ahb3rstr.set_bit(bit) },
+                Group::Apb1 => unsafe { rcc.apb1rstr.set_bit(bit) },
+                Group::Apb2 => unsafe { rcc.apb2rstr.set_bit(bit) },
+            }
+        }
+
+        fn leave_reset(
+            rcc: &device::rcc::RegisterBlock,
+            group: Group,
+            bit: u8,
+        ) {
+            match group {
+                Group::Ahb1 => unsafe { rcc.ahb1rstr.clear_bit(bit) },
+                Group::Ahb2 => unsafe { rcc.ahb2rstr.clear_bit(bit) },
+                Group::Ahb3 => unsafe { rcc.ahb3rstr.clear_bit(bit) },
+                Group::Apb1 => unsafe { rcc.apb1rstr.clear_bit(bit) },
+                Group::Apb2 => unsafe { rcc.apb2rstr.clear_bit(bit) },
+            }
+        }
+
+        #[cfg(not(feature = "test"))]
+        fn try_read_reset_reason(
+            rcc: &device::rcc::RegisterBlock,
+        ) -> Option<ResetReason> {
+            // TODO map to ResetReason cases
+            let bits = rcc.csr.read().bits();
+            Some(ResetReason::Other(bits))
         }
     } else {
         compile_error!("unsupported SoC family");

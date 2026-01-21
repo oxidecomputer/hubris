@@ -13,6 +13,9 @@ cfg_if::cfg_if! {
     } else if #[cfg(feature = "family-stm32h7")] {
         mod h7;
         pub use self::h7::*;
+    } else if #[cfg(feature = "family-stm32f4")] {
+        mod f4;
+        pub use self::f4::*;
     } else {
         compile_error!("unsupported SoC family");
     }

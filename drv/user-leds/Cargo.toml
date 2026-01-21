@@ -10,7 +10,6 @@ idol-runtime.workspace = true
 lpc55-pac = { workspace = true, optional = true }
 num-traits.workspace = true
 stm32f3 = { workspace = true, optional = true, features = ["stm32f303"] }
-stm32f4 = { workspace = true, optional = true, features = ["stm32f407"] }
 zerocopy.workspace = true
 zerocopy-derive.workspace = true
 
@@ -27,6 +26,7 @@ idol.workspace = true
 [features]
 stm32g0 = ["drv-stm32xx-sys-api/family-stm32g0"]
 stm32h7 = ["drv-stm32xx-sys-api/family-stm32h7"]
+stm32f4 = ["drv-stm32xx-sys-api/family-stm32f4"]
 lpc55 = ["lpc55-pac", "drv-lpc55-gpio-api"]
 panic-messages = ["userlib/panic-messages"]
 no-ipc-counters = ["idol/no-counters"]
