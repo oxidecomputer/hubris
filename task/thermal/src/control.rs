@@ -615,6 +615,45 @@ type DynamicChannelsArray =
 ///
 /// Note that the canonical temperatures are stored in the `sensors` task; we
 /// copy them into these arrays for local operations.
+///
+/// The thermal control loop transitions between these states:
+///
+/// ```text
+///  [ BOOT ]
+///     |
+///     V
+/// +---------+
+/// | Running |<-----------------<--------------------+
+/// +---------+                                       |
+///    |   |                                          ^
+///    |   * . . Any temp                             |
+///    |   |     over critical                        * . all temps
+///    |   |                                          |   nominal
+///    |   |                +----------+              |
+///    |   +--------------->|          |-------->-----+
+///    +------<-------------| Overheat |              |
+///    |                    |          |----------+   |
+///    |                    +----------+          |   |
+///    |                      |    ^              |   ^
+///    |       all temps      |    * . any temp   v   |
+///    |       under crit . . *    |   over crit  |   |
+///    |                      |    |              |   |
+///    |                      v    |              |   |
+///    |                     +-------+            |   |
+///    +---------------------| Turbo |---------->-----+
+///    |                     +-------+            |
+///    * . Any temp                               |
+///    |   over                                   |
+///    |   power_down                             |
+///    |                                          * . . overheat_timeout_ms
+///    v                                          |     elapse
+/// +----------------+                            |
+/// | Uncontrollable |<---------------------------+
+/// +----------------+
+///    |
+///    V
+/// [ POWER DOWN ]
+/// ```
 enum ThermalControlState {
     /// Wait for each sensor to report in at least once
     ///
