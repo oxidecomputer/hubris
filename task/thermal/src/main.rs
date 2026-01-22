@@ -88,6 +88,9 @@ enum Trace {
         sensor_id: SensorId,
         temperature: units::Celsius,
     },
+    NoLongerOverheated {
+        critical_ms: u64,
+    },
     FanReadFailed(SensorId, SensorReadError),
     MiscReadFailed(SensorId, SensorReadError),
     SensorReadFailed(SensorId, SensorReadError),
