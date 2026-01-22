@@ -484,6 +484,10 @@ pub(crate) struct ThermalControl<'a> {
 
     /// Has the fan watchdog been configured yet?
     fan_watchdog_configured: bool,
+
+    /// Tracks the total duration of excursions into the overheated control
+    /// regime.
+    overheat_timer: Option<OverheatTimer>,
 }
 
 /// Represents the state of a temperature sensor, which either has a valid
@@ -632,17 +636,9 @@ enum ThermalControlState {
     /// timeout and drop into `Uncontrolled` if components do not recover.
     Overheated {
         values: [TemperatureReading; TEMPERATURE_ARRAY_SIZE],
+        /// The time at which we transitioned to the `Overheated` state *this*
+        /// time, either from `Running` or from TURBO MODE!!!.
         start_time: u64,
-        /// Time spent over a critical threshold during past periods in the
-        /// `Overheated` state in the current thermal excursion.
-        ///
-        /// This is tracked across transitions between `Overheated` (in which
-        /// something is over a critical threshold) and TURBO MODE!!!!! (during
-        /// which we are below critical thresholds but have no treturned to
-        /// nominal). This way, we can enforce a maximum time spent over
-        /// critical without also counting time spent in the overheated control
-        /// regime but below a critical threshold.
-        prior_critical_ms: u64,
     },
 
     /// If we are in the `Overheated` state and all temperatures drop below
@@ -658,12 +654,6 @@ enum ThermalControlState {
     /// while things are improving but not fast enough.
     Turbo {
         values: [TemperatureReading; TEMPERATURE_ARRAY_SIZE],
-        /// Total time spent over a critical threshold over the current
-        /// excursion into the `Overheated` control regime. This is tracked
-        /// across transitions between `Overheated` and TURBO MODE!! so that we
-        /// can continue tracking time spent in critical across multiple
-        /// transitions between `Overheated` and TURBO MODE!!!!.
-        critical_ms: u64,
     },
 
     /// The system cannot control the temperature; power down and wait for
@@ -674,6 +664,11 @@ enum ThermalControlState {
 enum ControlResult {
     Pwm(PWMDuty),
     PowerDown,
+}
+
+struct OverheatTimer {
+    start_time: u64,
+    critical_ms: u64,
 }
 
 impl ThermalControlState {
@@ -753,6 +748,7 @@ impl<'a> ThermalControl<'a> {
             err_blackbox,
             prev_err_blackbox,
             fan_watchdog_configured: false,
+            overheat_timer: None,
         }
     }
 
@@ -1074,8 +1070,12 @@ impl<'a> ThermalControl<'a> {
                     }
                 }
 
-                if let Some(due_to) = any_power_down {
-                    self.transition_to_uncontrollable(due_to)
+                if let Some((sensor_id, temperature)) = any_power_down {
+                    ringbuf_entry!(Trace::PowerDownDueTo {
+                        sensor_id,
+                        temperature
+                    });
+                    self.transition_to_uncontrollable(now_ms)
                 } else if all_some {
                     // Transition to the Running state and run a single
                     // iteration of the PID control loop.
@@ -1125,13 +1125,15 @@ impl<'a> ThermalControl<'a> {
                     }
                 }
 
-                if let Some(due_to) = any_power_down {
-                    self.transition_to_uncontrollable(due_to)
+                if let Some((sensor_id, temperature)) = any_power_down {
+                    ringbuf_entry!(Trace::PowerDownDueTo {
+                        sensor_id,
+                        temperature
+                    });
+                    self.transition_to_uncontrollable(now_ms)
                 } else if let Some(due_to) = any_critical {
                     let values = *values;
-                    // `total_overheated_time` is 0 as we are just now
-                    // transitioning to the overheated control regime.
-                    self.transition_to_critical(due_to, now_ms, 0, values)
+                    self.transition_to_critical(due_to, now_ms, values)
                 } else {
                     // We adjust the worst component margin by our target
                     // margin, which must be > 0.  This effectively tells the
@@ -1152,7 +1154,6 @@ impl<'a> ThermalControl<'a> {
             &mut ThermalControlState::Overheated {
                 ref values,
                 start_time,
-                prior_critical_ms,
             } => {
                 let mut all_nominal = true;
                 let mut any_still_critical = false;
@@ -1176,54 +1177,39 @@ impl<'a> ThermalControl<'a> {
                     }
                 }
 
-                // The total time we have spent in the overheated control regime
-                // is the length of the current stint in `Overheated` plus any
-                // previous time spent in `Overheated` that was tracked across a
-                // prior transition through `Turbo` (during which we were below
-                // critical thresholds but not back to nominal).
-                //
-                // Whew, that was a mouthful. Hopefully that makes sense...
-                let critical_ms = now_ms
-                    .wrapping_sub(start_time)
-                    .saturating_add(prior_critical_ms);
-                if let Some(due_to) = any_power_down {
-                    self.transition_to_uncontrollable(due_to)
+                if let Some((sensor_id, temperature)) = any_power_down {
+                    ringbuf_entry!(Trace::PowerDownDueTo {
+                        sensor_id,
+                        temperature
+                    });
+                    self.transition_to_uncontrollable(now_ms)
                 } else if all_nominal {
                     let values = *values;
-                    ringbuf_entry!(Trace::NoLongerOverheated { critical_ms });
-                    self.transition_to_running(worst_margin, values)
+                    self.transition_to_running(worst_margin, now_ms, values)
                 } else if !any_still_critical {
                     // If all temperatures have gone below critical, but are
                     // still above nominal, stop the overheat timeout but
                     // continue running at 100% PWM until things go below
                     // nominal.
-
-                    self.state = ThermalControlState::Turbo {
-                        values: *values,
-                        critical_ms,
-                    };
+                    let values = *values;
+                    self.record_leaving_critical(now_ms);
+                    self.state = ThermalControlState::Turbo { values };
                     ringbuf_entry!(Trace::AutoState(self.get_state()));
 
                     ControlResult::Pwm(PWMDuty(
                         self.pid_config.max_output as u8,
                     ))
-                } else if critical_ms > self.overheat_timeout_ms {
+                } else if now_ms > start_time + self.overheat_timeout_ms {
                     // If blasting the fans hasn't cooled us down in this amount
                     // of time, then something is terribly wrong - abort!
-                    self.state = ThermalControlState::Uncontrollable;
-                    ringbuf_entry!(Trace::AutoState(self.get_state()));
-
-                    ControlResult::PowerDown
+                    self.transition_to_uncontrollable(now_ms)
                 } else {
                     ControlResult::Pwm(PWMDuty(
                         self.pid_config.max_output as u8,
                     ))
                 }
             }
-            &mut ThermalControlState::Turbo {
-                ref values,
-                critical_ms,
-            } => {
+            ThermalControlState::Turbo { values } => {
                 let mut all_nominal = true;
                 let mut any_power_down = None;
                 let mut any_critical = None;
@@ -1248,22 +1234,20 @@ impl<'a> ThermalControl<'a> {
                     }
                 }
 
-                if let Some(due_to) = any_power_down {
-                    self.transition_to_uncontrollable(due_to)
+                if let Some((sensor_id, temperature)) = any_power_down {
+                    ringbuf_entry!(Trace::PowerDownDueTo {
+                        sensor_id,
+                        temperature
+                    });
+                    self.transition_to_uncontrollable(now_ms)
                 } else if let Some(due_to) = any_critical {
                     // If anything's gone over critical, transition back to the
                     // `Overheated` state.
                     let values = *values;
-                    self.transition_to_critical(
-                        due_to,
-                        now_ms,
-                        critical_ms,
-                        values,
-                    )
+                    self.transition_to_critical(due_to, now_ms, values)
                 } else if all_nominal {
                     let values = *values;
-                    ringbuf_entry!(Trace::NoLongerOverheated { critical_ms });
-                    self.transition_to_running(worst_margin, values)
+                    self.transition_to_running(worst_margin, now_ms, values)
                 } else {
                     ControlResult::Pwm(PWMDuty(
                         self.pid_config.max_output as u8,
@@ -1296,8 +1280,12 @@ impl<'a> ThermalControl<'a> {
     fn transition_to_running(
         &mut self,
         worst_margin: f32,
+        now_ms: u64,
         values: [TemperatureReading; TEMPERATURE_ARRAY_SIZE],
     ) -> ControlResult {
+        self.record_leaving_critical(now_ms);
+        self.record_leaving_overheat(now_ms);
+
         // Transition to the Running state and run a single
         // iteration of the PID control loop.
         let mut pid = OneSidedPidState::default();
@@ -1313,35 +1301,61 @@ impl<'a> ThermalControl<'a> {
         &mut self,
         (sensor_id, temperature): (SensorId, Celsius),
         start_time: u64,
-        prior_critical_ms: u64,
         values: [TemperatureReading; TEMPERATURE_ARRAY_SIZE],
     ) -> ControlResult {
         ringbuf_entry!(Trace::CriticalDueTo {
             sensor_id,
             temperature
         });
-        self.state = ThermalControlState::Overheated {
-            values,
-            start_time,
-            prior_critical_ms,
-        };
+        self.state = ThermalControlState::Overheated { values, start_time };
         ringbuf_entry!(Trace::AutoState(self.get_state()));
+        if self.overheat_timer.is_none() {
+            self.overheat_timer = Some(OverheatTimer {
+                start_time,
+                critical_ms: 0,
+            })
+        }
 
         ControlResult::Pwm(PWMDuty(self.pid_config.max_output as u8))
     }
 
-    fn transition_to_uncontrollable(
-        &mut self,
-        (sensor_id, temperature): (SensorId, Celsius),
-    ) -> ControlResult {
-        ringbuf_entry!(Trace::PowerDownDueTo {
-            sensor_id,
-            temperature
-        });
+    fn transition_to_uncontrollable(&mut self, now_ms: u64) -> ControlResult {
+        self.record_leaving_critical(now_ms);
+        self.record_leaving_overheat(now_ms);
+
         self.state = ThermalControlState::Uncontrollable;
         ringbuf_entry!(Trace::AutoState(self.get_state()));
 
         ControlResult::PowerDown
+    }
+
+    fn record_leaving_critical(&mut self, now_ms: u64) {
+        if let ThermalControlState::Overheated { start_time, .. } = self.state {
+            if let Some(OverheatTimer {
+                ref mut critical_ms,
+                ..
+            }) = self.overheat_timer
+            {
+                *critical_ms = critical_ms
+                    .saturating_add(now_ms.saturating_sub(start_time));
+            }
+        }
+    }
+
+    fn record_leaving_overheat(&mut self, now_ms: u64) {
+        if let Some(OverheatTimer {
+            start_time,
+            critical_ms,
+        }) = self.overheat_timer.take()
+        {
+            // TODO(eliza): stash a "last overheat durations" someplace that we
+            // can query it, even if it's fallen off the ringbuf?
+            // TODO(eliza): ereport?
+            ringbuf_entry!(Trace::OverheatedFor(
+                now_ms.saturating_sub(start_time)
+            ));
+            ringbuf_entry!(Trace::CriticalFor(critical_ms));
+        }
     }
 
     /// Attempts to set the PWM duty cycle of every fan in this group.

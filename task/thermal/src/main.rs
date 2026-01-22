@@ -88,9 +88,14 @@ enum Trace {
         sensor_id: SensorId,
         temperature: units::Celsius,
     },
-    NoLongerOverheated {
-        critical_ms: u64,
-    },
+    /// Total duration spent in the overheated control regime.
+    #[count(skip)]
+    OverheatedFor(u64),
+    /// Duration in the overheated control regime for which at least one sensor
+    /// was over a critical threshold. These are separate ringbuf entries
+    /// because an entry with two u64s doubles the size of the ringbuf.
+    #[count(skip)]
+    CriticalFor(u64),
     FanReadFailed(SensorId, SensorReadError),
     MiscReadFailed(SensorId, SensorReadError),
     SensorReadFailed(SensorId, SensorReadError),
