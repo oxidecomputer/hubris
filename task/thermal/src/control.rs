@@ -1058,15 +1058,8 @@ impl<'a> ThermalControl<'a> {
                     }
                 }
 
-                if let Some((sensor_id, temperature)) = any_power_down {
-                    ringbuf_entry!(Trace::PowerDownDueTo {
-                        sensor_id,
-                        temperature
-                    });
-                    self.state = ThermalControlState::Uncontrollable;
-                    ringbuf_entry!(Trace::AutoState(self.get_state()));
-
-                    ControlResult::PowerDown
+                if let Some(due_to) = any_power_down {
+                    self.transition_to_uncontrollable(due_to)
                 } else if all_some {
                     // Transition to the Running state and run a single
                     // iteration of the PID control loop.
@@ -1116,29 +1109,11 @@ impl<'a> ThermalControl<'a> {
                     }
                 }
 
-                if let Some((sensor_id, temperature)) = any_power_down {
-                    ringbuf_entry!(Trace::PowerDownDueTo {
-                        sensor_id,
-                        temperature
-                    });
-                    self.state = ThermalControlState::Uncontrollable;
-                    ringbuf_entry!(Trace::AutoState(self.get_state()));
-
-                    ControlResult::PowerDown
-                } else if let Some((sensor_id, temperature)) = any_critical {
-                    ringbuf_entry!(Trace::CriticalDueTo {
-                        sensor_id,
-                        temperature
-                    });
-                    self.state = ThermalControlState::Overheated {
-                        values: *values,
-                        start_time: now_ms,
-                    };
-                    ringbuf_entry!(Trace::AutoState(self.get_state()));
-
-                    ControlResult::Pwm(PWMDuty(
-                        self.pid_config.max_output as u8,
-                    ))
+                if let Some(due_to) = any_power_down {
+                    self.transition_to_uncontrollable(due_to)
+                } else if let Some(due_to) = any_critical {
+                    let values = *values;
+                    self.transition_to_critical(due_to, now_ms, values)
                 } else {
                     // We adjust the worst component margin by our target
                     // margin, which must be > 0.  This effectively tells the
@@ -1179,30 +1154,11 @@ impl<'a> ThermalControl<'a> {
                     }
                 }
 
-                if let Some((sensor_id, temperature)) = any_power_down {
-                    ringbuf_entry!(Trace::PowerDownDueTo {
-                        sensor_id,
-                        temperature
-                    });
-                    self.state = ThermalControlState::Uncontrollable;
-                    ringbuf_entry!(Trace::AutoState(self.get_state()));
-
-                    ControlResult::PowerDown
+                if let Some(due_to) = any_power_down {
+                    self.transition_to_uncontrollable(due_to)
                 } else if all_nominal {
-                    // Transition to the Running state and run a single
-                    // iteration of the PID control loop.
-                    let mut pid = OneSidedPidState::default();
-                    let pwm = pid.run(
-                        &self.pid_config,
-                        self.target_margin.0 - worst_margin,
-                    );
-                    self.state = ThermalControlState::Running {
-                        values: *values,
-                        pid,
-                    };
-                    ringbuf_entry!(Trace::AutoState(self.get_state()));
-
-                    ControlResult::Pwm(PWMDuty(pwm as u8))
+                    let values = *values;
+                    self.transition_to_running(worst_margin, values)
                 } else if !any_still_critical {
                     // If all temperatures have gone below critical, but are
                     // still above nominal, stop the overheat timeout but
@@ -1252,46 +1208,16 @@ impl<'a> ThermalControl<'a> {
                     }
                 }
 
-                if let Some((sensor_id, temperature)) = any_power_down {
-                    ringbuf_entry!(Trace::PowerDownDueTo {
-                        sensor_id,
-                        temperature
-                    });
-                    self.state = ThermalControlState::Uncontrollable;
-                    ringbuf_entry!(Trace::AutoState(self.get_state()));
-
-                    ControlResult::PowerDown
-                } else if let Some((sensor_id, temperature)) = any_critical {
+                if let Some(due_to) = any_power_down {
+                    self.transition_to_uncontrollable(due_to)
+                } else if let Some(due_to) = any_critical {
                     // If anything's gone over critical, transition back to the
                     // `Overheated` state.
-                    ringbuf_entry!(Trace::CriticalDueTo {
-                        sensor_id,
-                        temperature
-                    });
-                    self.state = ThermalControlState::Overheated {
-                        values: *values,
-                        start_time: now_ms,
-                    };
-                    ringbuf_entry!(Trace::AutoState(self.get_state()));
-
-                    ControlResult::Pwm(PWMDuty(
-                        self.pid_config.max_output as u8,
-                    ))
+                    let values = *values;
+                    self.transition_to_critical(due_to, now_ms, values)
                 } else if all_nominal {
-                    // Transition to the Running state and run a single
-                    // iteration of the PID control loop.
-                    let mut pid = OneSidedPidState::default();
-                    let pwm = pid.run(
-                        &self.pid_config,
-                        self.target_margin.0 - worst_margin,
-                    );
-                    self.state = ThermalControlState::Running {
-                        values: *values,
-                        pid,
-                    };
-                    ringbuf_entry!(Trace::AutoState(self.get_state()));
-
-                    ControlResult::Pwm(PWMDuty(pwm as u8))
+                    let values = *values;
+                    self.transition_to_running(worst_margin, values)
                 } else {
                     ControlResult::Pwm(PWMDuty(
                         self.pid_config.max_output as u8,
@@ -1319,6 +1245,52 @@ impl<'a> ThermalControl<'a> {
         }
 
         Ok(())
+    }
+
+    fn transition_to_running(
+        &mut self,
+        worst_margin: f32,
+        values: [TemperatureReading; TEMPERATURE_ARRAY_SIZE],
+    ) -> ControlResult {
+        // Transition to the Running state and run a single
+        // iteration of the PID control loop.
+        let mut pid = OneSidedPidState::default();
+        let pwm =
+            pid.run(&self.pid_config, self.target_margin.0 - worst_margin);
+        self.state = ThermalControlState::Running { values, pid };
+        ringbuf_entry!(Trace::AutoState(self.get_state()));
+
+        ControlResult::Pwm(PWMDuty(pwm as u8))
+    }
+
+    fn transition_to_critical(
+        &mut self,
+        (sensor_id, temperature): (SensorId, Celsius),
+        start_time: u64,
+        values: [TemperatureReading; TEMPERATURE_ARRAY_SIZE],
+    ) -> ControlResult {
+        ringbuf_entry!(Trace::CriticalDueTo {
+            sensor_id,
+            temperature
+        });
+        self.state = ThermalControlState::Overheated { values, start_time };
+        ringbuf_entry!(Trace::AutoState(self.get_state()));
+
+        ControlResult::Pwm(PWMDuty(self.pid_config.max_output as u8))
+    }
+
+    fn transition_to_uncontrollable(
+        &mut self,
+        (sensor_id, temperature): (SensorId, Celsius),
+    ) -> ControlResult {
+        ringbuf_entry!(Trace::PowerDownDueTo {
+            sensor_id,
+            temperature
+        });
+        self.state = ThermalControlState::Uncontrollable;
+        ringbuf_entry!(Trace::AutoState(self.get_state()));
+
+        ControlResult::PowerDown
     }
 
     /// Attempts to set the PWM duty cycle of every fan in this group.
