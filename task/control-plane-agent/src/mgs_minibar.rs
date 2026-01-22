@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{CriticalEvent, Log, MgsMessage, mgs_common::MgsCommon};
+use crate::{mgs_common::MgsCommon, CriticalEvent, Log, MgsMessage};
 use gateway_messages::sp_impl::{
     BoundsChecked, DeviceDescription, Sender, SpHandler,
 };
@@ -142,7 +142,8 @@ impl MgsHandler {
 
 impl SpHandler for MgsHandler {
     type BulkIgnitionStateIter = ignition_handler::BulkIgnitionStateIter;
-    type BulkIgnitionLinkEventsIter = ignition_handler::BulkIgnitionLinkEventsIter;
+    type BulkIgnitionLinkEventsIter =
+        ignition_handler::BulkIgnitionLinkEventsIter;
     type VLanId = VLanId;
 
     fn ensure_request_trusted(
@@ -178,7 +179,9 @@ impl SpHandler for MgsHandler {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::IgnitionState {
             target
         }));
-        self.ignition.target_state(target).map_err(convert_ignition_error)
+        self.ignition
+            .target_state(target)
+            .map_err(convert_ignition_error)
     }
 
     fn bulk_ignition_state(
@@ -188,7 +191,9 @@ impl SpHandler for MgsHandler {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::BulkIgnitionState {
             offset
         }));
-        self.ignition.bulk_state(offset).map_err(convert_ignition_error)
+        self.ignition
+            .bulk_state(offset)
+            .map_err(convert_ignition_error)
     }
 
     fn ignition_link_events(
@@ -198,7 +203,9 @@ impl SpHandler for MgsHandler {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::IgnitionLinkEvents {
             target
         }));
-        self.ignition.target_link_events(target).map_err(convert_ignition_error)
+        self.ignition
+            .target_link_events(target)
+            .map_err(convert_ignition_error)
     }
 
     fn bulk_ignition_link_events(
@@ -208,13 +215,17 @@ impl SpHandler for MgsHandler {
         ringbuf_entry_root!(Log::MgsMessage(
             MgsMessage::BulkIgnitionLinkEvents { offset }
         ));
-        self.ignition.bulk_link_events(offset).map_err(convert_ignition_error)
+        self.ignition
+            .bulk_link_events(offset)
+            .map_err(convert_ignition_error)
     }
 
     fn clear_ignition_link_events(
         &mut self,
         _target: Option<u8>,
-        _transceiver_select: Option<gateway_messages::ignition::TransceiverSelect>,
+        _transceiver_select: Option<
+            gateway_messages::ignition::TransceiverSelect,
+        >,
     ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(
             MgsMessage::ClearIgnitionLinkEvents

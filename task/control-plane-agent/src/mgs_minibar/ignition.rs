@@ -155,7 +155,9 @@ impl From<SystemPowerStateConvert> for SystemPowerState {
         match s.0 {
             drv_ignition_api::SystemPowerState::Off => Self::Off,
             drv_ignition_api::SystemPowerState::On => Self::On,
-            drv_ignition_api::SystemPowerState::PoweringOff => Self::PoweringOff,
+            drv_ignition_api::SystemPowerState::PoweringOff => {
+                Self::PoweringOff
+            }
             drv_ignition_api::SystemPowerState::PoweringOn => Self::PoweringOn,
             drv_ignition_api::SystemPowerState::Aborted => Self::Aborted,
         }
@@ -181,8 +183,10 @@ impl From<LinkEventsConvert> for LinkEvents {
     fn from(events: LinkEventsConvert) -> Self {
         Self {
             controller: TransceiverEventsConvert(events.0.controller).into(),
-            target_link0: TransceiverEventsConvert(events.0.target_link0).into(),
-            target_link1: TransceiverEventsConvert(events.0.target_link1).into(),
+            target_link0: TransceiverEventsConvert(events.0.target_link0)
+                .into(),
+            target_link1: TransceiverEventsConvert(events.0.target_link1)
+                .into(),
         }
     }
 }

@@ -266,8 +266,7 @@ impl NotificationHandler for ServerImpl {
             | notifications::TIMER_MASK;
 
         #[cfg(feature = "minibar")]
-        let mask = notifications::SOCKET_MASK
-            | notifications::TIMER_MASK;
+        let mask = notifications::SOCKET_MASK | notifications::TIMER_MASK;
 
         mask
     }
