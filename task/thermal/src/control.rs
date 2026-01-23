@@ -1184,20 +1184,8 @@ impl<'a> ThermalControl<'a> {
                     });
                     self.transition_to_uncontrollable(now_ms)
                 } else if all_some {
-                    // Transition to the Running state and run a single
-                    // iteration of the PID control loop.
-                    let mut pid = OneSidedPidState::default();
-                    let pwm = pid.run(
-                        &self.pid_config,
-                        self.target_margin.0 - worst_margin,
-                    );
-                    self.state = ThermalControlState::Running {
-                        values: values.map(Option::unwrap),
-                        pid,
-                    };
-                    ringbuf_entry!(Trace::AutoState(self.get_state()));
-
-                    ControlResult::Pwm(PWMDuty(pwm as u8))
+                    let values = values.map(Option::unwrap);
+                    self.transition_to_running(worst_margin, now_ms, values)
                 } else {
                     ControlResult::Pwm(PWMDuty(
                         self.pid_config.max_output as u8,
