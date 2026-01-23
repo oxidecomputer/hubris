@@ -3,14 +3,13 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use core::cell::Cell;
-use drv_ignition_api::{
-    AllLinkEventsIter, AllPortsIter, Ignition, IgnitionError,
-};
+use drv_ignition_api::{AllLinkEventsIter, AllPortsIter, Ignition, IgnitionError};
 use gateway_messages::ignition::{
-    IgnitionState, LinkEvents, ReceiverStatus, SystemFaults, SystemPowerState,
-    SystemType, TargetState, TransceiverEvents, TransceiverSelect,
+    IgnitionState, LinkEvents, ReceiverStatus, SystemFaults,
+    SystemPowerState, SystemType, TargetState, TransceiverEvents,
+    TransceiverSelect,
 };
-use gateway_messages::IgnitionCommand;
+use gateway_messages::{IgnitionCommand, SpError};
 use heapless::Vec;
 use userlib::UnwrapLite;
 
@@ -33,12 +32,16 @@ impl IgnitionController {
         }
     }
 
-    pub(crate) fn num_ports(&self) -> Result<u32, IgnitionError> {
+    pub(crate) fn num_ports(&self) -> Result<u32, SpError> {
         if let Some(n) = self.num_ports.get() {
             return Ok(n);
         }
 
-        let n = u32::from(self.task.port_count()?);
+        let n = u32::from(
+            self.task
+                .port_count()
+                .map_err(sp_error_from_ignition_error)?,
+        );
         self.num_ports.set(Some(n));
         Ok(n)
     }
@@ -46,16 +49,22 @@ impl IgnitionController {
     pub(crate) fn target_state(
         &self,
         target: u8,
-    ) -> Result<IgnitionState, IgnitionError> {
-        let port = self.task.port(target)?;
+    ) -> Result<IgnitionState, SpError> {
+        let port = self
+            .task
+            .port(target)
+            .map_err(sp_error_from_ignition_error)?;
         Ok(PortConvert(port).into())
     }
 
     pub(crate) fn bulk_state(
         &self,
         offset: u32,
-    ) -> Result<BulkIgnitionStateIter, IgnitionError> {
-        let iter = self.task.all_ports()?;
+    ) -> Result<BulkIgnitionStateIter, SpError> {
+        let iter = self
+            .task
+            .all_ports()
+            .map_err(sp_error_from_ignition_error)?;
         Ok(BulkIgnitionStateIter {
             iter: iter.skip(offset as usize),
         })
@@ -64,16 +73,22 @@ impl IgnitionController {
     pub(crate) fn target_link_events(
         &self,
         target: u8,
-    ) -> Result<LinkEvents, IgnitionError> {
-        let events = self.task.link_events(target)?;
+    ) -> Result<LinkEvents, SpError> {
+        let events = self
+            .task
+            .link_events(target)
+            .map_err(sp_error_from_ignition_error)?;
         Ok(LinkEventsConvert(events).into())
     }
 
     pub(crate) fn bulk_link_events(
         &self,
         offset: u32,
-    ) -> Result<BulkIgnitionLinkEventsIter, IgnitionError> {
-        let iter = self.task.all_link_events()?;
+    ) -> Result<BulkIgnitionLinkEventsIter, SpError> {
+        let iter = self
+            .task
+            .all_link_events()
+            .map_err(sp_error_from_ignition_error)?;
         Ok(BulkIgnitionLinkEventsIter {
             iter: iter.skip(offset as usize),
         })
@@ -83,7 +98,7 @@ impl IgnitionController {
         &self,
         target: Option<u8>,
         transceiver_select: Option<TransceiverSelect>,
-    ) -> Result<(), IgnitionError> {
+    ) -> Result<(), SpError> {
         use drv_ignition_api::TransceiverSelect as IgnitionTxrSelect;
 
         // Convert `target` to a range (either of length 1, if we got a target,
@@ -121,7 +136,9 @@ impl IgnitionController {
         // each target/transceiver they care about?
         for target in targets {
             for &txr in &txrs {
-                self.task.clear_transceiver_events(target, txr)?;
+                self.task
+                    .clear_transceiver_events(target, txr)
+                    .map_err(sp_error_from_ignition_error)?;
             }
         }
 
@@ -132,20 +149,25 @@ impl IgnitionController {
         &self,
         target: u8,
         command: IgnitionCommand,
-    ) -> Result<(), IgnitionError> {
+    ) -> Result<(), SpError> {
         use drv_ignition_api::Request;
         let cmd = match command {
             // We intercept the AlwaysTransmit command as it is not part of the
             // Ignition protocol (not something we send to a target), it is
             // a setting in the controller itself.
             IgnitionCommand::AlwaysTransmit { enabled } => {
-                return self.task.set_always_transmit(target, enabled);
+                return self
+                    .task
+                    .set_always_transmit(target, enabled)
+                    .map_err(sp_error_from_ignition_error);
             }
             IgnitionCommand::PowerOn => Request::SystemPowerOn,
             IgnitionCommand::PowerOff => Request::SystemPowerOff,
             IgnitionCommand::PowerReset => Request::SystemPowerReset,
         };
-        self.task.send_request(target, cmd)?;
+        self.task
+            .send_request(target, cmd)
+            .map_err(sp_error_from_ignition_error)?;
 
         Ok(())
     }
@@ -281,22 +303,18 @@ impl From<TransceiverEventsConvert> for TransceiverEvents {
     }
 }
 
-
-/// Convert a `drv-ignition-api` error into a [`gateway_messages::SpError`].
-///
-/// This is a helper function for `.map_err()`; we can't use `?` because we
-/// can't implement `From<_>` between these types due to orphan rules.
-pub fn convert_ignition_error(err: drv_ignition_api::IgnitionError) -> gateway_messages::SpError {
-    use gateway_messages::ignition::IgnitionError as GwErr;
-
-    let gw_err = match err {
-        IgnitionError::FpgaError => GwErr::FpgaError,
-        IgnitionError::InvalidPort => GwErr::InvalidPort,
-        IgnitionError::InvalidValue => GwErr::InvalidValue,
-        IgnitionError::NoTargetPresent => GwErr::NoTargetPresent,
-        IgnitionError::RequestInProgress => GwErr::RequestInProgress,
-        IgnitionError::RequestDiscarded => GwErr::RequestDiscarded,
-        IgnitionError::ServerDied => GwErr::Other(0xdead),
+// Helper function for `.map_err()`; we can't use `?` because we can't implement
+// `From<_>` between these types due to orphan rules.
+fn sp_error_from_ignition_error(err: IgnitionError) -> SpError {
+    use gateway_messages::ignition::IgnitionError as E;
+    let err = match err {
+        IgnitionError::FpgaError => E::FpgaError,
+        IgnitionError::InvalidPort => E::InvalidPort,
+        IgnitionError::InvalidValue => E::InvalidValue,
+        IgnitionError::NoTargetPresent => E::NoTargetPresent,
+        IgnitionError::RequestInProgress => E::RequestInProgress,
+        IgnitionError::RequestDiscarded => E::RequestDiscarded,
+        _ => E::Other(err as u32),
     };
-    gateway_messages::SpError::Ignition(gw_err)
+    SpError::Ignition(err)
 }

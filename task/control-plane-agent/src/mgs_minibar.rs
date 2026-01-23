@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    ignition_controller::{self, convert_ignition_error, IgnitionController},
+    ignition_controller::{self, IgnitionController},
     mgs_common::MgsCommon,
     update::rot::RotUpdate,
     update::sp::SpUpdate,
@@ -166,16 +166,14 @@ impl SpHandler for MgsHandler {
     }
 
     fn num_ignition_ports(&mut self) -> Result<u32, SpError> {
-        self.ignition.num_ports().map_err(convert_ignition_error)
+        self.ignition.num_ports()
     }
 
     fn ignition_state(&mut self, target: u8) -> Result<IgnitionState, SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::IgnitionState {
             target
         }));
-        self.ignition
-            .target_state(target)
-            .map_err(convert_ignition_error)
+        self.ignition.target_state(target)
     }
 
     fn bulk_ignition_state(
@@ -185,9 +183,7 @@ impl SpHandler for MgsHandler {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::BulkIgnitionState {
             offset
         }));
-        self.ignition
-            .bulk_state(offset)
-            .map_err(convert_ignition_error)
+        self.ignition.bulk_state(offset)
     }
 
     fn ignition_link_events(
@@ -197,9 +193,7 @@ impl SpHandler for MgsHandler {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::IgnitionLinkEvents {
             target
         }));
-        self.ignition
-            .target_link_events(target)
-            .map_err(convert_ignition_error)
+        self.ignition.target_link_events(target)
     }
 
     fn bulk_ignition_link_events(
@@ -209,9 +203,7 @@ impl SpHandler for MgsHandler {
         ringbuf_entry_root!(Log::MgsMessage(
             MgsMessage::BulkIgnitionLinkEvents { offset }
         ));
-        self.ignition
-            .bulk_link_events(offset)
-            .map_err(convert_ignition_error)
+        self.ignition.bulk_link_events(offset)
     }
 
     fn clear_ignition_link_events(
@@ -222,9 +214,7 @@ impl SpHandler for MgsHandler {
         ringbuf_entry_root!(Log::MgsMessage(
             MgsMessage::ClearIgnitionLinkEvents
         ));
-        self.ignition
-            .clear_link_events(target, transceiver_select)
-            .map_err(convert_ignition_error)
+        self.ignition.clear_link_events(target, transceiver_select)
     }
 
     fn ignition_command(
@@ -236,9 +226,7 @@ impl SpHandler for MgsHandler {
             target,
             command
         }));
-        self.ignition
-            .command(target, command)
-            .map_err(convert_ignition_error)
+        self.ignition.command(target, command)
     }
 
     fn sp_state(&mut self) -> Result<SpStateV2, SpError> {
