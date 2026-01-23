@@ -11,7 +11,7 @@ mod seq_spi;
 mod vcore;
 
 use counters::*;
-use fixedstr::FixedString;
+use fixedstr::FixedStr;
 use ringbuf::*;
 use userlib::{
     hl, set_timer_relative, sys_get_timer, sys_recv_notification,

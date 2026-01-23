@@ -277,10 +277,10 @@ impl VCore {
             &mut ereport_buf[..],
             crate::EreportClass::PmbusAlert,
             crate::EreportKind::PmbusAlert {
-                refdes: FixedString::from_str(
+                refdes: FixedStr::from_str(
                     self.device.i2c_device().component_id(),
                 ),
-                rail: &RAIL,
+                rail: RAIL,
                 time: now,
                 pwr_good,
                 pmbus_status: status,
