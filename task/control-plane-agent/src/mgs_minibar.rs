@@ -87,14 +87,17 @@ impl MgsHandler {
     /// `main()` is responsible for calling this method and actually setting the
     /// timer.
     pub(crate) fn timer_deadline(&self) -> Option<u64> {
-        None
+        if self.common.sp_update.is_preparing() {
+            Some(sys_get_timer().now + 1)
+        } else {
+            None
+        }
     }
 
     pub(crate) fn handle_timer_fired(&mut self) {
-        // No-op for minibar
+        // This is a no-op if we're not preparing for an SP update.
+        self.common.sp_update.step_preparation();
     }
-
-    pub(crate) fn drive_usart(&mut self) {}
 
     pub(crate) fn wants_to_send_packet_to_mgs(&mut self) -> bool {
         false
@@ -484,19 +487,20 @@ impl SpHandler for MgsHandler {
 
     fn component_set_active_slot(
         &mut self,
-        _component: SpComponent,
-        _slot: u16,
-        _persist: bool,
+        component: SpComponent,
+        slot: u16,
+        persist: bool,
     ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(
             MgsMessage::ComponentSetActiveSlot {
-                component: _component,
-                slot: _slot,
-                persist: _persist,
+                component,
+                slot,
+                persist,
             }
         ));
 
-        Err(SpError::RequestUnsupportedForComponent)
+        self.common
+            .component_set_active_slot(component, slot, persist)
     }
 
     fn component_get_persistent_slot(
@@ -589,16 +593,16 @@ impl SpHandler for MgsHandler {
 
     fn reset_component_prepare(
         &mut self,
-        _component: SpComponent,
+        component: SpComponent,
     ) -> Result<(), SpError> {
-        Err(SpError::RequestUnsupportedForComponent)
+        self.common.reset_component_prepare(component)
     }
 
     fn reset_component_trigger(
         &mut self,
-        _component: SpComponent,
+        component: SpComponent,
     ) -> Result<(), SpError> {
-        Err(SpError::RequestUnsupportedForComponent)
+        self.common.reset_component_trigger(component)
     }
 
     fn read_sensor(
@@ -622,31 +626,32 @@ impl SpHandler for MgsHandler {
 
     fn vpd_lock_status_all(
         &mut self,
-        _buf: &mut [u8],
+        buf: &mut [u8],
     ) -> Result<usize, SpError> {
-        Err(SpError::RequestUnsupportedForSp)
+        self.common.vpd_lock_status_all(buf)
     }
 
     fn reset_component_trigger_with_watchdog(
         &mut self,
-        _component: SpComponent,
-        _time_ms: u32,
+        component: SpComponent,
+        time_ms: u32,
     ) -> Result<(), SpError> {
-        Err(SpError::RequestUnsupportedForComponent)
+        self.common
+            .reset_component_trigger_with_watchdog(component, time_ms)
     }
 
     fn disable_component_watchdog(
         &mut self,
-        _component: SpComponent,
+        component: SpComponent,
     ) -> Result<(), SpError> {
-        Err(SpError::RequestUnsupportedForComponent)
+        self.common.disable_component_watchdog(component)
     }
 
     fn component_watchdog_supported(
         &mut self,
-        _component: SpComponent,
+        component: SpComponent,
     ) -> Result<(), SpError> {
-        Err(SpError::RequestUnsupportedForComponent)
+        self.common.component_watchdog_supported(component)
     }
 
     fn versioned_rot_boot_info(
