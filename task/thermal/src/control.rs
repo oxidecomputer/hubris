@@ -1425,7 +1425,6 @@ impl<'a> ThermalControl<'a> {
         // still above nominal, stop the overheat timeout but
         // continue running at 100% PWM until things go below
         // nominal.
-        let values = *values;
         self.record_leaving_critical(now_ms);
         self.state = ThermalControlState::FanParty { values };
         ringbuf_entry!(Trace::AutoState(self.get_state()));
