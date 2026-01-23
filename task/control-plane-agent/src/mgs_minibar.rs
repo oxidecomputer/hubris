@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    ignition_controller::{self, IgnitionController},
+    ignition_controller::{self, convert_ignition_error, IgnitionController},
     mgs_common::MgsCommon,
     update::rot::RotUpdate,
     update::sp::SpUpdate,
@@ -14,7 +14,7 @@ use gateway_messages::sp_impl::{
     BoundsChecked, DeviceDescription, Sender, SpHandler,
 };
 use gateway_messages::{
-    ComponentAction, ComponentActionResponse, ComponentDetails,
+    ignition, ComponentAction, ComponentActionResponse, ComponentDetails,
     ComponentUpdatePrepare, DiscoverResponse, DumpSegment, DumpTask,
     IgnitionCommand, IgnitionState, MgsError, MgsRequest, MgsResponse,
     PowerState, PowerStateTransition, RotBootInfo, RotRequest, RotResponse,
@@ -45,23 +45,6 @@ pub(crate) type BorrowedUpdateBuffer = update_buffer::BorrowedUpdateBuffer<
 
 // Our single, shared update buffer.
 static UPDATE_MEMORY: UpdateBuffer = UpdateBuffer::new();
-
-/// Convert drv-ignition-api errors to gateway-messages errors
-fn convert_ignition_error(err: drv_ignition_api::IgnitionError) -> SpError {
-    use drv_ignition_api::IgnitionError as DrvErr;
-    use gateway_messages::ignition::IgnitionError as GwErr;
-
-    let gw_err = match err {
-        DrvErr::FpgaError => GwErr::FpgaError,
-        DrvErr::InvalidPort => GwErr::InvalidPort,
-        DrvErr::InvalidValue => GwErr::InvalidValue,
-        DrvErr::NoTargetPresent => GwErr::NoTargetPresent,
-        DrvErr::RequestInProgress => GwErr::RequestInProgress,
-        DrvErr::RequestDiscarded => GwErr::RequestDiscarded,
-        DrvErr::ServerDied => GwErr::Other(0xdead),
-    };
-    SpError::Ignition(gw_err)
-}
 
 pub(crate) struct MgsHandler {
     common: MgsCommon,
@@ -210,7 +193,7 @@ impl SpHandler for MgsHandler {
     fn ignition_link_events(
         &mut self,
         target: u8,
-    ) -> Result<gateway_messages::ignition::LinkEvents, SpError> {
+    ) -> Result<ignition::LinkEvents, SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::IgnitionLinkEvents {
             target
         }));
@@ -233,15 +216,15 @@ impl SpHandler for MgsHandler {
 
     fn clear_ignition_link_events(
         &mut self,
-        _target: Option<u8>,
-        _transceiver_select: Option<
-            gateway_messages::ignition::TransceiverSelect,
-        >,
+        target: Option<u8>,
+        transceiver_select: Option<ignition::TransceiverSelect>,
     ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(
             MgsMessage::ClearIgnitionLinkEvents
         ));
-        Err(SpError::RequestUnsupportedForSp)
+        self.ignition
+            .clear_link_events(target, transceiver_select)
+            .map_err(convert_ignition_error)
     }
 
     fn ignition_command(
@@ -253,7 +236,9 @@ impl SpHandler for MgsHandler {
             target,
             command
         }));
-        Err(SpError::RequestUnsupportedForSp)
+        self.ignition
+            .command(target, command)
+            .map_err(convert_ignition_error)
     }
 
     fn sp_state(&mut self) -> Result<SpStateV2, SpError> {

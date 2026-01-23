@@ -3,14 +3,13 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    ignition_controller::{self, IgnitionController},
+    ignition_controller::{self, convert_ignition_error, IgnitionController},
     mgs_common::MgsCommon,
     update::rot::RotUpdate,
     update::sp::SpUpdate,
     update::ComponentUpdater,
     usize_max, CriticalEvent, Log, MgsMessage,
 };
-use drv_ignition_api::IgnitionError;
 use drv_monorail_api::{Monorail, MonorailError};
 use drv_sidecar_seq_api::Sequencer;
 use drv_transceivers_api::Transceivers;
@@ -39,8 +38,6 @@ use zerocopy::IntoBytes;
 
 // We're included under a special `path` cfg from main.rs, which confuses rustc
 // about where our submodules live. Pass explicit paths to correct it.
-#[path = "mgs_sidecar/ignition.rs"]
-mod ignition_impls;
 #[path = "mgs_sidecar/monorail_port_status.rs"]
 mod monorail_port_status;
 
@@ -530,9 +527,7 @@ impl SpHandler for MgsHandler {
     }
 
     fn num_ignition_ports(&mut self) -> Result<u32, SpError> {
-        self.ignition
-            .num_ports()
-            .map_err(sp_error_from_ignition_error)
+        self.ignition.num_ports().map_err(convert_ignition_error)
     }
 
     fn ignition_state(&mut self, target: u8) -> Result<IgnitionState, SpError> {
@@ -541,7 +536,7 @@ impl SpHandler for MgsHandler {
         }));
         self.ignition
             .target_state(target)
-            .map_err(sp_error_from_ignition_error)
+            .map_err(convert_ignition_error)
     }
 
     fn bulk_ignition_state(
@@ -553,7 +548,7 @@ impl SpHandler for MgsHandler {
         }));
         self.ignition
             .bulk_state(offset)
-            .map_err(sp_error_from_ignition_error)
+            .map_err(convert_ignition_error)
     }
 
     fn ignition_link_events(
@@ -565,7 +560,7 @@ impl SpHandler for MgsHandler {
         }));
         self.ignition
             .target_link_events(target)
-            .map_err(sp_error_from_ignition_error)
+            .map_err(convert_ignition_error)
     }
 
     fn bulk_ignition_link_events(
@@ -577,7 +572,7 @@ impl SpHandler for MgsHandler {
         ));
         self.ignition
             .bulk_link_events(offset)
-            .map_err(sp_error_from_ignition_error)
+            .map_err(convert_ignition_error)
     }
 
     fn clear_ignition_link_events(
@@ -590,7 +585,7 @@ impl SpHandler for MgsHandler {
         ));
         self.ignition
             .clear_link_events(target, transceiver_select)
-            .map_err(sp_error_from_ignition_error)
+            .map_err(convert_ignition_error)
     }
 
     fn ignition_command(
@@ -604,7 +599,7 @@ impl SpHandler for MgsHandler {
         }));
         self.ignition
             .command(target, command)
-            .map_err(sp_error_from_ignition_error)
+            .map_err(convert_ignition_error)
     }
 
     fn sp_state(&mut self) -> Result<SpStateV2, SpError> {
@@ -1242,22 +1237,6 @@ impl SpHandler for MgsHandler {
         }));
         Err(SpError::RequestUnsupportedForSp)
     }
-}
-
-// Helper function for `.map_err()`; we can't use `?` because we can't implement
-// `From<_>` between these types due to orphan rules.
-fn sp_error_from_ignition_error(err: IgnitionError) -> SpError {
-    use gateway_messages::ignition::IgnitionError as E;
-    let err = match err {
-        IgnitionError::FpgaError => E::FpgaError,
-        IgnitionError::InvalidPort => E::InvalidPort,
-        IgnitionError::InvalidValue => E::InvalidValue,
-        IgnitionError::NoTargetPresent => E::NoTargetPresent,
-        IgnitionError::RequestInProgress => E::RequestInProgress,
-        IgnitionError::RequestDiscarded => E::RequestDiscarded,
-        _ => E::Other(err as u32),
-    };
-    SpError::Ignition(err)
 }
 
 fn get_ecdsa_challenge() -> Result<EcdsaSha2Nistp256Challenge, SpError> {

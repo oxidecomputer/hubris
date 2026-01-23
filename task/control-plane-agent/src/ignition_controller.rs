@@ -8,13 +8,16 @@ use drv_ignition_api::{
 };
 use gateway_messages::ignition::{
     IgnitionState, LinkEvents, ReceiverStatus, SystemFaults, SystemPowerState,
-    SystemType, TargetState, TransceiverEvents,
+    SystemType, TargetState, TransceiverEvents, TransceiverSelect,
 };
+use gateway_messages::IgnitionCommand;
+use heapless::Vec;
+use userlib::UnwrapLite;
 
 userlib::task_slot!(IGNITION, ignition);
 
 pub(crate) struct IgnitionController {
-    pub(crate) task: Ignition,
+    task: Ignition,
     // We cache the number of ignition ports the first time we successfully call
     // it since it never changes (it's the total number of ports, which is baked
     // into the FPGA image, not the number of present targets, which varies at
@@ -74,6 +77,77 @@ impl IgnitionController {
         Ok(BulkIgnitionLinkEventsIter {
             iter: iter.skip(offset as usize),
         })
+    }
+
+    pub(super) fn clear_link_events(
+        &self,
+        target: Option<u8>,
+        transceiver_select: Option<TransceiverSelect>,
+    ) -> Result<(), IgnitionError> {
+        use drv_ignition_api::TransceiverSelect as IgnitionTxrSelect;
+
+        // Convert `target` to a range (either of length 1, if we got a target,
+        // or for all targets).
+        let targets = match target {
+            Some(t) => t..t + 1,
+            None => 0..self.num_ports()? as u8,
+        };
+
+        // Convert `transceiver_select` into a vec of at most 3 items (all
+        // transceivers if we didn't get one, or 1 if we did).
+        let mut txrs = Vec::<_, 3>::new();
+        match transceiver_select {
+            Some(TransceiverSelect::Controller) => {
+                txrs.push(IgnitionTxrSelect::Controller).unwrap_lite();
+            }
+            Some(TransceiverSelect::TargetLink0) => {
+                txrs.push(IgnitionTxrSelect::TargetLink0).unwrap_lite();
+            }
+            Some(TransceiverSelect::TargetLink1) => {
+                txrs.push(IgnitionTxrSelect::TargetLink1).unwrap_lite();
+            }
+            None => {
+                txrs.push(IgnitionTxrSelect::Controller).unwrap_lite();
+                txrs.push(IgnitionTxrSelect::TargetLink0).unwrap_lite();
+                txrs.push(IgnitionTxrSelect::TargetLink1).unwrap_lite();
+            }
+        }
+
+        // Clear all requested events (at least 1, at most num_ports * 3).
+        //
+        // We fail on the first error here; is that reasonable? Should we return
+        // as part of the error how far we got? If the caller cares at that
+        // level, is it sufficient for them to be able to call us separately for
+        // each target/transceiver they care about?
+        for target in targets {
+            for &txr in &txrs {
+                self.task.clear_transceiver_events(target, txr)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    pub(super) fn command(
+        &self,
+        target: u8,
+        command: IgnitionCommand,
+    ) -> Result<(), IgnitionError> {
+        use drv_ignition_api::Request;
+        let cmd = match command {
+            // We intercept the AlwaysTransmit command as it is not part of the
+            // Ignition protocol (not something we send to a target), it is
+            // a setting in the controller itself.
+            IgnitionCommand::AlwaysTransmit { enabled } => {
+                return self.task.set_always_transmit(target, enabled);
+            }
+            IgnitionCommand::PowerOn => Request::SystemPowerOn,
+            IgnitionCommand::PowerOff => Request::SystemPowerOff,
+            IgnitionCommand::PowerReset => Request::SystemPowerReset,
+        };
+        self.task.send_request(target, cmd)?;
+
+        Ok(())
     }
 }
 
@@ -205,4 +279,24 @@ impl From<TransceiverEventsConvert> for TransceiverEvents {
             message_checksum_invalid: e.message_checksum_invalid,
         }
     }
+}
+
+
+/// Convert a `drv-ignition-api` error into a [`gateway_messages::SpError`].
+///
+/// This is a helper function for `.map_err()`; we can't use `?` because we
+/// can't implement `From<_>` between these types due to orphan rules.
+pub fn convert_ignition_error(err: drv_ignition_api::IgnitionError) -> gateway_messages::SpError {
+    use gateway_messages::ignition::IgnitionError as GwErr;
+
+    let gw_err = match err {
+        IgnitionError::FpgaError => GwErr::FpgaError,
+        IgnitionError::InvalidPort => GwErr::InvalidPort,
+        IgnitionError::InvalidValue => GwErr::InvalidValue,
+        IgnitionError::NoTargetPresent => GwErr::NoTargetPresent,
+        IgnitionError::RequestInProgress => GwErr::RequestInProgress,
+        IgnitionError::RequestDiscarded => GwErr::RequestDiscarded,
+        IgnitionError::ServerDied => GwErr::Other(0xdead),
+    };
+    gateway_messages::SpError::Ignition(gw_err)
 }
