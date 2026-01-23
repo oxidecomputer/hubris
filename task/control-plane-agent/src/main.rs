@@ -265,8 +265,8 @@ impl NotificationHandler for ServerImpl {
             | notifications::USART_IRQ_MASK
             | notifications::TIMER_MASK;
 
-        // Minibar only communicates over the network, not USART, so it doesn't
-        // need USART_IRQ_MASK.
+        // Minibar does not configure USART for serial console, so omit it
+        // from the mask.
         #[cfg(feature = "minibar")]
         let mask = notifications::SOCKET_MASK | notifications::TIMER_MASK;
 
