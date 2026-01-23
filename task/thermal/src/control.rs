@@ -1282,18 +1282,8 @@ impl<'a> ThermalControl<'a> {
                     let values = *values;
                     self.transition_to_running(worst_margin, now_ms, values)
                 } else if !any_still_critical {
-                    // If all temperatures have gone below critical, but are
-                    // still above nominal, stop the overheat timeout but
-                    // continue running at 100% PWM until things go below
-                    // nominal.
                     let values = *values;
-                    self.record_leaving_critical(now_ms);
-                    self.state = ThermalControlState::FanParty { values };
-                    ringbuf_entry!(Trace::AutoState(self.get_state()));
-
-                    ControlResult::Pwm(PWMDuty(
-                        self.pid_config.max_output as u8,
-                    ))
+                    self.transition_to_fan_party(now_ms, values)
                 } else if now_ms > start_time + self.overheat_timeout_ms {
                     // If blasting the fans hasn't cooled us down in this amount
                     // of time, then something is terribly wrong - abort!
@@ -1420,6 +1410,27 @@ impl<'a> ThermalControl<'a> {
             })
         }
 
+        ControlResult::Pwm(PWMDuty(self.pid_config.max_output as u8))
+    }
+
+    /// Transition the control state to `FanParty` (from `Critical`), in
+    /// response to all component temperatures dropping below their critical
+    /// thresholds.
+    fn transition_to_fan_party(
+        &mut self,
+        now_ms: u64,
+        values: [TemperatureReading; TEMPERATURE_ARRAY_SIZE],
+    ) -> ControlResult {
+        // If all temperatures have gone below critical, but are
+        // still above nominal, stop the overheat timeout but
+        // continue running at 100% PWM until things go below
+        // nominal.
+        let values = *values;
+        self.record_leaving_critical(now_ms);
+        self.state = ThermalControlState::FanParty { values };
+        ringbuf_entry!(Trace::AutoState(self.get_state()));
+
+        // It's PARTY TIME!!!!
         ControlResult::Pwm(PWMDuty(self.pid_config.max_output as u8))
     }
 
