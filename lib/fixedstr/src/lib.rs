@@ -351,11 +351,11 @@ impl<'s, const MAX: usize> FixedStr<'s, MAX> {
     }
 
     pub const fn as_str(&self) -> &'s str {
-        &self.s
+        self.s
     }
 
     pub const fn as_bytes(&self) -> &'s [u8] {
-        &self.s.as_bytes()
+        self.s.as_bytes()
     }
 
     pub const fn len(&self) -> usize {
