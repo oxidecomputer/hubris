@@ -31,7 +31,7 @@ use crate::gpio_irq_pins::VCORE_TO_SP_ALERT_L;
 use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_i2c_devices::raa229618::Raa229618;
 use drv_stm32xx_sys_api as sys_api;
-use fixedstr::FixedString;
+use fixedstr::FixedStr;
 use ringbuf::*;
 use sys_api::IrqControl;
 use task_packrat_api as packrat_api;
@@ -271,7 +271,7 @@ impl VCore {
             mfr: status_mfr_specific.ok(),
         };
 
-        static RAIL: FixedString<9> = FixedString::from_str("VDD_VCORE");
+        static RAIL: FixedStr<'static, 9> FixedStr::from_str("VDD_VCORE");
         crate::try_send_ereport(
             &self.packrat,
             &mut ereport_buf[..],

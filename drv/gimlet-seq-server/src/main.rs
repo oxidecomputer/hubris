@@ -228,15 +228,15 @@ pub enum EreportClass {
 #[derive(microcbor::EncodeFields)]
 pub(crate) enum EreportKind {
     PmbusAlert {
-        refdes: FixedString<{ crate::i2c_config::MAX_COMPONENT_ID_LEN }>,
+        refdes: FixedStr<'static, { crate::i2c_config::MAX_COMPONENT_ID_LEN }>,
         // 9 is the maximum length rail name used in this module (`VDD_VCORE`)
-        rail: &'static FixedString<9>,
+        rail: FixedStr<'static, 9>,
         time: u64,
         pwr_good: Option<bool>,
         pmbus_status: PmbusStatus,
     },
     Bmr491MitigationFailure {
-        refdes: FixedString<{ crate::i2c_config::MAX_COMPONENT_ID_LEN }>,
+        refdes: FixedStr<'static, { crate::i2c_config::MAX_COMPONENT_ID_LEN }>,
         failures: u32,
         last_cause: drv_i2c_devices::bmr491::MitigationFailureKind,
         succeeded: bool,
@@ -527,7 +527,7 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
                     &mut ereport_buf[..],
                     EreportClass::Bmr491MitigationFailure,
                     EreportKind::Bmr491MitigationFailure {
-                        refdes: FixedString::from_str(dev.component_id()),
+                        refdes: FixedStr::from_str(dev.component_id()),
                         failures,
                         last_cause,
                         succeeded,

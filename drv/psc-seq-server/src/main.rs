@@ -108,7 +108,7 @@ use sys_api::{Edge, IrqControl, OutputType, PinSet, Pull, Speed};
 use task_jefe_api::Jefe;
 use userlib::*;
 
-use fixedstr::FixedString;
+use fixedstr::{FixedStr, FixedString};
 use ringbuf::{counted_ringbuf, ringbuf_entry};
 
 task_slot!(SYS, sys);
@@ -1109,9 +1109,7 @@ impl Psu {
             FixedString::try_from_utf8(&v54_psu[..]).unwrap_lite()
         };
         ereport::EreportFields {
-            refdes: fixedstr::FixedString::from_str(
-                self.dev.i2c_device().component_id(),
-            ),
+            refdes: FixedStr::from_str(self.dev.i2c_device().component_id()),
             rail,
             slot: self.slot as u8,
             fruid: self.fruid,
@@ -1128,43 +1126,36 @@ struct Step {
 
 #[derive(Copy, Clone, Default, microcbor::Encode)]
 struct PsuFruid {
-    mfr: Option<fixedstr::FixedString<9>>,
-    mpn: Option<fixedstr::FixedString<17>>,
-    serial: Option<fixedstr::FixedString<12>>,
-    fw_rev: Option<fixedstr::FixedString<4>>,
+    mfr: Option<FixedString<9>>,
+    mpn: Option<FixedString<17>>,
+    serial: Option<FixedString<12>>,
+    fw_rev: Option<FixedString<4>>,
 }
 
 impl PsuFruid {
     fn refresh(&mut self, dev: &Mwocp68, psu: Slot, now: u64) {
         if self.mfr.is_none() {
-            self.mfr =
-                retry_i2c_txn(now, psu, || dev.mfr_id()).ok().and_then(|v| {
-                    fixedstr::FixedString::try_from_utf8(&v.0[..]).ok()
-                });
+            self.mfr = retry_i2c_txn(now, psu, || dev.mfr_id())
+                .ok()
+                .and_then(|v| FixedString::try_from_utf8(&v.0[..]).ok());
         }
 
         if self.serial.is_none() {
             self.serial = retry_i2c_txn(now, psu, || dev.serial_number())
                 .ok()
-                .and_then(|v| {
-                    fixedstr::FixedString::try_from_utf8(&v.0[..]).ok()
-                });
+                .and_then(|v| FixedString::try_from_utf8(&v.0[..]).ok());
         }
 
         if self.mpn.is_none() {
             self.mpn = retry_i2c_txn(now, psu, || dev.model_number())
                 .ok()
-                .and_then(|v| {
-                    fixedstr::FixedString::try_from_utf8(&v.0[..]).ok()
-                });
+                .and_then(|v| FixedString::try_from_utf8(&v.0[..]).ok());
         }
 
         if self.fw_rev.is_none() {
             self.fw_rev = retry_i2c_txn(now, psu, || dev.firmware_revision())
                 .ok()
-                .and_then(|v| {
-                    fixedstr::FixedString::try_from_utf8(&v.0[..]).ok()
-                });
+                .and_then(|v| FixedString::try_from_utf8(&v.0[..]).ok());
         }
     }
 }
@@ -1198,7 +1189,6 @@ include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
 mod ereport {
     use super::*;
-    use fixedstr::FixedString;
 
     #[derive(Copy, Clone, Eq, PartialEq, microcbor::Encode)]
     pub(super) enum Class {
@@ -1214,8 +1204,8 @@ mod ereport {
 
     #[derive(microcbor::EncodeFields)]
     pub(super) struct EreportFields {
-        pub(super) refdes: FixedString<20>, // Component ID max length
-        pub(super) rail: FixedString<8>,    // "V54_PSUx"
+        pub(super) refdes: FixedStr<'static, 20>, // Component ID max length
+        pub(super) rail: FixedString<8>,          // "V54_PSUx"
         pub(super) slot: u8,
         pub(super) fruid: PsuFruid,
         pub(super) pmbus_status: Option<PmbusStatus>,
