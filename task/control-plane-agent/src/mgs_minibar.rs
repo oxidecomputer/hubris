@@ -2,7 +2,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{mgs_common::MgsCommon, CriticalEvent, Log, MgsMessage};
+use crate::{
+    mgs_common::MgsCommon, update::rot::RotUpdate, update::sp::SpUpdate,
+    update::ComponentUpdater, usize_max, CriticalEvent, Log, MgsMessage,
+};
 use gateway_messages::sp_impl::{
     BoundsChecked, DeviceDescription, Sender, SpHandler,
 };
@@ -21,8 +24,13 @@ use task_control_plane_agent_api::{ControlPlaneAgentError, OxideIdentity};
 use task_net_api::{MacAddress, UdpMetadata, VLanId};
 use userlib::sys_get_timer;
 
-// Minimal update buffer types required for compilation (not actually used)
-const UPDATE_BUFFER_SIZE: usize = 1024;
+// How big does our shared update buffer need to be? Has to be able to handle SP
+// update blocks for now, no other updateable components.
+const UPDATE_BUFFER_SIZE: usize =
+    usize_max(SpUpdate::BLOCK_SIZE, RotUpdate::BLOCK_SIZE);
+
+// Create type aliases that include our `UpdateBuffer` size (i.e., the size of
+// the largest update chunk of all the components we update).
 pub(crate) type UpdateBuffer =
     update_buffer::UpdateBuffer<SpComponent, UPDATE_BUFFER_SIZE>;
 pub(crate) type BorrowedUpdateBuffer = update_buffer::BorrowedUpdateBuffer<
@@ -30,6 +38,8 @@ pub(crate) type BorrowedUpdateBuffer = update_buffer::BorrowedUpdateBuffer<
     SpComponent,
     UPDATE_BUFFER_SIZE,
 >;
+
+// Our single, shared update buffer.
 static UPDATE_MEMORY: UpdateBuffer = UpdateBuffer::new();
 
 mod ignition_handler;
@@ -260,7 +270,7 @@ impl SpHandler for MgsHandler {
             slot: 0,
         }));
 
-        Err(SpError::RequestUnsupportedForSp)
+        self.common.sp_update.prepare(&UPDATE_MEMORY, update)
     }
 
     fn component_update_prepare(
@@ -274,7 +284,12 @@ impl SpHandler for MgsHandler {
             slot: update.slot,
         }));
 
-        Err(SpError::RequestUnsupportedForComponent)
+        match update.component {
+            SpComponent::ROT | SpComponent::STAGE0 => {
+                self.common.rot_update.prepare(&UPDATE_MEMORY, update)
+            }
+            _ => Err(SpError::RequestUnsupportedForComponent),
+        }
     }
 
     fn component_action(
@@ -295,32 +310,54 @@ impl SpHandler for MgsHandler {
             component
         }));
 
-        Err(SpError::RequestUnsupportedForComponent)
+        match component {
+            SpComponent::SP_ITSELF => Ok(self.common.sp_update.status()),
+            SpComponent::ROT | SpComponent::STAGE0 => {
+                Ok(self.common.rot_update.status())
+            }
+            _ => Err(SpError::RequestUnsupportedForComponent),
+        }
     }
 
     fn update_chunk(
         &mut self,
         chunk: UpdateChunk,
-        _data: &[u8],
+        data: &[u8],
     ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdateChunk {
             component: chunk.component,
             offset: chunk.offset,
         }));
 
-        Err(SpError::RequestUnsupportedForComponent)
+        match chunk.component {
+            SpComponent::SP_ITSELF | SpComponent::SP_AUX_FLASH => self
+                .common
+                .sp_update
+                .ingest_chunk(&chunk.component, &chunk.id, chunk.offset, data),
+            SpComponent::ROT | SpComponent::STAGE0 => self
+                .common
+                .rot_update
+                .ingest_chunk(&(), &chunk.id, chunk.offset, data),
+            _ => Err(SpError::RequestUnsupportedForComponent),
+        }
     }
 
     fn update_abort(
         &mut self,
         component: SpComponent,
-        _id: UpdateId,
+        id: UpdateId,
     ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdateAbort {
             component
         }));
 
-        Err(SpError::RequestUnsupportedForComponent)
+        match component {
+            SpComponent::SP_ITSELF => self.common.sp_update.abort(&id),
+            SpComponent::ROT | SpComponent::STAGE0 => {
+                self.common.rot_update.abort(&id)
+            }
+            _ => Err(SpError::RequestUnsupportedForComponent),
+        }
     }
 
     fn power_state(&mut self) -> Result<PowerState, SpError> {
