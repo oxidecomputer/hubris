@@ -271,7 +271,7 @@ impl VCore {
             mfr: status_mfr_specific.ok(),
         };
 
-        static RAIL: FixedStr<'static, 9> FixedStr::from_str("VDD_VCORE");
+        static RAIL: FixedStr<'static, 9> = FixedStr::from_str("VDD_VCORE");
         crate::try_send_ereport(
             &self.packrat,
             &mut ereport_buf[..],
