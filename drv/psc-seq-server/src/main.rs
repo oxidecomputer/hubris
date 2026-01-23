@@ -108,7 +108,7 @@ use sys_api::{Edge, IrqControl, OutputType, PinSet, Pull, Speed};
 use task_jefe_api::Jefe;
 use userlib::*;
 
-use fixedstr::FixedStr;
+use fixedstr::{FixedStr, FixedString};
 use ringbuf::{counted_ringbuf, ringbuf_entry};
 
 task_slot!(SYS, sys);
@@ -127,7 +127,7 @@ enum Event {
         now: u64,
         #[count(children)]
         psu: Slot,
-        serial: Option<FixedStr<12>>,
+        serial: Option<FixedString<12>>,
     },
     /// Emitted at task startup when we find that a power supply appears to have
     /// been disabled.
@@ -135,14 +135,14 @@ enum Event {
         now: u64,
         #[count(children)]
         psu: Slot,
-        serial: Option<FixedStr<12>>,
+        serial: Option<FixedString<12>>,
     },
     /// Emitted when a previously not present PSU's presence pin is asserted.
     Inserted {
         now: u64,
         #[count(children)]
         psu: Slot,
-        serial: Option<FixedStr<12>>,
+        serial: Option<FixedString<12>>,
     },
     /// Emitted when a previously present PSU's presence pin is deasserted.
     Removed {
@@ -1106,12 +1106,10 @@ impl Psu {
                 Slot::Psu4 => b'4',
                 Slot::Psu5 => b'5',
             };
-            FixedStr::try_from_utf8(&v54_psu[..]).unwrap_lite()
+            FixedString::try_from_utf8(&v54_psu[..]).unwrap_lite()
         };
         ereport::EreportFields {
-            refdes: fixedstr::FixedStr::from_str(
-                self.dev.i2c_device().component_id(),
-            ),
+            refdes: FixedStr::from_str(self.dev.i2c_device().component_id()),
             rail,
             slot: self.slot as u8,
             fruid: self.fruid,
@@ -1128,10 +1126,10 @@ struct Step {
 
 #[derive(Copy, Clone, Default, microcbor::Encode)]
 struct PsuFruid {
-    mfr: Option<fixedstr::FixedStr<9>>,
-    mpn: Option<fixedstr::FixedStr<17>>,
-    serial: Option<fixedstr::FixedStr<12>>,
-    fw_rev: Option<fixedstr::FixedStr<4>>,
+    mfr: Option<FixedString<9>>,
+    mpn: Option<FixedString<17>>,
+    serial: Option<FixedString<12>>,
+    fw_rev: Option<FixedString<4>>,
 }
 
 impl PsuFruid {
@@ -1139,25 +1137,25 @@ impl PsuFruid {
         if self.mfr.is_none() {
             self.mfr = retry_i2c_txn(now, psu, || dev.mfr_id())
                 .ok()
-                .and_then(|v| fixedstr::FixedStr::try_from_utf8(&v.0[..]).ok());
+                .and_then(|v| FixedString::try_from_utf8(&v.0[..]).ok());
         }
 
         if self.serial.is_none() {
             self.serial = retry_i2c_txn(now, psu, || dev.serial_number())
                 .ok()
-                .and_then(|v| fixedstr::FixedStr::try_from_utf8(&v.0[..]).ok());
+                .and_then(|v| FixedString::try_from_utf8(&v.0[..]).ok());
         }
 
         if self.mpn.is_none() {
             self.mpn = retry_i2c_txn(now, psu, || dev.model_number())
                 .ok()
-                .and_then(|v| fixedstr::FixedStr::try_from_utf8(&v.0[..]).ok());
+                .and_then(|v| FixedString::try_from_utf8(&v.0[..]).ok());
         }
 
         if self.fw_rev.is_none() {
             self.fw_rev = retry_i2c_txn(now, psu, || dev.firmware_revision())
                 .ok()
-                .and_then(|v| fixedstr::FixedStr::try_from_utf8(&v.0[..]).ok());
+                .and_then(|v| FixedString::try_from_utf8(&v.0[..]).ok());
         }
     }
 }
@@ -1191,7 +1189,6 @@ include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
 mod ereport {
     use super::*;
-    use fixedstr::FixedStr;
 
     #[derive(Copy, Clone, Eq, PartialEq, microcbor::Encode)]
     pub(super) enum Class {
@@ -1207,8 +1204,8 @@ mod ereport {
 
     #[derive(microcbor::EncodeFields)]
     pub(super) struct EreportFields {
-        pub(super) refdes: FixedStr<20>, // Component ID max length
-        pub(super) rail: FixedStr<8>,    // "V54_PSUx"
+        pub(super) refdes: FixedStr<'static, 20>, // Component ID max length
+        pub(super) rail: FixedString<8>,          // "V54_PSUx"
         pub(super) slot: u8,
         pub(super) fruid: PsuFruid,
         pub(super) pmbus_status: Option<PmbusStatus>,
