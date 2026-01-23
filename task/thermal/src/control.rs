@@ -616,44 +616,105 @@ type DynamicChannelsArray =
 /// Note that the canonical temperatures are stored in the `sensors` task; we
 /// copy them into these arrays for local operations.
 ///
-/// The thermal control loop transitions between these states:
+/// ## Theory of Operation
+///
+/// The thermal loop operates in two separate control regimes:
+///
+/// - **Normal control**, represented by [`ThermalControlState::Running`]; in
+///   which fan PWM duty cycles are set by PID control, and,
+///
+/// - **Overheat**, represented by [`ThermalControlState::Overheat`] and
+///   [`ThermalControlState::Turbo`], in which fans are driven at the maximum
+///   PWM duty cycle until the system returns to the normal control regime.
+///
+/// By design, the system should spend most of its time in the normal PID
+/// control regime under normal operating conditions.  The overheat control
+/// regime is an emergency failsafe mode which is entered only when PID control
+/// fails to maintain safe operating temperatures.
+///
+/// Transitions between these control regimes are governed by the temperature
+/// thresholds for components monitored by the thermal control loop, which are
+/// configured by a [`ThermalProperties`] struct for each input channel in the
+/// BSP.  In particular, each component has a [target] (or _nominal_)
+/// temperature threshold, a [critical] temperature, and a [power-down]
+/// temperature.  If any monitored component's temperature exceeds its critical
+/// threshold, we abandon normal abandon PID control and transition to the
+/// overheat control regime.  While in the overheat regime, we drive the fans
+/// at 100% PWM duty cycle until all monitored temperatures return to nominal
+/// ranges for that component.  Once every component is below its nominal
+/// threshold, we return to normal control.
+///
+/// In addition, the thermal control loop will perform an emergency power down
+/// of the system under either of the following conditions:
+///
+/// - Any component temperature has been above its critical threshold for
+///   longer than [`overheat_timeout_ms`].
+/// - Any component temperature exceeds its power-down threshold.
+///
+/// In either of these cases, we will decide that the system's temperatures
+/// cannot be controlled, and transition to
+/// [`ThermalControlState::Uncontrollable`].  In this state, the thermal loop
+/// will request a power state change to A2, shutting down the system.
+///
+/// The intent behind the overheat timeout is to safely power down the system
+/// when in a situation where even running the fans at their maximum duty cycle
+/// cannot reduce temperatures below a critical threshold.  Therefore, the
+/// timeout is only applied while any component temperature(s) are at or above
+/// critical thresholds.  If running the fans at full speed is effectively
+/// reducing the system temperature, but we have not yet returned to normal
+/// control, the timeout is not applied.  Therefore, we separate the overheated
+/// control regime into two substates:
+///
+/// - `Overheat`, in which at least one component is critical and the timeout
+///    is being tracked, and
+/// - `Turbo`, in which all temperatures are below critical, and we will run
+///    the fans at 100% duty cycle but do not track the overheat timeout.
+///
+/// This diagram depicts the transitions between control states:
 ///
 /// ```text
 ///  [ BOOT ]
 ///     |
 ///     V
-/// +---------+
-/// | Running |<-----------------<--------------------+
-/// +---------+                                       |
-///    |   |                                          ^
-///    |   * . . Any temp                             |
-///    |   |     over critical                        * . all temps
-///    |   |                                          |   nominal
-///    |   |                +----------+              |
-///    |   +--------------->|          |-------->-----+
-///    +------<-------------| Overheat |              |
-///    |                    |          |----------+   |
-///    |                    +----------+          |   |
-///    |                      |    ^              |   ^
-///    |       all temps      |    * . any temp   v   |
-///    |       under crit . . *    |   over crit  |   |
-///    |                      |    |              |   |
-///    |                      v    |              |   |
-///    |                     +-------+            |   |
-///    +---------------------| Turbo |---------->-----+
-///    |                     +-------+            |
-///    * . Any temp                               |
-///    |   over                                   |
-///    |   power_down                             |
-///    |                                          * . . overheat_timeout_ms
-///    v                                          |     elapse
-/// +----------------+                            |
-/// | Uncontrollable |<---------------------------+
+/// +---------------+
+/// | RUNNING       |<-----------------<-----------------+
+/// | (PID control) |                                    |
+/// +---------------+                                    |
+///    |   |                                             ^
+///    |   * . . Any temp                                |
+///    |   |     over critical                           * . all temps
+///    |   |                                             |   nominal
+///    |   |          Overheat control regime            |
+///    |   |          (100% PWM duty cycle)              |
+///    |   |         . . . . . . . . . . . . .           |
+///    |   |         .      +----------+     .           |
+///    |   +--------------->|          |--------->-------+
+///    +------<-------------| OVERHEAT |     .           |
+///    |             .      |          |-------------+   |
+///    |             .      +----------+     .       |   |
+///    |             .        |    ^         .       |   ^
+///    |       all temps      |    * . any temp      v   |
+///    |       under crit . . *    |   over crit     |   |
+///    |             .        |    |         .       |   |
+///    |             .        v    |         .       |   |
+///    |             .       +-------+       .       |   |
+///    +---------------------| TURBO |------------->-----+
+///    |             .       +-------+       .       |
+///    |             .........................       |
+///    |                                             |
+///    * . . Any temp over                           * . . overheat_timeout_ms
+///    |     power_down                              |     elapsed
+///    |                                             |
+///    v                                             |
+/// +----------------+                               |
+/// | UNCONTROLLABLE |<------------------------------+
 /// +----------------+
 ///    |
 ///    V
 /// [ POWER DOWN ]
 /// ```
+///
+/// [`overheat_timeout_ms`]: ThermalControl#structfield.overheat_timeout_ms
 enum ThermalControlState {
     /// Wait for each sensor to report in at least once
     ///
@@ -1316,6 +1377,10 @@ impl<'a> ThermalControl<'a> {
         Ok(())
     }
 
+    /// Transition the control state to the normal control regime.
+    ///
+    /// This sets the state to `Running`, and performs a single iteration of the
+    /// PID control loop to determine the new duty cycle.
     fn transition_to_running(
         &mut self,
         worst_margin: f32,
@@ -1336,21 +1401,26 @@ impl<'a> ThermalControl<'a> {
         ControlResult::Pwm(PWMDuty(pwm as u8))
     }
 
+    /// Transition the control state to to critical, in response to a component
+    /// exceeding its critical threshold.
     fn transition_to_critical(
         &mut self,
         (sensor_id, temperature): (SensorId, Celsius),
-        start_time: u64,
+        now_ms: u64,
         values: [TemperatureReading; TEMPERATURE_ARRAY_SIZE],
     ) -> ControlResult {
         ringbuf_entry!(Trace::CriticalDueTo {
             sensor_id,
             temperature
         });
-        self.state = ThermalControlState::Overheated { values, start_time };
+        self.state = ThermalControlState::Overheated {
+            values,
+            start_time: now_ms,
+        };
         ringbuf_entry!(Trace::AutoState(self.get_state()));
         if self.overheat_timer.is_none() {
             self.overheat_timer = Some(OverheatTimer {
-                start_time,
+                start_time: now_ms,
                 critical_ms: 0,
             })
         }
@@ -1358,6 +1428,9 @@ impl<'a> ThermalControl<'a> {
         ControlResult::Pwm(PWMDuty(self.pid_config.max_output as u8))
     }
 
+    /// Transition to the `Uncontrollable` state, either in response to the
+    /// overheat timeout, thermal sensor errors, or a component exceeding its
+    /// power-down temperature threshold.
     fn transition_to_uncontrollable(&mut self, now_ms: u64) -> ControlResult {
         self.record_leaving_critical(now_ms);
         self.record_leaving_overheat(now_ms);
