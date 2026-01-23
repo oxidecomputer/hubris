@@ -3,11 +3,12 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use core::cell::Cell;
-use drv_ignition_api::{AllLinkEventsIter, AllPortsIter, Ignition, IgnitionError};
+use drv_ignition_api::{
+    AllLinkEventsIter, AllPortsIter, Ignition, IgnitionError,
+};
 use gateway_messages::ignition::{
-    IgnitionState, LinkEvents, ReceiverStatus, SystemFaults,
-    SystemPowerState, SystemType, TargetState, TransceiverEvents,
-    TransceiverSelect,
+    IgnitionState, LinkEvents, ReceiverStatus, SystemFaults, SystemPowerState,
+    SystemType, TargetState, TransceiverEvents, TransceiverSelect,
 };
 use gateway_messages::{IgnitionCommand, SpError};
 use heapless::Vec;
