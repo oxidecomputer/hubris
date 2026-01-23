@@ -23,7 +23,7 @@ use drv_sidecar_seq_api::{
     FanModuleIndex, FanModulePresence, SeqError, TofinoSequencerPolicy,
 };
 use drv_stm32xx_sys_api as sys_api;
-use fixedstr::FixedStr;
+use fixedstr::FixedString;
 use idol_runtime::{
     ClientError, Leased, NotificationHandler, RequestError, R, W,
 };
@@ -137,7 +137,7 @@ pub enum EreportClass {
 #[derive(microcbor::EncodeFields)]
 pub(crate) enum EreportKind {
     Bmr491MitigationFailure {
-        refdes: FixedStr<{ crate::i2c_config::MAX_COMPONENT_ID_LEN }>,
+        refdes: FixedString<{ crate::i2c_config::MAX_COMPONENT_ID_LEN }>,
         failures: u32,
         last_cause: drv_i2c_devices::bmr491::MitigationFailureKind,
         succeeded: bool,
@@ -890,7 +890,7 @@ fn main() -> ! {
                 &mut ereport_buf[..],
                 EreportClass::Bmr491MitigationFailure,
                 EreportKind::Bmr491MitigationFailure {
-                    refdes: FixedStr::from_str(dev.component_id()),
+                    refdes: FixedString::from_str(dev.component_id()),
                     failures,
                     last_cause,
                     succeeded,

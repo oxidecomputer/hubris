@@ -15,7 +15,7 @@ use drv_packrat_vpd_loader::{read_vpd_and_load_packrat, Packrat};
 use drv_spartan7_loader_api::Spartan7Loader;
 use drv_spi_api::{SpiDevice, SpiServer};
 use drv_stm32xx_sys_api::{self as sys_api, Sys};
-use fixedstr::FixedStr;
+use fixedstr::FixedString;
 use idol_runtime::{NotificationHandler, RequestError};
 use task_jefe_api::Jefe;
 use userlib::{
@@ -218,7 +218,7 @@ fn main() -> ! {
                 &mut ereport_buf[..],
                 EreportClass::Bmr491MitigationFailure,
                 EreportKind::Bmr491MitigationFailure {
-                    refdes: FixedStr::from_str(dev.component_id()),
+                    refdes: FixedString::from_str(dev.component_id()),
                     failures,
                     last_cause,
                     succeeded,
@@ -458,7 +458,7 @@ pub enum EreportClass {
 #[derive(microcbor::EncodeFields)]
 pub(crate) enum EreportKind {
     Bmr491MitigationFailure {
-        refdes: FixedStr<{ crate::i2c_config::MAX_COMPONENT_ID_LEN }>,
+        refdes: FixedString<{ crate::i2c_config::MAX_COMPONENT_ID_LEN }>,
         failures: u32,
         last_cause: drv_i2c_devices::bmr491::MitigationFailureKind,
         succeeded: bool,
