@@ -3,8 +3,12 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    mgs_common::MgsCommon, update::rot::RotUpdate, update::sp::SpUpdate,
-    update::ComponentUpdater, usize_max, CriticalEvent, Log, MgsMessage,
+    ignition_controller::{self, IgnitionController},
+    mgs_common::MgsCommon,
+    update::rot::RotUpdate,
+    update::sp::SpUpdate,
+    update::ComponentUpdater,
+    usize_max, CriticalEvent, Log, MgsMessage,
 };
 use gateway_messages::sp_impl::{
     BoundsChecked, DeviceDescription, Sender, SpHandler,
@@ -41,11 +45,6 @@ pub(crate) type BorrowedUpdateBuffer = update_buffer::BorrowedUpdateBuffer<
 
 // Our single, shared update buffer.
 static UPDATE_MEMORY: UpdateBuffer = UpdateBuffer::new();
-
-mod ignition_handler;
-use ignition_handler::IgnitionController;
-
-userlib::task_slot!(IGNITION, ignition);
 
 /// Convert drv-ignition-api errors to gateway-messages errors
 fn convert_ignition_error(err: drv_ignition_api::IgnitionError) -> SpError {
@@ -153,9 +152,9 @@ impl MgsHandler {
 }
 
 impl SpHandler for MgsHandler {
-    type BulkIgnitionStateIter = ignition_handler::BulkIgnitionStateIter;
+    type BulkIgnitionStateIter = ignition_controller::BulkIgnitionStateIter;
     type BulkIgnitionLinkEventsIter =
-        ignition_handler::BulkIgnitionLinkEventsIter;
+        ignition_controller::BulkIgnitionLinkEventsIter;
     type VLanId = VLanId;
 
     fn ensure_request_trusted(

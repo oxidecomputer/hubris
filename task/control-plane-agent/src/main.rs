@@ -42,6 +42,9 @@ pub(crate) mod dump;
 #[cfg_attr(feature = "minibar", path = "mgs_minibar.rs")]
 mod mgs_handler;
 
+#[cfg(any(feature = "sidecar", feature = "minibar"))]
+mod ignition_controller;
+
 use self::mgs_handler::MgsHandler;
 
 task_slot!(JEFE, jefe);

@@ -11,22 +11,26 @@ use gateway_messages::ignition::{
     SystemType, TargetState, TransceiverEvents,
 };
 
-use super::IGNITION;
+userlib::task_slot!(IGNITION, ignition);
 
-pub(super) struct IgnitionController {
-    task: Ignition,
+pub(crate) struct IgnitionController {
+    pub(crate) task: Ignition,
+    // We cache the number of ignition ports the first time we successfully call
+    // it since it never changes (it's the total number of ports, which is baked
+    // into the FPGA image, not the number of present targets, which varies at
+    // runtime).
     num_ports: Cell<Option<u32>>,
 }
 
 impl IgnitionController {
-    pub(super) fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             task: Ignition::new(IGNITION.get_task_id()),
             num_ports: Cell::new(None),
         }
     }
 
-    pub(super) fn num_ports(&self) -> Result<u32, IgnitionError> {
+    pub(crate) fn num_ports(&self) -> Result<u32, IgnitionError> {
         if let Some(n) = self.num_ports.get() {
             return Ok(n);
         }
@@ -36,7 +40,7 @@ impl IgnitionController {
         Ok(n)
     }
 
-    pub(super) fn target_state(
+    pub(crate) fn target_state(
         &self,
         target: u8,
     ) -> Result<IgnitionState, IgnitionError> {
@@ -44,7 +48,7 @@ impl IgnitionController {
         Ok(PortConvert(port).into())
     }
 
-    pub(super) fn bulk_state(
+    pub(crate) fn bulk_state(
         &self,
         offset: u32,
     ) -> Result<BulkIgnitionStateIter, IgnitionError> {
@@ -54,7 +58,7 @@ impl IgnitionController {
         })
     }
 
-    pub(super) fn target_link_events(
+    pub(crate) fn target_link_events(
         &self,
         target: u8,
     ) -> Result<LinkEvents, IgnitionError> {
@@ -62,7 +66,7 @@ impl IgnitionController {
         Ok(LinkEventsConvert(events).into())
     }
 
-    pub(super) fn bulk_link_events(
+    pub(crate) fn bulk_link_events(
         &self,
         offset: u32,
     ) -> Result<BulkIgnitionLinkEventsIter, IgnitionError> {
@@ -73,7 +77,7 @@ impl IgnitionController {
     }
 }
 
-pub struct BulkIgnitionStateIter {
+pub(crate) struct BulkIgnitionStateIter {
     iter: core::iter::Skip<AllPortsIter>,
 }
 
@@ -85,7 +89,7 @@ impl Iterator for BulkIgnitionStateIter {
     }
 }
 
-pub struct BulkIgnitionLinkEventsIter {
+pub(crate) struct BulkIgnitionLinkEventsIter {
     iter: core::iter::Skip<AllLinkEventsIter>,
 }
 
@@ -126,24 +130,23 @@ impl From<ReceiverStatusConvert> for ReceiverStatus {
 struct TargetConvert(drv_ignition_api::Target);
 
 impl From<TargetConvert> for TargetState {
-    fn from(target: TargetConvert) -> Self {
-        let TargetConvert(target) = target;
+    fn from(t: TargetConvert) -> Self {
+        let TargetConvert(t) = t;
         Self {
-            // Minibar uses SystemId(u8), convert to SystemType via u16
-            system_type: SystemType::from(u16::from(target.id.0)),
-            power_state: SystemPowerStateConvert(target.power_state).into(),
-            power_reset_in_progress: target.power_reset_in_progress,
-            controller0_present: target.controller0_present,
-            controller1_present: target.controller1_present,
+            system_type: SystemType::from(u16::from(t.id.0)),
+            power_state: SystemPowerStateConvert(t.power_state).into(),
+            power_reset_in_progress: t.power_reset_in_progress,
+            faults: SystemFaultsConvert(t.faults).into(),
+            controller0_present: t.controller0_present,
+            controller1_present: t.controller1_present,
             link0_receiver_status: ReceiverStatusConvert(
-                target.link0_receiver_status,
+                t.link0_receiver_status,
             )
             .into(),
             link1_receiver_status: ReceiverStatusConvert(
-                target.link1_receiver_status,
+                t.link1_receiver_status,
             )
             .into(),
-            faults: SystemFaultsConvert(target.faults).into(),
         }
     }
 }
@@ -152,14 +155,13 @@ struct SystemPowerStateConvert(drv_ignition_api::SystemPowerState);
 
 impl From<SystemPowerStateConvert> for SystemPowerState {
     fn from(s: SystemPowerStateConvert) -> Self {
+        use drv_ignition_api::SystemPowerState as Sps;
         match s.0 {
-            drv_ignition_api::SystemPowerState::Off => Self::Off,
-            drv_ignition_api::SystemPowerState::On => Self::On,
-            drv_ignition_api::SystemPowerState::PoweringOff => {
-                Self::PoweringOff
-            }
-            drv_ignition_api::SystemPowerState::PoweringOn => Self::PoweringOn,
-            drv_ignition_api::SystemPowerState::Aborted => Self::Aborted,
+            Sps::Off => Self::Off,
+            Sps::On => Self::On,
+            Sps::Aborted => Self::Aborted,
+            Sps::PoweringOff => Self::PoweringOff,
+            Sps::PoweringOn => Self::PoweringOn,
         }
     }
 }
@@ -167,12 +169,12 @@ impl From<SystemPowerStateConvert> for SystemPowerState {
 struct SystemFaultsConvert(drv_ignition_api::SystemFaults);
 
 impl From<SystemFaultsConvert> for SystemFaults {
-    fn from(faults: SystemFaultsConvert) -> Self {
+    fn from(s: SystemFaultsConvert) -> Self {
         Self {
-            power_a3: faults.0.power_a3,
-            power_a2: faults.0.power_a2,
-            sp: faults.0.sp,
-            rot: faults.0.rot,
+            power_a3: s.0.power_a3,
+            power_a2: s.0.power_a2,
+            sp: s.0.sp,
+            rot: s.0.rot,
         }
     }
 }
@@ -180,13 +182,11 @@ impl From<SystemFaultsConvert> for SystemFaults {
 struct LinkEventsConvert(drv_ignition_api::LinkEvents);
 
 impl From<LinkEventsConvert> for LinkEvents {
-    fn from(events: LinkEventsConvert) -> Self {
+    fn from(e: LinkEventsConvert) -> Self {
         Self {
-            controller: TransceiverEventsConvert(events.0.controller).into(),
-            target_link0: TransceiverEventsConvert(events.0.target_link0)
-                .into(),
-            target_link1: TransceiverEventsConvert(events.0.target_link1)
-                .into(),
+            controller: TransceiverEventsConvert(e.0.controller).into(),
+            target_link0: TransceiverEventsConvert(e.0.target_link0).into(),
+            target_link1: TransceiverEventsConvert(e.0.target_link1).into(),
         }
     }
 }
@@ -194,14 +194,15 @@ impl From<LinkEventsConvert> for LinkEvents {
 struct TransceiverEventsConvert(drv_ignition_api::TransceiverEvents);
 
 impl From<TransceiverEventsConvert> for TransceiverEvents {
-    fn from(events: TransceiverEventsConvert) -> Self {
+    fn from(e: TransceiverEventsConvert) -> Self {
+        let TransceiverEventsConvert(e) = e;
         Self {
-            encoding_error: events.0.encoding_error,
-            decoding_error: events.0.decoding_error,
-            ordered_set_invalid: events.0.ordered_set_invalid,
-            message_version_invalid: events.0.message_version_invalid,
-            message_type_invalid: events.0.message_type_invalid,
-            message_checksum_invalid: events.0.message_checksum_invalid,
+            encoding_error: e.encoding_error,
+            decoding_error: e.decoding_error,
+            ordered_set_invalid: e.ordered_set_invalid,
+            message_version_invalid: e.message_version_invalid,
+            message_type_invalid: e.message_type_invalid,
+            message_checksum_invalid: e.message_checksum_invalid,
         }
     }
 }

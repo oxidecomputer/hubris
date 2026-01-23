@@ -3,8 +3,12 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    mgs_common::MgsCommon, update::rot::RotUpdate, update::sp::SpUpdate,
-    update::ComponentUpdater, usize_max, CriticalEvent, Log, MgsMessage,
+    ignition_controller::{self, IgnitionController},
+    mgs_common::MgsCommon,
+    update::rot::RotUpdate,
+    update::sp::SpUpdate,
+    update::ComponentUpdater,
+    usize_max, CriticalEvent, Log, MgsMessage,
 };
 use drv_ignition_api::IgnitionError;
 use drv_monorail_api::{Monorail, MonorailError};
@@ -36,11 +40,9 @@ use zerocopy::IntoBytes;
 // We're included under a special `path` cfg from main.rs, which confuses rustc
 // about where our submodules live. Pass explicit paths to correct it.
 #[path = "mgs_sidecar/ignition.rs"]
-mod ignition_handler;
+mod ignition_impls;
 #[path = "mgs_sidecar/monorail_port_status.rs"]
 mod monorail_port_status;
-
-use ignition_handler::IgnitionController;
 
 userlib::task_slot!(SIDECAR_SEQ, sequencer);
 userlib::task_slot!(MONORAIL, monorail);
@@ -466,9 +468,9 @@ fn verify_signature(
 }
 
 impl SpHandler for MgsHandler {
-    type BulkIgnitionStateIter = ignition_handler::BulkIgnitionStateIter;
+    type BulkIgnitionStateIter = ignition_controller::BulkIgnitionStateIter;
     type BulkIgnitionLinkEventsIter =
-        ignition_handler::BulkIgnitionLinkEventsIter;
+        ignition_controller::BulkIgnitionLinkEventsIter;
     type VLanId = VLanId;
 
     /// Checks whether we trust the given message
