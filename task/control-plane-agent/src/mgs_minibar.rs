@@ -22,7 +22,7 @@ use task_net_api::{MacAddress, UdpMetadata, VLanId};
 use userlib::sys_get_timer;
 
 // Minimal update buffer types required for compilation (not actually used)
-const UPDATE_BUFFER_SIZE: usize = 8;
+const UPDATE_BUFFER_SIZE: usize = 1024;
 pub(crate) type UpdateBuffer =
     update_buffer::UpdateBuffer<SpComponent, UPDATE_BUFFER_SIZE>;
 pub(crate) type BorrowedUpdateBuffer = update_buffer::BorrowedUpdateBuffer<
@@ -301,7 +301,7 @@ impl SpHandler for MgsHandler {
     fn update_chunk(
         &mut self,
         chunk: UpdateChunk,
-        data: &[u8],
+        _data: &[u8],
     ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdateChunk {
             component: chunk.component,
@@ -314,7 +314,7 @@ impl SpHandler for MgsHandler {
     fn update_abort(
         &mut self,
         component: SpComponent,
-        id: UpdateId,
+        _id: UpdateId,
     ) -> Result<(), SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdateAbort {
             component
@@ -460,6 +460,17 @@ impl SpHandler for MgsHandler {
         ));
 
         Err(SpError::RequestUnsupportedForComponent)
+    }
+
+    fn component_get_persistent_slot(
+        &mut self,
+        component: SpComponent,
+    ) -> Result<u16, SpError> {
+        ringbuf_entry_root!(Log::MgsMessage(
+            MgsMessage::ComponentGetPersistentSlot { component }
+        ));
+
+        self.common.component_get_persistent_slot(component)
     }
 
     fn component_clear_status(
