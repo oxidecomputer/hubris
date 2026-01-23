@@ -716,6 +716,9 @@ type DynamicChannelsArray =
 ///
 /// [`overheat_timeout_ms`]: ThermalControl#structfield.overheat_timeout_ms
 enum ThermalControlState {
+    //
+    // === Normal control regime states ===
+    //
     /// Wait for each sensor to report in at least once
     ///
     /// (dynamic sensors must report in *if* they are present, i.e. not `None`
@@ -730,29 +733,32 @@ enum ThermalControlState {
         pid: OneSidedPidState,
     },
 
-    /// In the overheated state, one or more components has entered their
+    //
+    // === Overheated control regime states ===
+    //
+    /// In the critical state, one or more components has entered their
     /// critical temperature ranges.  We turn on fans at high power and record
     /// the time at which we entered this state; at a certain point, we will
     /// timeout and drop into `Uncontrolled` if components do not recover.
-    Overheated {
+    Critical {
         values: [TemperatureReading; TEMPERATURE_ARRAY_SIZE],
-        /// The time at which we transitioned to the `Overheated` state *this*
-        /// time, either from `Running` or from TURBO MODE!!!.
+        /// The time at which we transitioned to the `Critical` state *this*
+        /// time, either from `Running` or from FAN PARTY!!!.
         start_time: u64,
     },
 
-    /// If we are in the `Overheated` state and all temperatures drop below
-    /// their critical threshold, but above their nominal threshold, we leave
-    /// the `Overheated` state and enter TURBO MODE!!!!, a special state that's
-    /// kind of halfway between `Overheated` and normal operation. In TURBO
+    /// If we are in the `Critical` state and all temperatures drop below
+    /// their Critical threshold, but above their nominal threshold, we leave
+    /// the `Critical` state and enter FAN PARTY!!!!, a special state that's
+    /// kind of halfway between `Critical` and normal operation. In FAN PARTY
     /// MODE, we continue to run the fans at their max duty cycle, but we don't
     /// track the overheated timeout. If anything goes above critical while in
-    /// TURBO MODE!!!!!, we return to `Overheated`.
+    /// FAN PARTY!!!!!, we return to `Critical`.
     ///
     /// This gives us an opportunity to recover from overheating by running the
     /// fans aggressively without also deciding to give up and kill ourselves
     /// while things are improving but not fast enough.
-    Turbo {
+    FanParty {
         values: [TemperatureReading; TEMPERATURE_ARRAY_SIZE],
     },
 
@@ -782,8 +788,8 @@ impl ThermalControlState {
                 values[index] = Some(r);
             }
             ThermalControlState::Running { values, .. }
-            | ThermalControlState::Overheated { values, .. }
-            | ThermalControlState::Turbo { values, .. } => {
+            | ThermalControlState::Critical { values, .. }
+            | ThermalControlState::FanParty { values, .. } => {
                 values[index] = r;
             }
             ThermalControlState::Uncontrollable => (),
@@ -796,8 +802,8 @@ impl ThermalControlState {
                 values[index] = Some(TemperatureReading::Inactive)
             }
             ThermalControlState::Running { values, .. }
-            | ThermalControlState::Overheated { values, .. }
-            | ThermalControlState::Turbo { values, .. } => {
+            | ThermalControlState::Critical { values, .. }
+            | ThermalControlState::FanParty { values, .. } => {
                 values[index] = TemperatureReading::Inactive;
             }
             ThermalControlState::Uncontrollable => (),
@@ -1251,7 +1257,7 @@ impl<'a> ThermalControl<'a> {
                     ControlResult::Pwm(PWMDuty(pwm as u8))
                 }
             }
-            &mut ThermalControlState::Overheated {
+            &mut ThermalControlState::Critical {
                 ref values,
                 start_time,
             } => {
@@ -1293,7 +1299,7 @@ impl<'a> ThermalControl<'a> {
                     // nominal.
                     let values = *values;
                     self.record_leaving_critical(now_ms);
-                    self.state = ThermalControlState::Turbo { values };
+                    self.state = ThermalControlState::FanParty { values };
                     ringbuf_entry!(Trace::AutoState(self.get_state()));
 
                     ControlResult::Pwm(PWMDuty(
@@ -1309,7 +1315,7 @@ impl<'a> ThermalControl<'a> {
                     ))
                 }
             }
-            ThermalControlState::Turbo { values } => {
+            ThermalControlState::FanParty { values } => {
                 let mut all_nominal = true;
                 let mut any_power_down = None;
                 let mut any_critical = None;
@@ -1342,7 +1348,7 @@ impl<'a> ThermalControl<'a> {
                     self.transition_to_uncontrollable(now_ms)
                 } else if let Some(due_to) = any_critical {
                     // If anything's gone over critical, transition back to the
-                    // `Overheated` state.
+                    // `Critical` state.
                     let values = *values;
                     self.transition_to_critical(due_to, now_ms, values)
                 } else if all_nominal {
@@ -1401,8 +1407,8 @@ impl<'a> ThermalControl<'a> {
         ControlResult::Pwm(PWMDuty(pwm as u8))
     }
 
-    /// Transition the control state to to critical, in response to a component
-    /// exceeding its critical threshold.
+    /// Transition the control state to `Critical`, in response to a
+    /// component exceeding its critical threshold.
     fn transition_to_critical(
         &mut self,
         (sensor_id, temperature): (SensorId, Celsius),
@@ -1413,7 +1419,7 @@ impl<'a> ThermalControl<'a> {
             sensor_id,
             temperature
         });
-        self.state = ThermalControlState::Overheated {
+        self.state = ThermalControlState::Critical {
             values,
             start_time: now_ms,
         };
@@ -1441,8 +1447,12 @@ impl<'a> ThermalControl<'a> {
         ControlResult::PowerDown
     }
 
+    /// Record leaving the `Critical` state. This includes both transitions
+    /// between `Critical` and `FanParty` (in which case we remain in the
+    /// overheated control regime), and transitions from `Critical` back to
+    /// `Running` or `Uncontrollable`.
     fn record_leaving_critical(&mut self, now_ms: u64) {
-        if let ThermalControlState::Overheated { start_time, .. } = self.state {
+        if let ThermalControlState::Critical { start_time, .. } = self.state {
             if let Some(OverheatTimer {
                 ref mut critical_ms,
                 ..
@@ -1454,6 +1464,9 @@ impl<'a> ThermalControl<'a> {
         }
     }
 
+    /// Record leaving the overheated control regime. This is *not* called on
+    /// transitions between the `Critical` and `FanParty` states, in which we
+    /// remain within the overheated control regime.
     fn record_leaving_overheat(&mut self, now_ms: u64) {
         if let Some(OverheatTimer {
             start_time,
@@ -1529,13 +1542,13 @@ impl<'a> ThermalControl<'a> {
         match self.state {
             ThermalControlState::Boot { .. } => ThermalAutoState::Boot,
             ThermalControlState::Running { .. } => ThermalAutoState::Running,
-            ThermalControlState::Overheated { .. } => {
+            ThermalControlState::Critical { .. } => {
                 ThermalAutoState::Overheated
             }
             ThermalControlState::Uncontrollable => {
                 ThermalAutoState::Uncontrollable
             }
-            ThermalControlState::Turbo { .. } => ThermalAutoState::TurboMode,
+            ThermalControlState::FanParty { .. } => ThermalAutoState::FanParty,
         }
     }
 
