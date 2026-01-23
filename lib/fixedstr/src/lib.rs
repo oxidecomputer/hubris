@@ -15,11 +15,11 @@
 //! runtime and to mutate the contents of the string. It designed mainly for
 //! uses where you want a mutable string, but cannot allocate it on the heap.
 //!
-//! Meanwhile, `FixedStr` is mainly intended for use with _immutable_ strings.
-//! Unlike `heapless::String`, `FixedStr` does *not* (currently) provide APIs
+//! Meanwhile, `FixedString` is mainly intended for use with _immutable_ strings.
+//! Unlike `heapless::String`, `FixedString` does *not* (currently) provide APIs
 //! for mutating the contents of the string after it constructed.[^1] Instead,
-//! it has `const fn` [`FixedStr::from_str`], [`FixedStr::try_from_str`], and
-//! [`FixedStr::try_from_utf8`] methods, so that a `FixedStr` can be constructed
+//! it has `const fn` [`FixedString::from_str`], [`FixedString::try_from_str`], and
+//! [`FixedString::try_from_utf8`] methods, so that a `FixedString` can be constructed
 //! from string or byte literals in a `const` or `static` initializer. While
 //! `heapless::String` has a `const fn new`, that function constructs an *empty*
 //! string, and the functions that actually push characters to the string are
@@ -40,6 +40,44 @@ use core::ops::Deref;
 ///
 /// Copying or cloning a `FixedString` performs a bytewise copy of the buffer
 /// (and length field).
+///
+///
+/// The [`FixedString::try_from_str`] and [`FixedString::from_str`] constructors
+/// are `const fn`s, so `static` `FixedString`s can be initialized in a way that
+/// performs length checks at compile time. For example:
+///
+/// ```
+/// use fixedstr::FixedString;
+/// use core::mem;
+///
+/// const STR1: FixedString<26> =
+///      FixedString::from_str("i am exactly 26 bytes long");
+/// const STR2: FixedString<26> =
+///     FixedString::from_str("i'm shorter than MAX");
+///
+/// // Note that both `FixedString`s have `MAX` length of 26 bytes...
+/// // ...but, they point to strings of different lengths:
+/// assert_eq!(STR1.len(), 26);
+/// assert_eq!(STR2.len(), 20);
+///
+/// // ... however, both strings are represented by byte arrays of MAX length,
+/// // plus an additional word of length:
+/// assert!(mem::size_of_val(&STR1) >= 26 + mem::size_of::<usize>());
+/// assert!(mem::size_of_val(&STR2) >= 26 + mem::size_of::<usize>());
+///  ```
+///
+/// Since [`FixedString::from_str`] panics if the string is longer than its alleged
+/// `MAX` length, and a `const fn` panicking in a `const` context is a
+/// compile-time error, this provides compile-time validation of the string's
+/// length. For example, this will *not* compile:
+///
+/// ```compile_fail
+/// use fixedstr::FixedString;
+///
+/// const STR1: FixedString<26> = FixedString::from_str(
+///     "i am a whole lot longer than twenty-six bytes lol"
+/// );
+/// ```
 #[derive(Copy, Clone)]
 pub struct FixedString<const MAX: usize> {
     buf: [u8; MAX],
@@ -250,12 +288,23 @@ impl<'de, const MAX: usize> serde::Deserialize<'de> for FixedString<MAX> {
 ///
 /// ```
 /// use fixedstr::FixedStr;
+/// use core::mem;
 ///
 /// const STR1: FixedStr<'static, 26> =
 ///      FixedStr::from_str("i am exactly 26 bytes long");
 /// const STR2: FixedStr<'static, 26> =
 ///     FixedStr::from_str("i'm shorter than MAX");
-/// ```
+///
+/// // Note that both `FixedStr`s have `MAX` length of 26 bytes...
+/// // ...but, they point to strings of different lengths:
+/// assert_eq!(STR1.len(), 26);
+/// assert_eq!(STR2.len(), 20);
+///
+/// // ... and, the `FixedStr`s themselves are both only 2 words
+/// // in length, since they're just references:
+/// assert_eq!(mem::size_of_val(&STR1), 2 * mem::size_of::<usize>());
+/// assert_eq!(mem::size_of_val(&STR2), 2 * mem::size_of::<usize>());
+///  ```
 ///
 /// Since [`FixedStr::from_str`] panics if the string is longer than its alleged
 /// `MAX` length, and a `const fn` panicking in a `const` context is a
