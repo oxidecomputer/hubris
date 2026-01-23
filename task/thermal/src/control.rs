@@ -624,8 +624,9 @@ type DynamicChannelsArray =
 ///   which fan PWM duty cycles are set by PID control, and,
 ///
 /// - **Overheat**, represented by [`ThermalControlState::Overheat`] and
-///   [`ThermalControlState::Turbo`], in which fans are driven at the maximum
-///   PWM duty cycle until the system returns to the normal control regime.
+///   [`ThermalControlState::FanParty`], in which fans are driven at the
+///   maximum PWM duty cycle until the system returns to the normal control
+///   regime.
 ///
 /// By design, the system should spend most of its time in the normal PID
 /// control regime under normal operating conditions.  The overheat control
@@ -666,9 +667,9 @@ type DynamicChannelsArray =
 /// control regime into two substates:
 ///
 /// - `Overheat`, in which at least one component is critical and the timeout
-///    is being tracked, and
-/// - `Turbo`, in which all temperatures are below critical, and we will run
-///    the fans at 100% duty cycle but do not track the overheat timeout.
+///   is being tracked, and
+/// - `FanParty`, in which all temperatures are below critical, and we will run
+///   the fans at 100% duty cycle but do not track the overheat timeout.
 ///
 /// This diagram depicts the transitions between control states:
 ///
@@ -697,9 +698,9 @@ type DynamicChannelsArray =
 ///    |       under crit . . *    |   over crit     |   |
 ///    |             .        |    |         .       |   |
 ///    |             .        v    |         .       |   |
-///    |             .       +-------+       .       |   |
-///    +---------------------| TURBO |------------->-----+
-///    |             .       +-------+       .       |
+///    |             .     +-----------+     .       |   |
+///    +-------------------| FAN PARTY |----------->-----+
+///    |             .     +-----------+     .       |
 ///    |             .........................       |
 ///    |                                             |
 ///    * . . Any temp over                           * . . overheat_timeout_ms
