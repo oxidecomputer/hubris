@@ -22,7 +22,7 @@ use task_net_api::{MacAddress, UdpMetadata, VLanId};
 use userlib::sys_get_timer;
 
 // Minimal update buffer types required for compilation (not actually used)
-const UPDATE_BUFFER_SIZE: usize = 1024;
+const UPDATE_BUFFER_SIZE: usize = 8;
 pub(crate) type UpdateBuffer =
     update_buffer::UpdateBuffer<SpComponent, UPDATE_BUFFER_SIZE>;
 pub(crate) type BorrowedUpdateBuffer = update_buffer::BorrowedUpdateBuffer<
@@ -32,7 +32,6 @@ pub(crate) type BorrowedUpdateBuffer = update_buffer::BorrowedUpdateBuffer<
 >;
 static UPDATE_MEMORY: UpdateBuffer = UpdateBuffer::new();
 
-#[path = "mgs_minibar/ignition.rs"]
 mod ignition_handler;
 use ignition_handler::IgnitionController;
 
@@ -105,7 +104,7 @@ impl MgsHandler {
         _offset: u64,
         _notification_bit: u8,
     ) -> Result<(), RequestError<ControlPlaneAgentError>> {
-        Err(ControlPlaneAgentError::DataUnavailable.into())
+        Err(ControlPlaneAgentError::OperationUnsupported.into())
     }
 
     pub(crate) fn get_host_phase2_data(
@@ -114,7 +113,7 @@ impl MgsHandler {
         _offset: u64,
         _data: Leased<idol_runtime::W, [u8]>,
     ) -> Result<usize, RequestError<ControlPlaneAgentError>> {
-        Err(ControlPlaneAgentError::DataUnavailable.into())
+        Err(ControlPlaneAgentError::OperationUnsupported.into())
     }
 
     pub(crate) fn startup_options_impl(
@@ -122,7 +121,7 @@ impl MgsHandler {
     ) -> Result<HostStartupOptions, RequestError<ControlPlaneAgentError>> {
         // We don't have a host to give startup options; no one should be
         // calling this method.
-        Err(ControlPlaneAgentError::InvalidStartupOptions.into())
+        Err(ControlPlaneAgentError::OperationUnsupported.into())
     }
 
     pub(crate) fn set_startup_options_impl(
@@ -131,7 +130,7 @@ impl MgsHandler {
     ) -> Result<(), RequestError<ControlPlaneAgentError>> {
         // We don't have a host to give startup options; no one should be
         // calling this method.
-        Err(ControlPlaneAgentError::InvalidStartupOptions.into())
+        Err(ControlPlaneAgentError::OperationUnsupported.into())
     }
 
     fn power_state_impl(&self) -> Result<PowerState, SpError> {
