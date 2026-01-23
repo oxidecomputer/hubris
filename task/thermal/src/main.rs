@@ -42,6 +42,8 @@
 )]
 mod bsp;
 mod control;
+#[cfg(feature = "ereport")]
+mod ereport;
 
 use crate::{
     bsp::{Bsp, PowerBitmask, SeqError},
