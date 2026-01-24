@@ -77,17 +77,6 @@
                 },
                 {
                     "type": "field",
-                    "inst_name": "msg_en",
-                    "lsb": 4,
-                    "msb": 4,
-                    "reset": 0,
-                    "sw_access": "rw",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "Respond back on periph 0 channel vs oob"
-                },
-                {
-                    "type": "field",
                     "inst_name": "espi_reset",
                     "lsb": 5,
                     "msb": 5,
@@ -254,6 +243,86 @@
             "type": "reg",
             "inst_name": "post_code_count",
             "addr_offset": 36,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "count",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": ""
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "ipcc_to_host_usedwds",
+            "addr_offset": 40,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "count",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": ""
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "ipcc_to_host_byte_cntr",
+            "addr_offset": 44,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "count",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": ""
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "ipcc_dummy_fill_en",
+            "addr_offset": 48,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "en",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": ""
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "ipcc_dummy_fill_count",
+            "addr_offset": 52,
             "regwidth": 32,
             "min_accesswidth": 32,
             "children": [

@@ -85,7 +85,7 @@ impl ServerImpl {
         // This laborious list is intended to ensure that new power states
         // have to be added explicitly here.
         match PowerState::from_u32(self.jefe.get_state()) {
-           Some(PowerState::A0) | Some(PowerState::A0PlusHP) => {
+            Some(PowerState::A0) | Some(PowerState::A0PlusHP) => {
                 if !self.active {
                     self.activate()
                 }
