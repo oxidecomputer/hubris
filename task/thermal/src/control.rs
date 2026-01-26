@@ -4,7 +4,7 @@
 
 use crate::{
     bsp::{self, Bsp, PowerBitmask},
-    Fan, ThermalError, Trace,
+    ereport, Fan, ThermalError, Trace,
 };
 use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_i2c_devices::{
@@ -1088,7 +1088,10 @@ impl<'a> ThermalControl<'a> {
     /// Returns an error if the control loop failed to read critical sensors;
     /// the caller should set us to some kind of fail-safe mode if this
     /// occurs.
-    pub fn run_control(&mut self) -> Result<(), ThermalError> {
+    pub fn run_control(
+        &mut self,
+        ereports: &mut ereport::Ereporter,
+    ) -> Result<(), ThermalError> {
         let now_ms = sys_get_timer().now;
 
         // When the power mode changes, we may require a new set of sensors to
