@@ -271,7 +271,7 @@ impl VCore {
             mfr: status_mfr_specific.ok(),
         };
 
-        static RAIL: FixedStr<9> = FixedStr::from_str("VDD_VCORE");
+        static RAIL: FixedStr<'static, 9> = FixedStr::from_str("VDD_VCORE");
         crate::try_send_ereport(
             &self.packrat,
             &mut ereport_buf[..],
@@ -280,7 +280,7 @@ impl VCore {
                 refdes: FixedStr::from_str(
                     self.device.i2c_device().component_id(),
                 ),
-                rail: &RAIL,
+                rail: RAIL,
                 time: now,
                 pwr_good,
                 pmbus_status: status,
