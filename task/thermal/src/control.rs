@@ -1541,9 +1541,7 @@ impl<'a> ThermalControl<'a> {
         match self.state {
             ThermalControlState::Boot { .. } => ThermalAutoState::Boot,
             ThermalControlState::Running { .. } => ThermalAutoState::Running,
-            ThermalControlState::Critical { .. } => {
-                ThermalAutoState::Overheated
-            }
+            ThermalControlState::Critical { .. } => ThermalAutoState::Critical,
             ThermalControlState::Uncontrollable => {
                 ThermalAutoState::Uncontrollable
             }
