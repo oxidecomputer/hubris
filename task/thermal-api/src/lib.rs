@@ -75,8 +75,9 @@ pub enum ThermalMode {
 pub enum ThermalAutoState {
     Boot,
     Running,
-    Overheated,
+    Critical,
     Uncontrollable,
+    FanParty,
 }
 
 /// Properties for a particular part in the system
