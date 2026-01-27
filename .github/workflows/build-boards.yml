@@ -108,8 +108,14 @@ jobs:
       - name: Fetch Humility
         if: runner.os == 'Linux'
         run: |
-          curl -fLo target/release/humility https://github.com/oxidecomputer/humility/releases/download/nightly/humility
+          gh release download -R oxidecomputer/humility nightly -p humility -O target/release/humility
           chmod +x target/release/humility
+        env:
+          # The oxidecomputer/humility repository is public, so *in theory* we don't need a token to
+          # download releases from it. In practice we occasionally saw downloading Humility failing
+          # with a 429 (too many requests) status code. To avoid that we use the `gh` CLI with the
+          # job's GitHub token to download, granting us higher rate limits.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Test Humility manifest
         if: runner.os == 'Linux'
