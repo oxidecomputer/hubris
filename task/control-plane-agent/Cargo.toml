@@ -66,6 +66,7 @@ gimlet = ["compute-sled"]
 cosmo = ["compute-sled"]
 sidecar = ["drv-sidecar-seq-api", "drv-monorail-api", "drv-ignition-api", "drv-transceivers-api", "p256", "sha2", "drv-rng-api"]
 psc = ["drv-user-leds-api"]
+minibar = ["drv-ignition-api"]
 vpd = ["task-vpd-api"]
 vlan = ["task-net-api/vlan"]
 

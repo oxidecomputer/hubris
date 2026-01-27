@@ -3,10 +3,13 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    mgs_common::MgsCommon, update::rot::RotUpdate, update::sp::SpUpdate,
-    update::ComponentUpdater, usize_max, CriticalEvent, Log, MgsMessage,
+    ignition_controller::{self, IgnitionController},
+    mgs_common::MgsCommon,
+    update::rot::RotUpdate,
+    update::sp::SpUpdate,
+    update::ComponentUpdater,
+    usize_max, CriticalEvent, Log, MgsMessage,
 };
-use drv_ignition_api::IgnitionError;
 use drv_monorail_api::{Monorail, MonorailError};
 use drv_sidecar_seq_api::Sequencer;
 use drv_transceivers_api::Transceivers;
@@ -35,12 +38,8 @@ use zerocopy::IntoBytes;
 
 // We're included under a special `path` cfg from main.rs, which confuses rustc
 // about where our submodules live. Pass explicit paths to correct it.
-#[path = "mgs_sidecar/ignition.rs"]
-mod ignition_handler;
 #[path = "mgs_sidecar/monorail_port_status.rs"]
 mod monorail_port_status;
-
-use ignition_handler::IgnitionController;
 
 userlib::task_slot!(SIDECAR_SEQ, sequencer);
 userlib::task_slot!(MONORAIL, monorail);
@@ -466,9 +465,9 @@ fn verify_signature(
 }
 
 impl SpHandler for MgsHandler {
-    type BulkIgnitionStateIter = ignition_handler::BulkIgnitionStateIter;
+    type BulkIgnitionStateIter = ignition_controller::BulkIgnitionStateIter;
     type BulkIgnitionLinkEventsIter =
-        ignition_handler::BulkIgnitionLinkEventsIter;
+        ignition_controller::BulkIgnitionLinkEventsIter;
     type VLanId = VLanId;
 
     /// Checks whether we trust the given message
@@ -528,18 +527,14 @@ impl SpHandler for MgsHandler {
     }
 
     fn num_ignition_ports(&mut self) -> Result<u32, SpError> {
-        self.ignition
-            .num_ports()
-            .map_err(sp_error_from_ignition_error)
+        self.ignition.num_ports()
     }
 
     fn ignition_state(&mut self, target: u8) -> Result<IgnitionState, SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::IgnitionState {
             target
         }));
-        self.ignition
-            .target_state(target)
-            .map_err(sp_error_from_ignition_error)
+        self.ignition.target_state(target)
     }
 
     fn bulk_ignition_state(
@@ -549,9 +544,7 @@ impl SpHandler for MgsHandler {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::BulkIgnitionState {
             offset
         }));
-        self.ignition
-            .bulk_state(offset)
-            .map_err(sp_error_from_ignition_error)
+        self.ignition.bulk_state(offset)
     }
 
     fn ignition_link_events(
@@ -561,9 +554,7 @@ impl SpHandler for MgsHandler {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::IgnitionLinkEvents {
             target
         }));
-        self.ignition
-            .target_link_events(target)
-            .map_err(sp_error_from_ignition_error)
+        self.ignition.target_link_events(target)
     }
 
     fn bulk_ignition_link_events(
@@ -573,9 +564,7 @@ impl SpHandler for MgsHandler {
         ringbuf_entry_root!(Log::MgsMessage(
             MgsMessage::BulkIgnitionLinkEvents { offset }
         ));
-        self.ignition
-            .bulk_link_events(offset)
-            .map_err(sp_error_from_ignition_error)
+        self.ignition.bulk_link_events(offset)
     }
 
     fn clear_ignition_link_events(
@@ -586,9 +575,7 @@ impl SpHandler for MgsHandler {
         ringbuf_entry_root!(Log::MgsMessage(
             MgsMessage::ClearIgnitionLinkEvents
         ));
-        self.ignition
-            .clear_link_events(target, transceiver_select)
-            .map_err(sp_error_from_ignition_error)
+        self.ignition.clear_link_events(target, transceiver_select)
     }
 
     fn ignition_command(
@@ -600,9 +587,7 @@ impl SpHandler for MgsHandler {
             target,
             command
         }));
-        self.ignition
-            .command(target, command)
-            .map_err(sp_error_from_ignition_error)
+        self.ignition.command(target, command)
     }
 
     fn sp_state(&mut self) -> Result<SpStateV2, SpError> {
@@ -1240,22 +1225,6 @@ impl SpHandler for MgsHandler {
         }));
         Err(SpError::RequestUnsupportedForSp)
     }
-}
-
-// Helper function for `.map_err()`; we can't use `?` because we can't implement
-// `From<_>` between these types due to orphan rules.
-fn sp_error_from_ignition_error(err: IgnitionError) -> SpError {
-    use gateway_messages::ignition::IgnitionError as E;
-    let err = match err {
-        IgnitionError::FpgaError => E::FpgaError,
-        IgnitionError::InvalidPort => E::InvalidPort,
-        IgnitionError::InvalidValue => E::InvalidValue,
-        IgnitionError::NoTargetPresent => E::NoTargetPresent,
-        IgnitionError::RequestInProgress => E::RequestInProgress,
-        IgnitionError::RequestDiscarded => E::RequestDiscarded,
-        _ => E::Other(err as u32),
-    };
-    SpError::Ignition(err)
 }
 
 fn get_ecdsa_challenge() -> Result<EcdsaSha2Nistp256Challenge, SpError> {

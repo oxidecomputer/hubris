@@ -32,16 +32,20 @@ mod update;
 
 pub(crate) mod dump;
 
-// If the build system enables multiple of the gimlet/sidecar/psc features, this
+// If the build system enables multiple of the gimlet/sidecar/psc/minibar features, this
 // sequence of `cfg_attr`s will trigger an unused_attributes warning.  We build
 // everything with -Dunused_attributes, which will catch any such build system
 // misconfiguration.
 #[cfg_attr(feature = "compute-sled", path = "mgs_compute_sled.rs")]
 #[cfg_attr(feature = "sidecar", path = "mgs_sidecar.rs")]
 #[cfg_attr(feature = "psc", path = "mgs_psc.rs")]
+#[cfg_attr(feature = "minibar", path = "mgs_minibar.rs")]
 mod mgs_handler;
 
 use self::mgs_handler::MgsHandler;
+
+#[cfg(any(feature = "sidecar", feature = "minibar"))]
+mod ignition_controller;
 
 task_slot!(JEFE, jefe);
 task_slot!(NET, net);
@@ -259,12 +263,21 @@ impl ServerImpl {
 
 impl NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
-        notifications::SOCKET_MASK
+        #[cfg(not(feature = "minibar"))]
+        let mask = notifications::SOCKET_MASK
             | notifications::USART_IRQ_MASK
-            | notifications::TIMER_MASK
+            | notifications::TIMER_MASK;
+
+        // Minibar does not configure USART for serial console, so omit it
+        // from the mask.
+        #[cfg(feature = "minibar")]
+        let mask = notifications::SOCKET_MASK | notifications::TIMER_MASK;
+
+        mask
     }
 
     fn handle_notification(&mut self, bits: userlib::NotificationBits) {
+        #[cfg(not(feature = "minibar"))]
         if bits.check_notification_mask(notifications::USART_IRQ_MASK) {
             self.mgs_handler.drive_usart();
         }

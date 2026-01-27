@@ -148,6 +148,17 @@ start = true
 task-slots = ["sys", "i2c_driver"]
 stacksize = 800
 
+[tasks.update_server]
+name = "stm32h7-update-server"
+priority = 2
+max-sizes = {flash = 16384, ram = 4096}
+stacksize = 2048
+start = true
+uses = ["flash_controller"]
+extern-regions = ["bank2"]
+interrupts = {"flash_controller.irq" = "flash-irq"}
+notifications = ["flash-irq"]
+
 [tasks.idle]
 name = "task-idle"
 priority = 8

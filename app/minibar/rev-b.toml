@@ -50,6 +50,29 @@ extern-regions = [ "sram1", "sram2", "sram3", "sram4" ]
 notifications = ["socket"]
 features = ["net", "vlan"]
 
+# Rev A boards had a hardware bug that kept the minibar's SP from being
+# reachable over the management network, therefore we only include
+# control-plane-agent for rev B.
+[tasks.control_plane_agent]
+name = "task-control-plane-agent"
+priority = 7
+stacksize = 8000
+start = true
+task-slots = [
+    "jefe",
+    "net",
+    "sys",
+    "packrat",
+    "sensor",
+    "sprot",
+    "ignition",
+    "validate",
+    "update_server",
+    "dump_agent",
+]
+features = ["minibar", "vlan"]
+notifications = ["socket", "timer"]
+
 
 # VLAN configuration
 [config.net.vlans.port1]
@@ -75,4 +98,11 @@ owner = {name = "dump_agent", notification = "socket"}
 port = 11113
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.control_plane_agent]
+kind = "udp"
+owner = {name = "control_plane_agent", notification = "socket"}
+port = 11111
+tx = { packets = 3, bytes = 2048 }
+rx = { packets = 3, bytes = 2048 }
 
