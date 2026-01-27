@@ -85,16 +85,12 @@ impl ServerImpl {
         // This laborious list is intended to ensure that new power states
         // have to be added explicitly here.
         match PowerState::from_u32(self.jefe.get_state()) {
-            // DIMMS are powered in A0, but we don't want to read them while the
-            // PSP is also reading them, because we can get in fights with its
-            // DIMM training (see quartz#434)
-            Some(PowerState::A0PlusHP) => {
+            Some(PowerState::A0) | Some(PowerState::A0PlusHP) => {
                 if !self.active {
                     self.activate()
                 }
             }
-            Some(PowerState::A0)
-            | Some(PowerState::A2)
+            Some(PowerState::A2)
             | Some(PowerState::A2PlusFans)
             | Some(PowerState::A0Reset)
             | Some(PowerState::A0Thermtrip)

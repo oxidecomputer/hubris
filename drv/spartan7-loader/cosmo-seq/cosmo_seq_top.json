@@ -55,7 +55,7 @@
         },
         {
             "type": "addrmap",
-            "addr_span_bytes": 48,
+            "addr_span_bytes": 52,
             "inst_name": "debug_ctrl",
             "orig_type_name": "debug_regs",
             "addr_offset": 1536,

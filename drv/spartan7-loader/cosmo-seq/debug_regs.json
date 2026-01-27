@@ -1,6 +1,6 @@
 {
     "type": "addrmap",
-    "addr_span_bytes": 48,
+    "addr_span_bytes": 52,
     "inst_name": "debug_regs",
     "addr_offset": 0,
     "children": [
@@ -21,6 +21,17 @@
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "Set to 1 to send the SP5's console UART out the UART debug header. By default\nthis is muxed to the SP's console UART, setting this takes the data away from the SP and \nsends it out the debug header with flow control."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "use_debug_header",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Set to 1 on rev2+ to use the debug UART header pins instead of the dedicated UART interface pins.\nThis allows the use of the rev1 debug header for UART on rev2+ boards."
                 }
             ]
         },
@@ -615,6 +626,37 @@
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "convenience bit for setting up T6 sequencing debug out. This uses 1v8 debug header pins 7..0. Hw clears"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "hp_int_l",
+            "addr_offset": 48,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "hp_int_n",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Live status of the FPGA1 to Hotplug IRQ signal (active low)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "fpga2_to_hp_irq_n",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Live status of the FPGA2 to Hotplug IRQ signal (active low)"
                 }
             ]
         }
