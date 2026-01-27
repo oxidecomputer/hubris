@@ -217,9 +217,30 @@ jobs:
       # duration estimates are based on time reported by the runner???
       - name: Move forward in time to ensure a different build date 
         run: |
+          echo "Before time change: $(date)"
+
           sudo timedatectl set-ntp false
-          sudo timedatectl set-time "$(date -d '1 day ago 11 hours ago' "+%Y-%m-%d %H:%M:%S")"
-          date
+
+          # Changing the system time only works if NTP is disabled. We disable NTP in the command
+          # above, but the command exits as soon as systemd *begins* to stop the NTP daemon. We saw
+          # CI builds where shutting down NTP took longer than expected, causing set-time command to
+          # fail with this message:
+          #
+          #     Failed to set time: Previous request is not finished, refusing.
+          #
+          # To prevent spurious failures, we repeatedly try to set the time with a backoff. The
+          # error message was added to systemd in https://github.com/systemd/systemd/pull/11424.
+          set_time() {
+            for backoff in 1 2 4 8 16; do
+              sudo timedatectl set-time "$1" && return 0
+              echo "retrying in $backoff seconds"
+              sleep $backoff
+            done
+            return 1
+          }
+          set_time "$(date -d '1 day ago 11 hours ago' "+%Y-%m-%d %H:%M:%S")"
+
+          echo "After time change: $(date)"
 
       - name: Build a Hubris board
         run: |
