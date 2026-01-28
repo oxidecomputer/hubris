@@ -586,7 +586,7 @@
                     "inst_name": "V3P3_PCIE_EN",
                     "lsb": 0,
                     "msb": 0,
-                    "reset": 1,
+                    "reset": 0,
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
@@ -597,7 +597,7 @@
                     "inst_name": "V12_PCIE_EN",
                     "lsb": 1,
                     "msb": 1,
-                    "reset": 1,
+                    "reset": 0,
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
@@ -872,6 +872,28 @@
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "control of pcie_aux_fpga_to_sled_pwrflt_l (active high, FPGA will invert)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "FPGA_PERST_OVERRIDE",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "If '1', FPGA will take control of pcie_aux_fpga_to_cem_perst_l and drive it with the value of FPGA_PERST_CONTROL"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "FPGA_PERST_CONTROL",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Value to drive pcie_aux_fpga_to_cem_perst_l if FPGA_PERST_OVERRIDE = '1'"
                 }
             ]
         },
@@ -884,47 +906,47 @@
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "SLED_PERST",
+                    "inst_name": "SLED_PERST_L",
                     "lsb": 0,
                     "msb": 0,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "pcie_aux_sled_to_fpga_perst_l pin readback (normalized to active high)"
+                    "desc": "pcie_aux_sled_to_fpga_perst_l pin readback"
                 },
                 {
                     "type": "field",
-                    "inst_name": "SLED_PRSNT",
+                    "inst_name": "SLED_PRSNT_L",
                     "lsb": 1,
                     "msb": 1,
-                    "reset": 0,
+                    "reset": 1,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "pcie_aux_fpga_to_sled_prsnt_l pin readback (normalized to active high)"
+                    "desc": "pcie_aux_fpga_to_sled_prsnt_l pin readback"
                 },
                 {
                     "type": "field",
-                    "inst_name": "CEM_PERST",
+                    "inst_name": "CEM_PERST_L",
                     "lsb": 4,
                     "msb": 4,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "pcie_aux_fpga_to_cem_perst_l pin readback (normalized to active high)"
+                    "desc": "pcie_aux_fpga_to_cem_perst_l pin readback"
                 },
                 {
                     "type": "field",
-                    "inst_name": "CEM_PRSNT",
+                    "inst_name": "CEM_PRSNT_L",
                     "lsb": 5,
                     "msb": 5,
-                    "reset": 0,
+                    "reset": 1,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "pcie_aux_cem_to_fpga_prsnt_l pin readback (normalized to active high)"
+                    "desc": "pcie_aux_cem_to_fpga_prsnt_l pin readback"
                 }
             ]
         },
