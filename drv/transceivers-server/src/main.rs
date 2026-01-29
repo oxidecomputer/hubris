@@ -151,6 +151,16 @@ struct ThermalModel {
     /// What are its thermal properties, e.g. critical temperature?
     #[allow(dead_code)]
     model: ThermalProperties,
+
+    /// What is the current thermal state?
+    state: ThermalState,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+enum ThermalState {
+    Nominal,
+    Critical { at: u64 },
+    PowerDown,
 }
 
 /// Controls how often we poll the transceivers (in milliseconds).
@@ -340,6 +350,7 @@ impl ServerImpl {
                         power_down_temperature: Some(Celsius(80.0)),
                         temperature_slew_deg_per_sec: 0.5,
                     },
+                    state: ThermalState::Nominal,
                 })
             }
             ManagementInterface::Unknown(..) => {
@@ -470,19 +481,27 @@ impl ServerImpl {
                     if m.model.should_power_down(t) {
                         // If the module's temperature exceeds the power-down
                         // threshold, add it to the list of things to disable.
-                        ringbuf_entry!(Trace::ModuleTemperaturePowerDown(
-                            port.0, t
-                        ));
+                        if m.state != ThermalState::PowerDown {
+                            ringbuf_entry!(Trace::ModuleTemperaturePowerDown(
+                                port.0, t
+                            ));
+                            m.state = ThermalState::PowerDown;
+                            // TODO(eliza): ereport
+                        }
                         to_disable.set(port);
-                        // TODO(eliza): ereport
                     } else if m.model.is_critical(t) {
-                        ringbuf_entry!(Trace::ModuleTemperatureCritical(
-                            port.0, t
-                        ));
-                        // TODO(eliza): ereport
-                        // TODO(eliza): should we have a timeout for shutting
-                        // down the module if it's been over critical for too
-                        // long?
+                        if let ThermalState::Critical { at } = m.state {
+                            // TODO(eliza): this is where we could we have a
+                            // timeout for shutting down the module if it's been
+                            // over critical for too long?
+                        } else {
+                            let at = userlib::sys_get_timer().now;
+                            m.state = ThermalState::Critical { at };
+                            ringbuf_entry!(Trace::ModuleTemperatureCritical(
+                                port.0, t
+                            ));
+                            // TODO(eliza): ereport
+                        }
                     }
                     // TODO(eliza): see if it's nominal again and turn it back
                     // on...?
