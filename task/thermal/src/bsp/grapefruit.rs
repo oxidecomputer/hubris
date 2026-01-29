@@ -128,7 +128,7 @@ impl Bsp {
 const LM75_THERMALS: ThermalProperties = ThermalProperties {
     target_temperature: Celsius(60f32),
     critical_temperature: Celsius(70f32),
-    power_down_temperature: Celsius(80f32),
+    power_down_temperature: Some(Celsius(80f32)),
     temperature_slew_deg_per_sec: 0.5,
 };
 

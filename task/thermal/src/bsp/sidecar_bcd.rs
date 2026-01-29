@@ -212,7 +212,7 @@ impl Bsp {
 const TF2_THERMALS: ThermalProperties = ThermalProperties {
     target_temperature: Celsius(60f32),
     critical_temperature: Celsius(70f32),
-    power_down_temperature: Celsius(80f32),
+    power_down_temperature: Some(Celsius(80f32)),
     temperature_slew_deg_per_sec: 0.5,
 };
 
@@ -221,7 +221,7 @@ const TF2_THERMALS: ThermalProperties = ThermalProperties {
 const VSC7448_THERMALS: ThermalProperties = ThermalProperties {
     target_temperature: Celsius(85f32),
     critical_temperature: Celsius(95f32),
-    power_down_temperature: Celsius(105f32),
+    power_down_temperature: Some(Celsius(105f32)),
     temperature_slew_deg_per_sec: 0.5,
 };
 
