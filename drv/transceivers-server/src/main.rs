@@ -49,7 +49,7 @@ task_slot!(THERMAL, thermal);
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
 #[allow(dead_code)]
-#[derive(Copy, Clone, PartialEq, Eq, Count)]
+#[derive(Copy, Clone, PartialEq, Count)]
 enum Trace {
     #[count(skip)]
     None,
@@ -79,8 +79,8 @@ enum Trace {
     DisableFailed(usize, LogicalPortMask),
     ClearDisabledPorts(LogicalPortMask),
     SeqError(SeqError),
-    ModuleTemperatureCritical(u8, Celcius),
-    ModuleTemperaturePowerDown(u8, Celcius),
+    ModuleTemperatureCritical(u8, Celsius),
+    ModuleTemperaturePowerDown(u8, Celsius),
 }
 
 counted_ringbuf!(Trace, 16, Trace::None);
@@ -151,16 +151,6 @@ struct ThermalModel {
     /// What are its thermal properties, e.g. critical temperature?
     #[allow(dead_code)]
     model: ThermalProperties,
-
-    /// What is the current thermal state?
-    state: ThermalState,
-}
-
-#[derive(Copy, Clone, Eq, PartialEq)]
-enum ThermalState {
-    Nominal,
-    Critical { at: u64 },
-    PowerDown,
 }
 
 /// Controls how often we poll the transceivers (in milliseconds).
@@ -347,10 +337,10 @@ impl ServerImpl {
                     model: ThermalProperties {
                         target_temperature: Celsius(65.0),
                         critical_temperature: Celsius(70.0),
-                        power_down_temperature: Some(Celsius(80.0)),
+                        power_down_temperature: Celsius(80.0),
                         temperature_slew_deg_per_sec: 0.5,
+                        power_down_enabled: true,
                     },
-                    state: ThermalState::Nominal,
                 })
             }
             ManagementInterface::Unknown(..) => {
@@ -447,13 +437,12 @@ impl ServerImpl {
                     // We do *not* want the thermal loop to power down the whole
                     // system in response to a transceiver overheating. Instead,
                     // we will just disable the individual transceiver here.
-                    // Thus, remove the power_down_temeprature from the version
-                    // of the thermal properties that we will give to the
-                    // `thermal` task.
-                    power_down_temperature: None,
+                    // Thus, disable power-down on the version of the device's
+                    // thermal properties we give to the `thermal` task.
+                    power_down_enabled: false,
                     ..m.model
                 };
-                match self.thermal_api.update_dynamic_input(i, m.model) {
+                match self.thermal_api.update_dynamic_input(i, model) {
                     Ok(()) | Err(ThermalError::NotInAutoMode) => (),
                     Err(e) => ringbuf_entry!(Trace::ThermalError(i, e)),
                 }
@@ -481,27 +470,18 @@ impl ServerImpl {
                     if m.model.should_power_down(t) {
                         // If the module's temperature exceeds the power-down
                         // threshold, add it to the list of things to disable.
-                        if m.state != ThermalState::PowerDown {
-                            ringbuf_entry!(Trace::ModuleTemperaturePowerDown(
-                                port.0, t
-                            ));
-                            m.state = ThermalState::PowerDown;
-                            // TODO(eliza): ereport
-                        }
+                        ringbuf_entry!(Trace::ModuleTemperaturePowerDown(
+                            port.0, t
+                        ));
+                        // TODO(eliza): ereport
+                        // TODO(eliza): debounce
                         to_disable.set(port);
                     } else if m.model.is_critical(t) {
-                        if let ThermalState::Critical { at } = m.state {
-                            // TODO(eliza): this is where we could we have a
-                            // timeout for shutting down the module if it's been
-                            // over critical for too long?
-                        } else {
-                            let at = userlib::sys_get_timer().now;
-                            m.state = ThermalState::Critical { at };
-                            ringbuf_entry!(Trace::ModuleTemperatureCritical(
-                                port.0, t
-                            ));
-                            // TODO(eliza): ereport
-                        }
+                        ringbuf_entry!(Trace::ModuleTemperatureCritical(
+                            port.0, t
+                        ));
+                        // TODO(eliza): ereport
+                        // TODO(eliza): track over critical duration...
                     }
                     // TODO(eliza): see if it's nominal again and turn it back
                     // on...?

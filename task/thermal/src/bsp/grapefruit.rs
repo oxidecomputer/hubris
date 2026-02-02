@@ -130,6 +130,7 @@ const LM75_THERMALS: ThermalProperties = ThermalProperties {
     critical_temperature: Celsius(70f32),
     power_down_temperature: Some(Celsius(80f32)),
     temperature_slew_deg_per_sec: 0.5,
+    power_down_enabled: true,
 };
 
 const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [InputChannel::new(

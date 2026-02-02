@@ -11,7 +11,7 @@ use drv_i2c_api::ResponseCode;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
 use userlib::{units::Celsius, *};
-use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
+use zerocopy::{Immutable, IntoBytes, KnownLayout, TryFromBytes};
 
 #[derive(
     Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, counters::Count,
@@ -81,8 +81,8 @@ pub enum ThermalAutoState {
 }
 
 /// Properties for a particular part in the system
-#[derive(Clone, Copy, IntoBytes, FromBytes, Immutable, KnownLayout)]
-#[repr(C)]
+#[derive(Clone, Copy, IntoBytes, TryFromBytes, Immutable, KnownLayout)]
+#[repr(packed)]
 pub struct ThermalProperties {
     /// Target temperature for this part
     pub target_temperature: Celsius,
@@ -93,16 +93,19 @@ pub struct ThermalProperties {
 
     /// Temperature at which we drop into the A2 power state.  This should be
     /// below the part's nonrecoverable temperature.
-    ///
-    /// If this is `None`, the system will not be sent to A2 due to this part's
-    /// temperature.
-    pub power_down_temperature: Option<Celsius>,
+    pub power_down_temperature: Celsius,
 
     /// Maximum slew rate of temperature, measured in °C per second
     ///
     /// The slew rate is used to model worst-case temperature if we haven't
     /// heard from a chip in a while (e.g. due to dropped samples)
     pub temperature_slew_deg_per_sec: f32,
+
+    /// If `true`, this device should be considered whether deciding if the the
+    /// system should drop into the A2 state. If `false`, then
+    /// [`ThermalProperties::should_power_down`] will always return `false` for
+    /// this device, regardless of the device's actual temperature.
+    pub power_down_enabled: bool,
 }
 
 /// All of these functions take an **instantaneous** temperature; to convert a
@@ -111,11 +114,7 @@ pub struct ThermalProperties {
 impl ThermalProperties {
     /// Returns whether this part is exceeding its power-down temperature
     pub fn should_power_down(&self, t: Celsius) -> bool {
-        if let Some(power_down_temperature) = self.power_down_temperature {
-            t.0 >= power_down_temperature.0
-        } else {
-            false
-        }
+        self.power_down_enabled && t.0 >= self.power_down_temperature.0
     }
 
     /// Returns whether this part is exceeding its critical temperature
