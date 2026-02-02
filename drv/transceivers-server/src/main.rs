@@ -337,9 +337,8 @@ impl ServerImpl {
                     model: ThermalProperties {
                         target_temperature: Celsius(65.0),
                         critical_temperature: Celsius(70.0),
-                        power_down_temperature: Celsius(80.0),
+                        power_down_temperature: Some(Celsius(80.0)),
                         temperature_slew_deg_per_sec: 0.5,
-                        power_down_enabled: true,
                     },
                 })
             }
@@ -438,11 +437,12 @@ impl ServerImpl {
                     // system in response to a transceiver overheating. Instead,
                     // we will just disable the individual transceiver here.
                     // Thus, disable power-down on the version of the device's
-                    // thermal properties we give to the `thermal` task.
-                    power_down_enabled: false,
+                    // thermal properties by setting the
+                    // `power_down_temperature` to `None`.
+                    power_down_temperature: None,
                     ..m.model
                 };
-                match self.thermal_api.update_dynamic_input(i, model) {
+                match self.thermal_api.update_dynamic_input(i as u32, model) {
                     Ok(()) | Err(ThermalError::NotInAutoMode) => (),
                     Err(e) => ringbuf_entry!(Trace::ThermalError(i, e)),
                 }

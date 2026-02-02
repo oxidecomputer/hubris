@@ -210,7 +210,6 @@ const DIMM_THERMALS: ThermalProperties = ThermalProperties {
     critical_temperature: Celsius(90f32),
     power_down_temperature: Some(Celsius(95f32)),
     temperature_slew_deg_per_sec: 0.5,
-    power_down_enabled: true,
 };
 
 // Thermal throttling begins at 78° for WD-SN840 (primary source) and
@@ -226,7 +225,6 @@ const U2_THERMALS: ThermalProperties = ThermalProperties {
     critical_temperature: Celsius(70f32),
     power_down_temperature: Some(Celsius(75f32)),
     temperature_slew_deg_per_sec: 0.5,
-    power_down_enabled: true,
 };
 
 // The Micron-7300 (primary source) begins throttling at 72°, and its "critical
@@ -237,7 +235,6 @@ const M2_THERMALS: ThermalProperties = ThermalProperties {
     critical_temperature: Celsius(70f32),
     power_down_temperature: Some(Celsius(75f32)),
     temperature_slew_deg_per_sec: 0.5,
-    power_down_enabled: true,
 };
 
 // The CPU doesn't actually report true temperature; it reports a
@@ -249,7 +246,6 @@ const CPU_THERMALS: ThermalProperties = ThermalProperties {
     critical_temperature: Celsius(90f32),
     power_down_temperature: Some(Celsius(100f32)),
     temperature_slew_deg_per_sec: 0.5,
-    power_down_enabled: true,
 };
 
 // The T6's specifications aren't clearly detailed anywhere.
@@ -258,7 +254,6 @@ const T6_THERMALS: ThermalProperties = ThermalProperties {
     critical_temperature: Celsius(80f32),
     power_down_temperature: Some(Celsius(85f32)),
     temperature_slew_deg_per_sec: 0.5,
-    power_down_enabled: true,
 };
 
 const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [

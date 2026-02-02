@@ -269,14 +269,14 @@ impl<'a> idl::InOrderThermalImpl for ServerImpl<'a> {
     fn update_dynamic_input(
         &mut self,
         _: &RecvMessage,
-        index: usize,
+        index: u32,
         model: ThermalProperties,
     ) -> Result<(), RequestError<ThermalError>> {
         if self.mode != ThermalMode::Auto {
             return Err(ThermalError::NotInAutoMode.into());
         }
         self.control
-            .update_dynamic_input(index, model)
+            .update_dynamic_input(index as usize, model)
             .map_err(RequestError::from)
     }
 
