@@ -185,6 +185,7 @@ impl Device {
     ) -> Result<Amperes, ResponseCode> {
         match &self {
             Device::Raa229618(dev) => Ok(dev.read_phase_current(phase)?),
+            Device::Raa229620A(dev) => Ok(dev.read_phase_current(phase)?),
             Device::Isl68224(dev) => Ok(dev.read_phase_current(phase)?),
             _ => Err(ResponseCode::OperationNotSupported),
         }
@@ -1125,10 +1126,7 @@ impl idl::InOrderPowerImpl for ServerImpl {
         let dev = self
             .devices
             .iter()
-            .find(|d| {
-                d.i2c_device().address == addr
-                    && matches!(d, Device::Raa229618(..) | Device::Isl68224(..))
-            })
+            .find(|d| d.i2c_device().address == addr && is_rendmp_device(d))
             .ok_or(ResponseCode::NoDevice)?
             .i2c_device();
 
@@ -1150,10 +1148,7 @@ impl idl::InOrderPowerImpl for ServerImpl {
         let dev = self
             .devices
             .iter()
-            .find(|d| {
-                d.i2c_device().address == addr
-                    && matches!(d, Device::Raa229618(..) | Device::Isl68224(..))
-            })
+            .find(|d| d.i2c_device().address == addr && is_rendmp_device(d))
             .ok_or(ResponseCode::NoDevice)?
             .i2c_device();
 
@@ -1170,6 +1165,13 @@ impl idl::InOrderPowerImpl for ServerImpl {
         )?;
         Ok(())
     }
+}
+
+fn is_rendmp_device(device: &Device) -> bool {
+    matches!(
+        device,
+        Device::Raa229618(..) | Device::Raa229620A(..) | Device::Isl68224(..)
+    )
 }
 
 /// Claims a mutable buffer of Devices, built from CONTROLLER_CONFIG.
