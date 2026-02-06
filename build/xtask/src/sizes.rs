@@ -70,26 +70,16 @@ pub fn run(
         print!("\n\n");
         print_task_table(&toml, &map)?;
         print!("\n\n");
-        print_task_stacks(&toml)?;
     }
+    // Always do stack size estimation, but only print the stacks if we are in
+    // verbose mode.
+    let stacks = estimate_task_stacks(&toml, !only_suggest)?;
 
     // Because tasks are autosized, the only place where we can improve
-    // memory allocation is in the kernel.
+    // memory allocation is in the kernel...
     let mut printed_header = false;
     let mut printed_name = false;
-    for (mem, &used) in sizes.sizes["kernel"].iter() {
-        if used == 0 {
-            continue;
-        }
-        let size = toml.kernel.requires[&mem.to_string()];
-
-        let suggestion = toml.suggest_memory_region_size("kernel", used, 1);
-        assert_eq!(suggestion.len(), 1, "kernel should not be > 1 region");
-        let suggestion = suggestion[0];
-
-        if suggestion >= size as u64 {
-            continue;
-        }
+    let mut maybe_print_header = |out: &mut dyn Write| -> std::io::Result<()> {
         if !printed_header {
             printed_header = true;
             if only_suggest {
@@ -104,6 +94,23 @@ pub fn run(
                 )?;
             }
         }
+        Ok(())
+    };
+
+    for (mem, &used) in sizes.sizes["kernel"].iter() {
+        if used == 0 {
+            continue;
+        }
+        let size = toml.kernel.requires[&mem.to_string()];
+
+        let suggestion = toml.suggest_memory_region_size("kernel", used, 1);
+        assert_eq!(suggestion.len(), 1, "kernel should not be > 1 region");
+        let suggestion = suggestion[0];
+
+        if suggestion >= size as u64 {
+            continue;
+        }
+        maybe_print_header(&mut out)?;
         if !printed_name {
             printed_name = true;
             writeln!(out, "kernel:")?;
@@ -114,6 +121,69 @@ pub fn run(
             format!("{mem}:"),
             suggestion,
             format!(" (currently {size})").dimmed()
+        )?;
+    }
+
+    // ... and also stack sizes that are over margin.
+    let mut total_free_real_estate = 0;
+    for (task_name, stack) in stacks {
+        let oldram = sizes.sizes[task_name]["ram"];
+        let oldlim = stack.limit;
+        let nonstack_ram = oldram.saturating_sub(oldlim);
+
+        // The stack limit in the TOML must be *greater* than the maximum
+        // estimated stack depth. Stack sizes must be a multiple of 8 bytes.
+        // Thus, we will increase the stack limit to the maximum estimated depth
+        // plus 8 bytes.
+        //
+        // TODO(eliza): consider also allowing a "bonus stack margin" to be
+        // requested for paranoia purposes?
+        let newlim = stack.max_estimate + 8;
+        let newram = nonstack_ram + newlim;
+
+        // Only claim that there's free real estate if we could shrink the power
+        // of two memory region by resizing the task's RAM request. If changing
+        // the RAM request does *not* result in a region shrink, then changing
+        // it doesn't actually give us back any memory.
+        let old_regions = toml.suggest_memory_region_size(task_name, oldram, 1);
+        let new_regions = toml.suggest_memory_region_size(task_name, newram, 1);
+        assert_eq!(old_regions.len(), 1);
+        assert_eq!(new_regions.len(), 1);
+        let old_region_size = old_regions[0];
+        let new_region_size = new_regions[0];
+
+        if new_region_size < old_region_size {
+            let free_real_estate = old_region_size - new_region_size;
+            maybe_print_header(&mut out)?;
+            writeln!(
+                out,
+                "{task_name}: {:>width$}",
+                format!(" !!! {free_real_estate}B of free real estate !!!")
+                    .dimmed(),
+                width = 76 - task_name.len(),
+            )?;
+            writeln!(
+                out,
+                "  {:<6} {newlim: >5} {}",
+                "stack",
+                format!(" (currently {oldlim})").dimmed()
+            )?;
+            writeln!(
+                out,
+                "  {:<6} {newram: >5} {}",
+                "ram",
+                format!(" (currently {oldram})").dimmed(),
+            )?;
+            total_free_real_estate += free_real_estate;
+        }
+    }
+
+    if total_free_real_estate > 0 {
+        writeln!(
+            out,
+            "\nthere may be up to {total_free_real_estate} bytes of free \
+             real estate in this image,\nif you're brave enough to mess with \
+             stack sizes!\n"
         )?;
     }
 
@@ -427,23 +497,41 @@ fn print_memory_map(
     Ok(())
 }
 
-fn print_task_stacks(toml: &Config) -> Result<()> {
+struct Stacks {
+    max_estimate: u64,
+    limit: u64,
+}
+
+fn estimate_task_stacks<'a>(
+    toml: &'a Config,
+    print: bool,
+) -> Result<IndexMap<&'a str, Stacks>> {
+    let mut tasks = IndexMap::with_capacity(toml.tasks.len());
     for (i, (task_name, task)) in toml.tasks.iter().enumerate() {
         let task_stack_size =
             task.stacksize.unwrap_or_else(|| toml.stacksize.unwrap());
 
         let max_stack = get_max_stack(toml, task_name, false)?;
         let total: u64 = max_stack.iter().map(|(n, _)| *n).sum();
-        println!("{task_name}: {total} bytes (limit is {task_stack_size})");
-        for (frame_size, name) in max_stack {
-            let s = format!("[+{frame_size}]");
-            println!("  {s:>7} {name}");
+        if print {
+            println!("{task_name}: {total} bytes (limit is {task_stack_size})");
+            for (frame_size, name) in max_stack {
+                let s = format!("[+{frame_size}]");
+                println!("  {s:>7} {name}");
+            }
         }
         if i + 1 < toml.tasks.len() {
             println!();
         }
+        tasks.insert(
+            task_name.as_ref(),
+            Stacks {
+                max_estimate: total,
+                limit: task_stack_size as u64,
+            },
+        );
     }
-    Ok(())
+    Ok(tasks)
 }
 
 /// Loads the size of the given task (or kernel)
