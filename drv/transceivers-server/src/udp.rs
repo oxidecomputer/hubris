@@ -799,6 +799,9 @@ impl ServerImpl {
                         FpgaI2CFailure::I2CSclStretchTimeout => {
                             HwError::I2cSclStretchTimeout
                         }
+                        FpgaI2CFailure::I2CTransactionTimeout => {
+                            HwError::I2cTransactionTimeout
+                        }
                         // We only mark failures when an error is set, so this
                         // branch should never match.
                         FpgaI2CFailure::NoError => unreachable!(),
