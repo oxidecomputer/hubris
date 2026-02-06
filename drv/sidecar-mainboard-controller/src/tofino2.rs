@@ -10,6 +10,14 @@ use drv_fpga_user_api::power_rail::*;
 use userlib::FromPrimitive;
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
+#[derive(Copy, Clone, PartialEq)]
+enum VidTrace {
+    None,
+    Read(u8),
+}
+
+ringbuf::ringbuf!(VidTrace, 8, VidTrace::None);
+
 #[derive(
     Copy,
     Clone,
@@ -334,6 +342,8 @@ impl Sequencer {
     /// controller failed or an invalid value was read from the register.
     pub fn vid(&self) -> Result<Option<Tofino2Vid>, FpgaError> {
         let v: u8 = self.fpga.read(Addr::TOFINO_POWER_VID)?;
+
+        ringbuf::ringbuf_entry!(VidTrace::Read(v));
 
         if (v & Reg::TOFINO_POWER_VID::VID_VALID) != 0 {
             match Tofino2Vid::from_u8(v & Reg::TOFINO_POWER_VID::VID) {
