@@ -57,7 +57,7 @@ pub enum Ereport {
         temp_c: f32,
     },
     /// A component exceeded its power-down threshold.
-    #[cbor(rename = "hw.temp.a2.thresh")]
+    #[cbor(rename = "hw.temp.pwrdown")]
     ComponentShutdown {
         #[cbor(rename = "v")]
         version: u8,
@@ -68,7 +68,7 @@ pub enum Ereport {
     },
     /// The system is shutting down due to exceeding the critical threshold
     /// timeout.
-    #[cbor(rename = "hw.temp.a2.timeout")]
+    #[cbor(rename = "hw.temp.crit.timeout")]
     TimeoutShutdown {
         #[cbor(rename = "v")]
         version: u8,
