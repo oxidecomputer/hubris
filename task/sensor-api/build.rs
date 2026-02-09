@@ -34,7 +34,20 @@ fn main() -> Result<()> {
     idol::client::build_client_stub("../../idl/sensor.idol", "client_stub.rs")
         .map_err(|e| anyhow!("idol error: {e}"))?;
 
-    build_i2c::codegen(build_i2c::Disposition::Sensors)?;
+    let i2c_outputs = build_i2c::codegen(build_i2c::CodegenSettings {
+        disposition: build_i2c::Disposition::Sensors,
+        component_ids: cfg!(feature = "component-id"),
+    })?;
+
+    #[cfg(feature = "component-id")]
+    let component_ids_by_id = _i2c_outputs.component_ids_by_id.expect(
+        "component IDs by sensor ID map should be generated if \
+             `build-i2c/component-id` feature is enabled",
+    );
+    let num_i2c_sensors = i2c_outputs.num_i2c_sensors.expect(
+        "i2c codegen should output `num_i2c_sensors` if run with \
+             `Disposition::Sensors`",
+    );
 
     let config: GlobalConfig = build_util::config()?;
 
@@ -52,7 +65,7 @@ fn main() -> Result<()> {
         }
 
         let mut sensors_text = String::new();
-        let mut sensor_id = 0;
+        let mut sensor_num = 0;
         for d in &config_sensor.devices {
             for (sensor_type, &sensor_count) in d.sensors.iter() {
                 let sensor = format!(
@@ -67,17 +80,19 @@ fn main() -> Result<()> {
         pub const NUM_{sensor}_SENSORS: usize = {sensor_count};"
                 )
                 .unwrap();
+                
                 if sensor_count == 1 {
+                    let sensor_id = num_i2c_sensors + sensor_num;
+                    sensor_num += 1;
                     writeln!(
                         &mut sensors_text,
                         "        #[allow(dead_code)]
         pub const {sensor}_SENSOR: SensorId = \
             // {}
-            SensorId(NUM_I2C_SENSORS as u32 + {sensor_id});",
+            SensorId({sensor_id});",
                         d.description
                     )
                     .unwrap();
-                    sensor_id += 1;
                 } else {
                     writeln!(
                         &mut sensors_text,
@@ -88,10 +103,10 @@ fn main() -> Result<()> {
                     for _ in 0..sensor_count {
                         writeln!(
                         &mut sensors_text,
-                        "            SensorId(NUM_I2C_SENSORS as u32 + {sensor_id}),"
+                        "            SensorId(sensor_id),"
                     )
                         .unwrap();
-                        sensor_id += 1;
+                        sensor_num += 1;
                     }
                     writeln!(&mut sensors_text, "        ];").unwrap();
                 }

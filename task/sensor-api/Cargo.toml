@@ -16,6 +16,7 @@ counters = { path = "../../lib/counters" }
 drv-i2c-api.path = "../../drv/i2c-api"
 derive-idol-err.path = "../../lib/derive-idol-err"
 userlib.path = "../../sys/userlib"
+phash = { path = "../../lib/phash", optional = true }
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
@@ -31,13 +32,14 @@ serde = { workspace = true }
 
 build-i2c = { path = "../../build/i2c" }
 build-util = { path = "../../build/util" }
+phash-gen = { path = "../../build/phash-gen", optional = true }
 
 [features]
 h743 = ["build-i2c/h743"]
 h753 = ["build-i2c/h753"]
 # Include component ID strings in I2cDevice structs. This is necessary if
 # `drv-i2c-api` is built with the `component-id` feature.
-component-id = ["drv-i2c-api/component-id"]
+component-id = ["drv-i2c-api/component-id", "phash-gen", "phash"]
 
 [lints]
 workspace = true
