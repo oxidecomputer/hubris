@@ -67,7 +67,16 @@
             "inst_name": "espi",
             "orig_type_name": "espi_regs",
             "addr_offset": 32768,
-            "children": []
+            "children": [
+                {
+                    "type": "addrmap",
+                    "addr_span_bytes": 72,
+                    "inst_name": "spec_regs",
+                    "orig_type_name": "eSPI_Spec",
+                    "addr_offset": 128,
+                    "children": []
+                }
+            ]
         }
     ]
 }
