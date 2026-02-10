@@ -2,7 +2,7 @@ name = "grapefruit-standalone"
 inherit = "base.toml"
 
 [tasks.jefe]
-features = ["dump", "fault-counters"]
+features = ["dump", "fault-notification"]
 
 # Host SP comms goes over a UART to J10, using USART8
 [tasks.host_sp_comms]

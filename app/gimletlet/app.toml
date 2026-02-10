@@ -13,7 +13,7 @@ task-slots = ["hash_driver", "hf", "i2c_driver", "sprot", "sys", "update_server"
 
 [tasks.jefe]
 stacksize = 2296
-features = ["dump", "fault-counters"]
+features = ["dump", "fault-notification"]
 extern-regions = ["sram1", "sram2", "sram3", "sram4"]
 
 [tasks.jefe.config.allowed-callers]
