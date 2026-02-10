@@ -42,8 +42,16 @@ fn main() -> Result<()> {
     )
     .context("generating state change mailing list")?;
 
-    gen_mailing_list("FAULT_MAILING_LIST", &cfg.on_task_fault, &mut out)
-        .context("generating task fault mailing list")?;
+    if !cfg.on_task_fault.is_empty() && !cfg!(feature = "fault-notification") {
+        println!(
+            "cargo::error=`tasks.jefe.on-task-fault` config requires the \
+             \"jefe/fault-notification\" feature flag"
+        );
+        std::process::exit(1);
+    } else {
+        gen_mailing_list("FAULT_MAILING_LIST", &cfg.on_task_fault, &mut out)
+            .context("generating task fault mailing list")?;
+    }
 
     {
         let count = cfg.tasks_to_hold.len();
