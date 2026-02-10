@@ -91,7 +91,7 @@ fn main() -> ! {
 
     external::set_ready();
 
-    #[cfg(feature = "fault-counters")]
+    #[cfg(feature = "fault-notification")]
     let fault_counts = {
         use static_cell::ClaimOnceCell;
 
@@ -113,7 +113,7 @@ fn main() -> ! {
         #[cfg(feature = "dump")]
         last_dump_area: None,
 
-        #[cfg(feature = "fault-counters")]
+        #[cfg(feature = "fault-notification")]
         fault_counts,
     };
     let mut buf = [0u8; idl::INCOMING_SIZE];
@@ -130,7 +130,7 @@ struct ServerImpl<'s> {
     any_tasks_in_timeout: bool,
     reset_reason: ResetReason,
 
-    #[cfg(feature = "fault-counters")]
+    #[cfg(feature = "fault-notification")]
     fault_counts: &'s mut [usize; NUM_TASKS],
 
     /// Base address for a linked list of dump areas
@@ -204,7 +204,7 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
         Ok(())
     }
 
-    #[cfg(feature = "fault-counters")]
+    #[cfg(feature = "fault-notification")]
     fn read_fault_counts(
         &mut self,
         _msg: &userlib::RecvMessage,
@@ -221,7 +221,7 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
         Ok(())
     }
 
-    #[cfg(not(feature = "fault-counters"))]
+    #[cfg(not(feature = "fault-notification"))]
     fn read_fault_counts(
         &mut self,
         _msg: &userlib::RecvMessage,
@@ -472,7 +472,7 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
                     continue;
                 };
 
-                #[cfg(feature = "fault-counters")]
+                #[cfg(feature = "fault-notification")]
                 {
                     // Increment this task's fault count.
                     let fault_count = unsafe {
