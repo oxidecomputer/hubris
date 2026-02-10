@@ -39,7 +39,11 @@ h743 = ["build-i2c/h743"]
 h753 = ["build-i2c/h753"]
 # Include component ID strings in I2cDevice structs. This is necessary if
 # `drv-i2c-api` is built with the `component-id` feature.
-component-id = ["drv-i2c-api/component-id", "phash-gen", "phash"]
+component-id = [
+    "drv-i2c-api/component-id",
+    "phash-gen",
+    "phash",
+]
 
 [lints]
 workspace = true

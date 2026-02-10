@@ -1735,6 +1735,7 @@ impl From<Disposition> for CodegenSettings {
 
 pub fn codegen(settings: impl Into<CodegenSettings>) -> Result<CodegenOutputs> {
     let settings = settings.into();
+    assert_eq!(cfg!(feature = "component-id"), settings.component_ids);
     use std::io::Write;
 
     let out_dir = build_util::out_dir();
