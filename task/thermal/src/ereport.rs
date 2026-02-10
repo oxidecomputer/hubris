@@ -25,13 +25,14 @@ impl Ereporter {
             static_cell::ClaimOnceCell::new([0u8; EREPORT_BUF_SIZE]);
 
         Self {
-            buf: BUF.claim().unwrap(),
+            buf: BUF.claim(),
             packrat: Packrat::from(PACKRAT.get_task_id()),
         }
     }
 
     pub(crate) fn deliver_ereport(&mut self, ereport: &Ereport) {
-        let eresult = self.packrat.encode_ereport(&ereport, self.buf);
+        let eresult =
+            self.packrat.deliver_microcbor_ereport(&ereport, self.buf);
         match eresult {
             Ok(len) => ringbuf_entry_root!(Trace::EreportSent { len }),
             Err(task_packrat_api::EreportEncodeError::Packrat { len, err }) => {

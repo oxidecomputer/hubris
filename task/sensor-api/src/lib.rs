@@ -90,7 +90,7 @@ impl SensorId {
     pub fn component_id(
         &self,
     ) -> fixedstr::FixedStr<'static, { config::MAX_COMPONENT_ID_LEN }> {
-        config::COMPONENT_ID_LOOKUP[self.0 as usize]
+        config::SENSOR_ID_TO_COMPONENT_ID[self.0 as usize]
     }
 }
 

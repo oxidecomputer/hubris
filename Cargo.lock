@@ -6264,6 +6264,7 @@ dependencies = [
  "hubpack",
  "idol",
  "idol-runtime",
+ "microcbor",
  "num-traits",
  "ringbuf",
  "serde",

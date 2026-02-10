@@ -24,6 +24,7 @@ drv-onewire-devices.path = "../../drv/onewire-devices"
 drv-onewire.path = "../../drv/onewire"
 counters.path = "../../lib/counters"
 fixedstr = { path = "../../lib/fixedstr", optional = true, features = ["microcbor"] }
+microcbor = { path = "../../lib/microcbor", optional = true }
 ringbuf.path = "../../lib/ringbuf"
 static-cell.path = "../../lib/static-cell"
 task-sensor-api.path = "../sensor-api"
@@ -51,6 +52,7 @@ ereport = [
     "task-packrat-api",
     "task-sensor-api/component-id-lookup",
     "fixedstr",
+    "microcbor",
 ]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,

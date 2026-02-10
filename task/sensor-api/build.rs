@@ -175,12 +175,16 @@ fn main() -> Result<()> {
     pub(super) const SENSOR_ID_TO_COMPONENT_ID: [
         fixedstr::FixedStr<'static, MAX_COMPONENT_ID_LEN>;
         NUM_SENSORS
-    ] = ["#,
+    ] = [
+"#,
         )
         .unwrap();
         for (_, cid) in state.component_ids_by_id {
-            writeln!(&mut file, "        fixedstr::FixedStr::new(\"{cid}\"),",)
-                .unwrap();
+            writeln!(
+                &mut file,
+                "        fixedstr::FixedStr::from_str(\"{cid}\"),",
+            )
+            .unwrap();
         }
         writeln!(&mut file, "    ];").unwrap();
     }
