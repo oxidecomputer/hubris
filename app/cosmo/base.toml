@@ -148,7 +148,7 @@ task-slots = ["sys", "packrat"]
 
 [tasks.thermal]
 name = "task-thermal"
-features = ["cosmo"]
+features = ["cosmo", "ereport"]
 priority = 8
 max-sizes = {flash = 32768, ram = 8192 }
 stacksize = 6000

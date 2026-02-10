@@ -230,7 +230,7 @@ struct I2cSensors {
 
 #[derive(Clone, Debug, Deserialize, Hash, PartialOrd, PartialEq, Eq, Ord)]
 #[serde(untagged)]
-enum Refdes {
+pub enum Refdes {
     Component(String),
     Path(Vec<String>),
 }
@@ -1870,7 +1870,7 @@ where
 }
 
 impl Refdes {
-    fn to_component_id(&self) -> String {
+    pub fn to_component_id(&self) -> String {
         self.join_with_case(str::make_ascii_uppercase, "/")
     }
 

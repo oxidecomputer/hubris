@@ -23,10 +23,12 @@ drv-i2c-devices.path = "../../drv/i2c-devices"
 drv-onewire-devices.path = "../../drv/onewire-devices"
 drv-onewire.path = "../../drv/onewire"
 counters.path = "../../lib/counters"
+fixedstr = { path = "../../lib/fixedstr", optional = true, features = ["microcbor"] }
 ringbuf.path = "../../lib/ringbuf"
 static-cell.path = "../../lib/static-cell"
 task-sensor-api.path = "../sensor-api"
 task-thermal-api.path = "../thermal-api"
+task-packrat-api = { path = "../packrat-api", features = ["microcbor"], optional = true }
 
 [build-dependencies]
 anyhow = { workspace = true }
@@ -45,6 +47,11 @@ minibar = ["h753"]
 h743 = ["build-i2c/h743"]
 h753 = ["build-i2c/h753"]
 no-ipc-counters = ["idol/no-counters"]
+ereport = [
+    "task-packrat-api",
+    "task-sensor-api/component-id-lookup",
+    "fixedstr",
+]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
