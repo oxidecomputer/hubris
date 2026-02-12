@@ -1229,9 +1229,23 @@ impl<'a> ThermalControl<'a> {
                         temperature
                     });
                     self.transition_to_uncontrollable(now_ms)
-                } else if let Some(due_to) = any_critical {
+                } else if let Some((sensor_id, temperature)) = any_critical {
                     let values = *values;
-                    self.transition_to_critical(due_to, now_ms, values)
+                    *ereports.pending_mut() =
+                        Some(ereport::Ereport::ComponentPowerDown {
+                            version: 0,
+                            refdes: sensor_id.component_id(),
+                            sensor_id: sensor_id.into(),
+                            temp_c: temperature.into(),
+                            overheat_ms: None,
+                            time: now_ms,
+                        });
+                    self.transition_to_critical(
+                        sensor_id,
+                        temperature,
+                        now_ms,
+                        values,
+                    )
                 } else {
                     // We adjust the worst component margin by our target
                     // margin, which must be > 0.  This effectively tells the
@@ -1397,7 +1411,8 @@ impl<'a> ThermalControl<'a> {
     /// component exceeding its critical threshold.
     fn transition_to_critical(
         &mut self,
-        (sensor_id, temperature): (SensorId, Celsius),
+        sensor_id: SensorId,
+        temperature: Celsius,
         now_ms: u64,
         values: [TemperatureReading; TEMPERATURE_ARRAY_SIZE],
     ) -> ControlResult {
