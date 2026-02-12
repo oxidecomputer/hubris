@@ -522,6 +522,8 @@ pub(crate) struct WorstCaseTemperature {
     /// worst case temperature that was calculated based on the lag since the
     /// last actual reading fro mthe sensor .
     last_reading: Celsius,
+    /// Approximately how old (in seconds) is the the last real temperature?
+    age_s: f32,
 }
 
 impl TimestampedTemperatureReading {
@@ -543,12 +545,13 @@ impl TimestampedTemperatureReading {
         model: &ThermalProperties,
     ) -> WorstCaseTemperature {
         // How long has it been since the last real life temperature reading?
-        let lag_s = now_ms.saturating_sub(self.time_ms) as f32 / 1000.0;
+        let age_s = now_ms.saturating_sub(self.time_ms) as f32 / 1000.0;
         let worst_case_temp =
-            Celsius(self.value.0 + lag_s * model.temperature_slew_deg_per_sec);
+            Celsius(self.value.0 + age_s * model.temperature_slew_deg_per_sec);
         WorstCaseTemperature {
             worst_case_temp,
             last_reading: self.value,
+            age_s,
         }
     }
 }
@@ -1412,6 +1415,7 @@ impl<'a> ThermalControl<'a> {
         let WorstCaseTemperature {
             worst_case_temp,
             last_reading,
+            age_s,
         } = worst_case;
         ringbuf_entry!(Trace::PowerDownDueTo {
             sensor_id,
@@ -1420,6 +1424,7 @@ impl<'a> ThermalControl<'a> {
         ringbuf_entry!(Trace::LastRealTemperature {
             sensor_id,
             temperature: last_reading,
+            age_s,
         });
         self.state = ThermalControlState::Critical {
             values,
@@ -1468,6 +1473,7 @@ impl<'a> ThermalControl<'a> {
         let WorstCaseTemperature {
             worst_case_temp,
             last_reading,
+            age_s,
         } = worst_case;
         ringbuf_entry!(Trace::CriticalDueTo {
             sensor_id,
@@ -1476,6 +1482,7 @@ impl<'a> ThermalControl<'a> {
         ringbuf_entry!(Trace::LastRealTemperature {
             sensor_id,
             temperature: last_reading,
+            age_s,
         });
         self.transition_to_uncontrollable(now_ms)
     }

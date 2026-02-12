@@ -119,7 +119,12 @@ enum Trace {
     #[count(skip)]
     LastRealTemperature {
         sensor_id: SensorId,
+        /// The most recent real life (not fake) temperature measurement from
+        /// the sensor.
         temperature: units::Celsius,
+        /// The (approximate) time, in seconds, since the real life temperature
+        /// measurement was received.
+        age_s: f32,
     },
     /// Total duration spent in the overheated control regime.
     #[count(skip)]
