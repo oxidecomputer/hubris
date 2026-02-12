@@ -6,6 +6,11 @@
 
 version = 1 # Schema version of this file.
 
+[sigstore-claims]
+issuer = "https://token.actions.githubusercontent.com"
+workflow-file = ".github/workflows/release.yml"
+runner-environment = "self-hosted"
+
 [groups.all-sp]
 tag-bump = "patch"
 tag-prefix = "all-sp-v"
@@ -15,6 +20,13 @@ hubris-app-dirs = [
     "app/psc/",
     "app/cosmo/",
 ]
+
+release-title = "SP release {version}"
+release-description = """
+These are the final artifacts for **release {version}** of Oxide's Service Processor images.
+
+This release has been published automatically, and no changelog is available.
+"""
 
 [groups.all-sp.boards]
 gimlet-b = {}
@@ -44,6 +56,13 @@ cosmo-b-lab = {}
 tag-bump = "patch"
 tag-prefix = "oxide-rot-1-v"
 hubris-app-dirs = ["app/oxide-rot-1/"]
+
+release-title = "RoT release {version}"
+release-description = """
+These are the final artifacts for **release {version}** of Oxide's Root of Trust images.
+
+This release has been published automatically, and no changelog is available.
+"""
 
 [groups.rot.boards]
 oxide-rot-1 = { images = ["a", "b"] }

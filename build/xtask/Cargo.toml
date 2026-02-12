@@ -44,6 +44,10 @@ walkdir = { workspace = true }
 zerocopy = { workspace = true }
 zip = { workspace = true }
 
+# for gha-prepare-artifact
+base64 = { workspace = true }
+sha2 = { workspace = true }
+
 gnarle = { path = "../../lib/gnarle", features = ["std"] }
 abi.path = "../../sys/abi"
 build-fpga-regmap.path = "../../build/fpga-regmap"
