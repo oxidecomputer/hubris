@@ -514,7 +514,7 @@ pub fn build_peripheral(
                             17..=32 => "u32",
                             _ => panic!("invalid width {width}"),
                         };
-                        assert_eq!(width, 8, "EnumEncode must be 8 bits wide");
+                        assert!(width <= 8, "EnumEncode must be <=8 bits wide");
                         let quoted = encode
                             .iter()
                             .map(|e| {
