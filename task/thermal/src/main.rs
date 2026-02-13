@@ -82,11 +82,49 @@ enum Trace {
     AutoState(#[count(children)] ThermalAutoState),
     PowerDownDueTo {
         sensor_id: SensorId,
-        temperature: units::Celsius,
+        /// The thermal model's worst-case temperature projection for this
+        /// sensor.
+        ///
+        /// Note that this may not be an *actual temperature measurement*
+        /// from this sensor. Instead, it is projected from the last successful
+        /// temperature reading, the lag since that measurement was received,
+        /// and the thermal model's slew rate for the component.
+        ///
+        /// This ringbuf entry is always followed by a [`LastActualTemperature`]
+        /// entry, which records the last actual temperature measurement
+        /// reported by the sensor.
+        worst_case_temp: units::Celsius,
     },
     CriticalDueTo {
         sensor_id: SensorId,
+        /// The thermal model's worst-case temperature projection for this
+        /// sensor.
+        ///
+        /// Note that this may not be an *actual temperature measurement*
+        /// from this sensor. Instead, it is projected from the last successful
+        /// temperature reading, the lag since that measurement was received,
+        /// and the thermal model's slew rate for the component.
+        ///
+        /// This ringbuf entry is always followed by a [`LastActualTemperature`]
+        /// entry, which records the last actual temperature measurement
+        /// reported by the sensor.
+        worst_case_temp: units::Celsius,
+    },
+    /// The last actual temperature measurement reported by a sensor.
+    ///
+    /// This is recorded after every [`CriticalDueTo`] or [`PowerDownDueTo`]
+    /// entry so that the last known real life temperature can be compared to
+    /// the worst-case temperature projection that caused a thermal loop state
+    /// transition.
+    #[count(skip)]
+    LastRealTemperature {
+        sensor_id: SensorId,
+        /// The most recent real life (not fake) temperature measurement from
+        /// the sensor.
         temperature: units::Celsius,
+        /// The (approximate) time, in seconds, since the real life temperature
+        /// measurement was received.
+        age_s: f32,
     },
     /// Total duration spent in the overheated control regime.
     #[count(skip)]

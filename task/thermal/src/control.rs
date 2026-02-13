@@ -508,6 +508,24 @@ struct TimestampedTemperatureReading {
     value: Celsius,
 }
 
+/// Represents a worst-case temperature reading from the thermal model,
+/// including the estimated temperature and the time since the last actual
+/// sensor reading (lag).
+#[derive(Copy, Clone, PartialEq)]
+pub(crate) struct WorstCaseTemperature {
+    /// The worst-case temperature estimate from the thermal model, projected
+    /// from the `last_reading`.
+    worst_case_temp: Celsius,
+    /// The last actual temperature reading from the device.
+    ///
+    /// Subtracting this value from `worst_case_temp` gives the portion of the
+    /// worst case temperature that was calculated based on the lag since the
+    /// last actual reading fro mthe sensor .
+    last_reading: Celsius,
+    /// Approximately how old (in seconds) is the the last real temperature?
+    age_s: f32,
+}
+
 impl TimestampedTemperatureReading {
     /// Returns the worst-case temperature, given a current time and thermal
     /// model for this part.
@@ -521,12 +539,20 @@ impl TimestampedTemperatureReading {
     /// safe.  If there's invalid data in the sensors task (i.e. readings
     /// claiming to be from the future), then this will saturate instead of
     /// underflowing.
-    fn worst_case(&self, now_ms: u64, model: &ThermalProperties) -> Celsius {
-        Celsius(
-            self.value.0
-                + now_ms.saturating_sub(self.time_ms) as f32 / 1000.0
-                    * model.temperature_slew_deg_per_sec,
-        )
+    fn worst_case(
+        &self,
+        now_ms: u64,
+        model: &ThermalProperties,
+    ) -> WorstCaseTemperature {
+        // How long has it been since the last real life temperature reading?
+        let age_s = now_ms.saturating_sub(self.time_ms) as f32 / 1000.0;
+        let worst_case_temp =
+            Celsius(self.value.0 + age_s * model.temperature_slew_deg_per_sec);
+        WorstCaseTemperature {
+            worst_case_temp,
+            last_reading: self.value,
+            age_s,
+        }
     }
 }
 
@@ -1161,9 +1187,10 @@ impl<'a> ThermalControl<'a> {
                 ) {
                     match v {
                         Some(TemperatureReading::Valid(v)) => {
-                            let temperature = v.worst_case(now_ms, &model);
+                            let worst_case = v.worst_case(now_ms, &model);
+                            let temperature = worst_case.worst_case_temp;
                             if model.should_power_down(temperature) {
-                                any_power_down = Some((sensor_id, temperature));
+                                any_power_down = Some((sensor_id, worst_case));
                             }
                             worst_margin =
                                 worst_margin.min(model.margin(temperature).0);
@@ -1177,12 +1204,8 @@ impl<'a> ThermalControl<'a> {
                     }
                 }
 
-                if let Some((sensor_id, temperature)) = any_power_down {
-                    ringbuf_entry!(Trace::PowerDownDueTo {
-                        sensor_id,
-                        temperature
-                    });
-                    self.transition_to_uncontrollable(now_ms)
+                if let Some(due_to) = any_power_down {
+                    self.transition_to_uncontrollable_due_to(due_to, now_ms)
                 } else if all_some {
                     let values = values.map(Option::unwrap);
                     self.transition_to_running(worst_margin, now_ms, values)
@@ -1207,12 +1230,13 @@ impl<'a> ThermalControl<'a> {
                     &self.dynamic_inputs,
                 ) {
                     if let TemperatureReading::Valid(v) = v {
-                        let temperature = v.worst_case(now_ms, &model);
+                        let worst_case = v.worst_case(now_ms, &model);
+                        let temperature = worst_case.worst_case_temp;
                         if model.should_power_down(temperature) {
-                            any_power_down = Some((sensor_id, temperature));
+                            any_power_down = Some((sensor_id, worst_case));
                         }
                         if model.is_critical(temperature) {
-                            any_critical = Some((sensor_id, temperature));
+                            any_critical = Some((sensor_id, worst_case));
                         }
 
                         worst_margin =
@@ -1220,12 +1244,8 @@ impl<'a> ThermalControl<'a> {
                     }
                 }
 
-                if let Some((sensor_id, temperature)) = any_power_down {
-                    ringbuf_entry!(Trace::PowerDownDueTo {
-                        sensor_id,
-                        temperature
-                    });
-                    self.transition_to_uncontrollable(now_ms)
+                if let Some(due_to) = any_power_down {
+                    self.transition_to_uncontrollable_due_to(due_to, now_ms)
                 } else if let Some(due_to) = any_critical {
                     let values = *values;
                     self.transition_to_critical(due_to, now_ms, values)
@@ -1261,23 +1281,20 @@ impl<'a> ThermalControl<'a> {
                     &self.dynamic_inputs,
                 ) {
                     if let TemperatureReading::Valid(v) = v {
-                        let temperature = v.worst_case(now_ms, &model);
+                        let worst_case = v.worst_case(now_ms, &model);
+                        let temperature = worst_case.worst_case_temp;
                         all_nominal &= model.is_nominal(temperature);
                         any_still_critical |= model.is_critical(temperature);
                         if model.should_power_down(temperature) {
-                            any_power_down = Some((sensor_id, temperature));
+                            any_power_down = Some((sensor_id, worst_case));
                         }
                         worst_margin =
                             worst_margin.min(model.margin(temperature).0);
                     }
                 }
 
-                if let Some((sensor_id, temperature)) = any_power_down {
-                    ringbuf_entry!(Trace::PowerDownDueTo {
-                        sensor_id,
-                        temperature
-                    });
-                    self.transition_to_uncontrollable(now_ms)
+                if let Some(due_to) = any_power_down {
+                    self.transition_to_uncontrollable_due_to(due_to, now_ms)
                 } else if all_nominal {
                     let values = *values;
                     self.transition_to_running(worst_margin, now_ms, values)
@@ -1310,25 +1327,22 @@ impl<'a> ThermalControl<'a> {
                     &self.dynamic_inputs,
                 ) {
                     if let TemperatureReading::Valid(v) = v {
-                        let temperature = v.worst_case(now_ms, &model);
+                        let worst_case = v.worst_case(now_ms, &model);
+                        let temperature = worst_case.worst_case_temp;
                         all_nominal &= model.is_nominal(temperature);
                         if model.should_power_down(temperature) {
-                            any_power_down = Some((sensor_id, temperature));
+                            any_power_down = Some((sensor_id, worst_case));
                         }
                         if model.is_critical(temperature) {
-                            any_critical = Some((sensor_id, temperature));
+                            any_critical = Some((sensor_id, worst_case));
                         }
                         worst_margin =
                             worst_margin.min(model.margin(temperature).0);
                     }
                 }
 
-                if let Some((sensor_id, temperature)) = any_power_down {
-                    ringbuf_entry!(Trace::PowerDownDueTo {
-                        sensor_id,
-                        temperature
-                    });
-                    self.transition_to_uncontrollable(now_ms)
+                if let Some(due_to) = any_power_down {
+                    self.transition_to_uncontrollable_due_to(due_to, now_ms)
                 } else if let Some(due_to) = any_critical {
                     // If anything's gone over critical, transition back to the
                     // `Critical` state.
@@ -1394,13 +1408,23 @@ impl<'a> ThermalControl<'a> {
     /// component exceeding its critical threshold.
     fn transition_to_critical(
         &mut self,
-        (sensor_id, temperature): (SensorId, Celsius),
+        (sensor_id, worst_case): (SensorId, WorstCaseTemperature),
         now_ms: u64,
         values: [TemperatureReading; TEMPERATURE_ARRAY_SIZE],
     ) -> ControlResult {
-        ringbuf_entry!(Trace::CriticalDueTo {
+        let WorstCaseTemperature {
+            worst_case_temp,
+            last_reading,
+            age_s,
+        } = worst_case;
+        ringbuf_entry!(Trace::PowerDownDueTo {
             sensor_id,
-            temperature
+            worst_case_temp
+        });
+        ringbuf_entry!(Trace::LastRealTemperature {
+            sensor_id,
+            temperature: last_reading,
+            age_s,
         });
         self.state = ThermalControlState::Critical {
             values,
@@ -1431,6 +1455,36 @@ impl<'a> ThermalControl<'a> {
 
         // It's PARTY TIME!!!!
         ControlResult::Pwm(PWMDuty(self.pid_config.max_output as u8))
+    }
+
+    /// Transition to the `Uncontrollable` state due to a device exceeding its
+    /// power-down temperature threshold.
+    ///
+    /// This is a wrapper around [`Self::transition_to_uncontrollable`] which
+    /// also records the sensor ID and temperature measurements for the device
+    /// that tripped over the threshold. We separate this into two functions as
+    /// we may also transition to uncontrollable due to an inability to read
+    /// sensors at all, or due to the power-down timeout.
+    fn transition_to_uncontrollable_due_to(
+        &mut self,
+        (sensor_id, worst_case): (SensorId, WorstCaseTemperature),
+        now_ms: u64,
+    ) -> ControlResult {
+        let WorstCaseTemperature {
+            worst_case_temp,
+            last_reading,
+            age_s,
+        } = worst_case;
+        ringbuf_entry!(Trace::CriticalDueTo {
+            sensor_id,
+            worst_case_temp
+        });
+        ringbuf_entry!(Trace::LastRealTemperature {
+            sensor_id,
+            temperature: last_reading,
+            age_s,
+        });
+        self.transition_to_uncontrollable(now_ms)
     }
 
     /// Transition to the `Uncontrollable` state, either in response to the
