@@ -6,6 +6,8 @@ memory = "memory-large.toml"
 [kernel]
 name = "minibar"
 requires = {flash = 26656, ram = 6256}
+features = ["dump", "measurement-handoff"]
+extern-regions = ["dtcm"]
 
 [tasks.jefe]
 name = "task-jefe"

@@ -43,5 +43,65 @@ Interface(
                 err: CLike("MinibarSeqError"),
             ),
         ),
+
+        "pcie_v12_status": (
+            args: {},
+            reply: Result(
+                ok: "drv_minibar_seq_api::reg_map::Reg::V12_PCIE::StateEncoded",
+                err: CLike("MinibarSeqError"),
+            ),
+            encoding: Hubpack
+        ),
+
+        "pcie_v3p3_status": (
+            args: {},
+            reply: Result(
+                ok: "drv_minibar_seq_api::reg_map::Reg::V3P3_PCIE::StateEncoded",
+                err: CLike("MinibarSeqError"),
+            ),
+            encoding: Hubpack
+        ),
+
+        "pcie_powered": (
+            args: {},
+            reply: Result(
+                ok: "bool",
+                err: CLike("MinibarSeqError"),
+            ),
+        ),
+
+        "pcie_power_enable": (
+            args: {},
+            reply: Result(
+                ok: "()",
+                err: CLike("MinibarSeqError"),
+            ),
+        ),
+
+        "pcie_power_disable": (
+            args: {},
+            reply: Result(
+                ok: "()",
+                err: CLike("MinibarSeqError"),
+            ),
+        ),
+
+        "pcie_set_perst_override": (
+            args: {
+                "assert": "bool"
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("MinibarSeqError"),
+            ),
+        ),
+
+        "pcie_clear_perst_override": (
+            args: {},
+            reply: Result(
+                ok: "()",
+                err: CLike("MinibarSeqError"),
+            ),
+        ),
     },
 )
