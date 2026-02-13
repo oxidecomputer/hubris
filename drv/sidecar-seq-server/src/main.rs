@@ -81,6 +81,7 @@ enum Trace {
     TofinoCfgRegisterValue(TofinoCfgRegisters, u32),
     TofinoPowerUp,
     TofinoPowerDown,
+    TofinoPcieResetAsserted(bool),
     SetVddCoreVout(userlib::units::Volts),
     SetPCIePresent,
     ClearPCIePresent,
@@ -119,7 +120,7 @@ enum Trace {
 }
 ringbuf!(Trace, 32, Trace::None);
 
-const TIMER_INTERVAL: u64 = 1000;
+const TIMER_INTERVAL: u64 = 100; // TODO: put back to 1000
 
 // QSFP_2_SP_A2_PG
 const POWER_GOOD: sys_api::PinSet = sys_api::Port::F.pin(12);
@@ -816,6 +817,13 @@ impl NotificationHandler for ServerImpl {
 
         if let Err(e) = self.tofino.handle_tick() {
             ringbuf_entry!(Trace::TofinoSequencerError(e));
+        }
+
+        // NEW: Query the FPGA to see if PERST has been deaserted. If so, setup SRIS again.
+        if self.tofino.sequencer.state().unwrap_or(TofinoSeqState::A2)
+            == TofinoSeqState::A0
+        {
+            self.tofino.handle_pcie_reset();
         }
 
         // Change status of LED blink variable, keeping anything gating on/off

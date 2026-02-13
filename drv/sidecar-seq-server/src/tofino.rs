@@ -13,6 +13,7 @@ pub(crate) struct Tofino {
     pub abort_reported: bool,
     pub ready_for_power_up: bool,
     pub pcie_link_up: bool,
+    pub pcie_reset_asserted: bool,
 }
 
 impl Tofino {
@@ -27,6 +28,7 @@ impl Tofino {
             abort_reported: false,
             ready_for_power_up: false,
             pcie_link_up: false,
+            pcie_reset_asserted: true,
         }
     }
 
@@ -75,6 +77,25 @@ impl Tofino {
             TofinoBar0Registers::PcieDevInfo,
         )? & 0xf
             == 0xf)
+    }
+
+    /// Poll FPGA for status of the PCIe reset signal from the host. Note that the
+    /// logic level of the reset signal has been normalized in the FPGA, so asserted
+    /// (logic low on PERST_L) will be true and deasserted (logic high) will be false).
+    pub fn handle_pcie_reset(&mut self) -> Result<bool, SeqError> {
+        let reset_asserted = self
+            .sequencer
+            .get_pcie_reset()
+            .map_err(|_| SeqError::FpgaError)?;
+        if reset_asserted != self.pcie_reset_asserted {
+            ringbuf_entry!(Trace::TofinoPcieResetAsserted(reset_asserted));
+
+            if !reset_asserted {
+                self.setup_sris();
+            }
+        }
+        self.pcie_reset_asserted = reset_asserted;
+        Ok(self.pcie_reset_asserted)
     }
 
     pub fn power_up(&mut self) -> Result<(), SeqError> {
@@ -154,143 +175,6 @@ impl Tofino {
 
                 ringbuf_entry!(Trace::TofinoInA0);
 
-                // Keep the PCIe PHY lanes in reset and delay PCIE_INIT so
-                // changes to the config can be made after loading parameters
-                // from EEPROM.
-                let mut software_reset =
-                    SoftwareReset(self.debug_port.read_direct(
-                        DirectBarSegment::Bar0,
-                        TofinoBar0Registers::SoftwareReset,
-                    )?);
-
-                software_reset.set_pcie_lanes(0xf); // Bit mask to select lanes.
-                self.debug_port.write_direct(
-                    DirectBarSegment::Bar0,
-                    TofinoBar0Registers::SoftwareReset,
-                    software_reset,
-                )?;
-                ringbuf_entry!(Trace::TofinoBar0RegisterValue(
-                    TofinoBar0Registers::SoftwareReset,
-                    self.debug_port.read_direct(
-                        DirectBarSegment::Bar0,
-                        TofinoBar0Registers::SoftwareReset
-                    )?
-                ));
-
-                // Set additional PCIe reset options.
-                let mut reset_options =
-                    ResetOptions(self.debug_port.read_direct(
-                        DirectBarSegment::Bar0,
-                        TofinoBar0Registers::ResetOptions,
-                    )?);
-
-                reset_options.set_on_pcie_link_down(
-                    TofinoPcieResetOptions::ControllerAndPhyLanes,
-                );
-                reset_options.set_on_pcie_l2_exit(
-                    TofinoPcieResetOptions::ControllerAndPhyLanes,
-                );
-                reset_options.set_on_pcie_host_reset(
-                    TofinoPcieResetOptions::ControllerAndPhyLanes,
-                );
-
-                self.debug_port.write_direct(
-                    DirectBarSegment::Bar0,
-                    TofinoBar0Registers::ResetOptions,
-                    reset_options,
-                )?;
-                ringbuf_entry!(Trace::TofinoBar0RegisterValue(
-                    TofinoBar0Registers::ResetOptions,
-                    self.debug_port.read_direct(
-                        DirectBarSegment::Bar0,
-                        TofinoBar0Registers::ResetOptions
-                    )?
-                ));
-
-                // Release PCIe reset, wait 200ms for the PCIe SerDes parameters
-                // to load and the peripheral to initialize. Log the latched
-                // IDCODE afterwards.
-                self.sequencer.set_pcie_reset(TofinoPcieReset::Deasserted)?;
-                hl::sleep_for(200);
-                ringbuf_entry!(Trace::TofinoEepromIdCode(
-                    self.debug_port.spi_eeprom_idcode()?
-                ));
-
-                // The EEPROM contents have loaded, scribble over some of the
-                // registers to enable SRIS.
-
-                let set_sris = |r| -> Result<(), SeqError> {
-                    let mut pcie_lane_ctrl_pair = PciePhyLaneControlPair(
-                        self.debug_port
-                            .read_direct(DirectBarSegment::Bar0, r)?,
-                    );
-                    let mut lane0_ctrl = pcie_lane_ctrl_pair.lane0();
-                    let mut lane1_ctrl = pcie_lane_ctrl_pair.lane1();
-
-                    lane0_ctrl.set_sris(true);
-                    lane1_ctrl.set_sris(true);
-
-                    pcie_lane_ctrl_pair.set_lane0(lane0_ctrl.into());
-                    pcie_lane_ctrl_pair.set_lane1(lane1_ctrl.into());
-
-                    self.debug_port.write_direct(
-                        DirectBarSegment::Bar0,
-                        r,
-                        pcie_lane_ctrl_pair,
-                    )?;
-                    ringbuf_entry!(Trace::TofinoBar0RegisterValue(
-                        r,
-                        self.debug_port
-                            .read_direct(DirectBarSegment::Bar0, r)?
-                    ));
-
-                    Ok(())
-                };
-
-                set_sris(TofinoBar0Registers::PciePhyLaneControl0)?;
-                set_sris(TofinoBar0Registers::PciePhyLaneControl1)?;
-
-                // Enable SRIS in the controller in order to adjust the SKP
-                // Ordered Sets interval, allowing the SP3 to keep up with the
-                // faster 100MHz ref clock used by Tofino.
-                let mut pcie_controller =
-                    PcieControllerConfiguration(self.debug_port.read_direct(
-                        DirectBarSegment::Cfg,
-                        TofinoCfgRegisters::KGen,
-                    )?);
-                pcie_controller.set_sris(true);
-                self.debug_port.write_direct(
-                    DirectBarSegment::Cfg,
-                    TofinoCfgRegisters::KGen,
-                    pcie_controller,
-                )?;
-                ringbuf_entry!(Trace::TofinoCfgRegisterValue(
-                    TofinoCfgRegisters::KGen,
-                    self.debug_port.read_direct(
-                        DirectBarSegment::Cfg,
-                        TofinoCfgRegisters::KGen
-                    )?
-                ));
-
-                // Release the PCIe PHY from reset.
-                software_reset = SoftwareReset(self.debug_port.read_direct(
-                    DirectBarSegment::Bar0,
-                    TofinoBar0Registers::SoftwareReset,
-                )?);
-                software_reset.set_pcie_lanes(0);
-                self.debug_port.write_direct(
-                    DirectBarSegment::Bar0,
-                    TofinoBar0Registers::SoftwareReset,
-                    software_reset,
-                )?;
-                ringbuf_entry!(Trace::TofinoBar0RegisterValue(
-                    TofinoBar0Registers::SoftwareReset,
-                    self.debug_port.read_direct(
-                        DirectBarSegment::Bar0,
-                        TofinoBar0Registers::SoftwareReset
-                    )?
-                ));
-
                 // Provide the host with PERST control, allow the mainboard
                 // controller Power Fault control and signal presence to allow
                 // attachment.
@@ -321,6 +205,145 @@ impl Tofino {
         self.sequencer
             .set_enable(false)
             .map_err(|_| SeqError::SequencerError)
+    }
+
+    pub fn setup_sris(&mut self) -> Result<(), SeqError> {
+        // NEW: Don't mess with any reset stuff, actually
+        // Keep the PCIe PHY lanes in reset and delay PCIE_INIT so
+        // changes to the config can be made after loading parameters
+        // from EEPROM.
+        // let mut software_reset =
+        //     SoftwareReset(self.debug_port.read_direct(
+        //         DirectBarSegment::Bar0,
+        //         TofinoBar0Registers::SoftwareReset,
+        //     )?);
+
+        // software_reset.set_pcie_lanes(0xf); // Bit mask to select lanes.
+        // self.debug_port.write_direct(
+        //     DirectBarSegment::Bar0,
+        //     TofinoBar0Registers::SoftwareReset,
+        //     software_reset,
+        // )?;
+        // ringbuf_entry!(Trace::TofinoBar0RegisterValue(
+        //     TofinoBar0Registers::SoftwareReset,
+        //     self.debug_port.read_direct(
+        //         DirectBarSegment::Bar0,
+        //         TofinoBar0Registers::SoftwareReset
+        //     )?
+        // ));
+
+        // Set additional PCIe reset options.
+        // let mut reset_options =
+        //     ResetOptions(self.debug_port.read_direct(
+        //         DirectBarSegment::Bar0,
+        //         TofinoBar0Registers::ResetOptions,
+        //     )?);
+
+        // reset_options.set_on_pcie_link_down(
+        //     TofinoPcieResetOptions::ControllerAndPhyLanes,
+        // );
+        // reset_options.set_on_pcie_l2_exit(
+        //     TofinoPcieResetOptions::ControllerAndPhyLanes,
+        // );
+        // reset_options.set_on_pcie_host_reset(
+        //     TofinoPcieResetOptions::ControllerAndPhyLanes,
+        // );
+
+        // self.debug_port.write_direct(
+        //     DirectBarSegment::Bar0,
+        //     TofinoBar0Registers::ResetOptions,
+        //     reset_options,
+        // )?;
+        // ringbuf_entry!(Trace::TofinoBar0RegisterValue(
+        //     TofinoBar0Registers::ResetOptions,
+        //     self.debug_port.read_direct(
+        //         DirectBarSegment::Bar0,
+        //         TofinoBar0Registers::ResetOptions
+        //     )?
+        // ));
+
+        // NEW: In this scenario we don't control PERST, we just saw it be deasserted
+        // Release PCIe reset, wait 200ms for the PCIe SerDes parameters
+        // to load and the peripheral to initialize. Log the latched
+        // IDCODE afterwards.
+        // self.sequencer.set_pcie_reset(TofinoPcieReset::Deasserted)?;
+        // hl::sleep_for(200);
+        ringbuf_entry!(Trace::TofinoEepromIdCode(
+            self.debug_port.spi_eeprom_idcode()?
+        ));
+
+        // The EEPROM contents have loaded, scribble over some of the
+        // registers to enable SRIS.
+
+        let set_sris = |r| -> Result<(), SeqError> {
+            let mut pcie_lane_ctrl_pair = PciePhyLaneControlPair(
+                self.debug_port.read_direct(DirectBarSegment::Bar0, r)?,
+            );
+            let mut lane0_ctrl = pcie_lane_ctrl_pair.lane0();
+            let mut lane1_ctrl = pcie_lane_ctrl_pair.lane1();
+
+            lane0_ctrl.set_sris(true);
+            lane1_ctrl.set_sris(true);
+
+            pcie_lane_ctrl_pair.set_lane0(lane0_ctrl.into());
+            pcie_lane_ctrl_pair.set_lane1(lane1_ctrl.into());
+
+            self.debug_port.write_direct(
+                DirectBarSegment::Bar0,
+                r,
+                pcie_lane_ctrl_pair,
+            )?;
+            ringbuf_entry!(Trace::TofinoBar0RegisterValue(
+                r,
+                self.debug_port.read_direct(DirectBarSegment::Bar0, r)?
+            ));
+
+            Ok(())
+        };
+
+        set_sris(TofinoBar0Registers::PciePhyLaneControl0)?;
+        set_sris(TofinoBar0Registers::PciePhyLaneControl1)?;
+
+        // Enable SRIS in the controller in order to adjust the SKP
+        // Ordered Sets interval, allowing the SP3 to keep up with the
+        // faster 100MHz ref clock used by Tofino.
+        let mut pcie_controller = PcieControllerConfiguration(
+            self.debug_port
+                .read_direct(DirectBarSegment::Cfg, TofinoCfgRegisters::KGen)?,
+        );
+        pcie_controller.set_sris(true);
+        self.debug_port.write_direct(
+            DirectBarSegment::Cfg,
+            TofinoCfgRegisters::KGen,
+            pcie_controller,
+        )?;
+        ringbuf_entry!(Trace::TofinoCfgRegisterValue(
+            TofinoCfgRegisters::KGen,
+            self.debug_port
+                .read_direct(DirectBarSegment::Cfg, TofinoCfgRegisters::KGen)?
+        ));
+
+        // NEW: We didn't mess with this before, so we don't need to change it back
+        // Release the PCIe PHY from reset.
+        // software_reset = SoftwareReset(self.debug_port.read_direct(
+        //     DirectBarSegment::Bar0,
+        //     TofinoBar0Registers::SoftwareReset,
+        // )?);
+        // software_reset.set_pcie_lanes(0);
+        // self.debug_port.write_direct(
+        //     DirectBarSegment::Bar0,
+        //     TofinoBar0Registers::SoftwareReset,
+        //     software_reset,
+        // )?;
+        // ringbuf_entry!(Trace::TofinoBar0RegisterValue(
+        //     TofinoBar0Registers::SoftwareReset,
+        //     self.debug_port.read_direct(
+        //         DirectBarSegment::Bar0,
+        //         TofinoBar0Registers::SoftwareReset
+        //     )?
+        // ));
+
+        Ok(())
     }
 
     pub fn report_abort(
