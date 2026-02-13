@@ -12,6 +12,12 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Write;
 use std::fs::File;
 
+/// Outputs from code generation which may be used by other build scripts.
+pub struct CodegenOutputs {
+    pub component_ids_by_sensor_id: Option<BTreeMap<usize, String>>,
+    pub num_i2c_sensors: Option<usize>,
+}
+
 //
 // Our definition of the `Config` type.  We share this type with all other
 // build-specific types; we must not set `deny_unknown_fields` here.
@@ -224,7 +230,7 @@ struct I2cSensors {
 
 #[derive(Clone, Debug, Deserialize, Hash, PartialOrd, PartialEq, Eq, Ord)]
 #[serde(untagged)]
-enum Refdes {
+pub enum Refdes {
     Component(String),
     Path(Vec<String>),
 }
@@ -295,6 +301,7 @@ struct I2cSensorsDescription {
     by_device: MultiMap<DeviceKey, usize>,
     by_name: MultiMap<DeviceNameKey, usize>,
     by_refdes: MultiMap<DeviceRefdesKey, usize>,
+    component_id_by_id: Option<BTreeMap<usize, String>>,
 
     // list of all devices and a list of their sensors, with an optional sensor
     // name (if present)
@@ -304,11 +311,16 @@ struct I2cSensorsDescription {
 }
 
 impl I2cSensorsDescription {
-    fn new(devices: &[I2cDevice]) -> Self {
+    fn new(devices: &[I2cDevice], component_ids: bool) -> Self {
         let mut desc = Self {
             by_device: MultiMap::with_capacity(devices.len()),
             by_name: MultiMap::new(),
             by_refdes: MultiMap::new(),
+            component_id_by_id: if component_ids {
+                Some(BTreeMap::new())
+            } else {
+                None
+            },
             device_sensors: vec![Vec::new(); devices.len()],
             total_sensors: 0,
         };
@@ -401,6 +413,18 @@ impl I2cSensorsDescription {
         }
 
         if let Some(refdes) = d.refdes.clone() {
+            // If we are also generating a LUT of device refdeses by sensor IDs,
+            // do that now...
+            if let Some(ref mut by_id) = self.component_id_by_id {
+                if let Some(prev) = by_id.insert(id, refdes.to_component_id()) {
+                    panic!(
+                        "weird: colliding refdes for sensor ID {id}: {prev:?} \
+                         and {:?}",
+                        d.refdes.as_ref()
+                    );
+                };
+            }
+
             self.by_refdes.insert(
                 DeviceRefdesKey {
                     device: d.device.clone(),
@@ -1571,10 +1595,10 @@ impl ConfigGenerator {
     }
 
     fn sensors_description(&self) -> I2cSensorsDescription {
-        I2cSensorsDescription::new(&self.devices)
+        I2cSensorsDescription::new(&self.devices, self.component_ids)
     }
 
-    pub fn generate_sensors(&mut self) -> Result<()> {
+    fn generate_sensors(&mut self) -> Result<I2cSensorsDescription> {
         let s = self.sensors_description();
 
         write!(
@@ -1665,7 +1689,7 @@ impl ConfigGenerator {
         }
 
         writeln!(&mut self.output, "\n    }}")?;
-        Ok(())
+        Ok(s)
     }
 
     pub fn generate_ports(&mut self) -> Result<()> {
@@ -1709,8 +1733,9 @@ impl From<Disposition> for CodegenSettings {
     }
 }
 
-pub fn codegen(settings: impl Into<CodegenSettings>) -> Result<()> {
+pub fn codegen(settings: impl Into<CodegenSettings>) -> Result<CodegenOutputs> {
     let settings = settings.into();
+    assert_eq!(cfg!(feature = "component-id"), settings.component_ids);
     use std::io::Write;
 
     let out_dir = build_util::out_dir();
@@ -1720,6 +1745,11 @@ pub fn codegen(settings: impl Into<CodegenSettings>) -> Result<()> {
     let mut g = ConfigGenerator::new(settings);
 
     g.generate_header()?;
+
+    let mut outputs = CodegenOutputs {
+        component_ids_by_sensor_id: None,
+        num_i2c_sensors: None,
+    };
 
     match settings.disposition {
         Disposition::Target => {
@@ -1755,7 +1785,9 @@ pub fn codegen(settings: impl Into<CodegenSettings>) -> Result<()> {
 
         Disposition::Sensors => {
             g.generate_devices()?;
-            g.generate_sensors()?;
+            let desc = g.generate_sensors()?;
+            outputs.component_ids_by_sensor_id = desc.component_id_by_id;
+            outputs.num_i2c_sensors = Some(desc.total_sensors);
         }
 
         Disposition::Validation => {
@@ -1768,7 +1800,7 @@ pub fn codegen(settings: impl Into<CodegenSettings>) -> Result<()> {
 
     file.write_all(g.output.as_bytes())?;
 
-    Ok(())
+    Ok(outputs)
 }
 
 pub struct I2cDeviceDescription {
@@ -1838,7 +1870,7 @@ where
 }
 
 impl Refdes {
-    fn to_component_id(&self) -> String {
+    pub fn to_component_id(&self) -> String {
         self.join_with_case(str::make_ascii_uppercase, "/")
     }
 

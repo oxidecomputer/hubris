@@ -148,12 +148,12 @@ task-slots = ["sys", "packrat"]
 
 [tasks.thermal]
 name = "task-thermal"
-features = ["cosmo"]
+features = ["cosmo", "ereport"]
 priority = 8
-max-sizes = {flash = 32768, ram = 8192 }
+max-sizes = {flash = 32768, ram = 16384 }
 stacksize = 6000
 start = true
-task-slots = ["i2c_driver", "sensor", "cosmo_seq", "jefe"]
+task-slots = ["i2c_driver", "sensor", "cosmo_seq", "jefe", "packrat"]
 notifications = ["timer"]
 
 [tasks.power]
@@ -1236,145 +1236,168 @@ name = "A_TS0"
 device = "dimm"
 description = "DIMM A, sensor 0"
 sensors.temperature = 1
+refdes = "J101"
 
 [[config.sensor.devices]]
 name = "A_TS1"
 device = "dimm"
 description = "DIMM A, sensor 1"
 sensors.temperature = 1
-
+refdes = "J101"
 
 [[config.sensor.devices]]
 name = "B_TS0"
 device = "dimm"
 description = "DIMM B, sensor 0"
 sensors.temperature = 1
+refdes = "J102"
 
 [[config.sensor.devices]]
 name = "B_TS1"
 device = "dimm"
 description = "DIMM B, sensor 1"
 sensors.temperature = 1
+refdes = "J102"
 
 [[config.sensor.devices]]
 name = "C_TS0"
 device = "dimm"
 description = "DIMM C, sensor 0"
 sensors.temperature = 1
+refdes = "J103"
 
 [[config.sensor.devices]]
 name = "C_TS1"
 device = "dimm"
 description = "DIMM C, sensor 1"
 sensors.temperature = 1
+refdes = "J103"
 
 [[config.sensor.devices]]
 name = "D_TS0"
 device = "dimm"
 description = "DIMM D, sensor 0"
 sensors.temperature = 1
+refdes = "J104"
 
 [[config.sensor.devices]]
 name = "D_TS1"
 device = "dimm"
 description = "DIMM D, sensor 1"
 sensors.temperature = 1
+refdes = "J104"
 
 [[config.sensor.devices]]
 name = "E_TS0"
 device = "dimm"
 description = "DIMM E, sensor 0"
 sensors.temperature = 1
+refdes = "J105"
 
 [[config.sensor.devices]]
 name = "E_TS1"
 device = "dimm"
 description = "DIMM E, sensor 1"
 sensors.temperature = 1
+refdes = "J105"
 
 [[config.sensor.devices]]
 name = "F_TS0"
 device = "dimm"
 description = "DIMM F, sensor 0"
 sensors.temperature = 1
+refdes = "J106"
 
 [[config.sensor.devices]]
 name = "F_TS1"
 device = "dimm"
 description = "DIMM F, sensor 1"
 sensors.temperature = 1
+refdes = "J106"
 
 [[config.sensor.devices]]
 name = "G_TS0"
 device = "dimm"
 description = "DIMM G, sensor 0"
 sensors.temperature = 1
+refdes = "J107"
 
 [[config.sensor.devices]]
 name = "G_TS1"
 device = "dimm"
 description = "DIMM G, sensor 1"
 sensors.temperature = 1
+refdes = "J107"
 
 [[config.sensor.devices]]
 name = "H_TS0"
 device = "dimm"
 description = "DIMM H, sensor 0"
 sensors.temperature = 1
+refdes = "J108"
 
 [[config.sensor.devices]]
 name = "H_TS1"
 device = "dimm"
 description = "DIMM H, sensor 1"
 sensors.temperature = 1
+refdes = "J108"
 
 [[config.sensor.devices]]
 name = "I_TS0"
 device = "dimm"
 description = "DIMM I, sensor 0"
 sensors.temperature = 1
+refdes = "J109"
 
 [[config.sensor.devices]]
 name = "I_TS1"
 device = "dimm"
 description = "DIMM I, sensor 1"
 sensors.temperature = 1
+refdes = "J109"
 
 [[config.sensor.devices]]
 name = "J_TS0"
 device = "dimm"
 description = "DIMM J, sensor 0"
 sensors.temperature = 1
+refdes = "J110"
 
 [[config.sensor.devices]]
 name = "J_TS1"
 device = "dimm"
 description = "DIMM J, sensor 1"
 sensors.temperature = 1
+refdes = "J110"
 
 [[config.sensor.devices]]
 name = "K_TS0"
 device = "dimm"
 description = "DIMM K, sensor 0"
 sensors.temperature = 1
+refdes = "J111"
 
 [[config.sensor.devices]]
 name = "K_TS1"
 device = "dimm"
 description = "DIMM K, sensor 1"
 sensors.temperature = 1
+refdes = "J111"
 
 [[config.sensor.devices]]
 name = "L_TS0"
 device = "dimm"
 description = "DIMM L, sensor 0"
 sensors.temperature = 1
+refdes = "J112"
 
 [[config.sensor.devices]]
 name = "L_TS1"
 device = "dimm"
 description = "DIMM L, sensor 1"
 sensors.temperature = 1
+refdes = "J112"
 
 ################################################################################
 [config.spi.spi2]

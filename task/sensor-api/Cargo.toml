@@ -16,6 +16,7 @@ counters = { path = "../../lib/counters" }
 drv-i2c-api.path = "../../drv/i2c-api"
 derive-idol-err.path = "../../lib/derive-idol-err"
 userlib.path = "../../sys/userlib"
+fixedstr = { path = "../../lib/fixedstr", optional = true }
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
@@ -38,6 +39,8 @@ h753 = ["build-i2c/h753"]
 # Include component ID strings in I2cDevice structs. This is necessary if
 # `drv-i2c-api` is built with the `component-id` feature.
 component-id = ["drv-i2c-api/component-id"]
+# Also generate a table of component IDs by sensor ID.
+component-id-lookup = ["component-id", "fixedstr"]
 
 [lints]
 workspace = true

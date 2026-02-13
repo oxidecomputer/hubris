@@ -116,6 +116,18 @@ enum Trace {
     RemovedDynamicInput(usize),
     SetFanWatchdogOk,
     SetFanWatchdogError(ThermalError),
+    #[cfg(feature = "ereport")]
+    EreportSent {
+        len: usize,
+    },
+    #[cfg(feature = "ereport")]
+    EreportLost {
+        len: usize,
+        #[count(children)]
+        err: task_packrat_api::EreportWriteError,
+    },
+    #[cfg(feature = "ereport")]
+    EreportTooBig,
 }
 counted_ringbuf!(Trace, 32, Trace::None);
 
@@ -126,6 +138,7 @@ struct ServerImpl<'a> {
     control: ThermalControl<'a>,
     deadline: u64,
     runtime: u64,
+    ereporter: ereport::Ereporter,
 }
 
 const TIMER_INTERVAL: u64 = 1000;
@@ -324,7 +337,9 @@ impl<'a> NotificationHandler for ServerImpl<'a> {
                     //
                     // (if things actually overheat, `run_control` will cut
                     //  power to the system)
-                    if let Err(e) = self.control.run_control() {
+                    if let Err(e) =
+                        self.control.run_control(&mut self.ereporter)
+                    {
                         ringbuf_entry!(Trace::ControlError(e));
                     }
                 }
@@ -341,6 +356,7 @@ impl<'a> NotificationHandler for ServerImpl<'a> {
             }
             self.deadline = now + TIMER_INTERVAL;
         }
+        self.ereporter.flush_pending();
         // We can use wrapping arithmetic here because the timer is monotonic.
         self.runtime = sys_get_timer().now.wrapping_sub(now);
         sys_set_timer(Some(self.deadline), notifications::TIMER_MASK);
@@ -368,6 +384,7 @@ fn main() -> ! {
         control,
         deadline,
         runtime: 0,
+        ereporter: ereport::Ereporter::claim_static_resources(),
     };
     if bsp::USE_CONTROLLER {
         server.set_mode_auto().unwrap_lite();
@@ -393,3 +410,21 @@ mod idl {
 include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
+
+////////////////////////////////////////////////////////////////////////////////
+
+// Stub ereport module to make initialization simpler when compiled sans
+// ereports.
+#[cfg(not(feature = "ereport"))]
+mod ereport {
+    pub(crate) struct Ereporter {}
+
+    impl Ereporter {
+        pub(crate) fn claim_static_resources() -> Self {
+            Self {}
+        }
+    }
+}
+
+#[cfg(feature = "ereport")]
+mod ereport;
