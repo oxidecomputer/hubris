@@ -292,6 +292,40 @@ impl TxBuf {
         let n = corncobs::encode_buf(&self.msg[..msg_len], &mut self.pkt[1..]);
         self.state = State::ToSend(0..n + 1);
     }
+
+    // Copies a "raw" slice of bytes into the output packet buffer.
+    pub(crate) fn try_copy_raw_data(&mut self, bs: &[u8]) -> Result<usize, ()> {
+        let n = usize::min(self.pkt.len() - 2, bs.len());
+        if bs[..n].contains(&0) {
+            return Err(());
+        }
+        let end = n + 1;
+        self.pkt[0] = 0;
+        self.pkt[1..end].copy_from_slice(&bs[..n]);
+        self.pkt[end] = 0;
+        self.state = State::ToSend(0..end + 1);
+        Ok(n)
+    }
+
+    pub(crate) fn try_fill(
+        &mut self,
+        it: &mut impl Iterator<Item = u8>,
+    ) -> Result<(), ()> {
+        let max = self.pkt.len() - 2;
+        let mut idx = 0;
+        self.pkt[idx] = 0;
+        idx += 1;
+        for b in it.take(max) {
+            if b == 0 {
+                return Err(());
+            }
+            self.pkt[idx] = b;
+            idx += 1;
+        }
+        self.pkt[idx] = 0;
+        self.state = State::ToSend(0..idx + 1);
+        Ok(())
+    }
 }
 
 enum State {
