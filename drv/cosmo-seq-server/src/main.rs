@@ -739,6 +739,8 @@ impl ServerImpl {
     fn poll_interval(&self) -> Option<u32> {
         match self.state {
             PowerState::A0 => Some(10),
+            // we are hoping that a VRM fault will be clearable soon...
+            _ if self.vcore.is_faulted() => Some(100),
             PowerState::A0PlusHP => Some(1000),
             _ => None,
         }
@@ -874,12 +876,12 @@ impl ServerImpl {
             // https://github.com/oxidecomputer/quartz/blob/bdc5fb31e1905a1b66c19647fe2d156dd1b97b7b/hdl/projects/cosmo_seq/sequencer/sequencer_regs.vhd#L243-L246
             let now = sys_get_timer().now;
             ringbuf_entry!(Trace::PmbusAlert { now });
-            let which_rails = vcore::Rails {
-                vddcr_cpu0: ifr.pwr_cont1_to_fpga1_alert,
-                vddcr_cpu1: ifr.pwr_cont2_to_fpga1_alert,
+            let which_vrms = vcore::Vrms {
+                pwr_cont1: ifr.pwr_cont1_to_fpga1_alert,
+                pwr_cont2: ifr.pwr_cont2_to_fpga1_alert,
             };
             self.vcore
-                .handle_pmbus_alert(which_rails, now, self.ereport_buf);
+                .handle_pmbus_alert(which_vrms, now, self.ereport_buf);
 
             // We need not instruct the sequencer to reset. PMBus alerts from
             // the RAA229620As are divided into two categories, "warnings" and
@@ -888,6 +890,12 @@ impl ServerImpl {
             // POWER_GOOD is deasserted, the sequencer FPGA will notice that and
             // generate a subsequent IRQ, which is handled separately. So, all
             // we need to do here is proceed and handle any other interrupts.
+
+            // HERES THE SILLY PART
+            self.seq.ier.modify(|ier| {
+                ier.set_pwr_cont1_to_fpga1_alert(!ifr.pwr_cont1_to_fpga1_alert);
+                ier.set_pwr_cont2_to_fpga1_alert(!ifr.pwr_cont2_to_fpga1_alert);
+            });
             action = InternalAction::None;
         }
 
@@ -1075,6 +1083,19 @@ impl NotificationHandler for ServerImpl {
                 StateChangeReason::InitialPowerOn,
             )
             .unwrap(); // this should be infallible
+        }
+
+        if self.vcore.is_faulted() {
+            let vcore::Vrms {
+                pwr_cont1,
+                pwr_cont2,
+            } = self.vcore.can_we_unmask_any_vrm_irqs_again(); // ...please?
+
+            // okay, great!
+            self.seq.ier.modify(|ier| {
+                ier.set_pwr_cont1_to_fpga1_alert(pwr_cont1);
+                ier.set_pwr_cont2_to_fpga1_alert(pwr_cont2);
+            });
         }
 
         // If Hubris thinks the system is up, do some basic checks

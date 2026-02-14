@@ -9,6 +9,7 @@ use crate::{
     VoltageSensor,
 };
 use drv_i2c_api::*;
+use pmbus::commands::raa229620a;
 use pmbus::commands::raa229620a::*;
 use pmbus::commands::CommandCode;
 use pmbus::*;
@@ -109,14 +110,47 @@ impl Raa229620A {
         }
     }
 
-    pub fn clear_faults(&self) -> Result<(), Error> {
-        pmbus_write!(self.device, CLEAR_FAULTS)
+    pub fn clear_faults(&self) -> Result<STATUS_WORD::CommandData, Error> {
+        use pmbus::commands::raa229620a::{CommandCode, PAGE};
+        // Per the PMBus spec, `CLEAR_FAULTS` is paged. Sending an un-paged
+        // `CLEAR_FAULTS` doesn't clear all faults, you need to send page `0xff`
+        // to do that:
+        //
+        // > Commands to clear a bit are gated by the PAGE command. The
+        // > CLEAR_FAULTS can be made to clear all faults on all pages by
+        // > setting the page command to FFh.
+        // > --- PMBus Power System Mgt Protocol Specification – Part II –
+        // >     Revision 1.3.1_; section 10.3 (pp 44)
+
+        self.device
+            .write_write(
+                &[PAGE::CommandData::code(), self.rail],
+                &[CommandCode::CLEAR_FAULTS as u8],
+            )
+            .map_err(|code| Error::BadWrite {
+                cmd: CommandCode::CLEAR_FAULTS as u8,
+                code,
+            })?;
+        self.status_word()
     }
 
     pub fn set_vin_uv_warn_limit(&self, value: Volts) -> Result<(), Error> {
         let mut vin = VIN_UV_WARN_LIMIT::CommandData(0);
         vin.set(pmbus::units::Volts(value.0))?;
         pmbus_rail_write!(self.device, self.rail, VIN_UV_WARN_LIMIT, vin)
+    }
+
+    pub fn clear_vin_fault_and_warning_bits_specifically(
+        &self,
+    ) -> Result<STATUS_INPUT::CommandData, Error> {
+        // CLEAR YOUR GODDAMN FAULTS I HATE YOU SO MUCH
+        pmbus_rail_write!(
+            self.device,
+            self.rail,
+            STATUS_INPUT,
+            STATUS_INPUT::CommandData(0)
+        );
+        self.status_input()
     }
 
     pub fn read_vin(&self) -> Result<Volts, Error> {

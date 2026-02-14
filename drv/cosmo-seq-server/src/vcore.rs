@@ -24,15 +24,20 @@ pub(super) struct VCore {
     vddcr_cpu0: Raa229620A,
     /// `PWR_CONT2`: This regulator controls `VDDCR_CPU1` and `VDDIO_SP5` rails.
     vddcr_cpu1: Raa229620A,
+    faulted: Vrms,
     packrat: task_packrat_api::Packrat,
 }
 
 #[derive(Copy, Clone, PartialEq, microcbor::Encode)]
 pub(crate) enum Rail {
-    #[cbor(rename = "VDDCR_CPU0")]
+    #[cbor(rename = "VDDCR_CPU0_A0")]
     VddcrCpu0,
-    #[cbor(rename = "VDDCR_CPU1")]
+    #[cbor(rename = "VDDCR_CPU1_A0")]
     VddcrCpu1,
+    // #[cbor(rename = "VDDCR_SOC_A0")]
+    // VddcrSoc,
+    // #[cbor(rename = "VDDIO_SP5_A0")]
+    // VddioSp5,
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -49,10 +54,17 @@ enum Trace {
     Initializing,
     Initialized,
     LimitsLoaded,
-    FaultsCleared(Rails),
+    FaultsCleared {
+        rail: Rail,
+        status_word: u16,
+    },
+    ClearedStatusInput {
+        rail: Rail,
+        status_input: u8,
+    },
     PmbusAlert {
         timestamp: u64,
-        rails: Rails,
+        vrms: Vrms,
     },
     Reading {
         timestamp: u64,
@@ -63,6 +75,10 @@ enum Trace {
         rail: Rail,
         power_good: bool,
         faulted: bool,
+    },
+    StatusWords {
+        vddcr_cpu0: Result<u16, ResponseCode>,
+        vddcr_cpu1: Result<u16, ResponseCode>,
     },
     StatusWord(Rail, Result<u16, ResponseCode>),
     StatusInput(Rail, Result<u8, ResponseCode>),
@@ -75,9 +91,15 @@ enum Trace {
 }
 
 #[derive(Copy, Clone, PartialEq)]
-pub struct Rails {
-    pub vddcr_cpu0: bool,
-    pub vddcr_cpu1: bool,
+pub struct Vrms {
+    pub pwr_cont1: bool,
+    pub pwr_cont2: bool,
+}
+
+impl Vrms {
+    pub fn either_of_them(&self) -> bool {
+        self.pwr_cont1 || self.pwr_cont2
+    }
 }
 
 ringbuf!(Trace, 60, Trace::None);
@@ -88,7 +110,7 @@ ringbuf!(Trace, 60, Trace::None);
 /// lose POWER_GOOD), but the part will indicate an input fault and pull
 /// on its PMBus alert pin.
 ///
-const VCORE_UV_WARN_LIMIT: units::Volts = units::Volts(11.75);
+const VCORE_UV_WARN_LIMIT: units::Volts = units::Volts(11.0);
 
 ///
 /// We want to collect enough samples (at ~900µs per sample per regulator, or
@@ -108,14 +130,23 @@ impl VCore {
 
         let (device, rail) = i2c_config::pmbus::vddcr_cpu1_a0(i2c);
         let vddcr_cpu1 = Raa229620A::new(&device, rail);
+
         Self {
             vddcr_cpu0,
             vddcr_cpu1,
+            faulted: Vrms {
+                pwr_cont1: false,
+                pwr_cont2: false,
+            },
             packrat,
         }
     }
 
-    pub fn initialize_uv_warning(&self) -> Result<(), ResponseCode> {
+    pub fn is_faulted(&self) -> bool {
+        self.faulted.pwr_cont1 || self.faulted.pwr_cont2
+    }
+
+    pub fn initialize_uv_warning(&mut self) -> Result<(), ResponseCode> {
         ringbuf_entry!(Trace::Initializing);
 
         // Set our warn limit
@@ -128,10 +159,10 @@ impl VCore {
         ringbuf_entry!(Trace::LimitsLoaded);
 
         // Clear our faults
-        self.clear_faults(Rails {
-            vddcr_cpu0: true,
-            vddcr_cpu1: true,
-        })?;
+        self.try_to_clear_faults(Vrms {
+            pwr_cont1: true,
+            pwr_cont2: true,
+        });
 
         // The higher-level sequencer code will unmask the FPGA interrupts for
         // our guys.
@@ -141,52 +172,79 @@ impl VCore {
         Ok(())
     }
 
-    pub fn clear_faults(&self, which_rails: Rails) -> Result<(), ResponseCode> {
-        if which_rails.vddcr_cpu0 {
-            retry_i2c_txn(Rail::VddcrCpu0, PmbusCmd::ClearFaults, || {
-                self.vddcr_cpu0.clear_faults()
-            })?;
+    pub fn can_we_unmask_any_vrm_irqs_again(&mut self) -> Vrms {
+        self.try_to_clear_faults(self.faulted);
+        Vrms {
+            pwr_cont1: !self.faulted.pwr_cont1,
+            pwr_cont2: !self.faulted.pwr_cont2,
+        }
+    }
+
+    fn try_to_clear_faults(&mut self, which_vrms: Vrms) {
+        fn clear_faults_on_rail(
+            rail: Rail,
+            dev: &Raa229620A,
+        ) -> Result<u16, ResponseCode> {
+            retry_i2c_txn(rail, PmbusCmd::ClearFaults, || {
+                dev.clear_faults().map(|s| s.0)
+            })
         }
 
-        if which_rails.vddcr_cpu1 {
-            retry_i2c_txn(Rail::VddcrCpu1, PmbusCmd::ClearFaults, || {
-                self.vddcr_cpu1.clear_faults()
-            })?;
-        }
+        let vddcr_cpu0 = if which_vrms.pwr_cont1 {
+            clear_faults_on_rail(Rail::VddcrCpu0, &self.vddcr_cpu0)
+        } else {
+            Ok(0)
+        };
 
-        ringbuf_entry!(Trace::FaultsCleared(which_rails));
+        let vddcr_cpu1 = if which_vrms.pwr_cont2 {
+            clear_faults_on_rail(Rail::VddcrCpu1, &self.vddcr_cpu1)
+        } else {
+            Ok(0)
+        };
 
-        Ok(())
+        ringbuf_entry!(Trace::StatusWords {
+            vddcr_cpu0,
+            vddcr_cpu1
+        });
+
+        self.faulted.pwr_cont1 = vddcr_cpu0 == Ok(0);
+        self.faulted.pwr_cont2 = vddcr_cpu1 == Ok(0);
     }
 
     pub fn handle_pmbus_alert(
-        &self,
-        mut rails: Rails,
+        &mut self,
+        mut vrms: Vrms,
         now: u64,
         ereport_buf: &mut [u8],
     ) {
         ringbuf_entry!(Trace::PmbusAlert {
             timestamp: now,
-            rails,
+            vrms,
         });
+        let mut input_fault = false;
+        if !self.faulted.pwr_cont1 {
+            let state = self.record_pmbus_status(
+                now,
+                Rail::VddcrCpu0,
+                vrms.pwr_cont1,
+                ereport_buf,
+            );
+            input_fault |= state.input_fault;
+            vrms.pwr_cont1 |= state.faulted;
+        }
 
-        let cpu0_state = self.record_pmbus_status(
-            now,
-            Rail::VddcrCpu0,
-            rails.vddcr_cpu0,
-            ereport_buf,
-        );
-        rails.vddcr_cpu0 |= cpu0_state.faulted;
+        if !self.faulted.pwr_cont2 {
+            let state = self.record_pmbus_status(
+                now,
+                Rail::VddcrCpu1,
+                vrms.pwr_cont1,
+                ereport_buf,
+            );
+            input_fault |= state.input_fault;
+            vrms.pwr_cont2 |= state.faulted;
+        }
 
-        let cpu1_state = self.record_pmbus_status(
-            now,
-            Rail::VddcrCpu1,
-            rails.vddcr_cpu1,
-            ereport_buf,
-        );
-        rails.vddcr_cpu1 |= cpu1_state.faulted;
-
-        if cpu0_state.input_fault || cpu1_state.input_fault {
+        if input_fault {
             for _ in 0..VCORE_NSAMPLES {
                 let vddcr_cpu0_vin =
                     self.vddcr_cpu0.read_vin().unwrap_or_else(|e| {
@@ -214,7 +272,7 @@ impl VCore {
                 //
                 // Record our readings, along with a timestamp. On the one hand,
                 // it's a little exceesive to record a timestamp on every
-                // reading: it's in milliseconds, and because it takes ~900µs
+                // reading: it's in milliseconds, and because it takes ~900µs``ws
                 // per reading (so ~1800us to read from both regulators), we
                 // expect the timestamp to (basically) be incremented by 2 with
                 // every reading (with a duplicate timestamp occuring every ~7-9
@@ -248,7 +306,7 @@ impl VCore {
         //
         // TODO(eliza): we will want to handle a shut down regulator more
         // intelligently in future...
-        let _ = self.clear_faults(rails);
+        self.try_to_clear_faults(vrms);
     }
 
     fn record_pmbus_status(
