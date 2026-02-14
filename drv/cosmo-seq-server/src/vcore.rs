@@ -207,8 +207,8 @@ impl VCore {
             vddcr_cpu1
         });
 
-        self.faulted.pwr_cont1 = vddcr_cpu0 == Ok(0);
-        self.faulted.pwr_cont2 = vddcr_cpu1 == Ok(0);
+        self.faulted.pwr_cont1 = vddcr_cpu0 != Ok(0);
+        self.faulted.pwr_cont2 = vddcr_cpu1 != Ok(0);
     }
 
     pub fn handle_pmbus_alert(
