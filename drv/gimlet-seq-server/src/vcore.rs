@@ -66,12 +66,39 @@ enum Trace {
 ringbuf!(Trace, 120, Trace::None);
 
 ///
-/// We are going to set our input undervoltage warn limit to be 11.75 volts.
+/// Limit value for input undervoltage *warnings*.
 /// Note that we will not fault if VIN goes below this (that is, we will not
 /// lose POWER_GOOD), but the part will indicate an input fault and pull
-/// PWR_CONT1_VCORE_TO_SP_ALERT_L low.
+/// on its PMBus alert pin.
 ///
-const VCORE_UV_WARN_LIMIT: units::Volts = units::Volts(11.75);
+/// * * *
+///
+/// Okay, so this number is actually a bit finnicky.  Per the RAA229618
+/// datasheet, in the documentation for the `VIN_UV_FAULT_RESPONSE` register,
+/// we find the following (emphasis mine):
+///
+/// > Configures the input undervoltage fault response. For a fault to be
+/// > considered cleared, **the input voltage must rise by 1/16th of the UV
+/// > fault threshold value.**
+/// >
+/// > --- R16DS0096EU0100 Rev.1.00 § 10.39, "VIN_UV_FAULT_RESPONSE" (pp. 61)
+///
+/// While the documentation does not explicitly state that this also applies
+/// to *warnings* (and there is no corresponding `VIN_UV_WARN_RESPONSE`
+/// register, as the response is always just to assert the PMBus alert pin),
+/// it stands to reason that warnings would also only clear when voltage
+/// rises by 1/16th of the warning threshold value.  Empirical testing reveals
+/// that this is indeed the case.
+///
+/// So, the important thing here is that, when selecting a warning threshold,
+/// we must ensure that `lim + (1/16 * lim)` is less than the expected nominal
+/// input voltage, or else the warning will not clear even if the input voltage
+/// returns to nominal.
+///
+/// For a 12V input, 11V seems like a reasonable undervoltage warning limit.
+/// 1/16 * 11V = 0.6875V, so the warning will clear if the input voltage rises
+/// by at least 11.6875V.
+const VCORE_UV_WARN_LIMIT: units::Volts = units::Volts(11.0);
 
 ///
 /// We want to collect enough samples (at ~900µs per sample) to adequately
