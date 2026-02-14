@@ -5,6 +5,10 @@
 #![no_std]
 #![no_main]
 
+mod slot;
+
+use slot::{Slot, SlotOffset, SlotPageOffset};
+
 use drv_auxflash_api::{
     AuxFlashBlob, AuxFlashChecksum, AuxFlashError, AuxFlashId,
     TlvcReadAuxFlash, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES, SLOT_COUNT,
@@ -14,7 +18,7 @@ use idol_runtime::{
     ClientError, Leased, NotificationHandler, RequestError, R, W,
 };
 use tlvc::{TlvcRead, TlvcReadError, TlvcReader};
-use userlib::{hl, task_slot, RecvMessage, UnwrapLite};
+use userlib::{hl, task_slot, RecvMessage};
 
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
@@ -30,7 +34,7 @@ task_slot!(SYS, sys);
 #[derive(Copy, Clone)]
 struct SlotReader<'a> {
     qspi: &'a Qspi,
-    base: u32,
+    base: Slot,
 }
 
 impl<'a> TlvcRead for SlotReader<'a> {
@@ -40,14 +44,17 @@ impl<'a> TlvcRead for SlotReader<'a> {
         // Hard-coded slot size, on a per-board basis
         Ok(SLOT_SIZE as u64)
     }
+
     fn read_exact(
         &self,
         offset: u64,
         dest: &mut [u8],
     ) -> Result<(), TlvcReadError<Self::Error>> {
-        let addr: u32 = self.base + u32::try_from(offset).unwrap_lite();
+        let offset =
+            SlotOffset::try_from(offset).map_err(TlvcReadError::User)?;
+        let addr = self.base.with_offset(offset);
         self.qspi
-            .read_memory(addr, dest)
+            .read_memory(addr as u32, dest)
             .map_err(|x| TlvcReadError::User(qspi_to_auxflash(x)))?;
         Ok(())
     }
@@ -87,8 +94,14 @@ fn main() -> ! {
         5 // 200MHz kernel / 5 = 40MHz clock
     };
     const MEMORY_SIZE: usize = SLOT_COUNT as usize * SLOT_SIZE;
-    assert!(MEMORY_SIZE.is_power_of_two());
-    let memory_size_log2 = MEMORY_SIZE.trailing_zeros().try_into().unwrap();
+    let memory_size_log2 = const {
+        assert!(MEMORY_SIZE.is_power_of_two());
+        let memory_size_log2 = MEMORY_SIZE.trailing_zeros();
+        if memory_size_log2 > u8::MAX as u32 {
+            panic!();
+        }
+        memory_size_log2 as u8
+    };
     qspi.configure(clock, memory_size_log2);
 
     // This driver is compatible with Sidecar, Cosmo, and Grapefruit; Gimlet
@@ -151,7 +164,7 @@ fn main() -> ! {
 
 struct ServerImpl {
     qspi: Qspi,
-    active_slot: Option<u32>,
+    active_slot: Option<Slot>,
 }
 
 impl ServerImpl {
@@ -189,7 +202,7 @@ impl ServerImpl {
 
     fn read_slot_checksum(
         &self,
-        slot: u32,
+        slot: Slot,
     ) -> Result<AuxFlashChecksum, AuxFlashError> {
         read_and_check_slot_checksum(&self.qspi, slot)
     }
@@ -201,7 +214,7 @@ impl ServerImpl {
         let active_slot =
             self.active_slot.ok_or(AuxFlashError::NoActiveSlot)?;
 
-        let spare_slot = active_slot ^ 1;
+        let spare_slot = active_slot.get_redundant_slot();
         let spare_checksum = self.read_slot_checksum(spare_slot);
         if spare_checksum.map(|c| c.0) == Ok(AUXI_CHECKSUM) {
             return Ok(());
@@ -210,33 +223,43 @@ impl ServerImpl {
         // Find the length of data by finding the final TLV-C slot
         let handle = SlotReader {
             qspi: &self.qspi,
-            base: active_slot * SLOT_SIZE as u32,
+            base: active_slot,
         };
         let mut reader = TlvcReader::begin(handle)
             .map_err(|_| AuxFlashError::TlvcReaderBeginFailed)?;
         while let Ok(Some(..)) = reader.next() {
             // Nothing to do here
         }
-        let data_size = SLOT_SIZE - reader.remaining() as usize;
+        // SAFETY: Saturating subtract from SLOT_SIZE cannot produce a value
+        // larger than SLOT_SIZE.
+        let end_offset = unsafe {
+            SlotOffset::new_unchecked(
+                // FIXME: it'd be nice to have a .position() API on reader.
+                SLOT_SIZE.saturating_sub(reader.remaining() as usize),
+            )
+        };
 
         let mut buf = [0u8; PAGE_SIZE_BYTES];
-        let mut read_addr = active_slot as usize * SLOT_SIZE;
-        let mut write_addr = spare_slot as usize * SLOT_SIZE;
-        let read_end = read_addr + data_size;
-        while read_addr < read_end {
-            let amount = (read_end - read_addr).min(buf.len());
-
+        for (read_range, write_range) in active_slot
+            .as_chunks::<PAGE_SIZE_BYTES>(SlotOffset::ZERO..end_offset)
+            .zip(
+                spare_slot
+                    .as_chunks::<PAGE_SIZE_BYTES>(SlotOffset::ZERO..end_offset),
+            )
+        {
+            debug_assert_eq!(read_range.len(), write_range.len());
+            let amount = read_range.len();
             // Read from the active slot
             self.qspi
-                .read_memory(read_addr as u32, &mut buf[..amount])
+                .read_memory(read_range.start as u32, &mut buf[..amount])
                 .map_err(qspi_to_auxflash)?;
 
             // If we're at the start of a sector, erase it before we start
             // writing the copy.
-            if write_addr.is_multiple_of(SECTOR_SIZE_BYTES) {
+            if write_range.start.is_multiple_of(SECTOR_SIZE_BYTES) {
                 self.set_and_check_write_enable()?;
                 self.qspi
-                    .sector_erase(write_addr as u32)
+                    .sector_erase(write_range.start as u32)
                     .map_err(qspi_to_auxflash)?;
                 self.poll_for_write_complete(Some(1))?;
             }
@@ -244,12 +267,9 @@ impl ServerImpl {
             // Write back to the redundant slot
             self.set_and_check_write_enable()?;
             self.qspi
-                .page_program(write_addr as u32, &buf[..amount])
+                .page_program(write_range.start as u32, &buf[..amount])
                 .map_err(qspi_to_auxflash)?;
             self.poll_for_write_complete(None)?;
-
-            read_addr += amount;
-            write_addr += amount;
         }
 
         // Confirm that the spare write worked
@@ -311,7 +331,7 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         _: &RecvMessage,
         slot: u32,
     ) -> Result<AuxFlashChecksum, RequestError<AuxFlashError>> {
-        Ok(self.read_slot_checksum(slot)?)
+        Ok(self.read_slot_checksum(Slot::try_from(slot)?)?)
     }
 
     fn erase_slot(
@@ -319,22 +339,13 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         _: &RecvMessage,
         slot: u32,
     ) -> Result<(), RequestError<AuxFlashError>> {
-        if slot >= SLOT_COUNT {
-            return Err(AuxFlashError::InvalidSlot.into());
-        }
-        let mem_start = slot as usize * SLOT_SIZE;
-        let mem_end = mem_start + SLOT_SIZE;
-        if mem_end > u32::MAX as usize {
-            return Err(AuxFlashError::AddressOverflow.into());
-        }
+        let slot = Slot::try_from(slot).map_err(RequestError::from)?;
 
-        let mut addr = mem_start;
-        while addr < mem_end {
+        for addr in slot.as_sectors() {
             self.set_and_check_write_enable()?;
             self.qspi
                 .sector_erase(addr as u32)
                 .map_err(qspi_to_auxflash)?;
-            addr += SECTOR_SIZE_BYTES;
             self.poll_for_write_complete(Some(1))?;
         }
         Ok(())
@@ -346,16 +357,11 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         slot: u32,
         offset: u32,
     ) -> Result<(), RequestError<AuxFlashError>> {
-        if slot >= SLOT_COUNT {
-            return Err(AuxFlashError::InvalidSlot.into());
-        }
-        if offset >= SLOT_SIZE as u32 {
-            return Err(AuxFlashError::AddressOverflow.into());
-        }
-        let addr = slot as usize * SLOT_SIZE + offset as usize;
-        if addr > u32::MAX as usize {
-            return Err(AuxFlashError::AddressOverflow.into());
-        }
+        // FIXME: idol does not mention anything about offset having to be a
+        // multiple of 256 whereas all other offset APIs do; should this require
+        // and check that as well?
+        let addr = Slot::address_with_offset(slot, offset)
+            .map_err(RequestError::from)?;
 
         self.set_and_check_write_enable()?;
         self.qspi
@@ -372,36 +378,41 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         offset: u32,
         data: Leased<R, [u8]>,
     ) -> Result<(), RequestError<AuxFlashError>> {
+        // FIXME: idol documentation says offset must be a multiple of 256 but
+        // that is not checked here at all; should it be? Must data.len() also
+        // be a multiple of 256?
+        let slot = Slot::try_from(slot).map_err(RequestError::from)?;
         if Some(slot) == self.active_slot {
             return Err(AuxFlashError::SlotActive.into());
         }
-        if !(offset as usize).is_multiple_of(PAGE_SIZE_BYTES) {
-            return Err(AuxFlashError::UnalignedAddress.into());
-        } else if offset as usize + data.len() > SLOT_SIZE {
-            return Err(AuxFlashError::AddressOverflow.into());
-        }
-        let mem_start = (slot as usize * SLOT_SIZE) + offset as usize;
-        let mem_end = mem_start + data.len();
-        if mem_end > u32::MAX as usize {
-            return Err(AuxFlashError::AddressOverflow.into());
-        }
+        let offset =
+            SlotPageOffset::try_from(offset).map_err(RequestError::from)?;
+        let end_offset = offset.add(data.len()).map_err(RequestError::from)?;
 
         // The flash chip has a limited write buffer!
-        let mut addr = mem_start;
         let mut buf = [0u8; PAGE_SIZE_BYTES];
-        let mut read = 0;
-        while addr < mem_end {
-            let amount = (mem_end - addr).min(buf.len());
-            data.read_range(read..(read + amount), &mut buf[..amount])
+        // FIXME: we'd prefer to use a .zip iterator here but Leased does not
+        // provide an Iterator API that we could use.
+        for chunk in
+            slot.as_chunks::<PAGE_SIZE_BYTES>(SlotOffset::ZERO..end_offset)
+        {
+            let amount = chunk.len();
+            let buf = &mut buf[..amount];
+            // SAFETY: chunk goes from slot..slot+end_offset, data range goes
+            // from 0..end_offset
+            let data_range = unsafe {
+                let start = chunk.start.unchecked_sub(slot.memory_start());
+                let end = chunk.end.unchecked_sub(slot.memory_start());
+                start..end
+            };
+            data.read_range(data_range, buf)
                 .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
 
             self.set_and_check_write_enable()?;
             self.qspi
-                .page_program(addr as u32, &buf[..amount])
+                .page_program(chunk.start as u32, buf)
                 .map_err(qspi_to_auxflash)?;
             self.poll_for_write_complete(None)?;
-            addr += amount;
-            read += amount;
         }
         Ok(())
     }
@@ -413,24 +424,34 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         offset: u32,
         dest: Leased<W, [u8]>,
     ) -> Result<(), RequestError<AuxFlashError>> {
-        if offset as usize + dest.len() > SLOT_SIZE {
-            return Err(AuxFlashError::AddressOverflow.into());
-        }
+        // FIXME: idol documentation says offset must be a multiple of 256 but
+        // that is not checked here at all; should it be? Must dest.len() also
+        // be a multiple of 256?
+        let slot = Slot::try_from(slot).map_err(RequestError::from)?;
+        let start_offset =
+            SlotOffset::try_from(offset).map_err(RequestError::from)?;
+        let end_offset =
+            start_offset.add(dest.len()).map_err(RequestError::from)?;
 
-        let mut addr = (slot as usize * SLOT_SIZE) + offset as usize;
-        let end = addr + dest.len();
-
-        let mut write = 0;
-        let mut buf = [0u8; 256];
-        while addr < end {
-            let amount = (end - addr).min(buf.len());
+        const SIZE: usize = 256;
+        let mut buf = [0u8; SIZE];
+        // FIXME: we'd prefer to use a .zip iterator here but Leased does not
+        // provide an Iterator API that we could use.
+        for chunk in slot.as_chunks::<SIZE>(start_offset..end_offset) {
+            let amount = chunk.len();
+            let buf = &mut buf[..amount];
             self.qspi
-                .read_memory(addr as u32, &mut buf[..amount])
+                .read_memory(chunk.start as u32, buf)
                 .map_err(qspi_to_auxflash)?;
-            dest.write_range(write..(write + amount), &buf[..amount])
+            // SAFETY: chunk goes from slot+start_offset..slot+end_offset, data
+            // range goes from start_offset..end_offset
+            let data_range = unsafe {
+                let start = chunk.start.unchecked_sub(slot.memory_start());
+                let end = chunk.end.unchecked_sub(slot.memory_start());
+                start..end
+            };
+            dest.write_range(data_range, buf)
                 .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
-            write += amount;
-            addr += amount;
         }
         Ok(())
     }
@@ -450,6 +471,7 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         _: &RecvMessage,
     ) -> Result<u32, RequestError<AuxFlashError>> {
         self.active_slot
+            .map(|s| s.value())
             .ok_or_else(|| AuxFlashError::NoActiveSlot.into())
     }
 
@@ -457,7 +479,7 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<(), RequestError<AuxFlashError>> {
-        ServerImpl::ensure_redundancy(self).map_err(Into::into)
+        ServerImpl::ensure_redundancy(self).map_err(RequestError::from)
     }
 
     fn get_blob_by_tag(
@@ -470,10 +492,10 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
             .ok_or_else(|| RequestError::from(AuxFlashError::NoActiveSlot))?;
         let handle = SlotReader {
             qspi: &self.qspi,
-            base: active_slot * SLOT_SIZE as u32,
+            base: active_slot,
         };
         handle
-            .get_blob_by_tag(active_slot, tag)
+            .get_blob_by_tag(active_slot.value(), tag)
             .map_err(RequestError::from)
     }
 }
@@ -489,11 +511,12 @@ impl NotificationHandler for ServerImpl {
     }
 }
 
-fn scan_for_active_slot(qspi: &Qspi) -> Option<u32> {
+fn scan_for_active_slot(qspi: &Qspi) -> Option<Slot> {
     for i in 0..SLOT_COUNT {
         let handle = SlotReader {
             qspi,
-            base: i * SLOT_SIZE as u32,
+            // SAFETY: i is within SLOT_COUNT
+            base: unsafe { Slot::new_unchecked(i) },
         };
 
         let Ok(chck) = handle.read_stored_checksum() else {
@@ -514,7 +537,7 @@ fn scan_for_active_slot(qspi: &Qspi) -> Option<u32> {
         };
 
         if chck == actual {
-            return Some(i);
+            return Some(handle.base);
         }
     }
     None
@@ -522,15 +545,9 @@ fn scan_for_active_slot(qspi: &Qspi) -> Option<u32> {
 
 fn read_and_check_slot_checksum(
     qspi: &Qspi,
-    slot: u32,
+    slot: Slot,
 ) -> Result<AuxFlashChecksum, AuxFlashError> {
-    if slot >= SLOT_COUNT {
-        return Err(AuxFlashError::InvalidSlot);
-    }
-    let handle = SlotReader {
-        qspi,
-        base: slot * SLOT_SIZE as u32,
-    };
+    let handle = SlotReader { qspi, base: slot };
     let claimed = handle.read_stored_checksum()?;
     let actual = handle.calculate_checksum()?;
     if claimed == actual {
