@@ -9,7 +9,6 @@ use crate::{
     VoltageSensor,
 };
 use drv_i2c_api::*;
-use pmbus::commands::raa229620a;
 use pmbus::commands::raa229620a::*;
 use pmbus::commands::CommandCode;
 use pmbus::*;
@@ -138,19 +137,6 @@ impl Raa229620A {
         let mut vin = VIN_UV_WARN_LIMIT::CommandData(0);
         vin.set(pmbus::units::Volts(value.0))?;
         pmbus_rail_write!(self.device, self.rail, VIN_UV_WARN_LIMIT, vin)
-    }
-
-    pub fn clear_vin_fault_and_warning_bits_specifically(
-        &self,
-    ) -> Result<STATUS_INPUT::CommandData, Error> {
-        // CLEAR YOUR GODDAMN FAULTS I HATE YOU SO MUCH
-        pmbus_rail_write!(
-            self.device,
-            self.rail,
-            STATUS_INPUT,
-            STATUS_INPUT::CommandData(0)
-        );
-        self.status_input()
     }
 
     pub fn read_vin(&self) -> Result<Volts, Error> {

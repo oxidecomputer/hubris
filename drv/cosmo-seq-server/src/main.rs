@@ -890,12 +890,35 @@ impl ServerImpl {
             // POWER_GOOD is deasserted, the sequencer FPGA will notice that and
             // generate a subsequent IRQ, which is handled separately. So, all
             // we need to do here is proceed and handle any other interrupts.
-
-            // HERES THE SILLY PART
+            //
+            // However, the only way to make the pins deassert (and thus, the
+            // IRQ go away) is to clear the faults in the regulator.
+            // N.B.: unlike other FPGA sequencer alerts, we cannot clear the
+            // IFR bits for these; they are hot as long as the PMALERT pin from
+            // the RAA229620As is asserted.
+            //
+            // Per the RAA229620A datasheet (R16DS0309EU0200 Rev.2.00, page 36),
+            // clearing the fault in the regulator will deassert PMALERT_L,
+            // releasing the IRQ, but the fault bits to be reset if the fault
+            // condition still exists. This means that if the fault condition
+            // has not cleared yet, the VRM will just immediately reassert
+            // PMALERT_L. Therefore, if we have an ongoing fault condition, we
+            // will mask out the IER bits for the whichever VRM(s) are presently
+            // asserting PMALERT_L, and continue trying to clear the fault in
+            // the timer loop. If the fault clears, we shall then re-enable
+            // interrupts for those VRMs.
+            //
+            // The `vcore` module tells us whether any faults have successfully cleared.
+            let vcore::Vrms {
+                pwr_cont1,
+                pwr_cont2,
+            } = self.vcore.can_we_unmask_any_vrm_irqs_again();
             self.seq.ier.modify(|ier| {
-                ier.set_pwr_cont1_to_fpga1_alert(!ifr.pwr_cont1_to_fpga1_alert);
-                ier.set_pwr_cont2_to_fpga1_alert(!ifr.pwr_cont2_to_fpga1_alert);
+                ier.set_pwr_cont1_to_fpga1_alert(pwr_cont1);
+                ier.set_pwr_cont2_to_fpga1_alert(pwr_cont2);
             });
+
+            // Nothing else need be done unles other IRQs have also fired.
             action = InternalAction::None;
         }
 
