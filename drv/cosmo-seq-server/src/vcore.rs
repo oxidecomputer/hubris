@@ -35,10 +35,6 @@ pub(crate) enum Rail {
     VddcrCpu0,
     #[cbor(rename = "VDDCR_CPU1_A0")]
     VddcrCpu1,
-    // #[cbor(rename = "VDDCR_SOC_A0")]
-    // VddcrSoc,
-    // #[cbor(rename = "VDDIO_SP5_A0")]
-    // VddioSp5,
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -57,7 +53,7 @@ enum Trace {
     LimitsLoaded,
     PmbusAlert {
         timestamp: u64,
-        vrms: Vrms,
+        alerted: Vrms,
     },
     Reading {
         timestamp: u64,
@@ -86,7 +82,7 @@ enum Trace {
 #[derive(Copy, Clone, PartialEq)]
 enum Status {
     NotFaulted,
-    StatusWord(STATUS_WORD::CommandData),
+    StatusWord(u16),
     I2cError(ResponseCode),
 }
 
@@ -95,7 +91,7 @@ impl Status {
         result: Result<STATUS_WORD::CommandData, ResponseCode>,
     ) -> Self {
         match result {
-            Ok(s) => Status::StatusWord(s),
+            Ok(s) => Status::StatusWord(s.0),
             Err(e) => Status::I2cError(e),
         }
     }
@@ -104,14 +100,18 @@ impl Status {
         match self {
             Status::NotFaulted => false,
             Status::StatusWord(word) => {
-                let mut word = *word;
                 // Mask out the "off" bit, as "off" is not a fault.
                 //
                 // This is unfortunately the least annoying way to implement
                 // "test if any bits _other_ than this one are set" in the
                 // `pmbus` crate's current API...
-                word.set_off(STATUS_WORD::Off::PowerNotOff);
-                word.0 != 0
+                let off_mask = {
+                    let mut mask = STATUS_WORD::CommandData(0);
+                    mask.set_off(STATUS_WORD::Off::PowerOff);
+                    !mask.0
+                };
+                // Any other `STATUS_WORD` bits indicate a fault.
+                word & off_mask != 0
             }
             Status::I2cError(_) => true,
         }
@@ -266,7 +266,7 @@ impl VCore {
     ) {
         ringbuf_entry!(Trace::PmbusAlert {
             timestamp: now,
-            vrms,
+            alerted: vrms,
         });
 
         let mut input_fault = false;
