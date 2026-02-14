@@ -828,6 +828,7 @@ impl ServerImpl {
     fn handle_sequencer_interrupt(&mut self) {
         let ifr = self.seq.ifr.view();
         ringbuf_entry!(Trace::SequencerIfr(ifr));
+        let now = sys_get_timer().now;
 
         enum InternalAction {
             Reset,
@@ -874,7 +875,6 @@ impl ServerImpl {
             //
             // See also:
             // https://github.com/oxidecomputer/quartz/blob/bdc5fb31e1905a1b66c19647fe2d156dd1b97b7b/hdl/projects/cosmo_seq/sequencer/sequencer_regs.vhd#L243-L246
-            let now = sys_get_timer().now;
             ringbuf_entry!(Trace::PmbusAlert { now });
             let which_vrms = vcore::Vrms {
                 pwr_cont1: ifr.pwr_cont1_to_fpga1_alert,
@@ -969,17 +969,35 @@ impl ServerImpl {
                 // host_sp_comms will be notified of this change and will
                 // call back into this task to reboot the system (going to
                 // A2 then back into A0)
+                ringbuf_entry!(Trace::SetState {
+                    prev: self.state(),
+                    next: PowerState::A0Reset,
+                    why: StateChangeReason::CpuReset,
+                    now,
+                });
                 self.set_state_internal(PowerState::A0Reset);
             }
             InternalAction::NicMapo => {
                 // Presumably we are in A0+HP, so send us back to A0 so that the
                 // thermal loop will stop trying to talk to the NIC, and hope
                 // the host resequences it.
+                ringbuf_entry!(Trace::SetState {
+                    prev: self.state(),
+                    next: PowerState::A0,
+                    why: StateChangeReason::NicMapo,
+                    now,
+                });
                 self.set_state_internal(PowerState::A0);
             }
             InternalAction::ThermTrip => {
                 // This is a terminal state; we set our state to `A0Thermtrip`
                 // but do not expect any other task to take action right now
+                ringbuf_entry!(Trace::SetState {
+                    prev: self.state(),
+                    next: PowerState::A0Thermtrip,
+                    why: StateChangeReason::ThermTrip,
+                    now,
+                });
                 self.set_state_internal(PowerState::A0Thermtrip);
             }
             InternalAction::Mapo => {
