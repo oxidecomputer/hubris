@@ -49,7 +49,7 @@ task_slot!(THERMAL, thermal);
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
 #[allow(dead_code)]
-#[derive(Copy, Clone, PartialEq, Eq, Count)]
+#[derive(Copy, Clone, PartialEq, Count)]
 enum Trace {
     #[count(skip)]
     None,
@@ -79,6 +79,8 @@ enum Trace {
     DisableFailed(usize, LogicalPortMask),
     ClearDisabledPorts(LogicalPortMask),
     SeqError(SeqError),
+    ModuleTemperatureCritical(u8, Celsius),
+    ModuleTemperaturePowerDown(u8, Celsius),
 }
 
 counted_ringbuf!(Trace, 16, Trace::None);
@@ -335,7 +337,7 @@ impl ServerImpl {
                     model: ThermalProperties {
                         target_temperature: Celsius(65.0),
                         critical_temperature: Celsius(70.0),
-                        power_down_temperature: Celsius(80.0),
+                        power_down_temperature: Some(Celsius(80.0)),
                         temperature_slew_deg_per_sec: 0.5,
                     },
                 })
@@ -429,7 +431,18 @@ impl ServerImpl {
                 // will return a `NotInAutoMode` error if the thermal loop is in
                 // manual mode; this is harmless and will be ignored (instead of
                 // cluttering up the logs).
-                match self.thermal_api.update_dynamic_input(i, m.model) {
+
+                let model = ThermalProperties {
+                    // We do *not* want the thermal loop to power down the whole
+                    // system in response to a transceiver overheating. Instead,
+                    // we will just disable the individual transceiver here.
+                    // Thus, disable power-down on the version of the device's
+                    // thermal properties by setting the
+                    // `power_down_temperature` to `None`.
+                    power_down_temperature: None,
+                    ..m.model
+                };
+                match self.thermal_api.update_dynamic_input(i as u32, model) {
                     Ok(()) | Err(ThermalError::NotInAutoMode) => (),
                     Err(e) => ringbuf_entry!(Trace::ThermalError(i, e)),
                 }
@@ -453,6 +466,25 @@ impl ServerImpl {
                     // We got a temperature! Send it over to the thermal task
                     self.sensor_api
                         .post_now(TRANSCEIVER_TEMPERATURE_SENSORS[i], t.0);
+
+                    if m.model.should_power_down(t) {
+                        // If the module's temperature exceeds the power-down
+                        // threshold, add it to the list of things to disable.
+                        ringbuf_entry!(Trace::ModuleTemperaturePowerDown(
+                            port.0, t
+                        ));
+                        // TODO(eliza): ereport
+                        // TODO(eliza): debounce
+                        to_disable.set(port);
+                    } else if m.model.is_critical(t) {
+                        ringbuf_entry!(Trace::ModuleTemperatureCritical(
+                            port.0, t
+                        ));
+                        // TODO(eliza): ereport
+                        // TODO(eliza): track over critical duration...
+                    }
+                    // TODO(eliza): see if it's nominal again and turn it back
+                    // on...?
                 }
                 // We failed to read a temperature :(
                 //

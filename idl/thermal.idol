@@ -80,13 +80,14 @@ Interface(
         "update_dynamic_input": (
             doc: "Provides a thermal model for a dynamic sensor",
             args: {
-                "index": "usize",
+                "index": "u32",
                 "model": "ThermalProperties",
             },
             reply: Result(
                 ok: "()",
                 err: CLike("ThermalError"),
             ),
+            encoding: Hubpack
         ),
         "remove_dynamic_input": (
             doc: "Removes the given dynamic input, so it is no longer used in the control loop",

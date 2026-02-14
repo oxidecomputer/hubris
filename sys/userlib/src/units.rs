@@ -6,6 +6,8 @@
 //! Tuple structs for units that are useful in the real world
 //!
 
+use hubpack::SerializedSize;
+use serde::{Deserialize, Serialize};
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 /// Degrees Celsius
@@ -19,6 +21,9 @@ use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
     IntoBytes,
     Immutable,
     KnownLayout,
+    Serialize,
+    Deserialize,
+    SerializedSize,
 )]
 #[repr(C)]
 pub struct Celsius(pub f32);

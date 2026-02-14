@@ -11,7 +11,7 @@ use drv_i2c_api::ResponseCode;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
 use userlib::{units::Celsius, *};
-use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
+use zerocopy::{Immutable, IntoBytes, KnownLayout, TryFromBytes};
 
 #[derive(
     Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, counters::Count,
@@ -81,7 +81,7 @@ pub enum ThermalAutoState {
 }
 
 /// Properties for a particular part in the system
-#[derive(Clone, Copy, IntoBytes, FromBytes, Immutable, KnownLayout)]
+#[derive(Clone, Copy, Serialize, Deserialize, SerializedSize)]
 #[repr(C)]
 pub struct ThermalProperties {
     /// Target temperature for this part
@@ -93,7 +93,10 @@ pub struct ThermalProperties {
 
     /// Temperature at which we drop into the A2 power state.  This should be
     /// below the part's nonrecoverable temperature.
-    pub power_down_temperature: Celsius,
+    ///
+    /// If this is `None`, the system will not be sent to A2 due to this part's
+    /// temperature.
+    pub power_down_temperature: Option<Celsius>,
 
     /// Maximum slew rate of temperature, measured in °C per second
     ///
@@ -108,7 +111,11 @@ pub struct ThermalProperties {
 impl ThermalProperties {
     /// Returns whether this part is exceeding its power-down temperature
     pub fn should_power_down(&self, t: Celsius) -> bool {
-        t.0 >= self.power_down_temperature.0
+        if let Some(power_down_temperature) = self.power_down_temperature {
+            t.0 >= power_down_temperature.0
+        } else {
+            false
+        }
     }
 
     /// Returns whether this part is exceeding its critical temperature
@@ -227,6 +234,13 @@ impl From<drv_i2c_devices::pct2075::Error> for SensorReadError {
             BadTempRead { code, .. } => Self::I2cError(code),
         }
     }
+}
+
+#[derive(Clone, Copy, IntoBytes, TryFromBytes, Immutable, KnownLayout)]
+#[repr(u8)]
+pub enum PowerDownMode {
+    System = 1,
+    Transceiver,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
