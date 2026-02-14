@@ -82,16 +82,12 @@ bitflags::bitflags! {
         const A0 = 0b00000010;
         const A0_OR_A2 = Self::A0.bits() | Self::A2.bits();
 
-        // A0+HP: T6 is also active.
-        const HP = 0b00000100;
-
         // Bonus bits for M.2 power, which is switched separately.  We *cannot*
         // read the M.2 drives when they are unpowered; otherwise, we risk
         // locking up the I2C bus (see hardware-gimlet#1804 for the gory
         // details)
-        const M2A = 0b00001000;
-        const M2B = 0b00010000;
-
+        const M2A = 0b00000100;
+        const M2B = 0b00001000;
     }
 }
 
@@ -122,9 +118,7 @@ impl Bsp {
 
     pub fn power_mode(&self) -> PowerBitmask {
         match self.seq.get_state() {
-            state @ PowerState::A0PlusHP
-            | PowerState::A0
-            | PowerState::A0Reset => {
+            PowerState::A0PlusHP | PowerState::A0 | PowerState::A0Reset => {
                 use drv_i2c_devices::max5970;
                 use userlib::units::Ohms;
 
@@ -151,13 +145,6 @@ impl Bsp {
                     // TODO: error handling here?
                     Err(_e) => (),
                 }
-
-                // If we are in A0+HP, also care about T6 temperatures.
-                // Otherwise, it may not be powered.
-                if state == PowerState::A0PlusHP {
-                    out |= PowerBitmask::HP;
-                }
-
                 out
             }
             PowerState::A2
@@ -334,7 +321,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::TMP451_T6_TEMPERATURE_SENSOR,
         ),
         T6_THERMALS,
-        PowerBitmask::HP,
+        PowerBitmask::A0,
         ChannelType::MustBePresent,
     ),
     InputChannel::new(
