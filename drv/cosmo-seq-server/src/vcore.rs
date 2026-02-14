@@ -142,7 +142,7 @@ impl VCore {
         }
     }
 
-    pub fn is_faulted(&self) -> bool {
+    pub fn is_still_faulted(&self) -> bool {
         self.faulted.pwr_cont1 || self.faulted.pwr_cont2
     }
 

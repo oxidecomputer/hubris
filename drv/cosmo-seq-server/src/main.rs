@@ -740,7 +740,7 @@ impl ServerImpl {
         match self.state {
             PowerState::A0 => Some(10),
             // we are hoping that a VRM fault will be clearable soon...
-            _ if self.vcore.is_faulted() => Some(100),
+            _ if self.vcore.is_still_faulted() => Some(100),
             PowerState::A0PlusHP => Some(1000),
             _ => None,
         }
@@ -1085,7 +1085,7 @@ impl NotificationHandler for ServerImpl {
             .unwrap(); // this should be infallible
         }
 
-        if self.vcore.is_faulted() {
+        if self.vcore.is_still_faulted() {
             let vcore::Vrms {
                 pwr_cont1,
                 pwr_cont2,
