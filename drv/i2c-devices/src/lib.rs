@@ -149,7 +149,7 @@ macro_rules! pmbus_rail_write {
         let payload: [u8; 1] = [CommandCode::$cmd as u8];
         match $device.write_write(&rpayload, &payload) {
             Err(code) => Err(Error::BadWrite {
-                cmd: $cmd::CommandData::code(),
+                cmd: CommandCode::$cmd as u8,
                 code,
             }),
             Ok(_) => Ok(()),
