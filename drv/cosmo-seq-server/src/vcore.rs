@@ -82,6 +82,9 @@ enum Trace {
 #[derive(Copy, Clone, PartialEq)]
 enum Status {
     NotFaulted,
+    // This is on purpose; Humility will display the ringbuf entry as just the
+    // name of the variant, without the enum name.
+    #[allow(clippy::enum_variant_names)]
     StatusWord(u16),
     I2cError(ResponseCode),
 }
