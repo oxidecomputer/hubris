@@ -996,7 +996,7 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::SetState {
                     prev: self.state(),
                     next: PowerState::A0Thermtrip,
-                    why: StateChangeReason::ThermTrip,
+                    why: StateChangeReason::Overheat,
                     now,
                 });
                 self.set_state_internal(PowerState::A0Thermtrip);
