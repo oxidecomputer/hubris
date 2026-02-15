@@ -65,6 +65,7 @@ enum I2cTxn {
     VCoreOff,
     VCoreUndervoltageInitialize,
     VCorePmbusStatus,
+    VCoreClearFaults,
     SocOn,
     SocOff,
 }
@@ -727,6 +728,10 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
             }
         }
 
+        if self.vcore.is_faulted() {
+            self.vcore.try_to_clear_faults();
+        }
+
         if let Some(interval) = self.poll_interval() {
             self.deadline += interval;
             sys_set_timer(Some(self.deadline), notifications::TIMER_MASK);
@@ -1163,10 +1168,14 @@ impl<S: SpiServer> ServerImpl<S> {
     // for a thermtrip or for someone disabling NIC_PWREN_L.  If we are in
     // any other state, we don't need to poll.
     //
+    // If the Vcore VRM has a PMBus alert, we must try to clear its faults
+    // periodically, regardless of the current power state.
+    //
     fn poll_interval(&self) -> Option<u64> {
         match self.state {
             PowerState::A0 => Some(10),
             PowerState::A0PlusHP => Some(100),
+            _ if self.vcore.is_faulted() => Some(100),
             _ => None,
         }
     }

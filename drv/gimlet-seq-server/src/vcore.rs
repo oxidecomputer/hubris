@@ -39,6 +39,7 @@ use userlib::{sys_get_timer, units};
 
 pub struct VCore {
     device: Raa229618,
+    faulted: bool,
     sys: sys_api::Sys,
     packrat: packrat_api::Packrat,
 }
@@ -52,6 +53,7 @@ enum Trace {
     FaultsCleared,
     Notified { timestamp: u64, asserted: bool },
     RegulatorStatus { power_good: bool, faulted: bool },
+    StillFaulted(bool),
     StatusWord(Result<u16, ResponseCode>),
     StatusInput(Result<u8, ResponseCode>),
     StatusVout(Result<u8, ResponseCode>),
@@ -129,6 +131,7 @@ impl VCore {
     ) -> Self {
         Self {
             device: Raa229618::new(device, rail),
+            faulted: false,
             sys: sys.clone(),
             packrat,
         }
@@ -164,11 +167,11 @@ impl VCore {
     }
 
     pub fn handle_notification(
-        &self,
+        &mut self,
         ereport_buf: &mut [u8; crate::EREPORT_BUF_LEN],
     ) {
         let now = sys_get_timer().now;
-        let asserted = self.sys.gpio_read(VCORE_TO_SP_ALERT_L) == 0;
+        let asserted = self.is_pmalert_asserted();
 
         ringbuf_entry!(Trace::Notified {
             timestamp: now,
@@ -182,11 +185,28 @@ impl VCore {
             // continues, the fault bits in the status registers will remain
             // set, and sending the CLEAR_FAULTS command does *not* cause the
             // device to power back on if it's off.
-            let _ = self.device.clear_faults();
-            ringbuf_entry!(Trace::FaultsCleared);
+            self.try_to_clear_faults();
         }
 
         let _ = self.sys.gpio_irq_control(self.mask(), IrqControl::Enable);
+    }
+
+    pub fn is_faulted(&self) -> bool {
+        self.faulted
+    }
+
+    pub fn try_to_clear_faults(&mut self) {
+        let _ = retry_i2c_txn(I2cTxn::VCoreClearFaults, || {
+            self.device.clear_faults()
+        });
+        let still_faulted = self.is_pmalert_asserted();
+        ();
+        ringbuf_entry!(Trace::StillFaulted(still_faulted));
+        self.faulted = still_faulted;
+    }
+
+    fn is_pmalert_asserted(&self) -> bool {
+        self.sys.gpio_read(VCORE_TO_SP_ALERT_L) == 0
     }
 
     fn read_pmbus_status(
