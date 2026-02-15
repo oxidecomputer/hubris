@@ -908,7 +908,8 @@ impl ServerImpl {
             // the timer loop. If the fault clears, we shall then re-enable
             // interrupts for those VRMs.
             //
-            // The `vcore` module tells us whether any faults have successfully cleared.
+            // The `vcore` module tells us whether any faults have successfully
+            // cleared. Set the IER bits based on that.
             let vcore::Vrms {
                 pwr_cont1,
                 pwr_cont2,
