@@ -971,7 +971,7 @@ impl ServerImpl {
                 // call back into this task to reboot the system (going to
                 // A2 then back into A0)
                 ringbuf_entry!(Trace::SetState {
-                    prev: self.state(),
+                    prev: Some(self.state),
                     next: PowerState::A0Reset,
                     why: StateChangeReason::CpuReset,
                     now,
@@ -983,7 +983,7 @@ impl ServerImpl {
                 // thermal loop will stop trying to talk to the NIC, and hope
                 // the host resequences it.
                 ringbuf_entry!(Trace::SetState {
-                    prev: self.state(),
+                    prev: Some(self.state),
                     next: PowerState::A0,
                     why: StateChangeReason::NicMapo,
                     now,
@@ -994,7 +994,7 @@ impl ServerImpl {
                 // This is a terminal state; we set our state to `A0Thermtrip`
                 // but do not expect any other task to take action right now
                 ringbuf_entry!(Trace::SetState {
-                    prev: self.state(),
+                    prev: Some(self.state),
                     next: PowerState::A0Thermtrip,
                     why: StateChangeReason::Overheat,
                     now,
