@@ -75,6 +75,8 @@ pub enum StateChangeReason {
     A0Mapo,
     /// System Management Error
     SmerrAssert,
+    /// NIC MAPO fault from the sequencer.
+    NicMapo,
     /// The system powered off for reasons we can't explain
     Unknown,
 }

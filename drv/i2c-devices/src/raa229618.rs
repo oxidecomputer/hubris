@@ -127,7 +127,7 @@ impl Raa229618 {
     }
 
     pub fn clear_faults(&self) -> Result<(), Error> {
-        pmbus_write!(self.device, CLEAR_FAULTS)
+        pmbus_rail_write!(self.device, self.rail, CLEAR_FAULTS)
     }
 
     pub fn set_vin_uv_warn_limit(&self, value: Volts) -> Result<(), Error> {

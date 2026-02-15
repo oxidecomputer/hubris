@@ -23,7 +23,7 @@
         },
         {
             "type": "addrmap",
-            "addr_span_bytes": 88,
+            "addr_span_bytes": 96,
             "inst_name": "sequencer",
             "orig_type_name": "sequencer_regs",
             "addr_offset": 512,
