@@ -143,6 +143,19 @@ macro_rules! pmbus_write {
 }
 
 macro_rules! pmbus_rail_write {
+    // Write a command with no additional data bytes.
+    ($device:expr, $rail:expr, $cmd:ident) => {{
+        let rpayload = [PAGE::CommandData::code(), $rail];
+        let payload: [u8; 1] = [CommandCode::$cmd as u8];
+        match $device.write_write(&rpayload, &payload) {
+            Err(code) => Err(Error::BadWrite {
+                cmd: $cmd::CommandData::code(),
+                code,
+            }),
+            Ok(_) => Ok(()),
+        }
+    }};
+    // Write a command code followed by data.
     ($device:expr, $rail:expr, $cmd:ident, $data:expr) => {{
         let rpayload = [PAGE::CommandData::code(), $rail];
 
