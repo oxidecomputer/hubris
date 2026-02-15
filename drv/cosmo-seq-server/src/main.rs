@@ -16,6 +16,7 @@ use drv_spartan7_loader_api::Spartan7Loader;
 use drv_spi_api::{SpiDevice, SpiServer};
 use drv_stm32xx_sys_api::{self as sys_api, Sys};
 use fixedstr::FixedStr;
+use fmc_sequencer::{nic_api_status, seq_api_status};
 use idol_runtime::{NotificationHandler, RequestError};
 use task_jefe_api::Jefe;
 use userlib::{
@@ -74,11 +75,11 @@ enum Trace {
     },
     UnexpectedPowerOff {
         our_state: PowerState,
-        seq_state: Result<fmc_sequencer::A0Sm, u8>,
+        seq_state: Result<seq_api_status::A0Sm, u8>,
     },
     SequencerInterrupt {
         our_state: PowerState,
-        seq_state: Result<fmc_sequencer::A0Sm, u8>,
+        seq_state: Result<seq_api_status::A0Sm, u8>,
         ifr: fmc_sequencer::IfrView,
     },
     PowerDownError(drv_cpu_seq_api::SeqError),
@@ -160,8 +161,8 @@ use gpio_irq_pins::SEQ_IRQ;
 
 /// Helper type which includes both sequencer and NIC state machine states
 struct StateMachineStates {
-    seq: Result<fmc_sequencer::A0Sm, u8>,
-    nic: Result<fmc_sequencer::NicSm, u8>,
+    seq: Result<seq_api_status::A0Sm, u8>,
+    nic: Result<nic_api_status::NicSm, u8>,
 }
 
 const EREPORT_BUF_LEN: usize = microcbor::max_cbor_len_for!(
@@ -556,7 +557,7 @@ impl ServerImpl {
             now,
         });
 
-        use fmc_sequencer::A0Sm;
+        use seq_api_status::A0Sm;
         match (self.get_state_impl(), state) {
             (PowerState::A2, PowerState::A0) => {
                 // Reset edge counters in the sequencer
@@ -1031,7 +1032,7 @@ impl NotificationHandler for ServerImpl {
             return;
         }
         let state = self.log_state_registers();
-        use fmc_sequencer::{A0Sm, NicSm};
+        use fmc_sequencer::{nic_api_status::NicSm, seq_api_status::A0Sm};
 
         // Detect when the NIC comes online
         // TODO: should we handle the NIC powering down while the main CPU

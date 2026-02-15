@@ -444,6 +444,9 @@ pub fn build_peripheral(
                 let mut view_names = vec![];
                 let mut view_types = vec![];
                 let mut encode_types = vec![];
+
+                let reg_name: syn::Ident =
+                    syn::parse_str(&inst_name.to_snake_case()).unwrap();
                 for c in children {
                     let Node::Field {
                         inst_name,
@@ -562,7 +565,7 @@ pub fn build_peripheral(
                             struct_fns.push(quote! {
                                 #[inline]
                                 #(#[doc = #doc])*
-                                pub fn #setter(&self, t: #ty) {
+                                pub fn #setter(&self, t: #reg_name::#ty) {
                                     let mut d = self.get_raw();
                                     d &= !(#mask << #lsb);
                                     d |= (u32::from(t as #raw_ty) & #mask)
@@ -576,19 +579,19 @@ pub fn build_peripheral(
                             struct_fns.push(quote! {
                                 #[inline]
                                 #(#[doc = #doc])*
-                                pub fn #getter(&self) -> Result<#ty, #raw_ty> {
+                                pub fn #getter(&self) -> Result<#reg_name::#ty, #raw_ty> {
                                     let d = self.get_raw();
                                     let t = ((d >> #lsb) & #mask) as #raw_ty;
-                                    #ty::try_from(t)
+                                    #reg_name::#ty::try_from(t)
                                 }
                             });
                             view_values.push(quote! {
                                 let t = ((d >> #lsb) & #mask) as #raw_ty;
-                                let #getter = #ty::try_from(t);
+                                let #getter = #reg_name::#ty::try_from(t);
                             });
                             view_names.push(quote! { #getter });
                             view_types.push(
-                                quote! { pub #getter: Result<#ty, #raw_ty> },
+                                quote! { pub #getter: Result<#reg_name::#ty, #raw_ty> },
                             );
                         }
                     } else {
@@ -723,12 +726,11 @@ pub fn build_peripheral(
                             }
                         }
                     }
-
-                    #(#encode_types)*
+                    pub mod #reg_name {
+                        #(#encode_types)*
+                    }
                 };
                 reg_definitions.push(struct_def);
-                let reg_name: syn::Ident =
-                    syn::parse_str(&inst_name.to_snake_case()).unwrap();
                 reg_types.push(quote! {
                     pub #reg_name: #struct_name
                 });
