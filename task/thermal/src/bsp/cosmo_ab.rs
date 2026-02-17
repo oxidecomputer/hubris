@@ -66,7 +66,8 @@ bitflags::bitflags! {
         // in A2; you probably want to use `A0_OR_A2` instead.
         const A2 = 0b00000001;
         const A0 = 0b00000010;
-        const A0_OR_A2 = Self::A0.bits() | Self::A2.bits();
+        // A0+HP: T6 is also active, in addition to all A0 devices.
+        const A0_PLUS_HP = Self::A0.bits() | 0b00000100;
     }
 }
 
@@ -97,9 +98,8 @@ impl Bsp {
 
     pub fn power_mode(&self) -> PowerBitmask {
         match self.seq.get_state() {
-            PowerState::A0PlusHP | PowerState::A0 | PowerState::A0Reset => {
-                PowerBitmask::A0
-            }
+            PowerState::A0PlusHP => PowerBitmask::A0_PLUS_HP,
+            PowerState::A0 | PowerState::A0Reset => PowerBitmask::A0,
             PowerState::A2
             | PowerState::A2PlusFans
             | PowerState::A0Thermtrip => PowerBitmask::A2,
@@ -236,7 +236,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::TMP451_T6_TEMPERATURE_SENSOR,
         ),
         T6_THERMALS,
-        PowerBitmask::A0,
+        PowerBitmask::A0_PLUS_HP,
         ChannelType::MustBePresent,
     ),
     // U.2 drives
