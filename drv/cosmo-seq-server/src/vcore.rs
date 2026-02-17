@@ -233,21 +233,27 @@ impl VCore {
     }
 
     fn try_to_clear_faults(&mut self, which_vrms: Vrms) {
-        fn clear_faults_on_rail(rail: Rail, dev: &Raa229620A) -> Status {
-            let res = retry_i2c_txn(rail, PmbusCmd::ClearFaults, || {
-                dev.clear_faults()
-            });
-            Status::from_result(res)
+        fn clear_faults(
+            rail: Rail,
+            dev: &Raa229620A,
+        ) -> Result<STATUS_WORD::CommandData, ResponseCode> {
+            retry_i2c_txn(rail, PmbusCmd::ClearFaults, || {
+                dev.clear_faults_on_all_rails()
+            })?;
+            Ok(dev.status_word()?)
         }
 
         let vddcr_cpu0 = if which_vrms.pwr_cont1 {
-            clear_faults_on_rail(Rail::VddcrCpu0, &self.vddcr_cpu0)
+            Status::from_result(clear_faults(Rail::VddcrCpu0, &self.vddcr_cpu0))
         } else {
             Status::NotFaulted
         };
 
         let vddcr_cpu1 = if which_vrms.pwr_cont2 {
-            clear_faults_on_rail(Rail::VddcrCpu1, &self.vddcr_cpu1)
+            Status::from_result(clear_faults_on_rail(
+                Rail::VddcrCpu1,
+                &self.vddcr_cpu1,
+            ))
         } else {
             Status::NotFaulted
         };

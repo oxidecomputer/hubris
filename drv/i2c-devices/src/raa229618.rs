@@ -126,10 +126,33 @@ impl Raa229618 {
         }
     }
 
-    pub fn clear_faults(&self) -> Result<(), Error> {
+    /// Clear faults on the rail that was provided when this `Raa229618` was
+    /// constructed.
+    ///
+    /// To clear faults on *all* rails regulated by the physical RAA229618
+    /// represented by this device handle, use
+    /// [`Self::clear_faults_on_all_rails`].
+    pub fn clear_faults_on_this_rail(&self) -> Result<(), Error> {
         pmbus_rail_write!(self.device, self.rail, CLEAR_FAULTS)
     }
 
+    /// Clear faults on *all* rails regulated by the physical RAA229618
+    /// represented by this device.
+    ///
+    /// To clear faults on only the rail selected by this device handle, use
+    /// [`Self::clear_faults_on_this_rail`].
+    pub fn clear_faults_on_all_rails(&self) -> Result<(), Error> {
+        // Per the PMBus spec, `CLEAR_FAULTS` is paged. Sending an un-paged
+        // `CLEAR_FAULTS` doesn't clear all faults, you need to send page `0xff`
+        // to do that:
+        //
+        // > Commands to clear a bit are gated by the PAGE command. The
+        // > CLEAR_FAULTS can be made to clear all faults on all pages by
+        // > setting the page command to FFh.
+        // > --- PMBus Power System Mgt Protocol Specification – Part II –
+        // >     Revision 1.3.1_; section 10.3 (pp 44)
+        pmbus_rail_write!(self.device, 0xff, CLEAR_FAULTS)
+    }
     pub fn set_vin_uv_warn_limit(&self, value: Volts) -> Result<(), Error> {
         let mut vin = VIN_UV_WARN_LIMIT::CommandData(0);
         vin.set(pmbus::units::Volts(value.0))?;

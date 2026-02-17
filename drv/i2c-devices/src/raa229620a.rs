@@ -109,7 +109,22 @@ impl Raa229620A {
         }
     }
 
-    pub fn clear_faults(&self) -> Result<STATUS_WORD::CommandData, Error> {
+    /// Clear faults on the rail that was provided when this `Raa229620A` was
+    /// constructed.
+    ///
+    /// To clear faults on *all* rails regulated by the physical RAA22960A
+    /// represented by this device handle, use
+    /// [`Self::clear_faults_on_all_rails`].
+    pub fn clear_faults_on_this_rail(&self) -> Result<(), Error> {
+        pmbus_rail_write!(self.device, self.rail, CLEAR_FAULTS)
+    }
+
+    /// Clear faults on *all* rails regulated by the physical RAA229620A
+    /// represented by this device.
+    ///
+    /// To clear faults on only the rail selected by this device handle, use
+    /// [`Self::clear_faults_on_this_rail`].
+    pub fn clear_faults_on_all_rails(&self) -> Result<(), Error> {
         // Per the PMBus spec, `CLEAR_FAULTS` is paged. Sending an un-paged
         // `CLEAR_FAULTS` doesn't clear all faults, you need to send page `0xff`
         // to do that:
@@ -119,12 +134,7 @@ impl Raa229620A {
         // > setting the page command to FFh.
         // > --- PMBus Power System Mgt Protocol Specification – Part II –
         // >     Revision 1.3.1_; section 10.3 (pp 44)
-        pmbus_rail_write!(self.device, self.rail, CLEAR_FAULTS)?;
-        // Some PMBus devices may not deassert SMBALERT# after clearing faults
-        // until the `STATUS_WORD` is read. To be safe, we'll do that here; it
-        // also gives us a nice way to check whether the device believes the
-        // fault has cleared.
-        self.status_word()
+        pmbus_rail_write!(self.device, 0xff, CLEAR_FAULTS)
     }
 
     pub fn set_vin_uv_warn_limit(&self, value: Volts) -> Result<(), Error> {

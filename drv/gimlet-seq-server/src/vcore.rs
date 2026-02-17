@@ -50,10 +50,19 @@ enum Trace {
     Initializing,
     Initialized,
     LimitLoaded,
-    FaultsCleared,
-    Notified { timestamp: u64, asserted: bool },
-    RegulatorStatus { power_good: bool, faulted: bool },
-    StillFaulted(bool),
+    Notified {
+        timestamp: u64,
+        asserted: bool,
+    },
+    RegulatorStatus {
+        power_good: bool,
+        faulted: bool,
+    },
+    TriedToClearFaults {
+        status_word: Result<u16, ResponseCode>,
+        pmalert: bool,
+        cleared_ok: Result<(), ResponseCode>,
+    },
     StatusWord(Result<u16, ResponseCode>),
     StatusInput(Result<u8, ResponseCode>),
     StatusVout(Result<u8, ResponseCode>),
@@ -61,7 +70,10 @@ enum Trace {
     StatusTemperature(Result<u8, ResponseCode>),
     StatusCml(Result<u8, ResponseCode>),
     StatusMfrSpecific(Result<u8, ResponseCode>),
-    Reading { timestamp: u64, volts: units::Volts },
+    Reading {
+        timestamp: u64,
+        volts: units::Volts,
+    },
     Error(ResponseCode),
 }
 
@@ -141,22 +153,24 @@ impl VCore {
         crate::notifications::VCORE_MASK
     }
 
-    pub fn initialize_uv_warning(&self) -> Result<(), ResponseCode> {
+    pub fn initialize_uv_warning(&mut self) -> Result<(), ResponseCode> {
         let sys = &self.sys;
 
         ringbuf_entry!(Trace::Initializing);
+
+        // Set our alert line to be an input.
+        //
+        // We do this prior to calling `try_to_clear_faults`, as that function
+        // will attempt to read the alert line.
+        sys.gpio_configure_input(VCORE_TO_SP_ALERT_L, sys_api::Pull::None);
+        sys.gpio_irq_configure(self.mask(), sys_api::Edge::Falling);
 
         // Set our warn limit
         self.device.set_vin_uv_warn_limit(VCORE_UV_WARN_LIMIT)?;
         ringbuf_entry!(Trace::LimitLoaded);
 
         // Clear our faults
-        self.device.clear_faults()?;
-        ringbuf_entry!(Trace::FaultsCleared);
-
-        // Set our alert line to be an input
-        sys.gpio_configure_input(VCORE_TO_SP_ALERT_L, sys_api::Pull::None);
-        sys.gpio_irq_configure(self.mask(), sys_api::Edge::Falling);
+        self.try_to_clear_faults();
 
         // Enable the interrupt!
         let _ = self.sys.gpio_irq_control(self.mask(), IrqControl::Enable);
@@ -196,12 +210,19 @@ impl VCore {
     }
 
     pub fn try_to_clear_faults(&mut self) {
-        let _ = retry_i2c_txn(I2cTxn::VCoreClearFaults, || {
-            self.device.clear_faults()
-        });
-        let still_faulted = self.is_pmalert_asserted();
-        ringbuf_entry!(Trace::StillFaulted(still_faulted));
-        self.faulted = still_faulted;
+        let cleared_ok = retry_i2c_txn(I2cTxn::VCoreClearFaults, || {
+            self.device.clear_faults_on_all_rails()
+        })
+        .map_err(Into::into);
+        let pmalert = self.is_pmalert_asserted();
+        self.faulted = pmalert;
+        let status_word =
+            self.device.status_word().map(|s| s.0).map_err(Into::into);
+        ringbuf_entry!(Trace::TriedToClearFaults {
+            cleared_ok,
+            pmalert,
+            status_word
+        })
     }
 
     fn is_pmalert_asserted(&self) -> bool {
