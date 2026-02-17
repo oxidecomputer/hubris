@@ -61,7 +61,7 @@ enum Trace {
     TriedToClearFaults {
         status_word: Result<u16, ResponseCode>,
         pmalert: bool,
-        cleared_ok: Result<(), ResponseCode>,
+        cleared: Result<(), ResponseCode>,
     },
     StatusWord(Result<u16, ResponseCode>),
     StatusInput(Result<u8, ResponseCode>),
@@ -214,16 +214,15 @@ impl VCore {
     }
 
     pub fn try_to_clear_faults(&mut self) {
-        let cleared_ok = retry_i2c_txn(I2cTxn::VCoreClearFaults, || {
+        let cleared = retry_i2c_txn(I2cTxn::VCoreClearFaults, || {
             self.device.clear_faults_on_all_rails()
-        })
-        .map_err(Into::into);
+        });
         let pmalert = self.is_pmalert_asserted();
         self.faulted = pmalert;
         let status_word =
             self.device.status_word().map(|s| s.0).map_err(Into::into);
         ringbuf_entry!(Trace::TriedToClearFaults {
-            cleared_ok,
+            cleared,
             pmalert,
             status_word
         })
