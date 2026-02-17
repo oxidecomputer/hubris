@@ -739,6 +739,8 @@ impl ServerImpl {
     fn poll_interval(&self) -> Option<u32> {
         match self.state {
             PowerState::A0 => Some(10),
+            // The FPGA still wants our attention! Come back soon!
+            _ if self.is_seq_irq_asserted() => Some(10),
             // we are hoping that a VRM fault will be clearable soon...
             _ if self.vcore.is_still_faulted() => Some(100),
             PowerState::A0PlusHP => Some(1000),
@@ -1018,6 +1020,10 @@ impl ServerImpl {
             }
         };
     }
+
+    fn is_seq_irq_asserted(&self) -> bool {
+        self.sys.gpio_read(SEQ_IRQ) == 0
+    }
 }
 
 impl idl::InOrderSequencerImpl for ServerImpl {
@@ -1096,17 +1102,32 @@ impl NotificationHandler for ServerImpl {
     }
 
     fn handle_notification(&mut self, bits: userlib::NotificationBits) {
-        if bits.check_notification_mask(notifications::SEQ_IRQ_MASK) {
+        // Check the actual status of the GPIO pin to determine if we must
+        // handle the sequencer IRQ, rather than the status of the notification
+        // from the EXTI interrupt.
+        if self.is_seq_irq_asserted() {
             let state = self.log_state_registers();
             ringbuf_entry!(Trace::SequencerInterrupt {
                 our_state: self.state,
                 seq_state: state.seq,
             });
 
-            // Read the IFR register and handle any pending interrupts until the
-            // SEQ_IRQ signal is deasserted (it's active low).
-            while self.sys.gpio_read(SEQ_IRQ) == 0 {
+            // Read the IFR register and handle any pending interrupts. We will
+            // loop a few times here in case additional bits are set whilst we
+            // were handling previous ones, but only do this a few times now.
+            // While it may look like we will leave any IRQs that come in during
+            // the third attempt unhandled, we will set a very short timer
+            // interval if the IRQ line is still asserted, so we'll come back
+            // and continue trying to handle them in a moment.
+            //
+            //
+            // N.B. that 3 is chosen completely arbitrarily
+            for _ in 0..3 {
                 self.handle_sequencer_interrupt();
+                if !self.is_seq_irq_asserted() {
+                    // We're done here!
+                    break;
+                }
             }
         }
 
