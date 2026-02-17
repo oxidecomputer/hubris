@@ -250,10 +250,7 @@ impl VCore {
         };
 
         let vddcr_cpu1 = if which_vrms.pwr_cont2 {
-            Status::from_result(clear_faults_on_rail(
-                Rail::VddcrCpu1,
-                &self.vddcr_cpu1,
-            ))
+            Status::from_result(clear_faults(Rail::VddcrCpu1, &self.vddcr_cpu1))
         } else {
             Status::NotFaulted
         };
