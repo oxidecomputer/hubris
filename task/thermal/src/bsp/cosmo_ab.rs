@@ -236,7 +236,7 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::TMP451_T6_TEMPERATURE_SENSOR,
         ),
         T6_THERMALS,
-        PowerBitmask::AO_PLUS_HP,
+        PowerBitmask::A0_PLUS_HP,
         ChannelType::MustBePresent,
     ),
     // U.2 drives
