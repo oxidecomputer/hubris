@@ -200,7 +200,6 @@ impl VCore {
             self.device.clear_faults()
         });
         let still_faulted = self.is_pmalert_asserted();
-        ();
         ringbuf_entry!(Trace::StillFaulted(still_faulted));
         self.faulted = still_faulted;
     }
