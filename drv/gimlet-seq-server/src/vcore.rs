@@ -193,7 +193,11 @@ impl VCore {
         });
 
         if asserted {
-            self.read_pmbus_status(now, ereport_buf);
+            // Don't produce another ereport if PMALERT_L was already asserted
+            // without being deasserted.
+            if !self.faulted {
+                self.read_pmbus_status(now, ereport_buf);
+            }
             // Clear the fault now so that PMALERT_L is reasserted if a
             // subsequent fault occurs. Note that if the fault *condition*
             // continues, the fault bits in the status registers will remain
