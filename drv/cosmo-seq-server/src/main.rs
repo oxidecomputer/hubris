@@ -106,7 +106,7 @@ enum Trace {
         now: u64,
     },
     UnexpectedInterrupt,
-    CPUPresent(bool),
+    CPUNotPresent,
     EreportSent(usize),
     EreportLost(usize, task_packrat_api::EreportWriteError),
     EreportTooBig,
@@ -592,15 +592,13 @@ impl ServerImpl {
                         Ok(A0Sm::EnableGrpA) => {
                             // hardware-cosmo#658 prevents us from checking `CPU_PRESENT`
                             // at `A0Sm::ENABLE_GRP_A` time on rev-a boards
-                            if cfg!(target_board = "cosmo-a") {
-                                ringbuf_entry!(Trace::CPUPresent(true));
-                            } else {
+                            if !cfg!(target_board = "cosmo-a") {
                                 let present =
                                     self.sys.gpio_read(SP5_TO_SP_PRESENT_L)
                                         == 0;
-                                ringbuf_entry!(Trace::CPUPresent(present));
 
                                 if !present {
+                                    ringbuf_entry!(Trace::CPUNotPresent);
                                     err = CpuSeqError::CPUNotPresent;
                                     break;
                                 }
