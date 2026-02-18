@@ -929,11 +929,17 @@ impl ServerImpl {
             let rstn = self.seq.amd_reset_fedges.counts();
             let pwrokn = self.seq.amd_pwrok_fedges.counts();
 
-            // counters and ifr are cleared in the A2 -> A0 transition
+            // counters are cleared in the A2 -> A0 transition.
             // host_sp_comms will be notified of this change and will
             // call back into this task to reboot the system (going to
             // A2 then back into A0)
             ringbuf_entry!(Trace::ResetCounts { rstn, pwrokn });
+
+            // Clear the IFR bits to ack the IRQ.
+            self.seq.ifr.modify(|h| {
+                h.set_amd_pwrok_fedge(ifr.amd_pwrok_fedge);
+                h.set_amd_rstn_fedge(ifr.amd_rstn_fedge);
+            });
             action = InternalAction::Reset;
         }
 
