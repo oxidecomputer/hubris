@@ -95,7 +95,7 @@ ringbuf!(Trace, 120, Trace::None);
 /// > considered cleared, **the input voltage must rise by 1/16th of the UV
 /// > fault threshold value.**
 /// >
-/// > --- R16DS0096EU0100 Rev.1.00 § 10.39, "VIN_UV_FAULT_RESPONSE" (pp. 61)
+/// > --- R16DS0096EU0100 Rev.1.00 § 10.39, "VIN_UV_FAULT_RESPONSE" (p. 61)
 ///
 /// While the documentation does not explicitly state that this also applies
 /// to *warnings* (and there is no corresponding `VIN_UV_WARN_RESPONSE`
