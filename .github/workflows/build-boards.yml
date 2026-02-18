@@ -122,8 +122,7 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y libusb-1.0-0-dev libftdi1-dev
           for image in ${images}; do
-              mv "target/${name}/dist/${image}/build-${name}-image-${image}.zip" "target/${name}/dist/";
-              target/release/humility -a "target/${name}/dist/build-${name}-image-${image}.zip" manifest;
+              target/release/humility -a "target/${name}/dist/${image}/build-${name}-image-${image}.zip" manifest;
           done
         env:
           name: ${{ matrix.app_name }}
@@ -136,13 +135,25 @@ jobs:
 
       - name: Attestation
         uses: actions/attest-build-provenance@v1
+        id: attest
         if: inputs.attest
         with:
-          subject-path: target/${{ matrix.app_name }}/dist/build-${{ matrix.app_name }}-image-*.zip
+          subject-path: target/${{ matrix.app_name }}/dist/*/build-${{ matrix.app_name }}-image-*.zip
+          show-summary: false
+
+      - name: Prepare artifacts for upload
+        id: prepare-upload
+        if: inputs.upload-artifacts
+        run: |
+          path="$(cargo xtask gha-prepare-artifacts $APP_TOML $ATTESTATION)"
+          echo "path=$path" >> $GITHUB_OUTPUT
+        env:
+          APP_TOML: ${{ matrix.app_toml }}
+          ATTESTATION: ${{ inputs.attest && steps.attest.outputs.bundle-path || '' }}
 
       - name: Upload build archive
         uses: actions/upload-artifact@v4
         if: inputs.upload-artifacts
         with:
           name: dist-${{ inputs.os }}-${{ matrix.app_name }}
-          path: target/${{ matrix.app_name }}/dist/build-${{ matrix.app_name }}-image-*.zip
+          path: ${{ steps.prepare-upload.outputs.path }}
