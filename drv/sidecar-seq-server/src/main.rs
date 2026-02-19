@@ -81,6 +81,7 @@ enum Trace {
     TofinoCfgRegisterValue(TofinoCfgRegisters, u32),
     TofinoPowerUp,
     TofinoPowerDown,
+    TofinoPcieResetAsserted(bool),
     SetVddCoreVout(userlib::units::Volts),
     SetPCIePresent,
     ClearPCIePresent,
@@ -791,6 +792,17 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         self.set_fan_module_power_state(module, FanModulePowerState::Disabled);
         Ok(())
     }
+
+    fn set_tofino_pcie_presence(
+        &mut self,
+        _: &userlib::RecvMessage,
+        present: bool,
+    ) -> Result<(), RequestError<SeqError>> {
+        Ok(self
+            .tofino
+            .set_pcie_present(present)
+            .map_err(SeqError::from)?)
+    }
 }
 
 impl NotificationHandler for ServerImpl {
@@ -816,6 +828,12 @@ impl NotificationHandler for ServerImpl {
 
         if let Err(e) = self.tofino.handle_tick() {
             ringbuf_entry!(Trace::TofinoSequencerError(e));
+        }
+
+        if self.tofino.sequencer.state().unwrap_or(TofinoSeqState::A2)
+            == TofinoSeqState::A0
+        {
+            self.tofino.handle_pcie_reset();
         }
 
         // Change status of LED blink variable, keeping anything gating on/off

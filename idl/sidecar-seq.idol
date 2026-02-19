@@ -383,5 +383,16 @@ Interface(
                 err: CLike("SeqError"),
             ),
         ),
+
+        "set_tofino_pcie_presence": (
+            doc: "Set the PCIe presence signal to the attached sled",
+            args: {
+                "present": "bool",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("SeqError"),
+            ),
+        ),
     },
 )
