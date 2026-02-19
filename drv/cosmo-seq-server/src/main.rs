@@ -1153,22 +1153,19 @@ impl NotificationHandler for ServerImpl {
             ringbuf_entry!(Trace::SequencerInterrupt {
                 our_state: self.state,
                 seq_state: state.seq,
+                // Were we notified for the first time, or are we continuing to
+                // handle an ongoing assertion of the IRQ pin?
                 notified: bits
                     .check_notification_mask(notifications::SEQ_IRQ_MASK),
             });
 
             // Read the IFR register and handle any pending interrupts. We will
             // loop a few times here in case additional bits are set whilst we
-            // were handling previous ones, but only do this a few times now.
-            // While it may look like we will leave any IRQs that come in during
-            // the third attempt unhandled, we will set a very short timer
-            // interval if the IRQ line is still asserted, so we'll come back
-            // and continue trying to handle them in a moment.
-            //
-            // This way, we ensure that all bits set by the sequencer are
-            // handled eventually, but if the IRQ line fails to deassert (which
-            // would be a bug, either on our side or in the FPGA), we won't loop
-            // infinitely and starve other tasks.
+            // were handling previous ones, but only do this a few times to
+            // avoid an infinite loop. In the (unlikely!) case that the IRQ is
+            // still asserted after three iterations of this, we will be back in
+            // 10ms to continue handling any additional interrupt flags, so
+            // don't worry.
             //
             // N.B. that 3 is chosen completely arbitrarily
             for _ in 0..3 {
