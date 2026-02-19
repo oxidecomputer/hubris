@@ -80,7 +80,17 @@ enum Trace {
     SequencerInterrupt {
         our_state: PowerState,
         seq_state: Result<seq_api_status::A0Sm, u8>,
+
+        // Whether or not the notification bit for the sequencer IRQ GPIO pin
+        // was set.
+        //
+        // This will generally indicate whether or not this is a new assertion
+        // of the IRQ line, or if we are continuing to handle a previous IRQ
+        // that hasn't cleared yet for some reason.
+        notified: bool,
     },
+    #[count(skip)]
+    SequencerIrqAsserted(bool),
     // It's not particularly useful to count this...
     #[count(skip)]
     SequencerIfr(fmc_sequencer::IfrView),
@@ -1114,6 +1124,8 @@ impl NotificationHandler for ServerImpl {
             ringbuf_entry!(Trace::SequencerInterrupt {
                 our_state: self.state,
                 seq_state: state.seq,
+                notified: bits
+                    .check_notification_mask(notifications::SEQ_IRQ_MASK),
             });
 
             // Read the IFR register and handle any pending interrupts. We will
@@ -1124,6 +1136,10 @@ impl NotificationHandler for ServerImpl {
             // interval if the IRQ line is still asserted, so we'll come back
             // and continue trying to handle them in a moment.
             //
+            // This way, we ensure that all bits set by the sequencer are
+            // handled eventually, but if the IRQ line fails to deassert (which
+            // would be a bug, either on our side or in the FPGA), we won't loop
+            // infinitely and starve other tasks.
             //
             // N.B. that 3 is chosen completely arbitrarily
             for _ in 0..3 {
@@ -1133,6 +1149,11 @@ impl NotificationHandler for ServerImpl {
                     break;
                 }
             }
+
+            // Record whether or not our antics have cleared the IRQ.
+            ringbuf_entry!(Trace::SequencerIrqAsserted(
+                self.is_seq_irq_asserted()
+            ));
         }
 
         if !bits.has_timer_fired(notifications::TIMER_MASK) {
