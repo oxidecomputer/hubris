@@ -81,6 +81,9 @@ bitflags::bitflags! {
         const A2 = 0b00000001;
         const A0 = 0b00000010;
         const A0_OR_A2 = Self::A0.bits() | Self::A2.bits();
+        // Note that Gimlet does *not* need a separate flag for the A0+HP
+        // power domain (like Cosmo does), as the T6 is powered in the A0
+        // domain on Gimlet.
 
         // Bonus bits for M.2 power, which is switched separately.  We *cannot*
         // read the M.2 drives when they are unpowered; otherwise, we risk

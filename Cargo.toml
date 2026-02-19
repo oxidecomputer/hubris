@@ -49,6 +49,7 @@ anyhow = { version = "1.0.31", default-features = false, features = ["std"] }
 array-init = { version = "2.1.0" }
 arrayvec = { version = "0.7.4", default-features = false }
 atty = { version = "0.2", default-features = false }
+base64 = "0.22.1"
 bitfield = { version = "0.13", default-features = false }
 bitflags = { version = "2.5.0", default-features = false }
 bstringify = { version = "0.1.2", default-features = false }

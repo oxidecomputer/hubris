@@ -281,7 +281,7 @@
         },
         {
             "type": "reg",
-            "inst_name": "ipcc_to_host_byte_cntr",
+            "inst_name": "ipcc_host_to_sp_usedwds",
             "addr_offset": 44,
             "regwidth": 32,
             "min_accesswidth": 32,
@@ -301,8 +301,28 @@
         },
         {
             "type": "reg",
-            "inst_name": "ipcc_dummy_fill_en",
+            "inst_name": "ipcc_to_host_byte_cntr",
             "addr_offset": 48,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "count",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": ""
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "ipcc_dummy_fill_en",
+            "addr_offset": 52,
             "regwidth": 32,
             "min_accesswidth": 32,
             "children": [
@@ -322,7 +342,7 @@
         {
             "type": "reg",
             "inst_name": "ipcc_dummy_fill_count",
-            "addr_offset": 52,
+            "addr_offset": 56,
             "regwidth": 32,
             "min_accesswidth": 32,
             "children": [
@@ -336,6 +356,915 @@
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": ""
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "LIVE_ESPI_STATUS",
+            "addr_offset": 60,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "PC_FREE",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "When '1', indicates the target is free to accept\nat least one channel 0 peripheral posted or\ncompletion header and data up to maximum\npayload size."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NP_FREE",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "When '1', indicates the target is free to accept\nat least one channel 0 peripheral non-posted\nheader and 1 DW of Data (if applicable)."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VWIRE_FREE",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "This bit must be always a '1'. Tunneling of\nchannel 1 virtual wires is not flow controlled."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "OOB_FREE",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "When '1', indicates the target is free to accept\nat least one channel 2 OOB (tunneled SMBus)\nmessage with data up to maximum payload size."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "PC_AVAIL",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "When '1', indicates the target has a channel 0\nperipheral posted or completion header and\noptional data up to maximum payload size\navailable to send."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NP_AVAIL",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "When '1', indicates the target has a channel 0\nperipheral non-posted header available to\nsend."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VWIRE_AVAIL",
+                    "lsb": 6,
+                    "msb": 6,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "When '1', indicates the target has a channel 1\ntunneled virtual wire available to send."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "OOB_AVAIL",
+                    "lsb": 7,
+                    "msb": 7,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "When '1', indicates the target has a channel 2\nOOB (tunneled SMBus) message with data up\nto maximum payload size available to send."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "FLASH_C_FREE",
+                    "lsb": 8,
+                    "msb": 8,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "When '1', indicates the target is free to accept\nat least one channel 3 Flash Access completion\nheader and data up to maximum payload size.\nThis bit must be always a '1'. The target must\nbe able to accept the completion for the non-\nposted request it sends.\nThis bit is only applicable when controller\nattached flash sharing is supported and in\noperation. Otherwise, the bit is a don't care."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "FLASH_NP_FREE",
+                    "lsb": 9,
+                    "msb": 9,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "When '1', indicates the target is free to accept\nat least one channel 3 Flash Access non-posted\nheader and data up to maximum payload size.\nThis bit is only applicable when target attached\nflash sharing is supported and in operation.\nOtherwise, the bit is a don't care."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "FLASH_C_AVAIL",
+                    "lsb": 12,
+                    "msb": 12,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "When '1', indicates the target has a channel 3\nFlash Access completion header and data up to\nmaximum payload size available to send.\nThis bit is only applicable when target attached\nflash sharing is supported and in operation.\nOtherwise, the bit is a don't care."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "FLASH_NP_AVAIL",
+                    "lsb": 13,
+                    "msb": 13,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "When '1', indicates the target has a channel 3\nFlash Access non-posted header and data up to\nmaximum payload size available to send.\nThis bit is only applicable when controller\nattached flash sharing is supported and in\noperation. Otherwise, the bit is a don't care."
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "LAST_RESP_STATUS",
+            "addr_offset": 64,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "PC_FREE",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "When '1', indicates the target is free to accept\nat least one channel 0 peripheral posted or\ncompletion header and data up to maximum\npayload size."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NP_FREE",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "When '1', indicates the target is free to accept\nat least one channel 0 peripheral non-posted\nheader and 1 DW of Data (if applicable)."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VWIRE_FREE",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "This bit must be always a '1'. Tunneling of\nchannel 1 virtual wires is not flow controlled."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "OOB_FREE",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "When '1', indicates the target is free to accept\nat least one channel 2 OOB (tunneled SMBus)\nmessage with data up to maximum payload size."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "PC_AVAIL",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "When '1', indicates the target has a channel 0\nperipheral posted or completion header and\noptional data up to maximum payload size\navailable to send."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NP_AVAIL",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "When '1', indicates the target has a channel 0\nperipheral non-posted header available to\nsend."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VWIRE_AVAIL",
+                    "lsb": 6,
+                    "msb": 6,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "When '1', indicates the target has a channel 1\ntunneled virtual wire available to send."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "OOB_AVAIL",
+                    "lsb": 7,
+                    "msb": 7,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "When '1', indicates the target has a channel 2\nOOB (tunneled SMBus) message with data up\nto maximum payload size available to send."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "FLASH_C_FREE",
+                    "lsb": 8,
+                    "msb": 8,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "When '1', indicates the target is free to accept\nat least one channel 3 Flash Access completion\nheader and data up to maximum payload size.\nThis bit must be always a '1'. The target must\nbe able to accept the completion for the non-\nposted request it sends.\nThis bit is only applicable when controller\nattached flash sharing is supported and in\noperation. Otherwise, the bit is a don't care."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "FLASH_NP_FREE",
+                    "lsb": 9,
+                    "msb": 9,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "When '1', indicates the target is free to accept\nat least one channel 3 Flash Access non-posted\nheader and data up to maximum payload size.\nThis bit is only applicable when target attached\nflash sharing is supported and in operation.\nOtherwise, the bit is a don't care."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "FLASH_C_AVAIL",
+                    "lsb": 12,
+                    "msb": 12,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "When '1', indicates the target has a channel 3\nFlash Access completion header and data up to\nmaximum payload size available to send.\nThis bit is only applicable when target attached\nflash sharing is supported and in operation.\nOtherwise, the bit is a don't care."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "FLASH_NP_AVAIL",
+                    "lsb": 13,
+                    "msb": 13,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "When '1', indicates the target has a channel 3\nFlash Access non-posted header and data up to\nmaximum payload size available to send.\nThis bit is only applicable when controller\nattached flash sharing is supported and in\noperation. Otherwise, the bit is a don't care."
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "oob_free_saw_full",
+            "addr_offset": 68,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "saw_full",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": ""
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "spec_regs_device_id",
+            "addr_offset": 132,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "id",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 1,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Version ID"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "spec_regs_general_capabilities",
+            "addr_offset": 136,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "periph_support",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 1,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Peripheral Channel Supported"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "virt_wire_support",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 1,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Virtual Wire Channel Supported"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "oob_support",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 1,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "OOB Message Channel Supported"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "flash_support",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 1,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Flash Channel Supported"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "max_wait",
+                    "lsb": 12,
+                    "msb": 15,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Maximum Wait State allowed"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "op_freq_support",
+                    "lsb": 16,
+                    "msb": 18,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Operating Frequency Support",
+                    "encode": [
+                        {
+                            "name": "Twenty",
+                            "value": 0
+                        },
+                        {
+                            "name": "TwentyFive",
+                            "value": 1
+                        },
+                        {
+                            "name": "ThirtyThree",
+                            "value": 2
+                        },
+                        {
+                            "name": "Fifty",
+                            "value": 3
+                        },
+                        {
+                            "name": "SixtySix",
+                            "value": 4
+                        },
+                        {
+                            "name": "RSVD0",
+                            "value": 5
+                        },
+                        {
+                            "name": "RSVD1",
+                            "value": 6
+                        },
+                        {
+                            "name": "RSVD2",
+                            "value": 7
+                        }
+                    ]
+                },
+                {
+                    "type": "field",
+                    "inst_name": "alert_support",
+                    "lsb": 19,
+                    "msb": 19,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Open Drain Alert# Support"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "op_freq_select",
+                    "lsb": 20,
+                    "msb": 22,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Operating Frequency Select",
+                    "encode": [
+                        {
+                            "name": "Twenty",
+                            "value": 0
+                        },
+                        {
+                            "name": "TwentyFive",
+                            "value": 1
+                        },
+                        {
+                            "name": "ThirtyThree",
+                            "value": 2
+                        },
+                        {
+                            "name": "Fifty",
+                            "value": 3
+                        },
+                        {
+                            "name": "SixtySix",
+                            "value": 4
+                        },
+                        {
+                            "name": "RSVD0",
+                            "value": 5
+                        },
+                        {
+                            "name": "RSVD1",
+                            "value": 6
+                        },
+                        {
+                            "name": "RSVD2",
+                            "value": 7
+                        }
+                    ]
+                },
+                {
+                    "type": "field",
+                    "inst_name": "alert_select",
+                    "lsb": 23,
+                    "msb": 23,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Open Drain Alert# Select"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "io_mode_support",
+                    "lsb": 24,
+                    "msb": 25,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "I/O Mode Support",
+                    "encode": [
+                        {
+                            "name": "Single",
+                            "value": 0
+                        },
+                        {
+                            "name": "Dual",
+                            "value": 1
+                        },
+                        {
+                            "name": "Quad",
+                            "value": 2
+                        },
+                        {
+                            "name": "Any",
+                            "value": 3
+                        }
+                    ]
+                },
+                {
+                    "type": "field",
+                    "inst_name": "io_mode_sel",
+                    "lsb": 26,
+                    "msb": 27,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "I/O Mode Select",
+                    "encode": [
+                        {
+                            "name": "Single",
+                            "value": 0
+                        },
+                        {
+                            "name": "Dual",
+                            "value": 1
+                        },
+                        {
+                            "name": "Quad",
+                            "value": 2
+                        },
+                        {
+                            "name": "Reserved",
+                            "value": 3
+                        }
+                    ]
+                },
+                {
+                    "type": "field",
+                    "inst_name": "alert_mode",
+                    "lsb": 28,
+                    "msb": 28,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Alert Mode"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "resp_mod_en",
+                    "lsb": 30,
+                    "msb": 30,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Response Modifier Enable"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "crc_en",
+                    "lsb": 31,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "CRC Checking Enable"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "spec_regs_ch0_capabilities",
+            "addr_offset": 144,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "chan_en",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 1,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Channel Enable"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "chan_rdy",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Channel Ready"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "bus_master_en",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Bus Master Enable"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "max_payload_support",
+                    "lsb": 4,
+                    "msb": 6,
+                    "reset": 3,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Max Payload Size Supported:\n001b: 64bytes max,\n010b: 128bytes max\n011b: 256bytes max"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "max_payload_size",
+                    "lsb": 8,
+                    "msb": 10,
+                    "reset": 1,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Max Payload Size:\n001b: 64bytes max,\n010b: 128bytes max\n011b: 256bytes max"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "max_read_request_size",
+                    "lsb": 12,
+                    "msb": 14,
+                    "reset": 1,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Max Payload Selected bytes:\n000b: reserved.\n001b: 64bytes max,\n010b: 128bytes max,\n011b: 256bytes max,\n100b: 512bytes max,\n101b: 1024bytes max,\n110b: 2048bytes max,\n110b: 4096bytes max"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "spec_regs_ch1_capabilities",
+            "addr_offset": 160,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "chan_en",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 1,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Channel Enable"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "chan_rdy",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Channel Ready"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "wire_max_supported",
+                    "lsb": 8,
+                    "msb": 13,
+                    "reset": 7,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Maximum Virtual Wire Count Supported"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "wire_count_sel",
+                    "lsb": 16,
+                    "msb": 21,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": ""
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "spec_regs_ch2_capabilities",
+            "addr_offset": 176,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "chan_en",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "OOB Message Channel Enabled"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "chan_rdy",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "OOB Message Channel Ready"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "max_payload_support",
+                    "lsb": 4,
+                    "msb": 6,
+                    "reset": 3,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Max Payload Supported bytes:\n001b: 64bytes max,\n010b: 128bytes max\n011b: 256bytes max"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "max_payload_select",
+                    "lsb": 8,
+                    "msb": 10,
+                    "reset": 1,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Max Payload Selected bytes:\n001b: 64bytes max,\n010b: 128bytes max\n011b: 256bytes max"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "spec_regs_ch3_capabilities",
+            "addr_offset": 192,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "flash_channel_enable",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Flash Access Channel Enable:\nThis bit is set to \u20181\u2019 by eSPI master to enable the Flash Access channel.\nClearing this bit from \u20181\u2019 to \u20180\u2019 triggers a reset to the Flash\nAccess channel such as during error handling. The\nchannel remains disabled until this bit is set to \u20181\u2019 again.\nThe channel is by default disabled after the eSPI Reset#."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "flash_channel_ready",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Flash Access Channel Ready:\nWhen this bit is a \u20181\u2019, it indicates that the slave is ready to accept \ntransactions on the Flash Access channel. eSPI master should poll this bit \nafter the channel is enabled before running any transaction on this channel to\nthe slave.\n0b: Channel is not ready.\n1b: Channel is ready."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "flash_block_erase_size",
+                    "lsb": 2,
+                    "msb": 4,
+                    "reset": 1,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Flash Access Channel Maximum Payload Size Supported:\nThis field advertises the Maximum Payload Size supported by the slave.\n** Note that the erase block does nothing in the Oxide implementation\nas we do not allow the big CPU to modify flash at all\n000b: Reserved\n001b: 4 Kbytes\n010b: 64 Kbytes\n011b: Both 4 Kbytes and 64 Kbytes are supported\n100b: 128 Kbytes\n101b: 256 Kbytes\n110b \u2013 111b: Reserved"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "flash_max_payload_supported",
+                    "lsb": 5,
+                    "msb": 7,
+                    "reset": 3,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Flash Access Channel Maximum Payload Size Supported:\nThis field advertises the Maximum Payload Size supported by the slave.\n000b: Reserved.\n001b: 64 bytes max payload size.\n010b: 128 bytes max payload size.\n011b: 256 bytes max payload size.\n100b \u2013 111b: Reserved."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "flash_max_payload_selected",
+                    "lsb": 8,
+                    "msb": 10,
+                    "reset": 1,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Flash Access Channel Maximum Payload Size Selected:\nThe value set by the eSPI master must never be more\nthan the value advertised in the Max Payload Size\nSupported field.\n000b: Reserved.\n001b: 64 bytes max payload size.\n010b: 128 bytes max payload size.\n011b: 256 bytes max payload size.\n100b \u2013 111b: Reserved."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "flash_share_mode",
+                    "lsb": 11,
+                    "msb": 11,
+                    "reset": 1,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Flash Sharing Mode:\n0b: Master attached flash sharing.\n1b: Slave attached flash sharing.\n\nIf the slave supports only a single flash sharing scheme,\nthis bit is allowed to be implemented as a Read-Only (RO)\nbit with the value indicates the supported flash sharing\nscheme."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "max_rd_req",
+                    "lsb": 12,
+                    "msb": 14,
+                    "reset": 1,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Flash Access Channel Maximum Read Request Size:\n000b: Reserved.\n001b: 64 bytes max read request size.\n010b: 128 bytes max read request size.\n011b: 256 bytes max read request size.\n100b: 512 bytes max read request size.\n101b: 1024 bytes max read request size.\n110b: 2048 bytes max read request size.\n111b: 4096 bytes max read request size."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "flash_cap",
+                    "lsb": 16,
+                    "msb": 17,
+                    "reset": 2,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Flash Sharing Capability Supported:\n00b: Slave attached: Not supported, master attached: Supported,\n01b: Slave attached: Not supported, master attached: Supported,\n10b: Slave attached: Supported, master attached: Not supported,\n11b: Slave attached: Supported, master attached: Supported,"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "spec_regs_ch3_capabilities2",
+            "addr_offset": 196,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "tgt_rd_size_support",
+                    "lsb": 0,
+                    "msb": 2,
+                    "reset": 3,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Target Maximum Read Request Size Supported:\nThis field indicates the maximum read request size\nsupported by the slave as the Target on the Flash Access\nchannel.\nThis field is only applicable when slave attached flash\nsharing scheme is selected.\n2:0\nRO\nHwInit\n000b, 001b: 64 bytes max read request size.\n010b: 128 bytes max read request size.\n011b: 256 bytes max read request size.\n100b: 512 bytes max read request size.\n101b: 1024 bytes max read request size.\n110b: 2048 bytes max read request size.\n111b: 4096 bytes max read request size."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "ebs_sup",
+                    "lsb": 8,
+                    "msb": 15,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Target Flash Erase Block Size for Master\u2019s Regions:\nThis field indicates the sizes of the erase commands the\nmaster may issue. If multiple bits are set then the master\nmay issue an erase using any of the indicated sizes.\nIf multiple regions are accessible by the master, this field\nadvertises the common erase block sizes for these\nregions.\n** Note that the erase block does nothing in the Oxide implementation\nThis field is only applicable when slave attached flash\nsharing scheme is selected.\nBit 0: 1 Kbytes EBS supported\nBit 1: 2 Kbytes EBS supported\nBit 2: 4 Kbytes EBS supported\nBit 3: 8 Kbytes EBS supported\nBit 4: 16 Kbytes EBS supported\nBit 5: 32 Kbytes EBS supported\nBit 6: 64 Kbytes EBS supported\nBit 7: 128 Kbytes EBS supported"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "rpmc_sup",
+                    "lsb": 16,
+                    "msb": 21,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Target RPMC Supported: This field indicates the total\nnumber of Replay Protected Monotonic Counters (RPMC)\nsupported by the Slave. It is a 1-based field.\n0h: Slave does not support RPMC\n1h: Slave supports up to 1 RPMC\n2h: Slave supports up to 2 RPMC\n...\n3Fh: Slave supports up to 63 RPMC"
                 }
             ]
         },
