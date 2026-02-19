@@ -1118,7 +1118,36 @@ impl NotificationHandler for ServerImpl {
     fn handle_notification(&mut self, bits: userlib::NotificationBits) {
         // Check the actual status of the GPIO pin to determine if we must
         // handle the sequencer IRQ, rather than the status of the notification
-        // from the EXTI interrupt.
+        // bit.
+        //
+        // This is necessary because the STM32 external interrupt (EXTI)
+        // peripheral, which produces interrupts from GPIO pin states, cannot
+        // produce level-triggered interrupts (only edge-triggered). Therefore,
+        // we receive a notification when the pin is asserted, but we do not
+        // receive a subsequent notification if it *remains* asserted. The
+        // `handle_sequencer_interrupts` function will clear (acknowledge) any
+        // interrupt flags that it observes to be set in the FPGA's interrupt
+        // flags register (IFR), but because these flags are set based on the
+        // state of multiple signals routed to the FPGA, it is always possible
+        // that additional flags will be set *after* we have read the interrupt
+        // flags.
+        //
+        // To compensate for this, we are about to call
+        // `handle_sequencer_interrupt` a few times in a loop, in case any flags
+        // are set after we have read the register the first time. Naively, we
+        // would loop until the IRQ pin is deasserted. However, in the event
+        // that the IRQ pin *never* clears, that would result in an infinite
+        // loop, starving other lower-priority tasks. Therefore, we only loop a
+        // few times here, even if the IRQ is still asserted. If it remains
+        // asserted after a few iterations, we shall set a 10 ms timer to ensure
+        // that we are notified again shortly, giving other tasks an opportunity
+        // to run. When that timer fires, we will land here again.
+        //
+        // Therefore, we may arrive here *without* actually having received a
+        // notification with `notificatios::SEQ_IRQ_MASK` actually set, but with
+        // the IRQ pin still asserted. In that case, we still wish to perform
+        // the same interrupt-handling that we would do if the EXTI notification
+        // was posted.
         if self.is_seq_irq_asserted() {
             let state = self.log_state_registers();
             ringbuf_entry!(Trace::SequencerInterrupt {
