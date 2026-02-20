@@ -66,8 +66,10 @@ bitflags::bitflags! {
         // in A2; you probably want to use `A0_OR_A2` instead.
         const A2 = 0b00000001;
         const A0 = 0b00000010;
-        // A0+HP: T6 is also active, in addition to all A0 devices.
-        const A0_PLUS_HP = Self::A0.bits() | 0b00000100;
+        // A0+HP: T6 power is enabled by the host processor, in addition to
+        // all A0 devices.
+        const T6 = 0b00000100;
+        const A0_PLUS_HP = Self::A0.bits() | Self::T6.bits();
     }
 }
 
@@ -236,7 +238,9 @@ const INPUTS: [InputChannel; NUM_TEMPERATURE_INPUTS] = [
             sensors::TMP451_T6_TEMPERATURE_SENSOR,
         ),
         T6_THERMALS,
-        PowerBitmask::A0_PLUS_HP,
+        // Enabled only if we are in the A0+HP power state, as T6 power is
+        // controlled by the host OS.
+        PowerBitmask::T6,
         ChannelType::MustBePresent,
     ),
     // U.2 drives
