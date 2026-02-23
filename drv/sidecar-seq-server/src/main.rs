@@ -81,6 +81,8 @@ enum Trace {
     TofinoCfgRegisterValue(TofinoCfgRegisters, u32),
     TofinoPowerUp,
     TofinoPowerDown,
+    TofinoResequence,
+    TofinoPcieReset(bool),
     SetVddCoreVout(userlib::units::Volts),
     SetPCIePresent,
     ClearPCIePresent,
@@ -169,6 +171,10 @@ struct ServerImpl {
     // a piece of state to allow blinking LEDs to be in phase
     led_blink_on: bool,
     sys: sys_api::Sys,
+    // used to track how many notification loops elapsed while in A0 without a
+    // PCIe link
+    no_pcie_count: u8,
+    resequenced: bool,
 }
 
 impl ServerImpl {
@@ -375,6 +381,38 @@ impl ServerImpl {
             Err(SeqError::NoFrontIOBoard) => Ok(true),
             Err(e) => Err(e),
         }
+    }
+
+    // Monitor the status of Tofino's PCIe link to the host. When a host is
+    // connected and has booted, PERST will be deasserted and link will train.
+    // This worked reliably on Gimlet, but for reasons we've not yet been able
+    // to identify it can fail on Cosmo (host thinks things are fine, Tofino
+    // does not). When this happens, resequencing the Tofino reliably
+    // establishes the link. So we will monitor if we think there should be
+    // a PCIe link or not, and if we think there should be one but the Tofino
+    // thinks it is down we will resequence the Tofino after some delay.
+    fn monitor_tofino_pcie_link(&mut self) -> Result<(), SeqError> {
+        if !self
+            .tofino
+            .sequencer
+            .is_pcie_reset()
+            .map_err(|_| SeqError::FpgaError)?
+            && !self.tofino.pcie_link_up()?
+            && !self.resequenced
+        {
+            self.no_pcie_count += 1;
+
+            if self.no_pcie_count >= 30 {
+                // We have failed to establish a link, resequence.
+                ringbuf_entry!(Trace::TofinoResequence);
+                self.tofino.power_down()?;
+                self.tofino.power_up()?;
+                self.resequenced = true;
+            }
+        } else {
+            self.no_pcie_count = 0;
+        }
+        Ok(())
     }
 }
 
@@ -825,6 +863,16 @@ impl NotificationHandler for ServerImpl {
         // Fan module monitoring pulled out to keep this loop readable
         self.monitor_fan_modules();
 
+        // Monitor Tofino PCIe Link
+        self.tofino.poll_pcie_reset();
+        if self.tofino.sequencer.state().unwrap_or(TofinoSeqState::A2)
+            == TofinoSeqState::A0
+        {
+            if let Err(e) = self.monitor_tofino_pcie_link() {
+                ringbuf_entry!(Trace::TofinoSequencerError(e));
+            }
+        }
+
         let finish = sys_get_timer().now;
 
         // We now know when we were notified and when any work was completed.
@@ -911,6 +959,8 @@ fn main() -> ! {
         fan_modules,
         led_blink_on: false,
         sys,
+        no_pcie_count: 0,
+        resequenced: false,
     };
 
     ringbuf_entry!(Trace::FpgaInit);

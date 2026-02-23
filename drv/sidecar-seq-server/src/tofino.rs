@@ -13,6 +13,7 @@ pub(crate) struct Tofino {
     pub abort_reported: bool,
     pub ready_for_power_up: bool,
     pub pcie_link_up: bool,
+    pub pcie_reset_asserted: bool,
 }
 
 impl Tofino {
@@ -27,6 +28,7 @@ impl Tofino {
             abort_reported: false,
             ready_for_power_up: false,
             pcie_link_up: false,
+            pcie_reset_asserted: true,
         }
     }
 
@@ -75,6 +77,21 @@ impl Tofino {
             TofinoBar0Registers::PcieDevInfo,
         )? & 0xf
             == 0xf)
+    }
+
+    /// Poll FPGA for status of the PCIe reset signal from the host. Note that the
+    /// logic level of the reset signal has been normalized in the FPGA, so asserted
+    /// (logic low on PERST_L) will be true and deasserted (logic high) will be false).
+    pub fn poll_pcie_reset(&mut self) -> Result<bool, SeqError> {
+        let reset_asserted = self
+            .sequencer
+            .is_pcie_reset()
+            .map_err(|_| SeqError::FpgaError)?;
+        if reset_asserted != self.pcie_reset_asserted {
+            ringbuf_entry!(Trace::TofinoPcieReset(reset_asserted));
+        }
+        self.pcie_reset_asserted = reset_asserted;
+        Ok(self.pcie_reset_asserted)
     }
 
     pub fn power_up(&mut self) -> Result<(), SeqError> {
