@@ -72,6 +72,14 @@ enum TestVariantIdEnum {
     UnitVariant,
 }
 
+#[derive(Debug, Encode)]
+#[ereport(class = "hw.my_great_ereport.sadness", version = 0)]
+pub struct TestEreport {
+    #[cbor(rename = "a")]
+    field1: u32,
+    field2: TestEnum,
+}
+
 fn main() {
     const MAX_LEN: usize = microcbor::max_cbor_len_for![
         TestEnum,
@@ -81,6 +89,7 @@ fn main() {
         TestEnum3,
         TestVariantIdEnum,
         TestStruct2<TestVariantIdEnum>,
+        TestEreport,
     ];
     let mut buf = [0u8; MAX_LEN];
 
@@ -88,6 +97,13 @@ fn main() {
     test_one_type(
         TestStruct {
             field1: 32,
+            field2: TestEnum::Variant1,
+        },
+        &mut buf,
+    );
+    test_one_type(
+        TestEreport {
+            field1: 42,
             field2: TestEnum::Variant1,
         },
         &mut buf,

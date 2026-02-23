@@ -6,8 +6,8 @@ extern crate proc_macro;
 use proc_macro::TokenStream;
 use quote::{ToTokens, format_ident, quote};
 use syn::{
-    Attribute, DataEnum, DataStruct, DeriveInput, Generics, Ident, LitStr,
-    parse_macro_input,
+    Attribute, DataEnum, DataStruct, DeriveInput, Generics, Ident, LitInt,
+    LitStr, parse_macro_input,
 };
 
 /// Derives an implementation of the [`Encode`] and `StaticCborLen` traits for the
@@ -171,15 +171,26 @@ use syn::{
 /// This derive macro supports a `#[cbor(...)]` attribute, which may be placed
 /// on fields or variants of a deriving type to modify how they are encoded.
 ///
+/// ## Struct Type Definition Attributes
+///
+/// The following attributes are may be placed on the *definition* of a struct
+/// type:
+///
+/// - `#[ereport(class = "...", version = ...)]`: Add conventional fields
+///   for ereport messages, as described [here](#ereport-attribute).
+///
 /// ## Enum Type Definition Attributes
 ///
-/// The following `#[cbor(...)]` attributes are may be placed on the *definition*
-/// of an enum type:
+/// The following attributes are may be placed on the *definition* of an enum
+/// type:
 ///
 /// - `#[cbor(variant_id = "..")]`: Uses the [variant ID enum
 ///   representation](#enum-variant-id-encoding) with the specified field name
 ///   name when encoding this enum. Note that this attribute may *not* be used
 ///   on enums which have tuple-like (unnamed fields) variants.
+///
+/// - `#[ereport(class = "...", version = ...)]`: Add conventional fields
+///   for ereport messages, as described [here](#ereport-attribute).
 ///
 /// ## Field Attributes
 ///
@@ -236,9 +247,177 @@ use syn::{
 ///   This attribute may only be placed on unit variants, unless the enum type
 ///   uses the [variant-ID representation](#enum-variant-id-encoding).
 ///
+/// # `#[ereport(...)]` Attribute
+///
+/// One of the primary uses of CBOR in Hubris is as a wire encoding for error
+/// reports (_ereports_), as described in [RFD 544]. Therefore, this crate
+/// provides an `#[ereport(...)]` attribute to aid in defining types that
+/// represent ereports.
+///
+/// This attribute can be added to types which derive [`Encode`] or
+/// [`EncodeFields`]. It allows types which define the top-level message type
+/// for an ereport of a particular class to emit fields for the ereport's class
+/// and version when serialized, without requiring additional fields to be
+/// defined on the struct.
+///
+/// The attribute requires two keys:
+///
+/// - `class`: The class of the ereport, as a string literal. This is emitted as
+///   the `k` field when encoding the ereport.
+/// - `version`: The version of the ereport message, as a `u32` literal. This
+///   is emitted as the `v` field when encoding the ereport.
+///
+/// For example, consider the following type:
+///
+/// ```rust
+/// # use microcbor_derive::*;
+/// #[derive(Encode)]
+/// #[ereport(class = "hw.discovery.ae35.fault", version = 0)]
+/// struct Ae35UnitFault {
+///     critical_in_hrs: u32,
+///     detected_by: fixedstr::FixedStr<'static, 8>,
+/// }
+/// ```
+///
+/// When an instance of this type is constructed, only the variable fields
+/// defined on the struct must be provided:
+///
+/// ```rust
+/// # use microcbor_derive::*;
+/// # use fixedstr::FixedStr;
+/// # #[derive(Encode)]
+/// # #[ereport(class = "hw.discovery.ae35.fault", version = 0)]
+/// # struct Ae35UnitFault {
+/// #     critical_in_hrs: u32,
+/// #     detected_by: fixedstr::FixedStr<'static, 8>,
+/// # }
+/// let ereport = Ae35UnitFault {
+///     critical_in_hrs: 72,
+///     detected_by: FixedStr::from_str("HAL-9000"),
+/// };
+/// # drop(ereport);
+/// ```
+///
+/// Encoding this `Ae35UnitFault` produces the following CBOR:
+/// ```json
+/// {
+///     "k": "hw.discovery.ae35.fault",
+///     "v": 0,
+///     "critical_in_hrs": 72,
+///     "detected_by": "HAL-9000"
+/// }
+/// ```
+///
+/// The `MAX_CBOR_LEN` values generated for the `StaticCborLen` implementations
+/// for types with the `#[ereport(...)]` attribute includes the length of the
+/// `"k"` and `"v"` fields and their values, in addition to the struct fields.
+///
+/// When a type represents an ereport message of a single class, using the
+/// `#[ereport(...)]` attribute is more convenient to defining the `"k"` and
+/// `"v"` fields as fields on the struct type, which must then always be
+/// initialized to the same value when initializing an instance of that type.
+/// Furthermore, using `#[ereport(...)]` avoids the need to place the values of
+/// those fields on the stack when constructing an instance of that ereport
+/// message.
+///
+/// ## Usage Notes
+///
+/// The `#[ereport(...)]` attribute may be placed on struct or enum types.
+/// However, it may only be placed on types which only have named fields, as it
+/// requires that the type be encoded as a CBOR map. For enum types, this means
+/// that *all* variants must have named fields (i.e. be struct-like variants).
+///
+/// The following examples will not compile:
+///
+/// ```rust,compile_fail
+/// # use microcbor_derive::*;
+/// #[derive(Encode)]
+/// #[ereport(class = "broken_ereport", version = 666)]
+/// struct BrokenEreportStruct(u32, u32);
+/// ```
+///
+/// ```rust,compile_fail
+/// # use microcbor_derive::*;
+/// #[derive(Encode)]
+/// #[ereport(class = "broken_ereport", version = 666)]
+/// struct BrokenEreportEnum {
+///    OkVariant { foo: u32, bar: u8 },
+///    BadVariant,
+/// }
+/// ```
+///
+/// The `#[ereport(...)]` attribute may be used on enum types which also include
+/// [the `#[cbor(variant_id = "...")]`
+/// attribute](#enum-variant-helper-attributes). However, note that the
+/// `variant_id` field name may not be `"k"` or `"v"`, as this would collide
+/// with the fields emitted by the `#[ereport(...)]` attribute. For example, the
+/// following will compile successfully:
+///
+/// ```rust
+/// # use microcbor_derive::*;
+/// #[derive(Encode)]
+/// #[ereport(class = "hw.apollo.undervolt", version = 13)]
+/// #[cbor(variant_id = "bus")]
+/// enum Undervolt {
+///     MainBusA { volts: f32 },
+///     MainBusB { volts: f32 }, // "Houston, we've got a main bus B undervolt!"
+/// }
+/// ```
+///
+/// On the other hand, this will *not* compile, as both the `#[ereport(class =
+/// ...)` and `#[cbor(variant_id = ...)` attributes would generate values for
+/// the `"k"` field:
+///
+/// ```rust,compile_fail
+/// # use microcbor_derive::*;
+/// #[derive(Encode)]
+/// #[ereport(class = "hw.apollo.undervolt", version = 13)]
+/// #[cbor(variant_id = "k")]
+/// enum Undervolt {
+///     #[rename = "hw.apollo.undervolt.main_bus_b"]
+///     MainBusA { volts: f32 },
+///     #[rename = "hw.apollo.undervolt.main_bus_b"]
+///     MainBusB { volts: f32 },
+/// }
+/// ```
+///
+/// Similarly, placing the `#[ereport(...)]` attribute on any type which defines
+/// a Rust field named `k` or `v` will also fail to compile. For example:
+///
+/// ```rust,compile_fail
+/// use fixedstr::FixedString;
+///
+/// # use microcbor_derive::*;
+/// #[derive(Encode)]
+/// #[ereport(class = "my_map.invalid_kv_pair", version = 0)]
+/// struct InvalidKvPair {
+///     k: FixedString<32>,
+///     v: FixedString<32>,
+/// }
+/// ```
+///
+/// Using `#[cbor(rename = "...")]` to change the name under which the fields
+/// are *encoded* resolves this, permitting types that have fields with the
+/// _Rust field names_ `k` or `v` to use `#[ereport(...)]`. For example, the following *does* compile:
+///
+/// ```rust
+/// use fixedstr::FixedString;
+///
+/// # use microcbor_derive::*;
+/// #[derive(Encode)]
+/// #[ereport(class = "my_map.invalid_kv_pair", version = 0)]
+/// struct InvalidKvPair {
+///     #[cbor(rename = "key")]
+///     k: FixedString<32>,
+///     #[cbor(rename = "value")]
+///     v: FixedString<32>,
+/// }
+/// ```
+///
 /// [serde-tagged]: https://serde.rs/enum-representations.html#internally-tagged
 /// [cbor-tags]: https://www.rfc-editor.org/rfc/rfc8949.html#name-tagging-of-items
-#[proc_macro_derive(Encode, attributes(cbor))]
+/// [RFD 544]: https://hubris.readthedocs.io/en/latest/rfd/544/
+#[proc_macro_derive(Encode, attributes(cbor, ereport))]
 pub fn derive_encode(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     match gen_encode_impl(input) {
@@ -285,10 +464,13 @@ fn gen_encode_impl(input: DeriveInput) -> Result<TokenStream, syn::Error> {
             data.clone(),
         )
         .map(|tokens| tokens.to_token_stream().into()),
-        syn::Data::Struct(data) => {
-            gen_encode_struct_impl(input.ident, input.generics, data.clone())
-                .map(|tokens| tokens.to_token_stream().into())
-        }
+        syn::Data::Struct(data) => gen_encode_struct_impl(
+            input.attrs,
+            input.ident,
+            input.generics,
+            data.clone(),
+        )
+        .map(|tokens| tokens.to_token_stream().into()),
         _ => Err(syn::Error::new_spanned(
             input,
             "`StaticCborLen` can only be derived for `struct` and `enum` \
@@ -297,9 +479,13 @@ fn gen_encode_impl(input: DeriveInput) -> Result<TokenStream, syn::Error> {
     }
 }
 
-const HELPER_ATTR: &str = "cbor";
-const RENAME_ATTR: &str = "rename";
-const VARIANT_ID_ATTR: &str = "variant_id";
+const EREPORT_HELPER_ATTR: &str = "ereport";
+const CBOR_HELPER_ATTR: &str = "cbor";
+const CBOR_RENAME_ATTR: &str = "rename";
+const CBOR_VARIANT_ID_ATTR: &str = "variant_id";
+
+const TOO_MANY_EREPORT_ATTRS: &str =
+    "a type may have only one `#[ereport(...)]` attribute";
 
 fn gen_enum_encode_impl(
     attrs: Vec<Attribute>,
@@ -311,6 +497,7 @@ fn gen_enum_encode_impl(
     // instead of its name
     let EnumDefAttrs {
         variant_id_field_name,
+        ereport_fields,
     } = EnumDefAttrs::parse(&attrs)?;
     let mut variant_patterns = Vec::new();
     let mut variant_lens = Vec::new();
@@ -326,6 +513,16 @@ fn gen_enum_encode_impl(
                 let name = rename.unwrap_or_else(|| {
                     LitStr::new(&variant_name.to_string(), variant_name.span())
                 });
+
+                if ereport_fields.is_some() {
+                    return Err(syn::Error::new_spanned(
+                        variant,
+                        format!(
+                            "#[{EREPORT_HELPER_ATTR}(...)] may only be used on \
+                             enums where all variants have named fields"
+                        ),
+                    ));
+                }
 
                 match variant_id_field_name {
                     None => {
@@ -370,13 +567,16 @@ fn gen_enum_encode_impl(
             }
             syn::Fields::Named(ref fields) => {
                 let mut field_gen = FieldGenerator::new(FieldType::Named);
+                if let Some(ref ereport_fields) = ereport_fields {
+                    field_gen.add_ereport_fields(ereport_fields.clone())?;
+                }
                 if let Some(ref field_name) = variant_id_field_name {
                     field_gen.set_variant_id_name(field_name);
                 }
                 for field in &fields.named {
                     field_gen.add_field(field)?;
                 }
-                field_gen.gen_variant_id_if_needed(variant_name, rename);
+                field_gen.gen_variant_id_if_needed(variant_name, rename)?;
                 let FieldGenerator {
                     field_patterns,
                     field_len_exprs,
@@ -408,6 +608,16 @@ fn gen_enum_encode_impl(
                 });
             }
             syn::Fields::Unnamed(fields) => {
+                if ereport_fields.is_some() {
+                    return Err(syn::Error::new_spanned(
+                        fields,
+                        format!(
+                            "#[{EREPORT_HELPER_ATTR}(...)] may only be used on \
+                             enums where all variants have named fields"
+                        ),
+                    ));
+                }
+
                 let mut field_gen = FieldGenerator::new(FieldType::Unnamed);
                 if let Some(ref field_name) = variant_id_field_name {
                     field_gen.set_variant_id_name(field_name);
@@ -415,7 +625,7 @@ fn gen_enum_encode_impl(
                 for field in &fields.unnamed {
                     field_gen.add_field(field)?;
                 }
-                field_gen.gen_variant_id_if_needed(variant_name, rename);
+                field_gen.gen_variant_id_if_needed(variant_name, rename)?;
                 let FieldGenerator {
                     field_patterns,
                     field_len_exprs,
@@ -513,6 +723,7 @@ fn gen_enum_encode_impl(
 }
 
 fn gen_encode_struct_impl(
+    attrs: Vec<Attribute>,
     ident: Ident,
     generics: Generics,
     data: DataStruct,
@@ -528,7 +739,16 @@ fn gen_encode_struct_impl(
             ));
         }
     };
+
     let mut field_gen = FieldGenerator::new(field_type);
+
+    // Are we also generating ereport fields for this struct?
+    for attr in &attrs {
+        if let Some(ereport_attr) = EreportFields::parse(attr)? {
+            field_gen.add_ereport_fields(ereport_attr)?;
+        }
+    }
+
     for field in &data.fields {
         field_gen.add_field(field)?;
     }
@@ -659,6 +879,7 @@ fn gen_encode_fields_impl(
         )
         .map(|tokens| tokens.to_token_stream().into()),
         syn::Data::Struct(data) => gen_encode_fields_struct_impl(
+            input.attrs,
             input.ident,
             input.generics,
             data.clone(),
@@ -673,6 +894,7 @@ fn gen_encode_fields_impl(
 }
 
 fn gen_encode_fields_struct_impl(
+    attrs: Vec<Attribute>,
     ident: Ident,
     generics: Generics,
     data: DataStruct,
@@ -684,7 +906,16 @@ fn gen_encode_fields_struct_impl(
              named fields",
         ));
     };
+
     let mut field_gen = FieldGenerator::new(FieldType::Named);
+
+    // Are we also generating ereport fields for this struct?
+    for attr in &attrs {
+        if let Some(ereport_attr) = EreportFields::parse(attr)? {
+            field_gen.add_ereport_fields(ereport_attr)?;
+        }
+    }
+
     for field in &fields.named {
         field_gen.add_field(field)?;
     }
@@ -733,6 +964,7 @@ fn gen_encode_fields_enum_impl(
 ) -> Result<impl ToTokens, syn::Error> {
     let EnumDefAttrs {
         variant_id_field_name,
+        ereport_fields,
     } = EnumDefAttrs::parse(&attrs)?;
     let mut variant_patterns = Vec::new();
     let mut variant_lens = Vec::new();
@@ -743,6 +975,9 @@ fn gen_encode_fields_enum_impl(
             EnumVariantAttrs::parse(&variant.attrs)?;
 
         let mut field_gen = FieldGenerator::new(FieldType::Named);
+        if let Some(ref ereport_fields) = ereport_fields {
+            field_gen.add_ereport_fields(ereport_fields.clone())?;
+        }
         if let Some(ref field_name) = variant_id_field_name {
             field_gen.set_variant_id_name(field_name);
         }
@@ -766,13 +1001,13 @@ fn gen_encode_fields_enum_impl(
                     format!(
                         "`microcbor::EncodeFields` may only be derived for an \
                     `enum` type with unit variants if the enum has the \
-                     `#[cbor({VARIANT_ID_ATTR} = \"...\")]` attribute",
+                     `#[cbor({CBOR_VARIANT_ID_ATTR} = \"...\")]` attribute",
                     ),
                 ));
             }
         };
 
-        field_gen.gen_variant_id_if_needed(&variant.ident, rename);
+        field_gen.gen_variant_id_if_needed(&variant.ident, rename)?;
 
         let FieldGenerator {
             field_patterns,
@@ -842,6 +1077,7 @@ struct FieldGenerator<'a> {
     any_skipped: bool,
     field_type: FieldType,
     variant_id_field: Option<&'a LitStr>,
+    ereport_fields: Option<EreportFields>,
 }
 
 #[derive(PartialEq, Eq, Clone, Copy)]
@@ -858,6 +1094,7 @@ impl<'v> FieldGenerator<'v> {
             field_encode_exprs: Vec::new(),
             where_bounds: Vec::new(),
             any_skipped: false,
+            ereport_fields: None,
             field_type,
             variant_id_field: None,
         }
@@ -871,14 +1108,17 @@ impl<'v> FieldGenerator<'v> {
         &mut self,
         variant_name: &Ident,
         rename: Option<LitStr>,
-    ) {
+    ) -> Result<(), syn::Error> {
         let Some(field_name) = self.variant_id_field.as_ref() else {
-            return;
+            return Ok(());
         };
         let variant_id = rename.unwrap_or_else(|| {
             LitStr::new(&variant_name.to_string(), variant_name.span())
         });
 
+        if let Some(ref ereport_fields) = self.ereport_fields {
+            ereport_fields.check_collision_with(&variant_id)?;
+        }
         self.field_len_exprs.push(quote! {
             len += ::microcbor::str_cbor_len(#field_name);
             len += ::microcbor::str_cbor_len(#variant_id);
@@ -888,6 +1128,8 @@ impl<'v> FieldGenerator<'v> {
                 .str(#field_name)?
                 .str(#variant_id)?;
         });
+
+        Ok(())
     }
 
     fn add_field(&mut self, field: &syn::Field) -> Result<(), syn::Error> {
@@ -896,12 +1138,12 @@ impl<'v> FieldGenerator<'v> {
         let mut flattened = false;
         let mut skipped_if_nil = false;
         for attr in &field.attrs {
-            if attr.path().is_ident(HELPER_ATTR) {
+            if attr.path().is_ident(CBOR_HELPER_ATTR) {
                 attr.meta.require_list()?.parse_nested_meta(|meta| {
-                    if meta.path.is_ident(RENAME_ATTR) {
+                    if meta.path.is_ident(CBOR_RENAME_ATTR) {
                         if field.ident.is_none() {
                             return Err(meta.error(format!(
-                                "`#[cbor({RENAME_ATTR} = \"...\")]` is only \
+                                "`#[cbor({CBOR_RENAME_ATTR} = \"...\")]` is only \
                                 supported on named fields",
                             )));
                         }
@@ -924,7 +1166,7 @@ impl<'v> FieldGenerator<'v> {
                         Ok(())
                     } else {
                         Err(meta.error(format!(
-                            "expected `{RENAME_ATTR}`, `skip`, `skip_if_nil`, or \
+                            "expected `{CBOR_RENAME_ATTR}`, `skip`, `skip_if_nil`, or \
                              `flatten` attribute",
                         )))
                     }
@@ -968,6 +1210,9 @@ impl<'v> FieldGenerator<'v> {
                                 variant_id_name.value()
                             ),
                         ));
+                    }
+                    if let Some(ref ereport_fields) = self.ereport_fields {
+                        ereport_fields.check_collision_with(&field_name)?;
                     }
                     self.field_patterns.push(quote! { #field_ident });
                     let encode_name = quote! {
@@ -1039,33 +1284,82 @@ impl<'v> FieldGenerator<'v> {
 
         Ok(())
     }
+
+    fn add_ereport_fields(
+        &mut self,
+        ereport_fields: EreportFields,
+    ) -> Result<(), syn::Error> {
+        let EreportFields {
+            class,
+            version,
+            attr,
+        } = &ereport_fields;
+        if self.field_type != FieldType::Named {
+            return Err(syn::Error::new_spanned(
+                attr,
+                "the `#[ereport(...)]` attribute may only be used on types \
+                 which only have named fields",
+            ));
+        }
+
+        if self.ereport_fields.is_some() {
+            return Err(syn::Error::new_spanned(attr, TOO_MANY_EREPORT_ATTRS));
+        }
+        self.field_len_exprs.push(quote! {
+            len += ::microcbor::str_cbor_len(#EREPORT_CLASS_KEY);
+            len += ::microcbor::str_cbor_len(#class);
+            len += ::microcbor::str_cbor_len(#EREPORT_VERSION_KEY);
+            len += ::microcbor::u32_cbor_len(#version);
+        });
+        self.field_encode_exprs.push(quote! {
+            __microcbor_renamed_encoder
+                .str(#EREPORT_CLASS_KEY)?
+                .str(#class)?
+                .str(#EREPORT_VERSION_KEY)?
+                .u32(#version)?;
+        });
+        self.ereport_fields = Some(ereport_fields);
+        Ok(())
+    }
 }
 
 struct EnumDefAttrs {
     /// Are we asked to generate a variant-ID field?
     variant_id_field_name: Option<LitStr>,
+    /// Are we also generating ereport fields?
+    ereport_fields: Option<EreportFields>,
 }
 
 impl EnumDefAttrs {
     fn parse(attrs: &[Attribute]) -> Result<Self, syn::Error> {
         let mut variant_id_field_name = None;
+        let mut ereport_fields = None;
         for attr in attrs {
-            if attr.path().is_ident(HELPER_ATTR) {
+            if attr.path().is_ident(CBOR_HELPER_ATTR) {
                 attr.meta.require_list()?.parse_nested_meta(|meta| {
-                    if meta.path.is_ident(VARIANT_ID_ATTR) {
+                    if meta.path.is_ident(CBOR_VARIANT_ID_ATTR) {
                         variant_id_field_name =
                             Some(meta.value()?.parse::<LitStr>()?);
                         Ok(())
                     } else {
                         Err(meta.error(format!(
-                            "expected `{VARIANT_ID_ATTR}` attribute"
+                            "expected `{CBOR_VARIANT_ID_ATTR}` attribute"
                         )))
                     }
                 })?;
-            };
+            } else if let Some(ereport_attr) = EreportFields::parse(attr)? {
+                if ereport_fields.is_some() {
+                    return Err(syn::Error::new_spanned(
+                        attr,
+                        TOO_MANY_EREPORT_ATTRS,
+                    ));
+                }
+                ereport_fields = Some(ereport_attr);
+            }
         }
         Ok(Self {
             variant_id_field_name,
+            ereport_fields,
         })
     }
 }
@@ -1078,19 +1372,114 @@ impl EnumVariantAttrs {
     fn parse(attrs: &[Attribute]) -> Result<Self, syn::Error> {
         let mut rename = None;
         for attr in attrs {
-            if attr.path().is_ident(HELPER_ATTR) {
+            if attr.path().is_ident(CBOR_HELPER_ATTR) {
                 attr.meta.require_list()?.parse_nested_meta(|meta| {
-                    if meta.path.is_ident(RENAME_ATTR) {
+                    if meta.path.is_ident(CBOR_RENAME_ATTR) {
                         rename = Some(meta.value()?.parse::<LitStr>()?);
                         Ok(())
                     } else {
                         Err(meta.error(format!(
-                            "expected `{RENAME_ATTR}` attribute"
+                            "expected `{CBOR_RENAME_ATTR}` attribute"
                         )))
                     }
                 })?;
             };
         }
         Ok(Self { rename })
+    }
+}
+
+#[derive(Clone)]
+struct EreportFields {
+    class: LitStr,
+    version: LitInt,
+    attr: Attribute,
+}
+
+const EREPORT_CLASS_KEY: &str = "k";
+const EREPORT_VERSION_KEY: &str = "v";
+
+impl EreportFields {
+    fn check_collision_with(
+        &self,
+        field_name: &LitStr,
+    ) -> Result<(), syn::Error> {
+        // XXX(eliza): I don't like that the syn API makes us
+        // turn this into a string, but...whatever. Sigh.
+        let name = field_name.value();
+        if name == EREPORT_CLASS_KEY {
+            return Err(syn::Error::new(
+                field_name.span(),
+                format!(
+                    "ereport class key (\"{EREPORT_CLASS_KEY}\") from \
+                     `#[{EREPORT_HELPER_ATTR}(class = \"{}\")]` \
+                     collides with the name of a field",
+                    self.class.value(),
+                ),
+            ));
+        }
+        if name == EREPORT_VERSION_KEY {
+            return Err(syn::Error::new(
+                field_name.span(),
+                format!(
+                    "ereport version key (\"{EREPORT_VERSION_KEY}\") from \
+                     `#[{EREPORT_HELPER_ATTR}(version = \"{}\")]` \
+                     collides with the name of a field",
+                    self.version.base10_digits(),
+                ),
+            ));
+        }
+
+        Ok(())
+    }
+
+    fn parse(attr: &Attribute) -> Result<Option<Self>, syn::Error> {
+        const CLASS: &str = "class";
+        const VERSION: &str = "version";
+
+        // Is it an ereport attribute?
+        if !attr.path().is_ident(EREPORT_HELPER_ATTR) {
+            return Ok(None);
+        }
+
+        let mut class = None;
+        let mut version = None;
+        attr.meta.require_list()?.parse_nested_meta(|meta| {
+            if meta.path.is_ident(CLASS) {
+                if class.is_some() {
+                    return Err(
+                        meta.error(format!("duplicate `{CLASS}` attribute"))
+                    );
+                }
+                class = Some(meta.value()?.parse::<LitStr>()?);
+                Ok(())
+            } else if meta.path.is_ident(VERSION) {
+                if version.is_some() {
+                    return Err(
+                        meta.error(format!("duplicate `{VERSION}` attribute"))
+                    );
+                }
+                version = Some(meta.value()?.parse::<LitInt>()?);
+                Ok(())
+            } else {
+                Err(meta.error(format!(
+                    "expected `{CLASS}` or `{VERSION}` attribute"
+                )))
+            }
+        })?;
+
+        if let (Some(class), Some(version)) = (class, version) {
+            Ok(Some(Self {
+                class,
+                version,
+                attr: attr.clone(),
+            }))
+        } else {
+            Err(syn::Error::new_spanned(
+                attr,
+                "`#[{EREPORT_HELPER_ATTR}(...)]` requires both `{CLASS}` \
+                 and `{VERSION}` attributes",
+            ))
+        }
     }
 }
