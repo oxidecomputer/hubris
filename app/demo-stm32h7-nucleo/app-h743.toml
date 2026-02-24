@@ -10,10 +10,14 @@ name = "demo-stm32h7-nucleo"
 requires = {flash = 24736, ram = 5120}
 features = ["h743", "dump"]
 
+[caboose]
+tasks = ["control_plane_agent"]
+region = "flash"
+size = 256
+
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
-max-sizes = {flash = 16384, ram = 4096}
 start = true
 features = ["dump"]
 stacksize = 2000
@@ -22,7 +26,7 @@ extern-regions = [ "sram1", "sram2", "sram3", "sram4" ]
 
 [tasks.jefe.config.allowed-callers]
 set_reset_reason = ["sys"]
-request_reset = ["hiffy"]
+request_reset = ["hiffy", "control_plane_agent"]
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
@@ -47,6 +51,11 @@ port = "C"
 pin = 13
 owner = {name = "user_button", notification = "button"}
 
+[tasks.sys.config.gpio-irqs.rot_irq]
+port = "D"
+pin = 0
+owner = {name = "sprot", notification = "rot_irq"}
+
 [tasks.i2c_driver]
 name = "drv-stm32xx-i2c-server"
 stacksize = 1048
@@ -67,10 +76,16 @@ notifications = ["i2c1-irq", "i2c2-irq", "i2c3-irq", "i2c4-irq"]
 "i2c4.event" = "i2c4-irq"
 "i2c4.error" = "i2c4-irq"
 
+[tasks.packrat]
+name = "task-packrat"
+priority = 2
+start = true
+# task-slots is explicitly empty: packrat should not send IPCs!
+task-slots = []
+
 [tasks.spi_driver]
 name = "drv-stm32h7-spi-server"
 priority = 2
-max-sizes = {flash = 16384, ram = 4096}
 features = ["spi1", "h743"]
 uses = ["spi1"]
 start = true
@@ -83,7 +98,7 @@ task-slots = ["sys"]
 name = "task-net"
 stacksize = 4000
 priority = 2
-max-sizes = {flash = 65536, ram = 8192, sram1_mac = 32768}
+max-sizes = {flash = 131072, ram = 32768, sram1_mac = 32768}
 features = ["h743"]
 sections = {eth_bulk = "sram1_mac"}
 uses = ["eth", "tim16"]
@@ -96,7 +111,6 @@ task-slots = ["sys", "jefe"]
 name = "drv-user-leds"
 features = ["stm32h7"]
 priority = 2
-max-sizes = {flash = 2048, ram = 1024}
 start = true
 task-slots = ["sys"]
 notifications = ["timer"]
@@ -113,7 +127,22 @@ config = { led = 1, edge = "Edge::Rising" }
 [tasks.udpecho]
 name = "task-udpecho"
 priority = 3
-max-sizes = {flash = 16384, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net"]
+notifications = ["socket"]
+
+[tasks.udpbroadcast]
+name = "task-udpbroadcast"
+priority = 3
+stacksize = 4096
+start = true
+task-slots = ["net", "packrat"]
+notifications = ["socket"]
+
+[tasks.udprpc]
+name = "task-udprpc"
+priority = 3
 stacksize = 4096
 start = true
 task-slots = ["net"]
@@ -122,16 +151,89 @@ notifications = ["socket"]
 [tasks.hiffy]
 name = "task-hiffy"
 features = ["h743", "stm32h7", "i2c", "gpio", "spi", "turbo"]
-priority = 4
-max-sizes = {flash = 32768, ram = 65536 }
+priority = 5
 stacksize = 2048
 start = true
 task-slots = ["sys", "i2c_driver"]
 
+[tasks.hf]
+name = "drv-mock-gimlet-hf-server"
+features = ["h743"]
+priority = 4
+stacksize = 2048
+start = true
+uses = ["quadspi"]
+notifications = ["qspi-irq"]
+interrupts = {"quadspi.irq" = "qspi-irq"}
+task-slots = ["sys"]
+
+[tasks.gimlet_seq]
+name = "drv-mock-gimlet-seq-server"
+priority = 2
+start = true
+task-slots = ["jefe"]
+
+[tasks.update_server]
+name = "stm32h7-update-server"
+priority = 3
+stacksize = 2048
+start = true
+uses = ["flash_controller"]
+extern-regions = ["bank2"]
+notifications = ["flash-irq"]
+interrupts = {"flash_controller.irq" = "flash-irq"}
+
+[tasks.validate]
+name = "task-validate"
+priority = 3
+stacksize = 1024
+start = true
+task-slots = ["i2c_driver"]
+
+[tasks.sensor]
+name = "task-sensor"
+priority = 5
+stacksize = 1024
+start = true
+
+[tasks.sprot]
+name = "drv-stm32h7-sprot-server"
+priority = 5
+stacksize = 16384
+start = true
+task-slots = ["sys"]
+features = ["sink_test", "use-spi-core", "h743", "spi3"]
+uses = ["spi3"]
+notifications = ["spi-irq", "rot-irq", "timer"]
+interrupts = {"spi3.irq" = "spi-irq"}
+
+[tasks.control_plane_agent]
+name = "task-control-plane-agent"
+priority = 7
+stacksize = 6256
+start = true
+uses = ["usart1"]
+task-slots = [
+    "jefe",
+    "net",
+    "dump_agent",
+    "update_server",
+    "sys",
+    "hf",
+    { cpu_seq = "gimlet_seq" },
+    "validate",
+    "sensor",
+    "sprot",
+    "packrat",
+    "user_leds",
+]
+features = ["gimlet", "usart1-gimletlet", "baud_rate_3M"]
+notifications = ["usart-irq", "socket", "timer"]
+interrupts = {"usart1.irq" = "usart-irq"}
+
 [tasks.idle]
 name = "task-idle"
-priority = 6
-max-sizes = {flash = 128, ram = 256}
+priority = 9
 stacksize = 256
 start = true
 
@@ -148,7 +250,6 @@ uses = ["rng"]
 name = "task-dump-agent"
 features = ["no-rot"]
 priority = 4
-max-sizes = {flash = 32768, ram = 2048 }
 start = true
 task-slots = ["jefe"]
 stacksize = 1200
@@ -187,6 +288,19 @@ mux = "cn7_arduino"
 cs = [{port = "D", pin = 14}]
 clock_divider = "DIV16"
 
+[config.spi.spi3]
+controller = 3
+
+[config.spi.spi3.mux_options.port_c]
+outputs = [
+    {port = "C", pins = [10, 12], af = 6},
+]
+input = {port = "C", pin = 11, af = 6}
+
+[config.spi.spi3.devices.spi3_header]
+mux = "port_c"
+cs = [{port = "A", pin = 15}]
+clock_divider = "DIV256"
 
 [config.net]
 # UDP ports in sockets below are assigned in oxidecomputer/oana
@@ -197,3 +311,24 @@ owner = {name = "udpecho", notification = "socket"}
 port = 7
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.broadcast]
+kind = "udp"
+owner = {name = "udpbroadcast", notification = "socket"}
+port = 997
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.rpc]
+kind = "udp"
+owner = {name = "udprpc", notification = "socket"}
+port = 998
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.control_plane_agent]
+kind = "udp"
+owner = {name = "control_plane_agent", notification = "socket"}
+port = 11111
+tx = { packets = 3, bytes = 2048 }
+rx = { packets = 3, bytes = 2048 }

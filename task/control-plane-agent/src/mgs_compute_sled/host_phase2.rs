@@ -179,15 +179,19 @@ impl HostPhase2Requester {
 
         let n = gateway_messages::serialize(tx_buf, &message).unwrap_lite();
 
+        #[cfg(feature = "vlan")]
         let vid = match port {
             SpPort::One => task_net_api::VLanId::Sidecar1,
             SpPort::Two => task_net_api::VLanId::Sidecar2,
         };
+        #[cfg(not(feature = "vlan"))]
+        let _ = port;
 
         Some(UdpMetadata {
             addr: SP_TO_MGS_MULTICAST_ADDR,
             port: MGS_UDP_PORT,
             size: n as u32,
+            #[cfg(feature = "vlan")]
             vid,
         })
     }

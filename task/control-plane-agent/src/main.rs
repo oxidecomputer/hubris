@@ -599,7 +599,10 @@ impl NetHandler {
         assert!(self.packet_to_send.is_none());
         let sender = Sender {
             addr,
+            #[cfg(feature = "vlan")]
             vid: meta.vid,
+            #[cfg(not(feature = "vlan"))]
+            vid: task_net_api::VLanId::None,
         };
         if let Some(n) = sp_impl::handle_message(
             sender,
