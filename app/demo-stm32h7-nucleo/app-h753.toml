@@ -7,22 +7,29 @@ stacksize = 896
 
 [kernel]
 name = "demo-stm32h7-nucleo"
-requires = {flash = 24736, ram = 5120}
+requires = {flash = 24736, ram = 5632}
 features = ["h753", "dump"]
+
+[caboose]
+tasks = ["control_plane_agent"]
+region = "flash"
+size = 256
 
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
-max-sizes = {flash = 16384, ram = 4096}
 start = true
-features = ["dump"]
+features = ["dump", "fault-notification"]
 stacksize = 2000
 notifications = ["fault", "timer"]
 extern-regions = [ "sram1", "sram2", "sram3", "sram4" ]
 
+[tasks.jefe.config.on-task-fault]
+packrat = "task-faulted"
+
 [tasks.jefe.config.allowed-callers]
 set_reset_reason = ["sys"]
-request_reset = ["hiffy"]
+request_reset = ["hiffy", "control_plane_agent"]
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
@@ -47,12 +54,16 @@ port = "C"
 pin = 13
 owner = {name = "user_button", notification = "button"}
 
+[tasks.sys.config.gpio-irqs.rot_irq]
+port = "D"
+pin = 0
+owner = {name = "sprot", notification = "rot_irq"}
+
 [tasks.i2c_driver]
 name = "drv-stm32xx-i2c-server"
 stacksize = 1048
 features = ["h753"]
 priority = 2
-max-sizes = {flash = 16384, ram = 4096}
 uses = ["i2c1", "i2c2", "i2c3", "i2c4"]
 notifications = ["i2c1-irq", "i2c2-irq", "i2c3-irq", "i2c4-irq"]
 start = true
@@ -71,14 +82,15 @@ task-slots = ["sys"]
 [tasks.packrat]
 name = "task-packrat"
 priority = 2
+stacksize = 1616
 start = true
-# task-slots is explicitly empty: packrat should not send IPCs!
-task-slots = []
+task-slots = ["jefe"]
+features = ["ereport"]
+notifications = ["task-faulted"]
 
 [tasks.spi_driver]
 name = "drv-stm32h7-spi-server"
 priority = 2
-max-sizes = {flash = 16384, ram = 4096}
 features = ["spi1", "h753"]
 uses = ["spi1"]
 start = true
@@ -91,7 +103,7 @@ task-slots = ["sys"]
 name = "task-net"
 stacksize = 4000
 priority = 2
-max-sizes = {flash = 131072, ram = 16384, sram1_mac = 32768}
+max-sizes = {flash = 131072, ram = 32768, sram1_mac = 32768}
 features = ["h753"]
 sections = {eth_bulk = "sram1_mac"}
 uses = ["eth", "tim16"]
@@ -104,7 +116,6 @@ task-slots = ["sys", "jefe"]
 name = "drv-user-leds"
 features = ["stm32h7"]
 priority = 2
-max-sizes = {flash = 2048, ram = 1024}
 start = true
 task-slots = ["sys"]
 notifications = ["timer"]
@@ -121,7 +132,6 @@ config = { led = 1, edge = "Edge::Rising" }
 [tasks.udpecho]
 name = "task-udpecho"
 priority = 3
-max-sizes = {flash = 32768, ram = 8192}
 stacksize = 4096
 start = true
 task-slots = ["net"]
@@ -130,7 +140,6 @@ notifications = ["socket"]
 [tasks.udpbroadcast]
 name = "task-udpbroadcast"
 priority = 3
-max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
 task-slots = ["net", "packrat"]
@@ -139,7 +148,6 @@ notifications = ["socket"]
 [tasks.udprpc]
 name = "task-udprpc"
 priority = 3
-max-sizes = {flash = 32768, ram = 8192}
 stacksize = 4096
 start = true
 task-slots = ["net"]
@@ -149,7 +157,6 @@ notifications = ["socket"]
 name = "task-hiffy"
 features = ["h753", "stm32h7", "i2c", "gpio", "spi", "qspi", "hash", "turbo"]
 priority = 5
-max-sizes = {flash = 32768, ram = 65536 }
 stacksize = 2048
 start = true
 task-slots = ["sys", "i2c_driver", "hf", "hash_driver"]
@@ -159,7 +166,6 @@ notifications = ["timer"]
 name = "drv-mock-gimlet-hf-server"
 features = ["h753", "hash"]
 priority = 4
-max-sizes = {flash = 16384, ram = 4096 }
 stacksize = 2048
 start = true
 uses = ["quadspi"]
@@ -171,7 +177,6 @@ task-slots = ["sys", "hash_driver"]
 name = "drv-stm32h7-hash-server"
 features = ["h753"]
 priority = 3
-max-sizes = {flash = 16384, ram=4096 }
 stacksize = 2048
 start = true
 uses = ["hash"]
@@ -179,20 +184,84 @@ notifications = ["hash-irq"]
 interrupts = {"hash.irq" = "hash-irq"}
 task-slots = ["sys"]
 
+[tasks.gimlet_seq]
+name = "drv-mock-gimlet-seq-server"
+priority = 2
+start = true
+task-slots = ["jefe"]
+
+[tasks.update_server]
+name = "stm32h7-update-server"
+priority = 3
+stacksize = 2048
+start = true
+uses = ["flash_controller"]
+extern-regions = ["bank2"]
+notifications = ["flash-irq"]
+interrupts = {"flash_controller.irq" = "flash-irq"}
+
+[tasks.validate]
+name = "task-validate"
+priority = 3
+stacksize = 1024
+start = true
+task-slots = ["i2c_driver"]
+
+[tasks.sensor]
+name = "task-sensor"
+priority = 5
+stacksize = 1024
+start = true
+
+[tasks.sprot]
+name = "drv-stm32h7-sprot-server"
+priority = 5
+stacksize = 16384
+start = true
+task-slots = ["sys"]
+features = ["sink_test", "use-spi-core", "h753", "spi3"]
+uses = ["spi3"]
+notifications = ["spi-irq", "rot-irq", "timer"]
+interrupts = {"spi3.irq" = "spi-irq"}
+
+[tasks.control_plane_agent]
+name = "task-control-plane-agent"
+priority = 7
+stacksize = 6256
+start = true
+uses = ["usart1"]
+task-slots = [
+    "jefe",
+    "net",
+    "dump_agent",
+    "update_server",
+    "sys",
+    "hf",
+    { cpu_seq = "gimlet_seq" },
+    "validate",
+    "sensor",
+    "sprot",
+    "i2c_driver",
+    "packrat",
+    "user_leds",
+]
+features = ["gimlet", "usart1-gimletlet", "baud_rate_3M"]
+notifications = ["usart-irq", "socket", "timer"]
+interrupts = {"usart1.irq" = "usart-irq"}
+
 [tasks.idle]
 name = "task-idle"
-priority = 7
-max-sizes = {flash = 128, ram = 256}
+priority = 9
 stacksize = 256
 start = true
 
 [tasks.rng_driver]
-features = ["h753"]
+features = ["h753", "packrat"]
 priority = 3
 name = "drv-stm32h7-rng"
 stacksize = 512
 start = true
-task-slots = ["sys", "user_leds"]
+task-slots = ["sys", "user_leds", "packrat"]
 uses = ["rng"]
 
 [tasks.dump_agent]
@@ -204,6 +273,24 @@ start = true
 task-slots = ["jefe", "net"]
 stacksize = 2400
 extern-regions = [ "sram1", "sram2", "sram3", "sram4" ]
+notifications = ["socket"]
+
+# Demo/test task for ereports
+[tasks.ereportulator]
+name = "task-ereportulator"
+priority = 6
+start = true
+task-slots = ["packrat"]
+notifications = []
+
+[tasks.snitch]
+name = "task-snitch"
+# The snitch should have a priority immediately below that of the net task,
+# to minimize the number of components that can starve it from resources.
+priority = 6
+stacksize = 1200
+start = true
+task-slots = ["net", "packrat"]
 notifications = ["socket"]
 
 [config]
@@ -237,6 +324,20 @@ mux = "cn7_arduino"
 cs = [{port = "D", pin = 14}]
 clock_divider = "DIV32"
 
+[config.spi.spi3]
+controller = 3
+
+[config.spi.spi3.mux_options.port_c]
+outputs = [
+    {port = "C", pins = [10, 12], af = 6},
+]
+input = {port = "C", pin = 11, af = 6}
+
+[config.spi.spi3.devices.spi3_header]
+mux = "port_c"
+cs = [{port = "A", pin = 15}]
+clock_divider = "DIV256"
+
 [config.net]
 # UDP ports in sockets below are assigned in oxidecomputer/oana
 
@@ -267,3 +368,19 @@ owner = {name = "dump_agent", notification = "socket"}
 port = 11113
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.control_plane_agent]
+kind = "udp"
+owner = {name = "control_plane_agent", notification = "socket"}
+port = 11111
+tx = { packets = 3, bytes = 2048 }
+rx = { packets = 3, bytes = 2048 }
+
+[config.net.sockets.ereport]
+kind = "udp"
+owner = {name = "snitch", notification = "socket"}
+port = 57005
+tx = { packets = 3, bytes = 1024 }
+# v0 ereport requests are always 35B, so just make the buffer exactly
+# that size...
+rx = { packets = 3, bytes = 35 }
