@@ -438,6 +438,8 @@ fn init_front_fpga<S: SpiServer>(
 #[allow(unused)]
 struct ServerImpl {
     state: PowerState,
+    /// The Hubris tick at which we transitioned to the current state.
+    since: u64,
     jefe: Jefe,
     sys: Sys,
     hf: HostFlash,
@@ -473,6 +475,7 @@ impl ServerImpl {
 
         ServerImpl {
             state: PowerState::A2,
+            since: now,
             jefe,
             sys: Sys::from(SYS.get_task_id()),
             hf: HostFlash::from(HF.get_task_id()),
@@ -690,13 +693,14 @@ impl ServerImpl {
             _ => return Err(CpuSeqError::IllegalTransition),
         }
 
-        self.set_state_internal(state);
+        self.set_state_internal(state, now);
         Ok(Transition::Changed)
     }
 
     /// Updates our internal `state` and the global state in `jefe`
-    fn set_state_internal(&mut self, state: PowerState) {
+    fn set_state_internal(&mut self, state: PowerState, now: u64) {
         self.state = state;
+        self.since = now;
         self.jefe.set_state(state as u32);
         self.poke_timer();
     }
@@ -927,6 +931,7 @@ impl ServerImpl {
             action = InternalAction::ThermTrip;
             self.ereporter.try_send_ereport(&ereports::cpu::Thermtrip {
                 cpu: &HOST_CPU_REFDES,
+                state: self.ereport_current_state(),
             });
         }
 
@@ -944,6 +949,7 @@ impl ServerImpl {
             action = InternalAction::Smerr;
             self.ereporter.try_send_ereport(&ereports::cpu::Smerr {
                 cpu: &HOST_CPU_REFDES,
+                state: self.ereport_current_state(),
             });
         }
         // Fan Fault is unconnected
@@ -959,7 +965,7 @@ impl ServerImpl {
                     why: StateChangeReason::CpuReset,
                     now,
                 });
-                self.set_state_internal(PowerState::A0Reset);
+                self.set_state_internal(PowerState::A0Reset, now);
             }
             InternalAction::NicMapo => {
                 // Presumably we are in A0+HP, so send us back to A0 so that the
@@ -971,7 +977,7 @@ impl ServerImpl {
                     why: StateChangeReason::NicMapo,
                     now,
                 });
-                self.set_state_internal(PowerState::A0);
+                self.set_state_internal(PowerState::A0, now);
             }
             InternalAction::ThermTrip => {
                 // This is a terminal state; we set our state to `A0Thermtrip`
@@ -982,7 +988,7 @@ impl ServerImpl {
                     why: StateChangeReason::Overheat,
                     now,
                 });
-                self.set_state_internal(PowerState::A0Thermtrip);
+                self.set_state_internal(PowerState::A0Thermtrip, now);
             }
             InternalAction::Mapo => {
                 // This is a terminal state (for now)
@@ -1004,6 +1010,13 @@ impl ServerImpl {
 
     fn is_seq_irq_asserted(&self) -> bool {
         self.sys.gpio_read(SEQ_IRQ) == 0
+    }
+
+    fn ereport_current_state(&self) -> ereports::cpu::CurrentState {
+        ereports::cpu::CurrentState {
+            cur: self.state,
+            since: self.since,
+        }
     }
 }
 
