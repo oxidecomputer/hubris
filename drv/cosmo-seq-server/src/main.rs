@@ -925,7 +925,9 @@ impl ServerImpl {
             self.seq.ifr.modify(|h| h.set_thermtrip(true));
             ringbuf_entry!(Trace::Thermtrip);
             action = InternalAction::ThermTrip;
-            // Great place for an ereport?
+            self.ereporter.try_send_ereport(&ereports::cpu::Thermtrip {
+                cpu: &HOST_CPU_REFDES,
+            });
         }
 
         if ifr.a0mapo {
@@ -940,7 +942,9 @@ impl ServerImpl {
             self.seq.ifr.modify(|h| h.set_smerr_assert(true));
             ringbuf_entry!(Trace::SmerrInterrupt);
             action = InternalAction::Smerr;
-            // Great place for an ereport?
+            self.ereporter.try_send_ereport(&ereports::cpu::Smerr {
+                cpu: &HOST_CPU_REFDES,
+            });
         }
         // Fan Fault is unconnected
 
