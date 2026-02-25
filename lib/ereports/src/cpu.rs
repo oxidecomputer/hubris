@@ -13,7 +13,7 @@ use microcbor::{Encode, EncodeFields};
 pub struct Thermtrip {
     #[cbor(flatten)]
     pub cpu: &'static HostCpuRefdes,
-    pub state: CurrentState,
+    pub state: crate::pwr::CurrentState,,
 }
 
 /// An ereport representing an AMD CPU's `SMERR_L` assertion.
@@ -22,7 +22,7 @@ pub struct Thermtrip {
 pub struct Smerr {
     #[cbor(flatten)]
     pub cpu: &'static HostCpuRefdes,
-    pub state: CurrentState,
+    pub state: crate::pwr::CurrentState,
 }
 
 /// An ereport representing an unsupported CPU.
@@ -33,16 +33,6 @@ pub struct UnsupportedCpu<T: EncodeFields<()>> {
     pub cpu: &'static HostCpuRefdes,
     #[cbor(flatten)]
     pub cpu_type: T,
-}
-
-/// Represents the current CPU power state, and how long we have been in that state.
-#[derive(Copy, Clone, Encode)]
-pub struct CurrentState {
-    /// The current CPU power state.
-    pub cur: drv_cpu_power_state::PowerState,
-    /// The Hubris tick (in milliseconds) at which the transition to this state
-    /// occurred.
-    pub since: u64,
 }
 
 #[derive(Clone, EncodeFields)]

@@ -28,6 +28,14 @@ pub struct Bmr491MitigationFailure<const REFDES_LEN: usize> {
     pub succeeded: bool,
 }
 
+/// An ereport representing a mutually-assured power-off (MAPO) event.
+#[derive(Clone, Encode)]
+#[ereport(class = "hw.pwr.mapo", version = 0)]
+pub struct Mapo<const REFDES_LEN: usize> {
+    pub refdes: FixedStr<'static, REFDES_LEN>,
+    pub state: crate::pwr::CurrentState,
+}
+
 /// PMBus status registers.
 #[derive(Copy, Clone, Default, Encode)]
 pub struct PmbusStatus {
@@ -38,4 +46,14 @@ pub struct PmbusStatus {
     pub temp: Option<u8>,
     pub cml: Option<u8>,
     pub mfr: Option<u8>,
+}
+
+/// Represents the current power state, and how long we have been in that state.
+#[derive(Copy, Clone, Encode)]
+pub struct CurrentState {
+    /// The current CPU power state.
+    pub cur: drv_cpu_power_state::PowerState,
+    /// The Hubris tick (in milliseconds) at which the transition to this state
+    /// occurred.
+    pub since: u64,
 }
