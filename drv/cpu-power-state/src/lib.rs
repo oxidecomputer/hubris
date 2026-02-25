@@ -22,6 +22,7 @@ use zerocopy::{Immutable, IntoBytes, KnownLayout};
     KnownLayout,
     counters::Count,
 )]
+#[cfg_attr(feature = "microcbor", derive(microcbor::Encode))]
 #[repr(u8)]
 pub enum PowerState {
     /// Initial A2 state where the SP and most associated circuitry is powered.
