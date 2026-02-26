@@ -168,21 +168,21 @@ use syn::{
 ///
 /// # Helper Attributes
 ///
-/// This derive macro supports a `#[cbor(...)]` attribute, which may be placed
-/// on fields or variants of a deriving type to modify how they are encoded.
+/// Additional attributes may be placed on deriving types, and on fields
+/// or variants within a  deriving type, to modify how they are encoded.
 ///
 /// ## Struct Type Definition Attributes
 ///
-/// The following attributes are may be placed on the *definition* of a struct
-/// type:
+/// The following attributes are may be placed on the top-level type definition
+/// of a struct type:
 ///
 /// - `#[ereport(class = "...", version = ...)]`: Add conventional fields
 ///   for ereport messages, as described [here](#ereport-attribute).
 ///
 /// ## Enum Type Definition Attributes
 ///
-/// The following attributes are may be placed on the *definition* of an enum
-/// type:
+/// The following attributes are may be placed on the top-level type definition
+/// of an enum type:
 ///
 /// - `#[cbor(variant_id = "..")]`: Uses the [variant ID enum
 ///   representation](#enum-variant-id-encoding) with the specified field name
