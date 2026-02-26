@@ -2978,6 +2978,7 @@ name = "ereports"
 version = "0.1.0"
 dependencies = [
  "drv-cpu-power-state",
+ "drv-i2c-devices",
  "fixedstr",
  "microcbor",
 ]
