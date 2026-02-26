@@ -15,6 +15,7 @@
 use super::i2c_config;
 use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::raa229620a::{self, Raa229620A};
+use ereports::pwr::{PmbusAlert, PmbusStatus};
 use fixedstr::FixedStr;
 use pmbus::commands::raa229620a::STATUS_WORD;
 use ringbuf::*;
@@ -458,7 +459,7 @@ impl VCore {
         .map(|s| s.0);
         ringbuf_entry!(Trace::StatusMfrSpecific(rail, status_mfr));
 
-        let pmbus_status = crate::PmbusStatus {
+        let pmbus_status = PmbusStatus {
             word: status_word.map(|s| s.0).ok(),
             input: status_input.ok(),
             vout: status_vout.ok(),
@@ -468,19 +469,16 @@ impl VCore {
             mfr: status_mfr.ok(),
         };
 
-        let ereport = crate::EreportKind::PmbusAlert {
+        let ereport = PmbusAlert {
             rail,
-            refdes: FixedStr::from_str(device.i2c_device().component_id()),
+            refdes: FixedStr::<{ crate::REFDES_LEN }>::from_str(
+                device.i2c_device().component_id(),
+            ),
             time: now,
             pmbus_status,
             pwr_good: power_good,
         };
-        crate::try_send_ereport(
-            &self.packrat,
-            ereport_buf,
-            crate::EreportClass::PmbusAlert,
-            ereport,
-        );
+        crate::try_send_ereport(&self.packrat, ereport_buf, &ereport);
         // TODO(eliza): if POWER_GOOD has been deasserted, we should produce a
         // subsequent ereport for that.
 

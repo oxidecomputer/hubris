@@ -24,6 +24,7 @@ use userlib::{
     RecvMessage,
 };
 
+use crate::i2c_config::MAX_COMPONENT_ID_LEN as REFDES_LEN;
 use drv_hf_api::HostFlash;
 use ringbuf::{counted_ringbuf, ringbuf_entry, Count};
 
@@ -178,9 +179,10 @@ struct StateMachineStates {
     nic: Result<nic_api_status::NicSm, u8>,
 }
 
-const EREPORT_BUF_LEN: usize = microcbor::max_cbor_len_for!(
-    task_packrat_api::Ereport<EreportClass, EreportKind>,
-);
+const EREPORT_BUF_LEN: usize = microcbor::max_cbor_len_for![
+    ereports::pwr::PmbusAlert<vcore::Rail, { REFDES_LEN }>,
+    ereports::pwr::Bmr491MitigationFailure<{ REFDES_LEN }>,
+];
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -219,17 +221,15 @@ fn main() -> ! {
 
         if let Some(last_cause) = last_cause {
             // Report the failure even if we eventually succeeded.
-            try_send_ereport(
-                &packrat,
-                &mut ereport_buf[..],
-                EreportClass::Bmr491MitigationFailure,
-                EreportKind::Bmr491MitigationFailure {
-                    refdes: FixedStr::from_str(dev.component_id()),
-                    failures,
-                    last_cause,
-                    succeeded,
-                },
-            );
+            let ereport = ereports::pwr::Bmr491MitigationFailure {
+                refdes: FixedStr::<{ REFDES_LEN }>::from_str(
+                    dev.component_id(),
+                ),
+                failures,
+                last_cause,
+                succeeded,
+            };
+            try_send_ereport(&packrat, &mut ereport_buf[..], &ereport);
         }
     }
 
@@ -453,42 +453,6 @@ struct ServerImpl {
     /// Static buffer for encoding ereports. This is a static so that we don't
     /// have it on the stack when encoding ereports.
     ereport_buf: &'static mut [u8; EREPORT_BUF_LEN],
-}
-
-#[derive(microcbor::Encode)]
-pub enum EreportClass {
-    #[cbor(rename = "hw.pwr.pmbus.alert")]
-    PmbusAlert,
-    #[cbor(rename = "hw.pwr.bmr491.mitfail")]
-    Bmr491MitigationFailure,
-}
-
-#[derive(microcbor::EncodeFields)]
-pub(crate) enum EreportKind {
-    Bmr491MitigationFailure {
-        refdes: FixedStr<'static, { crate::i2c_config::MAX_COMPONENT_ID_LEN }>,
-        failures: u32,
-        last_cause: drv_i2c_devices::bmr491::MitigationFailureKind,
-        succeeded: bool,
-    },
-    PmbusAlert {
-        refdes: FixedStr<'static, { crate::i2c_config::MAX_COMPONENT_ID_LEN }>,
-        rail: vcore::Rail,
-        time: u64,
-        pwr_good: Option<bool>,
-        pmbus_status: PmbusStatus,
-    },
-}
-
-#[derive(Copy, Clone, Default, microcbor::Encode)]
-pub(crate) struct PmbusStatus {
-    word: Option<u16>,
-    input: Option<u8>,
-    iout: Option<u8>,
-    vout: Option<u8>,
-    temp: Option<u8>,
-    cml: Option<u8>,
-    mfr: Option<u8>,
 }
 
 impl ServerImpl {
@@ -1233,17 +1197,9 @@ impl NotificationHandler for ServerImpl {
 fn try_send_ereport(
     packrat: &task_packrat_api::Packrat,
     ereport_buf: &mut [u8],
-    class: EreportClass,
-    report: EreportKind,
+    ereport: &impl microcbor::StaticCborLen,
 ) {
-    let eresult = packrat.deliver_microcbor_ereport(
-        &task_packrat_api::Ereport {
-            class,
-            version: 0,
-            report,
-        },
-        ereport_buf,
-    );
+    let eresult = packrat.deliver_microcbor_ereport(&ereport, ereport_buf);
     match eresult {
         Ok(len) => ringbuf_entry!(Trace::EreportSent(len)),
         Err(task_packrat_api::EreportEncodeError::Packrat { len, err }) => {

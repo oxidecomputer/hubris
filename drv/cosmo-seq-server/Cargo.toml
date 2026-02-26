@@ -16,6 +16,7 @@ drv-packrat-vpd-loader = { path = "../packrat-vpd-loader" }
 drv-spartan7-loader-api = { path = "../spartan7-loader-api" }
 drv-spi-api = { path = "../spi-api" }
 drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
+ereports = { path = "../../lib/ereports" }
 gnarle = { path = "../../lib/gnarle" }
 ringbuf = { path = "../../lib/ringbuf" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
