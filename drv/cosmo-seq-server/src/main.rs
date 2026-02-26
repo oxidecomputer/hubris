@@ -1012,8 +1012,8 @@ impl ServerImpl {
         self.sys.gpio_read(SEQ_IRQ) == 0
     }
 
-    fn ereport_current_state(&self) -> ereports::cpu::CurrentState {
-        ereports::cpu::CurrentState {
+    fn ereport_current_state(&self) -> ereports::pwr::CurrentState {
+        ereports::pwr::CurrentState {
             cur: self.state,
             since: self.since,
         }
