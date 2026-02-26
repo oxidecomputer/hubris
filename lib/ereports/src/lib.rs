@@ -14,13 +14,25 @@ pub mod pwr;
 macro_rules! declare_ereporter {
     ($($v:vis)? struct $Ereporter:ident<$Trait:ident> { $($EreportTy:ty),+ $(,)? }) => {
         $($v)? struct $Ereporter {
-
+            packrat: task_packrat_api::Packrat,
+            buf: &'static mut [u8; Self::BUF_LEN],
         }
+
+        impl $Ereporter {
+            const BUF_LEN: usize = $crate::__macro_support::max_cbor_len_for!($($EreportTy),+);
+        }
+
+        $($v)? trait $Trait: $crate::__macro_support::StaticCborLen {}
+
+        $(
+            impl $Trait for $EreportTy {}
+        )+
     };
 }
 
 #[cfg(feature = "ereporter-macro")]
 #[doc(hidden)]
 pub mod __macro_support {
+    pub use microcbor::max_cbor_len_for;
     pub use paste::paste;
 }
