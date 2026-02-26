@@ -192,7 +192,7 @@ fn main() -> ! {
 
     let mut ereporter = Ereporter {
         packrat,
-        ereport_buf,
+        buf: ereport_buf,
     };
 
     //
@@ -1239,7 +1239,7 @@ struct CpuTypeBits {
 /// argument.
 pub(crate) struct Ereporter {
     packrat: task_packrat_api::Packrat,
-    ereport_buf: &'static mut [u8; EREPORT_BUF_LEN],
+    buf: &'static mut [u8; EREPORT_BUF_LEN],
 }
 
 impl Ereporter {
@@ -1249,7 +1249,7 @@ impl Ereporter {
     ) {
         let eresult = self
             .packrat
-            .deliver_microcbor_ereport(&ereport, &mut self.ereport_buf[..]);
+            .deliver_microcbor_ereport(&ereport, &mut self.buf[..]);
         match eresult {
             Ok(len) => ringbuf_entry!(Trace::EreportSent(len)),
             Err(task_packrat_api::EreportEncodeError::Packrat { len, err }) => {
