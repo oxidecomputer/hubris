@@ -13,7 +13,7 @@ use microcbor::{Encode, EncodeFields};
 pub struct Thermtrip {
     #[cbor(flatten)]
     pub cpu: &'static HostCpuRefdes,
-    pub state: crate::pwr::CurrentState,,
+    pub state: crate::pwr::CurrentState,
 }
 
 /// An ereport representing an AMD CPU's `SMERR_L` assertion.
