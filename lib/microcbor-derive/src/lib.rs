@@ -416,7 +416,7 @@ use syn::{
 ///
 /// [serde-tagged]: https://serde.rs/enum-representations.html#internally-tagged
 /// [cbor-tags]: https://www.rfc-editor.org/rfc/rfc8949.html#name-tagging-of-items
-/// [RFD 544]: https://hubris.readthedocs.io/en/latest/rfd/544/
+/// [RFD 544]: https://rfd.shared.oxide.computer/rfd/544/
 #[proc_macro_derive(Encode, attributes(cbor, ereport))]
 pub fn derive_encode(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
