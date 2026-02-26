@@ -28,14 +28,6 @@ pub struct Bmr491MitigationFailure<const REFDES_LEN: usize> {
     pub succeeded: bool,
 }
 
-/// An ereport representing a mutually-assured power-off (MAPO) event.
-#[derive(Clone, Encode)]
-#[ereport(class = "hw.pwr.mapo", version = 0)]
-pub struct Mapo<const REFDES_LEN: usize> {
-    pub refdes: FixedStr<'static, REFDES_LEN>,
-    pub state: crate::pwr::CurrentState,
-}
-
 /// PMBus status registers.
 #[derive(Copy, Clone, Default, Encode)]
 pub struct PmbusStatus {

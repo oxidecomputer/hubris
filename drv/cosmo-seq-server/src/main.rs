@@ -1218,8 +1218,6 @@ const EREPORT_BUF_LEN: usize = microcbor::max_cbor_len_for![
     ereports::cpu::Thermtrip,
     ereports::cpu::Smerr,
     ereports::cpu::UnsupportedCpu<CpuTypeBits>,
-    // CPU MAPO --- this must have a device ID in addition to a refdes.
-    ereports::WithDevId<ereports::pwr::Mapo<{2}>, 11>,
 ];
 
 static HOST_CPU_REFDES: ereports::cpu::HostCpuRefdes =
