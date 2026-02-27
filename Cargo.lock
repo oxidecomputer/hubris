@@ -2981,6 +2981,9 @@ dependencies = [
  "drv-i2c-devices",
  "fixedstr",
  "microcbor",
+ "paste",
+ "static-cell",
+ "task-packrat-api",
 ]
 
 [[package]]

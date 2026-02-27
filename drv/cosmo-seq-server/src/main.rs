@@ -118,9 +118,6 @@ enum Trace {
     },
     UnexpectedInterrupt,
     CPUNotPresent,
-    EreportSent(usize),
-    EreportLost(usize, task_packrat_api::EreportWriteError),
-    EreportTooBig,
 }
 counted_ringbuf!(Trace, 128, Trace::None);
 
@@ -183,17 +180,7 @@ fn main() -> ! {
     let packrat = Packrat::from(PACKRAT.get_task_id());
     read_vpd_and_load_packrat(&packrat, I2C.get_task_id());
 
-    let ereport_buf = {
-        use static_cell::ClaimOnceCell;
-        static EREPORT_BUF: ClaimOnceCell<[u8; EREPORT_BUF_LEN]> =
-            ClaimOnceCell::new([0; EREPORT_BUF_LEN]);
-        EREPORT_BUF.claim()
-    };
-
-    let mut ereporter = Ereporter {
-        packrat,
-        buf: ereport_buf,
-    };
+    let mut ereporter = Ereporter::claim_static_resources(packrat);
 
     //
     // Apply the configuration mitigation on the BMR491, if required. This
@@ -227,7 +214,7 @@ fn main() -> ! {
                 last_cause,
                 succeeded,
             };
-            ereporter.try_send_ereport(&ereport);
+            ereporter.deliver_ereport(&ereport);
         }
     }
 
@@ -630,7 +617,7 @@ impl ServerImpl {
                             sp5rx_ok,
                         },
                     };
-                    self.ereporter.try_send_ereport(&ereport);
+                    self.ereporter.deliver_ereport(&ereport);
                     return Err(CpuSeqError::UnrecognizedCPU);
                 }
 
@@ -929,7 +916,7 @@ impl ServerImpl {
             self.seq.ifr.modify(|h| h.set_thermtrip(true));
             ringbuf_entry!(Trace::Thermtrip);
             action = InternalAction::ThermTrip;
-            self.ereporter.try_send_ereport(&ereports::cpu::Thermtrip {
+            self.ereporter.deliver_ereport(&ereports::cpu::Thermtrip {
                 cpu: &HOST_CPU_REFDES,
                 state: self.ereport_current_state(),
             });
@@ -947,7 +934,7 @@ impl ServerImpl {
             self.seq.ifr.modify(|h| h.set_smerr_assert(true));
             ringbuf_entry!(Trace::SmerrInterrupt);
             action = InternalAction::Smerr;
-            self.ereporter.try_send_ereport(&ereports::cpu::Smerr {
+            self.ereporter.deliver_ereport(&ereports::cpu::Smerr {
                 cpu: &HOST_CPU_REFDES,
                 state: self.ereport_current_state(),
             });
@@ -1212,13 +1199,15 @@ impl NotificationHandler for ServerImpl {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-const EREPORT_BUF_LEN: usize = microcbor::max_cbor_len_for![
-    ereports::pwr::PmbusAlert<vcore::Rail, { REFDES_LEN }>,
-    ereports::pwr::Bmr491MitigationFailure<{ REFDES_LEN }>,
-    ereports::cpu::Thermtrip,
-    ereports::cpu::Smerr,
-    ereports::cpu::UnsupportedCpu<CpuTypeBits>,
-];
+ereports::declare_ereporter! {
+    pub(crate) struct Ereporter<SeqEreport> {
+        ereports::pwr::PmbusAlert<vcore::Rail, { REFDES_LEN }>,
+        ereports::pwr::Bmr491MitigationFailure<{ REFDES_LEN }>,
+        ereports::cpu::Thermtrip,
+        ereports::cpu::Smerr,
+        ereports::cpu::UnsupportedCpu<CpuTypeBits>,
+    }
+}
 
 static HOST_CPU_REFDES: ereports::cpu::HostCpuRefdes =
     ereports::cpu::HostCpuRefdes {
@@ -1232,34 +1221,6 @@ struct CpuTypeBits {
     sp5rx: [bool; 4],
     coretype_ok: bool,
     sp5rx_ok: bool,
-}
-
-/// This is just the Packrat API handle and the ereport buffer bundled together
-/// in one thing so that it can be passed into various places as a single
-/// argument.
-pub(crate) struct Ereporter {
-    packrat: task_packrat_api::Packrat,
-    buf: &'static mut [u8; EREPORT_BUF_LEN],
-}
-
-impl Ereporter {
-    pub(crate) fn try_send_ereport(
-        &mut self,
-        ereport: &impl microcbor::StaticCborLen,
-    ) {
-        let eresult = self
-            .packrat
-            .deliver_microcbor_ereport(&ereport, &mut self.buf[..]);
-        match eresult {
-            Ok(len) => ringbuf_entry!(Trace::EreportSent(len)),
-            Err(task_packrat_api::EreportEncodeError::Packrat { len, err }) => {
-                ringbuf_entry!(Trace::EreportLost(len, err))
-            }
-            Err(task_packrat_api::EreportEncodeError::Encoder(_)) => {
-                ringbuf_entry!(Trace::EreportTooBig)
-            }
-        }
-    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////

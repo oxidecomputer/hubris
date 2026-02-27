@@ -11,7 +11,7 @@ drv-i2c-devices = { path = "../../drv/i2c-devices" }
 
 task-packrat-api = { path = "../../task/packrat-api", optional = true, features = ["microcbor"]}
 paste = { workspace = true, optional = true  }
-static-cell = [ path = "../static-cell", optional = true }
+static-cell = { path = "../static-cell", optional = true }
 
 [features]
 ereporter-macro = ["task-packrat-api", "paste", "static-cell"]
