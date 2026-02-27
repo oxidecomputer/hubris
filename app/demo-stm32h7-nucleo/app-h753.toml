@@ -7,7 +7,7 @@ stacksize = 896
 
 [kernel]
 name = "demo-stm32h7-nucleo"
-requires = {flash = 24736, ram = 5120}
+requires = {flash = 24736, ram = 5632}
 features = ["h753", "dump"]
 
 [caboose]
@@ -20,7 +20,7 @@ name = "task-jefe"
 priority = 0
 start = true
 features = ["dump"]
-stacksize = 2000
+stacksize = 2048
 notifications = ["fault", "timer"]
 extern-regions = [ "sram1", "sram2", "sram3", "sram4" ]
 
@@ -147,6 +147,14 @@ stacksize = 4096
 start = true
 task-slots = ["net"]
 notifications = ["socket"]
+
+[tasks.sensor_inject]
+name = "task-sensor-inject"
+priority = 6
+stacksize = 2048
+start = true
+task-slots = ["net", "sensor"]
+notifications = ["socket", "timer"]
 
 [tasks.hiffy]
 name = "task-hiffy"
@@ -341,3 +349,38 @@ owner = {name = "control_plane_agent", notification = "socket"}
 port = 11111
 tx = { packets = 3, bytes = 2048 }
 rx = { packets = 3, bytes = 2048 }
+
+[config.net.sockets.sensor_inject]
+kind = "udp"
+owner = {name = "sensor_inject", notification = "socket"}
+port = 11112
+tx = { packets = 1, bytes = 64 }
+rx = { packets = 3, bytes = 512 }
+
+# Virtual sensors for external telemetry injection
+[[config.i2c.devices]]
+device = "tmp117"
+name = "cpu"
+controller = 2
+address = 0x48
+description = "Host CPU temperature (injected)"
+sensors = { temperature = 1 }
+refdes = "HOST"
+
+[[config.i2c.devices]]
+device = "tmp117"
+name = "ambient"
+controller = 2
+address = 0x49
+description = "Ambient temperature (injected)"
+sensors = { temperature = 1 }
+refdes = "AMB0"
+
+[[config.i2c.devices]]
+device = "tmp117"
+name = "nvme"
+controller = 2
+address = 0x4a
+description = "Management node temperature (injected)"
+sensors = { temperature = 1 }
+refdes = "MGMT"

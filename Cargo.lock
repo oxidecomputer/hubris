@@ -6192,6 +6192,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-sensor-inject"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "idol",
+ "num-traits",
+ "ringbuf",
+ "serde",
+ "task-net-api",
+ "task-sensor-api",
+ "userlib",
+]
+
+[[package]]
 name = "task-sensor-polling"
 version = "0.1.0"
 dependencies = [
