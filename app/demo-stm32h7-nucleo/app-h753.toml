@@ -238,7 +238,7 @@ task-slots = [
     "packrat",
     "user_leds",
 ]
-features = ["gimlet", "usart1-gimletlet", "baud_rate_3M"]
+features = ["gimlet", "usart1-gimletlet", "no-flow-control"]
 notifications = ["usart-irq", "socket", "timer"]
 interrupts = {"usart1.irq" = "usart-irq"}
 

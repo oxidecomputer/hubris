@@ -1476,8 +1476,12 @@ fn configure_usart() -> Usart {
     // control enabled. We could expand our cargo features to cover other cases
     // as needed. Currently, failing to enable any of those three features will
     // cause a compilation error.
+    //
     #[cfg(feature = "baud_rate_3M")]
     const BAUD_RATE: u32 = 3_000_000;
+
+    #[cfg(not(feature = "baud_rate_3M"))]
+    const BAUD_RATE: u32 = 115_200;
 
     #[cfg(all(feature = "usart1", feature = "usart1-gimletlet"))]
     compile_error!(concat!(
@@ -1487,8 +1491,14 @@ fn configure_usart() -> Usart {
 
     cfg_if::cfg_if! {
         if #[cfg(feature = "usart1")] {
+            #[cfg(not(feature = "no-flow-control"))]
             const PINS: &[(PinSet, Alternate)] = &[(
                 Port::A.pin(9).and_pin(10).and_pin(11).and_pin(12),
+                Alternate::AF7
+            )];
+            #[cfg(feature = "no-flow-control")]
+            const PINS: &[(PinSet, Alternate)] = &[(
+                Port::A.pin(9).and_pin(10),
                 Alternate::AF7
             )];
 
@@ -1502,8 +1512,13 @@ fn configure_usart() -> Usart {
             let peripheral = Peripheral::Usart1;
             let pins = PINS;
         } else if #[cfg(feature = "usart1-gimletlet")] {
+            #[cfg(not(feature = "no-flow-control"))]
             const PINS: &[(PinSet, Alternate)] = &[
                 (Port::A.pin(11).and_pin(12), Alternate::AF7),
+                (Port::B.pin(6).and_pin(7), Alternate::AF7),
+            ];
+            #[cfg(feature = "no-flow-control")]
+            const PINS: &[(PinSet, Alternate)] = &[
                 (Port::B.pin(6).and_pin(7), Alternate::AF7),
             ];
 
@@ -1528,7 +1543,7 @@ fn configure_usart() -> Usart {
         pins,
         CLOCK_HZ,
         BAUD_RATE,
-        true, // hardware_flow_control
+        !cfg!(feature = "no-flow-control"),
     )
 }
 
