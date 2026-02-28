@@ -1417,7 +1417,7 @@ impl<'a> ThermalControl<'a> {
             last_reading,
             age_s,
         } = worst_case;
-        ringbuf_entry!(Trace::PowerDownDueTo {
+        ringbuf_entry!(Trace::CriticalDueTo {
             sensor_id,
             worst_case_temp
         });
@@ -1475,7 +1475,7 @@ impl<'a> ThermalControl<'a> {
             last_reading,
             age_s,
         } = worst_case;
-        ringbuf_entry!(Trace::CriticalDueTo {
+        ringbuf_entry!(Trace::PowerDownDueTo {
             sensor_id,
             worst_case_temp
         });
