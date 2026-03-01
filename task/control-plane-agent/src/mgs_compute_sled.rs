@@ -1106,6 +1106,7 @@ impl SpHandler for MgsHandler {
             | Some(Key::InventorySize)
             | Some(Key::EtcSystem)
             | Some(Key::DtraceConf)
+            | Some(Key::SensorData)
             | None => Err(SpError::SetIpccKeyLookupValueFailed(
                 IpccKeyLookupValueError::InvalidKey,
             )),

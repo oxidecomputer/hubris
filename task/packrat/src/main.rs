@@ -358,9 +358,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<HostStartupOptions, RequestError<Infallible>> {
-        Err(RequestError::Fail(
-            idol_runtime::ClientError::BadMessageContents,
-        ))
+        Ok(HostStartupOptions::empty())
     }
 
     #[cfg(feature = "gimlet")]
@@ -415,9 +413,8 @@ impl idl::InOrderPackratImpl for ServerImpl {
         _: &RecvMessage,
         _host_startup_options: HostStartupOptions,
     ) -> Result<(), RequestError<Infallible>> {
-        Err(RequestError::Fail(
-            idol_runtime::ClientError::BadMessageContents,
-        ))
+        // No-op on boards without startup options storage
+        Ok(())
     }
 
     fn set_spd_eeprom(

@@ -219,6 +219,8 @@ pub enum Key {
     EtcSystem,
     /// `/kernel/drv/dtrace.conf` file content
     DtraceConf,
+    /// Sensor data injection (channel + f32 records)
+    SensorData,
 }
 
 #[derive(

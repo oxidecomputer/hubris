@@ -61,6 +61,7 @@ use inventory::INVENTORY_API_VERSION;
     any(target_board = "cosmo-a", target_board = "cosmo-b",),
     path = "bsp/cosmo_ab.rs"
 )]
+#[cfg_attr(target_board = "nucleo-h753zi", path = "bsp/nucleo_h753zi.rs")]
 mod bsp;
 
 use bsp::SP_TO_HOST_CPU_INT_L;
@@ -75,6 +76,8 @@ task_slot!(NET, net);
 task_slot!(SYS, sys);
 task_slot!(SPROT, sprot);
 task_slot!(pub HOST_FLASH, hf);
+#[cfg(feature = "task-sensor-api")]
+task_slot!(SENSOR, sensor);
 
 // TODO: When rebooting the host, we need to wait for the relevant power rails
 // to decay. We ought to do this properly by monitoring the rails, but for now,
@@ -238,7 +241,10 @@ impl HostKeyValueStorage {
             // * `Ping` always returns PONG
             // * InstallinatorImageId is set via MGS
             // * InventorySize always returns our static inventory size
-            Key::Ping | Key::InstallinatorImageId | Key::InventorySize => {
+            Key::Ping
+            | Key::InstallinatorImageId
+            | Key::InventorySize
+            | Key::SensorData => {
                 return KeySetResult::ReadOnlyKey;
             }
             Key::EtcSystem => {
@@ -275,6 +281,9 @@ struct ServerImpl {
     reboot_state: Option<RebootState>,
     host_kv_storage: HostKeyValueStorage,
     hf_mux_state: Option<HfMuxState>,
+
+    #[cfg(feature = "task-sensor-api")]
+    sensor: task_sensor_api::Sensor,
 
     /// Temporary space for inventory data, which is a large `enum`
     scratch: &'static mut host_sp_messages::InventoryData,
@@ -391,6 +400,8 @@ impl ServerImpl {
                 dtrace_conf_len: 0,
             },
             hf_mux_state: None,
+            #[cfg(feature = "task-sensor-api")]
+            sensor: task_sensor_api::Sensor::from(SENSOR.get_task_id()),
             last_power_off: None,
             scratch,
         }
@@ -1046,9 +1057,41 @@ impl ServerImpl {
                 }
                 Err(err) => Some(SpToHost::KeyLookupResult(err)),
             },
-            HostToSp::KeySet { key } => Some(SpToHost::KeySetResult(
-                self.host_kv_storage.key_set(key, data),
-            )),
+            HostToSp::KeySet { key } => {
+                cfg_if::cfg_if! {
+                    if #[cfg(feature = "task-sensor-api")] {
+                        if key == Key::SensorData as u8 {
+                            use task_sensor_api::SensorId;
+                            const RECORD_SIZE: usize = 5;
+                            let mut offset = 0;
+                            while offset + RECORD_SIZE <= data.len() {
+                                let channel = data[offset];
+                                let value = f32::from_le_bytes([
+                                    data[offset + 1],
+                                    data[offset + 2],
+                                    data[offset + 3],
+                                    data[offset + 4],
+                                ]);
+                                if let Ok(id) =
+                                    SensorId::try_from(channel as u32)
+                                {
+                                    self.sensor.post_now(id, value);
+                                }
+                                offset += RECORD_SIZE;
+                            }
+                            Some(SpToHost::KeySetResult(KeySetResult::Ok))
+                        } else {
+                            Some(SpToHost::KeySetResult(
+                                self.host_kv_storage.key_set(key, data),
+                            ))
+                        }
+                    } else {
+                        Some(SpToHost::KeySetResult(
+                            self.host_kv_storage.key_set(key, data),
+                        ))
+                    }
+                }
+            }
             HostToSp::GetInventoryData { index } => {
                 match self.perform_inventory_lookup(header.sequence, index) {
                     Ok(()) => None,
@@ -1585,6 +1628,11 @@ impl ServerImpl {
                 );
                 response_len
             }
+            Key::SensorData => {
+                // SensorData is write-only (injected via KeySet);
+                // there's no stored value to look up.
+                return Err(KeyLookupResult::NoValueForKey);
+            }
         };
 
         if response_len > max_response_len {
@@ -1811,6 +1859,9 @@ fn configure_uart_device(sys: &sys_api::Sys) -> Usart {
     #[cfg(feature = "baud_rate_3M")]
     const BAUD_RATE: u32 = 3_000_000;
 
+    #[cfg(not(feature = "baud_rate_3M"))]
+    const BAUD_RATE: u32 = 115_200;
+
     let hardware_flow_control = cfg!(feature = "hardware_flow_control");
 
     cfg_if::cfg_if! {
@@ -1861,6 +1912,25 @@ fn configure_uart_device(sys: &sys_api::Sys) -> Usart {
             };
             let usart = unsafe { &*device::UART8::ptr() };
             let peripheral = Peripheral::Uart8;
+            let pins = PINS;
+        } else if #[cfg(feature = "usart2")] {
+            const PINS: &[(PinSet, Alternate)] = {
+                cfg_if::cfg_if! {
+                    if #[cfg(feature = "hardware_flow_control")] {
+                        &[(
+                            Port::D.pin(3).and_pin(4).and_pin(5).and_pin(6),
+                            Alternate::AF7
+                        )]
+                    } else {
+                        &[(
+                            Port::D.pin(5).and_pin(6),
+                            Alternate::AF7
+                        )]
+                    }
+                }
+            };
+            let usart = unsafe { &*device::USART2::ptr() };
+            let peripheral = Peripheral::Usart2;
             let pins = PINS;
         } else {
             compile_error!("no usartX/uartX feature specified");

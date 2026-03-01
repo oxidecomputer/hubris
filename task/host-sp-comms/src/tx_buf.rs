@@ -149,6 +149,11 @@ impl TxBuf {
         false
     }
 
+    #[cfg(not(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo")))]
+    pub(crate) fn should_send_periodic_zero_bytes(&self) -> bool {
+        matches!(self.state, State::Idle)
+    }
+
     /// Encodes `reason` into our outgoing buffer.
     ///
     /// # Panics

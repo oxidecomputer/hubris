@@ -28,6 +28,9 @@ extern-regions = [ "sram1", "sram2", "sram3", "sram4" ]
 set_reset_reason = ["sys"]
 request_reset = ["hiffy", "control_plane_agent"]
 
+[tasks.jefe.config.on-state-change]
+host_sp_comms = "jefe-state-change"
+
 [tasks.sys]
 name = "drv-stm32xx-sys"
 features = ["h753", "exti", "no-panic"]
@@ -249,6 +252,18 @@ task-slots = [
 features = ["gimlet", "usart1-gimletlet", "no-flow-control"]
 notifications = ["usart-irq", "socket", "timer"]
 interrupts = {"usart1.irq" = "usart-irq"}
+
+[tasks.host_sp_comms]
+name = "task-host-sp-comms"
+features = ["stm32h753", "usart2", "task-sensor-api"]
+uses = ["usart2", "dbgmcu"]
+interrupts = {"usart2.irq" = "usart-irq"}
+priority = 8
+max-sizes = {flash = 65536, ram = 65536}
+stacksize = 4096
+start = true
+task-slots = ["sys", {cpu_seq = "gimlet_seq"}, "hf", "control_plane_agent", "net", "packrat", "sprot", "sensor"]
+notifications = ["jefe-state-change", "usart-irq", "multitimer", "control-plane-agent"]
 
 [tasks.idle]
 name = "task-idle"
