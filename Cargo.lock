@@ -2989,6 +2989,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "ereports-macros"
+version = "0.1.0"
+dependencies = [
+ "fixedstr",
+ "heck 0.5.0",
+ "microcbor",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.106",
+]
+
+[[package]]
 name = "errno"
 version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"

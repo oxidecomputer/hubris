@@ -12,14 +12,15 @@ pub mod pwr;
 #[cfg(feature = "ereporter-macro")]
 #[macro_export]
 macro_rules! declare_ereporter {
-    ($v:vis struct $Ereporter:ident<$Trait:ident> { $($EreportTy:ty),+ $(,)? }) => {
+    ($v:vis struct $Ereporter:ident<$Trait:ident> {
+        $($ClassName:ident($EreportTy:ty)),+ $(,)?
+    }) => {
         $v struct $Ereporter {
             packrat: task_packrat_api::Packrat,
             buf: &'static mut [u8; Self::BUF_LEN],
         }
 
         $crate::__macro_support::paste! {
-
             impl $Ereporter {
                 const BUF_LEN: usize = $crate::__macro_support::max_cbor_len_for![
                     $($EreportTy),+
@@ -36,23 +37,7 @@ macro_rules! declare_ereporter {
                 }
 
                 $v fn deliver_ereport(&mut self, ereport: &impl $Trait) {
-                    use [< $Ereporter:snake >]::*;
-                    use $crate::__macro_support::ringbuf::ringbuf_entry;
-                    let class = ereport.class();
-                    let eresult = self
-                        .packrat
-                        .deliver_microcbor_ereport(&ereport, &mut self.buf[..]);
-                    match eresult {
-                        Ok(len) => {
-                            ringbuf_entry!(Trace::EreportSent{ len, class });
-                        }
-                        Err(task_packrat_api::EreportEncodeError::Packrat { len, err }) => {
-                            ringbuf_entry!(Trace::EreportLost(len, class, err))
-                        }
-                        Err(task_packrat_api::EreportEncodeError::Encoder(_)) => {
-                            ringbuf_entry!(Trace::EreportTooBig { class });
-                        }
-                    }
+                    [< $Ereporter:snake >]::deliver_ereport(self, ereport);
                 }
             }
 
@@ -69,31 +54,65 @@ macro_rules! declare_ereporter {
                     impl sealed::Sealed for $EreportTy {}
                     impl $Trait for $EreportTy {
                         fn class(&self) -> EreportClass {
-                            declare_ereporter!(@ty_to_ident [] $EreportTy)
+                            EreportClass::$ClassName
                         }
                     }
                 )+
 
-                ringbuf!();
+                $crate::__macro_support::ringbuf::counted_ringbuf!(
+                    __EREPORT_RINGBUF,
+                    EreportTrace,
+                    8,
+                    EreportTrace::None
+                );
 
                 #[derive($crate::__macro_support::counters::Count, Eq, PartialEq, Copy, Clone)]
                 pub(super) enum EreportClass {
                     $(
-                      declare_ereporter!(@ty_to_ident [] $EreportTy)
+                        $ClassName
                     ),+
                 }
 
                 #[derive($crate::__macro_support::counters::Count, Eq, PartialEq, Copy, Clone)]
-                pub(super) enum Trace {
+                enum EreportTrace {
                     #[count(skip)]
                     None,
                     EreportSent {#[count(children)] class: EreportClass, len: usize },
                     EreportLost {
                         #[count(children)] class: EreportClass,
                         len: usize,
-                        err:  packrat_api::EreportWriteError
+                        err:  task_packrat_api::EreportWriteError
                     },
                     EreportTooBig { #[count(children)] class: EreportClass },
+                }
+
+                pub(super) fn deliver_ereport(this: &mut $Ereporter, ereport: &impl $Trait) {
+                    use $crate::__macro_support::ringbuf::ringbuf_entry;
+                    let class = ereport.class();
+                    let eresult = this
+                        .packrat
+                        .deliver_microcbor_ereport(&ereport, &mut this.buf[..]);
+                    match eresult {
+                        Ok(len) => {
+                            ringbuf_entry!(
+                                __EREPORT_RINGBUF,
+                                EreportTrace::EreportSent{ len, class }
+                            );
+                        }
+                        Err(task_packrat_api::EreportEncodeError::Packrat { len, err }) => {
+                            ringbuf_entry!(
+                                __EREPORT_RINGBUF,
+                                EreportTrace::EreportLost { len, class, err }
+                            );
+                        }
+                        Err(task_packrat_api::EreportEncodeError::Encoder(_)) => {
+                            ringbuf_entry!(
+                                __EREPORT_RINGBUF,
+                                EreportTrace::EreportTooBig { class }
+                            );
+                        }
+                    }
+
                 }
 
                 mod sealed {
@@ -102,23 +121,6 @@ macro_rules! declare_ereporter {
             }
 
         }
-    };
-
-    // -- Helper arms for converting types to enum variant names (internal use only) --
-
-    // Base case: we've collected all identifiers, now concatenate them into a type name
-    (@ty_to_ident $($e:ident)? [$first:ident $($rest:ident)*]) => {
-        $crate::__macro_support::paste! {
-            $($e::)?[< $first:cammel $($rest:camel)* >]
-        }
-    };
-    // Match an identifier - add it to the accumulator
-    (@ty_to_ident [$($acc:ident)*] $ident:ident $($rest:tt)*) => {
-        declare_ereporter!(@ty_to_ident [$($acc)* $ident] $($rest)*)
-    };
-    // Skip any other token (::, <, >, {, }, commas, literals, etc.)
-    (@ty_to_ident [$($acc:ident)*] $_:tt $($rest:tt)*) => {
-        declare_ereporter!(@ty_to_ident [$($acc)*] $($rest)*)
     };
 }
 
