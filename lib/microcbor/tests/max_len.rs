@@ -22,6 +22,18 @@ struct TestStruct {
     field2: TestEnum,
 }
 
+// This type is identical to `TestStruct` but with the addition of the
+// `#[ereport(...)]` attribute. It is used to ensure that the StaticCborLen of
+// types with `#[ereport(...)]` is calculated correctly by comparing its max
+// length ot that of `TestStruct` (which lacks the ereport fields).
+#[derive(Debug, Encode, Arbitrary)]
+#[ereport(class = "test.my_cool_ereport", version = 420)]
+struct TestStructEreport {
+    #[cbor(rename = "a")]
+    field1: u32,
+    field2: TestEnum,
+}
+
 #[derive(Debug, Encode, EncodeFields, Arbitrary)]
 struct TestStruct2<D> {
     #[cbor(skip_if_nil)]
@@ -125,6 +137,11 @@ proptest::proptest! {
     }
 
     #[test]
+    fn ereport_struct(input: TestStructEreport) {
+        assert_max_len(&input)?;
+    }
+
+    #[test]
     fn array(input: [TestStruct; 10]) {
         assert_max_len(&input)?;
     }
@@ -148,4 +165,16 @@ proptest::proptest! {
     fn variant_id_enum_array(input: [TestVariantIdEnum; 10]) {
         assert_max_len(&input)?;
     }
+}
+
+#[test]
+fn ereport_struct_max_len() {
+    let ereport_fields_extra_len = microcbor::str_cbor_len("k")
+        + microcbor::str_cbor_len("test.my_cool_ereport")
+        + microcbor::str_cbor_len("v")
+        + microcbor::u32_cbor_len(420);
+    assert_eq!(
+        TestStructEreport::MAX_CBOR_LEN,
+        TestStruct::MAX_CBOR_LEN + ereport_fields_extra_len
+    );
 }

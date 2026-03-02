@@ -246,18 +246,18 @@ pub use static_cell::StaticCell;
 #[cfg(feature = "disabled")]
 #[macro_export]
 macro_rules! ringbuf {
-    ($name:ident, $t:ty, $n:expr, $init:expr, no_dedup) => {
+    ($name:ident, $t:ty, $n:expr, $init:expr, no_dedup $(,)?) => {
         $crate::ringbuf!($name, $t, $n, $init)
     };
-    ($name:ident, $t:ty, $n:expr, $init:expr) => {
+    ($name:ident, $t:ty, $n:expr, $init:expr $(,)?) => {
         #[allow(dead_code)]
         const _: $t = $init;
         static $name: () = ();
     };
-    ($t:ty, $n:expr, $init:expr, no_dedup) => {
+    ($t:ty, $n:expr, $init:expr, no_dedup $(,)?) => {
         $crate::ringbuf!(__RINGBUF, $t, $n, $init);
     };
-    ($t:ty, $n:expr, $init:expr) => {
+    ($t:ty, $n:expr, $init:expr $(,)?) => {
         $crate::ringbuf!(__RINGBUF, $t, $n, $init);
     };
 }
@@ -279,7 +279,7 @@ macro_rules! ringbuf {
 #[cfg(not(feature = "disabled"))]
 #[macro_export]
 macro_rules! ringbuf {
-    ($name:ident, $t:ty, $n:expr, $init:expr) => {
+    ($name:ident, $t:ty, $n:expr, $init:expr $(,)?) => {
         static $name: $crate::StaticCell<$crate::Ringbuf<$t, u16, $n>> =
             $crate::StaticCell::new($crate::Ringbuf {
                 last: None,
@@ -291,7 +291,7 @@ macro_rules! ringbuf {
                 }; $n],
             });
     };
-    ($name:ident, $t:ty, $n:expr, $init:expr, no_dedup) => {
+    ($name:ident, $t:ty, $n:expr, $init:expr, no_dedup $(,)?) => {
         static $name: $crate::StaticCell<$crate::Ringbuf<$t, () $n>> =
             $crate::StaticCell::new($crate::Ringbuf {
                 last: None,
@@ -303,10 +303,10 @@ macro_rules! ringbuf {
                 }; $n],
             });
     };
-    ($t:ty, $n:expr, $init:expr, no_dedup) => {
+    ($t:ty, $n:expr, $init:expr, no_dedup $(,)?) => {
         $crate::ringbuf!(__RINGBUF, $t, $n, $init, no_dedup);
     };
-    ($t:ty, $n:expr, $init:expr) => {
+    ($t:ty, $n:expr, $init:expr $(,)?) => {
         $crate::ringbuf!(__RINGBUF, $t, $n, $init);
     };
 }
@@ -335,7 +335,7 @@ macro_rules! ringbuf {
 ))]
 #[macro_export]
 macro_rules! counted_ringbuf {
-    ($name:ident, $t:ident, $n:expr, $init:expr) => {
+    ($name:ident, $t:ident, $n:expr, $init:expr $(,)?) => {
         static $name: $crate::CountedRingbuf<$t, u16, $n> =
             $crate::CountedRingbuf {
                 ringbuf: $crate::StaticCell::new($crate::Ringbuf {
@@ -350,7 +350,7 @@ macro_rules! counted_ringbuf {
                 counters: <$t as $crate::Count>::NEW_COUNTERS,
             };
     };
-    ($name:ident, $t:ident, $n:expr, $init:expr, no_dedup) => {
+    ($name:ident, $t:ident, $n:expr, $init:expr, no_dedup $(,)?) => {
         static $name: $crate::CountedRingbuf<$t, (), $n> =
             $crate::CountedRingbuf {
                 ringbuf: $crate::StaticCell::new($crate::Ringbuf {
@@ -365,10 +365,10 @@ macro_rules! counted_ringbuf {
                 counters: <$t as $crate::Count>::NEW_COUNTERS,
             };
     };
-    ($t:ident, $n:expr, $init:expr, no_dedup) => {
+    ($t:ident, $n:expr, $init:expr, no_dedup $(,)?) => {
         $crate::counted_ringbuf!(__RINGBUF, $t, $n, $init, no_dedup);
     };
-    ($t:ident, $n:expr, $init:expr) => {
+    ($t:ident, $n:expr, $init:expr $(,)?) => {
         $crate::counted_ringbuf!(__RINGBUF, $t, $n, $init);
     };
 }
@@ -380,24 +380,24 @@ macro_rules! counted_ringbuf {
 ))]
 #[macro_export]
 macro_rules! counted_ringbuf {
-    ($name:ident, $t:ident, $n:expr, $init:expr, no_dedup) => {
+    ($name:ident, $t:ident, $n:expr, $init:expr, no_dedup $(,)?) => {
         static $name: $crate::CountedRingbuf<$t, (), $n> =
             $crate::CountedRingbuf {
                 counters: <$t as $crate::Count>::NEW_COUNTERS,
                 _c: core::marker::PhantomData,
             };
     };
-    ($name:ident, $t:ident, $n:expr, $init:expr) => {
+    ($name:ident, $t:ident, $n:expr, $init:expr $(,)?) => {
         static $name: $crate::CountedRingbuf<$t, u16, $n> =
             $crate::CountedRingbuf {
                 counters: <$t as $crate::Count>::NEW_COUNTERS,
                 _c: core::marker::PhantomData,
             };
     };
-    ($t:ident, $n:expr, $init:expr, no_dedup) => {
+    ($t:ident, $n:expr, $init:expr, no_dedup $(,)?) => {
         $crate::counted_ringbuf!(__RINGBUF, $t, $n, $init, no_dedup);
     };
-    ($t:ident, $n:expr, $init:expr) => {
+    ($t:ident, $n:expr, $init:expr $(,)?) => {
         $crate::counted_ringbuf!(__RINGBUF, $t, $n, $init);
     };
 }
@@ -409,16 +409,16 @@ macro_rules! counted_ringbuf {
 ))]
 #[macro_export]
 macro_rules! counted_ringbuf {
-    ($name:ident, $t:ident, $n:expr, $init:expr, no_dedup) => {
+    ($name:ident, $t:ident, $n:expr, $init:expr, no_dedup $(,)?) => {
         $crate::ringbuf!($name, $t, $n, $init, no_dedup)
     };
-    ($name:ident, $t:ident, $n:expr, $init:expr) => {
-        $crate::ringbuf!($name, $t, $n, $init)
+    ($name:ident, $t:ident, $n:expr, $init:expr $(,)?) => {
+        $crate::ringbuf!($name, $t, $n, $init $(,)?)
     };
-    ($t:ident, $n:expr, $init:expr, no_dedup) => {
+    ($t:ident, $n:expr, $init:expr, no_dedup $(,)?) => {
         $crate::ringbuf!(__RINGBUF, $t, $n, $init, no_dedup);
     };
-    ($t:ident, $n:expr, $init:expr) => {
+    ($t:ident, $n:expr, $init:expr $(,)?) => {
         $crate::ringbuf!(__RINGBUF, $t, $n, $init);
     };
 }
@@ -430,18 +430,18 @@ macro_rules! counted_ringbuf {
 ))]
 #[macro_export]
 macro_rules! counted_ringbuf {
-    ($name:ident, $t:ident, $n:expr, $init:expr, no_dedup) => {
+    ($name:ident, $t:ident, $n:expr, $init:expr, no_dedup $(,)?) => {
         $crate::counted_ringbuf!(%name, $t, $n, $init)
     };
-    ($name:ident, $t:ident, $n:expr, $init:expr) => {
+    ($name:ident, $t:ident, $n:expr, $init:expr $(,)?) => {
         #[allow(dead_code)]
         const _: $t = $init;
         static $name: () = ();
     };
-    ($t:ident, $n:expr, $init:expr, no_dedup) => {
+    ($t:ident, $n:expr, $init:expr, no_dedup $(,)?) => {
         $crate::counted_ringbuf!(__RINGBUF, $t, $n, $init);
     };
-    ($t:ident, $n:expr, $init:expr) => {
+    ($t:ident, $n:expr, $init:expr $(,)?) => {
         $crate::counted_ringbuf!(__RINGBUF, $t, $n, $init);
     };
 }
@@ -456,7 +456,7 @@ macro_rules! counted_ringbuf {
 /// without a name, and it will default to `__RINGBUF`.
 #[macro_export]
 macro_rules! ringbuf_entry {
-    ($buf:expr, $payload:expr) => {{
+    ($buf:expr, $payload:expr $(,)?) => {{
         // Evaluate both buf and payload, without letting them access each
         // other, by evaluating them in a tuple where each cannot
         // accidentally use the other's binding.
@@ -465,7 +465,7 @@ macro_rules! ringbuf_entry {
         // accidentally calling a _different_ routine called record_entry.
         $crate::RecordEntry::record_entry(buf, line!() as u16, p);
     }};
-    ($payload:expr) => {
+    ($payload:expr $(,)?) => {
         $crate::ringbuf_entry!(__RINGBUF, $payload);
     };
 }
@@ -476,10 +476,10 @@ macro_rules! ringbuf_entry {
 #[allow(clippy::crate_in_macro_def)]
 #[macro_export]
 macro_rules! ringbuf_entry_root {
-    ($payload:expr) => {
+    ($payload:expr $(,)?) => {
         $crate::ringbuf_entry!(crate::__RINGBUF, $payload);
     };
-    ($buf:ident, $payload:expr) => {
+    ($buf:ident, $payload:expr $(,)?) => {
         $crate::ringbuf_entry!(crate::$buf, $payload);
     };
 }
