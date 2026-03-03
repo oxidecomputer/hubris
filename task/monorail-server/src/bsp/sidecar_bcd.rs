@@ -11,7 +11,7 @@ use userlib::{hl::sleep_for, task_slot, UnwrapLite};
 use vsc7448::{
     config::Speed, miim_phy::Vsc7448MiimPhy, Vsc7448, Vsc7448Rw, VscError,
 };
-use vsc7448_pac::{DEVCPU_GCB, HSIO, VAUI0, VAUI1};
+use vsc7448_pac::{phy, DEVCPU_GCB, HSIO, VAUI0, VAUI1};
 use vsc85xx::{vsc8504::Vsc8504, vsc8562::Vsc8562Phy, PhyRw};
 
 task_slot!(SEQ, seq);
@@ -39,6 +39,11 @@ enum Trace {
     AutomaticLock,
     LockError(#[count(children)] VscError),
     UnlockError(#[count(children)] VscError),
+    Vsc8504SuspiciousMacStatus {
+        mac_serdes_pcs_status: u16,
+        mac_serdes_status: u16,
+    },
+    Vsc8504ReadError(VscError),
 }
 ringbuf!(Trace, 16, Trace::None);
 
@@ -561,6 +566,37 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             self.link_down_at = None;
         }
 
+        // Do some logging of the VSC8504 state for debug
+        if let Err(e) = self.check_vsc8504() {
+            ringbuf_entry!(Trace::Vsc8504ReadError(e));
+        }
+
+        Ok(())
+    }
+
+    /// Check VSC8504 state, logging anything unusual
+    ///
+    /// Specifically, we log if the VSC8504 isn't reporting *both* MAC comma
+    /// detect and MAC interface link up.  In practice, we still see packets
+    /// transiting the system (in both directions) with either of these bits
+    /// cleared, but it's a weird edge case that we might want to see in a
+    /// system dump.  See `facade#386` for additional context.
+    fn check_vsc8504(&self) -> Result<(), VscError> {
+        let mut phy_rw = Vsc7448MiimPhy::new(self.vsc7448.rw, 0);
+        let phy_port = 4; // The VSC8504 uses ports 4-7
+        let phy = vsc85xx::Phy::new(phy_port, &mut phy_rw);
+        let mac_serdes_pcs_status =
+            phy.read(phy::EXTENDED_3::MAC_SERDES_PCS_STATUS())?;
+        let mac_serdes_status =
+            phy.read(phy::EXTENDED_3::MAC_SERDES_STATUS())?;
+        if mac_serdes_pcs_status.mac_pcs_sig_detect() == 0
+            || mac_serdes_pcs_status.mac_link_status() == 0
+        {
+            ringbuf_entry!(Trace::Vsc8504SuspiciousMacStatus {
+                mac_serdes_pcs_status: mac_serdes_pcs_status.into(),
+                mac_serdes_status: mac_serdes_status.into(),
+            });
+        }
         Ok(())
     }
 
