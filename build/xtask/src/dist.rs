@@ -506,6 +506,12 @@ pub fn package(
                 if task_can_overflow(&cfg.toml, task_name, verbose)? {
                     possible_stack_overflow.push(task_name);
                 }
+                if task_contains_home(&cfg.toml, task_name)? {
+                    bail!(
+                        "task {task_name} contains your home directory; \
+                         the build is probably not reproducible!"
+                    );
+                }
 
                 resolve_task_slots(&cfg, task_name, image_name)?;
             }
@@ -1052,6 +1058,25 @@ fn build_task(cfg: &PackageConfig, name: &str) -> Result<()> {
         .unwrap();
     build(cfg, name, build_config, true)
         .context(format!("failed to build {name}"))
+}
+
+/// Returns `Ok(true)` if the given task contains the user's home directory
+///
+/// This is useful for making sure builds are reproducible.
+fn task_contains_home(toml: &Config, task_name: &str) -> Result<bool> {
+    // Open the statically-linked ELF file
+    let f = Path::new("target")
+        .join(&toml.name)
+        .join("dist")
+        .join(format!("{task_name}.tmp"));
+    let data = std::fs::read(f).context("could not open ELF file")?;
+    let dirs = directories::BaseDirs::new()
+        .ok_or_else(|| anyhow!("could not get base directories"))?;
+    let home_dir = dirs.home_dir();
+    Ok(
+        memchr::memmem::find(&data, home_dir.as_os_str().as_encoded_bytes())
+            .is_some(),
+    )
 }
 
 /// Checks whether the given task can overflow its stack
