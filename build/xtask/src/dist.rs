@@ -334,14 +334,27 @@ mod checked_types {
 // Republish these types for widespread availability
 pub use checked_types::{ContiguousRanges, OrderedVecDeque};
 
+/// Container of named flags used when calling [`package`]
+#[derive(Copy, Clone, Debug)]
+pub struct PackageFlags {
+    pub verbose: bool,
+    pub edges: bool,
+    pub dirty_ok: bool,
+    pub skip_path_check: bool,
+}
+
 pub fn package(
-    verbose: bool,
-    edges: bool,
     app_toml: &Path,
+    flags: PackageFlags,
     tasks_to_build: Option<Vec<String>>,
-    dirty_ok: bool,
     caboose_args: super::CabooseArgs,
 ) -> Result<BTreeMap<String, AllocationMap>> {
+    let PackageFlags {
+        verbose,
+        edges,
+        dirty_ok,
+        skip_path_check,
+    } = flags;
     let cfg = PackageConfig::new(app_toml, verbose, edges)?;
 
     // Verify that our dump configuration is correct (or absent)
@@ -507,10 +520,19 @@ pub fn package(
                     possible_stack_overflow.push(task_name);
                 }
                 if task_contains_home(&cfg.toml, task_name)? {
-                    bail!(
-                        "task {task_name} contains your home directory; \
-                         the build is probably not reproducible!"
-                    );
+                    if skip_path_check {
+                        eprintln!(
+                            "warning: task {task_name} contains your home \
+                             directory; the build is probably not reproducible!"
+                        );
+                    } else {
+                        bail!(
+                            "task {task_name} contains your home directory; \
+                             the build is probably not reproducible!\n\
+                             Use `--dangerously-skip-path-checks` to disable \
+                             this check"
+                        );
+                    }
                 }
 
                 resolve_task_slots(&cfg, task_name, image_name)?;
