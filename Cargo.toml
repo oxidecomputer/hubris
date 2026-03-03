@@ -72,6 +72,7 @@ crypto-common = { version = "0.1.6", default-features = false }
 ctrlc = { version = "3.1.5", default-features = false }
 derive_more = { version = "0.99", default-features = false, features = ["from", "into"] }
 digest = { version = "0.10", default-features = false }
+directories = { version = "6.0.0" }
 dunce = { version = "1.0.2", default-features = false }
 embedded-hal = { version = "0.2", default-features = false }
 enum-kinds = { version = "0.5.1", default-features = false, features = ["no-stdlib"] }

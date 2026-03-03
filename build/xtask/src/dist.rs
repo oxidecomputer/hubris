@@ -135,6 +135,8 @@ impl PackageConfig {
             bail!("Failed to find {:?}", board_path);
         }
 
+        let remap_paths = Self::remap_paths(&sysroot)?;
+
         Ok(Self {
             app_src_dir: app_src_dir.to_path_buf(),
             toml,
@@ -143,7 +145,7 @@ impl PackageConfig {
             dist_dir,
             sysroot,
             host_triple,
-            remap_paths: Self::remap_paths()?,
+            remap_paths,
             link_script_hash: extra_hash.finish(),
         })
     }
@@ -160,11 +162,16 @@ impl PackageConfig {
         self.dist_dir.join(name)
     }
 
-    fn remap_paths() -> Result<BTreeMap<PathBuf, &'static str>> {
+    fn remap_paths(sysroot: &Path) -> Result<BTreeMap<PathBuf, &'static str>> {
         // Panic messages in crates have a long prefix; we'll shorten it using
-        // the --remap-path-prefix argument to reduce message size.  We'll remap
-        // local (Hubris) crates to /hubris, crates.io to /crates.io, and git
-        // dependencies to /git
+        // the --remap-path-prefix argument to reduce message size.  This is
+        // good for both binary size and for reproducibility, since we don't
+        // want paths to people's home directories embedded in the binaries.
+        //
+        // We'll remap local (Hubris) crates to `/hubris`, crates.io to
+        // `/crates.io`, git dependencies to `/git`, and the sysroot
+        // (e.g. `~/.rustup/toolchains/nightly-yyyy-mm-dd-target-triple/`) to
+        // `toolchain`.
         let mut remap_paths = BTreeMap::new();
 
         // On Windows, std::fs::canonicalize returns a UNC path, i.e. one
@@ -197,6 +204,8 @@ impl PackageConfig {
                 .join("index.crates.io-1949cf8c6b5b557f");
             remap_paths.insert(cargo_sparse_registry, "/crates.io");
         }
+
+        remap_paths.insert(sysroot.to_path_buf(), "/toolchain");
 
         if let Ok(dir) = std::env::var("CARGO_MANIFEST_DIR") {
             let mut hubris_dir = dunce::canonicalize(dir)?;
