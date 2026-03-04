@@ -9,6 +9,8 @@
 pub mod cpu;
 pub mod pwr;
 
+pub use microcbor;
+
 #[cfg(feature = "ereporter-macro")]
 #[macro_export]
 macro_rules! declare_ereporter {
@@ -22,7 +24,7 @@ macro_rules! declare_ereporter {
 
         $crate::__macro_support::paste! {
             impl $Ereporter {
-                const BUF_LEN: usize = $crate::__macro_support::max_cbor_len_for![
+                const BUF_LEN: usize = $crate::microcbor::max_cbor_len_for![
                     $($EreportTy),+
                 ];
 
@@ -44,9 +46,8 @@ macro_rules! declare_ereporter {
             $v use [< $Ereporter:snake >]::$Trait;
             $v mod [< $Ereporter:snake >] {
                 use super::*;
-                use $crate::declare_ereporter;
 
-                $v trait $Trait: $crate::__macro_support::StaticCborLen + sealed::Sealed {
+                $v trait $Trait: $crate::microcbor::StaticCborLen + sealed::Sealed {
                     fn class(&self) -> EreportClass;
                 }
 
@@ -128,8 +129,6 @@ macro_rules! declare_ereporter {
 #[doc(hidden)]
 pub mod __macro_support {
     pub use counters;
-    pub use microcbor::StaticCborLen;
-    pub use microcbor::max_cbor_len_for;
     pub use paste::paste;
     pub use ringbuf;
     pub use static_cell::ClaimOnceCell;
