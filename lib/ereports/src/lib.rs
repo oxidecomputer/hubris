@@ -84,6 +84,24 @@ pub use microcbor;
 /// ```
 ///
 /// # Generated API
+///
+/// The generated `$Ereporter` type implements the following API functions:
+///
+/// - `fn claim_static_resources(packrat:` [`task_packrat_api::Packrat`]`) -> Self`:
+///   Initializes the `$Ereporter` type, returning it.
+///
+///   This attempts to claim the statically-allocated encoding buffer. If the
+///   buffer has already been claimed by a prior call to
+///   `claim_static_resources`, this function panics.
+/// - `fn deliver_ereport(&mut self, &impl $Trait)`: Attempts to deliver an
+///   ereport to `packrat`, reacording in the ring buffer if the ereport cannot
+///   be delviered.
+///
+/// These functions inherit the visibility with which the `$Ereporter` struct is
+/// declared in the macro invocation, as does the geenrated trait. For example,
+/// if the struct is declared as `pub(crate) struct MyEreporter<MyTrait>`, then
+/// the functions on `MyEreporter` and the definition of `MyTrait` are also
+/// generated with `pub(crate)` visibility.
 #[cfg(feature = "ereporter-macro")]
 #[macro_export]
 macro_rules! declare_ereporter {
