@@ -82,7 +82,7 @@ impl Tofino {
     /// Poll FPGA for status of the PCIe reset signal from the host. Note that the
     /// logic level of the reset signal has been normalized in the FPGA, so asserted
     /// (logic low on PERST_L) will be true and deasserted (logic high) will be false).
-    pub fn poll_pcie_reset(&mut self) -> Result<bool, SeqError> {
+    pub fn poll_pcie_reset(&mut self) -> Result<(), SeqError> {
         let reset_asserted = self
             .sequencer
             .is_pcie_reset()
@@ -91,7 +91,7 @@ impl Tofino {
             ringbuf_entry!(Trace::TofinoPcieReset(reset_asserted));
         }
         self.pcie_reset_asserted = reset_asserted;
-        Ok(self.pcie_reset_asserted)
+        Ok(())
     }
 
     pub fn power_up(&mut self) -> Result<(), SeqError> {

@@ -122,6 +122,7 @@ enum Trace {
 ringbuf!(Trace, 32, Trace::None);
 
 const TIMER_INTERVAL: u64 = 1000;
+const NO_PCIE_LIMIT: u8 = 30;
 
 // QSFP_2_SP_A2_PG
 const POWER_GOOD: sys_api::PinSet = sys_api::Port::F.pin(12);
@@ -172,8 +173,10 @@ struct ServerImpl {
     led_blink_on: bool,
     sys: sys_api::Sys,
     // used to track how many notification loops elapsed while in A0 without a
-    // PCIe link
+    // PCIe link. This will be capped at NO_PCIE_LIMIT loops and should not
+    // overflow.
     no_pcie_count: u8,
+    // keep track if we've resequenced since we only want to try it once
     resequenced: bool,
 }
 
@@ -398,11 +401,10 @@ impl ServerImpl {
             .is_pcie_reset()
             .map_err(|_| SeqError::FpgaError)?
             && !self.tofino.pcie_link_up()?
-            && !self.resequenced
         {
             self.no_pcie_count += 1;
 
-            if self.no_pcie_count >= 30 {
+            if self.no_pcie_count >= NO_PCIE_LIMIT {
                 // We have failed to establish a link, resequence.
                 ringbuf_entry!(Trace::TofinoResequence);
                 self.tofino.power_down()?;
@@ -864,9 +866,12 @@ impl NotificationHandler for ServerImpl {
         self.monitor_fan_modules();
 
         // Monitor Tofino PCIe Link
-        self.tofino.poll_pcie_reset();
+        if let Err(e) = self.tofino.poll_pcie_reset() {
+            ringbuf_entry!(Trace::TofinoSequencerError(e));
+        }
         if self.tofino.sequencer.state().unwrap_or(TofinoSeqState::A2)
             == TofinoSeqState::A0
+            && !self.resequenced
         {
             if let Err(e) = self.monitor_tofino_pcie_link() {
                 ringbuf_entry!(Trace::TofinoSequencerError(e));
