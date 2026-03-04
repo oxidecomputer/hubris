@@ -1095,6 +1095,23 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         Ok(self.espi.last_post_code.payload())
     }
 
+    fn post_code_buffer_len(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u32, RequestError<core::convert::Infallible>> {
+        Ok(self.espi.post_code_count.count())
+    }
+
+    fn get_post_code(
+        &mut self,
+        _: &RecvMessage,
+        index: u32,
+    ) -> Result<u32, RequestError<core::convert::Infallible>> {
+        self.espi.post_code_buffer.get(index as usize).ok_or(
+            RequestError::Fail(idol_runtime::ClientError::BadMessageContents),
+        )
+    }
+
     fn gpio_edge_count(
         &mut self,
         _: &RecvMessage,

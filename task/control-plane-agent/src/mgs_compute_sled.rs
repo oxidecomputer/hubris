@@ -18,10 +18,10 @@ use gateway_messages::{
     ignition, ComponentAction, ComponentActionResponse, ComponentDetails,
     ComponentUpdatePrepare, DiscoverResponse, DumpSegment, DumpTask,
     GpioToggleCount, Header, IgnitionCommand, IgnitionState, LastPostCode,
-    Message, MessageKind, MgsError, MgsRequest, MgsResponse, PowerState,
-    PowerStateTransition, RotBootInfo, RotRequest, RotResponse, SensorRequest,
-    SensorResponse, SpComponent, SpError, SpPort as GwSpPort, SpRequest,
-    SpStateV2, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
+    Message, MessageKind, MgsError, MgsRequest, MgsResponse, PostCode,
+    PowerState, PowerStateTransition, RotBootInfo, RotRequest, RotResponse,
+    SensorRequest, SensorResponse, SpComponent, SpError, SpPort as GwSpPort,
+    SpRequest, SpStateV2, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
     SERIAL_CONSOLE_IDLE_TIMEOUT,
 };
 use heapless::{Deque, Vec};
@@ -907,7 +907,21 @@ impl SpHandler for MgsHandler {
             component
         }));
 
-        self.common.inventory().num_component_details(&component)
+        self.common
+            .inventory()
+            .num_component_details(&component, |component| {
+                match *component {
+                    // The SP5 CPU can report a POST code and GPIO cycle count
+                    SpComponent::SP5_HOST_CPU => 2,
+                    // The SP3 CPU can report GPIO toggle counts
+                    SpComponent::SP3_HOST_CPU => 1,
+                    // The SP5 POST code buffer reports a dynamic length
+                    SpComponent::SP5_POST_CODES => {
+                        self.sequencer.post_code_buffer_len()
+                    }
+                    _ => 0,
+                }
+            })
     }
 
     fn component_details(
@@ -934,6 +948,9 @@ impl SpHandler for MgsHandler {
                         }
                         _ => panic!("invalid index"),
                     },
+                    SpComponent::SP5_POST_CODES => ComponentDetails::PostCode(
+                        PostCode(self.sequencer.get_post_code(index.0)),
+                    ),
                     SpComponent::SP3_HOST_CPU => {
                         // Only one component detail for now
                         assert_eq!(index.0, 0);
