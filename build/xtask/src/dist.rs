@@ -135,6 +135,8 @@ impl PackageConfig {
             bail!("Failed to find {:?}", board_path);
         }
 
+        let remap_paths = Self::remap_paths(&sysroot)?;
+
         Ok(Self {
             app_src_dir: app_src_dir.to_path_buf(),
             toml,
@@ -143,7 +145,7 @@ impl PackageConfig {
             dist_dir,
             sysroot,
             host_triple,
-            remap_paths: Self::remap_paths()?,
+            remap_paths,
             link_script_hash: extra_hash.finish(),
         })
     }
@@ -160,11 +162,16 @@ impl PackageConfig {
         self.dist_dir.join(name)
     }
 
-    fn remap_paths() -> Result<BTreeMap<PathBuf, &'static str>> {
+    fn remap_paths(sysroot: &Path) -> Result<BTreeMap<PathBuf, &'static str>> {
         // Panic messages in crates have a long prefix; we'll shorten it using
-        // the --remap-path-prefix argument to reduce message size.  We'll remap
-        // local (Hubris) crates to /hubris, crates.io to /crates.io, and git
-        // dependencies to /git
+        // the --remap-path-prefix argument to reduce message size.  This is
+        // good for both binary size and for reproducibility, since we don't
+        // want paths to people's home directories embedded in the binaries.
+        //
+        // We'll remap local (Hubris) crates to `/hubris`, crates.io to
+        // `/crates.io`, git dependencies to `/git`, and the sysroot
+        // (e.g. `~/.rustup/toolchains/nightly-yyyy-mm-dd-target-triple/`) to
+        // `toolchain`.
         let mut remap_paths = BTreeMap::new();
 
         // On Windows, std::fs::canonicalize returns a UNC path, i.e. one
@@ -197,6 +204,8 @@ impl PackageConfig {
                 .join("index.crates.io-1949cf8c6b5b557f");
             remap_paths.insert(cargo_sparse_registry, "/crates.io");
         }
+
+        remap_paths.insert(sysroot.to_path_buf(), "/toolchain");
 
         if let Ok(dir) = std::env::var("CARGO_MANIFEST_DIR") {
             let mut hubris_dir = dunce::canonicalize(dir)?;
@@ -325,14 +334,27 @@ mod checked_types {
 // Republish these types for widespread availability
 pub use checked_types::{ContiguousRanges, OrderedVecDeque};
 
+/// Container of named flags used when calling [`package`]
+#[derive(Copy, Clone, Debug)]
+pub struct PackageFlags {
+    pub verbose: bool,
+    pub edges: bool,
+    pub dirty_ok: bool,
+    pub skip_path_check: bool,
+}
+
 pub fn package(
-    verbose: bool,
-    edges: bool,
     app_toml: &Path,
+    flags: PackageFlags,
     tasks_to_build: Option<Vec<String>>,
-    dirty_ok: bool,
     caboose_args: super::CabooseArgs,
 ) -> Result<BTreeMap<String, AllocationMap>> {
+    let PackageFlags {
+        verbose,
+        edges,
+        dirty_ok,
+        skip_path_check,
+    } = flags;
     let cfg = PackageConfig::new(app_toml, verbose, edges)?;
 
     // Verify that our dump configuration is correct (or absent)
@@ -496,6 +518,21 @@ pub fn package(
             if tasks_to_build.contains(task_name.as_str()) {
                 if task_can_overflow(&cfg.toml, task_name, verbose)? {
                     possible_stack_overflow.push(task_name);
+                }
+                if task_contains_home(&cfg.toml, task_name)? {
+                    if skip_path_check {
+                        eprintln!(
+                            "warning: task {task_name} contains your home \
+                             directory; the build is probably not reproducible!"
+                        );
+                    } else {
+                        bail!(
+                            "task {task_name} contains your home directory; \
+                             the build is probably not reproducible!\n\
+                             Use `--dangerously-skip-path-checks` to disable \
+                             this check"
+                        );
+                    }
                 }
 
                 resolve_task_slots(&cfg, task_name, image_name)?;
@@ -1043,6 +1080,25 @@ fn build_task(cfg: &PackageConfig, name: &str) -> Result<()> {
         .unwrap();
     build(cfg, name, build_config, true)
         .context(format!("failed to build {name}"))
+}
+
+/// Returns `Ok(true)` if the given task contains the user's home directory
+///
+/// This is useful for making sure builds are reproducible.
+fn task_contains_home(toml: &Config, task_name: &str) -> Result<bool> {
+    // Open the statically-linked ELF file
+    let f = Path::new("target")
+        .join(&toml.name)
+        .join("dist")
+        .join(format!("{task_name}.tmp"));
+    let data = std::fs::read(f).context("could not open ELF file")?;
+    let dirs = directories::BaseDirs::new()
+        .ok_or_else(|| anyhow!("could not get base directories"))?;
+    let home_dir = dirs.home_dir();
+    Ok(
+        memchr::memmem::find(&data, home_dir.as_os_str().as_encoded_bytes())
+            .is_some(),
+    )
 }
 
 /// Checks whether the given task can overflow its stack
