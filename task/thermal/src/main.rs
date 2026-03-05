@@ -179,7 +179,7 @@ impl<'a> ServerImpl<'a> {
         initial_pwm: PWMDuty,
     ) -> Result<(), ThermalError> {
         self.set_mode(ThermalMode::Manual);
-        self.control.set_pwm(initial_pwm)
+        self.control.set_pwm(Ok(initial_pwm), sys_get_timer().now)
     }
 
     /// Configures the control loop to run in automatic mode.
