@@ -834,6 +834,7 @@ impl ServerImpl {
             | HostToSp::GetIdentity
             | HostToSp::GetStatus
             | HostToSp::AckSpStart
+            | HostToSp::BootStage { .. }
             | HostToSp::ApobBegin { .. }
             | HostToSp::ApobData { .. }
             | HostToSp::ApobRead { .. }
@@ -1090,6 +1091,11 @@ impl ServerImpl {
                 // apob_read does serialization itself
                 self.apob_read(header.sequence, offset, size);
                 None
+            }
+            HostToSp::BootStage { .. } => {
+                // The only action for this is to acknowledge it. A ringbuf
+                // entry will have been created and that's what we care about.
+                Some(SpToHost::Ack)
             }
         };
 
