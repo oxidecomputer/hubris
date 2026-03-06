@@ -834,11 +834,11 @@ impl ServerImpl {
             | HostToSp::GetIdentity
             | HostToSp::GetStatus
             | HostToSp::AckSpStart
-            | HostToSp::BootStage { .. }
             | HostToSp::ApobBegin { .. }
             | HostToSp::ApobData { .. }
             | HostToSp::ApobRead { .. }
-            | HostToSp::ApobCommit => {
+            | HostToSp::ApobCommit
+            | HostToSp::BootStage { .. } => {
                 // These are explicitly allowed
             }
             _ => {
