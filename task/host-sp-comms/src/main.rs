@@ -837,7 +837,8 @@ impl ServerImpl {
             | HostToSp::ApobBegin { .. }
             | HostToSp::ApobData { .. }
             | HostToSp::ApobRead { .. }
-            | HostToSp::ApobCommit => {
+            | HostToSp::ApobCommit
+            | HostToSp::BootStage { .. } => {
                 // These are explicitly allowed
             }
             _ => {
@@ -1090,6 +1091,11 @@ impl ServerImpl {
                 // apob_read does serialization itself
                 self.apob_read(header.sequence, offset, size);
                 None
+            }
+            HostToSp::BootStage { .. } => {
+                // The only action for this is to acknowledge it. A ringbuf
+                // entry will have been created and that's what we care about.
+                Some(SpToHost::Ack)
             }
         };
 
