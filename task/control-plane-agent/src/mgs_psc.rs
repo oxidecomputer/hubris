@@ -444,7 +444,13 @@ impl SpHandler for MgsHandler {
             component
         }));
 
-        self.common.inventory().num_component_details(&component)
+        self.common.inventory().num_component_details(
+            &component,
+            |_component| {
+                // Nothing in OUR_DEVICES has component details
+                0
+            },
+        )
     }
 
     fn component_details(

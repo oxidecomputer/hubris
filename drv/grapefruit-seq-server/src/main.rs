@@ -194,6 +194,28 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         Ok(self.espi.last_post_code.payload())
     }
 
+    fn post_code_buffer_len(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u32, RequestError<core::convert::Infallible>> {
+        // espi.post_code_count exists in the JSON file, but the
+        // post_code_buffer memory isn't present.  Fixing this isn't urgent,
+        // since no one is booting with Grapefruit these days.
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::BadMessageContents,
+        ))
+    }
+
+    fn get_post_code(
+        &mut self,
+        _: &RecvMessage,
+        _index: u32,
+    ) -> Result<u32, RequestError<core::convert::Infallible>> {
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::BadMessageContents,
+        ))
+    }
+
     fn gpio_edge_count(
         &mut self,
         _: &RecvMessage,
