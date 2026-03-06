@@ -138,7 +138,7 @@ macro_rules! declare_ereporter {
             $v mod [< $Ereporter:snake >] {
                 use super::*;
 
-                $v trait $Trait: $crate::microcbor::StaticCborLen + sealed::Sealed {
+                pub(super) trait $Trait: $crate::microcbor::StaticCborLen + sealed::Sealed {
                     fn class(&self) -> EreportClass;
                 }
 
