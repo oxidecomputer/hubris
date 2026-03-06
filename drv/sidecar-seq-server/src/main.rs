@@ -122,7 +122,7 @@ enum Trace {
 ringbuf!(Trace, 32, Trace::None);
 
 const TIMER_INTERVAL: u64 = 1000;
-const NO_PCIE_LIMIT: u8 = 30;
+const NO_PCIE_LIMIT: u8 = 120;
 
 // QSFP_2_SP_A2_PG
 const POWER_GOOD: sys_api::PinSet = sys_api::Port::F.pin(12);
