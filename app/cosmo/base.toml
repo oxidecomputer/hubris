@@ -151,7 +151,7 @@ name = "task-thermal"
 features = ["cosmo"]
 priority = 8
 max-sizes = {flash = 32768, ram = 8192 }
-stacksize = 6000
+stacksize = 3000
 start = true
 task-slots = ["i2c_driver", "sensor", "cosmo_seq", "jefe"]
 notifications = ["timer"]

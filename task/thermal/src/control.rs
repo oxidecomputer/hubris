@@ -493,7 +493,7 @@ pub(crate) struct ThermalControl<'a> {
 /// Represents the state of a temperature sensor, which either has a valid
 /// reading or is marked as inactive (due to power state or being missing)
 #[derive(Copy, Clone, Debug)]
-enum TemperatureReading {
+pub enum TemperatureReading {
     /// Normal reading, timestamped using monotonic system time
     Valid(TimestampedTemperatureReading),
 
@@ -503,7 +503,7 @@ enum TemperatureReading {
 
 /// Represents a temperature reading at the time at which it was taken
 #[derive(Copy, Clone, Debug)]
-struct TimestampedTemperatureReading {
+pub struct TimestampedTemperatureReading {
     time_ms: u64,
     value: Celsius,
 }
@@ -750,13 +750,11 @@ enum ThermalControlState {
     ///
     /// (dynamic sensors must report in *if* they are present, i.e. not `None`
     /// in the `dynamic_inputs` array)
-    Boot {
-        values: [Option<TemperatureReading>; TEMPERATURE_ARRAY_SIZE],
-    },
+    Boot { values: OptionalTemperatureArray },
 
     /// Normal happy control loop
     Running {
-        values: [TemperatureReading; TEMPERATURE_ARRAY_SIZE],
+        values: TemperatureArray,
         pid: OneSidedPidState,
     },
 
@@ -768,7 +766,7 @@ enum ThermalControlState {
     /// the time at which we entered this state; at a certain point, we will
     /// timeout and drop into `Uncontrolled` if components do not recover.
     Critical {
-        values: [TemperatureReading; TEMPERATURE_ARRAY_SIZE],
+        values: TemperatureArray,
         /// The time at which we transitioned to the `Critical` state *this*
         /// time, either from `Running` or from FAN PARTY!!!.
         start_time: u64,
@@ -785,14 +783,233 @@ enum ThermalControlState {
     /// This gives us an opportunity to recover from overheating by running the
     /// fans aggressively without also deciding to give up and kill ourselves
     /// while things are improving but not fast enough.
-    FanParty {
-        values: [TemperatureReading; TEMPERATURE_ARRAY_SIZE],
-    },
+    FanParty { values: TemperatureArray },
 
     /// The system cannot control the temperature; power down and wait for
     /// intervention from higher up the stack.
-    Uncontrollable,
+    Uncontrollable(
+        // we keep the values array around to avoid losing ownership
+        OptionalTemperatureArray,
+    ),
+
+    /// Transition state when we need to steal the values
+    Empty,
 }
+
+impl ThermalControlState {
+    /// Steals the inner values array, leaving the state as `Empty`
+    ///
+    /// # Panics
+    /// If the state is already `Empty`
+    fn steal_array(&mut self) -> &'static mut RawTemperatureArray {
+        let prev = core::mem::replace(self, ThermalControlState::Empty);
+        match prev {
+            ThermalControlState::Boot { values }
+            | ThermalControlState::Uncontrollable(values) => values.take(),
+            ThermalControlState::Running { values, .. }
+            | ThermalControlState::Critical { values, .. }
+            | ThermalControlState::FanParty { values, .. } => values.take(),
+            ThermalControlState::Empty => panic!(),
+        }
+    }
+
+    /// Steals a populated inner values array, leaving the state as `Empty`
+    ///
+    /// This function requires a [`TemperatureArrayToken`] to make it harder to
+    /// call by accident (without being confident that there's valid temperature
+    /// array stored in here).
+    ///
+    /// # Panics
+    /// If the state is already `Empty`, or values are missing
+    fn steal_values(
+        &mut self,
+        _token: TemperatureArrayToken,
+    ) -> TemperatureArray {
+        let prev = core::mem::replace(self, ThermalControlState::Empty);
+        let values = match prev {
+            ThermalControlState::Boot { values }
+            | ThermalControlState::Uncontrollable(values) => values.take(),
+            ThermalControlState::Running { values, .. }
+            | ThermalControlState::Critical { values, .. }
+            | ThermalControlState::FanParty { values, .. } => values.take(),
+            ThermalControlState::Empty => panic!(),
+        };
+        TemperatureArray::new(values).unwrap()
+    }
+}
+
+mod temperature_array {
+    use super::{
+        Bsp, DynamicChannelsArray, SensorId, TemperatureReading,
+        ThermalProperties, TEMPERATURE_ARRAY_SIZE,
+    };
+
+    /// Array of optional temperature readings
+    pub type RawTemperatureArray =
+        [Option<TemperatureReading>; TEMPERATURE_ARRAY_SIZE];
+
+    /// Type representing an array of optional temperature readings
+    pub(crate) struct OptionalTemperatureArray(
+        &'static mut RawTemperatureArray,
+    );
+
+    impl OptionalTemperatureArray {
+        /// Builds a new optional temperature array
+        ///
+        /// Values are left unchanged (e.g. they are *not* set to `None`)
+        pub fn new(data: &'static mut RawTemperatureArray) -> Self {
+            Self(data)
+        }
+
+        /// Returns the inner raw temperature array, consuming this object
+        pub fn take(self) -> &'static mut RawTemperatureArray {
+            self.0
+        }
+
+        /// Returns a token if all values are `Some(..)`
+        pub fn try_token(&self) -> Option<TemperatureArrayToken> {
+            if self.0.iter().all(Option::is_some) {
+                Some(TemperatureArrayToken { _phantom: () })
+            } else {
+                None
+            }
+        }
+
+        /// Temperature state iterator with `Option<TemperatureReading>` values
+        pub fn zip_temperatures<'a>(
+            &'a self,
+            bsp: &'a Bsp,
+            dynamic_channels: &'a DynamicChannelsArray,
+        ) -> impl Iterator<
+            Item = (
+                SensorId,
+                &'a Option<TemperatureReading>,
+                ThermalProperties,
+            ),
+        > {
+            zip_temperatures(bsp, self.0, dynamic_channels, |v| v)
+        }
+    }
+
+    impl core::ops::Index<usize> for OptionalTemperatureArray {
+        type Output = Option<TemperatureReading>;
+        fn index(&self, index: usize) -> &Self::Output {
+            &self.0[index]
+        }
+    }
+
+    impl core::ops::IndexMut<usize> for OptionalTemperatureArray {
+        fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+            &mut self.0[index]
+        }
+    }
+
+    /// A `TemperatureArrayToken` attests to a valid temperature array
+    ///
+    /// This may either be a `TemperatureArray` object or a
+    /// `OptionalTemperatureArray` object where all values are `Some(..)`.
+    ///
+    /// It is used as a hint that APIs require a valid temperature array, to
+    /// make them harder to misuse (but not impossible; one could stash a token
+    /// away then reuse it when the array is no longer valid).
+    pub struct TemperatureArrayToken {
+        _phantom: (),
+    }
+
+    /// Array of temperature values
+    ///
+    /// This stores an array of `Option<TemperatureReading>`, but values are
+    /// guaranteed to be `Some(..)` by construction.
+    pub struct TemperatureArray(&'static mut RawTemperatureArray);
+
+    impl TemperatureArray {
+        /// Builds a temperature array from a raw array
+        ///
+        /// Returns `Some(..)` if all values in the raw array are `Some(..)`;
+        /// otherwise returns `None`.
+        pub fn new(values: &'static mut RawTemperatureArray) -> Option<Self> {
+            if values.iter().all(Option::is_some) {
+                Some(Self(values))
+            } else {
+                None
+            }
+        }
+
+        /// Returns the inner raw temperature array, consuming this object
+        pub fn take(self) -> &'static mut RawTemperatureArray {
+            self.0
+        }
+
+        /// Returns a token attesting that we have a valid `TemperatureArray`
+        pub fn token(&self) -> TemperatureArrayToken {
+            TemperatureArrayToken { _phantom: () }
+        }
+    }
+
+    impl core::ops::Index<usize> for TemperatureArray {
+        type Output = TemperatureReading;
+        fn index(&self, index: usize) -> &Self::Output {
+            self.0[index].as_ref().unwrap()
+        }
+    }
+
+    impl core::ops::IndexMut<usize> for TemperatureArray {
+        fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+            self.0[index].as_mut().unwrap()
+        }
+    }
+
+    /// Temperature state iterator with `TemperatureReading` values
+    impl TemperatureArray {
+        pub fn zip_temperatures<'a>(
+            &'a self,
+            bsp: &'a Bsp,
+            dynamic_channels: &'a DynamicChannelsArray,
+        ) -> impl Iterator<
+            Item = (SensorId, &'a TemperatureReading, ThermalProperties),
+        > {
+            zip_temperatures(bsp, self.0, dynamic_channels, |v| {
+                v.as_ref().unwrap()
+            })
+        }
+    }
+
+    /// Returns an iterator over tuples of `(sensor_id, value, thermal model)`
+    ///
+    /// The `values` array contains static and dynamic values (in order);
+    /// this function will panic if sizes are mismatched.
+    ///
+    /// Every dynamic input is represented by an `Option<DynamicInputChannel>`.
+    /// If the input is not present right now, it will be `None`, but will
+    /// continue to take up space to preserve ordering.
+    ///
+    /// In cases where dynamic inputs are not present (i.e. they are `None` in
+    /// the array), the iterator will skip that entire tuple.
+    fn zip_temperatures<'a, T, U: 'a, F: Fn(&T) -> &U>(
+        bsp: &'a Bsp,
+        values: &'a [T; TEMPERATURE_ARRAY_SIZE],
+        dynamic_channels: &'a DynamicChannelsArray,
+        f: F,
+    ) -> impl Iterator<Item = (SensorId, &'a U, ThermalProperties)> {
+        assert_eq!(values.len(), bsp.inputs.len() + bsp.dynamic_inputs.len());
+        assert_eq!(bsp.dynamic_inputs.len(), dynamic_channels.len());
+        bsp.inputs
+            .iter()
+            .map(|i| Some((i.sensor.sensor_id, i.model)))
+            .chain(
+                dynamic_channels
+                    .iter()
+                    .zip(bsp.dynamic_inputs.iter().cloned())
+                    .map(|(i, s)| i.map(|i| (s, i.model))),
+            )
+            .zip(values.iter().map(f))
+            .filter_map(|(model, v)| model.map(|(id, t)| (id, v, t)))
+    }
+}
+use temperature_array::{
+    OptionalTemperatureArray, RawTemperatureArray, TemperatureArray,
+    TemperatureArrayToken,
+};
 
 enum ControlResult {
     Pwm(PWMDuty),
@@ -819,7 +1036,8 @@ impl ThermalControlState {
             | ThermalControlState::FanParty { values, .. } => {
                 values[index] = r;
             }
-            ThermalControlState::Uncontrollable => (),
+            ThermalControlState::Uncontrollable(..)
+            | ThermalControlState::Empty => (),
         }
     }
 
@@ -833,9 +1051,17 @@ impl ThermalControlState {
             | ThermalControlState::FanParty { values, .. } => {
                 values[index] = TemperatureReading::Inactive;
             }
-            ThermalControlState::Uncontrollable => (),
+            ThermalControlState::Uncontrollable(..)
+            | ThermalControlState::Empty => (),
         }
     }
+}
+
+fn claim_static_resources() -> &'static mut RawTemperatureArray {
+    use static_cell::ClaimOnceCell;
+    static TEMPERATURE_ARRAY: ClaimOnceCell<RawTemperatureArray> =
+        ClaimOnceCell::new([None; TEMPERATURE_ARRAY_SIZE]);
+    TEMPERATURE_ARRAY.claim()
 }
 
 impl<'a> ThermalControl<'a> {
@@ -859,13 +1085,14 @@ impl<'a> ThermalControl<'a> {
         };
         let pid_config = bsp.pid_config;
 
+        let data = claim_static_resources();
         Self {
             bsp,
             i2c_task,
             sensor_api,
             target_margin: Celsius(0.0f32),
             state: ThermalControlState::Boot {
-                values: [None; TEMPERATURE_ARRAY_SIZE],
+                values: OptionalTemperatureArray::new(data),
             },
             pid_config,
 
@@ -944,8 +1171,10 @@ impl<'a> ThermalControl<'a> {
 
     /// Resets the control state
     fn reset_state(&mut self) {
+        let values = self.state.steal_array();
+        values.fill(None);
         self.state = ThermalControlState::Boot {
-            values: [None; TEMPERATURE_ARRAY_SIZE],
+            values: OptionalTemperatureArray::new(values),
         };
         ringbuf_entry!(Trace::AutoState(self.get_state()));
     }
@@ -1078,37 +1307,6 @@ impl<'a> ThermalControl<'a> {
         // they are, so someone else has to do that.
     }
 
-    /// Returns an iterator over tuples of `(sensor_id, value, thermal model)`
-    ///
-    /// The `values` array contains static and dynamic values (in order);
-    /// this function will panic if sizes are mismatched.
-    ///
-    /// Every dynamic input is represented by an `Option<DynamicInputChannel>`.
-    /// If the input is not present right now, it will be `None`, but will
-    /// continue to take up space to preserve ordering.
-    ///
-    /// In cases where dynamic inputs are not present (i.e. they are `None` in
-    /// the array), the iterator will skip that entire tuple.
-    fn zip_temperatures<'b, T>(
-        bsp: &'b Bsp,
-        values: &'b [T; TEMPERATURE_ARRAY_SIZE],
-        dynamic_channels: &'b DynamicChannelsArray,
-    ) -> impl Iterator<Item = (SensorId, &'b T, ThermalProperties)> {
-        assert_eq!(values.len(), bsp.inputs.len() + bsp.dynamic_inputs.len());
-        assert_eq!(bsp.dynamic_inputs.len(), dynamic_channels.len());
-        bsp.inputs
-            .iter()
-            .map(|i| Some((i.sensor.sensor_id, i.model)))
-            .chain(
-                dynamic_channels
-                    .iter()
-                    .zip(bsp.dynamic_inputs.iter().cloned())
-                    .map(|(i, s)| i.map(|i| (s, i.model))),
-            )
-            .zip(values)
-            .filter_map(|(model, v)| model.map(|(id, t)| (id, v, t)))
-    }
-
     /// An extremely simple thermal control loop.
     ///
     /// Returns an error if the control loop failed to read critical sensors;
@@ -1180,11 +1378,9 @@ impl<'a> ThermalControl<'a> {
                 let mut all_some = true;
                 let mut any_power_down = None;
                 let mut worst_margin = f32::MAX;
-                for (sensor_id, v, model) in Self::zip_temperatures(
-                    self.bsp,
-                    values,
-                    &self.dynamic_inputs,
-                ) {
+                for (sensor_id, v, model) in
+                    values.zip_temperatures(self.bsp, &self.dynamic_inputs)
+                {
                     match v {
                         Some(TemperatureReading::Valid(v)) => {
                             let worst_case = v.worst_case(now_ms, &model);
@@ -1207,7 +1403,8 @@ impl<'a> ThermalControl<'a> {
                 if let Some(due_to) = any_power_down {
                     self.transition_to_uncontrollable_due_to(due_to, now_ms)
                 } else if all_some {
-                    let values = values.map(Option::unwrap);
+                    let token = values.try_token().unwrap();
+                    let values = self.state.steal_values(token);
                     self.transition_to_running(worst_margin, now_ms, values)
                 } else {
                     ControlResult::Pwm(PWMDuty(
@@ -1224,11 +1421,9 @@ impl<'a> ThermalControl<'a> {
                 // below their max temperature; negative means someone is
                 // overheating.  We want to pick the _smallest_ margin, since
                 // that's the part which is most overheated.
-                for (sensor_id, v, model) in Self::zip_temperatures(
-                    self.bsp,
-                    values,
-                    &self.dynamic_inputs,
-                ) {
+                for (sensor_id, v, model) in
+                    values.zip_temperatures(self.bsp, &self.dynamic_inputs)
+                {
                     if let TemperatureReading::Valid(v) = v {
                         let worst_case = v.worst_case(now_ms, &model);
                         let temperature = worst_case.worst_case_temp;
@@ -1247,7 +1442,8 @@ impl<'a> ThermalControl<'a> {
                 if let Some(due_to) = any_power_down {
                     self.transition_to_uncontrollable_due_to(due_to, now_ms)
                 } else if let Some(due_to) = any_critical {
-                    let values = *values;
+                    let token = values.token();
+                    let values = self.state.steal_values(token);
                     self.transition_to_critical(due_to, now_ms, values)
                 } else {
                     // We adjust the worst component margin by our target
@@ -1266,20 +1462,15 @@ impl<'a> ThermalControl<'a> {
                     ControlResult::Pwm(PWMDuty(pwm as u8))
                 }
             }
-            &mut ThermalControlState::Critical {
-                ref values,
-                start_time,
-            } => {
+            ThermalControlState::Critical { values, start_time } => {
                 let mut all_nominal = true;
                 let mut any_still_critical = false;
                 let mut any_power_down = None;
                 let mut worst_margin = f32::MAX;
 
-                for (sensor_id, v, model) in Self::zip_temperatures(
-                    self.bsp,
-                    values,
-                    &self.dynamic_inputs,
-                ) {
+                for (sensor_id, v, model) in
+                    values.zip_temperatures(self.bsp, &self.dynamic_inputs)
+                {
                     if let TemperatureReading::Valid(v) = v {
                         let worst_case = v.worst_case(now_ms, &model);
                         let temperature = worst_case.worst_case_temp;
@@ -1296,16 +1487,18 @@ impl<'a> ThermalControl<'a> {
                 if let Some(due_to) = any_power_down {
                     self.transition_to_uncontrollable_due_to(due_to, now_ms)
                 } else if all_nominal {
-                    let values = *values;
+                    let token = values.token();
+                    let values = self.state.steal_values(token);
                     self.transition_to_running(worst_margin, now_ms, values)
                 } else if !any_still_critical {
                     // If all temperatures have gone below critical, but are
                     // still above nominal, stop the overheat timeout but
                     // continue running at 100% PWM until things go below
                     // nominal.
-                    let values = *values;
+                    let token = values.token();
+                    let values = self.state.steal_values(token);
                     self.transition_to_fan_party(now_ms, values)
-                } else if now_ms > start_time + self.overheat_timeout_ms {
+                } else if now_ms > *start_time + self.overheat_timeout_ms {
                     // If blasting the fans hasn't cooled us down in this amount
                     // of time, then something is terribly wrong - abort!
                     self.transition_to_uncontrollable(now_ms)
@@ -1321,11 +1514,9 @@ impl<'a> ThermalControl<'a> {
                 let mut any_critical = None;
                 let mut worst_margin = f32::MAX;
 
-                for (sensor_id, v, model) in Self::zip_temperatures(
-                    self.bsp,
-                    values,
-                    &self.dynamic_inputs,
-                ) {
+                for (sensor_id, v, model) in
+                    values.zip_temperatures(self.bsp, &self.dynamic_inputs)
+                {
                     if let TemperatureReading::Valid(v) = v {
                         let worst_case = v.worst_case(now_ms, &model);
                         let temperature = worst_case.worst_case_temp;
@@ -1346,10 +1537,12 @@ impl<'a> ThermalControl<'a> {
                 } else if let Some(due_to) = any_critical {
                     // If anything's gone over critical, transition back to the
                     // `Critical` state.
-                    let values = *values;
+                    let token = values.token();
+                    let values = self.state.steal_values(token);
                     self.transition_to_critical(due_to, now_ms, values)
                 } else if all_nominal {
-                    let values = *values;
+                    let token = values.token();
+                    let values = self.state.steal_values(token);
                     self.transition_to_running(worst_margin, now_ms, values)
                 } else {
                     ControlResult::Pwm(PWMDuty(
@@ -1357,7 +1550,8 @@ impl<'a> ThermalControl<'a> {
                     ))
                 }
             }
-            ThermalControlState::Uncontrollable => ControlResult::PowerDown,
+            ThermalControlState::Uncontrollable(..) => ControlResult::PowerDown,
+            ThermalControlState::Empty => panic!(),
         };
 
         match control_result {
@@ -1388,7 +1582,7 @@ impl<'a> ThermalControl<'a> {
         &mut self,
         worst_margin: f32,
         now_ms: u64,
-        values: [TemperatureReading; TEMPERATURE_ARRAY_SIZE],
+        values: TemperatureArray,
     ) -> ControlResult {
         self.record_leaving_critical(now_ms);
         self.record_leaving_overheat(now_ms);
@@ -1410,7 +1604,7 @@ impl<'a> ThermalControl<'a> {
         &mut self,
         (sensor_id, worst_case): (SensorId, WorstCaseTemperature),
         now_ms: u64,
-        values: [TemperatureReading; TEMPERATURE_ARRAY_SIZE],
+        values: TemperatureArray,
     ) -> ControlResult {
         let WorstCaseTemperature {
             worst_case_temp,
@@ -1447,7 +1641,7 @@ impl<'a> ThermalControl<'a> {
     fn transition_to_fan_party(
         &mut self,
         now_ms: u64,
-        values: [TemperatureReading; TEMPERATURE_ARRAY_SIZE],
+        values: TemperatureArray,
     ) -> ControlResult {
         self.record_leaving_critical(now_ms);
         self.state = ThermalControlState::FanParty { values };
@@ -1494,7 +1688,10 @@ impl<'a> ThermalControl<'a> {
         self.record_leaving_critical(now_ms);
         self.record_leaving_overheat(now_ms);
 
-        self.state = ThermalControlState::Uncontrollable;
+        let values = self.state.steal_array();
+        self.state = ThermalControlState::Uncontrollable(
+            OptionalTemperatureArray::new(values),
+        );
         ringbuf_entry!(Trace::AutoState(self.get_state()));
 
         ControlResult::PowerDown
@@ -1596,10 +1793,11 @@ impl<'a> ThermalControl<'a> {
             ThermalControlState::Boot { .. } => ThermalAutoState::Boot,
             ThermalControlState::Running { .. } => ThermalAutoState::Running,
             ThermalControlState::Critical { .. } => ThermalAutoState::Critical,
-            ThermalControlState::Uncontrollable => {
+            ThermalControlState::Uncontrollable(..) => {
                 ThermalAutoState::Uncontrollable
             }
             ThermalControlState::FanParty { .. } => ThermalAutoState::FanParty,
+            ThermalControlState::Empty => panic!(),
         }
     }
 
