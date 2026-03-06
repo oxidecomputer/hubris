@@ -106,7 +106,7 @@ pub use microcbor;
 #[macro_export]
 macro_rules! declare_ereporter {
     ($v:vis struct $Ereporter:ident<$Trait:ident> {
-        $($ClassName:ident($EreportTy:ty)),+ $(,)?
+        $($ClassName:ident($EreportTy:ty $(,)?)),+ $(,)?
     }) => {
         $v struct $Ereporter {
             packrat: task_packrat_api::Packrat,
