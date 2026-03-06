@@ -409,6 +409,7 @@ impl ServerImpl {
                 ringbuf_entry!(Trace::TofinoResequence);
                 self.tofino.power_down()?;
                 self.tofino.power_up()?;
+                // The current intention is to only do this once.
                 self.resequenced = true;
             }
         } else {
@@ -869,6 +870,8 @@ impl NotificationHandler for ServerImpl {
         if let Err(e) = self.tofino.poll_pcie_reset() {
             ringbuf_entry!(Trace::TofinoSequencerError(e));
         }
+        // Only monitor the PCIe link if we expect one to be there (i.e., we are in A0).
+        // Currently, we will only resequence a single time to resolve the problem.
         if self.tofino.sequencer.state().unwrap_or(TofinoSeqState::A2)
             == TofinoSeqState::A0
             && !self.resequenced
