@@ -251,27 +251,6 @@ enum Trace {
         psu: Slot,
         err: mwocp68::Error,
     },
-    EreportSent {
-        now: u64,
-        #[count(children)]
-        psu: Slot,
-        class: ereport::Class,
-        len: usize,
-    },
-    EreportLost {
-        now: u64,
-        #[count(children)]
-        psu: Slot,
-        class: ereport::Class,
-        len: usize,
-        err: task_packrat_api::EreportWriteError,
-    },
-    EreportTooBig {
-        now: u64,
-        #[count(children)]
-        psu: Slot,
-        class: ereport::Class,
-    },
 }
 
 // Since entries in this ringbuffer contain timestamps, they will never be
@@ -478,19 +457,7 @@ fn main() -> ! {
     let packrat = Packrat::from(PACKRAT.get_task_id());
     read_vpd_and_load_packrat(&packrat, I2C.get_task_id());
 
-    // Statically allocate a buffer for ereport CBOR encoding, so that it's not
-    // on the stack.
-    const EREPORT_BUF_LEN: usize = microcbor::max_cbor_len_for!(
-        task_packrat_api::Ereport<ereport::Class, ereport::EreportFields>
-    );
-
-    let ereport_buf = {
-        use static_cell::ClaimOnceCell;
-
-        static BUF: ClaimOnceCell<[u8; EREPORT_BUF_LEN]> =
-            ClaimOnceCell::new([0; EREPORT_BUF_LEN]);
-        BUF.claim()
-    };
+    let mut ereporter = Ereporter::claim_static_resources(packrat);
 
     let jefe = Jefe::from(JEFE.get_task_id());
     jefe.set_state(PowerState::A2 as u32);
@@ -649,8 +616,7 @@ fn main() -> ! {
             } else {
                 Status::NotGood
             };
-            let step = psus[i].step(now, present, ok);
-            match step.action {
+            match psus[i].step(now, present, ok, &mut ereporter) {
                 None => (),
 
                 Some(ActionRequired::EnableMe) => {
@@ -682,45 +648,6 @@ fn main() -> ! {
                         Speed::Low,
                         Pull::None,
                     );
-                }
-            }
-            if let Some(ereport) = step.ereport {
-                let psu = PSU_SLOTS[ereport.report.slot as usize];
-                match packrat
-                    .deliver_microcbor_ereport(&ereport, &mut ereport_buf[..])
-                {
-                    Ok(len) => ringbuf_entry!(
-                        __TRACE,
-                        Trace::EreportSent {
-                            now,
-                            psu,
-                            len,
-                            class: ereport.class,
-                        }
-                    ),
-                    Err(task_packrat_api::EreportEncodeError::Packrat {
-                        err,
-                        len,
-                    }) => ringbuf_entry!(
-                        __TRACE,
-                        Trace::EreportLost {
-                            now,
-                            psu,
-                            len,
-                            class: ereport.class,
-                            err,
-                        }
-                    ),
-                    Err(task_packrat_api::EreportEncodeError::Encoder(_)) => {
-                        ringbuf_entry!(
-                            __TRACE,
-                            Trace::EreportTooBig {
-                                now,
-                                psu,
-                                class: ereport.class,
-                            }
-                        )
-                    }
                 }
             }
         }
@@ -772,11 +699,17 @@ impl Psu {
     /// This may be called at unpredictable intervals, and may be called more
     /// than once for the same timestamp value. The implementation **must** use
     /// `now` and the timer to control any time-sensitive operations.
-    fn step(&mut self, now: u64, present: Present, pwr_ok: Status) -> Step {
+    fn step(
+        &mut self,
+        now: u64,
+        present: Present,
+        pwr_ok: Status,
+        ereporter: &mut Ereporter,
+    ) -> Option<ActionRequired> {
         match (self.state, present, pwr_ok) {
             (PsuState::NotPresent, Present::No, _) => {
                 // ignore the power good line, it is meaningless.
-                Step::default()
+                None
             }
 
             // Regardless of our current state, if we observe the present line
@@ -790,22 +723,17 @@ impl Psu {
                     now,
                     psu: self.slot
                 });
-                let ereport = task_packrat_api::Ereport {
-                    class: ereport::Class::Removed,
-                    version: 0,
-                    report: self.ereport_fields(),
-                };
+                ereporter.deliver_ereport(&PsuRemovedEreport {
+                    fields: self.ereport_fields(),
+                });
 
                 self.state = PsuState::NotPresent;
                 // Clear the FRUID serial only *after* we have put it in the ereport.
                 self.fruid = PsuFruid::default();
 
-                Step {
-                    action: Some(ActionRequired::DisableMe {
-                        attempt_snapshot: false,
-                    }),
-                    ereport: Some(ereport),
-                }
+                Some(ActionRequired::DisableMe {
+                    attempt_snapshot: false,
+                })
             }
 
             // In a not-present situation we have to ignore the OK line entirely
@@ -825,7 +753,7 @@ impl Psu {
                     serial: self.fruid.serial
                 });
                 // No external action required until our timer elapses.
-                Step::default()
+                None
             }
 
             (
@@ -844,19 +772,14 @@ impl Psu {
                     self.state = PsuState::Present(PresentState::On {
                         was_faulted: false,
                     });
-                    let ereport = task_packrat_api::Ereport {
-                        class: ereport::Class::Inserted,
-                        version: 0,
-                        report: self.ereport_fields(),
-                    };
+                    ereporter.deliver_ereport(&PsuInsertedEreport {
+                        fields: self.ereport_fields(),
+                    });
 
-                    Step {
-                        action: Some(ActionRequired::EnableMe),
-                        ereport: Some(ereport),
-                    }
+                    Some(ActionRequired::EnableMe)
                 } else {
                     // Remain in this state.
-                    Step::default()
+                    None
                 }
             }
 
@@ -872,7 +795,7 @@ impl Psu {
 
                 // If we just turned this PSU back on after a fault, reasserting
                 // POWER_GOOD means that the fault has cleared.
-                let ereport = if was_faulted {
+                if was_faulted {
                     // Clear our tracking of the fault. If we fault again, treat
                     // that as a new fault.
                     self.state = PsuState::Present(PresentState::On {
@@ -886,22 +809,13 @@ impl Psu {
                         }
                     );
                     // Report that the fault has gone away.
-                    Some(task_packrat_api::Ereport {
-                        class: ereport::Class::PowerGood,
-                        version: 0,
-                        report: ereport::EreportFields {
-                            pmbus_status: Some(self.read_pmbus_status(now)),
-                            ..self.ereport_fields()
-                        },
-                    })
-                } else {
-                    // If we did not just restart after a fault, do nothing.
-                    None
-                };
-                Step {
-                    action: None,
-                    ereport,
+                    ereporter.deliver_ereport(&PowerGoodEreport {
+                        pmbus_status: self.read_pmbus_status(now),
+                        fields: self.ereport_fields(),
+                    });
                 }
+
+                None
             }
             (
                 PsuState::Present(PresentState::On { was_faulted }),
@@ -917,7 +831,7 @@ impl Psu {
                 });
                 // Did we just restart after a fault? If not, this is a new
                 // fault, which should be reported.
-                let ereport = if !was_faulted {
+                if !was_faulted {
                     ringbuf_entry!(
                         __TRACE,
                         Trace::PowerGoodDeasserted {
@@ -925,14 +839,10 @@ impl Psu {
                             psu: self.slot,
                         }
                     );
-                    Some(task_packrat_api::Ereport {
-                        class: ereport::Class::PowerUngood,
-                        version: 0,
-                        report: ereport::EreportFields {
-                            pmbus_status: Some(self.read_pmbus_status(now)),
-                            ..self.ereport_fields()
-                        },
-                    })
+                    ereporter.deliver_ereport(&PowerUngoodEreport {
+                        fields: self.ereport_fields(),
+                        pmbus_status: self.read_pmbus_status(now),
+                    });
                 } else {
                     ringbuf_entry!(
                         __TRACE,
@@ -941,15 +851,11 @@ impl Psu {
                             psu: self.slot,
                         }
                     );
-                    None
                 };
 
-                Step {
-                    action: Some(ActionRequired::DisableMe {
-                        attempt_snapshot: true,
-                    }),
-                    ereport,
-                }
+                Some(ActionRequired::DisableMe {
+                    attempt_snapshot: true,
+                })
             }
 
             (
@@ -964,13 +870,9 @@ impl Psu {
                     self.state = PsuState::Present(PresentState::OnProbation {
                         deadline: now.saturating_add(PROBATION_MS),
                     });
-                    Step {
-                        action: Some(ActionRequired::EnableMe),
-                        ereport: None,
-                    }
+                    Some(ActionRequired::EnableMe)
                 } else {
-                    // Remain in this state.
-                    Step::default()
+                    None
                 }
             }
             (
@@ -987,10 +889,10 @@ impl Psu {
                     self.state = PsuState::Present(PresentState::On {
                         was_faulted: true,
                     });
-                    Step::default()
+                    None
                 } else {
                     // Remain in this state.
-                    Step::default()
+                    None
                 }
             }
         }
@@ -1000,7 +902,7 @@ impl Psu {
         self.fruid.refresh(&self.dev, self.slot, now);
     }
 
-    fn read_pmbus_status(&mut self, now: u64) -> ereport::PmbusStatus {
+    fn read_pmbus_status(&mut self, now: u64) -> ereports::pwr::PmbusStatus {
         let status_word =
             retry_i2c_txn(now, self.slot, || self.dev.status_word())
                 .map(|data| data.0);
@@ -1084,7 +986,7 @@ impl Psu {
             }
         );
 
-        ereport::PmbusStatus {
+        ereports::pwr::PmbusStatus {
             word: status_word.ok(),
             iout: status_iout.ok(),
             vout: status_vout.ok(),
@@ -1095,7 +997,7 @@ impl Psu {
         }
     }
 
-    fn ereport_fields(&self) -> ereport::EreportFields {
+    fn ereport_fields(&self) -> EreportFields {
         let rail = {
             // This is a little silly, but it stops us from having to 6 separate
             // instances of the string "V54_PSU" in the binary...
@@ -1110,20 +1012,13 @@ impl Psu {
             };
             FixedString::try_from_utf8(&v54_psu[..]).unwrap_lite()
         };
-        ereport::EreportFields {
+        EreportFields {
             refdes: FixedStr::from_str(self.dev.i2c_device().component_id()),
             rail,
             slot: self.slot as u8,
             fruid: self.fruid,
-            pmbus_status: None,
         }
     }
-}
-
-#[derive(Default)]
-struct Step {
-    action: Option<ActionRequired>,
-    ereport: Option<ereport::Ereport>,
 }
 
 #[derive(Copy, Clone, Default, microcbor::Encode)]
@@ -1189,40 +1084,49 @@ include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
-mod ereport {
-    use super::*;
-
-    #[derive(Copy, Clone, Eq, PartialEq, microcbor::Encode)]
-    pub(super) enum Class {
-        #[cbor(rename = "hw.insert.psu")]
-        Inserted,
-        #[cbor(rename = "hw.remove.psu")]
-        Removed,
-        #[cbor(rename = "hw.pwr.pwr_good.bad")]
-        PowerUngood,
-        #[cbor(rename = "hw.pwr.pwr_good.good")]
-        PowerGood,
+ereports::declare_ereporter! {
+    struct Ereporter<Ereport> {
+        PsuInserted(PsuInsertedEreport),
+        PsuRemoved(PsuRemovedEreport),
+        PowerGood(PowerGoodEreport),
+        PowerUngood(PowerUngoodEreport)
     }
+}
 
-    #[derive(microcbor::EncodeFields)]
-    pub(super) struct EreportFields {
-        pub(super) refdes: FixedStr<'static, 20>, // Component ID max length
-        pub(super) rail: FixedString<8>,          // "V54_PSUx"
-        pub(super) slot: u8,
-        pub(super) fruid: PsuFruid,
-        pub(super) pmbus_status: Option<PmbusStatus>,
-    }
+#[derive(microcbor::Encode)]
+#[ereport(class = "hw.insert.psu", version = 0)]
+struct PsuInsertedEreport {
+    #[cbor(flatten)]
+    fields: EreportFields,
+}
 
-    #[derive(Copy, Clone, Default, microcbor::Encode)]
-    pub(super) struct PmbusStatus {
-        pub(super) word: Option<u16>,
-        pub(super) input: Option<u8>,
-        pub(super) iout: Option<u8>,
-        pub(super) vout: Option<u8>,
-        pub(super) temp: Option<u8>,
-        pub(super) cml: Option<u8>,
-        pub(super) mfr: Option<u8>,
-    }
+#[derive(microcbor::Encode)]
+#[ereport(class = "hw.remove.psu", version = 0)]
+struct PsuRemovedEreport {
+    #[cbor(flatten)]
+    fields: EreportFields,
+}
 
-    pub(super) type Ereport = task_packrat_api::Ereport<Class, EreportFields>;
+#[derive(microcbor::Encode)]
+#[ereport(class = "hw.pwr.pwr_good.good", version = 0)]
+struct PowerGoodEreport {
+    #[cbor(flatten)]
+    fields: EreportFields,
+    pmbus_status: ereports::pwr::PmbusStatus,
+}
+
+#[derive(microcbor::Encode)]
+#[ereport(class = "hw.pwr.pwr_good.bad", version = 0)]
+struct PowerUngoodEreport {
+    #[cbor(flatten)]
+    fields: EreportFields,
+    pmbus_status: ereports::pwr::PmbusStatus,
+}
+
+#[derive(microcbor::EncodeFields)]
+struct EreportFields {
+    refdes: FixedStr<'static, 20>, // Component ID max length
+    rail: FixedString<8>,          // "V54_PSUx"
+    slot: u8,
+    fruid: PsuFruid,
 }
