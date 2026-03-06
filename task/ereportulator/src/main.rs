@@ -44,11 +44,12 @@
 
 use core::convert::Infallible;
 
+use fixedstr::FixedStr;
 use idol_runtime::RequestError;
-use minicbor::Encoder;
+use microcbor::Encode;
 use ringbuf::{counted_ringbuf, ringbuf_entry};
 use task_packrat_api::Packrat;
-use userlib::{task_slot, RecvMessage, UnwrapLite};
+use userlib::{sys_get_timer, task_slot, RecvMessage, UnwrapLite};
 
 task_slot!(PACKRAT, packrat);
 
@@ -58,13 +59,11 @@ enum Trace {
     None,
 
     SetFakeVpd(#[count(children)] Result<(), task_packrat_api::CacheSetError>),
-    EreportRequested(u32),
-    EreportDelivered {
-        encoded_len: usize,
+    EreportRequested {
+        n: u32,
     },
-    EreportLost {
-        encoded_len: usize,
-        err: task_packrat_api::EreportWriteError,
+    EreportDone {
+        duration: u64,
     },
 }
 
@@ -73,9 +72,9 @@ counted_ringbuf!(Trace, 16, Trace::None);
 #[export_name = "main"]
 fn main() -> ! {
     let packrat = Packrat::from(PACKRAT.get_task_id());
-
     let mut server = ServerImpl {
         buf: [0; 256],
+        ereporter: Ereporter::claim_static_resources(packrat.clone()),
         packrat,
     };
 
@@ -89,6 +88,7 @@ fn main() -> ! {
 struct ServerImpl {
     buf: [u8; 256],
     packrat: Packrat,
+    ereporter: Ereporter,
 }
 
 impl idl::InOrderEreportulatorImpl for ServerImpl {
@@ -97,39 +97,57 @@ impl idl::InOrderEreportulatorImpl for ServerImpl {
         _msg: &RecvMessage,
         n: u32,
     ) -> Result<(), RequestError<Infallible>> {
-        ringbuf_entry!(Trace::EreportRequested(n));
+        let t0 = sys_get_timer().now;
+        ringbuf_entry!(Trace::EreportRequested { n });
 
-        let encoded_len = {
-            let c = minicbor::encode::write::Cursor::new(&mut self.buf[..]);
-            let mut encoder = Encoder::new(c);
+        self.ereporter.deliver_ereport(&TestEreportPlsIgnore {
+            badness: n,
+            msg: fixedstr::FixedStr::from_str("im dead"),
+        });
 
-            // It's bad on purpose to make you click, Cliff!
-            encoder
-                .begin_map()
-                .unwrap_lite()
-                .str("k")
-                .unwrap_lite()
-                .str("test.ereport.please.ignore")
-                .unwrap_lite()
-                .str("badness")
-                .unwrap_lite()
-                .u32(n)
-                .unwrap_lite()
-                .str("msg")
-                .unwrap_lite()
-                .str("im dead")
-                .unwrap_lite()
-                .end()
-                .unwrap_lite();
+        ringbuf_entry!(Trace::EreportDone {
+            duration: sys_get_timer().now - t0
+        });
+        Ok(())
+    }
 
-            encoder.into_writer().position()
-        };
+    fn ae35_fault(
+        &mut self,
+        _msg: &RecvMessage,
+        n: u32,
+    ) -> Result<(), RequestError<Infallible>> {
+        let t0 = sys_get_timer().now;
+        ringbuf_entry!(Trace::EreportRequested { n });
 
-        match self.packrat.deliver_ereport(&self.buf[..encoded_len]) {
-            Ok(_) => ringbuf_entry!(Trace::EreportDelivered { encoded_len }),
-            Err(err) => ringbuf_entry!(Trace::EreportLost { encoded_len, err }),
-        }
+        self.ereporter.deliver_ereport(&Ae35UnitEreport {
+            critical_in_hrs: 32,
+            detected_by: FixedStr::from_str("HAL-9000"),
+            n,
+        });
 
+        ringbuf_entry!(Trace::EreportDone {
+            duration: sys_get_timer().now - t0
+        });
+        Ok(())
+    }
+
+    fn houston_we_have_a_problem(
+        &mut self,
+        _msg: &RecvMessage,
+        n: u32,
+    ) -> Result<(), RequestError<Infallible>> {
+        let t0 = sys_get_timer().now;
+        ringbuf_entry!(Trace::EreportRequested { n });
+
+        self.ereporter
+            .deliver_ereport(&MainBusUndervoltEreport::MainBusB {
+                volts: 0.00,
+                n,
+            });
+
+        ringbuf_entry!(Trace::EreportDone {
+            duration: sys_get_timer().now - t0
+        });
         Ok(())
     }
 
@@ -172,4 +190,35 @@ impl idol_runtime::NotificationHandler for ServerImpl {
 
 mod idl {
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
+}
+
+ereports::declare_ereporter! {
+    struct Ereporter<Ereport> {
+        Ae35Fault(Ae35UnitEreport),
+        MainBusUndervolt(MainBusUndervoltEreport),
+        TestPlsIgnore(TestEreportPlsIgnore)
+    }
+}
+
+#[derive(Encode)]
+#[ereport(class = "hw.discovery-one.ae35.fault", version = 0)]
+struct Ae35UnitEreport {
+    critical_in_hrs: u32,
+    detected_by: fixedstr::FixedStr<'static, 8>,
+    n: u32,
+}
+
+#[derive(Encode)]
+#[ereport(class = "hw.apollo.undervolt", version = 13)]
+#[cbor(variant_id = "bus")]
+enum MainBusUndervoltEreport {
+    MainBusA { volts: f32, n: u32 },
+    MainBusB { volts: f32, n: u32 }, // "Houston, we've got a main bus B undervolt!"
+}
+
+#[derive(Encode)]
+#[ereport(class = "test.ereport.please.ignore", version = 420)]
+struct TestEreportPlsIgnore {
+    badness: u32,
+    msg: fixedstr::FixedStr<'static, 8>,
 }
