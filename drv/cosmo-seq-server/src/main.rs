@@ -1202,7 +1202,9 @@ impl NotificationHandler for ServerImpl {
 ereports::declare_ereporter! {
     pub(crate) struct Ereporter<SeqEreport> {
         PmbusAlert(ereports::pwr::PmbusAlert<vcore::Rail, { REFDES_LEN }>),
-        Bmr491MitigationFailure(ereports::pwr::Bmr491MitigationFailure<{ REFDES_LEN }>),
+        Bmr491MitigationFailure(
+            ereports::pwr::Bmr491MitigationFailure<{ REFDES_LEN }>
+        ),
         Thermtrip(ereports::cpu::Thermtrip),
         Smerr(ereports::cpu::Smerr),
         UnsupportedCpu(ereports::cpu::UnsupportedCpu<CpuTypeBits>),

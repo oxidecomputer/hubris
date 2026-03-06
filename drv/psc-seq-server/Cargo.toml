@@ -17,6 +17,7 @@ counters = { path = "../../lib/counters" }
 static-cell = { path = "../../lib/static-cell" }
 microcbor.path = "../../lib/microcbor"
 fixedstr = { path = "../../lib/fixedstr", features = ["microcbor"] }
+ereports = { path = "../../lib/ereports", features = ["ereporter-macro"] }
 
 [build-dependencies]
 idol.workspace = true
