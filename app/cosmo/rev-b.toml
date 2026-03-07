@@ -2,3 +2,31 @@
 name = "cosmo-b"
 board = "cosmo-b"
 inherit = "base.toml"
+
+# We have to include the whole I2C1 configuration fragment, because the
+# [[config.i2c.controllers.ports.B.muxes]] fragment differs between revs A and
+# B, and we can't precisely specify the patch.
+
+#
+# I2C1: Front FPGA I2C mux
+#
+[[config.i2c.controllers]]
+controller = 1
+
+#
+# SMBUS_SP_TO_FPGA2_SMCLK
+# SMBUS_SP_TO_FPGA2_SMDAT
+#
+[config.i2c.controllers.ports.B]
+name = "front"
+description = "Front FPGA mux"
+scl.pin = 8
+sda.pin = 9
+af = 4
+
+# The front FPGA has one sixteen-channel virtual mux
+[[config.i2c.controllers.ports.B.muxes]]
+driver = "oximux16"
+address = 0x70
+# The reset line is SP_TO_FPGA2_I2C_MUX_RESET on rev2+ boards
+nreset = { port = "B", pin = 10 }
