@@ -2,6 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use core::cell::Cell;
+
 use crate::{
     bsp::{self, Bsp, PowerBitmask},
     Fan, ThermalError, Trace,
@@ -791,85 +793,51 @@ enum ThermalControlState {
         // we keep the values array around to avoid losing ownership
         OptionalTemperatureArray,
     ),
-
-    /// Transition state when we need to steal the values
-    Empty,
 }
 
 impl ThermalControlState {
-    /// Steals the inner values array, leaving the state as `Empty`
-    ///
-    /// # Panics
-    /// If the state is already `Empty`
-    fn steal_array(&mut self) -> &'static mut RawTemperatureArray {
-        let prev = core::mem::replace(self, ThermalControlState::Empty);
-        match prev {
+    fn data(&self) -> &'static RawTemperatureArray {
+        match self {
             ThermalControlState::Boot { values }
-            | ThermalControlState::Uncontrollable(values) => values.take(),
+            | ThermalControlState::Uncontrollable(values) => values.data(),
             ThermalControlState::Running { values, .. }
             | ThermalControlState::Critical { values, .. }
-            | ThermalControlState::FanParty { values, .. } => values.take(),
-            ThermalControlState::Empty => panic!(),
+            | ThermalControlState::FanParty { values } => values.data(),
         }
-    }
-
-    /// Steals a populated inner values array, leaving the state as `Empty`
-    ///
-    /// This function requires a [`TemperatureArrayToken`] to make it harder to
-    /// call by accident (without being confident that there's valid temperature
-    /// array stored in here).
-    ///
-    /// # Panics
-    /// If the state is already `Empty`, or values are missing
-    fn steal_values(
-        &mut self,
-        _token: TemperatureArrayToken,
-    ) -> TemperatureArray {
-        let prev = core::mem::replace(self, ThermalControlState::Empty);
-        let values = match prev {
-            ThermalControlState::Boot { values }
-            | ThermalControlState::Uncontrollable(values) => values.take(),
-            ThermalControlState::Running { values, .. }
-            | ThermalControlState::Critical { values, .. }
-            | ThermalControlState::FanParty { values, .. } => values.take(),
-            ThermalControlState::Empty => panic!(),
-        };
-        TemperatureArray::new(values).unwrap()
     }
 }
 
 mod temperature_array {
     use super::{
-        Bsp, DynamicChannelsArray, SensorId, TemperatureReading,
+        Bsp, Cell, DynamicChannelsArray, SensorId, TemperatureReading,
         ThermalProperties, TEMPERATURE_ARRAY_SIZE,
     };
 
     /// Array of optional temperature readings
     pub type RawTemperatureArray =
-        [Option<TemperatureReading>; TEMPERATURE_ARRAY_SIZE];
+        [Cell<Option<TemperatureReading>>; TEMPERATURE_ARRAY_SIZE];
 
     /// Type representing an array of optional temperature readings
-    pub(crate) struct OptionalTemperatureArray(
-        &'static mut RawTemperatureArray,
-    );
+    #[derive(Copy, Clone)]
+    pub(crate) struct OptionalTemperatureArray(&'static RawTemperatureArray);
 
     impl OptionalTemperatureArray {
         /// Builds a new optional temperature array
         ///
         /// Values are left unchanged (e.g. they are *not* set to `None`)
-        pub fn new(data: &'static mut RawTemperatureArray) -> Self {
+        pub fn new(data: &'static RawTemperatureArray) -> Self {
             Self(data)
         }
 
-        /// Returns the inner raw temperature array, consuming this object
-        pub fn take(self) -> &'static mut RawTemperatureArray {
+        /// Returns the inner raw temperature array
+        pub fn data(&self) -> &'static RawTemperatureArray {
             self.0
         }
 
-        /// Returns a token if all values are `Some(..)`
-        pub fn try_token(&self) -> Option<TemperatureArrayToken> {
-            if self.0.iter().all(Option::is_some) {
-                Some(TemperatureArrayToken { _phantom: () })
+        /// Returns a [`TemperatureArray`] if all values are `Some(..)`
+        pub fn as_temperature_array(&self) -> Option<TemperatureArray> {
+            if self.0.iter().all(|c| c.get().is_some()) {
+                Some(TemperatureArray(self.0))
             } else {
                 None
             }
@@ -881,81 +849,39 @@ mod temperature_array {
             bsp: &'a Bsp,
             dynamic_channels: &'a DynamicChannelsArray,
         ) -> impl Iterator<
-            Item = (
-                SensorId,
-                &'a Option<TemperatureReading>,
-                ThermalProperties,
-            ),
-        > {
+            Item = (SensorId, Option<TemperatureReading>, ThermalProperties),
+        > + use<'a> {
             zip_temperatures(bsp, self.0, dynamic_channels, |v| v)
         }
-    }
 
-    impl core::ops::Index<usize> for OptionalTemperatureArray {
-        type Output = Option<TemperatureReading>;
-        fn index(&self, index: usize) -> &Self::Output {
-            &self.0[index]
+        /// Sets the temperature at index `i` to a value
+        ///
+        /// # Panics
+        /// If `i` is out of range for the array
+        pub fn set(&self, i: usize, value: TemperatureReading) {
+            self.0[i].set(Some(value))
         }
-    }
-
-    impl core::ops::IndexMut<usize> for OptionalTemperatureArray {
-        fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-            &mut self.0[index]
-        }
-    }
-
-    /// A `TemperatureArrayToken` attests to a valid temperature array
-    ///
-    /// This may either be a `TemperatureArray` object or a
-    /// `OptionalTemperatureArray` object where all values are `Some(..)`.
-    ///
-    /// It is used as a hint that APIs require a valid temperature array, to
-    /// make them harder to misuse (but not impossible; one could stash a token
-    /// away then reuse it when the array is no longer valid).
-    pub struct TemperatureArrayToken {
-        _phantom: (),
     }
 
     /// Array of temperature values
     ///
     /// This stores an array of `Option<TemperatureReading>`, but values are
     /// guaranteed to be `Some(..)` by construction.
-    pub struct TemperatureArray(&'static mut RawTemperatureArray);
+    #[derive(Copy, Clone)]
+    pub struct TemperatureArray(&'static RawTemperatureArray);
 
     impl TemperatureArray {
-        /// Builds a temperature array from a raw array
-        ///
-        /// Returns `Some(..)` if all values in the raw array are `Some(..)`;
-        /// otherwise returns `None`.
-        pub fn new(values: &'static mut RawTemperatureArray) -> Option<Self> {
-            if values.iter().all(Option::is_some) {
-                Some(Self(values))
-            } else {
-                None
-            }
-        }
-
-        /// Returns the inner raw temperature array, consuming this object
-        pub fn take(self) -> &'static mut RawTemperatureArray {
+        /// Returns the inner raw temperature array
+        pub fn data(&self) -> &'static RawTemperatureArray {
             self.0
         }
 
-        /// Returns a token attesting that we have a valid `TemperatureArray`
-        pub fn token(&self) -> TemperatureArrayToken {
-            TemperatureArrayToken { _phantom: () }
-        }
-    }
-
-    impl core::ops::Index<usize> for TemperatureArray {
-        type Output = TemperatureReading;
-        fn index(&self, index: usize) -> &Self::Output {
-            self.0[index].as_ref().unwrap()
-        }
-    }
-
-    impl core::ops::IndexMut<usize> for TemperatureArray {
-        fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-            self.0[index].as_mut().unwrap()
+        /// Sets the temperature at index `i` to a value
+        ///
+        /// # Panics
+        /// If `i` is out of range for the array
+        pub fn set(&self, i: usize, value: TemperatureReading) {
+            self.0[i].set(Some(value))
         }
     }
 
@@ -966,11 +892,9 @@ mod temperature_array {
             bsp: &'a Bsp,
             dynamic_channels: &'a DynamicChannelsArray,
         ) -> impl Iterator<
-            Item = (SensorId, &'a TemperatureReading, ThermalProperties),
-        > {
-            zip_temperatures(bsp, self.0, dynamic_channels, |v| {
-                v.as_ref().unwrap()
-            })
+            Item = (SensorId, TemperatureReading, ThermalProperties),
+        > + use<'a> {
+            zip_temperatures(bsp, self.0, dynamic_channels, |v| v.unwrap())
         }
     }
 
@@ -985,12 +909,13 @@ mod temperature_array {
     ///
     /// In cases where dynamic inputs are not present (i.e. they are `None` in
     /// the array), the iterator will skip that entire tuple.
-    fn zip_temperatures<'a, T, U: 'a, F: Fn(&T) -> &U>(
+    fn zip_temperatures<'a, U: 'static>(
         bsp: &'a Bsp,
-        values: &'a [T; TEMPERATURE_ARRAY_SIZE],
+        values: &'a [Cell<Option<TemperatureReading>>; TEMPERATURE_ARRAY_SIZE],
         dynamic_channels: &'a DynamicChannelsArray,
-        f: F,
-    ) -> impl Iterator<Item = (SensorId, &'a U, ThermalProperties)> {
+        f: fn(Option<TemperatureReading>) -> U,
+    ) -> impl Iterator<Item = (SensorId, U, ThermalProperties)> + use<'a, U>
+    {
         assert_eq!(values.len(), bsp.inputs.len() + bsp.dynamic_inputs.len());
         assert_eq!(bsp.dynamic_inputs.len(), dynamic_channels.len());
         bsp.inputs
@@ -1002,13 +927,12 @@ mod temperature_array {
                     .zip(bsp.dynamic_inputs.iter().cloned())
                     .map(|(i, s)| i.map(|i| (s, i.model))),
             )
-            .zip(values.iter().map(f))
+            .zip(values.iter().map(move |v| f(v.get())))
             .filter_map(|(model, v)| model.map(|(id, t)| (id, v, t)))
     }
 }
 use temperature_array::{
     OptionalTemperatureArray, RawTemperatureArray, TemperatureArray,
-    TemperatureArrayToken,
 };
 
 enum ControlResult {
@@ -1029,39 +953,38 @@ impl ThermalControlState {
         });
         match self {
             ThermalControlState::Boot { values } => {
-                values[index] = Some(r);
+                values.set(index, r);
             }
             ThermalControlState::Running { values, .. }
             | ThermalControlState::Critical { values, .. }
             | ThermalControlState::FanParty { values, .. } => {
-                values[index] = r;
+                values.set(index, r);
             }
-            ThermalControlState::Uncontrollable(..)
-            | ThermalControlState::Empty => (),
+            ThermalControlState::Uncontrollable(..) => (),
         }
     }
 
     fn write_temperature_inactive(&mut self, index: usize) {
         match self {
             ThermalControlState::Boot { values } => {
-                values[index] = Some(TemperatureReading::Inactive)
+                values.set(index, TemperatureReading::Inactive);
             }
             ThermalControlState::Running { values, .. }
             | ThermalControlState::Critical { values, .. }
             | ThermalControlState::FanParty { values, .. } => {
-                values[index] = TemperatureReading::Inactive;
+                values.set(index, TemperatureReading::Inactive);
             }
-            ThermalControlState::Uncontrollable(..)
-            | ThermalControlState::Empty => (),
+            ThermalControlState::Uncontrollable(..) => (),
         }
     }
 }
 
-fn claim_static_resources() -> &'static mut RawTemperatureArray {
-    use static_cell::ClaimOnceCell;
-    static TEMPERATURE_ARRAY: ClaimOnceCell<RawTemperatureArray> =
-        ClaimOnceCell::new([None; TEMPERATURE_ARRAY_SIZE]);
-    TEMPERATURE_ARRAY.claim()
+fn claim_static_resources() -> &'static RawTemperatureArray {
+    mutable_statics::mutable_statics! {
+        static mut TEMPERATURE_ARRAY:
+            [Cell<Option<TemperatureReading>>; TEMPERATURE_ARRAY_SIZE]
+            = [|| Cell::new(None); _];
+    }
 }
 
 impl<'a> ThermalControl<'a> {
@@ -1171,8 +1094,10 @@ impl<'a> ThermalControl<'a> {
 
     /// Resets the control state
     fn reset_state(&mut self) {
-        let values = self.state.steal_array();
-        values.fill(None);
+        let values = self.state.data();
+        for v in values {
+            v.set(None);
+        }
         self.state = ThermalControlState::Boot {
             values: OptionalTemperatureArray::new(values),
         };
@@ -1375,7 +1300,6 @@ impl<'a> ThermalControl<'a> {
 
         let control_result = match &mut self.state {
             ThermalControlState::Boot { values } => {
-                let mut all_some = true;
                 let mut any_power_down = None;
                 let mut worst_margin = f32::MAX;
                 for (sensor_id, v, model) in
@@ -1396,15 +1320,13 @@ impl<'a> ThermalControl<'a> {
                             // from transitioning to `Running`
                         }
 
-                        None => all_some = false,
+                        None => (),
                     }
                 }
 
                 if let Some(due_to) = any_power_down {
                     self.transition_to_uncontrollable_due_to(due_to, now_ms)
-                } else if all_some {
-                    let token = values.try_token().unwrap();
-                    let values = self.state.steal_values(token);
+                } else if let Some(values) = values.as_temperature_array() {
                     self.transition_to_running(worst_margin, now_ms, values)
                 } else {
                     ControlResult::Pwm(PWMDuty(
@@ -1442,8 +1364,7 @@ impl<'a> ThermalControl<'a> {
                 if let Some(due_to) = any_power_down {
                     self.transition_to_uncontrollable_due_to(due_to, now_ms)
                 } else if let Some(due_to) = any_critical {
-                    let token = values.token();
-                    let values = self.state.steal_values(token);
+                    let values = *values;
                     self.transition_to_critical(due_to, now_ms, values)
                 } else {
                     // We adjust the worst component margin by our target
@@ -1487,16 +1408,14 @@ impl<'a> ThermalControl<'a> {
                 if let Some(due_to) = any_power_down {
                     self.transition_to_uncontrollable_due_to(due_to, now_ms)
                 } else if all_nominal {
-                    let token = values.token();
-                    let values = self.state.steal_values(token);
+                    let values = *values;
                     self.transition_to_running(worst_margin, now_ms, values)
                 } else if !any_still_critical {
                     // If all temperatures have gone below critical, but are
                     // still above nominal, stop the overheat timeout but
                     // continue running at 100% PWM until things go below
                     // nominal.
-                    let token = values.token();
-                    let values = self.state.steal_values(token);
+                    let values = *values;
                     self.transition_to_fan_party(now_ms, values)
                 } else if now_ms > *start_time + self.overheat_timeout_ms {
                     // If blasting the fans hasn't cooled us down in this amount
@@ -1537,12 +1456,10 @@ impl<'a> ThermalControl<'a> {
                 } else if let Some(due_to) = any_critical {
                     // If anything's gone over critical, transition back to the
                     // `Critical` state.
-                    let token = values.token();
-                    let values = self.state.steal_values(token);
+                    let values = *values;
                     self.transition_to_critical(due_to, now_ms, values)
                 } else if all_nominal {
-                    let token = values.token();
-                    let values = self.state.steal_values(token);
+                    let values = *values;
                     self.transition_to_running(worst_margin, now_ms, values)
                 } else {
                     ControlResult::Pwm(PWMDuty(
@@ -1551,7 +1468,6 @@ impl<'a> ThermalControl<'a> {
                 }
             }
             ThermalControlState::Uncontrollable(..) => ControlResult::PowerDown,
-            ThermalControlState::Empty => panic!(),
         };
 
         match control_result {
@@ -1688,9 +1604,9 @@ impl<'a> ThermalControl<'a> {
         self.record_leaving_critical(now_ms);
         self.record_leaving_overheat(now_ms);
 
-        let values = self.state.steal_array();
+        let data = self.state.data();
         self.state = ThermalControlState::Uncontrollable(
-            OptionalTemperatureArray::new(values),
+            OptionalTemperatureArray::new(data),
         );
         ringbuf_entry!(Trace::AutoState(self.get_state()));
 
@@ -1797,7 +1713,6 @@ impl<'a> ThermalControl<'a> {
                 ThermalAutoState::Uncontrollable
             }
             ThermalControlState::FanParty { .. } => ThermalAutoState::FanParty,
-            ThermalControlState::Empty => panic!(),
         }
     }
 
