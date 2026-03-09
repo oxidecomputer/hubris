@@ -210,7 +210,8 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         self.phy_vsc8504_init()?;
 
         self.vsc7448.configure_ports_from_map(&PORT_MAP)?;
-        self.vsc7448.configure_vlan_sidecar_unlocked()?;
+        self.vsc7448
+            .configure_vlan_sidecar_unlocked(vsc7448::VlanTargets::EverySp)?;
         self.vsc7448_postconfig()?;
 
         // Some front IO boards have a faulty oscillator driving the PHY,
