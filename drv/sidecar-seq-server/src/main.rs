@@ -870,15 +870,20 @@ impl NotificationHandler for ServerImpl {
         if let Err(e) = self.tofino.poll_pcie_reset() {
             ringbuf_entry!(Trace::TofinoSequencerError(e));
         }
+
         // Only monitor the PCIe link if we expect one to be there (i.e., we are in A0).
         // Currently, we will only resequence a single time to resolve the problem.
-        if self.tofino.sequencer.state().unwrap_or(TofinoSeqState::A2)
-            == TofinoSeqState::A0
-            && !self.resequenced
-        {
-            if let Err(e) = self.monitor_tofino_pcie_link() {
-                ringbuf_entry!(Trace::TofinoSequencerError(e));
+        match self.tofino.sequencer.state().unwrap_or(TofinoSeqState::A2) {
+            TofinoSeqState::A0 => {
+                if !self.resequenced {
+                    if let Err(e) = self.monitor_tofino_pcie_link() {
+                        ringbuf_entry!(Trace::TofinoSequencerError(e));
+                    }
+                }
             }
+            // If we're not in A0, make sure next time we go into A0 we will attempt to
+            // resequence if necessary.
+            _ => self.resequenced = false,
         }
 
         let finish = sys_get_timer().now;
