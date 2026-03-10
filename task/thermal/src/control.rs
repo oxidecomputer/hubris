@@ -27,7 +27,7 @@ use task_thermal_api::{SensorReadError, ThermalAutoState, ThermalProperties};
 use userlib::{
     sys_get_timer,
     units::{Celsius, PWMDuty, Rpm},
-    TaskId,
+    TaskId, UnwrapLite,
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -495,7 +495,7 @@ pub(crate) struct ThermalControl<'a> {
 /// Represents the state of a temperature sensor, which either has a valid
 /// reading or is marked as inactive (due to power state or being missing)
 #[derive(Copy, Clone, Debug)]
-pub enum TemperatureReading {
+enum TemperatureReading {
     /// Normal reading, timestamped using monotonic system time
     Valid(TimestampedTemperatureReading),
 
@@ -505,7 +505,7 @@ pub enum TemperatureReading {
 
 /// Represents a temperature reading at the time at which it was taken
 #[derive(Copy, Clone, Debug)]
-pub struct TimestampedTemperatureReading {
+struct TimestampedTemperatureReading {
     time_ms: u64,
     value: Celsius,
 }
@@ -796,24 +796,48 @@ enum ThermalControlState {
 }
 
 impl ThermalControlState {
-    fn data(&self) -> &'static RawTemperatureArray {
+    /// Sets all temperature readings to `None` and returns the array
+    fn reset_values(&mut self) -> OptionalTemperatureArray {
         match self {
             ThermalControlState::Boot { values }
-            | ThermalControlState::Uncontrollable(values) => values.data(),
+            | ThermalControlState::Uncontrollable(values) => {
+                values.reset_values()
+            }
             ThermalControlState::Running { values, .. }
             | ThermalControlState::Critical { values, .. }
-            | ThermalControlState::FanParty { values } => values.data(),
+            | ThermalControlState::FanParty { values } => values.reset_values(),
         }
     }
 }
 
+/// Abstractions over temperature array data
+///
+/// We have three main types:
+/// - A `RawTemperatureArray` is allocated in static memory using
+///   `mutable_statics!` and provides the underlying storage for other array
+///   types.  It stores optional temperature readings in `Cell`s, so that it can
+///   be passed around by shared reference.
+/// - A [`OptionalTemperatureArray`] is a thin wrapper around a
+///   `&'static RawTemperatureArray`, providing getters / setters / iterators.
+/// - A [`TemperatureArray`] is a thin wrapper around a
+///   `&'static RawTemperatureArray` which guarantees that all of the
+///   temperatures in the array are `Some(..)`.
+///
+/// This module exists to preserve the `TemperatureArray` invariants (or at
+/// least make it harder to mess with them; someone could get at the inner
+/// `&'static RawTemperatureArray and poke values directly, but let's just not
+/// do that).
 mod temperature_array {
     use super::{
         Bsp, Cell, DynamicChannelsArray, SensorId, TemperatureReading,
-        ThermalProperties, TEMPERATURE_ARRAY_SIZE,
+        ThermalProperties, UnwrapLite, TEMPERATURE_ARRAY_SIZE,
     };
 
     /// Array of optional temperature readings
+    ///
+    /// The array contains `Cell` objects so that it can be passed by shared
+    /// reference; otherwise, it becomes hard to transition between states in
+    /// the state machine because we can't move out a `&mut RawTemperatureArray`
     pub type RawTemperatureArray =
         [Cell<Option<TemperatureReading>>; TEMPERATURE_ARRAY_SIZE];
 
@@ -829,9 +853,12 @@ mod temperature_array {
             Self(data)
         }
 
-        /// Returns the inner raw temperature array
-        pub fn data(&self) -> &'static RawTemperatureArray {
-            self.0
+        /// Resets all values to `None`, returning a copy of the array
+        pub fn reset_values(&self) -> Self {
+            for i in self.0 {
+                i.set(None);
+            }
+            *self
         }
 
         /// Returns a [`TemperatureArray`] if all values are `Some(..)`
@@ -871,9 +898,10 @@ mod temperature_array {
     pub struct TemperatureArray(&'static RawTemperatureArray);
 
     impl TemperatureArray {
-        /// Returns the inner raw temperature array
-        pub fn data(&self) -> &'static RawTemperatureArray {
-            self.0
+        /// Returns an `OptionalTemperatureArray` with all values set to `None`
+        pub fn reset_values(&self) -> OptionalTemperatureArray {
+            let opt = OptionalTemperatureArray::new(self.0);
+            opt.reset_values()
         }
 
         /// Sets the temperature at index `i` to a value
@@ -883,10 +911,8 @@ mod temperature_array {
         pub fn set(&self, i: usize, value: TemperatureReading) {
             self.0[i].set(Some(value))
         }
-    }
 
-    /// Temperature state iterator with `TemperatureReading` values
-    impl TemperatureArray {
+        /// Temperature state iterator with `TemperatureReading` values
         pub fn zip_temperatures<'a>(
             &'a self,
             bsp: &'a Bsp,
@@ -894,7 +920,7 @@ mod temperature_array {
         ) -> impl Iterator<
             Item = (SensorId, TemperatureReading, ThermalProperties),
         > + use<'a> {
-            zip_temperatures(bsp, self.0, dynamic_channels, |v| v.unwrap())
+            zip_temperatures(bsp, self.0, dynamic_channels, |v| v.unwrap_lite())
         }
     }
 
@@ -911,7 +937,7 @@ mod temperature_array {
     /// the array), the iterator will skip that entire tuple.
     fn zip_temperatures<'a, U: 'static>(
         bsp: &'a Bsp,
-        values: &'a [Cell<Option<TemperatureReading>>; TEMPERATURE_ARRAY_SIZE],
+        values: &'a RawTemperatureArray,
         dynamic_channels: &'a DynamicChannelsArray,
         f: fn(Option<TemperatureReading>) -> U,
     ) -> impl Iterator<Item = (SensorId, U, ThermalProperties)> + use<'a, U>
@@ -1094,13 +1120,8 @@ impl<'a> ThermalControl<'a> {
 
     /// Resets the control state
     fn reset_state(&mut self) {
-        let values = self.state.data();
-        for v in values {
-            v.set(None);
-        }
-        self.state = ThermalControlState::Boot {
-            values: OptionalTemperatureArray::new(values),
-        };
+        let values = self.state.reset_values();
+        self.state = ThermalControlState::Boot { values };
         ringbuf_entry!(Trace::AutoState(self.get_state()));
     }
 
@@ -1604,10 +1625,8 @@ impl<'a> ThermalControl<'a> {
         self.record_leaving_critical(now_ms);
         self.record_leaving_overheat(now_ms);
 
-        let data = self.state.data();
-        self.state = ThermalControlState::Uncontrollable(
-            OptionalTemperatureArray::new(data),
-        );
+        let values = self.state.reset_values();
+        self.state = ThermalControlState::Uncontrollable(values);
         ringbuf_entry!(Trace::AutoState(self.get_state()));
 
         ControlResult::PowerDown
