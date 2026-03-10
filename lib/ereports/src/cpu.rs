@@ -35,6 +35,14 @@ pub struct UnsupportedCpu<const CORETYPE_BITS: usize, const REV_BITS: usize> {
     pub rev: CpuTypeBits<REV_BITS>,
 }
 
+/// An ereport representing a non-
+#[derive(Clone, Encode)]
+#[ereport(class = "hw.cpu.missing", version = 0)]
+pub struct CpuMissing {
+    #[cbor(flatten)]
+    pub cpu: &'static HostCpuRefdes,
+}
+
 #[derive(Clone, Encode)]
 pub struct CpuTypeBits<const BITS: usize> {
     pub bits: [bool; BITS],

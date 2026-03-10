@@ -568,6 +568,11 @@ impl ServerImpl {
 
                                 if !present {
                                     ringbuf_entry!(Trace::CPUNotPresent);
+                                    self.ereporter.try_send_ereport(
+                                        &ereports::cpu::CpuMissing {
+                                            cpu: &HOST_CPU_REFDES,
+                                        },
+                                    );
                                     err = CpuSeqError::CPUNotPresent;
                                     break;
                                 }
@@ -1220,6 +1225,7 @@ const EREPORT_BUF_LEN: usize = microcbor::max_cbor_len_for![
     ereports::cpu::Thermtrip,
     ereports::cpu::Smerr,
     ereports::cpu::UnsupportedCpu<3, 4>,
+    ereports::cpu::CpuMissing,
 ];
 
 static HOST_CPU_REFDES: ereports::cpu::HostCpuRefdes =

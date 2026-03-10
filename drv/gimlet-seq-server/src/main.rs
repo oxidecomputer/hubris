@@ -859,6 +859,11 @@ impl<S: SpiServer> ServerImpl<S> {
                 ringbuf_entry!(Trace::CPUPresent(present));
 
                 if !present {
+                    self.ereporter.try_send_ereport(
+                        &ereports::cpu::CpuMissing {
+                            cpu: &HOST_CPU_REFDES,
+                        },
+                    );
                     return Err(self.a0_failure(SeqError::CPUNotPresent));
                 }
 
@@ -1608,6 +1613,7 @@ const EREPORT_BUF_LEN: usize = microcbor::max_cbor_len_for![
     ereports::pwr::Bmr491MitigationFailure<{ REFDES_LEN }>,
     ereports::cpu::Thermtrip,
     ereports::cpu::UnsupportedCpu<1, 2>,
+    ereports::cpu::CpuMissing,
 ];
 
 static HOST_CPU_REFDES: ereports::cpu::HostCpuRefdes =
