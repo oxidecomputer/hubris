@@ -40,12 +40,18 @@ pub struct PmbusStatus {
     pub mfr: Option<u8>,
 }
 
-/// Represents the current power state, and how long we have been in that state.
+/// Represents the current power state when an event occurred, and the Hubris
+/// timestamp at which the system transitioned to that state.
+///
+/// When the event represented by an ereport is one which transitions the system
+/// to a different state, the `CurrentState` represents the *prior* state, i.e.
+/// the one at the time the event occurred, *not* the new state the ssytem will
+/// transition to.
 #[derive(Copy, Clone, Encode)]
 pub struct CurrentState {
     /// The current CPU power state.
     pub cur: drv_cpu_power_state::PowerState,
-    /// The Hubris tick (in milliseconds) at which the transition to this state
-    /// occurred.
-    pub since: u64,
+    /// The Hubris uptime, in milliseconds, at which the transition to this
+    /// state occurred.
+    pub since_ms: u64,
 }

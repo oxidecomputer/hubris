@@ -1163,7 +1163,7 @@ impl<S: SpiServer> ServerImpl<S> {
     fn ereport_current_state(&self) -> ereports::pwr::CurrentState {
         ereports::pwr::CurrentState {
             cur: self.state,
-            since: self.since,
+            since_ms: self.since,
         }
     }
 }
