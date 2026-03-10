@@ -202,12 +202,14 @@ max-sizes = {flash = 131072, ram = 16384 }
 stacksize = 2600
 start = true
 task-slots = ["sys", {spi = "spi2_driver"}, "auxflash"]
+copy-to-archive = ["register_defs"]
 
 [tasks.spartan7_loader.config]
 program_l = "sys_api::Port::B.pin(1)"
 init_l = "sys_api::Port::B.pin(6)"
 config_done = "sys_api::Port::B.pin(4)"
 user_reset_l = "sys_api::Port::A.pin(6)"
+register_defs = "cosmo-seq/*.json"
 
 [tasks.hash_driver]
 name = "drv-stm32h7-hash-server"

@@ -955,14 +955,20 @@ fn build_archive(
                         let dir = pkg.manifest_path.parent().unwrap();
 
                         let f = dir.join(s);
-                        let task_dir = PathBuf::from("task").join(name).join(s);
-                        archive.copy(f, task_dir).with_context(|| {
-                            format!(
-                                "task {name}: failed to copy \"{s}\" in {} \
-                                into the archive",
-                                dir.display()
-                            )
-                        })?;
+                        let task_dir = PathBuf::from("task").join(name);
+                        for f in glob::glob(f.to_str().unwrap())? {
+                            let f = f?;
+                            let task_file = f.strip_prefix(dir)?;
+                            archive
+                                .copy(&f, task_dir.join(task_file))
+                                .with_context(|| {
+                                    format!(
+                                    "task {name}: failed to copy \"{s}\" in {} \
+                                    into the archive",
+                                    dir.display()
+                                )
+                                })?;
+                        }
                     }
                     Some(_) => {
                         bail!(

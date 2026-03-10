@@ -23,6 +23,7 @@ directories = { workspace = true }
 dunce = { workspace = true }
 filetime = { workspace = true }
 fnv = { workspace = true }
+glob = { workspace = true }
 goblin = { workspace = true }
 hex = "0.4"
 hubtools = { workspace = true }
