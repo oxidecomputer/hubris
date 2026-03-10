@@ -68,6 +68,20 @@ Interface(
             reply: Simple("u32"),
             idempotent: true,
         ),
+        "post_code_buffer_len": (
+            doc: "Read the number of POST codes in the FPGA's ringbuffer (Cosmo only)",
+            args: {},
+            reply: Simple("u32"),
+            idempotent: true,
+        ),
+        "get_post_code": (
+            doc: "Reads a POST code from the FPGA's ringbuffer (Cosmo only)",
+            args: {
+                "index": "u32",
+            },
+            reply: Simple("u32"),
+            idempotent: true,
+        ),
         "gpio_edge_count": (
             doc: "Read the GPIO edge count from the sequencer FPGA (Gimlet only)",
             args: {},

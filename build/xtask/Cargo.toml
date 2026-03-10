@@ -19,6 +19,7 @@ byteorder = { workspace = true }
 bzip2-rs = { workspace = true }
 capstone = { workspace = true }
 ctrlc = { workspace = true }
+directories = { workspace = true }
 dunce = { workspace = true }
 filetime = { workspace = true }
 fnv = { workspace = true }

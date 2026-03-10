@@ -37,19 +37,17 @@ impl Inventory {
         OUR_DEVICES.len() + VALIDATE_DEVICES.len()
     }
 
-    pub(crate) fn num_component_details(
+    pub(crate) fn num_component_details<F>(
         &self,
         component: &SpComponent,
-    ) -> Result<u32, SpError> {
+        our_device_lookup: F,
+    ) -> Result<u32, SpError>
+    where
+        F: Fn(&SpComponent) -> u32,
+    {
         match Index::try_from(component)? {
             Index::OurDevice(d) => {
-                match OUR_DEVICES[d].component {
-                    // The SP5 CPU can report a POST code and GPIO cycle count
-                    SpComponent::SP5_HOST_CPU => Ok(2),
-                    // The SP3 CPU can report GPIO toggle counts
-                    SpComponent::SP3_HOST_CPU => Ok(1),
-                    _ => Ok(0),
-                }
+                Ok(our_device_lookup(&OUR_DEVICES[d].component))
             }
             Index::ValidateDevice(i) => {
                 Ok(VALIDATE_DEVICES[i].sensors.len() as u32)
@@ -256,6 +254,14 @@ mod devices_with_static_validation {
             description: "Cosmo SP5 host cpu",
             capabilities: DeviceCapabilities::HAS_SERIAL_CONSOLE,
             presence: DevicePresence::Present, // TODO: ok to assume always present?
+        },
+        #[cfg(feature = "cosmo")]
+        DeviceDescription {
+            component: SpComponent::SP5_POST_CODES,
+            device: SpComponent::SP5_POST_CODES.const_as_str(),
+            description: "Cosmo SP5 POST code buffer",
+            capabilities: DeviceCapabilities::empty(),
+            presence: DevicePresence::Present, // FPGA is soldered to the board
         },
         // If we're building for gimlet, we always claim to have host boot flash.
         //
