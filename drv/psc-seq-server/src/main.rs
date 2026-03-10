@@ -1191,6 +1191,7 @@ include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
 mod ereport {
     use super::*;
+    pub(crate) use ereports::pwr::PmbusStatus;
 
     #[derive(Copy, Clone, Eq, PartialEq, microcbor::Encode)]
     pub(super) enum Class {
@@ -1211,17 +1212,6 @@ mod ereport {
         pub(super) slot: u8,
         pub(super) fruid: PsuFruid,
         pub(super) pmbus_status: Option<PmbusStatus>,
-    }
-
-    #[derive(Copy, Clone, Default, microcbor::Encode)]
-    pub(super) struct PmbusStatus {
-        pub(super) word: Option<u16>,
-        pub(super) input: Option<u8>,
-        pub(super) iout: Option<u8>,
-        pub(super) vout: Option<u8>,
-        pub(super) temp: Option<u8>,
-        pub(super) cml: Option<u8>,
-        pub(super) mfr: Option<u8>,
     }
 
     pub(super) type Ereport = task_packrat_api::Ereport<Class, EreportFields>;

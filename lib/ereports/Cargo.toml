@@ -1,0 +1,22 @@
+[package]
+name = "ereports"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+microcbor = { path = "../microcbor" }
+fixedstr = { path = "../fixedstr", features = ["microcbor"] }
+drv-cpu-power-state = { path = "../../drv/cpu-power-state", features = ["microcbor"] }
+drv-i2c-devices = { path = "../../drv/i2c-devices" }
+
+[lints]
+workspace = true
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation, and this crate dependencies
+# on `userlib` (transitively, via `drv-i2c-devices`), which won't build on non-ARM
+# targets.
+[lib]
+test = false
+doctest = false
+bench = false

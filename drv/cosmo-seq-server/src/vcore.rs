@@ -13,8 +13,10 @@
 //!
 
 use super::i2c_config;
+use crate::Ereporter;
 use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::raa229620a::{self, Raa229620A};
+use ereports::pwr::{PmbusAlert, PmbusStatus};
 use fixedstr::FixedStr;
 use pmbus::commands::raa229620a::STATUS_WORD;
 use ringbuf::*;
@@ -26,7 +28,6 @@ pub(super) struct VCore {
     /// `PWR_CONT2`: This regulator controls `VDDCR_CPU1` and `VDDIO_SP5` rails.
     vddcr_cpu1: Raa229620A,
     faulted: Vrms,
-    packrat: task_packrat_api::Packrat,
 }
 
 #[derive(Copy, Clone, PartialEq, microcbor::Encode)]
@@ -176,7 +177,7 @@ const VCORE_UV_WARN_LIMIT: units::Volts = units::Volts(11.0);
 const VCORE_NSAMPLES: usize = 25;
 
 impl VCore {
-    pub fn new(i2c: TaskId, packrat: task_packrat_api::Packrat) -> Self {
+    pub fn new(i2c: TaskId) -> Self {
         let (device, rail) = i2c_config::pmbus::vddcr_cpu0_a0(i2c);
         let vddcr_cpu0 = Raa229620A::new(&device, rail);
 
@@ -190,7 +191,6 @@ impl VCore {
                 pwr_cont1: false,
                 pwr_cont2: false,
             },
-            packrat,
         }
     }
 
@@ -268,7 +268,7 @@ impl VCore {
         &mut self,
         vrms: Vrms,
         now: u64,
-        ereport_buf: &mut [u8],
+        ereporter: &mut Ereporter,
     ) {
         ringbuf_entry!(Trace::PmbusAlert {
             timestamp: now,
@@ -281,7 +281,7 @@ impl VCore {
                 now,
                 Rail::VddcrCpu0,
                 vrms.pwr_cont1,
-                ereport_buf,
+                ereporter,
             );
             input_fault |= state.input_fault;
             self.faulted.pwr_cont1 |= state.faulted;
@@ -292,7 +292,7 @@ impl VCore {
                 now,
                 Rail::VddcrCpu1,
                 vrms.pwr_cont1,
-                ereport_buf,
+                ereporter,
             );
             input_fault |= state.input_fault;
             self.faulted.pwr_cont2 |= state.faulted;
@@ -350,7 +350,7 @@ impl VCore {
         now: u64,
         rail: Rail,
         alerted: bool,
-        ereport_buf: &mut [u8],
+        ereporter: &mut Ereporter,
     ) -> RegulatorState {
         use pmbus::commands::raa229620a::STATUS_WORD;
 
@@ -458,7 +458,7 @@ impl VCore {
         .map(|s| s.0);
         ringbuf_entry!(Trace::StatusMfrSpecific(rail, status_mfr));
 
-        let pmbus_status = crate::PmbusStatus {
+        let pmbus_status = PmbusStatus {
             word: status_word.map(|s| s.0).ok(),
             input: status_input.ok(),
             vout: status_vout.ok(),
@@ -468,19 +468,16 @@ impl VCore {
             mfr: status_mfr.ok(),
         };
 
-        let ereport = crate::EreportKind::PmbusAlert {
+        let ereport = PmbusAlert {
             rail,
-            refdes: FixedStr::from_str(device.i2c_device().component_id()),
+            refdes: FixedStr::<{ crate::REFDES_LEN }>::from_str(
+                device.i2c_device().component_id(),
+            ),
             time: now,
             pmbus_status,
             pwr_good: power_good,
         };
-        crate::try_send_ereport(
-            &self.packrat,
-            ereport_buf,
-            crate::EreportClass::PmbusAlert,
-            ereport,
-        );
+        ereporter.try_send_ereport(&ereport);
         // TODO(eliza): if POWER_GOOD has been deasserted, we should produce a
         // subsequent ereport for that.
 

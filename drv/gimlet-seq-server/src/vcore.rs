@@ -28,20 +28,20 @@ use super::{retry_i2c_txn, I2cTxn};
 /// A2 to A0 transition to clear faults.
 ///
 use crate::gpio_irq_pins::VCORE_TO_SP_ALERT_L;
+use crate::Ereporter;
 use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_i2c_devices::raa229618::Raa229618;
 use drv_stm32xx_sys_api as sys_api;
+use ereports::pwr::{PmbusAlert, PmbusStatus};
 use fixedstr::FixedStr;
 use ringbuf::*;
 use sys_api::IrqControl;
-use task_packrat_api as packrat_api;
 use userlib::{sys_get_timer, units};
 
 pub struct VCore {
     device: Raa229618,
     faulted: bool,
     sys: sys_api::Sys,
-    packrat: packrat_api::Packrat,
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -135,17 +135,11 @@ cfg_if::cfg_if! {
 }
 
 impl VCore {
-    pub fn new(
-        sys: &sys_api::Sys,
-        packrat: packrat_api::Packrat,
-        device: &I2cDevice,
-        rail: u8,
-    ) -> Self {
+    pub fn new(sys: &sys_api::Sys, device: &I2cDevice, rail: u8) -> Self {
         Self {
             device: Raa229618::new(device, rail),
             faulted: false,
             sys: sys.clone(),
-            packrat,
         }
     }
 
@@ -180,10 +174,7 @@ impl VCore {
         Ok(())
     }
 
-    pub fn handle_notification(
-        &mut self,
-        ereport_buf: &mut [u8; crate::EREPORT_BUF_LEN],
-    ) {
+    pub fn handle_notification(&mut self, ereporter: &mut Ereporter) {
         let now = sys_get_timer().now;
         let asserted = self.is_pmalert_asserted();
 
@@ -196,7 +187,7 @@ impl VCore {
             // Don't produce another ereport if PMALERT_L was already asserted
             // without being deasserted.
             if !self.faulted {
-                self.read_pmbus_status(now, ereport_buf);
+                self.read_pmbus_status(now, ereporter);
             }
             // Clear the fault now so that PMALERT_L is reasserted if a
             // subsequent fault occurs. Note that if the fault *condition*
@@ -232,11 +223,7 @@ impl VCore {
         self.sys.gpio_read(VCORE_TO_SP_ALERT_L) == 0
     }
 
-    fn read_pmbus_status(
-        &self,
-        now: u64,
-        ereport_buf: &mut [u8; crate::EREPORT_BUF_LEN],
-    ) {
+    fn read_pmbus_status(&self, now: u64, ereporter: &mut Ereporter) {
         use pmbus::commands::raa229618::STATUS_WORD;
 
         // Read PMBus status registers and prepare an ereport.
@@ -331,7 +318,7 @@ impl VCore {
             .map(|s| s.0);
         ringbuf_entry!(Trace::StatusMfrSpecific(status_mfr_specific));
 
-        let status = super::PmbusStatus {
+        let status = PmbusStatus {
             word: status_word.map(|s| s.0).ok(),
             input: status_input.ok(),
             vout: status_vout.ok(),
@@ -342,20 +329,16 @@ impl VCore {
         };
 
         static RAIL: FixedStr<'static, 9> = FixedStr::from_str("VDD_VCORE");
-        crate::try_send_ereport(
-            &self.packrat,
-            &mut ereport_buf[..],
-            crate::EreportClass::PmbusAlert,
-            crate::EreportKind::PmbusAlert {
-                refdes: FixedStr::from_str(
-                    self.device.i2c_device().component_id(),
-                ),
-                rail: RAIL,
-                time: now,
-                pwr_good,
-                pmbus_status: status,
-            },
-        );
+        let ereport = PmbusAlert {
+            refdes: FixedStr::<{ crate::REFDES_LEN }>::from_str(
+                self.device.i2c_device().component_id(),
+            ),
+            rail: RAIL,
+            time: now,
+            pwr_good,
+            pmbus_status: status,
+        };
+        ereporter.try_send_ereport(&ereport);
         // TODO(eliza): if POWER_GOOD has been deasserted, we should produce a
         // subsequent ereport for that.
 
