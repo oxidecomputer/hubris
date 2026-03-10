@@ -51,7 +51,7 @@ pub use microcbor;
 ///
 /// - `$Ereporter`: the identifier used for the generated reporter `struct`,
 /// - `$Trait`: the name of the generated trait which is implemented by the
-///    provided ereport types,
+///   provided ereport types,
 /// - For each ereport type in the list of ereport types, a `$ClassName`, which
 ///   is used as the name of the ringbuf entry `enum` variant that indicates
 ///   an attempt to report an ereport of that class.
@@ -224,4 +224,3 @@ pub mod __macro_support {
     pub use ringbuf;
     pub use static_cell::ClaimOnceCell;
 }
-
