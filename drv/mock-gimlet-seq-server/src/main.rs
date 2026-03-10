@@ -145,6 +145,20 @@ impl idl::InOrderSequencerImpl for ServerImpl {
     ) -> Result<u32, RequestError<core::convert::Infallible>> {
         Ok(0)
     }
+
+    fn enable_console_redirect(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
+        Ok(())
+    }
+
+    fn disable_console_redirect(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
+        Ok(())
+    }
 }
 
 impl NotificationHandler for ServerImpl {

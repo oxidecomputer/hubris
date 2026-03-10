@@ -83,15 +83,25 @@ Interface(
             idempotent: true,
         ),
         "gpio_edge_count": (
-            doc: "Read the GPIO edge count from the sequencer FPGA (Gimlet only)",
+            doc: "Read the GPIO edge count from the sequencer FPGA",
             args: {},
             reply: Simple("u32"),
             idempotent: true,
         ),
         "gpio_cycle_count": (
-            doc: "Read the GPIO cycle count from the sequencer FPGA (Gimlet only)",
+            doc: "Read the GPIO cycle count from the sequencer FPGA",
             args: {},
             reply: Simple("u32"),
+            idempotent: true,
+        ),
+        "enable_console_redirect": (
+            doc: "Sends the host console to UART breakout pins instead of the FPGA (Cosmo only)",
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+        "disable_console_redirect": (
+            doc: "Sends the host console to the FPGA instead of UART breakout pins (Cosmo only)",
+            reply: Simple("()"),
             idempotent: true,
         ),
     },
