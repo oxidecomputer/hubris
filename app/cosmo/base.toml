@@ -209,10 +209,6 @@ init_l = "sys_api::Port::B.pin(6)"
 config_done = "sys_api::Port::B.pin(4)"
 user_reset_l = "sys_api::Port::A.pin(6)"
 
-[tasks.cosmo_seq.config]
-fpga_image = "cosmo-a.bin"
-register_defs = "cosmo-regs-a.json"
-
 [tasks.hash_driver]
 name = "drv-stm32h7-hash-server"
 features = ["h753"]
