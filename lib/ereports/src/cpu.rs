@@ -25,14 +25,28 @@ pub struct Smerr {
     pub state: crate::pwr::CurrentState,
 }
 
-/// An ereport representing an unsupported CPU.
+/// An ereport representing an unsupported AMD CPU.
 #[derive(Clone, Encode)]
-#[ereport(class = "hw.cpu.unsup", version = 0)]
-pub struct UnsupportedCpu<T: EncodeFields<()>> {
+#[ereport(class = "hw.cpu.amd.unsup", version = 0)]
+pub struct UnsupportedCpu<const CORETYPE_BITS: usize, const REV_BITS: usize> {
     #[cbor(flatten)]
     pub cpu: &'static HostCpuRefdes,
+    pub coretype: CpuTypeBits<CORETYPE_BITS>,
+    pub rev: CpuTypeBits<REV_BITS>,
+}
+
+/// An ereport representing a non-
+#[derive(Clone, Encode)]
+#[ereport(class = "hw.cpu.missing", version = 0)]
+pub struct CpuMissing {
     #[cbor(flatten)]
-    pub cpu_type: T,
+    pub cpu: &'static HostCpuRefdes,
+}
+
+#[derive(Clone, Encode)]
+pub struct CpuTypeBits<const BITS: usize> {
+    pub bits: [bool; BITS],
+    pub ok: bool,
 }
 
 #[derive(Clone, EncodeFields)]

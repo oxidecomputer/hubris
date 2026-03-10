@@ -43,6 +43,9 @@ enum Xtask {
         /// `cargo rustc ...`
         #[clap(short, long)]
         edges: bool,
+        /// Skip the check for home directory paths in the final binaries
+        #[clap(long = "dangerously-skip-path-check")]
+        skip_path_check: bool,
         /// Path to the image configuration file, in TOML.
         cfg: PathBuf,
         /// Allow operation in a dirty checkout, i.e. don't clean before
@@ -87,6 +90,9 @@ enum Xtask {
         /// rebuilding even if it looks like we need to.
         #[clap(long)]
         dirty: bool,
+        /// Skip the check for home directory paths in the final binaries
+        #[clap(long = "dangerously-skip-path-check")]
+        skip_path_check: bool,
         /// Configures the caboose for the generated archive.
         #[clap(flatten)]
         caboose_args: CabooseArgs,
@@ -291,9 +297,19 @@ fn run(xtask: Xtask) -> Result<()> {
             cfg,
             dirty,
             caboose_args,
+            skip_path_check,
         } => {
-            let allocs =
-                dist::package(verbose, edges, &cfg, None, dirty, caboose_args)?;
+            let allocs = dist::package(
+                &cfg,
+                dist::PackageFlags {
+                    verbose,
+                    edges,
+                    dirty_ok: dirty,
+                    skip_path_check,
+                },
+                None,
+                caboose_args,
+            )?;
             for (_, (a, _)) in allocs {
                 sizes::run(&cfg, &a, true, false, false, false)?;
             }
@@ -310,11 +326,14 @@ fn run(xtask: Xtask) -> Result<()> {
                 dist::list_tasks(&cfg)?;
             } else {
                 dist::package(
-                    verbose,
-                    edges,
                     &cfg,
+                    dist::PackageFlags {
+                        verbose,
+                        edges,
+                        dirty_ok: dirty,
+                        skip_path_check: true,
+                    },
                     Some(tasks),
-                    dirty,
                     CabooseArgs::default(),
                 )?;
             }
@@ -322,14 +341,18 @@ fn run(xtask: Xtask) -> Result<()> {
         Xtask::Flash {
             dirty,
             mut args,
+            skip_path_check,
             caboose_args,
         } => {
             dist::package(
-                args.verbose,
-                false,
                 &args.cfg,
+                dist::PackageFlags {
+                    verbose: args.verbose,
+                    edges: false,
+                    dirty_ok: dirty,
+                    skip_path_check,
+                },
                 None,
-                dirty,
                 caboose_args,
             )?;
             let toml = Config::from_file(&args.cfg)?;
@@ -364,11 +387,14 @@ fn run(xtask: Xtask) -> Result<()> {
             caboose_args,
         } => {
             let allocs = dist::package(
-                verbose >= 2,
-                false,
                 &cfg,
+                dist::PackageFlags {
+                    verbose: verbose >= 2,
+                    edges: false,
+                    dirty_ok: dirty,
+                    skip_path_check: false,
+                },
                 None,
-                dirty,
                 caboose_args,
             )?;
             for (_, (a, _)) in allocs {
@@ -403,11 +429,14 @@ fn run(xtask: Xtask) -> Result<()> {
             };
             if !noflash {
                 dist::package(
-                    args.verbose,
-                    false,
                     &args.cfg,
+                    dist::PackageFlags {
+                        verbose: args.verbose,
+                        edges: false,
+                        dirty_ok: false,
+                        skip_path_check: false,
+                    },
                     None,
-                    false,
                     caboose_args,
                 )?;
                 // Delegate flashing to `humility gdb`, which also modifies
@@ -435,6 +464,7 @@ fn run(xtask: Xtask) -> Result<()> {
                     args: args.clone(),
                     dirty: false,
                     caboose_args,
+                    skip_path_check: false,
                 })?;
             }
             humility::run(&args, &[], Some("test"), false, image_name)?;

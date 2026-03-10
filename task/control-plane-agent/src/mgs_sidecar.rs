@@ -895,13 +895,15 @@ impl SpHandler for MgsHandler {
             component
         }));
 
-        match component {
-            SpComponent::MONORAIL => Ok(drv_monorail_api::PORT_COUNT as u32),
-            SpComponent::TOFINO => {
-                Ok(drv_sidecar_seq_api::TOFINO_DEBUG_REGS.len() as u32)
-            }
-            _ => self.common.inventory().num_component_details(&component),
-        }
+        self.common
+            .inventory()
+            .num_component_details(&component, |component| match *component {
+                SpComponent::MONORAIL => drv_monorail_api::PORT_COUNT as u32,
+                SpComponent::TOFINO => {
+                    drv_sidecar_seq_api::TOFINO_DEBUG_REGS.len() as u32
+                }
+                _ => 0,
+            })
     }
 
     /// When this method is called by `handle_message`, `index` has been bounds

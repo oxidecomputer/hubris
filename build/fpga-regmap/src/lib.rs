@@ -763,10 +763,13 @@ pub fn build_peripheral(
                         fn new() -> Self {
                             #struct_name
                         }
-                        pub fn get(&self, i: usize) -> u32 {
-                            assert!(i < #mementries);
-                            unsafe {
-                                Self::ADDR.add(i).read_volatile()
+                        pub fn get(&self, i: usize) -> Option<u32> {
+                            if i < #mementries {
+                                Some(unsafe {
+                                    Self::ADDR.add(i).read_volatile()
+                                })
+                            } else {
+                                None
                             }
                         }
                     }

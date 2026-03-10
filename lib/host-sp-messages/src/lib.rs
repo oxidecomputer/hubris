@@ -140,6 +140,11 @@ pub enum HostToSp {
         offset: u64,
         size: u64,
     },
+    // Indication of host OS boot progress
+    BootStage {
+        version: u64,
+        stage: u64,
+    },
 }
 
 /// The order of these cases is critical! We are relying on hubpack's encoding
@@ -1121,6 +1126,23 @@ mod tests {
             ),
             (0x0f, HostToSp::GetInventoryData { index: 0 }),
             (0x10, HostToSp::KeySet { key: 0 }),
+            (
+                0x11,
+                HostToSp::ApobBegin {
+                    length: 0,
+                    algorithm: 0,
+                },
+            ),
+            (0x12, HostToSp::ApobCommit),
+            (0x13, HostToSp::ApobData { offset: 0 }),
+            (0x14, HostToSp::ApobRead { offset: 0, size: 0 }),
+            (
+                0x15,
+                HostToSp::BootStage {
+                    version: 0,
+                    stage: 0,
+                },
+            ),
         ] {
             let n = hubpack::serialize(&mut buf[..], &variant).unwrap();
             assert!(n >= 1);

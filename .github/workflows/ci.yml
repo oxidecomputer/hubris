@@ -238,7 +238,7 @@ jobs:
             done
             return 1
           }
-          set_time "$(date -d '1 day ago 11 hours ago' "+%Y-%m-%d %H:%M:%S")"
+          set_time "$(date -d '1 day 11 hours' "+%Y-%m-%d %H:%M:%S")"
 
           echo "After time change: $(date)"
 

@@ -555,6 +555,11 @@ impl ServerImpl {
 
                                 if !present {
                                     ringbuf_entry!(Trace::CPUNotPresent);
+                                    self.ereporter.deliver_ereport(
+                                        &ereports::cpu::CpuMissing {
+                                            cpu: &HOST_CPU_REFDES,
+                                        },
+                                    );
                                     err = CpuSeqError::CPUNotPresent;
                                     break;
                                 }
@@ -610,11 +615,13 @@ impl ServerImpl {
                     self.seq.power_ctrl.modify(|m| m.set_a0_en(false));
                     let ereport = ereports::cpu::UnsupportedCpu {
                         cpu: &HOST_CPU_REFDES,
-                        cpu_type: CpuTypeBits {
-                            coretype: [coretype0, coretype1, coretype2],
-                            sp5rx: [sp5r1, sp5r2, sp5r3, sp5r4],
-                            coretype_ok,
-                            sp5rx_ok,
+                        coretype: ereports::cpu::CpuTypeBits {
+                            bits: [coretype0, coretype1, coretype2],
+                            ok: coretype_ok,
+                        },
+                        rev: ereports::cpu::CpuTypeBits {
+                            bits: [sp5r1, sp5r2, sp5r3, sp5r4],
+                            ok: sp5rx_ok,
                         },
                     };
                     self.ereporter.deliver_ereport(&ereport);
@@ -1002,7 +1009,7 @@ impl ServerImpl {
     fn ereport_current_state(&self) -> ereports::pwr::CurrentState {
         ereports::pwr::CurrentState {
             cur: self.state,
-            since: self.since,
+            since_ms: self.since,
         }
     }
 }
@@ -1060,6 +1067,23 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         _: &RecvMessage,
     ) -> Result<u32, RequestError<core::convert::Infallible>> {
         Ok(self.espi.last_post_code.payload())
+    }
+
+    fn post_code_buffer_len(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u32, RequestError<core::convert::Infallible>> {
+        Ok(self.espi.post_code_count.count())
+    }
+
+    fn get_post_code(
+        &mut self,
+        _: &RecvMessage,
+        index: u32,
+    ) -> Result<u32, RequestError<core::convert::Infallible>> {
+        self.espi.post_code_buffer.get(index as usize).ok_or(
+            RequestError::Fail(idol_runtime::ClientError::BadMessageContents),
+        )
     }
 
     fn gpio_edge_count(
@@ -1207,7 +1231,8 @@ ereports::declare_ereporter! {
         ),
         Thermtrip(ereports::cpu::Thermtrip),
         Smerr(ereports::cpu::Smerr),
-        UnsupportedCpu(ereports::cpu::UnsupportedCpu<CpuTypeBits>),
+        UnsupportedCpu(ereports::cpu::UnsupportedCpu<3, 4>),
+        CpuMissing(ereports::cpu::CpuMissing),
     }
 }
 
@@ -1216,14 +1241,6 @@ static HOST_CPU_REFDES: ereports::cpu::HostCpuRefdes =
         refdes: fixedstr::FixedString::from_str("P0"),
         dev_id: fixedstr::FixedString::from_str("sp5-host-cpu"),
     };
-
-#[derive(Clone, microcbor::EncodeFields)]
-struct CpuTypeBits {
-    coretype: [bool; 3],
-    sp5rx: [bool; 4],
-    coretype_ok: bool,
-    sp5rx_ok: bool,
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 

@@ -462,24 +462,36 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
                 let status = phy.read(phy::STANDARD::MODE_STATUS())?;
                 let media_link_up = (status.0 & (1 << 2)) != 0;
 
-                // The VSC8504 is running in forced-speed protocol transfer mode.
-                // Experimentally, packets get through without MAC_LINK_STATUS
-                // set, and despite what "ENT-AN1175" says, I don't see anything
-                // in register 24G.  As such, we'll be optimistic: if there's a
-                // valid QSGMII link and MAC_PCS_SIG_DETECT, then let's call it
-                // good.
                 let status =
                     phy.read(phy::EXTENDED_3::MAC_SERDES_PCS_STATUS())?;
                 let mac_serdes =
                     phy.read(phy::EXTENDED_3::MAC_SERDES_STATUS())?;
                 let qsgmii_mask = ty.qsgmii_okay_mask();
                 let mac_link_up = match ty {
+                    // The VSC8504 is running in forced-speed protocol transfer
+                    // mode.
+                    //
+                    // Experimentally, packets get through when either
+                    // MAC_LINK_STATUS or MAC_PCS_SIG_DETECT are set in
+                    // MAC_SERDES_PCS_STATUS (or both, obviously).  These
+                    // correspond to "QSGMII sync status", and "MAC comma
+                    // detect" in the MAC_SERDES_STATUS register.
+                    //
+                    // Despite what "ENT-AN1175" says, I don't see anything in
+                    // register 24G.  As such, we'll be optimistic: if *either**
+                    // MAC_LINK_STATUS or MAC_PCS_SIG_DETECT is present in
+                    // MAC_SERDES_PCS_STATUS (along with their corresponding
+                    // flags in MAC_SERDES_STATUS), then let's call it good.
                     PhyType::Vsc8504 => {
-                        if status.mac_pcs_sig_detect() == 0 {
+                        if status.mac_pcs_sig_detect() == 0
+                            && status.mac_link_status() == 0
+                        {
                             LinkStatus::Down
                         } else if status.mac_sync_fail() != 0
                             || status.mac_cgbad() != 0
-                            || (mac_serdes.0 & qsgmii_mask) != qsgmii_mask
+                            // Accept any of the QSGMII valid bits; don't
+                            // require them all to be set
+                            || (mac_serdes.0 & qsgmii_mask) == 0
                         {
                             LinkStatus::Error
                         } else {

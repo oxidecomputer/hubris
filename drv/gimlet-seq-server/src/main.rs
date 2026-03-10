@@ -847,6 +847,11 @@ impl<S: SpiServer> ServerImpl<S> {
                 ringbuf_entry!(Trace::CPUPresent(present));
 
                 if !present {
+                    self.ereporter.deliver_ereport(
+                        &ereports::cpu::CpuMissing {
+                            cpu: &HOST_CPU_REFDES,
+                        },
+                    );
                     return Err(self.a0_failure(SeqError::CPUNotPresent));
                 }
 
@@ -866,13 +871,18 @@ impl<S: SpiServer> ServerImpl<S> {
                 // be high (not connected on Type-0/Type-1/Type-2), and SP3R2
                 // to be low (VSS on Type-0/Type-1/Type-2).
                 //
-                if !coretype || !sp3r1 || sp3r2 {
+                let rev_ok = sp3r1 && !sp3r2;
+                if !coretype || !rev_ok {
                     self.ereporter.deliver_ereport(
                         &ereports::cpu::UnsupportedCpu {
                             cpu: &HOST_CPU_REFDES,
-                            cpu_type: CpuTypeBits {
-                                coretype,
-                                sp3rx: [sp3r1, sp3r2],
+                            coretype: ereports::cpu::CpuTypeBits {
+                                bits: [coretype],
+                                ok: coretype,
+                            },
+                            rev: ereports::cpu::CpuTypeBits {
+                                bits: [sp3r1, sp3r2],
+                                ok: rev_ok,
                             },
                         },
                     );
@@ -1151,7 +1161,7 @@ impl<S: SpiServer> ServerImpl<S> {
     fn ereport_current_state(&self) -> ereports::pwr::CurrentState {
         ereports::pwr::CurrentState {
             cur: self.state,
-            since: self.since,
+            since_ms: self.since,
         }
     }
 }
@@ -1221,6 +1231,25 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
     fn last_post_code(
         &mut self,
         _: &RecvMessage,
+    ) -> Result<u32, RequestError<core::convert::Infallible>> {
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::BadMessageContents,
+        ))
+    }
+
+    fn post_code_buffer_len(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u32, RequestError<core::convert::Infallible>> {
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::BadMessageContents,
+        ))
+    }
+
+    fn get_post_code(
+        &mut self,
+        _: &RecvMessage,
+        _index: u32,
     ) -> Result<u32, RequestError<core::convert::Infallible>> {
         Err(RequestError::Fail(
             idol_runtime::ClientError::BadMessageContents,
@@ -1598,7 +1627,8 @@ ereports::declare_ereporter! {
             ereports::pwr::Bmr491MitigationFailure<{ REFDES_LEN }>
         ),
         Thermtrip(ereports::cpu::Thermtrip),
-        UnsupportedCpu(ereports::cpu::UnsupportedCpu<CpuTypeBits>),
+        UnsupportedCpu(ereports::cpu::UnsupportedCpu<1, 2>),
+        CpuMissing(ereports::cpu::CpuMissing),
     }
 }
 
