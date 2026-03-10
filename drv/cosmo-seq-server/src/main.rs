@@ -623,11 +623,13 @@ impl ServerImpl {
                     self.seq.power_ctrl.modify(|m| m.set_a0_en(false));
                     let ereport = ereports::cpu::UnsupportedCpu {
                         cpu: &HOST_CPU_REFDES,
-                        cpu_type: CpuTypeBits {
-                            coretype: [coretype0, coretype1, coretype2],
-                            sp5rx: [sp5r1, sp5r2, sp5r3, sp5r4],
-                            coretype_ok,
-                            sp5rx_ok,
+                        coretype: ereports::cpu::CpuTypeBits {
+                            bits: [coretype0, coretype1, coretype2],
+                            ok: coretype_ok,
+                        },
+                        rev: ereports::cpu::CpuTypeBits {
+                            bits: [sp5r1, sp5r2, sp5r3, sp5r4],
+                            ok: sp5rx_ok,
                         },
                     };
                     self.ereporter.try_send_ereport(&ereport);
@@ -1217,7 +1219,7 @@ const EREPORT_BUF_LEN: usize = microcbor::max_cbor_len_for![
     ereports::pwr::Bmr491MitigationFailure<{ REFDES_LEN }>,
     ereports::cpu::Thermtrip,
     ereports::cpu::Smerr,
-    ereports::cpu::UnsupportedCpu<CpuTypeBits>,
+    ereports::cpu::UnsupportedCpu<3, 4>,
 ];
 
 static HOST_CPU_REFDES: ereports::cpu::HostCpuRefdes =
@@ -1225,14 +1227,6 @@ static HOST_CPU_REFDES: ereports::cpu::HostCpuRefdes =
         refdes: fixedstr::FixedString::from_str("P0"),
         dev_id: fixedstr::FixedString::from_str("sp5-host-cpu"),
     };
-
-#[derive(Clone, microcbor::EncodeFields)]
-struct CpuTypeBits {
-    coretype: [bool; 3],
-    sp5rx: [bool; 4],
-    coretype_ok: bool,
-    sp5rx_ok: bool,
-}
 
 /// This is just the Packrat API handle and the ereport buffer bundled together
 /// in one thing so that it can be passed into various places as a single

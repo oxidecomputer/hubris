@@ -878,13 +878,18 @@ impl<S: SpiServer> ServerImpl<S> {
                 // be high (not connected on Type-0/Type-1/Type-2), and SP3R2
                 // to be low (VSS on Type-0/Type-1/Type-2).
                 //
-                if !coretype || !sp3r1 || sp3r2 {
+                let rev_ok = sp3r1 && !sp3r2;
+                if !coretype || !rev_ok {
                     self.ereporter.try_send_ereport(
                         &ereports::cpu::UnsupportedCpu {
                             cpu: &HOST_CPU_REFDES,
-                            cpu_type: CpuTypeBits {
-                                coretype,
-                                sp3rx: [sp3r1, sp3r2],
+                            coretype: ereports::cpu::CpuTypeBits {
+                                bits: [coretype],
+                                ok: coretype,
+                            },
+                            rev: ereports::cpu::CpuTypeBits {
+                                bits: [sp3r1, sp3r2],
+                                ok: rev_ok,
                             },
                         },
                     );
@@ -1602,7 +1607,7 @@ const EREPORT_BUF_LEN: usize = microcbor::max_cbor_len_for![
     ereports::pwr::PmbusAlert<FixedStr<'static, 9>, { REFDES_LEN }>,
     ereports::pwr::Bmr491MitigationFailure<{ REFDES_LEN }>,
     ereports::cpu::Thermtrip,
-    ereports::cpu::UnsupportedCpu<CpuTypeBits>,
+    ereports::cpu::UnsupportedCpu<1, 2>,
 ];
 
 static HOST_CPU_REFDES: ereports::cpu::HostCpuRefdes =
@@ -1610,12 +1615,6 @@ static HOST_CPU_REFDES: ereports::cpu::HostCpuRefdes =
         refdes: fixedstr::FixedString::from_str("P0"),
         dev_id: fixedstr::FixedString::from_str("sp3-host-cpu"),
     };
-
-#[derive(Clone, microcbor::EncodeFields)]
-struct CpuTypeBits {
-    coretype: bool,
-    sp3rx: [bool; 2],
-}
 
 /// This is just the Packrat API handle and the ereport buffer bundled together
 /// in one thing so that it can be passed into various places as a single
