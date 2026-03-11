@@ -216,6 +216,8 @@ macro_rules! declare_ereporter {
     };
 }
 
+/// Stuff from other crates which are publicly re-exported for use by the
+/// `declare_ereporter!` macro.
 #[cfg(feature = "ereporter-macro")]
 #[doc(hidden)]
 pub mod __macro_support {
