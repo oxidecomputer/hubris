@@ -95,7 +95,7 @@ pub use microcbor;
 ///   `claim_static_resources`, this function panics.
 /// - `fn deliver_ereport(&mut self, &impl $Trait)`: Attempts to deliver an
 ///   ereport to `packrat`, recording in the ringbuffer if the ereport cannot
-///   be delviered.
+///   be delivered.
 ///
 /// These functions inherit the visibility with which the `$Ereporter` struct is
 /// declared in the macro invocation, as does the generated trait. For example,
