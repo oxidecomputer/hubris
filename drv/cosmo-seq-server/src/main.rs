@@ -1112,6 +1112,28 @@ impl idl::InOrderSequencerImpl for ServerImpl {
     ) -> Result<u32, RequestError<core::convert::Infallible>> {
         Ok(self.debug.sp5_dbg2_toggle_timer.cnts())
     }
+
+    fn enable_console_redirect(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
+        self.debug.uart_control.modify(|b| {
+            b.set_sp5_to_header(true);
+            b.set_use_debug_header(true);
+        });
+        Ok(())
+    }
+
+    fn disable_console_redirect(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
+        self.debug.uart_control.modify(|b| {
+            b.set_sp5_to_header(false);
+            b.set_use_debug_header(false);
+        });
+        Ok(())
+    }
 }
 
 impl NotificationHandler for ServerImpl {
