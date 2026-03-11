@@ -76,7 +76,7 @@ pub use microcbor;
 ///         // `some_module_with_ereport_message_types::EreportTwo`.
 ///         //
 ///         // The identifiers `One` and `Two` are used as the names of the
-///         // enum variants that record when these ereport types are reported.
+///         // ringbuf enum variants that record when these ereport types are reported.
 ///         One(some_module_with_ereport_message_types::EreportOne),
 ///         Two(some_module_with_ereport_message_types::EreportTwo),
 ///     }
@@ -94,11 +94,11 @@ pub use microcbor;
 ///   buffer has already been claimed by a prior call to
 ///   `claim_static_resources`, this function panics.
 /// - `fn deliver_ereport(&mut self, &impl $Trait)`: Attempts to deliver an
-///   ereport to `packrat`, reacording in the ring buffer if the ereport cannot
+///   ereport to `packrat`, recording in the ringbuffer if the ereport cannot
 ///   be delviered.
 ///
 /// These functions inherit the visibility with which the `$Ereporter` struct is
-/// declared in the macro invocation, as does the geenrated trait. For example,
+/// declared in the macro invocation, as does the generated trait. For example,
 /// if the struct is declared as `pub(crate) struct MyEreporter<MyTrait>`, then
 /// the functions on `MyEreporter` and the definition of `MyTrait` are also
 /// generated with `pub(crate)` visibility.
