@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//! Server for managing the Grapefruit FPGA process.
+//! Server for managing the Cosmo sequencer FPGA.
 
 #![no_std]
 #![no_main]
@@ -32,6 +32,7 @@ include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
 mod vcore;
 use vcore::VCore;
+mod diagnose;
 
 task_slot!(JEFE, jefe);
 task_slot!(LOADER, spartan7_loader);
