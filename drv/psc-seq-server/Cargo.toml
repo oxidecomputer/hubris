@@ -14,7 +14,7 @@ task-packrat-api = { path = "../../task/packrat-api", features = ["microcbor"] }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 ringbuf = { path = "../../lib/ringbuf", features = ["counters"] }
 counters = { path = "../../lib/counters" }
-ereports = { path = "../../lib/ereports" }
+ereports = { path = "../../lib/ereports", features = ["ereporter-macro"] }
 static-cell = { path = "../../lib/static-cell" }
 microcbor.path = "../../lib/microcbor"
 fixedstr = { path = "../../lib/fixedstr", features = ["microcbor"] }

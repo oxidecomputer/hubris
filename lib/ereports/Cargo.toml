@@ -9,6 +9,16 @@ fixedstr = { path = "../fixedstr", features = ["microcbor"] }
 drv-cpu-power-state = { path = "../../drv/cpu-power-state", features = ["microcbor"] }
 drv-i2c-devices = { path = "../../drv/i2c-devices" }
 
+counters = { path = "../counters", features = ["derive"], optional = true }
+ringbuf = { path = "../ringbuf", features = ["counters"], optional = true }
+task-packrat-api = { path = "../../task/packrat-api", optional = true, features = ["microcbor"]}
+paste = { workspace = true, optional = true  }
+static-cell = { path = "../static-cell", optional = true }
+
+[features]
+ereporter-macro = ["task-packrat-api", "paste", "static-cell", "counters", "ringbuf"]
+default = ["ereporter-macro"]
+
 [lints]
 workspace = true
 

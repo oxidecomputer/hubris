@@ -338,7 +338,7 @@ impl VCore {
             pwr_good,
             pmbus_status: status,
         };
-        ereporter.try_send_ereport(&ereport);
+        ereporter.deliver_ereport(&ereport);
         // TODO(eliza): if POWER_GOOD has been deasserted, we should produce a
         // subsequent ereport for that.
 

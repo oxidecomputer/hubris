@@ -10,6 +10,22 @@ Interface(
             reply: Simple("()"),
             idempotent: true,
         ),
+        "ae35_fault": (
+            doc: "Make a different fake error report.",
+            args: {
+                "n": "u32",
+            },
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+        "houston_we_have_a_problem": (
+            doc: "Make a third fake error report.",
+            args: {
+                "n": "u32",
+            },
+            reply: Simple("()"),
+            idempotent: true,
+        ),
         "set_fake_vpd": (
             doc: "Send fake vital product data (VPD) to Packrat.",
             args: {

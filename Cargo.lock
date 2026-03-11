@@ -2999,10 +2999,15 @@ checksum = "5443807d6dff69373d433ab9ef5378ad8df50ca6298caf15de6e52e24aaf54d5"
 name = "ereports"
 version = "0.1.0"
 dependencies = [
+ "counters",
  "drv-cpu-power-state",
  "drv-i2c-devices",
  "fixedstr",
  "microcbor",
+ "paste",
+ "ringbuf",
+ "static-cell",
+ "task-packrat-api",
 ]
 
 [[package]]
@@ -5750,9 +5755,11 @@ name = "task-ereportulator"
 version = "0.1.0"
 dependencies = [
  "counters",
+ "ereports",
+ "fixedstr",
  "idol",
  "idol-runtime",
- "minicbor 2.1.1",
+ "microcbor",
  "num-traits",
  "ringbuf",
  "task-packrat-api",
