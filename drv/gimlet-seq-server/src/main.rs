@@ -1638,12 +1638,6 @@ static HOST_CPU_REFDES: ereports::cpu::HostCpuRefdes =
         dev_id: fixedstr::FixedString::from_str("sp3-host-cpu"),
     };
 
-#[derive(Clone, microcbor::EncodeFields)]
-struct CpuTypeBits {
-    coretype: bool,
-    sp3rx: [bool; 2],
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 
 mod idl {
