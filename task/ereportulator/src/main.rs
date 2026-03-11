@@ -49,7 +49,7 @@ use idol_runtime::RequestError;
 use microcbor::Encode;
 use ringbuf::{counted_ringbuf, ringbuf_entry};
 use task_packrat_api::Packrat;
-use userlib::{sys_get_timer, task_slot, RecvMessage, UnwrapLite};
+use userlib::{sys_get_timer, task_slot, RecvMessage};
 
 task_slot!(PACKRAT, packrat);
 
@@ -73,7 +73,6 @@ counted_ringbuf!(Trace, 16, Trace::None);
 fn main() -> ! {
     let packrat = Packrat::from(PACKRAT.get_task_id());
     let mut server = ServerImpl {
-        buf: [0; 256],
         ereporter: Ereporter::claim_static_resources(packrat.clone()),
         packrat,
     };
@@ -86,7 +85,6 @@ fn main() -> ! {
 }
 
 struct ServerImpl {
-    buf: [u8; 256],
     packrat: Packrat,
     ereporter: Ereporter,
 }
@@ -139,11 +137,13 @@ impl idl::InOrderEreportulatorImpl for ServerImpl {
         let t0 = sys_get_timer().now;
         ringbuf_entry!(Trace::EreportRequested { n });
 
-        self.ereporter
-            .deliver_ereport(&MainBusUndervoltEreport::MainBusB {
-                volts: 0.00,
-                n,
-            });
+        let ereport = if n.is_multiple_of(2) {
+            // Not historically accurate...
+            MainBusUndervoltEreport::MainBusB { volts: 0.00, n }
+        } else {
+            MainBusUndervoltEreport::MainBusA { volts: 0.01, n }
+        };
+        self.ereporter.deliver_ereport(&ereport);
 
         ringbuf_entry!(Trace::EreportDone {
             duration: sys_get_timer().now - t0
