@@ -1277,6 +1277,24 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
             .unwrap_lite();
         Ok(out.get())
     }
+
+    fn enable_console_redirect(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::BadMessageContents,
+        ))
+    }
+
+    fn disable_console_redirect(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
+        Err(RequestError::Fail(
+            idol_runtime::ClientError::BadMessageContents,
+        ))
+    }
 }
 
 fn read_spd_data_and_load_packrat(
