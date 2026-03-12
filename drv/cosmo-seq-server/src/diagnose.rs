@@ -50,9 +50,9 @@ pub(crate) enum Diagnosis {
     WaitingForSlpCheckpoint {
         #[count(children)]
         why: WhyWaitingForSlpCheckpoint,
-        sp5_readbacks: Sp5ReadbacksView,
         ddr5_abcdef: RailStatus,
         ddr5_ghijkl: RailStatus,
+        sp5_readbacks: Sp5ReadbacksView,
     },
     WaitingForGroupB {
         #[count(children)]
@@ -62,17 +62,17 @@ pub(crate) enum Diagnosis {
     WaitingForGroupC {
         #[count(children)]
         why: WhyWaitingForGroupC,
-        ifr: IfrView,
         vddio_sp5: RailStatus,
         vddcr_cpu0: RailStatus,
         vddcr_cpu1: RailStatus,
         vddcr_soc: RailStatus,
+        ifr: IfrView,
     },
     WaitingForPowerOk {
         #[count(children)]
         why: WhyWaitingForPowerOk,
-        rail_pgs: RailPgsView,
         if_you_are_testing_without_sp5_this_must_be_true: bool,
+        rail_pgs: RailPgsView,
     },
     WaitingForResetLRelease {
         #[count(children)]
@@ -172,6 +172,7 @@ pub(crate) enum WhyMapo {
     GroupAMapo(RailIssue, #[count(children)] GroupARail),
     GroupBMapo(RailIssue, #[count(children)] GroupBRail),
     GroupCMapo(RailIssue, #[count(children)] GroupCRail),
+    Ddr5HscNotPg(Ddr5HscRail),
     FanHscNotPg(FanHsc),
     VrControllerAlert(u8),
     Unknown,
@@ -333,6 +334,10 @@ pub(crate) fn run(seq: &Sequencer) {
                         WhyMapo::FanHscNotPg(FanHsc::Central)
                     } else if !early_power_rdbks.fan_hsc_west_pg {
                         WhyMapo::FanHscNotPg(FanHsc::West)
+                    } else if !rail_pgs.abcdef_hsc {
+                        WhyMapo::Ddr5HscNotPg(Ddr5HscRail::DDR5_ABCDEF)
+                    } else if !rail_pgs.ghijkl_hsc {
+                        WhyMapo::Ddr5HscNotPg(Ddr5HscRail::DDR5_GHIJKL)
                     } else if ifr.pwr_cont1_to_fpga1_alert {
                         WhyMapo::VrControllerAlert(1)
                     } else if ifr.pwr_cont2_to_fpga1_alert {
