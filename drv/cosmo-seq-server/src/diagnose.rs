@@ -21,9 +21,13 @@ enum Trace {
         a0_sm: seq_api_status::A0Sm,
         hw_sm: seq_raw_status::HwSm,
     },
-    Diagnosis(#[count(children)] Diagnosis),
+    Diagnosis {
+        now_ms: u64,
+        #[count(children)]
+        details: Diagnosis,
+    },
 }
-counted_ringbuf!(Trace, 16, Trace::None);
+counted_ringbuf!(Trace, 8, Trace::None);
 
 /// Loggable enum explaining a power sequencing failure
 #[derive(Copy, Clone, PartialEq, counters::Count)]
@@ -203,11 +207,6 @@ pub(crate) enum GroupCRail {
     VDDCR_SOC,
 }
 
-enum DiagnosisResult {
-    Success,
-    ComeBackLater,
-}
-
 fn get_rail_issue<T: Copy>(
     rails: &[(RailStatus, T)],
 ) -> Option<(RailIssue, T)> {
@@ -226,7 +225,9 @@ fn get_rail_issue<T: Copy>(
 }
 
 /// Diagnoses a problem with the sequencer failing to get to A0
-pub(crate) fn diagnose(seq: &Sequencer) -> DiagnosisResult {
+///
+/// The result is logged in a ringbuf
+pub(crate) fn run(seq: &Sequencer) {
     let seq_raw_status = SeqRawStatusView::from(&seq.seq_raw_status);
     let seq_api_status = SeqApiStatusView::from(&seq.seq_api_status);
     let power_ctrl = PowerCtrlView::from(&seq.power_ctrl);
@@ -245,14 +246,14 @@ pub(crate) fn diagnose(seq: &Sequencer) -> DiagnosisResult {
         Ok(a) => a,
         Err(v) => {
             ringbuf_entry!(Trace::UnknownA0SmState(v));
-            return DiagnosisResult::ComeBackLater;
+            return;
         }
     };
     let hw_sm = match seq_raw_status.hw_sm {
         Ok(a) => a,
         Err(v) => {
             ringbuf_entry!(Trace::UnknownHwSmState(v));
-            return DiagnosisResult::ComeBackLater;
+            return;
         }
     };
 
@@ -284,7 +285,7 @@ pub(crate) fn diagnose(seq: &Sequencer) -> DiagnosisResult {
 
     use seq_api_status::A0Sm;
     use seq_raw_status::HwSm;
-    let d = match hw_sm {
+    let details = match hw_sm {
         HwSm::Idle => {
             // Ironically, this is the most complicated one!
             match a0_sm {
@@ -309,13 +310,11 @@ pub(crate) fn diagnose(seq: &Sequencer) -> DiagnosisResult {
                         (v1p8_sp5, V1P8_SP5_A1),
                     ]);
                     let (v1p1_sp5,) = rail_status!(rail_state, (v1p1_sp5));
-                    let rb =
-                        get_rail_issue(&[(v1p1_sp5, GroupBRail::V1P1_SP5)]);
+                    let rb = get_rail_issue(&[(v1p1_sp5, V1P1_SP5)]);
                     let (sp5, cpu0, cpu1, soc) = rail_status!(
                         rail_state,
                         (vddio_sp5, vddcr_cpu0, vddcr_cpu1, vddcr_soc)
                     );
-                    use GroupCRail::*;
                     let rc = get_rail_issue(&[
                         (sp5, VDDIO_SP5_A0),
                         (cpu0, VDDCR_CPU0),
@@ -372,9 +371,9 @@ pub(crate) fn diagnose(seq: &Sequencer) -> DiagnosisResult {
                         status,
                     }
                 }
-                s => {
+                _ => {
                     ringbuf_entry!(Trace::BadStateCombination { hw_sm, a0_sm });
-                    return DiagnosisResult::ComeBackLater;
+                    return;
                 }
             }
         }
@@ -517,7 +516,7 @@ pub(crate) fn diagnose(seq: &Sequencer) -> DiagnosisResult {
         }
         HwSm::Done => {
             ringbuf_entry!(Trace::SequencerIsDone);
-            return DiagnosisResult::Success;
+            return;
         }
         HwSm::SafeDisable => Diagnosis::SoftwareDisable {
             a0_sm,
@@ -532,9 +531,9 @@ pub(crate) fn diagnose(seq: &Sequencer) -> DiagnosisResult {
         | HwSm::GroupCEn
         | HwSm::AssertPwrgood => {
             ringbuf_entry!(Trace::IntermediateHwSmState(hw_sm));
-            return DiagnosisResult::ComeBackLater;
+            return;
         }
     };
-    ringbuf_entry!(Trace::Diagnosis(d));
-    DiagnosisResult::Success
+    let now_ms = userlib::sys_get_timer().now;
+    ringbuf_entry!(Trace::Diagnosis { now_ms, details });
 }

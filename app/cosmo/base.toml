@@ -179,8 +179,8 @@ task-slots = ["sys", "hf", "i2c_driver", "hash_driver", "update_server", "sprot"
 name = "drv-cosmo-seq-server"
 features = ["h753"]
 priority = 7
-max-sizes = {flash = 131072, ram = 16384 }
-stacksize = 2600
+max-sizes = {flash = 131072, ram = 32768 }
+stacksize = 3200
 start = true
 task-slots = ["sys", "i2c_driver", {spi_front = "spi3_driver"}, "jefe", "packrat", "auxflash", "spartan7_loader", "hf"]
 uses = ["mmio_sequencer", "mmio_info", "mmio_espi", "mmio_debug_ctrl"]

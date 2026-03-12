@@ -572,6 +572,9 @@ impl ServerImpl {
                 }
 
                 if !okay {
+                    // Log a fault diagnosis in the ringbuf
+                    diagnose::run(&self.seq);
+
                     // We'll return to A2, leaving jefe and our local state
                     // unchanged (since they're set after this block).
                     self.log_state_registers();
@@ -1235,6 +1238,7 @@ impl NotificationHandler for ServerImpl {
                     seq_state: state.seq,
                 });
                 self.log_pg_registers();
+                let _ = diagnose::run(&self.seq);
 
                 self.emergency_a2(StateChangeReason::Unknown);
             }
