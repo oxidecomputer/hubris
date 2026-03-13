@@ -8,7 +8,7 @@
 //! [Quartz](https://github.com/oxidecomputer/quartz/blob/ndh/a0-fault-tree/hdl/projects/cosmo_seq/sequencer/docs/a0_sequencing_fault_tree.md)
 
 use crate::fmc_sequencer::*;
-use ringbuf::{counted_ringbuf, ringbuf_entry};
+use ringbuf::{counted_ringbuf, ringbuf, ringbuf_entry};
 
 #[derive(Copy, Clone, PartialEq, counters::Count)]
 enum Trace {
@@ -27,7 +27,14 @@ enum Trace {
         details: Diagnosis,
     },
 }
+
+#[derive(Copy, Clone, PartialEq)]
+enum RawRegisterTrace {
+    None,
+    Registers { now_ms: u64, values: RegisterDump },
+}
 counted_ringbuf!(Trace, 8, Trace::None);
+ringbuf!(RAW, RawRegisterTrace, 8, RawRegisterTrace::None);
 
 /// Loggable enum explaining a power sequencing failure
 #[derive(Copy, Clone, PartialEq, counters::Count)]
@@ -36,43 +43,27 @@ pub(crate) enum Diagnosis {
         #[count(children)]
         why: WhyStuckInIdle,
         a0_en: bool,
-        power_ctrl: PowerCtrlView,
-        early_power_rdbks: EarlyPowerRdbksView,
-        status: StatusView,
     },
     WaitingForGroupA {
         #[count(children)]
         why: WhyWaitingForGroupA,
-        v1p5_rtc: RailStatus,
-        v3p3_sp5: RailStatus,
-        v1p8_sp5: RailStatus,
     },
     WaitingForSlpCheckpoint {
         #[count(children)]
         why: WhyWaitingForSlpCheckpoint,
-        ddr5_abcdef: RailStatus,
-        ddr5_ghijkl: RailStatus,
-        sp5_readbacks: Sp5ReadbacksView,
     },
     WaitingForGroupB {
         #[count(children)]
         why: WhyWaitingForGroupB,
-        v1p1_sp5: RailStatus,
     },
     WaitingForGroupC {
         #[count(children)]
         why: WhyWaitingForGroupC,
-        vddio_sp5: RailStatus,
-        vddcr_cpu0: RailStatus,
-        vddcr_cpu1: RailStatus,
-        vddcr_soc: RailStatus,
-        ifr: IfrView,
     },
     WaitingForPowerOk {
         #[count(children)]
         why: WhyWaitingForPowerOk,
         if_you_are_testing_without_sp5_this_must_be_true: bool,
-        rail_pgs: RailPgsView,
     },
     WaitingForResetLRelease {
         #[count(children)]
@@ -82,11 +73,6 @@ pub(crate) enum Diagnosis {
     Mapo {
         #[count(children)]
         why: WhyMapo,
-        ifr: IfrView,
-        rail_pgs: RailPgsView,
-        rail_pgs_max_hold: RailPgsMaxHoldView,
-        rail_enables: RailEnablesView,
-        early_power_rdbks: EarlyPowerRdbksView,
     },
     SoftwareDisable {
         a0_sm: seq_api_status::A0Sm,
@@ -95,10 +81,26 @@ pub(crate) enum Diagnosis {
     },
 }
 
+#[derive(Copy, Clone, PartialEq)]
+pub(crate) struct RegisterDump {
+    seq_api_status: SeqApiStatusView,
+    seq_raw_status: SeqRawStatusView,
+    early_power_rdbks: EarlyPowerRdbksView,
+    ifr: IfrView,
+    debug_enables: DebugEnablesView,
+    power_ctrl: PowerCtrlView,
+    rail_enables: RailEnablesView,
+    rail_pgs: RailPgsView,
+    rail_pgs_max_hold: RailPgsMaxHoldView,
+    sp5_readbacks: Sp5ReadbacksView,
+    status: StatusView,
+}
+
 #[derive(Copy, Clone, PartialEq, counters::Count)]
 pub(crate) enum WhyStuckInIdle {
     FanHscNotPg(FanHsc),
     FanPowerNotOk,
+    A0EnNotSet,
     Unknown,
 }
 
@@ -149,7 +151,7 @@ pub(crate) enum WhyWaitingForGroupC {
 pub(crate) enum WhyWaitingForPowerOk {
     Sp5NotAssertingPowerOk,
     FpgaNotDrivingPowerGood,
-    RailIssue(#[count(children)] RailIssue),
+    RailIssue(#[count(children)] RailIssue, Rail),
     Unknown,
 }
 
@@ -208,6 +210,13 @@ pub(crate) enum GroupCRail {
     VDDCR_SOC,
 }
 
+#[derive(Copy, Clone, PartialEq, counters::Count)]
+pub(crate) enum Rail {
+    GroupA(#[count(children)] GroupARail),
+    GroupB(#[count(children)] GroupBRail),
+    GroupC(#[count(children)] GroupCRail),
+}
+
 fn get_rail_issue<T: Copy>(
     rails: &[(RailStatus, T)],
 ) -> Option<(RailIssue, T)> {
@@ -240,6 +249,28 @@ pub(crate) fn run(seq: &Sequencer) {
     let sp5_readbacks = Sp5ReadbacksView::from(&seq.sp5_readbacks);
     let debug_enables = DebugEnablesView::from(&seq.debug_enables);
     let ifr = IfrView::from(&seq.ifr);
+
+    let now_ms = userlib::sys_get_timer().now;
+
+    ringbuf_entry!(
+        RAW,
+        RawRegisterTrace::Registers {
+            now_ms,
+            values: RegisterDump {
+                seq_raw_status,
+                seq_api_status,
+                power_ctrl,
+                early_power_rdbks,
+                status,
+                rail_enables,
+                rail_pgs,
+                rail_pgs_max_hold,
+                sp5_readbacks,
+                debug_enables,
+                ifr,
+            }
+        }
+    );
 
     // Get the a0_sm and hw_sm fields as nicely typed enums.  If they are an
     // invalid value, then we can't proceed any further with diagnosis.
@@ -347,14 +378,7 @@ pub(crate) fn run(seq: &Sequencer) {
                     } else {
                         WhyMapo::Unknown
                     };
-                    Diagnosis::Mapo {
-                        why,
-                        ifr,
-                        rail_pgs,
-                        rail_pgs_max_hold,
-                        rail_enables,
-                        early_power_rdbks,
-                    }
+                    Diagnosis::Mapo { why }
                 }
                 A0Sm::Idle => {
                     let why = if !early_power_rdbks.fan_hsc_east_pg {
@@ -365,15 +389,14 @@ pub(crate) fn run(seq: &Sequencer) {
                         WhyStuckInIdle::FanHscNotPg(FanHsc::West)
                     } else if !status.fanpwrok {
                         WhyStuckInIdle::FanPowerNotOk
+                    } else if !power_ctrl.a0_en {
+                        WhyStuckInIdle::A0EnNotSet
                     } else {
                         WhyStuckInIdle::Unknown
                     };
                     Diagnosis::StuckInIdle {
                         why,
                         a0_en: power_ctrl.a0_en,
-                        power_ctrl,
-                        early_power_rdbks,
-                        status,
                     }
                 }
                 _ => {
@@ -395,9 +418,6 @@ pub(crate) fn run(seq: &Sequencer) {
                 why: ri
                     .map(|(i, r)| WhyWaitingForGroupA::RailIssue(i, r))
                     .unwrap_or(WhyWaitingForGroupA::Unknown),
-                v1p5_rtc,
-                v3p3_sp5,
-                v1p8_sp5,
             }
         }
         HwSm::SlpCheckpoint => {
@@ -420,19 +440,14 @@ pub(crate) fn run(seq: &Sequencer) {
                 .map(|(i, r)| WhyWaitingForSlpCheckpoint::RailIssue(i, r))
                 .unwrap_or(WhyWaitingForSlpCheckpoint::Unknown)
             };
-            Diagnosis::WaitingForSlpCheckpoint {
-                why,
-                sp5_readbacks,
-                ddr5_abcdef,
-                ddr5_ghijkl,
-            }
+            Diagnosis::WaitingForSlpCheckpoint { why }
         }
         HwSm::GroupBPgAndWait => {
             let (v1p1_sp5,) = rail_status!(rail_state, (v1p1_sp5));
             let why = get_rail_issue(&[(v1p1_sp5, GroupBRail::V1P1_SP5)])
                 .map(|(i, r)| WhyWaitingForGroupB::RailIssue(i, r))
                 .unwrap_or(WhyWaitingForGroupB::Unknown);
-            Diagnosis::WaitingForGroupB { why, v1p1_sp5 }
+            Diagnosis::WaitingForGroupB { why }
         }
         HwSm::GroupCPgAndWait => {
             let (vddio_sp5, vddcr_cpu0, vddcr_cpu1, vddcr_soc) = rail_status!(
@@ -454,16 +469,12 @@ pub(crate) fn run(seq: &Sequencer) {
                 .map(|(i, r)| WhyWaitingForGroupC::RailIssue(i, r))
                 .unwrap_or(WhyWaitingForGroupC::Unknown)
             };
-            Diagnosis::WaitingForGroupC {
-                why,
-                ifr,
-                vddio_sp5,
-                vddcr_cpu0,
-                vddcr_cpu1,
-                vddcr_soc,
-            }
+            Diagnosis::WaitingForGroupC { why }
         }
         HwSm::WaitPwrok => {
+            use GroupARail::*;
+            use GroupBRail::*;
+            use GroupCRail::*;
             let (
                 v1p5_rtc,
                 v3p3_sp5,
@@ -484,23 +495,22 @@ pub(crate) fn run(seq: &Sequencer) {
                 WhyWaitingForPowerOk::Sp5NotAssertingPowerOk
             } else if !sp5_readbacks.pwr_good {
                 WhyWaitingForPowerOk::FpgaNotDrivingPowerGood
-            } else if let Some((issue, ())) = get_rail_issue(&[
-                (v1p5_rtc, ()),
-                (v3p3_sp5, ()),
-                (v1p8_sp5, ()),
-                (v1p1_sp5, ()),
-                (vddio_sp5, ()),
-                (vddcr_cpu0, ()),
-                (vddcr_cpu1, ()),
-                (vddcr_soc, ()),
+            } else if let Some((issue, rail)) = get_rail_issue(&[
+                (v1p5_rtc, Rail::GroupA(V1P5_RTC)),
+                (v3p3_sp5, Rail::GroupA(V3P3_SP5_A1)),
+                (v1p8_sp5, Rail::GroupA(V1P8_SP5_A1)),
+                (v1p1_sp5, Rail::GroupB(V1P1_SP5)),
+                (vddio_sp5, Rail::GroupC(VDDIO_SP5_A0)),
+                (vddcr_cpu0, Rail::GroupC(VDDCR_CPU0)),
+                (vddcr_cpu1, Rail::GroupC(VDDCR_CPU1)),
+                (vddcr_soc, Rail::GroupC(VDDCR_SOC)),
             ]) {
-                WhyWaitingForPowerOk::RailIssue(issue)
+                WhyWaitingForPowerOk::RailIssue(issue, rail)
             } else {
                 WhyWaitingForPowerOk::Unknown
             };
             Diagnosis::WaitingForPowerOk {
                 why,
-                rail_pgs,
                 if_you_are_testing_without_sp5_this_must_be_true: debug_enables
                     .ignore_sp5,
             }
@@ -539,6 +549,5 @@ pub(crate) fn run(seq: &Sequencer) {
             return;
         }
     };
-    let now_ms = userlib::sys_get_timer().now;
     ringbuf_entry!(Trace::Diagnosis { now_ms, details });
 }

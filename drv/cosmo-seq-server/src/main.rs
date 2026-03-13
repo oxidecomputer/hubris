@@ -907,6 +907,7 @@ impl ServerImpl {
             // call back into this task to reboot the system (going to
             // A2 then back into A0)
             ringbuf_entry!(Trace::ResetCounts { rstn, pwrokn });
+            diagnose::run(&self.seq);
 
             // Clear the IFR bits to ack the IRQ.
             self.seq.ifr.modify(|h| {
@@ -917,6 +918,7 @@ impl ServerImpl {
         }
 
         if ifr.nicmapo {
+            diagnose::run(&self.seq);
             self.seq.ifr.modify(|h| h.set_nicmapo(true));
             ringbuf_entry!(Trace::NicMapoInterrupt);
             action = InternalAction::NicMapo;
@@ -924,6 +926,7 @@ impl ServerImpl {
         }
 
         if ifr.thermtrip {
+            diagnose::run(&self.seq);
             self.seq.ifr.modify(|h| h.set_thermtrip(true));
             ringbuf_entry!(Trace::Thermtrip);
             action = InternalAction::ThermTrip;
@@ -934,6 +937,7 @@ impl ServerImpl {
         }
 
         if ifr.a0mapo {
+            diagnose::run(&self.seq);
             self.log_pg_registers();
             self.seq.ifr.modify(|h| h.set_a0mapo(true));
             ringbuf_entry!(Trace::A0MapoInterrupt);
@@ -942,6 +946,7 @@ impl ServerImpl {
         }
 
         if ifr.smerr_assert {
+            diagnose::run(&self.seq);
             self.seq.ifr.modify(|h| h.set_smerr_assert(true));
             ringbuf_entry!(Trace::SmerrInterrupt);
             action = InternalAction::Smerr;
@@ -1238,7 +1243,7 @@ impl NotificationHandler for ServerImpl {
                     seq_state: state.seq,
                 });
                 self.log_pg_registers();
-                let _ = diagnose::run(&self.seq);
+                diagnose::run(&self.seq);
 
                 self.emergency_a2(StateChangeReason::Unknown);
             }
