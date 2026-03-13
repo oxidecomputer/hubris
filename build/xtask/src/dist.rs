@@ -41,11 +41,16 @@ pub const DEFAULT_KERNEL_STACK: u32 = 1024;
 /// without breaking CI.
 ///
 /// # Changelog
-/// Version 10 requires Humility to be aware of the `handoff` kernel feature,
-/// which lets the RoT inform the SP when measurements have been taken.  If
-/// Humility is unaware of this feature, the SP will reset itself repeatedly,
-/// which interferes with subsequent programming of auxiliary flash.
-const HUBRIS_ARCHIVE_VERSION: u32 = 10;
+/// ## Version 11
+/// Adds a `pwm` sensor, which requires Humility to either accept that sensor
+/// kind or accept unrecognized sensors without bailing.
+///
+/// ## Version 10
+/// Requires Humility to be aware of the `handoff` kernel feature, which lets
+/// the RoT inform the SP when measurements have been taken.  If Humility is
+/// unaware of this feature, the SP will reset itself repeatedly, which
+/// interferes with subsequent programming of auxiliary flash.
+const HUBRIS_ARCHIVE_VERSION: u32 = 11;
 
 /// `PackageConfig` contains a bundle of data that's commonly used when
 /// building a full app image, grouped together to avoid passing a bunch

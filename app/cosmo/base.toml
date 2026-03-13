@@ -1352,6 +1352,12 @@ device = "dimm"
 description = "DIMM L, sensor 1"
 sensors.temperature = 1
 
+[[config.sensor.devices]]
+name = "fan_ctrl"
+device = "thermal_loop"
+description = "Thermal loop"
+sensors.pwm = 1
+
 ################################################################################
 [config.spi.spi2]
 controller = 2

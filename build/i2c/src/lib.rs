@@ -452,6 +452,7 @@ pub enum Sensor {
     InputCurrent,
     InputVoltage,
     Speed,
+    Pwm,
 }
 
 impl std::fmt::Display for Sensor {
@@ -467,6 +468,7 @@ impl std::fmt::Display for Sensor {
                 Sensor::InputCurrent => "INPUT_CURRENT",
                 Sensor::InputVoltage => "INPUT_VOLTAGE",
                 Sensor::Speed => "SPEED",
+                Sensor::Pwm => "PWM",
             }
         )
     }
@@ -1547,6 +1549,7 @@ impl ConfigGenerator {
                 Sensor::InputCurrent => "input_current",
                 Sensor::InputVoltage => "input_voltage",
                 Sensor::Speed => "speed",
+                Sensor::Pwm => "pwm",
             };
             if values.len() == 1 {
                 writeln!(
