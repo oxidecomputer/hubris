@@ -113,9 +113,9 @@ pub(crate) struct RailStatus {
 
 #[derive(Copy, Clone, PartialEq, counters::Count)]
 pub(crate) enum RailIssue {
-    RailNotEnabled,
-    RailNotPowerGood,
-    RailPowerGoodIntermittent,
+    NotEnabled,
+    NotPowerGood,
+    PowerGoodIntermittent,
 }
 
 #[derive(Copy, Clone, PartialEq, counters::Count)]
@@ -221,14 +221,14 @@ fn get_rail_issue<T: Copy>(
     rails: &[(RailStatus, T)],
 ) -> Option<(RailIssue, T)> {
     if let Some((_r, t)) = rails.iter().find(|(r, _)| !r.enabled) {
-        Some((RailIssue::RailNotEnabled, *t))
+        Some((RailIssue::NotEnabled, *t))
     } else if let Some((_r, t)) = rails
         .iter()
         .find(|(r, _)| !r.power_good && r.power_good_max_hold)
     {
-        Some((RailIssue::RailPowerGoodIntermittent, *t))
+        Some((RailIssue::PowerGoodIntermittent, *t))
     } else if let Some((_r, t)) = rails.iter().find(|(r, _)| !r.power_good) {
-        Some((RailIssue::RailNotPowerGood, *t))
+        Some((RailIssue::NotPowerGood, *t))
     } else {
         None
     }
