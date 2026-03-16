@@ -24,6 +24,7 @@ enum Trace {
     },
     Diagnosis {
         now_ms: u64,
+        reason: DiagnoseReason,
         #[count(children)]
         details: Diagnosis,
     },
@@ -32,7 +33,11 @@ enum Trace {
 #[derive(Copy, Clone, PartialEq)]
 enum RawRegisterTrace {
     None,
-    Registers { now_ms: u64, values: RegisterDump },
+    Registers {
+        now_ms: u64,
+        reason: DiagnoseReason,
+        values: RegisterDump,
+    },
 }
 counted_ringbuf!(Trace, 8, Trace::None);
 ringbuf!(RAW, RawRegisterTrace, 8, RawRegisterTrace::None);
@@ -235,10 +240,18 @@ fn get_rail_issue<T: Copy>(
     }
 }
 
+/// Reason why the top-level sequencer code called for a diagnosis
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub(crate) enum DiagnoseReason {
+    FailedToSequence,
+    MapoDetected,
+    UnexpectedPowerOff,
+}
+
 /// Diagnoses a problem with the sequencer failing to get to A0
 ///
 /// The result is logged in a ringbuf
-pub(crate) fn run(seq: &Sequencer) {
+pub(crate) fn run(seq: &Sequencer, reason: DiagnoseReason, now_ms: u64) {
     let seq_raw_status = SeqRawStatusView::from(&seq.seq_raw_status);
     let seq_api_status = SeqApiStatusView::from(&seq.seq_api_status);
     let power_ctrl = PowerCtrlView::from(&seq.power_ctrl);
@@ -251,12 +264,11 @@ pub(crate) fn run(seq: &Sequencer) {
     let debug_enables = DebugEnablesView::from(&seq.debug_enables);
     let ifr = IfrView::from(&seq.ifr);
 
-    let now_ms = userlib::sys_get_timer().now;
-
     ringbuf_entry!(
         RAW,
         RawRegisterTrace::Registers {
             now_ms,
+            reason,
             values: RegisterDump {
                 seq_raw_status,
                 seq_api_status,
@@ -550,5 +562,9 @@ pub(crate) fn run(seq: &Sequencer) {
             return;
         }
     };
-    ringbuf_entry!(Trace::Diagnosis { now_ms, details });
+    ringbuf_entry!(Trace::Diagnosis {
+        now_ms,
+        reason,
+        details
+    });
 }
