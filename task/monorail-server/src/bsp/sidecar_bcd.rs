@@ -154,8 +154,8 @@ mod map {
         QSGMII_100M, // 41 | DEV1G_17  | SERDES6G_14 | PSC1
         QSGMII_100M, // 42 | DEV1G_18  | SERDES6G_14 | Peer SP
         QSGMII_100M, // 43 | Unused
-        QSGMII_1G,   // 44 | DEV1G_20  | SERDES6G_15 | Technician 1
-        QSGMII_1G,   // 45 | DEV1G_21  | SERDES6G_15 | Technician 2
+        QSGMII_1G,   // 44 | DEV1G_20  | SERDES6G_15 | Technician 0
+        QSGMII_1G,   // 45 | DEV1G_21  | SERDES6G_15 | Technician 1
         None,        // 46 | Unused (configured in QSGMII mode by port 44)
         None,        // 47 | Unused (configured in QSGMII mode by port 44)
         SGMII,       // 48 | DEV2G5_24 | SERDES1G_0  | Local SP
