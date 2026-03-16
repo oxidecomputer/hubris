@@ -1495,7 +1495,7 @@ impl<'a> ThermalControl<'a> {
             ControlResult::Pwm(target_pwm) => {
                 // Send the new RPM to all of our fans
                 ringbuf_entry!(Trace::ControlPwm(target_pwm.0));
-                self.set_pwm(target_pwm)?;
+                self.set_pwm(Ok(target_pwm), now_ms)?;
             }
             ControlResult::PowerDown => {
                 ringbuf_entry!(Trace::PowerDownAt(sys_get_timer().now));
@@ -1504,7 +1504,7 @@ impl<'a> ThermalControl<'a> {
                 if let Err(e) = self.bsp.power_down() {
                     ringbuf_entry!(Trace::PowerDownFailed(e));
                 }
-                self.set_pwm(PWMDuty(0))?;
+                self.set_pwm(Err(task_sensor_api::NoData::DeviceOff), now_ms)?;
             }
         }
 
@@ -1674,10 +1674,37 @@ impl<'a> ThermalControl<'a> {
     /// set to zero. Returns the last error if one occurred, but does not short
     /// circuit (i.e. attempts to set *all* present fan duty cycles, even if one
     /// fails)
-    pub fn set_pwm(&mut self, pwm: PWMDuty) -> Result<(), ThermalError> {
-        if pwm.0 > 100 {
-            return Err(ThermalError::InvalidPWM);
-        }
+    ///
+    /// The PWM value (or error code) is sent to the `sensors` task for logging,
+    /// timestamped with the `now_ms` argument.
+    pub fn set_pwm(
+        &mut self,
+        pwm: Result<PWMDuty, task_sensor_api::NoData>,
+        now_ms: u64,
+    ) -> Result<(), ThermalError> {
+        // We'll post the PWM value to the sensors task for logging
+        use task_sensor_api::config::other_sensors;
+        pub const OUTPUT_PWM_SENSOR: SensorId =
+            other_sensors::THERMAL_LOOP_FAN_CTRL_PWM_SENSOR;
+        let pwm = match pwm {
+            Ok(pwm) => {
+                if pwm.0 > 100 {
+                    self.sensor_api.nodata(
+                        OUTPUT_PWM_SENSOR,
+                        task_sensor_api::NoData::DeviceError,
+                        now_ms,
+                    );
+                    return Err(ThermalError::InvalidPWM);
+                }
+                self.sensor_api
+                    .post(OUTPUT_PWM_SENSOR, pwm.0 as f32, now_ms);
+                pwm
+            }
+            Err(e) => {
+                self.sensor_api.nodata(OUTPUT_PWM_SENSOR, e, now_ms);
+                PWMDuty(0)
+            }
+        };
         self.last_pwm = pwm;
         let mut last_err = Ok(());
         for (index, sensor_id) in self.fans.enumerate() {
@@ -1705,7 +1732,7 @@ impl<'a> ThermalControl<'a> {
     /// This is used by ThermalMode::Manual to accomodate the removal and
     /// replacement of fan modules.
     pub fn maintain_pwm(&mut self) -> Result<(), ThermalError> {
-        self.set_pwm(self.last_pwm)
+        self.set_pwm(Ok(self.last_pwm), sys_get_timer().now)
     }
 
     pub fn set_watchdog(

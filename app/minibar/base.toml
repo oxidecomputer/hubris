@@ -289,6 +289,12 @@ power = { rails = [ "V1P0_SYS" ] }
 sensors = { temperature = 1, voltage = 1, current = 1 }
 refdes = "U7"
 
+[[config.sensor.devices]]
+name = "fan_ctrl"
+device = "thermal_loop"
+description = "Thermal loop"
+sensors.pwm = 1
+
 [config.spi.spi2]
 controller = 2
 
