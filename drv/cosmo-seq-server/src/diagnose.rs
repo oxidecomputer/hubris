@@ -12,6 +12,7 @@ use ringbuf::{counted_ringbuf, ringbuf, ringbuf_entry};
 
 #[derive(Copy, Clone, PartialEq, counters::Count)]
 enum Trace {
+    #[count(skip)]
     None,
     UnknownHwSmState(u8),
     UnknownA0SmState(u8),
