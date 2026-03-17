@@ -576,7 +576,7 @@ impl ServerImpl {
 
                 if !okay {
                     // Log a fault diagnosis in the ringbuf
-                    diagnose::run(
+                    diagnose::a0_fault(
                         &self.seq,
                         diagnose::DiagnoseReason::FailedToSequence,
                         sys_get_timer().now,
@@ -942,8 +942,7 @@ impl ServerImpl {
         }
 
         if ifr.a0mapo {
-            let now = sys_get_timer().now;
-            diagnose::run(
+            diagnose::a0_fault(
                 &self.seq,
                 diagnose::DiagnoseReason::MapoDetected,
                 now,
@@ -1254,7 +1253,7 @@ impl NotificationHandler for ServerImpl {
                     now,
                 });
                 self.log_pg_registers();
-                diagnose::run(
+                diagnose::a0_fault(
                     &self.seq,
                     diagnose::DiagnoseReason::UnexpectedPowerOff,
                     now,

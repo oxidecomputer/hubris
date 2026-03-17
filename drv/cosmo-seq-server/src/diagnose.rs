@@ -23,7 +23,7 @@ enum Trace {
         hw_sm: seq_raw_status::HwSm,
     },
     Diagnosis {
-        now_ms: u64,
+        now: u64,
         reason: DiagnoseReason,
         #[count(children)]
         details: Diagnosis,
@@ -34,7 +34,7 @@ enum Trace {
 enum RawRegisterTrace {
     None,
     Registers {
-        now_ms: u64,
+        now: u64,
         reason: DiagnoseReason,
         values: RegisterDump,
     },
@@ -251,7 +251,7 @@ pub(crate) enum DiagnoseReason {
 /// Diagnoses a problem with the sequencer failing to get to A0
 ///
 /// The result is logged in a ringbuf
-pub(crate) fn run(seq: &Sequencer, reason: DiagnoseReason, now_ms: u64) {
+pub(crate) fn a0_fault(seq: &Sequencer, reason: DiagnoseReason, now: u64) {
     let seq_raw_status = SeqRawStatusView::from(&seq.seq_raw_status);
     let seq_api_status = SeqApiStatusView::from(&seq.seq_api_status);
     let power_ctrl = PowerCtrlView::from(&seq.power_ctrl);
@@ -267,7 +267,7 @@ pub(crate) fn run(seq: &Sequencer, reason: DiagnoseReason, now_ms: u64) {
     ringbuf_entry!(
         RAW,
         RawRegisterTrace::Registers {
-            now_ms,
+            now,
             reason,
             values: RegisterDump {
                 seq_raw_status,
@@ -563,7 +563,7 @@ pub(crate) fn run(seq: &Sequencer, reason: DiagnoseReason, now_ms: u64) {
         }
     };
     ringbuf_entry!(Trace::Diagnosis {
-        now_ms,
+        now,
         reason,
         details
     });
