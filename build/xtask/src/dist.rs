@@ -77,6 +77,9 @@ pub struct PackageConfig {
     /// `target/$NAME/dist`.
     dist_dir: PathBuf,
 
+    /// Directory where the build takes place
+    work_dir: PathBuf,
+
     /// Sysroot of the relevant toolchain
     sysroot: PathBuf,
 
@@ -100,7 +103,9 @@ impl PackageConfig {
         edges: bool,
     ) -> Result<Self> {
         let toml = Config::from_file(app_toml_file)?;
-        let dist_dir = Path::new("target").join(&toml.name).join("dist");
+        let root_dir = Path::new("target").join(&toml.name);
+        let dist_dir = root_dir.join("dist");
+        let work_dir = Path::new("target").to_owned();
         let app_src_dir = app_toml_file
             .parent()
             .ok_or_else(|| anyhow!("Could not get app toml directory"))?;
@@ -148,6 +153,7 @@ impl PackageConfig {
             verbose,
             edges,
             dist_dir,
+            work_dir,
             sysroot,
             host_triple,
             remap_paths,
@@ -165,6 +171,11 @@ impl PackageConfig {
 
     pub fn dist_file(&self, name: impl AsRef<Path>) -> PathBuf {
         self.dist_dir.join(name)
+    }
+
+    pub fn work_dir_for(&self, _task_name: &str) -> PathBuf {
+        // Right now, we build all tasks in the same directory
+        self.work_dir.clone()
     }
 
     fn remap_paths(sysroot: &Path) -> Result<BTreeMap<PathBuf, &'static str>> {
@@ -386,10 +397,11 @@ pub fn package(
         };
 
     std::fs::create_dir_all(&cfg.dist_dir)?;
+    std::fs::create_dir_all(&cfg.work_dir)?;
     if dirty_ok {
         println!("note: not doing a clean build because you asked for it");
     } else {
-        check_rebuild(&cfg.toml)?;
+        check_rebuild(&cfg)?;
     }
 
     // Build all tasks (which are relocatable executables, so they are not
@@ -410,7 +422,7 @@ pub fn package(
         .keys()
         .map(|name| {
             let size = if tasks_to_build.contains(name.as_str()) {
-                link_dummy_task(&cfg, name, &cfg.toml.image_names[0])?;
+                link_dummy_task(&cfg, name)?;
                 task_size(&cfg, name)
             } else {
                 // Dummy allocations
@@ -495,8 +507,8 @@ pub fn package(
             }
         }
 
-        // Build all relevant tasks, collecting entry points into a HashMap.  If
-        // we're doing a partial build, then assign a dummy entry point into
+        // Relink all relevant tasks, collecting entry points into a HashMap.
+        // If we're doing a partial build, then assign a dummy entry point into
         // the HashMap, because the kernel kconfig will still need it.
         let mut entry_points: HashMap<_, _> = cfg
             .toml
@@ -521,10 +533,10 @@ pub fn package(
         let mut possible_stack_overflow = vec![];
         for task_name in cfg.toml.tasks.keys() {
             if tasks_to_build.contains(task_name.as_str()) {
-                if task_can_overflow(&cfg.toml, task_name, verbose)? {
+                if task_can_overflow(&cfg, task_name, verbose)? {
                     possible_stack_overflow.push(task_name);
                 }
-                if task_contains_home(&cfg.toml, task_name)? {
+                if task_contains_home(&cfg, task_name)? {
                     if skip_path_check {
                         eprintln!(
                             "warning: task {task_name} contains your home \
@@ -1018,13 +1030,13 @@ fn check_task_names(toml: &Config, task_names: &[String]) -> Result<()> {
 }
 
 /// Checks the buildstamp file and runs `cargo clean` if invalid
-fn check_rebuild(toml: &Config) -> Result<()> {
-    let buildstamp_file = Path::new("target").join("buildstamp");
+fn check_rebuild(cfg: &PackageConfig) -> Result<()> {
+    let buildstamp_file = cfg.work_dir.join("buildstamp");
     let rebuild = match std::fs::read(&buildstamp_file) {
         Ok(contents) => {
             if let Ok(contents) = std::str::from_utf8(&contents) {
                 if let Ok(cmp) = u64::from_str_radix(contents, 16) {
-                    toml.buildhash != cmp
+                    cfg.toml.buildhash != cmp
                 } else {
                     println!("buildstamp file contents unknown; re-building.");
                     true
@@ -1042,8 +1054,8 @@ fn check_rebuild(toml: &Config) -> Result<()> {
     // if we need to rebuild, we should clean everything before we start building
     if rebuild {
         println!("app.toml has changed; rebuilding all tasks");
-        let mut names = vec![toml.kernel.name.as_str()];
-        for name in toml.tasks.keys() {
+        let mut names = vec![cfg.toml.kernel.name.as_str()];
+        for name in cfg.toml.tasks.keys() {
             // This may feel redundant: don't we already have the name?
             // Well, consider our supervisor:
             //
@@ -1053,14 +1065,14 @@ fn check_rebuild(toml: &Config) -> Result<()> {
             // The "name" in the key is `jefe`, but the package (crate)
             // name is in `tasks.jefe.name`, and that's what we need to
             // give to `cargo`.
-            names.push(toml.tasks[name].name.as_str());
+            names.push(cfg.toml.tasks[name].name.as_str());
         }
-        cargo_clean(&names, &toml.target)?;
+        cargo_clean(&names, &cfg.toml.target)?;
     }
 
     // now that we're clean, update our buildstamp file; any failure to build
     // from here on need not trigger a clean
-    std::fs::write(&buildstamp_file, format!("{:x}", toml.buildhash))?;
+    std::fs::write(&buildstamp_file, format!("{:x}", cfg.toml.buildhash))?;
 
     Ok(())
 }
@@ -1073,15 +1085,20 @@ struct LoadSegment {
 
 /// Builds a specific task
 fn build_task(cfg: &PackageConfig, name: &str) -> Result<()> {
+    // Make sure the work directory exists!
+    let task_dir = cfg.work_dir_for(name);
+    std::fs::create_dir_all(&task_dir)?;
+
     // Use relocatable linker script for this build
-    fs::copy("build/task-rlink.x", "target/link.x")?;
+    let link_file = task_dir.join("link.x");
+    fs::copy("build/task-rlink.x", &link_file)?;
     // Append any task-specific sections.
     {
         let task_toml = &cfg.toml.tasks[name];
         let mut linkscr = std::fs::OpenOptions::new()
             .create(false)
             .append(true)
-            .open("target/link.x")?;
+            .open(&link_file)?;
         append_task_sections(&mut linkscr, Some(&task_toml.sections))?;
     }
 
@@ -1096,12 +1113,9 @@ fn build_task(cfg: &PackageConfig, name: &str) -> Result<()> {
 /// Returns `Ok(true)` if the given task contains the user's home directory
 ///
 /// This is useful for making sure builds are reproducible.
-fn task_contains_home(toml: &Config, task_name: &str) -> Result<bool> {
+fn task_contains_home(cfg: &PackageConfig, task_name: &str) -> Result<bool> {
     // Open the statically-linked ELF file
-    let f = Path::new("target")
-        .join(&toml.name)
-        .join("dist")
-        .join(format!("{task_name}.tmp"));
+    let f = cfg.dist_dir.join(format!("{task_name}.tmp"));
     let data = std::fs::read(f).context("could not open ELF file")?;
     let dirs = directories::BaseDirs::new()
         .ok_or_else(|| anyhow!("could not get base directories"))?;
@@ -1118,16 +1132,16 @@ fn task_contains_home(toml: &Config, task_name: &str) -> Result<bool> {
 /// dispatch or function pointers; false positives are technically possible but
 /// unlikely if there's a logically unreachable section of the call graph.
 fn task_can_overflow(
-    toml: &Config,
+    cfg: &PackageConfig,
     task_name: &str,
     verbose: bool,
 ) -> Result<bool> {
-    let max_stack = get_max_stack(toml, task_name, verbose)?;
+    let max_stack = get_max_stack(cfg, task_name, verbose)?;
     let max_depth: u64 = max_stack.iter().map(|(d, _)| *d).sum();
 
-    let task_stack_size = toml.tasks[task_name]
+    let task_stack_size = cfg.toml.tasks[task_name]
         .stacksize
-        .unwrap_or_else(|| toml.stacksize.unwrap());
+        .unwrap_or_else(|| cfg.toml.stacksize.unwrap());
     let can_overflow = max_depth >= task_stack_size as u64;
     if verbose || can_overflow {
         let extra = if can_overflow {
@@ -1158,15 +1172,12 @@ fn task_can_overflow(
 /// there are logically impossible call trees (e.g. `A -> B` and `B -> C`, but
 /// `B` never calls `C` if called by `A`).
 pub fn get_max_stack(
-    toml: &Config,
+    cfg: &PackageConfig,
     task_name: &str,
     verbose: bool,
 ) -> Result<Vec<(u64, String)>> {
     // Open the statically-linked ELF file
-    let f = Path::new("target")
-        .join(&toml.name)
-        .join("dist")
-        .join(format!("{task_name}.tmp"));
+    let f = cfg.dist_dir.join(format!("{task_name}.tmp"));
     let data = std::fs::read(f).context("could not open ELF file")?;
     let elf = goblin::elf::Elf::parse(&data)?;
 
@@ -1422,60 +1433,42 @@ fn link_task(
     allocs: &Allocations,
 ) -> Result<()> {
     println!("linking task '{name}'");
-    let task_toml = &cfg.toml.tasks[name];
-
-    let extern_regions = cfg.toml.extern_regions_for(name, image_name)?;
     generate_task_linker_script(
+        cfg,
         "memory.x",
         &allocs.tasks[name],
-        Some(&task_toml.sections),
-        task_toml.stacksize.or(cfg.toml.stacksize).ok_or_else(|| {
-            anyhow!("{}: no stack size specified and there is no default", name)
-        })?,
-        &cfg.toml.all_regions("flash".to_string())?,
-        &extern_regions,
+        name,
         image_name,
     )
     .context(format!("failed to generate linker script for {name}"))?;
-    fs::copy("build/task-link.x", "target/link.x")?;
+    fs::copy("build/task-link.x", cfg.work_dir_for(name).join("link.x"))?;
 
     // Link the static archive
-    link(cfg, format!("{name}.elf"), format!("{image_name}/{name}"))
+    link(cfg, name, format!("{image_name}/{name}"))
 }
 
 /// Link a specific task using a dummy linker script that gives it all possible
 /// memory; this is used to determine its true size.
-fn link_dummy_task(
-    cfg: &PackageConfig,
-    name: &str,
-    image_name: &str,
-) -> Result<()> {
-    let task_toml = &cfg.toml.tasks[name];
-
+fn link_dummy_task(cfg: &PackageConfig, name: &str) -> Result<()> {
     let memories = cfg
         .toml
         .memories(&cfg.toml.image_names[0])?
         .into_iter()
         .map(|(name, r)| (name, ContiguousRanges::new(r)))
         .collect();
-    let extern_regions = cfg.toml.extern_regions_for(name, image_name)?;
 
     generate_task_linker_script(
+        cfg,
         "memory.x",
         &memories, // ALL THE SPACE
-        Some(&task_toml.sections),
-        task_toml.stacksize.or(cfg.toml.stacksize).ok_or_else(|| {
-            anyhow!("{}: no stack size specified and there is no default", name)
-        })?,
-        &cfg.toml.all_regions("flash".to_string())?,
-        &extern_regions,
+        name,
         &cfg.toml.image_names[0],
     )
     .context(format!("failed to generate linker script for {name}"))?;
-    fs::copy("build/task-tlink.x", "target/link.x")?;
+    fs::copy("build/task-tlink.x", cfg.work_dir_for(name).join("link.x"))?;
 
     // Link the static archive
-    link(cfg, format!("{name}.elf"), format!("{name}.tmp"))
+    link(cfg, name, format!("{name}.tmp"))
 }
 
 fn task_size<'a>(
@@ -1484,7 +1477,7 @@ fn task_size<'a>(
 ) -> Result<IndexMap<&'a str, u64>> {
     let task = &cfg.toml.tasks[name];
     let stacksize = task.stacksize.or(cfg.toml.stacksize).unwrap();
-    load_task_size(&cfg.toml, name, stacksize)
+    load_task_size(cfg, name, stacksize)
 }
 
 /// Finds the entry point of the given task
@@ -1542,17 +1535,12 @@ fn build_kernel(
     kconfig.hash(&mut image_id);
     allocs.hash(&mut image_id);
 
-    let extern_regions = cfg.toml.kernel_extern_regions(image_name)?;
-    generate_kernel_linker_script(
-        "memory.x",
-        &allocs.kernel,
-        cfg.toml.kernel.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
-        &cfg.toml.all_regions("flash".to_string())?,
-        &extern_regions,
-        image_name,
-    )?;
+    generate_kernel_linker_script(cfg, "memory.x", &allocs.kernel, image_name)?;
 
-    fs::copy("build/kernel-link.x", "target/link.x")?;
+    fs::copy(
+        "build/kernel-link.x",
+        cfg.work_dir_for("kernel").join("link.x"),
+    )?;
 
     let image_id = image_id.finish();
 
@@ -1772,16 +1760,26 @@ fn check_task_priorities(toml: &Config) -> Result<()> {
 }
 
 fn generate_task_linker_script(
-    name: &str,
+    cfg: &PackageConfig,
+    script_name: &str,
     map: &BTreeMap<String, ContiguousRanges>,
-    sections: Option<&IndexMap<String, String>>,
-    stacksize: u32,
-    images: &IndexMap<String, Range<u32>>,
-    extern_regions: &IndexMap<String, Range<u32>>,
+    task_name: &str,
     image_name: &str,
 ) -> Result<()> {
+    let task_toml = &cfg.toml.tasks[task_name];
+
+    let stacksize =
+        task_toml.stacksize.or(cfg.toml.stacksize).ok_or_else(|| {
+            anyhow!(
+                "{task_name}: no stack size specified and there is no default"
+            )
+        })?;
+    let extern_regions = cfg.toml.extern_regions_for(task_name, image_name)?;
+    let images = cfg.toml.all_regions("flash".to_string())?;
+
     // Put the linker script somewhere the linker can find it
-    let mut linkscr = File::create(Path::new(&format!("target/{name}")))?;
+    let mut linkscr =
+        File::create(cfg.work_dir_for(task_name).join(script_name))?;
 
     fn emit(linkscr: &mut File, sec: &str, o: u32, l: u32) -> Result<()> {
         writeln!(
@@ -1817,9 +1815,9 @@ fn generate_task_linker_script(
         emit(&mut linkscr, &name, start, end - start)?;
     }
     writeln!(linkscr, "}}")?;
-    append_image_names(&mut linkscr, images, image_name)?;
-    append_extern_regions(&mut linkscr, extern_regions)?;
-    append_task_sections(&mut linkscr, sections)?;
+    append_image_names(&mut linkscr, &images, image_name)?;
+    append_extern_regions(&mut linkscr, &extern_regions)?;
+    append_task_sections(&mut linkscr, Some(&task_toml.sections))?;
 
     Ok(())
 }
@@ -1891,16 +1889,19 @@ fn append_task_sections(
 }
 
 fn generate_kernel_linker_script(
-    name: &str,
+    cfg: &PackageConfig,
+    script_name: &str,
     map: &BTreeMap<String, Range<u32>>,
-    stacksize: u32,
-    images: &IndexMap<String, Range<u32>>,
-    extern_regions: &IndexMap<String, Range<u32>>,
     image_name: &str,
 ) -> Result<()> {
     // Put the linker script somewhere the linker can find it
-    let mut linkscr =
-        File::create(Path::new(&format!("target/{name}"))).unwrap();
+    let kern_dir = cfg.work_dir_for("kernel");
+    std::fs::create_dir_all(&kern_dir)?;
+    let mut linkscr = File::create(kern_dir.join(script_name)).unwrap();
+
+    let stacksize = cfg.toml.kernel.stacksize.unwrap_or(DEFAULT_KERNEL_STACK);
+    let images = cfg.toml.all_regions("flash".to_string())?;
+    let extern_regions = cfg.toml.kernel_extern_regions(image_name)?;
 
     let mut stack_start = None;
     let mut stack_base = None;
@@ -1960,8 +1961,8 @@ fn generate_kernel_linker_script(
     )
     .unwrap();
 
-    append_image_names(&mut linkscr, images, image_name)?;
-    append_extern_regions(&mut linkscr, extern_regions)?;
+    append_image_names(&mut linkscr, &images, image_name)?;
+    append_extern_regions(&mut linkscr, &extern_regions)?;
     Ok(())
 }
 
@@ -1983,9 +1984,9 @@ fn build(
         cmd.arg("always");
     }
 
-    // This works because we control the environment in which we're about
-    // to invoke cargo, and never modify CARGO_TARGET in that environment.
-    let cargo_out = Path::new("target").to_path_buf();
+    // We control the target directory explicitly
+    let cargo_out = cfg.work_dir_for(name);
+    cmd.arg(format!("--target-dir={}", cargo_out.to_str().unwrap()));
 
     let remap_path_prefix =
         cfg.remap_paths.iter().fold(String::new(), |mut output, r| {
@@ -2095,8 +2096,8 @@ fn build(
         {
             bail!(
                 "command failed, see output for details\n    \
-                         The kernel may have run out of space; try increasing \
-                         its allocation in the app's TOML file"
+                 The kernel may have run out of space; try increasing \
+                 its allocation in the app's TOML file"
             )
         }
 
@@ -2163,9 +2164,10 @@ fn build(
 
 fn link(
     cfg: &PackageConfig,
-    src_file: impl AsRef<Path> + AsRef<std::ffi::OsStr>,
+    name: &str,
     dst_file: impl AsRef<Path> + AsRef<std::ffi::OsStr>,
 ) -> Result<()> {
+    let src_file = format!("{name}.elf");
     let mut ld = cfg.sysroot.clone();
     ld.extend([
         "lib",
@@ -2185,7 +2187,7 @@ fn link(
     // our working directory here
     let working_dir = &cfg.dist_dir;
     for f in ["link.x", "memory.x"] {
-        std::fs::copy(format!("target/{f}"), working_dir.join(f))
+        std::fs::copy(cfg.work_dir_for(name).join(f), working_dir.join(f))
             .context(format!("Could not copy {f} to link dir"))?;
     }
     assert!(AsRef::<Path>::as_ref(&src_file).is_relative());
