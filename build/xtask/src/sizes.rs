@@ -16,7 +16,8 @@ use indexmap::IndexMap;
 
 use crate::{
     dist::{
-        get_max_stack, Allocations, ContiguousRanges, DEFAULT_KERNEL_STACK,
+        get_max_stack, Allocations, ContiguousRanges, PackageConfig,
+        DEFAULT_KERNEL_STACK,
     },
     Config,
 };
@@ -38,8 +39,9 @@ pub fn run(
     save: bool,
     verbose: bool,
 ) -> Result<()> {
-    let toml = Config::from_file(cfg)?;
-    let sizes = create_sizes(&toml)?;
+    let cfg = PackageConfig::new(cfg, false, false)?;
+    let toml = &cfg.toml;
+    let sizes = create_sizes(&cfg)?;
 
     let filename = format!("{}.json", toml.name);
 
@@ -65,12 +67,12 @@ pub fn run(
 
     // Print detailed sizes relative to usage
     if !only_suggest {
-        let map = build_memory_map(&toml, &sizes, allocs)?;
-        print_memory_map(&toml, &map, verbose)?;
+        let map = build_memory_map(toml, &sizes, allocs)?;
+        print_memory_map(toml, &map, verbose)?;
         print!("\n\n");
-        print_task_table(&toml, &map)?;
+        print_task_table(toml, &map)?;
         print!("\n\n");
-        print_task_stacks(&toml)?;
+        print_task_stacks(&cfg)?;
     }
 
     // Because tasks are autosized, the only place where we can improve
@@ -428,19 +430,20 @@ fn print_memory_map(
     Ok(())
 }
 
-fn print_task_stacks(toml: &Config) -> Result<()> {
-    for (i, (task_name, task)) in toml.tasks.iter().enumerate() {
-        let task_stack_size =
-            task.stacksize.unwrap_or_else(|| toml.stacksize.unwrap());
+fn print_task_stacks(cfg: &PackageConfig) -> Result<()> {
+    for (i, (task_name, task)) in cfg.toml.tasks.iter().enumerate() {
+        let task_stack_size = task
+            .stacksize
+            .unwrap_or_else(|| cfg.toml.stacksize.unwrap());
 
-        let max_stack = get_max_stack(toml, task_name, false)?;
+        let max_stack = get_max_stack(cfg, task_name, false)?;
         let total: u64 = max_stack.iter().map(|(n, _)| *n).sum();
         println!("{task_name}: {total} bytes (limit is {task_stack_size})");
         for (frame_size, name) in max_stack {
             let s = format!("[+{frame_size}]");
             println!("  {s:>7} {name}");
         }
-        if i + 1 < toml.tasks.len() {
+        if i + 1 < cfg.toml.tasks.len() {
             println!();
         }
     }
@@ -449,20 +452,16 @@ fn print_task_stacks(toml: &Config) -> Result<()> {
 
 /// Loads the size of the given task (or kernel)
 pub fn load_task_size<'a>(
-    toml: &'a Config,
+    cfg: &'a PackageConfig,
     name: &str,
     stacksize: u32,
 ) -> Result<IndexMap<&'a str, u64>> {
     // Load the .tmp file (which does not have flash fill) for everything
     // except the kernel
-    let elf_name =
-        Path::new("target")
-            .join(&toml.name)
-            .join("dist")
-            .join(match name {
-                "kernel" => name.to_owned(),
-                _ => format!("{name}.tmp"),
-            });
+    let elf_name = cfg.dist_file(match name {
+        "kernel" => name.to_owned(),
+        _ => format!("{name}.tmp"),
+    });
     let buffer = std::fs::read(elf_name)?;
     let elf = match Object::parse(&buffer)? {
         Object::Elf(elf) => elf,
@@ -475,7 +474,7 @@ pub fn load_task_size<'a>(
     // afterwards.
     let mut memory_sizes = IndexMap::new();
     let mut record_size = |start, size| {
-        if let Some(region) = toml.output_region(start) {
+        if let Some(region) = cfg.toml.output_region(start) {
             let end = start + size;
             let r = memory_sizes.entry(region).or_insert_with(|| start..end);
             r.start = r.start.min(start);
@@ -516,24 +515,24 @@ pub fn load_task_size<'a>(
     Ok(memory_sizes)
 }
 
-fn create_sizes(toml: &Config) -> Result<TaskSizes<'_>> {
+fn create_sizes(cfg: &PackageConfig) -> Result<TaskSizes<'_>> {
     let mut sizes = IndexMap::new();
 
     let kernel_sizes = load_task_size(
-        toml,
+        cfg,
         "kernel",
-        toml.kernel.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
+        cfg.toml.kernel.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
     )?;
     sizes.insert("kernel", kernel_sizes);
 
-    for (name, task) in &toml.tasks {
-        let stacksize = task.stacksize.or(toml.stacksize).unwrap();
-        let task_sizes = load_task_size(toml, name, stacksize)?;
+    for (name, task) in &cfg.toml.tasks {
+        let stacksize = task.stacksize.or(cfg.toml.stacksize).unwrap();
+        let task_sizes = load_task_size(cfg, name, stacksize)?;
 
         sizes.insert(name, task_sizes);
     }
 
-    if let Some(caboose) = &toml.caboose {
+    if let Some(caboose) = &cfg.toml.caboose {
         let mut map = IndexMap::new();
         map.insert(caboose.region.as_str(), caboose.size as u64);
         sizes.insert("-caboose-", map);
