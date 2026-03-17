@@ -121,7 +121,7 @@ notifications = ["i2c2-irq", "i2c3-irq"]
 [tasks.packrat]
 name = "task-packrat"
 priority = 1
-stacksize = 1336
+stacksize = 1400
 start = true
 task-slots = ["jefe"]
 features = ["ereport"]

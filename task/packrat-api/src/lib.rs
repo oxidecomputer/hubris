@@ -12,6 +12,7 @@ use zerocopy::{
     FromBytes, Immutable, IntoBytes, KnownLayout, LittleEndian, U16,
 };
 
+pub use ereport_messages::Ena;
 pub use gateway_ereport_messages as ereport_messages;
 pub use host_sp_messages::HostStartupOptions;
 #[cfg(feature = "microcbor")]
@@ -167,7 +168,7 @@ impl Packrat {
         &self,
         ereport: &E,
         buf: &mut [u8],
-    ) -> Result<usize, EreportEncodeError> {
+    ) -> Result<(usize, ereport_messages::Ena), EreportEncodeError> {
         let cursor = microcbor::encode::write::Cursor::new(buf);
         let mut encoder = microcbor::encode::Encoder::new(cursor);
         ereport
@@ -176,9 +177,10 @@ impl Packrat {
         let cursor = encoder.into_writer();
         let len = cursor.position();
         let buf = cursor.into_inner();
-        self.deliver_ereport(&buf[..len])
+        let ena = self
+            .deliver_ereport(&buf[..len])
             .map_err(|err| EreportEncodeError::Packrat { len, err })?;
-        Ok(len)
+        Ok((len, ena))
     }
 }
 

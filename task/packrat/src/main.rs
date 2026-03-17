@@ -519,7 +519,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
         _: LenLimit<Leased<idol_runtime::R, [u8]>, 1024usize>,
-    ) -> Result<(), RequestError<EreportWriteError>> {
+    ) -> Result<ereport_messages::Ena, RequestError<EreportWriteError>> {
         // go away, we don't know how to do that
         Err(idol_runtime::ClientError::UnknownOperation.fail())
     }
@@ -529,7 +529,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
         &mut self,
         msg: &RecvMessage,
         data: LenLimit<Leased<idol_runtime::R, [u8]>, 1024usize>,
-    ) -> Result<(), RequestError<EreportWriteError>> {
+    ) -> Result<ereport_messages::Ena, RequestError<EreportWriteError>> {
         self.ereport_store.deliver_ereport(msg, data)
     }
 

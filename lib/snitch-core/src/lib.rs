@@ -66,7 +66,7 @@ pub struct Store<const N: usize> {
 #[derive(Copy, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "counters", derive(counters::Count))]
 pub enum InsertResult {
-    Inserted,
+    Inserted(u64),
     Lost,
 }
 
@@ -139,7 +139,7 @@ impl<const N: usize> Store<N> {
     ///
     /// # Returns
     ///
-    /// - [`InsertResult::Inserted`] if the record was successfully inserted.
+    /// - [`InsertResult::Inserted(ena)`](InsertResult::Inserted) if the record was successfully inserted.
     /// - [`InsertResult::Lost`] if the record was lost due to insufficient
     ///   space.
     pub fn insert(
@@ -264,7 +264,7 @@ impl<const N: usize> Store<N> {
     ///
     /// # Returns
     ///
-    /// - [`InsertResult::Inserted`] if the record was successfully inserted.
+    /// - [`InsertResult::Inserted(ena)`](InsertResult::Inserted) if the record was successfully inserted.
     /// - [`InsertResult::Lost`] if the record was lost due to insufficient
     ///   space.
     fn insert_impl(
@@ -284,7 +284,7 @@ impl<const N: usize> Store<N> {
             InsertState::Collecting => {
                 let room = self.free_space();
                 if data_len.is_some_and(|n| room >= OVERHEAD + n as usize) {
-                    self.write_header(
+                    let ena = self.write_header(
                         data_len.unwrap_lite(),
                         sender,
                         timestamp,
@@ -292,7 +292,7 @@ impl<const N: usize> Store<N> {
                     for &byte in data {
                         self.storage.push_back(byte).unwrap_lite();
                     }
-                    InsertResult::Inserted
+                    InsertResult::Inserted(ena)
                 } else {
                     self.insert_state = InsertState::Losing {
                         count: NonZeroU32::new(1).unwrap_lite(),
@@ -309,7 +309,12 @@ impl<const N: usize> Store<N> {
     }
 
     /// Internal utility routine for storing a record header.
-    fn write_header(&mut self, data_len: u16, task: u16, timestamp: u64) {
+    fn write_header(
+        &mut self,
+        data_len: u16,
+        task: u16,
+        timestamp: u64,
+    ) -> u64 {
         for byte in data_len.to_le_bytes() {
             self.storage.push_back(byte).unwrap_lite();
         }
@@ -319,7 +324,9 @@ impl<const N: usize> Store<N> {
         for byte in timestamp.to_le_bytes() {
             self.storage.push_back(byte).unwrap_lite();
         }
+        let ena = self.earliest_ena + self.stored_record_count as u64;
         self.stored_record_count += 1;
+        ena
     }
 
     /// Checks if we're losing data and attempts to stop, by generating a loss

@@ -129,8 +129,8 @@ macro_rules! declare_ereporter {
                     }
                 }
 
-                $v fn deliver_ereport(&mut self, ereport: &impl $Trait) {
-                    [< $Ereporter:snake >]::deliver_ereport(self, ereport);
+                $v fn deliver_ereport(&mut self, ereport: &impl $Trait) -> Option<task_packrat_api::Ena> {
+                    [< $Ereporter:snake >]::deliver_ereport(self, ereport)
                 }
             }
 
@@ -178,30 +178,33 @@ macro_rules! declare_ereporter {
                     EreportTooBig { #[count(children)] class: EreportClass },
                 }
 
-                pub(super) fn deliver_ereport(this: &mut $Ereporter, ereport: &impl $Trait) {
+                pub(super) fn deliver_ereport(this: &mut $Ereporter, ereport: &impl $Trait) -> Option<task_packrat_api::Ena> {
                     use $crate::__macro_support::ringbuf::ringbuf_entry;
                     let class = ereport.class();
                     let eresult = this
                         .packrat
                         .deliver_microcbor_ereport(&ereport, &mut this.buf[..]);
                     match eresult {
-                        Ok(len) => {
+                        Ok((len, ena)) => {
                             ringbuf_entry!(
                                 __EREPORT_RINGBUF,
                                 EreportTrace::EreportSent{ len, class }
                             );
+                            Some(ena)
                         }
                         Err(task_packrat_api::EreportEncodeError::Packrat { len, err }) => {
                             ringbuf_entry!(
                                 __EREPORT_RINGBUF,
                                 EreportTrace::EreportLost { len, class, err }
                             );
+                            None
                         }
                         Err(task_packrat_api::EreportEncodeError::Encoder(_)) => {
                             ringbuf_entry!(
                                 __EREPORT_RINGBUF,
                                 EreportTrace::EreportTooBig { class }
                             );
+                            None
                         }
                     }
 
