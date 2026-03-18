@@ -119,7 +119,7 @@ impl ServerImpl {
         FlashAddr::new(Self::flash_base_for(self.dev)).unwrap_lite()
     }
 
-    /// Converts a relative address to an absolute address in out current device
+    /// Converts a relative address to an absolute address in our current device
     pub fn flash_addr(
         &self,
         offset: u32,
