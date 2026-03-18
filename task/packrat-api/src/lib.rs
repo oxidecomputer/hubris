@@ -72,22 +72,6 @@ pub enum EreportWriteError {
     Lost = 1,
 }
 
-/// Errors returned by [`Packrat::serialize_ereport`].
-#[derive(counters::Count)]
-#[cfg(feature = "serde")]
-pub enum EreportSerializeError {
-    /// The IPC to deliver the serialized ereport failed.
-    Packrat {
-        len: usize,
-        #[count(children)]
-        err: EreportWriteError,
-    },
-    /// Serializing the ereport failed.
-    Serialize(
-        minicbor_serde::error::EncodeError<minicbor::encode::write::EndOfSlice>,
-    ),
-}
-
 /// Errors returned by [`Packrat::encode_ereport`].
 #[derive(counters::Count)]
 #[cfg(feature = "microcbor")]
@@ -115,40 +99,6 @@ pub struct Ereport<C, D> {
 }
 
 impl Packrat {
-    /// Deliver an ereport for a value that implements [`serde::Serialize`].
-    ///
-    /// This method both encodes the ereport as CBOR into the provided `buf`
-    /// (using `minicbor_serde`) and then delivers the encoded ereport to
-    /// `packrat`.
-    #[cfg(feature = "serde")]
-    pub fn deliver_serde_ereport(
-        &self,
-        ereport: &impl serde::Serialize,
-        buf: &mut [u8],
-    ) -> Result<usize, EreportSerializeError> {
-        let mut s = {
-            let writer = minicbor::encode::write::Cursor::new(buf);
-            minicbor_serde::Serializer::new(writer)
-        };
-
-        // Try to serialize the ereport...
-        ereport
-            .serialize(&mut s)
-            .map_err(EreportSerializeError::Serialize)?;
-
-        // Okay, get the buffer back out, and figure out how much of it was
-        // used.
-        let writer = s.into_encoder().into_writer();
-        let len = writer.position();
-        let buf = writer.into_inner();
-
-        // Now, try to send that to Packrat.
-        self.deliver_ereport(&buf[..len])
-            .map_err(|err| EreportSerializeError::Packrat { len, err })?;
-
-        Ok(len)
-    }
-
     /// Deliver an ereport for a value that implements [`microcbor::Encode`] and
     /// [`microcbor::StaticCborLen`].
     ///
@@ -178,7 +128,7 @@ impl Packrat {
         let len = cursor.position();
         let buf = cursor.into_inner();
         let ena = self
-            .deliver_ereport(&buf[..len])
+            .deliver_encoded_ereport(&buf[..len])
             .map_err(|err| EreportEncodeError::Packrat { len, err })?;
         Ok((len, ena))
     }

@@ -483,7 +483,7 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
                     last_cause,
                     succeeded,
                 };
-                ereporter.deliver_ereport(&ereport);
+                let _ = ereporter.deliver_ereport(&ereport);
             }
         }
 
@@ -847,7 +847,7 @@ impl<S: SpiServer> ServerImpl<S> {
                 ringbuf_entry!(Trace::CPUPresent(present));
 
                 if !present {
-                    self.ereporter.deliver_ereport(
+                    let _ = self.ereporter.deliver_ereport(
                         &ereports::cpu::CpuMissing {
                             cpu: &HOST_CPU_REFDES,
                         },
@@ -873,7 +873,7 @@ impl<S: SpiServer> ServerImpl<S> {
                 //
                 let rev_ok = sp3r1 && !sp3r2;
                 if !coretype || !rev_ok {
-                    self.ereporter.deliver_ereport(
+                    let _ = self.ereporter.deliver_ereport(
                         &ereports::cpu::UnsupportedCpu {
                             cpu: &HOST_CPU_REFDES,
                             coretype: ereports::cpu::CpuTypeBits {
@@ -1096,7 +1096,7 @@ impl<S: SpiServer> ServerImpl<S> {
 
         if ifr & thermtrip != 0 {
             self.seq.clear_bytes(Addr::IFR, &[thermtrip]).unwrap_lite();
-            self.ereporter.deliver_ereport(&ereports::cpu::Thermtrip {
+            let _ = self.ereporter.deliver_ereport(&ereports::cpu::Thermtrip {
                 cpu: &HOST_CPU_REFDES,
                 state: self.ereport_current_state(),
             });

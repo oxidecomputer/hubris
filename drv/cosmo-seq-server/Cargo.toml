@@ -21,7 +21,7 @@ gnarle = { path = "../../lib/gnarle" }
 ringbuf = { path = "../../lib/ringbuf" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 task-jefe-api = { path = "../../task/jefe-api" }
-task-packrat-api = { path = "../../task/packrat-api", features = ["serde", "microcbor"] }
+task-packrat-api = { path = "../../task/packrat-api", features = ["microcbor"] }
 microcbor = { path = "../../lib/microcbor" }
 fixedstr = { path = "../../lib/fixedstr", features = ["microcbor"] }
 static-cell = { path = "../../lib/static-cell" }

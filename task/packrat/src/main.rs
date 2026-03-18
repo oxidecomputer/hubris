@@ -515,7 +515,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
     }
 
     #[cfg(not(feature = "ereport"))]
-    fn deliver_ereport(
+    fn deliver_encoded_ereport(
         &mut self,
         _: &RecvMessage,
         _: LenLimit<Leased<idol_runtime::R, [u8]>, 1024usize>,
@@ -525,12 +525,12 @@ impl idl::InOrderPackratImpl for ServerImpl {
     }
 
     #[cfg(feature = "ereport")]
-    fn deliver_ereport(
+    fn deliver_encoded_ereport(
         &mut self,
         msg: &RecvMessage,
         data: LenLimit<Leased<idol_runtime::R, [u8]>, 1024usize>,
     ) -> Result<ereport_messages::Ena, RequestError<EreportWriteError>> {
-        self.ereport_store.deliver_ereport(msg, data)
+        self.ereport_store.deliver_encoded_ereport(msg, data)
     }
 
     #[cfg(not(feature = "ereport"))]

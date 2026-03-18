@@ -113,7 +113,7 @@ Interface(
             ),
             idempotent: true,
         ),
-        "deliver_ereport": (
+        "deliver_encoded_ereport": (
             doc: "Hand an encoded ereport to packrat for buffering.",
             args: {
             },

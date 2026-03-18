@@ -4104,16 +4104,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "minicbor-serde"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0bbf243b8cc68a7a76473b14328d3546fb002ae3d069227794520e9181003de9"
-dependencies = [
- "minicbor 2.1.1",
- "serde",
-]
-
-[[package]]
 name = "miniz_oxide"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5319,7 +5309,7 @@ version = "0.1.0"
 dependencies = [
  "counters",
  "heapless",
- "minicbor-serde 0.3.2",
+ "minicbor-serde",
  "serde",
  "unwrap-lite",
 ]
@@ -6138,11 +6128,8 @@ dependencies = [
  "idol",
  "idol-runtime",
  "microcbor",
- "minicbor 2.1.1",
- "minicbor-serde 0.6.0",
  "num-traits",
  "oxide-barcode",
- "serde",
  "static_assertions",
  "userlib",
  "zerocopy 0.8.27",

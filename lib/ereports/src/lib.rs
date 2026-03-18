@@ -129,7 +129,9 @@ macro_rules! declare_ereporter {
                     }
                 }
 
-                $v fn deliver_ereport(&mut self, ereport: &impl $Trait) -> Option<task_packrat_api::Ena> {
+                $v fn deliver_ereport(&mut self, ereport: &impl $Trait)
+                    -> Result<task_packrat_api::Ena, $crate::EreportDeliverError>
+                {
                     [< $Ereporter:snake >]::deliver_ereport(self, ereport)
                 }
             }
@@ -178,7 +180,9 @@ macro_rules! declare_ereporter {
                     EreportTooBig { #[count(children)] class: EreportClass },
                 }
 
-                pub(super) fn deliver_ereport(this: &mut $Ereporter, ereport: &impl $Trait) -> Option<task_packrat_api::Ena> {
+                pub(super) fn deliver_ereport(this: &mut $Ereporter, ereport: &impl $Trait)
+                    -> Result<task_packrat_api::Ena, $crate::EreportDeliverError>
+                {
                     use $crate::__macro_support::ringbuf::ringbuf_entry;
                     let class = ereport.class();
                     let eresult = this
@@ -190,21 +194,21 @@ macro_rules! declare_ereporter {
                                 __EREPORT_RINGBUF,
                                 EreportTrace::EreportSent{ len, class }
                             );
-                            Some(ena)
+                            Ok(ena)
                         }
                         Err(task_packrat_api::EreportEncodeError::Packrat { len, err }) => {
                             ringbuf_entry!(
                                 __EREPORT_RINGBUF,
                                 EreportTrace::EreportLost { len, class, err }
                             );
-                            None
+                            Err($crate::EreportDeliverError::WriteFailed)
                         }
                         Err(task_packrat_api::EreportEncodeError::Encoder(_)) => {
                             ringbuf_entry!(
                                 __EREPORT_RINGBUF,
                                 EreportTrace::EreportTooBig { class }
                             );
-                            None
+                            Err($crate::EreportDeliverError::EncoderFailed)
                         }
                     }
 
@@ -217,6 +221,20 @@ macro_rules! declare_ereporter {
 
         }
     };
+}
+
+/// Lightweight error returned from the generated `deliver_ereport` function
+///
+/// This error lets the caller know whether they could retry (because the buffer
+/// was out of space) or whether that's a lost cause (because encoding the
+/// ereport failed).  It elides the details of each failure mode, which are
+/// preserved in the ringbuf and are not as relevant to the caller.
+#[derive(Copy, Clone)]
+pub enum EreportDeliverError {
+    /// The IPC to deliver the serialized ereport failed.
+    WriteFailed,
+    /// Encoding the ereport failed.
+    EncoderFailed,
 }
 
 /// Stuff from other crates which are publicly re-exported for use by the

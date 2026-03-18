@@ -289,7 +289,7 @@ impl EreportStore {
 }
 
 impl EreportStore {
-    pub(crate) fn deliver_ereport(
+    pub(crate) fn deliver_encoded_ereport(
         &mut self,
         msg: &RecvMessage,
         data: LenLimit<Leased<idol_runtime::R, [u8]>, RECV_BUF_SIZE>,
