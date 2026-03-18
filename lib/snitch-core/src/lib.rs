@@ -139,7 +139,8 @@ impl<const N: usize> Store<N> {
     ///
     /// # Returns
     ///
-    /// - [`InsertResult::Inserted(ena)`](InsertResult::Inserted) if the record was successfully inserted.
+    /// - [`InsertResult::Inserted(ena)`](InsertResult::Inserted) if the record
+    ///   was successfully inserted.
     /// - [`InsertResult::Lost`] if the record was lost due to insufficient
     ///   space.
     pub fn insert(
@@ -264,7 +265,8 @@ impl<const N: usize> Store<N> {
     ///
     /// # Returns
     ///
-    /// - [`InsertResult::Inserted(ena)`](InsertResult::Inserted) if the record was successfully inserted.
+    /// - [`InsertResult::Inserted(ena)`](InsertResult::Inserted) if the record
+    ///   was successfully inserted.
     /// - [`InsertResult::Lost`] if the record was lost due to insufficient
     ///   space.
     fn insert_impl(
