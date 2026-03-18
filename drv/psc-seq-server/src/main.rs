@@ -723,7 +723,7 @@ impl Psu {
                     now,
                     psu: self.slot
                 });
-                ereporter.deliver_ereport(&PsuRemovedEreport {
+                let _ = ereporter.deliver_ereport(&PsuRemovedEreport {
                     fields: self.ereport_fields(),
                 });
 
@@ -772,7 +772,7 @@ impl Psu {
                     self.state = PsuState::Present(PresentState::On {
                         was_faulted: false,
                     });
-                    ereporter.deliver_ereport(&PsuInsertedEreport {
+                    let _ = ereporter.deliver_ereport(&PsuInsertedEreport {
                         fields: self.ereport_fields(),
                     });
 
@@ -809,7 +809,7 @@ impl Psu {
                         }
                     );
                     // Report that the fault has gone away.
-                    ereporter.deliver_ereport(&PowerGoodEreport {
+                    let _ = ereporter.deliver_ereport(&PowerGoodEreport {
                         pmbus_status: self.read_pmbus_status(now),
                         fields: self.ereport_fields(),
                     });
@@ -839,7 +839,7 @@ impl Psu {
                             psu: self.slot,
                         }
                     );
-                    ereporter.deliver_ereport(&PowerUngoodEreport {
+                    let _ = ereporter.deliver_ereport(&PowerUngoodEreport {
                         fields: self.ereport_fields(),
                         pmbus_status: self.read_pmbus_status(now),
                     });

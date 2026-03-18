@@ -289,11 +289,11 @@ impl EreportStore {
 }
 
 impl EreportStore {
-    pub(crate) fn deliver_ereport(
+    pub(crate) fn deliver_encoded_ereport(
         &mut self,
         msg: &RecvMessage,
         data: LenLimit<Leased<idol_runtime::R, [u8]>, RECV_BUF_SIZE>,
-    ) -> Result<(), RequestError<EreportWriteError>> {
+    ) -> Result<ereport_messages::Ena, RequestError<EreportWriteError>> {
         data.read_range(0..data.len(), self.recv)
             .map_err(|_| ClientError::WentAway.fail())?;
         let timestamp = sys_get_timer().now;
@@ -308,7 +308,7 @@ impl EreportStore {
             result,
         });
         match result {
-            snitch_core::InsertResult::Inserted => Ok(()),
+            snitch_core::InsertResult::Inserted(ena) => Ok(ena.into()),
             snitch_core::InsertResult::Lost => {
                 Err(RequestError::from(EreportWriteError::Lost))
             }
@@ -675,7 +675,7 @@ impl EreportStore {
                     len: ereport.len()
                 });
                 match result {
-                    snitch_core::InsertResult::Inserted => {
+                    snitch_core::InsertResult::Inserted(..) => {
                         // We successfully made an ereport for this fault!
                         // Update our tracked fault count for this task.
                         *count = new_count;

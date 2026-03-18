@@ -113,7 +113,7 @@ Interface(
             ),
             idempotent: true,
         ),
-        "deliver_ereport": (
+        "deliver_encoded_ereport": (
             doc: "Hand an encoded ereport to packrat for buffering.",
             args: {
             },
@@ -121,7 +121,7 @@ Interface(
                 "data": (type: "[u8]", read: true, max_len: Some(1024)),
             },
             reply: Result(
-                ok: "()",
+                ok: "ereport_messages::Ena",
                 err: CLike("EreportWriteError"),
             ),
             idempotent: true,

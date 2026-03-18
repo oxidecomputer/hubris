@@ -218,7 +218,7 @@ fn main() -> ! {
                 last_cause,
                 succeeded,
             };
-            ereporter.deliver_ereport(&ereport);
+            let _ = ereporter.deliver_ereport(&ereport);
         }
     }
 
@@ -559,7 +559,7 @@ impl ServerImpl {
 
                                 if !present {
                                     ringbuf_entry!(Trace::CPUNotPresent);
-                                    self.ereporter.deliver_ereport(
+                                    let _ = self.ereporter.deliver_ereport(
                                         &ereports::cpu::CpuMissing {
                                             cpu: &HOST_CPU_REFDES,
                                         },
@@ -635,7 +635,7 @@ impl ServerImpl {
                             ok: sp5rx_ok,
                         },
                     };
-                    self.ereporter.deliver_ereport(&ereport);
+                    let _ = self.ereporter.deliver_ereport(&ereport);
                     return Err(CpuSeqError::UnrecognizedCPU);
                 }
 
@@ -935,7 +935,7 @@ impl ServerImpl {
             self.seq.ifr.modify(|h| h.set_thermtrip(true));
             ringbuf_entry!(Trace::Thermtrip);
             action = InternalAction::ThermTrip;
-            self.ereporter.deliver_ereport(&ereports::cpu::Thermtrip {
+            let _ = self.ereporter.deliver_ereport(&ereports::cpu::Thermtrip {
                 cpu: &HOST_CPU_REFDES,
                 state: self.ereport_current_state(),
             });
@@ -958,7 +958,7 @@ impl ServerImpl {
             self.seq.ifr.modify(|h| h.set_smerr_assert(true));
             ringbuf_entry!(Trace::SmerrInterrupt);
             action = InternalAction::Smerr;
-            self.ereporter.deliver_ereport(&ereports::cpu::Smerr {
+            let _ = self.ereporter.deliver_ereport(&ereports::cpu::Smerr {
                 cpu: &HOST_CPU_REFDES,
                 state: self.ereport_current_state(),
             });

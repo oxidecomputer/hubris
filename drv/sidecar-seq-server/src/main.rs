@@ -1188,7 +1188,7 @@ fn try_send_ereport(
         ereport_buf,
     );
     match eresult {
-        Ok(len) => ringbuf_entry!(Trace::EreportSent(len)),
+        Ok((len, _ena)) => ringbuf_entry!(Trace::EreportSent(len)),
         Err(task_packrat_api::EreportEncodeError::Packrat { len, err }) => {
             ringbuf_entry!(Trace::EreportLost(len, err))
         }
