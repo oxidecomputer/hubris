@@ -369,6 +369,11 @@ fn main() -> ! {
     let mut portmap = PortMap::default();
     let mut muxmap = MuxMap::default();
 
+    // TOTAL HACK: on Cosmo, we believe I2C initialization races FPGA
+    // initialization. To check this hypothesis, this sleep should
+    // delay I2C startup long enough for things to settle. Probably?
+    userlib::hl::sleep_for(10_000);
+
     // Turn the actual peripheral on so that we can interact with it.
     turn_on_i2c(&controllers);
     configure_pins(&controllers, &pins, &mut portmap);
