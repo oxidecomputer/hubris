@@ -143,6 +143,9 @@ macro_rules! declare_ereporter {
             $v use [< $Ereporter:snake >]::$Trait;
             $v mod [< $Ereporter:snake >] {
                 use super::*;
+                // the #[derive(Counters)] proc macro requires `counters` to be
+                // in scope under its own name.
+                use $crate::__macro_support::counters;
 
                 pub(super) trait $Trait: $crate::microcbor::StaticCborLen + sealed::Sealed {
                     fn class(&self) -> EreportClass;
