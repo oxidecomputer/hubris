@@ -22,17 +22,18 @@ zerocopy-derive = { workspace = true }
 
 [build-dependencies]
 build-util = { path = "../../build/util" }
+build-stm32h7-spi-server-core = { path = "../../build/stm32h7-spi-server-core", optional = true }
 idol = { workspace = true }
 
 [features]
 h753 = ["drv-stm32xx-sys-api/h753"]
-use-spi-core = ["drv-stm32h7-spi-server-core"]
-spi1 = ["drv-stm32h7-spi-server-core?/spi1"]
-spi2 = ["drv-stm32h7-spi-server-core?/spi2"]
-spi3 = ["drv-stm32h7-spi-server-core?/spi3"]
-spi4 = ["drv-stm32h7-spi-server-core?/spi4"]
-spi5 = ["drv-stm32h7-spi-server-core?/spi5"]
-spi6 = ["drv-stm32h7-spi-server-core?/spi6"]
+use-spi-core = ["drv-stm32h7-spi-server-core", "build-stm32h7-spi-server-core"]
+spi1 = []
+spi2 = []
+spi3 = []
+spi4 = []
+spi5 = []
+spi6 = []
 
 [[bin]]
 name = "drv-spartan7-loader"

@@ -20,17 +20,17 @@ use drv_spi_api::*;
 use idol_runtime::{BufReader, BufWriter, ClientError, RequestError};
 use ringbuf::*;
 
+use userlib::*;
+
 #[cfg(feature = "h743")]
-use stm32h7::stm32h743 as device;
+pub use stm32h7::stm32h743 as device;
 
 #[cfg(feature = "h753")]
-use stm32h7::stm32h753 as device;
-
-use userlib::*;
+pub use stm32h7::stm32h753 as device;
 
 use drv_stm32h7_spi as spi_core;
 use drv_stm32xx_sys_api as sys_api;
-use sys_api::PinSet;
+pub use sys_api::PinSet;
 
 use core::{cell::Cell, convert::Infallible};
 
@@ -56,6 +56,8 @@ pub struct SpiServerCore {
     spi: spi_core::Spi,
     sys: sys_api::Sys,
     irq_mask: u32,
+    cfg: &'static ServerConfig,
+    fifo_depth: usize,
     lock_holder: &'static Cell<Option<LockState>>, // used by Idol server
     current_mux_index: &'static Cell<usize>,
 }
@@ -124,14 +126,16 @@ impl SpiServerCore {
         irq_mask: u32,
         lock_holder: &'static Cell<Option<LockState>>, // used by Idol server
         current_mux_index: &'static Cell<usize>,
+        cfg: &'static ServerConfig,
+        fifo_depth: usize,
     ) -> Self {
-        check_server_config();
+        check_server_config(cfg);
 
-        let registers = unsafe { &*CONFIG.registers };
+        let registers = unsafe { &*cfg.registers };
 
-        sys.enable_clock(CONFIG.peripheral);
-        sys.enter_reset(CONFIG.peripheral);
-        sys.leave_reset(CONFIG.peripheral);
+        sys.enable_clock(cfg.peripheral);
+        sys.enter_reset(cfg.peripheral);
+        sys.leave_reset(cfg.peripheral);
         let mut spi = spi_core::Spi::from(registers);
 
         // This should correspond to '0' in the standard SPI parlance
@@ -147,7 +151,7 @@ impl SpiServerCore {
 
         // Configure all devices' CS pins to be deasserted (set).
         // We leave them in GPIO output mode from this point forward.
-        for device in CONFIG.devices {
+        for device in cfg.devices {
             for pin in device.cs {
                 sys.gpio_set(*pin);
                 sys.gpio_configure_output(
@@ -168,11 +172,11 @@ impl SpiServerCore {
         // We deactivate before activate to avoid pin clash if we previously crashed
         // with one of these activated.
         current_mux_index.set(0);
-        for opt in &CONFIG.mux_options[1..] {
+        for opt in &cfg.mux_options[1..] {
             deactivate_mux_option(opt, &sys);
         }
         activate_mux_option(
-            &CONFIG.mux_options[current_mux_index.get()],
+            &cfg.mux_options[current_mux_index.get()],
             &sys,
             &spi,
         );
@@ -182,6 +186,8 @@ impl SpiServerCore {
             sys,
             irq_mask,
             lock_holder,
+            cfg,
+            fifo_depth,
             current_mux_index,
         }
     }
@@ -261,7 +267,7 @@ impl SpiServerCore {
         // a legal state change from the same sender.
 
         // Reject out-of-range devices.
-        let device = CONFIG.devices.get(devidx).ok_or(LockError(()))?;
+        let device = self.cfg.devices.get(devidx).ok_or(LockError(()))?;
 
         for pin in device.cs {
             // If we're asserting CS, we want to *reset* the pin. If
@@ -286,7 +292,7 @@ impl SpiServerCore {
             // should be locked by the sender...but double check.
             assert!(lockstate.task == sender);
 
-            let device = &CONFIG.devices[lockstate.device_index];
+            let device = &self.cfg.devices[lockstate.device_index];
 
             for pin in device.cs {
                 // Deassert CS. If it wasn't asserted, this is a no-op.
@@ -319,7 +325,8 @@ impl SpiServerCore {
         }
 
         // Reject out-of-range devices.
-        let device = CONFIG
+        let device = self
+            .cfg
             .devices
             .get(device_index)
             .ok_or(TransferError::BadDevice)?;
@@ -362,11 +369,11 @@ impl SpiServerCore {
         let current_mux_index = self.current_mux_index.get();
         if device.mux_index != current_mux_index {
             deactivate_mux_option(
-                &CONFIG.mux_options[current_mux_index],
+                &self.cfg.mux_options[current_mux_index],
                 &self.sys,
             );
             activate_mux_option(
-                &CONFIG.mux_options[device.mux_index],
+                &self.cfg.mux_options[device.mux_index],
                 &self.sys,
                 &self.spi,
             );
@@ -421,7 +428,7 @@ impl SpiServerCore {
         // not appear to be possible.
         //
         // See reference manual table 409 for details.
-        let mut tx_permits = FIFO_DEPTH;
+        let mut tx_permits = self.fifo_depth;
 
         // Track number of bytes sent and received. Sent bytes will lead
         // received bytes. Received bytes indicate overall progress and
@@ -617,31 +624,31 @@ fn activate_mux_option(
 // Board-peripheral-server configuration matrix
 //
 // The configurable bits for a given board and controller combination are in the
-// ServerConfig struct. We use conditional compilation below to select _one_
-// instance of this struct in a const called `CONFIG`.
+// ServerConfig struct, which is generated by the parent task and passed in to
+// the `SpiMux` constructor.
 
 /// Rolls up all the configuration options for this server on a given board and
 /// controller.
 #[derive(Copy, Clone)]
-struct ServerConfig {
+pub struct ServerConfig {
     /// Pointer to this controller's register block. Don't let the `spi1` fool
     /// you, they all have that type. This needs to match a peripheral in your
     /// task's `uses` list for this to work.
-    registers: *const device::spi1::RegisterBlock,
+    pub registers: *const device::spi1::RegisterBlock,
     /// Name for the peripheral as far as the RCC is concerned.
-    peripheral: sys_api::Peripheral,
+    pub peripheral: sys_api::Peripheral,
     /// We allow for an individual SPI controller to be switched between several
     /// physical sets of pads. The mux options for a given server configuration
     /// are numbered from 0 and correspond to this slice.
-    mux_options: &'static [SpiMuxOption],
+    pub mux_options: &'static [SpiMuxOption],
     /// We keep track of a fixed set of devices per SPI controller, which each
     /// have an associated routing (from `mux_options`) and CS pin.
-    devices: &'static [DeviceDescriptor],
+    pub devices: &'static [DeviceDescriptor],
 }
 
 /// A routing of the SPI controller onto pins.
 #[derive(Copy, Clone, Debug)]
-struct SpiMuxOption {
+pub struct SpiMuxOption {
     /// A list of config changes to apply to activate the output pins of this
     /// mux option. This is a list because some mux options are spread across
     /// multiple ports, or (in at least one case) the pins in the same port
@@ -650,44 +657,44 @@ struct SpiMuxOption {
     /// To disable the mux, we'll force these pins low. This is correct for SPI
     /// mode 0/1 but not mode 2/3; fortunately we currently don't support mode
     /// 2/3, so we can simplify.
-    outputs: &'static [(PinSet, sys_api::Alternate)],
+    pub outputs: &'static [(PinSet, sys_api::Alternate)],
     /// A list of config changes to apply to activate the input pins of this mux
     /// option. This is _not_ a list because there's only one such pin, CIPO.
     ///
     /// To disable the mux, we'll switch this pin to HiZ.
-    input: (PinSet, sys_api::Alternate),
+    pub input: (PinSet, sys_api::Alternate),
     /// Swap data lines?
-    swap_data: bool,
+    pub swap_data: bool,
 }
 
 /// Information about one device attached to the SPI controller.
 #[derive(Copy, Clone, Debug)]
-struct DeviceDescriptor {
+pub struct DeviceDescriptor {
     /// To reach this device, the SPI controller has to be muxed onto the
     /// correct physical circuit. This gives the index of the right choice in
     /// the server's configured `SpiMuxOption` array.
-    mux_index: usize,
+    pub mux_index: usize,
     /// Where the CS pin is. While this is a `PinSet`, it should only have one
     /// pin in it, and we check this at startup.
-    cs: &'static [PinSet],
+    pub cs: &'static [PinSet],
     /// Clock divider to apply while speaking with this device. Yes, this says
     /// spi1 no matter which SPI block we're in charge of.
-    clock_divider: device::spi1::cfg1::MBR_A,
+    pub clock_divider: device::spi1::cfg1::MBR_A,
 }
 
 /// Any impl of ServerConfig for Server has to pass these tests at startup.
-fn check_server_config() {
+fn check_server_config(cfg: &ServerConfig) {
     // TODO some of this could potentially be moved into const fns for building
     // the tree, and thus to compile time ... if we could assert in const fns.
     //
     // That said, because this is analyzing constants, if the checks _pass_ this
     // should disappear at compilation.
 
-    assert!(!CONFIG.registers.is_null()); // let's start off easy.
+    assert!(!cfg.registers.is_null()); // let's start off easy.
 
     // Mux options must be provided.
-    assert!(!CONFIG.mux_options.is_empty());
-    for muxopt in CONFIG.mux_options {
+    assert!(!cfg.mux_options.is_empty());
+    for muxopt in cfg.mux_options {
         // Each mux option must contain at least one output config record.
         assert!(!muxopt.outputs.is_empty());
         let mut total_pins = 0;
@@ -711,10 +718,10 @@ fn check_server_config() {
         assert!(muxopt.input.0.pin_mask.count_ones() == 1);
     }
     // At least one device must be defined.
-    assert!(!CONFIG.devices.is_empty());
-    for dev in CONFIG.devices {
+    assert!(!cfg.devices.is_empty());
+    for dev in cfg.devices {
         // Mux index must be valid.
-        assert!(dev.mux_index < CONFIG.mux_options.len());
+        assert!(dev.mux_index < cfg.mux_options.len());
 
         for pin in dev.cs {
             // A CS pin must designate _exactly one_ pin in its mask.
@@ -785,9 +792,17 @@ impl SpiServer for SpiServerCore {
 
 pub use mutable_statics::mutable_statics as __mutable_statics_reexport;
 
+/// Module containing types that a generated `spi_config.rs` will need
+#[doc(hidden)]
+pub mod __reexport {
+    pub use super::{device, DeviceDescriptor, ServerConfig, SpiMuxOption};
+    pub use drv_stm32xx_sys_api as sys_api;
+    pub use drv_stm32xx_sys_api::PinSet;
+}
+
 #[macro_export]
 macro_rules! declare_spi_core {
-    ($sys:expr, $irq_mask:expr) => {{
+    ($sys:expr, $irq_mask:expr, $mod:ident$(,)*) => {{
         let (lock_holder, current_mux_index) =
             $crate::__mutable_statics_reexport!(
                 static mut LOCK_HOLDER: [core::cell::Cell<
@@ -801,10 +816,8 @@ macro_rules! declare_spi_core {
             $irq_mask,
             &lock_holder[0],
             &current_mux_index[0],
+            &$mod::CONFIG,
+            $mod::FIFO_DEPTH,
         )
     }}
 }
-
-////////////////////////////////////////////////////////////////////////////////
-
-include!(concat!(env!("OUT_DIR"), "/spi_config.rs"));

@@ -19,32 +19,7 @@ mutable-statics = { path = "../../lib/mutable-statics" }
 ringbuf = { path = "../../lib/ringbuf" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
-[build-dependencies]
-anyhow.workspace = true
-idol.workspace = true
-indexmap.workspace = true
-proc-macro2.workspace = true
-quote.workspace = true
-regex.workspace = true
-serde.workspace = true
-syn.workspace = true
-
-build-util = { path = "../../build/util" }
-build-spi = { path = "../../build/spi" }
-call_rustfmt = { path = "../../build/call_rustfmt" }
-
 [features]
-# These features are used in `build.rs` to select a global SPI peripheral block,
-# which modifies the generated code that's compiled in the crate.  As such, they
-# don't appear in the crate's source code, but are load-bearing!  Making this
-# choice based on features also prevents extra rebuilds when building a complete
-# Hubris app.
-spi1 = []
-spi2 = []
-spi3 = []
-spi4 = []
-spi5 = []
-spi6 = []
 h743 = ["stm32h7/stm32h743", "drv-stm32h7-spi/h743", "drv-stm32xx-sys-api/h743"]
 h753 = ["stm32h7/stm32h753", "drv-stm32h7-spi/h753", "drv-stm32xx-sys-api/h753"]
 

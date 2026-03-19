@@ -9,7 +9,7 @@ use quote::ToTokens;
 use std::collections::BTreeMap;
 use std::io::Write;
 
-fn main() -> Result<()> {
+pub fn build_spi_config() -> Result<()> {
     build_util::expose_target_board();
 
     let full_task_config = build_util::task_full_config_toml()?;

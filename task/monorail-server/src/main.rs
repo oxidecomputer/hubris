@@ -31,6 +31,11 @@ use vsc7448::{spi::Vsc7448Spi, Vsc7448, VscError};
 cfg_if::cfg_if! {
     // Select local vs server SPI communication
     if #[cfg(feature = "use-spi-core")] {
+        mod spi_config {
+            use drv_stm32h7_spi_server_core::__reexport::*;
+            include!(concat!(env!("OUT_DIR"), "/spi_config.rs"));
+        }
+
         /// Claims the SPI core.
         ///
         /// This function can only be called once, and will panic otherwise!
@@ -38,7 +43,10 @@ cfg_if::cfg_if! {
             -> drv_stm32h7_spi_server_core::SpiServerCore
         {
             drv_stm32h7_spi_server_core::declare_spi_core!(
-                sys.clone(), notifications::SPI_IRQ_MASK)
+                sys.clone(),
+                notifications::SPI_IRQ_MASK,
+                spi_config,
+            )
         }
     } else {
         pub fn claim_spi(_sys: &Sys) -> drv_spi_api::Spi {

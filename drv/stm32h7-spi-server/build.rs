@@ -12,5 +12,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             "../../idl/spi.idol",
             "server_stub.rs",
             idol::server::ServerStyle::InOrder,
-        )
+        )?;
+    build_stm32h7_spi_server_core::build_spi_config()?;
+    Ok(())
 }

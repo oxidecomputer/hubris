@@ -43,7 +43,7 @@ vsc85xx = { path = "../../drv/vsc85xx"}
 
 [features]
 no-ipc-counters = ["idol/no-counters"]
-use-spi-core = ["drv-stm32h7-spi-server-core"]
+use-spi-core = ["drv-stm32h7-spi-server-core", "build-stm32h7-spi-server-core"]
 mgmt = ["drv-spi-api", "ksz8463", "drv-user-leds-api", "task-net-api/mgmt"]
 vpd-mac = ["task-packrat-api"]
 gimlet = ["drv-cpu-seq-api"]
@@ -58,12 +58,17 @@ vlan = ["task-net-api/vlan", "build-net/vlan", "drv-stm32h7-eth/vlan"]
 gimletlet-nic = ["drv-spi-api", "ksz8463", "drv-user-leds-api", "task-net-api/ksz8463"]
 grapefruit = ["drv-spi-api", "ksz8463", "task-net-api/ksz8463"]
 
-spi1 = ["drv-stm32h7-spi-server-core?/spi1"]
-spi2 = ["drv-stm32h7-spi-server-core?/spi2"]
-spi3 = ["drv-stm32h7-spi-server-core?/spi3"]
-spi4 = ["drv-stm32h7-spi-server-core?/spi4"]
-spi5 = ["drv-stm32h7-spi-server-core?/spi5"]
-spi6 = ["drv-stm32h7-spi-server-core?/spi6"]
+# These features are used in `build.rs` to select a global SPI peripheral block,
+# which modifies the generated code that's compiled in the crate.  As such, they
+# don't appear in the crate's source code, but are load-bearing!  Making this
+# choice based on features also prevents extra rebuilds when building a complete
+# Hubris app.
+spi1 = []
+spi2 = []
+spi3 = []
+spi4 = []
+spi5 = []
+spi6 = []
 
 [build-dependencies]
 anyhow.workspace = true
@@ -76,6 +81,7 @@ syn.workspace = true
 
 build-net = { path = "../../build/net" }
 build-util = { path = "../../build/util" }
+build-stm32h7-spi-server-core = { path = "../../build/stm32h7-spi-server-core", optional = true }
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

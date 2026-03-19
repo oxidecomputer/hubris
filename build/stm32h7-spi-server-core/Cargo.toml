@@ -1,0 +1,21 @@
+[package]
+name = "build-stm32h7-spi-server-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow.workspace = true
+idol.workspace = true
+indexmap.workspace = true
+proc-macro2.workspace = true
+quote.workspace = true
+regex.workspace = true
+serde.workspace = true
+syn.workspace = true
+
+build-util = { path = "../../build/util" }
+build-spi = { path = "../../build/spi" }
+call_rustfmt = { path = "../../build/call_rustfmt" }
+
+[lints]
+workspace = true

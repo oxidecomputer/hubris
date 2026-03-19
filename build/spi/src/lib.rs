@@ -156,13 +156,14 @@ impl ToTokens for SpiConfig {
         let fifo_depth = self.fifo_depth.unwrap_or(8);
 
         tokens.append_all(quote::quote! {
-            const FIFO_DEPTH: usize = #fifo_depth;
-            const CONFIG: ServerConfig = ServerConfig {
+            pub const FIFO_DEPTH: usize = #fifo_depth;
+            pub const CONFIG: ServerConfig = ServerConfig {
                 registers: device::#devname::ptr(),
                 peripheral: sys_api::Peripheral::#pname,
                 mux_options: &[ #(#muxes),* ],
                 devices: &[ #(#device_code),* ],
             };
+            #[allow(dead_code)]
             pub mod devices {
                 #(#device_names)*
             }

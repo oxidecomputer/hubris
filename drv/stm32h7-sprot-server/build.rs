@@ -7,6 +7,9 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     build_util::build_notifications()?;
     build_stm32xx_sys::build_gpio_irq_pins()?;
 
+    #[cfg(feature = "use-spi-core")]
+    build_stm32h7_spi_server_core::build_spi_config()?;
+
     idol::Generator::new()
         .with_counters(
             idol::CounterSettings::default().with_server_counters(false),
