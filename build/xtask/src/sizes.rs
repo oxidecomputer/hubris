@@ -135,10 +135,11 @@ struct MemoryChunk<'a> {
 
 fn build_memory_map<'a>(
     toml: &'a Config,
-    sizes: &'a TaskSizes,
+    sizes: &'a TaskSizes<'a>,
     allocs: &'a Allocations,
 ) -> Result<BTreeMap<&'a str, BTreeMap<u32, MemoryChunk<'a>>>> {
-    let mut map: BTreeMap<&str, BTreeMap<u32, MemoryChunk>> = BTreeMap::new();
+    let mut map: BTreeMap<&str, BTreeMap<u32, MemoryChunk<'a>>> =
+        BTreeMap::new();
 
     for (name, requires, alloc) in toml
         .tasks
@@ -199,7 +200,7 @@ fn build_memory_map<'a>(
 
 fn print_task_table(
     toml: &Config,
-    map: &BTreeMap<&str, BTreeMap<u32, MemoryChunk>>,
+    map: &BTreeMap<&str, BTreeMap<u32, MemoryChunk<'_>>>,
 ) -> Result<()> {
     let task_pad = toml
         .tasks
@@ -224,7 +225,7 @@ fn print_task_table(
         .unwrap_or(0) as usize;
 
     // Turn the memory map around so we can index it by [region][task name]
-    let map: BTreeMap<&str, BTreeMap<&str, MemoryChunk>> = map
+    let map: BTreeMap<&str, BTreeMap<&str, MemoryChunk<'_>>> = map
         .iter()
         .map(|(region, map)| {
             (
@@ -280,7 +281,7 @@ fn print_task_table(
 
 fn print_memory_map(
     toml: &Config,
-    map: &BTreeMap<&str, BTreeMap<u32, MemoryChunk>>,
+    map: &BTreeMap<&str, BTreeMap<u32, MemoryChunk<'_>>>,
     verbose: bool,
 ) -> Result<()> {
     let task_pad = toml
@@ -542,8 +543,8 @@ fn create_sizes(toml: &Config) -> Result<TaskSizes<'_>> {
 }
 
 fn compare_sizes(
-    current_sizes: TaskSizes,
-    saved_sizes: TaskSizes,
+    current_sizes: TaskSizes<'_>,
+    saved_sizes: TaskSizes<'_>,
 ) -> Result<()> {
     println!("Comparing against the previously saved sizes");
 

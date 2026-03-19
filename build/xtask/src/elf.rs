@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 use anyhow::{anyhow, Result};
 
-pub fn get_endianness(elf: &goblin::elf::Elf) -> scroll::Endian {
+pub fn get_endianness(elf: &goblin::elf::Elf<'_>) -> scroll::Endian {
     if elf.little_endian {
         scroll::Endian::Little
     } else {
@@ -12,7 +12,7 @@ pub fn get_endianness(elf: &goblin::elf::Elf) -> scroll::Endian {
 }
 
 pub fn get_section_by_name<'a>(
-    elf: &'a goblin::elf::Elf,
+    elf: &'a goblin::elf::Elf<'_>,
     name: &str,
 ) -> Option<&'a goblin::elf::SectionHeader> {
     for section in &elf.section_headers {
@@ -26,7 +26,7 @@ pub fn get_section_by_name<'a>(
 }
 
 pub fn get_section_by_vma<'a>(
-    elf: &'a goblin::elf::Elf,
+    elf: &'a goblin::elf::Elf<'_>,
     addr: u64,
 ) -> Option<&'a goblin::elf::SectionHeader> {
     elf.section_headers.iter().find(|&section| {
@@ -35,7 +35,7 @@ pub fn get_section_by_vma<'a>(
 }
 
 pub fn get_file_offset_by_vma(
-    elf: &goblin::elf::Elf,
+    elf: &goblin::elf::Elf<'_>,
     addr: u64,
 ) -> Result<u64> {
     let entry_section = get_section_by_vma(elf, addr)

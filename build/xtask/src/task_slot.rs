@@ -75,12 +75,12 @@ pub fn get_task_slot_table_entries<'a>(
         ..(task_slot_table_section.sh_offset + task_slot_table_section.sh_size)
             as usize];
 
-    let mut entries = Vec::<TaskSlotTableEntry>::new();
+    let mut entries = Vec::<TaskSlotTableEntry<'_>>::new();
     let cur_offset = &mut 0;
 
     while *cur_offset < task_slot_table.len() {
         let x = task_slot_table
-            .gread_with::<TaskSlotTableEntry>(cur_offset, elf)?;
+            .gread_with::<TaskSlotTableEntry<'_>>(cur_offset, elf)?;
         entries.push(x);
     }
 
