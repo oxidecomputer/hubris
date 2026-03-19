@@ -45,7 +45,7 @@ pub fn target_os() -> String {
 
 /// Reads the `HUBRIS_TASK_NAME` env var.
 pub fn task_name() -> String {
-    crate::env_var("HUBRIS_TASK_NAME").expect("missing HUBRIS_TASK_NAME")
+    env_var("HUBRIS_TASK_NAME").expect("missing HUBRIS_TASK_NAME")
 }
 
 /// Checks to see whether the given feature is enabled
@@ -84,7 +84,7 @@ pub fn expose_m_profile() -> Result<()> {
 
 /// Returns the `HUBRIS_BOARD` envvar, if set.
 pub fn target_board() -> Option<String> {
-    crate::env_var("HUBRIS_BOARD").ok()
+    env_var("HUBRIS_BOARD").ok()
 }
 
 /// Exposes the board type from the `HUBRIS_BOARD` envvar into
@@ -167,10 +167,10 @@ pub fn task_config<T: DeserializeOwned>() -> Result<T> {
 }
 
 /// Pulls the task configuration, or `None` if the configuration is not
-/// provided.
+/// provided.  Returns an error if the task full config is not present.
 pub fn task_maybe_config<T: DeserializeOwned>() -> Result<Option<T>> {
-    let t = toml_from_env::<toml_task::Task<T>>("HUBRIS_TASK_CONFIG")?;
-    Ok(t.and_then(|t| t.config))
+    let t = task_full_config()?;
+    Ok(t.config)
 }
 
 /// Pulls the full task configuration block for the current task
@@ -178,9 +178,21 @@ pub fn task_maybe_config<T: DeserializeOwned>() -> Result<Option<T>> {
 /// (compare with `task_maybe_config`, which returns just the `config`
 /// subsection)
 pub fn task_full_config<T: DeserializeOwned>() -> Result<toml_task::Task<T>> {
-    let t = toml_from_env::<toml_task::Task<T>>("HUBRIS_TASK_CONFIG")?
-        .ok_or_else(|| anyhow!("HUBRIS_TASK_CONFIG is not defined"))?;
-    Ok(t)
+    try_task_full_config()?
+        .ok_or_else(|| anyhow!("HUBRIS_TASK_CONFIG is not defined"))
+}
+
+pub fn try_task_full_config<T: DeserializeOwned>(
+) -> Result<Option<toml_task::Task<T>>> {
+    let out = toml_from_env::<toml_task::Task<T>>("HUBRIS_TASK_CONFIG")?;
+    if let Some(out) = &out {
+        let crate_name = env_var("CARGO_PKG_NAME").unwrap();
+        assert_eq!(
+            out.name, crate_name,
+            "can't read task config from non-task crate {crate_name}"
+        );
+    }
+    Ok(out)
 }
 
 /// Pulls the full task configuration block, with the `config` subsection
@@ -280,7 +292,7 @@ impl TaskIds {
 /// - `Err(e)` if deserialization failed or the environment variable did not
 ///   contain UTF-8.
 fn toml_from_env<T: DeserializeOwned>(var: &str) -> Result<Option<T>> {
-    let config = match crate::env_var(var) {
+    let config = match env_var(var) {
         Err(e) => {
             use std::env::VarError;
 
