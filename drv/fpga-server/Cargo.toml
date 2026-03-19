@@ -24,21 +24,22 @@ userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 [build-dependencies]
 build-i2c = { path = "../../build/i2c" }
 build-util = { path = "../../build/util" }
+build-stm32h7-spi-server-core = { path = "../../build/stm32h7-spi-server-core", optional = true }
 idol = { workspace = true }
 
 [features]
 mainboard = []
 front_io = ["drv-i2c-api", "drv-i2c-devices"]
-use-spi-core = ["drv-stm32h7-spi-server-core"]
+use-spi-core = ["drv-stm32h7-spi-server-core", "build-stm32h7-spi-server-core"]
 h743 = ["drv-stm32h7-spi-server-core?/h743"]
 h753 = ["drv-stm32h7-spi-server-core?/h753"]
 
-spi1 = ["drv-stm32h7-spi-server-core?/spi1"]
-spi2 = ["drv-stm32h7-spi-server-core?/spi2"]
-spi3 = ["drv-stm32h7-spi-server-core?/spi3"]
-spi4 = ["drv-stm32h7-spi-server-core?/spi4"]
-spi5 = ["drv-stm32h7-spi-server-core?/spi5"]
-spi6 = ["drv-stm32h7-spi-server-core?/spi6"]
+spi1 = []
+spi2 = []
+spi3 = []
+spi4 = []
+spi5 = []
+spi6 = []
 no-ipc-counters = ["idol/no-counters"]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,

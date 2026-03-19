@@ -34,7 +34,8 @@ fn main() -> ! {
     let sys = sys_api::Sys::from(SYS.get_task_id());
     let core = drv_stm32h7_spi_server_core::declare_spi_core!(
         sys,
-        notifications::SPI_IRQ_MASK
+        notifications::SPI_IRQ_MASK,
+        spi_config,
     );
     let mut server = ServerImpl { core };
     let mut incoming = [0u8; INCOMING_SIZE];
@@ -135,3 +136,8 @@ impl NotificationHandler for ServerImpl {
 include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 
 include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
+
+mod spi_config {
+    use drv_stm32h7_spi_server_core::__reexport::*;
+    include!(concat!(env!("OUT_DIR"), "/spi_config.rs"));
+}

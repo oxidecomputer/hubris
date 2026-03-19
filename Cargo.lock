@@ -414,6 +414,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "build-stm32h7-spi-server-core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "build-spi",
+ "build-util",
+ "call_rustfmt",
+ "idol",
+ "indexmap 1.9.1",
+ "proc-macro2",
+ "quote",
+ "regex",
+ "serde",
+ "syn 2.0.106",
+]
+
+[[package]]
 name = "build-stm32xx-sys"
 version = "0.1.0"
 dependencies = [
@@ -1256,6 +1273,7 @@ name = "drv-fpga-server"
 version = "0.1.0"
 dependencies = [
  "build-i2c",
+ "build-stm32h7-spi-server-core",
  "build-util",
  "cfg-if",
  "drv-fpga-api",
@@ -2264,6 +2282,7 @@ dependencies = [
 name = "drv-spartan7-loader"
 version = "0.1.0"
 dependencies = [
+ "build-stm32h7-spi-server-core",
  "build-util",
  "cfg-if",
  "counters",
@@ -2510,6 +2529,7 @@ dependencies = [
 name = "drv-stm32h7-spi-server"
 version = "0.1.0"
 dependencies = [
+ "build-stm32h7-spi-server-core",
  "build-util",
  "drv-spi-api",
  "drv-stm32h7-spi-server-core",
@@ -2526,28 +2546,17 @@ dependencies = [
 name = "drv-stm32h7-spi-server-core"
 version = "0.1.0"
 dependencies = [
- "anyhow",
- "build-spi",
- "build-util",
- "call_rustfmt",
  "cfg-if",
  "cortex-m",
  "counters",
  "drv-spi-api",
  "drv-stm32h7-spi",
  "drv-stm32xx-sys-api",
- "idol",
  "idol-runtime",
- "indexmap 1.9.1",
  "mutable-statics",
  "num-traits",
- "proc-macro2",
- "quote",
- "regex",
  "ringbuf",
- "serde",
  "stm32h7",
- "syn 2.0.106",
  "userlib",
  "zerocopy 0.8.27",
 ]
@@ -2557,6 +2566,7 @@ name = "drv-stm32h7-sprot-server"
 version = "0.1.0"
 dependencies = [
  "attest-api",
+ "build-stm32h7-spi-server-core",
  "build-stm32xx-sys",
  "build-util",
  "cfg-if",
@@ -5970,6 +5980,7 @@ dependencies = [
 name = "task-monorail-server"
 version = "0.1.0"
 dependencies = [
+ "build-stm32h7-spi-server-core",
  "build-util",
  "cfg-if",
  "counters",
@@ -6003,6 +6014,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "build-net",
+ "build-stm32h7-spi-server-core",
  "build-util",
  "cfg-if",
  "cortex-m",
