@@ -1,4 +1,3 @@
-board = "grapefruit"
 target = "thumbv7em-none-eabihf"
 chip = "../../chips/stm32h7"
 default-ram = "axi_sram"
@@ -395,14 +394,6 @@ rx = { packets = 3, bytes = 4096 }
 ################################################################################
 
 [config]
-[[config.i2c.controllers]]
-controller = 1
-
-[config.i2c.controllers.ports.B]
-name = "fpga"
-sda.pin = 8
-scl.pin = 9
-af = 4
 
 ################################################################################
 

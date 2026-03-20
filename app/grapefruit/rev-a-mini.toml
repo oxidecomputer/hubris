@@ -1,5 +1,5 @@
 # Tiny Grapefruit image, mostly for testing Humility
-board = "grapefruit"
+board = "grapefruit-a"
 name = "grapefruit-mini"
 target = "thumbv7em-none-eabihf"
 chip = "../../chips/stm32h7"

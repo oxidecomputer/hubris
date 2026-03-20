@@ -45,7 +45,13 @@ mod server;
     path = "bsp/gimletlet_nic.rs"
 )]
 #[cfg_attr(target_board = "medusa-a", path = "bsp/medusa_a.rs")]
-#[cfg_attr(target_board = "grapefruit", path = "bsp/grapefruit.rs")]
+#[cfg_attr(
+    any(
+        target_board = "grapefruit-a",
+        target_board = "grapefruit-b",
+    ),
+    path = "bsp/grapefruit.rs"
+)]
 #[cfg_attr(
     any(target_board = "minibar-a", target_board = "minibar-b"),
     path = "bsp/minibar.rs"

@@ -56,7 +56,13 @@ use inventory::INVENTORY_API_VERSION;
     path = "bsp/gimlet_bcde.rs"
 )]
 #[cfg_attr(target_board = "gimletlet-2", path = "bsp/gimletlet.rs")]
-#[cfg_attr(target_board = "grapefruit", path = "bsp/grapefruit.rs")]
+#[cfg_attr(
+    any(
+        target_board = "grapefruit-a",
+        target_board = "grapefruit-b",
+    ),
+    path = "bsp/grapefruit.rs"
+)]
 #[cfg_attr(
     any(target_board = "cosmo-a", target_board = "cosmo-b",),
     path = "bsp/cosmo_ab.rs"
@@ -285,7 +291,8 @@ struct ServerImpl {
     /// the stack.
     // This is not used on dev board targets.
     #[cfg(not(any(
-        target_board = "grapefruit",
+        target_board = "grapefruit-a",
+        target_board = "grapefruit-b",
         target_board = "gimletlet-2"
     )))]
     barcode_buf: &'static mut [u8; oxide_barcode::VpdIdentity::MAX_LEN],
@@ -320,7 +327,8 @@ impl ServerImpl {
             dtrace_conf: [u8; MAX_DTRACE_CONF_LEN],
             scratch: host_sp_messages::InventoryData,
             #[cfg(not(any(
-                target_board = "grapefruit",
+                target_board = "grapefruit-a",
+                target_board = "grapefruit-b",
                 target_board = "gimletlet-2"
             )))]
             barcode_buf: [u8; oxide_barcode::VpdIdentity::MAX_LEN],
@@ -334,7 +342,8 @@ impl ServerImpl {
             ref mut dtrace_conf,
             ref mut scratch,
             #[cfg(not(any(
-                target_board = "grapefruit",
+                target_board = "grapefruit-a",
+                target_board = "grapefruit-b",
                 target_board = "gimletlet-2"
             )))]
             ref mut barcode_buf,
@@ -347,7 +356,8 @@ impl ServerImpl {
                 etc_system: [0; MAX_ETC_SYSTEM_LEN],
                 dtrace_conf: [0; MAX_DTRACE_CONF_LEN],
                 #[cfg(not(any(
-                    target_board = "grapefruit",
+                    target_board = "grapefruit-a",
+                    target_board = "grapefruit-b",
                     target_board = "gimletlet-2"
                 )))]
                 barcode_buf: [0; oxide_barcode::VpdIdentity::MAX_LEN],
@@ -367,7 +377,8 @@ impl ServerImpl {
             tx_buf: tx_buf::TxBuf::new(tx_buf),
             rx_buf,
             #[cfg(not(any(
-                target_board = "grapefruit",
+                target_board = "grapefruit-a",
+                target_board = "grapefruit-b",
                 target_board = "gimletlet-2"
             )))]
             barcode_buf,
