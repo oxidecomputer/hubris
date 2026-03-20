@@ -233,7 +233,7 @@ enum Trace {
         expected_hash: [u8; 32],
         actual_hash: [u8; 32],
     },
-    ApobSlotErase {
+    ApobSlotEraseStart {
         #[count(children)]
         slot: ApobSlot,
         size: u32,
@@ -545,7 +545,7 @@ impl ApobState {
         size: u32,
     ) {
         let start = userlib::sys_get_timer().now;
-        ringbuf_entry!(Trace::ApobSlotErase { slot, size });
+        ringbuf_entry!(Trace::ApobSlotEraseStart { slot, size });
         static_assertions::const_assert!(
             (SECTOR_SIZE_BYTES as usize).is_multiple_of(PAGE_SIZE_BYTES)
         );
