@@ -120,6 +120,11 @@ mod instr {
 }
 
 impl FlashDriver {
+    // The SP5 does all of its reads from a particular base address (found
+    // by sniffing the SPI bus), so we have to subtract that out when
+    // calculating the flash offset used by the FPGA
+    const SP5_BASE: u32 = 0x3000000;
+
     fn flash_read_id(&mut self) -> drv_hf_api::HfChipId {
         self.clear_fifos();
         self.drv.data_bytes.set_count(3);
@@ -438,17 +443,15 @@ impl FlashDriver {
     }
 
     fn set_espi_addr_offset(&self, v: FlashAddr) {
-        // The SP5 does all of its reads from a particular base address (found
-        // by sniffing the SPI bus), so we have to subtract that out when
-        // calculating the flash offset used by the FPGA
-        const SP5_BASE: u32 = 0x3000000;
         self.drv
             .sp5_flash_offset
-            .set_offset(v.0.wrapping_sub(SP5_BASE));
+            .set_offset(v.0.wrapping_sub(Self::SP5_BASE));
     }
 
     pub(crate) fn set_apob_pos(&self, pos: apob::ApobLocation) {
-        self.drv.apob_flash_addr.set_offset(pos.start);
+        self.drv
+            .apob_flash_addr
+            .set_offset(pos.start.wrapping_add(Self::SP5_BASE));
         self.drv.apob_flash_len.set_offset(pos.size);
     }
 
