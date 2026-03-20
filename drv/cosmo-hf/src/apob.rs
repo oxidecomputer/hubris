@@ -353,26 +353,24 @@ pub(crate) enum ApobState {
     Copy, Clone, Eq, PartialEq, IntoBytes, FromBytes, Immutable, KnownLayout,
 )]
 #[repr(C)]
-pub struct ApobRawPersistentDataV2 {
+struct ApobRawPersistentDataV2 {
     /// Must always be `APOB_PERSISTENT_DATA_MAGIC`.
-    oxide_magic: u32,
+    oxide_magic: zerocopy::byteorder::native_endian::U32,
 
     /// Must always be `APOB_PERSISTENT_DATA_HEADER_V1` (for now)
-    header_version: u32,
+    header_version: zerocopy::byteorder::native_endian::U32,
 
     /// Monotonically increasing counter
-    pub monotonic_counter: u64,
+    pub monotonic_counter: zerocopy::byteorder::native_endian::U64,
 
     /// Either 0 or 1; directly translatable to [`ApobSlot`]
-    pub slot_select: u32,
+    slot_select: zerocopy::byteorder::native_endian::U32,
 
     /// ABL0 version for which this data is valid
-    pub abl0_version: u32,
-
-    _padding: u32,
+    abl0_version: zerocopy::byteorder::native_endian::U32,
 
     /// CRC-32 over the rest of the data using the iSCSI polynomial
-    checksum: u32,
+    checksum: zerocopy::byteorder::native_endian::U32,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -410,18 +408,18 @@ impl ApobRawPersistentDataV2 {
                 >= core::mem::size_of::<ApobRawPersistentDataV2>(),
         );
         let mut out = Self {
-            oxide_magic: APOB_PERSISTENT_DATA_MAGIC,
-            header_version: APOB_PERSISTENT_DATA_HEADER_V2,
-            monotonic_counter,
-            abl0_version,
+            oxide_magic: APOB_PERSISTENT_DATA_MAGIC.into(),
+            header_version: APOB_PERSISTENT_DATA_HEADER_V2.into(),
+            monotonic_counter: monotonic_counter.into(),
+            abl0_version: abl0_version.into(),
             slot_select: match slot {
                 ApobSlot::Slot0 => 0,
                 ApobSlot::Slot1 => 1,
-            },
-            _padding: 0xF1F2F3F4,
-            checksum: 0, // dummy value
+            }
+            .into(),
+            checksum: 0.into(), // dummy value
         };
-        out.checksum = out.expected_checksum();
+        out.checksum = out.expected_checksum().into();
         assert!(out.is_valid());
         out
     }
@@ -616,13 +614,15 @@ impl ApobState {
                         .unwrap_lite();
                     if raw_data.is_valid() {
                         let data = ApobPersistentData {
-                            monotonic_counter: raw_data.monotonic_counter,
-                            slot_select: match raw_data.slot_select {
-                                0 => ApobSlot::Slot0,
-                                1 => ApobSlot::Slot1,
+                            monotonic_counter: raw_data
+                                .monotonic_counter
+                                .into(),
+                            slot_select: match raw_data.slot_select.into() {
+                                0u32 => ApobSlot::Slot0,
+                                1u32 => ApobSlot::Slot1,
                                 _ => unreachable!("prevented by is_valid"),
                             },
-                            abl0_version: raw_data.abl0_version,
+                            abl0_version: raw_data.abl0_version.into(),
                         };
                         best = best.max(Some(data));
                     }
