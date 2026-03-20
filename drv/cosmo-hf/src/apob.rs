@@ -36,12 +36,22 @@ pub struct Efs {
 
 const EFS_SIGNATURE: u32 = 0x55aa55aa;
 const BHD_DIR_COOKIE: u32 = 0x44484224; // $BHD
+const PSP_DIR_COOKIE: u32 = 0x50535024; // $PSP
 const APOB_NV_COPY: u8 = 0x63; // Table 29
+const ABL0_BLOB: u8 = 0x30; // Table 11
 
-/// BIOS Directory Table Header (Table 17)
+const ADDRESS_MODE_FLASH_OFFSET: u8 = 1; // Table 10
+
+/// Offset of the version word within the ABL0 blob
+const ABL0_VERSION_OFFSET: u32 = 0x60; // according to Andy
+
+/// Table header struct used by multiple different directories
+///
+/// This is the same as the BIOS Directory Table Header (Table 17) and the
+/// PSP Directory Table Header (Table 5), albeit with a different cookie.
 #[derive(FromBytes, Immutable, IntoBytes)]
 #[repr(C)]
-pub struct BhdDir {
+pub struct TableHeader {
     cookie: u32,
     checksum: u32,
     num: u32,
@@ -51,13 +61,24 @@ pub struct BhdDir {
 /// BIOS Directory Table Entry (Table 18)
 #[derive(FromBytes, Immutable, IntoBytes)]
 #[repr(C)]
-pub struct DirEntry {
+pub struct BiosDirEntry {
     entry_type: u8,
     region_type: u8,
     _unused: [u8; 2], // bitpacked fields
     size: u32,
     src_address: u64, // highest 2 bits are `addr_mode`
     dst_address: u64,
+}
+
+/// PSP Directory Table Entry (Table 8)
+#[derive(FromBytes, Immutable, IntoBytes, Copy, Clone, PartialEq)]
+#[repr(C)]
+pub struct PspDirEntry {
+    entry_type: u8,
+    sub_program: u8,
+    _unused: [u8; 2], // bitpacked fields
+    size: u32,
+    location: u64, // highest 2 bits are `addr_mode`
 }
 
 impl ServerImpl {
@@ -85,15 +106,15 @@ impl ServerImpl {
         }
 
         let bios_dir_offset = efs.bios_dir_offset;
-        let bhd: BhdDir = self.read_value(bios_dir_offset)?;
+        let bhd: TableHeader = self.read_value(bios_dir_offset)?;
         if bhd.cookie != BHD_DIR_COOKIE {
             return Err(ApobError::BadBhdCookie(bhd.cookie));
         }
 
-        // Directory entries are right after the `BhdDir` header
+        // Directory entries are right after the table header
         let mut pos = bios_dir_offset + core::mem::size_of_val(&bhd) as u32;
         for _ in 0..bhd.num {
-            let entry: DirEntry = self.read_value(pos)?;
+            let entry: BiosDirEntry = self.read_value(pos)?;
             if entry.entry_type == APOB_NV_COPY {
                 // Mask two `addr_mode` bits
                 let src_address = entry.src_address & 0x3FFF_FFFF_FFFF_FFFF;
@@ -104,7 +125,45 @@ impl ServerImpl {
 
                 return Ok(ApobLocation { start, size });
             }
-            pos += core::mem::size_of::<DirEntry>() as u32;
+            pos += core::mem::size_of::<BiosDirEntry>() as u32;
+        }
+        Err(ApobError::NotFound)
+    }
+
+    /// Looks up the ABL0 version in the currently selected flash device
+    pub fn find_abl0_version(&mut self) -> Result<u32, ApobError> {
+        // See find_apob above for details
+        let efs: Efs = self.read_value(0x20_000)?;
+        if efs.signature != EFS_SIGNATURE {
+            return Err(ApobError::BadEfsSignature(efs.signature));
+        }
+        let psp_dir_offset = efs.psp_dir_offset;
+
+        let psp: TableHeader = self.read_value(psp_dir_offset)?;
+        if psp.cookie != PSP_DIR_COOKIE {
+            return Err(ApobError::BadPspCookie(psp.cookie));
+        }
+
+        // Directory entries are right after the table header
+        let mut pos = psp_dir_offset + core::mem::size_of_val(&psp) as u32;
+        for _ in 0..psp.num {
+            let entry: PspDirEntry = self.read_value(pos)?;
+            if entry.entry_type == ABL0_BLOB {
+                let address_mode = (entry.location >> 62) as u8;
+                if address_mode != ADDRESS_MODE_FLASH_OFFSET {
+                    return Err(ApobError::BadFlashAddressMode(address_mode));
+                }
+                let src_address = entry.location & 0x3FFF_FFFF_FFFF_FFFF;
+                let offset = src_address
+                    .try_into()
+                    .ok()
+                    .and_then(|a: u32| a.checked_add(ABL0_VERSION_OFFSET))
+                    .ok_or(ApobError::AddressIsTooHigh(src_address))?;
+                let version = self.read_value::<u32>(offset)?;
+                ringbuf_entry!(Trace::Abl0Version(version));
+                return Ok(version);
+            }
+            pos += core::mem::size_of::<PspDirEntry>() as u32;
         }
         Err(ApobError::NotFound)
     }
@@ -120,7 +179,9 @@ pub struct ApobLocation {
 pub enum ApobError {
     BadEfsSignature(u32),
     BadBhdCookie(u32),
+    BadPspCookie(u32),
     AddressIsTooHigh(u64),
+    BadFlashAddressMode(u8),
     NotFound,
     Hf(HfError),
 }
@@ -202,6 +263,7 @@ enum Trace {
         expected: u32,
         actual: u32,
     },
+    Abl0Version(u32),
 }
 counted_ringbuf!(Trace, 16, Trace::None);
 

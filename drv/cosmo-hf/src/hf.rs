@@ -602,6 +602,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         // registers for the APOB location (so that the FPGA can remap reads to
         // the appropriate location).
         if state == HfMuxState::HostCPU {
+            self.find_abl0_version(); // XXX logging is only side effect
             match self.find_apob() {
                 Ok(a) => {
                     ringbuf_entry!(Trace::ApobFound(a));
