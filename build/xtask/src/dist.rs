@@ -1968,7 +1968,7 @@ fn generate_kernel_linker_script(
 fn build(
     cfg: &PackageConfig,
     name: &str,
-    build_config: BuildConfig,
+    build_config: BuildConfig<'_>,
     reloc: bool,
 ) -> Result<()> {
     println!("building crate {}", build_config.crate_name);
@@ -2301,7 +2301,7 @@ pub struct TaskRequest<'a> {
 /// requests per alignment size.
 pub fn allocate_all(
     toml: &Config,
-    task_sizes: &HashMap<&str, TaskRequest>,
+    task_sizes: &HashMap<&str, TaskRequest<'_>>,
     caboose: Option<&CabooseConfig>,
 ) -> Result<BTreeMap<String, AllocationMap>> {
     // Collect all allocation requests into queues, one per memory type, indexed

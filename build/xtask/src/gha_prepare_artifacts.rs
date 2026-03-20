@@ -51,8 +51,8 @@ pub fn run(cfg: &Path, attestations: Option<&Path>) -> Result<()> {
 
     let mut hashes = HashMap::new();
     for image_name in &config.toml.image_names {
-        let archive_name = config.toml.archive_name(&image_name);
-        let path = config.img_file(archive_name, &image_name);
+        let archive_name = config.toml.archive_name(image_name);
+        let path = config.img_file(archive_name, image_name);
         let file_name = path.file_name().expect("missing file name");
         let file_dest = dest.join(file_name);
 
