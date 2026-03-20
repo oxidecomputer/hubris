@@ -53,7 +53,7 @@ fn write_keys(
 
     let mut keys = vec![];
     for k in cfg.trusted_keys {
-        println!("cargo:rerun-if-changed={k:?}");
+        println!("cargo:rerun-if-changed={}", k.display());
         let key = ssh_key::PublicKey::read_openssh_file(&k)
             .with_context(|| format!("failed to read public key: {k:?}"))?;
         let pub_bytes = key
@@ -64,7 +64,7 @@ fn write_keys(
         keys.push(format!("{pub_bytes:?}"));
     }
     if let Some(k) = cfg.authorized_keys {
-        println!("cargo:rerun-if-changed={k:?}");
+        println!("cargo:rerun-if-changed={}", k.display());
         let ks = ssh_key::AuthorizedKeys::read_file(&k).with_context(|| {
             format!("failed to read authorized keys from: {k:?}")
         })?;
