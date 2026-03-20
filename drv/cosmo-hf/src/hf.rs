@@ -625,7 +625,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             };
             // Reinitialize APOB state to correctly pick the active APOB slot.
             // This also unlocks the APOB so it can be written (once muxed back
-            // to the SP) and records the ABL0 version that it expects.
+            // to the SP) and loads the ABL0 version that it expects.
             self.apob_state =
                 apob::ApobState::init(&mut self.drv, &mut self.buf);
             match self.find_apob() {

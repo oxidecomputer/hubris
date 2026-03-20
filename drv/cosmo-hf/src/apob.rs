@@ -435,11 +435,27 @@ impl ApobRawPersistentDataV2 {
         c.finalize()
     }
 
-    pub fn is_valid(&self) -> bool {
+    fn is_valid(&self) -> bool {
         self.oxide_magic == APOB_PERSISTENT_DATA_MAGIC
             && self.header_version == APOB_PERSISTENT_DATA_HEADER_V2
             && self.slot_select <= 1
             && self.checksum == self.expected_checksum()
+    }
+
+    pub fn validate(&self) -> Option<ApobPersistentData> {
+        if self.is_valid() {
+            Some(ApobPersistentData {
+                monotonic_counter: self.monotonic_counter.into(),
+                slot_select: match self.slot_select.into() {
+                    0u32 => ApobSlot::Slot0,
+                    1u32 => ApobSlot::Slot1,
+                    _ => return None,
+                },
+                abl0_version: self.abl0_version.into(),
+            })
+        } else {
+            None
+        }
     }
 }
 
@@ -612,18 +628,7 @@ impl ApobState {
                     // flash_read is infallible when using a slice
                     drv.flash_read(addr, &mut raw_data.as_mut_bytes())
                         .unwrap_lite();
-                    if raw_data.is_valid() {
-                        let data = ApobPersistentData {
-                            monotonic_counter: raw_data
-                                .monotonic_counter
-                                .into(),
-                            slot_select: match raw_data.slot_select.into() {
-                                0u32 => ApobSlot::Slot0,
-                                1u32 => ApobSlot::Slot1,
-                                _ => unreachable!("prevented by is_valid"),
-                            },
-                            abl0_version: raw_data.abl0_version.into(),
-                        };
+                    if let Some(data) = raw_data.validate() {
                         best = best.max(Some(data));
                     }
                 }
