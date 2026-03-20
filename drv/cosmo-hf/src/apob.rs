@@ -271,6 +271,7 @@ enum Trace {
         actual: u32,
     },
     Abl0Version(u32),
+    IgnoringOldMetaVersion(u32),
 }
 counted_ringbuf!(Trace, 16, Trace::None);
 
@@ -596,6 +597,7 @@ impl ApobState {
     ) -> Option<ApobPersistentData> {
         let mut best: Option<ApobPersistentData> = None;
         for offset in (0..APOB_META_SIZE).step_by(APOB_PERSISTENT_DATA_STRIDE) {
+            // Read the version field, which is the same across all versions
             let mut version = 0u32;
             drv.flash_read(
                 meta.flash_addr(offset + 4).unwrap_lite(),
@@ -603,7 +605,9 @@ impl ApobState {
             )
             .unwrap_lite();
             match version {
-                APOB_PERSISTENT_DATA_HEADER_V1 => (),
+                APOB_PERSISTENT_DATA_HEADER_V1 => {
+                    ringbuf_entry!(Trace::IgnoringOldMetaVersion(version));
+                }
                 APOB_PERSISTENT_DATA_HEADER_V2 => {
                     let mut raw_data = ApobRawPersistentDataV2::new_zeroed();
                     let addr = meta.flash_addr(offset).unwrap_lite();

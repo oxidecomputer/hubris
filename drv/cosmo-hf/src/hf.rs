@@ -566,7 +566,8 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<(), RequestError<drv_hf_api::ApobCommitError>> {
-        let Some(vers) = self.abl0_version else {
+        // Consume the stored ABL0 version so it can't be reused
+        let Some(vers) = self.abl0_version.take() else {
             return Err(drv_hf_api::ApobCommitError::InvalidState.into());
         };
         self.apob_state
@@ -624,22 +625,24 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             };
             // Reinitialize APOB state to correctly pick the active APOB slot.
             // This also unlocks the APOB so it can be written (once muxed back
-            // to the SP).
+            // to the SP) and records the ABL0 version that it expects.
             self.apob_state =
                 apob::ApobState::init(&mut self.drv, &mut self.buf);
-            match (self.find_apob(), self.apob_state.abl0_version()) {
-                (Ok(a), Some(vers)) if self.abl0_version == Some(vers) => {
-                    ringbuf_entry!(Trace::ApobFound(a));
-                    self.drv.set_apob_pos(a);
+            match self.find_apob() {
+                Ok(a) => {
+                    let vers = self.apob_state.abl0_version();
+                    if vers.is_some() && vers == self.abl0_version {
+                        ringbuf_entry!(Trace::ApobFound(a));
+                        self.drv.set_apob_pos(a);
+                    } else {
+                        ringbuf_entry!(Trace::ApobAbl0Mismatch {
+                            stored_version: vers,
+                            current_version: self.abl0_version,
+                        });
+                        self.drv.clear_apob_pos();
+                    }
                 }
-                (Ok(..), vers) => {
-                    ringbuf_entry!(Trace::ApobAbl0Mismatch {
-                        stored_version: vers,
-                        current_version: self.abl0_version,
-                    });
-                    self.drv.clear_apob_pos();
-                }
-                (Err(e), _) => {
+                Err(e) => {
                     ringbuf_entry!(Trace::ApobError(e));
                     self.drv.clear_apob_pos();
                 }
