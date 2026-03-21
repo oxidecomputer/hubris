@@ -43,7 +43,9 @@ const ABL0_BLOB: u8 = 0x30; // Table 11
 const ADDRESS_MODE_FLASH_OFFSET: u8 = 1; // Table 10
 
 /// Offset of the version word within the ABL0 blob
-const ABL0_VERSION_OFFSET: u32 = 0x60; // according to Andy
+///
+/// Documented in AGESA as the standard PSP version location for firmware blobs
+const ABL0_VERSION_OFFSET: u32 = 0x60;
 
 /// Table header struct used by multiple different directories
 ///
@@ -357,7 +359,7 @@ struct ApobRawPersistentDataV2 {
     /// Must always be `APOB_PERSISTENT_DATA_MAGIC`.
     oxide_magic: zerocopy::byteorder::native_endian::U32,
 
-    /// Must always be `APOB_PERSISTENT_DATA_HEADER_V1` (for now)
+    /// Must always be `APOB_PERSISTENT_DATA_HEADER_V2` (for now)
     header_version: zerocopy::byteorder::native_endian::U32,
 
     /// Monotonically increasing counter
