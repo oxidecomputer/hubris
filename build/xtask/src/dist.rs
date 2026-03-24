@@ -140,7 +140,7 @@ impl PackageConfig {
             bail!("Failed to find {:?}", board_path);
         }
 
-        let remap_paths = Self::remap_paths(&sysroot)?;
+        let remap_paths = Self::remap_paths(&sysroot, &toml.target)?;
 
         Ok(Self {
             app_src_dir: app_src_dir.to_path_buf(),
@@ -167,7 +167,10 @@ impl PackageConfig {
         self.dist_dir.join(name)
     }
 
-    fn remap_paths(sysroot: &Path) -> Result<BTreeMap<PathBuf, &'static str>> {
+    fn remap_paths(
+        sysroot: &Path,
+        target: &str,
+    ) -> Result<BTreeMap<PathBuf, &'static str>> {
         // Panic messages in crates have a long prefix; we'll shorten it using
         // the --remap-path-prefix argument to reduce message size.  This is
         // good for both binary size and for reproducibility, since we don't
@@ -210,13 +213,36 @@ impl PackageConfig {
             remap_paths.insert(cargo_sparse_registry, "/crates.io");
         }
 
-        remap_paths.insert(sysroot.to_path_buf(), "/toolchain");
+        remap_paths.insert(
+            sysroot
+                .to_path_buf()
+                .join("lib")
+                .join("rustlib")
+                .join("src")
+                .join("rust")
+                .join("library")
+                .join("core")
+                .join("src"),
+            "/rustlib",
+        );
 
         if let Ok(dir) = std::env::var("CARGO_MANIFEST_DIR") {
             let mut hubris_dir = dunce::canonicalize(dir)?;
             hubris_dir.pop();
             hubris_dir.pop();
             remap_paths.insert(hubris_dir.to_path_buf(), "/hubris");
+            // Shorten the build directories from
+            // `hubris/target/thumbv7em-none-eabihf/release/build` to just
+            // `hubris/build`
+            remap_paths.insert(
+                hubris_dir
+                    .to_path_buf()
+                    .join("target")
+                    .join(target)
+                    .join("release")
+                    .join("build"),
+                "/hubris/build",
+            );
         }
         Ok(remap_paths)
     }
