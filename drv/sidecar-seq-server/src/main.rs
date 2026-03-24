@@ -9,6 +9,7 @@
 
 use crate::clock_generator::ClockGenerator;
 use crate::front_io::FrontIOBoard;
+use crate::i2c_config::MAX_COMPONENT_ID_LEN as REFDES_LEN;
 use crate::tofino::Tofino;
 use core::convert::Infallible;
 use drv_fpga_api::{DeviceState, FpgaError, WriteOp};
@@ -115,9 +116,6 @@ enum Trace {
     FanModulePowerFault(FanModuleIndex, FanModuleStatus),
     FanModuleLedUpdate(FanModuleIndex, FanModuleLedState),
     FanModuleEnableUpdate(FanModuleIndex, FanModulePowerState),
-    EreportSent(usize),
-    EreportLost(usize, task_packrat_api::EreportWriteError),
-    EreportTooBig,
 }
 ringbuf!(Trace, 32, Trace::None);
 
@@ -126,26 +124,6 @@ const NO_PCIE_LIMIT: u8 = 120;
 
 // QSFP_2_SP_A2_PG
 const POWER_GOOD: sys_api::PinSet = sys_api::Port::F.pin(12);
-
-const EREPORT_BUF_LEN: usize = microcbor::max_cbor_len_for!(
-    task_packrat_api::Ereport<EreportClass, EreportKind>
-);
-
-#[derive(microcbor::Encode)]
-pub enum EreportClass {
-    #[cbor(rename = "hw.pwr.bmr491.mitfail")]
-    Bmr491MitigationFailure,
-}
-
-#[derive(microcbor::EncodeFields)]
-pub(crate) enum EreportKind {
-    Bmr491MitigationFailure {
-        refdes: FixedStr<'static, { crate::i2c_config::MAX_COMPONENT_ID_LEN }>,
-        failures: u32,
-        last_cause: drv_i2c_devices::bmr491::MitigationFailureKind,
-        succeeded: bool,
-    },
-}
 
 #[derive(Copy, Clone, PartialEq)]
 enum TofinoStateDetails {
@@ -918,12 +896,7 @@ fn main() -> ! {
     let fan_modules = FanModules::new(MAINBOARD.get_task_id());
     let packrat = Packrat::from(PACKRAT.get_task_id());
 
-    let ereport_buf = {
-        use static_cell::ClaimOnceCell;
-        static EREPORT_BUF: ClaimOnceCell<[u8; EREPORT_BUF_LEN]> =
-            ClaimOnceCell::new([0; EREPORT_BUF_LEN]);
-        EREPORT_BUF.claim()
-    };
+    let mut ereporter = Ereporter::claim_static_resources(packrat.clone());
 
     // Apply the configuration mitigation on the BMR491, if required. This is an
     // external device access and may fail. We'll attempt it thrice and then
@@ -945,18 +918,15 @@ fn main() -> ! {
             };
 
         if let Some(last_cause) = last_cause {
-            // Report the failure even if we eventually succeeded.
-            try_send_ereport(
-                &packrat,
-                &mut ereport_buf[..],
-                EreportClass::Bmr491MitigationFailure,
-                EreportKind::Bmr491MitigationFailure {
-                    refdes: FixedStr::from_str(dev.component_id()),
-                    failures,
-                    last_cause,
-                    succeeded,
-                },
-            );
+            let ereport = ereports::pwr::Bmr491MitigationFailure {
+                refdes: FixedStr::<{ REFDES_LEN }>::from_str(
+                    dev.component_id(),
+                ),
+                failures,
+                last_cause,
+                succeeded,
+            };
+            let _ = ereporter.deliver_ereport(&ereport);
         }
     }
 
@@ -1173,28 +1143,11 @@ fn main() -> ! {
     }
 }
 
-fn try_send_ereport(
-    packrat: &task_packrat_api::Packrat,
-    ereport_buf: &mut [u8],
-    class: EreportClass,
-    report: EreportKind,
-) {
-    let eresult = packrat.deliver_microcbor_ereport(
-        &task_packrat_api::Ereport {
-            class,
-            version: 0,
-            report,
-        },
-        ereport_buf,
-    );
-    match eresult {
-        Ok((len, _ena)) => ringbuf_entry!(Trace::EreportSent(len)),
-        Err(task_packrat_api::EreportEncodeError::Packrat { len, err }) => {
-            ringbuf_entry!(Trace::EreportLost(len, err))
-        }
-        Err(task_packrat_api::EreportEncodeError::Encoder(_)) => {
-            ringbuf_entry!(Trace::EreportTooBig)
-        }
+ereports::declare_ereporter! {
+    pub(crate) struct Ereporter<SeqEreport> {
+        Bmr491MitigationFailure(
+            ereports::pwr::Bmr491MitigationFailure<{ REFDES_LEN }>
+        ),
     }
 }
 

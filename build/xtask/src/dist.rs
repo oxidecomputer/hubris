@@ -2030,6 +2030,7 @@ fn build(
              -C link-arg=-z -C link-arg=max-page-size=0x20 \
              -C llvm-args=--enable-machine-outliner=never \
              -Z emit-stack-sizes \
+             -Z macro-backtrace \
              -C overflow-checks=y \
              -C metadata={} \
              {}

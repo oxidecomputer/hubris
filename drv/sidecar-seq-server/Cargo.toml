@@ -23,6 +23,7 @@ drv-sidecar-front-io = { path = "../sidecar-front-io", features = ["controller",
 drv-sidecar-mainboard-controller = { path = "../sidecar-mainboard-controller", features = ["bitstream"] }
 drv-sidecar-seq-api = { path = "../sidecar-seq-api" }
 drv-stm32xx-sys-api = { path = "../stm32xx-sys-api", features = ["family-stm32h7"] }
+ereports = { path = "../../lib/ereports", features = ["ereporter-macro"] }
 ringbuf = { path = "../../lib/ringbuf" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 task-packrat-api = { path = "../../task/packrat-api", features = ["microcbor"] }

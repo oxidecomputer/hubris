@@ -2231,6 +2231,7 @@ dependencies = [
  "drv-sidecar-mainboard-controller",
  "drv-sidecar-seq-api",
  "drv-stm32xx-sys-api",
+ "ereports",
  "fixedstr",
  "hubpack",
  "idol",
