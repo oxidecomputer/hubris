@@ -2,6 +2,10 @@ name: build-boards.yml (reusable)
 on:
   workflow_call:
     inputs:
+      ref:
+        description: Commit to build
+        required: true
+        type: string
       os:
         description: OS to build for
         required: true
@@ -41,6 +45,8 @@ jobs:
     steps:
       - name: Checkout the source code
         uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
 
       - name: Calculate the CI matrix
         # The $filter_directories bash variable is intentionally not quoted to allow for multiple
@@ -72,6 +78,8 @@ jobs:
     steps:
       - name: Checkout the source code
         uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
 
       - name: Install Rust toolchain
         run: |

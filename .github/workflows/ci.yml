@@ -31,6 +31,7 @@ jobs:
             name: Windows
     uses: ./.github/workflows/build-boards.yml
     with:
+      ref: ${{ github.sha }}
       os: ${{ matrix.os }}
       upload-artifacts: ${{ matrix.os == 'ubuntu-latest' }}
 
