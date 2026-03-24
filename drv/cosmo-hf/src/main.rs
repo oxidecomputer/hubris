@@ -41,6 +41,7 @@ enum Trace {
     },
     ApobError(apob::ApobError),
 
+    PrevAbl0VersionNotUsed(u32),
     Abl0VersionFound(u32),
     Abl0VersionError(apob::ApobError),
 }

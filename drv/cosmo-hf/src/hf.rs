@@ -615,6 +615,13 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         if state == HfMuxState::HostCPU {
             self.abl0_version = match self.find_abl0_version() {
                 Ok(v) => {
+                    // If the previous ABL0 version has not been consumed by
+                    // `apob_commit`, make a note – this could happen (if we mux
+                    //  SP → host → SP → host without calling `apob_commit`),
+                    //  but is a little suspicious.
+                    if let Some(prev) = self.abl0_version {
+                        ringbuf_entry!(Trace::PrevAbl0VersionNotUsed(prev));
+                    }
                     ringbuf_entry!(Trace::Abl0VersionFound(v));
                     Some(v)
                 }

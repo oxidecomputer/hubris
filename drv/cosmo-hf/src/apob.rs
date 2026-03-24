@@ -34,7 +34,6 @@ pub struct Efs {
     bios_dir_offset: u32,
 }
 
-const EFS_SIGNATURE: u32 = 0x55aa55aa;
 const BHD_DIR_COOKIE: u32 = 0x44484224; // $BHD
 const PSP_DIR_COOKIE: u32 = 0x50535024; // $PSP
 const APOB_NV_COPY: u8 = 0x63; // Table 29
@@ -99,14 +98,23 @@ impl ServerImpl {
         Ok(out)
     }
 
-    /// Find the APOB location from the currently selected flash device
-    pub fn find_apob(&mut self) -> Result<ApobLocation, ApobError> {
-        // We expect to find the EFS at offset 0x20000 (§4.1.3)
-        let efs: Efs = self.read_value(0x20_000)?;
+    /// Reads the AMD Embedded Firmware Structure from the selected flash device
+    fn read_efs(&mut self) -> Result<Efs, ApobError> {
+        /// Standard offset for the embedded firmware structure (§4.1.3)
+        const EFS_OFFSET: u32 = 0x20_000;
+        /// Signature of embedded firmware structure (Table 3)
+        const EFS_SIGNATURE: u32 = 0x55aa55aa;
+
+        let efs: Efs = self.read_value(EFS_OFFSET)?;
         if efs.signature != EFS_SIGNATURE {
             return Err(ApobError::BadEfsSignature(efs.signature));
         }
+        Ok(efs)
+    }
 
+    /// Find the APOB location from the currently selected flash device
+    pub fn find_apob(&mut self) -> Result<ApobLocation, ApobError> {
+        let efs = self.read_efs()?;
         let bios_dir_offset = efs.bios_dir_offset;
         let bhd: TableHeader = self.read_value(bios_dir_offset)?;
         if bhd.cookie != BHD_DIR_COOKIE {
@@ -134,11 +142,7 @@ impl ServerImpl {
 
     /// Looks up the ABL0 version in the currently selected flash device
     pub fn find_abl0_version(&mut self) -> Result<u32, ApobError> {
-        // See find_apob above for details
-        let efs: Efs = self.read_value(0x20_000)?;
-        if efs.signature != EFS_SIGNATURE {
-            return Err(ApobError::BadEfsSignature(efs.signature));
-        }
+        let efs = self.read_efs()?;
         let psp_dir_offset = efs.psp_dir_offset;
 
         let psp: TableHeader = self.read_value(psp_dir_offset)?;
@@ -350,17 +354,35 @@ pub(crate) enum ApobState {
 
 // ApobRawPersistentDataV1 is deprecated and is discarded when found
 
+#[derive(
+    Copy, Clone, Eq, PartialEq, IntoBytes, FromBytes, Immutable, KnownLayout,
+)]
+#[repr(C)]
+struct ApobRawPersistentDataHeader {
+    /// Must always be [`APOB_PERSISTENT_DATA_MAGIC`].
+    oxide_magic: zerocopy::byteorder::native_endian::U32,
+
+    /// Must always be [`APOB_PERSISTENT_DATA_HEADER_V2`] for new data
+    ///
+    /// May be [`APOB_PERSISTENT_DATA_HEADER_V1`] for old on-disk data
+    version: zerocopy::byteorder::native_endian::U32,
+}
+
+impl ApobRawPersistentDataHeader {
+    fn is_valid(&self) -> bool {
+        self.oxide_magic == APOB_PERSISTENT_DATA_MAGIC
+            && self.version == APOB_PERSISTENT_DATA_HEADER_V2
+    }
+}
+
 /// Persistent data, stored in Bonus Flash to select an APOB slot
 #[derive(
     Copy, Clone, Eq, PartialEq, IntoBytes, FromBytes, Immutable, KnownLayout,
 )]
 #[repr(C)]
 struct ApobRawPersistentDataV2 {
-    /// Must always be `APOB_PERSISTENT_DATA_MAGIC`.
-    oxide_magic: zerocopy::byteorder::native_endian::U32,
-
-    /// Must always be `APOB_PERSISTENT_DATA_HEADER_V2` (for now)
-    header_version: zerocopy::byteorder::native_endian::U32,
+    /// Header used by all data versions
+    header: ApobRawPersistentDataHeader,
 
     /// Monotonically increasing counter
     pub monotonic_counter: zerocopy::byteorder::native_endian::U64,
@@ -410,8 +432,10 @@ impl ApobRawPersistentDataV2 {
                 >= core::mem::size_of::<ApobRawPersistentDataV2>(),
         );
         let mut out = Self {
-            oxide_magic: APOB_PERSISTENT_DATA_MAGIC.into(),
-            header_version: APOB_PERSISTENT_DATA_HEADER_V2.into(),
+            header: ApobRawPersistentDataHeader {
+                oxide_magic: APOB_PERSISTENT_DATA_MAGIC.into(),
+                version: APOB_PERSISTENT_DATA_HEADER_V2.into(),
+            },
             monotonic_counter: monotonic_counter.into(),
             abl0_version: abl0_version.into(),
             slot_select: match slot {
@@ -438,8 +462,7 @@ impl ApobRawPersistentDataV2 {
     }
 
     fn is_valid(&self) -> bool {
-        self.oxide_magic == APOB_PERSISTENT_DATA_MAGIC
-            && self.header_version == APOB_PERSISTENT_DATA_HEADER_V2
+        self.header.is_valid()
             && self.slot_select <= 1
             && self.checksum == self.expected_checksum()
     }
@@ -451,6 +474,8 @@ impl ApobRawPersistentDataV2 {
                 slot_select: match self.slot_select.into() {
                     0u32 => ApobSlot::Slot0,
                     1u32 => ApobSlot::Slot1,
+                    // We can't actually hit this branch (thanks to `is_valid`
+                    // above), but this improves codegen vs `unreachable!()`.
                     _ => return None,
                 },
                 abl0_version: self.abl0_version.into(),
@@ -613,28 +638,33 @@ impl ApobState {
     ) -> Option<ApobPersistentData> {
         let mut best: Option<ApobPersistentData> = None;
         for offset in (0..APOB_META_SIZE).step_by(APOB_PERSISTENT_DATA_STRIDE) {
-            // Read the version field, which is the same across all versions
-            let mut version = 0u32;
+            // Read the header, which is the same across all metadata versions
+            let mut header = ApobRawPersistentDataHeader::new_zeroed();
             drv.flash_read(
-                meta.flash_addr(offset + 4).unwrap_lite(),
-                &mut version.as_mut_bytes(),
+                meta.flash_addr(offset).unwrap_lite(),
+                &mut header.as_mut_bytes(),
             )
             .unwrap_lite();
-            match version {
-                APOB_PERSISTENT_DATA_HEADER_V1 => {
-                    ringbuf_entry!(Trace::IgnoringOldMetaVersion(version));
-                }
-                APOB_PERSISTENT_DATA_HEADER_V2 => {
-                    let mut raw_data = ApobRawPersistentDataV2::new_zeroed();
-                    let addr = meta.flash_addr(offset).unwrap_lite();
-                    // flash_read is infallible when using a slice
-                    drv.flash_read(addr, &mut raw_data.as_mut_bytes())
-                        .unwrap_lite();
-                    if let Some(data) = raw_data.validate() {
-                        best = best.max(Some(data));
+            if header.is_valid() {
+                match header.version.into() {
+                    APOB_PERSISTENT_DATA_HEADER_V1 => {
+                        ringbuf_entry!(Trace::IgnoringOldMetaVersion(
+                            header.version.into()
+                        ));
                     }
+                    APOB_PERSISTENT_DATA_HEADER_V2 => {
+                        let mut raw_data =
+                            ApobRawPersistentDataV2::new_zeroed();
+                        let addr = meta.flash_addr(offset).unwrap_lite();
+                        // flash_read is infallible when using a slice
+                        drv.flash_read(addr, &mut raw_data.as_mut_bytes())
+                            .unwrap_lite();
+                        if let Some(data) = raw_data.validate() {
+                            best = best.max(Some(data));
+                        }
+                    }
+                    _ => (),
                 }
-                _ => (),
             }
         }
         ringbuf_entry!(Trace::GotPersistentData { meta, data: best });
