@@ -291,7 +291,7 @@ impl VCore {
             let state = self.record_pmbus_status(
                 now,
                 Rail::VddcrCpu1,
-                vrms.pwr_cont1,
+                vrms.pwr_cont2,
                 ereporter,
             );
             input_fault |= state.input_fault;
