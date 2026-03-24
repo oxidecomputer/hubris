@@ -35,7 +35,15 @@ enum Trace {
     HashFinalizeError(drv_hash_api::HashError),
 
     ApobFound(apob::ApobLocation),
+    ApobAbl0Mismatch {
+        stored_version: Option<u32>,
+        current_version: Option<u32>,
+    },
     ApobError(apob::ApobError),
+
+    PrevAbl0VersionNotUsed(u32),
+    Abl0VersionFound(u32),
+    Abl0VersionError(apob::ApobError),
 }
 
 counted_ringbuf!(Trace, 32, Trace::None);

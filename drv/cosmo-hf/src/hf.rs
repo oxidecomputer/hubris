@@ -35,6 +35,9 @@ pub struct ServerImpl {
 
     pub(crate) apob_state: apob::ApobState,
     pub(crate) buf: HfBufs,
+
+    /// Most recent ABL0 version that has booted
+    abl0_version: Option<u32>,
 }
 
 pub(crate) struct HfBufs {
@@ -87,6 +90,7 @@ impl ServerImpl {
             drv,
             hash: HashData::new(HASH.get_task_id()),
             apob_state,
+            abl0_version: None,
             buf,
         };
         out.drv.set_flash_mux_state(HfMuxState::SP);
@@ -562,8 +566,12 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<(), RequestError<drv_hf_api::ApobCommitError>> {
+        // Consume the stored ABL0 version so it can't be reused
+        let Some(vers) = self.abl0_version.take() else {
+            return Err(drv_hf_api::ApobCommitError::InvalidState.into());
+        };
         self.apob_state
-            .commit(&mut self.drv, &mut self.buf)
+            .commit(&mut self.drv, &mut self.buf, vers)
             .map_err(RequestError::from)
     }
 
@@ -600,23 +608,52 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     ) -> Result<(), RequestError<HfError>> {
         // Whenever we switch the mux state to the host CPU, we update FPGA
         // registers for the APOB location (so that the FPGA can remap reads to
-        // the appropriate location).
+        // the appropriate location).  We also read the ABL0 version, for two
+        // reasons:
+        // - We will only load an APOB that's pinned to that version
+        // - After booting, we'll use that version when persisting a new APOB
         if state == HfMuxState::HostCPU {
+            self.abl0_version = match self.find_abl0_version() {
+                Ok(v) => {
+                    // If the previous ABL0 version has not been consumed by
+                    // `apob_commit`, make a note – this could happen (if we mux
+                    //  SP → host → SP → host without calling `apob_commit`),
+                    //  but is a little suspicious.
+                    if let Some(prev) = self.abl0_version {
+                        ringbuf_entry!(Trace::PrevAbl0VersionNotUsed(prev));
+                    }
+                    ringbuf_entry!(Trace::Abl0VersionFound(v));
+                    Some(v)
+                }
+                Err(e) => {
+                    ringbuf_entry!(Trace::Abl0VersionError(e));
+                    None
+                }
+            };
+            // Reinitialize APOB state to correctly pick the active APOB slot.
+            // This also unlocks the APOB so it can be written (once muxed back
+            // to the SP) and loads the ABL0 version that it expects.
+            self.apob_state =
+                apob::ApobState::init(&mut self.drv, &mut self.buf);
             match self.find_apob() {
                 Ok(a) => {
-                    ringbuf_entry!(Trace::ApobFound(a));
-                    self.drv.set_apob_pos(a);
+                    let vers = self.apob_state.abl0_version();
+                    if vers.is_some() && vers == self.abl0_version {
+                        ringbuf_entry!(Trace::ApobFound(a));
+                        self.drv.set_apob_pos(a);
+                    } else {
+                        ringbuf_entry!(Trace::ApobAbl0Mismatch {
+                            stored_version: vers,
+                            current_version: self.abl0_version,
+                        });
+                        self.drv.clear_apob_pos();
+                    }
                 }
                 Err(e) => {
                     ringbuf_entry!(Trace::ApobError(e));
                     self.drv.clear_apob_pos();
                 }
             }
-            // Reinitialize APOB state to correctly pick the active APOB slot.
-            // This also unlocks the APOB so it can be written (once muxed back
-            // to the SP).
-            self.apob_state =
-                apob::ApobState::init(&mut self.drv, &mut self.buf);
         }
         self.drv.set_flash_mux_state(state);
         self.invalidate_mux_switch();
