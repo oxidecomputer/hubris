@@ -72,6 +72,7 @@ jobs:
       - init
     uses: ./.github/workflows/build-boards.yml
     with:
+      ref: ${{ needs.init.outputs.commit_sha1 }}
       os: oxide-colo-builder-hubris
       filter-directories: ${{ needs.init.outputs.hubris_app_dirs }}
       upload-artifacts: true
