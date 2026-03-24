@@ -89,12 +89,10 @@ impl ServerImpl {
         addr: u32,
     ) -> Result<T, HfError> {
         let mut out = T::new_zeroed();
-        self.drv
-            .flash_read(
-                self.flash_addr(addr, core::mem::size_of_val(&out) as u32)?,
-                &mut out.as_mut_bytes(),
-            )
-            .unwrap_lite(); // flash_read is infallible when using a slice
+        self.drv.flash_read_slice(
+            self.flash_addr(addr, core::mem::size_of_val(&out) as u32)?,
+            out.as_mut_bytes(),
+        );
         Ok(out)
     }
 
@@ -601,11 +599,10 @@ impl ApobState {
         for sector_offset in (0..size).step_by(SECTOR_SIZE_BYTES as usize) {
             for page_offset in (0..SECTOR_SIZE_BYTES).step_by(PAGE_SIZE_BYTES) {
                 let offset = sector_offset + page_offset;
-                drv.flash_read(
+                drv.flash_read_slice(
                     slot.flash_addr(offset).unwrap_lite(),
-                    &mut buf.page.as_mut_slice(),
-                )
-                .unwrap_lite();
+                    buf.page.as_mut_slice(),
+                );
                 if buf.page.iter().any(|b| *b != 0xFF) {
                     ringbuf_entry!(Trace::ApobSlotSectorErase { slot, offset });
                     num_sectors_erased += 1;
@@ -640,11 +637,10 @@ impl ApobState {
         for offset in (0..APOB_META_SIZE).step_by(APOB_PERSISTENT_DATA_STRIDE) {
             // Read the header, which is the same across all metadata versions
             let mut header = ApobRawPersistentDataHeader::new_zeroed();
-            drv.flash_read(
+            drv.flash_read_slice(
                 meta.flash_addr(offset).unwrap_lite(),
-                &mut header.as_mut_bytes(),
-            )
-            .unwrap_lite();
+                header.as_mut_bytes(),
+            );
             if header.is_valid() {
                 match header.version.into() {
                     APOB_PERSISTENT_DATA_HEADER_V1 => {
@@ -656,9 +652,7 @@ impl ApobState {
                         let mut raw_data =
                             ApobRawPersistentDataV2::new_zeroed();
                         let addr = meta.flash_addr(offset).unwrap_lite();
-                        // flash_read is infallible when using a slice
-                        drv.flash_read(addr, &mut raw_data.as_mut_bytes())
-                            .unwrap_lite();
+                        drv.flash_read_slice(addr, raw_data.as_mut_bytes());
                         if let Some(data) = raw_data.validate() {
                             best = best.max(Some(data));
                         }
@@ -764,8 +758,7 @@ impl ApobState {
 
             // Read back the current data; it must be erased or match (for
             // idempotency)
-            drv.flash_read(addr, &mut &mut buf.scratch[..n])
-                .map_err(|_| ApobWriteError::WriteFailed)?;
+            drv.flash_read_slice(addr, &mut buf.scratch[..n]);
 
             // This is a little tricky: we allow for bytes to either match our
             // expected write (for idempotency), _or_ to be `0xFF` (because that
@@ -833,8 +826,7 @@ impl ApobState {
                 read_slot.slot.flash_addr(i as u32 + offset).unwrap_lite();
 
             // Read back the current data, then write it to the lease
-            drv.flash_read(addr, &mut &mut buf.page[..n])
-                .map_err(|_| ApobReadError::ReadFailed)?;
+            drv.flash_read_slice(addr, &mut buf.page[..n]);
             data.write_range(i..(i + n), &buf.page[..n])
                 .map_err(|_| ApobReadError::ReadFailed)?;
         }
@@ -936,8 +928,7 @@ impl ApobState {
                     let n =
                         ((expected_length - i) as usize).min(PAGE_SIZE_BYTES);
                     let addr = write_slot.flash_addr(i).unwrap_lite();
-                    drv.flash_read(addr, &mut &mut buf.page[..n])
-                        .map_err(|_| ApobCommitError::CommitFailed)?;
+                    drv.flash_read_slice(addr, &mut buf.page[..n]);
                     hasher.update(&buf.page[..n]);
                 }
                 let out = hasher.finalize();
@@ -954,8 +945,7 @@ impl ApobState {
         // Check the APOB itself
         let mut header = apob::ApobHeader::new_zeroed();
         let addr = write_slot.flash_addr(0).unwrap_lite();
-        drv.flash_read(addr, &mut header.as_mut_bytes())
-            .unwrap_lite();
+        drv.flash_read_slice(addr, header.as_mut_bytes());
         if header.sig != apob::APOB_SIG {
             ringbuf_entry!(Trace::BadApobSig {
                 expected: apob::APOB_SIG,
@@ -981,8 +971,7 @@ impl ApobState {
         while pos < expected_length {
             let mut entry = apob::ApobEntry::new_zeroed();
             let addr = write_slot.flash_addr(pos).unwrap_lite();
-            drv.flash_read(addr, &mut entry.as_mut_bytes())
-                .unwrap_lite();
+            drv.flash_read_slice(addr, entry.as_mut_bytes());
             pos += entry.size;
         }
         if pos != expected_length {
@@ -1005,9 +994,7 @@ impl ApobState {
         let mut found: Option<FlashAddr> = None;
         for offset in (0..APOB_META_SIZE).step_by(APOB_PERSISTENT_DATA_STRIDE) {
             let addr = meta.flash_addr(offset).unwrap_lite();
-            // Infallible when using a slice
-            drv.flash_read(addr, &mut buf.apob_persistent_data.as_mut_slice())
-                .unwrap_lite();
+            drv.flash_read_slice(addr, buf.apob_persistent_data.as_mut_slice());
             if buf.apob_persistent_data.iter().all(|c| *c == 0xFF) {
                 found = Some(addr);
                 break;
