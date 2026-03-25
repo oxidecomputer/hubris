@@ -163,10 +163,7 @@ fn main() -> ! {
         HIFFY_READY.store(0, Ordering::Relaxed);
 
         // Humility writes `1` to `HIFFY_KICK`
-        if HIFFY_KICK
-            .compare_exchange_weak(1, 0, Ordering::Acquire, Ordering::Relaxed)
-            .is_ok()
-        {
+        if HIFFY_KICK.compare_exchange_acqrel(1, 0).is_ok() {
             sleeps += 1;
 
             // Exponentially backoff our sleep value, but no more than 250ms

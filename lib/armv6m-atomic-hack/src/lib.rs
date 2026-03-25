@@ -35,6 +35,11 @@ pub trait AtomicU32Ext {
     fn swap(&self, val: u32, order: Ordering) -> u32;
     fn fetch_add(&self, val: u32, order: Ordering) -> u32;
     fn fetch_sub(&self, val: u32, order: Ordering) -> u32;
+    fn compare_exchange_acqrel(
+        &self,
+        current: u32,
+        new: u32,
+    ) -> Result<u32, u32>;
 }
 
 #[cfg(armv6m)]
@@ -62,6 +67,21 @@ impl AtomicU32Ext for AtomicU32 {
         self.store(rv.wrapping_sub(val), so);
         rv
     }
+
+    #[inline]
+    fn compare_exchange_acqrel(
+        &self,
+        current: u32,
+        new: u32,
+    ) -> Result<u32, u32> {
+        let rv = self.load(Ordering::Acquire);
+        if rv == current {
+            self.store(new, Ordering::Release);
+            Ok(rv)
+        } else {
+            Err(rv)
+        }
+    }
 }
 
 #[cfg(not(armv6m))]
@@ -79,6 +99,21 @@ impl AtomicU32Ext for AtomicU32 {
     #[inline]
     fn fetch_sub(&self, val: u32, order: Ordering) -> u32 {
         core::sync::atomic::AtomicU32::fetch_sub(self, val, order)
+    }
+
+    #[inline]
+    fn compare_exchange_acqrel(
+        &self,
+        current: u32,
+        new: u32,
+    ) -> Result<u32, u32> {
+        core::sync::atomic::AtomicU32::compare_exchange(
+            self,
+            current,
+            new,
+            Ordering::AcqRel,
+            Ordering::Acquire,
+        )
     }
 }
 
