@@ -192,6 +192,9 @@ fn main() -> ! {
     let mut stack = [None; 32];
     const NLABELS: usize = 4;
 
+    #[cfg(feature = "net")]
+    let mut net_state = net::State::new();
+
     loop {
         HIFFY_READY.store(1, Ordering::Relaxed);
         hl::sleep_for(sleep_ms);
@@ -201,11 +204,18 @@ fn main() -> ! {
         // from the `net` task indicating that it's ready for us.
         let deadline = sys_get_timer().now.saturating_add(sleep_ms);
         sys_set_timer(Some(deadline), notifications::TIMER_MASK);
+
         #[cfg(feature = "net")]
         let bits = notifications::SOCKET_MASK | notifications::TIMER_MASK;
         #[cfg(not(feature = "net"))]
         let bits = notifications::TIMER_MASK;
+
         let notif = sys_recv_notification(bits);
+
+        #[cfg(feature = "net")]
+        if notif.check_notification_mask(notifications::SOCKET_MASK) {
+            net_state.check_net();
+        }
 
         if notif.has_timer_fired(notifications::TIMER_MASK) {
             // Humility writes `1` to `HIFFY_KICK`
@@ -315,6 +325,200 @@ unsafe fn bind_lifetime_mut<'a, const N: usize>(
     // SAFETY: converting from pointer to reference is safe given the function's
     // safety conditions (listed in docstring)
     unsafe { array.as_mut().unwrap_lite() }
+}
+
+#[cfg(feature = "net")]
+mod net {
+    use super::{HIFFY_DATA, HIFFY_KICK, HIFFY_TEXT, notifications};
+    use core::sync::atomic::Ordering;
+    use static_cell::ClaimOnceCell;
+    use task_net_api::{
+        LargePayloadBehavior, RecvError, SendError, SocketName, UdpMetadata,
+    };
+    use userlib::{FromPrimitive, UnwrapLite, sys_recv_notification};
+    use zerocopy::{FromBytes, IntoBytes, LittleEndian, U16, U32, U64};
+
+    const SOCKET: SocketName = SocketName::hiffy;
+    const SOCKET_TX_SIZE: usize = task_net_api::SOCKET_TX_SIZE[SOCKET as usize];
+    const SOCKET_RX_SIZE: usize = task_net_api::SOCKET_RX_SIZE[SOCKET as usize];
+
+    /// Header for an RPC request
+    ///
+    /// `humility` must cooperate with this layout and the `OP_*` values below;
+    /// they are mirrored in `doppel.rs`.
+    #[derive(Copy, Clone, Debug, FromBytes)]
+    #[repr(C)]
+    struct RpcHeader {
+        /// Expected image ID
+        image_id: U64<LittleEndian>,
+        /// Header version (always 1 right now)
+        version: U16<LittleEndian>,
+        /// Operation to perform
+        operation: U16<LittleEndian>,
+        /// Argument-dependent operation
+        arg: U32<LittleEndian>,
+    }
+    const CURRENT_VERSION: u16 = 1;
+
+    #[derive(Copy, Clone, Debug, FromPrimitive)]
+    #[repr(u16)]
+    enum RpcOp {
+        WriteHiffyText = 1,
+        WriteHiffyData,
+        HiffyKick,
+    }
+
+    #[derive(Copy, Clone, Debug)]
+    #[repr(u8)]
+    enum RpcReply {
+        Ok = 0u8,
+        /// The RPC packet was too short to include the complete header
+        TooShort,
+        /// The RPC packet's image ID does not match ours
+        BadImageId,
+        /// The RPC packet's header version does not match our version
+        BadVersion,
+        /// The RPC operation field is invalid
+        InvalidOperation,
+        /// The write exceeds our data buffers
+        OutOfRange,
+    }
+
+    userlib::task_slot!(NET, net);
+
+    pub(super) struct State {
+        net: task_net_api::Net,
+        tx_data_buf: &'static mut [u8],
+        rx_data_buf: &'static mut [u8],
+        image_id: u64,
+    }
+    impl State {
+        pub(super) fn new() -> Self {
+            let (tx_data_buf, rx_data_buf) = {
+                static BUFS: ClaimOnceCell<(
+                    [u8; SOCKET_TX_SIZE],
+                    [u8; SOCKET_RX_SIZE],
+                )> = ClaimOnceCell::new((
+                    [0; SOCKET_TX_SIZE],
+                    [0; SOCKET_RX_SIZE],
+                ));
+                BUFS.claim()
+            };
+            let net = task_net_api::Net::from(NET.get_task_id());
+            let image_id = userlib::kipc::read_image_id();
+            Self {
+                net,
+                tx_data_buf,
+                rx_data_buf,
+                image_id,
+            }
+        }
+        pub(super) fn check_net(&mut self) {
+            match self.net.recv_packet(
+                SOCKET,
+                LargePayloadBehavior::Discard,
+                self.rx_data_buf,
+            ) {
+                Ok(meta) => self.handle_packet(meta),
+                Err(RecvError::QueueEmpty | RecvError::ServerRestarted) => {
+                    // Our incoming queue is empty or `net` restarted. Wait for
+                    // more packets in dispatch, back in the main loop.
+                }
+            }
+        }
+
+        fn handle_packet(&mut self, mut meta: UdpMetadata) {
+            // Steal `tx_data_buf` to work around lifetime shenanigans;
+            // `handle_packet_inner` does not write to it!
+            let tx_data_buf = core::mem::take(&mut self.tx_data_buf);
+            let (r, data) = self.handle_packet_inner(meta);
+            tx_data_buf[0] = r as u8;
+            tx_data_buf[1..][..data.len()].copy_from_slice(data);
+            meta.size = (1 + data.len()) as u32;
+            self.tx_data_buf = tx_data_buf;
+            loop {
+                match self.net.send_packet(
+                    SOCKET,
+                    meta,
+                    &self.tx_data_buf[..(meta.size as usize)],
+                ) {
+                    Ok(()) => break,
+                    // If `net` just restarted, immediately retry our send.
+                    Err(SendError::ServerRestarted) => continue,
+                    // If our tx queue is full, wait for space. This is the
+                    // same notification we get for incoming packets, so we
+                    // might spuriously wake up due to an incoming packet
+                    // (which we can't service anyway because we are still
+                    // waiting to respond to a previous request); once we
+                    // finally succeed in sending we'll peel any queued
+                    // packets off our recv queue at the top of our main
+                    // loop.
+                    Err(SendError::QueueFull) => {
+                        sys_recv_notification(notifications::SOCKET_MASK);
+                    }
+                }
+            }
+        }
+
+        fn handle_packet_inner(&self, meta: UdpMetadata) -> (RpcReply, &[u8]) {
+            const HEADER_SIZE: usize = core::mem::size_of::<RpcHeader>();
+            if (meta.size as usize) < HEADER_SIZE {
+                return (RpcReply::TooShort, &[]);
+            }
+
+            // We can always read the header, since it's raw data
+            let header =
+                RpcHeader::read_from_bytes(&self.rx_data_buf[..HEADER_SIZE])
+                    .unwrap_lite();
+            let rest = &self.rx_data_buf[HEADER_SIZE..];
+            if self.image_id != header.image_id.get() {
+                return (RpcReply::BadImageId, self.image_id.as_bytes());
+            }
+
+            if header.version.get() != 1 {
+                return (RpcReply::BadVersion, CURRENT_VERSION.as_bytes());
+            }
+
+            // Perform the actual operation
+            match RpcOp::from_u16(header.operation.get()) {
+                Some(RpcOp::WriteHiffyText) => {
+                    let offset = header.arg.get() as usize;
+                    // TODO: using a `static mut` global in ways that are not
+                    // obviously sound (but no worse than elsewhere in the file)
+                    let text = unsafe { &mut HIFFY_TEXT };
+                    if let Some(chunk) = offset
+                        .checked_add(rest.len())
+                        .and_then(|e| text.get_mut(offset..e))
+                    {
+                        chunk.copy_from_slice(rest);
+                        (RpcReply::Ok, &[])
+                    } else {
+                        (RpcReply::OutOfRange, &[])
+                    }
+                }
+                Some(RpcOp::WriteHiffyData) => {
+                    let offset = header.arg.get() as usize;
+                    // TODO: using a `static mut` global in ways that are not
+                    // obviously sound (but no worse than elsewhere in the file)
+                    let data = unsafe { &mut HIFFY_DATA };
+                    if let Some(chunk) = offset
+                        .checked_add(rest.len())
+                        .and_then(|e| data.get_mut(offset..e))
+                    {
+                        chunk.copy_from_slice(rest);
+                        (RpcReply::Ok, &[])
+                    } else {
+                        (RpcReply::OutOfRange, &[])
+                    }
+                }
+                Some(RpcOp::HiffyKick) => {
+                    HIFFY_KICK.fetch_add(1, Ordering::SeqCst);
+                    (RpcReply::Ok, &[])
+                }
+                None => (RpcReply::InvalidOperation, &[]),
+            }
+        }
+    }
 }
 
 include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
