@@ -149,13 +149,11 @@ impl FlashDriver {
         // Make sure die 0 is selected with a dummy read, because the
         // READ_UNIQUE_ID command is die-specific.
         let mut buf = [0u8; 4];
-        self.flash_read(FlashAddr(0), &mut buf.as_mut_slice())
-            .unwrap_lite(); // infallible when given a slice
+        self.flash_read_slice(FlashAddr(0), buf.as_mut_slice());
         let die0_id = self.read_unique_id();
 
         // Then read the top die's unique ID
-        self.flash_read(FlashAddr(0x04000000), &mut buf.as_mut_slice())
-            .unwrap_lite(); // infallible when given a slice
+        self.flash_read_slice(FlashAddr(0x04000000), buf.as_mut_slice());
         let die1_id = self.read_unique_id();
 
         let mut unique_id = [0u8; 17];
@@ -361,8 +359,14 @@ impl FlashDriver {
         Ok(())
     }
 
+    /// Read data from flash into a slice
+    fn flash_read_slice(&mut self, offset: FlashAddr, mut dest: &mut [u8]) {
+        // This is infallible, per the docstring on `flash_read`, so we'll
+        // unwrap it here (which lets this function not return an error)
+        self.flash_read(offset, &mut dest).unwrap_lite()
+    }
+
     /// Writes data from a slice into the flash
-    ///
     fn flash_write(&mut self, addr: FlashAddr, data: &[u8]) {
         // Don't bother writing erased pages
         if data.iter().all(|x| *x == 0xff) {

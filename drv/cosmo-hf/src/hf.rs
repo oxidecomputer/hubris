@@ -172,12 +172,10 @@ impl ServerImpl {
         for i in 0..SECTOR_SIZE_BYTES / HF_PERSISTENT_DATA_STRIDE as u32 {
             let addr = i * HF_PERSISTENT_DATA_STRIDE as u32;
             let mut data = HfRawPersistentData::new_zeroed();
-            self.drv
-                .flash_read(
-                    Self::flash_addr_for(addr, dev).unwrap_lite(),
-                    &mut data.as_mut_bytes(),
-                )
-                .unwrap_lite(); // flash_read is infallible when using a slice
+            self.drv.flash_read_slice(
+                Self::flash_addr_for(addr, dev).unwrap_lite(),
+                data.as_mut_bytes(),
+            );
             best = best.max(Some(data).filter(|d| d.is_valid()));
             if empty_slot.is_none()
                 && data.as_bytes().iter().all(|b| *b == 0xFF)
@@ -285,17 +283,12 @@ impl ServerImpl {
         let mut buf = [0u8; PAGE_SIZE_BYTES];
         for addr in (begin..end).step_by(buf.len()) {
             let size = (end - addr).min(buf.len());
-            // This unwrap is safe because `flash_read` can only fail when given
-            // a lease (where writing into the lease fails if the client goes
-            // away).  Giving it a buffer is infallible.
-            self.drv
-                .flash_read(
-                    // We expect that begin and end have already been
-                    // bounds checked so this should never fail.
-                    Self::flash_addr_for(addr as u32, dev).unwrap_lite(),
-                    &mut &mut buf[..size],
-                )
-                .unwrap_lite();
+            self.drv.flash_read_slice(
+                // We expect that begin and end have already been
+                // bounds checked so this should never fail.
+                Self::flash_addr_for(addr as u32, dev).unwrap_lite(),
+                &mut buf[..size],
+            );
             if let Err(e) = self.hash.task.update(size as u32, &buf[..size]) {
                 ringbuf_entry!(Trace::HashUpdateError(e));
                 return Err(HfError::HashError);
