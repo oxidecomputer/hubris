@@ -207,6 +207,7 @@ max-sizes = {flash = 32768, ram = 32768 }
 stacksize = 1200
 start = true
 task-slots = ["sys", "i2c_driver", "sprot"]
+notifications = ["timer"]
 
 [tasks.sensor]
 name = "task-sensor"

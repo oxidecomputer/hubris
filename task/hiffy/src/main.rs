@@ -197,78 +197,91 @@ fn main() -> ! {
         hl::sleep_for(sleep_ms);
         HIFFY_READY.store(0, Ordering::Relaxed);
 
-        // Humility writes `1` to `HIFFY_KICK`
-        if HIFFY_KICK.load(Ordering::Acquire) == 0 {
-            sleeps += 1;
+        // Sleep until either the timer expires or we receive a notification
+        // from the `net` task indicating that it's ready for us.
+        let deadline = sys_get_timer().now.saturating_add(sleep_ms);
+        sys_set_timer(Some(deadline), notifications::TIMER_MASK);
+        #[cfg(feature = "net")]
+        let bits = notifications::SOCKET_MASK | notifications::TIMER_MASK;
+        #[cfg(not(feature = "net"))]
+        let bits = notifications::TIMER_MASK;
+        let notif = sys_recv_notification(bits);
 
-            // Exponentially backoff our sleep value, but no more than 250ms
-            if sleeps == 10 {
-                sleep_ms = core::cmp::min(sleep_ms * 10, 250);
-                sleeps = 0;
+        if notif.has_timer_fired(notifications::TIMER_MASK) {
+            // Humility writes `1` to `HIFFY_KICK`
+            if HIFFY_KICK.load(Ordering::Acquire) == 0 {
+                sleeps += 1;
+
+                // Exponentially backoff our sleep value, but no more than 250ms
+                if sleeps == 10 {
+                    sleep_ms = core::cmp::min(sleep_ms * 10, 250);
+                    sleeps = 0;
+                }
+
+                continue;
             }
 
-            continue;
-        }
+            //
+            // Whenever we have been kicked, we adjust our timeout down to 1ms,
+            // from which we will exponentially backoff
+            //
+            HIFFY_KICK.store(0, Ordering::Release);
+            sleep_ms = 1;
+            sleeps = 0;
 
-        //
-        // Whenever we have been kicked, we adjust our timeout down to 1ms,
-        // from which we will exponentially backoff
-        //
-        HIFFY_KICK.store(0, Ordering::Release);
-        sleep_ms = 1;
-        sleeps = 0;
+            let check = |offset: usize, op: &Op| -> Result<(), Failure> {
+                trace_execute(offset, *op);
+                Ok(())
+            };
+            let rv = {
+                // Dummy object to bind references to a non-static lifetime
+                let lifetime = ();
 
-        let check = |offset: usize, op: &Op| -> Result<(), Failure> {
-            trace_execute(offset, *op);
-            Ok(())
-        };
-
-        let rv = {
-            // Dummy object to bind references to a non-static lifetime
-            let lifetime = ();
-
-            // SAFETY: We construct references from our pointers with a limited
-            // (non-static) lifetime, so they can't escape this block.  We are
-            // in single-threaded code, so no one else can read or write to
-            // static memory.  While the HIF program is running, the debugger is
-            // only reading from `HIFFY_REQUESTS` and `HIFFY_ERRORS`; it is not
-            // writing to any locations in memory.  See the diagram above for
-            // Hubris / Humility coordination.
-            let (text, data, rstack) = unsafe {
-                (
-                    bind_lifetime_ref(&lifetime, &raw const HIFFY_TEXT),
-                    bind_lifetime_ref(&lifetime, &raw const HIFFY_DATA),
-                    bind_lifetime_mut(&lifetime, &raw mut HIFFY_RSTACK),
+                // SAFETY: We construct references from our pointers with a limited
+                // (non-static) lifetime, so they can't escape this block.  We are
+                // in single-threaded code, so no one else can read or write to
+                // static memory.  While the HIF program is running, the debugger is
+                // only reading from `HIFFY_REQUESTS` and `HIFFY_ERRORS`; it is not
+                // writing to any locations in memory.  See the diagram above for
+                // Hubris / Humility coordination.
+                let (text, data, rstack) = unsafe {
+                    (
+                        bind_lifetime_ref(&lifetime, &raw const HIFFY_TEXT),
+                        bind_lifetime_ref(&lifetime, &raw const HIFFY_DATA),
+                        bind_lifetime_mut(&lifetime, &raw mut HIFFY_RSTACK),
+                    )
+                };
+                execute::<_, NLABELS>(
+                    text,
+                    HIFFY_FUNCS,
+                    data,
+                    &mut stack,
+                    rstack,
+                    &mut *HIFFY_SCRATCH.borrow_mut(),
+                    check,
                 )
             };
-            execute::<_, NLABELS>(
-                text,
-                HIFFY_FUNCS,
-                data,
-                &mut stack,
-                rstack,
-                &mut *HIFFY_SCRATCH.borrow_mut(),
-                check,
-            )
-        };
 
-        match rv {
-            Ok(_) => {
-                let prev = HIFFY_REQUESTS.load(Ordering::Relaxed);
-                HIFFY_REQUESTS.store(prev.wrapping_add(1), Ordering::Release);
-                trace_success();
-            }
-            Err(failure) => {
-                // SAFETY: We are in single-threaded code and the debugger will
-                // not be reading HIFFY_FAILURE until HIFFY_ERRORS is
-                // incremented below.  See the diagram above for Hubris /
-                // Humility coordination.
-                unsafe {
-                    HIFFY_FAILURE = Some(failure);
+            match rv {
+                Ok(_) => {
+                    let prev = HIFFY_REQUESTS.load(Ordering::Relaxed);
+                    HIFFY_REQUESTS
+                        .store(prev.wrapping_add(1), Ordering::Release);
+                    trace_success();
                 }
-                let prev = HIFFY_ERRORS.load(Ordering::Relaxed);
-                HIFFY_ERRORS.store(prev.wrapping_add(1), Ordering::Release);
-                trace_failure(failure);
+                Err(failure) => {
+                    // SAFETY: We are in single-threaded code and the debugger will
+                    // not be reading HIFFY_FAILURE until HIFFY_ERRORS is
+                    // incremented below.  See the diagram above for Hubris /
+                    // Humility coordination.
+                    unsafe {
+                        HIFFY_FAILURE = Some(failure);
+                        let prev = HIFFY_ERRORS.load(Ordering::Relaxed);
+                        HIFFY_ERRORS
+                            .store(prev.wrapping_add(1), Ordering::Release);
+                        trace_failure(failure);
+                    }
+                }
             }
         }
     }
@@ -303,3 +316,5 @@ unsafe fn bind_lifetime_mut<'a, const N: usize>(
     // safety conditions (listed in docstring)
     unsafe { array.as_mut().unwrap_lite() }
 }
+
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));

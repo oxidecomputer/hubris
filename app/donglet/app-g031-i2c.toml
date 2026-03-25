@@ -49,6 +49,7 @@ start = true
 task-slots = ["sys", "i2c_driver"]
 stacksize = 912
 features = ["stm32g0", "g031", "i2c", "gpio", "send", "no-ipc-counters"]
+notifications = ["timer"]
 
 [tasks.idle]
 name = "task-idle"
