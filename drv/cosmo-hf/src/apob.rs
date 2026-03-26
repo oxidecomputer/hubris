@@ -206,8 +206,7 @@ impl From<HfError> for ApobError {
 
 pub const APOB_PERSISTENT_DATA_MAGIC: u32 = 0x3ca9_9496; // chosen at random
 pub const APOB_PERSISTENT_DATA_STRIDE: usize = 128;
-pub const APOB_PERSISTENT_DATA_HEADER_V1: u32 = 1; // deprecated
-pub const APOB_PERSISTENT_DATA_HEADER_V2: u32 = 2;
+pub const APOB_PERSISTENT_DATA_HEADER_V2: u32 = 2; // current version
 
 pub const APOB_META_SIZE: u32 = SECTOR_SIZE_BYTES;
 pub const APOB_SLOT_SIZE: u32 = 2 * 1024 * 1024; // 2 MiB (chosen arbitrarily)
@@ -275,7 +274,8 @@ enum Trace {
         actual: u32,
     },
     Abl0Version(u32),
-    IgnoringOldMetaVersion(u32),
+    ClearingOldMetaVersion(u32),
+    ClearingNewMetaVersion(u32),
 }
 counted_ringbuf!(Trace, 16, Trace::None);
 
@@ -350,8 +350,6 @@ pub(crate) enum ApobState {
     },
 }
 
-// ApobRawPersistentDataV1 is deprecated and is discarded when found
-
 #[derive(
     Copy, Clone, Eq, PartialEq, IntoBytes, FromBytes, Immutable, KnownLayout,
 )]
@@ -362,14 +360,16 @@ struct ApobRawPersistentDataHeader {
 
     /// Must always be [`APOB_PERSISTENT_DATA_HEADER_V2`] for new data
     ///
-    /// May be [`APOB_PERSISTENT_DATA_HEADER_V1`] for old on-disk data
+    /// May have other values for old data, which we will invalidate when found
     version: zerocopy::byteorder::native_endian::U32,
 }
 
 impl ApobRawPersistentDataHeader {
     fn is_valid(&self) -> bool {
         self.oxide_magic == APOB_PERSISTENT_DATA_MAGIC
-            && self.version == APOB_PERSISTENT_DATA_HEADER_V2
+    }
+    fn is_valid_for(&self, version: u32) -> bool {
+        self.is_valid() && self.version == version
     }
 }
 
@@ -383,7 +383,7 @@ struct ApobRawPersistentDataV2 {
     header: ApobRawPersistentDataHeader,
 
     /// Monotonically increasing counter
-    pub monotonic_counter: zerocopy::byteorder::native_endian::U64,
+    monotonic_counter: zerocopy::byteorder::native_endian::U64,
 
     /// Either 0 or 1; directly translatable to [`ApobSlot`]
     slot_select: zerocopy::byteorder::native_endian::U32,
@@ -460,7 +460,7 @@ impl ApobRawPersistentDataV2 {
     }
 
     fn is_valid(&self) -> bool {
-        self.header.is_valid()
+        self.header.is_valid_for(APOB_PERSISTENT_DATA_HEADER_V2)
             && self.slot_select <= 1
             && self.checksum == self.expected_checksum()
     }
@@ -637,27 +637,28 @@ impl ApobState {
         for offset in (0..APOB_META_SIZE).step_by(APOB_PERSISTENT_DATA_STRIDE) {
             // Read the header, which is the same across all metadata versions
             let mut header = ApobRawPersistentDataHeader::new_zeroed();
-            drv.flash_read_slice(
-                meta.flash_addr(offset).unwrap_lite(),
-                header.as_mut_bytes(),
-            );
+            let addr = meta.flash_addr(offset).unwrap_lite();
+            drv.flash_read_slice(addr, header.as_mut_bytes());
             if header.is_valid() {
-                match header.version.into() {
-                    APOB_PERSISTENT_DATA_HEADER_V1 => {
-                        ringbuf_entry!(Trace::IgnoringOldMetaVersion(
-                            header.version.into()
-                        ));
+                const CURRENT_VERSION: u32 = APOB_PERSISTENT_DATA_HEADER_V2;
+                let header_version = header.version.into();
+                if header_version == CURRENT_VERSION {
+                    let mut raw_data = ApobRawPersistentDataV2::new_zeroed();
+                    drv.flash_read_slice(addr, raw_data.as_mut_bytes());
+                    if let Some(data) = raw_data.validate() {
+                        best = best.max(Some(data));
                     }
-                    APOB_PERSISTENT_DATA_HEADER_V2 => {
-                        let mut raw_data =
-                            ApobRawPersistentDataV2::new_zeroed();
-                        let addr = meta.flash_addr(offset).unwrap_lite();
-                        drv.flash_read_slice(addr, raw_data.as_mut_bytes());
-                        if let Some(data) = raw_data.validate() {
-                            best = best.max(Some(data));
-                        }
-                    }
-                    _ => (),
+                } else {
+                    // Destroy non-matching metadata by scribbling over the
+                    // magic word, which is the first `u32` in the header.  We
+                    // can write zeros without erasing the flash in advance,
+                    // since flash write performs a 1->0 transition.
+                    ringbuf_entry!(if header_version < CURRENT_VERSION {
+                        Trace::ClearingOldMetaVersion(header_version)
+                    } else {
+                        Trace::ClearingNewMetaVersion(header_version)
+                    });
+                    drv.flash_write(addr, 0u32.as_bytes());
                 }
             }
         }
