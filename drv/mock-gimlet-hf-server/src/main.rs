@@ -279,6 +279,13 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     ) -> Result<usize, RequestError<drv_hf_api::ApobReadError>> {
         Err(drv_hf_api::ApobReadError::InvalidState.into())
     }
+
+    fn apob_clear(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<drv_hf_api::ApobClearError>> {
+        Err(drv_hf_api::ApobClearError::NotImplemented.into())
+    }
 }
 
 impl NotificationHandler for ServerImpl {
@@ -297,8 +304,8 @@ mod idl {
         HfProtectMode,
     };
     use drv_hf_api::{
-        ApobBeginError, ApobCommitError, ApobHash, ApobReadError,
-        ApobWriteError,
+        ApobBeginError, ApobClearError, ApobCommitError, ApobHash,
+        ApobReadError, ApobWriteError,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

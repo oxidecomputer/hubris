@@ -6,13 +6,13 @@ use super::{common::CurrentUpdate, ComponentUpdater};
 use crate::mgs_handler::{BorrowedUpdateBuffer, UpdateBuffer};
 use core::ops::Range;
 use drv_hf_api::{
-    HfDevSelect, HfError, HfProtectMode, HostFlash, PAGE_SIZE_BYTES,
-    SECTOR_SIZE_BYTES,
+    ApobClearError, HfDevSelect, HfError, HfProtectMode, HostFlash,
+    PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES,
 };
 use gateway_messages::{
-    ComponentUpdatePrepare, HfError as GwHfError, SpComponent, SpError,
-    UpdateId, UpdateInProgressStatus, UpdatePreparationProgress,
-    UpdatePreparationStatus, UpdateStatus,
+    ApobComponentActionResponse, ComponentUpdatePrepare, HfError as GwHfError,
+    SpComponent, SpError, UpdateId, UpdateInProgressStatus,
+    UpdatePreparationProgress, UpdatePreparationStatus, UpdateStatus,
 };
 
 userlib::task_slot!(HOST_FLASH, hf);
@@ -138,6 +138,21 @@ impl HostFlashUpdate {
             }
         } else {
             Ok(())
+        }
+    }
+
+    pub(crate) fn apob_clear(&self) -> ApobComponentActionResponse {
+        match self.task.apob_clear() {
+            Ok(()) => ApobComponentActionResponse::Success,
+            Err(ApobClearError::NotImplemented) => {
+                ApobComponentActionResponse::NotImplemented
+            }
+            Err(ApobClearError::NotMuxedToSp) => {
+                ApobComponentActionResponse::NotMuxedToSp
+            }
+            Err(ApobClearError::InvalidState) => {
+                ApobComponentActionResponse::InvalidState
+            }
         }
     }
 }

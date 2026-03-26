@@ -280,6 +280,14 @@ mod devices_with_static_validation {
             capabilities: DeviceCapabilities::UPDATEABLE,
             presence: DevicePresence::Present, // TODO: ok to assume always present?
         },
+        #[cfg(feature = "cosmo")]
+        DeviceDescription {
+            component: SpComponent::HOST_CPU_BOOT_APOB,
+            device: SpComponent::HOST_CPU_BOOT_APOB.const_as_str(),
+            description: "Cosmo host boot APOB region",
+            capabilities: DeviceCapabilities::empty(),
+            presence: DevicePresence::Present, // matches HOST_CPU_BOOT_FLASH
+        },
         // If we're building for sidecar, we always claim to have a monorail.
         #[cfg(feature = "sidecar")]
         DeviceDescription {

@@ -15,14 +15,14 @@ use gateway_messages::sp_impl::{
     BoundsChecked, DeviceDescription, Sender, SpHandler,
 };
 use gateway_messages::{
-    ignition, ComponentAction, ComponentActionResponse, ComponentDetails,
-    ComponentUpdatePrepare, DiscoverResponse, DumpSegment, DumpTask,
-    GpioToggleCount, Header, IgnitionCommand, IgnitionState, LastPostCode,
-    Message, MessageKind, MgsError, MgsRequest, MgsResponse, PostCode,
-    PowerState, PowerStateTransition, RotBootInfo, RotRequest, RotResponse,
-    SensorRequest, SensorResponse, SpComponent, SpError, SpPort as GwSpPort,
-    SpRequest, SpStateV2, SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
-    SERIAL_CONSOLE_IDLE_TIMEOUT,
+    ignition, ApobComponentAction, ComponentAction, ComponentActionResponse,
+    ComponentDetails, ComponentUpdatePrepare, DiscoverResponse, DumpSegment,
+    DumpTask, GpioToggleCount, Header, IgnitionCommand, IgnitionState,
+    LastPostCode, Message, MessageKind, MgsError, MgsRequest, MgsResponse,
+    PostCode, PowerState, PowerStateTransition, RotBootInfo, RotRequest,
+    RotResponse, SensorRequest, SensorResponse, SpComponent, SpError,
+    SpPort as GwSpPort, SpRequest, SpStateV2, SpUpdatePrepare, UpdateChunk,
+    UpdateId, UpdateStatus, SERIAL_CONSOLE_IDLE_TIMEOUT,
 };
 use heapless::{Deque, Vec};
 use host_sp_messages::HostStartupOptions;
@@ -612,6 +612,17 @@ impl SpHandler for MgsHandler {
                 }
                 .unwrap();
                 Ok(ComponentActionResponse::Ack)
+            }
+            (
+                SpComponent::HOST_CPU_BOOT_APOB,
+                ComponentAction::Apob(action),
+            ) => {
+                let r = match action {
+                    ApobComponentAction::Clear => {
+                        self.host_flash_update.apob_clear()
+                    }
+                };
+                Ok(ComponentActionResponse::Apob(r))
             }
             _ => Err(SpError::RequestUnsupportedForComponent),
         }

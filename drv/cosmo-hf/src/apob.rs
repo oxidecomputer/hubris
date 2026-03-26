@@ -12,8 +12,8 @@ use crate::{
     SECTOR_SIZE_BYTES,
 };
 use drv_hf_api::{
-    ApobBeginError, ApobCommitError, ApobHash, ApobReadError, ApobWriteError,
-    HfError,
+    ApobBeginError, ApobClearError, ApobCommitError, ApobHash, ApobReadError,
+    ApobWriteError, HfError,
 };
 use idol_runtime::{Leased, R, W};
 use ringbuf::{counted_ringbuf, ringbuf_entry};
@@ -276,6 +276,7 @@ enum Trace {
     Abl0Version(u32),
     ClearingOldMetaVersion(u32),
     ClearingNewMetaVersion(u32),
+    ApobClear,
 }
 counted_ringbuf!(Trace, 16, Trace::None);
 
@@ -832,6 +833,42 @@ impl ApobState {
                 .map_err(|_| ApobReadError::ReadFailed)?;
         }
         Ok(data.len())
+    }
+
+    pub(crate) fn clear(
+        &mut self,
+        drv: &mut FlashDriver,
+        buf: &mut HfBufs,
+    ) -> Result<(), ApobClearError> {
+        // Check that the flash is muxed to the SP
+        drv.check_flash_mux_state()
+            .map_err(|_| ApobClearError::NotMuxedToSp)?;
+
+        match self {
+            ApobState::Waiting { read_slot, .. } => {
+                *read_slot = None;
+                // It's fine to leave write_slot as either value, since they
+                // will both be erased after we exit this function.
+            }
+            ApobState::Ready { .. } => {
+                // Don't erase the APOB if we're midway through writing, that
+                // could be confusing!
+                return Err(ApobClearError::InvalidState);
+            }
+            ApobState::Locked { .. } => {
+                // It's fine to erase the APOB after it's locked
+            }
+        }
+        ringbuf_entry!(Trace::ApobClear);
+
+        Self::slot_erase(drv, buf, ApobSlot::Slot0);
+        Self::slot_erase(drv, buf, ApobSlot::Slot1);
+
+        // Overwrite both metadata pages (one sector each)
+        drv.flash_sector_erase(Meta::Meta0.flash_addr(0).unwrap_lite());
+        drv.flash_sector_erase(Meta::Meta1.flash_addr(0).unwrap_lite());
+
+        Ok(())
     }
 
     pub(crate) fn lock(&mut self) {

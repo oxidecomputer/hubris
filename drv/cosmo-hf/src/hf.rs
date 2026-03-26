@@ -587,6 +587,15 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             .map_err(RequestError::from)
     }
 
+    fn apob_clear(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<drv_hf_api::ApobClearError>> {
+        self.apob_state
+            .clear(&mut self.drv, &mut self.buf)
+            .map_err(RequestError::from)
+    }
+
     fn get_mux(
         &mut self,
         _: &RecvMessage,
@@ -1079,13 +1088,20 @@ impl idl::InOrderHostFlashImpl for FailServer {
     ) -> Result<usize, RequestError<drv_hf_api::ApobReadError>> {
         Err(drv_hf_api::ApobReadError::InvalidState.into())
     }
+
+    fn apob_clear(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<drv_hf_api::ApobClearError>> {
+        Err(drv_hf_api::ApobClearError::InvalidState.into())
+    }
 }
 
 pub mod idl {
     use drv_hf_api::{
-        ApobBeginError, ApobCommitError, ApobHash, ApobReadError,
-        ApobWriteError, HfChipId, HfDevSelect, HfError, HfMuxState,
-        HfPersistentData, HfProtectMode,
+        ApobBeginError, ApobClearError, ApobCommitError, ApobHash,
+        ApobReadError, ApobWriteError, HfChipId, HfDevSelect, HfError,
+        HfMuxState, HfPersistentData, HfProtectMode,
     };
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
