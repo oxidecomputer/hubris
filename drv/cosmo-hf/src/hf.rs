@@ -606,6 +606,11 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         // - We will only load an APOB that's pinned to that version
         // - After booting, we'll use that version when persisting a new APOB
         if state == HfMuxState::HostCPU {
+            // We can only swap the mux state to the host if it's currently
+            // muxed to the SP, because we must read from flash (to find ABL0
+            // version, APOB state, etc) before swapping the mux.
+            self.drv.check_flash_mux_state()?;
+
             self.abl0_version = match self.find_abl0_version() {
                 Ok(v) => {
                     // If the previous ABL0 version has not been consumed by
