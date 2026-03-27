@@ -305,5 +305,13 @@ Interface(
             ),
             idempotent: true,
         ),
+        "apob_clear": (
+            description: "clears the APOB",
+            reply: Result(
+                ok: "()",
+                err: CLike("ApobClearError"),
+            ),
+            idempotent: true,
+        ),
     },
 )

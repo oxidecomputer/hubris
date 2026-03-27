@@ -385,4 +385,26 @@ pub enum ApobCommitError {
     CommitFailed,
 }
 
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    FromPrimitive,
+    IdolError,
+    counters::Count,
+)]
+pub enum ApobClearError {
+    /// APOB is not implemented on this hardware
+    NotImplemented = 1,
+    /// Host flash is not muxed to the SP
+    NotMuxedToSp,
+    /// The APOB state machine is in an invalid state
+    InvalidState,
+}
+
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

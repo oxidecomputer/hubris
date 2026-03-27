@@ -960,6 +960,13 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     ) -> Result<usize, RequestError<drv_hf_api::ApobReadError>> {
         Err(drv_hf_api::ApobReadError::NotImplemented.into())
     }
+
+    fn apob_clear(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<drv_hf_api::ApobClearError>> {
+        Err(drv_hf_api::ApobClearError::NotImplemented.into())
+    }
 }
 
 impl NotificationHandler for ServerImpl {
@@ -1193,6 +1200,13 @@ impl idl::InOrderHostFlashImpl for FailServer {
     ) -> Result<usize, RequestError<drv_hf_api::ApobReadError>> {
         Err(drv_hf_api::ApobReadError::NotImplemented.into())
     }
+
+    fn apob_clear(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<drv_hf_api::ApobClearError>> {
+        Err(drv_hf_api::ApobClearError::NotImplemented.into())
+    }
 }
 
 /// Failure function, running an Idol response loop that always returns an error
@@ -1210,8 +1224,8 @@ mod idl {
         HfProtectMode,
     };
     use drv_hf_api::{
-        ApobBeginError, ApobCommitError, ApobHash, ApobReadError,
-        ApobWriteError,
+        ApobBeginError, ApobClearError, ApobCommitError, ApobHash,
+        ApobReadError, ApobWriteError,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
