@@ -201,7 +201,6 @@ fn main() -> ! {
         let deadline = sys_get_timer().now.saturating_add(sleep_ms);
         HIFFY_READY.store(1, Ordering::Relaxed);
         sys_set_timer(Some(deadline), notifications::TIMER_MASK);
-        HIFFY_READY.store(0, Ordering::Relaxed);
 
         #[cfg(feature = "net")]
         let bits = notifications::SOCKET_MASK | notifications::TIMER_MASK;
@@ -209,6 +208,7 @@ fn main() -> ! {
         let bits = notifications::TIMER_MASK;
 
         let notif = sys_recv_notification(bits);
+        HIFFY_READY.store(0, Ordering::Relaxed);
 
         #[cfg(feature = "net")]
         if notif.check_notification_mask(notifications::SOCKET_MASK) {
