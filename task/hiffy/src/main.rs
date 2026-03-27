@@ -196,14 +196,12 @@ fn main() -> ! {
     let mut net_state = net::State::new();
 
     loop {
-        HIFFY_READY.store(1, Ordering::Relaxed);
-        hl::sleep_for(sleep_ms);
-        HIFFY_READY.store(0, Ordering::Relaxed);
-
         // Sleep until either the timer expires or we receive a notification
         // from the `net` task indicating that it's ready for us.
         let deadline = sys_get_timer().now.saturating_add(sleep_ms);
+        HIFFY_READY.store(1, Ordering::Relaxed);
         sys_set_timer(Some(deadline), notifications::TIMER_MASK);
+        HIFFY_READY.store(0, Ordering::Relaxed);
 
         #[cfg(feature = "net")]
         let bits = notifications::SOCKET_MASK | notifications::TIMER_MASK;
@@ -329,7 +327,9 @@ unsafe fn bind_lifetime_mut<'a, const N: usize>(
 
 #[cfg(feature = "net")]
 mod net {
-    use super::{HIFFY_DATA, HIFFY_KICK, HIFFY_TEXT, notifications};
+    use super::{
+        HIFFY_DATA, HIFFY_KICK, HIFFY_TEXT, bind_lifetime_mut, notifications,
+    };
     use core::sync::atomic::Ordering;
     use static_cell::ClaimOnceCell;
     use task_net_api::{
@@ -482,10 +482,18 @@ mod net {
             // Perform the actual operation
             match RpcOp::from_u16(header.operation.get()) {
                 Some(RpcOp::WriteHiffyText) => {
+                    // Dummy object to bind references to a non-static lifetime
+                    let lifetime = ();
                     let offset = header.arg.get() as usize;
-                    // TODO: using a `static mut` global in ways that are not
-                    // obviously sound (but no worse than elsewhere in the file)
-                    let text = unsafe { &mut HIFFY_TEXT };
+
+                    // SAFETY: we are constructing a slice with a bounded
+                    // lifetime, and are in single-threaded code.  We don't
+                    // expect a debugger to be editing our memory.  If someone
+                    // is simultaneously editing `HIFFY_TEXT` with a debugger
+                    // *and* over the network, they deserve whatever happens.
+                    let text = unsafe {
+                        bind_lifetime_mut(&lifetime, &raw mut HIFFY_TEXT)
+                    };
                     if let Some(chunk) = offset
                         .checked_add(rest.len())
                         .and_then(|e| text.get_mut(offset..e))
@@ -497,10 +505,18 @@ mod net {
                     }
                 }
                 Some(RpcOp::WriteHiffyData) => {
+                    // Dummy object to bind references to a non-static lifetime
+                    let lifetime = ();
                     let offset = header.arg.get() as usize;
-                    // TODO: using a `static mut` global in ways that are not
-                    // obviously sound (but no worse than elsewhere in the file)
-                    let data = unsafe { &mut HIFFY_DATA };
+
+                    // SAFETY: we are constructing a slice with a bounded
+                    // lifetime, and are in single-threaded code.  We don't
+                    // expect a debugger to be editing our memory.  If someone
+                    // is simultaneously editing `HIFFY_DATA` with a debugger
+                    // *and* over the network, they deserve whatever happens.
+                    let data = unsafe {
+                        bind_lifetime_mut(&lifetime, &raw mut HIFFY_DATA)
+                    };
                     if let Some(chunk) = offset
                         .checked_add(rest.len())
                         .and_then(|e| data.get_mut(offset..e))
