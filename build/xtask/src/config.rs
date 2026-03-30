@@ -29,6 +29,7 @@ struct RawConfig {
     #[serde(default)]
     version: u32,
     memory: Option<String>,
+    default_ram: String,
     #[serde(default)]
     image_names: Vec<String>,
     #[serde(default)]
@@ -68,6 +69,7 @@ pub struct Config {
     pub image_names: Vec<String>,
     pub signing: Option<RoTMfgSettings>,
     pub stacksize: Option<u32>,
+    pub default_ram: String,
     pub kernel: Kernel,
     pub outputs: IndexMap<String, Vec<Output>>,
     pub tasks: IndexMap<String, Task>,
@@ -250,6 +252,25 @@ impl Config {
             None => None,
         };
 
+        // Remap from "ram" to a specific region in `kernel.requires`
+        let mut kernel = toml.kernel;
+        let kernel_ram_region =
+            kernel.default_ram.as_ref().unwrap_or(&toml.default_ram);
+        kernel.requires = kernel
+            .requires
+            .into_iter()
+            .map(|(name, amount)| {
+                (
+                    if name == "ram" {
+                        kernel_ram_region.to_owned()
+                    } else {
+                        name
+                    },
+                    amount,
+                )
+            })
+            .collect();
+
         Ok(Config {
             name: toml.name,
             target: toml.target,
@@ -261,7 +282,8 @@ impl Config {
             version: toml.version,
             signing: toml.signing,
             stacksize: toml.stacksize,
-            kernel: toml.kernel,
+            default_ram: toml.default_ram,
+            kernel,
             outputs,
             tasks: toml.tasks,
             peripherals,
@@ -631,6 +653,22 @@ impl Config {
             })
             .collect::<Result<IndexMap<String, Range<u32>>>>()
     }
+
+    /// Returns the default RAM region for the kernel
+    pub fn kernel_ram_region(&self) -> &str {
+        self.kernel
+            .default_ram
+            .as_ref()
+            .unwrap_or(&self.default_ram)
+    }
+
+    /// Returns the default RAM region for a task
+    pub fn task_ram_region(&self, task: &str) -> &str {
+        self.tasks[task]
+            .default_ram
+            .as_ref()
+            .unwrap_or(&self.default_ram)
+    }
 }
 
 /// Represents an MPU's desired alignment strategy
@@ -738,6 +776,8 @@ pub struct Kernel {
     pub no_default_features: bool,
     #[serde(default)]
     pub extern_regions: Vec<String>,
+    #[serde(default)]
+    pub default_ram: Option<String>,
 }
 
 fn default_name() -> String {

@@ -2,6 +2,7 @@ name = "gimletlet-mgmt"
 target = "thumbv7em-none-eabihf"
 board = "gimletlet-1"
 chip = "../../chips/stm32h7"
+default-ram = "dtcm"
 stacksize = 1024
 
 [kernel]
