@@ -2357,11 +2357,16 @@ pub fn allocate_all(
 
         for name in tasks.keys() {
             let req = &task_sizes[name.as_str()];
+            // We evenly divide spare regions between RAM and flash, rounding up
+            // to give flash the extra (if there's an odd number).  This isn't a
+            // particularly fancy heuristic, but works fine for our images.
+            let flash_bonus = req.spare_regions.div_ceil(2);
+            let ram_bonus = req.spare_regions - flash_bonus;
             for (&mem, &amt) in req.memory.iter() {
-                // Right now, flash is most limited, so it gets to use all of
-                // our spare regions (if present)
                 let n = if mem == "flash" {
-                    req.spare_regions + 1
+                    flash_bonus + 1
+                } else if mem == "ram" {
+                    ram_bonus + 1
                 } else {
                     1
                 };
