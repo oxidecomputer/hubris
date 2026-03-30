@@ -2380,10 +2380,11 @@ pub fn allocate_all(
             // particularly fancy heuristic, but works fine for our images.
             let flash_bonus = req.spare_regions.div_ceil(2);
             let ram_bonus = req.spare_regions - flash_bonus;
+            let ram_region = toml.task_ram_region(name);
             for (&mem, &amt) in req.memory.iter() {
                 let n = if mem == "flash" {
                     flash_bonus + 1
-                } else if mem == "ram" {
+                } else if mem == ram_region {
                     ram_bonus + 1
                 } else {
                     1
