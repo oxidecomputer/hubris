@@ -7,7 +7,7 @@ default-ram = "axi_sram"
 name = "sidecar"
 requires = {flash = 26656, ram = 6256}
 features = ["dump", "measurement-handoff"]
-extern-regions = ["dtcm"]
+extern-regions = [{ region = "dtcm", shared = true }]
 
 [caboose]
 tasks = ["control_plane_agent", "packrat"]

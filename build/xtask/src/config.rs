@@ -255,7 +255,15 @@ impl Config {
         // Remap from "ram" to a specific region in `kernel.requires` and task
         // `max-sizes` maps.
         let mut kernel = toml.kernel;
-        let remap = |regions: &mut IndexMap<String, u32>, ram_region: &str| {
+        let remap = |regions: &mut IndexMap<String, u32>,
+                     ram_region: &str,
+                     desc: &str| {
+            if regions.contains_key("ram") && regions.contains_key(ram_region) {
+                bail!(
+                    "cannot include both `ram` and default ram region \
+                    `{ram_region}` in {desc}"
+                );
+            }
             *regions = std::mem::take(regions)
                 .into_iter()
                 .map(|(name, amount)| {
@@ -268,16 +276,21 @@ impl Config {
                         amount,
                     )
                 })
-                .collect()
+                .collect();
+            Ok(())
         };
         let kernel_ram_region =
             kernel.default_ram.as_ref().unwrap_or(&toml.default_ram);
-        remap(&mut kernel.requires, kernel_ram_region);
+        remap(&mut kernel.requires, kernel_ram_region, "kernel `requires`")?;
         let mut tasks = toml.tasks;
-        for task in tasks.values_mut() {
+        for (name, task) in tasks.iter_mut() {
             let task_ram_region =
                 task.default_ram.as_ref().unwrap_or(&toml.default_ram);
-            remap(&mut task.max_sizes, task_ram_region);
+            remap(
+                &mut task.max_sizes,
+                task_ram_region,
+                &format!("`max-sizes` for {name}"),
+            )?;
         }
 
         Ok(Config {
@@ -637,7 +650,13 @@ impl Config {
         &self,
         image_name: &str,
     ) -> Result<IndexMap<String, Range<u32>>> {
-        self.get_extern_regions(&self.kernel.extern_regions, image_name)
+        let extern_regions = self
+            .kernel
+            .extern_regions
+            .iter()
+            .map(|r| r.region.to_owned())
+            .collect::<Vec<_>>();
+        self.get_extern_regions(&extern_regions, image_name)
     }
 
     fn get_extern_regions(
@@ -784,9 +803,16 @@ pub struct Kernel {
     #[serde(default)]
     pub no_default_features: bool,
     #[serde(default)]
-    pub extern_regions: Vec<String>,
+    pub extern_regions: Vec<KernelExternRegion>,
     #[serde(default)]
     pub default_ram: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+pub struct KernelExternRegion {
+    pub region: String,
+    pub shared: bool,
 }
 
 fn default_name() -> String {

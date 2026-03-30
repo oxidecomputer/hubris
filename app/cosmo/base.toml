@@ -7,7 +7,7 @@ stacksize = 896
 name = "cosmo"
 requires = {flash = 32768, ram = 8192}
 features = ["dump", "measurement-handoff"]
-extern-regions = ["dtcm"]
+extern-regions = [{ region = "dtcm", shared = true }]
 
 [mmio]
 peripheral-region = "fmc_nor_psram_bank_1"
@@ -47,6 +47,7 @@ stacksize = 8000
 priority = 5
 features = ["mgmt", "h753", "cosmo", "vlan", "vpd-mac"]
 max-sizes = {flash = 131072, ram = 65536, sram1_mac = 16384}
+default-ram = "dtcm"
 sections = {eth_bulk = "sram1_mac"}
 uses = ["eth", "tim16"]
 start = true

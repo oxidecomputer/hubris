@@ -7,7 +7,7 @@ stacksize = 896
 name = "psc"
 requires = {flash = 32868, ram = 6000}
 features = ["dump", "measurement-handoff"]
-extern-regions = ["dtcm"]
+extern-regions = [{ region = "dtcm", shared = true }]
 
 [caboose]
 tasks = ["control_plane_agent", "packrat"]

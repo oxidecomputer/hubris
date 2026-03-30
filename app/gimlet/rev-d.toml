@@ -10,7 +10,7 @@ inherit = "base.toml"
 # this into `base.toml`; subsequent revisions inherit from `rev-d.toml`
 [kernel]
 features = ["measurement-handoff"]
-extern-regions = ["dtcm"]
+extern-regions = [{ region = "dtcm", shared = true }]
 
 ################################################################################
 #
