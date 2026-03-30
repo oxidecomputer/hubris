@@ -252,24 +252,33 @@ impl Config {
             None => None,
         };
 
-        // Remap from "ram" to a specific region in `kernel.requires`
+        // Remap from "ram" to a specific region in `kernel.requires` and task
+        // `max-sizes` maps.
         let mut kernel = toml.kernel;
+        let remap = |regions: &mut IndexMap<String, u32>, ram_region: &str| {
+            *regions = std::mem::take(regions)
+                .into_iter()
+                .map(|(name, amount)| {
+                    (
+                        if name == "ram" {
+                            ram_region.to_owned()
+                        } else {
+                            name
+                        },
+                        amount,
+                    )
+                })
+                .collect()
+        };
         let kernel_ram_region =
             kernel.default_ram.as_ref().unwrap_or(&toml.default_ram);
-        kernel.requires = kernel
-            .requires
-            .into_iter()
-            .map(|(name, amount)| {
-                (
-                    if name == "ram" {
-                        kernel_ram_region.to_owned()
-                    } else {
-                        name
-                    },
-                    amount,
-                )
-            })
-            .collect();
+        remap(&mut kernel.requires, kernel_ram_region);
+        let mut tasks = toml.tasks;
+        for task in tasks.values_mut() {
+            let task_ram_region =
+                task.default_ram.as_ref().unwrap_or(&toml.default_ram);
+            remap(&mut task.max_sizes, task_ram_region);
+        }
 
         Ok(Config {
             name: toml.name,
@@ -285,7 +294,7 @@ impl Config {
             default_ram: toml.default_ram,
             kernel,
             outputs,
-            tasks: toml.tasks,
+            tasks,
             peripherals,
             extratext: toml.extratext,
             config: toml.config,

@@ -478,7 +478,6 @@ pub fn package(
     // Allocate memories.
     let allocated =
         allocate_all(&cfg.toml, &task_reqs, cfg.toml.caboose.as_ref())?;
-    println!("ALLOCATED:\n{allocated:#x?}");
 
     for image_name in &cfg.toml.image_names {
         // Build each task.
