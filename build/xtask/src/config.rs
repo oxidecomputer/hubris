@@ -29,6 +29,7 @@ struct RawConfig {
     #[serde(default)]
     version: u32,
     memory: Option<String>,
+    #[serde(default = "default_ram_name")]
     default_ram: String,
     #[serde(default)]
     image_names: Vec<String>,
@@ -42,6 +43,11 @@ struct RawConfig {
     config: Option<ordered_toml::Value>,
     auxflash: Option<AuxFlash>,
     caboose: Option<CabooseConfig>,
+}
+
+const DEFAULT_RAM_NAME: &str = "ram";
+fn default_ram_name() -> String {
+    DEFAULT_RAM_NAME.to_owned()
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -258,17 +264,20 @@ impl Config {
         let remap = |regions: &mut IndexMap<String, u32>,
                      ram_region: &str,
                      desc: &str| {
-            if regions.contains_key("ram") && regions.contains_key(ram_region) {
+            if regions.contains_key(DEFAULT_RAM_NAME)
+                && regions.contains_key(ram_region)
+                && ram_region != DEFAULT_RAM_NAME
+            {
                 bail!(
-                    "cannot include both `ram` and default ram region \
-                    `{ram_region}` in {desc}"
+                    "cannot include both `{DEFAULT_RAM_NAME}` and default ram \
+                     region `{ram_region}` in {desc}"
                 );
             }
             *regions = std::mem::take(regions)
                 .into_iter()
                 .map(|(name, amount)| {
                     (
-                        if name == "ram" {
+                        if name == DEFAULT_RAM_NAME {
                             ram_region.to_owned()
                         } else {
                             name

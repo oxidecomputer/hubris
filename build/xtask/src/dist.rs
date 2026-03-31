@@ -1850,11 +1850,13 @@ fn generate_task_linker_script(
         emit(&mut linkscr, &name_upper, start, end - start)?;
     }
     writeln!(linkscr, "}}")?;
-    writeln!(
-        linkscr,
-        "REGION_ALIAS(\"RAM\", {});",
-        ram_section.to_ascii_uppercase()
-    )?;
+    if !ram_section.eq_ignore_ascii_case("ram") {
+        writeln!(
+            linkscr,
+            "REGION_ALIAS(\"RAM\", {});",
+            ram_section.to_ascii_uppercase()
+        )?;
+    }
     append_image_names(&mut linkscr, images, image_name)?;
     append_extern_regions(&mut linkscr, extern_regions)?;
     append_task_sections(&mut linkscr, sections)?;
@@ -1982,11 +1984,13 @@ fn generate_kernel_linker_script(
         .unwrap();
     }
     writeln!(linkscr, "}}").unwrap();
-    writeln!(
-        linkscr,
-        "REGION_ALIAS(\"RAM\", {});",
-        ram_section.to_ascii_uppercase()
-    )?;
+    if !ram_section.eq_ignore_ascii_case("ram") {
+        writeln!(
+            linkscr,
+            "REGION_ALIAS(\"RAM\", {});",
+            ram_section.to_ascii_uppercase()
+        )?;
+    }
     writeln!(linkscr, "__eheap = ORIGIN(RAM) + LENGTH(RAM);").unwrap();
     writeln!(linkscr, "_stack_base = {:#010x};", stack_base.unwrap()).unwrap();
     writeln!(linkscr, "_stack_start = {:#010x};", stack_start.unwrap())
