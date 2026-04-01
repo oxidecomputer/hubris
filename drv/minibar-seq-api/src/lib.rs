@@ -33,8 +33,8 @@ pub mod reg_map {
 
 // exporting for ease of use with minibar-ignition-server and minibar-seq-server
 pub use crate::reg_map::Addr;
-pub use crate::reg_map::Reg;
 pub use crate::reg_map::MINIBAR_BITSTREAM_CHECKSUM;
+pub use crate::reg_map::Reg;
 
 use crate as drv_minibar_seq_api;
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

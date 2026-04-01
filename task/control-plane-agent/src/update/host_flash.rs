@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use super::{common::CurrentUpdate, ComponentUpdater};
+use super::{ComponentUpdater, common::CurrentUpdate};
 use crate::mgs_handler::{BorrowedUpdateBuffer, UpdateBuffer};
 use core::ops::Range;
 use drv_hf_api::{
@@ -353,10 +353,10 @@ impl ComponentUpdater for HostFlashUpdate {
                 dev,
             } => (buffer, next_write_offset, dev),
             State::ErasingSectors { .. } | State::Complete | State::Aborted => {
-                return Err(SpError::UpdateNotPrepared)
+                return Err(SpError::UpdateNotPrepared);
             }
             State::Failed(err) => {
-                return Err(SpError::UpdateFailed(*err as u32))
+                return Err(SpError::UpdateFailed(*err as u32));
             }
         };
 

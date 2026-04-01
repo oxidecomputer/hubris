@@ -13,8 +13,8 @@ use abi::{
 use zerocopy::{FromBytes, Immutable, KnownLayout};
 
 use crate::descs::{
-    Priority, RegionAttributes, RegionDesc, TaskDesc, TaskFlags,
-    REGIONS_PER_TASK,
+    Priority, REGIONS_PER_TASK, RegionAttributes, RegionDesc, TaskDesc,
+    TaskFlags,
 };
 use crate::err::UserError;
 use crate::startup::HUBRIS_FAULT_NOTIFICATION;

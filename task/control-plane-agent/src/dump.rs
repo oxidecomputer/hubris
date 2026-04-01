@@ -7,7 +7,7 @@ use dump_agent_api::DumpAgent;
 use gateway_messages::{
     DumpCompression, DumpError, DumpSegment, DumpTask, SpError,
 };
-use userlib::{task_slot, UnwrapLite};
+use userlib::{UnwrapLite, task_slot};
 use zerocopy::{FromBytes, FromZeros, IntoBytes};
 
 task_slot!(DUMP_AGENT, dump_agent);

@@ -12,7 +12,7 @@
 //! This crate exposes a single function [`merge_toml_documents`] which does
 //! this for you!
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{Result, anyhow, bail};
 use std::collections::BTreeMap;
 use toml_edit::{visit::Visit, visit_mut::VisitMut};
 

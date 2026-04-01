@@ -3,20 +3,21 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    mgs_common::MgsCommon, update::rot::RotUpdate, update::sp::SpUpdate,
-    update::ComponentUpdater, usize_max, CriticalEvent, Log, MgsMessage,
+    CriticalEvent, Log, MgsMessage, mgs_common::MgsCommon,
+    update::ComponentUpdater, update::rot::RotUpdate, update::sp::SpUpdate,
+    usize_max,
 };
 use drv_user_leds_api::UserLeds;
 use gateway_messages::sp_impl::{
     BoundsChecked, DeviceDescription, Sender, SpHandler,
 };
 use gateway_messages::{
-    ignition, ComponentAction, ComponentActionResponse, ComponentDetails,
+    ComponentAction, ComponentActionResponse, ComponentDetails,
     ComponentUpdatePrepare, DiscoverResponse, DumpSegment, DumpTask,
     IgnitionCommand, IgnitionState, MgsError, MgsRequest, MgsResponse,
     PowerState, PowerStateTransition, RotBootInfo, RotRequest, RotResponse,
     SensorRequest, SensorResponse, SpComponent, SpError, SpStateV2,
-    SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus,
+    SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus, ignition,
 };
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};

@@ -5,13 +5,13 @@
 //! MWOCP68-3600 Murata power shelf
 
 use crate::{
-    pmbus_validate, BadValidation, CurrentSensor, InputCurrentSensor,
-    InputVoltageSensor, Validate, VoltageSensor,
+    BadValidation, CurrentSensor, InputCurrentSensor, InputVoltageSensor,
+    Validate, VoltageSensor, pmbus_validate,
 };
 use core::cell::Cell;
 use drv_i2c_api::*;
-use pmbus::commands::mwocp68::*;
 use pmbus::commands::CommandCode;
+use pmbus::commands::mwocp68::*;
 use pmbus::units::{Celsius, Rpm};
 use pmbus::*;
 use task_power_api::PmbusValue;
@@ -231,7 +231,7 @@ impl Mwocp68 {
             _ => {
                 return Err(Error::InvalidData {
                     err: pmbus::Error::InvalidCode,
-                })
+                });
             }
         };
         Ok(r)
@@ -244,7 +244,7 @@ impl Mwocp68 {
             _ => {
                 return Err(Error::InvalidData {
                     err: pmbus::Error::InvalidCode,
-                })
+                });
             }
         };
         Ok(r)
@@ -670,8 +670,8 @@ impl Mwocp68 {
         state: Option<UpdateState>,
         payload: &[u8],
     ) -> Result<(UpdateState, u64), Error> {
-        use pmbus::commands::mwocp68::CommandCode;
         use BOOT_LOADER_STATUS::Mode;
+        use pmbus::commands::mwocp68::CommandCode;
 
         let write_boot_loader_key = || -> Result<UpdateState, Error> {
             const MWOCP68_BOOT_LOADER_KEY: &[u8] = b"InVe";

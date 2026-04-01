@@ -7,12 +7,12 @@ use drv_monorail_api::MonorailError;
 use drv_sidecar_front_io::phy_smi::PhySmi;
 use idol_runtime::{ClientError, RequestError};
 use ringbuf::*;
-use userlib::{task_slot, UnwrapLite};
+use userlib::{UnwrapLite, task_slot};
+use vsc85xx::{PhyRw, vsc8504::Vsc8504, vsc8562::Vsc8562Phy};
 use vsc7448::{
-    config::Speed, miim_phy::Vsc7448MiimPhy, Vsc7448, Vsc7448Rw, VscError,
+    Vsc7448, Vsc7448Rw, VscError, config::Speed, miim_phy::Vsc7448MiimPhy,
 };
 use vsc7448_pac::{DEVCPU_GCB, HSIO, VAUI0, VAUI1};
-use vsc85xx::{vsc8504::Vsc8504, vsc8562::Vsc8562Phy, PhyRw};
 
 task_slot!(SEQ, seq);
 task_slot!(FRONT_IO, ecp5_front_io);

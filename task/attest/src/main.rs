@@ -19,7 +19,7 @@ use config::DataRegion;
 use core::slice;
 use hubpack::SerializedSize;
 use idol_runtime::{
-    ClientError, Leased, LenLimit, NotificationHandler, RequestError, R, W,
+    ClientError, Leased, LenLimit, NotificationHandler, R, RequestError, W,
 };
 use lib_dice::{AliasData, CertData, SeedBuf};
 use ringbuf::{ringbuf, ringbuf_entry};

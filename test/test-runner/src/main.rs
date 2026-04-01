@@ -51,7 +51,7 @@
 
 use ringbuf::{ringbuf, ringbuf_entry};
 use test_api::{RunnerOp, TestResult};
-use userlib::{hl, kipc, TaskId, TaskState};
+use userlib::{TaskId, TaskState, hl, kipc};
 
 /// We are sensitive to all notifications, to catch unexpected ones in test.
 const ALL_NOTIFICATIONS: u32 = !0;

@@ -60,7 +60,7 @@ use crate::update::ComponentUpdater;
 use cfg_if::cfg_if;
 use core::ops::{Deref, DerefMut};
 use drv_caboose::CabooseReader;
-use drv_stm32h7_update_api::{SlotId, Update, BLOCK_SIZE_BYTES};
+use drv_stm32h7_update_api::{BLOCK_SIZE_BYTES, SlotId, Update};
 use drv_update_api::UpdateError;
 use gateway_messages::{
     ImageVersion, SpComponent, SpError, SpUpdatePrepare, UpdateId,
@@ -372,10 +372,10 @@ impl ComponentUpdater for SpUpdate {
                 },
                 State::AcceptingData(a) => a,
                 State::Complete | State::Aborted => {
-                    return (state, Err(SpError::UpdateNotPrepared))
+                    return (state, Err(SpError::UpdateNotPrepared));
                 }
                 State::Failed(err) => {
-                    return (state, Err(SpError::UpdateFailed(err as u32)))
+                    return (state, Err(SpError::UpdateFailed(err as u32)));
                 }
             };
 

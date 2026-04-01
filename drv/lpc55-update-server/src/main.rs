@@ -19,7 +19,7 @@ use drv_lpc55_update_api::{
 };
 use drv_update_api::UpdateError;
 use idol_runtime::{
-    ClientError, Leased, LenLimit, NotificationHandler, RequestError, R, W,
+    ClientError, Leased, LenLimit, NotificationHandler, R, RequestError, W,
 };
 use ringbuf::*;
 use sha3::{Digest, Sha3_256};
@@ -130,7 +130,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         ringbuf_entry!(Trace::State(self.state));
         match self.state {
             UpdateState::Finished => {
-                return Err(UpdateError::UpdateAlreadyFinished.into())
+                return Err(UpdateError::UpdateAlreadyFinished.into());
             }
             UpdateState::InProgress | UpdateState::NoUpdate => (),
         }
@@ -151,10 +151,10 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         ringbuf_entry!(Trace::State(self.state));
         match self.state {
             UpdateState::NoUpdate => {
-                return Err(UpdateError::UpdateNotStarted.into())
+                return Err(UpdateError::UpdateNotStarted.into());
             }
             UpdateState::Finished => {
-                return Err(UpdateError::UpdateAlreadyFinished.into())
+                return Err(UpdateError::UpdateAlreadyFinished.into());
             }
             UpdateState::InProgress => (),
         }
@@ -221,10 +221,10 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         ringbuf_entry!(Trace::State(self.state));
         match self.state {
             UpdateState::NoUpdate => {
-                return Err(UpdateError::UpdateNotStarted.into())
+                return Err(UpdateError::UpdateNotStarted.into());
             }
             UpdateState::Finished => {
-                return Err(UpdateError::UpdateAlreadyFinished.into())
+                return Err(UpdateError::UpdateAlreadyFinished.into());
             }
             UpdateState::InProgress => (),
         }
@@ -488,7 +488,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         ringbuf_entry!(Trace::Prep(component, slot));
         match self.state {
             UpdateState::InProgress => {
-                return Err(UpdateError::UpdateInProgress.into())
+                return Err(UpdateError::UpdateInProgress.into());
             }
             UpdateState::Finished | UpdateState::NoUpdate => (),
         }

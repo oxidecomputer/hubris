@@ -23,10 +23,10 @@ use drv_sidecar_front_io::transceivers::{
 };
 use task_net_api::*;
 use transceiver_messages::{
+    ModuleId,
     mac::MacAddrs,
     message::*,
     mgmt::{ManagementInterface, MemoryRead, MemoryWrite, Page},
-    ModuleId,
 };
 
 ////////////////////////////////////////////////////////////////////////////////

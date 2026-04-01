@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{ServerImpl, DUMP_READ_SIZE};
+use crate::{DUMP_READ_SIZE, ServerImpl};
 use hubpack::SerializedSize;
 use ringbuf::*;
 use task_net_api::{

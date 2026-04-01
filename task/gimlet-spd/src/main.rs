@@ -23,14 +23,14 @@
 
 use core::cell::Cell;
 use core::cell::RefCell;
-use drv_cpu_seq_api::{PowerState, NUM_SPD_BANKS};
+use drv_cpu_seq_api::{NUM_SPD_BANKS, PowerState};
 use drv_stm32xx_i2c::{I2cPins, I2cTargetControl};
 use drv_stm32xx_sys_api::{OutputType, Pull, Speed, Sys};
 use ringbuf::{ringbuf, ringbuf_entry};
 use task_jefe_api::Jefe;
 use task_packrat_api::Packrat;
 use userlib::{
-    sys_irq_control, sys_recv_notification, task_slot, FromPrimitive,
+    FromPrimitive, sys_irq_control, sys_recv_notification, task_slot,
 };
 
 task_slot!(SYS, sys);

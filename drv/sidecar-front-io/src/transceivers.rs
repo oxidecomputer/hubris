@@ -4,12 +4,12 @@
 
 use crate::{Addr, Reg};
 use drv_fpga_api::{FpgaError, FpgaUserDesign, ReadOp, WriteOp};
-use drv_transceivers_api::{ModuleStatus, TransceiversError, NUM_PORTS};
+use drv_transceivers_api::{ModuleStatus, NUM_PORTS, TransceiversError};
 use transceiver_messages::ModuleId;
 use userlib::UnwrapLite;
 use zerocopy::{
-    byteorder::little_endian, FromBytes, Immutable, IntoBytes, KnownLayout,
-    Unaligned,
+    FromBytes, Immutable, IntoBytes, KnownLayout, Unaligned,
+    byteorder::little_endian,
 };
 
 // The transceiver modules are split across two FPGAs on the QSFP Front IO
@@ -582,10 +582,11 @@ impl ModuleResult {
         // success mask is just what the success of the next step is as long
         // as next.success is a subset of self.success, ensuring the semantics
         // of "chaining"
-        assert!(next
-            .success()
-            .to_indices()
-            .all(|idx| self.success().is_set(idx)));
+        assert!(
+            next.success()
+                .to_indices()
+                .all(|idx| self.success().is_set(idx))
+        );
         let success = next.success();
         // combine any new errors with the existing error mask
         let error = self.error() | next.error();

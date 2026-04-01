@@ -84,7 +84,7 @@ macro_rules! pmbus_rail_read {
     };
 
     ($device:expr, $rail:expr, $dev:ident::$cmd:ident) => {{
-        use $dev::{$cmd, PAGE};
+        use $dev::{PAGE, $cmd};
         pmbus_rail_read!($device, $rail, $cmd)
     }};
 }
@@ -173,7 +173,7 @@ macro_rules! pmbus_rail_write {
     }};
 
     ($device:expr, $rail:expr, $dev:ident::$cmd:ident, $data:expr) => {{
-        use $dev::{$cmd, PAGE};
+        use $dev::{PAGE, $cmd};
         pmbus_rail_write!($device, $rail, $cmd, $data)
     }};
 }

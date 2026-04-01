@@ -14,19 +14,19 @@ use crate::tofino::Tofino;
 use core::convert::Infallible;
 use drv_fpga_api::{DeviceState, FpgaError, WriteOp};
 use drv_i2c_api::{I2cDevice, ResponseCode};
-use drv_packrat_vpd_loader::{read_vpd_and_load_packrat, Packrat};
+use drv_packrat_vpd_loader::{Packrat, read_vpd_and_load_packrat};
 use drv_sidecar_front_io::phy_smi::PhyOscState;
+use drv_sidecar_mainboard_controller::MainboardController;
 use drv_sidecar_mainboard_controller::fan_modules::*;
 use drv_sidecar_mainboard_controller::front_io::*;
 use drv_sidecar_mainboard_controller::tofino2::*;
-use drv_sidecar_mainboard_controller::MainboardController;
 use drv_sidecar_seq_api::{
     FanModuleIndex, FanModulePresence, SeqError, TofinoSequencerPolicy,
 };
 use drv_stm32xx_sys_api as sys_api;
 use fixedstr::FixedStr;
 use idol_runtime::{
-    ClientError, Leased, NotificationHandler, RequestError, R, W,
+    ClientError, Leased, NotificationHandler, R, RequestError, W,
 };
 use ringbuf::*;
 use userlib::*;
@@ -234,7 +234,7 @@ impl ServerImpl {
         // state or experience an FpgaError, so an open loop is safe.
         while match self.front_io_hsc.status()? {
             PowerRailStatus::GoodTimeout | PowerRailStatus::Aborted => {
-                return Err(SeqError::FrontIOBoardPowerFault)
+                return Err(SeqError::FrontIOBoardPowerFault);
             }
             PowerRailStatus::Disabled => {
                 self.front_io_hsc.set_enable(true)?;

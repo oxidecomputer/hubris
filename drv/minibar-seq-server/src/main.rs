@@ -9,18 +9,18 @@
 
 use drv_auxflash_api::AuxFlash;
 use drv_fpga_api::{
-    await_fpga_ready, BitstreamType, DeviceState, Fpga, FpgaError,
-    FpgaUserDesign, FpgaUserDesignIdent, WriteOp,
+    BitstreamType, DeviceState, Fpga, FpgaError, FpgaUserDesign,
+    FpgaUserDesignIdent, WriteOp, await_fpga_ready,
 };
 use drv_minibar_seq_api::{
-    Addr, MinibarSeqError, Reg, MINIBAR_BITSTREAM_CHECKSUM,
+    Addr, MINIBAR_BITSTREAM_CHECKSUM, MinibarSeqError, Reg,
 };
-use drv_packrat_vpd_loader::{read_vpd_and_load_packrat, Packrat};
+use drv_packrat_vpd_loader::{Packrat, read_vpd_and_load_packrat};
 
 use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::{ringbuf, ringbuf_entry};
 use userlib::{
-    sys_get_timer, sys_set_timer, task_slot, RecvMessage, UnwrapLite,
+    RecvMessage, UnwrapLite, sys_get_timer, sys_set_timer, task_slot,
 };
 
 task_slot!(I2C, i2c_driver);

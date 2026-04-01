@@ -19,7 +19,7 @@ use task_jefe_api::Jefe;
 use task_net_api::{
     ManagementCounters, ManagementLinkStatus, MgmtError, PhyError,
 };
-use userlib::{sys_recv_notification, FromPrimitive};
+use userlib::{FromPrimitive, sys_recv_notification};
 use vsc7448_pac::types::PhyRegisterAddress;
 
 ////////////////////////////////////////////////////////////////////////////////

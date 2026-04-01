@@ -15,9 +15,9 @@ use task_jefe_api::Jefe;
 use task_packrat_api::{
     CacheSetError, MacAddressBlock, OxideIdentity, Packrat,
 };
-use userlib::{hl, task_slot, FromPrimitive, RecvMessage, UnwrapLite};
+use userlib::{FromPrimitive, RecvMessage, UnwrapLite, hl, task_slot};
 
-use ringbuf::{counted_ringbuf, ringbuf_entry, Count};
+use ringbuf::{Count, counted_ringbuf, ringbuf_entry};
 
 task_slot!(JEFE, jefe);
 task_slot!(LOADER, spartan7_loader);

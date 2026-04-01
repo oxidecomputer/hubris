@@ -14,7 +14,7 @@
 #![no_main]
 
 use ringbuf::{counted_ringbuf, ringbuf_entry};
-use userlib::{hl::sleep_for, task_slot, UnwrapLite};
+use userlib::{UnwrapLite, hl::sleep_for, task_slot};
 
 mod apob; // Details for APOB structs
 mod hf; // Implementation of `HostFlash` API

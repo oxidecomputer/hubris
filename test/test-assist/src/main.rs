@@ -12,7 +12,7 @@ use core::arch::asm;
 use hubris_num_tasks::NUM_TASKS;
 use test_api::AssistOp;
 use userlib::{
-    hl, kipc, sys_refresh_task_id, sys_send, Generation, Lease, TaskId,
+    Generation, Lease, TaskId, hl, kipc, sys_refresh_task_id, sys_send,
 };
 use zerocopy::IntoBytes;
 

@@ -3,9 +3,9 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    mgs_common::MgsCommon, notifications, update::host_flash::HostFlashUpdate,
-    update::rot::RotUpdate, update::sp::SpUpdate, update::ComponentUpdater,
-    usize_max, CriticalEvent, Log, MgsMessage, SYS,
+    CriticalEvent, Log, MgsMessage, SYS, mgs_common::MgsCommon, notifications,
+    update::ComponentUpdater, update::host_flash::HostFlashUpdate,
+    update::rot::RotUpdate, update::sp::SpUpdate, usize_max,
 };
 use core::time::Duration;
 use drv_cpu_seq_api::Sequencer;
@@ -15,14 +15,14 @@ use gateway_messages::sp_impl::{
     BoundsChecked, DeviceDescription, Sender, SpHandler,
 };
 use gateway_messages::{
-    ignition, ApobComponentAction, ComponentAction, ComponentActionResponse,
+    ApobComponentAction, ComponentAction, ComponentActionResponse,
     ComponentDetails, ComponentUpdatePrepare, DiscoverResponse, DumpSegment,
     DumpTask, GpioToggleCount, Header, IgnitionCommand, IgnitionState,
     LastPostCode, Message, MessageKind, MgsError, MgsRequest, MgsResponse,
     PostCode, PowerState, PowerStateTransition, RotBootInfo, RotRequest,
-    RotResponse, SensorRequest, SensorResponse, SpComponent, SpError,
-    SpPort as GwSpPort, SpRequest, SpStateV2, SpUpdatePrepare, UpdateChunk,
-    UpdateId, UpdateStatus, SERIAL_CONSOLE_IDLE_TIMEOUT,
+    RotResponse, SERIAL_CONSOLE_IDLE_TIMEOUT, SensorRequest, SensorResponse,
+    SpComponent, SpError, SpPort as GwSpPort, SpRequest, SpStateV2,
+    SpUpdatePrepare, UpdateChunk, UpdateId, UpdateStatus, ignition,
 };
 use heapless::{Deque, Vec};
 use host_sp_messages::HostStartupOptions;
@@ -30,11 +30,11 @@ use idol_runtime::{Leased, RequestError};
 use ringbuf::ringbuf_entry_root;
 use static_cell::ClaimOnceCell;
 use task_control_plane_agent_api::{
-    ControlPlaneAgentError, OxideIdentity, UartClient,
-    MAX_INSTALLINATOR_IMAGE_ID_LEN,
+    ControlPlaneAgentError, MAX_INSTALLINATOR_IMAGE_ID_LEN, OxideIdentity,
+    UartClient,
 };
 use task_net_api::{Address, MacAddress, UdpMetadata, VLanId};
-use userlib::{sys_get_timer, sys_irq_control, FromPrimitive, UnwrapLite};
+use userlib::{FromPrimitive, UnwrapLite, sys_get_timer, sys_irq_control};
 
 // We're included under a special `path` cfg from main.rs, which confuses rustc
 // about where our submodules live. Pass explicit paths to correct it.
@@ -740,7 +740,7 @@ impl SpHandler for MgsHandler {
             PowerState::A1 => {
                 return Err(SpError::PowerStateError(
                     drv_cpu_seq_api::SeqError::IllegalTransition.into(),
-                ))
+                ));
             }
             PowerState::A2 => DrvPowerState::A2,
         };

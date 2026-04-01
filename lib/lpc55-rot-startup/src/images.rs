@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use abi::ImageHeader;
-use drv_lpc55_flash::{Flash, BYTES_PER_FLASH_PAGE};
+use drv_lpc55_flash::{BYTES_PER_FLASH_PAGE, Flash};
 use lpc55_pac::SYSCON;
 use sha3::{Digest, Sha3_256};
 use stage0_handoff::ImageError;

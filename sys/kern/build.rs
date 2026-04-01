@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use build_kconfig::{
     InterruptConfig, KernelConfig, OwnedAddress, RegionAttributes,
     RegionConfig, SpecialRole,

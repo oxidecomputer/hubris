@@ -8,8 +8,8 @@ use crate::{Addr, Reg};
 use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
 use vsc85xx::{PhyRw, VscError};
 use zerocopy::{
-    byteorder::little_endian, FromBytes, Immutable, IntoBytes, KnownLayout,
-    Unaligned,
+    FromBytes, Immutable, IntoBytes, KnownLayout, Unaligned,
+    byteorder::little_endian,
 };
 
 #[derive(Copy, Clone, Eq, Debug, PartialEq)]

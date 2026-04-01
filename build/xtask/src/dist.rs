@@ -11,7 +11,7 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result, anyhow, bail};
 use atty::Stream;
 use indexmap::IndexMap;
 use multimap::MultiMap;
@@ -1251,8 +1251,8 @@ pub fn get_max_stack(
         .context("could not get .text")?;
 
     use capstone::{
-        arch::{arm, ArchOperand, BuildsCapstone, BuildsCapstoneExtraMode},
         Capstone, InsnGroupId, InsnGroupType,
+        arch::{ArchOperand, BuildsCapstone, BuildsCapstoneExtraMode, arm},
     };
     let cs = Capstone::new()
         .arm()
@@ -2375,8 +2375,12 @@ pub fn allocate_all(
                     let total_bytes = bytes.iter().sum::<u64>();
                     if total_bytes > u64::from(*r) {
                         bail!(
-                        "task {}: needs {} bytes of {} but max-sizes limits it to {}",
-                        name, total_bytes, mem, r);
+                            "task {}: needs {} bytes of {} but max-sizes limits it to {}",
+                            name,
+                            total_bytes,
+                            mem,
+                            r
+                        );
                     }
                 }
                 // Convert from u64 -> u32
@@ -3176,16 +3180,19 @@ fn resolve_task_slots(
             ),
         };
 
-        let target_task_idx =
-            match cfg.toml.tasks.get_index_of(target_task_name) {
-                Some(x) => x,
-                _ => bail!(
-                    "app.toml sets task '{}' task_slot '{}' to task '{}', but no such task exists in the app.toml",
-                    task_name,
-                    entry.slot_name,
-                    target_task_name
-                ),
-            };
+        let target_task_idx = match cfg
+            .toml
+            .tasks
+            .get_index_of(target_task_name)
+        {
+            Some(x) => x,
+            _ => bail!(
+                "app.toml sets task '{}' task_slot '{}' to task '{}', but no such task exists in the app.toml",
+                task_name,
+                entry.slot_name,
+                target_task_name
+            ),
+        };
 
         out_task_bin.pwrite_with::<u16>(
             target_task_idx as u16,

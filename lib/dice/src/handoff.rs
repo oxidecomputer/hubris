@@ -11,7 +11,7 @@ use core::ops::Range;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
 use stage0_handoff::DICE_RANGE as MEM_RANGE;
-use stage0_handoff::{fits_in_ram, HandoffData};
+use stage0_handoff::{HandoffData, fits_in_ram};
 use static_assertions as sa;
 
 // This memory is the USB peripheral SRAM that's 0x4000 bytes long. Changes

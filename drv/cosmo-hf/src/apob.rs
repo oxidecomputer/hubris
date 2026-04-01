@@ -8,8 +8,8 @@
 //! to Rev. 2.0 February 2025.
 
 use crate::{
-    hf::HfBufs, hf::ServerImpl, FlashAddr, FlashDriver, PAGE_SIZE_BYTES,
-    SECTOR_SIZE_BYTES,
+    FlashAddr, FlashDriver, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES, hf::HfBufs,
+    hf::ServerImpl,
 };
 use drv_hf_api::{
     ApobBeginError, ApobClearError, ApobCommitError, ApobHash, ApobReadError,

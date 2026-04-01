@@ -13,8 +13,8 @@ use drv_monorail_api::{
 use idol_runtime::{NotificationHandler, RequestError};
 use userlib::{sys_get_timer, sys_set_timer};
 use vsc7448::{
+    DevGeneric, PORT_COUNT, Vsc7448, Vsc7448Rw,
     config::{PortMap, PortMode},
-    DevGeneric, Vsc7448, Vsc7448Rw, PORT_COUNT,
 };
 use vsc7448_pac::{types::PhyRegisterAddress, *};
 

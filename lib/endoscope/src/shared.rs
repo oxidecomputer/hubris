@@ -4,7 +4,7 @@
 
 use core::cell::UnsafeCell;
 use core::marker::Sync;
-pub use endoscope_abi::{Shared, State, DIGEST_SIZE};
+pub use endoscope_abi::{DIGEST_SIZE, Shared, State};
 
 #[repr(C)]
 pub struct SharedWrapper {

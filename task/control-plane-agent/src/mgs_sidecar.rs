@@ -3,12 +3,13 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
+    CriticalEvent, Log, MgsMessage,
     ignition_controller::{self, IgnitionController},
     mgs_common::MgsCommon,
+    update::ComponentUpdater,
     update::rot::RotUpdate,
     update::sp::SpUpdate,
-    update::ComponentUpdater,
-    usize_max, CriticalEvent, Log, MgsMessage,
+    usize_max,
 };
 use drv_monorail_api::{Monorail, MonorailError};
 use drv_sidecar_seq_api::Sequencer;
@@ -18,7 +19,7 @@ use gateway_messages::sp_impl::{
     BoundsChecked, DeviceDescription, Sender, SpHandler,
 };
 use gateway_messages::{
-    ignition, ComponentAction, ComponentActionResponse, ComponentDetails,
+    ComponentAction, ComponentActionResponse, ComponentDetails,
     ComponentUpdatePrepare, DiscoverResponse, DumpSegment, DumpTask,
     EcdsaSha2Nistp256Challenge, IgnitionCommand, IgnitionState, MgsError,
     MgsRequest, MgsResponse, MonorailComponentAction,
@@ -26,7 +27,7 @@ use gateway_messages::{
     PcieRegisterRead, PowerState, PowerStateTransition, RotBootInfo,
     RotRequest, RotResponse, SensorRequest, SensorResponse, SpComponent,
     SpError, SpStateV2, SpUpdatePrepare, UnlockChallenge, UnlockResponse,
-    UpdateChunk, UpdateId, UpdateStatus,
+    UpdateChunk, UpdateId, UpdateStatus, ignition,
 };
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};

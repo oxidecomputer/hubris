@@ -16,7 +16,7 @@ use drv_hf_api::{
     HfProtectMode, PAGE_SIZE_BYTES,
 };
 use idol_runtime::{
-    ClientError, Leased, LenLimit, NotificationHandler, RequestError, R, W,
+    ClientError, Leased, LenLimit, NotificationHandler, R, RequestError, W,
 };
 use userlib::{RecvMessage, UnwrapLite};
 

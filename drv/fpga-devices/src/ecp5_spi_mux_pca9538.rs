@@ -6,8 +6,8 @@
 //! which share a single SPI bus using a mux and are controlled through a shared
 //! PCA9538 GPIO expander.
 
-use crate::ecp5::{Command, Ecp5, Ecp5Driver};
 use crate::FpgaUserDesign;
+use crate::ecp5::{Command, Ecp5, Ecp5Driver};
 use drv_fpga_api::FpgaError;
 use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::pca9538;
@@ -270,7 +270,7 @@ impl<'a, S: SpiServer> FpgaUserDesign for DeviceInstance<'a, S> {
     }
 
     fn set_user_design_enabled(&self, enabled: bool) -> Result<(), FpgaError> {
-        use crate::ecp5::{ecp5_trace, Trace};
+        use crate::ecp5::{Trace, ecp5_trace};
 
         self.set_user_design_reset_n(enabled)?;
 

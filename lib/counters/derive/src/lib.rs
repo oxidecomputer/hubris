@@ -5,11 +5,12 @@
 extern crate proc_macro;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use std::collections::HashSet;
 use syn::{
+    DeriveInput,
     parse::{Parse, ParseStream},
-    parse_macro_input, DeriveInput,
+    parse_macro_input,
 };
 
 /// Derives an implementation of the `Count` trait for the annotated

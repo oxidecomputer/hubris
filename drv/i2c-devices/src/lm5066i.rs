@@ -10,7 +10,7 @@
 use core::cell::Cell;
 
 use crate::{
-    pmbus_validate, CurrentSensor, TempSensor, Validate, VoltageSensor,
+    CurrentSensor, TempSensor, Validate, VoltageSensor, pmbus_validate,
 };
 use drv_i2c_api::*;
 use num_traits::float::FloatCore;

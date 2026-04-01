@@ -10,9 +10,9 @@
 use derive_idol_err::IdolError;
 use drv_spi_api::{SpiDevice, SpiServer};
 use idol_runtime::{
-    ClientError, Leased, LenLimit, NotificationHandler, RequestError, R, W,
+    ClientError, Leased, LenLimit, NotificationHandler, R, RequestError, W,
 };
-use userlib::{hl, task_slot, FromPrimitive, RecvMessage};
+use userlib::{FromPrimitive, RecvMessage, hl, task_slot};
 
 const PAGE_SIZE_BYTES: usize = 256;
 

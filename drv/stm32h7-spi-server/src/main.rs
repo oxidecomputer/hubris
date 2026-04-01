@@ -14,8 +14,8 @@ use core::convert::Infallible;
 
 use drv_spi_api::*;
 use idol_runtime::{
-    LeaseBufReader, LeaseBufWriter, Leased, LenLimit, NotificationHandler,
-    RequestError, R, W,
+    LeaseBufReader, LeaseBufWriter, Leased, LenLimit, NotificationHandler, R,
+    RequestError, W,
 };
 use userlib::*;
 

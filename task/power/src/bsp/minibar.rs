@@ -3,8 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    i2c_config::{self, sensors},
     Ohms, PowerControllerConfig, PowerState,
+    i2c_config::{self, sensors},
 };
 
 pub(crate) const CONTROLLER_CONFIG_LEN: usize = 4;

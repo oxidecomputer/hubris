@@ -4,7 +4,7 @@
 
 use std::path::Path;
 
-use anyhow::{bail, Context, Error, Result};
+use anyhow::{Context, Error, Result, bail};
 
 use crate::{config::Config, dist::PackageConfig};
 

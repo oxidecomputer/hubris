@@ -8,7 +8,7 @@ use crate::generated::{DUMP_ADDRESS_MAX, DUMP_ADDRESS_MIN, DUMP_AREAS};
 use humpty::{DumpArea, DumpContents};
 use ringbuf::{ringbuf, ringbuf_entry};
 use task_jefe_api::DumpAgentError;
-use userlib::{kipc, TaskDumpRegion, UnwrapLite};
+use userlib::{TaskDumpRegion, UnwrapLite, kipc};
 
 #[cfg(all(
     armv8m,

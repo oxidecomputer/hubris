@@ -3,8 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{Vsc7448Rw, VscError};
-use vsc7448_pac::*;
 use vsc85xx::PhyRw;
+use vsc7448_pac::*;
 
 /// This represents a PHY controlled through the VSC7448's built-in MIIM
 /// controller.  It is a transient object that simply couples the main Vsc7448

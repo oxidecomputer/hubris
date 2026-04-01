@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use convert_case::{Case, Casing};
 use indexmap::IndexMap;
 use multimap::MultiMap;
@@ -959,7 +959,10 @@ impl ConfigGenerator {
                 let id = refdes.to_component_id();
                 format!("\n{indent}    {id:?},")
             } else {
-                println!("cargo::error=device {} has no refdes, but we were asked to generate component IDs", d.device);
+                println!(
+                    "cargo::error=device {} has no refdes, but we were asked to generate component IDs",
+                    d.device
+                );
                 String::new()
             }
         } else {

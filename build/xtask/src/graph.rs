@@ -8,7 +8,7 @@ use std::hash::Hash;
 use std::io::Write;
 use std::path::Path;
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 
 use crate::config::Config;
 

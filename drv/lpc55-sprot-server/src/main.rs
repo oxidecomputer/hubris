@@ -52,13 +52,13 @@ use drv_lpc55_gpio_api::{Direction, Value};
 use drv_lpc55_spi as spi_core;
 use drv_lpc55_syscon_api::{Peripheral, Syscon};
 use drv_sprot_api::{
-    RotIoStats, SprotProtocolError, REQUEST_BUF_SIZE, RESPONSE_BUF_SIZE,
-    ROT_FIFO_SIZE,
+    REQUEST_BUF_SIZE, RESPONSE_BUF_SIZE, ROT_FIFO_SIZE, RotIoStats,
+    SprotProtocolError,
 };
 use lpc55_pac as device;
 use ringbuf::{ringbuf, ringbuf_entry};
 use userlib::{
-    sys_irq_control, sys_recv_notification, task_slot, TaskId, UnwrapLite,
+    TaskId, UnwrapLite, sys_irq_control, sys_recv_notification, task_slot,
 };
 
 mod handler;

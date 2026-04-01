@@ -13,10 +13,10 @@ use idol_runtime::RequestError;
 use ringbuf::{counted_ringbuf, ringbuf_entry};
 use task_jefe_api::Jefe;
 use task_packrat_api::Packrat;
-use task_sensor_api::{config::other_sensors, NoData, Sensor, SensorId};
+use task_sensor_api::{NoData, Sensor, SensorId, config::other_sensors};
 use userlib::{
-    hl::sleep_for, set_timer_relative, sys_get_timer, task_slot, FromPrimitive,
-    RecvMessage,
+    FromPrimitive, RecvMessage, hl::sleep_for, set_timer_relative,
+    sys_get_timer, task_slot,
 };
 use zerocopy::IntoBytes;
 

@@ -101,7 +101,7 @@
 
 use drv_i2c_api::I2cDevice;
 use drv_i2c_devices::mwocp68::{self, Mwocp68};
-use drv_packrat_vpd_loader::{read_vpd_and_load_packrat, Packrat};
+use drv_packrat_vpd_loader::{Packrat, read_vpd_and_load_packrat};
 use drv_psc_seq_api::PowerState;
 use drv_stm32xx_sys_api as sys_api;
 use sys_api::{Edge, IrqControl, OutputType, PinSet, Pull, Speed};

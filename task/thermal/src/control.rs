@@ -5,11 +5,12 @@
 use core::cell::Cell;
 
 use crate::{
-    bsp::{self, Bsp, PowerBitmask},
     Fan, ThermalError, Trace,
+    bsp::{self, Bsp, PowerBitmask},
 };
 use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_i2c_devices::{
+    TempSensor,
     emc2305::Emc2305,
     max31790::{I2cWatchdog, Max31790},
     nvme_bmc::NvmeBmc,
@@ -18,16 +19,14 @@ use drv_i2c_devices::{
     tmp117::Tmp117,
     tmp451::Tmp451,
     tse2004av::Tse2004Av,
-    TempSensor,
 };
 
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use task_sensor_api::{Reading, Sensor as SensorApi, SensorError, SensorId};
 use task_thermal_api::{SensorReadError, ThermalAutoState, ThermalProperties};
 use userlib::{
-    sys_get_timer,
+    TaskId, UnwrapLite, sys_get_timer,
     units::{Celsius, PWMDuty, Rpm},
-    TaskId, UnwrapLite,
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -829,8 +828,8 @@ impl ThermalControlState {
 /// do that).
 mod temperature_array {
     use super::{
-        Bsp, Cell, DynamicChannelsArray, SensorId, TemperatureReading,
-        ThermalProperties, UnwrapLite, TEMPERATURE_ARRAY_SIZE,
+        Bsp, Cell, DynamicChannelsArray, SensorId, TEMPERATURE_ARRAY_SIZE,
+        TemperatureReading, ThermalProperties, UnwrapLite,
     };
 
     /// Array of optional temperature readings

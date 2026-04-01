@@ -589,15 +589,14 @@ impl<T: Copy + PartialEq, const N: usize> RecordEntry<T>
         // and also to handle the case where last is somehow corrupted to point
         // out-of-range. This avoids a bounds check panic. In the event that
         // last _is_ corrupted, the behavior below will just start us over at 0.
-        if let Some(ent) = ring.buffer.get_mut(last) {
-            if ent.line == line && ent.payload == payload {
-                // Only reuse this entry if we don't overflow the
-                // count.
-                if let Some(new_count) = ent.count.checked_add(1) {
-                    ent.count = new_count;
-                    return;
-                }
-            }
+        if let Some(ent) = ring.buffer.get_mut(last)
+            && ent.line == line
+            && ent.payload == payload
+            // Only reuse this entry if we don't overflow the count
+            && let Some(new_count) = ent.count.checked_add(1)
+        {
+            ent.count = new_count;
+            return;
         }
 
         ring.do_record(last, line, 1, payload);

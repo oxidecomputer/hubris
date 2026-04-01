@@ -4,8 +4,8 @@
 
 // Based on the `gimlet_bcdef.rs` implementation in this folder
 use crate::{
-    i2c_config, i2c_config::sensors, Device, PowerControllerConfig, PowerState,
-    SensorId,
+    Device, PowerControllerConfig, PowerState, SensorId, i2c_config,
+    i2c_config::sensors,
 };
 
 use drv_i2c_devices::{lm5066i::*, max5970::*};

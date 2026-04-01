@@ -20,7 +20,7 @@ use ereports::pwr::{PmbusAlert, PmbusStatus};
 use fixedstr::FixedStr;
 use pmbus::commands::raa229620a::STATUS_WORD;
 use ringbuf::*;
-use userlib::{sys_get_timer, units, TaskId};
+use userlib::{TaskId, sys_get_timer, units};
 
 pub(super) struct VCore {
     /// `PWR_CONT1`: This regulator controls `VDDCR_CPU0` and `VDDCR_SOC` rails.

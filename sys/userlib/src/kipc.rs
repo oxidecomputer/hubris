@@ -20,7 +20,7 @@ use core::str::Utf8Chunks;
 use abi::{Kipcnum, ReadPanicMessageError, TaskId};
 use zerocopy::IntoBytes;
 
-use crate::{sys_send, UnwrapLite, PANIC_MESSAGE_MAX_LEN};
+use crate::{PANIC_MESSAGE_MAX_LEN, UnwrapLite, sys_send};
 
 pub fn read_task_status(task: usize) -> abi::TaskState {
     // Coerce `task` to a known size (Rust doesn't assume that usize == u32)

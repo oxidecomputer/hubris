@@ -27,9 +27,9 @@ use hubris_num_tasks::NUM_TASKS;
 use ringbuf::{ringbuf, ringbuf_entry};
 use test_api::{AssistOp, RunnerOp, SuiteOp};
 use userlib::{
-    hl, kipc, task_slot, FaultInfo, FaultSource, Generation, IrqStatus,
-    LeaseAttributes, ReplyFaultReason, SchedState, TaskId, TaskState,
-    UsageError,
+    FaultInfo, FaultSource, Generation, IrqStatus, LeaseAttributes,
+    ReplyFaultReason, SchedState, TaskId, TaskState, UsageError, hl, kipc,
+    task_slot,
 };
 use zerocopy::IntoBytes;
 
@@ -613,7 +613,7 @@ task_slot!(I2C, i2c_driver);
 // a single cfg block
 #[cfg(feature = "fru-id-eeprom")]
 mod at24csw080 {
-    use super::{i2c_config, I2C};
+    use super::{I2C, i2c_config};
     use drv_i2c_devices::at24csw080::{At24Csw080, Error, WriteProtectBlock};
 
     const EEPROM_SIZE: u16 = 1024;

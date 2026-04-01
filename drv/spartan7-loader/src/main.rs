@@ -18,11 +18,11 @@ use drv_spi_api::{SpiDevice, SpiServer};
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};
 use userlib::{
-    hl, sys_get_timer, sys_recv_notification, task_slot, RecvMessage,
-    UnwrapLite,
+    RecvMessage, UnwrapLite, hl, sys_get_timer, sys_recv_notification,
+    task_slot,
 };
 
-use ringbuf::{counted_ringbuf, ringbuf_entry, Count};
+use ringbuf::{Count, counted_ringbuf, ringbuf_entry};
 
 ////////////////////////////////////////////////////////////////////////////////
 // Select local vs server SPI communication
