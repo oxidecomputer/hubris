@@ -1176,7 +1176,7 @@ impl ServerImpl {
     }
 
     fn read_transaction_word(&mut self) -> Result<Option<u32>, Ack> {
-        if let Some(mut transaction) = &self.transaction {
+        if let Some(mut transaction) = self.transaction {
             let val = self.swd_read_ap_reg(ApAddr(0, ApReg::DRW), true)?;
 
             transaction.read_cnt += 1;

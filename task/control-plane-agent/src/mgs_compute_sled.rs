@@ -141,7 +141,7 @@ impl MgsHandler {
             installinator_image_id: InstallinatorImageIdBuf,
             host_phase2_buf: host_phase2::Phase2Buf,
         }
-        let Bufs {
+        let &mut Bufs {
             ref mut usart_to_tx,
             ref mut usart_from_rx,
             ref mut installinator_image_id,

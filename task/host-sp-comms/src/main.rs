@@ -325,7 +325,7 @@ impl ServerImpl {
             )))]
             barcode_buf: [u8; oxide_barcode::VpdIdentity::MAX_LEN],
         }
-        let Bufs {
+        let &mut Bufs {
             ref mut tx_buf,
             ref mut rx_buf,
             ref mut last_boot_fail,

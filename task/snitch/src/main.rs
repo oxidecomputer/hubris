@@ -73,7 +73,7 @@ fn main() -> ! {
 
     const SOCKET: SocketName = SocketName::ereport;
 
-    let StaticBufs {
+    let &mut StaticBufs {
         ref mut rx_buf,
         ref mut tx_buf,
     } = {
