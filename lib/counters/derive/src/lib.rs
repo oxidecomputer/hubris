@@ -92,7 +92,7 @@ impl<'input> CountGenerator<'input> {
         }
     }
 
-    fn generate(self) -> impl ToTokens {
+    fn generate(self) -> impl ToTokens + use<> {
         let Self {
             input,
             enum_name,
