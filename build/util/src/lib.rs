@@ -249,7 +249,7 @@ impl TaskIds {
             .map(|name| {
                 let name = name.as_ref();
                 self.get(name)
-                    .ok_or_else(|| anyhow!("unknown task `{}`", name))
+                    .ok_or_else(|| anyhow!("unknown task `{name}`"))
             })
             .collect()
     }

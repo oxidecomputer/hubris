@@ -59,7 +59,7 @@ fn generate_spi_config(
     global_config: &str,
 ) -> Result<()> {
     let config = config.get(global_config).ok_or_else(|| {
-        anyhow!("reference to undefined spi config {}", global_config)
+        anyhow!("reference to undefined spi config {global_config}")
     })?;
 
     let out_dir = build_util::out_dir();
@@ -113,7 +113,7 @@ fn check_spi_config(
     // We only want to look at the subset of global configuration relevant to
     // this task, so that error reporting is more focused.
     let config = config.get(global_config).ok_or_else(|| {
-        anyhow!("reference to undefined spi config {}", global_config)
+        anyhow!("reference to undefined spi config {global_config}")
     })?;
 
     if config.controller < 1 || config.controller > 6 {
