@@ -2,7 +2,7 @@
 name = "drv-auxflash-server"
 version = "0.1.0"
 authors = ["Matt Keeter <matt@oxide.computer>"]
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 cfg-if = { workspace = true }

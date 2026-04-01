@@ -1,7 +1,7 @@
 [package]
 name = "drv-spartan7-spi-program"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 drv-spi-api = { path = "../spi-api" }

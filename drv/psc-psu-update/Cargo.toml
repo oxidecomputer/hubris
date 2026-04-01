@@ -2,7 +2,7 @@
 name = "drv-psc-psu-update"
 description = "Task for PSU firmware update"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 drv-i2c-api = { path = "../i2c-api" }
