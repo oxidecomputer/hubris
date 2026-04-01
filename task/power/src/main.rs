@@ -913,16 +913,15 @@ impl idl::InOrderPowerImpl for ServerImpl {
             .iter()
             .zip(self.devices.iter_mut())
             .find(|(c, _)| c.voltage == rail)
+            && let Some(phases) = c.phases
         {
-            if let Some(phases) = c.phases {
-                let phase: usize = phase as usize;
+            let phase: usize = phase as usize;
 
-                if phase < phases.len() {
-                    return match dev.read_phase_current(Phase(phases[phase])) {
-                        Err(e) => Err(e.into()),
-                        Ok(val) => Ok(val.0),
-                    };
-                }
+            if phase < phases.len() {
+                return match dev.read_phase_current(Phase(phases[phase])) {
+                    Err(e) => Err(e.into()),
+                    Ok(val) => Ok(val.0),
+                };
             }
         }
 

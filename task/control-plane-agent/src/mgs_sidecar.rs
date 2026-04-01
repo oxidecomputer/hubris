@@ -190,12 +190,12 @@ impl MgsHandler {
 
         let now = sys_get_timer().now;
         for (vid, k) in self.locked.clone().iter() {
-            if let LockState::UnlockedUntil(lock_at) = k {
-                if now >= *lock_at {
-                    ringbuf_entry!(Trace::TimedRelock { vid });
-                    if let Err(e) = self.lock(vid) {
-                        ringbuf_entry!(Trace::TimedLockFailed(e));
-                    }
+            if let LockState::UnlockedUntil(lock_at) = k
+                && now >= *lock_at
+            {
+                ringbuf_entry!(Trace::TimedRelock { vid });
+                if let Err(e) = self.lock(vid) {
+                    ringbuf_entry!(Trace::TimedLockFailed(e));
                 }
             }
         }

@@ -409,10 +409,11 @@ impl idol_runtime::NotificationHandler for ServerImpl {
         // Only poll the presence summary if the port count seems reasonable. A
         // count of 0xff may occur if the FPGA is running an incorrect
         // bitstream.
-        if self.port_count > 0 && self.port_count != 0xff {
-            if let Err(e) = self.poll_presence() {
-                ringbuf_entry!(Trace::PresencePollError(e));
-            }
+        if self.port_count > 0
+            && self.port_count != 0xff
+            && let Err(e) = self.poll_presence()
+        {
+            ringbuf_entry!(Trace::PresencePollError(e));
         }
 
         let finish = sys_get_timer().now;

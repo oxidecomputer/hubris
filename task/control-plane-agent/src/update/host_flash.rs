@@ -400,16 +400,16 @@ impl ComponentUpdater for HostFlashUpdate {
                     return Err(SpError::UpdateFailed(err as u32));
                 }
 
-                if skip_bytes < buffer.len() {
-                    if let Err(err) = self.task.page_program_dev(
+                if skip_bytes < buffer.len()
+                    && let Err(err) = self.task.page_program_dev(
                         *dev,
                         *next_write_offset + skip_bytes as u32,
                         HfProtectMode::ProtectSector0,
                         &buffer[skip_bytes..],
-                    ) {
-                        *current.state_mut() = State::Failed(err);
-                        return Err(SpError::UpdateFailed(err as u32));
-                    }
+                    )
+                {
+                    *current.state_mut() = State::Failed(err);
+                    return Err(SpError::UpdateFailed(err as u32));
                 }
 
                 *next_write_offset += buffer.len() as u32;

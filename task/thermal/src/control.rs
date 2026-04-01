@@ -1080,10 +1080,10 @@ impl<'a> ThermalControl<'a> {
         // If the incoming integral gain is zero, then it will never be able
         // to wind down the integral accumulator (which is pre-multiplied),
         // so clear it here.
-        if let ThermalControlState::Running { pid, .. } = &mut self.state {
-            if i == 0.0 {
-                pid.integral = 0.0;
-            }
+        if let ThermalControlState::Running { pid, .. } = &mut self.state
+            && i == 0.0
+        {
+            pid.integral = 0.0;
         }
 
         self.pid_config.zero = z;
@@ -1636,15 +1636,14 @@ impl<'a> ThermalControl<'a> {
     /// overheated control regime), and transitions from `Critical` back to
     /// `Running` or `Uncontrollable`.
     fn record_leaving_critical(&mut self, now_ms: u64) {
-        if let ThermalControlState::Critical { start_time, .. } = self.state {
-            if let Some(OverheatTimer {
+        if let ThermalControlState::Critical { start_time, .. } = self.state
+            && let Some(OverheatTimer {
                 ref mut critical_ms,
                 ..
             }) = self.overheat_timer
-            {
-                *critical_ms = critical_ms
-                    .saturating_add(now_ms.saturating_sub(start_time));
-            }
+        {
+            *critical_ms =
+                critical_ms.saturating_add(now_ms.saturating_sub(start_time));
         }
     }
 

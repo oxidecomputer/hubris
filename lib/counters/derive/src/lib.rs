@@ -285,12 +285,11 @@ impl<'input> CountGenerator<'input> {
             #variant_name: <#variant_type as counters::Count>::NEW_COUNTERS
         });
         where_clause_types.insert(variant_type.clone());
-        if let syn::Type::Path(ty_path) = variant_type {
-            if let Some(ident) = ty_path.path.get_ident() {
-                if all_generics.contains(ident) {
-                    needed_generics.insert(ident.clone());
-                }
-            }
+        if let syn::Type::Path(ty_path) = variant_type
+            && let Some(ident) = ty_path.path.get_ident()
+            && all_generics.contains(ident)
+        {
+            needed_generics.insert(ident.clone());
         }
     }
 }

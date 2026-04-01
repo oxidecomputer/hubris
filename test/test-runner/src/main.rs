@@ -172,10 +172,10 @@ fn find_and_report_fault() -> bool {
     let mut tester_faulted = false;
     for i in 0..hubris_num_tasks::NUM_TASKS {
         let s = kipc::read_task_status(i);
-        if let TaskState::Faulted { .. } = s {
-            if i == TEST_TASK {
-                tester_faulted = true;
-            }
+        if let TaskState::Faulted { .. } = s
+            && i == TEST_TASK
+        {
+            tester_faulted = true;
         }
     }
     tester_faulted
@@ -185,11 +185,11 @@ fn find_and_report_fault() -> bool {
 fn restart_faulted_tasks() {
     for i in 0..hubris_num_tasks::NUM_TASKS {
         let s = kipc::read_task_status(i);
-        if let TaskState::Faulted { .. } = s {
-            if i != TEST_TASK {
-                ringbuf_entry!(Trace::RestartingTask(i));
-                kipc::reinit_task(i, true);
-            }
+        if let TaskState::Faulted { .. } = s
+            && i != TEST_TASK
+        {
+            ringbuf_entry!(Trace::RestartingTask(i));
+            kipc::reinit_task(i, true);
         }
     }
 }
