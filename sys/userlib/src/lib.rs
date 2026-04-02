@@ -1271,7 +1271,7 @@ unsafe extern "C" fn sys_get_timer_stub(_out: *mut RawTimerState) {
 /// This is the entry point for the task, invoked by the kernel. Its job is to
 /// set up our memory before jumping to user-defined `main`.
 #[doc(hidden)]
-#[no_mangle]
+#[unsafe(no_mangle)]
 #[unsafe(link_section = ".text.start")]
 #[unsafe(naked)]
 pub unsafe extern "C" fn _start() -> ! {

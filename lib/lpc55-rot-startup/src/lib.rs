@@ -339,7 +339,7 @@ pub fn set_hashcrypt_rom() {
 }
 
 #[allow(non_snake_case)]
-#[no_mangle]
+#[unsafe(no_mangle)]
 // SAFETY: The atomic bool is only manipulated from the kernel pre-main context.
 // This interrupt handler re-directs to the ROM to allow pre-main to use the
 // ROM's signature checking routine. All HASHCRYPT interrupts after kernel main()

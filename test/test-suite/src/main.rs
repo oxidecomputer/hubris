@@ -53,7 +53,7 @@ const BAD_ADDRESS: u32 = 0x0;
 /// is to ensure that this actually gets emitted as a symbol.
 macro_rules! test_cases {
     ($($(#[$attr:meta])* $name:path,)*) => {
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         #[used(linker)]
         static TESTS: &[(&str, &(dyn Fn() + Send + Sync))] = &[
             $(

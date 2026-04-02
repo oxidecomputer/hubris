@@ -16,7 +16,7 @@ pub enum Functions {
     SendLeaseWrite((Task, u16, Buffer, usize, usize), u32),
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 #[used(compiler)]
 static HIFFY_FUNCTIONS: Option<&Functions> = None;
 

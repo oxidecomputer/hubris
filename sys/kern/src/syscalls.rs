@@ -60,7 +60,7 @@ pub(crate) static EXPECT_PHANTOM_SYSCALL: AtomicBool = AtomicBool::new(false);
 /// To use this, you must (1) ensure that the state described above is saved on
 /// the way in and restored on the way out, (2) call this from the syscall
 /// interrupt handler, only, and (3) not call it reentrantly.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn syscall_entry(nr: u32, task: *mut Task) {
     crate::profiling::event_syscall_enter(nr);
 

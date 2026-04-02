@@ -422,7 +422,7 @@ fn generate_statics(gen: &Generated) -> Result<()> {
         "{}",
         quote::quote! {
             const HUBRIS_TASK_COUNT: usize = #task_count;
-            #[no_mangle]
+            #[unsafe(no_mangle)]
             pub static HUBRIS_IMAGE_ID: u64 = #image_id;
 
             static mut HUBRIS_TASK_TABLE_SPACE:
