@@ -401,7 +401,7 @@ fn fmt_region(region: &RegionConfig) -> TokenStream {
     }
 }
 
-fn generate_statics(gen: &Generated) -> Result<()> {
+fn generate_statics(generated: &Generated) -> Result<()> {
     let image_id: u64 = build_util::env_var("HUBRIS_IMAGE_ID")?
         .parse()
         .context("parsing HUBRIS_IMAGE_ID")?;
@@ -416,7 +416,7 @@ fn generate_statics(gen: &Generated) -> Result<()> {
     /////////////////////////////////////////////////////////
     // Basic constants and empty space
 
-    let task_count = gen.tasks.len();
+    let task_count = generated.tasks.len();
     writeln!(
         file,
         "{}",
@@ -434,7 +434,7 @@ fn generate_statics(gen: &Generated) -> Result<()> {
     /////////////////////////////////////////////////////////
     // Task descriptors
 
-    let task_descs = &gen.tasks;
+    let task_descs = &generated.tasks;
     writeln!(
         file,
         "{}",
@@ -449,7 +449,7 @@ fn generate_statics(gen: &Generated) -> Result<()> {
     /////////////////////////////////////////////////////////
     // Region descriptors
 
-    let regions = &gen.regions;
+    let regions = &generated.regions;
     let region_count = regions.len();
     writeln!(
         file,
@@ -464,7 +464,7 @@ fn generate_statics(gen: &Generated) -> Result<()> {
     /////////////////////////////////////////////////////////
     // Interrupt table
 
-    writeln!(file, "{}", gen.irq_code)?;
+    writeln!(file, "{}", generated.irq_code)?;
 
     drop(file);
     call_rustfmt::rustfmt(kconfig_path)?;

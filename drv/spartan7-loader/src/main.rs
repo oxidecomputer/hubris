@@ -165,7 +165,7 @@ fn init() -> Result<(), LoaderError> {
         },
     )?;
 
-    if sha_out != gen::SPARTAN7_FPGA_BITSTREAM_CHECKSUM {
+    if sha_out != generated::SPARTAN7_FPGA_BITSTREAM_CHECKSUM {
         // Reset the FPGA to clear the invalid bitstream
         sys.gpio_reset(pin_cfg.program_l);
         hl::sleep_for(1);
@@ -234,6 +234,6 @@ mod idl {
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
 
-mod gen {
+mod generated {
     include!(concat!(env!("OUT_DIR"), "/spartan7_fpga.rs"));
 }
