@@ -94,7 +94,7 @@ priority = 5
 max-sizes = {flash = 16384, ram = 4096}
 uses = ["rng", "pmc"]
 start = true
-stacksize = 2216
+stacksize = 2400
 task-slots = ["syscon_driver"]
 
 [tasks.sprot]

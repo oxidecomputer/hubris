@@ -15,7 +15,6 @@ zerocopy-derive.workspace = true
 drv-cpu-seq-api = { path = "../../drv/cpu-seq-api", optional = true }
 drv-caboose = { path = "../../drv/caboose", optional = true }
 drv-caboose-pos = { path = "../../drv/caboose-pos", optional = true }
-drv-rng-api = { path = "../../drv/rng-api", optional = true  }
 hubris-task-names = { path = "../../sys/task-names" }
 hubris-num-tasks = { path = "../../sys/num-tasks" }
 mutable-statics = { path = "../../lib/mutable-statics" }
@@ -45,7 +44,6 @@ no-ipc-counters = ["idol/no-counters"]
 ereport = [
     "dep:drv-caboose",
     "dep:drv-caboose-pos",
-    "dep:drv-rng-api",
     "dep:minicbor",
     "dep:minicbor-lease",
     "dep:quote",

@@ -14,8 +14,8 @@ use drv_lpc55_syscon_api::{Peripheral, Syscon};
 use drv_rng_api::RngError;
 use idol_runtime::{ClientError, NotificationHandler, RequestError};
 use rand_chacha::ChaCha20Rng;
-use rand_core::block::{BlockRng, BlockRngCore};
-use rand_core::{impls, Error, RngCore, SeedableRng};
+use rand_core::block::{BlockRng, Generator};
+use rand_core::{Rng, SeedableRng, TryRng};
 use userlib::task_slot;
 
 use lpc55_pac as device;
@@ -39,12 +39,11 @@ impl Lpc55Core {
     }
 }
 
-impl BlockRngCore for Lpc55Core {
-    type Item = u32;
-    type Results = [u32; 1];
+impl Generator for Lpc55Core {
+    type Output = [u32; 1];
 
-    fn generate(&mut self, results: &mut Self::Results) {
-        results[0] = self.rng.random_number.read().bits();
+    fn generate(&mut self, output: &mut Self::Output) {
+        output[0] = self.rng.random_number.read().bits();
     }
 }
 
@@ -69,22 +68,21 @@ impl Lpc55Rng {
     }
 }
 
-impl RngCore for Lpc55Rng {
-    fn next_u32(&mut self) -> u32 {
-        self.0.next_u32()
-    }
-    fn next_u64(&mut self) -> u64 {
-        self.0.next_u64()
-    }
-    fn fill_bytes(&mut self, bytes: &mut [u8]) {
-        self.0.fill_bytes(bytes)
-    }
-    fn try_fill_bytes(&mut self, bytes: &mut [u8]) -> Result<(), Error> {
-        if self.0.core.pmc.pdruncfg0.read().pden_rng().bits() {
-            return Err(RngError::PoweredOff.into());
-        }
+impl TryRng for Lpc55Rng {
+    type Error = RngError;
 
-        self.0.try_fill_bytes(bytes)
+    fn try_next_u32(&mut self) -> Result<u32, Self::Error> {
+        Ok(self.0.next_word())
+    }
+    fn try_next_u64(&mut self) -> Result<u64, Self::Error> {
+        Ok(self.0.next_u64_from_u32())
+    }
+    fn try_fill_bytes(&mut self, bytes: &mut [u8]) -> Result<(), Self::Error> {
+        if self.0.core.pmc.pdruncfg0.read().pden_rng().bits() {
+            return Err(RngError::PoweredOff);
+        }
+        self.0.fill_bytes(bytes);
+        Ok(())
     }
 }
 
@@ -100,14 +98,14 @@ impl<T> ReseedingRng<T>
 where
     T: SeedableRng,
 {
-    fn new(mut reseeder: Lpc55Rng, threshold: usize) -> Result<Self, Error> {
+    fn new(mut reseeder: Lpc55Rng, threshold: usize) -> Result<Self, RngError> {
         let threshold = if threshold == 0 {
             usize::MAX
         } else {
             threshold
         };
 
-        let inner = T::from_rng(&mut reseeder)?;
+        let inner = T::try_from_rng(&mut reseeder)?;
         Ok(ReseedingRng {
             inner,
             reseeder,
@@ -117,36 +115,39 @@ where
     }
 }
 
-impl<T> RngCore for ReseedingRng<T>
+impl<T> TryRng for ReseedingRng<T>
 where
-    T: SeedableRng + RngCore,
+    T: SeedableRng + Rng,
 {
-    fn next_u32(&mut self) -> u32 {
-        impls::next_u32_via_fill(self)
+    type Error = RngError;
+
+    fn try_next_u32(&mut self) -> Result<u32, Self::Error> {
+        let mut bs = [0u8; 4];
+        self.try_fill_bytes(&mut bs)?;
+        Ok(u32::from_le_bytes(bs))
     }
-    fn next_u64(&mut self) -> u64 {
-        impls::next_u64_via_fill(self)
+    fn try_next_u64(&mut self) -> Result<u64, Self::Error> {
+        let mut bs = [0u8; 8];
+        self.try_fill_bytes(&mut bs)?;
+        Ok(u64::from_le_bytes(bs))
     }
-    fn fill_bytes(&mut self, dest: &mut [u8]) {
-        self.try_fill_bytes(dest)
-            .expect("Failed to get entropy from RNG.")
-    }
-    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), Error> {
+    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), Self::Error> {
         let num_bytes = dest.len();
         if num_bytes >= self.bytes_until_reseed || num_bytes >= self.threshold {
-            self.inner = T::from_rng(&mut self.reseeder)?;
+            self.inner = T::try_from_rng(&mut self.reseeder)?;
             self.bytes_until_reseed = self.threshold;
         } else {
             self.bytes_until_reseed -= num_bytes;
         }
-        self.inner.try_fill_bytes(dest)
+        self.inner.fill_bytes(dest);
+        Ok(())
     }
 }
 
 struct Lpc55RngServer(ReseedingRng<ChaCha20Rng>);
 
 impl Lpc55RngServer {
-    fn new(reseeder: Lpc55Rng, threshold: usize) -> Result<Self, Error> {
+    fn new(reseeder: Lpc55Rng, threshold: usize) -> Result<Self, RngError> {
         Ok(Lpc55RngServer(ReseedingRng::new(reseeder, threshold)?))
     }
 }
@@ -162,7 +163,7 @@ impl idl::InOrderRngImpl for Lpc55RngServer {
         let mut buf = [0u8; STEP];
         // fill in multiples of STEP / RNG register size
         for _ in 0..(dest.len() / STEP) {
-            self.0.try_fill_bytes(&mut buf).map_err(RngError::from)?;
+            self.0.try_fill_bytes(&mut buf)?;
             dest.write_range(cnt..cnt + STEP, &buf)
                 .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
             cnt += STEP;
@@ -171,7 +172,7 @@ impl idl::InOrderRngImpl for Lpc55RngServer {
         let remain = dest.len() - cnt;
         assert!(remain < STEP);
         if remain > 0 {
-            self.0.try_fill_bytes(&mut buf).map_err(RngError::from)?;
+            self.0.try_fill_bytes(&mut buf)?;
             dest.write_range(dest.len() - remain..dest.len(), &buf)
                 .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
             cnt += remain;
