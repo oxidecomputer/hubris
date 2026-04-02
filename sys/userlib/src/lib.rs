@@ -1573,7 +1573,7 @@ fn panic(_: &core::panic::PanicInfo<'_>) -> ! {
 #[cfg(feature = "no-panic")]
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo<'_>) -> ! {
-    extern "C" {
+    unsafe extern "C" {
         fn you_have_introduced_a_panic_which_is_not_permitted() -> !;
     }
 

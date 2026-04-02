@@ -287,7 +287,7 @@ pub fn get_clock_speed(peripherals: &lpc55_pac::Peripherals) -> (u32, u8) {
 /// careful.
 #[unsafe(naked)]
 extern "C" fn nuke_stack() {
-    extern "C" {
+    unsafe extern "C" {
         static _stack_base: u32;
     }
 

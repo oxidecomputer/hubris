@@ -759,7 +759,7 @@ pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
 
     CURRENT_TASK_PTR.store(task as *const _ as *mut _, Ordering::Relaxed);
 
-    extern "C" {
+    unsafe extern "C" {
         // Exposed by the linker script.
         static _stack_base: u32;
     }

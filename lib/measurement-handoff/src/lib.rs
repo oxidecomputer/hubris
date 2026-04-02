@@ -34,7 +34,7 @@
 
 const COUNTER_TAG: u32 = 0x4e423d17;
 
-extern "C" {
+unsafe extern "C" {
     static mut __REGION_DTCM_BASE: [u8; 0];
     static mut __REGION_DTCM_END: [u8; 0];
 }

@@ -62,7 +62,7 @@ const CLOCK_CONFIG: ClockConfig = ClockConfig {
 mod shared;
 use shared::{State, SHARED};
 
-extern "C" {
+unsafe extern "C" {
     static FLASH_BASE: [u8; 0];
     static FLASH_SIZE: [u32; 0];
 }
