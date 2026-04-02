@@ -37,7 +37,7 @@ const U32_SIZE: u32 = core::mem::size_of::<u32>() as u32;
 const PAGE_SIZE: u32 = BYTES_PER_FLASH_PAGE as u32;
 
 #[used]
-#[link_section = ".bootstate"]
+#[unsafe(link_section = ".bootstate")]
 static BOOTSTATE: MaybeUninit<[u8; 0x1000]> = MaybeUninit::uninit();
 
 #[derive(Copy, Clone, PartialEq)]
