@@ -164,7 +164,7 @@ enum IoError {
     Desynchronized,
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let mut io = configure_spi();
     let (rx_buf, tx_buf) = {

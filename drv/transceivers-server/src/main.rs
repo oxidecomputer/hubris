@@ -615,7 +615,7 @@ impl NotificationHandler for ServerImpl {
     }
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     // This is a temporary workaround that makes sure the FPGAs are up
     // before we start doing things with them. A more sophisticated

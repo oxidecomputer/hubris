@@ -1647,7 +1647,7 @@ fn read_runner_notifications() -> u32 {
 }
 
 /// Actual entry point.
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     // Work out the assistant generation. Restart it to ensure it's running
     // before we try talking to it. TODO: this is kind of gross, we need a way

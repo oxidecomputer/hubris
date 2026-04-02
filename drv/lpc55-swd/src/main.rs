@@ -1855,7 +1855,7 @@ fn slice_to_le_u32(slice: &[u8]) -> Option<u32> {
     slice.try_into().map(u32::from_le_bytes).ok()
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let syscon = SYSCON.get_task_id();
 

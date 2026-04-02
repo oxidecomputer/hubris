@@ -27,7 +27,7 @@ enum Trace {
 
 ringbuf!(Trace, 16, Trace::None);
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     loop {
         let mut sha = Sha3_256::new();

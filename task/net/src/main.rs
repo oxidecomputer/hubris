@@ -167,7 +167,7 @@ enum Event {
 }
 counters!(Event);
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);

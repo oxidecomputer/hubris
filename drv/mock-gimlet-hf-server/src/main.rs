@@ -20,7 +20,7 @@ use idol_runtime::{
 };
 use userlib::{RecvMessage, UnwrapLite};
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let mut buffer = [0; idl::INCOMING_SIZE];
     let mut server = ServerImpl {

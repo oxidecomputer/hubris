@@ -36,7 +36,7 @@ counted_ringbuf!(Trace, 128, Trace::None);
 task_slot!(SYS, sys);
 task_slot!(PACKRAT, packrat);
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let sys = sys_api::Sys::from(SYS.get_task_id());
 

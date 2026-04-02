@@ -86,7 +86,7 @@ counted_ringbuf!(Trace, 128, Trace::None);
 task_slot!(SYS, sys);
 task_slot!(AUXFLASH, auxflash);
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     match init() {
         // Set up everything nicely, time to start serving incoming messages.

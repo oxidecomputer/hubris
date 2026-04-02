@@ -382,7 +382,7 @@ impl NotificationHandler for ServerImpl {
     }
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     pub const DEVICE_INDEX: u8 = 0;
     pub const EXPECTED_ID: u32 = 0x01de_5bae;

@@ -34,7 +34,7 @@ fn hash_hw_reset() {
     sys.leave_reset(sys_api::Peripheral::Hash);
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     hash_hw_reset();
 

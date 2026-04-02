@@ -155,7 +155,7 @@ enum TraceSet<T> {
 }
 
 ringbuf!(Trace, 16, Trace::None);
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     struct StaticBufs {
         mac_address_block: Option<MacAddressBlock>,

@@ -65,7 +65,7 @@ pub enum Command {
     ReleaseFromDeepPowerDown = 0xAB,
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let spi_front = drv_spi_api::Spi::from(SPI_FRONT.get_task_id());
     let dev = spi_front.device(drv_spi_api::devices::MUX);

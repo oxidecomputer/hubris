@@ -184,7 +184,7 @@ enum Timers {
     TxPeriodicZeroByte,
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let mut server = ServerImpl::claim_static_resources();
 

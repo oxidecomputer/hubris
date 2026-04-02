@@ -548,7 +548,7 @@ impl NotificationHandler for ServerImpl<'_> {
     }
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let flash = unsafe { &*device::FLASH::ptr() };
 

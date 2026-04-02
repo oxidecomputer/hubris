@@ -55,7 +55,7 @@ pub const SECTOR_SIZE_BYTES: u32 = drv_hf_api::SECTOR_SIZE_BYTES as u32;
 /// Total flash size is 128 MiB
 pub const FLASH_SIZE_BYTES: u32 = 128 * 1024 * 1024;
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     // Wait for the FPGA to be configured; the sequencer task only starts its
     // Idol loop after the FPGA has been brought up.

@@ -60,7 +60,7 @@ enum Trace {
 }
 counted_ringbuf!(Trace, 2, Trace::None);
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let sys = Sys::from(SYS.get_task_id());
     let spi = claim_spi(&sys).device(drv_spi_api::devices::VSC7448);

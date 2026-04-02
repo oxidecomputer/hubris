@@ -1344,7 +1344,7 @@ fn round_up_to_flash_page(offset: u32) -> Option<u32> {
 task_slot!(SYSCON, syscon);
 task_slot!(JEFE, jefe);
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let syscon = drv_lpc55_syscon_api::Syscon::from(SYSCON.get_task_id());
 

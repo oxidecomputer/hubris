@@ -190,7 +190,7 @@
 //!
 //! task_slot!(SYS, sys);
 //!
-//! #[export_name = "main"]
+//! #[unsafe(export_name = "main")]
 //! pub fn main() -> ! {
 //!     let sys = drv_stm32xx_sys_api::Sys::from(SYS.get_task_id());
 //!
@@ -233,7 +233,7 @@
 //!
 //! task_slot!(SYS, sys);
 //!
-//! #[export_name = "main"]
+//! #[unsafe(export_name = "main")]
 //! pub fn main() -> ! {
 //!     let sys = drv_stm32xx_sys_api::Sys::from(SYS.get_task_id());
 //!
@@ -373,7 +373,7 @@ where
     }
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     // From thin air, pluck a pointer to the RCC register block.
     //

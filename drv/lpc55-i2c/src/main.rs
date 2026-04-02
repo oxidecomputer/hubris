@@ -54,7 +54,7 @@ struct Transmit {
     pos: usize,
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let syscon = Syscon::from(SYSCON.get_task_id());
 

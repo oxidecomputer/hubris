@@ -36,7 +36,7 @@ enum Trace {
 
 counted_ringbuf!(Trace, 32, Trace::None);
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let packrat = Packrat::from(PACKRAT.get_task_id());
     let loader = Spartan7Loader::from(LOADER.get_task_id());

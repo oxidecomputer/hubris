@@ -105,7 +105,7 @@ macro_rules! clear_bits {
     };
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     // From thin air, pluck a pointer to the RCC register block.
     //

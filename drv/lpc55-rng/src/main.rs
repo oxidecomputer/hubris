@@ -191,7 +191,7 @@ impl NotificationHandler for Lpc55RngServer {
     }
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let rng = Lpc55Rng::new();
     rng.init();

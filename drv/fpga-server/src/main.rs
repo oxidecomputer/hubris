@@ -58,7 +58,7 @@ enum Trace {
 }
 ringbuf!(Trace, 64, Trace::None);
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let sys = Sys::from(SYS.get_task_id());
     let spi = claim_spi(&sys);

@@ -430,7 +430,7 @@ enum PresentState {
     OnProbation { deadline: u64 },
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let sys = sys_api::Sys::from(SYS.get_task_id());
 

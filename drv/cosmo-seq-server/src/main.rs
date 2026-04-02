@@ -178,7 +178,7 @@ struct StateMachineStates {
     nic: Result<nic_api_status::NicSm, u8>,
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     // Populate packrat with our mac address and identity.
     let packrat = Packrat::from(PACKRAT.get_task_id());

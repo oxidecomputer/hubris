@@ -261,7 +261,7 @@ fn generate_restart_id(rng: &mut Stm32h7Rng) {
     ringbuf_entry!(Trace::SetRestartId(result));
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let mut rng = Stm32h7Rng::new();
     rng.init();

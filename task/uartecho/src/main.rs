@@ -36,7 +36,7 @@ enum NeedToTx {
     EchoPreviousByte(u8),
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let uart = configure_uart_device();
     let mut line_buf = Deque::<u8, BUF_LEN>::new();

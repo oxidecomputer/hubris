@@ -269,7 +269,7 @@ impl NotificationHandler for ServerImpl<'_> {
     }
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     turn_on_gpio_clocks();
 
