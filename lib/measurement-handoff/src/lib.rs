@@ -50,12 +50,18 @@ pub unsafe fn check(retry_count: u32, delay_and_reset: fn() -> !) -> bool {
     let ptr: *mut u32 = &raw mut __REGION_DTCM_BASE as *mut _;
     let end: *mut u32 = &raw mut __REGION_DTCM_END as *mut _;
     assert!(ptr == measurement_token::SP_ADDR);
-    assert!(end.offset_from(ptr) >= 4 * core::mem::size_of::<u32>() as isize);
+    assert!(
+        end as isize - ptr as isize >= 4 * core::mem::size_of::<u32>() as isize
+    );
 
-    let token = core::ptr::read_volatile(ptr);
-    let tag = core::ptr::read_volatile(ptr.wrapping_add(1));
-    let counter = core::ptr::read_volatile(ptr.wrapping_add(2));
-    let check = core::ptr::read_volatile(ptr.wrapping_add(3));
+    // SAFETY: we trust the linker
+    let (token, tag, counter, check) = unsafe {
+        let token = core::ptr::read_volatile(ptr);
+        let tag = core::ptr::read_volatile(ptr.wrapping_add(1));
+        let counter = core::ptr::read_volatile(ptr.wrapping_add(2));
+        let check = core::ptr::read_volatile(ptr.wrapping_add(3));
+        (token, tag, counter, check)
+    };
 
     let out = if token == measurement_token::VALID {
         Ok(true) // told that measurement was completed
@@ -72,16 +78,23 @@ pub unsafe fn check(retry_count: u32, delay_and_reset: fn() -> !) -> bool {
     match out {
         Ok(v) => {
             // Destroy the existing token
-            core::ptr::write_volatile(ptr, 0);
-            core::ptr::write_volatile(ptr.wrapping_add(1), 0);
+            unsafe {
+                core::ptr::write_volatile(ptr, 0);
+                core::ptr::write_volatile(ptr.wrapping_add(1), 0);
+            }
             v
         }
         Err(counter) => {
             // Increment the counter, then reset
             let next = counter + 1;
-            core::ptr::write_volatile(ptr.wrapping_add(1), COUNTER_TAG);
-            core::ptr::write_volatile(ptr.wrapping_add(2), next);
-            core::ptr::write_volatile(ptr.wrapping_add(3), next ^ COUNTER_TAG);
+            unsafe {
+                core::ptr::write_volatile(ptr.wrapping_add(1), COUNTER_TAG);
+                core::ptr::write_volatile(ptr.wrapping_add(2), next);
+                core::ptr::write_volatile(
+                    ptr.wrapping_add(3),
+                    next ^ COUNTER_TAG,
+                );
+            }
             delay_and_reset();
         }
     }

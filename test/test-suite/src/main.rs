@@ -1276,10 +1276,12 @@ fn test_timer_notify_past() {
 #[cfg(any(armv7m, armv8m))]
 fn test_floating_point(highregs: bool) {
     unsafe fn read_regs(dest: &mut [u32; 16], highregs: bool) {
-        if !highregs {
-            core::arch::asm!("vstm {0}, {{s0-s15}}", in(reg) dest);
-        } else {
-            core::arch::asm!("vstm {0}, {{s16-s31}}", in(reg) dest);
+        unsafe {
+            if !highregs {
+                core::arch::asm!("vstm {0}, {{s0-s15}}", in(reg) dest);
+            } else {
+                core::arch::asm!("vstm {0}, {{s16-s31}}", in(reg) dest);
+            }
         }
     }
 

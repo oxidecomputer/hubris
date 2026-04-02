@@ -346,8 +346,10 @@ pub fn set_hashcrypt_rom() {
 // use the normal Hubris interrupt handling.
 pub unsafe extern "C" fn HASHCRYPT() {
     if USE_ROM.load(core::sync::atomic::Ordering::Relaxed) {
-        lpc55_romapi::skboot_hashcrypt_handler();
+        // SAFETY: we trust the ROM API
+        unsafe { lpc55_romapi::skboot_hashcrypt_handler() }
     } else {
-        kern::arch::DefaultHandler();
+        // SAFETY: we trust our default handler
+        unsafe { kern::arch::DefaultHandler() }
     }
 }
