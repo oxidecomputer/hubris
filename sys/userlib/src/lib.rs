@@ -1276,7 +1276,7 @@ unsafe extern "C" fn sys_get_timer_stub(_out: *mut RawTimerState) {
 #[unsafe(naked)]
 pub unsafe extern "C" fn _start() -> ! {
     // Provided by the user program:
-    extern "Rust" {
+    unsafe extern "Rust" {
         fn main() -> !;
     }
 
