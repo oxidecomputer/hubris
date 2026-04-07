@@ -379,8 +379,8 @@ timer is enabled. Configuring the timer with an enabled deadline that is already
 in the past delivers the notification immediately (though you won't notice until
 you `RECV`).
 
-The time unit for deadlines is not currently specified -- it's currently an
-abstract "`kernel ticks`" unit. This will be fixed.
+The time unit of deadlines are currently
+<<_timestamp_format, defined as milliseconds>>.
 
 [#sys_borrow_read]
 === `BORROW_READ` (4)
@@ -563,8 +563,8 @@ The timestamp is defined as being CPU-wide, consistent for all tasks, so the
 result of this syscall can be meaningfully sent to other tasks on the same CPU.
 (Behavior in multicore situations is not yet defined.)
 
-The time unit is not currently specified -- it's currently an abstract "`kernel
-ticks`" unit. This will be fixed.
+The time unit of deadlines and timestamps are currently
+<<_timestamp_format, defined as milliseconds>>.
 
 === `REFRESH_TASK_ID` (10)
 
