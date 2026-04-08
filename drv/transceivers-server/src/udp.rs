@@ -53,6 +53,7 @@ enum Trace {
     GotSpRequest,
     GotSpResponse,
     WrongVersion(u8),
+    EmptyRequest,
     MacAddrs,
     GotError(ProtocolError),
     ResponseSize(ResponseSize),
@@ -176,6 +177,23 @@ impl ServerImpl {
         if header.version() < version::outer::MIN {
             ringbuf_entry!(Trace::WrongVersion(header.version()));
             None
+
+        // If there are no subseqent bytes, then the host is misbehaving.  We
+        // can't get the inner version, so we'll return a generic Serialization
+        // error.
+        } else if request.is_empty() {
+            ringbuf_entry!(Trace::EmptyRequest);
+            let header_size = hubpack::serialize(
+                tx_data_buf,
+                &Header::new(header.message_id, MessageKind::Error),
+            )
+            .unwrap();
+            let message_size = hubpack::serialize(
+                &mut tx_data_buf[header_size..],
+                &Message::new(MessageBody::Error(ProtocolError::Serialization)),
+            )
+            .unwrap();
+            Some((header_size + message_size) as u32)
 
         // In this case, the message has failed to deserialize, but
         // we've successfully deserialized the header. That implies that
