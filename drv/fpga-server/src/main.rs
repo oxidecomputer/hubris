@@ -36,7 +36,15 @@ cfg_if::cfg_if! {
             -> drv_stm32h7_spi_server_core::SpiServerCore
         {
             drv_stm32h7_spi_server_core::declare_spi_core!(
-                sys.clone(), notifications::SPI_IRQ_MASK)
+                sys.clone(),
+                notifications::SPI_IRQ_MASK,
+                spi_config,
+            )
+        }
+
+        mod spi_config {
+            use drv_stm32h7_spi_server_core::__reexport::*;
+            include!(concat!(env!("OUT_DIR"), "/spi_config.rs"));
         }
     } else {
         pub fn claim_spi(_sys: &sys_api::Sys) -> drv_spi_api::Spi {

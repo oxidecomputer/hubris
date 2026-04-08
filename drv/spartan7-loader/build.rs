@@ -7,6 +7,9 @@ use std::{fs, io::Write};
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     build_util::expose_target_board();
 
+    #[cfg(feature = "use-spi-core")]
+    build_stm32h7_spi_server_core::build_spi_config()?;
+
     let out_dir = build_util::out_dir();
     let out_file = out_dir.join("spartan7_fpga.rs");
     let mut file = fs::File::create(out_file)?;

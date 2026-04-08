@@ -237,3 +237,9 @@ mod idl {
 mod gen {
     include!(concat!(env!("OUT_DIR"), "/spartan7_fpga.rs"));
 }
+
+#[cfg(feature = "use-spi-core")]
+mod spi_config {
+    use drv_stm32h7_spi_server_core::__reexport::*;
+    include!(concat!(env!("OUT_DIR"), "/spi_config.rs"));
+}

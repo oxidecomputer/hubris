@@ -30,12 +30,19 @@ cfg_if::cfg_if! {
         pub type Ksz8463 =
             ksz8463::Ksz8463<drv_stm32h7_spi_server_core::SpiServerCore>;
 
+        mod spi_config {
+            use drv_stm32h7_spi_server_core::__reexport::*;
+            include!(concat!(env!("OUT_DIR"), "/spi_config.rs"));
+        }
         /// Claims the SPI core.
         ///
         /// This function can only be called once, and will panic otherwise!
         pub fn claim_spi(sys: &Sys) -> drv_stm32h7_spi_server_core::SpiServerCore {
             drv_stm32h7_spi_server_core::declare_spi_core!(
-                sys.clone(), notifications::SPI_IRQ_MASK)
+                sys.clone(),
+                notifications::SPI_IRQ_MASK,
+                spi_config,
+            )
         }
     } else if #[cfg(all(feature = "ksz8463", not(feature = "use-spi-core")))] {
         // The SPI peripheral is owned by a separate `stm32h7-spi-server` task
