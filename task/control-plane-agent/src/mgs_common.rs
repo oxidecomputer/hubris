@@ -89,14 +89,18 @@ impl MgsCommon {
 
     pub(crate) fn discover(
         &mut self,
-        vid: task_net_api::VLanId,
+        #[cfg(feature = "vlan")] vid: task_net_api::VLanId,
+        #[cfg(not(feature = "vlan"))] _vid: task_net_api::VLanId,
     ) -> Result<DiscoverResponse, GwSpError> {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::Discovery));
         Ok(DiscoverResponse {
+            #[cfg(feature = "vlan")]
             sp_port: match vid.cfg().port {
                 task_net_api::SpPort::One => GwSpPort::One,
                 task_net_api::SpPort::Two => GwSpPort::Two,
             },
+            #[cfg(not(feature = "vlan"))]
+            sp_port: GwSpPort::One,
         })
     }
 

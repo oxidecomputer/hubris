@@ -132,7 +132,11 @@ cfg_if::cfg_if! {
         const ROT_SPI_DEVICE: u8 = drv_spi_api::devices::ROT;
         fn debug_config(_sys: &sys_api::Sys) { }
         fn debug_set(_sys: &sys_api::Sys, _asserted: bool) { }
-    } else if #[cfg(target_board = "gimletlet-2")] {
+    } else if #[cfg(any(
+            target_board = "gimletlet-2",
+            target_board = "nucleo-h743zi2",
+            target_board = "nucleo-h753zi",
+            ))] {
         const DEBUG_PIN: sys_api::PinSet = sys_api::PinSet {
             port: sys_api::Port::E,
             pin_mask: 1 << 6,

@@ -335,6 +335,7 @@ impl MgsHandler {
             addr: Address::Ipv6(sender.addr.ip.into()),
             port: sender.addr.port,
             size: n as u32,
+            #[cfg(feature = "vlan")]
             vid: sender.vid,
         })
     }
@@ -1067,9 +1068,17 @@ impl SpHandler for MgsHandler {
         }));
 
         self.host_phase2.ingest_incoming_data(
-            match sender.vid.cfg().port {
-                task_net_api::SpPort::One => GwSpPort::One,
-                task_net_api::SpPort::Two => GwSpPort::Two,
+            #[cfg(feature = "vlan")]
+            {
+                match sender.vid.cfg().port {
+                    task_net_api::SpPort::One => GwSpPort::One,
+                    task_net_api::SpPort::Two => GwSpPort::Two,
+                }
+            },
+            #[cfg(not(feature = "vlan"))]
+            {
+                let _ = sender;
+                GwSpPort::One
             },
             hash,
             offset,
