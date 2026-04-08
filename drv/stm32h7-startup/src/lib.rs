@@ -30,7 +30,7 @@ unsafe fn system_pre_init() {
     // Synthesize a pointer using a const fn (which won't hit RAM) and then
     // convert it to a reference. We can have a reference to PWR because it's
     // hardware, and is thus not uninitialized.
-    let pwr = &*device::PWR::ptr();
+    let pwr = unsafe { &*device::PWR::ptr() };
     // Poke CR3 to enable the LDO and prevent further writes.
     pwr.cr3.modify(|_, w| w.ldoen().set_bit());
 
@@ -40,7 +40,7 @@ unsafe fn system_pre_init() {
     }
 
     // Turn on the internal RAMs.
-    let rcc = &*device::RCC::ptr();
+    let rcc = unsafe { &*device::RCC::ptr() };
     rcc.ahb2enr.modify(|_, w| {
         w.sram1en()
             .set_bit()
@@ -56,7 +56,7 @@ unsafe fn system_pre_init() {
     {
         // Workaround for erratum 2.2.9 "Reading from AXI SRAM may lead to data
         // read corruption" - limits AXI SRAM read concurrency.
-        let axi = &*device::AXI::ptr();
+        let axi = unsafe { &*device::AXI::ptr() };
         axi.targ7_fn_mod
             .modify(|_, w| w.read_iss_override().set_bit());
     }

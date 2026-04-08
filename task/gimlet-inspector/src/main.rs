@@ -31,7 +31,7 @@ enum Event {
 
 counters!(Event);
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     // Look up our peer task IDs and make clients.
     let net = Net::from(NET.get_task_id());

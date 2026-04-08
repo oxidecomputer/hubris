@@ -66,14 +66,14 @@ const UDP_PACKET_SZ: usize = 1024;
 
 counters!(Event);
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let net = Net::from(NET.get_task_id());
     let packrat = Packrat::from(PACKRAT.get_task_id());
 
     const SOCKET: SocketName = SocketName::ereport;
 
-    let StaticBufs {
+    let &mut StaticBufs {
         ref mut rx_buf,
         ref mut tx_buf,
     } = {

@@ -263,15 +263,14 @@ enum EreportError {
 counted_ringbuf!(Trace, 16, Trace::None);
 
 impl EreportStore {
-    pub(crate) fn new(
-        EreportBufs {
+    pub(crate) fn new(bufs: &'static mut EreportBufs) -> Self {
+        let &mut EreportBufs {
             ref mut storage,
             ref mut recv,
             ref mut panic_buf,
             ref mut task_fault_states,
             ref mut fault_count_buf,
-        }: &'static mut EreportBufs,
-    ) -> Self {
+        } = bufs;
         let now = sys_get_timer().now;
         storage.initialize(config::TASK_ID, now);
 
@@ -593,7 +592,7 @@ impl EreportStore {
             .enumerate()
         {
             let task_index = task_index as u16;
-            let TaskFaultHistory {
+            let &mut TaskFaultHistory {
                 ref mut count,
                 ref mut last_unrecorded_fault_time,
             } = state;

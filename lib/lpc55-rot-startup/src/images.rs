@@ -27,7 +27,7 @@ pub struct ImageVectorsLpc55 {
     pub nxp_image_execution_address: u32,
 }
 
-extern "C" {
+unsafe extern "C" {
     // __vector size is currently defined in the linker script as
     //
     // __vector_size = SIZEOF(.vector_table);

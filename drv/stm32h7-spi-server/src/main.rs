@@ -29,7 +29,7 @@ task_slot!(SYS, sys);
 // the FIFO depth; for simplicity we set:
 const BUFSIZ: usize = 16;
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let sys = sys_api::Sys::from(SYS.get_task_id());
     let core = drv_stm32h7_spi_server_core::declare_spi_core!(

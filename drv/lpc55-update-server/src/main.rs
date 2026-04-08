@@ -37,7 +37,7 @@ const U32_SIZE: u32 = core::mem::size_of::<u32>() as u32;
 const PAGE_SIZE: u32 = BYTES_PER_FLASH_PAGE as u32;
 
 #[used]
-#[link_section = ".bootstate"]
+#[unsafe(link_section = ".bootstate")]
 static BOOTSTATE: MaybeUninit<[u8; 0x1000]> = MaybeUninit::uninit();
 
 #[derive(Copy, Clone, PartialEq)]
@@ -1344,7 +1344,7 @@ fn round_up_to_flash_page(offset: u32) -> Option<u32> {
 task_slot!(SYSCON, syscon);
 task_slot!(JEFE, jefe);
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let syscon = drv_lpc55_syscon_api::Syscon::from(SYSCON.get_task_id());
 

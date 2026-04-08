@@ -41,7 +41,7 @@ struct ServerImpl {
     last_presence_summary: u8,
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let mut incoming = [0u8; idl::INCOMING_SIZE];
     let mut server = ServerImpl {

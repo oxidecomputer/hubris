@@ -54,7 +54,7 @@ impl BroadcastData {
 // serial (11)
 static_assertions::const_assert_eq!(BroadcastData::MAX_SIZE, 45);
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let net = NET.get_task_id();
     let net = Net::from(net);

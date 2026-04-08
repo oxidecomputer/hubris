@@ -69,7 +69,7 @@ enum Trace {
 
 counted_ringbuf!(Trace, 16, Trace::None);
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let packrat = Packrat::from(PACKRAT.get_task_id());
     let mut server = ServerImpl {

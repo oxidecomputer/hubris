@@ -161,7 +161,7 @@ enum Trace {
 
 counted_ringbuf!(Trace, 128, Trace::None);
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let sys = sys_api::Sys::from(SYS.get_task_id());
     let jefe = Jefe::from(JEFE.get_task_id());

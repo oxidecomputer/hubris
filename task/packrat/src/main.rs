@@ -155,7 +155,7 @@ enum TraceSet<T> {
 }
 
 ringbuf!(Trace, 16, Trace::None);
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     struct StaticBufs {
         mac_address_block: Option<MacAddressBlock>,
@@ -167,7 +167,7 @@ fn main() -> ! {
         #[cfg(feature = "ereport")]
         ereport_bufs: ereport::EreportBufs,
     }
-    let StaticBufs {
+    let &mut StaticBufs {
         ref mut mac_address_block,
         ref mut identity,
         #[cfg(feature = "gimlet")]

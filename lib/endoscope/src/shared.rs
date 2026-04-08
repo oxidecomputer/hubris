@@ -55,5 +55,5 @@ mod tests {
 }
 
 // Mark as used so that symbol remains in symbol table
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub static SHARED: SharedWrapper = SharedWrapper::new();

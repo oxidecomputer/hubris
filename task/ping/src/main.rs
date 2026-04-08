@@ -36,7 +36,7 @@ fn divzero() {
     }
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let peer = PEER.get_task_id();
     const PING_OP: u16 = 1;

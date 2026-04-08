@@ -184,7 +184,7 @@ enum Timers {
     TxPeriodicZeroByte,
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let mut server = ServerImpl::claim_static_resources();
 
@@ -325,7 +325,7 @@ impl ServerImpl {
             )))]
             barcode_buf: [u8; oxide_barcode::VpdIdentity::MAX_LEN],
         }
-        let Bufs {
+        let &mut Bufs {
             ref mut tx_buf,
             ref mut rx_buf,
             ref mut last_boot_fail,

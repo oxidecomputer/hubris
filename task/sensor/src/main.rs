@@ -249,7 +249,7 @@ impl NotificationHandler for ServerImpl {
     }
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     // N.B. if you are staring at this macro thinking that it looks like it
     // doesn't do anything and might be obsolescent, the key is the :upper. This

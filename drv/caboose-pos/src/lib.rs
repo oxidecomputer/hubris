@@ -50,7 +50,7 @@ struct CaboosePosTableEntry(*const [u32; 2]);
 
 // This is used as a message to the build system
 #[used]
-#[link_section = ".caboose_pos_table"]
+#[unsafe(link_section = ".caboose_pos_table")]
 static _CABOOSE_POS_TABLE_ENTRY: CaboosePosTableEntry =
     CaboosePosTableEntry(CABOOSE_POS.0.as_ptr());
 

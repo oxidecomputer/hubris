@@ -53,7 +53,7 @@ const BAD_ADDRESS: u32 = 0x0;
 /// is to ensure that this actually gets emitted as a symbol.
 macro_rules! test_cases {
     ($($(#[$attr:meta])* $name:path,)*) => {
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         #[used(linker)]
         static TESTS: &[(&str, &(dyn Fn() + Send + Sync))] = &[
             $(
@@ -1276,10 +1276,12 @@ fn test_timer_notify_past() {
 #[cfg(any(armv7m, armv8m))]
 fn test_floating_point(highregs: bool) {
     unsafe fn read_regs(dest: &mut [u32; 16], highregs: bool) {
-        if !highregs {
-            core::arch::asm!("vstm {0}, {{s0-s15}}", in(reg) dest);
-        } else {
-            core::arch::asm!("vstm {0}, {{s16-s31}}", in(reg) dest);
+        unsafe {
+            if !highregs {
+                core::arch::asm!("vstm {0}, {{s0-s15}}", in(reg) dest);
+            } else {
+                core::arch::asm!("vstm {0}, {{s16-s31}}", in(reg) dest);
+            }
         }
     }
 
@@ -1647,7 +1649,7 @@ fn read_runner_notifications() -> u32 {
 }
 
 /// Actual entry point.
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     // Work out the assistant generation. Restart it to ensure it's running
     // before we try talking to it. TODO: this is kind of gross, we need a way

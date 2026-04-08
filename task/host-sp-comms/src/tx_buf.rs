@@ -48,12 +48,11 @@ impl StaticBufs {
 }
 
 impl TxBuf {
-    pub(crate) fn new(
-        StaticBufs {
+    pub(crate) fn new(bufs: &'static mut StaticBufs) -> Self {
+        let &mut StaticBufs {
             ref mut msg,
             ref mut pkt,
-        }: &'static mut StaticBufs,
-    ) -> Self {
+        } = bufs;
         Self {
             msg,
             pkt,

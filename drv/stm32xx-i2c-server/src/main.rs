@@ -359,7 +359,7 @@ enum MuxState {
 type MuxMap =
     FixedMap<(Controller, PortIndex), MuxState, { i2c_config::NMUXEDBUSES }>;
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let controllers = i2c_config::controllers();
     let pins = i2c_config::pins();

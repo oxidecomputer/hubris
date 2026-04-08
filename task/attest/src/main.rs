@@ -617,7 +617,7 @@ impl NotificationHandler for AttestServer {
     }
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     ringbuf_entry!(Trace::Startup);
 

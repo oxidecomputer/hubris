@@ -14,7 +14,7 @@ macro_rules! task_slot {
                 $crate::task_slot::TaskSlot::UNBOUND;
 
             #[used]
-            #[link_section = ".task_slot_table"]
+            #[unsafe(link_section = ".task_slot_table")]
             static [< _TASK_SLOT_TABLE_ $var >]: $crate::task_slot::TaskSlotTableEntry<
                 { $crate::macros::bstringify::bstringify!($task_name).len() },
             > = $crate::task_slot::TaskSlotTableEntry::for_task_slot(

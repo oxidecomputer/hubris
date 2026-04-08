@@ -49,7 +49,7 @@ where
         let mut rng = ChaCha20Rng::seed_from_u64(0x1de);
         for slots in values.len()..(2 * values.len() + 1) {
             for _ in 0..TRY_COUNT {
-                let m = rng.gen();
+                let m = rng.random();
                 if Self::check(&values, slots, m) {
                     let mut out = (0..slots).map(|_| None).collect::<Vec<_>>();
                     for v in values.into_iter() {
@@ -129,10 +129,10 @@ where
         let mut rng = ChaCha20Rng::seed_from_u64(0x1de);
         for slots in 2..16 {
             for _ in 0..TRY_COUNT {
-                let m: u32 = rng.gen();
+                let m: u32 = rng.random();
                 let mut g = vec![0u32; slots];
                 for g in g.iter_mut() {
-                    *g = rng.gen();
+                    *g = rng.random();
                 }
                 if let Some(sizes) = Self::check(&values, m, &g) {
                     let mut out = vec![];

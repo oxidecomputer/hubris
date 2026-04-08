@@ -171,7 +171,7 @@ pub struct ServerImpl<S: SpiServer> {
     rx_buf: &'static mut [u8; RESPONSE_BUF_SIZE],
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let sys = sys_api::Sys::from(SYS.get_task_id());
     let spi = claim_spi(&sys).device(ROT_SPI_DEVICE);

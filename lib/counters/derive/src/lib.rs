@@ -92,7 +92,7 @@ impl<'input> CountGenerator<'input> {
         }
     }
 
-    fn generate(self) -> impl ToTokens {
+    fn generate(self) -> impl ToTokens + use<> {
         let Self {
             input,
             enum_name,
@@ -190,7 +190,7 @@ impl<'input> CountGenerator<'input> {
                     if let syn::Fields::Named(_) = fields {
                         let field_name = counted_field.ident.as_ref().unwrap();
                         self.variant_patterns.push(
-                            quote! { #enum_name::#variant_name { ref #field_name, .. } => {
+                            quote! { &#enum_name::#variant_name { ref #field_name, .. } => {
                                 #field_name.count(&counters.#variant_name);
                             } },
                         );
@@ -205,7 +205,7 @@ impl<'input> CountGenerator<'input> {
                             pattern.push(quote! { .. });
                         }
                         self.variant_patterns.push(
-                            quote! { #enum_name::#variant_name(#(#pattern)*) => {
+                            quote! { &#enum_name::#variant_name(#(#pattern)*) => {
                                 f.count(&counters.#variant_name);
                             } },
                         );
@@ -214,13 +214,13 @@ impl<'input> CountGenerator<'input> {
                     self.add_def_init(variant_name);
                     if let syn::Fields::Named(_) = fields {
                         self.variant_patterns.push(quote! {
-                            #enum_name::#variant_name { .. } => {
+                            &#enum_name::#variant_name { .. } => {
                                 counters.#variant_name.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
                             }
                         });
                     } else {
                         self.variant_patterns.push(quote! {
-                            #enum_name::#variant_name(..) => {
+                            &#enum_name::#variant_name(..) => {
                                 counters.#variant_name.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
                             }
                         });

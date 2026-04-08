@@ -186,7 +186,7 @@ impl idol_runtime::NotificationHandler for ServerImpl {
     }
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     enable_led_pins();
 

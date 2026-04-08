@@ -44,12 +44,11 @@ impl StaticBufs {
 }
 
 impl GimletData {
-    pub(crate) fn new(
-        StaticBufs {
+    pub(crate) fn new(bufs: &'static mut StaticBufs) -> Self {
+        let &mut StaticBufs {
             ref mut host_startup_options,
             ref mut spd_data,
-        }: &'static mut StaticBufs,
-    ) -> Self {
+        } = bufs;
         Self {
             host_startup_options,
             spd_data,

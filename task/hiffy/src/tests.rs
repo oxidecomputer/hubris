@@ -100,7 +100,7 @@ pub(crate) static HIFFY_FUNCS: &[Function] = &[run_a_test];
 // This definition forces the compiler to emit the DWARF needed for debuggers
 // to be able to know function indices, arguments and return values.
 //
-#[no_mangle]
+#[unsafe(no_mangle)]
 #[used]
 static HIFFY_FUNCTIONS: Option<&Functions> = None;
 

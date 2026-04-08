@@ -387,7 +387,7 @@ impl<'a> NotificationHandler for ServerImpl<'a> {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let i2c_task = I2C.get_task_id();
     let sensor_api = SensorApi::from(SENSOR.get_task_id());

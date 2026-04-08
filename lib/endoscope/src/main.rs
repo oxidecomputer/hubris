@@ -62,7 +62,7 @@ const CLOCK_CONFIG: ClockConfig = ClockConfig {
 mod shared;
 use shared::{State, SHARED};
 
-extern "C" {
+unsafe extern "C" {
     static FLASH_BASE: [u8; 0];
     static FLASH_SIZE: [u32; 0];
 }
@@ -95,14 +95,14 @@ fn panic(_info: &PanicInfo) -> ! {
 }
 
 #[allow(non_snake_case)]
-#[no_mangle]
+#[unsafe(no_mangle)]
 /// # Safety
 /// Required by the architecture and linker.
 pub unsafe extern "C" fn DefaultHandler() {
     breakpoint();
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 extern "C" fn breakpoint() -> ! {
     loop {
         unsafe {

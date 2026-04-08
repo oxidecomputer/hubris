@@ -230,7 +230,7 @@ counted_ringbuf!(CRITICAL, CriticalEvent, 16, CriticalEvent::Empty);
 
 const SOCKET: SocketName = SocketName::control_plane_agent;
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() {
     let mut server = ServerImpl::claim_static_resources();
 

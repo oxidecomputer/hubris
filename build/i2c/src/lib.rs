@@ -1354,7 +1354,7 @@ impl ConfigGenerator {
                         }
 
                         if byrail.insert(rail, (d, index)).is_some() {
-                            bail!("duplicate rail {}", rail);
+                            bail!("duplicate rail {rail}");
                         }
                     }
                 }

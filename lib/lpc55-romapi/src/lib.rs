@@ -320,7 +320,9 @@ struct BootloaderTree {
 // We need to call this function when using either skboot_authenticate or
 // the sb2 exec function
 pub unsafe extern "C" fn skboot_hashcrypt_handler() {
-    (bootloader_tree().skboot.skboot_hashcrypt_irq_handler)();
+    unsafe {
+        (bootloader_tree().skboot.skboot_hashcrypt_irq_handler)();
+    }
 }
 
 #[repr(C)]
@@ -441,10 +443,13 @@ fn handle_bootloader_status(ret: u32) -> Result<(), BootloaderStatus> {
 pub unsafe fn authenticate_image(addr: u32) -> Result<(), ()> {
     let mut result: u32 = 0;
 
-    let ret = (bootloader_tree().skboot.skboot_authenticate)(
-        addr as *const u32,
-        &mut result,
-    );
+    // SAFETY: we have to trust the ROM
+    let ret = unsafe {
+        (bootloader_tree().skboot.skboot_authenticate)(
+            addr as *const u32,
+            &mut result,
+        )
+    };
 
     handle_skboot_status(ret)?;
 
@@ -477,14 +482,17 @@ pub unsafe fn load_sb2_image(
         },
     };
 
-    handle_bootloader_status((bootloader_tree().iap_driver.kb_init)(
-        &mut context,
-        &mut options,
-    ))?;
+    // SAFETY: we have to trust the ROM
+    unsafe {
+        handle_bootloader_status((bootloader_tree().iap_driver.kb_init)(
+            &mut context,
+            &mut options,
+        ))?;
 
-    handle_bootloader_status((bootloader_tree().iap_driver.kb_execute)(
-        context,
-        image.as_mut_ptr(),
-        image.len() as u32,
-    ))
+        handle_bootloader_status((bootloader_tree().iap_driver.kb_execute)(
+            context,
+            image.as_mut_ptr(),
+            image.len() as u32,
+        ))
+    }
 }

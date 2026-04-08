@@ -1176,7 +1176,7 @@ impl ServerImpl {
     }
 
     fn read_transaction_word(&mut self) -> Result<Option<u32>, Ack> {
-        if let Some(mut transaction) = &self.transaction {
+        if let Some(mut transaction) = self.transaction {
             let val = self.swd_read_ap_reg(ApAddr(0, ApReg::DRW), true)?;
 
             transaction.read_cnt += 1;
@@ -1855,7 +1855,7 @@ fn slice_to_le_u32(slice: &[u8]) -> Option<u32> {
     slice.try_into().map(u32::from_le_bytes).ok()
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let syscon = SYSCON.get_task_id();
 

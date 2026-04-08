@@ -178,7 +178,7 @@ struct StateMachineStates {
     nic: Result<nic_api_status::NicSm, u8>,
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     // Populate packrat with our mac address and identity.
     let packrat = Packrat::from(PACKRAT.get_task_id());
@@ -318,7 +318,7 @@ fn init(ereporter: Ereporter) -> Result<ServerImpl, SeqError> {
     // Set up the checksum registers for the Spartan7 FPGA
     let token = loader.get_token();
     let info = fmc_periph::info::Info::new(token);
-    let short_checksum = gen::SPARTAN7_FPGA_BITSTREAM_CHECKSUM[..4]
+    let short_checksum = generated::SPARTAN7_FPGA_BITSTREAM_CHECKSUM[..4]
         .try_into()
         .unwrap();
     info.fpga_checksum
@@ -405,7 +405,7 @@ fn init_front_fpga<S: SpiServer>(
         }
     };
 
-    if sha_out != gen::FRONT_FPGA_BITSTREAM_CHECKSUM {
+    if sha_out != generated::FRONT_FPGA_BITSTREAM_CHECKSUM {
         // Drop the device into reset and hold it there
         sys.gpio_reset(config.creset);
         hl::sleep_for(1);
@@ -1295,7 +1295,7 @@ mod idl {
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
 
-mod gen {
+mod generated {
     include!(concat!(env!("OUT_DIR"), "/cosmo_fpga.rs"));
 }
 

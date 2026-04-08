@@ -76,7 +76,7 @@ ringbuf!(Trace, 16, Trace::None);
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let packrat = Packrat::from(PACKRAT.get_task_id());
     let controller = &i2c_config::controllers()[0];

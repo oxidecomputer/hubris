@@ -145,7 +145,7 @@ fn eat_some_pi(highregs: bool) {
     }
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let mut buffer = [0; 4];
     let mut last_reply = 0u32;

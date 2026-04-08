@@ -37,7 +37,7 @@ const FLASH_KEY2: u32 = 0xCDEF_89AB;
 const FLASH_OPT_KEY1: u32 = 0x0819_2A3B;
 const FLASH_OPT_KEY2: u32 = 0x4C5D_6E7F;
 
-extern "C" {
+unsafe extern "C" {
     // Symbols injected by the linker.
     //
     // This requires adding `extern-regions = ["bank2"]` to the task config
@@ -548,7 +548,7 @@ impl NotificationHandler for ServerImpl<'_> {
     }
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let flash = unsafe { &*device::FLASH::ptr() };
 
