@@ -45,7 +45,7 @@ struct RawConfig {
     caboose: Option<CabooseConfig>,
 }
 
-const DEFAULT_RAM_NAME: &str = "ram";
+pub const DEFAULT_RAM_NAME: &str = "ram";
 fn default_ram_name() -> String {
     DEFAULT_RAM_NAME.to_owned()
 }

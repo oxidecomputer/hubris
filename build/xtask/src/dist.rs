@@ -20,7 +20,7 @@ use zerocopy::IntoBytes;
 
 use crate::{
     caboose_pos,
-    config::{BuildConfig, CabooseConfig, Config},
+    config::{BuildConfig, CabooseConfig, Config, DEFAULT_RAM_NAME},
     elf,
     sizes::load_task_size,
     task_slot,
@@ -678,8 +678,21 @@ pub fn package(
             );
         }
         println!("Used:");
+        let mut printed_ram_note = false;
         for (name, new_range) in memories {
-            print!("  {:<10} ", format!("{name}:"));
+            print!(
+                "  {:<10} ",
+                format!(
+                    "{name}{}:",
+                    if name == &cfg.toml.default_ram && name != DEFAULT_RAM_NAME
+                    {
+                        printed_ram_note = true;
+                        "*"
+                    } else {
+                        ""
+                    }
+                )
+            );
 
             if let Some(tasks) = extern_regions.get_vec(name) {
                 println!("extern region ({})", tasks.join(", "));
@@ -690,6 +703,9 @@ pub fn package(
 
                 println!("{size:#x} ({percent}%)");
             }
+        }
+        if printed_ram_note {
+            println!("    *default ram region");
         }
 
         // Generate a RawHubrisImage, which is our source of truth for combined
