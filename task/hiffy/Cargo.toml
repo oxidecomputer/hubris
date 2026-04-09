@@ -1,7 +1,7 @@
 [package]
 name = "task-hiffy"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 armv6m-atomic-hack = { path = "../../lib/armv6m-atomic-hack" }

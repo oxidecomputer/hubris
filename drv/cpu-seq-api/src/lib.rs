@@ -8,7 +8,7 @@
 
 use counters::Count;
 use derive_idol_err::IdolError;
-use userlib::{sys_send, FromPrimitive};
+use userlib::{FromPrimitive, sys_send};
 use zerocopy::{Immutable, IntoBytes, KnownLayout};
 
 // Re-export PowerState for client convenience.

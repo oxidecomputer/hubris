@@ -312,10 +312,10 @@ impl SpiServerCore {
 
         // If we are locked, check that the caller isn't mistakenly
         // addressing the wrong device.
-        if let Some(lockstate) = &self.lock_holder.get() {
-            if lockstate.device_index != device_index {
-                return Err(TransferError::BadDevice);
-            }
+        if let Some(lockstate) = &self.lock_holder.get()
+            && lockstate.device_index != device_index
+        {
+            return Err(TransferError::BadDevice);
         }
 
         // Reject out-of-range devices.
@@ -508,11 +508,11 @@ impl SpiServerCore {
 
                 // Deposit the byte if we're still within the bounds of the
                 // caller's incoming lease.
-                if let Some(rx_reader) = &mut rx {
-                    if rx_reader.write(b).is_err() {
-                        // We're off the end. Stop checking.
-                        rx = None;
-                    }
+                if let Some(rx_reader) = &mut rx
+                    && rx_reader.write(b).is_err()
+                {
+                    // We're off the end. Stop checking.
+                    rx = None;
                 }
 
                 // By releasing a TX permit, we might have unblocked the TX

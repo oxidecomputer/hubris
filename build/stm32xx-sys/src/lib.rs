@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use anyhow::Context;
-use quote::{quote, TokenStreamExt};
+use quote::{TokenStreamExt, quote};
 use serde::Deserialize;
 use std::{collections::BTreeMap, io::Write};
 
@@ -172,10 +172,8 @@ impl SysConfig {
                         to_const_name(owner.notification.clone())?
                     );
 
-                    let name = quote::format_ident!(
-                        "{}",
-                        name.replace('-', "_")
-                    );
+                    let name =
+                        quote::format_ident!("{}", name.replace('-', "_"));
                     *slot = Some(DispatchEntry {
                         name,
                         port,

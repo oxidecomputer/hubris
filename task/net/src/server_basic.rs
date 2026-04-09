@@ -11,8 +11,8 @@ use drv_stm32h7_eth as eth;
 use crate::bsp_support;
 use crate::generated;
 use crate::{
-    server::{DeviceExt, GenServerImpl, Storage},
     MacAddressBlock,
+    server::{DeviceExt, GenServerImpl, Storage},
 };
 use mutable_statics::mutable_statics;
 use task_net_api::UdpMetadata;

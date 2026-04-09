@@ -26,7 +26,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::path::Path;
 
-use anyhow::{bail, Context as _, Result};
+use anyhow::{Context as _, Result, bail};
 use base64::prelude::*;
 use serde::Deserialize;
 use sha2::{Digest as _, Sha256};
@@ -128,10 +128,12 @@ fn hashes_from_sigstore_bundle(raw: &str) -> Result<Vec<Vec<u8>>> {
             if ms.message_digest.algorithm != "SHA2_256" {
                 bail!("only sha256 message digests are supported");
             }
-            Ok(vec![BASE64_STANDARD
-                .decode(ms.message_digest.digest)
-                .context("message digest is not base64")?
-                .to_vec()])
+            Ok(vec![
+                BASE64_STANDARD
+                    .decode(ms.message_digest.digest)
+                    .context("message digest is not base64")?
+                    .to_vec(),
+            ])
         }
         BundleContent::DsseEnvelope(dsse) => {
             if dsse.payload_type != "application/vnd.in-toto+json" {

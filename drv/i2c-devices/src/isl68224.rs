@@ -5,12 +5,12 @@
 use core::cell::Cell;
 
 use crate::{
-    pmbus_validate, BadValidation, CurrentSensor, TempSensor, Validate,
-    VoltageSensor,
+    BadValidation, CurrentSensor, TempSensor, Validate, VoltageSensor,
+    pmbus_validate,
 };
 use drv_i2c_api::*;
-use pmbus::commands::isl68224::*;
 use pmbus::commands::CommandCode;
+use pmbus::commands::isl68224::*;
 use pmbus::*;
 use userlib::units::*;
 

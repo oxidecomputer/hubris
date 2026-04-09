@@ -4,7 +4,7 @@
 
 use std::{collections::HashSet, hash::Hash};
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use rand::prelude::*;
 use rand_chacha::ChaCha20Rng;
 

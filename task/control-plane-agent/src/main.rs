@@ -7,8 +7,8 @@
 
 use drv_sprot_api::SprotError;
 use gateway_messages::{
-    sp_impl::{self, Sender},
     IgnitionCommand, MgsError, PowerState, SpComponent, UpdateId,
+    sp_impl::{self, Sender},
 };
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{
@@ -615,11 +615,7 @@ impl NetHandler {
 
 #[allow(dead_code)]
 const fn usize_max(a: usize, b: usize) -> usize {
-    if a > b {
-        a
-    } else {
-        b
-    }
+    if a > b { a } else { b }
 }
 
 mod idl {

@@ -6,7 +6,7 @@
 
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
-use userlib::{sys_send, FromPrimitive};
+use userlib::{FromPrimitive, sys_send};
 use zerocopy::{Immutable, IntoBytes, KnownLayout};
 
 // Only the expresso boards have the full 64 pins, the

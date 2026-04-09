@@ -18,7 +18,7 @@ pub use error::{
     StateError, StateOrSprotError, WatchdogError,
 };
 
-use crc::{Crc, CRC_16_XMODEM};
+use crc::{CRC_16_XMODEM, Crc};
 use derive_more::From;
 pub use drv_lpc55_update_api::{
     Fwid, HandoffDataLoadError, ImageError, ImageVersion, RawCabooseError,
@@ -29,7 +29,7 @@ pub use drv_lpc55_update_api::{
 pub use drv_update_api::UpdateError;
 use hubpack::SerializedSize;
 use idol_runtime::{Leased, LenLimit, R};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 pub use sprockets_common::msgs::{
     RotRequestV1 as SprocketsReq, RotResponseV1 as SprocketsRsp,
 };
@@ -783,20 +783,20 @@ impl<'a> RotCabooseReader<'a> {
                     tlvc::TlvcReadError::Truncated => {
                         return Err(CabooseOrSprotError::Caboose(
                             CabooseError::NoSuchTag,
-                        ))
+                        ));
                     }
                     tlvc::TlvcReadError::HeaderCorrupt { .. }
                     | tlvc::TlvcReadError::BodyCorrupt { .. } => {
                         return Err(CabooseOrSprotError::Caboose(
                             CabooseError::BadChecksum,
-                        ))
+                        ));
                     }
                     tlvc::TlvcReadError::User(e) => break Err(e.into()),
                 },
                 Ok(None) => {
                     return Err(CabooseOrSprotError::Caboose(
                         CabooseError::NoSuchTag,
-                    ))
+                    ));
                 }
             }
         }

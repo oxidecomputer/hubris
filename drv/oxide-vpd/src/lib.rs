@@ -11,7 +11,7 @@
 //! specific example of MAC addresses)
 
 use drv_i2c_devices::at24csw080::{
-    At24Csw080, Error as At24Error, EEPROM_SIZE,
+    At24Csw080, EEPROM_SIZE, Error as At24Error,
 };
 use ringbuf::*;
 use tlvc::{ChunkHandle, TlvcRead, TlvcReadError, TlvcReader};

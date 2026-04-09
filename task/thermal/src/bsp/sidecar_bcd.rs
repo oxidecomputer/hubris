@@ -13,7 +13,7 @@ pub use drv_sidecar_seq_api::SeqError;
 use drv_sidecar_seq_api::{Sequencer, TofinoSeqState, TofinoSequencerPolicy};
 use task_sensor_api::SensorId;
 use task_thermal_api::ThermalProperties;
-use userlib::{task_slot, units::Celsius, TaskId, UnwrapLite};
+use userlib::{TaskId, UnwrapLite, task_slot, units::Celsius};
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 use i2c_config::devices;

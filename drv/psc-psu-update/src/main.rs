@@ -233,15 +233,14 @@ impl Psu {
 
         if let (Some(started), Some(backoff)) =
             (self.update_started, self.update_backoff)
+            && started + backoff > now
         {
-            if started + backoff > now {
-                //
-                // Indicate we are backing off, but in a way that won't flood
-                // the ring buffer with the backing off of a single PSU.
-                //
-                ringbuf_entry!(Trace::BackingOff(ndx));
-                return false;
-            }
+            //
+            // Indicate we are backing off, but in a way that won't flood
+            // the ring buffer with the backing off of a single PSU.
+            //
+            ringbuf_entry!(Trace::BackingOff(ndx));
+            return false;
         }
 
         true

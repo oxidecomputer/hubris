@@ -397,7 +397,7 @@ pub fn await_fpga_ready(
         match state {
             DeviceState::Disabled => return Err(FpgaError::InvalidState),
             DeviceState::AwaitingBitstream | DeviceState::RunningUserDesign => {
-                return Ok(state)
+                return Ok(state);
             }
             _ => {
                 fpga.reset()?;

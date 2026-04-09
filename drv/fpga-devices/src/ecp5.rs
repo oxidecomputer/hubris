@@ -7,7 +7,7 @@ use bitfield::bitfield;
 use core::fmt::Debug;
 use drv_fpga_api::{DeviceState, FpgaError};
 use ringbuf::*;
-use userlib::{hl, FromPrimitive, ToPrimitive};
+use userlib::{FromPrimitive, ToPrimitive, hl};
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 /// ECP5 IDCODE values, found in Table B.5, p. 58, Lattice Semi FPGA-TN-02039-2.0.

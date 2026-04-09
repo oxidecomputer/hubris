@@ -114,7 +114,7 @@ use drv_lpc55_syscon_api::*;
 use idol_runtime::{NotificationHandler, RequestError};
 use lpc55_pac as device;
 use task_jefe_api::{Jefe, ResetReason};
-use userlib::{task_slot, RecvMessage};
+use userlib::{RecvMessage, task_slot};
 
 task_slot!(JEFE, jefe);
 

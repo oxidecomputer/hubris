@@ -603,8 +603,8 @@ impl NotificationHandler for ServerImpl {
 
 mod idl {
     use super::{
-        ereport_messages, CacheGetError, CacheSetError, EreportReadError,
-        EreportWriteError, HostStartupOptions, MacAddressBlock, OxideIdentity,
+        CacheGetError, CacheSetError, EreportReadError, EreportWriteError,
+        HostStartupOptions, MacAddressBlock, OxideIdentity, ereport_messages,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

@@ -104,7 +104,7 @@ impl ServerImpl {
             // We need to specify INVENTORY_COUNT individually here to trigger
             // an error if we've overlapped it with a previous range
             Self::INVENTORY_COUNT | Self::INVENTORY_COUNT..=u32::MAX => {
-                return Err(InventoryDataResult::InvalidIndex)
+                return Err(InventoryDataResult::InvalidIndex);
             }
         }
 

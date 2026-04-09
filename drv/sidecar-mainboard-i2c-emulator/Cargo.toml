@@ -1,7 +1,7 @@
 [package]
 name = "drv-sidecar-mainboard-i2c-emulator"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 drv-i2c-api = { path = "../i2c-api" }

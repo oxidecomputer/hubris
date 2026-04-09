@@ -6,15 +6,14 @@
 #![no_main]
 
 use drv_auxflash_api::{
-    AuxFlashBlob, AuxFlashChecksum, AuxFlashError, AuxFlashId,
-    TlvcReadAuxFlash, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES, SLOT_COUNT,
-    SLOT_SIZE,
+    AuxFlashBlob, AuxFlashChecksum, AuxFlashError, AuxFlashId, PAGE_SIZE_BYTES,
+    SECTOR_SIZE_BYTES, SLOT_COUNT, SLOT_SIZE, TlvcReadAuxFlash,
 };
 use idol_runtime::{
-    ClientError, Leased, NotificationHandler, RequestError, R, W,
+    ClientError, Leased, NotificationHandler, R, RequestError, W,
 };
 use tlvc::{TlvcRead, TlvcReadError, TlvcReader};
-use userlib::{hl, task_slot, RecvMessage, UnwrapLite};
+use userlib::{RecvMessage, UnwrapLite, hl, task_slot};
 
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;

@@ -36,7 +36,7 @@
 #![no_std]
 #![no_main]
 
-use counters::{count, counters, Count};
+use counters::{Count, count, counters};
 use gateway_ereport_messages::Request;
 use task_net_api::{
     LargePayloadBehavior, Net, RecvError, SendError, SocketName,

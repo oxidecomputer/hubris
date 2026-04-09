@@ -13,9 +13,9 @@ use ringbuf::*;
 use task_net_api::{
     ManagementCounters, ManagementLinkStatus, MgmtError, PhyError,
 };
-use userlib::{hl::sleep_for, UnwrapLite};
+use userlib::{UnwrapLite, hl::sleep_for};
+use vsc85xx::{Counter, VscError, vsc85x2::Vsc85x2};
 use vsc7448_pac::{phy, types::PhyRegisterAddress};
-use vsc85xx::{vsc85x2::Vsc85x2, Counter, VscError};
 
 /// On some boards, the KSZ8463 reset line is tied to an RC + diode network
 /// which dramatically slows its rise and fall times.  We use this parameter

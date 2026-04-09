@@ -10,7 +10,7 @@ use drv_local_vpd::LocalVpdError;
 use oxide_barcode::ParseError as BarcodeParseError;
 use ringbuf::{ringbuf, ringbuf_entry};
 use task_packrat_api::{CacheSetError, MacAddressBlock, OxideIdentity};
-use userlib::{hl, TaskId};
+use userlib::{TaskId, hl};
 
 pub use task_packrat_api::Packrat;
 

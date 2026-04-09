@@ -245,7 +245,7 @@ use self::fakes::{sys_get_timer, sys_set_timer};
 #[cfg(test)]
 mod tests {
     use super::fakes::CURRENT_TIME;
-    use super::{sys_get_timer, EnumMap, Multitimer, Repeat, Timer};
+    use super::{EnumMap, Multitimer, Repeat, Timer, sys_get_timer};
 
     fn change_time(time: u64) {
         CURRENT_TIME.with(|t| t.set(time));

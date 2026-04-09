@@ -4,7 +4,7 @@
 
 //! `toml-task` allows for `xtask` and `build.rs` scripts to share a common
 //! definition of a `task` within a TOML file.
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 

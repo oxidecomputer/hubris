@@ -16,7 +16,7 @@ use userlib::*;
 use drv_stm32h7_hash::Hash;
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{
-    ClientError, Leased, LenLimit, NotificationHandler, RequestError, R,
+    ClientError, Leased, LenLimit, NotificationHandler, R, RequestError,
 };
 
 #[cfg(feature = "h753")]

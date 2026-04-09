@@ -3,9 +3,9 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    config::Speed,
-    port::{port10g_flush, port1g_flush},
     Vsc7448Rw, VscError,
+    config::Speed,
+    port::{port1g_flush, port10g_flush},
 };
 use vsc7448_pac::*;
 

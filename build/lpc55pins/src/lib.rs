@@ -4,7 +4,7 @@
 
 use anyhow::Result;
 use proc_macro2::TokenStream;
-use quote::{format_ident, quote, ToTokens, TokenStreamExt};
+use quote::{ToTokens, TokenStreamExt, format_ident, quote};
 use serde::Deserialize;
 use std::io::{BufWriter, Write};
 

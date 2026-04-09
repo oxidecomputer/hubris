@@ -23,7 +23,7 @@ use drv_stm32xx_sys_api::{Alternate, Port, Sys};
 use task_net_api::{
     ManagementCounters, ManagementLinkStatus, MgmtError, PhyError,
 };
-use userlib::{hl::sleep_for, task_slot, UnwrapLite};
+use userlib::{UnwrapLite, hl::sleep_for, task_slot};
 use vsc7448_pac::types::PhyRegisterAddress;
 
 task_slot!(SEQ, seq);

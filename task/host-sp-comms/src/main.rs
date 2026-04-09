@@ -9,8 +9,8 @@
 use drv_stm32h7_usart as drv_usart;
 
 use attest_data::messages::{
-    HostToRotCommand, RecvSprotError as AttestDataSprotError, RotToHost,
-    MAX_DATA_LEN,
+    HostToRotCommand, MAX_DATA_LEN, RecvSprotError as AttestDataSprotError,
+    RotToHost,
 };
 use drv_cpu_seq_api::{
     PowerState, SeqError, Sequencer, StateChangeReason, Transition,
@@ -23,8 +23,8 @@ use enum_map::Enum;
 use heapless::Vec;
 use host_sp_messages::{
     Bsu, DecodeFailureReason, Header, HostToSp, Key, KeyLookupResult,
-    KeySetResult, SpToHost, Status, MAX_MESSAGE_SIZE,
-    MIN_SP_TO_HOST_FILL_DATA_LEN,
+    KeySetResult, MAX_MESSAGE_SIZE, MIN_SP_TO_HOST_FILL_DATA_LEN, SpToHost,
+    Status,
 };
 use hubpack::SerializedSize;
 use idol_runtime::{NotificationHandler, RequestError};
@@ -39,7 +39,7 @@ use task_host_sp_comms_api::HostSpCommsError;
 use task_net_api::Net;
 use task_packrat_api::Packrat;
 use userlib::{
-    sys_get_timer, sys_irq_control, task_slot, FromPrimitive, UnwrapLite,
+    FromPrimitive, UnwrapLite, sys_get_timer, sys_irq_control, task_slot,
 };
 
 mod inventory;

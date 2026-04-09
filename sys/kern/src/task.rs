@@ -13,8 +13,8 @@ use abi::{
 use zerocopy::{FromBytes, Immutable, KnownLayout};
 
 use crate::descs::{
-    Priority, RegionAttributes, RegionDesc, TaskDesc, TaskFlags,
-    REGIONS_PER_TASK,
+    Priority, REGIONS_PER_TASK, RegionAttributes, RegionDesc, TaskDesc,
+    TaskFlags,
 };
 use crate::err::UserError;
 use crate::startup::HUBRIS_FAULT_NOTIFICATION;
@@ -238,14 +238,14 @@ impl Task {
 
         // We only need to check the mask, and make updates, if the task is
         // ready to hear about notifications.
-        if self.state.can_accept_notification() {
-            if let Some(firing) = self.take_notifications() {
-                // A bit the task is interested in has newly become set!
-                // Interrupt it.
-                self.save.set_recv_result(TaskId::KERNEL, firing, 0, 0, 0);
-                self.state = TaskState::Healthy(SchedState::Runnable);
-                return true;
-            }
+        if self.state.can_accept_notification()
+            && let Some(firing) = self.take_notifications()
+        {
+            // A bit the task is interested in has newly become set!
+            // Interrupt it.
+            self.save.set_recv_result(TaskId::KERNEL, firing, 0, 0, 0);
+            self.state = TaskState::Healthy(SchedState::Runnable);
+            return true;
         }
         false
     }
@@ -776,16 +776,16 @@ impl NextTask {
 pub fn process_timers(tasks: &mut [Task], current_time: Timestamp) -> NextTask {
     let mut sched_hint = NextTask::Same;
     for (index, task) in tasks.iter_mut().enumerate() {
-        if let Some(deadline) = task.timer.deadline {
-            if deadline <= current_time {
-                task.timer.deadline = None;
-                let task_hint = if task.post(task.timer.to_post) {
-                    NextTask::Specific(index)
-                } else {
-                    NextTask::Same
-                };
-                sched_hint = sched_hint.combine(task_hint)
-            }
+        if let Some(deadline) = task.timer.deadline
+            && deadline <= current_time
+        {
+            task.timer.deadline = None;
+            let task_hint = if task.post(task.timer.to_post) {
+                NextTask::Specific(index)
+            } else {
+                NextTask::Same
+            };
+            sched_hint = sched_hint.combine(task_hint)
         }
     }
     sched_hint
@@ -859,10 +859,10 @@ pub fn priority_scan(
             continue;
         }
 
-        if let Some((_, best_task)) = choice {
-            if !t.priority.is_more_important_than(best_task.priority) {
-                continue;
-            }
+        if let Some((_, best_task)) = choice
+            && !t.priority.is_more_important_than(best_task.priority)
+        {
+            continue;
         }
 
         choice = Some((pos, t));

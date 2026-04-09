@@ -4,21 +4,21 @@
 
 use drv_hash_api::SHA256_SZ;
 use drv_hf_api::{
-    HashData, HashState, HfChipId, HfDevSelect, HfError, HfMuxState,
-    HfPersistentData, HfProtectMode, HfRawPersistentData, SlotHash,
-    HF_PERSISTENT_DATA_STRIDE,
+    HF_PERSISTENT_DATA_STRIDE, HashData, HashState, HfChipId, HfDevSelect,
+    HfError, HfMuxState, HfPersistentData, HfProtectMode, HfRawPersistentData,
+    SlotHash,
 };
 use idol_runtime::{
-    ClientError, LeaseBufWriter, Leased, LenLimit, NotificationHandler,
-    RequestError, R, W,
+    ClientError, LeaseBufWriter, Leased, LenLimit, NotificationHandler, R,
+    RequestError, W,
 };
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
-use userlib::{set_timer_relative, task_slot, RecvMessage, UnwrapLite};
+use userlib::{RecvMessage, UnwrapLite, set_timer_relative, task_slot};
 use zerocopy::{FromZeros, IntoBytes};
 
 use crate::{
-    apob, apob::APOB_PERSISTENT_DATA_STRIDE, FlashAddr, FlashDriver, Trace,
-    PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES,
+    FlashAddr, FlashDriver, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES, Trace, apob,
+    apob::APOB_PERSISTENT_DATA_STRIDE,
 };
 
 task_slot!(HASH, hash_driver);
@@ -704,7 +704,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         // that might mess up the hash in progress
         match self.hash.state {
             HashState::Hashing { .. } => {
-                return Err(HfError::HashInProgress.into())
+                return Err(HfError::HashInProgress.into());
             }
             _ => (),
         }
@@ -747,7 +747,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         // that might mess up the hash in progress
         match self.hash.state {
             HashState::Hashing { .. } => {
-                return Err(HfError::HashInProgress.into())
+                return Err(HfError::HashInProgress.into());
             }
             _ => (),
         }

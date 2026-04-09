@@ -12,12 +12,12 @@
 use core::convert::Infallible;
 use drv_caboose::{CabooseError, CabooseReader};
 use drv_stm32h7_update_api::{
-    ImageVersion, SlotId, BLOCK_SIZE_BYTES, FLASH_WORDS_PER_BLOCK,
-    FLASH_WORD_BYTES,
+    BLOCK_SIZE_BYTES, FLASH_WORD_BYTES, FLASH_WORDS_PER_BLOCK, ImageVersion,
+    SlotId,
 };
 use drv_update_api::UpdateError;
 use idol_runtime::{
-    ClientError, Leased, LenLimit, NotificationHandler, RequestError, R,
+    ClientError, Leased, LenLimit, NotificationHandler, R, RequestError,
 };
 use ringbuf::*;
 use stm32h7::stm32h753 as device;
@@ -319,10 +319,10 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
     ) -> Result<(), RequestError<UpdateError>> {
         match self.state {
             UpdateState::InProgress => {
-                return Err(UpdateError::UpdateInProgress.into())
+                return Err(UpdateError::UpdateInProgress.into());
             }
             UpdateState::Finished => {
-                return Err(UpdateError::UpdateAlreadyFinished.into())
+                return Err(UpdateError::UpdateAlreadyFinished.into());
             }
             UpdateState::NoUpdate => (),
         }
@@ -339,10 +339,10 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
     ) -> Result<(), RequestError<UpdateError>> {
         match self.state {
             UpdateState::NoUpdate => {
-                return Err(UpdateError::UpdateNotStarted.into())
+                return Err(UpdateError::UpdateNotStarted.into());
             }
             UpdateState::Finished => {
-                return Err(UpdateError::UpdateAlreadyFinished.into())
+                return Err(UpdateError::UpdateAlreadyFinished.into());
             }
             UpdateState::InProgress => (),
         }
@@ -359,10 +359,10 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
     ) -> Result<(), RequestError<UpdateError>> {
         match self.state {
             UpdateState::NoUpdate => {
-                return Err(UpdateError::UpdateNotStarted.into())
+                return Err(UpdateError::UpdateNotStarted.into());
             }
             UpdateState::Finished => {
-                return Err(UpdateError::UpdateAlreadyFinished.into())
+                return Err(UpdateError::UpdateAlreadyFinished.into());
             }
             UpdateState::InProgress => (),
         }
@@ -406,10 +406,10 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
     ) -> Result<(), RequestError<UpdateError>> {
         match self.state {
             UpdateState::NoUpdate => {
-                return Err(UpdateError::UpdateNotStarted.into())
+                return Err(UpdateError::UpdateNotStarted.into());
             }
             UpdateState::Finished => {
-                return Err(UpdateError::UpdateAlreadyFinished.into())
+                return Err(UpdateError::UpdateAlreadyFinished.into());
             }
             UpdateState::InProgress => (),
         }

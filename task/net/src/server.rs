@@ -5,7 +5,7 @@
 use crate::bsp_support;
 use crate::generated::{self, SOCKET_COUNT};
 use crate::notifications;
-use crate::{idl, link_local_iface_addr, MacAddressBlock};
+use crate::{MacAddressBlock, idl, link_local_iface_addr};
 
 use drv_stm32h7_eth as eth;
 use enum_map::Enum;
@@ -56,7 +56,7 @@ use heapless::Vec;
 use smoltcp::iface::{Interface, SocketHandle, SocketStorage};
 use smoltcp::socket::udp;
 use smoltcp::wire::{EthernetAddress, Ipv6Cidr};
-use userlib::{sys_get_timer, sys_post, sys_refresh_task_id, UnwrapLite};
+use userlib::{UnwrapLite, sys_get_timer, sys_post, sys_refresh_task_id};
 use zerocopy::byteorder::U16;
 
 /// Implementation of the Net Idol interface.

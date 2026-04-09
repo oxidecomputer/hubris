@@ -16,7 +16,7 @@ mod serdes10g;
 mod serdes1g;
 
 use crate::config::{PortConfig, PortDev, PortMap, PortMode, PortSerdes};
-use userlib::{hl::sleep_for, UnwrapLite};
+use userlib::{UnwrapLite, hl::sleep_for};
 use vsc7448_pac::{types::RegisterAddress, *};
 
 pub use config::Speed;

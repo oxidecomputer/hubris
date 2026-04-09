@@ -5,11 +5,12 @@
 extern crate proc_macro;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use std::collections::HashSet;
 use syn::{
+    DeriveInput,
     parse::{Parse, ParseStream},
-    parse_macro_input, DeriveInput,
+    parse_macro_input,
 };
 
 /// Derives an implementation of the `Count` trait for the annotated
@@ -284,12 +285,11 @@ impl<'input> CountGenerator<'input> {
             #variant_name: <#variant_type as counters::Count>::NEW_COUNTERS
         });
         where_clause_types.insert(variant_type.clone());
-        if let syn::Type::Path(ty_path) = variant_type {
-            if let Some(ident) = ty_path.path.get_ident() {
-                if all_generics.contains(ident) {
-                    needed_generics.insert(ident.clone());
-                }
-            }
+        if let syn::Type::Path(ty_path) = variant_type
+            && let Some(ident) = ty_path.path.get_ident()
+            && all_generics.contains(ident)
+        {
+            needed_generics.insert(ident.clone());
         }
     }
 }

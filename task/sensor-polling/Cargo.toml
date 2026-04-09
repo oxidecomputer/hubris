@@ -2,7 +2,7 @@
 name = "task-sensor-polling"
 description = "Monitoring-only task for temperature and fan sensors"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 cortex-m = { workspace = true }

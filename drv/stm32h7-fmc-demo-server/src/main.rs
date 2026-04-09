@@ -8,7 +8,7 @@
 #![no_main]
 
 use core::{convert::Infallible, mem::take};
-use counters::{count, Count};
+use counters::{Count, count};
 use static_cell::ClaimOnceCell;
 use task_net_api::{
     LargePayloadBehavior, Net, RecvError, SendError, SocketName,

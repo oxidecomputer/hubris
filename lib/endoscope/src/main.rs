@@ -9,8 +9,8 @@
 use core::arch::{self};
 use core::panic::PanicInfo;
 use cortex_m_rt::entry;
-use drv_stm32h7_startup::system_init;
 use drv_stm32h7_startup::ClockConfig;
+use drv_stm32h7_startup::system_init;
 use endoscope_abi::DIGEST_SIZE;
 use stm32h7::stm32h753 as device;
 
@@ -60,7 +60,7 @@ const CLOCK_CONFIG: ClockConfig = ClockConfig {
 };
 
 mod shared;
-use shared::{State, SHARED};
+use shared::{SHARED, State};
 
 unsafe extern "C" {
     static FLASH_BASE: [u8; 0];

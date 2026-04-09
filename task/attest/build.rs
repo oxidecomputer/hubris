@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use anyhow::{Context, Result};
-use idol::{server::ServerStyle, CounterSettings};
+use idol::{CounterSettings, server::ServerStyle};
 use serde::Deserialize;
 use std::{fs::File, io::Write};
 

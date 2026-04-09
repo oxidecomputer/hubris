@@ -14,8 +14,8 @@ use counters::*;
 use fixedstr::FixedStr;
 use ringbuf::*;
 use userlib::{
-    hl, set_timer_relative, sys_get_timer, sys_recv_notification,
-    sys_set_timer, task_slot, units, RecvMessage, TaskId, UnwrapLite,
+    RecvMessage, TaskId, UnwrapLite, hl, set_timer_relative, sys_get_timer,
+    sys_recv_notification, sys_set_timer, task_slot, units,
 };
 use zerocopy::IntoBytes;
 
@@ -24,7 +24,7 @@ use drv_cpu_seq_api::{PowerState, SeqError, StateChangeReason, Transition};
 use drv_hf_api as hf_api;
 use drv_i2c_api as i2c;
 use drv_ice40_spi_program as ice40;
-use drv_packrat_vpd_loader::{read_vpd_and_load_packrat, Packrat};
+use drv_packrat_vpd_loader::{Packrat, read_vpd_and_load_packrat};
 use drv_spi_api::{SpiDevice, SpiServer};
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};

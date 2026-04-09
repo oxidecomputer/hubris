@@ -38,7 +38,7 @@ use hubris_num_tasks::NUM_TASKS;
 use humpty::DumpArea;
 use idol_runtime::RequestError;
 use task_jefe_api::{DumpAgentError, ResetReason};
-use userlib::{kipc, Generation, TaskId};
+use userlib::{Generation, TaskId, kipc};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
 pub enum Disposition {

@@ -24,7 +24,7 @@ use drv_i2c_devices::tps546b24a::*;
 use pmbus::Phase;
 use ringbuf::*;
 use task_power_api::{
-    Bmr491Event, PmbusValue, RawPmbusBlock, RenesasBlackbox, MAX_BLOCK_LEN,
+    Bmr491Event, MAX_BLOCK_LEN, PmbusValue, RawPmbusBlock, RenesasBlackbox,
 };
 use task_sensor_api as sensor_api;
 use userlib::units::*;
@@ -227,7 +227,7 @@ impl Device {
             | Device::Lm5066(_)
             | Device::Lm5066I(_)
             | Device::Max5970(_) => {
-                return Err(ResponseCode::OperationNotSupported)
+                return Err(ResponseCode::OperationNotSupported);
             }
         };
         Ok(v)
@@ -246,7 +246,7 @@ impl Device {
             | Device::Max5970(..)
             | Device::Lm5066(..)
             | Device::Lm5066I(..) => {
-                return Err(ResponseCode::OperationNotSupported)
+                return Err(ResponseCode::OperationNotSupported);
             }
         };
         Ok(v)
@@ -913,16 +913,15 @@ impl idl::InOrderPowerImpl for ServerImpl {
             .iter()
             .zip(self.devices.iter_mut())
             .find(|(c, _)| c.voltage == rail)
+            && let Some(phases) = c.phases
         {
-            if let Some(phases) = c.phases {
-                let phase: usize = phase as usize;
+            let phase: usize = phase as usize;
 
-                if phase < phases.len() {
-                    return match dev.read_phase_current(Phase(phases[phase])) {
-                        Err(e) => Err(e.into()),
-                        Ok(val) => Ok(val.0),
-                    };
-                }
+            if phase < phases.len() {
+                return match dev.read_phase_current(Phase(phases[phase])) {
+                    Err(e) => Err(e.into()),
+                    Ok(val) => Ok(val.0),
+                };
             }
         }
 

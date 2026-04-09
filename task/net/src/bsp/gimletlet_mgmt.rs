@@ -24,8 +24,8 @@ use task_net_api::{
     ManagementCounters, ManagementLinkStatus, MgmtError, PhyError,
 };
 use userlib::task_slot;
-use vsc7448_pac::{phy, types::PhyRegisterAddress};
 use vsc85xx::VscError;
+use vsc7448_pac::{phy, types::PhyRegisterAddress};
 
 task_slot!(USER_LEDS, user_leds);
 

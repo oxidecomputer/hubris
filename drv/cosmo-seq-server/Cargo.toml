@@ -1,7 +1,7 @@
 [package]
 name = "drv-cosmo-seq-server"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 drv-auxflash-api = { path = "../auxflash-api" }

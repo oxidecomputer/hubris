@@ -5,11 +5,11 @@
 //! SP inventory types and implementation
 //!
 //! This reduces clutter in the main `ServerImpl` implementation
-use super::{inventory::by_refdes, ServerImpl, HOST_FLASH};
+use super::{HOST_FLASH, ServerImpl, inventory::by_refdes};
 
 use drv_i2c_api::I2cDevice;
 use drv_spi_api::SpiServer;
-use task_sensor_api::{config::other_sensors, SensorId};
+use task_sensor_api::{SensorId, config::other_sensors};
 use userlib::UnwrapLite;
 use zerocopy::IntoBytes;
 
@@ -566,7 +566,7 @@ impl ServerImpl {
             // We need to specify INVENTORY_COUNT individually here to trigger
             // an error if we've overlapped it with a previous range
             Self::INVENTORY_COUNT | Self::INVENTORY_COUNT..=u32::MAX => {
-                return Err(InventoryDataResult::InvalidIndex)
+                return Err(InventoryDataResult::InvalidIndex);
             }
         }
 

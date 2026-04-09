@@ -49,7 +49,7 @@ use idol_runtime::RequestError;
 use microcbor::Encode;
 use ringbuf::{counted_ringbuf, ringbuf_entry};
 use task_packrat_api::Packrat;
-use userlib::{sys_get_timer, task_slot, RecvMessage};
+use userlib::{RecvMessage, sys_get_timer, task_slot};
 
 task_slot!(PACKRAT, packrat);
 

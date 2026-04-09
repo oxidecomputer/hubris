@@ -2,10 +2,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use convert_case::{Case, Casing};
 use serde::Deserialize;
-use serde_with::{serde_as, DefaultOnNull};
+use serde_with::{DefaultOnNull, serde_as};
 use std::{fmt::Write, path::PathBuf};
 
 #[serde_as]

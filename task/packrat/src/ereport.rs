@@ -100,15 +100,15 @@ use core::cmp::Ordering;
 use drv_caboose::CabooseReader;
 use hubris_num_tasks::NUM_TASKS;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError};
-use minicbor::{encode, CborLen};
+use minicbor::{CborLen, encode};
 use minicbor_lease::LeasedWriter;
 use ringbuf::{counted_ringbuf, ringbuf_entry};
 use task_jefe_api::Jefe;
 use task_packrat_api::{EreportReadError, EreportWriteError, OxideIdentity};
 use userlib::{
-    kipc, sys_get_timer, task_slot, FaultInfo, FaultSource, Generation,
-    ReadPanicMessageError, RecvMessage, ReplyFaultReason, TaskId, TaskState,
-    UsageError,
+    FaultInfo, FaultSource, Generation, ReadPanicMessageError, RecvMessage,
+    ReplyFaultReason, TaskId, TaskState, UsageError, kipc, sys_get_timer,
+    task_slot,
 };
 use zerocopy::IntoBytes;
 

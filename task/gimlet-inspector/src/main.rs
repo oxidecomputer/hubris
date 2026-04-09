@@ -12,8 +12,8 @@
 use counters::*;
 use drv_cpu_seq_api::Sequencer;
 use gimlet_inspector_protocol::{
-    QueryV0, Request, SequencerRegistersResponseV0, ANY_RESPONSE_V0_MAX_SIZE,
-    REQUEST_TRAILER,
+    ANY_RESPONSE_V0_MAX_SIZE, QueryV0, REQUEST_TRAILER, Request,
+    SequencerRegistersResponseV0,
 };
 use hubpack::SerializedSize;
 use task_net_api::*;

@@ -10,7 +10,7 @@ use derive_idol_err::IdolError;
 use drv_fpga_api::FpgaError;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
-use userlib::{sys_send, FromPrimitive};
+use userlib::{FromPrimitive, sys_send};
 
 #[derive(
     Copy, Clone, Debug, PartialEq, Deserialize, Serialize, SerializedSize,

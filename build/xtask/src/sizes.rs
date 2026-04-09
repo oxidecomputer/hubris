@@ -8,17 +8,17 @@ use std::io::Write;
 use std::path::Path;
 use std::process;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use colored::*;
 use goblin::Object;
-use indexmap::map::Entry;
 use indexmap::IndexMap;
+use indexmap::map::Entry;
 
 use crate::{
-    dist::{
-        get_max_stack, Allocations, ContiguousRanges, DEFAULT_KERNEL_STACK,
-    },
     Config,
+    dist::{
+        Allocations, ContiguousRanges, DEFAULT_KERNEL_STACK, get_max_stack,
+    },
 };
 
 #[derive(Debug)]
@@ -302,14 +302,14 @@ fn print_memory_map(
         println!("\n{mem_name}:");
         if verbose {
             println!(
-            "      ADDRESS  | {:^task$} | {:>mem$} | {:>mem$} | {:>mem$} | LIMIT",
-            "PROGRAM",
-            "USED",
-            "SIZE",
-            "CHUNKS",
-            task = task_pad,
-            mem = mem_pad,
-        );
+                "      ADDRESS  | {:^task$} | {:>mem$} | {:>mem$} | {:>mem$} | LIMIT",
+                "PROGRAM",
+                "USED",
+                "SIZE",
+                "CHUNKS",
+                task = task_pad,
+                mem = mem_pad,
+            );
         } else {
             println!(
                 "      ADDRESS  | {:^task$} | {:>mem$} | {:>mem$} | LIMIT",
@@ -589,7 +589,9 @@ fn compare_sizes(
             }
             // we have removed this entirely
             (Entry::Occupied(current_entry), Entry::Vacant(_)) => {
-                println!("This task was removed since we last saved size information.");
+                println!(
+                    "This task was removed since we last saved size information."
+                );
                 let current = current_entry.get();
                 for (key, value) in current {
                     println!("\t{key}: {value}");

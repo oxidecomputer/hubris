@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::elf;
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use scroll::Pread;
 use std::path::Path;
 

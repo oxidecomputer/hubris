@@ -11,7 +11,7 @@ use drv_cpu_seq_api::{
     PowerState, SeqError as CpuSeqError, StateChangeReason, Transition,
 };
 use drv_ice40_spi_program as ice40;
-use drv_packrat_vpd_loader::{read_vpd_and_load_packrat, Packrat};
+use drv_packrat_vpd_loader::{Packrat, read_vpd_and_load_packrat};
 use drv_spartan7_loader_api::Spartan7Loader;
 use drv_spi_api::{SpiDevice, SpiServer};
 use drv_stm32xx_sys_api::{self as sys_api, Sys};
@@ -20,13 +20,13 @@ use fmc_sequencer::{nic_api_status, seq_api_status};
 use idol_runtime::{NotificationHandler, RequestError};
 use task_jefe_api::Jefe;
 use userlib::{
-    hl, set_timer_relative, sys_get_timer, sys_recv_notification, task_slot,
-    RecvMessage,
+    RecvMessage, hl, set_timer_relative, sys_get_timer, sys_recv_notification,
+    task_slot,
 };
 
 use crate::i2c_config::MAX_COMPONENT_ID_LEN as REFDES_LEN;
 use drv_hf_api::HostFlash;
-use ringbuf::{counted_ringbuf, ringbuf_entry, Count};
+use ringbuf::{Count, counted_ringbuf, ringbuf_entry};
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
@@ -688,11 +688,11 @@ impl ServerImpl {
             // externally-requested transitions.
             (PowerState::A0PlusHP, PowerState::A0)
             | (PowerState::A2PlusFans, PowerState::A2) => {
-                return Ok(Transition::Unchanged)
+                return Ok(Transition::Unchanged);
             }
             // If we are already in the requested state, return `Unchanged`.
             (current, requested) if current == requested => {
-                return Ok(Transition::Unchanged)
+                return Ok(Transition::Unchanged);
             }
 
             _ => return Err(CpuSeqError::IllegalTransition),

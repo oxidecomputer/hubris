@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use convert_case::{Case, Casing};
 use indexmap::IndexMap;
 use multimap::MultiMap;
@@ -538,13 +538,12 @@ impl ConfigGenerator {
             // their bus.
             //
             for (index, (p, port)) in c.ports.iter().enumerate() {
-                if let Some(name) = &port.name {
-                    if buses
+                if let Some(name) = &port.name
+                    && buses
                         .insert(name.clone(), (c.controller, index))
                         .is_some()
-                    {
-                        panic!("i2c bus {name} appears twice");
-                    }
+                {
+                    panic!("i2c bus {name} appears twice");
                 }
 
                 if c.ports.len() == 1 {
@@ -959,7 +958,10 @@ impl ConfigGenerator {
                 let id = refdes.to_component_id();
                 format!("\n{indent}    {id:?},")
             } else {
-                println!("cargo::error=device {} has no refdes, but we were asked to generate component IDs", d.device);
+                println!(
+                    "cargo::error=device {} has no refdes, but we were asked to generate component IDs",
+                    d.device
+                );
                 String::new()
             }
         } else {
@@ -1008,10 +1010,10 @@ impl ConfigGenerator {
                 by_bus.insert((&d.device, bus), d);
             }
 
-            if let Some(name) = &d.name {
-                if by_name.insert((&d.device, name), d).is_some() {
-                    panic!("duplicate name {} for device {}", name, d.device)
-                }
+            if let Some(name) = &d.name
+                && by_name.insert((&d.device, name), d).is_some()
+            {
+                panic!("duplicate name {} for device {}", name, d.device)
             }
             if let Some(refdes) = &d.refdes {
                 if by_refdes.insert((&d.device, refdes), d).is_some() {
@@ -1238,10 +1240,10 @@ impl ConfigGenerator {
         println!("cargo::rerun-if-changed={}", dir.join("src").display());
 
         for entry in std::fs::read_dir(dir.join("src"))? {
-            if let Some(f) = entry?.path().file_name() {
-                if let Some(name) = f.to_str().unwrap().strip_suffix(".rs") {
-                    drivers.insert(name.to_string());
-                }
+            if let Some(f) = entry?.path().file_name()
+                && let Some(name) = f.to_str().unwrap().strip_suffix(".rs")
+            {
+                drivers.insert(name.to_string());
             }
         }
 

@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::*;
-use drv_i2c_devices::{at24csw080::At24Csw080, Validate};
+use drv_i2c_devices::{Validate, at24csw080::At24Csw080};
 use drv_sidecar_front_io::controller::FrontIOController;
 use drv_sidecar_front_io::phy_smi::PhySmi;
 

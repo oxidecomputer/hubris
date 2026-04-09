@@ -10,9 +10,9 @@ use crate::control::{
 };
 use task_sensor_api::SensorId;
 use task_thermal_api::ThermalProperties;
-use userlib::units::Celsius;
 use userlib::TaskId;
 use userlib::UnwrapLite;
+use userlib::units::Celsius;
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 use i2c_config::devices;

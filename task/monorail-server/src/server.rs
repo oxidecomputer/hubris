@@ -13,8 +13,8 @@ use drv_monorail_api::{
 use idol_runtime::{NotificationHandler, RequestError};
 use userlib::{sys_get_timer, sys_set_timer};
 use vsc7448::{
+    DevGeneric, PORT_COUNT, Vsc7448, Vsc7448Rw,
     config::{PortMap, PortMode},
-    DevGeneric, Vsc7448, Vsc7448Rw, PORT_COUNT,
 };
 use vsc7448_pac::{types::PhyRegisterAddress, *};
 
@@ -58,15 +58,15 @@ impl<'a, R: Vsc7448Rw> ServerImpl<'a, R> {
 
     pub fn wake(&mut self) -> Result<(), VscError> {
         let now = sys_get_timer().now;
-        if let Some(wake_interval) = bsp::WAKE_INTERVAL {
-            if now >= self.wake_target_time {
-                let out = self.bsp.wake();
-                self.wake_target_time = userlib::set_timer_relative(
-                    wake_interval,
-                    notifications::WAKE_TIMER_MASK,
-                );
-                return out;
-            }
+        if let Some(wake_interval) = bsp::WAKE_INTERVAL
+            && now >= self.wake_target_time
+        {
+            let out = self.bsp.wake();
+            self.wake_target_time = userlib::set_timer_relative(
+                wake_interval,
+                notifications::WAKE_TIMER_MASK,
+            );
+            return out;
         }
         Ok(())
     }
