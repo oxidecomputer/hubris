@@ -16,10 +16,10 @@ pub fn get_section_by_name<'a>(
     name: &str,
 ) -> Option<&'a goblin::elf::SectionHeader> {
     for section in &elf.section_headers {
-        if let Some(section_name) = elf.shdr_strtab.get_at(section.sh_name) {
-            if section_name == name {
-                return Some(section);
-            }
+        if let Some(section_name) = elf.shdr_strtab.get_at(section.sh_name)
+            && section_name == name
+        {
+            return Some(section);
         }
     }
     None
@@ -39,6 +39,6 @@ pub fn get_file_offset_by_vma(
     addr: u64,
 ) -> Result<u64> {
     let entry_section = get_section_by_vma(elf, addr)
-        .ok_or_else(|| anyhow!("address {:#x} is non-existant", addr))?;
+        .ok_or_else(|| anyhow!("address {addr:#x} is non-existant"))?;
     Ok(addr - entry_section.sh_addr + entry_section.sh_offset)
 }

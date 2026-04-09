@@ -364,7 +364,7 @@ fn run(xtask: Xtask) -> Result<()> {
 
             let image_name = if let Some(ref name) = args.image_name {
                 if !toml.check_image_name(name) {
-                    bail!("Image name {} not declared in TOML", name);
+                    bail!("Image name {name} not declared in TOML");
                 }
                 name
             } else {
@@ -400,7 +400,7 @@ fn run(xtask: Xtask) -> Result<()> {
             let toml = Config::from_file(&args.cfg)?;
             let image_name = if let Some(ref name) = args.image_name {
                 if !toml.check_image_name(name) {
-                    bail!("Image name {} not declared in TOML", name);
+                    bail!("Image name {name} not declared in TOML");
                 }
                 name
             } else {
@@ -416,7 +416,7 @@ fn run(xtask: Xtask) -> Result<()> {
             let toml = Config::from_file(&args.cfg)?;
             let image_name = if let Some(ref name) = args.image_name {
                 if !toml.check_image_name(name) {
-                    bail!("Image name {} not declared in TOML", name);
+                    bail!("Image name {name} not declared in TOML");
                 }
                 name
             } else {
@@ -448,7 +448,7 @@ fn run(xtask: Xtask) -> Result<()> {
             let toml = Config::from_file(&args.cfg)?;
             let image_name = if let Some(ref name) = args.image_name {
                 if !toml.check_image_name(name) {
-                    bail!("Image name {} not declared in TOML", name);
+                    bail!("Image name {name} not declared in TOML");
                 }
                 name
             } else {

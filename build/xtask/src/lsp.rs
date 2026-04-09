@@ -238,9 +238,7 @@ fn check_task(
         let build_cfg = app_cfg
             .toml
             .task_build_config(task_name, false, None)
-            .map_err(|_| {
-                anyhow!("could not get build config for {}", task_name)
-            })
+            .map_err(|_| anyhow!("could not get build config for {task_name}"))
             .unwrap();
 
         let mut iter = build_cfg.args.iter();

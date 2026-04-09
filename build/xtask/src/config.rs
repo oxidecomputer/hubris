@@ -518,7 +518,7 @@ impl Config {
         let outputs: &Vec<Output> = self
             .outputs
             .get(&region)
-            .ok_or_else(|| anyhow!("couldn't find region {}", region))?;
+            .ok_or_else(|| anyhow!("couldn't find region {region}"))?;
         let mut memories: IndexMap<String, Range<u32>> = IndexMap::new();
 
         for o in outputs {
@@ -625,11 +625,7 @@ impl Config {
                     .filter(|o| o.name == image_name);
                 let out = regions.next().expect("no extern region for name");
                 if regions.next().is_some() {
-                    bail!(
-                        "multiple extern {} regions for name {}",
-                        r,
-                        image_name
-                    );
+                    bail!("multiple extern {r} regions for name {image_name}");
                 }
                 Ok((r.to_owned(), out.address..out.address + out.size))
             })

@@ -137,7 +137,7 @@ impl PackageConfig {
         let board_path =
             Path::new("boards").join(format!("{}.toml", toml.board));
         if !board_path.exists() {
-            bail!("Failed to find {:?}", board_path);
+            bail!("Failed to find {}", board_path.display());
         }
 
         let remap_paths = Self::remap_paths(&sysroot, &toml.target)?;
@@ -820,7 +820,9 @@ fn write_gdb_script(cfg: &PackageConfig, image_name: &str) -> Result<()> {
     for (path, remap) in &cfg.remap_paths {
         let mut path_str = path
             .to_str()
-            .ok_or_else(|| anyhow!("Could not convert path{:?} to str", path))?
+            .ok_or_else(|| {
+                anyhow!("Could not convert path {} to str", path.display())
+            })?
             .to_string();
 
         // Even on Windows, GDB expects path components to be separated by '/',
@@ -1456,7 +1458,7 @@ fn link_task(
         &allocs.tasks[name],
         Some(&task_toml.sections),
         task_toml.stacksize.or(cfg.toml.stacksize).ok_or_else(|| {
-            anyhow!("{}: no stack size specified and there is no default", name)
+            anyhow!("{name}: no stack size specified and there is no default")
         })?,
         &cfg.toml.all_regions("flash".to_string())?,
         &extern_regions,
@@ -1491,7 +1493,7 @@ fn link_dummy_task(
         &memories, // ALL THE SPACE
         Some(&task_toml.sections),
         task_toml.stacksize.or(cfg.toml.stacksize).ok_or_else(|| {
-            anyhow!("{}: no stack size specified and there is no default", name)
+            anyhow!("{name}: no stack size specified and there is no default")
         })?,
         &cfg.toml.all_regions("flash".to_string())?,
         &extern_regions,
@@ -1536,15 +1538,15 @@ fn load_task_flash(
         all_output_sections,
         &mut symbol_table,
     )?;
-    if let Some(required) = task_toml.max_sizes.get("flash") {
-        if flash > *required as usize {
-            bail!(
-                "{} has insufficient flash: specified {} bytes, needs {}",
-                task_toml.name,
-                required,
-                flash
-            );
-        }
+    if let Some(required) = task_toml.max_sizes.get("flash")
+        && flash > *required as usize
+    {
+        bail!(
+            "{} has insufficient flash: specified {} bytes, needs {}",
+            task_toml.name,
+            required,
+            flash
+        );
     }
     Ok(())
 }
@@ -1652,44 +1654,41 @@ fn update_image_header(
 
     // Good enough.
     for sec in &elf.section_headers {
-        if let Some(name) = elf.shdr_strtab.get_at(sec.sh_name) {
-            if name == ".header"
-                && (sec.sh_size as usize)
-                    >= core::mem::size_of::<abi::ImageHeader>()
-            {
-                let flash = map.get("flash").unwrap();
+        if let Some(name) = elf.shdr_strtab.get_at(sec.sh_name)
+            && name == ".header"
+            && (sec.sh_size as usize)
+                >= core::mem::size_of::<abi::ImageHeader>()
+        {
+            let flash = map.get("flash").unwrap();
 
-                // Compute the total image size by finding the highest address
-                // from all the tasks built.
-                let end = all_output_sections
-                    .iter()
-                    .filter(|(addr, _sec)| flash.contains(addr))
-                    .map(|(&addr, sec)| addr + sec.data.len() as u32)
-                    .max();
-                // Normally, at this point, all tasks are built, so we can
-                // compute the actual number. However, in the specific case of
-                // `xtask build kernel`, we need a result from this calculation
-                // but `end` will be `None`. Substitute a placeholder:
-                let end = end.unwrap_or(flash.start);
+            // Compute the total image size by finding the highest address
+            // from all the tasks built.
+            let end = all_output_sections
+                .iter()
+                .filter(|(addr, _sec)| flash.contains(addr))
+                .map(|(&addr, sec)| addr + sec.data.len() as u32)
+                .max();
+            // Normally, at this point, all tasks are built, so we can
+            // compute the actual number. However, in the specific case of
+            // `xtask build kernel`, we need a result from this calculation
+            // but `end` will be `None`. Substitute a placeholder:
+            let end = end.unwrap_or(flash.start);
 
-                let len = end - flash.start;
+            let len = end - flash.start;
 
-                let header = abi::ImageHeader {
-                    version: cfg.toml.version,
-                    epoch: cfg.toml.epoch,
-                    magic: abi::HEADER_MAGIC,
-                    total_image_len: len,
-                    ..Default::default()
-                };
+            let header = abi::ImageHeader {
+                version: cfg.toml.version,
+                epoch: cfg.toml.epoch,
+                magic: abi::HEADER_MAGIC,
+                total_image_len: len,
+                ..Default::default()
+            };
 
-                header
-                    .write_to_prefix(
-                        &mut file_image[(sec.sh_offset as usize)..],
-                    )
-                    .unwrap();
-                std::fs::write(output, &file_image)?;
-                return Ok(true);
-            }
+            header
+                .write_to_prefix(&mut file_image[(sec.sh_offset as usize)..])
+                .unwrap();
+            std::fs::write(output, &file_image)?;
+            return Ok(true);
         }
     }
 
@@ -1770,7 +1769,7 @@ fn check_task_priorities(toml: &Config) -> Result<()> {
             let p = toml
                 .tasks
                 .get(callee)
-                .ok_or_else(|| anyhow!("Invalid task-slot: {}", callee))?
+                .ok_or_else(|| anyhow!("Invalid task-slot: {callee}"))?
                 .priority;
             if p >= task.priority && name != callee {
                 bail!(
@@ -1786,11 +1785,11 @@ fn check_task_priorities(toml: &Config) -> Result<()> {
             }
         }
         if task.priority >= idle_priority && name != "idle" {
-            bail!("task {} has priority that's >= idle priority", name);
+            bail!("task {name} has priority that's >= idle priority");
         } else if i == 0 && task.priority != 0 {
-            bail!("Supervisor task ({}) is not at priority 0", name);
+            bail!("Supervisor task ({name}) is not at priority 0");
         } else if i != 0 && task.priority == 0 {
-            bail!("Task {} is not the supervisor, but has priority 0", name,);
+            bail!("Task {name} is not the supervisor, but has priority 0");
         }
     }
 
@@ -2375,11 +2374,8 @@ pub fn allocate_all(
                     let total_bytes = bytes.iter().sum::<u64>();
                     if total_bytes > u64::from(*r) {
                         bail!(
-                            "task {}: needs {} bytes of {} but max-sizes limits it to {}",
-                            name,
-                            total_bytes,
-                            mem,
-                            r
+                            "task {name}: needs {total_bytes} bytes of {mem} \
+                             but max-sizes limits it to {r}",
                         );
                     }
                 }
@@ -2631,12 +2627,7 @@ fn allocate_k(
     let base = (avail.start + 15) & !15;
 
     if !avail.contains(&(base + size - 1)) {
-        bail!(
-            "out of {}: can't allocate {} more after base {:x}",
-            region,
-            size,
-            base
-        )
+        bail!("out of {region}: can't allocate {size} more after base {base:x}")
     }
 
     let end = base + size;
@@ -2661,12 +2652,7 @@ fn allocate_one(
     let base = (avail.start + size_mask) & !size_mask;
 
     if base >= avail.end || size > avail.end - base {
-        bail!(
-            "out of {}: can't allocate {} more after base {:x}",
-            region,
-            size,
-            base
-        )
+        bail!("out of {region}: can't allocate {size} more after base {base:x}")
     }
 
     let end = base + size;
@@ -2780,11 +2766,11 @@ pub fn make_kconfig(
             task.uses.iter().cloned().collect();
 
         // Allow specified tasks to use the caboose
-        if let Some(caboose) = &toml.caboose {
-            if caboose.tasks.contains(name) {
-                used_shared_regions.insert("caboose");
-                shared_regions.insert("caboose".to_owned());
-            }
+        if let Some(caboose) = &toml.caboose
+            && caboose.tasks.contains(name)
+        {
+            used_shared_regions.insert("caboose");
+            shared_regions.insert("caboose".to_owned());
         }
 
         let extern_regions = toml.extern_regions_for(name, image_name)?;
@@ -2858,30 +2844,21 @@ pub fn make_kconfig(
                     let periph =
                         toml.peripherals.get(pname).ok_or_else(|| {
                             anyhow!(
-                                "task {} IRQ {} references peripheral {}, \
-                                 which does not exist.",
-                                name,
-                                irq_str,
-                                pname,
+                                "task {name} IRQ {irq_str} references \
+                                 peripheral {pname}, which does not exist.",
                             )
                         })?;
                     periph.interrupts.get(iname).ok_or_else(|| {
                         anyhow!(
-                            "task {} IRQ {} references interrupt {} \
-                             on peripheral {}, but that interrupt name \
-                             not defined for that peripheral.",
-                            name,
-                            irq_str,
-                            iname,
-                            pname,
+                            "task {name} IRQ {irq_str} references \
+                             interrupt {iname} on peripheral {pname}, but that \
+                             interrupt name not defined for that peripheral."
                         )
                     }).cloned()?
                 } else {
                     bail!(
-                        "task {}: IRQ name {} does not match any \
+                        "task {name}: IRQ name {irq_str} does not match any \
                          known peripheral interrupt.",
-                        name,
-                        irq_str,
                     );
                 };
 
