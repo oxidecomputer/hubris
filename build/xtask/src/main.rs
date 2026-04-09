@@ -127,6 +127,10 @@ enum Xtask {
         #[clap(long)]
         dirty: bool,
 
+        /// Print per-task stack depth
+        #[clap(long)]
+        stacks: bool,
+
         /// Configures the caboose for the generated archive.
         #[clap(flatten)]
         caboose_args: CabooseArgs,
@@ -306,7 +310,14 @@ fn run(xtask: Xtask) -> Result<()> {
                 caboose_args,
             )?;
             for (_, (a, _)) in allocs {
-                sizes::run(&cfg, &a, true, false, false, false)?;
+                let flags = sizes::SizeFlags {
+                    only_suggest: true,
+                    compare: false,
+                    save: false,
+                    stacks: false,
+                    verbose: false,
+                };
+                sizes::run(&cfg, &a, flags)?;
             }
         }
         Xtask::Build {
@@ -379,6 +390,7 @@ fn run(xtask: Xtask) -> Result<()> {
             compare,
             save,
             dirty,
+            stacks,
             caboose_args,
         } => {
             let allocs = dist::package(
@@ -392,8 +404,15 @@ fn run(xtask: Xtask) -> Result<()> {
                 None,
                 caboose_args,
             )?;
+            let flags = sizes::SizeFlags {
+                only_suggest: false,
+                compare,
+                save,
+                stacks,
+                verbose: verbose >= 1,
+            };
             for (_, (a, _)) in allocs {
-                sizes::run(&cfg, &a, false, compare, save, verbose >= 1)?;
+                sizes::run(&cfg, &a, flags)?;
             }
         }
         Xtask::Humility { args } => {

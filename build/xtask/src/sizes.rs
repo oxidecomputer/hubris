@@ -27,27 +27,29 @@ struct TaskSizes<'a> {
     sizes: IndexMap<&'a str, IndexMap<&'a str, u64>>,
 }
 
+#[derive(Copy, Clone, Debug)]
+pub struct SizeFlags {
+    pub only_suggest: bool,
+    pub compare: bool,
+    pub save: bool,
+    pub stacks: bool,
+    pub verbose: bool,
+}
+
 /// When `only_suggest` is true, prints only the suggested improvements to
 /// stderr, rather than printing all sizes.  Suggestions are formatted to
 /// match compiler warnings.
-pub fn run(
-    cfg: &Path,
-    allocs: &Allocations,
-    only_suggest: bool,
-    compare: bool,
-    save: bool,
-    verbose: bool,
-) -> Result<()> {
+pub fn run(cfg: &Path, allocs: &Allocations, flags: SizeFlags) -> Result<()> {
     let toml = Config::from_file(cfg)?;
     let sizes = create_sizes(&toml)?;
 
     let filename = format!("{}.json", toml.name);
 
-    if save {
+    if flags.save {
         println!("Writing json to {filename}");
         fs::write(filename, serde_json::ser::to_string(&sizes.sizes)?)?;
         process::exit(0);
-    } else if compare {
+    } else if flags.compare {
         let compare = fs::read(filename)?;
         let compare: IndexMap<&str, IndexMap<&str, u64>> =
             serde_json::from_slice(&compare)?;
@@ -57,20 +59,22 @@ pub fn run(
         process::exit(0);
     }
 
-    let mut out: Box<dyn Write> = if only_suggest {
+    let mut out: Box<dyn Write> = if flags.only_suggest {
         Box::new(std::io::stderr())
     } else {
         Box::new(std::io::stdout())
     };
 
     // Print detailed sizes relative to usage
-    if !only_suggest {
+    if !flags.only_suggest {
         let map = build_memory_map(&toml, &sizes, allocs)?;
-        print_memory_map(&toml, &map, verbose)?;
+        print_memory_map(&toml, &map, flags.verbose)?;
         print!("\n\n");
         print_task_table(&toml, &map)?;
-        print!("\n\n");
-        print_task_stacks(&toml)?;
+        if flags.stacks {
+            print!("\n\n");
+            print_task_stacks(&toml)?;
+        }
     }
 
     // Because tasks are autosized, the only place where we can improve
@@ -92,7 +96,7 @@ pub fn run(
         }
         if !printed_header {
             printed_header = true;
-            if only_suggest {
+            if flags.only_suggest {
                 write!(out, "{}", "warning".bold().yellow())?;
                 writeln!(out, ": memory allocation is sub-optimal")?;
                 writeln!(out, "{}", "Suggested improvements:".bold())?;
