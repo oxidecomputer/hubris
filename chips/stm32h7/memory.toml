@@ -5,13 +5,26 @@ size = 1048576
 read = true
 execute = true
 
-# RAM sections are currently mapped into DTCM, a small but fast SRAM.
-[[ram]]
+# AXI SRAM is a 512 kiB bank, turned on by default by the stm32h7 startup code.
+[[axi_sram]]
+address = 0x24000000
+size = 524288
+read = true
+write = true
+execute = false  # let's assume XN until proven otherwise
+
+# Data tightly-coupled memory
+#
+# This region is used in production images to pass a token from the RoT to the
+# SP indicating that measurement has happened.  Using this region (and specific
+# token values) is hard-coded in the `measurement-token` crate, which is shared
+# between Hubris and Humility.
+[[dtcm]]
 address = 0x20000000
 size = 131072
 read = true
 write = true
-execute = false  # let's assume XN until proven otherwise
+execute = false
 
 # Network buffers are placed in sram1, which is directly accessible by the
 # Ethernet MAC.  We limit this use of sram1 to 64 KiB, and preserve the
@@ -55,6 +68,7 @@ write = true
 execute = false
 dma = true
 
+# This is the second bank of flash
 [[bank2]]
 address = 0x08100000
 size = 0x100000

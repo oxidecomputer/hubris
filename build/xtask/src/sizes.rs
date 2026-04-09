@@ -507,11 +507,16 @@ pub fn load_task_size<'a>(
         .map(|(name, range)| (name, range.end - range.start))
         .collect();
 
+    let ram_region = match name {
+        "kernel" => toml.kernel_ram_region(),
+        n => toml.task_ram_region(n),
+    };
+
     // The stack is 8-byte aligned (checked elsewhere in the build and
     // rechecked here) Everything else in RAM is ALIGN(4), so we don't need to
     // worry about padding here.
     assert!(stacksize.trailing_zeros() >= 3);
-    *memory_sizes.entry("ram").or_default() += stacksize as u64;
+    *memory_sizes.entry(ram_region).or_default() += stacksize as u64;
 
     Ok(memory_sizes)
 }

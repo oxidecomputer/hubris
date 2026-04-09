@@ -2,6 +2,7 @@ name = "gemini-bu"
 target = "thumbv7em-none-eabihf"
 board = "gemini-bu-1"
 chip = "../../chips/stm32h7"
+default-ram = "dtcm"
 stacksize = 896
 
 [kernel]

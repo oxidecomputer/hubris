@@ -1,13 +1,13 @@
 target = "thumbv7em-none-eabihf"
 chip = "../../chips/stm32h7"
-memory = "memory-large.toml"
+default-ram = "axi_sram"
 stacksize = 896
 
 [kernel]
 name = "psc"
 requires = {flash = 32868, ram = 6000}
 features = ["dump", "measurement-handoff"]
-extern-regions = ["dtcm"]
+extern-regions = [{ region = "dtcm", shared = true }]
 
 [caboose]
 tasks = ["control_plane_agent", "packrat"]

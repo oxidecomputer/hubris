@@ -1,13 +1,13 @@
 target = "thumbv7em-none-eabihf"
 chip = "../../chips/stm32h7"
 stacksize = 896
-memory = "memory-large.toml"
+default-ram = "axi_sram"
 
 [kernel]
 name = "sidecar"
 requires = {flash = 26656, ram = 6256}
 features = ["dump", "measurement-handoff"]
-extern-regions = ["dtcm"]
+extern-regions = [{ region = "dtcm", shared = true }]
 
 [caboose]
 tasks = ["control_plane_agent", "packrat"]

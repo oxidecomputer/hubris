@@ -20,7 +20,7 @@ use zerocopy::IntoBytes;
 
 use crate::{
     caboose_pos,
-    config::{BuildConfig, CabooseConfig, Config},
+    config::{BuildConfig, CabooseConfig, Config, DEFAULT_RAM_NAME},
     elf,
     sizes::load_task_size,
     task_slot,
@@ -435,13 +435,14 @@ pub fn package(
         .tasks
         .keys()
         .map(|name| {
+            let ram_region = cfg.toml.task_ram_region(name);
             let size = if tasks_to_build.contains(name.as_str()) {
                 link_dummy_task(&cfg, name, &cfg.toml.image_names[0])?;
                 task_size(&cfg, name)
             } else {
                 // Dummy allocations
                 let out: IndexMap<_, _> =
-                    [("flash", 64), ("ram", 64)].into_iter().collect();
+                    [("flash", 64), (ram_region, 64)].into_iter().collect();
                 Ok(out)
             };
             size.map(|sz| (name.as_str(), sz))
@@ -504,11 +505,14 @@ pub fn package(
         // Same check for the kernel.  This may be overly conservative, because
         // the kernel is special, but we can always make it less strict later.
         for r in &cfg.toml.kernel.extern_regions {
-            if let Some(v) = alloc_regions.get(r) {
+            if let Some(v) = alloc_regions.get(&r.region)
+                && !r.shared
+            {
                 bail!(
-                    "cannot use region '{r}' as extern region in \
-                    the kernel because it's used as a normal region by \
-                    [{}]",
+                    "cannot use region '{}' as extern region in \
+                        the kernel because it's used as a normal region by \
+                        [{}] and not shared",
+                    r.region,
                     v.join(", ")
                 );
             }
@@ -669,13 +673,26 @@ pub fn package(
         let starting_memories = cfg.toml.memories(image_name)?;
         for (name, range) in &starting_memories {
             println!(
-                "{:<7} = {:#010x}..{:#010x}",
+                "{:<9} = {:#010x}..{:#010x}",
                 name, range.start, range.end
             );
         }
         println!("Used:");
+        let mut printed_ram_note = false;
         for (name, new_range) in memories {
-            print!("  {:<8} ", format!("{name}:"));
+            print!(
+                "  {:<10} ",
+                format!(
+                    "{name}{}:",
+                    if name == &cfg.toml.default_ram && name != DEFAULT_RAM_NAME
+                    {
+                        printed_ram_note = true;
+                        "*"
+                    } else {
+                        ""
+                    }
+                )
+            );
 
             if let Some(tasks) = extern_regions.get_vec(name) {
                 println!("extern region ({})", tasks.join(", "));
@@ -686,6 +703,9 @@ pub fn package(
 
                 println!("{size:#x} ({percent}%)");
             }
+        }
+        if printed_ram_note {
+            println!("    *default ram region");
         }
 
         // Generate a RawHubrisImage, which is our source of truth for combined
@@ -1457,6 +1477,7 @@ fn link_task(
         "memory.x",
         &allocs.tasks[name],
         Some(&task_toml.sections),
+        cfg.toml.task_ram_region(name),
         task_toml.stacksize.or(cfg.toml.stacksize).ok_or_else(|| {
             anyhow!("{name}: no stack size specified and there is no default")
         })?,
@@ -1492,6 +1513,7 @@ fn link_dummy_task(
         "memory.x",
         &memories, // ALL THE SPACE
         Some(&task_toml.sections),
+        cfg.toml.task_ram_region(name),
         task_toml.stacksize.or(cfg.toml.stacksize).ok_or_else(|| {
             anyhow!("{name}: no stack size specified and there is no default")
         })?,
@@ -1574,6 +1596,7 @@ fn build_kernel(
     generate_kernel_linker_script(
         "memory.x",
         &allocs.kernel,
+        cfg.toml.kernel_ram_region(),
         cfg.toml.kernel.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
         &cfg.toml.all_regions("flash".to_string())?,
         &extern_regions,
@@ -1800,6 +1823,7 @@ fn generate_task_linker_script(
     name: &str,
     map: &BTreeMap<String, ContiguousRanges>,
     sections: Option<&IndexMap<String, String>>,
+    ram_section: &str,
     stacksize: u32,
     images: &IndexMap<String, Range<u32>>,
     extern_regions: &IndexMap<String, Range<u32>>,
@@ -1820,10 +1844,10 @@ fn generate_task_linker_script(
     for (name, ranges) in map {
         let mut start = ranges.start();
         let end = ranges.end();
-        let name = name.to_ascii_uppercase();
+        let name_upper = name.to_ascii_uppercase();
 
         // Our stack comes out of RAM
-        if name == "RAM" {
+        if name == ram_section {
             if stacksize & 0x7 != 0 {
                 // If we are not 8-byte aligned, the kernel will not be
                 // pleased -- and can't be blamed for a little rudeness;
@@ -1839,9 +1863,16 @@ fn generate_task_linker_script(
             }
         }
 
-        emit(&mut linkscr, &name, start, end - start)?;
+        emit(&mut linkscr, &name_upper, start, end - start)?;
     }
     writeln!(linkscr, "}}")?;
+    if !ram_section.eq_ignore_ascii_case("ram") {
+        writeln!(
+            linkscr,
+            "REGION_ALIAS(\"RAM\", {});",
+            ram_section.to_ascii_uppercase()
+        )?;
+    }
     append_image_names(&mut linkscr, images, image_name)?;
     append_extern_regions(&mut linkscr, extern_regions)?;
     append_task_sections(&mut linkscr, sections)?;
@@ -1918,6 +1949,7 @@ fn append_task_sections(
 fn generate_kernel_linker_script(
     name: &str,
     map: &BTreeMap<String, Range<u32>>,
+    ram_section: &str,
     stacksize: u32,
     images: &IndexMap<String, Range<u32>>,
     extern_regions: &IndexMap<String, Range<u32>>,
@@ -1934,10 +1966,10 @@ fn generate_kernel_linker_script(
     for (name, range) in map {
         let mut start = range.start;
         let end = range.end;
-        let name = name.to_ascii_uppercase();
+        let name_upper = name.to_ascii_uppercase();
 
         // Our stack comes out of RAM
-        if name == "RAM" {
+        if name == ram_section {
             if stacksize & 0x7 != 0 {
                 // If we are not 8-byte aligned, the kernel will not be
                 // pleased -- and can't be blamed for a little rudeness;
@@ -1961,13 +1993,20 @@ fn generate_kernel_linker_script(
         writeln!(
             linkscr,
             "{} (rwx) : ORIGIN = {:#010x}, LENGTH = {:#010x}",
-            name,
+            name_upper,
             start,
             end - start
         )
         .unwrap();
     }
     writeln!(linkscr, "}}").unwrap();
+    if !ram_section.eq_ignore_ascii_case("ram") {
+        writeln!(
+            linkscr,
+            "REGION_ALIAS(\"RAM\", {});",
+            ram_section.to_ascii_uppercase()
+        )?;
+    }
     writeln!(linkscr, "__eheap = ORIGIN(RAM) + LENGTH(RAM);").unwrap();
     writeln!(linkscr, "_stack_base = {:#010x};", stack_base.unwrap()).unwrap();
     writeln!(linkscr, "_stack_start = {:#010x};", stack_start.unwrap())
@@ -2361,10 +2400,11 @@ pub fn allocate_all(
             // particularly fancy heuristic, but works fine for our images.
             let flash_bonus = req.spare_regions.div_ceil(2);
             let ram_bonus = req.spare_regions - flash_bonus;
+            let ram_region = toml.task_ram_region(name);
             for (&mem, &amt) in req.memory.iter() {
                 let n = if mem == "flash" {
                     flash_bonus + 1
-                } else if mem == "ram" {
+                } else if mem == ram_region {
                     ram_bonus + 1
                 } else {
                     1
@@ -2816,6 +2856,7 @@ pub fn make_kconfig(
                 .push(size);
         }
 
+        let ram_region = toml.task_ram_region(name);
         tasks.push(build_kconfig::TaskConfig {
             owned_regions,
             shared_regions,
@@ -2824,7 +2865,7 @@ pub fn make_kconfig(
                 offset: entry_offset,
             },
             initial_stack: build_kconfig::OwnedAddress {
-                region_name: "ram".to_string(),
+                region_name: ram_region.to_string(),
                 offset: stacksize,
             },
             priority: task.priority,

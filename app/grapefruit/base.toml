@@ -1,7 +1,7 @@
 board = "grapefruit"
 target = "thumbv7em-none-eabihf"
 chip = "../../chips/stm32h7"
-memory = "memory-large.toml"
+default-ram = "axi_sram"
 stacksize = 896
 epoch = 0
 version = 0
@@ -14,7 +14,7 @@ register-map = "../../drv/spartan7-loader/grapefruit/gfruit_top.json"
 name = "grapefruit"
 requires = {flash = 32768, ram = 8192}
 features = ["dump", "measurement-handoff"]
-extern-regions = ["dtcm"]
+extern-regions = [{ region = "dtcm", shared = true }]
 
 [caboose]
 tasks = ["control_plane_agent", "packrat"]
@@ -278,6 +278,7 @@ stacksize = 8000
 priority = 3
 features = ["h753", "vlan", "grapefruit"]
 max-sizes = {flash = 131072, ram = 65536, sram1_mac = 16384}
+default-ram = "dtcm"
 sections = {eth_bulk = "sram1_mac"}
 uses = ["eth", "tim16"]
 start = true

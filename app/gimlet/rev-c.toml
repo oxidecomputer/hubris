@@ -8,4 +8,4 @@ inherit = "rev-b.toml"
 
 [kernel]
 features = ["measurement-handoff"]
-extern-regions = ["dtcm"]
+extern-regions = [{ region = "dtcm", shared = true }]

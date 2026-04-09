@@ -1,6 +1,7 @@
 name = "tests-psc"
 target = "thumbv7em-none-eabihf"
 chip = "../../chips/stm32h7"
+default-ram = "dtcm"
 board = "psc-b"
 stacksize = 896
 

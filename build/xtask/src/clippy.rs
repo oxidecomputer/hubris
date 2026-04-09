@@ -47,14 +47,23 @@ pub fn run(
 
         let build_config = if name == "kernel" {
             // Build dummy allocations for each task
-            let fake_sizes = crate::dist::TaskRequest {
-                memory: [("flash", 64), ("ram", 64)].into_iter().collect(),
-                spare_regions: 0,
-            };
             let task_sizes = toml
                 .tasks
                 .keys()
-                .map(|name| (name.as_str(), fake_sizes.clone()))
+                .map(|name| {
+                    (
+                        name.as_str(),
+                        crate::dist::TaskRequest {
+                            memory: [
+                                ("flash", 64),
+                                (toml.task_ram_region(name), 64),
+                            ]
+                            .into_iter()
+                            .collect(),
+                            spare_regions: 0,
+                        },
+                    )
+                })
                 .collect();
 
             let allocated = crate::dist::allocate_all(

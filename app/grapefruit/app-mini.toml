@@ -3,14 +3,14 @@ board = "grapefruit"
 name = "grapefruit-mini"
 target = "thumbv7em-none-eabihf"
 chip = "../../chips/stm32h7"
-memory = "memory-large.toml"
+default-ram = "axi_sram"
 stacksize = 512
 
 [kernel]
 name = "grapefruit"
 requires = {flash = 32768, ram = 2048}
 features = ["measurement-handoff"]
-extern-regions = ["dtcm"]
+extern-regions = [{ region = "dtcm", shared = true }]
 
 [tasks.jefe]
 name = "task-jefe"
