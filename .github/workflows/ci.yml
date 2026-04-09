@@ -61,6 +61,19 @@ jobs:
         env:
           CARGO_TERM_COLOR: always
 
+  clippy-xtask:
+    name: Run clippy on xtask
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout the source code
+        uses: actions/checkout@v6
+      - name: Install clippy
+        run:  rustup component add clippy
+      - name: Clippy check
+        run:  cargo clippy -pxtask -- --deny warnings
+
   format:
     name: Check formatting
     runs-on: ubuntu-latest
@@ -333,6 +346,7 @@ jobs:
       - format
       - docs-build
       - docs-deploy
+      - clippy-xtask
       - reproducible-check
     if: "${{ !cancelled() }}"
     steps:

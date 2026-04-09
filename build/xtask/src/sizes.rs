@@ -216,13 +216,13 @@ fn print_task_table(
         .map(|c| format!("{}", c.total_size.iter().sum::<u32>()).len())
         .chain(std::iter::once(4))
         .max()
-        .unwrap_or(0) as usize;
+        .unwrap_or(0);
     let region_pad = map
         .keys()
         .chain(std::iter::once(&"REGION"))
         .map(|c| c.to_string().len())
         .max()
-        .unwrap_or(0) as usize;
+        .unwrap_or(0);
 
     // Turn the memory map around so we can index it by [region][task name]
     let map: BTreeMap<&str, BTreeMap<&str, MemoryChunk<'_>>> = map
@@ -466,7 +466,7 @@ pub fn load_task_size<'a>(
     let buffer = std::fs::read(elf_name)?;
     let elf = match Object::parse(&buffer)? {
         Object::Elf(elf) => elf,
-        o => bail!("Invalid Object {:?}", o),
+        o => bail!("Invalid Object {o:?}"),
     };
 
     // We can't naively add up section sizes, since there may be gaps left
@@ -599,7 +599,7 @@ fn compare_sizes(
             }
             // this should never happen
             (Entry::Vacant(_), Entry::Vacant(_)) => {
-                bail!("{} doesn't exist, and this should never happen.", name)
+                bail!("{name} doesn't exist, and this should never happen.")
             }
         }
     }

@@ -68,7 +68,7 @@ pub fn get_task_slot_table_entries<'a>(
     let task_slot_table_section =
         match elf::get_section_by_name(elf, TASK_SLOT_TABLE_SECTION) {
             Some(task_slot_table_section) => task_slot_table_section,
-            _ => bail!("No {} section", TASK_SLOT_TABLE_SECTION),
+            _ => bail!("No {TASK_SLOT_TABLE_SECTION} section"),
         };
 
     let task_slot_table = &src[task_slot_table_section.sh_offset as usize

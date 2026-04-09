@@ -191,7 +191,7 @@ fn merge_toml_tables(
                     if u.type_name() != v.type_name() {
                         bail!(
                             "type mismatch for '{}': {} != {}",
-                            k.to_string(),
+                            k,
                             u.type_name(),
                             v.type_name()
                         );
