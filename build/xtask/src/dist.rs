@@ -505,16 +505,16 @@ pub fn package(
         // Same check for the kernel.  This may be overly conservative, because
         // the kernel is special, but we can always make it less strict later.
         for r in &cfg.toml.kernel.extern_regions {
-            if let Some(v) = alloc_regions.get(&r.region) {
-                if !r.shared {
-                    bail!(
-                        "cannot use region '{}' as extern region in \
+            if let Some(v) = alloc_regions.get(&r.region)
+                && !r.shared
+            {
+                bail!(
+                    "cannot use region '{}' as extern region in \
                         the kernel because it's used as a normal region by \
                         [{}] and not shared",
-                        r.region,
-                        v.join(", ")
-                    );
-                }
+                    r.region,
+                    v.join(", ")
+                );
             }
         }
 
