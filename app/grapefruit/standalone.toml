@@ -1,0 +1,56 @@
+name = "grapefruit-standalone"
+inherit = "base.toml"
+
+[tasks.jefe]
+features = ["dump", "fault-notification"]
+
+# Host SP comms goes over a UART to J10, using USART8
+[tasks.host_sp_comms]
+features = ["uart8"]
+uses = ["uart8"]
+interrupts = {"uart8.irq" = "usart-irq"}
+
+# Ereport stuff
+[tasks.packrat]
+stacksize = 1400
+task-slots = ["jefe"]
+features = ["ereport"]
+notifications = ["task-faulted"]
+
+[tasks.jefe.config.on-task-fault]
+packrat = "task-faulted"
+
+[tasks.snitch]
+name = "task-snitch"
+priority = 4
+stacksize = 1200
+start = true
+task-slots = ["net", "packrat"]
+features = ["vlan"]
+notifications = ["socket"]
+
+[tasks.rng_driver]
+features = ["h753", "ereport"]
+name = "drv-stm32h7-rng"
+priority = 6
+uses = ["rng"]
+start = true
+stacksize = 512
+task-slots = ["sys", "packrat"]
+
+# Demo/test task for ereports
+[tasks.ereportulator]
+name = "task-ereportulator"
+priority = 6
+start = true
+task-slots = ["packrat"]
+notifications = []
+
+[config.net.sockets.ereport]
+kind = "udp"
+owner = {name = "snitch", notification = "socket"}
+port = 57005
+tx = { packets = 3, bytes = 1024 }
+# v0 ereport requests are always 35B, so just make the buffer exactly
+# that size...
+rx = { packets = 3, bytes = 35 }
