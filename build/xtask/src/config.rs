@@ -264,28 +264,15 @@ impl Config {
         let remap = |regions: &mut IndexMap<String, u32>,
                      ram_region: &str,
                      desc: &str| {
-            if regions.contains_key(DEFAULT_RAM_NAME)
-                && regions.contains_key(ram_region)
-                && ram_region != DEFAULT_RAM_NAME
-            {
-                bail!(
-                    "cannot include both `{DEFAULT_RAM_NAME}` and default ram \
-                     region `{ram_region}` in {desc}"
-                );
+            if let Some(ram_allot) = regions.remove(DEFAULT_RAM_NAME) {
+                let conflict = regions.insert(ram_region.to_owned(), ram_allot);
+                if conflict.is_some() {
+                    bail!(
+                        "cannot include both `{DEFAULT_RAM_NAME}` and default \
+                         ram region `{ram_region}` in {desc}"
+                    );
+                }
             }
-            *regions = std::mem::take(regions)
-                .into_iter()
-                .map(|(name, amount)| {
-                    (
-                        if name == DEFAULT_RAM_NAME {
-                            ram_region.to_owned()
-                        } else {
-                            name
-                        },
-                        amount,
-                    )
-                })
-                .collect();
             Ok(())
         };
         let kernel_ram_region =
@@ -663,7 +650,7 @@ impl Config {
             .kernel
             .extern_regions
             .iter()
-            .map(|r| r.region.to_owned())
+            .map(|r| r.region.clone())
             .collect::<Vec<_>>();
         self.get_extern_regions(&extern_regions, image_name)
     }
