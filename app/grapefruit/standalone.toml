@@ -1,4 +1,3 @@
-name = "grapefruit-standalone"
 inherit = "base.toml"
 
 [tasks.jefe]

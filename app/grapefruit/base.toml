@@ -397,6 +397,15 @@ rx = { packets = 3, bytes = 4096 }
 
 ################################################################################
 
+[[config.i2c.controllers]]
+controller = 1
+
+[config.i2c.controllers.ports.B]
+name = "fruid"
+sda.pin = 8
+scl.pin = 9
+af = 4
+
 [config.spi.spi2]
 controller = 2
 

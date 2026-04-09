@@ -57,10 +57,7 @@ use inventory::INVENTORY_API_VERSION;
 )]
 #[cfg_attr(target_board = "gimletlet-2", path = "bsp/gimletlet.rs")]
 #[cfg_attr(
-    any(
-        target_board = "grapefruit-a",
-        target_board = "grapefruit-b",
-    ),
+    any(target_board = "grapefruit-a", target_board = "grapefruit-b",),
     path = "bsp/grapefruit.rs"
 )]
 #[cfg_attr(

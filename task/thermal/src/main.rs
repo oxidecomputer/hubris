@@ -32,10 +32,7 @@
 )]
 #[cfg_attr(any(target_board = "medusa-a"), path = "bsp/medusa_a.rs")]
 #[cfg_attr(
-    any(
-        target_board = "grapefruit-a",
-        target_board = "grapefruit-b",
-    ),
+    any(target_board = "grapefruit-a", target_board = "grapefruit-b",),
     path = "bsp/grapefruit.rs"
 )]
 #[cfg_attr(

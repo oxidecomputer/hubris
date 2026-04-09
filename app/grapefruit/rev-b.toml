@@ -1,3 +1,4 @@
+name = "grapefruit-b"
 board = "grapefruit-b"
 inherit = "standalone.toml"
 
@@ -8,15 +9,6 @@ max-sizes = {flash = 8192, ram = 1024}
 start = true
 task-slots = ["sys", "i2c_driver"]
 stacksize = 800
-
-[[config.i2c.controllers]]
-controller = 1
-
-[config.i2c.controllers.ports.B]
-name = "fruid"
-sda.pin = 8
-scl.pin = 9
-af = 4
 
 [[config.i2c.devices]]
 bus = "fruid"
