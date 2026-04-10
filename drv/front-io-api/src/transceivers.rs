@@ -2,9 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{Addr, Reg};
+use crate::{Addr, FrontIOError, Reg};
 use drv_fpga_api::{FpgaError, FpgaUserDesign, ReadOp, WriteOp};
-use drv_transceivers_api::TransceiversError;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
 use transceiver_messages::ModuleId;
@@ -72,14 +71,14 @@ impl PhysicalPort {
     pub fn to_logical_port(
         &self,
         fpga: FpgaController,
-    ) -> Result<LogicalPort, TransceiversError> {
+    ) -> Result<LogicalPort, FrontIOError> {
         let loc = PortLocation {
             controller: fpga,
             port: *self,
         };
         match PORT_MAP.into_iter().position(|&l| l == loc) {
             Some(p) => Ok(LogicalPort(p as u8)),
-            None => Err(TransceiversError::InvalidPhysicalToLogicalMap),
+            None => Err(FrontIOError::InvalidPhysicalToLogicalMap),
         }
     }
 }
@@ -574,12 +573,12 @@ impl ModuleResult {
         failure: LogicalPortMask,
         error: LogicalPortMask,
         failure_types: LogicalPortFailureTypes,
-    ) -> Result<Self, TransceiversError> {
+    ) -> Result<Self, FrontIOError> {
         if !(success & failure).is_empty()
             || !(success & error).is_empty()
             || !(failure & error).is_empty()
         {
-            return Err(TransceiversError::InvalidModuleResult);
+            return Err(FrontIOError::InvalidModuleResult);
         }
         Ok(Self {
             success,
@@ -698,9 +697,9 @@ impl ModuleResultNoFailure {
     pub fn new(
         success: LogicalPortMask,
         error: LogicalPortMask,
-    ) -> Result<Self, TransceiversError> {
+    ) -> Result<Self, FrontIOError> {
         if !(success & error).is_empty() {
-            return Err(TransceiversError::InvalidModuleResult);
+            return Err(FrontIOError::InvalidModuleResult);
         }
         Ok(Self { success, error })
     }
