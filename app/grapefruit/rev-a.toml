@@ -1,5 +1,3 @@
 name = "grapefruit-a"
 board = "grapefruit-a"
 inherit = "standalone.toml"
-
-[config]

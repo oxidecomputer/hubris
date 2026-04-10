@@ -11,7 +11,7 @@ task-slots = ["sys", "i2c_driver"]
 stacksize = 800
 
 [[config.i2c.devices]]
-bus = "fruid"
+bus = "i2c1"
 address = 0b1010_000
 device = "at24csw080"
 name = "fruid_vpd"
