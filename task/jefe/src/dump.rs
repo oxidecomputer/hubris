@@ -303,11 +303,11 @@ pub fn dump_task_region(
         length
     });
 
-    if start & 0b11 != 0 {
+    // Require alignment of 4-bytes for start + length
+    if !start.is_multiple_of(4) {
         return Err(DumpAgentError::UnalignedSegmentAddress);
     }
-
-    if length & 0b11 != 0 {
+    if !length.is_multiple_of(4) {
         return Err(DumpAgentError::UnalignedSegmentLength);
     }
 
