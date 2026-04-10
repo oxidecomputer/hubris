@@ -14,7 +14,7 @@ use userlib::{sys_get_timer, task_slot, units::Celsius};
 
 use drv_fpga_api::FpgaError;
 use drv_i2c_devices::pca9956b::Error;
-use drv_sidecar_front_io::{
+use drv_front_io_api::{
     Reg,
     leds::{FullErrorSummary, Leds},
     transceivers::{

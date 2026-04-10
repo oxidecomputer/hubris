@@ -9,11 +9,7 @@ include!(concat!(
     "/sidecar_qsfp_x32_controller_regs.rs"
 ));
 
-#[cfg(feature = "controller")]
 pub mod controller;
-#[cfg(feature = "leds")]
 pub mod leds;
-#[cfg(feature = "phy_smi")]
 pub mod phy_smi;
-#[cfg(feature = "transceivers")]
 pub mod transceivers;

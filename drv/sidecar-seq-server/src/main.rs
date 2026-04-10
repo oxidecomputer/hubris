@@ -15,7 +15,7 @@ use core::convert::Infallible;
 use drv_fpga_api::{DeviceState, FpgaError, WriteOp};
 use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_packrat_vpd_loader::{Packrat, read_vpd_and_load_packrat};
-use drv_sidecar_front_io::phy_smi::PhyOscState;
+use drv_front_io_api::phy_smi::PhyOscState;
 use drv_sidecar_mainboard_controller::MainboardController;
 use drv_sidecar_mainboard_controller::fan_modules::*;
 use drv_sidecar_mainboard_controller::front_io::*;

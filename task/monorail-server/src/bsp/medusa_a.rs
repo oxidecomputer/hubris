@@ -4,7 +4,7 @@
 
 use drv_medusa_seq_api::Sequencer;
 use drv_monorail_api::MonorailError;
-use drv_sidecar_front_io::phy_smi::PhySmi;
+use drv_front_io_api::phy_smi::PhySmi;
 use idol_runtime::{ClientError, RequestError};
 use ringbuf::*;
 use userlib::{UnwrapLite, task_slot};
