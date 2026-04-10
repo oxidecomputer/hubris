@@ -198,8 +198,6 @@ fn main() -> ! {
             Ok(())
         };
 
-        // XXX: workaround for false-positive due to rust-lang/rust-clippy#9126
-        #[allow(clippy::explicit_auto_deref)]
         let rv = execute::<_, NLABELS>(
             text,
             HIFFY_FUNCS,
