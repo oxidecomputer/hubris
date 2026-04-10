@@ -14,14 +14,6 @@
 
 #![no_std]
 #![no_main]
-//
-// TODO: Hiffy is using unsafe and static mut in ways that are not obviously
-// sound. This became a warning in early 2024. In the interest of preventing
-// regressions in everything _else_ I'm suppressing the warning here so we can
-// turn Clippy back on. If you're reading this, this file is potentially unsound
-// and needs attention!
-//
-#![allow(static_mut_refs)]
 // This is necessary in order to use the `#[used(compiler)]` attribute on Hiffy
 // statics which are written to by Humility, and must not be optimized out.
 #![feature(used_with_arg)]
@@ -186,27 +178,42 @@ fn main() -> ! {
         sleep_ms = 1;
         sleeps = 0;
 
-        // TODO without a safety comment explaining why these are safe, it is
-        // not clear if this is sound, do _not_ "fix" this by slapping on an
-        // addr_of_mut! without further analysis!
-        let text = unsafe { &HIFFY_TEXT };
-        let data = unsafe { &HIFFY_DATA };
-        let rstack = unsafe { &mut HIFFY_RSTACK[0..] };
-
         let check = |offset: usize, op: &Op| -> Result<(), Failure> {
             trace_execute(offset, *op);
             Ok(())
         };
 
-        let rv = execute::<_, NLABELS>(
-            text,
-            HIFFY_FUNCS,
-            data,
-            &mut stack,
-            rstack,
-            &mut *HIFFY_SCRATCH.borrow_mut(),
-            check,
-        );
+        let rv = {
+            // Dummy object to bind references to a non-static lifetime
+            let lifetime = ();
+
+            // SAFETY: We construct references from our pointers with a limited
+            // (non-static) lifetime, so they can't escape this block.  We are
+            // in single-threaded code, so no one else can read or write to
+            // static memory.  While the HIF program is running, the debugger is
+            // only reading from `HIFFY_REQUESTS` and `HIFFY_ERRORS`; it is not
+            // writing to any locations in memory.
+            let (text, data, rstack) = unsafe {
+                // Use an inline assembly instruction without `nomem`, so the
+                // compiler must assume that any memory can be invalidated (in
+                // this case, by the debugger).
+                core::arch::asm!("", options(nostack, preserves_flags));
+                (
+                    bind_lifetime_ref(&lifetime, &raw const HIFFY_TEXT),
+                    bind_lifetime_ref(&lifetime, &raw const HIFFY_DATA),
+                    bind_lifetime_mut(&lifetime, &raw mut HIFFY_RSTACK),
+                )
+            };
+            execute::<_, NLABELS>(
+                text,
+                HIFFY_FUNCS,
+                data,
+                &mut stack,
+                rstack,
+                &mut *HIFFY_SCRATCH.borrow_mut(),
+                check,
+            )
+        };
 
         match rv {
             Ok(_) => {
@@ -223,4 +230,34 @@ fn main() -> ! {
             }
         }
     }
+}
+
+/// Converts an array pointer to a shared reference with a particular lifetime
+///
+/// # Safety
+/// `ptr` must point to a valid, aligned, initialized `[u8; N]`.
+/// The referent must not be mutated while the returned reference is live.
+#[expect(clippy::needless_lifetimes)] // gotta make it obvious
+unsafe fn bind_lifetime_ref<'a, const N: usize>(
+    _: &'a (),
+    array: *const [u8; N],
+) -> &'a [u8; N] {
+    // SAFETY: converting from pointer to reference is safe given the function's
+    // safety conditions (listed in docstring)
+    unsafe { array.as_ref().unwrap_lite() }
+}
+
+/// Converts an array pointer to a mutable reference with a particular lifetime
+///
+/// # Safety
+/// `ptr` must point to a valid, aligned, initialized `[u8; N]`.
+/// The referent must not be mutated while the returned reference is live.
+#[expect(clippy::needless_lifetimes, clippy::mut_from_ref)]
+unsafe fn bind_lifetime_mut<'a, const N: usize>(
+    _: &'a (),
+    array: *mut [u8; N],
+) -> &'a mut [u8; N] {
+    // SAFETY: converting from pointer to reference is safe given the function's
+    // safety conditions (listed in docstring)
+    unsafe { array.as_mut().unwrap_lite() }
 }
