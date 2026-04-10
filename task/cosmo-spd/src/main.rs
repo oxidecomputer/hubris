@@ -214,16 +214,16 @@ impl ServerImpl {
                     b.set_op(2); // RANDOM_READ
                 });
                 const TIMEOUT_COUNT: usize = 8;
-                let mut timed_out = false;
-                for i in 0.. {
+                let mut attempts = 0;
+                let timed_out = loop {
                     if self.dimms.$count.data() == 2 {
-                        break;
-                    } else if i == TIMEOUT_COUNT {
-                        timed_out = true;
-                        break;
+                        break false;
+                    } else if attempts == TIMEOUT_COUNT {
+                        break true;
                     }
                     sleep_for(1);
-                }
+                    attempts += 1;
+                };
                 if timed_out {
                     None
                 } else {

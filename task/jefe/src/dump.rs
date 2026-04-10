@@ -247,7 +247,7 @@ pub fn dump_task(base: u32, task: usize) -> Result<u8, DumpAgentError> {
 
     let area = dump_task_setup(base, DumpTaskContents::SingleTask)?;
 
-    for ndx in 0.. {
+    for ndx in 0..=usize::MAX {
         //
         // We need to ask the kernel which regions we should dump for this
         // task, which we do by asking for each dump region by index.  Note
@@ -261,27 +261,27 @@ pub fn dump_task(base: u32, task: usize) -> Result<u8, DumpAgentError> {
         // regions in a task) -- but could become so if these numbers become
         // larger.
         //
-        match kipc::get_task_dump_region(task, ndx) {
-            None => break,
-            Some(region) if !in_dump_area(region.base, region.size) => {
-                ringbuf_entry!(Trace::DumpRegion(region));
+        let Some(region) = kipc::get_task_dump_region(task, ndx) else {
+            break;
+        };
+        if in_dump_area(region.base, region.size) {
+            continue;
+        }
+        ringbuf_entry!(Trace::DumpRegion(region));
 
-                // SAFETY: we have configured memory so that humpty
-                // should only read headers which are properly initialized and
-                // readable by this task, and should only write memory which is
-                // writeable by this task (i.e. the dump areas).
-                if let Err(e) = humpty::add_dump_segment_header(
-                    area.region.address,
-                    region.base,
-                    region.size,
-                    |addr, buf, _| unsafe { humpty::from_mem(addr, buf) },
-                    |addr, buf| unsafe { humpty::to_mem(addr, buf) },
-                ) {
-                    ringbuf_entry!(Trace::DumpRegionsFailed(e));
-                    return Err(DumpAgentError::BadSegmentAdd);
-                }
-            }
-            Some(_) => {}
+        // SAFETY: we have configured memory so that humpty
+        // should only read headers which are properly initialized and
+        // readable by this task, and should only write memory which is
+        // writeable by this task (i.e. the dump areas).
+        if let Err(e) = humpty::add_dump_segment_header(
+            area.region.address,
+            region.base,
+            region.size,
+            |addr, buf, _| unsafe { humpty::from_mem(addr, buf) },
+            |addr, buf| unsafe { humpty::to_mem(addr, buf) },
+        ) {
+            ringbuf_entry!(Trace::DumpRegionsFailed(e));
+            return Err(DumpAgentError::BadSegmentAdd);
         }
     }
 
@@ -303,11 +303,11 @@ pub fn dump_task_region(
         length
     });
 
-    if start & 0b11 != 0 {
+    // Require alignment of 4-bytes for start + length
+    if !start.is_multiple_of(4) {
         return Err(DumpAgentError::UnalignedSegmentAddress);
     }
-
-    if (length as usize) & 0b11 != 0 {
+    if !length.is_multiple_of(4) {
         return Err(DumpAgentError::UnalignedSegmentLength);
     }
 
@@ -316,23 +316,31 @@ pub fn dump_task_region(
     // We don't trust the caller; it may request to dump a region that isn't
     // owned by this particular task!  To check this, we iterate over all of the
     // valid dump regions and confirm that our desired region is within one of
-    // them.
-    let mem = start..start + length;
+    // them. We also check that start+length wouldn't wrap around.
+    let Some(end) = start.checked_add(length) else {
+        return Err(DumpAgentError::BadSegmentAdd);
+    };
+    let mem = start..end;
     let mut okay = false;
 
-    for ndx in 0.. {
+    for ndx in 0..=usize::MAX {
         // This is Accidentally Quadratic; see the note in `dump_task`
-        match kipc::get_task_dump_region(task, ndx) {
-            None => break,
-            Some(region) if !in_dump_area(region.base, region.size) => {
-                ringbuf_entry!(Trace::DumpRegion(region));
-                let region = region.base..region.base + region.size;
-                if mem.start >= region.start && mem.end <= region.end {
-                    okay = true;
-                    break;
-                }
-            }
-            Some(_) => {}
+        let Some(region) = kipc::get_task_dump_region(task, ndx) else {
+            break;
+        };
+
+        if in_dump_area(region.base, region.size) {
+            continue;
+        }
+
+        ringbuf_entry!(Trace::DumpRegion(region));
+
+        // Note: we implicitly trust kipc won't give us a region that wraps,
+        // unlike untrusted user data from the request that we checked above.
+        let region = region.base..region.base + region.size;
+        if mem.start >= region.start && mem.end <= region.end {
+            okay = true;
+            break;
         }
     }
 
