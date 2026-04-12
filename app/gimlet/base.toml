@@ -990,7 +990,7 @@ device = "isl68224"
 description = "DIMM/SP3 1.8V A0 power controller"
 power.rails = [ "VPP_ABCD", "VPP_EFGH", "V1P8_SP3" ]
 power.phases = [ [ 0 ], [ 1 ], [ 2 ] ]
-sensors = { voltage = 3, current = 3 }
+sensors = { temperature = 3, voltage = 3, current = 3 }
 refdes = "U352"
 
 [[config.i2c.devices]]
