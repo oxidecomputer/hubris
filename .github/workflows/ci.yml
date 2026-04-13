@@ -256,12 +256,29 @@ jobs:
 
           echo "After time change: $(date)"
 
+      - name: Install Rust in a separate directory
+        run: |
+          rustup self uninstall -y
+
+          sudo mkdir /custom-rust
+          sudo chown $(id -u):$(id -g) /custom-rust
+
+          curl https://sh.rustup.rs | env \
+            CARGO_HOME=/custom-rust/cargo \
+            RUSTUP_HOME=/custom-rust/rustup \
+            RUSTUP_INIT_SKIP_PATH_CHECK=yes \
+            bash -s -- -y --no-modify-path --default-toolchain=none
+
       - name: Build a Hubris board
         run: |
           # Permissions of files created during the build process might leak into the artifacts.
           # Changing the umask will let us test with different permissions than archives created in
           # the reproducible-a job.
           umask 0077
+
+          export CARGO_HOME=/custom-rust/cargo
+          export RUSTUP_HOME=/custom-rust/rustup
+          export PATH="/custom-rust/cargo/bin:${PATH}"
 
           cd $CUSTOM_ROOT
           cargo xtask dist "$app_toml"
