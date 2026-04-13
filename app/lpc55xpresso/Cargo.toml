@@ -20,6 +20,8 @@ abi = { path = "../../sys/abi"}
 kern = { path = "../../sys/kern" }
 lpc55-rot-startup = {path = "../../lib/lpc55-rot-startup"}
 unwrap-lite = {path = "../../lib/unwrap-lite"}
+lpc55_romapi = { path = "../../lib/lpc55-romapi" }
+lpc55-hashcrypt = { path = "../../lib/lpc55-hashcrypt" }
 
 # this lets you use `cargo fix`!
 [[bin]]
