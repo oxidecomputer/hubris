@@ -99,7 +99,8 @@ cfg_if::cfg_if! {
 // - [`HIFFY_TEXT`]       => Program text for HIF operations
 // - [`HIFFY_DATA`]       => Binary data from the caller
 // - [`HIFFY_RSTACK`]     => HIF return stack
-// - [`HIFFY_SCRATCH`]    => Scratch space for hiffy functions
+// - [`HIFFY_SCRATCH`]    => Scratch space for hiffy functions; debugger reads
+//                           its size but does not modify or read from it
 // - [`HIFFY_REQUESTS`]   => Count of succesful requests
 // - [`HIFFY_ERRORS`]     => Count of HIF execution failures
 // - [`HIFFY_FAILURE`]    => Most recent HIF failure, if any
@@ -108,8 +109,11 @@ cfg_if::cfg_if! {
 // - [`HIFFY_READY`]      => Variable that will be non-zero iff the HIF
 //                           execution engine is waiting to be kicked
 //
+#[used]
 static mut HIFFY_TEXT: [u8; HIFFY_TEXT_SIZE] = [0; HIFFY_TEXT_SIZE];
+#[used]
 static mut HIFFY_DATA: [u8; HIFFY_DATA_SIZE] = [0; HIFFY_DATA_SIZE];
+#[used]
 static mut HIFFY_RSTACK: [u8; HIFFY_RSTACK_SIZE] = [0; HIFFY_RSTACK_SIZE];
 
 static HIFFY_SCRATCH: StaticCell<[u8; HIFFY_SCRATCH_SIZE]> =
@@ -154,11 +158,15 @@ fn main() -> ! {
     HIFFY_VERSION_PATCH.fetch_add(0, Ordering::SeqCst);
 
     loop {
-        HIFFY_READY.fetch_add(1, Ordering::SeqCst);
+        HIFFY_READY.store(1, Ordering::Relaxed);
         hl::sleep_for(sleep_ms);
-        HIFFY_READY.fetch_sub(1, Ordering::SeqCst);
+        HIFFY_READY.store(0, Ordering::Relaxed);
 
-        if HIFFY_KICK.load(Ordering::SeqCst) == 0 {
+        // Humility writes `1` to `HIFFY_KICK`
+        if HIFFY_KICK
+            .compare_exchange_weak(1, 0, Ordering::Acquire, Ordering::Relaxed)
+            .is_ok()
+        {
             sleeps += 1;
 
             // Exponentially backoff our sleep value, but no more than 250ms
@@ -174,7 +182,6 @@ fn main() -> ! {
         // Whenever we have been kicked, we adjust our timeout down to 1ms,
         // from which we will exponentially backoff
         //
-        HIFFY_KICK.fetch_sub(1, Ordering::SeqCst);
         sleep_ms = 1;
         sleeps = 0;
 
@@ -217,15 +224,17 @@ fn main() -> ! {
 
         match rv {
             Ok(_) => {
-                HIFFY_REQUESTS.fetch_add(1, Ordering::SeqCst);
+                HIFFY_REQUESTS.fetch_add(1, Ordering::Release);
                 trace_success();
             }
             Err(failure) => {
-                HIFFY_ERRORS.fetch_add(1, Ordering::SeqCst);
+                // SAFETY: We are in single-threaded code and the debugger will
+                // not be reading HIFFY_FAILURE until HIFFY_ERRORS is
+                // incremented below.
                 unsafe {
                     HIFFY_FAILURE = Some(failure);
                 }
-
+                HIFFY_ERRORS.fetch_add(1, Ordering::Release);
                 trace_failure(failure);
             }
         }
