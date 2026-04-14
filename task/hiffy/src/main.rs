@@ -149,14 +149,6 @@ fn main() -> ! {
     let mut stack = [None; 32];
     const NLABELS: usize = 4;
 
-    //
-    // Sadly, there seems to be no other way to force these variables to
-    // not be eliminated...
-    //
-    HIFFY_VERSION_MAJOR.fetch_add(0, Ordering::SeqCst);
-    HIFFY_VERSION_MINOR.fetch_add(0, Ordering::SeqCst);
-    HIFFY_VERSION_PATCH.fetch_add(0, Ordering::SeqCst);
-
     loop {
         HIFFY_READY.store(1, Ordering::Relaxed);
         hl::sleep_for(sleep_ms);
