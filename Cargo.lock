@@ -5818,7 +5818,6 @@ name = "task-hiffy"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "armv6m-atomic-hack",
  "build-i2c",
  "build-util",
  "byteorder",

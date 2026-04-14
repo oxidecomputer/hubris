@@ -18,9 +18,6 @@
 // statics which are written to by Humility, and must not be optimized out.
 #![feature(used_with_arg)]
 
-// This trait may not be needed, if compiling for a non-armv6m target.
-#[allow(unused_imports)]
-use armv6m_atomic_hack::AtomicU32Ext;
 use core::sync::atomic::{AtomicU32, Ordering};
 use hif::*;
 use static_cell::*;
@@ -155,7 +152,7 @@ fn main() -> ! {
         HIFFY_READY.store(0, Ordering::Relaxed);
 
         // Humility writes `1` to `HIFFY_KICK`
-        if HIFFY_KICK.compare_exchange_acqrel(1, 0).is_ok() {
+        if HIFFY_KICK.load(Ordering::Acquire) == 0 {
             sleeps += 1;
 
             // Exponentially backoff our sleep value, but no more than 250ms
@@ -171,6 +168,7 @@ fn main() -> ! {
         // Whenever we have been kicked, we adjust our timeout down to 1ms,
         // from which we will exponentially backoff
         //
+        HIFFY_KICK.store(0, Ordering::Release);
         sleep_ms = 1;
         sleeps = 0;
 
@@ -190,10 +188,6 @@ fn main() -> ! {
             // only reading from `HIFFY_REQUESTS` and `HIFFY_ERRORS`; it is not
             // writing to any locations in memory.
             let (text, data, rstack) = unsafe {
-                // Use an inline assembly instruction without `nomem`, so the
-                // compiler must assume that any memory can be invalidated (in
-                // this case, by the debugger).
-                core::arch::asm!("", options(nostack, preserves_flags));
                 (
                     bind_lifetime_ref(&lifetime, &raw const HIFFY_TEXT),
                     bind_lifetime_ref(&lifetime, &raw const HIFFY_DATA),
@@ -213,7 +207,8 @@ fn main() -> ! {
 
         match rv {
             Ok(_) => {
-                HIFFY_REQUESTS.fetch_add(1, Ordering::Release);
+                let prev = HIFFY_REQUESTS.load(Ordering::Relaxed);
+                HIFFY_REQUESTS.store(prev.wrapping_add(1), Ordering::Release);
                 trace_success();
             }
             Err(failure) => {
@@ -223,7 +218,8 @@ fn main() -> ! {
                 unsafe {
                     HIFFY_FAILURE = Some(failure);
                 }
-                HIFFY_ERRORS.fetch_add(1, Ordering::Release);
+                let prev = HIFFY_ERRORS.load(Ordering::Relaxed);
+                HIFFY_ERRORS.store(prev.wrapping_add(1), Ordering::Release);
                 trace_failure(failure);
             }
         }
