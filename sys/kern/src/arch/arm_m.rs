@@ -896,19 +896,17 @@ cfg_if::cfg_if! {
                 @ we're returning back to *some* task, maybe not the same one.
                 ldr r0, =CURRENT_TASK_PTR
                 ldr r0, [r0]
-                @ restore volatile registers, plus PSP. We will do this in
-                @ slightly reversed order for efficiency. First, do the high
-                @ ones.
+                @ Restore volatile registers and PSP (Optimized Layout: +0:r8-r11, +16:r4-r7, +32:psp)
                 movs r1, r0
-                adds r1, r1, #(4 * 4)
-                ldm r1!, {{r4-r7}}
-                mov r11, r7
-                mov r10, r6
-                mov r9, r5
+                ldm r1!, {r4-r7}
                 mov r8, r4
-                ldm r1!, {{r4, r5}}
-                msr PSP, r4
-                mov lr, r5
+                mov r9, r5
+                mov r10, r6
+                mov r11, r7
+                ldm r1!, {r4-r7}
+                ldm r1!, {r0, r1}
+                msr PSP, r0
+                mov lr, r1
 
                 @ Now that we no longer need r4-r7 as temporary registers,
                 @ restore them too.
@@ -1107,19 +1105,17 @@ cfg_if::cfg_if! {
                 @ we're returning back to *some* task, maybe not the same one.
                 ldr r0, =CURRENT_TASK_PTR
                 ldr r0, [r0]
-                @ restore volatile registers, plus PSP. We will do this in
-                @ slightly reversed order for efficiency. First, do the high
-                @ ones.
+                @ Restore volatile registers and PSP (Optimized Layout: +0:r8-r11, +16:r4-r7, +32:psp)
                 movs r1, r0
-                adds r1, r1, #(4 * 4)
-                ldm r1!, {{r4-r7}}
-                mov r11, r7
-                mov r10, r6
-                mov r9, r5
+                ldm r1!, {r4-r7}
                 mov r8, r4
-                ldm r1!, {{r4, r5}}
-                msr PSP, r4
-                mov lr, r5
+                mov r9, r5
+                mov r10, r6
+                mov r11, r7
+                ldm r1!, {r4-r7}
+                ldm r1!, {r0, r1}
+                msr PSP, r0
+                mov lr, r1
 
                 @ Now that we no longer need r4-r7 as temporary registers,
                 @ restore them too.
@@ -1451,19 +1447,17 @@ global_asm! {"
         @ Our task has changed; reload it.
         ldr r0, =CURRENT_TASK_PTR
         ldr r0, [r0]
-        @ restore volatile registers, plus PSP. We will do this in
-        @ slightly reversed order for efficiency. First, do the high
-        @ ones.
-        movs r1, r0
-        adds r1, r1, #(4 * 4)
-        ldm r1!, {{r4-r7}}
-        mov r11, r7
-        mov r10, r6
-        mov r9, r5
-        mov r8, r4
-        ldm r1!, {{r4, r5}}
-        msr PSP, r4
-        mov lr, r5
+        @ Restore volatile registers and PSP (Optimized Layout: +0:r8-r11, +16:r4-r7, +32:psp)
+                movs r1, r0
+                ldm r1!, {r4-r7}
+                mov r8, r4
+                mov r9, r5
+                mov r10, r6
+                mov r11, r7
+                ldm r1!, {r4-r7}
+                ldm r1!, {r0, r1}
+                msr PSP, r0
+                mov lr, r1
 
         @ Now that we no longer need r4-r7 as temporary registers,
         @ restore them too.
