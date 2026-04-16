@@ -102,6 +102,21 @@ pub(crate) struct RegisterDump {
     status: StatusView,
 }
 
+#[derive(Copy, Clone, PartialEq, microcbor::Encode)]
+pub(crate) struct RawRegisterDump {
+    seq_api_status: u32,
+    seq_raw_status: u32,
+    early_power_rdbks: u32,
+    ifr: u32,
+    debug_enables: u32,
+    power_ctrl: u32,
+    rail_enables: u32,
+    rail_pgs: u32,
+    rail_pgs_max_hold: u32,
+    sp5_readbacks: u32,
+    status: u32,
+}
+
 #[derive(Copy, Clone, PartialEq, counters::Count)]
 pub(crate) enum WhyStuckInIdle {
     FanHscNotPg(FanHsc),
