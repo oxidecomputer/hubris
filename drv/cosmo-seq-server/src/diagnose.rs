@@ -117,20 +117,32 @@ pub(crate) struct RailStatus {
     power_good_max_hold: bool,
 }
 
-#[derive(Copy, Clone, PartialEq, counters::Count)]
+#[derive(Copy, Clone, PartialEq, counters::Count, microcbor::Encode)]
 pub(crate) enum RailIssue {
     NotEnabled,
     NotPowerGood,
     PowerGoodIntermittent,
 }
 
-#[derive(Copy, Clone, PartialEq, counters::Count)]
+#[derive(Copy, Clone, PartialEq, microcbor::Encode)]
+#[ereport(class = "hw.seq.timeout.group_a", version = 0)]
+pub(crate) struct GroupATimeoutEreport {
+    err: WhyWaitingForGroupA,
+}
+
+#[derive(Copy, Clone, PartialEq, counters::Count, microcbor::Encode)]
 pub(crate) enum WhyWaitingForGroupA {
     RailIssue(#[count(children)] RailIssue, GroupARail),
     Unknown,
 }
 
-#[derive(Copy, Clone, PartialEq, counters::Count)]
+#[derive(Copy, Clone, PartialEq, microcbor::Encode)]
+#[ereport(class = "hw.seq.timeout.slp_checkpoint", version = 0)]
+pub(crate) struct SlpCheckpointTimeoutEreport {
+    err: WhyWaitingForSlpCheckpoint,
+}
+
+#[derive(Copy, Clone, PartialEq, counters::Count, microcbor::Encode)]
 pub(crate) enum WhyWaitingForSlpCheckpoint {
     Sp5StuckInS5Sleep,
     Sp5StuckInS3Sleep,
@@ -140,20 +152,38 @@ pub(crate) enum WhyWaitingForSlpCheckpoint {
     Unknown,
 }
 
-#[derive(Copy, Clone, PartialEq, counters::Count)]
+#[derive(Copy, Clone, PartialEq, microcbor::Encode)]
+#[ereport(class = "hw.seq.timeout.group_b", version = 0)]
+pub(crate) struct GroupBTimeoutEreport {
+    err: WhyWaitingForGroupB,
+}
+
+#[derive(Copy, Clone, PartialEq, counters::Count, microcbor::Encode)]
 pub(crate) enum WhyWaitingForGroupB {
     RailIssue(#[count(children)] RailIssue, GroupBRail),
     Unknown,
 }
 
-#[derive(Copy, Clone, PartialEq, counters::Count)]
+#[derive(Copy, Clone, PartialEq, microcbor::Encode)]
+#[ereport(class = "hw.seq.timeout.group_c", version = 0)]
+pub(crate) struct GroupCTimeoutEreport {
+    err: WhyWaitingForGroupC,
+}
+
+#[derive(Copy, Clone, PartialEq, counters::Count, microcbor::Encode)]
 pub(crate) enum WhyWaitingForGroupC {
     RailIssue(#[count(children)] RailIssue, GroupCRail),
     VrControllerAlert(u8),
     Unknown,
 }
 
-#[derive(Copy, Clone, PartialEq, counters::Count)]
+#[derive(Copy, Clone, PartialEq, microcbor::Encode)]
+#[ereport(class = "hw.seq.timeout.power_ok", version = 0)]
+pub(crate) struct PowerOkTimeoutEreport {
+    err: WhyWaitingForPowerOk,
+}
+
+#[derive(Copy, Clone, PartialEq, counters::Count, microcbor::Encode)]
 pub(crate) enum WhyWaitingForPowerOk {
     Sp5NotAssertingPowerOk,
     FpgaNotDrivingPowerGood,
@@ -161,7 +191,13 @@ pub(crate) enum WhyWaitingForPowerOk {
     Unknown,
 }
 
-#[derive(Copy, Clone, PartialEq, counters::Count)]
+#[derive(Copy, Clone, PartialEq, microcbor::Encode)]
+#[ereport(class = "hw.seq.timeout.reset_l_release", version = 0)]
+pub(crate) struct ResetLReleaseTimeoutEreport {
+    err: WhyWaitForResetLRelease,
+}
+
+#[derive(Copy, Clone, PartialEq, counters::Count, microcbor::Encode)]
 pub(crate) enum WhyWaitForResetLRelease {
     Sp5HoldingResetLow,
     Sp5DroppedPwrOk,
@@ -186,7 +222,7 @@ pub(crate) enum WhyMapo {
     Unknown,
 }
 
-#[derive(Copy, Clone, PartialEq, counters::Count)]
+#[derive(Copy, Clone, PartialEq, counters::Count, microcbor::Encode)]
 #[allow(non_camel_case_types)]
 pub(crate) enum GroupARail {
     V1P5_RTC,
@@ -194,20 +230,20 @@ pub(crate) enum GroupARail {
     V1P8_SP5_A1,
 }
 
-#[derive(Copy, Clone, PartialEq, counters::Count)]
+#[derive(Copy, Clone, PartialEq, counters::Count, microcbor::Encode)]
 #[allow(non_camel_case_types)]
 pub(crate) enum GroupBRail {
     V1P1_SP5,
 }
 
-#[derive(Copy, Clone, PartialEq, counters::Count)]
+#[derive(Copy, Clone, PartialEq, counters::Count, microcbor::Encode)]
 #[allow(non_camel_case_types)]
 pub(crate) enum Ddr5HscRail {
     DDR5_ABCDEF,
     DDR5_GHIJKL,
 }
 
-#[derive(Copy, Clone, PartialEq, counters::Count)]
+#[derive(Copy, Clone, PartialEq, counters::Count, microcbor::Encode)]
 #[allow(non_camel_case_types)]
 pub(crate) enum GroupCRail {
     VDDIO_SP5_A0,
@@ -216,7 +252,7 @@ pub(crate) enum GroupCRail {
     VDDCR_SOC,
 }
 
-#[derive(Copy, Clone, PartialEq, counters::Count)]
+#[derive(Copy, Clone, PartialEq, counters::Count, microcbor::Encode)]
 pub(crate) enum Rail {
     GroupA(#[count(children)] GroupARail),
     GroupB(#[count(children)] GroupBRail),
@@ -251,7 +287,12 @@ pub(crate) enum DiagnoseReason {
 /// Diagnoses a problem with the sequencer failing to get to A0
 ///
 /// The result is logged in a ringbuf
-pub(crate) fn a0_fault(seq: &Sequencer, reason: DiagnoseReason, now: u64) {
+pub(crate) fn a0_fault(
+    seq: &Sequencer,
+    reason: DiagnoseReason,
+    now: u64,
+    ereporter: &mut crate::Ereporter,
+) {
     let seq_raw_status = SeqRawStatusView::from(&seq.seq_raw_status);
     let seq_api_status = SeqApiStatusView::from(&seq.seq_api_status);
     let power_ctrl = PowerCtrlView::from(&seq.power_ctrl);
@@ -427,11 +468,14 @@ pub(crate) fn a0_fault(seq: &Sequencer, reason: DiagnoseReason, now: u64) {
                 (v3p3_sp5, V3P3_SP5_A1),
                 (v1p8_sp5, V1P8_SP5_A1),
             ]);
-            Diagnosis::WaitingForGroupA {
-                why: ri
-                    .map(|(i, r)| WhyWaitingForGroupA::RailIssue(i, r))
-                    .unwrap_or(WhyWaitingForGroupA::Unknown),
+            let why = ri
+                .map(|(i, r)| WhyWaitingForGroupA::RailIssue(i, r))
+                .unwrap_or(WhyWaitingForGroupA::Unknown);
+            if reason == DiagnoseReason::FailedToSequence {
+                let _ = ereporter
+                    .deliver_ereport(&GroupATimeoutEreport { err: why });
             }
+            Diagnosis::WaitingForGroupA { why }
         }
         HwSm::SlpCheckpoint => {
             let (ddr5_abcdef, ddr5_ghijkl) =
@@ -453,6 +497,10 @@ pub(crate) fn a0_fault(seq: &Sequencer, reason: DiagnoseReason, now: u64) {
                 .map(|(i, r)| WhyWaitingForSlpCheckpoint::RailIssue(i, r))
                 .unwrap_or(WhyWaitingForSlpCheckpoint::Unknown)
             };
+            if reason == DiagnoseReason::FailedToSequence {
+                let _ = ereporter
+                    .deliver_ereport(&SlpCheckpointTimeoutEreport { err: why });
+            }
             Diagnosis::WaitingForSlpCheckpoint { why }
         }
         HwSm::GroupBPgAndWait => {
@@ -460,6 +508,10 @@ pub(crate) fn a0_fault(seq: &Sequencer, reason: DiagnoseReason, now: u64) {
             let why = get_rail_issue(&[(v1p1_sp5, GroupBRail::V1P1_SP5)])
                 .map(|(i, r)| WhyWaitingForGroupB::RailIssue(i, r))
                 .unwrap_or(WhyWaitingForGroupB::Unknown);
+            if reason == DiagnoseReason::FailedToSequence {
+                let _ = ereporter
+                    .deliver_ereport(&GroupBTimeoutEreport { err: why });
+            }
             Diagnosis::WaitingForGroupB { why }
         }
         HwSm::GroupCPgAndWait => {
@@ -482,6 +534,10 @@ pub(crate) fn a0_fault(seq: &Sequencer, reason: DiagnoseReason, now: u64) {
                 .map(|(i, r)| WhyWaitingForGroupC::RailIssue(i, r))
                 .unwrap_or(WhyWaitingForGroupC::Unknown)
             };
+            if reason == DiagnoseReason::FailedToSequence {
+                let _ = ereporter
+                    .deliver_ereport(&GroupCTimeoutEreport { err: why });
+            }
             Diagnosis::WaitingForGroupC { why }
         }
         HwSm::WaitPwrok => {
@@ -522,6 +578,10 @@ pub(crate) fn a0_fault(seq: &Sequencer, reason: DiagnoseReason, now: u64) {
             } else {
                 WhyWaitingForPowerOk::Unknown
             };
+            if reason == DiagnoseReason::FailedToSequence {
+                let _ = ereporter
+                    .deliver_ereport(&PowerOkTimeoutEreport { err: why });
+            }
             Diagnosis::WaitingForPowerOk {
                 why,
                 if_you_are_testing_without_sp5_this_must_be_true: debug_enables
@@ -536,6 +596,10 @@ pub(crate) fn a0_fault(seq: &Sequencer, reason: DiagnoseReason, now: u64) {
             } else {
                 WhyWaitForResetLRelease::Unknown
             };
+            if reason == DiagnoseReason::FailedToSequence {
+                let _ = ereporter
+                    .deliver_ereport(&ResetLReleaseTimeoutEreport { err: why });
+            }
             Diagnosis::WaitingForResetLRelease {
                 why,
                 if_you_are_testing_without_sp5_this_must_be_true: debug_enables

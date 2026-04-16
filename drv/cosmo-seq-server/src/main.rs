@@ -580,6 +580,7 @@ impl ServerImpl {
                         &self.seq,
                         diagnose::DiagnoseReason::FailedToSequence,
                         sys_get_timer().now,
+                        &mut self.ereporter,
                     );
 
                     // We'll return to A2, leaving jefe and our local state
@@ -939,6 +940,7 @@ impl ServerImpl {
                 &self.seq,
                 diagnose::DiagnoseReason::MapoDetected,
                 now,
+                &mut self.ereporter,
             );
             self.log_pg_registers();
             self.seq.ifr.modify(|h| h.set_a0mapo(true));
@@ -1250,6 +1252,7 @@ impl NotificationHandler for ServerImpl {
                     &self.seq,
                     diagnose::DiagnoseReason::UnexpectedPowerOff,
                     now,
+                    &mut self.ereporter,
                 );
 
                 self.emergency_a2(StateChangeReason::Unknown);
@@ -1272,6 +1275,12 @@ ereports::declare_ereporter! {
         Smerr(ereports::cpu::Smerr),
         UnsupportedCpu(ereports::cpu::UnsupportedCpu<3, 4>),
         CpuMissing(ereports::cpu::CpuMissing),
+        GroupATimeout(diagnose::GroupATimeoutEreport),
+        SlpCheckpointTimeout(diagnose::SlpCheckpointTimeoutEreport),
+        GroupBTimeout(diagnose::GroupBTimeoutEreport),
+        GroupCTimeout(diagnose::GroupCTimeoutEreport),
+        PowerOkTimeout(diagnose::PowerOkTimeoutEreport),
+        ResetLReleaseTimeout(diagnose::ResetLReleaseTimeoutEreport),
     }
 }
 
