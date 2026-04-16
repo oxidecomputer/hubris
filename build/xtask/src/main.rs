@@ -11,7 +11,6 @@ use crate::config::Config;
 
 mod auxflash;
 mod caboose_pos;
-mod clippy;
 mod config;
 mod dist;
 mod elf;
@@ -20,6 +19,7 @@ mod gha_prepare_artifacts;
 mod graph;
 mod humility;
 mod lsp;
+mod passthrough;
 mod print;
 mod sizes;
 mod task_slot;
@@ -154,6 +154,24 @@ enum Xtask {
         /// Configures the caboose for the generated archive.
         #[clap(flatten)]
         caboose_args: CabooseArgs,
+    },
+
+    /// Runs `cargo doc` on a specified task
+    Doc {
+        /// Request verbosity from tools we shell out to.
+        #[clap(short)]
+        verbose: bool,
+
+        /// Path to the image configuration file, in TOML.
+        cfg: PathBuf,
+
+        /// Name of task(s) to check.
+        tasks: Vec<String>,
+
+        /// Arguments passed directly to the `cargo doc` invocation,
+        /// e.g. `--open`
+        #[clap(last = true)]
+        doc_args: Vec<String>,
     },
 
     /// Runs `cargo clippy` on a specified task
@@ -489,7 +507,26 @@ fn run(xtask: Xtask) -> Result<()> {
             tasks,
             extra_options,
         } => {
-            clippy::run(verbose, cfg, &tasks, &extra_options)?;
+            // Clippy commands are passed AFTER the `--`, currently pre-options
+            // are not supported.
+            passthrough::run(
+                "clippy",
+                verbose,
+                cfg,
+                &tasks,
+                &[],
+                &extra_options,
+            )?;
+        }
+        Xtask::Doc {
+            verbose,
+            cfg,
+            tasks,
+            doc_args,
+        } => {
+            // Doc commands are passed BEFORE the `--`, currently post-options
+            // are not supported.
+            passthrough::run("doc", verbose, cfg, &tasks, &doc_args, &[])?;
         }
         Xtask::TaskSlots { task_bin } => {
             task_slot::dump_task_slot_table(&task_bin)?;
