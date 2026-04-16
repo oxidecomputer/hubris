@@ -31,7 +31,9 @@ unwrap-lite = { path = "../../lib/unwrap-lite" }
 userlib = { path = "../../sys/userlib" }
 
 # We need this for ABI reasons
-sprockets-common = { git = "https://github.com/oxidecomputer/sprockets.git", default-features = false }
+# Pin a specific commit because sprockets-common no longer exists upstream, and although Cargo.lock
+# has the correct commit hash, rust-analyzer can't find it.
+sprockets-common = { git = "https://github.com/oxidecomputer/sprockets.git", default-features = false, rev = "3906cf08db604f0805324bb7aeafe3b96c51b38e"}
 
 [build-dependencies]
 idol = { workspace = true }
