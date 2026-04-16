@@ -1281,6 +1281,7 @@ ereports::declare_ereporter! {
         GroupCTimeout(diagnose::GroupCTimeoutEreport),
         PowerOkTimeout(diagnose::PowerOkTimeoutEreport),
         ResetLReleaseTimeout(diagnose::ResetLReleaseTimeoutEreport),
+        SequencerRegs(diagnose::RawRegisterDump),
     }
 }
 
