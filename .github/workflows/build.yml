@@ -1,4 +1,20 @@
-- name: Build Kernel
-  run: |
-         export RUSTC_BOOTSTRAP=1
-         cargo xtask dist app/donglet/app-g031.toml
+name: Hubris Remote Build
+on: [push, pull_request]
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust Nightly
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          targets: thumbv6m-none-eabi
+          components: rust-src
+
+      - name: Build Kernel
+        run: |
+          export RUSTC_BOOTSTRAP=1
+          cargo xtask dist app/donglet/app-g031.toml
