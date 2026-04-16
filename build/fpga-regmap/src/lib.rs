@@ -659,7 +659,7 @@ pub fn build_peripheral(
                         fn new() -> Self {
                             #struct_name
                         }
-                        fn get_raw(&self) -> u32 {
+                        pub fn get_raw(&self) -> u32 {
                             unsafe {
                                 Self::ADDR.read_volatile()
                             }

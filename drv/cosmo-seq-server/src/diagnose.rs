@@ -102,7 +102,9 @@ pub(crate) struct RegisterDump {
     status: StatusView,
 }
 
+/// Raw registers to be sent as an ereport
 #[derive(Copy, Clone, PartialEq, microcbor::Encode)]
+#[ereport(class = "hw.seq.regs", version = 0)]
 pub(crate) struct RawRegisterDump {
     seq_api_status: u32,
     seq_raw_status: u32,
@@ -115,6 +117,8 @@ pub(crate) struct RawRegisterDump {
     rail_pgs_max_hold: u32,
     sp5_readbacks: u32,
     status: u32,
+
+    reason: DiagnoseReason,
 }
 
 #[derive(Copy, Clone, PartialEq, counters::Count)]
@@ -143,6 +147,7 @@ pub(crate) enum RailIssue {
 #[ereport(class = "hw.seq.timeout.group_a", version = 0)]
 pub(crate) struct GroupATimeoutEreport {
     err: WhyWaitingForGroupA,
+    regs_ena: Option<u64>,
 }
 
 #[derive(Copy, Clone, PartialEq, counters::Count, microcbor::Encode)]
@@ -155,6 +160,7 @@ pub(crate) enum WhyWaitingForGroupA {
 #[ereport(class = "hw.seq.timeout.slp_checkpoint", version = 0)]
 pub(crate) struct SlpCheckpointTimeoutEreport {
     err: WhyWaitingForSlpCheckpoint,
+    regs_ena: Option<u64>,
 }
 
 #[derive(Copy, Clone, PartialEq, counters::Count, microcbor::Encode)]
@@ -171,6 +177,7 @@ pub(crate) enum WhyWaitingForSlpCheckpoint {
 #[ereport(class = "hw.seq.timeout.group_b", version = 0)]
 pub(crate) struct GroupBTimeoutEreport {
     err: WhyWaitingForGroupB,
+    regs_ena: Option<u64>,
 }
 
 #[derive(Copy, Clone, PartialEq, counters::Count, microcbor::Encode)]
@@ -183,6 +190,7 @@ pub(crate) enum WhyWaitingForGroupB {
 #[ereport(class = "hw.seq.timeout.group_c", version = 0)]
 pub(crate) struct GroupCTimeoutEreport {
     err: WhyWaitingForGroupC,
+    regs_ena: Option<u64>,
 }
 
 #[derive(Copy, Clone, PartialEq, counters::Count, microcbor::Encode)]
@@ -196,6 +204,7 @@ pub(crate) enum WhyWaitingForGroupC {
 #[ereport(class = "hw.seq.timeout.power_ok", version = 0)]
 pub(crate) struct PowerOkTimeoutEreport {
     err: WhyWaitingForPowerOk,
+    regs_ena: Option<u64>,
 }
 
 #[derive(Copy, Clone, PartialEq, counters::Count, microcbor::Encode)]
@@ -210,6 +219,7 @@ pub(crate) enum WhyWaitingForPowerOk {
 #[ereport(class = "hw.seq.timeout.reset_l_release", version = 0)]
 pub(crate) struct ResetLReleaseTimeoutEreport {
     err: WhyWaitForResetLRelease,
+    regs_ena: Option<u64>,
 }
 
 #[derive(Copy, Clone, PartialEq, counters::Count, microcbor::Encode)]
@@ -292,7 +302,7 @@ fn get_rail_issue<T: Copy>(
 }
 
 /// Reason why the top-level sequencer code called for a diagnosis
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, microcbor::Encode)]
 pub(crate) enum DiagnoseReason {
     FailedToSequence,
     MapoDetected,
@@ -308,17 +318,39 @@ pub(crate) fn a0_fault(
     now: u64,
     ereporter: &mut crate::Ereporter,
 ) {
-    let seq_raw_status = SeqRawStatusView::from(&seq.seq_raw_status);
-    let seq_api_status = SeqApiStatusView::from(&seq.seq_api_status);
-    let power_ctrl = PowerCtrlView::from(&seq.power_ctrl);
-    let early_power_rdbks = EarlyPowerRdbksView::from(&seq.early_power_rdbks);
-    let status = StatusView::from(&seq.status);
-    let rail_enables = RailEnablesView::from(&seq.rail_enables);
-    let rail_pgs = RailPgsView::from(&seq.rail_pgs);
-    let rail_pgs_max_hold = RailPgsMaxHoldView::from(&seq.rail_pgs_max_hold);
-    let sp5_readbacks = Sp5ReadbacksView::from(&seq.sp5_readbacks);
-    let debug_enables = DebugEnablesView::from(&seq.debug_enables);
-    let ifr = IfrView::from(&seq.ifr);
+    // Get raw (u32) register values
+    let raw = RawRegisterDump {
+        seq_raw_status: seq.seq_raw_status.get_raw(),
+        seq_api_status: seq.seq_api_status.get_raw(),
+        power_ctrl: seq.power_ctrl.get_raw(),
+        early_power_rdbks: seq.early_power_rdbks.get_raw(),
+        status: seq.status.get_raw(),
+        rail_enables: seq.rail_enables.get_raw(),
+        rail_pgs: seq.rail_pgs.get_raw(),
+        rail_pgs_max_hold: seq.rail_pgs_max_hold.get_raw(),
+        sp5_readbacks: seq.sp5_readbacks.get_raw(),
+        debug_enables: seq.debug_enables.get_raw(),
+        ifr: seq.ifr.get_raw(),
+
+        reason,
+    };
+
+    // Send the raw registers as an ereport; record the ENA to send in
+    // subsequent ereports (sometimes)
+    let regs_ena = ereporter.deliver_ereport(&raw).ok().map(|r| r.0.into());
+
+    // Convert to view values
+    let seq_raw_status = SeqRawStatusView::from(raw.seq_raw_status);
+    let seq_api_status = SeqApiStatusView::from(raw.seq_api_status);
+    let power_ctrl = PowerCtrlView::from(raw.power_ctrl);
+    let early_power_rdbks = EarlyPowerRdbksView::from(raw.early_power_rdbks);
+    let status = StatusView::from(raw.status);
+    let rail_enables = RailEnablesView::from(raw.rail_enables);
+    let rail_pgs = RailPgsView::from(raw.rail_pgs);
+    let rail_pgs_max_hold = RailPgsMaxHoldView::from(raw.rail_pgs_max_hold);
+    let sp5_readbacks = Sp5ReadbacksView::from(raw.sp5_readbacks);
+    let debug_enables = DebugEnablesView::from(raw.debug_enables);
+    let ifr = IfrView::from(raw.ifr);
 
     ringbuf_entry!(
         RAW,
@@ -487,8 +519,10 @@ pub(crate) fn a0_fault(
                 .map(|(i, r)| WhyWaitingForGroupA::RailIssue(i, r))
                 .unwrap_or(WhyWaitingForGroupA::Unknown);
             if reason == DiagnoseReason::FailedToSequence {
-                let _ = ereporter
-                    .deliver_ereport(&GroupATimeoutEreport { err: why });
+                let _ = ereporter.deliver_ereport(&GroupATimeoutEreport {
+                    err: why,
+                    regs_ena,
+                });
             }
             Diagnosis::WaitingForGroupA { why }
         }
@@ -513,8 +547,11 @@ pub(crate) fn a0_fault(
                 .unwrap_or(WhyWaitingForSlpCheckpoint::Unknown)
             };
             if reason == DiagnoseReason::FailedToSequence {
-                let _ = ereporter
-                    .deliver_ereport(&SlpCheckpointTimeoutEreport { err: why });
+                let _ =
+                    ereporter.deliver_ereport(&SlpCheckpointTimeoutEreport {
+                        err: why,
+                        regs_ena,
+                    });
             }
             Diagnosis::WaitingForSlpCheckpoint { why }
         }
@@ -524,8 +561,10 @@ pub(crate) fn a0_fault(
                 .map(|(i, r)| WhyWaitingForGroupB::RailIssue(i, r))
                 .unwrap_or(WhyWaitingForGroupB::Unknown);
             if reason == DiagnoseReason::FailedToSequence {
-                let _ = ereporter
-                    .deliver_ereport(&GroupBTimeoutEreport { err: why });
+                let _ = ereporter.deliver_ereport(&GroupBTimeoutEreport {
+                    err: why,
+                    regs_ena,
+                });
             }
             Diagnosis::WaitingForGroupB { why }
         }
@@ -550,8 +589,10 @@ pub(crate) fn a0_fault(
                 .unwrap_or(WhyWaitingForGroupC::Unknown)
             };
             if reason == DiagnoseReason::FailedToSequence {
-                let _ = ereporter
-                    .deliver_ereport(&GroupCTimeoutEreport { err: why });
+                let _ = ereporter.deliver_ereport(&GroupCTimeoutEreport {
+                    err: why,
+                    regs_ena,
+                });
             }
             Diagnosis::WaitingForGroupC { why }
         }
@@ -594,8 +635,10 @@ pub(crate) fn a0_fault(
                 WhyWaitingForPowerOk::Unknown
             };
             if reason == DiagnoseReason::FailedToSequence {
-                let _ = ereporter
-                    .deliver_ereport(&PowerOkTimeoutEreport { err: why });
+                let _ = ereporter.deliver_ereport(&PowerOkTimeoutEreport {
+                    err: why,
+                    regs_ena,
+                });
             }
             Diagnosis::WaitingForPowerOk {
                 why,
@@ -612,8 +655,11 @@ pub(crate) fn a0_fault(
                 WhyWaitForResetLRelease::Unknown
             };
             if reason == DiagnoseReason::FailedToSequence {
-                let _ = ereporter
-                    .deliver_ereport(&ResetLReleaseTimeoutEreport { err: why });
+                let _ =
+                    ereporter.deliver_ereport(&ResetLReleaseTimeoutEreport {
+                        err: why,
+                        regs_ena,
+                    });
             }
             Diagnosis::WaitingForResetLRelease {
                 why,
