@@ -720,6 +720,12 @@ pub fn build_peripheral(
                         fn from(s: &'a #struct_name) -> #view_name {
                             #[allow(unused_variables)]
                             let d = s.get_raw();
+                            #view_name::from(d)
+                        }
+                    }
+                    impl From<u32> for #view_name {
+                        #[inline]
+                        fn from(d: u32) -> #view_name {
                             #(#view_values)*
                             #view_name {
                                 #(#view_names),*
