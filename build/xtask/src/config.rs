@@ -43,6 +43,7 @@ struct RawConfig {
     config: Option<ordered_toml::Value>,
     auxflash: Option<AuxFlash>,
     caboose: Option<CabooseConfig>,
+    docfile: Option<String>,
 }
 
 pub const DEFAULT_RAM_NAME: &str = "ram";
@@ -88,6 +89,7 @@ pub struct Config {
     pub app_config: String,
     pub auxflash: Option<AuxFlashData>,
     pub caboose: Option<CabooseConfig>,
+    pub docfile: Option<PathBuf>,
 }
 
 impl Config {
@@ -289,6 +291,18 @@ impl Config {
             )?;
         }
 
+        // Doc file (path)
+        let docfile = toml.docfile.and_then(|docfile| {
+            let mut path = cfg.to_owned();
+            path.pop();
+            path.push(Path::new(&docfile));
+            if path.is_file() {
+                Some(path)
+            } else {
+                None
+            }
+        });
+
         Ok(Config {
             name: toml.name,
             target: toml.target,
@@ -312,6 +326,7 @@ impl Config {
             app_toml_path: cfg.to_owned(),
             app_config: cfg_contents,
             caboose: toml.caboose,
+            docfile,
         })
     }
 
