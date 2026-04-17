@@ -19,7 +19,10 @@ pub fn task_graph(app_toml: &Path, path: &Path) -> Result<()> {
     task_graph_inner(app_toml, dot)
 }
 
-pub(crate) fn task_graph_inner(app_toml: &Path, mut dot: impl Write) -> Result<()> {
+pub(crate) fn task_graph_inner(
+    app_toml: &Path,
+    mut dot: impl Write,
+) -> Result<()> {
     // Generate dot syntax for a graph of process priorities.
     // Collect each task in a priority group
     // Collect each edge

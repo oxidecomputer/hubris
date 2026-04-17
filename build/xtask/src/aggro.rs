@@ -1,8 +1,8 @@
 use crate::config::Config;
 use anyhow::Result;
 use indexmap::IndexMap;
-use pulldown_cmark::{Event, HeadingLevel, Tag, TagEnd, html};
 use ordered_toml::Value;
+use pulldown_cmark::{Event, HeadingLevel, Tag, TagEnd, html};
 use std::{fmt::Write as _, fs, io::Write as _, path::Path};
 use toml_task::Task;
 
@@ -154,8 +154,14 @@ fn write_task_header(
     let mut mkdn = String::new();
     writeln!(&mut mkdn, "# \"{}\" Tasks", cfg.name)?;
     writeln!(&mut mkdn)?;
-    writeln!(&mut mkdn, "| task | stack (bytes) | interrupts | task slots |")?;
-    writeln!(&mut mkdn, "| :--  | :---          | :---       | :---       |")?;
+    writeln!(
+        &mut mkdn,
+        "| task | stack (bytes) | interrupts | task slots |"
+    )?;
+    writeln!(
+        &mut mkdn,
+        "| :--  | :---          | :---       | :---       |"
+    )?;
     let mut tasks: Vec<&Task> = tasks.values().collect();
     tasks.sort_unstable_by_key(|t| &t.name);
 
@@ -166,21 +172,27 @@ fn write_task_header(
             "???".to_string()
         };
 
-        let ints: Vec<&str> = task.interrupts.keys().map(String::as_str).collect();
+        let ints: Vec<&str> =
+            task.interrupts.keys().map(String::as_str).collect();
         let ints = if !ints.is_empty() {
             ints.join(", ")
         } else {
             "-".to_string()
         };
 
-        let slots: Vec<&str> = task.task_slots.keys().map(String::as_str).collect();
+        let slots: Vec<&str> =
+            task.task_slots.keys().map(String::as_str).collect();
         let slots = if !slots.is_empty() {
             slots.join(", ")
         } else {
             "-".to_string()
         };
 
-        writeln!(&mut mkdn, "| {} | {} | {} | {} |", task.name, stack, ints, slots)?;
+        writeln!(
+            &mut mkdn,
+            "| {} | {} | {} | {} |",
+            task.name, stack, ints, slots
+        )?;
     }
 
     // TODO: What else do we want here? Top level task tables?
