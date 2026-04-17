@@ -261,7 +261,7 @@ enum Xtask {
         /// Path to the image configuration file, in TOML.
         cfg: PathBuf,
 
-        /// Path to output file
+        /// Path to output file (html)
         #[clap(short, long)]
         output: Option<PathBuf>,
     },

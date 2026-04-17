@@ -12,9 +12,6 @@ const PULLDOWN_OPTS: pulldown_cmark::Options = pulldown_cmark::Options::all();
 
 pub fn run(app_toml: &Path, output: Option<&Path>) -> Result<()> {
     let cfg = Config::from_file(app_toml)?;
-    println!("* App Docs:");
-    println!("  * {:?}", cfg.docfile);
-    println!("* Task Docs:");
 
     use cargo_metadata::MetadataCommand;
     let metadata = MetadataCommand::new()
@@ -80,10 +77,6 @@ pub fn run(app_toml: &Path, output: Option<&Path>) -> Result<()> {
         task_docs.push((name.to_string(), taskdocpath, task));
     }
 
-    for (name, docpath, _task) in task_docs.iter() {
-        println!("  * {name}: {docpath:?}");
-    }
-
     // TODO: We probably actually want to bundle up all the content first before providing
     // the prelude, so we can figure out what the table of contents is
     let mut html_buf = prelude(&format!("\"{}\" Aggregate Docs", cfg.name))?;
@@ -104,14 +97,11 @@ pub fn run(app_toml: &Path, output: Option<&Path>) -> Result<()> {
 
     html_buf.push_str(MARKDOWN_FOOTER);
 
-    // TODO: Don't print
-    println!("---");
-    println!("{html_buf}");
-    println!("---");
-
     if let Some(out) = output {
         let mut file = std::fs::File::create(out).unwrap();
         file.write_all(html_buf.as_bytes()).unwrap();
+    } else {
+        println!("{html_buf}");
     }
 
     Ok(())
@@ -121,56 +111,6 @@ fn write_app_header(cfg: &Config, buf: &mut String) -> Result<()> {
     // Write this as markdown for laziness, then HTMLify it
     let mut mkdn = String::new();
     writeln!(&mut mkdn, "# \"{}\" Application", cfg.name)?;
-
-    // TODO: What else do we want here? Stuff about the app, not yet the docs?
-    struct IoWrite(String);
-    impl std::io::Write for IoWrite {
-        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-            let Ok(s) = std::str::from_utf8(buf) else {
-                return Err(std::io::Error::other("not utf-8?"));
-            };
-            self.0.push_str(s);
-            Ok(buf.len())
-        }
-
-        fn flush(&mut self) -> std::io::Result<()> {
-            Ok(())
-        }
-    }
-    let mut dotout = IoWrite(String::new());
-    crate::graph::task_graph_inner(&cfg.app_toml_path, &mut dotout)?;
-
-    // TODO: the `layout` crate doesn't handle comments, filter these
-    let mut filtered = String::new();
-    for line in dotout.0.lines() {
-        if line.trim_start().starts_with("#") {
-            continue;
-        }
-        filtered.push_str(line);
-        filtered.push_str("\n");
-    }
-
-    let mut parser = layout::gv::DotParser::new(&filtered);
-    let graph = match parser.process() {
-        Ok(g) => g,
-        Err(e) => anyhow::bail!("Graphing error: '{e}'"),
-    };
-    let mut gb = layout::gv::GraphBuilder::new();
-    gb.visit_graph(&graph);
-    let mut vg = gb.get();
-    let mut svg = layout::backends::svg::SVGWriter::new();
-    vg.do_it(false, false, false, &mut svg);
-    let content = svg.finalize();
-
-    let mut file = std::fs::File::create("/tmp/layout.svg")?;
-    file.write_all(content.as_bytes())?;
-    file.flush()?;
-    drop(file);
-
-    writeln!(buf, "<svg>")?;
-    buf.push_str(&content);
-    writeln!(buf, "</svg>")?;
-
 
     // Write to HTML. We *don't* do touchup, because this is the top level
     let parser = pulldown_cmark::Parser::new_ext(&mkdn, PULLDOWN_OPTS);
