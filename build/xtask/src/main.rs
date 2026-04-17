@@ -264,7 +264,7 @@ enum Xtask {
         /// Path to output file
         #[clap(short, long)]
         output: Option<PathBuf>,
-    }
+    },
 }
 
 #[derive(Clone, Debug, Parser)]
@@ -562,7 +562,7 @@ fn run(xtask: Xtask) -> Result<()> {
         }
         Xtask::Aggro { cfg, output } => {
             aggro::run(&cfg, output.as_deref())?;
-        },
+        }
     }
 
     Ok(())

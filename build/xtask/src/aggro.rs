@@ -1,7 +1,12 @@
 use crate::config::Config;
 use anyhow::Result;
 use pulldown_cmark::{Event, HeadingLevel, Tag, TagEnd, html};
-use std::{fs, io::Write as _, fmt::Write as _, path::Path};
+use std::{fmt::Write as _, fs, io::Write as _, path::Path};
+use toml_task::Task;
+
+// Todo: not *everything*? Probably just something fully GitHub
+// Flavored Markdown compatible?
+const PULLDOWN_OPTS: pulldown_cmark::Options = pulldown_cmark::Options::all();
 
 pub fn run(app_toml: &Path, output: Option<&Path>) -> Result<()> {
     let cfg = Config::from_file(app_toml)?;
@@ -70,28 +75,29 @@ pub fn run(app_toml: &Path, output: Option<&Path>) -> Result<()> {
                 }
             });
 
-        task_docs.push((name.to_string(), taskdocpath));
+        task_docs.push((name.to_string(), taskdocpath, task));
     }
 
-    for (task, docpath) in task_docs.iter() {
-        println!("  * {task}: {docpath:?}");
+    for (name, docpath, _task) in task_docs.iter() {
+        println!("  * {name}: {docpath:?}");
     }
 
-    let mut html_buf = prelude(&format!("\"{}\" Aggregate Docs", cfg.name));
+    // TODO: We probably actually want to bundle up all the content first before providing
+    // the prelude, so we can figure out what the table of contents is
+    let mut html_buf = prelude(&format!("\"{}\" Aggregate Docs", cfg.name))?;
 
-    // Start with the app readme
-    if let Some(readme) = cfg.docfile.as_ref() {
-        let app_readme = std::fs::read_to_string(readme)?;
-        let parser = pulldown_cmark::Parser::new_ext(
-            &app_readme,
-            // Todo: not *everything*? Probably just something fully GitHub
-            // Flavored Markdown compatible?
-            pulldown_cmark::Options::all(),
-        );
-        let mut base = readme.to_owned();
-        base.pop();
-        let stream = parser.map(|evt| touchup(evt, &base));
-        html::push_html(&mut html_buf, stream);
+    // STAGE 1: App Header
+    write_app_header(&cfg, &mut html_buf)?;
+
+    // STAGE 2: Document the App
+    write_app_info(&cfg, &mut html_buf)?;
+
+    // STAGE 3: Task Header
+    write_task_header(&cfg, &mut html_buf)?;
+
+    // STAGE 4: Document each task
+    for (_name, docpath, task) in task_docs {
+        write_task_info(task, docpath.as_deref(), &mut html_buf)?;
     }
 
     html_buf.push_str(MARKDOWN_FOOTER);
@@ -109,28 +115,137 @@ pub fn run(app_toml: &Path, output: Option<&Path>) -> Result<()> {
     Ok(())
 }
 
-fn touchup<'a>(evt: Event<'a>, _base: &'a Path) -> Event<'a> {
+fn write_app_header(cfg: &Config, buf: &mut String) -> Result<()> {
+    // Write this as markdown for laziness, then HTMLify it
+    let mut mkdn = String::new();
+    writeln!(&mut mkdn, "# \"{}\" Application", cfg.name)?;
+
+    // TODO: What else do we want here? Stuff about the app, not yet the docs?
+
+    // Write to HTML. We *don't* do touchup, because this is the top level
+    let parser = pulldown_cmark::Parser::new_ext(&mkdn, PULLDOWN_OPTS);
+    html::push_html(buf, parser);
+    Ok(())
+}
+
+fn write_app_info(cfg: &Config, buf: &mut String) -> Result<()> {
+    if let Some(readme) = cfg.docfile.as_ref() {
+        let app_readme = std::fs::read_to_string(readme)?;
+        let parser =
+            pulldown_cmark::Parser::new_ext(&app_readme, PULLDOWN_OPTS);
+        let mut base = readme.to_owned();
+        base.pop();
+        let stream = parser.map(|evt| touchup(evt, Some(&base)));
+        html::push_html(buf, stream);
+    } else {
+        // Placeholder for no docs!
+        //
+        // Write this as markdown for laziness, then HTMLify it
+        let mut mkdn = String::new();
+        writeln!(&mut mkdn, "# \"{}\" Firmware", cfg.name)?;
+        writeln!(&mut mkdn)?;
+        writeln!(&mut mkdn, "(this page intentionally left blank)")?;
+        writeln!(&mut mkdn)?;
+
+        // Write to HTML.
+        let parser = pulldown_cmark::Parser::new_ext(&mkdn, PULLDOWN_OPTS);
+        let stream = parser.map(|evt| touchup(evt, None));
+        html::push_html(buf, stream);
+    }
+    Ok(())
+}
+
+fn write_task_header(cfg: &Config, buf: &mut String) -> Result<()> {
+    // Write this as markdown for laziness, then HTMLify it
+    let mut mkdn = String::new();
+    writeln!(&mut mkdn, "# \"{}\" Tasks", cfg.name)?;
+
+    // TODO: What else do we want here? Top level task tables?
+
+    // Write to HTML. We *don't* do touchup, because this is the top level
+    let parser = pulldown_cmark::Parser::new_ext(&mkdn, PULLDOWN_OPTS);
+    html::push_html(buf, parser);
+    Ok(())
+}
+
+fn write_task_info(
+    task: &Task,
+    docs: Option<&Path>,
+    buf: &mut String,
+) -> Result<()> {
+    if let Some(readme) = docs {
+        let task_readme = std::fs::read_to_string(readme)?;
+        let parser =
+            pulldown_cmark::Parser::new_ext(&task_readme, PULLDOWN_OPTS);
+        let mut base = readme.to_owned();
+        base.pop();
+        let stream = parser.map(|evt| touchup(evt, Some(&base)));
+        html::push_html(buf, stream);
+    } else {
+        // Placeholder for no docs!
+        //
+        // Write this as markdown for laziness, then HTMLify it
+        let mut mkdn = String::new();
+        writeln!(&mut mkdn, "# \"{}\" Task", task.name)?;
+        writeln!(&mut mkdn)?;
+        writeln!(&mut mkdn, "(this page intentionally left blank)")?;
+        writeln!(&mut mkdn)?;
+
+        // Write to HTML.
+        let parser = pulldown_cmark::Parser::new_ext(&mkdn, PULLDOWN_OPTS);
+        let stream = parser.map(|evt| touchup(evt, None));
+        html::push_html(buf, stream);
+    }
+    Ok(())
+}
+
+fn touchup<'a>(evt: Event<'a>, _base: Option<&'a Path>) -> Event<'a> {
     match evt {
         Event::Start(tag) => {
             match tag {
-                Tag::Link { link_type, dest_url, title, id } => {
+                Tag::Link {
+                    link_type,
+                    dest_url,
+                    title,
+                    id,
+                } => {
                     if !dest_url.starts_with("http") {
                         // TODO: rewrite relative to `https://github.com/oxidecomputer/hubris/blob/master/`?
                         // use _base to figure out relative paths, we might also need to
                         println!("WARN: We should be rewriting {dest_url}!");
                     }
-                    Event::Start(Tag::Link { link_type, dest_url, title, id })
-                },
-                Tag::Image { link_type, dest_url, title, id } => {
+                    Event::Start(Tag::Link {
+                        link_type,
+                        dest_url,
+                        title,
+                        id,
+                    })
+                }
+                Tag::Image {
+                    link_type,
+                    dest_url,
+                    title,
+                    id,
+                } => {
                     if !dest_url.starts_with("http") {
                         // TODO: rewrite relative to `https://github.com/oxidecomputer/hubris/blob/master/`?
                         // use _base to figure out relative paths, we might also need to
                         println!("WARN: We should be rewriting {dest_url}!");
                     }
-                    Event::Start(Tag::Image { link_type, dest_url, title, id })
-                },
+                    Event::Start(Tag::Image {
+                        link_type,
+                        dest_url,
+                        title,
+                        id,
+                    })
+                }
                 // Bump down headings one notch, to allow for top level docs
-                Tag::Heading { level, id, classes, attrs } => {
+                Tag::Heading {
+                    level,
+                    id,
+                    classes,
+                    attrs,
+                } => {
                     let level = match level {
                         HeadingLevel::H1 => HeadingLevel::H2,
                         HeadingLevel::H2 => HeadingLevel::H3,
@@ -139,8 +254,13 @@ fn touchup<'a>(evt: Event<'a>, _base: &'a Path) -> Event<'a> {
                         HeadingLevel::H5 => HeadingLevel::H6,
                         HeadingLevel::H6 => HeadingLevel::H6,
                     };
-                    Event::Start(Tag::Heading { level, id, classes, attrs })
-                },
+                    Event::Start(Tag::Heading {
+                        level,
+                        id,
+                        classes,
+                        attrs,
+                    })
+                }
 
                 other => Event::Start(other),
                 // pulldown_cmark::Tag::Paragraph => todo!(),
@@ -164,7 +284,7 @@ fn touchup<'a>(evt: Event<'a>, _base: &'a Path) -> Event<'a> {
                 // pulldown_cmark::Tag::Subscript => todo!(),
                 // pulldown_cmark::Tag::MetadataBlock(metadata_block_kind) => todo!(),
             }
-        },
+        }
         Event::End(tag_end) => {
             match tag_end {
                 TagEnd::Heading(heading_level) => {
@@ -176,7 +296,7 @@ fn touchup<'a>(evt: Event<'a>, _base: &'a Path) -> Event<'a> {
                         HeadingLevel::H5 => HeadingLevel::H6,
                         HeadingLevel::H6 => HeadingLevel::H6,
                     }))
-                },
+                }
                 other => Event::End(other),
                 // pulldown_cmark::TagEnd::Paragraph => todo!(),
                 // pulldown_cmark::TagEnd::BlockQuote(block_quote_kind) => todo!(),
@@ -201,20 +321,19 @@ fn touchup<'a>(evt: Event<'a>, _base: &'a Path) -> Event<'a> {
                 // pulldown_cmark::TagEnd::Image => todo!(),
                 // pulldown_cmark::TagEnd::MetadataBlock(metadata_block_kind) => todo!(),
             }
-        },
+        }
 
-        other => other
-        // Event::Text(cow_str) => todo!(),
-        // Event::Code(cow_str) => todo!(),
-        // Event::InlineMath(cow_str) => todo!(),
-        // Event::DisplayMath(cow_str) => todo!(),
-        // Event::Html(cow_str) => todo!(),
-        // Event::InlineHtml(cow_str) => todo!(),
-        // Event::FootnoteReference(cow_str) => todo!(),
-        // Event::SoftBreak => todo!(),
-        // Event::HardBreak => todo!(),
-        // Event::Rule => todo!(),
-        // Event::TaskListMarker(_) => todo!(),
+        other => other, // Event::Text(cow_str) => todo!(),
+                        // Event::Code(cow_str) => todo!(),
+                        // Event::InlineMath(cow_str) => todo!(),
+                        // Event::DisplayMath(cow_str) => todo!(),
+                        // Event::Html(cow_str) => todo!(),
+                        // Event::InlineHtml(cow_str) => todo!(),
+                        // Event::FootnoteReference(cow_str) => todo!(),
+                        // Event::SoftBreak => todo!(),
+                        // Event::HardBreak => todo!(),
+                        // Event::Rule => todo!(),
+                        // Event::TaskListMarker(_) => todo!(),
     }
 }
 
@@ -257,12 +376,12 @@ const PRELUDE_PART_TWO: &str = r#"
   <article class="markdown-body">
 "#;
 
-fn prelude(title: &str) -> String {
+fn prelude(title: &str) -> Result<String> {
     let mut out = String::new();
     out.push_str(PRELUDE_PART_ONE);
-    writeln!(&mut out, "  <title>{title}</title>").ok();
+    writeln!(&mut out, "  <title>{title}</title>")?;
     out.push_str(PRELUDE_PART_TWO);
-    out
+    Ok(out)
 }
 
 const MARKDOWN_FOOTER: &str = r#"
@@ -270,3 +389,14 @@ const MARKDOWN_FOOTER: &str = r#"
 </body>
 </html>
 "#;
+
+// IDEAS FOR STUFF TO ADD TO THE DOCs:
+//
+// * A 2d table of all deps, unified across all app+tasks, showing which used
+//   * maybe either a checkmark, OR a version number
+// * a `<details>` box for the full unified app toml
+// * a listing of flash and ram sizes foreach task, maybe in a table?
+//   * is there more metadata that would be good to table-ify?
+// * the .dot output
+//   * use https://crates.io/crates/layout-rs to just render the existing
+//     dot syntax we produce? do as an inline svg?

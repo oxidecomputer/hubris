@@ -296,11 +296,7 @@ impl Config {
             let mut path = cfg.to_owned();
             path.pop();
             path.push(Path::new(&docfile));
-            if path.is_file() {
-                Some(path)
-            } else {
-                None
-            }
+            if path.is_file() { Some(path) } else { None }
         });
 
         Ok(Config {
