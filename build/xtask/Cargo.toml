@@ -62,6 +62,7 @@ toml-patch.path = "../toml-patch"
 lpc55_sign = { workspace = true }
 
 # For Aggro docs
+layout-rs = { workspace = true }
 pulldown-cmark = { workspace = true }
 
 [lints]

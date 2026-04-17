@@ -90,6 +90,7 @@ hubpack = { version = "0.1.2", default-features = false }
 indexmap = { version = "1.4.0", default-features = false, features = ["serde-1"] }
 indoc = { version = "2.0.3", default-features = false }
 itertools = { version = "0.10.5", default-features = false }
+layout-rs = { version = "0.1.3", default-features = false }
 leb128 = { version = "0.2.5", default-features = false }
 lpc55-pac = { version = "0.4", default-features = false }
 memchr = { version = "2.4", default-features = false }
