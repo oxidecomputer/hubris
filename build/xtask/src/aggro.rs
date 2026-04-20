@@ -386,7 +386,7 @@ fn touchup<'a>(evt: Event<'a>, _base: Option<&'a Path>) -> Event<'a> {
 fn task_sort(a: (&str, &Task), b: (&str, &Task)) -> Ordering {
     match a.1.priority.cmp(&b.1.priority) {
         Ordering::Less => Ordering::Less,
-        Ordering::Equal => a.0.cmp(&b.0),
+        Ordering::Equal => a.0.cmp(b.0),
         Ordering::Greater => Ordering::Greater,
     }
 }
