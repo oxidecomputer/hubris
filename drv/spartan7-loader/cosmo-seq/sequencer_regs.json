@@ -2471,6 +2471,17 @@
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "sp5_mfg_mode_l live status, (From SP5 to FPGA)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "sp5_perst_l",
+                    "lsb": 9,
+                    "msb": 9,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "sp5_perst_l live status, (From SP5 hotplug to FPGA)"
                 }
             ]
         },
