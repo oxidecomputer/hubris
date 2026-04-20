@@ -14,9 +14,6 @@
 
 #![no_std]
 #![no_main]
-// This is necessary in order to use the `#[used(compiler)]` attribute on Hiffy
-// statics which are written to by Humility, and must not be optimized out.
-#![feature(used_with_arg)]
 
 use core::sync::atomic::{AtomicU32, Ordering};
 use hif::*;
@@ -97,7 +94,7 @@ cfg_if::cfg_if! {
 // - [`HIFFY_DATA`]       => Binary data from the caller
 // - [`HIFFY_RSTACK`]     => HIF return stack
 // - [`HIFFY_SCRATCH`]    => Scratch space for hiffy functions; debugger reads
-//                           its size but does not modify or read from it
+//                           its size but does not modify it
 // - [`HIFFY_REQUESTS`]   => Count of succesful requests
 // - [`HIFFY_ERRORS`]     => Count of HIF execution failures
 // - [`HIFFY_FAILURE`]    => Most recent HIF failure, if any
@@ -106,38 +103,87 @@ cfg_if::cfg_if! {
 // - [`HIFFY_READY`]      => Variable that will be non-zero iff the HIF
 //                           execution engine is waiting to be kicked
 //
-#[used]
-static mut HIFFY_TEXT: [u8; HIFFY_TEXT_SIZE] = [0; HIFFY_TEXT_SIZE];
-#[used]
-static mut HIFFY_DATA: [u8; HIFFY_DATA_SIZE] = [0; HIFFY_DATA_SIZE];
-#[used]
-static mut HIFFY_RSTACK: [u8; HIFFY_RSTACK_SIZE] = [0; HIFFY_RSTACK_SIZE];
+// We are making the following items "no mangle" and "pub" to hint to the
+// compiler that they are "exposed", and may be written (spookily) outside the
+// scope of Rust itself. The aim is to prevent the optimizer from *assuming* the
+// contents of these buffers will remain unchanged between accesses, as they
+// will be written directly by the debugger.
+//
+// Below, we use atomic ordering (e.g. Acquire and Release) to inhibit
+// compile- and run-time re-ordering around the explicit sequencing performed
+// by the HIFFY_READY, HIFFY_KICK, HIFFY_REQUESTS, and HIFFY_ERRORS that are
+// used to arbitrate shared access between the debugger and this software task.
+//
+// We assume that Hubris and Humility are cooperating, using the following state
+// machines to avoid conflicting accesses:
+// ┌─────────────────────────────────────────────────────────────────────────────────┐
+// │                                                                                 │
+// │                                        KICK == 0                                │
+// │                    ┌────────────────────────────────────────────────┐           │
+// │                    │                                                │           │
+// │                    │                                       ┌─────────────────┐  │
+// │  ┌─────────┐       ▽  ┌─────────────────┐     ┌───────┐    │ Write READY = 0 │  │
+// │  │ Startup │──┬────┴─▷│ Write READY = 1 │────▷│ Sleep │───▷│ Read KICK       │  │
+// │  └─────────┘  │       └─────────────────┘     └───────┘    │                 │  │
+// │               │                                            └─────────────────┘  │
+// │               │                                                     │           │
+// │               │  ┌───────────────────────────────┐                  ▽           │
+// │               │  │ Read REQUESTS                 │ Success ┌─────────────────┐  │
+// │               ├──│ Write REQUESTS = REQUESTS + 1 │◁────┐   │ Write KICK = 0  │  │
+// │               │  └───────────────────────────────┘     ├───│ Execute script  │  │
+// │               │  ┌───────────────────────────────┐     │   │                 │  │
+// │               │  │ Read ERRORS                   │     │   └─────────────────┘  │
+// │               └──│ Write ERRORS = ERRORS + 1     │◁────┘                        │
+// │                  └───────────────────────────────┘ Failure                      │
+// │ ┌────────────┐                                                                  │
+// └─┤ Hiffy Task ├──────────────────────────────────────────────────────────────────┘
+//   └────────────┘
+// ┌─────────────────────────────────────────────────────────────────────────────────┐
+// │                                                                                 │
+// │                                ┌────────────────┐                ┌────────┐     │
+// │          ┌────────┐ READY == 1 │ Read REQUEST   │   REQUEST or   │ Read   │     │
+// │        ┌▷│  Idle  │───────────▷│ Read ERRORS    │───────────────▷│ RESULT │     │
+// │        │ └────────┘            │ Write KICK = 1 │ ERRORS changed │        │     │
+// │        │                       └────────────────┘                └────────┘     │
+// │        │                                                              │         │
+// │        └──────────────────────────────────────────────────────────────┘         │
+// │ ┌──────────┐                                                                    │
+// └─┤ Humility ├────────────────────────────────────────────────────────────────────┘
+//   └──────────┘
+#[unsafe(no_mangle)]
+pub static mut HIFFY_TEXT: [u8; HIFFY_TEXT_SIZE] = [0; HIFFY_TEXT_SIZE];
+#[unsafe(no_mangle)]
+pub static mut HIFFY_DATA: [u8; HIFFY_DATA_SIZE] = [0; HIFFY_DATA_SIZE];
+#[unsafe(no_mangle)]
+pub static mut HIFFY_RSTACK: [u8; HIFFY_RSTACK_SIZE] = [0; HIFFY_RSTACK_SIZE];
 
-static HIFFY_SCRATCH: StaticCell<[u8; HIFFY_SCRATCH_SIZE]> =
+pub static HIFFY_SCRATCH: StaticCell<[u8; HIFFY_SCRATCH_SIZE]> =
     StaticCell::new([0; HIFFY_SCRATCH_SIZE]);
 
-#[used]
-static HIFFY_REQUESTS: AtomicU32 = AtomicU32::new(0);
-#[used]
-static HIFFY_ERRORS: AtomicU32 = AtomicU32::new(0);
-#[used]
-static HIFFY_KICK: AtomicU32 = AtomicU32::new(0);
-#[used]
-static HIFFY_READY: AtomicU32 = AtomicU32::new(0);
+#[unsafe(no_mangle)]
+pub static HIFFY_REQUESTS: AtomicU32 = AtomicU32::new(0);
+#[unsafe(no_mangle)]
+pub static HIFFY_ERRORS: AtomicU32 = AtomicU32::new(0);
+#[unsafe(no_mangle)]
+pub static HIFFY_KICK: AtomicU32 = AtomicU32::new(0);
+#[unsafe(no_mangle)]
+pub static HIFFY_READY: AtomicU32 = AtomicU32::new(0);
 
-#[used]
-static mut HIFFY_FAILURE: Option<Failure> = None;
+#[unsafe(no_mangle)]
+pub static mut HIFFY_FAILURE: Option<Failure> = None;
 
-///
-/// We deliberately export the HIF version numbers to allow Humility to
-/// fail cleanly if its HIF version does not match our own.
-///
+// We deliberately export the HIF version numbers to allow Humility to
+// fail cleanly if its HIF version does not match our own.
+//
+// Note that `#[unsafe(no_mangle)]` does not preserve these values through the
+// linker, so we used `#[used]` instead.  They are not used by any code, so
+// there's no safety concerns.
 #[used]
-static HIFFY_VERSION_MAJOR: AtomicU32 = AtomicU32::new(HIF_VERSION_MAJOR);
+pub static HIFFY_VERSION_MAJOR: AtomicU32 = AtomicU32::new(HIF_VERSION_MAJOR);
 #[used]
-static HIFFY_VERSION_MINOR: AtomicU32 = AtomicU32::new(HIF_VERSION_MINOR);
+pub static HIFFY_VERSION_MINOR: AtomicU32 = AtomicU32::new(HIF_VERSION_MINOR);
 #[used]
-static HIFFY_VERSION_PATCH: AtomicU32 = AtomicU32::new(HIF_VERSION_PATCH);
+pub static HIFFY_VERSION_PATCH: AtomicU32 = AtomicU32::new(HIF_VERSION_PATCH);
 
 #[unsafe(export_name = "main")]
 fn main() -> ! {
@@ -186,7 +232,8 @@ fn main() -> ! {
             // in single-threaded code, so no one else can read or write to
             // static memory.  While the HIF program is running, the debugger is
             // only reading from `HIFFY_REQUESTS` and `HIFFY_ERRORS`; it is not
-            // writing to any locations in memory.
+            // writing to any locations in memory.  See the diagram above for
+            // Hubris / Humility coordination.
             let (text, data, rstack) = unsafe {
                 (
                     bind_lifetime_ref(&lifetime, &raw const HIFFY_TEXT),
@@ -214,7 +261,8 @@ fn main() -> ! {
             Err(failure) => {
                 // SAFETY: We are in single-threaded code and the debugger will
                 // not be reading HIFFY_FAILURE until HIFFY_ERRORS is
-                // incremented below.
+                // incremented below.  See the diagram above for Hubris /
+                // Humility coordination.
                 unsafe {
                     HIFFY_FAILURE = Some(failure);
                 }
