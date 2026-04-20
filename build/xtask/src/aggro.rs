@@ -7,20 +7,53 @@ use anyhow::Result;
 use indexmap::IndexMap;
 use ordered_toml::Value;
 use pulldown_cmark::{Event, HeadingLevel, Tag, TagEnd, html};
-use std::{fmt::Write as _, fs, io::Write as _, path::Path};
+use std::{
+    cmp::Ordering,
+    collections::{HashMap, HashSet},
+    fmt::Write as _,
+    fs,
+    io::Write as _,
+    path::Path,
+};
 use toml_task::Task;
 
 // Todo: not *everything*? Probably just something fully GitHub
 // Flavored Markdown compatible?
 const PULLDOWN_OPTS: pulldown_cmark::Options = pulldown_cmark::Options::all();
 
+#[derive(Default, Debug)]
+struct TaskMeta {
+    calls: HashSet<String>,
+    called_by: HashSet<String>,
+}
+
 pub fn run(app_toml: &Path, output: Option<&Path>) -> Result<()> {
     let cfg = Config::from_file(app_toml)?;
+
+    println!("{}", std::env::current_dir().unwrap().display());
 
     use cargo_metadata::MetadataCommand;
     let metadata = MetadataCommand::new()
         .manifest_path("./Cargo.toml")
         .exec()?;
+
+    // Analysis
+    let mut meta = HashMap::new();
+    for (name, _) in cfg.tasks.iter() {
+        meta.insert(name.clone(), TaskMeta::default());
+    }
+    for (name, task) in cfg.tasks.iter() {
+        let tmeta = meta.get_mut(name).unwrap();
+        for tst in task.task_slots.values() {
+            tmeta.calls.insert(tst.clone());
+        }
+        for tst in task.task_slots.values() {
+            meta.get_mut(tst)
+                .unwrap()
+                .called_by
+                .insert(name.to_string());
+        }
+    }
 
     let mut task_docs = vec![];
     for (name, task) in cfg.tasks.iter() {
@@ -85,18 +118,16 @@ pub fn run(app_toml: &Path, output: Option<&Path>) -> Result<()> {
     // the prelude, so we can figure out what the table of contents is
     let mut html_buf = prelude(&format!("\"{}\" Aggregate Docs", cfg.name))?;
 
-    // STAGE 1: App Header
-    write_app_header(&cfg, &mut html_buf)?;
-
-    // STAGE 2: Document the App
+    // STAGE 1: Document the App
     write_app_info(&cfg, &mut html_buf)?;
 
-    // STAGE 3: Task Header
-    write_task_header(&cfg, &cfg.tasks, &mut html_buf)?;
+    // STAGE 2: Task Header
+    write_all_tasks_header(&cfg, &cfg.tasks, &mut html_buf, &meta)?;
 
-    // STAGE 4: Document each task
-    for (_name, docpath, task) in task_docs {
-        write_task_info(task, docpath.as_deref(), &mut html_buf)?;
+    // STAGE 3: Document each task
+    task_docs.sort_unstable_by(|a, b| task_sort((&a.0, a.2), (&b.0, b.2)));
+    for (name, docpath, task) in task_docs {
+        write_task_info(&name, task, docpath.as_deref(), &mut html_buf)?;
     }
 
     html_buf.push_str(MARKDOWN_FOOTER);
@@ -111,18 +142,17 @@ pub fn run(app_toml: &Path, output: Option<&Path>) -> Result<()> {
     Ok(())
 }
 
-fn write_app_header(cfg: &Config, buf: &mut String) -> Result<()> {
-    // Write this as markdown for laziness, then HTMLify it
+fn write_app_info(cfg: &Config, buf: &mut String) -> Result<()> {
     let mut mkdn = String::new();
-    writeln!(&mut mkdn, "# \"{}\" Application", cfg.name)?;
+    writeln!(&mut mkdn, "# Application: \"{}\"", cfg.name)?;
+    writeln!(&mut mkdn)?;
 
-    // Write to HTML. We *don't* do touchup, because this is the top level
+    // TODO: Application level docs?
+
+    // Write to HTML.
     let parser = pulldown_cmark::Parser::new_ext(&mkdn, PULLDOWN_OPTS);
     html::push_html(buf, parser);
-    Ok(())
-}
 
-fn write_app_info(cfg: &Config, buf: &mut String) -> Result<()> {
     if let Some(readme) = cfg.docfile.as_ref() {
         let app_readme = std::fs::read_to_string(readme)?;
         let parser =
@@ -136,7 +166,7 @@ fn write_app_info(cfg: &Config, buf: &mut String) -> Result<()> {
         //
         // Write this as markdown for laziness, then HTMLify it
         let mut mkdn = String::new();
-        writeln!(&mut mkdn, "# \"{}\" Firmware", cfg.name)?;
+        writeln!(&mut mkdn, "# \"{}\" docs", cfg.name)?;
         writeln!(&mut mkdn)?;
         writeln!(&mut mkdn, "(this page intentionally left blank)")?;
         writeln!(&mut mkdn)?;
@@ -149,10 +179,11 @@ fn write_app_info(cfg: &Config, buf: &mut String) -> Result<()> {
     Ok(())
 }
 
-fn write_task_header(
+fn write_all_tasks_header(
     cfg: &Config,
     tasks: &IndexMap<String, Task<Value>>,
     buf: &mut String,
+    meta: &HashMap<String, TaskMeta>,
 ) -> Result<()> {
     // Write this as markdown for laziness, then HTMLify it
     let mut mkdn = String::new();
@@ -160,16 +191,19 @@ fn write_task_header(
     writeln!(&mut mkdn)?;
     writeln!(
         &mut mkdn,
-        "| task | stack (bytes) | interrupts | task slots |"
+        "| task: crate | priority | stack (bytes) | interrupts | client of | server for |"
     )?;
     writeln!(
         &mut mkdn,
-        "| :--  | :---          | :---       | :---       |"
+        "| :--          | :---     | :---          | :---       | :---  | :---      |"
     )?;
-    let mut tasks: Vec<&Task> = tasks.values().collect();
-    tasks.sort_unstable_by_key(|t| &t.name);
+    let mut tasks: Vec<(String, &Task)> =
+        tasks.iter().map(|(a, b)| (a.clone(), b)).collect();
+    tasks.sort_unstable_by(|a, b| task_sort((&a.0, a.1), (&b.0, b.1)));
 
-    for task in tasks.iter() {
+    for (name, task) in tasks.iter() {
+        let prio = task.priority.to_string();
+
         let stack = if let Some(amt) = task.stacksize {
             amt.to_string()
         } else {
@@ -179,23 +213,34 @@ fn write_task_header(
         let ints: Vec<&str> =
             task.interrupts.keys().map(String::as_str).collect();
         let ints = if !ints.is_empty() {
-            ints.join(", ")
+            ints.join("<br>")
         } else {
             "-".to_string()
         };
 
-        let slots: Vec<&str> =
-            task.task_slots.keys().map(String::as_str).collect();
-        let slots = if !slots.is_empty() {
-            slots.join(", ")
+        let tmeta = meta.get(name).unwrap();
+        let mut calls: Vec<_> = tmeta.calls.iter().cloned().collect();
+        calls.sort_unstable();
+
+        let calls = if !calls.is_empty() {
+            calls.join("<br>")
+        } else {
+            "-".to_string()
+        };
+
+        let mut called_by: Vec<_> = tmeta.called_by.iter().cloned().collect();
+        called_by.sort_unstable();
+
+        let called_by = if !called_by.is_empty() {
+            called_by.join("<br>")
         } else {
             "-".to_string()
         };
 
         writeln!(
             &mut mkdn,
-            "| {} | {} | {} | {} |",
-            task.name, stack, ints, slots
+            "| {}<br>`{}` | {} | {} | {} | {} | {} |",
+            name, task.name, prio, stack, ints, calls, called_by,
         )?;
     }
 
@@ -208,10 +253,21 @@ fn write_task_header(
 }
 
 fn write_task_info(
+    name: &str,
     task: &Task,
     docs: Option<&Path>,
     buf: &mut String,
 ) -> Result<()> {
+    let mut mkdn = String::new();
+    writeln!(&mut mkdn, "# Task: \"{name}\" (`{}`)", task.name)?;
+    writeln!(&mut mkdn)?;
+
+    // TODO: Meta info about the task, before the readme?
+
+    // Write to HTML.
+    let parser = pulldown_cmark::Parser::new_ext(&mkdn, PULLDOWN_OPTS);
+    html::push_html(buf, parser);
+
     if let Some(readme) = docs {
         let task_readme = std::fs::read_to_string(readme)?;
         let parser =
@@ -225,7 +281,7 @@ fn write_task_info(
         //
         // Write this as markdown for laziness, then HTMLify it
         let mut mkdn = String::new();
-        writeln!(&mut mkdn, "# \"{}\" Task", task.name)?;
+        writeln!(&mut mkdn, "# `{}` docs", task.name)?;
         writeln!(&mut mkdn)?;
         writeln!(&mut mkdn, "(this page intentionally left blank)")?;
         writeln!(&mut mkdn)?;
@@ -251,6 +307,10 @@ fn touchup<'a>(evt: Event<'a>, _base: Option<&'a Path>) -> Event<'a> {
                     if !dest_url.starts_with("http") {
                         // TODO: rewrite relative to `https://github.com/oxidecomputer/hubris/blob/master/`?
                         // use _base to figure out relative paths, we might also need to
+                        println!(
+                            "->{}",
+                            _base.unwrap().canonicalize().unwrap().display()
+                        );
                         println!("WARN: We should be rewriting {dest_url}!");
                     }
                     Event::Start(Tag::Link {
@@ -302,77 +362,32 @@ fn touchup<'a>(evt: Event<'a>, _base: Option<&'a Path>) -> Event<'a> {
                 }
 
                 other => Event::Start(other),
-                // pulldown_cmark::Tag::Paragraph => todo!(),
-                // pulldown_cmark::Tag::BlockQuote(block_quote_kind) => todo!(),
-                // pulldown_cmark::Tag::CodeBlock(code_block_kind) => todo!(),
-                // pulldown_cmark::Tag::HtmlBlock => todo!(),
-                // pulldown_cmark::Tag::List(_) => todo!(),
-                // pulldown_cmark::Tag::Item => todo!(),
-                // pulldown_cmark::Tag::FootnoteDefinition(cow_str) => todo!(),
-                // pulldown_cmark::Tag::DefinitionList => todo!(),
-                // pulldown_cmark::Tag::DefinitionListTitle => todo!(),
-                // pulldown_cmark::Tag::DefinitionListDefinition => todo!(),
-                // pulldown_cmark::Tag::Table(alignments) => todo!(),
-                // pulldown_cmark::Tag::TableHead => todo!(),
-                // pulldown_cmark::Tag::TableRow => todo!(),
-                // pulldown_cmark::Tag::TableCell => todo!(),
-                // pulldown_cmark::Tag::Emphasis => todo!(),
-                // pulldown_cmark::Tag::Strong => todo!(),
-                // pulldown_cmark::Tag::Strikethrough => todo!(),
-                // pulldown_cmark::Tag::Superscript => todo!(),
-                // pulldown_cmark::Tag::Subscript => todo!(),
-                // pulldown_cmark::Tag::MetadataBlock(metadata_block_kind) => todo!(),
             }
         }
-        Event::End(tag_end) => {
-            match tag_end {
-                TagEnd::Heading(heading_level) => {
-                    Event::End(TagEnd::Heading(match heading_level {
-                        HeadingLevel::H1 => HeadingLevel::H2,
-                        HeadingLevel::H2 => HeadingLevel::H3,
-                        HeadingLevel::H3 => HeadingLevel::H4,
-                        HeadingLevel::H4 => HeadingLevel::H5,
-                        HeadingLevel::H5 => HeadingLevel::H6,
-                        HeadingLevel::H6 => HeadingLevel::H6,
-                    }))
-                }
-                other => Event::End(other),
-                // pulldown_cmark::TagEnd::Paragraph => todo!(),
-                // pulldown_cmark::TagEnd::BlockQuote(block_quote_kind) => todo!(),
-                // pulldown_cmark::TagEnd::CodeBlock => todo!(),
-                // pulldown_cmark::TagEnd::HtmlBlock => todo!(),
-                // pulldown_cmark::TagEnd::List(_) => todo!(),
-                // pulldown_cmark::TagEnd::Item => todo!(),
-                // pulldown_cmark::TagEnd::FootnoteDefinition => todo!(),
-                // pulldown_cmark::TagEnd::DefinitionList => todo!(),
-                // pulldown_cmark::TagEnd::DefinitionListTitle => todo!(),
-                // pulldown_cmark::TagEnd::DefinitionListDefinition => todo!(),
-                // pulldown_cmark::TagEnd::Table => todo!(),
-                // pulldown_cmark::TagEnd::TableHead => todo!(),
-                // pulldown_cmark::TagEnd::TableRow => todo!(),
-                // pulldown_cmark::TagEnd::TableCell => todo!(),
-                // pulldown_cmark::TagEnd::Emphasis => todo!(),
-                // pulldown_cmark::TagEnd::Strong => todo!(),
-                // pulldown_cmark::TagEnd::Strikethrough => todo!(),
-                // pulldown_cmark::TagEnd::Superscript => todo!(),
-                // pulldown_cmark::TagEnd::Subscript => todo!(),
-                // pulldown_cmark::TagEnd::Link => todo!(),
-                // pulldown_cmark::TagEnd::Image => todo!(),
-                // pulldown_cmark::TagEnd::MetadataBlock(metadata_block_kind) => todo!(),
+        Event::End(tag_end) => match tag_end {
+            TagEnd::Heading(heading_level) => {
+                Event::End(TagEnd::Heading(match heading_level {
+                    HeadingLevel::H1 => HeadingLevel::H2,
+                    HeadingLevel::H2 => HeadingLevel::H3,
+                    HeadingLevel::H3 => HeadingLevel::H4,
+                    HeadingLevel::H4 => HeadingLevel::H5,
+                    HeadingLevel::H5 => HeadingLevel::H6,
+                    HeadingLevel::H6 => HeadingLevel::H6,
+                }))
             }
-        }
+            other => Event::End(other),
+        },
 
-        other => other, // Event::Text(cow_str) => todo!(),
-                        // Event::Code(cow_str) => todo!(),
-                        // Event::InlineMath(cow_str) => todo!(),
-                        // Event::DisplayMath(cow_str) => todo!(),
-                        // Event::Html(cow_str) => todo!(),
-                        // Event::InlineHtml(cow_str) => todo!(),
-                        // Event::FootnoteReference(cow_str) => todo!(),
-                        // Event::SoftBreak => todo!(),
-                        // Event::HardBreak => todo!(),
-                        // Event::Rule => todo!(),
-                        // Event::TaskListMarker(_) => todo!(),
+        other => other,
+    }
+}
+
+/// Sort by priority (lowest first), then by name
+fn task_sort(a: (&str, &Task), b: (&str, &Task)) -> Ordering {
+    match a.1.priority.cmp(&b.1.priority) {
+        Ordering::Less => Ordering::Less,
+        Ordering::Equal => a.0.cmp(&b.0),
+        Ordering::Greater => Ordering::Greater,
     }
 }
 
