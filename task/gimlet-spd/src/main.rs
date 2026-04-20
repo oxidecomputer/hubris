@@ -27,6 +27,7 @@ use drv_cpu_seq_api::{NUM_SPD_BANKS, PowerState};
 use drv_stm32xx_i2c::{I2cPins, I2cTargetControl};
 use drv_stm32xx_sys_api::{OutputType, Pull, Speed, Sys};
 use ringbuf::{ringbuf, ringbuf_entry};
+use spd::ee1004 as spd; // DDR4 SPD types
 use task_jefe_api::Jefe;
 use task_packrat_api::Packrat;
 use userlib::{
@@ -124,7 +125,7 @@ fn main() -> ! {
     //
     let ltc4306 = Cell::new(ltc4306::State::init());
     let vbank = Cell::new(Some(0u8));
-    let page = Cell::new(spd::Page(0));
+    let page = Cell::new(spd::Page::Page0);
     let voffs = RefCell::new(&mut voffs);
 
     //

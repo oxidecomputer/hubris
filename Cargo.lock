@@ -5320,11 +5320,7 @@ dependencies = [
 [[package]]
 name = "spd"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/spd#e37e79f6d7d4805b8a6a8c4d37699c4bd60222ea"
-dependencies = [
- "num-derive 0.3.3",
- "num-traits",
-]
+source = "git+https://github.com/oxidecomputer/spd#b4b97e7f9540969dfce129d88c0ed3f68fd5fe9b"
 
 [[package]]
 name = "spin"
