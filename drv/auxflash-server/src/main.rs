@@ -371,6 +371,9 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         offset: u32,
         data: Leased<R, [u8]>,
     ) -> Result<(), RequestError<AuxFlashError>> {
+        if slot >= SLOT_COUNT {
+            return Err(AuxFlashError::InvalidSlot.into());
+        }
         if Some(slot) == self.active_slot {
             return Err(AuxFlashError::SlotActive.into());
         }
@@ -412,6 +415,9 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         offset: u32,
         dest: Leased<W, [u8]>,
     ) -> Result<(), RequestError<AuxFlashError>> {
+        if slot >= SLOT_COUNT {
+            return Err(AuxFlashError::InvalidSlot.into());
+        }
         if offset as usize + dest.len() > SLOT_SIZE {
             return Err(AuxFlashError::AddressOverflow.into());
         }
