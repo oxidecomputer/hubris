@@ -31,6 +31,10 @@ g031 = ["family-stm32g0", "drv-stm32xx-gpio-common/model-stm32g031"]
 g070 = ["family-stm32g0", "drv-stm32xx-gpio-common/model-stm32g070"]
 g0b1 = ["family-stm32g0", "drv-stm32xx-gpio-common/model-stm32g0b1"]
 
+family-stm32f4 = ["drv-stm32xx-gpio-common/family-stm32f4"]
+f407 = ["family-stm32f4", "drv-stm32xx-gpio-common/model-stm32f407"]
+f429 = ["family-stm32f4", "drv-stm32xx-gpio-common/model-stm32f429"]
+
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
 [lib]
