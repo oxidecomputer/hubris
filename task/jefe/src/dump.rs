@@ -323,24 +323,50 @@ pub fn dump_task_region(
     let mem = start..end;
     let mut okay = false;
 
-    for ndx in 0..=usize::MAX {
-        // This is Accidentally Quadratic; see the note in `dump_task`
-        let Some(region) = kipc::get_task_dump_region(task, ndx) else {
-            break;
-        };
+    // The kernel descriptor is always dump region 0, which is always valid to
+    // read (and can therefore be unwrapped).
+    let desc = kipc::get_task_dump_region(task, 0).unwrap_lite();
+    // Note: we implicitly trust kipc won't give us a region that wraps,
+    // unlike untrusted user data from the request that we checked above.
+    let desc_region = desc.base..desc.base + desc.size;
+    if mem.start >= desc_region.start && mem.end <= desc_region.end {
+        // We are reading from the kernel descriptor region, great job
+        okay = true;
+    } else {
+        // Otherwise, iterate over task regions.   We will start with `mem`
+        // representing the full memory range to be dumped, then adjust
+        // `mem.start` as we find overlaps within the task dump regions. If
+        // `mem` becomes empty, then we know that it is valid (because the
+        // entire `mem` region has overlapped with task dump regions).
+        //
+        // Note: we also implicitly trust that kipc gives us regions which are
+        // in sorted order by base address.
+        let mut mem = start..end;
+        for ndx in 1..=usize::MAX {
+            // This is Accidentally Quadratic; see the note in `dump_task`
+            let Some(region) = kipc::get_task_dump_region(task, ndx) else {
+                break;
+            };
 
-        if in_dump_area(region.base, region.size) {
-            continue;
-        }
+            if in_dump_area(region.base, region.size) {
+                continue;
+            }
 
-        ringbuf_entry!(Trace::DumpRegion(region));
+            ringbuf_entry!(Trace::DumpRegion(region));
 
-        // Note: we implicitly trust kipc won't give us a region that wraps,
-        // unlike untrusted user data from the request that we checked above.
-        let region = region.base..region.base + region.size;
-        if mem.start >= region.start && mem.end <= region.end {
-            okay = true;
-            break;
+            // Slide `mem.start` based on overlap
+            let region = region.base..region.base + region.size;
+            if region.contains(&mem.start) {
+                mem.start = region.end.min(mem.end);
+                if mem.start == mem.end {
+                    okay = true;
+                    break;
+                }
+            } else if region.start > mem.start {
+                // If we are beyond the start of our `mem` region, then there
+                // are no more overlaps and we can bail out immediately.
+                break;
+            }
         }
     }
 

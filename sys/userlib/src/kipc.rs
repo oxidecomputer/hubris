@@ -63,6 +63,15 @@ pub fn find_faulted_task(task: usize) -> Option<NonZeroUsize> {
     NonZeroUsize::new(response as usize)
 }
 
+/// Returns the `i`'th dumpable region for the given task (or `None`)
+///
+/// It is always valid to ask for the 0th region, which returns the task's
+/// descriptor in kernel memory.
+///
+/// Subsequent tasks (`i = 1..`) are returned in sorted (ascending) order by
+/// base address.  The task descriptor may be either above or below the rest of
+/// the task regions, depending on the memory layout of the application; one
+/// should not assume that `i = 0` is sorted.
 pub fn get_task_dump_region(
     task: usize,
     region: usize,
