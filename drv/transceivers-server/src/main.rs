@@ -13,14 +13,14 @@ use static_cell::ClaimOnceCell;
 use userlib::{sys_get_timer, task_slot, units::Celsius};
 
 use drv_fpga_api::FpgaError;
-use drv_i2c_devices::pca9956b::Error;
-use drv_sidecar_front_io::{
+use drv_front_io_api::{
     Reg,
     leds::{FullErrorSummary, Leds},
     transceivers::{
         FpgaI2CFailure, LogicalPort, LogicalPortMask, Transceivers,
     },
 };
+use drv_i2c_devices::pca9956b::Error;
 use drv_sidecar_seq_api::{SeqError, Sequencer, TofinoSeqState};
 use drv_transceivers_api::{
     ModuleStatus, NUM_PORTS, TRANSCEIVER_TEMPERATURE_SENSORS, TransceiversError,

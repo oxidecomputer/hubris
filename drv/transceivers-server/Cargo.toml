@@ -9,7 +9,7 @@ counters = { path = "../../lib/counters" }
 drv-fpga-api = { path = "../fpga-api" }
 drv-i2c-api = { path = "../i2c-api" }
 drv-i2c-devices = { path = "../i2c-devices" }
-drv-sidecar-front-io = { path = "../sidecar-front-io", features = ["transceivers", "leds"] }
+drv-front-io-api = { path = "../front-io-api", features = ["transceivers", "leds"] }
 drv-sidecar-seq-api = { path = "../sidecar-seq-api" }
 drv-transceivers-api = { path = "../transceivers-api" }
 multitimer = { path = "../../lib/multitimer" }
