@@ -312,6 +312,14 @@ impl Io {
 
         self.check_for_rx_error()?;
 
+        // The rx fifo contained more bytes than could fit in the buffer, which is more than we ever
+        // expect to receive in one request message.
+        if bytes_received > rx_buf.len() {
+            self.stats.rx_protocol_error_too_many_bytes =
+                self.stats.rx_protocol_error_too_many_bytes.wrapping_add(1);
+            return Err(IoError::Flow);
+        }
+
         // Was this a CSn pulse?
         if bytes_received == 0 {
             self.stats.csn_pulses = self.stats.csn_pulses.wrapping_add(1);
