@@ -211,7 +211,7 @@ impl Bsp {
 const DIMM_THERMALS: ThermalProperties = ThermalProperties {
     target_temperature: Celsius(80f32),
     critical_temperature: Celsius(90f32),
-    power_down_temperature: Celsius(95f32),
+    power_down_temperature: Some(Celsius(95f32)),
     temperature_slew_deg_per_sec: 0.5,
 };
 
@@ -226,7 +226,7 @@ const DIMM_THERMALS: ThermalProperties = ThermalProperties {
 const U2_THERMALS: ThermalProperties = ThermalProperties {
     target_temperature: Celsius(65f32),
     critical_temperature: Celsius(70f32),
-    power_down_temperature: Celsius(75f32),
+    power_down_temperature: Some(Celsius(75f32)),
     temperature_slew_deg_per_sec: 0.5,
 };
 
@@ -236,7 +236,7 @@ const U2_THERMALS: ThermalProperties = ThermalProperties {
 const M2_THERMALS: ThermalProperties = ThermalProperties {
     target_temperature: Celsius(65f32),
     critical_temperature: Celsius(70f32),
-    power_down_temperature: Celsius(75f32),
+    power_down_temperature: Some(Celsius(75f32)),
     temperature_slew_deg_per_sec: 0.5,
 };
 
@@ -247,7 +247,7 @@ const M2_THERMALS: ThermalProperties = ThermalProperties {
 const CPU_THERMALS: ThermalProperties = ThermalProperties {
     target_temperature: Celsius(80f32),
     critical_temperature: Celsius(90f32),
-    power_down_temperature: Celsius(100f32),
+    power_down_temperature: Some(Celsius(100f32)),
     temperature_slew_deg_per_sec: 0.5,
 };
 
@@ -255,7 +255,7 @@ const CPU_THERMALS: ThermalProperties = ThermalProperties {
 const T6_THERMALS: ThermalProperties = ThermalProperties {
     target_temperature: Celsius(70f32),
     critical_temperature: Celsius(80f32),
-    power_down_temperature: Celsius(85f32),
+    power_down_temperature: Some(Celsius(85f32)),
     temperature_slew_deg_per_sec: 0.5,
 };
 
