@@ -63,16 +63,31 @@ pub fn find_faulted_task(task: usize) -> Option<NonZeroUsize> {
     NonZeroUsize::new(response as usize)
 }
 
+/// Returns a [`TaskDumpRegion`](abi::TaskDumpRegion) for this task's descriptor
+///
+/// The task descriptor is located in kernel memory.
+pub fn get_task_desc_region(task: usize) -> abi::TaskDumpRegion {
+    // It is always valid to ask the kernel for the 0th dump region
+    get_task_dump_region_raw(task, 0).unwrap_lite()
+}
+
 /// Returns the `i`'th dumpable region for the given task (or `None`)
 ///
-/// It is always valid to ask for the 0th region, which returns the task's
-/// descriptor in kernel memory.
-///
-/// Subsequent tasks (`i = 1..`) are returned in sorted (ascending) order by
-/// base address.  The task descriptor may be either above or below the rest of
-/// the task regions, depending on the memory layout of the application; one
-/// should not assume that `i = 0` is sorted.
+/// Dumpable regions are located in task RAM, and are returned in sorted
+/// (ascending) order by base address.
 pub fn get_task_dump_region(
+    task: usize,
+    region: usize,
+) -> Option<abi::TaskDumpRegion> {
+    // Region 0 is the task descriptor, so we add 1 here
+    get_task_dump_region_raw(task, region.checked_add(1)?)
+}
+
+/// Access to the raw [`GetTaskDumpRegion`](Kipcnum::GetTaskDumpRegion) KIPC
+///
+/// Wrapped by [`get_task_desc_region`] or [`get_task_dump_region`] for
+/// higher-level semantics.
+pub fn get_task_dump_region_raw(
     task: usize,
     region: usize,
 ) -> Option<abi::TaskDumpRegion> {

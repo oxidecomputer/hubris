@@ -261,7 +261,7 @@ pub fn dump_task(base: u32, task: usize) -> Result<u8, DumpAgentError> {
         // regions in a task) -- but could become so if these numbers become
         // larger.
         //
-        let Some(region) = kipc::get_task_dump_region(task, ndx) else {
+        let Some(region) = kipc::get_task_dump_region_raw(task, ndx) else {
             break;
         };
         if in_dump_area(region.base, region.size) {
@@ -323,9 +323,8 @@ pub fn dump_task_region(
     let mem = start..end;
     let mut okay = false;
 
-    // The kernel descriptor is always dump region 0, which is always valid to
-    // read (and can therefore be unwrapped).
-    let desc = kipc::get_task_dump_region(task, 0).unwrap_lite();
+    // Get the task descriptor region (in kernel memory)
+    let desc = kipc::get_task_desc_region(task);
     // Note: we implicitly trust kipc won't give us a region that wraps,
     // unlike untrusted user data from the request that we checked above.
     let desc_region = desc.base..desc.base + desc.size;
@@ -342,7 +341,8 @@ pub fn dump_task_region(
         // Note: we also implicitly trust that kipc gives us regions which are
         // in sorted order by base address.
         let mut mem = start..end;
-        for ndx in 1..=usize::MAX {
+        let mut started = false;
+        for ndx in 0..=usize::MAX {
             // This is Accidentally Quadratic; see the note in `dump_task`
             let Some(region) = kipc::get_task_dump_region(task, ndx) else {
                 break;
@@ -358,13 +358,17 @@ pub fn dump_task_region(
             let region = region.base..region.base + region.size;
             if region.contains(&mem.start) {
                 mem.start = region.end.min(mem.end);
+                started = true;
                 if mem.start == mem.end {
                     okay = true;
                     break;
                 }
-            } else if region.start > mem.start {
-                // If we are beyond the start of our `mem` region, then there
-                // are no more overlaps and we can bail out immediately.
+            } else if region.start > mem.start
+                || (started && region.start < mem.start)
+            {
+                // If we are beyond the start of our `mem` region (or have
+                // started overlapping but this region does not overlap), then
+                // there are no more overlaps and we can bail out immediately.
                 break;
             }
         }
