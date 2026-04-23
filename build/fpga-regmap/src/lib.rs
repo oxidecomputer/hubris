@@ -710,11 +710,6 @@ pub fn build_peripheral(
                     pub struct #view_name {
                         #(#view_types),*
                     }
-                    #[allow(
-                        dead_code,
-                        clippy::useless_conversion,
-                        clippy::unnecessary_cast
-                    )]
                     impl<'a> From<&'a #struct_name> for #view_name {
                         #[inline]
                         fn from(s: &'a #struct_name) -> #view_name {
@@ -723,6 +718,12 @@ pub fn build_peripheral(
                             #view_name::from(d)
                         }
                     }
+                    #[allow(
+                        dead_code,
+                        unused_variables,
+                        clippy::useless_conversion,
+                        clippy::unnecessary_cast
+                    )]
                     impl From<u32> for #view_name {
                         #[inline]
                         fn from(d: u32) -> #view_name {
