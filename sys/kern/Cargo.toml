@@ -37,6 +37,7 @@ phash-gen = { path = "../../build/phash-gen" }
 [features]
 dump = []
 nano = []
+stack-watermark = []
 
 [lib]
 test = false
