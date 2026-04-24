@@ -4,21 +4,21 @@
 
 use drv_hash_api::SHA256_SZ;
 use drv_hf_api::{
-    HashData, HashState, HfChipId, HfDevSelect, HfError, HfMuxState,
-    HfPersistentData, HfProtectMode, HfRawPersistentData, SlotHash,
-    HF_PERSISTENT_DATA_STRIDE,
+    HF_PERSISTENT_DATA_STRIDE, HashData, HashState, HfChipId, HfDevSelect,
+    HfError, HfMuxState, HfPersistentData, HfProtectMode, HfRawPersistentData,
+    SlotHash,
 };
 use idol_runtime::{
-    ClientError, LeaseBufWriter, Leased, LenLimit, NotificationHandler,
-    RequestError, R, W,
+    ClientError, LeaseBufWriter, Leased, LenLimit, NotificationHandler, R,
+    RequestError, W,
 };
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
-use userlib::{set_timer_relative, task_slot, RecvMessage, UnwrapLite};
+use userlib::{RecvMessage, UnwrapLite, set_timer_relative, task_slot};
 use zerocopy::{FromZeros, IntoBytes};
 
 use crate::{
-    apob, apob::APOB_PERSISTENT_DATA_STRIDE, FlashAddr, FlashDriver, Trace,
-    PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES,
+    FlashAddr, FlashDriver, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES, Trace, apob,
+    apob::APOB_PERSISTENT_DATA_STRIDE,
 };
 
 task_slot!(HASH, hash_driver);
@@ -35,6 +35,9 @@ pub struct ServerImpl {
 
     pub(crate) apob_state: apob::ApobState,
     pub(crate) buf: HfBufs,
+
+    /// Most recent ABL0 version that has booted
+    abl0_version: Option<u32>,
 }
 
 pub(crate) struct HfBufs {
@@ -87,6 +90,7 @@ impl ServerImpl {
             drv,
             hash: HashData::new(HASH.get_task_id()),
             apob_state,
+            abl0_version: None,
             buf,
         };
         out.drv.set_flash_mux_state(HfMuxState::SP);
@@ -119,7 +123,7 @@ impl ServerImpl {
         FlashAddr::new(Self::flash_base_for(self.dev)).unwrap_lite()
     }
 
-    /// Converts a relative address to an absolute address in out current device
+    /// Converts a relative address to an absolute address in our current device
     pub fn flash_addr(
         &self,
         offset: u32,
@@ -168,12 +172,10 @@ impl ServerImpl {
         for i in 0..SECTOR_SIZE_BYTES / HF_PERSISTENT_DATA_STRIDE as u32 {
             let addr = i * HF_PERSISTENT_DATA_STRIDE as u32;
             let mut data = HfRawPersistentData::new_zeroed();
-            self.drv
-                .flash_read(
-                    Self::flash_addr_for(addr, dev).unwrap_lite(),
-                    &mut data.as_mut_bytes(),
-                )
-                .unwrap_lite(); // flash_read is infallible when using a slice
+            self.drv.flash_read_slice(
+                Self::flash_addr_for(addr, dev).unwrap_lite(),
+                data.as_mut_bytes(),
+            );
             best = best.max(Some(data).filter(|d| d.is_valid()));
             if empty_slot.is_none()
                 && data.as_bytes().iter().all(|b| *b == 0xFF)
@@ -281,17 +283,12 @@ impl ServerImpl {
         let mut buf = [0u8; PAGE_SIZE_BYTES];
         for addr in (begin..end).step_by(buf.len()) {
             let size = (end - addr).min(buf.len());
-            // This unwrap is safe because `flash_read` can only fail when given
-            // a lease (where writing into the lease fails if the client goes
-            // away).  Giving it a buffer is infallible.
-            self.drv
-                .flash_read(
-                    // We expect that begin and end have already been
-                    // bounds checked so this should never fail.
-                    Self::flash_addr_for(addr as u32, dev).unwrap_lite(),
-                    &mut &mut buf[..size],
-                )
-                .unwrap_lite();
+            self.drv.flash_read_slice(
+                // We expect that begin and end have already been
+                // bounds checked so this should never fail.
+                Self::flash_addr_for(addr as u32, dev).unwrap_lite(),
+                &mut buf[..size],
+            );
             if let Err(e) = self.hash.task.update(size as u32, &buf[..size]) {
                 ringbuf_entry!(Trace::HashUpdateError(e));
                 return Err(HfError::HashError);
@@ -562,8 +559,12 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<(), RequestError<drv_hf_api::ApobCommitError>> {
+        // Consume the stored ABL0 version so it can't be reused
+        let Some(vers) = self.abl0_version.take() else {
+            return Err(drv_hf_api::ApobCommitError::InvalidState.into());
+        };
         self.apob_state
-            .commit(&mut self.drv, &mut self.buf)
+            .commit(&mut self.drv, &mut self.buf, vers)
             .map_err(RequestError::from)
     }
 
@@ -586,6 +587,15 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             .map_err(RequestError::from)
     }
 
+    fn apob_clear(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<drv_hf_api::ApobClearError>> {
+        self.apob_state
+            .clear(&mut self.drv, &mut self.buf)
+            .map_err(RequestError::from)
+    }
+
     fn get_mux(
         &mut self,
         _: &RecvMessage,
@@ -600,23 +610,57 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
     ) -> Result<(), RequestError<HfError>> {
         // Whenever we switch the mux state to the host CPU, we update FPGA
         // registers for the APOB location (so that the FPGA can remap reads to
-        // the appropriate location).
+        // the appropriate location).  We also read the ABL0 version, for two
+        // reasons:
+        // - We will only load an APOB that's pinned to that version
+        // - After booting, we'll use that version when persisting a new APOB
         if state == HfMuxState::HostCPU {
+            // We can only swap the mux state to the host if it's currently
+            // muxed to the SP, because we must read from flash (to find ABL0
+            // version, APOB state, etc) before swapping the mux.
+            self.drv.check_flash_mux_state()?;
+
+            self.abl0_version = match self.find_abl0_version() {
+                Ok(v) => {
+                    // If the previous ABL0 version has not been consumed by
+                    // `apob_commit`, make a note – this could happen (if we mux
+                    //  SP → host → SP → host without calling `apob_commit`),
+                    //  but is a little suspicious.
+                    if let Some(prev) = self.abl0_version {
+                        ringbuf_entry!(Trace::PrevAbl0VersionNotUsed(prev));
+                    }
+                    ringbuf_entry!(Trace::Abl0VersionFound(v));
+                    Some(v)
+                }
+                Err(e) => {
+                    ringbuf_entry!(Trace::Abl0VersionError(e));
+                    None
+                }
+            };
+            // Reinitialize APOB state to correctly pick the active APOB slot.
+            // This also unlocks the APOB so it can be written (once muxed back
+            // to the SP) and loads the ABL0 version that it expects.
+            self.apob_state =
+                apob::ApobState::init(&mut self.drv, &mut self.buf);
             match self.find_apob() {
                 Ok(a) => {
-                    ringbuf_entry!(Trace::ApobFound(a));
-                    self.drv.set_apob_pos(a);
+                    let vers = self.apob_state.abl0_version();
+                    if vers.is_some() && vers == self.abl0_version {
+                        ringbuf_entry!(Trace::ApobFound(a));
+                        self.drv.set_apob_pos(a);
+                    } else {
+                        ringbuf_entry!(Trace::ApobAbl0Mismatch {
+                            stored_version: vers,
+                            current_version: self.abl0_version,
+                        });
+                        self.drv.clear_apob_pos();
+                    }
                 }
                 Err(e) => {
                     ringbuf_entry!(Trace::ApobError(e));
                     self.drv.clear_apob_pos();
                 }
             }
-            // Reinitialize APOB state to correctly pick the active APOB slot.
-            // This also unlocks the APOB so it can be written (once muxed back
-            // to the SP).
-            self.apob_state =
-                apob::ApobState::init(&mut self.drv, &mut self.buf);
         }
         self.drv.set_flash_mux_state(state);
         self.invalidate_mux_switch();
@@ -660,7 +704,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         // that might mess up the hash in progress
         match self.hash.state {
             HashState::Hashing { .. } => {
-                return Err(HfError::HashInProgress.into())
+                return Err(HfError::HashInProgress.into());
             }
             _ => (),
         }
@@ -703,7 +747,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         // that might mess up the hash in progress
         match self.hash.state {
             HashState::Hashing { .. } => {
-                return Err(HfError::HashInProgress.into())
+                return Err(HfError::HashInProgress.into());
             }
             _ => (),
         }
@@ -1044,13 +1088,20 @@ impl idl::InOrderHostFlashImpl for FailServer {
     ) -> Result<usize, RequestError<drv_hf_api::ApobReadError>> {
         Err(drv_hf_api::ApobReadError::InvalidState.into())
     }
+
+    fn apob_clear(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<drv_hf_api::ApobClearError>> {
+        Err(drv_hf_api::ApobClearError::InvalidState.into())
+    }
 }
 
 pub mod idl {
     use drv_hf_api::{
-        ApobBeginError, ApobCommitError, ApobHash, ApobReadError,
-        ApobWriteError, HfChipId, HfDevSelect, HfError, HfMuxState,
-        HfPersistentData, HfProtectMode,
+        ApobBeginError, ApobClearError, ApobCommitError, ApobHash,
+        ApobReadError, ApobWriteError, HfChipId, HfDevSelect, HfError,
+        HfMuxState, HfPersistentData, HfProtectMode,
     };
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

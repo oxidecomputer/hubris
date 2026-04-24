@@ -31,7 +31,10 @@
     path = "bsp/sidecar_bcd.rs"
 )]
 #[cfg_attr(any(target_board = "medusa-a"), path = "bsp/medusa_a.rs")]
-#[cfg_attr(any(target_board = "grapefruit"), path = "bsp/grapefruit.rs")]
+#[cfg_attr(
+    any(target_board = "grapefruit-a", target_board = "grapefruit-b",),
+    path = "bsp/grapefruit.rs"
+)]
 #[cfg_attr(
     any(target_board = "minibar-a", target_board = "minibar-b"),
     path = "bsp/minibar.rs"
@@ -387,7 +390,7 @@ impl<'a> NotificationHandler for ServerImpl<'a> {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let i2c_task = I2C.get_task_id();
     let sensor_api = SensorApi::from(SENSOR.get_task_id());

@@ -2,10 +2,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use super::{common::CurrentUpdate, ComponentUpdater};
+use super::{ComponentUpdater, common::CurrentUpdate};
 use crate::mgs_common::SPROT;
 use crate::mgs_handler::{BorrowedUpdateBuffer, UpdateBuffer};
-use drv_lpc55_update_api::{UpdateTarget, BLOCK_SIZE_BYTES};
+use drv_lpc55_update_api::{BLOCK_SIZE_BYTES, UpdateTarget};
 use drv_sprot_api::{SpRot, SprotError};
 use ringbuf::{ringbuf, ringbuf_entry};
 
@@ -159,7 +159,7 @@ impl ComponentUpdater for RotUpdate {
                 next_write_offset,
             } => (buffer, next_write_offset),
             State::Complete | State::Aborted => {
-                return Err(SpError::UpdateNotPrepared)
+                return Err(SpError::UpdateNotPrepared);
             }
             State::Failed(err) => return Err((*err).into()),
         };

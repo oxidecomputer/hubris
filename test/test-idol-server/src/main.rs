@@ -93,7 +93,7 @@ impl NotificationHandler for ServerImpl {
     }
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     // Handle messages.
     let mut incoming = [0u8; idl::INCOMING_SIZE];

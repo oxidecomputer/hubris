@@ -1,13 +1,13 @@
 target = "thumbv7em-none-eabihf"
 chip = "../../chips/stm32h7"
 stacksize = 896
-memory = "memory-large.toml"
+default-ram = "axi_sram"
 
 [kernel]
 name = "sidecar"
 requires = {flash = 26656, ram = 6256}
 features = ["dump", "measurement-handoff"]
-extern-regions = ["dtcm"]
+extern-regions = [{ region = "dtcm", shared = true }]
 
 [caboose]
 tasks = ["control_plane_agent", "packrat"]
@@ -207,6 +207,7 @@ max-sizes = {flash = 32768, ram = 32768 }
 stacksize = 1200
 start = true
 task-slots = ["sys", "i2c_driver", "sprot"]
+notifications = ["timer"]
 
 [tasks.sensor]
 name = "task-sensor"
@@ -260,7 +261,7 @@ notifications = ["socket", "timer"]
 [tasks.packrat]
 name = "task-packrat"
 priority = 1
-stacksize = 1336
+stacksize = 1400
 start = true
 task-slots = ["jefe"]
 features = ["ereport"]
@@ -1222,7 +1223,7 @@ memory-size = 33_554_432 # 256 Mib / 32 MiB
 slot-count = 16 # 2 MiB slots
 
 [[auxflash.blobs]]
-file = "drv/sidecar-front-io/sidecar_qsfp_x32_controller_rev_b_c.bit"
+file = "drv/front-io-api/sidecar_qsfp_x32_controller_rev_b_c.bit"
 compress = true
 tag = "QSFP"
 

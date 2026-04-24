@@ -49,7 +49,7 @@ use idol_runtime::RequestError;
 use microcbor::Encode;
 use ringbuf::{counted_ringbuf, ringbuf_entry};
 use task_packrat_api::Packrat;
-use userlib::{sys_get_timer, task_slot, RecvMessage};
+use userlib::{RecvMessage, sys_get_timer, task_slot};
 
 task_slot!(PACKRAT, packrat);
 
@@ -69,7 +69,7 @@ enum Trace {
 
 counted_ringbuf!(Trace, 16, Trace::None);
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let packrat = Packrat::from(PACKRAT.get_task_id());
     let mut server = ServerImpl {
@@ -98,7 +98,7 @@ impl idl::InOrderEreportulatorImpl for ServerImpl {
         let t0 = sys_get_timer().now;
         ringbuf_entry!(Trace::EreportRequested { n });
 
-        self.ereporter.deliver_ereport(&TestEreportPlsIgnore {
+        let _ = self.ereporter.deliver_ereport(&TestEreportPlsIgnore {
             badness: n,
             msg: fixedstr::FixedStr::from_str("im dead"),
         });
@@ -117,7 +117,7 @@ impl idl::InOrderEreportulatorImpl for ServerImpl {
         let t0 = sys_get_timer().now;
         ringbuf_entry!(Trace::EreportRequested { n });
 
-        self.ereporter.deliver_ereport(&Ae35UnitEreport {
+        let _ = self.ereporter.deliver_ereport(&Ae35UnitEreport {
             critical_in_hrs: 32,
             detected_by: FixedStr::from_str("HAL-9000"),
             n,
@@ -143,7 +143,7 @@ impl idl::InOrderEreportulatorImpl for ServerImpl {
         } else {
             MainBusUndervoltEreport::MainBusA { volts: 0.01, n }
         };
-        self.ereporter.deliver_ereport(&ereport);
+        let _ = self.ereporter.deliver_ereport(&ereport);
 
         ringbuf_entry!(Trace::EreportDone {
             duration: sys_get_timer().now - t0

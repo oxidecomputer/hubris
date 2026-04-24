@@ -14,7 +14,7 @@
 #![no_main]
 
 use ringbuf::{counted_ringbuf, ringbuf_entry};
-use userlib::{hl::sleep_for, task_slot, UnwrapLite};
+use userlib::{UnwrapLite, hl::sleep_for, task_slot};
 
 mod apob; // Details for APOB structs
 mod hf; // Implementation of `HostFlash` API
@@ -35,7 +35,15 @@ enum Trace {
     HashFinalizeError(drv_hash_api::HashError),
 
     ApobFound(apob::ApobLocation),
+    ApobAbl0Mismatch {
+        stored_version: Option<u32>,
+        current_version: Option<u32>,
+    },
     ApobError(apob::ApobError),
+
+    PrevAbl0VersionNotUsed(u32),
+    Abl0VersionFound(u32),
+    Abl0VersionError(apob::ApobError),
 }
 
 counted_ringbuf!(Trace, 32, Trace::None);
@@ -47,7 +55,7 @@ pub const SECTOR_SIZE_BYTES: u32 = drv_hf_api::SECTOR_SIZE_BYTES as u32;
 /// Total flash size is 128 MiB
 pub const FLASH_SIZE_BYTES: u32 = 128 * 1024 * 1024;
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     // Wait for the FPGA to be configured; the sequencer task only starts its
     // Idol loop after the FPGA has been brought up.
@@ -120,6 +128,11 @@ mod instr {
 }
 
 impl FlashDriver {
+    // The SP5 does all of its reads from a particular base address (found
+    // by sniffing the SPI bus), so we have to subtract that out when
+    // calculating the flash offset used by the FPGA
+    const SP5_BASE: u32 = 0x3000000;
+
     fn flash_read_id(&mut self) -> drv_hf_api::HfChipId {
         self.clear_fifos();
         self.drv.data_bytes.set_count(3);
@@ -136,13 +149,11 @@ impl FlashDriver {
         // Make sure die 0 is selected with a dummy read, because the
         // READ_UNIQUE_ID command is die-specific.
         let mut buf = [0u8; 4];
-        self.flash_read(FlashAddr(0), &mut buf.as_mut_slice())
-            .unwrap_lite(); // infallible when given a slice
+        self.flash_read_slice(FlashAddr(0), buf.as_mut_slice());
         let die0_id = self.read_unique_id();
 
         // Then read the top die's unique ID
-        self.flash_read(FlashAddr(0x04000000), &mut buf.as_mut_slice())
-            .unwrap_lite(); // infallible when given a slice
+        self.flash_read_slice(FlashAddr(0x04000000), buf.as_mut_slice());
         let die1_id = self.read_unique_id();
 
         let mut unique_id = [0u8; 17];
@@ -348,8 +359,14 @@ impl FlashDriver {
         Ok(())
     }
 
+    /// Read data from flash into a slice
+    fn flash_read_slice(&mut self, offset: FlashAddr, mut dest: &mut [u8]) {
+        // This is infallible, per the docstring on `flash_read`, so we'll
+        // unwrap it here (which lets this function not return an error)
+        self.flash_read(offset, &mut dest).unwrap_lite()
+    }
+
     /// Writes data from a slice into the flash
-    ///
     fn flash_write(&mut self, addr: FlashAddr, data: &[u8]) {
         // Don't bother writing erased pages
         if data.iter().all(|x| *x == 0xff) {
@@ -438,17 +455,15 @@ impl FlashDriver {
     }
 
     fn set_espi_addr_offset(&self, v: FlashAddr) {
-        // The SP5 does all of its reads from a particular base address (found
-        // by sniffing the SPI bus), so we have to subtract that out when
-        // calculating the flash offset used by the FPGA
-        const SP5_BASE: u32 = 0x3000000;
         self.drv
             .sp5_flash_offset
-            .set_offset(v.0.wrapping_sub(SP5_BASE));
+            .set_offset(v.0.wrapping_sub(Self::SP5_BASE));
     }
 
     pub(crate) fn set_apob_pos(&self, pos: apob::ApobLocation) {
-        self.drv.apob_flash_addr.set_offset(pos.start);
+        self.drv
+            .apob_flash_addr
+            .set_offset(pos.start.wrapping_add(Self::SP5_BASE));
         self.drv.apob_flash_len.set_offset(pos.size);
     }
 

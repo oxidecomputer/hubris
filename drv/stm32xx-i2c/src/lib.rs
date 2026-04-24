@@ -716,10 +716,10 @@ impl I2cController<'_> {
             let mut pos = 0;
 
             loop {
-                if let ReadLength::Fixed(rlen) = rlen {
-                    if pos >= rlen {
-                        break;
-                    }
+                if let ReadLength::Fixed(rlen) = rlen
+                    && pos >= rlen
+                {
+                    break;
                 }
 
                 loop {

@@ -1,7 +1,7 @@
 target = "thumbv7em-none-eabihf"
 chip = "../../chips/stm32h7"
 stacksize = 896
-memory = "memory-large.toml"
+default-ram = "axi_sram"
 
 [kernel]
 name = "minibar"
@@ -103,6 +103,7 @@ max-sizes = {flash = 32768, ram = 32768 }
 stacksize = 1200
 start = true
 task-slots = ["sys", "i2c_driver", "sprot"]
+notifications = ["timer"]
 
 [tasks.thermal]
 name = "task-thermal"

@@ -190,7 +190,7 @@
 //!
 //! task_slot!(SYS, sys);
 //!
-//! #[export_name = "main"]
+//! #[unsafe(export_name = "main")]
 //! pub fn main() -> ! {
 //!     let sys = drv_stm32xx_sys_api::Sys::from(SYS.get_task_id());
 //!
@@ -233,7 +233,7 @@
 //!
 //! task_slot!(SYS, sys);
 //!
-//! #[export_name = "main"]
+//! #[unsafe(export_name = "main")]
 //! pub fn main() -> ! {
 //!     let sys = drv_stm32xx_sys_api::Sys::from(SYS.get_task_id());
 //!
@@ -320,7 +320,7 @@ cfg_if! {
     }
 }
 
-use drv_stm32xx_gpio_common::{server::get_gpio_regs, Port};
+use drv_stm32xx_gpio_common::{Port, server::get_gpio_regs};
 use drv_stm32xx_sys_api::{Edge, Group, IrqControl, RccError};
 use idol_runtime::{ClientError, NotificationHandler, RequestError};
 #[cfg(not(feature = "test"))]
@@ -373,7 +373,7 @@ where
     }
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     // From thin air, pluck a pointer to the RCC register block.
     //
@@ -1229,8 +1229,8 @@ cfg_if! {
 
 #[cfg(feature = "exti")]
 #[inline(always)]
-fn dispatch_table_iter(
-) -> impl Iterator<Item = (usize, &'static Option<ExtiDispatch>)> {
+fn dispatch_table_iter()
+-> impl Iterator<Item = (usize, &'static Option<ExtiDispatch>)> {
     // TODO: this sure looks like it should be using iter.enumerate, doesn't it?
     // Unfortunately that's not currently getting inlined by rustc, resulting in
     // rather silly code containing panics. This is significantly smaller.

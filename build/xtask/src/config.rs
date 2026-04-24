@@ -2,16 +2,16 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use std::collections::{hash_map::DefaultHasher, BTreeMap, BTreeSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, VecDeque, hash_map::DefaultHasher};
 use std::hash::Hasher;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result, anyhow, bail};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
-use crate::auxflash::{build_auxflash, AuxFlash, AuxFlashData};
+use crate::auxflash::{AuxFlash, AuxFlashData, build_auxflash};
 
 /// A `RawConfig` represents an `app.toml` file that has been deserialized,
 /// but may not be ready for use.  In particular, we use the `chip` field
@@ -29,6 +29,8 @@ struct RawConfig {
     #[serde(default)]
     version: u32,
     memory: Option<String>,
+    #[serde(default = "default_ram_name")]
+    default_ram: String,
     #[serde(default)]
     image_names: Vec<String>,
     #[serde(default)]
@@ -41,6 +43,11 @@ struct RawConfig {
     config: Option<ordered_toml::Value>,
     auxflash: Option<AuxFlash>,
     caboose: Option<CabooseConfig>,
+}
+
+pub const DEFAULT_RAM_NAME: &str = "ram";
+fn default_ram_name() -> String {
+    DEFAULT_RAM_NAME.to_owned()
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -68,6 +75,7 @@ pub struct Config {
     pub image_names: Vec<String>,
     pub signing: Option<RoTMfgSettings>,
     pub stacksize: Option<u32>,
+    pub default_ram: String,
     pub kernel: Kernel,
     pub outputs: IndexMap<String, Vec<Output>>,
     pub tasks: IndexMap<String, Task>,
@@ -250,6 +258,37 @@ impl Config {
             None => None,
         };
 
+        // Remap from "ram" to a specific region in `kernel.requires` and task
+        // `max-sizes` maps.
+        let mut kernel = toml.kernel;
+        let remap = |regions: &mut IndexMap<String, u32>,
+                     ram_region: &str,
+                     desc: &str| {
+            if let Some(ram_allot) = regions.remove(DEFAULT_RAM_NAME) {
+                let conflict = regions.insert(ram_region.to_owned(), ram_allot);
+                if conflict.is_some() {
+                    bail!(
+                        "cannot include both `{DEFAULT_RAM_NAME}` and default \
+                         ram region `{ram_region}` in {desc}"
+                    );
+                }
+            }
+            Ok(())
+        };
+        let kernel_ram_region =
+            kernel.default_ram.as_ref().unwrap_or(&toml.default_ram);
+        remap(&mut kernel.requires, kernel_ram_region, "kernel `requires`")?;
+        let mut tasks = toml.tasks;
+        for (name, task) in tasks.iter_mut() {
+            let task_ram_region =
+                task.default_ram.as_ref().unwrap_or(&toml.default_ram);
+            remap(
+                &mut task.max_sizes,
+                task_ram_region,
+                &format!("`max-sizes` for {name}"),
+            )?;
+        }
+
         Ok(Config {
             name: toml.name,
             target: toml.target,
@@ -261,9 +300,10 @@ impl Config {
             version: toml.version,
             signing: toml.signing,
             stacksize: toml.stacksize,
-            kernel: toml.kernel,
+            default_ram: toml.default_ram,
+            kernel,
             outputs,
-            tasks: toml.tasks,
+            tasks,
             peripherals,
             extratext: toml.extratext,
             config: toml.config,
@@ -518,7 +558,7 @@ impl Config {
         let outputs: &Vec<Output> = self
             .outputs
             .get(&region)
-            .ok_or_else(|| anyhow!("couldn't find region {}", region))?;
+            .ok_or_else(|| anyhow!("couldn't find region {region}"))?;
         let mut memories: IndexMap<String, Range<u32>> = IndexMap::new();
 
         for o in outputs {
@@ -606,7 +646,13 @@ impl Config {
         &self,
         image_name: &str,
     ) -> Result<IndexMap<String, Range<u32>>> {
-        self.get_extern_regions(&self.kernel.extern_regions, image_name)
+        let extern_regions = self
+            .kernel
+            .extern_regions
+            .iter()
+            .map(|r| r.region.clone())
+            .collect::<Vec<_>>();
+        self.get_extern_regions(&extern_regions, image_name)
     }
 
     fn get_extern_regions(
@@ -625,15 +671,27 @@ impl Config {
                     .filter(|o| o.name == image_name);
                 let out = regions.next().expect("no extern region for name");
                 if regions.next().is_some() {
-                    bail!(
-                        "multiple extern {} regions for name {}",
-                        r,
-                        image_name
-                    );
+                    bail!("multiple extern {r} regions for name {image_name}");
                 }
                 Ok((r.to_owned(), out.address..out.address + out.size))
             })
             .collect::<Result<IndexMap<String, Range<u32>>>>()
+    }
+
+    /// Returns the default RAM region for the kernel
+    pub fn kernel_ram_region(&self) -> &str {
+        self.kernel
+            .default_ram
+            .as_ref()
+            .unwrap_or(&self.default_ram)
+    }
+
+    /// Returns the default RAM region for a task
+    pub fn task_ram_region(&self, task: &str) -> &str {
+        self.tasks[task]
+            .default_ram
+            .as_ref()
+            .unwrap_or(&self.default_ram)
     }
 }
 
@@ -741,7 +799,16 @@ pub struct Kernel {
     #[serde(default)]
     pub no_default_features: bool,
     #[serde(default)]
-    pub extern_regions: Vec<String>,
+    pub extern_regions: Vec<KernelExternRegion>,
+    #[serde(default)]
+    pub default_ram: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+pub struct KernelExternRegion {
+    pub region: String,
+    pub shared: bool,
 }
 
 fn default_name() -> String {

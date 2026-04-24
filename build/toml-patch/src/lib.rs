@@ -12,7 +12,7 @@
 //! This crate exposes a single function [`merge_toml_documents`] which does
 //! this for you!
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{Result, anyhow, bail};
 use std::collections::BTreeMap;
 use toml_edit::{visit::Visit, visit_mut::VisitMut};
 
@@ -191,7 +191,7 @@ fn merge_toml_tables(
                     if u.type_name() != v.type_name() {
                         bail!(
                             "type mismatch for '{}': {} != {}",
-                            k.to_string(),
+                            k,
                             u.type_name(),
                             v.type_name()
                         );

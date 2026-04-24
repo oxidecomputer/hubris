@@ -9,7 +9,7 @@
 use derive_idol_err::IdolError;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
-use userlib::{sys_send, FromPrimitive, TaskId};
+use userlib::{FromPrimitive, TaskId, sys_send};
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 pub use drv_qspi_api::{PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES};
@@ -383,6 +383,28 @@ pub enum ApobCommitError {
     ValidationFailed,
     /// Committing the APOB failed, e.g. due to a flash write error
     CommitFailed,
+}
+
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+    FromPrimitive,
+    IdolError,
+    counters::Count,
+)]
+pub enum ApobClearError {
+    /// APOB is not implemented on this hardware
+    NotImplemented = 1,
+    /// Host flash is not muxed to the SP
+    NotMuxedToSp,
+    /// The APOB state machine is in an invalid state
+    InvalidState,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

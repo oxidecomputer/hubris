@@ -25,8 +25,8 @@ pub mod vsc85x2;
 use core::cell::Cell;
 use ringbuf::*;
 use userlib::hl::sleep_for;
-use vsc7448_pac::{phy, types::PhyRegisterAddress};
 pub use vsc_err::VscError;
+use vsc7448_pac::{phy, types::PhyRegisterAddress};
 
 ////////////////////////////////////////////////////////////////////////////////
 

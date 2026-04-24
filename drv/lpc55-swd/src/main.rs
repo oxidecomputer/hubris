@@ -97,16 +97,16 @@ use drv_lpc55_syscon_api::{Peripheral, Syscon};
 use drv_sp_ctrl_api::SpCtrlError;
 use endoscope_abi::{Shared, State};
 use idol_runtime::{
-    LeaseBufReader, LeaseBufWriter, Leased, LenLimit, NotificationHandler,
-    RequestError, R, W,
+    LeaseBufReader, LeaseBufWriter, Leased, LenLimit, NotificationHandler, R,
+    RequestError, W,
 };
 use lpc55_pac as device;
 use ringbuf::*;
 use static_assertions::const_assert;
 use userlib::{
-    hl, set_timer_relative, sys_get_timer, sys_irq_control,
-    sys_irq_control_clear_pending, sys_set_timer, task_slot, FromPrimitive,
-    RecvMessage, TaskId, UnwrapLite,
+    FromPrimitive, RecvMessage, TaskId, UnwrapLite, hl, set_timer_relative,
+    sys_get_timer, sys_irq_control, sys_irq_control_clear_pending,
+    sys_set_timer, task_slot,
 };
 use zerocopy::IntoBytes;
 
@@ -281,7 +281,7 @@ const WAIT_FOR_HALT_MS: u64 = 500;
 // Debug Interface from Armv7 Architecture Manual chapter C-1
 mod armv7debug;
 
-use armv7debug::{Demcr, Dfsr, Dhcsr, DpAddressable, Reg, DCRDR, DCRSR, VTOR};
+use armv7debug::{DCRDR, DCRSR, Demcr, Dfsr, Dhcsr, DpAddressable, Reg, VTOR};
 
 #[derive(Copy, Clone, PartialEq)]
 enum Port {
@@ -1176,7 +1176,7 @@ impl ServerImpl {
     }
 
     fn read_transaction_word(&mut self) -> Result<Option<u32>, Ack> {
-        if let Some(mut transaction) = &self.transaction {
+        if let Some(mut transaction) = self.transaction {
             let val = self.swd_read_ap_reg(ApAddr(0, ApReg::DRW), true)?;
 
             transaction.read_cnt += 1;
@@ -1855,7 +1855,7 @@ fn slice_to_le_u32(slice: &[u8]) -> Option<u32> {
     slice.try_into().map(u32::from_le_bytes).ok()
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let syscon = SYSCON.get_task_id();
 

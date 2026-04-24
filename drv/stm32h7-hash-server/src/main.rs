@@ -16,7 +16,7 @@ use userlib::*;
 use drv_stm32h7_hash::Hash;
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{
-    ClientError, Leased, LenLimit, NotificationHandler, RequestError, R,
+    ClientError, Leased, LenLimit, NotificationHandler, R, RequestError,
 };
 
 #[cfg(feature = "h753")]
@@ -34,7 +34,7 @@ fn hash_hw_reset() {
     sys.leave_reset(sys_api::Peripheral::Hash);
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     hash_hw_reset();
 

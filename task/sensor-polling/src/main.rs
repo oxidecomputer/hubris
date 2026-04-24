@@ -115,7 +115,7 @@ ringbuf!(Trace, 32, Trace::None);
 
 const TIMER_INTERVAL: u64 = 1000;
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let i2c_task = I2C.get_task_id();
     let sensor_api = Sensor::from(SENSOR.get_task_id());

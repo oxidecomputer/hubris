@@ -2,6 +2,7 @@ name = "gimletlet-mgmt"
 target = "thumbv7em-none-eabihf"
 board = "gimletlet-1"
 chip = "../../chips/stm32h7"
+default-ram = "dtcm"
 stacksize = 1024
 
 [kernel]
@@ -45,6 +46,7 @@ max-sizes = {flash = 32768, ram = 65536 }
 stacksize = 2048
 start = true
 task-slots = ["sys", "user_leds"]
+notifications = ["timer"]
 
 [tasks.net]
 name = "task-net"

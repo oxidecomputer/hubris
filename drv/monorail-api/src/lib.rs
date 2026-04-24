@@ -15,8 +15,8 @@ pub use vsc85xx::{
 };
 
 pub use vsc7448::{
-    config::{PortConfig, PortDev, PortMode, PortSerdes, Speed},
     VscError,
+    config::{PortConfig, PortDev, PortMode, PortSerdes, Speed},
 };
 
 /// Maximum number of ports

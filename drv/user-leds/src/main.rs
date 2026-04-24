@@ -97,7 +97,8 @@ cfg_if::cfg_if! {
         target_board = "psc-b",
         target_board = "psc-c",
         target_board = "oxcon2023g0",
-        target_board = "grapefruit",
+        target_board = "grapefruit-a",
+        target_board = "grapefruit-b",
     ))] {
         #[derive(enum_map::Enum, Copy, Clone, FromPrimitive)]
         enum Led {
@@ -186,7 +187,7 @@ impl idol_runtime::NotificationHandler for ServerImpl {
     }
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     enable_led_pins();
 
@@ -489,7 +490,7 @@ cfg_if::cfg_if! {
                 const LEDS: &[(drv_stm32xx_sys_api::PinSet, bool)] = &[
                     (drv_stm32xx_sys_api::Port::A.pin(3), false),
                 ];
-            } else if #[cfg(target_board = "grapefruit")] {
+            } else if #[cfg(any(target_board = "grapefruit-a", target_board = "grapefruit-b"))] {
                 const LEDS: &[(drv_stm32xx_sys_api::PinSet, bool)] = &[
                     (drv_stm32xx_sys_api::Port::C.pin(6), false),
                 ];

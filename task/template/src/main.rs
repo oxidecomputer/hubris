@@ -11,7 +11,7 @@
 #[allow(unused_imports)]
 use userlib::*;
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     loop {
         // NOTE: you need to put code here before running this! Otherwise LLVM

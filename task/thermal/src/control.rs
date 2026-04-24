@@ -5,11 +5,12 @@
 use core::cell::Cell;
 
 use crate::{
-    bsp::{self, Bsp, PowerBitmask},
     Fan, ThermalError, Trace,
+    bsp::{self, Bsp, PowerBitmask},
 };
 use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_i2c_devices::{
+    TempSensor,
     emc2305::Emc2305,
     max31790::{I2cWatchdog, Max31790},
     nvme_bmc::NvmeBmc,
@@ -18,16 +19,14 @@ use drv_i2c_devices::{
     tmp117::Tmp117,
     tmp451::Tmp451,
     tse2004av::Tse2004Av,
-    TempSensor,
 };
 
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use task_sensor_api::{Reading, Sensor as SensorApi, SensorError, SensorId};
 use task_thermal_api::{SensorReadError, ThermalAutoState, ThermalProperties};
 use userlib::{
-    sys_get_timer,
+    TaskId, UnwrapLite, sys_get_timer,
     units::{Celsius, PWMDuty, Rpm},
-    TaskId, UnwrapLite,
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -829,8 +828,8 @@ impl ThermalControlState {
 /// do that).
 mod temperature_array {
     use super::{
-        Bsp, Cell, DynamicChannelsArray, SensorId, TemperatureReading,
-        ThermalProperties, UnwrapLite, TEMPERATURE_ARRAY_SIZE,
+        Bsp, Cell, DynamicChannelsArray, SensorId, TEMPERATURE_ARRAY_SIZE,
+        TemperatureReading, ThermalProperties, UnwrapLite,
     };
 
     /// Array of optional temperature readings
@@ -1081,10 +1080,10 @@ impl<'a> ThermalControl<'a> {
         // If the incoming integral gain is zero, then it will never be able
         // to wind down the integral accumulator (which is pre-multiplied),
         // so clear it here.
-        if let ThermalControlState::Running { pid, .. } = &mut self.state {
-            if i == 0.0 {
-                pid.integral = 0.0;
-            }
+        if let ThermalControlState::Running { pid, .. } = &mut self.state
+            && i == 0.0
+        {
+            pid.integral = 0.0;
         }
 
         self.pid_config.zero = z;
@@ -1637,15 +1636,14 @@ impl<'a> ThermalControl<'a> {
     /// overheated control regime), and transitions from `Critical` back to
     /// `Running` or `Uncontrollable`.
     fn record_leaving_critical(&mut self, now_ms: u64) {
-        if let ThermalControlState::Critical { start_time, .. } = self.state {
-            if let Some(OverheatTimer {
+        if let ThermalControlState::Critical { start_time, .. } = self.state
+            && let Some(OverheatTimer {
                 ref mut critical_ms,
                 ..
             }) = self.overheat_timer
-            {
-                *critical_ms = critical_ms
-                    .saturating_add(now_ms.saturating_sub(start_time));
-            }
+        {
+            *critical_ms =
+                critical_ms.saturating_add(now_ms.saturating_sub(start_time));
         }
     }
 

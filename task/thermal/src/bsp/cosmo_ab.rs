@@ -15,7 +15,7 @@ pub use drv_cpu_seq_api::SeqError;
 use drv_cpu_seq_api::{PowerState, Sequencer, StateChangeReason};
 use task_sensor_api::SensorId;
 use task_thermal_api::ThermalProperties;
-use userlib::{task_slot, units::Celsius, TaskId, UnwrapLite};
+use userlib::{TaskId, UnwrapLite, task_slot, units::Celsius};
 
 task_slot!(SEQ, cosmo_seq);
 

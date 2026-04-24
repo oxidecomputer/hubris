@@ -155,7 +155,7 @@ enum TraceSet<T> {
 }
 
 ringbuf!(Trace, 16, Trace::None);
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     struct StaticBufs {
         mac_address_block: Option<MacAddressBlock>,
@@ -167,7 +167,7 @@ fn main() -> ! {
         #[cfg(feature = "ereport")]
         ereport_bufs: ereport::EreportBufs,
     }
-    let StaticBufs {
+    let &mut StaticBufs {
         ref mut mac_address_block,
         ref mut identity,
         #[cfg(feature = "gimlet")]
@@ -515,22 +515,22 @@ impl idl::InOrderPackratImpl for ServerImpl {
     }
 
     #[cfg(not(feature = "ereport"))]
-    fn deliver_ereport(
+    fn deliver_encoded_ereport(
         &mut self,
         _: &RecvMessage,
         _: LenLimit<Leased<idol_runtime::R, [u8]>, 1024usize>,
-    ) -> Result<(), RequestError<EreportWriteError>> {
+    ) -> Result<ereport_messages::Ena, RequestError<EreportWriteError>> {
         // go away, we don't know how to do that
         Err(idol_runtime::ClientError::UnknownOperation.fail())
     }
 
     #[cfg(feature = "ereport")]
-    fn deliver_ereport(
+    fn deliver_encoded_ereport(
         &mut self,
         msg: &RecvMessage,
         data: LenLimit<Leased<idol_runtime::R, [u8]>, 1024usize>,
-    ) -> Result<(), RequestError<EreportWriteError>> {
-        self.ereport_store.deliver_ereport(msg, data)
+    ) -> Result<ereport_messages::Ena, RequestError<EreportWriteError>> {
+        self.ereport_store.deliver_encoded_ereport(msg, data)
     }
 
     #[cfg(not(feature = "ereport"))]
@@ -603,8 +603,8 @@ impl NotificationHandler for ServerImpl {
 
 mod idl {
     use super::{
-        ereport_messages, CacheGetError, CacheSetError, EreportReadError,
-        EreportWriteError, HostStartupOptions, MacAddressBlock, OxideIdentity,
+        CacheGetError, CacheSetError, EreportReadError, EreportWriteError,
+        HostStartupOptions, MacAddressBlock, OxideIdentity, ereport_messages,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

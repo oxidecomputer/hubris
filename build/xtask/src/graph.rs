@@ -8,7 +8,7 @@ use std::hash::Hash;
 use std::io::Write;
 use std::path::Path;
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 
 use crate::config::Config;
 
@@ -46,7 +46,7 @@ pub fn task_graph(app_toml: &Path, path: &Path) -> Result<()> {
             let p = toml
                 .tasks
                 .get(callee)
-                .ok_or_else(|| anyhow!("Invalid task-slot: {}", callee))?
+                .ok_or_else(|| anyhow!("Invalid task-slot: {callee}"))?
                 .priority;
             let inverted = p >= task.priority && name != callee;
             edges.push(Edge {

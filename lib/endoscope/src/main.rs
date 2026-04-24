@@ -9,8 +9,8 @@
 use core::arch::{self};
 use core::panic::PanicInfo;
 use cortex_m_rt::entry;
-use drv_stm32h7_startup::system_init;
 use drv_stm32h7_startup::ClockConfig;
+use drv_stm32h7_startup::system_init;
 use endoscope_abi::DIGEST_SIZE;
 use stm32h7::stm32h753 as device;
 
@@ -60,9 +60,9 @@ const CLOCK_CONFIG: ClockConfig = ClockConfig {
 };
 
 mod shared;
-use shared::{State, SHARED};
+use shared::{SHARED, State};
 
-extern "C" {
+unsafe extern "C" {
     static FLASH_BASE: [u8; 0];
     static FLASH_SIZE: [u32; 0];
 }
@@ -95,14 +95,14 @@ fn panic(_info: &PanicInfo) -> ! {
 }
 
 #[allow(non_snake_case)]
-#[no_mangle]
+#[unsafe(no_mangle)]
 /// # Safety
 /// Required by the architecture and linker.
 pub unsafe extern "C" fn DefaultHandler() {
     breakpoint();
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 extern "C" fn breakpoint() -> ! {
     loop {
         unsafe {

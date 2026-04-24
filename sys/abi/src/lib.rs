@@ -45,10 +45,13 @@ impl TaskId {
     pub const INDEX_MASK: u16 = (1 << Self::INDEX_BITS) - 1;
 
     /// Fabricates a `TaskId` for a known index and generation number.
-    pub const fn for_index_and_gen(index: usize, gen: Generation) -> Self {
+    pub const fn for_index_and_gen(
+        index: usize,
+        generation: Generation,
+    ) -> Self {
         TaskId(
             (index as u16 & Self::INDEX_MASK)
-                | (gen.0 as u16) << Self::INDEX_BITS,
+                | (generation.0 as u16) << Self::INDEX_BITS,
         )
     }
 

@@ -10,8 +10,8 @@ use unwrap_lite::UnwrapLite;
 
 use crate::arch;
 use crate::err::UserError;
-use crate::task::{current_id, ArchState, NextTask, Task};
-use crate::umem::{safe_copy, USlice};
+use crate::task::{ArchState, NextTask, Task, current_id};
+use crate::umem::{USlice, safe_copy};
 
 /// Message dispatcher.
 pub fn handle_kernel_message(
@@ -372,7 +372,8 @@ fn read_task_dump_region(
             // succeed (see: the comparisons between base+size and region.size
             // above).
             let offset = from.base_addr() - tcb_base;
-            let tcb = &target_task[offset..from.len()];
+            let end = offset + from.len();
+            let tcb = &target_task[offset..end];
 
             let to = caller_task
                 .try_write(&mut response)

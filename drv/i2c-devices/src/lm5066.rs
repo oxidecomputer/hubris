@@ -7,8 +7,8 @@
 use core::cell::Cell;
 
 use crate::{
-    pmbus_validate, BadValidation, CurrentSensor, TempSensor, Validate,
-    VoltageSensor,
+    BadValidation, CurrentSensor, TempSensor, Validate, VoltageSensor,
+    pmbus_validate,
 };
 use drv_i2c_api::*;
 use num_traits::float::FloatCore;

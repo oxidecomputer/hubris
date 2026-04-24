@@ -2,9 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::dice::{MfgResult, KEYCODE_LEN, KEY_INDEX, SEED_LEN};
+use crate::dice::{KEY_INDEX, KEYCODE_LEN, MfgResult, SEED_LEN};
 use core::ops::{Deref, DerefMut};
-use drv_lpc55_flash::{Flash, BYTES_PER_FLASH_PAGE};
+use drv_lpc55_flash::{BYTES_PER_FLASH_PAGE, Flash};
 use hubpack::SerializedSize;
 use lib_dice::{
     CertSerialNumber, DiceMfg, IntermediateCert, PersistIdCert, PersistIdSeed,

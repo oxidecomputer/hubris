@@ -13,24 +13,24 @@ use static_cell::ClaimOnceCell;
 use userlib::{sys_get_timer, task_slot, units::Celsius};
 
 use drv_fpga_api::FpgaError;
-use drv_i2c_devices::pca9956b::Error;
-use drv_sidecar_front_io::{
+use drv_front_io_api::{
+    Reg,
     leds::{FullErrorSummary, Leds},
     transceivers::{
         FpgaI2CFailure, LogicalPort, LogicalPortMask, Transceivers,
     },
-    Reg,
 };
+use drv_i2c_devices::pca9956b::Error;
 use drv_sidecar_seq_api::{SeqError, Sequencer, TofinoSeqState};
 use drv_transceivers_api::{
-    ModuleStatus, TransceiversError, NUM_PORTS, TRANSCEIVER_TEMPERATURE_SENSORS,
+    ModuleStatus, NUM_PORTS, TRANSCEIVER_TEMPERATURE_SENSORS, TransceiversError,
 };
 use enum_map::Enum;
 use task_sensor_api::{NoData, Sensor};
 #[allow(unused_imports)]
 use task_thermal_api::{Thermal, ThermalError, ThermalProperties};
 use transceiver_messages::{
-    message::LedState, mgmt::ManagementInterface, MAX_PACKET_SIZE,
+    MAX_PACKET_SIZE, message::LedState, mgmt::ManagementInterface,
 };
 
 use zerocopy::{FromBytes, FromZeros, IntoBytes};
@@ -615,7 +615,7 @@ impl NotificationHandler for ServerImpl {
     }
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     // This is a temporary workaround that makes sure the FPGAs are up
     // before we start doing things with them. A more sophisticated

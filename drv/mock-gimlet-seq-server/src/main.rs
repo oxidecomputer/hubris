@@ -14,7 +14,7 @@ use userlib::{FromPrimitive, RecvMessage, UnwrapLite};
 
 userlib::task_slot!(JEFE, jefe);
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let mut buffer = [0; idl::INCOMING_SIZE];
     let mut server = ServerImpl::init(Jefe::from(JEFE.get_task_id()));

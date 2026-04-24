@@ -6,7 +6,7 @@
 
 use crate::Validate;
 use drv_i2c_api::*;
-use userlib::{hl::sleep_for, FromPrimitive, ToPrimitive};
+use userlib::{FromPrimitive, ToPrimitive, hl::sleep_for};
 use zerocopy::{FromBytes, Immutable, IntoBytes};
 
 /// Number of bytes stored in the EEPROM

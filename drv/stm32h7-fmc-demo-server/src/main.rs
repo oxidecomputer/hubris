@@ -8,7 +8,7 @@
 #![no_main]
 
 use core::{convert::Infallible, mem::take};
-use counters::{count, Count};
+use counters::{Count, count};
 use static_cell::ClaimOnceCell;
 use task_net_api::{
     LargePayloadBehavior, Net, RecvError, SendError, SocketName,
@@ -49,7 +49,7 @@ fn translate_addr(addr: usize) -> usize {
     (addr & 0x0FFF_FFFF) | 0xc000_0000
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     // The FMC must be manually initialized in the kernel startup routine!
 

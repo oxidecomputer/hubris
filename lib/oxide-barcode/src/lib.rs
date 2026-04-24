@@ -332,11 +332,7 @@ impl Mpn1Identity {
 
     fn nth_part(&self, n: usize) -> Option<&[u8]> {
         let part = self.bytes().split(|b| *b == b':').nth(n)?;
-        if part.is_empty() {
-            None
-        } else {
-            Some(part)
-        }
+        if part.is_empty() { None } else { Some(part) }
     }
 
     pub fn parse(bytes: &[u8]) -> Result<Self, ParseError> {

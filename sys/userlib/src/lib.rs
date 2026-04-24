@@ -1271,12 +1271,12 @@ unsafe extern "C" fn sys_get_timer_stub(_out: *mut RawTimerState) {
 /// This is the entry point for the task, invoked by the kernel. Its job is to
 /// set up our memory before jumping to user-defined `main`.
 #[doc(hidden)]
-#[no_mangle]
-#[link_section = ".text.start"]
+#[unsafe(no_mangle)]
+#[unsafe(link_section = ".text.start")]
 #[unsafe(naked)]
 pub unsafe extern "C" fn _start() -> ! {
     // Provided by the user program:
-    extern "Rust" {
+    unsafe extern "Rust" {
         fn main() -> !;
     }
 
@@ -1573,7 +1573,7 @@ fn panic(_: &core::panic::PanicInfo<'_>) -> ! {
 #[cfg(feature = "no-panic")]
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo<'_>) -> ! {
-    extern "C" {
+    unsafe extern "C" {
         fn you_have_introduced_a_panic_which_is_not_permitted() -> !;
     }
 

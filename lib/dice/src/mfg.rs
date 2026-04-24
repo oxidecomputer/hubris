@@ -3,8 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    cert::PersistIdSelfCertBuilder, csr::PersistIdCsrBuilder, CertSerialNumber,
-    IntermediateCert, PersistIdCert, SeedBuf,
+    CertSerialNumber, IntermediateCert, PersistIdCert, SeedBuf,
+    cert::PersistIdSelfCertBuilder, csr::PersistIdCsrBuilder,
 };
 use core::mem::size_of;
 use dice_mfg_msgs::{
@@ -13,7 +13,7 @@ use dice_mfg_msgs::{
 use lib_lpc55_usart::{Read, Usart, Write};
 use lpc55_pac::SYSCON;
 use salty::{constants::SECRETKEY_SEED_LENGTH, signature::Keypair};
-use sha3::{digest::FixedOutputReset, Digest, Sha3_256};
+use sha3::{Digest, Sha3_256, digest::FixedOutputReset};
 use unwrap_lite::UnwrapLite;
 use zerocopy::{FromBytes, Immutable, KnownLayout};
 use zeroize::{Zeroize, ZeroizeOnDrop};

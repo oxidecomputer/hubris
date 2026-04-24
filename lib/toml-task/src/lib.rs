@@ -4,7 +4,7 @@
 
 //! `toml-task` allows for `xtask` and `build.rs` scripts to share a common
 //! definition of a `task` within a TOML file.
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
@@ -34,6 +34,10 @@ pub struct Task<T = ordered_toml::Value> {
     /// Memory regions which should be mapped as accessible to this task
     #[serde(default)]
     pub extern_regions: Vec<String>,
+
+    /// RAM region to use for this task
+    #[serde(default)]
+    pub default_ram: Option<String>,
 
     // Order matters here:
     // TOML serialization doesn't allow us to put a value type after any Table

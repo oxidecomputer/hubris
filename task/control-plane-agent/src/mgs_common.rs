@@ -3,10 +3,10 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
+    Log, MgsMessage,
     dump::DumpState,
     inventory::Inventory,
-    update::{rot::RotUpdate, sp::SpUpdate, ComponentUpdater},
-    Log, MgsMessage,
+    update::{ComponentUpdater, rot::RotUpdate, sp::SpUpdate},
 };
 use drv_caboose::{CabooseError, CabooseReader};
 use drv_sprot_api::{
@@ -582,7 +582,7 @@ impl MgsCommon {
                         }
                         VpdError::AlreadyLocked => GwVpdError::AlreadyLocked,
                         VpdError::ServerRestarted => GwVpdError::TaskRestarted,
-                    }))
+                    }));
                 }
             }
         }

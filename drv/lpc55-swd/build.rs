@@ -2,12 +2,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use build_lpc55pins::PinConfig;
 use call_rustfmt::rustfmt;
 use goblin::container::Container;
-use goblin::elf::section_header::{SectionHeader, SHF_ALLOC, SHT_PROGBITS};
 use goblin::elf::Elf;
+use goblin::elf::section_header::{SHF_ALLOC, SHT_PROGBITS, SectionHeader};
 use serde::Deserialize;
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -228,7 +228,9 @@ where
     //
     #[cfg(not(clippy))]
     if bin_size > 6 * 1024 {
-        bail!("bin_size of {bin_size} is over 6KiB. Was it built with the wrong profile?");
+        bail!(
+            "bin_size of {bin_size} is over 6KiB. Was it built with the wrong profile?"
+        );
     }
 
     // Test our assumptions that the sections are in order and contiguous.

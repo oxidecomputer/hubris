@@ -29,9 +29,20 @@ port = 998
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
 
+[tasks.hiffy]
+features = ["net", "vlan"]
+notifications = ["socket"]
+
 [config.net.sockets.fmc_test]
 kind = "udp"
 owner = {name = "fmc_demo", notification = "socket"}
 port = 11114
 tx = { packets = 3, bytes = 4096 }
 rx = { packets = 3, bytes = 4096 }
+
+[config.net.sockets.hiffy]
+kind = "udp"
+owner = {name = "hiffy", notification = "socket"}
+port = 11115
+tx = { packets = 3, bytes = 32 }
+rx = { packets = 1, bytes = 4096 }

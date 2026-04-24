@@ -13,10 +13,10 @@ use idol_runtime::RequestError;
 use ringbuf::{counted_ringbuf, ringbuf_entry};
 use task_jefe_api::Jefe;
 use task_packrat_api::Packrat;
-use task_sensor_api::{config::other_sensors, NoData, Sensor, SensorId};
+use task_sensor_api::{NoData, Sensor, SensorId, config::other_sensors};
 use userlib::{
-    hl::sleep_for, set_timer_relative, sys_get_timer, task_slot, FromPrimitive,
-    RecvMessage,
+    FromPrimitive, RecvMessage, hl::sleep_for, set_timer_relative,
+    sys_get_timer, task_slot,
 };
 use zerocopy::IntoBytes;
 
@@ -36,7 +36,7 @@ enum Trace {
 
 counted_ringbuf!(Trace, 32, Trace::None);
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let packrat = Packrat::from(PACKRAT.get_task_id());
     let loader = Spartan7Loader::from(LOADER.get_task_id());
@@ -214,16 +214,16 @@ impl ServerImpl {
                     b.set_op(2); // RANDOM_READ
                 });
                 const TIMEOUT_COUNT: usize = 8;
-                let mut timed_out = false;
-                for i in 0.. {
+                let mut attempts = 0;
+                let timed_out = loop {
                     if self.dimms.$count.data() == 2 {
-                        break;
-                    } else if i == TIMEOUT_COUNT {
-                        timed_out = true;
-                        break;
+                        break false;
+                    } else if attempts == TIMEOUT_COUNT {
+                        break true;
                     }
                     sleep_for(1);
-                }
+                    attempts += 1;
+                };
                 if timed_out {
                     None
                 } else {

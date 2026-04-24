@@ -4,15 +4,31 @@
 
 use std::path::PathBuf;
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 
 use crate::config::Config;
 
+/// A passthrough function for plumbing basic `cargo ...` commands in the
+/// context of a hubris build.
+///
+/// ## Arguments
+///
+/// * `cargo_cmd`: The cargo subcommand, e.g. `doc` or `clippy`
+/// * `verbose`: Toggles verbosity
+/// * `cfg`: Path to the `app.toml`
+/// * `tasks`: List of task names to run this command on, will run cargo
+///   subcommand on EACH specified task
+/// * `direct_opts`: Arguments to be passed BEFORE the `--` of the command
+///   invocation, e.g. `cargo subcommand $DIRECT_OPTS`
+/// * `post_opts`: Arguments to be passed AFTER the `--` of the command
+///   invocation, e.g. `cargo subcommand -- $POST_OPTS`
 pub fn run(
+    cargo_cmd: &str,
     verbose: bool,
     cfg: PathBuf,
     tasks: &[String],
-    options: &[String],
+    direct_opts: &[String],
+    post_opts: &[String],
 ) -> Result<()> {
     let toml = Config::from_file(&cfg)?;
 
@@ -47,14 +63,23 @@ pub fn run(
 
         let build_config = if name == "kernel" {
             // Build dummy allocations for each task
-            let fake_sizes = crate::dist::TaskRequest {
-                memory: [("flash", 64), ("ram", 64)].into_iter().collect(),
-                spare_regions: 0,
-            };
             let task_sizes = toml
                 .tasks
                 .keys()
-                .map(|name| (name.as_str(), fake_sizes.clone()))
+                .map(|name| {
+                    (
+                        name.as_str(),
+                        crate::dist::TaskRequest {
+                            memory: [
+                                ("flash", 64),
+                                (toml.task_ram_region(name), 64),
+                            ]
+                            .into_iter()
+                            .collect(),
+                            spare_regions: 0,
+                        },
+                    )
+                })
                 .collect();
 
             let allocated = crate::dist::allocate_all(
@@ -103,17 +128,21 @@ pub fn run(
         } else {
             toml.task_build_config(name, verbose, None).unwrap()
         };
-        let mut cmd = build_config.cmd("clippy");
+        let mut cmd = build_config.cmd(cargo_cmd);
+
+        for opt in direct_opts {
+            cmd.arg(opt);
+        }
 
         cmd.arg("--");
 
-        for opt in options {
+        for opt in post_opts {
             cmd.arg(opt);
         }
 
         let status = cmd.status()?;
         if !status.success() {
-            bail!("`cargo clippy` failed, see output for details");
+            bail!("`cargo {cargo_cmd}` failed, see output for details");
         }
     }
     Ok(())

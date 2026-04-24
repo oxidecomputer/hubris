@@ -2,10 +2,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use convert_case::{Case, Casing};
 use serde::Deserialize;
-use serde_with::{serde_as, DefaultOnNull};
+use serde_with::{DefaultOnNull, serde_as};
 use std::{fmt::Write, path::PathBuf};
 
 #[serde_as]
@@ -838,7 +838,7 @@ pub fn read_parse(p: &std::path::Path) -> anyhow::Result<Node> {
     std::fs::File::open(p)
         .with_context(|| format!("failed to open {p:?}"))?
         .read_to_end(&mut data)?;
-    println!("cargo::rerun-if-changed={p:?}");
+    println!("cargo::rerun-if-changed={}", p.display());
     let src = std::str::from_utf8(&data)?;
     let node: Node = serde_json::from_str(src)?;
     Ok(node)

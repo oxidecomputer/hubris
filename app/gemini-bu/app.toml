@@ -2,6 +2,7 @@ name = "gemini-bu"
 target = "thumbv7em-none-eabihf"
 board = "gemini-bu-1"
 chip = "../../chips/stm32h7"
+default-ram = "dtcm"
 stacksize = 896
 
 [kernel]
@@ -123,6 +124,7 @@ max-sizes = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true
 task-slots = ["sys", "i2c_driver", "hf", "hash_driver", "sprot", "update_server"]
+notifications = ["timer"]
 
 [tasks.sprot]
 name = "drv-stm32h7-sprot-server"

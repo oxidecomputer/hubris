@@ -261,27 +261,104 @@
         },
         {
             "type": "reg",
-            "inst_name": "ipcc_to_host_usedwds",
+            "inst_name": "post_code_monitor",
             "addr_offset": 40,
             "regwidth": 32,
             "min_accesswidth": 32,
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "count",
+                    "inst_name": "bl_success_c_main",
                     "lsb": 0,
-                    "msb": 31,
+                    "msb": 0,
                     "reset": 0,
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": ""
+                    "desc": "0xee1000a0 - BL_SUCCESS_C_MAIN - Successfully entered Main. Sticky: set when post code is seen, cleared by hardware on new boot."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "tp_proc_mem_after_mem_data_init",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "0xea00e046 - TpProcMemAfterMemDataInit - memory data initialised. Sticky: set when post code is seen, cleared by hardware on new boot."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "tp_abl7_resume_initialization",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "0xea00e101 - TpAbl7ResumeInitialization - eMCR starting (not seen if no eMCR). Sticky: set when post code is seen, cleared by hardware on new boot."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "tp_abl_memory_ddr_training_start",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "0xea00e340 - TpAblMemoryDdrTrainingStart - seen instead of TpAbl7ResumeInitialization when no eMCR. Sticky: set when post code is seen, cleared by hardware on new boot."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "tp_proc_cpu_optimized_boot_start",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "0xea00e055 - TpProcCpuOptimizedBootStart. Sticky: set when post code is seen, cleared by hardware on new boot."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "tp_abl4_apob",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "0xea00e0c9 - TpAbl4Apob. Sticky: set when post code is seen, cleared by hardware on new boot."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "bl_success_bios_load_complete",
+                    "lsb": 6,
+                    "msb": 6,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "0xee1000bb - BL_SUCCESS_BIOS_LOAD_COMPLETE. Sticky: set when post code is seen, cleared by hardware on new boot."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "phbl_hello",
+                    "lsb": 7,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "0x1de90001 - PHBLhello. Sticky: set when post code is seen, cleared by hardware on new boot."
                 }
             ]
         },
         {
             "type": "reg",
-            "inst_name": "ipcc_host_to_sp_usedwds",
+            "inst_name": "ipcc_to_host_usedwds",
             "addr_offset": 44,
             "regwidth": 32,
             "min_accesswidth": 32,
@@ -301,7 +378,7 @@
         },
         {
             "type": "reg",
-            "inst_name": "ipcc_to_host_byte_cntr",
+            "inst_name": "ipcc_host_to_sp_usedwds",
             "addr_offset": 48,
             "regwidth": 32,
             "min_accesswidth": 32,
@@ -321,8 +398,28 @@
         },
         {
             "type": "reg",
-            "inst_name": "ipcc_dummy_fill_en",
+            "inst_name": "ipcc_to_host_byte_cntr",
             "addr_offset": 52,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "count",
+                    "lsb": 0,
+                    "msb": 31,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": ""
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "ipcc_dummy_fill_en",
+            "addr_offset": 56,
             "regwidth": 32,
             "min_accesswidth": 32,
             "children": [
@@ -342,7 +439,7 @@
         {
             "type": "reg",
             "inst_name": "ipcc_dummy_fill_count",
-            "addr_offset": 56,
+            "addr_offset": 60,
             "regwidth": 32,
             "min_accesswidth": 32,
             "children": [
@@ -362,147 +459,6 @@
         {
             "type": "reg",
             "inst_name": "LIVE_ESPI_STATUS",
-            "addr_offset": 60,
-            "regwidth": 32,
-            "min_accesswidth": 32,
-            "children": [
-                {
-                    "type": "field",
-                    "inst_name": "PC_FREE",
-                    "lsb": 0,
-                    "msb": 0,
-                    "reset": null,
-                    "sw_access": "rw",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "When '1', indicates the target is free to accept\nat least one channel 0 peripheral posted or\ncompletion header and data up to maximum\npayload size."
-                },
-                {
-                    "type": "field",
-                    "inst_name": "NP_FREE",
-                    "lsb": 1,
-                    "msb": 1,
-                    "reset": null,
-                    "sw_access": "rw",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "When '1', indicates the target is free to accept\nat least one channel 0 peripheral non-posted\nheader and 1 DW of Data (if applicable)."
-                },
-                {
-                    "type": "field",
-                    "inst_name": "VWIRE_FREE",
-                    "lsb": 2,
-                    "msb": 2,
-                    "reset": null,
-                    "sw_access": "rw",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "This bit must be always a '1'. Tunneling of\nchannel 1 virtual wires is not flow controlled."
-                },
-                {
-                    "type": "field",
-                    "inst_name": "OOB_FREE",
-                    "lsb": 3,
-                    "msb": 3,
-                    "reset": null,
-                    "sw_access": "rw",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "When '1', indicates the target is free to accept\nat least one channel 2 OOB (tunneled SMBus)\nmessage with data up to maximum payload size."
-                },
-                {
-                    "type": "field",
-                    "inst_name": "PC_AVAIL",
-                    "lsb": 4,
-                    "msb": 4,
-                    "reset": null,
-                    "sw_access": "rw",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "When '1', indicates the target has a channel 0\nperipheral posted or completion header and\noptional data up to maximum payload size\navailable to send."
-                },
-                {
-                    "type": "field",
-                    "inst_name": "NP_AVAIL",
-                    "lsb": 5,
-                    "msb": 5,
-                    "reset": null,
-                    "sw_access": "rw",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "When '1', indicates the target has a channel 0\nperipheral non-posted header available to\nsend."
-                },
-                {
-                    "type": "field",
-                    "inst_name": "VWIRE_AVAIL",
-                    "lsb": 6,
-                    "msb": 6,
-                    "reset": null,
-                    "sw_access": "rw",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "When '1', indicates the target has a channel 1\ntunneled virtual wire available to send."
-                },
-                {
-                    "type": "field",
-                    "inst_name": "OOB_AVAIL",
-                    "lsb": 7,
-                    "msb": 7,
-                    "reset": null,
-                    "sw_access": "rw",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "When '1', indicates the target has a channel 2\nOOB (tunneled SMBus) message with data up\nto maximum payload size available to send."
-                },
-                {
-                    "type": "field",
-                    "inst_name": "FLASH_C_FREE",
-                    "lsb": 8,
-                    "msb": 8,
-                    "reset": null,
-                    "sw_access": "rw",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "When '1', indicates the target is free to accept\nat least one channel 3 Flash Access completion\nheader and data up to maximum payload size.\nThis bit must be always a '1'. The target must\nbe able to accept the completion for the non-\nposted request it sends.\nThis bit is only applicable when controller\nattached flash sharing is supported and in\noperation. Otherwise, the bit is a don't care."
-                },
-                {
-                    "type": "field",
-                    "inst_name": "FLASH_NP_FREE",
-                    "lsb": 9,
-                    "msb": 9,
-                    "reset": null,
-                    "sw_access": "rw",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "When '1', indicates the target is free to accept\nat least one channel 3 Flash Access non-posted\nheader and data up to maximum payload size.\nThis bit is only applicable when target attached\nflash sharing is supported and in operation.\nOtherwise, the bit is a don't care."
-                },
-                {
-                    "type": "field",
-                    "inst_name": "FLASH_C_AVAIL",
-                    "lsb": 12,
-                    "msb": 12,
-                    "reset": null,
-                    "sw_access": "rw",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "When '1', indicates the target has a channel 3\nFlash Access completion header and data up to\nmaximum payload size available to send.\nThis bit is only applicable when target attached\nflash sharing is supported and in operation.\nOtherwise, the bit is a don't care."
-                },
-                {
-                    "type": "field",
-                    "inst_name": "FLASH_NP_AVAIL",
-                    "lsb": 13,
-                    "msb": 13,
-                    "reset": null,
-                    "sw_access": "rw",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "When '1', indicates the target has a channel 3\nFlash Access non-posted header and data up to\nmaximum payload size available to send.\nThis bit is only applicable when controller\nattached flash sharing is supported and in\noperation. Otherwise, the bit is a don't care."
-                }
-            ]
-        },
-        {
-            "type": "reg",
-            "inst_name": "LAST_RESP_STATUS",
             "addr_offset": 64,
             "regwidth": 32,
             "min_accesswidth": 32,
@@ -643,8 +599,149 @@
         },
         {
             "type": "reg",
-            "inst_name": "oob_free_saw_full",
+            "inst_name": "LAST_RESP_STATUS",
             "addr_offset": 68,
+            "regwidth": 32,
+            "min_accesswidth": 32,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "PC_FREE",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "When '1', indicates the target is free to accept\nat least one channel 0 peripheral posted or\ncompletion header and data up to maximum\npayload size."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NP_FREE",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "When '1', indicates the target is free to accept\nat least one channel 0 peripheral non-posted\nheader and 1 DW of Data (if applicable)."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VWIRE_FREE",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "This bit must be always a '1'. Tunneling of\nchannel 1 virtual wires is not flow controlled."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "OOB_FREE",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "When '1', indicates the target is free to accept\nat least one channel 2 OOB (tunneled SMBus)\nmessage with data up to maximum payload size."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "PC_AVAIL",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "When '1', indicates the target has a channel 0\nperipheral posted or completion header and\noptional data up to maximum payload size\navailable to send."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NP_AVAIL",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "When '1', indicates the target has a channel 0\nperipheral non-posted header available to\nsend."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VWIRE_AVAIL",
+                    "lsb": 6,
+                    "msb": 6,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "When '1', indicates the target has a channel 1\ntunneled virtual wire available to send."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "OOB_AVAIL",
+                    "lsb": 7,
+                    "msb": 7,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "When '1', indicates the target has a channel 2\nOOB (tunneled SMBus) message with data up\nto maximum payload size available to send."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "FLASH_C_FREE",
+                    "lsb": 8,
+                    "msb": 8,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "When '1', indicates the target is free to accept\nat least one channel 3 Flash Access completion\nheader and data up to maximum payload size.\nThis bit must be always a '1'. The target must\nbe able to accept the completion for the non-\nposted request it sends.\nThis bit is only applicable when controller\nattached flash sharing is supported and in\noperation. Otherwise, the bit is a don't care."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "FLASH_NP_FREE",
+                    "lsb": 9,
+                    "msb": 9,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "When '1', indicates the target is free to accept\nat least one channel 3 Flash Access non-posted\nheader and data up to maximum payload size.\nThis bit is only applicable when target attached\nflash sharing is supported and in operation.\nOtherwise, the bit is a don't care."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "FLASH_C_AVAIL",
+                    "lsb": 12,
+                    "msb": 12,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "When '1', indicates the target has a channel 3\nFlash Access completion header and data up to\nmaximum payload size available to send.\nThis bit is only applicable when target attached\nflash sharing is supported and in operation.\nOtherwise, the bit is a don't care."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "FLASH_NP_AVAIL",
+                    "lsb": 13,
+                    "msb": 13,
+                    "reset": null,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "When '1', indicates the target has a channel 3\nFlash Access non-posted header and data up to\nmaximum payload size available to send.\nThis bit is only applicable when controller\nattached flash sharing is supported and in\noperation. Otherwise, the bit is a don't care."
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "oob_free_saw_full",
+            "addr_offset": 72,
             "regwidth": 32,
             "min_accesswidth": 32,
             "children": [

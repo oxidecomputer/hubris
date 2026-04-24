@@ -51,7 +51,7 @@ use core::sync::atomic::{AtomicU32, Ordering};
 use armv6m_atomic_hack::AtomicU32Ext;
 
 use ringbuf::{ringbuf, ringbuf_entry};
-use userlib::{kipc, FromPrimitive};
+use userlib::{FromPrimitive, kipc};
 
 /// The actual requests that we honor from an external source entity
 #[derive(FromPrimitive, Copy, Clone, Debug, Eq, PartialEq)]
@@ -83,17 +83,17 @@ enum Trace {
 
 ringbuf!(Trace, 4, Trace::None);
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 static JEFE_EXTERNAL_READY: AtomicU32 = AtomicU32::new(0);
-#[no_mangle]
+#[unsafe(no_mangle)]
 static JEFE_EXTERNAL_REQUEST: AtomicU32 = AtomicU32::new(0);
-#[no_mangle]
+#[unsafe(no_mangle)]
 static JEFE_EXTERNAL_TASKINDEX: AtomicU32 = AtomicU32::new(0);
-#[no_mangle]
+#[unsafe(no_mangle)]
 static JEFE_EXTERNAL_KICK: AtomicU32 = AtomicU32::new(0);
-#[no_mangle]
+#[unsafe(no_mangle)]
 static JEFE_EXTERNAL_REQUESTS: AtomicU32 = AtomicU32::new(0);
-#[no_mangle]
+#[unsafe(no_mangle)]
 static JEFE_EXTERNAL_ERRORS: AtomicU32 = AtomicU32::new(0);
 
 ///

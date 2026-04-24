@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//! Server for managing the Grapefruit FPGA process.
+//! Server for managing the Cosmo sequencer FPGA.
 
 #![no_std]
 #![no_main]
@@ -11,7 +11,7 @@ use drv_cpu_seq_api::{
     PowerState, SeqError as CpuSeqError, StateChangeReason, Transition,
 };
 use drv_ice40_spi_program as ice40;
-use drv_packrat_vpd_loader::{read_vpd_and_load_packrat, Packrat};
+use drv_packrat_vpd_loader::{Packrat, read_vpd_and_load_packrat};
 use drv_spartan7_loader_api::Spartan7Loader;
 use drv_spi_api::{SpiDevice, SpiServer};
 use drv_stm32xx_sys_api::{self as sys_api, Sys};
@@ -20,18 +20,19 @@ use fmc_sequencer::{nic_api_status, seq_api_status};
 use idol_runtime::{NotificationHandler, RequestError};
 use task_jefe_api::Jefe;
 use userlib::{
-    hl, set_timer_relative, sys_get_timer, sys_recv_notification, task_slot,
-    RecvMessage,
+    RecvMessage, hl, set_timer_relative, sys_get_timer, sys_recv_notification,
+    task_slot,
 };
 
 use crate::i2c_config::MAX_COMPONENT_ID_LEN as REFDES_LEN;
 use drv_hf_api::HostFlash;
-use ringbuf::{counted_ringbuf, ringbuf_entry, Count};
+use ringbuf::{Count, counted_ringbuf, ringbuf_entry};
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
 mod vcore;
 use vcore::VCore;
+mod diagnose;
 
 task_slot!(JEFE, jefe);
 task_slot!(LOADER, spartan7_loader);
@@ -77,6 +78,7 @@ enum Trace {
     UnexpectedPowerOff {
         our_state: PowerState,
         seq_state: Result<seq_api_status::A0Sm, u8>,
+        now: u64,
     },
     SequencerInterrupt {
         our_state: PowerState,
@@ -110,7 +112,9 @@ enum Trace {
         pwrokn: u8,
     },
     Thermtrip,
-    A0MapoInterrupt,
+    A0MapoInterrupt {
+        now: u64,
+    },
     NicMapoInterrupt,
     SmerrInterrupt,
     PmbusAlert {
@@ -174,7 +178,7 @@ struct StateMachineStates {
     nic: Result<nic_api_status::NicSm, u8>,
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     // Populate packrat with our mac address and identity.
     let packrat = Packrat::from(PACKRAT.get_task_id());
@@ -214,7 +218,7 @@ fn main() -> ! {
                 last_cause,
                 succeeded,
             };
-            ereporter.deliver_ereport(&ereport);
+            let _ = ereporter.deliver_ereport(&ereport);
         }
     }
 
@@ -314,7 +318,7 @@ fn init(ereporter: Ereporter) -> Result<ServerImpl, SeqError> {
     // Set up the checksum registers for the Spartan7 FPGA
     let token = loader.get_token();
     let info = fmc_periph::info::Info::new(token);
-    let short_checksum = gen::SPARTAN7_FPGA_BITSTREAM_CHECKSUM[..4]
+    let short_checksum = generated::SPARTAN7_FPGA_BITSTREAM_CHECKSUM[..4]
         .try_into()
         .unwrap();
     info.fpga_checksum
@@ -401,7 +405,7 @@ fn init_front_fpga<S: SpiServer>(
         }
     };
 
-    if sha_out != gen::FRONT_FPGA_BITSTREAM_CHECKSUM {
+    if sha_out != generated::FRONT_FPGA_BITSTREAM_CHECKSUM {
         // Drop the device into reset and hold it there
         sys.gpio_reset(config.creset);
         hl::sleep_for(1);
@@ -555,7 +559,7 @@ impl ServerImpl {
 
                                 if !present {
                                     ringbuf_entry!(Trace::CPUNotPresent);
-                                    self.ereporter.deliver_ereport(
+                                    let _ = self.ereporter.deliver_ereport(
                                         &ereports::cpu::CpuMissing {
                                             cpu: &HOST_CPU_REFDES,
                                         },
@@ -571,6 +575,13 @@ impl ServerImpl {
                 }
 
                 if !okay {
+                    // Log a fault diagnosis in the ringbuf
+                    diagnose::a0_fault(
+                        &self.seq,
+                        diagnose::DiagnoseReason::FailedToSequence,
+                        sys_get_timer().now,
+                    );
+
                     // We'll return to A2, leaving jefe and our local state
                     // unchanged (since they're set after this block).
                     self.log_state_registers();
@@ -624,7 +635,7 @@ impl ServerImpl {
                             ok: sp5rx_ok,
                         },
                     };
-                    self.ereporter.deliver_ereport(&ereport);
+                    let _ = self.ereporter.deliver_ereport(&ereport);
                     return Err(CpuSeqError::UnrecognizedCPU);
                 }
 
@@ -677,11 +688,11 @@ impl ServerImpl {
             // externally-requested transitions.
             (PowerState::A0PlusHP, PowerState::A0)
             | (PowerState::A2PlusFans, PowerState::A2) => {
-                return Ok(Transition::Unchanged)
+                return Ok(Transition::Unchanged);
             }
             // If we are already in the requested state, return `Unchanged`.
             (current, requested) if current == requested => {
-                return Ok(Transition::Unchanged)
+                return Ok(Transition::Unchanged);
             }
 
             _ => return Err(CpuSeqError::IllegalTransition),
@@ -910,6 +921,7 @@ impl ServerImpl {
                 h.set_amd_rstn_fedge(ifr.amd_rstn_fedge);
             });
             action = InternalAction::Reset;
+            // TODO probably want an ereport here too!
         }
 
         if ifr.nicmapo {
@@ -923,16 +935,21 @@ impl ServerImpl {
             self.seq.ifr.modify(|h| h.set_thermtrip(true));
             ringbuf_entry!(Trace::Thermtrip);
             action = InternalAction::ThermTrip;
-            self.ereporter.deliver_ereport(&ereports::cpu::Thermtrip {
+            let _ = self.ereporter.deliver_ereport(&ereports::cpu::Thermtrip {
                 cpu: &HOST_CPU_REFDES,
                 state: self.ereport_current_state(),
             });
         }
 
         if ifr.a0mapo {
+            diagnose::a0_fault(
+                &self.seq,
+                diagnose::DiagnoseReason::MapoDetected,
+                now,
+            );
             self.log_pg_registers();
             self.seq.ifr.modify(|h| h.set_a0mapo(true));
-            ringbuf_entry!(Trace::A0MapoInterrupt);
+            ringbuf_entry!(Trace::A0MapoInterrupt { now });
             action = InternalAction::Mapo;
             // Great place for an ereport?
         }
@@ -941,7 +958,7 @@ impl ServerImpl {
             self.seq.ifr.modify(|h| h.set_smerr_assert(true));
             ringbuf_entry!(Trace::SmerrInterrupt);
             action = InternalAction::Smerr;
-            self.ereporter.deliver_ereport(&ereports::cpu::Smerr {
+            let _ = self.ereporter.deliver_ereport(&ereports::cpu::Smerr {
                 cpu: &HOST_CPU_REFDES,
                 state: self.ereport_current_state(),
             });
@@ -1229,11 +1246,18 @@ impl NotificationHandler for ServerImpl {
         if matches!(self.state, PowerState::A0 | PowerState::A0PlusHP) {
             // Detect the FPGA powering off without us
             if state.seq != Ok(A0Sm::Done) {
+                let now = sys_get_timer().now;
                 ringbuf_entry!(Trace::UnexpectedPowerOff {
                     our_state: self.state,
                     seq_state: state.seq,
+                    now,
                 });
                 self.log_pg_registers();
+                diagnose::a0_fault(
+                    &self.seq,
+                    diagnose::DiagnoseReason::UnexpectedPowerOff,
+                    now,
+                );
 
                 self.emergency_a2(StateChangeReason::Unknown);
             }
@@ -1271,7 +1295,7 @@ mod idl {
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
 
-mod gen {
+mod generated {
     include!(concat!(env!("OUT_DIR"), "/cosmo_fpga.rs"));
 }
 

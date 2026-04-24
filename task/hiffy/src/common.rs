@@ -6,7 +6,7 @@ use hif::{Failure, Fault};
 use hubris_num_tasks::NUM_TASKS;
 #[allow(unused_imports)]
 use userlib::task_slot;
-use userlib::{sys_refresh_task_id, sys_send, Generation, TaskId};
+use userlib::{Generation, TaskId, sys_refresh_task_id, sys_send};
 
 /// We allow dead code on this because the functions below are optional.
 ///

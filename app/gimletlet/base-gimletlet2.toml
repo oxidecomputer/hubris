@@ -1,7 +1,7 @@
 board = "gimletlet-2"
 target = "thumbv7em-none-eabihf"
 chip = "../../chips/stm32h7"
-memory = "memory-large.toml"
+default-ram = "axi_sram"
 stacksize = 896
 epoch = 0
 version = 0
@@ -85,6 +85,7 @@ priority = 7
 max-sizes = {flash = 32768, ram = 65536}
 stacksize = 2048
 start = true
+notifications = ["timer"]
 
 [tasks.validate]
 name = "task-validate"

@@ -12,7 +12,7 @@ use core::arch::asm;
 use hubris_num_tasks::NUM_TASKS;
 use test_api::AssistOp;
 use userlib::{
-    hl, kipc, sys_refresh_task_id, sys_send, Generation, Lease, TaskId,
+    Generation, Lease, TaskId, hl, kipc, sys_refresh_task_id, sys_send,
 };
 use zerocopy::IntoBytes;
 
@@ -145,7 +145,7 @@ fn eat_some_pi(highregs: bool) {
     }
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let mut buffer = [0; 4];
     let mut last_reply = 0u32;

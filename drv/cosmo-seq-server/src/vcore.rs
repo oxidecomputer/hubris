@@ -20,7 +20,7 @@ use ereports::pwr::{PmbusAlert, PmbusStatus};
 use fixedstr::FixedStr;
 use pmbus::commands::raa229620a::STATUS_WORD;
 use ringbuf::*;
-use userlib::{sys_get_timer, units, TaskId};
+use userlib::{TaskId, sys_get_timer, units};
 
 pub(super) struct VCore {
     /// `PWR_CONT1`: This regulator controls `VDDCR_CPU0` and `VDDCR_SOC` rails.
@@ -291,7 +291,7 @@ impl VCore {
             let state = self.record_pmbus_status(
                 now,
                 Rail::VddcrCpu1,
-                vrms.pwr_cont1,
+                vrms.pwr_cont2,
                 ereporter,
             );
             input_fault |= state.input_fault;
@@ -477,7 +477,7 @@ impl VCore {
             pmbus_status,
             pwr_good: power_good,
         };
-        ereporter.deliver_ereport(&ereport);
+        let _ = ereporter.deliver_ereport(&ereport);
         // TODO(eliza): if POWER_GOOD has been deasserted, we should produce a
         // subsequent ereport for that.
 

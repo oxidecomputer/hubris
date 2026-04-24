@@ -9,8 +9,8 @@
 use drv_stm32h7_usart as drv_usart;
 
 use attest_data::messages::{
-    HostToRotCommand, RecvSprotError as AttestDataSprotError, RotToHost,
-    MAX_DATA_LEN,
+    HostToRotCommand, MAX_DATA_LEN, RecvSprotError as AttestDataSprotError,
+    RotToHost,
 };
 use drv_cpu_seq_api::{
     PowerState, SeqError, Sequencer, StateChangeReason, Transition,
@@ -23,8 +23,8 @@ use enum_map::Enum;
 use heapless::Vec;
 use host_sp_messages::{
     Bsu, DecodeFailureReason, Header, HostToSp, Key, KeyLookupResult,
-    KeySetResult, SpToHost, Status, MAX_MESSAGE_SIZE,
-    MIN_SP_TO_HOST_FILL_DATA_LEN,
+    KeySetResult, MAX_MESSAGE_SIZE, MIN_SP_TO_HOST_FILL_DATA_LEN, SpToHost,
+    Status,
 };
 use hubpack::SerializedSize;
 use idol_runtime::{NotificationHandler, RequestError};
@@ -39,7 +39,7 @@ use task_host_sp_comms_api::HostSpCommsError;
 use task_net_api::Net;
 use task_packrat_api::Packrat;
 use userlib::{
-    sys_get_timer, sys_irq_control, task_slot, FromPrimitive, UnwrapLite,
+    FromPrimitive, UnwrapLite, sys_get_timer, sys_irq_control, task_slot,
 };
 
 mod inventory;
@@ -56,7 +56,10 @@ use inventory::INVENTORY_API_VERSION;
     path = "bsp/gimlet_bcde.rs"
 )]
 #[cfg_attr(target_board = "gimletlet-2", path = "bsp/gimletlet.rs")]
-#[cfg_attr(target_board = "grapefruit", path = "bsp/grapefruit.rs")]
+#[cfg_attr(
+    any(target_board = "grapefruit-a", target_board = "grapefruit-b",),
+    path = "bsp/grapefruit.rs"
+)]
 #[cfg_attr(
     any(target_board = "cosmo-a", target_board = "cosmo-b",),
     path = "bsp/cosmo_ab.rs"
@@ -104,12 +107,25 @@ const MAX_HOST_FAIL_MESSAGE_LEN: usize = 4096;
 // of that for us.
 const NUM_HOST_MAC_ADDRESSES: u16 = 3;
 
+// The same IO path can be used for both IPCC, and a lower-level debugging
+// interface, for testing the IO path itself.  We differentiate between the two
+// by detecting specific header types, and parsing the corresponding messages
+// into a typed enum: debug message handling is then short-circuited.
+enum DebugCmd<'a> {
+    Discard,
+    Echo(&'a [u8]),
+    CharGen(u16),
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, counters::Count)]
 enum Trace {
     #[count(skip)]
     None,
     UartRxOverrun,
     ParseError(#[count(children)] DecodeFailureReason),
+    DebugDiscard,
+    DebugEcho(u64),
+    DebugCharGen(u16),
     SetState {
         now: u64,
         #[count(children)]
@@ -184,7 +200,7 @@ enum Timers {
     TxPeriodicZeroByte,
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let mut server = ServerImpl::claim_static_resources();
 
@@ -285,7 +301,8 @@ struct ServerImpl {
     /// the stack.
     // This is not used on dev board targets.
     #[cfg(not(any(
-        target_board = "grapefruit",
+        target_board = "grapefruit-a",
+        target_board = "grapefruit-b",
         target_board = "gimletlet-2"
     )))]
     barcode_buf: &'static mut [u8; oxide_barcode::VpdIdentity::MAX_LEN],
@@ -320,12 +337,13 @@ impl ServerImpl {
             dtrace_conf: [u8; MAX_DTRACE_CONF_LEN],
             scratch: host_sp_messages::InventoryData,
             #[cfg(not(any(
-                target_board = "grapefruit",
+                target_board = "grapefruit-a",
+                target_board = "grapefruit-b",
                 target_board = "gimletlet-2"
             )))]
             barcode_buf: [u8; oxide_barcode::VpdIdentity::MAX_LEN],
         }
-        let Bufs {
+        let &mut Bufs {
             ref mut tx_buf,
             ref mut rx_buf,
             ref mut last_boot_fail,
@@ -334,7 +352,8 @@ impl ServerImpl {
             ref mut dtrace_conf,
             ref mut scratch,
             #[cfg(not(any(
-                target_board = "grapefruit",
+                target_board = "grapefruit-a",
+                target_board = "grapefruit-b",
                 target_board = "gimletlet-2"
             )))]
             ref mut barcode_buf,
@@ -347,7 +366,8 @@ impl ServerImpl {
                 etc_system: [0; MAX_ETC_SYSTEM_LEN],
                 dtrace_conf: [0; MAX_DTRACE_CONF_LEN],
                 #[cfg(not(any(
-                    target_board = "grapefruit",
+                    target_board = "grapefruit-a",
+                    target_board = "grapefruit-b",
                     target_board = "gimletlet-2"
                 )))]
                 barcode_buf: [0; oxide_barcode::VpdIdentity::MAX_LEN],
@@ -367,7 +387,8 @@ impl ServerImpl {
             tx_buf: tx_buf::TxBuf::new(tx_buf),
             rx_buf,
             #[cfg(not(any(
-                target_board = "grapefruit",
+                target_board = "grapefruit-a",
+                target_board = "grapefruit-b",
                 target_board = "gimletlet-2"
             )))]
             barcode_buf,
@@ -786,6 +807,53 @@ impl ServerImpl {
         }
     }
 
+    // Process a request message from the host.
+    fn process_message(
+        &mut self,
+        reset_tx_buf: bool,
+    ) -> Result<(), DecodeFailureReason> {
+        // Debug messages have a distinct header that separates them from normal
+        // IPCC messages.
+        if is_debug_message(self.rx_buf) {
+            self.process_debug_message(reset_tx_buf)
+        } else {
+            self.process_ipcc_message(reset_tx_buf)
+        }
+    }
+
+    // Process a framed debug packet
+    fn process_debug_message(
+        &mut self,
+        reset_tx_buf: bool,
+    ) -> Result<(), DecodeFailureReason> {
+        match parse_debug_message(self.rx_buf) {
+            Ok(cmd) => {
+                if reset_tx_buf {
+                    self.tx_buf.reset();
+                }
+                match cmd {
+                    DebugCmd::Discard => ringbuf_entry!(Trace::DebugDiscard),
+                    DebugCmd::Echo(data) => {
+                        ringbuf_entry!(Trace::DebugEcho(data.len() as u64));
+                        let _ = self.tx_buf.try_copy_raw_data(data);
+                    }
+                    DebugCmd::CharGen(count) => {
+                        ringbuf_entry!(Trace::DebugCharGen(count));
+                        let mut it = (b'!'..=b'~').cycle().take(count.into());
+                        let _ = self.tx_buf.try_fill(&mut it);
+                    }
+                }
+                self.rx_buf.clear();
+                Ok(())
+            }
+            Err(err) => {
+                ringbuf_entry!(Trace::ParseError(err));
+                self.rx_buf.clear();
+                Err(err)
+            }
+        }
+    }
+
     // Process the framed packet sitting in `self.rx_buf`. If it warrants a
     // response, we configure `self.tx_buf` appropriate: either populating it
     // with a response if we can come up with that response immediately, or
@@ -800,7 +868,7 @@ impl ServerImpl {
     //
     // This method always (i.e., on success or failure) clears `rx_buf` before
     // returning to prepare for the next packet.
-    fn process_message(
+    fn process_ipcc_message(
         &mut self,
         reset_tx_buf: bool,
     ) -> Result<(), DecodeFailureReason> {
@@ -1663,8 +1731,9 @@ impl NotificationHandler for ServerImpl {
     }
 }
 
-// This is conceptually a method on `ServerImpl`, but it takes a reference to
-// `rx_buf` instead of `self` to avoid borrow checker issues.
+// Parse a received message.  This is conceptually a method on `ServerImpl`,
+// but it takes a reference to `rx_buf` instead of `self` to avoid borrow
+// checker issues.
 fn parse_received_message(
     rx_buf: &mut [u8],
 ) -> Result<(Header, HostToSp, &[u8]), DecodeFailureReason> {
@@ -1688,6 +1757,48 @@ fn parse_received_message(
     }
 
     Ok((header, request, data))
+}
+
+// Debug messages have a distinct header that separates them from IPCC
+// messages.  The first 5 bytes are the ASCII characters, "DEBUG".  The
+// 6th and 7th bytes encode the command number, as 0 padded ASCII hexadecimal
+// string (using upper case for the non-numeric hexadigits).  The commands
+// are:
+//
+//   "07" (0x07 ==  7 dec) Echo
+//   "09" (0x09 ==  9 dec) Discard
+//   "13" (0x13 == 19 dec) CharGen
+//
+// The command values correspond to the IANA-assigned port numbers for the
+// corresponding UDP and TCP/IP services.
+//
+// This is conceptually a method on `ServerImpl`, but it takes references to
+// several of its fields instead of `self` to avoid borrow checker issues.
+fn is_debug_message(msg: &[u8]) -> bool {
+    if msg.len() < 7 {
+        return false;
+    }
+    msg[0..5] == *b"DEBUG"
+}
+
+// This is conceptually a method on `ServerImpl`, but it takes references to
+// several of its fields instead of `self` to avoid borrow checker issues.
+fn parse_debug_message(
+    msg: &[u8],
+) -> Result<DebugCmd<'_>, DecodeFailureReason> {
+    assert!(is_debug_message(msg));
+    match &msg[5..7] {
+        b"07" => Ok(DebugCmd::Echo(&msg[7..])),
+        b"09" => Ok(DebugCmd::Discard),
+        b"13" if msg.len() == 11 => {
+            let nstr = str::from_utf8(&msg[7..11])
+                .map_err(|_| DecodeFailureReason::Deserialize)?;
+            let n = u16::from_str_radix(nstr, 16)
+                .map_err(|_| DecodeFailureReason::Deserialize)?;
+            Ok(DebugCmd::CharGen(n))
+        }
+        _ => Err(DecodeFailureReason::Deserialize),
+    }
 }
 
 // This is conceptually a method on `ServerImpl`, but it takes references to

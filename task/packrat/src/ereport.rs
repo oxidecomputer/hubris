@@ -100,15 +100,15 @@ use core::cmp::Ordering;
 use drv_caboose::CabooseReader;
 use hubris_num_tasks::NUM_TASKS;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError};
-use minicbor::{encode, CborLen};
+use minicbor::{CborLen, encode};
 use minicbor_lease::LeasedWriter;
 use ringbuf::{counted_ringbuf, ringbuf_entry};
 use task_jefe_api::Jefe;
 use task_packrat_api::{EreportReadError, EreportWriteError, OxideIdentity};
 use userlib::{
-    kipc, sys_get_timer, task_slot, FaultInfo, FaultSource, Generation,
-    ReadPanicMessageError, RecvMessage, ReplyFaultReason, TaskId, TaskState,
-    UsageError,
+    FaultInfo, FaultSource, Generation, ReadPanicMessageError, RecvMessage,
+    ReplyFaultReason, TaskId, TaskState, UsageError, kipc, sys_get_timer,
+    task_slot,
 };
 use zerocopy::IntoBytes;
 
@@ -263,15 +263,14 @@ enum EreportError {
 counted_ringbuf!(Trace, 16, Trace::None);
 
 impl EreportStore {
-    pub(crate) fn new(
-        EreportBufs {
+    pub(crate) fn new(bufs: &'static mut EreportBufs) -> Self {
+        let &mut EreportBufs {
             ref mut storage,
             ref mut recv,
             ref mut panic_buf,
             ref mut task_fault_states,
             ref mut fault_count_buf,
-        }: &'static mut EreportBufs,
-    ) -> Self {
+        } = bufs;
         let now = sys_get_timer().now;
         storage.initialize(config::TASK_ID, now);
 
@@ -289,11 +288,11 @@ impl EreportStore {
 }
 
 impl EreportStore {
-    pub(crate) fn deliver_ereport(
+    pub(crate) fn deliver_encoded_ereport(
         &mut self,
         msg: &RecvMessage,
         data: LenLimit<Leased<idol_runtime::R, [u8]>, RECV_BUF_SIZE>,
-    ) -> Result<(), RequestError<EreportWriteError>> {
+    ) -> Result<ereport_messages::Ena, RequestError<EreportWriteError>> {
         data.read_range(0..data.len(), self.recv)
             .map_err(|_| ClientError::WentAway.fail())?;
         let timestamp = sys_get_timer().now;
@@ -308,7 +307,7 @@ impl EreportStore {
             result,
         });
         match result {
-            snitch_core::InsertResult::Inserted => Ok(()),
+            snitch_core::InsertResult::Inserted(ena) => Ok(ena.into()),
             snitch_core::InsertResult::Lost => {
                 Err(RequestError::from(EreportWriteError::Lost))
             }
@@ -593,7 +592,7 @@ impl EreportStore {
             .enumerate()
         {
             let task_index = task_index as u16;
-            let TaskFaultHistory {
+            let &mut TaskFaultHistory {
                 ref mut count,
                 ref mut last_unrecorded_fault_time,
             } = state;
@@ -675,7 +674,7 @@ impl EreportStore {
                     len: ereport.len()
                 });
                 match result {
-                    snitch_core::InsertResult::Inserted => {
+                    snitch_core::InsertResult::Inserted(..) => {
                         // We successfully made an ereport for this fault!
                         // Update our tracked fault count for this task.
                         *count = new_count;

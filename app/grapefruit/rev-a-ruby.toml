@@ -1,4 +1,5 @@
-name = "grapefruit-ruby"
+name = "grapefruit-ruby-a"
+board = "grapefruit-a"
 inherit = "base.toml"
 
 # Host SP comms goes over a UART to the FPGA, which translates to eSPI messages

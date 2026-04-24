@@ -41,7 +41,7 @@ struct ServerImpl {
     last_presence_summary: u8,
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let mut incoming = [0u8; idl::INCOMING_SIZE];
     let mut server = ServerImpl {
@@ -409,10 +409,11 @@ impl idol_runtime::NotificationHandler for ServerImpl {
         // Only poll the presence summary if the port count seems reasonable. A
         // count of 0xff may occur if the FPGA is running an incorrect
         // bitstream.
-        if self.port_count > 0 && self.port_count != 0xff {
-            if let Err(e) = self.poll_presence() {
-                ringbuf_entry!(Trace::PresencePollError(e));
-            }
+        if self.port_count > 0
+            && self.port_count != 0xff
+            && let Err(e) = self.poll_presence()
+        {
+            ringbuf_entry!(Trace::PresencePollError(e));
         }
 
         let finish = sys_get_timer().now;

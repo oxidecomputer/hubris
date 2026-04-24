@@ -19,7 +19,7 @@ use drv_lpc55_update_api::{
 };
 use drv_update_api::UpdateError;
 use idol_runtime::{
-    ClientError, Leased, LenLimit, NotificationHandler, RequestError, R, W,
+    ClientError, Leased, LenLimit, NotificationHandler, R, RequestError, W,
 };
 use ringbuf::*;
 use sha3::{Digest, Sha3_256};
@@ -37,7 +37,7 @@ const U32_SIZE: u32 = core::mem::size_of::<u32>() as u32;
 const PAGE_SIZE: u32 = BYTES_PER_FLASH_PAGE as u32;
 
 #[used]
-#[link_section = ".bootstate"]
+#[unsafe(link_section = ".bootstate")]
 static BOOTSTATE: MaybeUninit<[u8; 0x1000]> = MaybeUninit::uninit();
 
 #[derive(Copy, Clone, PartialEq)]
@@ -130,7 +130,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         ringbuf_entry!(Trace::State(self.state));
         match self.state {
             UpdateState::Finished => {
-                return Err(UpdateError::UpdateAlreadyFinished.into())
+                return Err(UpdateError::UpdateAlreadyFinished.into());
             }
             UpdateState::InProgress | UpdateState::NoUpdate => (),
         }
@@ -151,10 +151,10 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         ringbuf_entry!(Trace::State(self.state));
         match self.state {
             UpdateState::NoUpdate => {
-                return Err(UpdateError::UpdateNotStarted.into())
+                return Err(UpdateError::UpdateNotStarted.into());
             }
             UpdateState::Finished => {
-                return Err(UpdateError::UpdateAlreadyFinished.into())
+                return Err(UpdateError::UpdateAlreadyFinished.into());
             }
             UpdateState::InProgress => (),
         }
@@ -221,10 +221,10 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         ringbuf_entry!(Trace::State(self.state));
         match self.state {
             UpdateState::NoUpdate => {
-                return Err(UpdateError::UpdateNotStarted.into())
+                return Err(UpdateError::UpdateNotStarted.into());
             }
             UpdateState::Finished => {
-                return Err(UpdateError::UpdateAlreadyFinished.into())
+                return Err(UpdateError::UpdateAlreadyFinished.into());
             }
             UpdateState::InProgress => (),
         }
@@ -488,7 +488,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         ringbuf_entry!(Trace::Prep(component, slot));
         match self.state {
             UpdateState::InProgress => {
-                return Err(UpdateError::UpdateInProgress.into())
+                return Err(UpdateError::UpdateInProgress.into());
             }
             UpdateState::Finished | UpdateState::NoUpdate => (),
         }
@@ -1344,7 +1344,7 @@ fn round_up_to_flash_page(offset: u32) -> Option<u32> {
 task_slot!(SYSCON, syscon);
 task_slot!(JEFE, jefe);
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let syscon = drv_lpc55_syscon_api::Syscon::from(SYSCON.get_task_id());
 

@@ -2,7 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use super::{retry_i2c_txn, I2cTxn};
+use super::{I2cTxn, retry_i2c_txn};
+use crate::Ereporter;
 ///
 /// We have seen adventures on the V12_SYS_A2 rail in that it will sag from
 /// 12V to ~8V over a period of about ~4ms, and then rise back 12V over ~7ms.
@@ -28,7 +29,6 @@ use super::{retry_i2c_txn, I2cTxn};
 /// A2 to A0 transition to clear faults.
 ///
 use crate::gpio_irq_pins::VCORE_TO_SP_ALERT_L;
-use crate::Ereporter;
 use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_i2c_devices::raa229618::Raa229618;
 use drv_stm32xx_sys_api as sys_api;
@@ -338,7 +338,7 @@ impl VCore {
             pwr_good,
             pmbus_status: status,
         };
-        ereporter.deliver_ereport(&ereport);
+        let _ = ereporter.deliver_ereport(&ereport);
         // TODO(eliza): if POWER_GOOD has been deasserted, we should produce a
         // subsequent ereport for that.
 

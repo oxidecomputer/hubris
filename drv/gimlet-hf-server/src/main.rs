@@ -23,14 +23,14 @@
 mod bsp;
 
 use userlib::{
-    hl, set_timer_relative, task_slot, FromPrimitive, RecvMessage, UnwrapLite,
+    FromPrimitive, RecvMessage, UnwrapLite, hl, set_timer_relative, task_slot,
 };
 
-use drv_hf_api::{HashData, HashState, HfChipId, SlotHash, SECTOR_SIZE_BYTES};
+use drv_hf_api::{HashData, HashState, HfChipId, SECTOR_SIZE_BYTES, SlotHash};
 use drv_stm32h7_qspi::{Qspi, QspiError, ReadSetting};
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{
-    ClientError, Leased, LenLimit, NotificationHandler, RequestError, R, W,
+    ClientError, Leased, LenLimit, NotificationHandler, R, RequestError, W,
 };
 use zerocopy::{FromZeros, IntoBytes};
 
@@ -43,8 +43,8 @@ use stm32h7::stm32h753 as device;
 use drv_hash_api::SHA256_SZ;
 
 use drv_hf_api::{
-    HfDevSelect, HfError, HfMuxState, HfPersistentData, HfProtectMode,
-    HfRawPersistentData, HF_PERSISTENT_DATA_STRIDE, PAGE_SIZE_BYTES,
+    HF_PERSISTENT_DATA_STRIDE, HfDevSelect, HfError, HfMuxState,
+    HfPersistentData, HfProtectMode, HfRawPersistentData, PAGE_SIZE_BYTES,
 };
 
 task_slot!(SYS, sys);
@@ -88,7 +88,7 @@ impl Config {
     }
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let sys = sys_api::Sys::from(SYS.get_task_id());
 
@@ -746,7 +746,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         self.check_muxed_to_sp()?;
         match self.hash.state {
             HashState::Hashing { .. } => {
-                return Err(HfError::HashInProgress.into())
+                return Err(HfError::HashInProgress.into());
             }
             _ => (),
         }
@@ -795,7 +795,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         // that might mess up the hash in progress
         match self.hash.state {
             HashState::Hashing { .. } => {
-                return Err(HfError::HashInProgress.into())
+                return Err(HfError::HashInProgress.into());
             }
             _ => (),
         }
@@ -959,6 +959,13 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         _data: Leased<W, [u8]>,
     ) -> Result<usize, RequestError<drv_hf_api::ApobReadError>> {
         Err(drv_hf_api::ApobReadError::NotImplemented.into())
+    }
+
+    fn apob_clear(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<drv_hf_api::ApobClearError>> {
+        Err(drv_hf_api::ApobClearError::NotImplemented.into())
     }
 }
 
@@ -1193,6 +1200,13 @@ impl idl::InOrderHostFlashImpl for FailServer {
     ) -> Result<usize, RequestError<drv_hf_api::ApobReadError>> {
         Err(drv_hf_api::ApobReadError::NotImplemented.into())
     }
+
+    fn apob_clear(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<drv_hf_api::ApobClearError>> {
+        Err(drv_hf_api::ApobClearError::NotImplemented.into())
+    }
 }
 
 /// Failure function, running an Idol response loop that always returns an error
@@ -1210,8 +1224,8 @@ mod idl {
         HfProtectMode,
     };
     use drv_hf_api::{
-        ApobBeginError, ApobCommitError, ApobHash, ApobReadError,
-        ApobWriteError,
+        ApobBeginError, ApobClearError, ApobCommitError, ApobHash,
+        ApobReadError, ApobWriteError,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

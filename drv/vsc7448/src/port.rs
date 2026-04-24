@@ -7,8 +7,8 @@
 // configured from reset)
 
 use crate::{
-    dev::{Dev10g, DevGeneric},
     Vsc7448Rw, VscError,
+    dev::{Dev10g, DevGeneric},
 };
 use userlib::hl;
 use vsc7448_pac::*;

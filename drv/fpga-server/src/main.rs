@@ -8,11 +8,11 @@
 #![no_main]
 
 use ringbuf::*;
-use userlib::{task_slot, RecvMessage, TaskId};
-use zerocopy::{byteorder, Immutable, IntoBytes, KnownLayout, Unaligned, U16};
+use userlib::{RecvMessage, TaskId, task_slot};
+use zerocopy::{Immutable, IntoBytes, KnownLayout, U16, Unaligned, byteorder};
 
 use drv_fpga_api::{BitstreamType, DeviceState, FpgaError, ReadOp, WriteOp};
-use drv_fpga_devices::{ecp5, Fpga, FpgaBitstream, FpgaUserDesign};
+use drv_fpga_devices::{Fpga, FpgaBitstream, FpgaUserDesign, ecp5};
 use drv_spi_api::SpiServer;
 use drv_stm32xx_sys_api::{self as sys_api, Sys};
 use idol_runtime::{ClientError, Leased, LenLimit, R, W};
@@ -58,7 +58,7 @@ enum Trace {
 }
 ringbuf!(Trace, 64, Trace::None);
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let sys = Sys::from(SYS.get_task_id());
     let spi = claim_spi(&sys);

@@ -16,9 +16,8 @@ pub enum Functions {
     SendLeaseWrite((Task, u16, Buffer, usize, usize), u32),
 }
 
-#[no_mangle]
-#[used(compiler)]
-static HIFFY_FUNCTIONS: Option<&Functions> = None;
+#[unsafe(no_mangle)]
+pub static HIFFY_FUNCTIONS: Option<&Functions> = None;
 
 pub(crate) static HIFFY_FUNCS: &[Function] = &[
     crate::common::sleep,

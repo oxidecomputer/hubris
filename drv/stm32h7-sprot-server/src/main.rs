@@ -123,7 +123,8 @@ cfg_if::cfg_if! {
             target_board = "psc-b",
             target_board = "psc-c",
             target_board = "gemini-bu-1",
-            target_board = "grapefruit",
+            target_board = "grapefruit-a",
+            target_board = "grapefruit-b",
             target_board = "minibar-a",
             target_board = "minibar-b",
             target_board = "cosmo-a",
@@ -171,7 +172,7 @@ pub struct ServerImpl<S: SpiServer> {
     rx_buf: &'static mut [u8; RESPONSE_BUF_SIZE],
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let sys = sys_api::Sys::from(SYS.get_task_id());
     let spi = claim_spi(&sys).device(ROT_SPI_DEVICE);
@@ -373,7 +374,7 @@ impl<S: SpiServer> Io<S> {
     // state changes (using EXTI), and waiting for either that or timeout
     // determined based on `max_sleep`.
     fn wait_rot_irq(&mut self, desired: bool, max_sleep: u32) -> bool {
-        use notifications::{sprot::TIMER_MASK, ROT_IRQ_MASK};
+        use notifications::{ROT_IRQ_MASK, sprot::TIMER_MASK};
         // Determine our edge sensitivity for the interrupt. The ROT_IRQ line is
         // active low, so if we want to wait for it to be asserted, wait for the
         // falling edge. If the line is currently asserted, and we're waiting

@@ -6,15 +6,14 @@
 #![no_main]
 
 use drv_auxflash_api::{
-    AuxFlashBlob, AuxFlashChecksum, AuxFlashError, AuxFlashId,
-    TlvcReadAuxFlash, PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES, SLOT_COUNT,
-    SLOT_SIZE,
+    AuxFlashBlob, AuxFlashChecksum, AuxFlashError, AuxFlashId, PAGE_SIZE_BYTES,
+    SECTOR_SIZE_BYTES, SLOT_COUNT, SLOT_SIZE, TlvcReadAuxFlash,
 };
 use idol_runtime::{
-    ClientError, Leased, NotificationHandler, RequestError, R, W,
+    ClientError, Leased, NotificationHandler, R, RequestError, W,
 };
 use tlvc::{TlvcRead, TlvcReadError, TlvcReader};
-use userlib::{hl, task_slot, RecvMessage, UnwrapLite};
+use userlib::{RecvMessage, UnwrapLite, hl, task_slot};
 
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
@@ -63,7 +62,7 @@ fn qspi_to_auxflash(val: QspiError) -> AuxFlashError {
     }
 }
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let sys = sys_api::Sys::from(SYS.get_task_id());
 
@@ -372,6 +371,9 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         offset: u32,
         data: Leased<R, [u8]>,
     ) -> Result<(), RequestError<AuxFlashError>> {
+        if slot >= SLOT_COUNT {
+            return Err(AuxFlashError::InvalidSlot.into());
+        }
         if Some(slot) == self.active_slot {
             return Err(AuxFlashError::SlotActive.into());
         }
@@ -413,6 +415,9 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         offset: u32,
         dest: Leased<W, [u8]>,
     ) -> Result<(), RequestError<AuxFlashError>> {
+        if slot >= SLOT_COUNT {
+            return Err(AuxFlashError::InvalidSlot.into());
+        }
         if offset as usize + dest.len() > SLOT_SIZE {
             return Err(AuxFlashError::AddressOverflow.into());
         }

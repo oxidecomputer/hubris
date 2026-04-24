@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result, anyhow, bail};
 use indexmap::IndexMap;
 use serde::de::DeserializeOwned;
 use std::collections::BTreeMap;
@@ -249,7 +249,7 @@ impl TaskIds {
             .map(|name| {
                 let name = name.as_ref();
                 self.get(name)
-                    .ok_or_else(|| anyhow!("unknown task `{}`", name))
+                    .ok_or_else(|| anyhow!("unknown task `{name}`"))
             })
             .collect()
     }

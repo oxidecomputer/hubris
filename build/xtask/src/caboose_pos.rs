@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::elf;
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use scroll::Pread;
 
 pub const CABOOSE_POS_TABLE_SECTION: &str = ".caboose_pos_table";
@@ -21,7 +21,7 @@ impl scroll::ctx::TryFromCtx<'_, &goblin::elf::Elf<'_>>
 
     fn try_from_ctx(
         src: &[u8],
-        elf: &goblin::elf::Elf,
+        elf: &goblin::elf::Elf<'_>,
     ) -> Result<(Self, usize), Self::Error> {
         let endianness = elf::get_endianness(elf);
         let src_offset = &mut 0;
@@ -48,7 +48,7 @@ impl scroll::ctx::TryFromCtx<'_, &goblin::elf::Elf<'_>>
 
 pub fn get_caboose_pos_table_entry(
     src: &[u8],
-    elf: &goblin::elf::Elf,
+    elf: &goblin::elf::Elf<'_>,
 ) -> Result<Option<CaboosePosTableEntry>> {
     // If the section isn't present, then we're not reading the caboose position
     // from this task.

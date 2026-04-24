@@ -287,7 +287,7 @@ pub fn get_clock_speed(peripherals: &lpc55_pac::Peripherals) -> (u32, u8) {
 /// careful.
 #[unsafe(naked)]
 extern "C" fn nuke_stack() {
-    extern "C" {
+    unsafe extern "C" {
         static _stack_base: u32;
     }
 
@@ -339,15 +339,17 @@ pub fn set_hashcrypt_rom() {
 }
 
 #[allow(non_snake_case)]
-#[no_mangle]
+#[unsafe(no_mangle)]
 // SAFETY: The atomic bool is only manipulated from the kernel pre-main context.
 // This interrupt handler re-directs to the ROM to allow pre-main to use the
 // ROM's signature checking routine. All HASHCRYPT interrupts after kernel main()
 // use the normal Hubris interrupt handling.
 pub unsafe extern "C" fn HASHCRYPT() {
     if USE_ROM.load(core::sync::atomic::Ordering::Relaxed) {
-        lpc55_romapi::skboot_hashcrypt_handler();
+        // SAFETY: we trust the ROM API
+        unsafe { lpc55_romapi::skboot_hashcrypt_handler() }
     } else {
-        kern::arch::DefaultHandler();
+        // SAFETY: we trust our default handler
+        unsafe { kern::arch::DefaultHandler() }
     }
 }

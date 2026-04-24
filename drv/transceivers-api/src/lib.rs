@@ -8,8 +8,8 @@
 
 use derive_idol_err::IdolError;
 use drv_fpga_api::FpgaError;
-use task_sensor_api::{config::other_sensors, SensorId};
-use userlib::{sys_send, FromPrimitive};
+use task_sensor_api::{SensorId, config::other_sensors};
+use userlib::{FromPrimitive, sys_send};
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 #[derive(

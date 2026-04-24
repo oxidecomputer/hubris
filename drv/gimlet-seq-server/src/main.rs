@@ -14,8 +14,8 @@ use counters::*;
 use fixedstr::FixedStr;
 use ringbuf::*;
 use userlib::{
-    hl, set_timer_relative, sys_get_timer, sys_recv_notification,
-    sys_set_timer, task_slot, units, RecvMessage, TaskId, UnwrapLite,
+    RecvMessage, TaskId, UnwrapLite, hl, set_timer_relative, sys_get_timer,
+    sys_recv_notification, sys_set_timer, task_slot, units,
 };
 use zerocopy::IntoBytes;
 
@@ -24,11 +24,12 @@ use drv_cpu_seq_api::{PowerState, SeqError, StateChangeReason, Transition};
 use drv_hf_api as hf_api;
 use drv_i2c_api as i2c;
 use drv_ice40_spi_program as ice40;
-use drv_packrat_vpd_loader::{read_vpd_and_load_packrat, Packrat};
+use drv_packrat_vpd_loader::{Packrat, read_vpd_and_load_packrat};
 use drv_spi_api::{SpiDevice, SpiServer};
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};
 use seq_spi::{Addr, Reg};
+use spd::ee1004 as spd; // DDR4 SPD types
 use static_assertions::const_assert;
 use task_jefe_api::Jefe;
 
@@ -161,7 +162,7 @@ enum Trace {
 
 counted_ringbuf!(Trace, 128, Trace::None);
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let sys = sys_api::Sys::from(SYS.get_task_id());
     let jefe = Jefe::from(JEFE.get_task_id());
@@ -483,7 +484,7 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
                     last_cause,
                     succeeded,
                 };
-                ereporter.deliver_ereport(&ereport);
+                let _ = ereporter.deliver_ereport(&ereport);
             }
         }
 
@@ -847,7 +848,7 @@ impl<S: SpiServer> ServerImpl<S> {
                 ringbuf_entry!(Trace::CPUPresent(present));
 
                 if !present {
-                    self.ereporter.deliver_ereport(
+                    let _ = self.ereporter.deliver_ereport(
                         &ereports::cpu::CpuMissing {
                             cpu: &HOST_CPU_REFDES,
                         },
@@ -873,7 +874,7 @@ impl<S: SpiServer> ServerImpl<S> {
                 //
                 let rev_ok = sp3r1 && !sp3r2;
                 if !coretype || !rev_ok {
-                    self.ereporter.deliver_ereport(
+                    let _ = self.ereporter.deliver_ereport(
                         &ereports::cpu::UnsupportedCpu {
                             cpu: &HOST_CPU_REFDES,
                             coretype: ereports::cpu::CpuTypeBits {
@@ -1096,7 +1097,7 @@ impl<S: SpiServer> ServerImpl<S> {
 
         if ifr & thermtrip != 0 {
             self.seq.clear_bytes(Addr::IFR, &[thermtrip]).unwrap_lite();
-            self.ereporter.deliver_ereport(&ereports::cpu::Thermtrip {
+            let _ = self.ereporter.deliver_ereport(&ereports::cpu::Thermtrip {
                 cpu: &HOST_CPU_REFDES,
                 state: self.ereport_current_state(),
             });
@@ -1342,7 +1343,7 @@ fn read_spd_data_and_load_packrat(
     for nbank in 0..BANKS.len() as u8 {
         let (controller, port, mux) = BANKS[nbank as usize];
 
-        let addr = spd::Function::PageAddress(spd::Page(0))
+        let addr = spd::Function::PageAddress(spd::Page::Page0)
             .to_device_code()
             .unwrap_lite();
         let page =
@@ -1397,7 +1398,7 @@ fn read_spd_data_and_load_packrat(
         }
 
         // Now flip over to the top page.
-        let addr = spd::Function::PageAddress(spd::Page(1))
+        let addr = spd::Function::PageAddress(spd::Page::Page1)
             .to_device_code()
             .unwrap_lite();
         let page =

@@ -8,8 +8,8 @@ use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{Alternate, Port, Sys};
 use task_net_api::PhyError;
 use userlib::UnwrapLite;
-use vsc7448_pac::{phy, types::PhyRegisterAddress};
 use vsc85xx::PhyRw;
+use vsc7448_pac::{phy, types::PhyRegisterAddress};
 
 /// Address used on the MDIO link by our Ethernet PHY. Different
 /// vendors have different defaults for this, it will likely need to

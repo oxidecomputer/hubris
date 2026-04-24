@@ -11,7 +11,7 @@ use gateway_messages::{
 };
 use task_sensor_api::Sensor as SensorTask;
 use task_sensor_api::SensorError;
-use task_validate_api::{Sensor, DEVICES as VALIDATE_DEVICES};
+use task_validate_api::{DEVICES as VALIDATE_DEVICES, Sensor};
 use task_validate_api::{Validate, ValidateError, ValidateOk};
 use userlib::UnwrapLite;
 
@@ -72,7 +72,7 @@ impl Inventory {
         let val_device_index = match Index::try_from(component) {
             Ok(Index::ValidateDevice(i)) => i,
             Ok(Index::OurDevice(i)) => {
-                return our_device_lookup(&OUR_DEVICES[i], component_index)
+                return our_device_lookup(&OUR_DEVICES[i], component_index);
             }
             Err(_) => panic!(),
         };
@@ -280,6 +280,14 @@ mod devices_with_static_validation {
             capabilities: DeviceCapabilities::UPDATEABLE,
             presence: DevicePresence::Present, // TODO: ok to assume always present?
         },
+        #[cfg(feature = "cosmo")]
+        DeviceDescription {
+            component: SpComponent::HOST_CPU_BOOT_APOB,
+            device: SpComponent::HOST_CPU_BOOT_APOB.const_as_str(),
+            description: "Cosmo host boot APOB region",
+            capabilities: DeviceCapabilities::empty(),
+            presence: DevicePresence::Present, // matches HOST_CPU_BOOT_FLASH
+        },
         // If we're building for sidecar, we always claim to have a monorail.
         #[cfg(feature = "sidecar")]
         DeviceDescription {
@@ -331,7 +339,7 @@ mod devices_with_static_validation {
         device: &'static str,
         description: &'static str,
     ) {
-        use gateway_messages::{tlv, SerializedSize, MIN_TRAILING_DATA_LEN};
+        use gateway_messages::{MIN_TRAILING_DATA_LEN, SerializedSize, tlv};
 
         let encoded_len = tlv::tlv_len(
             gateway_messages::DeviceDescriptionHeader::MAX_SIZE

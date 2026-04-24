@@ -9,8 +9,8 @@ use bitfield::bitfield;
 use drv_i2c_api::*;
 use ringbuf::*;
 use userlib::{
-    units::{PWMDuty, Rpm},
     FromPrimitive, UnwrapLite,
+    units::{PWMDuty, Rpm},
 };
 
 bitfield! {

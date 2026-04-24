@@ -4,7 +4,7 @@
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, spanned::Spanned, DeriveInput};
+use syn::{DeriveInput, parse_macro_input, spanned::Spanned};
 
 /// Adds three `impl` blocks for the given error `enum` type:
 /// - `From<E> for u16` (Idol encoding)

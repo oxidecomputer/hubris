@@ -6,7 +6,7 @@
 //!
 //! This uses external shared SPI and GPIO servers to drive the FPGA.
 
-use zerocopy::{byteorder::big_endian as be, Immutable, IntoBytes, Unaligned};
+use zerocopy::{Immutable, IntoBytes, Unaligned, byteorder::big_endian as be};
 
 use drv_spi_api as spi_api;
 use spi_api::{SpiDevice, SpiServer};

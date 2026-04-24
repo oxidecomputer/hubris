@@ -26,7 +26,7 @@ use drv_spi_api::SpiServer;
 use drv_stm32xx_sys_api::Sys;
 use ringbuf::*;
 use userlib::*;
-use vsc7448::{spi::Vsc7448Spi, Vsc7448, VscError};
+use vsc7448::{Vsc7448, VscError, spi::Vsc7448Spi};
 
 cfg_if::cfg_if! {
     // Select local vs server SPI communication
@@ -60,7 +60,7 @@ enum Trace {
 }
 counted_ringbuf!(Trace, 2, Trace::None);
 
-#[export_name = "main"]
+#[unsafe(export_name = "main")]
 fn main() -> ! {
     let sys = Sys::from(SYS.get_task_id());
     let spi = claim_spi(&sys).device(drv_spi_api::devices::VSC7448);

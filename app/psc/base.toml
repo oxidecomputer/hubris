@@ -1,13 +1,13 @@
 target = "thumbv7em-none-eabihf"
 chip = "../../chips/stm32h7"
-memory = "memory-large.toml"
+default-ram = "axi_sram"
 stacksize = 896
 
 [kernel]
 name = "psc"
 requires = {flash = 32868, ram = 6000}
 features = ["dump", "measurement-handoff"]
-extern-regions = ["dtcm"]
+extern-regions = [{ region = "dtcm", shared = true }]
 
 [caboose]
 tasks = ["control_plane_agent", "packrat"]
@@ -121,7 +121,7 @@ notifications = ["i2c2-irq", "i2c3-irq"]
 [tasks.packrat]
 name = "task-packrat"
 priority = 1
-stacksize = 1336
+stacksize = 1400
 start = true
 task-slots = ["jefe"]
 features = ["ereport"]
@@ -162,6 +162,7 @@ max-sizes = {flash = 32768}
 stacksize = 1200
 start = true
 task-slots = ["sys", "i2c_driver", "sprot"]
+notifications = ["timer"]
 
 [tasks.validate]
 name = "task-validate"

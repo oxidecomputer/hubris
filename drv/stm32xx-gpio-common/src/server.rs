@@ -53,26 +53,28 @@ cfg_if::cfg_if! {
 /// Embedded HAL which relies on uniqueness of peripheral access? In practice,
 /// as long as you ensure you're not doing this, you're probably ok.
 pub unsafe fn get_gpio_regs(port: Port) -> &'static dyn AnyGpioPeriph {
-    match port {
-        Port::A => &*device::GPIOA::ptr(),
-        Port::B => &*device::GPIOB::ptr(),
-        Port::C => &*device::GPIOC::ptr(),
-        Port::D => &*device::GPIOD::ptr(),
+    unsafe {
+        match port {
+            Port::A => &*device::GPIOA::ptr(),
+            Port::B => &*device::GPIOB::ptr(),
+            Port::C => &*device::GPIOC::ptr(),
+            Port::D => &*device::GPIOD::ptr(),
 
-        #[cfg(feature = "has-port-gpioe")]
-        Port::E => &*device::GPIOE::ptr(),
-        #[cfg(feature = "has-port-gpiof")]
-        Port::F => &*device::GPIOF::ptr(),
-        #[cfg(feature = "has-port-gpiog")]
-        Port::G => &*device::GPIOG::ptr(),
-        #[cfg(feature = "has-port-gpioh")]
-        Port::H => &*device::GPIOH::ptr(),
-        #[cfg(feature = "has-port-gpioi")]
-        Port::I => &*device::GPIOI::ptr(),
-        #[cfg(feature = "has-port-gpioj")]
-        Port::J => &*device::GPIOJ::ptr(),
-        #[cfg(feature = "has-port-gpiok")]
-        Port::K => &*device::GPIOK::ptr(),
+            #[cfg(feature = "has-port-gpioe")]
+            Port::E => &*device::GPIOE::ptr(),
+            #[cfg(feature = "has-port-gpiof")]
+            Port::F => &*device::GPIOF::ptr(),
+            #[cfg(feature = "has-port-gpiog")]
+            Port::G => &*device::GPIOG::ptr(),
+            #[cfg(feature = "has-port-gpioh")]
+            Port::H => &*device::GPIOH::ptr(),
+            #[cfg(feature = "has-port-gpioi")]
+            Port::I => &*device::GPIOI::ptr(),
+            #[cfg(feature = "has-port-gpioj")]
+            Port::J => &*device::GPIOJ::ptr(),
+            #[cfg(feature = "has-port-gpiok")]
+            Port::K => &*device::GPIOK::ptr(),
+        }
     }
 }
 
