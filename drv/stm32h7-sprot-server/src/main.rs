@@ -285,7 +285,7 @@ impl<S: SpiServer> Io<S> {
             hl::sleep_for(PART2_DELAY);
         }
 
-        if total_size > rx_buf.len() {
+        if total_size > RESPONSE_BUF_SIZE {
             return Err(SprotProtocolError::BadMessageLength.into());
         }
 
