@@ -621,8 +621,11 @@ impl<S: SpiServer> idl::InOrderSpRotImpl for ServerImpl<S> {
         _: &RecvMessage,
     ) -> Result<RotState, RequestError<SprotError>> {
         let tx_size = Request::pack(&ReqBody::RotState, self.tx_buf);
+        for i in tx_size..self.tx_buf.len() {
+            self.tx_buf[i] = 42;
+        }
         let rsp = self.do_send_recv_retries(
-            tx_size,
+            self.tx_buf.len(),
             TIMEOUT_QUICK,
             DEFAULT_ATTEMPTS,
         )?;

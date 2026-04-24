@@ -53,7 +53,7 @@ pub const MIN_VERSION: Version = Version(2);
 pub const CURRENT_VERSION: Version = Version(6);
 
 /// We allow room in the buffer for message evolution
-pub const REQUEST_BUF_SIZE: usize = 1024;
+pub const REQUEST_BUF_SIZE: usize = 1026;
 const_assert!(
     REQUEST_BUF_SIZE
         > Header::MAX_SIZE + ReqBody::MAX_SIZE + MAX_BLOB_SIZE + CRC_SIZE
