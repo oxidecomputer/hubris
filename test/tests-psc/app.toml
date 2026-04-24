@@ -75,6 +75,7 @@ features = ["testsuite"]
 stacksize = 2048
 start = true
 task-slots = ["suite", "runner"]
+notifications = ["timer"]
 
 [tasks.idle]
 name = "task-idle"

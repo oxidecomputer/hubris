@@ -5840,6 +5840,7 @@ dependencies = [
  "ringbuf",
  "serde",
  "static-cell",
+ "task-net-api",
  "test-api",
  "userlib",
  "zerocopy 0.8.27",

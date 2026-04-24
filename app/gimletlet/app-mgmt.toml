@@ -46,6 +46,7 @@ max-sizes = {flash = 32768, ram = 65536 }
 stacksize = 2048
 start = true
 task-slots = ["sys", "user_leds"]
+notifications = ["timer"]
 
 [tasks.net]
 name = "task-net"

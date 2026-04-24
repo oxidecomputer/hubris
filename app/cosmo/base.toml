@@ -46,7 +46,7 @@ name = "task-net"
 stacksize = 8000
 priority = 5
 features = ["mgmt", "h753", "cosmo", "vlan", "vpd-mac"]
-max-sizes = {flash = 131072, ram = 65536, sram1_mac = 16384}
+max-sizes = {flash = 131072, ram = 131072, sram1_mac = 16384}
 default-ram = "dtcm"
 sections = {eth_bulk = "sram1_mac"}
 uses = ["eth", "tim16"]
@@ -171,10 +171,11 @@ notifications = ["timer"]
 name = "task-hiffy"
 features = ["h753", "stm32h7", "i2c", "gpio", "spi", "qspi", "hash", "sprot", "turbo"]
 priority = 7
-max-sizes = {flash = 32768, ram = 32768 }
+max-sizes = {flash = 32768, ram = 65536 }
 stacksize = 1200
 start = true
-task-slots = ["sys", "hf", "i2c_driver", "hash_driver", "update_server", "sprot"]
+task-slots = ["sys", "hf", "i2c_driver", "hash_driver", "update_server", "sprot", "net"]
+notifications = ["timer"]
 
 [tasks.cosmo_seq]
 name = "drv-cosmo-seq-server"

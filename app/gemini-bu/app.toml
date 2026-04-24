@@ -124,6 +124,7 @@ max-sizes = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true
 task-slots = ["sys", "i2c_driver", "hf", "hash_driver", "sprot", "update_server"]
+notifications = ["timer"]
 
 [tasks.sprot]
 name = "drv-stm32h7-sprot-server"
