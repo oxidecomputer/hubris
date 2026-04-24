@@ -247,25 +247,11 @@ pub fn dump_task(base: u32, task: usize) -> Result<u8, DumpAgentError> {
 
     let area = dump_task_setup(base, DumpTaskContents::SingleTask)?;
 
-    for ndx in 0..=usize::MAX {
-        //
-        // We need to ask the kernel which regions we should dump for this
-        // task, which we do by asking for each dump region by index.  Note
-        // that get_task_dump_region is O(#regions) -- which makes this loop
-        // quadratic: O(#regions * #dumpable).  Fortunately, these numbers are
-        // very small: the number of regions is generally 3 or less (and -- as
-        // of this writing -- tops out at 7), and the number of dumpable
-        // regions is generally just one (two when including the task TCB, but
-        // that's constant time to extract).  So this isn't as bad as it
-        // potentially looks (and boils down to two iterations over all
-        // regions in a task) -- but could become so if these numbers become
-        // larger.
-        //
-        let Some(region) = kipc::get_task_dump_region_raw(task, ndx) else {
-            break;
-        };
+    // Helper function to add a region to the dump
+    let add_dump_region = |region: abi::TaskDumpRegion| {
+        // Skip regions which are in the space used for raw dump data
         if in_dump_area(region.base, region.size) {
-            continue;
+            return Ok(());
         }
         ringbuf_entry!(Trace::DumpRegion(region));
 
@@ -281,8 +267,28 @@ pub fn dump_task(base: u32, task: usize) -> Result<u8, DumpAgentError> {
             |addr, buf| unsafe { humpty::to_mem(addr, buf) },
         ) {
             ringbuf_entry!(Trace::DumpRegionsFailed(e));
-            return Err(DumpAgentError::BadSegmentAdd);
+            Err(DumpAgentError::BadSegmentAdd)
+        } else {
+            Ok(())
         }
+    };
+
+    // We need to ask the kernel which regions we should dump for this task,
+    // which we do by asking for each dump region by index.  Note that
+    // get_task_dump_region is O(#regions) -- which makes this loop quadratic:
+    // O(#regions * #dumpable).  Fortunately, these numbers are very small: the
+    // number of regions is generally 3 or less (and -- as of this writing --
+    // tops out at 7), and the number of dumpable regions is generally just one
+    // (two when including the task TCB, but that's constant time to extract).
+    // So this isn't as bad as it potentially looks (and boils down to two
+    // iterations over all regions in a task) -- but could become so if these
+    // numbers become larger.
+    add_dump_region(kipc::get_task_desc_region(task))?;
+    for ndx in 0..=usize::MAX {
+        let Some(region) = kipc::get_task_dump_region(task, ndx) else {
+            break;
+        };
+        add_dump_region(region)?;
     }
 
     dump_task_run(area.region.address, task)?;
