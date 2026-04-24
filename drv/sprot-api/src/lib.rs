@@ -634,7 +634,7 @@ pub struct RotIoStats {
     /// The number of times an SP sent more bytes than expected for one
     /// message. In otherwords, the number of bytes sent by the SP to the RoT
     /// between CSn assert and CSn de-assert exceeds `REQUEST_BUF_SIZE`.
-    pub rx_protocol_error_too_many_bytes: u32,
+    pub request_msg_too_large: u32,
 
     /// The number of CSn pulses seen by the RoT
     pub csn_pulses: u32,

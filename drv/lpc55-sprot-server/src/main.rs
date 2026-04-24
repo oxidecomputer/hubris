@@ -76,6 +76,7 @@ pub(crate) enum Trace {
     Err(SprotProtocolError),
     Stats(RotIoStats),
     Desynchronized,
+    RequestMsgTooLarge,
 
     #[cfg(feature = "sp-ctrl")]
     Dump(u32),
@@ -162,6 +163,9 @@ enum IoError {
     /// send a request to the RoT. We also return this error if we started
     /// receiving a request in the middle.
     Desynchronized,
+
+    /// The SP sent a request that was too large to fit in the RoT's rx buffer.
+    RequestMsgTooLarge,
 }
 
 #[unsafe(export_name = "main")]
@@ -204,6 +208,10 @@ fn main() -> ! {
             Err(IoError::Desynchronized) => {
                 ringbuf_entry!(Trace::Desynchronized);
                 handler.desynchronized_error(tx_buf)
+            }
+            Err(IoError::RequestMsgTooLarge) => {
+                ringbuf_entry!(Trace::RequestMsgTooLarge);
+                handler.request_message_too_large_error(tx_buf)
             }
         };
 
@@ -315,9 +323,9 @@ impl Io {
         // The rx fifo contained more bytes than could fit in the buffer, which
         // is more than we ever expect to receive in one request message.
         if bytes_received > rx_buf.len() {
-            self.stats.rx_protocol_error_too_many_bytes =
-                self.stats.rx_protocol_error_too_many_bytes.wrapping_add(1);
-            return Err(IoError::Flow);
+            self.stats.request_msg_too_large =
+                self.stats.request_msg_too_large.wrapping_add(1);
+            return Err(IoError::RequestMsgTooLarge);
         }
 
         // Was this a CSn pulse?
