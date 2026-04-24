@@ -1293,6 +1293,8 @@ dependencies = [
  "build-fpga-regmap",
  "build-util",
  "cfg-if",
+ "counters",
+ "derive-idol-err",
  "drv-auxflash-api",
  "drv-fpga-api",
  "drv-i2c-api",
@@ -1301,6 +1303,7 @@ dependencies = [
  "gnarle",
  "hubpack",
  "idol",
+ "idol-runtime",
  "num-derive 0.4.2",
  "num-traits",
  "ringbuf",
@@ -1309,6 +1312,26 @@ dependencies = [
  "userlib",
  "vsc7448-pac",
  "vsc85xx",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
+]
+
+[[package]]
+name = "drv-front-io-server"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "drv-fpga-user-api",
+ "drv-front-io-api",
+ "drv-sidecar-seq-api",
+ "enum-map",
+ "hubpack",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "ringbuf",
+ "serde",
+ "userlib",
  "zerocopy 0.8.27",
  "zerocopy-derive 0.8.27",
 ]

@@ -12,7 +12,7 @@ use zerocopy::{
     byteorder::little_endian,
 };
 
-#[derive(Copy, Clone, Eq, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum PhyOscState {
     Unknown,
     Bad,
