@@ -257,6 +257,15 @@ task-slots = [
     {seq = "sequencer"}]
 notifications = ["socket", "timer"]
 
+[tasks.front_io]
+name = "drv-front-io-server"
+priority = 5
+max-sizes = {flash = 65536, ram = 16384}
+stacksize = 4096
+start = true
+task-slots = [{seq = "sequencer"}]
+notifications = ["timer"]
+
 [tasks.packrat]
 name = "task-packrat"
 priority = 1

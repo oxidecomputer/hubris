@@ -17,3 +17,28 @@ pub mod leds;
 pub mod phy_smi;
 #[cfg(feature = "transceivers")]
 pub mod transceivers;
+
+#[derive(
+    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, Count,
+)]
+pub enum FrontIOError {
+    FpgaError = 1,
+    NotPresent,
+    NotReady,
+    InvalidPortNumber,
+    InvalidNumberOfBytes,
+    InvalidPhysicalToLogicalMap,
+    InvalidModuleResult,
+    LedInitFailure,
+    PowerNotGood,
+    PowerFault,
+
+    #[idol(server_death)]
+    ServerRestarted,
+}
+
+impl From<FpgaError> for FrontIOError {
+    fn from(_: FpgaError) -> Self {
+        Self::FpgaError
+    }
+}

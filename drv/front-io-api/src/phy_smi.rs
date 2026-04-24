@@ -6,17 +6,29 @@ use core::cell::Cell;
 
 use crate::{Addr, Reg};
 use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
+use userlib::FromPrimitive;
 use vsc85xx::{PhyRw, VscError};
 use zerocopy::{
     FromBytes, Immutable, IntoBytes, KnownLayout, Unaligned,
     byteorder::little_endian,
 };
 
-#[derive(Copy, Clone, Eq, Debug, PartialEq)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    FromPrimitive,
+    Eq,
+    PartialEq,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
+)]
+#[repr(u8)]
 pub enum PhyOscState {
-    Unknown,
-    Bad,
-    Good,
+    Unknown = 0,
+    Bad = 1,
+    Good = 2,
 }
 
 pub struct PhySmi {

@@ -2,8 +2,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{Addr, Reg};
+use crate::{Addr, FrontIOError, Reg};
 use drv_fpga_api::{FpgaError, FpgaUserDesign, ReadOp, WriteOp};
+use hubpack::SerializedSize;
+use serde::{Deserialize, Serialize};
 use drv_transceivers_api::{ModuleStatus, NUM_PORTS, TransceiversError};
 use transceiver_messages::ModuleId;
 use userlib::UnwrapLite;
@@ -21,14 +23,16 @@ pub struct Transceivers {
 
 // There are two FPGA controllers, each controlling the FPGA on either the left
 // or right of the board.
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(
+    Copy, Clone, PartialEq, Eq, Deserialize, Serialize, SerializedSize,
+)]
 pub enum FpgaController {
     Left = 0,
     Right = 1,
 }
 
 /// Physical port location
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Deserialize, Serialize, SerializedSize)]
 pub struct PortLocation {
     pub controller: FpgaController,
     pub port: PhysicalPort,
@@ -41,7 +45,7 @@ impl From<LogicalPort> for PortLocation {
 }
 
 /// Physical port location within a particular FPGA, as a 0-15 index
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Deserialize, Serialize, SerializedSize)]
 pub struct PhysicalPort(pub u8);
 impl PhysicalPort {
     pub fn as_mask(&self) -> PhysicalPortMask {
@@ -55,14 +59,14 @@ impl PhysicalPort {
     pub fn to_logical_port(
         &self,
         fpga: FpgaController,
-    ) -> Result<LogicalPort, TransceiversError> {
+    ) -> Result<LogicalPort, FrontIOError> {
         let loc = PortLocation {
             controller: fpga,
             port: *self,
         };
         match PORT_MAP.into_iter().position(|&l| l == loc) {
             Some(p) => Ok(LogicalPort(p as u8)),
-            None => Err(TransceiversError::InvalidPhysicalToLogicalMap),
+            None => Err(FrontIOError::InvalidPhysicalToLogicalMap),
         }
     }
 }
@@ -123,7 +127,19 @@ impl FpgaPortMasks {
 }
 
 /// Represents a single logical port (0-31)
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    PartialEq,
+    PartialOrd,
+    FromBytes,
+    IntoBytes,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+)]
+#[repr(transparent)]
 pub struct LogicalPort(pub u8);
 impl LogicalPort {
     pub fn as_mask(&self) -> LogicalPortMask {
@@ -135,7 +151,22 @@ impl LogicalPort {
     }
 }
 /// Represents a set of selected logical ports, i.e. a 32-bit bitmask
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    FromBytes,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+)]
+#[repr(transparent)]
 pub struct LogicalPortMask(pub u32);
 
 impl LogicalPortMask {
@@ -492,7 +523,10 @@ const RIGHT_LOGICAL_MASK: LogicalPortMask = LogicalPortMask(0xff00ff00);
 /// - The module operation succeeded
 /// - The module operation failed
 /// - The module could not be interacted with due to an FPGA communication error
-#[derive(Copy, Clone, Default, PartialEq)]
+#[derive(
+    Copy, Clone, Default, PartialEq, Deserialize, Serialize, SerializedSize,
+)]
+#[repr(C)]
 pub struct ModuleResult {
     success: LogicalPortMask,
     failure: LogicalPortMask,
@@ -527,12 +561,12 @@ impl ModuleResult {
         failure: LogicalPortMask,
         error: LogicalPortMask,
         failure_types: LogicalPortFailureTypes,
-    ) -> Result<Self, TransceiversError> {
+    ) -> Result<Self, FrontIOError> {
         if !(success & failure).is_empty()
             || !(success & error).is_empty()
             || !(failure & error).is_empty()
         {
-            return Err(TransceiversError::InvalidModuleResult);
+            return Err(FrontIOError::InvalidModuleResult);
         }
         Ok(Self {
             success,
@@ -627,7 +661,20 @@ impl ModuleResult {
 /// handle a mix of the following cases on a per-module basis:
 /// - The module operation succeeded
 /// - The module could not be interacted with due to an FPGA communication error
-#[derive(Copy, Clone, Default, PartialEq)]
+#[derive(
+    Copy,
+    Clone,
+    Default,
+    PartialEq,
+    FromBytes,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+)]
+#[repr(C)]
 pub struct ModuleResultNoFailure {
     success: LogicalPortMask,
     error: LogicalPortMask,
@@ -638,9 +685,9 @@ impl ModuleResultNoFailure {
     pub fn new(
         success: LogicalPortMask,
         error: LogicalPortMask,
-    ) -> Result<Self, TransceiversError> {
+    ) -> Result<Self, FrontIOError> {
         if !(success & error).is_empty() {
-            return Err(TransceiversError::InvalidModuleResult);
+            return Err(FrontIOError::InvalidModuleResult);
         }
         Ok(Self { success, error })
     }
@@ -662,7 +709,8 @@ pub type FpgaI2CFailure = Reg::QSFP::PORT0_STATUS::ErrorEncoded;
 /// Currently the only types of operations that can be considered failures are
 /// those that involve the FPGA doing I2C. Thus, that is the only supported type
 /// right now.
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Deserialize, Serialize, SerializedSize)]
+#[repr(C)]
 pub struct LogicalPortFailureTypes(pub [FpgaI2CFailure; NUM_PORTS as usize]);
 
 impl Default for LogicalPortFailureTypes {
@@ -679,7 +727,7 @@ impl core::ops::Index<LogicalPort> for LogicalPortFailureTypes {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Deserialize, Serialize, SerializedSize)]
 pub struct PortI2CStatus {
     pub stretching_seen: bool,
     pub rdata_fifo_empty: bool,

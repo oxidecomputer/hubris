@@ -1314,6 +1314,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-front-io-server"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "drv-front-io-api",
+ "drv-sidecar-seq-api",
+ "enum-map",
+ "hubpack",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "ringbuf",
+ "serde",
+ "userlib",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
+]
+
+[[package]]
 name = "drv-gimlet-hf-server"
 version = "0.1.0"
 dependencies = [
