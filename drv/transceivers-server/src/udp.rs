@@ -17,7 +17,7 @@ use ringbuf::*;
 use userlib::UnwrapLite;
 
 use crate::{FrontIOStatus, ServerImpl};
-use drv_sidecar_front_io::transceivers::{
+use drv_front_io_api::transceivers::{
     FpgaI2CFailure, LogicalPort, LogicalPortFailureTypes, LogicalPortMask,
     ModuleResult, ModuleResultNoFailure, ModuleResultSlim,
 };

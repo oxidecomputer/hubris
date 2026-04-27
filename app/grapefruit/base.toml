@@ -118,8 +118,9 @@ priority = 7
 max-sizes = {flash = 32768, ram = 65536}
 stacksize = 2048
 start = true
-features = ["h753", "stm32h7", "i2c", "gpio", "sprot", "qspi", "hash", "turbo"]
-task-slots = ["i2c_driver", "sys", "user_leds", "sprot", "hf", "hash_driver"]
+features = ["h753", "stm32h7", "i2c", "gpio", "sprot", "qspi", "hash", "turbo", "net", "vlan"]
+task-slots = ["i2c_driver", "sys", "user_leds", "sprot", "hf", "hash_driver", "net"]
+notifications = ["timer", "socket"]
 
 [tasks.validate]
 name = "task-validate"
@@ -276,7 +277,7 @@ name = "task-net"
 stacksize = 8000
 priority = 3
 features = ["h753", "vlan", "grapefruit"]
-max-sizes = {flash = 131072, ram = 65536, sram1_mac = 16384}
+max-sizes = {flash = 131072, ram = 131072, sram1_mac = 16384}
 default-ram = "dtcm"
 sections = {eth_bulk = "sram1_mac"}
 uses = ["eth", "tim16"]
@@ -388,6 +389,13 @@ rx = { packets = 3, bytes = 1024 }
 kind = "udp"
 owner = {name = "fmc_demo", notification = "socket"}
 port = 11114
+tx = { packets = 3, bytes = 4096 }
+rx = { packets = 3, bytes = 4096 }
+
+[config.net.sockets.hiffy]
+kind = "udp"
+owner = {name = "hiffy", notification = "socket"}
+port = 11115
 tx = { packets = 3, bytes = 4096 }
 rx = { packets = 3, bytes = 4096 }
 

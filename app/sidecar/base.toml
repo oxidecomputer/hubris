@@ -207,6 +207,7 @@ max-sizes = {flash = 32768, ram = 32768 }
 stacksize = 1200
 start = true
 task-slots = ["sys", "i2c_driver", "sprot"]
+notifications = ["timer"]
 
 [tasks.sensor]
 name = "task-sensor"
@@ -1222,7 +1223,7 @@ memory-size = 33_554_432 # 256 Mib / 32 MiB
 slot-count = 16 # 2 MiB slots
 
 [[auxflash.blobs]]
-file = "drv/sidecar-front-io/sidecar_qsfp_x32_controller_rev_b_c.bit"
+file = "drv/front-io-api/sidecar_qsfp_x32_controller_rev_b_c.bit"
 compress = true
 tag = "QSFP"
 

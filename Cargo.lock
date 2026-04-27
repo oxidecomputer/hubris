@@ -1287,6 +1287,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-front-io-api"
+version = "0.1.0"
+dependencies = [
+ "build-fpga-regmap",
+ "build-util",
+ "cfg-if",
+ "drv-auxflash-api",
+ "drv-fpga-api",
+ "drv-i2c-api",
+ "drv-i2c-devices",
+ "drv-transceivers-api",
+ "gnarle",
+ "hubpack",
+ "idol",
+ "num-derive 0.4.2",
+ "num-traits",
+ "ringbuf",
+ "serde",
+ "transceiver-messages",
+ "userlib",
+ "vsc7448-pac",
+ "vsc85xx",
+ "zerocopy 0.8.27",
+ "zerocopy-derive 0.8.27",
+]
+
+[[package]]
 name = "drv-gimlet-hf-server"
 version = "0.1.0"
 dependencies = [
@@ -1837,11 +1864,11 @@ dependencies = [
  "cortex-m",
  "drv-fpga-api",
  "drv-fpga-user-api",
+ "drv-front-io-api",
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-medusa-seq-api",
  "drv-packrat-vpd-loader",
- "drv-sidecar-front-io",
  "drv-sidecar-mainboard-controller",
  "drv-stm32xx-sys-api",
  "hubpack",
@@ -2115,33 +2142,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "drv-sidecar-front-io"
-version = "0.1.0"
-dependencies = [
- "build-fpga-regmap",
- "build-util",
- "cfg-if",
- "drv-auxflash-api",
- "drv-fpga-api",
- "drv-i2c-api",
- "drv-i2c-devices",
- "drv-transceivers-api",
- "gnarle",
- "hubpack",
- "idol",
- "num-derive 0.4.2",
- "num-traits",
- "ringbuf",
- "serde",
- "transceiver-messages",
- "userlib",
- "vsc7448-pac",
- "vsc85xx",
- "zerocopy 0.8.27",
- "zerocopy-derive 0.8.27",
-]
-
-[[package]]
 name = "drv-sidecar-mainboard-controller"
 version = "0.1.0"
 dependencies = [
@@ -2204,10 +2204,10 @@ dependencies = [
  "cortex-m",
  "drv-fpga-api",
  "drv-fpga-user-api",
+ "drv-front-io-api",
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-packrat-vpd-loader",
- "drv-sidecar-front-io",
  "drv-sidecar-mainboard-controller",
  "drv-sidecar-seq-api",
  "drv-stm32xx-sys-api",
@@ -2727,9 +2727,9 @@ dependencies = [
  "cfg-if",
  "counters",
  "drv-fpga-api",
+ "drv-front-io-api",
  "drv-i2c-api",
  "drv-i2c-devices",
- "drv-sidecar-front-io",
  "drv-sidecar-seq-api",
  "drv-transceivers-api",
  "enum-map",
@@ -5320,11 +5320,7 @@ dependencies = [
 [[package]]
 name = "spd"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/spd#e37e79f6d7d4805b8a6a8c4d37699c4bd60222ea"
-dependencies = [
- "num-derive 0.3.3",
- "num-traits",
-]
+source = "git+https://github.com/oxidecomputer/spd#b4b97e7f9540969dfce129d88c0ed3f68fd5fe9b"
 
 [[package]]
 name = "spin"
@@ -5822,7 +5818,6 @@ name = "task-hiffy"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "armv6m-atomic-hack",
  "build-i2c",
  "build-util",
  "byteorder",
@@ -5845,6 +5840,7 @@ dependencies = [
  "ringbuf",
  "serde",
  "static-cell",
+ "task-net-api",
  "test-api",
  "userlib",
  "zerocopy 0.8.27",
@@ -5976,9 +5972,9 @@ dependencies = [
  "build-util",
  "cfg-if",
  "counters",
+ "drv-front-io-api",
  "drv-medusa-seq-api",
  "drv-monorail-api",
- "drv-sidecar-front-io",
  "drv-sidecar-mainboard-controller",
  "drv-sidecar-seq-api",
  "drv-spi-api",

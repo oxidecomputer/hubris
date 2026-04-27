@@ -76,6 +76,7 @@ features = ["no-ipc-counters"]
 priority = 3
 max-sizes = {flash = 8192, ram = 8192 }
 start = true
+notifications = ["timer"]
 
 [tasks.idle]
 name = "task-idle"

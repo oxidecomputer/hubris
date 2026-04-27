@@ -85,6 +85,7 @@ priority = 7
 max-sizes = {flash = 32768, ram = 65536}
 stacksize = 2048
 start = true
+notifications = ["timer"]
 
 [tasks.validate]
 name = "task-validate"

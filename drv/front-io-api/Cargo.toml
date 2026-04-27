@@ -1,5 +1,5 @@
 [package]
-name = "drv-sidecar-front-io"
+name = "drv-front-io-api"
 version = "0.1.0"
 edition = "2024"
 

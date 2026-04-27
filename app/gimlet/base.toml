@@ -159,6 +159,7 @@ max-sizes = {flash = 32768, ram = 32768 }
 stacksize = 1200
 start = true
 task-slots = ["sys", "hf", "i2c_driver", "hash_driver", "update_server", "sprot"]
+notifications = ["timer"]
 
 [tasks.gimlet_seq]
 name = "drv-gimlet-seq-server"

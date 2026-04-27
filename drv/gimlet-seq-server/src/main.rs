@@ -29,6 +29,7 @@ use drv_spi_api::{SpiDevice, SpiServer};
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};
 use seq_spi::{Addr, Reg};
+use spd::ee1004 as spd; // DDR4 SPD types
 use static_assertions::const_assert;
 use task_jefe_api::Jefe;
 
@@ -1342,7 +1343,7 @@ fn read_spd_data_and_load_packrat(
     for nbank in 0..BANKS.len() as u8 {
         let (controller, port, mux) = BANKS[nbank as usize];
 
-        let addr = spd::Function::PageAddress(spd::Page(0))
+        let addr = spd::Function::PageAddress(spd::Page::Page0)
             .to_device_code()
             .unwrap_lite();
         let page =
@@ -1397,7 +1398,7 @@ fn read_spd_data_and_load_packrat(
         }
 
         // Now flip over to the top page.
-        let addr = spd::Function::PageAddress(spd::Page(1))
+        let addr = spd::Function::PageAddress(spd::Page::Page1)
             .to_device_code()
             .unwrap_lite();
         let page =
