@@ -109,6 +109,7 @@ prettyplease = { version = "0.2.29", default-features = false }
 proc-macro2 = { version = "1", default-features = false }
 proptest = { version = "1.8.0" }
 proptest-derive = { version = "0.6.0" }
+pulldown-cmark = { version = "0.13.3", default-features = false, features = ["html"] }
 quote = { version = "1", default-features = false }
 rand = { version = "0.10", default-features = false }
 rand_chacha = { version = "0.10", default-features = false }
