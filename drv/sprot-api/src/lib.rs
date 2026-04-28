@@ -288,15 +288,19 @@ where
 
         // The CRC comes after the body, and is not included in header body_len
         let (crc, _) = hubpack::deserialize(tail)?;
-
-        if computed_crc == crc {
-            let blob_len =
-                header.body_size as usize - (rest.len() - blob_buf.len());
-            let blob = &blob_buf[..blob_len];
-            Ok(Msg { header, body, blob })
-        } else {
-            Err(SprotProtocolError::InvalidCrc)
+        if computed_crc != crc {
+            return Err(SprotProtocolError::InvalidCrc);
         }
+
+        let consumed_by_t = rest.len() - blob_buf.len();
+        if consumed_by_t > header.body_size as usize {
+            // The SP and RoT probably disagree about the definition of type T
+            // because of a version mismatch
+            return Err(SprotProtocolError::BadMessageLength);
+        }
+        let blob_len = header.body_size as usize - consumed_by_t;
+        let blob = &blob_buf[..blob_len];
+        Ok(Msg { header, body, blob })
     }
 }
 
