@@ -308,6 +308,7 @@ const ALL_PSU_PWR_OK_PINS: sys_api::PinSet =
 
 // Our notification configuration system doesn't have any concept of arrays, so,
 // collect its predefined masks into convenient arrays.
+#[cfg(any(target_board = "psc-b", target_board = "psc-c"))]
 const PSU_PWR_OK_NOTIF: [u32; PSU_COUNT] = [
     notifications::PSU_PWR_OK_1_MASK,
     notifications::PSU_PWR_OK_2_MASK,
@@ -315,6 +316,17 @@ const PSU_PWR_OK_NOTIF: [u32; PSU_COUNT] = [
     notifications::PSU_PWR_OK_4_MASK,
     notifications::PSU_PWR_OK_5_MASK,
     notifications::PSU_PWR_OK_6_MASK,
+];
+
+// The Observer numbers its notification bits starting at 0 instead of 1
+#[cfg(target_board = "observer-a")]
+const PSU_PWR_OK_NOTIF: [u32; PSU_COUNT] = [
+    notifications::PSU_PWR_OK_0_MASK,
+    notifications::PSU_PWR_OK_1_MASK,
+    notifications::PSU_PWR_OK_2_MASK,
+    notifications::PSU_PWR_OK_3_MASK,
+    notifications::PSU_PWR_OK_4_MASK,
+    notifications::PSU_PWR_OK_5_MASK,
 ];
 
 /// In order to get the PMBus devices by PSU index, we need a little lookup table guy.

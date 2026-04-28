@@ -127,7 +127,7 @@ features = ["ereport"]
 notifications = ["task-faulted"]
 
 [tasks.sequencer]
-name = "drv-observer-seq-server"
+name = "drv-psc-seq-server"
 priority = 4
 stacksize = 4096
 start = true
