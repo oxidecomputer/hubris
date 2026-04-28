@@ -471,6 +471,9 @@ pub enum InventoryData {
         mfr_firmware_data: [u8; 20],
 
         temp_sensor: SensorIndex,
+
+        /// The BRM491 doesn't actually have a power sensors; this is always set
+        /// to `u32::MAX` (but can't be removed for compatibility reasons)
         power_sensor: SensorIndex,
         voltage_sensor: SensorIndex,
         current_sensor: SensorIndex,
