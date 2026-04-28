@@ -195,7 +195,7 @@ dependencies = [
 [[package]]
 name = "attest-data"
 version = "0.4.0"
-source = "git+https://github.com/oxidecomputer/dice-util#a0811d06c75c757a6e12c91ed6ea81fde137ba43"
+source = "git+https://github.com/oxidecomputer/dice-util?rev=a0811d06c75c757a6e12c91ed6ea81fde137ba43#a0811d06c75c757a6e12c91ed6ea81fde137ba43"
 dependencies = [
  "hubpack",
  "salty",
@@ -1007,7 +1007,7 @@ dependencies = [
 [[package]]
 name = "dice-mfg-msgs"
 version = "0.2.1"
-source = "git+https://github.com/oxidecomputer/dice-util#a0811d06c75c757a6e12c91ed6ea81fde137ba43"
+source = "git+https://github.com/oxidecomputer/dice-util?rev=a0811d06c75c757a6e12c91ed6ea81fde137ba43#a0811d06c75c757a6e12c91ed6ea81fde137ba43"
 dependencies = [
  "corncobs",
  "hubpack",
@@ -5350,7 +5350,7 @@ dependencies = [
 [[package]]
 name = "sprockets-common"
 version = "0.1.1"
-source = "git+https://github.com/oxidecomputer/sprockets.git#3906cf08db604f0805324bb7aeafe3b96c51b38e"
+source = "git+https://github.com/oxidecomputer/sprockets.git?rev=3906cf08db604f0805324bb7aeafe3b96c51b38e#3906cf08db604f0805324bb7aeafe3b96c51b38e"
 dependencies = [
  "derive_more",
  "hubpack",
