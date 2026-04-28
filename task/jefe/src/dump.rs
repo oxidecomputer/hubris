@@ -331,8 +331,9 @@ pub fn dump_task_region(
 
     // Get the task descriptor region (in kernel memory)
     let desc = kipc::get_task_desc_region(task);
-    // Note: we implicitly trust kipc won't give us a region that wraps,
-    // unlike untrusted user data from the request that we checked above.
+    // Note: we implicitly trust kipc won't give us a region that wraps, so
+    // we'll use an unchecked add here (unlike untrusted user data from the
+    // request that we checked above)
     let desc_region = desc.base..desc.base + desc.size;
     if mem.start >= desc_region.start && mem.end <= desc_region.end {
         // We are reading from the kernel descriptor region, great job
