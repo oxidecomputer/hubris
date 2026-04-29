@@ -354,7 +354,7 @@ start = true
 
 [config]
 #
-# I2C2: EEPROM bus
+# I2C2: Local bus (EEPROM)
 #
 [[config.i2c.controllers]]
 controller = 2
@@ -364,8 +364,8 @@ controller = 2
 # I2C_SP_TO_EEPROM_SCL
 #
 [config.i2c.controllers.ports.F]
-name = "eeprom"
-description = "EEPROM bus"
+name = "local"
+description = "Local bus (EEPROM)"
 scl.pin = 1
 sda.pin = 0
 af = 4
@@ -412,7 +412,7 @@ description = "Temperature sensor"
 refdes = "U29"
 
 [[config.i2c.devices]]
-bus = "eeprom"
+bus = "local"
 address = 0b1010_000
 device = "at24csw080"
 name = "local_vpd"
