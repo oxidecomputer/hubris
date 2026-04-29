@@ -4,10 +4,13 @@
 
 #![no_std]
 
-include!(concat!(
-    env!("OUT_DIR"),
-    "/sidecar_qsfp_x32_controller_regs.rs"
-));
+use counters::Count;
+use derive_idol_err::IdolError;
+use drv_fpga_api::FpgaError;
+use userlib::FromPrimitive;
+
+// Re-export for use in the server
+pub use transceiver_messages::message::LedState;
 
 #[cfg(feature = "controller")]
 pub mod controller;
@@ -32,6 +35,7 @@ pub enum FrontIOError {
     LedInitFailure,
     PowerNotGood,
     PowerFault,
+    SeqError,
 
     #[idol(server_death)]
     ServerRestarted,
@@ -42,3 +46,8 @@ impl From<FpgaError> for FrontIOError {
         Self::FpgaError
     }
 }
+
+include!(concat!(
+    env!("OUT_DIR"),
+    "/sidecar_qsfp_x32_controller_regs.rs"
+));

@@ -14,7 +14,7 @@ use userlib::{sys_get_timer, task_slot, units::Celsius};
 
 use drv_fpga_api::FpgaError;
 use drv_front_io_api::{
-    Reg,
+    FrontIOStatus, Reg,
     leds::{FullErrorSummary, Leds},
     transceivers::{
         FpgaI2CFailure, LogicalPort, LogicalPortMask, Transceivers,
@@ -101,13 +101,6 @@ const MAX_CONSECUTIVE_ERRORS: u8 = 3;
 
 #[derive(Copy, Clone)]
 struct LedStates([LedState; NUM_PORTS as usize]);
-
-#[derive(Copy, Clone, PartialEq)]
-enum FrontIOStatus {
-    NotReady,
-    NotPresent,
-    Ready,
-}
 
 struct ServerImpl {
     transceivers: Transceivers,

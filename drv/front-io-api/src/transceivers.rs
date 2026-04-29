@@ -4,9 +4,9 @@
 
 use crate::{Addr, FrontIOError, Reg};
 use drv_fpga_api::{FpgaError, FpgaUserDesign, ReadOp, WriteOp};
+use drv_transceivers_api::NUM_PORTS;
 use hubpack::SerializedSize;
 use serde::{Deserialize, Serialize};
-use drv_transceivers_api::{ModuleStatus, NUM_PORTS, TransceiversError};
 use transceiver_messages::ModuleId;
 use userlib::UnwrapLite;
 use zerocopy::{
@@ -1318,4 +1318,32 @@ pub struct TransceiversI2CRequest {
     num_bytes: u8,
     mask: little_endian::U16,
     op: u8,
+}
+
+/// Each field is a bitmask of the 32 transceivers in big endian order, which
+/// results in Port 31 being bit 31, and so forth.
+#[derive(
+    Copy, Clone, Default, FromBytes, IntoBytes, Immutable, KnownLayout,
+)]
+#[repr(C)]
+pub struct ModuleStatus {
+    pub power_enable: u32,
+    pub power_good: u32,
+    pub power_good_timeout: u32,
+    pub power_good_fault: u32,
+    pub resetl: u32,
+    pub lpmode_txdis: u32,
+    pub modprsl: u32,
+    pub intl_rxlosl: u32,
+}
+
+/// Composite struct to package a ModuleStatus and a ModuleResultNoFailure for
+/// IPC
+#[derive(
+    Copy, Clone, Default, FromBytes, IntoBytes, Immutable, KnownLayout,
+)]
+#[repr(C)]
+pub struct TransceiverStatus {
+    pub status: ModuleStatus,
+    pub result: ModuleResultNoFailure,
 }

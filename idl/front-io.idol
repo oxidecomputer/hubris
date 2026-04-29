@@ -3,54 +3,6 @@
 Interface(
     name: "FrontIO",
     ops: {
-        "set_power_enable": (
-            args: {
-                "enable": "bool",
-            },
-            reply: Result(
-                ok: "()",
-                err: CLike("FrontIOError"),
-            ),
-        ),
-
-        "power_good": (
-            args: {},
-            reply: Simple("bool"),
-            idempotent: true,
-        ),
-
-        "power_rail_status": (
-            args: {},
-            reply: Result(
-                ok: (
-                    type: "PowerRailStatus",
-                    recv: FromPrimitive("u8"),
-                ),
-                err: CLike("FrontIOError"),
-            ),
-        ),
-
-        "power_on": (
-            args: {},
-            reply: Result(
-                ok: "()",
-                err: CLike("FrontIOError"),
-            ),
-        ),
-
-        "board_reset": (
-            args: {},
-            reply: Simple("()"),
-            idempotent: true,
-        ),
-
-        "board_status": (
-            args: {},
-            reply: Simple("FrontIOStatus"),
-            idempotent: true,
-            encoding: Hubpack,
-        ),
-
         "board_present": (
             args: {},
             reply: Simple("bool"),
@@ -59,8 +11,10 @@ Interface(
 
         "board_ready": (
             args: {},
-            reply: Simple("bool"),
-            idempotent: true,
+            reply: Result(
+                ok: "bool",
+                err: CLike("FrontIOError"),
+            ),
         ),
 
         "phy_reset": (
@@ -71,54 +25,9 @@ Interface(
             ),
         ),
 
-        "phy_osc_state": (
-            args: {},
-            reply: Result(
-                ok: (
-                    type: "PhyOscState",
-                    recv: FromPrimitive("u8"),
-                ),
-                err: CLike("FrontIOError"),
-            ),
-        ),
-
-        "phy_ready": (
-            args: {},
-            reply: Result(
-                ok: "bool",
-                err: CLike("FrontIOError"),
-            ),
-        ),
-
         "phy_set_osc_state": (
             args: {
                 "good": "bool",
-            },
-            reply: Result(
-                ok: "()",
-                err: CLike("FrontIOError"),
-            ),
-        ),
-
-        "phy_enable_power": (
-            args: {},
-            reply: Result(
-                ok: "()",
-                err: CLike("FrontIOError"),
-            ),
-        ),
-
-        "phy_disable_power": (
-            args: {},
-            reply: Result(
-                ok: "()",
-                err: CLike("FrontIOError"),
-            ),
-        ),
-
-        "phy_set_coma_mode": (
-            args: {
-                "asserted": "bool",
             },
             reply: Result(
                 ok: "()",

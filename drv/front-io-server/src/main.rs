@@ -9,22 +9,20 @@
 
 use core::convert::Infallible;
 use drv_front_io_api::{
-    phy_smi::PhyOscState,
+    FrontIOError, LedState,
     transceivers::{
         LogicalPort, LogicalPortMask, ModuleResult, ModuleResultNoFailure,
-        PortI2CStatus, TransceiverStatus, Transceivers
+        PortI2CStatus, TransceiverStatus,
     },
-    FrontIOError, FrontIOStatus, LedState,
 };
 use drv_sidecar_seq_api::Sequencer;
-use idol_runtime::{
-    ClientError, Leased, NotificationHandler, RequestError, R, W,
-};
+use idol_runtime::{Leased, NotificationHandler, R, RequestError, W};
 use ringbuf::*;
 use userlib::*;
 
 task_slot!(SEQ, sequencer);
 
+#[allow(dead_code)]
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,
@@ -36,92 +34,33 @@ struct ServerImpl {
 }
 
 impl idl::InOrderFrontIOImpl for ServerImpl {
-    /// Enable or disable the front IO power per `enable`
-    fn set_power_enable(
-        &mut self,
-        _: &RecvMessage,
-        enable: bool,
-    ) -> Result<(), RequestError<FrontIOError>> {
-        todo!();
-    }
-
-    /// Returns if front IO power good pin is asserted
-    fn power_good(
-        &mut self,
-        _: &RecvMessage,
-    ) -> Result<bool, RequestError<Infallible>> {
-        todo!();
-    }
-
-    /// Returns the PowerRailStatus of the front IO power, if available
-    fn power_rail_status(
-        &mut self,
-        _: &RecvMessage,
-    ) -> Result<PowerRailStatus, RequestError<FrontIOError>> {
-        todo!();
-    }
-
-    /// Combines turning the front IO board power on and checking that it is good
-    fn power_on(
-        &mut self,
-        _: &RecvMessage,
-    ) -> Result<(), RequestError<FrontIOError>> {
-        todo!();
-    }
-
-    /// Blow away server state, resulting in a resequencing
-    fn board_reset(
-        &mut self,
-        _: &RecvMessage,
-    ) -> Result<(), RequestError<Infallible>> {
-        todo!();
-    }
-
-    /// Returns the current status of the front IO board
-    fn board_status(
-        &mut self,
-        _: &RecvMessage,
-    ) -> Result<FrontIOStatus, RequestError<Infallible>> {
-        todo!();
-    }
-
     /// Returns true if a front IO board was determined to be present and powered on
     fn board_present(
         &mut self,
         _: &RecvMessage,
     ) -> Result<bool, RequestError<Infallible>> {
-        todo!();
+        Ok(self.seq.front_io_board_present())
     }
 
     /// Returns if the front IO board has completely sequenced and is ready
     fn board_ready(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<bool, RequestError<Infallible>> {
-        todo!();
+    ) -> Result<bool, RequestError<FrontIOError>> {
+        self.seq
+            .front_io_board_ready()
+            .map_err(|_| FrontIOError::SeqError)
+            .map_err(RequestError::from)
     }
 
     fn phy_reset(
         &mut self,
         _: &RecvMessage,
     ) -> Result<(), RequestError<FrontIOError>> {
-        todo!();
-    }
-
-    /// Returns the state of the PHY's oscilllator
-    fn phy_osc_state(
-        &mut self,
-        _: &RecvMessage,
-    ) -> Result<PhyOscState, RequestError<FrontIOError>> {
-        todo!();
-    }
-
-    /// Returns if the PHY has been powered up and is ready
-    fn phy_ready(
-        &mut self,
-        _: &RecvMessage,
-    ) -> Result<bool, RequestError<FrontIOError>> {
-        todo!();
+        self.seq
+            .reset_front_io_phy()
+            .map_err(|_| FrontIOError::SeqError)
+            .map_err(RequestError::from)
     }
 
     /// Set the internal state of the PHY's oscillator
@@ -130,40 +69,18 @@ impl idl::InOrderFrontIOImpl for ServerImpl {
         _: &RecvMessage,
         good: bool,
     ) -> Result<(), RequestError<FrontIOError>> {
-        todo!();
-    }
-
-    /// Apply power to the PHY
-    fn phy_enable_power(
-        &mut self,
-        _: &RecvMessage,
-    ) -> Result<(), RequestError<FrontIOError>> {
-        todo!();
-    }
-
-    /// Remove power from the PHY
-    fn phy_disable_power(
-        &mut self,
-        _: &RecvMessage,
-    ) -> Result<(), RequestError<FrontIOError>> {
-        todo!();
-    }
-
-    /// Set the coma_mode pin per `asserted`
-    fn phy_set_coma_mode(
-        &mut self,
-        _: &RecvMessage,
-        asserted: bool,
-    ) -> Result<(), RequestError<FrontIOError>> {
-        todo!();
+       self.seq
+            .set_front_io_phy_osc_state(good)
+            .map_err(|_| FrontIOError::SeqError)
+            .map_err(RequestError::from)
     }
 
     /// Perform a read from the PHY
     fn phy_read(
         &mut self,
         _: &RecvMessage,
-        phy: u8,
-        reg: u8,
+        _phy: u8,
+        _reg: u8,
     ) -> Result<u16, RequestError<FrontIOError>> {
         todo!();
     }
@@ -172,9 +89,9 @@ impl idl::InOrderFrontIOImpl for ServerImpl {
     fn phy_write(
         &mut self,
         _: &RecvMessage,
-        phy: u8,
-        reg: u8,
-        value: u16,
+        _phy: u8,
+        _reg: u8,
+        _value: u16,
     ) -> Result<(), RequestError<FrontIOError>> {
         todo!();
     }
@@ -224,8 +141,8 @@ impl idl::InOrderFrontIOImpl for ServerImpl {
     fn led_set_state(
         &mut self,
         _: &RecvMessage,
-        mask: LogicalPortMask,
-        state: LedState,
+        _mask: LogicalPortMask,
+        _state: LedState,
     ) -> Result<(), RequestError<Infallible>> {
         todo!();
     }
@@ -234,7 +151,7 @@ impl idl::InOrderFrontIOImpl for ServerImpl {
     fn led_get_state(
         &mut self,
         _: &RecvMessage,
-        port: LogicalPort,
+        _port: LogicalPort,
     ) -> Result<LedState, RequestError<Infallible>> {
         todo!();
     }
@@ -294,7 +211,7 @@ impl idl::InOrderFrontIOImpl for ServerImpl {
     fn transceivers_enable_power(
         &mut self,
         _: &RecvMessage,
-        mask: LogicalPortMask,
+        _mask: LogicalPortMask,
     ) -> Result<ModuleResultNoFailure, RequestError<Infallible>> {
         todo!();
     }
@@ -310,7 +227,7 @@ impl idl::InOrderFrontIOImpl for ServerImpl {
     fn transceivers_disable_power(
         &mut self,
         _: &RecvMessage,
-        mask: LogicalPortMask,
+        _mask: LogicalPortMask,
     ) -> Result<ModuleResultNoFailure, RequestError<Infallible>> {
         todo!();
     }
@@ -324,7 +241,7 @@ impl idl::InOrderFrontIOImpl for ServerImpl {
     fn transceivers_clear_power_fault(
         &mut self,
         _: &RecvMessage,
-        mask: LogicalPortMask,
+        _mask: LogicalPortMask,
     ) -> Result<ModuleResultNoFailure, RequestError<Infallible>> {
         todo!();
     }
@@ -340,7 +257,7 @@ impl idl::InOrderFrontIOImpl for ServerImpl {
     fn transceivers_assert_reset(
         &mut self,
         _: &RecvMessage,
-        mask: LogicalPortMask,
+        _mask: LogicalPortMask,
     ) -> Result<ModuleResultNoFailure, RequestError<Infallible>> {
         todo!();
     }
@@ -356,7 +273,7 @@ impl idl::InOrderFrontIOImpl for ServerImpl {
     fn transceivers_deassert_reset(
         &mut self,
         _: &RecvMessage,
-        mask: LogicalPortMask,
+        _mask: LogicalPortMask,
     ) -> Result<ModuleResultNoFailure, RequestError<Infallible>> {
         todo!();
     }
@@ -372,7 +289,7 @@ impl idl::InOrderFrontIOImpl for ServerImpl {
     fn transceivers_assert_lpmode(
         &mut self,
         _: &RecvMessage,
-        mask: LogicalPortMask,
+        _mask: LogicalPortMask,
     ) -> Result<ModuleResultNoFailure, RequestError<Infallible>> {
         todo!();
     }
@@ -388,7 +305,7 @@ impl idl::InOrderFrontIOImpl for ServerImpl {
     fn transceivers_deassert_lpmode(
         &mut self,
         _: &RecvMessage,
-        mask: LogicalPortMask,
+        _mask: LogicalPortMask,
     ) -> Result<ModuleResultNoFailure, RequestError<Infallible>> {
         todo!();
     }
@@ -405,9 +322,9 @@ impl idl::InOrderFrontIOImpl for ServerImpl {
     fn transceivers_setup_i2c_read(
         &mut self,
         _: &RecvMessage,
-        reg: u8,
-        num_bytes: u8,
-        mask: LogicalPortMask,
+        _reg: u8,
+        _num_bytes: u8,
+        _mask: LogicalPortMask,
     ) -> Result<ModuleResultNoFailure, RequestError<FrontIOError>> {
         todo!();
     }
@@ -424,9 +341,9 @@ impl idl::InOrderFrontIOImpl for ServerImpl {
     fn transceivers_setup_i2c_write(
         &mut self,
         _msg: &userlib::RecvMessage,
-        reg: u8,
-        num_bytes: u8,
-        mask: LogicalPortMask,
+        _reg: u8,
+        _num_bytes: u8,
+        _mask: LogicalPortMask,
     ) -> Result<ModuleResultNoFailure, RequestError<FrontIOError>> {
         todo!();
     }
@@ -443,8 +360,8 @@ impl idl::InOrderFrontIOImpl for ServerImpl {
     fn transceivers_set_i2c_write_buffer(
         &mut self,
         _: &RecvMessage,
-        mask: LogicalPortMask,
-        data: Leased<R, [u8]>,
+        _mask: LogicalPortMask,
+        _data: Leased<R, [u8]>,
     ) -> Result<ModuleResultNoFailure, RequestError<FrontIOError>> {
         todo!();
     }
@@ -453,8 +370,8 @@ impl idl::InOrderFrontIOImpl for ServerImpl {
     fn transceivers_get_i2c_status_and_read_buffer(
         &mut self,
         _: &RecvMessage,
-        port: LogicalPort,
-        dest: Leased<W, [u8]>,
+        _port: LogicalPort,
+        _dest: Leased<W, [u8]>,
     ) -> Result<PortI2CStatus, RequestError<FrontIOError>> {
         todo!();
     }
@@ -462,7 +379,7 @@ impl idl::InOrderFrontIOImpl for ServerImpl {
     fn transceivers_wait_and_check_i2c(
         &mut self,
         _: &RecvMessage,
-        mask: LogicalPortMask,
+        _mask: LogicalPortMask,
     ) -> Result<ModuleResult, RequestError<Infallible>> {
         todo!();
     }
@@ -495,9 +412,8 @@ fn main() -> ! {
 
 mod idl {
     use super::{
-        FrontIOError, FrontIOStatus, LedState, LogicalPort, LogicalPortMask,
-        ModuleResult, ModuleResultNoFailure, PhyOscState, PortI2CStatus,
-        PowerRailStatus, TransceiverStatus,
+        FrontIOError, LedState, LogicalPort, LogicalPortMask, ModuleResult,
+        ModuleResultNoFailure, PortI2CStatus, TransceiverStatus,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
