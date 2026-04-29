@@ -288,15 +288,19 @@ where
 
         // The CRC comes after the body, and is not included in header body_len
         let (crc, _) = hubpack::deserialize(tail)?;
-
-        if computed_crc == crc {
-            let blob_len =
-                header.body_size as usize - (rest.len() - blob_buf.len());
-            let blob = &blob_buf[..blob_len];
-            Ok(Msg { header, body, blob })
-        } else {
-            Err(SprotProtocolError::InvalidCrc)
+        if computed_crc != crc {
+            return Err(SprotProtocolError::InvalidCrc);
         }
+
+        let consumed_by_t = rest.len() - blob_buf.len();
+        if consumed_by_t > header.body_size as usize {
+            // The SP and RoT probably disagree about the definition of type T
+            // because of a version mismatch
+            return Err(SprotProtocolError::BadMessageLength);
+        }
+        let blob_len = header.body_size as usize - consumed_by_t;
+        let blob = &blob_buf[..blob_len];
+        Ok(Msg { header, body, blob })
     }
 }
 
@@ -630,6 +634,11 @@ pub struct RotIoStats {
 
     /// Number of messages where the RoT failed to service the Rx FIFO in time.
     pub rx_overrun: u32,
+
+    /// The number of times an SP sent more bytes than expected for one
+    /// message. In otherwords, the number of bytes sent by the SP to the RoT
+    /// between CSn assert and CSn de-assert exceeds `REQUEST_BUF_SIZE`.
+    pub request_msg_too_large: u32,
 
     /// The number of CSn pulses seen by the RoT
     pub csn_pulses: u32,
