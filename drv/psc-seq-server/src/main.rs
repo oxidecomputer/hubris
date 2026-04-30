@@ -280,9 +280,9 @@ const STATUS_LED: sys_api::PinSet = sys_api::Port::A.pin(3);
 const PSU_COUNT: usize = 6;
 
 // The ON signals are conveniently all routed to a single port:
-const PSU_ENABLE_L_PORT: sys_api::Port = sys_api::Port::K;
+const PSU_ENABLE_L_PORT: sys_api::Port = sys_api::Port::I;
 // The ON signals are routed to the following pins on their port:
-const PSU_ENABLE_L_PINS: [usize; PSU_COUNT] = [0, 1, 2, 3, 4, 5];
+const PSU_ENABLE_L_PINS: [usize; PSU_COUNT] = [8, 9, 10, 11, 12, 13];
 // Convenient mask for referring to all the ON pins simultaneously, since we can
 // do that, since they're all on one port.
 const ALL_PSU_ENABLE_L_PINS: sys_api::PinSet =
