@@ -89,7 +89,7 @@ impl bsp_support::Bsp for BspImpl {
             power_good: &PG_PINS,
 
             ksz8463: Ksz8463::new(ksz8463_dev),
-            ksz8463_nrst: Port::C.pin(2), // SP_TO_VSC8562_RESET_L_V3P3
+            ksz8463_nrst: Port::E.pin(1), // SP_TO_KSZ8463_RESET_L
             ksz8463_rst_type: mgmt::Ksz8463ResetSpeed::Normal,
             ksz8463_vlan_mode: ksz8463::VLanMode::Mandatory,
 
