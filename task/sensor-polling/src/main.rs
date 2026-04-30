@@ -132,6 +132,8 @@ fn main() -> ! {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+use i2c_config::{devices, sensors};
+
 #[cfg(any(target_board = "psc-b", target_board = "psc-c",))]
 static SENSORS: [TemperatureSensor; 6] = [
     TemperatureSensor::new(
