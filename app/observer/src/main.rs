@@ -39,22 +39,14 @@ fn system_init() {
     p.RCC.ahb4enr.modify(|_, w| w.gpiogen().set_bit());
     cortex_m::asm::dsb();
 
-    // PG2:0 are already inputs after reset, but without any pull resistors.
+    // PG2:0 are already inputs after reset, without any pull resistors.
+    // There are external pull resistors on the board.
     #[rustfmt::skip]
     p.GPIOG.moder.modify(|_, w| w
         .moder0().input()
         .moder1().input()
         .moder2().input());
-    // Enable the pullups.
-    #[rustfmt::skip]
-    p.GPIOG.pupdr.modify(|_, w| w
-        .pupdr0().pull_up()
-        .pupdr1().pull_up()
-        .pupdr2().pull_up());
 
-    // Wait for pins to charge / discharge (see comment in gimlet/src/main.rs
-    // for the actual calculations).
-    cortex_m::asm::delay(155 * 2);
     let rev = p.GPIOG.idr.read().bits() & 0b111;
 
     cfg_if::cfg_if! {
