@@ -132,13 +132,7 @@ fn main() -> ! {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-use i2c_config::{devices, sensors};
-
-#[cfg(any(
-    target_board = "psc-b",
-    target_board = "psc-c",
-    target_board = "observer-a"
-))]
+#[cfg(any(target_board = "psc-b", target_board = "psc-c",))]
 static SENSORS: [TemperatureSensor; 6] = [
     TemperatureSensor::new(
         Device::Mwocp68,
@@ -177,6 +171,10 @@ static SENSORS: [TemperatureSensor; 6] = [
         &sensors::MWOCP68_PSU5MCU_SPEED_SENSORS,
     ),
 ];
+
+// TODO fill in sensors once we know how to talk to the MWOCP67
+#[cfg(target_board = "observer-a")]
+static SENSORS: [TemperatureSensor; 0] = [];
 
 ////////////////////////////////////////////////////////////////////////////////
 
