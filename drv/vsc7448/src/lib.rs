@@ -903,9 +903,16 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
             sidecar::TECHNICIAN_1 | sidecar::TECHNICIAN_2 => Some(
                 (1 << p) | (1 << sidecar::UPLINK) | (1 << sidecar::LOCAL_SP),
             ),
+            // the local SP remains accessible!
+            sidecar::LOCAL_SP => Some(
+                (1 << p)
+                    | (1 << sidecar::UPLINK)
+                    | (1 << sidecar::TECHNICIAN_1)
+                    | (1 << sidecar::TECHNICIAN_2),
+            ),
             _ => {
-                // Other SPs are only connected to the Tofino
-                Some((1 << p) | (1 << sidecar::UPLINK))
+                // Other SPs are not connected to anyone!
+                Some(1 << p)
             }
         })
     }
@@ -974,8 +981,8 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
                     | (1 << sidecar::TECHNICIAN_1)
                     | (1 << sidecar::TECHNICIAN_2),
             ),
-            // Other SPs are only connected to the Tofino uplink port
-            _ => Some((1 << p) | (1 << sidecar::UPLINK)),
+            // Other SPs are not connected to anyone!
+            _ => Some(1 << p),
         })
     }
 
