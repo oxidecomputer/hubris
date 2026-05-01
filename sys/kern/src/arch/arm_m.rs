@@ -304,18 +304,46 @@ pub fn reinitialize(task: &mut task::Task) {
     // arithmetic and get zero for the top word, which is outside any region and
     // causes this to be skipped. (Not that we expect zero, but we're the kernel
     // and we don't trust tasks.)
-    if let Some(region) = task
-        .region_table()
-        .iter()
-        .find(|region| region.contains(initial_stack.saturating_sub(4)))
+    if let Some((index, mut region)) =
+        task.region_table().iter().enumerate().find(|(_i, region)| {
+            region.contains(initial_stack.saturating_sub(4))
+        })
     {
+        // The stack may span multiple contiguous regions; iterate backwards
+        // through the sorted region list until we either hit the front or find
+        // a region which is discontiguous.
+        let mut okay = true;
+        for i in (0..index).rev() {
+            let prev_region = &task.region_table()[i];
+
+            // If the region table is corrupt such that a region descriptor
+            // overflows a u32, then bail out.
+            let Some(prev_region_end) =
+                prev_region.base.checked_add(prev_region.size)
+            else {
+                okay = false;
+                break;
+            };
+
+            // If these regions are contiguous, then keep going
+            if prev_region_end == region.base {
+                region = prev_region;
+            } else {
+                // We have found a discontiguous region, so we can break out of
+                // the loop (leaving `region` set to its previous value).
+                break;
+            }
+        }
+
         // If the slice doesn't fit in the region, this will fail. Should this
         // occur, don't crash the entire system, since this is a diagnostic tool
         // -- just skip filling the stack.
-        if let Ok(mut uslice) = USlice::<u32>::from_raw(
-            region.base as usize,
-            (initial_stack - frame_size - region.base as usize) >> 2,
-        ) {
+        if okay
+            && let Some(region_size) =
+                (initial_stack - frame_size).checked_sub(region.base as usize)
+            && let Ok(mut uslice) =
+                USlice::<u32>::from_raw(region.base as usize, region_size >> 2)
+        {
             // This one, we're unwrapping rather than tolerating failure. This
             // is because try_write failing would indicate an invalid region
             // descriptor for the task (read-only stack area) which would bite
