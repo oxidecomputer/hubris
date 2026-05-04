@@ -17,6 +17,10 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         panic!("unknown target board");
     }
 
+    idol::Generator::new()
+        .with_counters(idol::CounterSettings::default())
+        .build_client_stub("../../idl/front-io.idol", "client_stub.rs")?;
+
     let out_dir = build_util::out_dir();
     let out_file = out_dir.join("sidecar_qsfp_x32_controller_regs.rs");
     let mut file = fs::File::create(out_file)?;

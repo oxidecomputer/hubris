@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use drv_front_io_api::phy_smi::PhySmi;
+use drv_front_io_api::{FrontIO, phy_smi::PhySmi};
 use drv_monorail_api::MonorailError;
 use drv_sidecar_seq_api::Sequencer;
 use idol_runtime::RequestError;
@@ -14,8 +14,9 @@ use vsc7448::{
 };
 use vsc7448_pac::{DEVCPU_GCB, HSIO, VAUI0, VAUI1, phy};
 
+task_slot!(FRONT_IO, front_io);
+task_slot!(FRONT_IO_FPGA, ecp5_front_io);
 task_slot!(SEQ, seq);
-task_slot!(FRONT_IO, ecp5_front_io);
 
 /// Interval at which `Bsp::wake()` is called by the main loop
 pub const WAKE_INTERVAL: Option<u32> = Some(500);
@@ -66,6 +67,9 @@ pub struct Bsp<'a, R> {
 
     /// Handle for the sequencer task
     seq: Sequencer,
+
+    /// Handle for the front IO task
+    front_io: FrontIO,
 
     /// PHY for the on-board PHY ("PHY4")
     vsc8504: Vsc8504,
@@ -178,20 +182,21 @@ pub fn preinit() {
 impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
     /// Constructs and initializes a new BSP handle
     pub fn new(vsc7448: &'a Vsc7448<'a, R>) -> Result<Self, VscError> {
-        let seq = Sequencer::from(SEQ.get_task_id());
-        let has_front_io = seq.front_io_board_present();
+        let front_io = FrontIO::from(FRONT_IO.get_task_id());
+        let has_front_io = front_io.board_present();
         let mut out = Bsp {
             vsc7448,
             vsc8504: Vsc8504::empty(),
             vsc8562: if has_front_io {
-                Some(PhySmi::new(FRONT_IO.get_task_id()))
+                Some(PhySmi::new(FRONT_IO_FPGA.get_task_id()))
             } else {
                 None
             },
             front_io_speed: [Speed::Speed1G; 2],
             link_down_at: None,
             vlan_mode: VLanMode::Locked,
-            seq,
+            seq: Sequencer::from(SEQ.get_task_id()),
+            front_io,
         };
 
         out.reinit()?;
@@ -276,8 +281,8 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             // Notify the sequencer about the state of the oscillator. If the
             // oscillator is good any future resets of the PHY do not require a
             // full power cycle of the front IO board.
-            self.seq
-                .set_front_io_phy_osc_state(osc_good)
+            self.front_io
+                .phy_set_osc_state(osc_good)
                 .map_err(|e| VscError::ProxyError(e.into()))?;
 
             if !osc_good {
@@ -431,8 +436,8 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             // Request a reset of the PHY. If we had previously marked the PHY
             // oscillator as bad, then this power-cycles the entire front IO
             // board; otherwise, it only power-cycles the PHY.
-            self.seq
-                .reset_front_io_phy()
+            self.front_io
+                .phy_reset()
                 .map_err(|e| VscError::ProxyError(e.into()))?;
 
             for p in 0..2 {

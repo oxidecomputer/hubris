@@ -14,7 +14,7 @@ use userlib::{sys_get_timer, task_slot, units::Celsius};
 
 use drv_fpga_api::FpgaError;
 use drv_front_io_api::{
-    Reg,
+    FrontIO, FrontIOError, Reg,
     leds::{FullErrorSummary, Leds},
     transceivers::{
         FpgaI2CFailure, LogicalPort, LogicalPortMask, Transceivers,
@@ -38,10 +38,12 @@ use zerocopy::{FromBytes, FromZeros, IntoBytes};
 mod udp; // UDP API is implemented in a separate file
 
 task_slot!(I2C, i2c_driver);
+// front-io-server, which does not yet own the fpga
 task_slot!(FRONT_IO, front_io);
-task_slot!(SEQ, seq);
+task_slot!(FRONT_IO_FPGA, front_io_fpga);
 task_slot!(NET, net);
 task_slot!(SENSOR, sensor);
+task_slot!(SEQ, seq);
 
 #[cfg(feature = "thermal-control")]
 task_slot!(THERMAL, thermal);
@@ -54,7 +56,7 @@ enum Trace {
     #[count(skip)]
     None,
     FrontIOBoardReady(#[count(children)] bool),
-    FrontIOSeqErr(SeqError),
+    FrontIOErr(FrontIOError),
     LEDInit,
     LEDInitComplete,
     LEDInitError(Error),
@@ -621,8 +623,9 @@ fn main() -> ! {
     // before we start doing things with them. A more sophisticated
     // notification system will be put in place.
     let seq = Sequencer::from(SEQ.get_task_id());
+    let front_io = FrontIO::from(FRONT_IO.get_task_id());
 
-    let transceivers = Transceivers::new(FRONT_IO.get_task_id());
+    let transceivers = Transceivers::new(FRONT_IO_FPGA.get_task_id());
     let leds = Leds::new(
         &i2c_config::devices::pca9956b_front_leds_left(I2C.get_task_id()),
         &i2c_config::devices::pca9956b_front_leds_right(I2C.get_task_id()),
@@ -691,15 +694,13 @@ fn main() -> ! {
     let mut buffer = [0; idl::INCOMING_SIZE];
     loop {
         if server.front_io_board_present == FrontIOStatus::NotReady {
-            server.front_io_board_present = match seq.front_io_board_ready() {
+            server.front_io_board_present = match front_io.board_ready() {
                 Ok(true) => {
                     ringbuf_entry!(Trace::FrontIOBoardReady(true));
                     FrontIOStatus::Ready
                 }
-                Err(SeqError::NoFrontIOBoard) => {
-                    ringbuf_entry!(Trace::FrontIOSeqErr(
-                        SeqError::NoFrontIOBoard
-                    ));
+                Err(FrontIOError::NotPresent) => {
+                    ringbuf_entry!(Trace::FrontIOErr(FrontIOError::NotPresent));
                     FrontIOStatus::NotPresent
                 }
                 _ => {
