@@ -2,6 +2,7 @@
 name = "cosmo-b"
 board = "cosmo-b"
 inherit = "base.toml"
+docfile = "README.md"
 
 # We have to include the whole I2C1 configuration fragment, because the
 # [[config.i2c.controllers.ports.B.muxes]] fragment differs between revs A and
