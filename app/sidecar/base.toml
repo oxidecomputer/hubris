@@ -56,13 +56,13 @@ pin = 3
 owner = {name = "sprot", notification = "rot_irq"}
 
 [tasks.rng_driver]
-features = ["h753"]
+features = ["h753", "ereport"]
 name = "drv-stm32h7-rng"
 priority = 6
 uses = ["rng"]
 start = true
 stacksize = 512
-task-slots = ["sys"]
+task-slots = ["sys", "packrat"]
 
 [tasks.update_server]
 name = "stm32h7-update-server"
