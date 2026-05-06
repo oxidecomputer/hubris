@@ -7,6 +7,8 @@
 use counters::Count;
 use derive_idol_err::IdolError;
 use drv_fpga_api::FpgaError;
+use hubpack::SerializedSize;
+use serde::{Deserialize, Serialize};
 use userlib::*;
 
 #[cfg(feature = "controller")]
@@ -26,7 +28,8 @@ pub enum FrontIOError {
     NotPresent,
     InvalidPhysicalToLogicalMap,
     InvalidModuleResult,
-    SeqError,
+    PowerNotGood,
+    PowerFault,
 
     #[idol(server_death)]
     ServerRestarted,
@@ -36,6 +39,30 @@ impl From<FpgaError> for FrontIOError {
     fn from(_: FpgaError) -> Self {
         Self::FpgaError
     }
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Count,
+    Eq,
+    PartialEq,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+)]
+pub enum FrontIOStatus {
+    /// Start state
+    Init,
+    /// No board detected
+    NotPresent,
+    /// The FPGAs are being configured
+    FpgaInit,
+    /// Confirming that the PHY oscillator is behaving
+    OscInit,
+    /// Board is present and fully operational
+    Ready,
 }
 
 include!(concat!(
