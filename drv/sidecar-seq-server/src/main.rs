@@ -549,20 +549,6 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         Ok(self.clock_generator.config_loaded)
     }
 
-    fn front_io_board_present(
-        &mut self,
-        _: &RecvMessage,
-    ) -> Result<bool, RequestError<Infallible>> {
-        Ok(self.front_io_board.is_some())
-    }
-
-    fn front_io_board_ready(
-        &mut self,
-        _: &RecvMessage,
-    ) -> Result<bool, RequestError<SeqError>> {
-        self.front_io_phy_osc_good().map_err(RequestError::from)
-    }
-
     fn reset_front_io_phy(
         &mut self,
         _: &RecvMessage,
@@ -1081,7 +1067,7 @@ fn main() -> ! {
                 AUXFLASH.get_task_id(),
             );
 
-            front_io_board.init().unwrap_lite();
+            // front_io_board.init().unwrap_lite();
 
             // TODO (arjen): check/load VPD data into packrat.
 

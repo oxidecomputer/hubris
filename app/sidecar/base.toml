@@ -265,7 +265,7 @@ priority = 5
 max-sizes = {flash = 65536, ram = 16384}
 stacksize = 4096
 start = true
-task-slots = ["sequencer"]
+task-slots = ["auxflash", "ecp5_front_io", "i2c_driver", "sequencer"]
 notifications = ["timer"]
 
 [tasks.packrat]

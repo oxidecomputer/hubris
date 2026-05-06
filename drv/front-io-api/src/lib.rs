@@ -38,6 +38,27 @@ impl From<FpgaError> for FrontIOError {
     }
 }
 
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Count,
+    Eq,
+    PartialEq,
+)]
+pub enum FrontIOStatus {
+    /// Start state
+    Init,
+    /// No board detected
+    NotPresent,
+    /// The FPGAs are being configured
+    FpgaInit,
+    /// Confirming that the PHY oscillator is behaving
+    OscInit,
+    /// Board is present and fully operational
+    Ready,
+}
+
 include!(concat!(
     env!("OUT_DIR"),
     "/sidecar_qsfp_x32_controller_regs.rs"
