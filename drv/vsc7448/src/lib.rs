@@ -741,10 +741,11 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
             if let Some(mask) = f(p) {
                 // Configure the 0x1YY VLAN, using our closure to decide what
                 // mask to apply
-                self.write_port_mask(
-                    ANA_L3().VLAN(0x100 + p as u16).VLAN_MASK_CFG(),
-                    mask,
-                )?;
+                let vid = 0x100 + p as u16;
+                self.write_port_mask(ANA_L3().VLAN(vid).VLAN_MASK_CFG(), mask)?;
+                self.write_with(ANA_L3().VLAN(vid).VLAN_CFG(), |r| {
+                    r.set_vlan_fid(u32::from(vid))
+                })?;
             }
         }
         Ok(())
