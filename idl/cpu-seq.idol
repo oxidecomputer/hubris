@@ -12,6 +12,13 @@ Interface(
             )),
             idempotent: true,
         ),
+        "get_state_with_reason": (
+            doc: "Return the power state and the reason for its last change",
+            args: {},
+            reply: Simple("PowerStateWithReason"),
+            idempotent: true,
+            encoding: Hubpack,
+        ),
         "set_state": (
             doc: "Set the power state without providing a reason (legacy).",
             args: {

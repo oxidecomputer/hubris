@@ -27,9 +27,11 @@ fixedstr = { path = "../../lib/fixedstr", features = ["microcbor"] }
 static-cell = { path = "../../lib/static-cell" }
 
 cfg-if = { workspace = true }
+hubpack = { workspace = true }
 idol-runtime.workspace = true
 num-traits = { workspace = true }
 pmbus = { workspace = true }
+serde = { workspace = true }
 zerocopy = { workspace = true }
 zerocopy-derive = { workspace = true }
 

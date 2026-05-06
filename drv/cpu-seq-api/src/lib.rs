@@ -8,6 +8,8 @@
 
 use counters::Count;
 use derive_idol_err::IdolError;
+use hubpack::SerializedSize;
+use serde::{Deserialize, Serialize};
 use userlib::{FromPrimitive, sys_send};
 use zerocopy::{Immutable, IntoBytes, KnownLayout};
 
@@ -43,6 +45,9 @@ pub enum SeqError {
     Immutable,
     KnownLayout,
     Count,
+    SerializedSize,
+    Serialize,
+    Deserialize,
 )]
 #[repr(u8)]
 pub enum StateChangeReason {
@@ -79,6 +84,24 @@ pub enum StateChangeReason {
     NicMapo,
     /// The system powered off for reasons we can't explain
     Unknown,
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Eq,
+    PartialEq,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+)]
+pub struct PowerStateWithReason {
+    pub state: PowerState,
+    pub reason: StateChangeReason,
 }
 
 /// Indicates the result of a power state transition.
