@@ -4288,6 +4288,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "observer"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if",
+ "cortex-m",
+ "cortex-m-rt",
+ "drv-stm32h7-startup",
+ "kern",
+ "stm32h7",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.21.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"

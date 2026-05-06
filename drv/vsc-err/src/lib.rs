@@ -12,7 +12,7 @@
 use drv_spi_api::SpiError;
 use idol_runtime::ServerDeath;
 
-#[derive(Copy, Clone, Eq, PartialEq, counters::Count)]
+#[derive(Copy, Clone, Eq, PartialEq, counters::Count, Debug)]
 pub enum VscError {
     SpiError(#[count(children)] SpiError),
     ServerDied,
