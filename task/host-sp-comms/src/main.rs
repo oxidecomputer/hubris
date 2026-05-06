@@ -1269,6 +1269,10 @@ impl ServerImpl {
     fn apob_read(&mut self, sequence: u64, offset: u64, size: u64) {
         use drv_hf_api::ApobReadError;
         use host_sp_messages::ApobReadResult;
+
+        // NOTE: This ONLY checks we are not out of bounds for `usize`,
+        // we will check if the requested size can be honored later in
+        // the `fill` closure.
         let Ok(size) = usize::try_from(size) else {
             self.tx_buf.encode_response(
                 sequence,
@@ -1285,33 +1289,37 @@ impl ServerImpl {
             );
             return;
         };
+
+        // closure for performing the actual apob read
+        let fill = |buf: &mut [u8]| {
+            // Did the user pass in a reasonable size?
+            let Some(rbuf) = buf.get_mut(..size) else {
+                return Err(SpToHost::ApobRead(ApobReadResult::InvalidSize));
+            };
+
+            // If successful: return the number of bytes read
+            let err = match self.hf.apob_read(offset, rbuf) {
+                Ok(n) => return Ok(n),
+                Err(e) => e,
+            };
+
+            // Something went wrong, ringbuf the error, and convert
+            // the error types
+            ringbuf_entry!(Trace::ApobReadError { offset, err });
+            let read_err = match err {
+                ApobReadError::NotImplemented => ApobReadResult::NotImplemented,
+                ApobReadError::InvalidState => ApobReadResult::InvalidState,
+                ApobReadError::NoValidApob => ApobReadResult::NoValidApob,
+                ApobReadError::InvalidOffset => ApobReadResult::InvalidOffset,
+                ApobReadError::InvalidSize => ApobReadResult::InvalidSize,
+                ApobReadError::ReadFailed => ApobReadResult::ReadFailed,
+            };
+            Err(SpToHost::ApobRead(read_err))
+        };
         self.tx_buf.try_encode_response(
             sequence,
             &SpToHost::ApobRead(ApobReadResult::Ok),
-            |buf| match self.hf.apob_read(offset, &mut buf[..size]) {
-                Ok(n) => Ok(n),
-                Err(err) => {
-                    ringbuf_entry!(Trace::ApobReadError { offset, err });
-                    Err(SpToHost::ApobRead(match err {
-                        ApobReadError::NotImplemented => {
-                            ApobReadResult::NotImplemented
-                        }
-                        ApobReadError::InvalidState => {
-                            ApobReadResult::InvalidState
-                        }
-                        ApobReadError::NoValidApob => {
-                            ApobReadResult::NoValidApob
-                        }
-                        ApobReadError::InvalidOffset => {
-                            ApobReadResult::InvalidOffset
-                        }
-                        ApobReadError::InvalidSize => {
-                            ApobReadResult::InvalidSize
-                        }
-                        ApobReadError::ReadFailed => ApobReadResult::ReadFailed,
-                    }))
-                }
-            },
+            fill,
         );
     }
 
