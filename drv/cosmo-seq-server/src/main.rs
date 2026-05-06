@@ -8,7 +8,8 @@
 #![no_main]
 
 use drv_cpu_seq_api::{
-    PowerState, SeqError as CpuSeqError, StateChangeReason, Transition,
+    PowerState, PowerStateWithReason, SeqError as CpuSeqError,
+    StateChangeReason, Transition,
 };
 use drv_ice40_spi_program as ice40;
 use drv_packrat_vpd_loader::{Packrat, read_vpd_and_load_packrat};
@@ -429,6 +430,8 @@ fn init_front_fpga<S: SpiServer>(
 #[allow(unused)]
 struct ServerImpl {
     state: PowerState,
+    /// The reason we transitioned to the current state
+    reason: StateChangeReason,
     /// The Hubris tick at which we transitioned to the current state.
     since: u64,
     jefe: Jefe,
@@ -466,6 +469,7 @@ impl ServerImpl {
 
         ServerImpl {
             state: PowerState::A2,
+            reason: StateChangeReason::InitialPowerOn,
             since: now,
             jefe,
             sys: Sys::from(SYS.get_task_id()),
@@ -478,8 +482,11 @@ impl ServerImpl {
         }
     }
 
-    fn get_state_impl(&self) -> PowerState {
-        self.state
+    fn get_state_impl(&self) -> PowerStateWithReason {
+        PowerStateWithReason {
+            state: self.state,
+            reason: self.reason,
+        }
     }
 
     /// Logs a set of state registers, returning the state machine states
@@ -510,18 +517,18 @@ impl ServerImpl {
     fn set_state_impl(
         &mut self,
         state: PowerState,
-        why: StateChangeReason,
+        reason: StateChangeReason,
     ) -> Result<Transition, CpuSeqError> {
         let now = sys_get_timer().now;
         ringbuf_entry!(Trace::SetState {
             prev: Some(self.state),
             next: state,
-            why,
+            why: reason,
             now,
         });
 
         use seq_api_status::A0Sm;
-        match (self.get_state_impl(), state) {
+        match (self.get_state_impl().state, state) {
             (PowerState::A2, PowerState::A0) => {
                 // Reset edge counters in the sequencer
                 self.seq.amd_reset_fedges.set_counts(0);
@@ -698,13 +705,19 @@ impl ServerImpl {
             _ => return Err(CpuSeqError::IllegalTransition),
         }
 
-        self.set_state_internal(state, now);
+        self.set_state_internal(state, reason, now);
         Ok(Transition::Changed)
     }
 
     /// Updates our internal `state` and the global state in `jefe`
-    fn set_state_internal(&mut self, state: PowerState, now: u64) {
+    fn set_state_internal(
+        &mut self,
+        state: PowerState,
+        reason: StateChangeReason,
+        now: u64,
+    ) {
         self.state = state;
+        self.reason = reason;
         self.since = now;
         self.jefe.set_state(state as u32);
         self.poke_timer();
@@ -970,36 +983,42 @@ impl ServerImpl {
                 // host_sp_comms will be notified of this change and will
                 // call back into this task to reboot the system (going to
                 // A2 then back into A0)
+                let next = PowerState::A0Reset;
+                let reason = StateChangeReason::CpuReset;
                 ringbuf_entry!(Trace::SetState {
                     prev: Some(self.state),
-                    next: PowerState::A0Reset,
-                    why: StateChangeReason::CpuReset,
+                    next,
+                    why: reason,
                     now,
                 });
-                self.set_state_internal(PowerState::A0Reset, now);
+                self.set_state_internal(next, reason, now);
             }
             InternalAction::NicMapo => {
                 // Presumably we are in A0+HP, so send us back to A0 so that the
                 // thermal loop will stop trying to talk to the NIC, and hope
                 // the host resequences it.
+                let next = PowerState::A0;
+                let reason = StateChangeReason::NicMapo;
                 ringbuf_entry!(Trace::SetState {
                     prev: Some(self.state),
-                    next: PowerState::A0,
-                    why: StateChangeReason::NicMapo,
+                    next,
+                    why: reason,
                     now,
                 });
-                self.set_state_internal(PowerState::A0, now);
+                self.set_state_internal(next, reason, now);
             }
             InternalAction::ThermTrip => {
                 // This is a terminal state; we set our state to `A0Thermtrip`
                 // but do not expect any other task to take action right now
+                let next = PowerState::A0Thermtrip;
+                let reason = StateChangeReason::Overheat;
                 ringbuf_entry!(Trace::SetState {
                     prev: Some(self.state),
-                    next: PowerState::A0Thermtrip,
-                    why: StateChangeReason::Overheat,
+                    next,
+                    why: reason,
                     now,
                 });
-                self.set_state_internal(PowerState::A0Thermtrip, now);
+                self.set_state_internal(next, reason, now);
             }
             InternalAction::Mapo => {
                 // This is a terminal state (for now)
@@ -1036,6 +1055,14 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<PowerState, RequestError<core::convert::Infallible>> {
+        Ok(self.get_state_impl().state)
+    }
+
+    fn get_state_with_reason(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<PowerStateWithReason, RequestError<core::convert::Infallible>>
+    {
         Ok(self.get_state_impl())
     }
 
@@ -1291,7 +1318,7 @@ static HOST_CPU_REFDES: ereports::cpu::HostCpuRefdes =
 ////////////////////////////////////////////////////////////////////////////////
 
 mod idl {
-    use drv_cpu_seq_api::StateChangeReason;
+    use drv_cpu_seq_api::{PowerStateWithReason, StateChangeReason};
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
 
