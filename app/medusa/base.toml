@@ -92,7 +92,7 @@ max-sizes = {flash = 262144, ram = 8192}
 features = ["mgmt", "medusa", "vlan", "use-spi-core", "h753", "spi2"]
 stacksize = 4096
 start = true
-task-slots = ["front_io", "sys", { seq = "sequencer" }]
+task-slots = ["front_io", "sys"]
 uses = ["spi2"]
 notifications = ["spi-irq", "wake-timer"]
 interrupts = {"spi2.irq" = "spi-irq"}

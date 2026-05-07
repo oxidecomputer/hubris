@@ -3,7 +3,6 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use drv_front_io_api::{FrontIO, phy_smi::PhySmi};
-use drv_medusa_seq_api::Sequencer;
 use drv_monorail_api::MonorailError;
 use idol_runtime::{ClientError, RequestError};
 use ringbuf::*;
@@ -14,7 +13,6 @@ use vsc7448::{
 };
 use vsc7448_pac::{DEVCPU_GCB, HSIO, VAUI0, VAUI1};
 
-task_slot!(SEQ, seq);
 task_slot!(FRONT_IO, front_io);
 
 /// Interval in milliseconds at which `Bsp::wake()` is called by the main loop
@@ -41,9 +39,6 @@ pub struct Bsp<'a, R> {
 
     /// Handle for the front-io task
     front_io: FrontIO,
-
-    /// Handle for Medusa's sequencer task
-    seq: Sequencer,
 
     /// PHY for the on-board PHY ("PHY4")
     vsc8504: Vsc8504,
@@ -149,7 +144,6 @@ pub fn preinit() {
 impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
     /// Constructs and initializes a new BSP handle
     pub fn new(vsc7448: &'a Vsc7448<'a, R>) -> Result<Self, VscError> {
-        let seq = Sequencer::from(SEQ.get_task_id());
         let front_io = FrontIO::from(FRONT_IO.get_task_id());
         let has_front_io = front_io.board_present();
         let mut out = Bsp {
@@ -163,7 +157,6 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             front_io_speed: [Speed::Speed1G; 2],
             link_down_at: None,
             front_io,
-            seq,
         };
 
         out.reinit()?;
