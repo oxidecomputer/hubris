@@ -99,7 +99,6 @@
 #![no_std]
 #![no_main]
 
-#[allow(unused_imports)]
 use drv_i2c_api::I2cDevice;
 use drv_i2c_devices::mwocp68::{self, Mwocp68};
 use drv_packrat_vpd_loader::{Packrat, read_vpd_and_load_packrat};
@@ -186,7 +185,6 @@ counted_ringbuf!(Event, 128, Event::None, no_dedup);
 /// don't really need to spend extra bytes on counting them, so they are marked
 /// as `count(skip)`.
 #[derive(Copy, Clone, PartialEq, Eq, counters::Count)]
-#[allow(dead_code)]
 enum Trace {
     #[count(skip)]
     None,
@@ -331,15 +329,15 @@ const PSU_PWR_OK_NOTIF: [u32; PSU_COUNT] = [
     notifications::PSU_PWR_OK_5_MASK,
 ];
 
-// /// In order to get the PMBus devices by PSU index, we need a little lookup table guy.
-// const PSU_PMBUS_DEVS: [fn(TaskId) -> (I2cDevice, u8); PSU_COUNT] = [
-//     i2c_config::pmbus::v54_psu0,
-//     i2c_config::pmbus::v54_psu1,
-//     i2c_config::pmbus::v54_psu2,
-//     i2c_config::pmbus::v54_psu3,
-//     i2c_config::pmbus::v54_psu4,
-//     i2c_config::pmbus::v54_psu5,
-// ];
+/// In order to get the PMBus devices by PSU index, we need a little lookup table guy.
+const PSU_PMBUS_DEVS: [fn(TaskId) -> (I2cDevice, u8); PSU_COUNT] = [
+    i2c_config::pmbus::v54_psu0,
+    i2c_config::pmbus::v54_psu1,
+    i2c_config::pmbus::v54_psu2,
+    i2c_config::pmbus::v54_psu3,
+    i2c_config::pmbus::v54_psu4,
+    i2c_config::pmbus::v54_psu5,
+];
 
 const PSU_SLOTS: [Slot; PSU_COUNT] = [
     Slot::Psu0,
@@ -558,17 +556,17 @@ fn main() -> ! {
     let start_time = sys_get_timer().now;
 
     let mut psus: [Psu; PSU_COUNT] = core::array::from_fn(|i| {
-        // let dev = {
-        //     let i2c = I2C.get_task_id();
-        //     let make_dev = PSU_PMBUS_DEVS[i];
-        //     let (dev, rail) = make_dev(i2c);
-        //     Mwocp68::new(&dev, rail)
-        // };
+        let dev = {
+            let i2c = I2C.get_task_id();
+            let make_dev = PSU_PMBUS_DEVS[i];
+            let (dev, rail) = make_dev(i2c);
+            Mwocp68::new(&dev, rail)
+        };
         let slot = PSU_SLOTS[i];
-        let fruid = PsuFruid::default();
+        let mut fruid = PsuFruid::default();
         let state = if present_l_bits & (1 << PSU_PRESENT_L_PINS[i]) == 0 {
             // Hello, who are you?
-            // fruid.refresh(&dev, slot, start_time);
+            fruid.refresh(&dev, slot, start_time);
             // ...and how are you doing?
             PsuState::Present(if initial_psu_enabled[i] {
                 ringbuf_entry!(Event::FoundEnabled {
@@ -595,7 +593,7 @@ fn main() -> ! {
         Psu {
             slot,
             state,
-            // dev,
+            dev,
             fruid,
         }
     });
@@ -699,7 +697,7 @@ enum Status {
 struct Psu {
     slot: Slot,
     state: PsuState,
-    // dev: Mwocp68,
+    dev: Mwocp68,
     /// Because we would like to include the PSU's FRU ID information in the
     /// ereports generated when a PSU is *removed*, we must cache it here rather
     /// than reading it from the device when we generate an ereport for it.
@@ -912,13 +910,11 @@ impl Psu {
         }
     }
 
-    fn refresh_fruid(&mut self, _now: u64) {
-        // self.fruid.refresh(&self.dev, self.slot, now);
+    fn refresh_fruid(&mut self, now: u64) {
+        self.fruid.refresh(&self.dev, self.slot, now);
     }
 
-    fn read_pmbus_status(&mut self, _now: u64) -> ereports::pwr::PmbusStatus {
-        ereports::pwr::PmbusStatus::default()
-        /*
+    fn read_pmbus_status(&mut self, now: u64) -> ereports::pwr::PmbusStatus {
         let status_word =
             retry_i2c_txn(now, self.slot, || self.dev.status_word())
                 .map(|data| data.0);
@@ -1011,7 +1007,6 @@ impl Psu {
             temp: status_temperature.ok(),
             mfr: status_mfr_specific.ok(),
         }
-        */
     }
 
     fn ereport_fields(&self) -> EreportFields {
@@ -1030,8 +1025,7 @@ impl Psu {
             FixedString::try_from_utf8(&v54_psu[..]).unwrap_lite()
         };
         EreportFields {
-            // refdes: FixedStr::from_str(self.dev.i2c_device().component_id()),
-            refdes: FixedStr::from_str("UNKNOWN"),
+            refdes: FixedStr::from_str(self.dev.i2c_device().component_id()),
             rail,
             slot: self.slot as u8,
             fruid: self.fruid,
@@ -1048,7 +1042,6 @@ struct PsuFruid {
 }
 
 impl PsuFruid {
-    #[allow(dead_code)]
     fn refresh(&mut self, dev: &Mwocp68, psu: Slot, now: u64) {
         if self.mfr.is_none() {
             self.mfr = retry_i2c_txn(now, psu, || dev.mfr_id())
@@ -1076,7 +1069,6 @@ impl PsuFruid {
     }
 }
 
-#[allow(dead_code)]
 fn retry_i2c_txn<T>(
     now: u64,
     psu: Slot,
