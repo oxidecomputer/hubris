@@ -15,10 +15,27 @@ Interface(
             ),
         ),
         "set_tofino_seq_policy": (
+            doc: "Set the power state, without providing a reason (legacy)",
+            args: {
+                "policy": (
+                    type: "TofinoSequencerPolicy",
+                    recv: FromPrimitive("u8"),
+                ),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("SeqError"),
+            ),
+        ),
+        "set_tofino_seq_policy_with_reason": (
             doc: "Set the power state",
             args: {
                 "policy": (
                     type: "TofinoSequencerPolicy",
+                    recv: FromPrimitive("u8"),
+                ),
+                "reason": (
+                    type: "PolicyChangeReason",
                     recv: FromPrimitive("u8"),
                 )
             },
@@ -37,6 +54,15 @@ Interface(
                 ),
                 err: CLike("SeqError"),
             ),
+        ),
+        "tofino_seq_state_with_reason": (
+            doc: "Return the Tofino sequencer state and the reason for last policy change",
+            args: {},
+            reply: Result(
+                ok: "TofinoSeqStateWithReason",
+                err: CLike("SeqError"),
+            ),
+            encoding: Hubpack,
         ),
         "tofino_seq_error": (
             doc: "Return the Tofino sequencer error, if any",

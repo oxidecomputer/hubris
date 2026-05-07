@@ -21,7 +21,8 @@ use drv_sidecar_mainboard_controller::fan_modules::*;
 use drv_sidecar_mainboard_controller::front_io::*;
 use drv_sidecar_mainboard_controller::tofino2::*;
 use drv_sidecar_seq_api::{
-    FanModuleIndex, FanModulePresence, SeqError, TofinoSequencerPolicy,
+    FanModuleIndex, FanModulePresence, PolicyChangeReason, SeqError,
+    TofinoSeqStateWithReason, TofinoSequencerPolicy,
 };
 use drv_stm32xx_sys_api as sys_api;
 use fixedstr::FixedStr;
@@ -64,7 +65,7 @@ enum Trace {
     ClockConfigurationError(usize, ResponseCode),
     ClockConfigurationComplete,
     TofinoSequencerError(SeqError),
-    TofinoSequencerPolicyUpdate(TofinoSequencerPolicy),
+    TofinoSequencerPolicyUpdate(TofinoSequencerPolicy, PolicyChangeReason),
     TofinoSequencerTick(TofinoSequencerPolicy, TofinoStateDetails),
     TofinoSequencerAbort {
         state: TofinoSeqState,
@@ -408,8 +409,22 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         _msg: &userlib::RecvMessage,
         policy: TofinoSequencerPolicy,
     ) -> Result<(), RequestError<SeqError>> {
-        ringbuf_entry!(Trace::TofinoSequencerPolicyUpdate(policy));
-        self.tofino.policy = policy;
+        ringbuf_entry!(Trace::TofinoSequencerPolicyUpdate(
+            policy,
+            PolicyChangeReason::Other
+        ));
+        self.tofino.set_policy(policy, PolicyChangeReason::Other);
+        Ok(())
+    }
+
+    fn set_tofino_seq_policy_with_reason(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        policy: TofinoSequencerPolicy,
+        reason: PolicyChangeReason,
+    ) -> Result<(), RequestError<SeqError>> {
+        ringbuf_entry!(Trace::TofinoSequencerPolicyUpdate(policy, reason));
+        self.tofino.set_policy(policy, reason);
         Ok(())
     }
 
@@ -418,6 +433,16 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         _: &RecvMessage,
     ) -> Result<TofinoSeqState, RequestError<SeqError>> {
         Ok(self.tofino.sequencer.state().map_err(SeqError::from)?)
+    }
+
+    fn tofino_seq_state_with_reason(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<TofinoSeqStateWithReason, RequestError<SeqError>> {
+        Ok(TofinoSeqStateWithReason {
+            state: self.tofino.sequencer.state().map_err(SeqError::from)?,
+            reason: self.tofino.reason,
+        })
     }
 
     fn tofino_seq_error(
@@ -1065,7 +1090,10 @@ fn main() -> ! {
     {
         ringbuf_entry!(Trace::SkipLoadingClockConfiguration);
         server.clock_generator.config_loaded = true;
-        server.tofino.policy = TofinoSequencerPolicy::LatchOffOnFault;
+        server.tofino.set_policy(
+            TofinoSequencerPolicy::LatchOffOnFault,
+            PolicyChangeReason::InitialPowerOn,
+        );
     } else if server.clock_generator.load_config().is_err() {
         panic!()
     }
@@ -1127,7 +1155,11 @@ fn main() -> ! {
 
     // Power on, unless suppressed by the `stay-in-a2` feature
     if !cfg!(feature = "stay-in-a2") {
-        server.tofino.policy = TofinoSequencerPolicy::LatchOffOnFault;
+        // TODO what's the right reason?
+        server.tofino.set_policy(
+            TofinoSequencerPolicy::LatchOffOnFault,
+            PolicyChangeReason::InitialPowerOn,
+        );
     }
 
     //
@@ -1152,8 +1184,9 @@ ereports::declare_ereporter! {
 mod idl {
     use super::{
         DebugPortState, DirectBarSegment, FanModuleIndex, FanModulePresence,
-        FanModuleStatus, FpgaError, SeqError, TofinoPcieReset, TofinoSeqError,
-        TofinoSeqState, TofinoSeqStep, TofinoSequencerPolicy,
+        FanModuleStatus, FpgaError, PolicyChangeReason, SeqError,
+        TofinoPcieReset, TofinoSeqError, TofinoSeqState,
+        TofinoSeqStateWithReason, TofinoSeqStep, TofinoSequencerPolicy,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

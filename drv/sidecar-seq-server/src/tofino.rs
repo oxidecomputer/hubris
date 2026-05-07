@@ -7,6 +7,7 @@ use drv_i2c_devices::raa229618::Raa229618;
 
 pub(crate) struct Tofino {
     pub policy: TofinoSequencerPolicy,
+    pub reason: PolicyChangeReason,
     pub sequencer: Sequencer,
     pub debug_port: DebugPort,
     pub vddcore: Raa229618,
@@ -22,6 +23,7 @@ impl Tofino {
         let vddcore = Raa229618::new(&i2c_device, rail);
         Self {
             policy: TofinoSequencerPolicy::Disabled,
+            reason: PolicyChangeReason::InitialPowerOn,
             sequencer: Sequencer::new(MAINBOARD.get_task_id()),
             debug_port: DebugPort::new(MAINBOARD.get_task_id()),
             vddcore,
@@ -30,6 +32,15 @@ impl Tofino {
             pcie_link_up: false,
             pcie_reset_asserted: true,
         }
+    }
+
+    pub fn set_policy(
+        &mut self,
+        policy: TofinoSequencerPolicy,
+        reason: PolicyChangeReason,
+    ) {
+        self.policy = policy;
+        self.reason = reason;
     }
 
     pub fn apply_vid(&mut self, vid: Tofino2Vid) -> Result<(), SeqError> {

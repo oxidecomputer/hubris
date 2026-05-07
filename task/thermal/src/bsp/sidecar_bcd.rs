@@ -10,7 +10,9 @@ use crate::control::{
 };
 use drv_i2c_devices::tmp451::*;
 pub use drv_sidecar_seq_api::SeqError;
-use drv_sidecar_seq_api::{Sequencer, TofinoSeqState, TofinoSequencerPolicy};
+use drv_sidecar_seq_api::{
+    PolicyChangeReason, Sequencer, TofinoSeqState, TofinoSequencerPolicy,
+};
 use task_sensor_api::SensorId;
 use task_thermal_api::ThermalProperties;
 use userlib::{TaskId, UnwrapLite, task_slot, units::Celsius};
@@ -151,8 +153,10 @@ impl Bsp {
     }
 
     pub fn power_down(&self) -> Result<(), SeqError> {
-        self.seq
-            .set_tofino_seq_policy(TofinoSequencerPolicy::Disabled)
+        self.seq.set_tofino_seq_policy_with_reason(
+            TofinoSequencerPolicy::Disabled,
+            PolicyChangeReason::Overheat,
+        )
     }
 
     pub fn get_fan_presence(&self) -> Result<Fans<{ NUM_FANS }>, SeqError> {

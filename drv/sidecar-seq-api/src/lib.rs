@@ -59,12 +59,66 @@ impl From<FpgaError> for SeqError {
     IntoBytes,
     Immutable,
     KnownLayout,
+    Deserialize,
+    Serialize,
+    SerializedSize,
 )]
 #[repr(u8)]
 pub enum TofinoSequencerPolicy {
     Disabled = 0,
     LatchOffOnFault = 1,
     RestartOnFault = 2,
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    FromPrimitive,
+    Eq,
+    PartialEq,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+)]
+#[repr(u8)]
+pub enum PolicyChangeReason {
+    /// No reason was provided.
+    ///
+    /// This indicates a legacy caller of `Sequencer.set_tofino_seq_policy`,
+    /// rather than `Sequencer.set_tofino_seq_policy_with_reason`. All
+    /// Hubris-internal callers should use `set_tofino_seq_policy_with_reason`,
+    /// so this variant generally indicates that the
+    /// `Sequencer.set_tofino_seq_policy` IPC is being called via Hiffy.
+    Other = 1,
+    /// The system has just received power and has entered this state as part of
+    /// its normal startup process.
+    InitialPowerOn,
+    /// A power state change was requested by the control plane.
+    ControlPlane,
+    /// The system powered off because a component has overheated.
+    Overheat,
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Eq,
+    PartialEq,
+    IntoBytes,
+    Immutable,
+    KnownLayout,
+    Deserialize,
+    Serialize,
+    SerializedSize,
+)]
+pub struct TofinoSeqStateWithReason {
+    pub state: TofinoSeqState,
+    pub reason: PolicyChangeReason,
 }
 
 #[derive(

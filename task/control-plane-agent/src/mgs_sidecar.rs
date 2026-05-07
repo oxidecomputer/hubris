@@ -12,7 +12,7 @@ use crate::{
     usize_max,
 };
 use drv_monorail_api::{Monorail, MonorailError};
-use drv_sidecar_seq_api::Sequencer;
+use drv_sidecar_seq_api::{PolicyChangeReason, Sequencer};
 use drv_transceivers_api::Transceivers;
 use enum_map::EnumMap;
 use gateway_messages::sp_impl::{
@@ -816,9 +816,11 @@ impl SpHandler for MgsHandler {
                 .clear_tofino_seq_error()
                 .map_err(|e| SpError::PowerStateError(e as u32))?
         }
-
         self.sequencer
-            .set_tofino_seq_policy(policy)
+            .set_tofino_seq_policy_with_reason(
+                policy,
+                PolicyChangeReason::ControlPlane,
+            )
             .map_err(|e| SpError::PowerStateError(e as u32))?;
 
         // TODO(eliza): this should probably also be made idempotent, à la the
