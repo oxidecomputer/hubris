@@ -7,6 +7,8 @@ use bitfield::bitfield;
 use derive_more::{From, Into};
 use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
 use drv_fpga_user_api::power_rail::*;
+use hubpack::SerializedSize;
+use serde::{Deserialize, Serialize};
 use userlib::FromPrimitive;
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
@@ -21,6 +23,9 @@ use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
     IntoBytes,
     Immutable,
     KnownLayout,
+    Deserialize,
+    Serialize,
+    SerializedSize,
 )]
 #[repr(u8)]
 pub enum TofinoSeqState {

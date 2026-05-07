@@ -12,7 +12,9 @@ use crate::control::{DynamicInputChannel, FanPollingOutcome};
 use drv_i2c_devices::max31790::Max31790;
 use drv_i2c_devices::tmp451::*;
 pub use drv_sidecar_seq_api::SeqError;
-use drv_sidecar_seq_api::{Sequencer, TofinoSeqState, TofinoSequencerPolicy};
+use drv_sidecar_seq_api::{
+    PolicyChangeReason, Sequencer, TofinoSeqState, TofinoSequencerPolicy,
+};
 use task_sensor_api::SensorId;
 use task_thermal_api::ThermalError;
 use task_thermal_api::ThermalProperties;
@@ -103,8 +105,13 @@ impl crate::control::BspInterface for Bsp {
     };
 
     fn power_down(&self) -> Result<(), crate::SeqError> {
-        self.seq
-            .set_tofino_seq_policy(TofinoSequencerPolicy::Disabled)
+        self.seq.set_tofino_seq_policy_with_reason(
+            TofinoSequencerPolicy::Disabled,
+            // This BspInterface trait is the interface used by the thermal
+            // control loop, so we can assume that the reason for the power-down
+            // is overheating (or some other error related to thermal control)
+            PolicyChangeReason::Overheat,
+        )
     }
 
     fn power_mode(&self) -> PowerBitmask {
