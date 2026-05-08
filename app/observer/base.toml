@@ -127,7 +127,7 @@ features = ["ereport"]
 notifications = ["task-faulted"]
 
 [tasks.sequencer]
-name = "drv-psc-seq-server"
+name = "drv-observer-seq-server"
 priority = 4
 stacksize = 4096
 start = true
@@ -419,7 +419,8 @@ name = "local_vpd"
 description = "FRU ID EEPROM"
 refdes = "U27"
 
-# TODO add rectifiers (once we have their SMBus spec)
+# TODO add rectifiers (once we have their PMBus spec) and uncomment PMBus usage
+# in observer-seq-server.
 
 [config.spi.spi1]
 controller = 1
