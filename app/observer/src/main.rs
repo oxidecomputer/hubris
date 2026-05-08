@@ -28,13 +28,6 @@ fn system_init() {
     let cp = cortex_m::Peripherals::take().unwrap();
     let p = device::Peripherals::take().unwrap();
 
-    // We want to measure PG0-2 to determine if we're running on the correct
-    // board.  On rev A, these pins are left floating; on later revisions, they
-    // are pulled either high or low.
-    //
-    // This code matches that in gimlet/src/main.rs; see detailed comments over
-    // there about how times were calculated.
-
     // Un-gate the clock to GPIO bank G.
     p.RCC.ahb4enr.modify(|_, w| w.gpiogen().set_bit());
     cortex_m::asm::dsb();
