@@ -98,7 +98,6 @@
 
 #![no_std]
 #![no_main]
-
 // TODO remove once the rectifier PMBus config is added
 #![allow(dead_code)]
 
