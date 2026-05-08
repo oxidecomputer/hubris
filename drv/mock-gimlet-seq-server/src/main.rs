@@ -7,7 +7,9 @@
 #![no_std]
 #![no_main]
 
-use drv_cpu_seq_api::{PowerState, SeqError, StateChangeReason, Transition};
+use drv_cpu_seq_api::{
+    PowerState, PowerStateWithReason, SeqError, StateChangeReason, Transition,
+};
 use idol_runtime::{NotificationHandler, RequestError};
 use task_jefe_api::Jefe;
 use userlib::{FromPrimitive, RecvMessage, UnwrapLite};
@@ -26,6 +28,7 @@ fn main() -> ! {
 
 struct ServerImpl {
     jefe: Jefe,
+    reason: StateChangeReason,
 }
 
 impl ServerImpl {
@@ -34,25 +37,33 @@ impl ServerImpl {
         // first attempt to get the current power state from `jefe`, and we
         // haven't set it yet!
         jefe.set_state(PowerState::A2 as u32);
-        Self { jefe }
+        Self {
+            jefe,
+            reason: StateChangeReason::InitialPowerOn,
+        }
     }
 
-    fn get_state_impl(&self) -> PowerState {
+    fn get_state_impl(&self) -> PowerStateWithReason {
         // Only we should be setting the state, and we set it to A2 on startup;
         // this conversion should never fail.
-        PowerState::from_u32(self.jefe.get_state()).unwrap_lite()
+        PowerStateWithReason {
+            state: PowerState::from_u32(self.jefe.get_state()).unwrap_lite(),
+            reason: self.reason,
+        }
     }
 
     fn set_state_impl(
-        &self,
+        &mut self,
         state: PowerState,
+        reason: StateChangeReason,
     ) -> Result<Transition, SeqError> {
-        match (self.get_state_impl(), state) {
+        match (self.get_state_impl().state, state) {
             (PowerState::A2, PowerState::A0)
             | (PowerState::A0, PowerState::A2)
             | (PowerState::A0PlusHP, PowerState::A2)
             | (PowerState::A0Thermtrip, PowerState::A2) => {
                 self.jefe.set_state(state as u32);
+                self.reason = reason;
                 Ok(Transition::Changed)
             }
 
@@ -70,6 +81,14 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<PowerState, RequestError<core::convert::Infallible>> {
+        Ok(self.get_state_impl().state)
+    }
+
+    fn get_state_with_reason(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<PowerStateWithReason, RequestError<core::convert::Infallible>>
+    {
         Ok(self.get_state_impl())
     }
 
@@ -78,16 +97,16 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         _: &RecvMessage,
         state: PowerState,
     ) -> Result<Transition, RequestError<SeqError>> {
-        Ok(self.set_state_impl(state)?)
+        Ok(self.set_state_impl(state, StateChangeReason::Other)?)
     }
 
     fn set_state_with_reason(
         &mut self,
         _: &RecvMessage,
         state: PowerState,
-        _: StateChangeReason,
+        reason: StateChangeReason,
     ) -> Result<Transition, RequestError<SeqError>> {
-        Ok(self.set_state_impl(state)?)
+        Ok(self.set_state_impl(state, reason)?)
     }
 
     fn send_hardware_nmi(
@@ -173,7 +192,7 @@ impl NotificationHandler for ServerImpl {
 }
 
 mod idl {
-    use super::StateChangeReason;
+    use drv_cpu_seq_api::{PowerStateWithReason, StateChangeReason};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

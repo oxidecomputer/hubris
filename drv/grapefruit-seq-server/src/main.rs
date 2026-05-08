@@ -7,7 +7,9 @@
 #![no_std]
 #![no_main]
 
-use drv_cpu_seq_api::{PowerState, SeqError, StateChangeReason, Transition};
+use drv_cpu_seq_api::{
+    PowerState, PowerStateWithReason, SeqError, StateChangeReason, Transition,
+};
 use drv_spartan7_loader_api::Spartan7Loader;
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{NotificationHandler, RequestError};
@@ -77,6 +79,7 @@ struct ServerImpl {
     jefe: Jefe,
     sgpio: fmc_periph::sgpio::Sgpio,
     espi: fmc_periph::espi::Espi,
+    reason: StateChangeReason,
 }
 
 impl ServerImpl {
@@ -99,6 +102,7 @@ impl ServerImpl {
             jefe: Jefe::from(JEFE.get_task_id()),
             sgpio: fmc_periph::sgpio::Sgpio::new(loader.get_token()),
             espi: fmc_periph::espi::Espi::new(loader.get_token()),
+            reason: StateChangeReason::InitialPowerOn,
         };
 
         // Note that we don't use `Self::set_state_impl` here, as that will
@@ -113,22 +117,27 @@ impl ServerImpl {
         server
     }
 
-    fn get_state_impl(&self) -> PowerState {
+    fn get_state_impl(&self) -> PowerStateWithReason {
         // Only we should be setting the state, and we set it to A2 on startup;
         // this conversion should never fail.
-        PowerState::from_u32(self.jefe.get_state()).unwrap_lite()
+        PowerStateWithReason {
+            state: PowerState::from_u32(self.jefe.get_state()).unwrap_lite(),
+            reason: self.reason,
+        }
     }
 
     fn set_state_impl(
-        &self,
+        &mut self,
         state: PowerState,
+        reason: StateChangeReason,
     ) -> Result<Transition, SeqError> {
-        match (self.get_state_impl(), state) {
+        match (self.get_state_impl().state, state) {
             (PowerState::A2, PowerState::A0)
             | (PowerState::A0, PowerState::A2)
             | (PowerState::A0PlusHP, PowerState::A2)
             | (PowerState::A0Thermtrip, PowerState::A2) => {
                 self.jefe.set_state(state as u32);
+                self.reason = reason;
                 Ok(Transition::Changed)
             }
 
@@ -149,6 +158,14 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<PowerState, RequestError<core::convert::Infallible>> {
+        Ok(self.get_state_impl().state)
+    }
+
+    fn get_state_with_reason(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<PowerStateWithReason, RequestError<core::convert::Infallible>>
+    {
         Ok(self.get_state_impl())
     }
 
@@ -157,16 +174,16 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         _: &RecvMessage,
         state: PowerState,
     ) -> Result<Transition, RequestError<SeqError>> {
-        Ok(self.set_state_impl(state)?)
+        Ok(self.set_state_impl(state, StateChangeReason::Other)?)
     }
 
     fn set_state_with_reason(
         &mut self,
         _: &RecvMessage,
         state: PowerState,
-        _: StateChangeReason,
+        reason: StateChangeReason,
     ) -> Result<Transition, RequestError<SeqError>> {
-        Ok(self.set_state_impl(state)?)
+        Ok(self.set_state_impl(state, reason)?)
     }
 
     fn send_hardware_nmi(
@@ -264,7 +281,8 @@ impl NotificationHandler for ServerImpl {
 }
 
 mod idl {
-    use drv_cpu_seq_api::StateChangeReason;
+    use drv_cpu_seq_api::{PowerStateWithReason, StateChangeReason};
+
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
 
