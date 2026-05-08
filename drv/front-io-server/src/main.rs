@@ -277,8 +277,11 @@ impl idl::InOrderFrontIOImpl for ServerImpl {
                 // entire front IO board, so do so now.
                 ringbuf_entry!(Trace::PowerEnabled(false));
                 self.bsp.set_power_enable(false)?;
-                // After removing power to the board we must reset its
-                // server
+
+                // After removing power to the board we reset the server to
+                // clear internal state related to sequencing and status of
+                // parts on the board, forcing us to rebuild all that when
+                // powered on again.
                 self.do_server_reset();
 
                 // Wait some cool down period to allow caps to bleed off
@@ -338,7 +341,7 @@ impl idl::InOrderFrontIOImpl for ServerImpl {
         }
     }
 
-    /// Set the internal state of the PHY's oscillator
+    /// Set the FPGA-internal state of the PHY's oscillator
     fn phy_set_osc_state(
         &mut self,
         _: &RecvMessage,
@@ -359,6 +362,8 @@ impl idl::InOrderFrontIOImpl for ServerImpl {
                     Trace::PhyOscBad
                 });
 
+                // This uses the FPGA as external memory so the state will
+                // persist even if the task is restarted.
                 self.phy_smi
                     .set_osc_good(good)
                     .map_err(FrontIOError::from)
@@ -377,15 +382,13 @@ impl idl::InOrderFrontIOImpl for ServerImpl {
     }
 }
 
-// notifications are not supported at this time
+// notifications stubbed out to support multitimer firing
 impl NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
-        0
+        notifications::TIMER_MASK
     }
 
-    fn handle_notification(&mut self, _bits: NotificationBits) {
-        unreachable!()
-    }
+    fn handle_notification(&mut self, _bits: NotificationBits) {}
 }
 
 impl Default for ServerImpl {
@@ -423,7 +426,6 @@ fn main() -> ! {
 
     // TODO: there will be more timers when I2C gets moved into this server
     #[derive(Copy, Clone, Enum)]
-    #[allow(clippy::upper_case_acronyms)]
     enum Timers {
         Seq,
     }
@@ -452,7 +454,8 @@ fn main() -> ! {
                             ));
 
                             if server.is_board_present_and_powered() {
-                                server.board_status = FrontIOStatus::FpgaInit;
+                                server.board_status =
+                                    FrontIOStatus::ReadyForFpgaInit;
                             } else {
                                 server.board_status = FrontIOStatus::NotPresent;
                             }
@@ -460,7 +463,7 @@ fn main() -> ! {
 
                         // Once we know there is a board present, configure its
                         // FPGAs and wait for its PHY oscillator to be functional.
-                        FrontIOStatus::FpgaInit => {
+                        FrontIOStatus::ReadyForFpgaInit => {
                             ringbuf_entry!(Trace::SeqStatus(
                                 server.board_status
                             ));
@@ -468,7 +471,7 @@ fn main() -> ! {
                                 Ok(done) => {
                                     if done && server.fpga_ready() {
                                         server.board_status =
-                                            FrontIOStatus::OscInit;
+                                            FrontIOStatus::WaitForOscGood;
                                     }
                                 }
                                 Err(e) => {
@@ -482,7 +485,7 @@ fn main() -> ! {
                         // the Front IO board, so it relies on whatever task
                         // _does_ have that control to power cycle the board and
                         // make a judgement about the oscillator.
-                        FrontIOStatus::OscInit => {
+                        FrontIOStatus::WaitForOscGood => {
                             ringbuf_entry!(Trace::SeqStatus(
                                 server.board_status
                             ));

@@ -57,10 +57,10 @@ pub enum FrontIOStatus {
     Init,
     /// No board detected
     NotPresent,
-    /// The FPGAs are being configured
-    FpgaInit,
+    /// Begin configuring the FPGAs
+    ReadyForFpgaInit,
     /// Confirming that the PHY oscillator is behaving
-    OscInit,
+    WaitForOscGood,
     /// Board is present and fully operational
     Ready,
 }

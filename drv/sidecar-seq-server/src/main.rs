@@ -12,12 +12,12 @@ use crate::i2c_config::MAX_COMPONENT_ID_LEN as REFDES_LEN;
 use crate::tofino::Tofino;
 use core::convert::Infallible;
 use drv_fpga_api::{DeviceState, FpgaError, WriteOp};
+use drv_fpga_user_api::power_rail::{PowerRailStatus, RawPowerRailState};
 use drv_front_io_api::{FrontIO, FrontIOError, FrontIOStatus};
 use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_packrat_vpd_loader::{Packrat, read_vpd_and_load_packrat};
 use drv_sidecar_mainboard_controller::MainboardController;
 use drv_sidecar_mainboard_controller::fan_modules::*;
-use drv_sidecar_mainboard_controller::front_io::*;
 use drv_sidecar_mainboard_controller::tofino2::*;
 use drv_sidecar_seq_api::{
     FanModuleIndex, FanModulePresence, SeqError, TofinoSequencerPolicy,
