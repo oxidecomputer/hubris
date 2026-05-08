@@ -280,9 +280,9 @@ const STATUS_LED: sys_api::PinSet = sys_api::Port::A.pin(3);
 const PSU_COUNT: usize = 6;
 
 // The ON signals are conveniently all routed to a single port:
-const PSU_ENABLE_L_PORT: sys_api::Port = sys_api::Port::I;
+const PSU_ENABLE_L_PORT: sys_api::Port = sys_api::Port::K;
 // The ON signals are routed to the following pins on their port:
-const PSU_ENABLE_L_PINS: [usize; PSU_COUNT] = [8, 9, 10, 11, 12, 13];
+const PSU_ENABLE_L_PINS: [usize; PSU_COUNT] = [0, 1, 2, 3, 4, 5];
 // Convenient mask for referring to all the ON pins simultaneously, since we can
 // do that, since they're all on one port.
 const ALL_PSU_ENABLE_L_PINS: sys_api::PinSet =
@@ -308,7 +308,6 @@ const ALL_PSU_PWR_OK_PINS: sys_api::PinSet =
 
 // Our notification configuration system doesn't have any concept of arrays, so,
 // collect its predefined masks into convenient arrays.
-#[cfg(any(target_board = "psc-b", target_board = "psc-c"))]
 const PSU_PWR_OK_NOTIF: [u32; PSU_COUNT] = [
     notifications::PSU_PWR_OK_1_MASK,
     notifications::PSU_PWR_OK_2_MASK,
@@ -316,17 +315,6 @@ const PSU_PWR_OK_NOTIF: [u32; PSU_COUNT] = [
     notifications::PSU_PWR_OK_4_MASK,
     notifications::PSU_PWR_OK_5_MASK,
     notifications::PSU_PWR_OK_6_MASK,
-];
-
-// The Observer numbers its notification bits starting at 0 instead of 1
-#[cfg(target_board = "observer-a")]
-const PSU_PWR_OK_NOTIF: [u32; PSU_COUNT] = [
-    notifications::PSU_PWR_OK_0_MASK,
-    notifications::PSU_PWR_OK_1_MASK,
-    notifications::PSU_PWR_OK_2_MASK,
-    notifications::PSU_PWR_OK_3_MASK,
-    notifications::PSU_PWR_OK_4_MASK,
-    notifications::PSU_PWR_OK_5_MASK,
 ];
 
 /// In order to get the PMBus devices by PSU index, we need a little lookup table guy.
