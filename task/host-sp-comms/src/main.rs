@@ -28,6 +28,7 @@ use host_sp_messages::{
 };
 use hubpack::SerializedSize;
 use idol_runtime::{NotificationHandler, RequestError};
+use microcbor::Encode;
 use multitimer::{Multitimer, Repeat};
 use ringbuf::{counted_ringbuf, ringbuf_entry};
 use static_assertions::const_assert;
@@ -275,6 +276,14 @@ impl HostKeyValueStorage {
     }
 }
 
+/// Metadata about panics observed from the host
+struct HostPanicMetadata {
+    /// Length in bytes of the currently stored panic message
+    total_length: usize,
+    /// (hopefully not) Rolling counter of panic messages observed this power cycle
+    total_count: u32,
+}
+
 struct ServerImpl {
     uart: Usart,
     sys: sys_api::Sys,
@@ -291,6 +300,10 @@ struct ServerImpl {
     reboot_state: Option<RebootState>,
     host_kv_storage: HostKeyValueStorage,
     hf_mux_state: Option<HfMuxState>,
+
+    ereporter: Ereporter,
+    host_panic_state: Option<HostPanicMetadata>,
+    host_boot_fail_state: Option<HostPanicMetadata>,
 
     /// Temporary space for inventory data, which is a large `enum`
     scratch: &'static mut host_sp_messages::InventoryData,
@@ -380,6 +393,9 @@ impl ServerImpl {
             });
             BUFS.claim()
         };
+
+        let packrat = Packrat::from(PACKRAT.get_task_id());
+
         Self {
             uart,
             sys,
@@ -399,7 +415,7 @@ impl ServerImpl {
             cp_agent: ControlPlaneAgent::from(
                 CONTROL_PLANE_AGENT.get_task_id(),
             ),
-            packrat: Packrat::from(PACKRAT.get_task_id()),
+            packrat: packrat.clone(),
             sprot: SpRot::from(SPROT.get_task_id()),
             reboot_state: None,
             host_kv_storage: HostKeyValueStorage {
@@ -414,6 +430,9 @@ impl ServerImpl {
             hf_mux_state: None,
             last_power_off: None,
             scratch,
+            host_panic_state: None,
+            host_boot_fail_state: None,
+            ereporter: Ereporter::claim_static_resources(packrat),
         }
     }
 
@@ -986,12 +1005,32 @@ impl ServerImpl {
                     data.len(),
                     self.host_kv_storage.last_boot_fail.len(),
                 );
-                self.host_kv_storage.last_boot_fail[..n]
-                    .copy_from_slice(&data[..n]);
-                for b in &mut self.host_kv_storage.last_boot_fail[n..] {
-                    *b = 0;
-                }
+                let (now, later) =
+                    self.host_kv_storage.last_boot_fail.split_at_mut(n);
+                now.copy_from_slice(&data[..n]);
+                later.iter_mut().for_each(|b| *b = 0);
+
                 self.host_kv_storage.last_boot_fail_reason = reason;
+
+                // Take the old count, if any, and add one to it. If that count wrapped,
+                // or if we didn't have an old count, set it to 1, so we never return
+                // a count of zero if we've ever observed a boot failure.
+                let new_ct = self
+                    .host_boot_fail_state
+                    .take()
+                    .map(|s| s.total_count.wrapping_add(1))
+                    .unwrap_or(0)
+                    .max(1);
+                self.host_boot_fail_state = Some(HostPanicMetadata {
+                    total_length: n,
+                    total_count: new_ct,
+                });
+
+                // ereport!
+                _ = self.ereporter.deliver_ereport(&HostBootFail {
+                    ttl_ct: new_ct,
+                    pan_len: n as u32,
+                });
                 Some(SpToHost::Ack)
             }
             HostToSp::HostPanic => {
@@ -1011,11 +1050,30 @@ impl ServerImpl {
                     data.len(),
                     self.host_kv_storage.last_panic.len(),
                 );
-                self.host_kv_storage.last_panic[..n]
-                    .copy_from_slice(&data[..n]);
-                for b in &mut self.host_kv_storage.last_panic[n..] {
-                    *b = 0;
-                }
+                let (now, later) =
+                    self.host_kv_storage.last_panic.split_at_mut(n);
+                now.copy_from_slice(&data[..n]);
+                later.iter_mut().for_each(|b| *b = 0);
+
+                // Take the old count, if any, and add one to it. If that count wrapped,
+                // or if we didn't have an old count, set it to 1, so we never return
+                // a count of zero if we've ever observed a boot failure.
+                let new_ct = self
+                    .host_panic_state
+                    .take()
+                    .map(|s| s.total_count.wrapping_add(1))
+                    .unwrap_or(0)
+                    .max(1);
+                self.host_panic_state = Some(HostPanicMetadata {
+                    total_length: n,
+                    total_count: new_ct,
+                });
+
+                _ = self.ereporter.deliver_ereport(&HostPanic {
+                    ttl_ct: new_ct,
+                    pan_len: n as u32,
+                });
+
                 Some(SpToHost::Ack)
             }
             HostToSp::GetStatus => {
@@ -2012,3 +2070,40 @@ mod idl {
 }
 
 include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
+
+ereports::declare_ereporter! {
+    struct Ereporter<Ereport> {
+        HostPanic(HostPanic),
+        BootPanic(HostBootFail),
+    }
+}
+
+/// An ereport represent a host reported panic
+#[derive(Encode)]
+#[ereport(class = "hw.host.panic", version = 0)]
+struct HostPanic {
+    /// The total number of panics observed this boot cycle.
+    ///
+    /// This count will wrap, but is guaranteed to never be zero.
+    ttl_ct: u32,
+    /// The length, in bytes, of the stored panic message.
+    ///
+    /// This quantity may be less than the amount received, as it is capped
+    /// by the available storage space allocated (`MAX_HOST_FAIL_MESSAGE_LEN`).
+    pan_len: u32,
+}
+
+/// An ereport represent a host reported boot failure
+#[derive(Encode)]
+#[ereport(class = "hw.host.btfail", version = 0)]
+struct HostBootFail {
+    /// The total number of panics observed this boot cycle.
+    ///
+    /// This count will wrap, but is guaranteed to never be zero.
+    ttl_ct: u32,
+    /// The length, in bytes, of the stored panic message.
+    ///
+    /// This quantity may be less than the amount received, as it is capped
+    /// by the available storage space allocated (`MAX_HOST_FAIL_MESSAGE_LEN`).
+    pan_len: u32,
+}
