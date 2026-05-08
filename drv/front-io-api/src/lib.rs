@@ -4,10 +4,10 @@
 
 #![no_std]
 
-include!(concat!(
-    env!("OUT_DIR"),
-    "/sidecar_qsfp_x32_controller_regs.rs"
-));
+use counters::Count;
+use derive_idol_err::IdolError;
+use drv_fpga_api::FpgaError;
+use userlib::*;
 
 #[cfg(feature = "controller")]
 pub mod controller;
@@ -17,3 +17,30 @@ pub mod leds;
 pub mod phy_smi;
 #[cfg(feature = "transceivers")]
 pub mod transceivers;
+
+#[derive(
+    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, Count,
+)]
+pub enum FrontIOError {
+    FpgaError = 1,
+    NotPresent,
+    InvalidPhysicalToLogicalMap,
+    InvalidModuleResult,
+    SeqError,
+
+    #[idol(server_death)]
+    ServerRestarted,
+}
+
+impl From<FpgaError> for FrontIOError {
+    fn from(_: FpgaError) -> Self {
+        Self::FpgaError
+    }
+}
+
+include!(concat!(
+    env!("OUT_DIR"),
+    "/sidecar_qsfp_x32_controller_regs.rs"
+));
+
+include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

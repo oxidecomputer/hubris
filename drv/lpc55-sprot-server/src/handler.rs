@@ -121,6 +121,14 @@ impl<'a> Handler {
         Response::pack(&body, tx_buf)
     }
 
+    pub fn request_message_too_large_error(
+        &self,
+        tx_buf: &mut [u8; RESPONSE_BUF_SIZE],
+    ) -> usize {
+        let body = Err(SprotProtocolError::BadMessageLength.into());
+        Response::pack(&body, tx_buf)
+    }
+
     pub fn handle(
         &mut self,
         rx_buf: &[u8],

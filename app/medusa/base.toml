@@ -138,9 +138,19 @@ task-slots = [
     "net",
     "sensor",
     "sys",
-    {front_io = "ecp5_front_io"},
+    "front_io",
+    {front_io_fpga = "ecp5_front_io"},
     {seq = "sequencer"}]
 notifications = ["socket", "timer"]
+
+[tasks.front_io]
+name = "drv-front-io-server"
+priority = 5
+max-sizes = {flash = 65536, ram = 16384}
+stacksize = 4096
+start = true
+task-slots = ["sequencer"]
+notifications = ["timer"]
 
 [tasks.packrat]
 name = "task-packrat"

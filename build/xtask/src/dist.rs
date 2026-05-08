@@ -564,7 +564,7 @@ pub fn package(
                         bail!(
                             "task {task_name} contains your home directory; \
                              the build is probably not reproducible!\n\
-                             Use `--dangerously-skip-path-checks` to disable \
+                             Use `--dangerously-skip-path-check` to disable \
                              this check"
                         );
                     }
