@@ -279,7 +279,8 @@ impl HostKeyValueStorage {
 /// Metadata about panics observed from the host
 struct HostPanicMetadata {
     /// Length in bytes of the currently stored panic message
-    total_length: usize,
+    /// (not currently used, will be used in https://github.com/oxidecomputer/hubris/issues/2504)
+    _total_length: usize,
     /// (hopefully not) Rolling counter of panic messages observed this power cycle
     total_count: u32,
 }
@@ -1022,7 +1023,7 @@ impl ServerImpl {
                     .unwrap_or(0)
                     .max(1);
                 self.host_boot_fail_state = Some(HostPanicMetadata {
-                    total_length: n,
+                    _total_length: n,
                     total_count: new_ct,
                 });
 
@@ -1065,7 +1066,7 @@ impl ServerImpl {
                     .unwrap_or(0)
                     .max(1);
                 self.host_panic_state = Some(HostPanicMetadata {
-                    total_length: n,
+                    _total_length: n,
                     total_count: new_ct,
                 });
 
