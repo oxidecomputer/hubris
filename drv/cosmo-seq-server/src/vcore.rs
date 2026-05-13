@@ -18,6 +18,7 @@ use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::raa229620a::{self, Raa229620A};
 use ereports::pwr::{PmbusAlert, PmbusStatus};
 use fixedstr::FixedStr;
+use pmbus::commands::raa229620a::STATUS_IOUT;
 use pmbus::commands::raa229620a::STATUS_WORD;
 use ringbuf::*;
 use userlib::{TaskId, sys_get_timer, units};
@@ -41,6 +42,7 @@ pub(crate) enum Rail {
 #[derive(Copy, Clone, PartialEq)]
 enum PmbusCmd {
     LoadLimit,
+    SetStatusIoutMask,
     ClearFaults,
     ReadVin,
     Status,
@@ -52,6 +54,7 @@ enum Trace {
     Initializing,
     Initialized,
     LimitsLoaded,
+    StatusIoutMaskSet,
     PmbusAlert {
         timestamp: u64,
         alerted: Vrms,
@@ -198,7 +201,7 @@ impl VCore {
         self.faulted.pwr_cont1 || self.faulted.pwr_cont2
     }
 
-    pub fn initialize_uv_warning(&mut self) -> Result<(), ResponseCode> {
+    pub fn initialize_pmbus_warnings(&mut self) -> Result<(), ResponseCode> {
         ringbuf_entry!(Trace::Initializing);
 
         // Set our warn limit
@@ -209,6 +212,34 @@ impl VCore {
             self.vddcr_cpu1.set_vin_uv_warn_limit(VCORE_UV_WARN_LIMIT)
         })?;
         ringbuf_entry!(Trace::LimitsLoaded);
+
+        let iout_mask = {
+            let mut mask = STATUS_IOUT::CommandData::default();
+            // Mask out SMBus alerts for output overcurrent warnings on the
+            // RAA229620A. This is necessary because the AMD power design
+            // guidelines for Turin require that the SVI3 fast overcurrent
+            // response warning threshold be 90% of the EDC for the CPU, which
+            // results in the VRMs asserting output overcurrent warnings on
+            // their SVI3 rail during normal operation of the CPU. AMD
+            // recommends that these warnings be masked out and/or ignored, so
+            // we disable them here.
+            //
+            // We don't expect to see overcurrent warnings on non-SVI3 rails, as
+            // the default value of the PMBus `IOUT_OC_WARN_LIMIT` register
+            // on the RAA229620A is 3000A, which is *well above* the overcurrent
+            // *fault* threshold.
+            mask.set_output_overcurrent_warning(
+                STATUS_IOUT::OutputOvercurrentWarning::Warning,
+            );
+            mask
+        };
+        retry_i2c_txn(Rail::VddcrCpu0, PmbusCmd::SetStatusIoutMask, || {
+            self.vddcr_cpu0.set_status_iout_smbalert_mask(iout_mask)
+        })?;
+        retry_i2c_txn(Rail::VddcrCpu1, PmbusCmd::SetStatusIoutMask, || {
+            self.vddcr_cpu1.set_status_iout_smbalert_mask(iout_mask)
+        })?;
+        ringbuf_entry!(Trace::StatusIoutMaskSet);
 
         // Clear our faults
         self.try_to_clear_faults(Vrms {

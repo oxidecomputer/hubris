@@ -143,6 +143,17 @@ impl Raa229620A {
         pmbus_rail_write!(self.device, self.rail, VIN_UV_WARN_LIMIT, vin)
     }
 
+    /// Set the `SMBALERT_MASK` for the `STATUS_IOUT` register.
+    ///
+    /// Any bits set in `mask` will be masked, suppressing SMBus alerts when
+    /// those bits in `STATUS_IOUT` become set.
+    pub fn set_status_iout_smbalert_mask(
+        &self,
+        mask: STATUS_IOUT::CommandData,
+    ) -> Result<(), Error> {
+        pmbus_rail_write!(self.device, self.rail, STATUS_IOUT, mask)
+    }
+
     pub fn read_vin(&self) -> Result<Volts, Error> {
         let vin = pmbus_rail_read!(self.device, self.rail, READ_VIN)?;
         Ok(Volts(vin.get()?.0))

@@ -773,7 +773,7 @@ impl ServerImpl {
         // few times, so we should power through any transient I2C messiness,
         // and any I2C errors that occur get logged in the `vcore` module's
         // ringbuf.
-        let _ = self.vcore.initialize_uv_warning();
+        let _ = self.vcore.initialize_pmbus_warnings();
         self.seq.ier.modify(|m| {
             m.set_fanfault(true);
             m.set_thermtrip(true);
