@@ -24,10 +24,11 @@ use gateway_messages::{
     EcdsaSha2Nistp256Challenge, IgnitionCommand, IgnitionState, MgsError,
     MgsRequest, MgsResponse, MonorailComponentAction,
     MonorailComponentActionResponse, MonorailError as GwMonorailError,
-    PcieRegisterRead, PowerState, PowerStateTransition, RotBootInfo,
-    RotRequest, RotResponse, SensorRequest, SensorResponse, SpComponent,
-    SpError, SpStateV2, SpUpdatePrepare, UnlockChallenge, UnlockResponse,
-    UpdateChunk, UpdateId, UpdateStatus, ignition,
+    PcieRegisterRead, PowerState, PowerStateTransition, PowerStateWithReason,
+    RotBootInfo, RotRequest, RotResponse, SensorRequest, SensorResponse,
+    SpComponent, SpError, SpStateV4, SpUpdatePrepare, StateChangeReason,
+    UnlockChallenge, UnlockResponse, UpdateChunk, UpdateId, UpdateStatus,
+    ignition,
 };
 use host_sp_messages::HostStartupOptions;
 use idol_runtime::{Leased, RequestError};
@@ -250,23 +251,31 @@ impl MgsHandler {
         Err(ControlPlaneAgentError::InvalidStartupOptions.into())
     }
 
-    fn power_state_impl(&self) -> Result<PowerState, SpError> {
+    fn power_state_impl(&self) -> Result<PowerStateWithReason, SpError> {
         use drv_sidecar_seq_api::TofinoSeqState;
 
         // TODO Is this mapping of the sub-states correct? Do we want to expose
         // them to the control plane somehow (probably not)?
-        let state = match self
-            .sequencer
-            .tofino_seq_state()
-            .map_err(|e| SpError::PowerStateError(e as u32))?
-        {
+        let state_with_reason =
+            self.sequencer
+                .tofino_seq_state_with_reason()
+                .map_err(|e| SpError::PowerStateError(e as u32))?;
+        let state = match state_with_reason.state {
             TofinoSeqState::Init
             | TofinoSeqState::InPowerDown
             | TofinoSeqState::A2 => PowerState::A2,
             TofinoSeqState::InPowerUp | TofinoSeqState::A0 => PowerState::A0,
         };
+        let reason = match state_with_reason.reason {
+            PolicyChangeReason::Other => StateChangeReason::Other,
+            PolicyChangeReason::InitialPowerOn => {
+                StateChangeReason::InitialPowerOn
+            }
+            PolicyChangeReason::ControlPlane => StateChangeReason::ControlPlane,
+            PolicyChangeReason::Overheat => StateChangeReason::Overheat,
+        };
 
-        Ok(state)
+        Ok(PowerStateWithReason { state, reason })
     }
 
     /// Unlocks the tech port if the challenge and response are compatible
@@ -591,7 +600,7 @@ impl SpHandler for MgsHandler {
         self.ignition.command(target, command)
     }
 
-    fn sp_state(&mut self) -> Result<SpStateV2, SpError> {
+    fn sp_state(&mut self) -> Result<SpStateV4, SpError> {
         let power_state = self.power_state_impl()?;
         self.common.sp_state(power_state)
     }
@@ -780,6 +789,16 @@ impl SpHandler for MgsHandler {
 
     fn power_state(&mut self) -> Result<PowerState, SpError> {
         ringbuf_entry_root!(Log::MgsMessage(MgsMessage::GetPowerState));
+        self.power_state_impl()
+            .map(|state_with_reason| state_with_reason.state)
+    }
+
+    fn power_state_with_reason(
+        &mut self,
+    ) -> Result<PowerStateWithReason, SpError> {
+        ringbuf_entry_root!(Log::MgsMessage(
+            MgsMessage::GetPowerStateWithReason
+        ));
         self.power_state_impl()
     }
 

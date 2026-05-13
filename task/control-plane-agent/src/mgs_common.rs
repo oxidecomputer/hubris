@@ -27,14 +27,14 @@ use drv_sprot_api::{
 use drv_stm32h7_update_api::Update;
 use gateway_messages::{
     CfpaPage, DiscoverResponse, DumpSegment, DumpTask, Fwid as GwFwid,
-    ImageError as GwImageError, ImageVersion as GwImageVersion, PowerState,
-    RotBootInfo as GwRotBootInfo, RotBootState as GwRotBootState, RotError,
-    RotImageDetails as GwRotImageDetails, RotRequest, RotResponse,
-    RotSlotId as GwRotSlotId, RotState as GwRotState,
+    ImageError as GwImageError, ImageVersion as GwImageVersion,
+    PowerStateWithReason, RotBootInfo as GwRotBootInfo,
+    RotBootState as GwRotBootState, RotImageDetails as GwRotImageDetails,
+    RotRequest, RotResponse, RotSlotId as GwRotSlotId, RotState as GwRotState,
     RotStateV2 as GwRotStateV2, RotStateV3 as GwRotStateV3,
     RotUpdateDetails as GwRotUpdateDetails, SensorReading, SensorRequest,
     SensorRequestKind, SensorResponse, SpComponent, SpError as GwSpError,
-    SpPort as GwSpPort, SpStateV2 as GwSpStateV2, UpdateStatus,
+    SpPort as GwSpPort, SpStateV4 as GwSpStateV4, UpdateStatus,
     VpdError as GwVpdError, WatchdogError,
 };
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
@@ -111,8 +111,8 @@ impl MgsCommon {
 
     pub(crate) fn sp_state(
         &mut self,
-        power_state: PowerState,
-    ) -> Result<GwSpStateV2, GwSpError> {
+        power_state: PowerStateWithReason,
+    ) -> Result<GwSpStateV4, GwSpError> {
         // SpState has extra-wide fields for the serial and model number. Below
         // when we fill them in we use `usize::min` to pick the right length
         // regardless of which is longer, but really we want to know we aren't
@@ -126,18 +126,14 @@ impl MgsCommon {
 
         let id = self.identity();
 
-        let mut state = GwSpStateV2 {
+        let mut state = GwSpStateV4 {
             serial_number: [0; SP_STATE_FIELD_WIDTH],
             model: [0; SP_STATE_FIELD_WIDTH],
             revision: id.revision,
             hubris_archive_id: kipc::read_image_id().to_le_bytes(),
             base_mac_address: self.base_mac_address.0,
-            power_state,
-            rot: self
-                .sprot
-                .rot_boot_info()
-                .map(|s| MgsRotStateV2::from(s).0)
-                .map_err(RotError::from),
+            power_state: power_state.state,
+            power_state_reason: power_state.reason,
         };
 
         let n = usize::min(state.serial_number.len(), id.serial.len());
