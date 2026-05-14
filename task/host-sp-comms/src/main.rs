@@ -1029,8 +1029,9 @@ impl ServerImpl {
 
                 // ereport!
                 _ = self.ereporter.deliver_ereport(&HostBootFail {
-                    ttl_ct: new_ct,
-                    pan_len: n as u32,
+                    n: new_ct,
+                    msglen: n as u32,
+                    reason,
                 });
                 Some(SpToHost::Ack)
             }
@@ -1071,8 +1072,8 @@ impl ServerImpl {
                 });
 
                 _ = self.ereporter.deliver_ereport(&HostPanic {
-                    ttl_ct: new_ct,
-                    pan_len: n as u32,
+                    n: new_ct,
+                    msglen: n as u32,
                 });
 
                 Some(SpToHost::Ack)
@@ -2083,10 +2084,11 @@ ereports::declare_ereporter! {
 #[derive(Encode)]
 #[ereport(class = "host.panic", version = 0)]
 struct HostPanic {
-    /// The total number of panics observed this boot cycle.
+    /// The total number of host panics observed by this invocation of
+    /// host-sp-comms.
     ///
     /// This count will wrap, but is guaranteed to never be zero.
-    ttl_ct: u32,
+    n: u32,
     /// The length, in bytes, of the stored panic message.
     ///
     /// This quantity may be less than the amount received, as it is capped
@@ -2098,13 +2100,16 @@ struct HostPanic {
 #[derive(Encode)]
 #[ereport(class = "host.btfail", version = 0)]
 struct HostBootFail {
-    /// The total number of panics observed this boot cycle.
+    /// The total number of host boot failures observed by this invocation
+    /// of host-sp-comms.
     ///
     /// This count will wrap, but is guaranteed to never be zero.
-    ttl_ct: u32,
+    n: u32,
     /// The length, in bytes, of the stored panic message.
     ///
     /// This quantity may be less than the amount received, as it is capped
     /// by the available storage space allocated (`MAX_HOST_FAIL_MESSAGE_LEN`).
-    pan_len: u32,
+    msglen: u32,
+    /// The reported reason code for the host boot failure
+    reason: u8,
 }
