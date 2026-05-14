@@ -3142,7 +3142,7 @@ dependencies = [
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=evan%2Freport-power-state-change-reason#592202eb4fffc769db2490a344a631c95f2d411b"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=evan%2Freport-power-state-change-reason#9399b11bed1af47ba57b67b724bc318f622ac5f8"
 dependencies = [
  "bitflags 2.9.4",
  "hubpack",
