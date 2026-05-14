@@ -26,7 +26,7 @@ use gateway_messages::{
     MonorailComponentActionResponse, MonorailError as GwMonorailError,
     PcieRegisterRead, PowerState, PowerStateTransition, PowerStateWithReason,
     RotBootInfo, RotRequest, RotResponse, SensorRequest, SensorResponse,
-    SpComponent, SpError, SpStateV4, SpUpdatePrepare, StateChangeReason,
+    SpComponent, SpError, SpStateV2, SpUpdatePrepare, StateChangeReason,
     UnlockChallenge, UnlockResponse, UpdateChunk, UpdateId, UpdateStatus,
     ignition,
 };
@@ -600,8 +600,8 @@ impl SpHandler for MgsHandler {
         self.ignition.command(target, command)
     }
 
-    fn sp_state(&mut self) -> Result<SpStateV4, SpError> {
-        let power_state = self.power_state_impl()?;
+    fn sp_state(&mut self) -> Result<SpStateV2, SpError> {
+        let power_state = self.power_state_impl()?.state;
         self.common.sp_state(power_state)
     }
 

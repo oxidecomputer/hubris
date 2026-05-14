@@ -20,7 +20,7 @@ use gateway_messages::{
     IgnitionCommand, IgnitionState, MgsError, MgsRequest, MgsResponse,
     PowerState, PowerStateTransition, PowerStateWithReason, RotBootInfo,
     RotRequest, RotResponse, SensorRequest, SensorResponse, SpComponent,
-    SpError, SpStateV4, SpUpdatePrepare, StateChangeReason, UpdateChunk,
+    SpError, SpStateV2, SpUpdatePrepare, StateChangeReason, UpdateChunk,
     UpdateId, UpdateStatus, ignition,
 };
 use host_sp_messages::HostStartupOptions;
@@ -234,8 +234,8 @@ impl SpHandler for MgsHandler {
         self.ignition.command(target, command)
     }
 
-    fn sp_state(&mut self) -> Result<SpStateV4, SpError> {
-        let power_state = self.power_state_impl()?;
+    fn sp_state(&mut self) -> Result<SpStateV2, SpError> {
+        let power_state = self.power_state_impl()?.state;
         self.common.sp_state(power_state)
     }
 

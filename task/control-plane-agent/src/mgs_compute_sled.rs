@@ -22,7 +22,7 @@ use gateway_messages::{
     PostCode, PowerState, PowerStateTransition, PowerStateWithReason,
     RotBootInfo, RotRequest, RotResponse, SERIAL_CONSOLE_IDLE_TIMEOUT,
     SensorRequest, SensorResponse, SpComponent, SpError, SpPort as GwSpPort,
-    SpRequest, SpStateV4, SpUpdatePrepare, StateChangeReason, UpdateChunk,
+    SpRequest, SpStateV2, SpUpdatePrepare, StateChangeReason, UpdateChunk,
     UpdateId, UpdateStatus, ignition,
 };
 use heapless::{Deque, Vec};
@@ -580,8 +580,8 @@ impl SpHandler for MgsHandler {
         Err(SpError::RequestUnsupportedForSp)
     }
 
-    fn sp_state(&mut self) -> Result<SpStateV4, SpError> {
-        let power_state = self.power_state_impl()?;
+    fn sp_state(&mut self) -> Result<SpStateV2, SpError> {
+        let power_state = self.power_state_impl()?.state;
         self.common.sp_state(power_state)
     }
 
