@@ -1027,11 +1027,18 @@ impl ServerImpl {
                     total_count: new_ct,
                 });
 
+                let flashidx = match self.hf.get_dev() {
+                    Ok(HfDevSelect::Flash0) => 0,
+                    Ok(HfDevSelect::Flash1) => 1,
+                    Err(_) => 0xFF,
+                };
+
                 // ereport!
                 _ = self.ereporter.deliver_ereport(&HostBootFail {
                     n: new_ct,
                     msglen: n as u32,
                     reason,
+                    flashidx,
                 });
                 Some(SpToHost::Ack)
             }
@@ -1071,9 +1078,17 @@ impl ServerImpl {
                     total_count: new_ct,
                 });
 
+                let flashidx = match self.hf.get_dev() {
+                    Ok(HfDevSelect::Flash0) => 0,
+                    Ok(HfDevSelect::Flash1) => 1,
+                    Err(_) => 0xFF,
+                };
+
+                // ereport!
                 _ = self.ereporter.deliver_ereport(&HostPanic {
                     n: new_ct,
                     msglen: n as u32,
+                    flashidx,
                 });
 
                 Some(SpToHost::Ack)
@@ -2094,6 +2109,9 @@ struct HostPanic {
     /// This quantity may be less than the amount received, as it is capped
     /// by the available storage space allocated (`MAX_HOST_FAIL_MESSAGE_LEN`).
     msglen: u32,
+    /// The flash boot index, directly correlated to which boot slot we are
+    /// operating from. Currently 0 (BSU: A), 1 (BSU: B), or 0xFF (unknown).
+    flashidx: u8,
 }
 
 /// An ereport represent a host reported boot failure
@@ -2112,4 +2130,7 @@ struct HostBootFail {
     msglen: u32,
     /// The reported reason code for the host boot failure
     reason: u8,
+    /// The flash boot index, directly correlated to which boot slot we are
+    /// operating from. Currently 0 (BSU: A), 1 (BSU: B), or 0xFF (unknown).
+    flashidx: u8,
 }
