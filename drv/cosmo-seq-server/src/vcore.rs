@@ -214,7 +214,7 @@ impl VCore {
         ringbuf_entry!(Trace::LimitsLoaded);
 
         let iout_mask = {
-            let mut mask = STATUS_IOUT::CommandData::default();
+            let mut mask = STATUS_IOUT::CommandData(0);
             // Mask out SMBus alerts for output overcurrent warnings on the
             // RAA229620A. This is necessary because the AMD power design
             // guidelines for Turin require that the SVI3 fast overcurrent
