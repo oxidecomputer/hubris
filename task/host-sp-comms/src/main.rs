@@ -2081,7 +2081,7 @@ ereports::declare_ereporter! {
 
 /// An ereport represent a host reported panic
 #[derive(Encode)]
-#[ereport(class = "hw.host.panic", version = 0)]
+#[ereport(class = "host.panic", version = 0)]
 struct HostPanic {
     /// The total number of panics observed this boot cycle.
     ///
@@ -2091,12 +2091,12 @@ struct HostPanic {
     ///
     /// This quantity may be less than the amount received, as it is capped
     /// by the available storage space allocated (`MAX_HOST_FAIL_MESSAGE_LEN`).
-    pan_len: u32,
+    msglen: u32,
 }
 
 /// An ereport represent a host reported boot failure
 #[derive(Encode)]
-#[ereport(class = "hw.host.btfail", version = 0)]
+#[ereport(class = "host.btfail", version = 0)]
 struct HostBootFail {
     /// The total number of panics observed this boot cycle.
     ///
