@@ -144,5 +144,32 @@ Interface(
             ),
             idempotent: true,
         ),
+        "write_host_bootfail": (
+            doc: "Write a host's boot failure message and return the index of this failure",
+            args: {
+            },
+            leases: {
+                "data": (type: "[u8]", read: true),
+            },
+            reply: Result(
+                ok: "u32",
+                err: CLike("EreportReadError"),
+            ),
+        ),
+        "read_host_bootfail_fragment": (
+            doc: "Read a portion of the host's boot failure message",
+            args: {
+                "index": "u32",
+                "offset": "usize",
+            },
+            leases: {
+                "data": (type: "[u8]", write: true),
+            },
+            reply: Result(
+                ok: "usize",
+                err: CLike("EreportReadError"),
+            ),
+            idempotent: true,
+        ),
     },
 )

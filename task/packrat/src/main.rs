@@ -154,12 +154,45 @@ enum TraceSet<T> {
     AttemptedSetToNewValue(T),
 }
 
+/// Metadata about panics observed from the host
+struct HostPanicMetadata {
+    /// Length in bytes of the currently stored panic message
+    /// (not currently used, will be used in https://github.com/oxidecomputer/hubris/issues/2504)
+    _total_length: usize,
+    /// (hopefully not) Rolling counter of panic messages observed this power cycle
+    total_count: u32,
+}
+
+pub struct HostInfo {
+    host_panic_payload: [u8; 4096],
+    host_bootfail_payload: [u8; 4096],
+    host_panic_state: Option<HostPanicMetadata>,
+    host_bootfail_state: Option<HostPanicMetadata>,
+}
+
+impl HostInfo {
+    const fn new() -> Self {
+        Self {
+            host_panic_payload: [0u8; _],
+            host_bootfail_payload: [0u8; _],
+            host_panic_state: None,
+            host_bootfail_state: None,
+        }
+    }
+}
+
 ringbuf!(Trace, 16, Trace::None);
 #[unsafe(export_name = "main")]
 fn main() -> ! {
     struct StaticBufs {
         mac_address_block: Option<MacAddressBlock>,
         identity: Option<OxideIdentity>,
+        #[cfg(any(
+            feature = "gimlet",
+            feature = "grapefruit",
+            feature = "cosmo"
+        ))]
+        host_info: HostInfo,
         #[cfg(feature = "gimlet")]
         gimlet_bufs: gimlet::StaticBufs,
         #[cfg(feature = "cosmo")]
@@ -170,6 +203,12 @@ fn main() -> ! {
     let &mut StaticBufs {
         ref mut mac_address_block,
         ref mut identity,
+        #[cfg(any(
+            feature = "gimlet",
+            feature = "grapefruit",
+            feature = "cosmo"
+        ))]
+        ref mut host_info,
         #[cfg(feature = "gimlet")]
         ref mut gimlet_bufs,
         #[cfg(feature = "cosmo")]
@@ -181,6 +220,12 @@ fn main() -> ! {
             ClaimOnceCell::new(StaticBufs {
                 mac_address_block: None,
                 identity: None,
+                #[cfg(any(
+                    feature = "gimlet",
+                    feature = "grapefruit",
+                    feature = "cosmo"
+                ))]
+                host_info: HostInfo::new(),
                 #[cfg(feature = "gimlet")]
                 gimlet_bufs: gimlet::StaticBufs::new(),
                 #[cfg(feature = "cosmo")]
@@ -194,6 +239,12 @@ fn main() -> ! {
     let mut server = ServerImpl {
         mac_address_block,
         identity,
+        #[cfg(any(
+            feature = "gimlet",
+            feature = "grapefruit",
+            feature = "cosmo"
+        ))]
+        host_info,
         #[cfg(feature = "gimlet")]
         gimlet_data: gimlet::GimletData::new(gimlet_bufs),
         #[cfg(feature = "grapefruit")]
@@ -213,6 +264,8 @@ fn main() -> ! {
 struct ServerImpl {
     mac_address_block: &'static mut Option<MacAddressBlock>,
     identity: &'static mut Option<OxideIdentity>,
+    #[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
+    host_info: &'static mut HostInfo,
     #[cfg(feature = "gimlet")]
     gimlet_data: gimlet::GimletData,
     #[cfg(feature = "grapefruit")]
