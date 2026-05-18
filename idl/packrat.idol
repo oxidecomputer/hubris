@@ -147,13 +147,14 @@ Interface(
         "write_host_bootfail": (
             doc: "Write a host's boot failure message and return the index of this failure",
             args: {
+                "reason": "u8",
             },
             leases: {
                 "data": (type: "[u8]", read: true),
             },
             reply: Result(
-                ok: "u32",
-                err: CLike("EreportReadError"),
+                ok: "HostInfoWriteOutput",
+                err: CLike("HostInfoWriteError"),
             ),
         ),
         "read_host_bootfail_fragment": (
@@ -166,8 +167,8 @@ Interface(
                 "data": (type: "[u8]", write: true),
             },
             reply: Result(
-                ok: "usize",
-                err: CLike("EreportReadError"),
+                ok: "HostInfoReadOutput",
+                err: CLike("HostInfoReadError"),
             ),
             idempotent: true,
         ),

@@ -72,6 +72,60 @@ pub enum EreportWriteError {
     Lost = 1,
 }
 
+#[derive(
+    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, counters::Count,
+)]
+pub enum HostInfoWriteError {
+    /// Storage of Host Info is not supported (this is a device not expected to
+    /// have a host)
+    Unsupported = 1,
+
+    /// Failed to read from a provided lease, which probably means that the client
+    /// died before we serviced the request, so they'll probably never see this
+    LeaseLost,
+
+    #[idol(server_death)]
+    ServerRestarted,
+}
+
+#[derive(Copy, Clone, Debug, FromBytes, IntoBytes, Immutable)]
+#[repr(C)]
+pub struct HostInfoWriteOutput {
+    pub index: u32,
+    pub written: usize,
+}
+
+#[derive(Copy, Clone, Debug, FromBytes, IntoBytes, Immutable)]
+#[repr(C)]
+pub struct HostInfoReadOutput {
+    pub read: usize,
+    pub reason: u8,
+    pub _pad: [u8; 3],
+}
+
+#[derive(
+    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, counters::Count,
+)]
+pub enum HostInfoReadError {
+    /// We have never received the requested Host Info, or this is a platform
+    /// that is not expected to have a host.
+    NoHostInfo = 1,
+
+    /// The requested byte-offset is beyond the range of the currently stored
+    /// host info.
+    InvalidOffset,
+
+    /// Requested index does not match the currently stored host information
+    InvalidIndex,
+
+    /// Failed to write to a provided lease, which probably means that the client
+    /// died before we serviced the request, so they'll probably never see this
+    LeaseLost,
+
+    #[idol(server_death)]
+    ServerRestarted,
+}
+
 /// Errors returned by [`Packrat::encode_ereport`].
 #[derive(counters::Count)]
 #[cfg(feature = "microcbor")]

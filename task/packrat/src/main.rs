@@ -70,7 +70,8 @@ use ringbuf::{ringbuf, ringbuf_entry};
 use static_cell::ClaimOnceCell;
 use task_packrat_api::{
     CacheGetError, CacheSetError, EreportReadError, EreportWriteError,
-    HostStartupOptions, MacAddressBlock, OxideIdentity,
+    HostInfoReadError, HostInfoReadOutput, HostInfoWriteError,
+    HostInfoWriteOutput, HostStartupOptions, MacAddressBlock, OxideIdentity,
 };
 use userlib::RecvMessage;
 
@@ -157,17 +158,26 @@ enum TraceSet<T> {
 /// Metadata about panics observed from the host
 struct HostPanicMetadata {
     /// Length in bytes of the currently stored panic message
-    /// (not currently used, will be used in https://github.com/oxidecomputer/hubris/issues/2504)
-    _total_length: usize,
+    total_length: usize,
     /// (hopefully not) Rolling counter of panic messages observed this power cycle
     total_count: u32,
+}
+
+/// Metadata about panics observed from the host
+struct HostBootFailMetadata {
+    /// Length in bytes of the currently stored bootfail message
+    total_length: usize,
+    /// (hopefully not) Rolling counter of panic messages observed this power cycle
+    total_count: u32,
+    /// Bootfail reason
+    reason: u8,
 }
 
 pub struct HostInfo {
     host_panic_payload: [u8; 4096],
     host_bootfail_payload: [u8; 4096],
     host_panic_state: Option<HostPanicMetadata>,
-    host_bootfail_state: Option<HostPanicMetadata>,
+    host_bootfail_state: Option<HostBootFailMetadata>,
 }
 
 impl HostInfo {
@@ -622,6 +632,131 @@ impl idl::InOrderPackratImpl for ServerImpl {
             self.identity.as_ref(),
         )
     }
+
+    /// We're not a system that is expected to have a host, so we shouldn't have
+    /// anyone writing host bootfail messages to us
+    #[cfg(not(any(
+        feature = "gimlet",
+        feature = "grapefruit",
+        feature = "cosmo"
+    )))]
+    fn write_host_bootfail(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        _data: Leased<idol_runtime::R, [u8]>,
+    ) -> Result<
+        HostInfoWriteOutput,
+        idol_runtime::RequestError<HostInfoWriteError>,
+    > {
+        Err(HostInfoWriteError::Unsupported.into())
+    }
+
+    #[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
+    fn write_host_bootfail(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        reason: u8,
+        data: Leased<idol_runtime::R, [u8]>,
+    ) -> Result<
+        HostInfoWriteOutput,
+        idol_runtime::RequestError<HostInfoWriteError>,
+    > {
+        // First, attempt to copy-in the new data, to ensure that we don't rev the
+        // metadata if the lease access fails.
+        let to_copy =
+            self.host_info.host_bootfail_payload.len().min(data.len());
+        data.read_range(
+            0..to_copy,
+            &mut self.host_info.host_bootfail_payload[..to_copy],
+        )
+        .map_err(|_| HostInfoWriteError::LeaseLost)?;
+
+        // Okay! We've written the requested data. Let's update the metadata.
+        //
+        // Take the old count, if any, and add one to it. If that count wrapped,
+        // or if we didn't have an old count, set it to 1, so we never return
+        // a count of zero if we've ever observed a boot failure.
+        let new_ct = self
+            .host_info
+            .host_bootfail_state
+            .take()
+            .map(|s| s.total_count.wrapping_add(1))
+            .unwrap_or(0)
+            .max(1);
+        self.host_info.host_bootfail_state = Some(HostBootFailMetadata {
+            total_length: to_copy,
+            total_count: new_ct,
+            reason,
+        });
+
+        // Give the writer the current index and the number of bytes actually written
+        Ok(HostInfoWriteOutput {
+            index: new_ct,
+            written: to_copy,
+        })
+    }
+
+    /// We're not a system that is expected to have a host, therefore we can always return
+    /// "no host info", since we won't ever have any.
+    #[cfg(not(any(
+        feature = "gimlet",
+        feature = "grapefruit",
+        feature = "cosmo"
+    )))]
+    fn read_host_bootfail_fragment(
+        &self,
+        _msg: &userlib::RecvMessage,
+        _index: u32,
+        _offset: usize,
+        _data: Leased<idol_runtime::W, [u8]>,
+    ) -> Result<HostInfoReadOutput, idol_runtime::RequestError<HostInfoReadError>>
+    {
+        Err(HostInfoReadError::NoHostInfo.into())
+    }
+
+    /// Attempt to obtain the requested host info.
+    #[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
+    fn read_host_bootfail_fragment(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        index: u32,
+        offset: usize,
+        data: Leased<idol_runtime::W, [u8]>,
+    ) -> Result<HostInfoReadOutput, idol_runtime::RequestError<HostInfoReadError>>
+    {
+        // Do we *have* a bootfail to report?
+        let Some(bfs) = self.host_info.host_bootfail_state.as_ref() else {
+            return Err(HostInfoReadError::NoHostInfo.into());
+        };
+
+        // Do we have the specific bootfail data being requested?
+        if bfs.total_count != index {
+            return Err(HostInfoReadError::InvalidIndex.into());
+        }
+
+        // Is the offset requested valid?
+        let offset_max = bfs
+            .total_length
+            .min(self.host_info.host_bootfail_payload.len());
+        if offset >= offset_max {
+            return Err(HostInfoReadError::InvalidOffset.into());
+        }
+
+        // Attempt to copy the requested range into the destination
+        let relevant = &self.host_info.host_bootfail_payload[offset_max..];
+        let max_to_copy = data.len().min(relevant.len());
+        data.write_range(0..max_to_copy, &relevant[..max_to_copy])
+            .map_err(|_| HostInfoReadError::LeaseLost)?;
+
+        let out = HostInfoReadOutput {
+            read: max_to_copy,
+            reason: bfs.reason,
+            _pad: [0u8; _],
+        };
+
+        // Okay! Written! Return how many bytes were actually copied
+        Ok(out)
+    }
 }
 
 // If we are not built with ereport support, we expect no notifications.
@@ -657,7 +792,9 @@ impl NotificationHandler for ServerImpl {
 mod idl {
     use super::{
         CacheGetError, CacheSetError, EreportReadError, EreportWriteError,
-        HostStartupOptions, MacAddressBlock, OxideIdentity, ereport_messages,
+        HostInfoReadError, HostInfoReadOutput, HostInfoWriteError,
+        HostInfoWriteOutput, HostStartupOptions, MacAddressBlock,
+        OxideIdentity, ereport_messages,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
