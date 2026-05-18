@@ -46,7 +46,7 @@ use core::convert::Infallible;
 
 use fixedstr::FixedStr;
 use idol_runtime::RequestError;
-use microcbor::Encode;
+use microcbor::{Encode, EncodeFields};
 use ringbuf::{counted_ringbuf, ringbuf_entry};
 use task_packrat_api::Packrat;
 use userlib::{RecvMessage, sys_get_timer, task_slot};
@@ -101,6 +101,10 @@ impl idl::InOrderEreportulatorImpl for ServerImpl {
         let _ = self.ereporter.deliver_ereport(&TestEreportPlsIgnore {
             badness: n,
             msg: fixedstr::FixedStr::from_str("im dead"),
+            stuff: ExtraStuff {
+                answer: 42,
+                thingy: true,
+            },
         });
 
         ringbuf_entry!(Trace::EreportDone {
@@ -137,11 +141,19 @@ impl idl::InOrderEreportulatorImpl for ServerImpl {
         let t0 = sys_get_timer().now;
         ringbuf_entry!(Trace::EreportRequested { n });
 
-        let ereport = if n.is_multiple_of(2) {
+        let bus = if n.is_multiple_of(2) {
             // Not historically accurate...
-            MainBusUndervoltEreport::MainBusB { volts: 0.00, n }
+            UndervoltBus::MainBusB { volts: 0.00, n }
         } else {
-            MainBusUndervoltEreport::MainBusA { volts: 0.01, n }
+            UndervoltBus::MainBusA { volts: 0.01, n }
+        };
+        let ereport = MainBusUndervoltEreport {
+            bus,
+            crew: [
+                FixedStr::from_str("Lovell"),
+                FixedStr::from_str("Swigert"),
+                FixedStr::from_str("Haise"),
+            ],
         };
         let _ = self.ereporter.deliver_ereport(&ereport);
 
@@ -210,8 +222,15 @@ struct Ae35UnitEreport {
 
 #[derive(Encode)]
 #[ereport(class = "hw.apollo.undervolt", version = 13)]
+struct MainBusUndervoltEreport {
+    #[cbor(flatten)]
+    bus: UndervoltBus,
+    crew: [fixedstr::FixedStr<'static, 8>; 3],
+}
+
+#[derive(EncodeFields)]
 #[cbor(variant_id = "bus")]
-enum MainBusUndervoltEreport {
+enum UndervoltBus {
     MainBusA { volts: f32, n: u32 },
     MainBusB { volts: f32, n: u32 }, // "Houston, we've got a main bus B undervolt!"
 }
@@ -221,4 +240,11 @@ enum MainBusUndervoltEreport {
 struct TestEreportPlsIgnore {
     badness: u32,
     msg: fixedstr::FixedStr<'static, 8>,
+    stuff: ExtraStuff,
+}
+
+#[derive(Encode)]
+struct ExtraStuff {
+    answer: u32,
+    thingy: bool,
 }
