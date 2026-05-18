@@ -70,7 +70,7 @@ use ringbuf::{ringbuf, ringbuf_entry};
 use static_cell::ClaimOnceCell;
 use task_packrat_api::{
     CacheGetError, CacheSetError, EreportReadError, EreportWriteError,
-    HostInfoReadError, HostInfoReadOutput, HostInfoWriteError,
+    HostBootfailReadOutput, HostInfoReadError, HostInfoWriteError,
     HostInfoWriteOutput, HostStartupOptions, MacAddressBlock, OxideIdentity,
 };
 use userlib::RecvMessage;
@@ -709,8 +709,10 @@ impl idl::InOrderPackratImpl for ServerImpl {
         _index: u32,
         _offset: usize,
         _data: Leased<idol_runtime::W, [u8]>,
-    ) -> Result<HostInfoReadOutput, idol_runtime::RequestError<HostInfoReadError>>
-    {
+    ) -> Result<
+        HostBootfailReadOutput,
+        idol_runtime::RequestError<HostInfoReadError>,
+    > {
         Err(HostInfoReadError::NoHostInfo.into())
     }
 
@@ -722,8 +724,10 @@ impl idl::InOrderPackratImpl for ServerImpl {
         index: u32,
         offset: usize,
         data: Leased<idol_runtime::W, [u8]>,
-    ) -> Result<HostInfoReadOutput, idol_runtime::RequestError<HostInfoReadError>>
-    {
+    ) -> Result<
+        HostBootfailReadOutput,
+        idol_runtime::RequestError<HostInfoReadError>,
+    > {
         // Do we *have* a bootfail to report?
         let Some(bfs) = self.host_info.host_bootfail_state.as_ref() else {
             return Err(HostInfoReadError::NoHostInfo.into());
@@ -748,7 +752,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
         data.write_range(0..max_to_copy, &relevant[..max_to_copy])
             .map_err(|_| HostInfoReadError::LeaseLost)?;
 
-        let out = HostInfoReadOutput {
+        let out = HostBootfailReadOutput {
             read: max_to_copy,
             reason: bfs.reason,
             _pad: [0u8; _],
@@ -756,6 +760,119 @@ impl idl::InOrderPackratImpl for ServerImpl {
 
         // Okay! Written! Return how many bytes were actually copied
         Ok(out)
+    }
+
+    /// We're not a system that is expected to have a host, therefore we can always return
+    /// "no host info", since we won't ever have any.
+    #[cfg(not(any(
+        feature = "gimlet",
+        feature = "grapefruit",
+        feature = "cosmo"
+    )))]
+    fn write_host_panic(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        _data: Leased<idol_runtime::R, [u8]>,
+    ) -> Result<
+        HostInfoWriteOutput,
+        idol_runtime::RequestError<HostInfoWriteError>,
+    > {
+        Err(HostInfoWriteError::Unsupported.into())
+    }
+
+    #[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
+    fn write_host_panic(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        data: Leased<idol_runtime::R, [u8]>,
+    ) -> Result<
+        HostInfoWriteOutput,
+        idol_runtime::RequestError<HostInfoWriteError>,
+    > {
+        // First, attempt to copy-in the new data, to ensure that we don't rev the
+        // metadata if the lease access fails.
+        let to_copy = self.host_info.host_panic_payload.len().min(data.len());
+        data.read_range(
+            0..to_copy,
+            &mut self.host_info.host_panic_payload[..to_copy],
+        )
+        .map_err(|_| HostInfoWriteError::LeaseLost)?;
+
+        // Okay! We've written the requested data. Let's update the metadata.
+        //
+        // Take the old count, if any, and add one to it. If that count wrapped,
+        // or if we didn't have an old count, set it to 1, so we never return
+        // a count of zero if we've ever observed a panic.
+        let new_ct = self
+            .host_info
+            .host_panic_state
+            .take()
+            .map(|s| s.total_count.wrapping_add(1))
+            .unwrap_or(0)
+            .max(1);
+        self.host_info.host_panic_state = Some(HostPanicMetadata {
+            total_length: to_copy,
+            total_count: new_ct,
+        });
+
+        // Give the writer the current index and the number of bytes actually written
+        Ok(HostInfoWriteOutput {
+            index: new_ct,
+            written: to_copy,
+        })
+    }
+
+    /// We're not a system that is expected to have a host, therefore we can always return
+    /// "no host info", since we won't ever have any.
+    #[cfg(not(any(
+        feature = "gimlet",
+        feature = "grapefruit",
+        feature = "cosmo"
+    )))]
+    fn read_host_panic_fragment(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        _index: u32,
+        _offset: usize,
+        _data: Leased<idol_runtime::W, [u8]>,
+    ) -> Result<usize, idol_runtime::RequestError<HostInfoReadError>> {
+        Err(HostInfoReadError::NoHostInfo.into())
+    }
+
+    #[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
+    fn read_host_panic_fragment(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        index: u32,
+        offset: usize,
+        data: Leased<idol_runtime::W, [u8]>,
+    ) -> Result<usize, idol_runtime::RequestError<HostInfoReadError>> {
+        // Do we *have* a panic to report?
+        let Some(bfs) = self.host_info.host_panic_state.as_ref() else {
+            return Err(HostInfoReadError::NoHostInfo.into());
+        };
+
+        // Do we have the specific panic data being requested?
+        if bfs.total_count != index {
+            return Err(HostInfoReadError::InvalidIndex.into());
+        }
+
+        // Is the offset requested valid?
+        let offset_max = bfs
+            .total_length
+            .min(self.host_info.host_panic_payload.len());
+        if offset >= offset_max {
+            return Err(HostInfoReadError::InvalidOffset.into());
+        }
+
+        // Attempt to copy the requested range into the destination
+        let relevant = &self.host_info.host_panic_payload[offset_max..];
+        let max_to_copy = data.len().min(relevant.len());
+        data.write_range(0..max_to_copy, &relevant[..max_to_copy])
+            .map_err(|_| HostInfoReadError::LeaseLost)?;
+
+        // Okay! Written! Return how many bytes were actually copied
+        Ok(max_to_copy)
     }
 }
 
@@ -792,7 +909,7 @@ impl NotificationHandler for ServerImpl {
 mod idl {
     use super::{
         CacheGetError, CacheSetError, EreportReadError, EreportWriteError,
-        HostInfoReadError, HostInfoReadOutput, HostInfoWriteError,
+        HostBootfailReadOutput, HostInfoReadError, HostInfoWriteError,
         HostInfoWriteOutput, HostStartupOptions, MacAddressBlock,
         OxideIdentity, ereport_messages,
     };

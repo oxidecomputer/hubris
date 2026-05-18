@@ -97,7 +97,7 @@ pub struct HostInfoWriteOutput {
 
 #[derive(Copy, Clone, Debug, FromBytes, IntoBytes, Immutable)]
 #[repr(C)]
-pub struct HostInfoReadOutput {
+pub struct HostBootfailReadOutput {
     pub read: usize,
     pub reason: u8,
     pub _pad: [u8; 3],

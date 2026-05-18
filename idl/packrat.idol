@@ -167,7 +167,34 @@ Interface(
                 "data": (type: "[u8]", write: true),
             },
             reply: Result(
-                ok: "HostInfoReadOutput",
+                ok: "HostBootfailReadOutput",
+                err: CLike("HostInfoReadError"),
+            ),
+            idempotent: true,
+        ),
+        "write_host_panic": (
+            doc: "Write a host's panic message and return the index of this panic",
+            args: {
+            },
+            leases: {
+                "data": (type: "[u8]", read: true),
+            },
+            reply: Result(
+                ok: "HostInfoWriteOutput",
+                err: CLike("HostInfoWriteError"),
+            ),
+        ),
+        "read_host_panic_fragment": (
+            doc: "Read a portion of the host's panic message",
+            args: {
+                "index": "u32",
+                "offset": "usize",
+            },
+            leases: {
+                "data": (type: "[u8]", write: true),
+            },
+            reply: Result(
+                ok: "usize",
                 err: CLike("HostInfoReadError"),
             ),
             idempotent: true,
