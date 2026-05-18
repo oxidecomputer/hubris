@@ -1782,6 +1782,27 @@ pub struct I2cDeviceDescription {
     pub sensors: Vec<DeviceSensor>,
     pub device_id: Option<String>,
     pub name: Option<String>,
+    /// If this is a PMBus device, this field contains additional data about the
+    /// PMBus device to be used for generating PMBus-y code.
+    pub pmbus: Option<PmbusDeviceDescription>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PmbusDeviceDescription {
+    pub rails: Vec<PmbusRailDescription>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PmbusRailDescription {
+    pub name: String,
+    pub phases: Vec<u8>,
+}
+
+impl I2cDeviceDescription {
+    /// Returns `true` if this device is a PMBus device.
+    pub fn is_pmbus(&self) -> bool {
+        self.pmbus.is_some()
+    }
 }
 
 ///
@@ -1801,12 +1822,50 @@ pub fn device_descriptions() -> impl Iterator<Item = I2cDeviceDescription> {
     g.devices.into_iter().zip(sensors.device_sensors).map(
         |(device, sensors)| {
             let device_id = device.refdes.as_ref().map(Refdes::to_component_id);
+            let pmbus = device.power.as_ref().and_then(|power| {
+                if !power.pmbus {
+                    return None;
+                }
+
+                let rails = power
+                    .rails
+                    .iter()
+                    .flatten()
+                    .enumerate()
+                    .map(|(i, rail)| {
+                        let phases = if let Some(ref phases_list) = power.phases
+                        {
+                            match phases_list.get(i) {
+                                Some(phases) => phases.clone(),
+                                None => {
+                                    // The rails and phases arrays are expected to
+                                    // be the same length; if this is not the case,
+                                    // the config file is malformed!
+                                    panic!(
+                                        "PMBus device {device_id:?} is missing
+                                         phases for its {i}th rail ({rail})",
+                                    );
+                                }
+                            }
+                        } else {
+                            Vec::new()
+                        };
+                        PmbusRailDescription {
+                            name: rail.clone(),
+                            phases,
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                Some(PmbusDeviceDescription { rails })
+            });
+
             I2cDeviceDescription {
                 device: device.device,
                 description: device.description,
                 sensors,
                 device_id,
                 name: device.name,
+                pmbus,
             }
         },
     )
