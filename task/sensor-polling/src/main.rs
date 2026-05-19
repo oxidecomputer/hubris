@@ -132,10 +132,12 @@ fn main() -> ! {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-#[cfg(any(target_board = "psc-b", target_board = "psc-c",))]
+// The `observer` app uses `sensor-polling` but has no I2C devices yet,
+// so this import is conditional to avoid warnings
+#[cfg(any(target_board = "psc-b", target_board = "psc-c"))]
 use i2c_config::{devices, sensors};
 
-#[cfg(any(target_board = "psc-b", target_board = "psc-c",))]
+#[cfg(any(target_board = "psc-b", target_board = "psc-c"))]
 static SENSORS: [TemperatureSensor; 6] = [
     TemperatureSensor::new(
         Device::Mwocp68,

@@ -2,6 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+// THIS CODE IS COPIED FROM PSC-SEQ_SERVER AND NOT YET FULLY IMPLEMENTED
+
 //! Server for managing the Observer sequencing process.
 //! It's based on the psc-seq-server.
 //!
