@@ -645,6 +645,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
     fn write_host_bootfail(
         &mut self,
         _msg: &userlib::RecvMessage,
+        _reason: u8,
         _data: Leased<idol_runtime::R, [u8]>,
     ) -> Result<
         HostInfoWriteOutput,
