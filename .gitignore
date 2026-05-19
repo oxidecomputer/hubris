@@ -14,3 +14,4 @@ hubris.testout.*
 !.vscode/launch.json
 !.vscode/tasks.json
 !.vscode/extensions.json
+.nvim.lua

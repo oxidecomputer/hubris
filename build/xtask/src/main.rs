@@ -21,6 +21,7 @@ mod humility;
 mod lsp;
 mod passthrough;
 mod print;
+mod rust_analyzer;
 mod sizes;
 mod task_slot;
 
@@ -246,6 +247,9 @@ enum Xtask {
         /// Path to a Rust source file
         file: PathBuf,
     },
+
+    /// Runs `rust-analyzer` for the target manifest
+    RustAnalyzer { manifest: Option<PathBuf> },
 
     /// Prepare artifacts for upload in CI.
     GhaPrepareArtifacts {
@@ -545,6 +549,9 @@ fn run(xtask: Xtask) -> Result<()> {
         }
         Xtask::Lsp { clients, file } => {
             lsp::run(&file, &clients)?;
+        }
+        Xtask::RustAnalyzer { manifest } => {
+            rust_analyzer::run(manifest.as_deref())?;
         }
         Xtask::GhaPrepareArtifacts { cfg, attestation } => {
             gha_prepare_artifacts::run(&cfg, attestation.as_deref())?;
