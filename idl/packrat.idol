@@ -154,7 +154,7 @@ Interface(
             },
             reply: Result(
                 ok: "HostInfoWriteOutput",
-                err: CLike("HostInfoWriteError"),
+                err: ServerDeath,
             ),
         ),
         "read_host_bootfail_fragment": (
@@ -181,7 +181,7 @@ Interface(
             },
             reply: Result(
                 ok: "HostInfoWriteOutput",
-                err: CLike("HostInfoWriteError"),
+                err: ServerDeath,
             ),
         ),
         "read_host_panic_fragment": (

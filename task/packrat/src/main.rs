@@ -65,13 +65,15 @@
 
 use core::convert::Infallible;
 use gateway_ereport_messages as ereport_messages;
-use idol_runtime::{Leased, LenLimit, NotificationHandler, RequestError};
+use idol_runtime::{
+    ClientError, Leased, LenLimit, NotificationHandler, RequestError,
+};
 use ringbuf::{ringbuf, ringbuf_entry};
 use static_cell::ClaimOnceCell;
 use task_packrat_api::{
     CacheGetError, CacheSetError, EreportReadError, EreportWriteError,
-    HostBootfailReadOutput, HostInfoReadError, HostInfoWriteError,
-    HostInfoWriteOutput, HostStartupOptions, MacAddressBlock, OxideIdentity,
+    HostBootfailReadOutput, HostInfoReadError, HostInfoWriteOutput,
+    HostStartupOptions, MacAddressBlock, OxideIdentity,
 };
 use userlib::RecvMessage;
 
@@ -646,9 +648,9 @@ impl idl::InOrderPackratImpl for ServerImpl {
         _data: Leased<idol_runtime::R, [u8]>,
     ) -> Result<
         HostInfoWriteOutput,
-        idol_runtime::RequestError<HostInfoWriteError>,
+        idol_runtime::RequestError<core::convert::Infallible>,
     > {
-        Err(HostInfoWriteError::Unsupported.into())
+        Err(idol_runtime::ClientError::UnknownOperation.fail())
     }
 
     #[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
@@ -659,7 +661,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
         data: Leased<idol_runtime::R, [u8]>,
     ) -> Result<
         HostInfoWriteOutput,
-        idol_runtime::RequestError<HostInfoWriteError>,
+        idol_runtime::RequestError<core::convert::Infallible>,
     > {
         // First, attempt to copy-in the new data, to ensure that we don't rev the
         // metadata if the lease access fails.
@@ -669,7 +671,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
             0..to_copy,
             &mut self.host_info.host_bootfail_payload[..to_copy],
         )
-        .map_err(|_| HostInfoWriteError::LeaseLost)?;
+        .map_err(|_| ClientError::WentAway.fail())?;
 
         // Okay! We've written the requested data. Let's update the metadata.
         //
@@ -704,7 +706,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
         feature = "cosmo"
     )))]
     fn read_host_bootfail_fragment(
-        &self,
+        &mut self,
         _msg: &userlib::RecvMessage,
         _index: u32,
         _offset: usize,
@@ -750,7 +752,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
         let relevant = &self.host_info.host_bootfail_payload[offset_max..];
         let max_to_copy = data.len().min(relevant.len());
         data.write_range(0..max_to_copy, &relevant[..max_to_copy])
-            .map_err(|_| HostInfoReadError::LeaseLost)?;
+            .map_err(|_| ClientError::WentAway.fail())?;
 
         let out = HostBootfailReadOutput {
             read: max_to_copy,
@@ -775,9 +777,9 @@ impl idl::InOrderPackratImpl for ServerImpl {
         _data: Leased<idol_runtime::R, [u8]>,
     ) -> Result<
         HostInfoWriteOutput,
-        idol_runtime::RequestError<HostInfoWriteError>,
+        idol_runtime::RequestError<core::convert::Infallible>,
     > {
-        Err(HostInfoWriteError::Unsupported.into())
+        Err(idol_runtime::ClientError::UnknownOperation.fail())
     }
 
     #[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
@@ -787,7 +789,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
         data: Leased<idol_runtime::R, [u8]>,
     ) -> Result<
         HostInfoWriteOutput,
-        idol_runtime::RequestError<HostInfoWriteError>,
+        idol_runtime::RequestError<core::convert::Infallible>,
     > {
         // First, attempt to copy-in the new data, to ensure that we don't rev the
         // metadata if the lease access fails.
@@ -796,7 +798,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
             0..to_copy,
             &mut self.host_info.host_panic_payload[..to_copy],
         )
-        .map_err(|_| HostInfoWriteError::LeaseLost)?;
+        .map_err(|_| ClientError::WentAway.fail())?;
 
         // Okay! We've written the requested data. Let's update the metadata.
         //
@@ -869,7 +871,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
         let relevant = &self.host_info.host_panic_payload[offset_max..];
         let max_to_copy = data.len().min(relevant.len());
         data.write_range(0..max_to_copy, &relevant[..max_to_copy])
-            .map_err(|_| HostInfoReadError::LeaseLost)?;
+            .map_err(|_| ClientError::WentAway.fail())?;
 
         // Okay! Written! Return how many bytes were actually copied
         Ok(max_to_copy)
@@ -909,9 +911,8 @@ impl NotificationHandler for ServerImpl {
 mod idl {
     use super::{
         CacheGetError, CacheSetError, EreportReadError, EreportWriteError,
-        HostBootfailReadOutput, HostInfoReadError, HostInfoWriteError,
-        HostInfoWriteOutput, HostStartupOptions, MacAddressBlock,
-        OxideIdentity, ereport_messages,
+        HostBootfailReadOutput, HostInfoReadError, HostInfoWriteOutput,
+        HostStartupOptions, MacAddressBlock, OxideIdentity, ereport_messages,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

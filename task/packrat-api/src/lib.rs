@@ -72,22 +72,6 @@ pub enum EreportWriteError {
     Lost = 1,
 }
 
-#[derive(
-    Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError, counters::Count,
-)]
-pub enum HostInfoWriteError {
-    /// Storage of Host Info is not supported (this is a device not expected to
-    /// have a host)
-    Unsupported = 1,
-
-    /// Failed to read from a provided lease, which probably means that the client
-    /// died before we serviced the request, so they'll probably never see this
-    LeaseLost,
-
-    #[idol(server_death)]
-    ServerRestarted,
-}
-
 #[derive(Copy, Clone, Debug, FromBytes, IntoBytes, Immutable)]
 #[repr(C)]
 pub struct HostInfoWriteOutput {
@@ -117,10 +101,6 @@ pub enum HostInfoReadError {
 
     /// Requested index does not match the currently stored host information
     InvalidIndex,
-
-    /// Failed to write to a provided lease, which probably means that the client
-    /// died before we serviced the request, so they'll probably never see this
-    LeaseLost,
 
     #[idol(server_death)]
     ServerRestarted,
