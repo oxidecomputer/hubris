@@ -154,6 +154,22 @@ impl Raa229620A {
         pmbus_smbalert_mask_write!(self.device, self.rail, STATUS_IOUT, mask)
     }
 
+    /// Set the `SMBALERT_MASK` for the `STATUS_CML` register, sending page
+    /// 0xFF. Though I couldn't find explicit confirmation of this in the PMBus
+    /// standard, one must kind of assume that `STATUS_CML` bits, which are not
+    /// specific to a particular output rail, are probably set on all PMBus
+    /// pages when a CML event happens, and thus we must mask them out on all
+    /// pages to stop SMBus alerts from being generated?
+    ///
+    /// Any bits set in `mask` will be masked, suppressing SMBus alerts when
+    /// those bits in `STATUS_CML` become set.
+    pub fn set_status_cml_smbalert_mask_on_all_rails(
+        &self,
+        mask: STATUS_CML::CommandData,
+    ) -> Result<(), Error> {
+        pmbus_smbalert_mask_write!(self.device, 0xff, STATUS_CML, mask)
+    }
+
     pub fn read_vin(&self) -> Result<Volts, Error> {
         let vin = pmbus_rail_read!(self.device, self.rail, READ_VIN)?;
         Ok(Volts(vin.get()?.0))
