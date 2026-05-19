@@ -179,11 +179,14 @@ macro_rules! pmbus_rail_write {
 }
 
 /// Write the mask `$mask` to the `SMBALERT_MASK` register for `$reg`, where
-/// `$reg` is a status register.
+/// `$reg` is a status register, and `$mask` is a `CommandData` value for that
+/// register.
 ///
 /// Importantly, `$reg` must be a PMBus `STATUS_<whatever>` register. This macro
-/// cannot stop you from providing any `CommandCode` as the value of `$reg`, or
-/// any `CommandData` as the value of `$mask`, but, uh, don't do that.
+/// cannot stop you from providing any `CommandCode` as the value of `$reg` and
+/// any `CommandData` as the value of `$mask`, but, uh, don't do that. On the
+/// other hand, the macro *does* at least ensure that `$mask` is a `CommandData`.
+/// for the same register as `$reg`.
 macro_rules! pmbus_smbalert_mask_write {
     ($device:expr, $rail:expr, $reg:ident, $mask:expr) => {{
         // This assignment is just a type assertion that `$mask` is a
