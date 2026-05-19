@@ -266,7 +266,9 @@ impl VCore {
             // RAA229620A for setting the status bit that says it saw something
             // weird, we would really rather not get an IRQ about it every time
             // there's I2C weather. So let's not get alerts for this one.
-            mask.set_other_fault(STATUS_CML::OtherCommunicationError::Error);
+            mask.set_other_communication_error(
+                STATUS_CML::OtherCommunicationError::Error,
+            );
             mask
         };
         let all_ok = self
@@ -290,7 +292,7 @@ impl VCore {
     fn set_alert_config_on_both_vrms(
         &self,
         which: PmbusCmd,
-        txn: impl Fn(&Raa229620A) -> Result<T, raa229620a::Error>,
+        txn: impl Fn(&Raa229620A) -> Result<(), raa229620a::Error>,
     ) -> bool {
         let mut all_ok = true;
         all_ok &=
