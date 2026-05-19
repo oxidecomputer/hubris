@@ -151,26 +151,7 @@ impl Raa229620A {
         &self,
         mask: STATUS_IOUT::CommandData,
     ) -> Result<(), Error> {
-        // Unfortunately, SMBALERT_MASK is kinda hard to use with the
-        // `pmbus_write!` macro family, due to not having its own `CommandData`
-        // type, and because it requires writing both the name of the status
-        // register being masked *and* the value of that register (as the mask).
-        // It's a bit odd. Probably it deserves its own
-        // `pmbus_smbalert_mask_write!` macro or something, but for now, we'll
-        // just do it manually.
-        self.device
-            .write_write(
-                &[PAGE::CommandData::code(), self.rail],
-                &[
-                    CommandCode::SMBALERT_MASK as u8,
-                    CommandCode::STATUS_IOUT as u8,
-                    mask.0,
-                ],
-            )
-            .map_err(|code| Error::BadWrite {
-                cmd: CommandCode::SMBALERT_MASK as u8,
-                code,
-            })
+        pmbus_smbalert_mask_write!(self.device, self.rail, STATUS_IOUT, mask)
     }
 
     pub fn read_vin(&self) -> Result<Volts, Error> {
