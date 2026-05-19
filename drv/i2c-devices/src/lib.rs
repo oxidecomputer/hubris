@@ -178,6 +178,42 @@ macro_rules! pmbus_rail_write {
     }};
 }
 
+/// Write the mask `$mask` to the `SMBALERT_MASK` register for `$reg`, where
+/// `$reg` is a status register, and `$mask` is a `CommandData` value for that
+/// register.
+///
+/// Importantly, `$reg` must be a PMBus `STATUS_<whatever>` register. This macro
+/// cannot stop you from providing any `CommandCode` as the value of `$reg` and
+/// any `CommandData` as the value of `$mask`, but, uh, don't do that. On the
+/// other hand, the macro *does* at least ensure that `$mask` is a `CommandData`.
+/// for the same register as `$reg`.
+macro_rules! pmbus_smbalert_mask_write {
+    ($device:expr, $rail:expr, $reg:ident, $mask:expr) => {{
+        // This assignment is just a type assertion that `$mask` is a
+        // `CommandData` for the same register as `$reg`.
+        let mask: $reg::CommandData = $mask;
+        let rpayload = [PAGE::CommandData::code(), $rail];
+        // N.B. that the status register *should* always be a single byte, but
+        // we'll do this "properly" just in case.
+        let mut payload = [0u8; $reg::CommandData::len() + 2];
+        // 0               7               15              23
+        // +---------------+---------------+---------------+
+        // | SMBALERT_MASK | register code | mask byte     |
+        // +---------------+---------------+---------------+
+        payload[0] = CommandCode::SMBALERT_MASK as u8;
+        payload[1] = $reg::CommandData::code();
+        mask.to_slice(&mut payload[2..]);
+
+        match $device.write_write(&rpayload, &payload) {
+            Err(code) => Err(Error::BadWrite {
+                cmd: CommandCode::SMBALERT_MASK as u8,
+                code,
+            }),
+            Ok(_) => Ok(()),
+        }
+    }};
+}
+
 struct BadValidation {
     cmd: u8,
     code: ResponseCode,
