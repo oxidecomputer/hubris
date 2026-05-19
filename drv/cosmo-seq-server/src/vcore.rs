@@ -18,6 +18,7 @@ use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::raa229620a::{self, Raa229620A};
 use ereports::pwr::{PmbusAlert, PmbusStatus};
 use fixedstr::FixedStr;
+use pmbus::commands::raa229620a::STATUS_IOUT;
 use pmbus::commands::raa229620a::STATUS_WORD;
 use ringbuf::*;
 use userlib::{TaskId, sys_get_timer, units};
@@ -41,6 +42,7 @@ pub(crate) enum Rail {
 #[derive(Copy, Clone, PartialEq)]
 enum PmbusCmd {
     LoadLimit,
+    SetStatusIoutMask,
     ClearFaults,
     ReadVin,
     Status,
@@ -51,7 +53,12 @@ enum Trace {
     None,
     Initializing,
     Initialized,
-    LimitsLoaded,
+    LimitsLoaded {
+        all_ok: bool,
+    },
+    StatusIoutMaskSet {
+        all_ok: bool,
+    },
     PmbusAlert {
         timestamp: u64,
         alerted: Vrms,
@@ -198,17 +205,63 @@ impl VCore {
         self.faulted.pwr_cont1 || self.faulted.pwr_cont2
     }
 
-    pub fn initialize_uv_warning(&mut self) -> Result<(), ResponseCode> {
+    pub fn initialize_pmbus_alerts(&mut self) {
         ringbuf_entry!(Trace::Initializing);
 
+        // Yes, we just ignore errors here --- that may seem a bit sketchy, but
+        // what else can we do? It seems pretty bad to panic and say "nope, the
+        // computer won't turn on" because we weren't able to do an I2C
+        // transaction to turn on an interrupt that we only use for monitoring.
+        // Each step will retry internally a few times, so we should power
+        // through any transient I2C messiness, and any I2C errors that occur
+        // get logged in the ringbuf. We also do *not* bail out early if any
+        // other step fails, because we would still like to do every other thing
+        // if possible.
+
         // Set our warn limit
-        retry_i2c_txn(Rail::VddcrCpu0, PmbusCmd::LoadLimit, || {
+        let mut all_ok = true;
+        all_ok &= retry_i2c_txn(Rail::VddcrCpu0, PmbusCmd::LoadLimit, || {
             self.vddcr_cpu0.set_vin_uv_warn_limit(VCORE_UV_WARN_LIMIT)
-        })?;
-        retry_i2c_txn(Rail::VddcrCpu1, PmbusCmd::LoadLimit, || {
+        })
+        .is_ok();
+        all_ok &= retry_i2c_txn(Rail::VddcrCpu1, PmbusCmd::LoadLimit, || {
             self.vddcr_cpu1.set_vin_uv_warn_limit(VCORE_UV_WARN_LIMIT)
-        })?;
-        ringbuf_entry!(Trace::LimitsLoaded);
+        })
+        .is_ok();
+        ringbuf_entry!(Trace::LimitsLoaded { all_ok });
+
+        let iout_mask = {
+            let mut mask = STATUS_IOUT::CommandData(0);
+            // Mask out SMBus alerts for output overcurrent warnings on the
+            // RAA229620A. This is necessary because the AMD power design
+            // guidelines for Turin require that the SVI3 fast overcurrent
+            // response warning threshold be 90% of the EDC for the CPU, which
+            // results in the VRMs asserting output overcurrent warnings on
+            // their SVI3 rail during normal operation of the CPU. AMD
+            // recommends that these warnings be masked out and/or ignored, so
+            // we disable them here.
+            //
+            // We don't expect to see overcurrent warnings on non-SVI3 rails, as
+            // the default value of the PMBus `IOUT_OC_WARN_LIMIT` register
+            // on the RAA229620A is 3000A, which is *well above* the overcurrent
+            // *fault* threshold.
+            mask.set_output_overcurrent_warning(
+                STATUS_IOUT::OutputOvercurrentWarning::Warning,
+            );
+            mask
+        };
+        let mut all_ok = true;
+        all_ok &=
+            retry_i2c_txn(Rail::VddcrCpu0, PmbusCmd::SetStatusIoutMask, || {
+                self.vddcr_cpu0.set_status_iout_smbalert_mask(iout_mask)
+            })
+            .is_ok();
+        all_ok &=
+            retry_i2c_txn(Rail::VddcrCpu1, PmbusCmd::SetStatusIoutMask, || {
+                self.vddcr_cpu1.set_status_iout_smbalert_mask(iout_mask)
+            })
+            .is_ok();
+        ringbuf_entry!(Trace::StatusIoutMaskSet { all_ok });
 
         // Clear our faults
         self.try_to_clear_faults(Vrms {
@@ -220,8 +273,6 @@ impl VCore {
         // our guys.
 
         ringbuf_entry!(Trace::Initialized);
-
-        Ok(())
     }
 
     pub fn can_we_unmask_any_vrm_irqs_again(&mut self) -> Vrms {

@@ -143,6 +143,36 @@ impl Raa229620A {
         pmbus_rail_write!(self.device, self.rail, VIN_UV_WARN_LIMIT, vin)
     }
 
+    /// Set the `SMBALERT_MASK` for the `STATUS_IOUT` register.
+    ///
+    /// Any bits set in `mask` will be masked, suppressing SMBus alerts when
+    /// those bits in `STATUS_IOUT` become set.
+    pub fn set_status_iout_smbalert_mask(
+        &self,
+        mask: STATUS_IOUT::CommandData,
+    ) -> Result<(), Error> {
+        // Unfortunately, SMBALERT_MASK is kinda hard to use with the
+        // `pmbus_write!` macro family, due to not having its own `CommandData`
+        // type, and because it requires writing both the name of the status
+        // register being masked *and* the value of that register (as the mask).
+        // It's a bit odd. Probably it deserves its own
+        // `pmbus_smbalert_mask_write!` macro or something, but for now, we'll
+        // just do it manually.
+        self.device
+            .write_write(
+                &[PAGE::CommandData::code(), self.rail],
+                &[
+                    CommandCode::SMBALERT_MASK as u8,
+                    CommandCode::STATUS_IOUT as u8,
+                    mask.0,
+                ],
+            )
+            .map_err(|code| Error::BadWrite {
+                cmd: CommandCode::SMBALERT_MASK as u8,
+                code,
+            })
+    }
+
     pub fn read_vin(&self) -> Result<Volts, Error> {
         let vin = pmbus_rail_read!(self.device, self.rail, READ_VIN)?;
         Ok(Volts(vin.get()?.0))
