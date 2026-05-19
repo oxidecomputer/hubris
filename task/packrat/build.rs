@@ -39,6 +39,10 @@ fn main() -> Result<()> {
             "packrat's `gimlet` feature should not be enabled when ",
             "building for PSCs",
         )),
+        Some("observer-a") => panic!(concat!(
+            "packrat's `gimlet` feature should not be enabled when ",
+            "building for Observers",
+        )),
         Some("sidecar-b" | "sidecar-c" | "sidecar-d") => panic!(concat!(
             "packrat's `gimlet` feature should not be enabled when ",
             "building for sidecars",

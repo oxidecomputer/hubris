@@ -497,6 +497,7 @@ macro_rules! mwocp68_controller {
     any(target_board = "psc-b", target_board = "psc-c"),
     path = "bsp/psc_bc.rs"
 )]
+#[cfg_attr(target_board = "observer-a", path = "bsp/observer_a.rs")]
 #[cfg_attr(
     any(
         target_board = "sidecar-b",

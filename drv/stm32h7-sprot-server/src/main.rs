@@ -122,6 +122,7 @@ cfg_if::cfg_if! {
             target_board = "sidecar-d",
             target_board = "psc-b",
             target_board = "psc-c",
+            target_board = "observer-a",
             target_board = "gemini-bu-1",
             target_board = "grapefruit-a",
             target_board = "grapefruit-b",

@@ -39,6 +39,7 @@ mod server;
     any(target_board = "psc-b", target_board = "psc-c"),
     path = "bsp/psc_bc.rs"
 )]
+#[cfg_attr(target_board = "observer-a", path = "bsp/observer_a.rs")]
 #[cfg_attr(target_board = "gimletlet-1", path = "bsp/gimletlet_mgmt.rs")]
 #[cfg_attr(
     all(target_board = "gimletlet-2", feature = "gimletlet-nic"),

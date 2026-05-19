@@ -132,6 +132,9 @@ fn main() -> ! {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+// The `observer` app uses `sensor-polling` but has no I2C devices yet,
+// so this import is conditional to avoid warnings
+#[cfg(any(target_board = "psc-b", target_board = "psc-c"))]
 use i2c_config::{devices, sensors};
 
 #[cfg(any(target_board = "psc-b", target_board = "psc-c"))]
@@ -173,6 +176,11 @@ static SENSORS: [TemperatureSensor; 6] = [
         &sensors::MWOCP68_PSU5MCU_SPEED_SENSORS,
     ),
 ];
+
+// TODO fill in sensors once we know how to talk to the MWOCP67, and
+// unconditionally import i2c_config
+#[cfg(target_board = "observer-a")]
+static SENSORS: [TemperatureSensor; 0] = [];
 
 ////////////////////////////////////////////////////////////////////////////////
 

@@ -39,6 +39,7 @@ pub(crate) mod dump;
 #[cfg_attr(feature = "compute-sled", path = "mgs_compute_sled.rs")]
 #[cfg_attr(feature = "sidecar", path = "mgs_sidecar.rs")]
 #[cfg_attr(feature = "psc", path = "mgs_psc.rs")]
+#[cfg_attr(feature = "observer", path = "mgs_psc.rs")]
 #[cfg_attr(feature = "minibar", path = "mgs_minibar.rs")]
 mod mgs_handler;
 

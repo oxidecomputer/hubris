@@ -12,7 +12,7 @@ pub use registers::{MIBCounter, Register};
 
 ////////////////////////////////////////////////////////////////////////////////
 
-#[derive(Copy, Clone, Eq, PartialEq, counters::Count)]
+#[derive(Copy, Clone, Eq, PartialEq, counters::Count, Debug)]
 pub enum Error {
     SpiError(#[count(children)] SpiError),
     WrongChipId(u16),

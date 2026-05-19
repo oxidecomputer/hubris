@@ -2019,6 +2019,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-observer-seq-server"
+version = "0.1.0"
+dependencies = [
+ "build-i2c",
+ "build-util",
+ "counters",
+ "drv-i2c-api",
+ "drv-i2c-devices",
+ "drv-packrat-vpd-loader",
+ "drv-psc-seq-api",
+ "drv-stm32xx-sys-api",
+ "ereports",
+ "fixedstr",
+ "idol",
+ "microcbor",
+ "ringbuf",
+ "static-cell",
+ "task-jefe-api",
+ "task-packrat-api",
+ "userlib",
+]
+
+[[package]]
 name = "drv-onewire"
 version = "0.1.0"
 dependencies = [
@@ -4285,6 +4308,19 @@ dependencies = [
  "hashbrown 0.13.2",
  "indexmap 1.9.1",
  "memchr",
+]
+
+[[package]]
+name = "observer"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if",
+ "cortex-m",
+ "cortex-m-rt",
+ "drv-stm32h7-startup",
+ "kern",
+ "stm32h7",
 ]
 
 [[package]]
