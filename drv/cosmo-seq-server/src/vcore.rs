@@ -53,8 +53,12 @@ enum Trace {
     None,
     Initializing,
     Initialized,
-    LimitsLoaded,
-    StatusIoutMaskSet,
+    LimitsLoaded {
+        all_ok: bool,
+    },
+    StatusIoutMaskSet {
+        all_ok: bool,
+    },
     PmbusAlert {
         timestamp: u64,
         alerted: Vrms,
@@ -201,17 +205,29 @@ impl VCore {
         self.faulted.pwr_cont1 || self.faulted.pwr_cont2
     }
 
-    pub fn initialize_pmbus_warnings(&mut self) -> Result<(), ResponseCode> {
+    pub fn initialize_pmbus_warnings(&mut self) {
         ringbuf_entry!(Trace::Initializing);
 
+        // Yes, we just ignore errors here --- that may seem a bit sketchy, but
+        // what else can we do? It seems pretty bad to panic and say "nope, the
+        // computer won't turn on" because we weren't able to do an I2C
+        // transaction to turn on an interrupt that we only use for monitoring.
+        // Each step will retry internally a few times, so we should power
+        // through any transient I2C messiness, and any I2C errors that occur
+        // get logged in the ringbuf. We also do *not* bail out early if any
+        // other step fails, because we would still like to do every other thing
+        // if possible.
+
         // Set our warn limit
-        retry_i2c_txn(Rail::VddcrCpu0, PmbusCmd::LoadLimit, || {
+        let mut all_ok = true;
+        all_ok |= retry_i2c_txn(Rail::VddcrCpu0, PmbusCmd::LoadLimit, || {
             self.vddcr_cpu0.set_vin_uv_warn_limit(VCORE_UV_WARN_LIMIT)
-        })?;
-        retry_i2c_txn(Rail::VddcrCpu1, PmbusCmd::LoadLimit, || {
+        })
+        .is_ok();
+        all_ok |= retry_i2c_txn(Rail::VddcrCpu1, PmbusCmd::LoadLimit, || {
             self.vddcr_cpu1.set_vin_uv_warn_limit(VCORE_UV_WARN_LIMIT)
         })?;
-        ringbuf_entry!(Trace::LimitsLoaded);
+        ringbuf_entry!(Trace::LimitsLoaded { all_ok });
 
         let iout_mask = {
             let mut mask = STATUS_IOUT::CommandData(0);
@@ -233,13 +249,18 @@ impl VCore {
             );
             mask
         };
-        retry_i2c_txn(Rail::VddcrCpu0, PmbusCmd::SetStatusIoutMask, || {
-            self.vddcr_cpu0.set_status_iout_smbalert_mask(iout_mask)
-        })?;
-        retry_i2c_txn(Rail::VddcrCpu1, PmbusCmd::SetStatusIoutMask, || {
-            self.vddcr_cpu1.set_status_iout_smbalert_mask(iout_mask)
-        })?;
-        ringbuf_entry!(Trace::StatusIoutMaskSet);
+        let mut all_ok = true;
+        all_ok |=
+            retry_i2c_txn(Rail::VddcrCpu0, PmbusCmd::SetStatusIoutMask, || {
+                self.vddcr_cpu0.set_status_iout_smbalert_mask(iout_mask)
+            })
+            .is_ok();
+        all_ok |=
+            retry_i2c_txn(Rail::VddcrCpu1, PmbusCmd::SetStatusIoutMask, || {
+                self.vddcr_cpu1.set_status_iout_smbalert_mask(iout_mask)
+            })
+            .is_ok();
+        ringbuf_entry!(Trace::StatusIoutMaskSet { all_ok });
 
         // Clear our faults
         self.try_to_clear_faults(Vrms {
@@ -251,8 +272,6 @@ impl VCore {
         // our guys.
 
         ringbuf_entry!(Trace::Initialized);
-
-        Ok(())
     }
 
     pub fn can_we_unmask_any_vrm_irqs_again(&mut self) -> Vrms {
