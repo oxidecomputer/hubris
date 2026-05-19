@@ -136,14 +136,14 @@ stm32h7 = { version = "0.14", default-features = false }
 stm32g0 = { version = "0.15.1", default-features = false }
 strsim = { version = "0.10.0", default-features = false }
 syn = { version = "2", default-features = false, features = ["derive", "parsing", "proc-macro", "extra-traits", "full", "printing"] }
-toml = { version = "0.9.6", default-features = false, features = ["parse", "display", "serde", "preserve_order"] }
+toml = { version = "1.1", default-features = false, features = ["parse", "display", "serde", "preserve_order"] }
 toml_edit = { version = "0.23.5", default-features = false, features = ["parse", "display"] }
 vcell = { version = "0.1.2", default-features = false }
 walkdir = { version = "2.0.0", default-features = false }
 zerocopy = { version = "0.8.25", default-features = false }
 zerocopy-derive = { version = "0.8.25", default-features = false }
 zeroize = { version = "1.5.7", default-features = false, features = ["zeroize_derive"] }
-zip = { version = "0.6", default-features = false, features = ["bzip2", "deflate", "zstd"] }
+zip = { version = "8", default-features = false, features = ["bzip2"] }
 
 # Oxide forks and repos
 apob = { git = "https://github.com/oxidecomputer/apob", default-features = false }
@@ -157,7 +157,7 @@ gateway-ereport-messages = { git = "https://github.com/oxidecomputer/management-
 gimlet-inspector-protocol = { git = "https://github.com/oxidecomputer/gimlet-inspector-protocol", version = "0.1.0" }
 hif = { git = "https://github.com/oxidecomputer/hif", default-features = false }
 humpty = { git = "https://github.com/oxidecomputer/humpty", default-features = false, version = "0.1.3" }
-hubtools = { git = "https://github.com/oxidecomputer/hubtools", default-features = false, version = "0.4.6" }
+hubtools = { git = "https://github.com/oxidecomputer/hubtools", default-features = false, version = "0.4.8" }
 idol = { git = "https://github.com/oxidecomputer/idolatry.git", default-features = false }
 idol-runtime = { git = "https://github.com/oxidecomputer/idolatry.git", default-features = false }
 lpc55_sign = { git = "https://github.com/oxidecomputer/lpc55_support", default-features = false }
