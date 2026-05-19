@@ -766,7 +766,7 @@ impl ServerImpl {
         // to set a limit for the input undervoltage warning, and mask out the
         // (spurious) output overcurrent warning (which must be set to a
         // threshold that is not indicative of a real fault).
-        self.vcore.initialize_pmbus_warnings();
+        self.vcore.initialize_pmbus_alerts();
         self.seq.ier.modify(|m| {
             m.set_fanfault(true);
             m.set_thermtrip(true);

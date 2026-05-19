@@ -205,7 +205,7 @@ impl VCore {
         self.faulted.pwr_cont1 || self.faulted.pwr_cont2
     }
 
-    pub fn initialize_pmbus_warnings(&mut self) {
+    pub fn initialize_pmbus_alerts(&mut self) {
         ringbuf_entry!(Trace::Initializing);
 
         // Yes, we just ignore errors here --- that may seem a bit sketchy, but
@@ -226,7 +226,8 @@ impl VCore {
         .is_ok();
         all_ok |= retry_i2c_txn(Rail::VddcrCpu1, PmbusCmd::LoadLimit, || {
             self.vddcr_cpu1.set_vin_uv_warn_limit(VCORE_UV_WARN_LIMIT)
-        })?;
+        })
+        .is_ok();
         ringbuf_entry!(Trace::LimitsLoaded { all_ok });
 
         let iout_mask = {
