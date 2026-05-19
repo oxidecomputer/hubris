@@ -258,7 +258,7 @@ impl VCore {
 
         let cml_mask = {
             let mut mask = STATUS_CML::CommandData(0);
-            // Mask out SMBus alerts for STATUS_CML bit 2. This bit, "other
+            // Mask out SMBus alerts for STATUS_CML bit 1. This bit, "other
             // fault", is basically set when the PMBus sees something happen on
             // the I2C bus that makes it feel weird. Unfortunately, it turns out
             // that "I2C things that make you feel kinda weird" can happen a lot
