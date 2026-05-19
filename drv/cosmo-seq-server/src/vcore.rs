@@ -220,11 +220,11 @@ impl VCore {
 
         // Set our warn limit
         let mut all_ok = true;
-        all_ok |= retry_i2c_txn(Rail::VddcrCpu0, PmbusCmd::LoadLimit, || {
+        all_ok &= retry_i2c_txn(Rail::VddcrCpu0, PmbusCmd::LoadLimit, || {
             self.vddcr_cpu0.set_vin_uv_warn_limit(VCORE_UV_WARN_LIMIT)
         })
         .is_ok();
-        all_ok |= retry_i2c_txn(Rail::VddcrCpu1, PmbusCmd::LoadLimit, || {
+        all_ok &= retry_i2c_txn(Rail::VddcrCpu1, PmbusCmd::LoadLimit, || {
             self.vddcr_cpu1.set_vin_uv_warn_limit(VCORE_UV_WARN_LIMIT)
         })
         .is_ok();
@@ -251,12 +251,12 @@ impl VCore {
             mask
         };
         let mut all_ok = true;
-        all_ok |=
+        all_ok &=
             retry_i2c_txn(Rail::VddcrCpu0, PmbusCmd::SetStatusIoutMask, || {
                 self.vddcr_cpu0.set_status_iout_smbalert_mask(iout_mask)
             })
             .is_ok();
-        all_ok |=
+        all_ok &=
             retry_i2c_txn(Rail::VddcrCpu1, PmbusCmd::SetStatusIoutMask, || {
                 self.vddcr_cpu1.set_status_iout_smbalert_mask(iout_mask)
             })
