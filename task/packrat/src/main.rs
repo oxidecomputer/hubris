@@ -72,8 +72,9 @@ use ringbuf::{ringbuf, ringbuf_entry};
 use static_cell::ClaimOnceCell;
 use task_packrat_api::{
     CacheGetError, CacheSetError, EreportReadError, EreportWriteError,
-    HostBootfailReadOutput, HostInfoReadError, HostInfoWriteOutput,
-    HostStartupOptions, MacAddressBlock, OxideIdentity,
+    HostBootfailReadOutput, HostInfoReadError, HostInfoRequest,
+    HostInfoWriteOutput, HostPanicReadOutput, HostStartupOptions,
+    MacAddressBlock, OxideIdentity,
 };
 use userlib::RecvMessage;
 
@@ -709,8 +710,7 @@ impl idl::InOrderPackratImpl for ServerImpl {
     fn read_host_bootfail_fragment(
         &mut self,
         _msg: &userlib::RecvMessage,
-        _index: u32,
-        _offset: usize,
+        _request: HostInfoRequest,
         _data: Leased<idol_runtime::W, [u8]>,
     ) -> Result<
         HostBootfailReadOutput,
@@ -719,50 +719,46 @@ impl idl::InOrderPackratImpl for ServerImpl {
         Err(HostInfoReadError::NoHostInfo.into())
     }
 
-    /// Attempt to obtain the requested host info.
-    #[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
-    fn read_host_bootfail_fragment(
+    #[cfg(not(any(
+        feature = "gimlet",
+        feature = "grapefruit",
+        feature = "cosmo"
+    )))]
+    fn read_first_host_bootfail_fragment(
         &mut self,
         _msg: &userlib::RecvMessage,
-        index: u32,
-        offset: usize,
         data: Leased<idol_runtime::W, [u8]>,
     ) -> Result<
         HostBootfailReadOutput,
         idol_runtime::RequestError<HostInfoReadError>,
     > {
-        // Do we *have* a bootfail to report?
-        let Some(bfs) = self.host_info.host_bootfail_state.as_ref() else {
-            return Err(HostInfoReadError::NoHostInfo.into());
-        };
+        Err(HostInfoReadError::NoHostInfo.into())
+    }
 
-        // Do we have the specific bootfail data being requested?
-        if bfs.total_count != index {
-            return Err(HostInfoReadError::InvalidIndex.into());
-        }
+    #[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
+    fn read_first_host_bootfail_fragment(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        data: Leased<idol_runtime::W, [u8]>,
+    ) -> Result<
+        HostBootfailReadOutput,
+        idol_runtime::RequestError<HostInfoReadError>,
+    > {
+        self.host_bootfail_helper(None, data)
+    }
 
-        // Is the offset requested valid?
-        let offset_max = bfs
-            .total_length
-            .min(self.host_info.host_bootfail_payload.len());
-        if offset >= offset_max {
-            return Err(HostInfoReadError::InvalidOffset.into());
-        }
-
-        // Attempt to copy the requested range into the destination
-        let relevant = &self.host_info.host_bootfail_payload[offset_max..];
-        let max_to_copy = data.len().min(relevant.len());
-        data.write_range(0..max_to_copy, &relevant[..max_to_copy])
-            .map_err(|_| ClientError::WentAway.fail())?;
-
-        let out = HostBootfailReadOutput {
-            read: max_to_copy,
-            reason: bfs.reason,
-            _pad: [0u8; _],
-        };
-
-        // Okay! Written! Return how many bytes were actually copied
-        Ok(out)
+    /// Attempt to obtain the requested host info.
+    #[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
+    fn read_host_bootfail_fragment(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        request: HostInfoRequest,
+        data: Leased<idol_runtime::W, [u8]>,
+    ) -> Result<
+        HostBootfailReadOutput,
+        idol_runtime::RequestError<HostInfoReadError>,
+    > {
+        self.host_bootfail_helper(Some(&request), data)
     }
 
     /// We're not a system that is expected to have a host, therefore we can always return
@@ -835,10 +831,12 @@ impl idl::InOrderPackratImpl for ServerImpl {
     fn read_host_panic_fragment(
         &mut self,
         _msg: &userlib::RecvMessage,
-        _index: u32,
-        _offset: usize,
+        _request: HostInfoRequest,
         _data: Leased<idol_runtime::W, [u8]>,
-    ) -> Result<usize, idol_runtime::RequestError<HostInfoReadError>> {
+    ) -> Result<
+        HostPanicReadOutput,
+        idol_runtime::RequestError<HostInfoReadError>,
+    > {
         Err(HostInfoReadError::NoHostInfo.into())
     }
 
@@ -846,36 +844,142 @@ impl idl::InOrderPackratImpl for ServerImpl {
     fn read_host_panic_fragment(
         &mut self,
         _msg: &userlib::RecvMessage,
-        index: u32,
-        offset: usize,
+        request: HostInfoRequest,
         data: Leased<idol_runtime::W, [u8]>,
-    ) -> Result<usize, idol_runtime::RequestError<HostInfoReadError>> {
+    ) -> Result<
+        HostPanicReadOutput,
+        idol_runtime::RequestError<HostInfoReadError>,
+    > {
+        self.host_panic_helper(Some(&request), data)
+    }
+
+    #[cfg(not(any(
+        feature = "gimlet",
+        feature = "grapefruit",
+        feature = "cosmo"
+    )))]
+    fn read_first_host_panic_fragment(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        data: Leased<idol_runtime::W, [u8]>,
+    ) -> Result<
+        HostPanicReadOutput,
+        idol_runtime::RequestError<HostInfoReadError>,
+    > {
+        Err(HostInfoReadError::NoHostInfo.into())
+    }
+
+    #[cfg(any(feature = "gimlet", feature = "grapefruit", feature = "cosmo"))]
+    fn read_first_host_panic_fragment(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        data: Leased<idol_runtime::W, [u8]>,
+    ) -> Result<
+        HostPanicReadOutput,
+        idol_runtime::RequestError<HostInfoReadError>,
+    > {
+        self.host_panic_helper(None, data)
+    }
+}
+
+impl ServerImpl {
+    fn host_panic_helper(
+        &self,
+        req: Option<&HostInfoRequest>,
+        data: Leased<idol_runtime::W, [u8]>,
+    ) -> Result<
+        HostPanicReadOutput,
+        idol_runtime::RequestError<HostInfoReadError>,
+    > {
         // Do we *have* a panic to report?
         let Some(bfs) = self.host_info.host_panic_state.as_ref() else {
             return Err(HostInfoReadError::NoHostInfo.into());
         };
 
-        // Do we have the specific panic data being requested?
-        if bfs.total_count != index {
-            return Err(HostInfoReadError::InvalidIndex.into());
-        }
-
-        // Is the offset requested valid?
-        let offset_max = bfs
+        let length = bfs
             .total_length
             .min(self.host_info.host_panic_payload.len());
-        if offset >= offset_max {
-            return Err(HostInfoReadError::InvalidOffset.into());
-        }
+        let offset = if let Some(req) = req {
+            // Do we have the specific panic data being requested?
+            if bfs.total_count != req.index {
+                return Err(HostInfoReadError::InvalidIndex.into());
+            }
+
+            // Is the offset requested valid?
+            let offset_req = req.offset as usize;
+            if offset_req >= length {
+                return Err(HostInfoReadError::InvalidOffset.into());
+            }
+
+            offset_req
+        } else {
+            0
+        };
 
         // Attempt to copy the requested range into the destination
-        let relevant = &self.host_info.host_panic_payload[offset_max..];
+        let relevant = &self.host_info.host_panic_payload[offset..];
         let max_to_copy = data.len().min(relevant.len());
         data.write_range(0..max_to_copy, &relevant[..max_to_copy])
             .map_err(|_| ClientError::WentAway.fail())?;
 
         // Okay! Written! Return how many bytes were actually copied
-        Ok(max_to_copy)
+        Ok(HostPanicReadOutput {
+            read: max_to_copy,
+            offset: offset,
+            index: bfs.total_count,
+            total_len: length,
+        })
+    }
+
+    fn host_bootfail_helper(
+        &self,
+        request: Option<&HostInfoRequest>,
+        data: Leased<idol_runtime::W, [u8]>,
+    ) -> Result<
+        HostBootfailReadOutput,
+        idol_runtime::RequestError<HostInfoReadError>,
+    > {
+        // Do we *have* a bootfail to report?
+        let Some(bfs) = self.host_info.host_bootfail_state.as_ref() else {
+            return Err(HostInfoReadError::NoHostInfo.into());
+        };
+
+        let length = bfs
+            .total_length
+            .min(self.host_info.host_bootfail_payload.len());
+        let offset = if let Some(req) = request {
+            // Do we have the specific bootfail data being requested?
+            if bfs.total_count != req.index {
+                return Err(HostInfoReadError::InvalidIndex.into());
+            }
+
+            // Is the offset requested valid?
+            let offset_req = req.offset as usize;
+            if offset_req >= length {
+                return Err(HostInfoReadError::InvalidOffset.into());
+            }
+            offset_req
+        } else {
+            0
+        };
+
+        // Attempt to copy the requested range into the destination
+        let relevant = &self.host_info.host_bootfail_payload[offset..];
+        let max_to_copy = data.len().min(relevant.len());
+        data.write_range(0..max_to_copy, &relevant[..max_to_copy])
+            .map_err(|_| ClientError::WentAway.fail())?;
+
+        let out = HostBootfailReadOutput {
+            read: max_to_copy,
+            reason: bfs.reason,
+            index: bfs.total_count,
+            total_len: length,
+            offset: offset,
+            _pad: [0u8; _],
+        };
+
+        // Okay! Written! Return how many bytes were actually copied
+        Ok(out)
     }
 }
 
@@ -912,8 +1016,9 @@ impl NotificationHandler for ServerImpl {
 mod idl {
     use super::{
         CacheGetError, CacheSetError, EreportReadError, EreportWriteError,
-        HostBootfailReadOutput, HostInfoReadError, HostInfoWriteOutput,
-        HostStartupOptions, MacAddressBlock, OxideIdentity, ereport_messages,
+        HostBootfailReadOutput, HostInfoReadError, HostInfoRequest,
+        HostInfoWriteOutput, HostPanicReadOutput, HostStartupOptions,
+        MacAddressBlock, OxideIdentity, ereport_messages,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));

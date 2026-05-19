@@ -17,7 +17,8 @@ use gateway_messages::sp_impl::{
 use gateway_messages::{
     ApobComponentAction, ComponentAction, ComponentActionResponse,
     ComponentDetails, ComponentUpdatePrepare, DiscoverResponse, DumpSegment,
-    DumpTask, GpioToggleCount, Header, IgnitionCommand, IgnitionState,
+    DumpTask, GpioToggleCount, Header, HostBootfailPayloadData,
+    HostInfoRequest, HostPanicPayloadData, IgnitionCommand, IgnitionState,
     LastPostCode, Message, MessageKind, MgsError, MgsRequest, MgsResponse,
     PostCode, PowerState, PowerStateTransition, RotBootInfo, RotRequest,
     RotResponse, SERIAL_CONSOLE_IDLE_TIMEOUT, SensorRequest, SensorResponse,
@@ -1258,6 +1259,101 @@ impl SpHandler for MgsHandler {
             slot
         }));
         self.host_flash_update.get_hash(slot)
+    }
+
+    fn get_host_panic_payload(
+        &mut self,
+        request: Option<HostInfoRequest>,
+        len: u32,
+        trailing_tx_buf: &mut [u8],
+    ) -> Result<HostPanicPayloadData, SpError> {
+        let max_len_usize = len as usize;
+        let max_len_usize = max_len_usize.min(trailing_tx_buf.len());
+        let dest = &mut trailing_tx_buf[..max_len_usize];
+
+        let res = if let Some(req) = request {
+            self.common.packrat().read_host_panic_fragment(
+                task_packrat_api::HostInfoRequest {
+                    offset: req.offset,
+                    index: req.index,
+                },
+                dest,
+            )
+        } else {
+            self.common.packrat().read_first_host_panic_fragment(dest)
+        };
+
+        let info = res.map_err(|e| {
+            SpError::HostPanic(match e {
+                task_packrat_api::HostInfoReadError::NoHostInfo => {
+                    gateway_messages::HostPanicError::NoHostInfo
+                }
+                task_packrat_api::HostInfoReadError::InvalidOffset => {
+                    gateway_messages::HostPanicError::InvalidOffset
+                }
+                task_packrat_api::HostInfoReadError::InvalidIndex => {
+                    gateway_messages::HostPanicError::InvalidIndex
+                }
+                task_packrat_api::HostInfoReadError::ServerRestarted => {
+                    gateway_messages::HostPanicError::ServerRestarted
+                }
+            })
+        })?;
+
+        Ok(HostPanicPayloadData {
+            index: info.index,
+            len: info.read,
+            total_len: info.total_len as u32,
+        })
+    }
+
+    fn get_host_bootfail_payload(
+        &mut self,
+        request: Option<HostInfoRequest>,
+        len: u32,
+        trailing_tx_buf: &mut [u8],
+    ) -> Result<HostBootfailPayloadData, SpError> {
+        let max_len_usize = len as usize;
+        let max_len_usize = max_len_usize.min(trailing_tx_buf.len());
+        let dest = &mut trailing_tx_buf[..max_len_usize];
+
+        let res = if let Some(req) = request {
+            self.common.packrat().read_host_bootfail_fragment(
+                task_packrat_api::HostInfoRequest {
+                    offset: req.offset,
+                    index: req.index,
+                },
+                dest,
+            )
+        } else {
+            self.common
+                .packrat()
+                .read_first_host_bootfail_fragment(dest)
+        };
+
+        let info = res.map_err(|e| {
+            SpError::HostBootfail(match e {
+                task_packrat_api::HostInfoReadError::NoHostInfo => {
+                    gateway_messages::HostBootfailError::NoHostInfo
+                }
+                task_packrat_api::HostInfoReadError::InvalidOffset => {
+                    gateway_messages::HostBootfailError::InvalidOffset
+                }
+                task_packrat_api::HostInfoReadError::InvalidIndex => {
+                    gateway_messages::HostBootfailError::InvalidIndex
+                }
+                task_packrat_api::HostInfoReadError::ServerRestarted => {
+                    gateway_messages::HostBootfailError::ServerRestarted
+                }
+            })
+        })?;
+
+        Ok(HostBootfailPayloadData {
+            index: info.index,
+            len: info.read,
+            total_len: info.total_len as u32,
+            reason: info.reason,
+        })
     }
 }
 

@@ -83,8 +83,27 @@ pub struct HostInfoWriteOutput {
 #[repr(C)]
 pub struct HostBootfailReadOutput {
     pub read: usize,
+    pub offset: usize,
+    pub total_len: usize,
+    pub index: u32,
     pub reason: u8,
     pub _pad: [u8; 3],
+}
+
+#[derive(Copy, Clone, Debug, FromBytes, IntoBytes, zerocopy::Immutable)]
+#[repr(C)]
+pub struct HostPanicReadOutput {
+    pub read: usize,
+    pub offset: usize,
+    pub total_len: usize,
+    pub index: u32,
+}
+
+#[derive(Copy, Clone, Debug, FromBytes, IntoBytes, Immutable, KnownLayout)]
+#[repr(C)]
+pub struct HostInfoRequest {
+    pub offset: u32,
+    pub index: u32,
 }
 
 #[derive(
