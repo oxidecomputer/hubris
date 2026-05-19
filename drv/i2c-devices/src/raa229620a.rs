@@ -151,26 +151,23 @@ impl Raa229620A {
         &self,
         mask: STATUS_IOUT::CommandData,
     ) -> Result<(), Error> {
-        // Unfortunately, SMBALERT_MASK is kinda hard to use with the
-        // `pmbus_write!` macro family, due to not having its own `CommandData`
-        // type, and because it requires writing both the name of the status
-        // register being masked *and* the value of that register (as the mask).
-        // It's a bit odd. Probably it deserves its own
-        // `pmbus_smbalert_mask_write!` macro or something, but for now, we'll
-        // just do it manually.
-        self.device
-            .write_write(
-                &[PAGE::CommandData::code(), self.rail],
-                &[
-                    CommandCode::SMBALERT_MASK as u8,
-                    CommandCode::STATUS_IOUT as u8,
-                    mask.0,
-                ],
-            )
-            .map_err(|code| Error::BadWrite {
-                cmd: CommandCode::SMBALERT_MASK as u8,
-                code,
-            })
+        pmbus_smbalert_mask_write!(self.device, self.rail, STATUS_IOUT, mask)
+    }
+
+    /// Set the `SMBALERT_MASK` for the `STATUS_CML` register, sending page
+    /// 0xFF. Though I couldn't find explicit confirmation of this in the PMBus
+    /// standard, one must kind of assume that `STATUS_CML` bits, which are not
+    /// specific to a particular output rail, are probably set on all PMBus
+    /// pages when a CML event happens, and thus we must mask them out on all
+    /// pages to stop SMBus alerts from being generated?
+    ///
+    /// Any bits set in `mask` will be masked, suppressing SMBus alerts when
+    /// those bits in `STATUS_CML` become set.
+    pub fn set_status_cml_smbalert_mask_on_all_rails(
+        &self,
+        mask: STATUS_CML::CommandData,
+    ) -> Result<(), Error> {
+        pmbus_smbalert_mask_write!(self.device, 0xff, STATUS_CML, mask)
     }
 
     pub fn read_vin(&self) -> Result<Volts, Error> {
