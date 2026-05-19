@@ -155,14 +155,18 @@ impl Raa229620A {
         // `pmbus_write!` macro family, due to not having its own `CommandData`
         // type, and because it requires writing both the name of the status
         // register being masked *and* the value of that register (as the mask).
-        // It's a bit odd. So we just do it "manually" --- luckily, this
-        // register is not paged, at least.
+        // It's a bit odd. Probably it deserves its own
+        // `pmbus_smbalert_mask_write!` macro or something, but for now, we'll
+        // just do it manually.
         self.device
-            .write(&[
-                CommandCode::SMBALERT_MASK as u8,
-                CommandCode::STATUS_IOUT as u8,
-                mask.0,
-            ])
+            .write_write(
+                &[PAGE::CommandData::code(), self.rail],
+                &[
+                    CommandCode::SMBALERT_MASK as u8,
+                    CommandCode::STATUS_IOUT as u8,
+                    mask.0,
+                ],
+            )
             .map_err(|code| Error::BadWrite {
                 cmd: CommandCode::SMBALERT_MASK as u8,
                 code,
