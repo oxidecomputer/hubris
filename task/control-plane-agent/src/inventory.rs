@@ -123,6 +123,9 @@ impl Inventory {
         };
 
         let mut capabilities = DeviceCapabilities::empty();
+        if device.is_pmbus {
+            capabilities |= DeviceCapabilities::IS_PMBUS;
+        }
         if !device.sensors.is_empty() {
             capabilities |= DeviceCapabilities::HAS_MEASUREMENT_CHANNELS;
         }

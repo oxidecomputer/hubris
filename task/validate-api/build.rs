@@ -59,6 +59,7 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
     let mut id2idx = std::collections::BTreeMap::new();
 
     for (idx, dev) in devices.into_iter().enumerate() {
+        let is_pmbus = dev.is_pmbus();
         writeln!(file, "    DeviceDescription {{")?;
         writeln!(file, "        device: {:?},", dev.device)?;
         writeln!(file, "        description: {:?},", dev.description)?;
@@ -83,6 +84,7 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
             );
             missing_ids += 1;
         };
+        writeln!(file, "        is_pmbus: {is_pmbus:?},")?;
         writeln!(file, "        sensors: &[")?;
         for s in dev.sensors {
             writeln!(file, "            SensorDescription {{")?;
