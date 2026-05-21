@@ -48,6 +48,12 @@ impl LspConfig {
                 .map(|(k, v)| (k.clone(), v.clone().into())),
         );
         cargo.insert("target".to_owned(), self.target.to_owned().into());
+
+        // Only check the package being edited, to avoid errors from all the
+        // other crates in the workspace (which may be incompatible with this
+        // specific task's build configuration)
+        let check = get_or_insert(options, "check");
+        check.insert("workspace".to_owned(), false.into());
     }
 }
 
