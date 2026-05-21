@@ -1,0 +1,17 @@
+[package]
+name = "lpc55-hashcrypt"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+cfg-if = { workspace = true }
+proc-macro2 = { workspace = true }
+quote = { workspace = true }
+zerocopy = { workspace = true }
+syn = { workspace = true }
+
+[build-dependencies]
+build-util = { path = "../../build/util" }
+
+[lib]
+proc-macro = true
