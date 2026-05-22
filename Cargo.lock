@@ -7907,6 +7907,7 @@ dependencies = [
  "toml-patch",
  "toml-task",
  "toml_edit 0.23.5",
+ "url",
  "walkdir",
  "zerocopy 0.8.27",
  "zip",

@@ -139,6 +139,7 @@ strsim = { version = "0.10.0", default-features = false }
 syn = { version = "2", default-features = false, features = ["derive", "parsing", "proc-macro", "extra-traits", "full", "printing"] }
 toml = { version = "1.1", default-features = false, features = ["parse", "display", "serde", "preserve_order"] }
 toml_edit = { version = "0.23.5", default-features = false, features = ["parse", "display"] }
+url = { version = "2.5.8", default-features = false }
 vcell = { version = "0.1.2", default-features = false }
 walkdir = { version = "2.0.0", default-features = false }
 zerocopy = { version = "0.8.25", default-features = false }

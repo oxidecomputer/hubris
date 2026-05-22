@@ -43,6 +43,7 @@ rustc-demangle = { workspace = true }
 tlvc = { workspace = true }
 tlvc-text = { workspace = true }
 toml = { workspace = true }
+url = { workspace = true }
 walkdir = { workspace = true }
 zerocopy = { workspace = true }
 zip = { workspace = true }

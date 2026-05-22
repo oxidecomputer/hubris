@@ -13,9 +13,12 @@ pub struct HubrisTargetTask {
 }
 
 struct LspConfig {
+    app_name: String,
+    task_name: String,
     extra_env: BTreeMap<String, String>,
     target: String,
     features: Vec<String>,
+    known_dirs: Vec<std::path::PathBuf>,
 }
 
 type JsonObject = serde_json::Map<String, serde_json::Value>;
@@ -112,7 +115,11 @@ pub fn run(
                 )
             }))?;
         let feature_set = feature_query.resolve();
+
+        // Accumulate both features and manifest directories (so that we can
+        // warn if a file is being edited outside our known set of packages)
         let mut features = vec![];
+        let mut known_dirs = vec![];
         for feature_list in feature_set
             .packages_with_features(guppy::graph::DependencyDirection::Forward)
             .filter(|fl| fl.package().in_workspace())
@@ -124,12 +131,24 @@ pub fn run(
                     .named_features()
                     .map(|f| format!("{crate_name}/{f}")),
             );
+            // canonicalize to handle symlinks / `..` segments consistently
+            let dir = package
+                .manifest_path()
+                .parent()
+                .unwrap()
+                .to_path_buf()
+                .canonicalize()
+                .unwrap();
+            known_dirs.push(dir);
         }
 
         Some(LspConfig {
+            app_name: app_cfg.toml.name,
+            task_name: task_name.to_owned(),
             extra_env: build_cfg.env,
             target: target.clone(),
             features,
+            known_dirs,
         })
     } else {
         None
@@ -211,6 +230,8 @@ pub fn run(
         to_lsp: ra_stdin,
         cfg: bonus_config,
         pending_cfg: HashSet::new(),
+        checked_files: HashSet::new(),
+        msg_id: 0,
         log,
     };
     worker.run();
@@ -240,8 +261,14 @@ struct Worker<'a> {
     /// Pending `workspace/configuration` messages which should be hotpatched
     pending_cfg: HashSet<u64>,
 
+    /// Files which have already been checked in `textDocument/didOpen`
+    checked_files: HashSet<String>,
+
     /// File for logging
     log: Option<std::fs::File>,
+
+    /// Id used for synthetic messages (prefixed with `xtask-0/` to distinguish)
+    msg_id: u64,
 }
 
 impl Worker<'_> {
@@ -301,9 +328,62 @@ impl Worker<'_> {
             {
                 cfg.patch_options(result);
             }
+
+            // When we first open a file that's not in our set of known LSP
+            if let Some(method) = v.get("method")
+                && method.as_str() == Some("textDocument/didOpen")
+                && let Some(params) = v.get("params")
+                && let Some(params) = params.as_object()
+                && let Some(doc) = params.get("textDocument")
+                && let Some(doc) = doc.as_object()
+                && let Some(uri) = doc.get("uri")
+                && let Some(uri) = uri.as_str()
+                && self.checked_files.insert(uri.to_owned())
+                && let Ok(url) = url::Url::parse(uri)
+                && let Ok(path) = url.to_file_path()
+                && let Ok(file) = path.canonicalize()
+            {
+                let is_prefix =
+                    cfg.known_dirs.iter().any(|root| file.starts_with(root));
+                if !is_prefix {
+                    eprintln!("looking for file {}", file.display());
+                    for c in &cfg.known_dirs {
+                        eprintln!("{}", c.display());
+                    }
+                    let id = format!("xtask-0/{}", self.msg_id);
+                    self.msg_id += 1;
+                    let msg = format!(
+                        "This file is not used by {}:{}; \
+                         LSP support will be degraded",
+                        cfg.app_name, cfg.task_name,
+                    );
+                    write_json(
+                        &mut self.to_editor,
+                        serde_json::json!(
+                            {
+                              "method": "window/showMessageRequest",
+                              "id": id,
+                              "params": {
+                                "type": 2, // warning
+                                "message": msg,
+                                "actions": [
+                                  { "title": "okay :(" },
+                                ],
+                              }
+                            }
+                        ),
+                    );
+                }
+            }
         }
         self.write_log("editor -> lsp", &v);
-        write_json(&mut self.to_lsp, v);
+        if let Some(id) = v.get("id").and_then(|v| v.as_str())
+            && id.starts_with("xtask-")
+        {
+            // Right now, we don't do any custom handling of interposer messages
+        } else {
+            write_json(&mut self.to_lsp, v);
+        }
     }
 }
 

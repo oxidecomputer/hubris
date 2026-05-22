@@ -29,7 +29,7 @@ pub trait UserSlice {
     ///
     /// This must be consistent with the base/end addr implementations, such
     /// that `is_empty <==> base_addr == end_addr`.
-    fn is_empty(&self) -> barg;
+    fn is_empty(&self) -> bool;
 
     /// The address of the first byte included in this slice.
     ///
