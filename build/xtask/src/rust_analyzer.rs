@@ -51,6 +51,7 @@ impl LspConfig {
                 .map(|(k, v)| (k.clone(), v.clone().into())),
         );
         cargo.insert("target".to_owned(), self.target.to_owned().into());
+        cargo.insert("allTargets".to_owned(), false.into());
 
         // Only check the package being edited, to avoid errors from all the
         // other crates in the workspace (which may be incompatible with this
@@ -116,21 +117,24 @@ pub fn run(
             }))?;
         let feature_set = feature_query.resolve();
 
-        // Accumulate both features and manifest directories (so that we can
-        // warn if a file is being edited outside our known set of packages)
+        // Accumulate features for our task crate (features of dependencies work
+        // automatically through feature resolution) and manifest directories
+        // for all crates in the tree (so that we can warn if a file is being
+        // edited outside our known set of packages)
         let mut features = vec![];
         let mut known_dirs = vec![];
         for feature_list in feature_set
             .packages_with_features(guppy::graph::DependencyDirection::Forward)
-            .filter(|fl| fl.package().in_workspace())
         {
             let package = feature_list.package();
             let crate_name = package.name();
-            features.extend(
-                feature_list
-                    .named_features()
-                    .map(|f| format!("{crate_name}/{f}")),
-            );
+            if crate_name == task.name {
+                features.extend(
+                    feature_list
+                        .named_features()
+                        .map(|f| format!("{crate_name}/{f}")),
+                );
+            }
             // canonicalize to handle symlinks / `..` segments consistently
             let dir = package
                 .manifest_path()
