@@ -77,8 +77,9 @@ pub fn run(
         let build_cfg = app_cfg
             .toml
             .task_build_config(task_name, false, None)
-            .map_err(|_| anyhow!("could not get build config for {task_name}"))
-            .unwrap();
+            .map_err(|_| {
+                anyhow!("could not get build config for {task_name}")
+            })?;
 
         // Find the `--target` argument
         let mut iter = build_cfg.args.iter();
@@ -92,14 +93,38 @@ pub fn run(
             bail!("missing --target argument in build config");
         };
 
-        // Build up features enabled on the task package (which will enable
-        // features on downstream packages as well).  TODO do we need to resolve
-        // all downstream package features, or does feature unification work?
-        let features: Vec<String> = task
-            .features
-            .iter()
-            .map(|f| format!("{}/{f}", task.name))
-            .collect();
+        // Use guppy to figure out what features should be enabled for
+        // downstream crates; we'll add this to the build environment.
+        let cmd = guppy::MetadataCommand::new();
+        let package_graph = cmd.build_graph()?;
+        let start_pkg = package_graph
+            .packages()
+            .find(|pkg| pkg.name() == task.name)
+            .ok_or_else(|| {
+                anyhow::anyhow!("crate `{}` not found in graph", task.name)
+            })?;
+        let feature_graph = package_graph.feature_graph();
+        let feature_query =
+            feature_graph.query_forward(task.features.iter().map(|feat| {
+                guppy::graph::feature::FeatureId::new(
+                    start_pkg.id(),
+                    guppy::graph::feature::FeatureLabel::Named(feat),
+                )
+            }))?;
+        let feature_set = feature_query.resolve();
+        let mut features = vec![];
+        for feature_list in feature_set
+            .packages_with_features(guppy::graph::DependencyDirection::Forward)
+            .filter(|fl| fl.package().in_workspace())
+        {
+            let package = feature_list.package();
+            let crate_name = package.name();
+            features.extend(
+                feature_list
+                    .named_features()
+                    .map(|f| format!("{crate_name}/{f}")),
+            );
+        }
 
         Some(LspConfig {
             extra_env: build_cfg.env,
