@@ -25,6 +25,7 @@ filetime = { workspace = true }
 fnv = { workspace = true }
 glob = { workspace = true }
 goblin = { workspace = true }
+guppy = { workspace = true }
 hex = "0.4"
 hubtools = { workspace = true }
 indexmap = { workspace = true }
