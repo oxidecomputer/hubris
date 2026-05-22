@@ -1827,35 +1827,44 @@ pub fn device_descriptions() -> impl Iterator<Item = I2cDeviceDescription> {
                     return None;
                 }
 
-                let rails = power
-                    .rails
-                    .iter()
-                    .flatten()
-                    .enumerate()
-                    .map(|(i, rail)| {
-                        let phases = if let Some(ref phases_list) = power.phases
-                        {
-                            match phases_list.get(i) {
-                                Some(phases) => phases.clone(),
-                                None => {
-                                    // The rails and phases arrays are expected to
-                                    // be the same length; if this is not the case,
-                                    // the config file is malformed!
-                                    panic!(
-                                        "PMBus device {device_id:?} is missing
-                                         phases for its {i}th rail ({rail})",
-                                    );
-                                }
-                            }
-                        } else {
-                            Vec::new()
-                        };
-                        PmbusRailDescription {
-                            name: rail.clone(),
-                            phases,
-                        }
-                    })
-                    .collect::<Vec<_>>();
+                let rails = match (power.rails.as_ref(), power.phases.as_ref())
+                {
+                    (Some(rails), Some(phases)) => {
+                        assert_eq!(
+                            rails.len(),
+                            phases.len(),
+                            "invalid config: PMBus device {device_id:?}'s \
+                             `power.rails` and  `power.phases` lists are not \
+                             the same length"
+                        );
+                        rails
+                            .iter()
+                            .cloned()
+                            .zip(phases.iter().cloned())
+                            .map(|(name, phases)| PmbusRailDescription {
+                                name,
+                                phases,
+                            })
+                            .collect()
+                    }
+                    (Some(rails), None) => rails
+                        .iter()
+                        .cloned()
+                        .map(|name| PmbusRailDescription {
+                            name,
+                            phases: Vec::new(),
+                        })
+                        .collect(),
+                    (None, Some(_)) => {
+                        panic!(
+                            "invalid config: PMBus device {device_id:?} \
+                            defines a `power.phases` list, but not a \
+                            `power.rails` list"
+                        );
+                    }
+                    (None, None) => Vec::new(),
+                };
+
                 Some(PmbusDeviceDescription { rails })
             });
 
