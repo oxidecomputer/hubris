@@ -31,7 +31,7 @@
 pub mod macros;
 
 pub use abi::*;
-pub use num_derive::{FromPrimitive, ToPrimitive};
+pub use num_derive::{ToPrimitive, eFromPrimitive};
 pub use num_traits::{FromPrimitive, ToPrimitive};
 pub use unwrap_lite::UnwrapLite;
 

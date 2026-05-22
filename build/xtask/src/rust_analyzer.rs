@@ -16,9 +16,10 @@ struct LspConfig {
     app_name: String,
     task_name: String,
     extra_env: BTreeMap<String, String>,
+    extra_args: Vec<String>,
     target: String,
     features: Vec<String>,
-    known_dirs: Vec<std::path::PathBuf>,
+    packages: Vec<(std::path::PathBuf, String)>,
 }
 
 type JsonObject = serde_json::Map<String, serde_json::Value>;
@@ -52,12 +53,62 @@ impl LspConfig {
         );
         cargo.insert("target".to_owned(), self.target.to_owned().into());
         cargo.insert("allTargets".to_owned(), false.into());
+        let target_dir = cargo
+            .get("targetDir")
+            .and_then(|s| s.as_str())
+            .map(|s| s.to_string());
 
         // Only check the package being edited, to avoid errors from all the
         // other crates in the workspace (which may be incompatible with this
         // specific task's build configuration)
         let check = get_or_insert(options, "check");
         check.insert("workspace".to_owned(), false.into());
+
+        // Okay, this is where it gets awkward.  By default, the flycheck
+        // program calls `cargo check` (or `cargo clippy`) on a single package,
+        // but uses the full set of features defined in
+        // `rust-analyzer.cargo.features`.  This fails if you're enabling
+        // features for multiple crates, which we want to do!  Instead, we'll
+        // replace the `check` command wholesale with one that does what we
+        // want.  This is less efficient, because it checks every crate in our
+        // tree, but has the advantage of working.
+        let check_cmd = check
+            .get("command")
+            .and_then(|c| c.as_str())
+            .map(|s| s.to_string());
+        let features = self.features.join(",");
+        let mut check_cmd = vec![
+            "cargo",
+            check_cmd.as_deref().unwrap_or("check"),
+            "--message-format=json",
+            "--no-default-features",
+            "--features",
+            features.as_str(),
+        ];
+        if let Some(target_dir) = &target_dir {
+            check_cmd.push("--target-dir");
+            check_cmd.push(target_dir);
+        }
+        // Add all of the `extra_args`, *except* ones which modify feature flags
+        // (because we have added our huge unified feature flag array above)
+        let mut skip_next = false;
+        for e in &self.extra_args {
+            if skip_next {
+                skip_next = false;
+            } else if e == "--features" {
+                skip_next = true;
+            } else {
+                check_cmd.push(e);
+            }
+        }
+        let packages = self
+            .packages
+            .iter()
+            .map(|(_, name)| format!("-p{name}"))
+            .collect::<Vec<_>>();
+        check_cmd.extend(packages.iter().map(|s| s.as_str()));
+        check_cmd.push("--keep-going");
+        check.insert("overrideCommand".to_owned(), check_cmd.into());
     }
 }
 
@@ -96,6 +147,7 @@ pub fn run(
         let Some(target) = target else {
             bail!("missing --target argument in build config");
         };
+        let target = target.to_owned();
 
         // Use guppy to figure out what features should be enabled for
         // downstream crates; we'll add this to the build environment.
@@ -115,26 +167,26 @@ pub fn run(
                     guppy::graph::feature::FeatureLabel::Named(feat),
                 )
             }))?;
-        let feature_set = feature_query.resolve();
+        let feature_set =
+            feature_query.resolve_with_fn(|_, link| link.normal().is_present());
 
         // Accumulate features for our task crate (features of dependencies work
         // automatically through feature resolution) and manifest directories
         // for all crates in the tree (so that we can warn if a file is being
         // edited outside our known set of packages)
         let mut features = vec![];
-        let mut known_dirs = vec![];
+        let mut packages = vec![];
         for feature_list in feature_set
             .packages_with_features(guppy::graph::DependencyDirection::Forward)
+            .filter(|fl| fl.package().in_workspace())
         {
             let package = feature_list.package();
             let crate_name = package.name();
-            if crate_name == task.name {
-                features.extend(
-                    feature_list
-                        .named_features()
-                        .map(|f| format!("{crate_name}/{f}")),
-                );
-            }
+            features.extend(
+                feature_list
+                    .named_features()
+                    .map(|f| format!("{crate_name}/{f}")),
+            );
             // canonicalize to handle symlinks / `..` segments consistently
             let dir = package
                 .manifest_path()
@@ -143,16 +195,20 @@ pub fn run(
                 .to_path_buf()
                 .canonicalize()
                 .unwrap();
-            known_dirs.push(dir);
+            packages.push((dir, package.name().to_owned()));
         }
+        // Sort packages so that longer matches hit first when searching
+        packages
+            .sort_by_key(|(p, _)| std::cmp::Reverse(p.components().count()));
 
         Some(LspConfig {
             app_name: app_cfg.toml.name,
             task_name: task_name.to_owned(),
             extra_env: build_cfg.env,
-            target: target.clone(),
+            extra_args: build_cfg.args,
+            target,
             features,
-            known_dirs,
+            packages,
         })
     } else {
         None
@@ -348,12 +404,8 @@ impl Worker<'_> {
                 && let Ok(file) = path.canonicalize()
             {
                 let is_prefix =
-                    cfg.known_dirs.iter().any(|root| file.starts_with(root));
+                    cfg.packages.iter().any(|(root, _)| file.starts_with(root));
                 if !is_prefix {
-                    eprintln!("looking for file {}", file.display());
-                    for c in &cfg.known_dirs {
-                        eprintln!("{}", c.display());
-                    }
                     let id = format!("xtask-0/{}", self.msg_id);
                     self.msg_id += 1;
                     let msg = format!(
