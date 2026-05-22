@@ -100,11 +100,9 @@
 
 #![no_std]
 #![no_main]
-// TODO remove once the rectifier PMBus config is added
-#![allow(dead_code)]
 
-// use drv_i2c_api::I2cDevice;
-use drv_i2c_devices::mwocp68::{self, Mwocp68};
+use drv_i2c_api::I2cDevice;
+use drv_i2c_devices::mwocp67::{self, Mwocp67};
 use drv_packrat_vpd_loader::{Packrat, read_vpd_and_load_packrat};
 use drv_psc_seq_api::PowerState;
 use drv_stm32xx_sys_api as sys_api;
@@ -211,49 +209,49 @@ enum Trace {
     StatusWord {
         now: u64,
         psu: Slot,
-        status_word: Result<u16, mwocp68::Error>,
+        status_word: Result<u16, mwocp67::Error>,
     },
     #[count(skip)]
     StatusIout {
         now: u64,
         psu: Slot,
-        status_iout: Result<u8, mwocp68::Error>,
+        status_iout: Result<u8, mwocp67::Error>,
     },
     #[count(skip)]
     StatusVout {
         now: u64,
         psu: Slot,
-        status_vout: Result<u8, mwocp68::Error>,
+        status_vout: Result<u8, mwocp67::Error>,
     },
     #[count(skip)]
     StatusInput {
         now: u64,
         psu: Slot,
-        status_input: Result<u8, mwocp68::Error>,
+        status_input: Result<u8, mwocp67::Error>,
     },
     #[count(skip)]
     StatusCml {
         now: u64,
         psu: Slot,
-        status_cml: Result<u8, mwocp68::Error>,
+        status_cml: Result<u8, mwocp67::Error>,
     },
     #[count(skip)]
     StatusTemperature {
         now: u64,
         psu: Slot,
-        status_temperature: Result<u8, mwocp68::Error>,
+        status_temperature: Result<u8, mwocp67::Error>,
     },
     #[count(skip)]
     StatusMfrSpecific {
         now: u64,
         psu: Slot,
-        status_mfr_specific: Result<u8, mwocp68::Error>,
+        status_mfr_specific: Result<u8, mwocp67::Error>,
     },
     I2cError {
         now: u64,
         #[count(children)]
         psu: Slot,
-        err: mwocp68::Error,
+        err: mwocp67::Error,
     },
 }
 
@@ -321,16 +319,15 @@ const PSU_PWR_OK_NOTIF: [u32; PSU_COUNT] = [
     notifications::PSU_PWR_OK_5_MASK,
 ];
 
-// TODO uncomment once the rectifier PMBus config is added
-// /// In order to get the PMBus devices by PSU index, we need a little lookup table guy.
-// const PSU_PMBUS_DEVS: [fn(TaskId) -> (I2cDevice, u8); PSU_COUNT] = [
-//     i2c_config::pmbus::v54_psu0,
-//     i2c_config::pmbus::v54_psu1,
-//     i2c_config::pmbus::v54_psu2,
-//     i2c_config::pmbus::v54_psu3,
-//     i2c_config::pmbus::v54_psu4,
-//     i2c_config::pmbus::v54_psu5,
-// ];
+/// In order to get the PMBus devices by PSU index, we need a little lookup table guy.
+const PSU_PMBUS_DEVS: [fn(TaskId) -> (I2cDevice, u8); PSU_COUNT] = [
+    i2c_config::pmbus::v50_psu0,
+    i2c_config::pmbus::v50_psu1,
+    i2c_config::pmbus::v50_psu2,
+    i2c_config::pmbus::v50_psu3,
+    i2c_config::pmbus::v50_psu4,
+    i2c_config::pmbus::v50_psu5,
+];
 
 const PSU_SLOTS: [Slot; PSU_COUNT] = [
     Slot::Psu0,
@@ -549,21 +546,17 @@ fn main() -> ! {
     let start_time = sys_get_timer().now;
 
     let mut psus: [Psu; PSU_COUNT] = core::array::from_fn(|i| {
-        // TODO uncomment once the rectifier PMBus config is added
-        // let dev = {
-        //     let i2c = I2C.get_task_id();
-        //     let make_dev = PSU_PMBUS_DEVS[i];
-        //     let (dev, rail) = make_dev(i2c);
-        //     Mwocp68::new(&dev, rail)
-        // };
+        let dev = {
+            let i2c = I2C.get_task_id();
+            let make_dev = PSU_PMBUS_DEVS[i];
+            let (dev, rail) = make_dev(i2c);
+            Mwocp67::new(&dev, rail)
+        };
         let slot = PSU_SLOTS[i];
-        let fruid = PsuFruid::default();
+        let mut fruid = PsuFruid::default();
         let state = if present_l_bits & (1 << PSU_PRESENT_L_PINS[i]) == 0 {
             // Hello, who are you?
-
-            // TODO uncomment once the rectifier PMBus config is added
-            // fruid.refresh(&dev, slot, start_time);
-
+            fruid.refresh(&dev, slot, start_time);
             // ...and how are you doing?
             PsuState::Present(if initial_psu_enabled[i] {
                 ringbuf_entry!(Event::FoundEnabled {
@@ -590,8 +583,7 @@ fn main() -> ! {
         Psu {
             slot,
             state,
-            // TODO uncomment once the rectifier PMBus config is added
-            // dev,
+            dev,
             fruid,
         }
     });
@@ -695,8 +687,7 @@ enum Status {
 struct Psu {
     slot: Slot,
     state: PsuState,
-    // TODO uncomment once the rectifier PMBus config is added
-    // dev: Mwocp68,
+    dev: Mwocp67,
     /// Because we would like to include the PSU's FRU ID information in the
     /// ereports generated when a PSU is *removed*, we must cache it here rather
     /// than reading it from the device when we generate an ereport for it.
@@ -909,16 +900,11 @@ impl Psu {
         }
     }
 
-    fn refresh_fruid(&mut self, _now: u64) {
-        // TODO uncomment once the rectifier PMBus config is added
-        // self.fruid.refresh(&self.dev, self.slot, now);
+    fn refresh_fruid(&mut self, now: u64) {
+        self.fruid.refresh(&self.dev, self.slot, now);
     }
 
-    fn read_pmbus_status(&mut self, _now: u64) -> ereports::pwr::PmbusStatus {
-        ereports::pwr::PmbusStatus::default()
-
-        // TODO uncomment once the rectifier PMBus config is added
-        /*
+    fn read_pmbus_status(&mut self, now: u64) -> ereports::pwr::PmbusStatus {
         let status_word =
             retry_i2c_txn(now, self.slot, || self.dev.status_word())
                 .map(|data| data.0);
@@ -1011,15 +997,14 @@ impl Psu {
             temp: status_temperature.ok(),
             mfr: status_mfr_specific.ok(),
         }
-        */
     }
 
     fn ereport_fields(&self) -> EreportFields {
         let rail = {
             // This is a little silly, but it stops us from having to 6 separate
-            // instances of the string "V54_PSU" in the binary...
-            let mut v54_psu = *b"V54_PSUx";
-            v54_psu[7] = match self.slot {
+            // instances of the string "V50_PSU" in the binary...
+            let mut v50_psu = *b"V50_PSUx";
+            v50_psu[7] = match self.slot {
                 Slot::Psu0 => b'0',
                 Slot::Psu1 => b'1',
                 Slot::Psu2 => b'2',
@@ -1027,12 +1012,10 @@ impl Psu {
                 Slot::Psu4 => b'4',
                 Slot::Psu5 => b'5',
             };
-            FixedString::try_from_utf8(&v54_psu[..]).unwrap_lite()
+            FixedString::try_from_utf8(&v50_psu[..]).unwrap_lite()
         };
         EreportFields {
-            // TODO uncomment once the rectifier PMBus config is added
-            // refdes: FixedStr::from_str(self.dev.i2c_device().component_id()),
-            refdes: FixedStr::from_str("UNKNOWN"),
+            refdes: FixedStr::from_str(self.dev.i2c_device().component_id()),
             rail,
             slot: self.slot as u8,
             fruid: self.fruid,
@@ -1049,7 +1032,7 @@ struct PsuFruid {
 }
 
 impl PsuFruid {
-    fn refresh(&mut self, dev: &Mwocp68, psu: Slot, now: u64) {
+    fn refresh(&mut self, dev: &Mwocp67, psu: Slot, now: u64) {
         if self.mfr.is_none() {
             self.mfr = retry_i2c_txn(now, psu, || dev.mfr_id())
                 .ok()
@@ -1079,8 +1062,8 @@ impl PsuFruid {
 fn retry_i2c_txn<T>(
     now: u64,
     psu: Slot,
-    mut txn: impl FnMut() -> Result<T, mwocp68::Error>,
-) -> Result<T, mwocp68::Error> {
+    mut txn: impl FnMut() -> Result<T, mwocp67::Error>,
+) -> Result<T, mwocp67::Error> {
     // Chosen by fair dice roll, seems reasonable-ish?
     let mut retries_remaining = 3;
     loop {
@@ -1145,7 +1128,7 @@ struct PowerUngoodEreport {
 #[derive(microcbor::EncodeFields)]
 struct EreportFields {
     refdes: FixedStr<'static, 20>, // Component ID max length
-    rail: FixedString<8>,          // "V54_PSUx"
+    rail: FixedString<8>,          // "V50_PSUx"
     slot: u8,
     fruid: PsuFruid,
 }
