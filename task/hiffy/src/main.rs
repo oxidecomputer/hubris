@@ -199,6 +199,10 @@ enum Trace {
     RpcReq(#[count(children)] net::RpcOp),
     #[cfg(feature = "net")]
     RpcReply(#[count(children)] net::RpcReply),
+    #[cfg(feature = "net")]
+    WeGetSignal(task_net_api::UdpMetadata),
+    #[cfg(feature = "net")]
+    NetRecvErr(task_net_api::RecvError),
     NotifiedTimer,
     Kicked,
     NotKicked,
@@ -454,8 +458,12 @@ mod net {
                 LargePayloadBehavior::Discard,
                 self.rx_data_buf,
             ) {
-                Ok(meta) => self.handle_packet(meta),
-                Err(RecvError::QueueEmpty | RecvError::ServerRestarted) => {
+                Ok(meta) => {
+                    ringbuf_entry_root!(Trace::WeGetSignal(meta));
+                    self.handle_packet(meta)
+                }
+                Err(err) => {
+                    ringbuf_entry_root!(Trace::NetRecvErr(err));
                     // Our incoming queue is empty or `net` restarted. Wait for
                     // more packets in dispatch, back in the main loop.
                 }
