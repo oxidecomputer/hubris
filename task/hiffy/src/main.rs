@@ -17,6 +17,7 @@
 
 use core::sync::atomic::{AtomicU32, Ordering};
 use hif::*;
+use ringbuf::{counted_ringbuf, ringbuf_entry};
 use static_cell::*;
 use userlib::*;
 
@@ -185,6 +186,28 @@ pub static HIFFY_VERSION_MINOR: AtomicU32 = AtomicU32::new(HIF_VERSION_MINOR);
 #[used]
 pub static HIFFY_VERSION_PATCH: AtomicU32 = AtomicU32::new(HIF_VERSION_PATCH);
 
+#[derive(Copy, Clone, PartialEq, counters::Count)]
+enum Trace {
+    #[count(skip)]
+    None,
+    Notified {
+        bits: u32,
+    },
+    #[cfg(feature = "net")]
+    NotifiedSocket,
+    #[cfg(feature = "net")]
+    RpcReq(#[count(children)] net::RpcOp),
+    #[cfg(feature = "net")]
+    RpcReply(#[count(children)] net::RpcReply),
+    NotifiedTimer,
+    Kicked,
+    NotKicked,
+    ExecSuccess,
+    ExecFailure(Failure),
+}
+
+counted_ringbuf!(Trace, 16, Trace::None);
+
 #[unsafe(export_name = "main")]
 fn main() -> ! {
     let mut sleep_ms = 250;
@@ -209,15 +232,21 @@ fn main() -> ! {
 
         let notif = sys_recv_notification(bits);
         HIFFY_READY.store(0, Ordering::Relaxed);
+        ringbuf_entry!(Trace::Notified {
+            bits: notif.get_raw_bits()
+        });
 
         #[cfg(feature = "net")]
         if notif.check_notification_mask(notifications::SOCKET_MASK) {
+            ringbuf_entry!(Trace::NotifiedSocket);
             net_state.check_net();
         }
 
         if notif.has_timer_fired(notifications::TIMER_MASK) {
+            ringbuf_entry!(Trace::NotifiedTimer);
             // Humility writes `1` to `HIFFY_KICK`
             if HIFFY_KICK.load(Ordering::Acquire) == 0 {
+                ringbuf_entry!(Trace::NotKicked);
                 sleeps += 1;
 
                 // Exponentially backoff our sleep value, but no more than 250ms
@@ -228,7 +257,7 @@ fn main() -> ! {
 
                 continue;
             }
-
+            ringbuf_entry!(Trace::Kicked);
             //
             // Whenever we have been kicked, we adjust our timeout down to 1ms,
             // from which we will exponentially backoff
@@ -276,6 +305,7 @@ fn main() -> ! {
                     HIFFY_REQUESTS
                         .store(prev.wrapping_add(1), Ordering::Release);
                     trace_success();
+                    ringbuf_entry!(Trace::ExecSuccess);
                 }
                 Err(failure) => {
                     // SAFETY: We are in single-threaded code and the debugger will
@@ -288,6 +318,7 @@ fn main() -> ! {
                         HIFFY_ERRORS
                             .store(prev.wrapping_add(1), Ordering::Release);
                         trace_failure(failure);
+                        ringbuf_entry!(Trace::ExecFailure(failure));
                     }
                 }
             }
@@ -328,9 +359,11 @@ unsafe fn bind_lifetime_mut<'a, const N: usize>(
 #[cfg(feature = "net")]
 mod net {
     use super::{
-        HIFFY_DATA, HIFFY_KICK, HIFFY_TEXT, bind_lifetime_mut, notifications,
+        HIFFY_DATA, HIFFY_KICK, HIFFY_TEXT, Trace, bind_lifetime_mut,
+        notifications,
     };
     use core::sync::atomic::Ordering;
+    use ringbuf::ringbuf_entry_root;
     use static_cell::ClaimOnceCell;
     use task_net_api::{
         LargePayloadBehavior, RecvError, SendError, SocketName, UdpMetadata,
@@ -360,17 +393,19 @@ mod net {
     }
     const CURRENT_VERSION: u16 = 1;
 
-    #[derive(Copy, Clone, Debug, FromPrimitive)]
+    #[derive(
+        Copy, Clone, Debug, FromPrimitive, PartialEq, Eq, counters::Count,
+    )]
     #[repr(u16)]
-    enum RpcOp {
+    pub(super) enum RpcOp {
         WriteHiffyText = 1,
         WriteHiffyData,
         HiffyKick,
     }
 
-    #[derive(Copy, Clone, Debug)]
+    #[derive(Copy, Clone, Debug, PartialEq, Eq, counters::Count)]
     #[repr(u8)]
-    enum RpcReply {
+    pub(super) enum RpcReply {
         Ok = 0u8,
         /// The RPC packet was too short to include the complete header
         TooShort,
@@ -432,6 +467,7 @@ mod net {
             // `handle_packet_inner` does not write to it!
             let tx_data_buf = core::mem::take(&mut self.tx_data_buf);
             let (r, data) = self.handle_packet_inner(meta);
+            ringbuf_entry_root!(Trace::RpcReply(r));
             tx_data_buf[0] = r as u8;
             tx_data_buf[1..][..data.len()].copy_from_slice(data);
             meta.size = (1 + data.len()) as u32;
@@ -479,9 +515,15 @@ mod net {
                 return (RpcReply::BadVersion, CURRENT_VERSION.as_bytes());
             }
 
+            // Decode the requested operation.
+            let Some(op) = RpcOp::from_u16(header.operation.get()) else {
+                return (RpcReply::InvalidOperation, &[]);
+            };
+            ringbuf_entry_root!(Trace::RpcReq(op));
+
             // Perform the actual operation
-            match RpcOp::from_u16(header.operation.get()) {
-                Some(RpcOp::WriteHiffyText) => {
+            match op {
+                RpcOp::WriteHiffyText => {
                     // Dummy object to bind references to a non-static lifetime
                     let lifetime = ();
                     let offset = header.arg.get() as usize;
@@ -504,7 +546,7 @@ mod net {
                         (RpcReply::OutOfRange, &[])
                     }
                 }
-                Some(RpcOp::WriteHiffyData) => {
+                RpcOp::WriteHiffyData => {
                     // Dummy object to bind references to a non-static lifetime
                     let lifetime = ();
                     let offset = header.arg.get() as usize;
@@ -527,11 +569,10 @@ mod net {
                         (RpcReply::OutOfRange, &[])
                     }
                 }
-                Some(RpcOp::HiffyKick) => {
+                RpcOp::HiffyKick => {
                     HIFFY_KICK.fetch_add(1, Ordering::SeqCst);
                     (RpcReply::Ok, &[])
                 }
-                None => (RpcReply::InvalidOperation, &[]),
             }
         }
     }
