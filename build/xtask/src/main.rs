@@ -9,6 +9,7 @@ use clap::Parser;
 
 use crate::config::Config;
 
+mod aggro;
 mod auxflash;
 mod caboose_pos;
 mod config;
@@ -253,6 +254,16 @@ enum Xtask {
         cfg: PathBuf,
         /// Path to the JSONL file containing all of the attestations to upload, if generated.
         attestation: Option<PathBuf>,
+    },
+
+    /// Create aggregate docs for a task
+    Aggro {
+        /// Path to the image configuration file, in TOML.
+        cfg: PathBuf,
+
+        /// Path to output file (html)
+        #[clap(short, long)]
+        output: Option<PathBuf>,
     },
 }
 
@@ -548,6 +559,9 @@ fn run(xtask: Xtask) -> Result<()> {
         }
         Xtask::GhaPrepareArtifacts { cfg, attestation } => {
             gha_prepare_artifacts::run(&cfg, attestation.as_deref())?;
+        }
+        Xtask::Aggro { cfg, output } => {
+            aggro::run(&cfg, output.as_deref())?;
         }
     }
 

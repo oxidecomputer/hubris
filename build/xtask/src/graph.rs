@@ -15,12 +15,20 @@ use crate::config::Config;
 /// Generate a directed graph of task priorities and task_slot
 /// dependencies.
 pub fn task_graph(app_toml: &Path, path: &Path) -> Result<()> {
+    let dot = File::create(path)?;
+    task_graph_inner(app_toml, dot)
+}
+
+pub(crate) fn task_graph_inner(
+    app_toml: &Path,
+    mut dot: impl Write,
+) -> Result<()> {
     // Generate dot syntax for a graph of process priorities.
     // Collect each task in a priority group
     // Collect each edge
     let mut priorities = BTreeMap::new();
     let mut edges = Vec::new();
-    let mut dot = File::create(path)?;
+
     let mut ranks = HashSet::new();
     let toml = Config::from_file(app_toml)?;
 
