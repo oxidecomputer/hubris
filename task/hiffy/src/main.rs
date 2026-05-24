@@ -215,14 +215,33 @@ fn main() -> ! {
             net_state.check_net();
         }
 
-        let timer_fired = notif.has_timer_fired(notifications::TIMER_MASK);
+        //
+        // We shall reset the timer under either of the following conditions:
+        //
+        // 1. The previous deadline has elapsed (naturally), so that we
+        //    can continue polling. This is the condition we check here.
+        // 2. We have been kicked and executed something, and the sleep
+        //    duration has been reset. This is checked below.
+        //
+        // If the "net" feature is *not* enabled, this sounds suspiciously
+        // similar to just resetting the timer on every iteration of the loop,
+        // and in fact, it may as well be. However, if the "net" feature *is*
+        // enabled, we do not wish to reset the timer every time we wake up,
+        // as this means that notifications from `net` would reset the timer
+        // even if it has not yet completed. This way, we only reset the timer
+        // when we are woken by the timer *or* if we were kicked by a network
+        // RPC, rather than resetting it any time we receive a packet (or on
+        // spurious notifications from any source).
+        //
+        let mut should_reset_timer =
+            notif.has_timer_fired(notifications::TIMER_MASK);
 
         // Humility writes `1` to `HIFFY_KICK`
         if HIFFY_KICK.load(Ordering::Acquire) == 0 {
             // If we were woken by the timer, rather than the net task,
             // increment the number of times we have slept without being
             // kicked.
-            sleeps += u32::from(timer_fired);
+            sleeps += u32::from(should_reset_timer);
 
             // Exponentially backoff our sleep value, but no more than 250ms
             if sleeps == 10 {
@@ -235,6 +254,7 @@ fn main() -> ! {
             // from which we will exponentially backoff
             //
             HIFFY_KICK.store(0, Ordering::Release);
+            should_reset_timer = true;
             sleep_ms = 1;
             sleeps = 0;
 
@@ -294,9 +314,7 @@ fn main() -> ! {
             }
         }
 
-        // If we were woken by the timer rather than the net task, reset the
-        // clock.
-        if timer_fired {
+        if should_reset_timer {
             set_timer(sleep_ms);
         }
     }
