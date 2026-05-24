@@ -241,7 +241,9 @@ fn main() -> ! {
             // If we were woken by the timer, rather than the net task,
             // increment the number of times we have slept without being
             // kicked.
-            sleeps += u32::from(should_reset_timer);
+            if should_reset_timer {
+                sleeps += 1;
+            }
 
             // Exponentially backoff our sleep value, but no more than 250ms
             if sleeps == 10 {
