@@ -1160,12 +1160,14 @@ dependencies = [
  "ereports",
  "fixedstr",
  "gnarle",
+ "hubpack",
  "idol",
  "idol-runtime",
  "microcbor",
  "num-traits",
  "pmbus",
  "ringbuf",
+ "serde",
  "static-cell",
  "task-jefe-api",
  "task-packrat-api",
@@ -1179,8 +1181,10 @@ name = "drv-cpu-power-state"
 version = "0.1.0"
 dependencies = [
  "counters",
+ "hubpack",
  "microcbor",
  "num-traits",
+ "serde",
  "userlib",
  "zerocopy 0.8.27",
  "zerocopy-derive 0.8.27",
@@ -1193,9 +1197,11 @@ dependencies = [
  "counters",
  "derive-idol-err",
  "drv-cpu-power-state",
+ "hubpack",
  "idol",
  "idol-runtime",
  "num-traits",
+ "serde",
  "userlib",
  "zerocopy 0.8.27",
  "zerocopy-derive 0.8.27",
@@ -1414,10 +1420,12 @@ dependencies = [
  "drv-cpu-seq-api",
  "drv-spartan7-loader-api",
  "drv-stm32xx-sys-api",
+ "hubpack",
  "idol",
  "idol-runtime",
  "num-traits",
  "ringbuf",
+ "serde",
  "task-jefe-api",
  "task-packrat-api",
  "userlib",
@@ -1991,9 +1999,11 @@ version = "0.1.0"
 dependencies = [
  "drv-cpu-power-state",
  "drv-cpu-seq-api",
+ "hubpack",
  "idol",
  "idol-runtime",
  "num-traits",
+ "serde",
  "task-jefe-api",
  "userlib",
  "zerocopy 0.8.27",
@@ -2201,6 +2211,7 @@ dependencies = [
  "drv-fpga-user-api",
  "drv-ignition-api",
  "gnarle",
+ "hubpack",
  "idol",
  "num-derive 0.4.2",
  "num-traits",
@@ -3154,7 +3165,7 @@ dependencies = [
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#177c9c719e12896c566a1b6b5416c9bc686531d3"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=evan%2Freport-power-state-change-reason#9399b11bed1af47ba57b67b724bc318f622ac5f8"
 dependencies = [
  "bitflags 2.9.4",
  "hubpack",

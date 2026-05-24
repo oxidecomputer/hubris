@@ -20,7 +20,9 @@ use userlib::{
 use zerocopy::IntoBytes;
 
 use crate::i2c_config::MAX_COMPONENT_ID_LEN as REFDES_LEN;
-use drv_cpu_seq_api::{PowerState, SeqError, StateChangeReason, Transition};
+use drv_cpu_seq_api::{
+    PowerState, PowerStateWithReason, SeqError, StateChangeReason, Transition,
+};
 use drv_hf_api as hf_api;
 use drv_i2c_api as i2c;
 use drv_ice40_spi_program as ice40;
@@ -200,6 +202,8 @@ fn main() -> ! {
 
 struct ServerImpl<S: SpiServer> {
     state: PowerState,
+    /// The reason we transitioned to the current state
+    reason: StateChangeReason,
     /// The Hubris tick at which we transitioned to the current state.
     since: u64,
     sys: sys_api::Sys,
@@ -532,6 +536,7 @@ impl<S: SpiServer + Clone> ServerImpl<S> {
 
         let mut server = Self {
             state: PowerState::A2,
+            reason: StateChangeReason::InitialPowerOn,
             since: 0, // we have been in A2 since we booted :)
             sys: sys.clone(),
             seq,
@@ -622,7 +627,12 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
                     self.seq
                         .clear_bytes(Addr::NIC_CTRL, &[cld_rst])
                         .unwrap_lite();
-                    self.update_state_internal(PowerState::A0PlusHP, now);
+                    // TODO what's the right reason?
+                    self.update_state_internal(
+                        PowerState::A0PlusHP,
+                        StateChangeReason::Unknown,
+                        now,
+                    );
                 }
 
                 (PowerState::A0PlusHP, true) => {
@@ -654,8 +664,10 @@ impl<S: SpiServer> NotificationHandler for ServerImpl<S> {
                     self.seq
                         .set_bytes(Addr::NIC_CTRL, &[cld_rst])
                         .unwrap_lite();
+                    // TODO what's the right reason?
                     self.update_state_internal(
                         PowerState::A0,
+                        StateChangeReason::Unknown,
                         sys_get_timer().now,
                     );
                 }
@@ -728,17 +740,23 @@ where
 }
 
 impl<S: SpiServer> ServerImpl<S> {
-    fn update_state_internal(&mut self, state: PowerState, now: u64) {
+    fn update_state_internal(
+        &mut self,
+        state: PowerState,
+        reason: StateChangeReason,
+        now: u64,
+    ) {
         ringbuf_entry!(Trace::UpdateState(state));
         self.since = now;
         self.state = state;
+        self.reason = reason;
         self.jefe.set_state(state as u32);
     }
 
     fn set_state_internal(
         &mut self,
         state: PowerState,
-        why: StateChangeReason,
+        reason: StateChangeReason,
     ) -> Result<Transition, SeqError> {
         let sys = sys_api::Sys::from(SYS.get_task_id());
 
@@ -746,7 +764,7 @@ impl<S: SpiServer> ServerImpl<S> {
         ringbuf_entry!(Trace::SetState {
             prev: self.state,
             next: state,
-            why,
+            why: reason,
             now
         });
 
@@ -969,7 +987,7 @@ impl<S: SpiServer> ServerImpl<S> {
                 let now = sys_get_timer().now;
                 ringbuf_entry!(Trace::A0((now.wrapping_sub(start)) as u16));
 
-                self.update_state_internal(PowerState::A0, now);
+                self.update_state_internal(PowerState::A0, reason, now);
                 Ok(Transition::Changed)
             }
 
@@ -1015,7 +1033,11 @@ impl<S: SpiServer> ServerImpl<S> {
                     return Err(SeqError::MuxToSPFailed);
                 }
 
-                self.update_state_internal(PowerState::A2, sys_get_timer().now);
+                self.update_state_internal(
+                    PowerState::A2,
+                    reason,
+                    sys_get_timer().now,
+                );
                 ringbuf_entry_v3p3_sys_a0_vout();
                 ringbuf_entry!(Trace::A2);
 
@@ -1101,7 +1123,11 @@ impl<S: SpiServer> ServerImpl<S> {
                 cpu: &HOST_CPU_REFDES,
                 state: self.ereport_current_state(),
             });
-            self.update_state_internal(PowerState::A0Thermtrip, now);
+            self.update_state_internal(
+                PowerState::A0Thermtrip,
+                StateChangeReason::Overheat,
+                now,
+            );
         }
     }
 
@@ -1137,7 +1163,11 @@ impl<S: SpiServer> ServerImpl<S> {
             let mask = pwrok_fedge | Reg::IFR::AMD_RSTN_FEDGE;
             self.seq.clear_bytes(Addr::IFR, &[mask]).unwrap_lite();
 
-            self.update_state_internal(PowerState::A0Reset, now);
+            self.update_state_internal(
+                PowerState::A0Reset,
+                StateChangeReason::CpuReset,
+                now,
+            );
         }
     }
 
@@ -1173,6 +1203,17 @@ impl<S: SpiServer> idl::InOrderSequencerImpl for ServerImpl<S> {
         _: &RecvMessage,
     ) -> Result<PowerState, RequestError<core::convert::Infallible>> {
         Ok(self.state)
+    }
+
+    fn get_state_with_reason(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<PowerStateWithReason, RequestError<core::convert::Infallible>>
+    {
+        Ok(PowerStateWithReason {
+            state: self.state,
+            reason: self.reason,
+        })
     }
 
     fn set_state(
@@ -1660,7 +1701,7 @@ static HOST_CPU_REFDES: ereports::cpu::HostCpuRefdes =
 ////////////////////////////////////////////////////////////////////////////////
 
 mod idl {
-    use super::StateChangeReason;
+    use super::{PowerStateWithReason, StateChangeReason};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

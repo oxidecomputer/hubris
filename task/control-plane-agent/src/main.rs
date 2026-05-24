@@ -137,6 +137,7 @@ enum MgsMessage {
         component: SpComponent,
     },
     GetPowerState,
+    GetPowerStateWithReason,
     SetPowerState(PowerState),
     Inventory,
     HostPhase2Data {

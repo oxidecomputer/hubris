@@ -7,6 +7,8 @@
 
 #![no_std]
 
+use hubpack::SerializedSize;
+use serde::{Deserialize, Serialize};
 use userlib::FromPrimitive;
 use zerocopy::{Immutable, IntoBytes, KnownLayout};
 
@@ -21,6 +23,9 @@ use zerocopy::{Immutable, IntoBytes, KnownLayout};
     Immutable,
     KnownLayout,
     counters::Count,
+    Deserialize,
+    Serialize,
+    SerializedSize,
 )]
 #[cfg_attr(feature = "microcbor", derive(microcbor::Encode))]
 #[repr(u8)]
