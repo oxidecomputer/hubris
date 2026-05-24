@@ -26,8 +26,3 @@ pub(crate) static HIFFY_FUNCS: &[Function] = &[
     crate::common::send_lease_write,
 ];
 
-pub(crate) fn trace_execute(_offset: usize, _op: hif::Op) {}
-
-pub(crate) fn trace_success() {}
-
-pub(crate) fn trace_failure(_f: hif::Failure) {}

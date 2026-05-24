@@ -17,6 +17,7 @@
 
 use core::sync::atomic::{AtomicU32, Ordering};
 use hif::*;
+use ringbuf::{counted_ringbuf, ringbuf_entry};
 use static_cell::*;
 use userlib::*;
 
@@ -185,6 +186,83 @@ pub static HIFFY_VERSION_MINOR: AtomicU32 = AtomicU32::new(HIF_VERSION_MINOR);
 #[used]
 pub static HIFFY_VERSION_PATCH: AtomicU32 = AtomicU32::new(HIF_VERSION_PATCH);
 
+#[derive(Copy, Clone, PartialEq, counters::Count)]
+enum Trace {
+    #[count(skip)]
+    None,
+    //
+    // ==== Traces for executing HIF operations ====
+    //
+    Execute(usize, Op),
+    // TODO(eliza): would like to be able to put `#[count(children)]` on this,
+    // but that requires `hif` to derive `Count` for `Failure`...
+    Failure(Failure),
+    Success,
+    //
+    // ==== Traces for GPIO operations (STM32H7 version) ====
+    //
+    #[cfg(all(feature = "gpio", feature = "stm32h7"))]
+    GpioConfigure(
+        drv_stm32xx_sys_api::Port,
+        u16,
+        drv_stm32xx_sys_api::Mode,
+        drv_stm32xx_sys_api::OutputType,
+        drv_stm32xx_sys_api::Speed,
+        drv_stm32xx_sys_api::Pull,
+        drv_stm32xx_sys_api::Alternate,
+    ),
+    #[cfg(all(feature = "gpio", feature = "stm32h7"))]
+    GpioInput(drv_stm32xx_sys_api::Port),
+    //
+    // ==== Traces for GPIO operations (LPC55 version) ====
+    //
+    #[cfg(all(feature = "gpio", feature = "lpc55"))]
+    GpioConfigure(
+        drv_lpc55_gpio_api::Pin,
+        drv_lpc55_gpio_api::AltFn,
+        drv_lpc55_gpio_api::Mode,
+        drv_lpc55_gpio_api::Slew,
+        drv_lpc55_gpio_api::Invert,
+        drv_lpc55_gpio_api::Digimode,
+        drv_lpc55_gpio_api::Opendrain,
+    ),
+    #[cfg(all(feature = "gpio", feature = "lpc55"))]
+    GpioInput(drv_lpc55_gpio_api::Pin),
+    //
+    // ==== Traces for net RPC ====
+    //
+    #[cfg(feature = "net")]
+    NetRecvPacket(task_net_api::UdpMetadata),
+    #[cfg(feature = "net")]
+    NetRecvErr(#[count(children)] task_net_api::RecvError),
+    #[cfg(feature = "net")]
+    NetSendErr(#[count(children)] task_net_api::SendError),
+    #[cfg(feature = "net")]
+    NetRpcRequest(#[count(children)] net::RpcOp),
+    #[cfg(feature = "net")]
+    NetRpcReply(#[count(children)] net::RpcReply),
+    //
+    // ==== Traces for notification sources ====
+    //
+    // Note that some of these variants are *not* recorded in the ring buffer,
+    // and are only used with the `CountedRingbuf::count` method, to record them
+    // in the counters table. This is because we would like to count events that
+    // occur frequently (such as being woken up by the timer) without pushing
+    // more interesting events out of the ring buffer. However, we would like to
+    // have a single counters table for all traces we record, whether or not
+    // they are actually put in the ringbuf. So, these variants are not going to
+    // appear in the actual ringbuf, but will appear in its counters.
+    //
+    Notified,
+    #[cfg(feature = "net")]
+    NotifiedSocket,
+    NotifiedTimer,
+    Kicked,
+    NotKicked,
+}
+
+counted_ringbuf!(Trace, 64, Trace::None);
+
 #[unsafe(export_name = "main")]
 fn main() -> ! {
     let mut sleep_ms = 250;
@@ -209,9 +287,11 @@ fn main() -> ! {
 
         let notif = sys_recv_notification(bits);
         HIFFY_READY.store(0, Ordering::Relaxed);
+        __RINGBUF.count(&Trace::Notified);
 
         #[cfg(feature = "net")]
         if notif.check_notification_mask(notifications::SOCKET_MASK) {
+            __RINGBUF.count(&Trace::NotifiedSocket);
             net_state.check_net();
         }
 
@@ -233,11 +313,15 @@ fn main() -> ! {
         // RPC, rather than resetting it any time we receive a packet (or on
         // spurious notifications from any source).
         //
-        let mut should_reset_timer =
-            notif.has_timer_fired(notifications::TIMER_MASK);
+        let mut should_reset_timer = false;
+        if notif.has_timer_fired(notifications::TIMER_MASK) {
+            __RINGBUF.count(&Trace::NotifiedTimer);
+            should_reset_timer = true;
+        }
 
         // Humility writes `1` to `HIFFY_KICK`
         if HIFFY_KICK.load(Ordering::Acquire) == 0 {
+            __RINGBUF.count(&Trace::NotKicked);
             // If we were woken by the timer, rather than the net task,
             // increment the number of times we have slept without being
             // kicked.
@@ -257,9 +341,10 @@ fn main() -> ! {
             should_reset_timer = true;
             sleep_ms = 1;
             sleeps = 0;
+            ringbuf_entry!(Trace::Kicked);
 
             let check = |offset: usize, op: &Op| -> Result<(), Failure> {
-                trace_execute(offset, *op);
+                ringbuf_entry!(Trace::Execute(offset, *op));
                 Ok(())
             };
             let rv = {
@@ -296,7 +381,7 @@ fn main() -> ! {
                     let prev = HIFFY_REQUESTS.load(Ordering::Relaxed);
                     HIFFY_REQUESTS
                         .store(prev.wrapping_add(1), Ordering::Release);
-                    trace_success();
+                    ringbuf_entry!(Trace::Success);
                 }
                 Err(failure) => {
                     // SAFETY: We are in single-threaded code and the debugger will
@@ -308,7 +393,7 @@ fn main() -> ! {
                         let prev = HIFFY_ERRORS.load(Ordering::Relaxed);
                         HIFFY_ERRORS
                             .store(prev.wrapping_add(1), Ordering::Release);
-                        trace_failure(failure);
+                        ringbuf_entry!(Trace::Failure(failure));
                     }
                 }
             }
@@ -358,12 +443,14 @@ unsafe fn bind_lifetime_mut<'a, const N: usize>(
 #[cfg(feature = "net")]
 mod net {
     use super::{
-        HIFFY_DATA, HIFFY_KICK, HIFFY_TEXT, bind_lifetime_mut, notifications,
+        HIFFY_DATA, HIFFY_KICK, HIFFY_TEXT, Trace, bind_lifetime_mut,
+        notifications,
     };
     use core::sync::atomic::Ordering;
+    use ringbuf::ringbuf_entry_root;
     use static_cell::ClaimOnceCell;
     use task_net_api::{
-        LargePayloadBehavior, RecvError, SendError, SocketName, UdpMetadata,
+        LargePayloadBehavior, SendError, SocketName, UdpMetadata,
     };
     use userlib::{FromPrimitive, UnwrapLite, sys_recv_notification};
     use zerocopy::{FromBytes, IntoBytes, LittleEndian, U16, U32, U64};
@@ -390,17 +477,19 @@ mod net {
     }
     const CURRENT_VERSION: u16 = 1;
 
-    #[derive(Copy, Clone, Debug, FromPrimitive)]
+    #[derive(
+        Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, counters::Count,
+    )]
     #[repr(u16)]
-    enum RpcOp {
+    pub(super) enum RpcOp {
         WriteHiffyText = 1,
         WriteHiffyData,
         HiffyKick,
     }
 
-    #[derive(Copy, Clone, Debug)]
+    #[derive(Copy, Clone, Debug, Eq, PartialEq, counters::Count)]
     #[repr(u8)]
-    enum RpcReply {
+    pub(super) enum RpcReply {
         Ok = 0u8,
         /// The RPC packet was too short to include the complete header
         TooShort,
@@ -449,8 +538,12 @@ mod net {
                 LargePayloadBehavior::Discard,
                 self.rx_data_buf,
             ) {
-                Ok(meta) => self.handle_packet(meta),
-                Err(RecvError::QueueEmpty | RecvError::ServerRestarted) => {
+                Ok(meta) => {
+                    ringbuf_entry_root!(Trace::NetRecvPacket(meta));
+                    self.handle_packet(meta);
+                }
+                Err(err) => {
+                    ringbuf_entry_root!(Trace::NetRecvErr(err));
                     // Our incoming queue is empty or `net` restarted. Wait for
                     // more packets in dispatch, back in the main loop.
                 }
@@ -462,6 +555,8 @@ mod net {
             // `handle_packet_inner` does not write to it!
             let tx_data_buf = core::mem::take(&mut self.tx_data_buf);
             let (r, data) = self.handle_packet_inner(meta);
+            ringbuf_entry_root!(Trace::NetRpcReply(r));
+
             tx_data_buf[0] = r as u8;
             tx_data_buf[1..][..data.len()].copy_from_slice(data);
             meta.size = (1 + data.len()) as u32;
@@ -473,18 +568,25 @@ mod net {
                     &self.tx_data_buf[..(meta.size as usize)],
                 ) {
                     Ok(()) => break,
-                    // If `net` just restarted, immediately retry our send.
-                    Err(SendError::ServerRestarted) => continue,
-                    // If our tx queue is full, wait for space. This is the
-                    // same notification we get for incoming packets, so we
-                    // might spuriously wake up due to an incoming packet
-                    // (which we can't service anyway because we are still
-                    // waiting to respond to a previous request); once we
-                    // finally succeed in sending we'll peel any queued
-                    // packets off our recv queue at the top of our main
-                    // loop.
-                    Err(SendError::QueueFull) => {
-                        sys_recv_notification(notifications::SOCKET_MASK);
+                    Err(e) => {
+                        ringbuf_entry_root!(Trace::NetSendErr(e));
+                        match e {
+                            // If `net` just restarted, immediately retry our send.
+                            SendError::ServerRestarted => continue,
+                            // If our tx queue is full, wait for space. This is
+                            // the same notification we get for incoming
+                            // packets, so we might spuriously wake up due to an
+                            // incoming packet (which we can't service anyway
+                            // because we are still waiting to respond to a
+                            // previous request); once we finally succeed in
+                            // sending we'll peel any queued packets off our
+                            // recv queue at the top of our main loop.
+                            SendError::QueueFull => {
+                                sys_recv_notification(
+                                    notifications::SOCKET_MASK,
+                                );
+                            }
+                        }
                     }
                 }
             }
@@ -509,9 +611,15 @@ mod net {
                 return (RpcReply::BadVersion, CURRENT_VERSION.as_bytes());
             }
 
+            // Decode the RPC operation.
+            let Some(op) = RpcOp::from_u16(header.operation.get()) else {
+                return (RpcReply::InvalidOperation, &[]);
+            };
+            ringbuf_entry_root!(Trace::NetRpcRequest(op));
+
             // Perform the actual operation
-            match RpcOp::from_u16(header.operation.get()) {
-                Some(RpcOp::WriteHiffyText) => {
+            match op {
+                RpcOp::WriteHiffyText => {
                     // Dummy object to bind references to a non-static lifetime
                     let lifetime = ();
                     let offset = header.arg.get() as usize;
@@ -534,7 +642,7 @@ mod net {
                         (RpcReply::OutOfRange, &[])
                     }
                 }
-                Some(RpcOp::WriteHiffyData) => {
+                RpcOp::WriteHiffyData => {
                     // Dummy object to bind references to a non-static lifetime
                     let lifetime = ();
                     let offset = header.arg.get() as usize;
@@ -557,11 +665,10 @@ mod net {
                         (RpcReply::OutOfRange, &[])
                     }
                 }
-                Some(RpcOp::HiffyKick) => {
+                RpcOp::HiffyKick => {
                     HIFFY_KICK.fetch_add(1, Ordering::SeqCst);
                     (RpcReply::Ok, &[])
                 }
-                None => (RpcReply::InvalidOperation, &[]),
             }
         }
     }

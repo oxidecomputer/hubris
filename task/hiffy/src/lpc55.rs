@@ -2,30 +2,20 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use crate::Trace;
 #[cfg(feature = "spi")]
 use crate::common::{spi_read, spi_write};
 use byteorder::ByteOrder;
 use drv_lpc55_gpio_api::*;
 use hif::*;
 use hubris_num_tasks::Task;
-use ringbuf::*;
+use ringbuf::ringbuf_entry_root;
 use userlib::*;
 
 #[cfg(feature = "gpio")]
 task_slot!(GPIO, gpio_driver);
 #[cfg(feature = "spctrl")]
 task_slot!(SP_CTRL, swd);
-
-#[derive(Copy, Clone, PartialEq)]
-enum Trace {
-    None,
-    Execute((usize, hif::Op)),
-    Failure(Failure),
-    Success,
-}
-
-ringbuf!(Trace, 64, Trace::None);
-
 // TODO: this type is copy-pasted in several modules
 pub struct Buffer(#[allow(dead_code)] u8);
 
@@ -246,6 +236,9 @@ fn gpio_configure(
     let task = GPIO.get_task_id();
     let gpio = drv_lpc55_gpio_api::Pins::from(task);
 
+    ringbuf_entry_root!(Trace::GpioConfigure(
+        pin, alt, mode, slew, invert, digimode, opendrain
+    ));
     gpio.iocon_configure(
         pin, alt, mode, slew, invert, digimode, opendrain, None,
     );
@@ -309,6 +302,8 @@ fn gpio_input(
     let gpio = drv_lpc55_gpio_api::Pins::from(task);
 
     let pin = gpio_args(stack)?;
+
+    ringbuf_entry_root!(Trace::GpioInput(pin));
 
     let input = gpio.read_val(pin);
 
