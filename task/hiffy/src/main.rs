@@ -195,13 +195,13 @@ fn main() -> ! {
     #[cfg(feature = "net")]
     let mut net_state = net::State::new();
 
+    // Set the initial timer deadline.
+    set_timer(sleep_ms);
     loop {
+        HIFFY_READY.store(1, Ordering::Relaxed);
+
         // Sleep until either the timer expires or we receive a notification
         // from the `net` task indicating that it's ready for us.
-        let deadline = sys_get_timer().now.saturating_add(sleep_ms);
-        HIFFY_READY.store(1, Ordering::Relaxed);
-        sys_set_timer(Some(deadline), notifications::TIMER_MASK);
-
         #[cfg(feature = "net")]
         let bits = notifications::SOCKET_MASK | notifications::TIMER_MASK;
         #[cfg(not(feature = "net"))]
@@ -215,20 +215,21 @@ fn main() -> ! {
             net_state.check_net();
         }
 
-        if notif.has_timer_fired(notifications::TIMER_MASK) {
-            // Humility writes `1` to `HIFFY_KICK`
-            if HIFFY_KICK.load(Ordering::Acquire) == 0 {
-                sleeps += 1;
+        let timer_fired = notif.has_timer_fired(notifications::TIMER_MASK);
 
-                // Exponentially backoff our sleep value, but no more than 250ms
-                if sleeps == 10 {
-                    sleep_ms = core::cmp::min(sleep_ms * 10, 250);
-                    sleeps = 0;
-                }
+        // Humility writes `1` to `HIFFY_KICK`
+        if HIFFY_KICK.load(Ordering::Acquire) == 0 {
+            // If we were woken by the timer, rather than the net task,
+            // increment the number of times we have slept without being
+            // kicked.
+            sleeps += u32::from(timer_fired);
 
-                continue;
+            // Exponentially backoff our sleep value, but no more than 250ms
+            if sleeps == 10 {
+                sleep_ms = core::cmp::min(sleep_ms * 10, 250);
+                sleeps = 0;
             }
-
+        } else {
             //
             // Whenever we have been kicked, we adjust our timeout down to 1ms,
             // from which we will exponentially backoff
@@ -292,7 +293,18 @@ fn main() -> ! {
                 }
             }
         }
+
+        // If we were woken by the timer rather than the net task, reset the
+        // clock.
+        if timer_fired {
+            set_timer(sleep_ms);
+        }
     }
+}
+
+fn set_timer(sleep_ms: u64) {
+    let deadline = sys_get_timer().now.saturating_add(sleep_ms);
+    sys_set_timer(Some(deadline), notifications::TIMER_MASK);
 }
 
 /// Converts an array pointer to a shared reference with a particular lifetime
