@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use crate::Trace;
 #[cfg(feature = "hash")]
 use crate::common::{
     hash_digest_sha256, hash_finalize_sha256, hash_init_sha256, hash_update,
@@ -24,28 +25,6 @@ task_slot!(I2C, i2c_driver);
 
 #[cfg(feature = "gpio")]
 task_slot!(SYS, sys);
-
-#[derive(Copy, Clone, PartialEq)]
-enum Trace {
-    None,
-    Execute((usize, Op)),
-    Failure(Failure),
-    #[cfg(feature = "gpio")]
-    GpioConfigure(
-        drv_stm32xx_sys_api::Port,
-        u16,
-        drv_stm32xx_sys_api::Mode,
-        drv_stm32xx_sys_api::OutputType,
-        drv_stm32xx_sys_api::Speed,
-        drv_stm32xx_sys_api::Pull,
-        drv_stm32xx_sys_api::Alternate,
-    ),
-    #[cfg(feature = "gpio")]
-    GpioInput(drv_stm32xx_sys_api::Port),
-    Success,
-}
-
-ringbuf!(Trace, 64, Trace::None);
 
 // Field is only used in the debugger, appears dead to the compiler.
 pub struct Buffer(#[allow(dead_code)] u8);
@@ -397,7 +376,7 @@ fn gpio_input(
         None => return Err(Failure::Fault(Fault::EmptyParameter(0))),
     };
 
-    ringbuf_entry!(Trace::GpioInput(port));
+    ringbuf_entry_root!(Trace::GpioInput(port));
 
     let input = gpio.gpio_read_input(port);
 
@@ -513,7 +492,7 @@ fn gpio_configure(
     let gpio = drv_stm32xx_sys_api::Sys::from(task);
 
     #[rustfmt::skip]
-    ringbuf_entry!(
+    ringbuf_entry_root!(
         Trace::GpioConfigure(port, mask, mode, output_type, speed, pull, af)
     );
 
@@ -584,15 +563,3 @@ pub(crate) static HIFFY_FUNCS: &[Function] = &[
 //
 #[unsafe(no_mangle)]
 pub static HIFFY_FUNCTIONS: Option<&Functions> = None;
-
-pub(crate) fn trace_execute(offset: usize, op: hif::Op) {
-    ringbuf_entry!(Trace::Execute((offset, op)));
-}
-
-pub(crate) fn trace_success() {
-    ringbuf_entry!(Trace::Success);
-}
-
-pub(crate) fn trace_failure(f: hif::Failure) {
-    ringbuf_entry!(Trace::Failure(f));
-}

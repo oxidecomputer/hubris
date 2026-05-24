@@ -639,6 +639,23 @@ where
     }
 }
 
+#[cfg(feature = "counters")]
+impl<T, C, const N: usize> CountedRingbuf<T, C, { N }>
+where
+    T: Count + Copy,
+{
+    /// Increment the counter for the provided variant of `T` in this
+    /// `CountedRingbuf`'s counters table, *without* isnerting it into the
+    /// ringbuffer itself.
+    ///
+    /// This is intended to be used in situations where it is desirable to count
+    /// some events without consuming ring buffer slots without creating a
+    /// separate counters table.
+    pub fn count(&self, entry: &T) {
+        entry.count(&self.counters);
+    }
+}
+
 impl<T> RecordEntry<T> for ()
 where
     T: Copy + PartialEq,

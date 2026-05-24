@@ -462,8 +462,3 @@ pub(crate) static HIFFY_FUNCS: &[Function] = &[
 #[unsafe(no_mangle)]
 pub static HIFFY_FUNCTIONS: Option<&Functions> = None;
 
-pub(crate) fn trace_execute(_offset: usize, _op: hif::Op) {}
-
-pub(crate) fn trace_success() {}
-
-pub(crate) fn trace_failure(_f: hif::Failure) {}
