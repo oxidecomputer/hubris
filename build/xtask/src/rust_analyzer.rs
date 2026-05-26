@@ -64,14 +64,18 @@ impl LspConfig {
         let check = get_or_insert(options, "check");
         check.insert("workspace".to_owned(), false.into());
 
-        // Okay, this is where it gets awkward.  By default, the flycheck
-        // program calls `cargo check` (or `cargo clippy`) on a single package,
-        // but uses the full set of features defined in
+        // Okay, this is where it gets awkward.  When invoked on a binary crate,
+        // rust-analyzer's flycheck pass calls `cargo check` (or `cargo clippy`)
+        // on that single package, but uses the full set of features defined in
         // `rust-analyzer.cargo.features`.  This fails if you're enabling
-        // features for multiple crates, which we want to do!  Instead, we'll
-        // replace the `check` command wholesale with one that does what we
-        // want.  This is less efficient, because it checks every crate in our
-        // tree, but has the advantage of working.
+        // features for multiple crates, which we want to do!
+        //
+        // Instead, we'll replace the `check` command wholesale with one that
+        // does what we want.  This is less efficient, because it checks every
+        // crate in our tree, but has the advantage of working.
+        //
+        // We have fixed this upstream (rust-lang/rust-analyzer#22432), so can
+        // remove this workaround once that fix ships.
         let check_cmd = check
             .get("command")
             .and_then(|c| c.as_str())
