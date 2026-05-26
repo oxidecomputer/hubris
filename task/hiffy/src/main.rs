@@ -195,13 +195,13 @@ fn main() -> ! {
     #[cfg(feature = "net")]
     let mut net_state = net::State::new();
 
+    // Set the initial timer deadline.
+    set_timer(sleep_ms);
     loop {
+        HIFFY_READY.store(1, Ordering::Relaxed);
+
         // Sleep until either the timer expires or we receive a notification
         // from the `net` task indicating that it's ready for us.
-        let deadline = sys_get_timer().now.saturating_add(sleep_ms);
-        HIFFY_READY.store(1, Ordering::Relaxed);
-        sys_set_timer(Some(deadline), notifications::TIMER_MASK);
-
         #[cfg(feature = "net")]
         let bits = notifications::SOCKET_MASK | notifications::TIMER_MASK;
         #[cfg(not(feature = "net"))]
@@ -215,25 +215,48 @@ fn main() -> ! {
             net_state.check_net();
         }
 
-        if notif.has_timer_fired(notifications::TIMER_MASK) {
-            // Humility writes `1` to `HIFFY_KICK`
-            if HIFFY_KICK.load(Ordering::Acquire) == 0 {
+        //
+        // We shall reset the timer under either of the following conditions:
+        //
+        // 1. The previous deadline has elapsed (naturally), so that we
+        //    can continue polling. This is the condition we check here.
+        // 2. We have been kicked and executed something, and the sleep
+        //    duration has been reset. This is checked below.
+        //
+        // If the "net" feature is *not* enabled, this sounds suspiciously
+        // similar to just resetting the timer on every iteration of the loop,
+        // and in fact, it may as well be. However, if the "net" feature *is*
+        // enabled, we do not wish to reset the timer every time we wake up,
+        // as this means that notifications from `net` would reset the timer
+        // even if it has not yet completed. This way, we only reset the timer
+        // when we are woken by the timer *or* if we were kicked by a network
+        // RPC, rather than resetting it any time we receive a packet (or on
+        // spurious notifications from any source).
+        //
+        let mut should_reset_timer =
+            notif.has_timer_fired(notifications::TIMER_MASK);
+
+        // Humility writes `1` to `HIFFY_KICK`
+        if HIFFY_KICK.load(Ordering::Acquire) == 0 {
+            // If we were woken by the timer, rather than the net task,
+            // increment the number of times we have slept without being
+            // kicked.
+            if should_reset_timer {
                 sleeps += 1;
-
-                // Exponentially backoff our sleep value, but no more than 250ms
-                if sleeps == 10 {
-                    sleep_ms = core::cmp::min(sleep_ms * 10, 250);
-                    sleeps = 0;
-                }
-
-                continue;
             }
 
+            // Exponentially backoff our sleep value, but no more than 250ms
+            if sleeps == 10 {
+                sleep_ms = core::cmp::min(sleep_ms * 10, 250);
+                sleeps = 0;
+            }
+        } else {
             //
             // Whenever we have been kicked, we adjust our timeout down to 1ms,
             // from which we will exponentially backoff
             //
             HIFFY_KICK.store(0, Ordering::Release);
+            should_reset_timer = true;
             sleep_ms = 1;
             sleeps = 0;
 
@@ -292,7 +315,16 @@ fn main() -> ! {
                 }
             }
         }
+
+        if should_reset_timer {
+            set_timer(sleep_ms);
+        }
     }
+}
+
+fn set_timer(sleep_ms: u64) {
+    let deadline = sys_get_timer().now.saturating_add(sleep_ms);
+    sys_set_timer(Some(deadline), notifications::TIMER_MASK);
 }
 
 /// Converts an array pointer to a shared reference with a particular lifetime
