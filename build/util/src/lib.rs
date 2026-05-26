@@ -198,18 +198,29 @@ pub fn task_extern_regions<T: DeserializeOwned>() -> Result<IndexMap<String, T>>
     Ok(t)
 }
 
+/// Pulls the entire config for all tasks
+pub fn all_tasks_full_config<T: DeserializeOwned>()
+-> Result<IndexMap<String, toml_task::Task<T>>> {
+    toml_from_env::<IndexMap<String, toml_task::Task<_>>>(
+        "HUBRIS_ALL_TASK_CONFIGS",
+    )?
+    .ok_or_else(|| anyhow!("HUBRIS_ALL_TASK_CONFIGS is not defined"))
+}
+
 /// Pulls the full task configuration block of a different task
 pub fn other_task_full_config<T: DeserializeOwned>(
     name: &str,
 ) -> Result<toml_task::Task<T>> {
-    let mut t = toml_from_env::<IndexMap<String, toml_task::Task<_>>>(
-        "HUBRIS_ALL_TASK_CONFIGS",
-    )?
-    .ok_or_else(|| anyhow!("HUBRIS_ALL_TASK_CONFIGS is not defined"))?;
+    let mut t = all_tasks_full_config::<T>()?;
     let out = t
         .remove(name)
         .ok_or_else(|| anyhow!("Could not find {name} in tasks"))?;
     Ok(out)
+}
+
+pub fn all_tasks_full_config_toml()
+-> Result<IndexMap<String, toml_task::Task<ordered_toml::Value>>> {
+    all_tasks_full_config()
 }
 
 pub fn other_task_full_config_toml(
@@ -325,11 +336,15 @@ pub fn build_notifications() -> Result<()> {
 
     write_task_notifications(&mut out, &full_task_config.notifications)?;
 
-    for task in env_var("HUBRIS_TASKS")
-        .expect("missing HUBRIS_TASKS")
-        .split(',')
-    {
-        let full_task_config = other_task_full_config_toml(task)?;
+    // Rather than re-parse the toml on every task iter, we just get the full
+    // task toml, and pluck out each task as we need it.
+    let all_task_configs = all_tasks_full_config_toml()?;
+    let all_tasks = env_var("HUBRIS_TASKS").expect("missing HUBRIS_TASKS");
+
+    for task in all_tasks.split(',') {
+        let full_task_config = all_task_configs
+            .get(task)
+            .ok_or_else(|| anyhow!("Could not find {task} in tasks"))?;
         writeln!(&mut out, "pub mod {task} {{")?;
         write_task_notifications(&mut out, &full_task_config.notifications)?;
         writeln!(&mut out, "}}")?;
