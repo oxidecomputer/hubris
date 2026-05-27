@@ -15,3 +15,5 @@ hubris.testout.*
 !.vscode/tasks.json
 !.vscode/extensions.json
 .nvim.lua
+.zed/settings.json
+.dir-locals.el
