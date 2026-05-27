@@ -1,0 +1,65 @@
+name = "tests-grapefruit"
+target = "thumbv7em-none-eabihf"
+board = "grapefruit-a"
+chip = "../../chips/stm32h7"
+default-ram = "dtcm"
+stacksize = 2048
+
+[kernel]
+name = "grapefruit"
+requires = {flash = 32768, ram = 4096}
+
+[tasks.runner]
+name = "test-runner"
+priority = 0
+max-sizes = {flash = 16384, ram = 4096}
+start = true
+
+[tasks.suite]
+name = "test-suite"
+priority = 2
+max-sizes = {flash = 65536, ram = 4096}
+start = true
+task-slots = ["assist", "idol", "suite", "runner"]# this doesn't actually use SPI; we're just mapping that interrupt to test
+# interrupt handling. chosen completely arbitrarily.
+uses = ["spi1"]
+notifications = ["test-irq"]
+interrupts = {"spi1.irq" = "test-irq"}
+
+# This block is used to test the task_config macro
+[tasks.suite.config]
+foo = '"Hello, world"'
+bar = 42
+baz = [1, 2, 3, 4]
+tup = [[1, true], [2, true], [3, false]]
+
+[tasks.assist]
+name = "test-assist"
+priority = 1
+max-sizes = {flash = 16384, ram = 4096}
+start = true
+
+[tasks.idol]
+name = "test-idol-server"
+priority = 1
+max-sizes = {flash = 4096, ram = 1024}
+stacksize = 1024
+start = true
+
+[tasks.hiffy]
+name = "task-hiffy"
+priority = 3
+features = ["testsuite"]
+max-sizes = {flash = 32768, ram = 16384 }
+stacksize = 2048
+start = true
+task-slots = ["suite", "runner"]
+notifications = ["timer"]
+
+[tasks.idle]
+name = "task-idle"
+priority = 4
+max-sizes = {flash = 256, ram = 256}
+stacksize = 256
+start = true
+

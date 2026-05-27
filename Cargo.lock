@@ -6996,6 +6996,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "tests-grapefruit"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if",
+ "cortex-m",
+ "cortex-m-rt",
+ "kern",
+ "stm32h7",
+]
+
+[[package]]
 name = "tests-lpc55xpresso"
 version = "0.1.0"
 dependencies = [
