@@ -126,7 +126,11 @@ pub fn run(
                 None,
             )
         } else {
-            toml.task_build_config(name, verbose, None).unwrap()
+            let metadata = cargo_metadata::MetadataCommand::new()
+                .manifest_path("./Cargo.toml")
+                .exec()?;
+            toml.task_build_config(name, verbose, &metadata, None)
+                .unwrap()
         };
         let mut cmd = build_config.cmd(cargo_cmd);
 

@@ -448,10 +448,16 @@ impl Config {
         out
     }
 
+    /// Returns a build configuration for a particular task
+    ///
+    /// This function has a side effect of **building** any `bindeps` associated
+    /// with the task, because their binary paths are included in the task's
+    /// build environment in the `XTASK_BIN_FILE_*` namespace.
     pub fn task_build_config<'a>(
         &self,
         task_name: &str,
         verbose: bool,
+        metadata: &cargo_metadata::Metadata,
         sysroot: Option<&'a Path>,
     ) -> Result<BuildConfig<'a>, String> {
         let task_toml = self
@@ -508,6 +514,23 @@ impl Config {
         out.env.insert(
             "HUBRIS_TASK_EXTERN_REGIONS".to_string(),
             toml::to_string(&extern_regions).unwrap(),
+        );
+
+        // Build any bindeps associated with this task
+        let mut bindeps = vec![];
+        for b in &task_toml.bindeps {
+            let path = crate::dist::build_task_bindep(task_name, metadata, b)
+                .map_err(|e| e.to_string())?;
+            bindeps.push((
+                format!("XTASK_BIN_FILE_{}", b.name.to_uppercase()),
+                path,
+            ));
+        }
+
+        out.env.extend(
+            bindeps
+                .into_iter()
+                .map(|(k, v)| (k, v.display().to_string())),
         );
 
         Ok(out)

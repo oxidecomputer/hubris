@@ -68,7 +68,7 @@ pub struct PackageConfig {
     pub toml: Config,
 
     /// Workspace metadata
-    metadata: cargo_metadata::Metadata,
+    pub metadata: cargo_metadata::Metadata,
 
     /// Add `-v` to various build commands
     verbose: bool,
@@ -1109,14 +1109,6 @@ struct LoadSegment {
 fn build_task(cfg: &PackageConfig, name: &str) -> Result<()> {
     let task_toml = &cfg.toml.tasks[name];
 
-    // Build any bindeps associated with this task
-    let mut bindeps = vec![];
-    for b in &task_toml.bindeps {
-        let path = build_task_bindep(cfg, name, b)?;
-        bindeps
-            .push((format!("XTASK_BIN_FILE_{}", b.name.to_uppercase()), path));
-    }
-
     // Use relocatable linker script for this build
     fs::copy("build/task-rlink.x", "target/link.x")?;
     // Append any task-specific sections.
@@ -1128,44 +1120,34 @@ fn build_task(cfg: &PackageConfig, name: &str) -> Result<()> {
         append_task_sections(&mut linkscr, Some(&task_toml.sections))?;
     }
 
-    let mut build_config = cfg
+    let build_config = cfg
         .toml
-        .task_build_config(name, cfg.verbose, Some(&cfg.sysroot))
+        .task_build_config(name, cfg.verbose, &cfg.metadata, Some(&cfg.sysroot))
         .unwrap();
-    build_config.env.extend(
-        bindeps
-            .into_iter()
-            .map(|(k, v)| (k, v.display().to_string())),
-    );
     build(cfg, name, build_config, true)
         .context(format!("failed to build {name}"))
 }
 
 /// Builds a binary dependency, returning the path to the binary file
-fn build_task_bindep(
-    cfg: &PackageConfig,
+pub fn build_task_bindep(
     task_name: &str,
+    metadata: &cargo_metadata::Metadata,
     dep: &toml_task::TaskBinDep,
 ) -> Result<std::path::PathBuf> {
     // We'll use a separate target dir to avoid invalidating the build
-    let target_dir = PathBuf::from("target")
-        .join(&cfg.toml.target)
-        .join("bindeps")
-        .join(task_name);
+    let target_dir = PathBuf::from("target").join("bindeps").join(task_name);
     println!(
         "building bindep `{}` in `{}`",
         dep.name,
         target_dir.display()
     );
     // Find the manifest for our bindep (by name)
-    let pkg = cfg
-        .metadata
+    let pkg = metadata
         .packages
         .iter()
         .find(|p| p.name == dep.name)
         .unwrap();
-    let cargo = cfg.sysroot.join("bin").join("cargo");
-    let mut cmd = std::process::Command::new(cargo);
+    let mut cmd = std::process::Command::new("cargo");
     cmd.arg("build");
     cmd.arg("--release");
     cmd.arg(format!("--target-dir={}", target_dir.display()));

@@ -237,7 +237,7 @@ fn check_task(
     if dependencies.contains_key(package_name) {
         let build_cfg = app_cfg
             .toml
-            .task_build_config(task_name, false, None)
+            .task_build_config(task_name, false, &app_cfg.metadata, None)
             .map_err(|_| anyhow!("could not get build config for {task_name}"))
             .unwrap();
 
