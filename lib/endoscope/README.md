@@ -53,12 +53,15 @@ target/thumbv8m.main-none-eabihf/release/build/drv-lpc55-swd-da6462ef675419cb/ou
 5740
 ```
 
-Building as a cargo `bindeps` artifact allows the source to be maintained
-in the Hubris repo and removes any concern that it is out of date with
-respect to the RoT firmware.
+It is built using a special `bindeps` section of a Hubris manifest, e.g.
+```toml
+[[tasks.swd.bindeps]]
+name = "endoscope"
+target = "thumbv7em-none-eabihf"
+features = ["soc_stm32h753"]
+```
 
-However, as a `bindeps` artifact, the profile that it is built with is not
-allowed to specify `lto` or `panic`.
+The current implementation does not specify `lto` or `panic` behavior.
 
 Not being able to use the desired profile costs something around an extra 462 bytes at
 the time of writing.
@@ -67,13 +70,6 @@ Rust "code golf" opportunities for space and time include:
   - Fix the build profile `lto` and `panic` prohibition described above,
   - Use an FFI SHA3 library, if a more compact or faster implementation can be found.
   - On the RoT side, inject the code more efficiently.
-
-```bash
-# Building it as a stand-alone bin results in a smaller executable (4660 bytes)
-$ arm-none-eabi-size target/thumbv7em-none-eabihf/release/endoscope
-   text	   data	    bss	    dec	    hex	filename
-   4608	     48	      4	   4660	   1234	target/thumbv7em-none-eabihf/release/endoscope
-```
 
 ## Testing
 
@@ -86,26 +82,12 @@ In this case, the probe is an ST-LINK attached to an STM32H753xi.
 Since there is only one ST-LINK on this system, the probe's serial number does
 not need to be specified.
 
-The smaller isolated build is useful for development:
-
 ```sh
 $ cargo build --release --manifest-path lib/endoscope/Cargo.toml --target thumbv7em-none-eabihf --bin endoscope --features soc_stm32h753
 $ ELF=${PWD}/target/thumbv7em-none-eabihf/release/endoscope
 $ size $ELF
    text    data     bss     dec     hex filename
    4424      48       4    4476    117c ${PWD}/target/thumbv7em-none-eabihf/release/endoscope
-```
-
-The blob produced during the build of the RoT swd task is what will be used
-in production:
-
-```sh
-$ cargo clean # So that there is only one version available.
-$ cargo xtask build $APP swd
-$ ELF=$(ls -d ${PWD}/target/thumbv7em-none-eabihf/release/deps/artifact/endoscope-*/bin/endoscope-????????????????)
-$ size $ELF
-   text    data     bss     dec     hex filename
-   4920      48       4    4972    136c ${PWD}/target/thumbv7em-none-eabihf/release/deps/artifact/endoscope-05d6ebcdad662d34/bin/endoscope-05d6ebcdad662d34
 ```
 
 ```sh
