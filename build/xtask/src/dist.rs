@@ -3044,7 +3044,7 @@ struct Archive {
     /// ZIP output to the temporary file.
     inner: zip::ZipWriter<File>,
     /// Options used for every file.
-    opts: zip::write::FileOptions,
+    opts: zip::write::FileOptions<'static, ()>,
 }
 
 impl Archive {
@@ -3060,13 +3060,13 @@ impl Archive {
         let mut inner = zip::ZipWriter::new(archive);
         inner.set_comment(format!(
             "hubris build archive v{HUBRIS_ARCHIVE_VERSION}"
-        ));
+        ))?;
         Ok(Self {
             final_path,
             tmp_path,
             inner,
             opts: zip::write::FileOptions::default()
-                .compression_method(zip::CompressionMethod::Deflated),
+                .compression_method(zip::CompressionMethod::Bzip2),
         })
     }
 
@@ -3115,11 +3115,10 @@ impl Archive {
         let Self {
             tmp_path,
             final_path,
-            mut inner,
+            inner,
             ..
         } = self;
         inner.finish()?;
-        drop(inner);
         std::fs::rename(tmp_path, final_path)?;
         Ok(())
     }
