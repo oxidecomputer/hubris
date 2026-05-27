@@ -67,6 +67,9 @@ pub struct PackageConfig {
     /// Loaded configuration
     pub toml: Config,
 
+    /// Workspace metadata
+    metadata: cargo_metadata::Metadata,
+
     /// Add `-v` to various build commands
     verbose: bool,
 
@@ -142,9 +145,13 @@ impl PackageConfig {
 
         let remap_paths = Self::remap_paths(&sysroot, &toml.target)?;
 
+        let metadata = cargo_metadata::MetadataCommand::new()
+            .manifest_path("./Cargo.toml")
+            .exec()?;
         Ok(Self {
             app_src_dir: app_src_dir.to_path_buf(),
             toml,
+            metadata,
             verbose,
             edges,
             dist_dir,
@@ -958,8 +965,6 @@ fn build_archive(
     archive
         .copy(chip_dir.join("openocd.gdb"), debug_dir.join("openocd.gdb"))?;
 
-    let mut metadata = None;
-
     //
     // Iterate over tasks looking for elements that should be copied into
     // the archive.  These are specified by the "copy-to-archive" array,
@@ -980,26 +985,8 @@ fn build_archive(
                 }
                 Some(config) => match config.get(c) {
                     Some(ordered_toml::Value::String(s)) => {
-                        //
-                        // This is a bit of a heavy hammer:  we need the
-                        // directory name for the task to find the file to be
-                        // copied into the archive, so we're going to iterate
-                        // over all packages to find the crate assocated with
-                        // this task.  (We cache the metadata itself, as it
-                        // takes on the order of ~150 ms to gather.)
-                        //
-                        use cargo_metadata::MetadataCommand;
-                        let metadata = match metadata.as_ref() {
-                            Some(m) => m,
-                            None => {
-                                let d = MetadataCommand::new()
-                                    .manifest_path("./Cargo.toml")
-                                    .exec()?;
-                                metadata.get_or_insert(d)
-                            }
-                        };
-
-                        let pkg = metadata
+                        let pkg = cfg
+                            .metadata
                             .packages
                             .iter()
                             .find(|p| p.name.as_str() == task.name)
@@ -1120,11 +1107,20 @@ struct LoadSegment {
 
 /// Builds a specific task
 fn build_task(cfg: &PackageConfig, name: &str) -> Result<()> {
+    let task_toml = &cfg.toml.tasks[name];
+
+    // Build any bindeps associated with this task
+    let mut bindeps = vec![];
+    for b in &task_toml.bindeps {
+        let path = build_task_bindep(cfg, name, b)?;
+        bindeps
+            .push((format!("XTASK_BIN_FILE_{}", b.name.to_uppercase()), path));
+    }
+
     // Use relocatable linker script for this build
     fs::copy("build/task-rlink.x", "target/link.x")?;
     // Append any task-specific sections.
     {
-        let task_toml = &cfg.toml.tasks[name];
         let mut linkscr = std::fs::OpenOptions::new()
             .create(false)
             .append(true)
@@ -1132,12 +1128,58 @@ fn build_task(cfg: &PackageConfig, name: &str) -> Result<()> {
         append_task_sections(&mut linkscr, Some(&task_toml.sections))?;
     }
 
-    let build_config = cfg
+    let mut build_config = cfg
         .toml
         .task_build_config(name, cfg.verbose, Some(&cfg.sysroot))
         .unwrap();
+    build_config.env.extend(
+        bindeps
+            .into_iter()
+            .map(|(k, v)| (k, v.display().to_string())),
+    );
     build(cfg, name, build_config, true)
         .context(format!("failed to build {name}"))
+}
+
+/// Builds a binary dependency, returning the path to the binary file
+fn build_task_bindep(
+    cfg: &PackageConfig,
+    task_name: &str,
+    dep: &toml_task::TaskBinDep,
+) -> Result<std::path::PathBuf> {
+    // We'll use a separate target dir to avoid invalidating the build
+    let target_dir = PathBuf::from("target")
+        .join(&cfg.toml.target)
+        .join("bindeps")
+        .join(task_name);
+    println!(
+        "building bindep `{}` in `{}`",
+        dep.name,
+        target_dir.display()
+    );
+    // Find the manifest for our bindep (by name)
+    let pkg = cfg
+        .metadata
+        .packages
+        .iter()
+        .find(|p| p.name == dep.name)
+        .unwrap();
+    let cargo = cfg.sysroot.join("bin").join("cargo");
+    let mut cmd = std::process::Command::new(cargo);
+    cmd.arg("build");
+    cmd.arg("--release");
+    cmd.arg(format!("--target-dir={}", target_dir.display()));
+    cmd.arg(format!("--manifest-path={}", pkg.manifest_path.display()));
+    cmd.arg(format!("--target={}", dep.target));
+    cmd.arg(format!("--features={}", dep.features.join(",")));
+    let mut handle = cmd.spawn().context("failed to spawn bindep command")?;
+    let out = handle.wait()?;
+    if !out.success() {
+        bail!("bindep command failed with {out}");
+    }
+    let target_file =
+        target_dir.join(&dep.target).join("release").join(&dep.name);
+    Ok(std::path::absolute(target_file)?)
 }
 
 /// Returns `Ok(true)` if the given task contains the user's home directory

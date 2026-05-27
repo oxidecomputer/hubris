@@ -1830,7 +1830,6 @@ dependencies = [
  "drv-lpc55-spi",
  "drv-lpc55-syscon-api",
  "drv-sp-ctrl-api",
- "endoscope",
  "endoscope-abi",
  "goblin",
  "idol",

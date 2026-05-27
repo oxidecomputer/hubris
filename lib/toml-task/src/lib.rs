@@ -64,6 +64,8 @@ pub struct Task<T = ordered_toml::Value> {
     pub max_sizes: IndexMap<String, u32>,
     #[serde(default)]
     pub no_default_features: bool,
+    #[serde(default)]
+    pub bindeps: Vec<TaskBinDep>,
 }
 
 impl<T> Task<T> {
@@ -86,6 +88,17 @@ impl<T> Task<T> {
     pub fn notification_mask(&self, name: &str) -> Result<u32> {
         Ok(1u32 << self.notification_bit(name)?)
     }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+pub struct TaskBinDep {
+    /// Package name
+    pub name: String,
+    /// Target triple (e.g. `thumbv7em-none-eabihf`)
+    pub target: String,
+    /// Set of features to enable
+    pub features: Vec<String>,
 }
 
 /// In the common case, task slots map back to a task of the same name (e.g.
