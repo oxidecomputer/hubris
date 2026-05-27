@@ -22,6 +22,7 @@ struct LspConfig {
     packages: Vec<LspPackage>,
 }
 
+#[derive(Debug)]
 struct LspPackage {
     dir: std::path::PathBuf,
     name: String,
@@ -172,13 +173,20 @@ pub fn run(
                 anyhow::anyhow!("crate `{}` not found in graph", task.name)
             })?;
         let feature_graph = package_graph.feature_graph();
-        let feature_query =
-            feature_graph.query_forward(task.features.iter().map(|feat| {
-                guppy::graph::feature::FeatureId::new(
+        let feature_query = feature_graph.query_forward(
+            task.features
+                .iter()
+                .map(|feat| {
+                    guppy::graph::feature::FeatureId::new(
+                        start_pkg.id(),
+                        guppy::graph::feature::FeatureLabel::Named(feat),
+                    )
+                })
+                .chain(std::iter::once(guppy::graph::feature::FeatureId::new(
                     start_pkg.id(),
-                    guppy::graph::feature::FeatureLabel::Named(feat),
-                )
-            }))?;
+                    guppy::graph::feature::FeatureLabel::Base,
+                ))),
+        )?;
         let feature_set =
             feature_query.resolve_with_fn(|_, link| link.normal().is_present());
 
