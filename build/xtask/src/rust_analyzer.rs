@@ -19,7 +19,14 @@ struct LspConfig {
     extra_args: Vec<String>,
     target: String,
     features: Vec<String>,
-    packages: Vec<(std::path::PathBuf, String)>,
+    packages: Vec<LspPackage>,
+}
+
+struct LspPackage {
+    dir: std::path::PathBuf,
+    name: String,
+    in_workspace: bool,
+    version: guppy::Version,
 }
 
 type JsonObject = serde_json::Map<String, serde_json::Value>;
@@ -108,7 +115,8 @@ impl LspConfig {
         let packages = self
             .packages
             .iter()
-            .map(|(_, name)| format!("-p{name}"))
+            .filter(|p| p.in_workspace)
+            .map(|p| format!("-p{}@{}", p.name, p.version))
             .collect::<Vec<_>>();
         check_cmd.extend(packages.iter().map(|s| s.as_str()));
         check_cmd.push("--keep-going");
@@ -182,15 +190,18 @@ pub fn run(
         let mut packages = vec![];
         for feature_list in feature_set
             .packages_with_features(guppy::graph::DependencyDirection::Forward)
-            .filter(|fl| fl.package().in_workspace())
         {
             let package = feature_list.package();
             let crate_name = package.name();
-            features.extend(
-                feature_list
-                    .named_features()
-                    .map(|f| format!("{crate_name}/{f}")),
-            );
+            let in_workspace = package.in_workspace();
+            let version = package.version();
+            if in_workspace {
+                features.extend(
+                    feature_list
+                        .named_features()
+                        .map(|f| format!("{crate_name}/{f}")),
+                );
+            }
             // canonicalize to handle symlinks / `..` segments consistently
             let dir = package
                 .manifest_path()
@@ -199,11 +210,15 @@ pub fn run(
                 .to_path_buf()
                 .canonicalize()
                 .unwrap();
-            packages.push((dir, package.name().to_owned()));
+            packages.push(LspPackage {
+                dir,
+                name: crate_name.to_owned(),
+                in_workspace,
+                version: version.clone(),
+            });
         }
         // Sort packages so that longer matches hit first when searching
-        packages
-            .sort_by_key(|(p, _)| std::cmp::Reverse(p.components().count()));
+        packages.sort_by_key(|p| std::cmp::Reverse(p.dir.components().count()));
 
         Some(LspConfig {
             app_name: app_cfg.toml.name,
@@ -408,7 +423,7 @@ impl Worker<'_> {
                 && let Ok(file) = path.canonicalize()
             {
                 let is_prefix =
-                    cfg.packages.iter().any(|(root, _)| file.starts_with(root));
+                    cfg.packages.iter().any(|p| file.starts_with(&p.dir));
                 if !is_prefix {
                     let id = format!("xtask-0/{}", self.msg_id);
                     self.msg_id += 1;
@@ -421,14 +436,11 @@ impl Worker<'_> {
                         &mut self.to_editor,
                         serde_json::json!(
                             {
-                              "method": "window/showMessageRequest",
+                              "method": "window/showMessage",
                               "id": id,
                               "params": {
                                 "type": 2, // warning
                                 "message": msg,
-                                "actions": [
-                                  { "title": "okay :(" },
-                                ],
                               }
                             }
                         ),
