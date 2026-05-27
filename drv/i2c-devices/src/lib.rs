@@ -66,22 +66,29 @@ macro_rules! pmbus_read {
 }
 
 macro_rules! pmbus_rail_read {
-    ($device:expr, $rail:expr, $cmd:ident) => {
+    (@raw => $device:expr, $rail:expr, $cmd_code:expr, $len:expr) => {
         $device
-            .write_read_reg::<u8, [u8; $cmd::CommandData::len()]>(
-                $cmd::CommandData::code(),
+            .write_read_reg::<u8, [u8; $len]>(
+                $cmd_code,
                 &[PAGE::CommandData::code(), $rail],
             )
             .map_err(|code| Error::BadRead {
-                cmd: $cmd::CommandData::code(),
+                cmd: $cmd_code,
                 code,
             })
+    };
+
+    ($device:expr, $rail:expr, $cmd:ident) => {{
+        let cmd_code = $cmd::CommandData::code();
+        const CMD_LEN: usize = $cmd::CommandData::len();
+
+        pmbus_rail_read!(@raw => $device, $rail, cmd_code, CMD_LEN)
             .and_then(|rval| {
                 $cmd::CommandData::from_slice(&rval).ok_or(Error::BadData {
                     cmd: $cmd::CommandData::code(),
                 })
             })
-    };
+    }};
 
     ($device:expr, $rail:expr, $dev:ident::$cmd:ident) => {{
         use $dev::{PAGE, $cmd};
@@ -268,6 +275,52 @@ pub trait Validate<T: core::convert::Into<drv_i2c_api::ResponseCode>> {
     //
     fn validate(_device: &drv_i2c_api::I2cDevice) -> Result<bool, T> {
         Ok(false)
+    }
+}
+
+// grumble grumble, copied from `gateway_messages::sp_to_mgs::PmbusStatus`
+// grumble grumble, also basically the same as `ereports/src/pwr`
+pub struct PmbusStatus {
+    pub status_word: u16,
+    pub status_vout: u8,
+    pub status_iout: u8,
+    pub status_temperature: u8,
+    pub status_cml: u8,
+    pub status_other: u8,
+    pub status_input: u8,
+    pub status_mfr_specific: u8,
+    pub status_fans_1_2: u8,
+    pub status_fans_3_4: u8,
+}
+
+pub enum PmbusStatusError {
+    BadRead { cmd: u8, code: ResponseCode },
+    BadData { cmd: u8, },
+}
+
+impl PmbusStatus {
+    pub fn read_from(dev: &I2cDevice, rail_idx: u8) -> Result<Self, ()> {
+        use pmbus::commands::*;
+        use PmbusStatusError as Error;
+
+        Ok(PmbusStatus {
+            status_word: pmbus_rail_read!(dev, rail_idx, STATUS_WORD).map_err(drop)?.0,
+            status_vout: pmbus_rail_read!(dev, rail_idx, STATUS_VOUT).map_err(drop)?.0,
+            status_iout: pmbus_rail_read!(dev, rail_idx, STATUS_IOUT).map_err(drop)?.0,
+            status_temperature: pmbus_rail_read!(dev, rail_idx, STATUS_TEMPERATURE).map_err(drop)?.0,
+            status_cml: pmbus_rail_read!(dev, rail_idx, STATUS_CML).map_err(drop)?.0,
+            status_other: pmbus_rail_read!(dev, rail_idx, STATUS_OTHER).map_err(drop)?.0,
+            status_input: pmbus_rail_read!(dev, rail_idx, STATUS_INPUT).map_err(drop)?.0,
+            status_fans_1_2: pmbus_rail_read!(dev, rail_idx, STATUS_FANS_1_2).map_err(drop)?.0,
+            status_fans_3_4: pmbus_rail_read!(dev, rail_idx, STATUS_FANS_3_4).map_err(drop)?.0,
+
+            // Unfortunately, STATUS_MFR_SPECIFIC *is* defined in the pmbus crate, but doesn't have a
+            // "structured" representation, so instead use a raw representation. It *could* be argued
+            // that since we're not actually peeking at any of the introspection stuff, we could do
+            // the same for all the items above, and save ourselved a little indirection, but for now
+            // just hole-punch the minimum amount necessary
+            status_mfr_specific: pmbus_rail_read!(@raw => dev, rail_idx, CommandCode::STATUS_MFR_SPECIFIC as u8, 1).map_err(drop)?[0],
+        })
     }
 }
 

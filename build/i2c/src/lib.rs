@@ -1381,6 +1381,8 @@ impl ConfigGenerator {
             all.sort();
 
             for (rail, (device, index)) in &all {
+                // if we update this code to be more clever than just to-lowercase'ing the rail names,
+                // you might need to go update the mapping in `validate-api`!
                 write!(
                     &mut self.output,
                     r##"

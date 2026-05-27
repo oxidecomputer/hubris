@@ -155,8 +155,7 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
         writeln!(file, "pub const PMBUS_RAIL_TO_I2C_DEVICE_MAP: [(&[u8], fn(TaskId) -> (drv_i2c_api::I2cDevice, u8)); {}] = [", pmbus_rail_names.len())?;
         for rail in pmbus_rail_names.iter() {
             write!(file, "    (b\"{rail}\", ")?;
-            // TODO: Do we need a fancier rail -> func conversion than "to_lowercase"? Probably should check
-            // what build_i2c does for generating the names and match that.
+            // build_i2c *also* only to-lowercases the rail names to make functions
             write!(file, "crate::i2c_config::pmbus::{}", rail.to_lowercase())?;
             writeln!(file, "),")?;
         }
