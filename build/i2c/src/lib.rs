@@ -1776,6 +1776,7 @@ pub fn codegen(settings: impl Into<CodegenSettings>) -> Result<()> {
     Ok(())
 }
 
+#[derive(Debug, Clone)]
 pub struct I2cDeviceDescription {
     pub device: String,
     pub description: String,
