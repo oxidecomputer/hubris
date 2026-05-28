@@ -1347,7 +1347,9 @@ pub fn build_task_bindep(
         .iter()
         .find(|p| p.name == dep.name)
         .unwrap();
-    let mut cmd = std::process::Command::new("cargo");
+
+    let mut cmd =
+        std::process::Command::new(cfg.sysroot.join("bin").join("cargo"));
     cmd.arg("build");
     cmd.arg("--release");
     cmd.arg(format!("--target-dir={}", target_dir.display()));
