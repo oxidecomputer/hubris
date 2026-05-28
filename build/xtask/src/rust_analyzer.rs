@@ -318,7 +318,6 @@ pub fn run(
         cfg: bonus_config,
         pending_cfg: HashSet::new(),
         checked_files: HashSet::new(),
-        msg_id: 0,
         log,
     };
     worker.run();
@@ -353,9 +352,6 @@ struct Worker<'a> {
 
     /// File for logging
     log: Option<std::fs::File>,
-
-    /// Id used for synthetic messages (prefixed with `xtask-0/` to distinguish)
-    msg_id: u64,
 }
 
 impl Worker<'_> {
@@ -433,8 +429,6 @@ impl Worker<'_> {
                 let is_prefix =
                     cfg.packages.iter().any(|p| file.starts_with(&p.dir));
                 if !is_prefix {
-                    let id = format!("xtask-0/{}", self.msg_id);
-                    self.msg_id += 1;
                     let msg = format!(
                         "This file is not used by {}:{}; \
                          LSP support will be degraded",
@@ -445,7 +439,6 @@ impl Worker<'_> {
                         serde_json::json!(
                             {
                               "method": "window/showMessage",
-                              "id": id,
                               "params": {
                                 "type": 2, // warning
                                 "message": msg,
