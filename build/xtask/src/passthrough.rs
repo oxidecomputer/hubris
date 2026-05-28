@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 use anyhow::{Result, bail};
 
-use crate::config::Config;
+use crate::dist::PackageConfig;
 
 /// A passthrough function for plumbing basic `cargo ...` commands in the
 /// context of a hubris build.
@@ -30,7 +30,8 @@ pub fn run(
     direct_opts: &[String],
     post_opts: &[String],
 ) -> Result<()> {
-    let toml = Config::from_file(&cfg)?;
+    let cfg = PackageConfig::new(&cfg, verbose, false)?;
+    let toml = &cfg.toml;
 
     let mut tasks = tasks.to_vec();
 
@@ -83,7 +84,7 @@ pub fn run(
                 .collect();
 
             let allocated = crate::dist::allocate_all(
-                &toml,
+                toml,
                 &task_sizes,
                 toml.caboose.as_ref(),
             )?;
@@ -103,7 +104,7 @@ pub fn run(
             entry_points.insert("caboose".to_string(), 0x0);
 
             let kconfig = crate::dist::make_kconfig(
-                &toml,
+                toml,
                 &allocs.tasks,
                 &entry_points,
                 &toml.image_names[0],
@@ -116,21 +117,13 @@ pub fn run(
                 bail!("no 'flash' output regions defined in config toml");
             };
 
-            toml.kernel_build_config(
-                verbose,
-                &[
-                    ("HUBRIS_KCONFIG", &kconfig),
-                    ("HUBRIS_IMAGE_ID", "1234"), // dummy image ID
-                    ("HUBRIS_FLASH_OUTPUTS", &flash_outputs),
-                ],
-                None,
-            )
+            cfg.kernel_build_config(&[
+                ("HUBRIS_KCONFIG", &kconfig),
+                ("HUBRIS_IMAGE_ID", "1234"), // dummy image ID
+                ("HUBRIS_FLASH_OUTPUTS", &flash_outputs),
+            ])
         } else {
-            let metadata = cargo_metadata::MetadataCommand::new()
-                .manifest_path("./Cargo.toml")
-                .exec()?;
-            toml.task_build_config(name, verbose, &metadata, None)
-                .unwrap()
+            cfg.task_build_config(name).unwrap()
         };
         let mut cmd = build_config.cmd(cargo_cmd);
 
