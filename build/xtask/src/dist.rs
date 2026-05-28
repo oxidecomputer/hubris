@@ -425,7 +425,7 @@ impl PackageConfig {
         // Build any bindeps associated with this task
         let mut bindeps = vec![];
         for b in &task_toml.bindeps {
-            let path = build_task_bindep(task_name, &self.metadata, b)
+            let path = build_task_bindep(task_name, self, b)
                 .map_err(|e| e.to_string())?;
             bindeps.push((
                 format!("XTASK_BIN_FILE_{}", b.name.to_uppercase()),
@@ -440,6 +440,20 @@ impl PackageConfig {
         );
 
         Ok(out)
+    }
+
+    fn remap_path_flags(&self) -> String {
+        self.remap_paths
+            .iter()
+            .fold(String::new(), |mut output, r| {
+                let _ = write!(
+                    output,
+                    " --remap-path-prefix={}={}",
+                    r.0.display(),
+                    r.1
+                );
+                output
+            })
     }
 }
 
@@ -1316,7 +1330,7 @@ fn build_task(cfg: &PackageConfig, name: &str) -> Result<()> {
 /// Builds a binary dependency, returning the path to the binary file
 pub fn build_task_bindep(
     task_name: &str,
-    metadata: &cargo_metadata::Metadata,
+    cfg: &PackageConfig,
     dep: &toml_task::TaskBinDep,
 ) -> Result<std::path::PathBuf> {
     // We'll use a separate target dir to avoid invalidating the build
@@ -1327,7 +1341,8 @@ pub fn build_task_bindep(
         target_dir.display()
     );
     // Find the manifest for our bindep (by name)
-    let pkg = metadata
+    let pkg = cfg
+        .metadata
         .packages
         .iter()
         .find(|p| p.name == dep.name)
@@ -1339,6 +1354,11 @@ pub fn build_task_bindep(
     cmd.arg(format!("--manifest-path={}", pkg.manifest_path.display()));
     cmd.arg(format!("--target={}", dep.target));
     cmd.arg(format!("--features={}", dep.features.join(",")));
+
+    cmd.env(
+        "RUSTFLAGS",
+        format!("{COMMON_RUSTFLAGS} {}", cfg.remap_path_flags()),
+    );
     let mut handle = cmd.spawn().context("failed to spawn bindep command")?;
     let out = handle.wait()?;
     if !out.success() {
@@ -2233,6 +2253,14 @@ fn generate_kernel_linker_script(
     Ok(())
 }
 
+const COMMON_RUSTFLAGS: &str = "\
+    -C link-arg=-z -C link-arg=common-page-size=0x20 \
+    -C link-arg=-z -C link-arg=max-page-size=0x20 \
+    -C llvm-args=--enable-machine-outliner=never \
+    -Z emit-stack-sizes \
+    -Z macro-backtrace \
+    -C overflow-checks=y";
+
 fn build(
     cfg: &PackageConfig,
     name: &str,
@@ -2255,29 +2283,12 @@ fn build(
     // to invoke cargo, and never modify CARGO_TARGET in that environment.
     let cargo_out = Path::new("target").to_path_buf();
 
-    let remap_path_prefix =
-        cfg.remap_paths.iter().fold(String::new(), |mut output, r| {
-            let _ = write!(
-                output,
-                " --remap-path-prefix={}={}",
-                r.0.display(),
-                r.1
-            );
-            output
-        });
     cmd.env(
         "RUSTFLAGS",
         format!(
-            "-C link-arg=-z -C link-arg=common-page-size=0x20 \
-             -C link-arg=-z -C link-arg=max-page-size=0x20 \
-             -C llvm-args=--enable-machine-outliner=never \
-             -Z emit-stack-sizes \
-             -Z macro-backtrace \
-             -C overflow-checks=y \
-             -C metadata={} \
-             {}
-             ",
-            cfg.link_script_hash, remap_path_prefix,
+            "{COMMON_RUSTFLAGS} -C metadata={} {}",
+            cfg.link_script_hash,
+            cfg.remap_path_flags(),
         ),
     );
     cmd.arg("--");
