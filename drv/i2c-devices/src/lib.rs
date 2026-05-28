@@ -66,7 +66,7 @@ macro_rules! pmbus_read {
 }
 
 macro_rules! pmbus_rail_read {
-    (@raw => $device:expr, $rail:expr, $cmd_code:expr, $len:expr) => {
+    (@raw => $device:expr, $rail:expr, $cmd_code:expr, $len:expr $(,)?) => {
         $device
             .write_read_reg::<u8, [u8; $len]>(
                 $cmd_code,
@@ -78,7 +78,7 @@ macro_rules! pmbus_rail_read {
             })
     };
 
-    ($device:expr, $rail:expr, $cmd:ident) => {{
+    ($device:expr, $rail:expr, $cmd:ident $(,)?) => {{
         let cmd_code = $cmd::CommandData::code();
         const CMD_LEN: usize = $cmd::CommandData::len();
 
@@ -90,7 +90,7 @@ macro_rules! pmbus_rail_read {
             })
     }};
 
-    ($device:expr, $rail:expr, $dev:ident::$cmd:ident) => {{
+    ($device:expr, $rail:expr, $dev:ident::$cmd:ident $(,)?) => {{
         use $dev::{PAGE, $cmd};
         pmbus_rail_read!($device, $rail, $cmd)
     }};
@@ -282,44 +282,61 @@ pub trait Validate<T: core::convert::Into<drv_i2c_api::ResponseCode>> {
 // grumble grumble, also basically the same as `ereports/src/pwr`
 pub struct PmbusStatus {
     pub status_word: u16,
-    pub status_vout: u8,
-    pub status_iout: u8,
-    pub status_temperature: u8,
-    pub status_cml: u8,
-    pub status_other: u8,
-    pub status_input: u8,
-    pub status_mfr_specific: u8,
-    pub status_fans_1_2: u8,
-    pub status_fans_3_4: u8,
+    pub status_vout: Result<u8, PmbusStatusError>,
+    pub status_iout: Result<u8, PmbusStatusError>,
+    pub status_temperature: Result<u8, PmbusStatusError>,
+    pub status_cml: Result<u8, PmbusStatusError>,
+    pub status_other: Result<u8, PmbusStatusError>,
+    pub status_input: Result<u8, PmbusStatusError>,
+    pub status_mfr_specific: Result<u8, PmbusStatusError>,
+    pub status_fans_1_2: Result<u8, PmbusStatusError>,
+    pub status_fans_3_4: Result<u8, PmbusStatusError>,
 }
 
+/// An error for querying PMBus `STATUS_*` registers.
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum PmbusStatusError {
     BadRead { cmd: u8, code: ResponseCode },
     BadData { cmd: u8, },
 }
 
 impl PmbusStatus {
-    pub fn read_from(dev: &I2cDevice, rail_idx: u8) -> Result<Self, ()> {
+    /// Attempt to read a [`PmbusStatus`] from the given device and rail.
+    ///
+    /// This function returns an error if the initial attempt to obtain `STATUS_WORD` from the
+    /// device fails, otherwise returnining successfully even if "leaf" status bytes were unable
+    /// to be read, either due to ephemeral hiccups, or that status byte being unsupported by
+    /// the device queried.
+    pub fn try_read_from(dev: &I2cDevice, rail_idx: u8) -> Result<Self, PmbusStatusError> {
         use pmbus::commands::*;
         use PmbusStatusError as Error;
 
         Ok(PmbusStatus {
-            status_word: pmbus_rail_read!(dev, rail_idx, STATUS_WORD).map_err(drop)?.0,
-            status_vout: pmbus_rail_read!(dev, rail_idx, STATUS_VOUT).map_err(drop)?.0,
-            status_iout: pmbus_rail_read!(dev, rail_idx, STATUS_IOUT).map_err(drop)?.0,
-            status_temperature: pmbus_rail_read!(dev, rail_idx, STATUS_TEMPERATURE).map_err(drop)?.0,
-            status_cml: pmbus_rail_read!(dev, rail_idx, STATUS_CML).map_err(drop)?.0,
-            status_other: pmbus_rail_read!(dev, rail_idx, STATUS_OTHER).map_err(drop)?.0,
-            status_input: pmbus_rail_read!(dev, rail_idx, STATUS_INPUT).map_err(drop)?.0,
-            status_fans_1_2: pmbus_rail_read!(dev, rail_idx, STATUS_FANS_1_2).map_err(drop)?.0,
-            status_fans_3_4: pmbus_rail_read!(dev, rail_idx, STATUS_FANS_3_4).map_err(drop)?.0,
+            // Status word *must* succeed, otherwise we don't have reasonable data to return.
+            // We may want to consider making some/all of these retryable, but for now you either
+            // get them or you don't.
+            status_word: pmbus_rail_read!(dev, rail_idx, STATUS_WORD)?.0,
+            status_vout: pmbus_rail_read!(dev, rail_idx, STATUS_VOUT).map(|v| v.0),
+            status_iout: pmbus_rail_read!(dev, rail_idx, STATUS_IOUT).map(|v| v.0),
+            status_temperature: pmbus_rail_read!(dev, rail_idx, STATUS_TEMPERATURE).map(|v| v.0),
+            status_cml: pmbus_rail_read!(dev, rail_idx, STATUS_CML).map(|v| v.0),
+            status_other: pmbus_rail_read!(dev, rail_idx, STATUS_OTHER).map(|v| v.0),
+            status_input: pmbus_rail_read!(dev, rail_idx, STATUS_INPUT).map(|v| v.0),
+            status_fans_1_2: pmbus_rail_read!(dev, rail_idx, STATUS_FANS_1_2).map(|v| v.0),
+            status_fans_3_4: pmbus_rail_read!(dev, rail_idx, STATUS_FANS_3_4).map(|v| v.0),
 
             // Unfortunately, STATUS_MFR_SPECIFIC *is* defined in the pmbus crate, but doesn't have a
-            // "structured" representation, so instead use a raw representation. It *could* be argued
+            // "structured" representation, so instead use a raw accessor. It *could* be argued
             // that since we're not actually peeking at any of the introspection stuff, we could do
-            // the same for all the items above, and save ourselved a little indirection, but for now
-            // just hole-punch the minimum amount necessary
-            status_mfr_specific: pmbus_rail_read!(@raw => dev, rail_idx, CommandCode::STATUS_MFR_SPECIFIC as u8, 1).map_err(drop)?[0],
+            // the same for all the items above, and save ourselves a little indirection, but for now
+            // just hole-punch the minimum amount necessary. Indexing is fine here because we know
+            // (statically) the returned value is `[u8; 1]`.
+            status_mfr_specific: pmbus_rail_read!(
+                @raw => dev,
+                rail_idx,
+                CommandCode::STATUS_MFR_SPECIFIC as u8,
+                1,
+            ).map(|v| v[0]),
         })
     }
 }
