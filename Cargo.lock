@@ -5654,6 +5654,7 @@ name = "task-control-plane-agent"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "build-i2c",
  "build-util",
  "cfg-if",
  "counters",
@@ -5662,6 +5663,7 @@ dependencies = [
  "drv-caboose-pos",
  "drv-cpu-seq-api",
  "drv-hf-api",
+ "drv-i2c-api",
  "drv-ignition-api",
  "drv-lpc55-update-api",
  "drv-monorail-api",

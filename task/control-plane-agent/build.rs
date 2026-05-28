@@ -35,6 +35,64 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     if let Some(cfg) = cfg {
         write_keys(cfg)?;
     }
+
+    do_pmbus()?;
+
+    Ok(())
+}
+
+fn do_pmbus() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let out_dir = std::env::var("OUT_DIR")?;
+    let dest_path =
+        std::path::Path::new(&out_dir).join("pmbus_mapping.rs");
+    let file = std::fs::File::create(&dest_path)?;
+    let mut file = std::io::BufWriter::new(file);
+
+    // Generate the necessary rail names
+    if let Err(e) = build_i2c::codegen(build_i2c::Disposition::Devices) {
+        println!("cargo::error=failed to generate I2C devices: {e}");
+        std::process::exit(1);
+    }
+
+    let devices = build_i2c::device_descriptions()
+        .collect::<Vec<_>>();
+
+    let mut pmbus_rail_names = std::collections::BTreeSet::new();
+    let mut pmbus_rail_dupes = 0;
+    for dev in devices {
+        // We only need to map PMBus devices
+        let Some(ref pmbus) = dev.pmbus else {
+            continue;
+        };
+
+        // pmbus devices must have a refdes
+        assert!(dev.device_id.is_some());
+
+        // Aggregate a list of all PMBus-visible rails
+        for rail in pmbus.rails.iter() {
+            // `BTreeSet::insert` return value means "is unique", which is the inverse of
+            // `BTreeMap::insert().is_some()`!
+            if !pmbus_rail_names.insert(rail.name.clone()) {
+                pmbus_rail_dupes += 1;
+                println!("cargo::error=Duplicate Rail name: {:?}", rail.name);
+            }
+        }
+    }
+
+    // Create a mapping between rail names and generated accessor functions for obtaining
+    // the device handle and rail index
+    writeln!(file)?;
+    writeln!(file, "pub const PMBUS_RAIL_TO_I2C_DEVICE_MAP: [(&[u8], fn(userlib::TaskId) -> (drv_i2c_api::I2cDevice, u8)); {}] = [", pmbus_rail_names.len())?;
+    for rail in pmbus_rail_names.iter() {
+        write!(file, "    (b\"{rail}\", ")?;
+        // build_i2c *also* only to-lowercases the rail names to make functions
+        write!(file, "crate::i2c_config::pmbus::{}", rail.to_lowercase())?;
+        writeln!(file, "),")?;
+    }
+    writeln!(file, "];")?;
+
+    assert_eq!(pmbus_rail_dupes, 0);
+
     Ok(())
 }
 

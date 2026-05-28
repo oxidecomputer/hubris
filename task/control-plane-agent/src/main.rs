@@ -627,3 +627,7 @@ mod idl {
 }
 
 include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
+
+include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
+
+include!(concat!(env!("OUT_DIR"), "/pmbus_mapping.rs"));

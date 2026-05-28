@@ -79,5 +79,3 @@ pub struct DeviceDescription {
 }
 
 include!(concat!(env!("OUT_DIR"), "/device_descriptions.rs"));
-
-include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));

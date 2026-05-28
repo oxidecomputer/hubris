@@ -5,11 +5,6 @@
 use std::io::Write;
 
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    if let Err(e) = build_i2c::codegen(build_i2c::Disposition::Devices) {
-        println!("cargo::error=failed to generate I2C devices: {e}");
-        std::process::exit(1);
-    }
-
     write_pub_device_descriptions()?;
 
     idol::client::build_client_stub(
@@ -26,7 +21,7 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
     let out_dir = std::env::var("OUT_DIR")?;
     let dest_path =
         std::path::Path::new(&out_dir).join("device_descriptions.rs");
-    let file = std::fs::File::create(&dest_path)?;
+    let file = std::fs::File::create(dest_path)?;
     let mut file = std::io::BufWriter::new(file);
 
     writeln!(
@@ -62,14 +57,13 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
     // key.
     //
     let mut id2idx = std::collections::BTreeMap::new();
-    let mut pmbus_rail_names = std::collections::BTreeSet::new();
 
-    for (idx, dev) in devices.iter().cloned().enumerate() {
+    for (idx, dev) in devices.into_iter().enumerate() {
         let is_pmbus = dev.is_pmbus();
         writeln!(file, "    DeviceDescription {{")?;
         writeln!(file, "        device: {:?},", dev.device)?;
         writeln!(file, "        description: {:?},", dev.description)?;
-        if let Some(ref id) = dev.device_id {
+        if let Some(id) = dev.device_id {
             if let Ok(component) = SpComponent::try_from(id.as_ref()) {
                 writeln!(file, "        id: {:?},", component.id)?;
                 if id2idx.insert(component.id, idx).is_some() {
@@ -82,15 +76,6 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
                     SpComponent::MAX_ID_LENGTH,
                 );
                 ids_too_long += 1;
-            }
-
-            if let Some(ref pmbus) = dev.pmbus {
-                for rail in pmbus.rails.iter() {
-                    // Returns "is unique", unlike `BTreeMap::insert().is_some()`!
-                    if !pmbus_rail_names.insert(rail.name.clone()) {
-                        panic!("cargo::warn=dupe: {:?}, {:?}", rail.name, dev);
-                    }
-                }
             }
         } else {
             println!(
@@ -129,39 +114,6 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
     }
     writeln!(file, "];")?;
 
-    let max_len = pmbus_rail_names.iter().map(String::len).max();
-    if let Some(_len) = max_len {
-
-        // TODO: do we need fixed-length bstrings? If we want to binary search, we probably want them to
-        // be truncated to some maximum length, so we either need to define the max length at the
-        // protocol level so mgs knows how long of a string to send us, or we could instead trim the
-        // trailing nulls and search by that instead.
-        //
-        // writeln!(file, "pub const MAX_PMBUS_RAIL_NAME: usize = {len};")?;
-        // writeln!(file, "pub const PMBUS_RAIL_TO_I2C_DEVICE_MAP: [([u8; MAX_PMBUS_RAIL_NAME], fn(TaskId) -> (drv_i2c_api::I2cDevice, u8)); {}] = [", pmbus_rail_names.len())?;
-        // for rail in pmbus_rail_names.iter() {
-        //     write!(file, "    (*b\"{rail}")?;
-        //     for _ in 0..(len.checked_sub(rail.len()).unwrap()) {
-        //         write!(file, "\\0")?;
-        //     }
-        //     write!(file, "\", ")?;
-        //     write!(file, "crate::i2c_config::pmbus::{}", rail.to_lowercase())?;
-        //     writeln!(file, "),")?;
-        // }
-        // writeln!(file, "];")?;
-
-        // Assuming we are going the trimmed route...
-        writeln!(file)?;
-        writeln!(file, "pub const PMBUS_RAIL_TO_I2C_DEVICE_MAP: [(&[u8], fn(TaskId) -> (drv_i2c_api::I2cDevice, u8)); {}] = [", pmbus_rail_names.len())?;
-        for rail in pmbus_rail_names.iter() {
-            write!(file, "    (b\"{rail}\", ")?;
-            // build_i2c *also* only to-lowercases the rail names to make functions
-            write!(file, "crate::i2c_config::pmbus::{}", rail.to_lowercase())?;
-            writeln!(file, "),")?;
-        }
-        writeln!(file, "];")?;
-    }
-
     file.flush()?;
 
     anyhow::ensure!(missing_ids == 0, "{missing_ids} devices have no ID!");
@@ -176,10 +128,6 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
         "{ids_too_long} device IDs exceeded max length ({}B)!",
         SpComponent::MAX_ID_LENGTH,
     );
-
-
-    // panic!("{}", dest_path.display());
-    // panic!("{max_len:?} {:#?}", pmbus_rail_names);
 
     Ok(())
 }
