@@ -65,8 +65,8 @@ fn write_pub_device_descriptions() -> anyhow::Result<()> {
         writeln!(file, "        description: {:?},", dev.description)?;
         if let Some(id) = dev.device_id {
             if let Ok(component) = SpComponent::try_from(id.as_ref()) {
-                writeln!(file, "        id: {:?},", component.id)?;
-                if id2idx.insert(component.id, idx).is_some() {
+                writeln!(file, "        id: {:?},", component.id())?;
+                if id2idx.insert(*component.id(), idx).is_some() {
                     println!("cargo::error=duplicate device id {id:?}",);
                     duplicate_ids += 1;
                 }

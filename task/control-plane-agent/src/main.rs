@@ -51,6 +51,7 @@ mod ignition_controller;
 task_slot!(JEFE, jefe);
 task_slot!(NET, net);
 task_slot!(SYS, sys);
+task_slot!(I2C, i2c_driver);
 
 #[allow(dead_code)] // Not all cases are used by all variants
 #[derive(Clone, Copy, PartialEq, ringbuf::Count)]

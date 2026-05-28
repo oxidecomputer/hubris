@@ -3154,7 +3154,7 @@ dependencies = [
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/management-gateway-service#745a508cb97b7ca9b4c10ec9592c980eb769b10d"
+source = "git+https://github.com/oxidecomputer/management-gateway-service?branch=james%2Fpmbus-please#437f02bcfbf6064d94e34c88774a641c7b467b4f"
 dependencies = [
  "bitflags 2.9.4",
  "hubpack",
@@ -5664,6 +5664,7 @@ dependencies = [
  "drv-cpu-seq-api",
  "drv-hf-api",
  "drv-i2c-api",
+ "drv-i2c-devices",
  "drv-ignition-api",
  "drv-lpc55-update-api",
  "drv-monorail-api",
