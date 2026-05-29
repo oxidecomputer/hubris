@@ -1359,7 +1359,7 @@ pub fn build_task_bindep(
 
     cmd.env(
         "RUSTFLAGS",
-        format!("{COMMON_RUSTFLAGS} {} -C lto", cfg.remap_path_flags(),),
+        format!("{COMMON_RUSTFLAGS} {}", cfg.remap_path_flags(),),
     );
     let mut handle = cmd.spawn().context("failed to spawn bindep command")?;
     let out = handle.wait()?;
