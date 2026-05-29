@@ -879,7 +879,7 @@ impl BuildConfig<'_> {
 
         let mut nightly_features = vec![];
         // nightly features that we use:
-        nightly_features.extend(["emit_stack_sizes", "used_with_arg"]);
+        nightly_features.extend(["emit_stack_sizes"]);
         // nightly features that our dependencies use:
         nightly_features.extend([
             "backtrace",
