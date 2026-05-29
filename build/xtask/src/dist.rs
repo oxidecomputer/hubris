@@ -1345,7 +1345,7 @@ pub fn build_task_bindep(
         .metadata
         .packages
         .iter()
-        .find(|p| p.name == dep.name)
+        .find(|p| p.name.as_str() == dep.name)
         .unwrap();
 
     let mut cmd =
@@ -1353,13 +1353,13 @@ pub fn build_task_bindep(
     cmd.arg("build");
     cmd.arg("--release");
     cmd.arg(format!("--target-dir={}", target_dir.display()));
-    cmd.arg(format!("--manifest-path={}", pkg.manifest_path.display()));
+    cmd.arg(format!("--manifest-path={}", pkg.manifest_path));
     cmd.arg(format!("--target={}", dep.target));
     cmd.arg(format!("--features={}", dep.features.join(",")));
 
     cmd.env(
         "RUSTFLAGS",
-        format!("{COMMON_RUSTFLAGS} {}", cfg.remap_path_flags()),
+        format!("{COMMON_RUSTFLAGS} {} -C lto", cfg.remap_path_flags(),),
     );
     let mut handle = cmd.spawn().context("failed to spawn bindep command")?;
     let out = handle.wait()?;
