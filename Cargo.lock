@@ -1550,6 +1550,7 @@ dependencies = [
  "derive-idol-err",
  "drv-i2c-api",
  "drv-onewire",
+ "fixedstr",
  "microcbor",
  "num-derive",
  "num-traits",
@@ -2087,29 +2088,6 @@ dependencies = [
  "vsc85xx",
  "zerocopy 0.8.27",
  "zerocopy-derive 0.8.27",
-]
-
-[[package]]
-name = "drv-observer-seq-server"
-version = "0.1.0"
-dependencies = [
- "build-i2c",
- "build-util",
- "counters",
- "drv-i2c-api",
- "drv-i2c-devices",
- "drv-packrat-vpd-loader",
- "drv-psc-seq-api",
- "drv-stm32xx-sys-api",
- "ereports",
- "fixedstr",
- "idol",
- "microcbor",
- "ringbuf",
- "static-cell",
- "task-jefe-api",
- "task-packrat-api",
- "userlib",
 ]
 
 [[package]]

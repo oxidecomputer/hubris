@@ -100,7 +100,12 @@
 #![no_main]
 
 use drv_i2c_api::I2cDevice;
-use drv_i2c_devices::mwocp68::{self, Mwocp68};
+
+#[cfg(target_board = "observer-a")]
+use drv_i2c_devices::mwocp67::{self as mwocp6x, Mwocp67 as Mwocp6x};
+#[cfg(any(target_board = "psc-b", target_board = "psc-c"))]
+use drv_i2c_devices::mwocp68::{self as mwocp6x, Mwocp68 as Mwocp6x};
+
 use drv_packrat_vpd_loader::{Packrat, read_vpd_and_load_packrat};
 use drv_psc_seq_api::PowerState;
 use drv_stm32xx_sys_api as sys_api;
@@ -207,49 +212,49 @@ enum Trace {
     StatusWord {
         now: u64,
         psu: Slot,
-        status_word: Result<u16, mwocp68::Error>,
+        status_word: Result<u16, mwocp6x::Error>,
     },
     #[count(skip)]
     StatusIout {
         now: u64,
         psu: Slot,
-        status_iout: Result<u8, mwocp68::Error>,
+        status_iout: Result<u8, mwocp6x::Error>,
     },
     #[count(skip)]
     StatusVout {
         now: u64,
         psu: Slot,
-        status_vout: Result<u8, mwocp68::Error>,
+        status_vout: Result<u8, mwocp6x::Error>,
     },
     #[count(skip)]
     StatusInput {
         now: u64,
         psu: Slot,
-        status_input: Result<u8, mwocp68::Error>,
+        status_input: Result<u8, mwocp6x::Error>,
     },
     #[count(skip)]
     StatusCml {
         now: u64,
         psu: Slot,
-        status_cml: Result<u8, mwocp68::Error>,
+        status_cml: Result<u8, mwocp6x::Error>,
     },
     #[count(skip)]
     StatusTemperature {
         now: u64,
         psu: Slot,
-        status_temperature: Result<u8, mwocp68::Error>,
+        status_temperature: Result<u8, mwocp6x::Error>,
     },
     #[count(skip)]
     StatusMfrSpecific {
         now: u64,
         psu: Slot,
-        status_mfr_specific: Result<u8, mwocp68::Error>,
+        status_mfr_specific: Result<u8, mwocp6x::Error>,
     },
     I2cError {
         now: u64,
         #[count(children)]
         psu: Slot,
-        err: mwocp68::Error,
+        err: mwocp6x::Error,
     },
 }
 
@@ -280,9 +285,15 @@ const STATUS_LED: sys_api::PinSet = sys_api::Port::A.pin(3);
 const PSU_COUNT: usize = 6;
 
 // The ON signals are conveniently all routed to a single port:
+#[cfg(any(target_board = "psc-b", target_board = "psc-c"))]
 const PSU_ENABLE_L_PORT: sys_api::Port = sys_api::Port::K;
+#[cfg(target_board = "observer-a")]
+const PSU_ENABLE_L_PORT: sys_api::Port = sys_api::Port::I;
 // The ON signals are routed to the following pins on their port:
+#[cfg(any(target_board = "psc-b", target_board = "psc-c"))]
 const PSU_ENABLE_L_PINS: [usize; PSU_COUNT] = [0, 1, 2, 3, 4, 5];
+#[cfg(target_board = "observer-a")]
+const PSU_ENABLE_L_PINS: [usize; PSU_COUNT] = [8, 9, 10, 11, 12, 13];
 // Convenient mask for referring to all the ON pins simultaneously, since we can
 // do that, since they're all on one port.
 const ALL_PSU_ENABLE_L_PINS: sys_api::PinSet =
@@ -308,6 +319,7 @@ const ALL_PSU_PWR_OK_PINS: sys_api::PinSet =
 
 // Our notification configuration system doesn't have any concept of arrays, so,
 // collect its predefined masks into convenient arrays.
+#[cfg(any(target_board = "psc-b", target_board = "psc-c"))]
 const PSU_PWR_OK_NOTIF: [u32; PSU_COUNT] = [
     notifications::PSU_PWR_OK_1_MASK,
     notifications::PSU_PWR_OK_2_MASK,
@@ -316,8 +328,18 @@ const PSU_PWR_OK_NOTIF: [u32; PSU_COUNT] = [
     notifications::PSU_PWR_OK_5_MASK,
     notifications::PSU_PWR_OK_6_MASK,
 ];
+#[cfg(target_board = "observer-a")]
+const PSU_PWR_OK_NOTIF: [u32; PSU_COUNT] = [
+    notifications::PSU_PWR_OK_0_MASK,
+    notifications::PSU_PWR_OK_1_MASK,
+    notifications::PSU_PWR_OK_2_MASK,
+    notifications::PSU_PWR_OK_3_MASK,
+    notifications::PSU_PWR_OK_4_MASK,
+    notifications::PSU_PWR_OK_5_MASK,
+];
 
 /// In order to get the PMBus devices by PSU index, we need a little lookup table guy.
+#[cfg(any(target_board = "psc-b", target_board = "psc-c"))]
 const PSU_PMBUS_DEVS: [fn(TaskId) -> (I2cDevice, u8); PSU_COUNT] = [
     i2c_config::pmbus::v54_psu0,
     i2c_config::pmbus::v54_psu1,
@@ -325,6 +347,15 @@ const PSU_PMBUS_DEVS: [fn(TaskId) -> (I2cDevice, u8); PSU_COUNT] = [
     i2c_config::pmbus::v54_psu3,
     i2c_config::pmbus::v54_psu4,
     i2c_config::pmbus::v54_psu5,
+];
+#[cfg(target_board = "observer-a")]
+const PSU_PMBUS_DEVS: [fn(TaskId) -> (I2cDevice, u8); PSU_COUNT] = [
+    i2c_config::pmbus::v50_psu0,
+    i2c_config::pmbus::v50_psu1,
+    i2c_config::pmbus::v50_psu2,
+    i2c_config::pmbus::v50_psu3,
+    i2c_config::pmbus::v50_psu4,
+    i2c_config::pmbus::v50_psu5,
 ];
 
 const PSU_SLOTS: [Slot; PSU_COUNT] = [
@@ -548,7 +579,7 @@ fn main() -> ! {
             let i2c = I2C.get_task_id();
             let make_dev = PSU_PMBUS_DEVS[i];
             let (dev, rail) = make_dev(i2c);
-            Mwocp68::new(&dev, rail)
+            Mwocp6x::new(&dev, rail)
         };
         let slot = PSU_SLOTS[i];
         let mut fruid = PsuFruid::default();
@@ -685,7 +716,7 @@ enum Status {
 struct Psu {
     slot: Slot,
     state: PsuState,
-    dev: Mwocp68,
+    dev: Mwocp6x,
     /// Because we would like to include the PSU's FRU ID information in the
     /// ereports generated when a PSU is *removed*, we must cache it here rather
     /// than reading it from the device when we generate an ereport for it.
@@ -999,18 +1030,15 @@ impl Psu {
 
     fn ereport_fields(&self) -> EreportFields {
         let rail = {
-            // This is a little silly, but it stops us from having to 6 separate
-            // instances of the string "V54_PSU" in the binary...
-            let mut v54_psu = *b"V54_PSUx";
-            v54_psu[7] = match self.slot {
-                Slot::Psu0 => b'0',
-                Slot::Psu1 => b'1',
-                Slot::Psu2 => b'2',
-                Slot::Psu3 => b'3',
-                Slot::Psu4 => b'4',
-                Slot::Psu5 => b'5',
+            let psu_label = match self.slot {
+                Slot::Psu0 => '0',
+                Slot::Psu1 => '1',
+                Slot::Psu2 => '2',
+                Slot::Psu3 => '3',
+                Slot::Psu4 => '4',
+                Slot::Psu5 => '5',
             };
-            FixedString::try_from_utf8(&v54_psu[..]).unwrap_lite()
+            Mwocp6x::rail_name(psu_label)
         };
         EreportFields {
             refdes: FixedStr::from_str(self.dev.i2c_device().component_id()),
@@ -1030,7 +1058,7 @@ struct PsuFruid {
 }
 
 impl PsuFruid {
-    fn refresh(&mut self, dev: &Mwocp68, psu: Slot, now: u64) {
+    fn refresh(&mut self, dev: &Mwocp6x, psu: Slot, now: u64) {
         if self.mfr.is_none() {
             self.mfr = retry_i2c_txn(now, psu, || dev.mfr_id())
                 .ok()
@@ -1060,8 +1088,8 @@ impl PsuFruid {
 fn retry_i2c_txn<T>(
     now: u64,
     psu: Slot,
-    mut txn: impl FnMut() -> Result<T, mwocp68::Error>,
-) -> Result<T, mwocp68::Error> {
+    mut txn: impl FnMut() -> Result<T, mwocp6x::Error>,
+) -> Result<T, mwocp6x::Error> {
     // Chosen by fair dice roll, seems reasonable-ish?
     let mut retries_remaining = 3;
     loop {
@@ -1126,7 +1154,7 @@ struct PowerUngoodEreport {
 #[derive(microcbor::EncodeFields)]
 struct EreportFields {
     refdes: FixedStr<'static, 20>, // Component ID max length
-    rail: FixedString<8>,          // "V54_PSUx"
+    rail: FixedString<8>,          // Example: "V54_PSU0"
     slot: u8,
     fruid: PsuFruid,
 }
