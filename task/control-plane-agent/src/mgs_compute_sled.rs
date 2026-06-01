@@ -1266,8 +1266,6 @@ impl SpHandler for MgsHandler {
         let Some(name) = rail.as_str() else {
             panic!();
         };
-        // this is silly, I'm mostly just trimming trailing nulls, I should add a method for this
-        let name = name.as_bytes();
 
         // TODO: Define error for "unknown rail"
         let idx = crate::PMBUS_RAIL_TO_I2C_DEVICE_MAP.binary_search_by_key(&name, |row| row.0).unwrap();

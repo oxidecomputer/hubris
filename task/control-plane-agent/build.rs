@@ -82,9 +82,9 @@ fn do_pmbus() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Create a mapping between rail names and generated accessor functions for obtaining
     // the device handle and rail index
     writeln!(file)?;
-    writeln!(file, "pub const PMBUS_RAIL_TO_I2C_DEVICE_MAP: [(&[u8], fn(userlib::TaskId) -> (drv_i2c_api::I2cDevice, u8)); {}] = [", pmbus_rail_names.len())?;
+    writeln!(file, "pub const PMBUS_RAIL_TO_I2C_DEVICE_MAP: [(&str, fn(userlib::TaskId) -> (drv_i2c_api::I2cDevice, u8)); {}] = [", pmbus_rail_names.len())?;
     for rail in pmbus_rail_names.iter() {
-        write!(file, "    (b\"{rail}\", ")?;
+        write!(file, "    (\"{rail}\", ")?;
         // build_i2c *also* only to-lowercases the rail names to make functions
         write!(file, "crate::i2c_config::pmbus::{}", rail.to_lowercase())?;
         writeln!(file, "),")?;
