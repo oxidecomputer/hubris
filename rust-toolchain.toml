@@ -6,4 +6,4 @@
 channel = "nightly-2025-07-20"
 targets = [ "thumbv6m-none-eabi", "thumbv7em-none-eabihf", "thumbv8m.main-none-eabihf" ]
 profile = "minimal"
-components = [ "rustfmt", "rust-analyzer" ]
+components = [ "clippy", "rustfmt", "rust-analyzer" ]
