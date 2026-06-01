@@ -130,7 +130,7 @@ impl Inventory {
             capabilities |= DeviceCapabilities::HAS_MEASUREMENT_CHANNELS;
         }
         DeviceDescription {
-            component: SpComponent { id: device.id },
+            component: SpComponent::from_bstr_unchecked(device.id.as_bytes()),
             device: device.device,
             description: device.description,
             capabilities,
@@ -179,7 +179,9 @@ impl TryFrom<&'_ SpComponent> for Index {
 
     fn try_from(component: &'_ SpComponent) -> Result<Self, Self::Error> {
         if let Ok(entry_idx) = task_validate_api::DEVICE_INDICES_BY_SORTED_ID
-            .binary_search_by_key(&component.id, |&(id, _)| id)
+            .binary_search_by_key(&component.as_bstr(), |&(id, _)| {
+                id.as_bytes()
+            })
         {
             let &(_, index) = task_validate_api::DEVICE_INDICES_BY_SORTED_ID
                 .get(entry_idx)
