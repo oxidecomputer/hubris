@@ -10,18 +10,18 @@ use crate::{
 pub(crate) const CONTROLLER_CONFIG_LEN: usize = 12;
 pub(crate) static CONTROLLER_CONFIG: [PowerControllerConfig;
     CONTROLLER_CONFIG_LEN] = [
-    mwocp67_controller!(PowerShelf, v50_psu0, A2),
-    mwocp67_controller!(PowerShelf, v12_psu0, A2),
-    mwocp67_controller!(PowerShelf, v50_psu1, A2),
-    mwocp67_controller!(PowerShelf, v12_psu1, A2),
-    mwocp67_controller!(PowerShelf, v50_psu2, A2),
-    mwocp67_controller!(PowerShelf, v12_psu2, A2),
-    mwocp67_controller!(PowerShelf, v50_psu3, A2),
-    mwocp67_controller!(PowerShelf, v12_psu3, A2),
-    mwocp67_controller!(PowerShelf, v50_psu4, A2),
-    mwocp67_controller!(PowerShelf, v12_psu4, A2),
-    mwocp67_controller!(PowerShelf, v50_psu5, A2),
-    mwocp67_controller!(PowerShelf, v12_psu5, A2),
+    mwocp67_controller!(PowerShelf, v50_main_psu0, A2),
+    mwocp67_controller!(PowerShelf, v50_aux_psu0, A2),
+    mwocp67_controller!(PowerShelf, v50_main_psu1, A2),
+    mwocp67_controller!(PowerShelf, v50_aux_psu1, A2),
+    mwocp67_controller!(PowerShelf, v50_main_psu2, A2),
+    mwocp67_controller!(PowerShelf, v50_aux_psu2, A2),
+    mwocp67_controller!(PowerShelf, v50_main_psu3, A2),
+    mwocp67_controller!(PowerShelf, v50_aux_psu3, A2),
+    mwocp67_controller!(PowerShelf, v50_main_psu4, A2),
+    mwocp67_controller!(PowerShelf, v50_aux_psu4, A2),
+    mwocp67_controller!(PowerShelf, v50_main_psu5, A2),
+    mwocp67_controller!(PowerShelf, v50_aux_psu5, A2),
 ];
 
 pub(crate) fn get_state() -> PowerState {

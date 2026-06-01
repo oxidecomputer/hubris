@@ -350,12 +350,12 @@ const PSU_PMBUS_DEVS: [fn(TaskId) -> (I2cDevice, u8); PSU_COUNT] = [
 ];
 #[cfg(target_board = "observer-a")]
 const PSU_PMBUS_DEVS: [fn(TaskId) -> (I2cDevice, u8); PSU_COUNT] = [
-    i2c_config::pmbus::v50_psu0,
-    i2c_config::pmbus::v50_psu1,
-    i2c_config::pmbus::v50_psu2,
-    i2c_config::pmbus::v50_psu3,
-    i2c_config::pmbus::v50_psu4,
-    i2c_config::pmbus::v50_psu5,
+    i2c_config::pmbus::v50_main_psu0,
+    i2c_config::pmbus::v50_main_psu1,
+    i2c_config::pmbus::v50_main_psu2,
+    i2c_config::pmbus::v50_main_psu3,
+    i2c_config::pmbus::v50_main_psu4,
+    i2c_config::pmbus::v50_main_psu5,
 ];
 
 const PSU_SLOTS: [Slot; PSU_COUNT] = [
