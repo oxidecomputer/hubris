@@ -425,10 +425,17 @@ impl PackageConfig {
         // Build any bindeps associated with this task
         let mut bindeps = vec![];
         for b in &task_toml.bindeps {
-            let path = build_task_bindep(task_name, self, b)
-                .map_err(|e| e.to_string())?;
+            let path = build_task_bindep(task_name, self, b).map_err(|e| {
+                format!(
+                    "failed to build bindep `{}` for `{}`: {}",
+                    b.name, task_name, e
+                )
+            })?;
             bindeps.push((
-                format!("XTASK_BIN_FILE_{}", b.name.to_uppercase()),
+                format!(
+                    "XTASK_BIN_FILE_{}",
+                    b.name.to_uppercase().replace("-", "_")
+                ),
                 path,
             ));
         }
@@ -1346,7 +1353,9 @@ pub fn build_task_bindep(
         .packages
         .iter()
         .find(|p| p.name.as_str() == dep.name)
-        .unwrap();
+        .ok_or_else(|| {
+            anyhow!("could not find package matching `{}`", dep.name)
+        })?;
 
     let mut cmd =
         std::process::Command::new(cfg.sysroot.join("bin").join("cargo"));

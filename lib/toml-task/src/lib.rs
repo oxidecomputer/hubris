@@ -94,6 +94,10 @@ impl<T> Task<T> {
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct TaskBinDep {
     /// Package name
+    ///
+    /// This must match a binary crate name in the workspace.  The path to the
+    /// resulting binary is exposed to the task's build scripts as an
+    /// environment variable named `XTASK_BIN_FILE_<UPPERCASED_NAME>`
     pub name: String,
     /// Target triple (e.g. `thumbv7em-none-eabihf`)
     pub target: String,
