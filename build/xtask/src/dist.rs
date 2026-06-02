@@ -2255,6 +2255,21 @@ fn generate_kernel_linker_script(
     Ok(())
 }
 
+/// Rust flags used for all compilation of embedded code
+///
+/// We set `common-page-size` and `max-page-size` because load headers are padded
+/// to the nearest "page boundary", which by default is 64 KiB; this brings them
+/// down to 32B, which is our MPU click size.
+///
+/// `enable-machine-outliner=never` was to work around a Rust miscompilation
+/// issue (rust#85351), which has since been fixed.
+///
+/// `allow-features=` disables all nightly features in code; we're only using
+/// `-Z emit-stack=sizes -Z macro-backtrace`, which are both provided at the
+/// CLI (below).
+///
+/// `-C overflow-checks=y` is because correctness is important, and panicking on
+/// integer overflow is better than wrapping and being wrong.
 const COMMON_RUSTFLAGS: &str = "\
     -C link-arg=-z -C link-arg=common-page-size=0x20 \
     -C link-arg=-z -C link-arg=max-page-size=0x20 \
